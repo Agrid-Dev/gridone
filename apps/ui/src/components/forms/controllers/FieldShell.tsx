@@ -15,6 +15,9 @@ interface FieldShellProps {
   required?: boolean;
   description?: React.ReactNode;
   error?: RHFFieldError;
+  /** ``horizontal`` puts the label beside the control (settings-row layout)
+   *  instead of above it. */
+  orientation?: React.ComponentProps<typeof Field>["orientation"];
   children: React.ReactNode;
 }
 
@@ -25,10 +28,11 @@ export function FieldShell({
   description,
   required,
   error,
+  orientation,
   children,
 }: FieldShellProps) {
   return (
-    <Field data-invalid={invalid}>
+    <Field data-invalid={invalid} orientation={orientation}>
       {label && (
         <FieldLabel htmlFor={id}>
           {label} {required && <span aria-hidden="true">*</span>}

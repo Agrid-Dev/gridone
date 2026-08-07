@@ -1,6 +1,5 @@
-import { FC, useEffect } from "react";
+import { FC } from "react";
 import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Trigger } from "@gridone/sdk";
 import { getTriggerDescriptor } from "../presenters/triggerRegistry";
@@ -11,6 +10,8 @@ import GenericTriggerFormBody from "./GenericTriggerFormBody";
 interface TriggerFormProps {
   initialValue?: Trigger;
   onSubmit: (trigger: Trigger) => void;
+  /** Continuous result-state callback — see ``CustomTriggerFormProps``. */
+  onChange?: (trigger: Trigger | null) => void;
   onCancel: () => void;
   formId?: string;
   hideActions?: boolean;
@@ -20,13 +21,13 @@ interface TriggerFormProps {
 const TriggerForm: FC<TriggerFormProps> = ({
   initialValue,
   onSubmit,
+  onChange,
   onCancel,
   formId,
   hideActions,
   serverError,
 }) => {
   const { t } = useTranslation("automations");
-  const saveErrorMessage = t("toasts.saveError");
   const {
     isLoading,
     availableTypes,
@@ -37,13 +38,9 @@ const TriggerForm: FC<TriggerFormProps> = ({
   } = useTriggerForm(initialValue);
 
   const descriptor = type ? getTriggerDescriptor(type) : null;
+  // ``serverError`` only reaches the generic body, which maps it onto its
+  // fields; the page that owns the save is the one that reports the failure.
   const CustomForm = descriptor?.CustomFormRenderer;
-
-  useEffect(() => {
-    if (serverError !== undefined && CustomForm) {
-      toast.error(saveErrorMessage);
-    }
-  }, [CustomForm, saveErrorMessage, serverError]);
 
   if (isLoading) return <Skeleton className="h-32 w-full" />;
 
@@ -52,7 +49,12 @@ const TriggerForm: FC<TriggerFormProps> = ({
       <TypePickerCards
         aria-label={t("triggers.type")}
         value={type}
-        onSelect={setType}
+        onSelect={(next) => {
+          // Drop the outgoing draft right away: the incoming body only reports
+          // its own value once mounted, and it may not be complete.
+          setType(next);
+          onChange?.(null);
+        }}
         options={availableTypes.map((typeKey) => ({
           value: typeKey,
           icon: getTriggerDescriptor(typeKey).icon,
@@ -69,6 +71,7 @@ const TriggerForm: FC<TriggerFormProps> = ({
             type={type}
             initialValue={initialValueForType}
             onSubmit={onSubmit}
+            onChange={onChange}
             onCancel={onCancel}
             formId={formId}
             hideActions={hideActions}
@@ -80,6 +83,7 @@ const TriggerForm: FC<TriggerFormProps> = ({
             schema={schema}
             initialValue={initialValueForType}
             onSubmit={onSubmit}
+            onChange={onChange}
             onCancel={onCancel}
             formId={formId}
             hideActions={hideActions}

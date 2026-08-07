@@ -1,9 +1,11 @@
+import { useRef, useState, type PointerEvent, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import {
   DIAL_START_DEG,
   DIAL_SWEEP_DEG,
   arcPath,
+  pointToValue,
   polarPoint,
   valueToAngle,
 } from "./dialGeometry";
@@ -14,6 +16,9 @@ const RADIUS = 100;
 const TRACK_WIDTH = 12;
 const KNOB_RADIUS = 10;
 const MEASURED_DOT_RADIUS = 4.5;
+/** Grab area around the track, wide enough to catch an imprecise click
+ *  without swallowing the reading at the centre of the dial. */
+const HIT_WIDTH = 44;
 
 type ThermostatDialProps = {
   /** Target temperature; null renders an empty track. */
@@ -26,12 +31,21 @@ type ThermostatDialProps = {
   /** Mode text-colour class driving the progress arc and knob. */
   modeColorClass: string;
   saving: boolean;
+  /** Called with each new setpoint as the user drags the knob, clicks the
+   *  track, or presses an arrow key. Omit to keep the dial read-only. */
+  onChange?: (value: number) => void;
+  /** Granularity of the values `onChange` reports. */
+  step?: number;
 };
 
 /** 270° arc gauge showing the setpoint (progress arc + knob) against the
  *  device's setpoint range, with the measured temperature as a dot on the
- *  track and the values overlaid in the centre. Purely presentational —
- *  the parent owns range fallback and colour resolution. */
+ *  track and the values overlaid in the centre.
+ *
+ *  With `onChange` the track becomes a slider: drag the knob, click anywhere
+ *  on the ring, or use the arrow keys. The dial owns no value — it reports
+ *  each new setpoint and re-renders from the one it is given, so the parent
+ *  stays the single source of truth (and keeps the +/- steppers in sync). */
 export function ThermostatDial({
   setpoint,
   measured,
@@ -40,8 +54,64 @@ export function ThermostatDial({
   isOn,
   modeColorClass,
   saving,
+  onChange,
+  step = 0.5,
 }: ThermostatDialProps) {
   const { t } = useTranslation("devices");
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [dragging, setDragging] = useState(false);
+  const interactive = onChange != null && setpoint != null;
+
+  /** Setpoint under the pointer, in the dial's own coordinate system: the
+   *  SVG scales to its container, so client pixels are converted through the
+   *  rendered size rather than assumed to be viewBox units. */
+  const valueAt = (event: PointerEvent): number | null => {
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect || rect.width === 0) return null;
+    const scale = SIZE / rect.width;
+    return pointToValue(
+      (event.clientX - rect.left) * scale - CENTER,
+      (event.clientY - rect.top) * scale - CENTER,
+      min,
+      max,
+      step,
+    );
+  };
+
+  const handlePointerDown = (event: PointerEvent<SVGPathElement>) => {
+    if (!interactive || event.button !== 0) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setDragging(true);
+    const value = valueAt(event);
+    if (value != null) onChange?.(value);
+  };
+
+  const handlePointerMove = (event: PointerEvent<SVGPathElement>) => {
+    if (!dragging) return;
+    const value = valueAt(event);
+    if (value != null) onChange?.(value);
+  };
+
+  const endDrag = (event: PointerEvent<SVGPathElement>) => {
+    if (!dragging) return;
+    event.currentTarget.releasePointerCapture(event.pointerId);
+    setDragging(false);
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (!interactive || setpoint == null) return;
+    const next = {
+      ArrowUp: setpoint + step,
+      ArrowRight: setpoint + step,
+      ArrowDown: setpoint - step,
+      ArrowLeft: setpoint - step,
+      Home: min,
+      End: max,
+    }[event.key];
+    if (next == null) return;
+    event.preventDefault();
+    onChange?.(Math.min(max, Math.max(min, next)));
+  };
 
   const setpointAngle =
     setpoint != null ? valueToAngle(setpoint, min, max) : null;
@@ -54,22 +124,38 @@ export function ThermostatDial({
       ? polarPoint(CENTER, CENTER, RADIUS, setpointAngle)
       : null;
 
+  const trackPath = arcPath(
+    CENTER,
+    CENTER,
+    RADIUS,
+    DIAL_START_DEG,
+    DIAL_START_DEG + DIAL_SWEEP_DEG,
+  );
+
   return (
-    <div className="relative mx-auto aspect-square w-full max-w-[15rem]">
+    <div
+      className={cn(
+        "relative mx-auto aspect-square w-full max-w-[15rem] rounded-full",
+        interactive &&
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4",
+      )}
+      role={interactive ? "slider" : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      aria-label={interactive ? t("controls.thermostat.setpoint") : undefined}
+      aria-valuemin={interactive ? min : undefined}
+      aria-valuemax={interactive ? max : undefined}
+      aria-valuenow={interactive ? (setpoint ?? undefined) : undefined}
+      onKeyDown={handleKeyDown}
+    >
       <svg
+        ref={svgRef}
         viewBox={`0 0 ${SIZE} ${SIZE}`}
-        className="h-full w-full"
+        className="h-full w-full touch-none"
         aria-hidden
       >
         {/* Track */}
         <path
-          d={arcPath(
-            CENTER,
-            CENTER,
-            RADIUS,
-            DIAL_START_DEG,
-            DIAL_START_DEG + DIAL_SWEEP_DEG,
-          )}
+          d={trackPath}
           fill="none"
           stroke="hsl(var(--muted))"
           strokeWidth={TRACK_WIDTH}
@@ -111,10 +197,30 @@ export function ThermostatDial({
             fill="hsl(var(--status-info))"
           />
         )}
+        {/* Grab area: an invisible band over the track, hit-tested on its
+            stroke so the centre reading stays untouchable and the cursor
+            only changes where dragging actually does something. */}
+        {interactive && (
+          <path
+            d={trackPath}
+            data-testid="dial-track"
+            fill="none"
+            stroke="transparent"
+            strokeWidth={HIT_WIDTH}
+            strokeLinecap="round"
+            style={{ pointerEvents: "stroke" }}
+            className={dragging ? "cursor-grabbing" : "cursor-grab"}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={endDrag}
+            onPointerCancel={endDrag}
+          />
+        )}
       </svg>
 
-      {/* Centre overlay */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-1">
+      {/* Centre overlay — text only, and kept out of the way of the grab
+          area it sits on top of. */}
+      <div className="pointer-events-none absolute inset-0 flex select-none flex-col items-center justify-center gap-1">
         <span className="text-xs uppercase tracking-widest text-muted-foreground">
           {t("controls.thermostat.setpoint")}
         </span>

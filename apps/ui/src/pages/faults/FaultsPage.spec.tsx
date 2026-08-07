@@ -222,6 +222,21 @@ describe("FaultsPage", () => {
     ).toHaveAttribute("data-severity", "warning");
   });
 
+  it("marks each row with a severity-coloured leading rail", () => {
+    renderPage();
+    const rows = bodyRows();
+
+    expect(within(rows[0]).getAllByRole("cell")[0]).toHaveClass(
+      "border-l-status-error",
+    );
+    expect(within(rows[1]).getAllByRole("cell")[0]).toHaveClass(
+      "border-l-status-warning",
+    );
+    expect(within(rows[2]).getAllByRole("cell")[0]).toHaveClass(
+      "border-l-muted-foreground",
+    );
+  });
+
   it("exports the visible rows as CSV", async () => {
     renderPage();
     await userEvent.click(screen.getByRole("button", { name: "Export" }));

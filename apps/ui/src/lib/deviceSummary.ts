@@ -1,7 +1,12 @@
 /**
- * One-line summaries of a device's live state for fleet views (devices
- * table): primary measure, setpoint and operating mode per standard type,
+ * One-line summaries of a device's live state for fleet views (devices table
+ * and cards): primary measure, setpoint and operating mode per standard type,
  * plus fleet-wide connection-status counts.
+ *
+ * A measure is exposed as a *reading* — the numeric value plus how to render
+ * and where to find it — rather than a pre-formatted string, so the same
+ * source of truth can be formatted, subtracted (measure vs setpoint) and
+ * charted (the metric names the recorded series).
  *
  * Formatting follows the app convention (no assumed physical units): a
  * scale-agnostic `°` for temperatures, raw `W` for power, `%` for ratios.
@@ -25,58 +30,127 @@ import {
   readThermostatAttributes,
   readWeatherSensorAttributes,
 } from "@/lib/devices";
-import { fmt } from "@/lib/formatValue";
-
 const DASH = "—";
 
-/** The primary live measure of a device, formatted ("20.5°", "1250 W",
- *  "82 %"); em dash when absent or the type has no primary measure. */
-export function deviceMeasure(device: Device): string {
+/**
+ * A displayable measure: the recorded `metric` it comes from (the attribute
+ * name, which is also the time-series key), its current `value`, and how to
+ * render it. `value` is null when the device does not report it (yet).
+ */
+export type DeviceReading = {
+  metric: string;
+  value: number | null;
+  digits: number;
+  suffix: string;
+};
+
+const temperature = (metric: string, value: number | null): DeviceReading => ({
+  metric,
+  value,
+  digits: 1,
+  suffix: "°",
+});
+
+/** The primary live measure of a device (the one a fleet view leads with);
+ *  null when the type has no primary measure. */
+export function deviceMeasureReading(device: Device): DeviceReading | null {
   if (isThermostat(device))
-    return fmt(readThermostatAttributes(device).temperature, 1, "°");
+    return temperature(
+      "temperature",
+      readThermostatAttributes(device).temperature,
+    );
   if (isAwhp(device))
-    return fmt(readAwhpAttributes(device).outletTemperature, 1, "°");
+    return temperature(
+      "outlet_temperature",
+      readAwhpAttributes(device).outletTemperature,
+    );
   if (isAhuDoubleFlux(device))
-    return fmt(
+    return temperature(
+      "supply_air_temperature",
       readAhuDoubleFluxAttributes(device).supplyAirTemperature,
-      1,
-      "°",
     );
   if (isAhuSingleFlux(device))
-    return fmt(
+    return temperature(
+      "supply_air_temperature",
       readAhuSingleFluxAttributes(device).supplyAirTemperature,
-      1,
-      "°",
     );
   if (isElectricityMeter(device))
-    return fmt(readElectricityMeterAttributes(device).activePower, 0, " W");
+    return {
+      metric: "active_power",
+      value: readElectricityMeterAttributes(device).activePower,
+      digits: 0,
+      suffix: " W",
+    };
   if (isWeatherSensor(device))
-    return fmt(readWeatherSensorAttributes(device).temperature, 1, "°");
+    return temperature(
+      "temperature",
+      readWeatherSensorAttributes(device).temperature,
+    );
   if (isAirExtractor(device))
-    return fmt(readAirExtractorAttributes(device).fanSpeed, 0, " %");
-  return DASH;
+    return {
+      metric: "fan_speed",
+      value: readAirExtractorAttributes(device).fanSpeed,
+      digits: 0,
+      suffix: " %",
+    };
+  return null;
 }
 
-/** The setpoint matching {@link deviceMeasure}; em dash when the type has
- *  none (meters, sensors, extractors) or the value is absent. */
-export function deviceSetpoint(device: Device): string {
+/** The setpoint matching {@link deviceMeasureReading}; null when the type has
+ *  none (meters, sensors, extractors). */
+export function deviceSetpointReading(device: Device): DeviceReading | null {
   if (isThermostat(device))
-    return fmt(readThermostatAttributes(device).temperatureSetpoint, 1, "°");
+    return temperature(
+      "temperature_setpoint",
+      readThermostatAttributes(device).temperatureSetpoint,
+    );
   if (isAwhp(device))
-    return fmt(readAwhpAttributes(device).setpointTemperature, 1, "°");
+    return temperature(
+      "setpoint_temperature",
+      readAwhpAttributes(device).setpointTemperature,
+    );
   if (isAhuDoubleFlux(device))
-    return fmt(
+    return temperature(
+      "supply_air_temperature_setpoint",
       readAhuDoubleFluxAttributes(device).supplyAirTemperatureSetpoint,
-      1,
-      "°",
     );
   if (isAhuSingleFlux(device))
-    return fmt(
+    return temperature(
+      "supply_air_temperature_setpoint",
       readAhuSingleFluxAttributes(device).supplyAirTemperatureSetpoint,
-      1,
-      "°",
     );
-  return DASH;
+  return null;
+}
+
+/** Reading rendered for the given locale ("20,5°", "1 250 W"); em dash when
+ *  the reading is absent or its value is not reported. */
+export function formatReading(
+  reading: DeviceReading | null,
+  locale: string,
+): string {
+  if (!reading || reading.value == null) return DASH;
+  const number = new Intl.NumberFormat(locale, {
+    minimumFractionDigits: reading.digits,
+    maximumFractionDigits: reading.digits,
+  }).format(reading.value);
+  return `${number}${reading.suffix}`;
+}
+
+/** Signed distance from setpoint to measure ("+0,4°"), or null when either
+ *  side is missing. Always rendered with its sign — the sign is the reading. */
+export function formatReadingDelta(
+  measure: DeviceReading | null,
+  setpoint: DeviceReading | null,
+  locale: string,
+): string | null {
+  if (measure?.value == null || setpoint?.value == null) return null;
+  const delta = measure.value - setpoint.value;
+  const number = new Intl.NumberFormat(locale, {
+    minimumFractionDigits: measure.digits,
+    maximumFractionDigits: measure.digits,
+    signDisplay: "always",
+  }).format(delta);
+  return `${number}${measure.suffix}`;
 }
 
 /** Operating mode of a device for display. "Off" is not a wire mode value:

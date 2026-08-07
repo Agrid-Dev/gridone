@@ -1,3 +1,4 @@
+import type { TFunction } from "i18next";
 import type { Automation, AutomationExecution } from "@gridone/sdk";
 
 export interface RecentExecution {
@@ -16,7 +17,7 @@ export interface ExecutionsSummary {
 
 export const RECENT_EXECUTIONS_LIMIT = 8;
 
-const DAY_MS = 24 * 60 * 60 * 1000;
+export const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Timestamp an execution is reported at — completion time when available,
  *  trigger time otherwise (executions that failed before running). */
@@ -59,4 +60,30 @@ export function summarizeExecutions(
       ({ execution }) => now - executionTime(execution) <= DAY_MS,
     ).length,
   };
+}
+
+/** "16:20" today, "hier 23:00" yesterday, "3 août 23:00" beyond — execution
+ *  lists favor clock times (like a log) over relative wording. */
+export function formatExecutionMoment(
+  execution: AutomationExecution,
+  language: string | undefined,
+  t: TFunction<"automations">,
+): string {
+  const date = new Date(executionTime(execution));
+  const time = date.toLocaleTimeString(language, {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const now = new Date();
+  if (date.toDateString() === now.toDateString()) return time;
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (date.toDateString() === yesterday.toDateString()) {
+    return t("recentExecutions.yesterdayAt", { time });
+  }
+  const day = date.toLocaleDateString(language, {
+    day: "numeric",
+    month: "short",
+  });
+  return `${day} ${time}`;
 }

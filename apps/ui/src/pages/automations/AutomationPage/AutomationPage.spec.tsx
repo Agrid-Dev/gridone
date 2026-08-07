@@ -2,18 +2,25 @@ import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, cleanup, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Routes, Route } from "react-router";
-import type { Automation, AutomationExecution } from "@gridone/sdk";
+import type {
+  Action,
+  Automation,
+  AutomationExecution,
+  Trigger,
+} from "@gridone/sdk";
 import { createI18nMock } from "@/test/i18nMock";
 
 const {
   mockUseQuery,
   mockDeleteAutomation,
   mockUpdateAutomation,
+  mockDisableAutomation,
   mockNavigate,
 } = vi.hoisted(() => ({
   mockUseQuery: vi.fn(),
   mockDeleteAutomation: vi.fn().mockResolvedValue(undefined),
   mockUpdateAutomation: vi.fn().mockResolvedValue(undefined),
+  mockDisableAutomation: vi.fn().mockResolvedValue(undefined),
   mockNavigate: vi.fn(),
 }));
 
@@ -24,11 +31,11 @@ vi.mock("@tanstack/react-query", () => ({
   useSuspenseQuery: (opts: { queryKey: unknown[] }) => mockUseQuery(opts),
   useMutation: (opts: {
     mutationFn: (...args: unknown[]) => Promise<unknown>;
-    onSuccess?: () => void;
+    onSuccess?: (data: unknown, variables: unknown) => void;
   }) => ({
     mutate: async (...args: unknown[]) => {
-      await opts.mutationFn(...args);
-      opts.onSuccess?.();
+      const data = await opts.mutationFn(...args);
+      opts.onSuccess?.(data, args[0]);
     },
     isPending: false,
   }),
@@ -45,7 +52,7 @@ vi.mock("@/contexts/GridoneClientContext", () => ({
       listExecutions: vi.fn(),
       getTriggerSchemas: vi.fn(),
       enable: vi.fn(),
-      disable: vi.fn(),
+      disable: () => mockDisableAutomation(),
       delete: () => mockDeleteAutomation(),
       update: (id: string, payload: unknown) =>
         mockUpdateAutomation(id, payload),
@@ -80,6 +87,52 @@ vi.mock("./presenters/TriggerPresenter", () => ({
   ),
 }));
 
+const EDITED_TRIGGER: Trigger = {
+  provider_id: "schedule",
+  params: { cron: "0 7 * * *" },
+};
+const EDITED_ACTION: Action = {
+  provider_id: "notification",
+  params: { title: "Heads up", body: "", severity: "info", user_ids: ["u1"] },
+};
+
+/** The trigger and action bodies own their own react-hook-form state; the page
+ *  only cares that it receives their drafts, so both are stubbed as a readout
+ *  plus a button that reports an edited value. */
+vi.mock("./form/TriggerForm", () => ({
+  default: ({
+    initialValue,
+    onChange,
+  }: {
+    initialValue?: Trigger;
+    onChange?: (trigger: Trigger | null) => void;
+  }) => (
+    <div data-testid="trigger-form">
+      type={initialValue?.provider_id}
+      <button type="button" onClick={() => onChange?.(EDITED_TRIGGER)}>
+        edit trigger
+      </button>
+    </div>
+  ),
+}));
+
+vi.mock("./form/ActionForm", () => ({
+  default: ({
+    initialValue,
+    onChange,
+  }: {
+    initialValue?: Action;
+    onChange?: (action: Action | null) => void;
+  }) => (
+    <div data-testid="action-form">
+      type={initialValue?.provider_id}
+      <button type="button" onClick={() => onChange?.(EDITED_ACTION)}>
+        edit action
+      </button>
+    </div>
+  ),
+}));
+
 vi.mock("react-router", async () => {
   const actual =
     await vi.importActual<typeof import("react-router")>("react-router");
@@ -90,41 +143,39 @@ vi.mock("react-i18next", () =>
   createI18nMock({
     title: "Automations",
     singular: "Automation",
-    "flow.trigger": "Trigger",
-    "flow.action": "Action",
-    "actions.types.command_template": "Run a command",
-    "fields.actionTemplate": "Command template",
-    "fields.status": "Status",
     "fields.name": "Name",
     "fields.description": "Description",
-    "automations:fields.name": "Name",
-    "automations:fields.description": "Description",
-    "metadata.title": "Automation",
-    "metadata.edit": "Edit automation",
-    "metadata.noDescription": "No description",
+    "editPage.breadcrumbLabel": "Breadcrumb",
+    "editPage.lastExecution": "Last run {{ago}}.",
+    "editPage.neverExecuted": "Never run yet.",
+    "editPage.unsavedChanges": "Unsaved changes",
+    "editPage.saveChanges": "Save changes",
+    "editPage.deleteHint": "The execution history is kept.",
+    "editPage.identity.title": "Identity",
+    "editPage.when.title": "When",
+    "editPage.then.title": "Then",
     "metadata.createdAt": "Created",
     "metadata.updatedAt": "Last edited",
     "metadata.createdBy": "Created by",
-    "common.edit": "Edit",
+    "stats.executions24h": "runs (24 h)",
+    "recentExecutions.title": "Latest runs",
     "actions.enable": "Enable",
     "actions.disable": "Disable",
     "actions.delete": "Delete",
     "executions.title": "Executions",
-    "executions.timestamp": "Timestamp",
     "executions.viewBatch": "View command",
     "executions.empty": "No executions yet",
     "executions.status.success": "Success",
     "executions.status.failed": "Failed",
-    "triggers.types.schedule": "Schedule",
     "deleteConfirm.title": "Delete automation",
     "deleteConfirm.details": 'Delete "{{name}}"?',
     enabledBadge: "Enabled",
     disabledBadge: "Disabled",
     "common.cancel": "Cancel",
-    "common:common.cancel": "Cancel",
-    "common.save": "Save",
-    "common:common.save": "Save",
+    "common.saving": "Saving...",
     "common.delete": "Delete",
+    "common.timeAgo.hours": "{{count}} hours ago",
+    "common.timeAgo.days": "{{count}} days ago",
     "toasts.deleted": "Deleted",
   }),
 );
@@ -162,7 +213,10 @@ const execution: AutomationExecution = {
   output_id: "batch-abc",
 };
 
-function setQueryResults(executions: AutomationExecution[] = []) {
+function setQueryResults(
+  executions: AutomationExecution[] = [],
+  overrides: Partial<Automation> = {},
+) {
   mockUseQuery.mockImplementation((opts: { queryKey: readonly unknown[] }) => {
     if (opts.queryKey[2] === "executions") {
       return { data: executions, isLoading: false };
@@ -190,7 +244,7 @@ function setQueryResults(executions: AutomationExecution[] = []) {
     if (opts.queryKey[0] === "users") {
       return { data: { id: "user-01", username: "alice" }, isLoading: false };
     }
-    return { data: automation, isLoading: false };
+    return { data: { ...automation, ...overrides }, isLoading: false };
   });
 }
 
@@ -213,47 +267,44 @@ afterEach(() => {
   mockUseQuery.mockReset();
   mockDeleteAutomation.mockReset().mockResolvedValue(undefined);
   mockUpdateAutomation.mockReset().mockResolvedValue(undefined);
+  mockDisableAutomation.mockReset().mockResolvedValue(undefined);
   mockNavigate.mockReset();
 });
 
 describe("AutomationPage", () => {
-  it("renders header, trigger card, action card with template name first, and execution row linking to the batch", () => {
+  it("renders the header, the editable sections and the run log", () => {
     setQueryResults([execution]);
     renderDetail();
 
     expect(
-      screen.getAllByRole("heading", { name: "Morning warmup" }).length,
-    ).toBeGreaterThan(0);
-    expect(
-      screen.getByText("Boost heating before occupants arrive"),
+      screen.getByRole("heading", { level: 1, name: "Morning warmup" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Enabled")).toBeInTheDocument();
+    // Status badge next to the title, and the toggle's own label.
+    expect(screen.getAllByText("Enabled")).toHaveLength(2);
+    expect(screen.getByText("runs (24 h)")).toBeInTheDocument();
+    expect(screen.getByText(/^Last run .+ ago\.$/)).toBeInTheDocument();
 
-    expect(screen.getByText("Trigger")).toBeInTheDocument();
-    expect(screen.getByText("Action")).toBeInTheDocument();
-    expect(screen.getByTestId("trigger-presenter")).toHaveTextContent(
+    expect(screen.getByRole("link", { name: "Automations" })).toHaveAttribute(
+      "href",
+      "/automations",
+    );
+
+    expect(screen.getByLabelText(/Name/)).toHaveValue("Morning warmup");
+    expect(screen.getByLabelText(/Description/)).toHaveValue(
+      "Boost heating before occupants arrive",
+    );
+    expect(screen.getByTestId("trigger-form")).toHaveTextContent(
       "type=schedule",
     );
-    expect(screen.getByText("Run a command")).toBeInTheDocument();
-
-    const templateLink = screen.getByRole("link", { name: /Boost/ });
-    expect(templateLink).toHaveAttribute(
-      "href",
-      "/devices/commands/templates/tpl-9f12",
-    );
-    expect(screen.getByTestId("target-presenter")).toHaveTextContent(
-      "target-ids=d1",
-    );
-    expect(screen.getByTestId("write-presenter")).toHaveTextContent(
-      "temperature_setpoint",
+    expect(screen.getByTestId("action-form")).toHaveTextContent(
+      "type=command_template",
     );
 
-    const row = screen.getAllByRole("row").at(-1)!;
-    const batchLink = within(row).getByRole("link", { name: /View command/ });
-    expect(batchLink).toHaveAttribute(
-      "href",
-      "/devices/commands?batch_id=batch-abc",
-    );
+    const runs = screen.getByRole("list", { name: "Executions" });
+    expect(within(runs).getByText("Success")).toBeInTheDocument();
+    expect(
+      within(runs).getByRole("link", { name: /View command/ }),
+    ).toHaveAttribute("href", "/devices/commands?batch_id=batch-abc");
   });
 
   it("shows created date, creator username, and hides updated_at when equal to created_at", () => {
@@ -266,50 +317,70 @@ describe("AutomationPage", () => {
   });
 
   it("shows updated_at when it differs from created_at", () => {
-    mockUseQuery.mockImplementation(
-      (opts: { queryKey: readonly unknown[] }) => {
-        if (opts.queryKey[0] === "users") {
-          return {
-            data: { id: "user-01", username: "alice" },
-            isLoading: false,
-          };
-        }
-        if (opts.queryKey[0] === "assets")
-          return { data: [], isLoading: false };
-        if (opts.queryKey[0] === "command-templates") {
-          return {
-            data: {
-              id: "tpl-9f12",
-              name: "Boost",
-              target: { ids: ["d1"] },
-              write: {
-                attribute: "temperature_setpoint",
-                value: 22,
-                data_type: "float",
-              },
-              created_at: "2026-01-01T00:00:00Z",
-              created_by: "user1",
-            },
-            isLoading: false,
-          };
-        }
-        if (opts.queryKey[2] === "executions")
-          return { data: [], isLoading: false };
-        return {
-          data: {
-            ...automation,
-            updated_at: "2026-03-01T12:00:00Z",
-          },
-          isLoading: false,
-        };
-      },
-    );
+    setQueryResults([], { updated_at: "2026-03-01T12:00:00Z" });
     renderDetail();
 
     expect(screen.getByText(/Last edited/)).toBeInTheDocument();
   });
 
-  it("renders error inline with the status badge in the same cell", () => {
+  it("saves identity, trigger and action in a single request", async () => {
+    setQueryResults();
+    renderDetail();
+
+    const save = screen.getByRole("button", { name: "Save changes" });
+    expect(save).toBeDisabled();
+
+    const nameInput = screen.getByLabelText(/Name/);
+    await userEvent.clear(nameInput);
+    await userEvent.type(nameInput, "Boosted morning warmup");
+    await userEvent.click(screen.getByRole("button", { name: "edit trigger" }));
+    await userEvent.click(screen.getByRole("button", { name: "edit action" }));
+
+    expect(save).toBeEnabled();
+    await userEvent.click(save);
+
+    expect(mockUpdateAutomation).toHaveBeenCalledTimes(1);
+    expect(mockUpdateAutomation).toHaveBeenCalledWith("a1", {
+      name: "Boosted morning warmup",
+      description: "Boost heating before occupants arrive",
+      trigger: EDITED_TRIGGER,
+      action: EDITED_ACTION,
+    });
+  });
+
+  it("keeps save disabled while the name is empty", async () => {
+    setQueryResults();
+    renderDetail();
+
+    await userEvent.clear(screen.getByLabelText(/Name/));
+    await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    expect(mockUpdateAutomation).not.toHaveBeenCalled();
+  });
+
+  it("drops pending edits on cancel", async () => {
+    setQueryResults();
+    renderDetail();
+
+    await userEvent.type(screen.getByLabelText(/Name/), " tweaked");
+    expect(screen.getByText("Unsaved changes")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(screen.getByLabelText(/Name/)).toHaveValue("Morning warmup");
+    expect(screen.queryByText("Unsaved changes")).not.toBeInTheDocument();
+  });
+
+  it("toggles the automation off from the header switch", async () => {
+    setQueryResults();
+    renderDetail();
+
+    await userEvent.click(screen.getByRole("switch", { name: "Disable" }));
+
+    expect(mockDisableAutomation).toHaveBeenCalled();
+  });
+
+  it("renders the error of a failed execution", () => {
     setQueryResults([
       {
         ...execution,
@@ -321,68 +392,40 @@ describe("AutomationPage", () => {
     ]);
     renderDetail();
 
-    const row = screen.getAllByRole("row").at(-1)!;
-    expect(within(row).getByText("Failed")).toBeInTheDocument();
+    const runs = screen.getByRole("list", { name: "Executions" });
+    expect(within(runs).getByText("Failed")).toBeInTheDocument();
     expect(
-      within(row).getByText("Timeout waiting for device"),
+      within(runs).getByText("Timeout waiting for device"),
     ).toBeInTheDocument();
   });
 
-  it("hides write actions without automations:write permission", () => {
+  it("falls back to read-only presenters without automations:write", () => {
     canPermission = (perm) => perm === "automations:read";
     setQueryResults();
     renderDetail();
 
+    expect(screen.queryByRole("switch")).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Disable" }),
+      screen.queryByRole("button", { name: "Save changes" }),
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Delete" }),
     ).not.toBeInTheDocument();
-  });
-
-  it("edits the metadata card with required title and optional description", async () => {
-    setQueryResults();
-    renderDetail();
-
-    const editButton = screen.getByRole("button", { name: "Edit automation" });
-    const metadataCard = editButton.closest("[aria-busy]") as HTMLElement;
-    expect(metadataCard).not.toBeNull();
-    expect(
-      within(metadataCard).getByText("Boost heating before occupants arrive"),
-    ).toBeInTheDocument();
-
-    await userEvent.click(editButton);
-
-    const nameInput = await within(metadataCard).findByLabelText(/Name/);
-    const descriptionInput = within(metadataCard).getByLabelText(/Description/);
-
-    await userEvent.clear(nameInput);
-    expect(
-      within(metadataCard).getByRole("button", { name: "Save" }),
-    ).toBeDisabled();
-
-    await userEvent.type(nameInput, "Boosted morning warmup");
-    await userEvent.clear(descriptionInput);
-    await userEvent.type(descriptionInput, "Updated description");
-
-    await userEvent.click(
-      within(metadataCard).getByRole("button", { name: "Save" }),
+    expect(screen.queryByTestId("trigger-form")).not.toBeInTheDocument();
+    expect(screen.getByTestId("trigger-presenter")).toHaveTextContent(
+      "type=schedule",
     );
-
-    expect(mockUpdateAutomation).toHaveBeenCalledWith("a1", {
-      name: "Boosted morning warmup",
-      description: "Updated description",
-      enabled: true,
-    });
+    expect(screen.getByTestId("target-presenter")).toHaveTextContent(
+      "target-ids=d1",
+    );
   });
 
   it("deletes and navigates back to /automations after confirming", async () => {
     setQueryResults();
     renderDetail();
 
-    await userEvent.click(screen.getByRole("button", { name: "Delete" }));
-    const buttons = screen.getAllByRole("button", { name: "Delete" });
+    await userEvent.click(screen.getByRole("button", { name: /Delete/ }));
+    const buttons = screen.getAllByRole("button", { name: /Delete/ });
     await userEvent.click(buttons[buttons.length - 1]);
 
     expect(mockDeleteAutomation).toHaveBeenCalled();

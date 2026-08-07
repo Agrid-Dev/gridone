@@ -37,7 +37,7 @@ export function SeveritySummaryCard({
     <Card
       data-slot="severity-summary"
       data-severity={severity}
-      className="flex items-center gap-4 p-5"
+      className="flex min-h-[5.75rem] items-center gap-4 p-5"
     >
       <div
         className={cn(
@@ -52,7 +52,9 @@ export function SeveritySummaryCard({
         <p className="font-display text-2xl font-semibold leading-none tabular-nums">
           {count}
         </p>
-        <p className="mt-1.5 truncate text-sm text-muted-foreground">{label}</p>
+        <p className="mt-1.5 text-sm leading-snug text-muted-foreground">
+          {label}
+        </p>
       </div>
     </Card>
   );

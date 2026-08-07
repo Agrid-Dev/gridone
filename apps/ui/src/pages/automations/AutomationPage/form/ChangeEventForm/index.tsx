@@ -4,6 +4,7 @@ import { Controller } from "react-hook-form";
 import { Button } from "@/components/ui";
 import { DeviceAttributePicker } from "@/components/forms/resourcePickers/DeviceAttributePicker";
 import { type CustomTriggerFormProps } from "../../presenters/types";
+import { useDraftReport } from "../useDraftReport";
 import { ConditionEditor } from "./ConditionEditor";
 import { useChangeEventForm } from "./useChangeEventForm";
 
@@ -11,6 +12,7 @@ const ChangeEventForm: FC<CustomTriggerFormProps> = ({
   type,
   initialValue,
   onSubmit,
+  onChange,
   onCancel,
   formId,
   hideActions,
@@ -23,8 +25,19 @@ const ChangeEventForm: FC<CustomTriggerFormProps> = ({
     deviceId,
     attribute,
     dataType,
+    condition,
     handlePickerChange,
   } = useChangeEventForm({ type, initialValue, onSubmit });
+
+  useDraftReport(
+    formState.isValid && condition
+      ? {
+          provider_id: type,
+          params: { device_id: deviceId, attribute, condition },
+        }
+      : null,
+    onChange,
+  );
 
   return (
     <form id={formId} onSubmit={submit} className="space-y-6">

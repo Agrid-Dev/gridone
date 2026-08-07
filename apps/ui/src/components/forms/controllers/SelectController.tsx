@@ -34,6 +34,7 @@ type SelectControllerProps<
   allowEmpty?: boolean;
   emptyValue?: undefined | "";
   title?: string;
+  orientation?: React.ComponentProps<typeof FieldShell>["orientation"];
   selectProps?: Omit<
     React.ComponentProps<typeof Select>,
     "value" | "defaultValue" | "onValueChange" | "disabled"
@@ -61,6 +62,7 @@ export function SelectController<
   triggerProps,
   contentProps,
   title,
+  orientation,
   ...controllerProps
 }: SelectControllerProps<TFieldValues, TName, TValue>) {
   const { field, fieldState } = useController(controllerProps);
@@ -82,6 +84,7 @@ export function SelectController<
       required={required}
       description={description}
       error={fieldState.error}
+      orientation={orientation}
     >
       <Select
         {...selectProps}

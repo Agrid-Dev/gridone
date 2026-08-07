@@ -16,6 +16,34 @@
   "inlineCreate": {
     "placeholder": "Zone name..."
   },
+  "editPage": {
+    "breadcrumbLabel": "Zone location",
+    "editingHint": "Edit the zone's identity and place in the building.",
+    "overviewHint": "Zone identity, location, sub-zones and linked equipment.",
+    "lastModified": "Last modified {{time}}.",
+    "addSubzone": "Add a sub-zone",
+    "saveChanges": "Save changes",
+    "add": "Add",
+    "identity": {
+      "title": "Identity",
+      "description": "The name appears throughout the app, in faults and commands.",
+      "identifier": "Identifier"
+    },
+    "location": {
+      "title": "Place in the building",
+      "description": "See this zone in context and choose its direct parent.",
+      "moveHint": "Changing the parent moves the zone and its sub-zones.",
+      "move": "Move this zone"
+    },
+    "subzones": {
+      "title": "Sub-zones",
+      "description": "Spaces directly contained in this zone."
+    },
+    "devices": {
+      "title": "Linked devices",
+      "description": "Equipment currently attached to this zone."
+    }
+  },
   "overview": {
     "subtitle": "Organized by floor · zones can contain sub-zones · select a zone to view its details.",
     "legend": "Zone types",
@@ -27,6 +55,8 @@
     "deviceCount_other": "{{count}} devices",
     "linkedDevices_one": "{{count}} linked device",
     "linkedDevices_other": "{{count}} linked devices",
+    "subzoneCount_one": "{{count}} sub-zone",
+    "subzoneCount_other": "{{count}} sub-zones",
     "otherZones": "Other zones",
     "noFloors": "No floors have been added yet.",
     "addBuilding": "Add a building",

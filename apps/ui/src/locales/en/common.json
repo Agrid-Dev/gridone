@@ -184,6 +184,11 @@
     "faults": {
       "activeSince": "Active for {{ago}}",
       "ok": "OK"
+    },
+    "view": {
+      "label": "View",
+      "table": "Table",
+      "grid": "Cards"
     }
   },
   "errors": {

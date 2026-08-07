@@ -75,6 +75,11 @@
       "mode": "Mode",
       "connection": "Connection",
       "faults": "Faults"
+    },
+    "card": {
+      "vsSetpoint": "{{delta}} vs setpoint",
+      "noFault": "No fault",
+      "trendLabel": "24 h trend"
     }
   },
   "deviceDetails": {

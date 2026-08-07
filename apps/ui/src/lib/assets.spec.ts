@@ -3,6 +3,7 @@ import type { Asset } from "@gridone/sdk";
 import {
   ancestorPathOf,
   flattenDeviceAssets,
+  zonePathOf,
   type AssetTreeNode,
 } from "./assets";
 
@@ -44,6 +45,45 @@ describe("ancestorPathOf", () => {
   it("tolerates an absent path", () => {
     const pathless = { ...building, path: undefined } as unknown as Asset;
     expect(ancestorPathOf(pathless, assetsById)).toBe("");
+  });
+});
+
+describe("zonePathOf", () => {
+  const typed = (
+    id: string,
+    name: string,
+    type: Asset["type"],
+    path: string[],
+  ): Asset => ({ ...asset(id, name, path), type });
+
+  const org = typed("o1", "Acme", "org", ["o1"]);
+  const site = typed("b1", "Building A", "building", ["o1", "b1"]);
+  const level = typed("f1", "Floor 2", "floor", ["o1", "b1", "f1"]);
+  const bedroom = typed("r1", "Room 201", "room", ["o1", "b1", "f1", "r1"]);
+  const byId: Record<string, Asset> = {
+    o1: org,
+    b1: site,
+    f1: level,
+    r1: bedroom,
+  };
+
+  it("joins the zone-level chain, the asset itself included", () => {
+    expect(zonePathOf(bedroom, byId)).toBe("Floor 2 · Room 201");
+  });
+
+  it("drops the org and building levels", () => {
+    expect(zonePathOf(site, byId)).toBe("");
+    expect(zonePathOf(level, byId)).toBe("Floor 2");
+  });
+
+  it("skips ancestors missing from the lookup", () => {
+    const orphan = typed("r2", "Room 9", "room", ["o1", "gone", "r2"]);
+    expect(zonePathOf(orphan, { ...byId, r2: orphan })).toBe("Room 9");
+  });
+
+  it("falls back to the asset itself when it carries no path", () => {
+    const pathless = { ...bedroom, path: undefined } as unknown as Asset;
+    expect(zonePathOf(pathless, byId)).toBe("Room 201");
   });
 });
 

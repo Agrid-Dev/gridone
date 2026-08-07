@@ -19,11 +19,19 @@ import { SeverityLabel } from "./components/SeverityLabel";
 import { SeveritySummaryCard } from "./components/SeveritySummaryCard";
 import { faultKey, useFaultsPage, type FaultRow } from "./useFaultsPage";
 import { faultLabel } from "@/lib/faultLabel";
-import { SEVERITIES } from "@/lib/severity";
+import { SEVERITIES, type Severity } from "@/lib/severity";
 import { cn, formatDurationSince } from "@/lib/utils";
 
 /** Summary cards read worst-first, like the table underneath. */
 const SUMMARY_ORDER = [...SEVERITIES].reverse();
+
+/** A slim rail makes every severity visible before the operator reaches the
+ * severity column. Alerts also keep their stronger row wash. */
+const SEVERITY_RAIL_CLASS: Record<Severity, string> = {
+  alert: "border-l-4 border-l-status-error",
+  warning: "border-l-4 border-l-status-warning",
+  info: "border-l-4 border-l-muted-foreground",
+};
 
 export default function FaultsPage() {
   const { t } = useTranslation(["faults", "common"]);
@@ -99,7 +107,14 @@ export default function FaultsPage() {
       </div>
 
       <div className="overflow-hidden rounded-lg border">
-        <Table>
+        <Table className="min-w-[52rem] table-fixed">
+          <colgroup>
+            <col className="w-[24%]" />
+            <col className="w-[22%]" />
+            <col className="w-[27%]" />
+            <col className="w-[15%]" />
+            <col className="w-[12%]" />
+          </colgroup>
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
               <Th>{t("faults.columns.device")}</Th>
@@ -138,7 +153,9 @@ function FaultTableRow({ row }: { row: FaultRow }) {
           "bg-status-error/5 hover:bg-status-error/10",
       )}
     >
-      <TableCell className="py-2.5 font-medium">
+      <TableCell
+        className={cn("py-2.5 font-medium", SEVERITY_RAIL_CLASS[row.severity])}
+      >
         <Link
           to={`/devices/${row.device_id}`}
           className="text-foreground hover:underline"
@@ -150,10 +167,10 @@ function FaultTableRow({ row }: { row: FaultRow }) {
         {row.zone ?? <EmptyValue />}
       </TableCell>
       <TableCell className="py-2.5">{label}</TableCell>
-      <TableCell className="py-2.5">
+      <TableCell className="whitespace-nowrap py-2.5">
         <SeverityLabel severity={row.severity} />
       </TableCell>
-      <TableCell className="py-2.5 text-sm tabular-nums text-muted-foreground">
+      <TableCell className="whitespace-nowrap py-2.5 text-sm tabular-nums text-muted-foreground">
         {activeSince}
       </TableCell>
     </TableRow>

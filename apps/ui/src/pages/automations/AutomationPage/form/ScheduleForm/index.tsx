@@ -2,6 +2,7 @@ import { type FC } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui";
 import type { CustomTriggerFormProps } from "../../presenters/types";
+import { useDraftReport } from "../useDraftReport";
 import { buildCronExpression, isScheduleComplete } from "./cronSchedule";
 import { CronPicker } from "./CronPicker";
 import { useScheduleForm } from "./useScheduleForm";
@@ -10,6 +11,7 @@ export const ScheduleForm: FC<CustomTriggerFormProps> = ({
   type,
   initialValue,
   onSubmit,
+  onChange,
   onCancel,
   formId,
   hideActions,
@@ -22,14 +24,16 @@ export const ScheduleForm: FC<CustomTriggerFormProps> = ({
   });
   const values = watch();
   const isComplete = isScheduleComplete(values);
+  const cron = buildCronExpression(values);
+
+  useDraftReport(
+    isComplete ? { provider_id: type, params: { cron } } : null,
+    onChange,
+  );
 
   return (
     <form id={formId} onSubmit={submit} className="space-y-4">
-      <CronPicker
-        control={control}
-        frequency={values.frequency}
-        cron={buildCronExpression(values)}
-      />
+      <CronPicker control={control} frequency={values.frequency} cron={cron} />
 
       {!hideActions && (
         <div className="mt-8 flex items-center justify-end gap-2">

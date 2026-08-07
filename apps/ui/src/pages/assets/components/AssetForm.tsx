@@ -16,7 +16,7 @@ import { ASSET_TYPES } from "@/lib/assets";
  *   type:  AssetType (StrEnum: org | building | floor | room | zone)
  *   parentId: required UUID string
  */
-const assetFormSchema = z.object({
+export const assetFormSchema = z.object({
   name: z.string().min(1).max(128),
   type: z.enum(ASSET_TYPES),
   parentId: z.string().min(1),

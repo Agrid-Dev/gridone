@@ -7,6 +7,7 @@ import {
   ServerErrorAlert,
 } from "@/components/forms/schema-form";
 import type { Trigger } from "@gridone/sdk";
+import { useDraftReport } from "./useDraftReport";
 import {
   useGenericTriggerForm,
   type TriggerSchema,
@@ -17,6 +18,7 @@ interface GenericTriggerFormBodyProps {
   schema: TriggerSchema;
   initialValue?: Trigger;
   onSubmit: (trigger: Trigger) => void;
+  onChange?: (trigger: Trigger | null) => void;
   onCancel: () => void;
   formId?: string;
   hideActions?: boolean;
@@ -30,6 +32,7 @@ const GenericTriggerFormBody: FC<GenericTriggerFormBodyProps> = ({
   schema,
   initialValue,
   onSubmit,
+  onChange,
   onCancel,
   formId,
   hideActions,
@@ -39,6 +42,12 @@ const GenericTriggerFormBody: FC<GenericTriggerFormBodyProps> = ({
   const saveErrorMessage = t("automations:toasts.saveError");
 
   const { form, fields } = useGenericTriggerForm(schema, initialValue?.params);
+  const values = form.watch();
+
+  useDraftReport(
+    form.formState.isValid ? { provider_id: type, params: values } : null,
+    onChange,
+  );
 
   useEffect(() => {
     if (serverError === undefined) return;

@@ -1,9 +1,10 @@
 import { useMemo } from "react";
 import { useSearchParams } from "react-router";
-import type { Device } from "@gridone/sdk";
+import type { Asset, Device } from "@gridone/sdk";
 import { useDevicesList } from "@/hooks/useDevicesList";
 import { useFilterParams } from "@/hooks/useFilterParams";
 import { useAssetTree } from "@/hooks/useAssetTree";
+import { zonePathOf as assetZonePath } from "@/lib/assets";
 import type { DevicesFilter } from "@/lib/devices";
 import {
   countDevicesByType,
@@ -28,7 +29,11 @@ type DevicesPage = {
   /** Unfiltered connection tally for the header summary. */
   connectionCounts: ConnectionCounts;
   summaryLoading: boolean;
+  /** Name of the asset a device is attached to — the table's Zone column. */
   assetNameOf: (device: Device) => string | null;
+  /** Full placement of a device ("Floor 2 · Room 201") — the card subtitle,
+   *  which has the room to carry the whole chain. */
+  zonePathOf: (device: Device) => string | null;
   loading: boolean;
   error: string | null;
   hasFilters: boolean;
@@ -73,9 +78,20 @@ export function useDevicesPage(): DevicesPage {
     [allDevices],
   );
 
-  const assetNameOf = (device: Device): string | null => {
+  const assetOf = (device: Device): Asset | null => {
     const assetId = device.tags?.["asset_id"];
-    return assetId ? (assetsById[assetId]?.name ?? null) : null;
+    return assetId ? (assetsById[assetId] ?? null) : null;
+  };
+
+  const assetNameOf = (device: Device): string | null =>
+    assetOf(device)?.name ?? null;
+
+  const zonePathOf = (device: Device): string | null => {
+    const asset = assetOf(device);
+    if (!asset) return null;
+    // An asset outside the floor/room/zone chain (a device tagged straight to
+    // the building) still deserves a label: fall back to its own name.
+    return assetZonePath(asset, assetsById) || asset.name;
   };
 
   return {
@@ -85,6 +101,7 @@ export function useDevicesPage(): DevicesPage {
     connectionCounts,
     summaryLoading,
     assetNameOf,
+    zonePathOf,
     loading,
     error,
     hasFilters: !!filter,

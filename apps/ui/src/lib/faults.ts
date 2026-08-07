@@ -46,6 +46,21 @@ export function getHighestActiveSeverity(device: Device): Severity | null {
   return getActiveFaults(device)[0]?.severity ?? null;
 }
 
+/** How many faults are active at the device's highest active severity
+ *  ("1 alert") — what fleet views summarize; the lower-severity ones stay
+ *  visible on the detail page. Null when the device is healthy. */
+export function activeFaultSummary(
+  device: Device,
+): { severity: Severity; count: number } | null {
+  const faults = getActiveFaults(device);
+  const severity = faults[0]?.severity;
+  if (!severity) return null;
+  return {
+    severity,
+    count: faults.filter((fault) => fault.severity === severity).length,
+  };
+}
+
 export function getAllFaultAttributes(device: Device): FaultAttribute[] {
   return Object.values(deviceAttributes(device))
     .filter(isFaultAttribute)

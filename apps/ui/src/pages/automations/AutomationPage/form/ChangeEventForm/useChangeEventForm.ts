@@ -129,6 +129,7 @@ export function useChangeEventForm({
     deviceId: deviceField.value,
     attribute: attrField.value,
     dataType,
+    condition,
     handlePickerChange,
   };
 }

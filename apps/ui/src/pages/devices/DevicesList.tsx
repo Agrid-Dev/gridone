@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui";
@@ -6,16 +7,31 @@ import { ResourceHeader } from "@/components/ResourceHeader";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePermissions } from "@/contexts/AuthContext";
 import { HealthFilter } from "@/components/HealthFilter";
+import { ViewToggle } from "@/components/ViewToggle";
 import { History, Plus, Terminal } from "lucide-react";
+import {
+  readStoredView,
+  writeStoredView,
+  type ResourceView,
+} from "@/lib/viewPreference";
 import { DevicesSummary } from "./DevicesSummary";
 import { DeviceTypeChips } from "./DeviceTypeChips";
+import { DevicesGrid } from "./DevicesGrid";
 import { DevicesTable } from "./DevicesTable";
 import { useDevicesPage } from "./useDevicesPage";
+
+/** Cards first: the fleet is read at a glance far more often than compared
+ *  column by column. The table stays one click away, and the choice sticks. */
+const VIEW_STORAGE_KEY = "devices.view";
+const DEFAULT_VIEW: ResourceView = "grid";
 
 export default function DevicesList() {
   const { t } = useTranslation(["devices", "common"]);
   const [, setSearchParams] = useSearchParams();
   const can = usePermissions();
+  const [view, setView] = useState<ResourceView>(
+    () => readStoredView(VIEW_STORAGE_KEY) ?? DEFAULT_VIEW,
+  );
   const {
     groups,
     typeCounts,
@@ -23,10 +39,16 @@ export default function DevicesList() {
     connectionCounts,
     summaryLoading,
     assetNameOf,
+    zonePathOf,
     loading,
     error,
     hasFilters,
   } = useDevicesPage();
+
+  const changeView = (next: ResourceView) => {
+    setView(next);
+    writeStoredView(VIEW_STORAGE_KEY, next);
+  };
 
   return (
     <section className="space-y-6">
@@ -69,8 +91,9 @@ export default function DevicesList() {
 
       <div className="flex flex-wrap items-center gap-3">
         <DeviceTypeChips counts={typeCounts} total={total} />
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
           <HealthFilter />
+          <ViewToggle value={view} onChange={changeView} />
         </div>
       </div>
 
@@ -86,14 +109,16 @@ export default function DevicesList() {
             <Skeleton key={index} className="h-10" />
           ))}
         </div>
-      ) : groups.length > 0 ? (
-        <DevicesTable groups={groups} assetNameOf={assetNameOf} />
-      ) : (
+      ) : groups.length === 0 ? (
         <ResourceEmpty
           resourceName={t("common:common.device").toLowerCase()}
           filtered={hasFilters}
           onClearFilters={() => setSearchParams({})}
         />
+      ) : view === "grid" ? (
+        <DevicesGrid groups={groups} zonePathOf={zonePathOf} />
+      ) : (
+        <DevicesTable groups={groups} assetNameOf={assetNameOf} />
       )}
     </section>
   );

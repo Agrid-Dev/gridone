@@ -61,12 +61,15 @@ export function useDriversPage(): DriversPage {
     [all, selectedType],
   );
   const typeCounts = useMemo(() => countDriversByType(all), [all]);
+  const initialLoading =
+    driversListQuery.isLoading ||
+    (!driversListQuery.isFetched && driversListQuery.isFetching);
 
   return {
     drivers,
     typeCounts,
     total: all.length,
-    loading: driversListQuery.isLoading,
+    loading: initialLoading,
     hasFilters: !!selectedType,
   };
 }

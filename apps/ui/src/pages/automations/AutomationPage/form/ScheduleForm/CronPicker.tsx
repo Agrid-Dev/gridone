@@ -5,6 +5,7 @@ import { Button } from "@/components/ui";
 import { FieldShell } from "@/components/forms/controllers/FieldShell";
 import { InputController } from "@/components/forms/controllers/InputController";
 import { SelectController } from "@/components/forms/controllers/SelectController";
+import { cn } from "@/lib/utils";
 import { describeCronExpression } from "../../presenters/cronDescription";
 import type { ScheduleFormValues, ScheduleFrequency } from "./cronSchedule";
 
@@ -17,6 +18,12 @@ const FREQUENCIES = [
   "monthly",
   "custom",
 ] as const;
+
+/** Pin the label column of every horizontal field in the panel so the controls
+ *  line up, instead of each label stretching to fill its row (what `Field`
+ *  does by default in horizontal orientation). */
+const LABEL_COLUMN =
+  "sm:[&_[data-orientation=horizontal]>[data-slot=field-label]]:w-28 sm:[&_[data-orientation=horizontal]>[data-slot=field-label]]:flex-none";
 
 type CronPickerProps = {
   control: Control<ScheduleFormValues>;
@@ -36,13 +43,19 @@ export function CronPicker({ control, frequency, cron }: CronPickerProps) {
   }));
 
   return (
-    <div className="space-y-5 rounded-lg border bg-muted/20 p-4">
+    <div
+      className={cn(
+        "space-y-5 rounded-xl border border-border/70 bg-muted/30 p-5 sm:p-6",
+        LABEL_COLUMN,
+      )}
+    >
       <SelectController
         name="frequency"
         control={control}
         label={t("triggers.schedule.frequency")}
         options={frequencyOptions}
-        triggerProps={{ className: "w-full sm:w-72" }}
+        orientation="horizontal"
+        triggerProps={{ className: "h-11 w-full bg-background sm:w-72" }}
       />
 
       {frequency === "minutes" && (
@@ -51,19 +64,29 @@ export function CronPicker({ control, frequency, cron }: CronPickerProps) {
           control={control}
           type="number"
           label={t("triggers.schedule.minuteInterval")}
-          inputProps={{ min: 1, max: 59, className: "w-full sm:w-40" }}
+          orientation="horizontal"
+          inputProps={{
+            min: 1,
+            max: 59,
+            className: "h-11 w-full bg-background sm:w-40",
+          }}
           required
         />
       )}
 
       {frequency === "hours" && (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <>
           <InputController
             name="hourInterval"
             control={control}
             type="number"
             label={t("triggers.schedule.hourInterval")}
-            inputProps={{ min: 1, max: 23 }}
+            orientation="horizontal"
+            inputProps={{
+              min: 1,
+              max: 23,
+              className: "h-11 w-full bg-background sm:w-40",
+            }}
             required
           />
           <InputController
@@ -71,10 +94,15 @@ export function CronPicker({ control, frequency, cron }: CronPickerProps) {
             control={control}
             type="number"
             label={t("triggers.schedule.minute")}
-            inputProps={{ min: 0, max: 59 }}
+            orientation="horizontal"
+            inputProps={{
+              min: 0,
+              max: 59,
+              className: "h-11 w-full bg-background sm:w-40",
+            }}
             required
           />
-        </div>
+        </>
       )}
 
       {(frequency === "daily" ||
@@ -85,7 +113,8 @@ export function CronPicker({ control, frequency, cron }: CronPickerProps) {
           control={control}
           type="time"
           label={t("triggers.schedule.time")}
-          inputProps={{ className: "w-full sm:w-48" }}
+          orientation="horizontal"
+          inputProps={{ className: "h-11 w-full bg-background sm:w-40" }}
           required
         />
       )}
@@ -100,6 +129,7 @@ export function CronPicker({ control, frequency, cron }: CronPickerProps) {
               label={t("triggers.schedule.weekdays.label")}
               invalid={fieldState.invalid}
               error={fieldState.error}
+              orientation="horizontal"
               required
             >
               <div
@@ -115,7 +145,10 @@ export function CronPicker({ control, frequency, cron }: CronPickerProps) {
                       key={weekday}
                       type="button"
                       variant={selected ? "default" : "outline"}
-                      className="h-10 min-w-10 px-2"
+                      className={cn(
+                        "h-11 min-w-14 rounded-full px-4 font-medium",
+                        !selected && "bg-background",
+                      )}
                       aria-pressed={selected}
                       onClick={() =>
                         field.onChange(
@@ -141,7 +174,12 @@ export function CronPicker({ control, frequency, cron }: CronPickerProps) {
           control={control}
           type="number"
           label={t("triggers.schedule.monthDay")}
-          inputProps={{ min: 1, max: 31, className: "w-full sm:w-40" }}
+          orientation="horizontal"
+          inputProps={{
+            min: 1,
+            max: 31,
+            className: "h-11 w-full bg-background sm:w-40",
+          }}
           required
         />
       )}
@@ -156,30 +194,30 @@ export function CronPicker({ control, frequency, cron }: CronPickerProps) {
             placeholder: "0 9 * * *",
             spellCheck: false,
             autoCapitalize: "none",
+            className: "h-11 bg-background",
           }}
           required
         />
       )}
 
-      <div
-        className="flex gap-3 rounded-md border bg-background p-3"
-        aria-live="polite"
-      >
-        <CalendarClock
-          className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground"
-          aria-hidden="true"
-        />
-        <div className="space-y-0.5">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            {t("triggers.schedule.preview")}
-          </p>
-          <p className="text-sm font-medium">{description}</p>
+      <div className="space-y-3 border-t border-border/60 pt-4">
+        <div className="flex gap-3" aria-live="polite">
+          <CalendarClock
+            className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground"
+            aria-hidden="true"
+          />
+          <div className="space-y-0.5">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              {t("triggers.schedule.preview")}
+            </p>
+            <p className="text-sm font-medium">{description}</p>
+          </div>
         </div>
-      </div>
 
-      <div className="flex gap-2 text-sm text-muted-foreground">
-        <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-        <p>{t("triggers.schedule.utcNotice")}</p>
+        <div className="flex gap-3 text-xs text-muted-foreground">
+          <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          <p>{t("triggers.schedule.utcNotice")}</p>
+        </div>
       </div>
     </div>
   );

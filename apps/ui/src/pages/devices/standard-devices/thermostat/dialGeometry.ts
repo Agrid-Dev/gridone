@@ -39,6 +39,46 @@ export function valueToAngle(value: number, min: number, max: number): number {
   return DIAL_START_DEG + DIAL_SWEEP_DEG * valueToFraction(value, min, max);
 }
 
+/** Angle (degrees, SVG convention) of the vector (dx, dy) measured from the
+ *  dial centre. */
+export function pointAngle(dx: number, dy: number): number {
+  return (Math.atan2(dy, dx) * 180) / Math.PI;
+}
+
+/**
+ * Position along the track, as a fraction of the sweep, for a pointer angle.
+ *
+ * Angles falling in the bottom gap — the 90° the track does not cover — snap
+ * to the nearer end: a pointer there has gone past one of the two extremes,
+ * so the only sensible readings are "min" and "max". Without that, dragging
+ * off the bottom-left end would jump the setpoint to the maximum.
+ */
+export function angleToFraction(angleDeg: number): number {
+  const relative = (((angleDeg - DIAL_START_DEG) % 360) + 360) % 360;
+  if (relative <= DIAL_SWEEP_DEG) return relative / DIAL_SWEEP_DEG;
+  const gap = 360 - DIAL_SWEEP_DEG;
+  return relative < DIAL_SWEEP_DEG + gap / 2 ? 1 : 0;
+}
+
+/**
+ * Setpoint under a pointer at (dx, dy) from the dial centre, snapped to
+ * `step` and clamped to [min, max]. Distance from the centre is irrelevant —
+ * only the angle carries the value, so a drag that wanders inside or outside
+ * the ring keeps working.
+ */
+export function pointToValue(
+  dx: number,
+  dy: number,
+  min: number,
+  max: number,
+  step: number,
+): number {
+  const raw = min + angleToFraction(pointAngle(dx, dy)) * (max - min);
+  // toFixed guards against binary drift for steps like 0.1 (0.30000000000004).
+  const snapped = Number((Math.round(raw / step) * step).toFixed(4));
+  return Math.min(max, Math.max(min, snapped));
+}
+
 /** Cartesian point at `angleDeg` on the circle (cx, cy, r). */
 export function polarPoint(
   cx: number,
