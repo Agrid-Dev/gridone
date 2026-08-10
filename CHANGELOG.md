@@ -1,3 +1,9 @@
+## v0.202.0 (2026-08-10)
+
+### Feat
+
+- **ui**: surface Apps in the sidebar + presentation pass (AGR-1019)
+
 ## v0.201.1 (2026-08-10)
 
 ### Fix
