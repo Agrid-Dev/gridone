@@ -267,7 +267,9 @@
     "faultsBadge_one": "{{count}} défaut actif",
     "faultsBadge_other": "{{count}} défauts actifs",
     "devicesBadge_one": "{{count}} appareil",
-    "devicesBadge_other": "{{count}} appareils"
+    "devicesBadge_other": "{{count}} appareils",
+    "appRequestsBadge_one": "{{count}} demande d'enregistrement en attente",
+    "appRequestsBadge_other": "{{count}} demandes d'enregistrement en attente"
   },
   "topbar": {
     "notifications": "Notifications",

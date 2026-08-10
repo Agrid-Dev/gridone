@@ -21,5 +21,7 @@ class UsersServiceInterface(Protocol):
 
     async def unblock_user(self, user_id: str) -> User: ...
 
+    async def is_blocked(self, user_id: str) -> bool: ...
+
 
 __all__ = ["UsersServiceInterface"]

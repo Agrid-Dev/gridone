@@ -15,12 +15,14 @@ vi.mock("react-i18next", () =>
     "app.faults": "Faults",
     "app.drivers": "Drivers",
     "app.networks": "Networks",
+    "app.apps": "Apps",
     "app.users": "Users",
     "nav.main": "Main navigation",
     "nav.supervision": "Supervision",
     "nav.configuration": "Configuration",
     "sidebar.faultsBadge": "{{count}} active faults",
     "sidebar.devicesBadge": "{{count}} devices",
+    "sidebar.appRequestsBadge": "{{count}} pending registration requests",
   }),
 );
 
@@ -30,6 +32,7 @@ const permissions: { can: (permission: string) => boolean } = {
 const flags = { dashboards: true };
 let faults: FaultView[] = [];
 let devices: Device[] = [];
+let pendingAppRequests = 0;
 
 vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({ health: { version: "0.3.0" } }),
@@ -46,6 +49,10 @@ vi.mock("@/hooks/useFaultsList", () => ({
 
 vi.mock("@/hooks/useDevicesList", () => ({
   useDevicesList: () => ({ devices, loading: false, error: null }),
+}));
+
+vi.mock("@/hooks/usePendingAppRequests", () => ({
+  usePendingAppRequests: () => ({ pendingCount: pendingAppRequests }),
 }));
 
 // The building block has its own spec; stub it so this one stays about nav.
@@ -68,6 +75,7 @@ beforeEach(() => {
   flags.dashboards = true;
   faults = [];
   devices = [];
+  pendingAppRequests = 0;
 });
 afterEach(cleanup);
 
@@ -87,6 +95,44 @@ describe("Sidebar", () => {
     renderSidebar();
     expect(
       screen.queryByRole("link", { name: "Users" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("puts Apps first under Configuration, above Drivers", () => {
+    renderSidebar();
+    const appsLink = screen.getByRole("link", { name: /Apps/ });
+    expect(appsLink).toHaveAttribute("href", "/apps");
+    expect(
+      appsLink.compareDocumentPosition(
+        screen.getByRole("link", { name: "Drivers" }),
+      ) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("hides Apps without the users:write permission", () => {
+    permissions.can = (permission) => permission !== "users:write";
+    renderSidebar();
+    expect(
+      screen.queryByRole("link", { name: /Apps/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("badges Apps with the pending registration request count", () => {
+    pendingAppRequests = 2;
+    renderSidebar();
+    const badge = screen.getByLabelText("2 pending registration requests");
+    expect(badge).toHaveTextContent("2");
+    // An app is dead until its request is accepted: this needs attention.
+    expect(badge).toHaveClass("bg-destructive");
+  });
+
+  it("renders no Apps badge when no request is pending", () => {
+    renderSidebar();
+    expect(screen.getByRole("link", { name: /Apps/ })).not.toHaveTextContent(
+      "0",
+    );
+    expect(
+      screen.queryByLabelText(/pending registration/),
     ).not.toBeInTheDocument();
   });
 

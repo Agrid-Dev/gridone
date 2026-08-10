@@ -1,13 +1,15 @@
 {
   "title": "Applications",
   "singular": "Application",
+  "empty": {
+    "title": "Aucune application enregistr\u00e9e",
+    "description": "Une application ne se cr\u00e9e pas depuis Gridone : elle demande son enregistrement, puis un administrateur l'accepte depuis les demandes en attente.",
+    "action": "Voir les demandes d'enregistrement"
+  },
   "fields": {
-    "name": "Nom",
-    "description": "Description",
     "apiUrl": "URL de l'API",
     "status": "Statut",
-    "createdAt": "Date d'enregistrement",
-    "icon": "Ic\u00f4ne"
+    "createdAt": "Date d'enregistrement"
   },
   "status": {
     "healthy": "En ligne",
@@ -27,6 +29,12 @@
   "enabled": "Application activ\u00e9e",
   "disabled": "Application d\u00e9sactiv\u00e9e",
   "disabledBadge": "D\u00e9sactiv\u00e9e",
+  "pendingCallout": {
+    "title_one": "{{count}} demande d'enregistrement en attente",
+    "title_other": "{{count}} demandes d'enregistrement en attente",
+    "description": "Une application reste inactive tant que sa demande n'a pas \u00e9t\u00e9 accept\u00e9e.",
+    "action": "Examiner"
+  },
   "configuration": "Configuration",
   "configSaved": "Configuration enregistr\u00e9e",
   "configError": "Erreur lors de l'enregistrement de la configuration",

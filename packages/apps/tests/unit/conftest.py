@@ -40,6 +40,15 @@ def make_app(
     )
 
 
+def make_user(user_id: str = "user-1", *, is_blocked: bool = False) -> User:
+    return User(
+        id=user_id,
+        username=f"app-{user_id}",
+        type=UserType.SERVICE_ACCOUNT,
+        is_blocked=is_blocked,
+    )
+
+
 @pytest.fixture
 def reg_storage() -> MemoryRegistrationStorage:
     return MemoryRegistrationStorage()
@@ -70,6 +79,11 @@ def users_manager() -> AsyncMock:
         type=UserType.SERVICE_ACCOUNT,
         is_blocked=False,
     )
+    # Reads behind `App.enabled`: default to "nothing is blocked", so a test
+    # that does not care about the enabled state gets a coherent one rather
+    # than an AsyncMock (truthy, and not iterable).
+    mock.list_users.return_value = []
+    mock.is_blocked.return_value = False
     return mock
 
 

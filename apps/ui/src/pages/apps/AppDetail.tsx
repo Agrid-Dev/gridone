@@ -3,10 +3,11 @@ import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { BackLink } from "@/components/BackLink";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { usePermissions } from "@/contexts/AuthContext";
-import type { User } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { AppStatusBadge } from "./components/AppStatusBadge";
 import { AppCapabilities } from "./components/AppCapabilities";
@@ -25,21 +26,10 @@ export default function AppDetail() {
     enabled: !!appId,
   });
 
-  const { data: users = [] } = useQuery({
-    queryKey: ["users"],
-    // Admin-only view: the API returns full `User` objects here.
-    queryFn: () => client.users.list() as Promise<User[]>,
-    enabled: !!app,
-  });
-
-  const appUser = users.find((u) => u.id === app?.user_id);
-  const isDisabled = appUser?.is_blocked ?? false;
-
   const enableMutation = useMutation({
     mutationFn: () => client.apps.enable(appId!),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["apps"] });
-      queryClient.invalidateQueries({ queryKey: ["users"] });
       toast.success(t("enabled"));
     },
     onError: (err: Error) => toast.error(err.message),
@@ -49,7 +39,6 @@ export default function AppDetail() {
     mutationFn: () => client.apps.disable(appId!),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["apps"] });
-      queryClient.invalidateQueries({ queryKey: ["users"] });
       toast.success(t("disabled"));
     },
     onError: (err: Error) => toast.error(err.message),
@@ -65,25 +54,41 @@ export default function AppDetail() {
   }
 
   const isBusy = enableMutation.isPending || disableMutation.isPending;
+  const isDisabled = app.enabled === false;
 
   return (
     <section className="space-y-6">
+      <BackLink to="/apps">{t("title")}</BackLink>
+
       <ResourceHeader
-        title={app.name}
+        title={
+          <span className="flex items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-xl">
+              {app.icon}
+            </span>
+            {app.name}
+          </span>
+        }
+        caption={app.description}
+        /* The health loop probes disabled apps too: showing both badges would
+         * read as a contradiction, so "Disabled" wins.
+         * TODO: display last health check timestamp when backend exposes it */
+        status={
+          isDisabled ? (
+            <Badge variant="secondary">{t("disabledBadge")}</Badge>
+          ) : (
+            <AppStatusBadge status={app.status ?? "registered"} />
+          )
+        }
         actions={
           can("users:write") ? (
             isDisabled ? (
-              <Button
-                className="bg-green-600 text-white hover:bg-green-700"
-                onClick={() => enableMutation.mutate()}
-                disabled={isBusy}
-              >
+              <Button onClick={() => enableMutation.mutate()} disabled={isBusy}>
                 {t("enable")}
               </Button>
             ) : (
               <Button
-                variant="outline"
-                className="border-red-300 text-red-600 hover:bg-red-50"
+                variant="destructive"
                 onClick={() => disableMutation.mutate()}
                 disabled={isBusy}
               >
@@ -98,19 +103,6 @@ export default function AppDetail() {
       <div className="rounded-2xl border border-border bg-card p-6">
         <div className="grid grid-cols-2 gap-y-4 text-sm">
           <div>
-            <span className="text-muted-foreground">
-              {t("fields.description")}
-            </span>
-            <p className="mt-1 text-foreground">{app.description}</p>
-          </div>
-          <div>
-            <span className="text-muted-foreground">{t("fields.status")}</span>
-            {/* TODO: display last health check timestamp when backend exposes it */}
-            <div className="mt-1">
-              <AppStatusBadge status={app.status ?? "registered"} />
-            </div>
-          </div>
-          <div>
             <span className="text-muted-foreground">{t("fields.apiUrl")}</span>
             <p className="mt-1 text-xs text-foreground">{app.api_url}</p>
           </div>
@@ -123,10 +115,6 @@ export default function AppDetail() {
                 ? new Date(app.created_at).toLocaleDateString()
                 : "-"}
             </p>
-          </div>
-          <div>
-            <span className="text-muted-foreground">{t("fields.icon")}</span>
-            <p className="mt-1 text-2xl">{app.icon}</p>
           </div>
         </div>
 

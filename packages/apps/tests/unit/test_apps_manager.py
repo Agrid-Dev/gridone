@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import httpx
 import pytest
-from conftest import health_response, make_app
+from conftest import health_response, make_app, make_user
 
 from apps.apps_manager import AppsManager
 from apps.errors import AppUnreachableError, InvalidAppSchemaError
@@ -45,6 +45,33 @@ class TestListApps:
         result = await apps_manager.list_apps()
         assert len(result) == 2
 
+    async def test_list_reports_enabled_from_blocked_service_accounts(
+        self, apps_manager, app_storage, users_manager
+    ):
+        await app_storage.save(make_app("app-1", user_id="user-1"))
+        await app_storage.save(make_app("app-2", user_id="user-2"))
+        users_manager.list_users.return_value = [
+            make_user("user-1", is_blocked=True),
+            make_user("user-2"),
+        ]
+
+        by_id = {app.id: app for app in await apps_manager.list_apps()}
+
+        assert by_id["app-1"].enabled is False
+        assert by_id["app-2"].enabled is True
+        # One pass over the users, not one lookup per app.
+        users_manager.list_users.assert_awaited_once_with()
+
+    async def test_list_treats_an_unknown_service_account_as_enabled(
+        self, apps_manager, app_storage, users_manager
+    ):
+        await app_storage.save(make_app("app-1", user_id="user-1"))
+        users_manager.list_users.return_value = []
+
+        [app] = await apps_manager.list_apps()
+
+        assert app.enabled is True
+
 
 class TestGetApp:
     async def test_get_existing(self, apps_manager, app_storage):
@@ -56,6 +83,22 @@ class TestGetApp:
     async def test_get_not_found(self, apps_manager):
         with pytest.raises(NotFoundError, match="App 'nonexistent' not found"):
             await apps_manager.get_app("nonexistent")
+
+    @pytest.mark.parametrize(
+        ("blocked", "expected_enabled"),
+        [(True, False), (False, True)],
+        ids=["blocked-account", "active-account"],
+    )
+    async def test_get_reports_enabled_from_the_service_account(
+        self, apps_manager, app_storage, users_manager, blocked, expected_enabled
+    ):
+        await app_storage.save(make_app())
+        users_manager.is_blocked.return_value = blocked
+
+        fetched = await apps_manager.get_app("app-1")
+
+        assert fetched.enabled is expected_enabled
+        users_manager.is_blocked.assert_awaited_once_with("user-1")
 
 
 class TestGetConfigSchema:
@@ -364,9 +407,14 @@ class TestEnableApp:
         self, apps_manager, app_storage, http_client, users_manager
     ):
         await app_storage.save(make_app())
+        # The app is read before being unblocked, so the returned model must
+        # carry the state we just set, not the one that read saw.
+        users_manager.is_blocked.return_value = True
+
         result = await apps_manager.enable_app("app-1")
 
         assert result.id == "app-1"
+        assert result.enabled is True
         http_client.post.assert_called_once_with(
             "https://myapp.example.com/enable",
             json={"enabled": True},
@@ -398,6 +446,7 @@ class TestDisableApp:
         result = await apps_manager.disable_app("app-1")
 
         assert result.id == "app-1"
+        assert result.enabled is False
         http_client.post.assert_called_once_with(
             "https://myapp.example.com/enable",
             json={"enabled": False},
