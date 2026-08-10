@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Link, NavLink } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
+  Blocks,
   Cpu,
   LayoutDashboard,
   LayoutGrid,
@@ -14,6 +15,7 @@ import {
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { useDevicesList } from "@/hooks/useDevicesList";
 import { useFaultsList } from "@/hooks/useFaultsList";
+import { usePendingAppRequests } from "@/hooks/usePendingAppRequests";
 import { useFeatureEnabled } from "@/utils/featureFlags";
 import { BuildingSwitcher } from "./BuildingSwitcher";
 
@@ -67,6 +69,7 @@ export function Sidebar() {
   const dashboardsEnabled = useFeatureEnabled("dashboards");
   const { faults } = useFaultsList();
   const { devices } = useDevicesList();
+  const { pendingCount: pendingAppRequests } = usePendingAppRequests();
 
   const version = health.version?.trim() || null;
   const versionLabel = version ? t("app.version", { version }) : null;
@@ -142,6 +145,26 @@ export function Sidebar() {
           </NavLink>
 
           <SectionLabel>{t("nav.configuration")}</SectionLabel>
+
+          {/* Above Drivers: an app is the product-level integration, drivers
+           *  and networks are the plumbing underneath it. Admin-only, because
+           *  configuring, enabling and accepting apps is all `users:write` —
+           *  the route itself stays open, `GET /apps` being readable by any
+           *  authenticated user. */}
+          {can("users:write") && (
+            <NavLink to="/apps" className={navLinkClass}>
+              <Blocks className="h-4 w-4" />
+              {t("app.apps")}
+              {pendingAppRequests > 0 && (
+                <NavBadge
+                  count={pendingAppRequests}
+                  label={t("sidebar.appRequestsBadge", {
+                    count: pendingAppRequests,
+                  })}
+                />
+              )}
+            </NavLink>
+          )}
 
           <NavLink to="/drivers" className={navLinkClass}>
             <Puzzle className="h-4 w-4" />

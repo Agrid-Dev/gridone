@@ -1484,6 +1484,11 @@ export interface components {
        */
       created_at?: string;
       push_status?: components["schemas"]["PushStatus"] | null;
+      /**
+       * Enabled
+       * @default true
+       */
+      enabled?: boolean;
       readonly capabilities: components["schemas"]["AppCapabilities"];
       /** Health Url */
       readonly health_url: string;

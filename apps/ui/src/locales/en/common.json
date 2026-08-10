@@ -267,7 +267,9 @@
     "faultsBadge_one": "{{count}} active fault",
     "faultsBadge_other": "{{count}} active faults",
     "devicesBadge_one": "{{count}} device",
-    "devicesBadge_other": "{{count}} devices"
+    "devicesBadge_other": "{{count}} devices",
+    "appRequestsBadge_one": "{{count}} pending registration request",
+    "appRequestsBadge_other": "{{count}} pending registration requests"
   },
   "topbar": {
     "notifications": "Notifications",

@@ -1,4 +1,4 @@
-import { FC } from "react";
+import { FC, ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -19,6 +19,9 @@ interface ResourceEmptyProps {
   showCreate?: boolean;
   title?: string;
   description?: string;
+  /** Call to action for resources that are not created from this page (an app
+   *  registers itself, for instance) — rendered instead of the create button. */
+  action?: ReactNode;
   className?: string;
 }
 
@@ -29,6 +32,7 @@ export const ResourceEmpty: FC<ResourceEmptyProps> = ({
   showCreate = true,
   title,
   description,
+  action,
   className,
 }) => {
   const { t } = useTranslation();
@@ -51,13 +55,14 @@ export const ResourceEmpty: FC<ResourceEmptyProps> = ({
               : t("empty.details", { resourceName }))}
         </EmptyDescription>
       </EmptyHeader>
-      {(filtered || showCreate) && (
+      {(filtered || showCreate || action) && (
         <EmptyContent className="flex-row justify-center gap-2">
-          {filtered ? (
+          {filtered && (
             <Button variant="outline" onClick={onClearFilters}>
               {t("empty.clearFilters")}
             </Button>
-          ) : (
+          )}
+          {!filtered && showCreate && (
             <Button variant="default" asChild>
               <Link to="new">
                 <Plus />
@@ -65,6 +70,7 @@ export const ResourceEmpty: FC<ResourceEmptyProps> = ({
               </Link>
             </Button>
           )}
+          {!filtered && action}
         </EmptyContent>
       )}
     </Empty>

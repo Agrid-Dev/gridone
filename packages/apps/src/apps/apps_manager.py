@@ -46,14 +46,27 @@ class AppsManager:
     # ── App CRUD ─────────────────────────────────────────────────────────
 
     async def list_apps(self) -> list[App]:
-        return await self._app_storage.list_all()
+        """List every app, each carrying its enabled state.
+
+        The blocked accounts are read in one pass rather than per app: the
+        users service is the owner of that state and a per-app lookup would
+        cost one round-trip each.
+        """
+        apps = await self._app_storage.list_all()
+        users = await self._users_manager.list_users()
+        blocked_user_ids = {user.id for user in users if user.is_blocked}
+        return [
+            app.model_copy(update={"enabled": app.user_id not in blocked_user_ids})
+            for app in apps
+        ]
 
     async def get_app(self, app_id: str) -> App:
         app = await self._app_storage.get_by_id(app_id)
         if app is None:
             msg = f"App '{app_id}' not found"
             raise NotFoundError(msg)
-        return app
+        blocked = await self._users_manager.is_blocked(app.user_id)
+        return app.model_copy(update={"enabled": not blocked})
 
     # ── Config ───────────────────────────────────────────────────────────
 
@@ -193,7 +206,7 @@ class AppsManager:
         except httpx.HTTPError:
             logger.warning("Failed to call enable on app %s", app_id, exc_info=True)
         await self._users_manager.unblock_user(app.user_id)
-        return app
+        return app.model_copy(update={"enabled": True})
 
     async def disable_app(self, app_id: str) -> App:
         app = await self.get_app(app_id)
@@ -206,7 +219,7 @@ class AppsManager:
         except httpx.HTTPError:
             logger.warning("Failed to call disable on app %s", app_id, exc_info=True)
         await self._users_manager.block_user(app.user_id)
-        return app
+        return app.model_copy(update={"enabled": False})
 
     # ── Health monitoring ────────────────────────────────────────────────
 

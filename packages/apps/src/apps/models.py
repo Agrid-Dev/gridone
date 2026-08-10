@@ -69,6 +69,10 @@ class App(BaseModel):
     # GET /apps/{id}/config instead, which is gated behind users:write.
     config: dict[str, Any] | None = Field(default=None, exclude=True)
     push_status: PushStatus | None = None
+    # Derived, not persisted: an app is disabled by blocking its service
+    # account, so the users service owns this state. The manager populates it
+    # on every read; storage backends do not write it back.
+    enabled: bool = True
 
     @field_validator("api_url")
     @classmethod

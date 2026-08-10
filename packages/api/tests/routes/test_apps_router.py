@@ -110,6 +110,17 @@ def test_list_apps(app: FastAPI):
         assert data[0]["health_url"] == "https://example.com/health"
 
 
+def test_list_apps_serializes_enabled(app: FastAPI, apps_service: AsyncMock):
+    """The UI reads the toggle state off the app itself, not off `GET /users`."""
+    apps_service.list_apps = AsyncMock(
+        return_value=[DUMMY_APP.model_copy(update={"enabled": False})]
+    )
+    with TestClient(app) as client:
+        resp = client.get("/apps/")
+        assert resp.status_code == 200
+        assert resp.json()[0]["enabled"] is False
+
+
 def test_list_apps_empty(app: FastAPI, apps_service: AsyncMock):
     apps_service.list_apps = AsyncMock(return_value=[])
     with TestClient(app) as client:
@@ -129,7 +140,18 @@ def test_get_app(app: FastAPI):
         assert data["id"] == "app-1"
         assert data["name"] == "My App"
         assert data["status"] == "registered"
+        assert data["enabled"] is True
         assert data["capabilities"] == EXPECTED_CAPABILITIES
+
+
+def test_get_app_disabled(app: FastAPI, apps_service: AsyncMock):
+    apps_service.get_app = AsyncMock(
+        return_value=DUMMY_APP.model_copy(update={"enabled": False})
+    )
+    with TestClient(app) as client:
+        resp = client.get("/apps/app-1")
+        assert resp.status_code == 200
+        assert resp.json()["enabled"] is False
 
 
 def test_get_app_not_found(app: FastAPI, apps_service: AsyncMock):

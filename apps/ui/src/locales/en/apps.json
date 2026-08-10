@@ -1,13 +1,15 @@
 {
   "title": "Apps",
   "singular": "App",
+  "empty": {
+    "title": "No app registered yet",
+    "description": "An app is not created from Gridone: it requests its own registration, then an administrator accepts it from the pending requests.",
+    "action": "View registration requests"
+  },
   "fields": {
-    "name": "Name",
-    "description": "Description",
     "apiUrl": "API URL",
     "status": "Status",
-    "createdAt": "Registered on",
-    "icon": "Icon"
+    "createdAt": "Registered on"
   },
   "status": {
     "healthy": "Healthy",
@@ -27,6 +29,12 @@
   "enabled": "App enabled",
   "disabled": "App disabled",
   "disabledBadge": "Disabled",
+  "pendingCallout": {
+    "title_one": "{{count}} pending registration request",
+    "title_other": "{{count}} pending registration requests",
+    "description": "An app stays inactive until its request is accepted.",
+    "action": "Review"
+  },
   "configuration": "Configuration",
   "configSaved": "Configuration saved",
   "configError": "Failed to save configuration",
