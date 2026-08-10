@@ -43,7 +43,11 @@ class JsonFormatter(logging.Formatter):
                 if key not in _STANDARD_RECORD_ATTRS
             }
         )
-        return json.dumps(payload)
+        # `extra` fields are arbitrary objects — uvicorn attaches the live
+        # WebSocketProtocol to every websocket log record, for instance. A
+        # formatter must never raise, so fall back to str() for anything
+        # json can't encode natively.
+        return json.dumps(payload, default=str)
 
 
 _THIRD_PARTY_LOGGERS = {

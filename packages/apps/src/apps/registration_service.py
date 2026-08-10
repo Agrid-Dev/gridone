@@ -65,16 +65,36 @@ class RegistrationService:
         self, create_data: RegistrationRequestCreate
     ) -> RegistrationRequest:
         self._validate_config(create_data.config)
+        existing = await self._find_pending_by_username(create_data.username)
         request = RegistrationRequest(
-            id=str(uuid.uuid4()),
+            id=existing.id if existing else str(uuid.uuid4()),
             username=create_data.username,
             hashed_password=hash_password(create_data.password),
             status=RegistrationRequestStatus.PENDING,
-            created_at=datetime.now(UTC),
+            created_at=existing.created_at if existing else datetime.now(UTC),
             config=create_data.config,
         )
         await self._storage.save(request)
         return request
+
+    async def _find_pending_by_username(
+        self, username: str
+    ) -> RegistrationRequest | None:
+        """Stateless apps re-file their registration on every restart while
+        the request is pending; reusing the pending request keeps the admin
+        list free of duplicates while refreshing the password and manifest
+        to the latest the app sent.
+        """
+        requests = await self._storage.list_all()
+        return next(
+            (
+                r
+                for r in requests
+                if r.username == username
+                and r.status == RegistrationRequestStatus.PENDING
+            ),
+            None,
+        )
 
     async def list_registration_requests(self) -> list[RegistrationRequest]:
         return await self._storage.list_all()
@@ -123,7 +143,25 @@ class RegistrationService:
             update={"status": RegistrationRequestStatus.ACCEPTED}
         )
         await self._storage.save(accepted)
+        await self._discard_pending_duplicates(accepted)
         return accepted, user, app
+
+    async def _discard_pending_duplicates(self, accepted: RegistrationRequest) -> None:
+        """Sweep other pending requests for the same username: accepting them
+        later would fail on the already-created service account. Covers
+        duplicates filed before the create-time dedup existed.
+        """
+        for other in await self._storage.list_all():
+            if (
+                other.username == accepted.username
+                and other.id != accepted.id
+                and other.status == RegistrationRequestStatus.PENDING
+            ):
+                await self._storage.save(
+                    other.model_copy(
+                        update={"status": RegistrationRequestStatus.DISCARDED}
+                    )
+                )
 
     async def discard_registration_request(
         self, request_id: str
