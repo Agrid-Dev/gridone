@@ -2,12 +2,10 @@ import asyncio
 import contextlib
 import logging
 from collections.abc import AsyncGenerator, Iterable
-from typing import NoReturn
 
 from bacpypes3.apdu import (
     APDU,
     AbortPDU,
-    AbortReason,
     Error,
     ReadPropertyACK,
     ReadPropertyMultipleACK,
@@ -17,8 +15,7 @@ from bacpypes3.apdu import (
     SimpleAckPDU,
     WritePropertyRequest,
 )
-from bacpypes3.basetypes import BinaryPV, PropertyIdentifier
-from bacpypes3.constructeddata import AnyAtomic
+from bacpypes3.basetypes import BinaryPV
 from bacpypes3.ipv4.app import ForeignApplication, NormalApplication
 from bacpypes3.pdu import Address, IPv4Address
 from bacpypes3.primitivedata import (
@@ -39,6 +36,8 @@ from devices_manager.types import AttributeValueType, TransportProtocols
 from .application import make_local_application
 from .bacnet_address import BacnetAddress
 from .bacnet_types import BacnetObjectType
+from .responses import BacnetRequestTooLargeError, raise_for_response
+from .rpm_decode import decode_property_value, decode_rpm
 from .rpm_plan import RpmRequest, plan_rpm
 from .transport_config import BacnetTransportConfig
 
@@ -52,25 +51,6 @@ MIN_RPM_REQUEST_APDU_FRACTION = 0.05
 
 def get_device_identifier(device_instance: int) -> ObjectIdentifier:
     return ObjectIdentifier(f"device,{device_instance}")
-
-
-def to_native(value: object) -> AttributeValueType:
-    """Convert a bacpypes3 atomic value to a plain Python primitive.
-
-    `get_value()` returns wrappers (Real, Unsigned, Enumerated, ...) that
-    subclass float/int/str, so they pass isinstance checks downstream but break
-    exact-type lookups (e.g. timeseries `type(value)`). Order matters: bool
-    before int, since bool is an int subclass.
-    """
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, int):
-        return int(value)
-    if isinstance(value, float):
-        return float(value)
-    if isinstance(value, str):
-        return str(value)
-    return value  # ty: ignore[invalid-return-type]
 
 
 _ANALOG_OBJECT_TYPES = frozenset(
@@ -117,119 +97,6 @@ def encode_present_value(
 
 
 type DevicesDict = dict[ObjectIdentifier, Address]
-
-
-class BacnetServiceRejectedError(RuntimeError):
-    """The device rejected the confirmed service itself (RejectPDU/AbortPDU),
-    not just one transaction — distinct from ``Error``, which only fails the
-    request that carried it."""
-
-
-class BacnetRequestTooLargeError(BacnetServiceRejectedError):
-    """The device aborted because the request/response wouldn't fit
-    unsegmented (segmentation-not-supported/buffer-overflow) — the service
-    itself works, so callers should retry with a smaller RPM chunk instead of
-    disabling RPM for the device."""
-
-
-_TOO_LARGE_ABORT_REASONS = frozenset(
-    {AbortReason.segmentationNotSupported, AbortReason.bufferOverflow}
-)
-
-
-def _raise_for_response(response: object, *, target: str, action: str) -> NoReturn:
-    """Classify a non-ACK BACnet response and raise accordingly.
-
-    ``Error`` means only this one transaction failed (e.g. one bad
-    property). ``RejectPDU``/``AbortPDU`` mean the device rejected the
-    confirmed *service* itself (e.g. RPM unrecognized) — raised as
-    :class:`BacnetServiceRejectedError` so callers can distinguish "this
-    read failed" from "stop attempting this service on this device",
-    driving the RPM-support fallback cache in ``_read_rpm_request``. An
-    abort caused by the response being too large to fit unsegmented is
-    raised as the narrower :class:`BacnetRequestTooLargeError` so callers can
-    retry smaller instead of giving up on the service entirely.
-    """
-    if isinstance(response, Error):
-        msg = (
-            f"BACnet error on {action} to {target}: "
-            f"{response.errorClass}:{response.errorCode}"
-        )
-        raise RuntimeError(msg)  # noqa: TRY004
-    if isinstance(response, RejectPDU):
-        msg = f"BACnet reject on {action} to {target}: rejectReason={response.reason}"
-        raise BacnetServiceRejectedError(msg)
-    if isinstance(response, AbortPDU):
-        msg = f"BACnet abort on {action} to {target}: abortReason={response.reason}"
-        if response.reason in _TOO_LARGE_ABORT_REASONS:
-            raise BacnetRequestTooLargeError(msg)
-        raise BacnetServiceRejectedError(msg)
-    msg = f"Unexpected response to {action}: {response!r}"
-    raise TypeError(msg)
-
-
-def _decode_property_value(container: object) -> AttributeValueType:
-    """Unwrap a bacpypes3 ``Any``-typed property value into a plain Python
-    primitive — the same cast used for both a single ReadProperty ACK and
-    one element of a ReadPropertyMultiple ACK."""
-    return to_native(container.cast_out(AnyAtomic).get_value())  # ty: ignore[unresolved-attribute]
-
-
-def _decode_rpm(
-    rpm_request: RpmRequest, ack: ReadPropertyMultipleACK
-) -> list[tuple[BacnetAddress, AttributeValueType | Exception]]:
-    """Split one RPM ACK back into a value or error per member address.
-
-    Every address in ``rpm_request.addresses`` is guaranteed exactly one
-    entry in the result: a ``propertyAccessError`` element yields an error
-    for that address without failing the others, and an address the ACK
-    omits entirely (partial/buggy RPM support) is reported as an error
-    rather than silently dropped — the caller must be able to treat "no
-    entry" as impossible. Two addresses sharing one (object, property) — e.g.
-    differing only in write_priority — both receive the same decoded result,
-    since a device answers a property once regardless of how many addresses
-    reference it.
-    """
-    by_key: dict[tuple[ObjectIdentifier, PropertyIdentifier], list[BacnetAddress]] = {}
-    for address in rpm_request.addresses:
-        key = (
-            ObjectIdentifier(f"{address.object_type},{address.object_instance}"),
-            PropertyIdentifier(address.property_name),
-        )
-        by_key.setdefault(key, []).append(address)
-    results: dict[str, tuple[BacnetAddress, AttributeValueType | Exception]] = {
-        address.id: (
-            address,
-            RuntimeError(
-                f"BACnet read-property-multiple response for device "
-                f"{rpm_request.device_instance} omitted "
-                f"{address.object_type}:{address.object_instance} "
-                f"{address.property_name}"
-            ),
-        )
-        for address in rpm_request.addresses
-    }
-    for access_result in ack.listOfReadAccessResults:  # ty: ignore[not-iterable]
-        for element in access_result.listOfResults:
-            addresses = by_key.get(
-                (access_result.objectIdentifier, element.propertyIdentifier), []
-            )
-            if not addresses:
-                continue
-            choice = element.readResult
-            if choice.propertyAccessError is not None:
-                error = choice.propertyAccessError
-                value: AttributeValueType | Exception = RuntimeError(
-                    f"BACnet error on read-property-multiple to "
-                    f"{access_result.objectIdentifier} "
-                    f"{element.propertyIdentifier}: "
-                    f"{error.errorClass}:{error.errorCode}"
-                )
-            else:
-                value = _decode_property_value(choice.propertyValue)
-            for address in addresses:
-                results[address.id] = (address, value)
-    return list(results.values())
 
 
 class BacnetTransportClient(PullTransportClient[BacnetAddress]):
@@ -330,7 +197,7 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
         awaited call's result, or raised directly. Both are ``BaseException``
         subclasses (not ``Exception``), so a raised one would otherwise slip
         past every ``except Exception`` up the call chain uncaught — routing
-        it through ``_raise_for_response`` here means callers only ever see
+        it through ``raise_for_response`` here means callers only ever see
         the ACK they asked for, or an already-classified normal exception.
         """
         try:
@@ -338,7 +205,7 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
                 self._application.request(request), timeout=request_timeout
             )
         except (Error, RejectPDU, AbortPDU) as e:
-            _raise_for_response(e, target=target, action=action)
+            return raise_for_response(e, target=target, action=action)
 
     @connected
     async def _read_bacnet(self, address: BacnetAddress) -> AttributeValueType:
@@ -356,8 +223,8 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
             request_timeout=self.config.read_property_timeout,
         )
         if isinstance(response, ReadPropertyACK):
-            return _decode_property_value(response.propertyValue)
-        _raise_for_response(response, target=target, action="read-property")
+            return decode_property_value(response.propertyValue)
+        return raise_for_response(response, target=target, action="read-property")
 
     async def _read(self, address: BacnetAddress) -> AttributeValueType:
         return await self._read_bacnet(address)
@@ -379,7 +246,9 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
         )
         if isinstance(response, ReadPropertyMultipleACK):
             return response
-        _raise_for_response(response, target=target, action="read-property-multiple")
+        return raise_for_response(
+            response, target=target, action="read-property-multiple"
+        )
 
     async def _read_rpm_request(
         self, rpm_request: RpmRequest, sweep_id: str | None
@@ -409,7 +278,7 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
             try:
                 async with timed_io(self.id, self.protocol, len(rpm_request.addresses)):
                     ack = await self._read_rpm(rpm_request)
-                    values = _decode_rpm(rpm_request, ack)
+                    values = decode_rpm(rpm_request, ack)
             except BacnetRequestTooLargeError:
                 raise
             except Exception as e:  # noqa: BLE001
@@ -573,10 +442,8 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
         sweep_id: str | None = None,
     ) -> AsyncGenerator[ReadResult]:
         """Read addresses as coalesced ReadPropertyMultiple requests, one per
-        device instance's Max-APDU-sized chunk. A device that has already
-        shown (RejectPDU/AbortPDU, or simply never responding) it doesn't
-        support RPM falls back to sequential ReadProperty for the rest of
-        the session.
+        device instance's Max-APDU-sized chunk. See :meth:`_read_rpm_request`
+        for the one-strike RPM-support fallback policy.
 
         The RPM path bypasses the base :meth:`read`, so it consults and
         populates ``self._sweep_memo`` directly (same store `memoize_sweep`
@@ -647,7 +514,7 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
 
         if isinstance(response, SimpleAckPDU):
             return
-        _raise_for_response(response, target=target, action="write-property")
+        raise_for_response(response, target=target, action="write-property")
 
     async def write(
         self,

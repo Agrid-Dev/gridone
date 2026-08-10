@@ -38,14 +38,16 @@ from devices_manager.core.transports.bacnet_transport.bacnet_types import (
     BacnetObjectType,
 )
 from devices_manager.core.transports.bacnet_transport.client import (
-    BacnetRequestTooLargeError,
-    BacnetServiceRejectedError,
     BacnetTransportClient,
-    _raise_for_response,
     encode_present_value,
     get_device_identifier,
-    to_native,
 )
+from devices_manager.core.transports.bacnet_transport.responses import (
+    BacnetRequestTooLargeError,
+    BacnetServiceRejectedError,
+    raise_for_response,
+)
+from devices_manager.core.transports.bacnet_transport.rpm_decode import to_native
 from devices_manager.core.transports.bacnet_transport.transport_config import (
     BacnetTransportConfig,
 )
@@ -297,7 +299,7 @@ class TestRaiseForResponse:
         )
 
         with pytest.raises(RuntimeError) as exc_info:
-            _raise_for_response(response, target="t", action="a")
+            raise_for_response(response, target="t", action="a")
 
         assert not isinstance(exc_info.value, BacnetServiceRejectedError)
 
@@ -307,7 +309,7 @@ class TestRaiseForResponse:
     )
     def test_reject_and_abort_raise_service_rejected(self, response: object) -> None:
         with pytest.raises(BacnetServiceRejectedError):
-            _raise_for_response(response, target="t", action="a")
+            raise_for_response(response, target="t", action="a")
 
     @pytest.mark.parametrize("reason", ["segmentationNotSupported", "bufferOverflow"])
     def test_size_related_abort_raises_the_narrower_too_large_error(
@@ -316,11 +318,11 @@ class TestRaiseForResponse:
         response = AbortPDU(reason=reason)
 
         with pytest.raises(BacnetRequestTooLargeError):
-            _raise_for_response(response, target="t", action="a")
+            raise_for_response(response, target="t", action="a")
 
     def test_unexpected_response_raises_type_error(self) -> None:
         with pytest.raises(TypeError):
-            _raise_for_response(SimpleAckPDU(), target="t", action="a")
+            raise_for_response(SimpleAckPDU(), target="t", action="a")
 
 
 class TestRpmEnabledConfig:
@@ -597,7 +599,7 @@ class TestReadManyRpm:
             msg = "malformed property value"
             raise ValueError(msg)
 
-        monkeypatch.setattr(client_module, "_decode_rpm", _boom)
+        monkeypatch.setattr(client_module, "decode_rpm", _boom)
         app = _FakeRequestApp()
         addresses = [_addr(1, 0), _addr(1, 1)]
         app.responses = [_rpm_ack([(addresses[0], 21.5), (addresses[1], 22.0)])]
@@ -619,7 +621,7 @@ class TestReadManyRpm:
         import devices_manager.core.transports.bacnet_transport.client as client_module
 
         call_count = 0
-        real_decode_rpm = client_module._decode_rpm  # noqa: SLF001
+        real_decode_rpm = client_module.decode_rpm
 
         def _boom_once(*args: object, **kwargs: object) -> object:
             nonlocal call_count
@@ -627,9 +629,9 @@ class TestReadManyRpm:
             if call_count == 1:
                 msg = "malformed property value"
                 raise ValueError(msg)
-            return real_decode_rpm(*args, **kwargs)  # ty: ignore[invalid-argument-type]
+            return real_decode_rpm(*args, **kwargs)
 
-        monkeypatch.setattr(client_module, "_decode_rpm", _boom_once)
+        monkeypatch.setattr(client_module, "decode_rpm", _boom_once)
         app = _FakeRequestApp()
         address = _addr(1, 0)
         app.responses = [
