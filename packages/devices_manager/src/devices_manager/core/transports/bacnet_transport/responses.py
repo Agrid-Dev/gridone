@@ -5,15 +5,12 @@ from bacpypes3.apdu import AbortPDU, AbortReason, Error, RejectPDU
 
 class BacnetServiceRejectedError(RuntimeError):
     """The device rejected the confirmed service itself (RejectPDU/AbortPDU),
-    not just one transaction — distinct from ``Error``, which only fails the
-    request that carried it."""
+    not just one transaction like ``Error`` does."""
 
 
 class BacnetRequestTooLargeError(BacnetServiceRejectedError):
-    """The device aborted because the request/response wouldn't fit
-    unsegmented (segmentation-not-supported/buffer-overflow) — the service
-    itself works, so callers should retry with a smaller RPM chunk instead of
-    disabling RPM for the device."""
+    """Segmentation/buffer-overflow abort: the service works, so retry with a
+    smaller RPM chunk instead of disabling RPM for the device."""
 
 
 _TOO_LARGE_ABORT_REASONS = frozenset(
@@ -24,14 +21,10 @@ _TOO_LARGE_ABORT_REASONS = frozenset(
 def raise_for_response(response: object, *, target: str, action: str) -> NoReturn:
     """Classify a non-ACK BACnet response and raise accordingly.
 
-    ``Error`` means only this one transaction failed (e.g. one bad
-    property). ``RejectPDU``/``AbortPDU`` mean the device rejected the
-    confirmed *service* itself (e.g. RPM unrecognized) — raised as
-    :class:`BacnetServiceRejectedError` so callers can distinguish "this
-    read failed" from "stop attempting this service on this device". An
-    abort caused by the response being too large to fit unsegmented is
-    raised as the narrower :class:`BacnetRequestTooLargeError` so callers can
-    retry smaller instead of giving up on the service entirely.
+    ``RejectPDU``/``AbortPDU`` become :class:`BacnetServiceRejectedError` (or
+    the narrower :class:`BacnetRequestTooLargeError` for a too-large abort),
+    distinguishing "stop using this service" from "retry smaller". ``Error``
+    stays a plain ``RuntimeError`` since it only fails one transaction.
     """
     if isinstance(response, Error):
         msg = (

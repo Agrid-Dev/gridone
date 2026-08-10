@@ -192,13 +192,11 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
     async def _request(
         self, request: APDU, *, target: str, action: str, request_timeout: float
     ) -> APDU | None:
-        """Send a confirmed-service request, normalizing both ways bacpypes3
-        can deliver a device's Error/RejectPDU/AbortPDU: returned as the
-        awaited call's result, or raised directly. Both are ``BaseException``
-        subclasses (not ``Exception``), so a raised one would otherwise slip
-        past every ``except Exception`` up the call chain uncaught — routing
-        it through ``raise_for_response`` here means callers only ever see
-        the ACK they asked for, or an already-classified normal exception.
+        """Send a confirmed-service request, normalizing bacpypes3's two
+        delivery paths for Error/RejectPDU/AbortPDU — returned, or raised as
+        a ``BaseException`` that ``except Exception`` won't catch — into one:
+        callers only ever see the ACK they asked for, or an already-
+        classified normal exception.
         """
         try:
             return await asyncio.wait_for(
@@ -255,24 +253,14 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
     ) -> list[ReadResult] | None:
         """Issue one RPM request and split its ACK into a result per address.
 
-        Raises :class:`BacnetRequestTooLargeError` when the chunk itself was
-        the problem (segmentation-not-supported/buffer-overflow) — the
-        caller retries with a smaller chunk rather than giving up on RPM for
-        the device.
+        Raises :class:`BacnetRequestTooLargeError` for the caller to retry
+        with a smaller chunk. Any other failure — rejection, silent timeout,
+        decode error — marks the device RPM-unsupported (one strike, reset on
+        reconnect) and returns ``None`` so the caller falls back to
+        per-property reads.
 
-        Returns ``None`` on any OTHER failure — an unrecognized-service
-        rejection, a silent timeout (some devices signal an unsupported
-        service by dropping the request rather than sending a proper
-        Reject/Abort), a decode error, or anything else — and marks the
-        device unsupported so it isn't re-attempted every sweep. One strike:
-        a device that fails RPM this way, including a single transient
-        timeout, falls back to per-property reads for the rest of the
-        session (reset on reconnect). The caller falls back to per-property
-        reads for this request's addresses too.
-
-        The lock is held for the transaction only, then released before
-        results are handed on, so one long RPM sweep cannot starve another
-        read.
+        The lock covers the transaction only, so one long RPM sweep can't
+        starve another read.
         """
         async with self._read_lock:
             try:
@@ -308,29 +296,22 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
     def _fallback_read(
         self, addresses: Iterable[BacnetAddress], sweep_id: str | None
     ) -> AsyncGenerator[ReadResult]:
-        """Per-property ReadProperty for addresses that aren't using RPM —
-        because the device is already known unsupported, an RPM request just
-        failed, or ``rpm_enabled`` is off. Goes through the base :meth:`read`,
-        so it's isolated per address (``read_results``), memoized, and timed
-        the same as any other single read.
-        """
+        """Per-property ReadProperty fallback for addresses not using RPM.
+        Goes through the base :meth:`read`, so it's isolated per address,
+        memoized, and timed like any other single read."""
         return read_results(
             addresses,
             lambda a: self.read(a, sweep_id),
             concurrent=not self._serialize_reads,
         )
 
-    def _shrink_rpm_fraction(
-        self, device_instance: int, fraction: float
-    ) -> float | None:
-        """Halve ``fraction`` for ``device_instance``, or ``None`` if already
-        at :data:`MIN_RPM_REQUEST_APDU_FRACTION` (caller should disable RPM
-        for the device instead of shrinking further)."""
+    @staticmethod
+    def _shrunk_rpm_fraction(fraction: float) -> float | None:
+        """Halve ``fraction``, or ``None`` if already at
+        :data:`MIN_RPM_REQUEST_APDU_FRACTION` (caller should disable RPM for
+        the device instead of shrinking further)."""
         smaller = max(fraction / 2, MIN_RPM_REQUEST_APDU_FRACTION)
-        if smaller >= fraction:
-            return None
-        self._rpm_fraction_override[device_instance] = smaller
-        return smaller
+        return None if smaller >= fraction else smaller
 
     async def _read_rpm_chunk(
         self,
@@ -339,19 +320,18 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
         fraction: float,
         sweep_id: str | None,
     ) -> tuple[list[ReadResult] | None, list[BacnetAddress]]:
-        """Issue one RPM chunk. Returns ``(results, retry_addresses)``: on
-        success or an ordinary failure, ``results`` carries the outcome (see
-        :meth:`_read_rpm_request`) and ``retry_addresses`` is empty. On
-        :class:`BacnetRequestTooLargeError`, ``results`` is ``None`` and
-        ``retry_addresses`` holds the chunk's addresses to replan at a
-        smaller fraction — unless the fraction is already at the floor, in
-        which case RPM is disabled for the device and the addresses are
-        returned as an ordinary (``None``) failure instead.
+        """Issue one RPM chunk. Returns ``(results, retry_addresses)``:
+        normally ``retry_addresses`` is empty and ``results`` carries the
+        outcome (see :meth:`_read_rpm_request`). On
+        :class:`BacnetRequestTooLargeError`, either ``retry_addresses`` holds
+        the chunk to replan at a smaller fraction, or — at the fraction floor
+        — RPM is disabled for the device and it's returned as an ordinary
+        ``None`` failure instead.
         """
         try:
             return await self._read_rpm_request(rpm_request, sweep_id), []
         except BacnetRequestTooLargeError:
-            smaller = self._shrink_rpm_fraction(device_instance, fraction)
+            smaller = self._shrunk_rpm_fraction(fraction)
             if smaller is None:
                 logger.warning(
                     "[Transport %s] device %d: RPM chunk still too large at "
@@ -363,6 +343,7 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
                 )
                 self._rpm_supported[device_instance] = False
                 return None, []
+            self._rpm_fraction_override[device_instance] = smaller
             logger.debug(
                 "[Transport %s] device %d: RPM chunk too large "
                 "(fraction=%.3f) — retrying at fraction=%.3f",
@@ -380,14 +361,11 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
         sweep_id: str | None,
     ) -> AsyncGenerator[ReadResult]:
         """Plan and issue RPM requests for one device, shrinking the chunk
-        size and replanning when a chunk turns out too large to answer
-        unsegmented (``BacnetRequestTooLargeError``) rather than treating
-        that as "device doesn't support RPM" — the service works, the chunk
-        was just oversized. The shrunk fraction is cached per device instance
-        so later chunks (this sweep and later ones) start from it instead of
-        re-discovering it. Below ``MIN_RPM_REQUEST_APDU_FRACTION``, further
-        shrinking isn't worth it and RPM is disabled for the device instead,
-        same as any other one-strike failure.
+        size and replanning on :class:`BacnetRequestTooLargeError` instead of
+        treating an oversized chunk as "RPM unsupported". The shrunk fraction
+        is cached per device so later chunks start from it. Below
+        :data:`MIN_RPM_REQUEST_APDU_FRACTION`, RPM is disabled for the device
+        instead, same as any other one-strike failure.
         """
         pending = addresses
         while pending:
@@ -442,18 +420,12 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
         sweep_id: str | None = None,
     ) -> AsyncGenerator[ReadResult]:
         """Read addresses as coalesced ReadPropertyMultiple requests, one per
-        device instance's Max-APDU-sized chunk. See :meth:`_read_rpm_request`
-        for the one-strike RPM-support fallback policy.
-
-        The RPM path bypasses the base :meth:`read`, so it consults and
-        populates ``self._sweep_memo`` directly (same store `memoize_sweep`
-        uses) to stay coalesced with any on-demand reads sharing this sweep.
-
-        ``config.rpm_enabled`` is snapshotted once at the top of the sweep,
-        so a config patch landing mid-sweep can't split one sweep between
-        RPM and forced-fallback devices. ``False`` forces every device on
-        this transport onto the per-property fallback regardless of RPM
-        support, for comparing before/after batching performance.
+        device's Max-APDU-sized chunk (see :meth:`_read_rpm_request` for the
+        RPM-support fallback policy). Bypasses the base :meth:`read`, so it
+        consults/populates ``self._sweep_memo`` directly to stay coalesced
+        with any reads sharing this sweep. ``config.rpm_enabled`` is
+        snapshotted once per sweep so a mid-sweep config patch can't split
+        one sweep between RPM and forced-fallback devices.
         """
         rpm_enabled = self.config.rpm_enabled
         if not rpm_enabled:

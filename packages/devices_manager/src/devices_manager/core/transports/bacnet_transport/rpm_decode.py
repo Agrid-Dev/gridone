@@ -11,13 +11,10 @@ from devices_manager.types import AttributeValueType
 
 
 def to_native(value: object) -> AttributeValueType:
-    """Convert a bacpypes3 atomic value to a plain Python primitive.
-
-    `get_value()` returns wrappers (Real, Unsigned, Enumerated, ...) that
-    subclass float/int/str, so they pass isinstance checks downstream but break
-    exact-type lookups (e.g. timeseries `type(value)`). Order matters: bool
-    before int, since bool is an int subclass.
-    """
+    """Convert a bacpypes3 atomic value to a plain Python primitive — wrappers
+    like Real/Unsigned subclass float/int, which breaks exact-type lookups
+    downstream (e.g. timeseries). Order matters: bool before int, since bool
+    is an int subclass."""
     if isinstance(value, bool):
         return value
     if isinstance(value, int):
@@ -41,15 +38,10 @@ def decode_rpm(
 ) -> list[tuple[BacnetAddress, AttributeValueType | Exception]]:
     """Split one RPM ACK back into a value or error per member address.
 
-    Every address in ``rpm_request.addresses`` is guaranteed exactly one
-    entry in the result: a ``propertyAccessError`` element yields an error
-    for that address without failing the others, and an address the ACK
-    omits entirely (partial/buggy RPM support) is reported as an error
-    rather than silently dropped — the caller must be able to treat "no
-    entry" as impossible. Two addresses sharing one (object, property) — e.g.
-    differing only in write_priority — both receive the same decoded result,
-    since a device answers a property once regardless of how many addresses
-    reference it.
+    Every address gets exactly one entry: an errored or omitted result
+    becomes a ``ReadError`` rather than being dropped, and addresses sharing
+    one (object, property) — e.g. differing only in write_priority — all
+    receive the same decoded result.
     """
     by_key: dict[tuple[ObjectIdentifier, PropertyIdentifier], list[BacnetAddress]] = {}
     for address in rpm_request.addresses:

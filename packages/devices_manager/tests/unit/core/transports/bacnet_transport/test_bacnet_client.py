@@ -419,13 +419,10 @@ class TestReadManyRpm:
     @pytest.mark.asyncio
     async def test_raised_abort_pdu_falls_back_same_as_a_returned_one(self) -> None:
         """Regression test: a real device (confirmed live) raises AbortPDU
-        straight out of Application.request() instead of returning it as a
-        value. Error/RejectPDU/AbortPDU are BaseException subclasses, not
-        Exception, so a raised one previously slipped past every `except
-        Exception` up the call chain and crashed the poll loop instead of
-        falling back. Uses a non-size-related reason so the fallback is
-        immediate — see TestRpmChunkTooLarge for the segmentation/buffer
-        abort's shrink-and-retry behavior."""
+        directly instead of returning it, and BaseException subclasses slip
+        past `except Exception`. Uses a non-size-related reason for an
+        immediate fallback — see TestRpmChunkTooLarge for the
+        segmentation/buffer shrink-and-retry case."""
         app = _FakeRequestApp()
         addresses = [_addr(1, 0)]
         app.responses = [
@@ -561,11 +558,10 @@ class TestReadManyRpm:
     async def test_addresses_sharing_object_and_property_both_get_the_value(
         self,
     ) -> None:
-        """Two addresses on the same (object, property) — e.g. a read-only
-        address and a read/write one differing only in write_priority — must
-        both receive the decoded value. Regression test: by_key used to map
-        to a single address, so the second one silently kept its pre-seeded
-        'response omitted' error even though the device answered."""
+        """Regression test: by_key mapped to a single address, so a second
+        address on the same (object, property) — e.g. differing only in
+        write_priority — kept its 'response omitted' error even though the
+        device answered."""
         app = _FakeRequestApp()
         read_only = _addr(1, 0)
         read_write = BacnetAddress(
@@ -768,6 +764,35 @@ class TestRpmChunkTooLarge:
         request_types = [type(r).__name__ for r in app.requests]
         assert request_types.count("ReadPropertyMultipleRequest") == 5
         assert request_types.count("ReadPropertyRequest") == 1
+
+    @pytest.mark.asyncio
+    async def test_two_chunks_too_large_in_the_same_sweep_shrink_to_one_fraction(
+        self,
+    ) -> None:
+        """Both of a device's chunks can abort as too-large in the same
+        sweep. Each shrinks independently off the same starting fraction
+        (0.5 -> 0.25), not compounding off each other's result, and both
+        sets of addresses are replanned together at the new fraction."""
+        app = _FakeRequestApp()
+        # max_apdu=1024, fraction=0.5 budgets 80 addresses into 56 + 24;
+        # halved to 0.25 they replan into 28 + 28 + 24.
+        addresses = [_addr(1, i) for i in range(80)]
+        app.responses = [
+            AbortPDU(reason="segmentationNotSupported"),  # 56-address attempt
+            AbortPDU(reason="segmentationNotSupported"),  # 24-address attempt
+            _rpm_ack([(a, float(i)) for i, a in enumerate(addresses[:28])]),
+            _rpm_ack([(a, float(i + 28)) for i, a in enumerate(addresses[28:56])]),
+            _rpm_ack([(a, float(i + 56)) for i, a in enumerate(addresses[56:])]),
+        ]
+        client = _connected_client(app, device_instances={1: 1024})
+
+        results = {r.address_id: r async for r in client.read_many(addresses)}
+
+        assert all(isinstance(r, ReadOk) for r in results.values())
+        request_types = [type(r).__name__ for r in app.requests]
+        assert request_types.count("ReadPropertyMultipleRequest") == 5
+        assert client._rpm_supported.get(1, True) is True  # noqa: SLF001
+        assert client._rpm_fraction_override[1] == pytest.approx(0.25)  # noqa: SLF001
 
 
 def _bacnet_driver(reads: dict[str, str]) -> Driver:
