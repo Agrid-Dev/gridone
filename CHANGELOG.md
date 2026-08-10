@@ -1,3 +1,9 @@
+## v0.201.1 (2026-08-10)
+
+### Fix
+
+- **apps**: idempotent registration requests per username (AGR-1020)
+
 ## v0.201.0 (2026-08-07)
 
 ### Feat
