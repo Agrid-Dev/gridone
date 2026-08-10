@@ -28,6 +28,7 @@ import {
 } from "@/lib/faults";
 import { cn, compactTimeAgo } from "@/lib/utils";
 import { toLabel } from "@/lib/textFormat";
+import { useAttributeLabel } from "@/hooks/useAttributeLabel";
 
 /** Wire-format map key of the connection-status attribute. We identify it by
  *  object identity against the device's attribute map, not by
@@ -101,6 +102,8 @@ function AttributeRow({
   attribute: AttributeFields;
 }) {
   const { t } = useTranslation("devices");
+  const labelFor = useAttributeLabel();
+  const label = labelFor(attribute.name);
 
   const fault = isFaultAttribute(attribute) ? attribute : null;
   const isFaulty = fault?.is_faulty ?? false;
@@ -124,9 +127,7 @@ function AttributeRow({
   const rowContent: ReactNode = (
     <>
       {isFaulty && fault && <SeverityChip severity={fault.severity} />}
-      <span className="min-w-0 truncate text-muted-foreground">
-        {toLabel(attribute.name)}
-      </span>
+      <span className="min-w-0 truncate text-muted-foreground">{label}</span>
       <span className="shrink-0 font-medium text-foreground">
         {isConnectionStatus ? (
           <ConnectionStatusValue status={getConnectionStatus(device)} />
@@ -185,9 +186,7 @@ function AttributeRow({
           sideOffset={8}
           className="space-y-1"
         >
-          <p className="font-medium text-foreground">
-            {toLabel(attribute.name)}
-          </p>
+          <p className="font-medium text-foreground">{label}</p>
           <DetailRow
             label={t("deviceDetails.attributeDetails.type")}
             value={attribute.data_type}

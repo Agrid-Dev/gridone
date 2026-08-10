@@ -86,6 +86,7 @@
     "title": "Appareil",
     "backToDevices": "Appareils",
     "sendCommand": "Envoyer une commande",
+    "readOnly": "Lecture seule",
     "tabs": {
       "label": "Sections de l'appareil",
       "overview": "Supervision",
@@ -383,8 +384,26 @@
       "energy24h": "Énergie 24 h"
     },
     "weatherSensor": {
+      "conditions": "Conditions",
+      "outdoor": "Extérieur",
       "wind": "Vent",
-      "humidity": "Humidité"
+      "humidity": "Humidité",
+      "direction": "Direction",
+      "temperatureLast24h": "Température extérieure · 24 h",
+      "noTemperatureHistory": "Aucun historique de température",
+      "temperatureChartLabel": "Température extérieure sur les dernières 24 heures",
+      "min": "min {{value}}",
+      "max": "max {{value}}",
+      "compass": {
+        "N": "N",
+        "NE": "NE",
+        "E": "E",
+        "SE": "SE",
+        "S": "S",
+        "SW": "SO",
+        "W": "O",
+        "NW": "NO"
+      }
     },
     "weatherCodes": {
       "clearSky": "Ciel dégagé",

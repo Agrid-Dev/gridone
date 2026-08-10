@@ -27,6 +27,7 @@ vi.mock("react-i18next", () =>
     "deviceDetails.attributeDetails.changed": "Changed",
     "deviceDetails.attributeDetails.action": "click to command",
     "deviceDetails.connectionStatus.ok": "Connected",
+    "attributes.temperature": "Outdoor temperature",
     "common.severity.alert": "alert",
     "common.severity.warning": "warning",
     "common.severity.info": "info",
@@ -140,7 +141,7 @@ describe("DeviceAttributePanes", () => {
       }),
     );
 
-    const row = rowFor("Temperature");
+    const row = rowFor("Outdoor temperature");
     expect(within(row).getByText("21.50")).toBeInTheDocument();
     expect(within(row).getByText("1h")).toBeInTheDocument(); // last changed
 
@@ -203,6 +204,6 @@ describe("DeviceAttributePanes", () => {
 
   it("does not link read-only rows", () => {
     renderPanes(makeDevice({ temperature: attr({ name: "temperature" }) }));
-    expect(rowFor("Temperature").tagName).toBe("DIV");
+    expect(rowFor("Outdoor temperature").tagName).toBe("DIV");
   });
 });
