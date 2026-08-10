@@ -1,3 +1,9 @@
+## v0.202.1 (2026-08-10)
+
+### Perf
+
+- **devices-manager**: bacnet read batching via ReadPropertyMultiple (#463)
+
 ## v0.202.0 (2026-08-10)
 
 ### Feat
