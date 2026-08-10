@@ -1,3 +1,9 @@
+## v0.203.0 (2026-08-10)
+
+### Feat
+
+- **ui**: redesign weather sensor supervision
+
 ## v0.202.1 (2026-08-10)
 
 ### Perf
