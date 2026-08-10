@@ -11,6 +11,7 @@ dependencies = [
     "asyncpg>=0.30.0",
     "bacpypes3>=0.0.102",
     "httpx>=0.28.1",
+    "opentelemetry-api>=1.42.1",
     "pydantic>=2.12.4",
     "pymeterbus>=0.8.4",
     "pymodbus>=3.11.3",
@@ -29,6 +30,7 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
+    "opentelemetry-sdk>=1.42.1",
     "thermocktat-client>=0.3.0",
 ]
 
