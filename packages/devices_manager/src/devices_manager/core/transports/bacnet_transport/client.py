@@ -162,15 +162,18 @@ def _decode_rpm(
     for that address without failing the others, and an address the ACK
     omits entirely (partial/buggy RPM support) is reported as an error
     rather than silently dropped — the caller must be able to treat "no
-    entry" as impossible.
+    entry" as impossible. Two addresses sharing one (object, property) — e.g.
+    differing only in write_priority — both receive the same decoded result,
+    since a device answers a property once regardless of how many addresses
+    reference it.
     """
-    by_key = {
-        (
+    by_key: dict[tuple[ObjectIdentifier, PropertyIdentifier], list[BacnetAddress]] = {}
+    for address in rpm_request.addresses:
+        key = (
             ObjectIdentifier(f"{address.object_type},{address.object_instance}"),
             PropertyIdentifier(address.property_name),
-        ): address
-        for address in rpm_request.addresses
-    }
+        )
+        by_key.setdefault(key, []).append(address)
     results: dict[str, tuple[BacnetAddress, AttributeValueType | Exception]] = {
         address.id: (
             address,
@@ -185,26 +188,24 @@ def _decode_rpm(
     }
     for access_result in ack.listOfReadAccessResults:  # ty: ignore[not-iterable]
         for element in access_result.listOfResults:
-            address = by_key.get(
-                (access_result.objectIdentifier, element.propertyIdentifier)
+            addresses = by_key.get(
+                (access_result.objectIdentifier, element.propertyIdentifier), []
             )
-            if address is None:
+            if not addresses:
                 continue
             choice = element.readResult
             if choice.propertyAccessError is not None:
                 error = choice.propertyAccessError
-                results[address.id] = (
-                    address,
-                    RuntimeError(
-                        f"BACnet error on read-property-multiple to "
-                        f"{access_result.objectIdentifier} "
-                        f"{element.propertyIdentifier}: "
-                        f"{error.errorClass}:{error.errorCode}"
-                    ),
+                value: AttributeValueType | Exception = RuntimeError(
+                    f"BACnet error on read-property-multiple to "
+                    f"{access_result.objectIdentifier} "
+                    f"{element.propertyIdentifier}: "
+                    f"{error.errorClass}:{error.errorCode}"
                 )
-                continue
-            value = _decode_property_value(choice.propertyValue)
-            results[address.id] = (address, value)
+            else:
+                value = _decode_property_value(choice.propertyValue)
+            for address in addresses:
+                results[address.id] = (address, value)
     return list(results.values())
 
 

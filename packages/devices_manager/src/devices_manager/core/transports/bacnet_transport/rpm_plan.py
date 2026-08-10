@@ -77,11 +77,13 @@ def _group_by_object(
 def _spec_for(
     obj_id: ObjectIdentifier, members: list[BacnetAddress]
 ) -> ReadAccessSpecification:
+    # Two addresses on the same object+property (e.g. differing only in
+    # write_priority) must not duplicate the property reference.
+    property_names = list(dict.fromkeys(address.property_name for address in members))
     return ReadAccessSpecification(
         objectIdentifier=obj_id,
         listOfPropertyReferences=[
-            PropertyReference(propertyIdentifier=address.property_name)
-            for address in members
+            PropertyReference(propertyIdentifier=name) for name in property_names
         ],
     )
 

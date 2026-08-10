@@ -544,6 +544,35 @@ class TestReadManyRpm:
         assert isinstance(results[missing.id], ReadError)
 
     @pytest.mark.asyncio
+    async def test_addresses_sharing_object_and_property_both_get_the_value(
+        self,
+    ) -> None:
+        """Two addresses on the same (object, property) — e.g. a read-only
+        address and a read/write one differing only in write_priority — must
+        both receive the decoded value. Regression test: by_key used to map
+        to a single address, so the second one silently kept its pre-seeded
+        'response omitted' error even though the device answered."""
+        app = _FakeRequestApp()
+        read_only = _addr(1, 0)
+        read_write = BacnetAddress(
+            device_instance=1,
+            object_type="analog-input",  # ty: ignore[invalid-argument-type]
+            object_instance=0,
+            property_name="present-value",
+            write_priority=8,
+        )
+        app.responses = [_rpm_ack([(read_only, 21.5)])]
+        client = _connected_client(app)
+
+        results = {
+            r.address_id: r async for r in client.read_many([read_only, read_write])
+        }
+
+        assert results.keys() == {read_only.id, read_write.id}
+        assert _value(results[read_only.id]) == 21.5
+        assert _value(results[read_write.id]) == 21.5
+
+    @pytest.mark.asyncio
     async def test_decode_failure_is_isolated_not_propagated(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
