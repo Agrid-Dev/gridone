@@ -9,6 +9,7 @@ vi.mock("react-i18next", () =>
   createI18nMock({
     "deviceDetails.backToDevices": "Devices",
     "deviceDetails.sendCommand": "Send a command",
+    "deviceDetails.readOnly": "Read only",
   }),
 );
 
@@ -24,13 +25,23 @@ vi.mock("@/hooks/useAssetTree", () => ({
   }),
 }));
 
-function makeDevice(): Device {
+function makeDevice(readOnly = false): Device {
   return {
     id: "d1",
     name: "Chambre 101",
     type: null,
     tags: {},
-    attributes: {},
+    attributes: readOnly
+      ? {}
+      : {
+          setpoint: {
+            name: "setpoint",
+            kind: "standard",
+            data_type: "float",
+            read_write_modes: ["read", "write"],
+            current_value: 21,
+          },
+        },
     is_faulty: false,
     driver_id: "drv",
     transport_id: "tr",
@@ -67,6 +78,15 @@ describe("DeviceHeader", () => {
     expect(
       screen.getByRole("link", { name: "Send a command" }),
     ).toHaveAttribute("href", "/devices/d1/commands/new");
+  });
+
+  it("shows read-only status instead of a command action", () => {
+    renderHeader(makeDevice(true));
+
+    expect(screen.getByRole("status")).toHaveTextContent("Read only");
+    expect(
+      screen.queryByRole("link", { name: "Send a command" }),
+    ).not.toBeInTheDocument();
   });
 
   it("shows the owning asset as a chip when the tree maps the device", () => {
