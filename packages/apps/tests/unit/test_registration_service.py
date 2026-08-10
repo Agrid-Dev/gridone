@@ -4,6 +4,7 @@ import pytest
 from conftest import VALID_CONFIG
 
 from apps import RegistrationRequestCreate, RegistrationRequestStatus
+from apps.models import RegistrationRequest
 from apps.registration_service import RegistrationService
 from models.errors import InvalidError, NotFoundError
 from users.models import User, UserType
@@ -239,3 +240,111 @@ class TestDiscardRegistrationRequest:
         await registration_service.discard_registration_request(req.id)
         with pytest.raises(InvalidError, match="not pending"):
             await registration_service.discard_registration_request(req.id)
+
+
+class TestRegistrationDeduplication:
+    """A stateless app re-files its registration on every restart: the
+    platform must stay idempotent per username instead of piling up
+    duplicate pending requests for the admin."""
+
+    async def test_re_register_reuses_the_pending_request(
+        self, registration_service, reg_storage
+    ):
+        first = await registration_service.create_registration_request(
+            RegistrationRequestCreate(
+                username="myapp", password="pw-1", config=VALID_CONFIG
+            )
+        )
+        second = await registration_service.create_registration_request(
+            RegistrationRequestCreate(
+                username="myapp", password="pw-2", config=VALID_CONFIG
+            )
+        )
+
+        assert second.id == first.id
+        assert second.created_at == first.created_at
+        assert second.hashed_password != first.hashed_password
+        assert len(await reg_storage.list_all()) == 1
+
+    async def test_re_register_refreshes_the_manifest(self, registration_service):
+        await registration_service.create_registration_request(
+            RegistrationRequestCreate(
+                username="myapp", password="pw", config=VALID_CONFIG
+            )
+        )
+        updated_config = VALID_CONFIG.replace("Test App", "Renamed App")
+
+        second = await registration_service.create_registration_request(
+            RegistrationRequestCreate(
+                username="myapp", password="pw", config=updated_config
+            )
+        )
+
+        assert second.config == updated_config
+
+    async def test_other_usernames_still_get_their_own_request(
+        self, registration_service, reg_storage
+    ):
+        await registration_service.create_registration_request(
+            RegistrationRequestCreate(
+                username="myapp", password="pw", config=VALID_CONFIG
+            )
+        )
+        await registration_service.create_registration_request(
+            RegistrationRequestCreate(
+                username="otherapp", password="pw", config=VALID_CONFIG
+            )
+        )
+
+        assert len(await reg_storage.list_all()) == 2
+
+    async def test_re_register_after_discard_files_a_new_request(
+        self, registration_service, reg_storage
+    ):
+        first = await registration_service.create_registration_request(
+            RegistrationRequestCreate(
+                username="myapp", password="pw", config=VALID_CONFIG
+            )
+        )
+        await registration_service.discard_registration_request(first.id)
+
+        second = await registration_service.create_registration_request(
+            RegistrationRequestCreate(
+                username="myapp", password="pw", config=VALID_CONFIG
+            )
+        )
+
+        assert second.id != first.id
+        assert second.status == RegistrationRequestStatus.PENDING
+        stored_first = await reg_storage.get_by_id(first.id)
+        assert stored_first.status == RegistrationRequestStatus.DISCARDED
+
+    async def test_accept_discards_other_pending_requests_for_same_username(
+        self, registration_service, reg_storage
+    ):
+        request = await registration_service.create_registration_request(
+            RegistrationRequestCreate(
+                username="myapp", password="pw", config=VALID_CONFIG
+            )
+        )
+        # A duplicate left over from before the create-time dedup existed.
+        legacy = RegistrationRequest(
+            id="legacy-duplicate",
+            username="myapp",
+            hashed_password="hash",
+            status=RegistrationRequestStatus.PENDING,
+            config=VALID_CONFIG,
+        )
+        await reg_storage.save(legacy)
+        other = await registration_service.create_registration_request(
+            RegistrationRequestCreate(
+                username="otherapp", password="pw", config=VALID_CONFIG
+            )
+        )
+
+        await registration_service.accept_registration_request(request.id)
+
+        swept = await reg_storage.get_by_id("legacy-duplicate")
+        assert swept.status == RegistrationRequestStatus.DISCARDED
+        untouched = await reg_storage.get_by_id(other.id)
+        assert untouched.status == RegistrationRequestStatus.PENDING

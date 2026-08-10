@@ -76,6 +76,21 @@ def test_forwards_extra_fields_into_payload():
     assert payload["duration_ms"] == 12.5
 
 
+def test_non_serializable_extra_falls_back_to_str():
+    # uvicorn attaches the live WebSocketProtocol object to every websocket
+    # log record via `extra`; the formatter must stringify, never raise.
+    class WebSocketProtocol:
+        def __str__(self) -> str:
+            return "<WebSocketProtocol peer=127.0.0.1>"
+
+    record = _record()
+    record.websocket = WebSocketProtocol()
+
+    payload = json.loads(JsonFormatter().format(record))
+
+    assert payload["websocket"] == "<WebSocketProtocol peer=127.0.0.1>"
+
+
 def test_extra_fields_do_not_override_reserved_keys():
     record = _record()
 
