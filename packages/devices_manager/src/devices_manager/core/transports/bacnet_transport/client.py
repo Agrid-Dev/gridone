@@ -7,6 +7,7 @@ from typing import NoReturn
 from bacpypes3.apdu import (
     APDU,
     AbortPDU,
+    AbortReason,
     Error,
     ReadPropertyACK,
     ReadPropertyMultipleACK,
@@ -42,6 +43,11 @@ from .rpm_plan import RpmRequest, plan_rpm
 from .transport_config import BacnetTransportConfig
 
 logger = logging.getLogger(__name__)
+
+# Floor for the per-device RPM chunk-size shrink-and-retry (see
+# _read_device_rpm): below this fraction of the device's Max-APDU, further
+# shrinking isn't worth it and RPM is disabled for the device instead.
+MIN_RPM_REQUEST_APDU_FRACTION = 0.05
 
 
 def get_device_identifier(device_instance: int) -> ObjectIdentifier:
@@ -119,6 +125,18 @@ class BacnetServiceRejectedError(RuntimeError):
     request that carried it."""
 
 
+class BacnetRequestTooLargeError(BacnetServiceRejectedError):
+    """The device aborted because the request/response wouldn't fit
+    unsegmented (segmentation-not-supported/buffer-overflow) — the service
+    itself works, so callers should retry with a smaller RPM chunk instead of
+    disabling RPM for the device."""
+
+
+_TOO_LARGE_ABORT_REASONS = frozenset(
+    {AbortReason.segmentationNotSupported, AbortReason.bufferOverflow}
+)
+
+
 def _raise_for_response(response: object, *, target: str, action: str) -> NoReturn:
     """Classify a non-ACK BACnet response and raise accordingly.
 
@@ -127,7 +145,10 @@ def _raise_for_response(response: object, *, target: str, action: str) -> NoRetu
     confirmed *service* itself (e.g. RPM unrecognized) — raised as
     :class:`BacnetServiceRejectedError` so callers can distinguish "this
     read failed" from "stop attempting this service on this device",
-    driving the RPM-support fallback cache in ``_read_rpm_request``.
+    driving the RPM-support fallback cache in ``_read_rpm_request``. An
+    abort caused by the response being too large to fit unsegmented is
+    raised as the narrower :class:`BacnetRequestTooLargeError` so callers can
+    retry smaller instead of giving up on the service entirely.
     """
     if isinstance(response, Error):
         msg = (
@@ -140,6 +161,8 @@ def _raise_for_response(response: object, *, target: str, action: str) -> NoRetu
         raise BacnetServiceRejectedError(msg)
     if isinstance(response, AbortPDU):
         msg = f"BACnet abort on {action} to {target}: abortReason={response.reason}"
+        if response.reason in _TOO_LARGE_ABORT_REASONS:
+            raise BacnetRequestTooLargeError(msg)
         raise BacnetServiceRejectedError(msg)
     msg = f"Unexpected response to {action}: {response!r}"
     raise TypeError(msg)
@@ -218,6 +241,7 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
     _known_devices: DevicesDict
     _device_max_apdu: dict[int, int]
     _rpm_supported: dict[int, bool]
+    _rpm_fraction_override: dict[int, float]
     _serialize_reads = True
 
     def __init__(
@@ -227,6 +251,7 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
         self._known_devices = {}
         self._device_max_apdu = {}
         self._rpm_supported = {}
+        self._rpm_fraction_override = {}
         super().__init__(metadata, config)
 
     async def connect(self) -> None:
@@ -251,6 +276,7 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
             self._known_devices = {}
             self._device_max_apdu = {}
             self._rpm_supported = {}
+            self._rpm_fraction_override = {}
             if hasattr(self, "_application") and self._application:
                 self._application.close()
             await super().close()
@@ -360,15 +386,20 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
     ) -> list[ReadResult] | None:
         """Issue one RPM request and split its ACK into a result per address.
 
-        Returns ``None`` on ANY failure — an explicit rejection
-        (``BacnetServiceRejectedError``), a silent timeout (some devices
-        signal an unsupported service by dropping the request rather than
-        sending a proper Reject/Abort), a decode error, or anything else —
-        and marks the device unsupported so it isn't re-attempted every
-        sweep. One strike: a device that fails RPM for any reason, including
-        a single transient timeout, falls back to per-property reads for the
-        rest of the session (reset on reconnect). The caller falls back to
-        per-property reads for this request's addresses too.
+        Raises :class:`BacnetRequestTooLargeError` when the chunk itself was
+        the problem (segmentation-not-supported/buffer-overflow) — the
+        caller retries with a smaller chunk rather than giving up on RPM for
+        the device.
+
+        Returns ``None`` on any OTHER failure — an unrecognized-service
+        rejection, a silent timeout (some devices signal an unsupported
+        service by dropping the request rather than sending a proper
+        Reject/Abort), a decode error, or anything else — and marks the
+        device unsupported so it isn't re-attempted every sweep. One strike:
+        a device that fails RPM this way, including a single transient
+        timeout, falls back to per-property reads for the rest of the
+        session (reset on reconnect). The caller falls back to per-property
+        reads for this request's addresses too.
 
         The lock is held for the transaction only, then released before
         results are handed on, so one long RPM sweep cannot starve another
@@ -379,6 +410,8 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
                 async with timed_io(self.id, self.protocol, len(rpm_request.addresses)):
                     ack = await self._read_rpm(rpm_request)
                     values = _decode_rpm(rpm_request, ack)
+            except BacnetRequestTooLargeError:
+                raise
             except Exception as e:  # noqa: BLE001
                 logger.warning(
                     "[Transport %s] device %d does not support "
@@ -418,46 +451,121 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
             concurrent=not self._serialize_reads,
         )
 
+    def _shrink_rpm_fraction(
+        self, device_instance: int, fraction: float
+    ) -> float | None:
+        """Halve ``fraction`` for ``device_instance``, or ``None`` if already
+        at :data:`MIN_RPM_REQUEST_APDU_FRACTION` (caller should disable RPM
+        for the device instead of shrinking further)."""
+        smaller = max(fraction / 2, MIN_RPM_REQUEST_APDU_FRACTION)
+        if smaller >= fraction:
+            return None
+        self._rpm_fraction_override[device_instance] = smaller
+        return smaller
+
+    async def _read_rpm_chunk(
+        self,
+        device_instance: int,
+        rpm_request: RpmRequest,
+        fraction: float,
+        sweep_id: str | None,
+    ) -> tuple[list[ReadResult] | None, list[BacnetAddress]]:
+        """Issue one RPM chunk. Returns ``(results, retry_addresses)``: on
+        success or an ordinary failure, ``results`` carries the outcome (see
+        :meth:`_read_rpm_request`) and ``retry_addresses`` is empty. On
+        :class:`BacnetRequestTooLargeError`, ``results`` is ``None`` and
+        ``retry_addresses`` holds the chunk's addresses to replan at a
+        smaller fraction — unless the fraction is already at the floor, in
+        which case RPM is disabled for the device and the addresses are
+        returned as an ordinary (``None``) failure instead.
+        """
+        try:
+            return await self._read_rpm_request(rpm_request, sweep_id), []
+        except BacnetRequestTooLargeError:
+            smaller = self._shrink_rpm_fraction(device_instance, fraction)
+            if smaller is None:
+                logger.warning(
+                    "[Transport %s] device %d: RPM chunk still too large at "
+                    "the fraction floor (%.3f) — disabling RPM for the "
+                    "device",
+                    self.id,
+                    device_instance,
+                    fraction,
+                )
+                self._rpm_supported[device_instance] = False
+                return None, []
+            logger.debug(
+                "[Transport %s] device %d: RPM chunk too large "
+                "(fraction=%.3f) — retrying at fraction=%.3f",
+                self.id,
+                device_instance,
+                fraction,
+                smaller,
+            )
+            return None, list(rpm_request.addresses)
+
     async def _read_device_rpm(
         self,
         device_instance: int,
         addresses: list[BacnetAddress],
         sweep_id: str | None,
     ) -> AsyncGenerator[ReadResult]:
-        requests = plan_rpm(
-            addresses,
-            max_apdu_by_device=self._device_max_apdu,
-            request_apdu_fraction=self.config.rpm_request_apdu_fraction,
-        )
-        if requests:
-            logger.debug(
-                "[Transport %s] device %d: %d address(es) coalesced into %d "
-                "ReadPropertyMultiple request(s)",
-                self.id,
-                device_instance,
-                len(addresses),
-                len(requests),
+        """Plan and issue RPM requests for one device, shrinking the chunk
+        size and replanning when a chunk turns out too large to answer
+        unsegmented (``BacnetRequestTooLargeError``) rather than treating
+        that as "device doesn't support RPM" — the service works, the chunk
+        was just oversized. The shrunk fraction is cached per device instance
+        so later chunks (this sweep and later ones) start from it instead of
+        re-discovering it. Below ``MIN_RPM_REQUEST_APDU_FRACTION``, further
+        shrinking isn't worth it and RPM is disabled for the device instead,
+        same as any other one-strike failure.
+        """
+        pending = addresses
+        while pending:
+            fraction = self._rpm_fraction_override.get(
+                device_instance, self.config.rpm_request_apdu_fraction
             )
-        for rpm_request in requests:
-            # A rejection on an earlier chunk of this same sweep already
-            # disabled RPM for the device — later chunks skip straight to
-            # the fallback instead of re-attempting a service just proven
-            # unsupported.
-            if not self._rpm_supported.get(device_instance, True):
-                async for result in self._fallback_read(
-                    rpm_request.addresses, sweep_id
-                ):
+            requests = plan_rpm(
+                pending,
+                max_apdu_by_device=self._device_max_apdu,
+                request_apdu_fraction=fraction,
+            )
+            if requests:
+                logger.debug(
+                    "[Transport %s] device %d: %d address(es) coalesced into "
+                    "%d ReadPropertyMultiple request(s) (fraction=%.3f)",
+                    self.id,
+                    device_instance,
+                    len(pending),
+                    len(requests),
+                    fraction,
+                )
+            pending = []
+            for rpm_request in requests:
+                # A rejection on an earlier chunk of this same sweep already
+                # disabled RPM for the device — later chunks skip straight to
+                # the fallback instead of re-attempting a service just
+                # proven unsupported.
+                if not self._rpm_supported.get(device_instance, True):
+                    async for result in self._fallback_read(
+                        rpm_request.addresses, sweep_id
+                    ):
+                        yield result
+                    continue
+                results, retry_addresses = await self._read_rpm_chunk(
+                    device_instance, rpm_request, fraction, sweep_id
+                )
+                if retry_addresses:
+                    pending.extend(retry_addresses)
+                    continue
+                if results is None:
+                    async for result in self._fallback_read(
+                        rpm_request.addresses, sweep_id
+                    ):
+                        yield result
+                    continue
+                for result in results:
                     yield result
-                continue
-            results = await self._read_rpm_request(rpm_request, sweep_id)
-            if results is None:
-                async for result in self._fallback_read(
-                    rpm_request.addresses, sweep_id
-                ):
-                    yield result
-                continue
-            for result in results:
-                yield result
 
     async def read_many(
         self,

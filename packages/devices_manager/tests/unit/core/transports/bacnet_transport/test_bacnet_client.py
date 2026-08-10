@@ -38,6 +38,7 @@ from devices_manager.core.transports.bacnet_transport.bacnet_types import (
     BacnetObjectType,
 )
 from devices_manager.core.transports.bacnet_transport.client import (
+    BacnetRequestTooLargeError,
     BacnetServiceRejectedError,
     BacnetTransportClient,
     _raise_for_response,
@@ -308,6 +309,15 @@ class TestRaiseForResponse:
         with pytest.raises(BacnetServiceRejectedError):
             _raise_for_response(response, target="t", action="a")
 
+    @pytest.mark.parametrize("reason", ["segmentationNotSupported", "bufferOverflow"])
+    def test_size_related_abort_raises_the_narrower_too_large_error(
+        self, reason: str
+    ) -> None:
+        response = AbortPDU(reason=reason)
+
+        with pytest.raises(BacnetRequestTooLargeError):
+            _raise_for_response(response, target="t", action="a")
+
     def test_unexpected_response_raises_type_error(self) -> None:
         with pytest.raises(TypeError):
             _raise_for_response(SimpleAckPDU(), target="t", action="a")
@@ -407,15 +417,17 @@ class TestReadManyRpm:
     @pytest.mark.asyncio
     async def test_raised_abort_pdu_falls_back_same_as_a_returned_one(self) -> None:
         """Regression test: a real device (confirmed live) raises AbortPDU
-        ("segmentation-not-supported" for an oversized RPM chunk) straight
-        out of Application.request() instead of returning it as a value.
-        Error/RejectPDU/AbortPDU are BaseException subclasses, not Exception,
-        so a raised one previously slipped past every `except Exception` up
-        the call chain and crashed the poll loop instead of falling back."""
+        straight out of Application.request() instead of returning it as a
+        value. Error/RejectPDU/AbortPDU are BaseException subclasses, not
+        Exception, so a raised one previously slipped past every `except
+        Exception` up the call chain and crashed the poll loop instead of
+        falling back. Uses a non-size-related reason so the fallback is
+        immediate — see TestRpmChunkTooLarge for the segmentation/buffer
+        abort's shrink-and-retry behavior."""
         app = _FakeRequestApp()
         addresses = [_addr(1, 0)]
         app.responses = [
-            AbortPDU(reason="segmentationNotSupported"),
+            AbortPDU(reason="other"),
             _read_property_ack(21.5),
         ]
         client = _connected_client(app)
@@ -701,6 +713,59 @@ class TestReadManyRpm:
         request_types = [type(r).__name__ for r in app.requests]
         assert request_types.count("ReadPropertyMultipleRequest") == 1
         assert request_types.count("ReadPropertyRequest") == 4
+
+
+class TestRpmChunkTooLarge:
+    """AbortPDU(segmentation-not-supported/buffer-overflow) means the chunk
+    was oversized, not that the device lacks RPM — the client should shrink
+    the chunk and retry rather than one-strike disabling RPM."""
+
+    @pytest.mark.asyncio
+    async def test_too_large_chunk_is_retried_smaller_and_succeeds(self) -> None:
+        app = _FakeRequestApp()
+        # max_apdu=1024, default fraction=0.5 budgets all 40 into one chunk;
+        # halved to 0.25 it splits into 28 + 12.
+        addresses = [_addr(1, i) for i in range(40)]
+        app.responses = [
+            AbortPDU(reason="segmentationNotSupported"),  # 40-address attempt
+            _rpm_ack([(a, float(i)) for i, a in enumerate(addresses[:28])]),
+            _rpm_ack([(a, float(i + 28)) for i, a in enumerate(addresses[28:])]),
+        ]
+        client = _connected_client(app, device_instances={1: 1024})
+
+        results = {r.address_id: r async for r in client.read_many(addresses)}
+
+        assert all(isinstance(r, ReadOk) for r in results.values())
+        request_types = [type(r).__name__ for r in app.requests]
+        assert request_types.count("ReadPropertyMultipleRequest") == 3
+        assert client._rpm_supported.get(1, True) is True  # noqa: SLF001
+        assert client._rpm_fraction_override[1] == pytest.approx(0.25)  # noqa: SLF001
+
+    @pytest.mark.asyncio
+    async def test_too_large_below_the_floor_disables_rpm_and_falls_back(
+        self,
+    ) -> None:
+        app = _FakeRequestApp()
+        address = _addr(1, 0)
+        # Fraction halves 0.5 -> 0.25 -> 0.125 -> 0.0625 -> 0.05 (floor); the
+        # 5th abort finds the floor already hit and disables RPM.
+        app.responses = [
+            AbortPDU(reason="segmentationNotSupported"),
+            AbortPDU(reason="segmentationNotSupported"),
+            AbortPDU(reason="segmentationNotSupported"),
+            AbortPDU(reason="segmentationNotSupported"),
+            AbortPDU(reason="segmentationNotSupported"),
+            _read_property_ack(21.5),
+        ]
+        client = _connected_client(app)
+
+        results = [r async for r in client.read_many([address])]
+
+        assert client._rpm_supported[1] is False  # noqa: SLF001
+        assert isinstance(results[0], ReadOk)
+        request_types = [type(r).__name__ for r in app.requests]
+        assert request_types.count("ReadPropertyMultipleRequest") == 5
+        assert request_types.count("ReadPropertyRequest") == 1
 
 
 def _bacnet_driver(reads: dict[str, str]) -> Driver:
