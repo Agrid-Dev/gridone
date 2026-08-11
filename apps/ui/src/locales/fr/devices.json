@@ -211,6 +211,7 @@
     "chartTitle30d": "{{metric}} — 30 derniers jours",
     "chartTitleRange": "{{metric}} — {{range}}",
     "truncatedWarning": "Données tronquées, réduisez la période",
+    "averagedNotice": "Moyenné par {{interval}}",
     "statesTitle": "États",
     "otherValues": "Autres",
     "noMetricData": "Aucune donnée sur la période",

@@ -8,18 +8,24 @@ import { createI18nMock } from "@/test/i18nMock";
 import type { DataPoint, Device, TimeSeries, UnitCommand } from "@gridone/sdk";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
-const { mockListSeries, mockGetSeriesPoints, mockGetStandardTypes } =
-  vi.hoisted(() => ({
-    mockListSeries: vi.fn(),
-    mockGetSeriesPoints: vi.fn(),
-    mockGetStandardTypes: vi.fn(),
-  }));
+const {
+  mockListSeries,
+  mockGetSeriesPoints,
+  mockGetStandardTypes,
+  mockAggregate,
+} = vi.hoisted(() => ({
+  mockListSeries: vi.fn(),
+  mockGetSeriesPoints: vi.fn(),
+  mockGetStandardTypes: vi.fn(),
+  mockAggregate: vi.fn(),
+}));
 
 vi.mock("@/contexts/GridoneClientContext", () => ({
   useGridoneClient: () => ({
     timeseries: {
       list: (...args: unknown[]) => mockListSeries(...args),
       getPoints: (...args: unknown[]) => mockGetSeriesPoints(...args),
+      aggregate: (...args: unknown[]) => mockAggregate(...args),
       exportCsv: vi.fn(),
       exportPng: vi.fn(),
     },
@@ -42,6 +48,7 @@ vi.mock("react-i18next", () =>
     "history.chartTitle24h": "{{metric}} — dernières 24 h",
     "history.chartTitleRange": "{{metric}} — {{range}}",
     "history.truncatedWarning": "Données tronquées, réduisez la période",
+    "history.averagedNotice": "Moyenné par {{interval}}",
     "history.statesTitle": "États",
     "history.noMetricData": "Aucune donnée sur la période",
     "history.export": "Exporter",
@@ -238,6 +245,16 @@ beforeEach(() => {
   }
   window.HTMLElement.prototype.scrollIntoView = vi.fn();
   servePoints({});
+  // Unusable stand-in ("whole" collapses the window): tests exercising the
+  // averaged fallback override this with a real bucketed result.
+  mockAggregate.mockResolvedValue({
+    interval: "whole",
+    agg: "tw_avg",
+    data_type: "float",
+    timezone: "UTC",
+    points: [],
+    truncated: false,
+  });
   mockCommands.current = new Map();
   mockUsers.current = new Map();
   mockGetStandardTypes.mockResolvedValue([
@@ -258,6 +275,7 @@ afterEach(() => {
   mockListSeries.mockReset();
   mockGetSeriesPoints.mockReset();
   mockGetStandardTypes.mockReset();
+  mockAggregate.mockReset();
 });
 
 describe("DeviceHistoryPage metric pills", () => {
@@ -385,6 +403,49 @@ describe("DeviceHistoryPage truncation", () => {
     renderPage();
 
     await screen.findByText("Données tronquées, réduisez la période");
+  });
+
+  it("charts auto-bucketed averages when the metric is truncated", async () => {
+    setupDevice(1);
+    const t1 = new Date(Date.now() - 3600_000).toISOString();
+    servePoints(
+      { [attrName(0)]: [{ timestamp: t1, value: 21 }] },
+      { truncated: true },
+    );
+    mockAggregate.mockResolvedValue({
+      interval: "1h",
+      agg: "tw_avg",
+      data_type: "float",
+      timezone: "UTC",
+      truncated: false,
+      points: [{ interval_start: t1, value: 21.4, count: 360 }],
+    });
+    renderPage();
+
+    await screen.findByText("Moyenné par 1h");
+    // The averaged stand-in absorbs the truncation: no warning left.
+    expect(
+      screen.queryByText("Données tronquées, réduisez la période"),
+    ).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(mockAggregate).toHaveBeenCalledWith(
+        "d1",
+        attrName(0),
+        expect.objectContaining({ agg: "tw_avg", interval: "auto" }),
+      ),
+    );
+  });
+
+  it("keeps raw points and requests no aggregate when nothing truncates", async () => {
+    setupDevice(1);
+    const t1 = new Date(Date.now() - 3600_000).toISOString();
+    servePoints({ [attrName(0)]: [{ timestamp: t1, value: 21 }] });
+    renderPage();
+
+    await screen.findByRole("button", { name: "Attr 01" });
+    await waitFor(() => expect(fetchedMetrics()).toContain(attrName(0)));
+    expect(mockAggregate).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Moyenné par/)).not.toBeInTheDocument();
   });
 });
 

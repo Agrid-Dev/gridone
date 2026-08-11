@@ -37,7 +37,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router";
 import { toast } from "sonner";
@@ -92,8 +92,12 @@ type DeviceHistoryContextValue = {
   chartRows: MergedRow[];
   /** Value changes of the active metric + state attributes, newest first. */
   events: HistoryEvent[];
-  /** True when the API truncated at least one fetched series. */
+  /** True when a fetched series is truncated with no aggregate stand-in. */
   hasTruncatedData: boolean;
+  /** Bucket width of the averaged chart line when raw data was truncated
+   *  and the auto-bucketed aggregate replaces it (e.g. "1h"); null when the
+   *  chart draws raw points. */
+  chartAveragedInterval: string | null;
   commandsMap: Map<number, UnitCommand>;
   usersMap: Map<string, User>;
   isLoading: boolean;
@@ -297,17 +301,71 @@ export function DeviceHistoryProvider({
     [pointsByMetric, fetchedAttributes],
   );
 
+  // A truncated raw fetch covers only the start of the window. For the active
+  // metric the chart falls back to auto-bucketed time-weighted averages, which
+  // span the whole range at a readable density; events and state timelines
+  // keep the raw rows.
+  const metricTruncated =
+    activeMetric != null && truncatedMetrics.includes(activeMetric);
+
+  const aggregateQuery = useQuery({
+    queryKey: [
+      "timeseries",
+      "aggregate-fallback",
+      deviceId,
+      activeMetric,
+      resolved.start,
+      resolved.end,
+      resolved.last,
+    ],
+    queryFn: () =>
+      client.timeseries.aggregate(deviceId, activeMetric!, {
+        agg: "tw_avg",
+        interval: "auto",
+        start: resolved.start,
+        end: resolved.end,
+        last: resolved.last,
+      }),
+    enabled: metricTruncated,
+    refetchInterval: refreshInterval > 0 ? refreshInterval : false,
+  });
+
+  // "raw" applies no bucketing (same truncation) and "whole" collapses the
+  // window into one point — neither can stand in for the chart line.
+  const aggregateData =
+    metricTruncated &&
+    aggregateQuery.data &&
+    !aggregateQuery.data.truncated &&
+    aggregateQuery.data.interval !== "raw" &&
+    aggregateQuery.data.interval !== "whole"
+      ? aggregateQuery.data
+      : null;
+
+  const chartSourceRows = useMemo(() => {
+    if (!aggregateData || !activeMetric) return allRows;
+    // Empty buckets carry a null value; the chart would filter them anyway.
+    const averaged = aggregateData.points.flatMap((point) =>
+      point.value == null
+        ? []
+        : [{ timestamp: point.interval_start, value: point.value }],
+    );
+    return mergeTimeSeries(
+      { ...pointsByMetric, [activeMetric]: averaged },
+      fetchedAttributes,
+    );
+  }, [aggregateData, activeMetric, allRows, pointsByMetric, fetchedAttributes]);
+
   // The chart draws the last values held to the window end; events keep
-  // recorded rows only. Memoized against `allRows` so "now" is re-read when a
-  // fetch lands rather than on every render — the trailing timestamp has to
-  // hold still or the bands re-animate continuously.
+  // recorded rows only. Memoized against `chartSourceRows` so "now" is re-read
+  // when a fetch lands rather than on every render — the trailing timestamp
+  // has to hold still or the bands re-animate continuously.
   const chartRows = useMemo(
     () =>
       holdLastRowUntil(
-        allRows,
+        chartSourceRows,
         resolved.end ? new Date(resolved.end) : new Date(),
       ),
-    [allRows, resolved.end],
+    [chartSourceRows, resolved.end],
   );
 
   const events = useMemo(
@@ -315,7 +373,14 @@ export function DeviceHistoryProvider({
     [allRows, activeMetric, stateAttributes],
   );
 
-  const hasTruncatedData = truncatedMetrics.length > 0;
+  const chartAveragedInterval = aggregateData?.interval ?? null;
+
+  // The averaged stand-in absorbs the active metric's truncation; anything
+  // else truncated (state timelines, a pending or unusable aggregate) still
+  // warrants the warning.
+  const hasTruncatedData = truncatedMetrics.some(
+    (metric) => metric !== activeMetric || chartAveragedInterval === null,
+  );
 
   const commandIds = useMemo(
     () => [
@@ -387,6 +452,7 @@ export function DeviceHistoryProvider({
       chartRows,
       events,
       hasTruncatedData,
+      chartAveragedInterval,
       commandsMap,
       usersMap,
       isLoading,
@@ -396,7 +462,7 @@ export function DeviceHistoryProvider({
       refreshInterval,
       setRefreshInterval,
       refreshNow,
-      isRefreshing: pointsFetching,
+      isRefreshing: pointsFetching || aggregateQuery.isFetching,
     }),
     [
       series,
@@ -413,6 +479,7 @@ export function DeviceHistoryProvider({
       chartRows,
       events,
       hasTruncatedData,
+      chartAveragedInterval,
       commandsMap,
       usersMap,
       isLoading,
@@ -423,6 +490,7 @@ export function DeviceHistoryProvider({
       setRefreshInterval,
       refreshNow,
       pointsFetching,
+      aggregateQuery.isFetching,
     ],
   );
 
