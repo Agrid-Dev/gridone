@@ -23,6 +23,11 @@ import {
 } from "@/lib/mergeTimeSeries";
 import { buildHistoryEvents, type HistoryEvent } from "./historyEvents";
 import {
+  type RefreshInterval,
+  readStoredRefreshInterval,
+  writeStoredRefreshInterval,
+} from "./refreshPreference";
+import {
   ReactNode,
   createContext,
   useCallback,
@@ -32,6 +37,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router";
 import { toast } from "sonner";
@@ -94,6 +100,12 @@ type DeviceHistoryContextValue = {
   error: Error | null;
   isDownloading: boolean;
   handleDownload: (format: "csv" | "png") => Promise<void>;
+  /** Auto-refresh cadence in ms; 0 = off. */
+  refreshInterval: RefreshInterval;
+  setRefreshInterval: (interval: RefreshInterval) => void;
+  refreshNow: () => void;
+  /** True while any points query is (re)fetching — spins the refresh icon. */
+  isRefreshing: boolean;
 };
 
 const DeviceHistoryContext = createContext<DeviceHistoryContextValue | null>(
@@ -248,16 +260,27 @@ export function DeviceHistoryProvider({
     [series, fetchedAttributes],
   );
 
+  const [refreshInterval, setRefreshIntervalState] = useState<RefreshInterval>(
+    readStoredRefreshInterval,
+  );
+
+  const setRefreshInterval = useCallback((interval: RefreshInterval) => {
+    setRefreshIntervalState(interval);
+    writeStoredRefreshInterval(interval);
+  }, []);
+
   const {
     pointsByMetric,
     truncatedMetrics,
     isLoading: pointsLoading,
+    isFetching: pointsFetching,
     error: pointsError,
   } = useSeriesPoints(
     selectedSeries,
     resolved.start,
     resolved.end,
     resolved.last,
+    { refetchInterval: refreshInterval > 0 ? refreshInterval : false },
   );
 
   // Only the initial load blanks the page; fetches triggered by pill or range
@@ -311,6 +334,15 @@ export function DeviceHistoryProvider({
     [selectedSeries],
   );
 
+  const queryClient = useQueryClient();
+
+  // Invalidation (rather than per-query refetch) keeps the trigger stable and
+  // also refreshes the series list, so newly recorded attributes appear.
+  const refreshNow = useCallback(
+    () => queryClient.invalidateQueries({ queryKey: ["timeseries"] }),
+    [queryClient],
+  );
+
   const [isDownloading, setIsDownloading] = useState(false);
 
   const handleDownload = useCallback(
@@ -361,6 +393,10 @@ export function DeviceHistoryProvider({
       error,
       isDownloading,
       handleDownload,
+      refreshInterval,
+      setRefreshInterval,
+      refreshNow,
+      isRefreshing: pointsFetching,
     }),
     [
       series,
@@ -383,6 +419,10 @@ export function DeviceHistoryProvider({
       error,
       isDownloading,
       handleDownload,
+      refreshInterval,
+      setRefreshInterval,
+      refreshNow,
+      pointsFetching,
     ],
   );
 

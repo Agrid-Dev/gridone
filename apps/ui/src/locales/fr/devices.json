@@ -215,6 +215,14 @@
     "otherValues": "Autres",
     "noMetricData": "Aucune donnée sur la période",
     "export": "Exporter",
+    "refresh": {
+      "now": "Rafraîchir maintenant",
+      "auto": "Rafraîchissement automatique",
+      "off": "Auto désactivé",
+      "10s": "10 s",
+      "1m": "1 min",
+      "5m": "5 min"
+    },
     "events": {
       "event": "Événement",
       "value": "Valeur",

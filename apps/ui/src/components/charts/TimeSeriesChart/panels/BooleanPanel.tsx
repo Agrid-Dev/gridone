@@ -1,4 +1,4 @@
-import { Axis, AnimatedAreaSeries, XYChart } from "@visx/xychart";
+import { Axis, AreaSeries, XYChart } from "@visx/xychart";
 import { curveStepAfter } from "@visx/curve";
 
 import type {
@@ -56,7 +56,7 @@ export function BooleanPanel({
         yScale={{ type: "linear", domain: [0, 1] }}
       >
         {isLast && <Axis orientation="bottom" numTicks={5} />}
-        <AnimatedAreaSeries
+        <AreaSeries
           dataKey={series.key}
           data={data}
           curve={curveStepAfter}
