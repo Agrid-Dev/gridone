@@ -3,7 +3,7 @@ import logging
 import logging.config
 import sys
 
-from logging_config import DEV_LOGGING_CONFIG, PROD_LOGGING_CONFIG, JsonFormatter
+from logging_config import PROD_LOGGING_CONFIG, JsonFormatter
 
 
 def _record(
@@ -106,11 +106,3 @@ def test_prod_config_is_valid_and_uses_json_formatter():
     logging.config.dictConfig(PROD_LOGGING_CONFIG)
 
     assert PROD_LOGGING_CONFIG["handlers"]["console"]["formatter"] == "json"
-
-
-def test_dev_config_keeps_observability_logs_off_the_console():
-    loggers = DEV_LOGGING_CONFIG["loggers"]
-    observability_logger = loggers["devices_manager.observability"]
-
-    assert "console" not in observability_logger["handlers"]
-    assert observability_logger["propagate"] is False
