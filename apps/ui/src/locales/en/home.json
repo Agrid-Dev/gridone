@@ -37,7 +37,18 @@
     "diagramLabel": "Building floor diagram",
     "diagramLegend": "Building floors",
     "empty": "No level in the asset tree.",
-    "addZone": "Add a zone"
+    "addZone": "Add a zone",
+    "viewer": {
+      "closePanel": "Close room panel",
+      "noDevices": "No device linked to this room.",
+      "occupied": "Occupied",
+      "vacant": "Vacant",
+      "trend": "Temperature · 24h",
+      "openAsset": "Open zone details",
+      "alertLabel": "Active alert",
+      "alertText": "{{device}} · {{room}}",
+      "loadError": "The 3D scene could not be loaded."
+    }
   },
   "units": {
     "surfaceSquareMeters": "{{value}} m²"

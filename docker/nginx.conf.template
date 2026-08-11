@@ -48,6 +48,10 @@ http {
         location /api/ {
             rewrite ^/api(/.*)$ $1 break;
 
+            # IFC model uploads: the API enforces its own 200 MB cap, nginx
+            # only needs to stop rejecting large bodies (default is 1 MB).
+            client_max_body_size 256m;
+
             proxy_pass         http://127.0.0.1:8000;
             proxy_http_version 1.1;
 

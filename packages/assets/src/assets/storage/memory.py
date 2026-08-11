@@ -1,14 +1,22 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from assets.models import BuildingProfile
-from assets.storage.models import AssetInDB
+from assets.models import BuildingModelStatus, BuildingProfile
+from assets.storage.models import AssetInDB, BuildingModelInDB
+
+
+@dataclass
+class _StoredModel:
+    meta: BuildingModelInDB
+    ifc_data: bytes
+    glb_data: bytes | None = None
 
 
 @dataclass
 class MemoryAssetsStorage:
     _assets: dict[str, AssetInDB] = field(default_factory=dict)
     _profile: BuildingProfile | None = None
+    _models: dict[str, _StoredModel] = field(default_factory=dict)
 
     async def get_profile(self) -> BuildingProfile | None:
         return self._profile
@@ -47,6 +55,7 @@ class MemoryAssetsStorage:
 
     async def delete(self, asset_id: str) -> None:
         self._assets.pop(asset_id, None)
+        self._models.pop(asset_id, None)
 
     async def get_children(self, asset_id: str) -> list[AssetInDB]:
         return await self.list_by_parent(asset_id)
@@ -88,6 +97,55 @@ class MemoryAssetsStorage:
                 self._assets[asset_id] = asset.model_copy(
                     update={"position": position, "updated_at": updated_at}
                 )
+
+    async def delete_descendants(self, asset_id: str) -> None:
+        for descendant in await self.get_descendants(asset_id):
+            self._assets.pop(descendant.id, None)
+            self._models.pop(descendant.id, None)
+
+    async def get_model(self, asset_id: str) -> BuildingModelInDB | None:
+        stored = self._models.get(asset_id)
+        return stored.meta if stored else None
+
+    async def save_model(self, model: BuildingModelInDB, ifc_data: bytes) -> None:
+        meta = model.model_copy(update={"ifc_size": len(ifc_data), "glb_size": None})
+        self._models[model.asset_id] = _StoredModel(meta=meta, ifc_data=ifc_data)
+
+    async def set_model_result(
+        self, model: BuildingModelInDB, glb_data: bytes | None
+    ) -> None:
+        stored = self._models.get(model.asset_id)
+        if stored is None:
+            return
+        stored.glb_data = glb_data
+        stored.meta = model.model_copy(
+            update={
+                "ifc_size": stored.meta.ifc_size,
+                "glb_size": len(glb_data) if glb_data is not None else None,
+            }
+        )
+
+    async def fail_processing_models(self, error: str, updated_at: datetime) -> None:
+        for stored in self._models.values():
+            if stored.meta.status == BuildingModelStatus.PROCESSING:
+                stored.meta = stored.meta.model_copy(
+                    update={
+                        "status": BuildingModelStatus.FAILED,
+                        "error": error,
+                        "updated_at": updated_at,
+                    }
+                )
+
+    async def get_model_ifc(self, asset_id: str) -> bytes | None:
+        stored = self._models.get(asset_id)
+        return stored.ifc_data if stored else None
+
+    async def get_model_glb(self, asset_id: str) -> bytes | None:
+        stored = self._models.get(asset_id)
+        return stored.glb_data if stored else None
+
+    async def delete_model(self, asset_id: str) -> None:
+        self._models.pop(asset_id, None)
 
     async def close(self) -> None:
         pass

@@ -14,7 +14,11 @@ export type SearchParamValue =
   | readonly (string | number | boolean)[];
 
 export interface RequestOptions {
-  /** JSON-serialized verbatim — payload keys are wire-format snake_case. */
+  /**
+   * JSON-serialized verbatim — payload keys are wire-format snake_case.
+   * `FormData` and `Blob` bodies are passed through untouched so the runtime
+   * sets the appropriate Content-Type (incl. the multipart boundary).
+   */
   body?: unknown;
   /** `null`/`undefined` values are skipped; arrays become repeated params. */
   searchParams?: Record<string, SearchParamValue>;
@@ -149,8 +153,12 @@ export class HttpClient {
     accessToken?: string,
   ): Promise<Response> {
     const headers: Record<string, string> = { ...options?.headers };
-    let body: string | undefined;
-    if (options?.body !== undefined) {
+    let body: BodyInit | undefined;
+    if (options?.body instanceof FormData || options?.body instanceof Blob) {
+      // Hand the payload to fetch untouched: forcing a Content-Type here
+      // would strip the multipart boundary the runtime generates.
+      body = options.body;
+    } else if (options?.body !== undefined) {
       headers["Content-Type"] = "application/json";
       body = JSON.stringify(options.body);
     }

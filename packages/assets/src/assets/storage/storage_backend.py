@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Protocol
 
 from assets.models import BuildingProfile
-from assets.storage.models import AssetInDB
+from assets.storage.models import AssetInDB, BuildingModelInDB
 
 
 class AssetsStorageBackend(Protocol):
@@ -35,5 +35,34 @@ class AssetsStorageBackend(Protocol):
     ) -> None:
         """Set position values for the given sibling IDs in order (0, 1, 2, ...)."""
         ...
+
+    async def delete_descendants(self, asset_id: str) -> None:
+        """Delete every node in the subtree below *asset_id* (excludes self)."""
+        ...
+
+    async def get_model(self, asset_id: str) -> BuildingModelInDB | None:
+        """Return the model metadata for *asset_id* (binary payloads excluded)."""
+        ...
+
+    async def save_model(self, model: BuildingModelInDB, ifc_data: bytes) -> None:
+        """Upsert the model row with a fresh IFC payload, clearing any glTF."""
+        ...
+
+    async def set_model_result(
+        self, model: BuildingModelInDB, glb_data: bytes | None
+    ) -> None:
+        """Persist the conversion outcome carried by *model* plus its scene.
+
+        The raw IFC payload is left untouched; sizes are derived on read.
+        """
+        ...
+
+    async def fail_processing_models(self, error: str, updated_at: datetime) -> None:
+        """Mark every model still in ``processing`` as failed with *error*."""
+        ...
+
+    async def get_model_ifc(self, asset_id: str) -> bytes | None: ...
+    async def get_model_glb(self, asset_id: str) -> bytes | None: ...
+    async def delete_model(self, asset_id: str) -> None: ...
 
     async def close(self) -> None: ...

@@ -7,6 +7,7 @@ import type { Asset, Device } from "@gridone/sdk";
 import { Button } from "@/components/ui";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { usePermissions } from "@/contexts/AuthContext";
+import { useDeviceContext } from "@/contexts/DeviceContext";
 import { useBuildingProfile } from "@/hooks/useBuildingProfile";
 import { countZones, findOrgName } from "./rollup";
 import { IdentityCard } from "./IdentityCard";
@@ -23,9 +24,14 @@ const Home: FC = () => {
   const can = usePermissions();
 
   const { data: profile, isLoading: profileLoading } = useBuildingProfile();
+  const { isConnected } = useDeviceContext();
+  // The exact ["devices"] key is the one the WebSocket handler patches in
+  // place — the 3D viewer's live room temperatures ride on it. Polling is
+  // only the fallback when the socket is down.
   const { data: devices, isLoading: devicesLoading } = useQuery<Device[]>({
-    queryKey: ["devices", undefined],
+    queryKey: ["devices"],
     queryFn: () => client.devices.list(),
+    refetchInterval: isConnected ? false : 15_000,
   });
   const { data: assets, isLoading: assetsLoading } = useQuery<Asset[]>({
     queryKey: ["home", "assets-flat"],
@@ -52,22 +58,27 @@ const Home: FC = () => {
       </header>
 
       <div className="grid items-start gap-6 lg:grid-cols-12">
-        <div className="space-y-6 lg:col-span-5">
+        <div className="lg:col-span-5">
           <IdentityCard
             profile={profile}
             zoneCount={countZones(assets ?? [])}
             orgName={findOrgName(assets ?? [])}
             loading={profileLoading || assetsLoading}
           />
-          <NotificationsCard />
         </div>
-        <div className="space-y-6 lg:col-span-7">
+        <div className="lg:col-span-7">
           <DevicesCard devices={devices ?? []} loading={devicesLoading} />
+        </div>
+        {/* Full-width hero: hosts the 3D digital twin when a model exists. */}
+        <div className="lg:col-span-12">
           <ZonesByLevelCard
             assets={assets ?? []}
             devices={devices ?? []}
             loading={assetsLoading || devicesLoading}
           />
+        </div>
+        <div className="lg:col-span-12">
+          <NotificationsCard />
         </div>
       </div>
     </section>

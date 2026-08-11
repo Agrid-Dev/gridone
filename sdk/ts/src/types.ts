@@ -78,6 +78,11 @@ export type AssetType = Schemas["AssetType"];
 export type AssetCommand = Schemas["AssetCommand"];
 export type ReorderRequest = Schemas["ReorderRequest"];
 export type TagValueBody = Schemas["TagValueBody"];
+export type BuildingModel = Schemas["BuildingModel"];
+export type BuildingModelStatus = Schemas["BuildingModelStatus"];
+export type ModelStorey = Schemas["ModelStorey"];
+export type ModelSpace = Schemas["ModelSpace"];
+export type TreeImportResponse = Schemas["TreeImportResponse"];
 
 // Devices
 export type Device = Schemas["Device"];

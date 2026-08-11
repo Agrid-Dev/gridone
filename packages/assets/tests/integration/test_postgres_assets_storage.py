@@ -7,8 +7,14 @@ import asyncpg
 import pytest
 import pytest_asyncio
 
-from assets.models import AssetType, BuildingProfile
-from assets.storage.models import AssetInDB
+from assets.models import (
+    AssetType,
+    BuildingModelStatus,
+    BuildingProfile,
+    ModelSpace,
+    ModelStorey,
+)
+from assets.storage.models import AssetInDB, BuildingModelInDB
 from assets.storage.postgres import run_migrations
 from assets.storage.postgres.postgres_assets_storage import (
     PostgresAssetsStorage,
@@ -71,6 +77,7 @@ async def storage():
     # Clean tables before each test (links first due to FK)
     async with pool.acquire() as conn:
         await conn.execute("DELETE FROM device_asset_links")
+        await conn.execute("DELETE FROM building_models")
         await conn.execute("DELETE FROM assets")
         await conn.execute("DELETE FROM building_profile")
 
@@ -373,3 +380,163 @@ class TestBuildingProfile:
         fetched = await storage.get_profile()
         assert fetched is not None
         assert fetched.name == "Second"
+
+
+class TestIfcGlobalId:
+    """ifc_global_id column round-trip through save / get / list."""
+
+    async def test_save_and_read_back(self, storage: PostgresAssetsStorage) -> None:
+        root = _root()
+        await storage.save(root)
+        stamped = _make_asset("room-1", parent_id=root.id, asset_type=AssetType.ROOM)
+        await storage.save(stamped.model_copy(update={"ifc_global_id": "GID-42"}))
+
+        fetched = await storage.get_by_id("room-1")
+        assert fetched is not None
+        assert fetched.ifc_global_id == "GID-42"
+
+        cleared = fetched.model_copy(update={"ifc_global_id": None})
+        await storage.save(cleared)
+        fetched2 = await storage.get_by_id("room-1")
+        assert fetched2 is not None
+        assert fetched2.ifc_global_id is None
+
+
+class TestDeleteDescendants:
+    async def test_removes_subtree_only(self, storage: PostgresAssetsStorage) -> None:
+        root = _root()
+        await storage.save(root)
+        await storage.save(_make_asset("b1", parent_id=root.id))
+        await storage.save(
+            _make_asset("f1", parent_id="b1", asset_type=AssetType.FLOOR)
+        )
+        await storage.save(_make_asset("r1", parent_id="f1", asset_type=AssetType.ROOM))
+        await storage.save(_make_asset("b2", parent_id=root.id, position=1))
+
+        await storage.delete_descendants("b1")
+
+        assert await storage.get_by_id("b1") is not None
+        assert await storage.get_by_id("f1") is None
+        assert await storage.get_by_id("r1") is None
+        assert await storage.get_by_id("b2") is not None
+
+
+class TestBuildingModels:
+    """building_models bytea/jsonb round-trips and lifecycle transitions."""
+
+    @staticmethod
+    def _model(asset_id: str = "b1") -> BuildingModelInDB:
+        return BuildingModelInDB(
+            asset_id=asset_id,
+            status=BuildingModelStatus.PROCESSING,
+            filename="model.ifc",
+        )
+
+    async def _seed_building(
+        self, storage: PostgresAssetsStorage, asset_id: str = "b1"
+    ) -> None:
+        root = _root()
+        await storage.save(root)
+        await storage.save(_make_asset(asset_id, parent_id=root.id))
+
+    async def test_save_and_get_meta_with_sizes(
+        self, storage: PostgresAssetsStorage
+    ) -> None:
+        await self._seed_building(storage)
+        await storage.save_model(self._model(), b"ifc-payload")
+
+        meta = await storage.get_model("b1")
+        assert meta is not None
+        assert meta.status == BuildingModelStatus.PROCESSING
+        assert meta.filename == "model.ifc"
+        assert meta.ifc_size == len(b"ifc-payload")
+        assert meta.glb_size is None
+        assert meta.storeys == []
+        assert await storage.get_model_ifc("b1") == b"ifc-payload"
+        assert await storage.get_model_glb("b1") is None
+
+    async def test_set_model_result_round_trips_jsonb(
+        self, storage: PostgresAssetsStorage
+    ) -> None:
+        await self._seed_building(storage)
+        await storage.save_model(self._model(), b"ifc-payload")
+        ready = self._model().model_copy(
+            update={
+                "status": BuildingModelStatus.READY,
+                "storeys": [ModelStorey(global_id="s1", name="Level 0", elevation=0.0)],
+                "spaces": [
+                    ModelSpace(
+                        global_id="sp1",
+                        name="Room 001",
+                        storey_global_id="s1",
+                        storey_name="Level 0",
+                    )
+                ],
+                "updated_at": datetime.now(UTC),
+            }
+        )
+
+        await storage.set_model_result(ready, b"glb-payload")
+
+        meta = await storage.get_model("b1")
+        assert meta is not None
+        assert meta.status == BuildingModelStatus.READY
+        assert meta.ifc_size == len(b"ifc-payload")
+        assert meta.glb_size == len(b"glb-payload")
+        assert meta.storeys == ready.storeys
+        assert meta.spaces == ready.spaces
+        assert await storage.get_model_glb("b1") == b"glb-payload"
+
+    async def test_replacing_upload_resets_result(
+        self, storage: PostgresAssetsStorage
+    ) -> None:
+        await self._seed_building(storage)
+        await storage.save_model(self._model(), b"first")
+        ready = self._model().model_copy(update={"status": BuildingModelStatus.READY})
+        await storage.set_model_result(ready, b"glb-payload")
+
+        await storage.save_model(
+            self._model().model_copy(update={"filename": "second.ifc"}), b"second!"
+        )
+
+        meta = await storage.get_model("b1")
+        assert meta is not None
+        assert meta.status == BuildingModelStatus.PROCESSING
+        assert meta.filename == "second.ifc"
+        assert meta.ifc_size == len(b"second!")
+        assert meta.glb_size is None
+        assert await storage.get_model_glb("b1") is None
+
+    async def test_fail_processing_models(self, storage: PostgresAssetsStorage) -> None:
+        await self._seed_building(storage, "b1")
+        await self._seed_building(storage, "b2")
+        await storage.save_model(self._model("b1"), b"x")
+        await storage.save_model(self._model("b2"), b"x")
+        ready = self._model("b2").model_copy(
+            update={"status": BuildingModelStatus.READY}
+        )
+        await storage.set_model_result(ready, b"glb")
+
+        await storage.fail_processing_models("interrupted", datetime.now(UTC))
+
+        failed = await storage.get_model("b1")
+        untouched = await storage.get_model("b2")
+        assert failed is not None
+        assert failed.status == BuildingModelStatus.FAILED
+        assert failed.error == "interrupted"
+        assert untouched is not None
+        assert untouched.status == BuildingModelStatus.READY
+
+    async def test_delete_model(self, storage: PostgresAssetsStorage) -> None:
+        await self._seed_building(storage)
+        await storage.save_model(self._model(), b"x")
+        await storage.delete_model("b1")
+        assert await storage.get_model("b1") is None
+
+    async def test_deleting_the_asset_cascades(
+        self, storage: PostgresAssetsStorage
+    ) -> None:
+        await self._seed_building(storage)
+        await storage.save_model(self._model(), b"x")
+        await storage.delete("b1")
+        assert await storage.get_model("b1") is None

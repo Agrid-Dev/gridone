@@ -19,6 +19,14 @@ export default defineConfig([
       "no-console": "warn",
     },
   },
+  {
+    // react-three-fiber extends JSX with three.js scene elements whose props
+    // (position, intensity, object, …) are unknown to eslint-plugin-react.
+    files: ["src/components/three/**/*.tsx"],
+    rules: {
+      "react/no-unknown-property": "off",
+    },
+  },
   eslintConfigPrettier,
   globalIgnores(["dist", "tailwind.config.js", "vite.config.js"]),
 ]);
