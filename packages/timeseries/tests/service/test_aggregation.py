@@ -992,6 +992,66 @@ class TestWholeInterval:
         assert options_no_window.intervals[1] == ("whole", None)
 
 
+class TestTwAvgTrailingBucketWithFutureData:
+    """A point can exist after query.end but still land inside the trailing
+    bucket's full calendar span. tw_avg/tw_mode must ignore it rather than
+    letting it produce a segment with negative duration."""
+
+    async def _seed(
+        self, ts_service: TimeSeriesService, metric: str
+    ) -> tuple[SeriesKey, datetime]:
+        key = SeriesKey(owner_id="trailing-future", metric=metric)
+        await ts_service.create_series(
+            data_type=DataType.FLOAT, owner_id=key.owner_id, metric=key.metric
+        )
+        start = datetime(2026, 1, 1, tzinfo=UTC)
+        await ts_service.upsert_points(
+            key,
+            [
+                DataPoint(timestamp=start, value=20.0),
+                DataPoint(timestamp=start + timedelta(minutes=5), value=20.0),
+                DataPoint(timestamp=start + timedelta(minutes=10), value=20.0),
+                DataPoint(timestamp=start + timedelta(minutes=15), value=20.0),
+                # past query.end (below), still inside the 12:15-12:30 bucket
+                DataPoint(timestamp=start + timedelta(minutes=25), value=999.0),
+            ],
+        )
+        return key, start
+
+    async def test_tw_avg_ignores_point_past_query_end(
+        self, ts_service: TimeSeriesService
+    ) -> None:
+        key, start = await self._seed(ts_service, "tw_avg_temp")
+        result = await ts_service.get_aggregate(
+            key,
+            AggregationQuery(
+                agg=AggregationOperator.TW_AVG,
+                interval=Interval.model_validate("15min"),
+                start=start,
+                end=start + timedelta(minutes=22),
+            ),
+        )
+        assert [p.value for p in result.points] == [
+            pytest.approx(20.0),
+            pytest.approx(20.0),
+        ]
+
+    async def test_tw_mode_ignores_point_past_query_end(
+        self, ts_service: TimeSeriesService
+    ) -> None:
+        key, start = await self._seed(ts_service, "tw_mode_temp")
+        result = await ts_service.get_aggregate(
+            key,
+            AggregationQuery(
+                agg=AggregationOperator.TW_MODE,
+                interval=Interval.model_validate("15min"),
+                start=start,
+                end=start + timedelta(minutes=22),
+            ),
+        )
+        assert [p.value for p in result.points] == [20.0, 20.0]
+
+
 class TestDeltaOperator:
     """Per-bucket consumption of a cumulative counter (AGR-879)."""
 

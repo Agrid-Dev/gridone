@@ -1,0 +1,19 @@
+name: dropping_tail
+description: Float series that drops from 20.0 to 5.0 shortly before the query
+  window ends mid-bucket. An implementation that extrapolates the last known
+  value to the full calendar bucket (instead of stopping at query end) over-
+  weights the drop and reports a different value than covered-duration
+  integration.
+input:
+  data_type: float
+  points:
+  - timestamp: '2025-06-15T12:00:00+00:00'
+    value: 20.0
+  - timestamp: '2025-06-15T12:05:00+00:00'
+    value: 20.0
+  - timestamp: '2025-06-15T12:10:00+00:00'
+    value: 20.0
+  - timestamp: '2025-06-15T12:15:00+00:00'
+    value: 20.0
+  - timestamp: '2025-06-15T12:18:00+00:00'
+    value: 5.0

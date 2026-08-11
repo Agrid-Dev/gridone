@@ -53,6 +53,10 @@ _R_SINGLE = ("2025-06-14T00:00:00+00:00", "2025-06-17T00:00:00+00:00")
 _R_COUNTER = ("2025-02-01T00:00:00+00:00", "2025-02-15T00:00:00+00:00")
 # Starts after single_point's only sample: no data in range, anchor before it.
 _R_ANCHOR_ONLY = ("2025-06-16T00:00:00+00:00", "2025-06-17T00:00:00+00:00")
+# End falls mid-bucket (12:22 is 7min into the 12:15-12:30 bin): a steady LOCF
+# value must report unchanged in the trailing partial bucket, not diluted by
+# the fraction of the bucket elapsed.
+_R_TRAILING_PARTIAL = ("2025-06-15T12:00:00+00:00", "2025-06-15T12:22:00+00:00")
 
 _LOCF_OPS = ["count", "first", "last", "avg", "tw_avg", "delta"]
 
@@ -116,6 +120,20 @@ CASE_SPEC: list[dict[str, str]] = [
         ops=["avg", "count", "tw_avg", "delta"],
     ),
     *_cases("single_point", "float", ["1d"], _R_SINGLE),
+    *_cases(
+        "steady_float",
+        "float",
+        ["15min"],
+        _R_TRAILING_PARTIAL,
+        ops=["tw_avg", "tw_mode"],
+    ),
+    *_cases(
+        "dropping_tail",
+        "float",
+        ["15min"],
+        _R_TRAILING_PARTIAL,
+        ops=["tw_avg", "tw_mode"],
+    ),
     # A real cumulative counter: monotonic index, a meter reset, a reading gap.
     *_cases(
         "cumulative_counter",
@@ -258,31 +276,31 @@ def mode(values: list[Any]) -> Any:
 def _tw_segs(
     bin_pts: list[Point],
     bin_start: datetime,
+    bin_end: datetime,
     locf: Any,
     data_type: str,
     *,
     numeric: bool,
 ) -> list[tuple[datetime, Any]] | None:
-    """
-    Build step-function segments for tw_avg / tw_mode.
+    """Build step-function segments for tw_avg / tw_mode, bounded to bin_end.
 
     If no LOCF is available, the first in-bin point fills backwards to bin_start.
-    Returns None if there is no data at all.
+    Points outside the range are dropped — a later point would otherwise produce
+    a negative-duration segment. None if there is no data at all.
     """
     coerce: Callable[[Any], Any] = (
         (lambda v: _to_num(v, data_type)) if numeric else (lambda v: v)
     )
+    in_range = [(ts, v) for ts, v in bin_pts if bin_start <= ts < bin_end]
 
     if locf is not None:
         segs: list[tuple[datetime, Any]] = [(bin_start, coerce(locf))]
-    elif bin_pts:
-        segs = [(bin_start, coerce(bin_pts[0][1]))]
+    elif in_range:
+        segs = [(bin_start, coerce(in_range[0][1]))]
     else:
         return None
 
-    for ts, v in bin_pts:
-        if ts >= bin_start:
-            segs.append((ts, coerce(v)))
+    segs.extend((ts, coerce(v)) for ts, v in in_range)
 
     return segs
 
@@ -295,7 +313,7 @@ def _tw_avg(
     data_type: str,
 ) -> float | None:
     bin_dur = (bin_end - bin_start).total_seconds()
-    segs = _tw_segs(bin_pts, bin_start, locf, data_type, numeric=True)
+    segs = _tw_segs(bin_pts, bin_start, bin_end, locf, data_type, numeric=True)
     if segs is None or bin_dur == 0:
         return None
     total = 0.0
@@ -312,7 +330,7 @@ def _tw_mode(
     locf: Any,
     data_type: str,
 ) -> Any:
-    segs = _tw_segs(bin_pts, bin_start, locf, data_type, numeric=False)
+    segs = _tw_segs(bin_pts, bin_start, bin_end, locf, data_type, numeric=False)
     if segs is None:
         return None
     durations: dict[Any, float] = defaultdict(float)
@@ -379,8 +397,13 @@ def compute_expected(
     result: list[dict[str, Any]] = []
 
     for bin_start, bin_end in bins:
+        # Trailing bucket may extend past end_utc; tw_avg/tw_mode must integrate
+        # only over the covered portion, not the full calendar bucket width.
+        covered_end = min(bin_end, end_utc)
         bin_pts = _points_in(points, bin_start, bin_end)
-        value, agg_dt = apply(operator, bin_pts, bin_start, bin_end, locf, data_type)
+        value, agg_dt = apply(
+            operator, bin_pts, bin_start, covered_end, locf, data_type
+        )
         result.append(
             {
                 "interval_start": bin_start.isoformat(),

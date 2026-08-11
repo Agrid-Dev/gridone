@@ -288,6 +288,26 @@ class TestComputeExpected:
         assert expected[0]["value"] == 2
         assert expected[1]["value"] == 1
 
+    def test_tw_avg_trailing_bucket_uses_covered_duration(self) -> None:
+        # end (00:22) falls 7min into the 00:15-00:30 bucket; a steady 20.0
+        # held throughout must report unchanged, not diluted by the elapsed
+        # fraction (7/15) or extrapolated past the query end.
+        points = [
+            (datetime(2025, 1, 1, 0, 0, tzinfo=UTC), 20.0),
+            (datetime(2025, 1, 1, 0, 15, tzinfo=UTC), 20.0),
+            (datetime(2025, 1, 1, 0, 18, tzinfo=UTC), 20.0),
+        ]
+        expected = compute.compute_expected(
+            points,
+            "float",
+            datetime(2025, 1, 1, tzinfo=UTC),
+            datetime(2025, 1, 1, 0, 22, tzinfo=UTC),
+            "15min",
+            "UTC",
+            "tw_avg",
+        )
+        assert [e["value"] for e in expected] == [20.0, 20.0]
+
 
 class TestMode:
     def test_most_frequent(self) -> None:

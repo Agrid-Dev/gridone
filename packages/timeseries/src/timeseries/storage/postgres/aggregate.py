@@ -292,6 +292,11 @@ def _mode_query(ctx: _QueryCtx) -> tuple[str, _Params]:
 
 
 def _twavg_query(ctx: _QueryCtx) -> tuple[str, _Params]:
+    """Time-weighted average: integral of held value, divided by covered duration.
+
+    Numerator (per-point hold) and denominator (bucket width) must both clamp to
+    the query end ($3) — decoupling them dilutes a trailing partial bucket.
+    """
     raw_val = (
         f"{ctx.value_col}::int::double precision"
         if ctx.data_type == DataType.BOOL
@@ -328,7 +333,9 @@ def _twavg_query(ctx: _QueryCtx) -> tuple[str, _Params]:
         "    SELECT\n"
         f"        {_GAPFILL_BUCKET_EXPR} AS bucket,\n"
         "        SUM(locf_wt + hold_wt) / NULLIF(\n"
-        f"            EXTRACT(EPOCH FROM MAX(({bucket_end}) - bucket)), 0\n"
+        "            EXTRACT(EPOCH FROM MAX(\n"
+        f"                LEAST({bucket_end}, $3::timestamptz) - bucket\n"
+        "            )), 0\n"
         "        ) AS tw_val,\n"
         "        locf(last(v, timestamp), prev => $6::double precision,"
         " treat_null_as_missing => true) AS locf_val,\n"

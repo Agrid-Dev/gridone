@@ -99,16 +99,18 @@ def _mode(values: list[Any]) -> Any:
 def _tw_segs(
     pts: list[tuple[datetime, Any]],
     bin_start: datetime,
+    bin_end: datetime,
     locf: Any,
     *,
     numeric: bool,
     data_type: DataType,
 ) -> list[tuple[datetime, Any]] | None:
-    """
-    Build step-function segments for tw_avg / tw_mode.
+    """Build step-function segments for tw_avg / tw_mode, bounded to bin_end.
 
     If locf is available it anchors the value from bin_start. Otherwise the first
-    in-bin point fills back to bin_start. Returns None when there is no data at all.
+    in-bin point fills back to bin_start. Points outside the range are dropped —
+    bin_end may be the query-clamped covered end, and a later point would
+    otherwise produce a negative-duration segment. None if there is no data.
     """
 
     def coerce(v: Any) -> Any:
@@ -116,16 +118,16 @@ def _tw_segs(
             return (1.0 if v else 0.0) if data_type == DataType.BOOL else float(v)
         return v
 
+    in_range = [(ts, v) for ts, v in pts if bin_start <= ts < bin_end]
+
     if locf is not None:
         segs: list[tuple[datetime, Any]] = [(bin_start, coerce(locf))]
-    elif pts:
-        segs = [(bin_start, coerce(pts[0][1]))]
+    elif in_range:
+        segs = [(bin_start, coerce(in_range[0][1]))]
     else:
         return None
 
-    for ts, v in pts:
-        if ts >= bin_start:
-            segs.append((ts, coerce(v)))
+    segs.extend((ts, coerce(v)) for ts, v in in_range)
 
     return segs
 
@@ -159,7 +161,7 @@ def _tw_avg_polars(
     Per-row duration = col("ts_us").shift(-1) - col("ts_us"); last row clamped to
     bin_end. Result = (value * duration).sum() / bin_duration.
     """
-    segs = _tw_segs(pts, bin_start, locf, numeric=True, data_type=data_type)
+    segs = _tw_segs(pts, bin_start, bin_end, locf, numeric=True, data_type=data_type)
     if segs is None:
         return None
     bin_dur = (bin_end - bin_start).total_seconds()
@@ -179,7 +181,7 @@ def _tw_mode_polars(
     data_type: DataType,
 ) -> Any:
     """Compute TWMODE: value held for the most time; ties broken by smallest."""
-    segs = _tw_segs(pts, bin_start, locf, numeric=False, data_type=data_type)
+    segs = _tw_segs(pts, bin_start, bin_end, locf, numeric=False, data_type=data_type)
     if segs is None:
         return None
     df = _segs_to_step_df(segs, bin_end)
@@ -262,6 +264,11 @@ def _apply_op(
     locf: Any,
     data_type: DataType,
 ) -> Any:
+    """Dispatch to the operator's computation for one bucket.
+
+    ``bin_end`` is the query-clamped covered end, not the calendar bucket
+    boundary — only TW_AVG/TW_MODE read it.
+    """
     if op == AggregationOperator.COUNT:
         return len(bucket_df)
     if len(bucket_df) == 0:
@@ -338,6 +345,7 @@ def compute(
 
     result_points: list[AggregatedPoint] = []
     locf: Any = anchor.value if anchor is not None else None
+    query_end_utc = query.end.astimezone(UTC)
 
     for bin_start, bin_end in bins:
         start_us = int(bin_start.astimezone(UTC).timestamp() * 1_000_000)
@@ -348,12 +356,15 @@ def compute(
         )
         bucket_pts = [(ts, v) for ts, v in all_pts if bin_start <= ts < bin_end]
 
+        # tw_avg/tw_mode must integrate only over the covered duration, not
+        # extrapolate the last known value into a not-yet-elapsed trailing bucket.
+        covered_end = min(bin_end, query_end_utc)
         value = _apply_op(
             query.agg,
             bucket_df,
             bucket_pts,
             bin_start,
-            bin_end,
+            covered_end,
             locf,
             series.data_type,
         )
