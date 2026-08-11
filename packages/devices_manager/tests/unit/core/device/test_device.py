@@ -4,6 +4,7 @@ import asyncio
 import contextlib
 import logging
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock
 
 import pytest
@@ -23,11 +24,16 @@ from devices_manager.core.driver import (
     FaultAttributeDriver,
     UpdateStrategy,
 )
+from devices_manager.core.transports.read_result import ReadError, ReadOk
 from devices_manager.types import ConnectionStatus, DataType, TransportProtocols
 from models.errors import ConfirmationError, NotFoundError
 from models.types import Severity
 
+from ...conftest import sum_metric
 from ..fixtures.transport_clients import MockTransportAddress
+
+if TYPE_CHECKING:
+    from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 
 
 @pytest.fixture
@@ -989,3 +995,132 @@ class TestSweepReadCache:
         assert device.get_attribute_value("temperature_setpoint") == 20
         assert None in sweep_ids
         assert any(cid is not None for cid in sweep_ids)
+
+
+class TestApplyReadResultMetrics:
+    """``_apply_read_result`` replaced the retired per-read log line here —
+    now records the ``device.attribute.read`` counter (the "A" ratio)."""
+
+    def test_ok_result_records_ok_status(
+        self, device: CoreDevice, metric_reader: InMemoryMetricReader
+    ):
+        device._apply_read_result(  # noqa: SLF001
+            "temperature", ReadOk(address_id="a1", value="20")
+        )
+
+        assert (
+            sum_metric(
+                metric_reader, "device.attribute.read", protocol="http", status="ok"
+            )
+            == 1
+        )
+
+    def test_read_error_records_error_status(
+        self, device: CoreDevice, metric_reader: InMemoryMetricReader
+    ):
+        device._apply_read_result(  # noqa: SLF001
+            "temperature", ReadError(address_id="a1", error=RuntimeError("boom"))
+        )
+
+        assert (
+            sum_metric(
+                metric_reader, "device.attribute.read", protocol="http", status="error"
+            )
+            == 1
+        )
+
+    def test_decode_error_records_error_status(
+        self, device: CoreDevice, metric_reader: InMemoryMetricReader
+    ):
+        # "temperature_w_adapter" decodes via a json_pointer codec that expects
+        # a dict; a bare string fails to decode, exercising the decode-error path.
+        device._apply_read_result(  # noqa: SLF001
+            "temperature_w_adapter", ReadOk(address_id="a2", value="not-a-dict")
+        )
+
+        assert (
+            sum_metric(
+                metric_reader, "device.attribute.read", protocol="http", status="error"
+            )
+            == 1
+        )
+
+    def test_unknown_attribute_records_nothing(
+        self, device: CoreDevice, metric_reader: InMemoryMetricReader
+    ):
+        device._apply_read_result(  # noqa: SLF001
+            "nonexistent", ReadOk(address_id="a1", value="20")
+        )
+
+        assert (
+            sum_metric(
+                metric_reader, "device.attribute.read", protocol="http", status="ok"
+            )
+            == 0
+        )
+        assert (
+            sum_metric(
+                metric_reader, "device.attribute.read", protocol="http", status="error"
+            )
+            == 0
+        )
+
+
+class TestReadAttributeValueMetrics:
+    """The single-attribute read path must also record ``device.attribute.read``,
+    or A undercounts D/R (which count every wire read, not just group polls)."""
+
+    @pytest.mark.asyncio
+    async def test_ok_records_ok_status(
+        self,
+        device: CoreDevice,
+        mock_transport_client,
+        metric_reader: InMemoryMetricReader,
+    ):
+        mock_transport_client.read = AsyncMock(return_value=23.5)
+
+        await device.read_attribute_value("temperature")
+
+        assert (
+            sum_metric(
+                metric_reader, "device.attribute.read", protocol="http", status="ok"
+            )
+            == 1
+        )
+
+    @pytest.mark.asyncio
+    async def test_transport_error_records_error_status(
+        self,
+        device: CoreDevice,
+        mock_transport_client,
+        metric_reader: InMemoryMetricReader,
+    ):
+        mock_transport_client.read = AsyncMock(side_effect=RuntimeError("boom"))
+
+        with pytest.raises(RuntimeError, match="boom"):
+            await device.read_attribute_value("temperature")
+
+        assert (
+            sum_metric(
+                metric_reader, "device.attribute.read", protocol="http", status="error"
+            )
+            == 1
+        )
+
+    @pytest.mark.asyncio
+    async def test_refresh_attribute_records_metric(
+        self,
+        device: CoreDevice,
+        mock_transport_client,
+        metric_reader: InMemoryMetricReader,
+    ):
+        mock_transport_client.read = AsyncMock(return_value=23.5)
+
+        await device.refresh_attribute("temperature")
+
+        assert (
+            sum_metric(
+                metric_reader, "device.attribute.read", protocol="http", status="ok"
+            )
+            == 1
+        )
