@@ -292,6 +292,11 @@ def _mode_query(ctx: _QueryCtx) -> tuple[str, _Params]:
 
 
 def _twavg_query(ctx: _QueryCtx) -> tuple[str, _Params]:
+    """Time-weighted average: integral of held value, divided by covered duration.
+
+    Numerator (per-point hold) and denominator (bucket width) must both clamp to
+    the query end ($3) — decoupling them dilutes a trailing partial bucket.
+    """
     raw_val = (
         f"{ctx.value_col}::int::double precision"
         if ctx.data_type == DataType.BOOL
