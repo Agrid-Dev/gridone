@@ -37,7 +37,18 @@
     "diagramLabel": "Schéma des niveaux du bâtiment",
     "diagramLegend": "Niveaux du bâtiment",
     "empty": "Aucun niveau dans l’arborescence.",
-    "addZone": "Ajouter une zone"
+    "addZone": "Ajouter une zone",
+    "viewer": {
+      "closePanel": "Fermer le panneau de la salle",
+      "noDevices": "Aucun appareil lié à cette salle.",
+      "occupied": "Occupée",
+      "vacant": "Libre",
+      "trend": "Température · 24 h",
+      "openAsset": "Voir le détail de la zone",
+      "alertLabel": "Alerte active",
+      "alertText": "{{device}} · {{room}}",
+      "loadError": "La scène 3D n'a pas pu être chargée."
+    }
   },
   "units": {
     "surfaceSquareMeters": "{{value}} m²"

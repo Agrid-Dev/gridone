@@ -6,8 +6,11 @@ import type {
   AssetCreate,
   AssetUpdate,
   BatchDispatchResponse,
+  BuildingModel,
   BuildingProfile,
+  ModelSpace,
   ReorderRequest,
+  TreeImportResponse,
 } from "../types";
 
 export type AssetListParams = NonNullable<
@@ -82,6 +85,75 @@ export class AssetsResource {
     return this.request(
       "GET",
       `/assets/${encodeURIComponent(assetId)}/devices`,
+    );
+  }
+
+  /**
+   * Uploads an IFC file on a building asset (multipart) and starts its
+   * server-side conversion; the returned model is in `processing` status.
+   */
+  uploadModel(
+    assetId: string,
+    file: Blob,
+    filename?: string,
+  ): Promise<BuildingModel> {
+    const form = new FormData();
+    if (filename !== undefined) {
+      form.append("file", file, filename);
+    } else {
+      form.append("file", file);
+    }
+    return this.request(
+      "POST",
+      `/assets/${encodeURIComponent(assetId)}/model`,
+      {
+        body: form,
+      },
+    );
+  }
+
+  /** Conversion status and summaries of the building's 3D model. */
+  getModel(assetId: string): Promise<BuildingModel> {
+    return this.request("GET", `/assets/${encodeURIComponent(assetId)}/model`);
+  }
+
+  /**
+   * Converted 3D scene as a binary glTF blob.
+   *
+   * Pass the model's `updated_at` as *version*: the scene is served with
+   * immutable caching, so the URL must change when the model is replaced.
+   */
+  getModelScene(assetId: string, version?: string): Promise<Blob> {
+    return this.request(
+      "GET",
+      `/assets/${encodeURIComponent(assetId)}/model/scene.glb`,
+      { responseType: "blob", searchParams: { v: version } },
+    );
+  }
+
+  /** Spaces (rooms) extracted from the building's 3D model. */
+  getModelSpaces(assetId: string): Promise<ModelSpace[]> {
+    return this.request(
+      "GET",
+      `/assets/${encodeURIComponent(assetId)}/model/spaces`,
+    );
+  }
+
+  deleteModel(assetId: string): Promise<void> {
+    return this.request(
+      "DELETE",
+      `/assets/${encodeURIComponent(assetId)}/model`,
+    );
+  }
+
+  /**
+   * Replaces the building subtree with floors/rooms from the 3D model.
+   * Destructive: device links of the replaced subtree are cleared.
+   */
+  importModelTree(assetId: string): Promise<TreeImportResponse> {
+    return this.request(
+      "POST",
+      `/assets/${encodeURIComponent(assetId)}/model/import-tree`,
     );
   }
 

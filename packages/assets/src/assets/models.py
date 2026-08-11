@@ -27,6 +27,7 @@ class Asset(ResourceMetadata):
     name: str
     path: list[str] = Field(default_factory=list)
     position: int = 0
+    ifc_global_id: str | None = None
 
 
 class AssetCreate(BaseModel):
@@ -53,6 +54,7 @@ class AssetUpdate(BaseModel):
     )
     type: AssetType | None = None
     parent_id: str | None = None
+    ifc_global_id: str | None = None
 
 
 class BuildingProfile(BaseModel):
@@ -75,6 +77,55 @@ class BuildingProfile(BaseModel):
     icon: str | None = None
 
 
+class BuildingModelStatus(StrEnum):
+    """Lifecycle of an uploaded building model conversion."""
+
+    PROCESSING = "processing"
+    READY = "ready"
+    FAILED = "failed"
+
+
+class ModelStorey(BaseModel):
+    """A building storey extracted from an uploaded IFC model."""
+
+    global_id: str
+    name: str
+    elevation: float | None = None
+
+
+class ModelSpace(BaseModel):
+    """A room/space extracted from an uploaded IFC model."""
+
+    global_id: str
+    name: str
+    storey_global_id: str | None = None
+    storey_name: str | None = None
+
+
+class BuildingModel(ResourceMetadata):
+    """Metadata of the 3D model attached to a building asset.
+
+    The binary payloads (raw IFC, converted glTF scene) are stored alongside
+    but never exposed through this model.
+    """
+
+    asset_id: str
+    status: BuildingModelStatus
+    filename: str
+    ifc_size: int = 0
+    glb_size: int | None = None
+    error: str | None = None
+    storeys: list[ModelStorey] = Field(default_factory=list)
+    spaces: list[ModelSpace] = Field(default_factory=list)
+
+
+class TreeImportResult(BaseModel):
+    """Outcome of replacing the building subtree from the IFC model."""
+
+    floors_created: int
+    rooms_created: int
+
+
 def get_asset_create_schema() -> dict:
     """JSON schema of AssetCreate for frontend form validation."""
     return AssetCreate.model_json_schema()
@@ -92,7 +143,12 @@ __all__ = [
     "AssetCreate",
     "AssetType",
     "AssetUpdate",
+    "BuildingModel",
+    "BuildingModelStatus",
     "BuildingProfile",
+    "ModelSpace",
+    "ModelStorey",
+    "TreeImportResult",
     "get_asset_create_schema",
     "get_building_profile_schema",
 ]

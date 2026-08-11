@@ -125,6 +125,32 @@ describe("request", () => {
     expect(csv).toBe("timestamp,value\n2026-01-01,42");
   });
 
+  it("passes a FormData body through without forcing a Content-Type", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({ status: "processing" }));
+    const { client } = makeClient(fetchMock);
+    const form = new FormData();
+    form.append("file", new Blob([new Uint8Array([1, 2, 3])]), "model.ifc");
+
+    await client.request("POST", "/assets/a1/model", { body: form });
+
+    const { init, headers } = callOf(fetchMock);
+    expect(init?.body).toBe(form);
+    // fetch must set the multipart boundary itself.
+    expect(headers["Content-Type"]).toBeUndefined();
+  });
+
+  it("passes a Blob body through without forcing a Content-Type", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({ ok: true }));
+    const { client } = makeClient(fetchMock);
+    const blob = new Blob([new Uint8Array([1, 2, 3])]);
+
+    await client.request("POST", "/upload", { body: blob });
+
+    const { init, headers } = callOf(fetchMock);
+    expect(init?.body).toBe(blob);
+    expect(headers["Content-Type"]).toBeUndefined();
+  });
+
   it("returns a Blob when responseType is blob", async () => {
     const bytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
     const fetchMock = vi.fn(

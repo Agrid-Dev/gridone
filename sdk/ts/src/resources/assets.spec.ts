@@ -85,6 +85,36 @@ const CASES: Case[] = [
     (a) => a.getBuildingProfileSchema(),
     ["GET", "/assets/profile/schema"],
   ],
+  ["getModel", (a) => a.getModel("a1"), ["GET", "/assets/a1/model"]],
+  [
+    "getModelScene",
+    (a) => a.getModelScene("a1"),
+    [
+      "GET",
+      "/assets/a1/model/scene.glb",
+      { responseType: "blob", searchParams: { v: undefined } },
+    ],
+  ],
+  [
+    "getModelScene with version",
+    (a) => a.getModelScene("a1", "2026-08-11T12:00:00Z"),
+    [
+      "GET",
+      "/assets/a1/model/scene.glb",
+      { responseType: "blob", searchParams: { v: "2026-08-11T12:00:00Z" } },
+    ],
+  ],
+  [
+    "getModelSpaces",
+    (a) => a.getModelSpaces("a1"),
+    ["GET", "/assets/a1/model/spaces"],
+  ],
+  ["deleteModel", (a) => a.deleteModel("a1"), ["DELETE", "/assets/a1/model"]],
+  [
+    "importModelTree",
+    (a) => a.importModelTree("a1"),
+    ["POST", "/assets/a1/model/import-tree"],
+  ],
 ];
 
 describe("AssetsResource", () => {
@@ -98,4 +128,35 @@ describe("AssetsResource", () => {
       expect(request).toHaveBeenCalledExactlyOnceWith(...expected);
     },
   );
+
+  it("uploadModel posts the file as a multipart FormData body", async () => {
+    const { assets, request } = makeResource();
+    const file = new Blob([new Uint8Array([1, 2, 3])]);
+
+    await expect(assets.uploadModel("a1", file, "hq.ifc")).resolves.toBe(
+      RESULT,
+    );
+
+    expect(request).toHaveBeenCalledExactlyOnceWith(
+      "POST",
+      "/assets/a1/model",
+      { body: expect.any(FormData) },
+    );
+    const call = request.mock.calls[0] as unknown as Parameters<RequestFn>;
+    const form = (call[2] as { body: FormData }).body;
+    const entry = form.get("file");
+    expect(entry).toBeInstanceOf(File);
+    expect((entry as File).name).toBe("hq.ifc");
+  });
+
+  it("uploadModel keeps the file's own name when none is given", async () => {
+    const { assets, request } = makeResource();
+    const file = new File([new Uint8Array([1])], "original.ifc");
+
+    await assets.uploadModel("a1", file);
+
+    const call = request.mock.calls[0] as unknown as Parameters<RequestFn>;
+    const form = (call[2] as { body: FormData }).body;
+    expect((form.get("file") as File).name).toBe("original.ifc");
+  });
 });

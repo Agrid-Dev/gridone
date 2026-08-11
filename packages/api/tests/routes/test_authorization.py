@@ -699,6 +699,35 @@ COMMANDS_ACCESS_CONTROL_SCENARIOS = [
     # PUT /assets/profile requires ASSETS_WRITE.
     pytest.param("PUT", "/assets/profile", "viewer", 403, {}, id="profile-put-viewer"),
     pytest.param("PUT", "/assets/profile", None, 401, {}, id="profile-put-no-auth"),
+    # Building model endpoints: writes require ASSETS_WRITE; the permission
+    # check rejects before body/multipart parsing, so a JSON body is enough.
+    pytest.param("POST", "/assets/any-id/model", "viewer", 403, {}, id="model-up-v"),
+    pytest.param("POST", "/assets/any-id/model", None, 401, {}, id="model-up-noa"),
+    pytest.param("DELETE", "/assets/any-id/model", "viewer", 403, {}, id="model-del-v"),
+    pytest.param("DELETE", "/assets/any-id/model", None, 401, {}, id="model-del-noa"),
+    pytest.param(
+        "POST",
+        "/assets/any-id/model/import-tree",
+        "viewer",
+        403,
+        {},
+        id="model-import-v",
+    ),
+    pytest.param(
+        "POST",
+        "/assets/any-id/model/import-tree",
+        None,
+        401,
+        {},
+        id="model-import-noa",
+    ),
+    pytest.param("GET", "/assets/any-id/model", None, 401, {}, id="model-get-noa"),
+    pytest.param(
+        "GET", "/assets/any-id/model/scene.glb", None, 401, {}, id="model-scene-noa"
+    ),
+    pytest.param(
+        "GET", "/assets/any-id/model/spaces", None, 401, {}, id="model-spaces-noa"
+    ),
     # GET /devices/commands requires DEVICES_READ — all roles can read,
     # but no-auth is 401.
     pytest.param("GET", "/devices/commands", None, 401, None, id="get-cmds-no-auth"),
