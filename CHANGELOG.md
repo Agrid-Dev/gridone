@@ -1,3 +1,9 @@
+## v0.205.1 (2026-08-11)
+
+### Fix
+
+- **timeseries**: stop tw_avg diluting the trailing partial bucket (#537)
+
 ## v0.205.0 (2026-08-11)
 
 ### Feat
