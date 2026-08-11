@@ -19,11 +19,15 @@ const {
   mockGetSeriesPoints,
   mockGetStandardTypes,
   mockAggregate,
+  mockExportCsv,
+  mockToastError,
 } = vi.hoisted(() => ({
   mockListSeries: vi.fn(),
   mockGetSeriesPoints: vi.fn(),
   mockGetStandardTypes: vi.fn(),
   mockAggregate: vi.fn(),
+  mockExportCsv: vi.fn(),
+  mockToastError: vi.fn(),
 }));
 
 vi.mock("@/contexts/GridoneClientContext", () => ({
@@ -32,13 +36,17 @@ vi.mock("@/contexts/GridoneClientContext", () => ({
       list: (...args: unknown[]) => mockListSeries(...args),
       getPoints: (...args: unknown[]) => mockGetSeriesPoints(...args),
       aggregate: (...args: unknown[]) => mockAggregate(...args),
-      exportCsv: vi.fn(),
+      exportCsv: (...args: unknown[]) => mockExportCsv(...args),
       exportPng: vi.fn(),
     },
     devices: {
       getStandardTypes: (...args: unknown[]) => mockGetStandardTypes(...args),
     },
   }),
+}));
+
+vi.mock("sonner", () => ({
+  toast: { error: mockToastError, success: vi.fn() },
 }));
 
 vi.mock("react-i18next", () =>
@@ -58,6 +66,9 @@ vi.mock("react-i18next", () =>
     "history.statesTitle": "États",
     "history.noMetricData": "Aucune donnée sur la période",
     "history.export": "Exporter",
+    "deviceDetails.downloadCsv": "Télécharger en CSV",
+    "deviceDetails.downloadPng": "Télécharger en PNG",
+    "deviceDetails.downloadCsvError": "Échec de l'export CSV",
     "devices:history.events.event": "Événement",
     "devices:history.events.value": "Valeur",
     "devices:history.events.source": "Source",
@@ -112,6 +123,7 @@ vi.mock("@/hooks/useUsers", () => ({
 }));
 
 import DeviceHistoryPage from "./DeviceHistoryPage";
+import { exportFilename } from "./DeviceHistoryContext";
 import { RedirectToHistory } from "./RedirectToHistory";
 
 function attrName(i: number) {
@@ -452,6 +464,38 @@ describe("DeviceHistoryPage truncation", () => {
     await waitFor(() => expect(fetchedMetrics()).toContain(attrName(0)));
     expect(mockAggregate).not.toHaveBeenCalled();
     expect(screen.queryByText(/Moyenné par/)).not.toBeInTheDocument();
+  });
+});
+
+describe("DeviceHistoryPage export", () => {
+  it("names files after the device and window", () => {
+    expect(exportFilename("Ch. Étage 2", { last: "1d" })).toBe(
+      "ch-etage-2-history-1d",
+    );
+    expect(
+      exportFilename("Chiller 0", {
+        start: "2026-08-01T00:00:00Z",
+        end: "2026-08-11T00:00:00Z",
+      }),
+    ).toBe("chiller-0-history-2026-08-01_2026-08-11");
+    expect(exportFilename("†††", {})).toBe("device-history-all");
+  });
+
+  it("toasts when the CSV export fails", async () => {
+    setupThermostat();
+    mockExportCsv.mockRejectedValue(new Error("boom"));
+    renderPage();
+    await screen.findByRole("button", { name: "Température" });
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Exporter" }));
+    await user.click(
+      await screen.findByRole("menuitem", { name: "Télécharger en CSV" }),
+    );
+
+    await waitFor(() =>
+      expect(mockToastError).toHaveBeenCalledWith("Échec de l'export CSV"),
+    );
   });
 });
 

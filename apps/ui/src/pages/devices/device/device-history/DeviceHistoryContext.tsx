@@ -118,12 +118,37 @@ const DeviceHistoryContext = createContext<DeviceHistoryContextValue | null>(
 
 type DeviceHistoryProviderProps = {
   deviceId: string;
+  /** Display name used for export filenames; falls back to the id upstream. */
+  deviceName: string;
   /** Attribute names in device declaration order. */
   attributeNames: string[];
   standardAttributeNames: string[];
   deviceType: DeviceType | undefined;
   children: ReactNode;
 };
+
+/** "hall-thermostat-history-1d" — slugged device name plus the resolved
+ *  window. Presets keep their duration ("1d"); custom windows use their
+ *  dates ("...-history-2026-08-01_2026-08-11"); the all preset "all".
+ *  The slug drops accents/symbols: e.g. "Ch. Étage 2" → "ch-etage-2". */
+export function exportFilename(
+  deviceName: string,
+  resolved: { start?: string; end?: string; last?: string },
+): string {
+  const slug =
+    deviceName
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "device";
+  const range =
+    resolved.last ??
+    (resolved.start
+      ? `${resolved.start.slice(0, 10)}_${resolved.end?.slice(0, 10) ?? "now"}`
+      : "all");
+  return `${slug}-history-${range}`;
+}
 
 function isNumericType(dataType: string | undefined) {
   return dataType === "float" || dataType === "int";
@@ -135,6 +160,7 @@ function isStateType(dataType: string | undefined) {
 
 export function DeviceHistoryProvider({
   deviceId,
+  deviceName,
   attributeNames,
   standardAttributeNames,
   deviceType,
@@ -419,21 +445,34 @@ export function DeviceHistoryProvider({
         end: resolved.end,
         last: resolved.last,
       };
+      const filename = exportFilename(deviceName, resolved);
       try {
         if (format === "png") {
-          downloadBlob(await client.timeseries.exportPng(params), "export.png");
+          downloadBlob(
+            await client.timeseries.exportPng(params),
+            `${filename}.png`,
+          );
           toast.success(t("deviceDetails.downloadPngSuccess"));
         } else {
           const csv = await client.timeseries.exportCsv(params);
-          downloadBlob(new Blob([csv], { type: "text/csv" }), "export.csv");
+          downloadBlob(
+            new Blob([csv], { type: "text/csv" }),
+            `${filename}.csv`,
+          );
         }
       } catch {
-        if (format === "png") toast.error(t("deviceDetails.downloadPngError"));
+        toast.error(
+          t(
+            format === "png"
+              ? "deviceDetails.downloadPngError"
+              : "deviceDetails.downloadCsvError",
+          ),
+        );
       } finally {
         setIsDownloading(false);
       }
     },
-    [client, fetchedSeriesIds, resolved, t],
+    [client, deviceName, fetchedSeriesIds, resolved, t],
   );
 
   const value = useMemo<DeviceHistoryContextValue>(

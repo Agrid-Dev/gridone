@@ -141,6 +141,7 @@
     "downloadPng": "Download as PNG",
     "downloadPngSuccess": "PNG exported",
     "downloadPngError": "Failed to export PNG",
+    "downloadCsvError": "Failed to export CSV",
     "connectionStatus": {
       "idle": "Idle",
       "ok": "Connected",
