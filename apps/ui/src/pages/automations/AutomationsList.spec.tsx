@@ -44,6 +44,7 @@ vi.mock("react-i18next", () =>
       "actions.create": "New automation",
       "actions.enable": "Enable",
       "actions.disable": "Disable",
+      "actions.edit": "Edit",
       "stats.active": "active",
       "stats.paused": "paused",
       "stats.executions24h": "executions (24 h)",
@@ -219,6 +220,17 @@ describe("AutomationsList", () => {
     expect(within(cold).getByRole("switch")).toHaveAttribute(
       "aria-checked",
       "false",
+    );
+  });
+
+  it("offers an explicit edit link per card, next to the toggle", () => {
+    automations = [makeAutomation("a1", "Morning warmup", "schedule", true)];
+    renderList();
+
+    const card = getCard("Morning warmup");
+    expect(within(card).getByRole("link", { name: "Edit" })).toHaveAttribute(
+      "href",
+      "/automations/a1",
     );
   });
 
