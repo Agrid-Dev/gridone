@@ -33,9 +33,12 @@ export function buildEventColumns({
     day: "numeric",
     month: "short",
   });
+  // Seconds included: devices can record several times a minute, and rows
+  // sharing an HH:MM stamp read as duplicates (AGR-1029).
   const timeFormat = new Intl.DateTimeFormat(locale, {
     hour: "2-digit",
     minute: "2-digit",
+    second: "2-digit",
   });
   const now = new Date();
 

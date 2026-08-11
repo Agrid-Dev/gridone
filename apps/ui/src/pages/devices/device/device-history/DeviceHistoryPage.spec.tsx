@@ -1,6 +1,12 @@
 import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router";
@@ -450,6 +456,31 @@ describe("DeviceHistoryPage truncation", () => {
 });
 
 describe("DeviceHistoryPage events table", () => {
+  it("stamps events with seconds so same-minute rows stay distinct", async () => {
+    setupThermostat();
+    const base = Date.now() - 3600_000;
+    servePoints({
+      temperature: [
+        { timestamp: new Date(base).toISOString(), value: 20.5 },
+        { timestamp: new Date(base + 10_000).toISOString(), value: 20.7 },
+      ],
+    });
+    renderPage();
+
+    const table = await screen.findByRole("table");
+    await waitFor(() =>
+      // Two readings 10 s apart within the same minute must render two
+      // distinct HH:MM:SS stamps.
+      expect(
+        new Set(
+          within(table)
+            .getAllByText(/\d{1,2}:\d{2}:\d{2}/)
+            .map((cell) => cell.textContent),
+        ).size,
+      ).toBeGreaterThanOrEqual(2),
+    );
+  });
+
   it("renders readings and state changes with their sources", async () => {
     setupThermostat();
     const t1 = new Date(Date.now() - 3600_000).toISOString();
