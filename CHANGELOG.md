@@ -1,3 +1,9 @@
+## v0.205.0 (2026-08-11)
+
+### Feat
+
+- **devices-manager**: move device I/O observability to metrics (#533)
+
 ## v0.204.1 (2026-08-11)
 
 ### Fix
