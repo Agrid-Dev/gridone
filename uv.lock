@@ -777,7 +777,7 @@ wheels = [
 
 [[package]]
 name = "gridone"
-version = "0.204.0"
+version = "0.204.1"
 source = { virtual = "." }
 dependencies = [
     { name = "gridone-models" },

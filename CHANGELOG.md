@@ -1,3 +1,9 @@
+## v0.204.1 (2026-08-11)
+
+### Fix
+
+- **ui**: render application manifest icons
+
 ## v0.204.0 (2026-08-11)
 
 ### Feat
