@@ -1,0 +1,19 @@
+name: steady_float
+description: Float series holding a constant 20.0 across a 15min window, with
+  points landing inside every bucket including the trailing one. Used to prove
+  tw_avg/tw_mode divide by covered duration, not full bucket width, for a
+  trailing partial bucket — a diluting implementation would report a value
+  scaled by the elapsed fraction instead of 20.0.
+input:
+  data_type: float
+  points:
+  - timestamp: '2025-06-15T12:00:00+00:00'
+    value: 20.0
+  - timestamp: '2025-06-15T12:05:00+00:00'
+    value: 20.0
+  - timestamp: '2025-06-15T12:10:00+00:00'
+    value: 20.0
+  - timestamp: '2025-06-15T12:15:00+00:00'
+    value: 20.0
+  - timestamp: '2025-06-15T12:20:00+00:00'
+    value: 20.0

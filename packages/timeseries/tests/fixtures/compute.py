@@ -53,6 +53,10 @@ _R_SINGLE = ("2025-06-14T00:00:00+00:00", "2025-06-17T00:00:00+00:00")
 _R_COUNTER = ("2025-02-01T00:00:00+00:00", "2025-02-15T00:00:00+00:00")
 # Starts after single_point's only sample: no data in range, anchor before it.
 _R_ANCHOR_ONLY = ("2025-06-16T00:00:00+00:00", "2025-06-17T00:00:00+00:00")
+# End falls mid-bucket (12:22 is 7min into the 12:15-12:30 bin): a steady LOCF
+# value must report unchanged in the trailing partial bucket, not diluted by
+# the fraction of the bucket elapsed.
+_R_TRAILING_PARTIAL = ("2025-06-15T12:00:00+00:00", "2025-06-15T12:22:00+00:00")
 
 _LOCF_OPS = ["count", "first", "last", "avg", "tw_avg", "delta"]
 
@@ -116,6 +120,20 @@ CASE_SPEC: list[dict[str, str]] = [
         ops=["avg", "count", "tw_avg", "delta"],
     ),
     *_cases("single_point", "float", ["1d"], _R_SINGLE),
+    *_cases(
+        "steady_float",
+        "float",
+        ["15min"],
+        _R_TRAILING_PARTIAL,
+        ops=["tw_avg", "tw_mode"],
+    ),
+    *_cases(
+        "dropping_tail",
+        "float",
+        ["15min"],
+        _R_TRAILING_PARTIAL,
+        ops=["tw_avg", "tw_mode"],
+    ),
     # A real cumulative counter: monotonic index, a meter reset, a reading gap.
     *_cases(
         "cumulative_counter",
@@ -379,8 +397,13 @@ def compute_expected(
     result: list[dict[str, Any]] = []
 
     for bin_start, bin_end in bins:
+        # Trailing bucket may extend past end_utc; tw_avg/tw_mode must integrate
+        # only over the covered portion, not the full calendar bucket width.
+        covered_end = min(bin_end, end_utc)
         bin_pts = _points_in(points, bin_start, bin_end)
-        value, agg_dt = apply(operator, bin_pts, bin_start, bin_end, locf, data_type)
+        value, agg_dt = apply(
+            operator, bin_pts, bin_start, covered_end, locf, data_type
+        )
         result.append(
             {
                 "interval_start": bin_start.isoformat(),
