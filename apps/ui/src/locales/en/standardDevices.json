@@ -55,5 +55,9 @@
       "flowMissing": "No flow"
     }
   },
+  "pms_monitor": {
+    "name": "PMS monitor",
+    "name_plural": "PMS monitors"
+  },
   "other": { "name": "Other", "name_plural": "Others" }
 }

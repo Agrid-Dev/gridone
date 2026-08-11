@@ -26,6 +26,7 @@ export enum DeviceType {
   AhuDoubleFlux = "ahu_double_flux",
   AhuSingleFlux = "ahu_single_flux",
   AirExtractor = "air_extractor",
+  PmsMonitor = "pms_monitor",
 }
 
 /** A device's attribute map (`attributes` is optional on the wire). */
@@ -201,6 +202,9 @@ export type AirExtractorDevice = Device & {
   type: DeviceType.AirExtractor;
 };
 
+/** A Device whose `type` is `"pms_monitor"`. */
+export type PmsMonitorDevice = Device & { type: DeviceType.PmsMonitor };
+
 /** Union of all devices with a known standard type. */
 export type StandardDevice =
   | ThermostatDevice
@@ -209,7 +213,8 @@ export type StandardDevice =
   | ElectricityMeterDevice
   | AhuDoubleFluxDevice
   | AhuSingleFluxDevice
-  | AirExtractorDevice;
+  | AirExtractorDevice
+  | PmsMonitorDevice;
 
 // Type guards ---
 
@@ -243,6 +248,10 @@ export function isAirExtractor(device: Device): device is AirExtractorDevice {
   return device.type === DeviceType.AirExtractor;
 }
 
+export function isPmsMonitor(device: Device): device is PmsMonitorDevice {
+  return device.type === DeviceType.PmsMonitor;
+}
+
 export function isStandardDevice(device: Device): device is StandardDevice {
   return (
     isThermostat(device) ||
@@ -251,7 +260,8 @@ export function isStandardDevice(device: Device): device is StandardDevice {
     isElectricityMeter(device) ||
     isAhuDoubleFlux(device) ||
     isAhuSingleFlux(device) ||
-    isAirExtractor(device)
+    isAirExtractor(device) ||
+    isPmsMonitor(device)
   );
 }
 

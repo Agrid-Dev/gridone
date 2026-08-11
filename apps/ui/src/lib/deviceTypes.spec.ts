@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { BedDouble } from "lucide-react";
 import type { TFunction } from "i18next";
 import type { Device } from "@gridone/sdk";
 import { DeviceType } from "@/lib/devices";
@@ -8,6 +9,7 @@ import {
   deviceTypeBucketLabel,
   deviceTypeKey,
   deviceTypeKeyIcon,
+  deviceTypeIcon,
   deviceTypeLabel,
   groupDevicesByType,
   OTHER_KEY,
@@ -99,6 +101,10 @@ describe("deviceTypeKeyIcon", () => {
     expect(deviceTypeKeyIcon(OTHER_KEY)).not.toBe(
       deviceTypeKeyIcon(DeviceType.Thermostat),
     );
+  });
+
+  it("uses a bed for PMS monitors", () => {
+    expect(deviceTypeIcon(DeviceType.PmsMonitor)).toBe(BedDouble);
   });
 });
 
