@@ -9,6 +9,7 @@ import { BackLink } from "@/components/BackLink";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { usePermissions } from "@/contexts/AuthContext";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
+import { AppIcon } from "./components/AppIcon";
 import { AppStatusBadge } from "./components/AppStatusBadge";
 import { AppCapabilities } from "./components/AppCapabilities";
 import AppConfigForm from "./components/AppConfigForm";
@@ -63,8 +64,8 @@ export default function AppDetail() {
       <ResourceHeader
         title={
           <span className="flex items-center gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-xl">
-              {app.icon}
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted">
+              <AppIcon name={app.icon} />
             </span>
             {app.name}
           </span>

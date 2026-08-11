@@ -62,7 +62,7 @@ function makeApp(overrides: Partial<App> = {}): App {
     name: "Weather",
     description: "Weather data for the building",
     api_url: "https://weather.example.com",
-    icon: "🌦️",
+    icon: "cloud-sun",
     status: "healthy",
     enabled: true,
     capabilities: { produces: [], reads: {}, commands: {} },
@@ -117,9 +117,15 @@ describe("AppsList", () => {
   });
 
   it("shows the health badge and a disable action for an enabled app", async () => {
-    renderList();
+    const { container } = renderList();
 
     expect(await screen.findByText("Healthy")).toBeInTheDocument();
+    expect(screen.queryByText("cloud-sun")).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        container.querySelector('svg[data-icon-name="cloud-sun"]'),
+      ).toBeInTheDocument(),
+    );
     expect(screen.queryByText("Disabled")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Disable" })).toBeInTheDocument();
     expect(
