@@ -14,6 +14,7 @@ import { usePermissions } from "@/contexts/AuthContext";
 import { usePendingAppRequests } from "@/hooks/usePendingAppRequests";
 import type { App } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
+import { AppIcon } from "./components/AppIcon";
 import { AppStatusBadge } from "./components/AppStatusBadge";
 
 export default function AppsList() {
@@ -108,8 +109,8 @@ export default function AppsList() {
               <Card key={app.id}>
                 <CardContent className="pt-6">
                   <div className="flex items-start gap-4">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-xl">
-                      {app.icon}
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted">
+                      <AppIcon name={app.icon} />
                     </span>
                     <div className="min-w-0 flex-1">
                       <Link
