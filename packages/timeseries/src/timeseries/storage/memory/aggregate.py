@@ -338,6 +338,7 @@ def compute(
 
     result_points: list[AggregatedPoint] = []
     locf: Any = anchor.value if anchor is not None else None
+    query_end_utc = query.end.astimezone(UTC)
 
     for bin_start, bin_end in bins:
         start_us = int(bin_start.astimezone(UTC).timestamp() * 1_000_000)
@@ -348,12 +349,15 @@ def compute(
         )
         bucket_pts = [(ts, v) for ts, v in all_pts if bin_start <= ts < bin_end]
 
+        # tw_avg/tw_mode must integrate only over the covered duration, not
+        # extrapolate the last known value into a not-yet-elapsed trailing bucket.
+        covered_end = min(bin_end, query_end_utc)
         value = _apply_op(
             query.agg,
             bucket_df,
             bucket_pts,
             bin_start,
-            bin_end,
+            covered_end,
             locf,
             series.data_type,
         )
