@@ -6,7 +6,7 @@ import { Card } from "@/components/ui";
 import { ConnectionStatusDot } from "@/components/ConnectionStatusBadge";
 import { EmptyValue } from "@/components/EmptyValue";
 import { useInViewOnce } from "@/hooks/useInViewOnce";
-import { getConnectionStatus } from "@/lib/devices";
+import { getConnectionStatus, isPmsMonitor } from "@/lib/devices";
 import {
   deviceMeasureReading,
   deviceSetpointReading,
@@ -18,6 +18,7 @@ import { SEVERITY_TEXT_CLASS } from "@/lib/severity";
 import { cn } from "@/lib/utils";
 import { DeviceModeValue } from "./DeviceModeValue";
 import { DeviceSparkline } from "./DeviceSparkline";
+import { PmsMonitorFleetSummary } from "./PmsMonitorFleetSummary";
 
 /** Border tint per active severity — the card outline is the first thing
  *  scanned in a grid of dozens, so a faulty device reads before its label. */
@@ -50,6 +51,7 @@ export function DeviceFleetCard({
   const setpoint = deviceSetpointReading(device);
   const delta = formatReadingDelta(measure, setpoint, i18n.language);
   const faults = activeFaultSummary(device);
+  const isPms = isPmsMonitor(device);
 
   return (
     <Link ref={ref} to={`/devices/${device.id}`} className="group block h-full">
@@ -71,30 +73,34 @@ export function DeviceFleetCard({
           <ConnectionStatusDot status={status} className="mt-1.5 shrink-0" />
         </div>
 
-        <div className="flex items-end gap-3">
-          <div className="min-w-0">
-            <span className="font-display text-2xl font-semibold tabular-nums text-card-foreground">
-              {formatReading(measure, i18n.language)}
-            </span>
-            {delta && (
-              <span className="ml-2 truncate text-xs text-muted-foreground">
-                {t("devices.card.vsSetpoint", { delta })}
+        {isPms ? (
+          <PmsMonitorFleetSummary device={device} />
+        ) : (
+          <div className="flex items-end gap-3">
+            <div className="min-w-0">
+              <span className="font-display text-2xl font-semibold tabular-nums text-card-foreground">
+                {formatReading(measure, i18n.language)}
               </span>
-            )}
+              {delta && (
+                <span className="ml-2 truncate text-xs text-muted-foreground">
+                  {t("devices.card.vsSetpoint", { delta })}
+                </span>
+              )}
+            </div>
+            <div className="ml-auto w-20 shrink-0">
+              {inView && measure && (
+                <DeviceSparkline
+                  deviceId={device.id}
+                  metric={measure.metric}
+                  label={t("devices.card.trendLabel")}
+                />
+              )}
+            </div>
           </div>
-          <div className="ml-auto w-20 shrink-0">
-            {inView && measure && (
-              <DeviceSparkline
-                deviceId={device.id}
-                metric={measure.metric}
-                label={t("devices.card.trendLabel")}
-              />
-            )}
-          </div>
-        </div>
+        )}
 
         <div className="mt-auto flex items-center gap-2 border-t pt-2.5 text-xs">
-          <DeviceModeValue device={device} />
+          {!isPms && <DeviceModeValue device={device} />}
           <span className="ml-auto truncate">
             {faults ? (
               <span

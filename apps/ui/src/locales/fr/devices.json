@@ -79,7 +79,20 @@
     "card": {
       "vsSetpoint": "{{delta}} vs consigne",
       "noFault": "Aucun défaut",
-      "trendLabel": "Tendance sur 24 h"
+      "trendLabel": "Tendance sur 24 h",
+      "pms": {
+        "status": {
+          "booked": "Réservée",
+          "checkedIn": "Occupée",
+          "checkedOut": "Disponible",
+          "unknown": "Statut indisponible"
+        },
+        "guests_one": "{{count}} occupant",
+        "guests_other": "{{count}} occupants",
+        "guestCountUnavailable": "Nombre d'occupants indisponible",
+        "nextArrival": "Prochaine arrivée : {{date}}",
+        "noUpcomingArrival": "Aucune arrivée prévue"
+      }
     }
   },
   "deviceDetails": {
@@ -157,17 +170,20 @@
     "extract_fan_speed": "Vitesse ventilateur reprise",
     "fan_speed": "Vitesse de ventilation",
     "flow_switch": "Détecteur de débit",
+    "guest_count": "Nombre d'occupants",
     "heating_valve": "Vanne chaude",
     "humidity": "Humidité",
     "hvac_mode": "Mode CVC",
     "index": "Index",
     "inlet_temperature": "Température entrée",
     "mode": "Mode",
+    "next_arrival_at": "Prochaine arrivée",
     "onoff_state": "Marche/Arrêt",
     "outdoor_air_temperature": "Température air extérieur",
     "outdoor_temperature": "Température extérieure",
     "outlet_temperature": "Température sortie",
     "reactive_power": "Puissance réactive",
+    "reservation_status": "Statut de réservation",
     "setpoint_temperature": "Consigne de température",
     "supply_air_pressure": "Pression soufflage",
     "supply_air_pressure_setpoint": "Consigne pression soufflage",

@@ -171,6 +171,13 @@ export type AirExtractorAttributes = {
   flowSwitch: AttrValue<boolean>;
 };
 
+/** Typed view of the `pms_monitor` standard attributes. */
+export type PmsMonitorAttributes = {
+  reservationStatus: AttrValue<string>;
+  guestCount: AttrValue<number>;
+  nextArrivalAt: AttrValue<string>;
+};
+
 /** A Device whose `type` is `"thermostat"`. */
 export type ThermostatDevice = Device & { type: DeviceType.Thermostat };
 
@@ -463,6 +470,18 @@ export function readAirExtractorAttributes(
     onoffState: v("onoff_state") as AttrValue<boolean>,
     fanSpeed: v("fan_speed") as AttrValue<number>,
     flowSwitch: v("flow_switch") as AttrValue<boolean>,
+  };
+}
+
+/** Read the standard PMS monitor attributes from a device's attribute map. */
+export function readPmsMonitorAttributes(
+  device: PmsMonitorDevice,
+): PmsMonitorAttributes {
+  const v = attributeValueReader(device);
+  return {
+    reservationStatus: v("reservation_status") as AttrValue<string>,
+    guestCount: v("guest_count") as AttrValue<number>,
+    nextArrivalAt: v("next_arrival_at") as AttrValue<string>,
   };
 }
 
