@@ -9,6 +9,14 @@ vi.mock("react-i18next", () =>
     "devices.card.vsSetpoint": "{{delta}} vs setpoint",
     "devices.card.noFault": "No fault",
     "devices.card.trendLabel": "24 h trend",
+    "devices.card.pms.status.booked": "Booked",
+    "devices.card.pms.status.checkedIn": "Occupied",
+    "devices.card.pms.status.checkedOut": "Available",
+    "devices.card.pms.status.unknown": "Status unavailable",
+    "devices.card.pms.guests": "{{count}} guests",
+    "devices.card.pms.guestCountUnavailable": "Guest count unavailable",
+    "devices.card.pms.nextArrival": "Next arrival: {{date}}",
+    "devices.card.pms.noUpcomingArrival": "No upcoming arrival",
     "common.hvacMode.heat": "Heating",
     "common.hvacMode.off": "Off",
     "common:common.severityCount.alert": "{{count}} alert(s)",
@@ -38,6 +46,15 @@ function thermostat(attributes: Record<string, unknown> = {}): Device {
     config: {},
     attributes,
     is_faulty: false,
+  } as Device;
+}
+
+function pmsMonitor(attributes: Record<string, unknown> = {}): Device {
+  return {
+    ...thermostat(attributes),
+    id: "pms-1",
+    name: "Room 1",
+    type: "pms_monitor",
   } as Device;
 }
 
@@ -131,6 +148,51 @@ describe("DeviceFleetCard", () => {
   it("links the whole card to the device detail", () => {
     renderCard(thermostat());
     expect(screen.getByRole("link")).toHaveAttribute("href", "/devices/d1");
+  });
+
+  describe("PMS monitor summary", () => {
+    it("shows the reservation status and current guest count", () => {
+      renderCard(
+        pmsMonitor({
+          reservation_status: attr("checked_in"),
+          guest_count: attr(2),
+          next_arrival_at: attr("2026-08-15T14:00:00"),
+        }),
+      );
+
+      expect(screen.getByText("Occupied")).toBeInTheDocument();
+      expect(screen.getByText("2 guests")).toBeInTheDocument();
+      expect(screen.queryByText(/Next arrival/)).not.toBeInTheDocument();
+    });
+
+    it("shows the next arrival for an available room", () => {
+      const nextArrival = "2026-08-12T15:00:00";
+      const formattedArrival = new Intl.DateTimeFormat("fr", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }).format(new Date(nextArrival));
+
+      renderCard(
+        pmsMonitor({
+          reservation_status: attr("checked_out"),
+          guest_count: attr(0),
+          next_arrival_at: attr(nextArrival),
+        }),
+      );
+
+      expect(screen.getByText("Available")).toBeInTheDocument();
+      expect(
+        screen.getByText(`Next arrival: ${formattedArrival}`),
+      ).toBeInTheDocument();
+      expect(screen.queryByTestId("sparkline")).not.toBeInTheDocument();
+    });
+
+    it("handles missing reservation data without an empty card", () => {
+      renderCard(pmsMonitor());
+
+      expect(screen.getByText("Status unavailable")).toBeInTheDocument();
+      expect(screen.getByText("No upcoming arrival")).toBeInTheDocument();
+    });
   });
 
   describe("history gate", () => {

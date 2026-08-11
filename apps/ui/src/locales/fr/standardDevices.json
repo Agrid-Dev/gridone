@@ -55,5 +55,9 @@
       "flowMissing": "Pas de débit"
     }
   },
+  "pms_monitor": {
+    "name": "Moniteur PMS",
+    "name_plural": "Moniteurs PMS"
+  },
   "other": { "name": "Autre", "name_plural": "Autres" }
 }

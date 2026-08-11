@@ -26,6 +26,7 @@ export enum DeviceType {
   AhuDoubleFlux = "ahu_double_flux",
   AhuSingleFlux = "ahu_single_flux",
   AirExtractor = "air_extractor",
+  PmsMonitor = "pms_monitor",
 }
 
 /** A device's attribute map (`attributes` is optional on the wire). */
@@ -170,6 +171,13 @@ export type AirExtractorAttributes = {
   flowSwitch: AttrValue<boolean>;
 };
 
+/** Typed view of the `pms_monitor` standard attributes. */
+export type PmsMonitorAttributes = {
+  reservationStatus: AttrValue<string>;
+  guestCount: AttrValue<number>;
+  nextArrivalAt: AttrValue<string>;
+};
+
 /** A Device whose `type` is `"thermostat"`. */
 export type ThermostatDevice = Device & { type: DeviceType.Thermostat };
 
@@ -201,6 +209,9 @@ export type AirExtractorDevice = Device & {
   type: DeviceType.AirExtractor;
 };
 
+/** A Device whose `type` is `"pms_monitor"`. */
+export type PmsMonitorDevice = Device & { type: DeviceType.PmsMonitor };
+
 /** Union of all devices with a known standard type. */
 export type StandardDevice =
   | ThermostatDevice
@@ -209,7 +220,8 @@ export type StandardDevice =
   | ElectricityMeterDevice
   | AhuDoubleFluxDevice
   | AhuSingleFluxDevice
-  | AirExtractorDevice;
+  | AirExtractorDevice
+  | PmsMonitorDevice;
 
 // Type guards ---
 
@@ -243,6 +255,10 @@ export function isAirExtractor(device: Device): device is AirExtractorDevice {
   return device.type === DeviceType.AirExtractor;
 }
 
+export function isPmsMonitor(device: Device): device is PmsMonitorDevice {
+  return device.type === DeviceType.PmsMonitor;
+}
+
 export function isStandardDevice(device: Device): device is StandardDevice {
   return (
     isThermostat(device) ||
@@ -251,7 +267,8 @@ export function isStandardDevice(device: Device): device is StandardDevice {
     isElectricityMeter(device) ||
     isAhuDoubleFlux(device) ||
     isAhuSingleFlux(device) ||
-    isAirExtractor(device)
+    isAirExtractor(device) ||
+    isPmsMonitor(device)
   );
 }
 
@@ -453,6 +470,18 @@ export function readAirExtractorAttributes(
     onoffState: v("onoff_state") as AttrValue<boolean>,
     fanSpeed: v("fan_speed") as AttrValue<number>,
     flowSwitch: v("flow_switch") as AttrValue<boolean>,
+  };
+}
+
+/** Read the standard PMS monitor attributes from a device's attribute map. */
+export function readPmsMonitorAttributes(
+  device: PmsMonitorDevice,
+): PmsMonitorAttributes {
+  const v = attributeValueReader(device);
+  return {
+    reservationStatus: v("reservation_status") as AttrValue<string>,
+    guestCount: v("guest_count") as AttrValue<number>,
+    nextArrivalAt: v("next_arrival_at") as AttrValue<string>,
   };
 }
 

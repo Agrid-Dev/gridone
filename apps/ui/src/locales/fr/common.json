@@ -123,7 +123,8 @@
       "electricity_meter": "Compteur électrique",
       "ahu_double_flux": "CTA double flux",
       "ahu_single_flux": "CTA simple flux",
-      "air_extractor": "Extracteur d'air"
+      "air_extractor": "Extracteur d'air",
+      "pms_monitor": "Moniteur PMS"
     },
     "hvacMode": {
       "heat": "Chauffage",

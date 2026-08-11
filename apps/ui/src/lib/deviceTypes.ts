@@ -7,6 +7,7 @@
 import type { ComponentType } from "react";
 import {
   AirVent,
+  BedDouble,
   CircleHelp,
   CloudSun,
   Cpu,
@@ -30,6 +31,7 @@ export const DEVICE_TYPE_ICONS: Record<DeviceType, DeviceTypeIcon> = {
   [DeviceType.AhuDoubleFlux]: AirVent,
   [DeviceType.AhuSingleFlux]: AirVent,
   [DeviceType.AirExtractor]: Wind,
+  [DeviceType.PmsMonitor]: BedDouble,
 };
 
 export const OTHER_KEY = "other";
@@ -68,6 +70,7 @@ export const DEVICE_TYPE_ORDER: readonly DeviceTypeKey[] = [
   DeviceType.ElectricityMeter,
   DeviceType.WeatherSensor,
   DeviceType.AirExtractor,
+  DeviceType.PmsMonitor,
   OTHER_KEY,
 ];
 

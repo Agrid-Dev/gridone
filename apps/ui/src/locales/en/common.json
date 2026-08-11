@@ -123,7 +123,8 @@
       "electricity_meter": "Electricity Meter",
       "ahu_double_flux": "Double-flux AHU",
       "ahu_single_flux": "Single-flux AHU",
-      "air_extractor": "Air Extractor"
+      "air_extractor": "Air Extractor",
+      "pms_monitor": "PMS Monitor"
     },
     "hvacMode": {
       "heat": "Heating",

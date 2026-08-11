@@ -79,7 +79,20 @@
     "card": {
       "vsSetpoint": "{{delta}} vs setpoint",
       "noFault": "No fault",
-      "trendLabel": "24 h trend"
+      "trendLabel": "24 h trend",
+      "pms": {
+        "status": {
+          "booked": "Booked",
+          "checkedIn": "Occupied",
+          "checkedOut": "Available",
+          "unknown": "Status unavailable"
+        },
+        "guests_one": "{{count}} guest",
+        "guests_other": "{{count}} guests",
+        "guestCountUnavailable": "Guest count unavailable",
+        "nextArrival": "Next arrival: {{date}}",
+        "noUpcomingArrival": "No upcoming arrival"
+      }
     }
   },
   "deviceDetails": {
@@ -157,17 +170,20 @@
     "extract_fan_speed": "Extract fan speed",
     "fan_speed": "Fan speed",
     "flow_switch": "Flow switch",
+    "guest_count": "Guest count",
     "heating_valve": "Heating valve",
     "humidity": "Humidity",
     "hvac_mode": "HVAC mode",
     "index": "Index",
     "inlet_temperature": "Inlet temperature",
     "mode": "Mode",
+    "next_arrival_at": "Next arrival",
     "onoff_state": "On/Off",
     "outdoor_air_temperature": "Outdoor air temperature",
     "outdoor_temperature": "Outdoor temperature",
     "outlet_temperature": "Outlet temperature",
     "reactive_power": "Reactive power",
+    "reservation_status": "Reservation status",
     "setpoint_temperature": "Temperature setpoint",
     "supply_air_pressure": "Supply air pressure",
     "supply_air_pressure_setpoint": "Supply air pressure setpoint",
