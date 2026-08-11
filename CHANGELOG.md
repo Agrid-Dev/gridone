@@ -1,3 +1,13 @@
+## v0.204.0 (2026-08-11)
+
+### Feat
+
+- **ui**: add PMS room status preview
+
+### Fix
+
+- **ui**: show bed icon for PMS monitors
+
 ## v0.203.0 (2026-08-10)
 
 ### Feat
