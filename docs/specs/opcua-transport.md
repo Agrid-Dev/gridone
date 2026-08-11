@@ -9,7 +9,7 @@
 
 1. `OpcuaAddress` follows the `BacnetAddress` shape (`BaseModel` + `TransportAddress`), but needs no `extra_context` — an OPC-UA NodeId is self-contained, unlike a Bacnet object which needs a device instance.
 2. Auth for M1 is `anonymous` or plain `username_password`. Secret storage hardening is explicitly deferred to AGR-992 — do not attempt it here.
-3. No new codec family. ExtensionObjects decode to a `dict` in the transport and are addressed with the existing `json_pointer` codec; everything else is already typed by `asyncua` and covered by `scale`/`offset`/`mapping`/`options`.
+3. Codec policy is **identity-first**: most values arrive already typed via `asyncua`, so no new codec family. ExtensionObjects decode to a `dict` in the transport and are addressed with the existing `json_pointer` codec; everything else falls through to `scale`/`offset`/`mapping`/`options` as needed. An attribute's final value is always a scalar (`int | float | str | bool`) — a dict must be reduced via `json_pointer` before it reaches the attribute layer, it is never exposed raw.
 4. Write-side exact variant typing (e.g. server wants `Int16` not `Int32`) is resolved in the transport's write path, not in a codec — only the transport has the server-declared type.
 
 ## `OpcuaAddress`
@@ -28,6 +28,7 @@ NodeId, in the protocol's own string notation.
 read: "ns=2;s=Chiller.SupplyTemp"   # string identifier
 read: "ns=4;i=1042"                 # numeric identifier
 read: "ns=1;g=09087e75-8e5e-499b-954f-f2a9603db28a"  # GUID
+read: "ns=1;b=M/RbKBsRVkePCePcx24oRA=="               # opaque, base64
 ```
 
 **Dict form** — equivalent, explicit:
