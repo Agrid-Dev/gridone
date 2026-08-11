@@ -104,11 +104,6 @@ DEV_LOGGING_CONFIG: dict[str, Any] = {
             "level": "INFO",
             "propagate": False,
         },
-        "devices_manager.observability": {
-            "handlers": ["file"],
-            "level": "INFO",
-            "propagate": False,
-        },
         **_THIRD_PARTY_LOGGERS,
         # Root logger (fallback)
         "": {

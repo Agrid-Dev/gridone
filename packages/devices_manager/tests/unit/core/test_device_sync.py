@@ -22,6 +22,21 @@ from devices_manager.core.driver import (
 )
 from devices_manager.types import ConnectionStatus, DataType, TransportProtocols
 
+from ..conftest import histogram_count, sum_metric
+
+# An HTTP thermostat that answers every attribute from one endpoint. Dedup
+# should collapse these into one wire address/request.
+SHARED_ADDRESS_ATTRIBUTE_NAMES = [
+    "temperature",
+    "temperature_setpoint",
+    "humidity",
+    "fan_speed",
+    "mode",
+    "onoff_state",
+    "filter_status",
+    "co2",
+]
+
 
 @pytest.fixture
 def grouped_driver() -> Driver:
@@ -75,6 +90,41 @@ def grouped_device(grouped_driver: Driver, mock_transport_client) -> CoreDevice:
     return CoreDevice.from_base(
         DeviceBase(id="gd", name="Grouped device", config={}),
         driver=grouped_driver,
+        transport=mock_transport_client,
+    )
+
+
+@pytest.fixture
+def shared_address_driver() -> Driver:
+    """Every attribute reads the same HTTP endpoint, decoding its own key
+    out of the shared JSON payload."""
+    attrs = [
+        AttributeDriver(
+            name=name,
+            data_type=DataType.FLOAT,
+            read="GET /status",
+            write=None,
+            codecs=[CodecSpec(name="json_pointer", argument=f"/{name}")],
+        )
+        for name in SHARED_ADDRESS_ATTRIBUTE_NAMES
+    ]
+    return Driver(
+        metadata=DriverMetadata(id="shared_address_driver"),
+        env={},
+        transport=TransportProtocols.HTTP,
+        device_config_required=[],
+        update_strategy=UpdateStrategy(),
+        attributes={a.name: a for a in attrs},
+    )
+
+
+@pytest.fixture
+def shared_address_device(
+    shared_address_driver: Driver, mock_transport_client
+) -> CoreDevice:
+    return CoreDevice.from_base(
+        DeviceBase(id="sad", name="Shared address device", config={}),
+        driver=shared_address_driver,
         transport=mock_transport_client,
     )
 
@@ -325,31 +375,21 @@ class TestCoreDevicePollingGroups:
         )
 
     @pytest.mark.asyncio
-    async def test_read_group_emits_observability_log_on_success(
+    async def test_read_group_emits_no_observability_log_on_success(
         self, grouped_device: CoreDevice, mock_transport_client, caplog
     ):
-        """The group-read path must emit the same devices_manager.observability
-        log line the single-attribute @log_event decorator emits, not just
-        update the attribute's internal event log."""
+        # Per-read observability moved to metrics (device.attribute.read,
+        # see TestApplyReadResultMetrics in test_device.py); the group-read
+        # path no longer emits a devices_manager.observability log line.
         mock_transport_client._read = AsyncMock(return_value="20.0")  # noqa: SLF001
 
         with caplog.at_level(logging.INFO, logger="devices_manager.observability"):
             await grouped_device._read_group(["temperature"])  # noqa: SLF001
 
-        records = _observability_records(caplog)
-        assert len(records) == 1
-        fields = records[0].__dict__
-        assert fields["event"] == "read"
-        assert fields["status"] == "ok"
-        assert fields["attribute"] == "temperature"
-        assert fields["device_id"] == "gd"
-        assert fields["driver_id"] == "grouped_driver"
-        assert fields["protocol"] == TransportProtocols.HTTP
-        assert isinstance(fields["duration_ms"], float)
-        assert fields["duration_ms"] >= 0
+        assert _observability_records(caplog) == []
 
     @pytest.mark.asyncio
-    async def test_read_group_emits_observability_log_on_error(
+    async def test_read_group_emits_no_observability_log_on_error(
         self, grouped_device: CoreDevice, mock_transport_client, caplog
     ):
         async def failing_read(address, sweep_id: str | None = None) -> str:  # noqa: ARG001
@@ -360,41 +400,7 @@ class TestCoreDevicePollingGroups:
         with caplog.at_level(logging.INFO, logger="devices_manager.observability"):
             await grouped_device._read_group(["temperature"])  # noqa: SLF001
 
-        records = _observability_records(caplog)
-        assert len(records) == 1
-        fields = records[0].__dict__
-        assert fields["event"] == "read"
-        assert fields["status"] == "error"
-        assert fields["attribute"] == "temperature"
-
-    @pytest.mark.asyncio
-    async def test_read_group_reports_per_result_duration_not_cumulative(
-        self, grouped_device: CoreDevice, mock_transport_client, caplog
-    ):
-        """Regression test: duration_ms must reflect the time since the
-        previous result in the sweep, not the whole sweep so far, so a slow
-        read ahead of it in the stream doesn't inflate a fast attribute's
-        reported duration."""
-
-        async def slow_then_fast_read(
-            address,
-            sweep_id: str | None = None,  # noqa: ARG001
-        ) -> str:
-            if address.id == "GET /temperature":
-                await asyncio.sleep(0.05)
-            return "20.0"
-
-        mock_transport_client.read = slow_then_fast_read
-
-        with caplog.at_level(logging.INFO, logger="devices_manager.observability"):
-            await grouped_device._read_group(["temperature", "humidity"])  # noqa: SLF001
-
-        records = {
-            r.__dict__["attribute"]: r.__dict__["duration_ms"]
-            for r in _observability_records(caplog)
-        }
-        assert records["temperature"] >= 40
-        assert records["humidity"] < 25
+        assert _observability_records(caplog) == []
 
     @pytest.mark.asyncio
     async def test_stop_sync_survives_a_poll_task_that_died(
@@ -415,3 +421,36 @@ class TestCoreDevicePollingGroups:
 
         assert grouped_device._poll_tasks == {}  # noqa: SLF001
         assert grouped_device.syncing is False
+
+
+class TestReadGroupMetricRatios:
+    """8 attributes sharing one address should collapse to A=8, D=1, R=1 —
+    dedup, into one wire address and request."""
+
+    @pytest.mark.asyncio
+    async def test_shared_address_collapses_to_one_wire_request(
+        self,
+        shared_address_device: CoreDevice,
+        mock_transport_client,
+        metric_reader,
+    ):
+        payload = dict.fromkeys(SHARED_ADDRESS_ATTRIBUTE_NAMES, 1.0)
+        mock_transport_client._read = AsyncMock(return_value=payload)  # noqa: SLF001
+
+        await shared_address_device._read_group(SHARED_ADDRESS_ATTRIBUTE_NAMES)  # noqa: SLF001
+
+        attribute_reads = sum_metric(  # A
+            metric_reader, "device.attribute.read", protocol="http", status="ok"
+        )
+        wire_addresses = sum_metric(  # D
+            metric_reader, "device.io.read.addresses", protocol="http", status="ok"
+        )
+        wire_requests = histogram_count(  # R
+            metric_reader, "device.io.read.duration", protocol="http", status="ok"
+        )
+
+        assert attribute_reads == len(SHARED_ADDRESS_ATTRIBUTE_NAMES) == 8
+        assert wire_addresses == 1
+        assert wire_requests == 1
+        assert wire_addresses / attribute_reads == pytest.approx(0.125)  # caching D/A
+        assert wire_addresses / wire_requests == 1  # batching D/R

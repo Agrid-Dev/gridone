@@ -1,6 +1,4 @@
-import logging
 from collections.abc import Callable
-from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
 from functools import wraps
@@ -10,8 +8,6 @@ from pydantic import BaseModel
 
 if TYPE_CHECKING:
     from .attribute import Attribute
-
-_observability_logger = logging.getLogger("devices_manager.observability")
 
 
 class EventType(StrEnum):
@@ -60,48 +56,6 @@ def build_entry(
     if error is not None:
         return _error_entry(event_type, error)
     return _ok_entry(event_type)
-
-
-@dataclass(frozen=True, slots=True)
-class DeviceIdentity:
-    """The device_id/driver_id/protocol triple an observability log is tagged
-    with — always sourced and passed together, so callers build one of these
-    instead of threading three separate parameters."""
-
-    device_id: str | None
-    driver_id: str | None
-    protocol: str | None
-
-
-def log_observability(
-    event_type: EventType,
-    status: Literal["ok", "error"],
-    duration_ms: float,
-    *,
-    attribute_name: str,
-    identity: DeviceIdentity,
-) -> None:
-    """Emit the ``devices_manager.observability`` structured log line.
-
-    Called by the polling-group read path (``device.py:_log_read_outcome``).
-    ``duration_ms`` is measured from whatever the caller considers this
-    outcome's start — the previous result's arrival in a batch sweep — so it
-    is not guaranteed to isolate network time alone.
-    """
-    _observability_logger.info(
-        "device %s %s",
-        event_type,
-        status,
-        extra={
-            "event": event_type,
-            "status": status,
-            "duration_ms": duration_ms,
-            "attribute": attribute_name,
-            "device_id": identity.device_id,
-            "driver_id": identity.driver_id,
-            "protocol": identity.protocol,
-        },
-    )
 
 
 def log_event(

@@ -962,6 +962,7 @@ dependencies = [
     { name = "bacpypes3" },
     { name = "gridone-models" },
     { name = "httpx" },
+    { name = "opentelemetry-api" },
     { name = "pydantic" },
     { name = "pymeterbus" },
     { name = "pymodbus" },
@@ -973,6 +974,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "opentelemetry-sdk" },
     { name = "thermocktat-client" },
 ]
 
@@ -983,6 +985,7 @@ requires-dist = [
     { name = "bacpypes3", specifier = ">=0.0.102" },
     { name = "gridone-models", editable = "packages/models" },
     { name = "httpx", specifier = ">=0.28.1" },
+    { name = "opentelemetry-api", specifier = ">=1.42.1" },
     { name = "pydantic", specifier = ">=2.12.4" },
     { name = "pymeterbus", specifier = ">=0.8.4" },
     { name = "pymodbus", specifier = ">=3.11.3" },
@@ -993,7 +996,10 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
-dev = [{ name = "thermocktat-client", specifier = ">=0.3.0" }]
+dev = [
+    { name = "opentelemetry-sdk", specifier = ">=1.42.1" },
+    { name = "thermocktat-client", specifier = ">=0.3.0" },
+]
 
 [[package]]
 name = "gridone-migrations"
