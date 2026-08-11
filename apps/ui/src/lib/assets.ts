@@ -77,6 +77,19 @@ export function flattenDeviceAssets(
   return out;
 }
 
+/** Non-mutating sort in curated tree order: `position` ascending with name as
+ *  tiebreaker — the same ordering the server applies to tree children. Use it
+ *  wherever siblings render, so manual reordering is reflected everywhere. */
+export function sortedByPosition<T extends Pick<Asset, "name" | "position">>(
+  items: readonly T[],
+): T[] {
+  return [...items].sort(
+    (a, b) =>
+      (a.position ?? 0) - (b.position ?? 0) ||
+      a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+  );
+}
+
 /** "Building A › Floor 1" — the asset's ancestor names, itself excluded.
  *
  *  `path` is a materialized list of ancestor ids ending with the asset's own,

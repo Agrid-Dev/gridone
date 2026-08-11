@@ -3,6 +3,7 @@ import type { Asset } from "@gridone/sdk";
 import {
   ancestorPathOf,
   flattenDeviceAssets,
+  sortedByPosition,
   zonePathOf,
   type AssetTreeNode,
 } from "./assets";
@@ -84,6 +85,35 @@ describe("zonePathOf", () => {
   it("falls back to the asset itself when it carries no path", () => {
     const pathless = { ...bedroom, path: undefined } as unknown as Asset;
     expect(zonePathOf(pathless, byId)).toBe("Room 201");
+  });
+});
+
+describe("sortedByPosition", () => {
+  it("orders by position ascending, name as tiebreaker, without mutating", () => {
+    const items = [
+      { name: "Quatrième étage", position: 3 },
+      { name: "Second Etage", position: 1 },
+      { name: "annexe", position: 1 },
+      { name: "Premier Etage", position: 0 },
+    ];
+    expect(sortedByPosition(items).map((item) => item.name)).toEqual([
+      "Premier Etage",
+      "annexe",
+      "Second Etage",
+      "Quatrième étage",
+    ]);
+    expect(items[0].name).toBe("Quatrième étage");
+  });
+
+  it("treats a missing position as zero", () => {
+    const items = [
+      { name: "B", position: 1 },
+      { name: "A", position: undefined },
+    ];
+    expect(sortedByPosition(items).map((item) => item.name)).toEqual([
+      "A",
+      "B",
+    ]);
   });
 });
 
