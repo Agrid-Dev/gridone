@@ -10,6 +10,7 @@ from .knx_transport import KNXTransportClient, KNXTransportConfig
 from .mbus_transport import MBusTransportClient, MBusTransportConfig
 from .modbus_tcp_transport import ModbusTCPTransportClient, ModbusTCPTransportConfig
 from .mqtt_transport import MqttTransportClient, MqttTransportConfig
+from .opcua_transport import OpcuaTransportClient, OpcuaTransportConfig
 from .transport_metadata import TransportMetadata
 from .webhook_transport import WebhookTransportClient, WebhookTransportConfig
 
@@ -28,6 +29,7 @@ def make_transport_config(
         TransportProtocols.MODBUS_TCP: ModbusTCPTransportConfig,
         TransportProtocols.MBUS: MBusTransportConfig,
         TransportProtocols.BACNET: BacnetTransportConfig,
+        TransportProtocols.OPCUA: OpcuaTransportConfig,
         TransportProtocols.WEBHOOK: WebhookTransportConfig,
     }
     builder = builders.get(protocol)
@@ -46,6 +48,7 @@ TRANSPORTS_BY_PROTOCOL: dict[
     TransportProtocols.MODBUS_TCP: (ModbusTCPTransportClient, ModbusTCPTransportConfig),
     TransportProtocols.MBUS: (MBusTransportClient, MBusTransportConfig),
     TransportProtocols.BACNET: (BacnetTransportClient, BacnetTransportConfig),
+    TransportProtocols.OPCUA: (OpcuaTransportClient, OpcuaTransportConfig),
     TransportProtocols.WEBHOOK: (WebhookTransportClient, WebhookTransportConfig),
 }
 

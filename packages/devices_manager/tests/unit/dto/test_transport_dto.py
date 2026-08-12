@@ -15,9 +15,15 @@ from devices_manager.core.transports.mqtt_transport import (
     MqttTransportClient,
     MqttTransportConfig,
 )
+from devices_manager.core.transports.opcua_transport import (
+    OpcuaTransportClient,
+    OpcuaTransportConfig,
+)
 from devices_manager.dto.transport_dto import (
     ModbusTcpTransportCreate,
     MqttTransport,
+    OpcuaTransport,
+    OpcuaTransportCreate,
     TransportCreate,
     TransportUpdate,
     WebhookTransportCreate,
@@ -82,6 +88,23 @@ def test_dto_to_core_to_dto_preserves_timestamps():
     assert rebuilt.updated_at == updated
 
 
+def test_dto_to_core_opcua(mock_metadata):
+    dto = OpcuaTransport(
+        id=mock_metadata.id,
+        name=mock_metadata.name,
+        protocol=TransportProtocols.OPCUA,
+        config=OpcuaTransportConfig(endpoint_url="opc.tcp://localhost:4840"),
+        connection_state=TransportConnectionState.idle(),
+    )
+    client = dto_to_core(dto)
+    assert isinstance(client, OpcuaTransportClient)
+    assert client.config == dto.config
+
+    rebuilt = core_to_dto(client)
+    assert rebuilt.protocol == TransportProtocols.OPCUA
+    assert rebuilt.config == dto.config
+
+
 class TestTransportCreate:
     def test_protocol_narrows_config(self):
         create = TRANSPORT_CREATE.validate_python(
@@ -116,6 +139,19 @@ class TestTransportCreate:
             TRANSPORT_CREATE.validate_python(
                 {"name": "App ingress", "protocol": "webhook", "config": {}}
             )
+
+    def test_opcua_protocol_narrows_config(self):
+        create = TRANSPORT_CREATE.validate_python(
+            {
+                "name": "PLC",
+                "protocol": "opcua",
+                "config": {"endpoint_url": "opc.tcp://plc.local:4840"},
+            }
+        )
+        assert isinstance(create, OpcuaTransportCreate)
+        assert create.config == OpcuaTransportConfig(
+            endpoint_url="opc.tcp://plc.local:4840"
+        )
 
     def test_rejects_unknown_protocol(self):
         with pytest.raises(ValidationError, match="protocol"):

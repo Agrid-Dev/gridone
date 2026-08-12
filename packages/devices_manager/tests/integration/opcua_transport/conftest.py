@@ -128,8 +128,7 @@ async def opcua_server() -> AsyncGenerator[OpcuaServerHandle]:
 async def opcua_client(
     opcua_server: OpcuaServerHandle,
 ) -> AsyncGenerator[OpcuaTransportClient]:
-    """Connected OpcuaTransportClient, built directly since the protocol
-    isn't registered in the transport factory yet."""
+    """Connected OpcuaTransportClient, built directly against a real server."""
     endpoint = opcua_server.endpoint
     client = OpcuaTransportClient(
         TransportMetadata(id="opcua-test-transport", name="opcua-test-transport"),

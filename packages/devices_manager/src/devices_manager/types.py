@@ -26,8 +26,6 @@ class TransportProtocols(StrEnum):
     KNX = "knx"
     MQTT = "mqtt"
     WEBHOOK = "webhook"
-    # Not yet registered in factory.py / the DTO unions — no client backs
-    # this protocol yet.
     OPCUA = "opcua"
 
 

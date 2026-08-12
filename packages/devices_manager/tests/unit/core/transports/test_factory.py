@@ -29,6 +29,10 @@ from devices_manager.core.transports.mqtt_transport import (
     MqttTransportClient,
     MqttTransportConfig,
 )
+from devices_manager.core.transports.opcua_transport import (
+    OpcuaTransportClient,
+    OpcuaTransportConfig,
+)
 from devices_manager.core.transports.webhook_transport import (
     WebhookTransportClient,
     WebhookTransportConfig,
@@ -49,10 +53,6 @@ def test_invalid_transport_config_raises(
     mock_transport_metadata, invalid_transport_config
 ):
     for protocol in TransportProtocols:
-        # OPCUA isn't registered in the factory yet; asserting a
-        # mismatched-config TypeError doesn't apply until it is.
-        if protocol == TransportProtocols.OPCUA:
-            continue
         with pytest.raises(TypeError):
             make_transport_client(
                 protocol, invalid_transport_config, mock_transport_metadata
@@ -104,6 +104,12 @@ def test_mismatched_transport_config_raises(mock_transport_metadata):
                 KNXTransportConfig(gateway_ip="localhost"),
                 KNXTransportClient,
                 True,
+            ),
+            (
+                TransportProtocols.OPCUA,
+                OpcuaTransportConfig(endpoint_url="opc.tcp://localhost:4840"),
+                OpcuaTransportClient,
+                False,
             ),
             (
                 TransportProtocols.WEBHOOK,
