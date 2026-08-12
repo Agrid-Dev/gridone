@@ -109,3 +109,19 @@ services:
         ipv4_address: 172.30.0.20
     ports:
       - "9085:8080"
+
+  # OPC-UA acceptance emulator: the official simulation server, not a
+  # thermocktat build. `--nodesfile` adds the fixed, writable scalar nodes in
+  # fixtures/opcua-plc-nodes.json (its own built-in random/trending nodes stay
+  # up too, untouched, on other node IDs). `--ut` opens the unsecured
+  # (security: None) endpoint; anonymous auth is on by default (no `--daa`).
+  # No HTTP side-channel exists for this emulator, unlike the thermocktat ones.
+  opcua-plc:
+    image: mcr.microsoft.com/iotedge/opc-plc:2.14.23
+    command:
+      - --ut
+      - --nodesfile=/fixtures/opcua-plc-nodes.json
+    volumes:
+      - ./fixtures/opcua-plc-nodes.json:/fixtures/opcua-plc-nodes.json:ro
+    ports:
+      - "9086:50000"
