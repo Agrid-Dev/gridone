@@ -1,7 +1,7 @@
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Play, Plus } from "lucide-react";
+import { Pencil, Play, Plus } from "lucide-react";
 import { toast } from "sonner";
 import type { Automation, AutomationExecution } from "@gridone/sdk";
 import { Button } from "@/components/ui/button";
@@ -224,14 +224,31 @@ function AutomationCard({
             </div>
           </div>
           {canWrite ? (
-            <Switch
-              checked={enabled}
-              onCheckedChange={onToggle}
-              disabled={isMutating}
-              // Running/paused is a status, not a brand action — green when on.
-              className={enabled ? "bg-success" : undefined}
-              aria-label={t(enabled ? "actions.disable" : "actions.enable")}
-            />
+            <div className="flex shrink-0 items-center gap-1.5">
+              {/* Editing lives on the detail page; without this the only way
+                  in is the title link, which reads as navigation, not edit. */}
+              <Button
+                asChild
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              >
+                <Link
+                  to={`/automations/${automation.id}`}
+                  aria-label={t("actions.edit")}
+                >
+                  <Pencil />
+                </Link>
+              </Button>
+              <Switch
+                checked={enabled}
+                onCheckedChange={onToggle}
+                disabled={isMutating}
+                // Running/paused is a status, not a brand action — green when on.
+                className={enabled ? "bg-success" : undefined}
+                aria-label={t(enabled ? "actions.disable" : "actions.enable")}
+              />
+            </div>
           ) : (
             <AutomationStatusBadge enabled={enabled} />
           )}

@@ -112,7 +112,7 @@ export function AwhpControl({
   size = "lg",
 }: StandardControlProps & { size?: "lg" | "full" }) {
   const { t } = useTranslation("devices");
-  const { t: tCommon } = useTranslation();
+  const { t: tTypes } = useTranslation("standardDevices");
   const { assetByDeviceId } = useAssetTree();
 
   if (!isAwhp(device)) return null;
@@ -121,7 +121,7 @@ export function AwhpControl({
   const heating = media.condenser === "water";
   const asset = assetByDeviceId[device.id];
 
-  const typeLabel = tCommon(`common.deviceTypes.${DeviceType.Awhp}`);
+  const typeLabel = tTypes(`${DeviceType.Awhp}.name`);
   const mediumHeadline = (medium: CycleMedium) =>
     medium === "water"
       ? `${t("controls.awhp.waterSide")} ${fmt(a.outletTemperature, 1, " °C")}`

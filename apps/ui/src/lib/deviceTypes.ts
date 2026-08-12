@@ -116,6 +116,19 @@ export function deviceTypeLabel(
   return t(`${key}.${form}`);
 }
 
+/** Singular name of a raw device type, from the same `standardDevices`
+ *  catalog the fleet views use — one vocabulary across devices, drivers,
+ *  commands and zones (AGR-1029). A type the catalog doesn't know falls back
+ *  to the raw wire value rather than an empty label; an unset type yields
+ *  undefined so callers can render their own placeholder. */
+export function deviceTypeName(
+  type: DeviceType | string | null | undefined,
+  t: TFunction<"standardDevices">,
+): string | undefined {
+  if (!type) return undefined;
+  return KNOWN_DEVICE_TYPES.has(type) ? t(`${type as DeviceType}.name`) : type;
+}
+
 /** Bucket display name for filter chips and table group headers — always the
  *  plural catalog form: it names the category, not a quantity, and sits next
  *  to a separate count ("Thermostats · 1"). */

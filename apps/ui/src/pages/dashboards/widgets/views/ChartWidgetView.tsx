@@ -16,8 +16,8 @@ import {
   PANEL_CHROME_HEIGHT,
 } from "@/components/charts/TimeSeriesChart/constants";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAttributeLabel } from "@/hooks/useAttributeLabel";
 import { useMultiTimeSeries } from "@/hooks/useMultiTimeSeries";
-import { toLabel } from "@/lib/textFormat";
 import { useDashboardPeriod } from "../../useDashboardPeriod";
 import {
   holdLastValueUntil,
@@ -33,6 +33,22 @@ const Message: FC<{ children: string }> = ({ children }) => (
     {children}
   </div>
 );
+
+/** Worded caption for an aggregation operator, per role — the same wording
+ *  the widget editor shows while picking it, rather than the raw wire code. */
+function useAggCaptions() {
+  const { t } = useTranslation("dashboards");
+  return {
+    time: (agg: AggregationOperator) =>
+      t(
+        `widgets.chart.agg.captions.${agg}` as "widgets.chart.agg.captions.avg",
+      ),
+    space: (agg: AggregationOperator) =>
+      t(
+        `widgets.chart.space.captions.${agg}` as "widgets.chart.space.captions.avg",
+      ),
+  };
+}
 
 /**
  * Plots one attribute of a device set over the dashboard period.
@@ -69,6 +85,8 @@ const SpaceChartView: FC<{
 }> = ({ target, agg, spaceAgg }) => {
   const { t } = useTranslation("dashboards");
   const { query, refetchInterval } = useDashboardPeriod();
+  const attributeLabel = useAttributeLabel();
+  const captions = useAggCaptions();
 
   // Space aggregation is bucketed by construction (raw is refused), so an
   // unbounded period cannot be cut into buckets — same rule as aggregating a
@@ -120,12 +138,24 @@ const SpaceChartView: FC<{
   // No device count in the label: series_count is series with history, not
   // the resolved set, and the true contributor count varies per bucket. The
   // accurate counts live in the editor's coverage read and on each point.
-  const label = t("widgets.chart.space.seriesLabel", {
-    attribute: toLabel(target.attribute),
-    agg,
-    spaceAgg,
-    interval: data.interval,
-  });
+  //
+  // Two operators apply here — one per bucket, one across devices — but
+  // repeating the same word twice ("avg · avg") told nobody which was which.
+  // Identical operators collapse to the across-devices wording, since a mean
+  // of means is still a mean; differing ones are both named.
+  const label =
+    agg === spaceAgg
+      ? t("widgets.chart.space.seriesLabel", {
+          attribute: attributeLabel(target.attribute),
+          spaceAgg: captions.space(spaceAgg),
+          interval: data.interval,
+        })
+      : t("widgets.chart.space.seriesLabelMixed", {
+          attribute: attributeLabel(target.attribute),
+          agg: captions.time(agg),
+          spaceAgg: captions.space(spaceAgg),
+          interval: data.interval,
+        });
   const chartProps = singleSeriesChartProps(
     data.aggregation_data_type,
     "space",
@@ -154,6 +184,8 @@ const FanOutChartView: FC<{
 }> = ({ target, agg }) => {
   const { t } = useTranslation("dashboards");
   const { query, refetchInterval } = useDashboardPeriod();
+  const attributeLabel = useAttributeLabel();
+  const captions = useAggCaptions();
 
   // Buckets are cut from a window, so there is nothing to cut when the period
   // is unbounded — the "all time" preset resolves to no start, end or last.
@@ -239,8 +271,10 @@ const FanOutChartView: FC<{
   // its device's name and the legend stays one line per device.
   const label = (id: string, interval: string | null) => {
     if (plotted.length > 1) return deviceName(id);
-    const name = `${deviceName(id)} — ${toLabel(target.attribute)}`;
-    return agg && interval ? `${name} · ${agg} · ${interval}` : name;
+    const name = `${deviceName(id)} — ${attributeLabel(target.attribute)}`;
+    return agg && interval
+      ? `${name} · ${captions.time(agg)} · ${interval}`
+      : name;
   };
 
   // Aggregation can change the data type — `count` yields ints whatever went

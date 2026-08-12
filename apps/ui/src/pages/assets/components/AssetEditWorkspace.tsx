@@ -4,11 +4,29 @@ import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import {
   Building2,
   ChevronRight,
   CornerDownRight,
   Cpu,
   DoorOpen,
+  GripVertical,
   Layers3,
   LayoutGrid,
   Link2,
@@ -25,10 +43,10 @@ import { SelectController } from "@/components/forms/controllers/SelectControlle
 import { ConnectionStatusDot } from "@/components/ConnectionStatusBadge";
 import { ResourceDeleteButton } from "@/components/ResourceDeleteButton";
 import { getConnectionStatus } from "@/lib/devices";
-import { deviceTypeIcon } from "@/lib/deviceTypes";
-import { formatTimeAgo } from "@/lib/utils";
+import { deviceTypeIcon, deviceTypeName } from "@/lib/deviceTypes";
+import { cn, formatTimeAgo } from "@/lib/utils";
 import { sortedByName } from "@/lib/sortByName";
-import { ASSET_TYPES } from "@/lib/assets";
+import { ASSET_TYPES, sortedByPosition } from "@/lib/assets";
 import { assetFormSchema, type AssetFormValues } from "./AssetForm";
 
 type AssetEditWorkspaceProps = {
@@ -46,6 +64,7 @@ type AssetEditWorkspaceProps = {
   onSubmit?: (data: AssetFormValues) => void;
   onDelete?: () => void;
   onLinkDevice: () => void;
+  onReorder?: (orderedIds: string[]) => void;
 };
 
 /** The Save button lives in the page header, outside the form it commits. */
@@ -88,6 +107,92 @@ function EmptySection({ children }: { children: ReactNode }) {
   );
 }
 
+/** Applies a drag-end event to the current id order. Returns the full
+ *  reordered id list, or null when the drop changes nothing (no target,
+ *  dropped on itself, or ids unknown to the list). Structurally typed so
+ *  tests can pass bare `{active, over}` pairs; `DragEndEvent` satisfies it. */
+export function reorderedIds(
+  ids: string[],
+  {
+    active,
+    over,
+  }: {
+    active: { id: string | number };
+    over: { id: string | number } | null;
+  },
+): string[] | null {
+  if (!over || active.id === over.id) return null;
+  const from = ids.indexOf(String(active.id));
+  const to = ids.indexOf(String(over.id));
+  if (from < 0 || to < 0) return null;
+  return arrayMove(ids, from, to);
+}
+
+/** Sub-zone list row, draggable by its handle when reordering is enabled.
+ *  The handle is a separate button so the row itself stays a plain link. */
+function SortableSubzoneRow({
+  child,
+  typeLabel,
+  handleLabel,
+  sortable,
+}: {
+  child: Asset;
+  typeLabel: string;
+  handleLabel: string;
+  sortable: boolean;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: child.id, disabled: !sortable });
+
+  return (
+    <li
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={cn(isDragging && "relative z-10")}
+    >
+      <div
+        className={cn(
+          "group flex items-center rounded-lg transition-colors hover:bg-muted/50",
+          isDragging && "bg-card shadow-lg ring-1 ring-border",
+        )}
+      >
+        {sortable && (
+          <button
+            type="button"
+            aria-label={handleLabel}
+            className="cursor-grab touch-none self-stretch rounded-lg px-1.5 text-muted-foreground/60 transition-colors hover:text-foreground active:cursor-grabbing"
+            {...attributes}
+            {...listeners}
+          >
+            <GripVertical className="h-4 w-4" />
+          </button>
+        )}
+        <Link
+          to={`/assets/${child.id}`}
+          className="flex min-w-0 flex-1 items-center gap-3 px-2 py-3.5"
+        >
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <CornerDownRight className="h-4 w-4" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-foreground">
+              {child.name}
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{typeLabel}</p>
+          </div>
+          <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+        </Link>
+      </div>
+    </li>
+  );
+}
+
 /** Screenshot-inspired zone workspace shared by detail and edit routes. */
 export function AssetEditWorkspace({
   mode = "edit",
@@ -104,9 +209,11 @@ export function AssetEditWorkspace({
   onSubmit,
   onDelete,
   onLinkDevice,
+  onReorder,
 }: AssetEditWorkspaceProps) {
   const { t } = useTranslation(["assets", "common"]);
   const { t: tCommon } = useTranslation("common");
+  const { t: tTypes } = useTranslation("standardDevices");
 
   const form = useForm<AssetFormValues>({
     resolver: zodResolver(assetFormSchema),
@@ -154,6 +261,29 @@ export function AssetEditWorkspace({
     const linked = new Set(deviceIds);
     return sortedByName(devices.filter((device) => linked.has(device.id)));
   }, [deviceIds, devices]);
+
+  const orderedChildren = useMemo(
+    () => sortedByPosition(childAssets),
+    [childAssets],
+  );
+  const subzoneIds = useMemo(
+    () => orderedChildren.map((child) => child.id),
+    [orderedChildren],
+  );
+  const canReorder =
+    canWriteAssets && Boolean(onReorder) && orderedChildren.length > 1;
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const next = reorderedIds(subzoneIds, event);
+    if (next) onReorder?.(next);
+  };
 
   const updatedAt = asset.updated_at
     ? formatTimeAgo(new Date(asset.updated_at).getTime(), tCommon)
@@ -357,7 +487,7 @@ export function AssetEditWorkspace({
                 <CornerDownRight className="h-4 w-4 shrink-0" />
                 <span className="truncate">{asset.name}</span>
               </div>
-              {sortedByName(childAssets).map((child) => (
+              {orderedChildren.map((child) => (
                 <Link
                   key={child.id}
                   to={`/assets/${child.id}`}
@@ -413,30 +543,31 @@ export function AssetEditWorkspace({
             </div>
 
             <div className="mt-6">
-              {childAssets.length > 0 ? (
-                <ul className="divide-y divide-border">
-                  {sortedByName(childAssets).map((child) => (
-                    <li key={child.id}>
-                      <Link
-                        to={`/assets/${child.id}`}
-                        className="group flex items-center gap-3 rounded-lg px-2 py-3.5 transition-colors hover:bg-muted/50"
-                      >
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                          <CornerDownRight className="h-4 w-4" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-semibold text-foreground">
-                            {child.name}
-                          </p>
-                          <p className="mt-0.5 text-xs text-muted-foreground">
-                            {t(`types.${child.type}`)}
-                          </p>
-                        </div>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
+              {orderedChildren.length > 0 ? (
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext
+                    items={subzoneIds}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <ul className="divide-y divide-border">
+                      {orderedChildren.map((child) => (
+                        <SortableSubzoneRow
+                          key={child.id}
+                          child={child}
+                          typeLabel={t(`types.${child.type}`)}
+                          handleLabel={t("editPage.subzones.reorder", {
+                            name: child.name,
+                          })}
+                          sortable={canReorder}
+                        />
+                      ))}
+                    </ul>
+                  </SortableContext>
+                </DndContext>
               ) : (
                 <EmptySection>{t("noChildren")}</EmptySection>
               )}
@@ -481,12 +612,8 @@ export function AssetEditWorkspace({
                               {device.name || device.id}
                             </p>
                             <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                              {device.type
-                                ? t(
-                                    `common:common.deviceTypes.${device.type}`,
-                                    { defaultValue: device.type },
-                                  )
-                                : t("common:common.unknown")}
+                              {deviceTypeName(device.type, tTypes) ??
+                                t("common:common.unknown")}
                             </p>
                           </div>
                           <ConnectionStatusDot

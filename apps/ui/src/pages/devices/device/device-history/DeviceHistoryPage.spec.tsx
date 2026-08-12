@@ -1,6 +1,12 @@
 import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router";
@@ -8,25 +14,39 @@ import { createI18nMock } from "@/test/i18nMock";
 import type { DataPoint, Device, TimeSeries, UnitCommand } from "@gridone/sdk";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
-const { mockListSeries, mockGetSeriesPoints, mockGetStandardTypes } =
-  vi.hoisted(() => ({
-    mockListSeries: vi.fn(),
-    mockGetSeriesPoints: vi.fn(),
-    mockGetStandardTypes: vi.fn(),
-  }));
+const {
+  mockListSeries,
+  mockGetSeriesPoints,
+  mockGetStandardTypes,
+  mockAggregate,
+  mockExportCsv,
+  mockToastError,
+} = vi.hoisted(() => ({
+  mockListSeries: vi.fn(),
+  mockGetSeriesPoints: vi.fn(),
+  mockGetStandardTypes: vi.fn(),
+  mockAggregate: vi.fn(),
+  mockExportCsv: vi.fn(),
+  mockToastError: vi.fn(),
+}));
 
 vi.mock("@/contexts/GridoneClientContext", () => ({
   useGridoneClient: () => ({
     timeseries: {
       list: (...args: unknown[]) => mockListSeries(...args),
       getPoints: (...args: unknown[]) => mockGetSeriesPoints(...args),
-      exportCsv: vi.fn(),
+      aggregate: (...args: unknown[]) => mockAggregate(...args),
+      exportCsv: (...args: unknown[]) => mockExportCsv(...args),
       exportPng: vi.fn(),
     },
     devices: {
       getStandardTypes: (...args: unknown[]) => mockGetStandardTypes(...args),
     },
   }),
+}));
+
+vi.mock("sonner", () => ({
+  toast: { error: mockToastError, success: vi.fn() },
 }));
 
 vi.mock("react-i18next", () =>
@@ -42,9 +62,13 @@ vi.mock("react-i18next", () =>
     "history.chartTitle24h": "{{metric}} — dernières 24 h",
     "history.chartTitleRange": "{{metric}} — {{range}}",
     "history.truncatedWarning": "Données tronquées, réduisez la période",
+    "history.averagedNotice": "Moyenné par {{interval}}",
     "history.statesTitle": "États",
     "history.noMetricData": "Aucune donnée sur la période",
     "history.export": "Exporter",
+    "deviceDetails.downloadCsv": "Télécharger en CSV",
+    "deviceDetails.downloadPng": "Télécharger en PNG",
+    "deviceDetails.downloadCsvError": "Échec de l'export CSV",
     "devices:history.events.event": "Événement",
     "devices:history.events.value": "Valeur",
     "devices:history.events.source": "Source",
@@ -99,6 +123,7 @@ vi.mock("@/hooks/useUsers", () => ({
 }));
 
 import DeviceHistoryPage from "./DeviceHistoryPage";
+import { exportFilename } from "./DeviceHistoryContext";
 import { RedirectToHistory } from "./RedirectToHistory";
 
 function attrName(i: number) {
@@ -238,6 +263,16 @@ beforeEach(() => {
   }
   window.HTMLElement.prototype.scrollIntoView = vi.fn();
   servePoints({});
+  // Unusable stand-in ("whole" collapses the window): tests exercising the
+  // averaged fallback override this with a real bucketed result.
+  mockAggregate.mockResolvedValue({
+    interval: "whole",
+    agg: "tw_avg",
+    data_type: "float",
+    timezone: "UTC",
+    points: [],
+    truncated: false,
+  });
   mockCommands.current = new Map();
   mockUsers.current = new Map();
   mockGetStandardTypes.mockResolvedValue([
@@ -258,6 +293,7 @@ afterEach(() => {
   mockListSeries.mockReset();
   mockGetSeriesPoints.mockReset();
   mockGetStandardTypes.mockReset();
+  mockAggregate.mockReset();
 });
 
 describe("DeviceHistoryPage metric pills", () => {
@@ -386,9 +422,109 @@ describe("DeviceHistoryPage truncation", () => {
 
     await screen.findByText("Données tronquées, réduisez la période");
   });
+
+  it("charts auto-bucketed averages when the metric is truncated", async () => {
+    setupDevice(1);
+    const t1 = new Date(Date.now() - 3600_000).toISOString();
+    servePoints(
+      { [attrName(0)]: [{ timestamp: t1, value: 21 }] },
+      { truncated: true },
+    );
+    mockAggregate.mockResolvedValue({
+      interval: "1h",
+      agg: "tw_avg",
+      data_type: "float",
+      timezone: "UTC",
+      truncated: false,
+      points: [{ interval_start: t1, value: 21.4, count: 360 }],
+    });
+    renderPage();
+
+    await screen.findByText("Moyenné par 1h");
+    // The averaged stand-in absorbs the truncation: no warning left.
+    expect(
+      screen.queryByText("Données tronquées, réduisez la période"),
+    ).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(mockAggregate).toHaveBeenCalledWith(
+        "d1",
+        attrName(0),
+        expect.objectContaining({ agg: "tw_avg", interval: "auto" }),
+      ),
+    );
+  });
+
+  it("keeps raw points and requests no aggregate when nothing truncates", async () => {
+    setupDevice(1);
+    const t1 = new Date(Date.now() - 3600_000).toISOString();
+    servePoints({ [attrName(0)]: [{ timestamp: t1, value: 21 }] });
+    renderPage();
+
+    await screen.findByRole("button", { name: "Attr 01" });
+    await waitFor(() => expect(fetchedMetrics()).toContain(attrName(0)));
+    expect(mockAggregate).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Moyenné par/)).not.toBeInTheDocument();
+  });
+});
+
+describe("DeviceHistoryPage export", () => {
+  it("names files after the device and window", () => {
+    expect(exportFilename("Ch. Étage 2", { last: "1d" })).toBe(
+      "ch-etage-2-history-1d",
+    );
+    expect(
+      exportFilename("Chiller 0", {
+        start: "2026-08-01T00:00:00Z",
+        end: "2026-08-11T00:00:00Z",
+      }),
+    ).toBe("chiller-0-history-2026-08-01_2026-08-11");
+    expect(exportFilename("†††", {})).toBe("device-history-all");
+  });
+
+  it("toasts when the CSV export fails", async () => {
+    setupThermostat();
+    mockExportCsv.mockRejectedValue(new Error("boom"));
+    renderPage();
+    await screen.findByRole("button", { name: "Température" });
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Exporter" }));
+    await user.click(
+      await screen.findByRole("menuitem", { name: "Télécharger en CSV" }),
+    );
+
+    await waitFor(() =>
+      expect(mockToastError).toHaveBeenCalledWith("Échec de l'export CSV"),
+    );
+  });
 });
 
 describe("DeviceHistoryPage events table", () => {
+  it("stamps events with seconds so same-minute rows stay distinct", async () => {
+    setupThermostat();
+    const base = Date.now() - 3600_000;
+    servePoints({
+      temperature: [
+        { timestamp: new Date(base).toISOString(), value: 20.5 },
+        { timestamp: new Date(base + 10_000).toISOString(), value: 20.7 },
+      ],
+    });
+    renderPage();
+
+    const table = await screen.findByRole("table");
+    await waitFor(() =>
+      // Two readings 10 s apart within the same minute must render two
+      // distinct HH:MM:SS stamps.
+      expect(
+        new Set(
+          within(table)
+            .getAllByText(/\d{1,2}:\d{2}:\d{2}/)
+            .map((cell) => cell.textContent),
+        ).size,
+      ).toBeGreaterThanOrEqual(2),
+    );
+  });
+
   it("renders readings and state changes with their sources", async () => {
     setupThermostat();
     const t1 = new Date(Date.now() - 3600_000).toISOString();

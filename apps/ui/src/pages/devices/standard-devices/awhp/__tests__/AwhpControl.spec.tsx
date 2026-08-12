@@ -21,7 +21,7 @@ vi.mock("react-i18next", () =>
     "controls.awhp.waterSide": "Eau",
     "controls.awhp.airSide": "Air",
     "controls.awhp.chilledWater": "Eau glacée",
-    "common.deviceTypes.awhp": "PAC air-eau",
+    "awhp.name": "PAC air-eau",
     "common.hvacMode.cool": "Froid",
     "common.hvacMode.heat": "Chauffage",
   }),

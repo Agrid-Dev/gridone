@@ -1,3 +1,24 @@
+## v0.206.0 (2026-08-12)
+
+### Feat
+
+- **ui**: pick trigger thresholds from the driver's value list
+- **ui**: explicit edit button on automation cards
+- **ui**: instant chart redraw and refresh control on device history
+- **ui**: drag-reorder sub-zones and honor curated order (AGR-1029)
+
+### Fix
+
+- **automations**: evaluate cron schedules in the building timezone
+- **ui**: localize and disambiguate dashboard chart legends
+- **ui**: descriptive history export filenames and CSV error toast
+- **ui**: add seconds to history event timestamps
+- **ui**: chart bucketed averages when raw history is truncated
+
+### Refactor
+
+- **ui**: one vocabulary for device types
+
 ## v0.205.1 (2026-08-11)
 
 ### Fix

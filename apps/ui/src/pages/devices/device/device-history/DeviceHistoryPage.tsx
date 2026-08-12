@@ -21,6 +21,7 @@ import {
 import { ExportMenu } from "./ExportMenu";
 import { HistoryChartCard } from "./HistoryChartCard";
 import { HistoryRangeControl } from "./HistoryRangeControl";
+import { RefreshControl } from "./RefreshControl";
 import { MetricPillBar } from "./MetricPillBar";
 import HistoryEventsTable from "./HistoryEventsTable";
 
@@ -45,6 +46,7 @@ export default function DeviceHistoryPage() {
   return (
     <DeviceHistoryProvider
       deviceId={device.id}
+      deviceName={device.name || device.id}
       attributeNames={attributeNames}
       standardAttributeNames={standardNames}
       deviceType={typeKey === OTHER_KEY ? undefined : typeKey}
@@ -93,6 +95,7 @@ function HistoryContent() {
         <MetricPillBar />
         <div className="flex items-center gap-3">
           <HistoryRangeControl />
+          <RefreshControl />
           <ExportMenu />
         </div>
       </div>
