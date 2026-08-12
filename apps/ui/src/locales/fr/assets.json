@@ -37,7 +37,8 @@
     },
     "subzones": {
       "title": "Sous-zones",
-      "description": "Espaces directement contenus dans cette zone."
+      "description": "Espaces directement contenus dans cette zone.",
+      "reorder": "Réordonner {{name}}"
     },
     "devices": {
       "title": "Appareils rattachés",

@@ -116,16 +116,6 @@
     "type": "Type",
     "unknown": "Inconnu",
     "allTypes": "Tous les types",
-    "deviceTypes": {
-      "thermostat": "Thermostat",
-      "awhp": "PAC air-eau",
-      "weather_sensor": "Station météo",
-      "electricity_meter": "Compteur électrique",
-      "ahu_double_flux": "CTA double flux",
-      "ahu_single_flux": "CTA simple flux",
-      "air_extractor": "Extracteur d'air",
-      "pms_monitor": "Moniteur PMS"
-    },
     "hvacMode": {
       "heat": "Chauffage",
       "cool": "Froid",

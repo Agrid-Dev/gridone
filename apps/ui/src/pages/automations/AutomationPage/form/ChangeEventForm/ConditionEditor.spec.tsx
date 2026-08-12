@@ -2,6 +2,7 @@ import * as React from "react";
 import { afterEach, describe, it, expect, vi } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { createI18nMock } from "@/test/i18nMock";
+import { DeviceType } from "@/lib/devices";
 
 vi.mock("react-i18next", () =>
   createI18nMock({
@@ -68,7 +69,11 @@ function flattenToText(node: React.ReactNode): string {
   return "";
 }
 
-import { ConditionEditor, defaultConditionFor } from "./ConditionEditor";
+import {
+  ConditionEditor,
+  defaultConditionFor,
+  operatorsFor,
+} from "./ConditionEditor";
 
 afterEach(cleanup);
 
@@ -142,6 +147,53 @@ describe("ConditionEditor", () => {
       operator: "eq",
       threshold: "running",
     });
+  });
+
+  it("picks the threshold from the driver's value list, equality only", () => {
+    const onChange = vi.fn();
+    render(
+      <ConditionEditor
+        value={{ operator: "eq", threshold: "heat" }}
+        onChange={onChange}
+        dataType="str"
+        valueOptions={["heat", "cool", "auto"]}
+        attributeName="mode"
+        deviceType={DeviceType.Thermostat}
+      />,
+    );
+
+    const [operatorSelect, thresholdSelect] = screen.getAllByTestId(
+      "select",
+    ) as HTMLSelectElement[];
+    // Ordering "heat" against "cool" is meaningless — equality only.
+    expect(Array.from(operatorSelect.options).map((o) => o.value)).toEqual([
+      "eq",
+      "ne",
+    ]);
+    expect(Array.from(thresholdSelect.options).map((o) => o.value)).toEqual([
+      "heat",
+      "cool",
+      "auto",
+    ]);
+
+    fireEvent.change(thresholdSelect, { target: { value: "cool" } });
+    expect(onChange).toHaveBeenCalledWith({
+      operator: "eq",
+      threshold: "cool",
+    });
+  });
+
+  it("defaults an enumerated attribute to its first accepted value", () => {
+    expect(defaultConditionFor("str", ["heat", "cool"])).toEqual({
+      operator: "eq",
+      threshold: "heat",
+    });
+    // No list published: unchanged free-text behaviour.
+    expect(defaultConditionFor("str")).toEqual({
+      operator: "gt",
+      threshold: "",
+    });
+    expect(operatorsFor("str", [])).toHaveLength(6);
   });
 
   it("changing the operator emits a new condition with the same threshold", () => {

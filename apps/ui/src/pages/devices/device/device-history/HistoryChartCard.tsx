@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { TriangleAlert } from "lucide-react";
+import { Sigma, TriangleAlert } from "lucide-react";
 import TimeSeriesChart from "@/components/charts/TimeSeriesChart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -43,6 +43,7 @@ export function HistoryChartCard() {
     stateAttributes,
     timeRange,
     hasTruncatedData,
+    chartAveragedInterval,
     isLoading,
   } = useDeviceHistoryContext();
   const labelFor = useAttributeLabel();
@@ -80,12 +81,22 @@ export function HistoryChartCard() {
     <Card>
       <CardHeader className="flex-row items-center justify-between space-y-0">
         <CardTitle>{title}</CardTitle>
-        {hasTruncatedData && (
-          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-status-warning">
-            <TriangleAlert className="h-3.5 w-3.5" aria-hidden />
-            {t("history.truncatedWarning")}
-          </span>
-        )}
+        <span className="inline-flex items-center gap-3">
+          {chartAveragedInterval && (
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+              <Sigma className="h-3.5 w-3.5" aria-hidden />
+              {t("history.averagedNotice", {
+                interval: chartAveragedInterval,
+              })}
+            </span>
+          )}
+          {hasTruncatedData && (
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-status-warning">
+              <TriangleAlert className="h-3.5 w-3.5" aria-hidden />
+              {t("history.truncatedWarning")}
+            </span>
+          )}
+        </span>
       </CardHeader>
       <CardContent>
         {isLoading ? (

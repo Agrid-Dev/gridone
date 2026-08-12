@@ -30,6 +30,7 @@ export function useSeriesPoints(
   start?: string,
   end?: string,
   last?: string,
+  options?: { refetchInterval?: number | false },
 ) {
   const client = useGridoneClient();
 
@@ -43,11 +44,13 @@ export function useSeriesPoints(
           last,
           carry_forward: true,
         }),
+      refetchInterval: options?.refetchInterval ?? false,
     })),
   });
 
   const isLoading =
     seriesList.length > 0 && pointsQueries.some((q) => q.isLoading);
+  const isFetching = pointsQueries.some((q) => q.isFetching);
 
   // Build a stable pointsByMetric object.
   // useQueries returns a new array every render, but each q.data ref is
@@ -76,6 +79,7 @@ export function useSeriesPoints(
     pointsByMetric,
     truncatedMetrics,
     isLoading,
+    isFetching,
     error: pointsQueries.find((q) => q.error)?.error ?? null,
   };
 }

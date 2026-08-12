@@ -23,6 +23,11 @@ import {
 } from "@/lib/mergeTimeSeries";
 import { buildHistoryEvents, type HistoryEvent } from "./historyEvents";
 import {
+  type RefreshInterval,
+  readStoredRefreshInterval,
+  writeStoredRefreshInterval,
+} from "./refreshPreference";
+import {
   ReactNode,
   createContext,
   useCallback,
@@ -32,6 +37,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router";
 import { toast } from "sonner";
@@ -86,14 +92,24 @@ type DeviceHistoryContextValue = {
   chartRows: MergedRow[];
   /** Value changes of the active metric + state attributes, newest first. */
   events: HistoryEvent[];
-  /** True when the API truncated at least one fetched series. */
+  /** True when a fetched series is truncated with no aggregate stand-in. */
   hasTruncatedData: boolean;
+  /** Bucket width of the averaged chart line when raw data was truncated
+   *  and the auto-bucketed aggregate replaces it (e.g. "1h"); null when the
+   *  chart draws raw points. */
+  chartAveragedInterval: string | null;
   commandsMap: Map<number, UnitCommand>;
   usersMap: Map<string, User>;
   isLoading: boolean;
   error: Error | null;
   isDownloading: boolean;
   handleDownload: (format: "csv" | "png") => Promise<void>;
+  /** Auto-refresh cadence in ms; 0 = off. */
+  refreshInterval: RefreshInterval;
+  setRefreshInterval: (interval: RefreshInterval) => void;
+  refreshNow: () => void;
+  /** True while any points query is (re)fetching — spins the refresh icon. */
+  isRefreshing: boolean;
 };
 
 const DeviceHistoryContext = createContext<DeviceHistoryContextValue | null>(
@@ -102,12 +118,37 @@ const DeviceHistoryContext = createContext<DeviceHistoryContextValue | null>(
 
 type DeviceHistoryProviderProps = {
   deviceId: string;
+  /** Display name used for export filenames; falls back to the id upstream. */
+  deviceName: string;
   /** Attribute names in device declaration order. */
   attributeNames: string[];
   standardAttributeNames: string[];
   deviceType: DeviceType | undefined;
   children: ReactNode;
 };
+
+/** "hall-thermostat-history-1d" — slugged device name plus the resolved
+ *  window. Presets keep their duration ("1d"); custom windows use their
+ *  dates ("...-history-2026-08-01_2026-08-11"); the all preset "all".
+ *  The slug drops accents/symbols: e.g. "Ch. Étage 2" → "ch-etage-2". */
+export function exportFilename(
+  deviceName: string,
+  resolved: { start?: string; end?: string; last?: string },
+): string {
+  const slug =
+    deviceName
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "device";
+  const range =
+    resolved.last ??
+    (resolved.start
+      ? `${resolved.start.slice(0, 10)}_${resolved.end?.slice(0, 10) ?? "now"}`
+      : "all");
+  return `${slug}-history-${range}`;
+}
 
 function isNumericType(dataType: string | undefined) {
   return dataType === "float" || dataType === "int";
@@ -119,6 +160,7 @@ function isStateType(dataType: string | undefined) {
 
 export function DeviceHistoryProvider({
   deviceId,
+  deviceName,
   attributeNames,
   standardAttributeNames,
   deviceType,
@@ -248,16 +290,27 @@ export function DeviceHistoryProvider({
     [series, fetchedAttributes],
   );
 
+  const [refreshInterval, setRefreshIntervalState] = useState<RefreshInterval>(
+    readStoredRefreshInterval,
+  );
+
+  const setRefreshInterval = useCallback((interval: RefreshInterval) => {
+    setRefreshIntervalState(interval);
+    writeStoredRefreshInterval(interval);
+  }, []);
+
   const {
     pointsByMetric,
     truncatedMetrics,
     isLoading: pointsLoading,
+    isFetching: pointsFetching,
     error: pointsError,
   } = useSeriesPoints(
     selectedSeries,
     resolved.start,
     resolved.end,
     resolved.last,
+    { refetchInterval: refreshInterval > 0 ? refreshInterval : false },
   );
 
   // Only the initial load blanks the page; fetches triggered by pill or range
@@ -274,17 +327,71 @@ export function DeviceHistoryProvider({
     [pointsByMetric, fetchedAttributes],
   );
 
+  // A truncated raw fetch covers only the start of the window. For the active
+  // metric the chart falls back to auto-bucketed time-weighted averages, which
+  // span the whole range at a readable density; events and state timelines
+  // keep the raw rows.
+  const metricTruncated =
+    activeMetric != null && truncatedMetrics.includes(activeMetric);
+
+  const aggregateQuery = useQuery({
+    queryKey: [
+      "timeseries",
+      "aggregate-fallback",
+      deviceId,
+      activeMetric,
+      resolved.start,
+      resolved.end,
+      resolved.last,
+    ],
+    queryFn: () =>
+      client.timeseries.aggregate(deviceId, activeMetric!, {
+        agg: "tw_avg",
+        interval: "auto",
+        start: resolved.start,
+        end: resolved.end,
+        last: resolved.last,
+      }),
+    enabled: metricTruncated,
+    refetchInterval: refreshInterval > 0 ? refreshInterval : false,
+  });
+
+  // "raw" applies no bucketing (same truncation) and "whole" collapses the
+  // window into one point — neither can stand in for the chart line.
+  const aggregateData =
+    metricTruncated &&
+    aggregateQuery.data &&
+    !aggregateQuery.data.truncated &&
+    aggregateQuery.data.interval !== "raw" &&
+    aggregateQuery.data.interval !== "whole"
+      ? aggregateQuery.data
+      : null;
+
+  const chartSourceRows = useMemo(() => {
+    if (!aggregateData || !activeMetric) return allRows;
+    // Empty buckets carry a null value; the chart would filter them anyway.
+    const averaged = aggregateData.points.flatMap((point) =>
+      point.value == null
+        ? []
+        : [{ timestamp: point.interval_start, value: point.value }],
+    );
+    return mergeTimeSeries(
+      { ...pointsByMetric, [activeMetric]: averaged },
+      fetchedAttributes,
+    );
+  }, [aggregateData, activeMetric, allRows, pointsByMetric, fetchedAttributes]);
+
   // The chart draws the last values held to the window end; events keep
-  // recorded rows only. Memoized against `allRows` so "now" is re-read when a
-  // fetch lands rather than on every render — the trailing timestamp has to
-  // hold still or the bands re-animate continuously.
+  // recorded rows only. Memoized against `chartSourceRows` so "now" is re-read
+  // when a fetch lands rather than on every render — the trailing timestamp
+  // has to hold still or the bands re-animate continuously.
   const chartRows = useMemo(
     () =>
       holdLastRowUntil(
-        allRows,
+        chartSourceRows,
         resolved.end ? new Date(resolved.end) : new Date(),
       ),
-    [allRows, resolved.end],
+    [chartSourceRows, resolved.end],
   );
 
   const events = useMemo(
@@ -292,7 +399,14 @@ export function DeviceHistoryProvider({
     [allRows, activeMetric, stateAttributes],
   );
 
-  const hasTruncatedData = truncatedMetrics.length > 0;
+  const chartAveragedInterval = aggregateData?.interval ?? null;
+
+  // The averaged stand-in absorbs the active metric's truncation; anything
+  // else truncated (state timelines, a pending or unusable aggregate) still
+  // warrants the warning.
+  const hasTruncatedData = truncatedMetrics.some(
+    (metric) => metric !== activeMetric || chartAveragedInterval === null,
+  );
 
   const commandIds = useMemo(
     () => [
@@ -311,6 +425,15 @@ export function DeviceHistoryProvider({
     [selectedSeries],
   );
 
+  const queryClient = useQueryClient();
+
+  // Invalidation (rather than per-query refetch) keeps the trigger stable and
+  // also refreshes the series list, so newly recorded attributes appear.
+  const refreshNow = useCallback(
+    () => queryClient.invalidateQueries({ queryKey: ["timeseries"] }),
+    [queryClient],
+  );
+
   const [isDownloading, setIsDownloading] = useState(false);
 
   const handleDownload = useCallback(
@@ -322,21 +445,34 @@ export function DeviceHistoryProvider({
         end: resolved.end,
         last: resolved.last,
       };
+      const filename = exportFilename(deviceName, resolved);
       try {
         if (format === "png") {
-          downloadBlob(await client.timeseries.exportPng(params), "export.png");
+          downloadBlob(
+            await client.timeseries.exportPng(params),
+            `${filename}.png`,
+          );
           toast.success(t("deviceDetails.downloadPngSuccess"));
         } else {
           const csv = await client.timeseries.exportCsv(params);
-          downloadBlob(new Blob([csv], { type: "text/csv" }), "export.csv");
+          downloadBlob(
+            new Blob([csv], { type: "text/csv" }),
+            `${filename}.csv`,
+          );
         }
       } catch {
-        if (format === "png") toast.error(t("deviceDetails.downloadPngError"));
+        toast.error(
+          t(
+            format === "png"
+              ? "deviceDetails.downloadPngError"
+              : "deviceDetails.downloadCsvError",
+          ),
+        );
       } finally {
         setIsDownloading(false);
       }
     },
-    [client, fetchedSeriesIds, resolved, t],
+    [client, deviceName, fetchedSeriesIds, resolved, t],
   );
 
   const value = useMemo<DeviceHistoryContextValue>(
@@ -355,12 +491,17 @@ export function DeviceHistoryProvider({
       chartRows,
       events,
       hasTruncatedData,
+      chartAveragedInterval,
       commandsMap,
       usersMap,
       isLoading,
       error,
       isDownloading,
       handleDownload,
+      refreshInterval,
+      setRefreshInterval,
+      refreshNow,
+      isRefreshing: pointsFetching || aggregateQuery.isFetching,
     }),
     [
       series,
@@ -377,12 +518,18 @@ export function DeviceHistoryProvider({
       chartRows,
       events,
       hasTruncatedData,
+      chartAveragedInterval,
       commandsMap,
       usersMap,
       isLoading,
       error,
       isDownloading,
       handleDownload,
+      refreshInterval,
+      setRefreshInterval,
+      refreshNow,
+      pointsFetching,
+      aggregateQuery.isFetching,
     ],
   );
 

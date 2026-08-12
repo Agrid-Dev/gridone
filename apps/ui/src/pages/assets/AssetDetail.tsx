@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { usePermissions } from "@/contexts/AuthContext";
+import { useReorderSubzones } from "@/hooks/useReorderSubzones";
 import { AssetEditWorkspace } from "./components/AssetEditWorkspace";
 import { DeviceLinkDialog } from "./components/DeviceLinkDialog";
 
@@ -46,6 +47,8 @@ export default function AssetDetail() {
     queryFn: () => client.devices.list(),
     enabled: deviceIds.length > 0,
   });
+
+  const reorderMutation = useReorderSubzones(assetId);
 
   if (isLoading || !asset) {
     return (
@@ -93,6 +96,7 @@ export default function AssetDetail() {
           ) : null
         }
         onLinkDevice={() => setLinkDialogOpen(true)}
+        onReorder={(orderedIds) => reorderMutation.mutate(orderedIds)}
       />
       <DeviceLinkDialog
         assetId={assetId!}

@@ -116,16 +116,6 @@
     "type": "Type",
     "unknown": "Unknown",
     "allTypes": "All types",
-    "deviceTypes": {
-      "thermostat": "Thermostat",
-      "awhp": "AWHP",
-      "weather_sensor": "Weather Sensor",
-      "electricity_meter": "Electricity Meter",
-      "ahu_double_flux": "Double-flux AHU",
-      "ahu_single_flux": "Single-flux AHU",
-      "air_extractor": "Air Extractor",
-      "pms_monitor": "PMS Monitor"
-    },
     "hvacMode": {
       "heat": "Heating",
       "cool": "Cooling",

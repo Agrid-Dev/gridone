@@ -1,11 +1,5 @@
 import { useContext, useMemo } from "react";
-import {
-  Axis,
-  AnimatedAxis,
-  AnimatedGrid,
-  AnimatedLineSeries,
-  XYChart,
-} from "@visx/xychart";
+import { Axis, Grid, LineSeries, XYChart } from "@visx/xychart";
 import { curveStepAfter } from "@visx/curve";
 
 import type {
@@ -95,7 +89,7 @@ export function FloatPanel({
         {isLast && <Axis orientation="bottom" numTicks={5} />}
         {/* A tick-count hint: d3 rounds to nice steps, so ~4-6 gridlines
             instead of the dense default ladder. */}
-        <AnimatedAxis
+        <Axis
           orientation="left"
           numTicks={4}
           tickFormat={formatTick}
@@ -103,7 +97,7 @@ export function FloatPanel({
           // tells it apart from the time axis in the DOM.
           axisClassName="visx-axis-value"
         />
-        <AnimatedGrid columns={false} numTicks={4} />
+        <Grid columns={false} numTicks={4} />
         {series.map((s) => {
           const data = timestamps
             .map((t, i) => ({
@@ -112,7 +106,7 @@ export function FloatPanel({
             }))
             .filter((d): d is FloatDatum => d.value !== null);
           return (
-            <AnimatedLineSeries
+            <LineSeries
               key={s.key}
               dataKey={s.key}
               data={data}
