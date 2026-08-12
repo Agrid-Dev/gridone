@@ -77,7 +77,7 @@
       "faults": "Défauts"
     },
     "card": {
-      "vsSetpoint": "{{delta}} vs consigne",
+      "measured": "{{value}} mesurée",
       "noFault": "Aucun défaut",
       "trendLabel": "Tendance sur 24 h",
       "pms": {

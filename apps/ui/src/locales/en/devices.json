@@ -77,7 +77,7 @@
       "faults": "Faults"
     },
     "card": {
-      "vsSetpoint": "{{delta}} vs setpoint",
+      "measured": "{{value}} measured",
       "noFault": "No fault",
       "trendLabel": "24 h trend",
       "pms": {
