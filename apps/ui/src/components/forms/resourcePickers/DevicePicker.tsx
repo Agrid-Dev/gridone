@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { deviceTypeIcon } from "@/lib/deviceTypes";
+import { deviceTypeIcon, deviceTypeName } from "@/lib/deviceTypes";
 import { sortedByName } from "@/lib/sortByName";
 
 interface DevicePickerProps {
@@ -38,6 +38,7 @@ export const DevicePicker: FC<DevicePickerProps> = ({
   id,
 }) => {
   const { t } = useTranslation("common");
+  const { t: tTypes } = useTranslation("standardDevices");
   const client = useGridoneClient();
   const reactId = useId();
   const fieldId = id ?? reactId;
@@ -91,9 +92,7 @@ export const DevicePicker: FC<DevicePickerProps> = ({
                   {device.type && (
                     <span className="inline-flex items-baseline gap-1 text-xs text-muted-foreground">
                       {Icon && <Icon className="h-3 w-3" />}
-                      {t(`common.deviceTypes.${device.type}`, {
-                        defaultValue: device.type,
-                      })}
+                      {deviceTypeName(device.type, tTypes)}
                     </span>
                   )}
                 </span>

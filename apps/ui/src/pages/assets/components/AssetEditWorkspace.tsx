@@ -43,7 +43,7 @@ import { SelectController } from "@/components/forms/controllers/SelectControlle
 import { ConnectionStatusDot } from "@/components/ConnectionStatusBadge";
 import { ResourceDeleteButton } from "@/components/ResourceDeleteButton";
 import { getConnectionStatus } from "@/lib/devices";
-import { deviceTypeIcon } from "@/lib/deviceTypes";
+import { deviceTypeIcon, deviceTypeName } from "@/lib/deviceTypes";
 import { cn, formatTimeAgo } from "@/lib/utils";
 import { sortedByName } from "@/lib/sortByName";
 import { ASSET_TYPES, sortedByPosition } from "@/lib/assets";
@@ -213,6 +213,7 @@ export function AssetEditWorkspace({
 }: AssetEditWorkspaceProps) {
   const { t } = useTranslation(["assets", "common"]);
   const { t: tCommon } = useTranslation("common");
+  const { t: tTypes } = useTranslation("standardDevices");
 
   const form = useForm<AssetFormValues>({
     resolver: zodResolver(assetFormSchema),
@@ -611,12 +612,8 @@ export function AssetEditWorkspace({
                               {device.name || device.id}
                             </p>
                             <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                              {device.type
-                                ? t(
-                                    `common:common.deviceTypes.${device.type}`,
-                                    { defaultValue: device.type },
-                                  )
-                                : t("common:common.unknown")}
+                              {deviceTypeName(device.type, tTypes) ??
+                                t("common:common.unknown")}
                             </p>
                           </div>
                           <ConnectionStatusDot

@@ -55,7 +55,7 @@ vi.mock("react-i18next", () =>
     "common:common.update": "Update",
     "common:common.saving": "Saving…",
     "common:common.unknown": "Unknown",
-    "common:common.deviceTypes.thermostat": "Thermostat",
+    "thermostat.name": "Thermostat",
     "common.delete": "Delete",
   }),
 );
