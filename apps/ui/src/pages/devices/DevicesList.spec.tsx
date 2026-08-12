@@ -29,7 +29,7 @@ vi.mock("react-i18next", () =>
     "devices.table.mode": "Mode",
     "devices.table.connection": "Connection",
     "devices.table.faults": "Faults",
-    "devices.card.vsSetpoint": "{{delta}} vs setpoint",
+    "devices.card.measured": "{{value}} measured",
     "devices.card.noFault": "No fault",
     "devices.card.trendLabel": "24 h trend",
     "common.view.label": "View",
@@ -463,7 +463,7 @@ describe("DevicesList — cards", () => {
     storedView = "grid";
   });
 
-  it("summarizes a thermostat: location, measure, distance to setpoint, mode", () => {
+  it("summarizes a thermostat: location, setpoint, measured reading, mode", () => {
     mockUseDevicesList.mockReturnValue({
       devices: [
         makeDevice("d1", "Ch. 201", {
@@ -485,8 +485,8 @@ describe("DevicesList — cards", () => {
     const card = screen.getByRole("link", { name: /Ch\. 201/ });
     expect(card).toHaveAttribute("href", "/devices/d1");
     expect(card).toHaveTextContent("Floor 2 · Floor 1");
-    expect(card).toHaveTextContent("21,4°");
-    expect(card).toHaveTextContent("+0,4° vs setpoint");
+    expect(card).toHaveTextContent("21,0°");
+    expect(card).toHaveTextContent("21,4° measured");
     expect(card).toHaveTextContent("Heating");
     expect(card).toHaveTextContent("No fault");
   });

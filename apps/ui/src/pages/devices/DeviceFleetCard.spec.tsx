@@ -6,7 +6,7 @@ import { createI18nMock } from "@/test/i18nMock";
 
 vi.mock("react-i18next", () =>
   createI18nMock({
-    "devices.card.vsSetpoint": "{{delta}} vs setpoint",
+    "devices.card.measured": "{{value}} measured",
     "devices.card.noFault": "No fault",
     "devices.card.trendLabel": "24 h trend",
     "devices.card.pms.status.booked": "Booked",
@@ -98,7 +98,7 @@ afterEach(() => {
 });
 
 describe("DeviceFleetCard", () => {
-  it("leads with the measure and its distance to setpoint", () => {
+  it("leads with the setpoint and shows the measured reading beside it", () => {
     renderCard(
       thermostat({
         temperature: attr(21.4),
@@ -107,15 +107,16 @@ describe("DeviceFleetCard", () => {
         onoff_state: attr(true),
       }),
     );
-    expect(screen.getByText("21,4°")).toBeInTheDocument();
-    expect(screen.getByText("+0,4° vs setpoint")).toBeInTheDocument();
+    expect(screen.getByText("21,0°")).toBeInTheDocument();
+    expect(screen.getByText("21,4° measured")).toBeInTheDocument();
     expect(screen.getByText("Heating")).toBeInTheDocument();
     expect(screen.getByText("Floor 2")).toBeInTheDocument();
   });
 
-  it("omits the delta when the device has no setpoint", () => {
+  it("falls back to the measure when the device has no setpoint", () => {
     renderCard(thermostat({ temperature: attr(21.4) }));
-    expect(screen.queryByText(/vs setpoint/)).not.toBeInTheDocument();
+    expect(screen.getByText("21,4°")).toBeInTheDocument();
+    expect(screen.queryByText(/measured/)).not.toBeInTheDocument();
   });
 
   it("reports the device as healthy when no fault is active", () => {

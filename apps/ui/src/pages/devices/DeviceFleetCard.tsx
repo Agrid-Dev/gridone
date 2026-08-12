@@ -11,7 +11,6 @@ import {
   deviceMeasureReading,
   deviceSetpointReading,
   formatReading,
-  formatReadingDelta,
 } from "@/lib/deviceSummary";
 import { activeFaultSummary } from "@/lib/faults";
 import { SEVERITY_TEXT_CLASS } from "@/lib/severity";
@@ -29,10 +28,11 @@ const CARD_SEVERITY_CLASS = {
 } as const;
 
 /**
- * One device of the fleet grid: identity and location, the primary measure
- * with its distance from setpoint and last-day trend, then operating mode and
- * fault state. The grid counterpart of {@link DeviceRow} — same summary
- * helpers, laid out for scanning rather than for comparing columns.
+ * One device of the fleet grid: identity and location, the setpoint (or the
+ * primary measure when there is no setpoint) with the live reading beside it
+ * and last-day trend, then operating mode and fault state. The grid
+ * counterpart of {@link DeviceRow} — same summary helpers, laid out for
+ * scanning rather than for comparing columns.
  */
 export function DeviceFleetCard({
   device,
@@ -49,7 +49,8 @@ export function DeviceFleetCard({
   const status = getConnectionStatus(device);
   const measure = deviceMeasureReading(device);
   const setpoint = deviceSetpointReading(device);
-  const delta = formatReadingDelta(measure, setpoint, i18n.language);
+  const lead = setpoint?.value != null ? setpoint : measure;
+  const showMeasuredBeside = setpoint?.value != null && measure?.value != null;
   const faults = activeFaultSummary(device);
   const isPms = isPmsMonitor(device);
 
@@ -79,11 +80,13 @@ export function DeviceFleetCard({
           <div className="flex items-end gap-3">
             <div className="min-w-0">
               <span className="font-display text-2xl font-semibold tabular-nums text-card-foreground">
-                {formatReading(measure, i18n.language)}
+                {formatReading(lead, i18n.language)}
               </span>
-              {delta && (
+              {showMeasuredBeside && (
                 <span className="ml-2 truncate text-xs text-muted-foreground">
-                  {t("devices.card.vsSetpoint", { delta })}
+                  {t("devices.card.measured", {
+                    value: formatReading(measure, i18n.language),
+                  })}
                 </span>
               )}
             </div>
