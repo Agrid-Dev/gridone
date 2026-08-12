@@ -12,6 +12,11 @@ A http server running the `gridone-api` package.
 
 Set in `.env` or as an environment variable. Validated at startup — an unknown timezone name causes an immediate startup failure with a clear error message. One instance corresponds to one building, so timezone is an instance-level setting and does not change at runtime.
 
+It governs both time-series bucketing and **automation schedules**: a cron of
+`0 9 * * *` fires at 09:00 in this timezone, holding that wall-clock time across
+DST changes. Leaving it at `UTC` on a deployment that is not in UTC makes every
+schedule fire at the wrong local hour.
+
 ### Tracing (OpenTelemetry)
 
 The API can emit distributed traces via [OpenTelemetry](https://opentelemetry.io/). Tracing is **opt-in and disabled by default** — when it is off the OpenTelemetry SDK is never imported, so there is no runtime or behavioural cost.
