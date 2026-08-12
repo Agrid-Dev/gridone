@@ -19,6 +19,7 @@ dependencies = [
     "python-jsonpath>=2.0.1",
     "pyyaml>=6.0.3",
     "xknx>=3.0.0",
+    "asyncua>=2.0.1",
 ]
 
 [tool.uv]
