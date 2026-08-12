@@ -1,3 +1,9 @@
+## v0.206.1 (2026-08-12)
+
+### Fix
+
+- **ui**: lead device tiles with setpoint instead of measured temp
+
 ## v0.206.0 (2026-08-12)
 
 ### Feat
