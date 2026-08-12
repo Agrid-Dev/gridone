@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Axis, AnimatedAreaSeries, XYChart } from "@visx/xychart";
+import { Axis, AreaSeries, XYChart } from "@visx/xychart";
 import { curveStepAfter } from "@visx/curve";
 
 import type {
@@ -117,7 +117,7 @@ export function StringPanel({
       >
         {isLast && <Axis orientation="bottom" numTicks={5} />}
         {renderItems.map((item) => (
-          <AnimatedAreaSeries
+          <AreaSeries
             key={item.dataKey}
             dataKey={item.dataKey}
             data={item.data}

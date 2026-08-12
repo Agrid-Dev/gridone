@@ -56,12 +56,13 @@ def _build_automations_service(
     devices_service: DevicesService,
     commands_service: CommandsService,
     notifications_service: NotificationsService,
+    timezone: str = "UTC",
 ) -> AutomationsService:
     """Assemble the automation providers exposed by this API."""
     return AutomationsService(
         storage_url=storage_url,
         trigger_providers=[
-            ScheduleTriggerProvider(),
+            ScheduleTriggerProvider(timezone),
             ChangeEventTriggerProvider(devices_service),
         ],
         action_providers=[
@@ -147,6 +148,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:  # noqa: PLR0915
         dm,
         commands_service,
         notifications_svc,
+        settings.GRIDONE_TIMEZONE,
     )
     await automations_svc.start()
     app.state.automations_service = automations_svc

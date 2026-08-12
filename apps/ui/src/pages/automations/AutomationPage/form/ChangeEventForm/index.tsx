@@ -25,6 +25,8 @@ const ChangeEventForm: FC<CustomTriggerFormProps> = ({
     deviceId,
     attribute,
     dataType,
+    valueOptions,
+    deviceType,
     condition,
     handlePickerChange,
   } = useChangeEventForm({ type, initialValue, onSubmit });
@@ -56,6 +58,9 @@ const ChangeEventForm: FC<CustomTriggerFormProps> = ({
             value={field.value}
             onChange={field.onChange}
             dataType={dataType}
+            valueOptions={valueOptions}
+            attributeName={attribute || undefined}
+            deviceType={deviceType}
           />
         )}
       />

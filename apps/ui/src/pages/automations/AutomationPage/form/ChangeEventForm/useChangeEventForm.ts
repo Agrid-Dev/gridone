@@ -5,9 +5,13 @@ import * as z from "zod";
 import type { Device } from "@gridone/sdk";
 import { useDevicesList } from "@/hooks/useDevicesList";
 import { useDevice } from "@/hooks/useDevice";
-import { deviceAttributes } from "@/lib/devices";
+import { deviceAttributes, type DeviceType } from "@/lib/devices";
 import { type CustomTriggerFormProps } from "../../presenters/types";
-import { defaultConditionFor, type Condition } from "./ConditionEditor";
+import {
+  defaultConditionFor,
+  type Condition,
+  type Threshold,
+} from "./ConditionEditor";
 
 const conditionSchema = z.object({
   operator: z.enum(["gt", "lt", "gte", "lte", "eq", "ne"]),
@@ -74,6 +78,8 @@ export function useChangeEventForm({
 
   const device = deviceFromList ?? deviceFromFetch;
   const dataType = lookupDataType(device, attrField.value);
+  const valueOptions = lookupValueOptions(device, attrField.value);
+  const deviceType = (device?.type ?? undefined) as DeviceType | undefined;
 
   const condition = watch("condition");
 
@@ -84,12 +90,12 @@ export function useChangeEventForm({
   // the user never touched.
   useEffect(() => {
     if (dataType && condition === null) {
-      setValue("condition", defaultConditionFor(dataType), {
+      setValue("condition", defaultConditionFor(dataType, valueOptions), {
         shouldValidate: true,
         shouldDirty: false,
       });
     }
-  }, [dataType, condition, setValue]);
+  }, [dataType, valueOptions, condition, setValue]);
 
   const handlePickerChange = ({
     deviceId,
@@ -129,6 +135,8 @@ export function useChangeEventForm({
     deviceId: deviceField.value,
     attribute: attrField.value,
     dataType,
+    valueOptions,
+    deviceType,
     condition,
     handlePickerChange,
   };
@@ -144,6 +152,22 @@ function lookupDataType(
   if (!device || !attributeName) return undefined;
   const dataType = deviceAttributes(device)[attributeName]?.data_type;
   return typeof dataType === "string" ? dataType : undefined;
+}
+
+/** The driver's accepted values for the watched attribute, when it declares
+ *  them (thermostat mode, fan speed…). Writability is irrelevant here — a
+ *  trigger only reads the attribute — unlike the command form, which dispatches
+ *  to it. The stored array is returned as-is so its identity stays stable
+ *  across renders (it is owned by the cached device). */
+function lookupValueOptions(
+  device: Device | undefined,
+  attributeName: string | undefined,
+): Threshold[] | undefined {
+  if (!device || !attributeName) return undefined;
+  const options = deviceAttributes(device)[attributeName]?.value_options;
+  return Array.isArray(options) && options.length > 0
+    ? (options as Threshold[])
+    : undefined;
 }
 
 function extractCondition(value: unknown): Condition | null {

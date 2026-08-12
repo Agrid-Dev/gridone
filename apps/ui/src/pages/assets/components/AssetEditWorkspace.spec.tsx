@@ -38,6 +38,7 @@ vi.mock("react-i18next", () =>
     "editPage.location.move": "Move this zone",
     "editPage.subzones.title": "Sub-zones",
     "editPage.subzones.description": "Sub-zone description",
+    "editPage.subzones.reorder": "Reorder {{name}}",
     "editPage.devices.title": "Linked devices",
     "editPage.devices.description": "Device description",
     "fields.name": "Name",
@@ -54,12 +55,12 @@ vi.mock("react-i18next", () =>
     "common:common.update": "Update",
     "common:common.saving": "Saving…",
     "common:common.unknown": "Unknown",
-    "common:common.deviceTypes.thermostat": "Thermostat",
+    "thermostat.name": "Thermostat",
     "common.delete": "Delete",
   }),
 );
 
-import { AssetEditWorkspace } from "./AssetEditWorkspace";
+import { AssetEditWorkspace, reorderedIds } from "./AssetEditWorkspace";
 
 const organization: Asset = {
   id: "org",
@@ -95,6 +96,16 @@ const bar: Asset = {
   type: "room",
   name: "Bar",
   path: ["org", "building", "floor", "lobby", "bar"],
+  position: 0,
+};
+// Alphabetically first but positioned last — proves position beats name.
+const atrium: Asset = {
+  id: "atrium",
+  parent_id: "lobby",
+  type: "room",
+  name: "Atrium",
+  path: ["org", "building", "floor", "lobby", "atrium"],
+  position: 1,
 };
 const thermostat: Device = {
   id: "thermostat",
@@ -112,13 +123,17 @@ const allAssets = [organization, building, floor, lobby, bar];
 function renderWorkspace({
   mode = "edit",
   canWriteAssets = true,
+  childAssets = [bar],
   onSubmit = vi.fn<(data: AssetFormValues) => void>(),
   onLinkDevice = vi.fn<() => void>(),
+  onReorder,
 }: {
   mode?: "detail" | "edit";
   canWriteAssets?: boolean;
+  childAssets?: Asset[];
   onSubmit?: (data: AssetFormValues) => void;
   onLinkDevice?: () => void;
+  onReorder?: (orderedIds: string[]) => void;
 } = {}) {
   render(
     <MemoryRouter>
@@ -127,7 +142,7 @@ function renderWorkspace({
           mode={mode}
           asset={lobby}
           allAssets={allAssets}
-          childAssets={[bar]}
+          childAssets={childAssets}
           devices={[thermostat]}
           deviceIds={[thermostat.id]}
           isPending={false}
@@ -137,6 +152,7 @@ function renderWorkspace({
           onSubmit={onSubmit}
           onDelete={vi.fn<() => void>()}
           onLinkDevice={onLinkDevice}
+          onReorder={onReorder}
         />
       </TooltipProvider>
     </MemoryRouter>,
@@ -226,6 +242,42 @@ describe("AssetEditWorkspace", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("orders sub-zones by curated position and offers drag handles to writers", () => {
+    renderWorkspace({ childAssets: [atrium, bar], onReorder: vi.fn() });
+
+    // Input order and alphabetical order both put Atrium first; the curated
+    // position order (Bar=0, Atrium=1) must win.
+    const rows = screen.getAllByRole("link", { name: /Room$/ });
+    expect(rows.map((row) => row.getAttribute("href"))).toEqual([
+      "/assets/bar",
+      "/assets/atrium",
+    ]);
+    expect(
+      screen.getByRole("button", { name: "Reorder Bar" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Reorder Atrium" }),
+    ).toBeInTheDocument();
+  });
+
+  it("hides drag handles from read-only users and single-child lists", () => {
+    renderWorkspace({
+      childAssets: [atrium, bar],
+      canWriteAssets: false,
+      onReorder: vi.fn(),
+    });
+    expect(
+      screen.queryByRole("button", { name: /Reorder/ }),
+    ).not.toBeInTheDocument();
+
+    cleanup();
+
+    renderWorkspace({ childAssets: [bar], onReorder: vi.fn() });
+    expect(
+      screen.queryByRole("button", { name: /Reorder/ }),
+    ).not.toBeInTheDocument();
+  });
+
   it("uses the new workspace as a read-only overview on the detail route", () => {
     renderWorkspace({ mode: "detail" });
 
@@ -245,5 +297,28 @@ describe("AssetEditWorkspace", () => {
     expect(
       screen.queryByRole("button", { name: "Save changes" }),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("reorderedIds", () => {
+  const ids = ["a", "b", "c"];
+
+  it("moves the dragged id to the drop target's slot", () => {
+    expect(
+      reorderedIds(ids, { active: { id: "c" }, over: { id: "a" } }),
+    ).toEqual(["c", "a", "b"]);
+    expect(
+      reorderedIds(ids, { active: { id: "a" }, over: { id: "b" } }),
+    ).toEqual(["b", "a", "c"]);
+  });
+
+  it("returns null when the drop changes nothing", () => {
+    expect(reorderedIds(ids, { active: { id: "a" }, over: null })).toBeNull();
+    expect(
+      reorderedIds(ids, { active: { id: "a" }, over: { id: "a" } }),
+    ).toBeNull();
+    expect(
+      reorderedIds(ids, { active: { id: "ghost" }, over: { id: "a" } }),
+    ).toBeNull();
   });
 });

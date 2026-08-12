@@ -141,6 +141,7 @@
     "downloadPng": "Download as PNG",
     "downloadPngSuccess": "PNG exported",
     "downloadPngError": "Failed to export PNG",
+    "downloadCsvError": "Failed to export CSV",
     "connectionStatus": {
       "idle": "Idle",
       "ok": "Connected",
@@ -211,10 +212,19 @@
     "chartTitle30d": "{{metric}} — last 30 days",
     "chartTitleRange": "{{metric}} — {{range}}",
     "truncatedWarning": "Data truncated, narrow the period",
+    "averagedNotice": "Averaged per {{interval}}",
     "statesTitle": "States",
     "otherValues": "Other",
     "noMetricData": "No data for this period",
     "export": "Export",
+    "refresh": {
+      "now": "Refresh now",
+      "auto": "Auto-refresh",
+      "off": "Auto off",
+      "10s": "10 s",
+      "1m": "1 min",
+      "5m": "5 min"
+    },
     "events": {
       "event": "Event",
       "value": "Value",

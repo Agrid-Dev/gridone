@@ -8,11 +8,13 @@ import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { TypeFilterChips } from "@/components/TypeFilterChips";
 import { usePermissions } from "@/contexts/AuthContext";
+import { deviceTypeName } from "@/lib/deviceTypes";
 import { DriversTable } from "./DriversTable";
 import { useDriversPage } from "./useDriversPage";
 
 const DriversList: FC = () => {
   const { t } = useTranslation(["drivers", "common"]);
+  const { t: tTypes } = useTranslation("standardDevices");
   const [, setSearchParams] = useSearchParams();
   const can = usePermissions();
   const { drivers, typeCounts, total, loading, hasFilters } = useDriversPage();
@@ -37,7 +39,7 @@ const DriversList: FC = () => {
       <TypeFilterChips
         options={typeCounts.map(({ type, count }) => ({
           key: type,
-          label: t(`common:common.deviceTypes.${type}`, { defaultValue: type }),
+          label: deviceTypeName(type, tTypes) ?? type,
           count,
         }))}
         total={total}

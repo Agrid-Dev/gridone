@@ -12,7 +12,16 @@ vi.mock("react-i18next", () =>
     "widgets.chart.noData": "No data over the period",
     "widgets.chart.unboundedPeriod": "Aggregation needs a bounded period",
     "widgets.chart.space.seriesLabel":
-      "{{attribute}} · {{agg}} · {{spaceAgg}} · {{interval}}",
+      "{{attribute}} · {{spaceAgg}} · {{interval}}",
+    "widgets.chart.space.seriesLabelMixed":
+      "{{attribute}} · {{agg}}, {{spaceAgg}} · {{interval}}",
+    "widgets.chart.agg.captions.avg": "mean of the bucket",
+    "widgets.chart.agg.captions.max": "highest value",
+    "widgets.chart.space.captions.avg": "mean across devices",
+    "attributes.temperature": "Temperature",
+    // Deliberately unlike toLabel("onoff_state") ("Onoff State"), so a test
+    // reading this proves the catalog was consulted, not the humanizer.
+    "attributes.onoff_state": "On/off",
   }),
 );
 
@@ -241,8 +250,49 @@ describe("ChartWidgetView with a space aggregation", () => {
     );
     expect(useMultiTimeSeries).not.toHaveBeenCalled();
     expect(useTargetDevices).not.toHaveBeenCalled();
+    // Both operators are avg: saying "avg · avg" named neither role, and a
+    // mean of means is still a mean — the across-devices wording stands alone.
     expect(screen.getByTestId("chart")).toHaveTextContent(
-      "Temperature · avg · avg · 1h",
+      "Temperature · mean across devices · 1h",
+    );
+  });
+
+  it("labels the attribute from the catalog, not the snake_case humanizer", () => {
+    mockSpaceResult({
+      data: {
+        interval: "1h",
+        aggregation_data_type: "float",
+        points: [{ interval_start: "2026-01-01T00:00:00Z", value: 1 }],
+      },
+    });
+
+    render(
+      <ChartWidgetView
+        config={{
+          ...SPACE_CONFIG,
+          target: { ...SPACE_CONFIG.target, attribute: "onoff_state" },
+        }}
+      />,
+    );
+
+    const chart = screen.getByTestId("chart");
+    expect(chart).toHaveTextContent("On/off · mean across devices · 1h");
+    expect(chart).not.toHaveTextContent("Onoff State");
+  });
+
+  it("names both operators when they differ", () => {
+    mockSpaceResult({
+      data: {
+        interval: "1h",
+        aggregation_data_type: "float",
+        points: [{ interval_start: "2026-01-01T00:00:00Z", value: 21 }],
+      },
+    });
+
+    render(<ChartWidgetView config={{ ...SPACE_CONFIG, agg: "max" }} />);
+
+    expect(screen.getByTestId("chart")).toHaveTextContent(
+      "Temperature · highest value, mean across devices · 1h",
     );
   });
 
