@@ -111,7 +111,7 @@ async def test_unregister_one_of_several_listeners_keeps_subscription(
 
     await opcua_client.unregister_listener(first_id, address.topic)
     assert opcua_client._subscription is not None  # noqa: SLF001
-    assert "ns=%d;s=Int32" % opcua_server.idx in opcua_client._monitored_items  # noqa: SLF001, UP031
+    assert address.topic in opcua_client._monitored_items  # noqa: SLF001
 
 
 async def test_datachange_uses_same_decode_path_as_read(
