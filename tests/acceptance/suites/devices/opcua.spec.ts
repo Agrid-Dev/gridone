@@ -65,6 +65,8 @@ describe("opcua device", () => {
     expect(typeof currentValue(fresh, "acceptance_int32")).toBe("number");
     expect(typeof currentValue(fresh, "acceptance_float")).toBe("number");
     expect(typeof currentValue(fresh, "acceptance_string")).toBe("string");
+    expect(typeof currentValue(fresh, "server_service_level")).toBe("number");
+    expect(typeof currentValue(fresh, "boiler_eu_range_low")).toBe("number");
   });
 
   it("writes a value and reads it back", async () => {
