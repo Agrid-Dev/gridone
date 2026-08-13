@@ -125,12 +125,14 @@ def test_opcua_address_topic_is_id() -> None:
 @pytest.mark.parametrize(
     ("node_id", "expected"),
     [
-        (ua.NodeId(1042, 4, ua.NodeIdType.Numeric), NUMERIC_ADDRESS),
+        # asyncua's Int16/Int32/String are int/str subclasses; plain values
+        # work at runtime (ty: ignore[invalid-argument-type] below).
+        (ua.NodeId(1042, 4, ua.NodeIdType.Numeric), NUMERIC_ADDRESS),  # ty: ignore[invalid-argument-type]
         (
-            ua.NodeId("Chiller.SupplyTemp", 2, ua.NodeIdType.String),
+            ua.NodeId("Chiller.SupplyTemp", 2, ua.NodeIdType.String),  # ty: ignore[invalid-argument-type]
             STRING_ADDRESS,
         ),
-        (ua.NodeId("ServerStatus", 0, ua.NodeIdType.String), DEFAULT_NS_ADDRESS),
+        (ua.NodeId("ServerStatus", 0, ua.NodeIdType.String), DEFAULT_NS_ADDRESS),  # ty: ignore[invalid-argument-type]
     ],
 )
 def test_opcua_address_from_node_id(node_id: ua.NodeId, expected: OpcuaAddress) -> None:
@@ -140,6 +142,6 @@ def test_opcua_address_from_node_id(node_id: ua.NodeId, expected: OpcuaAddress) 
 def test_opcua_address_from_node_id_matches_id_for_default_namespace() -> None:
     """asyncua's own NodeId.to_string() omits ns=0; .id never does — this is
     the specific mismatch from_node_id must not reproduce."""
-    node_id = ua.NodeId(2267, 0, ua.NodeIdType.Numeric)
+    node_id = ua.NodeId(2267, 0, ua.NodeIdType.Numeric)  # ty: ignore[invalid-argument-type]
     assert node_id.to_string() == "i=2267"
     assert OpcuaAddress.from_node_id(node_id).id == "ns=0;i=2267"

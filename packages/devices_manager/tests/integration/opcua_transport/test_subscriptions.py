@@ -1,4 +1,5 @@
 import asyncio
+from typing import Any
 
 import pytest
 from asyncua import ua
@@ -118,10 +119,10 @@ async def test_datachange_uses_same_decode_path_as_read(
 ) -> None:
     """ExtensionObject notifications flatten to a dict, same as a read."""
     address = string_address(opcua_server.idx, "ExtensionObject")
-    received: list[object] = []
+    received: list[Any] = []
     event = asyncio.Event()
 
-    def on_change(value: object) -> None:
+    def on_change(value: Any) -> None:
         received.append(value)
         if isinstance(value, dict) and value.get("Name") == "Updated":
             event.set()
