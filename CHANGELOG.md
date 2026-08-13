@@ -1,3 +1,11 @@
+## v0.207.0 (2026-08-13)
+
+### Feat
+
+- **opcua**: register transport + example driver (#545)
+- **opcua**: pull client on asyncua (integration TDD) (#544)
+- **opcua**: OpcuaAddress + transport config (unit TDD) (#541)
+
 ## v0.206.1 (2026-08-12)
 
 ### Fix
