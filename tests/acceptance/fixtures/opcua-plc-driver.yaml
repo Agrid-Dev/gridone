@@ -1,0 +1,29 @@
+# Node addresses match fixtures/opcua-plc-nodes.json, mounted into the
+# opcua-plc emulator (compose.override.yaml) as its custom node set.
+# Namespace 3 verified by connecting to a live opcua-plc container — its
+# custom-node namespace index is not documented and could shift on upgrade.
+id: opcua_plc
+transport: opcua
+type: simulator
+
+update_strategy:
+  polling: 2s
+
+device_config: []
+
+attributes:
+  - name: acceptance_boolean
+    data_type: bool
+    read_write: "ns=3;s=AcceptanceBoolean"
+
+  - name: acceptance_int32
+    data_type: int
+    read_write: "ns=3;s=AcceptanceInt32"
+
+  - name: acceptance_float
+    data_type: float
+    read_write: "ns=3;s=AcceptanceFloat"
+
+  - name: acceptance_string
+    data_type: str
+    read_write: "ns=3;s=AcceptanceString"

@@ -1,0 +1,21 @@
+{
+  "Folder": "Acceptance",
+  "NodeList": [
+    { "NodeId": "AcceptanceBoolean", "DataType": "Boolean", "AccessLevel": "CurrentReadOrWrite" },
+    { "NodeId": "AcceptanceSByte", "DataType": "SByte", "AccessLevel": "CurrentReadOrWrite" },
+    { "NodeId": "AcceptanceByte", "DataType": "Byte", "AccessLevel": "CurrentReadOrWrite" },
+    { "NodeId": "AcceptanceInt16", "DataType": "Int16", "AccessLevel": "CurrentReadOrWrite" },
+    { "NodeId": "AcceptanceUInt16", "DataType": "UInt16", "AccessLevel": "CurrentReadOrWrite" },
+    { "NodeId": "AcceptanceInt32", "DataType": "Int32", "AccessLevel": "CurrentReadOrWrite" },
+    { "NodeId": "AcceptanceUInt32", "DataType": "UInt32", "AccessLevel": "CurrentReadOrWrite" },
+    { "NodeId": "AcceptanceInt64", "DataType": "Int64", "AccessLevel": "CurrentReadOrWrite" },
+    { "NodeId": "AcceptanceUInt64", "DataType": "UInt64", "AccessLevel": "CurrentReadOrWrite" },
+    { "NodeId": "AcceptanceFloat", "DataType": "Float", "AccessLevel": "CurrentReadOrWrite" },
+    { "NodeId": "AcceptanceDouble", "DataType": "Double", "AccessLevel": "CurrentReadOrWrite" },
+    { "NodeId": "AcceptanceString", "DataType": "String", "AccessLevel": "CurrentReadOrWrite" },
+    { "NodeId": "AcceptanceDateTime", "DataType": "DateTime", "AccessLevel": "CurrentReadOrWrite" },
+    { "NodeId": "AcceptanceGuid", "DataType": "Guid", "AccessLevel": "CurrentReadOrWrite" },
+    { "NodeId": "AcceptanceByteString", "DataType": "ByteString", "AccessLevel": "CurrentReadOrWrite" },
+    { "NodeId": "AcceptanceLocalizedText", "DataType": "LocalizedText", "AccessLevel": "CurrentReadOrWrite" }
+  ]
+}

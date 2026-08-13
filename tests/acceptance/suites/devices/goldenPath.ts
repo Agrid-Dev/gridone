@@ -13,7 +13,7 @@ const runStart = new Date().toISOString();
 
 // The generated wire type keeps attribute payloads open
 // (`Attribute: { [key: string]: unknown }`), so narrow here.
-function currentValue(
+export function currentValue(
   device: Device,
   attribute: string,
 ): AttributeValueType | null {
