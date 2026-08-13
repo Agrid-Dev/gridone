@@ -30,6 +30,10 @@ class AttributeDriver(BaseModel):
     write: RawTransportAddress | None = None
     codecs: Annotated[list[CodecSpec], Field(default_factory=list)]
     polling_group: str | None = None
+    # Only consulted for transports where push_is_opt_in is True (hybrid
+    # pull+push transports); ignored otherwise — push-only transports always
+    # subscribe every attribute.
+    push: bool = False
 
     @cached_property
     def codec(self) -> FnCodec:

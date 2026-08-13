@@ -192,6 +192,14 @@ class MockPushTransportClient(PushTransportClient[MockPushTransportAddress]):
             callback(payload)
 
 
+class MockHybridPushTransportClient(MockPushTransportClient):
+    """Pull+push, like OpcuaTransportClient — init_listeners only
+    subscribes attributes explicitly opted in (AttributeDriver.push)."""
+
+    protocol = TransportProtocols.OPCUA
+    push_is_opt_in = True
+
+
 @pytest.fixture
 def mock_transport_client() -> MockTransportClient:
     metadata = TransportMetadata(id="my-transport", name="My Transport")
@@ -212,6 +220,14 @@ def mock_push_transport_client() -> MockPushTransportClient:
     config = make_transport_config(TransportProtocols.MQTT, {"host": "localhost"})
 
     return MockPushTransportClient(metadata, config)
+
+
+@pytest.fixture
+def mock_hybrid_push_transport_client() -> MockHybridPushTransportClient:
+    metadata = TransportMetadata(id="my-hybrid-transport", name="My Hybrid Transport")
+    config = make_transport_config(TransportProtocols.MQTT, {"host": "localhost"})
+
+    return MockHybridPushTransportClient(metadata, config)
 
 
 @pytest.fixture

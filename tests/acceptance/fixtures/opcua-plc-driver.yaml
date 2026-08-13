@@ -52,3 +52,4 @@ attributes:
     data_type: int
     read: "ns=3;s=FastUInt1"
     polling_group: push_probe
+    push: true

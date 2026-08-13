@@ -21,7 +21,7 @@ from devices_manager.core.transports.transport_connection_state import (
     TransportConnectionState,
 )
 from devices_manager.core.transports.transport_metadata import TransportMetadata
-from devices_manager.types import AttributeValueType, TransportProtocols
+from devices_manager.types import AttributeValueType, TransportProtocols, TransportType
 
 from .errors import OpcuaNotConnectedError, translate_write_error
 from .opcua_address import OpcuaAddress
@@ -36,6 +36,10 @@ class OpcuaTransportClient(
     PullTransportClient[OpcuaAddress], PushTransportClient[OpcuaAddress]
 ):
     protocol: ClassVar[TransportProtocols] = TransportProtocols.OPCUA
+    # Explicit, not just inherited via MRO: pull is the default path for
+    # every attribute, push is opt-in per attribute (push_is_opt_in below).
+    transport_type: ClassVar[TransportType] = TransportType.PULL
+    push_is_opt_in: ClassVar[bool] = True
     _config_builder = OpcuaTransportConfig
     address_builder = OpcuaAddress
     config: OpcuaTransportConfig
