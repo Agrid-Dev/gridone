@@ -3,8 +3,10 @@ from pydantic import ValidationError
 
 from devices_manager.core.transports.opcua_transport.transport_config import (
     DEFAULT_CONNECT_TIMEOUT,
+    DEFAULT_DEADBAND,
     DEFAULT_KEEPALIVE_INTERVAL,
     DEFAULT_REQUEST_TIMEOUT,
+    DEFAULT_SAMPLING_INTERVAL_MS,
     OpcuaTransportConfig,
 )
 
@@ -39,6 +41,8 @@ def test_config_defaults() -> None:
     assert config.connect_timeout == DEFAULT_CONNECT_TIMEOUT
     assert config.request_timeout == DEFAULT_REQUEST_TIMEOUT
     assert config.keepalive_interval == DEFAULT_KEEPALIVE_INTERVAL
+    assert config.sampling_interval_ms == DEFAULT_SAMPLING_INTERVAL_MS
+    assert config.deadband == DEFAULT_DEADBAND
 
 
 def test_config_password_is_marked_secret() -> None:
@@ -70,4 +74,30 @@ def test_config_rejects_invalid_auth_mode() -> None:
         OpcuaTransportConfig(
             endpoint_url="opc.tcp://10.0.1.20:4840",
             auth_mode="oauth",  # type: ignore[arg-type]
+        )
+
+
+def test_config_accepts_custom_sampling_interval_and_deadband() -> None:
+    config = OpcuaTransportConfig(
+        endpoint_url="opc.tcp://10.0.1.20:4840",
+        sampling_interval_ms=250.0,
+        deadband=0.5,
+    )
+    assert config.sampling_interval_ms == 250.0
+    assert config.deadband == 0.5
+
+
+def test_config_rejects_negative_deadband() -> None:
+    with pytest.raises(ValidationError, match="deadband"):
+        OpcuaTransportConfig(
+            endpoint_url="opc.tcp://10.0.1.20:4840",
+            deadband=-1.0,
+        )
+
+
+def test_config_rejects_non_positive_sampling_interval() -> None:
+    with pytest.raises(ValidationError, match="sampling_interval_ms"):
+        OpcuaTransportConfig(
+            endpoint_url="opc.tcp://10.0.1.20:4840",
+            sampling_interval_ms=0.0,
         )

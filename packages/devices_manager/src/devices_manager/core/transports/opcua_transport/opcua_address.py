@@ -1,11 +1,12 @@
 import re
 from typing import Literal
 
-from pydantic import BaseModel, ValidationInfo, field_validator
+from asyncua import ua
+from pydantic import BaseModel, ValidationInfo, field_validator, model_validator
 
 from devices_manager.core.transports.transport_address import (
+    PushTransportAddress,
     RawTransportAddress,
-    TransportAddress,
 )
 
 OpcuaIdentifierType = Literal["i", "s", "g", "b"]
@@ -17,11 +18,25 @@ DEFAULT_NAMESPACE_INDEX = 0
 # or "ns = 2 ; s = Chiller.SupplyTemp".
 opcua_node_id_regex = r"^(?:ns\s*=\s*(\d+)\s*;\s*)?(i|s|g|b)\s*=\s*(.+)$"
 
+# ua.NodeId -> our identifier_type letter, for mapping a subscription
+# notification's NodeId back to the canonical address id (see from_node_id).
+_NODE_ID_TYPE_TO_IDENTIFIER_TYPE: dict[ua.NodeIdType, OpcuaIdentifierType] = {
+    ua.NodeIdType.Numeric: "i",
+    ua.NodeIdType.TwoByte: "i",
+    ua.NodeIdType.FourByte: "i",
+    ua.NodeIdType.String: "s",
+    ua.NodeIdType.Guid: "g",
+    ua.NodeIdType.ByteString: "b",
+}
 
-class OpcuaAddress(BaseModel, TransportAddress):
+
+class OpcuaAddress(BaseModel, PushTransportAddress):
     namespace_index: int = DEFAULT_NAMESPACE_INDEX
     identifier_type: OpcuaIdentifierType
     identifier: int | str
+    # Always equals `.id` (set below); a `@property` here would collide with
+    # PushTransportAddress's `topic: str` field annotation.
+    topic: str = ""
 
     @field_validator("identifier", mode="after")
     @classmethod
@@ -36,9 +51,30 @@ class OpcuaAddress(BaseModel, TransportAddress):
             msg = f"Invalid OPC-UA numeric identifier: {v}"
             raise ValueError(msg) from e
 
+    @model_validator(mode="after")
+    def _set_topic_to_id(self) -> "OpcuaAddress":
+        self.topic = self.id
+        return self
+
     @property
     def id(self) -> str:
         return f"ns={self.namespace_index};{self.identifier_type}={self.identifier}"
+
+    @classmethod
+    def from_node_id(cls, node_id: ua.NodeId) -> "OpcuaAddress":
+        """NodeId -> address, matching `.id`'s format (unlike asyncua's own
+        `to_string()`, which omits `ns=0`)."""
+        identifier_type = _NODE_ID_TYPE_TO_IDENTIFIER_TYPE[node_id.NodeIdType]
+        identifier: int | str = (
+            int(node_id.Identifier)
+            if identifier_type == "i"
+            else str(node_id.Identifier)
+        )
+        return cls(
+            namespace_index=node_id.NamespaceIndex,
+            identifier_type=identifier_type,
+            identifier=identifier,
+        )
 
     @classmethod
     def from_dict(

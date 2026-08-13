@@ -1,4 +1,5 @@
 import pytest
+from asyncua import ua
 
 from devices_manager.core.transports.opcua_transport.opcua_address import (
     OpcuaAddress,
@@ -115,3 +116,30 @@ def test_opcua_address_numeric_identifier_normalized_from_dict() -> None:
     address = OpcuaAddress.from_dict({"ns": 4, "i": "1042"})
     assert address.identifier == 1042
     assert address == NUMERIC_ADDRESS
+
+
+def test_opcua_address_topic_is_id() -> None:
+    assert STRING_ADDRESS.topic == STRING_ADDRESS.id
+
+
+@pytest.mark.parametrize(
+    ("node_id", "expected"),
+    [
+        (ua.NodeId(1042, 4, ua.NodeIdType.Numeric), NUMERIC_ADDRESS),
+        (
+            ua.NodeId("Chiller.SupplyTemp", 2, ua.NodeIdType.String),
+            STRING_ADDRESS,
+        ),
+        (ua.NodeId("ServerStatus", 0, ua.NodeIdType.String), DEFAULT_NS_ADDRESS),
+    ],
+)
+def test_opcua_address_from_node_id(node_id: ua.NodeId, expected: OpcuaAddress) -> None:
+    assert OpcuaAddress.from_node_id(node_id).id == expected.id
+
+
+def test_opcua_address_from_node_id_matches_id_for_default_namespace() -> None:
+    """asyncua's own NodeId.to_string() omits ns=0; .id never does — this is
+    the specific mismatch from_node_id must not reproduce."""
+    node_id = ua.NodeId(2267, 0, ua.NodeIdType.Numeric)
+    assert node_id.to_string() == "i=2267"
+    assert OpcuaAddress.from_node_id(node_id).id == "ns=0;i=2267"

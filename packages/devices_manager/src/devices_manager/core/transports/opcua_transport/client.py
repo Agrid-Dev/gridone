@@ -1,14 +1,21 @@
 import asyncio
 import contextlib
+import itertools
 import logging
 from collections.abc import AsyncGenerator
 from typing import ClassVar
 
-from asyncua import Client, ua
+from asyncua import Client, Node, ua
+from asyncua.common.subscription import DataChangeNotif, Subscription
 
-from devices_manager.core.transports.base import PullTransportClient, dedupe_addresses
+from devices_manager.core.transports.base import (
+    PullTransportClient,
+    PushTransportClient,
+    dedupe_addresses,
+)
 from devices_manager.core.transports.connected import connected
 from devices_manager.core.transports.io_timing import timed_io
+from devices_manager.core.transports.listener_registry import ListenerCallback
 from devices_manager.core.transports.read_result import ReadError, ReadOk, ReadResult
 from devices_manager.core.transports.transport_connection_state import (
     TransportConnectionState,
@@ -25,18 +32,26 @@ from .variant_encode import coerce_for_write
 logger = logging.getLogger(__name__)
 
 
-class OpcuaTransportClient(PullTransportClient[OpcuaAddress]):
+class OpcuaTransportClient(
+    PullTransportClient[OpcuaAddress], PushTransportClient[OpcuaAddress]
+):
     protocol: ClassVar[TransportProtocols] = TransportProtocols.OPCUA
     _config_builder = OpcuaTransportConfig
     address_builder = OpcuaAddress
     config: OpcuaTransportConfig
     _client: Client | None
+    _subscription: Subscription | None
     _serialize_reads = False
 
     def __init__(
         self, metadata: TransportMetadata, config: OpcuaTransportConfig
     ) -> None:
         self._client = None
+        # One Subscription per session; one MonitoredItem per listened NodeId,
+        # keyed by canonical address id (OpcuaAddress.id / .topic).
+        self._subscription = None
+        self._monitored_items: dict[str, int] = {}
+        self._next_client_handle = itertools.count(1)
         super().__init__(metadata, config)
 
     def _require_client(self) -> Client:
@@ -89,6 +104,13 @@ class OpcuaTransportClient(PullTransportClient[OpcuaAddress]):
         # close() fails with a clean exception rather than hanging or
         # returning a stale/wrong result.
         async with self._read_lock, self._connection_lock:
+            if self._subscription is not None:
+                # Best-effort: the session (and with it, the subscription) is
+                # about to be torn down below regardless.
+                with contextlib.suppress(Exception):
+                    await self._subscription.delete()
+                self._subscription = None
+                self._monitored_items.clear()
             if self._client is not None:
                 try:
                     await self._client.disconnect()
@@ -175,3 +197,117 @@ class OpcuaTransportClient(PullTransportClient[OpcuaAddress]):
             await node.write_value(coerced_value, variant_type)
         except Exception as e:
             raise translate_write_error(e) from e
+
+    @connected
+    async def register_listener(self, topic: str, callback: ListenerCallback) -> str:
+        # Holds _connection_lock for the whole call, like close()/connect() —
+        # a reconnect racing an in-flight subscribe must not let this write
+        # a _monitored_items entry for an already-torn-down subscription.
+        async with self._connection_lock:
+            client = self._require_client()
+            if topic not in self._monitored_items:
+                subscription = await self._ensure_subscription(client)
+                node = client.get_node(topic)
+                try:
+                    server_handle = await self._create_monitored_item(
+                        subscription, node
+                    )
+                except Exception:
+                    # A freshly created subscription that never got a working
+                    # item would otherwise leak on the server.
+                    if not self._monitored_items:
+                        await subscription.delete()
+                        self._subscription = None
+                    raise
+                self._monitored_items[topic] = server_handle
+            return self._handlers_registry.register(topic, callback)
+
+    @connected
+    async def unregister_listener(
+        self, callback_id: str, topic: str | None = None
+    ) -> None:
+        self._handlers_registry.remove(callback_id, topic)
+        if topic is None:
+            return
+        async with self._connection_lock:
+            if self._subscription is None:
+                return
+            if self._handlers_registry.get_by_address_id(topic):
+                return  # other listeners remain on this NodeId
+            server_handle = self._monitored_items.pop(topic, None)
+            if server_handle is not None:
+                await self._subscription.unsubscribe(server_handle)
+            if not self._monitored_items:
+                await self._subscription.delete()
+                self._subscription = None
+
+    async def _ensure_subscription(self, client: Client) -> Subscription:
+        if self._subscription is None:
+            self._subscription = await client.create_subscription(
+                self.config.sampling_interval_ms, self
+            )
+        return self._subscription
+
+    async def _create_monitored_item(
+        self, subscription: Subscription, node: Node
+    ) -> int:
+        read_value_id = ua.ReadValueId()
+        read_value_id.NodeId = node.nodeid
+        read_value_id.AttributeId = ua.AttributeIds.Value
+        monitoring_params = ua.MonitoringParameters()
+        monitoring_params.ClientHandle = next(self._next_client_handle)
+        monitoring_params.SamplingInterval = self.config.sampling_interval_ms
+        monitoring_params.QueueSize = 0
+        monitoring_params.DiscardOldest = True
+        monitoring_params.Filter = self._deadband_filter()
+        request = ua.MonitoredItemCreateRequest()
+        request.ItemToMonitor = read_value_id
+        request.MonitoringMode = ua.MonitoringMode.Reporting
+        request.RequestedParameters = monitoring_params
+        [result] = await subscription.create_monitored_items([request])
+        if isinstance(result, int):
+            return result
+        # Raises a typed ua.UaStatusCodeError, e.g. for an unknown NodeId;
+        # create_monitored_items only stores a StatusCode here for Bad ones,
+        # so this fallthrough is unreachable — guard for type-narrowing only.
+        result.check()
+        msg = f"Unexpected Good StatusCode in monitored-item failure path: {result}"
+        raise ua.uaerrors.UaError(msg)
+
+    def _deadband_filter(self) -> ua.DataChangeFilter:
+        deadband_filter = ua.DataChangeFilter()
+        deadband_filter.Trigger = ua.DataChangeTrigger.StatusValue
+        deadband_filter.DeadbandType = (
+            ua.DeadbandType.Absolute if self.config.deadband else ua.DeadbandType.None_
+        )
+        deadband_filter.DeadbandValue = self.config.deadband
+        return deadband_filter
+
+    def datachange_notification(
+        self,
+        node: Node,
+        val: object,  # noqa: ARG002 — ignored, decoded from `data` below instead
+        data: DataChangeNotif,
+    ) -> None:
+        """asyncua's subscription callback hook, run in its own task."""
+        address_id = OpcuaAddress.from_node_id(node.nodeid).id
+        try:
+            value = self._extract_value(data.monitored_item.Value)
+        except Exception:  # noqa: BLE001
+            logger.warning(
+                "[Transport %s] failed to decode datachange notification for %s",
+                self.id,
+                address_id,
+                exc_info=True,
+            )
+            return
+        for callback in self._handlers_registry.get_by_address_id(address_id):
+            try:
+                callback(value)
+            except Exception:  # noqa: BLE001
+                logger.warning(
+                    "[Transport %s] listener callback raised for %s",
+                    self.id,
+                    address_id,
+                    exc_info=True,
+                )

@@ -1,6 +1,12 @@
 from typing import Annotated, Literal
 
-from pydantic import AfterValidator, Field, PositiveFloat, model_validator
+from pydantic import (
+    AfterValidator,
+    Field,
+    NonNegativeFloat,
+    PositiveFloat,
+    model_validator,
+)
 
 from devices_manager.core.transports.base_transport_config import BaseTransportConfig
 
@@ -8,6 +14,8 @@ DEFAULT_AUTH_MODE = "anonymous"
 DEFAULT_CONNECT_TIMEOUT = 10.0  # seconds
 DEFAULT_REQUEST_TIMEOUT = 5.0  # seconds
 DEFAULT_KEEPALIVE_INTERVAL = 5.0  # seconds
+DEFAULT_SAMPLING_INTERVAL_MS = 1000.0  # milliseconds — asyncua's native unit
+DEFAULT_DEADBAND = 0.0  # 0 = notify on every change, no deadband filtering
 
 ENDPOINT_URL_SCHEME = "opc.tcp://"
 
@@ -29,6 +37,8 @@ class OpcuaTransportConfig(BaseTransportConfig):
     connect_timeout: PositiveFloat = DEFAULT_CONNECT_TIMEOUT
     request_timeout: PositiveFloat = DEFAULT_REQUEST_TIMEOUT
     keepalive_interval: PositiveFloat = DEFAULT_KEEPALIVE_INTERVAL
+    sampling_interval_ms: PositiveFloat = DEFAULT_SAMPLING_INTERVAL_MS
+    deadband: NonNegativeFloat = DEFAULT_DEADBAND
 
     @model_validator(mode="after")
     def _check_username_password(self) -> "OpcuaTransportConfig":
