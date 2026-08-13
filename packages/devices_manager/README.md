@@ -126,6 +126,54 @@ transport:
 See [`docs/src/reference/transports.md`](../../docs/src/reference/transports.md)
 for the full field reference.
 
+## OPC-UA transports
+
+The OPC-UA transport connects to a server's `opc.tcp://` endpoint and reads/writes NodeIds:
+
+```yaml
+transport:
+  name: chiller-opcua
+  protocol: opcua
+  config:
+    endpoint_url: opc.tcp://10.0.1.20:4840
+    auth_mode: anonymous
+
+attributes:
+  - name: supply_temperature
+    data_type: float
+    read: "ns=2;s=Chiller.SupplyTemp"
+```
+
+See [`docs/src/reference/transports.md`](../../docs/src/reference/transports.md)
+for the full config field reference and
+[`docs/src/reference/driver-schema/transport-addresses.md`](../../docs/src/reference/driver-schema/transport-addresses.md)
+for NodeId address notation.
+
+**Simulator quickstart** — three ways to get a server to develop/test against:
+
+- **asyncua, in-process** — the fastest loop, no Docker required:
+  ```python
+  from asyncua import Server
+
+  server = Server()
+  await server.init()
+  server.set_endpoint("opc.tcp://0.0.0.0:4840")
+  idx = await server.register_namespace("http://example.org")
+  obj = await server.nodes.objects.add_object(idx, "MyDevice")
+  var = await obj.add_variable(idx, "SupplyTemp", 20.0)
+  await var.set_writable()
+  await server.start()
+  ```
+  Point a transport at `opc.tcp://localhost:4840` with `read: "ns=<idx>;s=SupplyTemp"`.
+
+- **opc-plc (Docker)** — Microsoft's OPC-UA simulator, used by this package's acceptance tests:
+  ```sh
+  docker run -p 50000:50000 mcr.microsoft.com/iotedge/opc-plc:2.14.23 --ut
+  ```
+  `--ut` opens an unsecured, anonymous-auth endpoint at `opc.tcp://localhost:50000`. Add `--nodesfile=<path>` to mount a custom node set (see `tests/acceptance/fixtures/opcua-plc-nodes.json` for the format).
+
+- **Prosys OPC UA Simulation Server / UaExpert** — for manual, GUI-driven exploration against a configurable address space. Point `endpoint_url` at whichever endpoint the simulator reports on startup; UaExpert can browse the same server to find NodeIds to copy into a driver.
+
 ## Service shape
 
 `DevicesService` follows the common service shape (`__init__(storage_url, ...)` + `async start` / `async stop`):

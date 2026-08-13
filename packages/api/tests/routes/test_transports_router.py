@@ -349,7 +349,5 @@ class TestGetTransportSchemas:
         response = client.get("/schemas/")
         assert response.status_code == 200
         data = response.json()
-        # OPCUA isn't registered in the config schema map yet, so it has no
-        # schema — one fewer than the full protocol enum.
-        assert len(data) == len(TransportProtocols) - 1
+        assert len(data) == len(TransportProtocols)
         assert data["mqtt"]["properties"]["port"]["type"] == "integer"

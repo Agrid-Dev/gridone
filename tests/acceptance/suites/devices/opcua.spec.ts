@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import type { Device } from "@gridone/sdk";
 import { beforeAll, describe, expect, it } from "vitest";
-import { makeAdminClient } from "../../lib/api";
+import { makeAdminClient, pollUntil } from "../../lib/api";
 import { currentValue } from "./goldenPath";
 
 const DRIVER_ID = "opcua_plc";
@@ -41,6 +41,20 @@ describe("opcua device", () => {
       transport_id: transport.id,
       config: {},
     });
+
+    // opc-plc zero-initializes numeric/bool nodes but leaves a fresh String
+    // node's value unset (null) until first written — seed it so the read
+    // test below observes a real string, not the device's pre-write state.
+    await pollUntil(
+      () => client.devices.get(device.id),
+      (d) => currentValue(d, "acceptance_boolean") !== null,
+      { description: "opcua device's first poll cycle to connect" },
+    );
+    await client.devices.sendCommand(device.id, {
+      attribute: "acceptance_string",
+      value: "acceptance-opcua",
+      confirm: true,
+    });
   });
 
   it("reads bool/int/float/string attributes from the emulator", async () => {
@@ -51,6 +65,8 @@ describe("opcua device", () => {
     expect(typeof currentValue(fresh, "acceptance_int32")).toBe("number");
     expect(typeof currentValue(fresh, "acceptance_float")).toBe("number");
     expect(typeof currentValue(fresh, "acceptance_string")).toBe("string");
+    expect(typeof currentValue(fresh, "server_service_level")).toBe("number");
+    expect(typeof currentValue(fresh, "boiler_eu_range_low")).toBe("number");
   });
 
   it("writes a value and reads it back", async () => {

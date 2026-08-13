@@ -2,9 +2,14 @@
 # opcua-plc emulator (compose.override.yaml) as its custom node set.
 # Namespace 3 verified by connecting to a live opcua-plc container — its
 # custom-node namespace index is not documented and could shift on upgrade.
+#
+# server_service_level and boiler_eu_range_low read from opc-plc's built-in
+# node set (not fixtures/opcua-plc-nodes.json) — the former exercises a
+# numeric NodeId (standard ns=0 ServiceLevel), the latter exercises the
+# ExtensionObject -> dict -> json_pointer codec path against a standard
+# `ua.Range` struct (namespace verified live, same as ns=3 above).
 id: opcua_plc
 transport: opcua
-type: simulator
 
 update_strategy:
   polling: 2s
@@ -19,6 +24,8 @@ attributes:
   - name: acceptance_int32
     data_type: int
     read_write: "ns=3;s=AcceptanceInt32"
+    codecs:
+      - options: [1, 2]
 
   - name: acceptance_float
     data_type: float
@@ -27,3 +34,13 @@ attributes:
   - name: acceptance_string
     data_type: str
     read_write: "ns=3;s=AcceptanceString"
+
+  - name: server_service_level
+    data_type: int
+    read: "i=2267"
+
+  - name: boiler_eu_range_low
+    data_type: float
+    read: "ns=6;s=DataAccess_AnalogType_DataAccess_AnalogType_Int32_EURange"
+    codecs:
+      - json_pointer: /Low

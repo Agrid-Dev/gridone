@@ -21,6 +21,7 @@ from devices_manager.core.transports.modbus_tcp_transport import (
     ModbusTCPTransportConfig,
 )
 from devices_manager.core.transports.mqtt_transport import MqttTransportConfig
+from devices_manager.core.transports.opcua_transport import OpcuaTransportConfig
 from devices_manager.core.transports.webhook_transport import WebhookTransportConfig
 from devices_manager.types import TransportProtocols
 from models.metadata import ResourceMetadata, timestamp_kwargs
@@ -67,6 +68,11 @@ class WebhookTransport(TransportBase):
     config: WebhookTransportConfig
 
 
+class OpcuaTransport(TransportBase):
+    protocol: Literal[TransportProtocols.OPCUA]
+    config: OpcuaTransportConfig
+
+
 Transport = Annotated[
     HttpTransport
     | KnxTransport
@@ -74,7 +80,8 @@ Transport = Annotated[
     | ModbusTcpTransport
     | MbusTransport
     | BacnetTransport
-    | WebhookTransport,
+    | WebhookTransport
+    | OpcuaTransport,
     Field(discriminator="protocol"),
 ]
 
@@ -100,6 +107,7 @@ DTO_BY_PROTOCOL = {
     TransportProtocols.MBUS: MbusTransport,
     TransportProtocols.BACNET: BacnetTransport,
     TransportProtocols.WEBHOOK: WebhookTransport,
+    TransportProtocols.OPCUA: OpcuaTransport,
 }
 
 DEFAULT_CONNECTION_STATE = TransportConnectionState.idle()
@@ -154,6 +162,7 @@ CONFIG_CLASS_BY_PROTOCOL: dict[TransportProtocols, type[BaseTransportConfig]] = 
     TransportProtocols.MBUS: MBusTransportConfig,
     TransportProtocols.BACNET: BacnetTransportConfig,
     TransportProtocols.WEBHOOK: WebhookTransportConfig,
+    TransportProtocols.OPCUA: OpcuaTransportConfig,
 }
 
 
@@ -196,6 +205,11 @@ class WebhookTransportCreate(TransportCreateBase):
     config: WebhookTransportConfig
 
 
+class OpcuaTransportCreate(TransportCreateBase):
+    protocol: Literal[TransportProtocols.OPCUA]
+    config: OpcuaTransportConfig
+
+
 # Mirrors the read-side `Transport` union so `protocol` narrows `config` to the
 # matching per-protocol config, both server-side and in generated client types.
 TransportCreate = Annotated[
@@ -205,7 +219,8 @@ TransportCreate = Annotated[
     | ModbusTcpTransportCreate
     | MbusTransportCreate
     | BacnetTransportCreate
-    | WebhookTransportCreate,
+    | WebhookTransportCreate
+    | OpcuaTransportCreate,
     Field(discriminator="protocol"),
 ]
 
