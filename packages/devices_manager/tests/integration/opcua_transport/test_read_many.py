@@ -63,3 +63,20 @@ async def test_read_many_reports_unknown_node_as_read_error(
     assert isinstance(known_result, ReadOk)
     assert isinstance(unknown_result, ReadError)
     assert isinstance(unknown_result.error, Exception)
+
+
+async def test_read_many_isolates_result_count_mismatch_as_read_error_per_address(
+    opcua_client: OpcuaTransportClient, opcua_server: OpcuaServerHandle
+) -> None:
+    """A non-compliant server returning fewer results than requested must
+    not raise zip(strict=True)'s ValueError out of the generator."""
+    idx = opcua_server.idx
+    addresses = [
+        OpcuaAddress.from_str(f"ns={idx};s=Boolean"),
+        OpcuaAddress.from_str(f"ns={idx};s=Int32"),
+    ]
+    client = opcua_client._require_client()  # noqa: SLF001
+    with patch.object(client, "read_attributes", return_value=[]):
+        results = {r.address_id: r async for r in opcua_client.read_many(addresses)}
+    assert len(results) == len(addresses)
+    assert all(isinstance(r, ReadError) for r in results.values())

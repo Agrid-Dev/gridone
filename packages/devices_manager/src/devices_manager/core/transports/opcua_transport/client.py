@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import logging
 from collections.abc import AsyncGenerator
 from typing import ClassVar
@@ -67,14 +68,26 @@ class OpcuaTransportClient(PullTransportClient[OpcuaAddress]):
                 client.set_user(self.config.username)  # ty: ignore[invalid-argument-type]
                 client.set_password(self.config.password)  # ty: ignore[invalid-argument-type]
             client.connection_lost_callback = self._on_connection_lost
-            await asyncio.wait_for(
-                client.connect(), timeout=self.config.connect_timeout
-            )
+            try:
+                await asyncio.wait_for(
+                    client.connect(), timeout=self.config.connect_timeout
+                )
+            except Exception:
+                # A failed/timed-out connect() may still have opened a socket
+                # mid-handshake; self._client is only assigned below, so
+                # nothing else can clean it up.
+                with contextlib.suppress(Exception):
+                    await client.disconnect()
+                raise
             self._client = client
             await super().connect()
 
     async def close(self) -> None:
-        # Lock order: see TransportClient._read_lock in base.py.
+        # _read_lock is a nullcontext here (_serialize_reads=False), so it
+        # doesn't serialize against an in-flight read — only _connection_lock
+        # does (see base.py's lock-order note). An in-flight read racing this
+        # close() fails with a clean exception rather than hanging or
+        # returning a stale/wrong result.
         async with self._read_lock, self._connection_lock:
             if self._client is not None:
                 try:
@@ -136,6 +149,15 @@ class OpcuaTransportClient(PullTransportClient[OpcuaAddress]):
             for address in ordered_addresses:
                 yield ReadError(address.id, e)
             return
+        if len(data_values) != len(ordered_addresses):
+            # A spec-compliant server always returns one result per
+            # requested node; treat a mismatch as a per-address failure
+            # rather than raising `zip(strict=True)`'s ValueError out of
+            # this generator, breaking the per-address isolation contract.
+            err = ua.uaerrors.BadUnexpectedError("Result count mismatch")
+            for address in ordered_addresses:
+                yield ReadError(address.id, err)
+            return
         for address, data_value in zip(ordered_addresses, data_values, strict=True):
             try:
                 value = self._extract_value(data_value)
@@ -148,8 +170,8 @@ class OpcuaTransportClient(PullTransportClient[OpcuaAddress]):
         client = self._require_client()
         node = client.get_node(address.id)
         variant_type = await node.read_data_type_as_variant_type()
-        coerced_value = coerce_for_write(value, variant_type)
         try:
+            coerced_value = coerce_for_write(value, variant_type)
             await node.write_value(coerced_value, variant_type)
         except Exception as e:
             raise translate_write_error(e) from e

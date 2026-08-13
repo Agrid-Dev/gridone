@@ -33,3 +33,12 @@ async def test_write_to_read_only_node_raises_typed_error(
     address = string_address(idx, "ReadOnly")
     with pytest.raises(ua.UaStatusCodeError):
         await opcua_client.write(address, 99)
+
+
+async def test_write_non_numeric_string_to_numeric_node_raises_typed_error(
+    opcua_client: OpcuaTransportClient, opcua_server: OpcuaServerHandle
+) -> None:
+    idx = opcua_server.idx
+    address = string_address(idx, "Int32")
+    with pytest.raises(ua.UaStatusCodeError):
+        await opcua_client.write(address, "not-a-number")
