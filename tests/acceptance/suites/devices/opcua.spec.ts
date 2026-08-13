@@ -84,4 +84,23 @@ describe("opcua device", () => {
     const after = await client.devices.get(device.id);
     expect(currentValue(after, "acceptance_int32")).toBe(target);
   });
+
+  // push_fast_uint's polling_group is 1h (see the driver fixture) — this
+  // must fail red on a pull-only transport, since only push can surface a
+  // change well before the next poll. Passes once AGR-988 adds subscription
+  // support.
+  it("reflects a device-side value change via push, not polling", async () => {
+    const client = await makeAdminClient();
+    const before = await client.devices.get(device.id);
+    const initial = currentValue(before, "push_fast_uint");
+
+    await pollUntil(
+      () => client.devices.get(device.id),
+      (d) => currentValue(d, "push_fast_uint") !== initial,
+      {
+        timeoutMs: 3_000,
+        description: "push_fast_uint to change without polling",
+      },
+    );
+  });
 });
