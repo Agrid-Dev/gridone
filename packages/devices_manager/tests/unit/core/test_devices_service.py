@@ -17,6 +17,7 @@ from devices_manager.core.device.attribute import AttributeKind
 from devices_manager.core.device.event_log import AttributeEventLog, EventType
 from devices_manager.core.driver import AttributeDriver, Driver, UpdateStrategy
 from devices_manager.core.transports.http_transport import HttpTransportConfig
+from devices_manager.core.transports.knx_transport import KNXTransportConfig
 from devices_manager.core.transports.mqtt_transport import MqttTransportConfig
 from devices_manager.core.transports.transport_metadata import TransportMetadata
 from devices_manager.core.transports.webhook_transport import (
@@ -778,6 +779,10 @@ class TestDevicesServiceUpdateTransport:
         assert dm.get_transport(transport_id).config == new_config
 
 
+class MockKnxPushTransportClient(MockPushTransportClient):
+    protocol = TransportProtocols.KNX
+
+
 class TestDevicesServiceTransportSecrets:
     @staticmethod
     def _mqtt_client_with_password(
@@ -833,6 +838,37 @@ class TestDevicesServiceTransportSecrets:
         assert isinstance(updated.config, MqttTransportConfig)
         assert updated.config.password is None
         assert mqtt_client.config.password == "s3cret"  # noqa: S105
+
+    @pytest.mark.asyncio
+    async def test_update_blank_knx_secure_passwords_still_disables_ip_secure(self):
+        # Regression: KNX's blank-clears-IP-Secure convention
+        # (_blank_password_means_absent) must not be shadowed by the generic
+        # preserve-on-blank rule — these two fields opt out of it.
+        metadata = TransportMetadata(id="knx-secure", name="KNX with IP-Secure")
+        config = KNXTransportConfig(
+            gateway_ip="192.168.1.1",
+            secure_device_authentication_password="dev",
+            secure_user_password="usr",
+        )
+        client = MockKnxPushTransportClient(metadata, config)
+        dm = DevicesService(devices={}, drivers={}, transports={client.id: client})
+        await dm.load()
+
+        updated = await dm.update_transport(
+            "knx-secure",
+            TransportUpdate(
+                config={
+                    "secure_device_authentication_password": "",
+                    "secure_user_password": "",
+                }
+            ),
+        )
+
+        assert isinstance(updated.config, KNXTransportConfig)
+        client_config = client.config
+        assert isinstance(client_config, KNXTransportConfig)
+        assert client_config.secure_device_authentication_password is None
+        assert client_config.secure_user_password is None
 
     @pytest.mark.asyncio
     async def test_update_blank_password_only_does_not_reconnect_or_restart(self):

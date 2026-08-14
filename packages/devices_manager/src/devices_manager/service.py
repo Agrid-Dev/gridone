@@ -43,7 +43,7 @@ from .dto import (
     driver_from_public,
     mask_transport_secrets,
     standard_schema_to_public,
-    transport_secret_field_names,
+    transport_preserve_on_blank_field_names,
     transport_to_public,
 )
 from .ingress import MessageIngress
@@ -588,10 +588,12 @@ class DevicesService(Service):
     ) -> Transport:
         if update.config:
             current_config = self._transport_registry.get(transport_id).config
-            secret_fields = transport_secret_field_names(type(current_config))
+            preserve_fields = transport_preserve_on_blank_field_names(
+                type(current_config)
+            )
             # Blank secret in the patch = keep the stored value, not overwrite it.
             filtered = {
-                k: v for k, v in update.config.items() if v or k not in secret_fields
+                k: v for k, v in update.config.items() if v or k not in preserve_fields
             }
             if filtered != update.config:
                 update = update.model_copy(update={"config": filtered or None})

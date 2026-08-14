@@ -162,6 +162,13 @@ def secret_field_names(config_cls: type[BaseTransportConfig]) -> set[str]:
     }
 
 
+def preserve_on_blank_field_names(config_cls: type[BaseTransportConfig]) -> set[str]:
+    """Secret fields where blank on update means "keep the stored value" —
+    all of them, except a config class's PRESERVE_ON_BLANK_EXEMPT (e.g. KNX's
+    IP-Secure passwords, where blank already means "disable the feature")."""
+    return secret_field_names(config_cls) - config_cls.PRESERVE_ON_BLANK_EXEMPT
+
+
 def mask_secrets(dto: Transport) -> Transport:
     # Only for outbound responses — the caller must persist the unmasked dto.
     fields = secret_field_names(type(dto.config))

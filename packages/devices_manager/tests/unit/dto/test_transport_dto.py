@@ -8,6 +8,7 @@ from devices_manager.core.transports.http_transport import (
     HTTPTransportClient,
     HttpTransportConfig,
 )
+from devices_manager.core.transports.knx_transport import KNXTransportConfig
 from devices_manager.core.transports.modbus_tcp_transport import (
     ModbusTCPTransportConfig,
 )
@@ -30,6 +31,7 @@ from devices_manager.dto.transport_dto import (
     core_to_dto,
     dto_to_core,
     mask_secrets,
+    preserve_on_blank_field_names,
     secret_field_names,
 )
 from devices_manager.types import TransportProtocols
@@ -114,6 +116,26 @@ class TestSecretFieldNames:
 
     def test_empty_for_config_without_secrets(self):
         assert secret_field_names(HttpTransportConfig) == set()
+
+    def test_knx_secure_passwords_are_secret(self):
+        # Masked on read like any other secret, even though they opt out of
+        # preserve-on-blank (see TestPreserveOnBlankFieldNames below).
+        assert secret_field_names(KNXTransportConfig) == {
+            "secure_device_authentication_password",
+            "secure_user_password",
+        }
+
+
+class TestPreserveOnBlankFieldNames:
+    def test_finds_marked_fields(self):
+        assert preserve_on_blank_field_names(MqttTransportConfig) == {"password"}
+        assert preserve_on_blank_field_names(OpcuaTransportConfig) == {"password"}
+
+    def test_knx_secure_passwords_opt_out(self):
+        # Blank already means "disable IP-Secure" for these two fields
+        # (KNXTransportConfig._blank_password_means_absent) — the generic
+        # preserve-on-blank convention must not shadow that.
+        assert preserve_on_blank_field_names(KNXTransportConfig) == set()
 
 
 class TestMaskSecrets:

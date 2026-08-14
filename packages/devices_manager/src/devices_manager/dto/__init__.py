@@ -35,6 +35,9 @@ from .transport_dto import (
 )
 from .transport_dto import dto_to_core as transport_from_public
 from .transport_dto import mask_secrets as mask_transport_secrets
+from .transport_dto import (
+    preserve_on_blank_field_names as transport_preserve_on_blank_field_names,
+)
 from .transport_dto import secret_field_names as transport_secret_field_names
 
 __all__ = [
@@ -65,6 +68,7 @@ __all__ = [
     "mask_transport_secrets",
     "standard_schema_to_public",
     "transport_from_public",
+    "transport_preserve_on_blank_field_names",
     "transport_secret_field_names",
     "transport_to_public",
 ]
