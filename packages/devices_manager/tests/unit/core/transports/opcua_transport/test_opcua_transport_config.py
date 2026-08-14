@@ -10,6 +10,8 @@ from devices_manager.core.transports.opcua_transport.transport_config import (
     DEFAULT_SECURITY_MODE,
     DEFAULT_SECURITY_POLICY,
     NO_SECURITY,
+    SECURED_MODES,
+    SECURED_POLICIES,
     OpcuaTransportConfig,
 )
 
@@ -108,10 +110,8 @@ def test_config_rejects_non_positive_sampling_interval() -> None:
         )
 
 
-@pytest.mark.parametrize(
-    "security_policy", ["Basic256Sha256", "Aes128Sha256RsaOaep", "Aes256Sha256RsaPss"]
-)
-@pytest.mark.parametrize("security_mode", ["Sign", "SignAndEncrypt"])
+@pytest.mark.parametrize("security_policy", SECURED_POLICIES)
+@pytest.mark.parametrize("security_mode", SECURED_MODES)
 def test_config_accepts_full_security_matrix(
     security_policy: str, security_mode: str
 ) -> None:

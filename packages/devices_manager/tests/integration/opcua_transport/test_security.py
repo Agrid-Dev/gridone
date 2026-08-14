@@ -4,7 +4,6 @@ import asyncio
 import contextlib
 from collections.abc import AsyncGenerator, Sequence
 from pathlib import Path
-from typing import get_args
 
 import pytest
 import pytest_asyncio
@@ -23,7 +22,8 @@ from devices_manager.core.transports.opcua_transport.errors import (
 )
 from devices_manager.core.transports.opcua_transport.opcua_address import OpcuaAddress
 from devices_manager.core.transports.opcua_transport.transport_config import (
-    NO_SECURITY,
+    SECURED_MODES,
+    SECURED_POLICIES,
     OpcuaTransportConfig,
     SecurityModeName,
     SecurityPolicyName,
@@ -39,13 +39,12 @@ NODE_NAME = "SecureValue"
 INITIAL_VALUE = 42
 WRITTEN_VALUE = 7
 
-# Derived from the config vocabulary rather than restated, so a policy or mode
-# added there is covered by this matrix without anyone remembering to add it.
-SECURED_POLICIES = [
-    name for name in get_args(SecurityPolicyName.__value__) if name != NO_SECURITY
-]
-SECURED_MODES = [
-    name for name in get_args(SecurityModeName.__value__) if name != NO_SECURITY
+DEFAULT_POLICY: SecurityPolicyName = "Basic256Sha256"
+DEFAULT_MODE: SecurityModeName = "SignAndEncrypt"
+# The endpoint set for a server that offers exactly one secure combination.
+RESTRICTED_POLICIES = [
+    ua.SecurityPolicyType.NoSecurity,
+    ua.SecurityPolicyType.Basic256Sha256_SignAndEncrypt,
 ]
 
 
@@ -70,6 +69,23 @@ async def _server_certificate(directory: Path) -> tuple[Path, Path]:
         {},
     )
     return cert_file, key_file
+
+
+@contextlib.asynccontextmanager
+async def _running_server(
+    directory: Path,
+    policies: Sequence[ua.SecurityPolicyType],
+    certificate_validator: CertificateValidator | None = None,
+) -> AsyncGenerator[tuple[Server, str, int]]:
+    """Start a secured server and always stop it, however the test exits."""
+    server, endpoint, idx = await _start_secured_server(
+        directory, policies, certificate_validator
+    )
+    try:
+        yield server, endpoint, idx
+    finally:
+        with contextlib.suppress(Exception):
+            await server.stop()
 
 
 async def _start_secured_server(
@@ -109,7 +125,9 @@ def _policy_type(
 
 
 def _client(
-    endpoint: str, policy: SecurityPolicyName, mode: SecurityModeName
+    endpoint: str,
+    policy: SecurityPolicyName = DEFAULT_POLICY,
+    mode: SecurityModeName = DEFAULT_MODE,
 ) -> OpcuaTransportClient:
     return OpcuaTransportClient(
         TransportMetadata(id="opcua-secure-transport", name="opcua-secure-transport"),
@@ -131,14 +149,19 @@ async def secured_server(
         for policy in SECURED_POLICIES
         for mode in SECURED_MODES
     ]
-    server, endpoint, idx = await _start_secured_server(
+    async with _running_server(
         tmp_path / "server", [ua.SecurityPolicyType.NoSecurity, *policies]
-    )
-    try:
-        yield server, endpoint, idx
-    finally:
-        with contextlib.suppress(Exception):
-            await server.stop()
+    ) as handle:
+        yield handle
+
+
+@pytest_asyncio.fixture
+async def restricted_server(
+    tmp_path: Path,
+) -> AsyncGenerator[tuple[Server, str, int]]:
+    """Server offering exactly one secure combination, for the rejection cases."""
+    async with _running_server(tmp_path / "server", RESTRICTED_POLICIES) as handle:
+        yield handle
 
 
 class TestSecurityMatrix:
@@ -173,7 +196,7 @@ class TestServerTrust:
     ) -> None:
         _, endpoint, _ = secured_server
         assert await pki.read_server_pin(endpoint) is None
-        client = _client(endpoint, "Basic256Sha256", "SignAndEncrypt")
+        client = _client(endpoint)
 
         await client.connect()
         await client.close()
@@ -189,7 +212,7 @@ class TestServerTrust:
         pki_home: Path,  # noqa: ARG002
     ) -> None:
         _, endpoint, _ = secured_server
-        client = _client(endpoint, "Basic256Sha256", "SignAndEncrypt")
+        client = _client(endpoint)
         await client.connect()
         await client.close()
         first = await pki.read_server_pin(endpoint)
@@ -213,17 +236,17 @@ class TestServerTrust:
         pin = pki.server_pin_path(endpoint)
         pin.parent.mkdir(parents=True, exist_ok=True)
         pin.write_bytes(impostor_cert.read_bytes())
-        client = _client(endpoint, "Basic256Sha256", "SignAndEncrypt")
+        client = _client(endpoint)
 
         with pytest.raises(OpcuaSecurityError, match="does not match the one pinned"):
-            await client.connect()
+            await client.ensure_connected()
 
         assert not client.connection_state.is_connected
-        # A refusal this package raises itself must short-circuit later connects
-        # like a server-reported one; otherwise every read re-runs discovery.
+        # A refusal this package raises itself must latch like a server-reported
+        # one; otherwise every read re-runs discovery against a rejected server.
         await server.stop()
         with pytest.raises(OpcuaSecurityError, match="does not match the one pinned"):
-            await client.connect()
+            await client.ensure_connected()
 
     async def test_deleting_the_pin_accepts_the_certificate_presented_now(
         self,
@@ -236,13 +259,13 @@ class TestServerTrust:
         pin = pki.server_pin_path(endpoint)
         pin.parent.mkdir(parents=True, exist_ok=True)
         pin.write_bytes(b"a-stale-pin")
-        client = _client(endpoint, "Basic256Sha256", "SignAndEncrypt")
+        client = _client(endpoint)
         with pytest.raises(OpcuaSecurityError, match="does not match the one pinned"):
-            await client.connect()
+            await client.ensure_connected()
 
         pin.unlink()
         client.update_config({}, reconnect=False)
-        await client.connect()
+        await client.ensure_connected()
 
         try:
             assert client.connection_state.is_connected
@@ -254,105 +277,66 @@ class TestServerTrust:
 class TestSecureChannelRejections:
     async def test_a_rejection_is_not_retried_over_the_network(
         self,
-        tmp_path: Path,
+        restricted_server: tuple[Server, str, int],
         pki_home: Path,  # noqa: ARG002
     ) -> None:
-        """@connected re-attempts connect() on every read while disconnected, so
-        a standing refusal must fail from memory rather than re-run discovery
+        """@connected re-attempts a connection on every read while disconnected,
+        so a standing refusal must fail from memory rather than re-run discovery
         and the handshake once per address."""
-        server, endpoint, idx = await _start_secured_server(
-            tmp_path / "server",
-            [
-                ua.SecurityPolicyType.NoSecurity,
-                ua.SecurityPolicyType.Basic256Sha256_SignAndEncrypt,
-            ],
-        )
-        try:
-            client = _client(endpoint, "Aes256Sha256RsaPss", "SignAndEncrypt")
-            with pytest.raises(OpcuaSecurityError):
-                await client.connect()
-            await server.stop()  # nothing may reach the network from here on
+        server, endpoint, idx = restricted_server
+        client = _client(endpoint, "Aes256Sha256RsaPss", "SignAndEncrypt")
+        with pytest.raises(OpcuaSecurityError):
+            await client.ensure_connected()
+        await server.stop()  # nothing may reach the network from here on
 
-            with pytest.raises(OpcuaSecurityError):
-                await client.connect()
+        with pytest.raises(OpcuaSecurityError):
+            await client.ensure_connected()
 
-            # A read goes through @connected, which swallows the connect error
-            # and leaves the call to fail on the missing session.
-            address = OpcuaAddress.from_str(f"ns={idx};s={NODE_NAME}")
-            with pytest.raises(OpcuaNotConnectedError):
-                await client.read(address)
-        finally:
-            with contextlib.suppress(Exception):
-                await server.stop()
+        # A read goes through @connected, which swallows the connect error and
+        # leaves the call to fail on the missing session.
+        address = OpcuaAddress.from_str(f"ns={idx};s={NODE_NAME}")
+        with pytest.raises(OpcuaNotConnectedError):
+            await client.read(address)
 
     async def test_a_config_change_re_arms_a_rejected_transport(
         self,
-        tmp_path: Path,
+        restricted_server: tuple[Server, str, int],
         pki_home: Path,  # noqa: ARG002
     ) -> None:
-        """The operator's way back: once the refusal is recorded, only a config
+        """The operator's way back: once the refusal is latched, only a config
         change makes the transport try the network again."""
-        server, endpoint, _ = await _start_secured_server(
-            tmp_path / "server",
-            [
-                ua.SecurityPolicyType.NoSecurity,
-                ua.SecurityPolicyType.Basic256Sha256_SignAndEncrypt,
-            ],
-        )
-        try:
-            client = _client(endpoint, "Aes256Sha256RsaPss", "SignAndEncrypt")
-            with pytest.raises(OpcuaSecurityError):
-                await client.connect()
+        _, endpoint, _ = restricted_server
+        client = _client(endpoint, "Aes256Sha256RsaPss", "SignAndEncrypt")
+        with pytest.raises(OpcuaSecurityError):
+            await client.ensure_connected()
 
-            client.update_config({"security_policy": "Basic256Sha256"}, reconnect=False)
+        client.update_config({"security_policy": "Basic256Sha256"}, reconnect=False)
+        await client.ensure_connected()
+
+        try:
+            assert client.connection_state.is_connected
+        finally:
+            await client.close()
+
+    @pytest.mark.parametrize(
+        ("policy", "mode"),
+        [("Aes256Sha256RsaPss", "SignAndEncrypt"), ("Basic256Sha256", "Sign")],
+        ids=["unoffered-policy", "unoffered-mode"],
+    )
+    async def test_a_combination_the_server_does_not_offer(
+        self,
+        restricted_server: tuple[Server, str, int],
+        pki_home: Path,  # noqa: ARG002
+        policy: SecurityPolicyName,
+        mode: SecurityModeName,
+    ) -> None:
+        _, endpoint, _ = restricted_server
+        client = _client(endpoint, policy, mode)
+
+        with pytest.raises(OpcuaSecurityError):
             await client.connect()
 
-            assert client.connection_state.is_connected
-            await client.close()
-        finally:
-            await server.stop()
-
-    async def test_policy_the_server_does_not_offer(
-        self,
-        tmp_path: Path,
-        pki_home: Path,  # noqa: ARG002
-    ) -> None:
-        server, endpoint, _ = await _start_secured_server(
-            tmp_path / "server",
-            [
-                ua.SecurityPolicyType.NoSecurity,
-                ua.SecurityPolicyType.Basic256Sha256_SignAndEncrypt,
-            ],
-        )
-        try:
-            client = _client(endpoint, "Aes256Sha256RsaPss", "SignAndEncrypt")
-
-            with pytest.raises(OpcuaSecurityError):
-                await client.connect()
-
-            assert not client.connection_state.is_connected
-        finally:
-            await server.stop()
-
-    async def test_mode_the_server_does_not_offer(
-        self,
-        tmp_path: Path,
-        pki_home: Path,  # noqa: ARG002
-    ) -> None:
-        server, endpoint, _ = await _start_secured_server(
-            tmp_path / "server",
-            [
-                ua.SecurityPolicyType.NoSecurity,
-                ua.SecurityPolicyType.Basic256Sha256_SignAndEncrypt,
-            ],
-        )
-        try:
-            client = _client(endpoint, "Basic256Sha256", "Sign")
-
-            with pytest.raises(OpcuaSecurityError):
-                await client.connect()
-        finally:
-            await server.stop()
+        assert not client.connection_state.is_connected
 
     async def test_untrusted_client_certificate(
         self,
@@ -368,23 +352,15 @@ class TestSecureChannelRejections:
             | CertificateValidatorOptions.PEER_CLIENT,
             trust_store,
         )
-        server, endpoint, _ = await _start_secured_server(
-            tmp_path / "server",
-            [
-                ua.SecurityPolicyType.NoSecurity,
-                ua.SecurityPolicyType.Basic256Sha256_SignAndEncrypt,
-            ],
-            certificate_validator=validator,
-        )
-        try:
-            client = _client(endpoint, "Basic256Sha256", "SignAndEncrypt")
+        async with _running_server(
+            tmp_path / "server", RESTRICTED_POLICIES, validator
+        ) as (_, endpoint, _idx):
+            client = _client(endpoint)
 
             with pytest.raises(OpcuaSecurityError):
                 await client.connect()
 
             assert not client.connection_state.is_connected
-        finally:
-            await server.stop()
 
     async def test_application_uri_not_matching_the_certificate(
         self,
@@ -397,22 +373,14 @@ class TestSecureChannelRejections:
             CertificateValidatorOptions.BASIC_VALIDATION
             | CertificateValidatorOptions.PEER_CLIENT
         )
-        server, endpoint, _ = await _start_secured_server(
-            tmp_path / "server",
-            [
-                ua.SecurityPolicyType.NoSecurity,
-                ua.SecurityPolicyType.Basic256Sha256_SignAndEncrypt,
-            ],
-            certificate_validator=validator,
-        )
         monkeypatch.setattr(
             "devices_manager.core.transports.opcua_transport.security.APPLICATION_URI",
             "urn:gridone:not-the-certificate-uri",
         )
-        try:
-            client = _client(endpoint, "Basic256Sha256", "SignAndEncrypt")
+        async with _running_server(
+            tmp_path / "server", RESTRICTED_POLICIES, validator
+        ) as (_, endpoint, _idx):
+            client = _client(endpoint)
 
             with pytest.raises(OpcuaSecurityError):
                 await client.connect()
-        finally:
-            await server.stop()

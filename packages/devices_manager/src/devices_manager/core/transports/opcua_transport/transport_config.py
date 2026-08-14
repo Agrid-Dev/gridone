@@ -1,4 +1,4 @@
-from typing import Annotated, Literal
+from typing import Annotated, Literal, get_args
 
 from pydantic import (
     AfterValidator,
@@ -32,6 +32,15 @@ type SecurityPolicyName = Literal[
     "None", "Basic256Sha256", "Aes128Sha256RsaOaep", "Aes256Sha256RsaPss"
 ]
 type SecurityModeName = Literal["None", "Sign", "SignAndEncrypt"]
+
+# The vocabularies minus "None", i.e. what an actual secure channel can use.
+# Derived from the types so callers and tests cannot drift from them.
+SECURED_POLICIES: tuple[SecurityPolicyName, ...] = tuple(
+    name for name in get_args(SecurityPolicyName.__value__) if name != NO_SECURITY
+)
+SECURED_MODES: tuple[SecurityModeName, ...] = tuple(
+    name for name in get_args(SecurityModeName.__value__) if name != NO_SECURITY
+)
 
 
 def validate_endpoint_url(v: str) -> str:
