@@ -41,7 +41,9 @@ from .dto import (
     device_from_public,
     device_to_public,
     driver_from_public,
+    mask_transport_secrets,
     standard_schema_to_public,
+    transport_secret_field_names,
     transport_to_public,
 )
 from .ingress import MessageIngress
@@ -543,10 +545,10 @@ class DevicesService(Service):
         return self._transport_registry.ids
 
     def list_transports(self) -> list[Transport]:
-        return self._transport_registry.list_all()
+        return [mask_transport_secrets(t) for t in self._transport_registry.list_all()]
 
     def get_transport(self, transport_id: str) -> Transport:
-        return self._transport_registry.get_dto(transport_id)
+        return mask_transport_secrets(self._transport_registry.get_dto(transport_id))
 
     def get_transport_ingress(self, transport_id: str) -> MessageIngress:
         """Return the live client behind a transport that accepts pushed
@@ -560,7 +562,7 @@ class DevicesService(Service):
         return client
 
     async def add_transport(self, transport: TransportCreate | Transport) -> Transport:
-        return await self._transport_registry.add(transport)
+        return mask_transport_secrets(await self._transport_registry.add(transport))
 
     def _assert_transport_not_used(self, transport_id: str) -> None:
         device = next(
@@ -584,10 +586,19 @@ class DevicesService(Service):
     async def update_transport(
         self, transport_id: str, update: TransportUpdate
     ) -> Transport:
+        if update.config:
+            current_config = self._transport_registry.get(transport_id).config
+            secret_fields = transport_secret_field_names(type(current_config))
+            # Blank secret in the patch = keep the stored value, not overwrite it.
+            filtered = {
+                k: v for k, v in update.config.items() if v or k not in secret_fields
+            }
+            if filtered != update.config:
+                update = update.model_copy(update={"config": filtered or None})
         transport = await self._transport_registry.update(transport_id, update)
         if update.config is not None and self._running:
             await self._device_registry.restart_devices(transport_id=transport_id)
-        return transport_to_public(transport)
+        return mask_transport_secrets(transport_to_public(transport))
 
     # -- Drivers (delegated to DriverRegistry) --
 

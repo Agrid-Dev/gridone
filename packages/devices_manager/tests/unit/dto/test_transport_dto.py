@@ -29,6 +29,8 @@ from devices_manager.dto.transport_dto import (
     WebhookTransportCreate,
     core_to_dto,
     dto_to_core,
+    mask_secrets,
+    secret_field_names,
 )
 from devices_manager.types import TransportProtocols
 
@@ -103,6 +105,44 @@ def test_dto_to_core_opcua(mock_metadata):
     rebuilt = core_to_dto(client)
     assert rebuilt.protocol == TransportProtocols.OPCUA
     assert rebuilt.config == dto.config
+
+
+class TestSecretFieldNames:
+    def test_finds_marked_fields(self):
+        assert secret_field_names(MqttTransportConfig) == {"password"}
+        assert secret_field_names(OpcuaTransportConfig) == {"password"}
+
+    def test_empty_for_config_without_secrets(self):
+        assert secret_field_names(HttpTransportConfig) == set()
+
+
+class TestMaskSecrets:
+    def test_masks_password(self, mock_metadata):
+        client = MqttTransportClient(
+            config=MqttTransportConfig(host="localhost", password="s3cret"),
+            metadata=mock_metadata,
+        )
+        masked = mask_secrets(core_to_dto(client))
+        assert isinstance(masked.config, MqttTransportConfig)
+        assert masked.config.password is None
+        assert masked.config.host == "localhost"
+
+    def test_does_not_mutate_input(self, mock_metadata):
+        client = MqttTransportClient(
+            config=MqttTransportConfig(host="localhost", password="s3cret"),
+            metadata=mock_metadata,
+        )
+        dto = core_to_dto(client)
+        mask_secrets(dto)
+        assert isinstance(dto.config, MqttTransportConfig)
+        assert dto.config.password == "s3cret"  # noqa: S105
+
+    def test_no_secret_fields_returns_equal_dto(self, mock_metadata):
+        client = HTTPTransportClient(
+            config=HttpTransportConfig(), metadata=mock_metadata
+        )
+        dto = core_to_dto(client)
+        assert mask_secrets(dto) == dto
 
 
 class TestTransportCreate:

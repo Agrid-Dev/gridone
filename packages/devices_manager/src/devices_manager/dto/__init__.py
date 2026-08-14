@@ -34,6 +34,8 @@ from .transport_dto import (
     core_to_dto as transport_to_public,
 )
 from .transport_dto import dto_to_core as transport_from_public
+from .transport_dto import mask_secrets as mask_transport_secrets
+from .transport_dto import secret_field_names as transport_secret_field_names
 
 __all__ = [
     "TRANSPORT_CONFIG_CLASS_BY_PROTOCOL",
@@ -60,7 +62,9 @@ __all__ = [
     "device_to_public",
     "driver_from_public",
     "driver_to_public",
+    "mask_transport_secrets",
     "standard_schema_to_public",
     "transport_from_public",
+    "transport_secret_field_names",
     "transport_to_public",
 ]

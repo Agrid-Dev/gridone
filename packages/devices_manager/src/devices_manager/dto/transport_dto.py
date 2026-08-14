@@ -154,6 +154,23 @@ def core_to_dto(client: TransportClient) -> Transport:
     )
 
 
+def secret_field_names(config_cls: type[BaseTransportConfig]) -> set[str]:
+    return {
+        name
+        for name, field in config_cls.model_fields.items()
+        if (field.json_schema_extra or {}).get("secret")
+    }
+
+
+def mask_secrets(dto: Transport) -> Transport:
+    # Only for outbound responses — the caller must persist the unmasked dto.
+    fields = secret_field_names(type(dto.config))
+    if not fields:
+        return dto
+    masked_config = dto.config.model_copy(update=dict.fromkeys(fields))
+    return dto.model_copy(update={"config": masked_config})
+
+
 CONFIG_CLASS_BY_PROTOCOL: dict[TransportProtocols, type[BaseTransportConfig]] = {
     TransportProtocols.HTTP: HttpTransportConfig,
     TransportProtocols.KNX: KNXTransportConfig,
