@@ -9,7 +9,6 @@ from asyncua import Client, Node, ua
 from asyncua.common.subscription import DataChangeNotif, Subscription
 
 from devices_manager.core.transports.base import (
-    BaseTransportConfig,
     PullTransportClient,
     PushTransportClient,
     dedupe_addresses,
@@ -63,9 +62,6 @@ class OpcuaTransportClient(
         self._subscription = None
         self._monitored_items: dict[str, int] = {}
         self._next_client_handle = itertools.count(1)
-        # Set once a server refuses the secure channel, so later connects fail
-        # without touching the network until the config changes.
-        self._secure_channel_rejection: str | None = None
         super().__init__(metadata, config)
 
     def _require_client(self) -> Client:
@@ -88,8 +84,6 @@ class OpcuaTransportClient(
         async with self._connection_lock:
             if self.connection_state.is_connected:
                 return
-            if self._secure_channel_rejection is not None:
-                raise self._secure_channel_error()
             client = Client(
                 url=self.config.endpoint_url,
                 timeout=self.config.request_timeout,
@@ -111,8 +105,8 @@ class OpcuaTransportClient(
                 with contextlib.suppress(Exception):
                     await client.disconnect()
                 if is_secure_channel_rejection(e):
-                    self._secure_channel_rejection = str(e)
-                    raise self._secure_channel_error() from e
+                    msg = f"Secure channel rejected by {self.config.endpoint_url}: {e}"
+                    raise OpcuaSecurityError(msg) from e
                 raise
             self._client = client
             await super().connect()
@@ -124,22 +118,6 @@ class OpcuaTransportClient(
         if self.config.secure_channel_enabled:
             await apply_security(client, self.config)
         await client.connect()
-
-    def _secure_channel_error(self) -> OpcuaSecurityError:
-        """The standing refusal, raised instead of going to the network since
-        ``@connected`` retries :meth:`connect` on every read while disconnected."""
-        return OpcuaSecurityError(
-            f"Secure channel rejected by {self.config.endpoint_url}: "
-            f"{self._secure_channel_rejection}"
-        )
-
-    def update_config(
-        self, config: BaseTransportConfig | dict, *, reconnect: bool = True
-    ) -> None:
-        # A new config re-arms a refused transport: the operator's way back
-        # after trusting gridone's certificate server-side.
-        self._secure_channel_rejection = None
-        super().update_config(config, reconnect=reconnect)
 
     async def close(self) -> None:
         # _read_lock is a nullcontext here (_serialize_reads=False), so it
@@ -221,7 +199,7 @@ class OpcuaTransportClient(
             return
         try:
             if not self.connection_state.is_connected:
-                await self.connect()
+                await self.ensure_connected()
             client = self._require_client()
             nodes = [client.get_node(address.id) for address in ordered_addresses]
             async with timed_io(self.id, self.protocol, len(ordered_addresses)):

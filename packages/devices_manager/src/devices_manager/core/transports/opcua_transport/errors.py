@@ -37,14 +37,11 @@ class OpcuaSecurityError(TerminalConnectionError):
 
 
 def is_secure_channel_rejection(exc: Exception) -> bool:
-    """Whether ``exc`` is a secure-channel refusal rather than a transient fault.
-
-    Includes ``OpcuaSecurityError`` so refusals this package raises itself (a
-    server certificate that does not match the pin) are classified alongside the
-    ones the server reports.
-    """
-    if isinstance(exc, (OpcuaSecurityError, *SECURE_CHANNEL_REJECTIONS)):
+    """Whether ``exc`` is a secure-channel refusal rather than a transient fault."""
+    if isinstance(exc, SECURE_CHANNEL_REJECTIONS):
         return True
+    # Fallback for the endpoint lookup asyncua repeats internally during
+    # create_session; the call this package makes itself is wrapped at its site.
     return isinstance(exc, ua.UaError) and NO_MATCHING_ENDPOINT_MESSAGE in str(exc)
 
 

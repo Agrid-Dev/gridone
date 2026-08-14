@@ -17,23 +17,17 @@ from .pki import (
 from .transport_config import (
     OpcuaTransportConfig,
     SecurityModeName,
-    SecurityPolicyName,
 )
 
 logger = logging.getLogger(__name__)
 
-# Explicit rather than resolved by name off the security_policies module: an
-# unknown policy has to fail as a config error, not as an AttributeError raised
-# halfway through a connect.
+# Explicit rather than getattr off the security_policies module, so the mapping
+# is greppable and a name the config allows but this table lacks fails loudly.
 SECURITY_POLICIES: dict[str, type[security_policies.SecurityPolicy]] = {
     "Basic256Sha256": security_policies.SecurityPolicyBasic256Sha256,
     "Aes128Sha256RsaOaep": security_policies.SecurityPolicyAes128Sha256RsaOaep,
     "Aes256Sha256RsaPss": security_policies.SecurityPolicyAes256Sha256RsaPss,
 }
-
-
-def resolve_policy(name: SecurityPolicyName) -> type[security_policies.SecurityPolicy]:
-    return SECURITY_POLICIES[name]
 
 
 def resolve_mode(name: SecurityModeName) -> ua.MessageSecurityMode:
@@ -45,7 +39,7 @@ def resolve_mode(name: SecurityModeName) -> ua.MessageSecurityMode:
 async def apply_security(client: Client, config: OpcuaTransportConfig) -> None:
     """Configure ``client``'s secure channel, pin-on-first-use. Must run before
     ``connect()``."""
-    policy = resolve_policy(config.security_policy)
+    policy = SECURITY_POLICIES[config.security_policy]
     mode = resolve_mode(config.security_mode)
     # Set here rather than for every session: it must match the URI SAN of the
     # certificate below, and unsecured transports keep advertising whatever they
@@ -104,7 +98,11 @@ async def _discover_server_certificate(
     """Read the certificate the endpoint advertises, over an unsecured throwaway
     channel (all that is available before a policy is set)."""
     endpoints = await client.connect_and_get_server_endpoints()
-    endpoint = Client.find_endpoint(endpoints, mode, policy.URI)
+    try:
+        endpoint = Client.find_endpoint(endpoints, mode, policy.URI)
+    except ua.UaError as e:
+        msg = f"server offers no endpoint with policy {policy.URI} and mode {mode.name}"
+        raise OpcuaSecurityError(msg) from e
     # ServerCertificate may be a DER chain; x509_from_der takes the leaf, which
     # is the certificate the handshake is verified against.
     certificate = uacrypto.x509_from_der(endpoint.ServerCertificate)
