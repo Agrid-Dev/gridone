@@ -208,7 +208,7 @@ class TestServerTrust:
     ) -> None:
         """A swapped server certificate must fail the handshake rather than be
         accepted silently, which is the whole point of pinning."""
-        _, endpoint, _ = secured_server
+        server, endpoint, _ = secured_server
         impostor_cert, _ = await _server_certificate(tmp_path / "impostor")
         pin = pki.server_pin_path(endpoint)
         pin.parent.mkdir(parents=True, exist_ok=True)
@@ -219,6 +219,11 @@ class TestServerTrust:
             await client.connect()
 
         assert not client.connection_state.is_connected
+        # A refusal this package raises itself must short-circuit later connects
+        # like a server-reported one; otherwise every read re-runs discovery.
+        await server.stop()
+        with pytest.raises(OpcuaSecurityError, match="does not match the one pinned"):
+            await client.connect()
 
     async def test_deleting_the_pin_accepts_the_certificate_presented_now(
         self,

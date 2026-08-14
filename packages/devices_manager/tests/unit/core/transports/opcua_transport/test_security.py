@@ -61,6 +61,4 @@ async def test_an_endpoint_advertising_no_certificate_is_a_security_error() -> N
     client.connect_and_get_server_endpoints.return_value = [endpoint]
 
     with pytest.raises(OpcuaSecurityError, match="no certificate"):
-        await _discover_server_certificate(
-            client, "opc.tcp://10.0.1.20:4840", policy, mode
-        )
+        await _discover_server_certificate(client, policy, mode)

@@ -88,7 +88,8 @@ class OpcuaTransportClient(
         async with self._connection_lock:
             if self.connection_state.is_connected:
                 return
-            self._raise_if_secure_channel_rejected()
+            if self._secure_channel_rejection is not None:
+                raise self._secure_channel_error()
             client = Client(
                 url=self.config.endpoint_url,
                 timeout=self.config.request_timeout,
@@ -111,47 +112,32 @@ class OpcuaTransportClient(
                     await client.disconnect()
                 if is_secure_channel_rejection(e):
                     self._secure_channel_rejection = str(e)
-                    self._raise_if_secure_channel_rejected(cause=e)
+                    raise self._secure_channel_error() from e
                 raise
             self._client = client
             await super().connect()
             await self._resubscribe_all(client)
 
     async def _establish_session(self, client: Client) -> None:
-        """Secure channel setup then session activation, under one timeout.
-
-        Both legs share ``connect_timeout``: the secure path adds a discovery
-        round-trip before the handshake, and leaving it outside the budget would
-        let a half-dead server stall a sweep for several times the configured
-        timeout.
-        """
+        """Secure channel setup then session activation, sharing connect_timeout
+        so the secure path's extra discovery round-trip stays inside it."""
         if self.config.secure_channel_enabled:
             await apply_security(client, self.config)
         await client.connect()
 
-    def _raise_if_secure_channel_rejected(self, cause: Exception | None = None) -> None:
-        """Re-raise a standing refusal without retrying it over the network.
-
-        ``@connected`` calls :meth:`connect` on every read while the transport is
-        disconnected, so without this a rejected channel would re-run discovery
-        and the handshake once per address, per sweep — the storm that making
-        the error terminal is meant to prevent, only on the read path rather
-        than the reconnect path.
-        """
-        if self._secure_channel_rejection is None:
-            return
-        msg = (
+    def _secure_channel_error(self) -> OpcuaSecurityError:
+        """The standing refusal, raised instead of going to the network since
+        ``@connected`` retries :meth:`connect` on every read while disconnected."""
+        return OpcuaSecurityError(
             f"Secure channel rejected by {self.config.endpoint_url}: "
             f"{self._secure_channel_rejection}"
         )
-        raise OpcuaSecurityError(msg) from cause
 
     def update_config(
         self, config: BaseTransportConfig | dict, *, reconnect: bool = True
     ) -> None:
-        # A refusal stands until something about the attempt changes, so a new
-        # config re-arms it — this is the operator's way back after trusting
-        # gridone's certificate server-side.
+        # A new config re-arms a refused transport: the operator's way back
+        # after trusting gridone's certificate server-side.
         self._secure_channel_rejection = None
         super().update_config(config, reconnect=reconnect)
 

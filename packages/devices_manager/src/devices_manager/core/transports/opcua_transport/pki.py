@@ -1,12 +1,8 @@
 """Application-instance PKI for the OPC-UA secure channel.
 
-An OPC-UA secure channel is mutual X.509 with its own handshake, not TLS: the
-client presents a long-lived *application-instance certificate* that an operator
-trusts once, server-side, on first connect. That trust survives only while the
-certificate does, so gridone generates one certificate for the whole instance and
-reuses it across restarts. Everything lives under one directory, which a
-deployment must mount persistently — a regenerated certificate has to be
-re-trusted on every server it talks to.
+One certificate identifies the whole gridone instance, reused across restarts:
+an operator trusts it once per server, and a regenerated one has to be
+re-trusted everywhere. The directory holding it must be mounted persistently.
 """
 
 import asyncio
@@ -48,10 +44,8 @@ def pki_dir() -> Path:
 async def ensure_client_certificate() -> tuple[Path, Path]:
     """Return ``(cert_file, key_file)``, generating them only on first use.
 
-    Delegates to asyncua, which rewrites either artifact when it is missing,
-    expired, or no longer matches :data:`APPLICATION_URI` — and otherwise leaves
-    the existing pair untouched, which is what keeps server-side trust valid
-    across restarts.
+    asyncua rewrites either artifact when it is missing, expired, or no longer
+    matches :data:`APPLICATION_URI`, and leaves an existing valid pair alone.
     """
     directory = pki_dir()
     key_file = directory / CLIENT_KEY_FILENAME
@@ -72,9 +66,8 @@ async def ensure_client_certificate() -> tuple[Path, Path]:
 def server_pin_path(endpoint_url: str) -> Path:
     """Where the trusted certificate for ``endpoint_url`` is pinned.
 
-    Keyed by a digest of the endpoint rather than by transport id, so two
-    transports pointing at the same server share one pin, and renaming or
-    recreating a transport does not silently drop the trust decision.
+    Keyed by endpoint digest, not transport id, so two transports pointing at one
+    server share a pin and recreating a transport keeps the trust decision.
     """
     digest = hashlib.sha256(endpoint_url.encode()).hexdigest()[:ENDPOINT_DIGEST_CHARS]
     return pki_dir() / SERVER_PINS_DIRNAME / f"{digest}.der"

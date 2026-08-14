@@ -43,14 +43,8 @@ def resolve_mode(name: SecurityModeName) -> ua.MessageSecurityMode:
 
 
 async def apply_security(client: Client, config: OpcuaTransportConfig) -> None:
-    """Configure ``client``'s secure channel. Must run before ``connect()``.
-
-    Trust is pin-on-first-use: the certificate a server presents on the first
-    connect is stored and required on every connect after that, so a swapped
-    server certificate is refused instead of being accepted silently. Deleting
-    the pin file re-arms the first-use step; an operator who wants strict trust
-    from the start can drop the expected certificate there instead.
-    """
+    """Configure ``client``'s secure channel, pin-on-first-use. Must run before
+    ``connect()``."""
     policy = resolve_policy(config.security_policy)
     mode = resolve_mode(config.security_mode)
     # Set here rather than for every session: it must match the URI SAN of the
@@ -80,13 +74,11 @@ async def _trusted_server_certificate(
 ) -> bytes:
     """Resolve the server certificate to trust, pinning it on first connect.
 
-    The advertised certificate is fetched even when a pin exists, so a mismatch
-    is caught here and reported. Left to the handshake, the same mismatch would
-    surface only as a connect timeout: the server silently fails to decrypt a
-    message sealed with the wrong public key, and a timeout is retryable, so the
-    transport would reconnect against an impostor forever instead of stopping.
+    Checked here rather than during the handshake, where a mismatch surfaces only
+    as a connect timeout — retryable, so the transport would reconnect against an
+    impostor indefinitely.
     """
-    advertised = await _discover_server_certificate(client, endpoint_url, policy, mode)
+    advertised = await _discover_server_certificate(client, policy, mode)
     pinned = await read_server_pin(endpoint_url)
     if pinned is None:
         await save_server_pin(endpoint_url, advertised)
@@ -96,9 +88,9 @@ async def _trusted_server_certificate(
         # certificate is indistinguishable from an impostor here, and deleting
         # this file is the only way to accept the new one.
         msg = (
-            f"Server certificate for {endpoint_url} does not match the one pinned "
-            f"at {server_pin_path(endpoint_url)}. Delete that file to trust the "
-            f"certificate the server presents now."
+            f"server certificate does not match the one pinned at "
+            f"{server_pin_path(endpoint_url)}. Delete that file to trust the "
+            f"certificate the server presents now"
         )
         raise OpcuaSecurityError(msg)
     return advertised
@@ -106,21 +98,19 @@ async def _trusted_server_certificate(
 
 async def _discover_server_certificate(
     client: Client,
-    endpoint_url: str,
     policy: type[security_policies.SecurityPolicy],
     mode: ua.MessageSecurityMode,
 ) -> bytes:
     """Read the certificate the endpoint advertises, over an unsecured throwaway
-    channel — all the discovery service needs, and all that is available before
-    a policy has been set."""
+    channel (all that is available before a policy is set)."""
     endpoints = await client.connect_and_get_server_endpoints()
     endpoint = Client.find_endpoint(endpoints, mode, policy.URI)
     # ServerCertificate may be a DER chain; x509_from_der takes the leaf, which
     # is the certificate the handshake is verified against.
     certificate = uacrypto.x509_from_der(endpoint.ServerCertificate)
     if certificate is None:
-        # x509_from_der yields None for empty DER. Left unguarded this would be
-        # an AttributeError, which reads as a transient fault and gets retried.
-        msg = f"Endpoint {endpoint_url} offers a secure policy but no certificate"
+        # x509_from_der yields None for empty DER; unguarded that is an
+        # AttributeError, which reads as transient and gets retried.
+        msg = "endpoint offers a secure policy but no certificate"
         raise OpcuaSecurityError(msg)
     return certificate.public_bytes(Encoding.DER)

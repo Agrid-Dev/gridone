@@ -4,10 +4,11 @@ from asyncua import ua
 
 from devices_manager.core.transports.base import TerminalConnectionError
 
-# Status codes a server returns when it refuses the secure channel itself. Each
-# one describes a standing condition — an untrusted or malformed client
-# certificate, or a policy/mode the server will not accept — that stays true for
-# every identical retry, so they are translated into a terminal failure.
+# Status codes naming a specific standing condition — an untrusted or malformed
+# client certificate, or a policy/mode the server will not accept — that stays
+# true for every identical retry. BadSecurityChecksFailed is deliberately absent:
+# servers also return it for transient channel faults, and a false terminal needs
+# an operator to clear it while a false retry only costs a reconnect.
 SECURE_CHANNEL_REJECTIONS = (
     ua.uaerrors.BadCertificateHostNameInvalid,
     ua.uaerrors.BadCertificateInvalid,
@@ -17,7 +18,6 @@ SECURE_CHANNEL_REJECTIONS = (
     ua.uaerrors.BadCertificateUriInvalid,
     ua.uaerrors.BadCertificateUseNotAllowed,
     ua.uaerrors.BadNoValidCertificates,
-    ua.uaerrors.BadSecurityChecksFailed,
     ua.uaerrors.BadSecurityModeInsufficient,
     ua.uaerrors.BadSecurityModeRejected,
     ua.uaerrors.BadSecurityPolicyRejected,
@@ -37,8 +37,13 @@ class OpcuaSecurityError(TerminalConnectionError):
 
 
 def is_secure_channel_rejection(exc: Exception) -> bool:
-    """Whether ``exc`` is a secure-channel refusal rather than a transient fault."""
-    if isinstance(exc, SECURE_CHANNEL_REJECTIONS):
+    """Whether ``exc`` is a secure-channel refusal rather than a transient fault.
+
+    Includes ``OpcuaSecurityError`` so refusals this package raises itself (a
+    server certificate that does not match the pin) are classified alongside the
+    ones the server reports.
+    """
+    if isinstance(exc, (OpcuaSecurityError, *SECURE_CHANNEL_REJECTIONS)):
         return True
     return isinstance(exc, ua.UaError) and NO_MATCHING_ENDPOINT_MESSAGE in str(exc)
 
