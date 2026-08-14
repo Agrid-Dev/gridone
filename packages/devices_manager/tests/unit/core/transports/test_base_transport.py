@@ -512,6 +512,71 @@ class TestConcreteTransportsDefaultToConcurrent:
         assert yielded_ids == {a.id for a in addresses}
 
 
+class _ReconnectCountingTransportClient(RecordingTransportClient):
+    """Counts connect()/close() calls, with a delay so a reconnect can be
+    observed as still in-flight."""
+
+    def __init__(self, *, connect_delay: float = 0.05) -> None:
+        super().__init__()
+        self.connect_calls = 0
+        self.close_calls = 0
+        self._connect_delay = connect_delay
+
+    async def connect(self) -> None:
+        await asyncio.sleep(self._connect_delay)
+        self.connect_calls += 1
+
+    async def close(self) -> None:
+        self.close_calls += 1
+        await super().close()
+
+
+class TestScheduleReconnect:
+    @pytest.mark.asyncio
+    async def test_concurrent_calls_do_not_race_a_second_close_connect_pair(
+        self,
+    ) -> None:
+        client = _ReconnectCountingTransportClient(connect_delay=0.05)
+
+        client.schedule_reconnect()
+        client.schedule_reconnect()  # arrives mid-flight, doesn't spawn a racing task
+        await asyncio.sleep(0.02)
+
+        assert client.connect_calls == 0  # still mid the first cycle's connect()
+        assert client.close_calls == 1  # not 2 — no second close() raced in
+
+    @pytest.mark.asyncio
+    async def test_a_call_arriving_mid_flight_still_runs_once_more_after(
+        self,
+    ) -> None:
+        # A call that lands while a reconnect is running must not be dropped
+        # (e.g. update_config() firing mid-reconnect) — it's coalesced into
+        # exactly one more cycle right after the in-flight one finishes.
+        client = _ReconnectCountingTransportClient(connect_delay=0.02)
+
+        client.schedule_reconnect()
+        client.schedule_reconnect()  # coalesced into one trailing cycle
+        client.schedule_reconnect()  # further calls don't add more cycles
+        await asyncio.sleep(0.1)
+
+        assert client.connect_calls == 2
+        assert client.close_calls == 2
+
+    @pytest.mark.asyncio
+    async def test_a_new_reconnect_can_run_after_the_previous_one_finishes(
+        self,
+    ) -> None:
+        client = _ReconnectCountingTransportClient(connect_delay=0.01)
+
+        client.schedule_reconnect()
+        await asyncio.sleep(0.05)
+        client.schedule_reconnect()
+        await asyncio.sleep(0.05)
+
+        assert client.connect_calls == 2
+        assert client.close_calls == 2
+
+
 class TestUpdateConfig:
     def test_partial_patch_merges_and_preserves_untouched_fields(self) -> None:
         # Regression: a partial config patch (only `ca_cert`) must

@@ -47,6 +47,8 @@ class TransportClient[T_TransportAddress: TransportAddress](ABC):
     # while already holding _read_lock, so the opposite order would deadlock.
     _read_lock: AbstractAsyncContextManager
     _background_tasks: set[Task]
+    _reconnect_task: Task | None
+    _reconnect_pending: bool
     _sweep_memo: SweepMemo
 
     def __init__(
@@ -59,6 +61,8 @@ class TransportClient[T_TransportAddress: TransportAddress](ABC):
         self.config = config
         self.metadata = metadata
         self._background_tasks = set()
+        self._reconnect_task = None
+        self._reconnect_pending = False
         self._sweep_memo = SweepMemo(self.id, self.protocol)
 
     @property
@@ -163,13 +167,30 @@ class TransportClient[T_TransportAddress: TransportAddress](ABC):
         await self.close()
 
     def schedule_reconnect(self) -> None:
+        """Fire-and-forget close+connect, single-flight: a call made while a
+        previous reconnect is still running never races a second
+        close()/connect() pair against it — it's coalesced into one more
+        cycle right after the in-flight one finishes, so a config update
+        (e.g. update_config()) that lands mid-reconnect still takes effect
+        instead of being silently dropped."""
+        if self._reconnect_task is not None and not self._reconnect_task.done():
+            self._reconnect_pending = True
+            return
+
         async def reconnect() -> None:
             await self.close()
             await self.connect()
 
         task = create_task(reconnect())
+        self._reconnect_task = task
         self._background_tasks.add(task)
         task.add_done_callback(self._background_tasks.discard)
+        task.add_done_callback(self._run_pending_reconnect)
+
+    def _run_pending_reconnect(self, _task: Task) -> None:
+        if self._reconnect_pending:
+            self._reconnect_pending = False
+            self.schedule_reconnect()
 
     def update_config(
         self, config: BaseTransportConfig | dict, *, reconnect: bool = True
