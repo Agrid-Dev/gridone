@@ -9,6 +9,7 @@ from asyncua import Client, Node, ua
 from asyncua.common.subscription import DataChangeNotif, Subscription
 
 from devices_manager.core.transports.base import (
+    BaseTransportConfig,
     PullTransportClient,
     PushTransportClient,
     dedupe_addresses,
@@ -23,8 +24,14 @@ from devices_manager.core.transports.transport_connection_state import (
 from devices_manager.core.transports.transport_metadata import TransportMetadata
 from devices_manager.types import AttributeValueType, TransportProtocols, TransportType
 
-from .errors import OpcuaNotConnectedError, translate_write_error
+from .errors import (
+    OpcuaNotConnectedError,
+    OpcuaSecurityError,
+    is_secure_channel_rejection,
+    translate_write_error,
+)
 from .opcua_address import OpcuaAddress
+from .security import apply_security
 from .transport_config import OpcuaTransportConfig
 from .variant_decode import decode_variant
 from .variant_encode import coerce_for_write
@@ -56,6 +63,9 @@ class OpcuaTransportClient(
         self._subscription = None
         self._monitored_items: dict[str, int] = {}
         self._next_client_handle = itertools.count(1)
+        # Set once a server refuses the secure channel, so later connects fail
+        # without touching the network until the config changes.
+        self._secure_channel_rejection: str | None = None
         super().__init__(metadata, config)
 
     def _require_client(self) -> Client:
@@ -78,6 +88,7 @@ class OpcuaTransportClient(
         async with self._connection_lock:
             if self.connection_state.is_connected:
                 return
+            self._raise_if_secure_channel_rejected()
             client = Client(
                 url=self.config.endpoint_url,
                 timeout=self.config.request_timeout,
@@ -89,18 +100,60 @@ class OpcuaTransportClient(
             client.connection_lost_callback = self._on_connection_lost
             try:
                 await asyncio.wait_for(
-                    client.connect(), timeout=self.config.connect_timeout
+                    self._establish_session(client),
+                    timeout=self.config.connect_timeout,
                 )
-            except Exception:
+            except Exception as e:
                 # A failed/timed-out connect() may still have opened a socket
                 # mid-handshake; self._client is only assigned below, so
                 # nothing else can clean it up.
                 with contextlib.suppress(Exception):
                     await client.disconnect()
+                if is_secure_channel_rejection(e):
+                    self._secure_channel_rejection = str(e)
+                    self._raise_if_secure_channel_rejected(cause=e)
                 raise
             self._client = client
             await super().connect()
             await self._resubscribe_all(client)
+
+    async def _establish_session(self, client: Client) -> None:
+        """Secure channel setup then session activation, under one timeout.
+
+        Both legs share ``connect_timeout``: the secure path adds a discovery
+        round-trip before the handshake, and leaving it outside the budget would
+        let a half-dead server stall a sweep for several times the configured
+        timeout.
+        """
+        if self.config.secure_channel_enabled:
+            await apply_security(client, self.config)
+        await client.connect()
+
+    def _raise_if_secure_channel_rejected(self, cause: Exception | None = None) -> None:
+        """Re-raise a standing refusal without retrying it over the network.
+
+        ``@connected`` calls :meth:`connect` on every read while the transport is
+        disconnected, so without this a rejected channel would re-run discovery
+        and the handshake once per address, per sweep — the storm that making
+        the error terminal is meant to prevent, only on the read path rather
+        than the reconnect path.
+        """
+        if self._secure_channel_rejection is None:
+            return
+        msg = (
+            f"Secure channel rejected by {self.config.endpoint_url}: "
+            f"{self._secure_channel_rejection}"
+        )
+        raise OpcuaSecurityError(msg) from cause
+
+    def update_config(
+        self, config: BaseTransportConfig | dict, *, reconnect: bool = True
+    ) -> None:
+        # A refusal stands until something about the attempt changes, so a new
+        # config re-arms it — this is the operator's way back after trusting
+        # gridone's certificate server-side.
+        self._secure_channel_rejection = None
+        super().update_config(config, reconnect=reconnect)
 
     async def close(self) -> None:
         # _read_lock is a nullcontext here (_serialize_reads=False), so it
