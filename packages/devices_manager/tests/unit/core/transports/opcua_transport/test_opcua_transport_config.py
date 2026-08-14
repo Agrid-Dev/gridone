@@ -7,6 +7,9 @@ from devices_manager.core.transports.opcua_transport.transport_config import (
     DEFAULT_KEEPALIVE_INTERVAL,
     DEFAULT_REQUEST_TIMEOUT,
     DEFAULT_SAMPLING_INTERVAL_MS,
+    DEFAULT_SECURITY_MODE,
+    DEFAULT_SECURITY_POLICY,
+    NO_SECURITY,
     OpcuaTransportConfig,
 )
 
@@ -43,6 +46,8 @@ def test_config_defaults() -> None:
     assert config.keepalive_interval == DEFAULT_KEEPALIVE_INTERVAL
     assert config.sampling_interval_ms == DEFAULT_SAMPLING_INTERVAL_MS
     assert config.deadband == DEFAULT_DEADBAND
+    assert config.security_policy == DEFAULT_SECURITY_POLICY == NO_SECURITY
+    assert config.security_mode == DEFAULT_SECURITY_MODE == NO_SECURITY
 
 
 def test_config_password_is_marked_secret() -> None:
@@ -100,4 +105,55 @@ def test_config_rejects_non_positive_sampling_interval() -> None:
         OpcuaTransportConfig(
             endpoint_url="opc.tcp://10.0.1.20:4840",
             sampling_interval_ms=0.0,
+        )
+
+
+@pytest.mark.parametrize(
+    "security_policy", ["Basic256Sha256", "Aes128Sha256RsaOaep", "Aes256Sha256RsaPss"]
+)
+@pytest.mark.parametrize("security_mode", ["Sign", "SignAndEncrypt"])
+def test_config_accepts_full_security_matrix(
+    security_policy: str, security_mode: str
+) -> None:
+    config = OpcuaTransportConfig(
+        endpoint_url="opc.tcp://10.0.1.20:4840",
+        security_policy=security_policy,  # type: ignore[arg-type]
+        security_mode=security_mode,  # type: ignore[arg-type]
+    )
+    assert config.security_policy == security_policy
+    assert config.security_mode == security_mode
+
+
+@pytest.mark.parametrize(
+    "security_policy", ["Basic128Rsa15", "Basic256", "basic256sha256"]
+)
+def test_config_rejects_unsupported_security_policy(security_policy: str) -> None:
+    with pytest.raises(ValidationError, match="security_policy"):
+        OpcuaTransportConfig(
+            endpoint_url="opc.tcp://10.0.1.20:4840",
+            security_policy=security_policy,  # type: ignore[arg-type]
+        )
+
+
+def test_config_rejects_unsupported_security_mode() -> None:
+    with pytest.raises(ValidationError, match="security_mode"):
+        OpcuaTransportConfig(
+            endpoint_url="opc.tcp://10.0.1.20:4840",
+            security_policy="Basic256Sha256",
+            security_mode="Encrypt",  # type: ignore[arg-type]
+        )
+
+
+@pytest.mark.parametrize(
+    ("security_policy", "security_mode"),
+    [("Basic256Sha256", NO_SECURITY), (NO_SECURITY, "SignAndEncrypt")],
+)
+def test_config_rejects_half_configured_security(
+    security_policy: str, security_mode: str
+) -> None:
+    with pytest.raises(ValidationError, match="security_policy and security_mode"):
+        OpcuaTransportConfig(
+            endpoint_url="opc.tcp://10.0.1.20:4840",
+            security_policy=security_policy,  # type: ignore[arg-type]
+            security_mode=security_mode,  # type: ignore[arg-type]
         )

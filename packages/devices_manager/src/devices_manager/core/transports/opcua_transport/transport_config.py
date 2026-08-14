@@ -19,6 +19,20 @@ DEFAULT_DEADBAND = 0.0  # 0 = notify on every change, no deadband filtering
 
 ENDPOINT_URL_SCHEME = "opc.tcp://"
 
+# OPC-UA spells the "no security" member of both enumerations "None"; it is the
+# one value the two fields must agree on (a policy without a mode, or a mode
+# without a policy, is not a channel any server can offer).
+NO_SECURITY = "None"
+DEFAULT_SECURITY_POLICY = NO_SECURITY
+DEFAULT_SECURITY_MODE = NO_SECURITY
+
+# Deprecated policies (Basic128Rsa15, Basic256) are deliberately absent: the OPC
+# Foundation withdrew them, and offering them invites a downgrade.
+type SecurityPolicyName = Literal[
+    "None", "Basic256Sha256", "Aes128Sha256RsaOaep", "Aes256Sha256RsaPss"
+]
+type SecurityModeName = Literal["None", "Sign", "SignAndEncrypt"]
+
 
 def validate_endpoint_url(v: str) -> str:
     if not v.startswith(ENDPOINT_URL_SCHEME):
@@ -39,6 +53,12 @@ class OpcuaTransportConfig(BaseTransportConfig):
     keepalive_interval: PositiveFloat = DEFAULT_KEEPALIVE_INTERVAL
     sampling_interval_ms: PositiveFloat = DEFAULT_SAMPLING_INTERVAL_MS
     deadband: NonNegativeFloat = DEFAULT_DEADBAND
+    security_policy: SecurityPolicyName = DEFAULT_SECURITY_POLICY
+    security_mode: SecurityModeName = DEFAULT_SECURITY_MODE
+
+    @property
+    def secure_channel_enabled(self) -> bool:
+        return self.security_policy != NO_SECURITY
 
     @model_validator(mode="after")
     def _check_username_password(self) -> "OpcuaTransportConfig":
@@ -47,6 +67,16 @@ class OpcuaTransportConfig(BaseTransportConfig):
             msg = (
                 "username and password are required when auth_mode is "
                 "'username_password'"
+            )
+            raise ValueError(msg)
+        return self
+
+    @model_validator(mode="after")
+    def _check_security_policy_and_mode(self) -> "OpcuaTransportConfig":
+        if (self.security_policy == NO_SECURITY) != (self.security_mode == NO_SECURITY):
+            msg = (
+                f"security_policy and security_mode must both be '{NO_SECURITY}' "
+                f"or both be set"
             )
             raise ValueError(msg)
         return self
