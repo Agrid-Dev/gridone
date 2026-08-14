@@ -18,17 +18,6 @@ DEFAULT_NAMESPACE_INDEX = 0
 # or "ns = 2 ; s = Chiller.SupplyTemp".
 opcua_node_id_regex = r"^(?:ns\s*=\s*(\d+)\s*;\s*)?(i|s|g|b)\s*=\s*(.+)$"
 
-# ua.NodeId -> our identifier_type letter, for mapping a subscription
-# notification's NodeId back to the canonical address id (see from_node_id).
-_NODE_ID_TYPE_TO_IDENTIFIER_TYPE: dict[ua.NodeIdType, OpcuaIdentifierType] = {
-    ua.NodeIdType.Numeric: "i",
-    ua.NodeIdType.TwoByte: "i",
-    ua.NodeIdType.FourByte: "i",
-    ua.NodeIdType.String: "s",
-    ua.NodeIdType.Guid: "g",
-    ua.NodeIdType.ByteString: "b",
-}
-
 
 class OpcuaAddress(BaseModel, PushTransportAddress):
     namespace_index: int = DEFAULT_NAMESPACE_INDEX
@@ -62,19 +51,12 @@ class OpcuaAddress(BaseModel, PushTransportAddress):
 
     @classmethod
     def from_node_id(cls, node_id: ua.NodeId) -> "OpcuaAddress":
-        """NodeId -> address, matching `.id`'s format (unlike asyncua's own
-        `to_string()`, which omits `ns=0`)."""
-        identifier_type = _NODE_ID_TYPE_TO_IDENTIFIER_TYPE[node_id.NodeIdType]
-        identifier: int | str = (
-            int(node_id.Identifier)
-            if identifier_type == "i"
-            else str(node_id.Identifier)
-        )
-        return cls(
-            namespace_index=node_id.NamespaceIndex,
-            identifier_type=identifier_type,
-            identifier=identifier,
-        )
+        """NodeId -> address. Reuses asyncua's `to_string()`, adding back
+        the `ns=0` prefix it omits."""
+        node_id_str = node_id.to_string()
+        if node_id.NamespaceIndex == 0:
+            node_id_str = f"ns=0;{node_id_str}"
+        return cls.from_str(node_id_str)
 
     @classmethod
     def from_dict(
