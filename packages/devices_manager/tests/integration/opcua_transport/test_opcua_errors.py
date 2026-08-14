@@ -12,6 +12,7 @@ from devices_manager.core.transports.opcua_transport.transport_config import (
     OpcuaTransportConfig,
 )
 from devices_manager.core.transports.read_result import ReadError
+from devices_manager.core.transports.transport_connection_state import ConnectionStatus
 from devices_manager.core.transports.transport_metadata import TransportMetadata
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.integration]
@@ -100,6 +101,15 @@ async def test_session_loss_triggers_schedule_reconnect(
     with patch.object(opcua_client, "schedule_reconnect") as spy:
         await opcua_client._on_connection_lost(ConnectionError("session lost"))  # noqa: SLF001
     spy.assert_called_once()
+
+
+async def test_session_loss_surfaces_connection_error_state(
+    opcua_client: OpcuaTransportClient,
+) -> None:
+    with patch.object(opcua_client, "schedule_reconnect"):
+        await opcua_client._on_connection_lost(ConnectionError("session lost"))  # noqa: SLF001
+
+    assert opcua_client.connection_state.status == ConnectionStatus.ERROR
 
 
 async def test_in_flight_read_survives_concurrent_connection_loss(

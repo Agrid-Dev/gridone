@@ -64,3 +64,21 @@ def test_remove_with_address_id_is_idempotent() -> None:
     listener_id = registry.register(address_id, mock_callback)
     registry.remove(listener_id, address_id)
     registry.remove(listener_id, address_id)  # should not throw (idempotency)
+
+
+def test_address_ids_returns_addresses_with_active_listeners() -> None:
+    registry = ListenerRegistry()
+    registry.register("address_A", mock_callback)
+    registry.register("address_B", mock_callback_2)
+
+    assert set(registry.address_ids()) == {"address_A", "address_B"}
+
+
+def test_address_ids_excludes_addresses_with_no_remaining_listeners() -> None:
+    registry = ListenerRegistry()
+    listener_id = registry.register("address_A", mock_callback)
+    registry.register("address_B", mock_callback_2)
+
+    registry.remove(listener_id, "address_A")
+
+    assert registry.address_ids() == {"address_B"}
