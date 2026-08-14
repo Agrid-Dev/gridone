@@ -100,6 +100,7 @@ class OpcuaTransportClient(
                 raise
             self._client = client
             await super().connect()
+            await self._resubscribe_all(client)
 
     async def close(self) -> None:
         # _read_lock is a nullcontext here (_serialize_reads=False), so it
@@ -126,6 +127,27 @@ class OpcuaTransportClient(
                     )
                 self._client = None
             await super().close()
+
+    async def _resubscribe_all(self, client: Client) -> None:
+        """Recreate MonitoredItems for every listened address after a
+        reconnect — close() clears them but not the ListenerRegistry."""
+        address_ids = self._handlers_registry.address_ids()
+        if not address_ids:
+            return
+        subscription = await self._ensure_subscription(client)
+        for topic in address_ids:
+            try:
+                node = client.get_node(topic)
+                server_handle = await self._create_monitored_item(subscription, node)
+            except Exception:  # noqa: BLE001
+                logger.warning(
+                    "[Transport %s] failed to resubscribe %s after reconnect",
+                    self.id,
+                    topic,
+                    exc_info=True,
+                )
+                continue
+            self._monitored_items[topic] = server_handle
 
     async def _on_connection_lost(self, exc: Exception) -> None:
         """asyncua's hook for a session lost outside a request."""
@@ -210,17 +232,20 @@ class OpcuaTransportClient(
         async with self._connection_lock:
             client = self._require_client()
             if topic not in self._monitored_items:
-                subscription = await self._ensure_subscription(client)
+                # Parsed before creating a subscription — a malformed topic
+                # must not leave one dangling, unused, on the server.
                 node = client.get_node(topic)
+                subscription = await self._ensure_subscription(client)
                 try:
                     server_handle = await self._create_monitored_item(
                         subscription, node
                     )
                 except Exception:
-                    # A freshly created subscription that never got a working
-                    # item would otherwise leak on the server.
+                    # Best-effort: delete() failing must not shadow the
+                    # original error (e.g. BadNodeIdUnknown).
                     if not self._monitored_items:
-                        await subscription.delete()
+                        with contextlib.suppress(Exception):
+                            await subscription.delete()
                         self._subscription = None
                     raise
                 self._monitored_items[topic] = server_handle
@@ -242,11 +267,15 @@ class OpcuaTransportClient(
             if server_handle is not None:
                 await self._subscription.unsubscribe(server_handle)
             if not self._monitored_items:
-                await self._subscription.delete()
+                # Best-effort: delete() failing must not block cleanup.
+                with contextlib.suppress(Exception):
+                    await self._subscription.delete()
                 self._subscription = None
 
     async def _ensure_subscription(self, client: Client) -> Subscription:
-        if self._subscription is None:
+        # is_deleted guards against a dangling deleted Subscription, which
+        # would otherwise fail every create_monitored_items forever.
+        if self._subscription is None or self._subscription.is_deleted:
             self._subscription = await client.create_subscription(
                 self.config.sampling_interval_ms, self
             )
@@ -293,10 +322,28 @@ class OpcuaTransportClient(
         val: object,  # noqa: ARG002 — ignored, decoded from `data` below instead
         data: DataChangeNotif,
     ) -> None:
-        """asyncua's subscription callback hook, run in its own task."""
+        """asyncua's subscription callback hook. Unlike the poll path, only a
+        Bad status drops the value — Uncertain is still usable."""
         address_id = OpcuaAddress.from_node_id(node.nodeid).id
+        status = data.monitored_item.Value.StatusCode
+        if status is not None and status.is_bad():
+            logger.warning(
+                "[Transport %s] dropped bad-quality datachange for %s (%s)",
+                self.id,
+                address_id,
+                status.name,
+            )
+            return
+        raw_value = data.monitored_item.Value.Value
+        if raw_value is None:
+            logger.warning(
+                "[Transport %s] datachange notification for %s carried no value",
+                self.id,
+                address_id,
+            )
+            return
         try:
-            value = self._extract_value(data.monitored_item.Value)
+            value = decode_variant(raw_value)
         except Exception:  # noqa: BLE001
             logger.warning(
                 "[Transport %s] failed to decode datachange notification for %s",

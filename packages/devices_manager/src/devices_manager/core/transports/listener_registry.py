@@ -53,3 +53,11 @@ class ListenerRegistry:
             self.get_by_id(listener_id)
             for listener_id in self._mapping_by_address[address_id]
         }
+
+    def address_ids(self) -> set[str]:
+        """Address ids that currently have at least one live listener."""
+        return {
+            address_id
+            for address_id, listener_ids in self._mapping_by_address.items()
+            if listener_ids
+        }

@@ -10,6 +10,21 @@ from devices_manager.core.transports.opcua_transport.client import OpcuaTranspor
 pytestmark = [pytest.mark.asyncio, pytest.mark.integration]
 
 
+async def _write_with_status(
+    server: OpcuaServerHandle,
+    name: str,
+    value: object,
+    variant_type: ua.VariantType,
+    status_code: int,
+) -> None:
+    node = server.nodes[name]
+    data_value = ua.DataValue(
+        Value=ua.Variant(value, variant_type),
+        StatusCode=ua.StatusCode(status_code),  # ty: ignore[invalid-argument-type]
+    )
+    await node.write_value(data_value)
+
+
 async def _wait_for(event: asyncio.Event, *, timeout_s: float = 5.0) -> None:
     await asyncio.wait_for(event.wait(), timeout=timeout_s)
 
@@ -159,3 +174,145 @@ async def test_unregister_listener_twice_is_idempotent(
 
     await opcua_client.unregister_listener(listener_id, address.topic)
     await opcua_client.unregister_listener(listener_id, address.topic)  # must not raise
+
+
+async def test_reconnect_resubscribes_existing_listeners(
+    opcua_client: OpcuaTransportClient, opcua_server: OpcuaServerHandle
+) -> None:
+    """close() clears _subscription/_monitored_items but not the
+    ListenerRegistry — connect() must resubscribe or push silently stops."""
+    address = string_address(opcua_server.idx, "Int32")
+    received: list[object] = []
+    event = asyncio.Event()
+
+    def on_change(value: object) -> None:
+        received.append(value)
+        if value == 55:
+            event.set()
+
+    await opcua_client.register_listener(address.topic, on_change)
+
+    await opcua_client.close()
+    await opcua_client.connect()
+
+    assert address.topic in opcua_client._monitored_items  # noqa: SLF001
+    await opcua_server.nodes["Int32"].write_value(55, ua.VariantType.Int32)
+    await _wait_for(event)
+    assert received[-1] == 55
+
+
+async def test_reconnect_with_no_listeners_does_not_create_subscription(
+    opcua_client: OpcuaTransportClient,
+) -> None:
+    await opcua_client.close()
+    await opcua_client.connect()
+    assert opcua_client._subscription is None  # noqa: SLF001
+
+
+async def test_register_listener_with_malformed_topic_leaves_no_subscription(
+    opcua_client: OpcuaTransportClient,
+) -> None:
+    """A parse failure must not leave a dangling, unused Subscription."""
+    with pytest.raises(ua.uaerrors.UaStringParsingError):
+        await opcua_client.register_listener("not-a-nodeid", _noop)
+    assert opcua_client._subscription is None  # noqa: SLF001
+
+
+async def test_datachange_with_uncertain_status_is_still_delivered(
+    opcua_client: OpcuaTransportClient, opcua_server: OpcuaServerHandle
+) -> None:
+    """Uncertain still carries a usable value — only Bad should be dropped."""
+    address = string_address(opcua_server.idx, "Int32")
+    received: list[object] = []
+    event = asyncio.Event()
+
+    def on_change(value: object) -> None:
+        received.append(value)
+        if value == 88:
+            event.set()
+
+    await opcua_client.register_listener(address.topic, on_change)
+    await _write_with_status(
+        opcua_server,
+        "Int32",
+        88,
+        ua.VariantType.Int32,
+        ua.StatusCodes.UncertainLastUsableValue,
+    )
+
+    await _wait_for(event)
+    assert received[-1] == 88
+
+
+async def test_datachange_with_bad_status_is_dropped_not_delivered(
+    opcua_client: OpcuaTransportClient, opcua_server: OpcuaServerHandle
+) -> None:
+    address = string_address(opcua_server.idx, "Int32")
+    received: list[object] = []
+
+    await opcua_client.register_listener(address.topic, received.append)
+    await _write_with_status(
+        opcua_server, "Int32", 77, ua.VariantType.Int32, ua.StatusCodes.BadSensorFailure
+    )
+
+    # No event to wait on for an absence — sleep past the sampling interval.
+    await asyncio.sleep(1.5)
+    assert 77 not in received
+
+
+async def test_register_listener_delete_failure_does_not_shadow_original_error(
+    opcua_client: OpcuaTransportClient,
+    opcua_server: OpcuaServerHandle,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """delete()'s own error must not shadow the original BadNodeIdUnknown."""
+
+    async def failing_delete(_self: object) -> None:
+        raise RuntimeError("boom from delete")  # noqa: TRY003
+
+    monkeypatch.setattr(
+        "asyncua.common.subscription.Subscription.delete", failing_delete
+    )
+    address = string_address(opcua_server.idx, "DoesNotExist")
+
+    with pytest.raises(ua.uaerrors.BadNodeIdUnknown):
+        await opcua_client.register_listener(address.topic, _noop)
+    assert opcua_client._subscription is None  # noqa: SLF001
+
+
+async def test_unregister_last_listener_delete_failure_does_not_raise(
+    opcua_client: OpcuaTransportClient,
+    opcua_server: OpcuaServerHandle,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Same as register_listener: a delete() failure must not raise here."""
+    address = string_address(opcua_server.idx, "Int32")
+    listener_id = await opcua_client.register_listener(address.topic, _noop)
+
+    async def failing_delete(_self: object) -> None:
+        raise RuntimeError("boom from delete")  # noqa: TRY003
+
+    monkeypatch.setattr(
+        "asyncua.common.subscription.Subscription.delete", failing_delete
+    )
+
+    await opcua_client.unregister_listener(listener_id, address.topic)  # must not raise
+    assert opcua_client._subscription is None  # noqa: SLF001
+
+
+async def test_ensure_subscription_recreates_after_dangling_deleted_subscription(
+    opcua_client: OpcuaTransportClient, opcua_server: OpcuaServerHandle
+) -> None:
+    """A dangling deleted Subscription must be detected via is_deleted and
+    recreated, not reused."""
+    address = string_address(opcua_server.idx, "Int32")
+    await opcua_client.register_listener(address.topic, _noop)
+    dead_subscription = opcua_client._subscription  # noqa: SLF001
+    assert dead_subscription is not None
+    await dead_subscription.delete()
+    opcua_client._monitored_items.clear()  # noqa: SLF001 — force re-subscribe below
+
+    await opcua_client.register_listener(address.topic, _noop)
+
+    assert opcua_client._subscription is not None  # noqa: SLF001
+    assert opcua_client._subscription is not dead_subscription  # noqa: SLF001
