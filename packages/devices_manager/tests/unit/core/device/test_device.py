@@ -348,6 +348,32 @@ class TestDeviceWrite:
 
 class TestDevicesListeners:
     @pytest.mark.asyncio
+    async def test_hybrid_transport_only_subscribes_opted_in_attributes(
+        self,
+        mock_hybrid_push_transport_client,
+        driver_w_hybrid_push_transport,
+    ):
+        """push_is_opt_in transports (e.g. OPC-UA) must not subscribe every
+        attribute like a push-only transport does — only ones with
+        AttributeDriver.push=True."""
+        device = CoreDevice.from_base(
+            DeviceBase(id="d3", name="My hybrid device", config={}),
+            driver=driver_w_hybrid_push_transport,
+            transport=mock_hybrid_push_transport_client,
+        )
+        await device.init_listeners()
+
+        await mock_hybrid_push_transport_client.simulate_event(
+            "/xx/temperature", {"payload": {"temperature": 25}}
+        )
+        await mock_hybrid_push_transport_client.simulate_event(
+            "/xx/humidity", {"payload": {"humidity": 40}}
+        )
+
+        assert device.attributes["pushed_temperature"].current_value == 25
+        assert device.attributes["polled_only_humidity"].current_value is None
+
+    @pytest.mark.asyncio
     async def test_devices_updates_on_listen(
         self, device_w_push_transport: CoreDevice, mock_push_transport_client
     ):

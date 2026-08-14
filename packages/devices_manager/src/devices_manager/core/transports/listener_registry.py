@@ -33,7 +33,8 @@ class ListenerRegistry:
         with contextlib.suppress(KeyError):
             del self._listeners[listener_id]
         if address_id is not None:
-            self._mapping_by_address[address_id].remove(listener_id)
+            with contextlib.suppress(KeyError):
+                self._mapping_by_address[address_id].remove(listener_id)
         else:
             for address, listener_ids in self._mapping_by_address.items():
                 if listener_id in listener_ids:
@@ -51,4 +52,12 @@ class ListenerRegistry:
         return {
             self.get_by_id(listener_id)
             for listener_id in self._mapping_by_address[address_id]
+        }
+
+    def address_ids(self) -> set[str]:
+        """Address ids that currently have at least one live listener."""
+        return {
+            address_id
+            for address_id, listener_ids in self._mapping_by_address.items()
+            if listener_ids
         }

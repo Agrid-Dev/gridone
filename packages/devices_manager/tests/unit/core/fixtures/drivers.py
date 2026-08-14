@@ -175,6 +175,43 @@ def driver_w_push_transport(push_attributes: list[AttributeDriver]) -> Driver:
 
 
 @pytest.fixture
+def hybrid_push_attributes() -> list[AttributeDriver]:
+    """One opted-in attribute (push: true) and one left at the default
+    (push: false), for a pull+push transport with push_is_opt_in."""
+    return [
+        AttributeDriver(
+            name="pushed_temperature",
+            data_type=DataType.FLOAT,
+            read={"topic": "/xx/temperature"},
+            write=None,
+            codecs=[CodecSpec(name="json_pointer", argument="/payload/temperature")],
+            push=True,
+        ),
+        AttributeDriver(
+            name="polled_only_humidity",
+            data_type=DataType.FLOAT,
+            read={"topic": "/xx/humidity"},
+            write=None,
+            codecs=[CodecSpec(name="json_pointer", argument="/payload/humidity")],
+        ),
+    ]
+
+
+@pytest.fixture
+def driver_w_hybrid_push_transport(
+    hybrid_push_attributes: list[AttributeDriver],
+) -> Driver:
+    return Driver(
+        metadata=DriverMetadata(id="test_hybrid_push_driver"),
+        env={},
+        device_config_required=[],
+        transport=TransportProtocols.OPCUA,
+        update_strategy=UpdateStrategy(),
+        attributes={attribute.name: attribute for attribute in hybrid_push_attributes},
+    )
+
+
+@pytest.fixture
 def webhook_driver() -> Driver:
     """Push-only snapshot driver: both attributes subscribe to a templated
     topic and decode their own field from the pushed JSON."""

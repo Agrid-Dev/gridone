@@ -56,3 +56,11 @@ def test_remove() -> None:
         registry.get_by_id(listener_id_2)
     assert len(registry.get_by_address_id(address_id)) == 0
     registry.remove(listener_id_2)  # should not throw (idempotency)
+
+
+def test_remove_with_address_id_is_idempotent() -> None:
+    registry = ListenerRegistry()
+    address_id = "address_A"
+    listener_id = registry.register(address_id, mock_callback)
+    registry.remove(listener_id, address_id)
+    registry.remove(listener_id, address_id)  # should not throw (idempotency)

@@ -1,11 +1,12 @@
 import re
 from typing import Literal
 
-from pydantic import BaseModel, ValidationInfo, field_validator
+from asyncua import ua
+from pydantic import BaseModel, ValidationInfo, field_validator, model_validator
 
 from devices_manager.core.transports.transport_address import (
+    PushTransportAddress,
     RawTransportAddress,
-    TransportAddress,
 )
 
 OpcuaIdentifierType = Literal["i", "s", "g", "b"]
@@ -18,10 +19,13 @@ DEFAULT_NAMESPACE_INDEX = 0
 opcua_node_id_regex = r"^(?:ns\s*=\s*(\d+)\s*;\s*)?(i|s|g|b)\s*=\s*(.+)$"
 
 
-class OpcuaAddress(BaseModel, TransportAddress):
+class OpcuaAddress(BaseModel, PushTransportAddress):
     namespace_index: int = DEFAULT_NAMESPACE_INDEX
     identifier_type: OpcuaIdentifierType
     identifier: int | str
+    # Always equals `.id` (set below); a `@property` here would collide with
+    # PushTransportAddress's `topic: str` field annotation.
+    topic: str = ""
 
     @field_validator("identifier", mode="after")
     @classmethod
@@ -36,9 +40,23 @@ class OpcuaAddress(BaseModel, TransportAddress):
             msg = f"Invalid OPC-UA numeric identifier: {v}"
             raise ValueError(msg) from e
 
+    @model_validator(mode="after")
+    def _set_topic_to_id(self) -> "OpcuaAddress":
+        self.topic = self.id
+        return self
+
     @property
     def id(self) -> str:
         return f"ns={self.namespace_index};{self.identifier_type}={self.identifier}"
+
+    @classmethod
+    def from_node_id(cls, node_id: ua.NodeId) -> "OpcuaAddress":
+        """NodeId -> address. Reuses asyncua's `to_string()`, adding back
+        the `ns=0` prefix it omits."""
+        node_id_str = node_id.to_string()
+        if node_id.NamespaceIndex == 0:
+            node_id_str = f"ns=0;{node_id_str}"
+        return cls.from_str(node_id_str)
 
     @classmethod
     def from_dict(

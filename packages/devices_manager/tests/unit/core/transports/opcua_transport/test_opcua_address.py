@@ -1,4 +1,7 @@
+import uuid
+
 import pytest
+from asyncua import ua
 
 from devices_manager.core.transports.opcua_transport.opcua_address import (
     OpcuaAddress,
@@ -115,3 +118,48 @@ def test_opcua_address_numeric_identifier_normalized_from_dict() -> None:
     address = OpcuaAddress.from_dict({"ns": 4, "i": "1042"})
     assert address.identifier == 1042
     assert address == NUMERIC_ADDRESS
+
+
+def test_opcua_address_topic_is_id() -> None:
+    assert STRING_ADDRESS.topic == STRING_ADDRESS.id
+
+
+@pytest.mark.parametrize(
+    ("node_id", "expected"),
+    [
+        # asyncua's Int16/Int32/String are int/str subclasses; plain values
+        # work at runtime (ty: ignore[invalid-argument-type] below).
+        (ua.NodeId(1042, 4, ua.NodeIdType.Numeric), NUMERIC_ADDRESS),  # ty: ignore[invalid-argument-type]
+        (
+            ua.NodeId("Chiller.SupplyTemp", 2, ua.NodeIdType.String),  # ty: ignore[invalid-argument-type]
+            STRING_ADDRESS,
+        ),
+        (ua.NodeId("ServerStatus", 0, ua.NodeIdType.String), DEFAULT_NS_ADDRESS),  # ty: ignore[invalid-argument-type]
+    ],
+)
+def test_opcua_address_from_node_id(node_id: ua.NodeId, expected: OpcuaAddress) -> None:
+    assert OpcuaAddress.from_node_id(node_id).id == expected.id
+
+
+def test_opcua_address_from_node_id_matches_id_for_default_namespace() -> None:
+    """asyncua's own NodeId.to_string() omits ns=0; .id never does — this is
+    the specific mismatch from_node_id must not reproduce."""
+    node_id = ua.NodeId(2267, 0, ua.NodeIdType.Numeric)  # ty: ignore[invalid-argument-type]
+    assert node_id.to_string() == "i=2267"
+    assert OpcuaAddress.from_node_id(node_id).id == "ns=0;i=2267"
+
+
+def test_opcua_address_from_node_id_bytestring_round_trips_to_base64() -> None:
+    """asyncua decodes ByteString identifiers to raw bytes; must still
+    round-trip to the base64 form OPAQUE_ADDRESS.id uses."""
+    opaque_bytes = (
+        b"3\xf4[(\x1b\x11VG\x8f\t\xe3\xdc\xc7n(D"  # decode of OPAQUE_ADDRESS's b64
+    )
+    node_id = ua.NodeId(opaque_bytes, 1, ua.NodeIdType.ByteString)  # ty: ignore[invalid-argument-type]
+    assert OpcuaAddress.from_node_id(node_id).id == OPAQUE_ADDRESS.id
+
+
+def test_opcua_address_from_node_id_guid_round_trips_lowercase() -> None:
+    guid = uuid.UUID("09087e75-8e5e-499b-954f-f2a9603db28a")
+    node_id = ua.NodeId(guid, 1, ua.NodeIdType.Guid)  # ty: ignore[invalid-argument-type]
+    assert OpcuaAddress.from_node_id(node_id).id == GUID_ADDRESS.id

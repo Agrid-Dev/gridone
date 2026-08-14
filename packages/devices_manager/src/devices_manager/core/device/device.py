@@ -265,6 +265,8 @@ class CoreDevice:
             if attribute.kind == AttributeKind.INTERNAL:
                 continue
             attribute_driver = self.driver.attributes[attribute.name]
+            if self.transport.push_is_opt_in and not attribute_driver.push:
+                continue
             codec = attribute_driver.codec
             address = self.transport.build_address(
                 render_struct(attribute_driver.read, context), context

@@ -195,6 +195,11 @@ class PushTransportClient[T_PushTransportAddress: PushTransportAddress](
     TransportClient[T_PushTransportAddress]
 ):
     transport_type: ClassVar[TransportType] = TransportType.PUSH
+    # Push-only transports (MQTT, KNX, Webhook) need every attribute
+    # subscribed — polling isn't an alternative for them. A hybrid transport
+    # (pull + push, e.g. OPC-UA) sets this True so CoreDevice.init_listeners
+    # only subscribes attributes explicitly opted in via AttributeDriver.push.
+    push_is_opt_in: ClassVar[bool] = False
 
     @abstractmethod
     async def register_listener(self, topic: str, callback: ListenerCallback) -> str:
