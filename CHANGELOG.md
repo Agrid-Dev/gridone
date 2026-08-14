@@ -1,3 +1,13 @@
+## v0.208.0 (2026-08-14)
+
+### Feat
+
+- **opcua**: push client — Subscriptions/MonitoredItems + listener registry (#547)
+
+### Fix
+
+- **opcua**: session recovery — reconnect + resubscribe (#549)
+
 ## v0.207.0 (2026-08-13)
 
 ### Feat
