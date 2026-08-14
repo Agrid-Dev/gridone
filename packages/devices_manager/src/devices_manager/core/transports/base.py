@@ -178,8 +178,18 @@ class TransportClient[T_TransportAddress: TransportAddress](ABC):
             return
 
         async def reconnect() -> None:
-            await self.close()
-            await self.connect()
+            try:
+                await self.close()
+                await self.connect()
+            except Exception:  # noqa: BLE001
+                # Nothing else retries a failed connect() here, so coalesce
+                # one more attempt via the same pending mechanism.
+                logger.warning(
+                    "[Transport %s] reconnect attempt failed, retrying",
+                    self.id,
+                    exc_info=True,
+                )
+                self._reconnect_pending = True
 
         task = create_task(reconnect())
         self._reconnect_task = task

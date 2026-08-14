@@ -514,17 +514,23 @@ class TestConcreteTransportsDefaultToConcurrent:
 
 class _ReconnectCountingTransportClient(RecordingTransportClient):
     """Counts connect()/close() calls, with a delay so a reconnect can be
-    observed as still in-flight."""
+    observed as still in-flight. `fail_connects` makes the first N connect()
+    calls raise before succeeding."""
 
-    def __init__(self, *, connect_delay: float = 0.05) -> None:
+    def __init__(self, *, connect_delay: float = 0.05, fail_connects: int = 0) -> None:
         super().__init__()
         self.connect_calls = 0
         self.close_calls = 0
         self._connect_delay = connect_delay
+        self._fail_connects = fail_connects
 
     async def connect(self) -> None:
         await asyncio.sleep(self._connect_delay)
         self.connect_calls += 1
+        if self._fail_connects > 0:
+            self._fail_connects -= 1
+            msg = "boom"
+            raise ConnectionError(msg)
 
     async def close(self) -> None:
         self.close_calls += 1
@@ -572,6 +578,16 @@ class TestScheduleReconnect:
         await asyncio.sleep(0.05)
         client.schedule_reconnect()
         await asyncio.sleep(0.05)
+
+        assert client.connect_calls == 2
+        assert client.close_calls == 2
+
+    @pytest.mark.asyncio
+    async def test_a_failed_connect_is_retried_once_more(self) -> None:
+        client = _ReconnectCountingTransportClient(connect_delay=0.01, fail_connects=1)
+
+        client.schedule_reconnect()
+        await asyncio.sleep(0.1)
 
         assert client.connect_calls == 2
         assert client.close_calls == 2
