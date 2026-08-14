@@ -57,7 +57,7 @@ async def _simulate_outage_and_recover(
 async def test_reconnect_resubscribes_without_re_registering_listeners(
     opcua_client: OpcuaTransportClient, opcua_server: OpcuaServerHandle
 ) -> None:
-    """AC: kill/restart the server mid-subscription -> updates resume
+    """Kill/restart the server mid-subscription -> updates resume
     automatically, without the test re-registering the listener."""
     address = string_address(opcua_server.idx, "Int32")
     received: list[object] = []
@@ -83,10 +83,45 @@ async def test_reconnect_resubscribes_without_re_registering_listeners(
     assert received[-1] == 99
 
 
+async def test_one_address_failing_to_resubscribe_does_not_block_the_others(
+    opcua_client: OpcuaTransportClient, opcua_server: OpcuaServerHandle
+) -> None:
+    """One listened address failing to resubscribe must not stop the others
+    from resubscribing. `_restart_server` only recreates the Int32 node, so
+    a listener on String has nothing to resubscribe to on the new server."""
+    ok_address = string_address(opcua_server.idx, "Int32")
+    missing_address = string_address(opcua_server.idx, "String")
+    received: list[object] = []
+    event = asyncio.Event()
+
+    def on_change(value: object) -> None:
+        received.append(value)
+        if value == 99:
+            event.set()
+
+    await opcua_client.register_listener(ok_address.topic, on_change)
+    await opcua_client.register_listener(missing_address.topic, lambda _v: None)
+
+    new_server, new_node = await _simulate_outage_and_recover(
+        opcua_client, opcua_server.server, opcua_server.endpoint, opcua_server.idx
+    )
+    try:
+        assert ok_address.topic in opcua_client._monitored_items  # noqa: SLF001
+        assert missing_address.topic not in opcua_client._monitored_items  # noqa: SLF001
+
+        await new_node.write_value(99, ua.VariantType.Int32)
+        await asyncio.wait_for(event.wait(), timeout=5)
+    finally:
+        with contextlib.suppress(Exception):
+            await new_server.stop()
+
+    assert received[-1] == 99
+
+
 async def test_repeated_outage_cycles_leak_no_monitored_items_or_listeners(
     opcua_client: OpcuaTransportClient, opcua_server: OpcuaServerHandle
 ) -> None:
-    """AC: repeated outage cycles must not accumulate MonitoredItems or
+    """Repeated outage cycles must not accumulate MonitoredItems or
     listeners — each cycle tears the old session down and rebuilds exactly
     the state that was there before, not more."""
     address = string_address(opcua_server.idx, "Int32")
