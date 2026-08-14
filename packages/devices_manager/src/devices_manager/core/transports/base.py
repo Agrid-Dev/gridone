@@ -24,6 +24,21 @@ from .transport_metadata import TransportMetadata
 logger = logging.getLogger(__name__)
 
 
+class TerminalConnectionError(ConnectionError):
+    """A connection failure that retrying, on its own, can never fix.
+
+    Signals :meth:`TransportClient.schedule_reconnect` to stop instead of
+    looping: the transport parks in an error state until its configuration (or
+    something outside gridone, such as an operator trusting a certificate)
+    changes, at which point ``update_config`` schedules a fresh attempt.
+
+    Scope: this governs the reconnect task only. ``@connected`` still calls
+    ``connect()`` on every read while disconnected, so a transport whose
+    connect is expensive to retry must also short-circuit it itself — raising
+    this alone does not make the read path stop trying.
+    """
+
+
 def dedupe_addresses[T: TransportAddress](addresses: list[T]) -> dict[str, T]:
     """Collapse addresses sharing the same ``.id`` to one entry, keyed by id."""
     return {address.id: address for address in addresses}
@@ -181,6 +196,16 @@ class TransportClient[T_TransportAddress: TransportAddress](ABC):
             try:
                 await self.close()
                 await self.connect()
+            except TerminalConnectionError as e:
+                # Retrying would spin at full speed forever (there is no
+                # backoff below), so stop and wait for a config change.
+                logger.exception(
+                    "[Transport %s] reconnect abandoned, not retryable",
+                    self.id,
+                )
+                self.connection_state = TransportConnectionState.connection_error(
+                    str(e)
+                )
             except Exception:  # noqa: BLE001
                 # Nothing else retries a failed connect() here, so coalesce
                 # one more attempt via the same pending mechanism.

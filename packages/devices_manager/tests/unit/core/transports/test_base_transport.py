@@ -6,6 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from devices_manager.core.transports import TransportMetadata
+from devices_manager.core.transports.base import TerminalConnectionError
 from devices_manager.core.transports.http_transport import HTTPTransportClient
 from devices_manager.core.transports.http_transport.http_address import HttpAddress
 from devices_manager.core.transports.io_timing import IO_LOGGER_NAME
@@ -515,14 +516,22 @@ class TestConcreteTransportsDefaultToConcurrent:
 class _ReconnectCountingTransportClient(RecordingTransportClient):
     """Counts connect()/close() calls, with a delay so a reconnect can be
     observed as still in-flight. `fail_connects` makes the first N connect()
-    calls raise before succeeding."""
+    calls raise before succeeding; `terminal` makes those failures the kind
+    retrying can never fix."""
 
-    def __init__(self, *, connect_delay: float = 0.05, fail_connects: int = 0) -> None:
+    def __init__(
+        self,
+        *,
+        connect_delay: float = 0.05,
+        fail_connects: int = 0,
+        terminal: bool = False,
+    ) -> None:
         super().__init__()
         self.connect_calls = 0
         self.close_calls = 0
         self._connect_delay = connect_delay
         self._fail_connects = fail_connects
+        self._terminal = terminal
 
     async def connect(self) -> None:
         await asyncio.sleep(self._connect_delay)
@@ -530,7 +539,9 @@ class _ReconnectCountingTransportClient(RecordingTransportClient):
         if self._fail_connects > 0:
             self._fail_connects -= 1
             msg = "boom"
-            raise ConnectionError(msg)
+            raise (
+                TerminalConnectionError(msg) if self._terminal else ConnectionError(msg)
+            )
 
     async def close(self) -> None:
         self.close_calls += 1
@@ -591,6 +602,35 @@ class TestScheduleReconnect:
 
         assert client.connect_calls == 2
         assert client.close_calls == 2
+
+    @pytest.mark.asyncio
+    async def test_a_terminal_failure_is_not_retried(self) -> None:
+        # There is no backoff on the retry path, so a failure that can never
+        # succeed (e.g. a rejected certificate) has to stop the loop rather
+        # than spin at full speed until the config changes.
+        client = _ReconnectCountingTransportClient(
+            connect_delay=0.01, fail_connects=100, terminal=True
+        )
+
+        client.schedule_reconnect()
+        await asyncio.sleep(0.1)
+
+        assert client.connect_calls == 1
+        assert client.close_calls == 1
+
+    @pytest.mark.asyncio
+    async def test_a_terminal_failure_parks_the_transport_in_an_error_state(
+        self,
+    ) -> None:
+        client = _ReconnectCountingTransportClient(
+            connect_delay=0.01, fail_connects=1, terminal=True
+        )
+
+        client.schedule_reconnect()
+        await asyncio.sleep(0.1)
+
+        assert not client.connection_state.is_connected
+        assert client.connection_state.info == "boom"
 
 
 class TestUpdateConfig:
