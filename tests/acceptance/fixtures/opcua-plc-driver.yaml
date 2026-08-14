@@ -3,16 +3,19 @@
 # Namespace 3 verified by connecting to a live opcua-plc container — its
 # custom-node namespace index is not documented and could shift on upgrade.
 #
-# server_service_level and boiler_eu_range_low read from opc-plc's built-in
-# node set (not fixtures/opcua-plc-nodes.json) — the former exercises a
-# numeric NodeId (standard ns=0 ServiceLevel), the latter exercises the
-# ExtensionObject -> dict -> json_pointer codec path against a standard
-# `ua.Range` struct (namespace verified live, same as ns=3 above).
+# server_service_level, boiler_eu_range_low and push_fast_uint read from
+# opc-plc's built-in node set, not fixtures/opcua-plc-nodes.json (namespaces
+# verified live). push_fast_uint is opc-plc's default "Fast" node
+# (ns=3;s=FastUInt1), mutated server-side every ~1s with no flags needed.
 id: opcua_plc
 transport: opcua
 
 update_strategy:
   polling: 2s
+  # Far longer than any test timeout, so push_probe attributes can only
+  # observe a change via something other than polling.
+  polling_groups:
+    push_probe: 1h
 
 device_config: []
 
@@ -44,3 +47,8 @@ attributes:
     read: "ns=6;s=DataAccess_AnalogType_DataAccess_AnalogType_Int32_EURange"
     codecs:
       - json_pointer: /Low
+
+  - name: push_fast_uint
+    data_type: int
+    read: "ns=3;s=FastUInt1"
+    polling_group: push_probe
