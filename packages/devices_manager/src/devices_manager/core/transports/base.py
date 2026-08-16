@@ -164,6 +164,13 @@ class TransportClient[T_TransportAddress: TransportAddress](ABC):
         re-attempts a connection on each read while the transport is down.
         """
         if self._terminal_error is not None:
+            # Re-park on every raise, not just the first: a coalesced reconnect
+            # runs close() beforehand, which resets the state to closed() and
+            # would otherwise leave a permanently refusing transport reporting
+            # idle with no remediation message.
+            self.connection_state = TransportConnectionState.connection_error(
+                str(self._terminal_error)
+            )
             # Same instance every time, so drop the traceback it accumulated on
             # the previous raise rather than growing it for the transport's life.
             raise self._terminal_error.with_traceback(None)

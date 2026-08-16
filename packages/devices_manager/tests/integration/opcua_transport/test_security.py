@@ -41,6 +41,23 @@ WRITTEN_VALUE = 7
 
 DEFAULT_POLICY: SecurityPolicyName = "Basic256Sha256"
 DEFAULT_MODE: SecurityModeName = "SignAndEncrypt"
+
+# Spelled out rather than read off SECURITY_POLICIES / resolve_mode, so a
+# mis-wired entry there fails here instead of silently negotiating a weaker
+# policy that still connects and reads.
+POLICY_URIS: dict[SecurityPolicyName, str] = {
+    "Basic256Sha256": "http://opcfoundation.org/UA/SecurityPolicy#Basic256Sha256",
+    "Aes128Sha256RsaOaep": (
+        "http://opcfoundation.org/UA/SecurityPolicy#Aes128_Sha256_RsaOaep"
+    ),
+    "Aes256Sha256RsaPss": (
+        "http://opcfoundation.org/UA/SecurityPolicy#Aes256_Sha256_RsaPss"
+    ),
+}
+MODE_VALUES: dict[SecurityModeName, ua.MessageSecurityMode] = {
+    "Sign": ua.MessageSecurityMode.Sign,
+    "SignAndEncrypt": ua.MessageSecurityMode.SignAndEncrypt,
+}
 # The endpoint set for a server that offers exactly one secure combination.
 RESTRICTED_POLICIES = [
     ua.SecurityPolicyType.NoSecurity,
@@ -181,6 +198,9 @@ class TestSecurityMatrix:
         await client.connect()
         try:
             assert client.connection_state.is_connected
+            negotiated = client._require_client().uaclient.security_policy  # noqa: SLF001
+            assert POLICY_URIS[policy] == negotiated.URI
+            assert negotiated.Mode == MODE_VALUES[mode]
             assert await client.read(address) == INITIAL_VALUE
             await client.write(address, WRITTEN_VALUE)
             assert await client.read(address) == WRITTEN_VALUE

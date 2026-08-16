@@ -211,6 +211,10 @@ class OpcuaTransportClient(
                 type(e).__name__,
                 e,
             )
+            # This path bypasses @connected, which is what parks the state for
+            # every other read: without this an unreachable server would report
+            # idle forever while every sweep fails.
+            self.connection_state = TransportConnectionState.connection_error(str(e))
             for address in ordered_addresses:
                 yield ReadError(address.id, e)
             return

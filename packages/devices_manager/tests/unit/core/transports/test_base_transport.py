@@ -632,6 +632,24 @@ class TestScheduleReconnect:
         assert not client.connection_state.is_connected
         assert client.connection_state.info == "boom"
 
+    @pytest.mark.asyncio
+    async def test_a_later_reconnect_keeps_reporting_the_terminal_error(self) -> None:
+        # Each reconnect cycle runs close() first, which resets the state to
+        # closed(); without re-parking, a permanently refusing transport would
+        # report idle with no remediation message.
+        client = _ReconnectCountingTransportClient(
+            connect_delay=0.01, fail_connects=1, terminal=True
+        )
+        client.schedule_reconnect()
+        await asyncio.sleep(0.1)
+
+        client.schedule_reconnect()
+        await asyncio.sleep(0.1)
+
+        assert client.connect_calls == 1  # still never touches the network again
+        assert not client.connection_state.is_connected
+        assert client.connection_state.info == "boom"
+
 
 class TestUpdateConfig:
     def test_partial_patch_merges_and_preserves_untouched_fields(self) -> None:

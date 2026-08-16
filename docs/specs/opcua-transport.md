@@ -87,10 +87,12 @@ transport:
     endpoint_url: opc.tcp://10.0.1.20:4840
     auth_mode: username_password
     username: gridone
-    password: ${OPCUA_PASSWORD}
+    password: the-server-password
     security_policy: Basic256Sha256
     security_mode: SignAndEncrypt
 ```
+
+Config values are used exactly as written — nothing interpolates environment variables, so `${VAR}` in a password authenticates with that literal string. Sourcing secrets from outside the config arrives with AGR-992.
 
 ## Secure channel
 
@@ -118,7 +120,7 @@ Everything lives under one directory, `GRIDONE_OPCUA_PKI_DIR`, defaulting to `~/
 | Path | Contents |
 |---|---|
 | `client_key.pem` | gridone's private key (PKCS8 PEM), generated on first use |
-| `client_cert.der` | gridone's application-instance certificate (DER), valid 365 days |
+| `client_cert.der` | gridone's application-instance certificate (DER), valid 3 years, renewed 90 days before expiry |
 | `servers/<digest>.der` | the pinned certificate for one endpoint, keyed by a SHA-256 digest of its URL |
 
 **This directory must be persistent.** The certificate is gridone's identity, and every server an operator has trusted has trusted *that* certificate — losing it means re-doing the trust step everywhere. The container image declares no volume, so a Docker deployment has to mount one.
@@ -131,7 +133,7 @@ A server will not accept an unknown client certificate, and nothing gridone does
 
 1. Configure the transport with the policy and mode the server requires and let it connect. The attempt fails, and the transport parks in an error state naming the rejection.
 2. That failed attempt is what puts gridone's certificate in front of the server. Find it in the server's rejected-certificates list and move it to the trusted list. Where that lives is vendor-specific: Siemens SIMATIC exposes it in the OPC UA configuration UI, CODESYS-based controllers (including the WAGO CC100) keep it under the PLC's certificate store in the web UI, and a site running a Global Discovery Server can push the trust instead.
-3. Trigger a reconnect (any transport config update does it). The session comes up.
+3. Trigger a reconnect. Only an update carrying a `config` key re-arms the transport, and at this point there is nothing to change, so the minimal request is `PATCH /transports/{id}` with body `{"config": {}}`. A name-only update returns 200 and leaves the transport parked. The session comes up.
 
 Step 3 is required because a terminal rejection deliberately stops the retry loop, on the read path as well as the reconnect path — gridone will not keep hammering a server that has refused it, and will not re-attempt on its own.
 
@@ -145,7 +147,7 @@ A server that renews its own certificate (a 365-day self-signed certificate expi
 
 | Condition | Surfaces as | Retried? |
 |---|---|---|
-| Client certificate not trusted by the server | `OpcuaSecurityError` (`BadCertificateUntrusted` / `BadSecurityChecksFailed`) | no |
+| Client certificate not trusted by the server | `OpcuaSecurityError` (`BadCertificateUntrusted`) | no |
 | ApplicationURI not matching the certificate SAN | `OpcuaSecurityError` (`BadCertificateUriInvalid`) | no |
 | Policy or mode the server does not offer | `OpcuaSecurityError` (no matching endpoint) | no |
 | Server certificate differs from the pin | `OpcuaSecurityError` | no |

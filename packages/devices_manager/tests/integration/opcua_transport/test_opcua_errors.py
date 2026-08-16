@@ -69,6 +69,26 @@ async def test_read_many_isolates_batch_failure_as_read_error_per_address(
 
     assert len(results) == len(addresses)
     assert all(isinstance(r, ReadError) for r in results)
+    assert not opcua_client.connection_state.is_connected
+
+
+async def test_read_many_parks_an_error_state_when_the_server_is_unreachable() -> None:
+    """read_many bypasses @connected, which is what parks the state everywhere
+    else — without that the transport reports idle while every sweep fails."""
+    client = OpcuaTransportClient(
+        TransportMetadata(id="opcua-unreachable", name="opcua-unreachable"),
+        OpcuaTransportConfig(
+            endpoint_url="opc.tcp://127.0.0.1:1/nowhere/", connect_timeout=1.0
+        ),
+    )
+    address = OpcuaAddress.from_str("ns=1;s=Anything")
+    assert client.connection_state.status == ConnectionStatus.IDLE
+
+    results = [r async for r in client.read_many([address])]
+
+    assert all(isinstance(r, ReadError) for r in results)
+    assert client.connection_state.status == ConnectionStatus.ERROR
+    assert client.connection_state.info
 
 
 async def test_connect_timeout_disconnects_partially_connected_client() -> None:
