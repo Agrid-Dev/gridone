@@ -208,7 +208,9 @@
       "noMatching": "No matching attributes",
       "coverage_one": "{{count}}/{{total}} device",
       "coverage_other": "{{count}}/{{total}} devices",
-      "mixedTypes": "mixed data types"
+      "mixedTypes": "mixed data types",
+      "skippedWarning_one": "{{count}} of {{total}} matched devices don't expose this attribute and will be skipped.",
+      "skippedWarning_other": "{{count}} of {{total}} matched devices don't expose this attribute and will be skipped."
     },
     "user": {
       "label": "Recipients",
