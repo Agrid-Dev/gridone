@@ -68,6 +68,29 @@
       "noControl": "This device type has no standard control.",
       "live": "Live"
     },
+    "kpi": {
+      "targetEmpty": "Pick a device and an attribute.",
+      "notFound": "This device no longer exists.",
+      "attributeMissing": "This device no longer exposes this attribute.",
+      "noHistory": "No history is recorded for this attribute.",
+      "error": "Could not load this value.",
+      "noOperator": "Pick an aggregation operator.",
+      "unboundedPeriod": "Aggregation needs a bounded period — pick one other than “All time”.",
+      "temporal": {
+        "live": "Live",
+        "period": "Over the period"
+      },
+      "operator": {
+        "label": "Aggregation",
+        "placeholder": "Select…"
+      },
+      "unit": {
+        "label": "Unit"
+      },
+      "precision": {
+        "label": "Precision"
+      }
+    },
     "add": "Add widget",
     "addTitle": "Add widget",
     "addSubmit": "Add widget",

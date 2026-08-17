@@ -60,7 +60,7 @@ export const chartConfigCheck = z.looseObject({
 
 /** The picker needs a well-formed target to render; the schema-driven default
  *  for an object property is `""`, which is what a new widget starts from. */
-function toPickerTarget(value: unknown): AttributeTarget {
+export function toPickerTarget(value: unknown): AttributeTarget {
   if (typeof value !== "object" || value === null) return { devices: {} };
   const { devices, attribute } = value as Partial<AttributeTarget>;
   return { devices: devices ?? {}, attribute };
@@ -79,7 +79,7 @@ function toPickerTarget(value: unknown): AttributeTarget {
  * yields an int whatever went in, and averaging a bool yields a float, which is
  * what decides whether the widget draws a line or an on/off band.
  */
-const AggOption: FC<{
+export const AggOption: FC<{
   name: string;
   resultType?: DataType | null;
   /** Which caption set glosses the name — time operators by default. */
