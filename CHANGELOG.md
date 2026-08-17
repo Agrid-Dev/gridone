@@ -1,3 +1,13 @@
+## v0.209.0 (2026-08-17)
+
+### Feat
+
+- **opcua**: secure channel with client certificate and server trust (#550)
+
+### Fix
+
+- **opcua**: write-only password, blank preserves stored value (#551)
+
 ## v0.208.0 (2026-08-14)
 
 ### Feat
