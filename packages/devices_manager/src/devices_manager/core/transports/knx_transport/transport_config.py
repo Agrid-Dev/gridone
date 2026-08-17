@@ -1,4 +1,4 @@
-from typing import Annotated, Literal, Self
+from typing import Annotated, ClassVar, Literal, Self
 
 from pydantic import ConfigDict, Field, PositiveInt, field_validator, model_validator
 from xknx.io import ConnectionConfig, ConnectionType
@@ -14,6 +14,12 @@ KNX_DEFAULT_PORT = 3671
 
 class KNXTransportConfig(BaseTransportConfig):
     model_config = ConfigDict(extra="forbid", revalidate_instances="always")
+    # Blank already means "disable IP-Secure" for these two
+    # (_blank_password_means_absent below), so the generic "blank = keep the
+    # stored value" preserve-on-blank rule must not swallow it.
+    PRESERVE_ON_BLANK_EXEMPT: ClassVar[frozenset[str]] = frozenset(
+        {"secure_device_authentication_password", "secure_user_password"}
+    )
     gateway_ip: Annotated[
         str,
         Field(

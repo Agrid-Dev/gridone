@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock, MagicMock, PropertyMock
+from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 import pytest
 import pytest_asyncio
@@ -17,6 +17,8 @@ from devices_manager.core.device.attribute import AttributeKind
 from devices_manager.core.device.event_log import AttributeEventLog, EventType
 from devices_manager.core.driver import AttributeDriver, Driver, UpdateStrategy
 from devices_manager.core.transports.http_transport import HttpTransportConfig
+from devices_manager.core.transports.knx_transport import KNXTransportConfig
+from devices_manager.core.transports.mqtt_transport import MqttTransportConfig
 from devices_manager.core.transports.transport_metadata import TransportMetadata
 from devices_manager.core.transports.webhook_transport import (
     WebhookTransportClient,
@@ -35,7 +37,7 @@ from devices_manager.dto import (
     driver_to_public,
     transport_to_public,
 )
-from devices_manager.dto.transport_dto import HttpTransportCreate
+from devices_manager.dto.transport_dto import HttpTransportCreate, MqttTransportCreate
 from devices_manager.ingress import MessageIngress
 from devices_manager.storage.memory import MemoryDevicesStorage
 from devices_manager.types import (
@@ -50,6 +52,8 @@ from models.errors import (
     NotFoundError,
 )
 from models.types import Severity
+
+from .fixtures.transport_clients import MockPushTransportClient
 
 
 class FailingStartDevice(CoreDevice):
@@ -773,6 +777,122 @@ class TestDevicesServiceUpdateTransport:
         )
         assert updated_transport.config == new_config
         assert dm.get_transport(transport_id).config == new_config
+
+
+class MockKnxPushTransportClient(MockPushTransportClient):
+    protocol = TransportProtocols.KNX
+
+
+class TestDevicesServiceTransportSecrets:
+    @staticmethod
+    def _mqtt_client_with_password(
+        password: str = "s3cret",  # noqa: S107
+    ) -> MockPushTransportClient:
+        metadata = TransportMetadata(id="mqtt-secret", name="MQTT with secret")
+        config = MqttTransportConfig(host="localhost", password=password)
+        return MockPushTransportClient(metadata, config)
+
+    @pytest_asyncio.fixture
+    async def mqtt_client(self):
+        return self._mqtt_client_with_password()
+
+    @pytest_asyncio.fixture
+    async def dm(self, mqtt_client):
+        svc = DevicesService(
+            devices={}, drivers={}, transports={mqtt_client.id: mqtt_client}
+        )
+        await svc.load()
+        return svc
+
+    @pytest.mark.asyncio
+    async def test_get_transport_masks_password(self, dm):
+        transport = dm.get_transport("mqtt-secret")
+        assert isinstance(transport.config, MqttTransportConfig)
+        assert transport.config.password is None
+
+    @pytest.mark.asyncio
+    async def test_list_transports_masks_password(self, dm):
+        configs = [t.config for t in dm.list_transports()]
+        assert all(isinstance(c, MqttTransportConfig) for c in configs)
+        assert all(c.password is None for c in configs)
+
+    @pytest.mark.asyncio
+    async def test_add_transport_masks_password(self):
+        dm = DevicesService(devices={}, drivers={}, transports={})
+        await dm.load()
+        created = await dm.add_transport(
+            MqttTransportCreate(
+                name="mqtt",
+                protocol=TransportProtocols.MQTT,
+                config=MqttTransportConfig(host="localhost", password="s3cret"),
+            )
+        )
+        assert isinstance(created.config, MqttTransportConfig)
+        assert created.config.password is None
+
+    @pytest.mark.asyncio
+    async def test_update_blank_password_preserves_stored_value(self, dm, mqtt_client):
+        updated = await dm.update_transport(
+            "mqtt-secret", TransportUpdate(config={"password": ""})
+        )
+        assert isinstance(updated.config, MqttTransportConfig)
+        assert updated.config.password is None
+        assert mqtt_client.config.password == "s3cret"  # noqa: S105
+
+    @pytest.mark.asyncio
+    async def test_update_blank_knx_secure_passwords_still_disables_ip_secure(self):
+        # Regression: KNX's blank-clears-IP-Secure convention
+        # (_blank_password_means_absent) must not be shadowed by the generic
+        # preserve-on-blank rule — these two fields opt out of it.
+        metadata = TransportMetadata(id="knx-secure", name="KNX with IP-Secure")
+        config = KNXTransportConfig(
+            gateway_ip="192.168.1.1",
+            secure_device_authentication_password="dev",
+            secure_user_password="usr",
+        )
+        client = MockKnxPushTransportClient(metadata, config)
+        dm = DevicesService(devices={}, drivers={}, transports={client.id: client})
+        await dm.load()
+
+        updated = await dm.update_transport(
+            "knx-secure",
+            TransportUpdate(
+                config={
+                    "secure_device_authentication_password": "",
+                    "secure_user_password": "",
+                }
+            ),
+        )
+
+        assert isinstance(updated.config, KNXTransportConfig)
+        client_config = client.config
+        assert isinstance(client_config, KNXTransportConfig)
+        assert client_config.secure_device_authentication_password is None
+        assert client_config.secure_user_password is None
+
+    @pytest.mark.asyncio
+    async def test_update_blank_password_only_does_not_reconnect_or_restart(self):
+        # Regression: a patch that, after stripping the blank secret, carries no
+        # real change must not schedule a reconnect or restart devices.
+        client = self._mqtt_client_with_password()
+        dm = DevicesService(devices={}, drivers={}, transports={client.id: client})
+        await dm.start()
+        try:
+            update_config = MagicMock(wraps=client.update_config)
+            with patch.object(client, "update_config", update_config):
+                await dm.update_transport(
+                    client.id, TransportUpdate(config={"password": ""})
+                )
+            update_config.assert_not_called()
+        finally:
+            await dm.stop()
+
+    @pytest.mark.asyncio
+    async def test_update_new_password_replaces_stored_value(self, dm, mqtt_client):
+        await dm.update_transport(
+            "mqtt-secret", TransportUpdate(config={"password": "new-secret"})
+        )
+        assert mqtt_client.config.password == "new-secret"  # noqa: S105
 
 
 class TestDevicesServiceDrivers:
