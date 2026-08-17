@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from pydantic import BaseModel, ConfigDict
 
 if TYPE_CHECKING:
-    from models.targets import AttributeTarget
+    from models.targets import AttributeTarget, ResolvedTarget
 
 
 class WidgetConfig(BaseModel):
@@ -37,3 +37,7 @@ class WidgetConfig(BaseModel):
         override this; the default is no targets.
         """
         return []
+
+    def validate_resolved(self, resolved: list[ResolvedTarget]) -> None:  # noqa: ARG002
+        """Extra save-time checks on resolved targets; no-op by default."""
+        return

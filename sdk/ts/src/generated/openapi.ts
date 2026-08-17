@@ -2706,6 +2706,27 @@ export interface components {
       config: components["schemas"]["KNXTransportConfig"];
     };
     /**
+     * KpiWidgetConfig
+     * @description Single number over one attribute of one device.
+     */
+    KpiWidgetConfig: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      type: "kpi";
+      target: components["schemas"]["AttributeTarget"];
+      /**
+       * Temporal
+       * @default live
+       */
+      temporal?: "live" | components["schemas"]["TimeAggregation"];
+      /** Unit */
+      unit?: string | null;
+      /** Precision */
+      precision?: number | null;
+    };
+    /**
      * LayoutItem
      * @description A widget's geometry tagged with its widget id (``i``).
      *
@@ -3180,6 +3201,10 @@ export interface components {
       /** Color */
       color: string;
     };
+    /** TimeAggregation */
+    TimeAggregation: {
+      operator: components["schemas"]["AggregationOperator"];
+    };
     /** TimeSeriesResponse */
     TimeSeriesResponse: {
       /** Id */
@@ -3529,7 +3554,8 @@ export interface components {
       config:
         | components["schemas"]["TextWidgetConfig"]
         | components["schemas"]["ChartWidgetConfig"]
-        | components["schemas"]["DeviceControlWidgetConfig"];
+        | components["schemas"]["DeviceControlWidgetConfig"]
+        | components["schemas"]["KpiWidgetConfig"];
       /** Title */
       title?: string | null;
       /** Description */
@@ -3574,6 +3600,7 @@ export interface components {
             | components["schemas"]["TextWidgetConfig"]
             | components["schemas"]["ChartWidgetConfig"]
             | components["schemas"]["DeviceControlWidgetConfig"]
+            | components["schemas"]["KpiWidgetConfig"]
           )
         | null;
     };

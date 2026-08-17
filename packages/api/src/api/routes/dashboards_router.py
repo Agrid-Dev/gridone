@@ -102,7 +102,8 @@ async def add_widget(
     # Save-time gate on the widget's targets (zero coverage / mixed data
     # types -> 422). Partial coverage is allowed; a dynamic target can still
     # drift after save, which the widget surfaces as a render-time error.
-    await validate_targets(resolver, body.config.targets())
+    resolved = await validate_targets(resolver, body.config.targets())
+    body.config.validate_resolved(resolved)
     return await svc.add_widget(
         dashboard_id,
         config=body.config.model_dump(),
@@ -124,7 +125,8 @@ async def update_widget(
     resolver: _ResolverDep,
 ) -> Widget:
     if body.config is not None:
-        await validate_targets(resolver, body.config.targets())
+        resolved = await validate_targets(resolver, body.config.targets())
+        body.config.validate_resolved(resolved)
     return await svc.update_widget(dashboard_id, widget_id, body.to_patch())
 
 

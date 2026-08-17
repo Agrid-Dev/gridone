@@ -273,7 +273,7 @@ async def test_update_widget_rejects_unknown_config_type(service: DashboardsServ
 
     with pytest.raises(InvalidError, match="Unknown widget type"):
         await service.update_widget(
-            dashboard.id, widget.id, WidgetPatch(config={"type": "kpi"})
+            dashboard.id, widget.id, WidgetPatch(config={"type": "unknown"})
         )
 
 
@@ -397,6 +397,6 @@ async def test_update_layout_rejects_duplicate_item(service: DashboardsService):
 async def test_widget_schemas_carry_hex_pattern(service: DashboardsService):
     schemas = service.widget_schemas()
 
-    assert set(schemas) == {"text", "chart", "device_control"}
+    assert set(schemas) == {"text", "chart", "device_control", "kpi"}
     color = schemas["text"]["properties"]["color"]
     assert color["pattern"] == r"^#[0-9a-fA-F]{6}$"

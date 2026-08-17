@@ -7,6 +7,7 @@ from pydantic import ValidationError
 
 from dashboards.widgets.chart import ChartWidgetConfig
 from dashboards.widgets.device_control import DeviceControlWidgetConfig
+from dashboards.widgets.kpi import KpiWidgetConfig
 from dashboards.widgets.text import TextWidgetConfig
 from models.errors import InvalidError, NotFoundError
 
@@ -119,7 +120,8 @@ def build_default_registry() -> WidgetRegistry:
     has on the device history page — a time axis squeezed into a small tile is
     unreadable. ``device_control`` is a third of the grid wide and tall,
     matching the portrait footprint of the standard control surface plus
-    attribute panes on the device page.
+    attribute panes on the device page. ``kpi`` is a quarter of the grid
+    wide and two rows tall — it shows a single number, not a plot.
     """
     registry = WidgetRegistry()
     registry.register(
@@ -141,6 +143,13 @@ def build_default_registry() -> WidgetRegistry:
             type="device_control",
             config_model=DeviceControlWidgetConfig,
             default_size=WidgetSize(w=4, h=6),
+        )
+    )
+    registry.register(
+        WidgetType(
+            type="kpi",
+            config_model=KpiWidgetConfig,
+            default_size=WidgetSize(w=3, h=2),
         )
     )
     return registry
