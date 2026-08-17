@@ -23,8 +23,14 @@ from devices_manager.core.transports.transport_connection_state import (
 from devices_manager.core.transports.transport_metadata import TransportMetadata
 from devices_manager.types import AttributeValueType, TransportProtocols, TransportType
 
-from .errors import OpcuaNotConnectedError, translate_write_error
+from .errors import (
+    OpcuaNotConnectedError,
+    OpcuaSecurityError,
+    is_secure_channel_rejection,
+    translate_write_error,
+)
 from .opcua_address import OpcuaAddress
+from .security import apply_security
 from .transport_config import OpcuaTransportConfig
 from .variant_decode import decode_variant
 from .variant_encode import coerce_for_write
@@ -89,18 +95,29 @@ class OpcuaTransportClient(
             client.connection_lost_callback = self._on_connection_lost
             try:
                 await asyncio.wait_for(
-                    client.connect(), timeout=self.config.connect_timeout
+                    self._establish_session(client),
+                    timeout=self.config.connect_timeout,
                 )
-            except Exception:
+            except Exception as e:
                 # A failed/timed-out connect() may still have opened a socket
                 # mid-handshake; self._client is only assigned below, so
                 # nothing else can clean it up.
                 with contextlib.suppress(Exception):
                     await client.disconnect()
+                if is_secure_channel_rejection(e):
+                    msg = f"Secure channel rejected by {self.config.endpoint_url}: {e}"
+                    raise OpcuaSecurityError(msg) from e
                 raise
             self._client = client
             await super().connect()
             await self._resubscribe_all(client)
+
+    async def _establish_session(self, client: Client) -> None:
+        """Secure channel setup then session activation, sharing connect_timeout
+        so the secure path's extra discovery round-trip stays inside it."""
+        if self.config.secure_channel_enabled:
+            await apply_security(client, self.config)
+        await client.connect()
 
     async def close(self) -> None:
         # _read_lock is a nullcontext here (_serialize_reads=False), so it
@@ -182,7 +199,7 @@ class OpcuaTransportClient(
             return
         try:
             if not self.connection_state.is_connected:
-                await self.connect()
+                await self.ensure_connected()
             client = self._require_client()
             nodes = [client.get_node(address.id) for address in ordered_addresses]
             async with timed_io(self.id, self.protocol, len(ordered_addresses)):
@@ -194,6 +211,10 @@ class OpcuaTransportClient(
                 type(e).__name__,
                 e,
             )
+            # This path bypasses @connected, which is what parks the state for
+            # every other read: without this an unreachable server would report
+            # idle forever while every sweep fails.
+            self.connection_state = TransportConnectionState.connection_error(str(e))
             for address in ordered_addresses:
                 yield ReadError(address.id, e)
             return

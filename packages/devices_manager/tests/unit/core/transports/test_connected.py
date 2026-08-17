@@ -24,6 +24,11 @@ class MockTransportClient:
         self.connect_count = 0
         self._fail_connect = fail_connect
 
+    async def ensure_connected(self):
+        """@connected routes through this, so the terminal-failure latch in
+        TransportClient applies to the read path too."""
+        await self.connect()
+
     async def connect(self):
         """All transport clients using @connected should connect within a Lock
         to avoid parallel connections."""

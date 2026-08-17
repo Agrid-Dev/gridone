@@ -22,8 +22,8 @@ class ConnectedProtocol(Protocol):
 
     connection_state: TransportConnectionState
 
-    async def connect(self) -> None:
-        """Connection method implementation."""
+    async def ensure_connected(self) -> None:
+        """Connect unless a previous attempt failed terminally."""
         ...
 
     @property
@@ -43,7 +43,7 @@ def connected[**P, T_Return](
     ) -> T_Return:
         if not self.connection_state.is_connected:
             try:
-                await self.connect()
+                await self.ensure_connected()
             except Exception as e:  # noqa: BLE001
                 logger.warning(
                     "Connection attempt for transport %s failed — %s: %s",

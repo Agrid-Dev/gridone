@@ -1,4 +1,4 @@
-from typing import Annotated, Literal
+from typing import Annotated, Literal, get_args
 
 from pydantic import (
     AfterValidator,
@@ -18,6 +18,29 @@ DEFAULT_SAMPLING_INTERVAL_MS = 1000.0  # milliseconds — asyncua's native unit
 DEFAULT_DEADBAND = 0.0  # 0 = notify on every change, no deadband filtering
 
 ENDPOINT_URL_SCHEME = "opc.tcp://"
+
+# OPC-UA spells the "no security" member of both enumerations "None"; it is the
+# one value the two fields must agree on (a policy without a mode, or a mode
+# without a policy, is not a channel any server can offer).
+NO_SECURITY = "None"
+DEFAULT_SECURITY_POLICY = NO_SECURITY
+DEFAULT_SECURITY_MODE = NO_SECURITY
+
+# Deprecated policies (Basic128Rsa15, Basic256) are deliberately absent: the OPC
+# Foundation withdrew them, and offering them invites a downgrade.
+type SecurityPolicyName = Literal[
+    "None", "Basic256Sha256", "Aes128Sha256RsaOaep", "Aes256Sha256RsaPss"
+]
+type SecurityModeName = Literal["None", "Sign", "SignAndEncrypt"]
+
+# The vocabularies minus "None", i.e. what an actual secure channel can use.
+# Derived from the types so callers and tests cannot drift from them.
+SECURED_POLICIES: tuple[SecurityPolicyName, ...] = tuple(
+    name for name in get_args(SecurityPolicyName.__value__) if name != NO_SECURITY
+)
+SECURED_MODES: tuple[SecurityModeName, ...] = tuple(
+    name for name in get_args(SecurityModeName.__value__) if name != NO_SECURITY
+)
 
 
 def validate_endpoint_url(v: str) -> str:
@@ -39,6 +62,12 @@ class OpcuaTransportConfig(BaseTransportConfig):
     keepalive_interval: PositiveFloat = DEFAULT_KEEPALIVE_INTERVAL
     sampling_interval_ms: PositiveFloat = DEFAULT_SAMPLING_INTERVAL_MS
     deadband: NonNegativeFloat = DEFAULT_DEADBAND
+    security_policy: SecurityPolicyName = DEFAULT_SECURITY_POLICY
+    security_mode: SecurityModeName = DEFAULT_SECURITY_MODE
+
+    @property
+    def secure_channel_enabled(self) -> bool:
+        return self.security_policy != NO_SECURITY
 
     @model_validator(mode="after")
     def _check_username_password(self) -> "OpcuaTransportConfig":
@@ -47,6 +76,16 @@ class OpcuaTransportConfig(BaseTransportConfig):
             msg = (
                 "username and password are required when auth_mode is "
                 "'username_password'"
+            )
+            raise ValueError(msg)
+        return self
+
+    @model_validator(mode="after")
+    def _check_security_policy_and_mode(self) -> "OpcuaTransportConfig":
+        if (self.security_policy == NO_SECURITY) != (self.security_mode == NO_SECURITY):
+            msg = (
+                f"security_policy and security_mode must both be '{NO_SECURITY}' "
+                f"or both be set"
             )
             raise ValueError(msg)
         return self

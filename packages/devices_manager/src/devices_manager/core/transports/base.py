@@ -24,6 +24,16 @@ from .transport_metadata import TransportMetadata
 logger = logging.getLogger(__name__)
 
 
+class TerminalConnectionError(ConnectionError):
+    """A connection failure that retrying, on its own, can never fix.
+
+    Raise it from ``connect()`` and :meth:`TransportClient.ensure_connected`
+    latches it: the transport parks in an error state and every later attempt
+    re-raises it without touching the network, until ``update_config`` clears
+    it — after an operator trusts a certificate, say.
+    """
+
+
 def dedupe_addresses[T: TransportAddress](addresses: list[T]) -> dict[str, T]:
     """Collapse addresses sharing the same ``.id`` to one entry, keyed by id."""
     return {address.id: address for address in addresses}
@@ -49,6 +59,7 @@ class TransportClient[T_TransportAddress: TransportAddress](ABC):
     _background_tasks: set[Task]
     _reconnect_task: Task | None
     _reconnect_pending: bool
+    _terminal_error: TerminalConnectionError | None
     _sweep_memo: SweepMemo
 
     def __init__(
@@ -63,6 +74,7 @@ class TransportClient[T_TransportAddress: TransportAddress](ABC):
         self._background_tasks = set()
         self._reconnect_task = None
         self._reconnect_pending = False
+        self._terminal_error = None
         self._sweep_memo = SweepMemo(self.id, self.protocol)
 
     @property
@@ -144,6 +156,31 @@ class TransportClient[T_TransportAddress: TransportAddress](ABC):
         """Write a value to the transport."""
         ...
 
+    async def ensure_connected(self) -> None:
+        """Connect unless a previous attempt failed terminally.
+
+        Every caller that would otherwise call :meth:`connect` goes through
+        here, so one refusal is paid once rather than on every read: ``@connected``
+        re-attempts a connection on each read while the transport is down.
+        """
+        if self._terminal_error is not None:
+            # Re-park on every raise, not just the first: a coalesced reconnect
+            # runs close() beforehand, which resets the state to closed() and
+            # would otherwise leave a permanently refusing transport reporting
+            # idle with no remediation message.
+            self.connection_state = TransportConnectionState.connection_error(
+                str(self._terminal_error)
+            )
+            # Same instance every time, so drop the traceback it accumulated on
+            # the previous raise rather than growing it for the transport's life.
+            raise self._terminal_error.with_traceback(None)
+        try:
+            await self.connect()
+        except TerminalConnectionError as e:
+            self._terminal_error = e
+            self.connection_state = TransportConnectionState.connection_error(str(e))
+            raise
+
     async def __aenter__(self) -> "TransportClient[T_TransportAddress]":
         """Support async context manager (async with).
 
@@ -154,7 +191,7 @@ class TransportClient[T_TransportAddress: TransportAddress](ABC):
         reentrant deadlock a blanket lock in connect() itself would cause.
         """
         async with self._read_lock:
-            await self.connect()
+            await self.ensure_connected()
         return self
 
     async def __aexit__(
@@ -180,7 +217,15 @@ class TransportClient[T_TransportAddress: TransportAddress](ABC):
         async def reconnect() -> None:
             try:
                 await self.close()
-                await self.connect()
+                await self.ensure_connected()
+            except TerminalConnectionError:
+                # Retrying would spin at full speed forever (there is no
+                # backoff below), so stop and wait for a config change.
+                # ensure_connected has already parked the connection state.
+                logger.exception(
+                    "[Transport %s] reconnect abandoned, not retryable",
+                    self.id,
+                )
             except Exception:  # noqa: BLE001
                 # Nothing else retries a failed connect() here, so coalesce
                 # one more attempt via the same pending mechanism.
@@ -212,6 +257,9 @@ class TransportClient[T_TransportAddress: TransportAddress](ABC):
         # is where a partial update is type-checked and defaults are preserved.
         merged = {**self.config.model_dump(), **config}
         self.config = type(self.config).model_validate(merged)
+        # A new config re-arms a terminally refused transport: the operator's
+        # way back once the underlying condition is fixed.
+        self._terminal_error = None
         if reconnect:
             self.schedule_reconnect()
 
