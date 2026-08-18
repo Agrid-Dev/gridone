@@ -35,6 +35,26 @@ export function useAggregateOptions() {
   });
 }
 
+type OperatorMatrix = Partial<
+  Record<DataType, Record<string, DataType | null>>
+>;
+
+function operatorsFromMatrix(
+  matrix: OperatorMatrix | undefined,
+  dataType: DataType | undefined,
+): OperatorOption[] {
+  if (!matrix) return [];
+  // Every data type is mapped against the same operators, so any row names the
+  // full vocabulary — which is what to show before an attribute is chosen.
+  const vocabulary = Object.values(matrix)[0];
+  if (!vocabulary) return [];
+  const forType = dataType ? matrix[dataType] : undefined;
+  return Object.keys(vocabulary).map((operator) => ({
+    operator: operator as AggregationOperator,
+    resultType: forType ? (forType[operator] ?? null) : null,
+  }));
+}
+
 /**
  * Every operator as it applies to *dataType*, in the backend's order.
  *
@@ -46,17 +66,19 @@ export function operatorsFor(
   options: AggregateOptionsResponse | undefined,
   dataType: DataType | undefined,
 ): OperatorOption[] {
-  if (!options) return [];
-  const matrix = options.operators_by_data_type;
-  // Every data type is mapped against the same operators, so any row names the
-  // full vocabulary — which is what to show before an attribute is chosen.
-  const vocabulary = Object.values(matrix)[0];
-  if (!vocabulary) return [];
-  const forType = dataType ? matrix[dataType] : undefined;
-  return Object.keys(vocabulary).map((operator) => ({
-    operator: operator as AggregationOperator,
-    resultType: forType ? (forType[operator] ?? null) : null,
-  }));
+  return operatorsFromMatrix(options?.operators_by_data_type, dataType);
+}
+
+/**
+ * The space aggregation vocabulary as it applies to *dataType* — the subset
+ * of operators that can fold a device set, membership and type compatibility
+ * both carried by the backend's matrix rather than restated in the editor.
+ */
+export function spaceOperatorsFor(
+  options: AggregateOptionsResponse | undefined,
+  dataType: DataType | undefined,
+): OperatorOption[] {
+  return operatorsFromMatrix(options?.space_operators_by_data_type, dataType);
 }
 
 /**

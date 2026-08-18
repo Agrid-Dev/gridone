@@ -1,5 +1,5 @@
 import { useEffect, type FC } from "react";
-import type { AggregationOperator, DataType } from "@gridone/sdk";
+import type { DataType } from "@gridone/sdk";
 import { useController, type Control, type FieldValues } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import * as z from "zod";
@@ -11,6 +11,7 @@ import {
 import { SelectController } from "@/components/forms/controllers/SelectController";
 import {
   operatorsFor,
+  spaceOperatorsFor,
   useAggregateOptions,
   useResetRefusedOperator,
 } from "@/hooks/useAggregateOptions";
@@ -24,19 +25,6 @@ const RAW = "raw";
 /** How "one series per device" reads in the space operator list. The config
  *  stores `null` for it. */
 const NONE = "none";
-
-/** The operators that can fold one bucket across the device set. Restated
- *  from `models.types.SPACE_AGGREGATION_OPERATORS` (the backend refuses the
- *  rest at save time): the options endpoint's matrix carries type
- *  compatibility, not space membership. */
-const SPACE_OPERATORS: AggregationOperator[] = [
-  "avg",
-  "sum",
-  "min",
-  "max",
-  "count",
-  "mode",
-];
 
 /** True when the criteria select at least one device dimension. */
 export function hasDeviceCriterion(devices: unknown): boolean {
@@ -172,9 +160,7 @@ export const ChartConfigFields: FC<{ control: Control<FieldValues> }> = ({
   const timeOutputType = agg
     ? (operators.find((o) => o.operator === agg)?.resultType ?? undefined)
     : undefined;
-  const spaceOperators = operatorsFor(options, timeOutputType).filter((o) =>
-    SPACE_OPERATORS.includes(o.operator),
-  );
+  const spaceOperators = spaceOperatorsFor(options, timeOutputType);
   const spaceAggOptions = spaceOperators.map(({ operator, resultType }) => ({
     value: operator as string | null,
     label: <AggOption name={operator} resultType={resultType} kind="space" />,
