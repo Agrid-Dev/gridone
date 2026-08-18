@@ -10,6 +10,7 @@ import { AttributeValue } from "@/components/AttributeValue";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDevice } from "@/hooks/useDevice";
 import { deviceAttributes, type DeviceType } from "@/lib/devices";
+import { fmt } from "@/lib/formatValue";
 import { useDashboardPeriod } from "../../useDashboardPeriod";
 import { useKpiAggregate } from "./useKpiAggregate";
 
@@ -41,10 +42,9 @@ const KpiValue: FC<{
     );
   }
   const digits = precision ?? (dataType === "float" ? 2 : 0);
-  const text = typeof value === "number" ? value.toFixed(digits) : "—";
   return (
     <span className="text-3xl font-semibold">
-      {text}
+      {fmt(typeof value === "number" ? value : null, digits)}
       {unit && (
         <span className="ml-1 text-lg text-muted-foreground">{unit}</span>
       )}

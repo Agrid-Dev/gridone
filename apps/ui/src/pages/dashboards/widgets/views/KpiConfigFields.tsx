@@ -1,4 +1,4 @@
-import { useEffect, type FC } from "react";
+import type { FC } from "react";
 import type { AggregationOperator } from "@gridone/sdk";
 import { useController, type Control, type FieldValues } from "react-hook-form";
 import { useTranslation } from "react-i18next";
@@ -11,19 +11,25 @@ import {
 import { InputController } from "@/components/forms/controllers/InputController";
 import { SelectController } from "@/components/forms/controllers/SelectController";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { operatorsFor, useAggregateOptions } from "@/hooks/useAggregateOptions";
+import {
+  operatorsFor,
+  useAggregateOptions,
+  useResetRefusedOperator,
+} from "@/hooks/useAggregateOptions";
 import { useDevicesList } from "@/hooks/useDevicesList";
 import { isEmptyFilter } from "@/lib/devices";
 import { AggOption, toPickerTarget } from "./ChartConfigFields";
 
 type Temporal = "live" | { operator?: AggregationOperator };
 
-/** v0 KPI tiles show one device's value: exactly one explicit id, no
- *  criteria filter — unlike the chart target, which fans out over a set. */
+/** v0 KPI tiles show one device's value: exactly one explicit id, no other
+ *  criteria — unlike the chart target, which fans out over a set. */
 function hasSingleDeviceCriterion(devices: unknown): boolean {
   if (typeof devices !== "object" || devices === null) return false;
-  const { ids, types } = devices as Record<string, unknown>;
-  return Array.isArray(ids) && ids.length === 1 && !types;
+  const { ids, types, tags } = devices as Record<string, unknown>;
+  const hasTags =
+    !!tags && typeof tags === "object" && Object.keys(tags).length > 0;
+  return Array.isArray(ids) && ids.length === 1 && !types && !hasTags;
 }
 
 export const kpiConfigCheck = z.looseObject({
@@ -78,14 +84,13 @@ export const KpiConfigFields: FC<{ control: Control<FieldValues> }> = ({
     disabled: resultType === null,
   }));
 
-  const refused =
-    !!operator &&
-    !!dataType &&
-    operators.some((o) => o.operator === operator && o.resultType === null);
-
-  useEffect(() => {
-    if (refused) operatorField.onChange(undefined);
-  }, [refused, operatorField]);
+  useResetRefusedOperator(
+    operator,
+    dataType,
+    operators,
+    operatorField.onChange,
+    undefined,
+  );
 
   return (
     <>

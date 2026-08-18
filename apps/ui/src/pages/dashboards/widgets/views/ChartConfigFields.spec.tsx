@@ -88,6 +88,7 @@ vi.mock("@/hooks/useAggregateOptions", async () => {
   return {
     // The real projection — this spec is about how the editor renders it.
     operatorsFor: actual.operatorsFor,
+    useResetRefusedOperator: actual.useResetRefusedOperator,
     useAggregateOptions: () => ({ data: { operators_by_data_type: MATRIX } }),
   };
 });

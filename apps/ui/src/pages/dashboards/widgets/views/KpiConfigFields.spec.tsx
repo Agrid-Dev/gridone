@@ -129,6 +129,7 @@ vi.mock("@/hooks/useAggregateOptions", async () => {
   >("@/hooks/useAggregateOptions");
   return {
     operatorsFor: actual.operatorsFor,
+    useResetRefusedOperator: actual.useResetRefusedOperator,
     useAggregateOptions: () => ({ data: { operators_by_data_type: MATRIX } }),
   };
 });
