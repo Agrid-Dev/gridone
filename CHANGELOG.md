@@ -1,3 +1,9 @@
+## v0.211.0 (2026-08-18)
+
+### Feat
+
+- **dashboards**: base KPI tile widget (#554)
+
 ## v0.210.0 (2026-08-18)
 
 ### Feat
