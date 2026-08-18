@@ -208,7 +208,9 @@
       "noMatching": "Aucun attribut correspondant",
       "coverage_one": "{{count}}/{{total}} appareil",
       "coverage_other": "{{count}}/{{total}} appareils",
-      "mixedTypes": "types de données mixtes"
+      "mixedTypes": "types de données mixtes",
+      "skippedWarning_one": "{{count}} des {{total}} appareils correspondants n'exposent pas cet attribut et seront ignorés.",
+      "skippedWarning_other": "{{count}} des {{total}} appareils correspondants n'exposent pas cet attribut et seront ignorés."
     },
     "user": {
       "label": "Destinataires",

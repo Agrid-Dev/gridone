@@ -513,12 +513,13 @@ export type DevicesFilter = {
 };
 
 /** True when the filter selects on none of the target dimensions
- *  (``ids``/``types``/``asset_id``). An empty filter resolves to nothing —
- *  "everything" is never an intentional target. */
+ *  (``ids``/``types``/``tags``/``asset_id``). An empty filter resolves to
+ *  nothing — "everything" is never an intentional target. */
 export function isEmptyFilter(filter: DevicesFilter): boolean {
   return (
     !(filter.ids && filter.ids.length > 0) &&
     !(filter.types && filter.types.length > 0) &&
+    !(filter.tags && Object.keys(filter.tags).length > 0) &&
     !filter.asset_id
   );
 }

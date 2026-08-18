@@ -15,6 +15,8 @@ import { DevicePickerTable } from "./DevicePickerTable";
  *  re-resolved against the live device list. */
 export type TargetPickerMode = "devices" | "filters";
 
+type TagsFilter = { [key: string]: string[] };
+
 type DevicesFilterTabsProps = {
   devices: Device[];
   mode: TargetPickerMode;
@@ -23,6 +25,11 @@ type DevicesFilterTabsProps = {
   onDeviceIdsChange: (ids: string[]) => void;
   typesFilter?: string[];
   onTypesFilterChange: (types: string[] | undefined) => void;
+  /** Tag criteria for filters mode. Omit ``onTagsFilterChange`` (grouped
+   *  commands, not yet extended to tags) to hide the tag chips entirely
+   *  rather than render controls that don't do anything. */
+  tagsFilter?: TagsFilter;
+  onTagsFilterChange?: (tags: TagsFilter | undefined) => void;
   /** Caller-specific controls rendered in filters mode (e.g. an asset
    *  select). Paired with ``extraDeviceFilter`` for the preview. */
   extraFilters?: ReactNode;
@@ -47,6 +54,8 @@ export function DevicesFilterTabs({
   onDeviceIdsChange,
   typesFilter,
   onTypesFilterChange,
+  tagsFilter,
+  onTagsFilterChange,
   extraFilters,
   extraDeviceFilter,
   pickerExtraFilters,
@@ -75,6 +84,8 @@ export function DevicesFilterTabs({
           devices={devices}
           typesFilter={typesFilter}
           onTypesFilterChange={onTypesFilterChange}
+          tagsFilter={tagsFilter}
+          onTagsFilterChange={onTagsFilterChange}
           extraFilters={extraFilters}
           extraDeviceFilter={extraDeviceFilter}
         />
@@ -98,6 +109,33 @@ function deviceTypesOf(devices: Device[]): string[] {
     if (d.type) types.add(d.type);
   });
   return Array.from(types).sort();
+}
+
+/** Tag keys observed across *devices*, each with the distinct values seen for
+ *  it — the vocabulary offered as filter chips. */
+function deviceTagsOf(devices: Device[]): [string, string[]][] {
+  const byKey = new Map<string, Set<string>>();
+  devices.forEach((d) => {
+    Object.entries(d.tags ?? {}).forEach(([key, value]) => {
+      if (!byKey.has(key)) byKey.set(key, new Set());
+      byKey.get(key)!.add(value);
+    });
+  });
+  return Array.from(byKey.entries())
+    .map(([key, values]): [string, string[]] => [
+      key,
+      Array.from(values).sort(),
+    ])
+    .sort(([a], [b]) => a.localeCompare(b));
+}
+
+/** True when *device* carries, for every key in *tagsFilter*, one of the
+ *  accepted values — intersection across keys, union of values within a key. */
+function matchesTags(device: Device, tagsFilter: TagsFilter): boolean {
+  return Object.entries(tagsFilter).every(([key, values]) => {
+    const tagValue = device.tags?.[key];
+    return tagValue !== undefined && values.includes(tagValue);
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -184,6 +222,8 @@ type FiltersModeBodyProps = {
   devices: Device[];
   typesFilter?: string[];
   onTypesFilterChange: (types: string[] | undefined) => void;
+  tagsFilter?: TagsFilter;
+  onTagsFilterChange?: (tags: TagsFilter | undefined) => void;
   extraFilters?: ReactNode;
   extraDeviceFilter?: (device: Device) => boolean;
 };
@@ -192,35 +232,63 @@ function FiltersModeBody({
   devices,
   typesFilter,
   onTypesFilterChange,
+  tagsFilter,
+  onTagsFilterChange,
   extraFilters,
   extraDeviceFilter,
 }: FiltersModeBodyProps) {
   const { t } = useTranslation(["devices", "common"]);
 
   const deviceTypes = useMemo(() => deviceTypesOf(devices), [devices]);
+  const deviceTags = useMemo(
+    () => (onTagsFilterChange ? deviceTagsOf(devices) : []),
+    [devices, onTagsFilterChange],
+  );
   const selectedTypes = useMemo(
     () => new Set(typesFilter ?? []),
     [typesFilter],
   );
+  const hasTagsFilter = Object.keys(tagsFilter ?? {}).length > 0;
 
   // An empty filter matches nothing — "everything" is never an intentional
   // target. The caller's extraDeviceFilter counts as a set criterion.
   const resolved = useMemo(() => {
-    if (selectedTypes.size === 0 && !extraDeviceFilter) return [];
+    if (selectedTypes.size === 0 && !hasTagsFilter && !extraDeviceFilter) {
+      return [];
+    }
     return devices.filter((d) => {
       if (selectedTypes.size > 0 && (!d.type || !selectedTypes.has(d.type))) {
         return false;
       }
+      if (tagsFilter && !matchesTags(d, tagsFilter)) return false;
       if (extraDeviceFilter && !extraDeviceFilter(d)) return false;
       return true;
     });
-  }, [devices, selectedTypes, extraDeviceFilter]);
+  }, [devices, selectedTypes, tagsFilter, hasTagsFilter, extraDeviceFilter]);
 
   const toggleType = (dt: string) => {
     const next = new Set(selectedTypes);
     if (next.has(dt)) next.delete(dt);
     else next.add(dt);
     onTypesFilterChange(next.size > 0 ? Array.from(next) : undefined);
+  };
+
+  const toggleTag = (key: string, value: string) => {
+    if (!onTagsFilterChange) return;
+    const current = new Set(tagsFilter?.[key] ?? []);
+    if (current.has(value)) current.delete(value);
+    else current.add(value);
+
+    const next = { ...tagsFilter };
+    if (current.size > 0) next[key] = Array.from(current);
+    else delete next[key];
+
+    onTagsFilterChange(Object.keys(next).length > 0 ? next : undefined);
+  };
+
+  const clearAll = () => {
+    onTypesFilterChange(undefined);
+    onTagsFilterChange?.(undefined);
   };
 
   return (
@@ -247,18 +315,49 @@ function FiltersModeBody({
               </button>
             );
           })}
-          {selectedTypes.size > 0 && (
-            <button
-              type="button"
-              onClick={() => onTypesFilterChange(undefined)}
-              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-            >
-              <X className="h-3 w-3" />
-              {t("common:common.clear")}
-            </button>
-          )}
         </div>
       </div>
+
+      {deviceTags.length > 0 && (
+        <div className="flex flex-wrap items-start gap-4">
+          {deviceTags.map(([key, values]) => (
+            <div key={key} className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground">
+                {key}
+              </span>
+              {values.map((v) => {
+                const isOn = tagsFilter?.[key]?.includes(v) ?? false;
+                return (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => toggleTag(key, v)}
+                    className={cn(
+                      "rounded-full border px-2.5 py-1 text-xs transition-colors",
+                      isOn
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border text-muted-foreground hover:border-primary/50",
+                    )}
+                  >
+                    {v}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {(selectedTypes.size > 0 || hasTagsFilter) && (
+        <button
+          type="button"
+          onClick={clearAll}
+          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+        >
+          <X className="h-3 w-3" />
+          {t("common:common.clear")}
+        </button>
+      )}
 
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <Badge variant="outline">
