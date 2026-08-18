@@ -1,3 +1,9 @@
+## v0.210.0 (2026-08-18)
+
+### Feat
+
+- **dashboards**: filter-based device targets by tags (#553)
+
 ## v0.209.1 (2026-08-18)
 
 ### Fix
