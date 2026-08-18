@@ -92,6 +92,26 @@ const CASES: Case[] = [
     ],
   ],
   [
+    "aggregateLive",
+    (t) =>
+      t.aggregateLive({
+        type: ["meter"],
+        attribute: "power",
+        space_agg: "sum",
+      }),
+    [
+      "GET",
+      "/devices/timeseries/live-aggregate",
+      {
+        searchParams: {
+          type: ["meter"],
+          attribute: "power",
+          space_agg: "sum",
+        },
+      },
+    ],
+  ],
+  [
     "getAggregateOptions",
     (t) => t.getAggregateOptions({ last: "7d" }),
     [
