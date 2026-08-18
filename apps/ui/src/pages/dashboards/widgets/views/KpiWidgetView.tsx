@@ -32,23 +32,27 @@ const KpiValue: FC<{
 }> = ({ value, dataType, attribute, deviceType, unit, precision }) => {
   if (dataType === "bool" || dataType === "str") {
     return (
-      <AttributeValue
-        value={value}
-        attributeName={attribute}
-        dataType={dataType}
-        deviceType={deviceType}
-        className="text-3xl font-semibold"
-      />
+      <div className="flex h-full items-center justify-center p-4">
+        <AttributeValue
+          value={value}
+          attributeName={attribute}
+          dataType={dataType}
+          deviceType={deviceType}
+          className="text-3xl font-semibold"
+        />
+      </div>
     );
   }
   const digits = precision ?? (dataType === "float" ? 2 : 0);
   return (
-    <span className="text-3xl font-semibold">
-      {fmt(typeof value === "number" ? value : null, digits)}
-      {unit && (
-        <span className="ml-1 text-lg text-muted-foreground">{unit}</span>
-      )}
-    </span>
+    <div className="flex h-full items-center justify-center p-4">
+      <span className="text-3xl font-semibold">
+        {fmt(typeof value === "number" ? value : null, digits)}
+        {unit && (
+          <span className="ml-1 text-lg text-muted-foreground">{unit}</span>
+        )}
+      </span>
+    </div>
   );
 };
 
