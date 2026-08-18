@@ -25,6 +25,7 @@ vi.mock("@/hooks/useDevicesList", () => ({
 vi.mock("@/hooks/useAggregateOptions", () => ({
   useAggregateOptions: () => ({ data: undefined }),
   operatorsFor: () => [],
+  useResetRefusedOperator: () => {},
 }));
 
 // Imported after the mocks are registered.

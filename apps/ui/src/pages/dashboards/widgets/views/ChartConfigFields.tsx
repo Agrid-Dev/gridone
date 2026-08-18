@@ -9,7 +9,11 @@ import {
   type AttributeTarget,
 } from "@/components/forms/targetPicker";
 import { SelectController } from "@/components/forms/controllers/SelectController";
-import { operatorsFor, useAggregateOptions } from "@/hooks/useAggregateOptions";
+import {
+  operatorsFor,
+  useAggregateOptions,
+  useResetRefusedOperator,
+} from "@/hooks/useAggregateOptions";
 import { useDevicesList } from "@/hooks/useDevicesList";
 import { isEmptyFilter } from "@/lib/devices";
 
@@ -35,7 +39,7 @@ const SPACE_OPERATORS: AggregationOperator[] = [
 ];
 
 /** True when the criteria select at least one device dimension. */
-function hasDeviceCriterion(devices: unknown): boolean {
+export function hasDeviceCriterion(devices: unknown): boolean {
   if (typeof devices !== "object" || devices === null) return false;
   const { ids, types, tags } = devices as Record<string, unknown>;
   return (
@@ -60,7 +64,7 @@ export const chartConfigCheck = z.looseObject({
 
 /** The picker needs a well-formed target to render; the schema-driven default
  *  for an object property is `""`, which is what a new widget starts from. */
-function toPickerTarget(value: unknown): AttributeTarget {
+export function toPickerTarget(value: unknown): AttributeTarget {
   if (typeof value !== "object" || value === null) return { devices: {} };
   const { devices, attribute } = value as Partial<AttributeTarget>;
   return { devices: devices ?? {}, attribute };
@@ -79,7 +83,7 @@ function toPickerTarget(value: unknown): AttributeTarget {
  * yields an int whatever went in, and averaging a bool yields a float, which is
  * what decides whether the widget draws a line or an on/off band.
  */
-const AggOption: FC<{
+export const AggOption: FC<{
   name: string;
   resultType?: DataType | null;
   /** Which caption set glosses the name — time operators by default. */
@@ -157,20 +161,9 @@ export const ChartConfigFields: FC<{ control: Control<FieldValues> }> = ({
     disabled: resultType === null,
   }));
 
-  // Validity belongs to the data type, which the chosen operator can outlive:
-  // the picker keeps an attribute of the same name when the device set
-  // changes, and a saved widget's devices can be re-driven under it. So drop
-  // an operator this type refuses whenever that becomes true, rather than only
-  // when the attribute's name changes. Waits for the type and the matrix —
-  // until both are known, "unsupported" cannot be told from "not loaded yet".
-  const refused =
-    !!agg &&
-    !!dataType &&
-    operators.some((o) => o.operator === agg && o.resultType === null);
-
-  useEffect(() => {
-    if (refused) aggField.onChange(null);
-  }, [refused, aggField]);
+  // Waits for the type and the matrix — until both are known, "unsupported"
+  // cannot be told from "not loaded yet".
+  useResetRefusedOperator(agg, dataType, operators, aggField.onChange, null);
 
   // Space runs on what the time operator yields, so its options are the same
   // matrix read against the time output type — `avg` then `sum` of floats

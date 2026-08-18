@@ -5,6 +5,8 @@ import { ChartConfigFields, chartConfigCheck } from "./views/ChartConfigFields";
 import { ChartWidgetView } from "./views/ChartWidgetView";
 import { DeviceControlConfigFields } from "./views/DeviceControlConfigFields";
 import { DeviceControlWidgetView } from "./views/DeviceControlWidgetView";
+import { KpiConfigFields, kpiConfigCheck } from "./views/KpiConfigFields";
+import { KpiWidgetView } from "./views/KpiWidgetView";
 import { TextWidgetView } from "./views/TextWidgetView";
 
 /** A widget type's renderer. The config is untyped at the registry boundary;
@@ -27,6 +29,7 @@ export const widgetViews: Record<string, WidgetViewComponent> = {
   text: TextWidgetView,
   chart: ChartWidgetView,
   device_control: DeviceControlWidgetView,
+  kpi: KpiWidgetView,
 };
 
 /**
@@ -40,6 +43,7 @@ export const widgetViews: Record<string, WidgetViewComponent> = {
 export const widgetConfigFields: Record<string, WidgetConfigFieldsComponent> = {
   chart: ChartConfigFields,
   device_control: DeviceControlConfigFields,
+  kpi: KpiConfigFields,
 };
 
 /**
@@ -50,6 +54,7 @@ export const widgetConfigFields: Record<string, WidgetConfigFieldsComponent> = {
  */
 export const widgetConfigChecks: Record<string, z.ZodType> = {
   chart: chartConfigCheck,
+  kpi: kpiConfigCheck,
 };
 
 /** Renders a widget body from its type + config. Both the dashboard grid and

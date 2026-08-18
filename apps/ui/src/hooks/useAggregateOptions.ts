@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type {
   AggregateOptionsResponse,
@@ -56,4 +57,30 @@ export function operatorsFor(
     operator: operator as AggregationOperator,
     resultType: forType ? (forType[operator] ?? null) : null,
   }));
+}
+
+/**
+ * Clears a picked operator once the attribute's data type stops accepting it.
+ *
+ * Validity belongs to the data type, which the chosen operator can outlive:
+ * the picker keeps an attribute of the same name when the device set changes,
+ * and a saved widget's devices can be re-driven under it. So drop an operator
+ * this type refuses whenever that becomes true, rather than only when the
+ * attribute's name changes.
+ */
+export function useResetRefusedOperator<T>(
+  operator: string | null | undefined,
+  dataType: DataType | undefined,
+  operators: OperatorOption[],
+  onChange: (value: T) => void,
+  resetValue: T,
+): void {
+  const refused =
+    !!operator &&
+    !!dataType &&
+    operators.some((o) => o.operator === operator && o.resultType === null);
+
+  useEffect(() => {
+    if (refused) onChange(resetValue);
+  }, [refused, onChange, resetValue]);
 }

@@ -68,6 +68,30 @@
       "noControl": "Ce type d'appareil n'a pas de contrôle standard.",
       "live": "En direct"
     },
+    "kpi": {
+      "targetEmpty": "Choisissez un appareil et un attribut.",
+      "notFound": "Cet appareil n'existe plus.",
+      "attributeMissing": "Cet appareil n'expose plus cet attribut.",
+      "noHistory": "Aucun historique n'est enregistré pour cet attribut.",
+      "error": "Impossible de charger cette valeur.",
+      "noOperator": "Choisissez un opérateur d'agrégation.",
+      "unboundedPeriod": "L'agrégation exige une période bornée — choisissez-en une autre que « Tout l'historique ».",
+      "singleDeviceRequired": "Une tuile KPI affiche un seul appareil — choisissez un appareil précis, pas un filtre.",
+      "temporal": {
+        "live": "En direct",
+        "period": "Sur la période"
+      },
+      "operator": {
+        "label": "Agrégation",
+        "placeholder": "Sélectionner…"
+      },
+      "unit": {
+        "label": "Unité"
+      },
+      "precision": {
+        "label": "Précision"
+      }
+    },
     "add": "Ajouter un widget",
     "addTitle": "Ajouter un widget",
     "addSubmit": "Ajouter le widget",

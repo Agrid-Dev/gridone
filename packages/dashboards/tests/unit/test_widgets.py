@@ -6,7 +6,9 @@ import pytest
 from dashboards.widgets import (
     ChartWidgetConfig,
     DeviceControlWidgetConfig,
+    KpiWidgetConfig,
     TextWidgetConfig,
+    TimeAggregation,
     WidgetSize,
     WidgetType,
     build_default_registry,
@@ -14,16 +16,18 @@ from dashboards.widgets import (
 from dashboards.widgets.registry import WidgetRegistry
 
 from models.errors import InvalidError, NotFoundError
-from models.types import AggregationOperator
+from models.targets import ResolvedTarget
+from models.types import AggregationOperator, DataType
 
 
 def test_default_registry_registers_built_in_types():
     registry = build_default_registry()
 
-    assert set(registry.types()) == {"text", "chart", "device_control"}
+    assert set(registry.types()) == {"text", "chart", "device_control", "kpi"}
     assert registry.default_size("text") == WidgetSize(w=4, h=2)
     assert registry.default_size("chart") == WidgetSize(w=6, h=5)
     assert registry.default_size("device_control") == WidgetSize(w=4, h=6)
+    assert registry.default_size("kpi") == WidgetSize(w=3, h=2)
 
 
 def test_validate_config_returns_concrete_model():
@@ -74,6 +78,45 @@ def test_validate_config_returns_concrete_model():
             "device_id": "d1",
             "agg": "avg",
         },
+        {"type": "kpi", "attribute": "temperature"},  # missing target
+        {  # unknown temporal literal — only "live" or a TimeAggregation
+            "type": "kpi",
+            "target": {"devices": {"ids": ["d1"]}, "attribute": "temperature"},
+            "temporal": "period",
+        },
+        {  # period mode needs an operator
+            "type": "kpi",
+            "target": {"devices": {"ids": ["d1"]}, "attribute": "temperature"},
+            "temporal": {},
+        },
+        {  # negative precision
+            "type": "kpi",
+            "target": {"devices": {"ids": ["d1"]}, "attribute": "temperature"},
+            "precision": -1,
+        },
+        {  # a types filter is not an explicit single device
+            "type": "kpi",
+            "target": {
+                "devices": {"types": ["thermostat"]},
+                "attribute": "temperature",
+            },
+        },
+        {  # a tags filter is not an explicit single device
+            "type": "kpi",
+            "target": {
+                "devices": {"tags": {"floor": ["1"]}},
+                "attribute": "temperature",
+            },
+        },
+        {  # more than one explicit id is not single-device
+            "type": "kpi",
+            "target": {"devices": {"ids": ["d1", "d2"]}, "attribute": "temperature"},
+        },
+        {  # interval is not the widget's to store — same rule as chart
+            "type": "kpi",
+            "target": {"devices": {"ids": ["d1"]}, "attribute": "temperature"},
+            "temporal": {"operator": "sum", "interval": "1h"},
+        },
     ],
 )
 def test_validate_config_rejects_invalid(raw: dict):
@@ -87,7 +130,7 @@ def test_get_unknown_type_raises():
     registry = build_default_registry()
 
     with pytest.raises(NotFoundError, match="Unknown widget type"):
-        registry.get("kpi")
+        registry.get("unknown")
 
 
 def test_validate_config_translates_unknown_type_to_invalid():
@@ -96,7 +139,7 @@ def test_validate_config_translates_unknown_type_to_invalid():
     registry = build_default_registry()
 
     with pytest.raises(InvalidError, match="Unknown widget type"):
-        registry.validate_config({"type": "kpi"})
+        registry.validate_config({"type": "unknown"})
 
 
 def test_register_duplicate_type_raises():
@@ -117,7 +160,7 @@ def test_schemas_returns_json_schema_per_type():
 
     schemas = registry.schemas()
 
-    assert set(schemas) == {"text", "chart", "device_control"}
+    assert set(schemas) == {"text", "chart", "device_control", "kpi"}
     props = schemas["text"]["properties"]
     assert props["color"]["pattern"] == r"^#[0-9a-fA-F]{6}$"
     assert props["type"]["const"] == "text"
@@ -135,6 +178,9 @@ def test_schemas_returns_json_schema_per_type():
     assert set(device_control["required"]) == {"device_id"}
     assert device_control["properties"]["device_id"]["minLength"] == 1
     assert device_control["x-default-size"] == {"w": 4, "h": 6}
+    kpi = schemas["kpi"]
+    assert set(kpi["required"]) == {"target"}
+    assert kpi["x-default-size"] == {"w": 3, "h": 2}
 
 
 def test_empty_registry_has_no_types():
@@ -301,3 +347,81 @@ def test_text_config_accepts_valid_hex(color: str):
     config = TextWidgetConfig(text="x", color=color)
 
     assert config.color == color
+
+
+def test_kpi_config_defaults_to_live():
+    registry = build_default_registry()
+
+    config = registry.validate_config(
+        {
+            "type": "kpi",
+            "target": {"devices": {"ids": ["d1"]}, "attribute": "temperature"},
+        }
+    )
+
+    assert isinstance(config, KpiWidgetConfig)
+    assert config.temporal == "live"
+    assert config.unit is None
+    assert config.precision is None
+    assert [t.attribute for t in config.targets()] == ["temperature"]
+
+
+def test_kpi_config_accepts_a_period_aggregation():
+    registry = build_default_registry()
+
+    config = registry.validate_config(
+        {
+            "type": "kpi",
+            "target": {"devices": {"ids": ["d1"]}, "attribute": "energy"},
+            "temporal": {"operator": "sum"},
+            "unit": "kWh",
+            "precision": 1,
+        }
+    )
+
+    assert isinstance(config, KpiWidgetConfig)
+    assert isinstance(config.temporal, TimeAggregation)
+    assert config.temporal.operator is AggregationOperator.SUM
+    assert config.unit == "kWh"
+    assert config.precision == 1
+
+
+def test_kpi_config_rejects_a_multi_device_resolved_target():
+    # Defense in depth: even a config with an explicit single id is refused
+    # if resolution still yields more than one device.
+    config = KpiWidgetConfig.model_validate(
+        {
+            "type": "kpi",
+            "target": {"devices": {"ids": ["d1"]}, "attribute": "temperature"},
+        }
+    )
+    resolved = [
+        ResolvedTarget(
+            attribute="temperature",
+            device_ids=["d1", "d2"],
+            data_type=DataType.FLOAT,
+            excluded_device_ids=[],
+        )
+    ]
+
+    with pytest.raises(InvalidError, match="exactly one device"):
+        config.validate_resolved(resolved)
+
+
+def test_kpi_config_accepts_a_single_device_resolved_target():
+    config = KpiWidgetConfig.model_validate(
+        {
+            "type": "kpi",
+            "target": {"devices": {"ids": ["d1"]}, "attribute": "temperature"},
+        }
+    )
+    resolved = [
+        ResolvedTarget(
+            attribute="temperature",
+            device_ids=["d1"],
+            data_type=DataType.FLOAT,
+            excluded_device_ids=[],
+        )
+    ]
+
+    config.validate_resolved(resolved)

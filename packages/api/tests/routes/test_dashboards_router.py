@@ -51,6 +51,11 @@ _CHART_TARGET = {
 }
 _CHART_CONFIG = {"type": "chart", "target": _CHART_TARGET}
 _DEVICE_CONTROL_CONFIG = {"type": "device_control", "device_id": "dev1"}
+_KPI_TARGET = {
+    "devices": {"ids": ["dev1"], "types": None, "tags": None},
+    "attribute": "temperature",
+}
+_KPI_CONFIG = {"type": "kpi", "target": _KPI_TARGET}
 
 
 @pytest.fixture
@@ -295,9 +300,50 @@ class TestWidgets:
         assert resp.status_code == 422
         svc.update_widget.assert_not_awaited()
 
+    async def test_add_live_kpi_widget_reaches_the_service(self, client, svc):
+        svc.add_widget.return_value = _WIDGET
+        async with client as c:
+            resp = await c.post("/d1/widgets", json={"config": _KPI_CONFIG})
+        assert resp.status_code == 201
+        svc.add_widget.assert_awaited_once_with(
+            "d1",
+            config={**_KPI_CONFIG, "temporal": "live", "unit": None, "precision": None},
+            title=None,
+            description=None,
+        )
+
+    async def test_add_period_kpi_widget_reaches_the_service(self, client, svc):
+        svc.add_widget.return_value = _WIDGET
+        config = {**_KPI_CONFIG, "temporal": {"operator": "sum"}}
+        async with client as c:
+            resp = await c.post("/d1/widgets", json={"config": config})
+        assert resp.status_code == 201
+        svc.add_widget.assert_awaited_once_with(
+            "d1",
+            config={**config, "unit": None, "precision": None},
+            title=None,
+            description=None,
+        )
+
+    async def test_add_kpi_widget_with_multi_device_target_returns_422(
+        self, client, svc, mock_target_resolver
+    ):
+        # v0 KPI tiles show one number: a target resolving to more than one
+        # device is a save-time authoring error, not a render-time one.
+        mock_target_resolver.resolve.return_value = ResolvedTarget(
+            attribute="temperature",
+            device_ids=["dev1", "dev2"],
+            data_type=DataType.FLOAT,
+            excluded_device_ids=[],
+        )
+        async with client as c:
+            resp = await c.post("/d1/widgets", json={"config": _KPI_CONFIG})
+        assert resp.status_code == 422
+        svc.add_widget.assert_not_awaited()
+
     async def test_add_widget_unknown_type_returns_422(self, client):
         async with client as c:
-            resp = await c.post("/d1/widgets", json={"config": {"type": "kpi"}})
+            resp = await c.post("/d1/widgets", json={"config": {"type": "unknown"}})
         assert resp.status_code == 422
 
     async def test_update_widget_returns_widget(self, client, svc):
