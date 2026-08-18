@@ -47,7 +47,7 @@ export function ThermostatModeControl({
             disabled={saving}
             onClick={() => !active && onSelect(mode)}
             className={cn(
-              "flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50",
+              "flex min-w-0 flex-auto items-center justify-center gap-1 rounded-full px-2 py-1.5 text-sm font-medium transition-colors disabled:opacity-50",
               active
                 ? cn(
                     "bg-background shadow-sm",
@@ -56,7 +56,7 @@ export function ThermostatModeControl({
                 : "text-muted-foreground hover:text-foreground",
             )}
           >
-            {Icon && <Icon className="h-4 w-4" />}
+            {Icon && <Icon className="h-4 w-4 shrink-0" />}
             {t(`common.hvacMode.${mode}`, { defaultValue: mode })}
           </button>
         );
