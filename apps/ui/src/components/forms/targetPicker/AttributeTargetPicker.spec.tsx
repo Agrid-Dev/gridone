@@ -126,6 +126,26 @@ describe("AttributeTargetPicker — filter-mode missing-attribute warning", () =
     ).toBeInTheDocument();
   });
 
+  it("warns for the full matched count when the attribute is absent from coverage entirely", () => {
+    // Zero devices in the filtered set expose "humidity" at all, so it never
+    // appears as a row in the coverage response — not just at a lower count.
+    mockUseQuery.mockReturnValue({ data: coverageResponse, isLoading: false });
+
+    render(
+      <AttributeTargetPicker
+        value={{ devices: { types: ["thermostat"] }, attribute: "humidity" }}
+        onChange={vi.fn()}
+        devices={devices}
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        "10 of 10 matched devices don't expose this attribute and will be skipped.",
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("shows no warning once every matched device exposes the attribute", () => {
     mockUseQuery.mockReturnValue({
       data: {

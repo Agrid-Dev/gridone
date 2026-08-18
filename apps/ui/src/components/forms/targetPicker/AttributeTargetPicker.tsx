@@ -51,12 +51,14 @@ export function AttributeTargetPicker({
   const { coverage, totalDevices } = useAttributeCoverage(coverageFilter, {
     enabled: !isEmptyFilter(coverageFilter),
   });
+  // Absent from `coverage` entirely (not just a lower count) means zero
+  // matched devices expose it — the whole set would be skipped at render.
   const selectedCoverage = coverage.find(
     (c) => c.attribute === value.attribute,
   );
   const skipped =
-    mode === "filters" && selectedCoverage
-      ? totalDevices - selectedCoverage.device_count
+    mode === "filters" && value.attribute
+      ? totalDevices - (selectedCoverage?.device_count ?? 0)
       : 0;
 
   return (
