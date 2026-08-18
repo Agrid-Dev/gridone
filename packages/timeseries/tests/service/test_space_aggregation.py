@@ -247,3 +247,54 @@ class TestGetAggregateMany:
             await ts_service.get_aggregate_many(
                 keys, _query(AggregationOperator.MODE), AggregationOperator.SUM
             )
+
+
+class TestFoldLiveValues:
+    """The live counterpart to get_aggregate_many: no time dimension, no
+    storage — the caller already has the values (a device set's current
+    readings)."""
+
+    def test_folds_current_values(self, ts_service: TimeSeriesService) -> None:
+        result = ts_service.fold_live_values(
+            [10.0, 20.0, 30.0], DataType.FLOAT, AggregationOperator.SUM
+        )
+        assert result.value == 60.0
+        assert result.data_type == DataType.FLOAT
+        assert result.device_count == 3
+
+    def test_missing_values_do_not_contribute(
+        self, ts_service: TimeSeriesService
+    ) -> None:
+        result = ts_service.fold_live_values(
+            [10.0, None, 30.0], DataType.FLOAT, AggregationOperator.AVG
+        )
+        assert result.value == 20.0
+        assert result.device_count == 2
+
+    def test_no_values_yields_none(self, ts_service: TimeSeriesService) -> None:
+        result = ts_service.fold_live_values(
+            [None, None], DataType.FLOAT, AggregationOperator.SUM
+        )
+        assert result.value is None
+        assert result.device_count == 0
+
+    def test_bool_sum_yields_int(self, ts_service: TimeSeriesService) -> None:
+        result = ts_service.fold_live_values(
+            [True, False, True], DataType.BOOL, AggregationOperator.SUM
+        )
+        assert result.value == 2
+        assert result.data_type == DataType.INT
+
+    def test_non_space_operator_rejected(self, ts_service: TimeSeriesService) -> None:
+        with pytest.raises(InvalidError, match="not a space aggregation operator"):
+            ts_service.fold_live_values(
+                [10.0], DataType.FLOAT, AggregationOperator.DELTA
+            )
+
+    def test_space_operator_incompatible_with_type_rejected(
+        self, ts_service: TimeSeriesService
+    ) -> None:
+        with pytest.raises(InvalidError, match="not supported for data type"):
+            ts_service.fold_live_values(
+                ["on"], DataType.STRING, AggregationOperator.SUM
+            )

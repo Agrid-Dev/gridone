@@ -1109,6 +1109,7 @@ class TestAggregateOptions:
         assert intervals[1]["interval"] == "whole"
         assert all(iv["bucket_count"] is None for iv in intervals)
         assert "operators_by_data_type" in body
+        assert "space_operators_by_data_type" in body
         assert "auto_interval_lookup" not in body
 
     async def test_7d_period_filters_intervals_and_recommends(
@@ -1179,6 +1180,26 @@ class TestAggregateOptions:
         assert ops_by_type["int"]["delta"] == "int"
         assert ops_by_type["str"]["delta"] is None
         assert ops_by_type["bool"]["delta"] is None
+
+    async def test_space_operators_by_data_type_restricted_to_space_vocabulary(
+        self, async_client: AsyncClient
+    ):
+        async with async_client as ac:
+            response = await ac.get("/timeseries/aggregate/options")
+        body = response.json()
+        space_ops_by_type = body["space_operators_by_data_type"]
+        assert set(space_ops_by_type.keys()) == {"float", "int", "str", "bool"}
+        # Only space operators are listed — "first"/"delta"/"tw_*" don't apply.
+        assert set(space_ops_by_type["float"]) == {
+            "avg",
+            "sum",
+            "min",
+            "max",
+            "count",
+            "mode",
+        }
+        assert space_ops_by_type["float"]["sum"] == "float"
+        assert space_ops_by_type["str"]["sum"] is None
 
     async def test_end_only_returns_422(self, async_client: AsyncClient):
         async with async_client as ac:
@@ -1341,3 +1362,118 @@ class TestSpaceAggregate:
         async with async_client as ac:
             response = await ac.get("/timeseries/aggregate", params=self._params())
         assert response.status_code == 404
+
+
+class TestLiveAggregate:
+    """GET /timeseries/live-aggregate — current values folded across a set."""
+
+    @staticmethod
+    def _meter(device_id: str, value: float | None) -> object:
+        from devices_manager.core.device import Attribute
+        from devices_manager.dto.device_dto import Device
+        from devices_manager.types import DataType as DmDataType
+
+        return Device(
+            id=device_id,
+            name=device_id,
+            type="meter",
+            attributes={
+                "power": Attribute.create(
+                    "power", DmDataType.FLOAT, {"read"}, value=value
+                )
+            },
+            config={},
+            driver_id="drv",
+            transport_id="tr",
+            is_faulty=False,
+        )
+
+    def _install_dm(self, app: FastAPI, devices: list[object]) -> None:
+        dm = MagicMock()
+
+        def _list_devices(**kwargs: object) -> list[object]:
+            ids = kwargs.get("ids")
+            if ids is not None:
+                return [d for d in devices if d.id in set(ids)]  # type: ignore[attr-defined]
+            return list(devices)
+
+        dm.list_devices.side_effect = _list_devices
+        app.dependency_overrides[get_device_manager] = lambda: dm
+
+    def _params(self, **overrides: object) -> dict:
+        params: dict = {
+            "type": "meter",
+            "attribute": "power",
+            "space_agg": "sum",
+        }
+        params.update(overrides)
+        return params
+
+    async def test_folds_current_values_across_the_set(
+        self, app: FastAPI, async_client: AsyncClient
+    ):
+        self._install_dm(app, [self._meter("m1", 10.0), self._meter("m2", 20.0)])
+        async with async_client as ac:
+            response = await ac.get("/timeseries/live-aggregate", params=self._params())
+        assert response.status_code == 200
+        body = response.json()
+        assert body == {
+            "value": 30.0,
+            "data_type": "float",
+            "space_agg": "sum",
+            "device_count": 2,
+        }
+
+    async def test_ids_filter_narrows_the_target(
+        self, app: FastAPI, async_client: AsyncClient
+    ):
+        self._install_dm(app, [self._meter("m1", 10.0), self._meter("m2", 20.0)])
+        async with async_client as ac:
+            response = await ac.get(
+                "/timeseries/live-aggregate", params=self._params(ids="m1")
+            )
+        assert response.status_code == 200
+        assert response.json()["value"] == 10.0
+
+    async def test_device_with_no_value_yet_does_not_contribute(
+        self, app: FastAPI, async_client: AsyncClient
+    ):
+        self._install_dm(app, [self._meter("m1", 10.0), self._meter("m2", None)])
+        async with async_client as ac:
+            response = await ac.get("/timeseries/live-aggregate", params=self._params())
+        assert response.status_code == 200
+        body = response.json()
+        assert body["value"] == 10.0
+        assert body["device_count"] == 1
+
+    async def test_no_device_has_a_value_returns_null(
+        self, app: FastAPI, async_client: AsyncClient
+    ):
+        self._install_dm(app, [self._meter("m1", None)])
+        async with async_client as ac:
+            response = await ac.get("/timeseries/live-aggregate", params=self._params())
+        assert response.status_code == 200
+        body = response.json()
+        assert body["value"] is None
+        assert body["device_count"] == 0
+
+    async def test_no_device_exposes_attribute_is_422(
+        self, app: FastAPI, async_client: AsyncClient
+    ):
+        self._install_dm(app, [self._meter("m1", 10.0)])
+        async with async_client as ac:
+            response = await ac.get(
+                "/timeseries/live-aggregate",
+                params=self._params(attribute="humidity"),
+            )
+        assert response.status_code == 422
+
+    async def test_non_space_operator_is_422(
+        self, app: FastAPI, async_client: AsyncClient
+    ):
+        self._install_dm(app, [self._meter("m1", 10.0)])
+        async with async_client as ac:
+            response = await ac.get(
+                "/timeseries/live-aggregate", params=self._params(space_agg="delta")
+            )
+        assert response.status_code == 422

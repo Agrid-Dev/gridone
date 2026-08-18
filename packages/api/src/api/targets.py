@@ -71,6 +71,16 @@ class CompositeTargetResolver:
         :class:`~models.errors.InvalidError` when no device exposes the
         attribute or when the exposed data types are mixed.
         """
+        resolved, _ = await self.resolve_with_devices(target, writable=writable)
+        return resolved
+
+    async def resolve_with_devices(
+        self, target: AttributeTarget, *, writable: bool = False
+    ) -> tuple[ResolvedTarget, list[Device]]:
+        """Resolve *target* like :meth:`resolve`, also returning the exposing
+        devices — for a caller that needs device data beyond the id (e.g.
+        current attribute values), sparing it a second ``list_devices`` scan.
+        """
         devices = self._dm.list_devices(**target.devices.model_dump(exclude_none=True))
         exposing = [
             d for d in devices if _exposes(d, target.attribute, writable=writable)
@@ -83,12 +93,13 @@ class CompositeTargetResolver:
         data_type = unify_data_types(
             d.attributes[target.attribute].data_type for d in exposing
         )
-        return ResolvedTarget(
+        resolved = ResolvedTarget(
             attribute=target.attribute,
             device_ids=[d.id for d in exposing],
             data_type=data_type,
             excluded_device_ids=[d.id for d in devices if d.id not in exposing_ids],
         )
+        return resolved, exposing
 
     async def list_attribute_coverage(
         self, devices: DevicesFilter

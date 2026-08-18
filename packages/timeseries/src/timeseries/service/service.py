@@ -12,6 +12,7 @@ from models.service import Service
 from timeseries.domain import (
     AGG_COMPAT,
     DATA_TYPE_MAP,
+    SPACE_COMPAT,
     VALUE_TYPE_MAP,
     AggregatedPoint,
     AggregationOperator,
@@ -25,6 +26,7 @@ from timeseries.domain import (
     SpaceAggregationResult,
     TimeSeries,
     combine_space,
+    fold_space_values,
     normalize_to_utc,
     parse_duration,
     resolve_aggregation_data_type,
@@ -52,17 +54,28 @@ _POSTGRES_PREFIX = "postgresql"
 
 
 @dataclass
+class LiveFoldResult:
+    value: bool | int | float | str | None
+    data_type: DataType
+    device_count: int
+    """How many of the input values were non-null and contributed."""
+
+
+@dataclass
 class AggregateOptions:
     intervals: list[tuple[str, int | None]]  # (interval_str, bucket_count)
     recommended_interval: str | None
     operators_by_data_type: dict[DataType, dict[AggregationOperator, DataType | None]]
+    space_operators_by_data_type: dict[
+        DataType, dict[AggregationOperator, DataType | None]
+    ]
 
 
-def _build_operators_by_data_type() -> dict[
-    DataType, dict[AggregationOperator, DataType | None]
-]:
-    """Transpose the compatibility matrix to data-type-major, keeping every
-    operator.
+def _build_operators_by_data_type(
+    compat: dict[AggregationOperator, dict[DataType, DataType | None]],
+) -> dict[DataType, dict[AggregationOperator, DataType | None]]:
+    """Transpose a compatibility matrix to data-type-major, keeping every
+    operator in *compat*.
 
     Every operator appears against every data type, mapped to the type it
     yields — or ``None`` where the pair is invalid. Listing only the valid ones
@@ -70,14 +83,15 @@ def _build_operators_by_data_type() -> dict[
     it has never heard of, and unable to say what it would get back: ``count``
     yields an int whatever went in, and averaging a bool yields a float.
     """
-    return {
-        dt: {op: AGG_COMPAT[op][dt] for op in AggregationOperator} for dt in DataType
-    }
+    return {dt: {op: compat[op][dt] for op in compat} for dt in DataType}
 
 
 _OPERATORS_BY_DATA_TYPE: dict[DataType, dict[AggregationOperator, DataType | None]] = (
-    _build_operators_by_data_type()
+    _build_operators_by_data_type(AGG_COMPAT)
 )
+_SPACE_OPERATORS_BY_DATA_TYPE: dict[
+    DataType, dict[AggregationOperator, DataType | None]
+] = _build_operators_by_data_type(SPACE_COMPAT)
 
 DEFAULT_RAW_LIMIT = 10_000
 MAX_RAW_LIMIT = 100_000
@@ -379,6 +393,26 @@ class TimeSeriesService(Service):
         # one having to remember to.
         return result.localized()
 
+    def fold_live_values(
+        self,
+        values: list[bool | int | float | str | None],
+        data_type: DataType,
+        space_agg: AggregationOperator,
+    ) -> LiveFoldResult:
+        """Fold a device set's current values into one.
+
+        The live counterpart to ``get_aggregate_many``, with no time
+        dimension — the caller reads *values* itself.
+        """
+        output_type = resolve_space_aggregation_data_type(space_agg, data_type)
+        non_null = [v for v in values if v is not None]
+        value = (
+            fold_space_values(non_null, space_agg, output_type) if non_null else None
+        )
+        return LiveFoldResult(
+            value=value, data_type=output_type, device_count=len(non_null)
+        )
+
     async def get_aggregate_options(
         self,
         *,
@@ -412,6 +446,7 @@ class TimeSeriesService(Service):
                 intervals=intervals,
                 recommended_interval=recommended,
                 operators_by_data_type=_OPERATORS_BY_DATA_TYPE,
+                space_operators_by_data_type=_SPACE_OPERATORS_BY_DATA_TYPE,
             )
 
         # No time range given: every interval is offered, none can be sized.
@@ -424,6 +459,7 @@ class TimeSeriesService(Service):
             intervals=default_intervals,
             recommended_interval=None,
             operators_by_data_type=_OPERATORS_BY_DATA_TYPE,
+            space_operators_by_data_type=_SPACE_OPERATORS_BY_DATA_TYPE,
         )
 
     async def _get_aggregate_raw(

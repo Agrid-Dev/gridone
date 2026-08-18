@@ -58,3 +58,18 @@ class AggregateOptionsResponse(BaseModel):
     an editor can then offer the whole vocabulary and disable what does not
     apply, instead of silently shortening its list.
     """
+    space_operators_by_data_type: dict[
+        DataType, dict[AggregationOperator, DataType | None]
+    ]
+    """Same shape as ``operators_by_data_type``, restricted to operators that
+    can fold a device set (the space aggregation vocabulary)."""
+
+
+class LiveSpaceAggregateResponse(BaseModel):
+    """One attribute's current values across a device set, folded to one."""
+
+    value: bool | int | float | str | None
+    data_type: DataType
+    space_agg: AggregationOperator
+    device_count: int
+    """How many of the target's devices had a current value to contribute."""

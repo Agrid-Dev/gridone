@@ -144,3 +144,35 @@ class TestCompositeTargetResolver:
         )
         assert [c.attribute for c in coverage] == ["setpoint", "temperature"]
         dm.list_devices.assert_called_once_with(types=["thermostat"])
+
+
+class TestResolveWithDevices:
+    @pytest.mark.asyncio
+    async def test_returns_the_same_resolution_as_resolve(self):
+        dm = _make_dm([_THERMO_1, _THERMO_2, _METER])
+        resolver = CompositeTargetResolver(dm)
+        resolved, devices = await resolver.resolve_with_devices(
+            AttributeTarget(
+                devices=DevicesFilter(types=["thermostat"]), attribute="temperature"
+            )
+        )
+        assert resolved.device_ids == ["t1", "t2"]
+        assert resolved.data_type == DataType.FLOAT
+        assert [d.id for d in devices] == ["t1", "t2"]
+
+    @pytest.mark.asyncio
+    async def test_only_scans_devices_once(self):
+        dm = _make_dm([_THERMO_1, _THERMO_2])
+        resolver = CompositeTargetResolver(dm)
+        await resolver.resolve_with_devices(
+            AttributeTarget(devices=DevicesFilter(), attribute="temperature")
+        )
+        dm.list_devices.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_no_coverage_raises(self):
+        resolver = CompositeTargetResolver(_make_dm([_METER]))
+        with pytest.raises(InvalidError, match="No device in the target"):
+            await resolver.resolve_with_devices(
+                AttributeTarget(devices=DevicesFilter(), attribute="temperature")
+            )
