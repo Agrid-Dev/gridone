@@ -18,7 +18,11 @@ import {
 } from "@/hooks/useAggregateOptions";
 import { useDevicesList } from "@/hooks/useDevicesList";
 import { isEmptyFilter } from "@/lib/devices";
-import { AggOption, toPickerTarget } from "./ChartConfigFields";
+import {
+  AggOption,
+  hasDeviceCriterion,
+  toPickerTarget,
+} from "./ChartConfigFields";
 
 type Temporal = "live" | { operator?: AggregationOperator };
 
@@ -60,6 +64,12 @@ export const KpiConfigFields: FC<{ control: Control<FieldValues> }> = ({
   });
 
   const target = toPickerTarget(targetField.value);
+  // Chosen but not the single-device shape the widget requires (e.g. the
+  // picker's "By filters" tab, or more than one explicit id): the schema
+  // check alone just disables Save, so this names the reason near the field.
+  const targetInvalid =
+    hasDeviceCriterion(target.devices) &&
+    !hasSingleDeviceCriterion(target.devices);
   const temporal = temporalField.value as Temporal | undefined;
   const isPeriod = typeof temporal === "object" && temporal !== null;
   const operator = isPeriod ? (temporal.operator ?? null) : null;
@@ -99,6 +109,11 @@ export const KpiConfigFields: FC<{ control: Control<FieldValues> }> = ({
         onChange={targetField.onChange}
         devices={devices}
       />
+      {targetInvalid && (
+        <p className="text-sm text-destructive">
+          {t("widgets.kpi.singleDeviceRequired")}
+        </p>
+      )}
       <Tabs
         value={isPeriod ? "period" : "live"}
         onValueChange={(v) =>

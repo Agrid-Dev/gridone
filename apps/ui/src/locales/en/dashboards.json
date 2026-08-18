@@ -76,6 +76,7 @@
       "error": "Could not load this value.",
       "noOperator": "Pick an aggregation operator.",
       "unboundedPeriod": "Aggregation needs a bounded period — pick one other than “All time”.",
+      "singleDeviceRequired": "KPI tiles show one device — pick a single device, not a filter.",
       "temporal": {
         "live": "Live",
         "period": "Over the period"

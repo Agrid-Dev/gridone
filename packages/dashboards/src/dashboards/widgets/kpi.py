@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from dashboards.widgets.config import WidgetConfig
 from models.errors import InvalidError
@@ -29,6 +29,16 @@ class KpiWidgetConfig(WidgetConfig):
     temporal: Literal["live"] | TimeAggregation = "live"
     unit: str | None = None
     precision: int | None = Field(default=None, ge=0)
+
+    @model_validator(mode="after")
+    def _require_single_explicit_device(self) -> KpiWidgetConfig:
+        """Pins the target shape: one explicit id, no types/tags filter."""
+        devices = self.target.devices
+        single_id = devices.ids is not None and len(devices.ids) == 1
+        if not single_id or devices.types or devices.tags:
+            msg = "KPI target must be exactly one explicit device id"
+            raise ValueError(msg)
+        return self
 
     def targets(self) -> list[AttributeTarget]:
         return [self.target]

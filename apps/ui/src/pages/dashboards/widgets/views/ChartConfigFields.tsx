@@ -39,7 +39,7 @@ const SPACE_OPERATORS: AggregationOperator[] = [
 ];
 
 /** True when the criteria select at least one device dimension. */
-function hasDeviceCriterion(devices: unknown): boolean {
+export function hasDeviceCriterion(devices: unknown): boolean {
   if (typeof devices !== "object" || devices === null) return false;
   const { ids, types, tags } = devices as Record<string, unknown>;
   return (

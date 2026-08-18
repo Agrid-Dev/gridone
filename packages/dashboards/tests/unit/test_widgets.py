@@ -94,6 +94,24 @@ def test_validate_config_returns_concrete_model():
             "target": {"devices": {"ids": ["d1"]}, "attribute": "temperature"},
             "precision": -1,
         },
+        {  # a types filter is not an explicit single device
+            "type": "kpi",
+            "target": {
+                "devices": {"types": ["thermostat"]},
+                "attribute": "temperature",
+            },
+        },
+        {  # a tags filter is not an explicit single device
+            "type": "kpi",
+            "target": {
+                "devices": {"tags": {"floor": ["1"]}},
+                "attribute": "temperature",
+            },
+        },
+        {  # more than one explicit id is not single-device
+            "type": "kpi",
+            "target": {"devices": {"ids": ["d1", "d2"]}, "attribute": "temperature"},
+        },
         {  # interval is not the widget's to store — same rule as chart
             "type": "kpi",
             "target": {"devices": {"ids": ["d1"]}, "attribute": "temperature"},
@@ -369,13 +387,12 @@ def test_kpi_config_accepts_a_period_aggregation():
 
 
 def test_kpi_config_rejects_a_multi_device_resolved_target():
+    # Defense in depth: even a config with an explicit single id is refused
+    # if resolution still yields more than one device.
     config = KpiWidgetConfig.model_validate(
         {
             "type": "kpi",
-            "target": {
-                "devices": {"types": ["thermostat"]},
-                "attribute": "temperature",
-            },
+            "target": {"devices": {"ids": ["d1"]}, "attribute": "temperature"},
         }
     )
     resolved = [

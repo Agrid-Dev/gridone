@@ -73,6 +73,9 @@ beforeEach(() => {
     query: { last: "7d" },
     refetchInterval: 300_000,
   });
+  // Period tests only care about useDevice when a case overrides this: the
+  // period view probes it solely to disambiguate a 404 from useKpiAggregate.
+  useDevice.mockReturnValue({ data: undefined, isLoading: false, error: null });
 });
 
 describe("KpiWidgetView (live)", () => {
@@ -200,12 +203,17 @@ describe("KpiWidgetView (period)", () => {
     ).toBeInTheDocument();
   });
 
-  // A 404 here means no history is recorded for the attribute — the device
-  // itself is not in question, unlike the live view's 404.
-  it("reads a 404 as no recorded history, not a missing device", () => {
+  // The aggregate endpoint 404s the same way for both cases; the view tells
+  // them apart by also checking whether the device itself still exists.
+  it("reads a 404 as no recorded history when the device still exists", () => {
     useKpiAggregate.mockReturnValue({
       isLoading: false,
       error: new GridoneError(404, "no series"),
+    });
+    useDevice.mockReturnValue({
+      data: { id: "dev1" },
+      isLoading: false,
+      error: null,
     });
 
     render(<KpiWidgetView config={PERIOD_CONFIG} />);
@@ -215,6 +223,27 @@ describe("KpiWidgetView (period)", () => {
     ).toBeInTheDocument();
     expect(
       screen.queryByText("This device no longer exists"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("reads a 404 as the device no longer existing when useDevice 404s too", () => {
+    useKpiAggregate.mockReturnValue({
+      isLoading: false,
+      error: new GridoneError(404, "no series"),
+    });
+    useDevice.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      error: new GridoneError(404, "gone"),
+    });
+
+    render(<KpiWidgetView config={PERIOD_CONFIG} />);
+
+    expect(
+      screen.getByText("This device no longer exists"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("No history is recorded for this attribute"),
     ).not.toBeInTheDocument();
   });
 });

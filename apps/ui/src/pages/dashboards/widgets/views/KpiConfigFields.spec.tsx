@@ -16,6 +16,7 @@ vi.mock("react-i18next", () =>
     "widgets.chart.agg.captions.sum": "total of the bucket",
     "widgets.chart.agg.captions.mode": "most frequent value",
     "widgets.chart.agg.unsupported": "not supported",
+    "widgets.kpi.singleDeviceRequired": "Pick a single device, not a filter",
   }),
 );
 
@@ -40,6 +41,17 @@ vi.mock("@/components/forms/targetPicker", () => ({
           pick {attr}
         </button>
       ))}
+      <button
+        type="button"
+        onClick={() =>
+          onChange({
+            devices: { ids: ["dev1", "dev2"] },
+            attribute: "temperature",
+          })
+        }
+      >
+        pick two devices
+      </button>
     </div>
   ),
   useAttributeCoverage: () => ({
@@ -265,6 +277,24 @@ describe("KpiConfigFields", () => {
     expect(
       (latest().temporal as { operator?: string }).operator,
     ).toBeUndefined();
+  });
+
+  it("names the single-device constraint when the target picks more than one", () => {
+    renderFields();
+
+    fireEvent.click(screen.getByText("pick two devices"));
+
+    expect(
+      screen.getByText("Pick a single device, not a filter"),
+    ).toBeInTheDocument();
+  });
+
+  it("shows no constraint warning before anything is picked", () => {
+    renderFields();
+
+    expect(
+      screen.queryByText("Pick a single device, not a filter"),
+    ).not.toBeInTheDocument();
   });
 });
 

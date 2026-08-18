@@ -76,6 +76,7 @@
       "error": "Impossible de charger cette valeur.",
       "noOperator": "Choisissez un opérateur d'agrégation.",
       "unboundedPeriod": "L'agrégation exige une période bornée — choisissez-en une autre que « Tout l'historique ».",
+      "singleDeviceRequired": "Une tuile KPI affiche un seul appareil — choisissez un appareil précis, pas un filtre.",
       "temporal": {
         "live": "En direct",
         "period": "Sur la période"

@@ -130,15 +130,27 @@ const PeriodKpiView: FC<{
     enabled: !unbounded,
     refetchInterval,
   });
+  // The aggregate endpoint 404s both for a device deleted after save and for
+  // an attribute with no recorded history; only checked once the aggregate
+  // itself 404s, to avoid an extra request on the common path.
+  const { error: deviceError, isLoading: deviceLoading } = useDevice(
+    isNotFound(result.error) ? deviceId : undefined,
+  );
 
   if (!deviceId) return <Message>{t("widgets.kpi.targetEmpty")}</Message>;
   if (!agg) return <Message>{t("widgets.kpi.noOperator")}</Message>;
   if (unbounded) return <Message>{t("widgets.kpi.unboundedPeriod")}</Message>;
   if (result.isLoading) return <Skeleton className="h-full w-full" />;
-  // A 404 here means no history is recorded for this attribute — the device
-  // itself was already confirmed to exist by the target picker at save time.
-  if (isNotFound(result.error))
-    return <Message>{t("widgets.kpi.noHistory")}</Message>;
+  if (isNotFound(result.error)) {
+    if (deviceLoading) return <Skeleton className="h-full w-full" />;
+    return (
+      <Message>
+        {isNotFound(deviceError)
+          ? t("widgets.kpi.notFound")
+          : t("widgets.kpi.noHistory")}
+      </Message>
+    );
+  }
   if (result.error) return <Message>{t("widgets.kpi.error")}</Message>;
 
   const point = result.data?.points[0];
