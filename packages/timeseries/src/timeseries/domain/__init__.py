@@ -23,8 +23,10 @@ from timeseries.domain.models import (
     validate_value_type,
 )
 from timeseries.domain.space import (
+    SPACE_COMPAT,
     SpaceAggregationResult,
     combine_space,
+    fold_space_values,
     resolve_space_aggregation_data_type,
 )
 from timeseries.domain.time_range import (
@@ -37,6 +39,7 @@ from timeseries.domain.time_range import (
 __all__ = [
     "AGG_COMPAT",
     "DATA_TYPE_MAP",
+    "SPACE_COMPAT",
     "VALUE_TYPE_MAP",
     "AggregatedPoint",
     "AggregationOperator",
@@ -53,6 +56,7 @@ __all__ = [
     "SpaceAggregationResult",
     "TimeSeries",
     "combine_space",
+    "fold_space_values",
     "normalize_to_utc",
     "parse_duration",
     "resolve_aggregation_data_type",

@@ -22,6 +22,7 @@ from models.types import (
     DataType,
 )
 from timeseries.domain.aggregation import (
+    AGG_COMPAT,
     AggregatedPoint,
     AggregationResult,
     Interval,
@@ -32,6 +33,13 @@ if TYPE_CHECKING:
     from datetime import datetime
 
 
+# (space operator x data_type) -> output DataType; same shape as AGG_COMPAT,
+# restricted to the space vocabulary (AGG_COMPAT owns the actual dtype rules).
+SPACE_COMPAT: dict[AggregationOperator, dict[DataType, DataType | None]] = {
+    op: AGG_COMPAT[op] for op in SPACE_AGGREGATION_OPERATORS
+}
+
+
 def resolve_space_aggregation_data_type(
     space_agg: AggregationOperator, data_type: DataType
 ) -> DataType:
@@ -40,12 +48,16 @@ def resolve_space_aggregation_data_type(
     *data_type* is the time aggregation's output type — space runs on top of
     it. Raises InvalidError for operators outside the space vocabulary
     (``first``/``delta``/``tw_*`` need an ordering or a duration that a device
-    set does not have) and for invalid (operator, type) pairs per AGG_COMPAT.
+    set does not have) and for invalid (operator, type) pairs per SPACE_COMPAT.
     """
-    if space_agg not in SPACE_AGGREGATION_OPERATORS:
+    if space_agg not in SPACE_COMPAT:
         msg = f"Operator '{space_agg}' is not a space aggregation operator"
         raise InvalidError(msg)
-    return resolve_aggregation_data_type(space_agg, data_type)
+    result = SPACE_COMPAT[space_agg][data_type]
+    if result is None:
+        msg = f"Operator '{space_agg}' is not supported for data type '{data_type}'"
+        raise InvalidError(msg)
+    return result
 
 
 class SpaceAggregationResult(BaseModel):
@@ -103,12 +115,16 @@ class SpaceAggregationResult(BaseModel):
 _SpaceValue = bool | int | float | str
 
 
-def _fold(
+def fold_space_values(
     values: list[_SpaceValue],
     space_agg: AggregationOperator,
     output_type: DataType,
 ) -> _SpaceValue:
-    """Reduce one bucket's per-series values with the space operator.
+    """Reduce one set of per-device values with the space operator.
+
+    Bucket-agnostic: ``combine_space`` calls it once per bucket to fold time
+    aggregation results, but it applies equally to a flat set of values with
+    no time dimension — e.g. current attribute readings across a device set.
 
     ``mode`` breaks ties on the smallest value, matching the deterministic
     ``ORDER BY cnt DESC, value ASC`` convention of the time-side SQL.
@@ -157,7 +173,7 @@ def combine_space(
     return [
         AggregatedPoint(
             interval_start=start,
-            value=_fold(values, space_agg, output_type) if values else None,
+            value=fold_space_values(values, space_agg, output_type) if values else None,
             count=len(values),
         )
         for start, values in sorted(buckets.items())

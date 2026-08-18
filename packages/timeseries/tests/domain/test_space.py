@@ -4,6 +4,8 @@ import pytest
 
 from models.errors import InvalidError
 from timeseries.domain import (
+    AGG_COMPAT,
+    SPACE_COMPAT,
     AggregatedPoint,
     AggregationOperator,
     AggregationResult,
@@ -11,8 +13,18 @@ from timeseries.domain import (
     Interval,
     SpaceAggregationResult,
     combine_space,
+    fold_space_values,
     resolve_space_aggregation_data_type,
 )
+
+_SPACE_OPERATORS = {
+    AggregationOperator.AVG,
+    AggregationOperator.SUM,
+    AggregationOperator.MIN,
+    AggregationOperator.MAX,
+    AggregationOperator.COUNT,
+    AggregationOperator.MODE,
+}
 
 T0 = datetime(2026, 7, 1, 0, 0, tzinfo=UTC)
 T1 = datetime(2026, 7, 1, 1, 0, tzinfo=UTC)
@@ -36,6 +48,20 @@ def _result(
             for start, v in zip(starts, values, strict=True)
         ],
     )
+
+
+class TestSpaceCompatMatrix:
+    def test_covers_exactly_the_space_operators(self) -> None:
+        assert set(SPACE_COMPAT.keys()) == _SPACE_OPERATORS
+
+    def test_each_operator_covers_all_data_types(self) -> None:
+        for op, row in SPACE_COMPAT.items():
+            assert set(row.keys()) == set(DataType), f"Missing data types for {op}"
+
+    def test_matches_agg_compat_rows(self) -> None:
+        # SPACE_COMPAT is a subset of AGG_COMPAT, not a parallel table.
+        for op in _SPACE_OPERATORS:
+            assert SPACE_COMPAT[op] == AGG_COMPAT[op]
 
 
 class TestResolveSpaceAggregationDataType:
@@ -76,6 +102,26 @@ class TestResolveSpaceAggregationDataType:
             resolve_space_aggregation_data_type(
                 AggregationOperator.AVG, DataType.STRING
             )
+
+
+class TestFoldSpaceValues:
+    """Bucket-agnostic: exercised via combine_space above, and directly here
+    since it also folds a flat set of values with no time dimension (e.g. a
+    KPI's current values across a device set)."""
+
+    def test_sum_of_current_values(self) -> None:
+        assert (
+            fold_space_values(
+                [10.0, 20.0, 30.0], AggregationOperator.SUM, DataType.FLOAT
+            )
+            == 60.0
+        )
+
+    def test_avg_of_current_values(self) -> None:
+        assert (
+            fold_space_values([10, 20, 30], AggregationOperator.AVG, DataType.FLOAT)
+            == 20.0
+        )
 
 
 class TestCombineSpace:
