@@ -1,3 +1,9 @@
+## v0.209.1 (2026-08-18)
+
+### Fix
+
+- **ui**: prevent thermostat mode overflow in French
+
 ## v0.209.0 (2026-08-17)
 
 ### Feat
