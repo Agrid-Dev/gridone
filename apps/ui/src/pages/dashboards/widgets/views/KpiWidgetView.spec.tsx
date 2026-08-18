@@ -13,6 +13,7 @@ vi.mock("react-i18next", () =>
     "widgets.kpi.error": "Could not load this value",
     "widgets.kpi.noOperator": "Pick an aggregation operator",
     "widgets.kpi.unboundedPeriod": "Aggregation needs a bounded period",
+    "widgets.kpi.noMatch": "The target matches no device",
   }),
 );
 
@@ -24,6 +25,16 @@ vi.mock("@/hooks/useDevice", () => ({
 const useKpiAggregate = vi.fn();
 vi.mock("./useKpiAggregate", () => ({
   useKpiAggregate: (args: unknown) => useKpiAggregate(args),
+}));
+
+const useKpiLiveAggregate = vi.fn();
+vi.mock("./useKpiLiveAggregate", () => ({
+  useKpiLiveAggregate: (args: unknown) => useKpiLiveAggregate(args),
+}));
+
+const useSpaceAggregate = vi.fn();
+vi.mock("./useSpaceAggregate", () => ({
+  useSpaceAggregate: (args: unknown) => useSpaceAggregate(args),
 }));
 
 const useDashboardPeriod = vi.fn();
@@ -245,5 +256,92 @@ describe("KpiWidgetView (period)", () => {
     expect(
       screen.queryByText("No history is recorded for this attribute"),
     ).not.toBeInTheDocument();
+  });
+});
+
+const SPACE_LIVE_CONFIG = {
+  type: "kpi",
+  target: { devices: { types: ["meter"] }, attribute: "power" },
+  temporal: "live",
+  space_agg: "sum",
+  unit: "W",
+  precision: 0,
+};
+
+const SPACE_PERIOD_CONFIG = {
+  ...SPACE_LIVE_CONFIG,
+  temporal: { operator: "avg" },
+};
+
+describe("KpiWidgetView (live, space_agg)", () => {
+  it("shows the folded value across the set", () => {
+    useKpiLiveAggregate.mockReturnValue({
+      data: { value: 4500, data_type: "int", device_count: 3 },
+      isLoading: false,
+      error: null,
+    });
+
+    render(<KpiWidgetView config={SPACE_LIVE_CONFIG} />);
+
+    expect(useKpiLiveAggregate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        target: SPACE_LIVE_CONFIG.target,
+        spaceAgg: "sum",
+      }),
+    );
+    expect(screen.getByText("4500")).toBeInTheDocument();
+    expect(screen.getByText("W")).toBeInTheDocument();
+  });
+
+  it("reads a 422 as the target matching no device", () => {
+    useKpiLiveAggregate.mockReturnValue({
+      isLoading: false,
+      error: new GridoneError(422, "no match"),
+    });
+
+    render(<KpiWidgetView config={SPACE_LIVE_CONFIG} />);
+
+    expect(
+      screen.getByText("The target matches no device"),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("KpiWidgetView (period, space_agg)", () => {
+  it("computes via a single whole-period space request", () => {
+    useSpaceAggregate.mockReturnValue({
+      data: {
+        aggregation_data_type: "float",
+        points: [{ interval_start: "2026-07-28T10:00:00Z", value: 1200.4 }],
+      },
+      isLoading: false,
+      error: null,
+    });
+
+    render(<KpiWidgetView config={SPACE_PERIOD_CONFIG} />);
+
+    expect(useSpaceAggregate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        target: SPACE_PERIOD_CONFIG.target,
+        agg: "avg",
+        spaceAgg: "sum",
+        interval: "whole",
+        last: "7d",
+      }),
+    );
+    expect(screen.getByText("1200")).toBeInTheDocument();
+  });
+
+  it("reads a 404 as no history recorded across the set", () => {
+    useSpaceAggregate.mockReturnValue({
+      isLoading: false,
+      error: new GridoneError(404, "no series"),
+    });
+
+    render(<KpiWidgetView config={SPACE_PERIOD_CONFIG} />);
+
+    expect(
+      screen.getByText("No history is recorded for this attribute"),
+    ).toBeInTheDocument();
   });
 });

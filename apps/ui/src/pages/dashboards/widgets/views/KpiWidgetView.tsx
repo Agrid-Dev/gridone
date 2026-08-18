@@ -1,6 +1,7 @@
 import type { FC } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  isGridoneError,
   isNotFound,
   type AggregationOperator,
   type DataType,
@@ -13,6 +14,9 @@ import { deviceAttributes, type DeviceType } from "@/lib/devices";
 import { fmt } from "@/lib/formatValue";
 import { useDashboardPeriod } from "../../useDashboardPeriod";
 import { useKpiAggregate } from "./useKpiAggregate";
+import { useKpiLiveAggregate } from "./useKpiLiveAggregate";
+import { useSpaceAggregate } from "./useSpaceAggregate";
+import { isEmptyTarget, type AttributeTarget } from "./useTargetDevices";
 
 const Message: FC<{ children: string }> = ({ children }) => (
   <div className="flex h-full items-center justify-center p-4 text-center text-sm text-muted-foreground">
@@ -61,9 +65,36 @@ const KpiValue: FC<{
  * value reduced over the whole dashboard period.
  */
 export const KpiWidgetView: FC<{ config: unknown }> = ({ config }) => {
-  const { target, temporal, unit, precision } = config as KpiWidgetConfig;
+  const {
+    target,
+    temporal,
+    space_agg: spaceAgg,
+    unit,
+    precision,
+  } = config as KpiWidgetConfig;
   const deviceId = target.devices.ids?.[0];
-  if (temporal === "live" || !temporal) {
+  const isPeriod = temporal !== "live" && !!temporal;
+
+  if (spaceAgg) {
+    return isPeriod ? (
+      <PeriodSpaceKpiView
+        target={target}
+        agg={temporal.operator}
+        spaceAgg={spaceAgg}
+        unit={unit}
+        precision={precision}
+      />
+    ) : (
+      <LiveSpaceKpiView
+        target={target}
+        spaceAgg={spaceAgg}
+        unit={unit}
+        precision={precision}
+      />
+    );
+  }
+
+  if (!isPeriod) {
     return (
       <LiveKpiView
         deviceId={deviceId}
@@ -163,6 +194,100 @@ const PeriodKpiView: FC<{
       value={point?.value}
       dataType={result.data?.aggregation_data_type}
       attribute={attribute}
+      unit={unit}
+      precision={precision}
+    />
+  );
+};
+
+type SpaceErrorMessageKey = "widgets.kpi.noMatch" | "widgets.kpi.noHistory";
+
+/**
+ * The message key for a recognized space-aggregate fetch error, shared by
+ * the live and period views: the server resolves the target, so 422 always
+ * means it matches no device exposing the attribute (or a drifted,
+ * mixed-type set). *notFoundKey* names the period view's extra 404 case —
+ * no history recorded — which the live view has no equivalent of.
+ * `null` means the caller falls back to its own generic error message.
+ */
+function spaceErrorMessageKey(
+  error: unknown,
+  notFoundKey?: "widgets.kpi.noHistory",
+): SpaceErrorMessageKey | null {
+  if (notFoundKey && isNotFound(error)) return notFoundKey;
+  if (isGridoneError(error) && error.status === 422)
+    return "widgets.kpi.noMatch";
+  return null;
+}
+
+const LiveSpaceKpiView: FC<{
+  target: AttributeTarget;
+  spaceAgg: AggregationOperator;
+  unit: string | null | undefined;
+  precision: number | null | undefined;
+}> = ({ target, spaceAgg, unit, precision }) => {
+  const { t } = useTranslation("dashboards");
+  const { refetchInterval } = useDashboardPeriod();
+
+  const result = useKpiLiveAggregate({ target, spaceAgg, refetchInterval });
+
+  const errorKey = spaceErrorMessageKey(result.error);
+
+  if (isEmptyTarget(target.devices))
+    return <Message>{t("widgets.kpi.targetEmpty")}</Message>;
+  if (result.isLoading) return <Skeleton className="h-full w-full" />;
+  if (errorKey) return <Message>{t(errorKey)}</Message>;
+  if (result.error) return <Message>{t("widgets.kpi.error")}</Message>;
+
+  return (
+    <KpiValue
+      value={result.data?.value}
+      dataType={result.data?.data_type}
+      attribute={target.attribute}
+      unit={unit}
+      precision={precision}
+    />
+  );
+};
+
+const PeriodSpaceKpiView: FC<{
+  target: AttributeTarget;
+  agg: AggregationOperator;
+  spaceAgg: AggregationOperator;
+  unit: string | null | undefined;
+  precision: number | null | undefined;
+}> = ({ target, agg, spaceAgg, unit, precision }) => {
+  const { t } = useTranslation("dashboards");
+  const { query, refetchInterval } = useDashboardPeriod();
+  const unbounded = !query.start && !query.last;
+
+  const result = useSpaceAggregate({
+    target,
+    agg,
+    spaceAgg,
+    interval: "whole",
+    start: query.start,
+    end: query.end,
+    last: query.last,
+    enabled: !unbounded,
+    refetchInterval,
+  });
+
+  const errorKey = spaceErrorMessageKey(result.error, "widgets.kpi.noHistory");
+
+  if (isEmptyTarget(target.devices))
+    return <Message>{t("widgets.kpi.targetEmpty")}</Message>;
+  if (unbounded) return <Message>{t("widgets.kpi.unboundedPeriod")}</Message>;
+  if (result.isLoading) return <Skeleton className="h-full w-full" />;
+  if (errorKey) return <Message>{t(errorKey)}</Message>;
+  if (result.error) return <Message>{t("widgets.kpi.error")}</Message>;
+
+  const point = result.data?.points[0];
+  return (
+    <KpiValue
+      value={point?.value}
+      dataType={result.data?.aggregation_data_type}
+      attribute={target.attribute}
       unit={unit}
       precision={precision}
     />

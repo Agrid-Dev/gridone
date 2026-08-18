@@ -73,16 +73,22 @@
       "notFound": "Cet appareil n'existe plus.",
       "attributeMissing": "Cet appareil n'expose plus cet attribut.",
       "noHistory": "Aucun historique n'est enregistré pour cet attribut.",
+      "noMatch": "La cible ne correspond à aucun appareil exposant cet attribut.",
       "error": "Impossible de charger cette valeur.",
       "noOperator": "Choisissez un opérateur d'agrégation.",
       "unboundedPeriod": "L'agrégation exige une période bornée — choisissez-en une autre que « Tout l'historique ».",
-      "singleDeviceRequired": "Une tuile KPI affiche un seul appareil — choisissez un appareil précis, pas un filtre.",
+      "singleDeviceRequired": "Choisissez un appareil précis, ou un opérateur de regroupement ci-dessous pour en combiner plusieurs.",
       "temporal": {
         "live": "En direct",
         "period": "Sur la période"
       },
       "operator": {
         "label": "Agrégation",
+        "placeholder": "Sélectionner…"
+      },
+      "space": {
+        "label": "Regrouper les appareils en un seul",
+        "description": "La cible peut correspondre à plusieurs appareils — choisissez comment les regrouper en un seul chiffre.",
         "placeholder": "Sélectionner…"
       },
       "unit": {
