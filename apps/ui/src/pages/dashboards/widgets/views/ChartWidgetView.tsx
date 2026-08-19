@@ -9,7 +9,9 @@ import {
   type DataPoint,
   type DataType,
 } from "@gridone/sdk";
-import TimeSeriesChart from "@/components/charts/TimeSeriesChart";
+import TimeSeriesChart, {
+  type TimeSeriesChartProps,
+} from "@/components/charts/TimeSeriesChart";
 import {
   AXIS_EXTRA,
   LEGEND_HEIGHT,
@@ -33,6 +35,42 @@ const Message: FC<{ children: string }> = ({ children }) => (
   <div className="flex h-full items-center justify-center p-4 text-center text-sm text-muted-foreground">
     {children}
   </div>
+);
+
+/** Full-height loading placeholder, shared by every view while its query runs. */
+const ChartSkeleton: FC = () => (
+  <div className="h-full p-3">
+    <Skeleton className="h-full w-full" />
+  </div>
+);
+
+/**
+ * Lays out `chartProps` in the available height and renders the chart.
+ *
+ * `panelCount` is the number of categorical (bool/str) panels the caller's
+ * series split into — 1 for a single reduced series or a shared numeric
+ * panel, one per series for booleans/strings, each spending its own legend
+ * band with the time axis paid once by the last.
+ */
+const ChartPanels: FC<{
+  chartProps: TimeSeriesChartProps;
+  panelCount: number;
+}> = ({ chartProps, panelCount }) => (
+  <ParentSize>
+    {({ height }) => {
+      const panelHeight = Math.max(
+        (height - panelCount * LEGEND_HEIGHT - AXIS_EXTRA) / panelCount,
+        0,
+      );
+      return (
+        <TimeSeriesChart
+          {...chartProps}
+          lineHeight={Math.max(height - PANEL_CHROME_HEIGHT, 0)}
+          categoricalHeight={panelHeight}
+        />
+      );
+    }}
+  </ParentSize>
 );
 
 /**
@@ -141,13 +179,7 @@ const SpaceChartView: FC<{
   });
 
   if (unbounded) return <Message>{t("widgets.chart.unboundedPeriod")}</Message>;
-  if (result.isLoading) {
-    return (
-      <div className="h-full p-3">
-        <Skeleton className="h-full w-full" />
-      </div>
-    );
-  }
+  if (result.isLoading) return <ChartSkeleton />;
   if (result.error || !result.data) return queryErrorMessage(result.error);
 
   const data = result.data;
@@ -190,17 +222,7 @@ const SpaceChartView: FC<{
     target.attribute,
   );
 
-  return (
-    <ParentSize>
-      {({ height }) => (
-        <TimeSeriesChart
-          {...chartProps}
-          lineHeight={Math.max(height - PANEL_CHROME_HEIGHT, 0)}
-          categoricalHeight={Math.max(height - LEGEND_HEIGHT - AXIS_EXTRA, 0)}
-        />
-      )}
-    </ParentSize>
-  );
+  return <ChartPanels chartProps={chartProps} panelCount={1} />;
 };
 
 /** One reduced series per tag-value group, bucketed server-side by `groupBy`
@@ -230,13 +252,7 @@ const GroupedChartView: FC<{
   });
 
   if (unbounded) return <Message>{t("widgets.chart.unboundedPeriod")}</Message>;
-  if (result.isLoading) {
-    return (
-      <div className="h-full p-3">
-        <Skeleton className="h-full w-full" />
-      </div>
-    );
-  }
+  if (result.isLoading) return <ChartSkeleton />;
   if (result.error || !result.data) return queryErrorMessage(result.error);
 
   const data = result.data;
@@ -263,31 +279,15 @@ const GroupedChartView: FC<{
     target.attribute,
   );
 
-  // Same panel-height split as the fan-out view: one categorical panel per
-  // group for booleans/strings, one shared line panel otherwise.
+  // One categorical panel per group for booleans/strings, one shared line
+  // panel otherwise.
   const panelCount =
     data.aggregation_data_type === "bool" ||
     data.aggregation_data_type === "str"
       ? series.length
       : 1;
 
-  return (
-    <ParentSize>
-      {({ height }) => {
-        const panelHeight = Math.max(
-          (height - panelCount * LEGEND_HEIGHT - AXIS_EXTRA) / panelCount,
-          0,
-        );
-        return (
-          <TimeSeriesChart
-            {...chartProps}
-            lineHeight={Math.max(height - PANEL_CHROME_HEIGHT, 0)}
-            categoricalHeight={panelHeight}
-          />
-        );
-      }}
-    </ParentSize>
-  );
+  return <ChartPanels chartProps={chartProps} panelCount={panelCount} />;
 };
 
 /** One series per device of the set — the space_agg-less shape. */
@@ -346,13 +346,7 @@ const FanOutChartView: FC<{
   }, [results, agg, query.end]);
 
   if (unbounded) return <Message>{t("widgets.chart.unboundedPeriod")}</Message>;
-  if (devicesLoading || seriesLoading) {
-    return (
-      <div className="h-full p-3">
-        <Skeleton className="h-full w-full" />
-      </div>
-    );
-  }
+  if (devicesLoading || seriesLoading) return <ChartSkeleton />;
   if (devicesError) return <Message>{t("widgets.chart.error")}</Message>;
   if (devices.length === 0)
     return <Message>{t("widgets.chart.targetEmpty")}</Message>;
@@ -402,27 +396,9 @@ const FanOutChartView: FC<{
     target.attribute,
   );
 
-  // Booleans and strings each take a panel per series, floats and ints share
-  // one — the height budget splits over however many panels that makes, each
-  // spending its own legend band, with the time axis paid once by the last.
+  // Booleans and strings each take a panel per series, floats and ints share one.
   const panelCount =
     dataType === "bool" || dataType === "str" ? plotted.length : 1;
 
-  return (
-    <ParentSize>
-      {({ height }) => {
-        const panelHeight = Math.max(
-          (height - panelCount * LEGEND_HEIGHT - AXIS_EXTRA) / panelCount,
-          0,
-        );
-        return (
-          <TimeSeriesChart
-            {...chartProps}
-            lineHeight={Math.max(height - PANEL_CHROME_HEIGHT, 0)}
-            categoricalHeight={panelHeight}
-          />
-        );
-      }}
-    </ParentSize>
-  );
+  return <ChartPanels chartProps={chartProps} panelCount={panelCount} />;
 };

@@ -6,6 +6,7 @@ from api.targets import (
     CompositeTargetResolver,
     compute_attribute_coverage,
     group_device_ids_by_tag,
+    group_devices_by_tag,
 )
 from devices_manager import DevicesServiceInterface
 from devices_manager.core.device import Attribute
@@ -205,3 +206,28 @@ class TestGroupDeviceIdsByTag:
 
     def test_empty_device_list_yields_no_groups(self):
         assert group_device_ids_by_tag([], "floor") == {}
+
+
+class TestGroupDevicesByTag:
+    def test_groups_by_tag_value(self):
+        floor1 = _device("t1", {}, tags={"floor": "1"})
+        floor1b = _device("t2", {}, tags={"floor": "1"})
+        floor2 = _device("t3", {}, tags={"floor": "2"})
+        groups = group_devices_by_tag([floor1, floor1b, floor2], "floor")
+        assert groups == {"1": [floor1, floor1b], "2": [floor2]}
+
+    def test_devices_without_the_tag_land_in_untagged(self):
+        tagged = _device("t1", {}, tags={"floor": "1"})
+        untagged = _device("t2", {})
+        groups = group_devices_by_tag([tagged, untagged], "floor")
+        assert groups == {"1": [tagged], "untagged": [untagged]}
+
+    def test_group_device_ids_by_tag_matches_the_ids_of_group_devices_by_tag(self):
+        floor1 = _device("t1", {}, tags={"floor": "1"})
+        untagged = _device("t2", {})
+        devices = [floor1, untagged]
+        by_device = group_devices_by_tag(devices, "floor")
+        by_id = group_device_ids_by_tag(devices, "floor")
+        assert by_id == {
+            label: [d.id for d in group] for label, group in by_device.items()
+        }

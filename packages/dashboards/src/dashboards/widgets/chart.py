@@ -4,9 +4,9 @@ from typing import Any, Literal
 
 from pydantic import model_validator
 
-from dashboards.widgets.config import WidgetConfig
+from dashboards.widgets.config import WidgetConfig, validate_space_agg_membership
 from models.targets import AttributeTarget  # noqa: TC001
-from models.types import SPACE_AGGREGATION_OPERATORS, AggregationOperator
+from models.types import AggregationOperator  # noqa: TC001
 
 
 class ChartWidgetConfig(WidgetConfig):
@@ -65,9 +65,7 @@ class ChartWidgetConfig(WidgetConfig):
         if self.agg is None:
             msg = "space_agg requires agg: raw series cannot be space-aggregated"
             raise ValueError(msg)
-        if self.space_agg not in SPACE_AGGREGATION_OPERATORS:
-            msg = f"Operator '{self.space_agg}' is not a space aggregation operator"
-            raise ValueError(msg)
+        validate_space_agg_membership(self.space_agg)
         return self
 
     @model_validator(mode="before")

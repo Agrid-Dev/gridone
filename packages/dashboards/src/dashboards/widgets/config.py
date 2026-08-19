@@ -4,8 +4,22 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict
 
+from models.types import SPACE_AGGREGATION_OPERATORS
+
 if TYPE_CHECKING:
     from models.targets import AttributeTarget, ResolvedTarget
+    from models.types import AggregationOperator
+
+
+def validate_space_agg_membership(space_agg: AggregationOperator) -> None:
+    """Raise unless *space_agg* is in the space aggregation vocabulary.
+
+    Shared by every widget config that offers a ``space_agg`` field; dtype
+    compatibility is checked separately, at read time.
+    """
+    if space_agg not in SPACE_AGGREGATION_OPERATORS:
+        msg = f"Operator '{space_agg}' is not a space aggregation operator"
+        raise ValueError(msg)
 
 
 class WidgetConfig(BaseModel):

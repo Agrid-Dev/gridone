@@ -25,7 +25,11 @@ from api.schemas.timeseries import (
     LiveSpaceAggregateResponse,
     TimeSeriesResponse,
 )
-from api.targets import CompositeTargetResolver, group_device_ids_by_tag
+from api.targets import (
+    CompositeTargetResolver,
+    group_device_ids_by_tag,
+    group_devices_by_tag,
+)
 from devices_manager import DevicesServiceInterface
 from models.errors import InvalidError, NotFoundError
 from models.targets import AttributeTarget, DevicesFilter
@@ -364,13 +368,9 @@ async def get_devices_live_aggregate(
             space_agg=space_agg,
             device_count=result.device_count,
         )
-    devices_by_id = {d.id: d for d in devices}
     values_by_group = {
-        label: [
-            devices_by_id[device_id].attributes[target.attribute].current_value
-            for device_id in device_ids
-        ]
-        for label, device_ids in group_device_ids_by_tag(devices, group_by).items()
+        label: [d.attributes[target.attribute].current_value for d in group]
+        for label, group in group_devices_by_tag(devices, group_by).items()
     }
     grouped = ts.fold_live_values_grouped(
         values_by_group, resolved.data_type, space_agg

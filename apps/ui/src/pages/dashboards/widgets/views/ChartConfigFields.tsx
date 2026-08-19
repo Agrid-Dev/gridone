@@ -185,16 +185,15 @@ export const ChartConfigFields: FC<{ control: Control<FieldValues> }> = ({
           (o) => o.operator === spaceAgg && o.resultType === null,
         )));
 
+  // group_by needs a fold operator, same as the backend requires — cleared in
+  // the same pass as a refused spaceAgg reset, not one render behind it. An
+  // empty input also means "cleared", normalized to the stored `null` here.
   useEffect(() => {
     if (spaceRefused) spaceAggField.onChange(null);
-  }, [spaceRefused, spaceAggField]);
-
-  // group_by needs a fold operator, same as the backend requires; an empty
-  // input means "cleared", normalized to the stored `null` here.
-  useEffect(() => {
-    if (!spaceAgg && groupBy) groupByField.onChange(null);
-    else if (groupByField.value === "") groupByField.onChange(null);
-  }, [spaceAgg, groupBy, groupByField]);
+    if (((spaceRefused || !spaceAgg) && groupBy) || groupByField.value === "") {
+      groupByField.onChange(null);
+    }
+  }, [spaceRefused, spaceAgg, groupBy, spaceAggField, groupByField]);
 
   const targetHasDevices = !isEmptyFilter(target.devices);
   const {
