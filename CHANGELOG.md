@@ -1,3 +1,9 @@
+## v0.212.0 (2026-08-19)
+
+### Feat
+
+- **dashboards**: space aggregation - SPACE_COMPAT + KPI collapse-all reduce (#556)
+
 ## v0.211.0 (2026-08-18)
 
 ### Feat
