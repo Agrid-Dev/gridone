@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -13,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import type { Device } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
+import { useDeviceAssetLink } from "@/hooks/useDeviceAssetLink";
 import { sortedByName } from "@/lib/sortByName";
 
 type DeviceLinkDialogProps = {
@@ -29,8 +29,8 @@ export function DeviceLinkDialog({
   existingDeviceIds,
 }: DeviceLinkDialogProps) {
   const { t } = useTranslation(["assets", "common"]);
-  const queryClient = useQueryClient();
   const client = useGridoneClient();
+  const { link } = useDeviceAssetLink(assetId);
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -48,21 +48,6 @@ export function DeviceLinkDialog({
           d.id.toLowerCase().includes(search.toLowerCase())),
     ),
   );
-
-  const mutation = useMutation({
-    mutationFn: (deviceId: string) =>
-      client.devices.setTag(deviceId, "asset_id", assetId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["assets", assetId, "devices"],
-      });
-      toast.success(t("devices.linked"));
-      setSelectedId(null);
-      setSearch("");
-      onOpenChange(false);
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -106,8 +91,17 @@ export function DeviceLinkDialog({
             {t("common:common.cancel")}
           </Button>
           <Button
-            disabled={!selectedId || mutation.isPending}
-            onClick={() => selectedId && mutation.mutate(selectedId)}
+            disabled={!selectedId || link.isPending}
+            onClick={() =>
+              selectedId &&
+              link.mutate(selectedId, {
+                onSuccess: () => {
+                  setSelectedId(null);
+                  setSearch("");
+                  onOpenChange(false);
+                },
+              })
+            }
           >
             {t("devices.link")}
           </Button>

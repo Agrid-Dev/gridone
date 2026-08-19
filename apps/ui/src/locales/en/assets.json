@@ -83,6 +83,8 @@
     "title": "Linked devices",
     "link": "Link device",
     "unlink": "Unlink",
+    "unlinkConfirmTitle": "Unlink device",
+    "unlinkConfirmDetails": "Detach \"{{device}}\" from zone \"{{zone}}\"? The device keeps its data and can be linked again later.",
     "linked": "Device linked",
     "unlinked": "Device unlinked",
     "selectDevice": "Select a device",

@@ -10,6 +10,7 @@ import type {
   Device,
 } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
+import { useDeviceAssetLink } from "@/hooks/useDeviceAssetLink";
 import { useReorderSubzones } from "@/hooks/useReorderSubzones";
 import type { AssetFormValues } from "./components/AssetForm";
 import { AssetEditWorkspace } from "./components/AssetEditWorkspace";
@@ -67,6 +68,7 @@ export default function AssetEdit() {
   });
 
   const reorderMutation = useReorderSubzones(assetId);
+  const { unlink } = useDeviceAssetLink(assetId);
 
   const deleteMutation = useMutation({
     mutationFn: () => client.assets.delete(assetId!),
@@ -122,6 +124,7 @@ export default function AssetEdit() {
         onSubmit={handleSubmit}
         onDelete={() => deleteMutation.mutate()}
         onLinkDevice={() => setLinkDialogOpen(true)}
+        onUnlinkDevice={(deviceId) => unlink.mutate(deviceId)}
         onReorder={(orderedIds) => reorderMutation.mutate(orderedIds)}
       />
       <DeviceLinkDialog

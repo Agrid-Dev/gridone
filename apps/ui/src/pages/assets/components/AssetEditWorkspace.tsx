@@ -33,6 +33,7 @@ import {
   Move,
   Pencil,
   Plus,
+  Unlink2,
 } from "lucide-react";
 import type { Asset, Device } from "@gridone/sdk";
 import { Badge } from "@/components/ui/badge";
@@ -41,6 +42,7 @@ import { Card } from "@/components/ui/card";
 import { InputController } from "@/components/forms/controllers/InputController";
 import { SelectController } from "@/components/forms/controllers/SelectController";
 import { ConnectionStatusDot } from "@/components/ConnectionStatusBadge";
+import { ConfirmButton } from "@/components/ConfirmButton";
 import { ResourceDeleteButton } from "@/components/ResourceDeleteButton";
 import { getConnectionStatus } from "@/lib/devices";
 import { deviceTypeIcon, deviceTypeName } from "@/lib/deviceTypes";
@@ -64,6 +66,7 @@ type AssetEditWorkspaceProps = {
   onSubmit?: (data: AssetFormValues) => void;
   onDelete?: () => void;
   onLinkDevice: () => void;
+  onUnlinkDevice?: (deviceId: string) => void;
   onReorder?: (orderedIds: string[]) => void;
 };
 
@@ -209,6 +212,7 @@ export function AssetEditWorkspace({
   onSubmit,
   onDelete,
   onLinkDevice,
+  onUnlinkDevice,
   onReorder,
 }: AssetEditWorkspaceProps) {
   const { t } = useTranslation(["assets", "common"]);
@@ -598,18 +602,22 @@ export function AssetEditWorkspace({
                 <ul className="space-y-1">
                   {linkedDevices.map((device) => {
                     const DeviceIcon = deviceTypeIcon(device.type) ?? Cpu;
+                    const deviceName = device.name || device.id;
                     return (
-                      <li key={device.id}>
+                      <li
+                        key={device.id}
+                        className="group flex items-center rounded-xl transition-colors hover:bg-muted/50"
+                      >
                         <Link
                           to={`/devices/${device.id}`}
-                          className="group flex items-center gap-3 rounded-xl px-2 py-2.5 transition-colors hover:bg-muted/50"
+                          className="flex min-w-0 flex-1 items-center gap-3 px-2 py-2.5"
                         >
                           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
                             <DeviceIcon className="h-4 w-4" />
                           </div>
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-semibold text-foreground">
-                              {device.name || device.id}
+                              {deviceName}
                             </p>
                             <p className="mt-0.5 truncate text-xs text-muted-foreground">
                               {deviceTypeName(device.type, tTypes) ??
@@ -622,6 +630,24 @@ export function AssetEditWorkspace({
                           />
                           <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
                         </Link>
+                        {canWriteDevices && onUnlinkDevice && (
+                          <ConfirmButton
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="mx-1 h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+                            aria-label={t("devices.unlink")}
+                            onConfirm={() => onUnlinkDevice(device.id)}
+                            confirmTitle={t("devices.unlinkConfirmTitle")}
+                            confirmDetails={t("devices.unlinkConfirmDetails", {
+                              device: deviceName,
+                              zone: asset.name,
+                            })}
+                            confirmLabel={t("devices.unlink")}
+                          >
+                            <Unlink2 className="h-4 w-4" />
+                          </ConfirmButton>
+                        )}
                       </li>
                     );
                   })}

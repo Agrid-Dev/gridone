@@ -83,6 +83,8 @@
     "title": "Appareils li\u00e9s",
     "link": "Lier un appareil",
     "unlink": "D\u00e9lier",
+    "unlinkConfirmTitle": "D\u00e9lier l\u2019appareil",
+    "unlinkConfirmDetails": "D\u00e9tacher \u00ab {{device}} \u00bb de la zone \u00ab {{zone}} \u00bb ? L\u2019appareil conserve ses donn\u00e9es et pourra \u00eatre reli\u00e9 plus tard.",
     "linked": "Appareil li\u00e9",
     "unlinked": "Appareil d\u00e9li\u00e9",
     "selectDevice": "S\u00e9lectionner un appareil",
