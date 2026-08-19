@@ -54,6 +54,24 @@ def _exposes(device: Device, attribute: str, *, writable: bool) -> bool:
     return not writable or "write" in attr.read_write_modes
 
 
+UNTAGGED_GROUP_LABEL = "untagged"
+
+
+def group_device_ids_by_tag(
+    devices: list[Device], tag_key: str
+) -> dict[str, list[str]]:
+    """Bucket *devices* by their value for *tag_key*.
+
+    Devices without the tag land in :data:`UNTAGGED_GROUP_LABEL` instead of
+    being dropped.
+    """
+    groups: dict[str, list[str]] = {}
+    for device in devices:
+        label = device.tags.get(tag_key, UNTAGGED_GROUP_LABEL)
+        groups.setdefault(label, []).append(device.id)
+    return groups
+
+
 class CompositeTargetResolver:
     """Resolve targets against the devices manager."""
 

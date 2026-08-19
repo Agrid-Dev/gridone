@@ -73,3 +73,18 @@ class LiveSpaceAggregateResponse(BaseModel):
     space_agg: AggregationOperator
     device_count: int
     """How many of the target's devices had a current value to contribute."""
+
+
+class LiveAggregateGroupResponse(BaseModel):
+    label: str
+    value: bool | int | float | str | None
+    device_count: int
+    """How many of the group's devices had a current value to contribute."""
+
+
+class GroupedLiveAggregateResponse(BaseModel):
+    """Group-by counterpart of :class:`LiveSpaceAggregateResponse`."""
+
+    data_type: DataType
+    space_agg: AggregationOperator
+    groups: list[LiveAggregateGroupResponse]

@@ -431,6 +431,54 @@ class TestListDeviceAttributes:
 
 
 # ---------------------------------------------------------------------------
+# List device tag groups (group-by preview)
+# ---------------------------------------------------------------------------
+
+
+class TestListDeviceTagGroups:
+    @pytest.fixture
+    def dm(self):
+        floor1 = _SENSOR.model_copy(update={"tags": {"floor": "1"}})
+        floor1b = _TYPED.model_copy(update={"tags": {"floor": "1"}})
+        untagged = _DEVICE.model_copy(update={"tags": {}})
+        return _make_dm([floor1, floor1b, untagged])
+
+    def test_groups_matched_devices_by_tag_value(self, client: TestClient):
+        response = client.get("/tag-groups", params={"tag_key": "floor"})
+        assert response.status_code == 200
+        body = response.json()
+        assert body["total_devices"] == 3
+        assert body["groups"] == [
+            {"label": "1", "device_count": 2},
+            {"label": "untagged", "device_count": 1},
+        ]
+
+    def test_same_filters_as_list_devices(self, client: TestClient, dm: MagicMock):
+        client.get("/tag-groups", params={"tag_key": "floor", "type": "thermostat"})
+        dm.list_devices.assert_called_once_with(
+            attribute=None,
+            ids=None,
+            types=["thermostat"],
+            tags=None,
+            is_faulty=None,
+            search=None,
+            driver_id=None,
+            transport_id=None,
+        )
+
+    def test_empty_device_set(self, client: TestClient):
+        response = client.get(
+            "/tag-groups", params={"tag_key": "floor", "ids": "unknown"}
+        )
+        assert response.status_code == 200
+        assert response.json() == {"total_devices": 0, "groups": []}
+
+    def test_missing_tag_key_is_422(self, client: TestClient):
+        response = client.get("/tag-groups")
+        assert response.status_code == 422
+
+
+# ---------------------------------------------------------------------------
 # Get standard types
 # ---------------------------------------------------------------------------
 

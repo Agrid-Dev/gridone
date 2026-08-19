@@ -43,6 +43,24 @@ class AttributeCoverageResponse(BaseModel):
     attributes: list[AttributeCoverage]
 
 
+class TagGroupResponse(BaseModel):
+    label: str
+    """The group's tag value, or ``"untagged"`` for devices without the key."""
+
+    device_count: int
+
+
+class TagGroupsResponse(BaseModel):
+    """Response body for ``GET /devices/tag-groups``.
+
+    Previews how a device set splits by one tag key — the group-by editor's
+    free-text fallback, ahead of a proper tag vocabulary.
+    """
+
+    total_devices: int
+    groups: list[TagGroupResponse]
+
+
 class DeviceBatchItem(BaseModel):
     # Unlike single-device creation, batch entries require a name: it is the
     # only way to tell otherwise-identical devices apart in the batch result.

@@ -463,6 +463,20 @@ DEVICES_ACCESS_CONTROL_SCENARIOS = [
     ),
     pytest.param("GET", "/devices/attributes", None, 401, id="attr-coverage-no-auth"),
     pytest.param(
+        "GET",
+        "/devices/tag-groups?tag_key=floor",
+        "viewer",
+        200,
+        id="tag-groups-viewer",
+    ),
+    pytest.param(
+        "GET",
+        "/devices/tag-groups?tag_key=floor",
+        None,
+        401,
+        id="tag-groups-no-auth",
+    ),
+    pytest.param(
         "POST", "/devices/any-id/timeseries", "viewer", 403, id="bulk-push-viewer"
     ),
     pytest.param(

@@ -2,7 +2,11 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from api.targets import CompositeTargetResolver, compute_attribute_coverage
+from api.targets import (
+    CompositeTargetResolver,
+    compute_attribute_coverage,
+    group_device_ids_by_tag,
+)
 from devices_manager import DevicesServiceInterface
 from devices_manager.core.device import Attribute
 from devices_manager.dto.device_dto import Device
@@ -16,11 +20,13 @@ def _device(
     attributes: dict[str, Attribute],
     *,
     device_type: str | None = None,
+    tags: dict[str, str] | None = None,
 ) -> Device:
     return Device(
         id=device_id,
         name=device_id,
         type=device_type,
+        tags=tags or {},
         attributes=attributes,
         config={},
         driver_id="drv",
@@ -176,3 +182,26 @@ class TestResolveWithDevices:
             await resolver.resolve_with_devices(
                 AttributeTarget(devices=DevicesFilter(), attribute="temperature")
             )
+
+
+class TestGroupDeviceIdsByTag:
+    def test_groups_by_tag_value(self):
+        floor1 = _device("t1", {}, tags={"floor": "1"})
+        floor1b = _device("t2", {}, tags={"floor": "1"})
+        floor2 = _device("t3", {}, tags={"floor": "2"})
+        groups = group_device_ids_by_tag([floor1, floor1b, floor2], "floor")
+        assert groups == {"1": ["t1", "t2"], "2": ["t3"]}
+
+    def test_devices_without_the_tag_land_in_untagged(self):
+        tagged = _device("t1", {}, tags={"floor": "1"})
+        untagged = _device("t2", {})
+        groups = group_device_ids_by_tag([tagged, untagged], "floor")
+        assert groups == {"1": ["t1"], "untagged": ["t2"]}
+
+    def test_devices_with_a_different_tag_key_are_also_untagged(self):
+        device = _device("t1", {}, tags={"zone": "a"})
+        groups = group_device_ids_by_tag([device], "floor")
+        assert groups == {"untagged": ["t1"]}
+
+    def test_empty_device_list_yields_no_groups(self):
+        assert group_device_ids_by_tag([], "floor") == {}

@@ -20,11 +20,13 @@ from api.schemas.device import (
     DeviceBatchCreate,
     DeviceBatchItemResult,
     SingleAttrTimeseriesPushPoint,
+    TagGroupResponse,
+    TagGroupsResponse,
     TagValueBody,
     TimeseriesBulkPushRequest,
     TimeseriesSingleAttrPushRequest,
 )
-from api.targets import compute_attribute_coverage
+from api.targets import compute_attribute_coverage, group_device_ids_by_tag
 from devices_manager import DevicesServiceInterface
 from devices_manager.core.device import Attribute
 from devices_manager.core.device.event_log import AttributeLogs
@@ -111,6 +113,31 @@ def list_device_attributes(
     return AttributeCoverageResponse(
         total_devices=len(devices),
         attributes=compute_attribute_coverage(devices),
+    )
+
+
+@router.get(
+    "/tag-groups",
+    dependencies=[Depends(require_permission(Permission.DEVICES_READ))],
+)
+def list_device_tag_groups(
+    dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
+    query: Annotated[dict[str, Any], Depends(get_devices_query)],
+    tag_key: str = Query(..., min_length=1),
+) -> TagGroupsResponse:
+    """Preview how the matched device set splits by *tag_key*.
+
+    Same filters as ``GET /devices``. Backs the group-by editor's free-text
+    fallback, ahead of a proper tag vocabulary.
+    """
+    devices = dm.list_devices(**query)
+    groups = group_device_ids_by_tag(devices, tag_key)
+    return TagGroupsResponse(
+        total_devices=len(devices),
+        groups=[
+            TagGroupResponse(label=label, device_count=len(device_ids))
+            for label, device_ids in sorted(groups.items())
+        ],
     )
 
 
