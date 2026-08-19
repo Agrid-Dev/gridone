@@ -32,6 +32,7 @@ from timeseries.domain import (
     AggregationQuery,
     SeriesKey,
     SpaceAggregationResult,
+    validate_space_operator,
 )
 from timeseries.service import TimeSeriesService
 
@@ -314,9 +315,12 @@ async def get_devices_live_aggregate(
 ) -> LiveSpaceAggregateResponse:
     """Fold one attribute's current value across a device set into one.
 
-    ``resolve_with_devices`` avoids a second ``list_devices`` scan for the
-    current values.
+    ``space_agg`` is validated against the space vocabulary before the
+    target resolves, so an invalid operator is rejected without paying for
+    the ``list_devices`` scan. ``resolve_with_devices`` then avoids a second
+    scan for the current values.
     """
+    validate_space_operator(space_agg)
     resolved, devices = await resolver.resolve_with_devices(target)
     current_values = [
         device.attributes[target.attribute].current_value for device in devices

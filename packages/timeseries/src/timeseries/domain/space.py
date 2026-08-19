@@ -40,6 +40,18 @@ SPACE_COMPAT: dict[AggregationOperator, dict[DataType, DataType | None]] = {
 }
 
 
+def validate_space_operator(space_agg: AggregationOperator) -> None:
+    """Raise InvalidError if *space_agg* is outside the space vocabulary.
+
+    Dtype-independent, so callers can reject an invalid operator before
+    resolving a target — e.g. before the device scan a live fold needs to
+    read current values.
+    """
+    if space_agg not in SPACE_COMPAT:
+        msg = f"Operator '{space_agg}' is not a space aggregation operator"
+        raise InvalidError(msg)
+
+
 def resolve_space_aggregation_data_type(
     space_agg: AggregationOperator, data_type: DataType
 ) -> DataType:
@@ -50,9 +62,7 @@ def resolve_space_aggregation_data_type(
     (``first``/``delta``/``tw_*`` need an ordering or a duration that a device
     set does not have) and for invalid (operator, type) pairs per SPACE_COMPAT.
     """
-    if space_agg not in SPACE_COMPAT:
-        msg = f"Operator '{space_agg}' is not a space aggregation operator"
-        raise InvalidError(msg)
+    validate_space_operator(space_agg)
     result = SPACE_COMPAT[space_agg][data_type]
     if result is None:
         msg = f"Operator '{space_agg}' is not supported for data type '{data_type}'"

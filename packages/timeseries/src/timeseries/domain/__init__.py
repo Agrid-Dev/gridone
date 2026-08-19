@@ -28,6 +28,7 @@ from timeseries.domain.space import (
     combine_space,
     fold_space_values,
     resolve_space_aggregation_data_type,
+    validate_space_operator,
 )
 from timeseries.domain.time_range import (
     normalize_to_utc,
@@ -62,6 +63,7 @@ __all__ = [
     "resolve_aggregation_data_type",
     "resolve_last",
     "resolve_space_aggregation_data_type",
+    "validate_space_operator",
     "validate_tz_name",
     "validate_value_type",
 ]
