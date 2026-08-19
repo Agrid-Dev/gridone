@@ -29,6 +29,10 @@ class MockTransportClient:
         TransportClient applies to the read path too."""
         await self.connect()
 
+    def _attempt_is_current(self) -> bool:
+        """This mock doesn't model config generations — every attempt counts."""
+        return True
+
     async def connect(self):
         """All transport clients using @connected should connect within a Lock
         to avoid parallel connections."""
