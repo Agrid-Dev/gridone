@@ -12,6 +12,7 @@ import type {
   Page,
   SingleDeviceCommand,
   StandardAttributeSchema,
+  TagGroupsResponse,
   TagValueBody,
   UnitCommand,
 } from "../types";
@@ -23,6 +24,8 @@ export type DeviceListParams = NonNullable<
 export type DeviceAttributesParams = NonNullable<
   operations["list_device_attributes_devices_attributes_get"]["parameters"]["query"]
 >;
+export type DeviceTagGroupsParams =
+  operations["list_device_tag_groups_devices_tag_groups_get"]["parameters"]["query"];
 export type CommandListParams = NonNullable<
   operations["list_commands_devices_commands_get"]["parameters"]["query"]
 >;
@@ -48,6 +51,15 @@ export class DevicesResource {
     params?: DeviceAttributesParams,
   ): Promise<AttributeCoverageResponse> {
     return this.request("GET", "/devices/attributes", { searchParams: params });
+  }
+
+  /**
+   * Previews how the device set matched by the filters splits by
+   * `params.tag_key` — one group per distinct tag value, plus an
+   * `"untagged"` group for devices without the key.
+   */
+  listTagGroups(params: DeviceTagGroupsParams): Promise<TagGroupsResponse> {
+    return this.request("GET", "/devices/tag-groups", { searchParams: params });
   }
 
   get(deviceId: string): Promise<Device> {

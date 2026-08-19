@@ -4,6 +4,8 @@ import type {
   AggregateOptionsResponse,
   AggregationResultResponse,
   FetchPointsResultResponse,
+  GroupedLiveAggregateResponse,
+  GroupedSpaceAggregationResult,
   LiveSpaceAggregateResponse,
   SpaceAggregationResult,
   TimeSeries,
@@ -78,10 +80,13 @@ export class TimeseriesResource {
    * Aggregates one attribute over a device set into a single series: per-device
    * time buckets first, then `space_agg` folds each bucket across the set.
    * The target uses the same filter vocabulary as `client.devices.list`.
+   *
+   * Passing `params.group_by` (a tag key) folds each tag value into its own
+   * series instead, returning a {@link GroupedSpaceAggregationResult}.
    */
   aggregateSpace(
     params: SpaceAggregateParams,
-  ): Promise<SpaceAggregationResult> {
+  ): Promise<SpaceAggregationResult | GroupedSpaceAggregationResult> {
     return this.request("GET", "/devices/timeseries/aggregate", {
       searchParams: params,
     });
@@ -91,10 +96,13 @@ export class TimeseriesResource {
    * Folds one attribute's *current* values across a device set into one —
    * the live counterpart to `aggregateSpace`, with no time dimension: each
    * device's live value is folded directly by `space_agg`.
+   *
+   * Passing `params.group_by` (a tag key) folds each tag value into its own
+   * value instead, returning a {@link GroupedLiveAggregateResponse}.
    */
   aggregateLive(
     params: LiveAggregateParams,
-  ): Promise<LiveSpaceAggregateResponse> {
+  ): Promise<LiveSpaceAggregateResponse | GroupedLiveAggregateResponse> {
     return this.request("GET", "/devices/timeseries/live-aggregate", {
       searchParams: params,
     });

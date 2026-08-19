@@ -113,6 +113,8 @@ export type StandardAttributeSchemaField =
   Schemas["StandardAttributeSchemaField"];
 export type AttributeCoverage = Schemas["AttributeCoverage"];
 export type AttributeCoverageResponse = Schemas["AttributeCoverageResponse"];
+export type TagGroupResponse = Schemas["TagGroupResponse"];
+export type TagGroupsResponse = Schemas["TagGroupsResponse"];
 
 // Drivers
 export type Driver = Schemas["DriverSpec-Output"];
@@ -206,6 +208,12 @@ export type AggregatedPointResponse = Schemas["AggregatedPointResponse"];
 export type AggregationResultResponse = Schemas["AggregationResultResponse"];
 export type SpaceAggregationResult = Schemas["SpaceAggregationResult"];
 export type LiveSpaceAggregateResponse = Schemas["LiveSpaceAggregateResponse"];
+export type SpaceAggregationGroup = Schemas["SpaceAggregationGroup"];
+export type GroupedSpaceAggregationResult =
+  Schemas["GroupedSpaceAggregationResult"];
+export type LiveAggregateGroupResponse = Schemas["LiveAggregateGroupResponse"];
+export type GroupedLiveAggregateResponse =
+  Schemas["GroupedLiveAggregateResponse"];
 export type IntervalOption = Schemas["IntervalOption"];
 export type TimeseriesPushPoint = Schemas["TimeseriesPushPoint"];
 export type TimeseriesBulkPushRequest = Schemas["TimeseriesBulkPushRequest"];

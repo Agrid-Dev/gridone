@@ -553,6 +553,31 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/devices/tag-groups": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Device Tag Groups
+     * @description Preview how the matched device set splits by *tag_key*.
+     *
+     *     Backs the group-by editor control's free-text fallback (there is no tag
+     *     vocabulary to drive a dropdown yet): the same filters as ``GET
+     *     /devices`` select the device set, and each distinct tag value becomes
+     *     one group — devices without the key land in an ``"untagged"`` group.
+     */
+    get: operations["list_device_tag_groups_devices_tag_groups_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/devices/standard-types": {
     parameters: {
       query?: never;
@@ -1683,6 +1708,11 @@ export interface components {
       codecs?: components["schemas"]["CodecSpec"][];
       /** Polling Group */
       polling_group?: string | null;
+      /**
+       * Push
+       * @default false
+       */
+      push?: boolean;
     };
     /** AttributeEventLog */
     AttributeEventLog: {
@@ -1936,6 +1966,18 @@ export interface components {
       write_property_timeout?: number;
       /** @default 8 */
       default_write_priority?: components["schemas"]["BacnetWritePriority"];
+      /**
+       * Rpm Request Apdu Fraction
+       * @description Fraction of a device's Max-APDU a ReadPropertyMultiple request is budgeted to, reserving the rest for the response. Lower it for devices whose RPM responses carry more framing/value overhead than usual.
+       * @default 0.5
+       */
+      rpm_request_apdu_fraction?: number;
+      /**
+       * Rpm Enabled
+       * @description Whether to batch reads via ReadPropertyMultiple. False forces the per-property ReadProperty fallback for every device on this transport, regardless of RPM support — for comparing before/after batching performance.
+       * @default true
+       */
+      rpm_enabled?: boolean;
     };
     /** BacnetTransportCreate */
     BacnetTransportCreate: {
@@ -2047,6 +2089,8 @@ export interface components {
       target: components["schemas"]["AttributeTarget"];
       agg?: components["schemas"]["AggregationOperator"] | null;
       space_agg?: components["schemas"]["AggregationOperator"] | null;
+      /** Group By */
+      group_by?: string | null;
     };
     /** CodecSpec */
     CodecSpec: {
@@ -2541,6 +2585,11 @@ export interface components {
       codecs?: components["schemas"]["CodecSpec"][];
       /** Polling Group */
       polling_group?: string | null;
+      /**
+       * Push
+       * @default false
+       */
+      push?: boolean;
       /** @default warning */
       severity?: components["schemas"]["Severity"];
       /** Healthy Values */
@@ -2577,6 +2626,35 @@ export interface components {
       truncated: boolean;
       /** Next Start */
       next_start?: string | null;
+    };
+    /**
+     * GroupedLiveAggregateResponse
+     * @description Group-by counterpart of :class:`LiveSpaceAggregateResponse`.
+     */
+    GroupedLiveAggregateResponse: {
+      data_type: components["schemas"]["DataType"];
+      space_agg: components["schemas"]["AggregationOperator"];
+      /** Groups */
+      groups: components["schemas"]["LiveAggregateGroupResponse"][];
+    };
+    /**
+     * GroupedSpaceAggregationResult
+     * @description Like :class:`SpaceAggregationResult`, folded per group of series
+     *     instead of across the whole device set. The grouping itself (e.g. by
+     *     device tag) is decided by the caller — this module only folds each
+     *     group's series once partitioned.
+     */
+    GroupedSpaceAggregationResult: {
+      /** Interval */
+      interval: components["schemas"]["Interval"] | "whole";
+      agg: components["schemas"]["AggregationOperator"];
+      space_agg: components["schemas"]["AggregationOperator"];
+      data_type: components["schemas"]["DataType"];
+      /** Timezone */
+      timezone: string;
+      /** Groups */
+      groups: components["schemas"]["SpaceAggregationGroup"][];
+      readonly aggregation_data_type: components["schemas"]["DataType"];
     };
     /** HTTPValidationError */
     HTTPValidationError: {
@@ -2778,6 +2856,15 @@ export interface components {
       h: number;
       /** I */
       i: string;
+    };
+    /** LiveAggregateGroupResponse */
+    LiveAggregateGroupResponse: {
+      /** Label */
+      label: string;
+      /** Value */
+      value: boolean | number | string | null;
+      /** Device Count */
+      device_count: number;
     };
     /**
      * LiveSpaceAggregateResponse
@@ -3047,6 +3134,85 @@ export interface components {
       /** Dismissed At */
       dismissed_at: string | null;
     };
+    /** OpcuaTransport */
+    OpcuaTransport: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at?: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at?: string;
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+      connection_state: components["schemas"]["TransportConnectionState"];
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      protocol: "opcua";
+      config: components["schemas"]["OpcuaTransportConfig"];
+    };
+    /** OpcuaTransportConfig */
+    OpcuaTransportConfig: {
+      /** Endpoint Url */
+      endpoint_url: string;
+      /**
+       * Auth Mode
+       * @default anonymous
+       * @enum {string}
+       */
+      auth_mode?: "anonymous" | "username_password";
+      /** Username */
+      username?: string | null;
+      /** Password */
+      password?: string | null;
+      /**
+       * Connect Timeout
+       * @default 10
+       */
+      connect_timeout?: number;
+      /**
+       * Request Timeout
+       * @default 5
+       */
+      request_timeout?: number;
+      /**
+       * Keepalive Interval
+       * @default 5
+       */
+      keepalive_interval?: number;
+      /**
+       * Sampling Interval Ms
+       * @default 1000
+       */
+      sampling_interval_ms?: number;
+      /**
+       * Deadband
+       * @default 0
+       */
+      deadband?: number;
+      /** @default None */
+      security_policy?: components["schemas"]["SecurityPolicyName"];
+      /** @default None */
+      security_mode?: components["schemas"]["SecurityModeName"];
+    };
+    /** OpcuaTransportCreate */
+    OpcuaTransportCreate: {
+      /** Name */
+      name: string;
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      protocol: "opcua";
+      config: components["schemas"]["OpcuaTransportConfig"];
+    };
     /** PaginatedResponse[CommandTemplateResponse] */
     PaginatedResponse_CommandTemplateResponse_: {
       /** Items */
@@ -3148,6 +3314,14 @@ export interface components {
      * @enum {string}
      */
     Role: "admin" | "operator" | "viewer";
+    /** @enum {string} */
+    SecurityModeName: "None" | "Sign" | "SignAndEncrypt";
+    /** @enum {string} */
+    SecurityPolicyName:
+      | "None"
+      | "Basic256Sha256"
+      | "Aes128Sha256RsaOaep"
+      | "Aes256Sha256RsaPss";
     /**
      * Severity
      * @enum {string}
@@ -3183,6 +3357,15 @@ export interface components {
      * @enum {string}
      */
     SortOrder: "asc" | "desc";
+    /** SpaceAggregationGroup */
+    SpaceAggregationGroup: {
+      /** Label */
+      label: string;
+      /** Series Count */
+      series_count: number;
+      /** Points */
+      points: components["schemas"]["AggregatedPoint"][];
+    };
     /** SpaceAggregationResult */
     SpaceAggregationResult: {
       /** Interval */
@@ -3222,6 +3405,26 @@ export interface components {
        */
       multiple?: boolean;
     };
+    /** TagGroupResponse */
+    TagGroupResponse: {
+      /** Label */
+      label: string;
+      /** Device Count */
+      device_count: number;
+    };
+    /**
+     * TagGroupsResponse
+     * @description Response body for ``GET /devices/tag-groups``.
+     *
+     *     Previews how a device set splits by one tag key — the group-by editor's
+     *     free-text fallback, ahead of a proper tag vocabulary.
+     */
+    TagGroupsResponse: {
+      /** Total Devices */
+      total_devices: number;
+      /** Groups */
+      groups: components["schemas"]["TagGroupResponse"][];
+    };
     /** TagValueBody */
     TagValueBody: {
       /** Value */
@@ -3246,7 +3449,10 @@ export interface components {
       /** Color */
       color: string;
     };
-    /** TimeAggregation */
+    /**
+     * TimeAggregation
+     * @description Reduces the whole dashboard period to one value; no bucket width stored.
+     */
     TimeAggregation: {
       operator: components["schemas"]["AggregationOperator"];
     };
@@ -3323,7 +3529,8 @@ export interface components {
       | "http"
       | "knx"
       | "mqtt"
-      | "webhook";
+      | "webhook"
+      | "opcua";
     /** TransportUpdate */
     TransportUpdate: {
       /** Name */
@@ -4746,6 +4953,8 @@ export interface operations {
       query: {
         /** @description How each time bucket's values are folded across the device set, after `agg` reduced every device's readings over the bucket: 'avg' of thermostat temperatures, 'sum' of meter consumptions, 'mode' for the predominant state. Ordering-dependent and time-weighted operators (first/last/delta/tw_*) do not apply across devices and are rejected, as is `interval=raw`. */
         space_agg: components["schemas"]["AggregationOperator"];
+        /** @description Tag key to bucket the device set by before folding: each tag value becomes its own group, folded independently with `space_agg`. Devices without the tag land in an 'untagged' group. Omit for the flat single-series result. */
+        group_by?: string | null;
         type?: string[] | null;
         ids?: string[] | null;
         tags?: string[] | null;
@@ -4771,7 +4980,9 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["SpaceAggregationResult"];
+          "application/json":
+            | components["schemas"]["SpaceAggregationResult"]
+            | components["schemas"]["GroupedSpaceAggregationResult"];
         };
       };
       /** @description Validation Error */
@@ -4790,6 +5001,8 @@ export interface operations {
       query: {
         /** @description How the device set's current values are folded into one. Same space vocabulary as /timeseries/aggregate, applied directly to each device's live value instead of a time-aggregated series. */
         space_agg: components["schemas"]["AggregationOperator"];
+        /** @description Tag key to bucket the device set by before folding. Same semantics as /timeseries/aggregate's `group_by`. */
+        group_by?: string | null;
         type?: string[] | null;
         ids?: string[] | null;
         tags?: string[] | null;
@@ -4807,7 +5020,9 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["LiveSpaceAggregateResponse"];
+          "application/json":
+            | components["schemas"]["LiveSpaceAggregateResponse"]
+            | components["schemas"]["GroupedLiveAggregateResponse"];
         };
       };
       /** @description Validation Error */
@@ -4992,6 +5207,46 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["AttributeCoverageResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_device_tag_groups_devices_tag_groups_get: {
+    parameters: {
+      query: {
+        tag_key: string;
+        type?: string[] | null;
+        ids?: string[] | null;
+        tags?: string[] | null;
+        attribute?: string | null;
+        is_faulty?: boolean | null;
+        asset_id?: string | null;
+        search?: string | null;
+        driver_id?: string | null;
+        transport_id?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TagGroupsResponse"];
         };
       };
       /** @description Validation Error */
@@ -5441,6 +5696,7 @@ export interface operations {
             | components["schemas"]["MbusTransport"]
             | components["schemas"]["BacnetTransport"]
             | components["schemas"]["WebhookTransport"]
+            | components["schemas"]["OpcuaTransport"]
           )[];
         };
       };
@@ -5462,7 +5718,8 @@ export interface operations {
           | components["schemas"]["ModbusTcpTransportCreate"]
           | components["schemas"]["MbusTransportCreate"]
           | components["schemas"]["BacnetTransportCreate"]
-          | components["schemas"]["WebhookTransportCreate"];
+          | components["schemas"]["WebhookTransportCreate"]
+          | components["schemas"]["OpcuaTransportCreate"];
       };
     };
     responses: {
@@ -5479,7 +5736,8 @@ export interface operations {
             | components["schemas"]["ModbusTcpTransport"]
             | components["schemas"]["MbusTransport"]
             | components["schemas"]["BacnetTransport"]
-            | components["schemas"]["WebhookTransport"];
+            | components["schemas"]["WebhookTransport"]
+            | components["schemas"]["OpcuaTransport"];
         };
       };
       /** @description Validation Error */
@@ -5517,7 +5775,8 @@ export interface operations {
             | components["schemas"]["ModbusTcpTransport"]
             | components["schemas"]["MbusTransport"]
             | components["schemas"]["BacnetTransport"]
-            | components["schemas"]["WebhookTransport"];
+            | components["schemas"]["WebhookTransport"]
+            | components["schemas"]["OpcuaTransport"];
         };
       };
       /** @description Validation Error */
@@ -5588,7 +5847,8 @@ export interface operations {
             | components["schemas"]["ModbusTcpTransport"]
             | components["schemas"]["MbusTransport"]
             | components["schemas"]["BacnetTransport"]
-            | components["schemas"]["WebhookTransport"];
+            | components["schemas"]["WebhookTransport"]
+            | components["schemas"]["OpcuaTransport"];
         };
       };
       /** @description Validation Error */
