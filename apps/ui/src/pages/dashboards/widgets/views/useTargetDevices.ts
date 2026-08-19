@@ -9,7 +9,7 @@ export type AttributeTarget = ChartWidgetConfig["target"];
 /** True when the criteria select on no dimension. An empty filter matches
  *  every device server-side, but "everything" is never an intentional target —
  *  it resolves to nothing here, mirroring the editor's validation. */
-function isEmptyTarget(devices: AttributeTarget["devices"]): boolean {
+export function isEmptyTarget(devices: AttributeTarget["devices"]): boolean {
   return (
     !devices.ids?.length &&
     !devices.types?.length &&

@@ -9,6 +9,9 @@ type UseSpaceAggregateOptions = {
   /** Per-device time aggregation, run before the space fold. */
   agg: AggregationOperator;
   spaceAgg: AggregationOperator;
+  /** `"auto"` follows the window into several buckets; `"whole"` reduces the
+   *  whole period to one bucket (a KPI's period reading). */
+  interval?: "auto" | "whole";
   start?: string;
   end?: string;
   last?: string;
@@ -21,13 +24,13 @@ type UseSpaceAggregateOptions = {
  *
  * A single request replaces the per-device fan-out: the server resolves the
  * target, time-aggregates every device's series and folds each bucket with
- * `spaceAgg`. The bucket width is asked for as `auto` — it follows the window,
- * exactly as the per-device aggregation path does.
+ * `spaceAgg`.
  */
 export function useSpaceAggregate({
   target,
   agg,
   spaceAgg,
+  interval = "auto",
   start,
   end,
   last,
@@ -41,7 +44,7 @@ export function useSpaceAggregate({
     attribute: target.attribute ?? "",
     agg,
     space_agg: spaceAgg,
-    interval: "auto",
+    interval,
     start,
     end,
     last,

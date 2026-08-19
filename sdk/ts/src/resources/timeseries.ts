@@ -4,6 +4,7 @@ import type {
   AggregateOptionsResponse,
   AggregationResultResponse,
   FetchPointsResultResponse,
+  LiveSpaceAggregateResponse,
   SpaceAggregationResult,
   TimeSeries,
   TimeseriesBulkPushRequest,
@@ -24,6 +25,9 @@ export type AggregateOptionsParams = NonNullable<
 >;
 export type SpaceAggregateParams = NonNullable<
   operations["get_devices_timeseries_aggregate_devices_timeseries_aggregate_get"]["parameters"]["query"]
+>;
+export type LiveAggregateParams = NonNullable<
+  operations["get_devices_live_aggregate_devices_timeseries_live_aggregate_get"]["parameters"]["query"]
 >;
 /** Shared by the CSV and PNG exports (same query parameters). */
 export type TimeseriesExportParams = NonNullable<
@@ -79,6 +83,19 @@ export class TimeseriesResource {
     params: SpaceAggregateParams,
   ): Promise<SpaceAggregationResult> {
     return this.request("GET", "/devices/timeseries/aggregate", {
+      searchParams: params,
+    });
+  }
+
+  /**
+   * Folds one attribute's *current* values across a device set into one —
+   * the live counterpart to `aggregateSpace`, with no time dimension: each
+   * device's live value is folded directly by `space_agg`.
+   */
+  aggregateLive(
+    params: LiveAggregateParams,
+  ): Promise<LiveSpaceAggregateResponse> {
+    return this.request("GET", "/devices/timeseries/live-aggregate", {
       searchParams: params,
     });
   }

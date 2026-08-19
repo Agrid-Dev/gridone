@@ -425,3 +425,72 @@ def test_kpi_config_accepts_a_single_device_resolved_target():
     ]
 
     config.validate_resolved(resolved)
+
+
+def test_kpi_config_accepts_a_space_operator():
+    registry = build_default_registry()
+
+    config = registry.validate_config(
+        {
+            "type": "kpi",
+            "target": {"devices": {"types": ["meter"]}, "attribute": "power"},
+            "space_agg": "sum",
+        }
+    )
+
+    assert isinstance(config, KpiWidgetConfig)
+    assert config.space_agg is AggregationOperator.SUM
+
+
+def test_kpi_config_rejects_a_non_space_operator():
+    registry = build_default_registry()
+
+    with pytest.raises(InvalidError):
+        registry.validate_config(
+            {
+                "type": "kpi",
+                "target": {"devices": {"ids": ["d1"]}, "attribute": "power"},
+                "space_agg": "delta",
+            }
+        )
+
+
+def test_kpi_config_with_space_agg_accepts_a_multi_device_resolved_target():
+    config = KpiWidgetConfig.model_validate(
+        {
+            "type": "kpi",
+            "target": {"devices": {"types": ["meter"]}, "attribute": "power"},
+            "space_agg": "sum",
+        }
+    )
+    resolved = [
+        ResolvedTarget(
+            attribute="power",
+            device_ids=["d1", "d2"],
+            data_type=DataType.FLOAT,
+            excluded_device_ids=[],
+        )
+    ]
+
+    config.validate_resolved(resolved)
+
+
+def test_kpi_config_with_space_agg_rejects_an_empty_resolved_target():
+    config = KpiWidgetConfig.model_validate(
+        {
+            "type": "kpi",
+            "target": {"devices": {"types": ["meter"]}, "attribute": "power"},
+            "space_agg": "sum",
+        }
+    )
+    resolved = [
+        ResolvedTarget(
+            attribute="power",
+            device_ids=[],
+            data_type=DataType.FLOAT,
+            excluded_device_ids=[],
+        )
+    ]
+
+    with pytest.raises(InvalidError, match="at least one device"):
+        config.validate_resolved(resolved)

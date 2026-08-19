@@ -16,7 +16,8 @@ vi.mock("react-i18next", () =>
     "widgets.chart.agg.captions.sum": "total of the bucket",
     "widgets.chart.agg.captions.mode": "most frequent value",
     "widgets.chart.agg.unsupported": "not supported",
-    "widgets.kpi.singleDeviceRequired": "Pick a single device, not a filter",
+    "widgets.kpi.singleDeviceRequired":
+      "Pick a single device, or a fold operator below to combine several",
   }),
 );
 
@@ -141,8 +142,14 @@ vi.mock("@/hooks/useAggregateOptions", async () => {
   >("@/hooks/useAggregateOptions");
   return {
     operatorsFor: actual.operatorsFor,
+    spaceOperatorsFor: actual.spaceOperatorsFor,
     useResetRefusedOperator: actual.useResetRefusedOperator,
-    useAggregateOptions: () => ({ data: { operators_by_data_type: MATRIX } }),
+    useAggregateOptions: () => ({
+      data: {
+        operators_by_data_type: MATRIX,
+        space_operators_by_data_type: MATRIX,
+      },
+    }),
   };
 });
 
@@ -279,13 +286,15 @@ describe("KpiConfigFields", () => {
     ).toBeUndefined();
   });
 
-  it("names the single-device constraint when the target picks more than one", () => {
+  it("names the constraint when the target picks more than one device and no operator is chosen", () => {
     renderFields();
 
     fireEvent.click(screen.getByText("pick two devices"));
 
     expect(
-      screen.getByText("Pick a single device, not a filter"),
+      screen.getByText(
+        "Pick a single device, or a fold operator below to combine several",
+      ),
     ).toBeInTheDocument();
   });
 
@@ -293,8 +302,87 @@ describe("KpiConfigFields", () => {
     renderFields();
 
     expect(
-      screen.queryByText("Pick a single device, not a filter"),
+      screen.queryByText(
+        "Pick a single device, or a fold operator below to combine several",
+      ),
     ).not.toBeInTheDocument();
+  });
+
+  it("clears the constraint warning once a fold operator is picked", () => {
+    renderFields({
+      target: { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
+      space_agg: "avg",
+    });
+
+    expect(
+      screen.queryByText(
+        "Pick a single device, or a fold operator below to combine several",
+      ),
+    ).not.toBeInTheDocument();
+  });
+
+  it("hides the space select for a single explicit device id", () => {
+    renderFields({
+      target: { devices: { ids: ["dev1"] }, attribute: "temperature" },
+    });
+
+    expect(screen.queryByTestId("operator")).not.toBeInTheDocument();
+  });
+
+  it("shows the space select once the target can match more than one device", () => {
+    renderFields({
+      target: { devices: { types: ["thermostat"] }, attribute: "temperature" },
+    });
+
+    const select = screen.getByTestId("operator");
+    const enabled = Array.from(select.querySelectorAll("option"))
+      .filter((o) => !o.disabled)
+      .map((o) => o.value);
+    expect(enabled).toEqual(["avg", "sum"]);
+  });
+
+  it("emits the picked space operator as config.space_agg", () => {
+    const latest = renderFields({
+      target: { devices: { types: ["thermostat"] }, attribute: "temperature" },
+    });
+
+    fireEvent.change(screen.getByTestId("operator"), {
+      target: { value: "sum" },
+    });
+
+    expect(latest().space_agg).toBe("sum");
+  });
+
+  it("clears space_agg once the target narrows to a single device", () => {
+    const latest = renderFields({
+      target: { devices: { types: ["thermostat"] }, attribute: "temperature" },
+      space_agg: "avg",
+    });
+
+    fireEvent.click(screen.getByText("pick temperature"));
+
+    expect(latest().space_agg).toBeNull();
+  });
+
+  // Space folds what the period operator yields, so there's nothing to
+  // offer until one is picked — showing a populated-but-fully-disabled
+  // select there would look broken rather than merely premature.
+  it("hides the space select in period mode until a time operator is chosen", () => {
+    renderFields({
+      target: { devices: { types: ["thermostat"] }, attribute: "temperature" },
+      temporal: {},
+    });
+
+    expect(screen.getAllByTestId("operator")).toHaveLength(1);
+  });
+
+  it("shows the space select in period mode once a time operator is chosen", () => {
+    renderFields({
+      target: { devices: { types: ["thermostat"] }, attribute: "temperature" },
+      temporal: { operator: "avg" },
+    });
+
+    expect(screen.getAllByTestId("operator")).toHaveLength(2);
   });
 });
 
@@ -318,5 +406,21 @@ describe("kpiConfigCheck", () => {
       target: { devices: { types: ["thermostat"] }, attribute: "temperature" },
     });
     expect(result.success).toBe(false);
+  });
+
+  it("accepts a type-filter target with a fold operator", () => {
+    const result = kpiConfigCheck.safeParse({
+      target: { devices: { types: ["thermostat"] }, attribute: "temperature" },
+      space_agg: "avg",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts several device ids with a fold operator", () => {
+    const result = kpiConfigCheck.safeParse({
+      target: { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
+      space_agg: "sum",
+    });
+    expect(result.success).toBe(true);
   });
 });

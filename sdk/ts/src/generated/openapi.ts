@@ -454,6 +454,29 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/devices/timeseries/live-aggregate": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Devices Live Aggregate
+     * @description Fold one attribute's current value across a device set into one.
+     *
+     *     ``resolve_with_devices`` avoids a second ``list_devices`` scan for the
+     *     current values.
+     */
+    get: operations["get_devices_live_aggregate_devices_timeseries_live_aggregate_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/devices/{device_id}/timeseries/{attr}/aggregate": {
     parameters: {
       query?: never;
@@ -1389,6 +1412,12 @@ export interface components {
       recommended_interval: string | null;
       /** Operators By Data Type */
       operators_by_data_type: {
+        [key: string]: {
+          [key: string]: components["schemas"]["DataType"] | null;
+        };
+      };
+      /** Space Operators By Data Type */
+      space_operators_by_data_type: {
         [key: string]: {
           [key: string]: components["schemas"]["DataType"] | null;
         };
@@ -2707,7 +2736,10 @@ export interface components {
     };
     /**
      * KpiWidgetConfig
-     * @description Single number over one attribute of one device.
+     * @description Single number over one attribute of a device set.
+     *
+     *     Without ``space_agg`` the target must resolve to exactly one device;
+     *     with it, any number fold into one.
      */
     KpiWidgetConfig: {
       /**
@@ -2721,6 +2753,7 @@ export interface components {
        * @default live
        */
       temporal?: "live" | components["schemas"]["TimeAggregation"];
+      space_agg?: components["schemas"]["AggregationOperator"] | null;
       /** Unit */
       unit?: string | null;
       /** Precision */
@@ -2745,6 +2778,18 @@ export interface components {
       h: number;
       /** I */
       i: string;
+    };
+    /**
+     * LiveSpaceAggregateResponse
+     * @description One attribute's current values across a device set, folded to one.
+     */
+    LiveSpaceAggregateResponse: {
+      /** Value */
+      value: boolean | number | string | null;
+      data_type: components["schemas"]["DataType"];
+      space_agg: components["schemas"]["AggregationOperator"];
+      /** Device Count */
+      device_count: number;
     };
     /** MBusTransportConfig */
     MBusTransportConfig: {
@@ -4727,6 +4772,42 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["SpaceAggregationResult"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_devices_live_aggregate_devices_timeseries_live_aggregate_get: {
+    parameters: {
+      query: {
+        /** @description How the device set's current values are folded into one. Same space vocabulary as /timeseries/aggregate, applied directly to each device's live value instead of a time-aggregated series. */
+        space_agg: components["schemas"]["AggregationOperator"];
+        type?: string[] | null;
+        ids?: string[] | null;
+        tags?: string[] | null;
+        attribute: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["LiveSpaceAggregateResponse"];
         };
       };
       /** @description Validation Error */

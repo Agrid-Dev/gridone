@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from dashboards.widgets.config import WidgetConfig
 from models.errors import InvalidError
 from models.targets import AttributeTarget  # noqa: TC001
-from models.types import AggregationOperator  # noqa: TC001
+from models.types import SPACE_AGGREGATION_OPERATORS, AggregationOperator
 
 if TYPE_CHECKING:
     from models.targets import ResolvedTarget
@@ -22,21 +22,41 @@ class TimeAggregation(BaseModel):
 
 
 class KpiWidgetConfig(WidgetConfig):
-    """Single number over one attribute of one device."""
+    """Single number over one attribute of a device set.
+
+    Without ``space_agg`` the target must resolve to exactly one device;
+    with it, any number fold into one.
+    """
 
     type: Literal["kpi"] = "kpi"
     target: AttributeTarget
     temporal: Literal["live"] | TimeAggregation = "live"
+    space_agg: AggregationOperator | None = None
+    """How the device set folds into one; ``None`` keeps the single-device
+    requirement. Membership checked here; dtype compatibility at read time."""
     unit: str | None = None
     precision: int | None = Field(default=None, ge=0)
 
     @model_validator(mode="after")
     def _require_single_explicit_device(self) -> KpiWidgetConfig:
-        """Pins the target shape: one explicit id, no types/tags filter."""
+        """Pins the target shape without space_agg: one explicit id, no
+        types/tags filter. With space_agg, any non-empty criteria is fine —
+        cardinality collapses to one at read time instead."""
+        if self.space_agg is not None:
+            return self
         devices = self.target.devices
         single_id = devices.ids is not None and len(devices.ids) == 1
         if not single_id or devices.types or devices.tags:
             msg = "KPI target must be exactly one explicit device id"
+            raise ValueError(msg)
+        return self
+
+    @model_validator(mode="after")
+    def _validate_space_agg(self) -> KpiWidgetConfig:
+        if self.space_agg is None:
+            return self
+        if self.space_agg not in SPACE_AGGREGATION_OPERATORS:
+            msg = f"Operator '{self.space_agg}' is not a space aggregation operator"
             raise ValueError(msg)
         return self
 
@@ -45,9 +65,13 @@ class KpiWidgetConfig(WidgetConfig):
 
     def validate_resolved(self, resolved: list[ResolvedTarget]) -> None:
         [target] = resolved
-        if len(target.device_ids) != 1:
-            msg = (
-                f"KPI target must resolve to exactly one device, "
-                f"got {len(target.device_ids)}"
-            )
+        if self.space_agg is None:
+            if len(target.device_ids) != 1:
+                msg = (
+                    f"KPI target must resolve to exactly one device, "
+                    f"got {len(target.device_ids)}"
+                )
+                raise InvalidError(msg)
+        elif not target.device_ids:
+            msg = "KPI target must resolve to at least one device"
             raise InvalidError(msg)

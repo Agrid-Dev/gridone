@@ -20,6 +20,7 @@ from api.schemas.timeseries import (
     DataPointResponse,
     FetchPointsResultResponse,
     IntervalOption,
+    LiveSpaceAggregateResponse,
     TimeSeriesResponse,
 )
 from api.targets import CompositeTargetResolver
@@ -31,6 +32,7 @@ from timeseries.domain import (
     AggregationQuery,
     SeriesKey,
     SpaceAggregationResult,
+    validate_space_operator,
 )
 from timeseries.service import TimeSeriesService
 
@@ -240,6 +242,7 @@ async def get_aggregate_options(
         ],
         recommended_interval=options.recommended_interval,
         operators_by_data_type=options.operators_by_data_type,
+        space_operators_by_data_type=options.space_operators_by_data_type,
     )
 
 
@@ -291,6 +294,44 @@ async def get_devices_timeseries_aggregate(
         for device_id in resolved.device_ids
     ]
     return await ts.get_aggregate_many(keys, query, space_agg)
+
+
+@router.get(
+    "/timeseries/live-aggregate",
+    dependencies=[Depends(require_permission(Permission.TIMESERIES_READ))],
+)
+async def get_devices_live_aggregate(
+    target: AttributeTarget = Depends(get_target_query),
+    space_agg: AggregationOperator = Query(
+        ...,
+        description=(
+            "How the device set's current values are folded into one. Same "
+            "space vocabulary as /timeseries/aggregate, applied directly to "
+            "each device's live value instead of a time-aggregated series."
+        ),
+    ),
+    resolver: CompositeTargetResolver = Depends(get_target_resolver),
+    ts: TimeSeriesService = Depends(get_ts_service),
+) -> LiveSpaceAggregateResponse:
+    """Fold one attribute's current value across a device set into one.
+
+    ``space_agg`` is validated against the space vocabulary before the
+    target resolves, so an invalid operator is rejected without paying for
+    the ``list_devices`` scan. ``resolve_with_devices`` then avoids a second
+    scan for the current values.
+    """
+    validate_space_operator(space_agg)
+    resolved, devices = await resolver.resolve_with_devices(target)
+    current_values = [
+        device.attributes[target.attribute].current_value for device in devices
+    ]
+    result = ts.fold_live_values(current_values, resolved.data_type, space_agg)
+    return LiveSpaceAggregateResponse(
+        value=result.value,
+        data_type=result.data_type,
+        space_agg=space_agg,
+        device_count=result.device_count,
+    )
 
 
 @router.get(

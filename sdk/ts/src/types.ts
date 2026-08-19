@@ -200,6 +200,7 @@ export type AggregateOptionsResponse = Schemas["AggregateOptionsResponse"];
 export type AggregatedPointResponse = Schemas["AggregatedPointResponse"];
 export type AggregationResultResponse = Schemas["AggregationResultResponse"];
 export type SpaceAggregationResult = Schemas["SpaceAggregationResult"];
+export type LiveSpaceAggregateResponse = Schemas["LiveSpaceAggregateResponse"];
 export type IntervalOption = Schemas["IntervalOption"];
 export type TimeseriesPushPoint = Schemas["TimeseriesPushPoint"];
 export type TimeseriesBulkPushRequest = Schemas["TimeseriesBulkPushRequest"];

@@ -1,4 +1,4 @@
-import type { FC } from "react";
+import { useEffect, type FC } from "react";
 import type { AggregationOperator } from "@gridone/sdk";
 import { useController, type Control, type FieldValues } from "react-hook-form";
 import { useTranslation } from "react-i18next";
@@ -13,21 +13,19 @@ import { SelectController } from "@/components/forms/controllers/SelectControlle
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   operatorsFor,
+  spaceOperatorsFor,
   useAggregateOptions,
   useResetRefusedOperator,
 } from "@/hooks/useAggregateOptions";
 import { useDevicesList } from "@/hooks/useDevicesList";
 import { isEmptyFilter } from "@/lib/devices";
-import {
-  AggOption,
-  hasDeviceCriterion,
-  toPickerTarget,
-} from "./ChartConfigFields";
+import { AggOption, toPickerTarget } from "./ChartConfigFields";
+import { isEmptyTarget } from "./useTargetDevices";
 
 type Temporal = "live" | { operator?: AggregationOperator };
 
-/** v0 KPI tiles show one device's value: exactly one explicit id, no other
- *  criteria — unlike the chart target, which fans out over a set. */
+/** A single explicit device id, no other criteria: the target resolves to
+ *  exactly one device on its own, no fold operator needed. */
 function hasSingleDeviceCriterion(devices: unknown): boolean {
   if (typeof devices !== "object" || devices === null) return false;
   const { ids, types, tags } = devices as Record<string, unknown>;
@@ -36,11 +34,24 @@ function hasSingleDeviceCriterion(devices: unknown): boolean {
   return Array.isArray(ids) && ids.length === 1 && !types && !hasTags;
 }
 
-export const kpiConfigCheck = z.looseObject({
-  target: z.looseObject({
-    devices: z.custom<AttributeTarget["devices"]>(hasSingleDeviceCriterion),
-  }),
-});
+export const kpiConfigCheck = z
+  .looseObject({
+    target: z.looseObject({
+      devices: z.custom<AttributeTarget["devices"]>(),
+    }),
+    space_agg: z.unknown().optional(),
+  })
+  .refine(
+    (config) => {
+      const devices = config.target.devices;
+      // A criteria target (type/tags, or several ids) can match more than
+      // one device, so it needs a fold operator to still show one number —
+      // the same collapse-all semantics as the chart widget's space_agg.
+      if (hasSingleDeviceCriterion(devices)) return true;
+      return !isEmptyTarget(devices) && !!config.space_agg;
+    },
+    { path: ["target", "devices"] },
+  );
 
 /**
  * Config fields for the KPI widget: which device+attribute, and whether it
@@ -62,17 +73,16 @@ export const KpiConfigFields: FC<{ control: Control<FieldValues> }> = ({
     control,
     name: "config.temporal.operator",
   });
+  const { field: spaceAggField } = useController({
+    control,
+    name: "config.space_agg",
+  });
 
   const target = toPickerTarget(targetField.value);
-  // Chosen but not the single-device shape the widget requires (e.g. the
-  // picker's "By filters" tab, or more than one explicit id): the schema
-  // check alone just disables Save, so this names the reason near the field.
-  const targetInvalid =
-    hasDeviceCriterion(target.devices) &&
-    !hasSingleDeviceCriterion(target.devices);
   const temporal = temporalField.value as Temporal | undefined;
   const isPeriod = typeof temporal === "object" && temporal !== null;
   const operator = isPeriod ? (temporal.operator ?? null) : null;
+  const spaceAgg = (spaceAggField.value as string | null) ?? null;
 
   const { devices } = useDevicesList();
   const { data: options } = useAggregateOptions();
@@ -102,6 +112,49 @@ export const KpiConfigFields: FC<{ control: Control<FieldValues> }> = ({
     undefined,
   );
 
+  // A criteria target (type/tags, or several ids) can match more than one
+  // device, so the tile needs a fold operator to still show one number — a
+  // single explicit id needs none, it already resolves to one.
+  const canMatchMultipleDevices =
+    !isEmptyTarget(target.devices) && !hasSingleDeviceCriterion(target.devices);
+
+  // Space runs on what the period operator yields, or directly on the raw
+  // type for a live reading — there is no time reduction to chain through.
+  // In period mode there is nothing to fold against until an operator is
+  // picked, so the control waits for one — same as the chart widget's.
+  const spaceDataType = isPeriod
+    ? (operators.find((o) => o.operator === operator)?.resultType ?? undefined)
+    : dataType;
+  const spaceControlReady = !isPeriod || !!operator;
+  const showSpaceControl = canMatchMultipleDevices && spaceControlReady;
+  // The select is shown but nothing's picked yet: the schema check alone
+  // just disables Save, so this names the reason near the field.
+  const targetInvalid = showSpaceControl && !spaceAgg;
+
+  const spaceOperators = spaceOperatorsFor(options, spaceDataType);
+  const spaceOperatorOptions = spaceOperators.map(
+    ({ operator: op, resultType }) => ({
+      value: op as string,
+      label: <AggOption name={op} resultType={resultType} kind="space" />,
+      disabled: resultType === null,
+    }),
+  );
+
+  useResetRefusedOperator(
+    spaceAgg,
+    spaceDataType,
+    spaceOperators,
+    spaceAggField.onChange,
+    null,
+  );
+
+  // The control only makes sense once the target can match more than one
+  // device; a value left over from a wider target the picker has since
+  // narrowed back down would be silently ignored otherwise.
+  useEffect(() => {
+    if (!canMatchMultipleDevices && spaceAgg) spaceAggField.onChange(null);
+  }, [canMatchMultipleDevices, spaceAgg, spaceAggField]);
+
   return (
     <>
       <AttributeTargetPicker
@@ -109,11 +162,6 @@ export const KpiConfigFields: FC<{ control: Control<FieldValues> }> = ({
         onChange={targetField.onChange}
         devices={devices}
       />
-      {targetInvalid && (
-        <p className="text-sm text-destructive">
-          {t("widgets.kpi.singleDeviceRequired")}
-        </p>
-      )}
       <Tabs
         value={isPeriod ? "period" : "live"}
         onValueChange={(v) =>
@@ -138,6 +186,21 @@ export const KpiConfigFields: FC<{ control: Control<FieldValues> }> = ({
           />
         </TabsContent>
       </Tabs>
+      {showSpaceControl && (
+        <SelectController<FieldValues, "config.space_agg", string>
+          name="config.space_agg"
+          control={control}
+          label={t("widgets.kpi.space.label")}
+          description={t("widgets.kpi.space.description")}
+          placeholder={t("widgets.kpi.space.placeholder")}
+          options={spaceOperatorOptions}
+        />
+      )}
+      {targetInvalid && (
+        <p className="text-sm text-destructive">
+          {t("widgets.kpi.singleDeviceRequired")}
+        </p>
+      )}
       <InputController
         name="config.unit"
         control={control}
