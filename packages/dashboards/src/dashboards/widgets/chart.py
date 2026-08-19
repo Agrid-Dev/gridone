@@ -47,9 +47,20 @@ class ChartWidgetConfig(WidgetConfig):
     can never fold a device set is refused at save time.
     """
 
+    group_by: str | None = None
+    """Tag key to bucket the device set by before folding; ``None`` folds the
+    whole set into one series, same as a bare ``space_agg``.
+
+    Requires ``space_agg``: grouping still needs an operator to fold each
+    group's devices.
+    """
+
     @model_validator(mode="after")
     def _validate_space_agg(self) -> ChartWidgetConfig:
         if self.space_agg is None:
+            if self.group_by is not None:
+                msg = "group_by requires space_agg: it folds each group's devices"
+                raise ValueError(msg)
             return self
         if self.agg is None:
             msg = "space_agg requires agg: raw series cannot be space-aggregated"

@@ -342,6 +342,37 @@ def test_chart_config_rejects_a_non_space_operator():
         )
 
 
+def test_chart_config_accepts_a_group_by():
+    registry = build_default_registry()
+
+    config = registry.validate_config(
+        {
+            "type": "chart",
+            "target": {"devices": {"types": ["thermostat"]}, "attribute": "temp"},
+            "agg": "avg",
+            "space_agg": "avg",
+            "group_by": "floor",
+        }
+    )
+
+    assert isinstance(config, ChartWidgetConfig)
+    assert config.group_by == "floor"
+
+
+def test_chart_config_group_by_requires_space_agg():
+    registry = build_default_registry()
+
+    with pytest.raises(InvalidError):
+        registry.validate_config(
+            {
+                "type": "chart",
+                "target": {"devices": {"ids": ["d1"]}, "attribute": "temperature"},
+                "agg": "avg",
+                "group_by": "floor",
+            }
+        )
+
+
 @pytest.mark.parametrize("color", ["#000000", "#FFFFFF", "#1a2B3c"])
 def test_text_config_accepts_valid_hex(color: str):
     config = TextWidgetConfig(text="x", color=color)
