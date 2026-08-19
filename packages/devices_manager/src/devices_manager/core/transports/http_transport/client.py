@@ -35,6 +35,7 @@ class HTTPTransportClient(PullTransportClient[HttpAddress]):
 
     async def connect(self) -> None:
         async with self._connection_lock:
+            self._raise_if_terminally_rejected()
             if self._client is None or self._client.is_closed:
                 self._client = self._build_client()
             await super().connect()

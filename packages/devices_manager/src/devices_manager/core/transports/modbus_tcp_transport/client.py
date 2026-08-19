@@ -39,6 +39,7 @@ class ModbusTCPTransportClient(PullTransportClient[ModbusAddress]):
 
     async def connect(self) -> None:
         async with self._connection_lock:
+            self._raise_if_terminally_rejected()
             client = getattr(self, "_client", None)
             # Concurrent reads on one transport all hit @connected / the reconnect
             # check at once; bail if another caller already (re)connected so we

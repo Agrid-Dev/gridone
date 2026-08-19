@@ -72,6 +72,7 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
 
     async def connect(self) -> None:
         async with self._connection_lock:
+            self._raise_if_terminally_rejected()
             if self.connection_state.is_connected:
                 # Already connected — keep the live client. Rebuilding it here
                 # would replace the entered client with an un-entered one while

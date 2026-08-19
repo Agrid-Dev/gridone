@@ -123,6 +123,7 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
 
     async def connect(self) -> None:
         async with self._connection_lock:
+            self._raise_if_terminally_rejected()
             # Concurrent first-polls each hit @connected and race into connect();
             # bail if another caller already connected so we bind exactly one
             # Application (otherwise N stacks bind :47808 and replies scatter).
