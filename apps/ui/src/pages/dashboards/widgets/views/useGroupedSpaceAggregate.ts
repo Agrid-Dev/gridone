@@ -54,10 +54,9 @@ export function useGroupedSpaceAggregate({
 
   return useQuery<GroupedSpaceAggregationResult>({
     queryKey: ["timeseries", "grouped-space-aggregate", params],
-    queryFn: () =>
-      client.timeseries.aggregateSpace(
-        params,
-      ) as Promise<GroupedSpaceAggregationResult>,
+    // `group_by` is always set here, so the SDK's overloads resolve to the
+    // grouped shape.
+    queryFn: () => client.timeseries.aggregateSpace(params),
     enabled: enabled && !!target.attribute && !!groupBy,
     refetchInterval,
   });

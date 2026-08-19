@@ -3,6 +3,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from api.targets import (
+    UNTAGGED_GROUP_LABEL,
     CompositeTargetResolver,
     compute_attribute_coverage,
     group_device_ids_by_tag,
@@ -197,12 +198,12 @@ class TestGroupDeviceIdsByTag:
         tagged = _device("t1", {}, tags={"floor": "1"})
         untagged = _device("t2", {})
         groups = group_device_ids_by_tag([tagged, untagged], "floor")
-        assert groups == {"1": ["t1"], "untagged": ["t2"]}
+        assert groups == {"1": ["t1"], UNTAGGED_GROUP_LABEL: ["t2"]}
 
     def test_devices_with_a_different_tag_key_are_also_untagged(self):
         device = _device("t1", {}, tags={"zone": "a"})
         groups = group_device_ids_by_tag([device], "floor")
-        assert groups == {"untagged": ["t1"]}
+        assert groups == {UNTAGGED_GROUP_LABEL: ["t1"]}
 
     def test_empty_device_list_yields_no_groups(self):
         assert group_device_ids_by_tag([], "floor") == {}
@@ -220,7 +221,7 @@ class TestGroupDevicesByTag:
         tagged = _device("t1", {}, tags={"floor": "1"})
         untagged = _device("t2", {})
         groups = group_devices_by_tag([tagged, untagged], "floor")
-        assert groups == {"1": [tagged], "untagged": [untagged]}
+        assert groups == {"1": [tagged], UNTAGGED_GROUP_LABEL: [untagged]}
 
     def test_group_device_ids_by_tag_matches_the_ids_of_group_devices_by_tag(self):
         floor1 = _device("t1", {}, tags={"floor": "1"})

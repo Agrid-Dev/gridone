@@ -15,6 +15,7 @@ from api.dependencies import (
 )
 from api.exception_handlers import register_exception_handlers
 from api.routes.devices_router import router
+from api.targets import UNTAGGED_GROUP_LABEL
 from commands import BatchCommandDispatch, CommandsServiceInterface, UnitCommand
 from commands.models import CommandStatus
 from devices_manager import DevicesServiceInterface
@@ -450,7 +451,7 @@ class TestListDeviceTagGroups:
         assert body["total_devices"] == 3
         assert body["groups"] == [
             {"label": "1", "device_count": 2},
-            {"label": "untagged", "device_count": 1},
+            {"label": UNTAGGED_GROUP_LABEL, "device_count": 1},
         ]
 
     def test_same_filters_as_list_devices(self, client: TestClient, dm: MagicMock):

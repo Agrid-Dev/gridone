@@ -52,12 +52,8 @@ export function useSpaceAggregate({
 
   return useQuery<SpaceAggregationResult>({
     queryKey: ["timeseries", "space-aggregate", params],
-    // No `group_by` here, so the response is always the flat shape — the
-    // union only widens for `useGroupedSpaceAggregate`'s counterpart call.
-    queryFn: () =>
-      client.timeseries.aggregateSpace(
-        params,
-      ) as Promise<SpaceAggregationResult>,
+    // No `group_by` here, so the SDK's overloads resolve to the flat shape.
+    queryFn: () => client.timeseries.aggregateSpace(params),
     enabled: enabled && !!target.attribute,
     refetchInterval,
   });

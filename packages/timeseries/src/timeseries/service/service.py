@@ -65,15 +65,6 @@ class LiveFoldResult:
 
 
 @dataclass
-class LiveGroupFoldResult:
-    label: str
-    value: bool | int | float | str | None
-    data_type: DataType
-    device_count: int
-    """How many of the group's values were non-null and contributed."""
-
-
-@dataclass
 class AggregateOptions:
     intervals: list[tuple[str, int | None]]  # (interval_str, bucket_count)
     recommended_interval: str | None
@@ -440,7 +431,12 @@ class TimeSeriesService(Service):
     ) -> GroupedSpaceAggregationResult:
         """Group-by counterpart of :meth:`get_aggregate_many`: one resolved
         query and time-aggregation pass, then ``space_agg`` folds each
-        group's series separately instead of all of them together."""
+        group's series separately instead of all of them together.
+
+        Every group in *keys_by_group* is represented, even with no history
+        (series_count=0). Groups are sorted by label — storage has no
+        ORDER BY, and the chart assigns colors by index.
+        """
         key_to_group = {
             key: label for label, keys in keys_by_group.items() for key in keys
         }
@@ -454,20 +450,25 @@ class TimeSeriesService(Service):
         results_by_group: dict[str, list[AggregationResult]] = defaultdict(list)
         for s, result in zip(series, results, strict=True):
             results_by_group[key_to_group[s.key]].append(result)
+        groups = []
+        for label in sorted(keys_by_group):
+            group_results = results_by_group[label]
+            groups.append(
+                SpaceAggregationGroup(
+                    label=label,
+                    series_count=len(group_results),
+                    points=combine_space(group_results, space_agg)
+                    if group_results
+                    else [],
+                )
+            )
         grouped = GroupedSpaceAggregationResult(
             interval=interval,
             agg=query.agg,
             space_agg=space_agg,
             data_type=data_type,
             timezone=resolved_tz,
-            groups=[
-                SpaceAggregationGroup(
-                    label=label,
-                    series_count=len(group_results),
-                    points=combine_space(group_results, space_agg),
-                )
-                for label, group_results in results_by_group.items()
-            ],
+            groups=groups,
         )
         return grouped.localized()
 
@@ -490,26 +491,6 @@ class TimeSeriesService(Service):
         return LiveFoldResult(
             value=value, data_type=output_type, device_count=len(non_null)
         )
-
-    def fold_live_values_grouped(
-        self,
-        values_by_group: dict[str, list[bool | int | float | str | None]],
-        data_type: DataType,
-        space_agg: AggregationOperator,
-    ) -> list[LiveGroupFoldResult]:
-        """Group-by counterpart of :meth:`fold_live_values`."""
-        results = []
-        for label, values in values_by_group.items():
-            folded = self.fold_live_values(values, data_type, space_agg)
-            results.append(
-                LiveGroupFoldResult(
-                    label=label,
-                    value=folded.value,
-                    data_type=folded.data_type,
-                    device_count=folded.device_count,
-                )
-            )
-        return results
 
     async def get_aggregate_options(
         self,

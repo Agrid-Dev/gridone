@@ -524,6 +524,11 @@ export function isEmptyFilter(filter: DevicesFilter): boolean {
   );
 }
 
+/** Sentinel group label the tag-groups and group-by aggregate endpoints use
+ *  for devices without the tag — matches `api.targets.UNTAGGED_GROUP_LABEL`.
+ *  Not display text: translate it before rendering. */
+export const UNTAGGED_GROUP_LABEL = "__untagged__";
+
 /** Asset scoping of a filter, wherever it is spelled: the ``asset_id``
  *  convenience alias (request bodies) or the canonical ``tags.asset_id``
  *  criterion the backend persists and returns. */

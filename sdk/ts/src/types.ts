@@ -211,9 +211,6 @@ export type LiveSpaceAggregateResponse = Schemas["LiveSpaceAggregateResponse"];
 export type SpaceAggregationGroup = Schemas["SpaceAggregationGroup"];
 export type GroupedSpaceAggregationResult =
   Schemas["GroupedSpaceAggregationResult"];
-export type LiveAggregateGroupResponse = Schemas["LiveAggregateGroupResponse"];
-export type GroupedLiveAggregateResponse =
-  Schemas["GroupedLiveAggregateResponse"];
 export type IntervalOption = Schemas["IntervalOption"];
 export type TimeseriesPushPoint = Schemas["TimeseriesPushPoint"];
 export type TimeseriesBulkPushRequest = Schemas["TimeseriesBulkPushRequest"];

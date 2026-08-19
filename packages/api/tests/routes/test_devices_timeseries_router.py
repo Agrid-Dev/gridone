@@ -1409,7 +1409,7 @@ class TestSpaceAggregate:
             )
         assert response.status_code == 200
         groups = {g["label"] for g in response.json()["groups"]}
-        assert groups == {"1", "untagged"}
+        assert groups == {"1", "__untagged__"}
 
     async def test_empty_group_by_is_422(self, app: FastAPI, async_client: AsyncClient):
         self._install_dm(app, [self._thermostat("t1")])
@@ -1534,50 +1534,5 @@ class TestLiveAggregate:
         async with async_client as ac:
             response = await ac.get(
                 "/timeseries/live-aggregate", params=self._params(space_agg="delta")
-            )
-        assert response.status_code == 422
-
-    async def test_group_by_tag_folds_each_group_separately(
-        self, app: FastAPI, async_client: AsyncClient
-    ):
-        self._install_dm(
-            app,
-            [
-                self._meter("m1", 10.0, tags={"zone": "a"}),
-                self._meter("m2", 20.0, tags={"zone": "a"}),
-                self._meter("m3", 100.0, tags={"zone": "b"}),
-            ],
-        )
-        async with async_client as ac:
-            response = await ac.get(
-                "/timeseries/live-aggregate", params=self._params(group_by="zone")
-            )
-        assert response.status_code == 200
-        body = response.json()
-        groups = {g["label"]: g for g in body["groups"]}
-        assert groups == {
-            "a": {"label": "a", "value": 30.0, "device_count": 2},
-            "b": {"label": "b", "value": 100.0, "device_count": 1},
-        }
-
-    async def test_group_by_untagged_devices_land_in_untagged_group(
-        self, app: FastAPI, async_client: AsyncClient
-    ):
-        self._install_dm(
-            app, [self._meter("m1", 10.0, tags={"zone": "a"}), self._meter("m2", 20.0)]
-        )
-        async with async_client as ac:
-            response = await ac.get(
-                "/timeseries/live-aggregate", params=self._params(group_by="zone")
-            )
-        assert response.status_code == 200
-        groups = {g["label"] for g in response.json()["groups"]}
-        assert groups == {"a", "untagged"}
-
-    async def test_empty_group_by_is_422(self, app: FastAPI, async_client: AsyncClient):
-        self._install_dm(app, [self._meter("m1", 10.0)])
-        async with async_client as ac:
-            response = await ac.get(
-                "/timeseries/live-aggregate", params=self._params(group_by="")
             )
         assert response.status_code == 422

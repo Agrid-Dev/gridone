@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { GridoneError, type DataPoint } from "@gridone/sdk";
 import { createI18nMock } from "@/test/i18nMock";
+import { UNTAGGED_GROUP_LABEL } from "@/lib/devices";
 
 vi.mock("react-i18next", () =>
   createI18nMock({
@@ -15,6 +16,11 @@ vi.mock("react-i18next", () =>
       "{{attribute}} · {{spaceAgg}} · {{interval}}",
     "widgets.chart.space.seriesLabelMixed":
       "{{attribute}} · {{agg}}, {{spaceAgg}} · {{interval}}",
+    "widgets.chart.space.seriesLabelGrouped":
+      "{{group}} · {{spaceAgg}} · {{interval}}",
+    "widgets.chart.space.seriesLabelGroupedMixed":
+      "{{group}} · {{agg}}, {{spaceAgg}} · {{interval}}",
+    "widgets.chart.groupBy.untagged": "Untagged",
     "widgets.chart.agg.captions.avg": "mean of the bucket",
     "widgets.chart.agg.captions.max": "highest value",
     "widgets.chart.space.captions.avg": "mean across devices",
@@ -383,10 +389,12 @@ describe("ChartWidgetView with a group-by", () => {
     );
     expect(useSpaceAggregate).not.toHaveBeenCalled();
     expect(useMultiTimeSeries).not.toHaveBeenCalled();
-    expect(screen.getByTestId("chart")).toHaveTextContent("1,2");
+    expect(screen.getByTestId("chart")).toHaveTextContent(
+      "1 · mean across devices · 1h,2 · mean across devices · 1h",
+    );
   });
 
-  it("puts devices without the tag in the untagged group", () => {
+  it("shows a literal tag value equal to the word 'untagged' as-is", () => {
     mockGroupedResult({
       data: {
         interval: "1h",
@@ -406,6 +414,69 @@ describe("ChartWidgetView with a group-by", () => {
     render(<ChartWidgetView config={GROUPED_CONFIG} />);
 
     expect(screen.getByTestId("chart")).toHaveTextContent("untagged");
+  });
+
+  it("translates the untagged sentinel group instead of showing it raw", () => {
+    mockGroupedResult({
+      data: {
+        interval: "1h",
+        aggregation_data_type: "float",
+        groups: [
+          {
+            label: UNTAGGED_GROUP_LABEL,
+            series_count: 1,
+            points: [
+              { interval_start: "2026-07-28T10:00:00Z", value: 5, count: 1 },
+            ],
+          },
+        ],
+      },
+    });
+
+    render(<ChartWidgetView config={GROUPED_CONFIG} />);
+
+    expect(screen.getByTestId("chart")).toHaveTextContent("Untagged");
+    expect(screen.getByTestId("chart")).not.toHaveTextContent(
+      UNTAGGED_GROUP_LABEL,
+    );
+  });
+
+  it("renders categorical panels for a bool group aggregation", () => {
+    mockGroupedResult({
+      data: {
+        interval: "1h",
+        aggregation_data_type: "bool",
+        groups: [
+          {
+            label: "1",
+            series_count: 1,
+            points: [
+              { interval_start: "2026-07-28T10:00:00Z", value: true, count: 1 },
+            ],
+          },
+          {
+            label: "2",
+            series_count: 1,
+            points: [
+              {
+                interval_start: "2026-07-28T10:00:00Z",
+                value: false,
+                count: 1,
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    render(<ChartWidgetView config={GROUPED_CONFIG} />);
+
+    // multiSeriesChartProps routes bool data to booleanSeries, not
+    // lineSeries — the same data type that drives panelCount to one panel
+    // per group in GroupedChartView.
+    expect(screen.getByTestId("chart")).toHaveTextContent(
+      "1 · mean across devices · 1h,2 · mean across devices · 1h",
+    );
   });
 
   it("reads a 404 as no recorded history for the target", () => {

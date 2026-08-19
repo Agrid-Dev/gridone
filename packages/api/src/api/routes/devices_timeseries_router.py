@@ -19,17 +19,11 @@ from api.schemas.timeseries import (
     AggregationResultResponse,
     DataPointResponse,
     FetchPointsResultResponse,
-    GroupedLiveAggregateResponse,
     IntervalOption,
-    LiveAggregateGroupResponse,
     LiveSpaceAggregateResponse,
     TimeSeriesResponse,
 )
-from api.targets import (
-    CompositeTargetResolver,
-    group_device_ids_by_tag,
-    group_devices_by_tag,
-)
+from api.targets import CompositeTargetResolver, group_device_ids_by_tag
 from devices_manager import DevicesServiceInterface
 from models.errors import InvalidError, NotFoundError
 from models.targets import AttributeTarget, DevicesFilter
@@ -291,8 +285,9 @@ async def get_devices_timeseries_aggregate(
         description=(
             "Tag key to bucket the device set by before folding: each tag "
             "value becomes its own group, folded independently with "
-            "`space_agg`. Devices without the tag land in an 'untagged' "
-            "group. Omit for the flat single-series result."
+            "`space_agg`. Devices without the tag land in a sentinel "
+            "'untagged' group the UI translates. Omit for the flat "
+            "single-series result."
         ),
     ),
     resolver: CompositeTargetResolver = Depends(get_target_resolver),
@@ -337,17 +332,9 @@ async def get_devices_live_aggregate(
             "each device's live value instead of a time-aggregated series."
         ),
     ),
-    group_by: str | None = Query(
-        None,
-        min_length=1,
-        description=(
-            "Tag key to bucket the device set by before folding. Same "
-            "semantics as /timeseries/aggregate's `group_by`."
-        ),
-    ),
     resolver: CompositeTargetResolver = Depends(get_target_resolver),
     ts: TimeSeriesService = Depends(get_ts_service),
-) -> LiveSpaceAggregateResponse | GroupedLiveAggregateResponse:
+) -> LiveSpaceAggregateResponse:
     """Fold one attribute's current value across a device set into one.
 
     ``space_agg`` is validated against the space vocabulary before the
@@ -357,33 +344,15 @@ async def get_devices_live_aggregate(
     """
     validate_space_operator(space_agg)
     resolved, devices = await resolver.resolve_with_devices(target)
-    if group_by is None:
-        current_values = [
-            device.attributes[target.attribute].current_value for device in devices
-        ]
-        result = ts.fold_live_values(current_values, resolved.data_type, space_agg)
-        return LiveSpaceAggregateResponse(
-            value=result.value,
-            data_type=result.data_type,
-            space_agg=space_agg,
-            device_count=result.device_count,
-        )
-    values_by_group = {
-        label: [d.attributes[target.attribute].current_value for d in group]
-        for label, group in group_devices_by_tag(devices, group_by).items()
-    }
-    grouped = ts.fold_live_values_grouped(
-        values_by_group, resolved.data_type, space_agg
-    )
-    return GroupedLiveAggregateResponse(
-        data_type=grouped[0].data_type,
+    current_values = [
+        device.attributes[target.attribute].current_value for device in devices
+    ]
+    result = ts.fold_live_values(current_values, resolved.data_type, space_agg)
+    return LiveSpaceAggregateResponse(
+        value=result.value,
+        data_type=result.data_type,
         space_agg=space_agg,
-        groups=[
-            LiveAggregateGroupResponse(
-                label=g.label, value=g.value, device_count=g.device_count
-            )
-            for g in grouped
-        ],
+        device_count=result.device_count,
     )
 
 

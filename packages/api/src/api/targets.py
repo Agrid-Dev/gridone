@@ -54,7 +54,9 @@ def _exposes(device: Device, attribute: str, *, writable: bool) -> bool:
     return not writable or "write" in attr.read_write_modes
 
 
-UNTAGGED_GROUP_LABEL = "untagged"
+UNTAGGED_GROUP_LABEL = "__untagged__"
+"""Sentinel group for devices without the tag. Not a display string — the UI
+translates it; a real tag value equal to this sentinel would collide."""
 
 
 def group_devices_by_tag(

@@ -379,24 +379,29 @@ class TestGetAggregateManyGrouped:
                 AggregationOperator.AVG,
             )
 
-
-class TestFoldLiveValuesGrouped:
-    def test_folds_each_group_independently(
+    async def test_groups_are_sorted_by_label_not_insertion_order(
         self, ts_service: TimeSeriesService
     ) -> None:
-        results = ts_service.fold_live_values_grouped(
-            {"1": [10.0, 20.0], "2": [100.0]},
-            DataType.FLOAT,
-            AggregationOperator.SUM,
+        z = await _seed(ts_service, "t1", DataType.FLOAT, [(_at(0, 10), 10.0)])
+        a = await _seed(ts_service, "t2", DataType.FLOAT, [(_at(0, 10), 20.0)])
+        result = await ts_service.get_aggregate_many_grouped(
+            {"z": [z], "a": [a]},
+            _query(AggregationOperator.AVG, interval="whole"),
+            AggregationOperator.AVG,
         )
-        by_label = {r.label: (r.value, r.device_count) for r in results}
-        assert by_label == {"1": (30.0, 2), "2": (100.0, 1)}
+        assert [g.label for g in result.groups] == ["a", "z"]
 
-    def test_missing_values_do_not_contribute_within_a_group(
+    async def test_group_with_no_history_is_kept_with_zero_series(
         self, ts_service: TimeSeriesService
     ) -> None:
-        results = ts_service.fold_live_values_grouped(
-            {"1": [10.0, None]}, DataType.FLOAT, AggregationOperator.AVG
+        has_data = await _seed(ts_service, "t1", DataType.FLOAT, [(_at(0, 10), 10.0)])
+        no_history = SeriesKey(owner_id="ghost", metric="attr")
+        result = await ts_service.get_aggregate_many_grouped(
+            {"1": [has_data], "2": [no_history]},
+            _query(AggregationOperator.AVG, interval="whole"),
+            AggregationOperator.AVG,
         )
-        assert results[0].value == 10.0
-        assert results[0].device_count == 1
+        groups = {g.label: g for g in result.groups}
+        assert groups["1"].series_count == 1
+        assert groups["2"].series_count == 0
+        assert groups["2"].points == []

@@ -20,6 +20,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAttributeLabel } from "@/hooks/useAttributeLabel";
 import { useMultiTimeSeries } from "@/hooks/useMultiTimeSeries";
+import { UNTAGGED_GROUP_LABEL } from "@/lib/devices";
 import { useDashboardPeriod } from "../../useDashboardPeriod";
 import {
   holdLastValueUntil,
@@ -235,6 +236,7 @@ const GroupedChartView: FC<{
 }> = ({ target, agg, spaceAgg, groupBy }) => {
   const { t } = useTranslation("dashboards");
   const { query, refetchInterval } = useDashboardPeriod();
+  const captions = useAggCaptions();
   const queryErrorMessage = useSpaceQueryErrorMessage();
 
   const unbounded = !query.start && !query.last;
@@ -256,11 +258,30 @@ const GroupedChartView: FC<{
   if (result.error || !result.data) return queryErrorMessage(result.error);
 
   const data = result.data;
-  // Each group's label (a tag value, or "untagged") names its series.
+  // Each group's label names its series — same operators-and-interval suffix
+  // as the ungrouped space view, so a grouped chart still says how each line
+  // was reduced, not just which tag value it is.
+  const groupLabel = (group: string) =>
+    group === UNTAGGED_GROUP_LABEL
+      ? t("widgets.chart.groupBy.untagged")
+      : group;
+  const seriesLabel = (group: string) =>
+    agg === spaceAgg
+      ? t("widgets.chart.space.seriesLabelGrouped", {
+          group: groupLabel(group),
+          spaceAgg: captions.space(spaceAgg),
+          interval: data.interval,
+        })
+      : t("widgets.chart.space.seriesLabelGroupedMixed", {
+          group: groupLabel(group),
+          agg: captions.time(agg),
+          spaceAgg: captions.space(spaceAgg),
+          interval: data.interval,
+        });
   const series = data.groups
     .map((group) => ({
       key: group.label,
-      label: group.label,
+      label: seriesLabel(group.label),
       points: group.points
         .filter((p) => p.value !== null)
         .map((p) => ({

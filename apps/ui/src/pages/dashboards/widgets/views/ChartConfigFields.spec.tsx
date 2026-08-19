@@ -25,6 +25,10 @@ vi.mock("react-i18next", () =>
     "widgets.chart.groupBy.placeholder": "Tag key",
     "widgets.chart.groupBy.preview": "{{total}} devices — {{breakdown}}",
     "widgets.chart.groupBy.previewEmpty": "No device carries this tag key yet.",
+    "widgets.chart.groupBy.previewError": "Could not load the tag preview.",
+    "widgets.chart.groupBy.untagged": "Untagged",
+    "widgets.chart.groupBy.highCardinality":
+      "{{count}} groups — colors repeat past {{max}}.",
   }),
 );
 
@@ -359,7 +363,9 @@ describe("ChartConfigFields", () => {
     );
   });
 
-  it("does not show the empty-preview message before any device is targeted", () => {
+  // An empty device filter is a legal target — it means "all devices" — so
+  // the preview must still query for it rather than treat it as unset.
+  it("still previews for an empty device filter", () => {
     useTagGroups.mockReturnValue({
       groups: [],
       totalDevices: 0,
@@ -373,8 +379,36 @@ describe("ChartConfigFields", () => {
       group_by: "floor",
     });
 
+    expect(useTagGroups).toHaveBeenLastCalledWith(
+      {},
+      "floor",
+      "temperature",
+      expect.objectContaining({ enabled: true }),
+    );
     expect(
-      screen.queryByText(/No device carries this tag key/),
+      screen.getByText("No device carries this tag key yet."),
+    ).toBeInTheDocument();
+  });
+
+  it("surfaces a preview request failure instead of the empty message", () => {
+    useTagGroups.mockReturnValue({
+      groups: [],
+      totalDevices: 0,
+      isLoading: false,
+      error: new Error("boom"),
+    });
+    renderFields({
+      target: { devices: { ids: ["dev1"] }, attribute: "temperature" },
+      agg: "avg",
+      space_agg: "avg",
+      group_by: "floor",
+    });
+
+    expect(
+      screen.getByText("Could not load the tag preview."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("No device carries this tag key yet."),
     ).not.toBeInTheDocument();
   });
 });

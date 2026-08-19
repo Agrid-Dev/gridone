@@ -4,7 +4,8 @@ import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { devicesFilterToListParams, type DevicesFilter } from "@/lib/devices";
 
 export type UseTagGroupsResult = {
-  /** One entry per distinct tag value, plus `"untagged"`. Empty while
+  /** One entry per distinct tag value, plus a sentinel untagged group
+   *  (`UNTAGGED_GROUP_LABEL`) — translate before display. Empty while
    *  loading or disabled. */
   groups: TagGroupsResponse["groups"];
   totalDevices: number;

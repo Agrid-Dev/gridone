@@ -45,7 +45,8 @@ class AttributeCoverageResponse(BaseModel):
 
 class TagGroupResponse(BaseModel):
     label: str
-    """The group's tag value, or ``"untagged"`` for devices without the key."""
+    """The group's tag value, or :data:`api.targets.UNTAGGED_GROUP_LABEL` for
+    devices without the key — a sentinel the UI translates, not display text."""
 
     device_count: int
 

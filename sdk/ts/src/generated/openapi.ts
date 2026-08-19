@@ -465,8 +465,10 @@ export interface paths {
      * Get Devices Live Aggregate
      * @description Fold one attribute's current value across a device set into one.
      *
-     *     ``resolve_with_devices`` avoids a second ``list_devices`` scan for the
-     *     current values.
+     *     ``space_agg`` is validated against the space vocabulary before the
+     *     target resolves, so an invalid operator is rejected without paying for
+     *     the ``list_devices`` scan. ``resolve_with_devices`` then avoids a second
+     *     scan for the current values.
      */
     get: operations["get_devices_live_aggregate_devices_timeseries_live_aggregate_get"];
     put?: never;
@@ -564,10 +566,8 @@ export interface paths {
      * List Device Tag Groups
      * @description Preview how the matched device set splits by *tag_key*.
      *
-     *     Backs the group-by editor control's free-text fallback (there is no tag
-     *     vocabulary to drive a dropdown yet): the same filters as ``GET
-     *     /devices`` select the device set, and each distinct tag value becomes
-     *     one group — devices without the key land in an ``"untagged"`` group.
+     *     Same filters as ``GET /devices``. Backs the group-by editor's free-text
+     *     fallback, ahead of a proper tag vocabulary.
      */
     get: operations["list_device_tag_groups_devices_tag_groups_get"];
     put?: never;
@@ -2628,21 +2628,10 @@ export interface components {
       next_start?: string | null;
     };
     /**
-     * GroupedLiveAggregateResponse
-     * @description Group-by counterpart of :class:`LiveSpaceAggregateResponse`.
-     */
-    GroupedLiveAggregateResponse: {
-      data_type: components["schemas"]["DataType"];
-      space_agg: components["schemas"]["AggregationOperator"];
-      /** Groups */
-      groups: components["schemas"]["LiveAggregateGroupResponse"][];
-    };
-    /**
      * GroupedSpaceAggregationResult
-     * @description Like :class:`SpaceAggregationResult`, folded per group of series
-     *     instead of across the whole device set. The grouping itself (e.g. by
-     *     device tag) is decided by the caller — this module only folds each
-     *     group's series once partitioned.
+     * @description Like :class:`SpaceAggregationResult`, folded per group instead of
+     *     across the whole set. Grouping is decided by the caller; this only
+     *     folds each group once partitioned.
      */
     GroupedSpaceAggregationResult: {
       /** Interval */
@@ -2856,15 +2845,6 @@ export interface components {
       h: number;
       /** I */
       i: string;
-    };
-    /** LiveAggregateGroupResponse */
-    LiveAggregateGroupResponse: {
-      /** Label */
-      label: string;
-      /** Value */
-      value: boolean | number | string | null;
-      /** Device Count */
-      device_count: number;
     };
     /**
      * LiveSpaceAggregateResponse
@@ -4953,7 +4933,7 @@ export interface operations {
       query: {
         /** @description How each time bucket's values are folded across the device set, after `agg` reduced every device's readings over the bucket: 'avg' of thermostat temperatures, 'sum' of meter consumptions, 'mode' for the predominant state. Ordering-dependent and time-weighted operators (first/last/delta/tw_*) do not apply across devices and are rejected, as is `interval=raw`. */
         space_agg: components["schemas"]["AggregationOperator"];
-        /** @description Tag key to bucket the device set by before folding: each tag value becomes its own group, folded independently with `space_agg`. Devices without the tag land in an 'untagged' group. Omit for the flat single-series result. */
+        /** @description Tag key to bucket the device set by before folding: each tag value becomes its own group, folded independently with `space_agg`. Devices without the tag land in a sentinel 'untagged' group the UI translates. Omit for the flat single-series result. */
         group_by?: string | null;
         type?: string[] | null;
         ids?: string[] | null;
@@ -5001,8 +4981,6 @@ export interface operations {
       query: {
         /** @description How the device set's current values are folded into one. Same space vocabulary as /timeseries/aggregate, applied directly to each device's live value instead of a time-aggregated series. */
         space_agg: components["schemas"]["AggregationOperator"];
-        /** @description Tag key to bucket the device set by before folding. Same semantics as /timeseries/aggregate's `group_by`. */
-        group_by?: string | null;
         type?: string[] | null;
         ids?: string[] | null;
         tags?: string[] | null;
@@ -5020,9 +4998,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json":
-            | components["schemas"]["LiveSpaceAggregateResponse"]
-            | components["schemas"]["GroupedLiveAggregateResponse"];
+          "application/json": components["schemas"]["LiveSpaceAggregateResponse"];
         };
       };
       /** @description Validation Error */

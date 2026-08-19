@@ -136,7 +136,7 @@ def list_device_tag_groups(
         total_devices=len(devices),
         groups=[
             TagGroupResponse(label=label, device_count=len(device_ids))
-            for label, device_ids in sorted(groups.items())
+            for label, device_ids in sorted(groups.items(), key=lambda kv: kv[0])
         ],
     )
 

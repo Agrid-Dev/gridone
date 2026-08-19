@@ -4,7 +4,6 @@ import type {
   AggregateOptionsResponse,
   AggregationResultResponse,
   FetchPointsResultResponse,
-  GroupedLiveAggregateResponse,
   GroupedSpaceAggregationResult,
   LiveSpaceAggregateResponse,
   SpaceAggregationResult,
@@ -82,11 +81,19 @@ export class TimeseriesResource {
    * The target uses the same filter vocabulary as `client.devices.list`.
    *
    * Passing `params.group_by` (a tag key) folds each tag value into its own
-   * series instead, returning a {@link GroupedSpaceAggregationResult}.
+   * series instead, returning a {@link GroupedSpaceAggregationResult}. The
+   * return type follows `group_by`'s presence on *params* itself, so a
+   * caller with a literal `group_by: string` gets the grouped shape typed
+   * with no cast — unlike an overload, this also works when `params` is
+   * assembled from a variable, as every caller here does.
    */
-  aggregateSpace(
-    params: SpaceAggregateParams,
-  ): Promise<SpaceAggregationResult | GroupedSpaceAggregationResult> {
+  aggregateSpace<P extends SpaceAggregateParams>(
+    params: P,
+  ): Promise<
+    P extends { group_by: string }
+      ? GroupedSpaceAggregationResult
+      : SpaceAggregationResult
+  > {
     return this.request("GET", "/devices/timeseries/aggregate", {
       searchParams: params,
     });
@@ -96,13 +103,10 @@ export class TimeseriesResource {
    * Folds one attribute's *current* values across a device set into one —
    * the live counterpart to `aggregateSpace`, with no time dimension: each
    * device's live value is folded directly by `space_agg`.
-   *
-   * Passing `params.group_by` (a tag key) folds each tag value into its own
-   * value instead, returning a {@link GroupedLiveAggregateResponse}.
    */
   aggregateLive(
     params: LiveAggregateParams,
-  ): Promise<LiveSpaceAggregateResponse | GroupedLiveAggregateResponse> {
+  ): Promise<LiveSpaceAggregateResponse> {
     return this.request("GET", "/devices/timeseries/live-aggregate", {
       searchParams: params,
     });

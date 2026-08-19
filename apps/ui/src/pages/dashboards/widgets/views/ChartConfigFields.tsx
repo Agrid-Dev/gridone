@@ -1,4 +1,4 @@
-import { useEffect, type FC } from "react";
+import { useDeferredValue, useEffect, type FC } from "react";
 import type { DataType } from "@gridone/sdk";
 import { useController, type Control, type FieldValues } from "react-hook-form";
 import { useTranslation } from "react-i18next";
@@ -10,6 +10,7 @@ import {
 } from "@/components/forms/targetPicker";
 import { InputController } from "@/components/forms/controllers/InputController";
 import { SelectController } from "@/components/forms/controllers/SelectController";
+import { CHART_COLORS } from "@/components/charts/TimeSeriesChart/constants";
 import {
   operatorsFor,
   spaceOperatorsFor,
@@ -17,7 +18,7 @@ import {
   useResetRefusedOperator,
 } from "@/hooks/useAggregateOptions";
 import { useDevicesList } from "@/hooks/useDevicesList";
-import { isEmptyFilter } from "@/lib/devices";
+import { isEmptyFilter, UNTAGGED_GROUP_LABEL } from "@/lib/devices";
 import { useTagGroups } from "./useTagGroups";
 
 /** How "plot the readings as recorded" reads in the operator list. The config
@@ -195,13 +196,19 @@ export const ChartConfigFields: FC<{ control: Control<FieldValues> }> = ({
     }
   }, [spaceRefused, spaceAgg, groupBy, spaceAggField, groupByField]);
 
-  const targetHasDevices = !isEmptyFilter(target.devices);
+  // Deferred so a keystroke doesn't fire a request per character — the query
+  // key includes the tag key, and reacting to every intermediate value would
+  // spam GET /devices/tag-groups while typing.
+  const deferredGroupBy = useDeferredValue(groupBy);
   const {
     groups: tagGroups,
     totalDevices: tagGroupsTotal,
     isLoading: tagGroupsLoading,
-  } = useTagGroups(target.devices, groupBy ?? "", target.attribute, {
-    enabled: targetHasDevices && !!groupBy,
+    error: tagGroupsError,
+  } = useTagGroups(target.devices, deferredGroupBy ?? "", target.attribute, {
+    // An empty filter is a legal target (it means "all devices"), so the
+    // preview must still run for it — only the tag key gates the request.
+    enabled: !!deferredGroupBy,
   });
 
   return (
@@ -249,18 +256,33 @@ export const ChartConfigFields: FC<{ control: Control<FieldValues> }> = ({
             description={t("widgets.chart.groupBy.description")}
             inputProps={{ placeholder: t("widgets.chart.groupBy.placeholder") }}
           />
-          {groupBy && targetHasDevices && !tagGroupsLoading && (
+          {groupBy && !tagGroupsLoading && (
             <p className="text-xs text-muted-foreground">
-              {tagGroups.length > 0
-                ? t("widgets.chart.groupBy.preview", {
-                    total: tagGroupsTotal,
-                    breakdown: tagGroups
-                      .map((g) => `${g.label} (${g.device_count})`)
-                      .join(", "),
-                  })
-                : t("widgets.chart.groupBy.previewEmpty")}
+              {tagGroupsError
+                ? t("widgets.chart.groupBy.previewError")
+                : tagGroupsTotal === 0
+                  ? t("widgets.chart.groupBy.previewEmpty")
+                  : t("widgets.chart.groupBy.preview", {
+                      total: tagGroupsTotal,
+                      breakdown: tagGroups
+                        .map(
+                          (g) =>
+                            `${g.label === UNTAGGED_GROUP_LABEL ? t("widgets.chart.groupBy.untagged") : g.label} (${g.device_count})`,
+                        )
+                        .join(", "),
+                    })}
             </p>
           )}
+          {groupBy &&
+            !tagGroupsLoading &&
+            tagGroups.length > CHART_COLORS.length && (
+              <p className="text-xs text-amber-600">
+                {t("widgets.chart.groupBy.highCardinality", {
+                  count: tagGroups.length,
+                  max: CHART_COLORS.length,
+                })}
+              </p>
+            )}
         </>
       )}
     </>
