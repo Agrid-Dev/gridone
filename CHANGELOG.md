@@ -1,3 +1,9 @@
+## v0.213.0 (2026-08-19)
+
+### Feat
+
+- **dashboards**: group-by tag on chart widgets (line charts only) (#558)
+
 ## v0.212.0 (2026-08-19)
 
 ### Feat
