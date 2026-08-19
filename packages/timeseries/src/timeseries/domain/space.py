@@ -70,6 +70,36 @@ def resolve_space_aggregation_data_type(
     return result
 
 
+def _aggregation_data_type(
+    agg: AggregationOperator, space_agg: AggregationOperator, data_type: DataType
+) -> DataType:
+    return resolve_space_aggregation_data_type(
+        space_agg, resolve_aggregation_data_type(agg, data_type)
+    )
+
+
+def _validate_point_value_types(
+    points: list[AggregatedPoint], aggregation_data_type: DataType
+) -> None:
+    expected_type = DATA_TYPE_MAP[aggregation_data_type]
+    for point in points:
+        if point.value is not None and not isinstance(point.value, expected_type):
+            msg = (
+                f"Point value {point.value!r} does not match "
+                f"aggregation_data_type {aggregation_data_type!r}"
+            )
+            raise ValueError(msg)
+
+
+def _localized_points(
+    points: list[AggregatedPoint], tz: ZoneInfo
+) -> list[AggregatedPoint]:
+    return [
+        p.model_copy(update={"interval_start": p.interval_start.astimezone(tz)})
+        for p in points
+    ]
+
+
 class SpaceAggregationResult(BaseModel):
     interval: Interval | Literal["whole"]
     agg: AggregationOperator
@@ -84,21 +114,11 @@ class SpaceAggregationResult(BaseModel):
     @computed_field
     @property
     def aggregation_data_type(self) -> DataType:
-        return resolve_space_aggregation_data_type(
-            self.space_agg,
-            resolve_aggregation_data_type(self.agg, self.data_type),
-        )
+        return _aggregation_data_type(self.agg, self.space_agg, self.data_type)
 
     @model_validator(mode="after")
-    def _validate_point_value_types(self) -> "SpaceAggregationResult":
-        expected_type = DATA_TYPE_MAP[self.aggregation_data_type]
-        for point in self.points:
-            if point.value is not None and not isinstance(point.value, expected_type):
-                msg = (
-                    f"Point value {point.value!r} does not match "
-                    f"aggregation_data_type {self.aggregation_data_type!r}"
-                )
-                raise ValueError(msg)
+    def _check_point_value_types(self) -> "SpaceAggregationResult":
+        _validate_point_value_types(self.points, self.aggregation_data_type)
         return self
 
     def localized(self) -> "SpaceAggregationResult":
@@ -109,14 +129,49 @@ class SpaceAggregationResult(BaseModel):
         step, so timestamps reach every controller already rendered — the
         same instants, shown in the timezone that shaped the buckets.
         """
+        return self.model_copy(
+            update={"points": _localized_points(self.points, ZoneInfo(self.timezone))}
+        )
+
+
+class SpaceAggregationGroup(BaseModel):
+    label: str
+    """Caller-defined group identity, e.g. a tag value."""
+
+    series_count: int
+    points: list[AggregatedPoint]
+
+
+class GroupedSpaceAggregationResult(BaseModel):
+    """Like :class:`SpaceAggregationResult`, folded per group instead of
+    across the whole set. Grouping is decided by the caller; this only
+    folds each group once partitioned."""
+
+    interval: Interval | Literal["whole"]
+    agg: AggregationOperator
+    space_agg: AggregationOperator
+    data_type: DataType
+    timezone: str
+    groups: list[SpaceAggregationGroup]
+
+    @computed_field
+    @property
+    def aggregation_data_type(self) -> DataType:
+        return _aggregation_data_type(self.agg, self.space_agg, self.data_type)
+
+    @model_validator(mode="after")
+    def _check_point_value_types(self) -> "GroupedSpaceAggregationResult":
+        for group in self.groups:
+            _validate_point_value_types(group.points, self.aggregation_data_type)
+        return self
+
+    def localized(self) -> "GroupedSpaceAggregationResult":
         tz = ZoneInfo(self.timezone)
         return self.model_copy(
             update={
-                "points": [
-                    p.model_copy(
-                        update={"interval_start": p.interval_start.astimezone(tz)}
-                    )
-                    for p in self.points
+                "groups": [
+                    g.model_copy(update={"points": _localized_points(g.points, tz)})
+                    for g in self.groups
                 ]
             }
         )

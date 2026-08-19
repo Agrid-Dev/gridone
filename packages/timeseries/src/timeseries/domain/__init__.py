@@ -24,6 +24,8 @@ from timeseries.domain.models import (
 )
 from timeseries.domain.space import (
     SPACE_COMPAT,
+    GroupedSpaceAggregationResult,
+    SpaceAggregationGroup,
     SpaceAggregationResult,
     combine_space,
     fold_space_values,
@@ -50,10 +52,12 @@ __all__ = [
     "DataPoint",
     "DataType",
     "FetchPointsResult",
+    "GroupedSpaceAggregationResult",
     "Interval",
     "IntervalUnit",
     "SeriesKey",
     "SortOrder",
+    "SpaceAggregationGroup",
     "SpaceAggregationResult",
     "TimeSeries",
     "combine_space",
