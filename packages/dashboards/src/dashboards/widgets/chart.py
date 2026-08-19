@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import model_validator
+from pydantic import Field, field_validator, model_validator
 
-from dashboards.widgets.config import WidgetConfig
+from dashboards.widgets.config import WidgetConfig, validate_space_agg_membership
 from models.targets import AttributeTarget  # noqa: TC001
-from models.types import SPACE_AGGREGATION_OPERATORS, AggregationOperator
+from models.types import AggregationOperator  # noqa: TC001
 
 
 class ChartWidgetConfig(WidgetConfig):
@@ -47,16 +47,31 @@ class ChartWidgetConfig(WidgetConfig):
     can never fold a device set is refused at save time.
     """
 
+    group_by: Annotated[str, Field(min_length=1)] | None = None
+    """Tag key to bucket the device set by before folding; ``None`` folds the
+    whole set into one series, same as a bare ``space_agg``.
+
+    Requires ``space_agg``: grouping still needs an operator to fold each
+    group's devices. Constrained to match the aggregate endpoints'
+    ``Query(min_length=1)``, so a saved config never fails to render.
+    """
+
+    @field_validator("group_by", mode="before")
+    @classmethod
+    def _strip_group_by(cls, value: Any) -> Any:  # noqa: ANN401
+        return value.strip() if isinstance(value, str) else value
+
     @model_validator(mode="after")
     def _validate_space_agg(self) -> ChartWidgetConfig:
         if self.space_agg is None:
+            if self.group_by is not None:
+                msg = "group_by requires space_agg: it folds each group's devices"
+                raise ValueError(msg)
             return self
         if self.agg is None:
             msg = "space_agg requires agg: raw series cannot be space-aggregated"
             raise ValueError(msg)
-        if self.space_agg not in SPACE_AGGREGATION_OPERATORS:
-            msg = f"Operator '{self.space_agg}' is not a space aggregation operator"
-            raise ValueError(msg)
+        validate_space_agg_membership(self.space_agg)
         return self
 
     @model_validator(mode="before")

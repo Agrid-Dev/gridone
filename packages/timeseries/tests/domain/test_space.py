@@ -10,7 +10,9 @@ from timeseries.domain import (
     AggregationOperator,
     AggregationResult,
     DataType,
+    GroupedSpaceAggregationResult,
     Interval,
+    SpaceAggregationGroup,
     SpaceAggregationResult,
     combine_space,
     fold_space_values,
@@ -302,4 +304,70 @@ class TestSpaceAggregationResult:
                 timezone="UTC",
                 series_count=1,
                 points=[AggregatedPoint(interval_start=T0, value=1.5, count=1)],
+            )
+
+
+class TestGroupedSpaceAggregationResult:
+    def test_aggregation_data_type_chains_time_then_space(self) -> None:
+        result = GroupedSpaceAggregationResult(
+            interval=Interval.model_validate("1h"),
+            agg=AggregationOperator.LAST,
+            space_agg=AggregationOperator.AVG,
+            data_type=DataType.BOOL,
+            timezone="UTC",
+            groups=[
+                SpaceAggregationGroup(
+                    label="floor-1",
+                    series_count=2,
+                    points=[AggregatedPoint(interval_start=T0, value=0.5, count=2)],
+                )
+            ],
+        )
+        assert result.aggregation_data_type == DataType.FLOAT
+
+    def test_localized_renders_every_group_in_its_own_timezone(self) -> None:
+        result = GroupedSpaceAggregationResult(
+            interval=Interval.model_validate("1h"),
+            agg=AggregationOperator.AVG,
+            space_agg=AggregationOperator.AVG,
+            data_type=DataType.FLOAT,
+            timezone="Europe/Paris",
+            groups=[
+                SpaceAggregationGroup(
+                    label="floor-1",
+                    series_count=1,
+                    points=[AggregatedPoint(interval_start=T0, value=1.0, count=1)],
+                ),
+                SpaceAggregationGroup(
+                    label="untagged",
+                    series_count=1,
+                    points=[AggregatedPoint(interval_start=T0, value=2.0, count=1)],
+                ),
+            ],
+        )
+
+        localized = result.localized()
+
+        for group in localized.groups:
+            point = group.points[0]
+            assert point.interval_start == T0  # same instant
+            assert point.interval_start.utcoffset() == timedelta(hours=2)  # CEST
+        # The original is untouched — localized() is a copy.
+        assert result.groups[0].points[0].interval_start.utcoffset() == timedelta(0)
+
+    def test_point_values_must_match_output_type_in_every_group(self) -> None:
+        with pytest.raises(ValueError, match="does not match"):
+            GroupedSpaceAggregationResult(
+                interval=Interval.model_validate("1h"),
+                agg=AggregationOperator.LAST,
+                space_agg=AggregationOperator.MODE,
+                data_type=DataType.STRING,
+                timezone="UTC",
+                groups=[
+                    SpaceAggregationGroup(
+                        label="floor-1",
+                        series_count=1,
+                        points=[AggregatedPoint(interval_start=T0, value=1.5, count=1)],
+                    )
+                ],
             )

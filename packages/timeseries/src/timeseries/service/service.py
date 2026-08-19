@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+from collections import defaultdict
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Literal, cast
@@ -21,8 +22,10 @@ from timeseries.domain import (
     DataPoint,
     DataType,
     FetchPointsResult,
+    GroupedSpaceAggregationResult,
     Interval,
     SeriesKey,
+    SpaceAggregationGroup,
     SpaceAggregationResult,
     TimeSeries,
     combine_space,
@@ -320,20 +323,23 @@ class TimeSeriesService(Service):
         query = query.model_copy(update={"interval": interval})
         return await self._backend.aggregate(key, query)
 
-    async def get_aggregate_many(
+    async def _time_aggregate_series(
         self,
         keys: list[SeriesKey],
         query: AggregationQuery,
         space_agg: AggregationOperator,
-    ) -> SpaceAggregationResult:
-        """Time-aggregate every series in *keys*, then fold buckets in space.
+    ) -> tuple[
+        list[TimeSeries],
+        list[AggregationResult],
+        DataType,
+        Interval | Literal["whole"],
+        str,
+    ]:
+        """Resolve *query* and time-aggregate every series in *keys*.
 
-        Every series runs the same resolved query, so the gap-filled bucket
-        grids line up and *space_agg* reduces each bucket's values across
-        series. Keys without a series are skipped (a device may expose the
-        attribute without recorded history); a bucket only counts the series
-        that hold a value there, which is how sets with different history
-        bounds stay aggregable.
+        Shared by the flat and grouped space-aggregation paths. Zip
+        ``series`` with ``results`` by index to regroup them —
+        :class:`AggregationResult` does not carry the key.
         """
         cutoff = _utcnow()
         resolved_tz = query.timezone or self._default_timezone
@@ -379,6 +385,30 @@ class TimeSeriesService(Service):
                 return await self._backend.aggregate(s.key, query)
 
         results = await asyncio.gather(*(_aggregate(s) for s in series))
+        return series, list(results), data_type, interval, resolved_tz
+
+    async def get_aggregate_many(
+        self,
+        keys: list[SeriesKey],
+        query: AggregationQuery,
+        space_agg: AggregationOperator,
+    ) -> SpaceAggregationResult:
+        """Time-aggregate every series in *keys*, then fold buckets in space.
+
+        Every series runs the same resolved query, so the gap-filled bucket
+        grids line up and *space_agg* reduces each bucket's values across
+        series. Keys without a series are skipped (a device may expose the
+        attribute without recorded history); a bucket only counts the series
+        that hold a value there, which is how sets with different history
+        bounds stay aggregable.
+        """
+        (
+            series,
+            results,
+            data_type,
+            interval,
+            resolved_tz,
+        ) = await self._time_aggregate_series(keys, query, space_agg)
         result = SpaceAggregationResult(
             interval=interval,
             agg=query.agg,
@@ -386,12 +416,61 @@ class TimeSeriesService(Service):
             data_type=data_type,
             timezone=resolved_tz,
             series_count=len(series),
-            points=combine_space(list(results), space_agg),
+            points=combine_space(results, space_agg),
         )
         # The service resolves the timezone, so it also applies it: every
         # controller reads timestamps already rendered in it, instead of each
         # one having to remember to.
         return result.localized()
+
+    async def get_aggregate_many_grouped(
+        self,
+        keys_by_group: dict[str, list[SeriesKey]],
+        query: AggregationQuery,
+        space_agg: AggregationOperator,
+    ) -> GroupedSpaceAggregationResult:
+        """Group-by counterpart of :meth:`get_aggregate_many`: one resolved
+        query and time-aggregation pass, then ``space_agg`` folds each
+        group's series separately instead of all of them together.
+
+        Every group in *keys_by_group* is represented, even with no history
+        (series_count=0). Groups are sorted by label — storage has no
+        ORDER BY, and the chart assigns colors by index.
+        """
+        key_to_group = {
+            key: label for label, keys in keys_by_group.items() for key in keys
+        }
+        (
+            series,
+            results,
+            data_type,
+            interval,
+            resolved_tz,
+        ) = await self._time_aggregate_series(list(key_to_group), query, space_agg)
+        results_by_group: dict[str, list[AggregationResult]] = defaultdict(list)
+        for s, result in zip(series, results, strict=True):
+            results_by_group[key_to_group[s.key]].append(result)
+        groups = []
+        for label in sorted(keys_by_group):
+            group_results = results_by_group[label]
+            groups.append(
+                SpaceAggregationGroup(
+                    label=label,
+                    series_count=len(group_results),
+                    points=combine_space(group_results, space_agg)
+                    if group_results
+                    else [],
+                )
+            )
+        grouped = GroupedSpaceAggregationResult(
+            interval=interval,
+            agg=query.agg,
+            space_agg=space_agg,
+            data_type=data_type,
+            timezone=resolved_tz,
+            groups=groups,
+        )
+        return grouped.localized()
 
     def fold_live_values(
         self,

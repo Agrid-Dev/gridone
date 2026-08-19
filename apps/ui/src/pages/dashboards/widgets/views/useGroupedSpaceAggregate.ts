@@ -1,16 +1,19 @@
 import { useQuery } from "@tanstack/react-query";
-import type { AggregationOperator, SpaceAggregationResult } from "@gridone/sdk";
+import type {
+  AggregationOperator,
+  GroupedSpaceAggregationResult,
+} from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { devicesFilterToListParams } from "@/lib/devices";
 import type { AttributeTarget } from "./useTargetDevices";
 
-type UseSpaceAggregateOptions = {
+type UseGroupedSpaceAggregateOptions = {
   target: AttributeTarget;
+  /** Tag key to bucket the device set by before folding. */
+  groupBy: string;
   /** Per-device time aggregation, run before the space fold. */
   agg: AggregationOperator;
   spaceAgg: AggregationOperator;
-  /** `"auto"` follows the window into several buckets; `"whole"` reduces the
-   *  whole period to one bucket (a KPI's period reading). */
   interval?: "auto" | "whole";
   start?: string;
   end?: string;
@@ -20,14 +23,12 @@ type UseSpaceAggregateOptions = {
 };
 
 /**
- * One attribute folded over a device set into a single series.
- *
- * A single request replaces the per-device fan-out: the server resolves the
- * target, time-aggregates every device's series and folds each bucket with
- * `spaceAgg`.
+ * Group-by counterpart of `useSpaceAggregate`: one attribute folded per tag
+ * value instead of across the whole device set — one series per group.
  */
-export function useSpaceAggregate({
+export function useGroupedSpaceAggregate({
   target,
+  groupBy,
   agg,
   spaceAgg,
   interval = "auto",
@@ -36,7 +37,7 @@ export function useSpaceAggregate({
   last,
   enabled = true,
   refetchInterval = false,
-}: UseSpaceAggregateOptions) {
+}: UseGroupedSpaceAggregateOptions) {
   const client = useGridoneClient();
 
   const params = {
@@ -44,17 +45,19 @@ export function useSpaceAggregate({
     attribute: target.attribute ?? "",
     agg,
     space_agg: spaceAgg,
+    group_by: groupBy,
     interval,
     start,
     end,
     last,
   };
 
-  return useQuery<SpaceAggregationResult>({
-    queryKey: ["timeseries", "space-aggregate", params],
-    // No `group_by` here, so the SDK's overloads resolve to the flat shape.
+  return useQuery<GroupedSpaceAggregationResult>({
+    queryKey: ["timeseries", "grouped-space-aggregate", params],
+    // `group_by` is always set here, so the SDK's overloads resolve to the
+    // grouped shape.
     queryFn: () => client.timeseries.aggregateSpace(params),
-    enabled: enabled && !!target.attribute,
+    enabled: enabled && !!target.attribute && !!groupBy,
     refetchInterval,
   });
 }

@@ -58,7 +58,19 @@
           "mode": "most frequent across devices"
         },
         "seriesLabel": "{{attribute}} · {{spaceAgg}} · {{interval}}",
-        "seriesLabelMixed": "{{attribute}} · {{agg}}, {{spaceAgg}} · {{interval}}"
+        "seriesLabelMixed": "{{attribute}} · {{agg}}, {{spaceAgg}} · {{interval}}",
+        "seriesLabelGrouped": "{{group}} · {{spaceAgg}} · {{interval}}",
+        "seriesLabelGroupedMixed": "{{group}} · {{agg}}, {{spaceAgg}} · {{interval}}"
+      },
+      "groupBy": {
+        "label": "Group by tag",
+        "description": "Splits the device set into one series per tag value, each folded with the space aggregation above. Devices without the tag land in their own group.",
+        "placeholder": "Tag key (e.g. floor)",
+        "untagged": "Untagged",
+        "preview": "{{total}} devices — {{breakdown}}",
+        "previewEmpty": "No device in the target matches this filter.",
+        "previewError": "Could not load the tag preview.",
+        "highCardinality": "{{count}} groups — chart colors repeat past {{max}}."
       }
     },
     "deviceControl": {

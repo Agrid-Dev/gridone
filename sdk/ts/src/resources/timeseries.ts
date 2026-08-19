@@ -4,6 +4,7 @@ import type {
   AggregateOptionsResponse,
   AggregationResultResponse,
   FetchPointsResultResponse,
+  GroupedSpaceAggregationResult,
   LiveSpaceAggregateResponse,
   SpaceAggregationResult,
   TimeSeries,
@@ -78,10 +79,21 @@ export class TimeseriesResource {
    * Aggregates one attribute over a device set into a single series: per-device
    * time buckets first, then `space_agg` folds each bucket across the set.
    * The target uses the same filter vocabulary as `client.devices.list`.
+   *
+   * Passing `params.group_by` (a tag key) folds each tag value into its own
+   * series instead, returning a {@link GroupedSpaceAggregationResult}. The
+   * return type follows `group_by`'s presence on *params* itself, so a
+   * caller with a literal `group_by: string` gets the grouped shape typed
+   * with no cast — unlike an overload, this also works when `params` is
+   * assembled from a variable, as every caller here does.
    */
-  aggregateSpace(
-    params: SpaceAggregateParams,
-  ): Promise<SpaceAggregationResult> {
+  aggregateSpace<P extends SpaceAggregateParams>(
+    params: P,
+  ): Promise<
+    P extends { group_by: string }
+      ? GroupedSpaceAggregationResult
+      : SpaceAggregationResult
+  > {
     return this.request("GET", "/devices/timeseries/aggregate", {
       searchParams: params,
     });

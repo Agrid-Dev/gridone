@@ -28,6 +28,14 @@ vi.mock("@/hooks/useAggregateOptions", () => ({
   spaceOperatorsFor: () => [],
   useResetRefusedOperator: () => {},
 }));
+vi.mock("./views/useTagGroups", () => ({
+  useTagGroups: () => ({
+    groups: [],
+    totalDevices: 0,
+    isLoading: false,
+    error: null,
+  }),
+}));
 
 // Imported after the mocks are registered.
 import { WidgetForm } from "./WidgetForm";

@@ -58,7 +58,19 @@
           "mode": "la plus fréquente parmi les appareils"
         },
         "seriesLabel": "{{attribute}} · {{spaceAgg}} · {{interval}}",
-        "seriesLabelMixed": "{{attribute}} · {{agg}}, {{spaceAgg}} · {{interval}}"
+        "seriesLabelMixed": "{{attribute}} · {{agg}}, {{spaceAgg}} · {{interval}}",
+        "seriesLabelGrouped": "{{group}} · {{spaceAgg}} · {{interval}}",
+        "seriesLabelGroupedMixed": "{{group}} · {{agg}}, {{spaceAgg}} · {{interval}}"
+      },
+      "groupBy": {
+        "label": "Grouper par tag",
+        "description": "Divise l'ensemble d'appareils en une série par valeur de tag, chacune agrégée avec l'agrégation spatiale ci-dessus. Les appareils sans ce tag rejoignent leur propre groupe.",
+        "placeholder": "Clé de tag (ex. floor)",
+        "untagged": "Non taggé",
+        "preview": "{{total}} appareils — {{breakdown}}",
+        "previewEmpty": "Aucun appareil de la cible ne correspond à ce filtre.",
+        "previewError": "Impossible de charger l'aperçu des tags.",
+        "highCardinality": "{{count}} groupes — les couleurs du graphique se répètent au-delà de {{max}}."
       }
     },
     "deviceControl": {

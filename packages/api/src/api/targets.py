@@ -54,6 +54,36 @@ def _exposes(device: Device, attribute: str, *, writable: bool) -> bool:
     return not writable or "write" in attr.read_write_modes
 
 
+UNTAGGED_GROUP_LABEL = "__untagged__"
+"""Sentinel group for devices without the tag. Not a display string — the UI
+translates it; a real tag value equal to this sentinel would collide."""
+
+
+def group_devices_by_tag(
+    devices: list[Device], tag_key: str
+) -> dict[str, list[Device]]:
+    """Bucket *devices* by their value for *tag_key*.
+
+    Devices without the tag land in :data:`UNTAGGED_GROUP_LABEL` instead of
+    being dropped.
+    """
+    groups: dict[str, list[Device]] = {}
+    for device in devices:
+        label = device.tags.get(tag_key, UNTAGGED_GROUP_LABEL)
+        groups.setdefault(label, []).append(device)
+    return groups
+
+
+def group_device_ids_by_tag(
+    devices: list[Device], tag_key: str
+) -> dict[str, list[str]]:
+    """Like :func:`group_devices_by_tag`, keeping just each device's id."""
+    return {
+        label: [d.id for d in group]
+        for label, group in group_devices_by_tag(devices, tag_key).items()
+    }
+
+
 class CompositeTargetResolver:
     """Resolve targets against the devices manager."""
 

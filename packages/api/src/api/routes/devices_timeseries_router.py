@@ -23,13 +23,14 @@ from api.schemas.timeseries import (
     LiveSpaceAggregateResponse,
     TimeSeriesResponse,
 )
-from api.targets import CompositeTargetResolver
+from api.targets import CompositeTargetResolver, group_device_ids_by_tag
 from devices_manager import DevicesServiceInterface
 from models.errors import InvalidError, NotFoundError
 from models.targets import AttributeTarget, DevicesFilter
 from timeseries.domain import (
     AggregationOperator,
     AggregationQuery,
+    GroupedSpaceAggregationResult,
     SeriesKey,
     SpaceAggregationResult,
     validate_space_operator,
@@ -278,9 +279,20 @@ async def get_devices_timeseries_aggregate(
             "across devices and are rejected, as is `interval=raw`."
         ),
     ),
+    group_by: str | None = Query(
+        None,
+        min_length=1,
+        description=(
+            "Tag key to bucket the device set by before folding: each tag "
+            "value becomes its own group, folded independently with "
+            "`space_agg`. Devices without the tag land in a sentinel "
+            "'untagged' group the UI translates. Omit for the flat "
+            "single-series result."
+        ),
+    ),
     resolver: CompositeTargetResolver = Depends(get_target_resolver),
     ts: TimeSeriesService = Depends(get_ts_service),
-) -> SpaceAggregationResult:
+) -> SpaceAggregationResult | GroupedSpaceAggregationResult:
     """Aggregate one attribute over a device set into a single series.
 
     The target resolves at read time; devices whose history starts
@@ -288,12 +300,22 @@ async def get_devices_timeseries_aggregate(
     already wire-shaped — timestamps rendered in the timezone the buckets
     were cut in — so it serves as the response untouched.
     """
-    resolved = await resolver.resolve(target)
-    keys = [
-        SeriesKey(owner_id=device_id, metric=target.attribute)
-        for device_id in resolved.device_ids
-    ]
-    return await ts.get_aggregate_many(keys, query, space_agg)
+    if group_by is None:
+        resolved = await resolver.resolve(target)
+        keys = [
+            SeriesKey(owner_id=device_id, metric=target.attribute)
+            for device_id in resolved.device_ids
+        ]
+        return await ts.get_aggregate_many(keys, query, space_agg)
+    _, devices = await resolver.resolve_with_devices(target)
+    keys_by_group = {
+        label: [
+            SeriesKey(owner_id=device_id, metric=target.attribute)
+            for device_id in device_ids
+        ]
+        for label, device_ids in group_device_ids_by_tag(devices, group_by).items()
+    }
+    return await ts.get_aggregate_many_grouped(keys_by_group, query, space_agg)
 
 
 @router.get(

@@ -298,3 +298,110 @@ class TestFoldLiveValues:
             ts_service.fold_live_values(
                 ["on"], DataType.STRING, AggregationOperator.SUM
             )
+
+
+class TestGetAggregateManyGrouped:
+    """Group-by counterpart to TestGetAggregateMany: same folding, but per
+    group of keys instead of across the whole set."""
+
+    async def test_avg_temperature_per_floor(
+        self, ts_service: TimeSeriesService
+    ) -> None:
+        floor1a = await _seed(
+            ts_service,
+            "t1",
+            DataType.FLOAT,
+            [(_at(0, 10), 10.0), (_at(1, 10), 20.0)],
+        )
+        floor1b = await _seed(
+            ts_service,
+            "t2",
+            DataType.FLOAT,
+            [(_at(0, 20), 20.0), (_at(1, 20), 40.0)],
+        )
+        floor2 = await _seed(
+            ts_service,
+            "t3",
+            DataType.FLOAT,
+            [(_at(0, 30), 30.0), (_at(1, 30), 60.0)],
+        )
+        result = await ts_service.get_aggregate_many_grouped(
+            {"1": [floor1a, floor1b], "2": [floor2]},
+            _query(AggregationOperator.AVG),
+            AggregationOperator.AVG,
+        )
+        assert result.aggregation_data_type == DataType.FLOAT
+        groups = {g.label: g for g in result.groups}
+        assert groups.keys() == {"1", "2"}
+        assert groups["1"].series_count == 2
+        assert [(p.value, p.count) for p in groups["1"].points[:2]] == [
+            (15.0, 2),
+            (30.0, 2),
+        ]
+        assert groups["2"].series_count == 1
+        assert [(p.value, p.count) for p in groups["2"].points[:2]] == [
+            (30.0, 1),
+            (60.0, 1),
+        ]
+
+    async def test_untagged_group_is_isolated(
+        self, ts_service: TimeSeriesService
+    ) -> None:
+        tagged = await _seed(ts_service, "t1", DataType.FLOAT, [(_at(0, 10), 10.0)])
+        untagged = await _seed(ts_service, "t2", DataType.FLOAT, [(_at(0, 20), 90.0)])
+        result = await ts_service.get_aggregate_many_grouped(
+            {"1": [tagged], "untagged": [untagged]},
+            _query(AggregationOperator.AVG, interval="whole"),
+            AggregationOperator.AVG,
+        )
+        groups = {g.label: g.points[0].value for g in result.groups}
+        assert groups == {"1": 10.0, "untagged": 90.0}
+
+    async def test_mixed_data_types_across_groups_rejected(
+        self, ts_service: TimeSeriesService
+    ) -> None:
+        floats = await _seed(ts_service, "t1", DataType.FLOAT, [(_at(0, 10), 10.0)])
+        bools = await _seed(ts_service, "t2", DataType.BOOL, [(_at(0, 10), True)])
+        with pytest.raises(InvalidError, match="mixed data types"):
+            await ts_service.get_aggregate_many_grouped(
+                {"1": [floats], "2": [bools]},
+                _query(AggregationOperator.LAST),
+                AggregationOperator.COUNT,
+            )
+
+    async def test_no_series_at_all_raises_not_found(
+        self, ts_service: TimeSeriesService
+    ) -> None:
+        with pytest.raises(NotFoundError, match="No timeseries found"):
+            await ts_service.get_aggregate_many_grouped(
+                {"1": [SeriesKey(owner_id="ghost", metric="attr")]},
+                _query(AggregationOperator.AVG),
+                AggregationOperator.AVG,
+            )
+
+    async def test_groups_are_sorted_by_label_not_insertion_order(
+        self, ts_service: TimeSeriesService
+    ) -> None:
+        z = await _seed(ts_service, "t1", DataType.FLOAT, [(_at(0, 10), 10.0)])
+        a = await _seed(ts_service, "t2", DataType.FLOAT, [(_at(0, 10), 20.0)])
+        result = await ts_service.get_aggregate_many_grouped(
+            {"z": [z], "a": [a]},
+            _query(AggregationOperator.AVG, interval="whole"),
+            AggregationOperator.AVG,
+        )
+        assert [g.label for g in result.groups] == ["a", "z"]
+
+    async def test_group_with_no_history_is_kept_with_zero_series(
+        self, ts_service: TimeSeriesService
+    ) -> None:
+        has_data = await _seed(ts_service, "t1", DataType.FLOAT, [(_at(0, 10), 10.0)])
+        no_history = SeriesKey(owner_id="ghost", metric="attr")
+        result = await ts_service.get_aggregate_many_grouped(
+            {"1": [has_data], "2": [no_history]},
+            _query(AggregationOperator.AVG, interval="whole"),
+            AggregationOperator.AVG,
+        )
+        groups = {g.label: g for g in result.groups}
+        assert groups["1"].series_count == 1
+        assert groups["2"].series_count == 0
+        assert groups["2"].points == []

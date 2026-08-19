@@ -4,10 +4,10 @@ from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from dashboards.widgets.config import WidgetConfig
+from dashboards.widgets.config import WidgetConfig, validate_space_agg_membership
 from models.errors import InvalidError
 from models.targets import AttributeTarget  # noqa: TC001
-from models.types import SPACE_AGGREGATION_OPERATORS, AggregationOperator
+from models.types import AggregationOperator  # noqa: TC001
 
 if TYPE_CHECKING:
     from models.targets import ResolvedTarget
@@ -53,11 +53,8 @@ class KpiWidgetConfig(WidgetConfig):
 
     @model_validator(mode="after")
     def _validate_space_agg(self) -> KpiWidgetConfig:
-        if self.space_agg is None:
-            return self
-        if self.space_agg not in SPACE_AGGREGATION_OPERATORS:
-            msg = f"Operator '{self.space_agg}' is not a space aggregation operator"
-            raise ValueError(msg)
+        if self.space_agg is not None:
+            validate_space_agg_membership(self.space_agg)
         return self
 
     def targets(self) -> list[AttributeTarget]:

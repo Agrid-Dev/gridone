@@ -1217,7 +1217,7 @@ class TestSpaceAggregate:
     END = datetime(2026, 7, 1, 2, 0, tzinfo=UTC)
 
     @staticmethod
-    def _thermostat(device_id: str) -> object:
+    def _thermostat(device_id: str, tags: dict[str, str] | None = None) -> object:
         from devices_manager.core.device import Attribute
         from devices_manager.dto.device_dto import Device
         from devices_manager.types import DataType as DmDataType
@@ -1226,6 +1226,7 @@ class TestSpaceAggregate:
             id=device_id,
             name=device_id,
             type="thermostat",
+            tags=tags or {},
             attributes={
                 "temperature": Attribute.create(
                     "temperature", DmDataType.FLOAT, {"read"}
@@ -1363,12 +1364,69 @@ class TestSpaceAggregate:
             response = await ac.get("/timeseries/aggregate", params=self._params())
         assert response.status_code == 404
 
+    async def test_group_by_tag_folds_each_group_separately(
+        self, app: FastAPI, async_client: AsyncClient, ts_service: TimeSeriesService
+    ):
+        self._install_dm(
+            app,
+            [
+                self._thermostat("t1", tags={"floor": "1"}),
+                self._thermostat("t2", tags={"floor": "1"}),
+                self._thermostat("t3", tags={"floor": "2"}),
+            ],
+        )
+        await self._seed(ts_service, "t1", [10.0, 20.0])
+        await self._seed(ts_service, "t2", [20.0, 40.0])
+        await self._seed(ts_service, "t3", [100.0, 200.0])
+        async with async_client as ac:
+            response = await ac.get(
+                "/timeseries/aggregate", params=self._params(group_by="floor")
+            )
+        assert response.status_code == 200
+        body = response.json()
+        groups = {g["label"]: g for g in body["groups"]}
+        assert groups.keys() == {"1", "2"}
+        assert groups["1"]["series_count"] == 2
+        assert [p["value"] for p in groups["1"]["points"]] == [15.0, 30.0]
+        assert groups["2"]["series_count"] == 1
+        assert [p["value"] for p in groups["2"]["points"]] == [100.0, 200.0]
+
+    async def test_group_by_untagged_devices_land_in_untagged_group(
+        self, app: FastAPI, async_client: AsyncClient, ts_service: TimeSeriesService
+    ):
+        self._install_dm(
+            app,
+            [
+                self._thermostat("t1", tags={"floor": "1"}),
+                self._thermostat("t2"),
+            ],
+        )
+        await self._seed(ts_service, "t1", [10.0, 20.0])
+        await self._seed(ts_service, "t2", [50.0, 60.0])
+        async with async_client as ac:
+            response = await ac.get(
+                "/timeseries/aggregate", params=self._params(group_by="floor")
+            )
+        assert response.status_code == 200
+        groups = {g["label"] for g in response.json()["groups"]}
+        assert groups == {"1", "__untagged__"}
+
+    async def test_empty_group_by_is_422(self, app: FastAPI, async_client: AsyncClient):
+        self._install_dm(app, [self._thermostat("t1")])
+        async with async_client as ac:
+            response = await ac.get(
+                "/timeseries/aggregate", params=self._params(group_by="")
+            )
+        assert response.status_code == 422
+
 
 class TestLiveAggregate:
     """GET /timeseries/live-aggregate — current values folded across a set."""
 
     @staticmethod
-    def _meter(device_id: str, value: float | None) -> object:
+    def _meter(
+        device_id: str, value: float | None, tags: dict[str, str] | None = None
+    ) -> object:
         from devices_manager.core.device import Attribute
         from devices_manager.dto.device_dto import Device
         from devices_manager.types import DataType as DmDataType
@@ -1377,6 +1435,7 @@ class TestLiveAggregate:
             id=device_id,
             name=device_id,
             type="meter",
+            tags=tags or {},
             attributes={
                 "power": Attribute.create(
                     "power", DmDataType.FLOAT, {"read"}, value=value

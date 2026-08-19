@@ -1,5 +1,5 @@
 import React from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, fireEvent } from "@testing-library/react";
 import { useForm, type Control, type FieldValues } from "react-hook-form";
 import { createI18nMock } from "@/test/i18nMock";
@@ -19,6 +19,16 @@ vi.mock("react-i18next", () =>
     "widgets.chart.space.captions.avg": "mean across devices",
     "widgets.chart.space.captions.min": "lowest across devices",
     "widgets.chart.space.captions.mode": "most frequent across devices",
+    "widgets.chart.groupBy.label": "Group by tag",
+    "widgets.chart.groupBy.description":
+      "Splits into one series per tag value.",
+    "widgets.chart.groupBy.placeholder": "Tag key",
+    "widgets.chart.groupBy.preview": "{{total}} devices — {{breakdown}}",
+    "widgets.chart.groupBy.previewEmpty": "No device carries this tag key yet.",
+    "widgets.chart.groupBy.previewError": "Could not load the tag preview.",
+    "widgets.chart.groupBy.untagged": "Untagged",
+    "widgets.chart.groupBy.highCardinality":
+      "{{count}} groups — colors repeat past {{max}}.",
   }),
 );
 
@@ -72,6 +82,11 @@ vi.mock("@/components/forms/targetPicker", () => ({
 
 vi.mock("@/hooks/useDevicesList", () => ({
   useDevicesList: () => ({ devices: [], loading: false, error: null }),
+}));
+
+const useTagGroups = vi.fn();
+vi.mock("./useTagGroups", () => ({
+  useTagGroups: (...args: unknown[]) => useTagGroups(...args),
 }));
 
 // Mirrors the backend matrix: every operator against every type, mapped to
@@ -187,7 +202,19 @@ const enabled = () =>
     .filter((o) => !o.disabled)
     .map((o) => o.getAttribute("value"));
 
-afterEach(cleanup);
+beforeEach(() => {
+  useTagGroups.mockReturnValue({
+    groups: [],
+    totalDevices: 0,
+    isLoading: false,
+    error: null,
+  });
+});
+
+afterEach(() => {
+  cleanup();
+  useTagGroups.mockClear();
+});
 
 describe("ChartConfigFields", () => {
   // The persisted target shape and nothing else — no runtime keys, no legacy
@@ -269,5 +296,119 @@ describe("ChartConfigFields", () => {
     });
 
     expect(latest().space_agg).toBeNull();
+  });
+
+  // group_by only makes sense once devices are being folded into groups —
+  // same dependency the backend enforces at save time.
+  it("hides group-by until a fold operator is chosen", () => {
+    renderFields({
+      target: { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
+      agg: "avg",
+      space_agg: null,
+    });
+
+    expect(screen.queryByLabelText("Group by tag")).not.toBeInTheDocument();
+  });
+
+  it("stores the typed tag key once a fold operator is chosen", () => {
+    const latest = renderFields({
+      target: { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
+      agg: "avg",
+      space_agg: "avg",
+    });
+
+    fireEvent.change(screen.getByLabelText("Group by tag"), {
+      target: { value: "floor" },
+    });
+
+    expect(latest().group_by).toBe("floor");
+  });
+
+  it("clears group_by when the fold operator is dropped", () => {
+    const latest = renderFields({
+      target: { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
+      agg: "avg",
+      space_agg: "avg",
+      group_by: "floor",
+    });
+
+    // The space operator select is the second "agg"-keyed select; "null"
+    // is the mock select's string key for the stored `null` value.
+    fireEvent.change(screen.getAllByTestId("agg")[1], {
+      target: { value: "null" },
+    });
+
+    expect(latest().group_by).toBeNull();
+  });
+
+  // The preview must reproduce the same device set the grouped chart will
+  // actually query — devices matching the filter but not exposing the
+  // attribute are excluded there too, so the preview passes it along.
+  it("scopes the tag-groups preview to the target's attribute", () => {
+    renderFields({
+      target: { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
+      agg: "avg",
+      space_agg: "avg",
+    });
+
+    fireEvent.change(screen.getByLabelText("Group by tag"), {
+      target: { value: "floor" },
+    });
+
+    expect(useTagGroups).toHaveBeenLastCalledWith(
+      { ids: ["dev1", "dev2"] },
+      "floor",
+      "temperature",
+      expect.objectContaining({ enabled: true }),
+    );
+  });
+
+  // An empty device filter is a legal target — it means "all devices" — so
+  // the preview must still query for it rather than treat it as unset.
+  it("still previews for an empty device filter", () => {
+    useTagGroups.mockReturnValue({
+      groups: [],
+      totalDevices: 0,
+      isLoading: false,
+      error: null,
+    });
+    renderFields({
+      target: { devices: {}, attribute: "temperature" },
+      agg: "avg",
+      space_agg: "avg",
+      group_by: "floor",
+    });
+
+    expect(useTagGroups).toHaveBeenLastCalledWith(
+      {},
+      "floor",
+      "temperature",
+      expect.objectContaining({ enabled: true }),
+    );
+    expect(
+      screen.getByText("No device carries this tag key yet."),
+    ).toBeInTheDocument();
+  });
+
+  it("surfaces a preview request failure instead of the empty message", () => {
+    useTagGroups.mockReturnValue({
+      groups: [],
+      totalDevices: 0,
+      isLoading: false,
+      error: new Error("boom"),
+    });
+    renderFields({
+      target: { devices: { ids: ["dev1"] }, attribute: "temperature" },
+      agg: "avg",
+      space_agg: "avg",
+      group_by: "floor",
+    });
+
+    expect(
+      screen.getByText("Could not load the tag preview."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("No device carries this tag key yet."),
+    ).not.toBeInTheDocument();
   });
 });

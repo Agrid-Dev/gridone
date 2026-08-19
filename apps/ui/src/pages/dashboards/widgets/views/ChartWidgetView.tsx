@@ -9,7 +9,9 @@ import {
   type DataPoint,
   type DataType,
 } from "@gridone/sdk";
-import TimeSeriesChart from "@/components/charts/TimeSeriesChart";
+import TimeSeriesChart, {
+  type TimeSeriesChartProps,
+} from "@/components/charts/TimeSeriesChart";
 import {
   AXIS_EXTRA,
   LEGEND_HEIGHT,
@@ -18,12 +20,14 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAttributeLabel } from "@/hooks/useAttributeLabel";
 import { useMultiTimeSeries } from "@/hooks/useMultiTimeSeries";
+import { UNTAGGED_GROUP_LABEL } from "@/lib/devices";
 import { useDashboardPeriod } from "../../useDashboardPeriod";
 import {
   holdLastValueUntil,
   multiSeriesChartProps,
   singleSeriesChartProps,
 } from "./chartSeries";
+import { useGroupedSpaceAggregate } from "./useGroupedSpaceAggregate";
 import { useSpaceAggregate } from "./useSpaceAggregate";
 import { useTargetDevices, type AttributeTarget } from "./useTargetDevices";
 
@@ -33,6 +37,62 @@ const Message: FC<{ children: string }> = ({ children }) => (
     {children}
   </div>
 );
+
+/** Full-height loading placeholder, shared by every view while its query runs. */
+const ChartSkeleton: FC = () => (
+  <div className="h-full p-3">
+    <Skeleton className="h-full w-full" />
+  </div>
+);
+
+/**
+ * Lays out `chartProps` in the available height and renders the chart.
+ *
+ * `panelCount` is the number of categorical (bool/str) panels the caller's
+ * series split into — 1 for a single reduced series or a shared numeric
+ * panel, one per series for booleans/strings, each spending its own legend
+ * band with the time axis paid once by the last.
+ */
+const ChartPanels: FC<{
+  chartProps: TimeSeriesChartProps;
+  panelCount: number;
+}> = ({ chartProps, panelCount }) => (
+  <ParentSize>
+    {({ height }) => {
+      const panelHeight = Math.max(
+        (height - panelCount * LEGEND_HEIGHT - AXIS_EXTRA) / panelCount,
+        0,
+      );
+      return (
+        <TimeSeriesChart
+          {...chartProps}
+          lineHeight={Math.max(height - PANEL_CHROME_HEIGHT, 0)}
+          categoricalHeight={panelHeight}
+        />
+      );
+    }}
+  </ParentSize>
+);
+
+/**
+ * Reads a server-resolved space aggregation's error into the message it
+ * means — shared by the whole-set and grouped shapes, which read the same
+ * two statuses off the same kind of request.
+ *
+ * 404 means no device in the set has recorded history; 422 means the
+ * target resolves to no device exposing the attribute (or a drifted,
+ * mixed-type set).
+ */
+function useSpaceQueryErrorMessage() {
+  const { t } = useTranslation("dashboards");
+  return function queryErrorMessage(error: Error | null) {
+    if (isNotFound(error))
+      return <Message>{t("widgets.chart.noSeries")}</Message>;
+    if (isGridoneError(error) && error.status === 422)
+      return <Message>{t("widgets.chart.targetEmpty")}</Message>;
+    return <Message>{t("widgets.chart.error")}</Message>;
+  };
+}
 
 /** Worded caption for an aggregation operator, per role — the same wording
  *  the widget editor shows while picking it, rather than the raw wire code. */
@@ -63,10 +123,24 @@ function useAggCaptions() {
  * state and a mode each render in their natural form, aggregated or not.
  */
 export const ChartWidgetView: FC<{ config: unknown }> = ({ config }) => {
-  const { target, agg, space_agg: spaceAgg } = config as ChartWidgetConfig;
-  // The two shapes are different components because they hold different
-  // queries: one request for the folded series, a per-device fan-out
-  // otherwise. Saving guarantees space_agg comes with agg.
+  const {
+    target,
+    agg,
+    space_agg: spaceAgg,
+    group_by: groupBy,
+  } = config as ChartWidgetConfig;
+  // Three shapes, three different queries: one request per tag group, one
+  // for the whole-set fold, or a per-device fan-out. Saving guarantees
+  // space_agg comes with agg, and group_by comes with space_agg.
+  if (groupBy && spaceAgg && agg)
+    return (
+      <GroupedChartView
+        target={target}
+        agg={agg}
+        spaceAgg={spaceAgg}
+        groupBy={groupBy}
+      />
+    );
   if (spaceAgg && agg)
     return <SpaceChartView target={target} agg={agg} spaceAgg={spaceAgg} />;
   return <FanOutChartView target={target} agg={agg ?? null} />;
@@ -87,6 +161,7 @@ const SpaceChartView: FC<{
   const { query, refetchInterval } = useDashboardPeriod();
   const attributeLabel = useAttributeLabel();
   const captions = useAggCaptions();
+  const queryErrorMessage = useSpaceQueryErrorMessage();
 
   // Space aggregation is bucketed by construction (raw is refused), so an
   // unbounded period cannot be cut into buckets — same rule as aggregating a
@@ -105,24 +180,8 @@ const SpaceChartView: FC<{
   });
 
   if (unbounded) return <Message>{t("widgets.chart.unboundedPeriod")}</Message>;
-  if (result.isLoading) {
-    return (
-      <div className="h-full p-3">
-        <Skeleton className="h-full w-full" />
-      </div>
-    );
-  }
-  if (result.error || !result.data) {
-    // The server resolves the target, so the empty/no-history states arrive
-    // as statuses rather than from a device list of our own: 404 means no
-    // device in the set has recorded history; 422 means the target resolves
-    // to no device exposing the attribute (or a drifted, mixed-type set).
-    if (isNotFound(result.error))
-      return <Message>{t("widgets.chart.noSeries")}</Message>;
-    if (isGridoneError(result.error) && result.error.status === 422)
-      return <Message>{t("widgets.chart.targetEmpty")}</Message>;
-    return <Message>{t("widgets.chart.error")}</Message>;
-  }
+  if (result.isLoading) return <ChartSkeleton />;
+  if (result.error || !result.data) return queryErrorMessage(result.error);
 
   const data = result.data;
   // A bucket no series covered has no value — nothing to plot there.
@@ -164,17 +223,92 @@ const SpaceChartView: FC<{
     target.attribute,
   );
 
-  return (
-    <ParentSize>
-      {({ height }) => (
-        <TimeSeriesChart
-          {...chartProps}
-          lineHeight={Math.max(height - PANEL_CHROME_HEIGHT, 0)}
-          categoricalHeight={Math.max(height - LEGEND_HEIGHT - AXIS_EXTRA, 0)}
-        />
-      )}
-    </ParentSize>
+  return <ChartPanels chartProps={chartProps} panelCount={1} />;
+};
+
+/** One reduced series per tag-value group, bucketed server-side by `groupBy`
+ *  before `agg`/`spaceAgg` fold each bucket — same fold, one series per group. */
+const GroupedChartView: FC<{
+  target: AttributeTarget;
+  agg: AggregationOperator;
+  spaceAgg: AggregationOperator;
+  groupBy: string;
+}> = ({ target, agg, spaceAgg, groupBy }) => {
+  const { t } = useTranslation("dashboards");
+  const { query, refetchInterval } = useDashboardPeriod();
+  const captions = useAggCaptions();
+  const queryErrorMessage = useSpaceQueryErrorMessage();
+
+  const unbounded = !query.start && !query.last;
+
+  const result = useGroupedSpaceAggregate({
+    target,
+    groupBy,
+    agg,
+    spaceAgg,
+    start: query.start,
+    end: query.end,
+    last: query.last,
+    enabled: !unbounded,
+    refetchInterval,
+  });
+
+  if (unbounded) return <Message>{t("widgets.chart.unboundedPeriod")}</Message>;
+  if (result.isLoading) return <ChartSkeleton />;
+  if (result.error || !result.data) return queryErrorMessage(result.error);
+
+  const data = result.data;
+  // Each group's label names its series — same operators-and-interval suffix
+  // as the ungrouped space view, so a grouped chart still says how each line
+  // was reduced, not just which tag value it is.
+  const groupLabel = (group: string) =>
+    group === UNTAGGED_GROUP_LABEL
+      ? t("widgets.chart.groupBy.untagged")
+      : group;
+  const seriesLabel = (group: string) =>
+    agg === spaceAgg
+      ? t("widgets.chart.space.seriesLabelGrouped", {
+          group: groupLabel(group),
+          spaceAgg: captions.space(spaceAgg),
+          interval: data.interval,
+        })
+      : t("widgets.chart.space.seriesLabelGroupedMixed", {
+          group: groupLabel(group),
+          agg: captions.time(agg),
+          spaceAgg: captions.space(spaceAgg),
+          interval: data.interval,
+        });
+  const series = data.groups
+    .map((group) => ({
+      key: group.label,
+      label: seriesLabel(group.label),
+      points: group.points
+        .filter((p) => p.value !== null)
+        .map((p) => ({
+          timestamp: p.interval_start,
+          value: p.value as DataPoint["value"],
+        })),
+    }))
+    .filter((s) => s.points.length > 0);
+
+  if (series.length === 0)
+    return <Message>{t("widgets.chart.noData")}</Message>;
+
+  const chartProps = multiSeriesChartProps(
+    data.aggregation_data_type,
+    series,
+    target.attribute,
   );
+
+  // One categorical panel per group for booleans/strings, one shared line
+  // panel otherwise.
+  const panelCount =
+    data.aggregation_data_type === "bool" ||
+    data.aggregation_data_type === "str"
+      ? series.length
+      : 1;
+
+  return <ChartPanels chartProps={chartProps} panelCount={panelCount} />;
 };
 
 /** One series per device of the set — the space_agg-less shape. */
@@ -233,13 +367,7 @@ const FanOutChartView: FC<{
   }, [results, agg, query.end]);
 
   if (unbounded) return <Message>{t("widgets.chart.unboundedPeriod")}</Message>;
-  if (devicesLoading || seriesLoading) {
-    return (
-      <div className="h-full p-3">
-        <Skeleton className="h-full w-full" />
-      </div>
-    );
-  }
+  if (devicesLoading || seriesLoading) return <ChartSkeleton />;
   if (devicesError) return <Message>{t("widgets.chart.error")}</Message>;
   if (devices.length === 0)
     return <Message>{t("widgets.chart.targetEmpty")}</Message>;
@@ -289,27 +417,9 @@ const FanOutChartView: FC<{
     target.attribute,
   );
 
-  // Booleans and strings each take a panel per series, floats and ints share
-  // one — the height budget splits over however many panels that makes, each
-  // spending its own legend band, with the time axis paid once by the last.
+  // Booleans and strings each take a panel per series, floats and ints share one.
   const panelCount =
     dataType === "bool" || dataType === "str" ? plotted.length : 1;
 
-  return (
-    <ParentSize>
-      {({ height }) => {
-        const panelHeight = Math.max(
-          (height - panelCount * LEGEND_HEIGHT - AXIS_EXTRA) / panelCount,
-          0,
-        );
-        return (
-          <TimeSeriesChart
-            {...chartProps}
-            lineHeight={Math.max(height - PANEL_CHROME_HEIGHT, 0)}
-            categoricalHeight={panelHeight}
-          />
-        );
-      }}
-    </ParentSize>
-  );
+  return <ChartPanels chartProps={chartProps} panelCount={panelCount} />;
 };

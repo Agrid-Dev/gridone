@@ -52,6 +52,7 @@
     "mbus": "No endpoint",
     "modbus-tcp": "No endpoint",
     "bacnet": "No endpoint",
+    "opcua": "No endpoint",
     "noParameters": "No connection settings"
   },
   "configFields": {
