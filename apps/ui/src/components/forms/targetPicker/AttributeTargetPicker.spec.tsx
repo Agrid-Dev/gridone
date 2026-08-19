@@ -195,3 +195,70 @@ describe("AttributeTargetPicker — filter-mode missing-attribute warning", () =
     });
   });
 });
+
+describe("AttributeTargetPicker — devices-mode missing-attribute warning", () => {
+  it("warns with the skipped count when some picked devices lack the attribute", () => {
+    mockUseQuery.mockReturnValue({ data: coverageResponse, isLoading: false });
+
+    render(
+      <AttributeTargetPicker
+        value={{ devices: { ids: ["d1", "d2"] }, attribute: "temperature" }}
+        onChange={vi.fn()}
+        devices={devices}
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        "3 of 10 matched devices don't expose this attribute and will be skipped.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("warns for the full picked count when the attribute is absent from coverage entirely", () => {
+    mockUseQuery.mockReturnValue({ data: coverageResponse, isLoading: false });
+
+    render(
+      <AttributeTargetPicker
+        value={{ devices: { ids: ["d1", "d2"] }, attribute: "humidity" }}
+        onChange={vi.fn()}
+        devices={devices}
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        "10 of 10 matched devices don't expose this attribute and will be skipped.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("shows no warning once every picked device exposes the attribute", () => {
+    mockUseQuery.mockReturnValue({
+      data: {
+        total_devices: 7,
+        attributes: [
+          {
+            attribute: "temperature",
+            data_types: ["float"],
+            device_count: 7,
+            writable_count: 0,
+          },
+        ],
+      },
+      isLoading: false,
+    });
+
+    render(
+      <AttributeTargetPicker
+        value={{ devices: { ids: ["d1", "d2"] }, attribute: "temperature" }}
+        onChange={vi.fn()}
+        devices={devices}
+      />,
+    );
+
+    expect(
+      screen.queryByText(/matched devices don't expose this attribute/),
+    ).not.toBeInTheDocument();
+  });
+});

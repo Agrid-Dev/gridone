@@ -56,10 +56,9 @@ export function AttributeTargetPicker({
   const selectedCoverage = coverage.find(
     (c) => c.attribute === value.attribute,
   );
-  const skipped =
-    mode === "filters" && value.attribute
-      ? totalDevices - (selectedCoverage?.device_count ?? 0)
-      : 0;
+  const skipped = value.attribute
+    ? totalDevices - (selectedCoverage?.device_count ?? 0)
+    : 0;
 
   return (
     <div className="space-y-4">
