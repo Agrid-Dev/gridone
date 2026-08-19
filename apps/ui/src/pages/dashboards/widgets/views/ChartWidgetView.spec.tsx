@@ -40,6 +40,11 @@ vi.mock("./useSpaceAggregate", () => ({
   useSpaceAggregate: (args: unknown) => useSpaceAggregate(args),
 }));
 
+const useGroupedSpaceAggregate = vi.fn();
+vi.mock("./useGroupedSpaceAggregate", () => ({
+  useGroupedSpaceAggregate: (args: unknown) => useGroupedSpaceAggregate(args),
+}));
+
 const useDashboardPeriod = vi.fn();
 vi.mock("../../useDashboardPeriod", () => ({
   useDashboardPeriod: () => useDashboardPeriod(),
@@ -321,6 +326,118 @@ describe("ChartWidgetView with a space aggregation", () => {
     });
 
     render(<ChartWidgetView config={SPACE_CONFIG} />);
+
+    expect(screen.getByText("No data over the period")).toBeInTheDocument();
+  });
+});
+
+const GROUPED_CONFIG = { ...SPACE_CONFIG, group_by: "floor" };
+
+function mockGroupedResult(over: Record<string, unknown> = {}) {
+  useGroupedSpaceAggregate.mockReturnValue({
+    data: {
+      interval: "1h",
+      agg: "avg",
+      space_agg: "avg",
+      data_type: "float",
+      aggregation_data_type: "float",
+      timezone: "UTC",
+      groups: [
+        {
+          label: "1",
+          series_count: 2,
+          points: [
+            { interval_start: "2026-07-28T10:00:00Z", value: 21.5, count: 2 },
+          ],
+        },
+        {
+          label: "2",
+          series_count: 1,
+          points: [
+            { interval_start: "2026-07-28T10:00:00Z", value: 30.0, count: 1 },
+          ],
+        },
+      ],
+    },
+    isLoading: false,
+    error: null,
+    ...over,
+  });
+}
+
+describe("ChartWidgetView with a group-by", () => {
+  it("plots one series per tag-value group with a single request", () => {
+    mockGroupedResult();
+
+    render(<ChartWidgetView config={GROUPED_CONFIG} />);
+
+    expect(useGroupedSpaceAggregate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        target: GROUPED_CONFIG.target,
+        groupBy: "floor",
+        agg: "avg",
+        spaceAgg: "avg",
+        last: "7d",
+        refetchInterval: 300_000,
+      }),
+    );
+    expect(useSpaceAggregate).not.toHaveBeenCalled();
+    expect(useMultiTimeSeries).not.toHaveBeenCalled();
+    expect(screen.getByTestId("chart")).toHaveTextContent("1,2");
+  });
+
+  it("puts devices without the tag in the untagged group", () => {
+    mockGroupedResult({
+      data: {
+        interval: "1h",
+        aggregation_data_type: "float",
+        groups: [
+          {
+            label: "untagged",
+            series_count: 1,
+            points: [
+              { interval_start: "2026-07-28T10:00:00Z", value: 5, count: 1 },
+            ],
+          },
+        ],
+      },
+    });
+
+    render(<ChartWidgetView config={GROUPED_CONFIG} />);
+
+    expect(screen.getByTestId("chart")).toHaveTextContent("untagged");
+  });
+
+  it("reads a 404 as no recorded history for the target", () => {
+    mockGroupedResult({
+      data: undefined,
+      error: new GridoneError(404, "no series"),
+    });
+
+    render(<ChartWidgetView config={GROUPED_CONFIG} />);
+
+    expect(screen.getByText("No history recorded")).toBeInTheDocument();
+    expect(screen.queryByTestId("chart")).not.toBeInTheDocument();
+  });
+
+  it("shows the empty-period state when no group holds a value", () => {
+    mockGroupedResult({
+      data: {
+        interval: "1h",
+        aggregation_data_type: "float",
+        groups: [
+          {
+            label: "1",
+            series_count: 1,
+            points: [
+              { interval_start: "2026-07-28T10:00:00Z", value: null, count: 0 },
+            ],
+          },
+        ],
+      },
+    });
+
+    render(<ChartWidgetView config={GROUPED_CONFIG} />);
 
     expect(screen.getByText("No data over the period")).toBeInTheDocument();
   });

@@ -59,6 +59,13 @@
         },
         "seriesLabel": "{{attribute}} · {{spaceAgg}} · {{interval}}",
         "seriesLabelMixed": "{{attribute}} · {{agg}}, {{spaceAgg}} · {{interval}}"
+      },
+      "groupBy": {
+        "label": "Grouper par tag",
+        "description": "Divise l'ensemble d'appareils en une série par valeur de tag, chacune agrégée avec l'agrégation spatiale ci-dessus. Les appareils sans ce tag rejoignent un groupe « untagged ».",
+        "placeholder": "Clé de tag (ex. floor)",
+        "preview": "{{total}} appareils — {{breakdown}}",
+        "previewEmpty": "Aucun appareil de la cible ne porte encore cette clé de tag."
       }
     },
     "deviceControl": {

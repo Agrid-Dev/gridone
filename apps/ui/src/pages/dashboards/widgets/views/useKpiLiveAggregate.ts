@@ -33,7 +33,12 @@ export function useKpiLiveAggregate({
 
   return useQuery<LiveSpaceAggregateResponse>({
     queryKey: ["timeseries", "live-aggregate", params],
-    queryFn: () => client.timeseries.aggregateLive(params),
+    // No `group_by` here, so the response is always the flat shape — the
+    // union only widens for `useGroupedSpaceAggregate`'s counterpart call.
+    queryFn: () =>
+      client.timeseries.aggregateLive(
+        params,
+      ) as Promise<LiveSpaceAggregateResponse>,
     enabled: !!target.attribute,
     refetchInterval,
   });

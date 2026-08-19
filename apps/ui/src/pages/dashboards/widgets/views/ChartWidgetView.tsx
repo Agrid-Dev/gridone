@@ -24,6 +24,7 @@ import {
   multiSeriesChartProps,
   singleSeriesChartProps,
 } from "./chartSeries";
+import { useGroupedSpaceAggregate } from "./useGroupedSpaceAggregate";
 import { useSpaceAggregate } from "./useSpaceAggregate";
 import { useTargetDevices, type AttributeTarget } from "./useTargetDevices";
 
@@ -33,6 +34,26 @@ const Message: FC<{ children: string }> = ({ children }) => (
     {children}
   </div>
 );
+
+/**
+ * Reads a server-resolved space aggregation's error into the message it
+ * means — shared by the whole-set and grouped shapes, which read the same
+ * two statuses off the same kind of request.
+ *
+ * 404 means no device in the set has recorded history; 422 means the
+ * target resolves to no device exposing the attribute (or a drifted,
+ * mixed-type set).
+ */
+function useSpaceQueryErrorMessage() {
+  const { t } = useTranslation("dashboards");
+  return function queryErrorMessage(error: Error | null) {
+    if (isNotFound(error))
+      return <Message>{t("widgets.chart.noSeries")}</Message>;
+    if (isGridoneError(error) && error.status === 422)
+      return <Message>{t("widgets.chart.targetEmpty")}</Message>;
+    return <Message>{t("widgets.chart.error")}</Message>;
+  };
+}
 
 /** Worded caption for an aggregation operator, per role — the same wording
  *  the widget editor shows while picking it, rather than the raw wire code. */
@@ -63,10 +84,24 @@ function useAggCaptions() {
  * state and a mode each render in their natural form, aggregated or not.
  */
 export const ChartWidgetView: FC<{ config: unknown }> = ({ config }) => {
-  const { target, agg, space_agg: spaceAgg } = config as ChartWidgetConfig;
-  // The two shapes are different components because they hold different
-  // queries: one request for the folded series, a per-device fan-out
-  // otherwise. Saving guarantees space_agg comes with agg.
+  const {
+    target,
+    agg,
+    space_agg: spaceAgg,
+    group_by: groupBy,
+  } = config as ChartWidgetConfig;
+  // Three shapes, three different queries: one request per tag group, one
+  // for the whole-set fold, or a per-device fan-out. Saving guarantees
+  // space_agg comes with agg, and group_by comes with space_agg.
+  if (groupBy && spaceAgg && agg)
+    return (
+      <GroupedChartView
+        target={target}
+        agg={agg}
+        spaceAgg={spaceAgg}
+        groupBy={groupBy}
+      />
+    );
   if (spaceAgg && agg)
     return <SpaceChartView target={target} agg={agg} spaceAgg={spaceAgg} />;
   return <FanOutChartView target={target} agg={agg ?? null} />;
@@ -87,6 +122,7 @@ const SpaceChartView: FC<{
   const { query, refetchInterval } = useDashboardPeriod();
   const attributeLabel = useAttributeLabel();
   const captions = useAggCaptions();
+  const queryErrorMessage = useSpaceQueryErrorMessage();
 
   // Space aggregation is bucketed by construction (raw is refused), so an
   // unbounded period cannot be cut into buckets — same rule as aggregating a
@@ -112,17 +148,7 @@ const SpaceChartView: FC<{
       </div>
     );
   }
-  if (result.error || !result.data) {
-    // The server resolves the target, so the empty/no-history states arrive
-    // as statuses rather than from a device list of our own: 404 means no
-    // device in the set has recorded history; 422 means the target resolves
-    // to no device exposing the attribute (or a drifted, mixed-type set).
-    if (isNotFound(result.error))
-      return <Message>{t("widgets.chart.noSeries")}</Message>;
-    if (isGridoneError(result.error) && result.error.status === 422)
-      return <Message>{t("widgets.chart.targetEmpty")}</Message>;
-    return <Message>{t("widgets.chart.error")}</Message>;
-  }
+  if (result.error || !result.data) return queryErrorMessage(result.error);
 
   const data = result.data;
   // A bucket no series covered has no value — nothing to plot there.
@@ -173,6 +199,93 @@ const SpaceChartView: FC<{
           categoricalHeight={Math.max(height - LEGEND_HEIGHT - AXIS_EXTRA, 0)}
         />
       )}
+    </ParentSize>
+  );
+};
+
+/** One reduced series per tag-value group, bucketed server-side by `groupBy`
+ *  before `agg`/`spaceAgg` fold each bucket — same fold, one series per group. */
+const GroupedChartView: FC<{
+  target: AttributeTarget;
+  agg: AggregationOperator;
+  spaceAgg: AggregationOperator;
+  groupBy: string;
+}> = ({ target, agg, spaceAgg, groupBy }) => {
+  const { t } = useTranslation("dashboards");
+  const { query, refetchInterval } = useDashboardPeriod();
+  const queryErrorMessage = useSpaceQueryErrorMessage();
+
+  const unbounded = !query.start && !query.last;
+
+  const result = useGroupedSpaceAggregate({
+    target,
+    groupBy,
+    agg,
+    spaceAgg,
+    start: query.start,
+    end: query.end,
+    last: query.last,
+    enabled: !unbounded,
+    refetchInterval,
+  });
+
+  if (unbounded) return <Message>{t("widgets.chart.unboundedPeriod")}</Message>;
+  if (result.isLoading) {
+    return (
+      <div className="h-full p-3">
+        <Skeleton className="h-full w-full" />
+      </div>
+    );
+  }
+  if (result.error || !result.data) return queryErrorMessage(result.error);
+
+  const data = result.data;
+  // Each group's label (a tag value, or "untagged") names its series.
+  const series = data.groups
+    .map((group) => ({
+      key: group.label,
+      label: group.label,
+      points: group.points
+        .filter((p) => p.value !== null)
+        .map((p) => ({
+          timestamp: p.interval_start,
+          value: p.value as DataPoint["value"],
+        })),
+    }))
+    .filter((s) => s.points.length > 0);
+
+  if (series.length === 0)
+    return <Message>{t("widgets.chart.noData")}</Message>;
+
+  const chartProps = multiSeriesChartProps(
+    data.aggregation_data_type,
+    series,
+    target.attribute,
+  );
+
+  // Same panel-height split as the fan-out view: one categorical panel per
+  // group for booleans/strings, one shared line panel otherwise.
+  const panelCount =
+    data.aggregation_data_type === "bool" ||
+    data.aggregation_data_type === "str"
+      ? series.length
+      : 1;
+
+  return (
+    <ParentSize>
+      {({ height }) => {
+        const panelHeight = Math.max(
+          (height - panelCount * LEGEND_HEIGHT - AXIS_EXTRA) / panelCount,
+          0,
+        );
+        return (
+          <TimeSeriesChart
+            {...chartProps}
+            lineHeight={Math.max(height - PANEL_CHROME_HEIGHT, 0)}
+            categoricalHeight={panelHeight}
+          />
+        );
+      }}
     </ParentSize>
   );
 };

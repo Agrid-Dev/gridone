@@ -59,6 +59,13 @@
         },
         "seriesLabel": "{{attribute}} · {{spaceAgg}} · {{interval}}",
         "seriesLabelMixed": "{{attribute}} · {{agg}}, {{spaceAgg}} · {{interval}}"
+      },
+      "groupBy": {
+        "label": "Group by tag",
+        "description": "Splits the device set into one series per tag value, each folded with the space aggregation above. Devices without the tag land in an “untagged” group.",
+        "placeholder": "Tag key (e.g. floor)",
+        "preview": "{{total}} devices — {{breakdown}}",
+        "previewEmpty": "No device in the target carries this tag key yet."
       }
     },
     "deviceControl": {

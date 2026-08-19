@@ -8,6 +8,7 @@ import {
   useAttributeCoverage,
   type AttributeTarget,
 } from "@/components/forms/targetPicker";
+import { InputController } from "@/components/forms/controllers/InputController";
 import { SelectController } from "@/components/forms/controllers/SelectController";
 import {
   operatorsFor,
@@ -17,6 +18,7 @@ import {
 } from "@/hooks/useAggregateOptions";
 import { useDevicesList } from "@/hooks/useDevicesList";
 import { isEmptyFilter } from "@/lib/devices";
+import { useTagGroups } from "./useTagGroups";
 
 /** How "plot the readings as recorded" reads in the operator list. The config
  *  stores `null` for it. */
@@ -118,10 +120,15 @@ export const ChartConfigFields: FC<{ control: Control<FieldValues> }> = ({
     control,
     name: "config.space_agg",
   });
+  const { field: groupByField } = useController({
+    control,
+    name: "config.group_by",
+  });
 
   const target = toPickerTarget(targetField.value);
   const agg = (aggField.value as string | null) ?? null;
   const spaceAgg = (spaceAggField.value as string | null) ?? null;
+  const groupBy = (groupByField.value as string | null) || null;
 
   const { devices } = useDevicesList();
   const { data: options } = useAggregateOptions();
@@ -182,6 +189,22 @@ export const ChartConfigFields: FC<{ control: Control<FieldValues> }> = ({
     if (spaceRefused) spaceAggField.onChange(null);
   }, [spaceRefused, spaceAggField]);
 
+  // group_by needs a fold operator, same as the backend requires; an empty
+  // input means "cleared", normalized to the stored `null` here.
+  useEffect(() => {
+    if (!spaceAgg && groupBy) groupByField.onChange(null);
+    else if (groupByField.value === "") groupByField.onChange(null);
+  }, [spaceAgg, groupBy, groupByField]);
+
+  const targetHasDevices = !isEmptyFilter(target.devices);
+  const {
+    groups: tagGroups,
+    totalDevices: tagGroupsTotal,
+    isLoading: tagGroupsLoading,
+  } = useTagGroups(target.devices, groupBy ?? "", target.attribute, {
+    enabled: targetHasDevices && !!groupBy,
+  });
+
   return (
     <>
       <AttributeTargetPicker
@@ -217,6 +240,29 @@ export const ChartConfigFields: FC<{ control: Control<FieldValues> }> = ({
             ...spaceAggOptions,
           ]}
         />
+      )}
+      {spaceAgg !== null && (
+        <>
+          <InputController
+            name="config.group_by"
+            control={control}
+            label={t("widgets.chart.groupBy.label")}
+            description={t("widgets.chart.groupBy.description")}
+            inputProps={{ placeholder: t("widgets.chart.groupBy.placeholder") }}
+          />
+          {groupBy && targetHasDevices && !tagGroupsLoading && (
+            <p className="text-xs text-muted-foreground">
+              {tagGroups.length > 0
+                ? t("widgets.chart.groupBy.preview", {
+                    total: tagGroupsTotal,
+                    breakdown: tagGroups
+                      .map((g) => `${g.label} (${g.device_count})`)
+                      .join(", "),
+                  })
+                : t("widgets.chart.groupBy.previewEmpty")}
+            </p>
+          )}
+        </>
       )}
     </>
   );
