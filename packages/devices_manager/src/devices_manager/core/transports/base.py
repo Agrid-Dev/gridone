@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from asyncio import Lock, Task, create_task
 from collections.abc import AsyncGenerator
 from contextlib import AbstractAsyncContextManager, nullcontext
+from contextvars import ContextVar
 from typing import ClassVar
 
 from devices_manager.types import AttributeValueType, TransportProtocols, TransportType
@@ -22,6 +23,14 @@ from .transport_connection_state import TransportConnectionState
 from .transport_metadata import TransportMetadata
 
 logger = logging.getLogger(__name__)
+
+# Task-local, not an instance attribute: concurrent callers on the same
+# transport (e.g. one queued behind another's rejection) run as separate
+# tasks, and each must see its own snapshot rather than clobbering a
+# sibling's. See TransportClient._raise_if_terminally_rejected.
+_connect_attempt_generation: ContextVar[int] = ContextVar(
+    "connect_attempt_generation", default=-1
+)
 
 
 class TerminalConnectionError(ConnectionError):
@@ -60,6 +69,9 @@ class TransportClient[T_TransportAddress: TransportAddress](ABC):
     _reconnect_task: Task | None
     _reconnect_pending: bool
     _terminal_error: TerminalConnectionError | None
+    # Bumped by update_config(): lets a stale connect attempt recognize it's
+    # been superseded and skip re-latching over the fix. See ensure_connected().
+    _config_generation: int
     _sweep_memo: SweepMemo
 
     def __init__(
@@ -75,6 +87,7 @@ class TransportClient[T_TransportAddress: TransportAddress](ABC):
         self._reconnect_task = None
         self._reconnect_pending = False
         self._terminal_error = None
+        self._config_generation = 0
         self._sweep_memo = SweepMemo(self.id, self.protocol)
 
     @property
@@ -156,13 +169,13 @@ class TransportClient[T_TransportAddress: TransportAddress](ABC):
         """Write a value to the transport."""
         ...
 
-    async def ensure_connected(self) -> None:
-        """Connect unless a previous attempt failed terminally.
-
-        Every caller that would otherwise call :meth:`connect` goes through
-        here, so one refusal is paid once rather than on every read: ``@connected``
-        re-attempts a connection on each read while the transport is down.
-        """
+    def _raise_if_terminally_rejected(self) -> None:
+        """Re-raise an already-latched terminal error, and snapshot the config
+        generation for :meth:`_attempt_is_current`. Called here and, post-lock,
+        from each subclass's ``connect()`` — so a queued caller fails fast
+        instead of repeating a doomed attempt, and the generation snapshot
+        reflects what's actually in effect when the real I/O runs."""
+        _connect_attempt_generation.set(self._config_generation)
         if self._terminal_error is not None:
             # Re-park on every raise, not just the first: a coalesced reconnect
             # runs close() beforehand, which resets the state to closed() and
@@ -174,11 +187,27 @@ class TransportClient[T_TransportAddress: TransportAddress](ABC):
             # Same instance every time, so drop the traceback it accumulated on
             # the previous raise rather than growing it for the transport's life.
             raise self._terminal_error.with_traceback(None)
+
+    def _attempt_is_current(self) -> bool:
+        """False if a newer config has superseded the attempt that just failed."""
+        return _connect_attempt_generation.get() == self._config_generation
+
+    async def ensure_connected(self) -> None:
+        """Connect unless a previous attempt failed terminally.
+
+        Every caller that would otherwise call :meth:`connect` goes through
+        here, so one refusal is paid once rather than on every read: ``@connected``
+        re-attempts a connection on each read while the transport is down.
+        """
+        self._raise_if_terminally_rejected()
         try:
             await self.connect()
         except TerminalConnectionError as e:
-            self._terminal_error = e
-            self.connection_state = TransportConnectionState.connection_error(str(e))
+            if self._attempt_is_current():
+                self._terminal_error = e
+                self.connection_state = TransportConnectionState.connection_error(
+                    str(e)
+                )
             raise
 
     async def __aenter__(self) -> "TransportClient[T_TransportAddress]":
@@ -260,6 +289,7 @@ class TransportClient[T_TransportAddress: TransportAddress](ABC):
         # A new config re-arms a terminally refused transport: the operator's
         # way back once the underlying condition is fixed.
         self._terminal_error = None
+        self._config_generation += 1
         if reconnect:
             self.schedule_reconnect()
 
