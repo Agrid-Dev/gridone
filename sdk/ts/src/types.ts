@@ -130,6 +130,7 @@ export type ModbusTcpTransport = Schemas["ModbusTcpTransport"];
 export type MbusTransport = Schemas["MbusTransport"];
 export type BacnetTransport = Schemas["BacnetTransport"];
 export type WebhookTransport = Schemas["WebhookTransport"];
+export type OpcuaTransport = Schemas["OpcuaTransport"];
 
 /** Discriminated union (on `protocol`) of every transport kind the API serves. */
 export type Transport =
@@ -139,7 +140,8 @@ export type Transport =
   | ModbusTcpTransport
   | MbusTransport
   | BacnetTransport
-  | WebhookTransport;
+  | WebhookTransport
+  | OpcuaTransport;
 
 export type HttpTransportCreate = Schemas["HttpTransportCreate"];
 export type KnxTransportCreate = Schemas["KnxTransportCreate"];
@@ -148,6 +150,7 @@ export type ModbusTcpTransportCreate = Schemas["ModbusTcpTransportCreate"];
 export type MbusTransportCreate = Schemas["MbusTransportCreate"];
 export type BacnetTransportCreate = Schemas["BacnetTransportCreate"];
 export type WebhookTransportCreate = Schemas["WebhookTransportCreate"];
+export type OpcuaTransportCreate = Schemas["OpcuaTransportCreate"];
 
 /**
  * Discriminated union (on `protocol`) of every transport create payload:
@@ -160,7 +163,8 @@ export type TransportCreate =
   | ModbusTcpTransportCreate
   | MbusTransportCreate
   | BacnetTransportCreate
-  | WebhookTransportCreate;
+  | WebhookTransportCreate
+  | OpcuaTransportCreate;
 
 export type TransportUpdate = Schemas["TransportUpdate"];
 export type TransportProtocols = Schemas["TransportProtocols"];
@@ -172,6 +176,7 @@ export type ModbusTCPTransportConfig = Schemas["ModbusTCPTransportConfig"];
 export type MBusTransportConfig = Schemas["MBusTransportConfig"];
 export type BacnetTransportConfig = Schemas["BacnetTransportConfig"];
 export type WebhookTransportConfig = Schemas["WebhookTransportConfig"];
+export type OpcuaTransportConfig = Schemas["OpcuaTransportConfig"];
 export type BacnetWritePriority = Schemas["BacnetWritePriority"];
 export type RawTransportAddress = Schemas["RawTransportAddress"];
 

@@ -52,6 +52,7 @@
     "mbus": "Aucun point de connexion",
     "modbus-tcp": "Aucun point de connexion",
     "bacnet": "Aucun point de connexion",
+    "opcua": "Aucun point de connexion",
     "noParameters": "Aucun paramètre de connexion"
   },
   "configFields": {
