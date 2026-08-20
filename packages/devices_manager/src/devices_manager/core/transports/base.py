@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-from asyncio import Lock, Task, create_task
+from asyncio import Lock, Task, create_task, sleep
 from collections.abc import AsyncGenerator
 from contextlib import AbstractAsyncContextManager, nullcontext
 from contextvars import ContextVar
@@ -55,6 +55,10 @@ class TransportClient[T_TransportAddress: TransportAddress](ABC):
     # Single knob for the read path: gates read()'s lock and, in turn, the base
     # read_many() strategy — sequential when True, concurrent fan-out when False.
     _serialize_reads: ClassVar[bool] = False
+    # Reconnect backoff: base * multiplier**(attempt - 1), capped at max_delay.
+    _reconnect_base_delay: ClassVar[float] = 1.0
+    _reconnect_backoff_multiplier: ClassVar[float] = 2.0
+    _reconnect_max_delay: ClassVar[float] = 60.0
     config: BaseTransportConfig
     metadata: TransportMetadata
     connection_state: TransportConnectionState
@@ -68,6 +72,8 @@ class TransportClient[T_TransportAddress: TransportAddress](ABC):
     _background_tasks: set[Task]
     _reconnect_task: Task | None
     _reconnect_pending: bool
+    # Consecutive failed reconnect cycles; drives the backoff delay.
+    _reconnect_attempt: int
     _terminal_error: TerminalConnectionError | None
     # Bumped by update_config(): lets a stale connect attempt recognize it's
     # been superseded and skip re-latching over the fix. See ensure_connected().
@@ -86,6 +92,7 @@ class TransportClient[T_TransportAddress: TransportAddress](ABC):
         self._background_tasks = set()
         self._reconnect_task = None
         self._reconnect_pending = False
+        self._reconnect_attempt = 0
         self._terminal_error = None
         self._config_generation = 0
         self._sweep_memo = SweepMemo(self.id, self.protocol)
@@ -249,20 +256,28 @@ class TransportClient[T_TransportAddress: TransportAddress](ABC):
             return
 
         async def reconnect() -> None:
+            if self._reconnect_attempt > 0:
+                delay = min(
+                    self._reconnect_base_delay
+                    * self._reconnect_backoff_multiplier
+                    ** (self._reconnect_attempt - 1),
+                    self._reconnect_max_delay,
+                )
+                await sleep(delay)
             try:
                 await self.close()
                 await self.ensure_connected()
+                self._reconnect_attempt = 0
             except TerminalConnectionError:
-                # Retrying would spin at full speed forever (there is no
-                # backoff below), so stop and wait for a config change.
-                # ensure_connected has already parked the connection state.
+                # Stop and wait for a config change; ensure_connected already
+                # parked the connection state.
                 logger.exception(
                     "[Transport %s] reconnect abandoned, not retryable",
                     self.id,
                 )
             except Exception:  # noqa: BLE001
-                # Nothing else retries a failed connect() here, so coalesce
-                # one more attempt via the same pending mechanism.
+                # Coalesce one more attempt via the pending mechanism.
+                self._reconnect_attempt += 1
                 logger.warning(
                     "[Transport %s] reconnect attempt failed, retrying",
                     self.id,
@@ -291,9 +306,10 @@ class TransportClient[T_TransportAddress: TransportAddress](ABC):
         # is where a partial update is type-checked and defaults are preserved.
         merged = {**self.config.model_dump(), **config}
         self.config = type(self.config).model_validate(merged)
-        # A new config re-arms a terminally refused transport: the operator's
-        # way back once the underlying condition is fixed.
+        # Re-arms a terminally refused transport and drops any backoff streak,
+        # so the operator's fix is tried promptly.
         self._terminal_error = None
+        self._reconnect_attempt = 0
         self._config_generation += 1
         if reconnect:
             self.schedule_reconnect()
