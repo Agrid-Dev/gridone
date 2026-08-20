@@ -1,3 +1,9 @@
+## v0.214.1 (2026-08-20)
+
+### Fix
+
+- **ui**: warn on missing attribute coverage in devices-mode picker (#559)
+
 ## v0.214.0 (2026-08-20)
 
 ### Feat
