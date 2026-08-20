@@ -105,7 +105,9 @@ class OpcuaTransportClient(
                 # nothing else can clean it up.
                 with contextlib.suppress(Exception):
                     await client.disconnect()
-                if is_secure_channel_rejection(e):
+                if is_secure_channel_rejection(
+                    e, secure_channel_enabled=self.config.secure_channel_enabled
+                ):
                     msg = f"Secure channel rejected by {self.config.endpoint_url}: {e}"
                     raise OpcuaSecurityError(msg) from e
                 raise
