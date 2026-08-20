@@ -1,3 +1,9 @@
+## v0.214.2 (2026-08-20)
+
+### Fix
+
+- **devices-manager**: transport terminal-latch races (#561)
+
 ## v0.214.1 (2026-08-20)
 
 ### Fix
