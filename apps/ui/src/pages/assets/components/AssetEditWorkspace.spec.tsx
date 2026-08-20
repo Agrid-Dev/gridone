@@ -47,6 +47,9 @@ vi.mock("react-i18next", () =>
     "fields.parentPlaceholder": "None",
     "overview.addSubzoneTo": "Add a sub-zone to {{name}}",
     "devices.link": "Link device",
+    "devices.unlink": "Unlink",
+    "devices.unlinkConfirmTitle": "Unlink device",
+    "devices.unlinkConfirmDetails": "Detach {{device}} from {{zone}}?",
     "devices.noDevices": "No devices linked",
     noChildren: "No child zones",
     deleteConfirmTitle: "Delete zone",
@@ -57,6 +60,7 @@ vi.mock("react-i18next", () =>
     "common:common.unknown": "Unknown",
     "thermostat.name": "Thermostat",
     "common.delete": "Delete",
+    "common.cancel": "Cancel",
   }),
 );
 
@@ -123,16 +127,20 @@ const allAssets = [organization, building, floor, lobby, bar];
 function renderWorkspace({
   mode = "edit",
   canWriteAssets = true,
+  canWriteDevices = true,
   childAssets = [bar],
   onSubmit = vi.fn<(data: AssetFormValues) => void>(),
   onLinkDevice = vi.fn<() => void>(),
+  onUnlinkDevice = vi.fn<(deviceId: string) => void>(),
   onReorder,
 }: {
   mode?: "detail" | "edit";
   canWriteAssets?: boolean;
+  canWriteDevices?: boolean;
   childAssets?: Asset[];
   onSubmit?: (data: AssetFormValues) => void;
   onLinkDevice?: () => void;
+  onUnlinkDevice?: (deviceId: string) => void;
   onReorder?: (orderedIds: string[]) => void;
 } = {}) {
   render(
@@ -148,10 +156,11 @@ function renderWorkspace({
           isPending={false}
           isDeleting={false}
           canWriteAssets={canWriteAssets}
-          canWriteDevices
+          canWriteDevices={canWriteDevices}
           onSubmit={onSubmit}
           onDelete={vi.fn<() => void>()}
           onLinkDevice={onLinkDevice}
+          onUnlinkDevice={onUnlinkDevice}
           onReorder={onReorder}
         />
       </TooltipProvider>
@@ -224,6 +233,51 @@ describe("AssetEditWorkspace", () => {
 
     await user.click(screen.getByRole("button", { name: "Link device" }));
     expect(onLinkDevice).toHaveBeenCalledOnce();
+  });
+
+  it("unlinks a linked device once the detachment is confirmed", async () => {
+    const user = userEvent.setup();
+    const onUnlinkDevice = vi.fn<(deviceId: string) => void>();
+    renderWorkspace({ onUnlinkDevice });
+
+    await user.click(screen.getByRole("button", { name: "Unlink" }));
+
+    // Unlinking silently re-scopes automations and dashboards filtered on the
+    // zone, so it asks first — and names both sides of the link.
+    const dialog = await screen.findByRole("alertdialog");
+    expect(
+      within(dialog).getByText("Detach Lobby thermostat from Lobby?"),
+    ).toBeInTheDocument();
+    expect(onUnlinkDevice).not.toHaveBeenCalled();
+
+    await user.click(within(dialog).getByRole("button", { name: "Unlink" }));
+    expect(onUnlinkDevice).toHaveBeenCalledExactlyOnceWith("thermostat");
+  });
+
+  it("abandons the unlink when the confirmation is cancelled", async () => {
+    const user = userEvent.setup();
+    const onUnlinkDevice = vi.fn<(deviceId: string) => void>();
+    renderWorkspace({ onUnlinkDevice });
+
+    await user.click(screen.getByRole("button", { name: "Unlink" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    expect(onUnlinkDevice).not.toHaveBeenCalled();
+  });
+
+  it("hides the unlink affordance from users without device write access", () => {
+    renderWorkspace({ canWriteDevices: false });
+
+    expect(
+      screen.getByRole("link", { name: "Lobby thermostat Thermostat" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Unlink" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Link device" }),
+    ).not.toBeInTheDocument();
   });
 
   it("keeps the form visible but disabled for read-only users", () => {
