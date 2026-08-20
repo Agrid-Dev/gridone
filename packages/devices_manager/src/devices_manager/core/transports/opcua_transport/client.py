@@ -198,6 +198,9 @@ class OpcuaTransportClient(
         ordered_addresses = list(dedupe_addresses(addresses).values())
         if not ordered_addresses:
             return
+        # The dominant (already-connected) path skips ensure_connected(),
+        # which is what refreshes this otherwise.
+        self._snapshot_attempt_generation()
         try:
             if not self.connection_state.is_connected:
                 await self.ensure_connected()

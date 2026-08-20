@@ -702,6 +702,20 @@ class TestConcurrentTerminalLatch:
         assert client._terminal_error is None  # noqa: SLF001
 
 
+class TestAttemptGenerationSnapshot:
+    def test_explicit_snapshot_refreshes_a_stale_generation(self) -> None:
+        # A caller that skips ensure_connected() (e.g. a poll loop, once
+        # already connected) must snapshot explicitly to stay current.
+        client = _mqtt_client()
+        client._snapshot_attempt_generation()  # noqa: SLF001
+
+        client.update_config({}, reconnect=False)
+
+        assert not client._attempt_is_current()  # noqa: SLF001
+        client._snapshot_attempt_generation()  # noqa: SLF001
+        assert client._attempt_is_current()  # noqa: SLF001
+
+
 class TestUpdateConfig:
     def test_partial_patch_merges_and_preserves_untouched_fields(self) -> None:
         # Regression: a partial config patch (only `ca_cert`) must

@@ -169,13 +169,18 @@ class TransportClient[T_TransportAddress: TransportAddress](ABC):
         """Write a value to the transport."""
         ...
 
-    def _raise_if_terminally_rejected(self) -> None:
-        """Re-raise an already-latched terminal error, and snapshot the config
-        generation for :meth:`_attempt_is_current`. Called here and, post-lock,
-        from each subclass's ``connect()`` — so a queued caller fails fast
-        instead of repeating a doomed attempt, and the generation snapshot
-        reflects what's actually in effect when the real I/O runs."""
+    def _snapshot_attempt_generation(self) -> None:
+        """Refresh the task-local generation :meth:`_attempt_is_current` checks
+        against. Callers that skip :meth:`ensure_connected` when already
+        connected (e.g. a poll loop) must call this explicitly, since nothing
+        else refreshes it for them."""
         _connect_attempt_generation.set(self._config_generation)
+
+    def _raise_if_terminally_rejected(self) -> None:
+        """Re-raise an already-latched terminal error. Called here and,
+        post-lock, from each subclass's ``connect()``, so a queued caller
+        fails fast instead of repeating a doomed attempt."""
+        self._snapshot_attempt_generation()
         if self._terminal_error is not None:
             # Re-park on every raise, not just the first: a coalesced reconnect
             # runs close() beforehand, which resets the state to closed() and
