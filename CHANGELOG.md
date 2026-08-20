@@ -1,3 +1,9 @@
+## v0.214.0 (2026-08-20)
+
+### Feat
+
+- **assets**: unlink a device from a zone
+
 ## v0.213.0 (2026-08-19)
 
 ### Feat
