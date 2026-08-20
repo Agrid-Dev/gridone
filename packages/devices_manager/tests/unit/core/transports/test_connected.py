@@ -29,6 +29,10 @@ class MockTransportClient:
         TransportClient applies to the read path too."""
         await self.connect()
 
+    def _attempt_is_current(self) -> bool:
+        """This mock doesn't model config generations — every attempt counts."""
+        return True
+
     async def connect(self):
         """All transport clients using @connected should connect within a Lock
         to avoid parallel connections."""
@@ -84,3 +88,23 @@ async def test_connection_status_on_connection_error():
     with pytest.raises(ValueError):  # noqa: PT011
         await client.read("a")
     assert client.connection_state.status == ConnectionStatus.ERROR
+
+
+class _StaleAttemptTransportClient(MockTransportClient):
+    """A client whose every connect attempt is already superseded."""
+
+    def _attempt_is_current(self) -> bool:
+        return False
+
+
+@pytest.mark.asyncio
+async def test_stale_attempt_does_not_overwrite_connection_state():
+    # A caller whose attempt has been superseded (_attempt_is_current() is
+    # False) must not clobber whatever state a fresher attempt already set.
+    client = _StaleAttemptTransportClient(fail_connect=True)
+    before = client.connection_state
+
+    with pytest.raises(ValueError):  # noqa: PT011
+        await client.read("a")
+
+    assert client.connection_state is before  # untouched by the stale failure

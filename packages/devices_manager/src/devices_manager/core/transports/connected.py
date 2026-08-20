@@ -26,6 +26,10 @@ class ConnectedProtocol(Protocol):
         """Connect unless a previous attempt failed terminally."""
         ...
 
+    def _attempt_is_current(self) -> bool:
+        """False if a newer config has superseded the attempt that just failed."""
+        ...
+
     @property
     def id(self) -> str:
         """Returns the id of the client (for logging mainly)."""
@@ -51,9 +55,11 @@ def connected[**P, T_Return](
                     type(e).__name__,
                     e,
                 )
-                self.connection_state = TransportConnectionState.connection_error(
-                    str(e)
-                )
+                # Don't let a stale (superseded) attempt clobber fresher state.
+                if self._attempt_is_current():
+                    self.connection_state = TransportConnectionState.connection_error(
+                        str(e)
+                    )
         return await func(self, *args, **kwargs)  # ty:ignore[invalid-argument-type]
 
     return wrapper  # ty:ignore[invalid-return-type]

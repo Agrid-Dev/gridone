@@ -54,6 +54,7 @@ class KNXTransportClient(PushTransportClient[KNXAddress]):
 
     async def connect(self) -> None:
         async with self._connection_lock:
+            self._raise_if_terminally_rejected()
             if self.connection_state.is_connected:
                 return
             self._xknx_instance = XKNX(
@@ -66,7 +67,9 @@ class KNXTransportClient(PushTransportClient[KNXAddress]):
                 )
             except Exception:
                 self._xknx_instance = None
-                self.connection_state = TransportConnectionState.connection_error()
+                # Don't let a stale (superseded) attempt clobber fresher state.
+                if self._attempt_is_current():
+                    self.connection_state = TransportConnectionState.connection_error()
                 raise
             await super().connect()
 

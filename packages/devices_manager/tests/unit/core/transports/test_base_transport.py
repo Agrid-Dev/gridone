@@ -534,14 +534,21 @@ class _ReconnectCountingTransportClient(RecordingTransportClient):
         self._terminal = terminal
 
     async def connect(self) -> None:
-        await asyncio.sleep(self._connect_delay)
-        self.connect_calls += 1
-        if self._fail_connects > 0:
-            self._fail_connects -= 1
-            msg = "boom"
-            raise (
-                TerminalConnectionError(msg) if self._terminal else ConnectionError(msg)
-            )
+        # Mirrors the real transports: recheck the latch right after
+        # acquiring the lock, so a caller queued behind a rejection fails
+        # fast instead of repeating it.
+        async with self._connection_lock:
+            self._raise_if_terminally_rejected()
+            await asyncio.sleep(self._connect_delay)
+            self.connect_calls += 1
+            if self._fail_connects > 0:
+                self._fail_connects -= 1
+                msg = "boom"
+                raise (
+                    TerminalConnectionError(msg)
+                    if self._terminal
+                    else ConnectionError(msg)
+                )
 
     async def close(self) -> None:
         self.close_calls += 1
@@ -649,6 +656,64 @@ class TestScheduleReconnect:
         assert client.connect_calls == 1  # still never touches the network again
         assert not client.connection_state.is_connected
         assert client.connection_state.info == "boom"
+
+
+class TestConcurrentTerminalLatch:
+    @pytest.mark.asyncio
+    async def test_only_one_rejection_reaches_the_network(self) -> None:
+        # Several devices sharing one transport all call ensure_connected()
+        # before the first rejection is recorded; only the first should pay
+        # for a real (failed) connect attempt.
+        client = _ReconnectCountingTransportClient(
+            connect_delay=0.02, fail_connects=100, terminal=True
+        )
+
+        results = await asyncio.gather(
+            *(client.ensure_connected() for _ in range(5)),
+            return_exceptions=True,
+        )
+
+        assert client.connect_calls == 1
+        assert all(isinstance(r, TerminalConnectionError) for r in results)
+
+    @pytest.mark.asyncio
+    async def test_config_fix_mid_flight_is_not_overwritten_by_the_stale_attempt(
+        self,
+    ) -> None:
+        # A caller's ensure_connected() (task A) is already inside connect()
+        # on the old config when update_config() lands and schedules a fresh
+        # reconnect (task B). A then fails on the config it started with;
+        # its result must not re-park the transport over B's success.
+        client = _ReconnectCountingTransportClient(
+            connect_delay=0.05, fail_connects=1, terminal=True
+        )
+
+        task_a = asyncio.create_task(client.ensure_connected())
+        await asyncio.sleep(0.01)  # let A get past the latch check, into connect()
+        client.update_config({})  # the operator's fix; schedules task B
+
+        with pytest.raises(TerminalConnectionError):
+            await task_a
+        await asyncio.sleep(0.1)  # let B's reconnect cycle finish
+
+        # B actually attempted (wasn't short-circuited by A's stale failure)
+        # and its result is what stands — not re-parked by A afterwards.
+        assert client.connect_calls == 2
+        assert client._terminal_error is None  # noqa: SLF001
+
+
+class TestAttemptGenerationSnapshot:
+    def test_explicit_snapshot_refreshes_a_stale_generation(self) -> None:
+        # A caller that skips ensure_connected() (e.g. a poll loop, once
+        # already connected) must snapshot explicitly to stay current.
+        client = _mqtt_client()
+        client._snapshot_attempt_generation()  # noqa: SLF001
+
+        client.update_config({}, reconnect=False)
+
+        assert not client._attempt_is_current()  # noqa: SLF001
+        client._snapshot_attempt_generation()  # noqa: SLF001
+        assert client._attempt_is_current()  # noqa: SLF001
 
 
 class TestUpdateConfig:

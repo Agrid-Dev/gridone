@@ -82,6 +82,7 @@ class OpcuaTransportClient(
 
     async def connect(self) -> None:
         async with self._connection_lock:
+            self._raise_if_terminally_rejected()
             if self.connection_state.is_connected:
                 return
             client = Client(
@@ -197,6 +198,9 @@ class OpcuaTransportClient(
         ordered_addresses = list(dedupe_addresses(addresses).values())
         if not ordered_addresses:
             return
+        # The dominant (already-connected) path skips ensure_connected(),
+        # which is what refreshes this otherwise.
+        self._snapshot_attempt_generation()
         try:
             if not self.connection_state.is_connected:
                 await self.ensure_connected()
@@ -214,7 +218,10 @@ class OpcuaTransportClient(
             # This path bypasses @connected, which is what parks the state for
             # every other read: without this an unreachable server would report
             # idle forever while every sweep fails.
-            self.connection_state = TransportConnectionState.connection_error(str(e))
+            if self._attempt_is_current():
+                self.connection_state = TransportConnectionState.connection_error(
+                    str(e)
+                )
             for address in ordered_addresses:
                 yield ReadError(address.id, e)
             return
