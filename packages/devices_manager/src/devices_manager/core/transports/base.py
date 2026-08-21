@@ -1,8 +1,8 @@
 import logging
 from abc import ABC, abstractmethod
-from asyncio import Lock, Task, create_task, sleep
+from asyncio import Event, Lock, Task, create_task, wait_for
 from collections.abc import AsyncGenerator
-from contextlib import AbstractAsyncContextManager, nullcontext
+from contextlib import AbstractAsyncContextManager, nullcontext, suppress
 from contextvars import ContextVar
 from typing import ClassVar
 
@@ -74,6 +74,8 @@ class TransportClient[T_TransportAddress: TransportAddress](ABC):
     _reconnect_pending: bool
     # Consecutive failed reconnect cycles; drives the backoff delay.
     _reconnect_attempt: int
+    # Set to cut a backoff sleep short when update_config() lands mid-wait.
+    _reconnect_wake: Event
     _terminal_error: TerminalConnectionError | None
     # Bumped by update_config(): lets a stale connect attempt recognize it's
     # been superseded and skip re-latching over the fix. See ensure_connected().
@@ -93,6 +95,7 @@ class TransportClient[T_TransportAddress: TransportAddress](ABC):
         self._reconnect_task = None
         self._reconnect_pending = False
         self._reconnect_attempt = 0
+        self._reconnect_wake = Event()
         self._terminal_error = None
         self._config_generation = 0
         self._sweep_memo = SweepMemo(self.id, self.protocol)
@@ -257,13 +260,19 @@ class TransportClient[T_TransportAddress: TransportAddress](ABC):
 
         async def reconnect() -> None:
             if self._reconnect_attempt > 0:
+                # Cap the exponent itself: float ** int raises OverflowError
+                # past ~1024 rather than saturating to inf, and 100 already
+                # blows past max_delay for any realistic base/multiplier.
+                exponent = min(self._reconnect_attempt - 1, 100)
                 delay = min(
                     self._reconnect_base_delay
-                    * self._reconnect_backoff_multiplier
-                    ** (self._reconnect_attempt - 1),
+                    * self._reconnect_backoff_multiplier**exponent,
                     self._reconnect_max_delay,
                 )
-                await sleep(delay)
+                self._reconnect_wake.clear()
+                # update_config() sets _reconnect_wake to cut this short.
+                with suppress(TimeoutError):
+                    await wait_for(self._reconnect_wake.wait(), delay)
             try:
                 await self.close()
                 await self.ensure_connected()
@@ -306,10 +315,11 @@ class TransportClient[T_TransportAddress: TransportAddress](ABC):
         # is where a partial update is type-checked and defaults are preserved.
         merged = {**self.config.model_dump(), **config}
         self.config = type(self.config).model_validate(merged)
-        # Re-arms a terminally refused transport and drops any backoff streak,
-        # so the operator's fix is tried promptly.
+        # Re-arms a terminally refused transport, drops any backoff streak, and
+        # wakes an in-flight backoff sleep, so the operator's fix is tried promptly.
         self._terminal_error = None
         self._reconnect_attempt = 0
+        self._reconnect_wake.set()
         self._config_generation += 1
         if reconnect:
             self.schedule_reconnect()
