@@ -1,3 +1,9 @@
+## v0.214.3 (2026-08-21)
+
+### Fix
+
+- **devices-manager**: scope opcua secure-channel message fallback to secured transports (#562)
+
 ## v0.214.2 (2026-08-20)
 
 ### Fix
