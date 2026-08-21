@@ -1,3 +1,9 @@
+## v0.214.5 (2026-08-21)
+
+### Refactor
+
+- **devices-manager**: consolidate opcua simplification/quality findings (#565)
+
 ## v0.214.4 (2026-08-21)
 
 ### Fix
