@@ -1,3 +1,9 @@
+## v0.214.4 (2026-08-21)
+
+### Fix
+
+- **devices-manager**: back off between reconnect attempts instead of retrying instantly (#563)
+
 ## v0.214.3 (2026-08-21)
 
 ### Fix
