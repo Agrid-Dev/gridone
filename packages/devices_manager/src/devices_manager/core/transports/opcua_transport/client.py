@@ -103,8 +103,7 @@ class OpcuaTransportClient(
                 # A failed/timed-out connect() may still have opened a socket
                 # mid-handshake; self._client is only assigned below, so
                 # nothing else can clean it up.
-                with contextlib.suppress(Exception):
-                    await client.disconnect()
+                await self._disconnect_quietly(client)
                 if is_secure_channel_rejection(
                     e, secure_channel_enabled=self.config.secure_channel_enabled
                 ):
@@ -129,24 +128,23 @@ class OpcuaTransportClient(
         # close() fails with a clean exception rather than hanging or
         # returning a stale/wrong result.
         async with self._read_lock, self._connection_lock:
-            if self._subscription is not None:
-                # Best-effort: the session (and with it, the subscription) is
-                # about to be torn down below regardless.
-                with contextlib.suppress(Exception):
-                    await self._subscription.delete()
-                self._subscription = None
-                self._monitored_items.clear()
+            # Best-effort: the session (and with it, the subscription) is
+            # about to be torn down below regardless.
+            await self._teardown_subscription()
             if self._client is not None:
-                try:
-                    await self._client.disconnect()
-                except Exception:  # noqa: BLE001
-                    logger.warning(
-                        "[Transport %s] error while disconnecting",
-                        self.id,
-                        exc_info=True,
-                    )
+                await self._disconnect_quietly(self._client)
                 self._client = None
             await super().close()
+
+    async def _disconnect_quietly(self, client: Client) -> None:
+        try:
+            await client.disconnect()
+        except Exception:  # noqa: BLE001
+            logger.warning(
+                "[Transport %s] error while disconnecting",
+                self.id,
+                exc_info=True,
+            )
 
     async def _resubscribe_all(self, client: Client) -> None:
         """Recreate MonitoredItems for every listened address after a
@@ -158,7 +156,7 @@ class OpcuaTransportClient(
         for topic in address_ids:
             try:
                 node = client.get_node(topic)
-                server_handle = await self._create_monitored_item(subscription, node)
+                await self._create_and_record_monitored_item(subscription, node, topic)
             except Exception:  # noqa: BLE001
                 logger.warning(
                     "[Transport %s] failed to resubscribe %s after reconnect",
@@ -166,8 +164,6 @@ class OpcuaTransportClient(
                     topic,
                     exc_info=True,
                 )
-                continue
-            self._monitored_items[topic] = server_handle
 
     async def _on_connection_lost(self, exc: Exception) -> None:
         """asyncua's hook for a session lost outside a request."""
@@ -267,18 +263,15 @@ class OpcuaTransportClient(
                 node = client.get_node(topic)
                 subscription = await self._ensure_subscription(client)
                 try:
-                    server_handle = await self._create_monitored_item(
-                        subscription, node
+                    await self._create_and_record_monitored_item(
+                        subscription, node, topic
                     )
                 except Exception:
                     # Best-effort: delete() failing must not shadow the
                     # original error (e.g. BadNodeIdUnknown).
                     if not self._monitored_items:
-                        with contextlib.suppress(Exception):
-                            await subscription.delete()
-                        self._subscription = None
+                        await self._teardown_subscription()
                     raise
-                self._monitored_items[topic] = server_handle
             return self._handlers_registry.register(topic, callback)
 
     @connected
@@ -298,9 +291,15 @@ class OpcuaTransportClient(
                 await self._subscription.unsubscribe(server_handle)
             if not self._monitored_items:
                 # Best-effort: delete() failing must not block cleanup.
-                with contextlib.suppress(Exception):
-                    await self._subscription.delete()
-                self._subscription = None
+                await self._teardown_subscription()
+
+    async def _teardown_subscription(self) -> None:
+        if self._subscription is None:
+            return
+        with contextlib.suppress(Exception):
+            await self._subscription.delete()
+        self._subscription = None
+        self._monitored_items.clear()
 
     async def _ensure_subscription(self, client: Client) -> Subscription:
         # is_deleted guards against a dangling deleted Subscription, which
@@ -310,6 +309,13 @@ class OpcuaTransportClient(
                 self.config.sampling_interval_ms, self
             )
         return self._subscription
+
+    async def _create_and_record_monitored_item(
+        self, subscription: Subscription, node: Node, topic: str
+    ) -> int:
+        server_handle = await self._create_monitored_item(subscription, node)
+        self._monitored_items[topic] = server_handle
+        return server_handle
 
     async def _create_monitored_item(
         self, subscription: Subscription, node: Node
@@ -332,10 +338,10 @@ class OpcuaTransportClient(
             return result
         # Raises a typed ua.UaStatusCodeError, e.g. for an unknown NodeId;
         # create_monitored_items only stores a StatusCode here for Bad ones,
-        # so this fallthrough is unreachable — guard for type-narrowing only.
+        # so the line below is unreachable — guard for type-narrowing only.
         result.check()
         msg = f"Unexpected Good StatusCode in monitored-item failure path: {result}"
-        raise ua.uaerrors.UaError(msg)
+        raise AssertionError(msg)
 
     def _deadband_filter(self) -> ua.DataChangeFilter:
         deadband_filter = ua.DataChangeFilter()

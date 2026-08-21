@@ -3,7 +3,7 @@ from typing import Any
 
 import pytest
 from asyncua import ua
-from conftest import OpcuaServerHandle, string_address
+from conftest import OpcuaServerHandle, string_address, wait_until
 
 from devices_manager.core.transports.opcua_transport.client import OpcuaTransportClient
 
@@ -23,10 +23,6 @@ async def _write_with_status(
         StatusCode=ua.StatusCode(status_code),  # ty: ignore[invalid-argument-type]
     )
     await node.write_value(data_value)
-
-
-async def _wait_for(event: asyncio.Event, *, timeout_s: float = 5.0) -> None:
-    await asyncio.wait_for(event.wait(), timeout=timeout_s)
 
 
 def _noop(_value: object) -> None:
@@ -51,7 +47,7 @@ async def test_datachange_notification_delivers_within_sampling_interval(
     await opcua_client.register_listener(address.topic, on_change)
     await opcua_server.nodes["Int32"].write_value(99, ua.VariantType.Int32)
 
-    await _wait_for(event)
+    await wait_until(event.is_set)
     assert received[-1] == 99
 
 
@@ -77,8 +73,8 @@ async def test_multiple_listeners_on_one_node_all_fire(
     await opcua_client.register_listener(address.topic, on_change_second)
     await opcua_server.nodes["Int32"].write_value(7, ua.VariantType.Int32)
 
-    await _wait_for(first_event)
-    await _wait_for(second_event)
+    await wait_until(first_event.is_set)
+    await wait_until(second_event.is_set)
     assert first_values[-1] == 7
     assert second_values[-1] == 7
 
@@ -148,7 +144,7 @@ async def test_datachange_uses_same_decode_path_as_read(
         ua.VariantType.ExtensionObject,
     )
 
-    await _wait_for(event)
+    await wait_until(event.is_set)
     updated = received[-1]
     assert isinstance(updated, dict)
     assert updated["Name"] == "Updated"
@@ -197,7 +193,7 @@ async def test_reconnect_resubscribes_existing_listeners(
 
     assert address.topic in opcua_client._monitored_items  # noqa: SLF001
     await opcua_server.nodes["Int32"].write_value(55, ua.VariantType.Int32)
-    await _wait_for(event)
+    await wait_until(event.is_set)
     assert received[-1] == 55
 
 
@@ -240,7 +236,7 @@ async def test_datachange_with_uncertain_status_is_still_delivered(
         ua.StatusCodes.UncertainLastUsableValue,
     )
 
-    await _wait_for(event)
+    await wait_until(event.is_set)
     assert received[-1] == 88
 
 

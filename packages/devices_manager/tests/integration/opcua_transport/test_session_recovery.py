@@ -1,26 +1,20 @@
 import asyncio
 import contextlib
-from collections.abc import Callable
 
 import pytest
 from asyncua import Server, ua
 from asyncua.common.node import Node
-from conftest import NAMESPACE_URI, OpcuaServerHandle, _node_id, string_address
+from conftest import (
+    NAMESPACE_URI,
+    OpcuaServerHandle,
+    _node_id,
+    string_address,
+    wait_until,
+)
 
 from devices_manager.core.transports.opcua_transport.client import OpcuaTransportClient
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.integration]
-
-
-async def _wait_until(predicate: Callable[[], bool], *, timeout_s: float = 5.0) -> None:
-    """Poll a predicate with no dedicated Event to wait on instead —
-    connection_state is a plain attribute, not an event source."""
-
-    async def poll() -> None:
-        while not predicate():  # noqa: ASYNC110
-            await asyncio.sleep(0.02)
-
-    await asyncio.wait_for(poll(), timeout=timeout_s)
 
 
 async def _restart_server(
@@ -61,7 +55,7 @@ async def _simulate_outage_and_recover(
             and (task is None or task.done())
         )
 
-    await _wait_until(_settled)
+    await wait_until(_settled)
     return new_server, new_node
 
 
