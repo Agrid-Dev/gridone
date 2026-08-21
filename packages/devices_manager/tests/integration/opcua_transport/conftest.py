@@ -1,6 +1,7 @@
+import asyncio
 import contextlib
 import socket
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Callable
 from datetime import UTC, datetime
 from typing import NamedTuple
 
@@ -58,6 +59,23 @@ def free_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(("127.0.0.1", 0))
         return s.getsockname()[1]
+
+
+async def stop_server_quietly(server: Server) -> None:
+    """Best-effort stop — a test may have already stopped the server."""
+    with contextlib.suppress(Exception):
+        await server.stop()
+
+
+async def wait_until(predicate: Callable[[], bool], *, timeout_s: float = 5.0) -> None:
+    """Poll a predicate with no dedicated Event to wait on instead —
+    connection_state is a plain attribute, not an event source."""
+
+    async def poll() -> None:
+        while not predicate():  # noqa: ASYNC110
+            await asyncio.sleep(0.02)
+
+    await asyncio.wait_for(poll(), timeout=timeout_s)
 
 
 def string_address(idx: int, name: str) -> OpcuaAddress:
@@ -119,9 +137,7 @@ async def opcua_server() -> AsyncGenerator[OpcuaServerHandle]:
     try:
         yield OpcuaServerHandle(endpoint, idx, nodes, server)
     finally:
-        # A test may have already stopped the server; double-stop is a no-op.
-        with contextlib.suppress(Exception):
-            await server.stop()
+        await stop_server_quietly(server)
 
 
 @pytest_asyncio.fixture

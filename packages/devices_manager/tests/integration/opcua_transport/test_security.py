@@ -11,7 +11,7 @@ from asyncua import Server, ua
 from asyncua.crypto.cert_gen import setup_self_signed_certificate
 from asyncua.crypto.truststore import TrustStore
 from asyncua.crypto.validator import CertificateValidator, CertificateValidatorOptions
-from conftest import NAMESPACE_URI, free_port
+from conftest import NAMESPACE_URI, free_port, stop_server_quietly
 from cryptography.x509.oid import ExtendedKeyUsageOID
 
 from devices_manager.core.transports.opcua_transport import pki
@@ -101,8 +101,7 @@ async def _running_server(
     try:
         yield server, endpoint, idx
     finally:
-        with contextlib.suppress(Exception):
-            await server.stop()
+        await stop_server_quietly(server)
 
 
 async def _start_secured_server(
