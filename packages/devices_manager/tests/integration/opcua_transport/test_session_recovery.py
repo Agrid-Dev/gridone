@@ -50,7 +50,18 @@ async def _simulate_outage_and_recover(
 ) -> tuple[Server, Node]:
     new_server, new_node = await _restart_server(current_server, endpoint, idx)
     await opcua_client._on_connection_lost(ConnectionError("session lost"))  # noqa: SLF001
-    await _wait_until(lambda: opcua_client.connection_state.is_connected)
+
+    def _settled() -> bool:
+        # Wait for any coalesced reconnect cycle to fully drain, not just
+        # the first "connected" flip, so callers read a stable _monitored_items.
+        task = opcua_client._reconnect_task  # noqa: SLF001
+        return (
+            opcua_client.connection_state.is_connected
+            and not opcua_client._reconnect_pending  # noqa: SLF001
+            and (task is None or task.done())
+        )
+
+    await _wait_until(_settled)
     return new_server, new_node
 
 

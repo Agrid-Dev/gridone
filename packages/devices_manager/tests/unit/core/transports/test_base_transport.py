@@ -6,6 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from devices_manager.core.transports import TransportMetadata
+from devices_manager.core.transports import base as base_module
 from devices_manager.core.transports.base import TerminalConnectionError
 from devices_manager.core.transports.http_transport import HTTPTransportClient
 from devices_manager.core.transports.http_transport.http_address import HttpAddress
@@ -517,7 +518,11 @@ class _ReconnectCountingTransportClient(RecordingTransportClient):
     """Counts connect()/close() calls, with a delay so a reconnect can be
     observed as still in-flight. `fail_connects` makes the first N connect()
     calls raise before succeeding; `terminal` makes those failures the kind
-    retrying can never fix."""
+    retrying can never fix. Backoff constants are shrunk so tests stay fast."""
+
+    _reconnect_base_delay = 0.01
+    _reconnect_backoff_multiplier = 2.0
+    _reconnect_max_delay = 0.05
 
     def __init__(
         self,
@@ -612,9 +617,9 @@ class TestScheduleReconnect:
 
     @pytest.mark.asyncio
     async def test_a_terminal_failure_is_not_retried(self) -> None:
-        # There is no backoff on the retry path, so a failure that can never
-        # succeed (e.g. a rejected certificate) has to stop the loop rather
-        # than spin at full speed until the config changes.
+        # A failure that can never succeed (e.g. a rejected certificate) has
+        # to stop the loop rather than wait and retry until the config
+        # changes — backoff only applies to the retryable path.
         client = _ReconnectCountingTransportClient(
             connect_delay=0.01, fail_connects=100, terminal=True
         )
@@ -656,6 +661,149 @@ class TestScheduleReconnect:
         assert client.connect_calls == 1  # still never touches the network again
         assert not client.connection_state.is_connected
         assert client.connection_state.info == "boom"
+
+
+class TestReconnectBackoff:
+    """Production-scale constants + mocked `sleep`: verifies the delay math
+    without the test actually waiting."""
+
+    @staticmethod
+    def _patch_backoff_constants(
+        monkeypatch: pytest.MonkeyPatch, *, base: float, multiplier: float, cap: float
+    ) -> None:
+        monkeypatch.setattr(
+            _ReconnectCountingTransportClient, "_reconnect_base_delay", base
+        )
+        monkeypatch.setattr(
+            _ReconnectCountingTransportClient,
+            "_reconnect_backoff_multiplier",
+            multiplier,
+        )
+        monkeypatch.setattr(
+            _ReconnectCountingTransportClient, "_reconnect_max_delay", cap
+        )
+
+    @staticmethod
+    def _patch_wait_for(
+        monkeypatch: pytest.MonkeyPatch, recorded_delays: list[float]
+    ) -> None:
+        """Records the timeout passed to `wait_for(wake.wait(), delay)`
+        without actually waiting — the coroutine is never run, just closed
+        to avoid a "was never awaited" warning."""
+
+        async def fake_wait_for(coro: object, delay: float) -> None:
+            coro.close()  # type: ignore[attr-defined]
+            recorded_delays.append(delay)
+
+        monkeypatch.setattr(base_module, "wait_for", fake_wait_for)
+
+    @pytest.mark.asyncio
+    async def test_delay_grows_with_consecutive_failures(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        recorded_delays: list[float] = []
+        self._patch_wait_for(monkeypatch, recorded_delays)
+        self._patch_backoff_constants(monkeypatch, base=1.0, multiplier=2.0, cap=60.0)
+        client = _ReconnectCountingTransportClient(connect_delay=0, fail_connects=3)
+
+        client.schedule_reconnect()
+        await asyncio.sleep(0.05)
+
+        assert recorded_delays == [1.0, 2.0, 4.0]
+        assert client.connect_calls == 4  # 3 failures + the succeeding attempt
+        assert client._reconnect_attempt == 0  # noqa: SLF001
+
+    @pytest.mark.asyncio
+    async def test_delay_resets_after_a_successful_reconnect(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        recorded_delays: list[float] = []
+        self._patch_wait_for(monkeypatch, recorded_delays)
+        self._patch_backoff_constants(monkeypatch, base=1.0, multiplier=2.0, cap=60.0)
+        client = _ReconnectCountingTransportClient(connect_delay=0, fail_connects=2)
+
+        client.schedule_reconnect()  # fails twice, then succeeds
+        await asyncio.sleep(0.05)
+        assert recorded_delays == [1.0, 2.0]
+
+        client._fail_connects = 1  # noqa: SLF001  # a fresh failure streak
+        client.schedule_reconnect()
+        await asyncio.sleep(0.05)
+
+        # Starts over from the base delay, not carrying on from 4.0.
+        assert recorded_delays == [1.0, 2.0, 1.0]
+
+    @pytest.mark.asyncio
+    async def test_delay_is_capped(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        recorded_delays: list[float] = []
+        self._patch_wait_for(monkeypatch, recorded_delays)
+        self._patch_backoff_constants(monkeypatch, base=1.0, multiplier=2.0, cap=3.0)
+        client = _ReconnectCountingTransportClient(connect_delay=0, fail_connects=5)
+
+        client.schedule_reconnect()
+        await asyncio.sleep(0.05)
+
+        assert recorded_delays == [1.0, 2.0, 3.0, 3.0, 3.0]
+
+    @pytest.mark.asyncio
+    async def test_delay_computation_does_not_overflow_at_large_attempt_counts(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Regression: float ** int raises OverflowError past a huge exponent
+        # instead of saturating to inf — reachable after ~1024 consecutive
+        # failures with base=1.0/multiplier=2.0 (~1024 outage cycles).
+        recorded_delays: list[float] = []
+        self._patch_wait_for(monkeypatch, recorded_delays)
+        self._patch_backoff_constants(monkeypatch, base=1.0, multiplier=2.0, cap=60.0)
+        client = _ReconnectCountingTransportClient(connect_delay=0, fail_connects=0)
+        client._reconnect_attempt = 2000  # noqa: SLF001
+
+        client.schedule_reconnect()  # must not raise OverflowError
+        await asyncio.sleep(0.05)
+
+        assert recorded_delays == [60.0]
+        assert client._reconnect_attempt == 0  # noqa: SLF001
+
+    @pytest.mark.asyncio
+    async def test_update_config_resets_the_backoff_streak(self) -> None:
+        # An operator's fix shouldn't be penalized by a backoff accumulated
+        # from the failure it's fixing.
+        client = _ReconnectCountingTransportClient(
+            connect_delay=0.005, fail_connects=50
+        )
+
+        client.schedule_reconnect()
+        await asyncio.sleep(0.1)
+        assert client._reconnect_attempt > 0  # noqa: SLF001  # mid failure streak
+
+        client._fail_connects = 0  # noqa: SLF001  # simulate the underlying fix
+        client.update_config({})
+        await asyncio.sleep(0.1)
+
+        assert client._reconnect_attempt == 0  # noqa: SLF001
+        assert client._reconnect_pending is False  # noqa: SLF001
+
+    @pytest.mark.asyncio
+    async def test_update_config_interrupts_an_in_flight_backoff_sleep(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Regression: update_config() reset the streak but a sleep already
+        # in flight ran to completion regardless, so the fix wasn't tried
+        # until the old delay elapsed.
+        self._patch_backoff_constants(monkeypatch, base=5.0, multiplier=2.0, cap=60.0)
+        client = _ReconnectCountingTransportClient(connect_delay=0, fail_connects=1)
+
+        client.schedule_reconnect()  # fails once, then sleeps 5s before retrying
+        await asyncio.sleep(0.05)
+        assert client._reconnect_attempt == 1  # noqa: SLF001  # mid the 5s sleep
+
+        client._fail_connects = 0  # noqa: SLF001  # simulate the underlying fix
+        start = asyncio.get_event_loop().time()
+        client.update_config({})
+        await asyncio.sleep(0.05)
+
+        assert asyncio.get_event_loop().time() - start < 1.0  # didn't wait out the 5s
+        assert client._reconnect_attempt == 0  # noqa: SLF001
 
 
 class TestConcurrentTerminalLatch:
