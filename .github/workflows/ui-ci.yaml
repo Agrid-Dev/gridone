@@ -21,7 +21,7 @@ jobs:
 
       # reuse the setup-node step via YAML anchor
       - &setup_node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version-file: ./apps/ui/.nvmrc
           cache: npm
