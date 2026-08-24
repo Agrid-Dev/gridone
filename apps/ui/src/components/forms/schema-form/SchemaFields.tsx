@@ -198,7 +198,10 @@ const newArrayItemValue = (item: ArrayItemDescriptor): unknown => {
   );
 };
 
-const messageAtPath = (errors: unknown, path: string): string | undefined => {
+export const messageAtPath = (
+  errors: unknown,
+  path: string,
+): string | undefined => {
   let value = errors;
   for (const segment of path.split(".")) {
     if (typeof value !== "object" || value === null) return undefined;
