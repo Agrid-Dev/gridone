@@ -125,3 +125,14 @@ services:
       - ./fixtures/opcua-plc-nodes.json:/fixtures/opcua-plc-nodes.json:ro
     ports:
       - "9086:50000"
+
+  # Disposable emulator that is stopped during connectionStatus.ts test suite
+  # to check for status evolution.
+  #
+  thermocktat-connection-status:
+    image: ghcr.io/agrid-dev/thermocktat:v0.10.0
+    environment:
+      TMK_DEVICE_ID: TMK_connection_0
+      TMK_CONTROLLER: http
+    ports:
+      - "9087:8080"

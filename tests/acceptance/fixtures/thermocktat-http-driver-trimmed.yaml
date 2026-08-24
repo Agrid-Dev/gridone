@@ -1,0 +1,18 @@
+# Trimmed thermocktat http driver used for connectionStatus.spec.ts
+# Only 1 attribute + shorter polling interval
+#
+id: thermocktat_http_trimmed
+transport: http
+
+update_strategy:
+  polling: 1s
+
+device_config:
+  - name: ip
+
+attributes:
+  - name: temperature
+    data_type: float
+    read: "GET ${ip}/v1"
+    codecs:
+      - json_pointer: /ambient_temperature
