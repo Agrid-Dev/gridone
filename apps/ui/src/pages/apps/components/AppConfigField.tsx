@@ -13,6 +13,10 @@ import type {
   SchemaWidgetProps,
 } from "@/components/forms/schema-form";
 import { ASSET_ID_FORMAT, type AppSchemaNode } from "@/lib/appConfigSchema";
+import { ZoneOverridesField } from "./ZoneOverridesField";
+
+/** Field name the zone-overrides table widget is keyed on (AGR-1067). */
+const ZONE_OVERRIDES_FIELD = "zone_overrides";
 
 interface AppConfigFieldProps {
   name: string;
@@ -45,6 +49,17 @@ export const AppConfigField: FC<AppConfigFieldProps> = ({
 }) => {
   const isArray = schema.type === "array";
   const itemSchema = schema.items ?? {};
+
+  if (name === ZONE_OVERRIDES_FIELD && isArray) {
+    return (
+      <ZoneOverridesField
+        name={name}
+        schema={schema}
+        control={control}
+        required={required}
+      />
+    );
+  }
 
   if (
     schema.format === ASSET_ID_FORMAT ||
@@ -99,6 +114,9 @@ export const AppConfigField: FC<AppConfigFieldProps> = ({
  *  secret widget masks it (same path as the first-party `secret` marker). */
 const needsAppWidget = (field: FieldDescriptor): boolean => {
   const schema = field.schema as AppSchemaNode;
+  if (field.name === ZONE_OVERRIDES_FIELD) {
+    return true;
+  }
   if (schema.format === ASSET_ID_FORMAT) {
     return true;
   }

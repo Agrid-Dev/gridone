@@ -71,5 +71,22 @@
     "discardConfirmDetails": "Rejeter la demande d'enregistrement de \u00ab {{name}} \u00bb ? Cette action est irr\u00e9versible.",
     "showArchive": "Afficher les trait\u00e9es ({{count}})",
     "hideArchive": "Masquer les trait\u00e9es"
+  },
+  "zoneOverrides": {
+    "count_one": "{{count}} d\u00e9rogation",
+    "count_other": "{{count}} d\u00e9rogations",
+    "collapse": "R\u00e9duire",
+    "expand": "D\u00e9velopper",
+    "searchPlaceholder": "Rechercher une pi\u00e8ce\u2026",
+    "empty": "Aucune pi\u00e8ce n'a de d\u00e9rogation pour l'instant.",
+    "noResults": "Aucune d\u00e9rogation ne correspond \u00e0 cette recherche.",
+    "add": "Ajouter une d\u00e9rogation",
+    "noneAvailable": "Aucune pi\u00e8ce pilot\u00e9e disponible",
+    "remove": "Supprimer la d\u00e9rogation",
+    "columns": {
+      "zone": "Zone",
+      "zoneType": "Type",
+      "enabled": "Activ\u00e9e"
+    }
   }
 }

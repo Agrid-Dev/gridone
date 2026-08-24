@@ -71,5 +71,22 @@
     "discardConfirmDetails": "Discard registration request from \"{{name}}\"? This action cannot be undone.",
     "showArchive": "Show processed ({{count}})",
     "hideArchive": "Hide processed"
+  },
+  "zoneOverrides": {
+    "count_one": "{{count}} override",
+    "count_other": "{{count}} overrides",
+    "collapse": "Collapse",
+    "expand": "Expand",
+    "searchPlaceholder": "Search rooms…",
+    "empty": "No room has an override yet.",
+    "noResults": "No override matches this search.",
+    "add": "Add override",
+    "noneAvailable": "No piloted room available",
+    "remove": "Remove override",
+    "columns": {
+      "zone": "Zone",
+      "zoneType": "Type",
+      "enabled": "Enabled"
+    }
   }
 }
