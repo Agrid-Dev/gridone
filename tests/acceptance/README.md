@@ -56,3 +56,39 @@ Environment overrides: `GRIDONE_API` (default `http://localhost:8765/api`),
   the SDK casing convention.
 - No teardown between tests: the stack is ephemeral (`stack:down` wipes the
   volume-less database), so suites seed what they need and leave it.
+
+## Fixtures and their lifetime
+
+A **fixture set** is a driver, a transport, and the devices built on them,
+seeded by `seedFixtureSet` in `lib/fixtures.ts`. Every step is get-or-create, so
+re-seeding a live stack reuses what is there.
+
+Where a set is declared says who owns it:
+
+- **Shared** (`http`, `modbus`, `mqtt`, `knx`, `bacnet`) — `setup/globalSetup.ts`,
+  seeded once per run, read with `inject("devicesByFixture")[key]`. The
+  `SharedFixtureKey` union closes that record, so reaching for a suite-owned set
+  from the shared context is a compile error.
+- **Suite-owned** — declared in the suite and seeded in its `beforeAll`
+  (`connectionStatus.spec.ts`, `opcua.spec.ts`). Nothing else can build on it and
+  a seeding failure fails one file, not the run. A suite needing a device state
+  the golden path forbids (unreachable, faulty) takes its own emulator this way,
+  since emulator state is shared by every device pointed at it.
+
+Add to `globalSetup` only what more than one suite depends on.
+
+Fixture sets are torn down by `stack:down` and nothing else. Suites must not
+delete them — they are shared, projects run in parallel, and get-or-create means
+they never accumulate. Resources a test creates at runtime are per-run, uniquely
+named (`…-${Date.now()}`) and unbounded, so those suites drain a `createdIds`
+list in `afterEach`.
+
+Leaving fixtures in place is deliberate: a non-fresh stack is the state a real
+deployment is always in, and the residue carries signal the suites rely on —
+accumulated read history, timeseries bounded by `runStart`, and re-seeding
+conflicts that have surfaced real bugs.
+
+`connectionStatus.spec.ts` owns `thermocktat-connection-status` (`9087`) and
+drives `docker compose stop/start` on it via `lib/emulator.ts`. It is the one
+suite needing a local Docker socket: it fails, rather than skips, against a
+remote `GRIDONE_API`.

@@ -1,46 +1,44 @@
-import { readFileSync } from "node:fs";
-import type { Device } from "@gridone/sdk";
+import type { Device, TransportCreate } from "@gridone/sdk";
 import { beforeAll, describe, expect, it } from "vitest";
 import { makeAdminClient, pollUntil } from "../../lib/api";
+import { seedFixtureSet, type FixtureSet } from "../../lib/fixtures";
 import { currentValue } from "./goldenPath";
 
 const DRIVER_ID = "opcua_plc";
 const OPCUA_ENDPOINT = "opc.tcp://opcua-plc:50000";
 
-// Seeded here, not in setup/globalSetup.ts: a throw below must only fail this
-// file, not the shared seeding step every other protocol suite depends on.
+// Suite-owned: only this suite uses the opcua emulator, and a seeding failure
+// must fail this file rather than the shared step.
+const FIXTURE: FixtureSet = {
+  key: "opcua",
+  driverId: DRIVER_ID,
+  driverFixture: "opcua-plc-driver.yaml",
+  // The SDK's TransportCreate union has no "opcua" variant yet.
+  transport: {
+    name: "acceptance-opcua",
+    protocol: "opcua",
+    config: { endpoint_url: OPCUA_ENDPOINT },
+  } as unknown as TransportCreate,
+  devices: [
+    {
+      name: "OPC-UA acceptance PLC",
+      config: {},
+      externalUrl: "", // opc-plc is the one emulator with no http side-channel
+    },
+  ],
+};
+
 describe("opcua device", () => {
   let device: Device;
 
   beforeAll(async () => {
     const client = await makeAdminClient();
 
-    const yaml = readFileSync(
-      new URL("../../fixtures/opcua-plc-driver.yaml", import.meta.url),
-      "utf8",
-    );
-    await client.drivers.create(DRIVER_ID, { yaml });
-
-    // Raw request: the SDK's TransportCreate union doesn't have an "opcua"
-    // variant yet.
-    const transport = await client.request<{ id: string }>(
-      "POST",
-      "/transports/",
-      {
-        body: {
-          name: "acceptance-opcua",
-          protocol: "opcua",
-          config: { endpoint_url: OPCUA_ENDPOINT },
-        },
-      },
-    );
-
-    device = await client.devices.create({
-      name: "OPC-UA acceptance PLC",
-      driver_id: DRIVER_ID,
-      transport_id: transport.id,
-      config: {},
-    });
+    const [seeded] = await seedFixtureSet(client, FIXTURE);
+    if (!seeded) {
+      throw new Error(`Fixture set "${FIXTURE.key}" seeded no device`);
+    }
+    device = await client.devices.get(seeded.id);
 
     // opc-plc zero-initializes numeric/bool nodes but leaves a fresh String
     // node's value unset (null) until first written — seed it so the read

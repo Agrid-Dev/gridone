@@ -1,7 +1,7 @@
 import { createHmac } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { isGridoneError, type GridoneClient } from "@gridone/sdk";
-import { beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { baseUrl, makeAdminClient, pollUntil } from "../../lib/api";
 
 // Black-box run of the webhook ingress pipeline (AGR-955): driver loaded from
@@ -57,6 +57,7 @@ describe("webhook ingress", () => {
   let client: GridoneClient;
   let transportId: string;
   let deviceId: string;
+  const createdTransportIds: string[] = [];
 
   beforeAll(async () => {
     client = await makeAdminClient();
@@ -78,6 +79,7 @@ describe("webhook ingress", () => {
       config: { auth: "bearer", secret: SECRET },
     });
     transportId = transport.id;
+    createdTransportIds.push(transportId);
 
     const device = await client.devices.create({
       name: `Webhook Room ${RUN}`,
@@ -86,6 +88,19 @@ describe("webhook ingress", () => {
       config: { room_id: ROOM_ID },
     });
     deviceId = device.id;
+  });
+
+  // Everything here is named per run, so it would pile up on a long-lived
+  // stack. Errors are swallowed so a failed cleanup can't mask a real failure,
+  // and the device goes first: a transport still carrying devices won't drop.
+  afterAll(async () => {
+    if (deviceId) {
+      await client.devices.delete(deviceId).catch(() => undefined);
+    }
+    while (createdTransportIds.length > 0) {
+      const id = createdTransportIds.pop();
+      if (id) await client.transports.delete(id).catch(() => undefined);
+    }
   });
 
   it("rejects pushes without valid credentials with a generic 401", async () => {
@@ -193,6 +208,7 @@ describe("webhook ingress", () => {
       protocol: "webhook",
       config: { auth: "hmac_sha256", secret: SECRET },
     });
+    createdTransportIds.push(transport.id);
 
     const body = snapshot(20, 50, false);
     const digest = createHmac("sha256", SECRET).update(body).digest("hex");
@@ -206,7 +222,5 @@ describe("webhook ingress", () => {
       "x-signature-256": `sha256=${"0".repeat(64)}`,
     });
     expect(badSignature.status).toBe(401);
-
-    await client.transports.delete(transport.id);
   });
 });
