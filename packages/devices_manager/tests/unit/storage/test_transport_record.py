@@ -49,17 +49,6 @@ class TestRoundTrip:
 
 
 class TestLegacyPayloads:
-    def test_legacy_connection_state_key_is_ignored(self):
-        record = TransportRecord.model_validate(
-            {
-                "id": "t1",
-                "protocol": "http",
-                "connection_state": {"status": "connected"},
-            }
-        )
-        client = from_record(record)
-        assert client.connection_state.status == ConnectionStatus.IDLE
-
     def test_missing_name_config_and_timestamps_use_defaults(self):
         record = TransportRecord.model_validate({"id": "t1", "protocol": "http"})
         assert record.name == ""

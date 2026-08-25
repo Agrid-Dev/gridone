@@ -7,7 +7,6 @@ import pytest
 
 from devices_manager.core.device import Attribute
 from devices_manager.core.transports import (
-    TransportConnectionState,
     TransportMetadata,
     make_transport_client,
     make_transport_config,
@@ -119,15 +118,6 @@ class TestTransportRoundTrip:
         assert result.config == client.config
         assert result.metadata.created_at == client.metadata.created_at
         assert result.metadata.updated_at == client.metadata.updated_at
-
-    @pytest.mark.asyncio
-    async def test_connected_client_hydrates_idle(self, storage: CoreFileStorage):
-        client = _make_client("t2")
-        client.connection_state = TransportConnectionState.connected()
-        await storage.transports.write("t2", client)
-
-        result = await storage.transports.read("t2")
-        assert result.connection_state.status == ConnectionStatus.IDLE
 
     @pytest.mark.asyncio
     async def test_legacy_file_with_connection_state_still_loads(

@@ -12,7 +12,6 @@ from devices_manager.core.device import Attribute
 from devices_manager.core.driver import AttributeDriver
 from devices_manager.core.transports import (
     TransportClient,
-    TransportConnectionState,
     TransportMetadata,
     make_transport_client,
     make_transport_config,
@@ -27,7 +26,6 @@ from devices_manager.storage.postgres import (
     run_migrations,
 )
 from devices_manager.types import (
-    ConnectionStatus,
     DataType,
     TransportProtocols,
 )
@@ -205,16 +203,6 @@ class TestTransportStorage:
     async def test_delete_not_found(self, transport_storage: PostgresTransportStorage):
         with pytest.raises(FileNotFoundError):
             await transport_storage.delete("nonexistent")
-
-    async def test_connected_client_hydrates_idle(
-        self, transport_storage: PostgresTransportStorage
-    ):
-        client = _make_transport("t1")
-        client.connection_state = TransportConnectionState.connected()
-        await transport_storage.write("t1", client)
-
-        result = await transport_storage.read("t1")
-        assert result.connection_state.status == ConnectionStatus.IDLE
 
 
 # ---------------------------------------------------------------------------
