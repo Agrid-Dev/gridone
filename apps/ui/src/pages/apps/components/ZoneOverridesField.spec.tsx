@@ -307,7 +307,7 @@ describe("ZoneOverridesField", () => {
     expect(switches[2]).toHaveAttribute("aria-checked", "true");
   });
 
-  it("copies zone_type onto the target along with the other settings", async () => {
+  it("does not copy zone_type onto the target — it gets the schema default", async () => {
     const user = userEvent.setup();
     renderField({
       piloted_zones: ["z1", "z2"],
@@ -322,9 +322,10 @@ describe("ZoneOverridesField", () => {
       within(copyCell).getByRole("button", { name: "Copy to 1 rooms" }),
     );
 
-    // zone_type is just another editable setting now, not a per-room label
-    // excluded from the copy — both rows show the source's "office".
-    expect(screen.getAllByDisplayValue("office")).toHaveLength(2);
+    // zone_type describes the room itself, not a copyable setting — the
+    // source keeps "office", the copy gets the schema default ("room").
+    expect(screen.getByDisplayValue("office")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("room")).toBeInTheDocument();
   });
 
   it("does not offer an already-overridden room as a copy target", () => {
@@ -342,6 +343,32 @@ describe("ZoneOverridesField", () => {
     expect(
       within(copyCell).getByText("No piloted room available"),
     ).toBeInTheDocument();
+  });
+
+  it("excludes a room from copy targets once it has just been copied to", async () => {
+    const user = userEvent.setup();
+    renderField({
+      piloted_zones: ["z1", "z2", "z3"],
+      zone_overrides: [{ zone_id: "z1", zone_type: "office", enabled: true }],
+    });
+
+    const copyCell = screen
+      .getByRole("button", { name: "Copy to other rooms" })
+      .closest("td")!;
+    await user.click(within(copyCell).getByText("Room 102"));
+    await user.click(
+      within(copyCell).getByRole("button", { name: "Copy to 1 rooms" }),
+    );
+
+    // Room 102 is now overridden — the source row's copy picker must no
+    // longer offer it, only the still-un-overridden Room 103.
+    const copyCellAfter = screen
+      .getAllByRole("button", { name: "Copy to other rooms" })[0]
+      .closest("td")!;
+    expect(
+      within(copyCellAfter).queryByText("Room 102"),
+    ).not.toBeInTheDocument();
+    expect(within(copyCellAfter).getByText("Room 103")).toBeInTheDocument();
   });
 
   it("collapses and expands, showing the override count either way", async () => {

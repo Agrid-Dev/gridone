@@ -53,6 +53,9 @@ interface ZoneOverridesFieldProps {
  *  declares on an override renders generically as a table column. */
 const ZONE_FIELD = "zone_id";
 const ENABLED_FIELD = "enabled";
+/** Describes what kind of room the target zone *is* — not a copyable HVAC
+ *  setting, so a copy never inherits it from the source row. */
+const ZONE_TYPE_FIELD = "zone_type";
 
 /** `zone_overrides`'s sibling object property — the add and copy pickers'
  *  candidate set is that list minus rooms already overridden. */
@@ -144,11 +147,23 @@ export const ZoneOverridesField: FC<ZoneOverridesFieldProps> = ({
   };
 
   /** A copy carries every *setting* the source row has (AC: "the source
-   *  room's values") onto the target room, keyed by its own `zone_id`. */
+   *  room's values") onto the target room, keyed by its own `zone_id` —
+   *  except `zone_type`, which describes the target room itself and gets
+   *  the same schema default a freshly-added row would (AC: "not a
+   *  copyable setting"). */
   const copyRowValue = (
     sourceRow: OverrideRow,
     targetZoneId: string,
-  ): OverrideRow => ({ ...sourceRow, [ZONE_FIELD]: targetZoneId });
+  ): OverrideRow => {
+    const row: OverrideRow = { ...sourceRow, [ZONE_FIELD]: targetZoneId };
+    const zoneTypeDefault = properties[ZONE_TYPE_FIELD]?.default;
+    if (zoneTypeDefault === undefined) {
+      delete row[ZONE_TYPE_FIELD];
+    } else {
+      row[ZONE_TYPE_FIELD] = zoneTypeDefault;
+    }
+    return row;
+  };
 
   const visibleRows = fields
     .map((field, index) => ({
