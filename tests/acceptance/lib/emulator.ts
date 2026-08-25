@@ -44,7 +44,7 @@ export async function stopEmulator(service: string): Promise<void> {
 /** Powers an emulator back up. Returning does not mean it serves yet — pair
  *  with `waitForEmulator`. */
 export async function startEmulator(service: string): Promise<void> {
-  await compose("start", service);
+  await compose("up", "-d", service);
 }
 
 async function isServing(url: string): Promise<boolean> {

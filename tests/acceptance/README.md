@@ -89,6 +89,6 @@ accumulated read history, timeseries bounded by `runStart`, and re-seeding
 conflicts that have surfaced real bugs.
 
 `connectionStatus.spec.ts` owns `thermocktat-connection-status` (`9087`) and
-drives `docker compose stop/start` on it via `lib/emulator.ts`. It is the one
+stops and starts it via `lib/emulator.ts`. It is the one
 suite needing a local Docker socket: it fails, rather than skips, against a
 remote `GRIDONE_API`.
