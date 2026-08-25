@@ -50,7 +50,6 @@ interface ZoneOverridesFieldProps {
 /** Row properties this widget renders itself; every other property the app
  *  declares on an override renders generically as a table column. */
 const ZONE_FIELD = "zone_id";
-const ZONE_TYPE_FIELD = "zone_type";
 const ENABLED_FIELD = "enabled";
 
 /** `zone_overrides`'s sibling in the same (flat) app config form — the add
@@ -64,10 +63,10 @@ type OverrideRow = Record<string, unknown>;
  *  Only rooms with an override are rows (sparse, not one row per piloted
  *  room), so a 400-room hotel with 9 overrides shows 9 rows. Replaces the
  *  generic `SchemaFields`/`ArrayWidget` stacked-card rendering for this one
- *  field: `zone_id`/`zone_type`/`enabled` get dedicated columns (room name,
- *  read-only type label, editable toggle), any other declared property
- *  (e.g. `comfort`, check-in/out) renders through the shared per-kind
- *  controllers, unlabeled, as a plain column. */
+ *  field: `zone_id` and `enabled` get dedicated columns (room name, editable
+ *  toggle), every other declared property (`zone_type`, `comfort`,
+ *  check-in/out) renders through the shared per-kind controllers, unlabeled,
+ *  as a plain column. */
 export const ZoneOverridesField: FC<ZoneOverridesFieldProps> = ({
   name,
   schema,
@@ -115,10 +114,7 @@ export const ZoneOverridesField: FC<ZoneOverridesFieldProps> = ({
 
   const properties = schema.items?.properties ?? {};
   const extraColumns = Object.entries(properties).filter(
-    ([propName]) =>
-      propName !== ZONE_FIELD &&
-      propName !== ZONE_TYPE_FIELD &&
-      propName !== ENABLED_FIELD,
+    ([propName]) => propName !== ZONE_FIELD && propName !== ENABLED_FIELD,
   );
 
   const newRowValue = (zoneId: string): OverrideRow => {
@@ -206,9 +202,6 @@ export const ZoneOverridesField: FC<ZoneOverridesFieldProps> = ({
                   <TableHead className="w-36">
                     {t("zoneOverrides.columns.zone")}
                   </TableHead>
-                  <TableHead className="w-28">
-                    {t("zoneOverrides.columns.zoneType")}
-                  </TableHead>
                   {extraColumns.map(([propName, propSchema]) => (
                     <TableHead key={propName} className="w-32">
                       {propSchema.title ?? toLabel(propName)}
@@ -226,13 +219,6 @@ export const ZoneOverridesField: FC<ZoneOverridesFieldProps> = ({
                   return (
                     <TableRow key={field.id}>
                       <TableCell className="font-medium">{zoneName}</TableCell>
-                      <TableCell>
-                        {rows[index]?.[ZONE_TYPE_FIELD] !== undefined && (
-                          <Badge variant="secondary">
-                            {toLabel(String(rows[index][ZONE_TYPE_FIELD]))}
-                          </Badge>
-                        )}
-                      </TableCell>
                       {extraColumns.map(([propName, propSchema]) => (
                         <TableCell key={propName}>
                           <RowCell
@@ -271,8 +257,8 @@ export const ZoneOverridesField: FC<ZoneOverridesFieldProps> = ({
   );
 };
 
-/** One override property beyond `zone_id`/`zone_type`/`enabled` (e.g. `comfort`,
- *  check-in/out), dispatched by kind through the same primitives the
+/** One override property beyond `zone_id`/`enabled` (e.g. `zone_type`,
+ *  `comfort`, check-in/out), dispatched by kind through the same primitives the
  *  schema-form registry uses — unlabeled, since the column header already
  *  carries the label. */
 const RowCell: FC<{

@@ -19,7 +19,6 @@ vi.mock("react-i18next", () =>
     "zoneOverrides.noneAvailable": "No piloted room available",
     "zoneOverrides.remove": "Remove override",
     "zoneOverrides.columns.zone": "Zone",
-    "zoneOverrides.columns.zoneType": "Type",
     "zoneOverrides.columns.enabled": "Enabled",
   }),
 );
@@ -187,14 +186,18 @@ describe("ZoneOverridesField", () => {
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
 
-  it("shows zone_type as a read-only label and enabled as a switch", async () => {
+  it("shows zone_type as an editable cell and enabled as a switch", async () => {
     const user = userEvent.setup();
     renderField({
       piloted_zones: ["z1"],
       zone_overrides: [{ zone_id: "z1", zone_type: "office", enabled: false }],
     });
 
-    expect(screen.getByText("Office")).toBeInTheDocument();
+    const zoneType = screen.getByDisplayValue("office");
+    await user.clear(zoneType);
+    await user.type(zoneType, "suite");
+    expect(zoneType).toHaveValue("suite");
+
     const toggle = screen.getByRole("switch");
     expect(toggle).toHaveAttribute("aria-checked", "false");
 

@@ -85,7 +85,6 @@
     "remove": "Remove override",
     "columns": {
       "zone": "Zone",
-      "zoneType": "Type",
       "enabled": "Enabled"
     }
   }

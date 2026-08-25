@@ -85,7 +85,6 @@
     "remove": "Supprimer la d\u00e9rogation",
     "columns": {
       "zone": "Zone",
-      "zoneType": "Type",
       "enabled": "Activ\u00e9e"
     }
   }
