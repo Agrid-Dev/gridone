@@ -9,6 +9,7 @@ import type {
 import { makeAdminClient, pollUntil } from "../../lib/api";
 import { startEmulator, waitForEmulator } from "../../lib/emulator";
 import { seedFixtureSet, type FixtureSet } from "../../lib/fixtures";
+import { writeThermocktat } from "../../lib/thermocktat";
 
 // Suite-owned, not in globalSetup: this suite drives the setpoint across an
 // automation's threshold, and the shared "http" devices are asserted against
@@ -65,17 +66,8 @@ const NOTIFICATION_TITLE = `${DEVICE_NAME} setpoint too high`;
 const NOTIFICATION_BODY = `Setpoint went above ${SETPOINT_THRESHOLD} (${RUN_ID})`;
 const NOTIFICATION_SEVERITY = "warning";
 
-async function postSetpoint(value: number): Promise<Response> {
-  return fetch(`${EXTERNAL_URL}/v1/temperature_setpoint`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ value }),
-  });
-}
-
-async function setSetpoint(value: number): Promise<void> {
-  expect((await postSetpoint(value)).ok).toBe(true);
-}
+const setSetpoint = (value: number) =>
+  writeThermocktat(EXTERNAL_URL, "temperature_setpoint", value);
 
 function connectionStatus(device: Device): ConnectionStatus {
   return device.attributes!["connection_status"]!
@@ -126,7 +118,7 @@ describe("Automations triggered by an attribute change", () => {
   afterAll(async () => {
     // The emulator outlives the device, and the trigger fires on a *change*:
     // a setpoint left above the threshold would never cross it again.
-    await postSetpoint(SETPOINT_BELOW_THRESHOLD).catch(() => undefined);
+    await setSetpoint(SETPOINT_BELOW_THRESHOLD).catch(() => undefined);
     // Before the device: the automation holds a live attribute listener on it.
     if (automationId) {
       await client.automations.delete(automationId).catch(() => undefined);

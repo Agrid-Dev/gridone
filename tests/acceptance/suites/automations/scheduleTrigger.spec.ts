@@ -8,6 +8,7 @@ import type {
 import { makeAdminClient, pollUntil } from "../../lib/api";
 import { startEmulator, waitForEmulator } from "../../lib/emulator";
 import { seedFixtureSet, type FixtureSet } from "../../lib/fixtures";
+import { writeThermocktat } from "../../lib/thermocktat";
 
 // Shares attributeTrigger.spec.ts's emulator (compose service
 // thermocktat-automations) but owns its own device and transport, and drives a
@@ -67,17 +68,8 @@ function attributeValue(device: Device, attribute: string) {
   return device.attributes![attribute]!.current_value;
 }
 
-async function postEnabled(value: boolean): Promise<Response> {
-  return fetch(`${EXTERNAL_URL}/v1/enabled`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ value }),
-  });
-}
-
-async function setEnabled(value: boolean): Promise<void> {
-  expect((await postEnabled(value)).ok).toBe(true);
-}
+const setEnabled = (value: boolean) =>
+  writeThermocktat(EXTERNAL_URL, "enabled", value);
 
 describe("Automations triggered on a schedule", () => {
   let client: GridoneClient;
@@ -111,7 +103,7 @@ describe("Automations triggered on a schedule", () => {
       await client.automations.delete(automationId).catch(() => undefined);
     }
     // The emulator outlives the device, and this suite leaves it switched off.
-    await postEnabled(true).catch(() => undefined);
+    await setEnabled(true).catch(() => undefined);
     if (template) {
       await client.devices.commandTemplates
         .delete(template.id)

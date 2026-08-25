@@ -3,6 +3,7 @@ import type { Device, GridoneClient, NotificationDispatch } from "@gridone/sdk";
 import { makeAdminClient, pollUntil } from "../../lib/api";
 import { startEmulator, waitForEmulator } from "../../lib/emulator";
 import { seedFixtureSet, type FixtureSet } from "../../lib/fixtures";
+import { writeThermocktat } from "../../lib/thermocktat";
 
 // Suite-owned, not in globalSetup: this suite flips the device's fault_code
 // back and forth, so it needs its own device rather than one of the shared
@@ -48,17 +49,8 @@ function faultCode(device: Device): string {
   return device.attributes!["fault_code"]!.current_value as string;
 }
 
-async function postFaultCode(code: number): Promise<Response> {
-  return fetch(`${EXTERNAL_URL}/v1/fault_code`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ value: code }),
-  });
-}
-
-async function setFaultCode(code: number): Promise<void> {
-  expect((await postFaultCode(code)).ok).toBe(true);
-}
+const setFaultCode = (code: number) =>
+  writeThermocktat(EXTERNAL_URL, "fault_code", code);
 
 describe("Fault notifications dispatch on healthy/faulty transitions", () => {
   let client: GridoneClient;
@@ -109,7 +101,7 @@ describe("Fault notifications dispatch on healthy/faulty transitions", () => {
   afterAll(async () => {
     // The emulator outlives the device, and a fresh device inheriting a stale
     // fault would dispatch on its very first read.
-    await postFaultCode(FAULT_CODE.ok).catch(() => undefined);
+    await setFaultCode(FAULT_CODE.ok).catch(() => undefined);
     if (deviceId) {
       await client.devices.delete(deviceId).catch(() => undefined);
     }
