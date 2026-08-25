@@ -1,4 +1,8 @@
-import { isGridoneError, type GridoneClient, type Transport } from "@gridone/sdk";
+import {
+  isGridoneError,
+  type GridoneClient,
+  type Transport,
+} from "@gridone/sdk";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { makeAdminClient } from "../../lib/api";
 

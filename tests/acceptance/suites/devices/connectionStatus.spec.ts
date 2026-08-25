@@ -1,4 +1,4 @@
-import { describe, beforeAll, it, expect, inject } from "vitest";
+import { describe, beforeAll, it, expect } from "vitest";
 import type { Device, GridoneClient, ConnectionStatus } from "@gridone/sdk";
 import { makeAdminClient } from "../../lib/api";
 import {
@@ -6,17 +6,38 @@ import {
   stopEmulator,
   waitForEmulator,
 } from "../../lib/emulator";
+import { seedFixtureSet, type FixtureSet } from "../../lib/fixtures";
 
-// gridone derives connection_status from the last N read outcomes of every
-// attribute: one failed read makes the window mixed (degraded), a window of
-// nothing but failures makes it error — and symmetrically on the way back up.
-// So a flip costs one poll and a drain costs a full window, and every deadline
-// below is that arithmetic. Keep them in step with the driver fixture
-// (fixtures/thermocktat-http-driver-trimmed.yaml).
+// Suite-owned, not in globalSetup: this suite stops and starts its emulator,
+// so no other suite may build on it.
+const SERVICE = "thermocktat-connection-status";
+const EXTERNAL_URL = "http://localhost:9087";
+
+const FIXTURE: FixtureSet = {
+  key: "connection-status",
+  driverId: "thermocktat_http_trimmed",
+  driverFixture: "thermocktat-http-driver-trimmed.yaml",
+  transport: {
+    name: "acceptance-http-connection-status",
+    protocol: "http",
+    config: {},
+  },
+  devices: [
+    {
+      name: "Thermocktat up and down",
+      config: { ip: `http://${SERVICE}:8080` },
+      externalUrl: EXTERNAL_URL,
+    },
+  ],
+};
+
+// connection_status comes from the last N read outcomes: one failure makes the
+// window mixed (degraded), a full window of failures makes it error. So a flip
+// costs one poll and a drain costs a window. Keep in step with the driver
+// fixture (fixtures/thermocktat-http-driver-trimmed.yaml).
 const POLL_INTERVAL_MS = 1_000;
 const READ_WINDOW = 10;
-// The timings above are deterministic, but a loaded CI box can delay a sweep
-// and a spurious timeout costs a whole rerun.
+// Slack for a loaded CI box; the timings themselves are deterministic.
 const SLACK_POLLS = 8;
 const SAMPLE_MS = 250;
 const UNTIL_FLIP = {
@@ -33,57 +54,47 @@ function getConnectionStatus(device: Device): ConnectionStatus {
     .current_value as ConnectionStatus;
 }
 
+async function startService() {
+  await startEmulator(SERVICE);
+  await waitForEmulator(EXTERNAL_URL);
+}
+
 describe("Connection status updates when device goes down and up", () => {
   let client: GridoneClient;
-
-  const device = inject("devicesByProtocol")["http-connection-status"]?.[0];
-  if (!device?.service) {
-    throw new Error(
-      "This suite needs a seeded device carrying its compose `service` " +
-        "(see setup/globalSetup.ts)",
-    );
-  }
-  // Destructured out of the seed: property narrowing doesn't survive into the
-  // test callbacks below, plain consts do.
-  const { id: deviceId, externalUrl, service } = device;
+  let deviceId: string;
 
   const readStatus = async () =>
     getConnectionStatus(await client.devices.get(deviceId));
-
-  async function startService() {
-    await startEmulator(service);
-    await waitForEmulator(externalUrl);
-  }
 
   beforeAll(async () => {
     client = await makeAdminClient();
     await startService();
 
-    // Longer than waitForEmulator's own deadline: vitest hooks time out at 10s
-    // by default, which would kill this hook before the wait could report why.
+    const [device] = await seedFixtureSet(client, FIXTURE);
+    if (!device) {
+      throw new Error(`Fixture set "${FIXTURE.key}" seeded no device`);
+    }
+    deviceId = device.id;
+
+    // Beats vitest's 10s hook default, which would fire before waitForEmulator.
   }, 40_000);
 
-  // One journey, split for readability: the steps run in declaration order and
-  // each one's precondition is the previous one's outcome.
+  // One journey: the steps run in declaration order, each precondition being
+  // the previous step's outcome.
 
   it("reports ok once the device is up", async () => {
-    // A drain, not a flip: a previous run may have left the device climbing
-    // back from error.
+    // A drain, not a flip: a previous run may have left it climbing from error.
     await expect.poll(readStatus, UNTIL_DRAIN).toBe("ok");
   });
 
-  // Device goes down
-
   it("degrades on the first failed poll", async () => {
-    await stopEmulator(service);
+    await stopEmulator(SERVICE);
     await expect.poll(readStatus, UNTIL_FLIP).toBe("degraded");
   });
 
   it("errors once the whole read window has failed", async () => {
     await expect.poll(readStatus, UNTIL_DRAIN).toBe("error");
   });
-
-  // Device goes back up
 
   it("back to degraded on the first successful new poll", async () => {
     await startService();

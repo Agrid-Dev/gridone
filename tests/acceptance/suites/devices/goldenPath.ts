@@ -6,6 +6,7 @@ import type {
 } from "@gridone/sdk";
 import { beforeAll, describe, expect, inject, it } from "vitest";
 import { makeAdminClient, pollUntil } from "../../lib/api";
+import type { SharedFixtureKey } from "../../setup/globalSetup";
 
 // Timeseries queries start here so re-runs against a non-fresh stack only
 // look at points produced by this run.
@@ -48,8 +49,8 @@ const COMMANDS: {
  * histories. Within a device block the steps run in declaration order and
  * the history steps assert on what the command step recorded in `written`.
  */
-export function goldenPathSuite(protocol: string): void {
-  const seededDevices = inject("devicesByProtocol")[protocol] ?? [];
+export function goldenPathSuite(protocol: SharedFixtureKey): void {
+  const seededDevices = inject("devicesByFixture")[protocol];
   const deviceIds = seededDevices.map((device) => device.id);
 
   let client: GridoneClient;
