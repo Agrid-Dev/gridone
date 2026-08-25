@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
@@ -7,7 +8,7 @@ import pytest
 import pytest_asyncio
 
 from models.errors import InvalidError
-from timeseries.domain import DataPoint, DataType, SeriesKey
+from timeseries.domain import DataPoint, DataType, SeriesKey, TimeSeries
 from timeseries.service import TimeSeriesService
 
 if TYPE_CHECKING:
@@ -139,6 +140,53 @@ class TestHistoryPush:
                 create_if_not_found=True,
                 validate_data_type=DataType.FLOAT,
             )
+
+    async def test_concurrent_first_writes_both_succeed(
+        self, service: TimeSeriesService
+    ):
+        """Two racing first-writes to the same brand-new key must both
+        succeed, with exactly one series created.
+
+        MemoryStorage has no real suspension points, so plain
+        ``asyncio.gather`` would run both calls sequentially and never
+        exercise the race. ``get_series_by_key`` is gated below to force both
+        calls past their "series is None" check before either creates it,
+        reproducing the actual race window.
+        """
+        key = SeriesKey(owner_id=DEVICE_ID, metric=SETPOINT)
+        storage = service._backend  # noqa: SLF001
+        original_get_series_by_key = storage.get_series_by_key
+        release = asyncio.Event()
+        seen = 0
+
+        async def gated_get_series_by_key(k: SeriesKey) -> TimeSeries | None:
+            nonlocal seen
+            result = await original_get_series_by_key(k)
+            if k == key:
+                seen += 1
+                if seen == 1:
+                    await release.wait()
+                else:
+                    release.set()
+            return result
+
+        storage.get_series_by_key = gated_get_series_by_key  # type: ignore[method-assign]
+
+        await asyncio.gather(
+            service.upsert_points(
+                key,
+                [DataPoint(timestamp=_ts(10), value=22.0)],
+                create_if_not_found=True,
+            ),
+            service.upsert_points(
+                key,
+                [DataPoint(timestamp=_ts(11), value=23.0)],
+                create_if_not_found=True,
+            ),
+        )
+
+        series = await service.list_series(owner_id=DEVICE_ID, metric=SETPOINT)
+        assert len(series) == 1
 
     async def test_validate_data_type_allows_empty_points_on_new_series(
         self, service: TimeSeriesService

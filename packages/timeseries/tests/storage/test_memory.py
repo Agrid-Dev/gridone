@@ -66,6 +66,23 @@ class TestCreateSeries:
             await storage.create_series(second)
 
 
+class TestGetOrCreateSeries:
+    async def test_creates_when_missing(self, storage: MemoryStorage):
+        series = _make_series()
+        created = await storage.get_or_create_series(series)
+        assert created.id == series.id
+        assert await storage.get_series_by_key(KEY) is not None
+
+    async def test_returns_existing_on_key_collision(self, storage: MemoryStorage):
+        first = await storage.create_series(_make_series())
+        second = _make_series()  # same key, different id
+
+        result = await storage.get_or_create_series(second)
+
+        assert result.id == first.id
+        assert await storage.list_series() == [first]
+
+
 class TestGetSeries:
     async def test_not_found(self, storage: MemoryStorage):
         assert await storage.get_series("nonexistent") is None

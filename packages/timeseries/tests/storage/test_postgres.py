@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import os
 from datetime import UTC, datetime, timedelta
 
@@ -84,6 +85,46 @@ class TestCreateSeries:
         second = _make_series()  # same key, different id
         with pytest.raises(InvalidError, match="already exists"):
             await storage.create_series(second)
+
+
+class TestGetOrCreateSeries:
+    async def test_creates_when_missing(self, storage):
+        series = _make_series()
+        created = await storage.get_or_create_series(series)
+        assert created.id == series.id
+        assert await storage.get_series_by_key(KEY) is not None
+
+    async def test_returns_existing_on_key_collision(self, storage):
+        first = await storage.create_series(_make_series())
+        second = _make_series()  # same key, different id
+
+        result = await storage.get_or_create_series(second)
+
+        assert result.id == first.id
+        assert len(await storage.list_series()) == 1
+
+    async def test_concurrent_first_writes_do_not_race(self, storage):
+        """Two concurrent get_or_create_series calls for a brand-new key must
+        both succeed, and exactly one series must end up created."""
+        candidates = [_make_series() for _ in range(10)]
+
+        results = await asyncio.gather(
+            *(storage.get_or_create_series(c) for c in candidates)
+        )
+
+        series = await storage.list_series()
+        assert len(series) == 1
+        assert {r.id for r in results} == {series[0].id}
+
+    async def test_id_collision_raises_invalid_error(self, storage):
+        """A primary-key collision must be translated like create_series
+        does, not leak a raw asyncpg error."""
+        existing = await storage.create_series(_make_series())
+        colliding = _make_series(key=SeriesKey(owner_id="s2", metric="other"))
+        colliding.id = existing.id
+
+        with pytest.raises(InvalidError, match="already exists"):
+            await storage.get_or_create_series(colliding)
 
 
 class TestGetSeries:
