@@ -2,7 +2,8 @@
 # Mirrors the reference driver from gridone-setup (.db/drivers/
 # thermocktat_http.yaml), plus test-env deltas: fast polling (2s) so read-back
 # assertions resolve quickly, and a fault_code attribute mapped to readable
-# labels through the mapping codec.
+# labels through the mapping codec and declared `kind: fault` so healthy/
+# faulty transitions dispatch notifications (api/notification_listeners/fault.py).
 #
 # NOTE: the reference file uses an attribute-level `json_pointer:` shorthand
 # that current gridone silently ignores (AttributeDriver only reads `codecs:`,
@@ -91,8 +92,11 @@ attributes:
         value: ${value}
 
   - name: fault_code
+    kind: fault
     data_type: str
     read: "GET ${ip}/v1"
+    severity: alert
+    healthy_value: ok
     codecs:
       - json_pointer: /fault_code
       - mapping:
