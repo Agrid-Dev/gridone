@@ -36,6 +36,14 @@ class MemoryStorage:
         self._key_index[stored.key] = stored.id
         return deepcopy(stored)
 
+    async def get_or_create_series(self, series: TimeSeries) -> TimeSeries:
+        # Atomic only because nothing here awaits between the check and the
+        # insert, so the event loop can't interleave another call in between.
+        existing_id = self._key_index.get(series.key)
+        if existing_id is not None:
+            return deepcopy(self._series[existing_id])
+        return await self.create_series(series)
+
     async def get_series(self, series_id: str) -> TimeSeries | None:
         series = self._series.get(series_id)
         return deepcopy(series) if series else None
