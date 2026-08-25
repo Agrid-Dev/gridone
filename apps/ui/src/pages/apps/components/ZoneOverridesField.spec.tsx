@@ -18,6 +18,8 @@ vi.mock("react-i18next", () =>
     "zoneOverrides.add": "Add override",
     "zoneOverrides.noneAvailable": "No piloted room available",
     "zoneOverrides.remove": "Remove override",
+    "zoneOverrides.copy": "Copy to other rooms",
+    "zoneOverrides.copyConfirm": "Copy to {{count}} rooms",
     "zoneOverrides.columns.zone": "Zone",
     "zoneOverrides.columns.enabled": "Enabled",
   }),
@@ -81,7 +83,7 @@ const schema: AppSchemaNode = {
     type: "object",
     properties: {
       zone_id: { type: "string", format: "asset-id" },
-      zone_type: { type: "string" },
+      zone_type: { type: "string", default: "room" },
       comfort: { type: "number" },
       enabled: { type: "boolean", default: true },
     },
@@ -126,8 +128,9 @@ describe("ZoneOverridesField", () => {
 
     const table = within(screen.getByRole("table"));
     expect(table.getByText("Room 101")).toBeInTheDocument();
-    expect(table.queryByText("Room 102")).not.toBeInTheDocument();
-    expect(table.queryByText("Room 103")).not.toBeInTheDocument();
+    // One header row + one override row, regardless of what a row's own
+    // "copy to rooms" picker also renders inside the table.
+    expect(table.getAllByRole("row")).toHaveLength(2);
   });
 
   it("filters visible rows by room name", async () => {
@@ -167,7 +170,10 @@ describe("ZoneOverridesField", () => {
       zone_overrides: [{ zone_id: "z1", zone_type: "office", enabled: true }],
     });
 
-    const options = screen.getAllByRole("option");
+    // Scoped to the toolbar (above the table): a row's own copy-to-rooms
+    // picker renders the same candidate set inside the table.
+    const toolbar = screen.getByPlaceholderText("Search rooms").parentElement!;
+    const options = within(toolbar).getAllByRole("option");
     expect(options).toHaveLength(2);
     expect(within(options[0]).getByText("Room 102")).toBeInTheDocument();
     expect(within(options[1]).getByText("Room 103")).toBeInTheDocument();
@@ -232,7 +238,10 @@ describe("ZoneOverridesField", () => {
 
     // z2 is the only piloted room without an override; finding it proves the
     // sibling lookup followed the `config.` prefix rather than the root.
-    const options = screen.getAllByRole("option");
+    // Scoped to the toolbar: a row's own copy-to-rooms picker renders the
+    // same candidate set inside the table.
+    const toolbar = screen.getByPlaceholderText("Search rooms").parentElement!;
+    const options = within(toolbar).getAllByRole("option");
     expect(options).toHaveLength(1);
     expect(within(options[0]).getByText("Room 102")).toBeInTheDocument();
   });
@@ -263,6 +272,76 @@ describe("ZoneOverridesField", () => {
     expect(
       screen.queryByDisplayValue("[object Object]"),
     ).not.toBeInTheDocument();
+  });
+
+  it("copies an override's values to selected rooms as independent rows", async () => {
+    const user = userEvent.setup();
+    renderField({
+      piloted_zones: ["z1", "z2", "z3"],
+      zone_overrides: [{ zone_id: "z1", zone_type: "office", enabled: true }],
+    });
+
+    const copyCell = screen
+      .getByRole("button", { name: "Copy to other rooms" })
+      .closest("td")!;
+    await user.click(within(copyCell).getByText("Room 102"));
+    await user.click(within(copyCell).getByText("Room 103"));
+    await user.click(
+      within(copyCell).getByRole("button", { name: "Copy to 2 rooms" }),
+    );
+
+    const table = within(screen.getByRole("table"));
+    expect(table.getByText("Room 101")).toBeInTheDocument();
+    expect(table.getByText("Room 102")).toBeInTheDocument();
+    expect(table.getByText("Room 103")).toBeInTheDocument();
+    const switches = table.getAllByRole("switch");
+    expect(switches).toHaveLength(3);
+    expect(
+      switches.every((s) => s.getAttribute("aria-checked") === "true"),
+    ).toBe(true);
+
+    // Independence: flipping the copy doesn't affect the source or the other copy.
+    await user.click(switches[1]);
+    expect(switches[0]).toHaveAttribute("aria-checked", "true");
+    expect(switches[1]).toHaveAttribute("aria-checked", "false");
+    expect(switches[2]).toHaveAttribute("aria-checked", "true");
+  });
+
+  it("copies zone_type onto the target along with the other settings", async () => {
+    const user = userEvent.setup();
+    renderField({
+      piloted_zones: ["z1", "z2"],
+      zone_overrides: [{ zone_id: "z1", zone_type: "office", enabled: true }],
+    });
+
+    const copyCell = screen
+      .getByRole("button", { name: "Copy to other rooms" })
+      .closest("td")!;
+    await user.click(within(copyCell).getByText("Room 102"));
+    await user.click(
+      within(copyCell).getByRole("button", { name: "Copy to 1 rooms" }),
+    );
+
+    // zone_type is just another editable setting now, not a per-room label
+    // excluded from the copy — both rows show the source's "office".
+    expect(screen.getAllByDisplayValue("office")).toHaveLength(2);
+  });
+
+  it("does not offer an already-overridden room as a copy target", () => {
+    renderField({
+      piloted_zones: ["z1", "z2"],
+      zone_overrides: [
+        { zone_id: "z1", zone_type: "office", enabled: true },
+        { zone_id: "z2", zone_type: "office", enabled: true },
+      ],
+    });
+
+    const copyCell = screen
+      .getAllByRole("button", { name: "Copy to other rooms" })[0]
+      .closest("td")!;
+    expect(
+      within(copyCell).getByText("No piloted room available"),
+    ).toBeInTheDocument();
   });
 
   it("collapses and expands, showing the override count either way", async () => {

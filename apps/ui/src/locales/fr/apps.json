@@ -83,6 +83,9 @@
     "add": "Ajouter une d\u00e9rogation",
     "noneAvailable": "Aucune pi\u00e8ce pilot\u00e9e disponible",
     "remove": "Supprimer la d\u00e9rogation",
+    "copy": "Copier vers d'autres pi\u00e8ces",
+    "copyConfirm_one": "Copier vers {{count}} pi\u00e8ce",
+    "copyConfirm_other": "Copier vers {{count}} pi\u00e8ces",
     "columns": {
       "zone": "Zone",
       "enabled": "Activ\u00e9e"
