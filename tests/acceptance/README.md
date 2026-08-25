@@ -92,6 +92,11 @@ A suite-owned set may also delete itself in `afterAll` (`faultNotification.spec.
 `suites/automations/`): its device is one no other suite may observe, so leaving
 it behind would only add a device the golden path never asserts on.
 
+Two files may share one emulator as long as they drive _different attributes_:
+`suites/automations/` points both specs at `thermocktat-automations` (`9089`),
+one writing `temperature_setpoint` and the other `onoff_state`, each with its
+own device and transport. That is what lets vitest run them in parallel.
+
 `connectionStatus.spec.ts` owns `thermocktat-connection-status` (`9087`) and
 stops and starts it via `lib/emulator.ts`. It is the one
 suite needing a local Docker socket: it fails, rather than skips, against a
