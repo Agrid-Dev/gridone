@@ -67,25 +67,30 @@ describe("Fault notifications dispatch on healthy/faulty transitions", () => {
   const readDevice = () => client.devices.get(deviceId);
   const readFaultCode = async () => faultCode(await readDevice());
 
-  async function findNotification(
-    title: string,
-  ): Promise<NotificationDispatch | undefined> {
-    const page = await client.notifications.list();
-    return page.items.find((n) => n.notification.title === title);
-  }
+  // Identify a notification by what the listener guarantees rather than by its
+  // exact wording: the title says "fault", and the body links the device by id
+  // (`resource://device/<id>`). Both transitions of one run look alike, so
+  // dispatches already returned are skipped and each wait resolves on the one
+  // its own step caused.
+  const seenNotificationIds = new Set<string>();
 
-  async function waitForNotification(
-    title: string,
-  ): Promise<NotificationDispatch> {
-    const found = await pollUntil(
-      () => findNotification(title),
-      (n) => n !== undefined,
-      {
-        description: `a "${title}" notification to be dispatched`,
+  async function waitForFaultNotification(): Promise<NotificationDispatch> {
+    const dispatch = await pollUntil(
+      async () => {
+        const page = await client.notifications.list();
+        return page.items.find(
+          (n) =>
+            /fault/i.test(n.notification.title) &&
+            n.notification.body.includes(deviceId) &&
+            !seenNotificationIds.has(n.notification.id),
+        );
       },
+      (n) => n !== undefined,
+      { description: `a fault notification for device ${deviceId}` },
     );
     // pollUntil's predicate already narrowed this to defined.
-    return found!;
+    seenNotificationIds.add(dispatch!.notification.id);
+    return dispatch!;
   }
 
   beforeAll(async () => {
@@ -133,9 +138,8 @@ describe("Fault notifications dispatch on healthy/faulty transitions", () => {
     await expect.poll(readFaultCode, UNTIL_POLLED).toBe("oops_error");
     expect((await readDevice()).is_faulty).toBe(true);
 
-    const dispatch = await waitForNotification(
-      `New fault on ${DEVICE_NAME} (fault_code)`,
-    );
+    const dispatch = await waitForFaultNotification();
+    expect(dispatch.notification.title).toContain(DEVICE_NAME);
     expect(dispatch.notification.severity).toBe("alert");
     expect(dispatch.notification.body).toContain("value: oops_error");
   });
@@ -145,9 +149,8 @@ describe("Fault notifications dispatch on healthy/faulty transitions", () => {
     await expect.poll(readFaultCode, UNTIL_POLLED).toBe("ok");
     expect((await readDevice()).is_faulty).toBe(false);
 
-    const dispatch = await waitForNotification(
-      `Fault resolved on ${DEVICE_NAME} (fault_code)`,
-    );
+    const dispatch = await waitForFaultNotification();
+    expect(dispatch.notification.title).toContain(DEVICE_NAME);
     expect(dispatch.notification.severity).toBe("info");
     expect(dispatch.notification.body).toContain("value: ok");
   });
