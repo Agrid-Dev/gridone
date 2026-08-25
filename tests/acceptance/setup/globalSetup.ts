@@ -13,11 +13,16 @@ interface DeviceSeed {
   /** Emulator http API published on the host — the suites' side-channel for
    *  external (non-gridone) state changes. */
   externalUrl: string;
+  /** Compose service running this device's emulator. Set it for suites that
+   *  drive the container's availability (stop/start) rather than its state;
+   *  compose is addressed by service name, which nothing else here carries. */
+  service?: string;
 }
 
 export interface SeededDevice {
   id: string;
   externalUrl: string;
+  service?: string;
 }
 
 interface ProtocolSeed {
@@ -130,6 +135,25 @@ const SEEDS: ProtocolSeed[] = [
       },
     ],
   },
+  {
+    protocol: "http-connection-status",
+    // Extra http seed for connectionStatus.spec.ts
+    driverId: "thermocktat_http_trimmed",
+    driverFixture: "thermocktat-http-driver-trimmed.yaml",
+    transport: {
+      name: "acceptance-http-connection-status",
+      protocol: "http",
+      config: {},
+    },
+    devices: [
+      {
+        name: "Thermocktat up and down",
+        config: { ip: "http://thermocktat-connection-status:8080" },
+        externalUrl: "http://localhost:9087",
+        service: "thermocktat-connection-status",
+      },
+    ],
+  },
 ];
 
 declare module "vitest" {
@@ -207,7 +231,11 @@ async function seedProtocol(
           config: device.config,
         }),
       ));
-    seeded.push({ id: found.id, externalUrl: device.externalUrl });
+    seeded.push({
+      id: found.id,
+      externalUrl: device.externalUrl,
+      service: device.service,
+    });
   }
   return seeded;
 }
