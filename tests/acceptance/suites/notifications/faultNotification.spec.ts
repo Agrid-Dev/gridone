@@ -36,6 +36,14 @@ const FIXTURE: FixtureSet = {
 // the mapping codec in fixtures/thermocktat-http-driver.yaml.
 const FAULT_CODE = { ok: 0, oops_error: 2 };
 
+// thermocktat_http polls every 2s (fixtures/thermocktat-http-driver.yaml);
+// expect.poll's default timeout (1s) would give up before a single poll
+// lands, so every fault_code wait needs a budget of several poll cycles.
+// Slack for a loaded CI box; the timing itself is deterministic.
+const POLL_INTERVAL_MS = 2_000;
+const SLACK_POLLS = 8;
+const UNTIL_POLLED = { timeout: (1 + SLACK_POLLS) * POLL_INTERVAL_MS };
+
 function faultCode(device: Device): string {
   return device.attributes!["fault_code"]!.current_value as string;
 }
@@ -116,13 +124,13 @@ describe("Fault notifications dispatch on healthy/faulty transitions", () => {
 
   it("starts healthy with no active fault", async () => {
     // A drain from a previous run's leftover fault, not necessarily a flip.
-    await expect.poll(readFaultCode, { timeout: 20_000 }).toBe("ok");
+    await expect.poll(readFaultCode, UNTIL_POLLED).toBe("ok");
     expect((await readDevice()).is_faulty).toBe(false);
   });
 
   it("dispatches a notification with the fault's severity when it becomes active", async () => {
     await setFaultCode(FAULT_CODE.oops_error);
-    await expect.poll(readFaultCode, { timeout: 12_0000 }).toBe("oops_error");
+    await expect.poll(readFaultCode, UNTIL_POLLED).toBe("oops_error");
     expect((await readDevice()).is_faulty).toBe(true);
 
     const dispatch = await waitForNotification(
@@ -134,7 +142,7 @@ describe("Fault notifications dispatch on healthy/faulty transitions", () => {
 
   it("dispatches a resolution notification when the fault clears", async () => {
     await setFaultCode(FAULT_CODE.ok);
-    await expect.poll(readFaultCode).toBe("ok");
+    await expect.poll(readFaultCode, UNTIL_POLLED).toBe("ok");
     expect((await readDevice()).is_faulty).toBe(false);
 
     const dispatch = await waitForNotification(
