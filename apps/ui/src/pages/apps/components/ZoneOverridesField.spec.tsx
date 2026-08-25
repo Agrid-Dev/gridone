@@ -91,15 +91,17 @@ const schema: AppSchemaNode = {
 function Harness({
   defaultValues,
   name = "zone_overrides",
+  fieldSchema = schema,
 }: {
   defaultValues: FieldValues;
   name?: string;
+  fieldSchema?: AppSchemaNode;
 }) {
   const { control } = useForm<FieldValues>({ defaultValues });
   return (
     <ZoneOverridesField
       name={name}
-      schema={schema}
+      schema={fieldSchema}
       control={control}
       required={false}
     />
@@ -108,7 +110,7 @@ function Harness({
 
 function renderField(
   defaultValues: FieldValues,
-  options: { name?: string } = {},
+  options: { name?: string; fieldSchema?: AppSchemaNode } = {},
 ) {
   render(<Harness defaultValues={defaultValues} {...options} />);
 }
@@ -233,6 +235,34 @@ describe("ZoneOverridesField", () => {
     const options = screen.getAllByRole("option");
     expect(options).toHaveLength(1);
     expect(within(options[0]).getByText("Room 102")).toBeInTheDocument();
+  });
+
+  it("surfaces a property the form dialect can't render instead of degrading it to a text input", () => {
+    renderField(
+      {
+        piloted_zones: ["z1"],
+        zone_overrides: [{ zone_id: "z1", schedule: { mon: "08:00" } }],
+      },
+      {
+        fieldSchema: {
+          type: "array",
+          title: "Zone overrides",
+          items: {
+            type: "object",
+            properties: {
+              zone_id: { type: "string", format: "asset-id" },
+              schedule: { type: "object" },
+              enabled: { type: "boolean", default: true },
+            },
+          },
+        },
+      },
+    );
+
+    expect(screen.getByText("schemaForm.unsupportedField")).toBeInTheDocument();
+    expect(
+      screen.queryByDisplayValue("[object Object]"),
+    ).not.toBeInTheDocument();
   });
 
   it("collapses and expands, showing the override count either way", async () => {

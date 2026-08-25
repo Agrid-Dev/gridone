@@ -275,8 +275,19 @@ const RowCell: FC<{
   schema: AppSchemaNode;
   control: Control<FieldValues>;
 }> = ({ name, schema, control }) => {
+  const { t } = useTranslation("common");
   const descriptor = normalizeProperty(name, schema as JsonSchemaObject, {});
 
+  // Matches the registry's explicit placeholder: a shape the dialect can't
+  // render must be surfaced, never degraded to a text input that would coerce
+  // the stored value on edit.
+  if (descriptor.kind === "unsupported") {
+    return (
+      <span className="text-sm text-muted-foreground">
+        {t("schemaForm.unsupportedField")}
+      </span>
+    );
+  }
   if (descriptor.kind === "enum") {
     return (
       <SelectController
