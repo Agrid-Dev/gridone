@@ -353,17 +353,17 @@ describe("ZoneOverridesField", () => {
     });
 
     const copyCell = screen
-      .getByRole("button", { name: "Copy to other rooms" })
+      .getByRole("button", { name: "Copy to other zones" })
       .closest("td")!;
     await user.click(within(copyCell).getByText("Room 102"));
     await user.click(
-      within(copyCell).getByRole("button", { name: "Copy to 1 rooms" }),
+      within(copyCell).getByRole("button", { name: "Copy to 1 zones" }),
     );
 
     // Room 102 is now overridden — the source row's copy picker must no
     // longer offer it, only the still-un-overridden Room 103.
     const copyCellAfter = screen
-      .getAllByRole("button", { name: "Copy to other rooms" })[0]
+      .getAllByRole("button", { name: "Copy to other zones" })[0]
       .closest("td")!;
     expect(
       within(copyCellAfter).queryByText("Room 102"),
