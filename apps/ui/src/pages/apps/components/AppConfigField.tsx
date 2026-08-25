@@ -4,6 +4,7 @@ import { useController, type Control, type FieldValues } from "react-hook-form";
 import { MultiSelectController } from "@/components/forms/controllers/MultiSelectController";
 import { SchemaField } from "@/components/forms/SchemaField";
 import { AssetPicker } from "@/components/forms/resourcePickers/AssetPicker";
+import { DevicePicker } from "@/components/forms/resourcePickers/DevicePicker";
 import { FieldShell } from "@/components/forms/controllers/FieldShell";
 import { Textarea } from "@/components/ui/textarea";
 import { toLabel } from "@/lib/textFormat";
@@ -12,7 +13,11 @@ import type {
   SchemaFieldOverrides,
   SchemaWidgetProps,
 } from "@/components/forms/schema-form";
-import { ASSET_ID_FORMAT, type AppSchemaNode } from "@/lib/appConfigSchema";
+import {
+  ASSET_ID_FORMAT,
+  DEVICE_ID_FORMAT,
+  type AppSchemaNode,
+} from "@/lib/appConfigSchema";
 import { ZoneOverridesField } from "./ZoneOverridesField";
 
 /** Field name the zone-overrides table widget is keyed on (AGR-1067). */
@@ -78,6 +83,17 @@ export const AppConfigField: FC<AppConfigFieldProps> = ({
     );
   }
 
+  if (schema.format === DEVICE_ID_FORMAT) {
+    return (
+      <DeviceField
+        name={name}
+        schema={schema}
+        control={control}
+        required={required}
+      />
+    );
+  }
+
   if (isArray && Array.isArray(itemSchema.enum)) {
     return (
       <EnumListField
@@ -119,7 +135,7 @@ const needsAppWidget = (field: FieldDescriptor): boolean => {
   if (field.name === ZONE_OVERRIDES_FIELD) {
     return true;
   }
-  if (schema.format === ASSET_ID_FORMAT) {
+  if (schema.format === ASSET_ID_FORMAT || schema.format === DEVICE_ID_FORMAT) {
     return true;
   }
   // Keep the app contract's scalar-array pickers/text area, but let the shared
@@ -189,6 +205,33 @@ const AssetField: FC<AppConfigFieldProps & { multiple: boolean }> = ({
       value={typeof field.value === "string" ? field.value : undefined}
       onChange={field.onChange}
       {...shared}
+    />
+  );
+};
+
+/** `format: device-id` — single select over devices, restricted to
+ *  `device_type` when the app declares one. */
+const DeviceField: FC<AppConfigFieldProps> = ({
+  name,
+  schema,
+  control,
+  required,
+}) => {
+  const { field, fieldState } = useController({ name, control });
+  const deviceType =
+    typeof schema.device_type === "string" ? schema.device_type : undefined;
+
+  return (
+    <DevicePicker
+      id={name}
+      value={typeof field.value === "string" ? field.value : undefined}
+      onSelect={(device) => field.onChange(device?.id)}
+      filter={deviceType ? { types: [deviceType] } : undefined}
+      label={schema.title}
+      description={schema.description}
+      required={required}
+      invalid={fieldState.invalid}
+      error={fieldState.error}
     />
   );
 };

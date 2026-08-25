@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useForm, type FieldValues } from "react-hook-form";
-import type { Asset } from "@gridone/sdk";
+import type { Asset, Device } from "@gridone/sdk";
 import { createI18nMock } from "@/test/i18nMock";
 import {
   normalizeProperty,
@@ -17,6 +17,35 @@ vi.mock("react-i18next", () =>
     "pickers.multiSelect.placeholder": "Select values",
   }),
 );
+
+const { mockUseQuery, mockListDevices } = vi.hoisted(() => ({
+  mockUseQuery: vi.fn(),
+  mockListDevices: vi.fn(),
+}));
+
+vi.mock("@tanstack/react-query", () => ({
+  useQuery: (opts: { queryKey: unknown[] }) => mockUseQuery(opts),
+}));
+
+vi.mock("@/contexts/GridoneClientContext", () => ({
+  useGridoneClient: () => ({
+    devices: { list: mockListDevices },
+  }),
+}));
+
+const devices: Device[] = [
+  {
+    id: "d1",
+    name: "Roof weather station",
+    type: "weather_sensor",
+    tags: {},
+    driver_id: "drv-1",
+    transport_id: "tp-1",
+    config: {},
+    attributes: {},
+    is_faulty: false,
+  },
+];
 
 const assets: Asset[] = [
   { id: "z1", type: "zone", name: "Zone 101", path: ["z1"], position: 0 },
@@ -148,7 +177,11 @@ function renderField(
   return () => values[values.length - 1];
 }
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  mockUseQuery.mockReset();
+  mockListDevices.mockReset();
+});
 
 describe("AppConfigField widget mapping", () => {
   it("renders an array of `format: asset-id` as an asset multi-select", async () => {
@@ -170,6 +203,26 @@ describe("AppConfigField widget mapping", () => {
     await user.selectOptions(screen.getByTestId("select"), "z2");
 
     expect(value()).toBe("z2");
+  });
+
+  it("renders a string of `format: device-id` as a single device select, filtered by device_type", async () => {
+    mockUseQuery.mockReturnValue({ data: devices, isLoading: false });
+    const user = userEvent.setup();
+    const value = renderField({
+      type: "string",
+      format: "device-id",
+      device_type: "weather_sensor",
+    });
+
+    expect(mockUseQuery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        queryKey: ["devices", { types: ["weather_sensor"] }],
+      }),
+    );
+
+    await user.selectOptions(screen.getByTestId("select"), "d1");
+
+    expect(value()).toBe("d1");
   });
 
   it("masks a `format: password` field", () => {

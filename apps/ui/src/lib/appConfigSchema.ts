@@ -55,6 +55,7 @@ export interface AppSchemaNode {
 
 /** Custom `format` values gridone maps onto a dedicated widget. */
 export const ASSET_ID_FORMAT = "asset-id";
+export const DEVICE_ID_FORMAT = "device-id";
 export const PASSWORD_FORMAT = "password";
 
 /** One `oneOf` branch, keyed by the value its discriminant is pinned to. */

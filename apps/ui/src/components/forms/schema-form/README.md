@@ -105,6 +105,7 @@ App schemas add four extensions, prepared in
 | ----------------------------------- | ------------------------------------------------------------------------------------------------ |
 | Root `i18n` catalog                 | `title` and `description` are looked up by exact locale, then base language, then used literally |
 | `format: asset-id`                  | Asset selector; single for a string and multiple for an array                                    |
+| `format: device-id`                 | Device selector; `device_type` (optional) restricts candidates to that device type               |
 | `format: password`                  | Masked secret input with a reveal toggle — same widget as the first-party `secret: true` marker  |
 | `oneOf` with a `const` discriminant | A selector chooses a branch, whose fields are flattened into the root form                       |
 
