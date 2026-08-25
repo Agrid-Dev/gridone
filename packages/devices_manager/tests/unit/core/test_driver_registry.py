@@ -4,6 +4,7 @@ import pytest
 
 from devices_manager.core.codecs.factory import CodecSpec
 from devices_manager.core.device.attribute import AttributeKind
+from devices_manager.core.driver import DriverStorage
 from devices_manager.core.driver.attribute_driver import (
     AttributeDriver,
     FaultAttributeDriver,
@@ -11,13 +12,6 @@ from devices_manager.core.driver.attribute_driver import (
 from devices_manager.core.driver.healthcheck import HealthCheck
 from devices_manager.core.driver.update_strategy import UpdateStrategy
 from devices_manager.core.driver_registry import DriverRegistry
-from devices_manager.dto import (
-    AttributePatch,
-    DriverPatch,
-    DriverSpec,
-    driver_to_public,
-)
-from devices_manager.storage import StorageBackend
 from devices_manager.types import DataType
 from models.errors import ConflictError, InvalidError, NotFoundError
 from models.types import Severity
@@ -38,12 +32,9 @@ class TestDriverRegistryList:
         registry = DriverRegistry()
         assert registry.list_all() == []
 
-    def test_list_returns_dtos(self, driver):
+    def test_list_returns_drivers(self, driver):
         registry = DriverRegistry({driver.id: driver})
-        result = registry.list_all()
-        assert len(result) == 1
-        assert isinstance(result[0], DriverSpec)
-        assert result[0].id == driver.id
+        assert registry.list_all() == [driver]
 
     def test_list_filter_by_type(self, thermostat_driver, other_http_driver):
         registry = DriverRegistry(
@@ -53,8 +44,7 @@ class TestDriverRegistryList:
             }
         )
         result = registry.list_all(device_type="thermostat")
-        assert len(result) == 1
-        assert result[0].id == thermostat_driver.id
+        assert result == [thermostat_driver]
 
     def test_list_filter_by_type_no_match(self, driver):
         registry = DriverRegistry({driver.id: driver})
@@ -72,58 +62,40 @@ class TestDriverRegistryGet:
         with pytest.raises(NotFoundError):
             registry.get("unknown")
 
-    def test_get_dto_existing(self, driver):
-        registry = DriverRegistry({driver.id: driver})
-        dto = registry.get_dto(driver.id)
-        assert isinstance(dto, DriverSpec)
-        assert dto.id == driver.id
-
-    def test_get_dto_not_found(self):
-        registry = DriverRegistry()
-        with pytest.raises(NotFoundError):
-            registry.get_dto("unknown")
-
 
 class TestDriverRegistryAdd:
     @pytest.mark.asyncio
     async def test_add_ok(self, driver):
         registry = DriverRegistry()
-        driver_dto = driver_to_public(driver)
-        created = await registry.add(driver_dto)
-        assert isinstance(created, DriverSpec)
-        assert created.id == driver_dto.id
-        assert driver_dto.id in registry.ids
+        created = await registry.add(driver)
+        assert created is driver
+        assert driver.id in registry.ids
 
     @pytest.mark.asyncio
     async def test_add_duplicate_raises(self, driver):
         registry = DriverRegistry()
-        driver_dto = driver_to_public(driver)
-        await registry.add(driver_dto)
+        await registry.add(driver)
         with pytest.raises(ConflictError):
-            await registry.add(driver_dto)
+            await registry.add(driver)
 
     @pytest.mark.asyncio
     async def test_add_with_reserved_connection_status_attribute_rejected(self, driver):
         registry = DriverRegistry()
-        driver_dto = driver_to_public(driver)
-        renamed_attrs = [
-            a.model_copy(update={"name": "connection_status"})
-            if a.name == "temperature"
-            else a
-            for a in driver_dto.attributes
-        ]
-        driver_dto = driver_dto.model_copy(update={"attributes": renamed_attrs})
+        renamed = driver.attributes.pop("temperature").model_copy(
+            update={"name": "connection_status"}
+        )
+        driver.attributes["connection_status"] = renamed
         with pytest.raises(InvalidError):
-            await registry.add(driver_dto)
-        assert driver_dto.id not in registry.ids
+            await registry.add(driver)
+        assert driver.id not in registry.ids
 
 
 class TestDriverRegistryPatch:
     @pytest.mark.asyncio
     async def test_patch_vendor(self, driver):
         registry = DriverRegistry({driver.id: driver})
-        result = await registry.patch(driver.id, DriverPatch(vendor="Acme"))
-        assert result.vendor == "Acme"
+        result = await registry.patch(driver.id, {"vendor": "Acme"})
+        assert result.metadata.vendor == "Acme"
         assert result.id == driver.id
 
     @pytest.mark.asyncio
@@ -131,15 +103,15 @@ class TestDriverRegistryPatch:
         registry = DriverRegistry({driver.id: driver})
         original_created_at = driver.metadata.created_at
         original_updated_at = driver.metadata.updated_at
-        result = await registry.patch(driver.id, DriverPatch(vendor="Acme"))
-        assert result.created_at == original_created_at
-        assert result.updated_at > original_updated_at
+        result = await registry.patch(driver.id, {"vendor": "Acme"})
+        assert result.metadata.created_at == original_created_at
+        assert result.metadata.updated_at > original_updated_at
 
     @pytest.mark.asyncio
     async def test_patch_env(self, driver):
         registry = DriverRegistry({driver.id: driver})
         result = await registry.patch(
-            driver.id, DriverPatch(env={"base_url": "http://new.example.com"})
+            driver.id, {"env": {"base_url": "http://new.example.com"}}
         )
         assert result.env == {"base_url": "http://new.example.com"}
 
@@ -147,7 +119,7 @@ class TestDriverRegistryPatch:
     async def test_patch_only_supplied_fields(self, driver):
         registry = DriverRegistry({driver.id: driver})
         original_env = dict(driver.env)
-        result = await registry.patch(driver.id, DriverPatch(vendor="Acme"))
+        result = await registry.patch(driver.id, {"vendor": "Acme"})
         assert result.env == original_env
 
     @pytest.mark.asyncio
@@ -157,8 +129,7 @@ class TestDriverRegistryPatch:
         original_enabled = driver.update_strategy.polling_enabled
         original_timeout = driver.update_strategy.read_timeout
         result = await registry.patch(
-            driver.id,
-            DriverPatch(update_strategy=UpdateStrategy(polling_interval=30)),
+            driver.id, {"update_strategy": {"polling_interval": 30}}
         )
         assert result.update_strategy.polling_interval == 30
         assert result.update_strategy.polling_enabled == original_enabled
@@ -170,16 +141,14 @@ class TestDriverRegistryPatch:
         registry = DriverRegistry({webhook_driver.id: webhook_driver})
         with pytest.raises(InvalidError, match="push-only"):
             await registry.patch(
-                webhook_driver.id,
-                DriverPatch(update_strategy=UpdateStrategy(polling_enabled=True)),
+                webhook_driver.id, {"update_strategy": {"polling_enabled": True}}
             )
 
     @pytest.mark.asyncio
     async def test_patch_healthcheck(self, driver):
         registry = DriverRegistry({driver.id: driver})
         result = await registry.patch(
-            driver.id,
-            DriverPatch(healthcheck=HealthCheck(expected_push_interval=30)),
+            driver.id, {"healthcheck": {"expected_push_interval": 30}}
         )
         assert result.healthcheck.expected_push_interval == 30
         assert isinstance(driver.healthcheck, HealthCheck)
@@ -188,42 +157,40 @@ class TestDriverRegistryPatch:
     async def test_patch_image_src(self, driver):
         registry = DriverRegistry({driver.id: driver})
         result = await registry.patch(
-            driver.id, DriverPatch(image_src="https://example.com/device.png")
+            driver.id, {"image_src": "https://example.com/device.png"}
         )
-        assert result.image_src == "https://example.com/device.png"
+        assert result.metadata.image_src == "https://example.com/device.png"
 
     @pytest.mark.asyncio
     async def test_patch_type(self, thermostat_driver):
         registry = DriverRegistry({thermostat_driver.id: thermostat_driver})
-        result = await registry.patch(
-            thermostat_driver.id, DriverPatch(type="thermostat")
-        )
+        result = await registry.patch(thermostat_driver.id, {"type": "thermostat"})
         assert result.type == "thermostat"
 
     @pytest.mark.asyncio
     async def test_patch_type_invalid_schema(self, driver):
         registry = DriverRegistry({driver.id: driver})
         with pytest.raises(ConflictError):
-            await registry.patch(driver.id, DriverPatch(type="thermostat"))
+            await registry.patch(driver.id, {"type": "thermostat"})
 
     @pytest.mark.asyncio
     async def test_patch_type_null_clears_type(self, thermostat_driver):
         registry = DriverRegistry({thermostat_driver.id: thermostat_driver})
-        result = await registry.patch(thermostat_driver.id, DriverPatch(type=None))
+        result = await registry.patch(thermostat_driver.id, {"type": None})
         assert result.type is None
 
     @pytest.mark.asyncio
     async def test_patch_not_found(self):
         registry = DriverRegistry()
         with pytest.raises(NotFoundError):
-            await registry.patch("unknown", DriverPatch())
+            await registry.patch("unknown", {})
 
     @pytest.mark.asyncio
     async def test_patch_persists_to_storage(self, driver):
-        storage = AsyncMock(spec=StorageBackend)
+        storage = AsyncMock(spec=DriverStorage)
         registry = DriverRegistry({driver.id: driver}, storage=storage)
-        await registry.patch(driver.id, DriverPatch(vendor="Acme"))
-        storage.write.assert_called_once()
+        await registry.patch(driver.id, {"vendor": "Acme"})
+        storage.write.assert_called_once_with(driver.id, driver)
 
     @pytest.mark.asyncio
     async def test_patch_update_strategy_removing_referenced_group_rejected(
@@ -235,10 +202,7 @@ class TestDriverRegistryPatch:
             update={"polling_group": "core"}
         )
         with pytest.raises(InvalidError):
-            await registry.patch(
-                driver.id,
-                DriverPatch(update_strategy=UpdateStrategy(polling_groups={})),
-            )
+            await registry.patch(driver.id, {"update_strategy": {"polling_groups": {}}})
         # rejected before mutating: the driver keeps its original polling_groups
         assert driver.update_strategy.polling_groups == {"core": 5}
 
@@ -246,8 +210,7 @@ class TestDriverRegistryPatch:
     async def test_patch_update_strategy_new_polling_group_ok(self, driver):
         registry = DriverRegistry({driver.id: driver})
         result = await registry.patch(
-            driver.id,
-            DriverPatch(update_strategy=UpdateStrategy(polling_groups={"core": 5})),
+            driver.id, {"update_strategy": {"polling_groups": {"core": 5}}}
         )
         assert result.update_strategy.polling_groups == {"core": 5}
 
@@ -299,13 +262,13 @@ class TestDriverRegistryCreateAttribute:
 
     @pytest.mark.asyncio
     async def test_create_persists_to_storage(self, driver):
-        storage = AsyncMock(spec=StorageBackend)
+        storage = AsyncMock(spec=DriverStorage)
         registry = DriverRegistry({driver.id: driver}, storage=storage)
         new_attr = AttributeDriver(
             name="pressure", data_type=DataType.FLOAT, read="GET /pressure", codecs=[]
         )
         await registry.create_driver_attribute(driver.id, new_attr)
-        storage.write.assert_called_once()
+        storage.write.assert_called_once_with(driver.id, driver)
 
     @pytest.mark.asyncio
     async def test_create_non_snake_case_name_rejected(self, driver):
@@ -354,7 +317,7 @@ class TestDriverRegistryPatchAttribute:
     async def test_patch_read_address(self, driver):
         registry = DriverRegistry({driver.id: driver})
         result = await registry.patch_driver_attribute(
-            driver.id, "temperature", AttributePatch(read="GET /temp/v2")
+            driver.id, "temperature", {"read": "GET /temp/v2"}
         )
         assert result.read == "GET /temp/v2"
         assert result.name == "temperature"
@@ -364,7 +327,7 @@ class TestDriverRegistryPatchAttribute:
         registry = DriverRegistry({driver.id: driver})
         original_write = driver.attributes["temperature"].write
         result = await registry.patch_driver_attribute(
-            driver.id, "temperature", AttributePatch(read="GET /temp/v2")
+            driver.id, "temperature", {"read": "GET /temp/v2"}
         )
         assert result.write == original_write
 
@@ -372,9 +335,7 @@ class TestDriverRegistryPatchAttribute:
     async def test_patch_codecs(self, driver):
         registry = DriverRegistry({driver.id: driver})
         result = await registry.patch_driver_attribute(
-            driver.id,
-            "temperature",
-            AttributePatch(codecs=[{"json_pointer": "/data/temp"}]),
+            driver.id, "temperature", {"codecs": [{"json_pointer": "/data/temp"}]}
         )
         assert len(result.codecs) == 1
         assert isinstance(result.codecs[0], CodecSpec)
@@ -385,7 +346,7 @@ class TestDriverRegistryPatchAttribute:
         """Changing kind rebuilds the attribute as FaultAttributeDriver."""
         registry = DriverRegistry({driver.id: driver})
         result = await registry.patch_driver_attribute(
-            driver.id, "temperature", AttributePatch(kind=AttributeKind.FAULT)
+            driver.id, "temperature", {"kind": AttributeKind.FAULT}
         )
         assert isinstance(result, FaultAttributeDriver)
         assert isinstance(driver.attributes["temperature"], FaultAttributeDriver)
@@ -397,13 +358,15 @@ class TestDriverRegistryPatchAttribute:
         await registry.patch_driver_attribute(
             driver.id,
             "temperature",
-            AttributePatch(
-                kind=AttributeKind.FAULT, severity=Severity.ALERT, healthy_values=[1]
-            ),
+            {
+                "kind": AttributeKind.FAULT,
+                "severity": Severity.ALERT,
+                "healthy_values": [1],
+            },
         )
 
         result = await registry.patch_driver_attribute(
-            driver.id, "temperature", AttributePatch(kind=AttributeKind.STANDARD)
+            driver.id, "temperature", {"kind": AttributeKind.STANDARD}
         )
 
         assert type(result) is AttributeDriver
@@ -414,33 +377,29 @@ class TestDriverRegistryPatchAttribute:
     async def test_patch_driver_not_found(self):
         registry = DriverRegistry()
         with pytest.raises(NotFoundError):
-            await registry.patch_driver_attribute(
-                "unknown", "temperature", AttributePatch()
-            )
+            await registry.patch_driver_attribute("unknown", "temperature", {})
 
     @pytest.mark.asyncio
     async def test_patch_driver_attribute_not_found(self, driver):
         registry = DriverRegistry({driver.id: driver})
         with pytest.raises(NotFoundError):
-            await registry.patch_driver_attribute(
-                driver.id, "nonexistent", AttributePatch()
-            )
+            await registry.patch_driver_attribute(driver.id, "nonexistent", {})
 
     @pytest.mark.asyncio
     async def test_patch_persists_to_storage(self, driver):
-        storage = AsyncMock(spec=StorageBackend)
+        storage = AsyncMock(spec=DriverStorage)
         registry = DriverRegistry({driver.id: driver}, storage=storage)
         await registry.patch_driver_attribute(
-            driver.id, "temperature", AttributePatch(read="GET /temp/v2")
+            driver.id, "temperature", {"read": "GET /temp/v2"}
         )
-        storage.write.assert_called_once()
+        storage.write.assert_called_once_with(driver.id, driver)
 
     @pytest.mark.asyncio
     async def test_patch_undeclared_polling_group_rejected(self, driver):
         registry = DriverRegistry({driver.id: driver})
         with pytest.raises(InvalidError):
             await registry.patch_driver_attribute(
-                driver.id, "temperature", AttributePatch(polling_group="core")
+                driver.id, "temperature", {"polling_group": "core"}
             )
         assert driver.attributes["temperature"].polling_group is None
 
@@ -449,7 +408,7 @@ class TestDriverRegistryPatchAttribute:
         registry = DriverRegistry({driver.id: driver})
         driver.update_strategy = UpdateStrategy(polling_groups={"core": 5})
         result = await registry.patch_driver_attribute(
-            driver.id, "temperature", AttributePatch(polling_group="core")
+            driver.id, "temperature", {"polling_group": "core"}
         )
         assert result.polling_group == "core"
 
@@ -458,10 +417,10 @@ class TestDriverRegistryPatchAttribute:
         registry = DriverRegistry({driver.id: driver})
         driver.update_strategy = UpdateStrategy(polling_groups={"core": 5})
         await registry.patch_driver_attribute(
-            driver.id, "temperature", AttributePatch(polling_group="core")
+            driver.id, "temperature", {"polling_group": "core"}
         )
         result = await registry.patch_driver_attribute(
-            driver.id, "temperature", AttributePatch(polling_group=None)
+            driver.id, "temperature", {"polling_group": None}
         )
         assert result.polling_group is None
 
@@ -471,8 +430,7 @@ class TestDriverRegistryDeleteAttribute:
     async def test_delete_existing(self, driver):
         registry = DriverRegistry({driver.id: driver})
         result = await registry.delete_driver_attribute(driver.id, "temperature")
-        assert isinstance(result, DriverSpec)
-        assert all(attr.name != "temperature" for attr in result.attributes)
+        assert result is driver
         assert "temperature" not in driver.attributes
 
     @pytest.mark.asyncio
@@ -489,10 +447,10 @@ class TestDriverRegistryDeleteAttribute:
 
     @pytest.mark.asyncio
     async def test_delete_persists_to_storage(self, driver):
-        storage = AsyncMock(spec=StorageBackend)
+        storage = AsyncMock(spec=DriverStorage)
         registry = DriverRegistry({driver.id: driver}, storage=storage)
         await registry.delete_driver_attribute(driver.id, "temperature")
-        storage.write.assert_called_once()
+        storage.write.assert_called_once_with(driver.id, driver)
 
     @pytest.mark.asyncio
     async def test_delete_required_standard_attribute_conflicts(
@@ -507,7 +465,7 @@ class TestDriverRegistryDeleteAttribute:
     async def test_delete_required_standard_attribute_does_not_persist(
         self, thermostat_driver
     ):
-        storage = AsyncMock(spec=StorageBackend)
+        storage = AsyncMock(spec=DriverStorage)
         registry = DriverRegistry(
             {thermostat_driver.id: thermostat_driver}, storage=storage
         )
@@ -522,10 +480,7 @@ class TestDriverRegistryDeleteAttribute:
         result = await registry.delete_driver_attribute(
             thermostat_driver.id, "temperature_setpoint_min"
         )
-        assert isinstance(result, DriverSpec)
-        assert all(
-            attr.name != "temperature_setpoint_min" for attr in result.attributes
-        )
+        assert "temperature_setpoint_min" not in result.attributes
         assert "temperature_setpoint_min" not in thermostat_driver.attributes
 
 
@@ -586,10 +541,10 @@ class TestDriverRegistryRenameAttribute:
 
     @pytest.mark.asyncio
     async def test_rename_persists_to_storage(self, driver):
-        storage = AsyncMock(spec=StorageBackend)
+        storage = AsyncMock(spec=DriverStorage)
         registry = DriverRegistry({driver.id: driver}, storage=storage)
         await registry.rename_driver_attribute(driver.id, "temperature", "temp")
-        storage.write.assert_called_once()
+        storage.write.assert_called_once_with(driver.id, driver)
 
     @pytest.mark.asyncio
     async def test_rename_required_standard_attribute_conflicts(
@@ -606,7 +561,7 @@ class TestDriverRegistryRenameAttribute:
     async def test_rename_required_standard_attribute_does_not_persist(
         self, thermostat_driver
     ):
-        storage = AsyncMock(spec=StorageBackend)
+        storage = AsyncMock(spec=DriverStorage)
         registry = DriverRegistry(
             {thermostat_driver.id: thermostat_driver}, storage=storage
         )
@@ -653,15 +608,14 @@ class TestDriverRegistryCheckCompat:
 class TestDriverRegistryPersistence:
     @pytest.mark.asyncio
     async def test_add_persists_to_storage(self, driver):
-        storage = AsyncMock(spec=StorageBackend)
+        storage = AsyncMock(spec=DriverStorage)
         registry = DriverRegistry(storage=storage)
-        driver_dto = driver_to_public(driver)
-        await registry.add(driver_dto)
-        storage.write.assert_called_once()
+        await registry.add(driver)
+        storage.write.assert_called_once_with(driver.id, driver)
 
     @pytest.mark.asyncio
     async def test_remove_deletes_from_storage(self, driver):
-        storage = AsyncMock(spec=StorageBackend)
+        storage = AsyncMock(spec=DriverStorage)
         registry = DriverRegistry({driver.id: driver}, storage=storage)
         await registry.remove(driver.id)
         storage.delete.assert_called_once_with(driver.id)
@@ -669,8 +623,7 @@ class TestDriverRegistryPersistence:
     @pytest.mark.asyncio
     async def test_no_storage_does_not_raise(self, driver):
         registry = DriverRegistry()
-        driver_dto = driver_to_public(driver)
-        created = await registry.add(driver_dto)
-        assert created.id == driver_dto.id
-        await registry.remove(driver_dto.id)
-        assert driver_dto.id not in registry.ids
+        created = await registry.add(driver)
+        assert created is driver
+        await registry.remove(driver.id)
+        assert driver.id not in registry.ids

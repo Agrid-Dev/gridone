@@ -41,7 +41,6 @@ if TYPE_CHECKING:
 
     from devices_manager.core.driver import Driver
     from devices_manager.core.transports import TransportClient
-    from devices_manager.dto import DriverSpec
 
 _MUTATING_METHODS = {"write", "delete", "set_tag", "delete_tag", "save_attribute"}
 
@@ -63,7 +62,7 @@ def _seed_backend(backend: AsyncMock, entities: list) -> None:
 def _storage_mock(
     *,
     devices: list[Device] | None = None,
-    drivers: list[DriverSpec] | None = None,
+    drivers: list[Driver] | None = None,
     transports: list[TransportClient] | None = None,
 ) -> AsyncMock:
     """An ``AsyncMock`` standing in for ``DevicesManagerStorage``."""
@@ -156,7 +155,7 @@ class TestReadOnlyLoad:
     ):
         storage = _storage_mock(
             devices=[_device_dto(driver, mock_transport_client.id)],
-            drivers=[driver_to_public(driver)],
+            drivers=[driver],
             transports=[mock_transport_client],
         )
         monkeypatch.setattr(
@@ -177,7 +176,7 @@ class TestReadOnlyLoad:
         """An attribute update after ``load()`` must not be persisted."""
         storage = _storage_mock(
             devices=[_device_dto(driver, mock_transport_client.id)],
-            drivers=[driver_to_public(driver)],
+            drivers=[driver],
             transports=[mock_transport_client],
         )
         monkeypatch.setattr(
@@ -198,7 +197,7 @@ class TestReadOnlyLoad:
     ):
         storage = _storage_mock(
             devices=[_device_dto(driver, mock_transport_client.id)],
-            drivers=[driver_to_public(driver)],
+            drivers=[driver],
             transports=[mock_transport_client],
         )
         monkeypatch.setattr(

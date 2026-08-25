@@ -5,39 +5,34 @@ import re
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
-from pydantic import BaseModel, TypeAdapter, ValidationError
+from pydantic import TypeAdapter, ValidationError
 
 from devices_manager.core.device.attribute import AttributeKind
 from devices_manager.core.device.connection_status import CONNECTION_STATUS_ATTR
+from devices_manager.core.driver import AnyAttributeDriver
 from devices_manager.core.driver.driver import (
     validate_polling_groups,
     validate_push_only_polling,
 )
 from devices_manager.core.driver.driver_metadata import DriverMetadata
 from devices_manager.core.standard_schemas import validate_standard_schema
-from devices_manager.dto import (
-    AttributeDriverSpec,
-    AttributePatch,
-    DriverPatch,
-    DriverSpec,
-    driver_from_public,
-    driver_to_public,
-)
-from devices_manager.storage.memory import MemoryStorageBackend
 from models.errors import ConflictError, InvalidError, NotFoundError
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from devices_manager.core.driver import DriverStorage
     from devices_manager.core.driver.attribute_driver import AttributeDriver
     from devices_manager.core.transports import TransportClient
-    from devices_manager.storage import StorageBackend
 
     from .driver import Driver
 
 logger = logging.getLogger(__name__)
 
-_attr_adapter: TypeAdapter[AttributeDriver] = TypeAdapter(AttributeDriverSpec)
+_attr_adapter: TypeAdapter[AttributeDriver] = TypeAdapter(AnyAttributeDriver)
+
+# Fields that merge field-wise into the existing model instead of replacing it.
+_MERGED_MODEL_FIELDS = {"update_strategy", "healthcheck"}
 
 
 def _reject_reserved_attribute_name(name: str) -> None:
@@ -60,18 +55,16 @@ class DriverRegistry:
     """In-memory registry for drivers with optional persistence."""
 
     _drivers: dict[str, Driver]
-    _storage: StorageBackend[DriverSpec]
+    _storage: DriverStorage | None
 
     def __init__(
         self,
         drivers: dict[str, Driver] | None = None,
         *,
-        storage: StorageBackend[DriverSpec] | None = None,
+        storage: DriverStorage | None = None,
     ) -> None:
         self._drivers = drivers if drivers is not None else {}
-        self._storage = (
-            storage if storage is not None else MemoryStorageBackend[DriverSpec]()
-        )
+        self._storage = storage
 
     @property
     def all(self) -> dict[str, Driver]:
@@ -81,11 +74,11 @@ class DriverRegistry:
     def ids(self) -> set[str]:
         return set(self._drivers.keys())
 
-    def list_all(self, *, device_type: str | None = None) -> list[DriverSpec]:
+    def list_all(self, *, device_type: str | None = None) -> list[Driver]:
         drivers = self._drivers.values()
         if device_type is not None:
-            drivers = [d for d in drivers if d.type == device_type]
-        return [driver_to_public(driver) for driver in drivers]
+            return [d for d in drivers if d.type == device_type]
+        return list(drivers)
 
     def _get_or_raise(self, driver_id: str) -> Driver:
         try:
@@ -96,10 +89,6 @@ class DriverRegistry:
 
     def get(self, driver_id: str) -> Driver:
         return self._get_or_raise(driver_id)
-
-    def get_dto(self, driver_id: str) -> DriverSpec:
-        driver = self._get_or_raise(driver_id)
-        return driver_to_public(driver)
 
     @staticmethod
     def _get_attribute_or_raise(
@@ -131,56 +120,54 @@ class DriverRegistry:
     def _touch(driver: Driver) -> None:
         driver.metadata.updated_at = datetime.now(UTC)
 
-    async def _persist(self, driver: Driver) -> DriverSpec:
+    async def _persist(self, driver: Driver) -> None:
         """Bump updated_at and write back. The single chokepoint every
         mutating method funnels through, so a new one can't forget to
         bump the timestamp."""
         self._touch(driver)
-        dto = driver_to_public(driver)
-        await self._storage.write(dto.id, dto)
-        return dto
+        if self._storage is not None:
+            await self._storage.write(driver.id, driver)
 
-    async def add(self, driver_dto: DriverSpec) -> DriverSpec:
-        if driver_dto.id in self._drivers:
-            msg = f"Driver {driver_dto.id} already exists"
+    async def add(self, driver: Driver) -> Driver:
+        if driver.id in self._drivers:
+            msg = f"Driver {driver.id} already exists"
             raise ConflictError(msg)
-        for attr in driver_dto.attributes:
-            _reject_reserved_attribute_name(attr.name)
-        driver = driver_from_public(driver_dto)
-        self._drivers[driver_dto.id] = driver
-        dto = driver_to_public(driver)
-        await self._storage.write(dto.id, dto)
-        return dto
+        for name in driver.attributes:
+            _reject_reserved_attribute_name(name)
+        self._drivers[driver.id] = driver
+        if self._storage is not None:
+            await self._storage.write(driver.id, driver)
+        return driver
 
-    async def patch(self, driver_id: str, patch: DriverPatch) -> DriverSpec:
+    async def patch(self, driver_id: str, updates: dict[str, Any]) -> Driver:
+        """Apply resolved root-level field updates to the driver.
+
+        ``updates`` maps field name to its new value — only fields the
+        caller explicitly set (patch semantics live at the wire layer;
+        this is a dumb merge + validate). Nested models
+        (``update_strategy``, ``healthcheck``) merge field-wise from a
+        partial dict.
+        """
         driver = self._get_or_raise(driver_id)
-        if "type" in patch.model_fields_set and patch.type is not None:
+        if updates.get("type") is not None:
             self._assert_standard_schema_allows(
                 driver,
                 list(driver.attributes.values()),
-                lambda e: f"Cannot set driver type to '{patch.type}': {e}",
-                type_override=patch.type,
+                lambda e: f"Cannot set driver type to '{updates['type']}': {e}",
+                type_override=updates["type"],
             )
-        merged_strategy = None
-        if patch.update_strategy is not None:
-            merged_strategy = driver.update_strategy.model_copy(
-                update=patch.update_strategy.model_dump(exclude_unset=True)
-            )
+        resolved = dict(updates)
+        for field in _MERGED_MODEL_FIELDS & resolved.keys():
+            resolved[field] = getattr(driver, field).model_copy(update=resolved[field])
+        if (merged_strategy := resolved.get("update_strategy")) is not None:
             validate_polling_groups(merged_strategy, driver.attributes.values())
             validate_push_only_polling(driver.transport, merged_strategy)
         metadata_fields = DriverMetadata.model_fields
-        for field in patch.model_fields_set:
-            if field == "update_strategy" and merged_strategy is not None:
-                value = merged_strategy
-            else:
-                value = getattr(patch, field)
-                if isinstance(value, BaseModel):
-                    value = getattr(driver, field).model_copy(
-                        update=value.model_dump(exclude_unset=True)
-                    )
+        for field, value in resolved.items():
             target = driver.metadata if field in metadata_fields else driver
             setattr(target, field, value)
-        return await self._persist(driver)
+        await self._persist(driver)
+        return driver
 
     async def create_driver_attribute(
         self, driver_id: str, attribute: AttributeDriver
@@ -206,15 +193,18 @@ class DriverRegistry:
         return attribute
 
     async def patch_driver_attribute(
-        self, driver_id: str, attribute_id: str, patch: AttributePatch
+        self, driver_id: str, attribute_id: str, updates: dict[str, Any]
     ) -> AttributeDriver:
+        """Merge resolved field updates into an attribute and revalidate it.
+
+        ``updates`` maps field name to its new value — only fields the
+        caller explicitly set.
+        """
         driver = self._get_or_raise(driver_id)
         existing = self._get_attribute_or_raise(driver, driver_id, attribute_id)
-        merged: dict[str, Any] = existing.model_dump() | patch.model_dump(
-            exclude_unset=True
-        )
+        merged: dict[str, Any] = existing.model_dump() | updates
         if merged.get("kind") != AttributeKind.FAULT:
-            fault_only = {"severity", "healthy_values"} & patch.model_fields_set
+            fault_only = {"severity", "healthy_values"} & updates.keys()
             if fault_only:
                 msg = f"Fields {sorted(fault_only)} are only valid on fault attributes"
                 raise InvalidError(msg)
@@ -235,7 +225,7 @@ class DriverRegistry:
 
     async def delete_driver_attribute(
         self, driver_id: str, attribute_id: str
-    ) -> DriverSpec:
+    ) -> Driver:
         driver = self._get_or_raise(driver_id)
         self._get_attribute_or_raise(driver, driver_id, attribute_id)
         remaining = [a for aid, a in driver.attributes.items() if aid != attribute_id]
@@ -249,7 +239,8 @@ class DriverRegistry:
             ),
         )
         del driver.attributes[attribute_id]
-        return await self._persist(driver)
+        await self._persist(driver)
+        return driver
 
     async def rename_driver_attribute(
         self, driver_id: str, attribute_id: str, new_name: str
@@ -283,7 +274,8 @@ class DriverRegistry:
     async def remove(self, driver_id: str) -> None:
         self._get_or_raise(driver_id)
         del self._drivers[driver_id]
-        await self._storage.delete(driver_id)
+        if self._storage is not None:
+            await self._storage.delete(driver_id)
 
     @staticmethod
     def check_transport_compat(driver: Driver, transport: TransportClient) -> None:

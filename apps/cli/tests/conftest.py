@@ -6,7 +6,7 @@ from devices_manager.core.transports import (
     make_transport_client,
     make_transport_config,
 )
-from devices_manager.dto import Device, DriverSpec
+from devices_manager.dto import Device, DriverSpec, driver_from_public
 from devices_manager.storage.memory import MemoryDevicesStorage
 from devices_manager.types import TransportProtocols
 
@@ -57,7 +57,7 @@ TEST_TRANSPORT = make_transport_client(
 async def seeded_memory_storage() -> MemoryDevicesStorage:
     storage = MemoryDevicesStorage()
     await storage.devices.write(TEST_DEVICE.id, TEST_DEVICE)
-    await storage.drivers.write(TEST_DRIVER.id, TEST_DRIVER)
+    await storage.drivers.write(TEST_DRIVER.id, driver_from_public(TEST_DRIVER))
     await storage.transports.write(TEST_TRANSPORT.id, TEST_TRANSPORT)
     return storage
 
