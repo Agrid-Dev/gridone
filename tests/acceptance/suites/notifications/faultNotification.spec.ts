@@ -1,8 +1,13 @@
 import { describe, beforeAll, afterAll, it, expect } from "vitest";
-import type { Device, GridoneClient, NotificationDispatch } from "@gridone/sdk";
+import type { GridoneClient, NotificationDispatch } from "@gridone/sdk";
 import { makeAdminClient, pollUntil } from "../../lib/api";
 import { startEmulator, waitForEmulator } from "../../lib/emulator";
-import { seedFixtureSet, type FixtureSet } from "../../lib/fixtures";
+import {
+  deleteFixtureSet,
+  seedFixtureSet,
+  type FixtureSet,
+} from "../../lib/fixtures";
+import { currentValue } from "../../lib/devices";
 import { writeThermocktat } from "../../lib/thermocktat";
 
 // Suite-owned, not in globalSetup: this suite flips the device's fault_code
@@ -45,10 +50,6 @@ const POLL_INTERVAL_MS = 2_000;
 const SLACK_POLLS = 8;
 const UNTIL_POLLED = { timeout: (1 + SLACK_POLLS) * POLL_INTERVAL_MS };
 
-function faultCode(device: Device): string {
-  return device.attributes!["fault_code"]!.current_value as string;
-}
-
 const setFaultCode = (code: number) =>
   writeThermocktat(EXTERNAL_URL, "fault_code", code);
 
@@ -57,7 +58,8 @@ describe("Fault notifications dispatch on healthy/faulty transitions", () => {
   let deviceId: string;
 
   const readDevice = () => client.devices.get(deviceId);
-  const readFaultCode = async () => faultCode(await readDevice());
+  const readFaultCode = async () =>
+    currentValue(await readDevice(), "fault_code") as string;
 
   // Identify a notification by what the listener guarantees rather than by its
   // exact wording: the title says "fault", and the body links the device by id
@@ -102,18 +104,7 @@ describe("Fault notifications dispatch on healthy/faulty transitions", () => {
     // The emulator outlives the device, and a fresh device inheriting a stale
     // fault would dispatch on its very first read.
     await setFaultCode(FAULT_CODE.ok).catch(() => undefined);
-    if (deviceId) {
-      await client.devices.delete(deviceId).catch(() => undefined);
-    }
-    // By name: seedFixtureSet returns devices, not the transport it reused.
-    const transports = await client.transports.list().catch(() => []);
-    const transport = transports.find(
-      (candidate) => candidate.name === FIXTURE.transport.name,
-    );
-    if (transport) {
-      await client.transports.delete(transport.id).catch(() => undefined);
-    }
-    // thermocktat_http stays: it is the shared golden-path driver.
+    await deleteFixtureSet(client, FIXTURE);
   });
 
   // One journey: the steps run in declaration order, each precondition being

@@ -1,28 +1,16 @@
 import type {
   AttributeValueType,
-  Device,
   GridoneClient,
   MeResponse,
 } from "@gridone/sdk";
 import { beforeAll, describe, expect, inject, it } from "vitest";
 import { makeAdminClient, pollUntil } from "../../lib/api";
+import { currentValue } from "../../lib/devices";
 import type { SharedFixtureKey } from "../../setup/globalSetup";
 
 // Timeseries queries start here so re-runs against a non-fresh stack only
 // look at points produced by this run.
 const runStart = new Date().toISOString();
-
-// The generated wire type keeps attribute payloads open
-// (`Attribute: { [key: string]: unknown }`), so narrow here.
-export function currentValue(
-  device: Device,
-  attribute: string,
-): AttributeValueType | null {
-  const attr = device.attributes?.[attribute] as
-    | { current_value?: AttributeValueType | null }
-    | undefined;
-  return attr?.current_value ?? null;
-}
 
 // One command per data type: float setpoint, on/off switch, string mode.
 // Targets derive from the current value so they always change something,

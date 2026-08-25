@@ -2,12 +2,16 @@ import { describe, beforeAll, afterAll, it, expect } from "vitest";
 import type {
   CommandTemplateResponse,
   ConnectionStatus,
-  Device,
   GridoneClient,
 } from "@gridone/sdk";
 import { makeAdminClient, pollUntil } from "../../lib/api";
 import { startEmulator, waitForEmulator } from "../../lib/emulator";
-import { seedFixtureSet, type FixtureSet } from "../../lib/fixtures";
+import {
+  deleteFixtureSet,
+  seedFixtureSet,
+  type FixtureSet,
+} from "../../lib/fixtures";
+import { currentValue } from "../../lib/devices";
 import { writeThermocktat } from "../../lib/thermocktat";
 
 // Shares attributeTrigger.spec.ts's emulator (compose service
@@ -64,10 +68,6 @@ const SYSTEM_ACTOR = "system";
 // Templates are listed by name; a run's own name keeps re-runs from colliding.
 const RUN_ID = `run-${Date.now()}`;
 
-function attributeValue(device: Device, attribute: string) {
-  return device.attributes![attribute]!.current_value;
-}
-
 const setEnabled = (value: boolean) =>
   writeThermocktat(EXTERNAL_URL, "enabled", value);
 
@@ -78,10 +78,9 @@ describe("Automations triggered on a schedule", () => {
   let automationId: string;
 
   const readDevice = () => client.devices.get(deviceId);
-  const readOnOff = async () =>
-    attributeValue(await readDevice(), "onoff_state");
+  const readOnOff = async () => currentValue(await readDevice(), "onoff_state");
   const readConnectionStatus = async () =>
-    attributeValue(await readDevice(), "connection_status") as ConnectionStatus;
+    currentValue(await readDevice(), "connection_status") as ConnectionStatus;
 
   beforeAll(async () => {
     client = await makeAdminClient();
@@ -109,18 +108,7 @@ describe("Automations triggered on a schedule", () => {
         .delete(template.id)
         .catch(() => undefined);
     }
-    if (deviceId) {
-      await client.devices.delete(deviceId).catch(() => undefined);
-    }
-    // By name: seedFixtureSet returns devices, not the transport it reused.
-    const transports = await client.transports.list().catch(() => []);
-    const transport = transports.find(
-      (candidate) => candidate.name === FIXTURE.transport.name,
-    );
-    if (transport) {
-      await client.transports.delete(transport.id).catch(() => undefined);
-    }
-    // thermocktat_http stays: it is the shared golden-path driver.
+    await deleteFixtureSet(client, FIXTURE);
   });
 
   // One journey: the steps run in declaration order, each precondition being

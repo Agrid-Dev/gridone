@@ -114,3 +114,38 @@ export async function seedFixtureSet(
   }
   return seeded;
 }
+
+/**
+ * Drops what `seedFixtureSet` created: the set's devices, then its transport.
+ *
+ * Only for suite-owned sets — shared sets are torn down by `stack:down` and
+ * nothing else (README, "Fixtures and their lifetime"). The driver stays: it is
+ * shared with the golden path, and get-or-create means it never accumulates.
+ *
+ * Devices go first, since the transport is what they bind. Every step swallows
+ * its own failure so one stuck resource cannot mask the test failure that left
+ * it behind, nor block the rest of the teardown.
+ */
+export async function deleteFixtureSet(
+  client: GridoneClient,
+  seed: FixtureSet,
+): Promise<void> {
+  const seededNames = new Set(seed.devices.map((device) => device.name));
+  const devices = await client.devices
+    .list({ driver_id: seed.driverId })
+    .catch(() => []);
+  for (const device of devices) {
+    if (seededNames.has(device.name)) {
+      await client.devices.delete(device.id).catch(() => undefined);
+    }
+  }
+  // By name, as in seeding: the set names its transport, and what is there may
+  // be a transport seeding reused rather than created.
+  const transports = await client.transports.list().catch(() => []);
+  const transport = transports.find(
+    (candidate) => candidate.name === seed.transport.name,
+  );
+  if (transport) {
+    await client.transports.delete(transport.id).catch(() => undefined);
+  }
+}

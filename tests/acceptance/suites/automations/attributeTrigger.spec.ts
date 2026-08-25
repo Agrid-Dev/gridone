@@ -1,14 +1,18 @@
 import { describe, beforeAll, afterAll, it, expect } from "vitest";
 import type {
   ConnectionStatus,
-  Device,
   GridoneClient,
   MeResponse,
   NotificationDispatch,
 } from "@gridone/sdk";
 import { makeAdminClient, pollUntil } from "../../lib/api";
 import { startEmulator, waitForEmulator } from "../../lib/emulator";
-import { seedFixtureSet, type FixtureSet } from "../../lib/fixtures";
+import {
+  deleteFixtureSet,
+  seedFixtureSet,
+  type FixtureSet,
+} from "../../lib/fixtures";
+import { currentValue } from "../../lib/devices";
 import { writeThermocktat } from "../../lib/thermocktat";
 
 // Suite-owned, not in globalSetup: this suite drives the setpoint across an
@@ -69,11 +73,6 @@ const NOTIFICATION_SEVERITY = "warning";
 const setSetpoint = (value: number) =>
   writeThermocktat(EXTERNAL_URL, "temperature_setpoint", value);
 
-function connectionStatus(device: Device): ConnectionStatus {
-  return device.attributes!["connection_status"]!
-    .current_value as ConnectionStatus;
-}
-
 describe("Automations triggered by an attribute change", () => {
   let client: GridoneClient;
   let admin: MeResponse;
@@ -84,9 +83,10 @@ describe("Automations triggered by an attribute change", () => {
   let automationId: string;
 
   const readDevice = () => client.devices.get(deviceId);
-  const readConnectionStatus = async () => connectionStatus(await readDevice());
+  const readConnectionStatus = async () =>
+    currentValue(await readDevice(), "connection_status") as ConnectionStatus;
   const readSetpoint = async () =>
-    (await readDevice()).attributes!["temperature_setpoint"]!.current_value;
+    currentValue(await readDevice(), "temperature_setpoint");
 
   // Identified by the run token in the body, not by title: the title is the
   // action's own wording and an earlier run wrote the same one.
@@ -123,18 +123,7 @@ describe("Automations triggered by an attribute change", () => {
     if (automationId) {
       await client.automations.delete(automationId).catch(() => undefined);
     }
-    if (deviceId) {
-      await client.devices.delete(deviceId).catch(() => undefined);
-    }
-    // By name: seedFixtureSet returns devices, not the transport it reused.
-    const transports = await client.transports.list().catch(() => []);
-    const transport = transports.find(
-      (candidate) => candidate.name === FIXTURE.transport.name,
-    );
-    if (transport) {
-      await client.transports.delete(transport.id).catch(() => undefined);
-    }
-    // thermocktat_http stays: it is the shared golden-path driver.
+    await deleteFixtureSet(client, FIXTURE);
   });
 
   // One journey: the steps run in declaration order, each precondition being
