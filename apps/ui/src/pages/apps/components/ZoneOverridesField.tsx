@@ -52,9 +52,17 @@ interface ZoneOverridesFieldProps {
 const ZONE_FIELD = "zone_id";
 const ENABLED_FIELD = "enabled";
 
-/** `zone_overrides`'s sibling in the same (flat) app config form — the add
- *  picker's candidate set is that list minus rooms already overridden. */
+/** `zone_overrides`'s sibling object property — the add picker's candidate set
+ *  is that list minus rooms already overridden. */
 const PILOTED_ZONES_FIELD = "piloted_zones";
+
+/** Resolves a sibling property of `path`, so a prefixed form
+ *  (`config.zone_overrides`) still finds `config.piloted_zones` rather than a
+ *  top-level field that isn't there. */
+const siblingPath = (path: string, sibling: string): string => {
+  const lastDot = path.lastIndexOf(".");
+  return lastDot === -1 ? sibling : `${path.slice(0, lastDot)}.${sibling}`;
+};
 
 type OverrideRow = Record<string, unknown>;
 
@@ -84,18 +92,19 @@ export const ZoneOverridesField: FC<ZoneOverridesFieldProps> = ({
     name: name as FieldArrayPath<FieldValues>,
   });
 
+  const pilotedZonesPath = siblingPath(name, PILOTED_ZONES_FIELD);
   const pilotedZoneIds = useWatch({
     control,
-    name: PILOTED_ZONES_FIELD,
+    name: pilotedZonesPath,
   }) as string[] | undefined;
   useEffect(() => {
     if (pilotedZoneIds === undefined && import.meta.env.DEV) {
       // eslint-disable-next-line no-console -- dev-only diagnostic
       console.warn(
-        `ZoneOverridesField: no sibling field "${PILOTED_ZONES_FIELD}" found — the add picker will offer no rooms.`,
+        `ZoneOverridesField: no sibling field "${pilotedZonesPath}" found — the add picker will offer no rooms.`,
       );
     }
-  }, [pilotedZoneIds]);
+  }, [pilotedZoneIds, pilotedZonesPath]);
   const rows = (useWatch({ control, name }) as OverrideRow[] | undefined) ?? [];
 
   const zoneNameOf = (zoneId: string | undefined) => {

@@ -88,11 +88,17 @@ const schema: AppSchemaNode = {
   },
 };
 
-function Harness({ defaultValues }: { defaultValues: FieldValues }) {
+function Harness({
+  defaultValues,
+  name = "zone_overrides",
+}: {
+  defaultValues: FieldValues;
+  name?: string;
+}) {
   const { control } = useForm<FieldValues>({ defaultValues });
   return (
     <ZoneOverridesField
-      name="zone_overrides"
+      name={name}
       schema={schema}
       control={control}
       required={false}
@@ -100,8 +106,11 @@ function Harness({ defaultValues }: { defaultValues: FieldValues }) {
   );
 }
 
-function renderField(defaultValues: FieldValues) {
-  render(<Harness defaultValues={defaultValues} />);
+function renderField(
+  defaultValues: FieldValues,
+  options: { name?: string } = {},
+) {
+  render(<Harness defaultValues={defaultValues} {...options} />);
 }
 
 afterEach(cleanup);
@@ -204,6 +213,26 @@ describe("ZoneOverridesField", () => {
     await user.click(toggle);
 
     expect(toggle).toHaveAttribute("aria-checked", "true");
+  });
+
+  it("resolves the piloted-zones sibling relative to its own field path", () => {
+    renderField(
+      {
+        config: {
+          piloted_zones: ["z1", "z2"],
+          zone_overrides: [
+            { zone_id: "z1", zone_type: "office", enabled: true },
+          ],
+        },
+      },
+      { name: "config.zone_overrides" },
+    );
+
+    // z2 is the only piloted room without an override; finding it proves the
+    // sibling lookup followed the `config.` prefix rather than the root.
+    const options = screen.getAllByRole("option");
+    expect(options).toHaveLength(1);
+    expect(within(options[0]).getByText("Room 102")).toBeInTheDocument();
   });
 
   it("collapses and expands, showing the override count either way", async () => {
