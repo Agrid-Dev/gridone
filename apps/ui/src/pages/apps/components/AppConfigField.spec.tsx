@@ -18,9 +18,11 @@ vi.mock("react-i18next", () =>
   }),
 );
 
-const { mockUseQuery, mockListDevices } = vi.hoisted(() => ({
+// `useQuery` is mocked outright, so `client.devices.list` (the real
+// `queryFn`) never runs — `useGridoneClient` is stubbed only so the real
+// hook, which needs a provider, is never reached.
+const { mockUseQuery } = vi.hoisted(() => ({
   mockUseQuery: vi.fn(),
-  mockListDevices: vi.fn(),
 }));
 
 vi.mock("@tanstack/react-query", () => ({
@@ -29,7 +31,7 @@ vi.mock("@tanstack/react-query", () => ({
 
 vi.mock("@/contexts/GridoneClientContext", () => ({
   useGridoneClient: () => ({
-    devices: { list: mockListDevices },
+    devices: { list: vi.fn() },
   }),
 }));
 
@@ -180,7 +182,6 @@ function renderField(
 afterEach(() => {
   cleanup();
   mockUseQuery.mockReset();
-  mockListDevices.mockReset();
 });
 
 describe("AppConfigField widget mapping", () => {
@@ -273,6 +274,18 @@ describe("AppConfigField widget mapping", () => {
     );
 
     expect(screen.getByText("Pick at least one location")).toBeInTheDocument();
+  });
+
+  it("surfaces a validation error on a device field", () => {
+    mockUseQuery.mockReturnValue({ data: devices, isLoading: false });
+
+    renderField(
+      { type: "string", format: "device-id" },
+      undefined,
+      "Pick a device",
+    );
+
+    expect(screen.getByText("Pick a device")).toBeInTheDocument();
   });
 
   it("delegates primitives to the shared schema field", async () => {

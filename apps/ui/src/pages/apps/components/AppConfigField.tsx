@@ -83,6 +83,10 @@ export const AppConfigField: FC<AppConfigFieldProps> = ({
     );
   }
 
+  // Single-value only, unlike `asset-id`: `DevicePicker` has no multi-select
+  // variant, so `itemSchema.format === DEVICE_ID_FORMAT` is deliberately not
+  // checked here — an array of device ids falls through to `ListField` below,
+  // same as any other scalar array with no dedicated widget.
   if (schema.format === DEVICE_ID_FORMAT) {
     return (
       <DeviceField

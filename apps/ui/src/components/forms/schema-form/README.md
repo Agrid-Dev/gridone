@@ -101,13 +101,13 @@ and its `422` errors are shown on the form.
 App schemas add four extensions, prepared in
 `apps/ui/src/lib/appConfigSchema.ts` before entering the shared builder:
 
-| Extension                           | Meaning                                                                                          |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Root `i18n` catalog                 | `title` and `description` are looked up by exact locale, then base language, then used literally |
-| `format: asset-id`                  | Asset selector; single for a string and multiple for an array                                    |
-| `format: device-id`                 | Device selector; `device_type` (optional) restricts candidates to that device type               |
-| `format: password`                  | Masked secret input with a reveal toggle — same widget as the first-party `secret: true` marker  |
-| `oneOf` with a `const` discriminant | A selector chooses a branch, whose fields are flattened into the root form                       |
+| Extension                           | Meaning                                                                                                                                  |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Root `i18n` catalog                 | `title` and `description` are looked up by exact locale, then base language, then used literally                                         |
+| `format: asset-id`                  | Asset selector; single for a string and multiple for an array                                                                            |
+| `format: device-id`                 | Device selector on a string only (no array support yet); `device_type` (optional, single value) restricts candidates to that device type |
+| `format: password`                  | Masked secret input with a reveal toggle — same widget as the first-party `secret: true` marker                                          |
+| `oneOf` with a `const` discriminant | A selector chooses a branch, whose fields are flattened into the root form                                                               |
 
 Discriminated branches must remain flat. They are flattened before Zod
 conversion because converting the canonical branch objects directly as a union
