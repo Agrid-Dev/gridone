@@ -6,8 +6,13 @@ from typing import TYPE_CHECKING
 import pytest
 
 from devices_manager.core.device import Attribute
-from devices_manager.core.transports import TransportConnectionState
-from devices_manager.dto import Device, build_transport
+from devices_manager.core.transports import (
+    TransportConnectionState,
+    TransportMetadata,
+    make_transport_client,
+    make_transport_config,
+)
+from devices_manager.dto import Device
 from devices_manager.storage.yaml.core_file_storage import CoreFileStorage
 from devices_manager.types import (
     ConnectionStatus,
@@ -17,6 +22,8 @@ from devices_manager.types import (
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    from devices_manager.core.transports import TransportClient
 
 
 def _make_device(
@@ -90,34 +97,54 @@ class TestSaveAttribute:
         assert "Cannot persist attribute for unknown device" in caplog.text
 
 
+def _make_client(transport_id: str = "t1") -> TransportClient:
+    return make_transport_client(
+        TransportProtocols.HTTP,
+        make_transport_config(TransportProtocols.HTTP, {"request_timeout": 5}),
+        TransportMetadata(id=transport_id, name="HTTP"),
+    )
+
+
 class TestTransportRoundTrip:
     @pytest.mark.asyncio
-    async def test_connection_state_survives_round_trip(self, storage: CoreFileStorage):
-        transport = build_transport(
-            transport_id="t1",
-            name="HTTP",
-            protocol=TransportProtocols.HTTP,
-            config={},
-            connection_state=TransportConnectionState.connected(),
-        )
-        await storage.transports.write("t1", transport)
-
-        result = await storage.transports.read("t1")
-        assert result.connection_state.status == ConnectionStatus.OK
-
-    @pytest.mark.asyncio
-    async def test_missing_connection_state_defaults_to_idle(
+    async def test_round_trip_preserves_identity_and_config(
         self, storage: CoreFileStorage
     ):
-        transport = build_transport(
-            transport_id="t2",
-            name="HTTP",
-            protocol=TransportProtocols.HTTP,
-            config={},
-        )
-        await storage.transports.write("t2", transport)
+        client = _make_client()
+        await storage.transports.write("t1", client)
+
+        result = await storage.transports.read("t1")
+        assert result.id == client.id
+        assert result.metadata.name == client.metadata.name
+        assert result.config == client.config
+        assert result.metadata.created_at == client.metadata.created_at
+        assert result.metadata.updated_at == client.metadata.updated_at
+
+    @pytest.mark.asyncio
+    async def test_connected_client_hydrates_idle(self, storage: CoreFileStorage):
+        client = _make_client("t2")
+        client.connection_state = TransportConnectionState.connected()
+        await storage.transports.write("t2", client)
 
         result = await storage.transports.read("t2")
+        assert result.connection_state.status == ConnectionStatus.IDLE
+
+    @pytest.mark.asyncio
+    async def test_legacy_file_with_connection_state_still_loads(
+        self, storage: CoreFileStorage, tmp_path: Path
+    ):
+        (tmp_path / "transports" / "t3.yaml").write_text(
+            "id: t3\n"
+            "name: Legacy\n"
+            "protocol: http\n"
+            "config: {}\n"
+            "connection_state:\n"
+            "  status: ok\n",
+            encoding="utf-8",
+        )
+
+        result = await storage.transports.read("t3")
+        assert result.id == "t3"
         assert result.connection_state.status == ConnectionStatus.IDLE
 
 

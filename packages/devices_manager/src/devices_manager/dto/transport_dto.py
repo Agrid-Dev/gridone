@@ -24,6 +24,7 @@ from devices_manager.core.transports.mqtt_transport import MqttTransportConfig
 from devices_manager.core.transports.opcua_transport import OpcuaTransportConfig
 from devices_manager.core.transports.webhook_transport import WebhookTransportConfig
 from devices_manager.types import TransportProtocols
+from models.ids import gen_id
 from models.metadata import ResourceMetadata, timestamp_kwargs
 
 
@@ -247,6 +248,15 @@ TransportCreate = Annotated[
     | OpcuaTransportCreate,
     Field(discriminator="protocol"),
 ]
+
+
+def create_to_core(create: TransportCreate) -> TransportClient:
+    """Build a fresh client from a create payload: new id, default timestamps."""
+    return make_transport_client(
+        create.protocol,
+        create.config,
+        TransportMetadata(id=gen_id(), name=create.name),
+    )
 
 
 class TransportUpdate(BaseModel):

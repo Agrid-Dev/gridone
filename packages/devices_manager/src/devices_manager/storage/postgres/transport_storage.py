@@ -2,74 +2,73 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from devices_manager.core.transports import TransportConnectionState
-from devices_manager.dto.transport_dto import (
-    Transport,
-    build_dto,
+from devices_manager.storage.transport_record import (
+    TransportRecord,
+    from_record,
+    to_record,
 )
-from devices_manager.storage.storage_backend import StorageBackend
 
 if TYPE_CHECKING:
     import asyncpg
 
+    from devices_manager.core.transports import TransportClient
 
-class PostgresTransportStorage(StorageBackend[Transport]):
+
+class PostgresTransportStorage:
+    """``TransportStorage`` port over the dm_transports table."""
+
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
 
     @staticmethod
-    def _row_to_dto(row: asyncpg.Record) -> Transport:
-        return build_dto(
-            transport_id=row["id"],
-            name=row["name"],
-            protocol=row["protocol"],
-            config=row["config"],
-            connection_state=TransportConnectionState.from_dict(
-                row["connection_state"]
-            ),
-            created_at=row["created_at"],
-            updated_at=row["updated_at"],
+    def _row_to_client(row: asyncpg.Record) -> TransportClient:
+        return from_record(
+            TransportRecord(
+                id=row["id"],
+                name=row["name"],
+                protocol=row["protocol"],
+                config=row["config"],
+                created_at=row["created_at"],
+                updated_at=row["updated_at"],
+            )
         )
 
-    async def read(self, item_id: str) -> Transport:
+    async def read(self, item_id: str) -> TransportClient:
         row = await self._pool.fetchrow(
-            "SELECT id, name, protocol, config, connection_state, "
-            "created_at, updated_at "
+            "SELECT id, name, protocol, config, created_at, updated_at "
             "FROM dm_transports WHERE id = $1",
             item_id,
         )
         if row is None:
             msg = f"dm_transports entry '{item_id}' not found"
             raise FileNotFoundError(msg)
-        return self._row_to_dto(row)
+        return self._row_to_client(row)
 
-    async def write(self, item_id: str, data: Transport) -> None:
-        dumped = data.model_dump(mode="json")
+    async def write(self, item_id: str, client: TransportClient) -> None:
+        record = to_record(client)
+        dumped = record.model_dump(mode="json")
         await self._pool.execute(
             "INSERT INTO dm_transports "
-            "(id, name, protocol, config, connection_state, created_at, updated_at) "
-            "VALUES ($1, $2, $3, $4, $5, $6, $7) "
+            "(id, name, protocol, config, created_at, updated_at) "
+            "VALUES ($1, $2, $3, $4, $5, $6) "
             "ON CONFLICT (id) DO UPDATE SET "
             "name = EXCLUDED.name, protocol = EXCLUDED.protocol, "
             "config = EXCLUDED.config, "
-            "connection_state = EXCLUDED.connection_state, "
             "updated_at = EXCLUDED.updated_at",
             item_id,
             dumped["name"],
             dumped["protocol"],
             dumped["config"],
-            dumped.get("connection_state", {}),
-            data.created_at,
-            data.updated_at,
+            record.created_at,
+            record.updated_at,
         )
 
-    async def read_all(self) -> list[Transport]:
+    async def read_all(self) -> list[TransportClient]:
         rows = await self._pool.fetch(
-            "SELECT id, name, protocol, config, connection_state, "
-            "created_at, updated_at "
+            "SELECT id, name, protocol, config, created_at, updated_at "
             "FROM dm_transports ORDER BY id",
         )
-        return [self._row_to_dto(row) for row in rows]
+        return [self._row_to_client(row) for row in rows]
 
     async def list_all(self) -> list[str]:
         rows = await self._pool.fetch("SELECT id FROM dm_transports ORDER BY id")

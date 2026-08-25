@@ -10,9 +10,15 @@ import pytest_asyncio
 
 from devices_manager.core.device import Attribute
 from devices_manager.core.driver import AttributeDriver
-from devices_manager.dto import Device, Transport
+from devices_manager.core.transports import (
+    TransportClient,
+    TransportConnectionState,
+    TransportMetadata,
+    make_transport_client,
+    make_transport_config,
+)
+from devices_manager.dto import Device
 from devices_manager.dto.driver_dto import DriverSpec
-from devices_manager.dto.transport_dto import build_dto as build_transport
 from devices_manager.storage.postgres import (
     PostgresDevicesManagerStorage,
     PostgresDeviceStorage,
@@ -21,6 +27,7 @@ from devices_manager.storage.postgres import (
     run_migrations,
 )
 from devices_manager.types import (
+    ConnectionStatus,
     DataType,
     TransportProtocols,
 )
@@ -43,12 +50,11 @@ def _make_transport(
     transport_id: str = "t1",
     name: str = "Test Transport",
     protocol: TransportProtocols = TransportProtocols.HTTP,
-) -> Transport:
-    return build_transport(
-        transport_id=transport_id,
-        name=name,
-        protocol=protocol,
-        config={"request_timeout": 10},
+) -> TransportClient:
+    return make_transport_client(
+        protocol,
+        make_transport_config(protocol, {"request_timeout": 10}),
+        TransportMetadata(id=transport_id, name=name),
     )
 
 
@@ -157,8 +163,9 @@ class TestTransportStorage:
 
         result = await transport_storage.read(transport.id)
         assert result.id == transport.id
-        assert result.name == transport.name
+        assert result.metadata.name == transport.metadata.name
         assert result.protocol == transport.protocol
+        assert result.config == transport.config
 
     async def test_read_not_found(self, transport_storage: PostgresTransportStorage):
         with pytest.raises(FileNotFoundError):
@@ -186,7 +193,7 @@ class TestTransportStorage:
         await transport_storage.write("t1", _make_transport("t1", name="Updated"))
 
         result = await transport_storage.read("t1")
-        assert result.name == "Updated"
+        assert result.metadata.name == "Updated"
 
     async def test_delete(self, transport_storage: PostgresTransportStorage):
         await transport_storage.write("t1", _make_transport("t1"))
@@ -198,6 +205,16 @@ class TestTransportStorage:
     async def test_delete_not_found(self, transport_storage: PostgresTransportStorage):
         with pytest.raises(FileNotFoundError):
             await transport_storage.delete("nonexistent")
+
+    async def test_connected_client_hydrates_idle(
+        self, transport_storage: PostgresTransportStorage
+    ):
+        client = _make_transport("t1")
+        client.connection_state = TransportConnectionState.connected()
+        await transport_storage.write("t1", client)
+
+        result = await transport_storage.read("t1")
+        assert result.connection_state.status == ConnectionStatus.IDLE
 
 
 # ---------------------------------------------------------------------------

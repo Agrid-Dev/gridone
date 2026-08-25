@@ -23,7 +23,7 @@ from .core.discovery_manager import (
 )
 from .core.driver_registry import DriverRegistry
 from .core.standard_schemas.registry import default_registry
-from .core.transport_registry import TransportRegistry, build_transport_client
+from .core.transport_registry import TransportRegistry
 from .core.transports import TransportClient
 from .dto import (
     AttributePatch,
@@ -36,6 +36,7 @@ from .dto import (
     LoadError,
     StandardAttributeSchema,
     Transport,
+    TransportBase,
     TransportCreate,
     TransportUpdate,
     device_from_public,
@@ -43,6 +44,8 @@ from .dto import (
     driver_from_public,
     mask_transport_secrets,
     standard_schema_to_public,
+    transport_create_from_public,
+    transport_from_public,
     transport_preserve_on_blank_field_names,
     transport_to_public,
 )
@@ -244,14 +247,19 @@ class DevicesService(Service):
     async def _load_transports(
         self, storage: DevicesManagerStorage
     ) -> dict[str, TransportClient]:
+        """Read stored transports one by one, skipping unreadable entries.
+
+        Unlike drivers and devices, the storage port hands back fully-built
+        clients (not DTOs), so this cannot go through :meth:`_read_entities`.
+        """
         transports = dict(self._seed_transports)
-        for dto in await self._read_entities(storage.transports, "transport"):
-            if dto.id in transports:
+        for item_id in await storage.transports.list_all():
+            if item_id in transports:
                 continue
             try:
-                transports[dto.id] = build_transport_client(dto)
+                transports[item_id] = await storage.transports.read(item_id)
             except Exception:  # noqa: BLE001 -- fault-tolerant load
-                self._record_load_error("transport", dto.id, "failed to initialize")
+                self._record_load_error("transport", item_id, "unreadable entry")
         return transports
 
     async def _load_drivers(self, storage: DevicesManagerStorage) -> dict[str, Driver]:
@@ -545,10 +553,14 @@ class DevicesService(Service):
         return self._transport_registry.ids
 
     def list_transports(self) -> list[Transport]:
-        return [mask_transport_secrets(t) for t in self._transport_registry.list_all()]
+        return [
+            mask_transport_secrets(transport_to_public(client))
+            for client in self._transport_registry.list_all()
+        ]
 
     def get_transport(self, transport_id: str) -> Transport:
-        return mask_transport_secrets(self._transport_registry.get_dto(transport_id))
+        client = self._transport_registry.get(transport_id)
+        return mask_transport_secrets(transport_to_public(client))
 
     def get_transport_ingress(self, transport_id: str) -> MessageIngress:
         """Return the live client behind a transport that accepts pushed
@@ -562,7 +574,15 @@ class DevicesService(Service):
         return client
 
     async def add_transport(self, transport: TransportCreate | Transport) -> Transport:
-        return mask_transport_secrets(await self._transport_registry.add(transport))
+        client = (
+            # A stored DTO keeps its id and timestamps; a create payload
+            # gets a fresh id minted at the dto -> core boundary.
+            transport_from_public(transport)  # ty: ignore[invalid-argument-type]
+            if isinstance(transport, TransportBase)
+            else transport_create_from_public(transport)
+        )
+        await self._transport_registry.add(client)
+        return mask_transport_secrets(transport_to_public(client))
 
     def _assert_transport_not_used(self, transport_id: str) -> None:
         device = next(
@@ -597,7 +617,9 @@ class DevicesService(Service):
             }
             if filtered != update.config:
                 update = update.model_copy(update={"config": filtered or None})
-        transport = await self._transport_registry.update(transport_id, update)
+        transport = await self._transport_registry.update(
+            transport_id, name=update.name, config=update.config
+        )
         if update.config is not None and self._running:
             await self._device_registry.restart_devices(transport_id=transport_id)
         return mask_transport_secrets(transport_to_public(transport))

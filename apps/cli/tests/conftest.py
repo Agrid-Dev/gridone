@@ -1,7 +1,12 @@
 import pytest
 import pytest_asyncio
 
-from devices_manager.dto import Device, DriverSpec, build_transport
+from devices_manager.core.transports import (
+    TransportMetadata,
+    make_transport_client,
+    make_transport_config,
+)
+from devices_manager.dto import Device, DriverSpec
 from devices_manager.storage.memory import MemoryDevicesStorage
 from devices_manager.types import TransportProtocols
 
@@ -41,11 +46,10 @@ TEST_DRIVER = DriverSpec.model_validate(
     }
 )
 
-TEST_TRANSPORT = build_transport(
-    transport_id="http_transport",
-    name="my transport",
-    protocol=TransportProtocols.HTTP,
-    config={},
+TEST_TRANSPORT = make_transport_client(
+    TransportProtocols.HTTP,
+    make_transport_config(TransportProtocols.HTTP, {}),
+    TransportMetadata(id="http_transport", name="my transport"),
 )
 
 
