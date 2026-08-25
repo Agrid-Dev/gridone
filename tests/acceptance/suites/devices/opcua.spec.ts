@@ -2,7 +2,7 @@ import type { Device, TransportCreate } from "@gridone/sdk";
 import { beforeAll, describe, expect, it } from "vitest";
 import { makeAdminClient, pollUntil } from "../../lib/api";
 import { seedFixtureSet, type FixtureSet } from "../../lib/fixtures";
-import { currentValue } from "./goldenPath";
+import { currentValue } from "../../lib/devices";
 
 const DRIVER_ID = "opcua_plc";
 const OPCUA_ENDPOINT = "opc.tcp://opcua-plc:50000";

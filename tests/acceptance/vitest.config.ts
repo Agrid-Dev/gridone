@@ -54,6 +54,13 @@ export default defineConfig({
           include: ["suites/notifications/**/*.spec.ts"],
         },
       },
+      {
+        extends: true,
+        test: {
+          name: "automations",
+          include: ["suites/automations/**/*.spec.ts"],
+        },
+      },
     ],
   },
 });

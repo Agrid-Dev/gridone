@@ -146,3 +146,14 @@ services:
       TMK_CONTROLLER: http
     ports:
       - "9088:8080"
+
+  # Dedicated to suites/automations: those suites drive the device's setpoint
+  # across an automation's threshold, a mutation the shared golden-path
+  # devices can't absorb.
+  thermocktat-automations:
+    image: ghcr.io/agrid-dev/thermocktat:v0.10.0
+    environment:
+      TMK_DEVICE_ID: TMK_automations_0
+      TMK_CONTROLLER: http
+    ports:
+      - "9089:8080"

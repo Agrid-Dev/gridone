@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { isGridoneError, type GridoneClient } from "@gridone/sdk";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { baseUrl, makeAdminClient, pollUntil } from "../../lib/api";
+import { currentValue } from "../../lib/devices";
 
 // Black-box run of the webhook ingress pipeline (AGR-955): driver loaded from
 // YAML, transport-level auth, pushes over plain HTTP (no SDK involvement —
@@ -42,16 +43,6 @@ async function push(
 }
 
 const bearer = { Authorization: `Bearer ${SECRET}` };
-
-function currentValue(
-  device: { attributes?: Record<string, unknown> },
-  attribute: string,
-): unknown {
-  const attr = device.attributes?.[attribute] as
-    | { current_value?: unknown }
-    | undefined;
-  return attr?.current_value ?? null;
-}
 
 describe("webhook ingress", () => {
   let client: GridoneClient;

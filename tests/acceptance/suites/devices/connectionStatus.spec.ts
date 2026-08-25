@@ -1,5 +1,5 @@
 import { describe, beforeAll, it, expect } from "vitest";
-import type { Device, GridoneClient, ConnectionStatus } from "@gridone/sdk";
+import type { GridoneClient, ConnectionStatus } from "@gridone/sdk";
 import { makeAdminClient } from "../../lib/api";
 import {
   startEmulator,
@@ -7,6 +7,7 @@ import {
   waitForEmulator,
 } from "../../lib/emulator";
 import { seedFixtureSet, type FixtureSet } from "../../lib/fixtures";
+import { currentValue } from "../../lib/devices";
 
 // Suite-owned, not in globalSetup: this suite stops and starts its emulator,
 // so no other suite may build on it.
@@ -49,11 +50,6 @@ const UNTIL_DRAIN = {
   interval: SAMPLE_MS,
 };
 
-function getConnectionStatus(device: Device): ConnectionStatus {
-  return device.attributes!["connection_status"]!
-    .current_value as ConnectionStatus;
-}
-
 async function startService() {
   await startEmulator(SERVICE);
   await waitForEmulator(EXTERNAL_URL);
@@ -64,7 +60,10 @@ describe("Connection status updates when device goes down and up", () => {
   let deviceId: string;
 
   const readStatus = async () =>
-    getConnectionStatus(await client.devices.get(deviceId));
+    currentValue(
+      await client.devices.get(deviceId),
+      "connection_status",
+    ) as ConnectionStatus;
 
   beforeAll(async () => {
     client = await makeAdminClient();
