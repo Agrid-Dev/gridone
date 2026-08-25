@@ -136,3 +136,13 @@ services:
       TMK_CONTROLLER: http
     ports:
       - "9087:8080"
+
+  # Dedicated to faultNotification.spec.ts: fault codes are set directly via
+  # the emulator's http side-channel (POST /v1/fault_code), bypassing gridone.
+  thermocktat-fault-notification:
+    image: ghcr.io/agrid-dev/thermocktat:v0.10.0
+    environment:
+      TMK_DEVICE_ID: TMK_fault_notification_0
+      TMK_CONTROLLER: http
+    ports:
+      - "9088:8080"

@@ -47,6 +47,13 @@ export default defineConfig({
           include: ["suites/dashboards/**/*.spec.ts"],
         },
       },
+      {
+        extends: true,
+        test: {
+          name: "notifications",
+          include: ["suites/notifications/**/*.spec.ts"],
+        },
+      },
     ],
   },
 });
