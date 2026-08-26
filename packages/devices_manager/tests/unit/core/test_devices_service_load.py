@@ -27,7 +27,6 @@ from devices_manager.dto import (
     Device,
     DeviceCreate,
     driver_to_public,
-    transport_to_public,
 )
 from devices_manager.dto.transport_dto import HttpTransportCreate
 from devices_manager.types import TransportProtocols
@@ -41,7 +40,8 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from devices_manager.core.driver import Driver
-    from devices_manager.dto import DriverSpec, Transport
+    from devices_manager.core.transports import TransportClient
+    from devices_manager.dto import DriverSpec
 
 _MUTATING_METHODS = {"write", "delete", "set_tag", "delete_tag", "save_attribute"}
 
@@ -64,7 +64,7 @@ def _storage_mock(
     *,
     devices: list[Device] | None = None,
     drivers: list[DriverSpec] | None = None,
-    transports: list[Transport] | None = None,
+    transports: list[TransportClient] | None = None,
 ) -> AsyncMock:
     """An ``AsyncMock`` standing in for ``DevicesManagerStorage``."""
     storage = AsyncMock()
@@ -157,7 +157,7 @@ class TestReadOnlyLoad:
         storage = _storage_mock(
             devices=[_device_dto(driver, mock_transport_client.id)],
             drivers=[driver_to_public(driver)],
-            transports=[transport_to_public(mock_transport_client)],
+            transports=[mock_transport_client],
         )
         monkeypatch.setattr(
             "devices_manager.service.build_storage", AsyncMock(return_value=storage)
@@ -178,7 +178,7 @@ class TestReadOnlyLoad:
         storage = _storage_mock(
             devices=[_device_dto(driver, mock_transport_client.id)],
             drivers=[driver_to_public(driver)],
-            transports=[transport_to_public(mock_transport_client)],
+            transports=[mock_transport_client],
         )
         monkeypatch.setattr(
             "devices_manager.service.build_storage", AsyncMock(return_value=storage)
@@ -199,7 +199,7 @@ class TestReadOnlyLoad:
         storage = _storage_mock(
             devices=[_device_dto(driver, mock_transport_client.id)],
             drivers=[driver_to_public(driver)],
-            transports=[transport_to_public(mock_transport_client)],
+            transports=[mock_transport_client],
         )
         monkeypatch.setattr(
             "devices_manager.service.build_storage", AsyncMock(return_value=storage)

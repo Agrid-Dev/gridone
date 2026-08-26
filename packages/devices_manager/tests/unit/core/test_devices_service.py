@@ -35,7 +35,6 @@ from devices_manager.dto import (
     TransportUpdate,
     device_to_public,
     driver_to_public,
-    transport_to_public,
 )
 from devices_manager.dto.transport_dto import HttpTransportCreate, MqttTransportCreate
 from devices_manager.ingress import MessageIngress
@@ -1284,9 +1283,7 @@ class TestDevicesServiceStorage:
     ) -> MemoryDevicesStorage:
         """A memory storage seeded with one transport, one driver, one device."""
         storage = MemoryDevicesStorage()
-        await storage.transports.write(
-            mock_transport_client.id, transport_to_public(mock_transport_client)
-        )
+        await storage.transports.write(mock_transport_client.id, mock_transport_client)
         await storage.drivers.write(driver.id, driver_to_public(driver))
         await storage.devices.write(device.id, device_to_public(device))
         return storage
@@ -1320,9 +1317,7 @@ class TestDevicesServiceStorage:
         """Write attribute -> restart -> verify value is restored."""
         driver.update_strategy = UpdateStrategy(polling_enabled=False)
         storage = MemoryDevicesStorage()
-        await storage.transports.write(
-            mock_transport_client.id, transport_to_public(mock_transport_client)
-        )
+        await storage.transports.write(mock_transport_client.id, mock_transport_client)
         await storage.drivers.write(driver.id, driver_to_public(driver))
         await storage.devices.write(device.id, device_to_public(device))
 

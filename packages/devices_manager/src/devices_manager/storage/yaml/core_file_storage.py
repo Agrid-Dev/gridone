@@ -4,15 +4,18 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from devices_manager.core.transports import TransportConnectionState
-from devices_manager.dto import DriverSpec, Transport, build_transport
+from devices_manager.dto import DriverSpec
 from devices_manager.dto.device_dto import Device
-from models.metadata import timestamp_kwargs
+from devices_manager.storage.transport_record import (
+    RecordTransportStorage,
+    TransportRecord,
+)
 
 from .yaml_dm_storage import YamlDeviceStorage, YamlFileStorage
 
 if TYPE_CHECKING:
     from devices_manager.core.device import Attribute
+    from devices_manager.core.transports import TransportStorage
     from devices_manager.storage.storage_backend import (
         DeviceStorageBackend,
         StorageBackend,
@@ -27,7 +30,7 @@ class CoreFileStorage:
     _root_dir: Path
     devices: DeviceStorageBackend
     drivers: StorageBackend[DriverSpec]
-    transports: StorageBackend[Transport]
+    transports: TransportStorage
 
     def __init__(self, root_dir: str | Path) -> None:
         self._root_dir = Path(root_dir)
@@ -35,22 +38,10 @@ class CoreFileStorage:
         self.drivers = YamlFileStorage[DriverSpec](
             self._root_dir / "drivers", model_cls=DriverSpec
         )
-
-        def transport_factory(data: dict) -> Transport:
-            kwargs = timestamp_kwargs(data.get("created_at"), data.get("updated_at"))
-            return build_transport(
-                transport_id=data["id"],
-                name=data.get("name", ""),
-                protocol=data["protocol"],
-                config=data.get("config", {}),
-                connection_state=TransportConnectionState.from_dict(
-                    data.get("connection_state")
-                ),
-                **kwargs,
+        self.transports = RecordTransportStorage(
+            YamlFileStorage[TransportRecord](
+                self._root_dir / "transports", model_cls=TransportRecord
             )
-
-        self.transports = YamlFileStorage[Transport](
-            self._root_dir / "transports", factory=transport_factory
         )
 
     async def save_attribute(self, device_id: str, attribute: Attribute) -> None:

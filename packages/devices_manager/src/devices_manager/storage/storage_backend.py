@@ -10,7 +10,8 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from devices_manager.core.device import Attribute
-    from devices_manager.dto import DriverSpec, Transport
+    from devices_manager.core.transports import TransportStorage
+    from devices_manager.dto import DriverSpec
 
 
 class StorageBackend[M: BaseModel](Protocol):
@@ -40,7 +41,7 @@ class DeviceStorageBackend(StorageBackend[Device], Protocol):
 class DevicesManagerStorage(Protocol):
     devices: DeviceStorageBackend
     drivers: StorageBackend[DriverSpec]
-    transports: StorageBackend[Transport]
+    transports: TransportStorage
 
     async def save_attribute(self, device_id: str, attribute: Attribute) -> None: ...
 

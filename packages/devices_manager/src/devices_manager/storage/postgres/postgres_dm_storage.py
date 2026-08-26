@@ -16,7 +16,8 @@ from .transport_storage import PostgresTransportStorage
 
 if TYPE_CHECKING:
     from devices_manager.core.device import Attribute
-    from devices_manager.dto import DriverSpec, Transport
+    from devices_manager.core.transports import TransportStorage
+    from devices_manager.dto import DriverSpec
 
 
 class PostgresDevicesManagerStorage(DevicesManagerStorage):
@@ -24,7 +25,7 @@ class PostgresDevicesManagerStorage(DevicesManagerStorage):
     _device_storage: PostgresDeviceStorage
     devices: DeviceStorageBackend
     drivers: StorageBackend[DriverSpec]
-    transports: StorageBackend[Transport]
+    transports: TransportStorage
 
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool

@@ -33,6 +33,7 @@ from .transport_dto import build_dto as build_transport
 from .transport_dto import (
     core_to_dto as transport_to_public,
 )
+from .transport_dto import create_to_core as transport_create_from_public
 from .transport_dto import dto_to_core as transport_from_public
 from .transport_dto import mask_secrets as mask_transport_secrets
 from .transport_dto import (
@@ -67,6 +68,7 @@ __all__ = [
     "driver_to_public",
     "mask_transport_secrets",
     "standard_schema_to_public",
+    "transport_create_from_public",
     "transport_from_public",
     "transport_preserve_on_blank_field_names",
     "transport_secret_field_names",

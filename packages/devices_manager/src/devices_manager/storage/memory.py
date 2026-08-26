@@ -13,12 +13,15 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
 
-from devices_manager.dto import Device, DriverSpec, Transport
+from devices_manager.dto import Device, DriverSpec
+
+from .transport_record import RecordTransportStorage, TransportRecord
 
 if TYPE_CHECKING:
     from datetime import datetime
 
     from devices_manager.core.device import Attribute
+    from devices_manager.core.transports import TransportStorage
 
     from .storage_backend import DeviceStorageBackend, StorageBackend
 
@@ -83,12 +86,14 @@ class MemoryDevicesStorage:
 
     devices: DeviceStorageBackend
     drivers: StorageBackend[DriverSpec]
-    transports: StorageBackend[Transport]
+    transports: TransportStorage
 
     def __init__(self) -> None:
         self.devices = MemoryDeviceStorage()
         self.drivers = MemoryStorageBackend[DriverSpec]()
-        self.transports = MemoryStorageBackend[Transport]()
+        self.transports = RecordTransportStorage(
+            MemoryStorageBackend[TransportRecord]()
+        )
 
     async def save_attribute(self, device_id: str, attribute: Attribute) -> None:
         try:
