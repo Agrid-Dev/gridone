@@ -10,6 +10,7 @@ from cli.devices import _coerce_write_value, app
 from typer.testing import CliRunner
 
 from devices_manager import DevicesService
+from devices_manager.dto import driver_from_public
 from devices_manager.storage.memory import MemoryDevicesStorage
 from devices_manager.types import DataType
 
@@ -63,7 +64,9 @@ async def devices_service_with_local_driver(
     patched_driver = TEST_DRIVER.model_copy(
         update={"env": {"base_url": open_meteo_server.url_for("") + "/v1/forecast"}}
     )
-    await seeded_memory_storage.drivers.write(patched_driver.id, patched_driver)
+    await seeded_memory_storage.drivers.write(
+        patched_driver.id, driver_from_public(patched_driver)
+    )
     with patch(
         "devices_manager.service.build_storage",
         _seeded_build_storage(seeded_memory_storage),
@@ -147,7 +150,7 @@ async def devices_service_with_string_attr(
     seeded_memory_storage: MemoryDevicesStorage,
 ) -> AsyncIterator[DevicesService]:
     await seeded_memory_storage.drivers.write(
-        _STRING_ATTR_DRIVER.id, _STRING_ATTR_DRIVER
+        _STRING_ATTR_DRIVER.id, driver_from_public(_STRING_ATTR_DRIVER)
     )
     with patch(
         "devices_manager.service.build_storage",

@@ -4,20 +4,17 @@ import yaml as pyyaml
 from pydantic import (
     BaseModel,
     ConfigDict,
-    Discriminator,
     Field,
-    Tag,
     field_validator,
     model_validator,
 )
 
 from devices_manager.core.device.attribute import AttributeKind
 from devices_manager.core.driver import (
-    AttributeDriver,
+    AnyAttributeDriver,
     DeviceConfigField,
     Driver,
     DriverMetadata,
-    FaultAttributeDriver,
     HealthCheck,
     UpdateStrategy,
 )
@@ -26,24 +23,9 @@ from devices_manager.types import AttributeValueType, TransportProtocols
 from models.metadata import ResourceMetadata
 from models.types import Severity
 
-
-def _attribute_kind_tag(v: Any) -> str:  # noqa: ANN401
-    """Resolve the `kind` tag for discriminated-union dispatch.
-
-    Defaults to `standard` when the field is absent — matches the default
-    on AttributeDriver.kind so YAML entries without an explicit `kind:`
-    key parse as standard attributes.
-    """
-    if isinstance(v, dict):
-        return v.get("kind", AttributeKind.STANDARD)
-    return getattr(v, "kind", AttributeKind.STANDARD)
-
-
-AttributeDriverSpec = Annotated[
-    Annotated[AttributeDriver, Tag(AttributeKind.STANDARD)]
-    | Annotated[FaultAttributeDriver, Tag(AttributeKind.FAULT)],
-    Discriminator(_attribute_kind_tag),
-]
+# The wire shape of a driver attribute is the core discriminated union
+# itself — attributes are embedded core objects, not a separate projection.
+AttributeDriverSpec = AnyAttributeDriver
 
 
 class DriverSpec(ResourceMetadata):

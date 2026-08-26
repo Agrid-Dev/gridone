@@ -42,6 +42,7 @@ from .dto import (
     device_from_public,
     device_to_public,
     driver_from_public,
+    driver_to_public,
     mask_transport_secrets,
     standard_schema_to_public,
     transport_create_from_public,
@@ -263,14 +264,19 @@ class DevicesService(Service):
         return transports
 
     async def _load_drivers(self, storage: DevicesManagerStorage) -> dict[str, Driver]:
+        """Read stored drivers one by one, skipping unreadable entries.
+
+        Like transports, the storage port hands back fully-built drivers
+        (not DTOs), so this cannot go through :meth:`_read_entities`.
+        """
         drivers = dict(self._seed_drivers)
-        for dto in await self._read_entities(storage.drivers, "driver"):
-            if dto.id in drivers:
+        for item_id in await storage.drivers.list_all():
+            if item_id in drivers:
                 continue
             try:
-                drivers[dto.id] = driver_from_public(dto)
+                drivers[item_id] = await storage.drivers.read(item_id)
             except Exception:  # noqa: BLE001 -- fault-tolerant load
-                self._record_load_error("driver", dto.id, "failed to initialize")
+                self._record_load_error("driver", item_id, "unreadable entry")
         return drivers
 
     async def _load_devices(
@@ -631,7 +637,10 @@ class DevicesService(Service):
         return self._driver_registry.ids
 
     def list_drivers(self, *, device_type: str | None = None) -> list[DriverSpec]:
-        return self._driver_registry.list_all(device_type=device_type)
+        return [
+            driver_to_public(driver)
+            for driver in self._driver_registry.list_all(device_type=device_type)
+        ]
 
     @staticmethod
     def list_standard_schemas() -> list[StandardAttributeSchema]:
@@ -640,20 +649,23 @@ class DevicesService(Service):
         ]
 
     def get_driver(self, driver_id: str) -> DriverSpec:
-        return self._driver_registry.get_dto(driver_id)
+        return driver_to_public(self._driver_registry.get(driver_id))
 
     async def add_driver(self, driver_dto: DriverSpec) -> DriverSpec:
-        return await self._driver_registry.add(driver_dto)
+        driver = await self._driver_registry.add(driver_from_public(driver_dto))
+        return driver_to_public(driver)
 
     async def patch_driver(self, driver_id: str, patch: DriverPatch) -> DriverSpec:
-        result = await self._driver_registry.patch(driver_id, patch)
+        driver = await self._driver_registry.patch(
+            driver_id, patch.model_dump(exclude_unset=True)
+        )
         if "type" in patch.model_fields_set:
             self._device_registry.update_type_in_devices(
-                result.type, driver_id=driver_id
+                driver.type, driver_id=driver_id
             )
         if self._running:
             await self._device_registry.restart_devices(driver_id=driver_id)
-        return result
+        return driver_to_public(driver)
 
     async def create_driver_attribute(
         self,
@@ -675,7 +687,7 @@ class DevicesService(Service):
         patch: AttributePatch,
     ) -> AttributeDriver:
         result = await self._driver_registry.patch_driver_attribute(
-            driver_id, attribute_id, patch
+            driver_id, attribute_id, patch.model_dump(exclude_unset=True)
         )
         self._device_registry.rebuild_attribute_in_devices(result, driver_id=driver_id)
         if self._running:
@@ -685,7 +697,7 @@ class DevicesService(Service):
     async def delete_driver_attribute(
         self, driver_id: str, attribute_id: str
     ) -> DriverSpec:
-        result = await self._driver_registry.delete_driver_attribute(
+        driver = await self._driver_registry.delete_driver_attribute(
             driver_id, attribute_id
         )
         self._device_registry.delete_attribute_in_devices(
@@ -693,7 +705,7 @@ class DevicesService(Service):
         )
         if self._running:
             await self._device_registry.restart_devices(driver_id=driver_id)
-        return result
+        return driver_to_public(driver)
 
     async def rename_driver_attribute(
         self, driver_id: str, attribute_id: str, new_name: str

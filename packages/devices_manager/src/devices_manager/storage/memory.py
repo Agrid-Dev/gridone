@@ -13,17 +13,19 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
 
-from devices_manager.dto import Device, DriverSpec
+from devices_manager.dto import Device
 
+from .driver_record import DriverRecord, RecordDriverStorage
 from .transport_record import RecordTransportStorage, TransportRecord
 
 if TYPE_CHECKING:
     from datetime import datetime
 
     from devices_manager.core.device import Attribute
+    from devices_manager.core.driver import DriverStorage
     from devices_manager.core.transports import TransportStorage
 
-    from .storage_backend import DeviceStorageBackend, StorageBackend
+    from .storage_backend import DeviceStorageBackend
 
 
 class MemoryStorageBackend[M: BaseModel]:
@@ -85,12 +87,12 @@ class MemoryDevicesStorage:
     """Composite in-memory storage satisfying ``DevicesManagerStorage``."""
 
     devices: DeviceStorageBackend
-    drivers: StorageBackend[DriverSpec]
+    drivers: DriverStorage
     transports: TransportStorage
 
     def __init__(self) -> None:
         self.devices = MemoryDeviceStorage()
-        self.drivers = MemoryStorageBackend[DriverSpec]()
+        self.drivers = RecordDriverStorage(MemoryStorageBackend[DriverRecord]())
         self.transports = RecordTransportStorage(
             MemoryStorageBackend[TransportRecord]()
         )

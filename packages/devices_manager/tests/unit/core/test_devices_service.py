@@ -1284,7 +1284,7 @@ class TestDevicesServiceStorage:
         """A memory storage seeded with one transport, one driver, one device."""
         storage = MemoryDevicesStorage()
         await storage.transports.write(mock_transport_client.id, mock_transport_client)
-        await storage.drivers.write(driver.id, driver_to_public(driver))
+        await storage.drivers.write(driver.id, driver)
         await storage.devices.write(device.id, device_to_public(device))
         return storage
 
@@ -1318,7 +1318,7 @@ class TestDevicesServiceStorage:
         driver.update_strategy = UpdateStrategy(polling_enabled=False)
         storage = MemoryDevicesStorage()
         await storage.transports.write(mock_transport_client.id, mock_transport_client)
-        await storage.drivers.write(driver.id, driver_to_public(driver))
+        await storage.drivers.write(driver.id, driver)
         await storage.devices.write(device.id, device_to_public(device))
 
         async def _build(_url: str | None) -> MemoryDevicesStorage:

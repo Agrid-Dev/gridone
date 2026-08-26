@@ -3,7 +3,7 @@ from __future__ import annotations
 from functools import cached_property
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Discriminator, Field, Tag, model_validator
 
 from devices_manager.core.codecs import FnCodec, build_codec
 from devices_manager.core.codecs.factory import CodecSpec, codec_spec_from_raw
@@ -121,3 +121,22 @@ class FaultAttributeDriver(AttributeDriver):
             if data_type in _FAULT_HEALTHY_VALUE_DEFAULTS:
                 data["healthy_values"] = list(_FAULT_HEALTHY_VALUE_DEFAULTS[data_type])
         return data
+
+
+def _attribute_kind_tag(v: Any) -> str:  # noqa: ANN401
+    """Resolve the `kind` tag for discriminated-union dispatch.
+
+    Defaults to `standard` when the field is absent — matches the default
+    on AttributeDriver.kind so YAML entries without an explicit `kind:`
+    key parse as standard attributes.
+    """
+    if isinstance(v, dict):
+        return v.get("kind", AttributeKind.STANDARD)
+    return getattr(v, "kind", AttributeKind.STANDARD)
+
+
+AnyAttributeDriver = Annotated[
+    Annotated[AttributeDriver, Tag(AttributeKind.STANDARD)]
+    | Annotated[FaultAttributeDriver, Tag(AttributeKind.FAULT)],
+    Discriminator(_attribute_kind_tag),
+]

@@ -9,7 +9,12 @@ import pytest
 import pytest_asyncio
 
 from devices_manager.core.device import Attribute
-from devices_manager.core.driver import AttributeDriver
+from devices_manager.core.driver import (
+    AttributeDriver,
+    Driver,
+    DriverMetadata,
+    UpdateStrategy,
+)
 from devices_manager.core.transports import (
     TransportClient,
     TransportMetadata,
@@ -17,7 +22,6 @@ from devices_manager.core.transports import (
     make_transport_config,
 )
 from devices_manager.dto import Device
-from devices_manager.dto.driver_dto import DriverSpec
 from devices_manager.storage.postgres import (
     PostgresDevicesManagerStorage,
     PostgresDeviceStorage,
@@ -56,26 +60,45 @@ def _make_transport(
     )
 
 
+def _attr(name: str, data_type: DataType = DataType.FLOAT) -> AttributeDriver:
+    return AttributeDriver(  # ty: ignore[missing-argument]
+        name=name,
+        data_type=data_type,
+        read={"path": f"/api/{name}"},
+    )
+
+
 def _make_driver(
     driver_id: str = "d1",
     vendor: str | None = "acme",
     model: str | None = "thermostat-v2",
-    driver_type: str | None = "hvac/thermostat",
-) -> DriverSpec:
-    return DriverSpec(  # ty: ignore[missing-argument]
-        id=driver_id,
-        vendor=vendor,
-        model=model,
+) -> Driver:
+    return Driver(
+        metadata=DriverMetadata(id=driver_id, vendor=vendor, model=model),
         transport=TransportProtocols.HTTP,
-        device_config=[],
-        attributes=[
-            AttributeDriver(  # ty: ignore[missing-argument]
-                name="temperature",
-                data_type=DataType.FLOAT,
-                read={"path": "/api/temp"},
-            ),
-        ],
-        type=driver_type,
+        env={},
+        device_config_required=[],
+        update_strategy=UpdateStrategy(),
+        attributes={"temperature": _attr("temperature")},
+    )
+
+
+def _make_thermostat_driver(driver_id: str = "d1") -> Driver:
+    """A driver with a registered standard type and its required attributes."""
+    attrs = [
+        _attr("temperature"),
+        _attr("temperature_setpoint"),
+        _attr("onoff_state", DataType.BOOL),
+        _attr("mode", DataType.STRING),
+    ]
+    return Driver(
+        metadata=DriverMetadata(id=driver_id, vendor="acme", model="thermostat-v2"),
+        transport=TransportProtocols.HTTP,
+        env={},
+        device_config_required=[],
+        update_strategy=UpdateStrategy(),
+        attributes={a.name: a for a in attrs},
+        type="thermostat",
     )
 
 
@@ -217,12 +240,18 @@ class TestDriverStorage:
 
         result = await driver_storage.read(driver.id)
         assert result.id == driver.id
-        assert result.vendor == "acme"
-        assert result.model == "thermostat-v2"
-        assert result.type == "hvac/thermostat"
+        assert result.metadata.vendor == "acme"
+        assert result.metadata.model == "thermostat-v2"
         assert result.transport == TransportProtocols.HTTP
-        assert len(result.attributes) == 1
-        assert result.attributes[0].name == "temperature"
+        assert set(result.attributes) == {"temperature"}
+
+    async def test_type_column_round_trip(self, driver_storage: PostgresDriverStorage):
+        driver = _make_thermostat_driver()
+        await driver_storage.write(driver.id, driver)
+
+        result = await driver_storage.read(driver.id)
+        assert result.type == "thermostat"
+        assert set(result.attributes) == set(driver.attributes)
 
     async def test_read_not_found(self, driver_storage: PostgresDriverStorage):
         with pytest.raises(FileNotFoundError):
@@ -245,7 +274,7 @@ class TestDriverStorage:
         await driver_storage.write("d1", _make_driver("d1", vendor="new"))
 
         result = await driver_storage.read("d1")
-        assert result.vendor == "new"
+        assert result.metadata.vendor == "new"
 
     async def test_delete(self, driver_storage: PostgresDriverStorage):
         await driver_storage.write("d1", _make_driver("d1"))
@@ -259,12 +288,12 @@ class TestDriverStorage:
             await driver_storage.delete("nonexistent")
 
     async def test_nullable_columns(self, driver_storage: PostgresDriverStorage):
-        driver = _make_driver("d1", vendor=None, model=None, driver_type=None)
+        driver = _make_driver("d1", vendor=None, model=None)
         await driver_storage.write(driver.id, driver)
 
         result = await driver_storage.read(driver.id)
-        assert result.vendor is None
-        assert result.model is None
+        assert result.metadata.vendor is None
+        assert result.metadata.model is None
         assert result.type is None
 
 
