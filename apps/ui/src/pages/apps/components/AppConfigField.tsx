@@ -30,16 +30,18 @@ interface AppConfigFieldProps {
  * Renders one property of an app config schema.
  *
  * Handles the widgets the app contract adds on top of plain JSON Schema —
- * asset references and scalar list values. Since AGR-920 the config form
- * renders through `SchemaFields`, and this component is mounted through its
- * per-consumer `overrides` seam (`appConfigOverrides` below) only for the
- * shapes listed above; primitives — including `format: password`, masked by
- * the registry's shared secret widget — go straight to the widget registry.
- * (The `SchemaField` delegation at the bottom keeps this component usable
- * standalone.) `asset-id` is why the seam exists rather than a registry
- * entry — it pulls `useAssetTree`, and the shared builder must stay
- * domain-agnostic. Flat-object arrays live in the registry (AGR-922);
- * scalar arrays deliberately keep the app-contract pickers/textarea here.
+ * asset references and scalar list values, plus one field keyed by name
+ * rather than shape (`zone_overrides`, AGR-1067/1068). Since AGR-920 the
+ * config form renders through `SchemaFields`, and this component is mounted
+ * through its per-consumer `overrides` seam (`appConfigOverrides` below)
+ * only for the shapes/fields above; primitives — including `format:
+ * password`, masked by the registry's shared secret widget — go straight to
+ * the widget registry. (The `SchemaField` delegation at the bottom keeps
+ * this component usable standalone.) `asset-id` is why the seam exists
+ * rather than a registry entry — it pulls `useAssetTree`, and the shared
+ * builder must stay domain-agnostic. Flat-object arrays live in the
+ * registry (AGR-922); scalar arrays deliberately keep the app-contract
+ * pickers/textarea here.
  */
 export const AppConfigField: FC<AppConfigFieldProps> = ({
   name,

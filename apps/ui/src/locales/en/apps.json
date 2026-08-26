@@ -83,6 +83,9 @@
     "add": "Add override",
     "noneAvailable": "No piloted room available",
     "remove": "Remove override",
+    "copy": "Copy to other rooms",
+    "copyConfirm_one": "Copy to {{count}} room",
+    "copyConfirm_other": "Copy to {{count}} rooms",
     "columns": {
       "zone": "Zone",
       "enabled": "Enabled"

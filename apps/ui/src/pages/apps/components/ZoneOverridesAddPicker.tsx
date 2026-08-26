@@ -16,13 +16,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { useAssetTree } from "@/hooks/useAssetTree";
 import { ancestorPathOf } from "@/lib/assets";
-import { sortedByName } from "@/lib/sortByName";
+import { ZoneOverrideRoomOption } from "./ZoneOverrideRoomOption";
 
 interface ZoneOverridesAddPickerProps {
   /** Piloted rooms not yet overridden — the picker's candidate set. */
-  zoneIds: string[];
+  candidates: Asset[];
+  assetsById: Record<string, Asset>;
   onAdd: (zoneId: string) => void;
 }
 
@@ -30,17 +30,11 @@ interface ZoneOverridesAddPickerProps {
  *  Popover+Command shell (outline trigger, searchable list) rather than
  *  requiring the room id to be typed. */
 export const ZoneOverridesAddPicker: FC<ZoneOverridesAddPickerProps> = ({
-  zoneIds,
+  candidates,
+  assetsById,
   onAdd,
 }) => {
   const { t } = useTranslation("apps");
-  const { assetsById } = useAssetTree();
-
-  const candidates = sortedByName(
-    zoneIds
-      .map((zoneId) => assetsById[zoneId])
-      .filter((asset): asset is Asset => asset !== undefined),
-  );
 
   return (
     <Popover>
@@ -62,12 +56,10 @@ export const ZoneOverridesAddPicker: FC<ZoneOverridesAddPickerProps> = ({
                   value={`${asset.name} ${ancestorPathOf(asset, assetsById)}`}
                   onSelect={() => onAdd(asset.id)}
                 >
-                  <span className="flex items-baseline gap-2">
-                    <span>{asset.name}</span>
-                    <span className="truncate text-xs text-muted-foreground">
-                      {ancestorPathOf(asset, assetsById)}
-                    </span>
-                  </span>
+                  <ZoneOverrideRoomOption
+                    asset={asset}
+                    assetsById={assetsById}
+                  />
                 </CommandItem>
               ))}
             </CommandGroup>

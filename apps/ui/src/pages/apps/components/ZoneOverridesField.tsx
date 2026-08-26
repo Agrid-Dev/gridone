@@ -34,8 +34,10 @@ import {
   type JsonSchemaObject,
 } from "@/components/forms/schema-form";
 import { useAssetTree } from "@/hooks/useAssetTree";
+import { sortedAssetsOf } from "@/lib/assets";
 import { toLabel } from "@/lib/textFormat";
 import type { AppSchemaNode } from "@/lib/appConfigSchema";
+import { ZoneOverrideCopyPicker } from "./ZoneOverrideCopyPicker";
 import { ZoneOverridesAddPicker } from "./ZoneOverridesAddPicker";
 
 interface ZoneOverridesFieldProps {
@@ -51,9 +53,12 @@ interface ZoneOverridesFieldProps {
  *  declares on an override renders generically as a table column. */
 const ZONE_FIELD = "zone_id";
 const ENABLED_FIELD = "enabled";
+/** Describes what kind of room the target zone *is* — not a copyable HVAC
+ *  setting, so a copy never inherits it from the source row. */
+const ZONE_TYPE_FIELD = "zone_type";
 
-/** `zone_overrides`'s sibling object property — the add picker's candidate set
- *  is that list minus rooms already overridden. */
+/** `zone_overrides`'s sibling object property — the add and copy pickers'
+ *  candidate set is that list minus rooms already overridden. */
 const PILOTED_ZONES_FIELD = "piloted_zones";
 
 /** Resolves a sibling property of `path`, so a prefixed form
@@ -107,19 +112,23 @@ export const ZoneOverridesField: FC<ZoneOverridesFieldProps> = ({
   }, [pilotedZoneIds, pilotedZonesPath]);
   const rows = (useWatch({ control, name }) as OverrideRow[] | undefined) ?? [];
 
+  const zoneIdOf = (row: OverrideRow | undefined): string | undefined =>
+    row?.[ZONE_FIELD] as string | undefined;
+
   const zoneNameOf = (zoneId: string | undefined) => {
     if (!zoneId) return "";
     return assetsById[zoneId]?.name ?? zoneId;
   };
 
   const overriddenZoneIds = new Set(
-    rows
-      .map((row) => row?.[ZONE_FIELD] as string | undefined)
-      .filter((id): id is string => id !== undefined),
+    rows.map(zoneIdOf).filter((id): id is string => id !== undefined),
   );
   const availableZoneIds = (pilotedZoneIds ?? []).filter(
     (id) => !overriddenZoneIds.has(id),
   );
+  // Computed once and shared by the add picker and every row's copy picker,
+  // rather than each of them re-sorting the same candidate set.
+  const availableAssets = sortedAssetsOf(availableZoneIds, assetsById);
 
   const properties = schema.items?.properties ?? {};
   const extraColumns = Object.entries(properties).filter(
@@ -137,11 +146,33 @@ export const ZoneOverridesField: FC<ZoneOverridesFieldProps> = ({
     return row;
   };
 
+  /** A copy carries every *setting* the source row has (AC: "the source
+   *  room's values") onto the target room, keyed by its own `zone_id` —
+   *  except `zone_type`, which describes the target room itself and gets
+   *  the same schema default a freshly-added row would (AC: "not a
+   *  copyable setting"). */
+  const copyRowValue = (
+    sourceRow: OverrideRow,
+    targetZoneId: string,
+  ): OverrideRow => {
+    const row: OverrideRow = {
+      ...structuredClone(sourceRow),
+      [ZONE_FIELD]: targetZoneId,
+    };
+    const zoneTypeDefault = properties[ZONE_TYPE_FIELD]?.default;
+    if (zoneTypeDefault === undefined) {
+      delete row[ZONE_TYPE_FIELD];
+    } else {
+      row[ZONE_TYPE_FIELD] = zoneTypeDefault;
+    }
+    return row;
+  };
+
   const visibleRows = fields
     .map((field, index) => ({
       field,
       index,
-      zoneName: zoneNameOf(rows[index]?.[ZONE_FIELD] as string | undefined),
+      zoneName: zoneNameOf(zoneIdOf(rows[index])),
     }))
     .filter(({ zoneName }) =>
       zoneName.toLowerCase().includes(search.toLowerCase()),
@@ -189,7 +220,8 @@ export const ZoneOverridesField: FC<ZoneOverridesFieldProps> = ({
               className="max-w-xs"
             />
             <ZoneOverridesAddPicker
-              zoneIds={availableZoneIds}
+              candidates={availableAssets}
+              assetsById={assetsById}
               onAdd={(zoneId) => append(newRowValue(zoneId))}
             />
           </div>
@@ -219,7 +251,7 @@ export const ZoneOverridesField: FC<ZoneOverridesFieldProps> = ({
                   <TableHead className="w-24">
                     {t("zoneOverrides.columns.enabled")}
                   </TableHead>
-                  <TableHead className="w-10" />
+                  <TableHead className="w-32" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -244,15 +276,28 @@ export const ZoneOverridesField: FC<ZoneOverridesFieldProps> = ({
                         />
                       </TableCell>
                       <TableCell>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          aria-label={t("zoneOverrides.remove")}
-                          onClick={() => remove(index)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <ZoneOverrideCopyPicker
+                            candidates={availableAssets}
+                            assetsById={assetsById}
+                            onCopy={(targetZoneIds) =>
+                              append(
+                                targetZoneIds.map((targetZoneId) =>
+                                  copyRowValue(rows[index], targetZoneId),
+                                ),
+                              )
+                            }
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            aria-label={t("zoneOverrides.remove")}
+                            onClick={() => remove(index)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );

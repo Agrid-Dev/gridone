@@ -5,6 +5,7 @@
  * the typed `AssetTreeNode` view plus the flatten helpers live here.
  */
 import type { Asset, AssetType } from "@gridone/sdk";
+import { sortedByName } from "@/lib/sortByName";
 
 export const ASSET_TYPES = [
   "org",
@@ -87,6 +88,21 @@ export function sortedByPosition<T extends Pick<Asset, "name" | "position">>(
     (a, b) =>
       (a.position ?? 0) - (b.position ?? 0) ||
       a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+  );
+}
+
+/** Resolves a list of asset ids to their assets, name-sorted, dropping any id
+ *  missing from `assetsById` (a partially loaded tree, or a stale id). Used by
+ *  `ZoneOverridesField` to build its add/copy pickers' shared candidate list
+ *  once, rather than each picker re-resolving the same ids. */
+export function sortedAssetsOf(
+  assetIds: readonly string[],
+  assetsById: Record<string, Asset>,
+): Asset[] {
+  return sortedByName(
+    assetIds
+      .map((assetId) => assetsById[assetId])
+      .filter((asset): asset is Asset => asset !== undefined),
   );
 }
 
