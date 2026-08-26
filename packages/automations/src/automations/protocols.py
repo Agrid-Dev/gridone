@@ -27,6 +27,10 @@ class TriggerProvider(Protocol):
     id: str
     params_schema: dict
 
+    def validate_params(self, params: dict) -> None:
+        """Raise ``pydantic.ValidationError`` if ``params`` don't fit this trigger."""
+        ...
+
     async def register(
         self,
         params: dict,
@@ -45,6 +49,10 @@ class ActionProvider(Protocol):
 
     id: str
     params_schema: dict
+
+    def validate_params(self, params: dict) -> None:
+        """Raise ``pydantic.ValidationError`` if ``params`` don't fit this action."""
+        ...
 
     async def execute(self, params: dict) -> str | None:
         """Execute the action. Returns an opaque output_id, or None."""

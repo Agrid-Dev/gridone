@@ -4,6 +4,8 @@ import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
+from pydantic import ValidationError as PydanticValidationError
+
 from automations.models import (
     Automation,
     AutomationCreate,
@@ -13,15 +15,21 @@ from automations.models import (
     TriggerContext,
 )
 from automations.storage.factory import build_storage
-from models.errors import NotFoundError
+from models.errors import (
+    NotFoundError,
+    SchemaValidationError,
+    ValidationErrorItem,
+    validation_error_items,
+)
 from models.ids import gen_id
 from models.service import Service
 
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Mapping, Sequence
 
+    from automations.models import Action, Trigger
     from automations.protocols import ActionProvider, OnFireCallback, TriggerProvider
     from automations.storage.backend import AutomationsStorageBackend
 
@@ -61,6 +69,8 @@ class AutomationsService(Service):
     # CRUD
 
     async def create(self, params: AutomationCreate, *, created_by: str) -> Automation:
+        self._validate_trigger(params.trigger)
+        self._validate_action(params.action)
         now = datetime.now(UTC)
         automation = Automation(
             id=gen_id(),
@@ -91,6 +101,10 @@ class AutomationsService(Service):
         return [a for a in automations if a.enabled == enabled]
 
     async def update(self, automation_id: str, params: AutomationUpdate) -> Automation:
+        if params.trigger is not None:
+            self._validate_trigger(params.trigger)
+        if params.action is not None:
+            self._validate_action(params.action)
         existing = await self.get(automation_id)
         trigger_changed = (
             params.trigger is not None and params.trigger != existing.trigger
@@ -154,6 +168,49 @@ class AutomationsService(Service):
         self._started = False
 
     # Helpers
+
+    def _validate_trigger(self, trigger: Trigger) -> None:
+        self._validate_provider_params(
+            "trigger", trigger.provider_id, trigger.params, self._providers
+        )
+
+    def _validate_action(self, action: Action) -> None:
+        self._validate_provider_params(
+            "action", action.provider_id, action.params, self._action_providers
+        )
+
+    @staticmethod
+    def _validate_provider_params(
+        section: str,
+        provider_id: str,
+        params: dict,
+        providers: Mapping[str, TriggerProvider | ActionProvider],
+    ) -> None:
+        """Validate ``params`` against the provider's own pydantic model,
+        catching custom validators (e.g. cron format) that a JSON schema alone
+        would miss, before anything is persisted or registered."""
+        provider = providers.get(provider_id)
+        if provider is None:
+            raise SchemaValidationError(
+                [
+                    ValidationErrorItem(
+                        loc=(section, "provider_id"),
+                        msg=f"Unknown provider_id {provider_id!r}",
+                        type="value_error",
+                    )
+                ]
+            )
+        try:
+            provider.validate_params(params)
+        except PydanticValidationError as exc:
+            raise SchemaValidationError(
+                [
+                    ValidationErrorItem(
+                        loc=(section, "params", *item.loc), msg=item.msg, type=item.type
+                    )
+                    for item in validation_error_items(exc)
+                ]
+            ) from exc
 
     async def _register_automation(self, automation: Automation) -> None:
         self._cache[automation.id] = automation

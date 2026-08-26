@@ -20,7 +20,7 @@ from api.dependencies import (
 )
 from api.exception_handlers import register_exception_handlers
 from api.routes.automations_router import router
-from models.errors import NotFoundError
+from models.errors import NotFoundError, SchemaValidationError, ValidationErrorItem
 
 pytestmark = pytest.mark.asyncio
 
@@ -44,6 +44,20 @@ _EXECUTION = AutomationExecution(
     executed_at=datetime(2024, 1, 1, 0, 0, 1, tzinfo=UTC),
     status=ExecutionStatus.SUCCESS,
 )
+_MISSING_ATTR_ERROR = SchemaValidationError(
+    [
+        ValidationErrorItem(
+            loc=("trigger", "params", "attribute"), msg="Field required", type="missing"
+        )
+    ]
+)
+_MISSING_ATTR_DETAIL = [
+    {
+        "loc": ["trigger", "params", "attribute"],
+        "msg": "Field required",
+        "type": "missing",
+    }
+]
 
 
 @pytest.fixture
@@ -173,6 +187,28 @@ class TestCreateAutomation:
             )
         assert resp.status_code == 201
 
+    async def test_malformed_params_returns_422(self, client, svc):
+        """Params validation itself lives in AutomationsService (so it also
+        covers non-HTTP callers) — this only checks the 422 wiring."""
+        svc.create.side_effect = _MISSING_ATTR_ERROR
+        async with client as c:
+            resp = await c.post(
+                "/",
+                json={
+                    "name": "Setpoint trigger",
+                    "trigger": {
+                        "provider_id": "change_event",
+                        "params": {"device_id": "d1"},
+                    },
+                    "action": {
+                        "provider_id": "command_template",
+                        "params": {"template_id": "tmpl-01"},
+                    },
+                },
+            )
+        assert resp.status_code == 422
+        assert resp.json()["detail"] == _MISSING_ATTR_DETAIL
+
 
 class TestGetAutomation:
     async def test_returns_automation(self, client, svc):
@@ -203,6 +239,21 @@ class TestUpdateAutomation:
         async with client as c:
             resp = await c.patch("/missing", json={"name": "x"})
         assert resp.status_code == 404
+
+    async def test_malformed_params_returns_422(self, client, svc):
+        svc.update.side_effect = _MISSING_ATTR_ERROR
+        async with client as c:
+            resp = await c.patch(
+                "/auto-01",
+                json={
+                    "trigger": {
+                        "provider_id": "change_event",
+                        "params": {"device_id": "d1"},
+                    }
+                },
+            )
+        assert resp.status_code == 422
+        assert resp.json()["detail"] == _MISSING_ATTR_DETAIL
 
 
 class TestDeleteAutomation:

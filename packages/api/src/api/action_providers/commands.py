@@ -20,6 +20,9 @@ class CommandsActionProvider:
     def __init__(self, commands_service: CommandsServiceInterface) -> None:
         self._commands_service = commands_service
 
+    def validate_params(self, params: dict) -> None:
+        CommandAction(**params)
+
     async def execute(self, params: dict) -> str | None:
         action = CommandAction(**params)
         dispatch = await self._commands_service.dispatch_from_template(

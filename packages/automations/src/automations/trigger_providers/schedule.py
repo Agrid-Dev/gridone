@@ -81,6 +81,9 @@ class ScheduleTriggerProvider:
         self._tz = ZoneInfo(timezone)
         self._listeners: dict[str, ScheduleListener] = {}
 
+    def validate_params(self, params: dict) -> None:
+        ScheduleTrigger(**params)
+
     async def register(
         self,
         params: dict,

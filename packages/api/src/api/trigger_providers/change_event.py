@@ -112,6 +112,9 @@ class ChangeEventTriggerProvider:
         self._dm = devices_manager
         self._listeners: dict[str, ChangeEventListener] = {}
 
+    def validate_params(self, params: dict) -> None:
+        ChangeEventTrigger(**params)
+
     async def register(
         self,
         params: dict,

@@ -1,9 +1,65 @@
+from collections.abc import Sequence
+
+from pydantic import BaseModel
+from pydantic import ValidationError as PydanticValidationError
+
+
 class NotFoundError(Exception):
     """Raised when a requested resource is not found."""
 
 
 class InvalidError(ValueError):
     """Raised when an invalid input is submitted."""
+
+
+class ValidationErrorItem(BaseModel):
+    """One field-level validation error, in pydantic's `{loc, msg, type}` shape."""
+
+    loc: tuple[str | int, ...]
+    msg: str
+    type: str
+
+
+def validation_error_items(exc: PydanticValidationError) -> list[ValidationErrorItem]:
+    """Convert a pydantic `ValidationError` into `{loc, msg, type}` items.
+
+    `ctx`/`input`/`url` are dropped: `ctx` may hold a raw exception object
+    (any `@model_validator` ValueError), which JSON encoding can't handle, and
+    `input` echoes submitted values (secrets) back to the client. The
+    `"Value error, "` prefix pydantic adds to model-validator messages is
+    stripped so callers see the domain message directly.
+    """
+    return [
+        ValidationErrorItem(
+            loc=err["loc"],
+            msg=err["msg"].removeprefix("Value error, "),
+            type=err["type"],
+        )
+        for err in exc.errors(
+            include_url=False, include_context=False, include_input=False
+        )
+    ]
+
+
+class SchemaValidationError(InvalidError):
+    """Raised when a payload fails validation against a schema or model.
+
+    Carries structured `errors` items; `str(exc)` keeps a flattened one-line
+    summary for logs and string-only consumers.
+    """
+
+    def __init__(
+        self,
+        errors: Sequence[ValidationErrorItem],
+        *,
+        summary_prefix: str = "Validation failed: ",
+    ) -> None:
+        self.errors = list(errors)
+        summary = "; ".join(
+            f"{'.'.join(str(p) for p in item.loc) or '<root>'}: {item.msg}"
+            for item in self.errors
+        )
+        super().__init__(f"{summary_prefix}{summary}")
 
 
 class ConflictError(Exception):

@@ -25,6 +25,9 @@ class NotificationsActionProvider:
     def __init__(self, notifications_service: NotificationsServiceInterface) -> None:
         self._notifications_service = notifications_service
 
+    def validate_params(self, params: dict) -> None:
+        NotificationAction(**params)
+
     async def execute(self, params: dict) -> str | None:
         action = NotificationAction(**params)
         dispatches = await self._notifications_service.dispatch(

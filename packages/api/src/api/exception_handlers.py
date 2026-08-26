@@ -3,13 +3,14 @@ import logging
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from apps import AppUnreachableError, ConfigValidationError, InvalidAppSchemaError
+from apps import AppUnreachableError, InvalidAppSchemaError
 from models.errors import (
     BlockedUserError,
     ConfirmationError,
     ConflictError,
     InvalidError,
     NotFoundError,
+    SchemaValidationError,
     UnauthorizedError,
 )
 
@@ -25,9 +26,9 @@ def register_exception_handlers(app: FastAPI) -> None:
     async def invalid_handler(request: Request, exc: InvalidError) -> JSONResponse:
         return JSONResponse(status_code=422, content={"detail": str(exc)})
 
-    @app.exception_handler(ConfigValidationError)
-    async def config_validation_handler(
-        request: Request, exc: ConfigValidationError
+    @app.exception_handler(SchemaValidationError)
+    async def schema_validation_handler(
+        request: Request, exc: SchemaValidationError
     ) -> JSONResponse:
         # Same envelope as FastAPI's pydantic request validation, so form
         # clients map one single `detail: [{loc, msg, type}]` format.
