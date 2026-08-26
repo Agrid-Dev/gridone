@@ -47,3 +47,6 @@ apps/ui/dist/
 AGENTS.md
 INFRA.md
 tasks/
+# Private Bruno environments (only local.bru is shared)
+requests/environments/*
+!requests/environments/local.bru
