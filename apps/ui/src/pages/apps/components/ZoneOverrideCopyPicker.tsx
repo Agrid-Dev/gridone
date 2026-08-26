@@ -50,7 +50,14 @@ export const ZoneOverrideCopyPicker: FC<ZoneOverrideCopyPickerProps> = ({
     );
 
   const confirm = () => {
-    onCopy(selected);
+    // `candidates` can shrink while the popover stays open (a room gets
+    // overridden elsewhere via the add-picker) — drop any selected id that's
+    // no longer a candidate so a stale selection can't produce a duplicate
+    // `zone_id` row.
+    const stillValid = selected.filter((id) =>
+      candidates.some((candidate) => candidate.id === id),
+    );
+    onCopy(stillValid);
     setSelected([]);
     setOpen(false);
   };

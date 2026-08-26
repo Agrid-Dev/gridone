@@ -155,7 +155,10 @@ export const ZoneOverridesField: FC<ZoneOverridesFieldProps> = ({
     sourceRow: OverrideRow,
     targetZoneId: string,
   ): OverrideRow => {
-    const row: OverrideRow = { ...sourceRow, [ZONE_FIELD]: targetZoneId };
+    const row: OverrideRow = {
+      ...structuredClone(sourceRow),
+      [ZONE_FIELD]: targetZoneId,
+    };
     const zoneTypeDefault = properties[ZONE_TYPE_FIELD]?.default;
     if (zoneTypeDefault === undefined) {
       delete row[ZONE_TYPE_FIELD];
