@@ -5,6 +5,10 @@ import userEvent from "@testing-library/user-event";
 import { useForm, type FieldValues } from "react-hook-form";
 import type { Asset } from "@gridone/sdk";
 import { createI18nMock } from "@/test/i18nMock";
+import {
+  normalizeProperty,
+  type JsonSchemaObject,
+} from "@/components/forms/schema-form";
 import type { AppSchemaNode } from "@/lib/appConfigSchema";
 
 vi.mock("react-i18next", () =>
@@ -96,7 +100,7 @@ vi.mock("@/components/ui/select", () => ({
   }) => <option value={value}>{children}</option>,
 }));
 
-import { AppConfigField } from "./AppConfigField";
+import { AppConfigField, appConfigOverrides } from "./AppConfigField";
 
 /** Renders one field in a bare form and exposes the value it holds. */
 function Harness({
@@ -226,5 +230,62 @@ describe("AppConfigField widget mapping", () => {
 
     expect(value()).toBe(42);
     expect(screen.getByLabelText(/Field/)).toHaveAttribute("type", "number");
+  });
+});
+
+const zoneOverridesSchema: AppSchemaNode = {
+  type: "array",
+  title: "Zone overrides",
+  items: {
+    type: "object",
+    properties: {
+      zone_id: { type: "string", format: "asset-id" },
+      zone_type: { type: "string" },
+      enabled: { type: "boolean", default: true },
+    },
+  },
+};
+
+/** The `zone_overrides` field is routed by name, not by a schema marker, so
+ *  the wiring — not just the widget — needs its own coverage. */
+describe("AppConfigField zone_overrides routing", () => {
+  function ZoneOverridesHarness() {
+    const { control } = useForm<FieldValues>({
+      defaultValues: {
+        piloted_zones: ["z1", "z2"],
+        zone_overrides: [{ zone_id: "z1", zone_type: "office", enabled: true }],
+      },
+    });
+    return (
+      <AppConfigField
+        name="zone_overrides"
+        schema={zoneOverridesSchema}
+        control={control}
+        required={false}
+      />
+    );
+  }
+
+  it("renders the overrides table rather than the generic array widget", () => {
+    render(<ZoneOverridesHarness />);
+
+    // The table view is sparse and row-based; the generic array widget would
+    // render a stacked card per entry instead.
+    expect(screen.getByRole("table")).toBeInTheDocument();
+    expect(screen.getByText("Zone 101")).toBeInTheDocument();
+    expect(document.querySelector("[data-slot=array-field-row]")).toBeNull();
+  });
+
+  it("claims the field through the schema-form override seam", () => {
+    const overrides = appConfigOverrides([
+      normalizeProperty(
+        "zone_overrides",
+        zoneOverridesSchema as JsonSchemaObject,
+      ),
+      normalizeProperty("poll_interval_seconds", { type: "integer" }),
+    ]);
+
+    expect(Object.keys(overrides)).toContain("zone_overrides");
+    expect(Object.keys(overrides)).not.toContain("poll_interval_seconds");
   });
 });

@@ -4,6 +4,7 @@ export {
   SchemaFields,
   SchemaFieldWidget,
   schemaFieldPaths,
+  messageAtPath,
   type SchemaFieldOverrides,
   type SchemaWidgetProps,
 } from "./SchemaFields";
