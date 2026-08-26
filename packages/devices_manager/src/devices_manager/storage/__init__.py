@@ -1,11 +1,9 @@
 from .factory import build_storage
-from .memory import MemoryDevicesStorage, MemoryDeviceStorage, MemoryStorageBackend
-from .storage_backend import DevicesManagerStorage, DeviceStorageBackend, StorageBackend
+from .memory import MemoryDevicesStorage, MemoryStorageBackend
+from .storage_backend import DevicesManagerStorage, StorageBackend
 
 __all__ = [
-    "DeviceStorageBackend",
     "DevicesManagerStorage",
-    "MemoryDeviceStorage",
     "MemoryDevicesStorage",
     "MemoryStorageBackend",
     "StorageBackend",

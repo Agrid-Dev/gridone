@@ -5,10 +5,7 @@ from collections.abc import Callable, Collection
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from devices_manager.dto import device_to_public
-from devices_manager.storage.memory import MemoryDeviceStorage
 from models.errors import ConflictError, InvalidError, NotFoundError
-from models.ids import gen_id
 
 from .device import (
     Attribute,
@@ -21,14 +18,9 @@ from .device_filters import DeviceFilters
 if TYPE_CHECKING:
     from devices_manager.core.device.event_log import AttributeLogs
     from devices_manager.core.driver.attribute_driver import AttributeDriver
-    from devices_manager.dto import (
-        Device,
-        DeviceCreate,
-        DeviceUpdate,
-    )
-    from devices_manager.storage import DeviceStorageBackend
     from devices_manager.types import AttributeValueType, DataType
 
+    from .device import DeviceStorage
     from .driver import Driver
     from .transports import TransportClient
 
@@ -45,7 +37,7 @@ class DeviceRegistry:
     _resolve_driver: DriverResolver
     _resolve_transport: TransportResolver
     _on_attribute_update: AttributeListener | None
-    _storage: DeviceStorageBackend
+    _storage: DeviceStorage | None
 
     def __init__(
         self,
@@ -53,14 +45,14 @@ class DeviceRegistry:
         *,
         resolve_driver: DriverResolver,
         resolve_transport: TransportResolver,
-        storage: DeviceStorageBackend | None = None,
+        storage: DeviceStorage | None = None,
         on_attribute_update: AttributeListener | None = None,
     ) -> None:
         self._devices = devices if devices is not None else {}
         self._resolve_driver = resolve_driver
         self._resolve_transport = resolve_transport
         self._on_attribute_update = on_attribute_update
-        self._storage = storage if storage is not None else MemoryDeviceStorage()
+        self._storage = storage
         for device in self._devices.values():
             device.on_update = self._on_attribute_update
 
@@ -82,10 +74,6 @@ class DeviceRegistry:
     def get(self, device_id: str) -> CoreDevice:
         return self._get_or_raise(device_id)
 
-    def get_dto(self, device_id: str) -> Device:
-        device = self._get_or_raise(device_id)
-        return device_to_public(device)
-
     def list_all(  # noqa: PLR0913
         self,
         *,
@@ -99,7 +87,7 @@ class DeviceRegistry:
         search: str | None = None,
         driver_id: str | None = None,
         transport_id: str | None = None,
-    ) -> list[Device]:
+    ) -> list[CoreDevice]:
         filters = DeviceFilters(
             ids=ids,
             types=types,
@@ -112,16 +100,15 @@ class DeviceRegistry:
             driver_id=driver_id,
             transport_id=transport_id,
         )
-        return [
-            device_to_public(d) for d in self._devices.values() if filters.matches(d)
-        ]
+        return [d for d in self._devices.values() if filters.matches(d)]
 
     @staticmethod
     def _touch(device: CoreDevice) -> None:
         device.updated_at = datetime.now(UTC)
 
     async def _persist(self, device: CoreDevice) -> None:
-        await self._storage.write(device.id, device_to_public(device))
+        if self._storage is not None:
+            await self._storage.write(device.id, device)
 
     async def register(self, device: CoreDevice) -> None:
         """Register device in memory and persist."""
@@ -168,14 +155,11 @@ class DeviceRegistry:
                 )
                 raise ConflictError(msg)
 
-    def _create_device(self, device_create: DeviceCreate) -> CoreDevice:
-        driver = self._resolve_driver(device_create.driver_id)
-        self._validate_device_config(device_create.config, driver)
-        transport = self._resolve_transport(device_create.transport_id)
+    def _create_device(self, base: DeviceBase) -> CoreDevice:
+        driver = self._resolve_driver(base.driver_id)
+        self._validate_device_config(base.config, driver)
+        transport = self._resolve_transport(base.transport_id)
         self._check_transport_compat(driver, transport)
-        base = DeviceBase(
-            id=gen_id(), name=device_create.name, config=device_create.config
-        )
         return CoreDevice.from_base(
             base,
             driver=driver,
@@ -183,19 +167,19 @@ class DeviceRegistry:
             on_update=self._on_attribute_update,
         )
 
-    async def add(self, device_create: DeviceCreate) -> CoreDevice:
-        """Create a device, register it in memory, and persist.
+    async def add(self, base: DeviceBase) -> CoreDevice:
+        """Assemble a device from its snapshot, register it, and persist.
 
         Returns the CoreDevice so the caller can handle lifecycle.
         """
-        device = self._create_device(device_create)
+        device = self._create_device(base)
         self._check_config_uniqueness(
             device.driver_id, device.transport_id, device.config
         )
         await self.register(device)
         logger.info(
             "Successfully created device '%s' (id: %s)",
-            device_create.name,
+            base.name,
             device.id,
         )
         return device
@@ -238,32 +222,36 @@ class DeviceRegistry:
         new_device.tags = device.tags
         return new_device
 
-    async def update(self, device_id: str, device_update: DeviceUpdate) -> CoreDevice:
+    async def update(
+        self,
+        device_id: str,
+        *,
+        name: str | None = None,
+        config: dict | None = None,
+        driver_id: str | None = None,
+        transport_id: str | None = None,
+    ) -> CoreDevice:
         """Update a device in-place, rebuild if needed, and persist.
 
         Returns the (potentially rebuilt) Device so the caller can
         handle lifecycle side-effects (polling restart, listener init).
         """
         device = self._get_or_raise(device_id)
-        new_driver = self._resolve_driver_or_none(device_update.driver_id)
-        new_transport = self._resolve_transport_or_none(device_update.transport_id)
+        new_driver = self._resolve_driver_or_none(driver_id)
+        new_transport = self._resolve_transport_or_none(transport_id)
         effective_driver = new_driver or device.driver
         effective_transport = new_transport or device.transport
-        effective_config = (
-            device_update.config if device_update.config is not None else device.config
-        )
+        effective_config = config if config is not None else device.config
 
         self._check_transport_compat(effective_driver, effective_transport)
 
         if new_driver is not None:
             self._validate_device_config(effective_config, new_driver)
-        elif device_update.config is not None:
+        elif config is not None:
             self._validate_device_config(effective_config, device.driver)
 
         config_affecting_change = (
-            new_driver is not None
-            or new_transport is not None
-            or device_update.config is not None
+            new_driver is not None or new_transport is not None or config is not None
         )
         if config_affecting_change:
             self._check_config_uniqueness(
@@ -273,10 +261,10 @@ class DeviceRegistry:
                 exclude_id=device_id,
             )
 
-        if device_update.name is not None:
-            device.name = device_update.name
-        if device_update.config is not None:
-            device.config = device_update.config
+        if name is not None:
+            device.name = name
+        if config is not None:
+            device.config = config
 
         if new_driver is not None or new_transport is not None:
             device = self.rebuild_device(device, effective_driver, effective_transport)
@@ -291,20 +279,23 @@ class DeviceRegistry:
         """Remove a device from memory and storage."""
         self._get_or_raise(device_id)
         del self._devices[device_id]
-        await self._storage.delete(device_id)
+        if self._storage is not None:
+            await self._storage.delete(device_id)
 
     async def set_tag(self, device_id: str, key: str, value: str) -> CoreDevice:
         device = self._get_or_raise(device_id)
         device.tags[key] = value
         self._touch(device)
-        await self._storage.set_tag(device_id, key, value, device.updated_at)
+        if self._storage is not None:
+            await self._storage.set_tag(device_id, key, value, device.updated_at)
         return device
 
     async def delete_tag(self, device_id: str, key: str) -> CoreDevice:
         device = self._get_or_raise(device_id)
         device.tags.pop(key, None)
         self._touch(device)
-        await self._storage.delete_tag(device_id, key, device.updated_at)
+        if self._storage is not None:
+            await self._storage.delete_tag(device_id, key, device.updated_at)
         return device
 
     async def write_attribute(

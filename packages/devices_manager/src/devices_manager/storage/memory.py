@@ -13,19 +13,14 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
 
-from devices_manager.dto import Device
-
+from .device_record import DeviceRecord, RecordDeviceStorage
 from .driver_record import DriverRecord, RecordDriverStorage
 from .transport_record import RecordTransportStorage, TransportRecord
 
 if TYPE_CHECKING:
-    from datetime import datetime
-
-    from devices_manager.core.device import Attribute
+    from devices_manager.core.device import Attribute, DeviceStorage
     from devices_manager.core.driver import DriverStorage
     from devices_manager.core.transports import TransportStorage
-
-    from .storage_backend import DeviceStorageBackend
 
 
 class MemoryStorageBackend[M: BaseModel]:
@@ -57,53 +52,23 @@ class MemoryStorageBackend[M: BaseModel]:
         self._items.pop(item_id, None)
 
 
-class MemoryDeviceStorage(MemoryStorageBackend[Device]):
-    """``DeviceStorageBackend`` extension with targeted tag mutations.
-
-    Tag mutations are no-ops when the target device has not yet been
-    persisted, matching the postgres backend's "no row, no row to update"
-    semantics on a missing primary key (which would otherwise be a noisy
-    FK violation in the path of in-memory-only test setups).
-    """
-
-    async def set_tag(
-        self, device_id: str, key: str, value: str, updated_at: datetime
-    ) -> None:
-        device = self._items.get(device_id)
-        if device is None:
-            return
-        device.tags[key] = value
-        device.updated_at = updated_at
-
-    async def delete_tag(self, device_id: str, key: str, updated_at: datetime) -> None:
-        device = self._items.get(device_id)
-        if device is None:
-            return
-        device.tags.pop(key, None)
-        device.updated_at = updated_at
-
-
 class MemoryDevicesStorage:
     """Composite in-memory storage satisfying ``DevicesManagerStorage``."""
 
-    devices: DeviceStorageBackend
+    devices: DeviceStorage
     drivers: DriverStorage
     transports: TransportStorage
 
     def __init__(self) -> None:
-        self.devices = MemoryDeviceStorage()
+        self._device_storage = RecordDeviceStorage(MemoryStorageBackend[DeviceRecord]())
+        self.devices = self._device_storage
         self.drivers = RecordDriverStorage(MemoryStorageBackend[DriverRecord]())
         self.transports = RecordTransportStorage(
             MemoryStorageBackend[TransportRecord]()
         )
 
     async def save_attribute(self, device_id: str, attribute: Attribute) -> None:
-        try:
-            device = await self.devices.read(device_id)
-        except FileNotFoundError:
-            return
-        device.attributes[attribute.name] = attribute
-        await self.devices.write(device_id, device)
+        await self._device_storage.save_attribute(device_id, attribute)
 
     async def close(self) -> None:
         pass

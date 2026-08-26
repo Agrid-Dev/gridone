@@ -3,9 +3,8 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import TYPE_CHECKING, cast
 
-from devices_manager.core.device import Attribute
-from devices_manager.dto import Device
-from devices_manager.storage.storage_backend import StorageBackend
+from devices_manager.core.device import Attribute, DeviceBase
+from devices_manager.storage.device_record import to_record
 from devices_manager.types import AttributeValueType, DataType
 
 if TYPE_CHECKING:
@@ -13,17 +12,25 @@ if TYPE_CHECKING:
 
     import asyncpg
 
+    from devices_manager.core.device import CoreDevice
 
-class PostgresDeviceStorage(StorageBackend[Device]):
+
+class PostgresDeviceStorage:
+    """``DeviceStorage`` port over the dm_devices/attributes/tags tables."""
+
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
 
-    def _build_dto(
+    def _build_base(
         self,
         row: asyncpg.Record,
         attribute_rows: list[asyncpg.Record],
         tag_rows: list[asyncpg.Record],
-    ) -> Device:
+    ) -> DeviceBase:
+        # Storage rehydrates plain `Attribute` instances (no FaultAttribute
+        # subclass). Fault semantics are recomputed when the DevicesService
+        # assembles the CoreDevice from the driver spec, which re-creates
+        # FaultAttribute instances with their healthy_values/severity.
         attributes: dict[str, Attribute] = {}
         for attr_row in attribute_rows:
             raw_modes = attr_row["read_write_modes"]
@@ -39,29 +46,21 @@ class PostgresDeviceStorage(StorageBackend[Device]):
                 last_changed=attr_row["last_changed"],
             )
 
-        tags = {tag_row["key"]: tag_row["value"] for tag_row in tag_rows}
-        # Storage rehydrates plain `Attribute` instances (no FaultAttribute
-        # subclass), so the DTO's is_faulty is always False here. The runtime
-        # is_faulty is recomputed once the DevicesService bootstraps the
-        # CoreDevice from the driver spec, which re-creates FaultAttribute
-        # instances with their healthy_values/severity.
-        return Device(
+        return DeviceBase(
             id=row["id"],
             name=row["name"],
-            type=row["type"],
-            tags=tags,
             config=cast("dict", row["config"] or {}),
             driver_id=row["driver_id"],
             transport_id=row["transport_id"],
+            tags={tag_row["key"]: tag_row["value"] for tag_row in tag_rows},
             attributes=attributes,
-            is_faulty=False,
             created_at=row["created_at"],
             updated_at=row["updated_at"],
         )
 
-    async def read(self, item_id: str) -> Device:
+    async def read(self, item_id: str) -> DeviceBase:
         row = await self._pool.fetchrow(
-            "SELECT id, name, type, config, driver_id, transport_id, "
+            "SELECT id, name, config, driver_id, transport_id, "
             "created_at, updated_at "
             "FROM dm_devices WHERE id = $1",
             item_id,
@@ -71,37 +70,37 @@ class PostgresDeviceStorage(StorageBackend[Device]):
             raise FileNotFoundError(msg)
 
         attr_rows, tag_rows = await _fetch_attrs_and_tags(self._pool, [item_id])
-        return self._build_dto(row, attr_rows, tag_rows)
+        return self._build_base(row, attr_rows, tag_rows)
 
-    async def write(self, item_id: str, data: Device) -> None:
-        dumped = data.model_dump(mode="json")
+    async def write(self, item_id: str, device: CoreDevice) -> None:
+        record = to_record(device)
+        dumped = record.model_dump(mode="json")
 
         async with self._pool.acquire() as conn, conn.transaction():
             await conn.execute(
                 "INSERT INTO dm_devices"
-                " (id, name, type, config, driver_id, transport_id,"
+                " (id, name, config, driver_id, transport_id,"
                 " created_at, updated_at)"
-                " VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"
+                " VALUES ($1, $2, $3, $4, $5, $6, $7)"
                 " ON CONFLICT (id) DO UPDATE SET"
                 " name = EXCLUDED.name,"
-                " type = EXCLUDED.type, config = EXCLUDED.config,"
+                " config = EXCLUDED.config,"
                 " driver_id = EXCLUDED.driver_id,"
                 " transport_id = EXCLUDED.transport_id,"
                 " updated_at = EXCLUDED.updated_at",
                 item_id,
                 dumped["name"],
-                dumped.get("type"),
                 dumped["config"],
                 dumped["driver_id"],
                 dumped["transport_id"],
-                data.created_at,
-                data.updated_at,
+                record.created_at,
+                record.updated_at,
             )
 
-            await _write_tags(conn, item_id, data.tags)
+            await _write_tags(conn, item_id, record.tags)
 
-            if data.attributes:
-                await self._upsert_attributes(conn, item_id, data.attributes)
+            if record.attributes:
+                await self._upsert_attributes(conn, item_id, record.attributes)
 
     async def _upsert_attributes(
         self,
@@ -168,9 +167,9 @@ class PostgresDeviceStorage(StorageBackend[Device]):
             attribute.last_changed,
         )
 
-    async def read_all(self) -> list[Device]:
+    async def read_all(self) -> list[DeviceBase]:
         device_rows = await self._pool.fetch(
-            "SELECT id, name, type, config, driver_id, transport_id, "
+            "SELECT id, name, config, driver_id, transport_id, "
             "created_at, updated_at "
             "FROM dm_devices ORDER BY id",
         )
@@ -189,7 +188,7 @@ class PostgresDeviceStorage(StorageBackend[Device]):
             tags_by_device[tag_row["device_id"]].append(tag_row)
 
         return [
-            self._build_dto(
+            self._build_base(
                 row,
                 attrs_by_device.get(row["id"], []),
                 tags_by_device.get(row["id"], []),

@@ -1,11 +1,13 @@
 from collections import deque
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import (
     BaseModel,
+    Discriminator,
     PrivateAttr,
+    Tag,
     computed_field,
     model_serializer,
     model_validator,
@@ -134,3 +136,23 @@ class FaultAttribute(Attribute):
             )
             raise ValueError(msg)
         return self
+
+
+def _attribute_kind_tag(v: Any) -> str:  # noqa: ANN401
+    """Resolve the `kind` tag for discriminated-union dispatch.
+
+    Defaults to `standard` when the field is absent — matches the default
+    on `Attribute.kind` so payloads without an explicit `kind:` key parse
+    as standard attributes.
+    """
+    if isinstance(v, dict):
+        return v.get("kind", AttributeKind.STANDARD)
+    return getattr(v, "kind", AttributeKind.STANDARD)
+
+
+AnyAttribute = Annotated[
+    Annotated[Attribute, Tag(AttributeKind.STANDARD)]
+    | Annotated[FaultAttribute, Tag(AttributeKind.FAULT)]
+    | Annotated[Attribute, Tag(AttributeKind.INTERNAL)],
+    Discriminator(_attribute_kind_tag),
+]

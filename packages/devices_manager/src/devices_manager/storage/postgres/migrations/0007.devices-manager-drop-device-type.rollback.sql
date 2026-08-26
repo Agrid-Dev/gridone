@@ -1,0 +1,1 @@
+ALTER TABLE dm_devices ADD COLUMN type TEXT;
