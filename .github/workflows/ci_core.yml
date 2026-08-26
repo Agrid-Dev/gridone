@@ -97,6 +97,9 @@ jobs:
       - name: Run type check
         run: uv run ty check
 
+      - name: Run import contracts
+        run: uv run lint-imports
+
   unit-tests:
     runs-on: ubuntu-latest
     needs: quality
