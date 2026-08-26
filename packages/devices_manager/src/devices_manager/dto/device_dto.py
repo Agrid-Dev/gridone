@@ -1,16 +1,15 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated, Any
+from typing import TYPE_CHECKING
 
-from pydantic import BaseModel, ConfigDict, Discriminator, Field, Tag
+from pydantic import BaseModel, ConfigDict, Field
 
 from devices_manager.core.device import (
-    Attribute,
+    AnyAttribute,
     CoreDevice,
     DeviceBase,
-    FaultAttribute,
 )
-from devices_manager.core.device.attribute import AttributeKind
+from models.ids import gen_id
 from models.metadata import ResourceMetadata
 
 if TYPE_CHECKING:
@@ -31,24 +30,9 @@ class DeviceCreate(BaseModel):
     transport_id: str
 
 
-def _attribute_kind_tag(v: Any) -> str:  # noqa: ANN401
-    """Resolve the `kind` tag for discriminated-union dispatch.
-
-    Defaults to `standard` when the field is absent — matches the default
-    on `Attribute.kind` so payloads without an explicit `kind:` key parse
-    as standard attributes.
-    """
-    if isinstance(v, dict):
-        return v.get("kind", AttributeKind.STANDARD)
-    return getattr(v, "kind", AttributeKind.STANDARD)
-
-
-_AttributeUnion = Annotated[
-    Annotated[Attribute, Tag(AttributeKind.STANDARD)]
-    | Annotated[FaultAttribute, Tag(AttributeKind.FAULT)]
-    | Annotated[Attribute, Tag(AttributeKind.INTERNAL)],
-    Discriminator(_attribute_kind_tag),
-]
+# The wire shape of a device attribute is the core discriminated union
+# itself — attributes are embedded core objects, not a separate projection.
+_AttributeUnion = AnyAttribute
 
 
 class Device(ResourceMetadata):
@@ -92,13 +76,29 @@ def core_to_dto(device: CoreDevice) -> Device:
 
 
 def dto_to_base(dto: Device) -> DeviceBase:
-    """Convert a Device back to a DeviceBase constructor struct."""
+    """Convert a Device back to a DeviceBase detached snapshot."""
     return DeviceBase(
         id=dto.id,
         name=dto.name,
         config=dto.config,
+        driver_id=dto.driver_id,
+        transport_id=dto.transport_id,
+        tags=dto.tags,
+        attributes=dto.attributes,
         created_at=dto.created_at,
         updated_at=dto.updated_at,
+    )
+
+
+def create_to_base(create: DeviceCreate) -> DeviceBase:
+    """Build a fresh device snapshot from a create payload: new id,
+    default timestamps, no restored state."""
+    return DeviceBase(
+        id=gen_id(),
+        name=create.name,
+        config=create.config,
+        driver_id=create.driver_id,
+        transport_id=create.transport_id,
     )
 
 
@@ -110,14 +110,9 @@ def dto_to_core(
     on_update: Callable[..., None] | None = None,
 ) -> CoreDevice:
     """Reconstruct a Device domain object from a stored Device."""
-    driver = drivers[dto.driver_id]
-    transport = transports[dto.transport_id]
-    device = CoreDevice.from_base(
+    return CoreDevice.from_base(
         dto_to_base(dto),
-        driver=driver,
-        transport=transport,
-        restored_attributes=dto.attributes,
+        driver=drivers[dto.driver_id],
+        transport=transports[dto.transport_id],
         on_update=on_update,
     )
-    device.tags = dto.tags
-    return device

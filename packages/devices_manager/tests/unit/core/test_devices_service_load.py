@@ -18,16 +18,13 @@ import pytest
 import pytest_asyncio
 
 from devices_manager import DevicesService
+from devices_manager.core.device import DeviceBase
 from devices_manager.core.device_registry import DeviceRegistry
 from devices_manager.core.driver import UpdateStrategy
 from devices_manager.core.driver_registry import DriverRegistry
 from devices_manager.core.transport_registry import TransportRegistry
 from devices_manager.core.transports.http_transport import HttpTransportConfig
-from devices_manager.dto import (
-    Device,
-    DeviceCreate,
-    driver_to_public,
-)
+from devices_manager.dto import DeviceCreate, driver_to_public
 from devices_manager.dto.transport_dto import HttpTransportCreate
 from devices_manager.types import TransportProtocols
 from models.errors import (
@@ -61,7 +58,7 @@ def _seed_backend(backend: AsyncMock, entities: list) -> None:
 
 def _storage_mock(
     *,
-    devices: list[Device] | None = None,
+    devices: list[DeviceBase] | None = None,
     drivers: list[Driver] | None = None,
     transports: list[TransportClient] | None = None,
 ) -> AsyncMock:
@@ -82,14 +79,15 @@ def _assert_no_mutating_call(storage: AsyncMock) -> None:
     assert mutating == []
 
 
-def _device_dto(driver: Driver, transport_id: str, device_id: str = "d1") -> Device:
-    return Device(
+def _device_base(
+    driver: Driver, transport_id: str, device_id: str = "d1"
+) -> DeviceBase:
+    return DeviceBase(
         id=device_id,
         name="Sensor",
         config={"some_id": "abc"},
         driver_id=driver.id,
         transport_id=transport_id,
-        is_faulty=False,
     )
 
 
@@ -154,7 +152,7 @@ class TestReadOnlyLoad:
         self, monkeypatch, driver, mock_transport_client
     ):
         storage = _storage_mock(
-            devices=[_device_dto(driver, mock_transport_client.id)],
+            devices=[_device_base(driver, mock_transport_client.id)],
             drivers=[driver],
             transports=[mock_transport_client],
         )
@@ -175,7 +173,7 @@ class TestReadOnlyLoad:
     ):
         """An attribute update after ``load()`` must not be persisted."""
         storage = _storage_mock(
-            devices=[_device_dto(driver, mock_transport_client.id)],
+            devices=[_device_base(driver, mock_transport_client.id)],
             drivers=[driver],
             transports=[mock_transport_client],
         )
@@ -196,7 +194,7 @@ class TestReadOnlyLoad:
         self, monkeypatch, driver, mock_transport_client
     ):
         storage = _storage_mock(
-            devices=[_device_dto(driver, mock_transport_client.id)],
+            devices=[_device_base(driver, mock_transport_client.id)],
             drivers=[driver],
             transports=[mock_transport_client],
         )

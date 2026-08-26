@@ -6,7 +6,12 @@ from devices_manager.core.transports import (
     make_transport_client,
     make_transport_config,
 )
-from devices_manager.dto import Device, DriverSpec, driver_from_public
+from devices_manager.dto import (
+    Device,
+    DriverSpec,
+    device_from_public,
+    driver_from_public,
+)
 from devices_manager.storage.memory import MemoryDevicesStorage
 from devices_manager.types import TransportProtocols
 
@@ -56,8 +61,14 @@ TEST_TRANSPORT = make_transport_client(
 @pytest_asyncio.fixture
 async def seeded_memory_storage() -> MemoryDevicesStorage:
     storage = MemoryDevicesStorage()
-    await storage.devices.write(TEST_DEVICE.id, TEST_DEVICE)
-    await storage.drivers.write(TEST_DRIVER.id, driver_from_public(TEST_DRIVER))
+    core_driver = driver_from_public(TEST_DRIVER)
+    core_device = device_from_public(
+        TEST_DEVICE,
+        {core_driver.id: core_driver},
+        {TEST_TRANSPORT.id: TEST_TRANSPORT},
+    )
+    await storage.devices.write(TEST_DEVICE.id, core_device)
+    await storage.drivers.write(TEST_DRIVER.id, core_driver)
     await storage.transports.write(TEST_TRANSPORT.id, TEST_TRANSPORT)
     return storage
 

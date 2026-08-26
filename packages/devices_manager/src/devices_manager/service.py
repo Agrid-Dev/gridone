@@ -5,8 +5,6 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from pydantic import BaseModel
-
 from models.errors import ConflictError, NotFoundError, StorageNotInitializedError
 from models.ids import gen_id
 from models.service import Service
@@ -39,7 +37,7 @@ from .dto import (
     TransportBase,
     TransportCreate,
     TransportUpdate,
-    device_from_public,
+    device_create_from_public,
     device_to_public,
     driver_from_public,
     driver_to_public,
@@ -64,7 +62,7 @@ if TYPE_CHECKING:
     from .core.transports import TransportClient
     from .dto import LoadEntityKind
     from .interface import AttributeListener, DeviceDiscoveredListener
-    from .storage import DevicesManagerStorage, StorageBackend
+    from .storage import DevicesManagerStorage
     from .types import AttributeValueType, DataType
 
 logger = logging.getLogger(__name__)
@@ -233,18 +231,6 @@ class DevicesService(Service):
         )
         logger.exception("Skipped %s '%s' during load: %s", kind, entity_id, reason)
 
-    async def _read_entities[M: BaseModel](
-        self, backend: StorageBackend[M], kind: LoadEntityKind
-    ) -> list[M]:
-        """Read stored entities one by one, skipping unreadable entries."""
-        entities: list[M] = []
-        for item_id in await backend.list_all():
-            try:
-                entities.append(await backend.read(item_id))
-            except Exception:  # noqa: BLE001 -- fault-tolerant load
-                self._record_load_error(kind, item_id, "unreadable entry")
-        return entities
-
     async def _load_transports(
         self, storage: DevicesManagerStorage
     ) -> dict[str, TransportClient]:
@@ -285,18 +271,34 @@ class DevicesService(Service):
         drivers: dict[str, Driver],
         transports: dict[str, TransportClient],
     ) -> dict[str, CoreDevice]:
+        """Read stored device snapshots and assemble them one by one.
+
+        The storage port returns detached :class:`DeviceBase` snapshots;
+        assembly resolves each device's driver and transport from the
+        entities loaded just before.
+        """
         devices = dict(self._seed_devices)
-        for dto in await self._read_entities(storage.devices, "device"):
-            if dto.id in devices:
+        for item_id in await storage.devices.list_all():
+            if item_id in devices:
                 continue
             try:
-                devices[dto.id] = device_from_public(
-                    dto, drivers, transports, on_update=self._on_attribute_update
+                base = await storage.devices.read(item_id)
+            except Exception:  # noqa: BLE001 -- fault-tolerant load
+                self._record_load_error("device", item_id, "unreadable entry")
+                continue
+            try:
+                devices[item_id] = CoreDevice.from_base(
+                    base,
+                    driver=drivers[base.driver_id],
+                    transport=transports[base.transport_id],
+                    on_update=self._on_attribute_update,
                 )
             except KeyError:
-                self._record_load_error("device", dto.id, "missing driver or transport")
+                self._record_load_error(
+                    "device", item_id, "missing driver or transport"
+                )
             except Exception:  # noqa: BLE001 -- fault-tolerant load
-                self._record_load_error("device", dto.id, "failed to initialize")
+                self._record_load_error("device", item_id, "failed to initialize")
         return devices
 
     def _register_attribute_persistence_listener(self) -> None:
@@ -337,7 +339,7 @@ class DevicesService(Service):
         driver_id: str | None = None,
         transport_id: str | None = None,
     ) -> list[Device]:
-        return self._device_registry.list_all(
+        devices = self._device_registry.list_all(
             ids=ids,
             types=types,
             attribute=attribute,
@@ -349,12 +351,15 @@ class DevicesService(Service):
             driver_id=driver_id,
             transport_id=transport_id,
         )
+        return [device_to_public(device) for device in devices]
 
     def get_device(self, device_id: str) -> Device:
-        return self._device_registry.get_dto(device_id)
+        return device_to_public(self._device_registry.get(device_id))
 
     async def add_device(self, device_create: DeviceCreate) -> Device:
-        device = await self._device_registry.add(device_create)
+        device = await self._device_registry.add(
+            device_create_from_public(device_create)
+        )
         if self._running:
             await device.start_sync()
         return device_to_public(device)
@@ -365,7 +370,13 @@ class DevicesService(Service):
         old_device = self._device_registry.get(device_id)
         await old_device.stop_sync()
         try:
-            device = await self._device_registry.update(device_id, device_update)
+            device = await self._device_registry.update(
+                device_id,
+                name=device_update.name,
+                config=device_update.config,
+                driver_id=device_update.driver_id,
+                transport_id=device_update.transport_id,
+            )
         except Exception:
             if self._running:
                 await old_device.start_sync()

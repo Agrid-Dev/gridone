@@ -208,11 +208,14 @@ class CoreDevice:
         on_update: AttributeListener | None = None,
     ) -> CoreDevice:
         initial = initial_values or {}
-        restored = restored_attributes or {}
+        restored = (
+            restored_attributes if restored_attributes is not None else base.attributes
+        )
         return cls(
             id=base.id,
             name=base.name,
             config=base.config,
+            tags=dict(base.tags),
             created_at=base.created_at,
             updated_at=base.updated_at,
             driver=driver,

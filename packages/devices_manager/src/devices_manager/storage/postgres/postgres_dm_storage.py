@@ -6,7 +6,6 @@ import asyncpg
 
 from devices_manager.storage.storage_backend import (
     DevicesManagerStorage,
-    DeviceStorageBackend,
 )
 
 from .device_storage import PostgresDeviceStorage
@@ -14,7 +13,7 @@ from .driver_storage import PostgresDriverStorage
 from .transport_storage import PostgresTransportStorage
 
 if TYPE_CHECKING:
-    from devices_manager.core.device import Attribute
+    from devices_manager.core.device import Attribute, DeviceStorage
     from devices_manager.core.driver import DriverStorage
     from devices_manager.core.transports import TransportStorage
 
@@ -22,7 +21,7 @@ if TYPE_CHECKING:
 class PostgresDevicesManagerStorage(DevicesManagerStorage):
     _pool: asyncpg.Pool
     _device_storage: PostgresDeviceStorage
-    devices: DeviceStorageBackend
+    devices: DeviceStorage
     drivers: DriverStorage
     transports: TransportStorage
 

@@ -8,7 +8,7 @@ import asyncpg
 import pytest
 import pytest_asyncio
 
-from devices_manager.core.device import Attribute
+from devices_manager.core.device import Attribute, CoreDevice
 from devices_manager.core.driver import (
     AttributeDriver,
     Driver,
@@ -21,7 +21,6 @@ from devices_manager.core.transports import (
     make_transport_client,
     make_transport_config,
 )
-from devices_manager.dto import Device
 from devices_manager.storage.postgres import (
     PostgresDevicesManagerStorage,
     PostgresDeviceStorage,
@@ -108,16 +107,16 @@ def _make_device(
     transport_id: str = "t1",
     name: str = "Test Device",
     attributes: dict[str, Attribute] | None = None,
-) -> Device:
-    return Device(
+) -> CoreDevice:
+    # Attributes are passed explicitly (not derived from the driver spec) so
+    # storage tests control exactly which attribute rows are written.
+    return CoreDevice(
         id=device_id,
         name=name,
-        type="hvac/thermostat",
         config={"address": "1"},
-        driver_id=driver_id,
-        transport_id=transport_id,
+        driver=_make_driver(driver_id),
+        transport=_make_transport(transport_id),
         attributes=attributes or {},
-        is_faulty=False,
     )
 
 

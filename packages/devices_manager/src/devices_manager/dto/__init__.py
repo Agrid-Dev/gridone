@@ -4,6 +4,7 @@ from .device_dto import (
     DeviceUpdate,
 )
 from .device_dto import core_to_dto as device_to_public
+from .device_dto import create_to_base as device_create_from_public
 from .device_dto import dto_to_base as device_public_to_base
 from .device_dto import dto_to_core as device_from_public
 from .driver_dto import (
@@ -61,6 +62,7 @@ __all__ = [
     "TransportCreate",
     "TransportUpdate",
     "build_transport",
+    "device_create_from_public",
     "device_from_public",
     "device_public_to_base",
     "device_to_public",

@@ -9,17 +9,13 @@ import pytest_asyncio
 from devices_manager.core.device import (
     CoreDevice,
     DeviceBase,
+    DeviceStorage,
 )
 from devices_manager.core.device.connection_status import CONNECTION_STATUS_ATTR
 from devices_manager.core.device.event_log import AttributeLogs
 from devices_manager.core.device_registry import DeviceRegistry
-from devices_manager.dto import (
-    Device,
-    DeviceCreate,
-    DeviceUpdate,
-)
-from devices_manager.storage import DeviceStorageBackend
 from models.errors import ConflictError, InvalidError, NotFoundError
+from models.ids import gen_id
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -58,6 +54,23 @@ def _make_transport_resolver(
             raise NotFoundError(msg) from e
 
     return _resolve
+
+
+def _create_base(
+    *,
+    name: str = "",
+    config: dict,
+    driver_id: str,
+    transport_id: str,
+) -> DeviceBase:
+    """A fresh device snapshot, as the service builds one from DeviceCreate."""
+    return DeviceBase(
+        id=gen_id(),
+        name=name,
+        config=config,
+        driver_id=driver_id,
+        transport_id=transport_id,
+    )
 
 
 @pytest.fixture
@@ -125,21 +138,10 @@ class TestDeviceRegistryGet:
         with pytest.raises(NotFoundError):
             device_registry.get("unknown")
 
-    def test_get_dto(self, device_registry, device):
-        dto = device_registry.get_dto(device.id)
-        assert isinstance(dto, Device)
-        assert dto.id == device.id
-
-    def test_get_dto_not_found(self, device_registry):
-        with pytest.raises(NotFoundError):
-            device_registry.get_dto("unknown")
-
 
 class TestDeviceRegistryList:
-    def test_list_all(self, device_registry):
-        devices = device_registry.list_all()
-        assert len(devices) == 1
-        assert all(isinstance(d, Device) for d in devices)
+    def test_list_all(self, device_registry, device):
+        assert device_registry.list_all() == [device]
 
     def test_list_all_filter_wiring(
         self,
@@ -212,7 +214,7 @@ class TestDeviceRegistryAddPhysical:
     async def test_add_physical_device_ok(
         self, empty_registry, driver, mock_transport_client
     ):
-        create = DeviceCreate(
+        create = _create_base(
             name="New Device",
             config={"some_id": "abc"},
             driver_id=driver.id,
@@ -227,7 +229,7 @@ class TestDeviceRegistryAddPhysical:
     async def test_add_physical_device_driver_not_found(
         self, empty_registry, mock_transport_client
     ):
-        create = DeviceCreate(
+        create = _create_base(
             name="Bad",
             config={"some_id": "abc"},
             driver_id="unknown_driver",
@@ -240,7 +242,7 @@ class TestDeviceRegistryAddPhysical:
     async def test_add_physical_device_transport_not_found(
         self, empty_registry, driver
     ):
-        create = DeviceCreate(
+        create = _create_base(
             name="Bad",
             config={"some_id": "abc"},
             driver_id=driver.id,
@@ -258,7 +260,7 @@ class TestDeviceRegistryAddPhysical:
             resolve_transport=_make_transport_resolver(mock_push_transport_client),
             on_attribute_update=on_attribute_update,
         )
-        create = DeviceCreate(
+        create = _create_base(
             name="Bad",
             config={"some_id": "abc"},
             driver_id=driver.id,
@@ -271,7 +273,7 @@ class TestDeviceRegistryAddPhysical:
     async def test_add_physical_device_invalid_config(
         self, empty_registry, driver, mock_transport_client
     ):
-        create = DeviceCreate(
+        create = _create_base(
             name="Bad",
             config={},
             driver_id=driver.id,
@@ -288,7 +290,7 @@ class TestDeviceRegistryAddPhysical:
         mock_transport_client,
         on_attribute_update,
     ):
-        create = DeviceCreate(
+        create = _create_base(
             name="Device",
             config={"some_id": "abc"},
             driver_id=driver.id,
@@ -301,7 +303,7 @@ class TestDeviceRegistryAddPhysical:
     async def test_add_physical_device_rejects_duplicate_config(
         self, device_registry, driver, mock_transport_client
     ):
-        create = DeviceCreate(
+        create = _create_base(
             name="Duplicate",
             config={"some_id": "abc"},
             driver_id=driver.id,
@@ -314,7 +316,7 @@ class TestDeviceRegistryAddPhysical:
     async def test_add_physical_device_allows_different_config(
         self, device_registry, driver, mock_transport_client
     ):
-        create = DeviceCreate(
+        create = _create_base(
             name="Not a duplicate",
             config={"some_id": "xyz"},
             driver_id=driver.id,
@@ -341,7 +343,7 @@ class TestDeviceRegistryAddPhysical:
             ),
             on_attribute_update=on_attribute_update,
         )
-        create = DeviceCreate(
+        create = _create_base(
             name="Same config, different transport",
             config=device.config,
             driver_id=driver.id,
@@ -355,20 +357,18 @@ class TestDeviceRegistryAddPhysical:
 class TestDeviceRegistryUpdate:
     @pytest.mark.asyncio
     async def test_update_name(self, device_registry, device):
-        result = await device_registry.update(device.id, DeviceUpdate(name="New Name"))
+        result = await device_registry.update(device.id, name="New Name")
         assert result.name == "New Name"
 
     @pytest.mark.asyncio
     async def test_update_empty_payload(self, device_registry, device):
         original_name = device.name
-        result = await device_registry.update(device.id, DeviceUpdate())
+        result = await device_registry.update(device.id)
         assert result.name == original_name
 
     @pytest.mark.asyncio
     async def test_update_allows_keeping_own_config(self, device_registry, device):
-        result = await device_registry.update(
-            device.id, DeviceUpdate(config=device.config)
-        )
+        result = await device_registry.update(device.id, config=device.config)
         assert result.config == device.config
 
     @pytest.mark.asyncio
@@ -388,7 +388,7 @@ class TestDeviceRegistryUpdate:
         )
         await device_registry.register(other)
         with pytest.raises(ConflictError):
-            await device_registry.update(other.id, DeviceUpdate(config=device.config))
+            await device_registry.update(other.id, config=device.config)
 
     @pytest.mark.asyncio
     async def test_update_rejects_config_leaves_device_unmutated(
@@ -411,9 +411,7 @@ class TestDeviceRegistryUpdate:
         original_updated_at = other.updated_at
 
         with pytest.raises(ConflictError):
-            await device_registry.update(
-                other.id, DeviceUpdate(name="Renamed", config=device.config)
-            )
+            await device_registry.update(other.id, name="Renamed", config=device.config)
 
         stored = device_registry.get(other.id)
         assert stored.name == original_name
@@ -443,9 +441,7 @@ class TestDeviceRegistryUpdate:
         # Bypass add()'s uniqueness check to simulate a pre-existing duplicate.
         await device_registry.register(duplicate)
 
-        result = await device_registry.update(
-            duplicate.id, DeviceUpdate(name="Renamed")
-        )
+        result = await device_registry.update(duplicate.id, name="Renamed")
         assert result.name == "Renamed"
 
     @pytest.mark.asyncio
@@ -484,9 +480,7 @@ class TestDeviceRegistryUpdate:
         )
 
         with pytest.raises(ConflictError):
-            await registry.update(
-                device_b.id, DeviceUpdate(transport_id=mock_transport_client.id)
-            )
+            await registry.update(device_b.id, transport_id=mock_transport_client.id)
 
     @pytest.mark.asyncio
     async def test_update_bumps_updated_at_keeps_created_at(
@@ -494,7 +488,7 @@ class TestDeviceRegistryUpdate:
     ):
         original_created_at = device.created_at
         original_updated_at = device.updated_at
-        result = await device_registry.update(device.id, DeviceUpdate(name="New Name"))
+        result = await device_registry.update(device.id, name="New Name")
         assert result.created_at == original_created_at
         assert result.updated_at > original_updated_at
 
@@ -537,7 +531,7 @@ class TestDeviceRegistryUpdate:
     async def test_set_tag_calls_storage_set_tag_not_write(
         self, device, driver, mock_transport_client, on_attribute_update
     ):
-        storage = AsyncMock(spec=DeviceStorageBackend)
+        storage = AsyncMock(spec=DeviceStorage)
         registry = DeviceRegistry(
             {device.id: device},
             resolve_driver=_make_driver_resolver(driver),
@@ -556,7 +550,7 @@ class TestDeviceRegistryUpdate:
         self, device, driver, mock_transport_client, on_attribute_update
     ):
         device.tags = {"zone": "north"}
-        storage = AsyncMock(spec=DeviceStorageBackend)
+        storage = AsyncMock(spec=DeviceStorage)
         registry = DeviceRegistry(
             {device.id: device},
             resolve_driver=_make_driver_resolver(driver),
@@ -573,33 +567,29 @@ class TestDeviceRegistryUpdate:
     @pytest.mark.asyncio
     async def test_update_not_found(self, device_registry):
         with pytest.raises(NotFoundError):
-            await device_registry.update("unknown", DeviceUpdate(name="X"))
+            await device_registry.update("unknown", name="X")
 
     @pytest.mark.asyncio
     async def test_update_config_ok(self, device_registry, device):
         new_config = {"some_id": "xyz"}
-        result = await device_registry.update(
-            device.id, DeviceUpdate(config=new_config)
-        )
+        result = await device_registry.update(device.id, config=new_config)
         assert isinstance(result, CoreDevice)
         assert result.config == new_config
 
     @pytest.mark.asyncio
     async def test_update_config_invalid(self, device_registry, device):
         with pytest.raises(InvalidError):
-            await device_registry.update(device.id, DeviceUpdate(config={}))
+            await device_registry.update(device.id, config={})
 
     @pytest.mark.asyncio
     async def test_update_driver_not_found(self, device_registry, device):
         with pytest.raises(NotFoundError):
-            await device_registry.update(device.id, DeviceUpdate(driver_id="unknown"))
+            await device_registry.update(device.id, driver_id="unknown")
 
     @pytest.mark.asyncio
     async def test_update_transport_not_found(self, device_registry, device):
         with pytest.raises(NotFoundError):
-            await device_registry.update(
-                device.id, DeviceUpdate(transport_id="unknown")
-            )
+            await device_registry.update(device.id, transport_id="unknown")
 
     @pytest.mark.asyncio
     async def test_update_driver_ok(
@@ -618,7 +608,7 @@ class TestDeviceRegistryUpdate:
         )
         result = await registry.update(
             device.id,
-            DeviceUpdate(driver_id=other_http_driver.id),
+            driver_id=other_http_driver.id,
         )
         assert isinstance(result, CoreDevice)
         assert result.driver_id == other_http_driver.id
@@ -643,7 +633,7 @@ class TestDeviceRegistryUpdate:
         original_updated_at = device.updated_at
         result = await registry.update(
             device.id,
-            DeviceUpdate(driver_id=other_http_driver.id),
+            driver_id=other_http_driver.id,
         )
         assert result.created_at == original_created_at
         assert result.updated_at > original_updated_at
@@ -666,7 +656,7 @@ class TestDeviceRegistryUpdate:
         with pytest.raises(InvalidError):
             await registry.update(
                 device.id,
-                DeviceUpdate(driver_id=driver_w_push_transport.id),
+                driver_id=driver_w_push_transport.id,
             )
 
     @pytest.mark.asyncio
@@ -688,7 +678,7 @@ class TestDeviceRegistryUpdate:
         )
         result = await registry.update(
             device.id,
-            DeviceUpdate(transport_id=second_mock_transport_client.id),
+            transport_id=second_mock_transport_client.id,
         )
         assert isinstance(result, CoreDevice)
         assert result.transport_id == second_mock_transport_client.id
@@ -711,7 +701,7 @@ class TestDeviceRegistryUpdate:
         )
         result = await registry.update(
             device.id,
-            DeviceUpdate(driver_id=other_http_driver.id),
+            driver_id=other_http_driver.id,
         )
         assert isinstance(result, CoreDevice)
         assert result.attributes["temperature"].current_value == 42.0
@@ -733,7 +723,7 @@ class TestDeviceRegistryUpdate:
         )
         result = await registry.update(
             device.id,
-            DeviceUpdate(driver_id=other_http_driver.id),
+            driver_id=other_http_driver.id,
         )
         assert registry.get(device.id) is result
         assert result is not device
@@ -852,14 +842,14 @@ class TestDeviceRegistryPersistence:
     async def test_add_persists_to_storage(
         self, driver, mock_transport_client, on_attribute_update
     ):
-        storage = AsyncMock(spec=DeviceStorageBackend)
+        storage = AsyncMock(spec=DeviceStorage)
         registry = DeviceRegistry(
             resolve_driver=_make_driver_resolver(driver),
             resolve_transport=_make_transport_resolver(mock_transport_client),
             on_attribute_update=on_attribute_update,
             storage=storage,
         )
-        create = DeviceCreate(
+        create = _create_base(
             name="Device",
             config={"some_id": "abc"},
             driver_id=driver.id,
@@ -872,7 +862,7 @@ class TestDeviceRegistryPersistence:
     async def test_register_persists_to_storage(
         self, driver, mock_transport_client, on_attribute_update
     ):
-        storage = AsyncMock(spec=DeviceStorageBackend)
+        storage = AsyncMock(spec=DeviceStorage)
         registry = DeviceRegistry(
             resolve_driver=_make_driver_resolver(driver),
             resolve_transport=_make_transport_resolver(mock_transport_client),
@@ -891,7 +881,7 @@ class TestDeviceRegistryPersistence:
     async def test_update_persists_to_storage(
         self, device, driver, mock_transport_client, on_attribute_update
     ):
-        storage = AsyncMock(spec=DeviceStorageBackend)
+        storage = AsyncMock(spec=DeviceStorage)
         registry = DeviceRegistry(
             {device.id: device},
             resolve_driver=_make_driver_resolver(driver),
@@ -899,14 +889,14 @@ class TestDeviceRegistryPersistence:
             on_attribute_update=on_attribute_update,
             storage=storage,
         )
-        await registry.update(device.id, DeviceUpdate(name="New"))
+        await registry.update(device.id, name="New")
         storage.write.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_remove_deletes_from_storage(
         self, device, driver, mock_transport_client, on_attribute_update
     ):
-        storage = AsyncMock(spec=DeviceStorageBackend)
+        storage = AsyncMock(spec=DeviceStorage)
         registry = DeviceRegistry(
             {device.id: device},
             resolve_driver=_make_driver_resolver(driver),

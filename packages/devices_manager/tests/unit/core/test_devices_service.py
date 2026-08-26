@@ -33,7 +33,6 @@ from devices_manager.dto import (
     DriverSpec,
     TransportBase,
     TransportUpdate,
-    device_to_public,
     driver_to_public,
 )
 from devices_manager.dto.transport_dto import HttpTransportCreate, MqttTransportCreate
@@ -1010,10 +1009,7 @@ def _mock_device_registry(
     type(registry).ids = PropertyMock(return_value=set(devices.keys()))
     type(registry).all = PropertyMock(return_value=devices)
     registry.get = MagicMock(side_effect=lambda did: devices[did])
-    registry.get_dto = MagicMock(side_effect=lambda did: device_to_public(devices[did]))
-    registry.list_all = MagicMock(
-        return_value=[device_to_public(d) for d in devices.values()]
-    )
+    registry.list_all = MagicMock(return_value=list(devices.values()))
     registry.add = AsyncMock()
     registry.update = AsyncMock()
     registry.remove = AsyncMock()
@@ -1052,7 +1048,12 @@ class TestDevicesServiceDeviceDelegation:
         )
         result = await dm.add_device(create)
 
-        mock_reg.add.assert_called_once_with(create)
+        mock_reg.add.assert_called_once()
+        (base,) = mock_reg.add.call_args.args
+        assert base.name == "D"
+        assert base.config == {"some_id": "abc"}
+        assert base.driver_id == driver.id
+        assert base.transport_id == mock_transport_client.id
         assert isinstance(result, Device)
         assert result.id == device.id
 
@@ -1092,7 +1093,9 @@ class TestDevicesServiceDeviceDelegation:
         update = DeviceUpdate(name="New Name")
         result = await dm.update_device("d1", update)
 
-        mock_reg.update.assert_called_once_with("d1", update)
+        mock_reg.update.assert_called_once_with(
+            "d1", name="New Name", config=None, driver_id=None, transport_id=None
+        )
         assert isinstance(result, Device)
 
     @pytest.mark.asyncio
@@ -1228,7 +1231,7 @@ class TestDevicesServiceDeviceDelegation:
 
         result = dm.get_device("d1")
 
-        mock_reg.get_dto.assert_called_once_with("d1")
+        mock_reg.get.assert_called_once_with("d1")
         assert isinstance(result, Device)
 
     @pytest.mark.asyncio
@@ -1285,7 +1288,7 @@ class TestDevicesServiceStorage:
         storage = MemoryDevicesStorage()
         await storage.transports.write(mock_transport_client.id, mock_transport_client)
         await storage.drivers.write(driver.id, driver)
-        await storage.devices.write(device.id, device_to_public(device))
+        await storage.devices.write(device.id, device)
         return storage
 
     @pytest.mark.asyncio
@@ -1319,7 +1322,7 @@ class TestDevicesServiceStorage:
         storage = MemoryDevicesStorage()
         await storage.transports.write(mock_transport_client.id, mock_transport_client)
         await storage.drivers.write(driver.id, driver)
-        await storage.devices.write(device.id, device_to_public(device))
+        await storage.devices.write(device.id, device)
 
         async def _build(_url: str | None) -> MemoryDevicesStorage:
             return storage

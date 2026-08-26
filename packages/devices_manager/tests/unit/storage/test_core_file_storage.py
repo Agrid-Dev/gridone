@@ -5,13 +5,13 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from devices_manager.core.device import Attribute
+from devices_manager.core.device import Attribute, CoreDevice
+from devices_manager.core.driver import Driver, DriverMetadata, UpdateStrategy
 from devices_manager.core.transports import (
     TransportMetadata,
     make_transport_client,
     make_transport_config,
 )
-from devices_manager.dto import Device
 from devices_manager.storage.yaml.core_file_storage import CoreFileStorage
 from devices_manager.types import (
     ConnectionStatus,
@@ -28,16 +28,24 @@ if TYPE_CHECKING:
 def _make_device(
     device_id: str = "dev1",
     attributes: dict[str, Attribute] | None = None,
-) -> Device:
-    return Device(
+) -> CoreDevice:
+    # Attributes are passed explicitly (not derived from the driver spec) so
+    # storage tests control exactly which attribute state is written.
+    driver = Driver(
+        metadata=DriverMetadata(id="d1"),
+        transport=TransportProtocols.HTTP,
+        env={},
+        device_config_required=[],
+        update_strategy=UpdateStrategy(),
+        attributes={},
+    )
+    return CoreDevice(
         id=device_id,
         name="Test Device",
-        type="sensor",
         config={},
-        driver_id="d1",
-        transport_id="t1",
+        driver=driver,
+        transport=_make_client("t1"),
         attributes=attributes or {},
-        is_faulty=False,
     )
 
 
