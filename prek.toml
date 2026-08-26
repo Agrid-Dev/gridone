@@ -53,6 +53,15 @@ types = ["python"]
 stages = ["pre-commit"]
 
 [[repos.hooks]]
+id = "import-contracts"
+name = "Import contracts (Python)"
+language = "system"
+entry = "uv run lint-imports"
+pass_filenames = false
+types = ["python"]
+stages = ["pre-commit"]
+
+[[repos.hooks]]
 id = "ui-lint"
 name = "UI lint"
 language = "system"
