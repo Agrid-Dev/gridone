@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { FC, useId } from "react";
+import type { FieldError } from "react-hook-form";
 import type { Device } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { devicesFilterToListParams, type DevicesFilter } from "@/lib/devices";
@@ -21,9 +22,12 @@ interface DevicePickerProps {
   onSelect: (device: Device | null) => void;
   filter?: DevicesFilter;
   label?: string;
+  description?: string;
   placeholder?: string;
   required?: boolean;
   disabled?: boolean;
+  invalid?: boolean;
+  error?: FieldError;
   id?: string;
 }
 
@@ -32,9 +36,12 @@ export const DevicePicker: FC<DevicePickerProps> = ({
   onSelect,
   filter,
   label,
+  description,
   placeholder,
   required,
   disabled,
+  invalid,
+  error,
   id,
 }) => {
   const { t } = useTranslation("common");
@@ -50,10 +57,18 @@ export const DevicePicker: FC<DevicePickerProps> = ({
 
   const resolvedLabel = label ?? t("pickers.device.label");
   const resolvedPlaceholder = placeholder ?? t("pickers.device.placeholder");
+  const shell = {
+    id: fieldId,
+    label: resolvedLabel,
+    description,
+    required,
+    invalid,
+    error,
+  };
 
   if (isLoading) {
     return (
-      <FieldShell id={fieldId} label={resolvedLabel} required={required}>
+      <FieldShell {...shell}>
         <Skeleton className="h-10 w-full" />
       </FieldShell>
     );
@@ -61,7 +76,7 @@ export const DevicePicker: FC<DevicePickerProps> = ({
 
   if (!devices || devices.length === 0) {
     return (
-      <FieldShell id={fieldId} label={resolvedLabel} required={required}>
+      <FieldShell {...shell}>
         <p className="text-sm text-muted-foreground">
           {t("pickers.device.noDevices")}
         </p>
@@ -70,7 +85,7 @@ export const DevicePicker: FC<DevicePickerProps> = ({
   }
 
   return (
-    <FieldShell id={fieldId} label={resolvedLabel} required={required}>
+    <FieldShell {...shell}>
       <Select
         value={value ?? ""}
         onValueChange={(deviceId) => {
