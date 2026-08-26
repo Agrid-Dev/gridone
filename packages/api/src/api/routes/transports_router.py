@@ -13,6 +13,7 @@ from devices_manager.dto import (
     TransportCreate,
     TransportUpdate,
 )
+from models.errors import validation_error_items
 
 from .discovery_router import router as discovery_router
 
@@ -35,24 +36,8 @@ ingress_router = APIRouter()
 
 
 def _validation_error_details(e: ValidationError) -> list[dict[str, object]]:
-    """Sanitize pydantic errors into the API's `{loc, msg, type}` 422 items.
-
-    `input`/`ctx`/`url` are dropped: `ctx` may hold a raw exception object
-    (any `@model_validator` ValueError), which `json.dumps` cannot serialize —
-    the response would 500 — and `input` echoes submitted values (secrets)
-    back to the client. The `"Value error, "` prefix pydantic adds to
-    model-validator messages is stripped so users see the domain message.
-    """
-    return [
-        {
-            "loc": list(err["loc"]),
-            "msg": err["msg"].removeprefix("Value error, "),
-            "type": err["type"],
-        }
-        for err in e.errors(
-            include_url=False, include_context=False, include_input=False
-        )
-    ]
+    """Sanitize pydantic errors into the API's `{loc, msg, type}` 422 items."""
+    return [item.model_dump() for item in validation_error_items(e)]
 
 
 async def _read_limited_body(request: Request) -> bytes:
