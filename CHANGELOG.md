@@ -1,3 +1,14 @@
+## v0.215.0 (2026-08-26)
+
+### Feat
+
+- **ui**: copy zone override to multiple rooms (#568)
+- **ui**: scalable zone-overrides table (search, add, remove) (#566)
+
+### Fix
+
+- **ui**: device-id app-config field, zone wording (AGR-1078) (#572)
+
 ## v0.214.6 (2026-08-26)
 
 ### Refactor
