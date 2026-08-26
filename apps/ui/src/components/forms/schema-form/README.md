@@ -98,7 +98,7 @@ placeholder and warning, and unsupported validator constructs fall back to
 server-side validation. The app's configuration endpoint remains authoritative
 and its `422` errors are shown on the form.
 
-App schemas add four extensions, prepared in
+App schemas add five extensions, prepared in
 `apps/ui/src/lib/appConfigSchema.ts` before entering the shared builder:
 
 | Extension                           | Meaning                                                                                                                                  |
