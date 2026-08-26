@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 
 import pytest
+from pydantic import ValidationError
 
 from api.action_providers.notifications import NotificationsActionProvider
 from models.types import Severity
@@ -45,6 +46,15 @@ class TestNotificationsActionProvider:
     def test_has_params_schema(self):
         provider = NotificationsActionProvider(_notifications_service())
         assert "properties" in provider.params_schema
+
+    def test_validate_params_accepts_valid_params(self):
+        provider = NotificationsActionProvider(_notifications_service())
+        provider.validate_params(_PARAMS)  # must not raise
+
+    def test_validate_params_rejects_empty_user_ids(self):
+        provider = NotificationsActionProvider(_notifications_service())
+        with pytest.raises(ValidationError):
+            provider.validate_params({**_PARAMS, "user_ids": []})
 
     @pytest.mark.asyncio
     async def test_execute_dispatches_and_returns_notification_id(self):

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -21,6 +22,9 @@ from pydantic import create_model
 
 from models.errors import NotFoundError, SchemaValidationError
 from models.service import Service
+
+if TYPE_CHECKING:
+    from automations.protocols import ActionProvider, TriggerProvider
 
 pytestmark = pytest.mark.asyncio
 
@@ -65,8 +69,8 @@ def _make_action_provider(action_type: str = "command_template") -> MagicMock:
 
 def _make_service(
     storage: AsyncMock | None = None,
-    providers: list[MagicMock] | None = None,
-    action_providers: list[MagicMock] | None = None,
+    providers: list[MagicMock | TriggerProvider] | None = None,
+    action_providers: list[MagicMock | ActionProvider] | None = None,
 ) -> AutomationsService:
     """Create a service with storage injected directly — no need to call start()."""
     if providers is None:
@@ -87,7 +91,8 @@ def _make_service(
 
 def _params_error(missing: list[str]) -> PydanticValidationError:
     """A real `pydantic.ValidationError` with the given fields reported missing."""
-    model_cls = create_model("Params", **dict.fromkeys(missing, (str, ...)))
+    fields: dict[str, Any] = dict.fromkeys(missing, (str, ...))
+    model_cls = create_model("Params", **fields)
     try:
         model_cls()
     except PydanticValidationError as exc:
@@ -643,6 +648,21 @@ class TestParamsValidation:
             await svc.update(
                 created.id,
                 AutomationUpdate(trigger=Trigger(provider_id="schedule", params={})),
+            )
+
+    async def test_update_rejects_malformed_action_params(self):
+        action_provider = _make_action_provider("command_template")
+        svc = _make_service(action_providers=[action_provider])
+        created = await svc.create(_create_params(), created_by="u1")
+        action_provider.validate_params = MagicMock(
+            side_effect=_params_error(missing=["template_id"])
+        )
+        with pytest.raises(SchemaValidationError):
+            await svc.update(
+                created.id,
+                AutomationUpdate(
+                    action=Action(provider_id="command_template", params={})
+                ),
             )
 
     async def test_real_schedule_provider_rejects_invalid_cron(self):
