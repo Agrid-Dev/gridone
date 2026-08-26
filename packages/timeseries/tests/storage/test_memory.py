@@ -82,6 +82,14 @@ class TestGetOrCreateSeries:
         assert result.id == first.id
         assert await storage.list_series() == [first]
 
+    async def test_id_collision_raises_invalid_error(self, storage: MemoryStorage):
+        existing = await storage.create_series(_make_series())
+        colliding = _make_series(key=SeriesKey(owner_id="s2", metric="other"))
+        colliding.id = existing.id
+
+        with pytest.raises(InvalidError, match="already exists"):
+            await storage.get_or_create_series(colliding)
+
 
 class TestGetSeries:
     async def test_not_found(self, storage: MemoryStorage):
