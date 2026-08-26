@@ -1,3 +1,11 @@
+## v0.214.6 (2026-08-26)
+
+### Refactor
+
+- **devices-manager**: untangle device model layers (AGR-918) (#578)
+- **devices-manager**: untangle driver model layers (AGR-918) (#575)
+- **devices-manager**: untangle transport model layers (AGR-918) (#574)
+
 ## v0.214.5 (2026-08-21)
 
 ### Refactor
