@@ -20,7 +20,7 @@ class NotificationAction(BaseModel):
 
 class NotificationsActionProvider:
     id = "notification"
-    params_schema: ClassVar[dict] = NotificationAction.model_json_schema()
+    params_model: ClassVar[type[BaseModel]] = NotificationAction
 
     def __init__(self, notifications_service: NotificationsServiceInterface) -> None:
         self._notifications_service = notifications_service

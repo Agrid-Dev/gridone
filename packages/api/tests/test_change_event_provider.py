@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from pydantic import ValidationError
 
 from api.trigger_providers.change_event import (
     ChangeEventTriggerProvider,
@@ -76,8 +77,18 @@ class TestConditionEvaluate:
 class TestChangeEventTriggerProviderConfig:
     def test_has_params_schema(self, mock_dm):
         provider = ChangeEventTriggerProvider(mock_dm)
-        assert "device_id" in provider.params_schema["properties"]
-        assert "attribute" in provider.params_schema["properties"]
+        schema = provider.params_model.model_json_schema()
+        assert "device_id" in schema["properties"]
+        assert "attribute" in schema["properties"]
+
+    def test_params_model_accepts_valid_params(self, mock_dm):
+        provider = ChangeEventTriggerProvider(mock_dm)
+        provider.params_model(device_id="dev-01", attribute="temperature")
+
+    def test_params_model_rejects_missing_attribute(self, mock_dm):
+        provider = ChangeEventTriggerProvider(mock_dm)
+        with pytest.raises(ValidationError):
+            provider.params_model(device_id="dev-01")
 
 
 class TestChangeEventTriggerProvider:

@@ -15,7 +15,7 @@ class CommandAction(BaseModel):
 
 class CommandsActionProvider:
     id = "command_template"
-    params_schema: ClassVar[dict] = CommandAction.model_json_schema()
+    params_model: ClassVar[type[BaseModel]] = CommandAction
 
     def __init__(self, commands_service: CommandsServiceInterface) -> None:
         self._commands_service = commands_service

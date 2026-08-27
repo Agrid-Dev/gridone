@@ -13,6 +13,7 @@ from devices_manager.dto import (
     TransportCreate,
     TransportUpdate,
 )
+from models.errors import validation_details, validation_error_items
 
 from .discovery_router import router as discovery_router
 
@@ -32,27 +33,6 @@ router.include_router(
 # device-level ingestion (like MQTT or BACnet), authenticated by the transport
 # itself from its config — not by the API's user-authorization flow.
 ingress_router = APIRouter()
-
-
-def _validation_error_details(e: ValidationError) -> list[dict[str, object]]:
-    """Sanitize pydantic errors into the API's `{loc, msg, type}` 422 items.
-
-    `input`/`ctx`/`url` are dropped: `ctx` may hold a raw exception object
-    (any `@model_validator` ValueError), which `json.dumps` cannot serialize —
-    the response would 500 — and `input` echoes submitted values (secrets)
-    back to the client. The `"Value error, "` prefix pydantic adds to
-    model-validator messages is stripped so users see the domain message.
-    """
-    return [
-        {
-            "loc": list(err["loc"]),
-            "msg": err["msg"].removeprefix("Value error, "),
-            "type": err["type"],
-        }
-        for err in e.errors(
-            include_url=False, include_context=False, include_input=False
-        )
-    ]
 
 
 async def _read_limited_body(request: Request) -> bytes:
@@ -170,7 +150,7 @@ async def update_transport(
     except ValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=_validation_error_details(e),
+            detail=validation_details(validation_error_items(e)),
         ) from e
     response.headers["Location"] = str(
         request.url_for("get_transport", transport_id=transport_id)

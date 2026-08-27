@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -15,9 +16,14 @@ from automations.models import (
 )
 from automations.service import AutomationsService
 from automations.storage.backend import AutomationsStorageBackend
+from automations.trigger_providers.schedule import ScheduleTriggerProvider
+from pydantic import BaseModel
 
-from models.errors import NotFoundError
+from models.errors import NotFoundError, SchemaValidationError
 from models.service import Service
+
+if TYPE_CHECKING:
+    from automations.protocols import ActionProvider, TriggerProvider
 
 pytestmark = pytest.mark.asyncio
 
@@ -55,15 +61,14 @@ def _make_provider(trigger_type: str = "schedule") -> MagicMock:
 def _make_action_provider(action_type: str = "command_template") -> MagicMock:
     provider = MagicMock()
     provider.id = action_type
-    provider.params_schema = {}
     provider.execute = AsyncMock(return_value="output-test")
     return provider
 
 
 def _make_service(
     storage: AsyncMock | None = None,
-    providers: list[MagicMock] | None = None,
-    action_providers: list[MagicMock] | None = None,
+    providers: list[MagicMock | TriggerProvider] | None = None,
+    action_providers: list[MagicMock | ActionProvider] | None = None,
 ) -> AutomationsService:
     """Create a service with storage injected directly — no need to call start()."""
     if providers is None:
@@ -177,9 +182,9 @@ class TestCRUD:
 
     async def test_list_trigger_schemas_returns_provider_schemas(self):
         p1 = _make_provider("schedule")
-        p1.params_schema = {"title": "Schedule"}
+        p1.params_model.model_json_schema.return_value = {"title": "Schedule"}
         p2 = _make_provider("change_event")
-        p2.params_schema = {"title": "Change Event"}
+        p2.params_model.model_json_schema.return_value = {"title": "Change Event"}
         svc = _make_service(providers=[p1, p2])
         assert svc.list_trigger_schemas() == {
             "schedule": {"title": "Schedule"},
@@ -525,10 +530,16 @@ class TestOnFire:
             await svc._make_on_fire("nonexistent")(_CTX)  # noqa: SLF001
 
     async def test_logs_failed_execution_on_unknown_action_type(self):
+        """Covers an action provider disappearing after the automation was
+        persisted (e.g. removed from config on redeploy) — `create()` itself
+        now rejects an unknown provider_id upfront, so this bypasses it."""
         storage = _make_storage()
         svc = _make_service(storage=storage, action_providers=[])
-        created = await svc.create(_create_params(enabled=False), created_by="u1")
-        await svc._make_on_fire(created.id)(_CTX)  # noqa: SLF001
+        automation = Automation(
+            id="auto-1", name="a", trigger=_SCHEDULE, action=_ACTION, enabled=False
+        )
+        svc._cache[automation.id] = automation  # noqa: SLF001
+        await svc._make_on_fire(automation.id)(_CTX)  # noqa: SLF001
         execution = storage.log_execution.call_args[0][0]
         assert execution.status == ExecutionStatus.FAILED
         assert execution.output_id is None
@@ -537,9 +548,9 @@ class TestOnFire:
 class TestActionSchemas:
     async def test_returns_provider_schemas(self):
         p1 = _make_action_provider("command_template")
-        p1.params_schema = {"title": "Command"}
+        p1.params_model.model_json_schema.return_value = {"title": "Command"}
         p2 = _make_action_provider("notification")
-        p2.params_schema = {"title": "Notification"}
+        p2.params_model.model_json_schema.return_value = {"title": "Notification"}
         svc = _make_service(action_providers=[p1, p2])
         assert svc.list_action_schemas() == {
             "command_template": {"title": "Command"},
@@ -565,3 +576,127 @@ class TestStop:
             action_providers=[],
         )
         await svc.stop()  # _storage not set — must not raise
+
+
+class _FakeParams(BaseModel):
+    """A minimal real pydantic model so validation tests exercise an actual
+    `ValidationError`, not a mocked one."""
+
+    value: str
+
+
+class _FakeTriggerProvider:
+    id = "fake_trigger"
+    params_model = _FakeParams
+
+    async def register(self, params: dict, on_fire: object) -> str:  # noqa: ARG002
+        return "handle-01"
+
+    async def unregister(self, trigger_id: str) -> None:
+        pass
+
+
+class _FakeActionProvider:
+    id = "fake_action"
+    params_model = _FakeParams
+
+    async def execute(self, params: dict) -> str | None:  # noqa: ARG002
+        return "output-test"
+
+
+_GOOD_FAKE_TRIGGER = Trigger(provider_id="fake_trigger", params={"value": "ok"})
+_GOOD_FAKE_ACTION = Action(provider_id="fake_action", params={"value": "ok"})
+_BAD_FAKE_TRIGGER = Trigger(provider_id="fake_trigger", params={})
+_BAD_FAKE_ACTION = Action(provider_id="fake_action", params={})
+
+
+def _make_fake_provider_service(storage: AsyncMock | None = None) -> AutomationsService:
+    return _make_service(
+        storage=storage,
+        providers=[_FakeTriggerProvider()],
+        action_providers=[_FakeActionProvider()],
+    )
+
+
+class TestParamsValidation:
+    @pytest.mark.parametrize(
+        ("section", "bad_trigger", "bad_action"),
+        [
+            ("trigger", _BAD_FAKE_TRIGGER, None),
+            ("action", None, _BAD_FAKE_ACTION),
+        ],
+    )
+    async def test_create_rejects_malformed_params(
+        self, section, bad_trigger, bad_action
+    ):
+        storage = _make_storage()
+        svc = _make_fake_provider_service(storage=storage)
+        params = _create_params(
+            trigger=bad_trigger or _GOOD_FAKE_TRIGGER,
+            action=bad_action or _GOOD_FAKE_ACTION,
+        )
+        with pytest.raises(SchemaValidationError) as exc_info:
+            await svc.create(params, created_by="u1")
+        assert exc_info.value.errors[0].loc[:2] == (section, "params")
+        storage.create.assert_not_called()
+
+    async def test_create_rejects_unknown_trigger_provider(self):
+        svc = _make_service(providers=[])
+        with pytest.raises(SchemaValidationError) as exc_info:
+            await svc.create(_create_params(), created_by="u1")
+        assert exc_info.value.errors[0].loc == ("trigger", "provider_id")
+
+    async def test_create_rejects_unknown_action_provider(self):
+        svc = _make_service(action_providers=[])
+        with pytest.raises(SchemaValidationError) as exc_info:
+            await svc.create(_create_params(), created_by="u1")
+        assert exc_info.value.errors[0].loc == ("action", "provider_id")
+
+    async def test_update_validates_only_the_changed_section(self):
+        svc = _make_service()
+        created = await svc.create(_create_params(), created_by="u1")
+        # No trigger/action in the patch, so nothing to validate.
+        updated = await svc.update(created.id, AutomationUpdate(name="renamed"))
+        assert updated.name == "renamed"
+
+    @pytest.mark.parametrize(
+        ("section", "bad_trigger", "bad_action"),
+        [
+            ("trigger", _BAD_FAKE_TRIGGER, None),
+            ("action", None, _BAD_FAKE_ACTION),
+        ],
+    )
+    async def test_update_rejects_malformed_params(
+        self, section, bad_trigger, bad_action
+    ):
+        svc = _make_fake_provider_service()
+        created = await svc.create(
+            _create_params(trigger=_GOOD_FAKE_TRIGGER, action=_GOOD_FAKE_ACTION),
+            created_by="u1",
+        )
+        update_kwargs = {}
+        if bad_trigger is not None:
+            update_kwargs["trigger"] = bad_trigger
+        if bad_action is not None:
+            update_kwargs["action"] = bad_action
+        with pytest.raises(SchemaValidationError) as exc_info:
+            await svc.update(created.id, AutomationUpdate(**update_kwargs))
+        assert exc_info.value.errors[0].loc[:2] == (section, "params")
+
+    async def test_update_raises_not_found_before_validating_params(self):
+        """Existence wins over malformed params: an unknown id answers 404,
+        not 422, even when the patch also carries bad params."""
+        svc = _make_fake_provider_service()
+        with pytest.raises(NotFoundError):
+            await svc.update("missing", AutomationUpdate(trigger=_BAD_FAKE_TRIGGER))
+
+    async def test_real_schedule_provider_rejects_invalid_cron(self):
+        """Regression: the schedule provider's custom cron-format validator
+        must be enforced too, not just its JSON schema's field shape."""
+        storage = _make_storage()
+        svc = _make_service(storage=storage, providers=[ScheduleTriggerProvider()])
+        bad_trigger = Trigger(provider_id="schedule", params={"cron": "not-a-cron"})
+        with pytest.raises(SchemaValidationError) as exc_info:
+            await svc.create(_create_params(trigger=bad_trigger), created_by="u1")
+        assert exc_info.value.errors[0].loc[:2] == ("trigger", "params")
+        storage.create.assert_not_called()
