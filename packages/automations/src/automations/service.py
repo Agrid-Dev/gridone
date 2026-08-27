@@ -101,11 +101,11 @@ class AutomationsService(Service):
         return [a for a in automations if a.enabled == enabled]
 
     async def update(self, automation_id: str, params: AutomationUpdate) -> Automation:
+        existing = await self.get(automation_id)
         if params.trigger is not None:
             self._validate_trigger(params.trigger)
         if params.action is not None:
             self._validate_action(params.action)
-        existing = await self.get(automation_id)
         trigger_changed = (
             params.trigger is not None and params.trigger != existing.trigger
         )

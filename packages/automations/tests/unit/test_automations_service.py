@@ -683,6 +683,13 @@ class TestParamsValidation:
             await svc.update(created.id, AutomationUpdate(**update_kwargs))
         assert exc_info.value.errors[0].loc[:2] == (section, "params")
 
+    async def test_update_raises_not_found_before_validating_params(self):
+        """Existence wins over malformed params: an unknown id answers 404,
+        not 422, even when the patch also carries bad params."""
+        svc = _make_fake_provider_service()
+        with pytest.raises(NotFoundError):
+            await svc.update("missing", AutomationUpdate(trigger=_BAD_FAKE_TRIGGER))
+
     async def test_real_schedule_provider_rejects_invalid_cron(self):
         """Regression: the schedule provider's custom cron-format validator
         must be enforced too, not just its JSON schema's field shape."""
