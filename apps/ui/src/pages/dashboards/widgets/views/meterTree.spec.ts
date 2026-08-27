@@ -262,3 +262,35 @@ describe("meterKey", () => {
     );
   });
 });
+
+describe("node scale", () => {
+  // Installations arrive with counters on differing scales — a circuit in Wh
+  // beside siblings in kWh — and the tree can say nothing true about numbers
+  // that are not in the same unit.
+  it("calibrates a reading before deriving anything from it", () => {
+    const tree = node("Building", meter("main"), [
+      node("In kWh", meter("a")),
+      { ...node("In Wh", meter("b")), scale: 0.001 },
+    ]);
+
+    const rows = buildMeterTreeRows(
+      tree,
+      readings({ main: 100, a: 40, b: 30000 }),
+    );
+
+    expect(byLabel(rows, "In Wh")).toMatchObject({
+      total: 30,
+      ratioOfParent: 0.3,
+    });
+    // The residual is computed from calibrated children, not raw ones.
+    expect(residuals(rows)[0]).toMatchObject({ total: 30, negative: false });
+  });
+
+  it("leaves an uncalibrated node alone", () => {
+    const tree = node("Building", meter("main"), [node("Plain", meter("a"))]);
+
+    const rows = buildMeterTreeRows(tree, readings({ main: 100, a: 40 }));
+
+    expect(byLabel(rows, "Plain")).toMatchObject({ total: 40 });
+  });
+});

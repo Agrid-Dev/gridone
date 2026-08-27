@@ -698,3 +698,34 @@ def test_meter_tree_schema_is_recursive():
 
     children = schema["$defs"]["MeterTreeNode"]["properties"]["children"]
     assert children["items"] == {"$ref": "#/$defs/MeterTreeNode"}
+
+
+def test_meter_tree_node_accepts_a_scale():
+    # Counters arrive on differing scales — Wh beside kWh, or differing CT
+    # ratios — and the tree cannot compare readings that are not in one unit.
+    node = MeterTreeNode.model_validate(
+        {"label": "In Wh", "meter": _meter("d1"), "scale": 0.001}
+    )
+
+    assert node.scale == 0.001
+
+
+def test_meter_tree_node_defaults_to_no_calibration():
+    assert (
+        MeterTreeNode.model_validate({"label": "N", "meter": _meter("d1")}).scale == 1
+    )
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        # A scale with no reading to apply it to is a mistake, not a no-op.
+        {"label": "G", "children": [{"label": "C", "meter": _meter("d1")}], "scale": 2},
+        {"label": "N", "meter": _meter("d1"), "scale": 0},
+        {"label": "N", "meter": _meter("d1"), "scale": -1},
+    ],
+    ids=["no_meter", "zero", "negative"],
+)
+def test_meter_tree_node_rejects_a_meaningless_scale(raw: dict):
+    with pytest.raises(ValidationError):
+        MeterTreeNode.model_validate(raw)

@@ -156,7 +156,11 @@ function resolveAll(
 
   const visit = (node: MeterTreeNode): Resolved => {
     const key = meterKey(node.meter);
-    const ownReading = key ? (values.get(key) ?? null) : null;
+    const raw = key ? (values.get(key) ?? null) : null;
+    // The node's calibration, applied before anything is derived from the
+    // reading, so shares and residuals are computed in one consistent unit even
+    // when the counters underneath are not.
+    const ownReading = raw === null ? null : raw * (node.scale ?? 1);
     const children = node.children ?? [];
 
     let childrenTotal: number | null = null;

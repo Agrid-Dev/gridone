@@ -59,6 +59,26 @@ class MeterTreeNode(BaseModel):
     meter, so there is nothing for a criteria-based device set to mean.
     """
 
+    scale: float = Field(default=1.0, gt=0)
+    """Multiplies this node's reading before anything is computed from it.
+
+    Sub-metered installations are routinely delivered with counters on differing
+    scales — one circuit accumulating in Wh next to siblings in kWh, or meters
+    commissioned with different CT ratios — and the tree cannot say anything
+    true about a set of numbers that are not in the same unit.
+
+    Correcting that at ingestion would be the tidier place, but a counter is
+    cumulative: changing its scale mid-series makes ``delta`` read the boundary
+    as an enormous negative, and putting the history right first is a migration
+    that needs the installer's commissioning data. Calibrating here keeps the
+    diagram independent of that, so a tree can be drawn before the source is
+    fixed — or when it never is.
+
+    Note the trap for later: if the underlying counters are ever rescaled, every
+    saved tree still carries these factors and would correct twice. Scales are
+    meant to be reset to 1 in the same change.
+    """
+
     children: list[MeterTreeNode] = Field(default_factory=list)
 
     @model_validator(mode="after")
@@ -66,6 +86,14 @@ class MeterTreeNode(BaseModel):
         """A node with neither a meter nor children carries no information."""
         if self.meter is None and not self.children:
             msg = f"Node {self.label!r} must have a meter or children"
+            raise ValueError(msg)
+        return self
+
+    @model_validator(mode="after")
+    def _scale_needs_a_meter(self) -> MeterTreeNode:
+        """A scale with no reading to apply it to is a mistake, not a no-op."""
+        if self.meter is None and self.scale != 1.0:
+            msg = f"Node {self.label!r} has a scale but no meter to apply it to"
             raise ValueError(msg)
         return self
 

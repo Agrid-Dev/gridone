@@ -2961,6 +2961,11 @@ export interface components {
       /** Label */
       label: string;
       meter?: components["schemas"]["AttributeTarget"] | null;
+      /**
+       * Scale
+       * @default 1
+       */
+      scale?: number;
       /** Children */
       children?: components["schemas"]["MeterTreeNode"][];
     };
