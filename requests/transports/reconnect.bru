@@ -1,0 +1,15 @@
+meta {
+  name: reconnect transport
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{BASE_URL}}/transports/:transport_id/reconnect
+  body: none
+  auth: inherit
+}
+
+params:path {
+  transport_id: 26c04a34
+}
