@@ -50,7 +50,11 @@ export const DevicePicker: FC<DevicePickerProps> = ({
   const reactId = useId();
   const fieldId = id ?? reactId;
 
-  const { data: devices, isLoading } = useQuery({
+  const {
+    data: devices,
+    isLoading,
+    isError,
+  } = useQuery({
     queryKey: ["devices", filter],
     queryFn: () => client.devices.list(devicesFilterToListParams(filter)),
   });
@@ -70,6 +74,14 @@ export const DevicePicker: FC<DevicePickerProps> = ({
     return (
       <FieldShell {...shell}>
         <Skeleton className="h-10 w-full" />
+      </FieldShell>
+    );
+  }
+
+  if (isError) {
+    return (
+      <FieldShell {...shell}>
+        <p className="text-sm text-muted-foreground">{t("errors.loadError")}</p>
       </FieldShell>
     );
   }

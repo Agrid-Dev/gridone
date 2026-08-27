@@ -24,6 +24,7 @@ vi.mock("react-i18next", () =>
     "pickers.device.label": "Device",
     "pickers.device.placeholder": "Select a device",
     "pickers.device.noDevices": "No devices available",
+    "errors.loadError": "An error occurred loading this resource.",
   }),
 );
 
@@ -114,11 +115,30 @@ describe("DevicePicker", () => {
   });
 
   it("shows the empty state when no devices are returned", () => {
-    mockUseQuery.mockReturnValue({ data: [], isLoading: false });
+    mockUseQuery.mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+    });
 
     render(<DevicePicker value={undefined} onSelect={vi.fn()} />);
 
     expect(screen.getByText("No devices available")).toBeInTheDocument();
+  });
+
+  it("shows an error state when the request fails", () => {
+    mockUseQuery.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isError: true,
+    });
+
+    render(<DevicePicker value={undefined} onSelect={vi.fn()} />);
+
+    expect(
+      screen.getByText("An error occurred loading this resource."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("No devices available")).not.toBeInTheDocument();
   });
 
   it("renders an alphabetical option per device and calls onSelect with the matching Device", () => {
