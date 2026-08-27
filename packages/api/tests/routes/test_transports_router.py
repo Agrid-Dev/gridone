@@ -241,6 +241,24 @@ class TestUpdateTransport:
         assert response.status_code == 404
 
 
+class TestReconnectTransport:
+    @pytest.mark.asyncio
+    async def test_ok(self, async_client: AsyncClient, dm: MagicMock):
+        dm.reconnect_transport = AsyncMock(side_effect=_get_transport)
+        async with async_client as ac:
+            response = await ac.post("/my-mqtt/reconnect")
+        assert response.status_code == 200
+        _assert_valid_transport(response.json())
+        dm.reconnect_transport.assert_awaited_once_with("my-mqtt")
+
+    @pytest.mark.asyncio
+    async def test_not_found(self, async_client: AsyncClient, dm: MagicMock):
+        dm.reconnect_transport = AsyncMock(side_effect=NotFoundError("not found"))
+        async with async_client as ac:
+            response = await ac.post("/unknown/reconnect")
+        assert response.status_code == 404
+
+
 class TestDeleteTransport:
     @pytest.mark.asyncio
     async def test_ok_returns_204(self, async_client: AsyncClient):

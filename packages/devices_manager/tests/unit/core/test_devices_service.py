@@ -16,6 +16,7 @@ from devices_manager.core.device import (
 from devices_manager.core.device.attribute import AttributeKind
 from devices_manager.core.device.event_log import AttributeEventLog, EventType
 from devices_manager.core.driver import AttributeDriver, Driver, UpdateStrategy
+from devices_manager.core.transports.base import TerminalConnectionError
 from devices_manager.core.transports.http_transport import HttpTransportConfig
 from devices_manager.core.transports.knx_transport import KNXTransportConfig
 from devices_manager.core.transports.mqtt_transport import MqttTransportConfig
@@ -775,6 +776,31 @@ class TestDevicesServiceUpdateTransport:
         )
         assert updated_transport.config == new_config
         assert dm.get_transport(transport_id).config == new_config
+
+
+class TestDevicesServiceReconnectTransport:
+    @pytest.mark.asyncio
+    async def test_reconnect_non_existing_transport(self, devices_manager):
+        with pytest.raises(NotFoundError):
+            await devices_manager.reconnect_transport("non-existing-id")
+
+    @pytest.mark.asyncio
+    async def test_reconnect_clears_terminal_error(self, mock_transport_client):
+        dm = DevicesService(
+            devices={},
+            drivers={},
+            transports={mock_transport_client.id: mock_transport_client},
+        )
+        await dm.load()
+        transport_id = mock_transport_client.id
+        mock_transport_client._terminal_error = TerminalConnectionError(  # noqa: SLF001
+            "rejected"
+        )
+
+        reconnected = await dm.reconnect_transport(transport_id)
+
+        assert reconnected.id == transport_id
+        assert mock_transport_client._terminal_error is None  # noqa: SLF001
 
 
 class MockKnxPushTransportClient(MockPushTransportClient):
