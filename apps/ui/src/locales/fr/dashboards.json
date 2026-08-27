@@ -143,6 +143,13 @@
       "title": "Supprimer le widget ?",
       "details": "Ce widget sera définitivement retiré du tableau de bord.",
       "confirm": "Supprimer"
+    },
+    "meterTree": {
+      "unmetered": "Non compté",
+      "incomplete": "(un compteur est muet)",
+      "noReading": "—",
+      "empty": "Aucune arborescence configurée.",
+      "apiOnly": "Ce widget se crée pour l'instant via l'API : sa hiérarchie est une arborescence imbriquée, que ce formulaire ne sait pas encore éditer."
     }
   },
   "fields": {

@@ -2,7 +2,7 @@ import type { MeterTreeNode } from "@gridone/sdk";
 
 /** A node's meter reference, taken straight off the node so the SDK need
  *  not export the target type separately. */
-type MeterTarget = MeterTreeNode["target"];
+type MeterTarget = MeterTreeNode["meter"];
 
 /**
  * Consumption of one meter over the dashboard period, or `null` when it has
@@ -72,11 +72,23 @@ export type MeterTreeRow =
  * so there is always at most one. Returns `null` for a node that declares no
  * meter, or whose target somehow carries no id.
  */
-export function meterKey(target: MeterTarget): string | null {
-  const id = target?.devices?.ids?.[0];
-  if (!id || !target) return null;
+export function meterKey(meter: MeterTarget): string | null {
+  const id = meter?.devices?.ids?.[0];
+  if (!id || !meter) return null;
   // NUL cannot appear in either part, so the join is unambiguous.
-  return `${id}\u0000${target.attribute}`;
+  return `${id}\u0000${meter.attribute}`;
+}
+
+/** The device and attribute a {@link meterKey} was built from. */
+export function parseMeterKey(key: string): {
+  deviceId: string;
+  attribute: string;
+} {
+  const separator = key.indexOf("\u0000");
+  return {
+    deviceId: key.slice(0, separator),
+    attribute: key.slice(separator + 1),
+  };
 }
 
 /**
@@ -88,7 +100,7 @@ export function meterKey(target: MeterTarget): string | null {
 export function collectMeterKeys(root: MeterTreeNode): string[] {
   const keys = new Set<string>();
   const visit = (node: MeterTreeNode) => {
-    const key = meterKey(node.target);
+    const key = meterKey(node.meter);
     if (key) keys.add(key);
     node.children?.forEach(visit);
   };
@@ -143,7 +155,7 @@ function resolveAll(
   const resolved = new Map<MeterTreeNode, Resolved>();
 
   const visit = (node: MeterTreeNode): Resolved => {
-    const key = meterKey(node.target);
+    const key = meterKey(node.meter);
     const ownReading = key ? (values.get(key) ?? null) : null;
     const children = node.children ?? [];
 
@@ -201,64 +213,128 @@ function childrenAreExact(
 }
 
 /**
- * Flatten the tree into render-ready rows, depth-first, parents before children.
+ * A node as the view consumes it: the config's hierarchy annotated with what
+ * each node consumed, plus a synthetic residual child where one applies.
  *
- * Flat rather than nested so the view is a single `map` and indentation is just
- * a number. Ratios are taken against the parent's own total, so children that
- * out-measure their parent visibly exceed 100% instead of being normalised into
- * looking consistent — a meter tree exists partly to expose that disagreement.
+ * Kept nested rather than flat because a tree diagram needs the shape; the flat
+ * rows a list view wants are derived from this by {@link buildMeterTreeRows},
+ * so both come from one computation and cannot disagree.
  */
-export function buildMeterTreeRows(
+export type MeterTreeDatum = {
+  key: string;
+  label: string;
+  kind: "meter" | "residual";
+  /** What this node contributes to its parent. */
+  total: number | null;
+  /** `total` over the parent's `total`; `null` when that cannot be divided by. */
+  ratioOfParent: number | null;
+  /** Meter nodes only. */
+  state?: MeterRowState;
+  /** Residual nodes only: children sum to more than the parent metered. */
+  negative?: boolean;
+  /** Residual nodes only: the sum subtracted is missing a meter. */
+  incomplete?: boolean;
+  children: MeterTreeDatum[];
+};
+
+/**
+ * Annotate the configured tree with each node's consumption over the period.
+ *
+ * Shares are taken against the parent's own total, so children that out-measure
+ * their parent visibly exceed 100% instead of being normalised into looking
+ * consistent — a meter tree exists partly to expose that disagreement.
+ *
+ * A metered parent gains a residual child for what its own meter saw but its
+ * children do not account for. An unmetered parent gains none: its total *is*
+ * its children, so the residual would always be zero and say nothing.
+ */
+export function buildMeterTreeHierarchy(
   root: MeterTreeNode,
   values: MeterValues,
-): MeterTreeRow[] {
-  const rows: MeterTreeRow[] = [];
+): MeterTreeDatum {
   const resolvedNodes = resolveAll(root, values);
 
   const visit = (
     node: MeterTreeNode,
     key: string,
-    depth: number,
     parentTotal: number | null,
-  ) => {
+  ): MeterTreeDatum => {
     const resolved = resolvedNodes.get(node)!;
-    const children = node.children ?? [];
-    rows.push({
-      kind: "meter",
-      key,
-      label: node.label,
-      depth,
-      total: resolved.total,
-      ratioOfParent: ratio(resolved.total, parentTotal),
-      state: resolved.state,
-      hasChildren: children.length > 0,
-    });
+    const children = (node.children ?? []).map((child, index) =>
+      visit(child, `${key}.${index}`, resolved.total),
+    );
 
-    children.forEach((child, index) => {
-      visit(child, `${key}.${index}`, depth + 1, resolved.total);
-    });
-
-    // Only a node that measured itself can have an unmetered remainder: for an
-    // unmetered one the total *is* the children, so the residual is always zero
-    // and says nothing.
     if (
       children.length > 0 &&
       resolved.ownReading !== null &&
       resolved.childrenTotal !== null
     ) {
       const amount = resolved.ownReading - resolved.childrenTotal;
-      rows.push({
-        kind: "residual",
+      children.push({
         key: `${key}.residual`,
-        depth: depth + 1,
+        label: "",
+        kind: "residual",
         total: amount,
         ratioOfParent: ratio(amount, resolved.ownReading),
         negative: amount < 0,
         incomplete: !childrenAreExact(node, resolvedNodes),
+        children: [],
       });
     }
+
+    return {
+      key,
+      label: node.label,
+      kind: "meter",
+      total: resolved.total,
+      ratioOfParent: ratio(resolved.total, parentTotal),
+      state: resolved.state,
+      children,
+    };
   };
 
-  visit(root, "0", 0, null);
+  return visit(root, "0", null);
+}
+
+/**
+ * The same tree flattened into rows, depth-first, parents before children.
+ *
+ * Flat rather than nested so a list view is a single `map` and indentation is
+ * just a number.
+ */
+export function buildMeterTreeRows(
+  root: MeterTreeNode,
+  values: MeterValues,
+): MeterTreeRow[] {
+  const rows: MeterTreeRow[] = [];
+
+  const visit = (datum: MeterTreeDatum, depth: number) => {
+    if (datum.kind === "residual") {
+      rows.push({
+        kind: "residual",
+        key: datum.key,
+        depth,
+        total: datum.total as number,
+        ratioOfParent: datum.ratioOfParent,
+        negative: datum.negative ?? false,
+        incomplete: datum.incomplete ?? false,
+      });
+      return;
+    }
+    rows.push({
+      kind: "meter",
+      key: datum.key,
+      label: datum.label,
+      depth,
+      total: datum.total,
+      ratioOfParent: datum.ratioOfParent,
+      state: datum.state ?? "unknown",
+      // The residual is synthetic, so it must not make a leaf look like a parent.
+      hasChildren: datum.children.some((child) => child.kind === "meter"),
+    });
+    datum.children.forEach((child) => visit(child, depth + 1));
+  };
+
+  visit(buildMeterTreeHierarchy(root, values), 0);
   return rows;
 }

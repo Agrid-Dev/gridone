@@ -2953,14 +2953,14 @@ export interface components {
      * MeterTreeNode
      * @description One meter in the hierarchy: a label, optionally a meter, and children.
      *
-     *     ``target`` is optional because a node may exist purely to group others — a
+     *     ``meter`` is optional because a node may exist purely to group others — a
      *     riser feeding several floors is often unmetered itself. Such a node totals
      *     its children and has no residual of its own.
      */
     MeterTreeNode: {
       /** Label */
       label: string;
-      target?: components["schemas"]["AttributeTarget"] | null;
+      meter?: components["schemas"]["AttributeTarget"] | null;
       /** Children */
       children?: components["schemas"]["MeterTreeNode"][];
     };

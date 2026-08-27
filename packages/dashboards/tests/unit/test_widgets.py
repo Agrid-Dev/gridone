@@ -553,12 +553,12 @@ def test_validate_config_returns_meter_tree_model():
             "type": "meter_tree",
             "root": {
                 "label": "Building",
-                "target": _meter("main"),
+                "meter": _meter("main"),
                 "children": [
-                    {"label": "HVAC", "target": _meter("m1", "energy")},
+                    {"label": "HVAC", "meter": _meter("m1", "energy")},
                     {
                         "label": "Riser",
-                        "children": [{"label": "Floor 1", "target": _meter("m2")}],
+                        "children": [{"label": "Floor 1", "meter": _meter("m2")}],
                     },
                 ],
             },
@@ -574,10 +574,10 @@ def test_validate_config_returns_meter_tree_model():
 def test_meter_tree_node_may_group_without_a_meter():
     # A riser feeding several floors is routinely unmetered itself.
     node = MeterTreeNode.model_validate(
-        {"label": "Riser", "children": [{"label": "F1", "target": _meter("m1")}]}
+        {"label": "Riser", "children": [{"label": "F1", "meter": _meter("m1")}]}
     )
 
-    assert node.target is None
+    assert node.meter is None
     assert node.depth() == 2
 
 
@@ -594,7 +594,7 @@ def test_meter_tree_node_requires_a_single_explicit_device(target: dict):
     # A node is one physical meter, so a criteria-based device set has no
     # meaning here however the installation exposes it.
     with pytest.raises(ValidationError) as exc:
-        MeterTreeNode.model_validate({"label": "N", "target": target})
+        MeterTreeNode.model_validate({"label": "N", "meter": target})
 
     assert "exactly one explicit device id" in str(exc.value)
 
@@ -603,7 +603,7 @@ def test_meter_tree_node_rejects_an_empty_node():
     with pytest.raises(ValidationError) as exc:
         MeterTreeNode.model_validate({"label": "nothing"})
 
-    assert "must have a target or children" in str(exc.value)
+    assert "must have a meter or children" in str(exc.value)
 
 
 def test_meter_tree_reports_the_full_path_of_a_deep_error():
@@ -615,12 +615,12 @@ def test_meter_tree_reports_the_full_path_of_a_deep_error():
                 "type": "meter_tree",
                 "root": {
                     "label": "Building",
-                    "target": _meter("main"),
+                    "meter": _meter("main"),
                     "children": [
                         {
                             "label": "Riser",
-                            "target": _meter("m1"),
-                            "children": [{"label": "", "target": _meter("m2")}],
+                            "meter": _meter("m1"),
+                            "children": [{"label": "", "meter": _meter("m2")}],
                         }
                     ],
                 },
@@ -632,7 +632,7 @@ def test_meter_tree_reports_the_full_path_of_a_deep_error():
 
 
 def _nest(levels: int) -> dict:
-    node = {"label": "leaf", "target": _meter("d")}
+    node = {"label": "leaf", "meter": _meter("d")}
     for i in range(levels):
         node = {"label": f"L{i}", "children": [node]}
     return node
@@ -652,7 +652,7 @@ def test_meter_tree_bounds_its_depth(depth: int, ok: bool):
 def test_meter_tree_bounds_its_node_count():
     # Every node costs one aggregate query at render time, so the ceiling is
     # really a bound on one widget's request fan-out.
-    children = [{"label": f"n{i}", "target": _meter(f"d{i}")} for i in range(MAX_NODES)]
+    children = [{"label": f"n{i}", "meter": _meter(f"d{i}")} for i in range(MAX_NODES)]
 
     with pytest.raises(ValidationError, match="nodes, the maximum"):
         MeterTreeWidgetConfig.model_validate(
@@ -666,8 +666,8 @@ def test_meter_tree_names_the_node_whose_target_does_not_resolve():
             "type": "meter_tree",
             "root": {
                 "label": "Building",
-                "target": _meter("main"),
-                "children": [{"label": "Lighting", "target": _meter("gone")}],
+                "meter": _meter("main"),
+                "children": [{"label": "Lighting", "meter": _meter("gone")}],
             },
         }
     )

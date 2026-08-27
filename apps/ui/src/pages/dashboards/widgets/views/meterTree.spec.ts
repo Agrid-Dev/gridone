@@ -4,6 +4,7 @@ import {
   buildMeterTreeRows,
   collectMeterKeys,
   meterKey,
+  parseMeterKey,
   type MeterTreeRow,
   type MeterValues,
 } from "./meterTree";
@@ -15,9 +16,9 @@ const meter = (id: string, attribute = "energy") => ({
 
 const node = (
   label: string,
-  target: MeterTreeNode["target"],
+  meter: MeterTreeNode["meter"],
   children: MeterTreeNode[] = [],
-): MeterTreeNode => ({ label, target, children });
+): MeterTreeNode => ({ label, meter, children });
 
 /** Readings keyed the way the module keys them, so tests name devices. */
 const readings = (entries: Record<string, number | null>): MeterValues =>
@@ -244,6 +245,15 @@ describe("meterKey", () => {
   it("is null for a node that declares no meter", () => {
     expect(meterKey(null)).toBeNull();
     expect(meterKey(undefined)).toBeNull();
+  });
+
+  it("round-trips through parseMeterKey", () => {
+    // The fetch layer rebuilds the request from the key, so a separator that
+    // could appear in either half would silently address the wrong series.
+    expect(parseMeterKey(meterKey(meter("d1", "active_energy"))!)).toEqual({
+      deviceId: "d1",
+      attribute: "active_energy",
+    });
   });
 
   it("separates device from attribute unambiguously", () => {

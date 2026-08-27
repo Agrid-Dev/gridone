@@ -32,7 +32,7 @@ trigger; a whole real building came to 70."""
 class MeterTreeNode(BaseModel):
     """One meter in the hierarchy: a label, optionally a meter, and children.
 
-    ``target`` is optional because a node may exist purely to group others — a
+    ``meter`` is optional because a node may exist purely to group others — a
     riser feeding several floors is often unmetered itself. Such a node totals
     its children and has no residual of its own.
     """
@@ -40,9 +40,15 @@ class MeterTreeNode(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     label: Annotated[str, Field(min_length=1)]
-    target: AttributeTarget | None = None
+    meter: AttributeTarget | None = None
     """The cumulative index this node reads, reduced with ``delta`` over the
     dashboard period.
+
+    Named ``meter`` rather than ``target`` — the type is still the shared
+    :class:`AttributeTarget`, but a field called ``target`` on a nested form
+    value is unusable in the editor: react-hook-form treats any object with a
+    truthy ``target`` as a DOM event and reads ``target.value`` off it, silently
+    discarding the node.
 
     A meter is a device attribute regardless of how the installation is wired:
     an individual meter is its own device with one index attribute, while a
@@ -58,19 +64,19 @@ class MeterTreeNode(BaseModel):
     @model_validator(mode="after")
     def _require_meter_or_children(self) -> MeterTreeNode:
         """A node with neither a meter nor children carries no information."""
-        if self.target is None and not self.children:
-            msg = f"Node {self.label!r} must have a target or children"
+        if self.meter is None and not self.children:
+            msg = f"Node {self.label!r} must have a meter or children"
             raise ValueError(msg)
         return self
 
     @model_validator(mode="after")
     def _require_single_explicit_device(self) -> MeterTreeNode:
-        if self.target is None:
+        if self.meter is None:
             return self
-        devices = self.target.devices
+        devices = self.meter.devices
         single_id = devices.ids is not None and len(devices.ids) == 1
         if not single_id or devices.types or devices.tags:
-            msg = f"Node {self.label!r} target must be exactly one explicit device id"
+            msg = f"Node {self.label!r} meter must be exactly one explicit device id"
             raise ValueError(msg)
         return self
 
@@ -119,21 +125,21 @@ class MeterTreeWidgetConfig(WidgetConfig):
         return self
 
     def targets(self) -> list[AttributeTarget]:
-        return [node.target for node in self.root.walk() if node.target is not None]
+        return [node.meter for node in self.root.walk() if node.meter is not None]
 
     def validate_resolved(self, resolved: list[ResolvedTarget]) -> None:
         """Every declared meter must resolve to exactly one device.
 
-        Targets arrive in :meth:`MeterTreeNode.walk` order, filtered to the
+        Meters arrive in :meth:`MeterTreeNode.walk` order, filtered to the
         nodes that declared one, so they can be zipped back onto their labels to
         say *which* node is at fault — a tree can hold dozens of meters and
-        "one target resolved to 0 devices" would not be actionable.
+        "one meter resolved to 0 devices" would not be actionable.
         """
-        labelled = [node for node in self.root.walk() if node.target is not None]
-        for node, target in zip(labelled, resolved, strict=True):
-            if len(target.device_ids) != 1:
+        labelled = [node for node in self.root.walk() if node.meter is not None]
+        for node, resolved_meter in zip(labelled, resolved, strict=True):
+            if len(resolved_meter.device_ids) != 1:
                 msg = (
                     f"Node {node.label!r} must resolve to exactly one device, "
-                    f"got {len(target.device_ids)}"
+                    f"got {len(resolved_meter.device_ids)}"
                 )
                 raise InvalidError(msg)
