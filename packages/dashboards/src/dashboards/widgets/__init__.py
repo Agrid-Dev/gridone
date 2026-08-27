@@ -2,6 +2,7 @@ from dashboards.widgets.chart import ChartWidgetConfig
 from dashboards.widgets.config import WidgetConfig
 from dashboards.widgets.device_control import DeviceControlWidgetConfig
 from dashboards.widgets.kpi import KpiWidgetConfig, TimeAggregation
+from dashboards.widgets.meter_tree import MeterTreeNode, MeterTreeWidgetConfig
 from dashboards.widgets.registry import (
     WidgetRegistry,
     WidgetSize,
@@ -14,6 +15,8 @@ __all__ = [
     "ChartWidgetConfig",
     "DeviceControlWidgetConfig",
     "KpiWidgetConfig",
+    "MeterTreeNode",
+    "MeterTreeWidgetConfig",
     "TextWidgetConfig",
     "TimeAggregation",
     "WidgetConfig",

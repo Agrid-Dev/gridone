@@ -7,13 +7,17 @@ from dashboards.widgets import (
     ChartWidgetConfig,
     DeviceControlWidgetConfig,
     KpiWidgetConfig,
+    MeterTreeNode,
+    MeterTreeWidgetConfig,
     TextWidgetConfig,
     TimeAggregation,
     WidgetSize,
     WidgetType,
     build_default_registry,
 )
+from dashboards.widgets.meter_tree import MAX_DEPTH, MAX_NODES
 from dashboards.widgets.registry import WidgetRegistry
+from pydantic import ValidationError
 
 from models.errors import InvalidError, NotFoundError
 from models.targets import ResolvedTarget
@@ -23,11 +27,18 @@ from models.types import AggregationOperator, DataType
 def test_default_registry_registers_built_in_types():
     registry = build_default_registry()
 
-    assert set(registry.types()) == {"text", "chart", "device_control", "kpi"}
+    assert set(registry.types()) == {
+        "text",
+        "chart",
+        "device_control",
+        "kpi",
+        "meter_tree",
+    }
     assert registry.default_size("text") == WidgetSize(w=4, h=2)
     assert registry.default_size("chart") == WidgetSize(w=6, h=5)
     assert registry.default_size("device_control") == WidgetSize(w=4, h=6)
     assert registry.default_size("kpi") == WidgetSize(w=3, h=2)
+    assert registry.default_size("meter_tree") == WidgetSize(w=6, h=8)
 
 
 def test_validate_config_returns_concrete_model():
@@ -160,7 +171,7 @@ def test_schemas_returns_json_schema_per_type():
 
     schemas = registry.schemas()
 
-    assert set(schemas) == {"text", "chart", "device_control", "kpi"}
+    assert set(schemas) == {"text", "chart", "device_control", "kpi", "meter_tree"}
     props = schemas["text"]["properties"]
     assert props["color"]["pattern"] == r"^#[0-9a-fA-F]{6}$"
     assert props["type"]["const"] == "text"
@@ -181,6 +192,9 @@ def test_schemas_returns_json_schema_per_type():
     kpi = schemas["kpi"]
     assert set(kpi["required"]) == {"target"}
     assert kpi["x-default-size"] == {"w": 3, "h": 2}
+    meter_tree = schemas["meter_tree"]
+    assert set(meter_tree["required"]) == {"root"}
+    assert meter_tree["x-default-size"] == {"w": 6, "h": 8}
 
 
 def test_empty_registry_has_no_types():
@@ -525,3 +539,162 @@ def test_kpi_config_with_space_agg_rejects_an_empty_resolved_target():
 
     with pytest.raises(InvalidError, match="at least one device"):
         config.validate_resolved(resolved)
+
+
+def _meter(device_id: str, attribute: str = "active_energy") -> dict:
+    return {"devices": {"ids": [device_id]}, "attribute": attribute}
+
+
+def test_validate_config_returns_meter_tree_model():
+    registry = build_default_registry()
+
+    config = registry.validate_config(
+        {
+            "type": "meter_tree",
+            "root": {
+                "label": "Building",
+                "target": _meter("main"),
+                "children": [
+                    {"label": "HVAC", "target": _meter("m1", "energy")},
+                    {
+                        "label": "Riser",
+                        "children": [{"label": "Floor 1", "target": _meter("m2")}],
+                    },
+                ],
+            },
+        }
+    )
+
+    assert isinstance(config, MeterTreeWidgetConfig)
+    # An unmetered grouping node contributes no target, and the rest come out
+    # parents-first so validate_resolved can name the node that failed.
+    assert [t.devices.ids for t in config.targets()] == [["main"], ["m1"], ["m2"]]
+
+
+def test_meter_tree_node_may_group_without_a_meter():
+    # A riser feeding several floors is routinely unmetered itself.
+    node = MeterTreeNode.model_validate(
+        {"label": "Riser", "children": [{"label": "F1", "target": _meter("m1")}]}
+    )
+
+    assert node.target is None
+    assert node.depth() == 2
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        {"devices": {"ids": ["a", "b"]}, "attribute": "e"},
+        {"devices": {"types": ["meter"]}, "attribute": "e"},
+        {"devices": {}, "attribute": "e"},
+    ],
+    ids=["two_ids", "criteria_types", "no_ids"],
+)
+def test_meter_tree_node_requires_a_single_explicit_device(target: dict):
+    # A node is one physical meter, so a criteria-based device set has no
+    # meaning here however the installation exposes it.
+    with pytest.raises(ValidationError) as exc:
+        MeterTreeNode.model_validate({"label": "N", "target": target})
+
+    assert "exactly one explicit device id" in str(exc.value)
+
+
+def test_meter_tree_node_rejects_an_empty_node():
+    with pytest.raises(ValidationError) as exc:
+        MeterTreeNode.model_validate({"label": "nothing"})
+
+    assert "must have a target or children" in str(exc.value)
+
+
+def test_meter_tree_reports_the_full_path_of_a_deep_error():
+    # The editor pins each message to a field, so a fault three levels down
+    # must not surface as a complaint about the root.
+    with pytest.raises(ValidationError) as exc:
+        MeterTreeWidgetConfig.model_validate(
+            {
+                "type": "meter_tree",
+                "root": {
+                    "label": "Building",
+                    "target": _meter("main"),
+                    "children": [
+                        {
+                            "label": "Riser",
+                            "target": _meter("m1"),
+                            "children": [{"label": "", "target": _meter("m2")}],
+                        }
+                    ],
+                },
+            }
+        )
+
+    locs = [".".join(str(part) for part in e["loc"]) for e in exc.value.errors()]
+    assert "root.children.0.children.0.label" in locs
+
+
+def _nest(levels: int) -> dict:
+    node = {"label": "leaf", "target": _meter("d")}
+    for i in range(levels):
+        node = {"label": f"L{i}", "children": [node]}
+    return node
+
+
+@pytest.mark.parametrize(("depth", "ok"), [(MAX_DEPTH, True), (MAX_DEPTH + 1, False)])
+def test_meter_tree_bounds_its_depth(depth: int, ok: bool):
+    raw = {"type": "meter_tree", "root": _nest(depth - 1)}
+
+    if ok:
+        assert MeterTreeWidgetConfig.model_validate(raw).root.depth() == depth
+    else:
+        with pytest.raises(ValidationError, match="levels deep"):
+            MeterTreeWidgetConfig.model_validate(raw)
+
+
+def test_meter_tree_bounds_its_node_count():
+    # Every node costs one aggregate query at render time, so the ceiling is
+    # really a bound on one widget's request fan-out.
+    children = [{"label": f"n{i}", "target": _meter(f"d{i}")} for i in range(MAX_NODES)]
+
+    with pytest.raises(ValidationError, match="nodes, the maximum"):
+        MeterTreeWidgetConfig.model_validate(
+            {"type": "meter_tree", "root": {"label": "root", "children": children}}
+        )
+
+
+def test_meter_tree_names_the_node_whose_target_does_not_resolve():
+    config = MeterTreeWidgetConfig.model_validate(
+        {
+            "type": "meter_tree",
+            "root": {
+                "label": "Building",
+                "target": _meter("main"),
+                "children": [{"label": "Lighting", "target": _meter("gone")}],
+            },
+        }
+    )
+
+    with pytest.raises(InvalidError, match="'Lighting'"):
+        config.validate_resolved(
+            [
+                ResolvedTarget(
+                    attribute="active_energy",
+                    device_ids=["main"],
+                    data_type=DataType.FLOAT,
+                    excluded_device_ids=[],
+                ),
+                ResolvedTarget(
+                    attribute="active_energy",
+                    device_ids=[],
+                    data_type=DataType.FLOAT,
+                    excluded_device_ids=[],
+                ),
+            ]
+        )
+
+
+def test_meter_tree_schema_is_recursive():
+    # The editor builds its form from this schema via z.fromJSONSchema, which
+    # needs the node to reference itself rather than be inlined to a fixed depth.
+    schema = build_default_registry().schemas()["meter_tree"]
+
+    children = schema["$defs"]["MeterTreeNode"]["properties"]["children"]
+    assert children["items"] == {"$ref": "#/$defs/MeterTreeNode"}

@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from dashboards.widgets.chart import ChartWidgetConfig
 from dashboards.widgets.device_control import DeviceControlWidgetConfig
 from dashboards.widgets.kpi import KpiWidgetConfig
+from dashboards.widgets.meter_tree import MeterTreeWidgetConfig
 from dashboards.widgets.text import TextWidgetConfig
 from models.errors import InvalidError, NotFoundError
 
@@ -150,6 +151,13 @@ def build_default_registry() -> WidgetRegistry:
             type="kpi",
             config_model=KpiWidgetConfig,
             default_size=WidgetSize(w=3, h=2),
+        )
+    )
+    registry.register(
+        WidgetType(
+            type="meter_tree",
+            config_model=MeterTreeWidgetConfig,
+            default_size=WidgetSize(w=6, h=8),
         )
     )
     return registry

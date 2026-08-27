@@ -15,6 +15,7 @@ from dashboards import (
     ChartWidgetConfig,
     DeviceControlWidgetConfig,
     KpiWidgetConfig,
+    MeterTreeWidgetConfig,
     TextWidgetConfig,
     WidgetPatch,
 )
@@ -26,7 +27,11 @@ from pydantic import BaseModel, ConfigDict, Field
 # is what makes a bad config a 422 whose error path names the offending field
 # rather than a wall of per-member union errors.
 WidgetConfigBody = Annotated[
-    TextWidgetConfig | ChartWidgetConfig | DeviceControlWidgetConfig | KpiWidgetConfig,
+    TextWidgetConfig
+    | ChartWidgetConfig
+    | DeviceControlWidgetConfig
+    | KpiWidgetConfig
+    | MeterTreeWidgetConfig,
     Field(discriminator="type"),
 ]
 
