@@ -13,7 +13,7 @@ from devices_manager.dto import (
     TransportCreate,
     TransportUpdate,
 )
-from models.errors import validation_error_items
+from models.errors import validation_details, validation_error_items
 
 from .discovery_router import router as discovery_router
 
@@ -33,11 +33,6 @@ router.include_router(
 # device-level ingestion (like MQTT or BACnet), authenticated by the transport
 # itself from its config — not by the API's user-authorization flow.
 ingress_router = APIRouter()
-
-
-def _validation_error_details(e: ValidationError) -> list[dict[str, object]]:
-    """Sanitize pydantic errors into the API's `{loc, msg, type}` 422 items."""
-    return [item.model_dump() for item in validation_error_items(e)]
 
 
 async def _read_limited_body(request: Request) -> bytes:
@@ -155,7 +150,7 @@ async def update_transport(
     except ValidationError as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=_validation_error_details(e),
+            detail=validation_details(validation_error_items(e)),
         ) from e
     response.headers["Location"] = str(
         request.url_for("get_transport", transport_id=transport_id)

@@ -12,6 +12,7 @@ from models.errors import (
     NotFoundError,
     SchemaValidationError,
     UnauthorizedError,
+    validation_details,
 )
 
 logger = logging.getLogger(__name__)
@@ -34,7 +35,7 @@ def register_exception_handlers(app: FastAPI) -> None:
         # clients map one single `detail: [{loc, msg, type}]` format.
         return JSONResponse(
             status_code=422,
-            content={"detail": [item.model_dump() for item in exc.errors]},
+            content={"detail": validation_details(exc.errors)},
         )
 
     @app.exception_handler(ConflictError)

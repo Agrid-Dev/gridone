@@ -20,6 +20,11 @@ class ValidationErrorItem(BaseModel):
     type: str
 
 
+def validation_details(items: Sequence[ValidationErrorItem]) -> list[dict[str, object]]:
+    """Render `{loc, msg, type}` items as the API's 422 `detail` body."""
+    return [item.model_dump() for item in items]
+
+
 def validation_error_items(exc: PydanticValidationError) -> list[ValidationErrorItem]:
     """Convert a pydantic `ValidationError` into `{loc, msg, type}` items.
 
