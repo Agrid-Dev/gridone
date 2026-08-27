@@ -132,6 +132,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:  # noqa: PLR0915
                 )
             ],
             create_if_not_found=True,
+            validate_data_type=data_type,
         )
 
     commands_service = CommandsService(
@@ -201,6 +202,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:  # noqa: PLR0915
                 )
             ],
             create_if_not_found=True,
+            validate_data_type=attribute.data_type,
         )
 
     dm.add_device_attribute_listener(on_attribute_update)

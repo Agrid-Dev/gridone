@@ -17,6 +17,15 @@ if TYPE_CHECKING:
 class TimeSeriesStorage(Protocol):
     async def create_series(self, series: TimeSeries) -> TimeSeries: ...
 
+    async def get_or_create_series(self, series: TimeSeries) -> TimeSeries:
+        """Create *series*, or return the existing series for its key.
+
+        Atomic with respect to concurrent callers racing to create the same
+        ``(owner_id, metric)`` key: exactly one series is created, and every
+        caller gets it back — no unique-constraint error on the loser.
+        """
+        ...
+
     async def get_series(self, series_id: str) -> TimeSeries | None: ...
 
     async def get_series_by_key(self, key: SeriesKey) -> TimeSeries | None: ...

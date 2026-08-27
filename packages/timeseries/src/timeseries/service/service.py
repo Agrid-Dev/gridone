@@ -243,7 +243,7 @@ class TimeSeriesService(Service):
             else:
                 data_type = VALUE_TYPE_MAP[type(points[0].value)]
             logger.debug("Creating series %s", key)
-            series = await storage.create_series(
+            series = await storage.get_or_create_series(
                 TimeSeries(
                     data_type=data_type,
                     owner_id=key.owner_id,

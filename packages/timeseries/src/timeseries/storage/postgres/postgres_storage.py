@@ -16,6 +16,7 @@ from timeseries.storage.postgres import aggregate as _agg
 
 if TYPE_CHECKING:
     from datetime import datetime
+    from typing import NoReturn
 
     from timeseries.domain import AggregationQuery, AggregationResult
 
@@ -35,6 +36,15 @@ _VALUE_COLUMNS: dict[DataType, str] = {
 
 def _series_key_collision(key: SeriesKey) -> InvalidError:
     return InvalidError(f"Series with key {key} already exists")
+
+
+def _raise_translated(
+    exc: asyncpg.UniqueViolationError, series: TimeSeries
+) -> NoReturn:
+    if "ts_series_pkey" in str(exc):
+        msg = f"Series {series.id} already exists"
+        raise InvalidError(msg) from exc
+    raise _series_key_collision(series.key) from exc
 
 
 class PostgresStorage:
@@ -80,10 +90,35 @@ class PostgresStorage:
                 series.updated_at,
             )
         except asyncpg.UniqueViolationError as exc:
-            if "ts_series_pkey" in str(exc):
-                msg = f"Series {series.id} already exists"
-                raise InvalidError(msg) from exc
-            raise _series_key_collision(series.key) from exc
+            _raise_translated(exc, series)
+
+        return self._row_to_series(row)
+
+    async def get_or_create_series(self, series: TimeSeries) -> TimeSeries:
+        # DO UPDATE (a no-op on updated_at) rather than DO NOTHING: with
+        # RETURNING it hands back the existing row in the same round trip,
+        # under the same row lock Postgres already takes to resolve the
+        # conflict — so this is also atomic against a concurrent
+        # rename_series stealing or freeing the key mid-insert.
+        try:
+            row = await self._pool.fetchrow(
+                """
+                INSERT INTO ts_series
+                    (id, data_type, owner_id, metric, created_at, updated_at)
+                VALUES ($1, $2, $3, $4, $5, $6)
+                ON CONFLICT ON CONSTRAINT ts_series_owner_metric_uq
+                DO UPDATE SET updated_at = ts_series.updated_at
+                RETURNING *
+                """,
+                series.id,
+                series.data_type.value,
+                series.owner_id,
+                series.metric,
+                series.created_at,
+                series.updated_at,
+            )
+        except asyncpg.UniqueViolationError as exc:
+            _raise_translated(exc, series)
 
         return self._row_to_series(row)
 
