@@ -165,7 +165,7 @@ class TestHistoryPush:
             if k == key:
                 seen += 1
                 if seen == 1:
-                    await release.wait()
+                    await asyncio.wait_for(release.wait(), timeout=5)
                 else:
                     release.set()
             return result
