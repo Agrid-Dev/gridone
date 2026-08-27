@@ -1,3 +1,10 @@
+## v0.215.1 (2026-08-27)
+
+### Fix
+
+- **automations**: validate trigger/action params before persisting (#580)
+- **timeseries**: make series creation idempotent to avoid create races (#577)
+
 ## v0.215.0 (2026-08-26)
 
 ### Feat
