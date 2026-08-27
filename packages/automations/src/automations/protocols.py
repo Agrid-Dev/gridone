@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING, Protocol
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Sequence
 
+    from pydantic import BaseModel
+
     from automations.models import (
         Automation,
         AutomationCreate,
@@ -25,11 +27,7 @@ class TriggerProvider(Protocol):
     """
 
     id: str
-    params_schema: dict
-
-    def validate_params(self, params: dict) -> None:
-        """Raise ``pydantic.ValidationError`` if ``params`` don't fit this trigger."""
-        ...
+    params_model: type[BaseModel]
 
     async def register(
         self,
@@ -48,11 +46,7 @@ class ActionProvider(Protocol):
     """Executes one class of automation action."""
 
     id: str
-    params_schema: dict
-
-    def validate_params(self, params: dict) -> None:
-        """Raise ``pydantic.ValidationError`` if ``params`` don't fit this action."""
-        ...
+    params_model: type[BaseModel]
 
     async def execute(self, params: dict) -> str | None:
         """Execute the action. Returns an opaque output_id, or None."""

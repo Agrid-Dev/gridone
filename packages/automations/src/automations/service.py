@@ -155,10 +155,15 @@ class AutomationsService(Service):
         return await self._storage.list_executions(automation_id)
 
     def list_trigger_schemas(self) -> dict[str, dict]:
-        return {p.id: p.params_schema for p in self._providers.values()}
+        return {
+            p.id: p.params_model.model_json_schema() for p in self._providers.values()
+        }
 
     def list_action_schemas(self) -> dict[str, dict]:
-        return {p.id: p.params_schema for p in self._action_providers.values()}
+        return {
+            p.id: p.params_model.model_json_schema()
+            for p in self._action_providers.values()
+        }
 
     async def stop(self) -> None:
         for automation_id in list(self._handles):
@@ -201,7 +206,7 @@ class AutomationsService(Service):
                 ]
             )
         try:
-            provider.validate_params(params)
+            provider.params_model(**params)
         except PydanticValidationError as exc:
             raise SchemaValidationError(
                 [

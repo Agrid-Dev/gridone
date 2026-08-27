@@ -20,13 +20,10 @@ class NotificationAction(BaseModel):
 
 class NotificationsActionProvider:
     id = "notification"
-    params_schema: ClassVar[dict] = NotificationAction.model_json_schema()
+    params_model: ClassVar[type[BaseModel]] = NotificationAction
 
     def __init__(self, notifications_service: NotificationsServiceInterface) -> None:
         self._notifications_service = notifications_service
-
-    def validate_params(self, params: dict) -> None:
-        NotificationAction(**params)
 
     async def execute(self, params: dict) -> str | None:
         action = NotificationAction(**params)

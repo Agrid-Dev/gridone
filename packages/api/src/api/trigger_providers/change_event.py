@@ -106,14 +106,11 @@ class ChangeEventListener:
 
 class ChangeEventTriggerProvider:
     id = "change_event"
-    params_schema: ClassVar[dict] = ChangeEventTrigger.model_json_schema()
+    params_model: ClassVar[type[BaseModel]] = ChangeEventTrigger
 
     def __init__(self, devices_manager: DevicesServiceInterface) -> None:
         self._dm = devices_manager
         self._listeners: dict[str, ChangeEventListener] = {}
-
-    def validate_params(self, params: dict) -> None:
-        ChangeEventTrigger(**params)
 
     async def register(
         self,

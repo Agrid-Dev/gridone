@@ -106,7 +106,7 @@ class TestScheduleListenerTimezone:
 class TestScheduleTriggerProviderConfig:
     def test_has_params_schema(self):
         provider = ScheduleTriggerProvider()
-        assert "cron" in provider.params_schema["properties"]
+        assert "cron" in provider.params_model.model_json_schema()["properties"]
 
     def test_resolves_the_deployment_timezone(self):
         assert ScheduleTriggerProvider("Europe/Paris")._tz == ZoneInfo(  # noqa: SLF001

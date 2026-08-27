@@ -72,7 +72,7 @@ class ScheduleListener:
 
 class ScheduleTriggerProvider:
     id = "schedule"
-    params_schema: ClassVar[dict] = ScheduleTrigger.model_json_schema()
+    params_model: ClassVar[type[BaseModel]] = ScheduleTrigger
 
     def __init__(self, timezone: str = "UTC") -> None:
         """Schedules are read in ``timezone`` (an IANA name), the deployment's
@@ -80,9 +80,6 @@ class ScheduleTriggerProvider:
         the previous behaviour."""
         self._tz = ZoneInfo(timezone)
         self._listeners: dict[str, ScheduleListener] = {}
-
-    def validate_params(self, params: dict) -> None:
-        ScheduleTrigger(**params)
 
     async def register(
         self,

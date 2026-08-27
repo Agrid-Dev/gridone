@@ -18,16 +18,16 @@ def _commands_service(batch_id: str = "batch-abc") -> AsyncMock:
 class TestCommandsActionProvider:
     def test_has_params_schema(self):
         provider = CommandsActionProvider(_commands_service())
-        assert "properties" in provider.params_schema
+        assert "properties" in provider.params_model.model_json_schema()
 
-    def test_validate_params_accepts_valid_params(self):
+    def test_params_model_accepts_valid_params(self):
         provider = CommandsActionProvider(_commands_service())
-        provider.validate_params({"template_id": "tmpl-01"})  # must not raise
+        provider.params_model(template_id="tmpl-01")  # must not raise
 
-    def test_validate_params_rejects_missing_template_id(self):
+    def test_params_model_rejects_missing_template_id(self):
         provider = CommandsActionProvider(_commands_service())
         with pytest.raises(ValidationError):
-            provider.validate_params({})
+            provider.params_model()
 
     @pytest.mark.asyncio
     async def test_execute_dispatches_and_returns_batch_id(self):
