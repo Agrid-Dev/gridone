@@ -6,7 +6,8 @@
   "backToList": "Retour à la liste",
   "feedback": {
     "created": "Réseau {{transportId}} créé",
-    "deleted": "Réseau supprimé"
+    "deleted": "Réseau supprimé",
+    "reconnected": "Reconnexion déclenchée"
   },
   "createTitle": "Créer un réseau",
   "editTitle": "Modifier le réseau",
@@ -85,6 +86,8 @@
   "createAction": "Créer un réseau",
   "updateAction": "Mettre à jour",
   "editAction": "Modifier",
+  "reconnectAction": "Reconnecter",
+  "reconnectingAction": "Reconnexion...",
   "deleteAction": "Supprimer",
   "deleteConfirmTitle": "Confirmer la suppression",
   "deletingAction": "Suppression...",

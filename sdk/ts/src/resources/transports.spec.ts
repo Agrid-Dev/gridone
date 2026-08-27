@@ -40,6 +40,11 @@ const CASES: Case[] = [
     (t) => t.update("trp1", UPDATE),
     ["PATCH", "/transports/trp1", { body: UPDATE }],
   ],
+  [
+    "reconnect",
+    (t) => t.reconnect("trp1"),
+    ["POST", "/transports/trp1/reconnect"],
+  ],
   ["delete", (t) => t.delete("trp1"), ["DELETE", "/transports/trp1"]],
   ["getSchemas", (t) => t.getSchemas(), ["GET", "/transports/schemas/"]],
   [

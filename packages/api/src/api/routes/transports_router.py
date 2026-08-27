@@ -158,6 +158,18 @@ async def update_transport(
     return transport
 
 
+@router.post(
+    "/{transport_id}/reconnect",
+    dependencies=[Depends(require_permission(Permission.TRANSPORTS_WRITE))],
+)
+async def reconnect_transport(
+    transport_id: str,
+    dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
+) -> Transport:
+    """Re-arm a transport parked after a terminal connection failure."""
+    return await dm.reconnect_transport(transport_id)
+
+
 @router.delete(
     "/{transport_id}",
     status_code=status.HTTP_204_NO_CONTENT,

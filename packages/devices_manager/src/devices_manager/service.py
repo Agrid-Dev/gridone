@@ -641,6 +641,16 @@ class DevicesService(Service):
             await self._device_registry.restart_devices(transport_id=transport_id)
         return mask_transport_secrets(transport_to_public(transport))
 
+    async def reconnect_transport(self, transport_id: str) -> Transport:
+        """Re-arm a transport parked after a terminal connection failure.
+
+        Delegates to `update_transport` on purpose: the device restart it
+        triggers is what re-establishes push subscriptions after the
+        close/connect bounce (MQTT's `connect()` does not resubscribe
+        topics on its own).
+        """
+        return await self.update_transport(transport_id, TransportUpdate(config={}))
+
     # -- Drivers (delegated to DriverRegistry) --
 
     @property

@@ -780,6 +780,26 @@ export interface paths {
     patch: operations["update_transport_transports__transport_id__patch"];
     trace?: never;
   };
+  "/transports/{transport_id}/reconnect": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Reconnect Transport
+     * @description Re-arm a transport parked after a terminal connection failure.
+     */
+    post: operations["reconnect_transport_transports__transport_id__reconnect_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/transports/schemas/": {
     parameters: {
       query?: never;
@@ -5809,6 +5829,45 @@ export interface operations {
         "application/json": components["schemas"]["TransportUpdate"];
       };
     };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json":
+            | components["schemas"]["HttpTransport"]
+            | components["schemas"]["KnxTransport"]
+            | components["schemas"]["MqttTransport"]
+            | components["schemas"]["ModbusTcpTransport"]
+            | components["schemas"]["MbusTransport"]
+            | components["schemas"]["BacnetTransport"]
+            | components["schemas"]["WebhookTransport"]
+            | components["schemas"]["OpcuaTransport"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  reconnect_transport_transports__transport_id__reconnect_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        transport_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
     responses: {
       /** @description Successful Response */
       200: {

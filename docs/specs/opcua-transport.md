@@ -134,8 +134,7 @@ A server will not accept an unknown client certificate, and nothing gridone does
 
 1. Configure the transport with the policy and mode the server requires and let it connect. The attempt fails, and the transport parks in an error state naming the rejection.
 2. That failed attempt is what puts gridone's certificate in front of the server. Find it in the server's rejected-certificates list and move it to the trusted list. Where that lives is vendor-specific: Siemens SIMATIC exposes it in the OPC UA configuration UI, CODESYS-based controllers (including the WAGO CC100) keep it under the PLC's certificate store in the web UI, and a site running a Global Discovery Server can push the trust instead.
-3. Trigger a reconnect. Only an update carrying a `config` key re-arms the transport, and at this point there is nothing to change, so the minimal request is `PATCH /transports/{id}` with body `{"config": {}}`. A name-only update returns 200 and leaves the transport parked. The session comes up.
-
+3. Trigger a reconnect: `POST /transports/{id}/reconnect`.
 Step 3 is required because a terminal rejection deliberately stops the retry loop, on the read path as well as the reconnect path — gridone will not keep hammering a server that has refused it, and will not re-attempt on its own.
 
 The server's certificate is pinned the first time gridone reads it from the endpoint, during the discovery leg — which happens on the first *attempt*, before the handshake, so a first attempt that fails at step 1 has already recorded the pin.
