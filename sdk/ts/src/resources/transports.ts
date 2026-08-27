@@ -39,6 +39,13 @@ export class TransportsResource {
     );
   }
 
+  reconnect(transportId: string): Promise<Transport> {
+    return this.request(
+      "POST",
+      `/transports/${encodeURIComponent(transportId)}/reconnect`,
+    );
+  }
+
   delete(transportId: string): Promise<void> {
     return this.request(
       "DELETE",
