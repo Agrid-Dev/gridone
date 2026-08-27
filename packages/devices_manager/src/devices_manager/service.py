@@ -644,8 +644,10 @@ class DevicesService(Service):
     async def reconnect_transport(self, transport_id: str) -> Transport:
         """Re-arm a transport parked after a terminal connection failure.
 
-        Same effect as an empty config patch (`TransportClient.update_config`
-        clears the terminal error and re-schedules a connection attempt).
+        Delegates to `update_transport` on purpose: the device restart it
+        triggers is what re-establishes push subscriptions after the
+        close/connect bounce (MQTT's `connect()` does not resubscribe
+        topics on its own).
         """
         return await self.update_transport(transport_id, TransportUpdate(config={}))
 
