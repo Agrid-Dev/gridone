@@ -6,7 +6,8 @@
   "backToList": "Back to list",
   "feedback": {
     "created": "Network {{transportId}} created",
-    "deleted": "Network deleted"
+    "deleted": "Network deleted",
+    "reconnected": "Reconnection triggered"
   },
   "createTitle": "Create network",
   "editTitle": "Edit network",
@@ -85,6 +86,8 @@
   "createAction": "Create network",
   "updateAction": "Update network",
   "editAction": "Edit",
+  "reconnectAction": "Reconnect",
+  "reconnectingAction": "Reconnecting...",
   "deleteAction": "Delete",
   "deleteConfirmTitle": "Confirm deletion",
   "deletingAction": "Deleting...",

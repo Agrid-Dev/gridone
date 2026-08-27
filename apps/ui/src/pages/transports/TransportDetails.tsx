@@ -1,7 +1,7 @@
 import { type FC, type ReactNode, useMemo } from "react";
 import { Link, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
-import { Pencil } from "lucide-react";
+import { Pencil, RefreshCw } from "lucide-react";
 import type { Transport } from "@gridone/sdk";
 import { Badge } from "@/components/ui/badge";
 import { Button, Card } from "@/components/ui";
@@ -13,8 +13,13 @@ import { ResourceHeader } from "@/components/ResourceHeader";
 import { ResourceDeleteButton } from "@/components/ResourceDeleteButton";
 import { usePermissions } from "@/contexts/AuthContext";
 import { useDevicesList } from "@/hooks/useDevicesList";
+import { ConnectionStatus } from "@/lib/devices";
 import { toLabel } from "@/lib/textFormat";
-import { useDeleteTransport, useTransportFromRoute } from "./useTransports";
+import {
+  useDeleteTransport,
+  useReconnectTransport,
+  useTransportFromRoute,
+} from "./useTransports";
 import { TransportDevicesSection } from "./TransportDevicesSection";
 import {
   presentTransportConfigValue,
@@ -48,7 +53,9 @@ const DetailsCard: FC<{ title: ReactNode; children: ReactNode }> = ({
 export const TransportDetails: FC<{
   transport: Transport;
   onDelete: (transportId: string) => Promise<void>;
-}> = ({ transport, onDelete }) => {
+  onReconnect: (transportId: string) => Promise<Transport>;
+  isReconnecting: boolean;
+}> = ({ transport, onDelete, onReconnect, isReconnecting }) => {
   const { t } = useTranslation(["transports", "common"]);
   const can = usePermissions();
   const deviceFilter = useMemo(
@@ -86,6 +93,18 @@ export const TransportDetails: FC<{
         actions={
           can("transports:write") ? (
             <div className="flex items-center gap-2">
+              {transport.connection_state.status === ConnectionStatus.Error ? (
+                <Button
+                  variant="outline"
+                  disabled={isReconnecting}
+                  onClick={() => onReconnect(transport.id)}
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  {isReconnecting
+                    ? t("reconnectingAction")
+                    : t("reconnectAction")}
+                </Button>
+              ) : null}
               <Button asChild variant="outline">
                 <Link to="edit">
                   <Pencil className="h-4 w-4" />
@@ -180,7 +199,15 @@ function DriverLinks({ driverIds }: { driverIds: string[] }) {
 const TransportDetailsContent: FC = () => {
   const transport = useTransportFromRoute();
   const { handleDelete } = useDeleteTransport();
-  return <TransportDetails transport={transport} onDelete={handleDelete} />;
+  const { handleReconnect, isReconnecting } = useReconnectTransport();
+  return (
+    <TransportDetails
+      transport={transport}
+      onDelete={handleDelete}
+      onReconnect={handleReconnect}
+      isReconnecting={isReconnecting}
+    />
+  );
 };
 
 const TransportDetailsWrapper: FC = () => {

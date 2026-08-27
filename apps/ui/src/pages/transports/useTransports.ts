@@ -8,8 +8,15 @@ import { useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 import { type Transport, type TransportCreate } from "@gridone/sdk";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { serverErrorMessage } from "@/lib/serverErrorMessage";
+
+const toastApiError = (t: TFunction<["transports", "common"]>, err: Error) => {
+  const detail = serverErrorMessage(err);
+  const base = t("common:errors.default");
+  toast.error(detail ? `${base}: ${detail}` : base);
+};
 
 export const useTransports = () => {
   const { t } = useTranslation(["transports", "common"]);
@@ -20,11 +27,7 @@ export const useTransports = () => {
     queryFn: () => client.transports.list(),
     initialData: [],
   });
-  const handleApiError = (err: Error) => {
-    const detail = serverErrorMessage(err);
-    const base = t("common:errors.default");
-    toast.error(detail ? `${base}: ${detail}` : base);
-  };
+  const handleApiError = (err: Error) => toastApiError(t, err);
   const createMutation = useMutation({
     mutationFn: (payload: TransportCreate) => client.transports.create(payload),
     onSuccess: async (result: Transport) => {
@@ -61,15 +64,30 @@ export const useDeleteTransport = () => {
       toast.success(t("feedback.deleted"));
       navigate("..");
     },
-    onError: (err: Error) => {
-      const detail = serverErrorMessage(err);
-      const base = t("common:errors.default");
-      toast.error(detail ? `${base}: ${detail}` : base);
-    },
+    onError: (err: Error) => toastApiError(t, err),
   });
   const handleDelete = async (transportId: string) =>
     deleteMutation.mutateAsync(transportId);
   return { handleDelete, isDeleting: deleteMutation.isPending };
+};
+
+export const useReconnectTransport = () => {
+  const { t } = useTranslation(["transports", "common"]);
+  const queryClient = useQueryClient();
+  const client = useGridoneClient();
+  const reconnectMutation = useMutation({
+    mutationFn: (transportId: string) =>
+      client.transports.reconnect(transportId),
+    onSuccess: (result: Transport) => {
+      queryClient.setQueryData(["transport", result.id], result);
+      queryClient.invalidateQueries({ queryKey: ["transports"] });
+      toast.success(t("feedback.reconnected"));
+    },
+    onError: (err: Error) => toastApiError(t, err),
+  });
+  const handleReconnect = async (transportId: string) =>
+    reconnectMutation.mutateAsync(transportId);
+  return { handleReconnect, isReconnecting: reconnectMutation.isPending };
 };
 
 export const useTransportFromRoute = (): Transport => {
