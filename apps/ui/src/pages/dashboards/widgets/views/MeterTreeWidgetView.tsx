@@ -13,16 +13,40 @@ import { useMeterTreeValues } from "./useMeterTreeValues";
 
 /** Box drawn per node: wide enough for a circuit name plus its figures. */
 const NODE_W = 156;
-const NODE_H = 44;
+const NODE_H = 38;
 /** Gaps between boxes, enough that the elbow links read as connections. */
 const GAP_X = 56;
-const GAP_Y = 12;
+const GAP_Y = 7;
+const ROW = NODE_H + GAP_Y;
 const PADDING = 12;
 const MAX_LABEL = 20;
+/** Thinnest an edge may be drawn: a 0.2% circuit must still show a connection. */
+const EDGE_MIN = 1;
+/** Thickest, reserved for the trunk. */
+const EDGE_MAX = 11;
 
 /** A share reads better as a percentage than a fraction. */
 const asPercent = (ratio: number | null) =>
   ratio === null ? null : `${fmt(ratio * 100, 1)}%`;
+
+/**
+ * How thick to draw the edge feeding a node.
+ *
+ * Weighted by the node's share of the *building*, not of its parent: share of
+ * parent is not monotonic down the tree, so a small branch's large circuit would
+ * out-draw the trunk feeding it. Share of the total only ever decreases as you
+ * descend, which is what makes the diagram read as a distribution network.
+ *
+ * Square-rooted because a linear map spends almost all its range on the top two
+ * or three circuits and renders everything else identically hairline. Clamped at
+ * 100% so a mis-scaled meter claiming more than the whole building gets a full
+ * edge rather than an ever-growing one — its own row is already flagged red.
+ */
+function edgeWidth(share: number | null): number {
+  if (share === null) return EDGE_MIN;
+  const clamped = Math.min(Math.max(share, 0), 1);
+  return EDGE_MIN + (EDGE_MAX - EDGE_MIN) * Math.sqrt(clamped);
+}
 
 /**
  * Elbow link: out of the parent's right edge, across, into the child's left.
@@ -76,7 +100,7 @@ const NodeBox: FC<{
       />
       <text
         x={10}
-        y={18}
+        y={15}
         className={
           residual
             ? "fill-muted-foreground text-[11px] italic"
@@ -87,7 +111,7 @@ const NodeBox: FC<{
       </text>
       <text
         x={10}
-        y={34}
+        y={30}
         className={
           faulty
             ? "fill-destructive text-[12px] font-semibold tabular-nums"
@@ -98,7 +122,7 @@ const NodeBox: FC<{
       </text>
       <text
         x={NODE_W - 10}
-        y={34}
+        y={30}
         textAnchor="end"
         className="fill-muted-foreground text-[11px] tabular-nums"
       >
@@ -116,10 +140,14 @@ const TreeCanvas: FC<{ root: MeterTreeDatum; width: number }> = ({
   const { t } = useTranslation("dashboards");
   const data = hierarchy<MeterTreeDatum>(root);
 
-  // Sized from the tree, not from the tile: a distribution board has as many
-  // rows as it has circuits, and squeezing 70 of them into a widget's height
-  // would leave every label unreadable. The container scrolls instead.
-  const innerH = data.leaves().length * (NODE_H + GAP_Y);
+  // One row per node, in reading order, rather than the layout's default of
+  // centring each parent over its children: centring buries the root halfway
+  // down a canvas taller than the tile, and the root is the figure everything
+  // else is a share of. Sized from the tree, not the tile — a board has as many
+  // rows as it has circuits — so the container scrolls instead of shrinking
+  // every label past legibility.
+  const rows = data.descendants().length;
+  const innerH = rows * ROW;
   const innerW = (data.height + 1) * (NODE_W + GAP_X);
 
   return (
@@ -129,32 +157,43 @@ const TreeCanvas: FC<{ root: MeterTreeDatum; width: number }> = ({
     >
       <Group top={PADDING} left={PADDING}>
         <Tree<MeterTreeDatum> root={data} size={[innerH, innerW - NODE_W]}>
-          {(tree) => (
-            <Group>
-              {tree.links().map((link) => (
-                <path
-                  key={`${link.source.data.key}->${link.target.data.key}`}
-                  d={elbow(link.source, link.target)}
-                  className="stroke-border"
-                  strokeWidth={1}
-                  fill="none"
-                />
-              ))}
-              {tree.descendants().map((node) => (
-                <NodeBox
-                  key={node.data.key}
-                  node={node}
-                  label={
-                    node.data.kind === "residual"
-                      ? t("widgets.meterTree.unmetered")
-                      : node.data.label
-                  }
-                  noReading={t("widgets.meterTree.noReading")}
-                  incompleteMark={t("widgets.meterTree.incomplete")}
-                />
-              ))}
-            </Group>
-          )}
+          {(tree) => {
+            // `eachBefore` is depth-first, parents before children — the order
+            // the rows are read in. Reassigning `x` here keeps visx responsible
+            // for the horizontal layout and the link topology.
+            let row = 0;
+            tree.eachBefore((node) => {
+              node.x = row * ROW + NODE_H / 2;
+              row += 1;
+            });
+            return (
+              <Group>
+                {tree.links().map((link) => (
+                  <path
+                    key={`${link.source.data.key}->${link.target.data.key}`}
+                    d={elbow(link.source, link.target)}
+                    className="stroke-border"
+                    strokeWidth={edgeWidth(link.target.data.shareOfTotal)}
+                    strokeLinejoin="round"
+                    fill="none"
+                  />
+                ))}
+                {tree.descendants().map((node) => (
+                  <NodeBox
+                    key={node.data.key}
+                    node={node}
+                    label={
+                      node.data.kind === "residual"
+                        ? t("widgets.meterTree.unmetered")
+                        : node.data.label
+                    }
+                    noReading={t("widgets.meterTree.noReading")}
+                    incompleteMark={t("widgets.meterTree.incomplete")}
+                  />
+                ))}
+              </Group>
+            );
+          }}
         </Tree>
       </Group>
     </svg>
@@ -199,20 +238,6 @@ export const MeterTreeWidgetView: FC<{ config: unknown }> = ({ config }) => {
   const annotated = buildMeterTreeHierarchy(root, values);
   return (
     <div className="flex h-full w-full flex-col">
-      {/*
-        The tree centres each parent over its children, so the root — the one
-        figure the whole diagram is measured against — ends up halfway down a
-        canvas taller than the tile and scrolls out of sight. Pinning it here
-        keeps the building total on screen wherever the diagram is scrolled.
-      */}
-      <div className="flex shrink-0 items-baseline gap-3 border-b border-border px-3 py-2">
-        <span className="truncate text-sm font-medium">{annotated.label}</span>
-        <span className="text-sm font-semibold tabular-nums">
-          {annotated.total === null
-            ? t("widgets.meterTree.noReading")
-            : fmt(annotated.total, 0)}
-        </span>
-      </div>
       <div className="min-h-0 flex-1 overflow-auto">
         <ParentSize>
           {({ width }) => <TreeCanvas root={annotated} width={width} />}

@@ -228,6 +228,14 @@ export type MeterTreeDatum = {
   total: number | null;
   /** `total` over the parent's `total`; `null` when that cannot be divided by. */
   ratioOfParent: number | null;
+  /**
+   * `total` over the whole tree's total.
+   *
+   * Strictly decreasing down the tree, unlike the share of a parent, so it is
+   * what the diagram can safely give thickness to: a branch never out-draws the
+   * trunk feeding it.
+   */
+  shareOfTotal: number | null;
   /** Meter nodes only. */
   state?: MeterRowState;
   /** Residual nodes only: children sum to more than the parent metered. */
@@ -254,6 +262,8 @@ export function buildMeterTreeHierarchy(
 ): MeterTreeDatum {
   const resolvedNodes = resolveAll(root, values);
 
+  const rootTotal = resolvedNodes.get(root)?.total ?? null;
+
   const visit = (
     node: MeterTreeNode,
     key: string,
@@ -276,6 +286,7 @@ export function buildMeterTreeHierarchy(
         kind: "residual",
         total: amount,
         ratioOfParent: ratio(amount, resolved.ownReading),
+        shareOfTotal: ratio(amount, rootTotal),
         negative: amount < 0,
         incomplete: !childrenAreExact(node, resolvedNodes),
         children: [],
@@ -288,6 +299,7 @@ export function buildMeterTreeHierarchy(
       kind: "meter",
       total: resolved.total,
       ratioOfParent: ratio(resolved.total, parentTotal),
+      shareOfTotal: ratio(resolved.total, rootTotal),
       state: resolved.state,
       children,
     };
