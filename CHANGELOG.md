@@ -1,3 +1,14 @@
+## v0.218.0 (2026-08-28)
+
+### Feat
+
+- **dashboards**: raise meter tree node cap to 500 (AGR-1108)
+- **ui**: collapsible meter tree nodes with lazy fetch (AGR-1108)
+
+### Fix
+
+- **ui**: stop the meter tree twisty overlapping the percentage
+
 ## v0.217.0 (2026-08-28)
 
 ### Feat
