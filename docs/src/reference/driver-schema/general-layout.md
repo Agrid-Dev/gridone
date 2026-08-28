@@ -38,6 +38,7 @@ attributes:                   # (required) list of attribute drivers
     # or:
     read_write: ...           # shorthand when read and write share the same address
     polling_group: core       # (optional) which update_strategy.polling_groups entry polls this attribute
+    push: false               # (optional) subscribe instead of poll — only consulted on hybrid pull+push transports (e.g. opcua)
 
     # Codecs (optional) — applied in order on read, reversed on write, if reversible
     codecs:
