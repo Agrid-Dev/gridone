@@ -3,8 +3,10 @@ import type { MeterTreeNode } from "@gridone/sdk";
 import {
   buildMeterTreeRows,
   collectMeterKeys,
+  defaultCollapsed,
   meterKey,
   parseMeterKey,
+  visibleMeterKeys,
   type MeterTreeRow,
   type MeterValues,
 } from "./meterTree";
@@ -292,5 +294,105 @@ describe("node scale", () => {
     const rows = buildMeterTreeRows(tree, readings({ main: 100, a: 40 }));
 
     expect(byLabel(rows, "Plain")).toMatchObject({ total: 40 });
+  });
+});
+
+describe("collapsing", () => {
+  const tree = node("Building", meter("main"), [
+    node("Riser", meter("riser"), [
+      node("F1", meter("f1")),
+      node("F2", meter("f2")),
+    ]),
+    node("Kitchen", meter("kitchen")),
+  ]);
+  const values = readings({
+    main: 1000,
+    riser: 600,
+    f1: 300,
+    f2: 200,
+    kitchen: 300,
+  });
+  /** `Riser` is the second child of the root, so key "0.0". */
+  const RISER = "0.0";
+
+  it("hides a collapsed node's children and its residual", () => {
+    const rows = buildMeterTreeRows(tree, values, new Set([RISER]));
+
+    expect(
+      rows.map((r) => (r.kind === "meter" ? r.label : "residual")),
+    ).toEqual(["Building", "Riser", "Kitchen", "residual"]);
+  });
+
+  it("keeps a collapsed node marked as having children, so it stays openable", () => {
+    const row = byLabel(
+      buildMeterTreeRows(tree, values, new Set([RISER])),
+      "Riser",
+    );
+
+    expect(row).toMatchObject({ hasChildren: true, collapsed: true });
+  });
+
+  it("reports the same figures for a drawn node whether or not a sibling is open", () => {
+    const open = buildMeterTreeRows(tree, values);
+    const shut = buildMeterTreeRows(tree, values, new Set([RISER]));
+
+    for (const label of ["Building", "Riser", "Kitchen"]) {
+      expect(byLabel(shut, label)).toMatchObject({
+        total: byLabel(open, label)?.total,
+        ratioOfParent: byLabel(open, label)?.ratioOfParent,
+      });
+    }
+    expect(residuals(shut)[0].total).toBe(100);
+  });
+
+  it("stops fetching under a collapsed node that measures itself", () => {
+    expect(visibleMeterKeys(tree, new Set([RISER]))).toEqual([
+      meterKey(meter("main")),
+      meterKey(meter("riser")),
+      meterKey(meter("kitchen")),
+    ]);
+  });
+
+  it("keeps fetching under a collapsed node that is only the sum of its children", () => {
+    // An unmetered node has no reading of its own, so folding it shut must not
+    // blank it — its children are still the only way to know its total.
+    const grouped = node("Building", meter("main"), [
+      node("Riser", null, [node("F1", meter("f1")), node("F2", meter("f2"))]),
+    ]);
+
+    expect(visibleMeterKeys(grouped, new Set([RISER]))).toEqual([
+      meterKey(meter("main")),
+      meterKey(meter("f1")),
+      meterKey(meter("f2")),
+    ]);
+    expect(
+      byLabel(buildMeterTreeRows(grouped, values, new Set([RISER])), "Riser"),
+    ).toMatchObject({ total: 500 });
+  });
+
+  it("descends no further than the meters it needs under a folded group", () => {
+    // F1 measures itself, so what is below it cannot change the group's total.
+    const grouped = node("Building", meter("main"), [
+      node("Riser", null, [
+        node("F1", meter("f1"), [node("Sub", meter("sub"))]),
+      ]),
+    ]);
+
+    expect(visibleMeterKeys(grouped, new Set([RISER]))).not.toContain(
+      meterKey(meter("sub")),
+    );
+  });
+
+  it("folds only nodes deep enough to have hidden something", () => {
+    const deep = node("Root", meter("main"), [
+      node("A", meter("a"), [
+        node("A1", meter("a1"), [node("A1a", meter("x"))]),
+      ]),
+      node("B", meter("b")),
+    ]);
+
+    // Depth 0 and 1 stay open; "A1" is deep enough and has children; "A1a" and
+    // "B" are leaves, and folding a leaf would draw a twisty that does nothing.
+    expect([...defaultCollapsed(deep)]).toEqual(["0.0.0"]);
   });
 });

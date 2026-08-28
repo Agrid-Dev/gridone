@@ -1,4 +1,4 @@
-import type { FC } from "react";
+import { useCallback, useState, type FC } from "react";
 import { useTranslation } from "react-i18next";
 import { Group } from "@visx/group";
 import { Tree, hierarchy } from "@visx/hierarchy";
@@ -8,7 +8,12 @@ import type { MeterTreeWidgetConfig } from "@gridone/sdk";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fmt } from "@/lib/formatValue";
 import { useDashboardPeriod } from "../../useDashboardPeriod";
-import { buildMeterTreeHierarchy, type MeterTreeDatum } from "./meterTree";
+import {
+  buildMeterTreeHierarchy,
+  defaultCollapsed,
+  type CollapsedNodes,
+  type MeterTreeDatum,
+} from "./meterTree";
 import { useMeterTreeValues } from "./useMeterTreeValues";
 
 /** Box drawn per node: wide enough for a circuit name plus its figures. */
@@ -90,14 +95,23 @@ const NodeBox: FC<{
   label: string;
   noReading: string;
   incompleteMark: string;
-}> = ({ node, label, noReading, incompleteMark }) => {
+  onToggle: (key: string) => void;
+}> = ({ node, label, noReading, incompleteMark, onToggle }) => {
   const datum = node.data;
   const residual = datum.kind === "residual";
   const faulty = isFaulty(datum);
   const bounded = isBounded(datum);
+  // A folded node keeps its children in the config but not in the layout, so
+  // `node.children` cannot answer this — the datum's own flag can.
+  const foldable = datum.kind === "meter" && (datum.collapsed || node.children);
 
   return (
-    <Group top={node.x - NODE_H / 2} left={node.y}>
+    <Group
+      top={node.x - NODE_H / 2}
+      left={node.y}
+      style={foldable ? { cursor: "pointer" } : undefined}
+      onClick={foldable ? () => onToggle(datum.key) : undefined}
+    >
       <rect
         width={NODE_W}
         height={NODE_H}
@@ -148,15 +162,30 @@ const NodeBox: FC<{
       >
         {asPercent(datum.ratioOfParent) ?? ""}
       </text>
+      {foldable && (
+        <g
+          transform={`translate(${NODE_W - 3}, ${NODE_H / 2})`}
+          className="fill-muted stroke-border"
+        >
+          <circle r={7} strokeWidth={1} />
+          <path
+            d={datum.collapsed ? "M-3,0 H3 M0,-3 V3" : "M-3,0 H3"}
+            className="stroke-muted-foreground"
+            strokeWidth={1.5}
+            strokeLinecap="round"
+          />
+        </g>
+      )}
       {bounded && <title>{incompleteMark}</title>}
     </Group>
   );
 };
 
-const TreeCanvas: FC<{ root: MeterTreeDatum; width: number }> = ({
-  root,
-  width,
-}) => {
+const TreeCanvas: FC<{
+  root: MeterTreeDatum;
+  width: number;
+  onToggle: (key: string) => void;
+}> = ({ root, width, onToggle }) => {
   const { t } = useTranslation("dashboards");
   const data = hierarchy<MeterTreeDatum>(root);
 
@@ -209,6 +238,7 @@ const TreeCanvas: FC<{ root: MeterTreeDatum; width: number }> = ({
                     }
                     noReading={t("widgets.meterTree.noReading")}
                     incompleteMark={t("widgets.meterTree.incomplete")}
+                    onToggle={onToggle}
                   />
                 ))}
               </Group>
@@ -233,10 +263,23 @@ export const MeterTreeWidgetView: FC<{ config: unknown }> = ({ config }) => {
   const { t } = useTranslation("dashboards");
   const { root } = config as MeterTreeWidgetConfig;
   const period = useDashboardPeriod();
-  const { values, loading } = useMeterTreeValues(root, {
-    ...period.query,
-    refetchInterval: period.refetchInterval,
-  });
+  // Per-viewer, and deliberately not in the widget config: which branches
+  // someone has open while reading a tree is not a property of the tree.
+  const [collapsed, setCollapsed] = useState<CollapsedNodes>(() =>
+    root ? defaultCollapsed(root) : new Set<string>(),
+  );
+  const toggle = useCallback((key: string) => {
+    setCollapsed((current) => {
+      const next = new Set(current);
+      if (!next.delete(key)) next.add(key);
+      return next;
+    });
+  }, []);
+  const { values, loading } = useMeterTreeValues(
+    root,
+    { ...period.query, refetchInterval: period.refetchInterval },
+    collapsed,
+  );
 
   if (!root) {
     return (
@@ -255,12 +298,14 @@ export const MeterTreeWidgetView: FC<{ config: unknown }> = ({ config }) => {
     );
   }
 
-  const annotated = buildMeterTreeHierarchy(root, values);
+  const annotated = buildMeterTreeHierarchy(root, values, collapsed);
   return (
     <div className="flex h-full w-full flex-col">
       <div className="min-h-0 flex-1 overflow-auto">
         <ParentSize>
-          {({ width }) => <TreeCanvas root={annotated} width={width} />}
+          {({ width }) => (
+            <TreeCanvas root={annotated} width={width} onToggle={toggle} />
+          )}
         </ParentSize>
       </div>
     </div>
