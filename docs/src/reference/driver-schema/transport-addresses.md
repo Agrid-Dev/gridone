@@ -213,3 +213,38 @@ read_write: "${ga_main}/${ga_middle}/1"
 read:
   topic: "${ga_main}/${ga_middle}/4"     # object form
 ```
+
+---
+
+### OPC-UA
+
+The address is a NodeId, in the protocol's own string notation: `ns=<index>;<type>=<value>`. `<type>` is one of `i` (numeric), `s` (string), `g` (GUID) or `b` (opaque, base64). `ns=` may be omitted and defaults to `ns=0` (OPC-UA's reserved namespace, not a gridone default).
+
+```yaml
+read: "ns=2;s=Chiller.SupplyTemp"   # string identifier
+read: "ns=4;i=1042"                 # numeric identifier
+read: "ns=1;g=09087e75-8e5e-499b-954f-f2a9603db28a"  # GUID
+read: "ns=1;b=M/RbKBsRVkePCePcx24oRA=="               # opaque, base64
+read: "s=ServerStatus"              # ns omitted -> ns=0
+```
+
+An object form is also accepted, with the identifier type as the key and `ns` optional:
+
+```yaml
+read:
+  ns: 2
+  s: Chiller.SupplyTemp
+
+read_write:
+  s: Chiller.Setpoint   # ns omitted -> ns=0
+```
+
+Whitespace around `;` and `=` is tolerated: `"ns = 2 ; s = Chiller.SupplyTemp"` parses the same as the compact form.
+
+A NodeId that resolves to an `ExtensionObject` decodes to a `dict` — use `json_pointer` to extract a scalar from it, same as a JSON payload over HTTP or MQTT:
+
+```yaml
+read: "ns=4;i=1042"
+codecs:
+  - json_pointer: /status/code
+```

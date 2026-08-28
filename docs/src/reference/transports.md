@@ -201,3 +201,54 @@ curl -X POST "https://gridone.example.com/api/transports/<transport_id>/ingress/
   -d '{"temperature": 21.5, "humidity": 55}'
 ```
 
+---
+
+### OPC-UA
+
+OPC-UA maintains a persistent session to a server. It is pull-based by default — reads go through the OPC-UA Read service with push available per attribute via subscriptions (`push: true` on the attribute, see [General Layout](driver-schema/general-layout.md)): the transport opens one `Subscription` for the session and adds a `MonitoredItem` per subscribed NodeId, delivering data-change notifications instead of polling.
+
+**Read flow** — a single address read uses the OPC-UA Read service against that NodeId. Multiple addresses in the same sweep are batched into one Read service call instead of one request per address.
+
+**Write flow** — the transport reads the NodeId's server-declared variant type first, then writes the coerced value as that type.
+
+**Push flow** (opt-in per attribute) — a subscribed NodeId is added as a `MonitoredItem` on the transport's `Subscription`. `sampling_interval_ms` and `deadband` control how the server reports changes; a `Bad` status quality drops the notification, `Uncertain` is still delivered.
+
+| Field | Required | Default | Description |
+|---|---|---|---|
+| `endpoint_url` | yes | — | Server endpoint, e.g. `opc.tcp://host:port/path` |
+| `auth_mode` | no | `anonymous` | `anonymous` or `username_password` |
+| `username` | no | — | Required if `auth_mode` is `username_password` |
+| `password` | no | — | Required if `auth_mode` is `username_password` |
+| `connect_timeout` | no | `10` | Seconds to establish the session |
+| `request_timeout` | no | `5` | Seconds per Read/Write service call |
+| `keepalive_interval` | no | `5` | Seconds between session keepalive pings |
+| `sampling_interval_ms` | no | `1000` | Sampling interval, in milliseconds, requested for every `MonitoredItem` |
+| `deadband` | no | `0` | Absolute deadband applied to push notifications; `0` reports every change |
+| `security_policy` | no | `None` | `None`, `Basic256Sha256`, `Aes128Sha256RsaOaep` or `Aes256Sha256RsaPss` |
+| `security_mode` | no | `None` | `None`, `Sign` or `SignAndEncrypt` |
+
+`security_policy` and `security_mode` must both be `None`, or both set to a non-`None` value — one without the other is rejected.
+
+```yaml
+transport:
+  name: chiller-opcua
+  protocol: opcua
+  config:
+    endpoint_url: opc.tcp://10.0.1.20:4840
+    auth_mode: anonymous
+```
+
+#### Secure channel
+
+Setting `security_policy`/`security_mode` enables OPC-UA's own mutual X.509 secure channel — a separate handshake from user auth (`auth_mode` composes freely with any policy/mode pair). Gridone generates and keeps one application-instance certificate for the whole instance under `GRIDONE_OPCUA_PKI_DIR` (default `~/.gridone/opcua-pki`) — this directory must be persisted across restarts, since every server an operator has trusted has trusted that specific certificate.
+
+Server trust is pin-on-first-use: the certificate a server presents on first connect is written to the PKI directory and required byte-for-byte on every later connect. Because a server also has to trust *gridone's* certificate before it will accept a session, and nothing gridone does client-side can make that happen, connecting to a new server for the first time takes a manual step:
+
+1. Configure the transport and let it attempt to connect. The attempt fails and the transport parks in an error state — this failed attempt is what puts gridone's certificate in front of the server.
+2. On the server, find gridone's certificate in its rejected-certificates list and move it to the trusted list (vendor-specific UI/certificate store).
+3. Trigger a reconnect: `POST /transports/{id}/reconnect`. This step is required — a rejected secure channel is a terminal error and gridone will not retry on its own.
+
+If a server later rotates its certificate, gridone refuses the new one (the pin no longer matches). Accepting it means deleting the pinned certificate file for that server under the PKI directory and reconnecting, which re-runs the first-use step above.
+
+`Basic128Rsa15` and `Basic256` are not offered — the OPC Foundation withdrew both.
+
