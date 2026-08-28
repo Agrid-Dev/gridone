@@ -1,3 +1,13 @@
+## v0.216.0 (2026-08-28)
+
+### Feat
+
+- **devices-manager**: add explicit reconnect action for parked transports (#583)
+
+### Fix
+
+- **ui**: show error state in DevicePicker on failed request (#584)
+
 ## v0.215.1 (2026-08-27)
 
 ### Fix
