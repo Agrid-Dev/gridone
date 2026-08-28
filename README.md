@@ -1,94 +1,88 @@
 # GRIDONE
 
-_Gridone_ is an open-source Building Management System (BMS) designed for extensibility and portability.
+_Gridone_ is an open-source Building Management System (BMS) for controlling building equipment (thermostats, chillers, boilers, and more), recording and querying their data, and automating workflows around them.
 
-Gridone is built by [AGRID](https://a-grid.com/) and under development 🏗️ (unstable).
+Gridone is built by [AGRID](https://a-grid.com/) and is under development 🏗️ (unstable).
 
-## Project layout
+## Objectives
 
-Gridone is a monorepo including both packages and applications.
+- **Device extensibility** — new devices are added through YAML-based drivers, a registry of transport clients (HTTP, MQTT, BACnet, Modbus, KNX,...), and composable codecs that convert raw device values to typed data. No vendor-specific code lives in the source; all vendor detail lives in driver files.
+- **API-first** — every feature is exposed through a robust, performant HTTP API, so the platform can support building applications for many use cases (and, longer term, an MCP controller and language-specific SDKs).
+- **Easy to deploy** — a single Docker image runs the full stack.
+
+## State of the art
+
+Gridone is a monorepo. Python services live under `packages/`, and runnable applications live under `apps/`.
 
 ```
 .
 ├── apps
-│   ├── api_server
-│   ├── cli
-│   └── ui
+│   ├── api_server     # FastAPI server exposing the HTTP API
+│   ├── cli            # Standalone CLI for testing devices, drivers and transports
+│   ├── migrations     # Database migration runner
+│   └── ui             # React + TypeScript dashboard
 ├── packages
-│   ├── api
-│   ├── devices_manager
-│   └── storage
+│   ├── api             # HTTP API package, wires the services together
+│   ├── apps            # Application registration and management
+│   ├── assets          # Hierarchical asset management (PostgreSQL ltree)
+│   ├── automations     # Automations and trigger domain models
+│   ├── commands        # Dispatch and lifecycle for device write operations
+│   ├── dashboards      # Dashboard documents and widget registry for the UI
+│   ├── devices_manager # Core domain logic for devices, drivers and transports
+│   ├── models          # Shared models, errors and utilities
+│   ├── notifications   # Notification dispatch and per-user delivery tracking
+│   ├── timeseries      # Recording and querying device measurements
+│   └── users           # User management and authentication
+├── docker              # Production Docker image (nginx + FastAPI)
+├── docs                # Documentation site sources (MkDocs)
+├── sdk/ts              # TypeScript client for the API
 ├── pyproject.toml
-├── README.md
 └── uv.lock
 ```
 
-## Storage
+## Quick start (Docker)
 
-`devices_manager` uses pluggable storage configured with a single URL string:
+The Docker image bundles the built UI and the FastAPI backend behind nginx, and needs a PostgreSQL/TimescaleDB database to store its data. Create a `docker-compose.yml`:
 
-- Local development: YAML file backend using a path (example: `.db` or `/tmp/gridone-db`)
-- Production: PostgreSQL-compatible backend (example: `postgresql://...`)
+```yaml
+services:
+  timescaledb:
+    image: timescale/timescaledb:latest-pg18
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - timescaledb_data:/var/lib/postgresql/data
 
-TimescaleDB is PostgreSQL-compatible, so it uses the same `postgresql://` URL format.
+  gridone-app:
+    image: ghcr.io/agrid-dev/gridone:latest
+    ports:
+      - 8765:8765
+    environment:
+      STORAGE_URL: postgresql://postgres:postgres@timescaledb:5432/postgres
+      GRIDONE_TIMEZONE: Europe/Paris
+    depends_on:
+      - timescaledb
 
-## Setup
-
-### Installation
-
-This project is managed with [uv](https://docs.astral.sh/uv/) using `workspaces`. Run
-
-```sh
-uv sync --all-packages
-```
-To create a virtual environment and install all project dependencies.
-
-### Tooling
-
-Gridone uses [astral.sh](https://astral.sh) python development tools:
-- [ruff](https://docs.astral.sh/ruff/) for linting and formatting,
-- [ty](https://docs.astral.sh/ty/) for type checking,
-
-See astral's documentation for IDE integration.
-
-Along with [pytest](https://docs.pytest.org/en/stable/) for tests.
-
-```sh
-uv run ruff check # linting
-uv run ruff format # formatting
-uv run ruff format --check # format check
-uv run ty check # type check
-uv run pytest # runs all tests
-uv run pytest -m "not integration" # run unit tests
-uv run pytest -m integration # run integration tests
+volumes:
+  timescaledb_data:
 ```
 
-### Git hooks (recommended)
-
-This project uses [prek](https://prek.j178.dev/) to manage git hooks. Install prek, then run:
-```sh
-prek install -t commit-msg -t pre-commit -t pre-push
-```
-
-This sets up:
-- **Commit-msg**: [conventional commits](https://www.conventionalcommits.org/) enforcement
-- **Pre-commit**: ruff check, ruff format (Python), eslint, prettier (UI)
-- **Pre-push**: ty check, pytest (Python), type-check, vitest (UI)
-
-Frontend hooks only run when `apps/ui/` files are changed.
-
-### Running with a proxy
-
-If you need to route network calls through a proxy (for example when testing from a restricted network), prepend commands with `proxychains4`. A typical run looks like:
+Then start both services:
 
 ```sh
-proxychains4 uv run python main.py
+docker compose up
 ```
 
-## Applications
+Open `http://localhost:8765`. A default `admin` / `admin` account is created automatically on first start.
 
-Gridone can be executed as a [cli](apps/cli/README.md) or a fastapi [http server](apps/api_server/README.md).
+See the [Getting Started guide](https://docs.gridone.a-grid.com/getting-started/developers/) for authentication and API usage, and [`docker/README.md`](docker/README.md) for building the image locally and production deployment topologies (host networking for building-LAN device discovery, HTTPS reverse proxy setup, etc).
 
-## API reference
+## Documentation
 
-A Bruno request collection covering all API endpoints lives at [`requests/`](requests/). See [`packages/api/README.md`](packages/api/README.md#api-reference) for setup instructions.
+Full documentation is available at [docs.gridone.a-grid.com](https://docs.gridone.a-grid.com).
+
+## Contributing
+
+Setting up a development environment, running tests, and the project's architecture are covered in [`CONTRIBUTING.md`](CONTRIBUTING.md).
