@@ -146,7 +146,7 @@
     },
     "meterTree": {
       "unmetered": "Unmetered",
-      "incomplete": "(a meter is silent)",
+      "incomplete": "At most this much is unmetered — a counter below is not reporting, so the remainder is overstated.",
       "noReading": "—",
       "empty": "No tree configured.",
       "apiOnly": "This widget is created through the API for now — its hierarchy is a nested tree, which this form cannot yet edit."

@@ -146,7 +146,7 @@
     },
     "meterTree": {
       "unmetered": "Non compté",
-      "incomplete": "(un compteur est muet)",
+      "incomplete": "Au plus ce montant n'est pas compté : un compteur en dessous ne remonte rien, donc le reste est surestimé.",
       "noReading": "—",
       "empty": "Aucune arborescence configurée.",
       "apiOnly": "Ce widget se crée pour l'instant via l'API : sa hiérarchie est une arborescence imbriquée, que ce formulaire ne sait pas encore éditer."

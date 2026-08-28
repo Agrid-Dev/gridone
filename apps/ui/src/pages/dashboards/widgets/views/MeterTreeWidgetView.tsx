@@ -73,6 +73,18 @@ function isFaulty(datum: MeterTreeDatum): boolean {
     : datum.state === "reset";
 }
 
+/**
+ * Whether the figure is an upper bound rather than a measurement.
+ *
+ * A residual subtracts the children from the feeder, so a child with no reading
+ * contributes nothing to the subtraction and the remainder comes out too high.
+ * The true unmetered amount is at most what is shown — which is a different
+ * thing from a fault, and drawn differently: dashed, not red.
+ */
+function isBounded(datum: MeterTreeDatum): boolean {
+  return datum.kind === "residual" && (datum.incomplete ?? false);
+}
+
 const NodeBox: FC<{
   node: HierarchyPointNode<MeterTreeDatum>;
   label: string;
@@ -82,6 +94,7 @@ const NodeBox: FC<{
   const datum = node.data;
   const residual = datum.kind === "residual";
   const faulty = isFaulty(datum);
+  const bounded = isBounded(datum);
 
   return (
     <Group top={node.x - NODE_H / 2} left={node.y}>
@@ -90,12 +103,17 @@ const NodeBox: FC<{
         height={NODE_H}
         rx={6}
         strokeWidth={1}
+        // Dashed reads as provisional, and composes with the fault colour: a
+        // residual can be both overstated and negative, and both facts matter.
+        strokeDasharray={bounded ? "4 3" : undefined}
         className={
           faulty
             ? "fill-destructive/10 stroke-destructive"
-            : residual
-              ? "fill-muted stroke-border"
-              : "fill-card stroke-border"
+            : bounded
+              ? "fill-muted stroke-muted-foreground"
+              : residual
+                ? "fill-muted stroke-border"
+                : "fill-card stroke-border"
         }
       />
       <text
@@ -118,7 +136,9 @@ const NodeBox: FC<{
             : "fill-foreground text-[12px] tabular-nums"
         }
       >
-        {datum.total === null ? noReading : fmt(datum.total, 0)}
+        {datum.total === null
+          ? noReading
+          : `${bounded ? "≤ " : ""}${fmt(datum.total, 0)}`}
       </text>
       <text
         x={NODE_W - 10}
@@ -128,7 +148,7 @@ const NodeBox: FC<{
       >
         {asPercent(datum.ratioOfParent) ?? ""}
       </text>
-      {residual && datum.incomplete && <title>{incompleteMark}</title>}
+      {bounded && <title>{incompleteMark}</title>}
     </Group>
   );
 };
