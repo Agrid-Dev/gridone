@@ -240,7 +240,7 @@ transport:
 
 #### Secure channel
 
-Setting `security_policy`/`security_mode` enables OPC-UA's own mutual X.509 secure channel — a separate handshake from user auth (`auth_mode` composes freely with any policy/mode pair). Gridone generates and keeps one application-instance certificate for the whole instance under `GRIDONE_OPCUA_PKI_DIR` (default `~/.gridone/opcua-pki`) — this directory must be persisted across restarts, since every server an operator has trusted has trusted that specific certificate.
+Setting `security_policy`/`security_mode` enables OPC-UA's own mutual X.509 secure channel — a separate handshake from user auth (`auth_mode` composes freely with any policy/mode pair). Gridone generates and keeps one application-instance certificate for the whole instance under `GRIDONE_OPCUA_PKI_DIR` (default `~/.gridone/opcua-pki`). The same certificate is used for every server, so this directory must be persisted across restarts — losing it means redoing the trust step on every server.
 
 Server trust is pin-on-first-use: the certificate a server presents on first connect is written to the PKI directory and required byte-for-byte on every later connect. Because a server also has to trust *gridone's* certificate before it will accept a session, and nothing gridone does client-side can make that happen, connecting to a new server for the first time takes a manual step:
 
