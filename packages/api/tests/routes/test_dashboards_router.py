@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import get_args
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -11,6 +12,7 @@ from dashboards import (
     TextWidgetConfig,
     Widget,
     WidgetLayout,
+    build_default_registry,
 )
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
@@ -23,6 +25,7 @@ from api.dependencies import (
 )
 from api.exception_handlers import register_exception_handlers
 from api.routes.dashboards_router import router
+from api.schemas.dashboard import WidgetConfigBody
 from models.errors import InvalidError, NotFoundError
 from models.pagination import Page
 from models.targets import ResolvedTarget, TargetResolver
@@ -407,3 +410,20 @@ class TestWidgetSchemas:
             resp = await c.get("/widget-schemas")
         assert resp.status_code == 200
         assert "text" in resp.json()
+
+
+async def test_widget_config_body_covers_every_registered_widget_type():
+    """The request union must mirror the registry.
+
+    ``WidgetConfigBody`` is spelled out by hand so FastAPI can discriminate on
+    ``type`` and return a 422 naming the offending field. That makes it easy to
+    register a widget in the service and forget it here — and the symptom is
+    indirect: saving the widget 422s, and its config never reaches OpenAPI, so
+    the generated SDK has no type for it either.
+    """
+    union_types = {
+        member.model_fields["type"].default
+        for member in get_args(get_args(WidgetConfigBody)[0])
+    }
+
+    assert union_types == set(build_default_registry().types())

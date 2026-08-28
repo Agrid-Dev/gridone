@@ -7,6 +7,8 @@ import { DeviceControlConfigFields } from "./views/DeviceControlConfigFields";
 import { DeviceControlWidgetView } from "./views/DeviceControlWidgetView";
 import { KpiConfigFields, kpiConfigCheck } from "./views/KpiConfigFields";
 import { KpiWidgetView } from "./views/KpiWidgetView";
+import { MeterTreeConfigPlaceholder } from "./views/MeterTreeConfigPlaceholder";
+import { MeterTreeWidgetView } from "./views/MeterTreeWidgetView";
 import { TextWidgetView } from "./views/TextWidgetView";
 
 /** A widget type's renderer. The config is untyped at the registry boundary;
@@ -30,6 +32,7 @@ export const widgetViews: Record<string, WidgetViewComponent> = {
   chart: ChartWidgetView,
   device_control: DeviceControlWidgetView,
   kpi: KpiWidgetView,
+  meter_tree: MeterTreeWidgetView,
 };
 
 /**
@@ -44,6 +47,7 @@ export const widgetConfigFields: Record<string, WidgetConfigFieldsComponent> = {
   chart: ChartConfigFields,
   device_control: DeviceControlConfigFields,
   kpi: KpiConfigFields,
+  meter_tree: MeterTreeConfigPlaceholder,
 };
 
 /**

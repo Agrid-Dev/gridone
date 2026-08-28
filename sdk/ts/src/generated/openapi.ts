@@ -2969,6 +2969,47 @@ export interface components {
        */
       updated_at?: string;
     };
+    /**
+     * MeterTreeNode
+     * @description One meter in the hierarchy: a label, optionally a meter, and children.
+     *
+     *     ``meter`` is optional because a node may exist purely to group others — a
+     *     riser feeding several floors is often unmetered itself. Such a node totals
+     *     its children and has no residual of its own.
+     */
+    MeterTreeNode: {
+      /** Label */
+      label: string;
+      meter?: components["schemas"]["AttributeTarget"] | null;
+      /**
+       * Scale
+       * @default 1
+       */
+      scale?: number;
+      /** Children */
+      children?: components["schemas"]["MeterTreeNode"][];
+    };
+    /**
+     * MeterTreeWidgetConfig
+     * @description Sub-metering tree: consumption per node over the dashboard period.
+     *
+     *     The hierarchy is declared here rather than derived from the asset tree: an
+     *     electrical distribution tree does not follow the spatial one — a riser feeds
+     *     floors that sit under different parents, and a single panel can feed a whole
+     *     wing. There is no backend hierarchy model behind this.
+     *
+     *     Every node reduces its index with ``delta`` (last value minus the last value
+     *     before the period), so the widget stores no operator: consumption of a
+     *     cumulative counter is the only meaningful reading here.
+     */
+    MeterTreeWidgetConfig: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      type: "meter_tree";
+      root: components["schemas"]["MeterTreeNode"];
+    };
     /** ModbusTCPTransportConfig */
     ModbusTCPTransportConfig: {
       /**
@@ -3807,7 +3848,8 @@ export interface components {
         | components["schemas"]["TextWidgetConfig"]
         | components["schemas"]["ChartWidgetConfig"]
         | components["schemas"]["DeviceControlWidgetConfig"]
-        | components["schemas"]["KpiWidgetConfig"];
+        | components["schemas"]["KpiWidgetConfig"]
+        | components["schemas"]["MeterTreeWidgetConfig"];
       /** Title */
       title?: string | null;
       /** Description */
@@ -3853,6 +3895,7 @@ export interface components {
             | components["schemas"]["ChartWidgetConfig"]
             | components["schemas"]["DeviceControlWidgetConfig"]
             | components["schemas"]["KpiWidgetConfig"]
+            | components["schemas"]["MeterTreeWidgetConfig"]
           )
         | null;
     };
