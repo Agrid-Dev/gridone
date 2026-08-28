@@ -1,3 +1,9 @@
+## v0.217.0 (2026-08-28)
+
+### Feat
+
+- **dashboards**: meter tree widget (AGR-881) (#585)
+
 ## v0.216.0 (2026-08-28)
 
 ### Feat
