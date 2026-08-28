@@ -163,8 +163,12 @@ const NodeBox: FC<{
         {asPercent(datum.ratioOfParent) ?? ""}
       </text>
       {foldable && (
+        // Out in the gutter rather than inside the box: at the box's right edge
+        // it sat on top of the percentage, which is right-aligned there. Here it
+        // lands on the horizontal run of the outgoing elbow, before the corner
+        // at GAP_X / 2 — so it reads as a junction on the feeder it opens.
         <g
-          transform={`translate(${NODE_W - 3}, ${NODE_H / 2})`}
+          transform={`translate(${NODE_W + 12}, ${NODE_H / 2})`}
           className="fill-muted stroke-border"
         >
           <circle r={7} strokeWidth={1} />
