@@ -447,6 +447,97 @@ class TestTriggers:
         assert call_params == {"cron": "0 11 * * *"}
 
 
+class TestRegistrationFailureRollback:
+    async def test_create_leaves_nothing_when_registration_fails(self):
+        storage = _make_storage()
+        provider = _make_provider("schedule")
+        provider.register.side_effect = RuntimeError("boom")
+        svc = _make_service(storage=storage, providers=[provider])
+        with pytest.raises(RuntimeError, match="boom"):
+            await svc.create(_create_params(enabled=True), created_by="u1")
+        storage.create.assert_not_called()
+        assert await svc.list() == []
+
+    async def test_create_unregisters_trigger_when_storage_write_fails(self):
+        storage = _make_storage()
+        storage.create.side_effect = RuntimeError("db down")
+        provider = _make_provider("schedule")
+        svc = _make_service(storage=storage, providers=[provider])
+        with pytest.raises(RuntimeError, match="db down"):
+            await svc.create(_create_params(enabled=True), created_by="u1")
+        provider.unregister.assert_called_once_with("handle-01")
+        assert await svc.list() == []
+
+    async def test_update_restores_old_trigger_when_new_registration_fails(self):
+        schedule_provider = _make_provider("schedule")
+        change_provider = _make_provider("change_event")
+        change_provider.register.side_effect = RuntimeError("boom")
+        svc = _make_service(providers=[schedule_provider, change_provider])
+        created = await svc.create(
+            _create_params(trigger=_SCHEDULE, enabled=True), created_by="u1"
+        )
+        with pytest.raises(RuntimeError, match="boom"):
+            await svc.update(created.id, AutomationUpdate(trigger=_CHANGE))
+        assert schedule_provider.register.call_count == 2  # initial + restore
+        assert (await svc.get(created.id)).trigger == _SCHEDULE
+
+    async def test_update_does_not_write_storage_when_new_registration_fails(self):
+        storage = _make_storage()
+        provider = _make_provider("schedule")
+        svc = _make_service(storage=storage, providers=[provider])
+        created = await svc.create(_create_params(enabled=False), created_by="u1")
+        storage.update.reset_mock()
+        provider.register.side_effect = RuntimeError("boom")
+        with pytest.raises(RuntimeError, match="boom"):
+            await svc.update(created.id, AutomationUpdate(enabled=True))
+        storage.update.assert_not_called()
+        assert (await svc.get(created.id)).enabled is False
+
+    async def test_update_stops_new_trigger_and_restores_old_when_storage_write_fails(
+        self,
+    ):
+        storage = _make_storage()
+        schedule_provider = _make_provider("schedule")
+        change_provider = _make_provider("change_event")
+        svc = _make_service(
+            storage=storage, providers=[schedule_provider, change_provider]
+        )
+        created = await svc.create(
+            _create_params(trigger=_SCHEDULE, enabled=True), created_by="u1"
+        )
+        storage.update.side_effect = RuntimeError("db down")
+        with pytest.raises(RuntimeError, match="db down"):
+            await svc.update(created.id, AutomationUpdate(trigger=_CHANGE))
+        change_provider.unregister.assert_called_once_with("handle-01")
+        assert schedule_provider.register.call_count == 2  # initial + restore
+        assert (await svc.get(created.id)).trigger == _SCHEDULE
+
+    async def test_update_raises_original_error_when_restore_also_fails(self):
+        schedule_provider = _make_provider("schedule")
+        change_provider = _make_provider("change_event")
+        change_provider.register.side_effect = RuntimeError("new trigger boom")
+        svc = _make_service(providers=[schedule_provider, change_provider])
+        created = await svc.create(
+            _create_params(trigger=_SCHEDULE, enabled=True), created_by="u1"
+        )
+        schedule_provider.register.side_effect = RuntimeError("restore also boom")
+        with pytest.raises(RuntimeError, match="new trigger boom"):
+            await svc.update(created.id, AutomationUpdate(trigger=_CHANGE))
+
+    async def test_create_cache_populated_before_trigger_starts(self):
+        provider = _make_provider("schedule")
+        svc = _make_service(providers=[provider])
+        seen = {}
+
+        async def _register(params: dict, on_fire: object) -> str:  # noqa: ARG001
+            seen["cache_size_during_register"] = len(svc._cache)  # noqa: SLF001
+            return "handle-01"
+
+        provider.register.side_effect = _register
+        await svc.create(_create_params(enabled=True), created_by="u1")
+        assert seen["cache_size_during_register"] == 1
+
+
 class TestExecutions:
     async def test_list_executions_delegates_to_storage(self):
         storage = _make_storage()
