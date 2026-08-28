@@ -23,10 +23,24 @@ payload from nesting far enough to be expensive to validate or impossible to
 render.
 """
 
-MAX_NODES = 250
-"""Most nodes a tree may contain. Each node costs one aggregate query at render
-time, so the bound is really about the request fan-out a single widget can
-trigger; a whole real building came to 70."""
+MAX_NODES = 500
+"""Most nodes a tree may contain.
+
+Each node with a meter costs one aggregate query, so this bounds the request
+fan-out a single widget can trigger rather than anything about rendering.
+
+Raised from 250 once that fan-out was measured instead of guessed at. A real
+building's full sub-metering tree — main incomer down to per-room counters —
+came to 270 nodes and 254 distinct meters; fetching all of them against a live
+deployment took 1.6-3.2s end to end with no failures, at both browser-like and
+high concurrency. 500 leaves roughly double that headroom while keeping the
+bound finite.
+
+Note this is deliberately the *only* cost control. The client folds deep nodes
+by default, which cuts a first paint of that tree from 254 queries to 22, but it
+folds by depth and depth is a proxy for breadth rather than a bound on it: a
+tree wide at its first level folds nothing. Treating that default as a second
+budget would mean two mechanisms for one job, with neither holding on its own."""
 
 
 class MeterTreeNode(BaseModel):

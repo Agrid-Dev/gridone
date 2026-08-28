@@ -43,6 +43,8 @@ export type MeterTreeRow =
       state: MeterRowState;
       /** Whether this node has children, so the view can render a twisty. */
       hasChildren: boolean;
+      /** Whether those children are currently folded out of sight. */
+      collapsed: boolean;
     }
   | {
       kind: "residual";
@@ -64,6 +66,49 @@ export type MeterTreeRow =
        */
       incomplete: boolean;
     };
+
+/**
+ * The nodes a viewer has folded shut, by the same keys the rows carry.
+ *
+ * Held outside the widget config: which branches someone has open is a property
+ * of looking at the tree, not of the tree, and persisting it would make one
+ * viewer's exploration everyone else's default.
+ */
+export type CollapsedNodes = ReadonlySet<string>;
+
+/**
+ * Depth from which a node with children opens folded.
+ *
+ * Deliberately unconditional on tree size rather than switched on by a node
+ * count: only nodes that *have* children are folded, so on the shallow trees
+ * this widget started with — a root, its feeders, their circuits — the deepest
+ * level is leaves and nothing folds at all. The rule only begins to bite once a
+ * tree is deep enough for the fold to be worth having.
+ */
+export const DEFAULT_COLLAPSE_DEPTH = 2;
+
+/** Stable identity of a node from its position, matching the rows' `key`. */
+const childKey = (parent: string, index: number) => `${parent}.${index}`;
+
+/**
+ * The nodes a freshly-rendered tree starts with folded.
+ *
+ * Leaves are never included: a twisty on a node with nothing under it is a
+ * control that does nothing.
+ */
+export function defaultCollapsed(root: MeterTreeNode): Set<string> {
+  const collapsed = new Set<string>();
+  const visit = (node: MeterTreeNode, key: string, depth: number) => {
+    const children = node.children ?? [];
+    if (children.length === 0) return;
+    if (depth >= DEFAULT_COLLAPSE_DEPTH) collapsed.add(key);
+    children.forEach((child, index) =>
+      visit(child, childKey(key, index), depth + 1),
+    );
+  };
+  visit(root, "0", 0);
+  return collapsed;
+}
 
 /**
  * Identity of the meter a node reads: its device and attribute.
@@ -105,6 +150,37 @@ export function collectMeterKeys(root: MeterTreeNode): string[] {
     node.children?.forEach(visit);
   };
   visit(root);
+  return [...keys];
+}
+
+/**
+ * The meters a tree needs *given what is folded* — the lazy counterpart to
+ * {@link collectMeterKeys}.
+ *
+ * Two rules, and the second is the one worth remembering. A node that measures
+ * itself reports its own meter whatever is beneath it, so folding it shut ends
+ * the descent. A node with no meter *is* the sum of its children, so folding it
+ * cannot end the descent — its children remain the only way to know its total,
+ * and skipping them would draw it as blank rather than as folded.
+ *
+ * So the walk continues under a folded group only as far as the first meter on
+ * each branch: past that point nothing can change the group's total.
+ */
+export function visibleMeterKeys(
+  root: MeterTreeNode,
+  collapsed: CollapsedNodes = new Set(),
+): string[] {
+  const keys = new Set<string>();
+  const visit = (node: MeterTreeNode, key: string, drawn: boolean) => {
+    const meter = meterKey(node.meter);
+    if (meter) keys.add(meter);
+    const childrenDrawn = drawn && !collapsed.has(key);
+    if (!childrenDrawn && meter !== null) return;
+    node.children?.forEach((child, index) =>
+      visit(child, childKey(key, index), childrenDrawn),
+    );
+  };
+  visit(root, "0", true);
   return [...keys];
 }
 
@@ -246,6 +322,8 @@ export type MeterTreeDatum = {
   negative?: boolean;
   /** Residual nodes only: the sum subtracted is missing a meter. */
   incomplete?: boolean;
+  /** Has children, folded out of sight. `children` is empty but not childless. */
+  collapsed?: boolean;
   children: MeterTreeDatum[];
 };
 
@@ -263,7 +341,11 @@ export type MeterTreeDatum = {
 export function buildMeterTreeHierarchy(
   root: MeterTreeNode,
   values: MeterValues,
+  collapsed: CollapsedNodes = new Set(),
 ): MeterTreeDatum {
+  // Resolved over the whole tree, then pruned — so folding changes only what is
+  // drawn, never what a drawn node reports. Totals, shares and residuals come
+  // out identical to the fully-open tree.
   const resolvedNodes = resolveAll(root, values);
 
   const rootTotal = resolvedNodes.get(root)?.total ?? null;
@@ -274,9 +356,12 @@ export function buildMeterTreeHierarchy(
     parentTotal: number | null,
   ): MeterTreeDatum => {
     const resolved = resolvedNodes.get(node)!;
-    const children = (node.children ?? []).map((child, index) =>
-      visit(child, `${key}.${index}`, resolved.total),
-    );
+    const folded = collapsed.has(key) && (node.children ?? []).length > 0;
+    const children = folded
+      ? []
+      : (node.children ?? []).map((child, index) =>
+          visit(child, childKey(key, index), resolved.total),
+        );
 
     if (
       children.length > 0 &&
@@ -305,6 +390,7 @@ export function buildMeterTreeHierarchy(
       ratioOfParent: ratio(resolved.total, parentTotal),
       shareOfTotal: ratio(resolved.total, rootTotal),
       state: resolved.state,
+      collapsed: folded,
       children,
     };
   };
@@ -321,6 +407,7 @@ export function buildMeterTreeHierarchy(
 export function buildMeterTreeRows(
   root: MeterTreeNode,
   values: MeterValues,
+  collapsed: CollapsedNodes = new Set(),
 ): MeterTreeRow[] {
   const rows: MeterTreeRow[] = [];
 
@@ -346,11 +433,16 @@ export function buildMeterTreeRows(
       ratioOfParent: datum.ratioOfParent,
       state: datum.state ?? "unknown",
       // The residual is synthetic, so it must not make a leaf look like a parent.
-      hasChildren: datum.children.some((child) => child.kind === "meter"),
+      // A folded node has no children here but is not childless — it must keep
+      // its twisty, or there would be no way to open it again.
+      hasChildren:
+        (datum.collapsed ?? false) ||
+        datum.children.some((child) => child.kind === "meter"),
+      collapsed: datum.collapsed ?? false,
     });
     datum.children.forEach((child) => visit(child, depth + 1));
   };
 
-  visit(buildMeterTreeHierarchy(root, values), 0);
+  visit(buildMeterTreeHierarchy(root, values, collapsed), 0);
   return rows;
 }
