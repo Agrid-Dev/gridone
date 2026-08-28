@@ -83,8 +83,18 @@ class AutomationsService(Service):
             updated_at=now,
             created_by=created_by,
         )
-        await self._storage.create(automation)
-        await self._register_automation(automation)
+        # Cache before starting the trigger so a listener that fires
+        # immediately on registration can still find the automation.
+        self._cache[automation.id] = automation
+        try:
+            if automation.enabled:
+                await self._start_trigger(automation)
+            await self._storage.create(automation)
+        except Exception:
+            if automation.enabled:
+                await self._stop_trigger(automation.id)
+            del self._cache[automation.id]
+            raise
         return automation
 
     async def get(self, automation_id: str) -> Automation:
@@ -111,16 +121,26 @@ class AutomationsService(Service):
         )
         was_enabled = existing.enabled
         updated = existing.apply_update(params)
+        need_stop = was_enabled and (not updated.enabled or trigger_changed)
+        need_start = updated.enabled and (not was_enabled or trigger_changed)
 
         # Stop before storage write — prevents trigger firing against stale config.
-        if was_enabled and (not updated.enabled or trigger_changed):
+        if need_stop:
             await self._stop_trigger(automation_id)
 
-        await self._storage.update(updated)
+        # Start before storage write too — a registration failure must not
+        # leave a persisted automation with no listener.
+        try:
+            if need_start:
+                await self._start_trigger(updated)
+            await self._storage.update(updated)
+        except Exception:
+            if need_start:
+                await self._stop_trigger(automation_id)
+            if need_stop:
+                await self._restore_trigger(automation_id, existing)
+            raise
         self._cache[automation_id] = updated
-
-        if updated.enabled and (not was_enabled or trigger_changed):
-            await self._start_trigger(updated)
 
         return updated
 
@@ -237,6 +257,19 @@ class AutomationsService(Service):
         if handle is not None:
             provider_id, trigger_id = handle
             await self._providers[provider_id].unregister(trigger_id)
+
+    async def _restore_trigger(
+        self, automation_id: str, automation: Automation
+    ) -> None:
+        """Best-effort re-registration after a later step failed. Logs rather
+        than raising, so the caller's original exception is what propagates."""
+        try:
+            await self._start_trigger(automation)
+        except Exception:
+            logger.exception(
+                "Failed to restore trigger for automation %r after failed update",
+                automation_id,
+            )
 
     async def _execute_automation_actions(
         self, automation_id: str, context: TriggerContext
