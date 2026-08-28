@@ -1,3 +1,9 @@
+## v0.218.1 (2026-08-28)
+
+### Fix
+
+- **automations**: roll back trigger registration on failed create/update (#589)
+
 ## v0.218.0 (2026-08-28)
 
 ### Feat
