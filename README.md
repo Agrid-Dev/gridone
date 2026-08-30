@@ -1,94 +1,43 @@
 # GRIDONE
 
-_Gridone_ is an open-source Building Management System (BMS) designed for extensibility and portability.
+_Gridone_ is an open-source Building Management System (BMS) for controlling building equipment (thermostats, chillers, boilers, and more), recording and querying their data, and automating workflows around them.
 
-Gridone is built by [AGRID](https://a-grid.com/) and under development 🏗️ (unstable).
+Gridone is built by [AGRID](https://a-grid.com/) and is under development 🏗️ (unstable).
 
-## Project layout
+## Objectives
 
-Gridone is a monorepo including both packages and applications.
+- **Single, standardised API** — one HTTP API controls every device, independently of its communication protocol or vendor (and, longer term, an MCP controller and language-specific SDKs).
+- **No vendor-specific code in the source** — all vendor detail lives as data in YAML device drivers, never in the codebase.
+- **Device extensibility** — new devices are added through YAML-based drivers, a registry of transport clients (see [Protocol support](#protocol-support)), and composable codecs that convert raw device values to typed data.
 
-```
-.
-├── apps
-│   ├── api_server
-│   ├── cli
-│   └── ui
-├── packages
-│   ├── api
-│   ├── devices_manager
-│   └── storage
-├── pyproject.toml
-├── README.md
-└── uv.lock
-```
+## Protocol support
 
-## Storage
+HTTP · MQTT · Modbus TCP · BACnet · KNX · M-Bus · OPC-UA · Webhook
 
-`devices_manager` uses pluggable storage configured with a single URL string:
+See [Transports](https://docs.gridone.a-grid.com/reference/transports/) for the configuration reference of each.
 
-- Local development: YAML file backend using a path (example: `.db` or `/tmp/gridone-db`)
-- Production: PostgreSQL-compatible backend (example: `postgresql://...`)
+## Quick start (Docker)
 
-TimescaleDB is PostgreSQL-compatible, so it uses the same `postgresql://` URL format.
-
-## Setup
-
-### Installation
-
-This project is managed with [uv](https://docs.astral.sh/uv/) using `workspaces`. Run
+Gridone is easy to deploy: a single Docker image bundles the whole application. Follow the [Getting Started guide](https://docs.gridone.a-grid.com/getting-started/developers/) to write a `docker-compose.yml` and run:
 
 ```sh
-uv sync --all-packages
-```
-To create a virtual environment and install all project dependencies.
-
-### Tooling
-
-Gridone uses [astral.sh](https://astral.sh) python development tools:
-- [ruff](https://docs.astral.sh/ruff/) for linting and formatting,
-- [ty](https://docs.astral.sh/ty/) for type checking,
-
-See astral's documentation for IDE integration.
-
-Along with [pytest](https://docs.pytest.org/en/stable/) for tests.
-
-```sh
-uv run ruff check # linting
-uv run ruff format # formatting
-uv run ruff format --check # format check
-uv run ty check # type check
-uv run pytest # runs all tests
-uv run pytest -m "not integration" # run unit tests
-uv run pytest -m integration # run integration tests
+docker compose up
 ```
 
-### Git hooks (recommended)
+See [`docker/README.md`](docker/README.md) for building the image locally and production deployment topologies (host networking for building-LAN device discovery, HTTPS reverse proxy setup, etc).
 
-This project uses [prek](https://prek.j178.dev/) to manage git hooks. Install prek, then run:
-```sh
-prek install -t commit-msg -t pre-commit -t pre-push
-```
+## CLI usage
 
-This sets up:
-- **Commit-msg**: [conventional commits](https://www.conventionalcommits.org/) enforcement
-- **Pre-commit**: ruff check, ruff format (Python), eslint, prettier (UI)
-- **Pre-push**: ty check, pytest (Python), type-check, vitest (UI)
+A [CLI](apps/cli/README.md) is available for testing and prototyping devices, drivers and transports without the full stack.
 
-Frontend hooks only run when `apps/ui/` files are changed.
+## Documentation
 
-### Running with a proxy
-
-If you need to route network calls through a proxy (for example when testing from a restricted network), prepend commands with `proxychains4`. A typical run looks like:
-
-```sh
-proxychains4 uv run python main.py
-```
-
-## Applications
-
-Gridone can be executed as a [cli](apps/cli/README.md) or a fastapi [http server](apps/api_server/README.md).
+Full documentation is available at [docs.gridone.a-grid.com](https://docs.gridone.a-grid.com).
 
 ## API reference
 
-A Bruno request collection covering all API endpoints lives at [`requests/`](requests/). See [`packages/api/README.md`](packages/api/README.md#api-reference) for setup instructions.
+A Bruno request collection covering all API endpoints lives at [`requests/`](requests/). See [`packages/api/README.md#api-reference`](packages/api/README.md#api-reference) for setup instructions.
+
+## Contributing
+
+Setting up a development environment, running tests, and the project's architecture are covered in [`CONTRIBUTING.md`](CONTRIBUTING.md).
