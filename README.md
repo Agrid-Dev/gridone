@@ -6,82 +6,37 @@ Gridone is built by [AGRID](https://a-grid.com/) and is under development 🏗�
 
 ## Objectives
 
-- **Device extensibility** — new devices are added through YAML-based drivers, a registry of transport clients (HTTP, MQTT, BACnet, Modbus, KNX,...), and composable codecs that convert raw device values to typed data. No vendor-specific code lives in the source; all vendor detail lives in driver files.
-- **API-first** — every feature is exposed through a robust, performant HTTP API, so the platform can support building applications for many use cases (and, longer term, an MCP controller and language-specific SDKs).
-- **Easy to deploy** — a single Docker image runs the full stack.
+- **Single, standardised API** — one HTTP API controls every device, independently of its communication protocol or vendor (and, longer term, an MCP controller and language-specific SDKs).
+- **No vendor-specific code in the source** — all vendor detail lives as data in YAML device drivers, never in the codebase.
+- **Device extensibility** — new devices are added through YAML-based drivers, a registry of transport clients (see [Protocol support](#protocol-support)), and composable codecs that convert raw device values to typed data.
 
-## State of the art
+## Protocol support
 
-Gridone is a monorepo. Python services live under `packages/`, and runnable applications live under `apps/`.
+HTTP · MQTT · Modbus TCP · BACnet · KNX · M-Bus · OPC-UA · Webhook
 
-```
-.
-├── apps
-│   ├── api_server     # FastAPI server exposing the HTTP API
-│   ├── cli            # Standalone CLI for testing devices, drivers and transports
-│   ├── migrations     # Database migration runner
-│   └── ui             # React + TypeScript dashboard
-├── packages
-│   ├── api             # HTTP API package, wires the services together
-│   ├── apps            # Application registration and management
-│   ├── assets          # Hierarchical asset management (PostgreSQL ltree)
-│   ├── automations     # Automations and trigger domain models
-│   ├── commands        # Dispatch and lifecycle for device write operations
-│   ├── dashboards      # Dashboard documents and widget registry for the UI
-│   ├── devices_manager # Core domain logic for devices, drivers and transports
-│   ├── models          # Shared models, errors and utilities
-│   ├── notifications   # Notification dispatch and per-user delivery tracking
-│   ├── timeseries      # Recording and querying device measurements
-│   └── users           # User management and authentication
-├── docker              # Production Docker image (nginx + FastAPI)
-├── docs                # Documentation site sources (MkDocs)
-├── sdk/ts              # TypeScript client for the API
-├── pyproject.toml
-└── uv.lock
-```
+See [Transports](https://docs.gridone.a-grid.com/reference/transports/) for the configuration reference of each.
 
 ## Quick start (Docker)
 
-The Docker image bundles the built UI and the FastAPI backend behind nginx, and needs a PostgreSQL/TimescaleDB database to store its data. Create a `docker-compose.yml`:
-
-```yaml
-services:
-  timescaledb:
-    image: timescale/timescaledb:latest-pg18
-    ports:
-      - 5432:5432
-    environment:
-      POSTGRES_PASSWORD: postgres
-    volumes:
-      - timescaledb_data:/var/lib/postgresql/data
-
-  gridone-app:
-    image: ghcr.io/agrid-dev/gridone:latest
-    ports:
-      - 8765:8765
-    environment:
-      STORAGE_URL: postgresql://postgres:postgres@timescaledb:5432/postgres
-      GRIDONE_TIMEZONE: Europe/Paris
-    depends_on:
-      - timescaledb
-
-volumes:
-  timescaledb_data:
-```
-
-Then start both services:
+Gridone is easy to deploy: a single Docker image bundles the whole application. Follow the [Getting Started guide](https://docs.gridone.a-grid.com/getting-started/developers/) to write a `docker-compose.yml` and run:
 
 ```sh
 docker compose up
 ```
 
-Open `http://localhost:8765`. A default `admin` / `admin` account is created automatically on first start.
+See [`docker/README.md`](docker/README.md) for building the image locally and production deployment topologies (host networking for building-LAN device discovery, HTTPS reverse proxy setup, etc).
 
-See the [Getting Started guide](https://docs.gridone.a-grid.com/getting-started/developers/) for authentication and API usage, and [`docker/README.md`](docker/README.md) for building the image locally and production deployment topologies (host networking for building-LAN device discovery, HTTPS reverse proxy setup, etc).
+## CLI usage
+
+A [CLI](apps/cli/README.md) is available for testing and prototyping devices, drivers and transports without the full stack.
 
 ## Documentation
 
 Full documentation is available at [docs.gridone.a-grid.com](https://docs.gridone.a-grid.com).
+
+## API reference
+
+A Bruno request collection covering all API endpoints lives at [`requests/`](requests/). See [`packages/api/README.md#api-reference`](packages/api/README.md#api-reference) for setup instructions.
 
 ## Contributing
 

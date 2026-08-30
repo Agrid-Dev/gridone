@@ -55,25 +55,43 @@ This sets up:
 
 UI hooks only run when `apps/ui/` files are changed, and SDK hooks only run when `sdk/ts/` files are changed.
 
-### Running with a proxy
-
-If you need to route network calls through a proxy (for example when testing from a restricted network), prepend commands with `proxychains4`. A typical run looks like:
-
-```sh
-proxychains4 uv run fastapi dev apps/api_server/main.py
-```
-
 ### Running the applications
 
 Gridone can be run as a [CLI](apps/cli/README.md) or as a [FastAPI HTTP server](apps/api_server/README.md).
 
-### API reference
+## Project layout
 
-A Bruno request collection covering all API endpoints lives at [`requests/`](requests/). See [`packages/api/README.md`](packages/api/README.md#api-reference) for setup instructions.
+Gridone is a monorepo. Python services live under `packages/`, and runnable applications live under `apps/`.
+
+```
+.
+├── apps
+│   ├── api_server     # FastAPI server exposing the HTTP API
+│   ├── cli            # Standalone CLI for testing devices, drivers and transports
+│   ├── migrations     # Database migration runner
+│   └── ui             # React + TypeScript dashboard
+├── packages
+│   ├── api             # HTTP API package, wires the services together
+│   ├── apps            # Application registration and management
+│   ├── assets          # Hierarchical asset management (PostgreSQL ltree)
+│   ├── automations     # Automations and trigger domain models
+│   ├── commands        # Dispatch and lifecycle for device write operations
+│   ├── dashboards      # Dashboard documents and widget registry for the UI
+│   ├── devices_manager # Core domain logic for devices, drivers and transports
+│   ├── models          # Shared models, errors and utilities
+│   ├── notifications   # Notification dispatch and per-user delivery tracking
+│   ├── timeseries      # Recording and querying device measurements
+│   └── users           # User management and authentication
+├── docker              # Production Docker image (nginx + FastAPI)
+├── docs                # Documentation site sources (MkDocs)
+├── sdk/ts              # TypeScript client for the API
+├── pyproject.toml
+└── uv.lock
+```
 
 ## Architecture
 
-Gridone is a **modular monolith**: independent service packages under `packages/`, composed together by a single controller (`packages/api`) and run by the applications under `apps/`.
+Gridone is a **modular monolith** packaged by component: independent service packages under `packages/`, composed together by a single controller (`packages/api`) and run by the applications under `apps/`.
 
 ### Dependency direction
 
@@ -82,20 +100,17 @@ Dependencies only flow downward. Service packages never import each other direct
 ```mermaid
 graph TD
     api_server["apps/api_server"] --> api["packages/api"]
-    ui["apps/ui"] -. HTTP .-> api_server
+    ui["apps/ui"] --> sdk["sdk/ts"]
+    sdk -. HTTP .-> api_server
     cli["apps/cli"] --> devices_manager["devices_manager"]
-    migrations["apps/migrations"] --> devices_manager
-    migrations --> timeseries["timeseries"]
-    migrations --> users["users"]
-    migrations --> assets["assets"]
 
     api --> devices_manager
-    api --> timeseries
-    api --> users
+    api --> timeseries["timeseries"]
+    api --> users["users"]
     api --> automations["automations"]
     api --> commands["commands"]
     api --> dashboards["dashboards"]
-    api --> assets
+    api --> assets["assets"]
     api --> notifications["notifications"]
     api --> apps_pkg["packages/apps"]
 
@@ -114,7 +129,7 @@ When one service needs another (for example, `commands` needs to write to a devi
 
 ### Main services and apps
 
-See the project layout in [`README.md`](README.md#state-of-the-art) for what each package and app is responsible for.
+See the [project layout](#project-layout) above for what each package and app is responsible for.
 
 Each service package satisfies the `models.service.Service` protocol (`__init__(storage_url, ...)`, `async start()`, `async stop()`), builds its own storage from a URL, and owns its schema exclusively — no service package imports a controller framework (FastAPI, etc.).
 
