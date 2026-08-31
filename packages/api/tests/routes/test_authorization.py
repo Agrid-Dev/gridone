@@ -46,7 +46,7 @@ from apps import (
     RegistrationRequest,
     RegistrationRequestStatus,
 )
-from devices_manager import IngressResult
+from devices_manager import DiscoveryManagerInterface, IngressResult
 from devices_manager.core.device import Attribute
 from devices_manager.core.device.event_log import AttributeLogs
 from devices_manager.types import DataType
@@ -1165,6 +1165,10 @@ def _build_transports_app() -> FastAPI:
     dm = MagicMock()
     dm.list_transports.return_value = []
     dm.get_transport_ingress.return_value = _FakeIngressTarget()
+    dm.transport_ids = {"t1"}
+    dm.list_drivers.return_value = []
+    dm.discovery_manager = MagicMock(spec=DiscoveryManagerInterface)
+    dm.discovery_manager.unregister = AsyncMock()
     app.dependency_overrides[get_users_service] = lambda: manager
     app.dependency_overrides[get_device_manager] = lambda: dm
     app.include_router(auth_router, prefix="/auth")
@@ -1187,6 +1191,24 @@ TRANSPORTS_ACCESS_CONTROL_SCENARIOS = [
     # checks its own credentials and 401s through UnauthorizedError).
     pytest.param(
         "POST", "/transports/t1/ingress/room1/snapshot", None, 200, id="ingress-no-auth"
+    ),
+    # Discovery is a transport-scoped surface: readable by viewers, but
+    # registering a handler changes what the transport does, so it needs write.
+    pytest.param(
+        "GET", "/transports/t1/discovery/", None, 401, id="discovery-list-no-auth"
+    ),
+    pytest.param(
+        "GET", "/transports/t1/discovery/", "viewer", 200, id="discovery-list-viewer"
+    ),
+    pytest.param(
+        "POST", "/transports/t1/discovery/", "viewer", 403, id="discovery-create-viewer"
+    ),
+    pytest.param(
+        "DELETE",
+        "/transports/t1/discovery/d1",
+        "operator",
+        204,
+        id="discovery-delete-operator",
     ),
 ]
 
