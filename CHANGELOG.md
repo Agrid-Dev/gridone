@@ -1,3 +1,9 @@
+## v0.218.3 (2026-08-31)
+
+### Fix
+
+- **api**: require transport permissions on discovery routes
+
 ## v0.218.2 (2026-08-31)
 
 ### Fix
