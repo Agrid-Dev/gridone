@@ -46,7 +46,7 @@ from apps import (
     RegistrationRequest,
     RegistrationRequestStatus,
 )
-from devices_manager import IngressResult
+from devices_manager import DiscoveryManagerInterface, IngressResult
 from devices_manager.core.device import Attribute
 from devices_manager.core.device.event_log import AttributeLogs
 from devices_manager.types import DataType
@@ -1165,12 +1165,22 @@ def _build_transports_app() -> FastAPI:
     dm = MagicMock()
     dm.list_transports.return_value = []
     dm.get_transport_ingress.return_value = _FakeIngressTarget()
+    # Discovery stubs: an allowed role must reach the handler, so register and
+    # unregister are async — a bare MagicMock returns a non-awaitable, which
+    # discovery_router turns into a 422 that reads exactly like a permission bug.
+    dm.transport_ids = {"t1"}
+    dm.driver_ids = {"d1"}
+    dm.list_drivers.return_value = []
+    dm.discovery_manager = MagicMock(spec=DiscoveryManagerInterface)
+    dm.discovery_manager.register = AsyncMock()
+    dm.discovery_manager.unregister = AsyncMock()
     app.dependency_overrides[get_users_service] = lambda: manager
     app.dependency_overrides[get_device_manager] = lambda: dm
     app.include_router(auth_router, prefix="/auth")
     app.include_router(transports_ingress_router, prefix="/transports")
     jwt_dep = [Depends(get_current_user_id)]
     app.include_router(transports_router, prefix="/transports", dependencies=jwt_dep)
+    app.state.dm = dm
     return app
 
 
@@ -1179,27 +1189,61 @@ def transports_app() -> FastAPI:
     return _build_transports_app()
 
 
+_DISCOVERY = "/transports/t1/discovery/"
+_DISCOVERY_ITEM = "/transports/t1/discovery/d1"
+_DRIVER = {"driver_id": "d1"}
+
 TRANSPORTS_ACCESS_CONTROL_SCENARIOS = [
     # The management surface requires a JWT.
-    pytest.param("GET", "/transports/", None, 401, id="list-no-auth"),
-    pytest.param("GET", "/transports/", "viewer", 200, id="list-viewer"),
+    pytest.param("GET", "/transports/", None, {}, 401, id="list-no-auth"),
+    pytest.param("GET", "/transports/", "viewer", {}, 200, id="list-viewer"),
     # Ingress bypasses the user-auth flow: no JWT needed (the transport
     # checks its own credentials and 401s through UnauthorizedError).
     pytest.param(
-        "POST", "/transports/t1/ingress/room1/snapshot", None, 200, id="ingress-no-auth"
+        "POST",
+        "/transports/t1/ingress/room1/snapshot",
+        None,
+        {},
+        200,
+        id="ingress-no-auth",
+    ),
+    # Discovery is a transport-scoped surface, so it reuses the transport
+    # permissions: a viewer may read the status, but registering a handler
+    # subscribes on the transport and persists devices, so it needs write.
+    pytest.param("GET", _DISCOVERY, None, {}, 401, id="discovery-list-no-auth"),
+    pytest.param("GET", _DISCOVERY, "viewer", {}, 200, id="discovery-list-viewer"),
+    pytest.param("POST", _DISCOVERY, None, _DRIVER, 401, id="discovery-create-no-auth"),
+    pytest.param(
+        "POST", _DISCOVERY, "viewer", _DRIVER, 403, id="discovery-create-viewer"
+    ),
+    pytest.param(
+        "POST", _DISCOVERY, "operator", _DRIVER, 201, id="discovery-create-operator"
+    ),
+    pytest.param(
+        "POST", _DISCOVERY, "admin", _DRIVER, 201, id="discovery-create-admin"
+    ),
+    pytest.param(
+        "DELETE", _DISCOVERY_ITEM, None, {}, 401, id="discovery-delete-no-auth"
+    ),
+    pytest.param(
+        "DELETE", _DISCOVERY_ITEM, "viewer", {}, 403, id="discovery-delete-viewer"
+    ),
+    pytest.param(
+        "DELETE", _DISCOVERY_ITEM, "operator", {}, 204, id="discovery-delete-operator"
     ),
 ]
 
 
 @pytest.mark.parametrize(
-    ("method", "endpoint", "username", "expected_status"),
+    ("method", "endpoint", "username", "body", "expected_status"),
     TRANSPORTS_ACCESS_CONTROL_SCENARIOS,
 )
-def test_transports_access_control(
+def test_transports_access_control(  # noqa: PLR0913
     transports_app: FastAPI,
     method: str,
     endpoint: str,
     username: str | None,
+    body: dict,
     expected_status: int,
 ) -> None:
     with TestClient(transports_app) as client:
@@ -1207,8 +1251,21 @@ def test_transports_access_control(
         if username is not None:
             token = _login(client, username)
             headers = _auth_header(token)
-        resp = client.request(method, endpoint, headers=headers, json={})
+        resp = client.request(method, endpoint, headers=headers, json=body)
         assert resp.status_code == expected_status
+
+
+def test_discovery_write_denied_before_handler(transports_app: FastAPI) -> None:
+    """A denied role must be stopped by the permission gate, not after the fact:
+    a 403 that had already subscribed on the transport or dropped a handler
+    would be a silent side effect."""
+    discovery = transports_app.state.dm.discovery_manager
+    with TestClient(transports_app) as client:
+        headers = _auth_header(_login(client, "viewer"))
+        assert client.post(_DISCOVERY, headers=headers, json=_DRIVER).status_code == 403
+        assert client.delete(_DISCOVERY_ITEM, headers=headers).status_code == 403
+    discovery.register.assert_not_called()
+    discovery.unregister.assert_not_called()
 
 
 # --- Dashboards RBAC ---

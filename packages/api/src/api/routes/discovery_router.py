@@ -3,7 +3,8 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Path, status
 from pydantic import BaseModel
 
-from api.dependencies import get_device_manager
+from api.dependencies import get_device_manager, require_permission
+from api.permissions import Permission
 from devices_manager import DevicesServiceInterface
 
 
@@ -24,7 +25,7 @@ def get_transport_id(transport_id: str = Path(...)) -> str:
     return transport_id
 
 
-@router.get("/")
+@router.get("/", dependencies=[Depends(require_permission(Permission.TRANSPORTS_READ))])
 def list_discoveries(
     dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
     transport_id: Annotated[str, Depends(get_transport_id)],
@@ -45,7 +46,11 @@ def list_discoveries(
     ]
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_permission(Permission.TRANSPORTS_WRITE))],
+)
 async def create_discovery(
     dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
     payload: DiscoveryHandlerCreateDTO,
@@ -72,7 +77,11 @@ async def create_discovery(
     )
 
 
-@router.delete("/{driver_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{driver_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_permission(Permission.TRANSPORTS_WRITE))],
+)
 async def delete_discovery(
     dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
     transport_id: Annotated[str, Depends(get_transport_id)],
