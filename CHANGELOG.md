@@ -1,3 +1,9 @@
+## v0.218.2 (2026-08-31)
+
+### Fix
+
+- **dashboards**: trim oversized KPI tile default footprint (#591)
+
 ## v0.218.1 (2026-08-28)
 
 ### Fix
