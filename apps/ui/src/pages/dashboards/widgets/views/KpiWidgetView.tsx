@@ -36,7 +36,7 @@ const KpiValue: FC<{
 }> = ({ value, dataType, attribute, deviceType, unit, precision }) => {
   if (dataType === "bool" || dataType === "str") {
     return (
-      <div className="flex h-full items-center justify-center p-4">
+      <div className="flex h-full items-center justify-center p-2">
         <AttributeValue
           value={value}
           attributeName={attribute}
@@ -49,7 +49,7 @@ const KpiValue: FC<{
   }
   const digits = precision ?? (dataType === "float" ? 2 : 0);
   return (
-    <div className="flex h-full items-center justify-center p-4">
+    <div className="flex h-full items-center justify-center p-2">
       <span className="text-3xl font-semibold">
         {fmt(typeof value === "number" ? value : null, digits)}
         {unit && (

@@ -121,8 +121,8 @@ def build_default_registry() -> WidgetRegistry:
     has on the device history page — a time axis squeezed into a small tile is
     unreadable. ``device_control`` is a third of the grid wide and tall,
     matching the portrait footprint of the standard control surface plus
-    attribute panes on the device page. ``kpi`` is a quarter of the grid
-    wide and two rows tall — it shows a single number, not a plot.
+    attribute panes on the device page. ``kpi`` is a sixth of the grid
+    wide and a single row tall — it shows one number, not a plot.
     """
     registry = WidgetRegistry()
     registry.register(
@@ -150,7 +150,7 @@ def build_default_registry() -> WidgetRegistry:
         WidgetType(
             type="kpi",
             config_model=KpiWidgetConfig,
-            default_size=WidgetSize(w=3, h=2),
+            default_size=WidgetSize(w=2, h=1),
         )
     )
     registry.register(
