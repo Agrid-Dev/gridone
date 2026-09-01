@@ -37,7 +37,9 @@
     "feedback": {
       "deleted": "Appareil supprimé",
       "updated": "Appareil mis à jour",
-      "updateError": "Échec de la mise à jour de l'appareil"
+      "createError": "Échec de la création de l'appareil",
+      "updateError": "Échec de la mise à jour de l'appareil",
+      "duplicateConfig": "Un appareil avec ce pilote, ce réseau et cette configuration existe déjà"
     },
     "sections": {
       "identity": "Identité",

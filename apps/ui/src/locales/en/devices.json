@@ -37,7 +37,9 @@
     "feedback": {
       "deleted": "Device deleted",
       "updated": "Device updated",
-      "updateError": "Failed to update device"
+      "createError": "Failed to create device",
+      "updateError": "Failed to update device",
+      "duplicateConfig": "A device with this driver, network and configuration already exists"
     },
     "sections": {
       "identity": "Identity",
