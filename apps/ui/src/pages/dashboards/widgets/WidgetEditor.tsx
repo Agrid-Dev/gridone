@@ -16,13 +16,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { identityPreviewSize, widgetPreviewSize } from "./registry";
 import {
   WidgetForm,
   type WidgetFormState,
   type WidgetFormValues,
 } from "./WidgetForm";
-import { WidgetPreview, widgetDefaultSize } from "./WidgetPreview";
+import { resolvePreviewSize, WidgetPreview } from "./WidgetPreview";
 import { WidgetTypeBand } from "./WidgetTypeBand";
 
 /** Ties the page-level submit button to the config form it commits. */
@@ -120,10 +119,7 @@ export const WidgetEditor: FC<WidgetEditorProps> = ({
               type's own preview-sizing rule if it registers one. */}
           <WidgetPreview
             draft={draft}
-            size={(widgetPreviewSize[type] ?? identityPreviewSize)(
-              draft?.config,
-              widget?.layout ?? widgetDefaultSize(schemas[type]),
-            )}
+            size={resolvePreviewSize(type, draft, widget, schemas)}
           />
         </div>
       </div>
