@@ -9,6 +9,7 @@ from api.dependencies import (
     get_users_service,
 )
 from api.permissions import get_permissions_for_role
+from models.errors import NotFoundError
 from users import UsersService
 from users.auth import AuthService, InvalidTokenError
 from users.models import Role
@@ -105,25 +106,35 @@ async def _tokens_for_credentials(
     ), auth_service.create_refresh_token(user.id, user.role)
 
 
+def _invalid_refresh_token() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid or expired refresh token",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
 async def _tokens_for_refresh(
     token: str, um: UsersService, auth_service: AuthService
 ) -> tuple[str, str]:
     try:
         payload = auth_service.decode_token(token, expected_type="refresh")
     except InvalidTokenError as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired refresh token",
-            headers={"WWW-Authenticate": "Bearer"},
-        ) from e
-    if await um.is_blocked(payload.sub):
+        raise _invalid_refresh_token() from e
+    try:
+        user = await um.get_by_id(payload.sub)
+    except NotFoundError as e:
+        # A token for a deleted account is as spent as an expired one, and
+        # answering 401 avoids telling the caller which of the two it holds.
+        raise _invalid_refresh_token() from e
+    if user.is_blocked:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Your account has been blocked. Contact an administrator.",
         )
     return auth_service.create_access_token(
-        payload.sub, payload.role
-    ), auth_service.create_refresh_token(payload.sub, payload.role)
+        user.id, user.role
+    ), auth_service.create_refresh_token(user.id, user.role)
 
 
 @router.post("/token")

@@ -50,6 +50,7 @@ from devices_manager import DiscoveryManagerInterface, IngressResult
 from devices_manager.core.device import Attribute
 from devices_manager.core.device.event_log import AttributeLogs
 from devices_manager.types import DataType
+from models.errors import NotFoundError
 from models.pagination import Page
 from models.types import Severity
 from notifications import (
@@ -99,7 +100,7 @@ class MockUsersService:
             if user.id == user_id:
                 return user
         msg = f"User '{user_id}' not found"
-        raise RuntimeError(msg)
+        raise NotFoundError(msg)
 
     async def list_users(self) -> list[User]:
         return list(self._users.values())
