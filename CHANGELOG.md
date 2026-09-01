@@ -1,3 +1,9 @@
+## v0.218.4 (2026-09-01)
+
+### Fix
+
+- **api**: re-read the role from storage on the refresh grant (AGR-1111)
+
 ## v0.218.3 (2026-08-31)
 
 ### Fix
