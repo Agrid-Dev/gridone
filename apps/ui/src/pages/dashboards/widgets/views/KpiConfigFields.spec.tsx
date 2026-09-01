@@ -12,6 +12,9 @@ vi.mock("react-i18next", () =>
     "widgets.kpi.operator.placeholder": "Select…",
     "widgets.kpi.unit.label": "Unit",
     "widgets.kpi.precision.label": "Precision",
+    "widgets.kpi.attribute.label": "Attribute {{index}}",
+    "widgets.kpi.attribute.add": "Add attribute",
+    "widgets.kpi.attribute.remove": "Remove attribute",
     "widgets.chart.agg.captions.avg": "mean of the bucket",
     "widgets.chart.agg.captions.sum": "total of the bucket",
     "widgets.chart.agg.captions.mode": "most frequent value",
@@ -53,6 +56,25 @@ vi.mock("@/components/forms/targetPicker", () => ({
       >
         pick two devices
       </button>
+    </div>
+  ),
+  AttributeCoverageSelect: ({
+    onChange,
+  }: {
+    onChange: (attribute: string, dataType: string) => void;
+  }) => (
+    <div>
+      {["temperature", "mode"].map((attr) => (
+        <button
+          key={attr}
+          type="button"
+          onClick={() =>
+            onChange(attr, attr === "temperature" ? "float" : "str")
+          }
+        >
+          pick attribute {attr}
+        </button>
+      ))}
     </div>
   ),
   useAttributeCoverage: () => ({
@@ -194,23 +216,27 @@ vi.mock("@/components/ui/select", () => ({
 }));
 
 // Imported after the mocks are registered.
-import { KpiConfigFields, kpiConfigCheck } from "./KpiConfigFields";
+import {
+  BLANK_ATTRIBUTE,
+  KpiConfigFields,
+  kpiConfigCheck,
+} from "./KpiConfigFields";
 
 function Harness({
   onValues,
+  defaultAttributes = [BLANK_ATTRIBUTE],
   defaultConfig = {},
 }: {
   onValues: (config: Record<string, unknown>) => void;
+  defaultAttributes?: Record<string, unknown>[];
   defaultConfig?: Record<string, unknown>;
 }) {
   const form = useForm({
     defaultValues: {
       config: {
         type: "kpi",
-        target: "",
+        attributes: defaultAttributes,
         temporal: "live",
-        unit: "",
-        precision: undefined,
         ...defaultConfig,
       },
     },
@@ -223,25 +249,48 @@ function Harness({
   );
 }
 
-function renderFields(defaultConfig?: Record<string, unknown>) {
+function renderFields(
+  defaultAttributes?: Record<string, unknown>[],
+  defaultConfig?: Record<string, unknown>,
+) {
   const values: Record<string, unknown>[] = [];
   render(
-    <Harness onValues={(c) => values.push(c)} defaultConfig={defaultConfig} />,
+    <Harness
+      onValues={(c) => values.push(c)}
+      defaultAttributes={defaultAttributes}
+      defaultConfig={defaultConfig}
+    />,
   );
   return () => values[values.length - 1];
 }
 
+function firstAttribute(config: Record<string, unknown>) {
+  return (config.attributes as Record<string, unknown>[])[0];
+}
+
+const SINGLE_DEVICE_TARGET = {
+  devices: { ids: ["dev1"] },
+  attribute: "temperature",
+};
+const TWO_DEVICE_IDS_TARGET = {
+  devices: { ids: ["dev1", "dev2"] },
+  attribute: "temperature",
+};
+const CRITERIA_TARGET = {
+  devices: { types: ["thermostat"] },
+  attribute: "temperature",
+};
+
 afterEach(cleanup);
 
 describe("KpiConfigFields", () => {
-  it("emits the picked target as config.target", () => {
+  it("emits the picked target on the first attribute", () => {
     const latest = renderFields();
 
     fireEvent.click(screen.getByText("pick temperature"));
 
-    expect((latest().target as { attribute?: string }).attribute).toBe(
-      "temperature",
-    );
+    const target = firstAttribute(latest()).target as { attribute?: string };
+    expect(target.attribute).toBe("temperature");
   });
 
   it("starts in live mode with no operator select shown", () => {
@@ -252,9 +301,9 @@ describe("KpiConfigFields", () => {
   });
 
   it("switches to period mode and shows the operator select", () => {
-    const latest = renderFields({
-      target: { devices: { ids: ["dev1"] }, attribute: "temperature" },
-    });
+    const latest = renderFields([
+      { ...BLANK_ATTRIBUTE, target: SINGLE_DEVICE_TARGET },
+    ]);
 
     fireEvent.click(screen.getByText("Over the period"));
 
@@ -262,11 +311,16 @@ describe("KpiConfigFields", () => {
     expect(screen.getByTestId("operator")).toBeInTheDocument();
   });
 
-  it("disables operators the attribute's data type refuses", () => {
-    renderFields({
-      target: { devices: { ids: ["dev1"] }, attribute: "mode" },
-      temporal: {},
-    });
+  it("disables operators the first attribute's data type refuses", () => {
+    renderFields(
+      [
+        {
+          ...BLANK_ATTRIBUTE,
+          target: { devices: { ids: ["dev1"] }, attribute: "mode" },
+        },
+      ],
+      { temporal: {} },
+    );
 
     const options = Array.from(
       screen.getByTestId("operator").querySelectorAll("option"),
@@ -275,18 +329,23 @@ describe("KpiConfigFields", () => {
     expect(enabled).toEqual(["mode"]);
   });
 
-  it("clears the operator when the attribute's data type refuses it", () => {
-    const latest = renderFields({
-      target: { devices: { ids: ["dev1"] }, attribute: "mode" },
-      temporal: { operator: "avg" },
-    });
+  it("clears the operator when the first attribute's data type refuses it", () => {
+    const latest = renderFields(
+      [
+        {
+          ...BLANK_ATTRIBUTE,
+          target: { devices: { ids: ["dev1"] }, attribute: "mode" },
+        },
+      ],
+      { temporal: { operator: "avg" } },
+    );
 
     expect(
       (latest().temporal as { operator?: string }).operator,
     ).toBeUndefined();
   });
 
-  it("names the constraint when the target picks more than one device and no operator is chosen", () => {
+  it("names the constraint when a target picks more than one device and no operator is chosen", () => {
     renderFields();
 
     fireEvent.click(screen.getByText("pick two devices"));
@@ -309,10 +368,9 @@ describe("KpiConfigFields", () => {
   });
 
   it("clears the constraint warning once a fold operator is picked", () => {
-    renderFields({
-      target: { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
-      space_agg: "avg",
-    });
+    renderFields([
+      { ...BLANK_ATTRIBUTE, target: TWO_DEVICE_IDS_TARGET, space_agg: "avg" },
+    ]);
 
     expect(
       screen.queryByText(
@@ -322,17 +380,13 @@ describe("KpiConfigFields", () => {
   });
 
   it("hides the space select for a single explicit device id", () => {
-    renderFields({
-      target: { devices: { ids: ["dev1"] }, attribute: "temperature" },
-    });
+    renderFields([{ ...BLANK_ATTRIBUTE, target: SINGLE_DEVICE_TARGET }]);
 
     expect(screen.queryByTestId("operator")).not.toBeInTheDocument();
   });
 
-  it("shows the space select once the target can match more than one device", () => {
-    renderFields({
-      target: { devices: { types: ["thermostat"] }, attribute: "temperature" },
-    });
+  it("shows the space select once a target can match more than one device", () => {
+    renderFields([{ ...BLANK_ATTRIBUTE, target: CRITERIA_TARGET }]);
 
     const select = screen.getByTestId("operator");
     const enabled = Array.from(select.querySelectorAll("option"))
@@ -341,35 +395,33 @@ describe("KpiConfigFields", () => {
     expect(enabled).toEqual(["avg", "sum"]);
   });
 
-  it("emits the picked space operator as config.space_agg", () => {
-    const latest = renderFields({
-      target: { devices: { types: ["thermostat"] }, attribute: "temperature" },
-    });
+  it("emits the picked space operator on the attribute", () => {
+    const latest = renderFields([
+      { ...BLANK_ATTRIBUTE, target: CRITERIA_TARGET },
+    ]);
 
     fireEvent.change(screen.getByTestId("operator"), {
       target: { value: "sum" },
     });
 
-    expect(latest().space_agg).toBe("sum");
+    expect(firstAttribute(latest()).space_agg).toBe("sum");
   });
 
   it("clears space_agg once the target narrows to a single device", () => {
-    const latest = renderFields({
-      target: { devices: { types: ["thermostat"] }, attribute: "temperature" },
-      space_agg: "avg",
-    });
+    const latest = renderFields([
+      { ...BLANK_ATTRIBUTE, target: CRITERIA_TARGET, space_agg: "avg" },
+    ]);
 
     fireEvent.click(screen.getByText("pick temperature"));
 
-    expect(latest().space_agg).toBeNull();
+    expect(firstAttribute(latest()).space_agg).toBeNull();
   });
 
   // Space folds what the period operator yields, so there's nothing to
   // offer until one is picked — showing a populated-but-fully-disabled
   // select there would look broken rather than merely premature.
   it("hides the space select in period mode until a time operator is chosen", () => {
-    renderFields({
-      target: { devices: { types: ["thermostat"] }, attribute: "temperature" },
+    renderFields([{ ...BLANK_ATTRIBUTE, target: CRITERIA_TARGET }], {
       temporal: {},
     });
 
@@ -377,50 +429,149 @@ describe("KpiConfigFields", () => {
   });
 
   it("shows the space select in period mode once a time operator is chosen", () => {
-    renderFields({
-      target: { devices: { types: ["thermostat"] }, attribute: "temperature" },
+    renderFields([{ ...BLANK_ATTRIBUTE, target: CRITERIA_TARGET }], {
       temporal: { operator: "avg" },
     });
 
     expect(screen.getAllByTestId("operator")).toHaveLength(2);
+  });
+
+  it("starts with one blank attribute when the array is empty", () => {
+    const latest = renderFields([]);
+
+    expect((latest().attributes as unknown[]).length).toBe(1);
+  });
+
+  it("adds another attribute row on Add attribute", () => {
+    const latest = renderFields();
+
+    fireEvent.click(screen.getByText("Add attribute"));
+
+    expect((latest().attributes as unknown[]).length).toBe(2);
+  });
+
+  it("seeds a new row with the last row's device selection", () => {
+    const latest = renderFields([
+      { ...BLANK_ATTRIBUTE, target: CRITERIA_TARGET },
+    ]);
+
+    fireEvent.click(screen.getByText("Add attribute"));
+
+    const attributes = latest().attributes as {
+      target: { devices: unknown; attribute: string };
+    }[];
+    expect(attributes).toHaveLength(2);
+    expect(attributes[1].target.devices).toEqual(CRITERIA_TARGET.devices);
+    expect(attributes[1].target.attribute).toBe("");
+  });
+
+  it("shows the device picker only for the first row", () => {
+    renderFields([
+      { ...BLANK_ATTRIBUTE, target: CRITERIA_TARGET },
+      {
+        ...BLANK_ATTRIBUTE,
+        target: { devices: { types: ["thermostat"] }, attribute: "" },
+      },
+    ]);
+
+    // One device picker (row 0's "pick two devices" button is unique to it).
+    expect(screen.getAllByText("pick two devices")).toHaveLength(1);
+    // Both rows offer an attribute pick, row 0 via the full picker and row 1
+    // via the coverage-only select.
+    expect(screen.getAllByText("pick temperature")).toHaveLength(1);
+    expect(screen.getAllByText("pick attribute temperature")).toHaveLength(1);
+  });
+
+  it("keeps later rows' devices in sync when the first row's change", () => {
+    const latest = renderFields([
+      { ...BLANK_ATTRIBUTE, target: SINGLE_DEVICE_TARGET },
+      {
+        ...BLANK_ATTRIBUTE,
+        target: { devices: { ids: ["dev1"] }, attribute: "mode" },
+      },
+    ]);
+
+    fireEvent.click(screen.getByText("pick two devices"));
+
+    const attributes = latest().attributes as {
+      target: { devices: unknown; attribute: string };
+    }[];
+    expect(attributes[1].target.devices).toEqual({
+      ids: ["dev1", "dev2"],
+    });
+    expect(attributes[1].target.attribute).toBe("mode");
+  });
+
+  it("removes an attribute row, keeping each row's own target", () => {
+    const latest = renderFields([
+      { ...BLANK_ATTRIBUTE, target: SINGLE_DEVICE_TARGET },
+      {
+        ...BLANK_ATTRIBUTE,
+        target: { devices: { ids: ["dev1"] }, attribute: "mode" },
+      },
+    ]);
+
+    fireEvent.click(screen.getAllByLabelText("Remove attribute")[0]);
+
+    const attributes = latest().attributes as {
+      target: { attribute: string };
+    }[];
+    expect(attributes).toHaveLength(1);
+    expect(attributes[0].target.attribute).toBe("mode");
+  });
+
+  it("disables removal of the last remaining attribute", () => {
+    renderFields();
+
+    expect(screen.getByLabelText("Remove attribute")).toBeDisabled();
   });
 });
 
 describe("kpiConfigCheck", () => {
   it("accepts a single explicit device id", () => {
     const result = kpiConfigCheck.safeParse({
-      target: { devices: { ids: ["dev1"] }, attribute: "temperature" },
+      attributes: [{ target: SINGLE_DEVICE_TARGET }],
     });
     expect(result.success).toBe(true);
   });
 
   it("rejects more than one device id", () => {
     const result = kpiConfigCheck.safeParse({
-      target: { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
+      attributes: [{ target: TWO_DEVICE_IDS_TARGET }],
     });
     expect(result.success).toBe(false);
   });
 
   it("rejects a type-filter target", () => {
     const result = kpiConfigCheck.safeParse({
-      target: { devices: { types: ["thermostat"] }, attribute: "temperature" },
+      attributes: [{ target: CRITERIA_TARGET }],
     });
     expect(result.success).toBe(false);
   });
 
   it("accepts a type-filter target with a fold operator", () => {
     const result = kpiConfigCheck.safeParse({
-      target: { devices: { types: ["thermostat"] }, attribute: "temperature" },
-      space_agg: "avg",
+      attributes: [{ target: CRITERIA_TARGET, space_agg: "avg" }],
     });
     expect(result.success).toBe(true);
   });
 
   it("accepts several device ids with a fold operator", () => {
     const result = kpiConfigCheck.safeParse({
-      target: { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
-      space_agg: "sum",
+      attributes: [{ target: TWO_DEVICE_IDS_TARGET, space_agg: "sum" }],
     });
     expect(result.success).toBe(true);
+  });
+
+  it("checks every attribute independently", () => {
+    const result = kpiConfigCheck.safeParse({
+      attributes: [
+        { target: SINGLE_DEVICE_TARGET },
+        {
+          target: { devices: { types: ["thermostat"] }, attribute: "mode" },
+        },
+      ],
+    });
+    expect(result.success).toBe(false);
   });
 });
