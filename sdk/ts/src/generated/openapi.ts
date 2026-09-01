@@ -2822,11 +2822,26 @@ export interface components {
       config: components["schemas"]["KNXTransportConfig"];
     };
     /**
-     * KpiWidgetConfig
-     * @description Single number over one attribute of a device set.
+     * KpiAttribute
+     * @description One metric shown on a KPI tile: a target plus how it folds and renders.
      *
      *     Without ``space_agg`` the target must resolve to exactly one device;
      *     with it, any number fold into one.
+     */
+    KpiAttribute: {
+      target: components["schemas"]["AttributeTarget"];
+      space_agg?: components["schemas"]["AggregationOperator"] | null;
+      /** Unit */
+      unit?: string | null;
+      /** Precision */
+      precision?: number | null;
+    };
+    /**
+     * KpiWidgetConfig
+     * @description One or more metrics of a device set, shown together on one tile.
+     *
+     *     Every metric shares the tile's single Live/Period temporal mode; each
+     *     otherwise folds and renders independently (see :class:`KpiAttribute`).
      */
     KpiWidgetConfig: {
       /**
@@ -2834,17 +2849,13 @@ export interface components {
        * @enum {string}
        */
       type: "kpi";
-      target: components["schemas"]["AttributeTarget"];
+      /** Attributes */
+      attributes: components["schemas"]["KpiAttribute"][];
       /**
        * Temporal
        * @default live
        */
       temporal?: "live" | components["schemas"]["TimeAggregation"];
-      space_agg?: components["schemas"]["AggregationOperator"] | null;
-      /** Unit */
-      unit?: string | null;
-      /** Precision */
-      precision?: number | null;
     };
     /**
      * LayoutItem

@@ -59,6 +59,12 @@ _KPI_TARGET = {
     "attribute": "temperature",
 }
 _KPI_CONFIG = {"type": "kpi", "target": _KPI_TARGET}
+_KPI_ATTRIBUTE = {
+    "target": _KPI_TARGET,
+    "space_agg": None,
+    "unit": None,
+    "precision": None,
+}
 
 
 @pytest.fixture
@@ -314,11 +320,9 @@ class TestWidgets:
         svc.add_widget.assert_awaited_once_with(
             "d1",
             config={
-                **_KPI_CONFIG,
+                "type": "kpi",
+                "attributes": [_KPI_ATTRIBUTE],
                 "temporal": "live",
-                "space_agg": None,
-                "unit": None,
-                "precision": None,
             },
             title=None,
             description=None,
@@ -332,7 +336,11 @@ class TestWidgets:
         assert resp.status_code == 201
         svc.add_widget.assert_awaited_once_with(
             "d1",
-            config={**config, "space_agg": None, "unit": None, "precision": None},
+            config={
+                "type": "kpi",
+                "attributes": [_KPI_ATTRIBUTE],
+                "temporal": {"operator": "sum"},
+            },
             title=None,
             description=None,
         )

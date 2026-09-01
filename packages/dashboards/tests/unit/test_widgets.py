@@ -190,7 +190,7 @@ def test_schemas_returns_json_schema_per_type():
     assert device_control["properties"]["device_id"]["minLength"] == 1
     assert device_control["x-default-size"] == {"w": 4, "h": 6}
     kpi = schemas["kpi"]
-    assert set(kpi["required"]) == {"target"}
+    assert set(kpi["required"]) == {"attributes"}
     assert kpi["x-default-size"] == {"w": 2, "h": 1}
     meter_tree = schemas["meter_tree"]
     assert set(meter_tree["required"]) == {"root"}
@@ -394,30 +394,48 @@ def test_text_config_accepts_valid_hex(color: str):
     assert config.color == color
 
 
+def _kpi_target(
+    device_id: str | None, attribute: str, *, criteria: str | None = None
+) -> dict:
+    devices = {"types": [criteria]} if criteria else {"ids": [device_id]}
+    return {"devices": devices, "attribute": attribute}
+
+
+def _resolved(attribute: str, device_ids: list[str]) -> ResolvedTarget:
+    return ResolvedTarget(
+        attribute=attribute,
+        device_ids=device_ids,
+        data_type=DataType.FLOAT,
+        excluded_device_ids=[],
+    )
+
+
 def test_kpi_config_defaults_to_live():
     registry = build_default_registry()
 
     config = registry.validate_config(
         {
             "type": "kpi",
-            "target": {"devices": {"ids": ["d1"]}, "attribute": "temperature"},
+            "attributes": [{"target": _kpi_target("d1", "temperature")}],
         }
     )
 
     assert isinstance(config, KpiWidgetConfig)
     assert config.temporal == "live"
-    assert config.unit is None
-    assert config.precision is None
+    assert config.attributes[0].unit is None
+    assert config.attributes[0].precision is None
     assert [t.attribute for t in config.targets()] == ["temperature"]
 
 
-def test_kpi_config_accepts_a_period_aggregation():
+def test_kpi_config_upgrades_legacy_single_target_shape():
+    # Configs persisted before multi-attribute support store target/space_agg/
+    # unit/precision at the top level; they must keep loading unchanged.
     registry = build_default_registry()
 
     config = registry.validate_config(
         {
             "type": "kpi",
-            "target": {"devices": {"ids": ["d1"]}, "attribute": "energy"},
+            "target": _kpi_target("d1", "energy"),
             "temporal": {"operator": "sum"},
             "unit": "kWh",
             "precision": 1,
@@ -425,10 +443,36 @@ def test_kpi_config_accepts_a_period_aggregation():
     )
 
     assert isinstance(config, KpiWidgetConfig)
+    assert len(config.attributes) == 1
+    assert config.attributes[0].target.attribute == "energy"
+    assert config.attributes[0].unit == "kWh"
+    assert config.attributes[0].precision == 1
     assert isinstance(config.temporal, TimeAggregation)
     assert config.temporal.operator is AggregationOperator.SUM
-    assert config.unit == "kWh"
-    assert config.precision == 1
+
+
+def test_kpi_config_accepts_several_attributes():
+    registry = build_default_registry()
+
+    config = registry.validate_config(
+        {
+            "type": "kpi",
+            "attributes": [
+                {"target": _kpi_target("d1", "temperature"), "unit": "°C"},
+                {"target": _kpi_target("d1", "setpoint_min"), "unit": "°C"},
+            ],
+        }
+    )
+
+    assert isinstance(config, KpiWidgetConfig)
+    assert [t.attribute for t in config.targets()] == ["temperature", "setpoint_min"]
+
+
+def test_kpi_config_rejects_an_empty_attributes_list():
+    registry = build_default_registry()
+
+    with pytest.raises(InvalidError):
+        registry.validate_config({"type": "kpi", "attributes": []})
 
 
 def test_kpi_config_rejects_a_multi_device_resolved_target():
@@ -437,17 +481,10 @@ def test_kpi_config_rejects_a_multi_device_resolved_target():
     config = KpiWidgetConfig.model_validate(
         {
             "type": "kpi",
-            "target": {"devices": {"ids": ["d1"]}, "attribute": "temperature"},
+            "attributes": [{"target": _kpi_target("d1", "temperature")}],
         }
     )
-    resolved = [
-        ResolvedTarget(
-            attribute="temperature",
-            device_ids=["d1", "d2"],
-            data_type=DataType.FLOAT,
-            excluded_device_ids=[],
-        )
-    ]
+    resolved = [_resolved("temperature", ["d1", "d2"])]
 
     with pytest.raises(InvalidError, match="exactly one device"):
         config.validate_resolved(resolved)
@@ -457,17 +494,10 @@ def test_kpi_config_accepts_a_single_device_resolved_target():
     config = KpiWidgetConfig.model_validate(
         {
             "type": "kpi",
-            "target": {"devices": {"ids": ["d1"]}, "attribute": "temperature"},
+            "attributes": [{"target": _kpi_target("d1", "temperature")}],
         }
     )
-    resolved = [
-        ResolvedTarget(
-            attribute="temperature",
-            device_ids=["d1"],
-            data_type=DataType.FLOAT,
-            excluded_device_ids=[],
-        )
-    ]
+    resolved = [_resolved("temperature", ["d1"])]
 
     config.validate_resolved(resolved)
 
@@ -478,13 +508,17 @@ def test_kpi_config_accepts_a_space_operator():
     config = registry.validate_config(
         {
             "type": "kpi",
-            "target": {"devices": {"types": ["meter"]}, "attribute": "power"},
-            "space_agg": "sum",
+            "attributes": [
+                {
+                    "target": _kpi_target(None, "power", criteria="meter"),
+                    "space_agg": "sum",
+                }
+            ],
         }
     )
 
     assert isinstance(config, KpiWidgetConfig)
-    assert config.space_agg is AggregationOperator.SUM
+    assert config.attributes[0].space_agg is AggregationOperator.SUM
 
 
 def test_kpi_config_rejects_a_non_space_operator():
@@ -494,8 +528,9 @@ def test_kpi_config_rejects_a_non_space_operator():
         registry.validate_config(
             {
                 "type": "kpi",
-                "target": {"devices": {"ids": ["d1"]}, "attribute": "power"},
-                "space_agg": "delta",
+                "attributes": [
+                    {"target": _kpi_target("d1", "power"), "space_agg": "delta"}
+                ],
             }
         )
 
@@ -504,18 +539,15 @@ def test_kpi_config_with_space_agg_accepts_a_multi_device_resolved_target():
     config = KpiWidgetConfig.model_validate(
         {
             "type": "kpi",
-            "target": {"devices": {"types": ["meter"]}, "attribute": "power"},
-            "space_agg": "sum",
+            "attributes": [
+                {
+                    "target": _kpi_target(None, "power", criteria="meter"),
+                    "space_agg": "sum",
+                }
+            ],
         }
     )
-    resolved = [
-        ResolvedTarget(
-            attribute="power",
-            device_ids=["d1", "d2"],
-            data_type=DataType.FLOAT,
-            excluded_device_ids=[],
-        )
-    ]
+    resolved = [_resolved("power", ["d1", "d2"])]
 
     config.validate_resolved(resolved)
 
@@ -524,20 +556,33 @@ def test_kpi_config_with_space_agg_rejects_an_empty_resolved_target():
     config = KpiWidgetConfig.model_validate(
         {
             "type": "kpi",
-            "target": {"devices": {"types": ["meter"]}, "attribute": "power"},
-            "space_agg": "sum",
+            "attributes": [
+                {
+                    "target": _kpi_target(None, "power", criteria="meter"),
+                    "space_agg": "sum",
+                }
+            ],
         }
     )
-    resolved = [
-        ResolvedTarget(
-            attribute="power",
-            device_ids=[],
-            data_type=DataType.FLOAT,
-            excluded_device_ids=[],
-        )
-    ]
+    resolved = [_resolved("power", [])]
 
     with pytest.raises(InvalidError, match="at least one device"):
+        config.validate_resolved(resolved)
+
+
+def test_kpi_config_validate_resolved_checks_each_attribute_independently():
+    config = KpiWidgetConfig.model_validate(
+        {
+            "type": "kpi",
+            "attributes": [
+                {"target": _kpi_target("d1", "temperature")},
+                {"target": _kpi_target("d2", "humidity")},
+            ],
+        }
+    )
+    resolved = [_resolved("temperature", ["d1"]), _resolved("humidity", ["d2", "d3"])]
+
+    with pytest.raises(InvalidError, match="exactly one device"):
         config.validate_resolved(resolved)
 
 
