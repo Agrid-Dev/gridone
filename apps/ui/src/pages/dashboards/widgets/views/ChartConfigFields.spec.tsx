@@ -59,6 +59,14 @@ vi.mock("@/components/forms/targetPicker", () => ({
       ))}
     </div>
   ),
+  toPickerTarget: (value: unknown) => {
+    if (typeof value !== "object" || value === null) return { devices: {} };
+    const { devices, attribute } = value as {
+      devices?: unknown;
+      attribute?: string;
+    };
+    return { devices: devices ?? {}, attribute };
+  },
   useAttributeCoverage: () => ({
     coverage: [
       {

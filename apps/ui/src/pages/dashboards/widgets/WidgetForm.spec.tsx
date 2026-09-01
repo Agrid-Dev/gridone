@@ -12,6 +12,14 @@ vi.mock("react-i18next", () =>
 // form's own validation, not of their behaviour.
 vi.mock("@/components/forms/targetPicker", () => ({
   AttributeTargetPicker: () => <div data-testid="attribute-target-picker" />,
+  toPickerTarget: (value: unknown) => {
+    if (typeof value !== "object" || value === null) return { devices: {} };
+    const { devices, attribute } = value as {
+      devices?: unknown;
+      attribute?: string;
+    };
+    return { devices: devices ?? {}, attribute };
+  },
   useAttributeCoverage: () => ({
     coverage: [],
     totalDevices: 0,
