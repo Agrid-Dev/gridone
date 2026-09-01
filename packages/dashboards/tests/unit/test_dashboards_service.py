@@ -36,13 +36,9 @@ TEXT_CONFIG = {"type": "text", "text": "hello", "color": "#1a2b3c"}
 def _kpi_config(attribute_count: int) -> dict:
     return {
         "type": "kpi",
+        "devices": {"ids": ["d0"]},
         "attributes": [
-            {
-                "target": {
-                    "devices": {"ids": [f"d{i}"]},
-                    "attribute": f"attr{i}",
-                },
-            }
+            {"label": f"Attribute {i}", "attribute": f"attr{i}"}
             for i in range(attribute_count)
         ],
     }

@@ -54,17 +54,15 @@ _CHART_TARGET = {
 }
 _CHART_CONFIG = {"type": "chart", "target": _CHART_TARGET}
 _DEVICE_CONTROL_CONFIG = {"type": "device_control", "device_id": "dev1"}
-_KPI_TARGET = {
-    "devices": {"ids": ["dev1"], "types": None, "tags": None},
-    "attribute": "temperature",
-}
-_KPI_CONFIG = {"type": "kpi", "target": _KPI_TARGET}
+_KPI_DEVICES = {"ids": ["dev1"], "types": None, "tags": None}
 _KPI_ATTRIBUTE = {
-    "target": _KPI_TARGET,
+    "label": "Temperature",
+    "attribute": "temperature",
     "space_agg": None,
     "unit": None,
     "precision": None,
 }
+_KPI_CONFIG = {"type": "kpi", "devices": _KPI_DEVICES, "attributes": [_KPI_ATTRIBUTE]}
 
 
 @pytest.fixture
@@ -321,6 +319,7 @@ class TestWidgets:
             "d1",
             config={
                 "type": "kpi",
+                "devices": _KPI_DEVICES,
                 "attributes": [_KPI_ATTRIBUTE],
                 "temporal": "live",
             },
@@ -338,6 +337,7 @@ class TestWidgets:
             "d1",
             config={
                 "type": "kpi",
+                "devices": _KPI_DEVICES,
                 "attributes": [_KPI_ATTRIBUTE],
                 "temporal": {"operator": "sum"},
             },

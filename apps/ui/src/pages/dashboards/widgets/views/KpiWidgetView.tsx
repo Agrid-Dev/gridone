@@ -70,13 +70,17 @@ const KpiValue: FC<{
  * count (see the backend's ``content_size_hint``), so rows keep their size.
  */
 export const KpiWidgetView: FC<{ config: unknown }> = ({ config }) => {
-  const { attributes, temporal } = config as KpiWidgetConfig;
+  const { devices, attributes, temporal } = config as KpiWidgetConfig;
 
   return (
     <div className="flex h-full flex-col divide-y">
       {attributes.map((attribute, index) => (
         <div key={index} className="min-h-0 flex-1 overflow-hidden py-1">
-          <KpiAttributeView attribute={attribute} temporal={temporal} />
+          <KpiAttributeView
+            devices={devices}
+            attribute={attribute}
+            temporal={temporal}
+          />
         </div>
       ))}
     </div>
@@ -86,11 +90,18 @@ export const KpiWidgetView: FC<{ config: unknown }> = ({ config }) => {
 /** One attribute's value, dispatched to the leaf view matching its
  *  space_agg × temporal mode combination. */
 const KpiAttributeView: FC<{
+  devices: KpiWidgetConfig["devices"];
   attribute: KpiAttribute;
   temporal: KpiWidgetConfig["temporal"];
-}> = ({ attribute, temporal }) => {
-  const { target, space_agg: spaceAgg, unit, precision } = attribute;
-  const deviceId = target.devices.ids?.[0];
+}> = ({ devices, attribute, temporal }) => {
+  const {
+    attribute: attributeName,
+    space_agg: spaceAgg,
+    unit,
+    precision,
+  } = attribute;
+  const target: AttributeTarget = { devices, attribute: attributeName };
+  const deviceId = devices.ids?.[0];
   const isPeriod = temporal !== "live" && !!temporal;
 
   if (spaceAgg) {

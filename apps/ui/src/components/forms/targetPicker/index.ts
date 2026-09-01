@@ -8,5 +8,6 @@ export { DevicesFilterTabs, type TargetPickerMode } from "./DevicesFilterTabs";
 export { DevicePickerTable } from "./DevicePickerTable";
 export {
   useAttributeCoverage,
+  useSkippedDeviceCount,
   type UseAttributeCoverageResult,
 } from "./useAttributeCoverage";

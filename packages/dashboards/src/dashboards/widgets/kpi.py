@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -10,7 +10,7 @@ from dashboards.widgets.config import (
     validate_space_agg_membership,
 )
 from models.errors import InvalidError
-from models.targets import AttributeTarget  # noqa: TC001
+from models.targets import AttributeTarget, DevicesFilter
 from models.types import AggregationOperator  # noqa: TC001
 
 if TYPE_CHECKING:
@@ -26,15 +26,20 @@ class TimeAggregation(BaseModel):
 
 
 class KpiAttribute(BaseModel):
-    """One metric shown on a KPI tile: a target plus how it folds and renders.
+    """One metric shown on a KPI tile: an attribute plus how it folds and
+    renders, read against the tile's shared device set (see
+    :class:`KpiWidgetConfig`).
 
-    Without ``space_agg`` the target must resolve to exactly one device;
-    with it, any number fold into one.
+    Without ``space_agg`` the device set must resolve to exactly one device
+    for this attribute; with it, any number fold into one.
     """
 
     model_config = ConfigDict(extra="forbid")
 
-    target: AttributeTarget
+    label: str = Field(min_length=1)
+    """Names this row on the tile — a multi-attribute tile renders several
+    unlabelled numbers otherwise."""
+    attribute: str = Field(min_length=1)
     space_agg: AggregationOperator | None = None
     """How the device set folds into one; ``None`` keeps the single-device
     requirement. Membership checked here; dtype compatibility at read time."""
@@ -42,34 +47,19 @@ class KpiAttribute(BaseModel):
     precision: int | None = Field(default=None, ge=0)
 
     @model_validator(mode="after")
-    def _require_single_explicit_device(self) -> KpiAttribute:
-        """Pins the target shape without space_agg: one explicit id, no
-        types/tags filter. With space_agg, any non-empty criteria is fine —
-        cardinality collapses to one at read time instead."""
-        if self.space_agg is not None:
-            return self
-        devices = self.target.devices
-        single_id = devices.ids is not None and len(devices.ids) == 1
-        if not single_id or devices.types or devices.tags:
-            msg = "KPI target must be exactly one explicit device id"
-            raise ValueError(msg)
-        return self
-
-    @model_validator(mode="after")
     def _validate_space_agg(self) -> KpiAttribute:
         if self.space_agg is not None:
             validate_space_agg_membership(self.space_agg)
         return self
 
-    def check_resolved(self, index: int, target: ResolvedTarget) -> None:
+    def check_resolved(self, target: ResolvedTarget) -> None:
         """Cardinality rule for this attribute's resolved target.
 
         Without ``space_agg`` it must resolve to exactly one device; with it,
         any non-empty set is fine — cardinality collapses to one at read time.
-        *index* (0-based) names which attribute failed once a tile has more
-        than one, matching the editor's 1-based "Attribute N" labels.
+        Named by ``label`` so a multi-attribute tile's error is actionable.
         """
-        prefix = f"Attribute {index + 1}: KPI target must resolve to"
+        prefix = f"Attribute {self.label!r}: KPI target must resolve to"
         if self.space_agg is None:
             if len(target.device_ids) != 1:
                 msg = f"{prefix} exactly one device, got {len(target.device_ids)}"
@@ -80,46 +70,52 @@ class KpiAttribute(BaseModel):
 
 
 class KpiWidgetConfig(WidgetConfig):
-    """One or more metrics of a device set, shown together on one tile.
+    """One or more metrics of one shared device set, shown together on one
+    tile.
 
-    Every metric shares the tile's single Live/Period temporal mode; each
-    otherwise folds and renders independently (see :class:`KpiAttribute`).
+    Every metric shares the tile's single device set and Live/Period temporal
+    mode; each otherwise folds and renders independently (see
+    :class:`KpiAttribute`).
     """
 
     type: Literal["kpi"] = "kpi"
+    devices: DevicesFilter
     attributes: list[KpiAttribute] = Field(min_length=1)
     temporal: Literal["live"] | TimeAggregation = "live"
 
-    @model_validator(mode="before")
-    @classmethod
-    def _upgrade_legacy_shape(cls, data: Any) -> Any:  # noqa: ANN401
-        """Upgrade the pre-multi-attribute stored shape.
-
-        Configs are re-validated on read, so KPIs persisted before this
-        change must keep loading without a data migration. The single
-        ``target``/``space_agg``/``unit``/``precision`` become a one-entry
-        ``attributes`` list; new saves always persist the ``attributes`` form.
-        """
-        if isinstance(data, dict) and "target" in data and "attributes" not in data:
-            data = dict(data)
-            data["attributes"] = [
-                {
-                    "target": data.pop("target"),
-                    "space_agg": data.pop("space_agg", None),
-                    "unit": data.pop("unit", None),
-                    "precision": data.pop("precision", None),
-                }
-            ]
-        return data
+    @model_validator(mode="after")
+    def _require_space_agg_for_multi_device_sets(self) -> KpiWidgetConfig:
+        """Pins the shared device set's shape: an attribute with no
+        ``space_agg`` needs it to already be one explicit id, no types/tags
+        filter — otherwise resolution can yield more than one device and
+        there is nothing to collapse it to a single reading. With
+        ``space_agg`` any non-empty criteria is fine — cardinality collapses
+        to one at read time instead."""
+        single_id = self.devices.ids is not None and len(self.devices.ids) == 1
+        is_single_explicit = (
+            single_id and not self.devices.types and not self.devices.tags
+        )
+        if is_single_explicit:
+            return self
+        missing = [a.label for a in self.attributes if a.space_agg is None]
+        if missing:
+            names = ", ".join(repr(label) for label in missing)
+            msg = (
+                f"Attribute(s) {names} need a fold operator: the device set "
+                "can match more than one device"
+            )
+            raise ValueError(msg)
+        return self
 
     def targets(self) -> list[AttributeTarget]:
-        return [attribute.target for attribute in self.attributes]
+        return [
+            AttributeTarget(devices=self.devices, attribute=attribute.attribute)
+            for attribute in self.attributes
+        ]
 
     def validate_resolved(self, resolved: list[ResolvedTarget]) -> None:
-        for index, (attribute, target) in enumerate(
-            zip(self.attributes, resolved, strict=True)
-        ):
-            attribute.check_resolved(index, target)
+        for attribute, target in zip(self.attributes, resolved, strict=True):
+            attribute.check_resolved(target)
 
     def content_size_hint(self, default_size: WidgetSize) -> WidgetSize:
         """One row of height per attribute."""

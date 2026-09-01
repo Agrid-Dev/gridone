@@ -10,7 +10,6 @@ from dashboards.widgets import (
     MeterTreeNode,
     MeterTreeWidgetConfig,
     TextWidgetConfig,
-    TimeAggregation,
     WidgetSize,
     WidgetType,
     build_default_registry,
@@ -190,7 +189,7 @@ def test_schemas_returns_json_schema_per_type():
     assert device_control["properties"]["device_id"]["minLength"] == 1
     assert device_control["x-default-size"] == {"w": 4, "h": 6}
     kpi = schemas["kpi"]
-    assert set(kpi["required"]) == {"attributes"}
+    assert set(kpi["required"]) == {"devices", "attributes"}
     assert kpi["x-default-size"] == {"w": 2, "h": 1}
     meter_tree = schemas["meter_tree"]
     assert set(meter_tree["required"]) == {"root"}
@@ -394,11 +393,12 @@ def test_text_config_accepts_valid_hex(color: str):
     assert config.color == color
 
 
-def _kpi_target(
-    device_id: str | None, attribute: str, *, criteria: str | None = None
-) -> dict:
-    devices = {"types": [criteria]} if criteria else {"ids": [device_id]}
-    return {"devices": devices, "attribute": attribute}
+def _kpi_devices(device_id: str | None, *, criteria: str | None = None) -> dict:
+    return {"types": [criteria]} if criteria else {"ids": [device_id]}
+
+
+def _kpi_attribute(label: str, attribute: str, **kwargs: object) -> dict:
+    return {"label": label, "attribute": attribute, **kwargs}
 
 
 def _resolved(attribute: str, device_ids: list[str]) -> ResolvedTarget:
@@ -416,7 +416,8 @@ def test_kpi_config_defaults_to_live():
     config = registry.validate_config(
         {
             "type": "kpi",
-            "attributes": [{"target": _kpi_target("d1", "temperature")}],
+            "devices": _kpi_devices("d1"),
+            "attributes": [_kpi_attribute("Temperature", "temperature")],
         }
     )
 
@@ -427,28 +428,22 @@ def test_kpi_config_defaults_to_live():
     assert [t.attribute for t in config.targets()] == ["temperature"]
 
 
-def test_kpi_config_upgrades_legacy_single_target_shape():
-    # Configs persisted before multi-attribute support store target/space_agg/
-    # unit/precision at the top level; they must keep loading unchanged.
+def test_kpi_config_rejects_the_pre_multi_attribute_shape():
+    # No KPI widget was ever persisted in the single-target shape, so it is
+    # never upgraded — only the current `devices`/`attributes` shape is
+    # accepted.
     registry = build_default_registry()
 
-    config = registry.validate_config(
-        {
-            "type": "kpi",
-            "target": _kpi_target("d1", "energy"),
-            "temporal": {"operator": "sum"},
-            "unit": "kWh",
-            "precision": 1,
-        }
-    )
-
-    assert isinstance(config, KpiWidgetConfig)
-    assert len(config.attributes) == 1
-    assert config.attributes[0].target.attribute == "energy"
-    assert config.attributes[0].unit == "kWh"
-    assert config.attributes[0].precision == 1
-    assert isinstance(config.temporal, TimeAggregation)
-    assert config.temporal.operator is AggregationOperator.SUM
+    with pytest.raises(InvalidError):
+        registry.validate_config(
+            {
+                "type": "kpi",
+                "target": {"devices": _kpi_devices("d1"), "attribute": "energy"},
+                "temporal": {"operator": "sum"},
+                "unit": "kWh",
+                "precision": 1,
+            }
+        )
 
 
 def test_kpi_config_accepts_several_attributes():
@@ -457,9 +452,10 @@ def test_kpi_config_accepts_several_attributes():
     config = registry.validate_config(
         {
             "type": "kpi",
+            "devices": _kpi_devices("d1"),
             "attributes": [
-                {"target": _kpi_target("d1", "temperature"), "unit": "°C"},
-                {"target": _kpi_target("d1", "setpoint_min"), "unit": "°C"},
+                _kpi_attribute("Temperature", "temperature", unit="°C"),
+                _kpi_attribute("Setpoint", "setpoint_min", unit="°C"),
             ],
         }
     )
@@ -472,17 +468,20 @@ def test_kpi_config_rejects_an_empty_attributes_list():
     registry = build_default_registry()
 
     with pytest.raises(InvalidError):
-        registry.validate_config({"type": "kpi", "attributes": []})
+        registry.validate_config(
+            {"type": "kpi", "devices": _kpi_devices("d1"), "attributes": []}
+        )
 
 
 def test_kpi_config_content_size_hint_grows_height_with_attribute_count():
     config = KpiWidgetConfig.model_validate(
         {
             "type": "kpi",
+            "devices": _kpi_devices("d1"),
             "attributes": [
-                {"target": _kpi_target("d1", "temperature")},
-                {"target": _kpi_target("d2", "humidity")},
-                {"target": _kpi_target("d3", "pressure")},
+                _kpi_attribute("Temperature", "temperature"),
+                _kpi_attribute("Humidity", "humidity"),
+                _kpi_attribute("Pressure", "pressure"),
             ],
         }
     )
@@ -494,7 +493,8 @@ def test_kpi_config_content_size_hint_keeps_default_for_one_attribute():
     config = KpiWidgetConfig.model_validate(
         {
             "type": "kpi",
-            "attributes": [{"target": _kpi_target("d1", "temperature")}],
+            "devices": _kpi_devices("d1"),
+            "attributes": [_kpi_attribute("Temperature", "temperature")],
         }
     )
 
@@ -507,7 +507,8 @@ def test_kpi_config_rejects_a_multi_device_resolved_target():
     config = KpiWidgetConfig.model_validate(
         {
             "type": "kpi",
-            "attributes": [{"target": _kpi_target("d1", "temperature")}],
+            "devices": _kpi_devices("d1"),
+            "attributes": [_kpi_attribute("Temperature", "temperature")],
         }
     )
     resolved = [_resolved("temperature", ["d1", "d2"])]
@@ -520,7 +521,8 @@ def test_kpi_config_accepts_a_single_device_resolved_target():
     config = KpiWidgetConfig.model_validate(
         {
             "type": "kpi",
-            "attributes": [{"target": _kpi_target("d1", "temperature")}],
+            "devices": _kpi_devices("d1"),
+            "attributes": [_kpi_attribute("Temperature", "temperature")],
         }
     )
     resolved = [_resolved("temperature", ["d1"])]
@@ -534,12 +536,8 @@ def test_kpi_config_accepts_a_space_operator():
     config = registry.validate_config(
         {
             "type": "kpi",
-            "attributes": [
-                {
-                    "target": _kpi_target(None, "power", criteria="meter"),
-                    "space_agg": "sum",
-                }
-            ],
+            "devices": _kpi_devices(None, criteria="meter"),
+            "attributes": [_kpi_attribute("Power", "power", space_agg="sum")],
         }
     )
 
@@ -554,9 +552,23 @@ def test_kpi_config_rejects_a_non_space_operator():
         registry.validate_config(
             {
                 "type": "kpi",
-                "attributes": [
-                    {"target": _kpi_target("d1", "power"), "space_agg": "delta"}
-                ],
+                "devices": _kpi_devices(None, criteria="meter"),
+                "attributes": [_kpi_attribute("Power", "power", space_agg="delta")],
+            }
+        )
+
+
+def test_kpi_config_rejects_a_missing_space_agg_on_a_multi_device_set():
+    # The device set can match more than one device, so an attribute with no
+    # fold operator has nothing to collapse it to a single reading.
+    registry = build_default_registry()
+
+    with pytest.raises(InvalidError):
+        registry.validate_config(
+            {
+                "type": "kpi",
+                "devices": _kpi_devices(None, criteria="meter"),
+                "attributes": [_kpi_attribute("Power", "power")],
             }
         )
 
@@ -565,12 +577,8 @@ def test_kpi_config_with_space_agg_accepts_a_multi_device_resolved_target():
     config = KpiWidgetConfig.model_validate(
         {
             "type": "kpi",
-            "attributes": [
-                {
-                    "target": _kpi_target(None, "power", criteria="meter"),
-                    "space_agg": "sum",
-                }
-            ],
+            "devices": _kpi_devices(None, criteria="meter"),
+            "attributes": [_kpi_attribute("Power", "power", space_agg="sum")],
         }
     )
     resolved = [_resolved("power", ["d1", "d2"])]
@@ -582,12 +590,8 @@ def test_kpi_config_with_space_agg_rejects_an_empty_resolved_target():
     config = KpiWidgetConfig.model_validate(
         {
             "type": "kpi",
-            "attributes": [
-                {
-                    "target": _kpi_target(None, "power", criteria="meter"),
-                    "space_agg": "sum",
-                }
-            ],
+            "devices": _kpi_devices(None, criteria="meter"),
+            "attributes": [_kpi_attribute("Power", "power", space_agg="sum")],
         }
     )
     resolved = [_resolved("power", [])]
@@ -600,17 +604,18 @@ def test_kpi_config_validate_resolved_checks_each_attribute_independently():
     config = KpiWidgetConfig.model_validate(
         {
             "type": "kpi",
+            "devices": _kpi_devices("d1"),
             "attributes": [
-                {"target": _kpi_target("d1", "temperature")},
-                {"target": _kpi_target("d2", "humidity")},
+                _kpi_attribute("Temperature", "temperature"),
+                _kpi_attribute("Humidity", "humidity"),
             ],
         }
     )
     resolved = [_resolved("temperature", ["d1"]), _resolved("humidity", ["d2", "d3"])]
 
-    # The failing attribute is the second one; the message names it so a
-    # multi-attribute tile's error is actionable.
-    with pytest.raises(InvalidError, match=r"Attribute 2.*exactly one device"):
+    # The failing attribute is the second one; the message names it by its
+    # label so a multi-attribute tile's error is actionable.
+    with pytest.raises(InvalidError, match=r"Attribute 'Humidity'.*exactly one device"):
         config.validate_resolved(resolved)
 
 
