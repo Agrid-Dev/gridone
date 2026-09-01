@@ -1,6 +1,8 @@
 import asyncio
 import logging
+from collections.abc import Callable
 from datetime import UTC, datetime
+from typing import ClassVar
 from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 import pytest
@@ -59,6 +61,32 @@ class FailingStartDevice(CoreDevice):
     async def start_sync(self) -> None:
         msg = "boom"
         raise RuntimeError(msg)
+
+
+# Generous: these waits yield to the loop rather than sleep, so the bound is
+# only there to fail a broken expectation loudly instead of hanging the suite.
+WAIT_TIMEOUT_SECONDS = 1.0
+
+
+async def wait_until(predicate: Callable[[], bool]) -> None:
+    """Yield until the predicate holds, failing loudly rather than hanging."""
+    async with asyncio.timeout(WAIT_TIMEOUT_SECONDS):
+        # No Event to wait on: the condition is state the service owns and
+        # does not signal, so yielding to the loop is the only way to observe
+        # it without reaching into internals.
+        while not predicate():  # noqa: ASYNC110
+            await asyncio.sleep(0)
+
+
+async def wait_for_syncing(device: CoreDevice) -> None:
+    """Yield until the device is syncing.
+
+    Writes schedule ``start_sync`` rather than awaiting it, so a device is not
+    yet syncing when ``add_device`` / ``update_device`` returns. Waiting on the
+    observable state keeps that a timing detail of the service rather than
+    something each test has to sleep for.
+    """
+    await wait_until(lambda: device.syncing)
 
 
 @pytest_asyncio.fixture
@@ -1102,7 +1130,7 @@ class TestDevicesServiceDeviceDelegation:
         )
         await dm.add_device(create)
 
-        assert device.syncing is True
+        await wait_for_syncing(device)
         await device.stop_sync()
         dm._running = False  # noqa: SLF001
 
@@ -1139,7 +1167,7 @@ class TestDevicesServiceDeviceDelegation:
         with pytest.raises(ConflictError):
             await dm.update_device("d1", DeviceUpdate(name="New Name"))
 
-        assert device.syncing is True
+        await wait_for_syncing(device)
         await device.stop_sync()
         dm._running = False  # noqa: SLF001
 
@@ -1397,7 +1425,7 @@ class TestDevicesServiceRestartSync:
         await dm.update_device(device.id, update)
 
         updated = dm._device_registry.get(device.id)  # noqa: SLF001
-        assert updated.syncing is True
+        await wait_for_syncing(updated)
         await dm.stop()
 
     @pytest.mark.asyncio
@@ -1416,7 +1444,7 @@ class TestDevicesServiceRestartSync:
         await dm.update_device(device.id, update)
 
         updated = dm._device_registry.get(device.id)  # noqa: SLF001
-        assert updated.syncing is True
+        await wait_for_syncing(updated)
         await dm.stop()
 
     @pytest.mark.asyncio
@@ -2017,3 +2045,155 @@ class TestDevicesServiceListActiveFaults:
         assert view.current_value == "critical"
         assert view.last_updated is not None
         assert view.last_changed is not None
+
+
+class SlowStartDevice(CoreDevice):
+    """A sync slow enough to still be in flight when the next write lands.
+
+    Appends its id only if it runs to completion, so a test can tell a
+    cancelled sync from one that was merely late.
+    """
+
+    completed: ClassVar[list[str]] = []
+
+    async def start_sync(self) -> None:
+        await asyncio.sleep(0.2)
+        SlowStartDevice.completed.append(self.id)
+
+
+class TestDevicesServiceUnreachableTransport:
+    """Writing a device and reaching it are separate concerns: a transport
+    that cannot be synced must not fail the write that preceded it."""
+
+    @pytest.mark.asyncio
+    async def test_add_device_returns_the_device_when_sync_fails(
+        self, driver, mock_transport_client
+    ):
+        device = FailingStartDevice.from_base(
+            DeviceBase(id="d1", name="Device", config={"some_id": "abc"}),
+            driver=driver,
+            transport=mock_transport_client,
+        )
+        mock_reg = _mock_device_registry()
+        mock_reg.add.return_value = device
+        dm = await _dm_with_mock_registry(mock_reg)
+        dm._running = True  # noqa: SLF001
+
+        created = await dm.add_device(
+            DeviceCreate(
+                name="Device",
+                config={"some_id": "abc"},
+                driver_id=driver.id,
+                transport_id=mock_transport_client.id,
+            )
+        )
+
+        assert created.id == "d1"
+        await dm.stop()
+
+    @pytest.mark.asyncio
+    async def test_update_device_returns_the_device_when_sync_fails(
+        self, driver, mock_transport_client
+    ):
+        device = FailingStartDevice.from_base(
+            DeviceBase(id="d1", name="Renamed", config={"some_id": "abc"}),
+            driver=driver,
+            transport=mock_transport_client,
+        )
+        mock_reg = _mock_device_registry({"d1": device})
+        mock_reg.update.return_value = device
+        dm = await _dm_with_mock_registry(mock_reg)
+        dm._running = True  # noqa: SLF001
+
+        updated = await dm.update_device("d1", DeviceUpdate(name="Renamed"))
+
+        assert updated.name == "Renamed"
+        await dm.stop()
+
+    @pytest.mark.asyncio
+    async def test_sync_failure_is_logged(self, driver, mock_transport_client, caplog):
+        device = FailingStartDevice.from_base(
+            DeviceBase(id="d1", name="Device", config={"some_id": "abc"}),
+            driver=driver,
+            transport=mock_transport_client,
+        )
+        mock_reg = _mock_device_registry()
+        mock_reg.add.return_value = device
+        dm = await _dm_with_mock_registry(mock_reg)
+        dm._running = True  # noqa: SLF001
+
+        with caplog.at_level(logging.ERROR, logger="devices_manager.service"):
+            await dm.add_device(
+                DeviceCreate(
+                    name="Device",
+                    config={"some_id": "abc"},
+                    driver_id=driver.id,
+                    transport_id=mock_transport_client.id,
+                )
+            )
+            await wait_until(
+                lambda: "Failed to start sync for device d1" in caplog.text
+            )
+
+        await dm.stop()
+
+    @pytest.mark.asyncio
+    async def test_later_write_cancels_the_sync_it_supersedes(
+        self, driver, mock_transport_client
+    ):
+        # A sync started against a config that has since been replaced must not
+        # go on to register listeners for it.
+        SlowStartDevice.completed.clear()
+        device = SlowStartDevice.from_base(
+            DeviceBase(id="d1", name="Device", config={"some_id": "abc"}),
+            driver=driver,
+            transport=mock_transport_client,
+        )
+        mock_reg = _mock_device_registry({"d1": device})
+        mock_reg.add.return_value = device
+        mock_reg.update.return_value = device
+        dm = await _dm_with_mock_registry(mock_reg)
+        dm._running = True  # noqa: SLF001
+
+        await dm.add_device(
+            DeviceCreate(
+                name="Device",
+                config={"some_id": "abc"},
+                driver_id=driver.id,
+                transport_id=mock_transport_client.id,
+            )
+        )
+        await dm.update_device("d1", DeviceUpdate(name="Renamed"))
+        await asyncio.sleep(0.3)  # long enough for both syncs to have finished
+
+        assert SlowStartDevice.completed == ["d1"]  # the superseded one never ran
+        await dm.stop()
+
+    @pytest.mark.asyncio
+    async def test_delete_cancels_an_in_flight_sync(
+        self, driver, mock_transport_client
+    ):
+        SlowStartDevice.completed.clear()
+        device = SlowStartDevice.from_base(
+            DeviceBase(id="d1", name="Device", config={"some_id": "abc"}),
+            driver=driver,
+            transport=mock_transport_client,
+        )
+        mock_reg = _mock_device_registry({"d1": device})
+        mock_reg.add.return_value = device
+        dm = await _dm_with_mock_registry(mock_reg)
+        dm._running = True  # noqa: SLF001
+
+        await dm.add_device(
+            DeviceCreate(
+                name="Device",
+                config={"some_id": "abc"},
+                driver_id=driver.id,
+                transport_id=mock_transport_client.id,
+            )
+        )
+        await dm.delete_device("d1")
+        await asyncio.sleep(0.3)
+
+        assert SlowStartDevice.completed == []
+        await dm.stop()
