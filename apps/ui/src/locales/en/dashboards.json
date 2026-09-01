@@ -113,7 +113,8 @@
         "label": "Attribute {{index}}",
         "add": "Add attribute",
         "remove": "Remove attribute"
-      }
+      },
+      "operatorIncompatible": "This attribute's data type doesn't support the tile's aggregation operator."
     },
     "add": "Add widget",
     "addTitle": "Add widget",

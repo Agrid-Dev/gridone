@@ -1,4 +1,4 @@
-import { useEffect, useMemo, type FC } from "react";
+import { useEffect, useRef, type FC, type ReactNode } from "react";
 import type { AggregationOperator, DataType } from "@gridone/sdk";
 import {
   useController,
@@ -50,6 +50,19 @@ export const BLANK_ATTRIBUTE = {
   unit: null,
   precision: null,
 };
+
+/** The tile's live-preview footprint while composing attributes, mirroring
+ *  the backend's `KpiWidgetConfig.content_size_hint` (the source of truth,
+ *  applied for real on save) — kept next to the rest of this type's editor
+ *  code so the generic editor stays type-agnostic (see registry.tsx). */
+export function kpiPreviewSize(
+  config: Record<string, unknown> | undefined,
+  baseSize: { w: number; h: number },
+): { w: number; h: number } {
+  const attributes = config?.attributes;
+  if (!Array.isArray(attributes)) return baseSize;
+  return { w: baseSize.w, h: Math.max(baseSize.h, attributes.length) };
+}
 
 const kpiAttributeCheck = z
   .looseObject({
@@ -115,7 +128,15 @@ export const KpiConfigFields: FC<{ control: Control<FieldValues> }> = ({
 
   const temporal = temporalField.value as Temporal | undefined;
   const isPeriod = typeof temporal === "object" && temporal !== null;
-  const operator = isPeriod ? (temporal.operator ?? null) : null;
+  // Read from its own registered path, not `temporal.operator`: the operator
+  // select below registers "config.temporal.operator" as its own RHF field,
+  // separate from this component's "config.temporal" controller, so the
+  // parent controller's `value` never reflects a pick made through it.
+  const watchedOperator = useWatch({
+    control,
+    name: "config.temporal.operator",
+  }) as AggregationOperator | undefined;
+  const operator = isPeriod ? (watchedOperator ?? null) : null;
 
   const { data: options } = useAggregateOptions();
 
@@ -145,15 +166,11 @@ export const KpiConfigFields: FC<{ control: Control<FieldValues> }> = ({
   };
 
   const operators = operatorsFor(options, firstDataType);
-  const operatorOptions = useMemo(
-    () =>
-      operators.map(({ operator: op, resultType }) => ({
-        value: op as string,
-        label: <AggOption name={op} resultType={resultType} />,
-        disabled: resultType === null,
-      })),
-    [operators],
-  );
+  const operatorOptions = operators.map(({ operator: op, resultType }) => ({
+    value: op as string,
+    label: <AggOption name={op} resultType={resultType} />,
+    disabled: resultType === null,
+  }));
 
   useResetRefusedOperator(
     operator,
@@ -161,6 +178,44 @@ export const KpiConfigFields: FC<{ control: Control<FieldValues> }> = ({
     operators,
     () => temporalField.onChange({}),
     undefined,
+  );
+
+  // Switching to Live discards the period operator (it has no meaning
+  // there), so it has to be remembered outside form state to survive a
+  // round trip back to Period — otherwise every re-entry starts blank.
+  const lastOperatorRef = useRef<AggregationOperator | undefined>(undefined);
+  if (operator) lastOperatorRef.current = operator;
+
+  // Shared across every attribute — a tile can't mix Live and Period.
+  const temporalControl = (
+    <Tabs
+      value={isPeriod ? "period" : "live"}
+      onValueChange={(v) => {
+        temporalField.onChange(
+          v === "period"
+            ? lastOperatorRef.current
+              ? { operator: lastOperatorRef.current }
+              : {}
+            : "live",
+        );
+      }}
+    >
+      <TabsList>
+        <TabsTrigger value="live">{t("widgets.kpi.temporal.live")}</TabsTrigger>
+        <TabsTrigger value="period">
+          {t("widgets.kpi.temporal.period")}
+        </TabsTrigger>
+      </TabsList>
+      <TabsContent value="period" className="mt-4">
+        <SelectController<FieldValues, "config.temporal.operator", string>
+          name="config.temporal.operator"
+          control={control}
+          label={t("widgets.kpi.operator.label")}
+          placeholder={t("widgets.kpi.operator.placeholder")}
+          options={operatorOptions}
+        />
+      </TabsContent>
+    </Tabs>
   );
 
   return (
@@ -188,6 +243,7 @@ export const KpiConfigFields: FC<{ control: Control<FieldValues> }> = ({
             isPeriod={isPeriod}
             operator={operator}
             sharedDevices={index === 0 ? undefined : firstTarget.devices}
+            temporalControl={index === 0 ? temporalControl : undefined}
           />
         </div>
       ))}
@@ -196,51 +252,29 @@ export const KpiConfigFields: FC<{ control: Control<FieldValues> }> = ({
         <Plus className="mr-1 h-4 w-4" />
         {t("widgets.kpi.attribute.add")}
       </Button>
-
-      <Tabs
-        value={isPeriod ? "period" : "live"}
-        onValueChange={(v) =>
-          temporalField.onChange(v === "period" ? {} : "live")
-        }
-      >
-        <TabsList>
-          <TabsTrigger value="live">
-            {t("widgets.kpi.temporal.live")}
-          </TabsTrigger>
-          <TabsTrigger value="period">
-            {t("widgets.kpi.temporal.period")}
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="period" className="mt-4">
-          <SelectController<FieldValues, "config.temporal.operator", string>
-            name="config.temporal.operator"
-            control={control}
-            label={t("widgets.kpi.operator.label")}
-            placeholder={t("widgets.kpi.operator.placeholder")}
-            options={operatorOptions}
-          />
-        </TabsContent>
-      </Tabs>
     </>
   );
 };
 
-/** One attribute row: which device+attribute, its fold operator (once its
- *  target can match more than one device), unit and precision.
- *
- *  `sharedDevices` is set for every row but the first: this tile's device
- *  set is picked once, on row 0, and the rest only choose which attribute
- *  of that same set to add — showing the device picker again per row would
- *  invite a device set that differs from row 0's, which the UX intentionally
- *  doesn't offer (see AGR-1057: "several related metrics for the same
- *  device or device set"). */
+/** One attribute row: device+attribute, fold operator, unit, precision.
+ *  `sharedDevices` is set for every row but the first — only row 0 picks
+ *  the device set, the rest just add another attribute of it. */
 const KpiAttributeFields: FC<{
   control: Control<FieldValues>;
   index: number;
   isPeriod: boolean;
   operator: AggregationOperator | null;
   sharedDevices: AttributeTarget["devices"] | undefined;
-}> = ({ control, index, isPeriod, operator, sharedDevices }) => {
+  /** The Live/Period control; only passed for row 0. */
+  temporalControl: ReactNode | undefined;
+}> = ({
+  control,
+  index,
+  isPeriod,
+  operator,
+  sharedDevices,
+  temporalControl,
+}) => {
   const { t } = useTranslation("dashboards");
   const name = `config.attributes.${index}`;
   const { field: targetField } = useController({
@@ -260,7 +294,16 @@ const KpiAttributeFields: FC<{
 
   // Keep this row's stored devices mirroring row 0's, so a later change
   // there (the only place it's editable) still reaches every row's target.
+  // Skipped on mount: a config loaded with a genuinely different device set
+  // on this row (only reachable outside this editor, e.g. a direct API
+  // write) should be visible as-is rather than silently rewritten before
+  // the user has touched anything.
+  const hasMountedRef = useRef(false);
   useEffect(() => {
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true;
+      return;
+    }
     if (!sharedDevices) return;
     if (JSON.stringify(target.devices) === JSON.stringify(sharedDevices)) {
       return;
@@ -291,14 +334,20 @@ const KpiAttributeFields: FC<{
   const targetInvalid = showSpaceControl && !spaceAgg;
 
   const spaceOperators = spaceOperatorsFor(options, spaceDataType);
-  const spaceOperatorOptions = useMemo(
-    () =>
-      spaceOperators.map(({ operator: op, resultType }) => ({
-        value: op as string,
-        label: <AggOption name={op} resultType={resultType} kind="space" />,
-        disabled: resultType === null,
-      })),
-    [spaceOperators],
+  // The tile's period operator is picked for one representative attribute
+  // (see KpiConfigFields), so another attribute's data type can refuse every
+  // fold operator it offers — nothing to pick, and no schema error names why.
+  const operatorIncompatible =
+    isPeriod &&
+    showSpaceControl &&
+    spaceOperators.length > 0 &&
+    spaceOperators.every((o) => o.resultType === null);
+  const spaceOperatorOptions = spaceOperators.map(
+    ({ operator: op, resultType }) => ({
+      value: op as string,
+      label: <AggOption name={op} resultType={resultType} kind="space" />,
+      disabled: resultType === null,
+    }),
   );
 
   useResetRefusedOperator(
@@ -333,6 +382,7 @@ const KpiAttributeFields: FC<{
           devices={devices}
         />
       )}
+      {temporalControl}
       {showSpaceControl && (
         <SelectController<FieldValues, `${string}.space_agg`, string>
           name={`${name}.space_agg`}
@@ -346,6 +396,11 @@ const KpiAttributeFields: FC<{
       {targetInvalid && (
         <p className="text-sm text-destructive">
           {t("widgets.kpi.singleDeviceRequired")}
+        </p>
+      )}
+      {operatorIncompatible && (
+        <p className="text-sm text-destructive">
+          {t("widgets.kpi.operatorIncompatible")}
         </p>
       )}
       <InputController

@@ -16,6 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { identityPreviewSize, widgetPreviewSize } from "./registry";
 import {
   WidgetForm,
   type WidgetFormState,
@@ -115,10 +116,14 @@ export const WidgetEditor: FC<WidgetEditorProps> = ({
         {/* Sticky so the preview stays in view while the form scrolls. */}
         <div className="lg:sticky lg:top-24">
           {/* An existing widget previews at its own footprint; a new one at
-              the default its type will be placed with. */}
+              the default its type will be placed with, adjusted by the
+              type's own preview-sizing rule if it registers one. */}
           <WidgetPreview
             draft={draft}
-            size={widget?.layout ?? widgetDefaultSize(schemas[type])}
+            size={(widgetPreviewSize[type] ?? identityPreviewSize)(
+              draft?.config,
+              widget?.layout ?? widgetDefaultSize(schemas[type]),
+            )}
           />
         </div>
       </div>

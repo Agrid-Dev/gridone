@@ -1,4 +1,4 @@
-import { createContext, useContext, type FC } from "react";
+import type { FC } from "react";
 import { useTranslation } from "react-i18next";
 import {
   isGridoneError,
@@ -25,20 +25,7 @@ const Message: FC<{ children: string }> = ({ children }) => (
   </div>
 );
 
-/** The value text's size, set by `KpiWidgetView` from the row count and read
- *  by `KpiValue` — a context rather than a prop threaded through every leaf
- *  view in between, none of which otherwise cares about it. */
-const KpiValueSizeContext = createContext("text-3xl");
-
-/** One row's worth of text size: a single attribute keeps the tile's
- *  original large number; each added row shrinks it a step so more rows fit
- *  the tile without overlapping, down to a floor that stays legible. */
-function kpiValueSize(attributeCount: number): string {
-  if (attributeCount <= 1) return "text-3xl";
-  if (attributeCount === 2) return "text-2xl";
-  if (attributeCount === 3) return "text-xl";
-  return "text-lg";
-}
+const KPI_VALUE_CLASS = "text-3xl font-semibold";
 
 /** Renders the tile's value: bool/str show their label, numbers apply the
  *  config's precision and unit override. */
@@ -50,7 +37,6 @@ const KpiValue: FC<{
   unit: string | null | undefined;
   precision: number | null | undefined;
 }> = ({ value, dataType, attribute, deviceType, unit, precision }) => {
-  const size = useContext(KpiValueSizeContext);
   if (dataType === "bool" || dataType === "str") {
     return (
       <div className="flex h-full items-center justify-center overflow-hidden p-2">
@@ -59,7 +45,7 @@ const KpiValue: FC<{
           attributeName={attribute}
           dataType={dataType}
           deviceType={deviceType}
-          className={`${size} font-semibold`}
+          className={KPI_VALUE_CLASS}
         />
       </div>
     );
@@ -67,7 +53,7 @@ const KpiValue: FC<{
   const digits = precision ?? (dataType === "float" ? 2 : 0);
   return (
     <div className="flex h-full items-center justify-center overflow-hidden p-2">
-      <span className={`${size} font-semibold`}>
+      <span className={KPI_VALUE_CLASS}>
         {fmt(typeof value === "number" ? value : null, digits)}
         {unit && (
           <span className="ml-1 text-lg text-muted-foreground">{unit}</span>
@@ -80,22 +66,20 @@ const KpiValue: FC<{
 /**
  * One or more number rows over device attributes, sharing one Live/Period
  * mode: each attribute's current value, or its value reduced over the whole
- * dashboard period. Value text shrinks a step per added row so several
- * attributes still fit the tile's fixed grid footprint without overlapping.
+ * dashboard period. The tile's grid footprint grows with the attribute
+ * count (see the backend's ``content_size_hint``), so rows keep their size.
  */
 export const KpiWidgetView: FC<{ config: unknown }> = ({ config }) => {
   const { attributes, temporal } = config as KpiWidgetConfig;
 
   return (
-    <KpiValueSizeContext.Provider value={kpiValueSize(attributes.length)}>
-      <div className="flex h-full flex-col divide-y">
-        {attributes.map((attribute, index) => (
-          <div key={index} className="min-h-0 flex-1 overflow-hidden py-1">
-            <KpiAttributeView attribute={attribute} temporal={temporal} />
-          </div>
-        ))}
-      </div>
-    </KpiValueSizeContext.Provider>
+    <div className="flex h-full flex-col divide-y">
+      {attributes.map((attribute, index) => (
+        <div key={index} className="min-h-0 flex-1 overflow-hidden py-1">
+          <KpiAttributeView attribute={attribute} temporal={temporal} />
+        </div>
+      ))}
+    </div>
   );
 };
 

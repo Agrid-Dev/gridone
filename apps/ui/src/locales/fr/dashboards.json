@@ -113,7 +113,8 @@
         "label": "Attribut {{index}}",
         "add": "Ajouter un attribut",
         "remove": "Supprimer l'attribut"
-      }
+      },
+      "operatorIncompatible": "Le type de données de cet attribut ne prend pas en charge l'opérateur d'agrégation de la tuile."
     },
     "add": "Ajouter un widget",
     "addTitle": "Ajouter un widget",

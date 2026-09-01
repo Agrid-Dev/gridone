@@ -21,6 +21,8 @@ vi.mock("react-i18next", () =>
     "widgets.chart.agg.unsupported": "not supported",
     "widgets.kpi.singleDeviceRequired":
       "Pick a single device, or a fold operator below to combine several",
+    "widgets.kpi.operatorIncompatible":
+      "This attribute's data type doesn't support the tile's aggregation operator.",
   }),
 );
 
@@ -220,6 +222,7 @@ import {
   BLANK_ATTRIBUTE,
   KpiConfigFields,
   kpiConfigCheck,
+  kpiPreviewSize,
 } from "./KpiConfigFields";
 
 function Harness({
@@ -309,6 +312,24 @@ describe("KpiConfigFields", () => {
 
     expect(latest().temporal).toEqual({});
     expect(screen.getByTestId("operator")).toBeInTheDocument();
+  });
+
+  it("remembers the picked operator across a Live/Period round trip", () => {
+    const latest = renderFields([
+      { ...BLANK_ATTRIBUTE, target: SINGLE_DEVICE_TARGET },
+    ]);
+
+    fireEvent.click(screen.getByText("Over the period"));
+    fireEvent.change(screen.getByTestId("operator"), {
+      target: { value: "avg" },
+    });
+    expect(latest().temporal).toEqual({ operator: "avg" });
+
+    fireEvent.click(screen.getByText("Live"));
+    expect(latest().temporal).toBe("live");
+
+    fireEvent.click(screen.getByText("Over the period"));
+    expect(latest().temporal).toEqual({ operator: "avg" });
   });
 
   it("disables operators the first attribute's data type refuses", () => {
@@ -434,6 +455,28 @@ describe("KpiConfigFields", () => {
     });
 
     expect(screen.getAllByTestId("operator")).toHaveLength(2);
+  });
+
+  it("warns when an attribute's data type refuses the tile's chosen period operator", () => {
+    renderFields(
+      [
+        { ...BLANK_ATTRIBUTE, target: CRITERIA_TARGET, space_agg: "avg" },
+        {
+          ...BLANK_ATTRIBUTE,
+          target: { devices: { types: ["thermostat"] }, attribute: "mode" },
+          space_agg: "mode",
+        },
+      ],
+      { temporal: { operator: "avg" } },
+    );
+
+    // Row 0 (float) accepts "avg"; row 1 (str) does not, and only row 1
+    // shows the warning.
+    expect(
+      screen.getAllByText(
+        "This attribute's data type doesn't support the tile's aggregation operator.",
+      ),
+    ).toHaveLength(1);
   });
 
   it("starts with one blank attribute when the array is empty", () => {
@@ -573,5 +616,25 @@ describe("kpiConfigCheck", () => {
       ],
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe("kpiPreviewSize", () => {
+  const base = { w: 2, h: 1 };
+
+  it("grows height to the attribute count", () => {
+    const config = { attributes: [1, 2, 3] };
+
+    expect(kpiPreviewSize(config, base)).toEqual({ w: 2, h: 3 });
+  });
+
+  it("keeps the base size for a single attribute", () => {
+    const config = { attributes: [1] };
+
+    expect(kpiPreviewSize(config, base)).toEqual({ w: 2, h: 1 });
+  });
+
+  it("keeps the base size when there is no config yet", () => {
+    expect(kpiPreviewSize(undefined, base)).toEqual(base);
   });
 });

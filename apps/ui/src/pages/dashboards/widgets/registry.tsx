@@ -5,7 +5,11 @@ import { ChartConfigFields, chartConfigCheck } from "./views/ChartConfigFields";
 import { ChartWidgetView } from "./views/ChartWidgetView";
 import { DeviceControlConfigFields } from "./views/DeviceControlConfigFields";
 import { DeviceControlWidgetView } from "./views/DeviceControlWidgetView";
-import { KpiConfigFields, kpiConfigCheck } from "./views/KpiConfigFields";
+import {
+  KpiConfigFields,
+  kpiConfigCheck,
+  kpiPreviewSize,
+} from "./views/KpiConfigFields";
 import { KpiWidgetView } from "./views/KpiWidgetView";
 import { MeterTreeConfigPlaceholder } from "./views/MeterTreeConfigPlaceholder";
 import { MeterTreeWidgetView } from "./views/MeterTreeWidgetView";
@@ -60,6 +64,23 @@ export const widgetConfigChecks: Record<string, z.ZodType> = {
   chart: chartConfigCheck,
   kpi: kpiConfigCheck,
 };
+
+/** A widget type's live-preview footprint, from its draft config and the
+ *  footprint it would otherwise get. Registering here — not in the generic
+ *  editor — keeps type-specific sizing knowledge with the rest of that
+ *  type's editor code (the backend registry stays sizing's source of truth;
+ *  this only approximates it before save, see kpiPreviewSize). */
+export type WidgetPreviewSizeFn = (
+  config: Record<string, unknown> | undefined,
+  baseSize: { w: number; h: number },
+) => { w: number; h: number };
+
+export const widgetPreviewSize: Record<string, WidgetPreviewSizeFn> = {
+  kpi: kpiPreviewSize,
+};
+
+/** No-op sizing rule for a type not in `widgetPreviewSize`. */
+export const identityPreviewSize: WidgetPreviewSizeFn = (_config, base) => base;
 
 /** Renders a widget body from its type + config. Both the dashboard grid and
  *  the editor preview go through here, so what you preview is what you get.
