@@ -33,6 +33,21 @@ pytestmark = pytest.mark.asyncio
 TEXT_CONFIG = {"type": "text", "text": "hello", "color": "#1a2b3c"}
 
 
+def _kpi_config(attribute_count: int) -> dict:
+    return {
+        "type": "kpi",
+        "attributes": [
+            {
+                "target": {
+                    "devices": {"ids": [f"d{i}"]},
+                    "attribute": f"attr{i}",
+                },
+            }
+            for i in range(attribute_count)
+        ],
+    }
+
+
 class _GaugeConfig(WidgetConfig):
     """A second widget type, registered only in tests to exercise behaviors
     (type immutability) that need more than one registered type."""
@@ -203,6 +218,26 @@ async def test_add_widget_places_at_bottom_with_default_size(
     assert (second.layout.x, second.layout.y) == (0, 2)
 
 
+async def test_add_widget_kpi_grows_height_for_its_attribute_count(
+    service: DashboardsService,
+):
+    dashboard = await service.create(DashboardCreate(name="Ops"))
+
+    widget = await service.add_widget(dashboard.id, config=_kpi_config(3))
+
+    assert (widget.layout.w, widget.layout.h) == (2, 3)
+
+
+async def test_add_widget_kpi_single_attribute_keeps_default_height(
+    service: DashboardsService,
+):
+    dashboard = await service.create(DashboardCreate(name="Ops"))
+
+    widget = await service.add_widget(dashboard.id, config=_kpi_config(1))
+
+    assert (widget.layout.w, widget.layout.h) == (2, 1)
+
+
 async def test_add_widget_rejects_unknown_type_and_persists_nothing(
     service: DashboardsService,
 ):
@@ -266,6 +301,55 @@ async def test_update_widget_changes_config_same_type(service: DashboardsService
     assert isinstance(updated.config, TextWidgetConfig)
     assert updated.config.text == "bye"
     assert updated.config.color == "#ffffff"
+
+
+async def test_update_widget_kpi_grows_layout_for_added_attributes(
+    service: DashboardsService,
+):
+    dashboard, widget = await _dashboard_with_widget(service, _kpi_config(1))
+    assert widget.layout.h == 1
+
+    updated = await service.update_widget(
+        dashboard.id, widget.id, WidgetPatch(config=_kpi_config(3))
+    )
+
+    assert (updated.layout.x, updated.layout.y) == (widget.layout.x, widget.layout.y)
+    assert (updated.layout.w, updated.layout.h) == (2, 3)
+
+
+async def test_update_widget_kpi_does_not_shrink_layout_on_fewer_attributes(
+    service: DashboardsService,
+):
+    dashboard, widget = await _dashboard_with_widget(service, _kpi_config(3))
+    assert widget.layout.h == 3
+
+    updated = await service.update_widget(
+        dashboard.id, widget.id, WidgetPatch(config=_kpi_config(1))
+    )
+
+    assert updated.layout.h == 3
+
+
+async def test_update_widget_does_not_regrow_a_manually_shrunk_non_kpi_widget(
+    service: DashboardsService,
+):
+    # text's registry default is 4x2; shrinking it below that and then
+    # editing an unrelated field must not snap it back to the default —
+    # only content-dependent types (kpi) grow past their current size.
+    dashboard, widget = await _dashboard_with_widget(service)
+    assert (widget.layout.w, widget.layout.h) == (4, 2)
+    await service.update_layout(
+        dashboard.id,
+        [LayoutItem(i=widget.id, x=0, y=0, w=2, h=1)],
+    )
+
+    updated = await service.update_widget(
+        dashboard.id,
+        widget.id,
+        WidgetPatch(config={"type": "text", "text": "bye", "color": "#ffffff"}),
+    )
+
+    assert (updated.layout.w, updated.layout.h) == (2, 1)
 
 
 async def test_update_widget_rejects_unknown_config_type(service: DashboardsService):

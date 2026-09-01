@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict
@@ -9,6 +10,14 @@ from models.types import SPACE_AGGREGATION_OPERATORS
 if TYPE_CHECKING:
     from models.targets import AttributeTarget, ResolvedTarget
     from models.types import AggregationOperator
+
+
+@dataclass(frozen=True)
+class WidgetSize:
+    """A grid footprint, in react-grid-layout units."""
+
+    w: int
+    h: int
 
 
 def validate_space_agg_membership(space_agg: AggregationOperator) -> None:
@@ -55,3 +64,7 @@ class WidgetConfig(BaseModel):
     def validate_resolved(self, resolved: list[ResolvedTarget]) -> None:  # noqa: ARG002
         """Extra save-time checks on resolved targets; no-op by default."""
         return
+
+    def content_size_hint(self, default_size: WidgetSize) -> WidgetSize:
+        """Minimum footprint this instance's content needs; no-op by default."""
+        return default_size

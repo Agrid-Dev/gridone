@@ -475,6 +475,32 @@ def test_kpi_config_rejects_an_empty_attributes_list():
         registry.validate_config({"type": "kpi", "attributes": []})
 
 
+def test_kpi_config_content_size_hint_grows_height_with_attribute_count():
+    config = KpiWidgetConfig.model_validate(
+        {
+            "type": "kpi",
+            "attributes": [
+                {"target": _kpi_target("d1", "temperature")},
+                {"target": _kpi_target("d2", "humidity")},
+                {"target": _kpi_target("d3", "pressure")},
+            ],
+        }
+    )
+
+    assert config.content_size_hint(WidgetSize(w=2, h=1)) == WidgetSize(w=2, h=3)
+
+
+def test_kpi_config_content_size_hint_keeps_default_for_one_attribute():
+    config = KpiWidgetConfig.model_validate(
+        {
+            "type": "kpi",
+            "attributes": [{"target": _kpi_target("d1", "temperature")}],
+        }
+    )
+
+    assert config.content_size_hint(WidgetSize(w=2, h=1)) == WidgetSize(w=2, h=1)
+
+
 def test_kpi_config_rejects_a_multi_device_resolved_target():
     # Defense in depth: even a config with an explicit single id is refused
     # if resolution still yields more than one device.
@@ -582,7 +608,9 @@ def test_kpi_config_validate_resolved_checks_each_attribute_independently():
     )
     resolved = [_resolved("temperature", ["d1"]), _resolved("humidity", ["d2", "d3"])]
 
-    with pytest.raises(InvalidError, match="exactly one device"):
+    # The failing attribute is the second one; the message names it so a
+    # multi-attribute tile's error is actionable.
+    with pytest.raises(InvalidError, match=r"Attribute 2.*exactly one device"):
         config.validate_resolved(resolved)
 
 

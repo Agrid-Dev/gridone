@@ -4,7 +4,11 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from dashboards.widgets.config import WidgetConfig, validate_space_agg_membership
+from dashboards.widgets.config import (
+    WidgetConfig,
+    WidgetSize,
+    validate_space_agg_membership,
+)
 from models.errors import InvalidError
 from models.targets import AttributeTarget  # noqa: TC001
 from models.types import AggregationOperator  # noqa: TC001
@@ -57,21 +61,21 @@ class KpiAttribute(BaseModel):
             validate_space_agg_membership(self.space_agg)
         return self
 
-    def check_resolved(self, target: ResolvedTarget) -> None:
+    def check_resolved(self, index: int, target: ResolvedTarget) -> None:
         """Cardinality rule for this attribute's resolved target.
 
         Without ``space_agg`` it must resolve to exactly one device; with it,
         any non-empty set is fine — cardinality collapses to one at read time.
+        *index* (0-based) names which attribute failed once a tile has more
+        than one, matching the editor's 1-based "Attribute N" labels.
         """
+        prefix = f"Attribute {index + 1}: KPI target must resolve to"
         if self.space_agg is None:
             if len(target.device_ids) != 1:
-                msg = (
-                    f"KPI target must resolve to exactly one device, "
-                    f"got {len(target.device_ids)}"
-                )
+                msg = f"{prefix} exactly one device, got {len(target.device_ids)}"
                 raise InvalidError(msg)
         elif not target.device_ids:
-            msg = "KPI target must resolve to at least one device"
+            msg = f"{prefix} at least one device"
             raise InvalidError(msg)
 
 
@@ -112,5 +116,11 @@ class KpiWidgetConfig(WidgetConfig):
         return [attribute.target for attribute in self.attributes]
 
     def validate_resolved(self, resolved: list[ResolvedTarget]) -> None:
-        for attribute, target in zip(self.attributes, resolved, strict=True):
-            attribute.check_resolved(target)
+        for index, (attribute, target) in enumerate(
+            zip(self.attributes, resolved, strict=True)
+        ):
+            attribute.check_resolved(index, target)
+
+    def content_size_hint(self, default_size: WidgetSize) -> WidgetSize:
+        """One row of height per attribute."""
+        return WidgetSize(w=default_size.w, h=max(default_size.h, len(self.attributes)))
