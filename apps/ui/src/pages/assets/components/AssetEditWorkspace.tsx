@@ -1,6 +1,6 @@
 import { useMemo, type ReactNode } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import {
@@ -48,8 +48,13 @@ import { getConnectionStatus } from "@/lib/devices";
 import { deviceTypeIcon, deviceTypeName } from "@/lib/deviceTypes";
 import { cn, formatTimeAgo } from "@/lib/utils";
 import { sortedByName } from "@/lib/sortByName";
-import { ASSET_TYPES, sortedByPosition } from "@/lib/assets";
-import { assetFormSchema, type AssetFormValues } from "./AssetForm";
+import { ASSET_TYPES, canCarryUsage, sortedByPosition } from "@/lib/assets";
+import {
+  assetFormSchema,
+  useUsageOptions,
+  type AssetFormValues,
+} from "./AssetForm";
+import { UsageBadge } from "./UsageBadge";
 
 type AssetEditWorkspaceProps = {
   mode?: "detail" | "edit";
@@ -225,8 +230,11 @@ export function AssetEditWorkspace({
       name: asset.name,
       type: asset.type,
       parentId: asset.parent_id ?? "",
+      usage: asset.usage ?? null,
     },
   });
+  const selectedType = useWatch({ control: form.control, name: "type" });
+  const usageOptions = useUsageOptions();
 
   const assetsById = useMemo(
     () => new Map(allAssets.map((item) => [item.id, item])),
@@ -337,6 +345,7 @@ export function AssetEditWorkspace({
               <Badge variant="info" className="px-3 py-1 text-sm">
                 {t(`types.${asset.type}`)}
               </Badge>
+              <UsageBadge usage={asset.usage} className="px-3 py-1 text-sm" />
               <Badge
                 variant="outline"
                 className="gap-1.5 px-3 py-1 text-sm font-medium"
@@ -460,6 +469,22 @@ export function AssetEditWorkspace({
                   </div>
                 </div>
               </div>
+
+              {canCarryUsage(selectedType) && (
+                <SelectController
+                  name="usage"
+                  control={form.control}
+                  label={t("fields.usage")}
+                  description={t("fields.usageHint")}
+                  options={usageOptions}
+                  placeholder={t("fields.usageNone")}
+                  allowEmpty
+                  emptyValue={null}
+                  emptyLabel={t("fields.usageNone")}
+                  disabled={fieldsDisabled}
+                  triggerProps={{ className: "h-11 bg-muted/15" }}
+                />
+              )}
             </div>
           </Card>
 

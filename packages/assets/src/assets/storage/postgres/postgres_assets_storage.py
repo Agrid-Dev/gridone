@@ -2,7 +2,7 @@ from datetime import datetime
 
 import asyncpg
 
-from assets.models import BuildingProfile
+from assets.models import AssetUsage, BuildingProfile
 from assets.storage.models import AssetInDB
 
 _PROFILE_ID = "singleton"
@@ -40,6 +40,7 @@ class PostgresAssetsStorage:
             name=row["name"],
             path=str(row["path"]).split(".") if row["path"] else [],
             position=row["position"],
+            usage=row["usage"],
             created_at=row["created_at"],
             updated_at=row["updated_at"],
         )
@@ -68,13 +69,14 @@ class PostgresAssetsStorage:
         await self._pool.execute(
             """
             INSERT INTO assets
-                (id, parent_id, type, name, position, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+                (id, parent_id, type, name, position, usage, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             ON CONFLICT (id) DO UPDATE SET
                 parent_id = EXCLUDED.parent_id,
                 type = EXCLUDED.type,
                 name = EXCLUDED.name,
                 position = EXCLUDED.position,
+                usage = EXCLUDED.usage,
                 updated_at = EXCLUDED.updated_at
             """,
             asset.id,
@@ -82,6 +84,7 @@ class PostgresAssetsStorage:
             asset.type,
             asset.name,
             asset.position,
+            asset.usage,
             asset.created_at,
             asset.updated_at,
         )
@@ -134,6 +137,18 @@ class PostgresAssetsStorage:
                     parent_id,
                     updated_at,
                 )
+
+    async def set_usage(
+        self, asset_ids: list[str], usage: AssetUsage | None, updated_at: datetime
+    ) -> None:
+        if not asset_ids:
+            return
+        await self._pool.execute(
+            "UPDATE assets SET usage = $1, updated_at = $2 WHERE id = ANY($3::text[])",
+            usage,
+            updated_at,
+            asset_ids,
+        )
 
     async def close(self) -> None:
         await self._pool.close()

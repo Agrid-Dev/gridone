@@ -1,10 +1,12 @@
 from datetime import UTC, datetime
 
 from assets.models import (
+    USAGE_CAPABLE_TYPES,
     Asset,
     AssetCreate,
     AssetType,
     AssetUpdate,
+    AssetUsage,
     BuildingProfile,
 )
 from assets.storage import build_assets_storage
@@ -47,6 +49,37 @@ class AssetsService(Service):
             raise NotFoundError(msg)
         return asset
 
+    @staticmethod
+    def _assert_usage_capable(asset_type: AssetType) -> None:
+        """Only room and zone assets may carry a usage."""
+        if asset_type not in USAGE_CAPABLE_TYPES:
+            msg = f"Only room and zone assets can have a usage, not '{asset_type}'"
+            raise InvalidError(msg)
+
+    @classmethod
+    def _resolve_usage(
+        cls, existing: AssetInDB, data: AssetUpdate, new_type: AssetType
+    ) -> AssetUsage | None:
+        """Usage the asset carries once *data* is applied, checked against *new_type*.
+
+        An omitted ``usage`` keeps the stored value; an explicit ``null`` clears
+        it. A classified asset cannot be re-typed to a level that cannot carry a
+        usage: the operator has to clear the usage first, it is never dropped
+        silently.
+        """
+        usage_given = "usage" in data.model_fields_set
+        usage = data.usage if usage_given else existing.usage
+        if usage is None:
+            return None
+        if not usage_given and new_type not in USAGE_CAPABLE_TYPES:
+            msg = (
+                f"Cannot change the type of a classified asset to '{new_type}'. "
+                "Clear its usage first."
+            )
+            raise InvalidError(msg)
+        cls._assert_usage_capable(new_type)
+        return usage
+
     async def ensure_default_root(self) -> None:
         """Create the default root organization if no assets exist."""
         roots = await self._backend.list_by_parent(None)
@@ -84,6 +117,7 @@ class AssetsService(Service):
         *,
         parent_id: str | None = None,
         asset_type: str | None = None,
+        usage: AssetUsage | None = None,
     ) -> list[Asset]:
         if parent_id is not None:
             assets = await self._backend.list_by_parent(parent_id)
@@ -94,6 +128,8 @@ class AssetsService(Service):
 
         if asset_type is not None:
             result = [a for a in result if a.type == asset_type]
+        if usage is not None:
+            result = [a for a in result if a.usage == usage]
 
         return result
 
@@ -117,6 +153,8 @@ class AssetsService(Service):
         return build(None)
 
     async def create_asset(self, data: AssetCreate) -> Asset:
+        if data.usage is not None:
+            self._assert_usage_capable(data.type)
         parent = await self._backend.get_by_id(data.parent_id)
         if parent is None:
             msg = f"Parent asset '{data.parent_id}' not found"
@@ -130,6 +168,7 @@ class AssetsService(Service):
             type=data.type,
             name=data.name,
             position=position,
+            usage=data.usage,
         )
         await self._backend.save(asset)
 
@@ -145,6 +184,7 @@ class AssetsService(Service):
         new_parent_id = (
             data.parent_id if data.parent_id is not None else existing.parent_id
         )
+        new_usage = self._resolve_usage(existing, data, new_type)
 
         # Check for circular dependency if parent is changing
         if new_parent_id != existing.parent_id and new_parent_id is not None:
@@ -174,6 +214,7 @@ class AssetsService(Service):
             type=new_type,
             name=new_name,
             position=existing.position,
+            usage=new_usage,
             created_at=existing.created_at,
             updated_at=datetime.now(UTC),
         )
@@ -205,6 +246,20 @@ class AssetsService(Service):
     async def reorder_siblings(self, parent_id: str, ordered_ids: list[str]) -> None:
         await self._get_or_raise(parent_id)
         await self._backend.reorder_siblings(parent_id, ordered_ids, datetime.now(UTC))
+
+    async def set_usage(self, asset_ids: list[str], usage: AssetUsage | None) -> int:
+        """Classify every asset in *asset_ids* with *usage* (``None`` clears it).
+
+        The batch is checked whole before anything is written: an unknown id or
+        an asset that cannot carry a usage rejects the request with nothing
+        modified. Returns the number of distinct assets updated.
+        """
+        unique_ids = list(dict.fromkeys(asset_ids))
+        for asset_id in unique_ids:
+            asset = await self._get_or_raise(asset_id)
+            self._assert_usage_capable(asset.type)
+        await self._backend.set_usage(unique_ids, usage, datetime.now(UTC))
+        return len(unique_ids)
 
 
 __all__ = ["AssetsService"]

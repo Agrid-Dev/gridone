@@ -8,6 +8,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
 import { usePermissions } from "@/contexts/AuthContext";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
+import { useAssetSelection } from "@/hooks/useAssetSelection";
+import { useSetAssetsUsage } from "@/hooks/useSetAssetsUsage";
 import type { AssetTreeNode } from "@/lib/assets";
 import { AssetTree } from "./components/AssetTree";
 
@@ -15,6 +17,9 @@ export default function AssetsList() {
   const { t } = useTranslation("assets");
   const client = useGridoneClient();
   const can = usePermissions();
+  const canEdit = can("assets:write");
+  const selection = useAssetSelection();
+  const setUsage = useSetAssetsUsage({ onSuccess: selection.clear });
 
   const { data: tree = [], isLoading } = useQuery<AssetTreeNode[]>({
     queryKey: ["assets", "tree-with-devices"],
@@ -30,7 +35,7 @@ export default function AssetsList() {
         flush
         actions={
           <>
-            {can("assets:write") && (
+            {canEdit && (
               <Button asChild size="sm">
                 <Link to="/assets/new?type=zone">
                   <Plus />
@@ -50,7 +55,13 @@ export default function AssetsList() {
           ))}
         </div>
       ) : tree.length > 0 ? (
-        <AssetTree tree={tree} canEdit={can("assets:write")} />
+        <AssetTree
+          tree={tree}
+          canEdit={canEdit}
+          selection={selection}
+          onSetUsage={(assetIds, usage) => setUsage.mutate({ assetIds, usage })}
+          isSettingUsage={setUsage.isPending}
+        />
       ) : (
         <ResourceEmpty resourceName={t("singular").toLowerCase()} />
       )}

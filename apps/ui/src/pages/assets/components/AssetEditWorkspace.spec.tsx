@@ -45,6 +45,11 @@ vi.mock("react-i18next", () =>
     "fields.type": "Type",
     "fields.parent": "Parent zone",
     "fields.parentPlaceholder": "None",
+    "fields.usage": "Usage",
+    "fields.usageHint": "What this space is for.",
+    "fields.usageNone": "Unclassified",
+    "usages.hotel_room": "Hotel room",
+    "usages.office": "Office",
     "overview.addSubzoneTo": "Add a sub-zone to {{name}}",
     "devices.link": "Link device",
     "devices.unlink": "Unlink",
@@ -126,6 +131,7 @@ const allAssets = [organization, building, floor, lobby, bar];
 
 function renderWorkspace({
   mode = "edit",
+  asset = lobby,
   canWriteAssets = true,
   canWriteDevices = true,
   childAssets = [bar],
@@ -135,6 +141,7 @@ function renderWorkspace({
   onReorder,
 }: {
   mode?: "detail" | "edit";
+  asset?: Asset;
   canWriteAssets?: boolean;
   canWriteDevices?: boolean;
   childAssets?: Asset[];
@@ -148,7 +155,7 @@ function renderWorkspace({
       <TooltipProvider>
         <AssetEditWorkspace
           mode={mode}
-          asset={lobby}
+          asset={asset}
           allAssets={allAssets}
           childAssets={childAssets}
           devices={[thermostat]}
@@ -228,6 +235,7 @@ describe("AssetEditWorkspace", () => {
         name: "Main lobby",
         type: "zone",
         parentId: "floor",
+        usage: null,
       }),
     );
 
@@ -351,6 +359,70 @@ describe("AssetEditWorkspace", () => {
     expect(
       screen.queryByRole("button", { name: "Save changes" }),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("AssetEditWorkspace usage", () => {
+  it("offers the usage select on a zone and submits the chosen usage", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn<(data: AssetFormValues) => void>();
+    renderWorkspace({ onSubmit });
+
+    const usage = screen.getByRole("combobox", { name: "Usage" });
+    expect(usage).toHaveTextContent("Unclassified");
+    await user.click(usage);
+    await user.click(screen.getByRole("option", { name: "Hotel room" }));
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() =>
+      expect(onSubmit.mock.calls[0]?.[0]).toMatchObject({
+        usage: "hotel_room",
+      }),
+    );
+  });
+
+  it("shows no usage select on a floor", () => {
+    renderWorkspace({ asset: floor });
+
+    expect(screen.getByRole("combobox", { name: "Type" })).toHaveTextContent(
+      "Floor",
+    );
+    expect(
+      screen.queryByRole("combobox", { name: "Usage" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("hides the usage select when the type leaves room/zone and reveals it back", async () => {
+    const user = userEvent.setup();
+    renderWorkspace();
+
+    await user.click(screen.getByRole("combobox", { name: "Type" }));
+    await user.click(screen.getByRole("option", { name: "Floor" }));
+    expect(
+      screen.queryByRole("combobox", { name: "Usage" }),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("combobox", { name: "Type" }));
+    await user.click(screen.getByRole("option", { name: "Room" }));
+    expect(screen.getByRole("combobox", { name: "Usage" })).toBeInTheDocument();
+  });
+
+  it("badges a classified asset with its usage beside the type pill", () => {
+    renderWorkspace({ mode: "detail", asset: { ...lobby, usage: "office" } });
+
+    const title = screen.getByRole("heading", { name: "Lobby" });
+    const pills = title.parentElement;
+    expect(pills).not.toBeNull();
+    expect(within(pills!).getByText("Zone")).toBeInTheDocument();
+    expect(within(pills!).getByText("Office")).toBeInTheDocument();
+  });
+
+  it("badges nothing for an unclassified asset", () => {
+    renderWorkspace({ mode: "detail" });
+
+    const pills = screen.getByRole("heading", { name: "Lobby" }).parentElement;
+    expect(within(pills!).queryByText("Office")).not.toBeInTheDocument();
+    expect(within(pills!).queryByText("Unclassified")).not.toBeInTheDocument();
   });
 });
 

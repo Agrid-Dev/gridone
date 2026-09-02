@@ -9,7 +9,7 @@ import type {
   AssetType,
 } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
-import { AssetForm } from "./components/AssetForm";
+import { AssetForm, toAssetPayload } from "./components/AssetForm";
 import type { AssetFormValues } from "./components/AssetForm";
 import { ASSET_TYPES } from "@/lib/assets";
 
@@ -45,11 +45,7 @@ export default function AssetCreate() {
   });
 
   const handleSubmit = (data: AssetFormValues) => {
-    mutation.mutate({
-      name: data.name,
-      type: data.type,
-      parent_id: data.parentId,
-    });
+    mutation.mutate(toAssetPayload(data));
   };
 
   return (
@@ -58,7 +54,7 @@ export default function AssetCreate() {
 
       <div className="rounded-2xl border border-border bg-card p-6">
         <AssetForm
-          defaultValues={{ name: "", type: defaultType, parentId }}
+          defaultValues={{ name: "", type: defaultType, parentId, usage: null }}
           onSubmit={handleSubmit}
           isPending={mutation.isPending}
         />

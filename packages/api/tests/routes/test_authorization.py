@@ -713,6 +713,23 @@ COMMANDS_ACCESS_CONTROL_SCENARIOS = [
     # PUT /assets/profile requires ASSETS_WRITE.
     pytest.param("PUT", "/assets/profile", "viewer", 403, {}, id="profile-put-viewer"),
     pytest.param("PUT", "/assets/profile", None, 401, {}, id="profile-put-no-auth"),
+    # PATCH /assets/usage (batch classification) requires ASSETS_WRITE.
+    pytest.param(
+        "PATCH",
+        "/assets/usage",
+        "viewer",
+        403,
+        {"asset_ids": ["x"], "usage": "office"},
+        id="usage-batch-viewer",
+    ),
+    pytest.param(
+        "PATCH",
+        "/assets/usage",
+        None,
+        401,
+        {"asset_ids": ["x"], "usage": "office"},
+        id="usage-batch-no-auth",
+    ),
     # GET /devices/commands requires DEVICES_READ — all roles can read,
     # but no-auth is 401.
     pytest.param("GET", "/devices/commands", None, 401, None, id="get-cmds-no-auth"),

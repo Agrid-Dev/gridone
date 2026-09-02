@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Protocol
 
-from assets.models import BuildingProfile
+from assets.models import AssetUsage, BuildingProfile
 from assets.storage.models import AssetInDB
 
 
@@ -34,6 +34,12 @@ class AssetsStorageBackend(Protocol):
         self, parent_id: str, ordered_ids: list[str], updated_at: datetime
     ) -> None:
         """Set position values for the given sibling IDs in order (0, 1, 2, ...)."""
+        ...
+
+    async def set_usage(
+        self, asset_ids: list[str], usage: AssetUsage | None, updated_at: datetime
+    ) -> None:
+        """Set the usage of every asset in *asset_ids* (``None`` clears it)."""
         ...
 
     async def close(self) -> None: ...
