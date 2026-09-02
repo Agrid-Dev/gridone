@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { RequestFn } from "../http/httpClient";
-import type { UserCreateRequest, UserUpdateRequest } from "../types";
+import type {
+  PasswordChangeRequest,
+  UserCreateRequest,
+  UserUpdateRequest,
+} from "../types";
 import { UsersResource } from "./users";
 
 const RESULT = { wire: true };
@@ -21,6 +25,10 @@ const CREATE: UserCreateRequest = {
   title: "Technician",
 };
 const UPDATE: UserUpdateRequest = { name: "Op One bis" };
+const PASSWORD_CHANGE: PasswordChangeRequest = {
+  current_password: "s3cret",
+  new_password: "s3cret-bis",
+};
 
 type Case = [
   string,
@@ -40,6 +48,11 @@ const CASES: Case[] = [
   ["delete", (u) => u.delete("u1"), ["DELETE", "/users/u1"]],
   ["block", (u) => u.block("u1"), ["POST", "/users/u1/block"]],
   ["unblock", (u) => u.unblock("u1"), ["POST", "/users/u1/unblock"]],
+  [
+    "changePassword",
+    (u) => u.changePassword(PASSWORD_CHANGE),
+    ["POST", "/auth/password", { body: PASSWORD_CHANGE }],
+  ],
 ];
 
 describe("UsersResource", () => {

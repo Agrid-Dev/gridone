@@ -71,8 +71,11 @@
       "emailInvalid": "Veuillez saisir une adresse email valide.",
       "passwordMinLength": "Le mot de passe doit contenir au moins {{count}} caractères.",
       "passwordMaxLength": "Le mot de passe doit contenir au plus {{count}} caractères.",
-      "confirmPasswordRequired": "Veuillez confirmer votre nouveau mot de passe."
-    }
+      "confirmPasswordRequired": "Veuillez confirmer votre nouveau mot de passe.",
+      "currentPasswordRequired": "Saisissez votre mot de passe actuel."
+    },
+    "currentPassword": "Mot de passe actuel",
+    "currentPasswordPlaceholder": "Saisissez votre mot de passe actuel"
   },
   "common": {
     "update": "Mettre à jour",

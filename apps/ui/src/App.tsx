@@ -14,6 +14,7 @@ import BuildingProfileEdit from "./pages/building/BuildingProfileEdit";
 import LoginPage from "./pages/login/LoginPage";
 import UsersPage from "./pages/users/UsersPage";
 import SettingsPage from "./pages/settings/SettingsPage";
+import { ForcedPasswordChange } from "./pages/settings/ForcedPasswordChange";
 import { NotFoundFallback } from "./components/fallbacks/NotFound";
 import { Sidebar } from "./components/layout/Sidebar";
 import { TopBar } from "./components/layout/TopBar";
@@ -78,7 +79,7 @@ function ProtectedLayout() {
 }
 
 export default function App() {
-  const { state } = useAuth();
+  const { state, refreshMe, logout } = useAuth();
 
   if (state.status === "loading") {
     return (
@@ -93,21 +94,25 @@ export default function App() {
     );
   }
 
-  if (state.status === "unauthenticated") {
-    return (
-      <>
+  return (
+    <>
+      {state.status === "unauthenticated" ? (
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
-        <Toaster />
-      </>
-    );
-  }
-
-  return (
-    <TooltipProvider>
-      <ProtectedLayout />
-    </TooltipProvider>
+      ) : state.user.must_change_password ? (
+        <ForcedPasswordChange
+          user={state.user}
+          refreshMe={refreshMe}
+          onLogout={logout}
+        />
+      ) : (
+        <TooltipProvider>
+          <ProtectedLayout />
+        </TooltipProvider>
+      )}
+      <Toaster />
+    </>
   );
 }

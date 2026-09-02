@@ -1,5 +1,7 @@
 import type { RequestFn } from "../http/httpClient";
 import type {
+  MeResponse,
+  PasswordChangeRequest,
   User,
   UserBasic,
   UserCreateRequest,
@@ -39,5 +41,10 @@ export class UsersResource {
 
   unblock(userId: string): Promise<User> {
     return this.request("POST", `/users/${encodeURIComponent(userId)}/unblock`);
+  }
+
+  /** Change your own password. Any role, no `users:write` needed. */
+  changePassword(params: PasswordChangeRequest): Promise<MeResponse> {
+    return this.request("POST", "/auth/password", { body: params });
   }
 }
