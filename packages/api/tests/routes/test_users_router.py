@@ -1,4 +1,4 @@
-"""Tests for users_router block/unblock endpoints and JWT rejection."""
+"""Tests for users_router block/unblock, JWT rejection and password limits."""
 
 from unittest.mock import AsyncMock
 
@@ -13,6 +13,7 @@ from api.routes.users.users_router import router as users_router
 from models.errors import BlockedUserError, NotFoundError
 from users import Role, User
 from users.auth import AuthService
+from users.validation import PASSWORD_MAX_LENGTH
 
 ADMIN = User(id="admin-id", username="admin", role=Role.ADMIN, name="Admin User")
 BOB = User(id="bob-id", username="bob", role=Role.OPERATOR, name="Bob User")
@@ -150,9 +151,10 @@ def test_blocked_user_jwt_is_rejected(app: FastAPI, users_manager: AsyncMock) ->
         resp = client.post("/users/bob-id/block", headers=_auth(admin_token))
         assert resp.status_code == 200
 
-        # Simulate Bob being blocked for is_blocked check
-        users_manager.is_blocked = AsyncMock(
-            side_effect=lambda uid: uid == "bob-id",
+        # The JWT dep reads the record, not is_blocked.
+        blocked_bob = BOB.model_copy(update={"is_blocked": True})
+        users_manager.get_by_id = AsyncMock(
+            side_effect=lambda uid: blocked_bob if uid == "bob-id" else ADMIN,
         )
 
         # Bob's existing token is now rejected
@@ -186,3 +188,43 @@ def test_create_user_conflict_returns_409(
             headers=_auth(token),
         )
     assert resp.status_code == 409
+    assert resp.json()["detail"] == "Username already exists"
+
+
+# --- Password length contract ---
+
+
+OVERSIZED = [
+    pytest.param("a" * (PASSWORD_MAX_LENGTH + 1), id="ascii"),
+    # 40 characters, 80 bytes once encoded.
+    pytest.param("é" * 40, id="multibyte"),
+]
+
+
+# (method, path, extra body fields, service method that must not be reached)
+WRITE_ROUTES = [
+    pytest.param(("PATCH", "/users/bob-id", {}, "update_user"), id="update"),
+    pytest.param(
+        ("POST", "/users/", {"username": "someone"}, "create_user"), id="create"
+    ),
+]
+
+
+@pytest.mark.parametrize("password", OVERSIZED)
+@pytest.mark.parametrize("route", WRITE_ROUTES)
+def test_rejects_oversized_password(
+    app: FastAPI,
+    users_manager: AsyncMock,
+    password: str,
+    route: tuple[str, str, dict, str],
+) -> None:
+    """Request validation refuses it before anything reaches bcrypt."""
+    method, path, body, mock_name = route
+    with TestClient(app) as client:
+        token = _login(client, "admin")
+        resp = client.request(
+            method, path, json={**body, "password": password}, headers=_auth(token)
+        )
+
+    assert resp.status_code == 422
+    getattr(users_manager, mock_name).assert_not_called()

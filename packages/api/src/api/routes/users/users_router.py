@@ -18,6 +18,9 @@ from users.validation import PasswordField, UsernameField
 
 router = APIRouter()
 
+# The service message echoes the submitted username, so it is not reused here.
+_USERNAME_TAKEN = "Username already exists"
+
 
 class UserBasic(BaseModel):
     id: str
@@ -80,20 +83,14 @@ async def create_user(
     body: UserCreateRequest,
     um: Annotated[UsersService, Depends(get_users_service)],
 ) -> User:
+    # Built outside the try: a model error is a 422, not a username conflict.
+    create_data = UserCreate(**body.model_dump())
     try:
-        return await um.create_user(
-            UserCreate(
-                username=body.username,
-                password=body.password,
-                role=body.role,
-                type=body.type,
-                name=body.name,
-                email=body.email,
-                title=body.title,
-            )
-        )
+        return await um.create_user(create_data)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=_USERNAME_TAKEN
+        ) from e
 
 
 @router.get(
@@ -119,22 +116,15 @@ async def update_user(
     body: UserUpdateRequest,
     um: Annotated[UsersService, Depends(get_users_service)],
 ) -> User:
+    update_data = UserUpdate(**body.model_dump())
     try:
-        return await um.update_user(
-            user_id,
-            UserUpdate(
-                username=body.username,
-                password=body.password,
-                role=body.role,
-                name=body.name,
-                email=body.email,
-                title=body.title,
-            ),
-        )
+        return await um.update_user(user_id, update_data)
     except NotFoundError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=_USERNAME_TAKEN
+        ) from e
 
 
 @router.delete(
