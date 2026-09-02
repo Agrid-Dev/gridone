@@ -31,6 +31,7 @@ import {
   useResetRefusedOperator,
 } from "@/hooks/useAggregateOptions";
 import { useDevicesList } from "@/hooks/useDevicesList";
+import { attributeUnit } from "@/lib/attributeUnits";
 import { isEmptyFilter } from "@/lib/devices";
 
 type Temporal = "live" | { operator?: AggregationOperator };
@@ -323,6 +324,10 @@ const KpiAttributeFields: FC<{
     control,
     name: `${name}.space_agg`,
   });
+  const { field: unitField } = useController({
+    control,
+    name: `${name}.unit`,
+  });
 
   const attribute = (attributeField.value as string) || undefined;
   const spaceAgg = (spaceAggField.value as string | null) ?? null;
@@ -380,7 +385,15 @@ const KpiAttributeFields: FC<{
       <AttributeCoverageSelect
         filter={devices}
         value={attribute}
-        onChange={(attr) => attributeField.onChange(attr)}
+        onChange={(attr) => {
+          attributeField.onChange(attr);
+          // Prefill from the heuristic, but only into an untouched field —
+          // this is a default, not a value the picker is allowed to clobber.
+          if (attr && !unitField.value) {
+            const resolvedUnit = attributeUnit(attr);
+            if (resolvedUnit) unitField.onChange(resolvedUnit);
+          }
+        }}
       />
       {skipped > 0 && (
         <p className="text-sm text-amber-600 dark:text-amber-500">
