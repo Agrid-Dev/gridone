@@ -1,3 +1,11 @@
+## v0.218.5 (2026-09-02)
+
+### Fix
+
+- **ui**: report device save failures instead of failing silently (AGR-1132)
+- **devices-manager**: cancel a superseded sync before the write, not after
+- **devices-manager**: start device sync off the request path (AGR-1132)
+
 ## v0.218.4 (2026-09-01)
 
 ### Fix
