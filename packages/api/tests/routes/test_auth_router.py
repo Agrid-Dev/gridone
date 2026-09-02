@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 from api.dependencies import get_users_service
 from api.exception_handlers import register_exception_handlers
 from api.routes.users.auth_router import router
-from models.errors import BlockedUserError
+from models.errors import BlockedUserError, NotFoundError
 from users import Role, User
 from users.auth import AuthService
 from users.validation import (
@@ -18,6 +18,8 @@ from users.validation import (
 
 class MockUsersService:
     def __init__(self) -> None:
+        self.get_by_id_calls = 0
+        self.is_blocked_calls = 0
         self._credentials = {"admin": "admin", "blocked": "blocked"}
         self._users = {
             "admin": User(
@@ -43,27 +45,37 @@ class MockUsersService:
         return user
 
     async def get_by_id(self, user_id: str) -> User:
+        self.get_by_id_calls += 1
         for user in self._users.values():
             if user.id == user_id:
                 return user
         msg = f"User '{user_id}' not found"
-        raise RuntimeError(msg)
+        raise NotFoundError(msg)
 
     async def is_blocked(self, user_id: str) -> bool:
+        self.is_blocked_calls += 1
         for user in self._users.values():
             if user.id == user_id:
                 return user.is_blocked
         return False
 
+    def set_role(self, username: str, role: Role) -> None:
+        """Simulate a role change persisted to storage between two requests."""
+        self._users[username] = self._users[username].model_copy(update={"role": role})
+
 
 @pytest.fixture
-def app() -> FastAPI:
+def users_service() -> MockUsersService:
+    return MockUsersService()
+
+
+@pytest.fixture
+def app(users_service: MockUsersService) -> FastAPI:
     app = FastAPI()
     app.include_router(router)
     app.state.auth_service = AuthService(secret_key="test-secret")
     app.state.cookie_secure = False
-    manager = MockUsersService()
-    app.dependency_overrides[get_users_service] = lambda: manager
+    app.dependency_overrides[get_users_service] = lambda: users_service
     register_exception_handlers(app)
     return app
 
@@ -217,6 +229,84 @@ def test_token_blocked_user_refresh_grant_returns_403(app: FastAPI) -> None:
         )
     assert response.status_code == 403
     assert "blocked" in response.json()["detail"].lower()
+
+
+def test_token_refresh_grant_mints_tokens_from_stored_role(
+    app: FastAPI, users_service: MockUsersService
+) -> None:
+    """A role changed in storage must take effect on the next refresh."""
+    auth_service: AuthService = app.state.auth_service
+    with TestClient(app) as client:
+        refresh_token = _login(client)["refresh_token"]
+        users_service.set_role("admin", Role.VIEWER)
+
+        response = client.post(
+            "/token",
+            data={"grant_type": "refresh_token", "refresh_token": refresh_token},
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert auth_service.decode_token(data["access_token"]).role == Role.VIEWER
+    assert (
+        auth_service.decode_token(data["refresh_token"], expected_type="refresh").role
+        == Role.VIEWER
+    )
+
+
+def test_token_refresh_grant_keeps_unchanged_role(app: FastAPI) -> None:
+    auth_service: AuthService = app.state.auth_service
+    with TestClient(app) as client:
+        refresh_token = _login(client)["refresh_token"]
+        response = client.post(
+            "/token",
+            data={"grant_type": "refresh_token", "refresh_token": refresh_token},
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert auth_service.decode_token(data["access_token"]).role == Role.ADMIN
+    assert (
+        auth_service.decode_token(data["refresh_token"], expected_type="refresh").role
+        == Role.ADMIN
+    )
+
+
+def test_token_refresh_grant_deleted_user_returns_401(app: FastAPI) -> None:
+    """A refresh token whose subject is gone is as good as an invalid one."""
+    auth_service: AuthService = app.state.auth_service
+    deleted_token = auth_service.create_refresh_token("deleted-id", Role.ADMIN)
+
+    with TestClient(app) as client:
+        invalid = client.post(
+            "/token",
+            data={"grant_type": "refresh_token", "refresh_token": "bad-token"},
+        )
+        response = client.post(
+            "/token",
+            data={"grant_type": "refresh_token", "refresh_token": deleted_token},
+        )
+
+    assert response.status_code == 401
+    assert response.json() == invalid.json()
+    assert "access_token" not in response.json()
+
+
+def test_token_refresh_grant_reads_storage_once(
+    app: FastAPI, users_service: MockUsersService
+) -> None:
+    with TestClient(app) as client:
+        refresh_token = _login(client)["refresh_token"]
+        users_service.get_by_id_calls = 0
+        users_service.is_blocked_calls = 0
+
+        client.post(
+            "/token",
+            data={"grant_type": "refresh_token", "refresh_token": refresh_token},
+        )
+
+    assert users_service.get_by_id_calls == 1
+    assert users_service.is_blocked_calls == 0
 
 
 # --- /me ---

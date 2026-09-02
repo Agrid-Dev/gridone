@@ -37,7 +37,7 @@ def test_default_registry_registers_built_in_types():
     assert registry.default_size("text") == WidgetSize(w=4, h=2)
     assert registry.default_size("chart") == WidgetSize(w=6, h=5)
     assert registry.default_size("device_control") == WidgetSize(w=4, h=6)
-    assert registry.default_size("kpi") == WidgetSize(w=3, h=2)
+    assert registry.default_size("kpi") == WidgetSize(w=2, h=1)
     assert registry.default_size("meter_tree") == WidgetSize(w=6, h=8)
 
 
@@ -191,7 +191,7 @@ def test_schemas_returns_json_schema_per_type():
     assert device_control["x-default-size"] == {"w": 4, "h": 6}
     kpi = schemas["kpi"]
     assert set(kpi["required"]) == {"target"}
-    assert kpi["x-default-size"] == {"w": 3, "h": 2}
+    assert kpi["x-default-size"] == {"w": 2, "h": 1}
     meter_tree = schemas["meter_tree"]
     assert set(meter_tree["required"]) == {"root"}
     assert meter_tree["x-default-size"] == {"w": 6, "h": 8}
