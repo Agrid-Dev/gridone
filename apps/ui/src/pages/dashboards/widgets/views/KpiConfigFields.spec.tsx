@@ -372,6 +372,25 @@ describe("KpiConfigFields", () => {
     expect(enabled).toEqual(["avg", "sum"]);
   });
 
+  it("keeps an operator enabled for a valid attribute while another attribute's data type isn't known yet", () => {
+    // A freshly-added row has no attribute picked, so its data type is
+    // unknown — that must not be treated as a refusal for the whole tile.
+    renderFields(
+      [
+        { ...BLANK_ATTRIBUTE, attribute: "temperature" },
+        { ...BLANK_ATTRIBUTE, attribute: "" },
+      ],
+      SINGLE_DEVICE,
+      { temporal: {} },
+    );
+
+    const options = Array.from(
+      screen.getByTestId("operator").querySelectorAll("option"),
+    );
+    const enabled = options.filter((o) => !o.disabled).map((o) => o.value);
+    expect(enabled).toEqual(["avg", "sum"]);
+  });
+
   it("clears the operator when an attribute's data type refuses it", () => {
     const latest = renderFields(
       [{ ...BLANK_ATTRIBUTE, attribute: "mode" }],

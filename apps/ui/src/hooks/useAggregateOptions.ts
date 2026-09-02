@@ -49,18 +49,21 @@ function operatorsFromMatrix(
   const vocabulary = Object.values(matrix)[0];
   if (!vocabulary) return [];
   return Object.keys(vocabulary).map((operator) => {
-    const resultTypes = dataTypes.map((dataType) => {
-      const forType = dataType ? matrix[dataType] : undefined;
-      return forType ? (forType[operator] ?? null) : null;
-    });
-    // Enabled only when every data type accepts it — one refusal means the
-    // shared operator has nothing to apply to for that entry.
-    const supportedByAll = resultTypes.every(
+    // An attribute with no known data type yet (not picked, or coverage
+    // still loading) neither confirms nor refuses the operator — counting
+    // it as a refusal would disable the shared control for every attribute
+    // just because one of several is still blank.
+    const knownResultTypes = dataTypes
+      .filter((dataType): dataType is DataType => dataType !== undefined)
+      .map((dataType) => matrix[dataType]?.[operator] ?? null);
+    // Enabled only when every known data type accepts it — one refusal means
+    // the shared operator has nothing to apply to for that entry.
+    const supportedByAll = knownResultTypes.every(
       (resultType) => resultType !== null,
     );
     return {
       operator: operator as AggregationOperator,
-      resultType: supportedByAll ? resultTypes[0] : null,
+      resultType: supportedByAll ? (knownResultTypes[0] ?? null) : null,
     };
   });
 }
