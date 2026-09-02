@@ -55,9 +55,7 @@ const KpiValue: FC<{
     <div className="flex h-full items-center justify-center overflow-hidden p-2">
       <span className={KPI_VALUE_CLASS}>
         {fmt(typeof value === "number" ? value : null, digits)}
-        {unit && (
-          <span className="ml-1 text-lg text-muted-foreground">{unit}</span>
-        )}
+        {unit && <span className="text-lg text-muted-foreground">{unit}</span>}
       </span>
     </div>
   );
