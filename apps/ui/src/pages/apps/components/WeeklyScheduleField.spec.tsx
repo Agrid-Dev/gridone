@@ -10,19 +10,21 @@ import type { AppSchemaNode } from "@/lib/appConfigSchema";
 vi.mock("react-i18next", () =>
   createI18nMock({
     "weeklySchedule.count": "{{count}} rooms",
-    "weeklySchedule.expand": "Expand",
-    "weeklySchedule.collapse": "Collapse",
+    "weeklySchedule.expand": "Expand {{room}}",
+    "weeklySchedule.collapse": "Collapse {{room}}",
     "weeklySchedule.searchPlaceholder": "Search rooms",
     "weeklySchedule.empty": "No room has a custom schedule yet.",
     "weeklySchedule.noResults": "No room matches this search.",
     "weeklySchedule.add": "Add room schedule",
     "weeklySchedule.noneAvailable": "No room available",
-    "weeklySchedule.remove": "Remove room schedule",
+    "weeklySchedule.remove": "Remove {{room}} schedule",
+    "weeklySchedule.roomNotSaved": "Won't be saved until a day is enabled",
     "weeklySchedule.addWindow": "Add window",
     "weeklySchedule.removeWindow": "Remove window",
     "weeklySchedule.usesDefault": "Uses default ({{checkin}}–{{checkout}})",
     "weeklySchedule.overlapWarning": "These windows overlap",
     "weeklySchedule.notOvernightWarning": "This window is ignored",
+    "weeklySchedule.incompleteWindowWarning": "Set both times",
     "weeklySchedule.checkin": "Check-in",
     "weeklySchedule.checkout": "Check-out",
     "weeklySchedule.windowSeparator": "–",
@@ -118,24 +120,29 @@ const schema: AppSchemaNode = {
 function Harness({
   defaultValues,
   name = "weekly_schedule",
+  onSubmit,
 }: {
   defaultValues: FieldValues;
   name?: string;
+  onSubmit?: (values: FieldValues) => void;
 }) {
-  const { control } = useForm<FieldValues>({ defaultValues });
+  const { control, handleSubmit } = useForm<FieldValues>({ defaultValues });
   return (
-    <WeeklyScheduleField
-      name={name}
-      schema={schema}
-      control={control}
-      required={false}
-    />
+    <form onSubmit={onSubmit && handleSubmit(onSubmit)}>
+      <WeeklyScheduleField
+        name={name}
+        schema={schema}
+        control={control}
+        required={false}
+      />
+      {onSubmit && <button type="submit">Submit</button>}
+    </form>
   );
 }
 
 function renderField(
   defaultValues: FieldValues,
-  options: { name?: string } = {},
+  options: { name?: string; onSubmit?: (values: FieldValues) => void } = {},
 ) {
   render(<Harness defaultValues={defaultValues} {...options} />);
 }
@@ -182,13 +189,13 @@ describe("WeeklyScheduleField", () => {
       ],
     });
 
-    await user.click(screen.getByRole("button", { name: "Expand" }));
+    await user.click(screen.getByRole("button", { name: "Expand Room 101" }));
 
     expect(screen.getByText("Monday")).toBeInTheDocument();
     expect(screen.getByText("Tuesday")).toBeInTheDocument();
     expect(screen.getByText("Sunday")).toBeInTheDocument();
     // Tuesday has no row of its own: falls back to the hotel default.
-    const tuesday = screen.getByText("Tuesday").closest("div")!.parentElement!;
+    const tuesday = screen.getByTestId("weekly-schedule-day-tuesday");
     expect(
       within(tuesday).getByText("Uses default (15:00–12:00)"),
     ).toBeInTheDocument();
@@ -212,9 +219,9 @@ describe("WeeklyScheduleField", () => {
       ],
     });
 
-    await user.click(screen.getByRole("button", { name: "Expand" }));
+    await user.click(screen.getByRole("button", { name: "Expand Room 101" }));
 
-    const tuesday = screen.getByText("Tuesday").closest("div")!.parentElement!;
+    const tuesday = screen.getByTestId("weekly-schedule-day-tuesday");
     expect(
       within(tuesday).getByText("Uses default (16:00–10:00)"),
     ).toBeInTheDocument();
@@ -229,7 +236,7 @@ describe("WeeklyScheduleField", () => {
     });
 
     await user.click(screen.getByRole("option", { name: /Room 101/ }));
-    await user.click(screen.getByRole("switch", { name: "Monday" }));
+    await user.click(screen.getByRole("switch", { name: "Monday — Room 101" }));
 
     const checkinInputs = screen.getAllByLabelText(
       "Check-in",
@@ -244,6 +251,8 @@ describe("WeeklyScheduleField", () => {
   it("toggling a day off removes all of that day's windows", async () => {
     const user = userEvent.setup();
     renderField({
+      checkin_time: "15:00",
+      checkout_time: "12:00",
       weekly_schedule: [
         {
           zone_id: "z1",
@@ -254,10 +263,10 @@ describe("WeeklyScheduleField", () => {
       ],
     });
 
-    await user.click(screen.getByRole("button", { name: "Expand" }));
-    await user.click(screen.getByRole("switch", { name: "Monday" }));
+    await user.click(screen.getByRole("button", { name: "Expand Room 101" }));
+    await user.click(screen.getByRole("switch", { name: "Monday — Room 101" }));
 
-    // All 7 days now fall back to the (unset) hotel default.
+    // All 7 days now fall back to the hotel default.
     expect(screen.getAllByText("Uses default (15:00–12:00)")).toHaveLength(7);
   });
 
@@ -274,7 +283,7 @@ describe("WeeklyScheduleField", () => {
       ],
     });
 
-    await user.click(screen.getByRole("button", { name: "Expand" }));
+    await user.click(screen.getByRole("button", { name: "Expand Room 101" }));
     await user.click(screen.getByRole("button", { name: "Add window" }));
 
     expect(screen.getAllByLabelText("Check-in")).toHaveLength(2);
@@ -283,6 +292,8 @@ describe("WeeklyScheduleField", () => {
   it("removing a day's last window reverts it to uncustomized", async () => {
     const user = userEvent.setup();
     renderField({
+      checkin_time: "15:00",
+      checkout_time: "12:00",
       weekly_schedule: [
         {
           zone_id: "z1",
@@ -293,10 +304,10 @@ describe("WeeklyScheduleField", () => {
       ],
     });
 
-    await user.click(screen.getByRole("button", { name: "Expand" }));
+    await user.click(screen.getByRole("button", { name: "Expand Room 101" }));
     await user.click(screen.getByRole("button", { name: "Remove window" }));
 
-    // All 7 days now fall back to the (unset) hotel default.
+    // All 7 days now fall back to the hotel default.
     expect(screen.getAllByText("Uses default (15:00–12:00)")).toHaveLength(7);
     expect(screen.queryByLabelText("Check-in")).not.toBeInTheDocument();
   });
@@ -320,7 +331,7 @@ describe("WeeklyScheduleField", () => {
       ],
     });
 
-    await user.click(screen.getByRole("button", { name: "Expand" }));
+    await user.click(screen.getByRole("button", { name: "Expand Room 101" }));
 
     expect(screen.getByText("These windows overlap")).toBeInTheDocument();
   });
@@ -344,7 +355,7 @@ describe("WeeklyScheduleField", () => {
       ],
     });
 
-    await user.click(screen.getByRole("button", { name: "Expand" }));
+    await user.click(screen.getByRole("button", { name: "Expand Room 101" }));
 
     expect(screen.queryByText("These windows overlap")).not.toBeInTheDocument();
   });
@@ -362,7 +373,7 @@ describe("WeeklyScheduleField", () => {
       ],
     });
 
-    await user.click(screen.getByRole("button", { name: "Expand" }));
+    await user.click(screen.getByRole("button", { name: "Expand Room 101" }));
 
     expect(screen.getByText("This window is ignored")).toBeInTheDocument();
   });
@@ -380,7 +391,7 @@ describe("WeeklyScheduleField", () => {
       ],
     });
 
-    await user.click(screen.getByRole("button", { name: "Expand" }));
+    await user.click(screen.getByRole("button", { name: "Expand Room 101" }));
 
     expect(
       screen.queryByText("This window is ignored"),
@@ -456,7 +467,7 @@ describe("WeeklyScheduleField", () => {
     });
 
     await user.click(
-      screen.getByRole("button", { name: "Remove room schedule" }),
+      screen.getByRole("button", { name: "Remove Room 101 schedule" }),
     );
 
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
@@ -485,5 +496,151 @@ describe("WeeklyScheduleField", () => {
 
     expect(screen.getByText("Room 101")).toBeInTheDocument();
     expect(screen.queryByText("Room 102")).not.toBeInTheDocument();
+  });
+
+  it("submits the flat per-(room, day, window) row shape", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    renderField(
+      {
+        weekly_schedule: [
+          {
+            zone_id: "z1",
+            day_of_week: "monday",
+            checkin_time: "22:00",
+            checkout_time: "07:00",
+          },
+        ],
+      },
+      { onSubmit },
+    );
+
+    await user.click(screen.getByRole("button", { name: "Submit" }));
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        weekly_schedule: [
+          {
+            zone_id: "z1",
+            day_of_week: "monday",
+            checkin_time: "22:00",
+            checkout_time: "07:00",
+          },
+        ],
+      }),
+      expect.anything(),
+    );
+  });
+
+  it("does not count a room with no enabled day in the room badge", async () => {
+    const user = userEvent.setup();
+    renderField({ weekly_schedule: [] });
+
+    await user.click(screen.getByRole("option", { name: /Room 101/ }));
+
+    expect(screen.getByText("0 rooms")).toBeInTheDocument();
+    expect(
+      screen.getByText("Won't be saved until a day is enabled"),
+    ).toBeInTheDocument();
+  });
+
+  it("counts a room once it has at least one enabled day", async () => {
+    const user = userEvent.setup();
+    renderField({ weekly_schedule: [] });
+
+    await user.click(screen.getByRole("option", { name: /Room 101/ }));
+    await user.click(screen.getByRole("switch", { name: "Monday — Room 101" }));
+
+    expect(screen.getByText("1 rooms")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Won't be saved until a day is enabled"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("flags an incomplete window (only one of checkin/checkout set)", async () => {
+    const user = userEvent.setup();
+    renderField({
+      weekly_schedule: [
+        {
+          zone_id: "z1",
+          day_of_week: "monday",
+          checkin_time: "22:00",
+          checkout_time: "07:00",
+        },
+      ],
+    });
+
+    await user.click(screen.getByRole("button", { name: "Expand Room 101" }));
+    await user.click(screen.getByRole("button", { name: "Add window" }));
+
+    expect(screen.getByText("Set both times")).toBeInTheDocument();
+  });
+
+  it("gives each room's expand/remove buttons and day switches a unique accessible name", async () => {
+    const user = userEvent.setup();
+    renderField({
+      weekly_schedule: [
+        {
+          zone_id: "z1",
+          day_of_week: "monday",
+          checkin_time: "22:00",
+          checkout_time: "07:00",
+        },
+        {
+          zone_id: "z2",
+          day_of_week: "monday",
+          checkin_time: "22:00",
+          checkout_time: "07:00",
+        },
+      ],
+    });
+
+    expect(
+      screen.getByRole("button", { name: "Expand Room 101" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Expand Room 102" }),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Expand Room 101" }));
+    await user.click(screen.getByRole("button", { name: "Expand Room 102" }));
+
+    expect(
+      screen.getByRole("switch", { name: "Monday — Room 101" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("switch", { name: "Monday — Room 102" }),
+    ).toBeInTheDocument();
+  });
+
+  it("resolves independently per field: a room's checkin override doesn't extend to a hotel-wide weekend value", async () => {
+    const user = userEvent.setup();
+    renderField({
+      checkin_time: "15:00",
+      checkout_time: "12:00",
+      weekend_checkin_time: "16:00",
+      weekend_checkout_time: "11:00",
+      zone_overrides: [
+        { zone_id: "z1", checkin_time: "18:00", checkout_time: "09:00" },
+      ],
+      weekly_schedule: [
+        {
+          zone_id: "z1",
+          day_of_week: "monday",
+          checkin_time: "22:00",
+          checkout_time: "07:00",
+        },
+      ],
+    });
+
+    await user.click(screen.getByRole("button", { name: "Expand Room 101" }));
+
+    // Saturday: the room overrides checkin/checkout but not the weekend
+    // fields, so it falls back to the hotel-wide weekend value, not its own
+    // weekday override.
+    const saturday = screen.getByTestId("weekly-schedule-day-saturday");
+    expect(
+      within(saturday).getByText("Uses default (16:00–11:00)"),
+    ).toBeInTheDocument();
   });
 });

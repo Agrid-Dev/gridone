@@ -1,4 +1,4 @@
-import { FC, useState } from "react";
+import { FC, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { AssetType } from "@gridone/sdk";
 import {
@@ -42,8 +42,6 @@ import { ZoneOverridesAddPicker } from "./ZoneOverridesAddPicker";
 import { siblingPath } from "./siblingPath";
 import {
   DAYS_OF_WEEK,
-  DEFAULT_CHECKIN,
-  DEFAULT_CHECKOUT,
   HOTEL_CHECKIN_FIELD,
   HOTEL_CHECKOUT_FIELD,
   HOTEL_WEEKEND_CHECKIN_FIELD,
@@ -51,6 +49,7 @@ import {
   hasOverlap,
   isOvernightWindow,
   resolveDefaultWindow,
+  type DayOfWeek,
   type HotelDefaults,
 } from "./weeklyScheduleWindows";
 
@@ -123,14 +122,26 @@ export const WeeklyScheduleField: FC<WeeklyScheduleFieldProps> = ({
     (useWatch({ control, name: zoneOverridesPath }) as
       | OverrideRow[]
       | undefined) ?? [];
-  const hotelCheckin =
-    (useWatch({ control, name: siblingPath(name, HOTEL_CHECKIN_FIELD) }) as
-      | string
-      | undefined) || DEFAULT_CHECKIN;
-  const hotelCheckout =
-    (useWatch({ control, name: siblingPath(name, HOTEL_CHECKOUT_FIELD) }) as
-      | string
-      | undefined) || DEFAULT_CHECKOUT;
+  const hotelCheckin = useWatch({
+    control,
+    name: siblingPath(name, HOTEL_CHECKIN_FIELD),
+  }) as string | undefined;
+  const hotelCheckout = useWatch({
+    control,
+    name: siblingPath(name, HOTEL_CHECKOUT_FIELD),
+  }) as string | undefined;
+  useEffect(() => {
+    if (
+      hotelCheckin === undefined &&
+      hotelCheckout === undefined &&
+      import.meta.env.DEV
+    ) {
+      // eslint-disable-next-line no-console -- dev-only diagnostic
+      console.warn(
+        `WeeklyScheduleField: no sibling "${HOTEL_CHECKIN_FIELD}"/"${HOTEL_CHECKOUT_FIELD}" found — days with no window of their own will show no default.`,
+      );
+    }
+  }, [hotelCheckin, hotelCheckout]);
   const hotelWeekendCheckin = useWatch({
     control,
     name: siblingPath(name, HOTEL_WEEKEND_CHECKIN_FIELD),
@@ -204,8 +215,8 @@ export const WeeklyScheduleField: FC<WeeklyScheduleFieldProps> = ({
       append({
         [ZONE_FIELD]: zoneId,
         [DAY_FIELD]: day,
-        [CHECKIN_FIELD]: defaults.checkin,
-        [CHECKOUT_FIELD]: defaults.checkout,
+        [CHECKIN_FIELD]: defaults?.checkin ?? "",
+        [CHECKOUT_FIELD]: defaults?.checkout ?? "",
       });
       return;
     }
@@ -228,17 +239,25 @@ export const WeeklyScheduleField: FC<WeeklyScheduleFieldProps> = ({
       .includes(search.toLowerCase()),
   );
 
+  // Prefer the app's own declared day order so this can't drift from the
+  // backend; DAYS_OF_WEEK is only a fallback for a schema that omits it.
+  const days =
+    (schema.items?.properties?.[DAY_FIELD]?.enum as DayOfWeek[] | undefined) ??
+    DAYS_OF_WEEK;
+
+  const savedRoomCount = knownRoomIds.filter(
+    (zoneId) => allIndicesFor(zoneId).length > 0,
+  ).length;
+
   return (
     <FieldSet className="min-w-0 gap-3 md:col-span-2">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <FieldLegend className="mb-0" variant="label">
-            {schema.title} {required && <span aria-hidden="true">*</span>}
-          </FieldLegend>
-          <Badge variant="info" className="tabular-nums">
-            {t("weeklySchedule.count", { count: knownRoomIds.length })}
-          </Badge>
-        </div>
+      <div className="flex items-center gap-2">
+        <FieldLegend className="mb-0" variant="label">
+          {schema.title} {required && <span aria-hidden="true">*</span>}
+        </FieldLegend>
+        <Badge variant="info" className="tabular-nums">
+          {t("weeklySchedule.count", { count: savedRoomCount })}
+        </Badge>
       </div>
 
       {schema.description && (
@@ -286,6 +305,8 @@ export const WeeklyScheduleField: FC<WeeklyScheduleFieldProps> = ({
               <RoomRows
                 key={zoneId}
                 zoneName={assetNameOf(zoneId, assetsById)}
+                hasRows={allIndicesFor(zoneId).length > 0}
+                days={days}
                 expanded={expandedRooms.has(zoneId)}
                 onToggleExpanded={() => toggleExpanded(zoneId)}
                 onRemove={() => removeRoom(zoneId)}
@@ -316,6 +337,8 @@ export const WeeklyScheduleField: FC<WeeklyScheduleFieldProps> = ({
  *  `zone_overrides`. */
 const RoomRows: FC<{
   zoneName: string;
+  hasRows: boolean;
+  days: readonly DayOfWeek[];
   expanded: boolean;
   onToggleExpanded: () => void;
   onRemove: () => void;
@@ -331,6 +354,8 @@ const RoomRows: FC<{
   onRemoveWindow: (index: number) => void;
 }> = ({
   zoneName,
+  hasRows,
+  days,
   expanded,
   onToggleExpanded,
   onRemove,
@@ -355,11 +380,10 @@ const RoomRows: FC<{
             type="button"
             className="flex items-center gap-2"
             aria-expanded={expanded}
-            aria-label={
-              expanded
-                ? t("weeklySchedule.collapse")
-                : t("weeklySchedule.expand")
-            }
+            aria-label={t(
+              expanded ? "weeklySchedule.collapse" : "weeklySchedule.expand",
+              { room: zoneName },
+            )}
             onClick={onToggleExpanded}
           >
             {expanded ? (
@@ -369,13 +393,18 @@ const RoomRows: FC<{
             )}
             {zoneName}
           </button>
+          {!hasRows && (
+            <span className="mt-1 block pl-6 text-xs text-muted-foreground">
+              {t("weeklySchedule.roomNotSaved")}
+            </span>
+          )}
         </TableCell>
         <TableCell>
           <Button
             type="button"
             variant="ghost"
             size="icon"
-            aria-label={t("weeklySchedule.remove")}
+            aria-label={t("weeklySchedule.remove", { room: zoneName })}
             onClick={onRemove}
           >
             <Trash2 className="h-4 w-4" />
@@ -386,7 +415,7 @@ const RoomRows: FC<{
         <TableRow>
           <TableCell colSpan={2} className="bg-muted/30">
             <div className="flex flex-col gap-3 py-2">
-              {DAYS_OF_WEEK.map((day) => {
+              {days.map((day) => {
                 const indices = dayIndices?.get(day) ?? [];
                 const customized = indices.length > 0;
                 const windows: [string, string][] = indices.map((index) => [
@@ -402,12 +431,16 @@ const RoomRows: FC<{
                 );
 
                 return (
-                  <div key={day} className="flex flex-col gap-1.5">
+                  <div
+                    key={day}
+                    data-testid={`weekly-schedule-day-${day}`}
+                    className="flex flex-col gap-1.5"
+                  >
                     <div className="flex items-center gap-2">
                       <Switch
                         checked={customized}
                         onCheckedChange={(checked) => onToggleDay(day, checked)}
-                        aria-label={t(`weeklySchedule.days.${day}`)}
+                        aria-label={`${t(`weeklySchedule.days.${day}`)} — ${zoneName}`}
                       />
                       <span className="text-sm font-medium">
                         {t(`weeklySchedule.days.${day}`)}
@@ -420,7 +453,7 @@ const RoomRows: FC<{
                       )}
                     </div>
 
-                    {!customized && (
+                    {!customized && fallback && (
                       <span className="pl-9 text-sm text-muted-foreground">
                         {t("weeklySchedule.usesDefault", {
                           checkin: fallback.checkin,
@@ -436,9 +469,9 @@ const RoomRows: FC<{
                             rows[index]?.[CHECKIN_FIELD] as string,
                             rows[index]?.[CHECKOUT_FIELD] as string,
                           ];
+                          const incomplete = !checkin || !checkout;
                           const invalid =
-                            checkin &&
-                            checkout &&
+                            !incomplete &&
                             !isOvernightWindow(checkin, checkout);
 
                           return (
@@ -476,6 +509,12 @@ const RoomRows: FC<{
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
                               </div>
+                              {incomplete && (
+                                <span className="flex items-center gap-1 text-xs text-destructive">
+                                  <AlertTriangle className="h-3.5 w-3.5" />
+                                  {t("weeklySchedule.incompleteWindowWarning")}
+                                </span>
+                              )}
                               {invalid && (
                                 <span className="flex items-center gap-1 text-xs text-destructive">
                                   <AlertTriangle className="h-3.5 w-3.5" />
