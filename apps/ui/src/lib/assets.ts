@@ -106,6 +106,17 @@ export function sortedAssetsOf(
   );
 }
 
+/** An asset's display name, falling back to its id when the tree hasn't
+ *  loaded it (a partially loaded tree, or a stale id) — shared by
+ *  `ZoneOverridesField` and `WeeklyScheduleField` so a row never shows a
+ *  broken label while the tree loads. */
+export function assetNameOf(
+  assetId: string,
+  assetsById: Record<string, Asset>,
+): string {
+  return assetsById[assetId]?.name ?? assetId;
+}
+
 /** "Building A › Floor 1" — the asset's ancestor names, itself excluded.
  *
  *  `path` is a materialized list of ancestor ids ending with the asset's own,
