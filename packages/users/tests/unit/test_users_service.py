@@ -213,8 +213,10 @@ class TestEnsureDefaultAdmin:
         assert len(warnings) == 1
         admin = await storage.get_by_username("admin")
         assert admin is not None
+        logged = warnings[0].args
+        assert isinstance(logged, tuple)
         # The logged credential is the one that was actually seeded.
-        assert verify_password(warnings[0].args[0], admin.hashed_password)
+        assert verify_password(str(logged[0]), admin.hashed_password)
 
     async def test_configured_password_is_seeded_without_the_flag(
         self, storage: MemoryUsersStorage
