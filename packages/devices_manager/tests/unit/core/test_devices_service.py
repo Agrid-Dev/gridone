@@ -2061,6 +2061,25 @@ class SlowStartDevice(CoreDevice):
         SlowStartDevice.completed.append(self.id)
 
 
+class ListenerRegisteringDevice(CoreDevice):
+    """A sync that registers its listeners one at a time, like ``init_listeners``.
+
+    Records the name of the config each registration was made for, so a test
+    can catch a subscription landing on a config the write has already
+    replaced — which AGR-1134 leaves attached forever.
+    """
+
+    registered: ClassVar[list[str]] = []
+    entered: ClassVar[asyncio.Event | None] = None
+
+    async def start_sync(self) -> None:
+        if ListenerRegisteringDevice.entered is not None:
+            ListenerRegisteringDevice.entered.set()
+        for _ in range(4):
+            await asyncio.sleep(0.01)
+            ListenerRegisteringDevice.registered.append(self.name)
+
+
 class TestDevicesServiceUnreachableTransport:
     """Writing a device and reaching it are separate concerns: a transport
     that cannot be synced must not fail the write that preceded it."""
@@ -2168,6 +2187,54 @@ class TestDevicesServiceUnreachableTransport:
 
         assert SlowStartDevice.completed == ["d1"]  # the superseded one never ran
         await dm.stop()
+
+    @pytest.mark.asyncio
+    async def test_superseded_sync_registers_nothing_while_the_write_lands(
+        self, driver, mock_transport_client
+    ):
+        # Cancelling only once the registry write is done leaves the superseded
+        # sync running *through* it, free to register listeners for a config
+        # that no longer exists. Nothing can unregister them (AGR-1134), so the
+        # cancel has to come before the write, not after it.
+        ListenerRegisteringDevice.registered.clear()
+        ListenerRegisteringDevice.entered = asyncio.Event()
+        old_device = ListenerRegisteringDevice.from_base(
+            DeviceBase(id="d1", name="Device", config={"some_id": "abc"}),
+            driver=driver,
+            transport=mock_transport_client,
+        )
+        # A driver/transport change rebuilds the device, so the write returns a
+        # different object than the one whose sync is still in flight.
+        new_device = ListenerRegisteringDevice.from_base(
+            DeviceBase(id="d1", name="Renamed", config={"some_id": "abc"}),
+            driver=driver,
+            transport=mock_transport_client,
+        )
+        mock_reg = _mock_device_registry({"d1": old_device})
+        mock_reg.add.return_value = old_device
+
+        async def _slow_update(*_args: object, **_kwargs: object) -> CoreDevice:
+            await asyncio.sleep(0.05)  # storage I/O the superseded sync runs under
+            return new_device
+
+        mock_reg.update.side_effect = _slow_update
+        dm = await _dm_with_mock_registry(mock_reg)
+        dm._running = True  # noqa: SLF001
+
+        await dm.add_device(
+            DeviceCreate(
+                name="Device",
+                config={"some_id": "abc"},
+                driver_id=driver.id,
+                transport_id=mock_transport_client.id,
+            )
+        )
+        await ListenerRegisteringDevice.entered.wait()
+        await dm.update_device("d1", DeviceUpdate(name="Renamed"))
+
+        assert "Device" not in ListenerRegisteringDevice.registered
+        await dm.stop()
+        ListenerRegisteringDevice.entered = None
 
     @pytest.mark.asyncio
     async def test_delete_cancels_an_in_flight_sync(

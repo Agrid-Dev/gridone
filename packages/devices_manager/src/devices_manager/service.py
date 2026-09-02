@@ -375,7 +375,8 @@ class DevicesService(Service):
 
         Scheduling supersedes: an earlier sync for this device is cancelled
         first, so a task started against a config that has since been replaced
-        cannot register listeners for it afterwards.
+        cannot register listeners for it afterwards. A write that awaits before
+        it reaches this point must cancel earlier still — see ``update_device``.
         """
         self._cancel_start_sync(device.id)
         task = asyncio.create_task(device.start_sync())
@@ -408,6 +409,11 @@ class DevicesService(Service):
         self, device_id: str, device_update: DeviceUpdate
     ) -> Device:
         old_device = self._device_registry.get(device_id)
+        # Before any await: stop_sync only reaches the poll tasks and watchdog
+        # that start_sync creates *last*, so a sync still in its listener phase
+        # would otherwise keep registering, for a config this write replaces,
+        # across every yield below.
+        self._cancel_start_sync(device_id)
         await old_device.stop_sync()
         try:
             device = await self._device_registry.update(
