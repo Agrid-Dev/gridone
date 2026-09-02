@@ -58,6 +58,7 @@ function emptyConfig(
     else if (prop.type === "boolean") config[name] = false;
     else if (prop.type === "number" || prop.type === "integer")
       config[name] = undefined;
+    else if (prop.type === "array") config[name] = [];
     else config[name] = "";
   }
   return config;
