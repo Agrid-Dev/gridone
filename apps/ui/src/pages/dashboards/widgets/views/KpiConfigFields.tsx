@@ -328,6 +328,10 @@ const KpiAttributeFields: FC<{
     control,
     name: `${name}.unit`,
   });
+  // What we last wrote into `unit` ourselves — distinct from a value the
+  // user typed (or a saved config already had), so switching to another
+  // attribute only replaces a unit we own, not one they set.
+  const lastAutoFilledUnit = useRef<string | null | undefined>(undefined);
 
   const attribute = (attributeField.value as string) || undefined;
   const spaceAgg = (spaceAggField.value as string | null) ?? null;
@@ -387,11 +391,15 @@ const KpiAttributeFields: FC<{
         value={attribute}
         onChange={(attr) => {
           attributeField.onChange(attr);
-          // Prefill from the heuristic, but only into an untouched field —
-          // this is a default, not a value the picker is allowed to clobber.
-          if (attr && !unitField.value) {
+          // Prefill from the heuristic, but only replace a value we set for
+          // a previous attribute — a value the user typed (or a saved
+          // config already had) is never ours to clobber.
+          const owned =
+            !unitField.value || unitField.value === lastAutoFilledUnit.current;
+          if (attr && owned) {
             const resolvedUnit = attributeUnit(attr);
-            if (resolvedUnit) unitField.onChange(resolvedUnit);
+            unitField.onChange(resolvedUnit);
+            lastAutoFilledUnit.current = resolvedUnit;
           }
         }}
       />

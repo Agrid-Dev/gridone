@@ -310,6 +310,17 @@ describe("KpiConfigFields", () => {
     expect(firstAttribute(latest()).unit).toBe("custom");
   });
 
+  it("replaces a unit it auto-filled when the attribute changes again", () => {
+    const latest = renderFields();
+
+    fireEvent.click(screen.getByText("pick attribute temperature"));
+    expect(firstAttribute(latest()).unit).toBe("°");
+
+    fireEvent.click(screen.getByText("pick attribute mode"));
+
+    expect(firstAttribute(latest()).unit).toBeNull();
+  });
+
   it("starts in live mode with no operator select shown", () => {
     renderFields();
 
