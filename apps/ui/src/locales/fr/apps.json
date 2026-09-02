@@ -90,5 +90,27 @@
       "zone": "Zone",
       "enabled": "Activ\u00e9e"
     }
+  },
+  "weeklySchedule": {
+    "count_one": "{{count}} chambre",
+    "count_other": "{{count}} chambres",
+    "expand": "D\u00e9velopper",
+    "collapse": "R\u00e9duire",
+    "searchPlaceholder": "Rechercher une chambre\u2026",
+    "empty": "Aucune chambre n'a d'horaire personnalis\u00e9 pour l'instant.",
+    "noResults": "Aucune chambre ne correspond \u00e0 cette recherche.",
+    "add": "Ajouter un horaire de chambre",
+    "noneAvailable": "Aucune chambre disponible",
+    "remove": "Supprimer l'horaire de la chambre",
+    "addWindow": "Ajouter une plage",
+    "removeWindow": "Supprimer la plage",
+    "usesDefault": "Valeur par d\u00e9faut ({{checkin}}\u2013{{checkout}})",
+    "overlapWarning": "Ces plages se chevauchent",
+    "checkin": "Check-in",
+    "checkout": "Check-out",
+    "windowSeparator": "\u2013",
+    "columns": {
+      "room": "Chambre"
+    }
   }
 }

@@ -90,5 +90,27 @@
       "zone": "Zone",
       "enabled": "Enabled"
     }
+  },
+  "weeklySchedule": {
+    "count_one": "{{count}} room",
+    "count_other": "{{count}} rooms",
+    "expand": "Expand",
+    "collapse": "Collapse",
+    "searchPlaceholder": "Search rooms…",
+    "empty": "No room has a custom schedule yet.",
+    "noResults": "No room matches this search.",
+    "add": "Add room schedule",
+    "noneAvailable": "No room available",
+    "remove": "Remove room schedule",
+    "addWindow": "Add window",
+    "removeWindow": "Remove window",
+    "usesDefault": "Uses default ({{checkin}}–{{checkout}})",
+    "overlapWarning": "These windows overlap",
+    "checkin": "Check-in",
+    "checkout": "Check-out",
+    "windowSeparator": "–",
+    "columns": {
+      "room": "Room"
+    }
   }
 }
