@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass
+from functools import partial
 from typing import TYPE_CHECKING, Any
 
 from models.errors import ConflictError, NotFoundError, StorageNotInitializedError
@@ -132,6 +133,10 @@ class DevicesService(Service):
         self._attribute_update_handlers: dict[str, AttributeListener] = {}
         self._discovery_listeners: dict[str, DeviceDiscoveredListener] = {}
         self._background_tasks: set[asyncio.Task[Any]] = set()
+        # Keyed by device so a superseded sync can be cancelled by the write
+        # that superseded it; also the strong reference that keeps the task
+        # alive, since asyncio only holds a weak one.
+        self._sync_tasks: dict[str, asyncio.Task[None]] = {}
 
     @property
     def _state(self) -> _LoadedState:
@@ -208,6 +213,8 @@ class DevicesService(Service):
         self._running = False
         if self._loaded is None:
             return
+        for device_id in list(self._sync_tasks):
+            self._cancel_start_sync(device_id)
         for device in self._device_registry.all.values():
             await device.stop_sync()
         await asyncio.gather(
@@ -356,18 +363,57 @@ class DevicesService(Service):
     def get_device(self, device_id: str) -> Device:
         return device_to_public(self._device_registry.get(device_id))
 
+    def _schedule_start_sync(self, device: CoreDevice) -> None:
+        """Start syncing a device off the request path.
+
+        By the time this runs the device is already stored, so reaching it is
+        a separate concern from writing it: a transport that is down must
+        neither fail the response nor stall it behind a connect timeout (one
+        per attribute, and a blackholed host pays the full timeout each time).
+        Failures land in the log and in the device's connection status, the
+        same as they do at boot.
+
+        Scheduling supersedes: an earlier sync for this device is cancelled
+        first, so a task started against a config that has since been replaced
+        cannot register listeners for it afterwards. A write that awaits before
+        it reaches this point must cancel earlier still — see ``update_device``.
+        """
+        self._cancel_start_sync(device.id)
+        task = asyncio.create_task(device.start_sync())
+        self._sync_tasks[device.id] = task
+        task.add_done_callback(partial(self._on_start_sync_done, device.id))
+
+    def _cancel_start_sync(self, device_id: str) -> None:
+        """Cancel this device's in-flight sync, if it has one."""
+        task = self._sync_tasks.pop(device_id, None)
+        if task is not None and not task.done():
+            task.cancel()
+
+    def _on_start_sync_done(self, device_id: str, task: asyncio.Task[None]) -> None:
+        # Only clear the entry this task owns: a newer task may have claimed
+        # the slot already, and dropping it would leak that one instead.
+        if self._sync_tasks.get(device_id) is task:
+            del self._sync_tasks[device_id]
+        if not task.cancelled() and (exc := task.exception()):
+            logger.error("Failed to start sync for device %s", device_id, exc_info=exc)
+
     async def add_device(self, device_create: DeviceCreate) -> Device:
         device = await self._device_registry.add(
             device_create_from_public(device_create)
         )
         if self._running:
-            await device.start_sync()
+            self._schedule_start_sync(device)
         return device_to_public(device)
 
     async def update_device(
         self, device_id: str, device_update: DeviceUpdate
     ) -> Device:
         old_device = self._device_registry.get(device_id)
+        # Before any await: stop_sync only reaches the poll tasks and watchdog
+        # that start_sync creates *last*, so a sync still in its listener phase
+        # would otherwise keep registering, for a config this write replaces,
+        # across every yield below.
+        self._cancel_start_sync(device_id)
         await old_device.stop_sync()
         try:
             device = await self._device_registry.update(
@@ -379,14 +425,17 @@ class DevicesService(Service):
             )
         except Exception:
             if self._running:
-                await old_device.start_sync()
+                # Restoring the old device's sync must not replace the error
+                # that got us here with one of its own.
+                self._schedule_start_sync(old_device)
             raise
         if self._running:
-            await device.start_sync()
+            self._schedule_start_sync(device)
         return device_to_public(device)
 
     async def delete_device(self, device_id: str) -> None:
         device = self._device_registry.get(device_id)
+        self._cancel_start_sync(device_id)
         await device.stop_sync()
         await self._device_registry.remove(device_id)
 

@@ -4,11 +4,13 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import {
+  isGridoneError,
   type Device,
   type DeviceCreate,
   type DeviceUpdate,
   type Transport,
 } from "@gridone/sdk";
+import type { TFunction } from "i18next";
 import { serverErrorMessage } from "@/lib/serverErrorMessage";
 import type { FormProtocol } from "@/pages/transports/form/useTransportForm";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
@@ -30,6 +32,32 @@ export type NetworkModalState =
   | { mode: "create"; protocol: FormProtocol }
   | { mode: "edit"; transport: Transport }
   | null;
+
+const CONFLICT = 409;
+
+/**
+ * Reports a failed save on the only surface the form has for it.
+ *
+ * A conflict gets its own translated line: the server's own text for it
+ * names raw driver, transport and device ids, which is neither meaningful to
+ * the user nor translatable. Everything else keeps the app-wide shape —
+ * server-authored detail appended when there is any to show, and the generic
+ * fallback alone when there is not (a 500 carries no showable text, per
+ * ADR 0002).
+ */
+const toastSaveError = (
+  t: TFunction<"devices">,
+  error: unknown,
+  fallbackKey: "devices.feedback.createError" | "devices.feedback.updateError",
+) => {
+  if (isGridoneError(error) && error.status === CONFLICT) {
+    toast.error(t("devices.feedback.duplicateConfig"));
+    return;
+  }
+  const detail = serverErrorMessage(error);
+  const base = t(fallbackKey);
+  toast.error(detail ? `${base}: ${detail}` : base);
+};
 
 export const useDeviceForm = (device?: Device) => {
   const navigate = useNavigate();
@@ -199,6 +227,8 @@ export const useDeviceForm = (device?: Device) => {
       }
       navigate(`../${device.id}`, { relative: "path" });
     },
+    onError: (err: Error) =>
+      toastSaveError(t, err, "devices.feedback.createError"),
   });
   const updateMutation = useMutation({
     // `deviceId` is the path param — keep it out of the body, which the backend
@@ -213,11 +243,8 @@ export const useDeviceForm = (device?: Device) => {
       toast.success(t("devices.feedback.updated"));
       navigate(`..`, { relative: "path" });
     },
-    onError: (err: Error) => {
-      const detail = serverErrorMessage(err);
-      const base = t("devices.feedback.updateError");
-      toast.error(detail ? `${base}: ${detail}` : base);
-    },
+    onError: (err: Error) =>
+      toastSaveError(t, err, "devices.feedback.updateError"),
   });
 
   // Form submission handler
@@ -242,7 +269,11 @@ export const useDeviceForm = (device?: Device) => {
         config,
       });
     } else {
-      await createMutation.mutateAsync({
+      // create — success/error surfaced via the mutation's callbacks, same as
+      // update. `mutate` rather than `mutateAsync`: nothing here awaits the
+      // result, and the rejection `mutateAsync` returns had no catch, so a
+      // failed save went unhandled and the form looked like it did nothing.
+      createMutation.mutate({
         name,
         driver_id: driverId,
         transport_id: transportId,
