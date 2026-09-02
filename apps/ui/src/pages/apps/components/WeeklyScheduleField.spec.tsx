@@ -22,10 +22,18 @@ vi.mock("react-i18next", () =>
     "weeklySchedule.removeWindow": "Remove window",
     "weeklySchedule.usesDefault": "Uses default ({{checkin}}–{{checkout}})",
     "weeklySchedule.overlapWarning": "These windows overlap",
+    "weeklySchedule.notOvernightWarning": "This window is ignored",
     "weeklySchedule.checkin": "Check-in",
     "weeklySchedule.checkout": "Check-out",
     "weeklySchedule.windowSeparator": "–",
     "weeklySchedule.columns.room": "Room",
+    "weeklySchedule.days.monday": "Monday",
+    "weeklySchedule.days.tuesday": "Tuesday",
+    "weeklySchedule.days.wednesday": "Wednesday",
+    "weeklySchedule.days.thursday": "Thursday",
+    "weeklySchedule.days.friday": "Friday",
+    "weeklySchedule.days.saturday": "Saturday",
+    "weeklySchedule.days.sunday": "Sunday",
   }),
 );
 
@@ -339,6 +347,44 @@ describe("WeeklyScheduleField", () => {
     await user.click(screen.getByRole("button", { name: "Expand" }));
 
     expect(screen.queryByText("These windows overlap")).not.toBeInTheDocument();
+  });
+
+  it("flags a non-overnight window (checkout not earlier than checkin)", async () => {
+    const user = userEvent.setup();
+    renderField({
+      weekly_schedule: [
+        {
+          zone_id: "z1",
+          day_of_week: "monday",
+          checkin_time: "12:00",
+          checkout_time: "14:00",
+        },
+      ],
+    });
+
+    await user.click(screen.getByRole("button", { name: "Expand" }));
+
+    expect(screen.getByText("This window is ignored")).toBeInTheDocument();
+  });
+
+  it("does not flag an overnight window as non-overnight", async () => {
+    const user = userEvent.setup();
+    renderField({
+      weekly_schedule: [
+        {
+          zone_id: "z1",
+          day_of_week: "monday",
+          checkin_time: "22:00",
+          checkout_time: "07:00",
+        },
+      ],
+    });
+
+    await user.click(screen.getByRole("button", { name: "Expand" }));
+
+    expect(
+      screen.queryByText("This window is ignored"),
+    ).not.toBeInTheDocument();
   });
 
   it("offers rooms not yet in weekly_schedule in the add picker, including non-piloted rooms", () => {

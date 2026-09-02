@@ -106,11 +106,21 @@
     "removeWindow": "Remove window",
     "usesDefault": "Uses default ({{checkin}}–{{checkout}})",
     "overlapWarning": "These windows overlap",
+    "notOvernightWarning": "Check-out must be earlier than check-in (an overnight stay); this window is ignored",
     "checkin": "Check-in",
     "checkout": "Check-out",
     "windowSeparator": "–",
     "columns": {
       "room": "Room"
+    },
+    "days": {
+      "monday": "Monday",
+      "tuesday": "Tuesday",
+      "wednesday": "Wednesday",
+      "thursday": "Thursday",
+      "friday": "Friday",
+      "saturday": "Saturday",
+      "sunday": "Sunday"
     }
   }
 }

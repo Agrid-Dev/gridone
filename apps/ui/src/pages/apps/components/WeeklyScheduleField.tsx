@@ -37,7 +37,6 @@ import { InputController } from "@/components/forms/controllers/InputController"
 import { messageAtPath } from "@/components/forms/schema-form";
 import { useAssetTree } from "@/hooks/useAssetTree";
 import { assetNameOf, sortedAssetsOf } from "@/lib/assets";
-import { toLabel } from "@/lib/textFormat";
 import type { AppSchemaNode } from "@/lib/appConfigSchema";
 import { ZoneOverridesAddPicker } from "./ZoneOverridesAddPicker";
 import { siblingPath } from "./siblingPath";
@@ -50,6 +49,7 @@ import {
   HOTEL_WEEKEND_CHECKIN_FIELD,
   HOTEL_WEEKEND_CHECKOUT_FIELD,
   hasOverlap,
+  isOvernightWindow,
   resolveDefaultWindow,
   type HotelDefaults,
 } from "./weeklyScheduleWindows";
@@ -407,10 +407,10 @@ const RoomRows: FC<{
                       <Switch
                         checked={customized}
                         onCheckedChange={(checked) => onToggleDay(day, checked)}
-                        aria-label={toLabel(day)}
+                        aria-label={t(`weeklySchedule.days.${day}`)}
                       />
                       <span className="text-sm font-medium">
-                        {toLabel(day)}
+                        {t(`weeklySchedule.days.${day}`)}
                       </span>
                       {overlapping && (
                         <span className="flex items-center gap-1 text-xs text-destructive">
@@ -431,41 +431,60 @@ const RoomRows: FC<{
 
                     {customized && (
                       <div className="flex flex-col gap-1.5 pl-9">
-                        {indices.map((index) => (
-                          <div
-                            key={fields[index]?.id ?? index}
-                            className="flex items-center gap-2"
-                          >
-                            <InputController
-                              name={`${name}.${index}.${CHECKIN_FIELD}`}
-                              control={control}
-                              type="time"
-                              inputProps={{
-                                "aria-label": t("weeklySchedule.checkin"),
-                              }}
-                            />
-                            <span className="text-sm text-muted-foreground">
-                              {t("weeklySchedule.windowSeparator")}
-                            </span>
-                            <InputController
-                              name={`${name}.${index}.${CHECKOUT_FIELD}`}
-                              control={control}
-                              type="time"
-                              inputProps={{
-                                "aria-label": t("weeklySchedule.checkout"),
-                              }}
-                            />
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              aria-label={t("weeklySchedule.removeWindow")}
-                              onClick={() => onRemoveWindow(index)}
+                        {indices.map((index) => {
+                          const [checkin, checkout] = [
+                            rows[index]?.[CHECKIN_FIELD] as string,
+                            rows[index]?.[CHECKOUT_FIELD] as string,
+                          ];
+                          const invalid =
+                            checkin &&
+                            checkout &&
+                            !isOvernightWindow(checkin, checkout);
+
+                          return (
+                            <div
+                              key={fields[index]?.id ?? index}
+                              className="flex flex-col gap-1"
                             >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        ))}
+                              <div className="flex items-center gap-2">
+                                <InputController
+                                  name={`${name}.${index}.${CHECKIN_FIELD}`}
+                                  control={control}
+                                  type="time"
+                                  inputProps={{
+                                    "aria-label": t("weeklySchedule.checkin"),
+                                  }}
+                                />
+                                <span className="text-sm text-muted-foreground">
+                                  {t("weeklySchedule.windowSeparator")}
+                                </span>
+                                <InputController
+                                  name={`${name}.${index}.${CHECKOUT_FIELD}`}
+                                  control={control}
+                                  type="time"
+                                  inputProps={{
+                                    "aria-label": t("weeklySchedule.checkout"),
+                                  }}
+                                />
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  aria-label={t("weeklySchedule.removeWindow")}
+                                  onClick={() => onRemoveWindow(index)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                              {invalid && (
+                                <span className="flex items-center gap-1 text-xs text-destructive">
+                                  <AlertTriangle className="h-3.5 w-3.5" />
+                                  {t("weeklySchedule.notOvernightWarning")}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
                         <Button
                           type="button"
                           variant="ghost"

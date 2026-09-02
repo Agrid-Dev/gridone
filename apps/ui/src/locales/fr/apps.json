@@ -106,11 +106,21 @@
     "removeWindow": "Supprimer la plage",
     "usesDefault": "Valeur par d\u00e9faut ({{checkin}}\u2013{{checkout}})",
     "overlapWarning": "Ces plages se chevauchent",
+    "notOvernightWarning": "Le check-out doit \u00eatre ant\u00e9rieur au check-in (un s\u00e9jour de nuit) ; cette plage est ignor\u00e9e",
     "checkin": "Check-in",
     "checkout": "Check-out",
     "windowSeparator": "\u2013",
     "columns": {
       "room": "Chambre"
+    },
+    "days": {
+      "monday": "Lundi",
+      "tuesday": "Mardi",
+      "wednesday": "Mercredi",
+      "thursday": "Jeudi",
+      "friday": "Vendredi",
+      "saturday": "Samedi",
+      "sunday": "Dimanche"
     }
   }
 }

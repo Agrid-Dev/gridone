@@ -61,6 +61,18 @@ export function hasOverlap(windows: [string, string][]): boolean {
   );
 }
 
+/** Whether `checkin`/`checkout` (HH:MM strings) form an overnight stay, the
+ *  only shape the backend honors: a row with `checkout >= checkin` is
+ *  accepted and stored, but silently excluded from schedule resolution
+ *  (mirrors the backend's `_row_window`). */
+export function isOvernightWindow(checkin: string, checkout: string): boolean {
+  const minutesOf = (value: string): number => {
+    const [hh, mm] = value.split(":").map(Number);
+    return hh * 60 + mm;
+  };
+  return minutesOf(checkout) < minutesOf(checkin);
+}
+
 /** Resolves the (checkin, checkout) a room/day falls back to while it has no
  *  `weekly_schedule` row of its own: the room's `zone_overrides` value
  *  (weekday or weekend variant, picked independently per field) if set, else
