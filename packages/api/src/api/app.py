@@ -12,6 +12,7 @@ from fastapi import Depends, FastAPI
 
 from api.action_providers.commands import CommandsActionProvider
 from api.action_providers.notifications import NotificationsActionProvider
+from api.attribute_listeners import register_attribute_listeners
 from api.dependencies import get_current_user_id
 from api.exception_handlers import register_exception_handlers
 from api.notification_listeners.device import on_device_discovered
@@ -34,11 +35,10 @@ from api.settings import load_settings
 from api.targets import CompositeTargetResolver
 from api.trigger_providers.change_event import ChangeEventTriggerProvider
 from api.websocket.manager import WebSocketManager
-from api.websocket.schemas import DeviceUpdateMessage
 from apps import AppsService
 from assets import AssetsService
 from commands import CommandsService, WriteResult
-from devices_manager import Attribute, CoreDevice, DevicesService
+from devices_manager import DevicesService
 from models.service import Service
 from models.types import AttributeValueType, DataType
 from notifications import NotificationsService
@@ -73,7 +73,7 @@ def _build_automations_service(
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:  # noqa: PLR0915
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = load_settings()
     auth_service = AuthService(
         secret_key=settings.secret_key,
@@ -175,37 +175,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:  # noqa: PLR0915
     )
     dm.add_device_attribute_listener(on_fault_transition(notifications_svc, recipients))
 
-    async def on_attribute_update(
-        device: CoreDevice,
-        attribute_name: str,
-        _previous: Attribute | None,
-        attribute: Attribute,
-    ) -> None:
-        """On device attribute update:
-        - broadcast to websocket
-        - store in time series
-        """
-        message = DeviceUpdateMessage(
-            device_id=device.id,
-            attribute=attribute_name,
-            value=attribute.current_value,
-            last_updated=attribute.last_updated,
-            last_changed=attribute.last_changed,
-        )
-        await websocket_manager.broadcast(message)
-        await ts_service.upsert_points(
-            SeriesKey(owner_id=device.id, metric=attribute_name),
-            [
-                DataPoint(
-                    timestamp=attribute.last_changed or datetime.now(UTC),
-                    value=attribute.current_value,  # ty: ignore[invalid-argument-type]
-                )
-            ],
-            create_if_not_found=True,
-            validate_data_type=attribute.data_type,
-        )
-
-    dm.add_device_attribute_listener(on_attribute_update)
+    register_attribute_listeners(dm, websocket_manager, ts_service)
 
     # Start the devices service last so listeners are registered before
     # storage is restored and polling begins.
