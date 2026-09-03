@@ -153,6 +153,22 @@ describe("ChartWidgetView", () => {
     );
   });
 
+  // The width is the widget's, the window is the dashboard's: a chart saved
+  // to bucket by day keeps doing so whichever period is being viewed, so it
+  // travels with the read rather than being resolved from the window.
+  it("reads at the width the config pinned", () => {
+    mockResolved(["Meter 1"]);
+    mockSeries([seriesResult("dev1")]);
+
+    render(
+      <ChartWidgetView config={{ ...CONFIG, agg: "delta", interval: "1d" }} />,
+    );
+
+    expect(useMultiTimeSeries).toHaveBeenCalledWith(
+      expect.objectContaining({ agg: "delta", interval: "1d", last: "7d" }),
+    );
+  });
+
   // A lone series has to say more than the device: outside any device's page,
   // the attribute alone doesn't say whose reading it is — the label a
   // single-device chart has always carried.

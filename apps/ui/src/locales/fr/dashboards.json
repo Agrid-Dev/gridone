@@ -28,7 +28,7 @@
       "unboundedPeriod": "L'agrégation exige une période bornée — choisissez-en une autre que « Tout l'historique ».",
       "agg": {
         "label": "Agrégation",
-        "description": "Le pas de temps suit la période du tableau de bord.",
+        "description": "Comment les relevés de chaque bucket sont réduits à une valeur.",
         "unsupported": "non pris en charge",
         "captions": {
           "raw": "chaque point enregistré",
@@ -43,6 +43,18 @@
           "tw_mode": "la plus fréquente par durée",
           "count": "nombre de points",
           "delta": "différence sur le pas de temps"
+        }
+      },
+      "interval": {
+        "label": "Largeur de bucket",
+        "description": "Largeur de chaque bucket agrégé, découpé dans la période du tableau de bord.",
+        "captions": {
+          "auto": "déduite de la période",
+          "1min": "par minute",
+          "15min": "par 15 minutes",
+          "1h": "par heure",
+          "1d": "par jour",
+          "1mo": "par mois"
         }
       },
       "space": {

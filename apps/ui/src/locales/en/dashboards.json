@@ -28,7 +28,7 @@
       "unboundedPeriod": "Aggregation needs a bounded period — pick one other than “All time”.",
       "agg": {
         "label": "Aggregation",
-        "description": "Bucket width follows the dashboard period.",
+        "description": "How the readings in each bucket are reduced to one value.",
         "unsupported": "not supported",
         "captions": {
           "raw": "every recorded point",
@@ -43,6 +43,18 @@
           "tw_mode": "most frequent by duration",
           "count": "number of points",
           "delta": "difference over the bucket"
+        }
+      },
+      "interval": {
+        "label": "Bucket width",
+        "description": "How wide each aggregated bucket is, cut from the dashboard period.",
+        "captions": {
+          "auto": "sized from the period",
+          "1min": "per minute",
+          "15min": "per 15 minutes",
+          "1h": "per hour",
+          "1d": "per day",
+          "1mo": "per month"
         }
       },
       "space": {

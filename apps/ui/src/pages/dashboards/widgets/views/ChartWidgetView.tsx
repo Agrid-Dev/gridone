@@ -116,16 +116,19 @@ function useAggCaptions() {
  * The target's criteria resolve to devices at render time, and every resolved
  * device that exposes the attribute becomes a series on the one chart — or,
  * when the config carries a space aggregation, the set folds into a single
- * series. The period comes from the URL, so the widget owns no time state of
- * its own — not even the bucket width when aggregating, which the API
- * resolves from the window it is given. Which panel the series land on
- * follows from the data type that comes back, so a temperature, an on/off
- * state and a mode each render in their natural form, aggregated or not.
+ * series. The period comes from the URL, so the widget owns no window of its
+ * own; it does own how wide the buckets cut from that window should be, which
+ * it passes through unchecked — a width the period cannot fill is the
+ * endpoint's answer to give, not this view's to second-guess. Which panel the
+ * series land on follows from the data type that comes back, so a
+ * temperature, an on/off state and a mode each render in their natural form,
+ * aggregated or not.
  */
 export const ChartWidgetView: FC<{ config: unknown }> = ({ config }) => {
   const {
     target,
     agg,
+    interval,
     space_agg: spaceAgg,
     group_by: groupBy,
   } = config as ChartWidgetConfig;
@@ -137,13 +140,23 @@ export const ChartWidgetView: FC<{ config: unknown }> = ({ config }) => {
       <GroupedChartView
         target={target}
         agg={agg}
+        interval={interval}
         spaceAgg={spaceAgg}
         groupBy={groupBy}
       />
     );
   if (spaceAgg && agg)
-    return <SpaceChartView target={target} agg={agg} spaceAgg={spaceAgg} />;
-  return <FanOutChartView target={target} agg={agg ?? null} />;
+    return (
+      <SpaceChartView
+        target={target}
+        agg={agg}
+        interval={interval}
+        spaceAgg={spaceAgg}
+      />
+    );
+  return (
+    <FanOutChartView target={target} agg={agg ?? null} interval={interval} />
+  );
 };
 
 /**
@@ -155,8 +168,9 @@ export const ChartWidgetView: FC<{ config: unknown }> = ({ config }) => {
 const SpaceChartView: FC<{
   target: AttributeTarget;
   agg: AggregationOperator;
+  interval?: string;
   spaceAgg: AggregationOperator;
-}> = ({ target, agg, spaceAgg }) => {
+}> = ({ target, agg, interval, spaceAgg }) => {
   const { t } = useTranslation("dashboards");
   const { query, refetchInterval } = useDashboardPeriod();
   const attributeLabel = useAttributeLabel();
@@ -171,6 +185,7 @@ const SpaceChartView: FC<{
   const result = useSpaceAggregate({
     target,
     agg,
+    interval,
     spaceAgg,
     start: query.start,
     end: query.end,
@@ -231,9 +246,10 @@ const SpaceChartView: FC<{
 const GroupedChartView: FC<{
   target: AttributeTarget;
   agg: AggregationOperator;
+  interval?: string;
   spaceAgg: AggregationOperator;
   groupBy: string;
-}> = ({ target, agg, spaceAgg, groupBy }) => {
+}> = ({ target, agg, interval, spaceAgg, groupBy }) => {
   const { t } = useTranslation("dashboards");
   const { query, refetchInterval } = useDashboardPeriod();
   const captions = useAggCaptions();
@@ -245,6 +261,7 @@ const GroupedChartView: FC<{
     target,
     groupBy,
     agg,
+    interval,
     spaceAgg,
     start: query.start,
     end: query.end,
@@ -315,7 +332,8 @@ const GroupedChartView: FC<{
 const FanOutChartView: FC<{
   target: AttributeTarget;
   agg: AggregationOperator | null;
-}> = ({ target, agg }) => {
+  interval?: string;
+}> = ({ target, agg, interval }) => {
   const { t } = useTranslation("dashboards");
   const { query, refetchInterval } = useDashboardPeriod();
   const attributeLabel = useAttributeLabel();
@@ -342,6 +360,7 @@ const FanOutChartView: FC<{
     end: query.end,
     last: query.last,
     agg,
+    interval,
     enabled: !unbounded,
     refetchInterval,
   });

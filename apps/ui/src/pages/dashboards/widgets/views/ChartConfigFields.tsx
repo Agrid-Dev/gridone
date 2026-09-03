@@ -12,6 +12,7 @@ import { InputController } from "@/components/forms/controllers/InputController"
 import { SelectController } from "@/components/forms/controllers/SelectController";
 import { CHART_COLORS } from "@/components/charts/TimeSeriesChart/constants";
 import { AggOption } from "@/hooks/AggOption";
+import { IntervalOption } from "./IntervalOption";
 import {
   operatorsFor,
   spaceOperatorsFor,
@@ -26,9 +27,17 @@ import { useTagGroups } from "./useTagGroups";
  *  stores `null` for it. */
 const RAW = "raw";
 
+/** The stored width that leaves the choice to the server. */
+const AUTO = "auto";
+
 /** How "one series per device" reads in the space operator list. The config
  *  stores `null` for it. */
 const NONE = "none";
+
+/** Widths the endpoint offers that a chart has no use for: `raw` hands back
+ *  the stored points and applies no operator at all, and `whole` reduces the
+ *  period to a single bucket — one point is a reading, not a chart. */
+const NON_CHART_INTERVALS = new Set(["raw", "whole"]);
 
 /** True when the criteria select at least one device dimension. */
 export function hasDeviceCriterion(devices: unknown): boolean {
@@ -73,6 +82,10 @@ export const ChartConfigFields: FC<{ control: Control<FieldValues> }> = ({
     name: "config.target",
   });
   const { field: aggField } = useController({ control, name: "config.agg" });
+  const { field: intervalField } = useController({
+    control,
+    name: "config.interval",
+  });
   const { field: spaceAggField } = useController({
     control,
     name: "config.space_agg",
@@ -84,6 +97,7 @@ export const ChartConfigFields: FC<{ control: Control<FieldValues> }> = ({
 
   const target = toPickerTarget(targetField.value);
   const agg = (aggField.value as string | null) ?? null;
+  const interval = (intervalField.value as string | undefined) ?? AUTO;
   const spaceAgg = (spaceAggField.value as string | null) ?? null;
   const groupBy = (groupByField.value as string | null) || null;
 
@@ -112,6 +126,17 @@ export const ChartConfigFields: FC<{ control: Control<FieldValues> }> = ({
     label: <AggOption name={operator} resultType={resultType} />,
     disabled: resultType === null,
   }));
+
+  // Widths come from the same response as the operators, so the ladder a
+  // deployment offers is the backend's to publish — one added there appears
+  // here without a UI change, exactly as `delta` did among the operators.
+  // They are listed unsized: the options endpoint can count buckets only for a
+  // window, and the window is the dashboard's, chosen after the widget is
+  // saved and changed freely afterwards.
+  const intervalOptions = (options?.intervals ?? [])
+    .map((option) => option.interval)
+    .filter((iv) => !NON_CHART_INTERVALS.has(iv))
+    .map((iv) => ({ value: iv, label: <IntervalOption interval={iv} /> }));
 
   // Waits for the type and the matrix — until both are known, "unsupported"
   // cannot be told from "not loaded yet".
@@ -152,6 +177,15 @@ export const ChartConfigFields: FC<{ control: Control<FieldValues> }> = ({
     }
   }, [spaceRefused, spaceAgg, groupBy, spaceAggField, groupByField]);
 
+  // A width only cuts buckets an operator fills, so dropping the operator
+  // drops the width with it — the same rule the space operator follows one
+  // effect up. Charts stored before the field existed arrive without it, and
+  // normalize to the same stored default rather than showing an empty select.
+  useEffect(() => {
+    if (intervalField.value === undefined) intervalField.onChange(AUTO);
+    else if (agg === null && interval !== AUTO) intervalField.onChange(AUTO);
+  }, [agg, interval, intervalField]);
+
   // Deferred so a keystroke doesn't fire a request per character — the query
   // key includes the tag key, and reacting to every intermediate value would
   // spam GET /devices/tag-groups while typing.
@@ -188,6 +222,18 @@ export const ChartConfigFields: FC<{ control: Control<FieldValues> }> = ({
           ...aggOptions,
         ]}
       />
+      {agg !== null && (
+        <SelectController<FieldValues, "config.interval", string>
+          name="config.interval"
+          control={control}
+          label={t("widgets.chart.interval.label")}
+          description={t("widgets.chart.interval.description")}
+          options={[
+            { value: AUTO, label: <IntervalOption interval={AUTO} /> },
+            ...intervalOptions,
+          ]}
+        />
+      )}
       {agg !== null && (
         <SelectController<FieldValues, "config.space_agg", string | null>
           name="config.space_agg"

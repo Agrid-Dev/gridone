@@ -13,6 +13,11 @@ vi.mock("react-i18next", () =>
     "widgets.chart.agg.captions.min": "lowest value",
     "widgets.chart.agg.captions.mode": "most frequent value",
     "widgets.chart.agg.unsupported": "not supported",
+    "widgets.chart.interval.label": "Bucket width",
+    "widgets.chart.interval.description": "How wide each bucket is.",
+    "widgets.chart.interval.captions.auto": "sized from the period",
+    "widgets.chart.interval.captions.1h": "per hour",
+    "widgets.chart.interval.captions.1d": "per day",
     "widgets.chart.space.label": "Space aggregation",
     "widgets.chart.space.description": "Folds the devices into one series.",
     "widgets.chart.space.captions.none": "one series per device",
@@ -115,6 +120,12 @@ vi.mock("@/hooks/useAggregateOptions", async () => {
     useResetRefusedOperator: actual.useResetRefusedOperator,
     useAggregateOptions: () => ({
       data: {
+        intervals: [
+          { interval: "raw", bucket_count: null },
+          { interval: "whole", bucket_count: null },
+          { interval: "1h", bucket_count: null },
+          { interval: "1d", bucket_count: null },
+        ],
         operators_by_data_type: MATRIX,
         space_operators_by_data_type: MATRIX,
       },
@@ -224,6 +235,15 @@ afterEach(() => {
   useTagGroups.mockClear();
 });
 
+/** Where the fold-across-devices select sits among the mock's flat list:
+ *  after the operator and the bucket width, both of which precede it in the
+ *  form. */
+const SPACE_SELECT = 2;
+
+/** Where the bucket-width select sits: straight after the operator it cuts
+ *  buckets for. */
+const INTERVAL_SELECT = 1;
+
 describe("ChartConfigFields", () => {
   // The persisted target shape and nothing else — no runtime keys, no legacy
   // device_id.
@@ -236,6 +256,7 @@ describe("ChartConfigFields", () => {
       type: "chart",
       target: { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
       agg: null,
+      interval: "auto",
       space_agg: null,
     });
   });
@@ -277,14 +298,48 @@ describe("ChartConfigFields", () => {
       agg: "avg",
     });
 
+    // Three selects once an operator is picked: the operator, the bucket
+    // width it cuts, then the fold across devices.
     const selects = screen.getAllByTestId("agg");
-    expect(selects).toHaveLength(2);
-    const spaceValues = Array.from(selects[1].querySelectorAll("option"))
+    expect(selects).toHaveLength(3);
+    const spaceValues = Array.from(
+      selects[SPACE_SELECT].querySelectorAll("option"),
+    )
       .filter((o) => !o.disabled)
       .map((o) => o.getAttribute("value"));
     // `null` keeps one series per device; the rest is the space vocabulary the
     // chain's output type admits (the fixture matrix only defines avg/min/mode).
     expect(spaceValues).toEqual(["null", "avg", "min", "mode"]);
+  });
+
+  // Widths cut buckets an operator fills, so the picker follows the operator —
+  // and offers only widths a chart can draw: `raw` applies no operator at all
+  // and `whole` yields the single point a KPI shows, not a chart.
+  it("offers the chartable widths once an operator is chosen", () => {
+    renderFields({
+      target: { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
+      agg: "avg",
+    });
+
+    const widths = Array.from(
+      screen.getAllByTestId("agg")[INTERVAL_SELECT].querySelectorAll("option"),
+    ).map((o) => o.getAttribute("value"));
+    expect(widths).toEqual(["auto", "1h", "1d"]);
+  });
+
+  it("returns the width to auto when the operator is dropped", () => {
+    const latest = renderFields({
+      target: { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
+      agg: "avg",
+      interval: "1d",
+    });
+
+    fireEvent.change(screen.getAllByTestId("agg")[0], {
+      target: { value: "null" },
+    });
+
+    expect(latest().agg).toBeNull();
+    expect(latest().interval).toBe("auto");
   });
 
   it("hides space aggregation for raw charts", () => {
@@ -340,9 +395,8 @@ describe("ChartConfigFields", () => {
       group_by: "floor",
     });
 
-    // The space operator select is the second "agg"-keyed select; "null"
-    // is the mock select's string key for the stored `null` value.
-    fireEvent.change(screen.getAllByTestId("agg")[1], {
+    // "null" is the mock select's string key for the stored `null` value.
+    fireEvent.change(screen.getAllByTestId("agg")[SPACE_SELECT], {
       target: { value: "null" },
     });
 
