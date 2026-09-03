@@ -1,7 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from api.dependencies import (
     get_assets_service,
@@ -18,6 +18,7 @@ from assets import (
     AssetCreate,
     AssetsService,
     AssetUpdate,
+    AssetUsage,
     BuildingProfile,
     get_asset_create_schema,
     get_building_profile_schema,
@@ -31,6 +32,17 @@ router = APIRouter()
 
 class ReorderRequest(BaseModel):
     ordered_ids: list[str]
+
+
+class UsageBatchRequest(BaseModel):
+    """Body of ``PATCH /assets/usage``: classify several assets at once."""
+
+    asset_ids: list[str] = Field(..., min_length=1)
+    usage: AssetUsage | None
+
+
+class UsageBatchResponse(BaseModel):
+    updated: int
 
 
 @router.get(
@@ -112,8 +124,28 @@ async def list_assets(
     assets_svc: Annotated[AssetsService, Depends(get_assets_service)],
     parent_id: str | None = Query(None),
     asset_type: str | None = Query(None, alias="type"),
+    usage: AssetUsage | None = Query(None),
 ) -> list[Asset]:
-    return await assets_svc.list_all(parent_id=parent_id, asset_type=asset_type)
+    return await assets_svc.list_all(
+        parent_id=parent_id, asset_type=asset_type, usage=usage
+    )
+
+
+@router.patch(
+    "/usage",
+    dependencies=[Depends(require_permission(Permission.ASSETS_WRITE))],
+)
+async def set_assets_usage(
+    body: UsageBatchRequest,
+    assets_svc: Annotated[AssetsService, Depends(get_assets_service)],
+) -> UsageBatchResponse:
+    """Classify room and zone assets in one call.
+
+    The batch is applied whole or not at all: one id that is unknown or cannot
+    carry a usage rejects the request with nothing modified.
+    """
+    updated = await assets_svc.set_usage(body.asset_ids, body.usage)
+    return UsageBatchResponse(updated=updated)
 
 
 @router.get(

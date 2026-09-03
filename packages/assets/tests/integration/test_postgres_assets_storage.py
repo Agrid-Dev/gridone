@@ -7,7 +7,7 @@ import asyncpg
 import pytest
 import pytest_asyncio
 
-from assets.models import AssetType, BuildingProfile
+from assets.models import AssetType, AssetUsage, BuildingProfile
 from assets.storage.models import AssetInDB
 from assets.storage.postgres import run_migrations
 from assets.storage.postgres.postgres_assets_storage import (
@@ -28,13 +28,14 @@ pytestmark = [
 # ---------------------------------------------------------------------------
 
 
-def _make_asset(
+def _make_asset(  # noqa: PLR0913 (mirrors the AssetInDB fields)
     asset_id: str = "asset-1",
     *,
     parent_id: str | None = None,
     asset_type: AssetType = AssetType.BUILDING,
     name: str = "Asset 1",
     position: int = 0,
+    usage: AssetUsage | None = None,
 ) -> AssetInDB:
     return AssetInDB(
         id=asset_id,
@@ -42,6 +43,7 @@ def _make_asset(
         type=asset_type,
         name=name,
         position=position,
+        usage=usage,
     )
 
 
@@ -159,6 +161,29 @@ class TestCreateReadUpdateDelete:
         assert fetched is not None
         assert fetched.name == "Renamed Org"
         assert fetched.position == 5
+
+    async def test_usage_round_trips_and_clears(
+        self, storage: PostgresAssetsStorage
+    ) -> None:
+        root = _root()
+        await storage.save(root)
+        room = _make_asset(
+            "r1",
+            parent_id=root.id,
+            asset_type=AssetType.ROOM,
+            name="201",
+            usage=AssetUsage.HOTEL_ROOM,
+        )
+        await storage.save(room)
+
+        fetched = await storage.get_by_id("r1")
+        assert fetched is not None
+        assert fetched.usage == AssetUsage.HOTEL_ROOM
+
+        await storage.save(room.model_copy(update={"usage": None}))
+        cleared = await storage.get_by_id("r1")
+        assert cleared is not None
+        assert cleared.usage is None
 
     async def test_delete(self, storage: PostgresAssetsStorage) -> None:
         root = _root()
@@ -344,6 +369,58 @@ class TestPositionAndReorder:
         root = _root()
         await storage.save(root)
         await storage.reorder_siblings(root.id, [], datetime.now(UTC))
+
+
+class TestSetUsage:
+    """set_usage: one statement over many ids, explicit null clears."""
+
+    async def _seed_rooms(self, storage: PostgresAssetsStorage) -> list[str]:
+        root = _root()
+        await storage.save(root)
+        ids = ["r1", "r2", "r3"]
+        for position, asset_id in enumerate(ids):
+            await storage.save(
+                _make_asset(
+                    asset_id,
+                    parent_id=root.id,
+                    asset_type=AssetType.ROOM,
+                    name=asset_id,
+                    position=position,
+                )
+            )
+        return ids
+
+    async def test_sets_usage_and_updated_at_on_listed_ids_only(
+        self, storage: PostgresAssetsStorage
+    ) -> None:
+        ids = await self._seed_rooms(storage)
+        stamp = datetime(2026, 9, 2, 12, 0, tzinfo=UTC)
+
+        await storage.set_usage(ids[:2], AssetUsage.OFFICE, stamp)
+
+        for asset_id in ids[:2]:
+            fetched = await storage.get_by_id(asset_id)
+            assert fetched is not None
+            assert fetched.usage == AssetUsage.OFFICE
+            assert fetched.updated_at == stamp
+        untouched = await storage.get_by_id(ids[2])
+        assert untouched is not None
+        assert untouched.usage is None
+
+    async def test_null_clears_usage(self, storage: PostgresAssetsStorage) -> None:
+        ids = await self._seed_rooms(storage)
+        await storage.set_usage(ids, AssetUsage.OFFICE, datetime.now(UTC))
+
+        await storage.set_usage(ids, None, datetime.now(UTC))
+
+        for asset_id in ids:
+            fetched = await storage.get_by_id(asset_id)
+            assert fetched is not None
+            assert fetched.usage is None
+
+    async def test_empty_list_is_noop(self, storage: PostgresAssetsStorage) -> None:
+        await self._seed_rooms(storage)
+        await storage.set_usage([], AssetUsage.OFFICE, datetime.now(UTC))
 
 
 class TestBuildingProfile:

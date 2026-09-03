@@ -65,12 +65,28 @@
     "addZoneTo": "Add a zone to {{name}}",
     "addSubzoneTo": "Add a sub-zone to {{name}}"
   },
+  "selection": {
+    "select": "Select {{name}}",
+    "selectAll": "Select every zone of {{name}}",
+    "count_one": "{{count}} zone selected",
+    "count_other": "{{count}} zones selected",
+    "usagePlaceholder": "Choose a usage",
+    "apply": "Apply",
+    "clear": "Clear selection",
+    "applied_one": "{{count}} zone classified",
+    "applied_other": "{{count}} zones classified",
+    "applyFailed": "The selection could not be classified."
+  },
   "fields": {
     "name": "Name",
     "type": "Type",
     "parent": "Parent zone",
     "parentPlaceholder": "None (root)",
-    "path": "Path"
+    "path": "Path",
+    "usage": "Usage",
+    "usageHint": "What this space is for.",
+    "usageClearFirst": "Only rooms and zones carry a usage. Clear it to change the type.",
+    "usageNone": "Unclassified"
   },
   "types": {
     "org": "Organization",
@@ -78,6 +94,16 @@
     "floor": "Floor",
     "room": "Room",
     "zone": "Zone"
+  },
+  "usages": {
+    "hotel_room": "Hotel room",
+    "common_area": "Common area",
+    "restaurant": "Restaurant",
+    "technical_zone": "Technical zone",
+    "office": "Office",
+    "meeting_room": "Meeting room",
+    "open_space": "Open space",
+    "other": "Other"
   },
   "devices": {
     "title": "Linked devices",

@@ -2,8 +2,11 @@ import { describe, it, expect } from "vitest";
 import type { Asset } from "@gridone/sdk";
 import {
   ancestorPathOf,
+  canCarryUsage,
   flattenDeviceAssets,
+  selectionStateOf,
   sortedByPosition,
+  usageCapableIdsUnder,
   zonePathOf,
   type AssetTreeNode,
 } from "./assets";
@@ -155,5 +158,78 @@ describe("flattenDeviceAssets", () => {
 
   it("returns an empty map for an empty tree", () => {
     expect(flattenDeviceAssets([])).toEqual({});
+  });
+});
+
+describe("canCarryUsage", () => {
+  it("allows a usage on rooms and zones only", () => {
+    expect(canCarryUsage("room")).toBe(true);
+    expect(canCarryUsage("zone")).toBe(true);
+    expect(canCarryUsage("floor")).toBe(false);
+    expect(canCarryUsage("building")).toBe(false);
+    expect(canCarryUsage("org")).toBe(false);
+  });
+});
+
+describe("usageCapableIdsUnder", () => {
+  const typedNode = (
+    id: string,
+    type: Asset["type"],
+    children: AssetTreeNode[] = [],
+  ): AssetTreeNode => ({ ...asset(id, id, [id]), type, children });
+
+  const salon = typedNode("salon", "zone");
+  const suite = typedNode("suite", "room", [salon]);
+  const room = typedNode("r2", "room");
+  const closet = typedNode("closet", "zone");
+  const level = typedNode("f1", "floor", [suite, room]);
+  const site = typedNode("b1", "building", [level, closet]);
+
+  it("lists every room and zone beneath a floor, never the floor itself", () => {
+    expect(usageCapableIdsUnder(level)).toEqual(["suite", "salon", "r2"]);
+  });
+
+  it("walks through buildings to loose zones as well as floors", () => {
+    expect(usageCapableIdsUnder(site)).toEqual([
+      "suite",
+      "salon",
+      "r2",
+      "closet",
+    ]);
+  });
+
+  it("includes a room itself together with its sub-zones", () => {
+    expect(usageCapableIdsUnder(suite)).toEqual(["suite", "salon"]);
+  });
+
+  it("returns nothing for a floor without rooms", () => {
+    expect(usageCapableIdsUnder(typedNode("empty", "floor"))).toEqual([]);
+  });
+
+  it("keeps a plain asset's usage when flattening tree nodes", () => {
+    const classified = { ...typedNode("r9", "room"), usage: "office" as const };
+    expect(
+      flattenDeviceAssets([
+        { ...classified, devices: [{ id: "d", name: "D" }] },
+      ]).d,
+    ).toMatchObject({ id: "r9", usage: "office" });
+  });
+});
+
+describe("selectionStateOf", () => {
+  const ids = ["a", "b", "c"];
+
+  it("is none when no id is selected, or when there is nothing to select", () => {
+    expect(selectionStateOf(ids, new Set())).toBe("none");
+    expect(selectionStateOf(ids, new Set(["z"]))).toBe("none");
+    expect(selectionStateOf([], new Set(["a"]))).toBe("none");
+  });
+
+  it("is some for a partial selection", () => {
+    expect(selectionStateOf(ids, new Set(["a", "z"]))).toBe("some");
+  });
+
+  it("is all once every id is selected", () => {
+    expect(selectionStateOf(ids, new Set(["c", "b", "a", "z"]))).toBe("all");
   });
 });

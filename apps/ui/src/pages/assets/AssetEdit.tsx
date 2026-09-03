@@ -12,7 +12,7 @@ import type {
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { useDeviceAssetLink } from "@/hooks/useDeviceAssetLink";
 import { useReorderSubzones } from "@/hooks/useReorderSubzones";
-import type { AssetFormValues } from "./components/AssetForm";
+import { toAssetPayload, type AssetFormValues } from "./components/AssetForm";
 import { AssetEditWorkspace } from "./components/AssetEditWorkspace";
 import { DeviceLinkDialog } from "./components/DeviceLinkDialog";
 import { usePermissions } from "@/contexts/AuthContext";
@@ -101,11 +101,10 @@ export default function AssetEdit() {
   }
 
   const handleSubmit = (data: AssetFormValues) => {
-    mutation.mutate({
-      name: data.name,
-      type: data.type,
-      parent_id: data.parentId,
-    });
+    // The stored usage decides whether the form states a usage at all: an
+    // untouched one on a re-typed asset is omitted, so the backend refuses the
+    // silent declassification instead of the form performing it.
+    mutation.mutate(toAssetPayload(data, asset.usage ?? null));
   };
 
   return (

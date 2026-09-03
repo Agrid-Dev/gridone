@@ -75,8 +75,11 @@ export type Asset = Schemas["Asset"];
 export type AssetCreate = Schemas["AssetCreate"];
 export type AssetUpdate = Schemas["AssetUpdate"];
 export type AssetType = Schemas["AssetType"];
+export type AssetUsage = Schemas["AssetUsage"];
 export type AssetCommand = Schemas["AssetCommand"];
 export type ReorderRequest = Schemas["ReorderRequest"];
+export type UsageBatchRequest = Schemas["UsageBatchRequest"];
+export type UsageBatchResponse = Schemas["UsageBatchResponse"];
 export type TagValueBody = Schemas["TagValueBody"];
 
 // Devices

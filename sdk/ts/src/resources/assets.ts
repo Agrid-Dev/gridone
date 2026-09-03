@@ -8,6 +8,8 @@ import type {
   BatchDispatchResponse,
   BuildingProfile,
   ReorderRequest,
+  UsageBatchRequest,
+  UsageBatchResponse,
 } from "../types";
 
 export type AssetListParams = NonNullable<
@@ -55,6 +57,13 @@ export class AssetsResource {
 
   getTreeWithDevices(): Promise<AssetTreeNode[]> {
     return this.request("GET", "/assets/tree-with-devices");
+  }
+
+  /** Classifies several room/zone assets at once; a `null` usage clears it.
+   *  Applied whole or not at all: one id that is unknown or cannot carry a
+   *  usage rejects the request with nothing modified. */
+  setUsage(params: UsageBatchRequest): Promise<UsageBatchResponse> {
+    return this.request("PATCH", "/assets/usage", { body: params });
   }
 
   reorderChildren(assetId: string, params: ReorderRequest): Promise<void> {

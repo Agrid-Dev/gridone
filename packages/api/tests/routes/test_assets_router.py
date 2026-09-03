@@ -15,14 +15,14 @@ from api.dependencies import (
 from api.exception_handlers import register_exception_handlers
 from api.routes.assets_router import router
 from assets import AssetsService
-from assets.models import Asset, AssetType, BuildingProfile
+from assets.models import Asset, AssetType, AssetUsage, BuildingProfile
 from commands import BatchCommandDispatch, CommandsServiceInterface, UnitCommand
 from commands.models import CommandStatus
 from devices_manager import DevicesServiceInterface
 from devices_manager.core.device import Attribute
 from devices_manager.dto.device_dto import Device
 from devices_manager.types import DataType
-from models.errors import NotFoundError
+from models.errors import InvalidError, NotFoundError
 from models.targets import DevicesFilter
 
 _ASSET_ID = "asset-1"
@@ -126,6 +126,7 @@ def assets_service():
     svc.get_tree = AsyncMock(return_value=[])
     svc.get_tree_with_devices = AsyncMock(return_value=[])
     svc.list_all = AsyncMock(return_value=[])
+    svc.set_usage = AsyncMock(return_value=0)
     return svc
 
 
@@ -374,8 +375,106 @@ class TestListAssets:
             response = await ac.get("/?type=floor")
         assert response.status_code == 200
         assets_service.list_all.assert_awaited_once_with(
-            parent_id=None, asset_type="floor"
+            parent_id=None, asset_type="floor", usage=None
         )
+
+    @pytest.mark.asyncio
+    async def test_usage_query_param_forwarded_as_enum(
+        self, async_client: AsyncClient, assets_service: MagicMock
+    ):
+        async with async_client as ac:
+            response = await ac.get("/?usage=hotel_room")
+        assert response.status_code == 200
+        assets_service.list_all.assert_awaited_once_with(
+            parent_id=None, asset_type=None, usage=AssetUsage.HOTEL_ROOM
+        )
+
+    @pytest.mark.asyncio
+    async def test_unknown_usage_is_rejected(
+        self, async_client: AsyncClient, assets_service: MagicMock
+    ):
+        async with async_client as ac:
+            response = await ac.get("/?usage=garage")
+        assert response.status_code == 422
+        assets_service.list_all.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_usage_is_part_of_the_asset_payload(
+        self, async_client: AsyncClient, assets_service: MagicMock
+    ):
+        assets_service.list_all.return_value = [
+            Asset(
+                id=_ASSET_ID,
+                parent_id=None,
+                type=AssetType.ROOM,
+                name="201",
+                usage=AssetUsage.HOTEL_ROOM,
+            )
+        ]
+        async with async_client as ac:
+            response = await ac.get("/")
+        assert response.json()[0]["usage"] == "hotel_room"
+
+
+class TestSetAssetsUsage:
+    @pytest.mark.asyncio
+    async def test_classifies_the_batch_and_reports_the_count(
+        self, async_client: AsyncClient, assets_service: MagicMock
+    ):
+        assets_service.set_usage.return_value = 3
+        async with async_client as ac:
+            response = await ac.patch(
+                "/usage",
+                json={"asset_ids": ["a", "b", "c"], "usage": "common_area"},
+            )
+        assert response.status_code == 200
+        assert response.json() == {"updated": 3}
+        assets_service.set_usage.assert_awaited_once_with(
+            ["a", "b", "c"], AssetUsage.COMMON_AREA
+        )
+
+    @pytest.mark.asyncio
+    async def test_null_usage_clears(
+        self, async_client: AsyncClient, assets_service: MagicMock
+    ):
+        assets_service.set_usage.return_value = 1
+        async with async_client as ac:
+            response = await ac.patch(
+                "/usage", json={"asset_ids": ["a"], "usage": None}
+            )
+        assert response.status_code == 200
+        assets_service.set_usage.assert_awaited_once_with(["a"], None)
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "body",
+        [
+            pytest.param({"asset_ids": ["a"], "usage": "garage"}, id="unknown-usage"),
+            pytest.param({"asset_ids": [], "usage": "office"}, id="empty-ids"),
+            pytest.param({"asset_ids": ["a"]}, id="usage-missing"),
+        ],
+    )
+    async def test_invalid_payload_is_rejected_before_the_service(
+        self, async_client: AsyncClient, assets_service: MagicMock, body: dict
+    ):
+        async with async_client as ac:
+            response = await ac.patch("/usage", json=body)
+        assert response.status_code == 422
+        assets_service.set_usage.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_service_rejection_maps_to_422(
+        self, async_client: AsyncClient, assets_service: MagicMock
+    ):
+        assets_service.set_usage.side_effect = InvalidError(
+            "Only room and zone assets can have a usage, not 'floor'"
+        )
+        async with async_client as ac:
+            response = await ac.patch(
+                "/usage", json={"asset_ids": ["floor-1"], "usage": "office"}
+            )
+        assert response.status_code == 422
+        assert "room and zone" in response.json()["detail"]
 
 
 class TestBuildingProfile:

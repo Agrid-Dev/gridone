@@ -7,6 +7,7 @@ import type {
   AssetUpdate,
   BuildingProfile,
   ReorderRequest,
+  UsageBatchRequest,
 } from "../types";
 import { AssetsResource } from "./assets";
 
@@ -23,6 +24,10 @@ function makeResource() {
 const CREATE: AssetCreate = { name: "Floor 1", type: "floor", parent_id: "b1" };
 const UPDATE: AssetUpdate = { name: "Floor 1 bis" } as AssetUpdate;
 const REORDER: ReorderRequest = { ordered_ids: ["a2", "a1"] };
+const USAGE: UsageBatchRequest = {
+  asset_ids: ["a1", "a2"],
+  usage: "hotel_room",
+};
 const COMMAND: AssetCommand = {
   attribute: "setpoint",
   value: 21,
@@ -58,6 +63,11 @@ const CASES: Case[] = [
     "getTreeWithDevices",
     (a) => a.getTreeWithDevices(),
     ["GET", "/assets/tree-with-devices"],
+  ],
+  [
+    "setUsage",
+    (a) => a.setUsage(USAGE),
+    ["PATCH", "/assets/usage", { body: USAGE }],
   ],
   [
     "reorderChildren",

@@ -4,7 +4,7 @@
  * The SDK leaves tree nodes untyped (their shape is deployment-defined), so
  * the typed `AssetTreeNode` view plus the flatten helpers live here.
  */
-import type { Asset, AssetType } from "@gridone/sdk";
+import type { Asset, AssetType, AssetUsage } from "@gridone/sdk";
 import { sortedByName } from "@/lib/sortByName";
 
 export const ASSET_TYPES = [
@@ -14,6 +14,29 @@ export const ASSET_TYPES = [
   "room",
   "zone",
 ] as const satisfies readonly AssetType[];
+
+/** What a room or zone is used for, in display order. Mirrors the backend
+ *  `AssetUsage` enum; `null` on an asset means "not classified yet". */
+export const ASSET_USAGES = [
+  "hotel_room",
+  "common_area",
+  "restaurant",
+  "technical_zone",
+  "office",
+  "meeting_room",
+  "open_space",
+  "other",
+] as const satisfies readonly AssetUsage[];
+
+/** Hierarchy levels that may carry a usage — mirrors the backend guard. */
+const USAGE_CAPABLE_TYPES: ReadonlySet<AssetType> = new Set<AssetType>([
+  "room",
+  "zone",
+]);
+
+export function canCarryUsage(type: AssetType): boolean {
+  return USAGE_CAPABLE_TYPES.has(type);
+}
 
 /** Device reference embedded in `tree-with-devices` nodes. */
 export type DeviceRef = {
@@ -76,6 +99,35 @@ export function flattenDeviceAssets(
   };
   walk(tree);
   return out;
+}
+
+/** Ids of every room and zone in `node`'s subtree, `node` itself included
+ *  when it can carry a usage — what a tree checkbox stands for. Ticking a
+ *  floor selects the rooms beneath it; the floor id itself is never listed,
+ *  so a batch classification only ever receives ids the API accepts. */
+export function usageCapableIdsUnder(node: AssetTreeNode): string[] {
+  const out: string[] = [];
+  const walk = (current: AssetTreeNode) => {
+    if (canCarryUsage(current.type)) out.push(current.id);
+    for (const child of current.children) walk(child);
+  };
+  walk(node);
+  return out;
+}
+
+/** How much of a checkbox's id set is currently selected. */
+export type SelectionState = "none" | "some" | "all";
+
+/** Tri-state of a select-all checkbox standing for `ids`: `all` when every id
+ *  is selected, `some` for a partial selection (rendered indeterminate), and
+ *  `none` otherwise — an empty `ids` is `none`, there is nothing to tick. */
+export function selectionStateOf(
+  ids: readonly string[],
+  selected: ReadonlySet<string>,
+): SelectionState {
+  const hits = ids.filter((id) => selected.has(id)).length;
+  if (hits === 0) return "none";
+  return hits === ids.length ? "all" : "some";
 }
 
 /** Non-mutating sort in curated tree order: `position` ascending with name as
@@ -156,5 +208,6 @@ function toAsset(node: AssetTreeNode): Asset {
     name: node.name,
     path: node.path,
     position: node.position,
+    usage: node.usage,
   };
 }

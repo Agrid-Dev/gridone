@@ -172,13 +172,24 @@ export function goldenPathSuite(protocol: SharedFixtureKey): void {
 
       // The change lands in the timeseries history like any other — but with
       // no command attribution, since no gridone command produced it.
-      const result = await client.timeseries.getPoints(
-        id,
-        "temperature_setpoint",
-        { start: runStart },
+      //
+      // Polled, unlike the command points above: a command records its point
+      // before it answers, while a value picked up by sync is stored by a
+      // background listener. The device therefore reports the new value a few
+      // milliseconds before the point is queryable — long enough to lose the
+      // race on a loaded runner.
+      const point = await pollUntil(
+        async () => {
+          const result = await client.timeseries.getPoints(
+            id,
+            "temperature_setpoint",
+            { start: runStart },
+          );
+          return result.points.find((p) => p.value === target);
+        },
+        (p) => p !== undefined,
+        { description: `an external point with value ${target}` },
       );
-      const point = result.points.find((p) => p.value === target);
-      expect(point, `an external point with value ${target}`).toBeDefined();
       expect(point?.command_id ?? null).toBeNull();
     });
   }

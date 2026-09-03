@@ -65,12 +65,28 @@
     "addZoneTo": "Ajouter une zone à {{name}}",
     "addSubzoneTo": "Ajouter une sous-zone à {{name}}"
   },
+  "selection": {
+    "select": "Sélectionner {{name}}",
+    "selectAll": "Sélectionner toutes les zones de {{name}}",
+    "count_one": "{{count}} zone sélectionnée",
+    "count_other": "{{count}} zones sélectionnées",
+    "usagePlaceholder": "Choisir un usage",
+    "apply": "Appliquer",
+    "clear": "Effacer la sélection",
+    "applied_one": "{{count}} zone classée",
+    "applied_other": "{{count}} zones classées",
+    "applyFailed": "La sélection n’a pas pu être classée."
+  },
   "fields": {
     "name": "Nom",
     "type": "Type",
     "parent": "Zone parente",
     "parentPlaceholder": "Aucun (racine)",
-    "path": "Chemin"
+    "path": "Chemin",
+    "usage": "Usage",
+    "usageHint": "Ce à quoi sert cet espace.",
+    "usageClearFirst": "Seules les salles et les zones portent un usage. Effacez-le pour changer le type.",
+    "usageNone": "Non classé"
   },
   "types": {
     "org": "Organisation",
@@ -78,6 +94,16 @@
     "floor": "\u00c9tage",
     "room": "Salle",
     "zone": "Zone"
+  },
+  "usages": {
+    "hotel_room": "Chambre",
+    "common_area": "Espace commun",
+    "restaurant": "Restaurant",
+    "technical_zone": "Zone technique",
+    "office": "Bureau",
+    "meeting_room": "Salle de réunion",
+    "open_space": "Open space",
+    "other": "Autre"
   },
   "devices": {
     "title": "Appareils li\u00e9s",

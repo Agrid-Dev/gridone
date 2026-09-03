@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from assets.models import BuildingProfile
+from assets.models import AssetUsage, BuildingProfile
 from assets.storage.models import AssetInDB
 
 
@@ -87,6 +87,16 @@ class MemoryAssetsStorage:
             if asset is not None and asset.parent_id == parent_id:
                 self._assets[asset_id] = asset.model_copy(
                     update={"position": position, "updated_at": updated_at}
+                )
+
+    async def set_usage(
+        self, asset_ids: list[str], usage: AssetUsage | None, updated_at: datetime
+    ) -> None:
+        for asset_id in asset_ids:
+            asset = self._assets.get(asset_id)
+            if asset is not None:
+                self._assets[asset_id] = asset.model_copy(
+                    update={"usage": usage, "updated_at": updated_at}
                 )
 
     async def close(self) -> None:

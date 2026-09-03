@@ -1000,6 +1000,29 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/assets/usage": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Set Assets Usage
+     * @description Classify room and zone assets in one call.
+     *
+     *     The batch is applied whole or not at all: one id that is unknown or cannot
+     *     carry a usage rejects the request with nothing modified.
+     */
+    patch: operations["set_assets_usage_assets_usage_patch"];
+    trace?: never;
+  };
   "/assets/{asset_id}": {
     parameters: {
       query?: never;
@@ -1627,6 +1650,7 @@ export interface components {
        * @default 0
        */
       position?: number;
+      usage?: components["schemas"]["AssetUsage"] | null;
     };
     /**
      * AssetCommand
@@ -1660,6 +1684,7 @@ export interface components {
       type: components["schemas"]["AssetType"];
       /** Parent Id */
       parent_id: string;
+      usage?: components["schemas"]["AssetUsage"] | null;
     };
     /**
      * AssetType
@@ -1670,6 +1695,9 @@ export interface components {
     /**
      * AssetUpdate
      * @description DTO for updating an asset.
+     *
+     *     Omitted fields keep their stored value. ``usage`` is the one field where an
+     *     explicit ``null`` differs from omission: it clears the classification.
      */
     AssetUpdate: {
       /** Name */
@@ -1677,7 +1705,26 @@ export interface components {
       type?: components["schemas"]["AssetType"] | null;
       /** Parent Id */
       parent_id?: string | null;
+      usage?: components["schemas"]["AssetUsage"] | null;
     };
+    /**
+     * AssetUsage
+     * @description What a room or zone is used for.
+     *
+     *     Orthogonal to the hierarchy ``type``: a ``room`` may be a hotel room or a
+     *     technical closet. ``None`` on the asset means "not classified yet";
+     *     ``OTHER`` means "deliberately none of the above".
+     * @enum {string}
+     */
+    AssetUsage:
+      | "hotel_room"
+      | "common_area"
+      | "restaurant"
+      | "technical_zone"
+      | "office"
+      | "meeting_room"
+      | "open_space"
+      | "other";
     Attribute: {
       [key: string]: unknown;
     };
@@ -3646,6 +3693,20 @@ export interface components {
       polling_groups?: {
         [key: string]: number;
       };
+    };
+    /**
+     * UsageBatchRequest
+     * @description Body of ``PATCH /assets/usage``: classify several assets at once.
+     */
+    UsageBatchRequest: {
+      /** Asset Ids */
+      asset_ids: string[];
+      usage: components["schemas"]["AssetUsage"] | null;
+    };
+    /** UsageBatchResponse */
+    UsageBatchResponse: {
+      /** Updated */
+      updated: number;
     };
     /**
      * User
@@ -6421,6 +6482,7 @@ export interface operations {
       query?: {
         parent_id?: string | null;
         type?: string | null;
+        usage?: components["schemas"]["AssetUsage"] | null;
       };
       header?: never;
       path?: never;
@@ -6468,6 +6530,39 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["Asset"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  set_assets_usage_assets_usage_patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UsageBatchRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UsageBatchResponse"];
         };
       };
       /** @description Validation Error */

@@ -18,6 +18,28 @@ class AssetType(StrEnum):
     ZONE = "zone"
 
 
+class AssetUsage(StrEnum):
+    """What a room or zone is used for.
+
+    Orthogonal to the hierarchy ``type``: a ``room`` may be a hotel room or a
+    technical closet. ``None`` on the asset means "not classified yet";
+    ``OTHER`` means "deliberately none of the above".
+    """
+
+    HOTEL_ROOM = "hotel_room"
+    COMMON_AREA = "common_area"
+    RESTAURANT = "restaurant"
+    TECHNICAL_ZONE = "technical_zone"
+    OFFICE = "office"
+    MEETING_ROOM = "meeting_room"
+    OPEN_SPACE = "open_space"
+    OTHER = "other"
+
+
+USAGE_CAPABLE_TYPES: frozenset[AssetType] = frozenset({AssetType.ROOM, AssetType.ZONE})
+"""Hierarchy levels that may carry a usage."""
+
+
 class Asset(ResourceMetadata):
     """Public asset model (API response)."""
 
@@ -27,6 +49,7 @@ class Asset(ResourceMetadata):
     name: str
     path: list[str] = Field(default_factory=list)
     position: int = 0
+    usage: AssetUsage | None = None
 
 
 class AssetCreate(BaseModel):
@@ -40,10 +63,15 @@ class AssetCreate(BaseModel):
     )
     type: AssetType
     parent_id: str
+    usage: AssetUsage | None = None
 
 
 class AssetUpdate(BaseModel):
-    """DTO for updating an asset."""
+    """DTO for updating an asset.
+
+    Omitted fields keep their stored value. ``usage`` is the one field where an
+    explicit ``null`` differs from omission: it clears the classification.
+    """
 
     name: str | None = Field(
         None,
@@ -53,6 +81,7 @@ class AssetUpdate(BaseModel):
     )
     type: AssetType | None = None
     parent_id: str | None = None
+    usage: AssetUsage | None = None
 
 
 class BuildingProfile(BaseModel):
@@ -88,10 +117,12 @@ def get_building_profile_schema() -> dict:
 __all__ = [
     "ASSET_NAME_MAX_LENGTH",
     "ASSET_NAME_MIN_LENGTH",
+    "USAGE_CAPABLE_TYPES",
     "Asset",
     "AssetCreate",
     "AssetType",
     "AssetUpdate",
+    "AssetUsage",
     "BuildingProfile",
     "get_asset_create_schema",
     "get_building_profile_schema",
