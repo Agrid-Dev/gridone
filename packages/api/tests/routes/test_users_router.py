@@ -11,12 +11,19 @@ from api.exception_handlers import register_exception_handlers
 from api.routes.users.auth_router import router as auth_router
 from api.routes.users.users_router import router as users_router
 from models.errors import BlockedUserError, NotFoundError
-from users import Role, User
+from users import Role, User, UserUpdate
 from users.auth import AuthService
 from users.validation import PASSWORD_MAX_LENGTH
 
 ADMIN = User(id="admin-id", username="admin", role=Role.ADMIN, name="Admin User")
 BOB = User(id="bob-id", username="bob", role=Role.OPERATOR, name="Bob User")
+
+
+async def _update_user(user_id: str, data: UserUpdate) -> User:
+    if user_id != BOB.id:
+        msg = f"User '{user_id}' not found"
+        raise NotFoundError(msg)
+    return BOB.model_copy(update={"name": data.name or BOB.name})
 
 
 @pytest.fixture
@@ -48,6 +55,7 @@ def users_manager() -> AsyncMock:
         return False
 
     um.authenticate = AsyncMock(side_effect=_authenticate)
+    um.update_user = AsyncMock(side_effect=_update_user)
     um.get_by_id = AsyncMock(side_effect=_get_by_id)
     um.is_blocked = AsyncMock(side_effect=_is_blocked)
     um.list_users = AsyncMock(return_value=[ADMIN, BOB])
@@ -186,6 +194,41 @@ def test_create_user_conflict_returns_409(
             "/users/",
             json={"username": "duplicate", "password": "password123"},
             headers=_auth(token),
+        )
+    assert resp.status_code == 409
+    assert resp.json()["detail"] == "Username already exists"
+
+
+# --- Update user ---
+
+
+def test_admin_can_update_user(app: FastAPI) -> None:
+    with TestClient(app) as client:
+        token = _login(client, "admin")
+        resp = client.patch(
+            "/users/bob-id", json={"name": "Bob B."}, headers=_auth(token)
+        )
+    assert resp.status_code == 200
+    assert resp.json()["name"] == "Bob B."
+
+
+def test_update_nonexistent_user_returns_404(app: FastAPI) -> None:
+    with TestClient(app) as client:
+        token = _login(client, "admin")
+        resp = client.patch(
+            "/users/nonexistent", json={"name": "Nobody"}, headers=_auth(token)
+        )
+    assert resp.status_code == 404
+
+
+def test_update_user_conflict_returns_409(
+    app: FastAPI, users_manager: AsyncMock
+) -> None:
+    users_manager.update_user.side_effect = ValueError("Username already taken")
+    with TestClient(app) as client:
+        token = _login(client, "admin")
+        resp = client.patch(
+            "/users/bob-id", json={"username": "admin"}, headers=_auth(token)
         )
     assert resp.status_code == 409
     assert resp.json()["detail"] == "Username already exists"
