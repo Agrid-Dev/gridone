@@ -85,6 +85,7 @@
     "path": "Chemin",
     "usage": "Usage",
     "usageHint": "Ce à quoi sert cet espace.",
+    "usageClearFirst": "Seules les salles et les zones portent un usage. Effacez-le pour changer le type.",
     "usageNone": "Non classé"
   },
   "types": {

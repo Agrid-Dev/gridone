@@ -101,7 +101,10 @@ export default function AssetEdit() {
   }
 
   const handleSubmit = (data: AssetFormValues) => {
-    mutation.mutate(toAssetPayload(data));
+    // The stored usage decides whether the form states a usage at all: an
+    // untouched one on a re-typed asset is omitted, so the backend refuses the
+    // silent declassification instead of the form performing it.
+    mutation.mutate(toAssetPayload(data, asset.usage ?? null));
   };
 
   return (

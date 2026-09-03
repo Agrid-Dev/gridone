@@ -47,6 +47,7 @@ vi.mock("react-i18next", () =>
     "fields.parentPlaceholder": "None",
     "fields.usage": "Usage",
     "fields.usageHint": "What this space is for.",
+    "fields.usageClearFirst": "Only rooms and zones carry a usage.",
     "fields.usageNone": "Unclassified",
     "usages.hotel_room": "Hotel room",
     "usages.office": "Office",
@@ -392,7 +393,7 @@ describe("AssetEditWorkspace usage", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("hides the usage select when the type leaves room/zone and reveals it back", async () => {
+  it("hides the usage select of an unclassified asset off room/zone and reveals it back", async () => {
     const user = userEvent.setup();
     renderWorkspace();
 
@@ -405,6 +406,38 @@ describe("AssetEditWorkspace usage", () => {
     await user.click(screen.getByRole("combobox", { name: "Type" }));
     await user.click(screen.getByRole("option", { name: "Room" }));
     expect(screen.getByRole("combobox", { name: "Usage" })).toBeInTheDocument();
+  });
+
+  // A classified asset keeps its select off room/zone: the API refuses a type
+  // change that says nothing about the stored usage, so the operator has to be
+  // able to clear it here rather than being sent back to the previous type.
+  it("keeps the usage select of a classified asset when the type leaves room/zone", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn<(data: AssetFormValues) => void>();
+    renderWorkspace({ asset: { ...lobby, usage: "office" }, onSubmit });
+
+    await user.click(screen.getByRole("combobox", { name: "Type" }));
+    await user.click(screen.getByRole("option", { name: "Floor" }));
+
+    const usage = screen.getByRole("combobox", { name: "Usage" });
+    expect(usage).toHaveTextContent("Office");
+    expect(
+      screen.getByText("Only rooms and zones carry a usage."),
+    ).toBeInTheDocument();
+
+    await user.click(usage);
+    await user.click(screen.getByRole("option", { name: "Unclassified" }));
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() =>
+      expect(onSubmit.mock.calls[0]?.[0]).toMatchObject({
+        type: "floor",
+        usage: null,
+      }),
+    );
+    expect(
+      screen.queryByRole("combobox", { name: "Usage" }),
+    ).not.toBeInTheDocument();
   });
 
   it("badges a classified asset with its usage beside the type pill", () => {

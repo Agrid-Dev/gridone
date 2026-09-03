@@ -51,6 +51,7 @@ import { sortedByName } from "@/lib/sortByName";
 import { ASSET_TYPES, canCarryUsage, sortedByPosition } from "@/lib/assets";
 import {
   assetFormSchema,
+  showsUsageField,
   useUsageOptions,
   type AssetFormValues,
 } from "./AssetForm";
@@ -234,6 +235,7 @@ export function AssetEditWorkspace({
     },
   });
   const selectedType = useWatch({ control: form.control, name: "type" });
+  const selectedUsage = useWatch({ control: form.control, name: "usage" });
   const usageOptions = useUsageOptions();
 
   const assetsById = useMemo(
@@ -470,12 +472,16 @@ export function AssetEditWorkspace({
                 </div>
               </div>
 
-              {canCarryUsage(selectedType) && (
+              {showsUsageField(selectedType, selectedUsage) && (
                 <SelectController
                   name="usage"
                   control={form.control}
                   label={t("fields.usage")}
-                  description={t("fields.usageHint")}
+                  description={
+                    canCarryUsage(selectedType)
+                      ? t("fields.usageHint")
+                      : t("fields.usageClearFirst")
+                  }
                   options={usageOptions}
                   placeholder={t("fields.usageNone")}
                   allowEmpty

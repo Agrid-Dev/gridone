@@ -85,6 +85,7 @@
     "path": "Path",
     "usage": "Usage",
     "usageHint": "What this space is for.",
+    "usageClearFirst": "Only rooms and zones carry a usage. Clear it to change the type.",
     "usageNone": "Unclassified"
   },
   "types": {
