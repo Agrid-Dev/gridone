@@ -194,7 +194,13 @@ class TestWidgets:
         # A body omitting `agg` reaches the service as an explicit raw chart.
         svc.add_widget.assert_awaited_once_with(
             "d1",
-            config={**_CHART_CONFIG, "agg": None, "space_agg": None, "group_by": None},
+            config={
+                **_CHART_CONFIG,
+                "agg": None,
+                "interval": "auto",
+                "space_agg": None,
+                "group_by": None,
+            },
             title=None,
             description=None,
         )
@@ -207,7 +213,12 @@ class TestWidgets:
         assert resp.status_code == 201
         svc.add_widget.assert_awaited_once_with(
             "d1",
-            config={**config, "space_agg": None, "group_by": None},
+            config={
+                **config,
+                "interval": "auto",
+                "space_agg": None,
+                "group_by": None,
+            },
             title=None,
             description=None,
         )

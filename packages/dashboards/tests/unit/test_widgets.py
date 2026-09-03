@@ -76,11 +76,6 @@ def test_validate_config_returns_concrete_model():
             "type": "chart",
             "target": {"devices": {"search": "th"}, "attribute": "temperature"},
         },
-        {  # extra key — the bucket width is not the widget's to store
-            "type": "chart",
-            "target": {"devices": {"ids": ["d1"]}, "attribute": "temperature"},
-            "interval": "1h",
-        },
         {"type": "device_control"},  # missing device_id
         {"type": "device_control", "device_id": ""},  # empty device_id
         {  # live-only widget: no period mode/operator to store
@@ -295,6 +290,38 @@ def test_chart_config_accepts_an_operator():
 
     assert isinstance(config, ChartWidgetConfig)
     assert config.agg is AggregationOperator.AVG
+
+
+def test_chart_config_defaults_to_an_automatic_interval():
+    # Charts stored before the width was pinnable keep resolving it server-side.
+    registry = build_default_registry()
+
+    config = registry.validate_config(
+        {
+            "type": "chart",
+            "target": {"devices": {"ids": ["d1"]}, "attribute": "temperature"},
+            "agg": "avg",
+        }
+    )
+
+    assert isinstance(config, ChartWidgetConfig)
+    assert config.interval == "auto"
+
+
+def test_chart_config_accepts_a_pinned_interval():
+    registry = build_default_registry()
+
+    config = registry.validate_config(
+        {
+            "type": "chart",
+            "target": {"devices": {"ids": ["d1"]}, "attribute": "energy"},
+            "agg": "delta",
+            "interval": "1d",
+        }
+    )
+
+    assert isinstance(config, ChartWidgetConfig)
+    assert config.interval == "1d"
 
 
 def test_chart_config_rejects_an_unknown_operator():

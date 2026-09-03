@@ -19,8 +19,8 @@ class ChartWidgetConfig(WidgetConfig):
     enforced at save time by the API layer, and surfaced as a render-time
     error state when a dynamic set drifts afterwards.
 
-    Points are read over the dashboard period, so nothing about the time
-    window is stored here.
+    Points are read over the dashboard period, so the window itself is never
+    stored here — only how wide the buckets cut from it should be.
     """
 
     type: Literal["chart"] = "chart"
@@ -32,9 +32,26 @@ class ChartWidgetConfig(WidgetConfig):
     package's rule (``AGG_COMPAT``), enforced when the series is read — an
     ``avg`` of a string is refused there rather than here, so this config never
     has to know which combinations exist.
+    """
 
-    The bucket width is not stored: it resolves from the dashboard period, which
-    is a viewing concern.
+    interval: str = "auto"
+    """Bucket width the readings are reduced over; ``"auto"`` lets the server
+    pick one from the dashboard period. Only meaningful alongside ``agg``.
+
+    Stored, unlike the period itself, because ``"auto"`` targets a bucket
+    *count* rather than a bucket *meaning*: over a week it resolves to hourly
+    buckets, so a chart of daily consumption cannot be expressed without
+    pinning the width. The period stays a viewing concern and is not stored —
+    a pinned width simply rides whatever window the dashboard is showing, and
+    the chart draws whatever the timeseries endpoint returns for that pair.
+
+    Kept a plain string rather than the timeseries package's ``Interval``: the
+    vocabulary ("auto", "whole", "raw", "15min", "1h", "1d", "1mo") is the
+    aggregate endpoints' own, and naming it here would either import sideways
+    from a sibling service or restate a list that would then drift. The editor
+    offers what ``GET /timeseries/aggregate/options`` reports, and an
+    unparseable width is refused when the series is read — the same division of
+    labour as ``agg``.
     """
 
     space_agg: AggregationOperator | None = None
