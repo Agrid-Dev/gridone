@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from .core.device import (
     Attribute,
+    AttributeListener,
     CoreDevice,
     DeviceBase,
     FaultAttribute,
@@ -18,6 +19,7 @@ from .service import DevicesService
 
 __all__ = [
     "Attribute",
+    "AttributeListener",
     "CoreDevice",
     "DeviceBase",
     "DeviceRegistry",
