@@ -577,6 +577,17 @@ def test_gate_still_refuses_an_unauthenticated_request(
     assert gated_client.get("/protected/").status_code == 401
 
 
+def test_gate_lets_a_deleted_user_through(gated_app: FastAPI) -> None:
+    """No record to read the flag from, so the gate has nothing to refuse on."""
+    auth_service: AuthService = gated_app.state.auth_service
+    token = auth_service.create_access_token("deleted-id", Role.ADMIN)
+
+    with TestClient(gated_app) as client:
+        response = client.get("/protected/", headers=_auth(token))
+
+    assert response.status_code == 200
+
+
 def test_gate_still_refuses_a_blocked_user(gated_app: FastAPI) -> None:
     auth_service: AuthService = gated_app.state.auth_service
     token = auth_service.create_access_token("blocked-id", Role.OPERATOR)
