@@ -286,6 +286,41 @@ describe("KpiConfigFields", () => {
     expect(firstAttribute(latest()).attribute).toBe("temperature");
   });
 
+  it("prefills the unit from the attribute-name heuristic", () => {
+    const latest = renderFields();
+
+    fireEvent.click(screen.getByText("pick attribute temperature"));
+
+    expect(firstAttribute(latest()).unit).toBe("°");
+  });
+
+  it("leaves the unit blank for an attribute the heuristic doesn't recognize", () => {
+    const latest = renderFields();
+
+    fireEvent.click(screen.getByText("pick attribute mode"));
+
+    expect(firstAttribute(latest()).unit).toBeNull();
+  });
+
+  it("does not overwrite a manually-entered unit when the attribute changes", () => {
+    const latest = renderFields([{ ...BLANK_ATTRIBUTE, unit: "custom" }]);
+
+    fireEvent.click(screen.getByText("pick attribute temperature"));
+
+    expect(firstAttribute(latest()).unit).toBe("custom");
+  });
+
+  it("replaces a unit it auto-filled when the attribute changes again", () => {
+    const latest = renderFields();
+
+    fireEvent.click(screen.getByText("pick attribute temperature"));
+    expect(firstAttribute(latest()).unit).toBe("°");
+
+    fireEvent.click(screen.getByText("pick attribute mode"));
+
+    expect(firstAttribute(latest()).unit).toBeNull();
+  });
+
   it("starts in live mode with no operator select shown", () => {
     renderFields();
 

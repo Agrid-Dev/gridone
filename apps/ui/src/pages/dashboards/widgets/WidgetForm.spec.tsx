@@ -1,7 +1,31 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import type { Control, FieldValues } from "react-hook-form";
 import { createI18nMock } from "@/test/i18nMock";
 import type { WidgetFormState } from "./WidgetForm";
+
+// A minimal config-fields editor that surfaces the array field's live value,
+// to check what a fresh (no defaultConfig) widget actually starts from —
+// registered alongside the real registry entries, not replacing them.
+vi.mock("./registry", async (importOriginal) => {
+  const { useWatch } = await import("react-hook-form");
+  const actual = await importOriginal<typeof import("./registry")>();
+  const ArrayFieldProbe = ({ control }: { control: Control<FieldValues> }) => {
+    const items = useWatch({ control, name: "config.items" }) as unknown;
+    return (
+      <div data-testid="items-probe">
+        {Array.isArray(items) ? `array:${items.length}` : typeof items}
+      </div>
+    );
+  };
+  return {
+    ...actual,
+    widgetConfigFields: {
+      ...actual.widgetConfigFields,
+      array_test: ArrayFieldProbe,
+    },
+  };
+});
 
 vi.mock("react-i18next", () =>
   createI18nMock({ "widgets.fields.title": "Title" }),
@@ -104,6 +128,23 @@ const CHART_SCHEMA = {
   },
 };
 
+// A top-level array config property, the shape KPI's `attributes` has —
+// the case `emptyConfig` must default to `[]`, not the generic `""` it
+// falls back to for anything that isn't boolean/number.
+const ARRAY_SCHEMA = {
+  type: "object",
+  properties: {
+    type: {
+      const: "array_test",
+      default: "array_test",
+      title: "Type",
+      type: "string",
+    },
+    items: { type: "array", items: { type: "string" }, minItems: 1 },
+  },
+  required: ["items"],
+};
+
 function renderForm(
   type: string,
   configSchema: Record<string, unknown>,
@@ -145,6 +186,15 @@ describe("WidgetForm", () => {
     renderForm("chart", CHART_SCHEMA);
 
     expect(screen.getByLabelText(/Title/)).toBeInTheDocument();
+  });
+
+  // A fresh widget (no defaultConfig) builds its starting values from the
+  // schema alone; an array-typed property must default to an actual array,
+  // not the generic string fallback other property types get.
+  it("defaults a fresh array-typed config field to an empty array", () => {
+    renderForm("array_test", ARRAY_SCHEMA);
+
+    expect(screen.getByTestId("items-probe")).toHaveTextContent("array:0");
   });
 
   // The schema cannot say that an empty device filter — "all devices" on the

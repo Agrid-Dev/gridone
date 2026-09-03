@@ -31,6 +31,7 @@ import {
   useResetRefusedOperator,
 } from "@/hooks/useAggregateOptions";
 import { useDevicesList } from "@/hooks/useDevicesList";
+import { attributeUnit } from "@/lib/attributeUnits";
 import { isEmptyFilter } from "@/lib/devices";
 
 type Temporal = "live" | { operator?: AggregationOperator };
@@ -323,6 +324,14 @@ const KpiAttributeFields: FC<{
     control,
     name: `${name}.space_agg`,
   });
+  const { field: unitField } = useController({
+    control,
+    name: `${name}.unit`,
+  });
+  // What we last wrote into `unit` ourselves — distinct from a value the
+  // user typed (or a saved config already had), so switching to another
+  // attribute only replaces a unit we own, not one they set.
+  const lastAutoFilledUnit = useRef<string | null | undefined>(undefined);
 
   const attribute = (attributeField.value as string) || undefined;
   const spaceAgg = (spaceAggField.value as string | null) ?? null;
@@ -380,7 +389,19 @@ const KpiAttributeFields: FC<{
       <AttributeCoverageSelect
         filter={devices}
         value={attribute}
-        onChange={(attr) => attributeField.onChange(attr)}
+        onChange={(attr) => {
+          attributeField.onChange(attr);
+          // Prefill from the heuristic, but only replace a value we set for
+          // a previous attribute — a value the user typed (or a saved
+          // config already had) is never ours to clobber.
+          const owned =
+            !unitField.value || unitField.value === lastAutoFilledUnit.current;
+          if (attr && owned) {
+            const resolvedUnit = attributeUnit(attr);
+            unitField.onChange(resolvedUnit);
+            lastAutoFilledUnit.current = resolvedUnit;
+          }
+        }}
       />
       {skipped > 0 && (
         <p className="text-sm text-amber-600 dark:text-amber-500">
