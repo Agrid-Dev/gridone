@@ -108,6 +108,14 @@
       },
       "precision": {
         "label": "Précision"
+      },
+      "attributeLabel": {
+        "label": "Libellé"
+      },
+      "attribute": {
+        "label": "Attribut {{index}}",
+        "add": "Ajouter un attribut",
+        "remove": "Supprimer l'attribut"
       }
     },
     "add": "Ajouter un widget",

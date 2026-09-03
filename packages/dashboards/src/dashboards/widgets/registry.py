@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 from pydantic import ValidationError
 
 from dashboards.widgets.chart import ChartWidgetConfig
+from dashboards.widgets.config import WidgetSize
 from dashboards.widgets.device_control import DeviceControlWidgetConfig
 from dashboards.widgets.kpi import KpiWidgetConfig
 from dashboards.widgets.meter_tree import MeterTreeWidgetConfig
@@ -16,14 +17,6 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
 
     from dashboards.widgets.config import WidgetConfig
-
-
-@dataclass(frozen=True)
-class WidgetSize:
-    """Default grid footprint of a widget type, in react-grid-layout units."""
-
-    w: int
-    h: int
 
 
 @dataclass(frozen=True)

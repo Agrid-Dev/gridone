@@ -5,6 +5,7 @@ import {
   isNotFound,
   type AggregationOperator,
   type DataType,
+  type KpiAttribute,
   type KpiWidgetConfig,
 } from "@gridone/sdk";
 import { AttributeValue } from "@/components/AttributeValue";
@@ -24,6 +25,8 @@ const Message: FC<{ children: string }> = ({ children }) => (
   </div>
 );
 
+const KPI_VALUE_CLASS = "text-3xl font-semibold";
+
 /** Renders the tile's value: bool/str show their label, numbers apply the
  *  config's precision and unit override. */
 const KpiValue: FC<{
@@ -36,43 +39,67 @@ const KpiValue: FC<{
 }> = ({ value, dataType, attribute, deviceType, unit, precision }) => {
   if (dataType === "bool" || dataType === "str") {
     return (
-      <div className="flex h-full items-center justify-center p-2">
+      <div className="flex h-full items-center justify-center overflow-hidden p-2">
         <AttributeValue
           value={value}
           attributeName={attribute}
           dataType={dataType}
           deviceType={deviceType}
-          className="text-3xl font-semibold"
+          className={KPI_VALUE_CLASS}
         />
       </div>
     );
   }
   const digits = precision ?? (dataType === "float" ? 2 : 0);
   return (
-    <div className="flex h-full items-center justify-center p-2">
-      <span className="text-3xl font-semibold">
+    <div className="flex h-full items-center justify-center overflow-hidden p-2">
+      <span className={KPI_VALUE_CLASS}>
         {fmt(typeof value === "number" ? value : null, digits)}
-        {unit && (
-          <span className="ml-1 text-lg text-muted-foreground">{unit}</span>
-        )}
+        {unit && <span className="text-lg text-muted-foreground">{unit}</span>}
       </span>
     </div>
   );
 };
 
 /**
- * Single-number tile over one device attribute: the current value, or one
- * value reduced over the whole dashboard period.
+ * One or more number rows over device attributes, sharing one Live/Period
+ * mode: each attribute's current value, or its value reduced over the whole
+ * dashboard period. The tile's grid footprint grows with the attribute
+ * count (see the backend's ``content_size_hint``), so rows keep their size.
  */
 export const KpiWidgetView: FC<{ config: unknown }> = ({ config }) => {
+  const { devices, attributes, temporal } = config as KpiWidgetConfig;
+
+  return (
+    <div className="flex h-full flex-col divide-y">
+      {attributes.map((attribute, index) => (
+        <div key={index} className="min-h-0 flex-1 overflow-hidden py-1">
+          <KpiAttributeView
+            devices={devices}
+            attribute={attribute}
+            temporal={temporal}
+          />
+        </div>
+      ))}
+    </div>
+  );
+};
+
+/** One attribute's value, dispatched to the leaf view matching its
+ *  space_agg × temporal mode combination. */
+const KpiAttributeView: FC<{
+  devices: KpiWidgetConfig["devices"];
+  attribute: KpiAttribute;
+  temporal: KpiWidgetConfig["temporal"];
+}> = ({ devices, attribute, temporal }) => {
   const {
-    target,
-    temporal,
+    attribute: attributeName,
     space_agg: spaceAgg,
     unit,
     precision,
-  } = config as KpiWidgetConfig;
-  const deviceId = target.devices.ids?.[0];
+  } = attribute;
+  const target: AttributeTarget = { devices, attribute: attributeName };
+  const deviceId = devices.ids?.[0];
   const isPeriod = temporal !== "live" && !!temporal;
 
   if (spaceAgg) {

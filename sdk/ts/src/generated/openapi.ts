@@ -2869,11 +2869,33 @@ export interface components {
       config: components["schemas"]["KNXTransportConfig"];
     };
     /**
-     * KpiWidgetConfig
-     * @description Single number over one attribute of a device set.
+     * KpiAttribute
+     * @description One metric shown on a KPI tile: an attribute plus how it folds and
+     *     renders, read against the tile's shared device set (see
+     *     :class:`KpiWidgetConfig`).
      *
-     *     Without ``space_agg`` the target must resolve to exactly one device;
-     *     with it, any number fold into one.
+     *     Without ``space_agg`` the device set must resolve to exactly one device
+     *     for this attribute; with it, any number fold into one.
+     */
+    KpiAttribute: {
+      /** Label */
+      label: string;
+      /** Attribute */
+      attribute: string;
+      space_agg?: components["schemas"]["AggregationOperator"] | null;
+      /** Unit */
+      unit?: string | null;
+      /** Precision */
+      precision?: number | null;
+    };
+    /**
+     * KpiWidgetConfig
+     * @description One or more metrics of one shared device set, shown together on one
+     *     tile.
+     *
+     *     Every metric shares the tile's single device set and Live/Period temporal
+     *     mode; each otherwise folds and renders independently (see
+     *     :class:`KpiAttribute`).
      */
     KpiWidgetConfig: {
       /**
@@ -2881,17 +2903,14 @@ export interface components {
        * @enum {string}
        */
       type: "kpi";
-      target: components["schemas"]["AttributeTarget"];
+      devices: components["schemas"]["DevicesFilter"];
+      /** Attributes */
+      attributes: components["schemas"]["KpiAttribute"][];
       /**
        * Temporal
        * @default live
        */
       temporal?: "live" | components["schemas"]["TimeAggregation"];
-      space_agg?: components["schemas"]["AggregationOperator"] | null;
-      /** Unit */
-      unit?: string | null;
-      /** Precision */
-      precision?: number | null;
     };
     /**
      * LayoutItem

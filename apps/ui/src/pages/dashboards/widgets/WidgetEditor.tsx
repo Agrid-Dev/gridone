@@ -21,7 +21,7 @@ import {
   type WidgetFormState,
   type WidgetFormValues,
 } from "./WidgetForm";
-import { WidgetPreview, widgetDefaultSize } from "./WidgetPreview";
+import { resolvePreviewSize, WidgetPreview } from "./WidgetPreview";
 import { WidgetTypeBand } from "./WidgetTypeBand";
 
 /** Ties the page-level submit button to the config form it commits. */
@@ -115,10 +115,11 @@ export const WidgetEditor: FC<WidgetEditorProps> = ({
         {/* Sticky so the preview stays in view while the form scrolls. */}
         <div className="lg:sticky lg:top-24">
           {/* An existing widget previews at its own footprint; a new one at
-              the default its type will be placed with. */}
+              the default its type will be placed with, adjusted by the
+              type's own preview-sizing rule if it registers one. */}
           <WidgetPreview
             draft={draft}
-            size={widget?.layout ?? widgetDefaultSize(schemas[type])}
+            size={resolvePreviewSize(type, draft, widget, schemas)}
           />
         </div>
       </div>

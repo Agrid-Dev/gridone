@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Device } from "@gridone/sdk";
-import { isEmptyFilter, type DevicesFilter } from "@/lib/devices";
+import type { DevicesFilter } from "@/lib/devices";
 import { AttributeCoverageSelect } from "./AttributeCoverageSelect";
 import { DevicesFilterTabs, type TargetPickerMode } from "./DevicesFilterTabs";
-import { useAttributeCoverage } from "./useAttributeCoverage";
+import { useSkippedDeviceCount } from "./useAttributeCoverage";
 
 /** The persisted target shape: a device set (explicit ids, or type/tag
  *  criteria) plus the attribute addressed on it. */
@@ -48,17 +48,10 @@ export function AttributeTargetPicker({
   // Same filter/query key as AttributeCoverageSelect below — React Query
   // dedupes the request, this just reads the cached result to size the
   // "devices skipped" warning for the chosen attribute.
-  const { coverage, totalDevices } = useAttributeCoverage(coverageFilter, {
-    enabled: !isEmptyFilter(coverageFilter),
-  });
-  // Absent from `coverage` entirely (not just a lower count) means zero
-  // matched devices expose it — the whole set would be skipped at render.
-  const selectedCoverage = coverage.find(
-    (c) => c.attribute === value.attribute,
+  const { skipped, totalDevices } = useSkippedDeviceCount(
+    coverageFilter,
+    value.attribute,
   );
-  const skipped = value.attribute
-    ? totalDevices - (selectedCoverage?.device_count ?? 0)
-    : 0;
 
   return (
     <div className="space-y-4">

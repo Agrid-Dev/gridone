@@ -41,18 +41,31 @@ type OperatorMatrix = Partial<
 
 function operatorsFromMatrix(
   matrix: OperatorMatrix | undefined,
-  dataType: DataType | undefined,
+  dataTypes: (DataType | undefined)[],
 ): OperatorOption[] {
   if (!matrix) return [];
   // Every data type is mapped against the same operators, so any row names the
   // full vocabulary — which is what to show before an attribute is chosen.
   const vocabulary = Object.values(matrix)[0];
   if (!vocabulary) return [];
-  const forType = dataType ? matrix[dataType] : undefined;
-  return Object.keys(vocabulary).map((operator) => ({
-    operator: operator as AggregationOperator,
-    resultType: forType ? (forType[operator] ?? null) : null,
-  }));
+  return Object.keys(vocabulary).map((operator) => {
+    // An attribute with no known data type yet (not picked, or coverage
+    // still loading) neither confirms nor refuses the operator — counting
+    // it as a refusal would disable the shared control for every attribute
+    // just because one of several is still blank.
+    const knownResultTypes = dataTypes
+      .filter((dataType): dataType is DataType => dataType !== undefined)
+      .map((dataType) => matrix[dataType]?.[operator] ?? null);
+    // Enabled only when every known data type accepts it — one refusal means
+    // the shared operator has nothing to apply to for that entry.
+    const supportedByAll = knownResultTypes.every(
+      (resultType) => resultType !== null,
+    );
+    return {
+      operator: operator as AggregationOperator,
+      resultType: supportedByAll ? (knownResultTypes[0] ?? null) : null,
+    };
+  });
 }
 
 /**
@@ -66,7 +79,21 @@ export function operatorsFor(
   options: AggregateOptionsResponse | undefined,
   dataType: DataType | undefined,
 ): OperatorOption[] {
-  return operatorsFromMatrix(options?.operators_by_data_type, dataType);
+  return operatorsFromMatrix(options?.operators_by_data_type, [dataType]);
+}
+
+/**
+ * Every operator as it applies to every one of *dataTypes* at once — the
+ * intersection, for a control shared by several attributes (a KPI tile's one
+ * period operator, applied to every attribute it shows). An operator refused
+ * by any one of them is disabled here, so it is never offered as a choice
+ * that would then fail for another attribute.
+ */
+export function operatorsForAll(
+  options: AggregateOptionsResponse | undefined,
+  dataTypes: (DataType | undefined)[],
+): OperatorOption[] {
+  return operatorsFromMatrix(options?.operators_by_data_type, dataTypes);
 }
 
 /**
@@ -78,7 +105,7 @@ export function spaceOperatorsFor(
   options: AggregateOptionsResponse | undefined,
   dataType: DataType | undefined,
 ): OperatorOption[] {
-  return operatorsFromMatrix(options?.space_operators_by_data_type, dataType);
+  return operatorsFromMatrix(options?.space_operators_by_data_type, [dataType]);
 }
 
 /**

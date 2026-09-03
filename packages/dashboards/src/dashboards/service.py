@@ -12,6 +12,7 @@ from dashboards.models import (
     WidgetLayout,
 )
 from dashboards.storage import build_storage
+from dashboards.widgets.config import WidgetSize
 from dashboards.widgets.registry import WidgetRegistry, build_default_registry
 from models.errors import InvalidError, NotFoundError
 from models.ids import gen_id
@@ -28,6 +29,7 @@ if TYPE_CHECKING:
         WidgetPatch,
     )
     from dashboards.storage.protocol import DashboardsStorage
+    from dashboards.widgets.config import WidgetConfig
     from models.pagination import PaginationParams
 
 
@@ -136,7 +138,7 @@ class DashboardsService(DashboardsServiceInterface, Service):
             title=title,
             description=description,
             config=widget_config,
-            layout=self._bottom_placement(dashboard, widget_config.type),
+            layout=self._bottom_placement(dashboard, widget_config),
             metadata=Metadata(),
         )
         dashboard.widgets.append(widget)
@@ -164,6 +166,7 @@ class DashboardsService(DashboardsServiceInterface, Service):
                 )
                 raise InvalidError(msg)
             widget.config = new_config
+            widget.layout = self._grown_layout(widget.layout, new_config)
         if "title" in fields:
             widget.title = patch.title
         if "description" in fields:
@@ -219,15 +222,37 @@ class DashboardsService(DashboardsServiceInterface, Service):
     # Helpers
     # ------------------------------------------------------------------
 
-    def _bottom_placement(self, dashboard: Dashboard, widget_type: str) -> WidgetLayout:
+    def _bottom_placement(
+        self, dashboard: Dashboard, widget_config: WidgetConfig
+    ) -> WidgetLayout:
         """Geometry for a new widget: full-width-left at the grid's bottom edge,
-        sized to the type's default footprint."""
+        sized to fit its content (at least the type's default footprint —
+        there is no existing placement yet to grow from)."""
         bottom = max(
             (w.layout.y + w.layout.h for w in dashboard.widgets),
             default=0,
         )
-        size = self._registry.default_size(widget_type)
+        default_size = self._registry.default_size(widget_config.type)
+        size = widget_config.content_size_hint(default_size)
         return WidgetLayout(x=0, y=bottom, w=size.w, h=size.h)
+
+    def _grown_layout(
+        self, layout: WidgetLayout, widget_config: WidgetConfig
+    ) -> WidgetLayout:
+        """*layout* grown to fit *widget_config*'s content; never shrunk.
+
+        Hinted against *layout*'s own size, not the type's registry default:
+        a type with no content-dependent sizing (the base no-op) must return
+        its input unchanged here, or every config edit would snap a manually
+        resized widget back to its type's default footprint.
+        """
+        hint = widget_config.content_size_hint(WidgetSize(w=layout.w, h=layout.h))
+        return WidgetLayout(
+            x=layout.x,
+            y=layout.y,
+            w=max(layout.w, hint.w),
+            h=max(layout.h, hint.h),
+        )
 
     @staticmethod
     def _find_widget(dashboard: Dashboard, widget_id: str) -> Widget:

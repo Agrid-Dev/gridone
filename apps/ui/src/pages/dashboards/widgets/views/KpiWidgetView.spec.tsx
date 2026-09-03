@@ -45,12 +45,19 @@ vi.mock("../../useDashboardPeriod", () => ({
 // Imported after the mocks are registered.
 import { KpiWidgetView } from "./KpiWidgetView";
 
-const LIVE_CONFIG = {
-  type: "kpi",
-  target: { devices: { ids: ["dev1"] }, attribute: "temperature" },
-  temporal: "live",
+const TEMPERATURE_ATTRIBUTE = {
+  label: "Temperature",
+  attribute: "temperature",
+  space_agg: null,
   unit: "°C",
   precision: 1,
+};
+
+const LIVE_CONFIG = {
+  type: "kpi",
+  devices: { ids: ["dev1"] },
+  attributes: [TEMPERATURE_ATTRIBUTE],
+  temporal: "live",
 };
 
 const PERIOD_CONFIG = {
@@ -113,7 +120,7 @@ describe("KpiWidgetView (live)", () => {
       <KpiWidgetView
         config={{
           ...LIVE_CONFIG,
-          target: { devices: { ids: ["dev1"] }, attribute: "power" },
+          attributes: [{ ...TEMPERATURE_ATTRIBUTE, attribute: "power" }],
         }}
       />,
     );
@@ -126,7 +133,11 @@ describe("KpiWidgetView (live)", () => {
 
     render(
       <KpiWidgetView
-        config={{ ...LIVE_CONFIG, target: { devices: {}, attribute: "" } }}
+        config={{
+          ...LIVE_CONFIG,
+          devices: {},
+          attributes: [{ ...TEMPERATURE_ATTRIBUTE, attribute: "" }],
+        }}
       />,
     );
 
@@ -160,6 +171,44 @@ describe("KpiWidgetView (live)", () => {
     expect(
       screen.getByText("This device no longer exposes this attribute"),
     ).toBeInTheDocument();
+  });
+
+  it("renders one row per attribute, sharing the tile's temporal mode and device set", () => {
+    mockDevice({
+      data: {
+        id: "dev1",
+        name: "Thermostat 1",
+        type: "thermostat",
+        attributes: {
+          temperature: { current_value: 21.456, data_type: "float" },
+          humidity: { current_value: 55, data_type: "float" },
+        },
+      },
+    });
+
+    render(
+      <KpiWidgetView
+        config={{
+          type: "kpi",
+          devices: { ids: ["dev1"] },
+          temporal: "live",
+          attributes: [
+            TEMPERATURE_ATTRIBUTE,
+            {
+              label: "Humidity",
+              attribute: "humidity",
+              space_agg: null,
+              unit: "%",
+              precision: 0,
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(screen.getByText("21.5")).toBeInTheDocument();
+    expect(screen.getByText("55")).toBeInTheDocument();
+    expect(screen.getByText("%")).toBeInTheDocument();
   });
 });
 
@@ -259,13 +308,21 @@ describe("KpiWidgetView (period)", () => {
   });
 });
 
-const SPACE_LIVE_CONFIG = {
-  type: "kpi",
-  target: { devices: { types: ["meter"] }, attribute: "power" },
-  temporal: "live",
+const SPACE_DEVICES = { types: ["meter"] };
+const SPACE_ATTRIBUTE = {
+  label: "Power",
+  attribute: "power",
   space_agg: "sum",
   unit: "W",
   precision: 0,
+};
+const SPACE_TARGET = { devices: SPACE_DEVICES, attribute: "power" };
+
+const SPACE_LIVE_CONFIG = {
+  type: "kpi",
+  devices: SPACE_DEVICES,
+  attributes: [SPACE_ATTRIBUTE],
+  temporal: "live",
 };
 
 const SPACE_PERIOD_CONFIG = {
@@ -285,7 +342,7 @@ describe("KpiWidgetView (live, space_agg)", () => {
 
     expect(useKpiLiveAggregate).toHaveBeenCalledWith(
       expect.objectContaining({
-        target: SPACE_LIVE_CONFIG.target,
+        target: SPACE_TARGET,
         spaceAgg: "sum",
       }),
     );
@@ -322,7 +379,7 @@ describe("KpiWidgetView (period, space_agg)", () => {
 
     expect(useSpaceAggregate).toHaveBeenCalledWith(
       expect.objectContaining({
-        target: SPACE_PERIOD_CONFIG.target,
+        target: SPACE_TARGET,
         agg: "avg",
         spaceAgg: "sum",
         interval: "whole",

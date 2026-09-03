@@ -249,6 +249,7 @@ export type TextWidgetConfig = Schemas["TextWidgetConfig"];
 export type ChartWidgetConfig = Schemas["ChartWidgetConfig"];
 export type DeviceControlWidgetConfig = Schemas["DeviceControlWidgetConfig"];
 export type KpiWidgetConfig = Schemas["KpiWidgetConfig"];
+export type KpiAttribute = Schemas["KpiAttribute"];
 export type MeterTreeWidgetConfig = Schemas["MeterTreeWidgetConfig"];
 export type MeterTreeNode = Schemas["MeterTreeNode"];
 export type TimeAggregation = Schemas["TimeAggregation"];

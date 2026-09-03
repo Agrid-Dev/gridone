@@ -54,11 +54,15 @@ _CHART_TARGET = {
 }
 _CHART_CONFIG = {"type": "chart", "target": _CHART_TARGET}
 _DEVICE_CONTROL_CONFIG = {"type": "device_control", "device_id": "dev1"}
-_KPI_TARGET = {
-    "devices": {"ids": ["dev1"], "types": None, "tags": None},
+_KPI_DEVICES = {"ids": ["dev1"], "types": None, "tags": None}
+_KPI_ATTRIBUTE = {
+    "label": "Temperature",
     "attribute": "temperature",
+    "space_agg": None,
+    "unit": None,
+    "precision": None,
 }
-_KPI_CONFIG = {"type": "kpi", "target": _KPI_TARGET}
+_KPI_CONFIG = {"type": "kpi", "devices": _KPI_DEVICES, "attributes": [_KPI_ATTRIBUTE]}
 
 
 @pytest.fixture
@@ -314,11 +318,10 @@ class TestWidgets:
         svc.add_widget.assert_awaited_once_with(
             "d1",
             config={
-                **_KPI_CONFIG,
+                "type": "kpi",
+                "devices": _KPI_DEVICES,
+                "attributes": [_KPI_ATTRIBUTE],
                 "temporal": "live",
-                "space_agg": None,
-                "unit": None,
-                "precision": None,
             },
             title=None,
             description=None,
@@ -332,7 +335,12 @@ class TestWidgets:
         assert resp.status_code == 201
         svc.add_widget.assert_awaited_once_with(
             "d1",
-            config={**config, "space_agg": None, "unit": None, "precision": None},
+            config={
+                "type": "kpi",
+                "devices": _KPI_DEVICES,
+                "attributes": [_KPI_ATTRIBUTE],
+                "temporal": {"operator": "sum"},
+            },
             title=None,
             description=None,
         )

@@ -1,10 +1,10 @@
 import type { FC } from "react";
 import { useTranslation } from "react-i18next";
 import { LayoutTemplate } from "lucide-react";
-import type { WidgetLayout } from "@gridone/sdk";
+import type { Widget, WidgetLayout, WidgetSchemas } from "@gridone/sdk";
 import { COLUMNS, GRID_MARGIN, ROW_HEIGHT } from "../DashboardGrid";
 import { WidgetFrame } from "./WidgetFrame";
-import { WidgetView } from "./registry";
+import { identityPreviewSize, widgetPreviewSize, WidgetView } from "./registry";
 import type { WidgetFormValues } from "./WidgetForm";
 
 /** Footprint used when a type's schema doesn't declare one (older backend). */
@@ -33,6 +33,23 @@ export function widgetDefaultSize(
     return size as Pick<WidgetLayout, "w" | "h">;
   }
   return DEFAULT_PREVIEW_SIZE;
+}
+
+/**
+ * The footprint to preview a widget at while editing: an existing widget's
+ * own layout, or a new one's type default, grown by that type's registered
+ * preview-sizing rule (e.g. the KPI tile growing with its attribute count)
+ * if it has one.
+ */
+export function resolvePreviewSize(
+  type: string,
+  draft: WidgetFormValues | null,
+  widget: Widget | undefined,
+  schemas: WidgetSchemas,
+): Pick<WidgetLayout, "w" | "h"> {
+  const sizeFn = widgetPreviewSize[type] ?? identityPreviewSize;
+  const baseSize = widget?.layout ?? widgetDefaultSize(schemas[type]);
+  return sizeFn(draft?.config, baseSize);
 }
 
 /** Width the grid gets on a typical desktop dashboard (the max-w-7xl main

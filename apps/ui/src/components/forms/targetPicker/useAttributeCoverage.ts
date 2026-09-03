@@ -4,7 +4,11 @@ import type {
   AttributeCoverageResponse,
 } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
-import { devicesFilterToListParams, type DevicesFilter } from "@/lib/devices";
+import {
+  devicesFilterToListParams,
+  isEmptyFilter,
+  type DevicesFilter,
+} from "@/lib/devices";
 
 export type UseAttributeCoverageResult = {
   /** Union of attributes over the matched device set, with per-attribute
@@ -37,4 +41,21 @@ export function useAttributeCoverage(
     isLoading,
     error,
   };
+}
+
+/** Devices matched by *filter* that don't expose *attribute* — absent from
+ *  coverage entirely (not just a lower count) means zero matched devices
+ *  expose it, so the whole set would be skipped at render. */
+export function useSkippedDeviceCount(
+  filter: DevicesFilter,
+  attribute: string | undefined,
+): { skipped: number; totalDevices: number } {
+  const { coverage, totalDevices } = useAttributeCoverage(filter, {
+    enabled: !isEmptyFilter(filter),
+  });
+  const selectedCoverage = coverage.find((c) => c.attribute === attribute);
+  const skipped = attribute
+    ? totalDevices - (selectedCoverage?.device_count ?? 0)
+    : 0;
+  return { skipped, totalDevices };
 }
