@@ -1,3 +1,10 @@
+## v0.220.0 (2026-09-03)
+
+### Feat
+
+- **dashboards**: auto-resolve KPI unit from the picked attribute (#600)
+- **dashboards**: support multiple attributes on a KPI tile (#592)
+
 ## v0.219.0 (2026-09-03)
 
 ### Feat
