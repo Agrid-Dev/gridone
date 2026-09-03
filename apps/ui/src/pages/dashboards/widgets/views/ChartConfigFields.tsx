@@ -13,6 +13,7 @@ import { SelectController } from "@/components/forms/controllers/SelectControlle
 import { CHART_COLORS } from "@/components/charts/TimeSeriesChart/constants";
 import { AggOption } from "@/hooks/AggOption";
 import { IntervalOption } from "./IntervalOption";
+import { MarkOption } from "./MarkOption";
 import {
   operatorsFor,
   spaceOperatorsFor,
@@ -29,6 +30,15 @@ const RAW = "raw";
 
 /** The stored width that leaves the choice to the server. */
 const AUTO = "auto";
+
+/** Types whose aggregates are quantities, and so can be drawn as bars — a
+ *  bar's height reads as a magnitude, which an on/off state or a mode has
+ *  none of. Read against what the operator *yields*, not what the attribute
+ *  records: `count` makes a number out of anything. */
+const BAR_CAPABLE_TYPES = new Set(["float", "int"]);
+
+/** How each series is drawn. `line` is the stored default. */
+const MARKS = ["line", "bar"] as const;
 
 /** How "one series per device" reads in the space operator list. The config
  *  stores `null` for it. */
@@ -86,6 +96,7 @@ export const ChartConfigFields: FC<{ control: Control<FieldValues> }> = ({
     control,
     name: "config.interval",
   });
+  const { field: markField } = useController({ control, name: "config.mark" });
   const { field: spaceAggField } = useController({
     control,
     name: "config.space_agg",
@@ -98,6 +109,7 @@ export const ChartConfigFields: FC<{ control: Control<FieldValues> }> = ({
   const target = toPickerTarget(targetField.value);
   const agg = (aggField.value as string | null) ?? null;
   const interval = (intervalField.value as string | undefined) ?? AUTO;
+  const mark = (markField.value as string | undefined) ?? "line";
   const spaceAgg = (spaceAggField.value as string | null) ?? null;
   const groupBy = (groupByField.value as string | null) || null;
 
@@ -156,6 +168,18 @@ export const ChartConfigFields: FC<{ control: Control<FieldValues> }> = ({
     disabled: resultType === null,
   }));
 
+  // What the chart will actually plot: aggregating changes the type (`count`
+  // yields ints whatever went in), and the space fold runs on that in turn.
+  // Undefined until the chain is known — an attribute with no resolved type
+  // yet neither offers bars nor refuses them.
+  const spaceOutputType = spaceAgg
+    ? (spaceOperators.find((o) => o.operator === spaceAgg)?.resultType ??
+      undefined)
+    : timeOutputType;
+  const plottedType = agg ? spaceOutputType : dataType;
+  const barsApply =
+    agg !== null && !!plottedType && BAR_CAPABLE_TYPES.has(plottedType);
+
   // Raw series cannot be space-aggregated, so dropping the time operator also
   // drops the space one; a chain the new types refuse resets the same way the
   // time operator does above.
@@ -185,6 +209,17 @@ export const ChartConfigFields: FC<{ control: Control<FieldValues> }> = ({
     if (intervalField.value === undefined) intervalField.onChange(AUTO);
     else if (agg === null && interval !== AUTO) intervalField.onChange(AUTO);
   }, [agg, interval, intervalField]);
+
+  // Bars need buckets to span and a magnitude to stand for, and a saved chart
+  // can lose either — its operator dropped here, or its device set re-driven
+  // under it to a type that no longer plots as a quantity. Falling back to
+  // lines keeps the widget saveable: the backend refuses bars without an
+  // operator outright. Charts stored before the field existed normalize to the
+  // same stored default.
+  useEffect(() => {
+    if (markField.value === undefined) markField.onChange("line");
+    else if (mark === "bar" && !barsApply) markField.onChange("line");
+  }, [mark, barsApply, markField]);
 
   // Deferred so a keystroke doesn't fire a request per character — the query
   // key includes the tag key, and reacting to every intermediate value would
@@ -286,6 +321,18 @@ export const ChartConfigFields: FC<{ control: Control<FieldValues> }> = ({
               </p>
             )}
         </>
+      )}
+      {barsApply && (
+        <SelectController<FieldValues, "config.mark", string>
+          name="config.mark"
+          control={control}
+          label={t("widgets.chart.mark.label")}
+          description={t("widgets.chart.mark.description")}
+          options={MARKS.map((value) => ({
+            value: value as string,
+            label: <MarkOption name={value} />,
+          }))}
+        />
       )}
     </>
   );

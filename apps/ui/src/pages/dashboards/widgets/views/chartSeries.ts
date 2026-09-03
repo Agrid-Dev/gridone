@@ -2,6 +2,10 @@ import type { DataPoint, DataType } from "@gridone/sdk";
 import type { TimeSeriesChartProps } from "@/components/charts/TimeSeriesChart";
 import { mergeTimeSeries } from "@/lib/mergeTimeSeries";
 
+/** How numeric series are drawn — the chart's own vocabulary, which the
+ *  widget config happens to share. */
+export type NumericMark = "line" | "bar";
+
 /** One series to plot: the device it belongs to (`key`), how the legend names
  *  it (`label`), and its points over the window. */
 export type ChartSeriesInput = {
@@ -47,6 +51,7 @@ export function singleSeriesChartProps(
   label: string,
   points: DataPoint[],
   attribute?: string,
+  mark: NumericMark = "line",
 ): TimeSeriesChartProps {
   const timestamps = points.map((p) => new Date(p.timestamp));
   return chartPropsFor(
@@ -54,6 +59,7 @@ export function singleSeriesChartProps(
     timestamps,
     [{ key, label, semanticKey: attribute }],
     { [key]: points.map((p) => p.value) },
+    mark,
   );
 }
 
@@ -71,6 +77,7 @@ export function multiSeriesChartProps(
   dataType: DataType,
   series: ChartSeriesInput[],
   attribute?: string,
+  mark: NumericMark = "line",
 ): TimeSeriesChartProps {
   if (series.length === 1) {
     const [s] = series;
@@ -80,6 +87,7 @@ export function multiSeriesChartProps(
       s.label,
       s.points,
       attribute,
+      mark,
     );
   }
 
@@ -99,26 +107,36 @@ export function multiSeriesChartProps(
     // attribute, not the device.
     series.map(({ key, label }) => ({ key, label, semanticKey: attribute })),
     values,
+    mark,
   );
 }
 
-/** Fill the prop pair the data type calls for (see `singleSeriesChartProps`). */
+/** Fill the prop pair the data type calls for (see `singleSeriesChartProps`).
+ *
+ *  The mark rides along on the numeric branches only: bars stand for a value
+ *  measured over a span, which is what a bucket of numbers reduces to. A
+ *  boolean or a string panel already draws its own spans as bands, so there is
+ *  no second mark for them to take, and a chart whose type has drifted to one
+ *  of those simply keeps its natural form. */
 function chartPropsFor(
   dataType: DataType,
   timestamps: Date[],
   series: { key: string; label: string; semanticKey?: string }[],
   values: Record<string, (DataPoint["value"] | null)[]>,
+  mark: NumericMark,
 ): TimeSeriesChartProps {
   switch (dataType) {
     case "float":
       return {
         timestamps,
+        numericMark: mark,
         lineSeries: series,
         lineValues: values as Record<string, (number | null)[]>,
       };
     case "int":
       return {
         timestamps,
+        numericMark: mark,
         intSeries: series,
         intValues: values as Record<string, (number | null)[]>,
       };

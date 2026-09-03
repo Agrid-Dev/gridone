@@ -8,18 +8,25 @@ import { MARGIN } from "./constants";
  * it back is what lets the tooltip report where you are pointing instead of
  * snapping to whichever sample happens to be closest, which reads as a stuck
  * clock on a series with only a handful of points.
+ *
+ * *domainEnd* overrides where the axis ends, for panels that plot past their
+ * last point: bars run one bucket further so the final bucket has width to be
+ * drawn in, and a cursor read against the shorter range would name a time
+ * drifting ahead of the bar it is over — by a full bucket at the right edge of
+ * a short series.
  */
 export function timeAtCursor(
   cursorX: number,
   width: number,
   timestamps: Date[],
+  domainEnd?: number | null,
 ): Date | null {
   if (timestamps.length === 0) return null;
   const t0 = timestamps[0].getTime();
   if (timestamps.length === 1) return new Date(t0);
   const chartWidth = width - MARGIN.left - MARGIN.right;
   if (chartWidth <= 0) return null;
-  const t1 = timestamps[timestamps.length - 1].getTime();
+  const t1 = domainEnd ?? timestamps[timestamps.length - 1].getTime();
   const fraction = (cursorX - MARGIN.left) / chartWidth;
   const clamped = Math.min(Math.max(fraction, 0), 1);
   return new Date(t0 + clamped * (t1 - t0));

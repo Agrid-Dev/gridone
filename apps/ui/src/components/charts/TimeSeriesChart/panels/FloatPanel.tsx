@@ -1,4 +1,4 @@
-import { useContext, useMemo } from "react";
+import { useContext } from "react";
 import { Axis, Grid, LineSeries, XYChart } from "@visx/xychart";
 import { curveStepAfter } from "@visx/curve";
 
@@ -11,17 +11,13 @@ import {
   MARGIN,
   MARGIN_NO_BOTTOM,
   AXIS_EXTRA,
-  CHART_COLORS,
   lineChartTheme,
   floatAccessors,
-  legendStyle,
-  legendItemStyle,
-  legendLabelStyle,
 } from "../constants";
-import { LegendSwatch } from "../LegendSwatch";
+import { PanelLegend } from "../PanelLegend";
 import { ScaleCapture } from "../ScaleCapture";
 import { FloatScaleContext } from "../FloatScaleContext";
-import { commonAttributeUnit } from "@/lib/attributeUnits";
+import { useValueTickFormat } from "../useValueTickFormat";
 
 export function FloatPanel({
   entry,
@@ -33,42 +29,11 @@ export function FloatPanel({
   const stepKeySet = new Set(stepKeys);
   const ctx = useContext(FloatScaleContext);
 
-  /** Ticks carry the unit when every series on this shared axis has the same
-   *  one. `semanticKey` names the attribute when the series is keyed by
-   *  something else (a dashboard chart keys per device), same as the string
-   *  panel's colour lookup.
-   *
-   *  Kept on the runtime locale rather than the app's: this subtree takes all
-   *  its text from props and pulling i18n in for a decimal separator would
-   *  make every chart consumer wire up a translation provider. */
-  const formatTick = useMemo(() => {
-    const unit = commonAttributeUnit(series.map((s) => s.semanticKey ?? s.key));
-    // A tick label must hold no whitespace: `@visx/text` wraps on it, so
-    // "10 000 W" renders stacked over three lines. Hence no group separator
-    // (a narrow no-break space in several locales) and no space before the
-    // unit. Intl still rounds away d3's binary tick noise (0.30000000000004)
-    // and keeps the locale's decimal separator.
-    const number = new Intl.NumberFormat(undefined, {
-      maximumFractionDigits: 2,
-      useGrouping: false,
-    });
-    return (value: number) => `${number.format(value)}${unit ?? ""}`;
-  }, [series]);
+  const formatTick = useValueTickFormat(series);
 
   return (
     <div ref={ctx?.panelRef}>
-      <div style={legendStyle}>
-        {series.map((s, i) => (
-          <div key={s.key} style={legendItemStyle}>
-            <LegendSwatch
-              color={CHART_COLORS[i % CHART_COLORS.length]}
-              variant="line"
-              dash={s.dash}
-            />
-            <span style={legendLabelStyle}>{s.label}</span>
-          </div>
-        ))}
-      </div>
+      <PanelLegend series={series} variant="line" />
       <XYChart
         height={height + (isLast ? AXIS_EXTRA : 0)}
         width={width}

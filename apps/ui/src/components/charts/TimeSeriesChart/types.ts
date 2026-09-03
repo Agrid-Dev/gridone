@@ -27,6 +27,10 @@ export type TimeSeriesChartProps = {
   /** String series — each rendered as a color-coded step-area in its own panel */
   stringSeries?: Series[];
   stringValues?: Record<string, (string | null)[]>;
+  /** How the numeric series are drawn: interpolated/step lines, or bars over
+   *  the buckets they report. Bars only make sense for aggregated series;
+   *  the caller decides, this only draws it. Defaults to lines. */
+  numericMark?: "line" | "bar";
   /** Height of the float line panel */
   lineHeight?: number;
   /** Height of each boolean / string categorical panel */
@@ -54,6 +58,14 @@ export type FloatPanelEntry = {
   height: number;
 };
 
+export type BarPanelEntry = {
+  type: "bar";
+  key: "bar";
+  series: Series[];
+  values: Record<string, (number | null)[]>;
+  height: number;
+};
+
 export type BooleanPanelEntry = {
   type: "boolean";
   key: string;
@@ -70,7 +82,11 @@ export type StringPanelEntry = {
   height: number;
 };
 
-export type PanelEntry = FloatPanelEntry | BooleanPanelEntry | StringPanelEntry;
+export type PanelEntry =
+  | FloatPanelEntry
+  | BarPanelEntry
+  | BooleanPanelEntry
+  | StringPanelEntry;
 
 export type PanelComponentProps = {
   entry: PanelEntry;

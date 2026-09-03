@@ -57,6 +57,18 @@
           "1mo": "per month"
         }
       },
+      "mark": {
+        "label": "Display",
+        "description": "How each series is drawn.",
+        "names": {
+          "line": "Line",
+          "bar": "Bars"
+        },
+        "captions": {
+          "line": "joins one bucket to the next",
+          "bar": "one bar covering each bucket"
+        }
+      },
       "space": {
         "label": "Space aggregation",
         "description": "Folds the devices into a single series, per bucket.",

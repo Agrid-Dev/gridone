@@ -18,6 +18,12 @@ vi.mock("react-i18next", () =>
     "widgets.chart.interval.captions.auto": "sized from the period",
     "widgets.chart.interval.captions.1h": "per hour",
     "widgets.chart.interval.captions.1d": "per day",
+    "widgets.chart.mark.label": "Display",
+    "widgets.chart.mark.description": "How each series is drawn.",
+    "widgets.chart.mark.names.line": "Line",
+    "widgets.chart.mark.names.bar": "Bars",
+    "widgets.chart.mark.captions.line": "joins one bucket to the next",
+    "widgets.chart.mark.captions.bar": "one bar covering each bucket",
     "widgets.chart.space.label": "Space aggregation",
     "widgets.chart.space.description": "Folds the devices into one series.",
     "widgets.chart.space.captions.none": "one series per device",
@@ -134,6 +140,11 @@ vi.mock("@/hooks/useAggregateOptions", async () => {
 });
 
 vi.mock("@/components/ui/select", () => ({
+  // Each select is keyed by the field it edits, not by where it sits in the
+  // form: the controller gives its trigger the field name as an id, so lifting
+  // that onto the element lets a test name the control it means. Ordering is
+  // the form's to change — inserting a field between two others must not
+  // rewrite every assertion below.
   Select: ({
     value,
     onValueChange,
@@ -142,15 +153,21 @@ vi.mock("@/components/ui/select", () => ({
     value: string;
     onValueChange: (v: string) => void;
     children: React.ReactNode;
-  }) => (
-    <select
-      data-testid="agg"
-      value={value}
-      onChange={(e) => onValueChange(e.target.value)}
-    >
-      {children}
-    </select>
-  ),
+  }) => {
+    const trigger = React.Children.toArray(children).find(
+      (child): child is React.ReactElement<{ id?: string }> =>
+        React.isValidElement(child) && "id" in (child.props as object),
+    );
+    return (
+      <select
+        data-testid={trigger?.props.id ?? "select"}
+        value={value}
+        onChange={(e) => onValueChange(e.target.value)}
+      >
+        {children}
+      </select>
+    );
+  },
   SelectTrigger: ({ children }: { children: React.ReactNode }) => (
     <>{children}</>
   ),
@@ -212,7 +229,7 @@ function renderFields(defaultConfig?: Record<string, unknown>) {
 }
 
 const items = () =>
-  Array.from(screen.getByTestId("agg").querySelectorAll("option"));
+  Array.from(screen.getByTestId("config.agg").querySelectorAll("option"));
 
 /** The operators a user can actually choose right now, by stored value. Raw is
  *  stored as `null`, which the select keys as the string "null". */
@@ -235,15 +252,6 @@ afterEach(() => {
   useTagGroups.mockClear();
 });
 
-/** Where the fold-across-devices select sits among the mock's flat list:
- *  after the operator and the bucket width, both of which precede it in the
- *  form. */
-const SPACE_SELECT = 2;
-
-/** Where the bucket-width select sits: straight after the operator it cuts
- *  buckets for. */
-const INTERVAL_SELECT = 1;
-
 describe("ChartConfigFields", () => {
   // The persisted target shape and nothing else — no runtime keys, no legacy
   // device_id.
@@ -257,6 +265,7 @@ describe("ChartConfigFields", () => {
       target: { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
       agg: null,
       interval: "auto",
+      mark: "line",
       space_agg: null,
     });
   });
@@ -298,12 +307,8 @@ describe("ChartConfigFields", () => {
       agg: "avg",
     });
 
-    // Three selects once an operator is picked: the operator, the bucket
-    // width it cuts, then the fold across devices.
-    const selects = screen.getAllByTestId("agg");
-    expect(selects).toHaveLength(3);
     const spaceValues = Array.from(
-      selects[SPACE_SELECT].querySelectorAll("option"),
+      screen.getByTestId("config.space_agg").querySelectorAll("option"),
     )
       .filter((o) => !o.disabled)
       .map((o) => o.getAttribute("value"));
@@ -322,7 +327,7 @@ describe("ChartConfigFields", () => {
     });
 
     const widths = Array.from(
-      screen.getAllByTestId("agg")[INTERVAL_SELECT].querySelectorAll("option"),
+      screen.getByTestId("config.interval").querySelectorAll("option"),
     ).map((o) => o.getAttribute("value"));
     expect(widths).toEqual(["auto", "1h", "1d"]);
   });
@@ -334,7 +339,7 @@ describe("ChartConfigFields", () => {
       interval: "1d",
     });
 
-    fireEvent.change(screen.getAllByTestId("agg")[0], {
+    fireEvent.change(screen.getByTestId("config.agg"), {
       target: { value: "null" },
     });
 
@@ -348,7 +353,7 @@ describe("ChartConfigFields", () => {
       agg: null,
     });
 
-    expect(screen.getAllByTestId("agg")).toHaveLength(1);
+    expect(screen.queryByTestId("config.space_agg")).not.toBeInTheDocument();
   });
 
   it("clears the space operator when the time operator is dropped", () => {
@@ -396,11 +401,48 @@ describe("ChartConfigFields", () => {
     });
 
     // "null" is the mock select's string key for the stored `null` value.
-    fireEvent.change(screen.getAllByTestId("agg")[SPACE_SELECT], {
+    fireEvent.change(screen.getByTestId("config.space_agg"), {
       target: { value: "null" },
     });
 
     expect(latest().group_by).toBeNull();
+  });
+
+  // Bars stand for a magnitude, so they are offered where the chain yields a
+  // number — read against what the operator *yields*, not what the attribute
+  // records.
+  it("offers bars for a numeric result", () => {
+    renderFields({
+      target: { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
+      agg: "avg",
+    });
+
+    const marks = Array.from(
+      screen.getByTestId("config.mark").querySelectorAll("option"),
+    ).map((o) => o.getAttribute("value"));
+    expect(marks).toEqual(["line", "bar"]);
+  });
+
+  it("offers no mark for a result that is not a quantity", () => {
+    renderFields({
+      target: { devices: { ids: ["dev1", "dev2"] }, attribute: "mode" },
+      agg: "mode",
+    });
+
+    expect(screen.queryByTestId("config.mark")).not.toBeInTheDocument();
+  });
+
+  // A saved bar chart whose set has been re-driven to a non-numeric type has
+  // nothing left to draw as bars — and the backend refuses bars without an
+  // operator outright, so the editor must not be able to submit one.
+  it("falls back to a line when bars stop applying", () => {
+    const latest = renderFields({
+      target: { devices: { ids: ["dev1", "dev2"] }, attribute: "mode" },
+      agg: "mode",
+      mark: "bar",
+    });
+
+    expect(latest().mark).toBe("line");
   });
 
   // The preview must reproduce the same device set the grouped chart will

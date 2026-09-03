@@ -12,6 +12,7 @@ type UsePanelsArgs = {
   booleanValues: Record<string, (boolean | null)[]>;
   stringSeries: Series[];
   stringValues: Record<string, (string | null)[]>;
+  numericMark?: "line" | "bar";
   lineHeight?: number;
   categoricalHeight?: number;
 };
@@ -26,23 +27,38 @@ export function usePanels({
   booleanValues,
   stringSeries,
   stringValues,
+  numericMark = "line",
   lineHeight = DEFAULT_LINE_HEIGHT,
   categoricalHeight = DEFAULT_CATEGORICAL_HEIGHT,
 }: UsePanelsArgs): PanelEntry[] {
   return useMemo(() => {
     const panels: PanelEntry[] = [];
 
-    // Float and integer series share a single panel and y-axis; integer series
-    // are flagged via stepKeys so they render as step lines.
+    // Float and integer series share a single panel and y-axis — as lines,
+    // integer ones flagged via stepKeys so they step rather than interpolate,
+    // or as bars, where that distinction has nothing to say: a bar spans its
+    // bucket whatever the numbers in it were.
     if (lineSeries.length > 0 || intSeries.length > 0) {
-      panels.push({
-        type: "float",
-        key: "float",
-        series: [...lineSeries, ...intSeries],
-        values: { ...lineValues, ...intValues },
-        stepKeys: intSeries.map((s) => s.key),
-        height: lineHeight,
-      });
+      const numericSeries = [...lineSeries, ...intSeries];
+      const numericValues = { ...lineValues, ...intValues };
+      panels.push(
+        numericMark === "bar"
+          ? {
+              type: "bar",
+              key: "bar",
+              series: numericSeries,
+              values: numericValues,
+              height: lineHeight,
+            }
+          : {
+              type: "float",
+              key: "float",
+              series: numericSeries,
+              values: numericValues,
+              stepKeys: intSeries.map((s) => s.key),
+              height: lineHeight,
+            },
+      );
     }
 
     for (const s of booleanSeries) {
@@ -75,6 +91,7 @@ export function usePanels({
     booleanValues,
     stringSeries,
     stringValues,
+    numericMark,
     lineHeight,
     categoricalHeight,
   ]);

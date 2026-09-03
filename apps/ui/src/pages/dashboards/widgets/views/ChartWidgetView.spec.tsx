@@ -66,6 +66,7 @@ vi.mock("@/components/charts/TimeSeriesChart", () => ({
     intSeries?: { label: string }[];
     stringSeries?: { label: string }[];
     booleanSeries?: { label: string }[];
+    numericMark?: string;
   }) => {
     const series =
       props.lineSeries ??
@@ -73,7 +74,11 @@ vi.mock("@/components/charts/TimeSeriesChart", () => ({
       props.stringSeries ??
       props.booleanSeries;
     return (
-      <div data-testid="chart" data-points={props.timestamps?.length}>
+      <div
+        data-testid="chart"
+        data-points={props.timestamps?.length}
+        data-mark={props.numericMark}
+      >
         {series?.map((s) => s.label).join(",")}
       </div>
     );
@@ -258,6 +263,73 @@ function mockSpaceResult(over: Record<string, unknown> = {}) {
     ...over,
   });
 }
+
+describe("ChartWidgetView drawing bars", () => {
+  // Empty buckets set every bar's width and leave the gaps, so bars keep them
+  // where a line drops them and joins across. Three buckets in, one of them
+  // empty: bars plot all three, a line plots the two that have values.
+  const withGap = {
+    data: {
+      interval: "1d",
+      agg: "delta",
+      space_agg: "sum",
+      data_type: "float",
+      aggregation_data_type: "float",
+      timezone: "UTC",
+      series_count: 1,
+      points: [
+        { interval_start: "2026-07-28T00:00:00Z", value: 12.5, count: 3 },
+        { interval_start: "2026-07-29T00:00:00Z", value: null, count: 0 },
+        { interval_start: "2026-07-30T00:00:00Z", value: 9.25, count: 4 },
+      ],
+    },
+    isLoading: false,
+    error: null,
+  };
+  const barConfig = {
+    ...CONFIG,
+    agg: "delta",
+    interval: "1d",
+    space_agg: "sum",
+    mark: "bar",
+  };
+
+  it("keeps the empty buckets and draws them as bars", () => {
+    useSpaceAggregate.mockReturnValue(withGap);
+
+    render(<ChartWidgetView config={barConfig} />);
+
+    const chart = screen.getByTestId("chart");
+    expect(chart).toHaveAttribute("data-mark", "bar");
+    expect(chart).toHaveAttribute("data-points", "3");
+  });
+
+  it("drops them again when the same series is drawn as a line", () => {
+    useSpaceAggregate.mockReturnValue(withGap);
+
+    render(<ChartWidgetView config={{ ...barConfig, mark: "line" }} />);
+
+    const chart = screen.getByTestId("chart");
+    expect(chart).toHaveAttribute("data-mark", "line");
+    expect(chart).toHaveAttribute("data-points", "2");
+  });
+
+  // A window whose every bucket came back empty is "no data", not a chart of
+  // blank bars.
+  it("says there is no data when every bucket is empty", () => {
+    useSpaceAggregate.mockReturnValue({
+      ...withGap,
+      data: {
+        ...withGap.data,
+        points: withGap.data.points.map((p) => ({ ...p, value: null })),
+      },
+    });
+
+    render(<ChartWidgetView config={barConfig} />);
+
+    expect(screen.queryByTestId("chart")).not.toBeInTheDocument();
+  });
+});
 
 describe("ChartWidgetView with a space aggregation", () => {
   it("folds the set into one labelled series with a single request", () => {

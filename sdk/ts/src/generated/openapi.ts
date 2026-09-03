@@ -2160,6 +2160,12 @@ export interface components {
        * @default auto
        */
       interval?: string;
+      /**
+       * Mark
+       * @default line
+       * @enum {string}
+       */
+      mark?: "line" | "bar";
       space_agg?: components["schemas"]["AggregationOperator"] | null;
       /** Group By */
       group_by?: string | null;

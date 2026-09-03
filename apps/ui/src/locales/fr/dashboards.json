@@ -57,6 +57,18 @@
           "1mo": "par mois"
         }
       },
+      "mark": {
+        "label": "Affichage",
+        "description": "Comment chaque série est tracée.",
+        "names": {
+          "line": "Courbe",
+          "bar": "Barres"
+        },
+        "captions": {
+          "line": "relie chaque bucket au suivant",
+          "bar": "une barre couvrant chaque bucket"
+        }
+      },
       "space": {
         "label": "Agrégation spatiale",
         "description": "Regroupe les appareils en une seule série, par pas de temps.",

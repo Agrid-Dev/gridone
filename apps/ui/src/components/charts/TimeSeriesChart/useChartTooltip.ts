@@ -21,6 +21,7 @@ import {
   OTHER_COLOR,
 } from "./constants";
 import { computeTopStringValues } from "./topStringValues";
+import { bucketStep } from "./bucketStep";
 import { indexAtOrBefore, timeAtCursor } from "./hoverPoint";
 import { placeTooltip } from "./placeTooltip";
 import { attributeValueChartColor } from "@/lib/semanticColors";
@@ -69,11 +70,27 @@ export function useChartTooltip({
     setCursorY(null);
   }, []);
 
+  // A bar panel runs its axis one bucket past the last point so the final bar
+  // has width to occupy; the cursor has to be read against that same range or
+  // it names a time ahead of the bar it is over. Bars never share a chart with
+  // another panel — the mark is offered on numeric series, and a chart plots
+  // one attribute — so one panel deciding this settles it for the whole chart.
+  const barPanel = panels.some((p) => p.type === "bar");
+  const domainEnd = useMemo(() => {
+    if (!barPanel || timestamps.length < 2) return null;
+    const step = bucketStep(timestamps);
+    return step === null
+      ? null
+      : timestamps[timestamps.length - 1].getTime() + step;
+  }, [barPanel, timestamps]);
+
   // The cursor names an instant of its own, read off the axis; the values shown
   // are those in force at that instant, i.e. the most recent reading at or
   // before it.
   const hoveredTime =
-    cursorX !== null ? timeAtCursor(cursorX, width, timestamps) : null;
+    cursorX !== null
+      ? timeAtCursor(cursorX, width, timestamps, domainEnd)
+      : null;
   const hoveredIdx =
     hoveredTime !== null ? indexAtOrBefore(timestamps, hoveredTime) : null;
 
