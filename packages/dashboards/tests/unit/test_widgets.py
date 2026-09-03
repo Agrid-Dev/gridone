@@ -100,6 +100,17 @@ def test_validate_config_returns_concrete_model():
             "target": {"devices": {"ids": ["d1"]}, "attribute": "energy"},
             "interval": "1d",
         },
+        {  # bars span buckets, and a raw series has none
+            "type": "chart",
+            "target": {"devices": {"ids": ["d1"]}, "attribute": "energy"},
+            "mark": "bar",
+        },
+        {  # not a mark the chart knows how to draw
+            "type": "chart",
+            "target": {"devices": {"ids": ["d1"]}, "attribute": "energy"},
+            "agg": "delta",
+            "mark": "scatter",
+        },
         {"type": "device_control"},  # missing device_id
         {"type": "device_control", "device_id": ""},  # empty device_id
         {  # live-only widget: no period mode/operator to store
@@ -314,6 +325,38 @@ def test_chart_config_accepts_an_operator():
 
     assert isinstance(config, ChartWidgetConfig)
     assert config.agg is AggregationOperator.AVG
+
+
+def test_chart_config_defaults_to_a_line_mark():
+    # Charts stored before bars existed keep drawing as they always have.
+    registry = build_default_registry()
+
+    config = registry.validate_config(
+        {
+            "type": "chart",
+            "target": {"devices": {"ids": ["d1"]}, "attribute": "temperature"},
+        }
+    )
+
+    assert isinstance(config, ChartWidgetConfig)
+    assert config.mark == "line"
+
+
+def test_chart_config_accepts_bars_over_buckets():
+    registry = build_default_registry()
+
+    config = registry.validate_config(
+        {
+            "type": "chart",
+            "target": {"devices": {"ids": ["d1"]}, "attribute": "energy"},
+            "agg": "delta",
+            "interval": "1d",
+            "mark": "bar",
+        }
+    )
+
+    assert isinstance(config, ChartWidgetConfig)
+    assert config.mark == "bar"
 
 
 def test_chart_config_defaults_to_an_automatic_interval():

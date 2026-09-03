@@ -60,6 +60,22 @@ class ChartWidgetConfig(WidgetConfig):
     *well-formed* width suits the period stays the read's answer to give.
     """
 
+    mark: Literal["line", "bar"] = "line"
+    """How each series is drawn.
+
+    Bars require ``agg``: a bar spans the bucket it reports, and raw readings
+    are recorded on change, so an unbucketed series has no width to draw. That
+    much is structural and refused here.
+
+    Whether the *data type* suits bars is not: aggregation can change it
+    (``count`` yields ints whatever went in), so the plotted type is only known
+    once the series is read. The editor offers the choice on numeric
+    attributes, and a chart whose set has since drifted to a non-numeric type
+    falls back to lines at render — the same render-time treatment drift
+    already gets, rather than a save-time gate that would have to re-derive the
+    operator's output type here.
+    """
+
     space_agg: AggregationOperator | None = None
     """How each bucket's values are folded across the device set; ``None``
     plots one series per device.
@@ -88,6 +104,13 @@ class ChartWidgetConfig(WidgetConfig):
     def _validate_interval(self) -> ChartWidgetConfig:
         if self.interval != "auto" and self.agg is None:
             msg = "interval requires agg: raw readings are not cut into buckets"
+            raise ValueError(msg)
+        return self
+
+    @model_validator(mode="after")
+    def _validate_mark(self) -> ChartWidgetConfig:
+        if self.mark == "bar" and self.agg is None:
+            msg = "mark 'bar' requires agg: raw readings have no bucket to span"
             raise ValueError(msg)
         return self
 

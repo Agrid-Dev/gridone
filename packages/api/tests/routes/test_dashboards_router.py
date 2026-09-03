@@ -198,6 +198,7 @@ class TestWidgets:
                 **_CHART_CONFIG,
                 "agg": None,
                 "interval": "auto",
+                "mark": "line",
                 "space_agg": None,
                 "group_by": None,
             },
@@ -216,6 +217,7 @@ class TestWidgets:
             config={
                 **config,
                 "interval": "auto",
+                "mark": "line",
                 "space_agg": None,
                 "group_by": None,
             },
