@@ -1,3 +1,13 @@
+## v0.219.0 (2026-09-03)
+
+### Feat
+
+- **assets**: classify room and zone assets by usage (AGR-1129)
+
+### Fix
+
+- **ui**: let the usage guard fire on a re-typed classified zone (AGR-1129)
+
 ## v0.218.5 (2026-09-02)
 
 ### Fix
