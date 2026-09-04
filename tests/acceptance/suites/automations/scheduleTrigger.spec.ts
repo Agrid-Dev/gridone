@@ -178,13 +178,24 @@ describe("Automations triggered on a schedule", () => {
   it("records the dispatched command in the history", async () => {
     // Scoped to this run's template, so nothing an earlier run or a sibling
     // suite dispatched can satisfy it.
+    //
+    // Waiting for the row to exist is not enough: a dispatch persists its unit
+    // commands as `pending` and writes to the device from a task that runs
+    // after, so the row is queryable before it has been executed. Polling on
+    // existence and then asserting `success` is a race the runner loses
+    // whenever that task takes longer than one poll interval. Wait for the
+    // outcome the assertions below actually describe.
     const history = await pollUntil(
       () => client.devices.listCommands({ template_id: template.id }),
-      (page) => page.items.length > 0,
-      { description: `a command dispatched by template ${template.id}` },
+      (page) => page.items.some((c) => c.status === "success"),
+      {
+        description: `a command dispatched and executed by template ${template.id}`,
+      },
     );
 
-    const [command] = history.items;
+    // The schedule keeps firing, so the page can hold later commands still on
+    // their way; assert against the one whose completion the poll waited for.
+    const command = history.items.find((c) => c.status === "success");
     expect(command).toMatchObject({
       template_id: template.id,
       device_id: deviceId,
