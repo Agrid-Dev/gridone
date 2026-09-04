@@ -3,7 +3,7 @@ import logging
 import logging.config
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime
+from datetime import datetime
 
 from automations import AutomationsService
 from automations.trigger_providers.schedule import ScheduleTriggerProvider
@@ -16,7 +16,7 @@ from api.dependencies import get_current_user_id
 from api.exception_handlers import register_exception_handlers
 from api.listeners.device import on_device_discovered
 from api.listeners.fault import on_fault_transition
-from api.listeners.timeseries import historise_attribute_update
+from api.listeners.timeseries import historise_attribute_update, record_attribute_point
 from api.listeners.websocket import broadcast_attribute_update
 from api.routes import (
     assets_router,
@@ -43,7 +43,7 @@ from devices_manager import DevicesService
 from models.service import Service
 from models.types import AttributeValueType, DataType
 from notifications import NotificationsService
-from timeseries import DataPoint, SeriesKey, TimeSeriesService
+from timeseries import TimeSeriesService
 from users import UsersService
 from users.auth import AuthService
 
@@ -123,17 +123,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         command_id: int,
         last_changed: datetime | None,
     ) -> None:
-        await ts_service.upsert_points(
-            SeriesKey(owner_id=device_id, metric=attribute),
-            [
-                DataPoint(
-                    timestamp=last_changed or datetime.now(UTC),
-                    value=value,
-                    command_id=command_id,
-                )
-            ],
-            create_if_not_found=True,
-            validate_data_type=data_type,
+        await record_attribute_point(
+            ts_service,
+            device_id,
+            attribute,
+            value,
+            data_type,
+            last_changed,
+            command_id=command_id,
         )
 
     commands_service = CommandsService(
