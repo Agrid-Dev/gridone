@@ -34,11 +34,12 @@ import {
   type JsonSchemaObject,
 } from "@/components/forms/schema-form";
 import { useAssetTree } from "@/hooks/useAssetTree";
-import { sortedAssetsOf } from "@/lib/assets";
+import { assetNameOf, sortedAssetsOf } from "@/lib/assets";
 import { toLabel } from "@/lib/textFormat";
 import type { AppSchemaNode } from "@/lib/appConfigSchema";
 import { ZoneOverrideCopyPicker } from "./ZoneOverrideCopyPicker";
 import { ZoneOverridesAddPicker } from "./ZoneOverridesAddPicker";
+import { siblingPath } from "./siblingPath";
 
 interface ZoneOverridesFieldProps {
   /** RHF field path, e.g. `zone_overrides`. */
@@ -60,14 +61,6 @@ const ZONE_TYPE_FIELD = "zone_type";
 /** `zone_overrides`'s sibling object property — the add and copy pickers'
  *  candidate set is that list minus rooms already overridden. */
 const PILOTED_ZONES_FIELD = "piloted_zones";
-
-/** Resolves a sibling property of `path`, so a prefixed form
- *  (`config.zone_overrides`) still finds `config.piloted_zones` rather than a
- *  top-level field that isn't there. */
-const siblingPath = (path: string, sibling: string): string => {
-  const lastDot = path.lastIndexOf(".");
-  return lastDot === -1 ? sibling : `${path.slice(0, lastDot)}.${sibling}`;
-};
 
 type OverrideRow = Record<string, unknown>;
 
@@ -117,7 +110,7 @@ export const ZoneOverridesField: FC<ZoneOverridesFieldProps> = ({
 
   const zoneNameOf = (zoneId: string | undefined) => {
     if (!zoneId) return "";
-    return assetsById[zoneId]?.name ?? zoneId;
+    return assetNameOf(zoneId, assetsById);
   };
 
   const overriddenZoneIds = new Set(

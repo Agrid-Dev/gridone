@@ -90,5 +90,39 @@
       "zone": "Zone",
       "enabled": "Enabled"
     }
+  },
+  "weeklySchedule": {
+    "count_one": "{{count}} room",
+    "count_other": "{{count}} rooms",
+    "expand": "Expand {{room}}",
+    "collapse": "Collapse {{room}}",
+    "searchPlaceholder": "Search rooms…",
+    "empty": "No room has a custom schedule yet.",
+    "noResults": "No room matches this search.",
+    "add": "Add room schedule",
+    "noneAvailable": "No room available",
+    "remove": "Remove {{room}} schedule",
+    "roomNotSaved": "Won't be saved until a day is enabled",
+    "addWindow": "Add window",
+    "removeWindow": "Remove window",
+    "usesDefault": "Uses default ({{checkin}}–{{checkout}})",
+    "overlapWarning": "These windows overlap",
+    "notOvernightWarning": "Check-out must be earlier than check-in (an overnight stay); this window is ignored",
+    "incompleteWindowWarning": "Set both a check-in and check-out time for this window",
+    "checkin": "Check-in",
+    "checkout": "Check-out",
+    "windowSeparator": "–",
+    "columns": {
+      "room": "Room"
+    },
+    "days": {
+      "monday": "Monday",
+      "tuesday": "Tuesday",
+      "wednesday": "Wednesday",
+      "thursday": "Thursday",
+      "friday": "Friday",
+      "saturday": "Saturday",
+      "sunday": "Sunday"
+    }
   }
 }

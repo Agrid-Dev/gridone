@@ -389,7 +389,7 @@ describe("AppConfigForm — PMS schema", () => {
     expect(mockToast.error).not.toHaveBeenCalled();
   });
 
-  it("attaches missing-required errors to their field (AGR-993 loc contract)", async () => {
+  it("attaches missing-required errors to their field (loc contract)", async () => {
     // The backend now rewrites jsonschema `required` errors from the parent
     // loc to the field itself (loc ["client_id"], type "missing") — the most
     // common validation failure must land under the input, not in the banner.
@@ -488,7 +488,7 @@ describe("AppConfigForm — PMS schema", () => {
   });
 });
 
-describe("AppConfigForm — registry widgets (AGR-920 migration)", () => {
+describe("AppConfigForm — registry widgets migration", () => {
   it("renders primitives through the schema-form registry (switch, multiline)", async () => {
     mockClient.apps.getConfigSchema.mockResolvedValue({
       type: "object",
