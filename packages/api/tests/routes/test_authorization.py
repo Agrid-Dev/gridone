@@ -16,12 +16,12 @@ from dashboards import (
 from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
 
+from api.auth import get_current_user_id
 from api.dependencies import (
     get_apps_service,
     get_assets_service,
     get_automations_service,
     get_commands_service,
-    get_current_user_id,
     get_dashboards_service,
     get_device_manager,
     get_notifications_service,

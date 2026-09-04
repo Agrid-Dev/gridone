@@ -5,7 +5,8 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
 
-from api.dependencies import get_current_token_payload, get_device_manager
+from api.auth import get_current_token_payload
+from api.dependencies import get_device_manager
 from api.routes.discovery_router import get_transport_id, router
 from devices_manager import DevicesServiceInterface, DiscoveryManagerInterface
 from devices_manager.dto import DriverSpec, Transport, build_transport

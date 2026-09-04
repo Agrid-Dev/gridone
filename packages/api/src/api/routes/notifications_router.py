@@ -3,12 +3,8 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query, Request, status
 from pydantic import BaseModel, Field
 
-from api.dependencies import (
-    get_current_user_id,
-    get_notifications_service,
-    get_pagination_params,
-    require_permission,
-)
+from api.auth import get_current_user_id, require_permission
+from api.dependencies import get_notifications_service, get_pagination_params
 from api.permissions import Permission
 from api.schemas.pagination import PaginatedResponse, to_paginated_response
 from models.pagination import PaginationParams

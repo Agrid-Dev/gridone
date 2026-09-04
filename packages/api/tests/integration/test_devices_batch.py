@@ -7,11 +7,8 @@ import pytest_asyncio
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from api.dependencies import (
-    get_current_token_payload,
-    get_current_user_id,
-    get_device_manager,
-)
+from api.auth import get_current_token_payload, get_current_user_id
+from api.dependencies import get_device_manager
 from api.exception_handlers import register_exception_handlers
 from api.routes.devices_router import router
 from devices_manager import DevicesService, Driver

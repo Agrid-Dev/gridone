@@ -11,11 +11,8 @@ from automations import (
 )
 from fastapi import APIRouter, Depends, Query, status
 
-from api.dependencies import (
-    get_automations_service,
-    get_current_user_id,
-    require_permission,
-)
+from api.auth import get_current_user_id, require_permission
+from api.dependencies import get_automations_service
 from api.permissions import Permission
 
 router = APIRouter()

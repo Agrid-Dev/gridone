@@ -14,9 +14,17 @@ class TestConnect:
 
         connection_id = await manager.connect(ws)
 
-        ws.accept.assert_awaited_once()
+        ws.accept.assert_awaited_once_with(subprotocol=None)
         assert connection_id in manager.active_connections
         assert manager.active_connections[connection_id] is ws
+
+    async def test_negotiated_subprotocol_is_passed_to_accept(self):
+        manager = WebSocketManager()
+        ws = AsyncMock()
+
+        await manager.connect(ws, subprotocol="gridone")
+
+        ws.accept.assert_awaited_once_with(subprotocol="gridone")
 
 
 class TestDisconnect:
