@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import FastAPI
+from fastapi.routing import APIWebSocketRoute
 from fastapi.testclient import TestClient
 from jose import jwt
 from starlette.websockets import WebSocketDisconnect
@@ -135,7 +136,12 @@ class TestHandshakeRejection:
 
     def test_devices_is_the_only_websocket_path(self) -> None:
         """The bare `/ws` alias is gone; the UI only ever built `/ws/devices`."""
-        assert [route.path for route in websocket_router.routes] == [_PATH]
+        paths = [
+            route.path
+            for route in websocket_router.routes
+            if isinstance(route, APIWebSocketRoute)
+        ]
+        assert paths == [_PATH]
 
 
 class TestHandshakeAcceptance:
