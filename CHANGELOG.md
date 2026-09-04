@@ -1,3 +1,9 @@
+## v0.220.1 (2026-09-04)
+
+### Fix
+
+- **acceptance**: wait for the dispatched command to complete
+
 ## v0.220.0 (2026-09-03)
 
 ### Feat
