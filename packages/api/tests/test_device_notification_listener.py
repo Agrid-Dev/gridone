@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from api.notification_listeners.device import on_device_discovered
+from api.listeners.device import on_device_discovered
 from notifications.interface import NotificationsServiceInterface
 
 

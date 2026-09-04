@@ -4,7 +4,8 @@ from unittest.mock import AsyncMock
 import pytest
 import pytest_asyncio
 
-from api.attribute_listeners import register_attribute_listeners
+from api.listeners.timeseries import historise_attribute_update
+from api.listeners.websocket import broadcast_attribute_update
 from devices_manager import CoreDevice, DeviceBase, DevicesService, Driver
 from devices_manager.core.codecs.factory import CodecSpec
 from devices_manager.core.driver import AttributeDriver, DriverMetadata, UpdateStrategy
@@ -89,12 +90,12 @@ async def _poll_points(
     ts_service: TimeSeriesService, key: SeriesKey, *, max_wait: float = 2.0
 ) -> list[AttributeValueType]:
     """Poll until the background persist listener's write lands, or time out."""
-    deadline = asyncio.get_event_loop().time() + max_wait
-    while True:
-        result = await ts_service.fetch_points(key)
-        if result.points or asyncio.get_event_loop().time() >= deadline:
-            return [p.value for p in result.points]
-        await asyncio.sleep(0.01)
+    async with asyncio.timeout(max_wait):
+        while True:
+            result = await ts_service.fetch_points(key)
+            if result.points:
+                return [p.value for p in result.points]
+            await asyncio.sleep(0.01)
 
 
 class TestBroadcastPersistIsolation:
@@ -103,24 +104,29 @@ class TestBroadcastPersistIsolation:
         devices_service: DevicesService,
         ts_service: TimeSeriesService,
         device: CoreDevice,
+        transport: HTTPTransportClient,
     ):
         """A raising broadcast listener must not block persistence.
 
-        Registers listeners via `register_attribute_listeners` — the same
-        function `app.py`'s lifespan calls — against a real `DevicesService`
-        (as opposed to test_attribute_listeners.py, which calls the listener
-        coroutines directly) to prove that registering the two concerns as
-        separate listeners — rather than one coroutine awaiting both in
-        sequence — gives each its own background task, so a failure in one
-        cannot prevent the other from running.
+        Registers listeners the same way `app.py`'s lifespan does, against a
+        real `DevicesService` (as opposed to test_attribute_listeners.py,
+        which calls the listener coroutines directly) to prove that
+        registering the two concerns as separate listeners — rather than one
+        coroutine awaiting both in sequence — gives each its own background
+        task, so a failure in one cannot prevent the other from running.
         """
         websocket_manager = AsyncMock()
         websocket_manager.broadcast.side_effect = RuntimeError("boom")
 
-        register_attribute_listeners(devices_service, websocket_manager, ts_service)
+        devices_service.add_device_attribute_listener(
+            broadcast_attribute_update(websocket_manager)
+        )
+        devices_service.add_device_attribute_listener(
+            historise_attribute_update(ts_service)
+        )
 
-        attr = device.attributes[TEMPERATURE]
-        device._update_attribute(attr, 30.0)  # noqa: SLF001
+        transport.read = AsyncMock(return_value=30.0)  # identity codec decodes as-is
+        await device.refresh_attribute(TEMPERATURE)
 
         points = await _poll_points(
             ts_service, SeriesKey(owner_id=DEVICE_ID, metric=TEMPERATURE)

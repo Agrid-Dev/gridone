@@ -1,6 +1,4 @@
-from collections.abc import Awaitable, Callable
-
-from api.notification_listeners import RecipientsGetter
+from api.listeners import AttributeListener, RecipientsGetter
 from devices_manager import Attribute, CoreDevice, FaultAttribute
 from models.resource_reference import ResourceReference
 from models.types import Severity
@@ -10,7 +8,7 @@ from notifications.interface import NotificationsServiceInterface
 def on_fault_transition(
     notifications: NotificationsServiceInterface,
     recipients: RecipientsGetter,
-) -> Callable[[CoreDevice, str, Attribute | None, Attribute], Awaitable[None]]:
+) -> AttributeListener:
     """Listener: dispatch notifications on fault healthy↔faulty transitions."""
 
     async def listener(

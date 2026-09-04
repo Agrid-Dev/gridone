@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from api.notification_listeners.fault import on_fault_transition
+from api.listeners.fault import on_fault_transition
 from devices_manager import Attribute, FaultAttribute
 from devices_manager.types import AttributeValueType, DataType
 from models.types import Severity
