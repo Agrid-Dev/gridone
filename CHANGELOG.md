@@ -1,3 +1,17 @@
+## v0.221.0 (2026-09-04)
+
+### Feat
+
+- **ui**: bar chart panel
+- **dashboards**: let a chart draw its series as bars
+- **ui**: let a chart pick the width of its buckets
+- **dashboards**: let a chart pin its bucket width
+
+### Fix
+
+- **ui**: keep a saved bar chart from downgrading itself
+- **timeseries**: hold a pinned bucket width to the bucket limit
+
 ## v0.220.1 (2026-09-04)
 
 ### Fix
