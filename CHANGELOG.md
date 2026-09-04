@@ -1,3 +1,9 @@
+## v0.221.2 (2026-09-04)
+
+### Refactor
+
+- **api**: dedupe SeriesKey/DataPoint point-write into shared helper (#608)
+
 ## v0.221.1 (2026-09-04)
 
 ### Fix
