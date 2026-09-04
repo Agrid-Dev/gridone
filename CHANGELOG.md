@@ -1,3 +1,9 @@
+## v0.221.1 (2026-09-04)
+
+### Fix
+
+- **api**: decouple websocket broadcast from timeseries persistence (#603)
+
 ## v0.221.0 (2026-09-04)
 
 ### Feat
