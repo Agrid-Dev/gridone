@@ -124,20 +124,28 @@ vi.mock("@/hooks/useAggregateOptions", async () => {
     operatorsFor: actual.operatorsFor,
     spaceOperatorsFor: actual.spaceOperatorsFor,
     useResetRefusedOperator: actual.useResetRefusedOperator,
-    useAggregateOptions: () => ({
-      data: {
-        intervals: [
-          { interval: "raw", bucket_count: null },
-          { interval: "whole", bucket_count: null },
-          { interval: "1h", bucket_count: null },
-          { interval: "1d", bucket_count: null },
-        ],
-        operators_by_data_type: MATRIX,
-        space_operators_by_data_type: MATRIX,
-      },
-    }),
+    useAggregateOptions: () => aggregateOptions(),
   };
 });
+
+/** The options response, overridable per test — `undefined` is what a fresh
+ *  navigation renders with before the query resolves. */
+let aggregateOptions: () => { data: unknown };
+
+function resolvedOptions() {
+  return {
+    data: {
+      intervals: [
+        { interval: "raw", bucket_count: null },
+        { interval: "whole", bucket_count: null },
+        { interval: "1h", bucket_count: null },
+        { interval: "1d", bucket_count: null },
+      ],
+      operators_by_data_type: MATRIX,
+      space_operators_by_data_type: MATRIX,
+    },
+  };
+}
 
 vi.mock("@/components/ui/select", () => ({
   // Each select is keyed by the field it edits, not by where it sits in the
@@ -239,6 +247,7 @@ const enabled = () =>
     .map((o) => o.getAttribute("value"));
 
 beforeEach(() => {
+  aggregateOptions = resolvedOptions;
   useTagGroups.mockReturnValue({
     groups: [],
     totalDevices: 0,
@@ -443,6 +452,23 @@ describe("ChartConfigFields", () => {
     });
 
     expect(latest().mark).toBe("line");
+  });
+
+  // A saved bar chart must survive its own editor opening. Both queries the
+  // mark depends on are undefined on the first render of a fresh navigation,
+  // which says nothing about whether bars apply — resetting on that would
+  // downgrade the chart to a line and leave the form dirty, so the downgrade
+  // would then save.
+  it("keeps a saved bar mark while the options are still loading", () => {
+    aggregateOptions = () => ({ data: undefined });
+
+    const latest = renderFields({
+      target: { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
+      agg: "avg",
+      mark: "bar",
+    });
+
+    expect(latest().mark).toBe("bar");
   });
 
   // The preview must reproduce the same device set the grouped chart will

@@ -397,14 +397,24 @@ const FanOutChartView: FC<{
   // timestamp has to hold still or the lines re-animate continuously.
   const plotted = useMemo(() => {
     const end = query.end ? new Date(query.end) : new Date();
-    return results
-      .filter((r) => r.series && r.dataType && r.points.length > 0)
-      .map((r) => ({
-        deviceId: r.deviceId,
-        dataType: r.dataType as DataType,
-        interval: r.interval,
-        points: agg ? r.points : holdLastValueUntil(r.points, end),
-      }));
+    return (
+      results
+        .filter((r) => r.series && r.dataType && r.points.length > 0)
+        // An aggregated read is gap-filled, so a device that recorded nothing
+        // over the period still comes back with a full grid of empty buckets —
+        // `points.length > 0` does not mean it has anything to show. As a line
+        // that series was invisible; as bars it takes a slot in every bucket,
+        // narrowing and shifting every other device's bars around a permanently
+        // blank column. Dropping it also lets an all-empty target reach the
+        // "no data" message, the way the folded views already do.
+        .filter((r) => !agg || r.points.some((p) => p.value !== null))
+        .map((r) => ({
+          deviceId: r.deviceId,
+          dataType: r.dataType as DataType,
+          interval: r.interval,
+          points: agg ? r.points : holdLastValueUntil(r.points, end),
+        }))
+    );
   }, [results, agg, query.end]);
 
   if (unbounded) return <Message>{t("widgets.chart.unboundedPeriod")}</Message>;

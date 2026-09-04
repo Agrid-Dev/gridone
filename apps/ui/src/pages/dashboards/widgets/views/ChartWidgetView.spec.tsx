@@ -314,6 +314,51 @@ describe("ChartWidgetView drawing bars", () => {
     expect(chart).toHaveAttribute("data-points", "2");
   });
 
+  // Gap-filling means a device that recorded nothing still returns a full
+  // grid, so a series can be non-empty and have nothing in it. Left in, it
+  // takes a bar slot in every bucket and squeezes the device that does have
+  // data.
+  it("drops a fanned-out device whose every bucket is empty", () => {
+    mockResolved(["Meter 1", "Meter 2"]);
+    mockSeries([
+      seriesResult("dev1"),
+      {
+        ...seriesResult("dev2"),
+        points: [
+          { timestamp: "2026-07-28T00:00:00Z", value: null },
+          { timestamp: "2026-07-29T00:00:00Z", value: null },
+        ],
+      },
+    ]);
+
+    render(
+      <ChartWidgetView
+        config={{ ...CONFIG, agg: "delta", interval: "1d", mark: "bar" }}
+      />,
+    );
+
+    expect(screen.getByTestId("chart")).toHaveTextContent("Meter 1");
+    expect(screen.getByTestId("chart")).not.toHaveTextContent("Meter 2");
+  });
+
+  it("says there is no data when no fanned-out device has any", () => {
+    mockResolved(["Meter 1"]);
+    mockSeries([
+      {
+        ...seriesResult("dev1"),
+        points: [{ timestamp: "2026-07-28T00:00:00Z", value: null }],
+      },
+    ]);
+
+    render(
+      <ChartWidgetView
+        config={{ ...CONFIG, agg: "delta", interval: "1d", mark: "bar" }}
+      />,
+    );
+
+    expect(screen.queryByTestId("chart")).not.toBeInTheDocument();
+  });
+
   // A window whose every bucket came back empty is "no data", not a chart of
   // blank bars.
   it("says there is no data when every bucket is empty", () => {

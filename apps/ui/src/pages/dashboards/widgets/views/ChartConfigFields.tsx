@@ -180,6 +180,18 @@ export const ChartConfigFields: FC<{ control: Control<FieldValues> }> = ({
   const barsApply =
     agg !== null && !!plottedType && BAR_CAPABLE_TYPES.has(plottedType);
 
+  // Refusing bars is not the same as not offering them: `barsApply` is also
+  // false while the coverage read and the operator matrix are still loading,
+  // and resetting on that would turn a saved bar chart back into a line the
+  // moment its editor opened — leaving the form dirty, so the downgrade would
+  // then save. The operator is config and known synchronously; the type has to
+  // resolve before it can refuse anything. Same distinction `spaceRefused`
+  // makes above, and the one `useResetRefusedOperator` documents.
+  const barsRefused =
+    mark === "bar" &&
+    (agg === null ||
+      (plottedType !== undefined && !BAR_CAPABLE_TYPES.has(plottedType)));
+
   // Raw series cannot be space-aggregated, so dropping the time operator also
   // drops the space one; a chain the new types refuse resets the same way the
   // time operator does above.
@@ -218,8 +230,8 @@ export const ChartConfigFields: FC<{ control: Control<FieldValues> }> = ({
   // same stored default.
   useEffect(() => {
     if (markField.value === undefined) markField.onChange("line");
-    else if (mark === "bar" && !barsApply) markField.onChange("line");
-  }, [mark, barsApply, markField]);
+    else if (barsRefused) markField.onChange("line");
+  }, [barsRefused, markField]);
 
   // Deferred so a keystroke doesn't fire a request per character — the query
   // key includes the tag key, and reacting to every intermediate value would
