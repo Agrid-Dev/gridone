@@ -42,6 +42,7 @@ from timeseries.exporters.csv import to_csv
 from timeseries.exporters.png import to_png
 from timeseries.service.auto_interval import (
     CANONICAL_INTERVALS,
+    MAX_BUCKETS,
     resolve_auto_interval,
     valid_intervals_for_period,
 )
@@ -113,11 +114,30 @@ def _utcnow() -> datetime:
 def _resolve_interval(
     query: AggregationQuery, period: timedelta
 ) -> Interval | Literal["raw", "whole"]:
-    """Resolve ``interval="auto"`` to the bucket width the backends expect."""
-    if query.interval != "auto":
-        return query.interval
-    interval = resolve_auto_interval(period)
-    return "whole" if interval == "whole" else Interval.model_validate(interval)
+    """Resolve ``interval="auto"``, and hold a pinned width to the same bound.
+
+    ``auto`` cannot exceed :data:`MAX_BUCKETS` by construction — it only ever
+    picks a width that lands in range. A caller naming its own width bypasses
+    that, and buckets are gap-filled: the backend materialises every one of
+    them whether or not it holds a reading, per series in the target. A minute
+    bucket over a year is half a million rows before a single value is read, so
+    the pair is refused rather than served.
+
+    ``raw`` and ``whole`` are exempt: neither cuts the period into a grid.
+    """
+    if query.interval == "auto":
+        interval = resolve_auto_interval(period)
+        return "whole" if interval == "whole" else Interval.model_validate(interval)
+    if isinstance(query.interval, Interval):
+        buckets = period / query.interval.to_timedelta()
+        if buckets > MAX_BUCKETS:
+            msg = (
+                f"Interval '{query.interval}' cuts this period into "
+                f"{int(buckets)} buckets, over the limit of {MAX_BUCKETS}; "
+                "widen the interval or shorten the period"
+            )
+            raise InvalidError(msg)
+    return query.interval
 
 
 class TimeSeriesService(Service):

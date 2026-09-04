@@ -14,7 +14,8 @@ type UseGroupedSpaceAggregateOptions = {
   /** Per-device time aggregation, run before the space fold. */
   agg: AggregationOperator;
   spaceAgg: AggregationOperator;
-  interval?: "auto" | "whole";
+  /** Bucket width; see `useSpaceAggregate`. */
+  interval?: string;
   start?: string;
   end?: string;
   last?: string;

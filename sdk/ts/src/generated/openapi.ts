@@ -2144,8 +2144,8 @@ export interface components {
      *     enforced at save time by the API layer, and surfaced as a render-time
      *     error state when a dynamic set drifts afterwards.
      *
-     *     Points are read over the dashboard period, so nothing about the time
-     *     window is stored here.
+     *     Points are read over the dashboard period, so the window itself is never
+     *     stored here — only how wide the buckets cut from it should be.
      */
     ChartWidgetConfig: {
       /**
@@ -2155,6 +2155,17 @@ export interface components {
       type: "chart";
       target: components["schemas"]["AttributeTarget"];
       agg?: components["schemas"]["AggregationOperator"] | null;
+      /**
+       * Interval
+       * @default auto
+       */
+      interval?: string;
+      /**
+       * Mark
+       * @default line
+       * @enum {string}
+       */
+      mark?: "line" | "bar";
       space_agg?: components["schemas"]["AggregationOperator"] | null;
       /** Group By */
       group_by?: string | null;

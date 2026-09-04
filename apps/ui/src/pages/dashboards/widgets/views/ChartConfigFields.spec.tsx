@@ -13,6 +13,17 @@ vi.mock("react-i18next", () =>
     "widgets.chart.agg.captions.min": "lowest value",
     "widgets.chart.agg.captions.mode": "most frequent value",
     "widgets.chart.agg.unsupported": "not supported",
+    "widgets.chart.interval.label": "Bucket width",
+    "widgets.chart.interval.description": "How wide each bucket is.",
+    "widgets.chart.interval.captions.auto": "sized from the period",
+    "widgets.chart.interval.captions.1h": "per hour",
+    "widgets.chart.interval.captions.1d": "per day",
+    "widgets.chart.mark.label": "Display",
+    "widgets.chart.mark.description": "How each series is drawn.",
+    "widgets.chart.mark.names.line": "Line",
+    "widgets.chart.mark.names.bar": "Bars",
+    "widgets.chart.mark.captions.line": "joins one bucket to the next",
+    "widgets.chart.mark.captions.bar": "one bar covering each bucket",
     "widgets.chart.space.label": "Space aggregation",
     "widgets.chart.space.description": "Folds the devices into one series.",
     "widgets.chart.space.captions.none": "one series per device",
@@ -113,16 +124,35 @@ vi.mock("@/hooks/useAggregateOptions", async () => {
     operatorsFor: actual.operatorsFor,
     spaceOperatorsFor: actual.spaceOperatorsFor,
     useResetRefusedOperator: actual.useResetRefusedOperator,
-    useAggregateOptions: () => ({
-      data: {
-        operators_by_data_type: MATRIX,
-        space_operators_by_data_type: MATRIX,
-      },
-    }),
+    useAggregateOptions: () => aggregateOptions(),
   };
 });
 
+/** The options response, overridable per test — `undefined` is what a fresh
+ *  navigation renders with before the query resolves. */
+let aggregateOptions: () => { data: unknown };
+
+function resolvedOptions() {
+  return {
+    data: {
+      intervals: [
+        { interval: "raw", bucket_count: null },
+        { interval: "whole", bucket_count: null },
+        { interval: "1h", bucket_count: null },
+        { interval: "1d", bucket_count: null },
+      ],
+      operators_by_data_type: MATRIX,
+      space_operators_by_data_type: MATRIX,
+    },
+  };
+}
+
 vi.mock("@/components/ui/select", () => ({
+  // Each select is keyed by the field it edits, not by where it sits in the
+  // form: the controller gives its trigger the field name as an id, so lifting
+  // that onto the element lets a test name the control it means. Ordering is
+  // the form's to change — inserting a field between two others must not
+  // rewrite every assertion below.
   Select: ({
     value,
     onValueChange,
@@ -131,15 +161,21 @@ vi.mock("@/components/ui/select", () => ({
     value: string;
     onValueChange: (v: string) => void;
     children: React.ReactNode;
-  }) => (
-    <select
-      data-testid="agg"
-      value={value}
-      onChange={(e) => onValueChange(e.target.value)}
-    >
-      {children}
-    </select>
-  ),
+  }) => {
+    const trigger = React.Children.toArray(children).find(
+      (child): child is React.ReactElement<{ id?: string }> =>
+        React.isValidElement(child) && "id" in (child.props as object),
+    );
+    return (
+      <select
+        data-testid={trigger?.props.id ?? "select"}
+        value={value}
+        onChange={(e) => onValueChange(e.target.value)}
+      >
+        {children}
+      </select>
+    );
+  },
   SelectTrigger: ({ children }: { children: React.ReactNode }) => (
     <>{children}</>
   ),
@@ -201,7 +237,7 @@ function renderFields(defaultConfig?: Record<string, unknown>) {
 }
 
 const items = () =>
-  Array.from(screen.getByTestId("agg").querySelectorAll("option"));
+  Array.from(screen.getByTestId("config.agg").querySelectorAll("option"));
 
 /** The operators a user can actually choose right now, by stored value. Raw is
  *  stored as `null`, which the select keys as the string "null". */
@@ -211,6 +247,7 @@ const enabled = () =>
     .map((o) => o.getAttribute("value"));
 
 beforeEach(() => {
+  aggregateOptions = resolvedOptions;
   useTagGroups.mockReturnValue({
     groups: [],
     totalDevices: 0,
@@ -236,6 +273,8 @@ describe("ChartConfigFields", () => {
       type: "chart",
       target: { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
       agg: null,
+      interval: "auto",
+      mark: "line",
       space_agg: null,
     });
   });
@@ -277,14 +316,44 @@ describe("ChartConfigFields", () => {
       agg: "avg",
     });
 
-    const selects = screen.getAllByTestId("agg");
-    expect(selects).toHaveLength(2);
-    const spaceValues = Array.from(selects[1].querySelectorAll("option"))
+    const spaceValues = Array.from(
+      screen.getByTestId("config.space_agg").querySelectorAll("option"),
+    )
       .filter((o) => !o.disabled)
       .map((o) => o.getAttribute("value"));
     // `null` keeps one series per device; the rest is the space vocabulary the
     // chain's output type admits (the fixture matrix only defines avg/min/mode).
     expect(spaceValues).toEqual(["null", "avg", "min", "mode"]);
+  });
+
+  // Widths cut buckets an operator fills, so the picker follows the operator —
+  // and offers only widths a chart can draw: `raw` applies no operator at all
+  // and `whole` yields the single point a KPI shows, not a chart.
+  it("offers the chartable widths once an operator is chosen", () => {
+    renderFields({
+      target: { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
+      agg: "avg",
+    });
+
+    const widths = Array.from(
+      screen.getByTestId("config.interval").querySelectorAll("option"),
+    ).map((o) => o.getAttribute("value"));
+    expect(widths).toEqual(["auto", "1h", "1d"]);
+  });
+
+  it("returns the width to auto when the operator is dropped", () => {
+    const latest = renderFields({
+      target: { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
+      agg: "avg",
+      interval: "1d",
+    });
+
+    fireEvent.change(screen.getByTestId("config.agg"), {
+      target: { value: "null" },
+    });
+
+    expect(latest().agg).toBeNull();
+    expect(latest().interval).toBe("auto");
   });
 
   it("hides space aggregation for raw charts", () => {
@@ -293,7 +362,7 @@ describe("ChartConfigFields", () => {
       agg: null,
     });
 
-    expect(screen.getAllByTestId("agg")).toHaveLength(1);
+    expect(screen.queryByTestId("config.space_agg")).not.toBeInTheDocument();
   });
 
   it("clears the space operator when the time operator is dropped", () => {
@@ -340,13 +409,66 @@ describe("ChartConfigFields", () => {
       group_by: "floor",
     });
 
-    // The space operator select is the second "agg"-keyed select; "null"
-    // is the mock select's string key for the stored `null` value.
-    fireEvent.change(screen.getAllByTestId("agg")[1], {
+    // "null" is the mock select's string key for the stored `null` value.
+    fireEvent.change(screen.getByTestId("config.space_agg"), {
       target: { value: "null" },
     });
 
     expect(latest().group_by).toBeNull();
+  });
+
+  // Bars stand for a magnitude, so they are offered where the chain yields a
+  // number — read against what the operator *yields*, not what the attribute
+  // records.
+  it("offers bars for a numeric result", () => {
+    renderFields({
+      target: { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
+      agg: "avg",
+    });
+
+    const marks = Array.from(
+      screen.getByTestId("config.mark").querySelectorAll("option"),
+    ).map((o) => o.getAttribute("value"));
+    expect(marks).toEqual(["line", "bar"]);
+  });
+
+  it("offers no mark for a result that is not a quantity", () => {
+    renderFields({
+      target: { devices: { ids: ["dev1", "dev2"] }, attribute: "mode" },
+      agg: "mode",
+    });
+
+    expect(screen.queryByTestId("config.mark")).not.toBeInTheDocument();
+  });
+
+  // A saved bar chart whose set has been re-driven to a non-numeric type has
+  // nothing left to draw as bars — and the backend refuses bars without an
+  // operator outright, so the editor must not be able to submit one.
+  it("falls back to a line when bars stop applying", () => {
+    const latest = renderFields({
+      target: { devices: { ids: ["dev1", "dev2"] }, attribute: "mode" },
+      agg: "mode",
+      mark: "bar",
+    });
+
+    expect(latest().mark).toBe("line");
+  });
+
+  // A saved bar chart must survive its own editor opening. Both queries the
+  // mark depends on are undefined on the first render of a fresh navigation,
+  // which says nothing about whether bars apply — resetting on that would
+  // downgrade the chart to a line and leave the form dirty, so the downgrade
+  // would then save.
+  it("keeps a saved bar mark while the options are still loading", () => {
+    aggregateOptions = () => ({ data: undefined });
+
+    const latest = renderFields({
+      target: { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
+      agg: "avg",
+      mark: "bar",
+    });
+
+    expect(latest().mark).toBe("bar");
   });
 
   // The preview must reproduce the same device set the grouped chart will

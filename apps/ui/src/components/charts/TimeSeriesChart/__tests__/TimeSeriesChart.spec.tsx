@@ -193,6 +193,74 @@ describe("TimeSeriesChart — series rendering", () => {
     expect(svgs.length).toBe(3);
   });
 
+  // Bars are the mark for aggregated series, where a point stands for the
+  // bucket it reports rather than an instant.
+  it("draws a rect per bucket per series when the mark is bars", () => {
+    const { container } = render(
+      <TimeSeriesChartInner
+        timestamps={timestamps}
+        lineSeries={floatSeries}
+        lineValues={floatValues}
+        numericMark="bar"
+        width={WIDTH}
+      />,
+    );
+
+    // One panel, and a bar for every bucket that carries a value — the two
+    // fixture series have one empty bucket each, which draws nothing.
+    expect(container.querySelectorAll(XYCHART_SVG).length).toBe(1);
+    const bars = container.querySelectorAll("rect.visx-bar");
+    expect(bars.length).toBe(timestamps.length * floatSeries.length - 2);
+  });
+
+  // A bar's height is its value, so the axis has to start at zero — the
+  // opposite of what the line panel wants (AGR-883), and the reason bars are
+  // their own panel rather than a style on that one.
+  it("anchors the bar y-axis at zero", () => {
+    const { container } = render(
+      <TimeSeriesChartInner
+        timestamps={timestamps}
+        lineSeries={floatSeries}
+        lineValues={floatValues}
+        numericMark="bar"
+        width={WIDTH}
+      />,
+    );
+
+    const tickValues = [...container.querySelectorAll("text")]
+      .map((el) => Number(el.textContent))
+      .filter((v) => !Number.isNaN(v));
+    expect(Math.min(...tickValues)).toBe(0);
+  });
+
+  // Side by side within the bucket, not stacked and not overlapping: each
+  // series takes its own slot, so two series make bars half a slot wide and
+  // the second sits to the right of the first.
+  it("sets the series of a bucket beside one another", () => {
+    const { container } = render(
+      <TimeSeriesChartInner
+        timestamps={timestamps}
+        lineSeries={floatSeries}
+        lineValues={floatValues}
+        numericMark="bar"
+        width={WIDTH}
+      />,
+    );
+
+    const bars = [
+      ...container.querySelectorAll<SVGRectElement>("rect.visx-bar"),
+    ];
+    const xs = bars.map((b) => Number(b.getAttribute("x")));
+    const widths = bars.map((b) => Number(b.getAttribute("width")));
+    // No two bars occupy the same space.
+    const spans = xs
+      .map((x, i) => [x, x + widths[i]] as const)
+      .sort((a, b) => a[0] - b[0]);
+    for (let i = 1; i < spans.length; i += 1) {
+      expect(spans[i][0]).toBeGreaterThanOrEqual(spans[i - 1][1] - 0.001);
+    }
+  });
+
   it("scales the float y-axis to the data extent, not down to 0 (AGR-883)", () => {
     // All fixture values sit in [20.1, 48.5]; with visx's default
     // `zero: true` the axis would start at 0.

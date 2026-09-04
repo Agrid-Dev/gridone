@@ -8,8 +8,8 @@ import type {
 } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 
-/** Bucket width is asked for as `auto`: the API resolves it from the window it
- *  is given, and reports back which interval it chose. */
+/** Bucket width when the caller names none: the API resolves it from the
+ *  window it is given, and reports back which interval it chose. */
 const AUTO_INTERVAL = "auto";
 
 type UseMultiTimeSeriesOptions = {
@@ -22,6 +22,11 @@ type UseMultiTimeSeriesOptions = {
   last?: string;
   /** Reduce readings over time buckets; omit to read them raw. */
   agg?: AggregationOperator | null;
+  /** Bucket width the readings are reduced over, in the aggregate endpoint's
+   *  vocabulary (`"1d"`, `"whole"`, ...). Defaults to `"auto"`, which asks the
+   *  API to size buckets from the window; a pinned width says what a bucket
+   *  means instead. Ignored when reading raw. */
+  interval?: string;
   enabled?: boolean;
   /** Poll cadence, or `false` to fetch once. Views showing a window that ends
    *  "now" pass an interval so an unattended screen stays current. */
@@ -37,7 +42,7 @@ export type DeviceTimeSeries = {
    *  yields ints whatever went in, and averaging a bool yields a float. Read
    *  this rather than `series.data_type` when deciding how to display them. */
   dataType: DataType | null;
-  /** The bucket width `auto` resolved to, or null when reading raw. */
+  /** The bucket width the read actually used, or null when reading raw. */
   interval: string | null;
   isLoading: boolean;
   error: Error | null;
@@ -78,6 +83,7 @@ export function useMultiTimeSeries({
   end,
   last,
   agg = null,
+  interval = AUTO_INTERVAL,
   enabled = true,
   refetchInterval = false,
 }: UseMultiTimeSeriesOptions): UseMultiTimeSeriesResult {
@@ -101,14 +107,23 @@ export function useMultiTimeSeries({
       const seriesId = seriesQueries[i]?.data?.id;
       return {
         queryKey: agg
-          ? ["timeseries", "aggregate", seriesId, start, end, last, agg]
+          ? [
+              "timeseries",
+              "aggregate",
+              seriesId,
+              start,
+              end,
+              last,
+              agg,
+              interval,
+            ]
           : ["timeseries", "points", seriesId, start, end, last],
         queryFn: async (): Promise<WindowRead> => {
           if (agg) {
             const result = await client.timeseries.aggregate(
               deviceId,
               attributeName,
-              { start, end, last, agg, interval: AUTO_INTERVAL },
+              { start, end, last, agg, interval },
             );
             return {
               points: result.points.map((p) => ({

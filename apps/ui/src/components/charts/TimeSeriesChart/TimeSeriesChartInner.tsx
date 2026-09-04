@@ -15,6 +15,7 @@ export function TimeSeriesChartInner({
   booleanValues = {},
   stringSeries = [],
   stringValues = {},
+  numericMark,
   lineHeight,
   categoricalHeight,
   width,
@@ -28,6 +29,7 @@ export function TimeSeriesChartInner({
     booleanValues,
     stringSeries,
     stringValues,
+    numericMark,
     lineHeight,
     categoricalHeight,
   });

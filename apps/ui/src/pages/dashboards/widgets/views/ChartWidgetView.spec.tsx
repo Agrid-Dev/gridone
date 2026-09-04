@@ -66,6 +66,7 @@ vi.mock("@/components/charts/TimeSeriesChart", () => ({
     intSeries?: { label: string }[];
     stringSeries?: { label: string }[];
     booleanSeries?: { label: string }[];
+    numericMark?: string;
   }) => {
     const series =
       props.lineSeries ??
@@ -73,7 +74,11 @@ vi.mock("@/components/charts/TimeSeriesChart", () => ({
       props.stringSeries ??
       props.booleanSeries;
     return (
-      <div data-testid="chart" data-points={props.timestamps?.length}>
+      <div
+        data-testid="chart"
+        data-points={props.timestamps?.length}
+        data-mark={props.numericMark}
+      >
         {series?.map((s) => s.label).join(",")}
       </div>
     );
@@ -150,6 +155,22 @@ describe("ChartWidgetView", () => {
     );
     expect(screen.getByTestId("chart")).toHaveTextContent(
       "Thermostat 1,Thermostat 2",
+    );
+  });
+
+  // The width is the widget's, the window is the dashboard's: a chart saved
+  // to bucket by day keeps doing so whichever period is being viewed, so it
+  // travels with the read rather than being resolved from the window.
+  it("reads at the width the config pinned", () => {
+    mockResolved(["Meter 1"]);
+    mockSeries([seriesResult("dev1")]);
+
+    render(
+      <ChartWidgetView config={{ ...CONFIG, agg: "delta", interval: "1d" }} />,
+    );
+
+    expect(useMultiTimeSeries).toHaveBeenCalledWith(
+      expect.objectContaining({ agg: "delta", interval: "1d", last: "7d" }),
     );
   });
 
@@ -242,6 +263,118 @@ function mockSpaceResult(over: Record<string, unknown> = {}) {
     ...over,
   });
 }
+
+describe("ChartWidgetView drawing bars", () => {
+  // Empty buckets set every bar's width and leave the gaps, so bars keep them
+  // where a line drops them and joins across. Three buckets in, one of them
+  // empty: bars plot all three, a line plots the two that have values.
+  const withGap = {
+    data: {
+      interval: "1d",
+      agg: "delta",
+      space_agg: "sum",
+      data_type: "float",
+      aggregation_data_type: "float",
+      timezone: "UTC",
+      series_count: 1,
+      points: [
+        { interval_start: "2026-07-28T00:00:00Z", value: 12.5, count: 3 },
+        { interval_start: "2026-07-29T00:00:00Z", value: null, count: 0 },
+        { interval_start: "2026-07-30T00:00:00Z", value: 9.25, count: 4 },
+      ],
+    },
+    isLoading: false,
+    error: null,
+  };
+  const barConfig = {
+    ...CONFIG,
+    agg: "delta",
+    interval: "1d",
+    space_agg: "sum",
+    mark: "bar",
+  };
+
+  it("keeps the empty buckets and draws them as bars", () => {
+    useSpaceAggregate.mockReturnValue(withGap);
+
+    render(<ChartWidgetView config={barConfig} />);
+
+    const chart = screen.getByTestId("chart");
+    expect(chart).toHaveAttribute("data-mark", "bar");
+    expect(chart).toHaveAttribute("data-points", "3");
+  });
+
+  it("drops them again when the same series is drawn as a line", () => {
+    useSpaceAggregate.mockReturnValue(withGap);
+
+    render(<ChartWidgetView config={{ ...barConfig, mark: "line" }} />);
+
+    const chart = screen.getByTestId("chart");
+    expect(chart).toHaveAttribute("data-mark", "line");
+    expect(chart).toHaveAttribute("data-points", "2");
+  });
+
+  // Gap-filling means a device that recorded nothing still returns a full
+  // grid, so a series can be non-empty and have nothing in it. Left in, it
+  // takes a bar slot in every bucket and squeezes the device that does have
+  // data.
+  it("drops a fanned-out device whose every bucket is empty", () => {
+    mockResolved(["Meter 1", "Meter 2"]);
+    mockSeries([
+      seriesResult("dev1"),
+      {
+        ...seriesResult("dev2"),
+        points: [
+          { timestamp: "2026-07-28T00:00:00Z", value: null },
+          { timestamp: "2026-07-29T00:00:00Z", value: null },
+        ],
+      },
+    ]);
+
+    render(
+      <ChartWidgetView
+        config={{ ...CONFIG, agg: "delta", interval: "1d", mark: "bar" }}
+      />,
+    );
+
+    expect(screen.getByTestId("chart")).toHaveTextContent("Meter 1");
+    expect(screen.getByTestId("chart")).not.toHaveTextContent("Meter 2");
+  });
+
+  it("says there is no data when no fanned-out device has any", () => {
+    mockResolved(["Meter 1"]);
+    mockSeries([
+      {
+        ...seriesResult("dev1"),
+        points: [{ timestamp: "2026-07-28T00:00:00Z", value: null }],
+      },
+    ]);
+
+    render(
+      <ChartWidgetView
+        config={{ ...CONFIG, agg: "delta", interval: "1d", mark: "bar" }}
+      />,
+    );
+
+    expect(screen.queryByTestId("chart")).not.toBeInTheDocument();
+  });
+
+  // A window whose every bucket came back empty is "no data", not a chart of
+  // blank bars.
+  it("says there is no data when every bucket is empty", () => {
+    useSpaceAggregate.mockReturnValue({
+      ...withGap,
+      data: {
+        ...withGap.data,
+        points: withGap.data.points.map((p) => ({ ...p, value: null })),
+      },
+    });
+
+    render(<ChartWidgetView config={barConfig} />);
+
+    expect(screen.queryByTestId("chart")).not.toBeInTheDocument();
+  });
+});
 
 describe("ChartWidgetView with a space aggregation", () => {
   it("folds the set into one labelled series with a single request", () => {

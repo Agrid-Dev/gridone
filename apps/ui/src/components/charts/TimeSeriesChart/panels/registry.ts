@@ -5,11 +5,13 @@ import type {
   PanelComponentProps,
   TooltipRow,
   FloatPanelEntry,
+  BarPanelEntry,
   BooleanPanelEntry,
   StringPanelEntry,
 } from "../types";
 import { CHART_COLORS, BOOL_COLOR } from "../constants";
 import { FloatPanel } from "./FloatPanel";
+import { BarPanel } from "./BarPanel";
 import { BooleanPanel } from "./BooleanPanel";
 import { StringPanel } from "./StringPanel";
 
@@ -22,6 +24,7 @@ export const panelRegistry: Record<
   ComponentType<PanelComponentProps>
 > = {
   float: FloatPanel,
+  bar: BarPanel,
   boolean: BooleanPanel,
   string: StringPanel,
 };
@@ -70,6 +73,33 @@ function floatTooltipRows(
   });
 }
 
+function barTooltipRows(
+  entry: PanelEntry,
+  hoveredIdx: number,
+  active: boolean,
+  options: TooltipRowOptions,
+): TooltipRow[] {
+  const { series, values } = entry as BarPanelEntry;
+  return series.map((s, i) => {
+    const v = values[s.key]?.[hoveredIdx];
+    return {
+      label: s.label,
+      // An empty bucket has no bar and no value to report — the dash says the
+      // bucket was covered and held nothing, not that the cursor is off the
+      // series.
+      value:
+        v !== null && v !== undefined
+          ? v.toFixed(options.floatPrecision)
+          : "\u2014",
+      active,
+      swatch: {
+        color: CHART_COLORS[i % CHART_COLORS.length],
+        variant: "area" as const,
+      },
+    };
+  });
+}
+
 function booleanTooltipRows(
   entry: PanelEntry,
   hoveredIdx: number,
@@ -110,6 +140,7 @@ function stringTooltipRows(
 
 const tooltipRowBuilders: Record<PanelEntry["type"], TooltipRowBuilder> = {
   float: floatTooltipRows,
+  bar: barTooltipRows,
   boolean: booleanTooltipRows,
   string: stringTooltipRows,
 };

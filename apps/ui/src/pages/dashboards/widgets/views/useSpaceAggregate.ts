@@ -9,9 +9,11 @@ type UseSpaceAggregateOptions = {
   /** Per-device time aggregation, run before the space fold. */
   agg: AggregationOperator;
   spaceAgg: AggregationOperator;
-  /** `"auto"` follows the window into several buckets; `"whole"` reduces the
-   *  whole period to one bucket (a KPI's period reading). */
-  interval?: "auto" | "whole";
+  /** Bucket width, in the aggregate endpoints' vocabulary: `"auto"` lets the
+   *  server cut the window into buckets, `"whole"` reduces it to one (a KPI's
+   *  period reading), and a pinned width like `"1d"` says what a bucket means
+   *  rather than how many there should be. */
+  interval?: string;
   start?: string;
   end?: string;
   last?: string;

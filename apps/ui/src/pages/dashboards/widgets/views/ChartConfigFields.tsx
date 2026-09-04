@@ -12,6 +12,8 @@ import { InputController } from "@/components/forms/controllers/InputController"
 import { SelectController } from "@/components/forms/controllers/SelectController";
 import { CHART_COLORS } from "@/components/charts/TimeSeriesChart/constants";
 import { AggOption } from "@/hooks/AggOption";
+import { IntervalOption } from "./IntervalOption";
+import { MarkOption } from "./MarkOption";
 import {
   operatorsFor,
   spaceOperatorsFor,
@@ -26,9 +28,26 @@ import { useTagGroups } from "./useTagGroups";
  *  stores `null` for it. */
 const RAW = "raw";
 
+/** The stored width that leaves the choice to the server. */
+const AUTO = "auto";
+
+/** Types whose aggregates are quantities, and so can be drawn as bars — a
+ *  bar's height reads as a magnitude, which an on/off state or a mode has
+ *  none of. Read against what the operator *yields*, not what the attribute
+ *  records: `count` makes a number out of anything. */
+const BAR_CAPABLE_TYPES = new Set(["float", "int"]);
+
+/** How each series is drawn. `line` is the stored default. */
+const MARKS = ["line", "bar"] as const;
+
 /** How "one series per device" reads in the space operator list. The config
  *  stores `null` for it. */
 const NONE = "none";
+
+/** Widths the endpoint offers that a chart has no use for: `raw` hands back
+ *  the stored points and applies no operator at all, and `whole` reduces the
+ *  period to a single bucket — one point is a reading, not a chart. */
+const NON_CHART_INTERVALS = new Set(["raw", "whole"]);
 
 /** True when the criteria select at least one device dimension. */
 export function hasDeviceCriterion(devices: unknown): boolean {
@@ -73,6 +92,11 @@ export const ChartConfigFields: FC<{ control: Control<FieldValues> }> = ({
     name: "config.target",
   });
   const { field: aggField } = useController({ control, name: "config.agg" });
+  const { field: intervalField } = useController({
+    control,
+    name: "config.interval",
+  });
+  const { field: markField } = useController({ control, name: "config.mark" });
   const { field: spaceAggField } = useController({
     control,
     name: "config.space_agg",
@@ -84,6 +108,8 @@ export const ChartConfigFields: FC<{ control: Control<FieldValues> }> = ({
 
   const target = toPickerTarget(targetField.value);
   const agg = (aggField.value as string | null) ?? null;
+  const interval = (intervalField.value as string | undefined) ?? AUTO;
+  const mark = (markField.value as string | undefined) ?? "line";
   const spaceAgg = (spaceAggField.value as string | null) ?? null;
   const groupBy = (groupByField.value as string | null) || null;
 
@@ -113,6 +139,17 @@ export const ChartConfigFields: FC<{ control: Control<FieldValues> }> = ({
     disabled: resultType === null,
   }));
 
+  // Widths come from the same response as the operators, so the ladder a
+  // deployment offers is the backend's to publish — one added there appears
+  // here without a UI change, exactly as `delta` did among the operators.
+  // They are listed unsized: the options endpoint can count buckets only for a
+  // window, and the window is the dashboard's, chosen after the widget is
+  // saved and changed freely afterwards.
+  const intervalOptions = (options?.intervals ?? [])
+    .map((option) => option.interval)
+    .filter((iv) => !NON_CHART_INTERVALS.has(iv))
+    .map((iv) => ({ value: iv, label: <IntervalOption interval={iv} /> }));
+
   // Waits for the type and the matrix — until both are known, "unsupported"
   // cannot be told from "not loaded yet".
   useResetRefusedOperator(agg, dataType, operators, aggField.onChange, null);
@@ -130,6 +167,30 @@ export const ChartConfigFields: FC<{ control: Control<FieldValues> }> = ({
     label: <AggOption name={operator} resultType={resultType} kind="space" />,
     disabled: resultType === null,
   }));
+
+  // What the chart will actually plot: aggregating changes the type (`count`
+  // yields ints whatever went in), and the space fold runs on that in turn.
+  // Undefined until the chain is known — an attribute with no resolved type
+  // yet neither offers bars nor refuses them.
+  const spaceOutputType = spaceAgg
+    ? (spaceOperators.find((o) => o.operator === spaceAgg)?.resultType ??
+      undefined)
+    : timeOutputType;
+  const plottedType = agg ? spaceOutputType : dataType;
+  const barsApply =
+    agg !== null && !!plottedType && BAR_CAPABLE_TYPES.has(plottedType);
+
+  // Refusing bars is not the same as not offering them: `barsApply` is also
+  // false while the coverage read and the operator matrix are still loading,
+  // and resetting on that would turn a saved bar chart back into a line the
+  // moment its editor opened — leaving the form dirty, so the downgrade would
+  // then save. The operator is config and known synchronously; the type has to
+  // resolve before it can refuse anything. Same distinction `spaceRefused`
+  // makes above, and the one `useResetRefusedOperator` documents.
+  const barsRefused =
+    mark === "bar" &&
+    (agg === null ||
+      (plottedType !== undefined && !BAR_CAPABLE_TYPES.has(plottedType)));
 
   // Raw series cannot be space-aggregated, so dropping the time operator also
   // drops the space one; a chain the new types refuse resets the same way the
@@ -151,6 +212,26 @@ export const ChartConfigFields: FC<{ control: Control<FieldValues> }> = ({
       groupByField.onChange(null);
     }
   }, [spaceRefused, spaceAgg, groupBy, spaceAggField, groupByField]);
+
+  // A width only cuts buckets an operator fills, so dropping the operator
+  // drops the width with it — the same rule the space operator follows one
+  // effect up. Charts stored before the field existed arrive without it, and
+  // normalize to the same stored default rather than showing an empty select.
+  useEffect(() => {
+    if (intervalField.value === undefined) intervalField.onChange(AUTO);
+    else if (agg === null && interval !== AUTO) intervalField.onChange(AUTO);
+  }, [agg, interval, intervalField]);
+
+  // Bars need buckets to span and a magnitude to stand for, and a saved chart
+  // can lose either — its operator dropped here, or its device set re-driven
+  // under it to a type that no longer plots as a quantity. Falling back to
+  // lines keeps the widget saveable: the backend refuses bars without an
+  // operator outright. Charts stored before the field existed normalize to the
+  // same stored default.
+  useEffect(() => {
+    if (markField.value === undefined) markField.onChange("line");
+    else if (barsRefused) markField.onChange("line");
+  }, [barsRefused, markField]);
 
   // Deferred so a keystroke doesn't fire a request per character — the query
   // key includes the tag key, and reacting to every intermediate value would
@@ -188,6 +269,18 @@ export const ChartConfigFields: FC<{ control: Control<FieldValues> }> = ({
           ...aggOptions,
         ]}
       />
+      {agg !== null && (
+        <SelectController<FieldValues, "config.interval", string>
+          name="config.interval"
+          control={control}
+          label={t("widgets.chart.interval.label")}
+          description={t("widgets.chart.interval.description")}
+          options={[
+            { value: AUTO, label: <IntervalOption interval={AUTO} /> },
+            ...intervalOptions,
+          ]}
+        />
+      )}
       {agg !== null && (
         <SelectController<FieldValues, "config.space_agg", string | null>
           name="config.space_agg"
@@ -240,6 +333,18 @@ export const ChartConfigFields: FC<{ control: Control<FieldValues> }> = ({
               </p>
             )}
         </>
+      )}
+      {barsApply && (
+        <SelectController<FieldValues, "config.mark", string>
+          name="config.mark"
+          control={control}
+          label={t("widgets.chart.mark.label")}
+          description={t("widgets.chart.mark.description")}
+          options={MARKS.map((value) => ({
+            value: value as string,
+            label: <MarkOption name={value} />,
+          }))}
+        />
       )}
     </>
   );

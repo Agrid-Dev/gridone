@@ -26,6 +26,7 @@ import {
   holdLastValueUntil,
   multiSeriesChartProps,
   singleSeriesChartProps,
+  type NumericMark,
 } from "./chartSeries";
 import { useGroupedSpaceAggregate } from "./useGroupedSpaceAggregate";
 import { useSpaceAggregate } from "./useSpaceAggregate";
@@ -116,16 +117,20 @@ function useAggCaptions() {
  * The target's criteria resolve to devices at render time, and every resolved
  * device that exposes the attribute becomes a series on the one chart — or,
  * when the config carries a space aggregation, the set folds into a single
- * series. The period comes from the URL, so the widget owns no time state of
- * its own — not even the bucket width when aggregating, which the API
- * resolves from the window it is given. Which panel the series land on
- * follows from the data type that comes back, so a temperature, an on/off
- * state and a mode each render in their natural form, aggregated or not.
+ * series. The period comes from the URL, so the widget owns no window of its
+ * own; it does own how wide the buckets cut from that window should be, which
+ * it passes through unchecked — a width the period cannot fill is the
+ * endpoint's answer to give, not this view's to second-guess. Which panel the
+ * series land on follows from the data type that comes back, so a
+ * temperature, an on/off state and a mode each render in their natural form,
+ * aggregated or not.
  */
 export const ChartWidgetView: FC<{ config: unknown }> = ({ config }) => {
   const {
     target,
     agg,
+    interval,
+    mark,
     space_agg: spaceAgg,
     group_by: groupBy,
   } = config as ChartWidgetConfig;
@@ -137,13 +142,30 @@ export const ChartWidgetView: FC<{ config: unknown }> = ({ config }) => {
       <GroupedChartView
         target={target}
         agg={agg}
+        interval={interval}
+        mark={mark}
         spaceAgg={spaceAgg}
         groupBy={groupBy}
       />
     );
   if (spaceAgg && agg)
-    return <SpaceChartView target={target} agg={agg} spaceAgg={spaceAgg} />;
-  return <FanOutChartView target={target} agg={agg ?? null} />;
+    return (
+      <SpaceChartView
+        target={target}
+        agg={agg}
+        interval={interval}
+        mark={mark}
+        spaceAgg={spaceAgg}
+      />
+    );
+  return (
+    <FanOutChartView
+      target={target}
+      agg={agg ?? null}
+      interval={interval}
+      mark={mark}
+    />
+  );
 };
 
 /**
@@ -155,8 +177,10 @@ export const ChartWidgetView: FC<{ config: unknown }> = ({ config }) => {
 const SpaceChartView: FC<{
   target: AttributeTarget;
   agg: AggregationOperator;
+  interval?: string;
+  mark?: NumericMark;
   spaceAgg: AggregationOperator;
-}> = ({ target, agg, spaceAgg }) => {
+}> = ({ target, agg, interval, mark = "line", spaceAgg }) => {
   const { t } = useTranslation("dashboards");
   const { query, refetchInterval } = useDashboardPeriod();
   const attributeLabel = useAttributeLabel();
@@ -171,6 +195,7 @@ const SpaceChartView: FC<{
   const result = useSpaceAggregate({
     target,
     agg,
+    interval,
     spaceAgg,
     start: query.start,
     end: query.end,
@@ -184,15 +209,17 @@ const SpaceChartView: FC<{
   if (result.error || !result.data) return queryErrorMessage(result.error);
 
   const data = result.data;
-  // A bucket no series covered has no value — nothing to plot there.
-  const points = data.points
-    .filter((p) => p.value !== null)
-    .map((p) => ({
-      timestamp: p.interval_start,
-      value: p.value as DataPoint["value"],
-    }));
-  if (points.length === 0)
+  // A bucket no series covered has no value. A line drops it and joins across
+  // the gap; bars keep it, because the empty buckets are what set every bar's
+  // width and leave the gap visible. Either way a window of nothing but empty
+  // buckets is "no data", not a chart of blanks.
+  const covered = data.points.filter((p) => p.value !== null);
+  if (covered.length === 0)
     return <Message>{t("widgets.chart.noData")}</Message>;
+  const points = (mark === "bar" ? data.points : covered).map((p) => ({
+    timestamp: p.interval_start,
+    value: p.value as DataPoint["value"],
+  }));
 
   // No device count in the label: series_count is series with history, not
   // the resolved set, and the true contributor count varies per bucket. The
@@ -221,6 +248,7 @@ const SpaceChartView: FC<{
     label,
     points,
     target.attribute,
+    mark,
   );
 
   return <ChartPanels chartProps={chartProps} panelCount={1} />;
@@ -231,9 +259,11 @@ const SpaceChartView: FC<{
 const GroupedChartView: FC<{
   target: AttributeTarget;
   agg: AggregationOperator;
+  interval?: string;
+  mark?: NumericMark;
   spaceAgg: AggregationOperator;
   groupBy: string;
-}> = ({ target, agg, spaceAgg, groupBy }) => {
+}> = ({ target, agg, interval, mark = "line", spaceAgg, groupBy }) => {
   const { t } = useTranslation("dashboards");
   const { query, refetchInterval } = useDashboardPeriod();
   const captions = useAggCaptions();
@@ -245,6 +275,7 @@ const GroupedChartView: FC<{
     target,
     groupBy,
     agg,
+    interval,
     spaceAgg,
     start: query.start,
     end: query.end,
@@ -278,18 +309,24 @@ const GroupedChartView: FC<{
           spaceAgg: captions.space(spaceAgg),
           interval: data.interval,
         });
+  // Same rule as the ungrouped fold: a group with nothing but empty buckets
+  // has nothing to draw and is dropped, while a group that does have values
+  // keeps its empty buckets when drawn as bars — they carry the bar width and
+  // the gaps.
   const series = data.groups
     .map((group) => ({
       key: group.label,
       label: seriesLabel(group.label),
-      points: group.points
-        .filter((p) => p.value !== null)
-        .map((p) => ({
-          timestamp: p.interval_start,
-          value: p.value as DataPoint["value"],
-        })),
+      covered: group.points.filter((p) => p.value !== null),
+      points: (mark === "bar"
+        ? group.points
+        : group.points.filter((p) => p.value !== null)
+      ).map((p) => ({
+        timestamp: p.interval_start,
+        value: p.value as DataPoint["value"],
+      })),
     }))
-    .filter((s) => s.points.length > 0);
+    .filter((s) => s.covered.length > 0);
 
   if (series.length === 0)
     return <Message>{t("widgets.chart.noData")}</Message>;
@@ -298,6 +335,7 @@ const GroupedChartView: FC<{
     data.aggregation_data_type,
     series,
     target.attribute,
+    mark,
   );
 
   // One categorical panel per group for booleans/strings, one shared line
@@ -315,7 +353,9 @@ const GroupedChartView: FC<{
 const FanOutChartView: FC<{
   target: AttributeTarget;
   agg: AggregationOperator | null;
-}> = ({ target, agg }) => {
+  interval?: string;
+  mark?: NumericMark;
+}> = ({ target, agg, interval, mark = "line" }) => {
   const { t } = useTranslation("dashboards");
   const { query, refetchInterval } = useDashboardPeriod();
   const attributeLabel = useAttributeLabel();
@@ -342,6 +382,7 @@ const FanOutChartView: FC<{
     end: query.end,
     last: query.last,
     agg,
+    interval,
     enabled: !unbounded,
     refetchInterval,
   });
@@ -356,14 +397,24 @@ const FanOutChartView: FC<{
   // timestamp has to hold still or the lines re-animate continuously.
   const plotted = useMemo(() => {
     const end = query.end ? new Date(query.end) : new Date();
-    return results
-      .filter((r) => r.series && r.dataType && r.points.length > 0)
-      .map((r) => ({
-        deviceId: r.deviceId,
-        dataType: r.dataType as DataType,
-        interval: r.interval,
-        points: agg ? r.points : holdLastValueUntil(r.points, end),
-      }));
+    return (
+      results
+        .filter((r) => r.series && r.dataType && r.points.length > 0)
+        // An aggregated read is gap-filled, so a device that recorded nothing
+        // over the period still comes back with a full grid of empty buckets —
+        // `points.length > 0` does not mean it has anything to show. As a line
+        // that series was invisible; as bars it takes a slot in every bucket,
+        // narrowing and shifting every other device's bars around a permanently
+        // blank column. Dropping it also lets an all-empty target reach the
+        // "no data" message, the way the folded views already do.
+        .filter((r) => !agg || r.points.some((p) => p.value !== null))
+        .map((r) => ({
+          deviceId: r.deviceId,
+          dataType: r.dataType as DataType,
+          interval: r.interval,
+          points: agg ? r.points : holdLastValueUntil(r.points, end),
+        }))
+    );
   }, [results, agg, query.end]);
 
   if (unbounded) return <Message>{t("widgets.chart.unboundedPeriod")}</Message>;
@@ -415,6 +466,7 @@ const FanOutChartView: FC<{
       points: s.points,
     })),
     target.attribute,
+    mark,
   );
 
   // Booleans and strings each take a panel per series, floats and ints share one.

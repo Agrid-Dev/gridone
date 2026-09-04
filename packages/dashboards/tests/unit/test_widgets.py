@@ -76,10 +76,40 @@ def test_validate_config_returns_concrete_model():
             "type": "chart",
             "target": {"devices": {"search": "th"}, "attribute": "temperature"},
         },
-        {  # extra key — the bucket width is not the widget's to store
+        {  # `raw` silently applies no operator — a chart would caption an agg
+            # it never ran
             "type": "chart",
-            "target": {"devices": {"ids": ["d1"]}, "attribute": "temperature"},
-            "interval": "1h",
+            "target": {"devices": {"ids": ["d1"]}, "attribute": "energy"},
+            "agg": "delta",
+            "interval": "raw",
+        },
+        {  # `whole` reduces the period to the single point a KPI shows
+            "type": "chart",
+            "target": {"devices": {"ids": ["d1"]}, "attribute": "energy"},
+            "agg": "delta",
+            "interval": "whole",
+        },
+        {  # not a width at all — refused before storage, not at render
+            "type": "chart",
+            "target": {"devices": {"ids": ["d1"]}, "attribute": "energy"},
+            "agg": "delta",
+            "interval": "banana",
+        },
+        {  # a width with no operator to fill its buckets
+            "type": "chart",
+            "target": {"devices": {"ids": ["d1"]}, "attribute": "energy"},
+            "interval": "1d",
+        },
+        {  # bars span buckets, and a raw series has none
+            "type": "chart",
+            "target": {"devices": {"ids": ["d1"]}, "attribute": "energy"},
+            "mark": "bar",
+        },
+        {  # not a mark the chart knows how to draw
+            "type": "chart",
+            "target": {"devices": {"ids": ["d1"]}, "attribute": "energy"},
+            "agg": "delta",
+            "mark": "scatter",
         },
         {"type": "device_control"},  # missing device_id
         {"type": "device_control", "device_id": ""},  # empty device_id
@@ -295,6 +325,70 @@ def test_chart_config_accepts_an_operator():
 
     assert isinstance(config, ChartWidgetConfig)
     assert config.agg is AggregationOperator.AVG
+
+
+def test_chart_config_defaults_to_a_line_mark():
+    # Charts stored before bars existed keep drawing as they always have.
+    registry = build_default_registry()
+
+    config = registry.validate_config(
+        {
+            "type": "chart",
+            "target": {"devices": {"ids": ["d1"]}, "attribute": "temperature"},
+        }
+    )
+
+    assert isinstance(config, ChartWidgetConfig)
+    assert config.mark == "line"
+
+
+def test_chart_config_accepts_bars_over_buckets():
+    registry = build_default_registry()
+
+    config = registry.validate_config(
+        {
+            "type": "chart",
+            "target": {"devices": {"ids": ["d1"]}, "attribute": "energy"},
+            "agg": "delta",
+            "interval": "1d",
+            "mark": "bar",
+        }
+    )
+
+    assert isinstance(config, ChartWidgetConfig)
+    assert config.mark == "bar"
+
+
+def test_chart_config_defaults_to_an_automatic_interval():
+    # Charts stored before the width was pinnable keep resolving it server-side.
+    registry = build_default_registry()
+
+    config = registry.validate_config(
+        {
+            "type": "chart",
+            "target": {"devices": {"ids": ["d1"]}, "attribute": "temperature"},
+            "agg": "avg",
+        }
+    )
+
+    assert isinstance(config, ChartWidgetConfig)
+    assert config.interval == "auto"
+
+
+def test_chart_config_accepts_a_pinned_interval():
+    registry = build_default_registry()
+
+    config = registry.validate_config(
+        {
+            "type": "chart",
+            "target": {"devices": {"ids": ["d1"]}, "attribute": "energy"},
+            "agg": "delta",
+            "interval": "1d",
+        }
+    )
+
+    assert isinstance(config, ChartWidgetConfig)
+    assert config.interval == "1d"
 
 
 def test_chart_config_rejects_an_unknown_operator():
