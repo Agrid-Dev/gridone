@@ -34,9 +34,9 @@ class ChartWidgetConfig(WidgetConfig):
     has to know which combinations exist.
     """
 
-    interval: str = "auto"
+    interval: Annotated[str, Field(pattern=r"^(auto|[1-9]\d*(min|h|d|mo))$")] = "auto"
     """Bucket width the readings are reduced over; ``"auto"`` lets the server
-    pick one from the dashboard period. Only meaningful alongside ``agg``.
+    pick one from the dashboard period. Requires ``agg``.
 
     Stored, unlike the period itself, because ``"auto"`` targets a bucket
     *count* rather than a bucket *meaning*: over a week it resolves to hourly
@@ -46,12 +46,18 @@ class ChartWidgetConfig(WidgetConfig):
     the chart draws whatever the timeseries endpoint returns for that pair.
 
     Kept a plain string rather than the timeseries package's ``Interval``: the
-    vocabulary ("auto", "whole", "raw", "15min", "1h", "1d", "1mo") is the
-    aggregate endpoints' own, and naming it here would either import sideways
-    from a sibling service or restate a list that would then drift. The editor
-    offers what ``GET /timeseries/aggregate/options`` reports, and an
-    unparseable width is refused when the series is read — the same division of
-    labour as ``agg``.
+    ladder a deployment offers is the aggregate endpoints' own, and naming it
+    here would either import sideways from a sibling service or restate a list
+    that would then drift. The editor offers what
+    ``GET /timeseries/aggregate/options`` reports.
+
+    The pattern constrains the *grammar*, not that ladder, so a width added
+    server-side still validates while a typo no longer reaches storage to fail
+    at render. It also excludes the two widths that are not chart widths:
+    ``raw`` returns the stored points and silently applies no operator at all —
+    a chart would still caption itself with the ``agg`` it never ran — and
+    ``whole`` reduces the period to the single point a KPI shows. Whether a
+    *well-formed* width suits the period stays the read's answer to give.
     """
 
     space_agg: AggregationOperator | None = None
@@ -77,6 +83,13 @@ class ChartWidgetConfig(WidgetConfig):
     @classmethod
     def _strip_group_by(cls, value: Any) -> Any:  # noqa: ANN401
         return value.strip() if isinstance(value, str) else value
+
+    @model_validator(mode="after")
+    def _validate_interval(self) -> ChartWidgetConfig:
+        if self.interval != "auto" and self.agg is None:
+            msg = "interval requires agg: raw readings are not cut into buckets"
+            raise ValueError(msg)
+        return self
 
     @model_validator(mode="after")
     def _validate_space_agg(self) -> ChartWidgetConfig:

@@ -600,6 +600,53 @@ class TestIntervalValidation:
         )
         assert str(result.interval) == interval
 
+    async def test_pinned_interval_over_the_bucket_limit_is_refused(
+        self, ts_service: TimeSeriesService
+    ) -> None:
+        """A width the caller names is held to the same bound as ``auto``.
+
+        Buckets are gap-filled, so the backend materialises every one of them
+        per series — a minute bucket over a year is half a million rows before
+        a value is read. ``auto`` can never ask for that; a pinned width could.
+        """
+        key = SeriesKey(owner_id="interval-huge", metric="temp")
+        await ts_service.create_series(
+            data_type=DataType.FLOAT, owner_id=key.owner_id, metric=key.metric
+        )
+
+        with pytest.raises(InvalidError, match="over the limit"):
+            await ts_service.get_aggregate(
+                key,
+                AggregationQuery(
+                    agg=AggregationOperator.AVG,
+                    interval=Interval.model_validate("1min"),
+                    start=datetime(2026, 1, 1, tzinfo=UTC),
+                    end=datetime(2027, 1, 1, tzinfo=UTC),
+                ),
+            )
+
+    async def test_whole_is_exempt_from_the_bucket_limit(
+        self, ts_service: TimeSeriesService
+    ) -> None:
+        # Neither "whole" nor "raw" cuts the period into a grid, so no count
+        # to bound — a year reduced to one bucket stays legal.
+        key = SeriesKey(owner_id="interval-whole", metric="temp")
+        await ts_service.create_series(
+            data_type=DataType.FLOAT, owner_id=key.owner_id, metric=key.metric
+        )
+
+        result = await ts_service.get_aggregate(
+            key,
+            AggregationQuery(
+                agg=AggregationOperator.AVG,
+                interval="whole",
+                start=datetime(2026, 1, 1, tzinfo=UTC),
+                end=datetime(2027, 1, 1, tzinfo=UTC),
+            ),
+        )
+
+        assert result.interval == "whole"
+
 
 class TestAutoIntervalService:
     async def test_auto_interval_resolves_to_1h_for_7d(

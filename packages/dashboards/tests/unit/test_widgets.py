@@ -76,6 +76,30 @@ def test_validate_config_returns_concrete_model():
             "type": "chart",
             "target": {"devices": {"search": "th"}, "attribute": "temperature"},
         },
+        {  # `raw` silently applies no operator — a chart would caption an agg
+            # it never ran
+            "type": "chart",
+            "target": {"devices": {"ids": ["d1"]}, "attribute": "energy"},
+            "agg": "delta",
+            "interval": "raw",
+        },
+        {  # `whole` reduces the period to the single point a KPI shows
+            "type": "chart",
+            "target": {"devices": {"ids": ["d1"]}, "attribute": "energy"},
+            "agg": "delta",
+            "interval": "whole",
+        },
+        {  # not a width at all — refused before storage, not at render
+            "type": "chart",
+            "target": {"devices": {"ids": ["d1"]}, "attribute": "energy"},
+            "agg": "delta",
+            "interval": "banana",
+        },
+        {  # a width with no operator to fill its buckets
+            "type": "chart",
+            "target": {"devices": {"ids": ["d1"]}, "attribute": "energy"},
+            "interval": "1d",
+        },
         {"type": "device_control"},  # missing device_id
         {"type": "device_control", "device_id": ""},  # empty device_id
         {  # live-only widget: no period mode/operator to store
