@@ -11,6 +11,10 @@ type UseWebSocketOptions<TMessage> = {
   url: string;
   enabled?: boolean;
   onMessage?: (message: TMessage) => void;
+  /** Read at every connect attempt: a credential in cookie storage is not reactive. */
+  getProtocols?: () => string[] | undefined;
+  /** Awaited before each reconnect, so an expired credential can be renewed first. */
+  beforeReconnect?: () => Promise<void>;
 };
 
 const MAX_BACKOFF_MS = 30000;
@@ -27,6 +31,8 @@ export function useWebSocket<TMessage = unknown>({
   url,
   enabled = true,
   onMessage,
+  getProtocols,
+  beforeReconnect,
 }: UseWebSocketOptions<TMessage>) {
   const [status, setStatus] = useState<WebSocketStatus>("idle");
   const [lastMessage, setLastMessage] = useState<TMessage | null>(null);
@@ -34,9 +40,13 @@ export function useWebSocket<TMessage = unknown>({
   const reconnectTimer = useRef<number | null>(null);
   const reconnectAttempts = useRef(0);
   const onMessageRef = useRef(onMessage);
+  const getProtocolsRef = useRef(getProtocols);
+  const beforeReconnectRef = useRef(beforeReconnect);
   const effectRunCountRef = useRef(0);
 
   onMessageRef.current = onMessage;
+  getProtocolsRef.current = getProtocols;
+  beforeReconnectRef.current = beforeReconnect;
 
   const disconnectRef = useRef<(() => void) | null>(null);
   const disconnect = useCallback(() => {
@@ -93,7 +103,7 @@ export function useWebSocket<TMessage = unknown>({
 
     const connect = () => {
       setStatus("connecting");
-      const socket = new WebSocket(url);
+      const socket = new WebSocket(url, getProtocolsRef.current?.());
       socketRef.current = socket;
 
       socket.onopen = () => {
@@ -121,7 +131,13 @@ export function useWebSocket<TMessage = unknown>({
         const nextAttempt = reconnectAttempts.current;
         reconnectAttempts.current += 1;
         const delay = Math.min(MAX_BACKOFF_MS, 1000 * 2 ** nextAttempt);
-        reconnectTimer.current = window.setTimeout(connect, delay);
+        reconnectTimer.current = window.setTimeout(() => {
+          void Promise.resolve(beforeReconnectRef.current?.())
+            .catch(() => {})
+            .then(() => {
+              if (shouldReconnect) connect();
+            });
+        }, delay);
       };
     };
 

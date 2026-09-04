@@ -11,7 +11,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from api.dependencies import get_apps_service, get_current_token_payload
+from api.auth import get_current_token_payload
+from api.dependencies import get_apps_service
 from api.exception_handlers import register_exception_handlers
 from api.routes.apps import apps_router
 from apps import App, AppStatus, PushStatus

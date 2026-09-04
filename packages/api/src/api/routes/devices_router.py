@@ -5,11 +5,8 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
-from api.dependencies import (
-    get_device_manager,
-    get_ts_service,
-    require_permission,
-)
+from api.auth import require_permission
+from api.dependencies import get_device_manager, get_ts_service
 from api.devices_filter import parse_tags_params, to_list_devices_kwargs
 from api.permissions import Permission
 from api.routes.command_router import router as command_router

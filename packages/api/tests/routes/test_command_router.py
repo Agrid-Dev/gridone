@@ -11,12 +11,8 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from api.dependencies import (
-    get_commands_service,
-    get_current_token_payload,
-    get_current_user_id,
-    get_target_resolver,
-)
+from api.auth import get_current_token_payload, get_current_user_id
+from api.dependencies import get_commands_service, get_target_resolver
 from api.exception_handlers import register_exception_handlers
 from api.routes.command_router import router
 from commands import (

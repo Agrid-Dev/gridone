@@ -54,3 +54,30 @@ All routes are defined in this package (not in `gridone-users`).
 - `DELETE /users/{user_id}`:
   - Requires bearer token
   - Deletes one user (self-delete forbidden)
+
+## WebSocket telemetry feed
+
+`GET /ws/devices` streams every device attribute change as it happens. It is the
+only WebSocket route; the former `/ws` alias was removed.
+
+The handshake requires a valid access token for a non-blocked account — any role
+qualifies, since the lowest one already holds `devices:read`. Two ways to present
+the token:
+
+- **Browsers** offer two subprotocols, since a browser `WebSocket` cannot set
+  headers:
+
+  ```js
+  new WebSocket(url, ["gridone", `gridone.auth.bearer.${accessToken}`]);
+  ```
+
+  The server negotiates `gridone`, so the token is never echoed back.
+
+- **Other clients** may send `Authorization: Bearer <access_token>` instead.
+
+An unauthenticated or untrusted handshake is rejected before `accept()` — uvicorn
+answers it with HTTP 403, so the client never reaches an open socket.
+
+The session is bound to the token that opened it: when the access token's `exp`
+passes, the server closes the socket with code 1008 and reason `Token expired`.
+Clients are expected to refresh their token and reconnect.

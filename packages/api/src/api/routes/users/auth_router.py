@@ -3,11 +3,8 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, status
 from pydantic import BaseModel
 
-from api.dependencies import (
-    get_auth_service,
-    get_current_user_id,
-    get_users_service,
-)
+from api.auth import get_current_user_id
+from api.dependencies import get_auth_service, get_users_service
 from api.permissions import get_permissions_for_role
 from models.errors import NotFoundError
 from users import UsersService
