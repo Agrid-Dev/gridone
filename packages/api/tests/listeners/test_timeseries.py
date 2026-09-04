@@ -4,8 +4,6 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from api.listeners.timeseries import historise_attribute_update
-from api.listeners.websocket import broadcast_attribute_update
-from api.websocket.manager import WebSocketManager
 from devices_manager import Attribute
 from devices_manager.types import DataType
 from timeseries import TimeSeriesService
@@ -31,21 +29,6 @@ def _make_attribute(value: float = 21.0) -> Attribute:
         last_updated=_NOW,
         last_changed=_NOW,
     )
-
-
-class TestBroadcastAttributeUpdate:
-    async def test_broadcasts_device_update_message(self):
-        websocket_manager = AsyncMock(spec=WebSocketManager)
-        listener = broadcast_attribute_update(websocket_manager)
-
-        device = _make_device("dev-1")
-        await listener(device, "temperature", None, _make_attribute(21.0))
-
-        websocket_manager.broadcast.assert_awaited_once()
-        message = websocket_manager.broadcast.call_args.args[0]
-        assert message.device_id == "dev-1"
-        assert message.attribute == "temperature"
-        assert message.value == 21.0
 
 
 class TestHistoriseAttributeUpdate:

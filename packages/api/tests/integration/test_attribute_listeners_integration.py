@@ -109,7 +109,7 @@ class TestBroadcastPersistIsolation:
         """A raising broadcast listener must not block persistence.
 
         Registers listeners the same way `app.py`'s lifespan does, against a
-        real `DevicesService` (as opposed to test_attribute_listeners.py,
+        real `DevicesService` (as opposed to tests/listeners/test_websocket.py,
         which calls the listener coroutines directly) to prove that
         registering the two concerns as separate listeners — rather than one
         coroutine awaiting both in sequence — gives each its own background
