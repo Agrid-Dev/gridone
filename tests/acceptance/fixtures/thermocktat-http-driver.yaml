@@ -3,7 +3,7 @@
 # thermocktat_http.yaml), plus test-env deltas: fast polling (2s) so read-back
 # assertions resolve quickly, and a fault_code attribute mapped to readable
 # labels through the mapping codec and declared `kind: fault` so healthy/
-# faulty transitions dispatch notifications (api/notification_listeners/fault.py).
+# faulty transitions dispatch notifications (api/listeners/fault.py).
 #
 # NOTE: the reference file uses an attribute-level `json_pointer:` shorthand
 # that current gridone silently ignores (AttributeDriver only reads `codecs:`,

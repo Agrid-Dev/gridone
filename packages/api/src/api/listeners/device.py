@@ -1,6 +1,6 @@
 from collections.abc import Awaitable, Callable
 
-from api.notification_listeners import RecipientsGetter
+from api.listeners import RecipientsGetter
 from devices_manager import CoreDevice
 from models.resource_reference import ResourceReference
 from models.types import Severity
