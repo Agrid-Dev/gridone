@@ -12,8 +12,8 @@ from api.permissions import get_permissions_for_role
 from models.errors import NotFoundError
 from users import UsersService
 from users.auth import AuthService, InvalidTokenError
-from users.models import Role
-from users.validation import get_auth_payload_schema
+from users.models import Role, User
+from users.validation import PasswordField, get_auth_payload_schema
 
 router = APIRouter()
 
@@ -204,13 +204,39 @@ class MeResponse(BaseModel):
     permissions: list[str]
 
 
+def _me_response(user: User) -> MeResponse:
+    return MeResponse(
+        **user.model_dump(),
+        permissions=get_permissions_for_role(user.role),
+    )
+
+
 @router.get("/me")
 async def get_me(
     current_user_id: Annotated[str, Depends(get_current_user_id)],
     um: Annotated[UsersService, Depends(get_users_service)],
 ) -> MeResponse:
     user = await um.get_by_id(current_user_id)
-    return MeResponse(
-        **user.model_dump(),
-        permissions=get_permissions_for_role(user.role),
+    return _me_response(user)
+
+
+class PasswordChangeRequest(BaseModel):
+    # Unbounded: a bound would answer 422 on a wrong guess, revealing the check.
+    current_password: str
+    new_password: PasswordField
+
+
+@router.post("/password")
+async def change_password(
+    body: PasswordChangeRequest,
+    current_user_id: Annotated[str, Depends(get_current_user_id)],
+    um: Annotated[UsersService, Depends(get_users_service)],
+) -> MeResponse:
+    """Change your own password. No ``users:write`` required.
+
+    Mounted outside ``jwt_dep`` so a flagged user can still reach it.
+    """
+    user = await um.change_password(
+        current_user_id, body.current_password, body.new_password
     )
+    return _me_response(user)

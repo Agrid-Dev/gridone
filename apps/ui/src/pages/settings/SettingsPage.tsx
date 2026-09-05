@@ -1,19 +1,17 @@
 import { useEffect, useMemo } from "react";
-import { AlertCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { type MeResponse } from "@gridone/sdk";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
+import { useAuthSchemaBounds } from "@/hooks/useAuthSchemaBounds";
 import { serverErrorMessage } from "@/lib/serverErrorMessage";
-import { getAuthSchema } from "@/lib/authSchema";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Card,
   CardContent,
@@ -22,11 +20,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { InputController } from "@/components/forms/controllers/InputController";
-
-/** A user-safe message for a failed save — never leaks raw server internals. */
-function toErrorMessage(err: unknown, fallback: string): string {
-  return serverErrorMessage(err) ?? fallback;
-}
+import { PasswordChangeCard } from "./PasswordChangeCard";
 
 type ProfileFormValues = {
   username: string;
@@ -109,7 +103,7 @@ function ProfileSection({
       toast.success(t("settings.saved"));
       form.reset(values);
     } catch (err) {
-      const message = toErrorMessage(err, t("common.error"));
+      const message = serverErrorMessage(err) ?? t("common.error");
       form.setError("root", { message });
       toast.error(message);
     }
@@ -183,175 +177,12 @@ function ProfileSection({
   );
 }
 
-type SecurityFormValues = {
-  password: string;
-  confirmPassword: string;
-};
-
-type SecuritySectionProps = {
-  user: MeResponse;
-  refreshMe: () => Promise<MeResponse>;
-  passwordMin: number;
-  passwordMax: number;
-};
-
-function SecuritySection({
-  user,
-  refreshMe,
-  passwordMin,
-  passwordMax,
-}: SecuritySectionProps) {
-  const { t } = useTranslation();
-  const client = useGridoneClient();
-
-  const schema = useMemo(
-    () =>
-      z
-        .object({
-          password: z
-            .string()
-            .min(
-              passwordMin,
-              t("settings.validation.passwordMinLength", {
-                count: passwordMin,
-              }),
-            )
-            .max(
-              passwordMax,
-              t("settings.validation.passwordMaxLength", {
-                count: passwordMax,
-              }),
-            ),
-          confirmPassword: z.string(),
-        })
-        .superRefine((values, ctx) => {
-          if (values.confirmPassword.length === 0) {
-            ctx.addIssue({
-              code: z.ZodIssueCode.custom,
-              path: ["confirmPassword"],
-              message: t("settings.validation.confirmPasswordRequired"),
-            });
-          } else if (values.confirmPassword !== values.password) {
-            ctx.addIssue({
-              code: z.ZodIssueCode.custom,
-              path: ["confirmPassword"],
-              message: t("settings.passwordMismatch"),
-            });
-          }
-        }),
-    [t, passwordMin, passwordMax],
-  );
-
-  const form = useForm<SecurityFormValues>({
-    resolver: zodResolver(schema),
-    defaultValues: { password: "", confirmPassword: "" },
-  });
-
-  const handleSubmit = form.handleSubmit(async (values) => {
-    form.clearErrors("root");
-    try {
-      await client.users.update(user.id, { password: values.password });
-
-      await refreshMe();
-      toast.success(t("settings.passwordUpdated"));
-      form.reset({ password: "", confirmPassword: "" });
-    } catch (err) {
-      const message = toErrorMessage(err, t("common.error"));
-      form.setError("root", { message });
-      toast.error(message);
-    }
-  });
-
-  const isSubmitting = form.formState.isSubmitting;
-  const isDirty = form.formState.isDirty;
-
-  return (
-    <form onSubmit={handleSubmit}>
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("settings.sections.security.title")}</CardTitle>
-          <CardDescription>
-            {t("settings.sections.security.description")}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {user.must_change_password && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>{t("settings.mustChangePasswordTitle")}</AlertTitle>
-              <AlertDescription>
-                {t("settings.mustChangePassword")}
-              </AlertDescription>
-            </Alert>
-          )}
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <InputController
-              name="password"
-              control={form.control}
-              type="password"
-              label={t("settings.newPassword")}
-              inputProps={{
-                disabled: isSubmitting,
-                placeholder: t("settings.newPasswordPlaceholder"),
-              }}
-            />
-            <InputController
-              name="confirmPassword"
-              control={form.control}
-              type="password"
-              label={t("settings.confirmPassword")}
-              inputProps={{
-                disabled: isSubmitting,
-                placeholder: t("settings.confirmPasswordPlaceholder"),
-              }}
-            />
-          </div>
-
-          {form.formState.errors.root?.message && (
-            <Alert variant="destructive">
-              <AlertDescription>
-                {form.formState.errors.root.message}
-              </AlertDescription>
-            </Alert>
-          )}
-
-          <div className="flex justify-end gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => form.reset({ password: "", confirmPassword: "" })}
-              disabled={isSubmitting || !isDirty}
-            >
-              {t("common.cancel")}
-            </Button>
-            <Button type="submit" disabled={isSubmitting || !isDirty}>
-              {isSubmitting ? t("common.saving") : t("settings.updatePassword")}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    </form>
-  );
-}
-
 export default function SettingsPage() {
   const { t } = useTranslation();
   const { state, refreshMe } = useAuth();
-  const client = useGridoneClient();
+  const { username: usernameBounds } = useAuthSchemaBounds();
 
   const user = state.status === "authenticated" ? state.user : null;
-
-  const { data: authSchema } = useQuery({
-    queryKey: ["auth-schema"],
-    queryFn: () => getAuthSchema(client),
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const usernameMin = authSchema?.properties?.username?.minLength ?? 3;
-  const usernameMax = authSchema?.properties?.username?.maxLength ?? 64;
-  const passwordMin = authSchema?.properties?.password?.minLength ?? 5;
-  const passwordMax = authSchema?.properties?.password?.maxLength ?? 128;
 
   if (!user) return null;
 
@@ -362,16 +193,11 @@ export default function SettingsPage() {
       <ProfileSection
         user={user}
         refreshMe={refreshMe}
-        usernameMin={usernameMin}
-        usernameMax={usernameMax}
+        usernameMin={usernameBounds.min}
+        usernameMax={usernameBounds.max}
       />
 
-      <SecuritySection
-        user={user}
-        refreshMe={refreshMe}
-        passwordMin={passwordMin}
-        passwordMax={passwordMax}
-      />
+      <PasswordChangeCard user={user} refreshMe={refreshMe} />
     </section>
   );
 }

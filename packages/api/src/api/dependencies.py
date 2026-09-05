@@ -11,14 +11,20 @@ from apps import AppsService
 from assets import AssetsService
 from commands import CommandsServiceInterface
 from devices_manager import DevicesServiceInterface
+from models.errors import NotFoundError
 from models.pagination import PaginationParams
 from notifications import NotificationsServiceInterface
 from timeseries import TimeSeriesService
 from users import UsersService
 from users.auth import AuthService, InvalidTokenError, TokenPayload
-from users.models import Role
+from users.models import Role, User
 
 _oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token", auto_error=False)
+
+PASSWORD_CHANGE_REQUIRED = (
+    "You must change your password before using this API. "  # noqa: S105 (a message)
+    "Submit the change to POST /auth/password."
+)
 
 
 def get_device_manager(request: Request) -> DevicesServiceInterface:
@@ -91,16 +97,43 @@ async def get_current_token_payload(
         ) from e
 
 
-async def get_current_user_id(
+async def get_current_user(
     payload: TokenPayload = Depends(get_current_token_payload),
     users_service: UsersService = Depends(get_users_service),
+) -> User | None:
+    """The authenticated user, or None if the account no longer exists.
+
+    Cached per request, so the checks below share one storage read.
+    """
+    try:
+        return await users_service.get_by_id(payload.sub)
+    except NotFoundError:
+        return None
+
+
+async def get_current_user_id(
+    payload: TokenPayload = Depends(get_current_token_payload),
+    user: User | None = Depends(get_current_user),
 ) -> str:
-    if await users_service.is_blocked(payload.sub):
+    if user is not None and user.is_blocked:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Your account has been blocked. Contact an administrator.",
         )
     return payload.sub
+
+
+async def require_password_changed(
+    user_id: str = Depends(get_current_user_id),
+    user: User | None = Depends(get_current_user),
+) -> str:
+    """Refuse a user who still owes a password change."""
+    if user is not None and user.must_change_password:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=PASSWORD_CHANGE_REQUIRED,
+        )
+    return user_id
 
 
 def require_permission(perm: Permission) -> Callable:

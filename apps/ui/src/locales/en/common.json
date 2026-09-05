@@ -71,8 +71,11 @@
       "emailInvalid": "Enter a valid email address.",
       "passwordMinLength": "Password must be at least {{count}} characters.",
       "passwordMaxLength": "Password must be at most {{count}} characters.",
-      "confirmPasswordRequired": "Please confirm your new password."
-    }
+      "confirmPasswordRequired": "Please confirm your new password.",
+      "currentPasswordRequired": "Enter your current password."
+    },
+    "currentPassword": "Current password",
+    "currentPasswordPlaceholder": "Enter your current password"
   },
   "common": {
     "update": "Update",

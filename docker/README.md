@@ -32,6 +32,7 @@ All configuration is via environment variables passed to the container.
 | `NGINX_BIND_ADDRESS` | `0.0.0.0` | Address nginx binds `:8765` to. Set `127.0.0.1` to expose only to loopback |
 | `COOKIE_SECURE` | `true` | `Secure` flag on auth cookies. Set `false` only when served over **plain HTTP** |
 | `SECRET_KEY` | _(random)_ | Token signing key. **Set a fixed value** in production so sessions survive restarts |
+| `GRIDONE_ADMIN_PASSWORD` | _(generated)_ | Password for the `admin` account, seeded **only** on first boot against an empty database. Left unset, a password is generated and logged once at `WARNING`, and must be changed via `POST /auth/password` before the account can use the authenticated HTTP routes |
 
 See [`apps/api_server/README.md`](../apps/api_server/README.md) for the full settings reference (tracing, logging, migrations).
 

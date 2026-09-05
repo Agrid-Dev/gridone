@@ -12,7 +12,7 @@ from fastapi import Depends, FastAPI
 
 from api.action_providers.commands import CommandsActionProvider
 from api.action_providers.notifications import NotificationsActionProvider
-from api.dependencies import get_current_user_id
+from api.dependencies import require_password_changed
 from api.exception_handlers import register_exception_handlers
 from api.listeners.device import on_device_discovered
 from api.listeners.fault import on_fault_transition
@@ -95,7 +95,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.device_manager = dm
     app.state.ts_service = ts_service
 
-    users_service = UsersService(settings.storage_url)
+    users_service = UsersService(
+        settings.storage_url, admin_password=settings.GRIDONE_ADMIN_PASSWORD
+    )
     await users_service.start()
     app.state.users_service = users_service
 
@@ -215,8 +217,8 @@ def create_app(*, logging_dict_config: dict | None = None) -> FastAPI:
     )
 
     # Protected routes — permissions are enforced per endpoint inside each router.
-    # A blanket JWT dep is still applied so unauthenticated requests get a 401.
-    jwt_dep = [Depends(get_current_user_id)]
+    # Unauthenticated requests get a 401 here, flagged users a 403.
+    jwt_dep = [Depends(require_password_changed)]
     app.include_router(
         users_router, prefix="/users", tags=["users"], dependencies=jwt_dep
     )
