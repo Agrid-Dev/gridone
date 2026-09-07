@@ -1,3 +1,9 @@
+## v0.223.0 (2026-09-07)
+
+### Feat
+
+- **ui**: add per-room weekly schedule editor (#598)
+
 ## v0.222.1 (2026-09-07)
 
 ### Perf
