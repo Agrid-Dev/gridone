@@ -16,7 +16,8 @@ export type SemanticColor =
   | "hvacCool"
   | "hvacFan"
   | "hvacDry"
-  | "hvacAuto";
+  | "hvacAuto"
+  | "water";
 
 /** The status slice of {@link SemanticColor} — used for severities and status. */
 export type StatusLevel = Extract<
@@ -35,6 +36,7 @@ const CSS_VAR: Record<SemanticColor, string> = {
   hvacFan: "--hvac-fan",
   hvacDry: "--hvac-dry",
   hvacAuto: "--hvac-auto",
+  water: "--water",
 };
 
 /** Raw colour value for SVG / chart fills. */
@@ -53,6 +55,7 @@ export const SEMANTIC_TEXT_CLASS: Record<SemanticColor, string> = {
   hvacFan: "text-hvac-fan",
   hvacDry: "text-hvac-dry",
   hvacAuto: "text-hvac-auto",
+  water: "text-water",
 };
 
 /** Group-hover text-colour utility per token (literal classes for Tailwind). */
@@ -66,6 +69,7 @@ export const SEMANTIC_HOVER_TEXT_CLASS: Record<SemanticColor, string> = {
   hvacFan: "group-hover:text-hvac-fan",
   hvacDry: "group-hover:text-hvac-dry",
   hvacAuto: "group-hover:text-hvac-auto",
+  water: "group-hover:text-water",
 };
 
 /** Solid fill utility per token (dots, indicators). */
@@ -79,6 +83,7 @@ export const SEMANTIC_BG_CLASS: Record<SemanticColor, string> = {
   hvacFan: "bg-hvac-fan",
   hvacDry: "bg-hvac-dry",
   hvacAuto: "bg-hvac-auto",
+  water: "bg-water",
 };
 
 /** Fault severity mapped onto a semantic status level. */

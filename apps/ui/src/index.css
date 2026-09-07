@@ -55,6 +55,10 @@
     --hvac-fan: 142 71% 45%;
     --hvac-dry: 187 71% 42%;
     --hvac-auto: 48 96% 53%;
+    /* Hydraulic blue: liquid present at a probe. Its own token rather than
+       a borrowed --status-info (which means info severity) or --hvac-cool
+       (which means the unit is cooling) — near in hue, wrong in meaning. */
+    --water: 206 88% 42%;
   }
 
   .dark {
@@ -107,6 +111,7 @@
     --hvac-fan: 142 65% 55%;
     --hvac-dry: 187 65% 55%;
     --hvac-auto: 48 90% 60%;
+    --water: 206 84% 60%;
   }
 }
 

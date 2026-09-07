@@ -3,6 +3,9 @@ import { cn } from "@/lib/utils";
 
 type ControlPanelProps = {
   size?: "sm" | "lg" | "full";
+  /** Extra classes on the panel itself — for a type that tints the whole
+   *  surface on an alarm state (e.g. a leaking detector). */
+  className?: string;
   modeChip?: ReactNode;
   headerLabel?: ReactNode;
   footer?: ReactNode;
@@ -11,6 +14,7 @@ type ControlPanelProps = {
 
 export function ControlPanel({
   size = "sm",
+  className,
   modeChip,
   headerLabel,
   footer,
@@ -24,6 +28,7 @@ export function ControlPanel({
         "mx-auto w-full rounded-2xl border bg-card shadow-lg",
         size === "sm" && "max-w-sm",
         size === "lg" && "max-w-2xl",
+        className,
       )}
     >
       {hasHeader && (

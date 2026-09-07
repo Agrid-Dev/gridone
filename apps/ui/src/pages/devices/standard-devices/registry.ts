@@ -18,6 +18,10 @@ import {
 import { AhuDoubleFluxPreview, AhuDoubleFluxControl } from "./ahu-double-flux";
 import { AhuSingleFluxPreview, AhuSingleFluxControl } from "./ahu-single-flux";
 import { AirExtractorPreview, AirExtractorControl } from "./air-extractor";
+import {
+  LiquidDetectorPreview,
+  LiquidDetectorControl,
+} from "./liquid-detector";
 import type { StandardPreviewProps, StandardControlProps } from "./types";
 
 export type { StandardPreviewProps, StandardControlProps } from "./types";
@@ -61,6 +65,10 @@ const registry: Partial<Record<DeviceType, StandardDeviceEntry>> = {
   [DeviceType.AirExtractor]: {
     Preview: AirExtractorPreview,
     Control: AirExtractorControl,
+  },
+  [DeviceType.LiquidDetector]: {
+    Preview: LiquidDetectorPreview,
+    Control: LiquidDetectorControl,
   },
 };
 
