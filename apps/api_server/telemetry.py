@@ -66,6 +66,7 @@ def setup_optin_telemetry(
     from opentelemetry.instrumentation.logging import LoggingInstrumentor
     from opentelemetry.sdk.metrics import MeterProvider
     from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+    from opentelemetry.sdk.metrics.view import ExplicitBucketHistogramAggregation, View
     from opentelemetry.sdk.resources import Resource
     from opentelemetry.sdk.trace import TracerProvider
     from opentelemetry.sdk.trace.export import BatchSpanProcessor
@@ -87,10 +88,30 @@ def setup_optin_telemetry(
         if metric_reader is not None
         else PeriodicExportingMetricReader(OTLPMetricExporter())
     )
-    meter_provider = MeterProvider(resource=resource, metric_readers=[reader])
+    # The ASGI instrumentation emits `http.server.duration` with 15 default
+    # bucket boundaries and eight attributes; host/port/scheme/flavor split the
+    # same route across the cloudflared and localhost-healthcheck entrypoints.
+    # Six buckets and three attributes cut the series count by ~4x, at the cost
+    # of latency resolution below 10ms. `http.target` is the templated route
+    # (e.g. `/devices/{device_id}`), so it stays bounded.
+    meter_provider = MeterProvider(
+        resource=resource,
+        metric_readers=[reader],
+        views=[
+            View(
+                instrument_name="http.server.duration",
+                attribute_keys={"http.method", "http.target", "http.status_code"},
+                aggregation=ExplicitBucketHistogramAggregation(
+                    boundaries=[10, 50, 250, 1000, 5000]
+                ),
+            )
+        ],
+    )
     metrics.set_meter_provider(meter_provider)
 
-    FastAPIInstrumentor.instrument_app(app, tracer_provider=provider)
+    FastAPIInstrumentor.instrument_app(
+        app, tracer_provider=provider, meter_provider=meter_provider
+    )
     HTTPXClientInstrumentor().instrument(tracer_provider=provider)
     # Attach trace/span IDs to log records so structured logs correlate with
     # traces. set_logging_format=False leaves the formatter to the logging
