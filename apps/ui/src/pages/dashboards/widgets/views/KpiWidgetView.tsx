@@ -25,21 +25,25 @@ const Message: FC<{ children: string }> = ({ children }) => (
   </div>
 );
 
-const KPI_VALUE_CLASS = "text-3xl font-semibold";
+const KPI_VALUE_CLASS = "text-3xl font-semibold leading-tight";
 
 /** Renders the tile's value: bool/str show their label, numbers apply the
  *  config's precision and unit override. */
 const KpiValue: FC<{
+  label: string;
   value: string | number | boolean | null | undefined;
   dataType: DataType | undefined;
   attribute: string;
   deviceType?: DeviceType;
   unit: string | null | undefined;
   precision: number | null | undefined;
-}> = ({ value, dataType, attribute, deviceType, unit, precision }) => {
+}> = ({ label, value, dataType, attribute, deviceType, unit, precision }) => {
   if (dataType === "bool" || dataType === "str") {
     return (
-      <div className="flex h-full items-center justify-center overflow-hidden p-2">
+      <div className="flex h-full flex-col items-center justify-center overflow-hidden p-1">
+        <span className="truncate text-xs leading-none text-muted-foreground">
+          {label}
+        </span>
         <AttributeValue
           value={value}
           attributeName={attribute}
@@ -52,7 +56,10 @@ const KpiValue: FC<{
   }
   const digits = precision ?? (dataType === "float" ? 2 : 0);
   return (
-    <div className="flex h-full items-center justify-center overflow-hidden p-2">
+    <div className="flex h-full flex-col items-center justify-center overflow-hidden p-1">
+      <span className="truncate text-xs leading-none text-muted-foreground">
+        {label}
+      </span>
       <span className={KPI_VALUE_CLASS}>
         {fmt(typeof value === "number" ? value : null, digits)}
         {unit && <span className="text-lg text-muted-foreground">{unit}</span>}
@@ -93,6 +100,7 @@ const KpiAttributeView: FC<{
   temporal: KpiWidgetConfig["temporal"];
 }> = ({ devices, attribute, temporal }) => {
   const {
+    label,
     attribute: attributeName,
     space_agg: spaceAgg,
     unit,
@@ -105,6 +113,7 @@ const KpiAttributeView: FC<{
   if (spaceAgg) {
     return isPeriod ? (
       <PeriodSpaceKpiView
+        label={label}
         target={target}
         agg={temporal.operator}
         spaceAgg={spaceAgg}
@@ -113,6 +122,7 @@ const KpiAttributeView: FC<{
       />
     ) : (
       <LiveSpaceKpiView
+        label={label}
         target={target}
         spaceAgg={spaceAgg}
         unit={unit}
@@ -124,6 +134,7 @@ const KpiAttributeView: FC<{
   if (!isPeriod) {
     return (
       <LiveKpiView
+        label={label}
         deviceId={deviceId}
         attribute={target.attribute}
         unit={unit}
@@ -133,6 +144,7 @@ const KpiAttributeView: FC<{
   }
   return (
     <PeriodKpiView
+      label={label}
       deviceId={deviceId}
       attribute={target.attribute}
       agg={temporal.operator}
@@ -143,11 +155,12 @@ const KpiAttributeView: FC<{
 };
 
 const LiveKpiView: FC<{
+  label: string;
   deviceId: string | undefined;
   attribute: string;
   unit: string | null | undefined;
   precision: number | null | undefined;
-}> = ({ deviceId, attribute, unit, precision }) => {
+}> = ({ label, deviceId, attribute, unit, precision }) => {
   const { t } = useTranslation("dashboards");
   const { data: device, isLoading, error } = useDevice(deviceId);
 
@@ -161,6 +174,7 @@ const LiveKpiView: FC<{
 
   return (
     <KpiValue
+      label={label}
       value={attr.current_value as string | number | boolean | null}
       dataType={attr.data_type as DataType | undefined}
       attribute={attribute}
@@ -172,12 +186,13 @@ const LiveKpiView: FC<{
 };
 
 const PeriodKpiView: FC<{
+  label: string;
   deviceId: string | undefined;
   attribute: string;
   agg: AggregationOperator | undefined;
   unit: string | null | undefined;
   precision: number | null | undefined;
-}> = ({ deviceId, attribute, agg, unit, precision }) => {
+}> = ({ label, deviceId, attribute, agg, unit, precision }) => {
   const { t } = useTranslation("dashboards");
   const { query, refetchInterval } = useDashboardPeriod();
   const unbounded = !query.start && !query.last;
@@ -218,6 +233,7 @@ const PeriodKpiView: FC<{
   const point = result.data?.points[0];
   return (
     <KpiValue
+      label={label}
       value={point?.value}
       dataType={result.data?.aggregation_data_type}
       attribute={attribute}
@@ -248,11 +264,12 @@ function spaceErrorMessageKey(
 }
 
 const LiveSpaceKpiView: FC<{
+  label: string;
   target: AttributeTarget;
   spaceAgg: AggregationOperator;
   unit: string | null | undefined;
   precision: number | null | undefined;
-}> = ({ target, spaceAgg, unit, precision }) => {
+}> = ({ label, target, spaceAgg, unit, precision }) => {
   const { t } = useTranslation("dashboards");
   const { refetchInterval } = useDashboardPeriod();
 
@@ -268,6 +285,7 @@ const LiveSpaceKpiView: FC<{
 
   return (
     <KpiValue
+      label={label}
       value={result.data?.value}
       dataType={result.data?.data_type}
       attribute={target.attribute}
@@ -278,12 +296,13 @@ const LiveSpaceKpiView: FC<{
 };
 
 const PeriodSpaceKpiView: FC<{
+  label: string;
   target: AttributeTarget;
   agg: AggregationOperator;
   spaceAgg: AggregationOperator;
   unit: string | null | undefined;
   precision: number | null | undefined;
-}> = ({ target, agg, spaceAgg, unit, precision }) => {
+}> = ({ label, target, agg, spaceAgg, unit, precision }) => {
   const { t } = useTranslation("dashboards");
   const { query, refetchInterval } = useDashboardPeriod();
   const unbounded = !query.start && !query.last;
@@ -312,6 +331,7 @@ const PeriodSpaceKpiView: FC<{
   const point = result.data?.points[0];
   return (
     <KpiValue
+      label={label}
       value={point?.value}
       dataType={result.data?.aggregation_data_type}
       attribute={target.attribute}
