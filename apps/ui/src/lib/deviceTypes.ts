@@ -11,6 +11,7 @@ import {
   CircleHelp,
   CloudSun,
   Cpu,
+  Droplet,
   Fan,
   Thermometer,
   Wind,
@@ -32,6 +33,7 @@ export const DEVICE_TYPE_ICONS: Record<DeviceType, DeviceTypeIcon> = {
   [DeviceType.AhuSingleFlux]: AirVent,
   [DeviceType.AirExtractor]: Wind,
   [DeviceType.PmsMonitor]: BedDouble,
+  [DeviceType.LiquidDetector]: Droplet,
 };
 
 export const OTHER_KEY = "other";
@@ -71,6 +73,7 @@ export const DEVICE_TYPE_ORDER: readonly DeviceTypeKey[] = [
   DeviceType.WeatherSensor,
   DeviceType.AirExtractor,
   DeviceType.PmsMonitor,
+  DeviceType.LiquidDetector,
   OTHER_KEY,
 ];
 

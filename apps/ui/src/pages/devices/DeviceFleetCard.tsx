@@ -6,7 +6,11 @@ import { Card } from "@/components/ui";
 import { ConnectionStatusDot } from "@/components/ConnectionStatusBadge";
 import { EmptyValue } from "@/components/EmptyValue";
 import { useInViewOnce } from "@/hooks/useInViewOnce";
-import { getConnectionStatus, isPmsMonitor } from "@/lib/devices";
+import {
+  getConnectionStatus,
+  isLiquidDetector,
+  isPmsMonitor,
+} from "@/lib/devices";
 import {
   deviceMeasureReading,
   deviceSetpointReading,
@@ -18,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { DeviceModeValue } from "./DeviceModeValue";
 import { DeviceSparkline } from "./DeviceSparkline";
 import { PmsMonitorFleetSummary } from "./PmsMonitorFleetSummary";
+import { LiquidDetectorFleetSummary } from "./standard-devices/liquid-detector";
 
 /** Border tint per active severity — the card outline is the first thing
  *  scanned in a grid of dozens, so a faulty device reads before its label. */
@@ -53,6 +58,10 @@ export function DeviceFleetCard({
   const showMeasuredBeside = setpoint?.value != null && measure?.value != null;
   const faults = activeFaultSummary(device);
   const isPms = isPmsMonitor(device);
+  const isLiquid = isLiquidDetector(device);
+  // Types whose state is not a number lead with their own summary instead of
+  // the measure + sparkline, and have no operating mode to report.
+  const hasVerdictSummary = isPms || isLiquid;
 
   return (
     <Link ref={ref} to={`/devices/${device.id}`} className="group block h-full">
@@ -76,6 +85,8 @@ export function DeviceFleetCard({
 
         {isPms ? (
           <PmsMonitorFleetSummary device={device} />
+        ) : isLiquid ? (
+          <LiquidDetectorFleetSummary device={device} />
         ) : (
           <div className="flex items-end gap-3">
             <div className="min-w-0">
@@ -103,7 +114,7 @@ export function DeviceFleetCard({
         )}
 
         <div className="mt-auto flex items-center gap-2 border-t pt-2.5 text-xs">
-          {!isPms && <DeviceModeValue device={device} />}
+          {!hasVerdictSummary && <DeviceModeValue device={device} />}
           <span className="ml-auto truncate">
             {faults ? (
               <span

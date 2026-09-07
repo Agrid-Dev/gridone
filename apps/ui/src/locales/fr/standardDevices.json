@@ -59,5 +59,11 @@
     "name": "Moniteur PMS",
     "name_plural": "Moniteurs PMS"
   },
+  "liquid_detector": {
+    "name": "Détecteur de fuite",
+    "name_plural": "Détecteurs de fuite",
+    "detected": "Liquide détecté",
+    "dry": "Sec"
+  },
   "other": { "name": "Autre", "name_plural": "Autres" }
 }

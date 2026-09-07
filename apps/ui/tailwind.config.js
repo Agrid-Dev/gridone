@@ -65,6 +65,7 @@ module.exports = {
         "hvac-fan": "hsl(var(--hvac-fan))",
         "hvac-dry": "hsl(var(--hvac-dry))",
         "hvac-auto": "hsl(var(--hvac-auto))",
+        water: "hsl(var(--water))",
       },
       borderRadius: {
         "2xl": "calc(var(--radius) + 8px)",

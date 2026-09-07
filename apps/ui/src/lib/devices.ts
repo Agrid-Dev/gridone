@@ -27,6 +27,7 @@ export enum DeviceType {
   AhuSingleFlux = "ahu_single_flux",
   AirExtractor = "air_extractor",
   PmsMonitor = "pms_monitor",
+  LiquidDetector = "liquid_detector",
 }
 
 /** A device's attribute map (`attributes` is optional on the wire). */
@@ -171,6 +172,12 @@ export type AirExtractorAttributes = {
   flowSwitch: AttrValue<boolean>;
 };
 
+/** Typed view of the `liquid_detector` standard attributes. */
+export type LiquidDetectorAttributes = {
+  /** Conductive liquid bridging the probe. */
+  liquidDetected: AttrValue<boolean>;
+};
+
 /** Typed view of the `pms_monitor` standard attributes. */
 export type PmsMonitorAttributes = {
   reservationStatus: AttrValue<string>;
@@ -212,6 +219,11 @@ export type AirExtractorDevice = Device & {
 /** A Device whose `type` is `"pms_monitor"`. */
 export type PmsMonitorDevice = Device & { type: DeviceType.PmsMonitor };
 
+/** A Device whose `type` is `"liquid_detector"`. */
+export type LiquidDetectorDevice = Device & {
+  type: DeviceType.LiquidDetector;
+};
+
 /** Union of all devices with a known standard type. */
 export type StandardDevice =
   | ThermostatDevice
@@ -221,7 +233,8 @@ export type StandardDevice =
   | AhuDoubleFluxDevice
   | AhuSingleFluxDevice
   | AirExtractorDevice
-  | PmsMonitorDevice;
+  | PmsMonitorDevice
+  | LiquidDetectorDevice;
 
 // Type guards ---
 
@@ -259,6 +272,12 @@ export function isPmsMonitor(device: Device): device is PmsMonitorDevice {
   return device.type === DeviceType.PmsMonitor;
 }
 
+export function isLiquidDetector(
+  device: Device,
+): device is LiquidDetectorDevice {
+  return device.type === DeviceType.LiquidDetector;
+}
+
 export function isStandardDevice(device: Device): device is StandardDevice {
   return (
     isThermostat(device) ||
@@ -268,7 +287,8 @@ export function isStandardDevice(device: Device): device is StandardDevice {
     isAhuDoubleFlux(device) ||
     isAhuSingleFlux(device) ||
     isAirExtractor(device) ||
-    isPmsMonitor(device)
+    isPmsMonitor(device) ||
+    isLiquidDetector(device)
   );
 }
 
@@ -471,6 +491,14 @@ export function readAirExtractorAttributes(
     fanSpeed: v("fan_speed") as AttrValue<number>,
     flowSwitch: v("flow_switch") as AttrValue<boolean>,
   };
+}
+
+/** Read the standard liquid detector attributes from a device's attribute map. */
+export function readLiquidDetectorAttributes(
+  device: LiquidDetectorDevice,
+): LiquidDetectorAttributes {
+  const v = attributeValueReader(device);
+  return { liquidDetected: v("liquid_detected") as AttrValue<boolean> };
 }
 
 /** Read the standard PMS monitor attributes from a device's attribute map. */
