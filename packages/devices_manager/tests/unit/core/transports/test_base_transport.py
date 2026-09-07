@@ -3,6 +3,7 @@ import logging
 from collections.abc import Callable
 
 import pytest
+from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from pydantic import ValidationError
 
 from devices_manager.core.transports import TransportMetadata
@@ -10,7 +11,6 @@ from devices_manager.core.transports import base as base_module
 from devices_manager.core.transports.base import TerminalConnectionError
 from devices_manager.core.transports.http_transport import HTTPTransportClient
 from devices_manager.core.transports.http_transport.http_address import HttpAddress
-from devices_manager.core.transports.io_timing import IO_LOGGER_NAME
 from devices_manager.core.transports.mqtt_transport import (
     MqttTransportClient,
     MqttTransportConfig,
@@ -20,6 +20,7 @@ from devices_manager.core.transports.read_result import ReadError, ReadOk
 from devices_manager.core.transports.sweep_memo import SweepMemo
 from devices_manager.types import AttributeValueType, TransportProtocols
 
+from ...conftest import histogram_count, sum_metric
 from ..fixtures.recording_transport import (
     READ_DELAY,
     RecordingTransportClient,
@@ -298,36 +299,31 @@ class TestSweepMemo:
 class TestTransportIoMetric:
     @pytest.mark.asyncio
     async def test_single_read_emits_one_metric_with_one_address(
-        self, caplog: pytest.LogCaptureFixture
+        self, metric_reader: InMemoryMetricReader
     ) -> None:
         client = RecordingTransportClient()
 
-        with caplog.at_level(logging.INFO, logger=IO_LOGGER_NAME):
-            await client.read(MockTransportAddress("a"))
+        await client.read(MockTransportAddress("a"))
 
-        assert len(caplog.records) == 1
-        fields = caplog.records[0].__dict__
-        assert fields["addresses"] == 1
-        assert fields["status"] == "ok"
-        assert fields["protocol"] == TransportProtocols.HTTP
+        labels = {"protocol": TransportProtocols.HTTP, "status": "ok"}
+        assert histogram_count(metric_reader, "device.io.read.duration", **labels) == 1
+        assert sum_metric(metric_reader, "device.io.read.addresses", **labels) == 1
 
     @pytest.mark.asyncio
     async def test_memo_hit_emits_no_metric(
-        self, caplog: pytest.LogCaptureFixture
+        self, metric_reader: InMemoryMetricReader
     ) -> None:
         client = RecordingTransportClient()
         address = MockTransportAddress("a")
 
-        with caplog.at_level(logging.INFO, logger=IO_LOGGER_NAME):
-            await client.read(address, "sweep-1")  # miss: one real transaction
-            caplog.clear()
-            await client.read(address, "sweep-1")  # hit: no I/O
+        await client.read(address, "sweep-1")  # miss: one real transaction
+        await client.read(address, "sweep-1")  # hit: no I/O
 
-        assert caplog.records == []
+        assert histogram_count(metric_reader, "device.io.read.duration") == 1
 
     @pytest.mark.asyncio
     async def test_concurrent_fan_out_emits_one_metric_per_read(
-        self, caplog: pytest.LogCaptureFixture
+        self, metric_reader: InMemoryMetricReader
     ) -> None:
         # Concurrent read_many calls read() once per address; each is an
         # independent transaction, so N addresses must emit N metrics, all
@@ -335,11 +331,10 @@ class TestTransportIoMetric:
         client = RecordingTransportClient()
         addresses = [MockTransportAddress(x) for x in ("a", "b", "c")]
 
-        with caplog.at_level(logging.INFO, logger=IO_LOGGER_NAME):
-            [r async for r in client.read_many(addresses)]
+        [r async for r in client.read_many(addresses)]
 
-        assert len(caplog.records) == 3
-        assert all(r.__dict__["addresses"] == 1 for r in caplog.records)
+        assert histogram_count(metric_reader, "device.io.read.duration") == 3
+        assert sum_metric(metric_reader, "device.io.read.addresses") == 3
 
 
 class TestReadMany:

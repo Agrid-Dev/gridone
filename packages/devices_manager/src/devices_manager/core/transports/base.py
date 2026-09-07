@@ -136,7 +136,7 @@ class TransportClient[T_TransportAddress: TransportAddress](ABC):
         reads sharing that id (one sweep); ``None`` always hits the network and
         never stores.
         """
-        async with self._read_lock, timed_io(self.id, self.protocol, 1):
+        async with self._read_lock, timed_io(self.protocol, 1):
             return await self._read(address)
 
     @abstractmethod

@@ -100,7 +100,7 @@ class ModbusTCPTransportClient(PullTransportClient[ModbusAddress]):
         """
         async with self._read_lock:
             try:
-                async with timed_io(self.id, self.protocol, len(block.addresses)):
+                async with timed_io(self.protocol, len(block.addresses)):
                     payload = await self._fetch_block(block)
                 values = [
                     (address, block.extract(address, payload))

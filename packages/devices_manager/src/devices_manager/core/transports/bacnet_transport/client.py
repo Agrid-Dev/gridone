@@ -265,7 +265,7 @@ class BacnetTransportClient(PullTransportClient[BacnetAddress]):
         """
         async with self._read_lock:
             try:
-                async with timed_io(self.id, self.protocol, len(rpm_request.addresses)):
+                async with timed_io(self.protocol, len(rpm_request.addresses)):
                     ack = await self._read_rpm(rpm_request)
                     values = decode_rpm(rpm_request, ack)
             except BacnetRequestTooLargeError:
