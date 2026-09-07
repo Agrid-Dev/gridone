@@ -1005,7 +1005,6 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "opentelemetry-sdk" },
     { name = "thermocktat-client" },
 ]
 
@@ -1028,10 +1027,7 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
-dev = [
-    { name = "opentelemetry-sdk", specifier = ">=1.42.1" },
-    { name = "thermocktat-client", specifier = ">=0.3.0" },
-]
+dev = [{ name = "thermocktat-client", specifier = ">=0.3.0" }]
 
 [[package]]
 name = "gridone-migrations"

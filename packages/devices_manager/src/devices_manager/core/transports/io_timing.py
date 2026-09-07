@@ -1,4 +1,3 @@
-import logging
 from asyncio import CancelledError
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -7,13 +6,9 @@ from time import perf_counter
 from devices_manager.observability.metrics import read_addresses, read_duration
 from devices_manager.types import TransportProtocols
 
-IO_LOGGER_NAME = "devices_manager.transport_io"
-_io_logger = logging.getLogger(IO_LOGGER_NAME)
-
 
 @asynccontextmanager
 async def timed_io(
-    transport_id: str,
     protocol: TransportProtocols,
     addresses: int,
 ) -> AsyncGenerator[None]:
@@ -42,13 +37,3 @@ async def timed_io(
             labels = {"protocol": protocol, "status": status}
             read_duration.record(duration_ms, labels)
             read_addresses.add(addresses, labels)
-            _io_logger.info(
-                "transport read",
-                extra={
-                    "transport": transport_id,
-                    "protocol": protocol,
-                    "addresses": addresses,
-                    "status": status,
-                    "duration_ms": duration_ms,
-                },
-            )

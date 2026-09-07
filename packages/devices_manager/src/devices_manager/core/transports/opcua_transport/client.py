@@ -204,7 +204,7 @@ class OpcuaTransportClient(
                 await self.ensure_connected()
             client = self._require_client()
             nodes = [client.get_node(address.id) for address in ordered_addresses]
-            async with timed_io(self.id, self.protocol, len(ordered_addresses)):
+            async with timed_io(self.protocol, len(ordered_addresses)):
                 data_values = await client.read_attributes(nodes)
         except Exception as e:  # noqa: BLE001
             logger.warning(
