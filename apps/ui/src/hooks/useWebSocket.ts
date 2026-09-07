@@ -11,6 +11,10 @@ type UseWebSocketOptions<TMessage> = {
   url: string;
   enabled?: boolean;
   onMessage?: (message: TMessage) => void;
+  /** Read at every connect attempt: a credential in cookie storage is not reactive. */
+  getProtocols?: () => string[] | undefined;
+  /** Awaited before each reconnect, so an expired credential can be renewed first. */
+  beforeReconnect?: () => Promise<void>;
 };
 
 const MAX_BACKOFF_MS = 30000;
@@ -27,6 +31,8 @@ export function useWebSocket<TMessage = unknown>({
   url,
   enabled = true,
   onMessage,
+  getProtocols,
+  beforeReconnect,
 }: UseWebSocketOptions<TMessage>) {
   const [status, setStatus] = useState<WebSocketStatus>("idle");
   const [lastMessage, setLastMessage] = useState<TMessage | null>(null);
@@ -34,11 +40,13 @@ export function useWebSocket<TMessage = unknown>({
   const reconnectTimer = useRef<number | null>(null);
   const reconnectAttempts = useRef(0);
   const onMessageRef = useRef(onMessage);
-  const effectRunCountRef = useRef(0);
+  const getProtocolsRef = useRef(getProtocols);
+  const beforeReconnectRef = useRef(beforeReconnect);
 
   onMessageRef.current = onMessage;
+  getProtocolsRef.current = getProtocols;
+  beforeReconnectRef.current = beforeReconnect;
 
-  const disconnectRef = useRef<(() => void) | null>(null);
   const disconnect = useCallback(() => {
     if (reconnectTimer.current) {
       window.clearTimeout(reconnectTimer.current);
@@ -52,48 +60,17 @@ export function useWebSocket<TMessage = unknown>({
     setStatus("closed");
   }, []);
 
-  const prevDisconnectRef = disconnectRef.current;
-  disconnectRef.current = disconnect;
-  if (prevDisconnectRef && prevDisconnectRef !== disconnect) {
-    // disconnect callback reference changed
-  }
-
-  const prevUrlRef = useRef<string | null>(null);
-  const prevEnabledRef = useRef<boolean | undefined>(undefined);
-  const prevDisconnectInEffectRef = useRef<(() => void) | null>(null);
-
   useEffect(() => {
-    effectRunCountRef.current += 1;
-
-    const urlChanged =
-      prevUrlRef.current !== null && prevUrlRef.current !== url;
-    const enabledChanged =
-      prevEnabledRef.current !== undefined &&
-      prevEnabledRef.current !== enabled;
-    const disconnectChanged =
-      prevDisconnectInEffectRef.current !== null &&
-      prevDisconnectInEffectRef.current !== disconnect;
-
-    if (urlChanged || enabledChanged || disconnectChanged) {
-      // Dependencies changed
-    }
-
-    prevUrlRef.current = url;
-    prevEnabledRef.current = enabled;
-    prevDisconnectInEffectRef.current = disconnect;
-
     if (!enabled) {
       disconnect();
-      return () => {
-        // Cleanup for disabled state
-      };
+      return;
     }
 
     let shouldReconnect = true;
 
     const connect = () => {
       setStatus("connecting");
-      const socket = new WebSocket(url);
+      const socket = new WebSocket(url, getProtocolsRef.current?.());
       socketRef.current = socket;
 
       socket.onopen = () => {
@@ -121,7 +98,13 @@ export function useWebSocket<TMessage = unknown>({
         const nextAttempt = reconnectAttempts.current;
         reconnectAttempts.current += 1;
         const delay = Math.min(MAX_BACKOFF_MS, 1000 * 2 ** nextAttempt);
-        reconnectTimer.current = window.setTimeout(connect, delay);
+        reconnectTimer.current = window.setTimeout(() => {
+          void Promise.resolve(beforeReconnectRef.current?.())
+            .catch(() => {})
+            .then(() => {
+              if (shouldReconnect) connect();
+            });
+        }, delay);
       };
     };
 

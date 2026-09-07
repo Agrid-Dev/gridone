@@ -7,7 +7,8 @@ from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
 from pydantic import ValidationError
 
-from api.dependencies import get_current_token_payload, get_device_manager
+from api.auth import get_current_token_payload
+from api.dependencies import get_device_manager
 from api.exception_handlers import register_exception_handlers
 from api.routes.transports_router import (
     MAX_INGRESS_BODY_BYTES,

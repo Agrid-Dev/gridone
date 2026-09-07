@@ -6,11 +6,8 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from api.dependencies import (
-    get_current_token_payload,
-    get_current_user_id,
-    get_notifications_service,
-)
+from api.auth import get_current_token_payload, get_current_user_id
+from api.dependencies import get_notifications_service
 from api.exception_handlers import register_exception_handlers
 from api.routes.notifications_router import router
 from models.errors import NotFoundError

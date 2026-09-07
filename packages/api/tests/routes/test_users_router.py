@@ -6,7 +6,8 @@ import pytest
 from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
 
-from api.dependencies import get_current_user_id, get_users_service
+from api.auth import get_current_user_id
+from api.dependencies import get_users_service
 from api.exception_handlers import register_exception_handlers
 from api.routes.users.auth_router import router as auth_router
 from api.routes.users.users_router import router as users_router

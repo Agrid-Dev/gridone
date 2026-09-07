@@ -3,7 +3,8 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Path, status
 from pydantic import BaseModel
 
-from api.dependencies import get_device_manager, require_permission
+from api.auth import require_permission
+from api.dependencies import get_device_manager
 from api.permissions import Permission
 from devices_manager import DevicesServiceInterface
 

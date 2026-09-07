@@ -46,3 +46,10 @@ export class CookieTokenStorage implements TokenStorage {
     writeCookie(REFRESH_COOKIE, "", 0);
   }
 }
+
+/**
+ * The instance the app runs on. The SDK client writes the token pair here and
+ * the telemetry socket reads it back for its handshake, so where the credential
+ * lives is stated once and a future storage change moves both together.
+ */
+export const cookieTokenStorage = new CookieTokenStorage();

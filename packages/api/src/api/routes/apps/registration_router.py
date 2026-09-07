@@ -3,7 +3,8 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
-from api.dependencies import get_apps_service, require_permission
+from api.auth import require_permission
+from api.dependencies import get_apps_service
 from api.permissions import Permission
 from apps import (
     AppCapabilities,

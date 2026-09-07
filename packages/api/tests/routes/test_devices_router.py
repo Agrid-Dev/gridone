@@ -6,13 +6,8 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
 
-from api.dependencies import (
-    get_commands_service,
-    get_current_token_payload,
-    get_current_user_id,
-    get_device_manager,
-    get_ts_service,
-)
+from api.auth import get_current_token_payload, get_current_user_id
+from api.dependencies import get_commands_service, get_device_manager, get_ts_service
 from api.exception_handlers import register_exception_handlers
 from api.routes.devices_router import router
 from api.targets import UNTAGGED_GROUP_LABEL

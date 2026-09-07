@@ -12,13 +12,12 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
+from api.auth import get_current_user_id, require_permission
 from api.dependencies import (
     get_commands_service,
-    get_current_user_id,
     get_device_manager,
     get_pagination_params,
     get_target_resolver,
-    require_permission,
 )
 from api.permissions import Permission
 from api.schemas.command import (

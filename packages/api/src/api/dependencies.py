@@ -1,11 +1,10 @@
-from collections.abc import Callable
+"""FastAPI dependencies wiring app state and query params into routes."""
 
 from automations import AutomationsServiceInterface
 from dashboards import DashboardsServiceInterface
-from fastapi import Depends, HTTPException, Query, Request, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi import Depends, Query, Request
+from starlette.requests import HTTPConnection
 
-from api.permissions import Permission, get_permissions_for_role
 from api.targets import CompositeTargetResolver
 from apps import AppsService
 from assets import AssetsService
@@ -15,10 +14,7 @@ from models.pagination import PaginationParams
 from notifications import NotificationsServiceInterface
 from timeseries import TimeSeriesService
 from users import UsersService
-from users.auth import AuthService, InvalidTokenError, TokenPayload
-from users.models import Role
-
-_oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token", auto_error=False)
+from users.auth import AuthService
 
 
 def get_device_manager(request: Request) -> DevicesServiceInterface:
@@ -35,7 +31,7 @@ def get_ts_service(request: Request) -> TimeSeriesService:
     return request.app.state.ts_service
 
 
-def get_users_service(request: Request) -> UsersService:
+def get_users_service(request: HTTPConnection) -> UsersService:
     return request.app.state.users_service
 
 
@@ -63,61 +59,8 @@ def get_dashboards_service(request: Request) -> DashboardsServiceInterface:
     return request.app.state.dashboards_service
 
 
-def get_auth_service(request: Request) -> AuthService:
+def get_auth_service(request: HTTPConnection) -> AuthService:
     return request.app.state.auth_service
-
-
-async def get_current_token_payload(
-    request: Request,
-    token: str | None = Depends(_oauth2_scheme),
-    auth_service: AuthService = Depends(get_auth_service),
-) -> TokenPayload:
-    """Extract and validate the full JWT payload (user id + role)."""
-    if token is None:
-        token = request.cookies.get("access_token")
-    if token is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    try:
-        return auth_service.decode_token(token, expected_type="access")
-    except InvalidTokenError as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token",
-            headers={"WWW-Authenticate": "Bearer"},
-        ) from e
-
-
-async def get_current_user_id(
-    payload: TokenPayload = Depends(get_current_token_payload),
-    users_service: UsersService = Depends(get_users_service),
-) -> str:
-    if await users_service.is_blocked(payload.sub):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Your account has been blocked. Contact an administrator.",
-        )
-    return payload.sub
-
-
-def require_permission(perm: Permission) -> Callable:
-    """Factory that returns a FastAPI dependency enforcing *perm*."""
-
-    async def _check(
-        payload: TokenPayload = Depends(get_current_token_payload),
-    ) -> str:
-        allowed = get_permissions_for_role(Role(payload.role))
-        if perm not in allowed:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Permission denied: requires {perm}",
-            )
-        return payload.sub
-
-    return _check
 
 
 def get_pagination_params(

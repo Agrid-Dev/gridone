@@ -1,4 +1,4 @@
-import { GridoneClient } from "@gridone/sdk";
+import { GridoneClient, MemoryTokenStorage } from "@gridone/sdk";
 
 export const baseUrl = process.env.GRIDONE_API ?? "http://localhost:8765/api";
 export const username = process.env.GRIDONE_USERNAME ?? "admin";
@@ -12,6 +12,32 @@ export async function makeAdminClient(): Promise<GridoneClient> {
   const client = makeClient();
   await client.login(username, password);
   return client;
+}
+
+/**
+ * An admin client plus the raw access token behind it.
+ *
+ * `GridoneClient` keeps its token storage private and is REST-only, so a caller
+ * that has to present the credential itself — the `/ws/devices` handshake —
+ * supplies its own storage and reads the token back out.
+ */
+export async function makeAdminClientWithToken(): Promise<{
+  client: GridoneClient;
+  accessToken: string;
+}> {
+  const tokenStorage = new MemoryTokenStorage();
+  const client = new GridoneClient({ baseUrl, tokenStorage });
+  await client.login(username, password);
+  const tokens = await tokenStorage.getTokens();
+  if (!tokens) {
+    throw new Error(`login as "${username}" stored no tokens`);
+  }
+  return { client, accessToken: tokens.accessToken };
+}
+
+/** Turns an API path into its WebSocket URL on the same host as `baseUrl`. */
+export function websocketUrl(path: string): string {
+  return `${baseUrl.replace(/^http/, "ws")}${path}`;
 }
 
 let roleClientCounter = 0;

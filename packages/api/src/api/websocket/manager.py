@@ -15,10 +15,12 @@ class WebSocketManager:
         self.active_connections: dict[str, WebSocket] = {}
         self._lock = asyncio.Lock()
 
-    async def connect(self, websocket: WebSocket) -> str:
+    async def connect(
+        self, websocket: WebSocket, *, subprotocol: str | None = None
+    ) -> str:
         """Accept a connection and register it."""
         connection_id = str(uuid4())
-        await websocket.accept()
+        await websocket.accept(subprotocol=subprotocol)
 
         async with self._lock:
             self.active_connections[connection_id] = websocket

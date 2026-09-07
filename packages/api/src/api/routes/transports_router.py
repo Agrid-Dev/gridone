@@ -4,7 +4,8 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import ValidationError
 
-from api.dependencies import get_device_manager, require_permission
+from api.auth import require_permission
+from api.dependencies import get_device_manager
 from api.permissions import Permission
 from devices_manager import DevicesServiceInterface, IngressRequest, IngressResult
 from devices_manager.dto import (

@@ -12,7 +12,7 @@ from fastapi import Depends, FastAPI
 
 from api.action_providers.commands import CommandsActionProvider
 from api.action_providers.notifications import NotificationsActionProvider
-from api.dependencies import get_current_user_id
+from api.auth import get_current_user_id
 from api.exception_handlers import register_exception_handlers
 from api.listeners.device import on_device_discovered
 from api.listeners.fault import on_fault_transition
@@ -262,6 +262,8 @@ def create_app(*, logging_dict_config: dict | None = None) -> FastAPI:
         tags=["apps"],
         dependencies=jwt_dep,
     )
+    # No jwt_dep: HTTP dependencies cannot resolve in a WebSocket scope, so the
+    # route carries `get_websocket_token_payload` instead.
     app.include_router(websocket_routes.router, tags=["websocket"])
 
     return app

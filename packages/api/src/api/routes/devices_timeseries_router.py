@@ -5,12 +5,8 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
 from pydantic import BaseModel, ValidationError
 
-from api.dependencies import (
-    get_device_manager,
-    get_target_resolver,
-    get_ts_service,
-    require_permission,
-)
+from api.auth import require_permission
+from api.dependencies import get_device_manager, get_target_resolver, get_ts_service
 from api.devices_filter import parse_tags_params
 from api.permissions import Permission
 from api.schemas.timeseries import (
