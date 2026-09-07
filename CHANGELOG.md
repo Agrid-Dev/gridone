@@ -1,3 +1,9 @@
+## v0.222.1 (2026-09-07)
+
+### Perf
+
+- **api_server**: cut http.server.duration cardinality with an OTel View (AGR-1192)
+
 ## v0.222.0 (2026-09-07)
 
 ### Feat
