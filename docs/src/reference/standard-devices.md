@@ -242,3 +242,62 @@ Fault attributes go through standard-schema validation exactly like standard one
 **UI behavior:** The preview card and the control panel show a drop glyph and a plain verdict — filled and water-blue when liquid is present, outlined and muted when dry. The alarm colour (red) is deliberately *not* used here: it belongs to the fault chrome around the reading, so the two carry different information instead of repeating each other.
 
 ---
+
+### Pump
+
+**Key:** `pump`
+
+A circulator, booster or process pump — from a 41-point smart variable-speed unit down to a motor wired to two dry contacts.
+
+| Attribute | Data type | Required | Description |
+|---|---|---|---|
+| `onoff_state` | bool | yes | Running state |
+| `head` | float | no | Delivered head |
+| `volume_flow` | float | no | Delivered flow |
+| `speed` | float | no | Pump speed |
+| `operating_hours` | float | no | Cumulative run time |
+| `control_mode` | string | no | Regulation mode (constant pressure, proportional, fixed speed…) |
+| `setpoint` | float | no | Configured setpoint |
+| `actual_setpoint` | float | no | Setpoint in force after external influence |
+| `power` | float | no | Electrical power draw |
+| `energy` | float | no | Cumulative electrical energy |
+| `motor_current` | float | no | Motor current |
+| `liquid_temperature` | float | no | Pumped-liquid temperature |
+| `starts` | float | no | Cumulative number of starts |
+| `motor_voltage` | float | no | Motor voltage |
+
+**Only `onoff_state` is required, and that is the design.** `head`, `volume_flow` and `speed` are exposed by every surveyed source and would, on coverage alone, be required — but every surveyed source is a smart variable-speed pump, and a building is full of pumps that are not. Requiring the hydraulic trio would make every dry-contact circulation and booster pump untypable.
+
+Whether it turns is the only thing true of *every* pump.
+
+Consequently a driver must degrade: a dry-contact pump declares `onoff_state` and nothing else from this schema, and the UI renders what is present rather than a grid of dashes.
+
+**Faults are not schema fields.** A standard schema describes what a device *measures*; alarms are orthogonal infrastructure that already works on any attribute of any name through `kind: fault`. A pump's fault and warning contacts are declared by its driver and surface through the generic machinery — badge, severity tint, active-fault row, notifications — without the type contract naming them. Each site maps its own fault points, whatever they are called:
+
+```yaml
+  - name: fault              # any name; the schema never sees it
+    kind: fault
+    severity: alert
+    data_type: bool
+
+  - name: warning
+    kind: fault
+    severity: warning
+    data_type: bool
+```
+
+`healthy_values` defaults to `[false]` for a bool, so an open contact is healthy. **Dry-contact wiring is not always normally-open**: on NC wiring a closed contact (`true`) means healthy, and the driver must say so explicitly, or the pump ships permanently faulted.
+
+```yaml
+  - name: fault
+    kind: fault
+    severity: alert
+    data_type: bool
+    healthy_value: true    # NC contact: closed is healthy
+```
+
+Declare the polarity from the wiring rather than inverting with a codec — `healthy_values` is what the fault machinery reads, and a codec would leave the recorded series inverted too.
+
+**UI behavior:** The control panel draws the pump itself — volute, motor, impeller — and places each reading where it physically belongs: liquid temperature on the suction side, speed and electrical draw at the motor, head and flow at the discharge. Health colours are deliberately absent; the pump is drawn in the hydraulic accent when turning and muted when stopped, leaving red, amber and green to the fault machinery that owns them. A dry-contact pump renders the pump alone.
+
+---
