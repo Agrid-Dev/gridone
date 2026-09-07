@@ -204,7 +204,7 @@ export function BuildingModelCard({
       </div>
 
       {canWrite && model && !processing && (
-        <div className="mt-6 flex items-center justify-end gap-2 border-t border-border pt-4">
+        <div className="mt-6 flex flex-wrap items-center justify-end gap-2 border-t border-border pt-4">
           {model.status === "ready" && (model.storeys?.length ?? 0) > 0 && (
             <ImportModelTreeButton assetId={assetId} />
           )}
