@@ -1,3 +1,9 @@
+## v0.222.0 (2026-09-07)
+
+### Feat
+
+- authenticate the /ws telemetry socket (AGR-1110) (#609)
+
 ## v0.221.2 (2026-09-04)
 
 ### Refactor
