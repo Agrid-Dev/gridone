@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock
 
 import pytest
@@ -22,7 +23,8 @@ from devices_manager.core.driver import (
 )
 from devices_manager.types import ConnectionStatus, DataType, TransportProtocols
 
-from ..conftest import histogram_count, sum_metric
+if TYPE_CHECKING:
+    from ..conftest import RecordedMetrics
 
 # An HTTP thermostat that answers every attribute from one endpoint. Dedup
 # should collapse these into one wire address/request.
@@ -432,22 +434,17 @@ class TestReadGroupMetricRatios:
         self,
         shared_address_device: CoreDevice,
         mock_transport_client,
-        metric_reader,
+        metrics: RecordedMetrics,
     ):
         payload = dict.fromkeys(SHARED_ADDRESS_ATTRIBUTE_NAMES, 1.0)
         mock_transport_client._read = AsyncMock(return_value=payload)  # noqa: SLF001
 
         await shared_address_device._read_group(SHARED_ADDRESS_ATTRIBUTE_NAMES)  # noqa: SLF001
 
-        attribute_reads = sum_metric(  # A
-            metric_reader, "device.attribute.read", protocol="http", status="ok"
-        )
-        wire_addresses = sum_metric(  # D
-            metric_reader, "device.io.read.addresses", protocol="http", status="ok"
-        )
-        wire_requests = histogram_count(  # R
-            metric_reader, "device.io.read.duration", protocol="http", status="ok"
-        )
+        ok = {"protocol": "http", "status": "ok"}
+        attribute_reads = metrics.attribute_read.total(**ok)  # A
+        wire_addresses = metrics.read_addresses.total(**ok)  # D
+        wire_requests = metrics.read_duration.count(**ok)  # R
 
         assert attribute_reads == len(SHARED_ADDRESS_ATTRIBUTE_NAMES) == 8
         assert wire_addresses == 1

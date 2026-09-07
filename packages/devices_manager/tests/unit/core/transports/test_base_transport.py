@@ -3,7 +3,6 @@ import logging
 from collections.abc import Callable
 
 import pytest
-from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 from pydantic import ValidationError
 
 from devices_manager.core.transports import TransportMetadata
@@ -20,7 +19,7 @@ from devices_manager.core.transports.read_result import ReadError, ReadOk
 from devices_manager.core.transports.sweep_memo import SweepMemo
 from devices_manager.types import AttributeValueType, TransportProtocols
 
-from ...conftest import histogram_count, sum_metric
+from ...conftest import RecordedMetrics
 from ..fixtures.recording_transport import (
     READ_DELAY,
     RecordingTransportClient,
@@ -299,31 +298,29 @@ class TestSweepMemo:
 class TestTransportIoMetric:
     @pytest.mark.asyncio
     async def test_single_read_emits_one_metric_with_one_address(
-        self, metric_reader: InMemoryMetricReader
+        self, metrics: RecordedMetrics
     ) -> None:
         client = RecordingTransportClient()
 
         await client.read(MockTransportAddress("a"))
 
         labels = {"protocol": TransportProtocols.HTTP, "status": "ok"}
-        assert histogram_count(metric_reader, "device.io.read.duration", **labels) == 1
-        assert sum_metric(metric_reader, "device.io.read.addresses", **labels) == 1
+        assert metrics.read_duration.count(**labels) == 1
+        assert metrics.read_addresses.total(**labels) == 1
 
     @pytest.mark.asyncio
-    async def test_memo_hit_emits_no_metric(
-        self, metric_reader: InMemoryMetricReader
-    ) -> None:
+    async def test_memo_hit_emits_no_metric(self, metrics: RecordedMetrics) -> None:
         client = RecordingTransportClient()
         address = MockTransportAddress("a")
 
         await client.read(address, "sweep-1")  # miss: one real transaction
         await client.read(address, "sweep-1")  # hit: no I/O
 
-        assert histogram_count(metric_reader, "device.io.read.duration") == 1
+        assert metrics.read_duration.count() == 1
 
     @pytest.mark.asyncio
     async def test_concurrent_fan_out_emits_one_metric_per_read(
-        self, metric_reader: InMemoryMetricReader
+        self, metrics: RecordedMetrics
     ) -> None:
         # Concurrent read_many calls read() once per address; each is an
         # independent transaction, so N addresses must emit N metrics, all
@@ -333,8 +330,8 @@ class TestTransportIoMetric:
 
         [r async for r in client.read_many(addresses)]
 
-        assert histogram_count(metric_reader, "device.io.read.duration") == 3
-        assert sum_metric(metric_reader, "device.io.read.addresses") == 3
+        assert metrics.read_duration.count() == 3
+        assert metrics.read_addresses.total() == 3
 
 
 class TestReadMany:

@@ -4,7 +4,6 @@ from collections.abc import AsyncIterator
 from types import SimpleNamespace
 
 import pytest
-from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 
 from devices_manager.core import Driver
 from devices_manager.core.codecs.factory import CodecSpec
@@ -25,7 +24,7 @@ from devices_manager.core.transports.transport_connection_state import (
 from devices_manager.core.transports.transport_metadata import TransportMetadata
 from devices_manager.types import DataType, TransportProtocols
 
-from ....conftest import histogram_count, sum_metric
+from ....conftest import RecordedMetrics
 
 
 class DummyModbusClient:
@@ -288,26 +287,26 @@ class TestPollCycleBatching:
 class TestBlockIoMetric:
     @pytest.mark.asyncio
     async def test_block_read_emits_one_metric_with_member_count(
-        self, transport: ModbusTCPTransportClient, metric_reader: InMemoryMetricReader
+        self, transport: ModbusTCPTransportClient, metrics: RecordedMetrics
     ) -> None:
         # One coalesced transaction over three registers is one I/O metric
         # carrying addresses=3, not three per-address metrics.
         await _ok_values(transport.read_many([_hr(10), _hr(11), _hr(12)]))
 
         labels = {"protocol": TransportProtocols.MODBUS_TCP, "status": "ok"}
-        assert histogram_count(metric_reader, "device.io.read.duration", **labels) == 1
-        assert sum_metric(metric_reader, "device.io.read.addresses", **labels) == 3
+        assert metrics.read_duration.count(**labels) == 1
+        assert metrics.read_addresses.total(**labels) == 3
 
     @pytest.mark.asyncio
     async def test_single_read_emits_exactly_one_metric(
-        self, transport: ModbusTCPTransportClient, metric_reader: InMemoryMetricReader
+        self, transport: ModbusTCPTransportClient, metrics: RecordedMetrics
     ) -> None:
         # A single read goes through base read() -> _read -> _fetch_block; only
         # the base boundary must fire, never both (no double-count).
         await transport.read(_hr(10))
 
-        assert histogram_count(metric_reader, "device.io.read.duration") == 1
-        assert sum_metric(metric_reader, "device.io.read.addresses") == 1
+        assert metrics.read_duration.count() == 1
+        assert metrics.read_addresses.total() == 1
 
 
 class TestReadMany:

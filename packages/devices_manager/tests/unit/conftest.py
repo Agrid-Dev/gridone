@@ -1,60 +1,63 @@
+from collections.abc import Iterator
+from dataclasses import dataclass, field
+
 import pytest
-from opentelemetry.sdk.metrics import MeterProvider
-from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 
 from devices_manager.core.device import device as device_module
 from devices_manager.core.transports import io_timing
-from devices_manager.observability.metrics import build_instruments
+
+Attributes = dict[str, object]
+
+
+@dataclass
+class RecordingInstrument:
+    """Stand-in for an OpenTelemetry Counter/Histogram.
+
+    Keeps every measurement the code under test emits, so tests assert on the
+    domain's metric calls without an OpenTelemetry SDK pipeline behind them.
+    """
+
+    measurements: list[tuple[float, Attributes]] = field(default_factory=list)
+
+    def add(self, amount: float, attributes: Attributes | None = None) -> None:
+        self.measurements.append((amount, dict(attributes or {})))
+
+    def record(self, amount: float, attributes: Attributes | None = None) -> None:
+        self.measurements.append((amount, dict(attributes or {})))
+
+    def total(self, **attributes: object) -> float:
+        """Sum of the matching amounts — what a Counter would report."""
+        return sum(amount for amount, _ in self._matching(attributes))
+
+    def count(self, **attributes: object) -> int:
+        """Number of matching measurements — a Histogram's ``_count``."""
+        return sum(1 for _ in self._matching(attributes))
+
+    def _matching(self, attributes: Attributes) -> Iterator[tuple[float, Attributes]]:
+        return (
+            measurement
+            for measurement in self.measurements
+            if all(measurement[1].get(k) == v for k, v in attributes.items())
+        )
+
+
+@dataclass
+class RecordedMetrics:
+    read_duration: RecordingInstrument
+    read_addresses: RecordingInstrument
+    attribute_read: RecordingInstrument
 
 
 @pytest.fixture
-def metric_reader(monkeypatch: pytest.MonkeyPatch) -> InMemoryMetricReader:
-    """Isolated per-test MeterProvider: monkeypatches the instruments
-    ``io_timing``/``device`` record onto, instead of the process-global
-    registry (see ``build_instruments`` for why)."""
-    reader = InMemoryMetricReader()
-    meter = MeterProvider(metric_readers=[reader]).get_meter("devices_manager")
-    read_duration, read_addresses, attribute_read = build_instruments(meter)
-
-    monkeypatch.setattr(io_timing, "read_duration", read_duration)
-    monkeypatch.setattr(io_timing, "read_addresses", read_addresses)
-    monkeypatch.setattr(device_module, "attribute_read", attribute_read)
-
-    return reader
-
-
-def metric_points(reader: InMemoryMetricReader, metric_name: str) -> list:
-    """Flatten this reader's current data down to one metric's data points."""
-    data = reader.get_metrics_data()
-    if data is None:
-        return []
-    return [
-        point
-        for resource_metrics in data.resource_metrics
-        for scope_metrics in resource_metrics.scope_metrics
-        for metric in scope_metrics.metrics
-        if metric.name == metric_name
-        for point in metric.data.data_points
-    ]
-
-
-def sum_metric(
-    reader: InMemoryMetricReader, metric_name: str, **attributes: str
-) -> float:
-    """Sum a Counter/Sum metric's matching data points' values."""
-    return sum(
-        point.value
-        for point in metric_points(reader, metric_name)
-        if all(point.attributes.get(k) == v for k, v in attributes.items())
+def metrics(monkeypatch: pytest.MonkeyPatch) -> RecordedMetrics:
+    """Swap the process-global instruments ``io_timing``/``device`` record onto
+    for per-test recording fakes."""
+    recorded = RecordedMetrics(
+        read_duration=RecordingInstrument(),
+        read_addresses=RecordingInstrument(),
+        attribute_read=RecordingInstrument(),
     )
-
-
-def histogram_count(
-    reader: InMemoryMetricReader, metric_name: str, **attributes: str
-) -> int:
-    """Sum a Histogram metric's matching data points' counts."""
-    return sum(
-        point.count
-        for point in metric_points(reader, metric_name)
-        if all(point.attributes.get(k) == v for k, v in attributes.items())
-    )
+    monkeypatch.setattr(io_timing, "read_duration", recorded.read_duration)
+    monkeypatch.setattr(io_timing, "read_addresses", recorded.read_addresses)
+    monkeypatch.setattr(device_module, "attribute_read", recorded.attribute_read)
+    return recorded
