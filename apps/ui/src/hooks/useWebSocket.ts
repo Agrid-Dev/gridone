@@ -42,13 +42,11 @@ export function useWebSocket<TMessage = unknown>({
   const onMessageRef = useRef(onMessage);
   const getProtocolsRef = useRef(getProtocols);
   const beforeReconnectRef = useRef(beforeReconnect);
-  const effectRunCountRef = useRef(0);
 
   onMessageRef.current = onMessage;
   getProtocolsRef.current = getProtocols;
   beforeReconnectRef.current = beforeReconnect;
 
-  const disconnectRef = useRef<(() => void) | null>(null);
   const disconnect = useCallback(() => {
     if (reconnectTimer.current) {
       window.clearTimeout(reconnectTimer.current);
@@ -62,41 +60,10 @@ export function useWebSocket<TMessage = unknown>({
     setStatus("closed");
   }, []);
 
-  const prevDisconnectRef = disconnectRef.current;
-  disconnectRef.current = disconnect;
-  if (prevDisconnectRef && prevDisconnectRef !== disconnect) {
-    // disconnect callback reference changed
-  }
-
-  const prevUrlRef = useRef<string | null>(null);
-  const prevEnabledRef = useRef<boolean | undefined>(undefined);
-  const prevDisconnectInEffectRef = useRef<(() => void) | null>(null);
-
   useEffect(() => {
-    effectRunCountRef.current += 1;
-
-    const urlChanged =
-      prevUrlRef.current !== null && prevUrlRef.current !== url;
-    const enabledChanged =
-      prevEnabledRef.current !== undefined &&
-      prevEnabledRef.current !== enabled;
-    const disconnectChanged =
-      prevDisconnectInEffectRef.current !== null &&
-      prevDisconnectInEffectRef.current !== disconnect;
-
-    if (urlChanged || enabledChanged || disconnectChanged) {
-      // Dependencies changed
-    }
-
-    prevUrlRef.current = url;
-    prevEnabledRef.current = enabled;
-    prevDisconnectInEffectRef.current = disconnect;
-
     if (!enabled) {
       disconnect();
-      return () => {
-        // Cleanup for disabled state
-      };
+      return;
     }
 
     let shouldReconnect = true;
