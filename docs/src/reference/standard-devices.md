@@ -212,3 +212,33 @@ Faults and alarms (frost, filters, fans, pressure, general fault synthesis) are 
 **UI behavior:** The control panel displays both supply and extract air temperatures, fan speeds, coil valve positions, and exchanger utilization.
 
 ---
+
+### Liquid Detector
+
+**Key:** `liquid_detector`
+
+A probe reporting conductive liquid at its sensing point — typically under a riser, a plant-room valve set, a drip tray or a bathroom floor.
+
+| Attribute | Data type | Required | Description |
+|---|---|---|---|
+| `liquid_detected` | bool | yes | Conductive liquid bridging the probe |
+
+Named for what the sensor can actually tell. A conductive probe cannot distinguish water from glycol, condensate or coolant, and the tray it sits in often holds one of those — so the reading is `liquid_detected`, even where the UI label reads "leak detector" because that is what the trade calls the product.
+
+The schema holds a single attribute on purpose: a detector answers one question. Probes that also report ambient conditions (temperature, humidity) or a battery level declare those as non-standard attributes.
+
+**Declare the reading as a fault.** The recommended driver shape marks `liquid_detected` as an alert-severity fault attribute:
+
+```yaml
+  - name: liquid_detected
+    kind: fault
+    severity: alert
+    data_type: bool
+    # healthy_values defaults to [false] for a bool — dry is healthy
+```
+
+Fault attributes go through standard-schema validation exactly like standard ones, so this satisfies the schema while handing the alarm to the platform: the device reads as faulty, the severity tint and fault badge appear on the fleet card and device header, the attribute gets a row in *Active faults* with how long it has been active, and fault notifications dispatch. Nothing about the alarm is the standard component's job.
+
+**UI behavior:** The preview card and the control panel show a drop glyph and a plain verdict — filled and water-blue when liquid is present, outlined and muted when dry. The alarm colour (red) is deliberately *not* used here: it belongs to the fault chrome around the reading, so the two carry different information instead of repeating each other.
+
+---
