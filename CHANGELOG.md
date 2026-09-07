@@ -1,3 +1,9 @@
+## v0.223.1 (2026-09-07)
+
+### Fix
+
+- **dashboards**: show per-attribute label on KPI widget rows (#613)
+
 ## v0.223.0 (2026-09-07)
 
 ### Feat
