@@ -102,6 +102,7 @@ describe("KpiWidgetView (live)", () => {
 
     render(<KpiWidgetView config={LIVE_CONFIG} />);
 
+    expect(screen.getByText("Temperature")).toBeInTheDocument();
     expect(screen.getByText("21.5")).toBeInTheDocument();
     expect(screen.getByText("°C")).toBeInTheDocument();
   });
@@ -206,7 +207,9 @@ describe("KpiWidgetView (live)", () => {
       />,
     );
 
+    expect(screen.getByText("Temperature")).toBeInTheDocument();
     expect(screen.getByText("21.5")).toBeInTheDocument();
+    expect(screen.getByText("Humidity")).toBeInTheDocument();
     expect(screen.getByText("55")).toBeInTheDocument();
     expect(screen.getByText("%")).toBeInTheDocument();
   });
