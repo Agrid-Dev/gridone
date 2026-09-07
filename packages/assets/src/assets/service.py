@@ -515,12 +515,27 @@ class AssetsService(Service):
             task.cancel()
         await self._backend.delete_model(asset_id)
 
+    async def _usages_by_ifc_global_id(self, asset_id: str) -> dict[str, AssetUsage]:
+        """Hand-set usages of the subtree below *asset_id*, keyed by IFC GlobalId.
+
+        A re-import deletes and recreates the whole subtree, so classifications
+        only survive if they are carried over by GlobalId. Without this a
+        corrected IFC would wipe every room an operator classified by hand.
+        """
+        descendants = await self._backend.get_descendants(asset_id)
+        return {
+            d.ifc_global_id: d.usage
+            for d in descendants
+            if d.ifc_global_id is not None and d.usage is not None
+        }
+
     async def import_tree(self, asset_id: str) -> TreeImportResult:
         """Replace the building subtree with floors/rooms from the IFC model.
 
         Destructive: every descendant of the building is deleted, then floors
         are recreated from the model storeys and rooms from its spaces, with
-        IFC GlobalIds stamped for the viewer mapping.
+        IFC GlobalIds stamped for the viewer mapping. Usages set by hand are
+        carried over to the room that comes back with the same GlobalId.
         """
         asset = await self._get_or_raise(asset_id)
         if asset.type != AssetType.BUILDING:
@@ -534,6 +549,7 @@ class AssetsService(Service):
             msg = "The 3D model has no storeys to import."
             raise InvalidError(msg)
 
+        preserved_usages = await self._usages_by_ifc_global_id(asset_id)
         await self._backend.delete_descendants(asset_id)
 
         now = datetime.now(UTC)
@@ -565,6 +581,7 @@ class AssetsService(Service):
                 name=space.name,
                 position=next_position[parent_id],
                 ifc_global_id=space.global_id,
+                usage=preserved_usages.get(space.global_id),
                 created_at=now,
                 updated_at=now,
             )

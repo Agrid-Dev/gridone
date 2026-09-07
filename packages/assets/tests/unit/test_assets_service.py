@@ -692,6 +692,14 @@ class TestImportTree:
         )
         await _drain_conversions(service)
 
+    @staticmethod
+    async def _rooms_by_name(service, building) -> dict:
+        return {
+            a.name: a
+            for a in await service.get_descendants(building.id)
+            if a.type == AssetType.ROOM
+        }
+
     async def test_replaces_subtree_with_stamped_assets(
         self, service, building, sample_ifc_bytes
     ):
@@ -728,6 +736,41 @@ class TestImportTree:
         for space in model.spaces:
             room = rooms_by_name[space.name]
             assert room.parent_id == floors_by_gid[space.storey_global_id].id
+
+    async def test_reimport_preserves_hand_set_usages(
+        self, service, building, sample_ifc_bytes
+    ):
+        await self._ready_model(service, building, sample_ifc_bytes)
+        await service.import_tree(building.id)
+        before = await self._rooms_by_name(service, building)
+        await service.set_usage([before["Room 001"].id], AssetUsage.HOTEL_ROOM)
+
+        await service.import_tree(building.id)
+
+        after = await self._rooms_by_name(service, building)
+        # The room is genuinely recreated, but the GlobalId matches, so the
+        # hand-set classification rides along instead of being wiped.
+        assert after["Room 001"].id != before["Room 001"].id
+        assert after["Room 001"].ifc_global_id == before["Room 001"].ifc_global_id
+        assert after["Room 001"].usage == AssetUsage.HOTEL_ROOM
+        assert after["Room 101"].usage is None
+
+    async def test_reimport_drops_usages_with_no_matching_global_id(
+        self, service, building, sample_ifc_bytes
+    ):
+        stray = await service.create_asset(
+            AssetCreate(parent_id=building.id, type=AssetType.ROOM, name="Stray")
+        )
+        await service.set_usage([stray.id], AssetUsage.OFFICE)
+        await self._ready_model(service, building, sample_ifc_bytes)
+
+        await service.import_tree(building.id)
+
+        descendants = await service.get_descendants(building.id)
+        # A hand-made room carries no GlobalId, so it has nothing to match on:
+        # it goes away with the subtree and leaks its usage to no one.
+        assert not any(a.name == "Stray" for a in descendants)
+        assert all(a.usage is None for a in descendants)
 
     async def test_import_requires_building(self, service, building):
         floor = await service.create_asset(

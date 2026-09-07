@@ -1,4 +1,4 @@
--- depends: 0005.assets-ifc-global-id
+-- depends: 0006.assets-ifc-global-id
 
 CREATE TABLE IF NOT EXISTS building_models (
     asset_id   TEXT PRIMARY KEY REFERENCES assets(id) ON DELETE CASCADE,
