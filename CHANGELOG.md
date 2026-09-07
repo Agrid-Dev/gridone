@@ -1,3 +1,10 @@
+## v0.224.0 (2026-09-07)
+
+### Feat
+
+- **ui**: liquid detector standard device (AGR-1133)
+- **devices-manager**: add liquid_detector standard type (AGR-1133)
+
 ## v0.223.2 (2026-09-07)
 
 ### Refactor
