@@ -12,6 +12,7 @@ import {
   CloudSun,
   Cpu,
   Droplet,
+  Waves,
   Fan,
   Thermometer,
   Wind,
@@ -34,6 +35,7 @@ export const DEVICE_TYPE_ICONS: Record<DeviceType, DeviceTypeIcon> = {
   [DeviceType.AirExtractor]: Wind,
   [DeviceType.PmsMonitor]: BedDouble,
   [DeviceType.LiquidDetector]: Droplet,
+  [DeviceType.Pump]: Waves,
 };
 
 export const OTHER_KEY = "other";
@@ -73,6 +75,7 @@ export const DEVICE_TYPE_ORDER: readonly DeviceTypeKey[] = [
   DeviceType.WeatherSensor,
   DeviceType.AirExtractor,
   DeviceType.PmsMonitor,
+  DeviceType.Pump,
   DeviceType.LiquidDetector,
   OTHER_KEY,
 ];

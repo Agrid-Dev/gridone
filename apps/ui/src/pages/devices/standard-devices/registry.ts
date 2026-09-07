@@ -22,6 +22,7 @@ import {
   LiquidDetectorPreview,
   LiquidDetectorControl,
 } from "./liquid-detector";
+import { PumpPreview, PumpControl } from "./pump";
 import type { StandardPreviewProps, StandardControlProps } from "./types";
 
 export type { StandardPreviewProps, StandardControlProps } from "./types";
@@ -69,6 +70,10 @@ const registry: Partial<Record<DeviceType, StandardDeviceEntry>> = {
   [DeviceType.LiquidDetector]: {
     Preview: LiquidDetectorPreview,
     Control: LiquidDetectorControl,
+  },
+  [DeviceType.Pump]: {
+    Preview: PumpPreview,
+    Control: PumpControl,
   },
 };
 

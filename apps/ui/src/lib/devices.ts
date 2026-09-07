@@ -28,6 +28,7 @@ export enum DeviceType {
   AirExtractor = "air_extractor",
   PmsMonitor = "pms_monitor",
   LiquidDetector = "liquid_detector",
+  Pump = "pump",
 }
 
 /** A device's attribute map (`attributes` is optional on the wire). */
@@ -178,6 +179,25 @@ export type LiquidDetectorAttributes = {
   liquidDetected: AttrValue<boolean>;
 };
 
+/** Typed view of the `pump` standard attributes. Only `onoffState` is
+ *  guaranteed by the schema; the rest depend on how much the pump exposes. */
+export type PumpAttributes = {
+  onoffState: AttrValue<boolean>;
+  head: AttrValue<number>;
+  volumeFlow: AttrValue<number>;
+  speed: AttrValue<number>;
+  operatingHours: AttrValue<number>;
+  controlMode: AttrValue<string>;
+  setpoint: AttrValue<number>;
+  actualSetpoint: AttrValue<number>;
+  power: AttrValue<number>;
+  energy: AttrValue<number>;
+  motorCurrent: AttrValue<number>;
+  liquidTemperature: AttrValue<number>;
+  starts: AttrValue<number>;
+  motorVoltage: AttrValue<number>;
+};
+
 /** Typed view of the `pms_monitor` standard attributes. */
 export type PmsMonitorAttributes = {
   reservationStatus: AttrValue<string>;
@@ -224,6 +244,9 @@ export type LiquidDetectorDevice = Device & {
   type: DeviceType.LiquidDetector;
 };
 
+/** A Device whose `type` is `"pump"`. */
+export type PumpDevice = Device & { type: DeviceType.Pump };
+
 /** Union of all devices with a known standard type. */
 export type StandardDevice =
   | ThermostatDevice
@@ -234,7 +257,8 @@ export type StandardDevice =
   | AhuSingleFluxDevice
   | AirExtractorDevice
   | PmsMonitorDevice
-  | LiquidDetectorDevice;
+  | LiquidDetectorDevice
+  | PumpDevice;
 
 // Type guards ---
 
@@ -278,6 +302,10 @@ export function isLiquidDetector(
   return device.type === DeviceType.LiquidDetector;
 }
 
+export function isPump(device: Device): device is PumpDevice {
+  return device.type === DeviceType.Pump;
+}
+
 export function isStandardDevice(device: Device): device is StandardDevice {
   return (
     isThermostat(device) ||
@@ -288,7 +316,8 @@ export function isStandardDevice(device: Device): device is StandardDevice {
     isAhuSingleFlux(device) ||
     isAirExtractor(device) ||
     isPmsMonitor(device) ||
-    isLiquidDetector(device)
+    isLiquidDetector(device) ||
+    isPump(device)
   );
 }
 
@@ -499,6 +528,27 @@ export function readLiquidDetectorAttributes(
 ): LiquidDetectorAttributes {
   const v = attributeValueReader(device);
   return { liquidDetected: v("liquid_detected") as AttrValue<boolean> };
+}
+
+/** Read the standard pump attributes from a device's attribute map. */
+export function readPumpAttributes(device: PumpDevice): PumpAttributes {
+  const v = attributeValueReader(device);
+  return {
+    onoffState: v("onoff_state") as AttrValue<boolean>,
+    head: v("head") as AttrValue<number>,
+    volumeFlow: v("volume_flow") as AttrValue<number>,
+    speed: v("speed") as AttrValue<number>,
+    operatingHours: v("operating_hours") as AttrValue<number>,
+    controlMode: v("control_mode") as AttrValue<string>,
+    setpoint: v("setpoint") as AttrValue<number>,
+    actualSetpoint: v("actual_setpoint") as AttrValue<number>,
+    power: v("power") as AttrValue<number>,
+    energy: v("energy") as AttrValue<number>,
+    motorCurrent: v("motor_current") as AttrValue<number>,
+    liquidTemperature: v("liquid_temperature") as AttrValue<number>,
+    starts: v("starts") as AttrValue<number>,
+    motorVoltage: v("motor_voltage") as AttrValue<number>,
+  };
 }
 
 /** Read the standard PMS monitor attributes from a device's attribute map. */

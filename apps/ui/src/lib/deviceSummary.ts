@@ -12,14 +12,17 @@
  * scale-agnostic `°` for temperatures, raw `W` for power, `%` for ratios.
  */
 import type { Device } from "@gridone/sdk";
+import type { PumpDevice } from "@/lib/devices";
 import {
   ConnectionStatus,
+  deviceAttributes,
   getConnectionStatus,
   isAhuDoubleFlux,
   isAhuSingleFlux,
   isAirExtractor,
   isAwhp,
   isElectricityMeter,
+  isPump,
   isThermostat,
   isWeatherSensor,
   readAhuDoubleFluxAttributes,
@@ -27,6 +30,7 @@ import {
   readAirExtractorAttributes,
   readAwhpAttributes,
   readElectricityMeterAttributes,
+  readPumpAttributes,
   readThermostatAttributes,
   readWeatherSensorAttributes,
 } from "@/lib/devices";
@@ -93,7 +97,28 @@ export function deviceMeasureReading(device: Device): DeviceReading | null {
       digits: 0,
       suffix: " %",
     };
+  if (isPump(device)) return pumpReading(device);
   return null;
+}
+
+/** A pump's lead measure: what it delivers, else how fast it turns, else what
+ *  it draws. Picked from the attributes the device actually carries rather
+ *  than a fixed name, because `metric` also names the charted series — a
+ *  dry-contact pump exposes none of them and leads with its run state alone.
+ *  No unit is claimed: head could be m or kPa, flow m³/h or l/s. */
+function pumpReading(device: PumpDevice): DeviceReading | null {
+  const attributes = deviceAttributes(device);
+  const values = readPumpAttributes(device);
+  const candidates: [string, number | null, number][] = [
+    ["volume_flow", values.volumeFlow, 1],
+    ["head", values.head, 1],
+    ["speed", values.speed, 0],
+    ["power", values.power, 0],
+  ];
+  const found = candidates.find(([metric]) => metric in attributes);
+  if (!found) return null;
+  const [metric, value, digits] = found;
+  return { metric, value, digits, suffix: "" };
 }
 
 /** The setpoint matching {@link deviceMeasureReading}; null when the type has
@@ -179,6 +204,11 @@ export function deviceMode(device: Device): DeviceMode | null {
   }
   if (isAirExtractor(device)) {
     const { onoffState } = readAirExtractorAttributes(device);
+    if (onoffState == null) return null;
+    return { kind: "onoff", value: onoffState ? "on" : "off" };
+  }
+  if (isPump(device)) {
+    const { onoffState } = readPumpAttributes(device);
     if (onoffState == null) return null;
     return { kind: "onoff", value: onoffState ? "on" : "off" };
   }
