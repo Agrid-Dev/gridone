@@ -161,7 +161,6 @@ class UsersService(Service):
             msg = f"Invalid current password for user '{user_id}'"
             raise UnauthorizedError(msg)
         if new_password == current_password:
-            # Otherwise the flag clears without the credential rotating.
             msg = "The new password must differ from the current one"
             raise InvalidError(msg)
         updated_user = user.update(UserUpdate(password=new_password))

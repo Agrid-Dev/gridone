@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { type MeResponse } from "@gridone/sdk";
+import { GridoneError, type MeResponse } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { useAuthSchemaBounds } from "@/hooks/useAuthSchemaBounds";
 import { serverErrorMessage } from "@/lib/serverErrorMessage";
@@ -109,7 +109,13 @@ export function PasswordChangeCard({
         new_password: values.password,
       });
     } catch (err) {
-      const message = serverErrorMessage(err) ?? t("common.error");
+      // The server's raw "Unauthorized" leaks nothing on its own, but reads
+      // badly as a form error — the caller is already authenticated, so a
+      // 401 here can only mean the current password was wrong.
+      const message =
+        err instanceof GridoneError && err.status === 401
+          ? t("settings.currentPasswordIncorrect")
+          : (serverErrorMessage(err) ?? t("common.error"));
       form.setError("root", { message });
       toast.error(message);
       return;

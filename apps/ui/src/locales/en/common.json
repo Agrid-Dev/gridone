@@ -59,6 +59,7 @@
     "confirmPassword": "Confirm new password",
     "confirmPasswordPlaceholder": "Confirm your new password",
     "passwordMismatch": "Passwords do not match",
+    "currentPasswordIncorrect": "Your current password is incorrect",
     "fields": {
       "username": "Username",
       "name": "Name",
