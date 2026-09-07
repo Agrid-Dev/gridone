@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 from opentelemetry.instrumentation.logging import LoggingInstrumentor
-from opentelemetry.sdk.metrics.export import InMemoryMetricReader
+from opentelemetry.sdk.metrics.export import HistogramDataPoint, InMemoryMetricReader
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from telemetry import DEFAULT_SERVICE_NAME, _add_trace_context, setup_optin_telemetry
@@ -155,3 +155,37 @@ def test_add_trace_context_stamps_record(app: FastAPI, monkeypatch: pytest.Monke
 
     assert getattr(record, "otelTraceID", None) == expected
     assert getattr(record, "otelSpanID", None)
+
+
+def test_http_duration_view_trims_buckets_and_attributes(
+    app: FastAPI, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318")
+    reader = InMemoryMetricReader()
+
+    setup_optin_telemetry(
+        app, span_exporter=InMemorySpanExporter(), metric_reader=reader
+    )
+
+    with TestClient(app) as client:
+        assert client.get("/ping").status_code == 200
+
+    data = reader.get_metrics_data()
+    assert data is not None
+    points = [
+        point
+        for resource_metrics in data.resource_metrics
+        for scope_metrics in resource_metrics.scope_metrics
+        for metric in scope_metrics.metrics
+        if metric.name == "http.server.duration"
+        for point in metric.data.data_points
+    ]
+    assert len(points) == 1
+    point = points[0]
+    assert isinstance(point, HistogramDataPoint)
+    assert point.explicit_bounds == (10, 50, 250, 1000, 5000)
+    assert dict(point.attributes or {}) == {
+        "http.method": "GET",
+        "http.target": "/ping",
+        "http.status_code": 200,
+    }
