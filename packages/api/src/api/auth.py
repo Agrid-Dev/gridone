@@ -102,6 +102,13 @@ def _websocket_credential(websocket: WebSocket) -> str | None:
     `gridone.auth.bearer.<jwt>` subprotocol offer — a JWT is made only of
     characters RFC 6455 allows in a subprotocol name. Other clients may send
     `Authorization: Bearer <jwt>` instead.
+
+    The `access_token` cookie the login route sets is deliberately *not* read
+    here, unlike on the HTTP path. A browser attaches its cookies to a handshake
+    started by any origin, so a cookie fallback would make the feed ambiently
+    authenticated and readable by every site the user visits; a subprotocol offer
+    is something only same-origin script can set, which is what rules
+    cross-site WebSocket hijacking out. Do not add one for symmetry with HTTP.
     """
     for offer in websocket.scope.get("subprotocols", []):
         if offer.startswith(_WS_BEARER_SUBPROTOCOL_PREFIX):

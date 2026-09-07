@@ -73,7 +73,13 @@ the token:
 
   The server negotiates `gridone`, so the token is never echoed back.
 
-- **Other clients** may send `Authorization: Bearer <access_token>` instead.
+- **Other clients** may send `Authorization: Bearer <access_token>` instead,
+  and need offer no subprotocol: the server echoes `gridone` only when it was
+  offered.
+
+The `access_token` cookie is not accepted here. A browser attaches cookies to a
+handshake opened by any origin, so the socket is deliberately never ambiently
+authenticated.
 
 An unauthenticated or untrusted handshake is rejected before `accept()` — uvicorn
 answers it with HTTP 403, so the client never reaches an open socket.

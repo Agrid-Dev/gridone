@@ -31,7 +31,13 @@ async def websocket_endpoint(
     manager: WebSocketManager = Depends(get_websocket_manager),
     payload: TokenPayload = Depends(get_websocket_token_payload),
 ) -> None:
-    connection_id = await manager.connect(websocket, subprotocol=_SUBPROTOCOL)
+    # Echo the subprotocol only when it was offered: RFC 6455 section 4.1 makes a
+    # client fail the connection on a subprotocol it never proposed, and a client
+    # that authenticated with the `Authorization` header offers none.
+    offered = _SUBPROTOCOL in websocket.scope.get("subprotocols", [])
+    connection_id = await manager.connect(
+        websocket, subprotocol=_SUBPROTOCOL if offered else None
+    )
 
     try:
         # The session lives no longer than the access token that opened it:

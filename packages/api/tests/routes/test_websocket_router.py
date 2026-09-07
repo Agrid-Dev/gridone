@@ -134,6 +134,28 @@ class TestHandshakeRejection:
         assert excinfo.value.code == 1008
         assert manager.active_connections == {}
 
+    def test_access_token_cookie_alone_is_rejected(
+        self, app: FastAPI, manager: WebSocketManager
+    ) -> None:
+        """The socket is never ambiently authenticated.
+
+        The login route sets an httpOnly `access_token` cookie, and a browser
+        attaches it to a handshake opened by any origin. Reading it here would
+        hand the feed to every site the user visits, so the handshake must refuse
+        a caller that offers nothing else.
+        """
+        with (
+            TestClient(app) as client,
+            pytest.raises(WebSocketDisconnect) as excinfo,
+            client.websocket_connect(
+                _PATH, headers={"Cookie": f"access_token={_token()}"}
+            ),
+        ):
+            pass  # pragma: no cover - the handshake raises before the body runs
+
+        assert excinfo.value.code == 1008
+        assert manager.active_connections == {}
+
     def test_devices_is_the_only_websocket_path(self) -> None:
         """The bare `/ws` alias is gone; the UI only ever built `/ws/devices`."""
         paths = [
@@ -186,8 +208,13 @@ class TestHandshakeAcceptance:
             TestClient(app) as client,
             client.websocket_connect(
                 _PATH, headers={"Authorization": f"Bearer {token}"}
-            ),
+            ) as ws,
         ):
+            # RFC 6455 section 4.1 makes a client fail the connection when the
+            # response names a subprotocol it never offered. `TestClient` records
+            # the negotiated value without checking it against the offer, so this
+            # assertion is what stands in for a compliant client here.
+            assert ws.accepted_subprotocol is None
             assert len(manager.active_connections) == 1
 
 
@@ -195,7 +222,10 @@ class TestTokenDeadline:
     def test_open_socket_closes_when_the_access_token_expires(
         self, app: FastAPI
     ) -> None:
-        token = _token(ttl_seconds=0.3)
+        # Generous enough that `TestClient` startup and the handshake cannot eat
+        # the deadline: an expiry reached mid-handshake raises out of
+        # `websocket_connect`, before `pytest.raises` is entered.
+        token = _token(ttl_seconds=2)
 
         with (
             TestClient(app) as client,
@@ -214,6 +244,7 @@ class TestTokenDeadline:
 async def test_unexpected_exception_triggers_disconnect() -> None:
     """Outer except Exception handler fires on non-WebSocketDisconnect errors."""
     ws = AsyncMock()
+    ws.scope = {"subprotocols": []}
     manager = AsyncMock(spec=WebSocketManager)
     manager.connect.return_value = "conn-id"
     ws.receive_text.side_effect = RuntimeError("unexpected transport error")
