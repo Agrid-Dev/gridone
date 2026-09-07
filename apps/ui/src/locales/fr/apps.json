@@ -90,5 +90,39 @@
       "zone": "Zone",
       "enabled": "Activ\u00e9e"
     }
+  },
+  "weeklySchedule": {
+    "count_one": "{{count}} chambre",
+    "count_other": "{{count}} chambres",
+    "expand": "D\u00e9velopper {{room}}",
+    "collapse": "R\u00e9duire {{room}}",
+    "searchPlaceholder": "Rechercher une chambre\u2026",
+    "empty": "Aucune chambre n'a d'horaire personnalis\u00e9 pour l'instant.",
+    "noResults": "Aucune chambre ne correspond \u00e0 cette recherche.",
+    "add": "Ajouter un horaire de chambre",
+    "noneAvailable": "Aucune chambre disponible",
+    "remove": "Supprimer l'horaire de {{room}}",
+    "roomNotSaved": "Ne sera pas enregistr\u00e9 tant qu'aucun jour n'est activ\u00e9",
+    "addWindow": "Ajouter une plage",
+    "removeWindow": "Supprimer la plage",
+    "usesDefault": "Valeur par d\u00e9faut ({{checkin}}\u2013{{checkout}})",
+    "overlapWarning": "Ces plages se chevauchent",
+    "notOvernightWarning": "Le check-out doit \u00eatre ant\u00e9rieur au check-in (un s\u00e9jour de nuit) ; cette plage est ignor\u00e9e",
+    "incompleteWindowWarning": "Renseignez une heure de check-in et de check-out pour cette plage",
+    "checkin": "Check-in",
+    "checkout": "Check-out",
+    "windowSeparator": "\u2013",
+    "columns": {
+      "room": "Chambre"
+    },
+    "days": {
+      "monday": "Lundi",
+      "tuesday": "Mardi",
+      "wednesday": "Mercredi",
+      "thursday": "Jeudi",
+      "friday": "Vendredi",
+      "saturday": "Samedi",
+      "sunday": "Dimanche"
+    }
   }
 }

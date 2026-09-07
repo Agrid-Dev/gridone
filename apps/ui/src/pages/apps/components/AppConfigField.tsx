@@ -19,9 +19,12 @@ import {
   type AppSchemaNode,
 } from "@/lib/appConfigSchema";
 import { ZoneOverridesField } from "./ZoneOverridesField";
+import { WeeklyScheduleField } from "./WeeklyScheduleField";
 
-/** Field name the zone-overrides table widget is keyed on (AGR-1067). */
+/** Field name the zone-overrides table widget is keyed on. */
 const ZONE_OVERRIDES_FIELD = "zone_overrides";
+/** Field name the weekly-schedule table widget is keyed on. */
+const WEEKLY_SCHEDULE_FIELD = "weekly_schedule";
 
 interface AppConfigFieldProps {
   name: string;
@@ -35,18 +38,17 @@ interface AppConfigFieldProps {
  * Renders one property of an app config schema.
  *
  * Handles the widgets the app contract adds on top of plain JSON Schema —
- * asset references and scalar list values, plus one field keyed by name
- * rather than shape (`zone_overrides`, AGR-1067/1068). Since AGR-920 the
- * config form renders through `SchemaFields`, and this component is mounted
- * through its per-consumer `overrides` seam (`appConfigOverrides` below)
- * only for the shapes/fields above; primitives — including `format:
- * password`, masked by the registry's shared secret widget — go straight to
- * the widget registry. (The `SchemaField` delegation at the bottom keeps
- * this component usable standalone.) `asset-id` is why the seam exists
- * rather than a registry entry — it pulls `useAssetTree`, and the shared
- * builder must stay domain-agnostic. Flat-object arrays live in the
- * registry (AGR-922); scalar arrays deliberately keep the app-contract
- * pickers/textarea here.
+ * asset references and scalar list values, plus fields keyed by name rather
+ * than shape (`zone_overrides`, `weekly_schedule`). The config form renders
+ * through `SchemaFields`, and this component is mounted through its
+ * per-consumer `overrides` seam (`appConfigOverrides` below) only for the
+ * shapes/fields above; primitives — including `format: password`, masked by
+ * the registry's shared secret widget — go straight to the widget registry.
+ * (The `SchemaField` delegation at the bottom keeps this component usable
+ * standalone.) `asset-id` is why the seam exists rather than a registry
+ * entry — it pulls `useAssetTree`, and the shared builder must stay
+ * domain-agnostic. Flat-object arrays live in the registry; scalar arrays
+ * deliberately keep the app-contract pickers/textarea here.
  */
 export const AppConfigField: FC<AppConfigFieldProps> = ({
   name,
@@ -60,6 +62,17 @@ export const AppConfigField: FC<AppConfigFieldProps> = ({
   if (name === ZONE_OVERRIDES_FIELD && isArray) {
     return (
       <ZoneOverridesField
+        name={name}
+        schema={schema}
+        control={control}
+        required={required}
+      />
+    );
+  }
+
+  if (name === WEEKLY_SCHEDULE_FIELD && isArray) {
+    return (
+      <WeeklyScheduleField
         name={name}
         schema={schema}
         control={control}
@@ -136,7 +149,10 @@ export const AppConfigField: FC<AppConfigFieldProps> = ({
  *  secret widget masks it (same path as the first-party `secret` marker). */
 const needsAppWidget = (field: FieldDescriptor): boolean => {
   const schema = field.schema as AppSchemaNode;
-  if (field.name === ZONE_OVERRIDES_FIELD) {
+  if (
+    field.name === ZONE_OVERRIDES_FIELD ||
+    field.name === WEEKLY_SCHEDULE_FIELD
+  ) {
     return true;
   }
   if (schema.format === ASSET_ID_FORMAT || schema.format === DEVICE_ID_FORMAT) {

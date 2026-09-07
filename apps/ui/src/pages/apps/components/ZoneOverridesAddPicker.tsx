@@ -24,6 +24,13 @@ interface ZoneOverridesAddPickerProps {
   candidates: Asset[];
   assetsById: Record<string, Asset>;
   onAdd: (zoneId: string) => void;
+  /** Copy overrides for callers other than `zone_overrides` (e.g.
+   *  `weekly_schedule`), which reuses this same Popover+Command shell over
+   *  a differently-scoped candidate set. Defaults to the zone-overrides
+   *  copy so that call site needs no changes. */
+  addLabel?: string;
+  searchPlaceholder?: string;
+  noneAvailableLabel?: string;
 }
 
 /** Searchable picker for adding one room override, mirroring `AssetPicker`'s
@@ -33,6 +40,9 @@ export const ZoneOverridesAddPicker: FC<ZoneOverridesAddPickerProps> = ({
   candidates,
   assetsById,
   onAdd,
+  addLabel,
+  searchPlaceholder,
+  noneAvailableLabel,
 }) => {
   const { t } = useTranslation("apps");
 
@@ -41,14 +51,20 @@ export const ZoneOverridesAddPicker: FC<ZoneOverridesAddPickerProps> = ({
       <PopoverTrigger asChild>
         <Button type="button" variant="outline" size="sm">
           <Plus className="mr-1 h-4 w-4" />
-          {t("zoneOverrides.add")}
+          {addLabel ?? t("zoneOverrides.add")}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-72 p-0" align="end">
         <Command>
-          <CommandInput placeholder={t("zoneOverrides.searchPlaceholder")} />
+          <CommandInput
+            placeholder={
+              searchPlaceholder ?? t("zoneOverrides.searchPlaceholder")
+            }
+          />
           <CommandList>
-            <CommandEmpty>{t("zoneOverrides.noneAvailable")}</CommandEmpty>
+            <CommandEmpty>
+              {noneAvailableLabel ?? t("zoneOverrides.noneAvailable")}
+            </CommandEmpty>
             <CommandGroup>
               {candidates.map((asset) => (
                 <CommandItem

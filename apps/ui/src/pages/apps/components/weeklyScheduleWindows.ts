@@ -1,0 +1,122 @@
+/**
+ * `weekly_schedule` window math the widget needs for display only (an
+ * overlap warning, a "uses default" caption) — kept in its own module,
+ * separate from the widget's JSX, so there is one place to update if the
+ * backend's scheduling rules change.
+ *
+ * This mirrors rules from a separate backend repo (day ordering, overlap
+ * math, weekday/weekend fallback precedence) that no test here can see —
+ * nothing in this repo catches the two definitions drifting apart. Treat any
+ * change here as needing a matching check against that backend.
+ */
+
+/** Fallback `day_of_week` order, used only when the app's schema doesn't
+ *  declare a `day_of_week` enum on `weekly_schedule` items — callers should
+ *  prefer that schema-declared list (`schema.items?.properties?.day_of_week?.enum`)
+ *  so day order can't drift from the backend without this module knowing. */
+export const DAYS_OF_WEEK = [
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+] as const;
+
+export type DayOfWeek = (typeof DAYS_OF_WEEK)[number];
+
+const WEEKEND_DAYS = new Set<string>(["saturday", "sunday"]);
+
+/** Hotel-wide fields (siblings of `weekly_schedule`) a day's default falls
+ *  back to when the room has no `zone_overrides` value of its own. */
+export const HOTEL_CHECKIN_FIELD = "checkin_time";
+export const HOTEL_CHECKOUT_FIELD = "checkout_time";
+export const HOTEL_WEEKEND_CHECKIN_FIELD = "weekend_checkin_time";
+export const HOTEL_WEEKEND_CHECKOUT_FIELD = "weekend_checkout_time";
+
+export interface HotelDefaults {
+  checkin: string | undefined;
+  checkout: string | undefined;
+  weekendCheckin?: string;
+  weekendCheckout?: string;
+}
+
+/** Whether `a` and `b` (both `[checkin, checkout]` HH:MM strings, overnight-
+ *  shaped) share any instant. Mirrors the backend's `windows_overlap`. */
+export function windowsOverlap(
+  a: [string, string],
+  b: [string, string],
+): boolean {
+  const span = (window: [string, string]): [number, number] => {
+    const [hh, mm] = window[0].split(":").map(Number);
+    const [ehh, emm] = window[1].split(":").map(Number);
+    const start = hh * 60 + mm;
+    let end = ehh * 60 + emm;
+    if (end <= start) end += 24 * 60;
+    return [start, end];
+  };
+  const [aStart, aEnd] = span(a);
+  const [bStart, bEnd] = span(b);
+  return aStart < bEnd && bStart < aEnd;
+}
+
+export function hasOverlap(windows: [string, string][]): boolean {
+  return windows.some((a, i) =>
+    windows.slice(i + 1).some((b) => windowsOverlap(a, b)),
+  );
+}
+
+/** Whether `checkin`/`checkout` (HH:MM strings) form an overnight stay, the
+ *  only shape the backend honors: a row with `checkout >= checkin` is
+ *  accepted and stored, but silently excluded from schedule resolution
+ *  (mirrors the backend's `_row_window`). */
+export function isOvernightWindow(checkin: string, checkout: string): boolean {
+  const minutesOf = (value: string): number => {
+    const [hh, mm] = value.split(":").map(Number);
+    return hh * 60 + mm;
+  };
+  return minutesOf(checkout) < minutesOf(checkin);
+}
+
+/** Resolves the (checkin, checkout) a room/day falls back to while it has no
+ *  `weekly_schedule` row of its own: the room's `zone_overrides` value
+ *  (weekday or weekend variant, picked independently per field) if set, else
+ *  the hotel-wide value — the same per-field fallback order as the backend's
+ *  `engine_config()` (`_hotel_engine_config` + `_override_engine_fields`).
+ *  Each field falls back independently: a room overriding `checkin_time` but
+ *  not `weekend_checkin_time` still resolves Saturday to the *hotel's*
+ *  weekend value, not its own weekday override.
+ *
+ *  Returns `undefined` when neither the override nor the hotel-wide fields
+ *  supply a value for a side (checkin or checkout) — there is nothing to
+ *  fall back to, so callers should show no default rather than inventing
+ *  one. */
+export function resolveDefaultWindow(
+  day: string,
+  hotel: HotelDefaults,
+  override: Record<string, unknown> | undefined,
+): { checkin: string; checkout: string } | undefined {
+  const isWeekend = WEEKEND_DAYS.has(day);
+  const overrideCheckin = override?.[HOTEL_CHECKIN_FIELD] as string | undefined;
+  const overrideCheckout = override?.[HOTEL_CHECKOUT_FIELD] as
+    | string
+    | undefined;
+  const overrideWeekendCheckin = override?.[HOTEL_WEEKEND_CHECKIN_FIELD] as
+    | string
+    | undefined;
+  const overrideWeekendCheckout = override?.[HOTEL_WEEKEND_CHECKOUT_FIELD] as
+    | string
+    | undefined;
+
+  const baseCheckin = overrideCheckin || hotel.checkin;
+  const baseCheckout = overrideCheckout || hotel.checkout;
+  const weekendCheckin = overrideWeekendCheckin || hotel.weekendCheckin;
+  const weekendCheckout = overrideWeekendCheckout || hotel.weekendCheckout;
+
+  const checkin = isWeekend && weekendCheckin ? weekendCheckin : baseCheckin;
+  const checkout =
+    isWeekend && weekendCheckout ? weekendCheckout : baseCheckout;
+  if (!checkin || !checkout) return undefined;
+  return { checkin, checkout };
+}

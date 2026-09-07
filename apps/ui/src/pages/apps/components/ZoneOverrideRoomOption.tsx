@@ -7,7 +7,7 @@ import { ancestorPathOf } from "@/lib/assets";
  *  Shared by the add and copy pickers, whose surrounding Popover+Command
  *  shells otherwise stay separate (single-select-commits vs. multi-select-
  *  then-confirm), matching this codebase's existing pattern of not unifying
- *  near-identical pickers ahead of AGR-922. */
+ *  near-identical pickers. */
 export const ZoneOverrideRoomOption: FC<{
   asset: Asset;
   assetsById: Record<string, Asset>;
