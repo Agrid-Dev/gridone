@@ -459,6 +459,22 @@ def test_change_password_wrong_current_returns_generic_401(
     assert response.json() == {"detail": "Unauthorized"}
 
 
+def test_change_password_401_does_not_advertise_bearer(client: TestClient) -> None:
+    """Clients refresh on a token 401. This one is about the request body."""
+    token = _login(client, "flagged")["access_token"]
+
+    rejected = client.post(
+        "/password",
+        json={"current_password": "not-my-password", "new_password": "new-password"},
+        headers=_auth(token),
+    )
+    expired = client.get("/me", headers=_auth("not-a-token"))
+
+    assert rejected.status_code == expired.status_code == 401
+    assert "WWW-Authenticate" not in rejected.headers
+    assert expired.headers["WWW-Authenticate"] == "Bearer"
+
+
 def test_change_password_rejects_reusing_the_current_password(
     client: TestClient,
 ) -> None:

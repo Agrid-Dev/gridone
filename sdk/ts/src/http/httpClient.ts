@@ -39,6 +39,15 @@ export interface HttpClientConfig {
   fetch?: FetchLike;
 }
 
+/**
+ * A 401 the caller's token can fix. The API sets `WWW-Authenticate` when it
+ * rejects the token itself, and omits it when the route rejects a credential
+ * carried in the body, which no refresh would help.
+ */
+function isTokenRejection(response: Response): boolean {
+  return response.status === 401 && response.headers.has("WWW-Authenticate");
+}
+
 /** Wire shape of `POST /auth/token` (OAuth2 token endpoint). */
 interface TokenResponse {
   access_token: string;
@@ -49,8 +58,9 @@ interface TokenResponse {
 
 /**
  * Internal transport: wraps native `fetch` with base-URL resolution, JSON
- * (de)serialization, bearer-token injection and reactive token refresh —
- * on a 401, one refresh (shared by concurrent requests) and one retry.
+ * (de)serialization, bearer-token injection and reactive token refresh:
+ * on a token rejection, one refresh (shared by concurrent requests) and one
+ * retry.
  * Errors surface as `GridoneError` / `NetworkError`.
  */
 export class HttpClient {
@@ -76,7 +86,7 @@ export class HttpClient {
     const tokens = await this.tokenStorage.getTokens();
     let response = await this.send(url, method, options, tokens?.accessToken);
 
-    if (response.status === 401 && (await this.refreshTokens())) {
+    if (isTokenRejection(response) && (await this.refreshTokens())) {
       const fresh = await this.tokenStorage.getTokens();
       response = await this.send(url, method, options, fresh?.accessToken);
     }
