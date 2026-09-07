@@ -1,3 +1,9 @@
+## v0.223.2 (2026-09-07)
+
+### Refactor
+
+- **devices-manager**: drop the per-read transport_io log (AGR-1121) (#612)
+
 ## v0.223.1 (2026-09-07)
 
 ### Fix
