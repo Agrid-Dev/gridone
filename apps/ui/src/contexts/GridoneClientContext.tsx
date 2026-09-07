@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 import { GridoneClient } from "@gridone/sdk";
 import { API_BASE_URL } from "@/lib/apiConfig";
-import { CookieTokenStorage } from "@/lib/cookieTokenStorage";
+import { cookieTokenStorage } from "@/lib/cookieTokenStorage";
 
 const GridoneClientContext = createContext<GridoneClient | null>(null);
 
@@ -18,7 +18,7 @@ export function GridoneClientProvider({
       client ??
       new GridoneClient({
         baseUrl: API_BASE_URL,
-        tokenStorage: new CookieTokenStorage(),
+        tokenStorage: cookieTokenStorage,
       }),
   );
   return (

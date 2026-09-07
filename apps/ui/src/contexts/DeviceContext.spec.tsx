@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { GridoneError } from "@gridone/sdk";
 import type { GridoneClient, MeResponse } from "@gridone/sdk";
 
 import { GridoneClientProvider } from "./GridoneClientContext";
@@ -50,7 +51,7 @@ function makeClient(me: () => Promise<MeResponse>): GridoneClient {
   return {
     me: vi.fn(me),
     login: vi.fn(),
-    logout: vi.fn(),
+    logout: vi.fn(() => Promise.resolve()),
     health: vi.fn(() => Promise.resolve({ version: "test", flags: [] })),
   } as unknown as GridoneClient;
 }
@@ -128,5 +129,31 @@ describe("DeviceProvider socket authentication", () => {
       "gridone",
       "gridone.auth.bearer.token-b",
     ]);
+  });
+
+  it("ends the session instead of reconnecting when the refresh is refused", async () => {
+    setTokens("token-a");
+    // The session restores, then the refresh behind the reconnect meets a 401:
+    // the refresh token is dead too, so there is nothing left to reconnect with.
+    const me = vi
+      .fn<() => Promise<MeResponse>>()
+      .mockResolvedValueOnce(ME)
+      .mockRejectedValue(new GridoneError(401, "Not authenticated"));
+    const client = makeClient(me);
+    renderProvider(client);
+    await waitFor(() => expect(MockWebSocket.instances).toHaveLength(1));
+
+    vi.useFakeTimers();
+    MockWebSocket.instances[0].close();
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(client.logout).toHaveBeenCalled();
+
+    // The attempt already in flight when the session ended still fires; what
+    // matters is that the backoff then stops instead of hammering a dead
+    // session forever.
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(MockWebSocket.instances).toHaveLength(2);
+    expect(screen.getByTestId("status")).toHaveTextContent("closed");
   });
 });

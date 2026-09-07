@@ -13,7 +13,8 @@ import {
   WebSocketMessage,
 } from "@/api/socket";
 import { useAuth } from "@/contexts/AuthContext";
-import { CookieTokenStorage } from "@/lib/cookieTokenStorage";
+import { cookieTokenStorage } from "@/lib/cookieTokenStorage";
+import { isGridoneError } from "@gridone/sdk";
 
 /**
  * The server negotiates `gridone` and reads the token from the second offer:
@@ -30,28 +31,38 @@ const DeviceContext = createContext<DeviceContextValue | null>(null);
 
 export function DeviceProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
-  const { state, refreshMe } = useAuth();
+  const { state, refreshMe, logout } = useAuth();
 
   const handleMessage = useCallback(createDeviceMessageHandler(queryClient), [
     queryClient,
   ]);
 
   const websocketUrl = useMemo(() => buildWebSocketUrl(), []);
-  const tokenStorage = useMemo(() => new CookieTokenStorage(), []);
 
   const getProtocols = useCallback(() => {
-    const accessToken = tokenStorage.getTokens()?.accessToken;
+    const accessToken = cookieTokenStorage.getTokens()?.accessToken;
     return accessToken
       ? ["gridone", `${AUTH_SUBPROTOCOL_PREFIX}${accessToken}`]
       : undefined;
-  }, [tokenStorage]);
+  }, []);
 
   // The server closes the socket when the access token expires. `/auth/me`
   // answers 401 on an expired token, which drives the SDK's refresh and writes
   // a fresh one to cookie storage for the next `getProtocols()`.
   const beforeReconnect = useCallback(async () => {
-    await refreshMe().catch(() => {});
-  }, [refreshMe]);
+    try {
+      await refreshMe();
+    } catch (error) {
+      // A 401 survives the SDK's refresh, so the refresh token is dead too and
+      // the session is over: end it here rather than reconnect forever against
+      // a session the API has forgotten while the UI still believes it is
+      // logged in. Anything else is a transport blip — keep the session and let
+      // the backoff retry.
+      if (isGridoneError(error) && error.status === 401) {
+        logout();
+      }
+    }
+  }, [refreshMe, logout]);
 
   const { status, isConnected } = useWebSocket<WebSocketMessage>({
     url: websocketUrl,
