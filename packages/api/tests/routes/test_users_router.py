@@ -3,6 +3,7 @@
 from unittest.mock import AsyncMock
 
 import pytest
+from conftest import OVERSIZED_PASSWORDS
 from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
 
@@ -14,7 +15,6 @@ from api.routes.users.users_router import router as users_router
 from models.errors import BlockedUserError, NotFoundError
 from users import Role, User, UserUpdate
 from users.auth import AuthService
-from users.validation import PASSWORD_MAX_LENGTH
 
 ADMIN = User(id="admin-id", username="admin", role=Role.ADMIN, name="Admin User")
 BOB = User(id="bob-id", username="bob", role=Role.OPERATOR, name="Bob User")
@@ -160,10 +160,9 @@ def test_blocked_user_jwt_is_rejected(app: FastAPI, users_manager: AsyncMock) ->
         resp = client.post("/users/bob-id/block", headers=_auth(admin_token))
         assert resp.status_code == 200
 
-        # The JWT dep reads the record, not is_blocked.
-        blocked_bob = BOB.model_copy(update={"is_blocked": True})
-        users_manager.get_by_id = AsyncMock(
-            side_effect=lambda uid: blocked_bob if uid == "bob-id" else ADMIN,
+        # The JWT dep reads is_blocked directly.
+        users_manager.is_blocked = AsyncMock(
+            side_effect=lambda uid: uid == "bob-id",
         )
 
         # Bob's existing token is now rejected
@@ -238,13 +237,6 @@ def test_update_user_conflict_returns_409(
 # --- Password length contract ---
 
 
-OVERSIZED = [
-    pytest.param("a" * (PASSWORD_MAX_LENGTH + 1), id="ascii"),
-    # 40 characters, 80 bytes once encoded.
-    pytest.param("é" * 40, id="multibyte"),
-]
-
-
 # (method, path, extra body fields, service method that must not be reached)
 WRITE_ROUTES = [
     pytest.param(("PATCH", "/users/bob-id", {}, "update_user"), id="update"),
@@ -254,7 +246,7 @@ WRITE_ROUTES = [
 ]
 
 
-@pytest.mark.parametrize("password", OVERSIZED)
+@pytest.mark.parametrize("password", OVERSIZED_PASSWORDS)
 @pytest.mark.parametrize("route", WRITE_ROUTES)
 def test_rejects_oversized_password(
     app: FastAPI,

@@ -189,7 +189,7 @@ class TestChangePassword:
 
 
 class TestEnsureDefaultAdmin:
-    async def test_generated_password_flags_the_account(
+    async def test_generated_password_is_seeded_without_the_flag(
         self, service: UsersService, storage: MemoryUsersStorage
     ):
         await service.ensure_default_admin()
@@ -197,26 +197,29 @@ class TestEnsureDefaultAdmin:
         admin = await storage.get_by_username("admin")
         assert admin is not None
         assert admin.role == Role.ADMIN
-        assert admin.must_change_password is True
+        assert admin.must_change_password is False
         assert not verify_password("admin", admin.hashed_password)
 
-    async def test_generated_password_is_logged_once(
+    async def test_generated_password_is_logged_once_without_the_value(
         self,
         service: UsersService,
         storage: MemoryUsersStorage,
         caplog: pytest.LogCaptureFixture,
+        monkeypatch: pytest.MonkeyPatch,
     ):
+        monkeypatch.setattr(
+            "users.service.secrets.token_urlsafe", lambda _n: "generated-secret"
+        )
+
         with caplog.at_level("WARNING"):
             await service.ensure_default_admin()
 
         warnings = [r for r in caplog.records if r.levelname == "WARNING"]
         assert len(warnings) == 1
+        assert "generated-secret" not in warnings[0].getMessage()
         admin = await storage.get_by_username("admin")
         assert admin is not None
-        logged = warnings[0].args
-        assert isinstance(logged, tuple)
-        # The logged credential is the one that was actually seeded.
-        assert verify_password(str(logged[0]), admin.hashed_password)
+        assert verify_password("generated-secret", admin.hashed_password)
 
     async def test_configured_password_is_seeded_without_the_flag(
         self, storage: MemoryUsersStorage

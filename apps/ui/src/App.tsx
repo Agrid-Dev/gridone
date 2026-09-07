@@ -14,7 +14,6 @@ import BuildingProfileEdit from "./pages/building/BuildingProfileEdit";
 import LoginPage from "./pages/login/LoginPage";
 import UsersPage from "./pages/users/UsersPage";
 import SettingsPage from "./pages/settings/SettingsPage";
-import { ForcedPasswordChange } from "./pages/settings/ForcedPasswordChange";
 import { NotFoundFallback } from "./components/fallbacks/NotFound";
 import { Sidebar } from "./components/layout/Sidebar";
 import { TopBar } from "./components/layout/TopBar";
@@ -79,7 +78,7 @@ function ProtectedLayout() {
 }
 
 export default function App() {
-  const { state, refreshMe, logout } = useAuth();
+  const { state } = useAuth();
 
   if (state.status === "loading") {
     return (
@@ -94,25 +93,16 @@ export default function App() {
     );
   }
 
-  return (
-    <>
-      {state.status === "unauthenticated" ? (
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="*" element={<Navigate to="/login" replace />} />
-        </Routes>
-      ) : state.user.must_change_password ? (
-        <ForcedPasswordChange
-          user={state.user}
-          refreshMe={refreshMe}
-          onLogout={logout}
-        />
-      ) : (
-        <TooltipProvider>
-          <ProtectedLayout />
-        </TooltipProvider>
-      )}
-      <Toaster />
-    </>
+  // ProtectedLayout renders its own Toaster; the unauthenticated screens
+  // (login) don't trigger toasts, so no second instance is needed here.
+  return state.status === "unauthenticated" ? (
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="*" element={<Navigate to="/login" replace />} />
+    </Routes>
+  ) : (
+    <TooltipProvider>
+      <ProtectedLayout />
+    </TooltipProvider>
   );
 }

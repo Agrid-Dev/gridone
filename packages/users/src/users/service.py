@@ -57,28 +57,27 @@ class UsersService(Service):
     async def ensure_default_admin(self) -> None:
         """Seed the admin account if no users exist.
 
-        With no configured password one is generated, logged once, and the
-        account is flagged to change it.
+        With no configured password one is generated.
         """
         existing = await self._backend.list_all()
         if existing:
             return
         generated = self._admin_password is None
-        password = self._admin_password or secrets.token_urlsafe(
-            _GENERATED_PASSWORD_BYTES
+        password = (
+            self._admin_password
+            if self._admin_password is not None
+            else secrets.token_urlsafe(_GENERATED_PASSWORD_BYTES)
         )
         if generated:
             logger.warning(
                 "No admin password configured. Seeded the 'admin' account with "
-                "a generated password: %s. It must be changed at first login.",
-                password,
+                "a generated password."
             )
         admin = UserInDB(
             id=gen_id(),
             username="admin",
             hashed_password=hash_password(password),
             role=Role.ADMIN,
-            must_change_password=generated,
         )
         await self._backend.save(admin)
 

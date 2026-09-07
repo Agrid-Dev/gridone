@@ -1,12 +1,9 @@
 import pytest
+from conftest import OVERSIZED_PASSWORDS
 from fastapi import APIRouter, Depends, FastAPI
 from fastapi.testclient import TestClient
 
-from api.dependencies import (
-    PASSWORD_CHANGE_REQUIRED,
-    get_users_service,
-    require_password_changed,
-)
+from api.dependencies import get_current_user_id, get_users_service
 from api.exception_handlers import register_exception_handlers
 from api.routes.users.auth_router import router
 from models.errors import (
@@ -500,9 +497,7 @@ def test_change_password_requires_a_token(client: TestClient) -> None:
 @pytest.mark.parametrize(
     "new_password",
     [
-        pytest.param("a" * (PASSWORD_MAX_LENGTH + 1), id="ascii-over-limit"),
-        # 40 characters, 80 bytes once encoded.
-        pytest.param("é" * 40, id="multibyte-over-limit"),
+        *OVERSIZED_PASSWORDS,
         pytest.param("a" * (PASSWORD_MIN_LENGTH - 1), id="under-minimum"),
     ],
 )
@@ -520,12 +515,12 @@ def test_change_password_rejects_out_of_range_password(
     assert response.status_code == 422
 
 
-# --- must_change_password gate ---
+# --- router-level blanket dependency (mirrors app.py's jwt_dep) ---
 
 
 @pytest.fixture
 def gated_app(users_service: MockUsersService) -> FastAPI:
-    """Mirror app.py's split: auth_router public, one router behind the gate."""
+    """Mirror app.py's split: auth_router public, one router behind jwt_dep."""
     app = FastAPI()
     app.state.auth_service = AuthService(secret_key="test-secret")
     app.state.cookie_secure = False
@@ -542,7 +537,7 @@ def gated_app(users_service: MockUsersService) -> FastAPI:
     app.include_router(
         protected,
         prefix="/protected",
-        dependencies=[Depends(require_password_changed)],
+        dependencies=[Depends(get_current_user_id)],
     )
     return app
 
@@ -552,36 +547,21 @@ def gated_client(gated_app: FastAPI) -> TestClient:
     return TestClient(gated_app)
 
 
-def test_flagged_user_is_refused_on_a_protected_route(gated_client: TestClient) -> None:
-    token = _login(gated_client, "flagged")["access_token"]
+def test_blocked_user_is_refused_on_a_protected_route(
+    gated_app: FastAPI, gated_client: TestClient
+) -> None:
+    # Login itself already refuses a blocked user, so mint the token
+    # directly to exercise the router-level gate on an existing session.
+    auth_service: AuthService = gated_app.state.auth_service
+    token = auth_service.create_access_token("blocked-id", Role.OPERATOR)
 
     response = gated_client.get("/protected/", headers=_auth(token))
 
     assert response.status_code == 403
-    assert response.json() == {"detail": PASSWORD_CHANGE_REQUIRED}
+    assert "blocked" in response.json()["detail"].lower()
 
 
-def test_flagged_user_still_reaches_me(gated_client: TestClient) -> None:
-    token = _login(gated_client, "flagged")["access_token"]
-
-    assert gated_client.get("/me", headers=_auth(token)).status_code == 200
-
-
-def test_same_token_works_after_the_password_change(gated_client: TestClient) -> None:
-    """No re-login: the gate reads storage, not the token."""
-    token = _login(gated_client, "flagged")["access_token"]
-    assert gated_client.get("/protected/", headers=_auth(token)).status_code == 403
-
-    gated_client.post(
-        "/password",
-        json={"current_password": "flagged", "new_password": "new-password"},
-        headers=_auth(token),
-    )
-
-    assert gated_client.get("/protected/", headers=_auth(token)).status_code == 200
-
-
-def test_unflagged_user_passes_the_gate(gated_client: TestClient) -> None:
+def test_active_user_passes_the_gate(gated_client: TestClient) -> None:
     token = _login(gated_client, "admin")["access_token"]
 
     assert gated_client.get("/protected/", headers=_auth(token)).status_code == 200
@@ -591,25 +571,3 @@ def test_gate_still_refuses_an_unauthenticated_request(
     gated_client: TestClient,
 ) -> None:
     assert gated_client.get("/protected/").status_code == 401
-
-
-def test_gate_lets_a_deleted_user_through(gated_app: FastAPI) -> None:
-    """No record to read the flag from, so the gate has nothing to refuse on."""
-    auth_service: AuthService = gated_app.state.auth_service
-    token = auth_service.create_access_token("deleted-id", Role.ADMIN)
-
-    with TestClient(gated_app) as client:
-        response = client.get("/protected/", headers=_auth(token))
-
-    assert response.status_code == 200
-
-
-def test_gate_still_refuses_a_blocked_user(gated_app: FastAPI) -> None:
-    auth_service: AuthService = gated_app.state.auth_service
-    token = auth_service.create_access_token("blocked-id", Role.OPERATOR)
-
-    with TestClient(gated_app) as client:
-        response = client.get("/protected/", headers=_auth(token))
-
-    assert response.status_code == 403
-    assert "blocked" in response.json()["detail"].lower()

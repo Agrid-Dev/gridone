@@ -1,7 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from api.auth import get_current_user_id
 from api.dependencies import get_auth_service, get_users_service
@@ -218,8 +218,10 @@ async def get_me(
 
 
 class PasswordChangeRequest(BaseModel):
-    # Unbounded: a bound would answer 422 on a wrong guess, revealing the check.
-    current_password: str
+    # A high ceiling, not a real bound: a tight one would answer 422 on a
+    # wrong guess, revealing the check. This just keeps a garbage-sized
+    # body out of the handler.
+    current_password: str = Field(max_length=1024)
     new_password: PasswordField
 
 
@@ -229,9 +231,10 @@ async def change_password(
     current_user_id: Annotated[str, Depends(get_current_user_id)],
     um: Annotated[UsersService, Depends(get_users_service)],
 ) -> MeResponse:
-    """Change your own password. No ``users:write`` required.
+    """Change your own password.
 
-    Mounted outside ``jwt_dep`` so a flagged user can still reach it.
+    It's the caller's own credential, not user management, so it needs no
+    ``users:write`` permission.
     """
     user = await um.change_password(
         current_user_id, body.current_password, body.new_password

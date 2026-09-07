@@ -22,7 +22,7 @@ class TestStartStop:
             assert len(users) == 1
             assert users[0].username == "admin"
             assert users[0].role == Role.ADMIN
-            assert users[0].must_change_password is True
+            assert users[0].must_change_password is False
         finally:
             await svc.stop()
 
