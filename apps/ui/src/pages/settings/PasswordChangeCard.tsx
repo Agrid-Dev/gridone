@@ -31,6 +31,13 @@ const ENCODER = new TextEncoder();
 const passwordByteLength = (value: string): number =>
   ENCODER.encode(value).length;
 
+/**
+ * The server counts Unicode code points (Python `len()`), not UTF-16 code
+ * units, so `.length` overcounts a password made of astral-plane characters
+ * (e.g. emoji, each a surrogate pair) by 2x.
+ */
+const passwordCharLength = (value: string): number => Array.from(value).length;
+
 const EMPTY_FORM = {
   currentPassword: "",
   password: "",
@@ -61,8 +68,8 @@ export function PasswordChangeCard({
             .min(1, t("settings.validation.currentPasswordRequired")),
           password: z
             .string()
-            .min(
-              min,
+            .refine(
+              (value) => passwordCharLength(value) >= min,
               t("settings.validation.passwordMinLength", { count: min }),
             )
             .refine(
@@ -101,15 +108,18 @@ export function PasswordChangeCard({
         current_password: values.currentPassword,
         new_password: values.password,
       });
-
-      await refreshMe();
-      toast.success(t("settings.passwordUpdated"));
-      form.reset(EMPTY_FORM);
     } catch (err) {
       const message = serverErrorMessage(err) ?? t("common.error");
       form.setError("root", { message });
       toast.error(message);
+      return;
     }
+
+    // The password already rotated at this point, so a refresh failure
+    // isn't reported as a failed change — it's just a stale user object.
+    toast.success(t("settings.passwordUpdated"));
+    form.reset(EMPTY_FORM);
+    void refreshMe();
   });
 
   const isSubmitting = form.formState.isSubmitting;

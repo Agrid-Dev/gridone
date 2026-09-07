@@ -1,8 +1,8 @@
 import pytest
+from conftest import OVERSIZED_PASSWORDS
 from pydantic import ValidationError
 
 from api.settings import Settings, load_settings
-from users.validation import PASSWORD_MAX_LENGTH
 
 
 class TestExtraEnvIgnored:
@@ -45,12 +45,7 @@ class TestAdminPassword:
 
     @pytest.mark.parametrize(
         "value",
-        [
-            pytest.param("a" * (PASSWORD_MAX_LENGTH + 1), id="ascii-over-limit"),
-            # 40 characters, 80 bytes once encoded.
-            pytest.param("é" * 40, id="multibyte-over-limit"),
-            pytest.param("ab", id="under-minimum"),
-        ],
+        [*OVERSIZED_PASSWORDS, pytest.param("ab", id="under-minimum")],
     )
     def test_rejects_a_password_bcrypt_could_not_hash(self, value: str):
         """Fails at settings load, not inside bcrypt during the lifespan."""
