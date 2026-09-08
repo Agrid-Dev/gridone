@@ -74,6 +74,13 @@ def users_manager() -> AsyncMock:
             else (_ for _ in ()).throw(NotFoundError(f"User '{uid}' not found"))
         ),
     )
+    um.delete_user = AsyncMock(
+        side_effect=lambda uid: (
+            None
+            if uid == "bob-id"
+            else (_ for _ in ()).throw(NotFoundError(f"User '{uid}' not found"))
+        ),
+    )
     return um
 
 
@@ -179,6 +186,49 @@ def test_operator_cannot_block_user(app: FastAPI) -> None:
         token = _login(client, "bob")
         resp = client.post("/users/admin-id/block", headers=_auth(token))
         assert resp.status_code == 403
+
+
+# --- Get user ---
+
+
+def test_admin_can_get_user(app: FastAPI) -> None:
+    with TestClient(app) as client:
+        token = _login(client, "admin")
+        resp = client.get("/users/bob-id", headers=_auth(token))
+    assert resp.status_code == 200
+    assert resp.json()["username"] == "bob"
+
+
+def test_get_nonexistent_user_returns_404(app: FastAPI) -> None:
+    with TestClient(app) as client:
+        token = _login(client, "admin")
+        resp = client.get("/users/nonexistent", headers=_auth(token))
+    assert resp.status_code == 404
+
+
+# --- Delete user ---
+
+
+def test_admin_can_delete_user(app: FastAPI) -> None:
+    with TestClient(app) as client:
+        token = _login(client, "admin")
+        resp = client.delete("/users/bob-id", headers=_auth(token))
+    assert resp.status_code == 204
+
+
+def test_delete_self_returns_400(app: FastAPI) -> None:
+    with TestClient(app) as client:
+        token = _login(client, "admin")
+        resp = client.delete("/users/admin-id", headers=_auth(token))
+    assert resp.status_code == 400
+    assert "your own" in resp.json()["detail"].lower()
+
+
+def test_delete_nonexistent_user_returns_404(app: FastAPI) -> None:
+    with TestClient(app) as client:
+        token = _login(client, "admin")
+        resp = client.delete("/users/nonexistent", headers=_auth(token))
+    assert resp.status_code == 404
 
 
 # --- Create user ---
