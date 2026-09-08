@@ -70,6 +70,21 @@ class PostgresUsersStorage:
             user.is_blocked,
         )
 
+    async def update_password(
+        self, user_id: str, hashed_password: str
+    ) -> UserInDB | None:
+        row = await self._pool.fetchrow(
+            """
+            UPDATE users
+            SET hashed_password = $1, must_change_password = false
+            WHERE id = $2
+            RETURNING *
+            """,
+            hashed_password,
+            user_id,
+        )
+        return self._row_to_model(row) if row else None
+
     async def delete(self, user_id: str) -> None:
         await self._pool.execute("DELETE FROM users WHERE id = $1", user_id)
 

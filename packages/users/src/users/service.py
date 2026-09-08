@@ -138,8 +138,9 @@ class UsersService(Service):
     ) -> User:
         """Rotate the password after re-verifying the current one.
 
-        The write goes through ``UserUpdate``, which clears
-        ``must_change_password``.
+        Written through ``update_password`` rather than ``save`` so a
+        concurrent change to another field (e.g. an admin blocking the
+        account) between the read above and this write isn't clobbered.
         """
         user = await self._get_in_db_or_raise(user_id)
         if not verify_password(current_password, user.hashed_password):
@@ -148,8 +149,12 @@ class UsersService(Service):
         if new_password == current_password:
             msg = "The new password must differ from the current one"
             raise InvalidError(msg)
-        updated_user = user.update(UserUpdate(password=new_password))
-        await self._backend.save(updated_user)
+        updated_user = await self._backend.update_password(
+            user_id, hash_password(new_password)
+        )
+        if updated_user is None:
+            msg = f"User '{user_id}' not found"
+            raise NotFoundError(msg)
         return self._to_public_user(updated_user)
 
     async def delete_user(self, user_id: str) -> None:

@@ -187,6 +187,21 @@ class TestChangePassword:
 
         assert result.must_change_password is False
 
+    async def test_change_password_does_not_revert_a_concurrent_block(
+        self, service: UsersService, storage: MemoryUsersStorage
+    ):
+        """A block landing between the read and the write must not be undone."""
+        await storage.save(_make_user(is_blocked=False))
+
+        await service.block_user("u1")
+        result = await service.change_password("u1", "password12345", "new-password")
+
+        assert result.is_blocked is True
+        stored = await storage.get_by_id("u1")
+        assert stored is not None
+        assert stored.is_blocked is True
+        assert verify_password("new-password", stored.hashed_password)
+
 
 class TestEnsureDefaultAdmin:
     async def test_no_users_and_no_configured_password_raises(

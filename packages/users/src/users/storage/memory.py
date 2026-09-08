@@ -22,6 +22,18 @@ class MemoryUsersStorage:
     async def save(self, user: UserInDB) -> None:
         self._users[user.id] = user
 
+    async def update_password(
+        self, user_id: str, hashed_password: str
+    ) -> UserInDB | None:
+        user = self._users.get(user_id)
+        if user is None:
+            return None
+        updated = user.model_copy(
+            update={"hashed_password": hashed_password, "must_change_password": False}
+        )
+        self._users[user_id] = updated
+        return updated
+
     async def delete(self, user_id: str) -> None:
         self._users.pop(user_id, None)
 
