@@ -16,6 +16,9 @@ vi.mock("react-i18next", () =>
     "pump.field.speed": "Vitesse",
     "pump.field.power": "Puissance",
     "pump.field.liquid_temperature": "Temp. fluide",
+    "pump.state.running": "En marche",
+    "pump.state.stopped": "À l'arrêt",
+    "pump.state.unknown": "Non relevé",
   }),
 );
 
@@ -62,7 +65,7 @@ describe("PumpSynoptic", () => {
   it("degrades to the pump alone when only run state is reported", () => {
     render(<PumpSynoptic values={DRY_CONTACT} />);
 
-    expect(screen.getByRole("img", { name: "Pompe" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /^Pompe/ })).toBeInTheDocument();
     expect(screen.queryByText("—")).not.toBeInTheDocument();
     expect(screen.queryByText("Débit")).not.toBeInTheDocument();
   });
@@ -96,6 +99,24 @@ describe("PumpSynoptic", () => {
       expect(endY).toBeGreaterThan(motor.y);
       expect(endY).toBeLessThan(motor.bottom);
     }
+  });
+
+  it("tells a never-reported pump apart from a stopped one", () => {
+    // Same muted palette and no motion for both, so the casing dashes and the
+    // accessible label are the only things that separate "we have no feedback"
+    // from "it is confirmed off".
+    const stopped = render(<PumpSynoptic values={{ onoffState: false }} />);
+    const stoppedRing = stopped.container.querySelector("circle[stroke-width]");
+    expect(stoppedRing?.getAttribute("stroke-dasharray")).toBeNull();
+    expect(stopped.getByRole("img", { name: /À l'arrêt/ })).toBeInTheDocument();
+    cleanup();
+
+    const unknown = render(<PumpSynoptic values={{}} />);
+    const unknownRing = unknown.container.querySelector("circle[stroke-width]");
+    expect(unknownRing?.getAttribute("stroke-dasharray")).not.toBeNull();
+    expect(
+      unknown.getByRole("img", { name: /Non relevé/ }),
+    ).toBeInTheDocument();
   });
 
   it("stills the flow when the pump is stopped", () => {

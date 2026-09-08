@@ -72,7 +72,7 @@ export function PumpSynoptic({
       <svg
         viewBox="0 0 920 320"
         role="img"
-        aria-label={t("pump.name")}
+        aria-label={`${t("pump.name")} — ${t(`pump.state.${state}`)}`}
         className="w-full"
       >
         {/* Pipe run, suction left → discharge right. Only the walls are

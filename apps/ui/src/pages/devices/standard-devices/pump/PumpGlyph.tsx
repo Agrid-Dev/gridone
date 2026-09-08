@@ -83,12 +83,18 @@ export function PumpGlyph({
         className="fill-card stroke-border"
       />
 
-      {/* Volute casing. The ring carries the hydraulic accent when turning. */}
+      {/* Volute casing. The ring carries the hydraulic accent when turning,
+          and breaks into dashes when the pump has never reported — a stopped
+          pump and one we have no feedback from are different facts, and a
+          solid grey ring would claim the first while meaning the second. */}
       <circle
         cx={cx}
         cy={cy}
         r={r}
         strokeWidth="3"
+        strokeDasharray={
+          state === "unknown" ? `${r * 0.2} ${r * 0.16}` : undefined
+        }
         className={cn("fill-card", PUMP_STATE_STROKE_CLASS[state])}
       />
 
