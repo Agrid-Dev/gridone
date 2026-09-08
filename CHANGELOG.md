@@ -1,3 +1,20 @@
+## v0.225.0 (2026-09-08)
+
+### Feat
+
+- **assets**: add IFC upload and 3D building visualization (AGR-1010)
+
+### Fix
+
+- **assets**: let the renumbered migrations replay on a database that ran the branch
+- **assets**: preserve usages on IFC re-import, renumber migrations
+- **assets**: type the IFC shape as a triangulation for ty
+- **ui**: wrap the 3D model card actions instead of overflowing
+
+### Refactor
+
+- **assets**: split the 3D model lifecycle out of AssetsService (AGR-1010)
+
 ## v0.224.0 (2026-09-07)
 
 ### Feat
