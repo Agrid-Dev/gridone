@@ -8,6 +8,17 @@ import type { StandardPreviewProps } from "../types";
 const R = 42;
 const BOUNDS = pumpGlyphBounds(0, 0, R);
 const VIEW_BOX = `${BOUNDS.x} ${BOUNDS.y} ${BOUNDS.w} ${BOUNDS.h}`;
+const ASPECT = BOUNDS.w / BOUNDS.h;
+
+/** Where the rotor centre sits down the glyph's height. The motor stands
+ *  above the volute, so it is nowhere near the middle — roughly 0.69 — and a
+ *  label centred on the box as a whole floats well above the rotor it names.
+ *  Derived rather than measured, so it follows the drawing. */
+const ROTOR_FRACTION = -BOUNDS.y / BOUNDS.h;
+
+/** Rendered glyph height per surface, in px. The width follows the drawing's
+ *  own aspect, so the motor is never cropped to fit a guessed box. */
+const HEIGHT = { sm: 44, md: 64 } as const;
 
 /** The pump drawing plus its run state, for card-sized surfaces: the fleet
  *  card's lead slot and the device card's preview.
@@ -18,7 +29,8 @@ const VIEW_BOX = `${BOUNDS.x} ${BOUNDS.y} ${BOUNDS.w} ${BOUNDS.h}`;
  *
  *  The impeller never turns here. A grid of pumps all spinning at once is
  *  motion with nothing to say; the animation earns its place on the device
- *  page, where one pump is the subject. */
+ *  page, where one pump is the subject. Running reads statically instead,
+ *  from the filled volute. */
 export function PumpSummary({
   device,
   size = "md",
@@ -28,14 +40,17 @@ export function PumpSummary({
 
   const state = pumpState(readPumpAttributes(device));
   const label = t(`pump.state.${state}`);
+  const height = HEIGHT[size];
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-2.5">
       <svg
         viewBox={VIEW_BOX}
         role="img"
         aria-label={`${t("pump.name")} — ${label}`}
-        className={cn("shrink-0", size === "sm" ? "h-11 w-7" : "h-16 w-10")}
+        width={height * ASPECT}
+        height={height}
+        className="shrink-0"
       >
         <PumpGlyph
           cx={0}
@@ -48,10 +63,13 @@ export function PumpSummary({
       </svg>
       <span
         className={cn(
-          "truncate font-display font-semibold leading-none",
-          size === "sm" ? "text-base" : "text-2xl",
+          "truncate leading-none",
+          size === "sm" ? "text-xs" : "text-sm",
           PUMP_STATE_TEXT_CLASS[state],
         )}
+        style={{
+          transform: `translateY(${(ROTOR_FRACTION - 0.5) * height}px)`,
+        }}
       >
         {label}
       </span>
