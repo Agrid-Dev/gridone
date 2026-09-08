@@ -1,6 +1,3 @@
-import logging
-import secrets
-
 from models.errors import (
     BlockedUserError,
     InvalidError,
@@ -13,10 +10,6 @@ from users.models import Role, User, UserCreate, UserInDB, UserUpdate
 from users.password import hash_password, verify_password
 from users.storage import build_users_storage
 from users.storage.storage_backend import UsersStorageBackend
-
-logger = logging.getLogger(__name__)
-
-_GENERATED_PASSWORD_BYTES = 16
 
 
 class UsersService(Service):
@@ -55,28 +48,20 @@ class UsersService(Service):
         return user
 
     async def ensure_default_admin(self) -> None:
-        """Seed the admin account if no users exist.
-
-        With no configured password one is generated.
-        """
+        """Seed the admin account from GRIDONE_ADMIN_PASSWORD if no users exist."""
         existing = await self._backend.list_all()
         if existing:
             return
-        generated = self._admin_password is None
-        password = (
-            self._admin_password
-            if self._admin_password is not None
-            else secrets.token_urlsafe(_GENERATED_PASSWORD_BYTES)
-        )
-        if generated:
-            logger.warning(
-                "No admin password configured. Seeded the 'admin' account with "
-                "a generated password."
+        if self._admin_password is None:
+            msg = (
+                "No users exist and GRIDONE_ADMIN_PASSWORD is not set. Set it to "
+                "seed the initial 'admin' account."
             )
+            raise RuntimeError(msg)
         admin = UserInDB(
             id=gen_id(),
             username="admin",
-            hashed_password=hash_password(password),
+            hashed_password=hash_password(self._admin_password),
             role=Role.ADMIN,
         )
         await self._backend.save(admin)

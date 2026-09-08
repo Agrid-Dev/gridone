@@ -14,7 +14,7 @@ pytestmark = pytest.mark.asyncio
 
 class TestStartStop:
     async def test_start_with_none_url_uses_memory_backend(self):
-        svc = UsersService(storage_url=None)
+        svc = UsersService(storage_url=None, admin_password="configured-password")
         await svc.start()
         try:
             users = await svc.list_users()
@@ -26,8 +26,13 @@ class TestStartStop:
         finally:
             await svc.stop()
 
-    async def test_start_then_stop_then_stop_is_idempotent(self):
+    async def test_start_without_admin_password_raises(self):
         svc = UsersService(storage_url=None)
+        with pytest.raises(RuntimeError, match="GRIDONE_ADMIN_PASSWORD"):
+            await svc.start()
+
+    async def test_start_then_stop_then_stop_is_idempotent(self):
+        svc = UsersService(storage_url=None, admin_password="configured-password")
         await svc.start()
         await svc.stop()
         # Second stop must not raise (e.g. AttributeError on a missing pool).
