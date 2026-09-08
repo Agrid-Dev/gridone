@@ -1,0 +1,805 @@
+{
+  "version": 1,
+  "name": "Production ECS Est",
+  "description": "Hydraulique — production ECS Est : 2 PAC, collecteur départ, 9 ballons 500 L en 3 colonnes, mitigeur, départ ECS vers 104 chambres, bouclage, appoint eau froide. Rewritten from the mermaid POC with positions. Device ids are placeholders until AGR-1164.",
+  "projection": "isometric",
+  "defaults": { "stale_after": 900 },
+
+  "symbols": [
+    {
+      "id": "pac-03",
+      "type": "heat_pump",
+      "placement": { "kind": "cell", "cell": { "x": 0, "y": 0 }, "rotation": 0 },
+      "label": "PAC 03",
+      "device_id": "PAC-03",
+      "props": {},
+      "bindings": {
+        "state": {
+          "kind": "attribute",
+          "target": { "devices": { "ids": ["PAC-03"] }, "attribute": "onoff_state" },
+          "labels": { "true": "MARCHE", "false": "ARRÊT" }
+        },
+        "fault": {
+          "kind": "attribute",
+          "target": { "devices": { "ids": ["PAC-03"] }, "attribute": "general_fault" },
+          "labels": { "true": "DÉFAUT", "false": "NORMAL" }
+        },
+        "supply_temp": {
+          "kind": "attribute",
+          "target": { "devices": { "ids": ["PAC-03"] }, "attribute": "outlet_temperature" },
+          "unit": "°C",
+          "decimals": 1
+        },
+        "power": {
+          "kind": "attribute",
+          "target": { "devices": { "ids": ["PAC-03"] }, "attribute": "active_power" },
+          "unit": "kW",
+          "decimals": 1
+        }
+      }
+    },
+    {
+      "id": "pac-04",
+      "type": "heat_pump",
+      "placement": { "kind": "cell", "cell": { "x": 0, "y": 4 }, "rotation": 0 },
+      "label": "PAC 04",
+      "device_id": "PAC-04",
+      "props": {},
+      "bindings": {
+        "state": {
+          "kind": "attribute",
+          "target": { "devices": { "ids": ["PAC-04"] }, "attribute": "onoff_state" },
+          "labels": { "true": "MARCHE", "false": "ARRÊT" }
+        },
+        "fault": {
+          "kind": "attribute",
+          "target": { "devices": { "ids": ["PAC-04"] }, "attribute": "general_fault" },
+          "labels": { "true": "DÉFAUT", "false": "NORMAL" }
+        },
+        "supply_temp": {
+          "kind": "attribute",
+          "target": { "devices": { "ids": ["PAC-04"] }, "attribute": "outlet_temperature" },
+          "unit": "°C",
+          "decimals": 1
+        },
+        "power": {
+          "kind": "attribute",
+          "target": { "devices": { "ids": ["PAC-04"] }, "attribute": "active_power" },
+          "unit": "kW",
+          "decimals": 1
+        }
+      }
+    },
+
+    {
+      "id": "v-03",
+      "type": "valve_isolation",
+      "placement": { "kind": "pipe", "pipe": "pac-03-supply", "cell": { "x": 3, "y": 1 } },
+      "label": "V-03",
+      "device_id": null,
+      "props": {},
+      "bindings": {
+        "state": {
+          "kind": "attribute",
+          "target": { "devices": { "ids": ["ECS-EST-CTRL"] }, "attribute": "valve_03_open" },
+          "labels": { "true": "OUVERTE", "false": "FERMÉE" }
+        }
+      }
+    },
+    {
+      "id": "cl-03",
+      "type": "valve_check",
+      "placement": { "kind": "pipe", "pipe": "pac-03-supply", "cell": { "x": 4, "y": 1 } },
+      "label": "CL-03",
+      "device_id": null,
+      "props": {},
+      "bindings": {}
+    },
+    {
+      "id": "v-04",
+      "type": "valve_isolation",
+      "placement": { "kind": "pipe", "pipe": "pac-04-supply", "cell": { "x": 3, "y": 5 } },
+      "label": "V-04",
+      "device_id": null,
+      "props": {},
+      "bindings": {
+        "state": {
+          "kind": "attribute",
+          "target": { "devices": { "ids": ["ECS-EST-CTRL"] }, "attribute": "valve_04_open" },
+          "labels": { "true": "OUVERTE", "false": "FERMÉE" }
+        }
+      }
+    },
+    {
+      "id": "cl-04",
+      "type": "valve_check",
+      "placement": { "kind": "pipe", "pipe": "pac-04-supply", "cell": { "x": 4, "y": 5 } },
+      "label": "CL-04",
+      "device_id": null,
+      "props": {},
+      "bindings": {}
+    },
+
+    {
+      "id": "collector-primary-supply",
+      "type": "collector",
+      "placement": { "kind": "cell", "cell": { "x": 5, "y": -2 }, "rotation": 0 },
+      "label": "COLLECTEUR DÉPART",
+      "device_id": null,
+      "props": {
+        "axis": "y",
+        "length": 9,
+        "ports": {
+          "out_3": { "offset": 0, "side": "+x" },
+          "out_2": { "offset": 1, "side": "+x" },
+          "out_1": { "offset": 2, "side": "+x" },
+          "in_1": { "offset": 3, "side": "-x" },
+          "in_2": { "offset": 7, "side": "-x" },
+          "out_4": { "offset": 8, "side": "+x" }
+        }
+      },
+      "bindings": {}
+    },
+    {
+      "id": "collector-primary-return",
+      "type": "collector",
+      "placement": { "kind": "cell", "cell": { "x": 3, "y": 13 }, "rotation": 0 },
+      "label": "COLLECTEUR RETOUR",
+      "device_id": null,
+      "props": {
+        "axis": "x",
+        "length": 15,
+        "ports": {
+          "out_1": { "offset": 0, "side": "-x" },
+          "in_4": { "offset": 4, "side": "-y" },
+          "in_1": { "offset": 6, "side": "-y" },
+          "in_2": { "offset": 10, "side": "-y" },
+          "in_3": { "offset": 14, "side": "-y" }
+        }
+      },
+      "bindings": {}
+    },
+    {
+      "id": "collector-dhw",
+      "type": "collector",
+      "placement": { "kind": "cell", "cell": { "x": 11, "y": -3 }, "rotation": 0 },
+      "label": "COLLECTEUR ECS",
+      "device_id": null,
+      "props": {
+        "axis": "x",
+        "length": 11,
+        "ports": {
+          "in_1": { "offset": 0, "side": "+y" },
+          "in_2": { "offset": 4, "side": "+y" },
+          "in_3": { "offset": 8, "side": "+y" },
+          "out_1": { "offset": 10, "side": "+x" }
+        }
+      },
+      "bindings": {}
+    },
+
+    {
+      "id": "b01",
+      "type": "tank",
+      "placement": { "kind": "cell", "cell": { "x": 10, "y": 0 }, "rotation": 0 },
+      "label": "B01",
+      "device_id": null,
+      "props": { "capacity": "500 L" },
+      "bindings": {
+        "temperature": {
+          "kind": "attribute",
+          "target": { "devices": { "ids": ["ECS-EST-CTRL"] }, "attribute": "tank_01_temperature" },
+          "unit": "°C",
+          "decimals": 0
+        }
+      }
+    },
+    {
+      "id": "b02",
+      "type": "tank",
+      "placement": { "kind": "cell", "cell": { "x": 14, "y": 0 }, "rotation": 0 },
+      "label": "B02",
+      "device_id": null,
+      "props": { "capacity": "500 L" },
+      "bindings": {
+        "temperature": {
+          "kind": "attribute",
+          "target": { "devices": { "ids": ["ECS-EST-CTRL"] }, "attribute": "tank_02_temperature" },
+          "unit": "°C",
+          "decimals": 0
+        }
+      }
+    },
+    {
+      "id": "b03",
+      "type": "tank",
+      "placement": { "kind": "cell", "cell": { "x": 18, "y": 0 }, "rotation": 0 },
+      "label": "B03",
+      "device_id": null,
+      "props": { "capacity": "500 L" },
+      "bindings": {
+        "temperature": {
+          "kind": "attribute",
+          "target": { "devices": { "ids": ["ECS-EST-CTRL"] }, "attribute": "tank_03_temperature" },
+          "unit": "°C",
+          "decimals": 0
+        }
+      }
+    },
+    {
+      "id": "b04",
+      "type": "tank",
+      "placement": { "kind": "cell", "cell": { "x": 10, "y": 3 }, "rotation": 0 },
+      "label": "B04",
+      "device_id": null,
+      "props": { "capacity": "500 L" },
+      "bindings": {
+        "temperature": {
+          "kind": "attribute",
+          "target": { "devices": { "ids": ["ECS-EST-CTRL"] }, "attribute": "tank_04_temperature" },
+          "unit": "°C",
+          "decimals": 0
+        }
+      }
+    },
+    {
+      "id": "b05",
+      "type": "tank",
+      "placement": { "kind": "cell", "cell": { "x": 14, "y": 3 }, "rotation": 0 },
+      "label": "B05",
+      "device_id": null,
+      "props": { "capacity": "500 L" },
+      "bindings": {
+        "temperature": {
+          "kind": "attribute",
+          "target": { "devices": { "ids": ["ECS-EST-CTRL"] }, "attribute": "tank_05_temperature" },
+          "unit": "°C",
+          "decimals": 0
+        }
+      }
+    },
+    {
+      "id": "b06",
+      "type": "tank",
+      "placement": { "kind": "cell", "cell": { "x": 18, "y": 3 }, "rotation": 0 },
+      "label": "B06",
+      "device_id": null,
+      "props": { "capacity": "500 L" },
+      "bindings": {
+        "temperature": {
+          "kind": "attribute",
+          "target": { "devices": { "ids": ["ECS-EST-CTRL"] }, "attribute": "tank_06_temperature" },
+          "unit": "°C",
+          "decimals": 0
+        }
+      }
+    },
+    {
+      "id": "b07",
+      "type": "tank",
+      "placement": { "kind": "cell", "cell": { "x": 10, "y": 6 }, "rotation": 0 },
+      "label": "B07",
+      "device_id": null,
+      "props": { "capacity": "500 L" },
+      "bindings": {
+        "temperature": {
+          "kind": "attribute",
+          "target": { "devices": { "ids": ["ECS-EST-CTRL"] }, "attribute": "tank_07_temperature" },
+          "unit": "°C",
+          "decimals": 0
+        }
+      }
+    },
+    {
+      "id": "b08",
+      "type": "tank",
+      "placement": { "kind": "cell", "cell": { "x": 14, "y": 6 }, "rotation": 0 },
+      "label": "B08",
+      "device_id": null,
+      "props": { "capacity": "500 L" },
+      "bindings": {
+        "temperature": {
+          "kind": "attribute",
+          "target": { "devices": { "ids": ["ECS-EST-CTRL"] }, "attribute": "tank_08_temperature" },
+          "unit": "°C",
+          "decimals": 0
+        }
+      }
+    },
+    {
+      "id": "b09",
+      "type": "tank",
+      "placement": { "kind": "cell", "cell": { "x": 18, "y": 6 }, "rotation": 0 },
+      "label": "B09",
+      "device_id": null,
+      "props": { "capacity": "500 L" },
+      "bindings": {
+        "temperature": {
+          "kind": "attribute",
+          "target": { "devices": { "ids": ["ECS-EST-CTRL"] }, "attribute": "tank_09_temperature" },
+          "unit": "°C",
+          "decimals": 0
+        }
+      }
+    },
+
+    {
+      "id": "mitigeur",
+      "type": "mixing_valve",
+      "placement": { "kind": "cell", "cell": { "x": 24, "y": -3 }, "rotation": 0 },
+      "label": "MITIGEUR",
+      "device_id": null,
+      "props": {},
+      "bindings": {
+        "supply_temp": {
+          "kind": "attribute",
+          "target": { "devices": { "ids": ["ECS-EST-CTRL"] }, "attribute": "mixed_supply_temperature" },
+          "unit": "°C",
+          "decimals": 1
+        }
+      }
+    },
+    {
+      "id": "p-bcl",
+      "type": "pump",
+      "placement": { "kind": "pipe", "pipe": "dhw-loop-return", "cell": { "x": 28, "y": -2 } },
+      "label": "P-BCL",
+      "device_id": null,
+      "props": {},
+      "bindings": {
+        "state": {
+          "kind": "attribute",
+          "target": { "devices": { "ids": ["ECS-EST-CTRL"] }, "attribute": "loop_pump_running" },
+          "labels": { "true": "MARCHE", "false": "ARRÊT" }
+        }
+      }
+    },
+
+    {
+      "id": "link-distribution",
+      "type": "link",
+      "placement": { "kind": "cell", "cell": { "x": 30, "y": -3 }, "rotation": 0 },
+      "label": "DISTRIBUTION ECS",
+      "device_id": null,
+      "props": { "synoptic_id": null, "caption": "104 chambres" },
+      "bindings": {}
+    },
+    {
+      "id": "link-cold-water",
+      "type": "link",
+      "placement": { "kind": "cell", "cell": { "x": 30, "y": 9 }, "rotation": 0 },
+      "label": "EAU FROIDE",
+      "device_id": null,
+      "props": { "synoptic_id": null, "caption": "appoint réseau" },
+      "bindings": {}
+    },
+    {
+      "id": "link-ecs-ouest",
+      "type": "link",
+      "placement": { "kind": "cell", "cell": { "x": 8, "y": 6 }, "rotation": 0 },
+      "label": "ECS OUEST",
+      "device_id": null,
+      "props": { "synoptic_id": "SYNOPTIC-ECS-OUEST", "caption": "départ / retour primaire" },
+      "bindings": {}
+    }
+  ],
+
+  "pipes": [
+    {
+      "id": "pac-03-supply",
+      "fluid": "primary_supply",
+      "from": { "kind": "port", "symbol": "pac-03", "port": "supply" },
+      "to": { "kind": "port", "symbol": "collector-primary-supply", "port": "in_1" },
+      "waypoints": [],
+      "flow": {
+        "kind": "attribute",
+        "target": { "devices": { "ids": ["PAC-03"] }, "attribute": "onoff_state" }
+      },
+      "tags": [
+        {
+          "id": "tt-03",
+          "at": { "x": 2, "y": 1 },
+          "label": "TT-03",
+          "value": {
+            "kind": "attribute",
+            "target": { "devices": { "ids": ["PAC-03"] }, "attribute": "outlet_temperature" },
+            "unit": "°C",
+            "decimals": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "pac-04-supply",
+      "fluid": "primary_supply",
+      "from": { "kind": "port", "symbol": "pac-04", "port": "supply" },
+      "to": { "kind": "port", "symbol": "collector-primary-supply", "port": "in_2" },
+      "waypoints": [],
+      "flow": {
+        "kind": "attribute",
+        "target": { "devices": { "ids": ["PAC-04"] }, "attribute": "onoff_state" }
+      },
+      "tags": [
+        {
+          "id": "tt-04",
+          "at": { "x": 2, "y": 5 },
+          "label": "TT-04",
+          "value": {
+            "kind": "attribute",
+            "target": { "devices": { "ids": ["PAC-04"] }, "attribute": "outlet_temperature" },
+            "unit": "°C",
+            "decimals": 1
+          }
+        }
+      ]
+    },
+
+    {
+      "id": "feed-col-1",
+      "fluid": "primary_supply",
+      "from": { "kind": "port", "symbol": "collector-primary-supply", "port": "out_1" },
+      "to": { "kind": "port", "symbol": "b01", "port": "primary_in" },
+      "waypoints": [],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "feed-col-2",
+      "fluid": "primary_supply",
+      "from": { "kind": "port", "symbol": "collector-primary-supply", "port": "out_2" },
+      "to": { "kind": "port", "symbol": "b02", "port": "primary_in" },
+      "waypoints": [
+        { "x": 6, "y": -1 },
+        { "x": 6, "y": -1, "z": 1 },
+        { "x": 13, "y": -1, "z": 1 },
+        { "x": 13, "y": -1 },
+        { "x": 13, "y": 0 }
+      ],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "feed-col-3",
+      "fluid": "primary_supply",
+      "from": { "kind": "port", "symbol": "collector-primary-supply", "port": "out_3" },
+      "to": { "kind": "port", "symbol": "b03", "port": "primary_in" },
+      "waypoints": [
+        { "x": 6, "y": -2 },
+        { "x": 6, "y": -2, "z": 1 },
+        { "x": 17, "y": -2, "z": 1 },
+        { "x": 17, "y": -2 },
+        { "x": 17, "y": 0 }
+      ],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "feed-ecs-ouest",
+      "fluid": "primary_supply",
+      "from": { "kind": "port", "symbol": "collector-primary-supply", "port": "out_4" },
+      "to": { "kind": "port", "symbol": "link-ecs-ouest", "port": "in" },
+      "waypoints": [],
+      "flow": null,
+      "tags": []
+    },
+
+    {
+      "id": "b01-b04-primary",
+      "fluid": "primary_supply",
+      "from": { "kind": "port", "symbol": "b01", "port": "primary_out" },
+      "to": { "kind": "port", "symbol": "b04", "port": "primary_in" },
+      "waypoints": [{ "x": 9, "y": 1 }, { "x": 9, "y": 3 }],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "b04-b07-primary",
+      "fluid": "primary_supply",
+      "from": { "kind": "port", "symbol": "b04", "port": "primary_out" },
+      "to": { "kind": "port", "symbol": "b07", "port": "primary_in" },
+      "waypoints": [{ "x": 9, "y": 4 }, { "x": 9, "y": 6 }],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "b02-b05-primary",
+      "fluid": "primary_supply",
+      "from": { "kind": "port", "symbol": "b02", "port": "primary_out" },
+      "to": { "kind": "port", "symbol": "b05", "port": "primary_in" },
+      "waypoints": [{ "x": 13, "y": 1 }, { "x": 13, "y": 3 }],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "b05-b08-primary",
+      "fluid": "primary_supply",
+      "from": { "kind": "port", "symbol": "b05", "port": "primary_out" },
+      "to": { "kind": "port", "symbol": "b08", "port": "primary_in" },
+      "waypoints": [{ "x": 13, "y": 4 }, { "x": 13, "y": 6 }],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "b03-b06-primary",
+      "fluid": "primary_supply",
+      "from": { "kind": "port", "symbol": "b03", "port": "primary_out" },
+      "to": { "kind": "port", "symbol": "b06", "port": "primary_in" },
+      "waypoints": [{ "x": 17, "y": 1 }, { "x": 17, "y": 3 }],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "b06-b09-primary",
+      "fluid": "primary_supply",
+      "from": { "kind": "port", "symbol": "b06", "port": "primary_out" },
+      "to": { "kind": "port", "symbol": "b09", "port": "primary_in" },
+      "waypoints": [{ "x": 17, "y": 4 }, { "x": 17, "y": 6 }],
+      "flow": null,
+      "tags": []
+    },
+
+    {
+      "id": "col-1-return",
+      "fluid": "primary_return",
+      "from": { "kind": "port", "symbol": "b07", "port": "primary_out" },
+      "to": { "kind": "port", "symbol": "collector-primary-return", "port": "in_1" },
+      "waypoints": [{ "x": 9, "y": 7 }],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "col-2-return",
+      "fluid": "primary_return",
+      "from": { "kind": "port", "symbol": "b08", "port": "primary_out" },
+      "to": { "kind": "port", "symbol": "collector-primary-return", "port": "in_2" },
+      "waypoints": [
+        { "x": 13, "y": 7 },
+        { "x": 13, "y": 9 },
+        { "x": 13, "y": 9, "z": 1 },
+        { "x": 13, "y": 11, "z": 1 },
+        { "x": 13, "y": 11 }
+      ],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "col-3-return",
+      "fluid": "primary_return",
+      "from": { "kind": "port", "symbol": "b09", "port": "primary_out" },
+      "to": { "kind": "port", "symbol": "collector-primary-return", "port": "in_3" },
+      "waypoints": [
+        { "x": 17, "y": 7 },
+        { "x": 17, "y": 9 },
+        { "x": 17, "y": 9, "z": 1 },
+        { "x": 17, "y": 11, "z": 1 },
+        { "x": 17, "y": 11 }
+      ],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "ecs-ouest-return",
+      "fluid": "primary_return",
+      "from": { "kind": "port", "symbol": "link-ecs-ouest", "port": "out" },
+      "to": { "kind": "port", "symbol": "collector-primary-return", "port": "in_4" },
+      "waypoints": [{ "x": 7, "y": 7 }],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "primary-return-loop",
+      "fluid": "primary_return",
+      "from": { "kind": "port", "symbol": "collector-primary-return", "port": "out_1" },
+      "to": { "kind": "port", "symbol": "pac-03", "port": "return" },
+      "waypoints": [{ "x": -1, "y": 13 }, { "x": -1, "y": 1 }],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "primary-return-pac-04",
+      "fluid": "primary_return",
+      "from": { "kind": "pipe", "pipe": "primary-return-loop", "cell": { "x": -1, "y": 5 } },
+      "to": { "kind": "port", "symbol": "pac-04", "port": "return" },
+      "waypoints": [],
+      "flow": null,
+      "tags": []
+    },
+
+    {
+      "id": "b04-b01-dhw",
+      "fluid": "dhw",
+      "from": { "kind": "port", "symbol": "b04", "port": "dhw_out" },
+      "to": { "kind": "port", "symbol": "b01", "port": "dhw_in" },
+      "waypoints": [{ "x": 11, "y": 3 }, { "x": 11, "y": 1 }],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "b07-b04-dhw",
+      "fluid": "dhw",
+      "from": { "kind": "port", "symbol": "b07", "port": "dhw_out" },
+      "to": { "kind": "port", "symbol": "b04", "port": "dhw_in" },
+      "waypoints": [{ "x": 11, "y": 6 }, { "x": 11, "y": 4 }],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "b05-b02-dhw",
+      "fluid": "dhw",
+      "from": { "kind": "port", "symbol": "b05", "port": "dhw_out" },
+      "to": { "kind": "port", "symbol": "b02", "port": "dhw_in" },
+      "waypoints": [{ "x": 15, "y": 3 }, { "x": 15, "y": 1 }],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "b08-b05-dhw",
+      "fluid": "dhw",
+      "from": { "kind": "port", "symbol": "b08", "port": "dhw_out" },
+      "to": { "kind": "port", "symbol": "b05", "port": "dhw_in" },
+      "waypoints": [{ "x": 15, "y": 6 }, { "x": 15, "y": 4 }],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "b06-b03-dhw",
+      "fluid": "dhw",
+      "from": { "kind": "port", "symbol": "b06", "port": "dhw_out" },
+      "to": { "kind": "port", "symbol": "b03", "port": "dhw_in" },
+      "waypoints": [{ "x": 19, "y": 3 }, { "x": 19, "y": 1 }],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "b09-b06-dhw",
+      "fluid": "dhw",
+      "from": { "kind": "port", "symbol": "b09", "port": "dhw_out" },
+      "to": { "kind": "port", "symbol": "b06", "port": "dhw_in" },
+      "waypoints": [{ "x": 19, "y": 6 }, { "x": 19, "y": 4 }],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "col-1-dhw-out",
+      "fluid": "dhw",
+      "from": { "kind": "port", "symbol": "b01", "port": "dhw_out" },
+      "to": { "kind": "port", "symbol": "collector-dhw", "port": "in_1" },
+      "waypoints": [{ "x": 11, "y": 0 }],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "col-2-dhw-out",
+      "fluid": "dhw",
+      "from": { "kind": "port", "symbol": "b02", "port": "dhw_out" },
+      "to": { "kind": "port", "symbol": "collector-dhw", "port": "in_2" },
+      "waypoints": [{ "x": 15, "y": 0 }],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "col-3-dhw-out",
+      "fluid": "dhw",
+      "from": { "kind": "port", "symbol": "b03", "port": "dhw_out" },
+      "to": { "kind": "port", "symbol": "collector-dhw", "port": "in_3" },
+      "waypoints": [{ "x": 19, "y": 0 }],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "dhw-departure",
+      "fluid": "dhw",
+      "from": { "kind": "port", "symbol": "collector-dhw", "port": "out_1" },
+      "to": { "kind": "port", "symbol": "mitigeur", "port": "hot_in" },
+      "waypoints": [],
+      "flow": null,
+      "tags": [
+        {
+          "id": "tt-05",
+          "at": { "x": 22, "y": -3 },
+          "label": "TT-05",
+          "value": {
+            "kind": "attribute",
+            "target": { "devices": { "ids": ["ECS-EST-CTRL"] }, "attribute": "dhw_departure_temperature" },
+            "unit": "°C",
+            "decimals": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "dhw-supply",
+      "fluid": "dhw",
+      "from": { "kind": "port", "symbol": "mitigeur", "port": "out" },
+      "to": { "kind": "port", "symbol": "link-distribution", "port": "in" },
+      "waypoints": [],
+      "flow": null,
+      "tags": [
+        {
+          "id": "ft-01",
+          "at": { "x": 27, "y": -3 },
+          "label": "FT-01",
+          "value": {
+            "kind": "attribute",
+            "target": { "devices": { "ids": ["ECS-EST-CTRL"] }, "attribute": "dhw_flow_rate" },
+            "unit": "m³/h",
+            "decimals": 1
+          }
+        }
+      ]
+    },
+
+    {
+      "id": "dhw-loop-return",
+      "fluid": "dhw_loop",
+      "from": { "kind": "port", "symbol": "link-distribution", "port": "out" },
+      "to": { "kind": "port", "symbol": "mitigeur", "port": "cold_in" },
+      "waypoints": [{ "x": 24, "y": -2 }],
+      "flow": {
+        "kind": "attribute",
+        "target": { "devices": { "ids": ["ECS-EST-CTRL"] }, "attribute": "loop_pump_running" }
+      },
+      "tags": [
+        {
+          "id": "tt-06",
+          "at": { "x": 29, "y": -2 },
+          "label": "TT-06",
+          "value": {
+            "kind": "attribute",
+            "target": { "devices": { "ids": ["ECS-EST-CTRL"] }, "attribute": "dhw_loop_return_temperature" },
+            "unit": "°C",
+            "decimals": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "dhw-loop-to-storage",
+      "fluid": "dhw_loop",
+      "from": { "kind": "pipe", "pipe": "dhw-loop-return", "cell": { "x": 25, "y": -2 } },
+      "to": { "kind": "pipe", "pipe": "cold-main", "cell": { "x": 25, "y": 10 } },
+      "waypoints": [],
+      "flow": {
+        "kind": "attribute",
+        "target": { "devices": { "ids": ["ECS-EST-CTRL"] }, "attribute": "loop_pump_running" }
+      },
+      "tags": []
+    },
+
+    {
+      "id": "cold-main",
+      "fluid": "cold_water",
+      "from": { "kind": "port", "symbol": "link-cold-water", "port": "out" },
+      "to": { "kind": "port", "symbol": "b07", "port": "dhw_in" },
+      "waypoints": [{ "x": 11, "y": 10 }, { "x": 11, "y": 7 }],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "cold-col-2",
+      "fluid": "cold_water",
+      "from": { "kind": "pipe", "pipe": "cold-main", "cell": { "x": 15, "y": 10 } },
+      "to": { "kind": "port", "symbol": "b08", "port": "dhw_in" },
+      "waypoints": [{ "x": 15, "y": 7 }],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "cold-col-3",
+      "fluid": "cold_water",
+      "from": { "kind": "pipe", "pipe": "cold-main", "cell": { "x": 19, "y": 10 } },
+      "to": { "kind": "port", "symbol": "b09", "port": "dhw_in" },
+      "waypoints": [{ "x": 19, "y": 7 }],
+      "flow": null,
+      "tags": []
+    }
+  ],
+
+  "labels": [
+    { "id": "title", "at": { "x": -1, "y": -6 }, "text": "PRODUCTION ECS EST", "role": "title", "value": null },
+    { "id": "zone-production", "at": { "x": 0, "y": -3.5 }, "text": "PRODUCTION", "role": "caption", "value": null },
+    { "id": "zone-storage", "at": { "x": 14, "y": 8.5 }, "text": "STOCKAGE · 9 × 500 L · 4 500 L", "role": "caption", "value": null },
+    { "id": "zone-distribution", "at": { "x": 26, "y": -5 }, "text": "DISTRIBUTION", "role": "caption", "value": null },
+    { "id": "note-placeholders", "at": { "x": -1, "y": 15 }, "text": "Device ids are placeholders — AGR-1164", "role": "note", "value": null }
+  ]
+}
