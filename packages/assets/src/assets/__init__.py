@@ -1,3 +1,5 @@
+from assets.building_models_service import MAX_IFC_BYTES, BuildingModelsService
+from assets.interface import BuildingModelsServiceInterface
 from assets.models import (
     Asset,
     AssetCreate,
@@ -13,7 +15,7 @@ from assets.models import (
     get_asset_create_schema,
     get_building_profile_schema,
 )
-from assets.service import MAX_IFC_BYTES, AssetsService
+from assets.service import AssetsService
 
 __all__ = [
     "MAX_IFC_BYTES",
@@ -25,6 +27,8 @@ __all__ = [
     "AssetsService",
     "BuildingModel",
     "BuildingModelStatus",
+    "BuildingModelsService",
+    "BuildingModelsServiceInterface",
     "BuildingProfile",
     "ModelSpace",
     "ModelStorey",

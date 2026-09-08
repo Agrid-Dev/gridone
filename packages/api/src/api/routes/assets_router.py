@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 
 from api.dependencies import (
     get_assets_service,
+    get_building_models_service,
     get_commands_service,
     get_current_user_id,
     get_device_manager,
@@ -29,6 +30,7 @@ from assets import (
     AssetUpdate,
     AssetUsage,
     BuildingModel,
+    BuildingModelsServiceInterface,
     BuildingProfile,
     ModelSpace,
     get_asset_create_schema,
@@ -311,14 +313,16 @@ async def upload_building_model(
 )
 async def regenerate_building_model(
     asset_id: str,
-    assets_svc: Annotated[AssetsService, Depends(get_assets_service)],
+    models_svc: Annotated[
+        BuildingModelsServiceInterface, Depends(get_building_models_service)
+    ],
 ) -> BuildingModel:
     """Rebuild the 3D scene from the IFC already stored for this asset.
 
     Needed whenever the converter learns something new — the stored scene is
     a snapshot of the converter that produced it, not of the IFC.
     """
-    return await assets_svc.regenerate_model(asset_id)
+    return await models_svc.regenerate(asset_id)
 
 
 @router.get(
@@ -327,9 +331,11 @@ async def regenerate_building_model(
 )
 async def get_building_model(
     asset_id: str,
-    assets_svc: Annotated[AssetsService, Depends(get_assets_service)],
+    models_svc: Annotated[
+        BuildingModelsServiceInterface, Depends(get_building_models_service)
+    ],
 ) -> BuildingModel:
-    return await assets_svc.get_model(asset_id)
+    return await models_svc.get(asset_id)
 
 
 @router.get(
@@ -339,15 +345,17 @@ async def get_building_model(
 async def get_building_model_scene(
     asset_id: str,
     request: Request,
-    assets_svc: Annotated[AssetsService, Depends(get_assets_service)],
+    models_svc: Annotated[
+        BuildingModelsServiceInterface, Depends(get_building_models_service)
+    ],
 ) -> Response:
-    model = await assets_svc.get_model(asset_id)
+    model = await models_svc.get(asset_id)
     etag = _model_etag(model)
     headers = {"ETag": etag, "Cache-Control": "private, max-age=31536000, immutable"}
     # Answer from the metadata alone before touching the (large) binary.
     if request.headers.get("if-none-match") == etag:
         return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers=headers)
-    glb = await assets_svc.get_model_glb(asset_id)
+    glb = await models_svc.get_scene(asset_id)
     return Response(content=glb, media_type="model/gltf-binary", headers=headers)
 
 
@@ -357,9 +365,11 @@ async def get_building_model_scene(
 )
 async def list_building_model_spaces(
     asset_id: str,
-    assets_svc: Annotated[AssetsService, Depends(get_assets_service)],
+    models_svc: Annotated[
+        BuildingModelsServiceInterface, Depends(get_building_models_service)
+    ],
 ) -> list[ModelSpace]:
-    return await assets_svc.get_model_spaces(asset_id)
+    return await models_svc.get_spaces(asset_id)
 
 
 @router.delete(
@@ -369,9 +379,11 @@ async def list_building_model_spaces(
 )
 async def delete_building_model(
     asset_id: str,
-    assets_svc: Annotated[AssetsService, Depends(get_assets_service)],
+    models_svc: Annotated[
+        BuildingModelsServiceInterface, Depends(get_building_models_service)
+    ],
 ) -> None:
-    await assets_svc.delete_model(asset_id)
+    await models_svc.delete(asset_id)
 
 
 @router.post(

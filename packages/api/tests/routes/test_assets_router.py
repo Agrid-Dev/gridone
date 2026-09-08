@@ -7,6 +7,7 @@ from httpx import ASGITransport, AsyncClient
 
 from api.dependencies import (
     get_assets_service,
+    get_building_models_service,
     get_commands_service,
     get_current_token_payload,
     get_current_user_id,
@@ -14,7 +15,7 @@ from api.dependencies import (
 )
 from api.exception_handlers import register_exception_handlers
 from api.routes.assets_router import router
-from assets import AssetsService
+from assets import AssetsService, BuildingModelsServiceInterface
 from assets.models import (
     Asset,
     AssetType,
@@ -162,13 +163,24 @@ def assets_service():
             update={"status": BuildingModelStatus.PROCESSING, "glb_size": None}
         )
     )
-    svc.get_model = AsyncMock(return_value=_BUILDING_MODEL)
-    svc.get_model_glb = AsyncMock(return_value=b"glTF-binary-payload")
-    svc.get_model_spaces = AsyncMock(return_value=_BUILDING_MODEL.spaces)
-    svc.delete_model = AsyncMock()
     svc.import_tree = AsyncMock(
         return_value=TreeImportResult(floors_created=2, rooms_created=10)
     )
+    return svc
+
+
+@pytest.fixture
+def models_service():
+    svc = AsyncMock(spec=BuildingModelsServiceInterface)
+    svc.get = AsyncMock(return_value=_BUILDING_MODEL)
+    svc.regenerate = AsyncMock(
+        return_value=_BUILDING_MODEL.model_copy(
+            update={"status": BuildingModelStatus.PROCESSING}
+        )
+    )
+    svc.get_scene = AsyncMock(return_value=b"glTF-binary-payload")
+    svc.get_spaces = AsyncMock(return_value=_BUILDING_MODEL.spaces)
+    svc.delete = AsyncMock()
     return svc
 
 
@@ -178,12 +190,19 @@ def mock_commands_service():
 
 
 @pytest.fixture
-def app(dm, assets_service, mock_commands_service, admin_token_payload) -> FastAPI:
+def app(
+    dm,
+    assets_service,
+    models_service,
+    mock_commands_service,
+    admin_token_payload,
+) -> FastAPI:
     app = FastAPI()
     register_exception_handlers(app)
     app.include_router(router)
     app.dependency_overrides[get_device_manager] = lambda: dm
     app.dependency_overrides[get_assets_service] = lambda: assets_service
+    app.dependency_overrides[get_building_models_service] = lambda: models_service
     app.dependency_overrides[get_commands_service] = lambda: mock_commands_service
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
     app.dependency_overrides[get_current_user_id] = lambda: admin_token_payload.sub
@@ -587,9 +606,9 @@ class TestUploadBuildingModel:
 
     @pytest.mark.asyncio
     async def test_regenerate_returns_202_and_the_processing_model(
-        self, async_client: AsyncClient, assets_service: MagicMock
+        self, async_client: AsyncClient, models_service: AsyncMock
     ):
-        assets_service.regenerate_model = AsyncMock(
+        models_service.regenerate = AsyncMock(
             return_value=_BUILDING_MODEL.model_copy(
                 update={"status": BuildingModelStatus.PROCESSING}
             )
@@ -598,15 +617,13 @@ class TestUploadBuildingModel:
             response = await ac.post(f"/{_ASSET_ID}/model/regenerate")
         assert response.status_code == 202
         assert response.json()["status"] == "processing"
-        assets_service.regenerate_model.assert_awaited_once_with(_ASSET_ID)
+        models_service.regenerate.assert_awaited_once_with(_ASSET_ID)
 
     @pytest.mark.asyncio
     async def test_regenerate_without_a_stored_ifc_is_422(
-        self, async_client: AsyncClient, assets_service: MagicMock
+        self, async_client: AsyncClient, models_service: AsyncMock
     ):
-        assets_service.regenerate_model = AsyncMock(
-            side_effect=InvalidError("no ifc stored")
-        )
+        models_service.regenerate = AsyncMock(side_effect=InvalidError("no ifc stored"))
         async with async_client as ac:
             response = await ac.post(f"/{_ASSET_ID}/model/regenerate")
         assert response.status_code == 422
@@ -626,7 +643,7 @@ class TestUploadBuildingModel:
 class TestGetBuildingModel:
     @pytest.mark.asyncio
     async def test_returns_metadata(
-        self, async_client: AsyncClient, assets_service: MagicMock
+        self, async_client: AsyncClient, models_service: AsyncMock
     ):
         async with async_client as ac:
             response = await ac.get(f"/{_ASSET_ID}/model")
@@ -636,13 +653,13 @@ class TestGetBuildingModel:
         assert body["filename"] == "hq.ifc"
         assert body["glb_size"] == 567
         assert body["spaces"][0]["global_id"] == "sp1"
-        assets_service.get_model.assert_awaited_once_with(_ASSET_ID)
+        models_service.get.assert_awaited_once_with(_ASSET_ID)
 
     @pytest.mark.asyncio
     async def test_missing_model_is_404(
-        self, async_client: AsyncClient, assets_service: MagicMock
+        self, async_client: AsyncClient, models_service: AsyncMock
     ):
-        assets_service.get_model.side_effect = NotFoundError("no model")
+        models_service.get.side_effect = NotFoundError("no model")
         async with async_client as ac:
             response = await ac.get(f"/{_ASSET_ID}/model")
         assert response.status_code == 404
@@ -661,7 +678,7 @@ class TestGetBuildingModelScene:
 
     @pytest.mark.asyncio
     async def test_matching_if_none_match_short_circuits_to_304(
-        self, async_client: AsyncClient, assets_service: MagicMock
+        self, async_client: AsyncClient, models_service: AsyncMock
     ):
         async with async_client as ac:
             response = await ac.get(
@@ -670,7 +687,7 @@ class TestGetBuildingModelScene:
             )
         assert response.status_code == 304
         assert response.headers["etag"] == _MODEL_ETAG
-        assets_service.get_model_glb.assert_not_awaited()
+        models_service.get_scene.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_stale_if_none_match_returns_fresh_body(
@@ -706,18 +723,18 @@ class TestListBuildingModelSpaces:
 class TestDeleteBuildingModel:
     @pytest.mark.asyncio
     async def test_delete_returns_204(
-        self, async_client: AsyncClient, assets_service: MagicMock
+        self, async_client: AsyncClient, models_service: AsyncMock
     ):
         async with async_client as ac:
             response = await ac.delete(f"/{_ASSET_ID}/model")
         assert response.status_code == 204
-        assets_service.delete_model.assert_awaited_once_with(_ASSET_ID)
+        models_service.delete.assert_awaited_once_with(_ASSET_ID)
 
     @pytest.mark.asyncio
     async def test_delete_missing_model_is_404(
-        self, async_client: AsyncClient, assets_service: MagicMock
+        self, async_client: AsyncClient, models_service: AsyncMock
     ):
-        assets_service.delete_model.side_effect = NotFoundError("no model")
+        models_service.delete.side_effect = NotFoundError("no model")
         async with async_client as ac:
             response = await ac.delete(f"/{_ASSET_ID}/model")
         assert response.status_code == 404

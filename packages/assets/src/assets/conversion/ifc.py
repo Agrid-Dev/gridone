@@ -1,4 +1,4 @@
-"""Server-side IFC → GLB conversion.
+"""The ifcopenshell :class:`~assets.conversion.SceneConverter` implementation.
 
 Tessellates every product with a body representation, groups the resulting
 meshes by ``IfcBuildingStorey``, and keeps ``IfcSpace`` volumes as individual
@@ -15,8 +15,8 @@ Elements that belong to no storey (site terrain, building-level products)
 are grouped under a final node with ``kind: "unassigned"``.
 
 Coordinates are baked from IFC's Z-up convention into glTF's Y-up:
-(x, y, z) → (x, z, -y). Heavy imports (ifcopenshell) stay inside functions
-so importing the assets package does not pay for them.
+(x, y, z) → (x, z, -y). ifcopenshell is imported inside the parse step so
+importing this module stays cheap for anything that only needs the class.
 """
 
 import os
@@ -25,6 +25,7 @@ from typing import Any, cast
 
 import numpy as np
 
+from assets.conversion.converter import ConversionError, ConversionResult
 from assets.glb import (
     SPACE_MATERIAL,
     SceneMesh,
@@ -33,27 +34,11 @@ from assets.glb import (
 )
 from assets.models import ModelSpace, ModelStorey
 
-
-class ConversionError(Exception):
-    """Raised when an uploaded file cannot be converted to a 3D scene.
-
-    The message is user-facing — keep it readable and free of internals.
-    """
-
-
 # The scene contract version. Bump whenever the GLB shape or the extracted
 # metadata changes so stored scenes are recognised as stale and rebuilt.
 #   1 — baseline: storeys, spaces, per-category geometry, glazed envelope.
 #   2 — spaces carry object_type + area.
 CONVERTER_VERSION = 2
-
-
-@dataclass
-class ConversionResult:
-    glb: bytes
-    storeys: list[ModelStorey]
-    spaces: list[ModelSpace]
-    converter_version: int
 
 
 @dataclass
@@ -424,8 +409,16 @@ def convert_ifc(data: bytes) -> ConversionResult:
         glb=write_glb(roots),
         storeys=[bucket.storey for bucket in sorted_buckets],
         spaces=spaces,
-        converter_version=CONVERTER_VERSION,
     )
 
 
-__all__ = ["ConversionError", "ConversionResult", "convert_ifc"]
+class IfcSceneConverter:
+    """:class:`~assets.conversion.SceneConverter` backed by ifcopenshell."""
+
+    version = CONVERTER_VERSION
+
+    def convert(self, data: bytes) -> ConversionResult:
+        return convert_ifc(data)
+
+
+__all__ = ["CONVERTER_VERSION", "IfcSceneConverter", "convert_ifc"]

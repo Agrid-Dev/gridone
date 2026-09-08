@@ -2,12 +2,24 @@
  * Comfort-gradient coloring for room temperatures.
  *
  * Colors travel through the theme tokens `--hvac-cool` → `--status-ok` →
- * `--hvac-heat` over the 16 °C → 22 °C → 28 °C range, clamped at both ends.
- * Tokens are bare HSL triplets (e.g. `"217 91% 60%"`), matching index.css.
+ * `--hvac-heat` over the comfort band below, clamped at both ends. Tokens are
+ * bare HSL triplets (e.g. `"217 91% 60%"`), matching index.css.
  */
 
 export type HslTriplet = [number, number, number];
 
+/**
+ * The comfort band, in degrees Celsius.
+ *
+ * A reading reaches the viewer as a bare number: no device attribute carries
+ * its unit today, so the band cannot be chosen from the data and this one is
+ * assumed. On a site reporting Fahrenheit every room would colour as freezing.
+ *
+ * The fix is not a conversion here — it is the unit becoming driver-declared
+ * data (ADR 0003, AGR-1059). Once an attribute states its own unit, the caller
+ * picks the band matching the reading and these three become one entry in a
+ * per-unit table; nothing else in this module changes.
+ */
 export const TEMP_COOL_C = 16;
 export const TEMP_COMFORT_C = 22;
 export const TEMP_HEAT_C = 28;
@@ -50,8 +62,10 @@ export function lerpHsl(a: HslTriplet, b: HslTriplet, t: number): HslTriplet {
 }
 
 /**
- * Maps a room temperature onto the comfort gradient. Below 16 °C the color
- * saturates to `cool`, above 28 °C to `heat`, 22 °C is exactly `ok`.
+ * Maps a room temperature onto the comfort gradient. Below {@link TEMP_COOL_C}
+ * the color saturates to `cool`, above {@link TEMP_HEAT_C} to `heat`, and
+ * {@link TEMP_COMFORT_C} is exactly `ok`. *tempC* is assumed to be Celsius —
+ * see the band above.
  */
 export function temperatureHsl(
   tempC: number,

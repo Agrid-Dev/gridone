@@ -1,9 +1,8 @@
-import asyncio
 import logging
 from collections import defaultdict
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
 
+from assets.interface import BuildingModelsServiceInterface
 from assets.models import (
     USAGE_CAPABLE_TYPES,
     Asset,
@@ -14,53 +13,31 @@ from assets.models import (
     BuildingModel,
     BuildingModelStatus,
     BuildingProfile,
-    ModelSpace,
     TreeImportResult,
 )
 from assets.storage import build_assets_storage
-from assets.storage.models import AssetInDB, BuildingModelInDB
+from assets.storage.models import AssetInDB
 from assets.storage.storage_backend import AssetsStorageBackend
 from models.errors import InvalidError, NotFoundError
 from models.ids import gen_id
 from models.service import Service
 
-if TYPE_CHECKING:  # importing conversion pulls in ifcopenshell at import time
-    from assets.conversion import ConversionResult
-
 logger = logging.getLogger(__name__)
-
-MAX_IFC_BYTES = 200 * 1024 * 1024
-
-_INTERRUPTED_ERROR = (
-    "Conversion was interrupted by a server restart. Upload the file again."
-)
 
 
 class AssetsService(Service):
-    def __init__(self, storage_url: str | None) -> None:
+    def __init__(
+        self, storage_url: str | None, models: BuildingModelsServiceInterface
+    ) -> None:
         self._storage_url = storage_url
+        self._models = models
         self._storage: AssetsStorageBackend | None = None
-        self._conversions: dict[str, asyncio.Task[None]] = {}
-        self._regen_task: asyncio.Task[None] | None = None
 
     async def start(self) -> None:
         self._storage = await build_assets_storage(self._storage_url)
         await self.ensure_default_root()
-        await self._storage.fail_processing_models(
-            _INTERRUPTED_ERROR, datetime.now(UTC)
-        )
-        await self._schedule_stale_regeneration()
 
     async def stop(self) -> None:
-        tasks = list(self._conversions.values())
-        if self._regen_task is not None:
-            tasks.append(self._regen_task)
-        for task in tasks:
-            task.cancel()
-        if tasks:
-            await asyncio.gather(*tasks, return_exceptions=True)
-        self._conversions.clear()
-        self._regen_task = None
         if self._storage is not None:
             await self._storage.close()
             self._storage = None
@@ -279,6 +256,7 @@ class AssetsService(Service):
             msg = "Cannot delete asset with children. Remove children first."
             raise InvalidError(msg)
         await self._backend.delete(asset_id)
+        await self._models.discard([asset_id])
 
     async def get_descendants(self, asset_id: str) -> list[Asset]:
         await self._get_or_raise(asset_id)
@@ -303,226 +281,31 @@ class AssetsService(Service):
         await self._backend.set_usage(unique_ids, usage, datetime.now(UTC))
         return len(unique_ids)
 
-    @staticmethod
-    def _to_public_model(model: BuildingModelInDB) -> BuildingModel:
-        return BuildingModel.model_validate(model.model_dump())
-
-    async def _get_model_or_raise(self, asset_id: str) -> BuildingModelInDB:
-        await self._get_or_raise(asset_id)
-        model = await self._backend.get_model(asset_id)
-        if model is None:
-            msg = f"Asset '{asset_id}' has no 3D model"
-            raise NotFoundError(msg)
-        return model
-
     async def upload_model(
         self, asset_id: str, *, filename: str, data: bytes
     ) -> BuildingModel:
-        """Store a raw IFC payload and start its conversion in the background.
+        """Attach a 3D model to *asset_id*, which has to be a building.
 
-        Replaces any previous model of the asset; an in-flight conversion for
-        the same asset is cancelled first.
+        The model itself is owned by the building-models service; what this
+        adds is the only part that needs the asset tree — the rule that a
+        floor or a room never carries one.
         """
         asset = await self._get_or_raise(asset_id)
         if asset.type != AssetType.BUILDING:
             msg = "A 3D model can only be attached to a building asset."
             raise InvalidError(msg)
-        if not data:
-            msg = "The uploaded file is empty."
-            raise InvalidError(msg)
-        if len(data) > MAX_IFC_BYTES:
-            msg = "The IFC file exceeds the 200 MB limit."
-            raise InvalidError(msg)
+        return await self._models.upload(asset_id, filename=filename, data=data)
 
-        now = datetime.now(UTC)
-        model = BuildingModelInDB(
-            asset_id=asset_id,
-            status=BuildingModelStatus.PROCESSING,
-            filename=filename,
-            ifc_size=len(data),
-            created_at=now,
-            updated_at=now,
-        )
-        await self._backend.save_model(model, data)
-        self._spawn_conversion(asset_id)
-        return self._to_public_model(model)
-
-    async def regenerate_model(self, asset_id: str) -> BuildingModel:
-        """Re-run the conversion on the IFC payload already stored.
-
-        The scene is a derived artifact of one converter version: when the
-        contract gains a category — an outer envelope, say — models converted
-        earlier keep the old shape until they are converted again. This
-        replays the conversion without asking for the file a second time.
-        """
-        model = await self._get_model_or_raise(asset_id)
-        if await self._backend.get_model_ifc(asset_id) is None:
-            msg = "The original IFC file is no longer available for this asset."
-            raise InvalidError(msg)
-
-        processing = model.model_copy(
-            update={
-                "status": BuildingModelStatus.PROCESSING,
-                "error": None,
-                "updated_at": datetime.now(UTC),
-            }
-        )
-        # Clearing the scene keeps the viewer honest while the new one builds,
-        # and matches what a fresh upload does.
-        await self._backend.set_model_result(processing, None)
-        self._spawn_conversion(asset_id)
-        return self._to_public_model(processing)
-
-    def _spawn_conversion(self, asset_id: str) -> None:
-        existing = self._conversions.pop(asset_id, None)
-        if existing is not None:
-            existing.cancel()
-        task = asyncio.create_task(self._convert_model(asset_id))
-        self._conversions[asset_id] = task
-        task.add_done_callback(lambda done: self._discard_conversion(asset_id, done))
-
-    def _discard_conversion(self, asset_id: str, task: asyncio.Task[None]) -> None:
-        if self._conversions.get(asset_id) is task:
-            del self._conversions[asset_id]
-
-    async def _convert_model(self, asset_id: str) -> None:
-        from assets.conversion import ConversionError, convert_ifc  # noqa: PLC0415
-
-        data = await self._backend.get_model_ifc(asset_id)
-        if data is None:
-            return
-        try:
-            result = await asyncio.to_thread(convert_ifc, data)
-        except ConversionError as e:
-            await self._store_conversion_failure(asset_id, str(e))
-            return
-        except Exception:
-            logger.exception(
-                "Building model conversion failed for asset '%s'", asset_id
-            )
-            await self._store_conversion_failure(
-                asset_id, "Conversion failed unexpectedly."
-            )
-            return
-        await self._store_conversion_success(asset_id, result)
-
-    async def _schedule_stale_regeneration(self) -> None:
-        """Rebuild ``ready`` scenes left stale by a converter upgrade.
-
-        The stored scene is a derived artifact of one converter version; when
-        the contract changes, older scenes keep the old shape until rebuilt.
-        This runs the rebuilds one at a time in the background so a deploy
-        never blocks on conversion nor floods the CPU, and — unlike a manual
-        regenerate — it keeps the existing scene visible until the new one is
-        ready, and on failure leaves it untouched rather than blanking it.
-        """
-        from assets.conversion import CONVERTER_VERSION  # noqa: PLC0415
-
-        stale = await self._backend.list_stale_ready_model_ids(CONVERTER_VERSION)
-        if not stale:
-            return
-        logger.info(
-            "Rebuilding %d stale 3D scene(s) after a converter upgrade to v%d",
-            len(stale),
-            CONVERTER_VERSION,
-        )
-        self._regen_task = asyncio.create_task(self._regenerate_models(stale))
-
-    async def _regenerate_models(self, asset_ids: list[str]) -> None:
-        from assets.conversion import convert_ifc  # noqa: PLC0415
-
-        for asset_id in asset_ids:
-            data = await self._backend.get_model_ifc(asset_id)
-            if data is None:
-                continue
-            try:
-                result = await asyncio.to_thread(convert_ifc, data)
-            except asyncio.CancelledError:
-                raise
-            except Exception:
-                logger.exception(
-                    "Background rebuild failed for asset '%s'; keeping the "
-                    "existing scene",
-                    asset_id,
-                )
-                continue
-            await self._store_conversion_success(asset_id, result)
-            logger.info(
-                "Rebuilt 3D scene for asset '%s' (converter v%d)",
-                asset_id,
-                result.converter_version,
-            )
-
-    async def _store_conversion_success(
-        self, asset_id: str, result: "ConversionResult"
-    ) -> None:
-        """Publish a converted scene, unless the model was deleted meanwhile."""
-        model = await self._backend.get_model(asset_id)
-        if model is None:
-            return
-        await self._backend.set_model_result(
-            model.model_copy(
-                update={
-                    "status": BuildingModelStatus.READY,
-                    "storeys": result.storeys,
-                    "spaces": result.spaces,
-                    "converter_version": result.converter_version,
-                    "error": None,
-                    "updated_at": datetime.now(UTC),
-                }
-            ),
-            result.glb,
-        )
-
-    async def _store_conversion_failure(self, asset_id: str, error: str) -> None:
-        model = await self._backend.get_model(asset_id)
-        if model is None:
-            return
-        await self._backend.set_model_result(
-            model.model_copy(
-                update={
-                    "status": BuildingModelStatus.FAILED,
-                    "storeys": [],
-                    "spaces": [],
-                    "error": error,
-                    "updated_at": datetime.now(UTC),
-                }
-            ),
-            None,
-        )
-
-    async def get_model(self, asset_id: str) -> BuildingModel:
-        return self._to_public_model(await self._get_model_or_raise(asset_id))
-
-    async def get_model_glb(self, asset_id: str) -> bytes:
-        model = await self._get_model_or_raise(asset_id)
-        if model.status != BuildingModelStatus.READY:
-            msg = f"Asset '{asset_id}' has no ready 3D scene"
-            raise NotFoundError(msg)
-        glb = await self._backend.get_model_glb(asset_id)
-        if glb is None:
-            msg = f"Asset '{asset_id}' has no ready 3D scene"
-            raise NotFoundError(msg)
-        return glb
-
-    async def get_model_spaces(self, asset_id: str) -> list[ModelSpace]:
-        return (await self._get_model_or_raise(asset_id)).spaces
-
-    async def delete_model(self, asset_id: str) -> None:
-        await self._get_model_or_raise(asset_id)
-        task = self._conversions.pop(asset_id, None)
-        if task is not None:
-            task.cancel()
-        await self._backend.delete_model(asset_id)
-
-    async def _usages_by_ifc_global_id(self, asset_id: str) -> dict[str, AssetUsage]:
-        """Hand-set usages of the subtree below *asset_id*, keyed by IFC GlobalId.
+    @staticmethod
+    def _usages_by_ifc_global_id(
+        descendants: list[AssetInDB],
+    ) -> dict[str, AssetUsage]:
+        """Hand-set usages among *descendants*, keyed by IFC GlobalId.
 
         A re-import deletes and recreates the whole subtree, so classifications
         only survive if they are carried over by GlobalId. Without this a
         corrected IFC would wipe every room an operator classified by hand.
         """
-        descendants = await self._backend.get_descendants(asset_id)
         return {
             d.ifc_global_id: d.usage
             for d in descendants
@@ -541,7 +324,7 @@ class AssetsService(Service):
         if asset.type != AssetType.BUILDING:
             msg = "Only building assets can import a tree from their 3D model."
             raise InvalidError(msg)
-        model = await self._get_model_or_raise(asset_id)
+        model = await self._models.get(asset_id)
         if model.status != BuildingModelStatus.READY:
             msg = "The 3D model is not ready yet."
             raise InvalidError(msg)
@@ -549,8 +332,10 @@ class AssetsService(Service):
             msg = "The 3D model has no storeys to import."
             raise InvalidError(msg)
 
-        preserved_usages = await self._usages_by_ifc_global_id(asset_id)
+        descendants = await self._backend.get_descendants(asset_id)
+        preserved_usages = self._usages_by_ifc_global_id(descendants)
         await self._backend.delete_descendants(asset_id)
+        await self._models.discard([d.id for d in descendants])
 
         now = datetime.now(UTC)
         floor_ids: dict[str, str] = {}
@@ -593,4 +378,4 @@ class AssetsService(Service):
         )
 
 
-__all__ = ["MAX_IFC_BYTES", "AssetsService"]
+__all__ = ["AssetsService"]

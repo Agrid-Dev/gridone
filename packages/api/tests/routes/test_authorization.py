@@ -20,6 +20,7 @@ from api.dependencies import (
     get_apps_service,
     get_assets_service,
     get_automations_service,
+    get_building_models_service,
     get_commands_service,
     get_current_user_id,
     get_dashboards_service,
@@ -648,6 +649,7 @@ def _build_commands_app() -> FastAPI:
     app.dependency_overrides[get_device_manager] = MagicMock
     app.dependency_overrides[get_ts_service] = lambda: AsyncMock(default_timezone="UTC")
     app.dependency_overrides[get_assets_service] = MagicMock
+    app.dependency_overrides[get_building_models_service] = MagicMock
     app.dependency_overrides[get_commands_service] = AsyncMock
     app.include_router(auth_router, prefix="/auth")
     jwt_dep = [Depends(get_current_user_id)]

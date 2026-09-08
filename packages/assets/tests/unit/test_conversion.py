@@ -1,7 +1,8 @@
 import pytest
 from ifc_fixtures import build_ifc, node_tree, parse_glb
 
-from assets.conversion import CONVERTER_VERSION, ConversionError, convert_ifc
+from assets.conversion import ConversionError
+from assets.conversion.ifc import CONVERTER_VERSION, IfcSceneConverter, convert_ifc
 
 
 def _triangle_count(document: dict, node: dict) -> int:
@@ -152,10 +153,17 @@ class TestConvertIfc:
             ("Level 0", None),
         ]
 
-    def test_result_is_stamped_with_the_converter_version(
-        self, sample_ifc_bytes: bytes
-    ):
-        assert convert_ifc(sample_ifc_bytes).converter_version == CONVERTER_VERSION
+    def test_converter_declares_the_contract_version(self, sample_ifc_bytes: bytes):
+        """The version travels with the converter, not with each result.
+
+        It is what marks a stored scene stale, so it has to be readable
+        without converting anything.
+        """
+        converter = IfcSceneConverter()
+        assert converter.version == CONVERTER_VERSION
+        assert (
+            converter.convert(sample_ifc_bytes).glb == convert_ifc(sample_ifc_bytes).glb
+        )
 
     def test_space_metadata_is_extracted_when_present(self):
         result = convert_ifc(

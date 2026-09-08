@@ -37,7 +37,8 @@ from api.targets import CompositeTargetResolver
 from api.trigger_providers.change_event import ChangeEventTriggerProvider
 from api.websocket.manager import WebSocketManager
 from apps import AppsService
-from assets import AssetsService
+from assets import AssetsService, BuildingModelsService
+from assets.conversion.ifc import IfcSceneConverter
 from commands import CommandsService, WriteResult
 from devices_manager import DevicesService
 from models.service import Service
@@ -50,6 +51,24 @@ from users.auth import AuthService
 
 async def _stop_services(services: list[Service]) -> None:
     await asyncio.gather(*[svc.stop() for svc in services])
+
+
+async def _start_assets_services(
+    app: FastAPI, storage_url: str | None
+) -> list[Service]:
+    """Start the asset tree and the 3D models it points at.
+
+    Two services, one package: the tree never knows how a scene is built, and
+    the models never know what a building is. This root is the only place
+    that names ifcopenshell as the converter behind the contract.
+    """
+    models = BuildingModelsService(storage_url, IfcSceneConverter())
+    await models.start()
+    assets = AssetsService(storage_url, models)
+    await assets.start()
+    app.state.building_models_service = models
+    app.state.assets_service = assets
+    return [assets, models]
 
 
 def _build_automations_service(
@@ -156,9 +175,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await apps_svc.start()
     app.state.apps_service = apps_svc
 
-    assets_service = AssetsService(settings.storage_url)
-    await assets_service.start()
-    app.state.assets_service = assets_service
+    assets_services = await _start_assets_services(app, settings.storage_url)
 
     dashboards_service = DashboardsService(settings.storage_url)
     await dashboards_service.start()
@@ -191,7 +208,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 notifications_svc,
                 users_service,
                 apps_svc,
-                assets_service,
+                *assets_services,
                 dashboards_service,
             ]
         )

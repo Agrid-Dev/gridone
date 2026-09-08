@@ -1,17 +1,17 @@
-import asyncio
+import threading
 from unittest.mock import patch
 
 import pytest
 import pytest_asyncio
+from scene_fakes import FakeSceneConverter
 
-from assets import AssetsService
+from assets import AssetsService, BuildingModelsService
 from assets.models import (
     Asset,
     AssetCreate,
     AssetType,
     AssetUpdate,
     AssetUsage,
-    BuildingModelStatus,
     BuildingProfile,
 )
 from assets.storage import MemoryAssetsStorage
@@ -24,22 +24,39 @@ from models.errors import (
 
 pytestmark = pytest.mark.asyncio
 
+_IFC = b"pretend-ifc-payload"
+
+
+@pytest.fixture
+def converter() -> FakeSceneConverter:
+    return FakeSceneConverter()
+
 
 @pytest_asyncio.fixture
-async def service():
-    svc = AssetsService(storage_url=None)
+async def models(converter: FakeSceneConverter):
+    """The real models service behind a scripted converter.
+
+    A stub would prove less: what these tests care about is that the tree
+    reads storeys and spaces through this seam, not that a mock was called.
+    """
+    svc = BuildingModelsService(storage_url=None, converter=converter)
+    await svc.start()
+    try:
+        yield svc
+    finally:
+        if converter.gate is not None:
+            converter.gate.set()
+        await svc.stop()
+
+
+@pytest_asyncio.fixture
+async def service(models: BuildingModelsService):
+    svc = AssetsService(storage_url=None, models=models)
     await svc.start()
     try:
         yield svc
     finally:
         await svc.stop()
-
-
-async def _drain_conversions(service: AssetsService) -> None:
-    """Wait for every in-flight background conversion to settle."""
-    tasks = list(service._conversions.values())  # noqa: SLF001
-    if tasks:
-        await asyncio.gather(*tasks, return_exceptions=True)
 
 
 @pytest_asyncio.fixture
@@ -51,8 +68,8 @@ async def building(service: AssetsService):
 
 
 class TestLifecycle:
-    async def test_start_with_none_url_uses_memory_backend(self):
-        svc = AssetsService(storage_url=None)
+    async def test_start_with_none_url_uses_memory_backend(self, models):
+        svc = AssetsService(storage_url=None, models=models)
         await svc.start()
         try:
             assets = await svc.list_all()
@@ -63,32 +80,30 @@ class TestLifecycle:
         finally:
             await svc.stop()
 
-    async def test_stop_is_idempotent(self):
-        svc = AssetsService(storage_url=None)
+    async def test_stop_is_idempotent(self, models):
+        svc = AssetsService(storage_url=None, models=models)
         await svc.start()
         await svc.stop()
         await svc.stop()
 
-    async def test_use_before_start_raises(self):
-        svc = AssetsService(storage_url=None)
+    async def test_use_before_start_raises(self, models):
+        svc = AssetsService(storage_url=None, models=models)
         with pytest.raises(RuntimeError, match=r"AssetsService\.start"):
             await svc.list_all()
 
 
 class TestStorageURL:
-    async def test_unknown_scheme_raises_unsupported(self):
-        svc = AssetsService(storage_url="redis://localhost")
+    async def test_unknown_scheme_raises_unsupported(self, models):
+        svc = AssetsService("redis://localhost", models)
         with pytest.raises(UnsupportedStorageError):
             await svc.start()
 
-    async def test_postgres_unreachable_raises_connection_error(self):
+    async def test_postgres_unreachable_raises_connection_error(self, models):
         with patch(
             "assets.storage.postgres.run_migrations",
             side_effect=OSError("boom"),
         ):
-            svc = AssetsService(
-                storage_url="postgresql://nobody:nobody@127.0.0.1:1/none"
-            )
+            svc = AssetsService("postgresql://nobody:nobody@127.0.0.1:1/none", models)
             with pytest.raises(StorageConnectionError):
                 await svc.start()
 
@@ -489,208 +504,43 @@ class TestUpdateAssetIfcGlobalId:
         assert cleared.ifc_global_id is None
 
 
-class TestBuildingModelLifecycle:
-    async def test_upload_converts_to_ready(self, service, building, sample_ifc_bytes):
-        model = await service.upload_model(
-            building.id, filename="hq.ifc", data=sample_ifc_bytes
-        )
-        assert model.status == BuildingModelStatus.PROCESSING
-        assert model.filename == "hq.ifc"
-        assert model.ifc_size == len(sample_ifc_bytes)
+class TestBuildingModelOwnership:
+    """The one part of a 3D model the asset tree owns: who may carry one."""
 
-        await _drain_conversions(service)
-
-        ready = await service.get_model(building.id)
-        assert ready.status == BuildingModelStatus.READY
-        assert ready.error is None
-        assert ready.glb_size is not None
-        assert ready.glb_size > 0
-        assert [s.name for s in ready.storeys] == ["Level 0", "Level 1"]
-        assert [s.name for s in ready.spaces] == ["Room 001", "Room 101"]
-
-        glb = await service.get_model_glb(building.id)
-        assert glb.startswith(b"glTF")
-        spaces = await service.get_model_spaces(building.id)
-        assert [s.name for s in spaces] == ["Room 001", "Room 101"]
-
-    async def test_regenerate_replays_the_conversion_on_the_stored_ifc(
-        self, service, building, sample_ifc_bytes
+    async def test_upload_delegates_to_the_models_service(
+        self, service, models, building
     ):
-        """The scene belongs to the converter that made it, so a model must be
-        rebuildable without asking the user for the file again."""
-        await service.upload_model(
-            building.id, filename="hq.ifc", data=sample_ifc_bytes
-        )
-        await _drain_conversions(service)
-        first = await service.get_model(building.id)
+        model = await service.upload_model(building.id, filename="hq.ifc", data=_IFC)
+        assert model.asset_id == building.id
+        assert (await models.get(building.id)).filename == "hq.ifc"
 
-        regenerating = await service.regenerate_model(building.id)
-        assert regenerating.status == BuildingModelStatus.PROCESSING
-        # The stale scene stops being served rather than sitting behind a
-        # "processing" status.
-        with pytest.raises(NotFoundError):
-            await service.get_model_glb(building.id)
-
-        await _drain_conversions(service)
-        rebuilt = await service.get_model(building.id)
-        assert rebuilt.status == BuildingModelStatus.READY
-        assert rebuilt.filename == first.filename
-        assert rebuilt.glb_size == first.glb_size
-        assert [s.name for s in rebuilt.spaces] == [s.name for s in first.spaces]
-        assert rebuilt.updated_at >= first.updated_at
-
-    async def test_regenerate_without_a_model_is_not_found(self, service, building):
-        with pytest.raises(NotFoundError):
-            await service.regenerate_model(building.id)
-
-    async def test_regenerate_clears_a_previous_failure(self, service, building):
-        await service.upload_model(building.id, filename="junk.ifc", data=b"garbage")
-        await _drain_conversions(service)
-        assert (await service.get_model(building.id)).error is not None
-
-        regenerating = await service.regenerate_model(building.id)
-        assert regenerating.error is None
-
-    async def test_invalid_payload_ends_failed_with_readable_error(
-        self, service, building
-    ):
-        await service.upload_model(building.id, filename="junk.ifc", data=b"garbage")
-        await _drain_conversions(service)
-
-        model = await service.get_model(building.id)
-        assert model.status == BuildingModelStatus.FAILED
-        assert model.error == "The uploaded file is not a valid IFC file."
-        with pytest.raises(NotFoundError):
-            await service.get_model_glb(building.id)
-
-    async def test_replace_upload_wins(self, service, building, sample_ifc_bytes):
-        await service.upload_model(building.id, filename="old.ifc", data=b"garbage")
-        await service.upload_model(
-            building.id, filename="new.ifc", data=sample_ifc_bytes
-        )
-        await _drain_conversions(service)
-
-        model = await service.get_model(building.id)
-        assert model.filename == "new.ifc"
-        assert model.status == BuildingModelStatus.READY
-
-    async def test_upload_rejects_non_building(self, service, building):
+    async def test_upload_rejects_a_non_building(self, service, models, building):
         floor = await service.create_asset(
             AssetCreate(parent_id=building.id, type=AssetType.FLOOR, name="F1")
         )
         with pytest.raises(InvalidError, match="building"):
-            await service.upload_model(floor.id, filename="f.ifc", data=b"data")
-
-    async def test_upload_rejects_empty_and_oversized(
-        self, service, building, monkeypatch
-    ):
-        with pytest.raises(InvalidError, match="empty"):
-            await service.upload_model(building.id, filename="e.ifc", data=b"")
-        monkeypatch.setattr("assets.service.MAX_IFC_BYTES", 4)
-        with pytest.raises(InvalidError, match="200 MB"):
-            await service.upload_model(building.id, filename="big.ifc", data=b"12345")
-
-    async def test_get_model_not_found(self, service, building):
+            await service.upload_model(floor.id, filename="f.ifc", data=_IFC)
         with pytest.raises(NotFoundError):
-            await service.get_model(building.id)
+            await models.get(floor.id)
+
+    async def test_upload_to_an_unknown_asset_is_not_found(self, service):
         with pytest.raises(NotFoundError):
-            await service.get_model("missing")
+            await service.upload_model("ghost", filename="f.ifc", data=_IFC)
 
-    async def test_delete_model(self, service, building, sample_ifc_bytes):
-        await service.upload_model(
-            building.id, filename="hq.ifc", data=sample_ifc_bytes
-        )
-        await _drain_conversions(service)
-        await service.delete_model(building.id)
+    async def test_deleting_the_asset_drops_its_model(self, service, models, building):
+        await service.upload_model(building.id, filename="hq.ifc", data=_IFC)
+        await models.wait_for_conversions()
+
+        await service.delete_asset(building.id)
+
         with pytest.raises(NotFoundError):
-            await service.get_model(building.id)
-
-    async def test_stop_cancels_inflight_conversions(self, sample_ifc_bytes):
-        svc = AssetsService(storage_url=None)
-        await svc.start()
-        root = (await svc.list_all())[0]
-        building = await svc.create_asset(
-            AssetCreate(parent_id=root.id, type=AssetType.BUILDING, name="HQ")
-        )
-        await svc.upload_model(building.id, filename="hq.ifc", data=sample_ifc_bytes)
-        await svc.stop()
-        assert svc._conversions == {}  # noqa: SLF001
-        await svc.stop()  # still idempotent
-
-
-class TestStaleRegeneration:
-    async def _drain_regen(self, service: AssetsService) -> None:
-        task = service._regen_task  # noqa: SLF001
-        if task is not None:
-            await asyncio.gather(task, return_exceptions=True)
-
-    async def test_stale_ready_scene_is_rebuilt_after_a_converter_upgrade(
-        self, service, building, sample_ifc_bytes, monkeypatch
-    ):
-        await service.upload_model(
-            building.id, filename="hq.ifc", data=sample_ifc_bytes
-        )
-        await _drain_conversions(service)
-        before = await service.get_model(building.id)
-        assert before.status == BuildingModelStatus.READY
-
-        # Simulate a converter that now emits a newer contract.
-        monkeypatch.setattr(
-            "assets.conversion.CONVERTER_VERSION", before.converter_version + 5
-        )
-        await service._schedule_stale_regeneration()  # noqa: SLF001
-        # The existing scene keeps being served while the rebuild runs.
-        assert (await service.get_model_glb(building.id)).startswith(b"glTF")
-
-        await self._drain_regen(service)
-        after = await service.get_model(building.id)
-        assert after.status == BuildingModelStatus.READY
-        assert after.converter_version == before.converter_version + 5
-
-    async def test_up_to_date_scene_is_left_alone(
-        self, service, building, sample_ifc_bytes
-    ):
-        await service.upload_model(
-            building.id, filename="hq.ifc", data=sample_ifc_bytes
-        )
-        await _drain_conversions(service)
-
-        await service._schedule_stale_regeneration()  # noqa: SLF001
-        assert service._regen_task is None  # noqa: SLF001
-
-    async def test_failed_rebuild_keeps_the_existing_scene(
-        self, service, building, sample_ifc_bytes, monkeypatch
-    ):
-        await service.upload_model(
-            building.id, filename="hq.ifc", data=sample_ifc_bytes
-        )
-        await _drain_conversions(service)
-        before = await service.get_model(building.id)
-
-        monkeypatch.setattr(
-            "assets.conversion.CONVERTER_VERSION", before.converter_version + 5
-        )
-
-        def _boom(_data: bytes) -> None:
-            msg = "converter crashed"
-            raise RuntimeError(msg)
-
-        monkeypatch.setattr("assets.conversion.convert_ifc", _boom)
-        await service._schedule_stale_regeneration()  # noqa: SLF001
-        await self._drain_regen(service)
-
-        after = await service.get_model(building.id)
-        assert after.status == BuildingModelStatus.READY
-        assert after.converter_version == before.converter_version
-        assert (await service.get_model_glb(building.id)).startswith(b"glTF")
+            await models.get(building.id)
 
 
 class TestImportTree:
-    async def _ready_model(self, service, building, sample_ifc_bytes) -> None:
-        await service.upload_model(
-            building.id, filename="hq.ifc", data=sample_ifc_bytes
-        )
-        await _drain_conversions(service)
+    async def _ready_model(self, service, models, building) -> None:
+        await service.upload_model(building.id, filename="hq.ifc", data=_IFC)
+        await models.wait_for_conversions()
 
     @staticmethod
     async def _rooms_by_name(service, building) -> dict:
@@ -701,7 +551,7 @@ class TestImportTree:
         }
 
     async def test_replaces_subtree_with_stamped_assets(
-        self, service, building, sample_ifc_bytes
+        self, service, models, building
     ):
         old_floor = await service.create_asset(
             AssetCreate(parent_id=building.id, type=AssetType.FLOOR, name="Old floor")
@@ -709,7 +559,7 @@ class TestImportTree:
         await service.create_asset(
             AssetCreate(parent_id=old_floor.id, type=AssetType.ROOM, name="Old room")
         )
-        await self._ready_model(service, building, sample_ifc_bytes)
+        await self._ready_model(service, models, building)
 
         result = await service.import_tree(building.id)
 
@@ -732,15 +582,13 @@ class TestImportTree:
         assert not any(a.name.startswith("Old") for a in descendants)
         rooms_by_name = {r.name: r for r in rooms}
         floors_by_gid = {f.ifc_global_id: f for f in floors}
-        model = await service.get_model(building.id)
+        model = await models.get(building.id)
         for space in model.spaces:
             room = rooms_by_name[space.name]
             assert room.parent_id == floors_by_gid[space.storey_global_id].id
 
-    async def test_reimport_preserves_hand_set_usages(
-        self, service, building, sample_ifc_bytes
-    ):
-        await self._ready_model(service, building, sample_ifc_bytes)
+    async def test_reimport_preserves_hand_set_usages(self, service, models, building):
+        await self._ready_model(service, models, building)
         await service.import_tree(building.id)
         before = await self._rooms_by_name(service, building)
         await service.set_usage([before["Room 001"].id], AssetUsage.HOTEL_ROOM)
@@ -756,13 +604,13 @@ class TestImportTree:
         assert after["Room 101"].usage is None
 
     async def test_reimport_drops_usages_with_no_matching_global_id(
-        self, service, building, sample_ifc_bytes
+        self, service, models, building
     ):
         stray = await service.create_asset(
             AssetCreate(parent_id=building.id, type=AssetType.ROOM, name="Stray")
         )
         await service.set_usage([stray.id], AssetUsage.OFFICE)
-        await self._ready_model(service, building, sample_ifc_bytes)
+        await self._ready_model(service, models, building)
 
         await service.import_tree(building.id)
 
@@ -779,20 +627,30 @@ class TestImportTree:
         with pytest.raises(InvalidError, match="building"):
             await service.import_tree(floor.id)
 
-    async def test_import_requires_ready_model(self, service, building):
+    async def test_import_requires_a_model(self, service, building):
         with pytest.raises(NotFoundError):
             await service.import_tree(building.id)
-        await service.upload_model(building.id, filename="junk.ifc", data=b"garbage")
-        await _drain_conversions(service)
+
+    async def test_import_requires_ready_model(self, service, converter, building):
+        converter.gate = threading.Event()
+        await service.upload_model(building.id, filename="hq.ifc", data=_IFC)
         with pytest.raises(InvalidError, match="not ready"):
             await service.import_tree(building.id)
 
-    async def test_import_requires_storeys(self, service, building):
-        from ifc_fixtures import build_ifc
-
-        await service.upload_model(
-            building.id, filename="flat.ifc", data=build_ifc(with_storeys=False)
-        )
-        await _drain_conversions(service)
-        with pytest.raises(InvalidError, match="no storeys"):
-            await service.import_tree(building.id)
+    async def test_import_requires_storeys(self):
+        models = BuildingModelsService(None, FakeSceneConverter(storeys=[], spaces=[]))
+        await models.start()
+        svc = AssetsService(None, models)
+        await svc.start()
+        try:
+            root = (await svc.list_all())[0]
+            flat = await svc.create_asset(
+                AssetCreate(parent_id=root.id, type=AssetType.BUILDING, name="Flat")
+            )
+            await svc.upload_model(flat.id, filename="flat.ifc", data=_IFC)
+            await models.wait_for_conversions()
+            with pytest.raises(InvalidError, match="no storeys"):
+                await svc.import_tree(flat.id)
+        finally:
+            await svc.stop()
+            await models.stop()
