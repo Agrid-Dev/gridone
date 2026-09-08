@@ -14,6 +14,18 @@ export function pumpMotorBox(cx: number, cy: number, r: number) {
   return { x: cx - w / 2, y: bottom - h, w, h, bottom };
 }
 
+/** The glyph's tight bounding box, terminal head to volute foot.
+ *
+ *  Exported so a standalone render can size its viewBox from the drawing
+ *  rather than guess at it — a box picked by eye clips the motor, which is
+ *  exactly what a square one does: the motor reaches 2.27r above the volute
+ *  centre, so the glyph is half again as tall as it is wide. */
+export function pumpGlyphBounds(cx: number, cy: number, r: number) {
+  const motor = pumpMotorBox(cx, cy, r);
+  const top = motor.y - r * 0.22 - 2;
+  return { x: cx - r - 2, y: top, w: r * 2 + 4, h: cy + r + 2 - top };
+}
+
 /**
  * A centrifugal inline circulator, drawn in the parent SVG's viewBox space:
  * volute casing straddling the pipe, motor stood on top, impeller inside.
@@ -83,10 +95,13 @@ export function PumpGlyph({
         className="fill-card stroke-border"
       />
 
-      {/* Volute casing. The ring carries the hydraulic accent when turning,
-          and breaks into dashes when the pump has never reported — a stopped
-          pump and one we have no feedback from are different facts, and a
-          solid grey ring would claim the first while meaning the second. */}
+      {/* Volute casing.
+          - Filled with the hydraulic accent while turning, hollow otherwise:
+            a static read of running vs idle, so the drawing says it without
+            motion. Same filled/outlined idiom the liquid detector's drop uses.
+          - Dashed when the pump has never reported. A stopped pump and one we
+            have no feedback from are different facts, and a solid hollow ring
+            would claim the first while meaning the second. */}
       <circle
         cx={cx}
         cy={cy}
@@ -95,7 +110,10 @@ export function PumpGlyph({
         strokeDasharray={
           state === "unknown" ? `${r * 0.2} ${r * 0.16}` : undefined
         }
-        className={cn("fill-card", PUMP_STATE_STROKE_CLASS[state])}
+        className={cn(
+          state === "running" ? "fill-water/15" : "fill-card",
+          PUMP_STATE_STROKE_CLASS[state],
+        )}
       />
 
       {/* Impeller: six backward-curved vanes, the giveaway that this is a

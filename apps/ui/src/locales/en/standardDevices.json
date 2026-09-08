@@ -78,7 +78,7 @@
     "discharge": "Discharge",
     "state": {
       "running": "Running",
-      "stopped": "Stopped",
+      "stopped": "Idle",
       "unknown": "Not reported"
     },
     "field": {
