@@ -19,7 +19,9 @@ class Settings(BaseModel):
     # First boot only. Typed so a bad value fails at load, not inside bcrypt.
     GRIDONE_ADMIN_PASSWORD: PasswordField | None = None
 
-    model_config = {"extra": "ignore"}
+    # hide_input_in_errors: a rejected GRIDONE_ADMIN_PASSWORD would otherwise
+    # echo the raw value into the startup log via ValidationError's message.
+    model_config = {"extra": "ignore", "hide_input_in_errors": True}
 
     @field_validator("GRIDONE_TIMEZONE")
     @classmethod

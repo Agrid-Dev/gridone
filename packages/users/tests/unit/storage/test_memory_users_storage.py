@@ -38,9 +38,9 @@ class TestUpdatePassword:
             )
         )
 
-        await storage.save(
-            (await storage.get_by_id("u1")).model_copy(update={"is_blocked": True})
-        )
+        saved = await storage.get_by_id("u1")
+        assert saved is not None
+        await storage.save(saved.model_copy(update={"is_blocked": True}))
         updated = await storage.update_password("u1", "new-hash")
 
         assert updated is not None

@@ -53,6 +53,13 @@ class TestAdminPassword:
             load_settings({"GRIDONE_ADMIN_PASSWORD": value})
         assert "GRIDONE_ADMIN_PASSWORD" in str(exc_info.value)
 
+    def test_rejected_password_is_not_echoed_in_the_error(self):
+        """load_settings runs uncaught in the lifespan, so this reaches logs."""
+        secret = "xq7z"  # noqa: S105
+        with pytest.raises(ValidationError) as exc_info:
+            load_settings({"GRIDONE_ADMIN_PASSWORD": secret})
+        assert secret not in str(exc_info.value)
+
 
 class TestLoadSettings:
     def test_only_known_fields_are_forwarded(self):
