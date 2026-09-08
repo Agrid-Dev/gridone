@@ -6,13 +6,18 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
 from api.auth import require_permission
-from api.dependencies import get_device_manager, get_ts_service
-from api.devices_filter import parse_tags_params, to_list_devices_kwargs
+from api.dependencies import get_assets_service, get_device_manager, get_ts_service
+from api.devices_filter import ASSET_TAG, parse_tags_params, to_list_devices_kwargs
 from api.permissions import Permission
 from api.routes.command_router import router as command_router
 from api.routes.devices_timeseries_router import router as devices_ts_router
 from api.routes.faults_router import router as faults_router
 from api.schemas.device import (
+    AssetAssignment,
+    AssetAssignmentRequest,
+    AssetAssignmentResponse,
+    AssetAssignmentResult,
+    AssetAssignmentStatus,
     AttributeCoverageResponse,
     DeviceBatchCreate,
     DeviceBatchItemResult,
@@ -24,6 +29,7 @@ from api.schemas.device import (
     TimeseriesSingleAttrPushRequest,
 )
 from api.targets import compute_attribute_coverage, group_device_ids_by_tag
+from assets import AssetsService
 from devices_manager import DevicesServiceInterface
 from devices_manager.core.device import Attribute
 from devices_manager.core.device.event_log import AttributeLogs
@@ -240,6 +246,74 @@ async def create_devices_batch(
     else:
         response.status_code = status.HTTP_207_MULTI_STATUS
     return results
+
+
+async def _assign_one(
+    assignment: AssetAssignment,
+    *,
+    devices_by_id: dict[str, Device],
+    known_asset_ids: set[str],
+    dm: DevicesServiceInterface,
+) -> AssetAssignmentResult:
+    """Move one device into one zone, reporting the outcome instead of raising."""
+
+    def outcome(
+        status: AssetAssignmentStatus, error: str | None = None
+    ) -> AssetAssignmentResult:
+        return AssetAssignmentResult(
+            device_id=assignment.device_id,
+            asset_id=assignment.asset_id,
+            status=status,
+            error=error,
+        )
+
+    device = devices_by_id.get(assignment.device_id)
+    if device is None:
+        return outcome(AssetAssignmentStatus.FAILED, "Device not found")
+    if assignment.asset_id not in known_asset_ids:
+        return outcome(AssetAssignmentStatus.FAILED, "Zone not found")
+    if device.tags.get(ASSET_TAG) == assignment.asset_id:
+        return outcome(AssetAssignmentStatus.UNCHANGED)
+
+    try:
+        await dm.set_device_tag(assignment.device_id, ASSET_TAG, assignment.asset_id)
+    except (InvalidError, NotFoundError, ConflictError) as e:
+        return outcome(AssetAssignmentStatus.FAILED, str(e))
+    return outcome(AssetAssignmentStatus.APPLIED)
+
+
+@router.post(
+    "/asset-assignments",
+    dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
+)
+async def assign_devices_to_assets(
+    body: AssetAssignmentRequest,
+    dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
+    assets_svc: Annotated[AssetsService, Depends(get_assets_service)],
+) -> AssetAssignmentResponse:
+    """Move several devices into zones in one call.
+
+    Zone membership is a device tag, so this is a loop over `set_device_tag`
+    that first resolves both resource sets once. Every assignment is reported
+    on its own: an unknown device or zone fails only its own row, the ones
+    that were written stay written, and the caller retries the failures. A
+    device already sitting in the requested zone is reported ``unchanged``,
+    without a write.
+    """
+    device_ids = [a.device_id for a in body.assignments]
+    devices_by_id = {d.id: d for d in dm.list_devices(ids=device_ids)}
+    known_asset_ids = {a.id for a in await assets_svc.list_all()}
+
+    results = [
+        await _assign_one(
+            assignment,
+            devices_by_id=devices_by_id,
+            known_asset_ids=known_asset_ids,
+            dm=dm,
+        )
+        for assignment in body.assignments
+    ]
+    return AssetAssignmentResponse(results=results)
 
 
 @router.patch(

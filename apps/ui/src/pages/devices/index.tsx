@@ -11,6 +11,9 @@ const TemplatesListPage = lazy(
 const TemplateDetailPage = lazy(
   () => import("./commands/templates/TemplateDetailPage"),
 );
+const ZoneMappingImportPage = lazy(
+  () => import("./zone-import/ZoneMappingImportPage"),
+);
 
 const Devices: FC = () => (
   <Routes>
@@ -19,6 +22,14 @@ const Devices: FC = () => (
     <Route
       path="history"
       element={<Navigate to="/devices/commands" replace />}
+    />
+    <Route
+      path="zone-mapping/import"
+      element={
+        <Suspense>
+          <ZoneMappingImportPage />
+        </Suspense>
+      }
     />
     <Route path="commands">
       <Route

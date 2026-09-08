@@ -673,6 +673,33 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/devices/asset-assignments": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Assign Devices To Assets
+     * @description Move several devices into zones in one call.
+     *
+     *     Zone membership is a device tag, so this is a loop over `set_device_tag`
+     *     that first resolves both resource sets once. Every assignment is reported
+     *     on its own: an unknown device or zone fails only its own row, the ones
+     *     that were written stay written, and the caller retries the failures. A
+     *     device already sitting in the requested zone is reported ``unchanged``,
+     *     without a write.
+     */
+    post: operations["assign_devices_to_assets_devices_asset_assignments_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/devices/{device_id}/tags/{key}": {
     parameters: {
       query?: never;
@@ -1753,6 +1780,52 @@ export interface components {
       /** Ifc Global Id */
       ifc_global_id?: string | null;
     };
+    /**
+     * AssetAssignment
+     * @description One device moved into one zone, by resource id.
+     */
+    AssetAssignment: {
+      /** Device Id */
+      device_id: string;
+      /** Asset Id */
+      asset_id: string;
+    };
+    /**
+     * AssetAssignmentRequest
+     * @description Body of ``POST /devices/asset-assignments``.
+     *
+     *     Identical duplicates collapse to a single assignment; two rows sending the
+     *     same device to different zones are contradictory and reject the whole
+     *     request, since neither outcome can be the one the caller meant.
+     */
+    AssetAssignmentRequest: {
+      /** Assignments */
+      assignments: components["schemas"]["AssetAssignment"][];
+    };
+    /** AssetAssignmentResponse */
+    AssetAssignmentResponse: {
+      /** Results */
+      results: components["schemas"]["AssetAssignmentResult"][];
+    };
+    /**
+     * AssetAssignmentResult
+     * @description Outcome of one assignment. Failures are per-device: the assignments that
+     *     succeeded stay applied, and the caller can retry the ones that did not.
+     */
+    AssetAssignmentResult: {
+      /** Device Id */
+      device_id: string;
+      /** Asset Id */
+      asset_id: string;
+      status: components["schemas"]["AssetAssignmentStatus"];
+      /** Error */
+      error?: string | null;
+    };
+    /**
+     * AssetAssignmentStatus
+     * @enum {string}
+     */
+    AssetAssignmentStatus: "applied" | "unchanged" | "failed";
     /**
      * AssetCommand
      * @description Request body for ``POST /assets/{asset_id}/commands``.
@@ -5799,6 +5872,39 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+    };
+  };
+  assign_devices_to_assets_devices_asset_assignments_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AssetAssignmentRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AssetAssignmentResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
       };
     };
   };

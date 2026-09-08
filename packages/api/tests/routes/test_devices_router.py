@@ -7,10 +7,17 @@ from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
 
 from api.auth import get_current_token_payload, get_current_user_id
-from api.dependencies import get_commands_service, get_device_manager, get_ts_service
+from api.dependencies import (
+    get_assets_service,
+    get_commands_service,
+    get_device_manager,
+    get_ts_service,
+)
 from api.exception_handlers import register_exception_handlers
 from api.routes.devices_router import router
 from api.targets import UNTAGGED_GROUP_LABEL
+from assets import AssetsService
+from assets.models import Asset, AssetType
 from commands import BatchCommandDispatch, CommandsServiceInterface, UnitCommand
 from commands.models import CommandStatus
 from devices_manager import DevicesServiceInterface
@@ -28,6 +35,9 @@ from models.types import SortOrder
 # ---------------------------------------------------------------------------
 # Shared device fixtures
 # ---------------------------------------------------------------------------
+
+_ZONE_ID = "zone-1"
+_OTHER_ZONE_ID = "zone-2"
 
 _DEVICE = Device(
     id="device1",
@@ -176,13 +186,30 @@ def dm():
 
 
 @pytest.fixture
-def app(dm, mock_ts_service, mock_commands_service, admin_token_payload) -> FastAPI:
+def assets_service():
+    svc = MagicMock(spec=AssetsService)
+    svc.list_all = AsyncMock(
+        return_value=[
+            Asset(id=_ZONE_ID, parent_id=None, type=AssetType.ROOM, name="Room 201"),
+            Asset(
+                id=_OTHER_ZONE_ID, parent_id=None, type=AssetType.ROOM, name="Room 202"
+            ),
+        ]
+    )
+    return svc
+
+
+@pytest.fixture
+def app(
+    dm, mock_ts_service, mock_commands_service, assets_service, admin_token_payload
+) -> FastAPI:
     app = FastAPI()
     register_exception_handlers(app)
     app.include_router(router)
     app.dependency_overrides[get_device_manager] = lambda: dm
     app.dependency_overrides[get_ts_service] = lambda: mock_ts_service
     app.dependency_overrides[get_commands_service] = lambda: mock_commands_service
+    app.dependency_overrides[get_assets_service] = lambda: assets_service
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
     app.dependency_overrides[get_current_user_id] = lambda: admin_token_payload.sub
     return app
@@ -686,6 +713,196 @@ class TestCreateDevicesBatch:
             )
         assert response.status_code == 422
         dm.add_device.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Assign devices to zones
+# ---------------------------------------------------------------------------
+
+
+_LINKED_DEVICE = _DEVICE.model_copy(
+    update={"id": "device2", "name": "Linked", "tags": {"asset_id": _ZONE_ID}}
+)
+
+
+def _statuses(body: dict) -> dict[str, str]:
+    return {r["device_id"]: r["status"] for r in body["results"]}
+
+
+class TestAssignDevicesToAssets:
+    @pytest.fixture
+    def dm(self):
+        return _make_dm([_DEVICE, _LINKED_DEVICE])
+
+    @pytest.mark.asyncio
+    async def test_applies_a_new_assignment(
+        self, async_client: AsyncClient, dm: MagicMock
+    ):
+        async with async_client as ac:
+            response = await ac.post(
+                "/asset-assignments",
+                json={"assignments": [{"device_id": "device1", "asset_id": _ZONE_ID}]},
+            )
+
+        assert response.status_code == 200
+        assert _statuses(response.json()) == {"device1": "applied"}
+        dm.set_device_tag.assert_awaited_once_with("device1", "asset_id", _ZONE_ID)
+
+    @pytest.mark.asyncio
+    async def test_moves_a_device_between_zones(
+        self, async_client: AsyncClient, dm: MagicMock
+    ):
+        async with async_client as ac:
+            response = await ac.post(
+                "/asset-assignments",
+                json={
+                    "assignments": [
+                        {"device_id": "device2", "asset_id": _OTHER_ZONE_ID}
+                    ]
+                },
+            )
+
+        assert _statuses(response.json()) == {"device2": "applied"}
+        dm.set_device_tag.assert_awaited_once_with(
+            "device2", "asset_id", _OTHER_ZONE_ID
+        )
+
+    @pytest.mark.asyncio
+    async def test_skips_a_device_already_in_the_zone(
+        self, async_client: AsyncClient, dm: MagicMock
+    ):
+        async with async_client as ac:
+            response = await ac.post(
+                "/asset-assignments",
+                json={"assignments": [{"device_id": "device2", "asset_id": _ZONE_ID}]},
+            )
+
+        body = response.json()
+        assert _statuses(body) == {"device2": "unchanged"}
+        assert body["results"][0]["error"] is None
+        dm.set_device_tag.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_unknown_device_fails_only_its_own_row(
+        self, async_client: AsyncClient, dm: MagicMock
+    ):
+        async with async_client as ac:
+            response = await ac.post(
+                "/asset-assignments",
+                json={
+                    "assignments": [
+                        {"device_id": "ghost", "asset_id": _ZONE_ID},
+                        {"device_id": "device1", "asset_id": _ZONE_ID},
+                    ]
+                },
+            )
+
+        body = response.json()
+        assert _statuses(body) == {"ghost": "failed", "device1": "applied"}
+        assert body["results"][0]["error"] == "Device not found"
+        dm.set_device_tag.assert_awaited_once_with("device1", "asset_id", _ZONE_ID)
+
+    @pytest.mark.asyncio
+    async def test_unknown_zone_fails_without_writing(
+        self, async_client: AsyncClient, dm: MagicMock
+    ):
+        async with async_client as ac:
+            response = await ac.post(
+                "/asset-assignments",
+                json={
+                    "assignments": [{"device_id": "device1", "asset_id": "ghost-zone"}]
+                },
+            )
+
+        body = response.json()
+        assert _statuses(body) == {"device1": "failed"}
+        assert body["results"][0]["error"] == "Zone not found"
+        dm.set_device_tag.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_identical_duplicates_collapse_to_one_write(
+        self, async_client: AsyncClient, dm: MagicMock
+    ):
+        async with async_client as ac:
+            response = await ac.post(
+                "/asset-assignments",
+                json={
+                    "assignments": [
+                        {"device_id": "device1", "asset_id": _ZONE_ID},
+                        {"device_id": "device1", "asset_id": _ZONE_ID},
+                    ]
+                },
+            )
+
+        assert len(response.json()["results"]) == 1
+        dm.set_device_tag.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_conflicting_duplicates_reject_the_whole_request(
+        self, async_client: AsyncClient, dm: MagicMock
+    ):
+        async with async_client as ac:
+            response = await ac.post(
+                "/asset-assignments",
+                json={
+                    "assignments": [
+                        {"device_id": "device1", "asset_id": _ZONE_ID},
+                        {"device_id": "device1", "asset_id": _OTHER_ZONE_ID},
+                    ]
+                },
+            )
+
+        assert response.status_code == 422
+        dm.set_device_tag.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_a_write_failure_leaves_the_other_assignment_applied(
+        self, async_client: AsyncClient, dm: MagicMock
+    ):
+        dm.set_device_tag = AsyncMock(
+            side_effect=[
+                _DEVICE.model_copy(update={"tags": {"asset_id": _ZONE_ID}}),
+                InvalidError("Tag value rejected"),
+            ]
+        )
+        async with async_client as ac:
+            response = await ac.post(
+                "/asset-assignments",
+                json={
+                    "assignments": [
+                        {"device_id": "device1", "asset_id": _ZONE_ID},
+                        {"device_id": "device2", "asset_id": _OTHER_ZONE_ID},
+                    ]
+                },
+            )
+
+        body = response.json()
+        assert _statuses(body) == {"device1": "applied", "device2": "failed"}
+        assert body["results"][1]["error"] == "Tag value rejected"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("payload", "label"),
+        [
+            ({"assignments": []}, "empty batch"),
+            (
+                {"assignments": [{"device_id": "", "asset_id": _ZONE_ID}]},
+                "blank device id",
+            ),
+            (
+                {"assignments": [{"device_id": "device1", "asset_id": ""}]},
+                "blank zone id",
+            ),
+        ],
+    )
+    async def test_rejects_malformed_bodies(
+        self, async_client: AsyncClient, dm: MagicMock, payload: dict, label: str
+    ):
+        async with async_client as ac:
+            response = await ac.post("/asset-assignments", json=payload)
+
+        assert response.status_code == 422, label
+        dm.set_device_tag.assert_not_awaited()
 
 
 # ---------------------------------------------------------------------------

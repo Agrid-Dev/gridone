@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from enum import StrEnum
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -89,3 +90,64 @@ class DeviceBatchItemResult(BaseModel):
             msg = "Exactly one of `device` or `error` must be set"
             raise ValueError(msg)
         return self
+
+
+class AssetAssignment(BaseModel):
+    """One device moved into one zone, by resource id."""
+
+    device_id: str = Field(min_length=1)
+    asset_id: str = Field(min_length=1)
+
+
+class AssetAssignmentRequest(BaseModel):
+    """Body of ``POST /devices/asset-assignments``.
+
+    Identical duplicates collapse to a single assignment; two rows sending the
+    same device to different zones are contradictory and reject the whole
+    request, since neither outcome can be the one the caller meant.
+    """
+
+    assignments: list[AssetAssignment] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _collapse_duplicates(self) -> AssetAssignmentRequest:
+        by_device: dict[str, str] = {}
+        for assignment in self.assignments:
+            previous = by_device.get(assignment.device_id)
+            if previous is not None and previous != assignment.asset_id:
+                msg = (
+                    f"Device {assignment.device_id} is assigned to two "
+                    f"different zones in the same request"
+                )
+                raise ValueError(msg)
+            by_device[assignment.device_id] = assignment.asset_id
+        self.assignments = [
+            AssetAssignment(device_id=device_id, asset_id=asset_id)
+            for device_id, asset_id in by_device.items()
+        ]
+        return self
+
+
+class AssetAssignmentStatus(StrEnum):
+    APPLIED = "applied"
+    """The device now carries the requested zone; it did not before."""
+
+    UNCHANGED = "unchanged"
+    """The device already sat in the requested zone; nothing was written."""
+
+    FAILED = "failed"
+    """Nothing was written for this device; `error` says why."""
+
+
+class AssetAssignmentResult(BaseModel):
+    """Outcome of one assignment. Failures are per-device: the assignments that
+    succeeded stay applied, and the caller can retry the ones that did not."""
+
+    device_id: str
+    asset_id: str
+    status: AssetAssignmentStatus
+    error: str | None = None
+
+
+class AssetAssignmentResponse(BaseModel):
+    results: list[AssetAssignmentResult]
