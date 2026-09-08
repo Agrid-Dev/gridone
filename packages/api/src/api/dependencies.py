@@ -7,7 +7,7 @@ from starlette.requests import HTTPConnection
 
 from api.targets import CompositeTargetResolver
 from apps import AppsService
-from assets import AssetsService
+from assets import AssetsService, BuildingModelsServiceInterface
 from commands import CommandsServiceInterface
 from devices_manager import DevicesServiceInterface
 from models.pagination import PaginationParams
@@ -53,6 +53,10 @@ def get_notifications_service(request: Request) -> NotificationsServiceInterface
 
 def get_assets_service(request: Request) -> AssetsService:
     return request.app.state.assets_service
+
+
+def get_building_models_service(request: Request) -> BuildingModelsServiceInterface:
+    return request.app.state.building_models_service
 
 
 def get_dashboards_service(request: Request) -> DashboardsServiceInterface:

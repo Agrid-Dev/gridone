@@ -8,13 +8,24 @@ from httpx import ASGITransport, AsyncClient
 from api.auth import get_current_token_payload, get_current_user_id
 from api.dependencies import (
     get_assets_service,
+    get_building_models_service,
     get_commands_service,
     get_device_manager,
 )
 from api.exception_handlers import register_exception_handlers
 from api.routes.assets_router import router
-from assets import AssetsService
-from assets.models import Asset, AssetType, AssetUsage, BuildingProfile
+from assets import AssetsService, BuildingModelsServiceInterface
+from assets.models import (
+    Asset,
+    AssetType,
+    AssetUsage,
+    BuildingModel,
+    BuildingModelStatus,
+    BuildingProfile,
+    ModelSpace,
+    ModelStorey,
+    TreeImportResult,
+)
 from commands import BatchCommandDispatch, CommandsServiceInterface, UnitCommand
 from commands.models import CommandStatus
 from devices_manager import DevicesServiceInterface
@@ -26,6 +37,26 @@ from models.targets import DevicesFilter
 
 _ASSET_ID = "asset-1"
 _CHILD_ASSET_ID = "asset-2"
+
+_BUILDING_MODEL = BuildingModel(
+    asset_id=_ASSET_ID,
+    status=BuildingModelStatus.READY,
+    filename="hq.ifc",
+    ifc_size=1234,
+    glb_size=567,
+    storeys=[ModelStorey(global_id="s1", name="Level 0", elevation=0.0)],
+    spaces=[
+        ModelSpace(
+            global_id="sp1",
+            name="Room 001",
+            storey_global_id="s1",
+            storey_name="Level 0",
+        )
+    ],
+    created_at=datetime(2026, 1, 1, tzinfo=UTC),
+    updated_at=datetime(2026, 1, 2, tzinfo=UTC),
+)
+_MODEL_ETAG = f'"{_ASSET_ID}-{int(_BUILDING_MODEL.updated_at.timestamp())}"'
 
 _THERMOSTAT_A = Device(
     id="t-a",
@@ -126,6 +157,29 @@ def assets_service():
     svc.get_tree_with_devices = AsyncMock(return_value=[])
     svc.list_all = AsyncMock(return_value=[])
     svc.set_usage = AsyncMock(return_value=0)
+    svc.upload_model = AsyncMock(
+        return_value=_BUILDING_MODEL.model_copy(
+            update={"status": BuildingModelStatus.PROCESSING, "glb_size": None}
+        )
+    )
+    svc.import_tree = AsyncMock(
+        return_value=TreeImportResult(floors_created=2, rooms_created=10)
+    )
+    return svc
+
+
+@pytest.fixture
+def models_service():
+    svc = AsyncMock(spec=BuildingModelsServiceInterface)
+    svc.get = AsyncMock(return_value=_BUILDING_MODEL)
+    svc.regenerate = AsyncMock(
+        return_value=_BUILDING_MODEL.model_copy(
+            update={"status": BuildingModelStatus.PROCESSING}
+        )
+    )
+    svc.get_scene = AsyncMock(return_value=b"glTF-binary-payload")
+    svc.get_spaces = AsyncMock(return_value=_BUILDING_MODEL.spaces)
+    svc.delete = AsyncMock()
     return svc
 
 
@@ -135,12 +189,19 @@ def mock_commands_service():
 
 
 @pytest.fixture
-def app(dm, assets_service, mock_commands_service, admin_token_payload) -> FastAPI:
+def app(
+    dm,
+    assets_service,
+    models_service,
+    mock_commands_service,
+    admin_token_payload,
+) -> FastAPI:
     app = FastAPI()
     register_exception_handlers(app)
     app.include_router(router)
     app.dependency_overrides[get_device_manager] = lambda: dm
     app.dependency_overrides[get_assets_service] = lambda: assets_service
+    app.dependency_overrides[get_building_models_service] = lambda: models_service
     app.dependency_overrides[get_commands_service] = lambda: mock_commands_service
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
     app.dependency_overrides[get_current_user_id] = lambda: admin_token_payload.sub
@@ -513,3 +574,220 @@ class TestBuildingProfile:
             response = await ac.get("/profile/schema")
         assert response.status_code == 200
         assert "latitude" in response.json()["properties"]
+
+
+class TestUploadBuildingModel:
+    @pytest.mark.asyncio
+    async def test_multipart_upload_returns_202(
+        self, async_client: AsyncClient, assets_service: MagicMock
+    ):
+        async with async_client as ac:
+            response = await ac.post(
+                f"/{_ASSET_ID}/model",
+                files={"file": ("hq.ifc", b"ifc-bytes", "application/octet-stream")},
+            )
+        assert response.status_code == 202
+        assert response.json()["status"] == "processing"
+        assets_service.upload_model.assert_awaited_once_with(
+            _ASSET_ID, filename="hq.ifc", data=b"ifc-bytes"
+        )
+
+    @pytest.mark.asyncio
+    async def test_upload_on_non_building_is_422(
+        self, async_client: AsyncClient, assets_service: MagicMock
+    ):
+        assets_service.upload_model.side_effect = InvalidError("not a building")
+        async with async_client as ac:
+            response = await ac.post(
+                f"/{_ASSET_ID}/model", files={"file": ("x.ifc", b"data")}
+            )
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_regenerate_returns_202_and_the_processing_model(
+        self, async_client: AsyncClient, models_service: AsyncMock
+    ):
+        models_service.regenerate = AsyncMock(
+            return_value=_BUILDING_MODEL.model_copy(
+                update={"status": BuildingModelStatus.PROCESSING}
+            )
+        )
+        async with async_client as ac:
+            response = await ac.post(f"/{_ASSET_ID}/model/regenerate")
+        assert response.status_code == 202
+        assert response.json()["status"] == "processing"
+        models_service.regenerate.assert_awaited_once_with(_ASSET_ID)
+
+    @pytest.mark.asyncio
+    async def test_regenerate_without_a_stored_ifc_is_422(
+        self, async_client: AsyncClient, models_service: AsyncMock
+    ):
+        models_service.regenerate = AsyncMock(side_effect=InvalidError("no ifc stored"))
+        async with async_client as ac:
+            response = await ac.post(f"/{_ASSET_ID}/model/regenerate")
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_upload_on_missing_asset_is_404(
+        self, async_client: AsyncClient, assets_service: MagicMock
+    ):
+        assets_service.upload_model.side_effect = NotFoundError("nope")
+        async with async_client as ac:
+            response = await ac.post(
+                "/missing/model", files={"file": ("x.ifc", b"data")}
+            )
+        assert response.status_code == 404
+
+
+class TestGetBuildingModel:
+    @pytest.mark.asyncio
+    async def test_returns_metadata(
+        self, async_client: AsyncClient, models_service: AsyncMock
+    ):
+        async with async_client as ac:
+            response = await ac.get(f"/{_ASSET_ID}/model")
+        assert response.status_code == 200
+        body = response.json()
+        assert body["status"] == "ready"
+        assert body["filename"] == "hq.ifc"
+        assert body["glb_size"] == 567
+        assert body["spaces"][0]["global_id"] == "sp1"
+        models_service.get.assert_awaited_once_with(_ASSET_ID)
+
+    @pytest.mark.asyncio
+    async def test_missing_model_is_404(
+        self, async_client: AsyncClient, models_service: AsyncMock
+    ):
+        models_service.get.side_effect = NotFoundError("no model")
+        async with async_client as ac:
+            response = await ac.get(f"/{_ASSET_ID}/model")
+        assert response.status_code == 404
+
+
+class TestGetBuildingModelScene:
+    @pytest.mark.asyncio
+    async def test_serves_binary_with_etag_and_caching(self, async_client: AsyncClient):
+        async with async_client as ac:
+            response = await ac.get(f"/{_ASSET_ID}/model/scene.glb")
+        assert response.status_code == 200
+        assert response.content == b"glTF-binary-payload"
+        assert response.headers["content-type"] == "model/gltf-binary"
+        assert response.headers["etag"] == _MODEL_ETAG
+        assert "immutable" in response.headers["cache-control"]
+
+    @pytest.mark.asyncio
+    async def test_matching_if_none_match_short_circuits_to_304(
+        self, async_client: AsyncClient, models_service: AsyncMock
+    ):
+        async with async_client as ac:
+            response = await ac.get(
+                f"/{_ASSET_ID}/model/scene.glb",
+                headers={"If-None-Match": _MODEL_ETAG},
+            )
+        assert response.status_code == 304
+        assert response.headers["etag"] == _MODEL_ETAG
+        models_service.get_scene.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_stale_if_none_match_returns_fresh_body(
+        self, async_client: AsyncClient
+    ):
+        async with async_client as ac:
+            response = await ac.get(
+                f"/{_ASSET_ID}/model/scene.glb",
+                headers={"If-None-Match": '"stale-etag"'},
+            )
+        assert response.status_code == 200
+        assert response.content == b"glTF-binary-payload"
+
+
+class TestListBuildingModelSpaces:
+    @pytest.mark.asyncio
+    async def test_returns_spaces(self, async_client: AsyncClient):
+        async with async_client as ac:
+            response = await ac.get(f"/{_ASSET_ID}/model/spaces")
+        assert response.status_code == 200
+        assert response.json() == [
+            {
+                "global_id": "sp1",
+                "name": "Room 001",
+                "storey_global_id": "s1",
+                "storey_name": "Level 0",
+                "object_type": None,
+                "area": None,
+            }
+        ]
+
+
+class TestDeleteBuildingModel:
+    @pytest.mark.asyncio
+    async def test_delete_returns_204(
+        self, async_client: AsyncClient, models_service: AsyncMock
+    ):
+        async with async_client as ac:
+            response = await ac.delete(f"/{_ASSET_ID}/model")
+        assert response.status_code == 204
+        models_service.delete.assert_awaited_once_with(_ASSET_ID)
+
+    @pytest.mark.asyncio
+    async def test_delete_missing_model_is_404(
+        self, async_client: AsyncClient, models_service: AsyncMock
+    ):
+        models_service.delete.side_effect = NotFoundError("no model")
+        async with async_client as ac:
+            response = await ac.delete(f"/{_ASSET_ID}/model")
+        assert response.status_code == 404
+
+
+class TestImportBuildingModelTree:
+    @pytest.mark.asyncio
+    async def test_unlinks_devices_of_replaced_subtree(
+        self, async_client: AsyncClient, assets_service: MagicMock, dm: MagicMock
+    ):
+        assets_service.get_descendants.return_value = [
+            Asset(
+                id=_CHILD_ASSET_ID,
+                parent_id=_ASSET_ID,
+                type=AssetType.FLOOR,
+                name="F1",
+            )
+        ]
+        async with async_client as ac:
+            response = await ac.post(f"/{_ASSET_ID}/model/import-tree")
+        assert response.status_code == 200
+        assert response.json() == {
+            "floors_created": 2,
+            "rooms_created": 10,
+            "devices_unlinked": 1,
+        }
+        # Only thermostat B is linked to the replaced child asset.
+        dm.delete_device_tag.assert_awaited_once_with("t-b", "asset_id")
+
+    @pytest.mark.asyncio
+    async def test_empty_subtree_unlinks_nothing(
+        self, async_client: AsyncClient, assets_service: MagicMock, dm: MagicMock
+    ):
+        assets_service.get_descendants.return_value = []
+        async with async_client as ac:
+            response = await ac.post(f"/{_ASSET_ID}/model/import-tree")
+        assert response.status_code == 200
+        assert response.json()["devices_unlinked"] == 0
+        dm.delete_device_tag.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_failed_import_preserves_device_links(
+        self, async_client: AsyncClient, assets_service: MagicMock, dm: MagicMock
+    ):
+        assets_service.get_descendants.return_value = [
+            Asset(
+                id=_CHILD_ASSET_ID,
+                parent_id=_ASSET_ID,
+                type=AssetType.FLOOR,
+                name="F1",
+            )
+        ]
+        assets_service.import_tree.side_effect = InvalidError("not ready")
+        async with async_client as ac:
+            response = await ac.post(f"/{_ASSET_ID}/model/import-tree")
+        assert response.status_code == 422
+        dm.delete_device_tag.assert_not_awaited()

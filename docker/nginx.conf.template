@@ -25,9 +25,12 @@ http {
 
     access_log /dev/stdout;
 
-    # Enable gzip compression for text-based responses
+    # Enable gzip compression for text-based responses. The GLB building scene
+    # is uncompressed float32 geometry (model/gltf-binary) and compresses well,
+    # so it is included here rather than shipped raw.
     gzip on;
-    gzip_types text/plain text/css application/json application/javascript text/xml;
+    gzip_types text/plain text/css application/json application/javascript
+               text/xml model/gltf-binary;
     gzip_min_length 256;
 
     # WebSocket connection map: set $connection_upgrade to "upgrade" when the
@@ -47,6 +50,10 @@ http {
         # (e.g. /devices, /ws/devices). This keeps the backend code unchanged.
         location /api/ {
             rewrite ^/api(/.*)$ $1 break;
+
+            # IFC model uploads: the API enforces its own 200 MB cap, nginx
+            # only needs to stop rejecting large bodies (default is 1 MB).
+            client_max_body_size 256m;
 
             proxy_pass         http://127.0.0.1:8000;
             proxy_http_version 1.1;

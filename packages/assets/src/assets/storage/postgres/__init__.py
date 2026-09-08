@@ -2,6 +2,9 @@ import logging
 from pathlib import Path
 
 from assets.storage.postgres.postgres_assets_storage import PostgresAssetsStorage
+from assets.storage.postgres.postgres_building_models_storage import (
+    PostgresBuildingModelsStorage,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -23,4 +26,8 @@ def run_migrations(database_url: str) -> None:
             backend.apply_migrations(to_apply)
 
 
-__all__ = ["PostgresAssetsStorage", "run_migrations"]
+__all__ = [
+    "PostgresAssetsStorage",
+    "PostgresBuildingModelsStorage",
+    "run_migrations",
+]

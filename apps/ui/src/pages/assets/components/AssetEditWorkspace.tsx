@@ -55,7 +55,10 @@ import {
   useUsageOptions,
   type AssetFormValues,
 } from "./AssetForm";
+import { BuildingModelCard } from "./BuildingModelCard";
+import { SpaceLinkCard } from "./SpaceLinkCard";
 import { UsageBadge } from "./UsageBadge";
+import { EmptySection, SectionHeading } from "./workspaceSections";
 
 type AssetEditWorkspaceProps = {
   mode?: "detail" | "edit";
@@ -86,35 +89,6 @@ const assetTypeIcons = {
   room: DoorOpen,
   zone: LayoutGrid,
 } as const;
-
-function SectionHeading({
-  title,
-  description,
-}: {
-  title: string;
-  description?: string;
-}) {
-  return (
-    <div>
-      <h2 className="font-display text-xl font-semibold tracking-tight text-foreground">
-        {title}
-      </h2>
-      {description && (
-        <p className="mt-1 text-sm leading-6 text-muted-foreground">
-          {description}
-        </p>
-      )}
-    </div>
-  );
-}
-
-function EmptySection({ children }: { children: ReactNode }) {
-  return (
-    <div className="flex min-h-24 items-center justify-center rounded-xl border border-dashed border-border bg-muted/20 px-4 text-center text-sm text-muted-foreground">
-      {children}
-    </div>
-  );
-}
 
 /** Applies a drag-end event to the current id order. Returns the full
  *  reordered id list, or null when the drop changes nothing (no target,
@@ -688,6 +662,18 @@ export function AssetEditWorkspace({
               )}
             </div>
           </Card>
+
+          {asset.type === "building" && (
+            <BuildingModelCard assetId={asset.id} canWrite={canWriteAssets} />
+          )}
+
+          {asset.type === "room" && (
+            <SpaceLinkCard
+              asset={asset}
+              allAssets={allAssets}
+              canWrite={canWriteAssets}
+            />
+          )}
         </div>
       </form>
     </section>

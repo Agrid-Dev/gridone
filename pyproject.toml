@@ -150,7 +150,7 @@ markers = [
 ]
 
 [tool.importlinter]
-root_packages = ["devices_manager"]
+root_packages = ["devices_manager", "assets"]
 
 # AGR-918: core, storage and dto are three projections of one domain model.
 # Core owns the domain and the storage ports; storage and dto each import
@@ -167,3 +167,31 @@ name = "devices-manager storage never imports the wire layer"
 type = "forbidden"
 source_modules = ["devices_manager.storage"]
 forbidden_modules = ["devices_manager.dto"]
+
+# AGR-1010: the assets package ships two services. The tree knows nothing
+# about 3D scenes, and neither service knows what builds one — the concrete
+# ifcopenshell converter is named only by a composition root.
+
+[[tool.importlinter.contracts]]
+name = "the asset tree knows nothing about scene conversion"
+type = "forbidden"
+source_modules = ["assets.service"]
+forbidden_modules = ["assets.conversion"]
+
+[[tool.importlinter.contracts]]
+name = "no assets service depends on the ifcopenshell converter"
+type = "forbidden"
+source_modules = ["assets.service", "assets.building_models_service"]
+forbidden_modules = ["assets.conversion.ifc"]
+
+[[tool.importlinter.contracts]]
+name = "the scene contract is free of geometry dependencies"
+type = "forbidden"
+source_modules = ["assets.conversion.converter"]
+forbidden_modules = ["assets.conversion.ifc", "assets.glb"]
+
+[[tool.importlinter.contracts]]
+name = "assets storage never imports a service"
+type = "forbidden"
+source_modules = ["assets.storage"]
+forbidden_modules = ["assets.service", "assets.building_models_service"]

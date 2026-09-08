@@ -73,6 +73,7 @@ async def storage():
     # Clean tables before each test (links first due to FK)
     async with pool.acquire() as conn:
         await conn.execute("DELETE FROM device_asset_links")
+        await conn.execute("DELETE FROM building_models")
         await conn.execute("DELETE FROM assets")
         await conn.execute("DELETE FROM building_profile")
 
@@ -450,3 +451,42 @@ class TestBuildingProfile:
         fetched = await storage.get_profile()
         assert fetched is not None
         assert fetched.name == "Second"
+
+
+class TestIfcGlobalId:
+    """ifc_global_id column round-trip through save / get / list."""
+
+    async def test_save_and_read_back(self, storage: PostgresAssetsStorage) -> None:
+        root = _root()
+        await storage.save(root)
+        stamped = _make_asset("room-1", parent_id=root.id, asset_type=AssetType.ROOM)
+        await storage.save(stamped.model_copy(update={"ifc_global_id": "GID-42"}))
+
+        fetched = await storage.get_by_id("room-1")
+        assert fetched is not None
+        assert fetched.ifc_global_id == "GID-42"
+
+        cleared = fetched.model_copy(update={"ifc_global_id": None})
+        await storage.save(cleared)
+        fetched2 = await storage.get_by_id("room-1")
+        assert fetched2 is not None
+        assert fetched2.ifc_global_id is None
+
+
+class TestDeleteDescendants:
+    async def test_removes_subtree_only(self, storage: PostgresAssetsStorage) -> None:
+        root = _root()
+        await storage.save(root)
+        await storage.save(_make_asset("b1", parent_id=root.id))
+        await storage.save(
+            _make_asset("f1", parent_id="b1", asset_type=AssetType.FLOOR)
+        )
+        await storage.save(_make_asset("r1", parent_id="f1", asset_type=AssetType.ROOM))
+        await storage.save(_make_asset("b2", parent_id=root.id, position=1))
+
+        await storage.delete_descendants("b1")
+
+        assert await storage.get_by_id("b1") is not None
+        assert await storage.get_by_id("f1") is None
+        assert await storage.get_by_id("r1") is None
+        assert await storage.get_by_id("b2") is not None

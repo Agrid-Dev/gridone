@@ -50,6 +50,7 @@ class Asset(ResourceMetadata):
     path: list[str] = Field(default_factory=list)
     position: int = 0
     usage: AssetUsage | None = None
+    ifc_global_id: str | None = None
 
 
 class AssetCreate(BaseModel):
@@ -82,6 +83,7 @@ class AssetUpdate(BaseModel):
     type: AssetType | None = None
     parent_id: str | None = None
     usage: AssetUsage | None = None
+    ifc_global_id: str | None = None
 
 
 class BuildingProfile(BaseModel):
@@ -104,6 +106,67 @@ class BuildingProfile(BaseModel):
     icon: str | None = None
 
 
+class BuildingModelStatus(StrEnum):
+    """Lifecycle of an uploaded building model conversion."""
+
+    PROCESSING = "processing"
+    READY = "ready"
+    FAILED = "failed"
+
+
+class ModelStorey(BaseModel):
+    """A building storey extracted from an uploaded IFC model."""
+
+    global_id: str
+    name: str
+    elevation: float | None = None
+
+
+class ModelSpace(BaseModel):
+    """A room/space extracted from an uploaded IFC model."""
+
+    global_id: str
+    name: str
+    storey_global_id: str | None = None
+    storey_name: str | None = None
+    # Free-text IFC classification (``IfcSpace.ObjectType`` / ``LongName``),
+    # e.g. "Chambre Twin" or "Local technique". Surfaced for the viewer and,
+    # later, to seed AGR-1129 zone usage on tree import. Never authoritative.
+    object_type: str | None = None
+    # Net floor area in m² from ``Qto_SpaceBaseQuantities.NetFloorArea`` when
+    # the model carries it; ``None`` when it does not.
+    area: float | None = None
+
+
+class BuildingModel(ResourceMetadata):
+    """Metadata of the 3D model attached to a building asset.
+
+    The binary payloads (raw IFC, converted glTF scene) are stored alongside
+    but never exposed through this model.
+    """
+
+    asset_id: str
+    status: BuildingModelStatus
+    filename: str
+    ifc_size: int = 0
+    glb_size: int | None = None
+    error: str | None = None
+    storeys: list[ModelStorey] = Field(default_factory=list)
+    spaces: list[ModelSpace] = Field(default_factory=list)
+    # Version of the converter that produced the stored scene. A scene is a
+    # derived artifact of one converter; when the contract changes, older
+    # scenes are stale and re-converted in the background on startup. ``0`` is
+    # the pre-versioning baseline (any scene converted before this field).
+    converter_version: int = 0
+
+
+class TreeImportResult(BaseModel):
+    """Outcome of replacing the building subtree from the IFC model."""
+
+    floors_created: int
+    rooms_created: int
+
+
 def get_asset_create_schema() -> dict:
     """JSON schema of AssetCreate for frontend form validation."""
     return AssetCreate.model_json_schema()
@@ -123,7 +186,12 @@ __all__ = [
     "AssetType",
     "AssetUpdate",
     "AssetUsage",
+    "BuildingModel",
+    "BuildingModelStatus",
     "BuildingProfile",
+    "ModelSpace",
+    "ModelStorey",
+    "TreeImportResult",
     "get_asset_create_schema",
     "get_building_profile_schema",
 ]

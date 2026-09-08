@@ -21,6 +21,7 @@ from api.dependencies import (
     get_apps_service,
     get_assets_service,
     get_automations_service,
+    get_building_models_service,
     get_commands_service,
     get_dashboards_service,
     get_device_manager,
@@ -648,6 +649,7 @@ def _build_commands_app() -> FastAPI:
     app.dependency_overrides[get_device_manager] = MagicMock
     app.dependency_overrides[get_ts_service] = lambda: AsyncMock(default_timezone="UTC")
     app.dependency_overrides[get_assets_service] = MagicMock
+    app.dependency_overrides[get_building_models_service] = MagicMock
     app.dependency_overrides[get_commands_service] = AsyncMock
     app.include_router(auth_router, prefix="/auth")
     jwt_dep = [Depends(get_current_user_id)]
@@ -730,6 +732,51 @@ COMMANDS_ACCESS_CONTROL_SCENARIOS = [
         401,
         {"asset_ids": ["x"], "usage": "office"},
         id="usage-batch-no-auth",
+    ),
+    # Building model endpoints: writes require ASSETS_WRITE; the permission
+    # check rejects before body/multipart parsing, so a JSON body is enough.
+    pytest.param("POST", "/assets/any-id/model", "viewer", 403, {}, id="model-up-v"),
+    pytest.param("POST", "/assets/any-id/model", None, 401, {}, id="model-up-noa"),
+    pytest.param(
+        "POST",
+        "/assets/any-id/model/regenerate",
+        "viewer",
+        403,
+        {},
+        id="model-regen-v",
+    ),
+    pytest.param(
+        "POST",
+        "/assets/any-id/model/regenerate",
+        None,
+        401,
+        {},
+        id="model-regen-noa",
+    ),
+    pytest.param("DELETE", "/assets/any-id/model", "viewer", 403, {}, id="model-del-v"),
+    pytest.param("DELETE", "/assets/any-id/model", None, 401, {}, id="model-del-noa"),
+    pytest.param(
+        "POST",
+        "/assets/any-id/model/import-tree",
+        "viewer",
+        403,
+        {},
+        id="model-import-v",
+    ),
+    pytest.param(
+        "POST",
+        "/assets/any-id/model/import-tree",
+        None,
+        401,
+        {},
+        id="model-import-noa",
+    ),
+    pytest.param("GET", "/assets/any-id/model", None, 401, {}, id="model-get-noa"),
+    pytest.param(
+        "GET", "/assets/any-id/model/scene.glb", None, 401, {}, id="model-scene-noa"
+    ),
+    pytest.param(
+        "GET", "/assets/any-id/model/spaces", None, 401, {}, id="model-spaces-noa"
     ),
     # GET /devices/commands requires DEVICES_READ — all roles can read,
     # but no-auth is 401.

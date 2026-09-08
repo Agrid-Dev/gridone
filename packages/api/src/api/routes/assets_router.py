@@ -1,11 +1,21 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+    status,
+)
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from api.auth import get_current_user_id, require_permission
 from api.dependencies import (
     get_assets_service,
+    get_building_models_service,
     get_commands_service,
     get_device_manager,
     get_target_resolver,
@@ -18,7 +28,10 @@ from assets import (
     AssetsService,
     AssetUpdate,
     AssetUsage,
+    BuildingModel,
+    BuildingModelsServiceInterface,
     BuildingProfile,
+    ModelSpace,
     get_asset_create_schema,
     get_building_profile_schema,
 )
@@ -42,6 +55,12 @@ class UsageBatchRequest(BaseModel):
 
 class UsageBatchResponse(BaseModel):
     updated: int
+
+
+class TreeImportResponse(BaseModel):
+    floors_created: int
+    rooms_created: int
+    devices_unlinked: int
 
 
 @router.get(
@@ -263,3 +282,134 @@ async def dispatch_asset_command(
         # request (422), not a missing resource.
         raise HTTPException(status_code=422, detail="Target resolved to no devices")
     return BatchDispatchResponse(batch_id=dispatch.batch_id, commands=dispatch.commands)
+
+
+def _model_etag(model: BuildingModel) -> str:
+    """Strong ETag for the converted scene, stable until the model changes."""
+    return f'"{model.asset_id}-{int(model.updated_at.timestamp())}"'
+
+
+@router.post(
+    "/{asset_id}/model",
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(require_permission(Permission.ASSETS_WRITE))],
+)
+async def upload_building_model(
+    asset_id: str,
+    file: UploadFile,
+    assets_svc: Annotated[AssetsService, Depends(get_assets_service)],
+) -> BuildingModel:
+    data = await file.read()
+    return await assets_svc.upload_model(
+        asset_id, filename=file.filename or "model.ifc", data=data
+    )
+
+
+@router.post(
+    "/{asset_id}/model/regenerate",
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(require_permission(Permission.ASSETS_WRITE))],
+)
+async def regenerate_building_model(
+    asset_id: str,
+    models_svc: Annotated[
+        BuildingModelsServiceInterface, Depends(get_building_models_service)
+    ],
+) -> BuildingModel:
+    """Rebuild the 3D scene from the IFC already stored for this asset.
+
+    Needed whenever the converter learns something new — the stored scene is
+    a snapshot of the converter that produced it, not of the IFC.
+    """
+    return await models_svc.regenerate(asset_id)
+
+
+@router.get(
+    "/{asset_id}/model",
+    dependencies=[Depends(require_permission(Permission.ASSETS_READ))],
+)
+async def get_building_model(
+    asset_id: str,
+    models_svc: Annotated[
+        BuildingModelsServiceInterface, Depends(get_building_models_service)
+    ],
+) -> BuildingModel:
+    return await models_svc.get(asset_id)
+
+
+@router.get(
+    "/{asset_id}/model/scene.glb",
+    dependencies=[Depends(require_permission(Permission.ASSETS_READ))],
+)
+async def get_building_model_scene(
+    asset_id: str,
+    request: Request,
+    models_svc: Annotated[
+        BuildingModelsServiceInterface, Depends(get_building_models_service)
+    ],
+) -> Response:
+    model = await models_svc.get(asset_id)
+    etag = _model_etag(model)
+    headers = {"ETag": etag, "Cache-Control": "private, max-age=31536000, immutable"}
+    # Answer from the metadata alone before touching the (large) binary.
+    if request.headers.get("if-none-match") == etag:
+        return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers=headers)
+    glb = await models_svc.get_scene(asset_id)
+    return Response(content=glb, media_type="model/gltf-binary", headers=headers)
+
+
+@router.get(
+    "/{asset_id}/model/spaces",
+    dependencies=[Depends(require_permission(Permission.ASSETS_READ))],
+)
+async def list_building_model_spaces(
+    asset_id: str,
+    models_svc: Annotated[
+        BuildingModelsServiceInterface, Depends(get_building_models_service)
+    ],
+) -> list[ModelSpace]:
+    return await models_svc.get_spaces(asset_id)
+
+
+@router.delete(
+    "/{asset_id}/model",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_permission(Permission.ASSETS_WRITE))],
+)
+async def delete_building_model(
+    asset_id: str,
+    models_svc: Annotated[
+        BuildingModelsServiceInterface, Depends(get_building_models_service)
+    ],
+) -> None:
+    await models_svc.delete(asset_id)
+
+
+@router.post(
+    "/{asset_id}/model/import-tree",
+    dependencies=[Depends(require_permission(Permission.ASSETS_WRITE))],
+)
+async def import_building_model_tree(
+    asset_id: str,
+    assets_svc: Annotated[AssetsService, Depends(get_assets_service)],
+    dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
+) -> TreeImportResponse:
+    """Replace the building subtree from the IFC model.
+
+    Destructive: the subtree is recreated from the model and every device
+    linked to a deleted asset is unlinked (same mechanism as asset deletion).
+    """
+    descendants = await assets_svc.get_descendants(asset_id)
+    linked_devices = (
+        dm.list_devices(tags={"asset_id": [a.id for a in descendants]})
+        if descendants
+        else []
+    )
+    result = await assets_svc.import_tree(asset_id)
+    for device in linked_devices:
+        await dm.delete_device_tag(device.id, "asset_id")
+    return TreeImportResponse(
+        floors_created=result.floors_created,
+        rooms_created=result.rooms_created,
+        devices_unlinked=len(linked_devices),
+    )

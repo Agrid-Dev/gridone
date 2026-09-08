@@ -1,5 +1,8 @@
+import logging
+from collections import defaultdict
 from datetime import UTC, datetime
 
+from assets.interface import BuildingModelsServiceInterface
 from assets.models import (
     USAGE_CAPABLE_TYPES,
     Asset,
@@ -7,7 +10,10 @@ from assets.models import (
     AssetType,
     AssetUpdate,
     AssetUsage,
+    BuildingModel,
+    BuildingModelStatus,
     BuildingProfile,
+    TreeImportResult,
 )
 from assets.storage import build_assets_storage
 from assets.storage.models import AssetInDB
@@ -16,10 +22,15 @@ from models.errors import InvalidError, NotFoundError
 from models.ids import gen_id
 from models.service import Service
 
+logger = logging.getLogger(__name__)
+
 
 class AssetsService(Service):
-    def __init__(self, storage_url: str | None) -> None:
+    def __init__(
+        self, storage_url: str | None, models: BuildingModelsServiceInterface
+    ) -> None:
         self._storage_url = storage_url
+        self._models = models
         self._storage: AssetsStorageBackend | None = None
 
     async def start(self) -> None:
@@ -185,6 +196,13 @@ class AssetsService(Service):
             data.parent_id if data.parent_id is not None else existing.parent_id
         )
         new_usage = self._resolve_usage(existing, data, new_type)
+        # Unlike the other fields, ifc_global_id can be cleared: an explicit
+        # null in the payload unlinks the 3D space, an omitted field keeps it.
+        new_ifc_global_id = (
+            data.ifc_global_id
+            if "ifc_global_id" in data.model_fields_set
+            else existing.ifc_global_id
+        )
 
         # Check for circular dependency if parent is changing
         if new_parent_id != existing.parent_id and new_parent_id is not None:
@@ -215,6 +233,7 @@ class AssetsService(Service):
             name=new_name,
             position=existing.position,
             usage=new_usage,
+            ifc_global_id=new_ifc_global_id,
             created_at=existing.created_at,
             updated_at=datetime.now(UTC),
         )
@@ -237,6 +256,7 @@ class AssetsService(Service):
             msg = "Cannot delete asset with children. Remove children first."
             raise InvalidError(msg)
         await self._backend.delete(asset_id)
+        await self._models.discard([asset_id])
 
     async def get_descendants(self, asset_id: str) -> list[Asset]:
         await self._get_or_raise(asset_id)
@@ -260,6 +280,102 @@ class AssetsService(Service):
             self._assert_usage_capable(asset.type)
         await self._backend.set_usage(unique_ids, usage, datetime.now(UTC))
         return len(unique_ids)
+
+    async def upload_model(
+        self, asset_id: str, *, filename: str, data: bytes
+    ) -> BuildingModel:
+        """Attach a 3D model to *asset_id*, which has to be a building.
+
+        The model itself is owned by the building-models service; what this
+        adds is the only part that needs the asset tree — the rule that a
+        floor or a room never carries one.
+        """
+        asset = await self._get_or_raise(asset_id)
+        if asset.type != AssetType.BUILDING:
+            msg = "A 3D model can only be attached to a building asset."
+            raise InvalidError(msg)
+        return await self._models.upload(asset_id, filename=filename, data=data)
+
+    @staticmethod
+    def _usages_by_ifc_global_id(
+        descendants: list[AssetInDB],
+    ) -> dict[str, AssetUsage]:
+        """Hand-set usages among *descendants*, keyed by IFC GlobalId.
+
+        A re-import deletes and recreates the whole subtree, so classifications
+        only survive if they are carried over by GlobalId. Without this a
+        corrected IFC would wipe every room an operator classified by hand.
+        """
+        return {
+            d.ifc_global_id: d.usage
+            for d in descendants
+            if d.ifc_global_id is not None and d.usage is not None
+        }
+
+    async def import_tree(self, asset_id: str) -> TreeImportResult:
+        """Replace the building subtree with floors/rooms from the IFC model.
+
+        Destructive: every descendant of the building is deleted, then floors
+        are recreated from the model storeys and rooms from its spaces, with
+        IFC GlobalIds stamped for the viewer mapping. Usages set by hand are
+        carried over to the room that comes back with the same GlobalId.
+        """
+        asset = await self._get_or_raise(asset_id)
+        if asset.type != AssetType.BUILDING:
+            msg = "Only building assets can import a tree from their 3D model."
+            raise InvalidError(msg)
+        model = await self._models.get(asset_id)
+        if model.status != BuildingModelStatus.READY:
+            msg = "The 3D model is not ready yet."
+            raise InvalidError(msg)
+        if not model.storeys:
+            msg = "The 3D model has no storeys to import."
+            raise InvalidError(msg)
+
+        descendants = await self._backend.get_descendants(asset_id)
+        preserved_usages = self._usages_by_ifc_global_id(descendants)
+        await self._backend.delete_descendants(asset_id)
+        await self._models.discard([d.id for d in descendants])
+
+        now = datetime.now(UTC)
+        floor_ids: dict[str, str] = {}
+        for position, storey in enumerate(model.storeys):
+            floor = AssetInDB(
+                id=gen_id(),
+                parent_id=asset_id,
+                type=AssetType.FLOOR,
+                name=storey.name,
+                position=position,
+                ifc_global_id=storey.global_id,
+                created_at=now,
+                updated_at=now,
+            )
+            await self._backend.save(floor)
+            floor_ids[storey.global_id] = floor.id
+
+        next_position: defaultdict[str, int] = defaultdict(int)
+        # Spaces without a storey land directly under the building, after
+        # the floors just created.
+        next_position[asset_id] = len(floor_ids)
+        for space in model.spaces:
+            parent_id = floor_ids.get(space.storey_global_id or "", asset_id)
+            room = AssetInDB(
+                id=gen_id(),
+                parent_id=parent_id,
+                type=AssetType.ROOM,
+                name=space.name,
+                position=next_position[parent_id],
+                ifc_global_id=space.global_id,
+                usage=preserved_usages.get(space.global_id),
+                created_at=now,
+                updated_at=now,
+            )
+            next_position[parent_id] += 1
+            await self._backend.save(room)
+
+        return TreeImportResult(
+            floors_created=len(floor_ids), rooms_created=len(model.spaces)
+        )
 
 
 __all__ = ["AssetsService"]

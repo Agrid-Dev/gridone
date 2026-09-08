@@ -1,9 +1,11 @@
+import threading
 from unittest.mock import patch
 
 import pytest
 import pytest_asyncio
+from scene_fakes import FakeSceneConverter
 
-from assets import AssetsService
+from assets import AssetsService, BuildingModelsService
 from assets.models import (
     Asset,
     AssetCreate,
@@ -22,10 +24,34 @@ from models.errors import (
 
 pytestmark = pytest.mark.asyncio
 
+_IFC = b"pretend-ifc-payload"
+
+
+@pytest.fixture
+def converter() -> FakeSceneConverter:
+    return FakeSceneConverter()
+
 
 @pytest_asyncio.fixture
-async def service():
-    svc = AssetsService(storage_url=None)
+async def models(converter: FakeSceneConverter):
+    """The real models service behind a scripted converter.
+
+    A stub would prove less: what these tests care about is that the tree
+    reads storeys and spaces through this seam, not that a mock was called.
+    """
+    svc = BuildingModelsService(storage_url=None, converter=converter)
+    await svc.start()
+    try:
+        yield svc
+    finally:
+        if converter.gate is not None:
+            converter.gate.set()
+        await svc.stop()
+
+
+@pytest_asyncio.fixture
+async def service(models: BuildingModelsService):
+    svc = AssetsService(storage_url=None, models=models)
     await svc.start()
     try:
         yield svc
@@ -33,9 +59,17 @@ async def service():
         await svc.stop()
 
 
+@pytest_asyncio.fixture
+async def building(service: AssetsService):
+    root = (await service.list_all())[0]
+    return await service.create_asset(
+        AssetCreate(parent_id=root.id, type=AssetType.BUILDING, name="HQ")
+    )
+
+
 class TestLifecycle:
-    async def test_start_with_none_url_uses_memory_backend(self):
-        svc = AssetsService(storage_url=None)
+    async def test_start_with_none_url_uses_memory_backend(self, models):
+        svc = AssetsService(storage_url=None, models=models)
         await svc.start()
         try:
             assets = await svc.list_all()
@@ -46,32 +80,30 @@ class TestLifecycle:
         finally:
             await svc.stop()
 
-    async def test_stop_is_idempotent(self):
-        svc = AssetsService(storage_url=None)
+    async def test_stop_is_idempotent(self, models):
+        svc = AssetsService(storage_url=None, models=models)
         await svc.start()
         await svc.stop()
         await svc.stop()
 
-    async def test_use_before_start_raises(self):
-        svc = AssetsService(storage_url=None)
+    async def test_use_before_start_raises(self, models):
+        svc = AssetsService(storage_url=None, models=models)
         with pytest.raises(RuntimeError, match=r"AssetsService\.start"):
             await svc.list_all()
 
 
 class TestStorageURL:
-    async def test_unknown_scheme_raises_unsupported(self):
-        svc = AssetsService(storage_url="redis://localhost")
+    async def test_unknown_scheme_raises_unsupported(self, models):
+        svc = AssetsService("redis://localhost", models)
         with pytest.raises(UnsupportedStorageError):
             await svc.start()
 
-    async def test_postgres_unreachable_raises_connection_error(self):
+    async def test_postgres_unreachable_raises_connection_error(self, models):
         with patch(
             "assets.storage.postgres.run_migrations",
             side_effect=OSError("boom"),
         ):
-            svc = AssetsService(
-                storage_url="postgresql://nobody:nobody@127.0.0.1:1/none"
-            )
+            svc = AssetsService("postgresql://nobody:nobody@127.0.0.1:1/none", models)
             with pytest.raises(StorageConnectionError):
                 await svc.start()
 
@@ -456,3 +488,169 @@ class TestMemoryBackend:
         assets = await storage.list_all()
         assert assets == []
         await storage.close()
+
+
+class TestUpdateAssetIfcGlobalId:
+    async def test_set_and_preserve_when_omitted(self, service, building):
+        await service.update_asset(building.id, AssetUpdate(ifc_global_id="GID-1"))
+        renamed = await service.update_asset(building.id, AssetUpdate(name="HQ 2"))
+        assert renamed.ifc_global_id == "GID-1"
+
+    async def test_explicit_null_clears_the_link(self, service, building):
+        await service.update_asset(building.id, AssetUpdate(ifc_global_id="GID-1"))
+        cleared = await service.update_asset(
+            building.id, AssetUpdate(ifc_global_id=None)
+        )
+        assert cleared.ifc_global_id is None
+
+
+class TestBuildingModelOwnership:
+    """The one part of a 3D model the asset tree owns: who may carry one."""
+
+    async def test_upload_delegates_to_the_models_service(
+        self, service, models, building
+    ):
+        model = await service.upload_model(building.id, filename="hq.ifc", data=_IFC)
+        assert model.asset_id == building.id
+        assert (await models.get(building.id)).filename == "hq.ifc"
+
+    async def test_upload_rejects_a_non_building(self, service, models, building):
+        floor = await service.create_asset(
+            AssetCreate(parent_id=building.id, type=AssetType.FLOOR, name="F1")
+        )
+        with pytest.raises(InvalidError, match="building"):
+            await service.upload_model(floor.id, filename="f.ifc", data=_IFC)
+        with pytest.raises(NotFoundError):
+            await models.get(floor.id)
+
+    async def test_upload_to_an_unknown_asset_is_not_found(self, service):
+        with pytest.raises(NotFoundError):
+            await service.upload_model("ghost", filename="f.ifc", data=_IFC)
+
+    async def test_deleting_the_asset_drops_its_model(self, service, models, building):
+        await service.upload_model(building.id, filename="hq.ifc", data=_IFC)
+        await models.wait_for_conversions()
+
+        await service.delete_asset(building.id)
+
+        with pytest.raises(NotFoundError):
+            await models.get(building.id)
+
+
+class TestImportTree:
+    async def _ready_model(self, service, models, building) -> None:
+        await service.upload_model(building.id, filename="hq.ifc", data=_IFC)
+        await models.wait_for_conversions()
+
+    @staticmethod
+    async def _rooms_by_name(service, building) -> dict:
+        return {
+            a.name: a
+            for a in await service.get_descendants(building.id)
+            if a.type == AssetType.ROOM
+        }
+
+    async def test_replaces_subtree_with_stamped_assets(
+        self, service, models, building
+    ):
+        old_floor = await service.create_asset(
+            AssetCreate(parent_id=building.id, type=AssetType.FLOOR, name="Old floor")
+        )
+        await service.create_asset(
+            AssetCreate(parent_id=old_floor.id, type=AssetType.ROOM, name="Old room")
+        )
+        await self._ready_model(service, models, building)
+
+        result = await service.import_tree(building.id)
+
+        assert result.floors_created == 2
+        assert result.rooms_created == 2
+        descendants = await service.get_descendants(building.id)
+        floors = sorted(
+            (a for a in descendants if a.type == AssetType.FLOOR),
+            key=lambda a: a.position,
+        )
+        rooms = sorted(
+            (a for a in descendants if a.type == AssetType.ROOM), key=lambda a: a.name
+        )
+        assert [(f.name, f.position) for f in floors] == [
+            ("Level 0", 0),
+            ("Level 1", 1),
+        ]
+        assert [r.name for r in rooms] == ["Room 001", "Room 101"]
+        assert all(a.ifc_global_id for a in descendants)
+        assert not any(a.name.startswith("Old") for a in descendants)
+        rooms_by_name = {r.name: r for r in rooms}
+        floors_by_gid = {f.ifc_global_id: f for f in floors}
+        model = await models.get(building.id)
+        for space in model.spaces:
+            room = rooms_by_name[space.name]
+            assert room.parent_id == floors_by_gid[space.storey_global_id].id
+
+    async def test_reimport_preserves_hand_set_usages(self, service, models, building):
+        await self._ready_model(service, models, building)
+        await service.import_tree(building.id)
+        before = await self._rooms_by_name(service, building)
+        await service.set_usage([before["Room 001"].id], AssetUsage.HOTEL_ROOM)
+
+        await service.import_tree(building.id)
+
+        after = await self._rooms_by_name(service, building)
+        # The room is genuinely recreated, but the GlobalId matches, so the
+        # hand-set classification rides along instead of being wiped.
+        assert after["Room 001"].id != before["Room 001"].id
+        assert after["Room 001"].ifc_global_id == before["Room 001"].ifc_global_id
+        assert after["Room 001"].usage == AssetUsage.HOTEL_ROOM
+        assert after["Room 101"].usage is None
+
+    async def test_reimport_drops_usages_with_no_matching_global_id(
+        self, service, models, building
+    ):
+        stray = await service.create_asset(
+            AssetCreate(parent_id=building.id, type=AssetType.ROOM, name="Stray")
+        )
+        await service.set_usage([stray.id], AssetUsage.OFFICE)
+        await self._ready_model(service, models, building)
+
+        await service.import_tree(building.id)
+
+        descendants = await service.get_descendants(building.id)
+        # A hand-made room carries no GlobalId, so it has nothing to match on:
+        # it goes away with the subtree and leaks its usage to no one.
+        assert not any(a.name == "Stray" for a in descendants)
+        assert all(a.usage is None for a in descendants)
+
+    async def test_import_requires_building(self, service, building):
+        floor = await service.create_asset(
+            AssetCreate(parent_id=building.id, type=AssetType.FLOOR, name="F1")
+        )
+        with pytest.raises(InvalidError, match="building"):
+            await service.import_tree(floor.id)
+
+    async def test_import_requires_a_model(self, service, building):
+        with pytest.raises(NotFoundError):
+            await service.import_tree(building.id)
+
+    async def test_import_requires_ready_model(self, service, converter, building):
+        converter.gate = threading.Event()
+        await service.upload_model(building.id, filename="hq.ifc", data=_IFC)
+        with pytest.raises(InvalidError, match="not ready"):
+            await service.import_tree(building.id)
+
+    async def test_import_requires_storeys(self):
+        models = BuildingModelsService(None, FakeSceneConverter(storeys=[], spaces=[]))
+        await models.start()
+        svc = AssetsService(None, models)
+        await svc.start()
+        try:
+            root = (await svc.list_all())[0]
+            flat = await svc.create_asset(
+                AssetCreate(parent_id=root.id, type=AssetType.BUILDING, name="Flat")
+            )
+            await svc.upload_model(flat.id, filename="flat.ifc", data=_IFC)
+            await models.wait_for_conversions()
+            with pytest.raises(InvalidError, match="no storeys"):
+                await svc.import_tree(flat.id)
+        finally:
+            await svc.stop()
+            await models.stop()

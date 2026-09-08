@@ -37,7 +37,95 @@
     "diagramLabel": "Building floor diagram",
     "diagramLegend": "Building floors",
     "empty": "No level in the asset tree.",
-    "addZone": "Add a zone"
+    "addZone": "Add a zone",
+    "viewer": {
+      "closePanel": "Close room panel",
+      "noDevices": "No device linked to this room.",
+      "occupied": "Occupied",
+      "vacant": "Vacant",
+      "trend": "Temperature · 24h",
+      "openAsset": "Open zone details",
+      "loadError": "The 3D scene could not be loaded.",
+      "levels": "Levels",
+      "expandPanel": "Expand the levels panel",
+      "collapsePanel": "Collapse the levels panel",
+      "toggleZones": "Zones of {{level}}",
+      "levelZones": "Zones: {{count}}",
+      "levelAlerts": "Alerts: {{count}}",
+      "noZones": "No zone on this level.",
+      "resetView": "Reset view",
+      "explode": "Separate the floors",
+      "collapseFloors": "Stack the floors",
+      "legendTitle": "Temperature",
+      "showFacade": "Show the facade",
+      "hideFacade": "Hide the facade",
+      "planShow": "Open the 2D floor plan",
+      "planHide": "Back to the 3D view",
+      "planNeedsLevel": "Select a level to open its floor plan",
+      "planOpen": "Floor plan of {{level}}",
+      "colorBy": "Colour by",
+      "colorMode": {
+        "temperature": "Temperature",
+        "function": "Function",
+        "alerts": "Alerts",
+        "connectivity": "Connectivity"
+      },
+      "functionFamily": {
+        "room": "Guest room",
+        "technical": "Technical",
+        "restaurant": "Food & beverage",
+        "reception": "Reception",
+        "office": "Office",
+        "meeting": "Meeting",
+        "workspace": "Workspace",
+        "wellness": "Wellness",
+        "sanitary": "Sanitary",
+        "circulation": "Circulation",
+        "outdoor": "Outdoor",
+        "other": "Other"
+      },
+      "connectivityLegend": {
+        "ok": "Online",
+        "degraded": "Degraded",
+        "error": "Offline",
+        "unknown": "No data"
+      },
+      "alertsLegend": {
+        "alert": "Alert",
+        "warning": "Warning",
+        "none": "Normal"
+      },
+      "markersShow": "Show device markers",
+      "markersHide": "Hide device markers",
+      "searchPlaceholder": "Search a zone or a device…",
+      "searchNoResults": "No matching zone or device.",
+      "searchClear": "Clear search",
+      "searchGroups": {
+        "zones": "Zones",
+        "devices": "Devices",
+        "offModel": "Not on the model"
+      },
+      "searchMore_one": "{{count}} more result",
+      "searchMore_other": "{{count}} more results",
+      "breadcrumb": {
+        "label": "Where you are in the model",
+        "allLevels": "All levels",
+        "plan": "Floor plan"
+      },
+      "alerts": {
+        "label_one": "{{count}} zone in alert",
+        "label_other": "{{count}} zones in alert",
+        "title": "Zones in alert",
+        "warnings": "Warnings",
+        "faults_one": "{{count}} fault",
+        "faults_other": "{{count}} faults",
+        "offModel_one": "{{count}} faulty device outside the model",
+        "offModel_other": "{{count}} faulty devices outside the model",
+        "viewAll": "Open the faults page"
+      },
+      "legendShow": "Show the legend",
+      "legendHide": "Hide the legend"
+    }
   },
   "units": {
     "surfaceSquareMeters": "{{value}} m²"

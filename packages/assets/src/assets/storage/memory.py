@@ -99,6 +99,10 @@ class MemoryAssetsStorage:
                     update={"usage": usage, "updated_at": updated_at}
                 )
 
+    async def delete_descendants(self, asset_id: str) -> None:
+        for descendant in await self.get_descendants(asset_id):
+            self._assets.pop(descendant.id, None)
+
     async def close(self) -> None:
         pass
 

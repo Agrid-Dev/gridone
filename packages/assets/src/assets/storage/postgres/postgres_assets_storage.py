@@ -41,6 +41,7 @@ class PostgresAssetsStorage:
             path=str(row["path"]).split(".") if row["path"] else [],
             position=row["position"],
             usage=row["usage"],
+            ifc_global_id=row["ifc_global_id"],
             created_at=row["created_at"],
             updated_at=row["updated_at"],
         )
@@ -69,14 +70,16 @@ class PostgresAssetsStorage:
         await self._pool.execute(
             """
             INSERT INTO assets
-                (id, parent_id, type, name, position, usage, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                (id, parent_id, type, name, position, usage, ifc_global_id,
+                 created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             ON CONFLICT (id) DO UPDATE SET
                 parent_id = EXCLUDED.parent_id,
                 type = EXCLUDED.type,
                 name = EXCLUDED.name,
                 position = EXCLUDED.position,
                 usage = EXCLUDED.usage,
+                ifc_global_id = EXCLUDED.ifc_global_id,
                 updated_at = EXCLUDED.updated_at
             """,
             asset.id,
@@ -85,6 +88,7 @@ class PostgresAssetsStorage:
             asset.name,
             asset.position,
             asset.usage,
+            asset.ifc_global_id,
             asset.created_at,
             asset.updated_at,
         )
@@ -148,6 +152,16 @@ class PostgresAssetsStorage:
             usage,
             updated_at,
             asset_ids,
+        )
+
+    async def delete_descendants(self, asset_id: str) -> None:
+        await self._pool.execute(
+            """
+            DELETE FROM assets a
+            WHERE a.path <@ (SELECT path FROM assets WHERE id = $1)
+              AND a.id != $1
+            """,
+            asset_id,
         )
 
     async def close(self) -> None:

@@ -136,6 +136,69 @@
   min-height: 100vh;
 }
 
+/* ── 3D building viewer palette ──
+   The viewer carries the building's own graphic chart (terracotta #D8562B,
+   taupe #8B7777, mustard #C5A900 on off-white #F5F1ED) without repainting the
+   rest of the app: redefining the shadcn tokens on the container makes every
+   utility inside it pick the warm ramp up on its own.
+   --status-* and --hvac-* are deliberately NOT overridden — in a BMS, orange
+   means hot and red means alarm, and those must not drift with branding. */
+.building-viewer {
+  --background: 30 29% 95%;
+  --foreground: 0 0% 15%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 15%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 15%;
+  --primary: 15 69% 51%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 30 16% 92%;
+  --secondary-foreground: 20 8% 28%;
+  --muted: 30 16% 93%;
+  --muted-foreground: 20 4% 43%;
+  --accent: 18 55% 93%;
+  --accent-foreground: 15 69% 33%;
+  --border: 28 14% 87%;
+  --input: 28 14% 87%;
+  --ring: 15 69% 51%;
+
+  /* Daylight sky behind the alpha canvas — free of any 3D cost. */
+  background: linear-gradient(
+    180deg,
+    hsl(208 32% 90%) 0%,
+    hsl(26 34% 93%) 58%,
+    hsl(28 20% 88%) 100%
+  );
+}
+
+.dark .building-viewer {
+  --background: 20 8% 11%;
+  --foreground: 30 12% 88%;
+  --card: 20 8% 14%;
+  --card-foreground: 30 12% 88%;
+  --popover: 20 8% 14%;
+  --popover-foreground: 30 12% 88%;
+  --primary: 15 78% 58%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 20 7% 19%;
+  --secondary-foreground: 30 12% 88%;
+  --muted: 20 7% 19%;
+  --muted-foreground: 24 6% 62%;
+  --accent: 20 8% 22%;
+  --accent-foreground: 30 12% 88%;
+  --border: 20 7% 23%;
+  --input: 20 7% 23%;
+  --ring: 15 78% 58%;
+
+  /* Dusk: deep blue overhead, the city's warm glow at the horizon. */
+  background: linear-gradient(
+    180deg,
+    hsl(224 38% 17%) 0%,
+    hsl(18 26% 14%) 62%,
+    hsl(20 12% 9%) 100%
+  );
+}
+
 /* ── Dot grid background ── */
 .bg-grid {
   background-image: radial-gradient(

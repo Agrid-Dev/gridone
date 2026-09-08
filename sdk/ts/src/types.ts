@@ -81,6 +81,11 @@ export type ReorderRequest = Schemas["ReorderRequest"];
 export type UsageBatchRequest = Schemas["UsageBatchRequest"];
 export type UsageBatchResponse = Schemas["UsageBatchResponse"];
 export type TagValueBody = Schemas["TagValueBody"];
+export type BuildingModel = Schemas["BuildingModel"];
+export type BuildingModelStatus = Schemas["BuildingModelStatus"];
+export type ModelStorey = Schemas["ModelStorey"];
+export type ModelSpace = Schemas["ModelSpace"];
+export type TreeImportResponse = Schemas["TreeImportResponse"];
 
 // Devices
 export type Device = Schemas["Device"];

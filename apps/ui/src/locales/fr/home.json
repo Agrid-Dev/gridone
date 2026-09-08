@@ -37,7 +37,95 @@
     "diagramLabel": "Schéma des niveaux du bâtiment",
     "diagramLegend": "Niveaux du bâtiment",
     "empty": "Aucun niveau dans l’arborescence.",
-    "addZone": "Ajouter une zone"
+    "addZone": "Ajouter une zone",
+    "viewer": {
+      "closePanel": "Fermer le panneau de la salle",
+      "noDevices": "Aucun appareil lié à cette salle.",
+      "occupied": "Occupée",
+      "vacant": "Libre",
+      "trend": "Température · 24 h",
+      "openAsset": "Voir le détail de la zone",
+      "loadError": "La scène 3D n'a pas pu être chargée.",
+      "levels": "Niveaux",
+      "expandPanel": "Déplier le panneau des niveaux",
+      "collapsePanel": "Replier le panneau des niveaux",
+      "toggleZones": "Zones du niveau {{level}}",
+      "levelZones": "Zones : {{count}}",
+      "levelAlerts": "Alertes : {{count}}",
+      "noZones": "Aucune zone à ce niveau.",
+      "resetView": "Recadrer la vue",
+      "explode": "Séparer les niveaux",
+      "collapseFloors": "Empiler les niveaux",
+      "legendTitle": "Température",
+      "showFacade": "Afficher la façade",
+      "hideFacade": "Masquer la façade",
+      "planShow": "Ouvrir le plan 2D",
+      "planHide": "Revenir à la vue 3D",
+      "planNeedsLevel": "Sélectionnez un niveau pour ouvrir son plan",
+      "planOpen": "Plan du niveau {{level}}",
+      "colorBy": "Colorer par",
+      "colorMode": {
+        "temperature": "Température",
+        "function": "Fonction",
+        "alerts": "Défauts",
+        "connectivity": "Connectivité"
+      },
+      "functionFamily": {
+        "room": "Chambre",
+        "technical": "Technique",
+        "restaurant": "Restauration",
+        "reception": "Accueil",
+        "office": "Bureau",
+        "meeting": "Réunion",
+        "workspace": "Espace de travail",
+        "wellness": "Bien-être",
+        "sanitary": "Sanitaires",
+        "circulation": "Circulation",
+        "outdoor": "Extérieur",
+        "other": "Autre"
+      },
+      "connectivityLegend": {
+        "ok": "En ligne",
+        "degraded": "Dégradé",
+        "error": "Hors ligne",
+        "unknown": "Sans donnée"
+      },
+      "alertsLegend": {
+        "alert": "Alerte",
+        "warning": "Avertissement",
+        "none": "Normal"
+      },
+      "markersShow": "Afficher les repères d'appareils",
+      "markersHide": "Masquer les repères d'appareils",
+      "searchPlaceholder": "Rechercher une zone ou un appareil…",
+      "searchNoResults": "Aucune zone ni appareil correspondant.",
+      "searchClear": "Effacer la recherche",
+      "searchGroups": {
+        "zones": "Zones",
+        "devices": "Appareils",
+        "offModel": "Hors du modèle"
+      },
+      "searchMore_one": "{{count}} autre résultat",
+      "searchMore_other": "{{count}} autres résultats",
+      "breadcrumb": {
+        "label": "Position dans le modèle",
+        "allLevels": "Tous les niveaux",
+        "plan": "Plan 2D"
+      },
+      "alerts": {
+        "label_one": "{{count}} zone en alerte",
+        "label_other": "{{count}} zones en alerte",
+        "title": "Zones en alerte",
+        "warnings": "Avertissements",
+        "faults_one": "{{count}} défaut",
+        "faults_other": "{{count}} défauts",
+        "offModel_one": "{{count}} appareil en défaut hors du modèle",
+        "offModel_other": "{{count}} appareils en défaut hors du modèle",
+        "viewAll": "Ouvrir la page des défauts"
+      },
+      "legendShow": "Afficher la légende",
+      "legendHide": "Masquer la légende"
+    }
   },
   "units": {
     "surfaceSquareMeters": "{{value}} m²"

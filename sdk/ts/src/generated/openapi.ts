@@ -1093,6 +1093,105 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/assets/{asset_id}/model": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Building Model */
+    get: operations["get_building_model_assets__asset_id__model_get"];
+    put?: never;
+    /** Upload Building Model */
+    post: operations["upload_building_model_assets__asset_id__model_post"];
+    /** Delete Building Model */
+    delete: operations["delete_building_model_assets__asset_id__model_delete"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/assets/{asset_id}/model/regenerate": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Regenerate Building Model
+     * @description Rebuild the 3D scene from the IFC already stored for this asset.
+     *
+     *     Needed whenever the converter learns something new — the stored scene is
+     *     a snapshot of the converter that produced it, not of the IFC.
+     */
+    post: operations["regenerate_building_model_assets__asset_id__model_regenerate_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/assets/{asset_id}/model/scene.glb": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Building Model Scene */
+    get: operations["get_building_model_scene_assets__asset_id__model_scene_glb_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/assets/{asset_id}/model/spaces": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Building Model Spaces */
+    get: operations["list_building_model_spaces_assets__asset_id__model_spaces_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/assets/{asset_id}/model/import-tree": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Import Building Model Tree
+     * @description Replace the building subtree from the IFC model.
+     *
+     *     Destructive: the subtree is recreated from the model and every device
+     *     linked to a deleted asset is unlinked (same mechanism as asset deletion).
+     */
+    post: operations["import_building_model_tree_assets__asset_id__model_import_tree_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/automations/triggers": {
     parameters: {
       query?: never;
@@ -1651,6 +1750,8 @@ export interface components {
        */
       position?: number;
       usage?: components["schemas"]["AssetUsage"] | null;
+      /** Ifc Global Id */
+      ifc_global_id?: string | null;
     };
     /**
      * AssetCommand
@@ -1706,6 +1807,8 @@ export interface components {
       /** Parent Id */
       parent_id?: string | null;
       usage?: components["schemas"]["AssetUsage"] | null;
+      /** Ifc Global Id */
+      ifc_global_id?: string | null;
     };
     /**
      * AssetUsage
@@ -2103,6 +2206,59 @@ export interface components {
       /** Refresh Token */
       refresh_token?: string | null;
     };
+    /** Body_upload_building_model_assets__asset_id__model_post */
+    Body_upload_building_model_assets__asset_id__model_post: {
+      /** File */
+      file: string;
+    };
+    /**
+     * BuildingModel
+     * @description Metadata of the 3D model attached to a building asset.
+     *
+     *     The binary payloads (raw IFC, converted glTF scene) are stored alongside
+     *     but never exposed through this model.
+     */
+    BuildingModel: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at?: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at?: string;
+      /** Asset Id */
+      asset_id: string;
+      status: components["schemas"]["BuildingModelStatus"];
+      /** Filename */
+      filename: string;
+      /**
+       * Ifc Size
+       * @default 0
+       */
+      ifc_size?: number;
+      /** Glb Size */
+      glb_size?: number | null;
+      /** Error */
+      error?: string | null;
+      /** Storeys */
+      storeys?: components["schemas"]["ModelStorey"][];
+      /** Spaces */
+      spaces?: components["schemas"]["ModelSpace"][];
+      /**
+       * Converter Version
+       * @default 0
+       */
+      converter_version?: number;
+    };
+    /**
+     * BuildingModelStatus
+     * @description Lifecycle of an uploaded building model conversion.
+     * @enum {string}
+     */
+    BuildingModelStatus: "processing" | "ready" | "failed";
     /**
      * BuildingProfile
      * @description Deployment-wide building profile (singleton).
@@ -3155,6 +3311,36 @@ export interface components {
       protocol: "modbus-tcp";
       config: components["schemas"]["ModbusTCPTransportConfig"];
     };
+    /**
+     * ModelSpace
+     * @description A room/space extracted from an uploaded IFC model.
+     */
+    ModelSpace: {
+      /** Global Id */
+      global_id: string;
+      /** Name */
+      name: string;
+      /** Storey Global Id */
+      storey_global_id?: string | null;
+      /** Storey Name */
+      storey_name?: string | null;
+      /** Object Type */
+      object_type?: string | null;
+      /** Area */
+      area?: number | null;
+    };
+    /**
+     * ModelStorey
+     * @description A building storey extracted from an uploaded IFC model.
+     */
+    ModelStorey: {
+      /** Global Id */
+      global_id: string;
+      /** Name */
+      name: string;
+      /** Elevation */
+      elevation?: number | null;
+    };
     /** MqttTransport */
     MqttTransport: {
       /**
@@ -3657,6 +3843,15 @@ export interface components {
       config?: {
         [key: string]: unknown;
       } | null;
+    };
+    /** TreeImportResponse */
+    TreeImportResponse: {
+      /** Floors Created */
+      floors_created: number;
+      /** Rooms Created */
+      rooms_created: number;
+      /** Devices Unlinked */
+      devices_unlinked: number;
     };
     /** Trigger */
     Trigger: {
@@ -6787,6 +6982,225 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["BatchDispatchResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_building_model_assets__asset_id__model_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        asset_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BuildingModel"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  upload_building_model_assets__asset_id__model_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        asset_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "multipart/form-data": components["schemas"]["Body_upload_building_model_assets__asset_id__model_post"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BuildingModel"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  delete_building_model_assets__asset_id__model_delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        asset_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  regenerate_building_model_assets__asset_id__model_regenerate_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        asset_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BuildingModel"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_building_model_scene_assets__asset_id__model_scene_glb_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        asset_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_building_model_spaces_assets__asset_id__model_spaces_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        asset_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ModelSpace"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  import_building_model_tree_assets__asset_id__model_import_tree_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        asset_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TreeImportResponse"];
         };
       };
       /** @description Validation Error */
