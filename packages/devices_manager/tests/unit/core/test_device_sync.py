@@ -231,6 +231,28 @@ class TestCoreDevicePollingGroups:
         await grouped_device.stop_sync()
 
     @pytest.mark.asyncio
+    async def test_named_groups_poll_when_default_polling_is_disabled(
+        self, grouped_driver: Driver, mock_transport_client
+    ):
+        # ``polling: disable`` switches off the implicit default group only:
+        # an attribute assigned to a named group has opted in explicitly.
+        grouped_driver.update_strategy = UpdateStrategy(
+            polling_enabled=False, polling_groups={"core": 5, "config": 3600}
+        )
+        device = CoreDevice.from_base(
+            DeviceBase(id="gd", name="Grouped device", config={}),
+            driver=grouped_driver,
+            transport=mock_transport_client,
+        )
+        assert device._polling_groups() == {  # noqa: SLF001
+            "core": (5, ["temperature"]),
+            "config": (3600, ["install_date"]),
+        }
+        await device.start_sync()
+        assert set(device._poll_tasks) == {"core", "config"}  # noqa: SLF001
+        await device.stop_sync()
+
+    @pytest.mark.asyncio
     async def test_stop_sync_cancels_all_group_tasks(self, grouped_device: CoreDevice):
         await grouped_device.start_sync()
         tasks = list(grouped_device._poll_tasks.values())  # noqa: SLF001

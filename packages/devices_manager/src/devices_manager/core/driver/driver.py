@@ -43,10 +43,17 @@ def validate_push_only_polling(
 
     A webhook transport cannot solicit data — its reads raise — so polling
     would only pile up READ-error log entries and degrade the connection
-    status of a device that is perfectly alimented by pushes.
+    status of a device that is perfectly alimented by pushes. Named polling
+    groups poll even when default polling is disabled, so they are rejected
+    on the same grounds.
     """
-    if transport == TransportProtocols.WEBHOOK and update_strategy.polling_enabled:
+    if transport != TransportProtocols.WEBHOOK:
+        return
+    if update_strategy.polling_enabled:
         msg = "Webhook drivers are push-only: polling cannot be enabled"
+        raise InvalidError(msg)
+    if update_strategy.polling_groups:
+        msg = "Webhook drivers are push-only: polling groups cannot be declared"
         raise InvalidError(msg)
 
 
