@@ -43,6 +43,20 @@ MQTT maintains a persistent connection to a broker. It is push-based: on connect
 
 **Read flow** — the transport publishes a request message to `request.topic`, subscribes to the response `topic`, and waits up to **10 seconds** for a message to arrive. If no message is received within that window, the read times out. The `request` field in the transport address controls what is published and where.
 
+**Reply matching** — some devices answer every request on one shared reply topic, with nothing in the frame tying it to the request. A read on such a topic would otherwise take the first frame that lands, which may answer another attribute's read or be an on-change push. The optional `match` field of a read address tells the transport which frame is the reply: a frame is accepted when the `json_path` expression finds at least one match in it, and every other frame is skipped until one matches or the 10-second window closes. Frames that are not JSON never match. The expression uses the same syntax as the `json_path` codec, so the driver typically repeats the codec's selector:
+
+```yaml
+read:
+  topic: updData/${mac}
+  request:
+    topic: ${mac}
+    message: { data: Temperature, command: READ_DATA }
+  match:
+    json_path: $.data[?(@.name == "Temperature")]
+```
+
+`match` only affects reads. Listeners still receive every frame on the topic and decode it best-effort, as before.
+
 **Write flow** — the transport publishes the rendered `message` to `topic` as defined in the write address.
 
 | Field | Required | Default | Description |
