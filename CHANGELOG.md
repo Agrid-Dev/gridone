@@ -1,3 +1,9 @@
+## v0.228.0 (2026-09-09)
+
+### Feat
+
+- **devices-manager**: match the reply frame on shared MQTT reply topics
+
 ## v0.227.0 (2026-09-09)
 
 ### Feat
