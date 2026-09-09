@@ -1,3 +1,4 @@
+from synoptics.interface import SynopticsServiceInterface
 from synoptics.models import (
     AttributeSlot,
     Cell,
@@ -18,6 +19,7 @@ from synoptics.models import (
     Tag,
     TextSlot,
 )
+from synoptics.service import SynopticsService
 from synoptics.symbols import (
     CollectorPort,
     CollectorProps,
@@ -55,6 +57,8 @@ __all__ = [
     "SynopticDefaults",
     "SynopticDocument",
     "SynopticSummary",
+    "SynopticsService",
+    "SynopticsServiceInterface",
     "Tag",
     "TankProps",
     "TextSlot",
