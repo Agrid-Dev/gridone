@@ -3,6 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
+from models.metadata import ResourceMetadata
 from synoptics.models import (
     AttributeSlot,
     Cell,
@@ -15,6 +16,7 @@ from synoptics.models import (
     PortEndpoint,
     Symbol,
     SynopticDocument,
+    SynopticSummary,
     Tag,
     TextSlot,
 )
@@ -214,6 +216,20 @@ def test_a_pipe_takes_only_the_authored_spelling_of_from():
                 "fluid": "dhw",
                 "from_": {"kind": "cell", "cell": {"x": 0, "y": 0}},
                 "to": {"kind": "cell", "cell": {"x": 4, "y": 0}},
+            }
+        )
+
+
+def test_a_summary_forbids_unknown_keys():
+    """The read model is as closed as the document it summarises."""
+    with pytest.raises(ValidationError):
+        SynopticSummary.model_validate(
+            {
+                "id": "abc",
+                "name": "Plate",
+                "projection": "isometric",
+                "metadata": ResourceMetadata(),
+                "symbols": [],
             }
         )
 

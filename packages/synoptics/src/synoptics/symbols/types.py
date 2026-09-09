@@ -2,6 +2,7 @@
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -58,4 +59,6 @@ class SymbolType:
     # A003: ``type`` is the field's domain name; the annotation below still
     # resolves to the builtin, since a bare annotation binds no attribute.
     props_model: type[BaseModel] = NoProps  # noqa: A003
-    ports_from_props: Callable[[BaseModel], Mapping[str, Port]] | None = None
+    # Takes this type's own ``props_model``, which differs per type, so the
+    # parameter cannot be narrowed here without splitting the dataclass.
+    ports_from_props: Callable[[Any], Mapping[str, Port]] | None = None

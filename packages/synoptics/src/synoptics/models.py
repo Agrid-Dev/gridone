@@ -69,6 +69,13 @@ class Point(BaseModel):
     z: FreeCoordinate = 0.0
 
 
+Projection = Literal["isometric", "flat"]
+"""How the plate is drawn. ``flat`` is the same document with every ``z`` at 0."""
+
+StaleAfter = Annotated[int, Field(ge=0)]
+"""Seconds after which a resolved value is shown as stale."""
+
+
 class Fluid(StrEnum):
     """What a pipe carries. Closed vocabulary owned by the format.
 
@@ -107,7 +114,7 @@ class AttributeSlot(BaseModel):
     unit: str | None = None
     decimals: int | None = Field(default=None, ge=0)
     labels: dict[str, str] | None = None
-    stale_after: int | None = Field(default=None, ge=0)
+    stale_after: StaleAfter | None = None
 
 
 class TextSlot(BaseModel):
@@ -259,7 +266,7 @@ class SynopticDefaults(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    stale_after: int | None = Field(default=None, ge=0)
+    stale_after: StaleAfter | None = None
 
 
 class SynopticDocument(BaseModel):
@@ -274,7 +281,7 @@ class SynopticDocument(BaseModel):
     version: Literal[1] = 1
     name: str = Field(min_length=1)
     description: str | None = None
-    projection: Literal["isometric", "flat"] = "isometric"
+    projection: Projection = "isometric"
     defaults: SynopticDefaults = Field(default_factory=SynopticDefaults)
     symbols: list[Symbol] = Field(default_factory=list)
     pipes: list[Pipe] = Field(default_factory=list)
@@ -301,8 +308,10 @@ class SynopticSummary(BaseModel):
     """Lightweight read model returned by ``list`` — the envelope only, so a
     plate index never parses thirty-four pipes per row."""
 
+    model_config = ConfigDict(extra="forbid")
+
     id: str
     name: str
     description: str | None = None
-    projection: Literal["isometric", "flat"]
+    projection: Projection
     metadata: ResourceMetadata

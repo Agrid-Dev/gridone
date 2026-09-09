@@ -15,6 +15,8 @@ work and lives in the API layer; this package stays document-only.
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from itertools import pairwise
 
+from pydantic import BaseModel
+
 from models.errors import SchemaValidationError, ValidationErrorItem
 from synoptics.geometry import (
     direction,
@@ -58,7 +60,7 @@ def validate_document(document: SynopticDocument, registry: SymbolRegistry) -> N
     ports = _check_symbols(document, registry, duplicates, errors)
     polylines = _check_pipes(document, ports, duplicates, errors)
     _check_pipe_references(document, polylines, errors)
-    _check_inline_placements(document, registry, polylines, errors)
+    _check_inline_placements(document, registry, polylines, duplicates, errors)
     _check_flat_projection(document, errors)
 
     if errors.items:
@@ -133,7 +135,7 @@ def _check_symbols(
             continue
         symbol_type = registry.get(symbol.type)
         try:
-            registry.validate_props(symbol.type, symbol.props)
+            props = registry.validate_props(symbol.type, symbol.props)
         except ValueError as exc:
             errors.add((*loc, "props"), str(exc), "invalid_props")
             continue
@@ -152,7 +154,7 @@ def _check_symbols(
                 "rotation_locked",
             )
             continue
-        resolved[symbol.id] = _absolute_ports(symbol, registry)
+        resolved[symbol.id] = _absolute_ports(symbol, registry, props)
     return resolved
 
 
@@ -179,7 +181,7 @@ def _check_bindings(
 
 
 def _absolute_ports(
-    symbol: Symbol, registry: SymbolRegistry
+    symbol: Symbol, registry: SymbolRegistry, props: BaseModel
 ) -> dict[str, tuple[Cell, Side]]:
     """Each port's cell on the grid and the face it leaves through, with the
     instance's rotation applied to both."""
@@ -192,7 +194,7 @@ def _absolute_ports(
             translate(origin, rotate_offset(port.offset, rotation)),
             rotate_side(port.side, rotation),
         )
-        for name, port in registry.ports_of(symbol).items()
+        for name, port in registry.ports_of(symbol, props).items()
     }
 
 
@@ -451,6 +453,7 @@ def _check_inline_placements(
     document: SynopticDocument,
     registry: SymbolRegistry,
     polylines: Mapping[str, Sequence[Cell]],
+    duplicates: set[str],
     errors: _Errors,
 ) -> None:
     """An inline symbol sits at a cell strictly inside a run of an
@@ -458,6 +461,8 @@ def _check_inline_placements(
     for i, symbol in enumerate(document.symbols):
         placement = symbol.placement
         if not isinstance(placement, PipePlacement):
+            continue
+        if symbol.id in duplicates:
             continue
         loc: tuple[str | int, ...] = ("symbols", i, "placement")
         if symbol.type in registry.types() and not registry.get(symbol.type).inline:

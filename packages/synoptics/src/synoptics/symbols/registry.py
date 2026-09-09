@@ -72,11 +72,15 @@ class SymbolRegistry:
             msg = f"Invalid props for symbol type {type_!r}"
             raise InvalidError(msg) from exc
 
-    def ports_of(self, symbol: Symbol) -> Mapping[str, Port]:
+    def ports_of(
+        self, symbol: Symbol, props: BaseModel | None = None
+    ) -> Mapping[str, Port]:
         """The ports *symbol* actually has, before rotation.
 
         Almost always the type's own declaration; the collector is the one type
-        that authors its ports per instance, so its props decide.
+        that authors its ports per instance, so its props decide. Pass *props*
+        when they have already been validated, so a caller doing both does not
+        validate the same symbol twice.
         """
         symbol_type = self.get(symbol.type)
         if symbol_type.ports_from_props is None:
@@ -84,7 +88,8 @@ class SymbolRegistry:
             # request, so handing out the stored dict would let one caller
             # change port resolution for every later document in the process.
             return MappingProxyType(dict(symbol_type.ports))
-        props = self.validate_props(symbol.type, symbol.props)
+        if props is None:
+            props = self.validate_props(symbol.type, symbol.props)
         return MappingProxyType(dict(symbol_type.ports_from_props(props)))
 
     def schemas(self) -> dict[str, dict[str, Any]]:
@@ -119,11 +124,8 @@ class SymbolRegistry:
         }
 
 
-def collector_ports(props: BaseModel) -> Mapping[str, Port]:
+def collector_ports(props: CollectorProps) -> Mapping[str, Port]:
     """Turn each offset authored along a collector's bar into a cell offset."""
-    if not isinstance(props, CollectorProps):  # pragma: no cover - registry wiring
-        msg = "Collector ports need collector props"
-        raise InvalidError(msg)
     return {
         name: Port(
             offset=Cell(x=port.offset, y=0)

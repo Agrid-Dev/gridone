@@ -68,6 +68,15 @@ def test_a_duplicated_element_is_not_resolved_against(document, registry):
     assert "unknown_port" not in found
 
 
+def test_a_duplicated_inline_symbol_is_reported_once(document, registry):
+    """The inline pass skips duplicates like every other pass: a placement
+    error on an element already rejected sends the author chasing two bugs."""
+    twin = copy.deepcopy(document["symbols"][1])
+    twin["placement"]["cell"] = {"x": 9, "y": 9}
+    document["symbols"].append(twin)
+    assert check(document, registry) == ["duplicate_id"]
+
+
 @pytest.mark.parametrize("bad_id", ["PAC-01", "-pac", "pac 01", "", "p" * 65])
 def test_ids_must_be_slugs(document, bad_id):
     document["symbols"][0]["id"] = bad_id
