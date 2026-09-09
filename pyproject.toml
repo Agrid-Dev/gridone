@@ -24,6 +24,7 @@ gridone-commands = { workspace = true }
 gridone-migrations = { workspace = true }
 gridone-notifications = { workspace = true }
 gridone-dashboards = { workspace = true }
+gridone-synoptics = { workspace = true }
 
 
 
@@ -44,6 +45,7 @@ members = [
     "packages/models",
     "packages/notifications",
     "packages/dashboards",
+    "packages/synoptics",
 ]
 
 [dependency-groups]
@@ -89,7 +91,7 @@ fixable = ["ALL"]
 "opentelemetry.sdk".msg = "Only apps/api_server may import the OpenTelemetry SDK; use the opentelemetry-api facade (or a test fake)."
 
 [tool.ruff.lint.isort]
-known-first-party = ["api", "apps", "assets", "commands", "devices_manager", "models", "notifications", "timeseries", "users"]
+known-first-party = ["api", "apps", "assets", "commands", "devices_manager", "models", "notifications", "synoptics", "timeseries", "users"]
 
 [tool.ruff.lint.per-file-ignores]
 "**/test_*.py" = ["T201", "TID252", "FBT001", "S101", "S106", "ANN201", "ANN401", "PLR2004", "EM101", "INP001", "ANN001", "S603", "PLW1510", "PLC0415"]
