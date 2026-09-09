@@ -128,6 +128,7 @@ source = [
     "packages/commands/src",
     "packages/devices-manager/src",
     "packages/notifications/src",
+    "packages/synoptics/src",
     "packages/timeseries/src",
     "packages/users/src",
     "packages/apps/src",

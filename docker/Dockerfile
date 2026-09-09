@@ -52,9 +52,11 @@ COPY packages/apps/pyproject.toml packages/apps/pyproject.toml
 COPY packages/assets/pyproject.toml packages/assets/pyproject.toml
 COPY packages/automations/pyproject.toml packages/automations/pyproject.toml
 COPY packages/commands/pyproject.toml packages/commands/pyproject.toml
+COPY packages/dashboards/pyproject.toml packages/dashboards/pyproject.toml
 COPY packages/devices_manager/pyproject.toml packages/devices_manager/pyproject.toml
 COPY packages/models/pyproject.toml packages/models/pyproject.toml
 COPY packages/notifications/pyproject.toml packages/notifications/pyproject.toml
+COPY packages/synoptics/pyproject.toml packages/synoptics/pyproject.toml
 COPY packages/timeseries/pyproject.toml packages/timeseries/pyproject.toml
 COPY packages/users/pyproject.toml packages/users/pyproject.toml
 COPY apps/api_server/pyproject.toml apps/api_server/pyproject.toml
