@@ -40,6 +40,31 @@ update_strategy:
   polling: disable
 ```
 
+`polling: disable` switches off the *default* polling only. Attributes assigned to a
+[polling group](#polling-groups) keep polling on that group's schedule: assigning an
+attribute to a named group is an explicit opt-in. This is how a push device gets a single
+"trigger" attribute polled — a request the device answers with a burst of pushes carrying
+every value — while its siblings stay listen-only:
+
+```yaml
+update_strategy:
+  polling: disable
+  polling_groups:
+    full_refresh: 1min
+
+attributes:
+  - name: firmware_version
+    polling_group: full_refresh   # the only polled attribute
+    read:
+      topic: data/${device_id}
+      request: { topic: ${device_id}, message: READ_ALL }
+    ...
+  - name: temperature                # listen-only, fed by the burst
+    read:
+      topic: data/${device_id}
+    ...
+```
+
 ## Polling groups
 
 Some devices expose many attributes that don't all need to be read at the same rate — a
@@ -68,8 +93,10 @@ attributes:
 
 Each group polls on its own schedule, and all attributes in a group are read together in a
 single batch request per sweep. Attributes with no `polling_group` fall back to the driver's
-`polling_interval` instead. Every `polling_group` referenced by an attribute must be declared
-in `polling_groups` — an undeclared reference is rejected when the driver is loaded.
+`polling_interval` instead, and stop polling altogether under `polling: disable` — named
+groups do not (see [Disabling polling](#disabling-polling)). Every `polling_group` referenced
+by an attribute must be declared in `polling_groups` — an undeclared reference is rejected
+when the driver is loaded.
 
 ## Silence detection for push devices
 

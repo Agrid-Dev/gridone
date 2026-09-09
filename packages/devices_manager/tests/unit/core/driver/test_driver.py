@@ -215,6 +215,19 @@ class TestDriverPushOnlyValidation:
                 attributes={},
             )
 
+    def test_webhook_driver_cannot_declare_polling_groups(self):
+        with pytest.raises(InvalidError, match="polling groups"):
+            Driver(
+                metadata=DriverMetadata(id="webhook_driver"),
+                env={},
+                device_config_required=[],
+                transport=TransportProtocols.WEBHOOK,
+                update_strategy=UpdateStrategy(
+                    polling_enabled=False, polling_groups={"core": 5}
+                ),
+                attributes={},
+            )
+
     def test_webhook_driver_with_polling_disabled_is_valid(self):
         driver = Driver(
             metadata=DriverMetadata(id="webhook_driver"),

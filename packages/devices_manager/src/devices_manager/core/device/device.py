@@ -304,13 +304,12 @@ class CoreDevice:
     async def start_sync(self) -> None:
         """Start listeners, polling, and silence watchdog for this device."""
         await self.init_listeners()
-        if self.polling_enabled:
-            for group_name, (interval, names) in self._polling_groups().items():
-                task = self._poll_tasks.get(group_name)
-                if task is None or task.done():
-                    self._poll_tasks[group_name] = asyncio.create_task(
-                        self._poll_loop(interval, names)
-                    )
+        for group_name, (interval, names) in self._polling_groups().items():
+            task = self._poll_tasks.get(group_name)
+            if task is None or task.done():
+                self._poll_tasks[group_name] = asyncio.create_task(
+                    self._poll_loop(interval, names)
+                )
         interval = self.expected_interval
         if interval is not None:
             self._watchdog = SilenceWatchdog(interval, self._set_watchdog_status)
@@ -341,7 +340,12 @@ class CoreDevice:
         """Bucket readable, non-internal attributes by polling group.
 
         Attributes with no `polling_group` fall into an implicit ``None``
-        bucket, polled at the driver's `polling_interval`.
+        bucket, polled at the driver's `polling_interval` — and only while
+        polling is enabled. Named groups always poll: an attribute assigned
+        to one has opted in explicitly, so ``polling: disable`` reads as
+        "no polling by default" rather than "no polling at all". That is how
+        a push-fed device gets a single trigger attribute polled while its
+        siblings stay listen-only.
         """
         names_by_group: dict[str | None, list[str]] = {}
         for attr_name, attr in self.attributes.items():
@@ -358,7 +362,7 @@ class CoreDevice:
         for group_name, names in names_by_group.items():
             if group_name is not None:
                 result[group_name] = (polling_groups[group_name], names)
-            elif default_interval is not None:
+            elif self.polling_enabled and default_interval is not None:
                 result[group_name] = (default_interval, names)
         return result
 

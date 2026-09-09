@@ -49,12 +49,15 @@ class DriverSpec(ResourceMetadata):
         READ errors and degrade a healthy device. An explicit
         ``polling_enabled: true`` is a contradiction and is rejected; a
         driver that simply omits it gets polling disabled instead of the
-        polling default.
+        polling default. Named polling groups poll regardless of the default,
+        so declaring any is rejected too.
         """
-        if (
-            self.transport == TransportProtocols.WEBHOOK
-            and self.update_strategy.polling_enabled
-        ):
+        if self.transport != TransportProtocols.WEBHOOK:
+            return self
+        if self.update_strategy.polling_groups:
+            msg = "Webhook drivers are push-only: polling groups cannot be declared"
+            raise ValueError(msg)
+        if self.update_strategy.polling_enabled:
             if "polling_enabled" in self.update_strategy.model_fields_set:
                 msg = "Webhook drivers are push-only: polling cannot be enabled"
                 raise ValueError(msg)
