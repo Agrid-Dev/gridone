@@ -58,18 +58,12 @@ attributes:
     read:
       topic: data/${device_id}
       request: { topic: ${device_id}, message: READ_ALL }
-      match: { json_path: '$.data[?(@.name == "FirmwareVersion")]' }
     ...
   - name: temperature                # listen-only, fed by the burst
     read:
       topic: data/${device_id}
     ...
 ```
-
-When the burst spans several frames, the trigger's read must recognise its own frame
-among them: on MQTT that is the read address's `match` (see
-[transports](../transports.md#mqtt)). Without it, the read keeps the first frame that
-lands, so the trigger has to be one of the values of the first frame.
 
 ## Polling groups
 
