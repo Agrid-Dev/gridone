@@ -21,7 +21,9 @@ import { AirExtractorPreview, AirExtractorControl } from "./air-extractor";
 import {
   LiquidDetectorPreview,
   LiquidDetectorControl,
+  LiquidDetectorFleetSummary,
 } from "./liquid-detector";
+import { PumpPreview, PumpControl, PumpFleetSummary } from "./pump";
 import type { StandardPreviewProps, StandardControlProps } from "./types";
 
 export type { StandardPreviewProps, StandardControlProps } from "./types";
@@ -32,6 +34,10 @@ export type StandardDeviceEntry = {
   /** Full supervision-tab layout (control + companion cards). Types without
    *  one render their bare Control (see DeviceLiveControl). */
   Supervision?: ComponentType<StandardControlProps>;
+  /** Lead slot on the fleet card, for types whose state is not a number and
+   *  so have neither a measure nor a sparkline to show. Types without one get
+   *  the numeric measure + trend (see DeviceFleetCard). */
+  FleetSummary?: ComponentType<StandardPreviewProps>;
 };
 
 const registry: Partial<Record<DeviceType, StandardDeviceEntry>> = {
@@ -69,6 +75,12 @@ const registry: Partial<Record<DeviceType, StandardDeviceEntry>> = {
   [DeviceType.LiquidDetector]: {
     Preview: LiquidDetectorPreview,
     Control: LiquidDetectorControl,
+    FleetSummary: LiquidDetectorFleetSummary,
+  },
+  [DeviceType.Pump]: {
+    Preview: PumpPreview,
+    Control: PumpControl,
+    FleetSummary: PumpFleetSummary,
   },
 };
 

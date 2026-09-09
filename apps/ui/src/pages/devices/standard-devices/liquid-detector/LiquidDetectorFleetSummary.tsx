@@ -1,21 +1,17 @@
 import { useTranslation } from "react-i18next";
-import {
-  readLiquidDetectorAttributes,
-  type LiquidDetectorDevice,
-} from "@/lib/devices";
+import { isLiquidDetector, readLiquidDetectorAttributes } from "@/lib/devices";
 import { cn } from "@/lib/utils";
 import { LiquidDrop } from "./LiquidDrop";
 import { LIQUID_VERDICT_TEXT_CLASS, liquidVerdict } from "./verdict";
+import type { StandardPreviewProps } from "../types";
 
 /** The fleet card's lead slot for a detector: a verdict, not a number. Used
  *  instead of the numeric measure + sparkline, which a boolean has neither
  *  of. */
-export function LiquidDetectorFleetSummary({
-  device,
-}: {
-  device: LiquidDetectorDevice;
-}) {
+export function LiquidDetectorFleetSummary({ device }: StandardPreviewProps) {
   const { t } = useTranslation("standardDevices");
+  if (!isLiquidDetector(device)) return null;
+
   const verdict = liquidVerdict(readLiquidDetectorAttributes(device));
   const tone = verdict
     ? LIQUID_VERDICT_TEXT_CLASS[verdict]

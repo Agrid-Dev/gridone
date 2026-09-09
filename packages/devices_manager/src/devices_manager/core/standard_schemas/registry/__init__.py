@@ -10,6 +10,7 @@ from .awhp import awhp_schema
 from .electricity_meter import electricity_meter_schema
 from .liquid_detector import liquid_detector_schema
 from .pms_monitor import pms_monitor_schema
+from .pump import pump_schema
 from .thermostat import thermostat_schema
 from .weather_sensor import weather_sensor_schema
 
@@ -30,4 +31,5 @@ default_registry: StandardAttributeSchemaRegistry = _build_registry(
     ahu_double_flux_schema,
     pms_monitor_schema,
     liquid_detector_schema,
+    pump_schema,
 )

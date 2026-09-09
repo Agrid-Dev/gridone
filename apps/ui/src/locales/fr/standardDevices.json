@@ -1,6 +1,12 @@
 {
-  "thermostat": { "name": "Thermostat", "name_plural": "Thermostats" },
-  "awhp": { "name": "Pompe à chaleur", "name_plural": "Pompes à chaleur" },
+  "thermostat": {
+    "name": "Thermostat",
+    "name_plural": "Thermostats"
+  },
+  "awhp": {
+    "name": "Pompe à chaleur",
+    "name_plural": "Pompes à chaleur"
+  },
   "weather_sensor": {
     "name": "Station météo",
     "name_plural": "Stations météo"
@@ -65,5 +71,34 @@
     "detected": "Liquide détecté",
     "dry": "Sec"
   },
-  "other": { "name": "Autre", "name_plural": "Autres" }
+  "pump": {
+    "name": "Pompe",
+    "name_plural": "Pompes",
+    "suction": "Aspiration",
+    "discharge": "Refoulement",
+    "state": {
+      "running": "En marche",
+      "stopped": "À l'arrêt",
+      "unknown": "Non relevé"
+    },
+    "field": {
+      "head": "HMT",
+      "volume_flow": "Débit",
+      "speed": "Vitesse",
+      "power": "Puissance",
+      "energy": "Énergie",
+      "operating_hours": "Temps de marche",
+      "motor_current": "Courant",
+      "motor_voltage": "Tension",
+      "setpoint": "Consigne",
+      "actual_setpoint": "Consigne effective",
+      "liquid_temperature": "Temp. fluide",
+      "starts": "Démarrages",
+      "control_mode": "Mode de régulation"
+    }
+  },
+  "other": {
+    "name": "Autre",
+    "name_plural": "Autres"
+  }
 }

@@ -1,6 +1,12 @@
 {
-  "thermostat": { "name": "Thermostat", "name_plural": "Thermostats" },
-  "awhp": { "name": "Heat pump", "name_plural": "Heat pumps" },
+  "thermostat": {
+    "name": "Thermostat",
+    "name_plural": "Thermostats"
+  },
+  "awhp": {
+    "name": "Heat pump",
+    "name_plural": "Heat pumps"
+  },
   "weather_sensor": {
     "name": "Weather sensor",
     "name_plural": "Weather sensors"
@@ -65,5 +71,34 @@
     "detected": "Liquid detected",
     "dry": "Dry"
   },
-  "other": { "name": "Other", "name_plural": "Others" }
+  "pump": {
+    "name": "Pump",
+    "name_plural": "Pumps",
+    "suction": "Suction",
+    "discharge": "Discharge",
+    "state": {
+      "running": "Running",
+      "stopped": "Idle",
+      "unknown": "Not reported"
+    },
+    "field": {
+      "head": "Head",
+      "volume_flow": "Flow",
+      "speed": "Speed",
+      "power": "Power",
+      "energy": "Energy",
+      "operating_hours": "Run time",
+      "motor_current": "Current",
+      "motor_voltage": "Voltage",
+      "setpoint": "Setpoint",
+      "actual_setpoint": "Actual setpoint",
+      "liquid_temperature": "Liquid temp.",
+      "starts": "Starts",
+      "control_mode": "Control mode"
+    }
+  },
+  "other": {
+    "name": "Other",
+    "name_plural": "Others"
+  }
 }
