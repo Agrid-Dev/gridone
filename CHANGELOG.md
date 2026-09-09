@@ -1,3 +1,9 @@
+## v0.227.0 (2026-09-09)
+
+### Feat
+
+- **devices-manager**: named polling groups poll when default polling is disabled
+
 ## v0.226.0 (2026-09-09)
 
 ### Feat
