@@ -1,3 +1,9 @@
+## v0.229.0 (2026-09-10)
+
+### Feat
+
+- **devices**: add bulk zone linking and mapping import
+
 ## v0.228.0 (2026-09-09)
 
 ### Feat
