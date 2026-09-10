@@ -59,8 +59,13 @@ class UserUpdate(BaseModel):
     email: str | None = None
     title: str | None = None
     must_change_password: bool | None = None
+    # Storage-facing only: must never be exposed on UserUpdateRequest, or
+    # PATCH /users/{id} would silently gain block/unblock power.
+    is_blocked: bool | None = None
 
     def to_storage_update_dict(self) -> dict[str, str | bool]:
+        """Column -> value for the fields that are set; the only place
+        the password-clears-the-flag rule lives."""
         update_dict: dict[str, str | bool] = {}
         if self.username is not None:
             update_dict["username"] = self.username
@@ -74,6 +79,8 @@ class UserUpdate(BaseModel):
             update_dict["title"] = self.title
         if self.must_change_password is not None:
             update_dict["must_change_password"] = self.must_change_password
+        if self.is_blocked is not None:
+            update_dict["is_blocked"] = self.is_blocked
         if self.password is not None:
             update_dict["hashed_password"] = hash_password(self.password)
             # A successful password change clears the forced reset flag.

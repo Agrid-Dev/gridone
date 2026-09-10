@@ -10,7 +10,7 @@ from models.errors import (
     UnauthorizedError,
 )
 from users import UsersService
-from users.models import Role, UserInDB
+from users.models import Role, UserInDB, UserUpdate
 from users.password import hash_password, verify_password
 from users.storage import MemoryUsersStorage
 
@@ -221,3 +221,69 @@ class TestEnsureDefaultAdmin:
         await service.ensure_default_admin()
 
         assert await storage.get_by_username("admin") is None
+
+
+class TestConcurrentWrites:
+    """A block that lands between a method's read and its write must survive.
+
+    ``block_after_read`` blocks the account the moment the method under test
+    has read it, which is the interleaving a full-row save would revert.
+    """
+
+    @pytest.fixture
+    def block_after_read(self, storage: MemoryUsersStorage):
+        original = storage.get_by_id
+
+        async def get_then_block(user_id: str) -> UserInDB | None:
+            user = await original(user_id)
+            if user is not None:
+                await storage.save(user.model_copy(update={"is_blocked": True}))
+            return user
+
+        storage.get_by_id = get_then_block  # type: ignore[method-assign]
+
+    @pytest.mark.usefixtures("block_after_read")
+    async def test_change_password_keeps_a_concurrent_block(
+        self, service: UsersService, storage: MemoryUsersStorage
+    ):
+        await storage.save(_make_user())
+
+        result = await service.change_password("u1", "password12345", "new-password")
+
+        assert result.is_blocked is True
+        stored = await storage.get_by_id("u1")
+        assert stored is not None
+        assert stored.is_blocked is True
+        assert verify_password("new-password", stored.hashed_password)
+
+    async def test_update_user_writes_only_the_given_fields(
+        self, service: UsersService, storage: MemoryUsersStorage
+    ):
+        await storage.save(_make_user(is_blocked=True))
+
+        result = await service.update_user("u1", UserUpdate(name="Alice B."))
+
+        assert result.name == "Alice B."
+        assert result.is_blocked is True
+
+    async def test_update_user_unknown_user_raises(self, service: UsersService):
+        with pytest.raises(NotFoundError):
+            await service.update_user("nope", UserUpdate(name="x"))
+
+    async def test_update_user_rejects_a_taken_username(
+        self, service: UsersService, storage: MemoryUsersStorage
+    ):
+        await storage.save(_make_user())
+        await storage.save(_make_user(user_id="u2", username="bob"))
+
+        with pytest.raises(ValueError, match="already exists"):
+            await service.update_user("u2", UserUpdate(username="alice"))
+
+    async def test_update_user_keeps_its_own_username(
+        self, service: UsersService, storage: MemoryUsersStorage
+    ):
+        await storage.save(_make_user())
+
+        result = await service.update_user("u1", UserUpdate(username="alice"))
+
+        assert result.username == "alice"

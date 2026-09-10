@@ -30,6 +30,7 @@ jobs:
       devices_manager: ${{ steps.filter.outputs.devices_manager }}
       notifications: ${{ steps.filter.outputs.notifications }}
       timeseries: ${{ steps.filter.outputs.timeseries }}
+      users: ${{ steps.filter.outputs.users }}
     steps:
       - uses: actions/checkout@v7
 
@@ -68,6 +69,9 @@ jobs:
             timeseries:
               - *shared
               - 'packages/timeseries/**'
+            users:
+              - *shared
+              - 'packages/users/**'
 
   quality:
     runs-on: ubuntu-latest
@@ -141,7 +145,8 @@ jobs:
       needs.changes.outputs.commands == 'true' ||
       needs.changes.outputs.devices_manager == 'true' ||
       needs.changes.outputs.notifications == 'true' ||
-      needs.changes.outputs.timeseries == 'true'
+      needs.changes.outputs.timeseries == 'true' ||
+      needs.changes.outputs.users == 'true'
 
     services:
       timescaledb:
@@ -210,6 +215,7 @@ jobs:
             [ "${{ needs.changes.outputs.devices_manager }}" = "true" ] && paths+=(packages/devices_manager)
             [ "${{ needs.changes.outputs.notifications }}" = "true" ] && paths+=(packages/notifications)
             [ "${{ needs.changes.outputs.timeseries }}" = "true" ] && paths+=(packages/timeseries)
+            [ "${{ needs.changes.outputs.users }}" = "true" ] && paths+=(packages/users)
             echo "Running integration tests for: ${paths[*]}"
             uv run coverage run -m pytest -m integration "${paths[@]}"
           fi
