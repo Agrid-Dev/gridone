@@ -11,10 +11,10 @@ def test_forbidden_error_renders_403_with_its_message():
 
     @app.get("/")
     async def route() -> None:
-        msg = "Attribute 'fan_speed' is not commandable"
+        msg = "Role 'viewer' may not command device 'd1'"
         raise ForbiddenError(msg)
 
     resp = TestClient(app).get("/")
 
     assert resp.status_code == 403
-    assert resp.json() == {"detail": "Attribute 'fan_speed' is not commandable"}
+    assert resp.json() == {"detail": "Role 'viewer' may not command device 'd1'"}
