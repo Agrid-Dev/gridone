@@ -12,6 +12,7 @@ import type {
   DeviceUpdate,
   FaultView,
   Page,
+  PresentationResponse,
   SingleDeviceCommand,
   StandardAttributeSchema,
   TagGroupsResponse,
@@ -42,6 +43,29 @@ export class DevicesResource {
 
   constructor(private readonly request: RequestFn) {
     this.commandTemplates = new CommandTemplatesResource(request);
+  }
+
+  getPresentation(
+    deviceId: string,
+    options?: { revision?: string },
+  ): Promise<PresentationResponse> {
+    return this.request(
+      "GET",
+      `/devices/${encodeURIComponent(deviceId)}/presentation`,
+      { searchParams: { revision: options?.revision } },
+    );
+  }
+
+  getPresentationAsset(
+    deviceId: string,
+    revision: string,
+    assetId: string,
+  ): Promise<Blob> {
+    return this.request(
+      "GET",
+      `/devices/${encodeURIComponent(deviceId)}/presentation/assets/${encodeURIComponent(assetId)}`,
+      { searchParams: { revision }, responseType: "blob" },
+    );
   }
 
   list(params?: DeviceListParams): Promise<Device[]> {

@@ -7,6 +7,7 @@ import type {
   Driver,
   DriverInput,
   DriverPatch,
+  PresentationResponse,
   DriverYaml,
   FaultAttributeDriver,
 } from "../types";
@@ -38,6 +39,39 @@ export class DriversResource {
     return this.request("PUT", `/drivers/${encodeURIComponent(driverId)}`, {
       body: spec,
     });
+  }
+
+  installPackage(
+    driverId: string,
+    body: Blob,
+    options?: { expectedRevision?: string },
+  ): Promise<Driver> {
+    return this.request(
+      "PUT",
+      `/drivers/${encodeURIComponent(driverId)}/package`,
+      {
+        body,
+        headers: { "Content-Type": body.type || "application/zip" },
+        searchParams: { expected_revision: options?.expectedRevision },
+      },
+    );
+  }
+
+  exportPackage(driverId: string): Promise<Blob> {
+    return this.request(
+      "GET",
+      `/drivers/${encodeURIComponent(driverId)}/package`,
+      {
+        responseType: "blob",
+      },
+    );
+  }
+
+  getPresentation(driverId: string): Promise<PresentationResponse | null> {
+    return this.request(
+      "GET",
+      `/drivers/${encodeURIComponent(driverId)}/presentation`,
+    );
   }
 
   update(driverId: string, params: DriverPatch): Promise<Driver> {

@@ -6,6 +6,16 @@ from models.types import AttributeValueType, DataType
 ReadWriteMode = Literal["read", "write"]
 
 
+class AttributeKind(StrEnum):
+    """What an attribute is for: a plain value, a fault indicator, or a
+    Gridone-internal attribute (e.g. connection status) with no transport
+    address behind it."""
+
+    STANDARD = "standard"
+    FAULT = "fault"
+    INTERNAL = "internal"
+
+
 class ConnectionStatus(StrEnum):
     IDLE = "idle"
     OK = "ok"
@@ -32,6 +42,7 @@ class TransportProtocols(StrEnum):
 type DeviceConfig = dict[str, str | int | float | bool]
 
 __all__ = [
+    "AttributeKind",
     "AttributeValueType",
     "ConnectionStatus",
     "DataType",

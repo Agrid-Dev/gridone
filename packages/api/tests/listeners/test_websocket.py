@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from api.listeners.websocket import broadcast_attribute_update
+from api.listeners.websocket import broadcast_attribute_update, broadcast_device_update
 from api.websocket.manager import WebSocketManager
 from devices_manager import Attribute
 from devices_manager.types import DataType
@@ -43,3 +43,37 @@ class TestBroadcastAttributeUpdate:
         assert message.device_id == "dev-1"
         assert message.attribute == "temperature"
         assert message.value == 21.0
+
+
+async def test_full_update_broadcast_preserves_presentation_reference():
+    from unittest.mock import patch
+
+    from api.websocket.schemas import DeviceFullUpdateMessage
+    from devices_manager.dto import Device
+    from devices_manager.dto.presentation_dto import PresentationReference
+
+    manager = AsyncMock(spec=WebSocketManager)
+    device = _make_device()
+    projected = Device.model_validate(
+        {
+            "id": "dev-1",
+            "name": "Device",
+            "driver_id": "demo",
+            "transport_id": "transport",
+            "config": {},
+            "presentation_ref": {"revision": "presentation-revision"},
+        }
+    )
+    with patch("api.listeners.websocket.device_to_public", return_value=projected):
+        pending = broadcast_device_update(manager)(device)
+        assert pending is not None
+        await pending
+    manager.broadcast.assert_awaited_once()
+    message = manager.broadcast.await_args.args[0]
+    assert isinstance(message, DeviceFullUpdateMessage)
+    assert message.device.presentation_ref == PresentationReference(
+        revision="presentation-revision"
+    )
+    assert message.model_dump(mode="json")["device"]["presentation_ref"] == {
+        "revision": "presentation-revision"
+    }

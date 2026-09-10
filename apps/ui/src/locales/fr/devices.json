@@ -522,5 +522,26 @@
       "retry_other": "Réessayer {{count}} échecs",
       "newImport": "Importer un autre fichier"
     }
+  },
+  "presentation": {
+    "parameter": "Paramètre",
+    "loading": "Chargement de la présentation de l’appareil…",
+    "allAttributes": "Tous les attributs",
+    "sending": "Envoi…",
+    "confirmed": "Appliqué",
+    "error": "Échec : {{message}}",
+    "unconfirmed": "Non confirmé par l'appareil : {{message}}",
+    "unavailable": "Indisponible",
+    "increase": "Augmenter {{name}}",
+    "decrease": "Diminuer {{name}}",
+    "range": "{{min}} – {{max}}",
+    "demanded": "Demandée",
+    "regulated": "Régulée",
+    "measured": "Mesurée",
+    "deviation": "Écart",
+    "withinTolerance": "dans la tolérance",
+    "outOfTolerance": "hors tolérance",
+    "fallbackTitle": "Présentation personnalisée indisponible",
+    "fallbackBody": "La vue standard est affichée à la place."
   }
 }

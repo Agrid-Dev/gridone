@@ -7,7 +7,8 @@ from typing import TYPE_CHECKING, Protocol
 
 from .core.device import Attribute, AttributeListener, CoreDevice
 
-DeviceDiscoveredListener = Callable[[CoreDevice], Awaitable[None] | None]
+DeviceListener = Callable[[CoreDevice], Awaitable[None] | None]
+DeviceDiscoveredListener = DeviceListener
 
 if TYPE_CHECKING:
     import builtins
@@ -18,6 +19,8 @@ if TYPE_CHECKING:
     from .core.device.event_log import AttributeLogs
     from .core.discovery_manager import DiscoveryConfig
     from .core.driver.attribute_driver import AttributeDriver
+    from .core.presentation import PresentationStatus
+    from .core.presentation.resources import StoredResource
     from .dto import (
         AttributePatch,
         Device,
@@ -31,6 +34,7 @@ if TYPE_CHECKING:
         TransportCreate,
         TransportUpdate,
     )
+    from .dto.presentation_dto import PresentationResponse
     from .ingress import MessageIngress
     from .types import AttributeValueType, DataType
 
@@ -216,6 +220,34 @@ class DevicesServiceInterface(Protocol):
 
     def get_driver(self, driver_id: str) -> DriverSpec: ...
 
+    def get_driver_presentation(self, driver_id: str) -> PresentationStatus | None: ...
+
+    async def get_driver_presentation_response(
+        self, driver_id: str
+    ) -> PresentationResponse | None: ...
+
+    async def get_device_presentation(
+        self, device_id: str, revision: str | None = None
+    ) -> PresentationResponse: ...
+
+    async def get_device_presentation_asset(
+        self, device_id: str, revision: str, asset_id: str
+    ) -> StoredResource: ...
+
+    async def install_driver_package(
+        self,
+        driver_id: str,
+        payload: bytes,
+        content_type: str,
+        expected_revision: str | None = None,
+    ) -> DriverSpec: ...
+
+    async def get_driver_resource(
+        self, driver_id: str, revision: str, asset_id: str
+    ) -> StoredResource: ...
+
+    async def export_driver_package(self, driver_id: str) -> bytes: ...
+
     async def add_driver(self, driver_dto: DriverSpec) -> DriverSpec: ...
 
     async def patch_driver(self, driver_id: str, patch: DriverPatch) -> DriverSpec: ...
@@ -253,6 +285,10 @@ class DevicesServiceInterface(Protocol):
     ) -> str: ...
 
     def remove_device_discovery_listener(self, listener_id: str) -> None: ...
+
+    def add_device_update_listener(self, callback: DeviceListener) -> str: ...
+
+    def remove_device_update_listener(self, listener_id: str) -> None: ...
 
 
 __all__ = [

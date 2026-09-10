@@ -1,4 +1,5 @@
 import type { AttributeKind, DataType, Device, Severity } from "@gridone/sdk";
+import type { LocalizedText } from "@/lib/localizedText";
 import {
   deviceAttributes,
   type AttributeValue,
@@ -17,6 +18,11 @@ export type AttributeFields = {
   last_updated: string | null;
   last_changed: string | null;
   value_options?: AttributeValue[];
+  // Optional presentation metadata a driver may declare on the attribute.
+  label?: LocalizedText | null;
+  description?: LocalizedText | null;
+  group?: string | null;
+  unit?: string | null;
 };
 
 /** Typed view of a fault-kind attribute (severity + computed `is_faulty`). */

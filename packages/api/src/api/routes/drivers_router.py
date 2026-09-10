@@ -1,12 +1,14 @@
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Request, Response, status
 
 from api.auth import require_permission
 from api.dependencies import get_device_manager, get_ts_service
 from api.permissions import Permission
+from api.schemas.driver_package import PackageImportErrorResponse
 from devices_manager import DevicesServiceInterface
+from devices_manager.core.presentation.package import DEFAULT_PACKAGE_LIMITS
 from devices_manager.dto import (
     AttributeDriverSpec,
     AttributePatch,
@@ -15,6 +17,11 @@ from devices_manager.dto import (
     DriverSpec,
     DriverYaml,
 )
+from devices_manager.dto.driver_dto.package_errors import (
+    PackageDiagnostic,
+    PackageImportError,
+)
+from devices_manager.dto.presentation_dto import PresentationResponse
 from models.errors import InvalidError
 from timeseries.service import TimeSeriesService
 
@@ -163,3 +170,80 @@ async def rename_driver_attribute(
             )
         raise
     return result
+
+
+@router.put(
+    "/{driver_id}/package",
+    dependencies=[Depends(require_permission(Permission.DRIVERS_WRITE))],
+    responses={422: {"model": PackageImportErrorResponse}},
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {
+                media: {"schema": {"type": "string", "format": "binary"}}
+                for media in ("application/zip", "application/yaml")
+            },
+        }
+    },
+)
+async def install_driver_package(
+    driver_id: str,
+    request: Request,
+    dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
+    expected_revision: str | None = None,
+) -> DriverSpec:
+    payload = bytearray()
+    async for chunk in request.stream():
+        if len(payload) + len(chunk) > DEFAULT_PACKAGE_LIMITS.max_archive_bytes:
+            raise PackageImportError(
+                [
+                    PackageDiagnostic(
+                        code="upload_too_large", message="Package upload exceeds 20 MiB"
+                    )
+                ]
+            )
+        payload.extend(chunk)
+    return await dm.install_driver_package(
+        driver_id,
+        bytes(payload),
+        request.headers.get("content-type", ""),
+        expected_revision,
+    )
+
+
+@router.get(
+    "/{driver_id}/package",
+    dependencies=[Depends(require_permission(Permission.DRIVERS_READ))],
+    response_class=Response,
+    responses={
+        200: {
+            "content": {
+                "application/zip": {"schema": {"type": "string", "format": "binary"}}
+            }
+        }
+    },
+)
+async def export_driver_package(
+    driver_id: str,
+    dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
+) -> Response:
+    return Response(
+        await dm.export_driver_package(driver_id),
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": 'attachment; filename="driver.zip"',
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
+@router.get(
+    "/{driver_id}/presentation",
+    response_model_exclude_none=True,
+    dependencies=[Depends(require_permission(Permission.DRIVERS_READ))],
+)
+async def get_driver_presentation(
+    driver_id: str,
+    dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
+) -> PresentationResponse | None:
+    return await dm.get_driver_presentation_response(driver_id)

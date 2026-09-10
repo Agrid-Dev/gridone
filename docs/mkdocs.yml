@@ -93,6 +93,7 @@ nav:
       - Update Strategy: reference/driver-schema/update-strategy.md
       - Health Check: reference/driver-schema/healthcheck.md
     - Devices: reference/devices.md
+    - Device Presentations: reference/device-presentations.md
     - Standard Devices: reference/standard-devices.md
     - Transports: reference/transports.md
     - API Reference: api-reference.md

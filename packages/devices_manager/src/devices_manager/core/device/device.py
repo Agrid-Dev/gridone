@@ -6,7 +6,7 @@ import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from devices_manager.core.driver import FaultAttributeDriver
 from devices_manager.core.transports import PushTransportClient, ReadError
@@ -23,6 +23,7 @@ from .connection_status import (
 )
 from .event_log import EventType, build_entry, log_event, wrap_listen
 from .watchdog import SilenceWatchdog
+from .write_constraints import check_write_constraints
 
 if TYPE_CHECKING:
     from devices_manager.core.codecs import FnCodec
@@ -57,6 +58,18 @@ AttributeListener = Callable[
     ["CoreDevice", str, "Attribute | None", Attribute],
     Awaitable[None] | None,
 ]
+
+
+def _metadata_kwargs(attribute_driver: AttributeDriver) -> dict[str, Any]:
+    """Presentation metadata and write constraints, projected verbatim from
+    the driver onto the runtime attribute."""
+    return {
+        "label": attribute_driver.label,
+        "description": attribute_driver.description,
+        "group": attribute_driver.group,
+        "unit": attribute_driver.unit,
+        "write_constraints": attribute_driver.write_constraints,
+    }
 
 
 def _build_attribute(
@@ -98,6 +111,7 @@ def _build_attribute(
             last_changed=last_changed,
             healthy_values=attribute_driver.healthy_values,
             severity=attribute_driver.severity,
+            **_metadata_kwargs(attribute_driver),
         )
     return Attribute(
         name=attribute_driver.name,
@@ -107,6 +121,7 @@ def _build_attribute(
         last_updated=last_updated,
         last_changed=last_changed,
         value_options=attribute_driver.value_options,
+        **_metadata_kwargs(attribute_driver),
     )
 
 
@@ -495,6 +510,12 @@ class CoreDevice:
     def get_attribute_value(self, attribute_name: str) -> AttributeValueType | None:
         return self.get_attribute(attribute_name).current_value
 
+    def _known_attribute_value(self, attribute_name: str) -> AttributeValueType | None:
+        """Current value of a sibling attribute; ``None`` when the attribute
+        does not exist on this device or has no value yet."""
+        attribute = self.attributes.get(attribute_name)
+        return None if attribute is None else attribute.current_value
+
     def can_write(
         self,
         attribute_name: str,
@@ -713,6 +734,7 @@ class CoreDevice:
             msg = f"Attribute '{attribute_name}' is not writable on device '{self.id}'"
             raise PermissionError(msg)
         validated_value = attribute.ensure_type(value)
+        check_write_constraints(attribute, validated_value, self._known_attribute_value)
         attribute_driver = self.driver.attributes[attribute.name]
         codec = attribute_driver.codec
         if attribute_driver.write is None:

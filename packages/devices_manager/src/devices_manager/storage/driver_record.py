@@ -17,6 +17,7 @@ from devices_manager.core.driver import (
     HealthCheck,
     UpdateStrategy,
 )
+from devices_manager.core.presentation import PresentationEnvelope
 from devices_manager.storage.storage_backend import StorageBackend
 from devices_manager.types import TransportProtocols
 from models.metadata import ResourceMetadata
@@ -42,6 +43,10 @@ class DriverRecord(ResourceMetadata):
     attributes: Annotated[list[AnyAttributeDriver], Field(default_factory=list)]
     discovery: dict | None = None
     type: str | None = None
+    # Kept verbatim whatever its version: an older server must hand a newer
+    # dialect back untouched (ADR §10).
+    presentation: PresentationEnvelope | None = None
+    presentation_revision: str | None = None
 
 
 def to_record(driver: Driver) -> DriverRecord:
@@ -59,6 +64,8 @@ def to_record(driver: Driver) -> DriverRecord:
         attributes=list(driver.attributes.values()),
         discovery=driver.discovery_schema,
         type=driver.type,
+        presentation=driver.presentation,
+        presentation_revision=driver.presentation_revision,
         created_at=driver.metadata.created_at,
         updated_at=driver.metadata.updated_at,
     )
@@ -75,6 +82,8 @@ def from_record(record: DriverRecord) -> Driver:
         attributes={a.name: a for a in record.attributes},
         discovery_schema=record.discovery,
         type=record.type,
+        presentation=record.presentation,
+        presentation_revision=record.presentation_revision,
     )
 
 
@@ -93,6 +102,13 @@ class RecordDriverStorage:
 
     async def write(self, item_id: str, driver: Driver) -> None:
         await self._records.write(item_id, to_record(driver))
+
+    async def compare_and_swap(self, driver: Driver, expected: Driver | None) -> None:
+        await self._records.compare_and_swap(
+            driver.id,
+            to_record(driver),
+            None if expected is None else to_record(expected),
+        )
 
     async def read_all(self) -> list[Driver]:
         return [from_record(record) for record in await self._records.read_all()]

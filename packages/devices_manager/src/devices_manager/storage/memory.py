@@ -13,8 +13,11 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
 
+from models.errors import ConflictError
+
 from .device_record import DeviceRecord, RecordDeviceStorage
 from .driver_record import DriverRecord, RecordDriverStorage
+from .presentation_resources import MemoryPresentationResources
 from .transport_record import RecordTransportStorage, TransportRecord
 
 if TYPE_CHECKING:
@@ -39,6 +42,12 @@ class MemoryStorageBackend[M: BaseModel]:
     async def write(self, item_id: str, data: M) -> None:
         self._items[item_id] = deepcopy(data)
 
+    async def compare_and_swap(self, item_id: str, data: M, expected: M | None) -> None:
+        if self._items.get(item_id) != expected:
+            msg = "Driver changed during package installation"
+            raise ConflictError(msg)
+        self._items[item_id] = deepcopy(data)
+
     async def read_all(self) -> list[M]:
         return [deepcopy(item) for item in self._items.values()]
 
@@ -60,6 +69,7 @@ class MemoryDevicesStorage:
     transports: TransportStorage
 
     def __init__(self) -> None:
+        self.presentation_resources = MemoryPresentationResources()
         self._device_storage = RecordDeviceStorage(MemoryStorageBackend[DeviceRecord]())
         self.devices = self._device_storage
         self.drivers = RecordDriverStorage(MemoryStorageBackend[DriverRecord]())

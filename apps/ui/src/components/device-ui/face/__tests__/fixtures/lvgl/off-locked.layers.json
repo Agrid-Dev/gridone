@@ -1,0 +1,44 @@
+{
+  "state": "off-locked",
+  "params": {
+    "screen": "off",
+    "locks": ["state"],
+    "portrait": false
+  },
+  "size": [480, 320],
+  "layers": [
+    {
+      "kind": "bg",
+      "obj": "scr_off",
+      "x": 0,
+      "y": 0,
+      "w": 480,
+      "h": 320,
+      "color": [0, 0, 0]
+    },
+    {
+      "kind": "glyph",
+      "obj": "img_off_screen",
+      "font": "main_font",
+      "codepoint": 57888,
+      "name": "CHAR_OFF",
+      "x": 190,
+      "y": 111,
+      "w": 100,
+      "h": 100,
+      "color": [192, 192, 192]
+    },
+    {
+      "kind": "glyph",
+      "obj": "lock_icon[state]",
+      "font": "main_font",
+      "codepoint": 57870,
+      "name": "CHAR_LOCKED",
+      "x": 291,
+      "y": 88,
+      "w": 19,
+      "h": 25,
+      "color": [255, 255, 255]
+    }
+  ]
+}

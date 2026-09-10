@@ -998,6 +998,7 @@ dependencies = [
     { name = "gridone-models" },
     { name = "httpx" },
     { name = "opentelemetry-api" },
+    { name = "pillow" },
     { name = "pydantic" },
     { name = "pymeterbus" },
     { name = "pymodbus" },
@@ -1021,6 +1022,7 @@ requires-dist = [
     { name = "gridone-models", editable = "packages/models" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "opentelemetry-api", specifier = ">=1.42.1" },
+    { name = "pillow", specifier = ">=12.1" },
     { name = "pydantic", specifier = ">=2.12.4" },
     { name = "pymeterbus", specifier = ">=0.8.4" },
     { name = "pymodbus", specifier = ">=3.11.3" },
@@ -1062,10 +1064,14 @@ version = "0.1.0"
 source = { editable = "packages/models" }
 dependencies = [
     { name = "pydantic" },
+    { name = "pyyaml" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "pydantic", specifier = ">=2.0" }]
+requires-dist = [
+    { name = "pydantic", specifier = ">=2.0" },
+    { name = "pyyaml", specifier = ">=6.0.3" },
+]
 
 [[package]]
 name = "gridone-notifications"

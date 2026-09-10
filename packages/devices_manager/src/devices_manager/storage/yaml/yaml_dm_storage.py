@@ -6,6 +6,10 @@ import yaml
 from pydantic import BaseModel
 
 from devices_manager.storage.storage_backend import StorageBackend
+from models.errors import ConflictError
+from models.metadata import ResourceMetadata
+
+from .atomic import atomic_write, file_lock
 
 
 class YamlFileStorage[M: BaseModel](StorageBackend[M]):
@@ -38,7 +42,7 @@ class YamlFileStorage[M: BaseModel](StorageBackend[M]):
         return self._root_path / (item_id + self._file_extension)
 
     def _list_all_sync(self) -> list[str]:
-        return [file.stem for file in self._root_path.iterdir() if file.is_file()]
+        return [file.stem for file in self._root_path.glob("*.yaml") if file.is_file()]
 
     async def list_all(self) -> list[str]:
         return await asyncio.to_thread(self._list_all_sync)
@@ -58,11 +62,54 @@ class YamlFileStorage[M: BaseModel](StorageBackend[M]):
         return await asyncio.to_thread(self._read_all_sync)
 
     def _write_sync(self, item_id: str, data: M) -> None:
-        with self._get_file_path(item_id).open("w", encoding="utf-8") as file:
-            yaml.dump(data.model_dump(mode="json"), file)
+        with file_lock(self._root_path / ".lock"):
+            atomic_write(
+                self._get_file_path(item_id),
+                yaml.safe_dump(data.model_dump(mode="json")).encode(),
+            )
 
     async def write(self, item_id: str, data: M) -> None:
         await asyncio.to_thread(self._write_sync, item_id, data)
+
+    @staticmethod
+    def _matches_snapshot(
+        current: BaseModel | None, expected: BaseModel | None
+    ) -> bool:
+        """Ignore audit timestamps generated while reading a legacy file.
+
+        Older hand-authored YAML may omit timestamps; their time-based defaults
+        differ on every read. Only persisted timestamps belong in the comparison,
+        while every other field (including its defaults) must still match.
+        """
+        if isinstance(current, ResourceMetadata) and isinstance(
+            expected, ResourceMetadata
+        ):
+            current = current.model_copy(
+                update={
+                    field: getattr(expected, field)
+                    for field in ResourceMetadata.model_fields
+                    if field not in current.model_fields_set
+                }
+            )
+        return current == expected
+
+    def _compare_and_swap_sync(self, item_id: str, data: M, expected: M | None) -> None:
+        """Compare the durable snapshot and replace while holding the process lock."""
+        with file_lock(self._root_path / ".lock"):
+            try:
+                current = self._read_sync(item_id)
+            except FileNotFoundError:
+                current = None
+            if not self._matches_snapshot(current, expected):
+                msg = "Driver changed during package installation"
+                raise ConflictError(msg)
+            atomic_write(
+                self._get_file_path(item_id),
+                yaml.safe_dump(data.model_dump(mode="json")).encode(),
+            )
+
+    async def compare_and_swap(self, item_id: str, data: M, expected: M | None) -> None:
+        await asyncio.to_thread(self._compare_and_swap_sync, item_id, data, expected)
 
     def _delete_sync(self, item_id: str) -> None:
         self._get_file_path(item_id).unlink()

@@ -9,6 +9,8 @@ from devices_manager.core.device import (
     CoreDevice,
     DeviceBase,
 )
+from devices_manager.core.presentation.revision import get_presentation_revision
+from devices_manager.dto.presentation_dto import PresentationReference
 from models.ids import gen_id
 from models.metadata import ResourceMetadata
 
@@ -48,6 +50,8 @@ class Device(ResourceMetadata):
     config: dict
     driver_id: str
     transport_id: str
+    # Derived from the current driver, never persisted on the device snapshot.
+    presentation_ref: PresentationReference | None = None
 
 
 class DeviceUpdate(BaseModel):
@@ -60,6 +64,7 @@ class DeviceUpdate(BaseModel):
 
 
 def core_to_dto(device: CoreDevice) -> Device:
+    revision = get_presentation_revision(device.driver)
     return Device(
         id=device.id,
         name=device.name,
@@ -72,6 +77,9 @@ def core_to_dto(device: CoreDevice) -> Device:
         is_faulty=device.is_faulty,
         created_at=device.created_at,
         updated_at=device.updated_at,
+        presentation_ref=(
+            PresentationReference(revision=revision) if revision is not None else None
+        ),
     )
 
 

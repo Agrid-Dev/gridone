@@ -3,11 +3,14 @@ import pytest
 from devices_manager.core.codecs.factory import CodecSpec
 from devices_manager.core.driver import (
     AttributeDriver,
+    AttributeRef,
     DeviceConfigField,
     Driver,
     DriverMetadata,
     HealthCheck,
+    LocalizedText,
     UpdateStrategy,
+    WriteConstraints,
 )
 from devices_manager.types import DataType, TransportProtocols
 
@@ -98,6 +101,52 @@ def thermostat_driver() -> Driver:
         update_strategy=UpdateStrategy(),
         attributes={a.name: a for a in attrs},
         type="thermostat",
+    )
+
+
+@pytest.fixture
+def constrained_driver() -> Driver:
+    """A driver whose setpoint carries presentation metadata and write
+    constraints bounded on two sibling attributes, plus an int attribute with
+    constant bounds and a string attribute without constraints."""
+    setpoint = AttributeDriver(
+        name="temperature_setpoint",
+        data_type=DataType.FLOAT,
+        read="GET /setpoint",
+        write="POST /setpoint",
+        codecs=[CodecSpec(name="identity", argument="")],
+        label=LocalizedText(default="Setpoint", translations={"fr": "Consigne"}),
+        description=LocalizedText(default="Requested room temperature"),
+        group="setpoints",
+        unit="°C",
+        write_constraints=WriteConstraints(
+            step=0.5,
+            minimum=AttributeRef(attribute="temperature_setpoint_min"),
+            maximum=AttributeRef(attribute="temperature_setpoint_max"),
+        ),
+    )
+    fan_speed = AttributeDriver(
+        name="fan_speed",
+        data_type=DataType.INT,
+        read="GET /fan",
+        write="POST /fan",
+        codecs=[CodecSpec(name="identity", argument="")],
+        write_constraints=WriteConstraints(minimum=0, maximum=3),
+    )
+    attrs = [
+        setpoint,
+        _make_identity_attr("temperature_setpoint_min", DataType.FLOAT, writable=True),
+        _make_identity_attr("temperature_setpoint_max", DataType.FLOAT, writable=True),
+        fan_speed,
+        _make_identity_attr("mode", DataType.STRING, writable=True),
+    ]
+    return Driver(
+        metadata=DriverMetadata(id="constrained_driver"),
+        env={},
+        transport=TransportProtocols.HTTP,
+        device_config_required=[],
+        update_strategy=UpdateStrategy(),
+        attributes={a.name: a for a in attrs},
     )
 
 

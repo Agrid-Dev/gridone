@@ -28,8 +28,15 @@ const EXACT_UNITS: Record<string, string> = {
   active_power: "W",
 };
 
-/** Unit symbol for `attributeName`, or null when the unit is unknowable. */
-export function attributeUnit(attributeName: string): string | null {
+/**
+ * Unit symbol for an attribute: the one its driver declares when there is
+ * one, else the name convention above, else null when unknowable.
+ */
+export function attributeUnit(
+  attributeName: string,
+  attribute?: { unit?: string | null } | null,
+): string | null {
+  if (attribute?.unit) return attribute.unit;
   if (TEMPERATURE_ATTRIBUTE.test(attributeName)) return "°";
   return EXACT_UNITS[attributeName] ?? null;
 }
@@ -46,6 +53,6 @@ export function commonAttributeUnit(
   attributeNames: readonly string[],
 ): string | null {
   if (attributeNames.length === 0) return null;
-  const [first, ...rest] = attributeNames.map(attributeUnit);
+  const [first, ...rest] = attributeNames.map((name) => attributeUnit(name));
   return first != null && rest.every((unit) => unit === first) ? first : null;
 }

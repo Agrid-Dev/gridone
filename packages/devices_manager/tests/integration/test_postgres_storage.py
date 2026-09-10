@@ -1,20 +1,27 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+from copy import deepcopy
 from datetime import UTC, datetime
 
 import asyncpg
 import pytest
 import pytest_asyncio
 
+from devices_manager import DevicesService
 from devices_manager.core.device import Attribute, CoreDevice
 from devices_manager.core.driver import (
     AttributeDriver,
     Driver,
     DriverMetadata,
+    LocalizedText,
     UpdateStrategy,
+    WriteConstraints,
 )
+from devices_manager.core.presentation import PresentationEnvelope
+from devices_manager.core.presentation.resource import NormalizedImage
 from devices_manager.core.transports import (
     TransportClient,
     TransportMetadata,
@@ -32,6 +39,7 @@ from devices_manager.types import (
     DataType,
     TransportProtocols,
 )
+from models.errors import ConflictError
 
 POSTGRES_URL = os.environ.get("POSTGRES_TEST_URL")
 
@@ -293,7 +301,65 @@ class TestDriverStorage:
         result = await driver_storage.read(driver.id)
         assert result.metadata.vendor is None
         assert result.metadata.model is None
+
+    async def test_attribute_metadata_round_trip(
+        self, driver_storage: PostgresDriverStorage
+    ):
+        """The optional attribute fields ride in the JSONB `attributes` field."""
+        driver = _make_driver()
+        driver.attributes["temperature"] = AttributeDriver(  # ty: ignore[missing-argument]
+            name="temperature",
+            data_type=DataType.FLOAT,
+            read={"path": "/api/temperature"},
+            label=LocalizedText(
+                default="Temperature", translations={"fr": "Température"}
+            ),
+            description=LocalizedText(default="Room temperature"),
+            group="climate",
+            unit="°C",
+            write_constraints=WriteConstraints(step=0.5, minimum=-40, maximum=80),
+        )
+        await driver_storage.write(driver.id, driver)
+
+        result = await driver_storage.read(driver.id)
+        assert result.attributes["temperature"] == driver.attributes["temperature"]
         assert result.type is None
+
+    @pytest.mark.parametrize(
+        "presentation",
+        [
+            {
+                "schema_version": 1,
+                "requires": ["layout/1"],
+                "page": {"kind": "attributes", "group": "climate"},
+            },
+            {
+                "schema_version": 4,
+                "requires": ["hologram/1"],
+                "scene": {"nodes": [{"kind": "hologram", "depth": 2.5, "on": [True]}]},
+            },
+        ],
+        ids=["v1", "future_version"],
+    )
+    async def test_presentation_round_trip(
+        self, driver_storage: PostgresDriverStorage, presentation: dict
+    ):
+        """The presentation envelope rides in the JSONB `presentation` field,
+        verbatim whatever its version."""
+        driver = _make_driver()
+        driver.presentation = PresentationEnvelope.model_validate(presentation)
+        await driver_storage.write(driver.id, driver)
+
+        result = await driver_storage.read(driver.id)
+        assert result.presentation == driver.presentation
+        assert result.presentation is not None
+        assert result.presentation.document == presentation
+
+    async def test_presentation_absent_reads_as_none(
+        self, driver_storage: PostgresDriverStorage
+    ):
+        await driver_storage.write("d1", _make_driver("d1"))
+        assert (await driver_storage.read("d1")).presentation is None
 
 
 # ---------------------------------------------------------------------------
@@ -776,3 +842,91 @@ class TestAttributePersistence:
         all_devices = await device_storage.read_all()
         dev = next(d for d in all_devices if d.id == "dev1")
         assert dev.tags == {"asset_id": "asset-xyz"}
+
+
+async def test_presentation_resources_and_driver_cas(composed_storage):
+    """The migration, bytea round-trip and JSONB pointer CAS work together."""
+    image = NormalizedImage(
+        b"normalized", 1, 1, hashlib.sha256(b"normalized").hexdigest()
+    )
+    resources = composed_storage.presentation_resources
+    driver = _make_driver("package-driver")
+    async with resources.installation(driver.id):
+        await resources.write_revision(driver.id, "first", {"asset": image})
+        driver.presentation_revision = "first"
+        await composed_storage.drivers.compare_and_swap(driver, None)
+    restored = await composed_storage.drivers.read(driver.id)
+    assert restored.presentation_revision == "first"
+    assert (await resources.read(driver.id, "first", "asset")).data == image.data
+    next_driver = deepcopy(restored)
+    next_driver.presentation_revision = "second"
+    await composed_storage.drivers.compare_and_swap(next_driver, restored)
+    with pytest.raises(ConflictError):
+        await composed_storage.drivers.compare_and_swap(driver, restored)
+    assert (
+        await composed_storage.drivers.read(driver.id)
+    ).presentation_revision == "second"
+    await resources.prune(driver.id, set())
+    assert await resources.list_revisions(driver.id) == []
+
+
+@pytest.mark.parametrize("legacy", [False, True])
+async def test_replace_driver_loaded_from_older_storage(driver_storage, pool, legacy):
+    original = _make_driver()
+    await driver_storage.write(original.id, original)
+    if legacy:
+        # Older rows omit fields introduced by later versions. Reading supplies
+        # their defaults, but does not rewrite the durable JSON document.
+        await pool.execute(
+            "UPDATE dm_drivers SET data = data - 'presentation' "
+            "- 'presentation_revision' - 'healthcheck' "
+            "#- '{attributes,0,label}' #- '{attributes,0,write_constraints}' "
+            "#- '{attributes,0,codecs}' "
+            "WHERE id = $1",
+            original.id,
+        )
+    expected = await driver_storage.read(original.id)
+    replacement = deepcopy(expected)
+    replacement.metadata.vendor = "replacement"
+    await driver_storage.compare_and_swap(replacement, expected)
+    assert (await driver_storage.read(original.id)).metadata.vendor == "replacement"
+    with pytest.raises(ConflictError):
+        await driver_storage.compare_and_swap(original, expected)
+
+
+async def test_driver_healthcheck_survives_write_and_replacement(driver_storage):
+    original = _make_driver()
+    original.healthcheck.expected_push_interval = 120
+    await driver_storage.write(original.id, original)
+    expected = await driver_storage.read(original.id)
+    assert expected.healthcheck == original.healthcheck
+    replacement = deepcopy(expected)
+    replacement.healthcheck.expected_push_interval = 240
+    await driver_storage.compare_and_swap(replacement, expected)
+    assert (
+        await driver_storage.read(original.id)
+    ).healthcheck == replacement.healthcheck
+
+
+async def test_package_replaces_legacy_driver_without_presentation(
+    driver_storage, pool
+):
+    original = _make_driver()
+    await driver_storage.write(original.id, original)
+    await pool.execute(
+        "UPDATE dm_drivers SET data = data - 'presentation' "
+        "- 'presentation_revision' WHERE id = $1",
+        original.id,
+    )
+    service = DevicesService(POSTGRES_URL)
+    try:
+        await service.load()
+        assert await service.get_driver_presentation_response(original.id) is None
+        package = await service.export_driver_package(original.id)
+        installed = await service.install_driver_package(
+            original.id, package, "application/zip"
+        )
+        assert installed.id == original.id
+        assert installed.attributes == service.get_driver(original.id).attributes
+    finally:
+        await service.stop()

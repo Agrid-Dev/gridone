@@ -7,6 +7,7 @@ from pydantic import BaseModel
 if TYPE_CHECKING:
     from devices_manager.core.device import Attribute, DeviceStorage
     from devices_manager.core.driver import DriverStorage
+    from devices_manager.core.presentation.resources import PresentationResourceStorage
     from devices_manager.core.transports import TransportStorage
 
 
@@ -14,6 +15,10 @@ class StorageBackend[M: BaseModel](Protocol):
     async def read(self, item_id: str) -> M: ...
 
     async def write(self, item_id: str, data: M) -> None: ...
+
+    async def compare_and_swap(
+        self, item_id: str, data: M, expected: M | None
+    ) -> None: ...
 
     async def read_all(self) -> list[M]: ...
 
@@ -26,6 +31,7 @@ class DevicesManagerStorage(Protocol):
     devices: DeviceStorage
     drivers: DriverStorage
     transports: TransportStorage
+    presentation_resources: PresentationResourceStorage
 
     async def save_attribute(self, device_id: str, attribute: Attribute) -> None: ...
 

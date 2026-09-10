@@ -7,11 +7,17 @@ from pydantic import BaseModel, Discriminator, Field, Tag, model_validator
 
 from devices_manager.core.codecs import FnCodec, build_codec
 from devices_manager.core.codecs.factory import CodecSpec, codec_spec_from_raw
-from devices_manager.core.device.attribute import AttributeKind
 from devices_manager.core.transports import RawTransportAddress  # noqa: TC001
-from devices_manager.types import AttributeValueType, DataType
+from devices_manager.types import AttributeKind, AttributeValueType, DataType
 from models.errors import InvalidError
 from models.types import Severity
+
+from .attribute_metadata import (  # noqa: TC001
+    AttributeGroup,
+    LocalizedText,
+    Unit,
+    WriteConstraints,
+)
 
 _FAULT_HEALTHY_VALUE_DEFAULTS: dict[DataType, list[AttributeValueType]] = {
     DataType.BOOL: [False],
@@ -34,6 +40,15 @@ class AttributeDriver(BaseModel):
     # pull+push transports); ignored otherwise — push-only transports always
     # subscribe every attribute.
     push: bool = False
+    # Optional presentation metadata, projected verbatim onto the runtime
+    # attribute. `write_constraints` is also enforced by the service on every
+    # write (see core.device.write_constraints); its cross-attribute rules are
+    # checked at the driver level (see driver.validate_write_constraints).
+    label: LocalizedText | None = None
+    description: LocalizedText | None = None
+    group: AttributeGroup | None = None
+    unit: Unit | None = None
+    write_constraints: WriteConstraints | None = None
 
     @cached_property
     def codec(self) -> FnCodec:

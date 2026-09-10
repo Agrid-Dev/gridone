@@ -1,14 +1,22 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
+from copy import deepcopy
 from dataclasses import dataclass
 from functools import partial
 from typing import TYPE_CHECKING, Any
 
-from models.errors import ConflictError, NotFoundError, StorageNotInitializedError
+from models.errors import (
+    ConflictError,
+    InvalidError,
+    NotFoundError,
+    StorageNotInitializedError,
+)
 from models.ids import gen_id
 from models.service import Service
+from models.yaml_loader import BoundedYamlError
 
 from .core.device import (
     Attribute,
@@ -20,7 +28,17 @@ from .core.discovery_manager import (
     DevicesDiscoveryManager,
     DiscoveryContext,
 )
+from .core.driver import attributes_referencing
 from .core.driver_registry import DriverRegistry
+from .core.presentation.diagnostics import (
+    AvailablePresentation,
+    UnavailablePresentation,
+)
+from .core.presentation.models import PresentationV1
+from .core.presentation.package import read_payload
+from .core.presentation.package_install import InvalidPresentationError
+from .core.presentation.revision import get_presentation_revision
+from .core.presentation.validation import check_compatibility, validate_presentation
 from .core.standard_schemas.registry import default_registry
 from .core.transport_registry import TransportRegistry
 from .core.transports import TransportClient
@@ -49,6 +67,10 @@ from .dto import (
     transport_preserve_on_blank_field_names,
     transport_to_public,
 )
+from .dto.driver_dto.package_errors import import_error
+from .dto.driver_dto.package_export import export_package
+from .dto.driver_dto.package_install import assemble_package
+from .dto.presentation_dto import presentation_response
 from .ingress import MessageIngress
 from .storage.factory import build_storage
 
@@ -60,9 +82,12 @@ if TYPE_CHECKING:
     from .core.device.event_log import AttributeLogs
     from .core.driver import Driver
     from .core.driver.attribute_driver import AttributeDriver
+    from .core.presentation import PresentationStatus
+    from .core.presentation.resources import StoredResource
     from .core.transports import TransportClient
     from .dto import LoadEntityKind
-    from .interface import AttributeListener, DeviceDiscoveredListener
+    from .dto.presentation_dto import PresentationResponse
+    from .interface import AttributeListener, DeviceDiscoveredListener, DeviceListener
     from .storage import DevicesManagerStorage
     from .types import AttributeValueType, DataType
 
@@ -123,6 +148,7 @@ class DevicesService(Service):
         transports: dict[str, TransportClient] | None = None,
         devices: dict[str, CoreDevice] | None = None,
     ) -> None:
+        self._package_semaphore = asyncio.Semaphore(1)
         self._storage_url = storage_url
         self._seed_drivers = drivers if drivers is not None else {}
         self._seed_transports = transports if transports is not None else {}
@@ -132,6 +158,7 @@ class DevicesService(Service):
         self._running = False
         self._attribute_update_handlers: dict[str, AttributeListener] = {}
         self._discovery_listeners: dict[str, DeviceDiscoveredListener] = {}
+        self._device_update_listeners: dict[str, DeviceListener] = {}
         self._background_tasks: set[asyncio.Task[Any]] = set()
         # Keyed by device so a superseded sync can be cancelled by the write
         # that superseded it; also the strong reference that keeps the task
@@ -362,6 +389,50 @@ class DevicesService(Service):
     def get_device(self, device_id: str) -> Device:
         return device_to_public(self._device_registry.get(device_id))
 
+    def _presentation_driver(self, device_id: str, revision: str | None) -> Driver:
+        driver = self._device_registry.get(device_id).driver
+        current_revision = get_presentation_revision(driver)
+        if revision is not None and revision != current_revision:
+            msg = "Presentation revision changed"
+            raise ConflictError(msg)
+        if current_revision is None:
+            msg = "Device has no presentation"
+            raise NotFoundError(msg)
+        return deepcopy(driver)
+
+    async def get_device_presentation(
+        self, device_id: str, revision: str | None = None
+    ) -> PresentationResponse:
+        driver = self._presentation_driver(device_id, revision)
+        result = presentation_response(driver, await self._driver_resources(driver))
+        self._presentation_driver(device_id, get_presentation_revision(driver))
+        if result is None:
+            msg = "Device has no presentation"
+            raise NotFoundError(msg)
+        return result
+
+    async def get_device_presentation_asset(
+        self, device_id: str, revision: str, asset_id: str
+    ) -> StoredResource:
+        driver = self._presentation_driver(device_id, revision)
+        resolved = (
+            validate_presentation(driver.presentation, driver.attributes)
+            if driver.presentation is not None
+            else None
+        )
+        if (
+            not isinstance(resolved, AvailablePresentation)
+            or asset_id not in resolved.document.assets
+            or driver.presentation_revision is None
+        ):
+            msg = "Presentation resource is unavailable"
+            raise NotFoundError(msg)
+        resource = await self.get_driver_resource(
+            driver.id, driver.presentation_revision, asset_id
+        )
+        self._presentation_driver(device_id, revision)
+        return resource
+
     def _schedule_start_sync(self, device: CoreDevice) -> None:
         """Start syncing a device off the request path.
 
@@ -582,6 +653,15 @@ class DevicesService(Service):
         """Unregister a previously registered discovery handler."""
         self._discovery_listeners.pop(listener_id, None)
 
+    def add_device_update_listener(self, callback: DeviceListener) -> str:
+        """Listen for complete device replacements, independently of telemetry."""
+        listener_id = gen_id()
+        self._device_update_listeners[listener_id] = callback
+        return listener_id
+
+    def remove_device_update_listener(self, listener_id: str) -> None:
+        self._device_update_listeners.pop(listener_id, None)
+
     # -- Discovery --
 
     async def _register_and_persist_device(self, device: CoreDevice) -> None:
@@ -720,6 +800,164 @@ class DevicesService(Service):
     def get_driver(self, driver_id: str) -> DriverSpec:
         return driver_to_public(self._driver_registry.get(driver_id))
 
+    def get_driver_presentation(self, driver_id: str) -> PresentationStatus | None:
+        """The driver's presentation validated against its current attributes;
+        ``None`` when the driver declares none (the historical rendering path)."""
+        return self._driver_registry.presentation_status(driver_id)
+
+    async def get_driver_presentation_response(
+        self, driver_id: str
+    ) -> PresentationResponse | None:
+        driver = deepcopy(self._driver_registry.get(driver_id))
+        return presentation_response(driver, await self._driver_resources(driver))
+
+    async def _driver_resources(self, driver: Driver) -> dict[str, StoredResource]:
+        resources = {}
+        status = (
+            validate_presentation(driver.presentation, driver.attributes)
+            if driver.presentation is not None
+            else None
+        )
+        if driver.presentation_revision is not None and isinstance(
+            status, AvailablePresentation
+        ):
+            for asset_id in status.document.assets:
+                with contextlib.suppress(NotFoundError):
+                    resources[asset_id] = await self.get_driver_resource(
+                        driver.id, driver.presentation_revision, asset_id
+                    )
+        return resources
+
+    async def install_driver_package(
+        self,
+        driver_id: str,
+        payload: bytes,
+        content_type: str,
+        expected_revision: str | None = None,
+    ) -> DriverSpec:
+        try:
+            return await self._install_driver_package(
+                driver_id, payload, content_type, expected_revision
+            )
+        except (InvalidError, BoundedYamlError) as error:
+            raise import_error(error) from error
+
+    async def _install_driver_package(
+        self,
+        driver_id: str,
+        payload: bytes,
+        content_type: str,
+        expected_revision: str | None = None,
+    ) -> DriverSpec:
+        """Validate off-loop; publish resources before atomically replacing the driver.
+
+        A storage-level snapshot CAS catches changes by another process, while the
+        installation lock prevents pruning a concurrently prepared revision.
+        """
+        async with self._package_semaphore:
+            plan = await asyncio.to_thread(
+                lambda: assemble_package(read_payload(payload, content_type))
+            )
+        if plan.spec.id != driver_id:
+            msg = "Driver id must match URL id"
+            raise InvalidError(msg)
+        candidate = driver_from_public(plan.spec)
+        candidate.presentation_revision = plan.revision if plan.resources else None
+        if candidate.presentation is not None and not check_compatibility(
+            candidate.presentation
+        ):
+            status = validate_presentation(candidate.presentation, candidate.attributes)
+            if isinstance(status, UnavailablePresentation):
+                raise InvalidPresentationError(status.diagnostics)
+        resources = self._storage.presentation_resources
+        async with resources.installation(driver_id):
+            current = deepcopy(self._driver_registry.all.get(driver_id))
+            revision = None if current is None else get_presentation_revision(current)
+            if expected_revision is not None and expected_revision != revision:
+                msg = "Presentation revision changed"
+                raise ConflictError(msg)
+            previous = None if current is None else current.presentation_revision
+            presentation_only = self._device_registry.preserves_device_runtime(
+                current, candidate
+            )
+            prepared = (
+                []
+                if presentation_only
+                else self._device_registry.prepare_driver_devices(candidate)
+            )
+            if plan.resources:
+                await resources.write_revision(driver_id, plan.revision, plan.resources)
+            installed = await self._driver_registry.install(candidate, current)
+            if presentation_only:
+                updated = self._device_registry.update_driver_in_place(installed)
+                replaced = []
+            else:
+                updated = prepared
+                replaced = self._device_registry.activate_driver_devices(prepared)
+            keep = {
+                value
+                for value in (previous, installed.presentation_revision)
+                if value is not None
+            }
+            await self._prune_driver_resources(driver_id, keep)
+            if not presentation_only:
+                await self._restart_replaced_devices(replaced, prepared)
+            self._notify_device_updates(updated)
+        return driver_to_public(installed)
+
+    async def _prune_driver_resources(self, driver_id: str, keep: set[str]) -> None:
+        """Clean up images without failing an already committed driver mutation."""
+        try:
+            await self._storage.presentation_resources.prune(driver_id, keep)
+        except Exception:
+            logger.exception("Could not prune presentation revisions for %s", driver_id)
+
+    async def _restart_replaced_devices(
+        self, previous: list[CoreDevice], prepared: list[CoreDevice]
+    ) -> None:
+        """Hand sync ownership to committed devices after a runtime contract change.
+
+        Connectivity errors cannot undo an already persisted package; the usual
+        background sync reports them while clients receive the new contract.
+        """
+        for old, device in zip(previous, prepared, strict=True):
+            self._cancel_start_sync(old.id)
+            try:
+                await old.stop_sync()
+            except Exception:
+                logger.exception("Could not stop old sync for device %s", old.id)
+            if self._running:
+                self._schedule_start_sync(device)
+
+    def _notify_device_updates(self, devices: list[CoreDevice]) -> None:
+        for device in devices:
+            for listener in self._device_update_listeners.values():
+                try:
+                    self._schedule_if_coroutine(listener(device))
+                except Exception:
+                    logger.exception("Device update listener failed for %s", device.id)
+
+    async def get_driver_resource(
+        self, driver_id: str, revision: str, asset_id: str
+    ) -> StoredResource:
+        self._driver_registry.get(driver_id)
+        return await self._storage.presentation_resources.read(
+            driver_id, revision, asset_id
+        )
+
+    async def export_driver_package(self, driver_id: str) -> bytes:
+        driver = deepcopy(self._driver_registry.get(driver_id))
+        resources = {}
+        if driver.presentation is not None and driver.presentation_revision is not None:
+            document = PresentationV1.model_validate(driver.presentation.document)
+            for asset_id in document.assets:
+                resources[asset_id] = await self.get_driver_resource(
+                    driver_id, driver.presentation_revision, asset_id
+                )
+        return await asyncio.to_thread(
+            export_package, driver_to_public(driver), resources
+        )
+
     async def add_driver(self, driver_dto: DriverSpec) -> DriverSpec:
         driver = await self._driver_registry.add(driver_from_public(driver_dto))
         return driver_to_public(driver)
@@ -785,6 +1023,13 @@ class DevicesService(Service):
         self._device_registry.rename_attribute_in_devices(
             attribute_id, new_name, driver_id=driver_id
         )
+        # Attributes bounded on the renamed one carry the new name in their
+        # driver spec now; their runtime projection must follow too.
+        driver = self._driver_registry.get(driver_id)
+        for referencing in attributes_referencing(driver.attributes.values(), new_name):
+            self._device_registry.rebuild_attribute_in_devices(
+                referencing, driver_id=driver_id
+            )
         if self._running:
             await self._device_registry.restart_devices(driver_id=driver_id)
         return result
@@ -799,6 +1044,8 @@ class DevicesService(Service):
             raise ConflictError(msg)
 
     async def delete_driver(self, driver_id: str) -> None:
-        self._driver_registry.get(driver_id)
-        self._assert_driver_not_used(driver_id)
-        await self._driver_registry.remove(driver_id)
+        async with self._storage.presentation_resources.installation(driver_id):
+            self._driver_registry.get(driver_id)
+            self._assert_driver_not_used(driver_id)
+            await self._driver_registry.remove(driver_id)
+            await self._prune_driver_resources(driver_id, set())

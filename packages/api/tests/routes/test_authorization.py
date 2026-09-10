@@ -36,6 +36,7 @@ from api.routes.dashboards_router import router as dashboards_router
 from api.routes.devices_router import router as devices_router
 from api.routes.drivers_router import router as drivers_router
 from api.routes.notifications_router import router as notifications_router
+from api.routes.presentations_router import router as presentations_router
 from api.routes.transports_router import ingress_router as transports_ingress_router
 from api.routes.transports_router import router as transports_router
 from api.routes.users.auth_router import router as auth_router
@@ -50,6 +51,8 @@ from apps import (
 from devices_manager import DiscoveryManagerInterface, IngressResult
 from devices_manager.core.device import Attribute
 from devices_manager.core.device.event_log import AttributeLogs
+from devices_manager.core.presentation.resources import StoredResource
+from devices_manager.dto.presentation_dto import UnavailablePresentationResponse
 from devices_manager.types import DataType
 from models.errors import NotFoundError
 from models.pagination import Page
@@ -433,6 +436,12 @@ def _build_devices_app() -> FastAPI:
     app.state.websocket_manager = MagicMock(broadcast=AsyncMock())
     manager = MockUsersService()
     dm = MagicMock()
+    dm.get_device_presentation = AsyncMock(
+        return_value=UnavailablePresentationResponse(revision="rev", diagnostics=[])
+    )
+    dm.get_device_presentation_asset = AsyncMock(
+        return_value=StoredResource(b"image", "image/png", "digest", 1, 1)
+    )
     dm.list_devices.return_value = []
     dm.list_active_faults.return_value = []
     dm.get_attribute_logs.return_value = AttributeLogs(read=[], write=[], listen=[])
@@ -451,6 +460,9 @@ def _build_devices_app() -> FastAPI:
     app.include_router(auth_router, prefix="/auth")
     jwt_dep = [Depends(get_current_user_id)]
     app.include_router(devices_router, prefix="/devices", dependencies=jwt_dep)
+    app.include_router(
+        presentations_router, prefix="/presentations", dependencies=jwt_dep
+    )
     return app
 
 
@@ -460,6 +472,15 @@ def devices_app() -> FastAPI:
 
 
 DEVICES_ACCESS_CONTROL_SCENARIOS = [
+    *[
+        pytest.param("GET", endpoint, role, 401 if role is None else 200)
+        for endpoint in (
+            "/devices/device/presentation?revision=rev",
+            "/devices/device/presentation/assets/bezel?revision=rev",
+            "/presentations/schema",
+        )
+        for role in (None, "viewer", "operator", "admin")
+    ],
     pytest.param(
         "GET", "/devices/attributes", "viewer", 200, id="attr-coverage-viewer"
     ),
@@ -1113,6 +1134,16 @@ def _build_drivers_app() -> FastAPI:
     manager = MockUsersService()
     dm = MagicMock()
     dm.list_drivers.return_value = []
+    dm.install_driver_package = AsyncMock(
+        return_value={
+            "id": "any-id",
+            "transport": "http",
+            "device_config": [],
+            "attributes": [],
+        }
+    )
+    dm.export_driver_package = AsyncMock(return_value=b"PK")
+    dm.get_driver_presentation_response = AsyncMock(return_value=None)
     dm.add_driver = AsyncMock()
     dm.create_driver_attribute = AsyncMock()
     dm.patch_driver = AsyncMock()
@@ -1136,6 +1167,26 @@ def drivers_app() -> FastAPI:
 
 
 DRIVERS_ACCESS_CONTROL_SCENARIOS = [
+    *[
+        pytest.param(
+            method,
+            path,
+            role,
+            expected,
+            id=f"package-{method}-{path.rsplit('/', 1)[-1]}-{role}",
+        )
+        for method, path in [
+            ("PUT", "/drivers/any-id/package"),
+            ("GET", "/drivers/any-id/package"),
+            ("GET", "/drivers/any-id/presentation"),
+        ]
+        for role, expected in [
+            (None, 401),
+            ("viewer", 403 if method == "PUT" else 200),
+            ("operator", 200),
+            ("admin", 200),
+        ]
+    ],
     # Read — viewer and operator both have DRIVERS_READ
     pytest.param("GET", "/drivers/", "viewer", 200, id="list-viewer"),
     pytest.param("GET", "/drivers/", "operator", 200, id="list-operator"),

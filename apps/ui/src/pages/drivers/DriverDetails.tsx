@@ -1,6 +1,6 @@
 import React, { FC } from "react";
 import { useDriverFromRoute, useDeleteDriver } from "./useDrivers";
-import { useParams } from "react-router";
+import { Link, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import type { Driver, DriverAttribute } from "@gridone/sdk";
 import {
@@ -8,7 +8,7 @@ import {
   TypographyP,
   TypographySmall,
 } from "@/components/ui/typography";
-import { Card, CardContent } from "@/components/ui";
+import { Button, Card, CardContent } from "@/components/ui";
 import { Label } from "@/components/ui/label";
 import { toLabel } from "@/lib/textFormat";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +18,8 @@ import { ResourceHeader } from "@/components/ResourceHeader";
 import { ResourceDeleteButton } from "@/components/ResourceDeleteButton";
 import { usePermissions } from "@/contexts/AuthContext";
 import { DriverDevicesSection } from "./DriverDevicesSection";
+import { DriverPresentationStatus } from "./DriverPresentationStatus";
+import { useExportDriverPackage } from "./useDriverPackage";
 
 const LabelledProperty: FC<{
   label: React.ReactNode;
@@ -59,24 +61,39 @@ const DriverDetails: FC<{
 }> = ({ driver, onDelete }) => {
   const { t } = useTranslation("drivers");
   const can = usePermissions();
+  const { exportPackage, exporting } = useExportDriverPackage(driver.id);
   return (
     <div className="space-y-6">
       <ResourceHeader
         title={driver.id}
         actions={
-          can("drivers:write") ? (
-            <ResourceDeleteButton
-              onDelete={() => onDelete(driver.id)}
-              confirmTitle={t("actions.deleteConfirmTitle")}
-              confirmDetails={t("actions.deleteConfirmDetails")}
-              deleteLabel={t("actions.delete")}
-            />
-          ) : undefined
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              disabled={exporting}
+              onClick={exportPackage}
+            >
+              {t("package.export")}
+            </Button>
+            {can("drivers:write") && (
+              <>
+                <Button asChild variant="outline">
+                  <Link to="edit">{t("package.replace")}</Link>
+                </Button>
+                <ResourceDeleteButton
+                  onDelete={() => onDelete(driver.id)}
+                  confirmTitle={t("actions.deleteConfirmTitle")}
+                  confirmDetails={t("actions.deleteConfirmDetails")}
+                  deleteLabel={t("actions.delete")}
+                />
+              </>
+            )}
+          </div>
         }
       />
       <Card className="py-4">
         <CardContent>
-          <TypographyH3>Informations générales</TypographyH3>
+          <TypographyH3>{t("fields.general")}</TypographyH3>
           {driver.image_src && (
             <div className="my-4">
               <img
@@ -152,6 +169,11 @@ const DriverDetails: FC<{
               ))}
             </ul>
           </div>
+        </CardContent>
+      </Card>
+      <Card className="py-4">
+        <CardContent>
+          <DriverPresentationStatus driverId={driver.id} />
         </CardContent>
       </Card>
       <DriverDevicesSection driverId={driver.id} />

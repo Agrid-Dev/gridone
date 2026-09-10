@@ -43,6 +43,7 @@ export type {
   FaultListParams,
 } from "./resources/devices";
 export { DriversResource } from "./resources/drivers";
+export { PresentationsResource } from "./resources/presentations";
 export type { DriverAttribute, DriverListParams } from "./resources/drivers";
 export { NotificationsResource } from "./resources/notifications";
 export type { NotificationListParams } from "./resources/notifications";
