@@ -1,3 +1,9 @@
+## v0.232.0 (2026-09-10)
+
+### Feat
+
+- **api**: seed the admin account from GRIDONE_ADMIN_PASSWORD (#624)
+
 ## v0.231.0 (2026-09-10)
 
 ### Feat
