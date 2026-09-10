@@ -29,6 +29,13 @@ export default defineConfig({
       {
         extends: true,
         test: {
+          name: "roles",
+          include: ["suites/roles/**/*.spec.ts"],
+        },
+      },
+      {
+        extends: true,
+        test: {
           name: "devices",
           include: ["suites/devices/**/*.spec.ts"],
         },

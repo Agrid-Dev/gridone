@@ -41,6 +41,7 @@ from api.routes.presentations_router import router as presentations_router
 from api.routes.transports_router import ingress_router as transports_ingress_router
 from api.routes.transports_router import router as transports_router
 from api.routes.users.auth_router import router as auth_router
+from api.routes.users.roles_router import router as roles_router
 from api.routes.users.users_router import router as users_router
 from apps import (
     App,
@@ -75,6 +76,7 @@ from notifications import (
 from timeseries.domain import FetchPointsResult
 from users import Role, User
 from users.auth import AuthService
+from users.roles import BUILTIN_ROLES
 
 
 class MockUsersService:
@@ -88,18 +90,18 @@ class MockUsersService:
         }
         self._users = {
             "admin": User(
-                id="admin-id", username="admin", role=Role.ADMIN, name="Alice Admin"
+                id="admin-id", username="admin", role="admin", name="Alice Admin"
             ),
             "operator": User(
                 id="operator-id",
                 username="operator",
-                role=Role.OPERATOR,
+                role="operator",
                 name="Bob Operator",
             ),
             "viewer": User(
                 id="viewer-id",
                 username="viewer",
-                role=Role.VIEWER,
+                role="viewer",
                 name="Charlie Viewer",
             ),
         }
@@ -118,6 +120,9 @@ class MockUsersService:
 
     async def list_users(self) -> list[User]:
         return list(self._users.values())
+
+    async def list_roles(self) -> list[Role]:
+        return list(BUILTIN_ROLES)
 
     async def is_blocked(self, user_id: str) -> bool:
         for user in self._users.values():
@@ -164,6 +169,7 @@ def _build_app() -> FastAPI:
     app.dependency_overrides[get_apps_service] = _build_apps_service_mock
     app.include_router(auth_router, prefix="/auth")
     jwt_dep = [Depends(get_current_user_id)]
+    app.include_router(roles_router, prefix="/users/roles", dependencies=jwt_dep)
     app.include_router(users_router, prefix="/users", dependencies=jwt_dep)
     app.include_router(apps_registration_router, prefix="/apps")
     return app
@@ -261,6 +267,23 @@ def test_viewer_me_has_read_only_permissions(app: FastAPI) -> None:
         assert "devices:write" not in data["permissions"]
         assert "devices:command" not in data["permissions"]
         assert "users:read" not in data["permissions"]
+
+
+# --- Every built-in role can read roles ---
+
+
+@pytest.mark.parametrize("username", ["admin", "operator", "viewer"])
+def test_every_role_can_list_roles(app: FastAPI, username: str) -> None:
+    with TestClient(app) as client:
+        token = _login(client, username)
+        resp = client.get("/users/roles/", headers=_auth_header(token))
+        assert resp.status_code == 200
+        assert [r["id"] for r in resp.json()] == ["admin", "operator", "viewer"]
+
+
+def test_list_roles_unauthenticated_returns_401(app: FastAPI) -> None:
+    with TestClient(app) as client:
+        assert client.get("/users/roles/").status_code == 401
 
 
 # --- Unauthenticated request is 401 ---

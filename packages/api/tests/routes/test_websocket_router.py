@@ -12,18 +12,18 @@ from api.dependencies import get_users_service
 from api.routes.websocket import router as websocket_router
 from api.routes.websocket import websocket_endpoint
 from api.websocket.manager import WebSocketManager
-from users import Role, User
+from users import User
 from users.auth import AuthService, TokenPayload
 
 _SECRET = "test-secret"  # noqa: S105
 _PATH = "/ws/devices"
 
 _USERS = {
-    "admin-id": User(id="admin-id", username="admin", role=Role.ADMIN),
-    "operator-id": User(id="operator-id", username="operator", role=Role.OPERATOR),
-    "viewer-id": User(id="viewer-id", username="viewer", role=Role.VIEWER),
+    "admin-id": User(id="admin-id", username="admin", role="admin"),
+    "operator-id": User(id="operator-id", username="operator", role="operator"),
+    "viewer-id": User(id="viewer-id", username="viewer", role="viewer"),
     "blocked-id": User(
-        id="blocked-id", username="blocked", role=Role.ADMIN, is_blocked=True
+        id="blocked-id", username="blocked", role="admin", is_blocked=True
     ),
 }
 

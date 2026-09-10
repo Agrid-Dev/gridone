@@ -12,7 +12,7 @@ from models.errors import (
     NotFoundError,
     UnauthorizedError,
 )
-from users import Role, User
+from users import User
 from users.auth import AuthService
 from users.validation import (
     PASSWORD_MAX_LENGTH,
@@ -35,18 +35,18 @@ class MockUsersService:
             "admin": User(
                 id="admin-id",
                 username="admin",
-                role=Role.ADMIN,
+                role="admin",
             ),
             "blocked": User(
                 id="blocked-id",
                 username="blocked",
-                role=Role.OPERATOR,
+                role="operator",
                 is_blocked=True,
             ),
             "flagged": User(
                 id="flagged-id",
                 username="flagged",
-                role=Role.OPERATOR,
+                role="operator",
                 must_change_password=True,
             ),
         }
@@ -95,7 +95,7 @@ class MockUsersService:
         msg = f"User '{user_id}' not found"
         raise NotFoundError(msg)
 
-    def set_role(self, username: str, role: Role) -> None:
+    def set_role(self, username: str, role: str) -> None:
         """Simulate a role change persisted to storage between two requests."""
         self._users[username] = self._users[username].model_copy(update={"role": role})
 
@@ -279,7 +279,7 @@ def test_token_refresh_grant_mints_tokens_from_stored_role(
     auth_service: AuthService = app.state.auth_service
     with TestClient(app) as client:
         refresh_token = _login(client)["refresh_token"]
-        users_service.set_role("admin", Role.VIEWER)
+        users_service.set_role("admin", "viewer")
 
         response = client.post(
             "/token",
@@ -288,10 +288,10 @@ def test_token_refresh_grant_mints_tokens_from_stored_role(
 
     assert response.status_code == 200
     data = response.json()
-    assert auth_service.decode_token(data["access_token"]).role == Role.VIEWER
+    assert auth_service.decode_token(data["access_token"]).role == "viewer"
     assert (
         auth_service.decode_token(data["refresh_token"], expected_type="refresh").role
-        == Role.VIEWER
+        == "viewer"
     )
 
 
@@ -306,17 +306,17 @@ def test_token_refresh_grant_keeps_unchanged_role(app: FastAPI) -> None:
 
     assert response.status_code == 200
     data = response.json()
-    assert auth_service.decode_token(data["access_token"]).role == Role.ADMIN
+    assert auth_service.decode_token(data["access_token"]).role == "admin"
     assert (
         auth_service.decode_token(data["refresh_token"], expected_type="refresh").role
-        == Role.ADMIN
+        == "admin"
     )
 
 
 def test_token_refresh_grant_deleted_user_returns_401(app: FastAPI) -> None:
     """A refresh token whose subject is gone is as good as an invalid one."""
     auth_service: AuthService = app.state.auth_service
-    deleted_token = auth_service.create_refresh_token("deleted-id", Role.ADMIN)
+    deleted_token = auth_service.create_refresh_token("deleted-id", "admin")
 
     with TestClient(app) as client:
         invalid = client.post(
@@ -553,7 +553,7 @@ def test_blocked_user_is_refused_on_a_protected_route(
     # Login itself already refuses a blocked user, so mint the token
     # directly to exercise the router-level gate on an existing session.
     auth_service: AuthService = gated_app.state.auth_service
-    token = auth_service.create_access_token("blocked-id", Role.OPERATOR)
+    token = auth_service.create_access_token("blocked-id", "operator")
 
     response = gated_client.get("/protected/", headers=_auth(token))
 

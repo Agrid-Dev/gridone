@@ -22,8 +22,8 @@ from api.dependencies import get_auth_service, get_users_service
 from models.errors import BlockedUserError
 from users import UsersService
 from users.auth import AuthService, InvalidTokenError, TokenPayload
-from users.models import Role
-from users.permissions import Permission, get_permissions_for_role
+from users.permissions import Permission
+from users.roles import get_permissions_for_role
 
 _oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token", auto_error=False)
 
@@ -152,7 +152,7 @@ def require_permission(perm: Permission) -> Callable:
     async def _check(
         payload: TokenPayload = Depends(get_current_token_payload),
     ) -> str:
-        allowed = get_permissions_for_role(Role(payload.role))
+        allowed = get_permissions_for_role(payload.role)
         if perm not in allowed:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
