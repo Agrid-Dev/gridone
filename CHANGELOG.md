@@ -1,3 +1,9 @@
+## v0.233.0 (2026-09-10)
+
+### Feat
+
+- **synoptics**: synoptic document model and service (#618)
+
 ## v0.232.1 (2026-09-10)
 
 ### Fix
