@@ -29,6 +29,7 @@ jobs:
       commands: ${{ steps.filter.outputs.commands }}
       devices_manager: ${{ steps.filter.outputs.devices_manager }}
       notifications: ${{ steps.filter.outputs.notifications }}
+      synoptics: ${{ steps.filter.outputs.synoptics }}
       timeseries: ${{ steps.filter.outputs.timeseries }}
       users: ${{ steps.filter.outputs.users }}
     steps:
@@ -66,6 +67,9 @@ jobs:
             notifications:
               - *shared
               - 'packages/notifications/**'
+            synoptics:
+              - *shared
+              - 'packages/synoptics/**'
             timeseries:
               - *shared
               - 'packages/timeseries/**'
@@ -145,6 +149,7 @@ jobs:
       needs.changes.outputs.commands == 'true' ||
       needs.changes.outputs.devices_manager == 'true' ||
       needs.changes.outputs.notifications == 'true' ||
+      needs.changes.outputs.synoptics == 'true' ||
       needs.changes.outputs.timeseries == 'true' ||
       needs.changes.outputs.users == 'true'
 
@@ -214,6 +219,7 @@ jobs:
             [ "${{ needs.changes.outputs.commands }}" = "true" ] && paths+=(packages/commands)
             [ "${{ needs.changes.outputs.devices_manager }}" = "true" ] && paths+=(packages/devices_manager)
             [ "${{ needs.changes.outputs.notifications }}" = "true" ] && paths+=(packages/notifications)
+            [ "${{ needs.changes.outputs.synoptics }}" = "true" ] && paths+=(packages/synoptics)
             [ "${{ needs.changes.outputs.timeseries }}" = "true" ] && paths+=(packages/timeseries)
             [ "${{ needs.changes.outputs.users }}" = "true" ] && paths+=(packages/users)
             echo "Running integration tests for: ${paths[*]}"

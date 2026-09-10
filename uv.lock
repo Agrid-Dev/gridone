@@ -21,6 +21,7 @@ members = [
     "gridone-migrations",
     "gridone-models",
     "gridone-notifications",
+    "gridone-synoptics",
     "gridone-timeseries",
     "gridone-users",
 ]
@@ -1090,6 +1091,23 @@ requires-dist = [
     { name = "gridone-models", editable = "packages/models" },
     { name = "markdown-it-py", specifier = ">=4.0.0" },
     { name = "yoyo-migrations", specifier = ">=8.2.0" },
+]
+
+[[package]]
+name = "gridone-synoptics"
+version = "0.1.0"
+source = { editable = "packages/synoptics" }
+dependencies = [
+    { name = "asyncpg" },
+    { name = "gridone-models" },
+    { name = "pydantic" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "asyncpg", specifier = ">=0.30.0" },
+    { name = "gridone-models", editable = "packages/models" },
+    { name = "pydantic", specifier = ">=2.0" },
 ]
 
 [[package]]
