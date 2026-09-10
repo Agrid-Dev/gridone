@@ -133,6 +133,8 @@ class UsersService(Service):
         user_id: str,
         update_data: UserUpdate,
     ) -> User:
+        # No pre-read (see _apply_update), so a taken username answers 409
+        # before an unknown user_id answers 404. Both are errors; accepted.
         if update_data.username is not None:
             conflict = await self._backend.get_by_username(update_data.username)
             if conflict is not None and conflict.id != user_id:

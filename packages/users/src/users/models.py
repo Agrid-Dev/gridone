@@ -59,6 +59,8 @@ class UserUpdate(BaseModel):
     email: str | None = None
     title: str | None = None
     must_change_password: bool | None = None
+    # Storage-facing only: must never be exposed on UserUpdateRequest, or
+    # PATCH /users/{id} would silently gain block/unblock power.
     is_blocked: bool | None = None
 
     def to_storage_update_dict(self) -> dict[str, str | bool]:
