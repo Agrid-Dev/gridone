@@ -1,11 +1,24 @@
 from typing import Annotated
 
-from pydantic import BaseModel, Field, StringConstraints
+from pydantic import AfterValidator, BaseModel, Field, StringConstraints
+
+from users.password import BCRYPT_MAX_BYTES, exceeds_bcrypt_limit
 
 USERNAME_MIN_LENGTH = 3
 USERNAME_MAX_LENGTH = 64
 PASSWORD_MIN_LENGTH = 5
-PASSWORD_MAX_LENGTH = 128
+# A string longer than the byte limit always exceeds it, so this bound is exact
+# for ASCII and the validator below covers the multi-byte case.
+PASSWORD_MAX_LENGTH = BCRYPT_MAX_BYTES
+
+
+def _check_password_bytes(value: str) -> str:
+    """Reject a password whose UTF-8 encoding exceeds bcrypt's limit."""
+    if exceeds_bcrypt_limit(value):
+        msg = f"Password must be at most {BCRYPT_MAX_BYTES} bytes"
+        raise ValueError(msg)
+    return value
+
 
 UsernameField = Annotated[
     str,
@@ -21,6 +34,7 @@ PasswordField = Annotated[
         min_length=PASSWORD_MIN_LENGTH,
         max_length=PASSWORD_MAX_LENGTH,
     ),
+    AfterValidator(_check_password_bytes),
 ]
 
 
