@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 
-from users.models import UserInDB
+from users.models import UserInDB, UserUpdate
 
 
 @dataclass
@@ -21,6 +21,15 @@ class MemoryUsersStorage:
 
     async def save(self, user: UserInDB) -> None:
         self._users[user.id] = user
+
+    async def update(self, user_id: str, update: UserUpdate) -> UserInDB | None:
+        # No await between the read and the write, so nothing can interleave.
+        user = self._users.get(user_id)
+        if user is None:
+            return None
+        updated = user.update(update)
+        self._users[user_id] = updated
+        return updated
 
     async def delete(self, user_id: str) -> None:
         self._users.pop(user_id, None)

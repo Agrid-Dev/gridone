@@ -1,6 +1,6 @@
 import asyncpg
 
-from users.models import UserInDB
+from users.models import UserInDB, UserUpdate
 
 
 class PostgresUsersStorage:
@@ -69,6 +69,25 @@ class PostgresUsersStorage:
             user.must_change_password,
             user.is_blocked,
         )
+
+    async def update(self, user_id: str, update: UserUpdate) -> UserInDB | None:
+        """Single UPDATE over the set columns only; atomic on the database side.
+
+        Column names come from ``to_storage_update_dict``, never from the
+        caller, so interpolating them is safe. Values stay parameterised.
+        """
+        changes = update.to_storage_update_dict()
+        if not changes:
+            return await self.get_by_id(user_id)
+        assignments = ", ".join(
+            f"{column} = ${i}" for i, column in enumerate(changes, start=2)
+        )
+        row = await self._pool.fetchrow(
+            f"UPDATE users SET {assignments} WHERE id = $1 RETURNING *",  # noqa: S608
+            user_id,
+            *changes.values(),
+        )
+        return self._row_to_model(row) if row else None
 
     async def delete(self, user_id: str) -> None:
         await self._pool.execute("DELETE FROM users WHERE id = $1", user_id)

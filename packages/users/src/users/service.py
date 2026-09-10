@@ -48,6 +48,15 @@ class UsersService(Service):
             raise NotFoundError(msg)
         return user
 
+    async def _apply_update(self, user_id: str, update: UserUpdate) -> User:
+        """Partial write: only the set fields reach storage, so a concurrent
+        change to any other field (e.g. a block) survives."""
+        updated = await self._backend.update(user_id, update)
+        if updated is None:
+            msg = f"User '{user_id}' not found"
+            raise NotFoundError(msg)
+        return self._to_public_user(updated)
+
     async def ensure_default_admin(self) -> None:
         """Seed the admin account from the configured password if no users exist.
 
@@ -124,25 +133,19 @@ class UsersService(Service):
         user_id: str,
         update_data: UserUpdate,
     ) -> User:
-        user = await self._get_in_db_or_raise(user_id)
-
         if update_data.username is not None:
             conflict = await self._backend.get_by_username(update_data.username)
             if conflict is not None and conflict.id != user_id:
                 msg = f"Username '{update_data.username}' already exists"
                 raise ValueError(msg)
-
-        updated_user = user.update(update_data)
-        await self._backend.save(updated_user)
-        return self._to_public_user(updated_user)
+        return await self._apply_update(user_id, update_data)
 
     async def change_password(
         self, user_id: str, current_password: str, new_password: str
     ) -> User:
         """Rotate the password after re-verifying the current one.
 
-        The write goes through ``UserUpdate``, which clears
-        ``must_change_password``.
+        ``UserUpdate`` clears ``must_change_password`` alongside the hash.
         """
         user = await self._get_in_db_or_raise(user_id)
         if not verify_password(current_password, user.hashed_password):
@@ -151,25 +154,17 @@ class UsersService(Service):
         if new_password == current_password:
             msg = "The new password must differ from the current one"
             raise InvalidError(msg)
-        updated_user = user.update(UserUpdate(password=new_password))
-        await self._backend.save(updated_user)
-        return self._to_public_user(updated_user)
+        return await self._apply_update(user_id, UserUpdate(password=new_password))
 
     async def delete_user(self, user_id: str) -> None:
         await self._get_in_db_or_raise(user_id)
         await self._backend.delete(user_id)
 
     async def block_user(self, user_id: str) -> User:
-        user = await self._get_in_db_or_raise(user_id)
-        blocked = user.model_copy(update={"is_blocked": True})
-        await self._backend.save(blocked)
-        return self._to_public_user(blocked)
+        return await self._apply_update(user_id, UserUpdate(is_blocked=True))
 
     async def unblock_user(self, user_id: str) -> User:
-        user = await self._get_in_db_or_raise(user_id)
-        unblocked = user.model_copy(update={"is_blocked": False})
-        await self._backend.save(unblocked)
-        return self._to_public_user(unblocked)
+        return await self._apply_update(user_id, UserUpdate(is_blocked=False))
 
     async def is_blocked(self, user_id: str) -> bool:
         user = await self._backend.get_by_id(user_id)
