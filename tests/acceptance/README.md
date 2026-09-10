@@ -18,7 +18,7 @@ Deltas from production, each deliberate:
 | Delta                                                           | Why                                                                                                                            |
 | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | Bridge network + service-name URLs (prod: `network_mode: host`) | Host networking only exists in prod for building-LAN device discovery, untested here; it does not work on macOS Docker Desktop |
-| No postgres volume                                              | Fresh database every run: reproducible tests, default `admin`/`admin` auto-created                                             |
+| No postgres volume                                              | Fresh database every run: reproducible tests, `admin` seeded from `GRIDONE_ADMIN_PASSWORD` (compose default `admin`)            |
 | `COOKIE_SECURE=false`, throwaway `SECRET_KEY`                   | Served over plain `http://localhost`; the SDK uses bearer headers anyway                                                       |
 | No `restart` policies, no `container_name`                      | Ephemeral stack; fixed names would collide between parallel stacks                                                             |
 | Health probe every 5s (prod: 30s)                               | `docker compose up --wait` returns as soon as the app is up                                                                    |
@@ -41,7 +41,8 @@ injects a prebuilt image via `GRIDONE_IMAGE`. The stack serves on
 `http://localhost:8765` (UI included — handy for debugging).
 
 Environment overrides: `GRIDONE_API` (default `http://localhost:8765/api`),
-`GRIDONE_USERNAME` / `GRIDONE_PASSWORD` (default `admin`/`admin`).
+`GRIDONE_USERNAME` / `GRIDONE_PASSWORD` (default `admin`/`admin`; the compose file
+seeds the admin account from `GRIDONE_PASSWORD` so the two stay in step).
 
 ## Layout
 
