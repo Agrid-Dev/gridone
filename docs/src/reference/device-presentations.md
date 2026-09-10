@@ -51,7 +51,7 @@ presentation:
 - `requires` lists capabilities. Every capability of this page is `name/1`; a Gridone that lacks one falls back with an `unsupported_capability` diagnostic.
 - `assets` are files of the driver package, addressed by a relative path. Only PNG and WebP are accepted; images are re-encoded on import and served by Gridone under an authenticated route — the document can never point at an external URL.
 - `bindings` give local names to attributes of the current device. Every other reference (`controls`, `measurements`, face layers, conditions) uses a binding id, never an attribute name.
-- `controls` declare what may be written. `toggle` needs a boolean attribute, `number` an `int`/`float` one, `select` an attribute that has `value_options`. The step and bounds of a `number` control come from the attribute's `write_constraints` (see [General Layout](driver-schema/general-layout.md)), never from the presentation; while a referenced step or bound is unknown, increments are unavailable.
+- `controls` declare what may be written. `toggle` needs a boolean attribute, `number` and `slider` an `int`/`float` one, `select` an attribute that has `value_options`. The step and bounds of numeric controls come from the attribute's `write_constraints` (see [General Layout](driver-schema/general-layout.md)), never from the presentation; while a referenced step or bound is unknown, increments are unavailable. `slider` additionally requires `slider/1` and renders a horizontal range with its current value and unit.
 
 Texts are `LocalizedText` objects: `{ default: …, translations: { fr: …, en-GB: … } }`, resolved exact tag → base language → default.
 
@@ -60,17 +60,80 @@ Texts are `LocalizedText` objects: `{ default: …, translations: { fr: …, en-
 | Node | Fields | Renders |
 |---|---|---|
 | `stack` | `children` | Vertical stack |
-| `columns` | `items: [{ weight, content }]` | Weighted columns, stacked on narrow screens |
-| `section` | `title`, `description?`, `children` | A card with a heading |
+| `columns` | `items: [{ weight, content, sticky? }]` | Weighted columns, stacked on narrow screens |
+| `section` | `title`, `description?`, `children`, `appearance?`, `collapsible?`, `collapsed?`, `show_count?` | A card or plain subsection, optionally foldable |
 | `attributes` | `group?` | The generic attribute panes (all attributes, or one declared group) |
 | `control-panel` | `controls: [id]` | One row per control: switch, number stepper, or option picker, with the write state (sending, applied, failed, not confirmed) |
-| `measurements` | `items: [{ binding, label?, formatter? }]` | Reported values, grouped by the attributes' `group` metadata |
+| `measurements` | `items: [{ binding, label?, formatter? }]`, `layout?` | Reported values in grouped, compact row, or inline layouts |
 | `setpoint-table` | `rows: [{ label, demanded, regulated?, measured?, deviation?, formatter? }]` | Demanded / regulated / measured / deviation rows |
 | `device-face` | see below | The graphic replica |
 
 A `formatter` is `{ decimals?, unit?, relative_time?, unavailable? }`: a fixed number of decimals, a unit symbol (defaults to the attribute's `unit`), the elapsed time since a timestamp value, and the text shown while the value is unknown (defaults to "Unavailable").
 
 In a `setpoint-table` row, `demanded` is `{ control: id }` (an editable stepper) or `{ binding: id }`; `regulated` and `measured` are bindings; `deviation: { minuend, subtrahend, tolerance }` is the only arithmetic of the dialect — the difference of two numeric bindings, shown signed and classified against the tolerance.
+
+### Layout options (`layout-options/1`)
+
+Declare this capability when using any column `sticky` or section option below.
+All options are opt-in; existing documents keep their card and grouped layouts.
+
+- `sticky: true` keeps a column below the application header on large screens.
+  Its contents scroll when taller than the available viewport; on narrow screens
+  columns stack and scroll normally.
+- `appearance: card | plain` defaults to `card`. Use `plain` for a subsection
+  inside a card: it has a top divider, without another rounded border or shadow.
+- `collapsible: true` gives a section a keyboard-accessible disclosure heading.
+  `collapsed: true` starts it folded and is only valid with `collapsible: true`.
+  Nested sections fold independently and retain their state when a parent folds
+  or live values update. Changing device resets their initial state.
+- `show_count: true` counts distinct controls and measurements in descendants,
+  including columns and setpoint rows. Face mirrors and generic attribute panes
+  are excluded. The localized suffix is settings, values, or items for a mixture.
+
+```yaml
+kind: section
+title: { default: Settings }
+collapsible: true
+collapsed: true
+show_count: true
+children:
+  - kind: section
+    title: { default: Display }
+    appearance: plain
+    collapsible: true
+    show_count: true
+    children:
+      - kind: control-panel
+        controls: [backlight]
+```
+
+### Sliders (`slider/1`)
+
+Declare `controls/1` and `slider/1`, then use a numeric binding:
+
+```yaml
+backlight:
+  kind: slider
+  binding: backlight
+  label: { default: Backlight }
+```
+
+The attribute must supply finite `minimum`, `maximum` and positive `step`
+constraints, directly or through attribute references. The slider is disabled
+until the current value and all constraints are known, or if the interval has
+fewer than two distinct step values. It respects the same zero-anchored step grid
+as number steppers, user write permissions, and read-only attributes. Drag and
+keyboard changes share the command runtime's 600 ms debounce and write feedback;
+off-grid and out-of-range slider writes are rejected locally. Face increment and
+decrement actions can also target sliders.
+
+### Compact measurements (`measurement-layout/1`)
+
+The optional `layout` field requires `measurement-layout/1` alongside
+`measurements/1`. `grouped` preserves group headings; `rows` shows a bordered list
+without group headings; `inline` shows small label/value pairs that wrap beneath
+a face. Compact layouts preserve authored item order, units, unavailable text,
+and reported values independently of pending control changes.
 
 ## Device face (`device-face/1`, `glyph-text/1`)
 

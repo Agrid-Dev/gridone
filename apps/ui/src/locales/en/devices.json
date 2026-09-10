@@ -524,6 +524,12 @@
     }
   },
   "presentation": {
+    "sectionSettings_one": "{{count}} setting",
+    "sectionSettings_other": "{{count}} settings",
+    "sectionValues_one": "{{count}} value",
+    "sectionValues_other": "{{count}} values",
+    "sectionItems_one": "{{count}} item",
+    "sectionItems_other": "{{count}} items",
     "parameter": "Parameter",
     "loading": "Loading device presentation…",
     "allAttributes": "All attributes",

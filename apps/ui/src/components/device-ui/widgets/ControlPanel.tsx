@@ -9,6 +9,7 @@ import type { BoundControlState, DeviceUiRuntime } from "../runtime";
 import type { WriteState } from "../runtime";
 import { decimalsOf } from "../runtime/controls";
 import { formatNumber } from "./formatters";
+import { NumberSlider } from "./NumberSlider";
 
 /**
  * Generic controls of a presentation: a toggle, a number stepper or a
@@ -97,6 +98,10 @@ function ControlInput({
     case "number":
       return (
         <NumberStepper id={id} state={state} runtime={runtime} label={label} />
+      );
+    case "slider":
+      return (
+        <NumberSlider id={id} state={state} runtime={runtime} label={label} />
       );
     case "select":
       return (

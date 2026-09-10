@@ -81,6 +81,54 @@ class TestThermostatDocument:
 
 class TestStrictness:
     @pytest.mark.parametrize(
+        "options",
+        [
+            {
+                "collapsible": True,
+                "collapsed": True,
+                "appearance": "plain",
+                "show_count": True,
+            },
+            {"collapsible": False, "collapsed": False, "appearance": "card"},
+        ],
+    )
+    def test_section_options(self, options):
+        section = SectionNode.model_validate(
+            {
+                "kind": "section",
+                "title": {"default": "Settings"},
+                "children": [],
+                **options,
+            }
+        )
+        assert section.model_dump(exclude_none=True) == {
+            "kind": "section",
+            "title": {"default": "Settings", "translations": {}},
+            "children": [],
+            **options,
+        }
+
+    @pytest.mark.parametrize(
+        "options",
+        [
+            {"collapsed": True},
+            {"collapsible": "true"},
+            {"show_count": 1},
+            {"appearance": "borderless"},
+        ],
+    )
+    def test_invalid_section_options(self, options):
+        rejects(
+            SectionNode,
+            {
+                "kind": "section",
+                "title": {"default": "Settings"},
+                "children": [],
+                **options,
+            },
+        )
+
+    @pytest.mark.parametrize(
         "pointer",
         [
             "/extra",

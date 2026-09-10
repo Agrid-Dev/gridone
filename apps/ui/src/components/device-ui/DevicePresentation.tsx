@@ -2,16 +2,17 @@ import { useMemo, type ReactNode } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { useTranslation } from "react-i18next";
 import type { Device } from "@gridone/sdk";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
 import { useAttributeLabel } from "@/hooks/useAttributeLabel";
 import { deviceAttributes } from "@/lib/devices";
 import type { Scalar } from "./conditions";
 import type { PageNode, PresentationV1 } from "./document";
-import { DeviceFace, localize, type LoadedGlyphSet } from "./face";
+import { DeviceFace, type LoadedGlyphSet } from "./face";
+import { cn } from "@/lib/utils";
 import type { AttributeLike, DeviceUiRuntime } from "./runtime";
 import { ControlPanel } from "./widgets/ControlPanel";
 import { Measurements } from "./widgets/Measurements";
 import { SetpointTable } from "./widgets/SetpointTable";
+import { PresentationSection } from "./widgets/PresentationSection";
 
 /**
  * Renders a validated v1 presentation document for a device: the page tree
@@ -132,7 +133,7 @@ export function DevicePresentation({
       }
       resetKeys={[document, device.id]}
     >
-      <div data-testid="device-presentation">
+      <div key={device.id} data-testid="device-presentation">
         <PageNodeView node={document.page} context={context} />
       </div>
     </ErrorBoundary>
@@ -168,28 +169,28 @@ function PageNodeView({
         >
           {node.items.map((item, index) => (
             <div key={index} className="min-w-0">
-              <PageNodeView node={item.content} context={context} />
+              <div
+                data-sticky={item.sticky || undefined}
+                className={cn(
+                  item.sticky &&
+                    "lg:sticky lg:top-[5.5rem] lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto",
+                )}
+              >
+                <PageNodeView node={item.content} context={context} />
+              </div>
             </div>
           ))}
         </div>
       );
     case "section":
       return (
-        <Card data-node="section">
-          <CardHeader>
-            <CardTitle>{localize(node.title, context.language)}</CardTitle>
-            {node.description && (
-              <p className="text-sm text-muted-foreground">
-                {localize(node.description, context.language)}
-              </p>
-            )}
-          </CardHeader>
-          <CardContent className="space-y-6">
+        <PresentationSection node={node} language={context.language}>
+          <div className="space-y-6">
             {node.children.map((child, index) => (
               <PageNodeView key={index} node={child} context={context} />
             ))}
-          </CardContent>
-        </Card>
+          </div>
+        </PresentationSection>
       );
     case "attributes":
       return (
@@ -209,6 +210,7 @@ function PageNodeView({
       return (
         <Measurements
           items={node.items}
+          layout={node.layout}
           reported={context.reported}
           attributeOf={context.attributeOf}
           attributeLabel={context.attributeLabel}

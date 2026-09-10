@@ -8,8 +8,11 @@ import type { PresentationDiagnostic, PresentationV1 } from "./document";
  */
 export const SUPPORTED_CAPABILITIES: ReadonlySet<string> = new Set([
   "layout/1",
+  "layout-options/1",
   "controls/1",
+  "slider/1",
   "measurements/1",
+  "measurement-layout/1",
   "setpoint-table/1",
   "device-face/1",
   "glyph-text/1",

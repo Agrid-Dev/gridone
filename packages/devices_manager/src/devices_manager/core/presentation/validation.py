@@ -79,6 +79,7 @@ _NUMERIC_DATA_TYPES: Final = frozenset({DataType.INT, DataType.FLOAT})
 _ACTION_OPS_BY_CONTROL_KIND: Final[dict[ControlKind, frozenset[ActionOp]]] = {
     ControlKind.TOGGLE: frozenset({ActionOp.TOGGLE}),
     ControlKind.NUMBER: frozenset({ActionOp.INCREMENT, ActionOp.DECREMENT}),
+    ControlKind.SLIDER: frozenset({ActionOp.INCREMENT, ActionOp.DECREMENT}),
     ControlKind.SELECT: frozenset({ActionOp.CYCLE}),
 }
 
@@ -298,10 +299,10 @@ def _check_controls(scope: _Scope, report: _Report) -> None:
 
 
 def _control_accepts(kind: ControlKind, attribute: AttributeDriver) -> bool:
-    """toggle → bool, number → int/float, select → an attribute with value options."""
+    """Toggle → bool, number/slider → numeric, select → value options."""
     if kind is ControlKind.TOGGLE:
         return attribute.data_type is DataType.BOOL
-    if kind is ControlKind.NUMBER:
+    if kind in {ControlKind.NUMBER, ControlKind.SLIDER}:
         return attribute.data_type in _NUMERIC_DATA_TYPES
     return attribute.value_options is not None
 
@@ -573,6 +574,29 @@ def _used_capabilities(document: PresentationV1) -> set[str]:
     used = {_NODE_CAPABILITIES[type(node)] for node in nodes}
     if document.controls:
         used.add("controls/1")
+    if any(
+        control.kind is ControlKind.SLIDER for control in document.controls.values()
+    ):
+        used.add("slider/1")
+    for node in nodes:
+        if (
+            isinstance(node, ColumnsNode)
+            and any(item.sticky is not None for item in node.items)
+        ) or (
+            isinstance(node, SectionNode)
+            and any(
+                option is not None
+                for option in (
+                    node.appearance,
+                    node.collapsible,
+                    node.collapsed,
+                    node.show_count,
+                )
+            )
+        ):
+            used.add("layout-options/1")
+        if isinstance(node, MeasurementsNode) and node.layout is not None:
+            used.add("measurement-layout/1")
     layers = [
         layer
         for node in nodes

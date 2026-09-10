@@ -14,15 +14,18 @@ SUPPORTED_SCHEMA_VERSIONS: Final[frozenset[int]] = frozenset({1})
 SUPPORTED_CAPABILITIES: Final[frozenset[str]] = frozenset(
     {
         "layout/1",
+        "layout-options/1",
         "controls/1",
+        "slider/1",
         "measurements/1",
+        "measurement-layout/1",
         "setpoint-table/1",
         "device-face/1",
         "glyph-text/1",
         "conditions/1",
     }
 )
-"""The frozen v1 vocabulary (annex B §2), as announced in a document's ``requires``."""
+"""The v1 vocabulary and opt-in extensions announced in a document's ``requires``."""
 
 
 @dataclass(frozen=True)

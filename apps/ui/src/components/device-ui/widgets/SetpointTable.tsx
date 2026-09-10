@@ -5,6 +5,7 @@ import type { SetpointRow } from "../document";
 import { localize } from "../face";
 import type { AttributeLike, DeviceUiRuntime } from "../runtime";
 import { NumberStepper, WriteStateIndicator } from "./ControlPanel";
+import { NumberSlider } from "./NumberSlider";
 import { formatDeviation, formatMeasurement } from "./formatters";
 
 /**
@@ -174,6 +175,8 @@ function DemandedControl({
     <div className="space-y-1">
       {state.spec.kind === "number" ? (
         <NumberStepper id={id} state={state} runtime={runtime} label={label} />
+      ) : state.spec.kind === "slider" ? (
+        <NumberSlider id={id} state={state} runtime={runtime} label={label} />
       ) : (
         <span className="font-medium text-foreground">
           {state.displayed === null ? "—" : String(state.displayed)}
