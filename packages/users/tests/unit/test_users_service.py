@@ -114,3 +114,11 @@ class TestAuthenticateBlocked:
         result = await service.authenticate("alice", "password12345")
         assert result is not None
         assert result.username == "alice"
+
+    async def test_authenticate_oversized_password_returns_none(
+        self, service: UsersService, storage: MemoryUsersStorage
+    ):
+        """Login is unauthenticated: an over-long password must not raise."""
+        await storage.save(_make_user())
+
+        assert await service.authenticate("alice", "é" * 40) is None

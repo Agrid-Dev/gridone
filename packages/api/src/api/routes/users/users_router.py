@@ -6,13 +6,15 @@ from pydantic import BaseModel
 from api.auth import get_current_token_payload, get_current_user_id, require_permission
 from api.dependencies import get_users_service
 from api.permissions import Permission, get_permissions_for_role
-from models.errors import NotFoundError
 from users import Role, User, UserCreate, UsersService, UserType, UserUpdate
 from users.auth import TokenPayload
 from users.models import Role as RoleEnum
 from users.validation import PasswordField, UsernameField
 
 router = APIRouter()
+
+# The service message echoes the submitted username, so it is not reused here.
+_USERNAME_TAKEN = "Username already exists"
 
 
 class UserBasic(BaseModel):
@@ -76,20 +78,14 @@ async def create_user(
     body: UserCreateRequest,
     um: Annotated[UsersService, Depends(get_users_service)],
 ) -> User:
+    # Built outside the try: a model error is a 422, not a username conflict.
+    create_data = UserCreate(**body.model_dump())
     try:
-        return await um.create_user(
-            UserCreate(
-                username=body.username,
-                password=body.password,
-                role=body.role,
-                type=body.type,
-                name=body.name,
-                email=body.email,
-                title=body.title,
-            )
-        )
+        return await um.create_user(create_data)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=_USERNAME_TAKEN
+        ) from e
 
 
 @router.get(
@@ -100,10 +96,8 @@ async def get_user(
     user_id: str,
     um: Annotated[UsersService, Depends(get_users_service)],
 ) -> User:
-    try:
-        return await um.get_by_id(user_id)
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    # NotFoundError -> 404 is handled by exception_handlers.py
+    return await um.get_by_id(user_id)
 
 
 @router.patch(
@@ -115,22 +109,14 @@ async def update_user(
     body: UserUpdateRequest,
     um: Annotated[UsersService, Depends(get_users_service)],
 ) -> User:
+    update_data = UserUpdate(**body.model_dump())
     try:
-        return await um.update_user(
-            user_id,
-            UserUpdate(
-                username=body.username,
-                password=body.password,
-                role=body.role,
-                name=body.name,
-                email=body.email,
-                title=body.title,
-            ),
-        )
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+        # NotFoundError -> 404 is handled by exception_handlers.py
+        return await um.update_user(user_id, update_data)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=_USERNAME_TAKEN
+        ) from e
 
 
 @router.delete(
@@ -148,10 +134,8 @@ async def delete_user(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="You cannot delete your own account",
         )
-    try:
-        await um.delete_user(user_id)
-    except NotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+    # NotFoundError -> 404 is handled by exception_handlers.py
+    await um.delete_user(user_id)
 
 
 @router.post(
