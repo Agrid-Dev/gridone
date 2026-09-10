@@ -12,7 +12,7 @@ import pytest
 from models.errors import SchemaValidationError
 from synoptics.models import Cell, SynopticDocument
 from synoptics.symbols import Footprint, SymbolType, build_default_registry
-from synoptics.validation import validate_document
+from synoptics.validation import Violation, validate_document
 
 
 @pytest.fixture
@@ -32,6 +32,15 @@ def check(raw, registry):
 
 def test_the_base_document_is_valid(document, registry):
     assert check(document, registry) == []
+
+
+def test_every_error_type_is_a_member_of_the_vocabulary(document, registry):
+    """The editor branches on ``type``, so a code that is not in ``Violation``
+    is a contract break even if the message reads fine."""
+    document["labels"].append(dict(document["labels"][0]))
+    document["symbols"][0]["bindings"]["pressure"] = {"kind": "text", "text": "3 bar"}
+    for type_ in check(document, registry):
+        assert type_ in set(Violation)
 
 
 # ----------------------------------------------------------------------

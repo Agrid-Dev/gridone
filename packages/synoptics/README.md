@@ -111,11 +111,11 @@ Because an edit is whole and can take a while, two authors can overlap. `replace
 
 ## Save-time rules
 
-`validate_document` collects **every** violation and raises one `SchemaValidationError` carrying `{loc, msg, type}` items, so an author fixing a thirty-four pipe plate gets the whole list rather than one error per attempt.
+`validate_document` collects **every** violation and raises one `SchemaValidationError` carrying `{loc, msg, type}` items, so an author fixing a thirty-four pipe plate gets the whole list rather than one error per attempt. Every `type` is a member of `Violation`, the one definition of the vocabulary an editor branches on: `duplicate_id`, `unknown_symbol_type`, `invalid_props`, `unknown_slot`, `missing_slot`, `rotation_locked`, `port_off_grid`, `unknown_symbol`, `unusable_symbol`, `unknown_port`, `zero_length_segment`, `diagonal_segment`, `polyline_budget_exceeded`, `port_side_mismatch`, `off_polyline`, `self_reference`, `unknown_pipe`, `unusable_pipe`, `reference_cycle`, `not_inline_capable`, `inline_on_endpoint`, `flat_depth`. Messages may be reworded; these values are the contract.
 
 | Rule | Enforced by |
 |---|---|
-| `version` is 1; ids match the slug pattern; `rotation` in 0..3; `fluid` in the vocabulary; coordinates within `MAX_COORDINATE`; at most `MAX_WAYPOINTS` corners per run | the models |
+| `version` is 1; ids match the slug pattern; `rotation` in 0..3; `fluid` in the vocabulary; coordinates within `MAX_COORDINATE`; at most `MAX_WAYPOINTS` corners per run; no NUL character anywhere in the document | the models |
 | `type` is registered; `props` validate; every binding key is a declared slot; required slots are bound; a collector's `rotation` is 0 | the registry |
 | ids unique across symbols, pipes, tags and labels (one namespace) | `validation` |
 | a symbol's ports land on the grid | `validation` |

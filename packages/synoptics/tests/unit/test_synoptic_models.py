@@ -247,6 +247,37 @@ def test_a_run_has_a_waypoint_cap():
         )
 
 
+@pytest.mark.parametrize(
+    "raw",
+    [
+        {"version": 1, "name": "plate\x00null"},
+        {
+            "version": 1,
+            "name": "ok",
+            "labels": [
+                {
+                    "id": "l",
+                    "at": {"x": 0, "y": 0},
+                    "text": "t",
+                    "role": "note",
+                    "value": {
+                        "kind": "attribute",
+                        "target": {"devices": {"ids": ["dev\x00"]}, "attribute": "x"},
+                    },
+                }
+            ],
+        },
+    ],
+    ids=["own field", "shared target model"],
+)
+def test_a_document_may_not_contain_nul(raw):
+    """Legal in Python and JSON, refused by a JSONB column: without this the
+    plate validates, stores in memory and dies on the real backend with a raw
+    driver error. The second case is a string this package does not own."""
+    with pytest.raises(ValidationError, match="NUL"):
+        SynopticDocument.model_validate(raw)
+
+
 def test_a_cell_is_frozen():
     """Cells are compared and used as set members by the polyline rules."""
     with pytest.raises(ValidationError):

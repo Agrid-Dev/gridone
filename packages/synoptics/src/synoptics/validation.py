@@ -12,13 +12,15 @@ resolves to exactly one device needs the target resolver, which is composition
 work and lives in the API layer; this package stays document-only.
 """
 
+import contextlib
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
+from enum import StrEnum
 from itertools import pairwise
 
 from pydantic import BaseModel, ValidationError
 
-from models.errors import SchemaValidationError, ValidationErrorItem
+from models.errors import NotFoundError, SchemaValidationError, ValidationErrorItem
 from synoptics.geometry import (
     direction,
     is_axis_aligned,
@@ -43,13 +45,44 @@ from synoptics.models import (
 from synoptics.symbols.registry import SymbolRegistry
 
 
+class Violation(StrEnum):
+    """The ``type`` of every save-time error this package emits.
+
+    This is the vocabulary an editor branches on, so it has one definition.
+    Messages may be reworded freely; these values may not.
+    """
+
+    DUPLICATE_ID = "duplicate_id"
+    UNKNOWN_SYMBOL_TYPE = "unknown_symbol_type"
+    INVALID_PROPS = "invalid_props"
+    UNKNOWN_SLOT = "unknown_slot"
+    MISSING_SLOT = "missing_slot"
+    ROTATION_LOCKED = "rotation_locked"
+    PORT_OFF_GRID = "port_off_grid"
+    UNKNOWN_SYMBOL = "unknown_symbol"
+    UNUSABLE_SYMBOL = "unusable_symbol"
+    UNKNOWN_PORT = "unknown_port"
+    ZERO_LENGTH_SEGMENT = "zero_length_segment"
+    DIAGONAL_SEGMENT = "diagonal_segment"
+    POLYLINE_BUDGET_EXCEEDED = "polyline_budget_exceeded"
+    PORT_SIDE_MISMATCH = "port_side_mismatch"
+    OFF_POLYLINE = "off_polyline"
+    SELF_REFERENCE = "self_reference"
+    UNKNOWN_PIPE = "unknown_pipe"
+    UNUSABLE_PIPE = "unusable_pipe"
+    REFERENCE_CYCLE = "reference_cycle"
+    NOT_INLINE_CAPABLE = "not_inline_capable"
+    INLINE_ON_ENDPOINT = "inline_on_endpoint"
+    FLAT_DEPTH = "flat_depth"
+
+
 class _Errors:
     """Accumulates violations in pydantic's ``{loc, msg, type}`` shape."""
 
     def __init__(self) -> None:
         self.items: list[ValidationErrorItem] = []
 
-    def add(self, loc: tuple[str | int, ...], msg: str, type_: str) -> None:
+    def add(self, loc: tuple[str | int, ...], msg: str, type_: Violation) -> None:
         self.items.append(ValidationErrorItem(loc=loc, msg=msg, type=type_))
 
 
@@ -104,7 +137,9 @@ def _check_unique_ids(document: SynopticDocument, errors: _Errors) -> set[str]:
     duplicates: set[str] = set()
     for loc, element_id in _all_ids(document):
         if element_id in seen:
-            errors.add(loc, f"Duplicate element id {element_id!r}", "duplicate_id")
+            errors.add(
+                loc, f"Duplicate element id {element_id!r}", Violation.DUPLICATE_ID
+            )
             duplicates.add(element_id)
         seen.add(element_id)
     return duplicates
@@ -145,18 +180,19 @@ def _check_symbols(
         loc: tuple[str | int, ...] = ("symbols", i)
         if symbol.id in duplicates:
             continue
-        if symbol.type not in registry.types():
+        try:
+            symbol_type = registry.get(symbol.type)
+        except NotFoundError:
             errors.add(
                 (*loc, "type"),
                 f"Unknown symbol type {symbol.type!r}",
-                "unknown_symbol_type",
+                Violation.UNKNOWN_SYMBOL_TYPE,
             )
             continue
-        symbol_type = registry.get(symbol.type)
         try:
             props = registry.validate_props(symbol.type, symbol.props)
         except ValueError as exc:
-            errors.add((*loc, "props"), str(exc), "invalid_props")
+            errors.add((*loc, "props"), str(exc), Violation.INVALID_PROPS)
             continue
         _check_bindings(
             symbol, symbol_type.slots, symbol_type.required_slots, loc, errors
@@ -170,7 +206,7 @@ def _check_symbols(
                 (*loc, "placement", "rotation"),
                 f"Symbol type {symbol.type!r} must have rotation 0: its props "
                 f"already say which way it runs",
-                "rotation_locked",
+                Violation.ROTATION_LOCKED,
             )
             continue
         try:
@@ -181,7 +217,7 @@ def _check_symbols(
             errors.add(
                 (*loc, "placement"),
                 f"Symbol {symbol.id!r} has a port outside the grid",
-                "port_off_grid",
+                Violation.PORT_OFF_GRID,
             )
     return resolved
 
@@ -198,13 +234,13 @@ def _check_bindings(
             errors.add(
                 (*loc, "bindings", slot),
                 f"Symbol type {symbol.type!r} declares no slot {slot!r}",
-                "unknown_slot",
+                Violation.UNKNOWN_SLOT,
             )
     for slot in sorted(required - set(symbol.bindings)):
         errors.add(
             (*loc, "bindings"),
             f"Symbol type {symbol.type!r} requires slot {slot!r}",
-            "missing_slot",
+            Violation.MISSING_SLOT,
         )
 
 
@@ -259,7 +295,7 @@ def _check_pipes(
                 loc,
                 f"Pipe {pipe.id!r} crosses {length} cells, more than the "
                 f"{budget} left of the document's {MAX_POLYLINE_CELLS}",
-                "polyline_budget_exceeded",
+                Violation.POLYLINE_BUDGET_EXCEEDED,
             )
             continue
         budget -= length
@@ -315,7 +351,7 @@ def _endpoint_cell(
         errors.add(
             (*loc, "port"),
             f"Symbol {endpoint.symbol!r} has no port {endpoint.port!r}",
-            "unknown_port",
+            Violation.UNKNOWN_PORT,
         )
         return None
     return port[0]
@@ -344,14 +380,14 @@ def _check_segments(
             errors.add(
                 loc,
                 f"Segment {i} at {_fmt(a)} has zero length",
-                "zero_length_segment",
+                Violation.ZERO_LENGTH_SEGMENT,
             )
             ok = False
         elif not is_axis_aligned(a, b):
             errors.add(
                 loc,
                 f"Segment {i} from {_fmt(a)} to {_fmt(b)} is not axis-aligned",
-                "diagonal_segment",
+                Violation.DIAGONAL_SEGMENT,
             )
             ok = False
     return ok
@@ -379,7 +415,7 @@ def _check_port_sides(
                 (*loc, field_name),
                 f"Port {endpoint.symbol!r}.{endpoint.port!r} faces {side} but the "
                 f"run leaves it towards {actual}",
-                "port_side_mismatch",
+                Violation.PORT_SIDE_MISMATCH,
             )
 
 
@@ -389,7 +425,7 @@ def _check_tags(pipe: Pipe, run: _Run, index: int, errors: _Errors) -> None:
             errors.add(
                 ("pipes", index, "tags", j, "at"),
                 f"Tag {tag.id!r} at {_fmt(tag.at)} is not on pipe {pipe.id!r}",
-                "off_polyline",
+                Violation.OFF_POLYLINE,
             )
 
 
@@ -407,7 +443,9 @@ def _check_pipe_references(
                 continue
             loc: tuple[str | int, ...] = ("pipes", i, field_name)
             if endpoint.pipe == pipe.id:
-                errors.add(loc, "A pipe cannot tee onto itself", "self_reference")
+                errors.add(
+                    loc, "A pipe cannot tee onto itself", Violation.SELF_REFERENCE
+                )
                 continue
             run = polylines.get(endpoint.pipe)
             if run is None:
@@ -423,7 +461,7 @@ def _check_pipe_references(
                 errors.add(
                     (*loc, "cell"),
                     f"{_fmt(endpoint.cell)} is not on pipe {endpoint.pipe!r}",
-                    "off_polyline",
+                    Violation.OFF_POLYLINE,
                 )
             edges.setdefault(pipe.id, set()).add(endpoint.pipe)
     cycle = _find_cycle(edges)
@@ -431,8 +469,15 @@ def _check_pipe_references(
         errors.add(
             ("pipes",),
             f"Pipes reference each other in a cycle: {' -> '.join(cycle)}",
-            "reference_cycle",
+            Violation.REFERENCE_CYCLE,
         )
+
+
+_REFERENCE_VIOLATIONS: dict[str, tuple[Violation, Violation]] = {
+    "Symbol": (Violation.UNUSABLE_SYMBOL, Violation.UNKNOWN_SYMBOL),
+    "Pipe": (Violation.UNUSABLE_PIPE, Violation.UNKNOWN_PIPE),
+}
+"""Per referenced kind: the code when it exists but failed, and when it does not."""
 
 
 def _report_unusable(
@@ -449,14 +494,15 @@ def _report_unusable(
     Reporting both as "unknown" sends an author hunting for an id sitting in
     their own file.
     """
+    unusable, unknown = _REFERENCE_VIOLATIONS[kind]
     if element_id in set(known_ids):
         errors.add(
             loc,
             f"{kind} {element_id!r} cannot be referenced: it did not itself validate",
-            f"unusable_{kind.lower()}",
+            unusable,
         )
         return
-    errors.add(loc, f"Unknown {kind.lower()} {element_id!r}", f"unknown_{kind.lower()}")
+    errors.add(loc, f"Unknown {kind.lower()} {element_id!r}", unknown)
 
 
 def _find_cycle(edges: Mapping[str, Iterable[str]]) -> list[str] | None:
@@ -513,12 +559,14 @@ def _check_inline_placements(
         if symbol.id in duplicates:
             continue
         loc: tuple[str | int, ...] = ("symbols", i, "placement")
-        if symbol.type in registry.types() and not registry.get(symbol.type).inline:
-            errors.add(
-                loc,
-                f"Symbol type {symbol.type!r} cannot be placed on a pipe",
-                "not_inline_capable",
-            )
+        # An unknown type was already reported by the symbol pass.
+        with contextlib.suppress(NotFoundError):
+            if not registry.get(symbol.type).inline:
+                errors.add(
+                    loc,
+                    f"Symbol type {symbol.type!r} cannot be placed on a pipe",
+                    Violation.NOT_INLINE_CAPABLE,
+                )
         run = polylines.get(placement.pipe)
         if run is None:
             _report_unusable(
@@ -533,14 +581,14 @@ def _check_inline_placements(
             errors.add(
                 (*loc, "cell"),
                 f"{_fmt(placement.cell)} is not on pipe {placement.pipe!r}",
-                "off_polyline",
+                Violation.OFF_POLYLINE,
             )
         elif placement.cell not in run.interior:
             errors.add(
                 (*loc, "cell"),
                 f"{_fmt(placement.cell)} is an endpoint of pipe "
                 f"{placement.pipe!r}, not a cell inside the run",
-                "inline_on_endpoint",
+                Violation.INLINE_ON_ENDPOINT,
             )
 
 
@@ -550,7 +598,9 @@ def _check_flat_projection(document: SynopticDocument, errors: _Errors) -> None:
         return
     for loc, z in _all_depths(document):
         if z:
-            errors.add(loc, "A flat projection requires every z to be 0", "flat_depth")
+            errors.add(
+                loc, "A flat projection requires every z to be 0", Violation.FLAT_DEPTH
+            )
 
 
 def _all_depths(

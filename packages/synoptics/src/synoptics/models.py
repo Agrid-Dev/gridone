@@ -7,9 +7,9 @@ the symbol kit, and are deliberately unexpressible here. See
 """
 
 from enum import StrEnum
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 from models.metadata import ResourceMetadata
 from models.targets import AttributeTarget
@@ -297,6 +297,19 @@ class SynopticDocument(BaseModel):
     symbols: list[Symbol] = Field(default_factory=list)
     pipes: list[Pipe] = Field(default_factory=list)
     labels: list[Label] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _no_nul_characters(self) -> Self:
+        """A NUL is legal in a Python string and in JSON, and refused by a
+        JSONB column, so a plate holding one validates, stores in memory and
+        fails on the real backend with a driver error. One check on the
+        serialised form covers every string in the document, including those
+        on shared models this package does not own.
+        """
+        if "\\u0000" in self.model_dump_json():
+            msg = "Document contains a NUL character"
+            raise ValueError(msg)
+        return self
 
 
 class Synoptic(SynopticDocument):

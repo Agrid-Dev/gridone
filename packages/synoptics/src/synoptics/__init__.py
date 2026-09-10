@@ -31,7 +31,7 @@ from synoptics.symbols import (
     TankProps,
     build_default_registry,
 )
-from synoptics.validation import validate_document
+from synoptics.validation import Violation, validate_document
 
 __all__ = [
     "AttributeSlot",
@@ -62,6 +62,7 @@ __all__ = [
     "Tag",
     "TankProps",
     "TextSlot",
+    "Violation",
     "build_default_registry",
     "validate_document",
 ]
