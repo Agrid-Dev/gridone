@@ -1,3 +1,9 @@
+## v0.232.1 (2026-09-10)
+
+### Fix
+
+- **users**: write partial updates instead of the full user row (#626)
+
 ## v0.232.0 (2026-09-10)
 
 ### Feat
