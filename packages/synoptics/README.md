@@ -107,7 +107,7 @@ await service.stop()
 
 A plate is written whole and read whole. There are no per-element operations: every save-time rule spans the document, so validating a fragment would mean loading the rest anyway.
 
-Because an edit is whole and can take a while, two authors can overlap. `replace` takes `expected_updated_at`, the `updated_at` the author read; if the plate has been written since, the save is refused with a `ConflictError` instead of erasing the other author's work. The check is the storage's: the write is conditioned on the row still carrying that timestamp, so a save landing between the service's read and its write is caught by the same clause.
+Because an edit is whole and can take a while, two authors can overlap. `replace` takes `expected_updated_at`, the `updated_at` the author read; if the plate has been written since, the save is refused with a `ConflictError` instead of erasing the other author's work. The service compares it with the plate it just read and refuses a stale save before validating anything, so no binding is resolved for a save that cannot land; the storage then conditions the write on the row still carrying that timestamp, so a save landing between the service's read and its write is caught as well.
 
 ## Save-time rules
 
@@ -127,7 +127,7 @@ Because an edit is whole and can take a while, two authors can overlap. `replace
 | tags sit on their pipe's run | `validation` |
 | `projection: "flat"` implies every `z` is 0 | `validation` |
 
-One rule of the spec needs a `models.targets.TargetResolver`: that a binding resolves to exactly one device. Building a resolver is composition work, so the service takes one at construction and the API layer passes its own. On every `create` and `replace`, `validate_bindings()` resolves each slot `bound_slots()` enumerates and reports every violation (unresolvable, several devices, a non-bool behind `flow`, `decimals` on a non-numeric attribute) at its `loc` with the same `{loc, msg, type}` errors.
+One rule of the spec needs a `models.targets.TargetResolver`: that a binding resolves to exactly one device. Building a resolver is composition work, so the service takes one at construction and the API layer passes its own. On every `create` and `replace`, `validate_for_save()` runs the document rules above and then resolves each slot `bound_slots()` enumerates, reporting every violation (unresolvable, several devices, a non-bool behind `flow`, `decimals` on a non-numeric attribute) at its `loc` in the same `{loc, msg, type}` list as the document rules, so an author gets one error for the whole plate.
 
 What is deliberately not a rule: pipes may share cells. A tee shares one by construction, and two runs crossing at different `z` share an xy.
 
