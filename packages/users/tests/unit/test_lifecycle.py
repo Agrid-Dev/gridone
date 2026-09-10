@@ -10,7 +10,6 @@ from models.errors import (
     UnsupportedStorageError,
 )
 from users import UsersService
-from users.models import Role
 from users.storage import MemoryUsersStorage
 
 pytestmark = pytest.mark.asyncio
@@ -25,7 +24,7 @@ class TestStartStop:
             # ``ensure_default_admin`` should have seeded the default admin.
             assert len(users) == 1
             assert users[0].username == "admin"
-            assert users[0].role == Role.ADMIN
+            assert users[0].role == "admin"
             assert users[0].must_change_password is False
         finally:
             await svc.stop()

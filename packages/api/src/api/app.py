@@ -32,7 +32,7 @@ from api.routes import (
 )
 from api.routes import websocket as websocket_routes
 from api.routes.apps import apps_registration_router, apps_router
-from api.routes.users import auth_router, users_router
+from api.routes.users import auth_router, roles_router, users_router
 from api.settings import load_settings
 from api.targets import CompositeTargetResolver
 from api.trigger_providers.change_event import ChangeEventTriggerProvider
@@ -253,6 +253,10 @@ def create_app(*, logging_dict_config: dict | None = None) -> FastAPI:
     # Protected routes — permissions are enforced per endpoint inside each router.
     # A blanket JWT dep is still applied so unauthenticated requests get a 401.
     jwt_dep = [Depends(get_current_user_id)]
+    # Before users_router: otherwise GET /users/{user_id} would capture "roles".
+    app.include_router(
+        roles_router, prefix="/users/roles", tags=["users"], dependencies=jwt_dep
+    )
     app.include_router(
         users_router, prefix="/users", tags=["users"], dependencies=jwt_dep
     )

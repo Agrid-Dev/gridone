@@ -9,7 +9,7 @@ import os
 import pytest
 import pytest_asyncio
 
-from users.models import Role, UserInDB, UserUpdate
+from users.models import UserInDB, UserUpdate
 from users.storage.factory import build_users_storage
 from users.storage.postgres import PostgresUsersStorage
 
@@ -27,7 +27,7 @@ def _alice(**overrides: object) -> UserInDB:
         "id": "u1",
         "username": "alice",
         "hashed_password": "old-hash",
-        "role": Role.OPERATOR,
+        "role": "operator",
         "name": "Alice",
     }
     fields.update(overrides)
@@ -58,12 +58,12 @@ async def test_save_get_list_delete_round_trip(storage: PostgresUsersStorage):
 
 async def test_save_upserts_the_full_row(storage: PostgresUsersStorage):
     await storage.save(_alice())
-    await storage.save(_alice(name="Alice B.", role=Role.ADMIN))
+    await storage.save(_alice(name="Alice B.", role="admin"))
 
     stored = await storage.get_by_id("u1")
     assert stored is not None
     assert stored.name == "Alice B."
-    assert stored.role == Role.ADMIN
+    assert stored.role == "admin"
 
 
 async def test_update_writes_only_the_set_fields(storage: PostgresUsersStorage):

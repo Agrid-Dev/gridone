@@ -51,7 +51,8 @@ export function UserMenu() {
           <div className="flex flex-col space-y-1">
             <p className="text-sm font-medium">{user.name || user.username}</p>
             <p className="text-xs text-muted-foreground">
-              {user.email || t(`users:roles.${user.role}`)}
+              {user.email ||
+                t(`users:roles.${user.role}`, { defaultValue: user.role })}
             </p>
           </div>
         </DropdownMenuLabel>

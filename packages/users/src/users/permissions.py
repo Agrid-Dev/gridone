@@ -1,14 +1,13 @@
-"""Role-based access control: permission definitions and role→permission mapping."""
+"""Role-based access control: the permission vocabulary."""
 
 from enum import StrEnum
-
-from users.models import Role
 
 
 class Permission(StrEnum):
     USERS_READ = "users:read"
     USERS_READ_BASIC = "users:read:basic"
     USERS_WRITE = "users:write"
+    ROLES_READ = "roles:read"
     DEVICES_READ = "devices:read"
     DEVICES_WRITE = "devices:write"
     DEVICES_COMMAND = "devices:command"
@@ -25,38 +24,3 @@ class Permission(StrEnum):
     DEVICES_LOGS_READ = "devices:logs:read"
     DASHBOARDS_READ = "dashboards:read"
     DASHBOARDS_WRITE = "dashboards:write"
-
-
-ROLE_PERMISSIONS: dict[Role, set[Permission]] = {
-    Role.ADMIN: set(Permission),
-    Role.OPERATOR: {
-        Permission.DEVICES_READ,
-        Permission.DEVICES_WRITE,
-        Permission.DEVICES_COMMAND,
-        Permission.ASSETS_READ,
-        Permission.ASSETS_WRITE,
-        Permission.TRANSPORTS_READ,
-        Permission.TRANSPORTS_WRITE,
-        Permission.DRIVERS_READ,
-        Permission.DRIVERS_WRITE,
-        Permission.TIMESERIES_READ,
-        Permission.AUTOMATIONS_READ,
-        Permission.DASHBOARDS_READ,
-        Permission.DASHBOARDS_WRITE,
-    },
-    Role.VIEWER: {
-        Permission.USERS_READ_BASIC,
-        Permission.DEVICES_READ,
-        Permission.ASSETS_READ,
-        Permission.TRANSPORTS_READ,
-        Permission.DRIVERS_READ,
-        Permission.TIMESERIES_READ,
-        Permission.AUTOMATIONS_READ,
-        Permission.DASHBOARDS_READ,
-    },
-}
-
-
-def get_permissions_for_role(role: Role) -> list[str]:
-    """Return the sorted list of permission strings for a given role."""
-    return sorted(ROLE_PERMISSIONS.get(role, set()))

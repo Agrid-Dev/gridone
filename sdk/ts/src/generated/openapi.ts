@@ -205,6 +205,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/users/roles/": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Roles */
+    get: operations["list_roles_users_roles__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/users/roles/{role_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Role */
+    get: operations["get_role_users_roles__role_id__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/users/": {
     parameters: {
       query?: never;
@@ -2790,6 +2824,8 @@ export interface components {
     ColumnItem: {
       /** Weight */
       weight: number;
+      /** Sticky */
+      sticky?: boolean | null;
       /** Content */
       content:
         | components["schemas"]["StackNode"]
@@ -2891,7 +2927,7 @@ export interface components {
      * ControlKind
      * @enum {string}
      */
-    ControlKind: "toggle" | "number" | "select";
+    ControlKind: "toggle" | "number" | "slider" | "select";
     /** ControlPanelNode */
     ControlPanelNode: {
       /**
@@ -4064,7 +4100,8 @@ export interface components {
       id: string;
       /** Username */
       username: string;
-      role: components["schemas"]["Role"];
+      /** Role */
+      role: string;
       /** Name */
       name: string;
       /** Email */
@@ -4083,6 +4120,11 @@ export interface components {
       label?: components["schemas"]["LocalizedText"] | null;
       formatter?: components["schemas"]["Formatter"] | null;
     };
+    /**
+     * MeasurementLayout
+     * @enum {string}
+     */
+    MeasurementLayout: "grouped" | "rows" | "inline";
     /** MeasurementsNode */
     MeasurementsNode: {
       /**
@@ -4090,6 +4132,7 @@ export interface components {
        * @enum {string}
        */
       kind: "measurements";
+      layout?: components["schemas"]["MeasurementLayout"] | null;
       /** Items */
       items: components["schemas"]["MeasurementItem"][];
     };
@@ -4577,6 +4620,31 @@ export interface components {
       /** New Password */
       new_password: string;
     };
+    /**
+     * Permission
+     * @enum {string}
+     */
+    Permission:
+      | "users:read"
+      | "users:read:basic"
+      | "users:write"
+      | "roles:read"
+      | "devices:read"
+      | "devices:write"
+      | "devices:command"
+      | "assets:read"
+      | "assets:write"
+      | "transports:read"
+      | "transports:write"
+      | "drivers:read"
+      | "drivers:write"
+      | "timeseries:read"
+      | "automations:read"
+      | "automations:write"
+      | "notifications:write"
+      | "devices:logs:read"
+      | "dashboards:read"
+      | "dashboards:write";
     /** PresentationAsset */
     PresentationAsset: {
       /** Sha256 */
@@ -4763,9 +4831,26 @@ export interface components {
     };
     /**
      * Role
-     * @enum {string}
+     * @description A named set of permissions users are assigned to, by id.
      */
-    Role: "admin" | "operator" | "viewer";
+    Role: {
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+      /**
+       * Description
+       * @default
+       */
+      description?: string;
+      /** Permissions */
+      permissions: components["schemas"]["Permission"][];
+      /**
+       * Builtin
+       * @default false
+       */
+      builtin?: boolean;
+    };
     /** SectionNode */
     SectionNode: {
       /**
@@ -4775,6 +4860,14 @@ export interface components {
       kind: "section";
       title: components["schemas"]["LocalizedText"];
       description?: components["schemas"]["LocalizedText"] | null;
+      /** Appearance */
+      appearance?: ("card" | "plain") | null;
+      /** Collapsible */
+      collapsible?: boolean | null;
+      /** Collapsed */
+      collapsed?: boolean | null;
+      /** Show Count */
+      show_count?: boolean | null;
       /** Children */
       children: (
         | components["schemas"]["StackNode"]
@@ -5192,8 +5285,11 @@ export interface components {
       id: string;
       /** Username */
       username: string;
-      /** @default operator */
-      role?: components["schemas"]["Role"];
+      /**
+       * Role
+       * @default operator
+       */
+      role?: string;
       /** @default user */
       type?: components["schemas"]["UserType"];
       /**
@@ -5235,8 +5331,11 @@ export interface components {
       username: string;
       /** Password */
       password: string;
-      /** @default operator */
-      role?: components["schemas"]["Role"];
+      /**
+       * Role
+       * @default operator
+       */
+      role?: string;
       /** @default user */
       type?: components["schemas"]["UserType"];
       /**
@@ -5266,7 +5365,8 @@ export interface components {
       username?: string | null;
       /** Password */
       password?: string | null;
-      role?: components["schemas"]["Role"] | null;
+      /** Role */
+      role?: string | null;
       /** Name */
       name?: string | null;
       /** Email */
@@ -5822,6 +5922,57 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_roles_users_roles__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Role"][];
+        };
+      };
+    };
+  };
+  get_role_users_roles__role_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        role_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Role"];
+        };
       };
       /** @description Validation Error */
       422: {

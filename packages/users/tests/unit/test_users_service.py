@@ -10,7 +10,7 @@ from models.errors import (
     UnauthorizedError,
 )
 from users import UsersService
-from users.models import Role, UserInDB, UserUpdate
+from users.models import UserCreate, UserInDB, UserUpdate
 from users.password import hash_password, verify_password
 from users.storage import MemoryUsersStorage
 
@@ -20,7 +20,7 @@ pytestmark = pytest.mark.asyncio
 def _make_user(
     user_id: str = "u1",
     username: str = "alice",
-    role: Role = Role.OPERATOR,
+    role: str = "operator",
     *,
     is_blocked: bool = False,
 ) -> UserInDB:
@@ -209,7 +209,7 @@ class TestEnsureDefaultAdmin:
 
         admin = await storage.get_by_username("admin")
         assert admin is not None
-        assert admin.role == Role.ADMIN
+        assert admin.role == "admin"
         assert admin.must_change_password is False
         assert verify_password("configured-password", admin.hashed_password)
 
@@ -287,3 +287,36 @@ class TestConcurrentWrites:
         result = await service.update_user("u1", UserUpdate(username="alice"))
 
         assert result.username == "alice"
+
+
+class TestRoles:
+    async def test_list_roles_serves_the_builtins(self, service: UsersService):
+        roles = await service.list_roles()
+        assert [role.id for role in roles] == ["admin", "operator", "viewer"]
+        assert all(role.builtin for role in roles)
+
+    async def test_get_role_unknown_raises(self, service: UsersService):
+        with pytest.raises(NotFoundError):
+            await service.get_role("ghost")
+
+    async def test_create_user_rejects_an_unknown_role(self, service: UsersService):
+        with pytest.raises(InvalidError, match="ghost"):
+            await service.create_user(
+                UserCreate(username="dina", password="password12345", role="ghost")
+            )
+
+    async def test_create_user_accepts_a_builtin_role(self, service: UsersService):
+        user = await service.create_user(
+            UserCreate(username="dina", password="password12345", role="viewer")
+        )
+        assert user.role == "viewer"
+
+    async def test_update_user_rejects_an_unknown_role(
+        self, service: UsersService, storage: MemoryUsersStorage
+    ):
+        await storage.save(_make_user())
+        with pytest.raises(InvalidError, match="ghost"):
+            await service.update_user("u1", UserUpdate(role="ghost"))
+        stored = await storage.get_by_id("u1")
+        assert stored is not None
+        assert stored.role == "operator"

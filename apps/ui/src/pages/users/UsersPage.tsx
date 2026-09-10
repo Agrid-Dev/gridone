@@ -62,13 +62,23 @@ import {
   Th,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { getUserInitials, getUserRole, ROLES } from "./userPresentation";
+import {
+  getRoleDescription,
+  getRoleLabel,
+  getUserInitials,
+  getUserRole,
+} from "./userPresentation";
 import { useUsersPage } from "./useUsersPage";
 
-const ROLE_PRESENTATION: Record<
-  Role,
-  { icon: LucideIcon; badgeClassName: string }
-> = {
+type RolePresentation = { icon: LucideIcon; badgeClassName: string };
+
+const DEFAULT_ROLE_PRESENTATION: RolePresentation = {
+  icon: CircleUserRound,
+  badgeClassName: "bg-muted text-muted-foreground",
+};
+
+/** Built-in roles have an icon of their own; any other role gets the default. */
+const ROLE_PRESENTATION: Record<string, RolePresentation> = {
   admin: {
     icon: ShieldCheck,
     badgeClassName: "bg-status-info/10 text-status-info",
@@ -83,9 +93,10 @@ const ROLE_PRESENTATION: Record<
   },
 };
 
-function RoleBadge({ role }: { role: Role }) {
+function RoleBadge({ roleId, roles }: { roleId: string; roles: Role[] }) {
   const { t } = useTranslation("users");
-  const presentation = ROLE_PRESENTATION[role];
+  const role = roles.find((candidate) => candidate.id === roleId);
+  const presentation = ROLE_PRESENTATION[roleId] ?? DEFAULT_ROLE_PRESENTATION;
   const Icon = presentation.icon;
 
   return (
@@ -96,7 +107,7 @@ function RoleBadge({ role }: { role: Role }) {
       )}
     >
       <Icon className="h-3.5 w-3.5" />
-      {t(`roles.${role}`)}
+      {role ? getRoleLabel(t, role) : roleId}
     </span>
   );
 }
@@ -165,6 +176,7 @@ export default function UsersPage() {
     query,
     roleCounts,
     roleFilter,
+    roles,
     setPendingAction,
     setQuery,
     setRoleFilter,
@@ -207,18 +219,16 @@ export default function UsersPage() {
 
               <div className="max-w-full overflow-x-auto pb-1 lg:pb-0">
                 <TypeFilterChips
-                  options={ROLES.map((role) => ({
-                    key: role,
-                    label: t(`roles.${role}`),
-                    count: roleCounts[role],
+                  options={roles.map((role) => ({
+                    key: role.id,
+                    label: getRoleLabel(t, role),
+                    count: roleCounts[role.id] ?? 0,
                   }))}
                   total={users.length}
                   allLabel={t("filters.all")}
                   ariaLabel={t("filters.label")}
                   selectedKey={roleFilter === "all" ? null : roleFilter}
-                  onSelect={(key) =>
-                    setRoleFilter((key as Role | null) ?? "all")
-                  }
+                  onSelect={(key) => setRoleFilter(key ?? "all")}
                 />
               </div>
             </div>
@@ -279,7 +289,7 @@ export default function UsersPage() {
                           </div>
                         </TableCell>
                         <TableCell className="py-2.5">
-                          <RoleBadge role={getUserRole(user)} />
+                          <RoleBadge roleId={getUserRole(user)} roles={roles} />
                         </TableCell>
                         <TableCell className="py-2.5 text-sm text-muted-foreground">
                           {user.title || <EmptyValue />}
@@ -389,12 +399,13 @@ export default function UsersPage() {
                 {t("roleSummary.title")}
               </h2>
               <div className="mt-5 divide-y">
-                {ROLES.map((role) => {
-                  const presentation = ROLE_PRESENTATION[role];
+                {roles.map((role) => {
+                  const presentation =
+                    ROLE_PRESENTATION[role.id] ?? DEFAULT_ROLE_PRESENTATION;
                   const Icon = presentation.icon;
                   return (
                     <div
-                      key={role}
+                      key={role.id}
                       className="flex gap-3 py-4 first:pt-0 last:pb-0"
                     >
                       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-status-info/10 text-status-info">
@@ -403,14 +414,14 @@ export default function UsersPage() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-baseline justify-between gap-3">
                           <p className="font-semibold text-foreground">
-                            {t(`roles.${role}`)}
+                            {getRoleLabel(t, role)}
                           </p>
                           <span className="text-sm font-medium text-muted-foreground">
-                            {roleCounts[role]}
+                            {roleCounts[role.id] ?? 0}
                           </span>
                         </div>
                         <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
-                          {t(`roleSummary.descriptions.${role}`)}
+                          {getRoleDescription(t, role)}
                         </p>
                       </div>
                     </div>
@@ -562,9 +573,9 @@ export default function UsersPage() {
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                     {...form.register("role")}
                   >
-                    {ROLES.map((role) => (
-                      <option key={role} value={role}>
-                        {t(`roles.${role}`)}
+                    {roles.map((role) => (
+                      <option key={role.id} value={role.id}>
+                        {getRoleLabel(t, role)}
                       </option>
                     ))}
                   </select>
