@@ -80,6 +80,28 @@ http {
         root /app/static;
         index index.html;
 
+        # Content Security Policy, REPORT-ONLY for now: violations show up in
+        # the browser console (no report collector yet) without breaking
+        # anything. Promote to `Content-Security-Policy` once a production
+        # build has been exercised end to end with no report.
+        #
+        #   script-src   Gridone's own bundles plus the hash of the inline
+        #                theme script in index.html (recompute it whenever
+        #                that script changes: sha256 of its exact body).
+        #   style-src    Tailwind bundle + Google Fonts stylesheet; inline
+        #                styles are set by React through the CSSOM, but some
+        #                dependencies still inject <style> elements.
+        #   img-src      self, data: and blob: for driver presentation assets
+        #                served through the authenticated API and kept as
+        #                Blob URLs; https: for legacy driver `image_src`
+        #                pictures hosted elsewhere.
+        #   connect-src  the API and its WebSocket on the same origin.
+        #   object-src   none: no plugin content, ever.
+        add_header Content-Security-Policy-Report-Only
+            "default-src 'self'; script-src 'self' 'sha256-JQrNawlrvhZViu5KscUcYPzzS31gTZp9A99/Rj/MXvk='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' ws: wss:; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; worker-src 'self' blob:"
+            always;
+        add_header X-Content-Type-Options nosniff always;
+
         location / {
             try_files $uri $uri/ /index.html;
         }

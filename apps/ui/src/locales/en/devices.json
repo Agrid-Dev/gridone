@@ -522,5 +522,26 @@
       "retry_other": "Retry {{count}} failures",
       "newImport": "Import another file"
     }
+  },
+  "presentation": {
+    "parameter": "Parameter",
+    "loading": "Loading device presentation…",
+    "allAttributes": "All attributes",
+    "sending": "Sending…",
+    "confirmed": "Applied",
+    "error": "Failed: {{message}}",
+    "unconfirmed": "Not confirmed by the device: {{message}}",
+    "unavailable": "Unavailable",
+    "increase": "Increase {{name}}",
+    "decrease": "Decrease {{name}}",
+    "range": "{{min}} – {{max}}",
+    "demanded": "Demanded",
+    "regulated": "Regulated",
+    "measured": "Measured",
+    "deviation": "Deviation",
+    "withinTolerance": "within tolerance",
+    "outOfTolerance": "out of tolerance",
+    "fallbackTitle": "Custom presentation unavailable",
+    "fallbackBody": "The standard view is shown instead."
   }
 }

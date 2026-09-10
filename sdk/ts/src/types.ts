@@ -8,6 +8,9 @@
  *
  * Names follow the OpenAPI component names, except:
  * - `DriverSpec-Output` / `DriverSpec-Input` → `Driver` / `DriverInput`
+ * - `AttributeDriver-Output` / `-Input` → `AttributeDriver` / `AttributeDriverInput`
+ *   (same for `FaultAttributeDriver`; both variants are identical today, the
+ *   split is a pydantic artefact of the nested `write_constraints` model)
  * - `TimeSeriesResponse` / `DataPointResponse` → `TimeSeries` / `DataPoint`
  * - `DiscoveryHandlerDTO` / `DiscoveryHandlerCreateDTO` →
  *   `DiscoveryHandler` / `DiscoveryHandlerCreate`
@@ -112,13 +115,20 @@ export type Attribute = Schemas["Attribute"];
 export type AttributeValueType = Schemas["UnitCommand"]["value"];
 export type FaultAttribute = Schemas["FaultAttribute"];
 export type AttributeKind = Schemas["AttributeKind"];
-export type AttributeDriver = Schemas["AttributeDriver"];
-export type FaultAttributeDriver = Schemas["FaultAttributeDriver"];
+export type AttributeDriver = Schemas["AttributeDriver-Output"];
+export type AttributeDriverInput = Schemas["AttributeDriver-Input"];
+export type FaultAttributeDriver = Schemas["FaultAttributeDriver-Output"];
+export type FaultAttributeDriverInput = Schemas["FaultAttributeDriver-Input"];
 export type AttributePatch = Schemas["AttributePatch"];
 export type AttributeRename = Schemas["AttributeRename"];
 export type AttributeWritePayload = Schemas["AttributeWritePayload"];
 export type AttributeEventLog = Schemas["AttributeEventLog"];
 export type AttributeLogs = Schemas["AttributeLogs"];
+// Optional presentation metadata and write constraints a driver attribute
+// may declare (`label`, `description`, `group`, `unit`, `write_constraints`).
+export type LocalizedText = Schemas["LocalizedText"];
+export type AttributeRef = Schemas["AttributeRef"];
+export type WriteConstraints = Schemas["WriteConstraints"];
 export type EventType = Schemas["EventType"];
 export type DataType = Schemas["DataType"];
 export type StandardAttributeSchema = Schemas["StandardAttributeSchema"];
@@ -134,6 +144,12 @@ export type Driver = Schemas["DriverSpec-Output"];
 export type DriverInput = Schemas["DriverSpec-Input"];
 export type DriverYaml = Schemas["DriverYaml"];
 export type DriverPatch = Schemas["DriverPatch"];
+/**
+ * A driver-defined presentation as stored: `schema_version` and `requires`
+ * are the only fields the server peeks at, the rest is the opaque document
+ * (ADR docs/specs/driver-defined-device-ui.md §10).
+ */
+export type PresentationEnvelope = Schemas["PresentationEnvelope"];
 export type CodecSpec = Schemas["CodecSpec"];
 export type UpdateStrategy = Schemas["UpdateStrategy"];
 
@@ -271,3 +287,11 @@ export type WidgetUpdateBody = Schemas["WidgetUpdateBody"];
 // Validation errors (422 payloads)
 export type HTTPValidationError = Schemas["HTTPValidationError"];
 export type ValidationError = Schemas["ValidationError"];
+export type PackageDiagnostic = Schemas["PackageDiagnostic"];
+export type PackageImportErrorResponse = Schemas["PackageImportErrorResponse"];
+
+export type PresentationResponse =
+  | Schemas["AvailablePresentationResponse"]
+  | Schemas["UnavailablePresentationResponse"];
+export type PresentationSchema = Schemas["PresentationSchema"];
+export type PresentationReference = Schemas["PresentationReference"];

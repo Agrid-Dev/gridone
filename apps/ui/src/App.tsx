@@ -24,6 +24,9 @@ import { useBuildingProfile } from "./hooks/useBuildingProfile";
 import { useFeatureEnabled } from "./utils/featureFlags";
 
 const SynopticsSandbox = lazy(() => import("./pages/sandbox/SynopticsSandbox"));
+const DevicePresentationSandbox = lazy(
+  () => import("./pages/sandbox/DevicePresentationSandbox"),
+);
 
 function ProtectedLayout() {
   const { data: profile } = useBuildingProfile();
@@ -63,6 +66,16 @@ function ProtectedLayout() {
                   element={
                     <Suspense>
                       <SynopticsSandbox />
+                    </Suspense>
+                  }
+                />
+              )}
+              {sandboxEnabled && (
+                <Route
+                  path="/sandbox/device-presentation"
+                  element={
+                    <Suspense>
+                      <DevicePresentationSandbox />
                     </Suspense>
                   }
                 />

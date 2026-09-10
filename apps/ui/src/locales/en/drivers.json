@@ -13,7 +13,8 @@
     "deviceConfigDescription": "Liste des champs de configuration requis pour chaque appareil utilisant ce driver.",
     "updateStrategy": "Update strategy",
     "deviceConfig": "Device configuration",
-    "none": "None"
+    "none": "None",
+    "general": "General information"
   },
   "filters": {
     "label": "Filter by type"
@@ -38,5 +39,39 @@
   "feedback": {
     "created": "Driver {{driverId}} created",
     "deleted": "Driver deleted"
+  },
+  "package": {
+    "source": "Import source",
+    "yaml": "Paste YAML",
+    "file": "YAML or ZIP file",
+    "yamlPlaceholder": "Paste the complete driver YAML, including its id.",
+    "driverId": "Driver ID",
+    "driverIdHint": "Use the id declared in driver.yaml inside the package.",
+    "fileHint": "YAML for a driver without image files; ZIP containing driver.yaml and its assets for a complete package.",
+    "fileRequired": "Choose a YAML or ZIP file.",
+    "idRequired": "Enter the driver ID.",
+    "yamlRequired": "Paste the driver YAML.",
+    "yamlIdRequired": "The YAML must contain a top-level id.",
+    "cancel": "Cancel",
+    "install": "Install driver",
+    "installing": "Validating and installing…",
+    "replace": "Replace package",
+    "replaceTitle": "Replace package: {{driverId}}",
+    "replaceHint": "The complete driver and presentation will be replaced after validation. Export the current package to keep a backup.",
+    "diagnostics": "Validation diagnostics",
+    "line": "Line {{line}}",
+    "column": "Column {{column}}",
+    "installed": "Driver {{driverId}} installed",
+    "export": "Export complete ZIP",
+    "exportFailed": "Unable to export the driver package.",
+    "presentation": "Device presentation",
+    "loading": "Loading presentation status…",
+    "statusFailed": "Unable to load the current presentation status.",
+    "reload": "Reload current revision",
+    "none": "No presentation declared. Devices use their standard controls.",
+    "available": "Presentation compatible and available.",
+    "unavailable": "Presentation unavailable. Devices use their standard controls; see the diagnostics below.",
+    "revision": "Revision",
+    "conflict": "This driver changed since you loaded it. Reload the current revision, review your package, then submit again."
   }
 }

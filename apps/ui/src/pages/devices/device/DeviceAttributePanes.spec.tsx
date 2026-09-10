@@ -78,11 +78,11 @@ function makeDevice(attributes: Record<string, DeviceAttribute>): Device {
   };
 }
 
-const renderPanes = (device: Device): RenderResult =>
+const renderPanes = (device: Device, group?: string): RenderResult =>
   render(
     <MemoryRouter>
       <TooltipProvider>
-        <DeviceAttributePanes device={device} />
+        <DeviceAttributePanes device={device} group={group} />
       </TooltipProvider>
     </MemoryRouter>,
   );
@@ -100,6 +100,19 @@ afterEach(() => {
 });
 
 describe("DeviceAttributePanes", () => {
+  it("restricts an authored attributes slot to its declared group", () => {
+    renderPanes(
+      makeDevice({
+        temperature: attr({ name: "temperature", group: "sensors" }),
+        setpoint: attr({ name: "setpoint", group: "control" }),
+        other: attr({ name: "other" }),
+      }),
+      "sensors",
+    );
+    expect(screen.getByText("Outdoor temperature")).toBeInTheDocument();
+    expect(screen.queryByText("Setpoint")).not.toBeInTheDocument();
+    expect(screen.queryByText("Other")).not.toBeInTheDocument();
+  });
   it("renders only non-empty panes, ordered Attributes · Faults · Internal", () => {
     renderPanes(
       makeDevice({

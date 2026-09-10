@@ -1065,6 +1065,24 @@ class TestDispatchSingleCommand:
             )
         assert response.status_code == 422
 
+    @pytest.mark.asyncio
+    async def test_write_constraint_violation_returns_422(
+        self, async_client: AsyncClient, mock_commands_service: AsyncMock
+    ):
+        # The device refuses a write violating the driver's write_constraints
+        # with InvalidError; the commands service re-raises it after recording
+        # the command as ERROR, and the global handler maps it to 422.
+        mock_commands_service.dispatch_unit.side_effect = InvalidError(
+            "Value 35.0 for 'temperature_setpoint' is above the maximum 30.0"
+        )
+        async with async_client as ac:
+            response = await ac.post(
+                "/device1/commands",
+                json={"attribute": "temperature_setpoint", "value": 35.0},
+            )
+        assert response.status_code == 422
+        assert "above the maximum" in response.json()["detail"]
+
 
 # ---------------------------------------------------------------------------
 # Batch command — POST /devices/commands

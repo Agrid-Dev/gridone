@@ -1,0 +1,1633 @@
+# Presentation of the Agrid thermostat, the same document as the UI fixture
+# apps/ui/src/components/device-ui/fixtures/agridThermostat/presentation.ts
+# (face.ts transcribed layer for layer), plus the glyph sets of mainFont.json
+# and montserrat16.json and the `mode` control the face's mode button targets
+# (annex B §3.1: the control binds the standard `mode` attribute while the face
+# shows the resolved real mode). Glyphs of the firmware font are private-use
+# code points, written as \uXXXX escapes.
+schema_version: 1
+requires:
+- layout/1
+- controls/1
+- measurements/1
+- setpoint-table/1
+- device-face/1
+- glyph-text/1
+- conditions/1
+assets:
+  bezel:
+    path: assets/bezel.png
+  main_font:
+    path: assets/main-font-atlas.png
+  montserrat:
+    path: assets/montserrat-16-atlas.png
+glyph_sets:
+  main:
+    asset: main_font
+    line_height: 147
+    base_line: 0
+    cells:
+      '0':
+        x: 1
+        y: 1
+        width: 56
+        height: 87
+        advance: 56
+        offset_x: 0
+        offset_y: 30
+      '1':
+        x: 58
+        y: 1
+        width: 32
+        height: 86
+        advance: 32
+        offset_x: -4
+        offset_y: 30
+      '2':
+        x: 91
+        y: 1
+        width: 58
+        height: 86
+        advance: 58
+        offset_x: -1
+        offset_y: 30
+      '3':
+        x: 150
+        y: 1
+        width: 57
+        height: 87
+        advance: 57
+        offset_x: 0
+        offset_y: 30
+      '4':
+        x: 208
+        y: 1
+        width: 60
+        height: 85
+        advance: 60
+        offset_x: 0
+        offset_y: 31
+      '5':
+        x: 269
+        y: 1
+        width: 57
+        height: 86
+        advance: 57
+        offset_x: 0
+        offset_y: 30
+      '6':
+        x: 327
+        y: 1
+        width: 58
+        height: 87
+        advance: 58
+        offset_x: 0
+        offset_y: 30
+      '7':
+        x: 386
+        y: 1
+        width: 57
+        height: 85
+        advance: 57
+        offset_x: 0
+        offset_y: 31
+      '8':
+        x: 1
+        y: 89
+        width: 58
+        height: 87
+        advance: 58
+        offset_x: 0
+        offset_y: 30
+      '9':
+        x: 60
+        y: 89
+        width: 57
+        height: 87
+        advance: 57
+        offset_x: 0
+        offset_y: 30
+      "\uE200":
+        x: 118
+        y: 89
+        width: 39
+        height: 31
+        advance: 39
+        offset_x: 0
+        offset_y: 58
+      "\uE201":
+        x: 158
+        y: 89
+        width: 36
+        height: 40
+        advance: 36
+        offset_x: 0
+        offset_y: 53
+      "\uE202":
+        x: 195
+        y: 89
+        width: 40
+        height: 30
+        advance: 40
+        offset_x: 0
+        offset_y: 63
+      "\uE203":
+        x: 236
+        y: 89
+        width: 40
+        height: 40
+        advance: 40
+        offset_x: 0
+        offset_y: 53
+      "\uE204":
+        x: 277
+        y: 89
+        width: 43
+        height: 42
+        advance: 43
+        offset_x: 0
+        offset_y: 53
+      "\uE205":
+        x: 321
+        y: 89
+        width: 43
+        height: 42
+        advance: 43
+        offset_x: 0
+        offset_y: 53
+      "\uE206":
+        x: 1
+        y: 177
+        width: 43
+        height: 42
+        advance: 43
+        offset_x: 0
+        offset_y: 53
+      "\uE207":
+        x: 45
+        y: 177
+        width: 43
+        height: 42
+        advance: 43
+        offset_x: 0
+        offset_y: 53
+      "\uE208":
+        x: 89
+        y: 177
+        width: 146
+        height: 57
+        advance: 146
+        offset_x: 1
+        offset_y: 50
+      "\uE209":
+        x: 236
+        y: 177
+        width: 38
+        height: 29
+        advance: 38
+        offset_x: -1
+        offset_y: 64
+      "\uE20B":
+        x: 275
+        y: 177
+        width: 22
+        height: 22
+        advance: 22
+        offset_x: 0
+        offset_y: 62
+      "\uE20C":
+        x: 298
+        y: 177
+        width: 40
+        height: 40
+        advance: 40
+        offset_x: 0
+        offset_y: 53
+      "\uE20D":
+        x: 339
+        y: 177
+        width: 23
+        height: 23
+        advance: 23
+        offset_x: 0
+        offset_y: 62
+      "\uE20E":
+        x: 363
+        y: 177
+        width: 19
+        height: 25
+        advance: 19
+        offset_x: 0
+        offset_y: 61
+      "\uE20F":
+        x: 1
+        y: 235
+        width: 18
+        height: 25
+        advance: 18
+        offset_x: 2
+        offset_y: 61
+      "\uE210":
+        x: 20
+        y: 235
+        width: 34
+        height: 38
+        advance: 34
+        offset_x: -1
+        offset_y: 54
+      "\uE211":
+        x: 55
+        y: 235
+        width: 27
+        height: 38
+        advance: 27
+        offset_x: -5
+        offset_y: 54
+      "\uE212":
+        x: 83
+        y: 235
+        width: 34
+        height: 38
+        advance: 34
+        offset_x: -1
+        offset_y: 54
+      "\uE213":
+        x: 118
+        y: 235
+        width: 35
+        height: 38
+        advance: 35
+        offset_x: -1
+        offset_y: 54
+      "\uE214":
+        x: 154
+        y: 235
+        width: 34
+        height: 38
+        advance: 34
+        offset_x: -1
+        offset_y: 54
+      "\uE215":
+        x: 189
+        y: 235
+        width: 35
+        height: 38
+        advance: 35
+        offset_x: -1
+        offset_y: 54
+      "\uE216":
+        x: 225
+        y: 235
+        width: 34
+        height: 38
+        advance: 34
+        offset_x: -1
+        offset_y: 54
+      "\uE217":
+        x: 1
+        y: 274
+        width: 35
+        height: 38
+        advance: 35
+        offset_x: -1
+        offset_y: 54
+      "\uE218":
+        x: 37
+        y: 274
+        width: 35
+        height: 38
+        advance: 35
+        offset_x: -1
+        offset_y: 54
+      "\uE219":
+        x: 73
+        y: 274
+        width: 35
+        height: 38
+        advance: 35
+        offset_x: -1
+        offset_y: 54
+      "\uE220":
+        x: 109
+        y: 274
+        width: 100
+        height: 100
+        advance: 100
+        offset_x: 0
+        offset_y: 23
+      "\uE221":
+        x: 210
+        y: 274
+        width: 40
+        height: 40
+        advance: 40
+        offset_x: 0
+        offset_y: 53
+  montserrat:
+    asset: montserrat
+    line_height: 18
+    base_line: 3
+    cells:
+      '0':
+        x: 1
+        y: 1
+        width: 10
+        height: 12
+        advance: 11
+        offset_x: 0
+        offset_y: 0
+      '1':
+        x: 12
+        y: 1
+        width: 5
+        height: 12
+        advance: 6
+        offset_x: 0
+        offset_y: 0
+      '2':
+        x: 18
+        y: 1
+        width: 9
+        height: 12
+        advance: 9
+        offset_x: 0
+        offset_y: 0
+      '3':
+        x: 28
+        y: 1
+        width: 9
+        height: 12
+        advance: 9
+        offset_x: 0
+        offset_y: 0
+      '4':
+        x: 38
+        y: 1
+        width: 11
+        height: 12
+        advance: 11
+        offset_x: 0
+        offset_y: 0
+      '5':
+        x: 50
+        y: 1
+        width: 9
+        height: 12
+        advance: 9
+        offset_x: 0
+        offset_y: 0
+      '6':
+        x: 60
+        y: 1
+        width: 10
+        height: 12
+        advance: 10
+        offset_x: 0
+        offset_y: 0
+      '7':
+        x: 71
+        y: 1
+        width: 9
+        height: 12
+        advance: 10
+        offset_x: 0
+        offset_y: 0
+      '8':
+        x: 1
+        y: 14
+        width: 10
+        height: 12
+        advance: 10
+        offset_x: 0
+        offset_y: 0
+      '9':
+        x: 12
+        y: 14
+        width: 10
+        height: 12
+        advance: 10
+        offset_x: 0
+        offset_y: 0
+      .:
+        x: 23
+        y: 14
+        width: 3
+        height: 3
+        advance: 4
+        offset_x: 0
+        offset_y: 0
+      '-':
+        x: 27
+        y: 14
+        width: 6
+        height: 3
+        advance: 6
+        offset_x: 0
+        offset_y: 3
+      °:
+        x: 34
+        y: 14
+        width: 6
+        height: 6
+        advance: 7
+        offset_x: 0
+        offset_y: 6
+      C:
+        x: 41
+        y: 14
+        width: 11
+        height: 12
+        advance: 12
+        offset_x: 0
+        offset_y: 0
+      F:
+        x: 53
+        y: 14
+        width: 9
+        height: 12
+        advance: 10
+        offset_x: 1
+        offset_y: 0
+      '%':
+        x: 63
+        y: 14
+        width: 13
+        height: 12
+        advance: 14
+        offset_x: 0
+        offset_y: 0
+    kerning:
+      '41': -1
+      '47': -1
+      4°: -1
+      4%: -1
+      '70': -1
+      '73': -1
+      '74': -1
+      '75': -1
+      '76': -1
+      '78': -1
+      '7.': -1
+      7-: -1
+      7C: -1
+      '8.': 1
+      '.0': -1
+      '.1': -1
+      '.6': -1
+      '.7': -1
+      .°: -1
+      .%: -1
+      °4: -1
+      °.: -1
+      C0: -1
+      C2: -1
+      C4: -1
+      C5: -1
+      C6: -1
+      C8: -1
+      C9: -1
+      CC: -1
+      F4: -1
+      F°: 1
+      '%1': -1
+      '%7': -1
+      '%°': -1
+      '%%': -2
+bindings:
+  power:
+    attribute: onoff_state
+  mode:
+    attribute: hvac_real_mode
+  fan:
+    attribute: fan_speed
+  target:
+    attribute: temperature_setpoint
+  regulated:
+    attribute: temperature_setpoint_effective
+  measured:
+    attribute: temperature
+  humidity:
+    attribute: humidity
+  green_leaf:
+    attribute: print_green_leaf
+  print_temperature:
+    attribute: print_indoor_temperature
+  print_humidity:
+    attribute: print_humidity
+  precision:
+    attribute: temperature_setpoint_precision
+  unit:
+    attribute: temperature_unit
+  state_block:
+    attribute: state_block
+  setpoint_block:
+    attribute: temperature_setpoint_block
+  mode_block:
+    attribute: hvac_mode_block
+  fan_block:
+    attribute: fan_speed_block
+  firmware:
+    attribute: app_version
+  last_reboot:
+    attribute: reboot_timestamp
+  mode_setting:
+    attribute: mode
+controls:
+  power:
+    kind: toggle
+    binding: power
+    label:
+      default: Power
+      translations:
+        fr: Marche / arrêt
+  target:
+    kind: number
+    binding: target
+    label:
+      default: Setpoint
+      translations:
+        fr: Consigne
+  fan:
+    kind: select
+    binding: fan
+    label:
+      default: Fan speed
+      translations:
+        fr: Ventilation
+  mode:
+    kind: select
+    binding: mode_setting
+    label:
+      default: Mode
+      translations:
+        fr: Mode
+page:
+  kind: columns
+  items:
+  - weight: 3
+    content:
+      kind: stack
+      children:
+      - kind: section
+        title:
+          default: Setpoints and measurements
+          translations:
+            fr: Consignes et mesures
+        description:
+          default: What Gridone demands, what the device regulates, what the room measures
+          translations:
+            fr: Ce que Gridone demande, ce que l'appareil régule, ce que la chambre mesure
+        children:
+        - kind: setpoint-table
+          rows:
+          - label:
+              default: Temperature
+              translations:
+                fr: Température
+            demanded:
+              control: target
+            regulated:
+              binding: regulated
+            measured:
+              binding: measured
+            deviation:
+              minuend: measured
+              subtrahend: target
+              tolerance: 0.5
+            formatter:
+              decimals: 1
+        - kind: control-panel
+          controls:
+          - power
+          - mode
+          - fan
+      - kind: section
+        title:
+          default: Reported by the room
+          translations:
+            fr: Ce qui remonte de la chambre
+        children:
+        - kind: measurements
+          items:
+          - binding: measured
+            formatter:
+              decimals: 1
+          - binding: humidity
+            formatter:
+              decimals: 0
+              unavailable:
+                default: sensor not connected
+                translations:
+                  fr: capteur non branché
+          - binding: firmware
+          - binding: last_reboot
+            formatter:
+              relative_time: true
+  - weight: 2
+    content:
+      kind: section
+      title:
+        default: Live
+        translations:
+          fr: En direct
+      children:
+      - kind: device-face
+        label:
+          default: Thermostat
+          translations:
+            fr: Thermostat
+        view_box:
+          width: 562
+          height: 402
+        layers:
+        - kind: image
+          asset: bezel
+          box:
+            x: 0
+            y: 0
+            width: 562
+            height: 402
+        - kind: rect
+          box:
+            x: 41
+            y: 41
+            width: 480
+            height: 320
+          fill: '#3a3a3a'
+          radius: 8
+          visible_when:
+            op: eq
+            binding: power
+            value: true
+        - kind: glyph-text
+          glyph_set: main
+          anchor:
+            box:
+              x: 194
+              y: 139
+              width: 185
+              height: 95
+            align: center
+            dx: -54
+            dy: 0
+          text:
+          - digit:
+              binding: target
+              place: tens
+          color:
+            rules:
+            - when:
+                op: eq
+                binding: mode
+                value: heat
+              color: '#8caee7'
+            - when:
+                op: eq
+                binding: mode
+                value: cool
+              color: '#d69263'
+            - when:
+                op: eq
+                binding: mode
+                value: auto
+              color: '#84f3f7'
+            default: '#ffffff'
+          visible_when:
+            op: all
+            conditions:
+            - op: eq
+              binding: power
+              value: true
+            - op: not
+              condition:
+                op: eq
+                binding: mode
+                value: fan
+        - kind: glyph-text
+          glyph_set: main
+          anchor:
+            box:
+              x: 194
+              y: 139
+              width: 185
+              height: 95
+            align: center
+            dx: 11
+            dy: 0
+          text:
+          - digit:
+              binding: target
+              place: units
+          color:
+            rules:
+            - when:
+                op: eq
+                binding: mode
+                value: heat
+              color: '#8caee7'
+            - when:
+                op: eq
+                binding: mode
+                value: cool
+              color: '#d69263'
+            - when:
+                op: eq
+                binding: mode
+                value: auto
+              color: '#84f3f7'
+            default: '#ffffff'
+          visible_when:
+            op: all
+            conditions:
+            - op: eq
+              binding: power
+              value: true
+            - op: not
+              condition:
+                op: eq
+                binding: mode
+                value: fan
+        - kind: glyph-text
+          glyph_set: main
+          anchor:
+            box:
+              x: 194
+              y: 139
+              width: 185
+              height: 95
+            align: center
+            dx: 72
+            dy: 25
+          text:
+          - digit:
+              binding: target
+              place: tenths
+              chars: "\uE210\uE211\uE212\uE213\uE214\uE215\uE216\uE217\uE218\uE219"
+          color:
+            rules:
+            - when:
+                op: eq
+                binding: mode
+                value: heat
+              color: '#8caee7'
+            - when:
+                op: eq
+                binding: mode
+                value: cool
+              color: '#d69263'
+            - when:
+                op: eq
+                binding: mode
+                value: auto
+              color: '#84f3f7'
+            default: '#ffffff'
+          visible_when:
+            op: all
+            conditions:
+            - op: all
+              conditions:
+              - op: eq
+                binding: power
+                value: true
+              - op: not
+                condition:
+                  op: eq
+                  binding: mode
+                  value: fan
+            - op: in
+              binding: precision
+              values:
+              - 0.1
+              - 0.2
+              - 0.5
+        - kind: glyph-text
+          glyph_set: main
+          anchor:
+            box:
+              x: 194
+              y: 139
+              width: 185
+              height: 95
+            align: center
+            dx: 70
+            dy: -25
+          text:
+          - select:
+              binding: unit
+              cases:
+                TEMPERATURE_UNIT_C: "\uE202"
+                TEMPERATURE_UNIT_C_ONLY: "\uE202"
+                TEMPERATURE_UNIT_F: "\uE209"
+                TEMPERATURE_UNIT_F_ONLY: "\uE209"
+              default: "\uE202"
+          color:
+            rules:
+            - when:
+                op: eq
+                binding: mode
+                value: heat
+              color: '#8caee7'
+            - when:
+                op: eq
+                binding: mode
+                value: cool
+              color: '#d69263'
+            - when:
+                op: eq
+                binding: mode
+                value: auto
+              color: '#84f3f7'
+            default: '#ffffff'
+          visible_when:
+            op: all
+            conditions:
+            - op: eq
+              binding: power
+              value: true
+            - op: not
+              condition:
+                op: eq
+                binding: mode
+                value: fan
+        - kind: glyph-text
+          glyph_set: main
+          anchor:
+            box:
+              x: 41
+              y: 41
+              width: 480
+              height: 320
+            align: center
+            dy: -20
+          text:
+          - literal: "\uE208"
+          color: '#ffefc0'
+          visible_when:
+            op: all
+            conditions:
+            - op: eq
+              binding: power
+              value: true
+            - op: eq
+              binding: mode
+              value: fan
+        - kind: rect
+          box:
+            x: 411
+            y: 185
+            width: 50
+            height: 3
+          fill: '#bebebe'
+          visible_when:
+            op: all
+            conditions:
+            - op: eq
+              binding: power
+              value: true
+            - op: not
+              condition:
+                op: eq
+                binding: mode
+                value: fan
+        - kind: rect
+          box:
+            x: 435
+            y: 161
+            width: 3
+            height: 50
+          fill: '#bebebe'
+          visible_when:
+            op: all
+            conditions:
+            - op: eq
+              binding: power
+              value: true
+            - op: not
+              condition:
+                op: eq
+                binding: mode
+                value: fan
+        - kind: rect
+          box:
+            x: 101
+            y: 185
+            width: 50
+            height: 3
+          fill: '#bebebe'
+          visible_when:
+            op: all
+            conditions:
+            - op: eq
+              binding: power
+              value: true
+            - op: not
+              condition:
+                op: eq
+                binding: mode
+                value: fan
+        - kind: glyph-text
+          id: icon_power
+          glyph_set: main
+          anchor:
+            box:
+              x: 41
+              y: 261
+              width: 120
+              height: 100
+            align: center
+          text:
+          - literal: "\uE221"
+          color: '#bebebe'
+          visible_when:
+            op: eq
+            binding: power
+            value: true
+        - kind: glyph-text
+          id: icon_fan
+          glyph_set: main
+          anchor:
+            box:
+              x: 221
+              y: 261
+              width: 120
+              height: 100
+            align: center
+          text:
+          - select:
+              binding: fan
+              cases:
+                low: "\uE204"
+                medium: "\uE205"
+                high: "\uE206"
+                auto: "\uE207"
+          color: '#bebebe'
+          visible_when:
+            op: eq
+            binding: power
+            value: true
+        - kind: glyph-text
+          id: icon_mode
+          glyph_set: main
+          anchor:
+            box:
+              x: 401
+              y: 261
+              width: 120
+              height: 100
+            align: center
+          text:
+          - select:
+              binding: mode
+              cases:
+                heat: "\uE20C"
+                cool: "\uE201"
+                auto: "\uE200"
+                fan: "\uE203"
+          color:
+            rules:
+            - when:
+                op: eq
+                binding: mode
+                value: heat
+              color: '#8caee7'
+            - when:
+                op: eq
+                binding: mode
+                value: cool
+              color: '#d69263'
+            - when:
+                op: eq
+                binding: mode
+                value: auto
+              color: '#84f3f7'
+            - when:
+                op: eq
+                binding: mode
+                value: fan
+              color: '#ffefc0'
+            default: '#bebebe'
+          visible_when:
+            op: eq
+            binding: power
+            value: true
+        - kind: glyph-text
+          glyph_set: main
+          anchor:
+            box:
+              x: 194
+              y: 61
+              width: 25
+              height: 25
+            align: center
+          text:
+          - literal: "\uE20F"
+          color: '#bebebe'
+          clip:
+            x: 194
+            y: 61
+            width: 25
+            height: 25
+          visible_when:
+            op: all
+            conditions:
+            - op: all
+              conditions:
+              - op: eq
+                binding: power
+                value: true
+              - op: eq
+                binding: print_temperature
+                value: true
+            - op: eq
+              binding: print_humidity
+              value: true
+        - kind: glyph-text
+          glyph_set: montserrat
+          anchor:
+            box:
+              x: 194
+              y: 61
+              width: 25
+              height: 25
+            align: out-right-mid
+            dx: 10
+          size:
+            width: 60
+          text:
+          - number:
+              binding: measured
+              decimals: 1
+          - select:
+              binding: unit
+              cases:
+                TEMPERATURE_UNIT_C: °C
+                TEMPERATURE_UNIT_C_ONLY: °C
+                TEMPERATURE_UNIT_F: °F
+                TEMPERATURE_UNIT_F_ONLY: °F
+              default: °C
+          color: '#bebebe'
+          visible_when:
+            op: all
+            conditions:
+            - op: all
+              conditions:
+              - op: eq
+                binding: power
+                value: true
+              - op: eq
+                binding: print_temperature
+                value: true
+            - op: eq
+              binding: print_humidity
+              value: true
+        - kind: glyph-text
+          glyph_set: main
+          anchor:
+            box:
+              x: 314
+              y: 61
+              width: 25
+              height: 25
+            align: center
+          text:
+          - literal: "\uE20D"
+          color: '#bebebe'
+          clip:
+            x: 314
+            y: 61
+            width: 25
+            height: 25
+          visible_when:
+            op: all
+            conditions:
+            - op: all
+              conditions:
+              - op: eq
+                binding: power
+                value: true
+              - op: eq
+                binding: print_humidity
+                value: true
+            - op: eq
+              binding: print_temperature
+              value: true
+        - kind: glyph-text
+          glyph_set: montserrat
+          anchor:
+            box:
+              x: 314
+              y: 61
+              width: 25
+              height: 25
+            align: out-right-mid
+            dx: 10
+          size:
+            width: 60
+          text:
+          - number:
+              binding: humidity
+              decimals: 0
+          - literal: '%'
+          color: '#bebebe'
+          visible_when:
+            op: all
+            conditions:
+            - op: all
+              conditions:
+              - op: eq
+                binding: power
+                value: true
+              - op: eq
+                binding: print_humidity
+                value: true
+            - op: eq
+              binding: print_temperature
+              value: true
+        - kind: glyph-text
+          glyph_set: main
+          anchor:
+            box:
+              x: 254
+              y: 61
+              width: 25
+              height: 25
+            align: center
+          text:
+          - literal: "\uE20F"
+          color: '#bebebe'
+          clip:
+            x: 254
+            y: 61
+            width: 25
+            height: 25
+          visible_when:
+            op: all
+            conditions:
+            - op: all
+              conditions:
+              - op: eq
+                binding: power
+                value: true
+              - op: eq
+                binding: print_temperature
+                value: true
+            - op: not
+              condition:
+                op: eq
+                binding: print_humidity
+                value: true
+        - kind: glyph-text
+          glyph_set: montserrat
+          anchor:
+            box:
+              x: 254
+              y: 61
+              width: 25
+              height: 25
+            align: out-right-mid
+            dx: 10
+          size:
+            width: 60
+          text:
+          - number:
+              binding: measured
+              decimals: 1
+          - select:
+              binding: unit
+              cases:
+                TEMPERATURE_UNIT_C: °C
+                TEMPERATURE_UNIT_C_ONLY: °C
+                TEMPERATURE_UNIT_F: °F
+                TEMPERATURE_UNIT_F_ONLY: °F
+              default: °C
+          color: '#bebebe'
+          visible_when:
+            op: all
+            conditions:
+            - op: all
+              conditions:
+              - op: eq
+                binding: power
+                value: true
+              - op: eq
+                binding: print_temperature
+                value: true
+            - op: not
+              condition:
+                op: eq
+                binding: print_humidity
+                value: true
+        - kind: glyph-text
+          glyph_set: main
+          anchor:
+            box:
+              x: 254
+              y: 61
+              width: 25
+              height: 25
+            align: center
+          text:
+          - literal: "\uE20D"
+          color: '#bebebe'
+          clip:
+            x: 254
+            y: 61
+            width: 25
+            height: 25
+          visible_when:
+            op: all
+            conditions:
+            - op: all
+              conditions:
+              - op: eq
+                binding: power
+                value: true
+              - op: eq
+                binding: print_humidity
+                value: true
+            - op: not
+              condition:
+                op: eq
+                binding: print_temperature
+                value: true
+        - kind: glyph-text
+          glyph_set: montserrat
+          anchor:
+            box:
+              x: 254
+              y: 61
+              width: 25
+              height: 25
+            align: out-right-mid
+            dx: 10
+          size:
+            width: 60
+          text:
+          - number:
+              binding: humidity
+              decimals: 0
+          - literal: '%'
+          color: '#bebebe'
+          visible_when:
+            op: all
+            conditions:
+            - op: all
+              conditions:
+              - op: eq
+                binding: power
+                value: true
+              - op: eq
+                binding: print_humidity
+                value: true
+            - op: not
+              condition:
+                op: eq
+                binding: print_temperature
+                value: true
+        - kind: glyph-text
+          glyph_set: main
+          anchor:
+            box:
+              x: 469
+              y: 61
+              width: 22
+              height: 22
+            align: center
+          text:
+          - literal: "\uE20B"
+          color: '#218a21'
+          clip:
+            x: 469
+            y: 61
+            width: 22
+            height: 22
+          visible_when:
+            op: all
+            conditions:
+            - op: eq
+              binding: power
+              value: true
+            - op: eq
+              binding: green_leaf
+              value: true
+          label:
+            default: Energy saving
+            translations:
+              fr: Économie d'énergie
+        - kind: button
+          box:
+            x: 41
+            y: 261
+            width: 120
+            height: 100
+          label:
+            default: Turn off
+            translations:
+              fr: Éteindre
+          action:
+            control: power
+            op: toggle
+          visible_when:
+            op: eq
+            binding: power
+            value: true
+          blocked_when:
+            op: eq
+            binding: state_block
+            value: true
+        - kind: button
+          box:
+            x: 221
+            y: 261
+            width: 120
+            height: 100
+          label:
+            default: Fan speed
+            translations:
+              fr: Ventilation
+          action:
+            control: fan
+            op: cycle
+          visible_when:
+            op: eq
+            binding: power
+            value: true
+          blocked_when:
+            op: eq
+            binding: fan_block
+            value: true
+        - kind: button
+          box:
+            x: 401
+            y: 261
+            width: 120
+            height: 100
+          label:
+            default: Mode
+            translations:
+              fr: Mode
+          action:
+            control: mode
+            op: cycle
+          visible_when:
+            op: eq
+            binding: power
+            value: true
+          blocked_when:
+            op: eq
+            binding: mode_block
+            value: true
+        - kind: button
+          box:
+            x: 376
+            y: 136
+            width: 120
+            height: 100
+          label:
+            default: Increase setpoint
+            translations:
+              fr: Augmenter la consigne
+          action:
+            control: target
+            op: increment
+          visible_when:
+            op: all
+            conditions:
+            - op: eq
+              binding: power
+              value: true
+            - op: not
+              condition:
+                op: eq
+                binding: mode
+                value: fan
+          blocked_when:
+            op: eq
+            binding: setpoint_block
+            value: true
+        - kind: button
+          box:
+            x: 66
+            y: 136
+            width: 120
+            height: 100
+          label:
+            default: Decrease setpoint
+            translations:
+              fr: Diminuer la consigne
+          action:
+            control: target
+            op: decrement
+          visible_when:
+            op: all
+            conditions:
+            - op: eq
+              binding: power
+              value: true
+            - op: not
+              condition:
+                op: eq
+                binding: mode
+                value: fan
+          blocked_when:
+            op: eq
+            binding: setpoint_block
+            value: true
+        - kind: glyph-text
+          glyph_set: main
+          anchor:
+            ref: icon_power
+            align: center
+            dx: 30
+            dy: -30
+          text:
+          - literal: "\uE20E"
+          color: '#ffffff'
+          visible_when:
+            op: all
+            conditions:
+            - op: eq
+              binding: power
+              value: true
+            - op: eq
+              binding: state_block
+              value: true
+          label:
+            default: Locked on the device
+            translations:
+              fr: Verrouillé sur l'appareil
+        - kind: glyph-text
+          glyph_set: main
+          anchor:
+            ref: icon_fan
+            align: center
+            dx: 35
+            dy: -30
+          text:
+          - literal: "\uE20E"
+          color: '#ffffff'
+          visible_when:
+            op: all
+            conditions:
+            - op: eq
+              binding: power
+              value: true
+            - op: eq
+              binding: fan_block
+              value: true
+          label:
+            default: Locked on the device
+            translations:
+              fr: Verrouillé sur l'appareil
+        - kind: glyph-text
+          glyph_set: main
+          anchor:
+            ref: icon_mode
+            align: center
+            dx: 30
+            dy: -30
+          text:
+          - literal: "\uE20E"
+          color: '#ffffff'
+          visible_when:
+            op: all
+            conditions:
+            - op: eq
+              binding: power
+              value: true
+            - op: eq
+              binding: mode_block
+              value: true
+          label:
+            default: Locked on the device
+            translations:
+              fr: Verrouillé sur l'appareil
+        - kind: glyph-text
+          glyph_set: main
+          anchor:
+            box:
+              x: 376
+              y: 136
+              width: 120
+              height: 100
+            align: center
+            dx: 20
+            dy: -40
+          text:
+          - literal: "\uE20E"
+          color: '#ffffff'
+          visible_when:
+            op: all
+            conditions:
+            - op: all
+              conditions:
+              - op: eq
+                binding: power
+                value: true
+              - op: not
+                condition:
+                  op: eq
+                  binding: mode
+                  value: fan
+            - op: eq
+              binding: setpoint_block
+              value: true
+          label:
+            default: Locked on the device
+            translations:
+              fr: Verrouillé sur l'appareil
+        - kind: glyph-text
+          glyph_set: main
+          anchor:
+            box:
+              x: 66
+              y: 136
+              width: 120
+              height: 100
+            align: center
+            dx: 20
+            dy: -40
+          text:
+          - literal: "\uE20E"
+          color: '#ffffff'
+          visible_when:
+            op: all
+            conditions:
+            - op: all
+              conditions:
+              - op: eq
+                binding: power
+                value: true
+              - op: not
+                condition:
+                  op: eq
+                  binding: mode
+                  value: fan
+            - op: eq
+              binding: setpoint_block
+              value: true
+          label:
+            default: Locked on the device
+            translations:
+              fr: Verrouillé sur l'appareil
+        - kind: glyph-text
+          id: icon_off
+          glyph_set: main
+          anchor:
+            box:
+              x: 206
+              y: 126
+              width: 150
+              height: 150
+            align: center
+          text:
+          - literal: "\uE220"
+          color: '#c0c0c0'
+          visible_when:
+            op: eq
+            binding: power
+            value: false
+        - kind: button
+          box:
+            x: 206
+            y: 126
+            width: 150
+            height: 150
+          label:
+            default: Turn on
+            translations:
+              fr: Allumer
+          action:
+            control: power
+            op: toggle
+          visible_when:
+            op: eq
+            binding: power
+            value: false
+          blocked_when:
+            op: eq
+            binding: state_block
+            value: true
+        - kind: glyph-text
+          glyph_set: main
+          anchor:
+            ref: icon_off
+            align: center
+            dx: 60
+            dy: -60
+          text:
+          - literal: "\uE20E"
+          color: '#ffffff'
+          visible_when:
+            op: all
+            conditions:
+            - op: eq
+              binding: power
+              value: false
+            - op: eq
+              binding: state_block
+              value: true
+          label:
+            default: Locked on the device
+            translations:
+              fr: Verrouillé sur l'appareil

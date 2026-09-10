@@ -6,6 +6,7 @@ import asyncpg
 from pydantic import BaseModel
 
 from devices_manager.storage.storage_backend import StorageBackend
+from models.errors import ConflictError
 
 TABLE_NAME_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
@@ -60,6 +61,26 @@ class PostgresStorageBackend[M: BaseModel](StorageBackend[M]):
             "ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data"
         )
         await self._pool.execute(query, item_id, payload)
+
+    async def compare_and_swap(self, item_id: str, data: M, expected: M | None) -> None:
+        payload = json.dumps(data.model_dump(mode="json"))
+        if expected is None:
+            query = (
+                f"INSERT INTO {self._table_name} (id,data) "  # noqa: S608
+                "VALUES ($1,$2::jsonb) ON CONFLICT (id) DO NOTHING"
+            )
+            result = await self._pool.execute(query, item_id, payload)
+        else:
+            query = (
+                f"UPDATE {self._table_name} SET data=$2::jsonb "  # noqa: S608
+                "WHERE id=$1 AND data=$3::jsonb"
+            )
+            result = await self._pool.execute(
+                query, item_id, payload, json.dumps(expected.model_dump(mode="json"))
+            )
+        if self._affected_rows(result) != 1:
+            msg = "Entry changed during update"
+            raise ConflictError(msg)
 
     async def read_all(self) -> list[M]:
         query = f"SELECT data FROM {self._table_name} ORDER BY id"  # noqa: S608

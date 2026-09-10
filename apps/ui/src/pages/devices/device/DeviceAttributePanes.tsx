@@ -26,6 +26,8 @@ import {
   isFaultAttribute,
   type AttributeFields,
 } from "@/lib/faults";
+import { attributeUnit } from "@/lib/attributeUnits";
+import { localize } from "@/lib/localizedText";
 import { cn, compactTimeAgo } from "@/lib/utils";
 import { toLabel } from "@/lib/textFormat";
 import { useAttributeLabel } from "@/hooks/useAttributeLabel";
@@ -56,18 +58,46 @@ function attributesForKind(
 }
 
 /**
+ * Rows of a pane split by the `group` their driver declares: ungrouped
+ * rows first, then one sub-section per group in first-seen order. Faults
+ * keep their severity ordering and are never regrouped.
+ */
+function groupRows(
+  kind: AttributeKind,
+  rows: AttributeFields[],
+): { group: string | null; rows: AttributeFields[] }[] {
+  if (kind === "fault") return [{ group: null, rows }];
+  const groups = new Map<string | null, AttributeFields[]>([[null, []]]);
+  for (const row of rows) {
+    const group = row.group ?? null;
+    groups.set(group, [...(groups.get(group) ?? []), row]);
+  }
+  return Array.from(groups.entries())
+    .filter(([, groupRows]) => groupRows.length > 0)
+    .map(([group, groupRows]) => ({ group, rows: groupRows }));
+}
+
+/**
  * Read-only Overview body: device attributes grouped into up to three sections
  * (Standard · Faults · Internal), laid out in a multi-column list. Each row is a
  * compact name + value; type, access mode and timestamps live in an on-hover
  * details tooltip. Writes happen through the command form, not here. Empty
  * sections are not shown.
  */
-export function DeviceAttributePanes({ device }: { device: Device }) {
+export function DeviceAttributePanes({
+  device,
+  group,
+}: {
+  device: Device;
+  group?: string;
+}) {
   const { t } = useTranslation("devices");
 
   const panes = PANES.map((pane) => ({
     ...pane,
-    rows: attributesForKind(device, pane.kind),
+    rows: attributesForKind(device, pane.kind).filter(
+      (attribute) => group === undefined || attribute.group === group,
+    ),
   })).filter((pane) => pane.rows.length > 0);
 
   return (
@@ -77,16 +107,28 @@ export function DeviceAttributePanes({ device }: { device: Device }) {
           <CardHeader>
             <CardTitle>{t(pane.titleKey)}</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 gap-x-8 gap-y-0.5 lg:grid-cols-2">
-              {pane.rows.map((attribute) => (
-                <AttributeRow
-                  key={attribute.name}
-                  device={device}
-                  attribute={attribute}
-                />
-              ))}
-            </div>
+          <CardContent className="space-y-4">
+            {groupRows(pane.kind, pane.rows).map(({ group, rows }) => (
+              <section
+                key={group ?? ""}
+                data-attribute-group={group ?? undefined}
+              >
+                {group && (
+                  <h4 className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    {toLabel(group)}
+                  </h4>
+                )}
+                <div className="grid grid-cols-1 gap-x-8 gap-y-0.5 lg:grid-cols-2">
+                  {rows.map((attribute) => (
+                    <AttributeRow
+                      key={attribute.name}
+                      device={device}
+                      attribute={attribute}
+                    />
+                  ))}
+                </div>
+              </section>
+            ))}
           </CardContent>
         </Card>
       ))}
@@ -101,9 +143,12 @@ function AttributeRow({
   device: Device;
   attribute: AttributeFields;
 }) {
-  const { t } = useTranslation("devices");
+  const { t, i18n } = useTranslation("devices");
   const labelFor = useAttributeLabel();
-  const label = labelFor(attribute.name);
+  const label = labelFor(attribute.name, attribute);
+  const description = attribute.description
+    ? localize(attribute.description, i18n.language)
+    : null;
 
   const fault = isFaultAttribute(attribute) ? attribute : null;
   const isFaulty = fault?.is_faulty ?? false;
@@ -137,6 +182,9 @@ function AttributeRow({
             attributeName={attribute.name}
             deviceType={(device.type ?? undefined) as DeviceType | undefined}
             dataType={attribute.data_type}
+            unit={
+              attribute.unit ? attributeUnit(attribute.name, attribute) : null
+            }
             fault={
               fault
                 ? { severity: fault.severity, isFaulty: fault.is_faulty }
@@ -187,6 +235,11 @@ function AttributeRow({
           className="space-y-1"
         >
           <p className="font-medium text-foreground">{label}</p>
+          {description && (
+            <p className="max-w-64 text-xs text-muted-foreground">
+              {description}
+            </p>
+          )}
           <DetailRow
             label={t("deviceDetails.attributeDetails.type")}
             value={attribute.data_type}

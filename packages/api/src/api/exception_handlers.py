@@ -1,9 +1,12 @@
 import logging
+from typing import cast
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from api.schemas.driver_package import PackageImportErrorResponse
 from apps import AppUnreachableError, InvalidAppSchemaError
+from devices_manager.dto.driver_dto.package_errors import PackageImportError
 from models.errors import (
     BlockedUserError,
     ConfirmationError,
@@ -26,6 +29,8 @@ def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(InvalidError)
     async def invalid_handler(request: Request, exc: InvalidError) -> JSONResponse:
         return JSONResponse(status_code=422, content={"detail": str(exc)})
+
+    app.add_exception_handler(PackageImportError, package_import_handler)
 
     @app.exception_handler(SchemaValidationError)
     async def schema_validation_handler(
@@ -83,3 +88,11 @@ def register_exception_handlers(app: FastAPI) -> None:
             status_code=503,
             content={"detail": "App returned an invalid config schema"},
         )
+
+
+async def package_import_handler(request: Request, exc: Exception) -> JSONResponse:
+    error = cast("PackageImportError", exc)
+    return JSONResponse(
+        status_code=422,
+        content=PackageImportErrorResponse(detail=error.diagnostics).model_dump(),
+    )

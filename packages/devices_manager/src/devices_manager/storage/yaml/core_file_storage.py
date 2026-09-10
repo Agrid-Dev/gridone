@@ -11,6 +11,7 @@ from devices_manager.storage.transport_record import (
     TransportRecord,
 )
 
+from .presentation_resources import FilePresentationResources
 from .yaml_dm_storage import YamlFileStorage
 
 if TYPE_CHECKING:
@@ -31,6 +32,10 @@ class CoreFileStorage:
 
     def __init__(self, root_dir: str | Path) -> None:
         self._root_dir = Path(root_dir)
+        self._root_dir.mkdir(parents=True, exist_ok=True)
+        self.presentation_resources = FilePresentationResources(
+            self._root_dir / "presentations"
+        )
         self._device_storage = RecordDeviceStorage(
             YamlFileStorage[DeviceRecord](
                 self._root_dir / "devices", model_cls=DeviceRecord

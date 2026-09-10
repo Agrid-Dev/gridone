@@ -39,6 +39,7 @@ from devices_manager.dto.device_dto import (
     DeviceCreate,
     DeviceUpdate,
 )
+from devices_manager.dto.presentation_dto import PresentationResponse
 from models.errors import ConflictError, InvalidError, NotFoundError
 from timeseries.domain import (
     DataPoint,
@@ -56,6 +57,47 @@ router = APIRouter()
 router.include_router(command_router)
 router.include_router(devices_ts_router)
 router.include_router(faults_router, prefix="/faults")
+
+
+@router.get(
+    "/{device_id}/presentation",
+    response_model_exclude_none=True,
+    dependencies=[Depends(require_permission(Permission.DEVICES_READ))],
+)
+async def get_device_presentation(
+    device_id: str,
+    dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
+    revision: str | None = Query(None),
+) -> PresentationResponse:
+    return await dm.get_device_presentation(device_id, revision=revision)
+
+
+@router.get(
+    "/{device_id}/presentation/assets/{asset_id}",
+    dependencies=[Depends(require_permission(Permission.DEVICES_READ))],
+    response_class=Response,
+    responses={
+        200: {
+            "content": {"image/png": {"schema": {"type": "string", "format": "binary"}}}
+        }
+    },
+)
+async def get_device_presentation_asset(
+    device_id: str,
+    asset_id: str,
+    revision: Annotated[str, Query(min_length=1)],
+    dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
+) -> Response:
+    resource = await dm.get_device_presentation_asset(device_id, revision, asset_id)
+    return Response(
+        content=resource.data,
+        media_type=resource.media_type,
+        headers={
+            "X-Content-Type-Options": "nosniff",
+            "Cache-Control": "private, max-age=31536000, immutable",
+            "ETag": f'"{resource.sha256}"',
+        },
+    )
 
 
 def get_devices_query(

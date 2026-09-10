@@ -10,6 +10,8 @@ from devices_manager.storage.storage_backend import (
 
 from .device_storage import PostgresDeviceStorage
 from .driver_storage import PostgresDriverStorage
+from .presentation_resources import PostgresPresentationResources
+from .session import PostgresSession
 from .transport_storage import PostgresTransportStorage
 
 if TYPE_CHECKING:
@@ -27,9 +29,11 @@ class PostgresDevicesManagerStorage(DevicesManagerStorage):
 
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
+        session = PostgresSession(pool)
+        self.presentation_resources = PostgresPresentationResources(session)
         self._device_storage = PostgresDeviceStorage(pool)
         self.devices = self._device_storage
-        self.drivers = PostgresDriverStorage(pool)
+        self.drivers = PostgresDriverStorage(session)
         self.transports = PostgresTransportStorage(pool)
 
     async def save_attribute(self, device_id: str, attribute: Attribute) -> None:

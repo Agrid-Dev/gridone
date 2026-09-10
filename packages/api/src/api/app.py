@@ -17,7 +17,7 @@ from api.exception_handlers import register_exception_handlers
 from api.listeners.device import on_device_discovered
 from api.listeners.fault import on_fault_transition
 from api.listeners.timeseries import historise_attribute_update, record_attribute_point
-from api.listeners.websocket import broadcast_attribute_update
+from api.listeners.websocket import broadcast_attribute_update, broadcast_device_update
 from api.routes import (
     assets_router,
     automations_router,
@@ -26,6 +26,7 @@ from api.routes import (
     drivers_router,
     health_router,
     notifications_router,
+    presentations_router,
     transports_ingress_router,
     transports_router,
 )
@@ -190,6 +191,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
     dm.add_device_attribute_listener(on_fault_transition(notifications_svc, recipients))
     dm.add_device_attribute_listener(broadcast_attribute_update(websocket_manager))
+    dm.add_device_update_listener(broadcast_device_update(websocket_manager))
     dm.add_device_attribute_listener(historise_attribute_update(ts_service))
 
     # Start the devices service last so listeners are registered before
@@ -248,6 +250,12 @@ def create_app(*, logging_dict_config: dict | None = None) -> FastAPI:
     )
     app.include_router(
         drivers_router, prefix="/drivers", tags=["drivers"], dependencies=jwt_dep
+    )
+    app.include_router(
+        presentations_router,
+        prefix="/presentations",
+        tags=["presentations"],
+        dependencies=jwt_dep,
     )
     app.include_router(
         assets_router,

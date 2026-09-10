@@ -2,7 +2,13 @@ from unittest.mock import patch
 
 import pytest
 
-from devices_manager.core.driver import Driver
+from devices_manager.core.driver import (
+    AttributeRef,
+    Driver,
+    WriteConstraints,
+    attributes_referencing,
+    validate_write_constraints,
+)
 from devices_manager.core.driver.attribute_driver import AttributeDriver
 from devices_manager.core.driver.driver_metadata import DriverMetadata
 from devices_manager.core.driver.update_strategy import UpdateStrategy
@@ -238,3 +244,134 @@ class TestDriverPushOnlyValidation:
             attributes={},
         )
         assert driver.transport == TransportProtocols.WEBHOOK
+
+
+def _constrained(
+    name: str,
+    data_type: DataType,
+    *,
+    minimum: float | str | None = None,
+    maximum: float | str | None = None,
+    step: float | AttributeRef | None = None,
+) -> AttributeDriver:
+    """An attribute whose bounds are constants (numbers) or references (names)."""
+
+    def bound(value: float | str | None) -> float | AttributeRef | None:
+        return AttributeRef(attribute=value) if isinstance(value, str) else value
+
+    return AttributeDriver(
+        name=name,
+        data_type=data_type,
+        read=f"GET /{name}",
+        write=f"POST /{name}",
+        codecs=[],
+        write_constraints=WriteConstraints(
+            step=step, minimum=bound(minimum), maximum=bound(maximum)
+        ),
+    )
+
+
+class TestDriverWriteConstraintsValidation:
+    def test_references_to_numeric_siblings_are_accepted(self):
+        attrs = {
+            "setpoint": _constrained(
+                "setpoint", DataType.FLOAT, minimum="floor", maximum="ceiling", step=0.5
+            ),
+            "floor": _make_attribute("floor", DataType.INT),
+            "ceiling": _make_attribute("ceiling", DataType.FLOAT),
+        }
+        driver = _make_driver(attributes=attrs)
+        assert driver.attributes["setpoint"].write_constraints is not None
+
+    def test_constant_bounds_need_no_sibling(self):
+        driver = _make_driver(
+            attributes={"fan": _constrained("fan", DataType.INT, minimum=0, maximum=3)}
+        )
+        assert driver.attributes["fan"].write_constraints == WriteConstraints(
+            minimum=0, maximum=3
+        )
+
+    @pytest.mark.parametrize("data_type", [DataType.STRING, DataType.BOOL])
+    def test_constraints_on_non_numeric_attribute_are_rejected(self, data_type):
+        attrs = {"mode": _constrained("mode", data_type, minimum=0)}
+        with pytest.raises(
+            InvalidError,
+            match=f"Attribute 'mode' declares write_constraints but its data_type "
+            f"'{data_type.value}' is not numeric",
+        ):
+            _make_driver(attributes=attrs)
+
+    def test_reference_to_missing_attribute_is_rejected(self):
+        attrs = {
+            "setpoint": _constrained("setpoint", DataType.FLOAT, maximum="ceiling")
+        }
+        with pytest.raises(
+            InvalidError,
+            match=r"Attribute 'setpoint' write_constraints\.maximum references unknown "
+            r"attribute 'ceiling'",
+        ):
+            _make_driver(attributes=attrs)
+
+    @pytest.mark.parametrize("data_type", [DataType.STRING, DataType.BOOL])
+    def test_reference_to_non_numeric_attribute_is_rejected(self, data_type):
+        attrs = {
+            "setpoint": _constrained("setpoint", DataType.FLOAT, minimum="floor"),
+            "floor": _make_attribute("floor", data_type),
+        }
+        with pytest.raises(
+            InvalidError,
+            match="Attribute 'setpoint' write_constraints.minimum references attribute "
+            f"'floor' whose data_type '{data_type.value}' is not numeric",
+        ):
+            _make_driver(attributes=attrs)
+
+    def test_self_reference_is_rejected(self):
+        attrs = {
+            "setpoint": _constrained("setpoint", DataType.FLOAT, minimum="setpoint")
+        }
+        with pytest.raises(
+            InvalidError,
+            match=r"Attribute 'setpoint' write_constraints\.minimum must not reference "
+            r"the attribute itself",
+        ):
+            _make_driver(attributes=attrs)
+
+    def test_step_reference_to_numeric_sibling_is_accepted(self):
+        attrs = {
+            "setpoint": _constrained(
+                "setpoint", DataType.FLOAT, step=AttributeRef(attribute="precision")
+            ),
+            "precision": _make_attribute("precision", DataType.FLOAT),
+        }
+        driver = _make_driver(attributes=attrs)
+        assert driver.attributes["setpoint"].write_constraints == WriteConstraints(
+            step=AttributeRef(attribute="precision")
+        )
+
+    def test_step_reference_to_non_numeric_attribute_is_rejected(self):
+        attrs = {
+            "setpoint": _constrained(
+                "setpoint", DataType.FLOAT, step=AttributeRef(attribute="precision")
+            ),
+            "precision": _make_attribute("precision", DataType.STRING),
+        }
+        with pytest.raises(
+            InvalidError,
+            match=r"Attribute 'setpoint' write_constraints\.step references attribute "
+            r"'precision' whose data_type 'str' is not numeric",
+        ):
+            _make_driver(attributes=attrs)
+
+    def test_validate_write_constraints_is_a_plain_function(self):
+        """Usable on a candidate attribute list, outside any Driver."""
+        with pytest.raises(InvalidError, match="unknown attribute 'nope'"):
+            validate_write_constraints(
+                [_constrained("setpoint", DataType.FLOAT, minimum="nope")]
+            )
+
+    def test_attributes_referencing_lists_the_dependants(self):
+        setpoint = _constrained("setpoint", DataType.FLOAT, minimum="floor")
+        fan = _constrained("fan", DataType.INT, minimum=0)
+        floor = _make_attribute("floor", DataType.FLOAT)
+        assert attributes_referencing([setpoint, fan, floor], "floor") == [setpoint]
+        assert attributes_referencing([setpoint, fan, floor], "setpoint") == []
