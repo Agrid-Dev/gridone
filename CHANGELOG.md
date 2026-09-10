@@ -1,3 +1,9 @@
+## v0.234.3 (2026-09-10)
+
+### Fix
+
+- **devices-manager**: recompute connection status once per turn for listeners
+
 ## v0.234.2 (2026-09-10)
 
 ### Fix
