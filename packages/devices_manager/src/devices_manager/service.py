@@ -298,7 +298,6 @@ class DevicesService(Service):
                     base,
                     driver=drivers[base.driver_id],
                     transport=transports[base.transport_id],
-                    on_update=self._on_attribute_update,
                 )
             except KeyError:
                 self._record_load_error(

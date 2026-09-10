@@ -445,19 +445,40 @@ class TestDevicesServiceListeners:
 _DISCOVERY_EVENT = {"id": "abc", "gateway_id": "gtw", "payload": {"temperature": 22}}
 
 
-@pytest_asyncio.fixture
-async def dm_with_discovery(driver_w_push_transport, mock_push_transport_client):
-    """DevicesService with discovery already registered on the push transport."""
-    driver_id = driver_w_push_transport.id
-    transport_id = mock_push_transport_client.id
+async def _make_dm_with_discovery(
+    driver, transport, *, running: bool
+) -> DevicesService:
+    """DevicesService with discovery registered on the push transport.
+
+    ``running`` starts the service, so discovered devices also start their
+    sync and subscribe to their attribute topics.
+    """
     dm = DevicesService(
         devices={},
-        drivers={driver_id: driver_w_push_transport},
-        transports={transport_id: mock_push_transport_client},
+        drivers={driver.id: driver},
+        transports={transport.id: transport},
     )
-    await dm.load()
-    await dm.discovery_manager.register(driver_id=driver_id, transport_id=transport_id)
+    await (dm.start() if running else dm.load())
+    await dm.discovery_manager.register(driver_id=driver.id, transport_id=transport.id)
     return dm
+
+
+@pytest_asyncio.fixture
+async def dm_with_discovery(driver_w_push_transport, mock_push_transport_client):
+    return await _make_dm_with_discovery(
+        driver_w_push_transport, mock_push_transport_client, running=False
+    )
+
+
+@pytest_asyncio.fixture
+async def running_dm_with_discovery(
+    driver_w_push_transport, mock_push_transport_client
+):
+    dm = await _make_dm_with_discovery(
+        driver_w_push_transport, mock_push_transport_client, running=True
+    )
+    yield dm
+    await dm.stop()
 
 
 class TestDevicesServiceDiscovery:
@@ -475,6 +496,27 @@ class TestDevicesServiceDiscovery:
         # add only once
         await mock_push_transport_client.simulate_event("/xx", _DISCOVERY_EVENT)
         assert len(dm_with_discovery.list_devices()) == 1
+
+    @pytest.mark.asyncio
+    async def test_discovered_device_dispatches_attribute_updates(
+        self, running_dm_with_discovery, mock_push_transport_client
+    ):
+        """A discovered device must fan out its updates like any other."""
+        calls: list[tuple[str, AttributeValueType]] = []
+
+        def handler(_device, attribute_name, _previous, attribute) -> None:
+            calls.append((attribute_name, attribute.current_value))
+
+        running_dm_with_discovery.add_device_attribute_listener(handler)
+        await mock_push_transport_client.simulate_event("/xx", _DISCOVERY_EVENT)
+        await asyncio.sleep(0.05)
+
+        await mock_push_transport_client.simulate_event(
+            "/xx/temperature", {"payload": {"temperature": 25}}
+        )
+        await asyncio.sleep(0.05)
+
+        assert ("temperature", 25) in calls
 
     @pytest.mark.asyncio
     async def test_devices_manager_does_not_add_existing_device_on_discovery(

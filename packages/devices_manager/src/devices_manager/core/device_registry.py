@@ -54,7 +54,7 @@ class DeviceRegistry:
         self._on_attribute_update = on_attribute_update
         self._storage = storage
         for device in self._devices.values():
-            device.on_update = self._on_attribute_update
+            self._attach_update_listener(device)
 
     @property
     def all(self) -> dict[str, CoreDevice]:
@@ -110,11 +110,20 @@ class DeviceRegistry:
         if self._storage is not None:
             await self._storage.write(device.id, device)
 
+    def _attach_update_listener(self, device: CoreDevice) -> None:
+        """Wire the device to the registry's attribute update listener.
+
+        Called on every path that puts a device into ``_devices``, so no
+        builder has to remember to pass it.
+        """
+        device.on_update = self._on_attribute_update
+
     async def register(self, device: CoreDevice) -> None:
         """Register device in memory and persist."""
         if device.id in self._devices:
             msg = f"Device with id {device.id} already exists"
             raise ValueError(msg)
+        self._attach_update_listener(device)
         self._devices[device.id] = device
         await self._persist(device)
         logger.info("Successfully registered device '%s'", device.id)
@@ -164,7 +173,6 @@ class DeviceRegistry:
             base,
             driver=driver,
             transport=transport,
-            on_update=self._on_attribute_update,
         )
 
     async def add(self, base: DeviceBase) -> CoreDevice:
@@ -217,7 +225,6 @@ class DeviceRegistry:
             driver=driver,
             transport=transport,
             restored_attributes=device.attributes,
-            on_update=self._on_attribute_update,
         )
         new_device.tags = device.tags
         return new_device
@@ -271,6 +278,7 @@ class DeviceRegistry:
         else:
             self._touch(device)
 
+        self._attach_update_listener(device)
         self._devices[device_id] = device
         await self._persist(device)
         return device

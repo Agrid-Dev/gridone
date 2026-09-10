@@ -300,6 +300,26 @@ class TestDeviceRegistryAddPhysical:
         assert device.on_update is on_attribute_update
 
     @pytest.mark.asyncio
+    async def test_register_sets_on_update_callback(
+        self,
+        empty_registry,
+        driver,
+        mock_transport_client,
+        on_attribute_update,
+    ):
+        """Devices built elsewhere (e.g. discovery) get the hook on register."""
+        device = CoreDevice.from_base(
+            DeviceBase(id="d9", name="Discovered", config={"some_id": "abc"}),
+            driver=driver,
+            transport=mock_transport_client,
+        )
+        assert device.on_update is None
+
+        await empty_registry.register(device)
+
+        assert device.on_update is on_attribute_update
+
+    @pytest.mark.asyncio
     async def test_add_physical_device_rejects_duplicate_config(
         self, device_registry, driver, mock_transport_client
     ):
@@ -705,6 +725,29 @@ class TestDeviceRegistryUpdate:
         )
         assert isinstance(result, CoreDevice)
         assert result.attributes["temperature"].current_value == 42.0
+
+    @pytest.mark.asyncio
+    async def test_update_driver_rebuild_keeps_on_update_callback(
+        self,
+        device,
+        driver,
+        mock_transport_client,
+        other_http_driver,
+        on_attribute_update,
+    ):
+        """A rebuilt device must stay wired to the update listener."""
+        registry = DeviceRegistry(
+            {device.id: device},
+            resolve_driver=_make_driver_resolver(driver, other_http_driver),
+            resolve_transport=_make_transport_resolver(mock_transport_client),
+            on_attribute_update=on_attribute_update,
+        )
+        result = await registry.update(
+            device.id,
+            driver_id=other_http_driver.id,
+        )
+        assert result is not device
+        assert result.on_update is on_attribute_update
 
     @pytest.mark.asyncio
     async def test_rebuild_replaces_device_in_registry(
