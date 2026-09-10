@@ -13,6 +13,17 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
+/** A 401 from the auth layer, which always advertises the scheme it wants. */
+function tokenRejection(detail: string): Response {
+  return new Response(JSON.stringify({ detail }), {
+    status: 401,
+    headers: {
+      "Content-Type": "application/json",
+      "WWW-Authenticate": "Bearer",
+    },
+  });
+}
+
 function tokenResponse(access: string, refresh: string): Response {
   return jsonResponse({
     access_token: access,
@@ -278,7 +289,7 @@ describe("token refresh", () => {
         const headers = (init?.headers ?? {}) as Record<string, string>;
         return headers["Authorization"] === "Bearer t2"
           ? jsonResponse({ ok: true })
-          : jsonResponse({ detail: "Token expired" }, 401);
+          : tokenRejection("Token expired");
       },
     );
     return { fetchMock, refreshCalls: () => refreshCalls };
@@ -324,8 +335,8 @@ describe("token refresh", () => {
   it("throws the original 401 and clears tokens when the refresh is rejected", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) =>
       String(input).endsWith("/auth/token")
-        ? jsonResponse({ detail: "Invalid or expired refresh token" }, 401)
-        : jsonResponse({ detail: "Token expired" }, 401),
+        ? tokenRejection("Invalid or expired refresh token")
+        : tokenRejection("Token expired"),
     );
     const { client, storage } = makeClient(fetchMock);
     storage.setTokens({ accessToken: "t1", refreshToken: "r1" });
@@ -337,9 +348,7 @@ describe("token refresh", () => {
   });
 
   it("does not attempt a refresh without a stored refresh token", async () => {
-    const fetchMock = vi.fn(async () =>
-      jsonResponse({ detail: "Not authenticated" }, 401),
-    );
+    const fetchMock = vi.fn(async () => tokenRejection("Not authenticated"));
     const { client } = makeClient(fetchMock);
 
     const error = await rejectionOf(client.request("GET", "/things"));
@@ -352,7 +361,7 @@ describe("token refresh", () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) =>
       String(input).endsWith("/auth/token")
         ? tokenResponse("t2", "r2")
-        : jsonResponse({ detail: "Token expired" }, 401),
+        : tokenRejection("Token expired"),
     );
     const { client, storage } = makeClient(fetchMock);
     storage.setTokens({ accessToken: "t1", refreshToken: "r1" });
@@ -361,6 +370,30 @@ describe("token refresh", () => {
 
     expect((error as GridoneError).status).toBe(401);
     expect(fetchMock).toHaveBeenCalledTimes(3); // original, refresh, retry — no loop
+  });
+
+  it("does not refresh on a 401 that is not about the token", async () => {
+    // POST /auth/password answers this on a wrong current password. Retrying
+    // would resubmit the same wrong password and rotate the session for it.
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({ detail: "Unauthorized" }, 401),
+    );
+    const { client, storage } = makeClient(fetchMock);
+    storage.setTokens({ accessToken: "t1", refreshToken: "r1" });
+
+    const error = await rejectionOf(
+      client.users.changePassword({
+        current_password: "wrong",
+        new_password: "new-password",
+      }),
+    );
+
+    expect((error as GridoneError).status).toBe(401);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(storage.getTokens()).toEqual({
+      accessToken: "t1",
+      refreshToken: "r1",
+    });
   });
 });
 
