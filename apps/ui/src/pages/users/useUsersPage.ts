@@ -1,24 +1,20 @@
 import { useMemo, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type {
-  Role,
-  User,
-  UserCreateRequest,
-  UserUpdateRequest,
-} from "@gridone/sdk";
+import type { User, UserCreateRequest, UserUpdateRequest } from "@gridone/sdk";
 import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { z } from "zod";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
-import { getUserRole, ROLES } from "./userPresentation";
+import { useRoles } from "@/hooks/useRoles";
+import { getUserRole } from "./userPresentation";
 
 const emptyForm = {
   username: "",
   password: "",
-  role: "operator" as const,
+  role: "operator",
   name: "",
   email: "",
   title: "",
@@ -27,13 +23,14 @@ const emptyForm = {
 export type UserFormData = {
   username: string;
   password: string;
-  role: Role;
+  role: string;
   name: string;
   email: string;
   title: string;
 };
 
-export type UserFilter = "all" | Role;
+/** A role id, or "all". */
+export type UserFilter = string;
 
 export type PendingAction = {
   kind: "block" | "delete";
@@ -53,6 +50,7 @@ export function useUsersPage() {
     queryKey: ["users"],
     queryFn: () => client.users.list() as Promise<User[]>,
   });
+  const { data: roles = [] } = useRoles();
 
   const [dialogMode, setDialogMode] = useState<"create" | "edit" | null>(null);
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -68,7 +66,7 @@ export function useUsersPage() {
         .object({
           username: z.string().trim().min(1, t("validation.usernameRequired")),
           password: z.string(),
-          role: z.enum(["admin", "operator", "viewer"]),
+          role: z.string().min(1),
           name: z.string(),
           email: z
             .string()
@@ -152,12 +150,12 @@ export function useUsersPage() {
   const roleCounts = useMemo(
     () =>
       Object.fromEntries(
-        ROLES.map((role) => [
-          role,
-          users.filter((user) => getUserRole(user) === role).length,
+        roles.map((role) => [
+          role.id,
+          users.filter((user) => getUserRole(user) === role.id).length,
         ]),
-      ) as Record<Role, number>,
-    [users],
+      ) as Record<string, number>,
+    [roles, users],
   );
 
   const filteredUsers = useMemo(() => {
@@ -246,6 +244,7 @@ export function useUsersPage() {
     query,
     roleCounts,
     roleFilter,
+    roles,
     setPendingAction,
     setQuery,
     setRoleFilter,

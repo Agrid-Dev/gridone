@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { User } from "@gridone/sdk";
+import type { Role, User } from "@gridone/sdk";
 import { createI18nMock } from "@/test/i18nMock";
 
 vi.mock("react-i18next", () =>
@@ -65,15 +65,23 @@ vi.mock("react-i18next", () =>
   }),
 );
 
-const { mockBlock, mockCreate, mockDelete, mockList, mockUnblock, mockUpdate } =
-  vi.hoisted(() => ({
-    mockBlock: vi.fn(),
-    mockCreate: vi.fn(),
-    mockDelete: vi.fn(),
-    mockList: vi.fn(),
-    mockUnblock: vi.fn(),
-    mockUpdate: vi.fn(),
-  }));
+const {
+  mockBlock,
+  mockCreate,
+  mockDelete,
+  mockList,
+  mockListRoles,
+  mockUnblock,
+  mockUpdate,
+} = vi.hoisted(() => ({
+  mockBlock: vi.fn(),
+  mockCreate: vi.fn(),
+  mockDelete: vi.fn(),
+  mockList: vi.fn(),
+  mockListRoles: vi.fn(),
+  mockUnblock: vi.fn(),
+  mockUpdate: vi.fn(),
+}));
 
 let canWrite = true;
 
@@ -92,6 +100,7 @@ vi.mock("@/contexts/GridoneClientContext", () => ({
   useGridoneClient: () => ({
     users: {
       list: mockList,
+      listRoles: mockListRoles,
       create: mockCreate,
       update: mockUpdate,
       delete: mockDelete,
@@ -134,6 +143,19 @@ const USERS: User[] = [
   },
 ];
 
+const ROLES: Role[] = [
+  { id: "admin", name: "Administrator", permissions: [], builtin: true },
+  { id: "operator", name: "Operator", permissions: [], builtin: true },
+  { id: "viewer", name: "Viewer", permissions: [], builtin: true },
+  {
+    id: "receptionist",
+    name: "Receptionist",
+    description: "Front desk",
+    permissions: [],
+    builtin: false,
+  },
+];
+
 function renderPage() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -148,6 +170,7 @@ function renderPage() {
 beforeEach(() => {
   canWrite = true;
   mockList.mockResolvedValue(USERS);
+  mockListRoles.mockResolvedValue(ROLES);
   mockCreate.mockResolvedValue(USERS[0]);
   mockUpdate.mockResolvedValue(USERS[0]);
   mockDelete.mockResolvedValue(undefined);
@@ -205,16 +228,21 @@ describe("UsersPage", () => {
     expect(screen.getByLabelText("Full name")).toHaveValue("Bob Bernard");
   });
 
-  it("submits the add-user form through the existing client", async () => {
+  it("offers the roles served by the API and submits the selected id", async () => {
     const user = userEvent.setup();
     renderPage();
     await screen.findByText("Alice Martin");
 
     await user.click(screen.getByRole("button", { name: "Add user" }));
+    const options = screen
+      .getAllByRole("option")
+      .map((option) => option.textContent);
+    expect(options).toEqual(["Admin", "Operator", "Viewer", "Receptionist"]);
+
     await user.type(screen.getByLabelText("Full name"), "Dina Diaz");
     await user.type(screen.getByLabelText("Username"), "dina");
     await user.type(screen.getByLabelText("Email"), "dina@example.com");
-    await user.selectOptions(screen.getByLabelText("Role"), "viewer");
+    await user.selectOptions(screen.getByLabelText("Role"), "receptionist");
     await user.type(screen.getByLabelText("Password"), "secret");
     await user.click(screen.getByRole("button", { name: "Create" }));
 
@@ -222,7 +250,7 @@ describe("UsersPage", () => {
     expect(mockCreate).toHaveBeenCalledWith({
       username: "dina",
       password: "secret",
-      role: "viewer",
+      role: "receptionist",
       name: "Dina Diaz",
       email: "dina@example.com",
       title: "",

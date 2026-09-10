@@ -13,11 +13,11 @@ from api.exception_handlers import register_exception_handlers
 from api.routes.users.auth_router import router as auth_router
 from api.routes.users.users_router import router as users_router
 from models.errors import BlockedUserError, NotFoundError
-from users import Role, User, UserUpdate
+from users import User, UserUpdate
 from users.auth import AuthService
 
-ADMIN = User(id="admin-id", username="admin", role=Role.ADMIN, name="Admin User")
-BOB = User(id="bob-id", username="bob", role=Role.OPERATOR, name="Bob User")
+ADMIN = User(id="admin-id", username="admin", role="admin", name="Admin User")
+BOB = User(id="bob-id", username="bob", role="operator", name="Bob User")
 
 
 async def _update_user(user_id: str, data: UserUpdate) -> User:
