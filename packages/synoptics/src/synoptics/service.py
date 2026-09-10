@@ -12,9 +12,9 @@ from models.targets import TargetResolver
 from synoptics.interface import SynopticsServiceInterface
 from synoptics.models import Synoptic, SynopticDocument, SynopticSummary
 from synoptics.storage import build_storage
-from synoptics.storage.protocol import SynopticsStorage
+from synoptics.storage.protocol import SynopticsStorage, stale_write_error
 from synoptics.symbols.registry import SymbolRegistry, build_default_registry
-from synoptics.validation import validate_bindings, validate_document
+from synoptics.validation import validate_for_save
 
 
 class SynopticsService(SynopticsServiceInterface, Service):
@@ -89,11 +89,14 @@ class SynopticsService(SynopticsServiceInterface, Service):
         can overlap; without a check the second save silently erases the first.
         Pass ``expected_updated_at`` (the ``updated_at`` the author read) to
         have the save refused with :class:`models.errors.ConflictError` if the
-        plate moved underneath them. The storage conditions its write on that
-        timestamp, so a change landing between the read here and the write is
-        caught by the same check.
+        plate moved underneath them. A stale read is refused before the
+        document is validated, so no binding is resolved for a save that
+        cannot land; the storage conditions its write on the same timestamp,
+        so a change landing between the read here and the write is caught too.
         """
         existing = await self.get(synoptic_id)
+        if expected_updated_at not in (None, existing.metadata.updated_at):
+            raise stale_write_error(synoptic_id)
         await self._validate(document)
         synoptic = _with_envelope(
             document, synoptic_id, existing.metadata.touch_updated_at()
@@ -107,8 +110,7 @@ class SynopticsService(SynopticsServiceInterface, Service):
         await self._storage.delete(synoptic_id)
 
     async def _validate(self, document: SynopticDocument) -> None:
-        validate_document(document, self._registry)
-        await validate_bindings(document, self._target_resolver)
+        await validate_for_save(document, self._registry, self._target_resolver)
 
     def symbol_schemas(self) -> dict[str, dict[str, Any]]:
         """A JSON Schema per registered symbol type."""

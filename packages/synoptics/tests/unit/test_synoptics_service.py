@@ -139,6 +139,31 @@ async def test_replace_refuses_a_stale_read(service, plate, document):
     assert (await service.get(created.id)).name == "First"
 
 
+async def test_a_stale_replace_is_refused_before_resolving_anything(document, resolver):
+    """No binding is resolved for a save that cannot land."""
+    calls = 0
+
+    async def counting_resolve(
+        target: AttributeTarget, *, writable: bool = False
+    ) -> ResolvedTarget:
+        nonlocal calls
+        calls += 1
+        return await type(resolver).resolve(resolver, target, writable=writable)
+
+    resolver.resolve = counting_resolve
+    svc = SynopticsService(storage_url=None, target_resolver=resolver)
+    await svc.start()
+    created = await svc.create(SynopticDocument.model_validate(document))
+    resolved_on_create = calls
+    with pytest.raises(ConflictError):
+        await svc.replace(
+            created.id,
+            SynopticDocument.model_validate(document),
+            expected_updated_at=created.metadata.updated_at.replace(year=2000),
+        )
+    assert calls == resolved_on_create
+
+
 async def test_replace_with_a_current_read_succeeds(service, plate, document):
     created = await service.create(plate)
     document["name"] = "Renamed"

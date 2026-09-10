@@ -3,7 +3,13 @@
 from datetime import datetime
 from typing import Protocol
 
+from models.errors import ConflictError
 from synoptics.models import Synoptic, SynopticSummary
+
+
+def stale_write_error(synoptic_id: str) -> ConflictError:
+    """The one message for a write refused because the plate moved."""
+    return ConflictError(f"Synoptic {synoptic_id!r} was modified since it was read")
 
 
 class SynopticsStorage(Protocol):
