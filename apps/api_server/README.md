@@ -4,6 +4,16 @@ A http server running the `gridone-api` package.
 
 ## Configuration
 
+### Admin account
+
+| Variable | Format | Default | Example |
+|---|---|---|---|
+| `GRIDONE_ADMIN_PASSWORD` | same rules as any user password | _(unset)_ | `change-me` |
+
+Read only on the first start against an empty database, to seed the `admin` account.
+Startup fails when no users exist and it is unset, rather than seeding a credential
+nobody knows. It has no effect once any user exists.
+
 ### Timezone
 
 | Variable | Format | Default | Example |

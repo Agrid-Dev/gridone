@@ -1,9 +1,10 @@
-"""Unit tests for UsersService blocking and password changes."""
+"""Unit tests for UsersService blocking, password changes and admin seeding."""
 
 import pytest
 
 from models.errors import (
     BlockedUserError,
+    ConfigurationError,
     InvalidError,
     NotFoundError,
     UnauthorizedError,
@@ -186,3 +187,37 @@ class TestChangePassword:
         result = await service.change_password("u1", "abc", "new-password")
 
         assert result.must_change_password is False
+
+
+class TestEnsureDefaultAdmin:
+    async def test_no_users_and_no_configured_password_raises(
+        self, service: UsersService, storage: MemoryUsersStorage
+    ):
+        """Fail fast rather than boot into a box nobody can log into."""
+        with pytest.raises(ConfigurationError):
+            await service.ensure_default_admin()
+
+        assert await storage.get_by_username("admin") is None
+
+    async def test_configured_password_is_seeded_without_the_flag(
+        self, storage: MemoryUsersStorage
+    ):
+        service = UsersService(storage_url=None, admin_password="configured-password")
+        service._storage = storage  # noqa: SLF001
+
+        await service.ensure_default_admin()
+
+        admin = await storage.get_by_username("admin")
+        assert admin is not None
+        assert admin.role == Role.ADMIN
+        assert admin.must_change_password is False
+        assert verify_password("configured-password", admin.hashed_password)
+
+    async def test_is_a_noop_when_a_user_already_exists(
+        self, service: UsersService, storage: MemoryUsersStorage
+    ):
+        await storage.save(_make_user())
+
+        await service.ensure_default_admin()
+
+        assert await storage.get_by_username("admin") is None

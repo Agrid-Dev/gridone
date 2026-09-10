@@ -1,5 +1,6 @@
 from models.errors import (
     BlockedUserError,
+    ConfigurationError,
     InvalidError,
     NotFoundError,
     UnauthorizedError,
@@ -13,8 +14,11 @@ from users.storage.storage_backend import UsersStorageBackend
 
 
 class UsersService(Service):
-    def __init__(self, storage_url: str | None) -> None:
+    def __init__(
+        self, storage_url: str | None, admin_password: str | None = None
+    ) -> None:
         self._storage_url = storage_url
+        self._admin_password = admin_password
         self._storage: UsersStorageBackend | None = None
 
     async def start(self) -> None:
@@ -45,16 +49,23 @@ class UsersService(Service):
         return user
 
     async def ensure_default_admin(self) -> None:
-        """Create the default admin/admin user if no users exist."""
+        """Seed the admin account from the configured password if no users exist.
+
+        Raises ``ConfigurationError`` rather than seeding a credential nobody
+        knows: a service that boots into an account no one can log into is
+        worse than one that refuses to start and says why.
+        """
         existing = await self._backend.list_all()
         if existing:
             return
+        if self._admin_password is None:
+            msg = "No admin password configured and no users exist"
+            raise ConfigurationError(msg)
         admin = UserInDB(
             id=gen_id(),
             username="admin",
-            hashed_password=hash_password("admin"),
+            hashed_password=hash_password(self._admin_password),
             role=Role.ADMIN,
-            must_change_password=True,
         )
         await self._backend.save(admin)
 

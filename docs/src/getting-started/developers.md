@@ -37,6 +37,7 @@ services:
       - 8765:8765
     environment:
       STORAGE_URL: postgresql://postgres:postgres@timescaledb:5432/postgres
+      GRIDONE_ADMIN_PASSWORD: change-me
       GRIDONE_TIMEZONE: Europe/Paris
     restart: unless-stopped
     depends_on:
@@ -45,6 +46,10 @@ services:
 volumes:
   timescaledb_data:
 ```
+
+Replace `change-me` with the password for the `admin` account. It is read only on the
+first start against an empty database, to seed that account; the server refuses to start
+without it when no users exist yet.
 
 Replace `Europe/Paris` with your building's IANA timezone name (e.g. `America/New_York`,
 `Asia/Tokyo`). `GRIDONE_TIMEZONE` defaults to `UTC` if unset.
@@ -70,15 +75,11 @@ The API uses OAuth2 password grant. Send credentials as a form body:
 
 ```sh
 curl -X POST http://localhost:8765/api/auth/token \
-  -d "grant_type=password&username=admin&password=admin"
+  -d "grant_type=password&username=admin&password=change-me"
 ```
 
-A default `admin` / `admin` account is created automatically on first start when no
-users exist.
-
-!!! warning "Change these credentials before going live"
-    The `admin` / `admin` defaults are factory values. Update the password before
-    exposing Gridone on a public or shared network.
+The `admin` account is created on first start with the password from
+`GRIDONE_ADMIN_PASSWORD`.
 
 Response:
 

@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from pydantic import BaseModel, field_validator
 
 from api.env import load_environ
+from users.validation import PasswordField
 
 
 class Settings(BaseModel):
@@ -15,8 +16,12 @@ class Settings(BaseModel):
     REFRESH_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
     COOKIE_SECURE: bool = True  # False only when served over plain HTTP
     GRIDONE_TIMEZONE: str = "UTC"
+    # First boot only. Typed so a bad value fails at load, not inside bcrypt.
+    GRIDONE_ADMIN_PASSWORD: PasswordField | None = None
 
-    model_config = {"extra": "ignore"}
+    # hide_input_in_errors: a rejected GRIDONE_ADMIN_PASSWORD would otherwise
+    # echo the raw value into the startup log via ValidationError's message.
+    model_config = {"extra": "ignore", "hide_input_in_errors": True}
 
     @field_validator("GRIDONE_TIMEZONE")
     @classmethod

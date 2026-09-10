@@ -4,7 +4,11 @@ from unittest.mock import patch
 
 import pytest
 
-from models.errors import StorageConnectionError, UnsupportedStorageError
+from models.errors import (
+    ConfigurationError,
+    StorageConnectionError,
+    UnsupportedStorageError,
+)
 from users import UsersService
 from users.models import Role
 from users.storage import MemoryUsersStorage
@@ -14,7 +18,7 @@ pytestmark = pytest.mark.asyncio
 
 class TestStartStop:
     async def test_start_with_none_url_uses_memory_backend(self):
-        svc = UsersService(storage_url=None)
+        svc = UsersService(storage_url=None, admin_password="configured-password")
         await svc.start()
         try:
             users = await svc.list_users()
@@ -22,12 +26,17 @@ class TestStartStop:
             assert len(users) == 1
             assert users[0].username == "admin"
             assert users[0].role == Role.ADMIN
-            assert users[0].must_change_password is True
+            assert users[0].must_change_password is False
         finally:
             await svc.stop()
 
-    async def test_start_then_stop_then_stop_is_idempotent(self):
+    async def test_start_without_admin_password_raises(self):
         svc = UsersService(storage_url=None)
+        with pytest.raises(ConfigurationError):
+            await svc.start()
+
+    async def test_start_then_stop_then_stop_is_idempotent(self):
+        svc = UsersService(storage_url=None, admin_password="configured-password")
         await svc.start()
         await svc.stop()
         # Second stop must not raise (e.g. AttributeError on a missing pool).
