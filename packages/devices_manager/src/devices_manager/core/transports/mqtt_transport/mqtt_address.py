@@ -1,6 +1,7 @@
 from functools import cached_property
 
 import jsonpath
+from jsonpath import CompoundJSONPath, JSONPath
 from jsonpath.exceptions import JSONPathError
 from pydantic import BaseModel, field_validator
 
@@ -37,9 +38,14 @@ class MqttReplyMatch(BaseModel):
             raise ValueError(msg) from e
         return value
 
+    @cached_property
+    def compiled(self) -> JSONPath | CompoundJSONPath:
+        """Parsed once; ``accepts`` runs on every frame of a read in flight."""
+        return jsonpath.compile(self.json_path)
+
     def accepts(self, payload: str) -> bool:
         try:
-            return jsonpath.match(self.json_path, payload) is not None
+            return self.compiled.match(payload) is not None
         except ValueError:  # not JSON, or JSON of the wrong shape
             return False
 
