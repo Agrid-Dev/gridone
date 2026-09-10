@@ -20,7 +20,6 @@ from api.dependencies import (
     get_device_manager,
     get_target_resolver,
 )
-from api.permissions import Permission
 from api.schemas.command import AssetCommand, BatchDispatchResponse
 from assets import (
     Asset,
@@ -38,6 +37,7 @@ from assets import (
 from commands import AttributeWrite, CommandsServiceInterface
 from devices_manager import DevicesServiceInterface
 from models.targets import AttributeTarget, DevicesFilter, TargetResolver
+from users.permissions import Permission
 
 router = APIRouter()
 
@@ -246,7 +246,7 @@ async def list_asset_devices(
 @router.post(
     "/{asset_id}/commands",
     status_code=status.HTTP_202_ACCEPTED,
-    dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
+    dependencies=[Depends(require_permission(Permission.DEVICES_COMMAND))],
 )
 async def dispatch_asset_command(
     asset_id: str,

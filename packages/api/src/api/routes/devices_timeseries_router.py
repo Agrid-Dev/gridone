@@ -8,7 +8,6 @@ from pydantic import BaseModel, ValidationError
 from api.auth import require_permission
 from api.dependencies import get_device_manager, get_target_resolver, get_ts_service
 from api.devices_filter import parse_tags_params
-from api.permissions import Permission
 from api.schemas.timeseries import (
     AggregatedPointResponse,
     AggregateOptionsResponse,
@@ -32,6 +31,7 @@ from timeseries.domain import (
     validate_space_operator,
 )
 from timeseries.service import TimeSeriesService
+from users.permissions import Permission
 
 router = APIRouter()
 

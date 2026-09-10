@@ -732,7 +732,7 @@ class CoreDevice:
         attribute = _log_attribute or self.get_attribute(attribute_name)
         if not self.can_write(attribute_name):
             msg = f"Attribute '{attribute_name}' is not writable on device '{self.id}'"
-            raise PermissionError(msg)
+            raise InvalidError(msg)
         validated_value = attribute.ensure_type(value)
         check_write_constraints(attribute, validated_value, self._known_attribute_value)
         attribute_driver = self.driver.attributes[attribute.name]
@@ -742,7 +742,7 @@ class CoreDevice:
                 f"Driver '{self.driver.metadata.id}' has no write address"
                 " for attribute'{attribute_name}'"
             )
-            raise PermissionError(msg)
+            raise InvalidError(msg)
         encoded_value = codec.encode(value)
         context = {**self.driver.env, **self.config, "value": encoded_value}
         address = self.transport.build_address(

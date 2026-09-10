@@ -5,7 +5,6 @@ from pydantic import BaseModel
 
 from api.auth import require_permission
 from api.dependencies import get_apps_service
-from api.permissions import Permission
 from apps import (
     AppCapabilities,
     AppsService,
@@ -13,6 +12,7 @@ from apps import (
     RegistrationRequestCreate,
 )
 from models.errors import InvalidError
+from users.permissions import Permission
 from users.validation import PasswordField, UsernameField
 
 router = APIRouter()

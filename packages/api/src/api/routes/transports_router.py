@@ -6,7 +6,6 @@ from pydantic import ValidationError
 
 from api.auth import require_permission
 from api.dependencies import get_device_manager
-from api.permissions import Permission
 from devices_manager import DevicesServiceInterface, IngressRequest, IngressResult
 from devices_manager.dto import (
     TRANSPORT_CONFIG_CLASS_BY_PROTOCOL,
@@ -15,6 +14,7 @@ from devices_manager.dto import (
     TransportUpdate,
 )
 from models.errors import validation_details, validation_error_items
+from users.permissions import Permission
 
 from .discovery_router import router as discovery_router
 

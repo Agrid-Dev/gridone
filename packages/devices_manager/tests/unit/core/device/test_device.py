@@ -245,7 +245,7 @@ class TestDeviceWrite:
 
     @pytest.mark.asyncio
     async def test_write_value_not_writable(self, device: CoreDevice):
-        with pytest.raises(PermissionError):
+        with pytest.raises(InvalidError):
             await device.write_attribute_value("humidity", 12)
 
     @pytest.mark.asyncio

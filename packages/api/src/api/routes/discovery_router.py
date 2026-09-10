@@ -5,8 +5,8 @@ from pydantic import BaseModel
 
 from api.auth import require_permission
 from api.dependencies import get_device_manager
-from api.permissions import Permission
 from devices_manager import DevicesServiceInterface
+from users.permissions import Permission
 
 
 class DiscoveryHandlerCreateDTO(BaseModel):

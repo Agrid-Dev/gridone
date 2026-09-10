@@ -11,6 +11,7 @@ class Permission(StrEnum):
     USERS_WRITE = "users:write"
     DEVICES_READ = "devices:read"
     DEVICES_WRITE = "devices:write"
+    DEVICES_COMMAND = "devices:command"
     ASSETS_READ = "assets:read"
     ASSETS_WRITE = "assets:write"
     TRANSPORTS_READ = "transports:read"
@@ -31,6 +32,7 @@ ROLE_PERMISSIONS: dict[Role, set[Permission]] = {
     Role.OPERATOR: {
         Permission.DEVICES_READ,
         Permission.DEVICES_WRITE,
+        Permission.DEVICES_COMMAND,
         Permission.ASSETS_READ,
         Permission.ASSETS_WRITE,
         Permission.TRANSPORTS_READ,

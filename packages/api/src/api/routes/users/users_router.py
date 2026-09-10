@@ -5,10 +5,10 @@ from pydantic import BaseModel
 
 from api.auth import get_current_token_payload, get_current_user_id, require_permission
 from api.dependencies import get_users_service
-from api.permissions import Permission, get_permissions_for_role
 from users import Role, User, UserCreate, UsersService, UserType, UserUpdate
 from users.auth import TokenPayload
 from users.models import Role as RoleEnum
+from users.permissions import Permission, get_permissions_for_role
 from users.validation import PasswordField, UsernameField
 
 router = APIRouter()

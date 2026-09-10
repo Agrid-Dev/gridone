@@ -11,6 +11,7 @@ from models.errors import (
     BlockedUserError,
     ConfirmationError,
     ConflictError,
+    ForbiddenError,
     InvalidError,
     NotFoundError,
     SchemaValidationError,
@@ -31,6 +32,7 @@ def register_exception_handlers(app: FastAPI) -> None:
         return JSONResponse(status_code=422, content={"detail": str(exc)})
 
     app.add_exception_handler(PackageImportError, package_import_handler)
+    app.add_exception_handler(ForbiddenError, forbidden_handler)
 
     @app.exception_handler(SchemaValidationError)
     async def schema_validation_handler(
@@ -88,6 +90,10 @@ def register_exception_handlers(app: FastAPI) -> None:
             status_code=503,
             content={"detail": "App returned an invalid config schema"},
         )
+
+
+async def forbidden_handler(request: Request, exc: Exception) -> JSONResponse:
+    return JSONResponse(status_code=403, content={"detail": str(exc)})
 
 
 async def package_import_handler(request: Request, exc: Exception) -> JSONResponse:

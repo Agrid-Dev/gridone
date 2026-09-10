@@ -8,7 +8,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from api.auth import require_permission
 from api.dependencies import get_assets_service, get_device_manager, get_ts_service
 from api.devices_filter import ASSET_TAG, parse_tags_params, to_list_devices_kwargs
-from api.permissions import Permission
 from api.routes.command_router import router as command_router
 from api.routes.devices_timeseries_router import router as devices_ts_router
 from api.routes.faults_router import router as faults_router
@@ -46,6 +45,7 @@ from timeseries.domain import (
     SeriesKey,
 )
 from timeseries.service import TimeSeriesService
+from users.permissions import Permission
 
 logger = logging.getLogger(__name__)
 
