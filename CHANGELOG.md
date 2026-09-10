@@ -1,3 +1,9 @@
+## v0.234.0 (2026-09-10)
+
+### Feat
+
+- **device-ui**: add sticky layouts, collapsible sections and sliders
+
 ## v0.233.0 (2026-09-10)
 
 ### Feat
