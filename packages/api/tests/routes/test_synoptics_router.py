@@ -46,6 +46,7 @@ _DOCUMENT = {
     ],
 }
 _SYNOPTIC = Synoptic.model_validate({**_DOCUMENT, "id": "s1", "metadata": _META})
+_SEEN = {"expected_updated_at": "2026-01-01T00:00:00+00:00"}
 _SUMMARY = SynopticSummary(
     id="s1", name="Plate", projection="isometric", metadata=_META
 )
@@ -157,15 +158,12 @@ class TestWrite:
 
     async def test_replace_forwards_expected_updated_at(self, client, svc):
         svc.replace.return_value = _SYNOPTIC
-        seen = datetime(2026, 1, 1, tzinfo=UTC)
         async with client as c:
-            resp = await c.put(
-                "/s1",
-                json=_DOCUMENT,
-                params={"expected_updated_at": seen.isoformat()},
-            )
+            resp = await c.put("/s1", json=_DOCUMENT, params=_SEEN)
         assert resp.status_code == 200
-        assert svc.replace.call_args.kwargs["expected_updated_at"] == seen
+        assert svc.replace.call_args.kwargs["expected_updated_at"] == datetime(
+            2026, 1, 1, tzinfo=UTC
+        )
 
     async def test_replace_refuses_a_naive_expectation(self, client, svc):
         async with client as c:
@@ -177,17 +175,18 @@ class TestWrite:
         assert resp.status_code == 422
         svc.replace.assert_not_awaited()
 
-    async def test_replace_without_expectation_skips_the_check(self, client, svc):
-        svc.replace.return_value = _SYNOPTIC
+    async def test_replace_without_expectation_is_refused(self, client, svc):
+        """The guard is not opt-in over HTTP: last-write-wins needs the
+        service, never a PUT."""
         async with client as c:
             resp = await c.put("/s1", json=_DOCUMENT)
-        assert resp.status_code == 200
-        assert svc.replace.call_args.kwargs["expected_updated_at"] is None
+        assert resp.status_code == 422
+        svc.replace.assert_not_awaited()
 
     async def test_stale_replace_is_409(self, client, svc):
         svc.replace.side_effect = ConflictError("moved")
         async with client as c:
-            resp = await c.put("/s1", json=_DOCUMENT)
+            resp = await c.put("/s1", json=_DOCUMENT, params=_SEEN)
         assert resp.status_code == 409
 
     async def test_delete_returns_204(self, client, svc):

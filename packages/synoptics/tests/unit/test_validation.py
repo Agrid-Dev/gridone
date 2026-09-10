@@ -17,7 +17,7 @@ from models.targets import (
     ResolvedTarget,
 )
 from models.types import DataType
-from synoptics.models import Cell, SynopticDocument
+from synoptics.models import MAX_BOUND_SLOTS, Cell, SynopticDocument
 from synoptics.symbols import (
     Footprint,
     SymbolRegistry,
@@ -615,6 +615,15 @@ async def test_a_binding_the_resolver_refuses_is_reported_at_its_loc(
 
 
 @pytest.mark.asyncio
+async def test_a_binding_resolving_to_no_device_is_unresolved(document, registry):
+    """A resolver that returns an empty set instead of raising: the author is
+    told the filter matched nothing, not to narrow it."""
+    assert await check_bindings(document, registry, resolved()) == [
+        (("symbols", 0, "bindings", "state"), "unresolved_target")
+    ]
+
+
+@pytest.mark.asyncio
 async def test_a_binding_resolving_to_several_devices_is_ambiguous(document, registry):
     assert await check_bindings(document, registry, resolved("dev-1", "dev-2")) == [
         (("symbols", 0, "bindings", "state"), "ambiguous_target")
@@ -668,4 +677,32 @@ async def test_document_and_binding_violations_arrive_together(document, registr
     assert [t for _, t in await check_bindings(document, registry, outcome)] == [
         "off_polyline",
         "unresolved_target",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_a_target_shared_by_several_slots_is_resolved_once(document, registry):
+    """The plate binds the same attribute of one device from several slots;
+    the fleet is walked once for it."""
+    document["pipes"][0]["flow"] = attribute_slot("onoff_state")
+    document["labels"][0]["value"] = attribute_slot("onoff_state")
+    # One outcome for three slots: a second resolve would pop an empty list.
+    assert await check_bindings(document, registry, resolved("dev-1")) == []
+
+
+@pytest.mark.asyncio
+async def test_bound_slots_over_budget_are_not_resolved(document, registry):
+    document["labels"] = [
+        {
+            "id": f"l{i}",
+            "at": {"x": 0, "y": i},
+            "text": "x",
+            "role": "note",
+            "value": attribute_slot(f"attr_{i}"),
+        }
+        for i in range(MAX_BOUND_SLOTS)
+    ]
+    # No outcomes prepared: any resolve call would pop an empty list.
+    assert await check_bindings(document, registry) == [
+        (("bindings",), "binding_budget_exceeded")
     ]

@@ -89,10 +89,12 @@ async def replace_synoptic(
     synoptic_id: str,
     body: SynopticDocument,
     svc: _ServiceDep,
-    expected_updated_at: AwareDatetime | None = None,
+    expected_updated_at: AwareDatetime,
 ) -> Synoptic:
     """``expected_updated_at`` is the ``updated_at`` the author read, offset
-    included; the save is refused (409) if the plate moved since."""
+    included; the save is refused (409) if the plate moved since. It is
+    required here so every HTTP save carries the guard; the service keeps it
+    optional for programmatic callers."""
     return await svc.replace(synoptic_id, body, expected_updated_at=expected_updated_at)
 
 

@@ -1596,6 +1596,7 @@ def test_dashboards_access_control(  # noqa: PLR0913
 # Write endpoints allow admin + operator; viewer is read-only; no-auth is 401.
 
 _SYNOPTIC_BODY = {"name": "Plate"}
+_SYNOPTIC_PUT = "/synoptics/any-id?expected_updated_at=2026-01-01T00:00:00Z"
 _SYNOPTIC = Synoptic(id="s1", name="Plate", metadata=ResourceMetadata())
 
 
@@ -1649,14 +1650,12 @@ SYNOPTICS_ACCESS_CONTROL_SCENARIOS = [
     ),
     pytest.param("POST", "/synoptics/", None, 401, _SYNOPTIC_BODY, id="create-no-auth"),
     pytest.param(
-        "PUT", "/synoptics/any-id", "operator", 200, _SYNOPTIC_BODY, id="replace-op"
+        "PUT", _SYNOPTIC_PUT, "operator", 200, _SYNOPTIC_BODY, id="replace-op"
     ),
     pytest.param(
-        "PUT", "/synoptics/any-id", "viewer", 403, _SYNOPTIC_BODY, id="replace-viewer"
+        "PUT", _SYNOPTIC_PUT, "viewer", 403, _SYNOPTIC_BODY, id="replace-viewer"
     ),
-    pytest.param(
-        "PUT", "/synoptics/any-id", None, 401, _SYNOPTIC_BODY, id="replace-no-auth"
-    ),
+    pytest.param("PUT", _SYNOPTIC_PUT, None, 401, _SYNOPTIC_BODY, id="replace-no-auth"),
     pytest.param("DELETE", "/synoptics/any-id", "operator", 204, None, id="delete-op"),
     pytest.param(
         "DELETE", "/synoptics/any-id", "viewer", 403, None, id="delete-viewer"

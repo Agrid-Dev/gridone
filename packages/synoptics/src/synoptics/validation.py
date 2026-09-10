@@ -39,6 +39,7 @@ from synoptics.geometry import (
     translate,
 )
 from synoptics.models import (
+    MAX_BOUND_SLOTS,
     MAX_POLYLINE_CELLS,
     AttributeSlot,
     Cell,
@@ -84,6 +85,7 @@ class Violation(StrEnum):
     NOT_INLINE_CAPABLE = "not_inline_capable"
     INLINE_ON_ENDPOINT = "inline_on_endpoint"
     FLAT_DEPTH = "flat_depth"
+    BINDING_BUDGET_EXCEEDED = "binding_budget_exceeded"
     UNRESOLVED_TARGET = "unresolved_target"
     AMBIGUOUS_TARGET = "ambiguous_target"
     FLOW_NOT_BOOL = "flow_not_bool"
@@ -201,18 +203,40 @@ async def _collect_bindings(
     one device, carry a bool behind ``flow``, or keep ``decimals`` to a numeric
     attribute. A slot the resolver refuses is recorded at its ``loc`` like the
     others, so an author fixing thirty bindings sees them all at once.
+
+    Resolution costs a fleet walk per target, so the slot count is checked
+    against :data:`MAX_BOUND_SLOTS` before anything is resolved, and each
+    distinct target is resolved once however many slots share it.
     """
-    for bound in bound_slots(document):
-        try:
-            target = await resolver.resolve(bound.slot.target)
-        except InvalidError as exc:
-            errors.add(bound.loc, str(exc), Violation.UNRESOLVED_TARGET)
-            continue
-        _check_resolved(bound, target, errors)
+    slots = bound_slots(document)
+    if len(slots) > MAX_BOUND_SLOTS:
+        errors.add(
+            ("bindings",),
+            f"{len(slots)} bound slots exceed the budget of {MAX_BOUND_SLOTS}",
+            Violation.BINDING_BUDGET_EXCEEDED,
+        )
+        return
+    outcomes: dict[str, ResolvedTarget | InvalidError] = {}
+    for bound in slots:
+        key = bound.slot.target.model_dump_json()
+        if key not in outcomes:
+            try:
+                outcomes[key] = await resolver.resolve(bound.slot.target)
+            except InvalidError as exc:
+                outcomes[key] = exc
+        outcome = outcomes[key]
+        if isinstance(outcome, InvalidError):
+            errors.add(bound.loc, str(outcome), Violation.UNRESOLVED_TARGET)
+        else:
+            _check_resolved(bound, outcome, errors)
 
 
 def _check_resolved(bound: BoundSlot, target: ResolvedTarget, errors: _Errors) -> None:
-    if len(target.device_ids) != 1:
+    if not target.device_ids:
+        errors.add(
+            bound.loc, "Target resolves to no device", Violation.UNRESOLVED_TARGET
+        )
+    elif len(target.device_ids) > 1:
         errors.add(
             bound.loc,
             f"Target resolves to {len(target.device_ids)} devices, expected 1",

@@ -50,6 +50,14 @@ run or a document has. Without a total, a few hundred waypoints bouncing
 across the grid still expand to millions of cells on the create path.
 """
 
+MAX_BOUND_SLOTS = 1_000
+"""Attribute slots one document may bind, over symbols, pipes, tags and labels.
+
+Each slot is resolved against the device fleet on every save, and the
+resolver walks the fleet synchronously, so the count is the one factor of
+that product the document controls. The reference plate binds thirty.
+"""
+
 Coordinate = Annotated[int, Field(ge=-MAX_COORDINATE, le=MAX_COORDINATE)]
 FreeCoordinate = Annotated[
     float, Field(ge=-MAX_COORDINATE, le=MAX_COORDINATE, allow_inf_nan=False)
