@@ -73,7 +73,7 @@
     --fluid-heating-return: 22 50% 38%;
     --fluid-dhw: 40 92% 46%;
     --fluid-dhw-loop: 40 45% 36%;
-    --fluid-cold-water: 206 88% 42%;
+    --fluid-cold-water: var(--water);
     --fluid-chilled-supply: 190 85% 40%;
     --fluid-chilled-return: 190 45% 30%;
     --fluid-condenser-supply: 160 65% 36%;
@@ -142,7 +142,7 @@
     --fluid-heating-return: 22 55% 50%;
     --fluid-dhw: 40 90% 58%;
     --fluid-dhw-loop: 40 50% 48%;
-    --fluid-cold-water: 206 84% 60%;
+    --fluid-cold-water: var(--water);
     --fluid-chilled-supply: 190 80% 56%;
     --fluid-chilled-return: 190 45% 45%;
     --fluid-condenser-supply: 160 60% 50%;

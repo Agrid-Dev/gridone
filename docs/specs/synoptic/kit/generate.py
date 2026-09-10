@@ -11,8 +11,8 @@ import re
 from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[4]
 OUT = Path(__file__).resolve().parent
+ROOT = next(p for p in OUT.parents if (p / ".git").exists())
 INDEX_CSS = ROOT / "apps/ui/src/index.css"
 
 # 2:1 dimetric projection, one cell = 80 x 40 px diamond, 40 px per z unit.
@@ -34,6 +34,7 @@ TOKENS = [
     "status-error",
     "status-ok",
     "hvac-fan",
+    "water",
     "fluid-primary-supply",
     "fluid-primary-return",
     "fluid-heating-supply",
@@ -57,10 +58,14 @@ def read_tokens() -> tuple[dict[str, str], dict[str, str]]:
     light_block, dark_block = INDEX_CSS.read_text().split(".dark {", 1)
 
     def pick(block: str) -> dict[str, str]:
-        return {
-            t: re.search(rf"--{t}: ([^;]+);", block).group(1)  # type: ignore[union-attr]
-            for t in TOKENS
-        }
+        values = {}
+        for t in TOKENS:
+            match = re.search(rf"--{t}: ([^;]+);", block)
+            if match is None:
+                msg = f"--{t} is not defined in {INDEX_CSS}"
+                raise ValueError(msg)
+            values[t] = match.group(1)
+        return values
 
     return pick(light_block), pick(dark_block)
 

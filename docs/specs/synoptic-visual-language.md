@@ -41,7 +41,7 @@ Values live in `apps/ui/src/index.css` only, light and `.dark`, as `H S% L%` tri
 | `--synoptic-stroke` | symbol outline, glyph lines, port marks |
 | `--fluid-<member>` | one per `Fluid` member, `_` written `-`: `dhw_loop` is `--fluid-dhw-loop` |
 
-`--fluid-cold-water` carries the same value as `--water` but is its own token: `--water` means "liquid present at a probe" and must not drift with the fluid palette.
+`--fluid-cold-water` is its own token that currently resolves to `var(--water)`: `--water` means "liquid present at a probe", so the fluid keeps a name of its own and can take a value of its own without touching probe colours.
 
 Borrowed, not redefined: `--card` / `--border` (chips, panels), `--foreground` / `--muted-foreground` (text, leaders, stale), `--status-error` (fault), `--status-ok` (panel LED), `--hvac-fan` (spinning fan).
 
@@ -71,7 +71,7 @@ Footprints and ports are the registry's (`synoptics/symbols/registry.py`), resta
 | `valve_check` | 1 × 1, inline | bowtie, ball downstream | bowtie, ball | none |
 | `link` | 1 × 2 | pentagon standing in the `yz` plane, caption inside | pentagon, caption | none |
 
-Not in the registry, asked for by the issue, drawn on the sheets so the registry addition is a copy of a row above:
+Not in the registry, asked for by the issue, drawn on the sheets. The footprints and ports below are input for the registry addition, which is where they become binding (as the format's appendix was for the first eight types); until then nothing checks a sheet against them:
 
 | Proposed type | Footprint | Ports | Drawing |
 |---|---|---|---|
