@@ -1617,9 +1617,6 @@ def synoptics_app() -> FastAPI:
     manager = MockUsersService()
     app.dependency_overrides[get_users_service] = lambda: manager
     app.dependency_overrides[get_synoptics_service] = _build_synoptics_mock
-    dm = MagicMock()
-    dm.list_devices.return_value = []
-    app.dependency_overrides[get_device_manager] = lambda: dm
     app.include_router(auth_router, prefix="/auth")
     jwt_dep = [Depends(get_current_user_id)]
     app.include_router(synoptics_router, prefix="/synoptics", dependencies=jwt_dep)
