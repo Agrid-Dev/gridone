@@ -42,6 +42,7 @@ from assets import AssetsService, BuildingModelsService
 from assets.conversion.ifc import IfcSceneConverter
 from commands import CommandsService, WriteResult
 from devices_manager import DevicesService
+from models.errors import ConfigurationError
 from models.service import Service
 from models.types import AttributeValueType, DataType
 from notifications import NotificationsService
@@ -70,6 +71,19 @@ async def _start_assets_services(
     app.state.building_models_service = models
     app.state.assets_service = assets
     return [assets, models]
+
+
+async def _start_users_service(
+    storage_url: str | None, admin_password: str | None
+) -> UsersService:
+    """Start the users service, naming the env var when the seed can't run."""
+    users_service = UsersService(storage_url, admin_password=admin_password)
+    try:
+        await users_service.start()
+    except ConfigurationError as e:
+        msg = "GRIDONE_ADMIN_PASSWORD must be set to seed the admin account"
+        raise RuntimeError(msg) from e
+    return users_service
 
 
 def _build_automations_service(
@@ -115,8 +129,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.device_manager = dm
     app.state.ts_service = ts_service
 
-    users_service = UsersService(settings.storage_url)
-    await users_service.start()
+    users_service = await _start_users_service(
+        settings.storage_url, settings.GRIDONE_ADMIN_PASSWORD
+    )
     app.state.users_service = users_service
 
     notifications_svc = NotificationsService(settings.storage_url)
