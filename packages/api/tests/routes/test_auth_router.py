@@ -1,11 +1,17 @@
 import pytest
-from fastapi import FastAPI
+from fastapi import APIRouter, Depends, FastAPI
 from fastapi.testclient import TestClient
 
+from api.auth import get_current_user_id
 from api.dependencies import get_users_service
 from api.exception_handlers import register_exception_handlers
 from api.routes.users.auth_router import router
-from models.errors import BlockedUserError, NotFoundError
+from models.errors import (
+    BlockedUserError,
+    InvalidError,
+    NotFoundError,
+    UnauthorizedError,
+)
 from users import Role, User
 from users.auth import AuthService
 from users.validation import (
@@ -20,7 +26,11 @@ class MockUsersService:
     def __init__(self) -> None:
         self.get_by_id_calls = 0
         self.is_blocked_calls = 0
-        self._credentials = {"admin": "admin", "blocked": "blocked"}
+        self._credentials = {
+            "admin": "admin",
+            "blocked": "blocked",
+            "flagged": "flagged",
+        }
         self._users = {
             "admin": User(
                 id="admin-id",
@@ -32,6 +42,12 @@ class MockUsersService:
                 username="blocked",
                 role=Role.OPERATOR,
                 is_blocked=True,
+            ),
+            "flagged": User(
+                id="flagged-id",
+                username="flagged",
+                role=Role.OPERATOR,
+                must_change_password=True,
             ),
         }
 
@@ -59,6 +75,26 @@ class MockUsersService:
                 return user.is_blocked
         return False
 
+    async def change_password(
+        self, user_id: str, current_password: str, new_password: str
+    ) -> User:
+        for username, user in self._users.items():
+            if user.id != user_id:
+                continue
+            if self._credentials[username] != current_password:
+                msg = "Invalid current password"
+                raise UnauthorizedError(msg)
+            if new_password == current_password:
+                msg = "The new password must differ from the current one"
+                raise InvalidError(msg)
+            self._credentials[username] = new_password
+            self._users[username] = user.model_copy(
+                update={"must_change_password": False}
+            )
+            return self._users[username]
+        msg = f"User '{user_id}' not found"
+        raise NotFoundError(msg)
+
     def set_role(self, username: str, role: Role) -> None:
         """Simulate a role change persisted to storage between two requests."""
         self._users[username] = self._users[username].model_copy(update={"role": role})
@@ -85,11 +121,16 @@ def client(app: FastAPI) -> TestClient:
     return TestClient(app)
 
 
-def _login(client: TestClient) -> dict:
+def _login(client: TestClient, username: str = "admin") -> dict:
+    """Log in as one of the mock users, whose password equals their username."""
     return client.post(
         "/token",
-        data={"grant_type": "password", "username": "admin", "password": "admin"},
+        data={"grant_type": "password", "username": username, "password": username},
     ).json()
+
+
+def _auth(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
 
 
 # --- /schema ---
@@ -354,3 +395,179 @@ def test_logout_clears_cookies(client: TestClient) -> None:
     assert response.json() == {"detail": "Logged out"}
     assert response.headers.get("set-cookie") is not None
     assert 'access_token=""' in response.headers.get("set-cookie", "")
+
+
+# --- /password ---
+
+
+def test_change_password_returns_the_updated_account(client: TestClient) -> None:
+    token = _login(client, "flagged")["access_token"]
+
+    response = client.post(
+        "/password",
+        json={"current_password": "flagged", "new_password": "new-password"},
+        headers=_auth(token),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["must_change_password"] is False
+
+
+def test_change_password_lets_the_new_credential_log_in(client: TestClient) -> None:
+    token = _login(client, "flagged")["access_token"]
+    client.post(
+        "/password",
+        json={"current_password": "flagged", "new_password": "new-password"},
+        headers=_auth(token),
+    )
+
+    response = client.post(
+        "/token",
+        data={
+            "grant_type": "password",
+            "username": "flagged",
+            "password": "new-password",
+        },
+    )
+    assert response.status_code == 200
+
+
+@pytest.mark.parametrize(
+    "current_password",
+    [
+        pytest.param("not-my-password", id="wrong"),
+        # Shorter than PASSWORD_MIN_LENGTH: still 401, never a 422 that would
+        # reveal which check failed.
+        pytest.param("no", id="wrong-and-short"),
+    ],
+)
+def test_change_password_wrong_current_returns_generic_401(
+    client: TestClient, current_password: str
+) -> None:
+    token = _login(client, "flagged")["access_token"]
+
+    response = client.post(
+        "/password",
+        json={"current_password": current_password, "new_password": "new-password"},
+        headers=_auth(token),
+    )
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Unauthorized"}
+
+
+def test_change_password_401_does_not_advertise_bearer(client: TestClient) -> None:
+    """Clients refresh on a token 401. This one is about the request body."""
+    token = _login(client, "flagged")["access_token"]
+
+    rejected = client.post(
+        "/password",
+        json={"current_password": "not-my-password", "new_password": "new-password"},
+        headers=_auth(token),
+    )
+    expired = client.get("/me", headers=_auth("not-a-token"))
+
+    assert rejected.status_code == expired.status_code == 401
+    assert "WWW-Authenticate" not in rejected.headers
+    assert expired.headers["WWW-Authenticate"] == "Bearer"
+
+
+def test_change_password_rejects_reusing_the_current_password(
+    client: TestClient,
+) -> None:
+    token = _login(client, "flagged")["access_token"]
+
+    response = client.post(
+        "/password",
+        json={"current_password": "flagged", "new_password": "flagged"},
+        headers=_auth(token),
+    )
+
+    assert response.status_code == 422
+
+
+def test_change_password_requires_a_token(client: TestClient) -> None:
+    response = client.post(
+        "/password",
+        json={"current_password": "flagged", "new_password": "new-password"},
+    )
+    assert response.status_code == 401
+
+
+@pytest.mark.parametrize(
+    "new_password",
+    [
+        pytest.param("a" * (PASSWORD_MAX_LENGTH + 1), id="over-maximum"),
+        pytest.param("a" * (PASSWORD_MIN_LENGTH - 1), id="under-minimum"),
+    ],
+)
+def test_change_password_rejects_out_of_range_password(
+    client: TestClient, new_password: str
+) -> None:
+    token = _login(client, "flagged")["access_token"]
+
+    response = client.post(
+        "/password",
+        json={"current_password": "flagged", "new_password": new_password},
+        headers=_auth(token),
+    )
+
+    assert response.status_code == 422
+
+
+# --- router-level blanket dependency (mirrors app.py's jwt_dep) ---
+
+
+@pytest.fixture
+def gated_app(users_service: MockUsersService) -> FastAPI:
+    """Mirror app.py's split: auth_router public, one router behind jwt_dep."""
+    app = FastAPI()
+    app.state.auth_service = AuthService(secret_key="test-secret")
+    app.state.cookie_secure = False
+    app.dependency_overrides[get_users_service] = lambda: users_service
+    register_exception_handlers(app)
+    app.include_router(router)
+
+    protected = APIRouter()
+
+    @protected.get("/")
+    async def _protected() -> dict:
+        return {"ok": True}
+
+    app.include_router(
+        protected,
+        prefix="/protected",
+        dependencies=[Depends(get_current_user_id)],
+    )
+    return app
+
+
+@pytest.fixture
+def gated_client(gated_app: FastAPI) -> TestClient:
+    return TestClient(gated_app)
+
+
+def test_blocked_user_is_refused_on_a_protected_route(
+    gated_app: FastAPI, gated_client: TestClient
+) -> None:
+    # Login itself already refuses a blocked user, so mint the token
+    # directly to exercise the router-level gate on an existing session.
+    auth_service: AuthService = gated_app.state.auth_service
+    token = auth_service.create_access_token("blocked-id", Role.OPERATOR)
+
+    response = gated_client.get("/protected/", headers=_auth(token))
+
+    assert response.status_code == 403
+    assert "blocked" in response.json()["detail"].lower()
+
+
+def test_active_user_passes_the_gate(gated_client: TestClient) -> None:
+    token = _login(gated_client, "admin")["access_token"]
+
+    assert gated_client.get("/protected/", headers=_auth(token)).status_code == 200
+
+
+def test_gate_still_refuses_an_unauthenticated_request(
+    gated_client: TestClient,
+) -> None:
+    assert gated_client.get("/protected/").status_code == 401

@@ -1,7 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from api.auth import get_current_user_id
 from api.dependencies import get_auth_service, get_users_service
@@ -9,8 +9,8 @@ from api.permissions import get_permissions_for_role
 from models.errors import NotFoundError
 from users import UsersService
 from users.auth import AuthService, InvalidTokenError
-from users.models import Role
-from users.validation import get_auth_payload_schema
+from users.models import Role, User
+from users.validation import PasswordField, get_auth_payload_schema
 
 router = APIRouter()
 
@@ -201,13 +201,42 @@ class MeResponse(BaseModel):
     permissions: list[str]
 
 
+def _me_response(user: User) -> MeResponse:
+    return MeResponse(
+        **user.model_dump(),
+        permissions=get_permissions_for_role(user.role),
+    )
+
+
 @router.get("/me")
 async def get_me(
     current_user_id: Annotated[str, Depends(get_current_user_id)],
     um: Annotated[UsersService, Depends(get_users_service)],
 ) -> MeResponse:
     user = await um.get_by_id(current_user_id)
-    return MeResponse(
-        **user.model_dump(),
-        permissions=get_permissions_for_role(user.role),
+    return _me_response(user)
+
+
+class PasswordChangeRequest(BaseModel):
+    # A high ceiling, not a real bound: a tight one would answer 422 on a
+    # wrong guess, revealing the check. This just keeps a garbage-sized
+    # body out of the handler.
+    current_password: str = Field(max_length=1024)
+    new_password: PasswordField
+
+
+@router.post("/password")
+async def change_password(
+    body: PasswordChangeRequest,
+    current_user_id: Annotated[str, Depends(get_current_user_id)],
+    um: Annotated[UsersService, Depends(get_users_service)],
+) -> MeResponse:
+    """Change your own password.
+
+    It's the caller's own credential, not user management, so it needs no
+    ``users:write`` permission.
+    """
+    user = await um.change_password(
+        current_user_id, body.current_password, body.new_password
     )
+    return _me_response(user)

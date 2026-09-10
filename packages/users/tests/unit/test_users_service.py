@@ -1,11 +1,16 @@
-"""Unit tests for UsersService blocking functionality."""
+"""Unit tests for UsersService blocking and password changes."""
 
 import pytest
 
-from models.errors import BlockedUserError, NotFoundError
+from models.errors import (
+    BlockedUserError,
+    InvalidError,
+    NotFoundError,
+    UnauthorizedError,
+)
 from users import UsersService
 from users.models import Role, UserInDB
-from users.password import hash_password
+from users.password import hash_password, verify_password
 from users.storage import MemoryUsersStorage
 
 pytestmark = pytest.mark.asyncio
@@ -122,3 +127,62 @@ class TestAuthenticateBlocked:
         await storage.save(_make_user())
 
         assert await service.authenticate("alice", "é" * 40) is None
+
+
+class TestChangePassword:
+    async def test_change_password_applies_and_clears_flag(
+        self, service: UsersService, storage: MemoryUsersStorage
+    ):
+        await storage.save(
+            _make_user().model_copy(update={"must_change_password": True})
+        )
+
+        result = await service.change_password("u1", "password12345", "new-password")
+
+        assert result.must_change_password is False
+        stored = await storage.get_by_id("u1")
+        assert stored is not None
+        assert verify_password("new-password", stored.hashed_password)
+        assert stored.must_change_password is False
+
+    async def test_change_password_wrong_current_raises_and_keeps_the_password(
+        self, service: UsersService, storage: MemoryUsersStorage
+    ):
+        await storage.save(_make_user())
+
+        with pytest.raises(UnauthorizedError):
+            await service.change_password("u1", "wrong-password", "new-password")
+
+        stored = await storage.get_by_id("u1")
+        assert stored is not None
+        assert verify_password("password12345", stored.hashed_password)
+
+    async def test_change_password_unknown_user_raises(self, service: UsersService):
+        with pytest.raises(NotFoundError):
+            await service.change_password("nope", "password12345", "new-password")
+
+    async def test_change_password_rejects_reusing_the_current_password(
+        self, service: UsersService, storage: MemoryUsersStorage
+    ):
+        """Otherwise the flag clears without the credential ever rotating."""
+        await storage.save(
+            _make_user().model_copy(update={"must_change_password": True})
+        )
+
+        with pytest.raises(InvalidError):
+            await service.change_password("u1", "password12345", "password12345")
+
+        stored = await storage.get_by_id("u1")
+        assert stored is not None
+        assert stored.must_change_password is True
+
+    async def test_change_password_accepts_a_short_current_password(
+        self, service: UsersService, storage: MemoryUsersStorage
+    ):
+        """The stored credential may predate the length rules for new ones."""
+        user = _make_user().model_copy(update={"hashed_password": hash_password("abc")})
+        await storage.save(user)
+
+        result = await service.change_password("u1", "abc", "new-password")
+
+        assert result.must_change_password is False
