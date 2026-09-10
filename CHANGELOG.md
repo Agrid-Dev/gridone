@@ -1,3 +1,9 @@
+## v0.230.1 (2026-09-10)
+
+### Fix
+
+- **users**: reject passwords above bcrypt's 72-byte limit (#623)
+
 ## v0.230.0 (2026-09-10)
 
 ## v0.229.1 (2026-09-10)
