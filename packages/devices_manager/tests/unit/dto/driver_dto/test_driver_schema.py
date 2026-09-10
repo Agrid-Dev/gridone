@@ -187,6 +187,14 @@ class TestWebhookDriverIsPushOnly:
                 _webhook_driver_raw({"polling_enabled": True}),
             )
 
+    def test_polling_groups_are_rejected(self):
+        with pytest.raises(ValueError, match="polling groups"):
+            DriverSpec.model_validate(
+                _webhook_driver_raw(
+                    {"polling": "disable", "polling_groups": {"core": "5s"}}
+                ),
+            )
+
     def test_polling_interval_alone_does_not_enable_polling(self):
         # A leftover interval without an explicit polling_enabled is treated
         # as an omission, not a contradiction.

@@ -68,7 +68,7 @@ export default function AssetEdit() {
   });
 
   const reorderMutation = useReorderSubzones(assetId);
-  const { unlink } = useDeviceAssetLink(assetId);
+  const { unlink } = useDeviceAssetLink();
 
   const deleteMutation = useMutation({
     mutationFn: () => client.assets.delete(assetId!),

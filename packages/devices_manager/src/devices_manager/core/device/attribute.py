@@ -1,6 +1,5 @@
 from collections import deque
 from datetime import UTC, datetime
-from enum import StrEnum
 from typing import Annotated, Any, Literal
 
 from pydantic import (
@@ -13,17 +12,33 @@ from pydantic import (
     model_validator,
 )
 
+from devices_manager.core.driver.attribute_metadata import (
+    AttributeGroup,
+    LocalizedText,
+    Unit,
+    WriteConstraints,
+)
 from devices_manager.core.utils.cast import cast
-from devices_manager.types import AttributeValueType, DataType, ReadWriteMode
+from devices_manager.types import (
+    AttributeKind,
+    AttributeValueType,
+    DataType,
+    ReadWriteMode,
+)
 from models.types import Severity
 
 from .event_log import AttributeEventLog, AttributeLogs, EventType
 
-
-class AttributeKind(StrEnum):
-    STANDARD = "standard"
-    FAULT = "fault"
-    INTERNAL = "internal"
+# Optional fields dropped from payloads when unset, so an attribute that
+# declares none of them serializes exactly as it did before they existed.
+_OMITTED_WHEN_NONE = (
+    "value_options",
+    "label",
+    "description",
+    "group",
+    "unit",
+    "write_constraints",
+)
 
 
 class Attribute(BaseModel):
@@ -38,6 +53,12 @@ class Attribute(BaseModel):
     last_updated: datetime | None = None
     last_changed: datetime | None = None
     value_options: list[AttributeValueType] | None = None
+    # Presentation metadata and write constraints, copied from the driver.
+    label: LocalizedText | None = None
+    description: LocalizedText | None = None
+    group: AttributeGroup | None = None
+    unit: Unit | None = None
+    write_constraints: WriteConstraints | None = None
 
     _logs: dict[EventType, deque[AttributeEventLog]] = PrivateAttr(
         default_factory=lambda: {t: deque(maxlen=10) for t in EventType}
@@ -46,8 +67,9 @@ class Attribute(BaseModel):
     @model_serializer(mode="wrap")
     def _serialize(self, handler: Any) -> dict[str, Any]:  # noqa: ANN401
         data = handler(self)
-        if data.get("value_options") is None:
-            data.pop("value_options", None)
+        for name in _OMITTED_WHEN_NONE:
+            if data.get(name) is None:
+                data.pop(name, None)
         return data
 
     def ensure_type(
@@ -92,13 +114,19 @@ class Attribute(BaseModel):
         return AttributeLogs(**{et.value: list(self._logs[et]) for et in EventType})
 
     @classmethod
-    def create(
+    def create(  # noqa: PLR0913
         cls,
         name: str,
         data_type: DataType,
         read_write_modes: set[ReadWriteMode],
         value: AttributeValueType | None = None,
         value_options: list[AttributeValueType] | None = None,
+        *,
+        label: LocalizedText | None = None,
+        description: LocalizedText | None = None,
+        group: AttributeGroup | None = None,
+        unit: Unit | None = None,
+        write_constraints: WriteConstraints | None = None,
     ) -> "Attribute":
         now = datetime.now(UTC) if value is not None else None
         return cls(
@@ -109,6 +137,11 @@ class Attribute(BaseModel):
             last_updated=now,
             last_changed=now,
             value_options=value_options,
+            label=label,
+            description=description,
+            group=group,
+            unit=unit,
+            write_constraints=write_constraints,
         )
 
 

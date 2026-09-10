@@ -10,6 +10,7 @@ from devices_manager.core.device.attribute import (
     FaultAttribute,
 )
 from devices_manager.core.device.event_log import AttributeEventLog, EventType
+from devices_manager.core.driver import AttributeRef, LocalizedText, WriteConstraints
 from devices_manager.types import DataType
 from models.types import Severity
 
@@ -389,3 +390,103 @@ def test_internal_attribute_kind():
 
 def test_internal_attribute_serializes_with_kind():
     assert _INTERNAL_ATTR.model_dump()["kind"] == AttributeKind.INTERNAL
+
+
+# ---------------------------------------------------------------------------
+# Presentation metadata and write constraints
+# ---------------------------------------------------------------------------
+
+
+_PLAIN_ATTRIBUTE_KEYS = {
+    "kind",
+    "name",
+    "data_type",
+    "read_write_modes",
+    "current_value",
+    "last_updated",
+    "last_changed",
+}
+
+_LABEL = LocalizedText(default="Setpoint", translations={"fr": "Consigne"})
+_DESCRIPTION = LocalizedText(default="Requested room temperature")
+_CONSTRAINTS = WriteConstraints(
+    step=0.5, minimum=AttributeRef(attribute="setpoint_min"), maximum=30
+)
+
+
+def _annotated_attribute() -> Attribute:
+    return Attribute.create(
+        "temperature_setpoint",
+        DataType.FLOAT,
+        {"read", "write"},
+        label=_LABEL,
+        description=_DESCRIPTION,
+        group="setpoints",
+        unit="°C",
+        write_constraints=_CONSTRAINTS,
+    )
+
+
+@pytest.mark.parametrize("mode", ["python", "json"])
+def test_attribute_without_metadata_serializes_exactly_as_before(mode):
+    """No new key appears on attributes of drivers that declare no metadata."""
+    attr = Attribute.create("temperature", DataType.FLOAT, {"read"}, value=21.5)
+    assert set(attr.model_dump(mode=mode)) == _PLAIN_ATTRIBUTE_KEYS
+
+
+def test_fault_attribute_without_metadata_serializes_exactly_as_before():
+    attr = FaultAttribute(
+        name="alarm",
+        data_type=DataType.BOOL,
+        read_write_modes={"read"},
+        current_value=False,
+        healthy_values=[False],
+        last_updated=_NOW,
+        last_changed=_NOW,
+    )
+    assert set(attr.model_dump()) == _PLAIN_ATTRIBUTE_KEYS | {
+        "severity",
+        "healthy_values",
+        "is_faulty",
+    }
+
+
+def test_attribute_create_carries_metadata():
+    attr = _annotated_attribute()
+    assert attr.label == _LABEL
+    assert attr.description == _DESCRIPTION
+    assert attr.group == "setpoints"
+    assert attr.unit == "°C"
+    assert attr.write_constraints == _CONSTRAINTS
+
+
+def test_attribute_metadata_serializes_when_set():
+    dumped = _annotated_attribute().model_dump(mode="json")
+    assert dumped["label"] == {
+        "default": "Setpoint",
+        "translations": {"fr": "Consigne"},
+    }
+    assert dumped["description"] == {
+        "default": "Requested room temperature",
+        "translations": {},
+    }
+    assert dumped["group"] == "setpoints"
+    assert dumped["unit"] == "°C"
+    assert dumped["write_constraints"] == {
+        "step": 0.5,
+        "minimum": {"attribute": "setpoint_min"},
+        "maximum": 30,
+    }
+
+
+def test_partially_set_metadata_omits_only_the_unset_fields():
+    attr = Attribute.create("fan_speed", DataType.INT, {"read", "write"}, unit="rpm")
+    dumped = attr.model_dump()
+    assert dumped["unit"] == "rpm"
+    assert set(dumped) == _PLAIN_ATTRIBUTE_KEYS | {"unit"}
+
+
+def test_attribute_metadata_round_trips_through_validation():
+    restored = Attribute.model_validate(_annotated_attribute().model_dump(mode="json"))
+    assert restored.write_constraints == _CONSTRAINTS
+    assert restored.label == _LABEL

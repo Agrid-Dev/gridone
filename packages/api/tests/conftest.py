@@ -5,12 +5,20 @@ import pytest
 
 from devices_manager.interface import DevicesServiceInterface
 from users.auth import TokenPayload
+from users.validation import PASSWORD_MAX_LENGTH
 
 _ADMIN_PAYLOAD = TokenPayload(
     sub="test-user",
     role="admin",
     exp=datetime.now(UTC) + timedelta(hours=1),
 )
+
+# Bytes vs. characters: bcrypt's 72-byte limit means a multi-byte password can
+# be over it well under PASSWORD_MAX_LENGTH characters (40 "é" is 80 bytes).
+OVERSIZED_PASSWORDS = [
+    pytest.param("a" * (PASSWORD_MAX_LENGTH + 1), id="ascii-over-limit"),
+    pytest.param("é" * 40, id="multibyte-over-limit"),
+]
 
 
 @pytest.fixture

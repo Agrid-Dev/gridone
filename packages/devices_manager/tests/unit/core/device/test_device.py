@@ -22,11 +22,13 @@ from devices_manager.core.driver import (
     AttributeDriver,
     DriverMetadata,
     FaultAttributeDriver,
+    LocalizedText,
     UpdateStrategy,
+    WriteConstraints,
 )
 from devices_manager.core.transports.read_result import ReadError, ReadOk
 from devices_manager.types import ConnectionStatus, DataType, TransportProtocols
-from models.errors import ConfirmationError, NotFoundError
+from models.errors import ConfirmationError, InvalidError, NotFoundError
 from models.types import Severity
 
 from ..fixtures.transport_clients import MockTransportAddress
@@ -1109,3 +1111,202 @@ class TestReadAttributeValueMetrics:
         await device.refresh_attribute("temperature")
 
         assert metrics.attribute_read.total(protocol="http", status="ok") == 1
+
+
+class TestCoreDeviceAttributeMetadata:
+    """Presentation metadata and write constraints are projected verbatim from
+    the driver onto the runtime attributes."""
+
+    def test_metadata_projected_from_driver(
+        self, constrained_driver: Driver, mock_transport_client
+    ):
+        device = CoreDevice.from_base(
+            DeviceBase(id="d1", name="Thermostat", config={}),
+            driver=constrained_driver,
+            transport=mock_transport_client,
+        )
+        setpoint = device.attributes["temperature_setpoint"]
+        spec = constrained_driver.attributes["temperature_setpoint"]
+        assert setpoint.label == spec.label
+        assert setpoint.description == spec.description
+        assert setpoint.group == "setpoints"
+        assert setpoint.unit == "°C"
+        assert setpoint.write_constraints == spec.write_constraints
+        mode = device.attributes["mode"]
+        assert (mode.label, mode.group, mode.unit, mode.write_constraints) == (
+            None,
+            None,
+            None,
+            None,
+        )
+
+    def test_metadata_projected_onto_fault_attribute(self, mock_transport_client):
+        driver = Driver(
+            metadata=DriverMetadata(id="fault_metadata_driver"),
+            env={},
+            device_config_required=[],
+            transport=TransportProtocols.HTTP,
+            update_strategy=UpdateStrategy(),
+            attributes={
+                "alarm": FaultAttributeDriver(
+                    name="alarm",
+                    data_type=DataType.BOOL,
+                    read="GET /alarm",
+                    codecs=[],
+                    healthy_values=[False],
+                    label=LocalizedText(default="Alarm", translations={"fr": "Alarme"}),
+                    group="diagnostics",
+                )
+            },
+        )
+        device = CoreDevice.from_base(
+            DeviceBase(id="d1", name="Boiler", config={}),
+            driver=driver,
+            transport=mock_transport_client,
+        )
+        alarm = device.attributes["alarm"]
+        assert isinstance(alarm, FaultAttribute)
+        assert alarm.label == LocalizedText(
+            default="Alarm", translations={"fr": "Alarme"}
+        )
+        assert alarm.group == "diagnostics"
+
+    def test_rebuild_attribute_refreshes_metadata_and_keeps_value(
+        self, constrained_driver: Driver, mock_transport_client
+    ):
+        device = CoreDevice.from_base(
+            DeviceBase(id="d1", name="Thermostat", config={}),
+            driver=constrained_driver,
+            transport=mock_transport_client,
+            initial_values={"temperature_setpoint": 21.5},
+        )
+        updated_spec = constrained_driver.attributes["temperature_setpoint"].model_copy(
+            update={"unit": "K", "write_constraints": WriteConstraints(step=1)}
+        )
+
+        device.rebuild_attribute(updated_spec)
+
+        rebuilt = device.attributes["temperature_setpoint"]
+        assert rebuilt.unit == "K"
+        assert rebuilt.write_constraints == WriteConstraints(step=1)
+        assert rebuilt.current_value == 21.5
+
+
+class TestDeviceWriteConstraints:
+    """Constraints are enforced before the transport write, against the live
+    values of the attributes the bounds reference."""
+
+    @pytest.fixture
+    def constrained_device(
+        self, constrained_driver: Driver, mock_transport_client
+    ) -> CoreDevice:
+        mock_transport_client.write = AsyncMock()
+        return CoreDevice.from_base(
+            DeviceBase(id="d1", name="Thermostat", config={}),
+            driver=constrained_driver,
+            transport=mock_transport_client,
+            initial_values={
+                "temperature_setpoint_min": 16.0,
+                "temperature_setpoint_max": 30.0,
+            },
+        )
+
+    @pytest.mark.asyncio
+    async def test_in_range_write_reaches_transport(
+        self, constrained_device: CoreDevice, mock_transport_client
+    ):
+        result = await constrained_device.write_attribute_value(
+            "temperature_setpoint", 21.5, confirm=False
+        )
+        mock_transport_client.write.assert_called_once()
+        assert result.current_value == 21.5
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("value", "message"),
+        [
+            (15.5, "below the minimum 16.0"),
+            (30.5, "above the maximum 30.0"),
+            (21.3, "not a multiple of the step 0.5"),
+        ],
+    )
+    async def test_violating_write_is_refused_before_transport(
+        self, constrained_device: CoreDevice, mock_transport_client, value, message
+    ):
+        with pytest.raises(InvalidError, match=message):
+            await constrained_device.write_attribute_value(
+                "temperature_setpoint", value, confirm=False
+            )
+        mock_transport_client.write.assert_not_called()
+        assert (
+            constrained_device.attributes["temperature_setpoint"].current_value is None
+        )
+
+    @pytest.mark.asyncio
+    async def test_refused_write_is_logged_on_the_attribute(
+        self, constrained_device: CoreDevice
+    ):
+        with pytest.raises(InvalidError):
+            await constrained_device.write_attribute_value(
+                "temperature_setpoint", 99, confirm=False
+            )
+        write_logs = constrained_device.attributes["temperature_setpoint"].logs.write
+        assert [entry.status for entry in write_logs] == ["error"]
+        assert "above the maximum" in (write_logs[0].message or "")
+
+    @pytest.mark.asyncio
+    async def test_constant_bounds(
+        self, constrained_device: CoreDevice, mock_transport_client
+    ):
+        await constrained_device.write_attribute_value("fan_speed", 3, confirm=False)
+        mock_transport_client.write.assert_called_once()
+        with pytest.raises(InvalidError, match="above the maximum 3"):
+            await constrained_device.write_attribute_value(
+                "fan_speed", 4, confirm=False
+            )
+        with pytest.raises(InvalidError, match="below the minimum 0"):
+            await constrained_device.write_attribute_value(
+                "fan_speed", -1, confirm=False
+            )
+        mock_transport_client.write.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_unknown_referenced_bound_refuses_the_write(
+        self, constrained_driver: Driver, mock_transport_client
+    ):
+        mock_transport_client.write = AsyncMock()
+        device = CoreDevice.from_base(
+            DeviceBase(id="d1", name="Thermostat", config={}),
+            driver=constrained_driver,
+            transport=mock_transport_client,
+        )
+        with pytest.raises(
+            InvalidError,
+            match="bound 'temperature_setpoint_min' of 'temperature_setpoint' is "
+            "unknown; write refused",
+        ):
+            await device.write_attribute_value(
+                "temperature_setpoint", 21.5, confirm=False
+            )
+        mock_transport_client.write.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_referenced_bounds_read_live_values(
+        self, constrained_device: CoreDevice, mock_transport_client
+    ):
+        await constrained_device.write_attribute_value(
+            "temperature_setpoint", 25.0, confirm=False
+        )
+        constrained_device.attributes["temperature_setpoint_max"].update_value(24.0)
+        with pytest.raises(InvalidError, match=r"above the maximum 24\.0"):
+            await constrained_device.write_attribute_value(
+                "temperature_setpoint", 25.0, confirm=False
+            )
+        mock_transport_client.write.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_unconstrained_attribute_is_not_checked(
+        self, constrained_device: CoreDevice, mock_transport_client
+    ):
+        await constrained_device.write_attribute_value("mode", "auto", confirm=False)
+        mock_transport_client.write.assert_called_once()

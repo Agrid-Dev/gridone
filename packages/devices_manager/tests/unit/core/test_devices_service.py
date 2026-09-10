@@ -17,7 +17,13 @@ from devices_manager.core.device import (
 )
 from devices_manager.core.device.attribute import AttributeKind
 from devices_manager.core.device.event_log import AttributeEventLog, EventType
-from devices_manager.core.driver import AttributeDriver, Driver, UpdateStrategy
+from devices_manager.core.driver import (
+    AttributeDriver,
+    AttributeRef,
+    Driver,
+    UpdateStrategy,
+    WriteConstraints,
+)
 from devices_manager.core.transports.base import TerminalConnectionError
 from devices_manager.core.transports.http_transport import HttpTransportConfig
 from devices_manager.core.transports.knx_transport import KNXTransportConfig
@@ -445,19 +451,40 @@ class TestDevicesServiceListeners:
 _DISCOVERY_EVENT = {"id": "abc", "gateway_id": "gtw", "payload": {"temperature": 22}}
 
 
-@pytest_asyncio.fixture
-async def dm_with_discovery(driver_w_push_transport, mock_push_transport_client):
-    """DevicesService with discovery already registered on the push transport."""
-    driver_id = driver_w_push_transport.id
-    transport_id = mock_push_transport_client.id
+async def _make_dm_with_discovery(
+    driver, transport, *, running: bool
+) -> DevicesService:
+    """DevicesService with discovery registered on the push transport.
+
+    ``running`` starts the service, so discovered devices also start their
+    sync and subscribe to their attribute topics.
+    """
     dm = DevicesService(
         devices={},
-        drivers={driver_id: driver_w_push_transport},
-        transports={transport_id: mock_push_transport_client},
+        drivers={driver.id: driver},
+        transports={transport.id: transport},
     )
-    await dm.load()
-    await dm.discovery_manager.register(driver_id=driver_id, transport_id=transport_id)
+    await (dm.start() if running else dm.load())
+    await dm.discovery_manager.register(driver_id=driver.id, transport_id=transport.id)
     return dm
+
+
+@pytest_asyncio.fixture
+async def dm_with_discovery(driver_w_push_transport, mock_push_transport_client):
+    return await _make_dm_with_discovery(
+        driver_w_push_transport, mock_push_transport_client, running=False
+    )
+
+
+@pytest_asyncio.fixture
+async def running_dm_with_discovery(
+    driver_w_push_transport, mock_push_transport_client
+):
+    dm = await _make_dm_with_discovery(
+        driver_w_push_transport, mock_push_transport_client, running=True
+    )
+    yield dm
+    await dm.stop()
 
 
 class TestDevicesServiceDiscovery:
@@ -475,6 +502,27 @@ class TestDevicesServiceDiscovery:
         # add only once
         await mock_push_transport_client.simulate_event("/xx", _DISCOVERY_EVENT)
         assert len(dm_with_discovery.list_devices()) == 1
+
+    @pytest.mark.asyncio
+    async def test_discovered_device_dispatches_attribute_updates(
+        self, running_dm_with_discovery, mock_push_transport_client
+    ):
+        """A discovered device must fan out its updates like any other."""
+        calls: list[tuple[str, AttributeValueType]] = []
+
+        def handler(_device, attribute_name, _previous, attribute) -> None:
+            calls.append((attribute_name, attribute.current_value))
+
+        running_dm_with_discovery.add_device_attribute_listener(handler)
+        await mock_push_transport_client.simulate_event("/xx", _DISCOVERY_EVENT)
+        await asyncio.sleep(0.05)
+
+        await mock_push_transport_client.simulate_event(
+            "/xx/temperature", {"payload": {"temperature": 25}}
+        )
+        await asyncio.sleep(0.05)
+
+        assert ("temperature", 25) in calls
 
     @pytest.mark.asyncio
     async def test_devices_manager_does_not_add_existing_device_on_discovery(
@@ -2264,3 +2312,93 @@ class TestDevicesServiceUnreachableTransport:
 
         assert SlowStartDevice.completed == []
         await dm.stop()
+
+
+class TestDevicesServiceRenamePropagatesBounds:
+    """Renaming an attribute that others bound themselves on rewrites the
+    live devices' runtime constraints, not only the driver spec."""
+
+    @staticmethod
+    def _device(constrained_driver, mock_transport_client) -> CoreDevice:
+        return CoreDevice.from_base(
+            DeviceBase(id="d1", name="Thermostat", config={}),
+            driver=constrained_driver,
+            transport=mock_transport_client,
+            initial_values={
+                "temperature_setpoint_min": 16.0,
+                "temperature_setpoint_max": 30.0,
+            },
+        )
+
+    @pytest.mark.asyncio
+    async def test_referencing_attribute_follows_the_rename_in_live_devices(
+        self, constrained_driver, mock_transport_client
+    ):
+        device = self._device(constrained_driver, mock_transport_client)
+        dm = DevicesService(
+            devices={device.id: device},
+            drivers={constrained_driver.id: constrained_driver},
+            transports={mock_transport_client.id: mock_transport_client},
+        )
+        await dm.start()
+
+        await dm.rename_driver_attribute(
+            constrained_driver.id, "temperature_setpoint_min", "min_setpoint"
+        )
+
+        setpoint = device.attributes["temperature_setpoint"]
+        assert setpoint.write_constraints == WriteConstraints(
+            step=0.5,
+            minimum=AttributeRef(attribute="min_setpoint"),
+            maximum=AttributeRef(attribute="temperature_setpoint_max"),
+        )
+        assert device.attributes["min_setpoint"].current_value == 16.0
+        # the bound resolves against the renamed attribute: the write goes through
+        mock_transport_client.write = AsyncMock()
+        await device.write_attribute_value("temperature_setpoint", 21.5, confirm=False)
+        mock_transport_client.write.assert_called_once()
+        await dm.stop()
+
+    @pytest.mark.asyncio
+    async def test_propagation_does_not_depend_on_the_service_running(
+        self, constrained_driver, mock_transport_client
+    ):
+        device = self._device(constrained_driver, mock_transport_client)
+        dm = DevicesService(
+            devices={device.id: device},
+            drivers={constrained_driver.id: constrained_driver},
+            transports={mock_transport_client.id: mock_transport_client},
+        )
+        await dm.load()
+
+        await dm.rename_driver_attribute(
+            constrained_driver.id, "temperature_setpoint_min", "min_setpoint"
+        )
+
+        setpoint = dm.get_device("d1").attributes["temperature_setpoint"]
+        assert setpoint.write_constraints is not None
+        assert setpoint.write_constraints.minimum == AttributeRef(
+            attribute="min_setpoint"
+        )
+
+
+class TestDevicesServiceDriverPresentation:
+    @pytest.mark.asyncio
+    async def test_get_driver_presentation_resolves_against_attributes(
+        self, presented_driver
+    ):
+        from devices_manager.core.presentation import AvailablePresentation
+
+        dm = DevicesService(
+            devices={}, drivers={presented_driver.id: presented_driver}, transports={}
+        )
+        await dm.load()
+        status = dm.get_driver_presentation(presented_driver.id)
+        assert isinstance(status, AvailablePresentation)
+        assert status.document.schema_version == 1
+
+    @pytest.mark.asyncio
+    async def test_get_driver_presentation_none_when_undeclared(self, driver):
+        dm = DevicesService(devices={}, drivers={driver.id: driver}, transports={})
+        await dm.load()
+        assert dm.get_driver_presentation(driver.id) is None

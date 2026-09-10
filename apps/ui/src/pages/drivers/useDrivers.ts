@@ -6,64 +6,21 @@ import {
 } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
-import { type Driver, type DriverYaml } from "@gridone/sdk";
+import type { Driver } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { serverErrorMessage } from "@/lib/serverErrorMessage";
 import { useTranslation } from "react-i18next";
 
-// Matches the raw value of a top-level `id:` field in the driver YAML, e.g.
-// "id: my_driver" or "id: 'my_driver'" -> captures `my_driver` (unquoted) or
-// `"my_driver"` / `'my_driver'` (quoted, quotes stripped separately below).
-const DRIVER_ID_LINE = /^id:[ \t]*(.+?)[ \t]*$/m;
-
-// Matches a fully-quoted scalar, e.g. `"my_driver"` or `'my_driver'`.
-const QUOTED_SCALAR = /^(["'])((?:(?!\1).)*)\1$/;
-
-export function extractDriverId(yaml: string): string {
-  const line = yaml.match(DRIVER_ID_LINE);
-  if (!line) {
-    throw new Error("Driver YAML must include a top-level 'id' field");
-  }
-  const rawValue = line[1];
-  const quoted = rawValue.match(QUOTED_SCALAR);
-  // Unquoted YAML comments start at whitespace followed by "#"; a quoted
-  // scalar's content (including any "#") is never treated as a comment.
-  const id = quoted ? quoted[2] : rawValue.split(/[ \t]+#/)[0].trim();
-  if (!id) {
-    throw new Error("Driver YAML must include a top-level 'id' field");
-  }
-  return id;
-}
-
 // The driver catalog is small and always fetched whole: the list page needs
 // the unfiltered totals for its type chips and filters client-side.
 export const useDrivers = () => {
-  const { t } = useTranslation(["drivers", "common"]);
-  const navigate = useNavigate();
   const client = useGridoneClient();
   const driversListQuery = useQuery<Driver[]>({
     queryKey: ["drivers"],
     queryFn: () => client.drivers.list(),
     initialData: [],
   });
-  const handleApiError = (err: Error) => {
-    const detail = serverErrorMessage(err);
-    const base = t("common:errors.default");
-    toast.error(detail ? `${base}: ${detail}` : base);
-  };
-  const createMutation = useMutation({
-    mutationFn: (payload: DriverYaml) =>
-      client.drivers.create(extractDriverId(payload.yaml), payload),
-    onSuccess: async (result: Driver) => {
-      await driversListQuery.refetch();
-      navigate(`../${result.id}`);
-      toast.success(t("feedback.created", { driverId: result.id }));
-    },
-    onError: handleApiError,
-  });
-  const handleCreate = async (payload: DriverYaml) =>
-    createMutation.mutateAsync(payload);
-  return { driversListQuery, createMutation, handleCreate };
+  return { driversListQuery };
 };
 
 /**

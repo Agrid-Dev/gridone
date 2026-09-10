@@ -13,6 +13,9 @@ from __future__ import annotations
 
 from typing import Any
 
+ASSET_TAG = "asset_id"
+"""Device tag carrying zone membership — the one place the name is spelled."""
+
 
 def parse_tags_params(raw: list[str] | None) -> dict[str, list[str]] | None:
     """Parse ``?tags=key:value`` query params into a tags filter dict.
@@ -37,12 +40,12 @@ def to_list_devices_kwargs(filter_dict: dict[str, Any]) -> dict[str, Any]:
     are preserved (the new value is appended rather than replacing).
     """
     kwargs = dict(filter_dict)
-    asset_id = kwargs.pop("asset_id", None)
+    asset_id = kwargs.pop(ASSET_TAG, None)
     if asset_id is not None:
         tags = dict(kwargs.get("tags") or {})
-        existing = list(tags.get("asset_id") or [])
+        existing = list(tags.get(ASSET_TAG) or [])
         if asset_id not in existing:
             existing.append(asset_id)
-        tags["asset_id"] = existing
+        tags[ASSET_TAG] = existing
         kwargs["tags"] = tags
     return kwargs

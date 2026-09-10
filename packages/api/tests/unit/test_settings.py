@@ -2,6 +2,7 @@ import pytest
 from pydantic import ValidationError
 
 from api.settings import Settings, load_settings
+from users.validation import PASSWORD_MAX_LENGTH
 
 
 class TestExtraEnvIgnored:
@@ -31,6 +32,36 @@ class TestCookieSecure:
 
     def test_can_opt_out_for_plain_http(self):
         assert load_settings({"COOKIE_SECURE": "false"}).COOKIE_SECURE is False
+
+
+class TestAdminPassword:
+    def test_unset_by_default(self):
+        assert Settings().GRIDONE_ADMIN_PASSWORD is None
+
+    def test_accepts_a_valid_password(self):
+        seeded = "good-password"
+        settings = load_settings({"GRIDONE_ADMIN_PASSWORD": seeded})
+        assert seeded == settings.GRIDONE_ADMIN_PASSWORD
+
+    @pytest.mark.parametrize(
+        "value",
+        [
+            pytest.param("a" * (PASSWORD_MAX_LENGTH + 1), id="over-maximum"),
+            pytest.param("ab", id="under-minimum"),
+        ],
+    )
+    def test_rejects_an_out_of_range_password(self, value: str):
+        """Fails at settings load, not inside bcrypt during the lifespan."""
+        with pytest.raises(ValidationError) as exc_info:
+            load_settings({"GRIDONE_ADMIN_PASSWORD": value})
+        assert "GRIDONE_ADMIN_PASSWORD" in str(exc_info.value)
+
+    def test_rejected_password_is_not_echoed_in_the_error(self):
+        """load_settings runs uncaught in the lifespan, so this reaches logs."""
+        secret = "xq7z"  # noqa: S105
+        with pytest.raises(ValidationError) as exc_info:
+            load_settings({"GRIDONE_ADMIN_PASSWORD": secret})
+        assert secret not in str(exc_info.value)
 
 
 class TestLoadSettings:

@@ -13,8 +13,14 @@ from devices_manager.core.transports.mqtt_transport import (
     MqttTransportClient,
     MqttTransportConfig,
 )
+from devices_manager.core.transports.mqtt_transport import (
+    client as client_module,
+)
 from devices_manager.core.transports.mqtt_transport.client import build_ssl_context
-from devices_manager.core.transports.mqtt_transport.mqtt_address import MqttRequest
+from devices_manager.core.transports.mqtt_transport.mqtt_address import (
+    MqttReplyMatch,
+    MqttRequest,
+)
 from devices_manager.core.transports.transport_metadata import TransportMetadata
 
 
@@ -369,6 +375,61 @@ class TestRead:
         result = await mqtt_client.read(mqtt_listen_address)
         assert result == "pushed_value"
         mock_aiomqtt_client.publish.assert_not_awaited()
+
+
+class TestReadWithMatch:
+    """A read on a reply topic shared by every attribute of a device may
+    receive frames meant for other reads before its own; ``match`` tells the
+    transport which frame is the reply."""
+
+    @pytest.fixture
+    def matched_address(self, mqtt_read_address) -> MqttAddress:
+        return mqtt_read_address.model_copy(
+            update={"match": MqttReplyMatch(json_path='$.data[?(@.name == "wanted")]')}
+        )
+
+    @staticmethod
+    def _deliver_on_register(mqtt_client, frames: list[str]) -> None:
+        original_register = mqtt_client.register_listener
+
+        async def register_and_deliver(topic, callback):  # noqa: ANN202
+            listener_id = await original_register(topic, callback)
+            for frame in frames:
+                callback(frame)
+            return listener_id
+
+        mqtt_client.register_listener = register_and_deliver
+
+    @pytest.mark.asyncio
+    async def test_read_skips_frames_that_do_not_match(
+        self, mqtt_client, matched_address
+    ):
+        await mqtt_client.connect()
+        self._deliver_on_register(
+            mqtt_client,
+            [
+                "not json at all",
+                '{"data": [{"name": "other", "value": 1}]}',
+                '{"data": [{"name": "wanted", "value": 2}]}',
+            ],
+        )
+
+        result = await mqtt_client.read(matched_address)
+
+        assert result == '{"data": [{"name": "wanted", "value": 2}]}'
+
+    @pytest.mark.asyncio
+    async def test_read_times_out_when_no_frame_matches(
+        self, mqtt_client, matched_address, monkeypatch
+    ):
+        monkeypatch.setattr(client_module, "TIMEOUT", 0.01)
+        await mqtt_client.connect()
+        self._deliver_on_register(
+            mqtt_client, ['{"data": [{"name": "other", "value": 1}]}']
+        )
+
+        with pytest.raises(TimeoutError, match="no reply"):
+            await mqtt_client.read(matched_address)
 
 
 class TestWrite:

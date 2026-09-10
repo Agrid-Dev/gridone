@@ -177,6 +177,17 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
         def update_value(message_received: str) -> None:
             nonlocal message
             nonlocal message_event
+            # The reply topic is shared by every attribute of the device, so a
+            # frame answering another read, or pushed on change, can land
+            # first: with a `match` declared, those are skipped, not returned.
+            if address.match is not None and not address.match.accepts(
+                message_received
+            ):
+                logger.debug(
+                    "MQTT read: frame on %s is not the reply, waiting for the next",
+                    address.topic,
+                )
+                return
             message = message_received
             message_event.set()
 
@@ -210,7 +221,7 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
                 if message is not None:
                     return message
         except TimeoutError as err:
-            msg = "MQTT: no message received before timeout"
+            msg = f"MQTT: no reply received on {address.topic} before timeout"
             raise TimeoutError(msg) from err
         finally:
             await self.unregister_listener(listener_id, address.topic)

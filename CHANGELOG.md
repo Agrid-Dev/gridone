@@ -1,3 +1,57 @@
+## v0.232.1 (2026-09-10)
+
+### Fix
+
+- **users**: write partial updates instead of the full user row (#626)
+
+## v0.232.0 (2026-09-10)
+
+### Feat
+
+- **api**: seed the admin account from GRIDONE_ADMIN_PASSWORD (#624)
+
+## v0.231.0 (2026-09-10)
+
+### Feat
+
+- **api**: let any user change their own password (#625)
+
+## v0.230.1 (2026-09-10)
+
+### Fix
+
+- **users**: reject passwords above bcrypt's 72-byte limit (#623)
+
+## v0.230.0 (2026-09-10)
+
+## v0.229.1 (2026-09-10)
+
+### Feat
+
+- **drivers**: support driver-defined device presentations (AGR-1198)
+
+### Fix
+
+- **devices-manager**: dispatch attribute updates for discovered devices (AGR-1201) (#621)
+
+## v0.229.0 (2026-09-10)
+
+### Feat
+
+- **devices**: add bulk zone linking and mapping import
+
+## v0.228.0 (2026-09-09)
+
+### Feat
+
+- **devices-manager**: match the reply frame on shared MQTT reply topics
+
+## v0.227.0 (2026-09-09)
+
+### Feat
+
+- **devices-manager**: named polling groups poll when default polling is disabled
+
 ## v0.226.0 (2026-09-09)
 
 ### Feat

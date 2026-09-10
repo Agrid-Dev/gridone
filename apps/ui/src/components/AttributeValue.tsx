@@ -121,6 +121,8 @@ type AttributeValueProps = {
   dataType?: string;
   /** When set, colours the value by severity (green when not faulty). */
   fault?: { severity: Severity; isFaulty: boolean };
+  /** Unit symbol appended to a plain numeric value (never to icons or faults). */
+  unit?: string | null;
   className?: string;
 };
 
@@ -138,6 +140,7 @@ export function AttributeValue({
   deviceType,
   dataType,
   fault,
+  unit,
   className,
 }: AttributeValueProps) {
   const { t } = useTranslation();
@@ -185,5 +188,10 @@ export function AttributeValue({
     );
   }
 
-  return <span className={className}>{formatValue(value, dataType)}</span>;
+  const text = formatValue(value, dataType);
+  return (
+    <span className={className}>
+      {typeof value === "number" && unit ? `${text} ${unit}` : text}
+    </span>
+  );
 }

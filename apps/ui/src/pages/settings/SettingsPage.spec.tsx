@@ -8,7 +8,7 @@ import {
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { MeResponse } from "@gridone/sdk";
+import { GridoneError, type MeResponse } from "@gridone/sdk";
 import { createI18nMock } from "@/test/i18nMock";
 
 vi.mock("react-i18next", () =>
@@ -24,6 +24,9 @@ vi.mock("react-i18next", () =>
       "You're still using the default password. Set a new one.",
     "settings.updatePassword": "Update password",
     "settings.passwordUpdated": "Password updated",
+    "settings.currentPasswordIncorrect": "Your current password is incorrect",
+    "settings.currentPassword": "Current password",
+    "settings.currentPasswordPlaceholder": "Enter your current password",
     "settings.newPassword": "New password",
     "settings.newPasswordPlaceholder": "Enter a new password",
     "settings.confirmPassword": "Confirm new password",
@@ -44,6 +47,8 @@ vi.mock("react-i18next", () =>
       "Password must be at most {{count}} characters.",
     "settings.validation.confirmPasswordRequired":
       "Please confirm your new password.",
+    "settings.validation.currentPasswordRequired":
+      "Enter your current password.",
     "common.save": "Save",
     "common.saving": "Saving…",
     "common.cancel": "Cancel",
@@ -51,10 +56,13 @@ vi.mock("react-i18next", () =>
   }),
 );
 
-const { mockUpdateUser, mockRefreshMe } = vi.hoisted(() => ({
-  mockUpdateUser: vi.fn(),
-  mockRefreshMe: vi.fn(),
-}));
+const { mockUpdateUser, mockChangePassword, mockRefreshMe } = vi.hoisted(
+  () => ({
+    mockUpdateUser: vi.fn(),
+    mockChangePassword: vi.fn(),
+    mockRefreshMe: vi.fn(),
+  }),
+);
 
 let currentUser: MeResponse;
 
@@ -67,7 +75,10 @@ vi.mock("@/contexts/AuthContext", () => ({
 
 vi.mock("@/contexts/GridoneClientContext", () => ({
   useGridoneClient: () => ({
-    users: { update: (...args: unknown[]) => mockUpdateUser(...args) },
+    users: {
+      update: (...args: unknown[]) => mockUpdateUser(...args),
+      changePassword: (...args: unknown[]) => mockChangePassword(...args),
+    },
   }),
 }));
 
@@ -109,6 +120,7 @@ function renderPage() {
 beforeEach(() => {
   currentUser = makeUser();
   mockUpdateUser.mockResolvedValue(currentUser);
+  mockChangePassword.mockResolvedValue(currentUser);
   mockRefreshMe.mockResolvedValue(currentUser);
 });
 
@@ -174,17 +186,38 @@ describe("SettingsPage", () => {
     expect(payload).not.toHaveProperty("password");
   });
 
-  it("submits only the password from the security form", async () => {
+  it("submits the password change through the self-service route", async () => {
     const user = userEvent.setup();
     renderPage();
 
+    await user.type(screen.getByLabelText("Current password"), "oldsecret");
     await user.type(screen.getByLabelText("New password"), "newsecret");
     await user.type(screen.getByLabelText("Confirm new password"), "newsecret");
     await user.click(screen.getByRole("button", { name: "Update password" }));
 
-    await waitFor(() => expect(mockUpdateUser).toHaveBeenCalledTimes(1));
-    const [, payload] = mockUpdateUser.mock.calls[0];
-    expect(payload).toEqual({ password: "newsecret" });
+    await waitFor(() => expect(mockChangePassword).toHaveBeenCalledTimes(1));
+    expect(mockChangePassword.mock.calls[0][0]).toEqual({
+      current_password: "oldsecret",
+      new_password: "newsecret",
+    });
+    expect(mockUpdateUser).not.toHaveBeenCalled();
+  });
+
+  it("shows a localized message when the current password is wrong", async () => {
+    mockChangePassword.mockRejectedValue(new GridoneError(401, "Unauthorized"));
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.type(screen.getByLabelText("Current password"), "wrongsecret");
+    await user.type(screen.getByLabelText("New password"), "newsecret");
+    await user.type(screen.getByLabelText("Confirm new password"), "newsecret");
+    await user.click(screen.getByRole("button", { name: "Update password" }));
+
+    expect(
+      await screen.findByText("Your current password is incorrect"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Unauthorized")).not.toBeInTheDocument();
+    expect(mockRefreshMe).not.toHaveBeenCalled();
   });
 
   it("keeps the profile actions disabled until a field changes", async () => {

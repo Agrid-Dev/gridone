@@ -1,10 +1,11 @@
 from typing import Annotated, Any, Self
 
-import yaml as pyyaml
 from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    PrivateAttr,
+    computed_field,
     field_validator,
     model_validator,
 )
@@ -12,16 +13,23 @@ from pydantic import (
 from devices_manager.core.device.attribute import AttributeKind
 from devices_manager.core.driver import (
     AnyAttributeDriver,
+    AttributeGroup,
     DeviceConfigField,
     Driver,
     DriverMetadata,
     HealthCheck,
+    LocalizedText,
+    Unit,
     UpdateStrategy,
+    WriteConstraints,
 )
+from devices_manager.core.presentation import PresentationEnvelope
 from devices_manager.core.transports import RawTransportAddress
 from devices_manager.types import AttributeValueType, TransportProtocols
+from models.errors import InvalidError
 from models.metadata import ResourceMetadata
 from models.types import Severity
+from models.yaml_loader import BoundedYamlError, load_bounded_yaml
 
 # The wire shape of a driver attribute is the core discriminated union
 # itself — attributes are embedded core objects, not a separate projection.
@@ -42,6 +50,17 @@ class DriverSpec(ResourceMetadata):
     attributes: list[AttributeDriverSpec]
     discovery: dict | None = None
     type: str | None = None
+    # Driver-defined presentation (ADR docs/specs/driver-defined-device-ui.md):
+    # absent means the historical rendering path, untouched.
+    presentation: PresentationEnvelope | None = None
+
+    _presentation_revision: str | None = PrivateAttr(default=None)
+
+    @computed_field
+    @property
+    def presentation_revision(self) -> str | None:
+        """Server-owned resource revision; ignored on input."""
+        return self._presentation_revision
 
     @model_validator(mode="after")
     def _disable_polling_on_push_only_transport(self) -> Self:
@@ -49,12 +68,15 @@ class DriverSpec(ResourceMetadata):
         READ errors and degrade a healthy device. An explicit
         ``polling_enabled: true`` is a contradiction and is rejected; a
         driver that simply omits it gets polling disabled instead of the
-        polling default.
+        polling default. Named polling groups poll regardless of the default,
+        so declaring any is rejected too.
         """
-        if (
-            self.transport == TransportProtocols.WEBHOOK
-            and self.update_strategy.polling_enabled
-        ):
+        if self.transport != TransportProtocols.WEBHOOK:
+            return self
+        if self.update_strategy.polling_groups:
+            msg = "Webhook drivers are push-only: polling groups cannot be declared"
+            raise ValueError(msg)
+        if self.update_strategy.polling_enabled:
             if "polling_enabled" in self.update_strategy.model_fields_set:
                 msg = "Webhook drivers are push-only: polling cannot be enabled"
                 raise ValueError(msg)
@@ -63,7 +85,11 @@ class DriverSpec(ResourceMetadata):
 
     @classmethod
     def from_yaml(cls, yaml: str) -> "DriverSpec":
-        data = pyyaml.safe_load(yaml)
+        """Parse third-party driver YAML within the bounded loader's limits."""
+        try:
+            data = load_bounded_yaml(yaml)
+        except BoundedYamlError as exc:
+            raise InvalidError(str(exc)) from exc
         return cls.model_validate(data)
 
 
@@ -84,6 +110,9 @@ class DriverPatch(BaseModel):
     env: dict | None = None
     update_strategy: UpdateStrategy | None = None
     healthcheck: HealthCheck | None = None
+    # Omitted: unchanged; null: the presentation is removed; an object:
+    # replaced, after candidate validation against the driver's attributes.
+    presentation: PresentationEnvelope | None = None
 
     @field_validator("env", "update_strategy", "healthcheck", mode="before")
     @classmethod
@@ -106,6 +135,12 @@ class AttributePatch(BaseModel):
     severity: Severity | None = None
     healthy_values: list[AttributeValueType] | None = None
     polling_group: str | None = None  # null falls back to the default polling_interval
+    # Presentation metadata and write constraints; null clears the field.
+    label: LocalizedText | None = None
+    description: LocalizedText | None = None
+    group: AttributeGroup | None = None
+    unit: Unit | None = None
+    write_constraints: WriteConstraints | None = None
 
     @field_validator(
         "read", "codecs", "kind", "severity", "healthy_values", mode="before"
@@ -126,7 +161,7 @@ class AttributeRename(BaseModel):
 
 
 def core_to_dto(driver: Driver) -> DriverSpec:
-    return DriverSpec(
+    result = DriverSpec(
         id=driver.metadata.id,
         vendor=driver.metadata.vendor,
         model=driver.metadata.model,
@@ -140,9 +175,13 @@ def core_to_dto(driver: Driver) -> DriverSpec:
         discovery=driver.discovery_schema,
         attributes=list(driver.attributes.values()),
         type=driver.type,
+        presentation=driver.presentation,
         created_at=driver.metadata.created_at,
         updated_at=driver.metadata.updated_at,
     )
+
+    result._presentation_revision = driver.presentation_revision  # noqa: SLF001
+    return result
 
 
 def dto_to_core(dto: DriverSpec) -> Driver:
@@ -156,4 +195,5 @@ def dto_to_core(dto: DriverSpec) -> Driver:
         attributes={a.name: a for a in dto.attributes},
         discovery_schema=dto.discovery,
         type=dto.type,
+        presentation=dto.presentation,
     )

@@ -6,6 +6,7 @@ on:
     paths:
       - "apps/ui/**"
       - "sdk/ts/**"
+      - "packages/devices_manager/tests/unit/core/presentation/fixtures/**"
       - ".github/workflows/ui-ci.yaml"
   workflow_dispatch:
 

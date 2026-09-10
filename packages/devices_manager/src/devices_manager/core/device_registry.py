@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable, Collection
+from dataclasses import fields
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
@@ -54,7 +55,7 @@ class DeviceRegistry:
         self._on_attribute_update = on_attribute_update
         self._storage = storage
         for device in self._devices.values():
-            device.on_update = self._on_attribute_update
+            self._attach_update_listener(device)
 
     @property
     def all(self) -> dict[str, CoreDevice]:
@@ -110,11 +111,20 @@ class DeviceRegistry:
         if self._storage is not None:
             await self._storage.write(device.id, device)
 
+    def _attach_update_listener(self, device: CoreDevice) -> None:
+        """Wire the device to the registry's attribute update listener.
+
+        Called on every path that puts a device into ``_devices``, so no
+        builder has to remember to pass it.
+        """
+        device.on_update = self._on_attribute_update
+
     async def register(self, device: CoreDevice) -> None:
         """Register device in memory and persist."""
         if device.id in self._devices:
             msg = f"Device with id {device.id} already exists"
             raise ValueError(msg)
+        self._attach_update_listener(device)
         self._devices[device.id] = device
         await self._persist(device)
         logger.info("Successfully registered device '%s'", device.id)
@@ -164,7 +174,6 @@ class DeviceRegistry:
             base,
             driver=driver,
             transport=transport,
-            on_update=self._on_attribute_update,
         )
 
     async def add(self, base: DeviceBase) -> CoreDevice:
@@ -217,7 +226,6 @@ class DeviceRegistry:
             driver=driver,
             transport=transport,
             restored_attributes=device.attributes,
-            on_update=self._on_attribute_update,
         )
         new_device.tags = device.tags
         return new_device
@@ -271,6 +279,7 @@ class DeviceRegistry:
         else:
             self._touch(device)
 
+        self._attach_update_listener(device)
         self._devices[device_id] = device
         await self._persist(device)
         return device
@@ -326,6 +335,59 @@ class DeviceRegistry:
 
     def _devices_for_driver(self, driver_id: str) -> list[CoreDevice]:
         return [d for d in self._devices.values() if d.driver_id == driver_id]
+
+    @staticmethod
+    def preserves_device_runtime(current: Driver | None, candidate: Driver) -> bool:
+        """Compare every driver field except presentation and server timestamps.
+
+        Presentation imports may omit timestamps; those audit fields never alter
+        communication. Attribute metadata, codecs, configuration, and all future
+        dataclass fields participate, so only presentation changes take this path.
+        """
+        if current is None:
+            return False
+        metadata_exclude = {"created_at", "updated_at"}
+        if current.metadata.model_dump(exclude=metadata_exclude) != (
+            candidate.metadata.model_dump(exclude=metadata_exclude)
+        ):
+            return False
+        excluded = {"metadata", "presentation", "presentation_revision"}
+        return all(
+            getattr(current, item.name) == getattr(candidate, item.name)
+            for item in fields(current)
+            if item.name not in excluded
+        )
+
+    def update_driver_in_place(self, driver: Driver) -> list[CoreDevice]:
+        """Publish a committed presentation while preserving runtime instances.
+
+        The caller must establish that the remaining driver contract is unchanged
+        and persist its CAS first. No task, telemetry, or command waiter is replaced.
+        """
+        devices = self._devices_for_driver(driver.id)
+        for device in devices:
+            device.driver = driver
+        return devices
+
+    def prepare_driver_devices(self, driver: Driver) -> list[CoreDevice]:
+        """Validate and rebuild affected devices before a driver is persisted.
+
+        Replacements retain telemetry and tags; no live device is changed here.
+        An incompatible transport or required configuration rejects the package.
+        """
+        devices = self._devices_for_driver(driver.id)
+        for device in devices:
+            self._check_transport_compat(driver, device.transport)
+            self._validate_device_config(device.config, driver)
+        return [
+            self.rebuild_device(device, driver, device.transport) for device in devices
+        ]
+
+    def activate_driver_devices(self, prepared: list[CoreDevice]) -> list[CoreDevice]:
+        """Publish prepared devices without yielding, returning old sync owners."""
+        previous = [self._devices[device.id] for device in prepared]
+        self._devices.update({device.id: device for device in prepared})
+        return previous
 
     def rebuild_attribute_in_devices(
         self, attribute_driver: AttributeDriver, *, driver_id: str

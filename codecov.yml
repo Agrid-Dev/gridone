@@ -1,2 +1,5 @@
 ignore:
   - "apps/cli"
+  # uvicorn entry module: builds the app at import, so tests import its
+  # siblings (cors, telemetry, logging_config) rather than it.
+  - "apps/api_server/main.py"

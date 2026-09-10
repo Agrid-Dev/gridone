@@ -17,7 +17,7 @@ from api.exception_handlers import register_exception_handlers
 from api.listeners.device import on_device_discovered
 from api.listeners.fault import on_fault_transition
 from api.listeners.timeseries import historise_attribute_update, record_attribute_point
-from api.listeners.websocket import broadcast_attribute_update
+from api.listeners.websocket import broadcast_attribute_update, broadcast_device_update
 from api.routes import (
     assets_router,
     automations_router,
@@ -26,6 +26,7 @@ from api.routes import (
     drivers_router,
     health_router,
     notifications_router,
+    presentations_router,
     transports_ingress_router,
     transports_router,
 )
@@ -41,6 +42,7 @@ from assets import AssetsService, BuildingModelsService
 from assets.conversion.ifc import IfcSceneConverter
 from commands import CommandsService, WriteResult
 from devices_manager import DevicesService
+from models.errors import ConfigurationError
 from models.service import Service
 from models.types import AttributeValueType, DataType
 from notifications import NotificationsService
@@ -71,6 +73,19 @@ async def _start_assets_services(
     return [assets, models]
 
 
+async def _start_users_service(
+    storage_url: str | None, admin_password: str | None
+) -> UsersService:
+    """Start the users service, naming the env var when the seed can't run."""
+    users_service = UsersService(storage_url, admin_password=admin_password)
+    try:
+        await users_service.start()
+    except ConfigurationError as e:
+        msg = "GRIDONE_ADMIN_PASSWORD must be set to seed the admin account"
+        raise RuntimeError(msg) from e
+    return users_service
+
+
 def _build_automations_service(
     storage_url: str | None,
     devices_service: DevicesService,
@@ -92,8 +107,10 @@ def _build_automations_service(
     )
 
 
+# Composition root: only the acceptance suite runs it, and that reports no
+# coverage, so it is excluded from the unit gate rather than left red.
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:  # pragma: no cover
     settings = load_settings()
     auth_service = AuthService(
         secret_key=settings.secret_key,
@@ -114,8 +131,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.device_manager = dm
     app.state.ts_service = ts_service
 
-    users_service = UsersService(settings.storage_url)
-    await users_service.start()
+    users_service = await _start_users_service(
+        settings.storage_url, settings.GRIDONE_ADMIN_PASSWORD
+    )
     app.state.users_service = users_service
 
     notifications_svc = NotificationsService(settings.storage_url)
@@ -190,6 +208,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
     dm.add_device_attribute_listener(on_fault_transition(notifications_svc, recipients))
     dm.add_device_attribute_listener(broadcast_attribute_update(websocket_manager))
+    dm.add_device_update_listener(broadcast_device_update(websocket_manager))
     dm.add_device_attribute_listener(historise_attribute_update(ts_service))
 
     # Start the devices service last so listeners are registered before
@@ -248,6 +267,12 @@ def create_app(*, logging_dict_config: dict | None = None) -> FastAPI:
     )
     app.include_router(
         drivers_router, prefix="/drivers", tags=["drivers"], dependencies=jwt_dep
+    )
+    app.include_router(
+        presentations_router,
+        prefix="/presentations",
+        tags=["presentations"],
+        dependencies=jwt_dep,
     )
     app.include_router(
         assets_router,

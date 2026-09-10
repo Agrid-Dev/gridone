@@ -3,18 +3,15 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 
-const { mockSetTag, mockDeleteTag, mockToastError, mockToastSuccess } =
-  vi.hoisted(() => ({
-    mockSetTag: vi.fn(),
-    mockDeleteTag: vi.fn(),
-    mockToastError: vi.fn(),
-    mockToastSuccess: vi.fn(),
-  }));
+const { mockDeleteTag, mockToastError, mockToastSuccess } = vi.hoisted(() => ({
+  mockDeleteTag: vi.fn(),
+  mockToastError: vi.fn(),
+  mockToastSuccess: vi.fn(),
+}));
 
 vi.mock("@/contexts/GridoneClientContext", () => ({
   useGridoneClient: () => ({
     devices: {
-      setTag: (...args: unknown[]) => mockSetTag(...args),
       deleteTag: (...args: unknown[]) => mockDeleteTag(...args),
     },
   }),
@@ -42,11 +39,11 @@ function setup() {
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
-  const rendered = renderHook(() => useDeviceAssetLink("lobby"), { wrapper });
+  const rendered = renderHook(() => useDeviceAssetLink(), { wrapper });
   return { invalidate, rendered };
 }
 
-/** Every query key the mutations claim to refresh, and why it holds a copy of
+/** Every query key the mutation claims to refresh, and why it holds a copy of
  *  the link: membership is a device tag, so both sides go stale at once. */
 const INVALIDATED_KEYS = [["assets"], ["devices"]];
 
@@ -55,22 +52,6 @@ afterEach(() => {
 });
 
 describe("useDeviceAssetLink", () => {
-  it("links a device by tagging it with the asset id", async () => {
-    mockSetTag.mockResolvedValue({ id: "thermostat" });
-    const { invalidate, rendered } = setup();
-
-    act(() => rendered.result.current.link.mutate("thermostat"));
-
-    await waitFor(() =>
-      expect(rendered.result.current.link.isSuccess).toBe(true),
-    );
-    expect(mockSetTag).toHaveBeenCalledWith("thermostat", "asset_id", "lobby");
-    expect(mockToastSuccess).toHaveBeenCalledWith("devices.linked");
-    for (const queryKey of INVALIDATED_KEYS) {
-      expect(invalidate).toHaveBeenCalledWith({ queryKey });
-    }
-  });
-
   it("unlinks a device by deleting its asset tag", async () => {
     mockDeleteTag.mockResolvedValue(undefined);
     const { invalidate, rendered } = setup();

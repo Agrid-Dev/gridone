@@ -50,7 +50,7 @@ export default function AssetDetail() {
   });
 
   const reorderMutation = useReorderSubzones(assetId);
-  const { unlink } = useDeviceAssetLink(assetId);
+  const { unlink } = useDeviceAssetLink();
 
   if (isLoading || !asset) {
     return (

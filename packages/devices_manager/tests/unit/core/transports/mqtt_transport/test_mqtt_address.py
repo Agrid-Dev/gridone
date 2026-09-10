@@ -1,7 +1,9 @@
 import pytest
+from pydantic import ValidationError
 
 from devices_manager.core.transports.mqtt_transport.mqtt_address import (
     MqttAddress,
+    MqttReplyMatch,
     MqttRequest,
 )
 from devices_manager.core.transports.transport_address import PushTransportAddress
@@ -95,3 +97,28 @@ class TestMqttAddressId:
         a = MqttAddress(topic="topic/a")
         b = MqttAddress(topic="topic/b")
         assert a.id != b.id
+
+
+class TestReplyMatch:
+    def test_from_dict_builds_match(self) -> None:
+        address = MqttAddress.from_dict(
+            {
+                "topic": "updData/aa",
+                "request": {"topic": "aa", "message": {"data": "RT"}},
+                "match": {"json_path": '$.data[?(@.name == "Temperature")]'},
+            }
+        )
+
+        assert address.match == MqttReplyMatch(
+            json_path='$.data[?(@.name == "Temperature")]'
+        )
+
+    def test_invalid_json_path_is_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            MqttAddress.from_dict({"topic": "t", "match": {"json_path": "$.data[?("}})
+
+    def test_match_changes_address_id(self) -> None:
+        plain = MqttAddress(topic="t")
+        matched = MqttAddress(topic="t", match=MqttReplyMatch(json_path="$.x"))
+
+        assert plain.id != matched.id

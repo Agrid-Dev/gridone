@@ -92,6 +92,29 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/auth/password": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Change Password
+     * @description Change your own password.
+     *
+     *     It's the caller's own credential, not user management, so it needs no
+     *     ``users:write`` permission.
+     */
+    post: operations["change_password_auth_password_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/apps/registration-requests": {
     parameters: {
       query?: never;
@@ -513,6 +536,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/devices/{device_id}/presentation": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Device Presentation */
+    get: operations["get_device_presentation_devices__device_id__presentation_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/devices/{device_id}/presentation/assets/{asset_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Device Presentation Asset */
+    get: operations["get_device_presentation_asset_devices__device_id__presentation_assets__asset_id__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/devices/": {
     parameters: {
       query?: never;
@@ -667,6 +724,33 @@ export interface paths {
      *     207 for a mix of both.
      */
     post: operations["create_devices_batch_devices_batch_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/devices/asset-assignments": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Assign Devices To Assets
+     * @description Move several devices into zones in one call.
+     *
+     *     Zone membership is a device tag, so this is a loop over `set_device_tag`
+     *     that first resolves both resource sets once. Every assignment is reported
+     *     on its own: an unknown device or zone fails only its own row, the ones
+     *     that were written stay written, and the caller retries the failures. A
+     *     device already sitting in the requested zone is reported ``unchanged``,
+     *     without a write.
+     */
+    post: operations["assign_devices_to_assets_devices_asset_assignments_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -884,6 +968,58 @@ export interface paths {
     put?: never;
     /** Rename Driver Attribute */
     post: operations["rename_driver_attribute_drivers__driver_id__attributes__attribute_id__rename_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/drivers/{driver_id}/package": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Export Driver Package */
+    get: operations["export_driver_package_drivers__driver_id__package_get"];
+    /** Install Driver Package */
+    put: operations["install_driver_package_drivers__driver_id__package_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/drivers/{driver_id}/presentation": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Driver Presentation */
+    get: operations["get_driver_presentation_drivers__driver_id__presentation_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/presentations/schema": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Presentation Schema */
+    get: operations["get_presentation_schema_presentations_schema_get"];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -1571,6 +1707,11 @@ export interface components {
         [key: string]: unknown;
       };
     };
+    /**
+     * ActionOp
+     * @enum {string}
+     */
+    ActionOp: "toggle" | "increment" | "decrement" | "cycle";
     /** AggregateOptionsResponse */
     AggregateOptionsResponse: {
       /** Intervals */
@@ -1652,6 +1793,40 @@ export interface components {
       truncated: boolean;
       /** Points */
       points: components["schemas"]["AggregatedPointResponse"][];
+    };
+    /** AllCondition */
+    AllCondition: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      op: "all";
+      /** Conditions */
+      conditions: (
+        | components["schemas"]["EqCondition"]
+        | components["schemas"]["InCondition"]
+        | components["schemas"]["IsKnownCondition"]
+        | components["schemas"]["NotCondition"]
+        | components["schemas"]["AllCondition"]
+        | components["schemas"]["AnyCondition"]
+      )[];
+    };
+    /** AnyCondition */
+    AnyCondition: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      op: "any";
+      /** Conditions */
+      conditions: (
+        | components["schemas"]["EqCondition"]
+        | components["schemas"]["InCondition"]
+        | components["schemas"]["IsKnownCondition"]
+        | components["schemas"]["NotCondition"]
+        | components["schemas"]["AllCondition"]
+        | components["schemas"]["AnyCondition"]
+      )[];
     };
     /** App */
     App: {
@@ -1754,6 +1929,52 @@ export interface components {
       ifc_global_id?: string | null;
     };
     /**
+     * AssetAssignment
+     * @description One device moved into one zone, by resource id.
+     */
+    AssetAssignment: {
+      /** Device Id */
+      device_id: string;
+      /** Asset Id */
+      asset_id: string;
+    };
+    /**
+     * AssetAssignmentRequest
+     * @description Body of ``POST /devices/asset-assignments``.
+     *
+     *     Identical duplicates collapse to a single assignment; two rows sending the
+     *     same device to different zones are contradictory and reject the whole
+     *     request, since neither outcome can be the one the caller meant.
+     */
+    AssetAssignmentRequest: {
+      /** Assignments */
+      assignments: components["schemas"]["AssetAssignment"][];
+    };
+    /** AssetAssignmentResponse */
+    AssetAssignmentResponse: {
+      /** Results */
+      results: components["schemas"]["AssetAssignmentResult"][];
+    };
+    /**
+     * AssetAssignmentResult
+     * @description Outcome of one assignment. Failures are per-device: the assignments that
+     *     succeeded stay applied, and the caller can retry the ones that did not.
+     */
+    AssetAssignmentResult: {
+      /** Device Id */
+      device_id: string;
+      /** Asset Id */
+      asset_id: string;
+      status: components["schemas"]["AssetAssignmentStatus"];
+      /** Error */
+      error?: string | null;
+    };
+    /**
+     * AssetAssignmentStatus
+     * @enum {string}
+     */
+    AssetAssignmentStatus: "applied" | "unchanged" | "failed";
+    /**
      * AssetCommand
      * @description Request body for ``POST /assets/{asset_id}/commands``.
      */
@@ -1786,6 +2007,11 @@ export interface components {
       /** Parent Id */
       parent_id: string;
       usage?: components["schemas"]["AssetUsage"] | null;
+    };
+    /** AssetSpec */
+    AssetSpec: {
+      /** Path */
+      path: string;
     };
     /**
      * AssetType
@@ -1862,7 +2088,7 @@ export interface components {
       attributes: components["schemas"]["AttributeCoverage"][];
     };
     /** AttributeDriver */
-    AttributeDriver: {
+    "AttributeDriver-Input": {
       /**
        * Kind
        * @default standard
@@ -1883,6 +2109,43 @@ export interface components {
        * @default false
        */
       push?: boolean;
+      label?: components["schemas"]["LocalizedText"] | null;
+      description?: components["schemas"]["LocalizedText"] | null;
+      /** Group */
+      group?: string | null;
+      /** Unit */
+      unit?: string | null;
+      write_constraints?: components["schemas"]["WriteConstraints"] | null;
+    };
+    /** AttributeDriver */
+    "AttributeDriver-Output": {
+      /**
+       * Kind
+       * @default standard
+       * @constant
+       */
+      kind?: "standard";
+      /** Name */
+      name: string;
+      data_type: components["schemas"]["DataType"];
+      read: components["schemas"]["RawTransportAddress"];
+      write?: components["schemas"]["RawTransportAddress"] | null;
+      /** Codecs */
+      codecs?: components["schemas"]["CodecSpec"][];
+      /** Polling Group */
+      polling_group?: string | null;
+      /**
+       * Push
+       * @default false
+       */
+      push?: boolean;
+      label?: components["schemas"]["LocalizedText"] | null;
+      description?: components["schemas"]["LocalizedText"] | null;
+      /** Group */
+      group?: string | null;
+      /** Unit */
+      unit?: string | null;
+      write_constraints?: components["schemas"]["WriteConstraints"] | null;
     };
     /** AttributeEventLog */
     AttributeEventLog: {
@@ -1902,6 +2165,9 @@ export interface components {
     };
     /**
      * AttributeKind
+     * @description What an attribute is for: a plain value, a fault indicator, or a
+     *     Gridone-internal attribute (e.g. connection status) with no transport
+     *     address behind it.
      * @enum {string}
      */
     AttributeKind: "standard" | "fault" | "internal";
@@ -1933,6 +2199,23 @@ export interface components {
       healthy_values?: (number | string | boolean)[] | null;
       /** Polling Group */
       polling_group?: string | null;
+      label?: components["schemas"]["LocalizedText"] | null;
+      description?: components["schemas"]["LocalizedText"] | null;
+      /** Group */
+      group?: string | null;
+      /** Unit */
+      unit?: string | null;
+      write_constraints?: components["schemas"]["WriteConstraints"] | null;
+    };
+    /**
+     * AttributeRef
+     * @description A bound taken from another attribute of the same driver: ``{attribute: name}``.
+     *
+     *     The referenced attribute's *current* value is the bound at write time.
+     */
+    AttributeRef: {
+      /** Attribute */
+      attribute: string;
     };
     /**
      * AttributeRename
@@ -1964,6 +2247,19 @@ export interface components {
       /** Value */
       value: number | string | boolean;
       data_type: components["schemas"]["DataType"];
+    };
+    /**
+     * AttributesNode
+     * @description The generic attribute panes, optionally filtered on an attribute group.
+     */
+    AttributesNode: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      kind: "attributes";
+      /** Group */
+      group?: string | null;
     };
     /** Automation */
     Automation: {
@@ -2051,6 +2347,21 @@ export interface components {
       action?: components["schemas"]["Action"] | null;
       /** Enabled */
       enabled?: boolean | null;
+    };
+    /** AvailablePresentationResponse */
+    AvailablePresentationResponse: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      status: "available";
+      /** Revision */
+      revision: string;
+      document: components["schemas"]["PresentationV1"];
+      /** Assets */
+      assets: {
+        [key: string]: components["schemas"]["PresentationAsset"];
+      };
     };
     /** BacnetTransport */
     BacnetTransport: {
@@ -2195,6 +2506,19 @@ export interface components {
       /** Commands */
       commands: components["schemas"]["UnitCommand"][];
     };
+    /** BindingRef */
+    BindingRef: {
+      /** Binding */
+      binding: string;
+    };
+    /**
+     * BindingSpec
+     * @description A local name for an attribute of the device the page is rendered for.
+     */
+    BindingSpec: {
+      /** Attribute */
+      attribute: string;
+    };
     /** Body_oauth2_token_auth_token_post */
     Body_oauth2_token_auth_token_post: {
       /** Grant Type */
@@ -2210,6 +2534,81 @@ export interface components {
     Body_upload_building_model_assets__asset_id__model_post: {
       /** File */
       file: string;
+    };
+    /**
+     * Box
+     * @description A rectangle in view-box pixels (the device's native screen grid).
+     */
+    Box: {
+      /** X */
+      x: number;
+      /** Y */
+      y: number;
+      /** Width */
+      width: number;
+      /** Height */
+      height: number;
+    };
+    /**
+     * BoxAnchor
+     * @description Aligned on a fixed box.
+     */
+    BoxAnchor: {
+      align: components["schemas"]["LvAlign"];
+      /**
+       * Dx
+       * @default 0
+       */
+      dx?: number;
+      /**
+       * Dy
+       * @default 0
+       */
+      dy?: number;
+      box: components["schemas"]["Box"];
+    };
+    /** Budgets */
+    Budgets: {
+      /**
+       * Max Document Depth
+       * @default 64
+       */
+      max_document_depth?: number;
+      /**
+       * Max Document Nodes
+       * @default 50000
+       */
+      max_document_nodes?: number;
+      /**
+       * Max Bindings
+       * @default 300
+       */
+      max_bindings?: number;
+      /**
+       * Max Controls
+       * @default 300
+       */
+      max_controls?: number;
+      /**
+       * Max Nodes
+       * @default 600
+       */
+      max_nodes?: number;
+      /**
+       * Max Layout Depth
+       * @default 8
+       */
+      max_layout_depth?: number;
+      /**
+       * Max Condition Depth
+       * @default 8
+       */
+      max_condition_depth?: number;
+      /**
+       * Max Condition Operations
+       * @default 1000
+       */
+      max_condition_operations?: number;
     };
     /**
      * BuildingModel
@@ -2289,6 +2688,41 @@ export interface components {
       /** Icon */
       icon?: string | null;
     };
+    /** ButtonLayer */
+    ButtonLayer: {
+      /** Id */
+      id?: string | null;
+      box: components["schemas"]["Box"];
+      /** Visible When */
+      visible_when?:
+        | (
+            | components["schemas"]["EqCondition"]
+            | components["schemas"]["InCondition"]
+            | components["schemas"]["IsKnownCondition"]
+            | components["schemas"]["NotCondition"]
+            | components["schemas"]["AllCondition"]
+            | components["schemas"]["AnyCondition"]
+          )
+        | null;
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      kind: "button";
+      label: components["schemas"]["LocalizedText"];
+      action: components["schemas"]["FaceAction"];
+      /** Blocked When */
+      blocked_when?:
+        | (
+            | components["schemas"]["EqCondition"]
+            | components["schemas"]["InCondition"]
+            | components["schemas"]["IsKnownCondition"]
+            | components["schemas"]["NotCondition"]
+            | components["schemas"]["AllCondition"]
+            | components["schemas"]["AnyCondition"]
+          )
+        | null;
+    };
     /**
      * ChartWidgetConfig
      * @description Time-series chart over one attribute of a device set.
@@ -2338,6 +2772,44 @@ export interface components {
             [key: string]: unknown;
           }
         | unknown[];
+    };
+    /** ColorRule */
+    ColorRule: {
+      /** When */
+      when:
+        | components["schemas"]["EqCondition"]
+        | components["schemas"]["InCondition"]
+        | components["schemas"]["IsKnownCondition"]
+        | components["schemas"]["NotCondition"]
+        | components["schemas"]["AllCondition"]
+        | components["schemas"]["AnyCondition"];
+      /** Color */
+      color: string;
+    };
+    /** ColumnItem */
+    ColumnItem: {
+      /** Weight */
+      weight: number;
+      /** Content */
+      content:
+        | components["schemas"]["StackNode"]
+        | components["schemas"]["ColumnsNode"]
+        | components["schemas"]["SectionNode"]
+        | components["schemas"]["AttributesNode"]
+        | components["schemas"]["ControlPanelNode"]
+        | components["schemas"]["MeasurementsNode"]
+        | components["schemas"]["SetpointTableNode"]
+        | components["schemas"]["DeviceFaceNode"];
+    };
+    /** ColumnsNode */
+    ColumnsNode: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      kind: "columns";
+      /** Items */
+      items: components["schemas"]["ColumnItem"][];
     };
     /**
      * CommandStatus
@@ -2394,10 +2866,47 @@ export interface components {
       name?: string | null;
     };
     /**
+     * ConditionalColor
+     * @description A colour that depends on device state: the first matching rule wins.
+     */
+    ConditionalColor: {
+      /** Rules */
+      rules: components["schemas"]["ColorRule"][];
+      /** Default */
+      default: string;
+    };
+    /**
      * ConnectionStatus
      * @enum {string}
      */
     ConnectionStatus: "idle" | "ok" | "degraded" | "error";
+    /** Control */
+    Control: {
+      kind: components["schemas"]["ControlKind"];
+      /** Binding */
+      binding: string;
+      label: components["schemas"]["LocalizedText"];
+    };
+    /**
+     * ControlKind
+     * @enum {string}
+     */
+    ControlKind: "toggle" | "number" | "select";
+    /** ControlPanelNode */
+    ControlPanelNode: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      kind: "control-panel";
+      /** Controls */
+      controls: string[];
+    };
+    /** ControlRef */
+    ControlRef: {
+      /** Control */
+      control: string;
+    };
     /**
      * Dashboard
      * @description A dashboard document: metadata envelope plus its widgets.
@@ -2473,6 +2982,18 @@ export interface components {
      * @enum {string}
      */
     DataType: "int" | "float" | "str" | "bool";
+    /**
+     * Deviation
+     * @description ``minuend - subtrahend``, classified against ``tolerance``.
+     */
+    Deviation: {
+      /** Minuend */
+      minuend: string;
+      /** Subtrahend */
+      subtrahend: string;
+      /** Tolerance */
+      tolerance: number;
+    };
     /** Device */
     Device: {
       /**
@@ -2514,6 +3035,7 @@ export interface components {
       driver_id: string;
       /** Transport Id */
       transport_id: string;
+      presentation_ref?: components["schemas"]["PresentationReference"] | null;
     };
     /**
      * DeviceBatchCreate
@@ -2591,6 +3113,27 @@ export interface components {
       /** Transport Id */
       transport_id: string;
     };
+    /**
+     * DeviceFaceNode
+     * @description An exact graphical surface: fixed view box, layers in paint order.
+     */
+    DeviceFaceNode: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      kind: "device-face";
+      label: components["schemas"]["LocalizedText"];
+      view_box: components["schemas"]["Size"];
+      /** Layers */
+      layers: (
+        | components["schemas"]["ImageLayer"]
+        | components["schemas"]["RectLayer"]
+        | components["schemas"]["GlyphLayer"]
+        | components["schemas"]["GlyphTextLayer"]
+        | components["schemas"]["ButtonLayer"]
+      )[];
+    };
     /** DeviceUpdate */
     DeviceUpdate: {
       /** Name */
@@ -2650,6 +3193,47 @@ export interface components {
       /** Asset Id */
       asset_id?: string | null;
     };
+    /**
+     * DiagnosticCode
+     * @enum {string}
+     */
+    DiagnosticCode:
+      | "unsupported_version"
+      | "unsupported_capability"
+      | "invalid_document"
+      | "missing_binding"
+      | "missing_attribute"
+      | "missing_control"
+      | "missing_asset"
+      | "undeclared_file"
+      | "missing_glyph_set"
+      | "missing_layer_ref"
+      | "type_mismatch"
+      | "budget_exceeded"
+      | "invalid_action";
+    /** DigitPart */
+    DigitPart: {
+      digit: components["schemas"]["DigitSpec"];
+    };
+    /**
+     * DigitPlace
+     * @enum {string}
+     */
+    DigitPlace: "tens" | "units" | "tenths";
+    /**
+     * DigitSpec
+     * @description One decimal digit of the absolute value of a bound number.
+     *
+     *     ``chars`` maps the digits 0-9, in order, to the glyphs to use, so a glyph
+     *     set can carry combined "dot + digit" glyphs for the tenths.
+     */
+    DigitSpec: {
+      /** Binding */
+      binding: string;
+      place: components["schemas"]["DigitPlace"];
+      /** Chars */
+      chars?: string | null;
+    };
     /** DiscoveryHandlerCreateDTO */
     DiscoveryHandlerCreateDTO: {
       /** Driver Id */
@@ -2697,6 +3281,7 @@ export interface components {
       } | null;
       update_strategy?: components["schemas"]["UpdateStrategy"] | null;
       healthcheck?: components["schemas"]["HealthCheck"] | null;
+      presentation?: components["schemas"]["PresentationEnvelope"] | null;
     };
     /** DriverSpec */
     "DriverSpec-Input": {
@@ -2731,8 +3316,8 @@ export interface components {
       device_config: components["schemas"]["DeviceConfigField"][];
       /** Attributes */
       attributes: (
-        | components["schemas"]["AttributeDriver"]
-        | components["schemas"]["FaultAttributeDriver"]
+        | components["schemas"]["AttributeDriver-Input"]
+        | components["schemas"]["FaultAttributeDriver-Input"]
       )[];
       /** Discovery */
       discovery?: {
@@ -2740,6 +3325,7 @@ export interface components {
       } | null;
       /** Type */
       type?: string | null;
+      presentation?: components["schemas"]["PresentationEnvelope"] | null;
     };
     /** DriverSpec */
     "DriverSpec-Output": {
@@ -2774,8 +3360,8 @@ export interface components {
       device_config: components["schemas"]["DeviceConfigField"][];
       /** Attributes */
       attributes: (
-        | components["schemas"]["AttributeDriver"]
-        | components["schemas"]["FaultAttributeDriver"]
+        | components["schemas"]["AttributeDriver-Output"]
+        | components["schemas"]["FaultAttributeDriver-Output"]
       )[];
       /** Discovery */
       discovery?: {
@@ -2783,11 +3369,29 @@ export interface components {
       } | null;
       /** Type */
       type?: string | null;
+      presentation?: components["schemas"]["PresentationEnvelope"] | null;
+      /**
+       * Presentation Revision
+       * @description Server-owned resource revision; ignored on input.
+       */
+      readonly presentation_revision: string | null;
     };
     /** DriverYaml */
     DriverYaml: {
       /** Yaml */
       yaml: string;
+    };
+    /** EqCondition */
+    EqCondition: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      op: "eq";
+      /** Binding */
+      binding: string;
+      /** Value */
+      value: string | number | boolean;
     };
     /**
      * EventType
@@ -2799,11 +3403,20 @@ export interface components {
      * @enum {string}
      */
     ExecutionStatus: "success" | "failed";
+    /**
+     * FaceAction
+     * @description An interaction on a declared control; ``op`` must suit the control's kind.
+     */
+    FaceAction: {
+      /** Control */
+      control: string;
+      op: components["schemas"]["ActionOp"];
+    };
     FaultAttribute: {
       [key: string]: unknown;
     };
     /** FaultAttributeDriver */
-    FaultAttributeDriver: {
+    "FaultAttributeDriver-Input": {
       /**
        * Kind
        * @default fault
@@ -2824,6 +3437,47 @@ export interface components {
        * @default false
        */
       push?: boolean;
+      label?: components["schemas"]["LocalizedText"] | null;
+      description?: components["schemas"]["LocalizedText"] | null;
+      /** Group */
+      group?: string | null;
+      /** Unit */
+      unit?: string | null;
+      write_constraints?: components["schemas"]["WriteConstraints"] | null;
+      /** @default warning */
+      severity?: components["schemas"]["Severity"];
+      /** Healthy Values */
+      healthy_values?: (number | string | boolean)[];
+    };
+    /** FaultAttributeDriver */
+    "FaultAttributeDriver-Output": {
+      /**
+       * Kind
+       * @default fault
+       * @constant
+       */
+      kind?: "fault";
+      /** Name */
+      name: string;
+      data_type: components["schemas"]["DataType"];
+      read: components["schemas"]["RawTransportAddress"];
+      write?: components["schemas"]["RawTransportAddress"] | null;
+      /** Codecs */
+      codecs?: components["schemas"]["CodecSpec"][];
+      /** Polling Group */
+      polling_group?: string | null;
+      /**
+       * Push
+       * @default false
+       */
+      push?: boolean;
+      label?: components["schemas"]["LocalizedText"] | null;
+      description?: components["schemas"]["LocalizedText"] | null;
+      /** Group */
+      group?: string | null;
+      /** Unit */
+      unit?: string | null;
+      write_constraints?: components["schemas"]["WriteConstraints"] | null;
       /** @default warning */
       severity?: components["schemas"]["Severity"];
       /** Healthy Values */
@@ -2860,6 +3514,143 @@ export interface components {
       truncated: boolean;
       /** Next Start */
       next_start?: string | null;
+    };
+    /**
+     * FixedSize
+     * @description A label size imposed instead of the size of its content.
+     */
+    FixedSize: {
+      /** Width */
+      width?: number | null;
+      /** Height */
+      height?: number | null;
+    };
+    /**
+     * Formatter
+     * @description How a measurement is displayed; every field is optional.
+     */
+    Formatter: {
+      /** Decimals */
+      decimals?: number | null;
+      /** Unit */
+      unit?: string | null;
+      /** Relative Time */
+      relative_time?: boolean | null;
+      unavailable?: components["schemas"]["LocalizedText"] | null;
+    };
+    /**
+     * GlyphCell
+     * @description A character's cell in the atlas plus its bitmap-font metrics.
+     */
+    GlyphCell: {
+      /** X */
+      x: number;
+      /** Y */
+      y: number;
+      /** Width */
+      width: number;
+      /** Height */
+      height: number;
+      /** Advance */
+      advance: number;
+      /** Offset X */
+      offset_x: number;
+      /** Offset Y */
+      offset_y: number;
+    };
+    /**
+     * GlyphLayer
+     * @description One character of a glyph set stretched into a box, tinted.
+     */
+    GlyphLayer: {
+      /** Id */
+      id?: string | null;
+      box: components["schemas"]["Box"];
+      /** Visible When */
+      visible_when?:
+        | (
+            | components["schemas"]["EqCondition"]
+            | components["schemas"]["InCondition"]
+            | components["schemas"]["IsKnownCondition"]
+            | components["schemas"]["NotCondition"]
+            | components["schemas"]["AllCondition"]
+            | components["schemas"]["AnyCondition"]
+          )
+        | null;
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      kind: "glyph";
+      /** Glyph Set */
+      glyph_set: string;
+      /** Char */
+      char: string;
+      /** Color */
+      color: string | components["schemas"]["ConditionalColor"];
+      label?: components["schemas"]["LocalizedText"] | null;
+    };
+    /**
+     * GlyphSet
+     * @description Per-glyph cells of an atlas asset, with the metrics needed to lay text out.
+     */
+    GlyphSet: {
+      /** Asset */
+      asset: string;
+      /** Line Height */
+      line_height: number;
+      /** Base Line */
+      base_line: number;
+      /** Cells */
+      cells: {
+        [key: string]: components["schemas"]["GlyphCell"];
+      };
+      /** Kerning */
+      kerning?: {
+        [key: string]: number;
+      };
+    };
+    /**
+     * GlyphTextLayer
+     * @description A run of glyphs laid out like an LVGL label (see ``textLayout.ts``).
+     */
+    GlyphTextLayer: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      kind: "glyph-text";
+      /** Id */
+      id?: string | null;
+      /** Glyph Set */
+      glyph_set: string;
+      /** Anchor */
+      anchor:
+        | components["schemas"]["BoxAnchor"]
+        | components["schemas"]["RefAnchor"];
+      /** Text */
+      text: (
+        | components["schemas"]["LiteralPart"]
+        | components["schemas"]["DigitPart"]
+        | components["schemas"]["NumberPart"]
+        | components["schemas"]["SelectPart"]
+      )[];
+      /** Color */
+      color: string | components["schemas"]["ConditionalColor"];
+      size?: components["schemas"]["FixedSize"] | null;
+      clip?: components["schemas"]["Box"] | null;
+      /** Visible When */
+      visible_when?:
+        | (
+            | components["schemas"]["EqCondition"]
+            | components["schemas"]["InCondition"]
+            | components["schemas"]["IsKnownCondition"]
+            | components["schemas"]["NotCondition"]
+            | components["schemas"]["AllCondition"]
+            | components["schemas"]["AnyCondition"]
+          )
+        | null;
+      label?: components["schemas"]["LocalizedText"] | null;
     };
     /**
      * GroupedSpaceAggregationResult
@@ -2947,6 +3738,65 @@ export interface components {
       protocol: "http";
       config: components["schemas"]["HttpTransportConfig"];
     };
+    /** ImageLayer */
+    ImageLayer: {
+      /** Id */
+      id?: string | null;
+      box: components["schemas"]["Box"];
+      /** Visible When */
+      visible_when?:
+        | (
+            | components["schemas"]["EqCondition"]
+            | components["schemas"]["InCondition"]
+            | components["schemas"]["IsKnownCondition"]
+            | components["schemas"]["NotCondition"]
+            | components["schemas"]["AllCondition"]
+            | components["schemas"]["AnyCondition"]
+          )
+        | null;
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      kind: "image";
+      /** Asset */
+      asset: string;
+    };
+    /** ImageLimits */
+    ImageLimits: {
+      /**
+       * Max Pixels
+       * @default 16000000
+       */
+      max_pixels?: number;
+      /**
+       * Max Bytes
+       * @default 10485760
+       */
+      max_bytes?: number;
+      /**
+       * Max Images
+       * @default 64
+       */
+      max_images?: number;
+      /**
+       * Max Package Pixels
+       * @default 64000000
+       */
+      max_package_pixels?: number;
+    };
+    /** InCondition */
+    InCondition: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      op: "in";
+      /** Binding */
+      binding: string;
+      /** Values */
+      values: (string | number | boolean)[];
+    };
     /** IngressResult */
     IngressResult: {
       /** Matched */
@@ -2965,6 +3815,17 @@ export interface components {
      * @enum {string}
      */
     IntervalUnit: "min" | "h" | "d" | "mo";
+    /** IsKnownCondition */
+    IsKnownCondition: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      op: "is_known";
+      /** Binding */
+      binding: string;
+    };
+    JsonValue: unknown;
     /** KNXTransportConfig */
     KNXTransportConfig: {
       /**
@@ -3099,6 +3960,11 @@ export interface components {
       /** I */
       i: string;
     };
+    /** LiteralPart */
+    LiteralPart: {
+      /** Literal */
+      literal: string;
+    };
     /**
      * LiveSpaceAggregateResponse
      * @description One attribute's current values across a device set, folded to one.
@@ -3111,6 +3977,35 @@ export interface components {
       /** Device Count */
       device_count: number;
     };
+    /**
+     * LocalizedText
+     * @description A text with a mandatory default and optional per-language translations.
+     */
+    LocalizedText: {
+      /** Default */
+      default: string;
+      /** Translations */
+      translations?: {
+        [key: string]: string;
+      };
+    };
+    /**
+     * LvAlign
+     * @description LVGL alignments: the nine inner ones plus the two outer, mid-height ones.
+     * @enum {string}
+     */
+    LvAlign:
+      | "top-left"
+      | "top-mid"
+      | "top-right"
+      | "left-mid"
+      | "center"
+      | "right-mid"
+      | "bottom-left"
+      | "bottom-mid"
+      | "bottom-right"
+      | "out-right-mid"
+      | "out-left-mid";
     /** MBusTransportConfig */
     MBusTransportConfig: {
       /**
@@ -3180,6 +4075,23 @@ export interface components {
       must_change_password: boolean;
       /** Permissions */
       permissions: string[];
+    };
+    /** MeasurementItem */
+    MeasurementItem: {
+      /** Binding */
+      binding: string;
+      label?: components["schemas"]["LocalizedText"] | null;
+      formatter?: components["schemas"]["Formatter"] | null;
+    };
+    /** MeasurementsNode */
+    MeasurementsNode: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      kind: "measurements";
+      /** Items */
+      items: components["schemas"]["MeasurementItem"][];
     };
     /**
      * Metadata
@@ -3406,6 +4318,22 @@ export interface components {
       protocol: "mqtt";
       config: components["schemas"]["MqttTransportConfig"];
     };
+    /** NotCondition */
+    NotCondition: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      op: "not";
+      /** Condition */
+      condition:
+        | components["schemas"]["EqCondition"]
+        | components["schemas"]["InCondition"]
+        | components["schemas"]["IsKnownCondition"]
+        | components["schemas"]["NotCondition"]
+        | components["schemas"]["AllCondition"]
+        | components["schemas"]["AnyCondition"];
+    };
     /** Notification */
     Notification: {
       /** Id */
@@ -3437,6 +4365,20 @@ export interface components {
       dispatched_at: string;
       /** Dismissed At */
       dismissed_at: string | null;
+    };
+    /** NumberPart */
+    NumberPart: {
+      number: components["schemas"]["NumberSpec"];
+    };
+    /**
+     * NumberSpec
+     * @description A bound number formatted with a fixed number of decimals.
+     */
+    NumberSpec: {
+      /** Binding */
+      binding: string;
+      /** Decimals */
+      decimals: number;
     };
     /** OpcuaTransport */
     OpcuaTransport: {
@@ -3517,6 +4459,62 @@ export interface components {
       protocol: "opcua";
       config: components["schemas"]["OpcuaTransportConfig"];
     };
+    /** PackageDiagnostic */
+    PackageDiagnostic: {
+      /** Code */
+      code: string;
+      /** Path */
+      path?: string | null;
+      /** Line */
+      line?: number | null;
+      /** Column */
+      column?: number | null;
+      /** Message */
+      message: string;
+    };
+    /** PackageImportErrorResponse */
+    PackageImportErrorResponse: {
+      /** Detail */
+      detail: components["schemas"]["PackageDiagnostic"][];
+    };
+    /** PackageLimits */
+    PackageLimits: {
+      /**
+       * Max Archive Bytes
+       * @default 20971520
+       */
+      max_archive_bytes?: number;
+      /**
+       * Max Total Bytes
+       * @default 52428800
+       */
+      max_total_bytes?: number;
+      /**
+       * Max Entries
+       * @default 128
+       */
+      max_entries?: number;
+      /**
+       * Max Manifest Bytes
+       * @default 1048576
+       */
+      max_manifest_bytes?: number;
+      /**
+       * Max Image Bytes
+       * @default 10485760
+       */
+      max_image_bytes?: number;
+      /**
+       * Max Path Length
+       * @default 128
+       */
+      max_path_length?: number;
+      /**
+       * Max Segments
+       * @default 4
+       */
+      max_segments?: number;
+    };
     /** PaginatedResponse[CommandTemplateResponse] */
     PaginatedResponse_CommandTemplateResponse_: {
       /** Items */
@@ -3572,6 +4570,111 @@ export interface components {
       /** Prev */
       prev?: string | null;
     };
+    /** PasswordChangeRequest */
+    PasswordChangeRequest: {
+      /** Current Password */
+      current_password: string;
+      /** New Password */
+      new_password: string;
+    };
+    /** PresentationAsset */
+    PresentationAsset: {
+      /** Sha256 */
+      sha256: string;
+      /** Media Type */
+      media_type: string;
+    };
+    /** PresentationBudgets */
+    PresentationBudgets: {
+      document: components["schemas"]["Budgets"];
+      package: components["schemas"]["PackageLimits"];
+      images: components["schemas"]["ImageLimits"];
+      yaml: components["schemas"]["YamlLimits"];
+    };
+    /**
+     * PresentationDiagnostic
+     * @description One reason a presentation is unavailable, located by a JSON pointer.
+     */
+    PresentationDiagnostic: {
+      code: components["schemas"]["DiagnosticCode"];
+      /** Path */
+      path?: string | null;
+      /** Message */
+      message: string;
+    };
+    /**
+     * PresentationEnvelope
+     * @description A presentation document as stored on a driver.
+     *
+     *     ``schema_version`` and ``requires`` are typed because they decide the
+     *     document's fate; everything else is kept exactly as given (``extra``
+     *     values are never coerced) so that a document this server cannot read
+     *     is neither altered nor lost.
+     */
+    PresentationEnvelope: {
+      /** Schema Version */
+      schema_version: number;
+      /** Requires */
+      requires: string[];
+    } & {
+      [key: string]: unknown;
+    };
+    /** PresentationReference */
+    PresentationReference: {
+      /** Revision */
+      revision: string;
+    };
+    /** PresentationSchema */
+    PresentationSchema: {
+      /** Versions */
+      versions: number[];
+      /** Capabilities */
+      capabilities: string[];
+      budgets: components["schemas"]["PresentationBudgets"];
+      /** Json Schema */
+      json_schema: {
+        [key: string]: components["schemas"]["JsonValue"];
+      };
+    };
+    /**
+     * PresentationV1
+     * @description A whole v1 presentation document.
+     */
+    PresentationV1: {
+      /**
+       * Schema Version
+       * @constant
+       */
+      schema_version: 1;
+      /** Requires */
+      requires: string[];
+      /** Assets */
+      assets?: {
+        [key: string]: components["schemas"]["AssetSpec"];
+      };
+      /** Glyph Sets */
+      glyph_sets?: {
+        [key: string]: components["schemas"]["GlyphSet"];
+      };
+      /** Bindings */
+      bindings?: {
+        [key: string]: components["schemas"]["BindingSpec"];
+      };
+      /** Controls */
+      controls?: {
+        [key: string]: components["schemas"]["Control"];
+      };
+      /** Page */
+      page:
+        | components["schemas"]["StackNode"]
+        | components["schemas"]["ColumnsNode"]
+        | components["schemas"]["SectionNode"]
+        | components["schemas"]["AttributesNode"]
+        | components["schemas"]["ControlPanelNode"]
+        | components["schemas"]["MeasurementsNode"]
+        | components["schemas"]["SetpointTableNode"]
+        | components["schemas"]["DeviceFaceNode"];
+    };
     /**
      * PushStatus
      * @enum {string}
@@ -3582,6 +4685,51 @@ export interface components {
       | {
           [key: string]: unknown;
         };
+    /** RectLayer */
+    RectLayer: {
+      /** Id */
+      id?: string | null;
+      box: components["schemas"]["Box"];
+      /** Visible When */
+      visible_when?:
+        | (
+            | components["schemas"]["EqCondition"]
+            | components["schemas"]["InCondition"]
+            | components["schemas"]["IsKnownCondition"]
+            | components["schemas"]["NotCondition"]
+            | components["schemas"]["AllCondition"]
+            | components["schemas"]["AnyCondition"]
+          )
+        | null;
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      kind: "rect";
+      /** Fill */
+      fill: string;
+      /** Radius */
+      radius?: number | null;
+    };
+    /**
+     * RefAnchor
+     * @description Aligned on the laid-out box of an earlier layer of the same face.
+     */
+    RefAnchor: {
+      align: components["schemas"]["LvAlign"];
+      /**
+       * Dx
+       * @default 0
+       */
+      dx?: number;
+      /**
+       * Dy
+       * @default 0
+       */
+      dy?: number;
+      /** Ref */
+      ref: string;
+    };
     /** RegistrationRequestCreateBody */
     RegistrationRequestCreateBody: {
       /** Username */
@@ -3618,6 +4766,27 @@ export interface components {
      * @enum {string}
      */
     Role: "admin" | "operator" | "viewer";
+    /** SectionNode */
+    SectionNode: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      kind: "section";
+      title: components["schemas"]["LocalizedText"];
+      description?: components["schemas"]["LocalizedText"] | null;
+      /** Children */
+      children: (
+        | components["schemas"]["StackNode"]
+        | components["schemas"]["ColumnsNode"]
+        | components["schemas"]["SectionNode"]
+        | components["schemas"]["AttributesNode"]
+        | components["schemas"]["ControlPanelNode"]
+        | components["schemas"]["MeasurementsNode"]
+        | components["schemas"]["SetpointTableNode"]
+        | components["schemas"]["DeviceFaceNode"]
+      )[];
+    };
     /** @enum {string} */
     SecurityModeName: "None" | "Sign" | "SignAndEncrypt";
     /** @enum {string} */
@@ -3626,6 +4795,46 @@ export interface components {
       | "Basic256Sha256"
       | "Aes128Sha256RsaOaep"
       | "Aes256Sha256RsaPss";
+    /** SelectPart */
+    SelectPart: {
+      select: components["schemas"]["SelectSpec"];
+    };
+    /**
+     * SelectSpec
+     * @description A bound value mapped to text; ``default`` applies to unmapped values.
+     */
+    SelectSpec: {
+      /** Binding */
+      binding: string;
+      /** Cases */
+      cases: {
+        [key: string]: string;
+      };
+      /** Default */
+      default?: string | null;
+    };
+    /** SetpointRow */
+    SetpointRow: {
+      label: components["schemas"]["LocalizedText"];
+      /** Demanded */
+      demanded:
+        | components["schemas"]["ControlRef"]
+        | components["schemas"]["BindingRef"];
+      regulated?: components["schemas"]["BindingRef"] | null;
+      measured?: components["schemas"]["BindingRef"] | null;
+      deviation?: components["schemas"]["Deviation"] | null;
+      formatter?: components["schemas"]["Formatter"] | null;
+    };
+    /** SetpointTableNode */
+    SetpointTableNode: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      kind: "setpoint-table";
+      /** Rows */
+      rows: components["schemas"]["SetpointRow"][];
+    };
     /**
      * Severity
      * @enum {string}
@@ -3657,6 +4866,16 @@ export interface components {
       confirm?: boolean;
     };
     /**
+     * Size
+     * @description The fixed reference surface of a face; both dimensions are positive.
+     */
+    Size: {
+      /** Width */
+      width: number;
+      /** Height */
+      height: number;
+    };
+    /**
      * SortOrder
      * @enum {string}
      */
@@ -3684,6 +4903,25 @@ export interface components {
       /** Points */
       points: components["schemas"]["AggregatedPoint"][];
       readonly aggregation_data_type: components["schemas"]["DataType"];
+    };
+    /** StackNode */
+    StackNode: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      kind: "stack";
+      /** Children */
+      children: (
+        | components["schemas"]["StackNode"]
+        | components["schemas"]["ColumnsNode"]
+        | components["schemas"]["SectionNode"]
+        | components["schemas"]["AttributesNode"]
+        | components["schemas"]["ControlPanelNode"]
+        | components["schemas"]["MeasurementsNode"]
+        | components["schemas"]["SetpointTableNode"]
+        | components["schemas"]["DeviceFaceNode"]
+      )[];
     };
     /** StandardAttributeSchema */
     StandardAttributeSchema: {
@@ -3861,6 +5099,18 @@ export interface components {
       params?: {
         [key: string]: unknown;
       };
+    };
+    /** UnavailablePresentationResponse */
+    UnavailablePresentationResponse: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      status: "unavailable";
+      /** Revision */
+      revision: string;
+      /** Diagnostics */
+      diagnostics: components["schemas"]["PresentationDiagnostic"][];
     };
     /** UnitCommand */
     UnitCommand: {
@@ -4185,6 +5435,47 @@ export interface components {
           )
         | null;
     };
+    /**
+     * WriteConstraints
+     * @description Declarative limits the service enforces on every write of a numeric attribute.
+     *
+     *     ``minimum`` and ``maximum`` are inclusive; ``step`` is the grid, anchored
+     *     at 0, that accepted values must sit on. Each of the three is a constant
+     *     or a reference to a sibling attribute whose current value is read at
+     *     write time (a device's configurable precision, its per-mode bounds). An
+     *     empty object is rejected: declare at least one of the three.
+     */
+    WriteConstraints: {
+      /** Step */
+      step?: number | components["schemas"]["AttributeRef"] | null;
+      /** Minimum */
+      minimum?: number | components["schemas"]["AttributeRef"] | null;
+      /** Maximum */
+      maximum?: number | components["schemas"]["AttributeRef"] | null;
+    };
+    /** YamlLimits */
+    YamlLimits: {
+      /**
+       * Max Bytes
+       * @default 1048576
+       */
+      max_bytes?: number;
+      /**
+       * Max Depth
+       * @default 64
+       */
+      max_depth?: number;
+      /**
+       * Max Nodes
+       * @default 50000
+       */
+      max_nodes?: number;
+      /**
+       * Max Aliases
+       * @default 2000
+       */
+      max_aliases?: number;
+    };
   };
   responses: never;
   parameters: never;
@@ -4307,6 +5598,39 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["MeResponse"];
+        };
+      };
+    };
+  };
+  change_password_auth_password_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PasswordChangeRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MeResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };
@@ -5434,6 +6758,75 @@ export interface operations {
       };
     };
   };
+  get_device_presentation_devices__device_id__presentation_get: {
+    parameters: {
+      query?: {
+        revision?: string | null;
+      };
+      header?: never;
+      path: {
+        device_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json":
+            | components["schemas"]["AvailablePresentationResponse"]
+            | components["schemas"]["UnavailablePresentationResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_device_presentation_asset_devices__device_id__presentation_assets__asset_id__get: {
+    parameters: {
+      query: {
+        revision: string;
+      };
+      header?: never;
+      path: {
+        device_id: string;
+        asset_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "image/png": string;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   list_devices_devices__get: {
     parameters: {
       query?: {
@@ -5799,6 +7192,39 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+    };
+  };
+  assign_devices_to_assets_devices_asset_assignments_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AssetAssignmentRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AssetAssignmentResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
       };
     };
   };
@@ -6426,8 +7852,8 @@ export interface operations {
     requestBody: {
       content: {
         "application/json":
-          | components["schemas"]["AttributeDriver"]
-          | components["schemas"]["FaultAttributeDriver"];
+          | components["schemas"]["AttributeDriver-Input"]
+          | components["schemas"]["FaultAttributeDriver-Input"];
       };
     };
     responses: {
@@ -6438,8 +7864,8 @@ export interface operations {
         };
         content: {
           "application/json":
-            | components["schemas"]["AttributeDriver"]
-            | components["schemas"]["FaultAttributeDriver"];
+            | components["schemas"]["AttributeDriver-Output"]
+            | components["schemas"]["FaultAttributeDriver-Output"];
         };
       };
       /** @description Validation Error */
@@ -6508,8 +7934,8 @@ export interface operations {
         };
         content: {
           "application/json":
-            | components["schemas"]["AttributeDriver"]
-            | components["schemas"]["FaultAttributeDriver"];
+            | components["schemas"]["AttributeDriver-Output"]
+            | components["schemas"]["FaultAttributeDriver-Output"];
         };
       };
       /** @description Validation Error */
@@ -6546,8 +7972,8 @@ export interface operations {
         };
         content: {
           "application/json":
-            | components["schemas"]["AttributeDriver"]
-            | components["schemas"]["FaultAttributeDriver"];
+            | components["schemas"]["AttributeDriver-Output"]
+            | components["schemas"]["FaultAttributeDriver-Output"];
         };
       };
       /** @description Validation Error */
@@ -6557,6 +7983,131 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  export_driver_package_drivers__driver_id__package_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        driver_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/zip": string;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  install_driver_package_drivers__driver_id__package_put: {
+    parameters: {
+      query?: {
+        expected_revision?: string | null;
+      };
+      header?: never;
+      path: {
+        driver_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/zip": string;
+        "application/yaml": string;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DriverSpec-Output"];
+        };
+      };
+      /** @description Unprocessable Content */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PackageImportErrorResponse"];
+        };
+      };
+    };
+  };
+  get_driver_presentation_drivers__driver_id__presentation_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        driver_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json":
+            | (
+                | components["schemas"]["AvailablePresentationResponse"]
+                | components["schemas"]["UnavailablePresentationResponse"]
+              )
+            | null;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_presentation_schema_presentations_schema_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PresentationSchema"];
         };
       };
     };

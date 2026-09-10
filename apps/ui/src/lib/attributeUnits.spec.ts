@@ -48,3 +48,15 @@ describe("commonAttributeUnit", () => {
     expect(commonAttributeUnit([])).toBeNull();
   });
 });
+
+describe("attributeUnit with driver metadata", () => {
+  it("prefers the unit the driver declares over the name convention", () => {
+    expect(attributeUnit("pressure", { unit: "bar" })).toBe("bar");
+    expect(attributeUnit("temperature", { unit: "°C" })).toBe("°C");
+  });
+
+  it("keeps the convention when no unit is declared", () => {
+    expect(attributeUnit("temperature", { unit: null })).toBe("°");
+    expect(attributeUnit("temperature", undefined)).toBe("°");
+  });
+});

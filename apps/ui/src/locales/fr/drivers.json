@@ -3,17 +3,18 @@
   "caption": "Les drivers décrivent comment Gridone communique avec une famille d'équipements — protocole, attributs et adaptateurs de valeurs.",
   "attribute_one": "attribut",
   "attribute_other": "attributs",
-  "notFoundDetails": "Aucun driver trouv\u00e9 pour l'id \"{{driverId}}\"",
+  "notFoundDetails": "Aucun driver trouvé pour l'id \"{{driverId}}\"",
   "fields": {
     "type": "Type d'appareil",
     "vendor": "Fabricant",
-    "model": "Mod\u00e8le",
+    "model": "Modèle",
     "version": "Version",
     "protocol": "Protocole",
     "deviceConfigDescription": "Liste des champs de configuration requis pour chaque appareil utilisant ce driver.",
-    "updateStrategy": "Strat\u00e9gie de mise \u00e0 jour",
+    "updateStrategy": "Stratégie de mise à jour",
     "deviceConfig": "Configuration des appareils",
-    "none": "Aucun"
+    "none": "Aucun",
+    "general": "Informations générales"
   },
   "filters": {
     "label": "Filtrer par type"
@@ -33,10 +34,44 @@
     "create": "Nouveau driver",
     "delete": "Supprimer",
     "deleteConfirmTitle": "Supprimer ce driver ?",
-    "deleteConfirmDetails": "Cette action ne peut pas \u00eatre annul\u00e9e."
+    "deleteConfirmDetails": "Cette action ne peut pas être annulée."
   },
   "feedback": {
-    "created": "Driver {{driverId}} cr\u00e9\u00e9",
-    "deleted": "Driver supprim\u00e9"
+    "created": "Driver {{driverId}} créé",
+    "deleted": "Driver supprimé"
+  },
+  "package": {
+    "source": "Source de l’import",
+    "yaml": "Coller du YAML",
+    "file": "Fichier YAML ou ZIP",
+    "yamlPlaceholder": "Collez le YAML complet du driver, avec son id.",
+    "driverId": "Identifiant du driver",
+    "driverIdHint": "Utilisez l’id déclaré dans le fichier driver.yaml du paquet.",
+    "fileHint": "YAML pour un driver sans fichiers images ; ZIP contenant driver.yaml et ses ressources pour un paquet complet.",
+    "fileRequired": "Choisissez un fichier YAML ou ZIP.",
+    "idRequired": "Saisissez l’identifiant du driver.",
+    "yamlRequired": "Collez le YAML du driver.",
+    "yamlIdRequired": "Le YAML doit contenir un champ id à la racine.",
+    "cancel": "Annuler",
+    "install": "Installer le driver",
+    "installing": "Validation et installation…",
+    "replace": "Remplacer le paquet",
+    "replaceTitle": "Remplacer le paquet : {{driverId}}",
+    "replaceHint": "Le driver et sa présentation seront entièrement remplacés après validation. Exportez le paquet actuel pour en conserver une sauvegarde.",
+    "diagnostics": "Diagnostics de validation",
+    "line": "Ligne {{line}}",
+    "column": "Colonne {{column}}",
+    "installed": "Driver {{driverId}} installé",
+    "export": "Exporter le ZIP complet",
+    "exportFailed": "Impossible d’exporter le paquet du driver.",
+    "presentation": "Présentation des appareils",
+    "loading": "Chargement de l’état de la présentation…",
+    "statusFailed": "Impossible de charger l’état actuel de la présentation.",
+    "reload": "Recharger la révision actuelle",
+    "none": "Aucune présentation déclarée. Les appareils utilisent les commandes standard.",
+    "available": "Présentation compatible et disponible.",
+    "unavailable": "Présentation indisponible. Les appareils utilisent les commandes standard ; consultez les diagnostics ci-dessous.",
+    "revision": "Révision",
+    "conflict": "Ce driver a changé depuis son chargement. Rechargez la révision actuelle, vérifiez votre paquet, puis soumettez-le à nouveau."
   }
 }

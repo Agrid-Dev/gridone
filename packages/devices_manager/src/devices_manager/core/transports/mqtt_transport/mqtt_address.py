@@ -1,6 +1,8 @@
 from functools import cached_property
 
-from pydantic import BaseModel
+import jsonpath
+from jsonpath.exceptions import JSONPathError
+from pydantic import BaseModel, field_validator
 
 from devices_manager.core.transports.hash_model import hash_model
 from devices_manager.core.transports.transport_address import (
@@ -14,9 +16,38 @@ class MqttRequest(BaseModel):
     message: str | dict
 
 
+class MqttReplyMatch(BaseModel):
+    """Recognises the reply to a read among the frames of a shared reply topic.
+
+    A frame is the reply when ``json_path`` finds at least one match in it,
+    e.g. ``$.data[?(@.name == "Temperature")]`` for a device that answers every
+    request on one topic with ``{"data": [{"name": ..., "value": ...}]}``
+    frames. A frame that is not JSON never matches.
+    """
+
+    json_path: str
+
+    @field_validator("json_path")
+    @classmethod
+    def _compiles(cls, value: str) -> str:
+        try:
+            jsonpath.compile(value)
+        except JSONPathError as e:
+            msg = f"Invalid json_path: {e}"
+            raise ValueError(msg) from e
+        return value
+
+    def accepts(self, payload: str) -> bool:
+        try:
+            return jsonpath.match(self.json_path, payload) is not None
+        except ValueError:  # not JSON, or JSON of the wrong shape
+            return False
+
+
 class MqttAddress(BaseModel, PushTransportAddress):
     topic: str
     request: MqttRequest | None = None
+    match: MqttReplyMatch | None = None
     message: str | dict | None = None
 
     @cached_property

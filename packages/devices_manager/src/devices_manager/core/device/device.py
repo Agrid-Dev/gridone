@@ -6,7 +6,7 @@ import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from devices_manager.core.driver import FaultAttributeDriver
 from devices_manager.core.transports import PushTransportClient, ReadError
@@ -23,6 +23,7 @@ from .connection_status import (
 )
 from .event_log import EventType, build_entry, log_event, wrap_listen
 from .watchdog import SilenceWatchdog
+from .write_constraints import check_write_constraints
 
 if TYPE_CHECKING:
     from devices_manager.core.codecs import FnCodec
@@ -57,6 +58,18 @@ AttributeListener = Callable[
     ["CoreDevice", str, "Attribute | None", Attribute],
     Awaitable[None] | None,
 ]
+
+
+def _metadata_kwargs(attribute_driver: AttributeDriver) -> dict[str, Any]:
+    """Presentation metadata and write constraints, projected verbatim from
+    the driver onto the runtime attribute."""
+    return {
+        "label": attribute_driver.label,
+        "description": attribute_driver.description,
+        "group": attribute_driver.group,
+        "unit": attribute_driver.unit,
+        "write_constraints": attribute_driver.write_constraints,
+    }
 
 
 def _build_attribute(
@@ -98,6 +111,7 @@ def _build_attribute(
             last_changed=last_changed,
             healthy_values=attribute_driver.healthy_values,
             severity=attribute_driver.severity,
+            **_metadata_kwargs(attribute_driver),
         )
     return Attribute(
         name=attribute_driver.name,
@@ -107,6 +121,7 @@ def _build_attribute(
         last_updated=last_updated,
         last_changed=last_changed,
         value_options=attribute_driver.value_options,
+        **_metadata_kwargs(attribute_driver),
     )
 
 
@@ -304,13 +319,12 @@ class CoreDevice:
     async def start_sync(self) -> None:
         """Start listeners, polling, and silence watchdog for this device."""
         await self.init_listeners()
-        if self.polling_enabled:
-            for group_name, (interval, names) in self._polling_groups().items():
-                task = self._poll_tasks.get(group_name)
-                if task is None or task.done():
-                    self._poll_tasks[group_name] = asyncio.create_task(
-                        self._poll_loop(interval, names)
-                    )
+        for group_name, (interval, names) in self._polling_groups().items():
+            task = self._poll_tasks.get(group_name)
+            if task is None or task.done():
+                self._poll_tasks[group_name] = asyncio.create_task(
+                    self._poll_loop(interval, names)
+                )
         interval = self.expected_interval
         if interval is not None:
             self._watchdog = SilenceWatchdog(interval, self._set_watchdog_status)
@@ -341,7 +355,12 @@ class CoreDevice:
         """Bucket readable, non-internal attributes by polling group.
 
         Attributes with no `polling_group` fall into an implicit ``None``
-        bucket, polled at the driver's `polling_interval`.
+        bucket, polled at the driver's `polling_interval` — and only while
+        polling is enabled. Named groups always poll: an attribute assigned
+        to one has opted in explicitly, so ``polling: disable`` reads as
+        "no polling by default" rather than "no polling at all". That is how
+        a push-fed device gets a single trigger attribute polled while its
+        siblings stay listen-only.
         """
         names_by_group: dict[str | None, list[str]] = {}
         for attr_name, attr in self.attributes.items():
@@ -358,7 +377,7 @@ class CoreDevice:
         for group_name, names in names_by_group.items():
             if group_name is not None:
                 result[group_name] = (polling_groups[group_name], names)
-            elif default_interval is not None:
+            elif self.polling_enabled and default_interval is not None:
                 result[group_name] = (default_interval, names)
         return result
 
@@ -490,6 +509,12 @@ class CoreDevice:
 
     def get_attribute_value(self, attribute_name: str) -> AttributeValueType | None:
         return self.get_attribute(attribute_name).current_value
+
+    def _known_attribute_value(self, attribute_name: str) -> AttributeValueType | None:
+        """Current value of a sibling attribute; ``None`` when the attribute
+        does not exist on this device or has no value yet."""
+        attribute = self.attributes.get(attribute_name)
+        return None if attribute is None else attribute.current_value
 
     def can_write(
         self,
@@ -709,6 +734,7 @@ class CoreDevice:
             msg = f"Attribute '{attribute_name}' is not writable on device '{self.id}'"
             raise PermissionError(msg)
         validated_value = attribute.ensure_type(value)
+        check_write_constraints(attribute, validated_value, self._known_attribute_value)
         attribute_driver = self.driver.attributes[attribute.name]
         codec = attribute_driver.codec
         if attribute_driver.write is None:
