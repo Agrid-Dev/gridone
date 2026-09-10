@@ -1,3 +1,9 @@
+## v0.234.1 (2026-09-10)
+
+### Fix
+
+- **device-ui**: hide unconfigured regulated column
+
 ## v0.234.0 (2026-09-10)
 
 ### Feat
