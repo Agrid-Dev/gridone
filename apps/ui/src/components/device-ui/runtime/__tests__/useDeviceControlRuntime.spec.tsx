@@ -31,6 +31,11 @@ import { useDeviceControlRuntime } from "../useDeviceControlRuntime";
 import type { ControlSpec } from "../controls";
 
 const CONTROLS: Record<string, ControlSpec> = {
+  slider: {
+    kind: "slider",
+    attribute: "temperature_setpoint",
+    label: { default: "Target slider" },
+  },
   target: {
     kind: "number",
     attribute: "temperature_setpoint",
@@ -148,6 +153,57 @@ function DisplayedSetpoint({ device }: { device: Device }) {
 }
 
 describe("useDeviceControlRuntime", () => {
+  it("debounces slider drags and shares their intention with the stepper and face", async () => {
+    const { rendered } = setup();
+    act(() => {
+      rendered.result.current.setValue("slider", 22);
+      rendered.result.current.setValue("slider", 23.5);
+      rendered.result.current.setValue("slider", 24);
+    });
+    expect(mockSendCommand).not.toHaveBeenCalled();
+    expect(rendered.result.current.readControl("target")?.displayed).toBe(24);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(600);
+    });
+    expect(mockSendCommand).toHaveBeenCalledTimes(1);
+    expect(mockSendCommand).toHaveBeenCalledWith("dev-1", {
+      attribute: "temperature_setpoint",
+      value: 24,
+      confirm: true,
+    });
+  });
+
+  it.each([15, 31, 21.1, Number.NaN, Number.POSITIVE_INFINITY, "22"])(
+    "refuses invalid slider value %s",
+    (value) => {
+      const { rendered } = setup();
+      act(() =>
+        rendered.result.current.setValue("slider", value, { immediate: true }),
+      );
+      expect(mockSendCommand).not.toHaveBeenCalled();
+      expect(rendered.result.current.readControl("slider")?.pending).toBe(
+        false,
+      );
+    },
+  );
+
+  it("refuses slider writes with unresolved bounds or missing user permissions", () => {
+    const { rendered } = setup(
+      makeDevice({ precision: { current_value: null } }),
+    );
+    act(() =>
+      rendered.result.current.setValue("slider", 22, { immediate: true }),
+    );
+    expect(mockSendCommand).not.toHaveBeenCalled();
+    const denied = setup(makeDevice(), false);
+    act(() =>
+      denied.rendered.result.current.setValue("slider", 22, {
+        immediate: true,
+      }),
+    );
+    expect(mockSendCommand).not.toHaveBeenCalled();
+  });
+
   it("rejects direct actions and writes when the user lacks device write permission", () => {
     const { rendered } = setup(makeDevice(), false);
     expect(rendered.result.current.readControl("power")?.writable).toBe(false);

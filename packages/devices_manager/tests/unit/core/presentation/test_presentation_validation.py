@@ -86,6 +86,41 @@ def located(status: UnavailablePresentation) -> list[tuple[DiagnosticCode, str |
 
 
 class TestThermostatDocument:
+    @pytest.mark.parametrize(
+        ("pointer", "value", "capability"),
+        [
+            ("/page/items/1/sticky", True, "layout-options/1"),
+            ("/page/items/1/content/appearance", "plain", "layout-options/1"),
+            ("/page/items/1/content/collapsible", True, "layout-options/1"),
+            ("/page/items/1/content/collapsed", False, "layout-options/1"),
+            ("/page/items/1/content/show_count", True, "layout-options/1"),
+            (f"{MEASUREMENTS_PATH}/layout", "rows", "measurement-layout/1"),
+            (f"{MEASUREMENTS_PATH}/layout", "inline", "measurement-layout/1"),
+            ("/controls/target/kind", "slider", "slider/1"),
+        ],
+    )
+    def test_extensions_require_declared_capability(
+        self, thermostat_document, thermostat_attributes, pointer, value, capability
+    ):
+        put(thermostat_document, pointer, value)
+        status = resolve(thermostat_document, thermostat_attributes)
+        assert located(status) == [(DiagnosticCode.INVALID_DOCUMENT, "/requires")]
+        thermostat_document["requires"].append(capability)
+        assert isinstance(
+            resolve(thermostat_document, thermostat_attributes), AvailablePresentation
+        )
+
+    def test_slider_rejects_non_numeric_binding(
+        self, thermostat_document, thermostat_attributes
+    ):
+        thermostat_document["requires"].append("slider/1")
+        put(thermostat_document, "/controls/target/kind", "slider")
+        put(thermostat_document, "/controls/target/binding", "power")
+        status = resolve(thermostat_document, thermostat_attributes)
+        assert (DiagnosticCode.TYPE_MISMATCH, "/controls/target/kind") in located(
+            status
+        )
+
     def test_is_available(self, thermostat_envelope, thermostat_attributes):
         status = validate_presentation(thermostat_envelope, thermostat_attributes)
         assert isinstance(status, AvailablePresentation)

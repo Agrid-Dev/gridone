@@ -7,7 +7,7 @@ import type { PresentationResponse } from "@gridone/sdk";
  * document, the SDK's generated types replace them.
  */
 
-export type ControlKind = "toggle" | "number" | "select";
+export type ControlKind = "toggle" | "number" | "slider" | "select";
 
 export type ControlDocument = {
   kind: ControlKind;
@@ -61,18 +61,34 @@ export type SetpointRow = {
   formatter?: Formatter;
 };
 
+export type SectionNode = {
+  kind: "section";
+  title: LocalizedText;
+  description?: LocalizedText;
+  appearance?: "card" | "plain";
+  collapsible?: boolean;
+  /** Initial state; only valid on a collapsible section. */
+  collapsed?: boolean;
+  show_count?: boolean;
+  children: PageNode[];
+};
+
+export type MeasurementLayout = "grouped" | "rows" | "inline";
+
 export type PageNode =
   | { kind: "stack"; children: PageNode[] }
-  | { kind: "columns"; items: { weight: number; content: PageNode }[] }
   | {
-      kind: "section";
-      title: LocalizedText;
-      description?: LocalizedText;
-      children: PageNode[];
+      kind: "columns";
+      items: { weight: number; sticky?: boolean; content: PageNode }[];
     }
+  | SectionNode
   | { kind: "attributes"; group?: string }
   | { kind: "control-panel"; controls: string[] }
-  | { kind: "measurements"; items: MeasurementItem[] }
+  | {
+      kind: "measurements";
+      layout?: MeasurementLayout;
+      items: MeasurementItem[];
+    }
   | { kind: "setpoint-table"; rows: SetpointRow[] }
   | DeviceFaceDocument;
 

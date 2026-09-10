@@ -1,7 +1,8 @@
 import { useTranslation } from "react-i18next";
 import { toLabel } from "@/lib/textFormat";
+import { cn } from "@/lib/utils";
 import type { Scalar } from "../conditions";
-import type { MeasurementItem } from "../document";
+import type { MeasurementItem, MeasurementLayout } from "../document";
 import { localize } from "../face";
 import type { AttributeLike } from "../runtime";
 import type { useAttributeLabel } from "@/hooks/useAttributeLabel";
@@ -15,6 +16,7 @@ import { formatMeasurement } from "./formatters";
 
 export type MeasurementsProps = {
   items: MeasurementItem[];
+  layout?: MeasurementLayout;
   reported: (binding: string) => Scalar | null;
   attributeOf: (binding: string) => AttributeLike | null;
   attributeLabel: ReturnType<typeof useAttributeLabel>;
@@ -23,6 +25,7 @@ export type MeasurementsProps = {
 
 export function Measurements({
   items,
+  layout = "grouped",
   reported,
   attributeOf,
   attributeLabel,
@@ -30,11 +33,15 @@ export function Measurements({
 }: MeasurementsProps) {
   const groups = new Map<string | null, MeasurementItem[]>();
   for (const item of items) {
-    const group = attributeOf(item.binding)?.group ?? null;
+    const group =
+      layout === "grouped" ? (attributeOf(item.binding)?.group ?? null) : null;
     groups.set(group, [...(groups.get(group) ?? []), item]);
   }
   return (
-    <div className="space-y-4">
+    <div
+      data-measurement-layout={layout}
+      className={cn("space-y-4", layout === "rows" && "rounded-lg border px-4")}
+    >
       {Array.from(groups.entries()).map(([group, groupItems]) => (
         <section key={group ?? ""} className="space-y-1">
           {group && (
@@ -42,7 +49,13 @@ export function Measurements({
               {toLabel(group)}
             </h4>
           )}
-          <dl className="divide-y divide-border">
+          <dl
+            className={
+              layout === "inline"
+                ? "flex flex-wrap justify-center gap-x-5 gap-y-2"
+                : "divide-y divide-border"
+            }
+          >
             {groupItems.map((item) => (
               <MeasurementRow
                 key={item.binding}
@@ -51,6 +64,7 @@ export function Measurements({
                 attribute={attributeOf(item.binding)}
                 attributeLabel={attributeLabel}
                 language={language}
+                layout={layout}
               />
             ))}
           </dl>
@@ -66,12 +80,14 @@ function MeasurementRow({
   attribute,
   attributeLabel,
   language,
+  layout,
 }: {
   item: MeasurementItem;
   value: Scalar | null;
   attribute: AttributeLike | null;
   attributeLabel: MeasurementsProps["attributeLabel"];
   language: string;
+  layout: MeasurementLayout;
 }) {
   const { t } = useTranslation("devices");
   const label = item.label
@@ -90,7 +106,13 @@ function MeasurementRow({
     : t("presentation.unavailable");
   return (
     <div
-      className="flex items-baseline justify-between gap-4 py-1.5 text-sm"
+      className={cn(
+        "flex items-baseline",
+        layout === "inline"
+          ? "gap-1.5 text-xs"
+          : "justify-between gap-4 text-sm",
+        layout === "rows" ? "py-3" : "py-1.5",
+      )}
       data-binding={item.binding}
     >
       <dt className="text-muted-foreground">{label}</dt>

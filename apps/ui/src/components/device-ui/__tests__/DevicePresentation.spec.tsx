@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Device } from "@gridone/sdk";
 import { createI18nMock } from "@/test/i18nMock";
@@ -24,6 +30,9 @@ vi.mock("react-i18next", () =>
       "presentation.increase": "Increase {{name}}",
       "presentation.decrease": "Decrease {{name}}",
       "presentation.range": "{{min}} – {{max}}",
+      "presentation.sectionSettings": "{{count}} settings",
+      "presentation.sectionValues": "{{count}} values",
+      "presentation.sectionItems": "{{count}} items",
       "presentation.demanded": "Demanded",
       "presentation.regulated": "Regulated",
       "presentation.measured": "Measured",
@@ -247,6 +256,157 @@ function renderPresentation(
 }
 
 describe("DevicePresentation", () => {
+  it("folds nested plain sections independently and keeps their state on live updates", async () => {
+    const user = userEvent.setup();
+    const { runtime } = fakeRuntime();
+    const nested: PresentationV1 = {
+      ...document,
+      page: {
+        kind: "section",
+        title: { default: "Settings" },
+        collapsible: true,
+        collapsed: true,
+        show_count: true,
+        children: [
+          {
+            kind: "section",
+            title: { default: "Display" },
+            appearance: "plain",
+            collapsible: true,
+            show_count: true,
+            children: [{ kind: "control-panel", controls: ["power"] }],
+          },
+        ],
+      },
+    };
+    const { rerender } = renderPresentation(runtime, { document: nested });
+    const parent = screen.getByText("Settings").closest("summary")!;
+    const child = screen.getByText("Display").closest("summary")!;
+    expect(parent.parentElement).not.toHaveAttribute("open");
+    expect(child.parentElement).toHaveAttribute("open");
+    expect(child.closest('[data-node="section"]')).toHaveAttribute(
+      "data-appearance",
+      "plain",
+    );
+    expect(within(parent).getByText("1 settings")).toBeInTheDocument();
+    await user.click(parent);
+    expect(screen.getByRole("switch", { name: "Power" })).toBeVisible();
+    await user.click(child);
+    await user.click(parent);
+    await user.click(parent);
+    expect(child.parentElement).not.toHaveAttribute("open");
+    rerender(
+      <DevicePresentation
+        document={nested}
+        device={{ ...device }}
+        runtime={runtime}
+        assetUrl={() => undefined}
+        glyphSet={() => undefined}
+        fallback={null}
+      />,
+    );
+    expect(parent.parentElement).toHaveAttribute("open");
+    expect(child.parentElement).not.toHaveAttribute("open");
+    rerender(
+      <DevicePresentation
+        document={nested}
+        device={{ ...device, id: "dev-2" }}
+        runtime={runtime}
+        assetUrl={() => undefined}
+        glyphSet={() => undefined}
+        fallback={null}
+      />,
+    );
+    expect(screen.getByText("Settings").closest("details")).not.toHaveAttribute(
+      "open",
+    );
+    expect(screen.getByText("Display").closest("details")).toHaveAttribute(
+      "open",
+    );
+  });
+
+  it.each(["rows", "inline"] as const)(
+    "renders %s measurements in authored order without group headings",
+    (layout) => {
+      const { runtime } = fakeRuntime();
+      const { container } = renderPresentation(runtime, {
+        document: {
+          ...document,
+          page: {
+            kind: "measurements",
+            layout,
+            items: [
+              {
+                binding: "humidity",
+                formatter: { unavailable: { default: "No sensor" } },
+              },
+              { binding: "power" },
+              { binding: "measured", formatter: { decimals: 1 } },
+            ],
+          },
+        },
+      });
+      expect(screen.queryByText("Sensors")).not.toBeInTheDocument();
+      expect(screen.getByText("No sensor")).toBeInTheDocument();
+      expect(screen.getByText("21.4 °C")).toBeInTheDocument();
+      expect(
+        Array.from(container.querySelectorAll("[data-binding]")).map((row) =>
+          row.getAttribute("data-binding"),
+        ),
+      ).toEqual(["humidity", "power", "measured"]);
+    },
+  );
+
+  it("shows the slider value and forwards drag changes through the runtime", () => {
+    const { runtime, setValue } = fakeRuntime({
+      target: {
+        spec: {
+          kind: "slider",
+          attribute: "temperature_setpoint",
+          label: { default: "Target" },
+        },
+      },
+    });
+    renderPresentation(runtime, {
+      document: {
+        ...document,
+        page: { kind: "control-panel", controls: ["target"] },
+      },
+    });
+    const slider = screen.getByRole("slider", { name: "Target" });
+    expect(slider).toHaveAttribute("aria-valuetext", "21.0 °C");
+    expect(slider).toHaveAttribute("min", "16");
+    expect(slider).toHaveAttribute("max", "30");
+    expect(slider).toHaveAttribute("step", "0.5");
+    fireEvent.change(slider, { target: { value: "22.5" } });
+    expect(setValue).toHaveBeenCalledWith("target", 22.5);
+  });
+
+  it.each([
+    { writable: false },
+    { displayed: null },
+    { constraints: { step: 0.5, minimum: null, maximum: 30, unknown: true } },
+    { constraints: { step: null, minimum: 16, maximum: 30, unknown: false } },
+  ])("disables a slider when unavailable: %j", (override) => {
+    const { runtime } = fakeRuntime({
+      target: {
+        spec: {
+          kind: "slider",
+          attribute: "temperature_setpoint",
+          label: { default: "Target" },
+        },
+        ...override,
+      },
+    });
+    renderPresentation(runtime, {
+      document: {
+        ...document,
+        page: { kind: "control-panel", controls: ["target"] },
+      },
+    });
+    expect(screen.getByRole("slider")).toBeDisabled();
+  });
+
   it("renders the page tree with sections, controls, measurements and the attributes slot", () => {
     const { runtime } = fakeRuntime();
     renderPresentation(runtime);

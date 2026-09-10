@@ -21,6 +21,7 @@ import {
 } from "./controlRuntime";
 import {
   isWritable,
+  isSliderValue,
   nextValue,
   resolveConstraints,
   type AttributeLike,
@@ -194,8 +195,15 @@ export function useDeviceControlRuntime(
     (id: string, value: Scalar, options?: { immediate?: boolean }) => {
       const state = readControl(id);
       if (!state || !state.writable) return;
+      if (
+        state.spec.kind === "slider" &&
+        !isSliderValue(value, state.constraints)
+      )
+        return;
       runtime.request(state.spec.attribute, value, {
-        immediate: options?.immediate ?? state.spec.kind !== "number",
+        immediate:
+          options?.immediate ??
+          (state.spec.kind !== "number" && state.spec.kind !== "slider"),
       });
     },
     [readControl, runtime],

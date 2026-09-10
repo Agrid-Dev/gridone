@@ -18,9 +18,11 @@ from pydantic import (
     ConfigDict,
     Discriminator,
     Field,
+    StrictBool,
     StrictInt,
     StringConstraints,
     Tag,
+    model_validator,
 )
 
 from devices_manager.core.driver.attribute_metadata import (
@@ -452,6 +454,7 @@ class StackNode(StrictModel):
 
 class ColumnItem(StrictModel):
     weight: PositiveInt
+    sticky: StrictBool | None = None
     content: "PageNode"
 
 
@@ -464,7 +467,18 @@ class SectionNode(StrictModel):
     kind: Literal["section"]
     title: LocalizedText
     description: LocalizedText | None = None
+    appearance: Literal["card", "plain"] | None = None
+    collapsible: StrictBool | None = None
+    collapsed: StrictBool | None = None
+    show_count: StrictBool | None = None
     children: list["PageNode"]
+
+    @model_validator(mode="after")
+    def check_collapsed(self) -> "SectionNode":
+        if self.collapsed and not self.collapsible:
+            msg = "a collapsed section must be collapsible"
+            raise ValueError(msg)
+        return self
 
 
 class AttributesNode(StrictModel):
@@ -494,8 +508,15 @@ class MeasurementItem(StrictModel):
     formatter: Formatter | None = None
 
 
+class MeasurementLayout(StrEnum):
+    GROUPED = "grouped"
+    ROWS = "rows"
+    INLINE = "inline"
+
+
 class MeasurementsNode(StrictModel):
     kind: Literal["measurements"]
+    layout: MeasurementLayout | None = None
     items: list[MeasurementItem]
 
 
@@ -616,6 +637,7 @@ class BindingSpec(StrictModel):
 class ControlKind(StrEnum):
     TOGGLE = "toggle"
     NUMBER = "number"
+    SLIDER = "slider"
     SELECT = "select"
 
 

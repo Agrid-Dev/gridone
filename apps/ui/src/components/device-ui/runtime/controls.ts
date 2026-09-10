@@ -143,6 +143,48 @@ function round(value: number, step: number): number {
   return Number(value.toFixed(Math.min(100, decimalsOf(step))));
 }
 
+/**
+ * The finite slider interval on the runtime's zero-anchored step grid.
+ * For example, bounds 0.1–1.1 with step 0.5 offer 0.5–1.0. Native ranges
+ * anchor their steps at min, so align min first to match face increments.
+ */
+export function sliderRange(constraints: ResolvedConstraints) {
+  const { minimum, maximum, step, unknown } = constraints;
+  if (
+    unknown ||
+    minimum === null ||
+    maximum === null ||
+    step === null ||
+    !Number.isFinite(minimum) ||
+    !Number.isFinite(maximum) ||
+    !Number.isFinite(step) ||
+    step <= 0 ||
+    maximum <= minimum
+  )
+    return null;
+  const min = round(Math.ceil(minimum / step - GRID_EPSILON) * step, step);
+  const max = round(Math.floor(maximum / step + GRID_EPSILON) * step, step);
+  return Number.isFinite(min) && Number.isFinite(max) && max > min
+    ? { min, max, step }
+    : null;
+}
+
+/** Only values on the slider's grid and inside the attribute bounds can be sent. */
+export function isSliderValue(
+  value: Scalar,
+  constraints: ResolvedConstraints,
+): value is number {
+  const range = sliderRange(constraints);
+  if (!range || typeof value !== "number" || !Number.isFinite(value))
+    return false;
+  const quotient = value / range.step;
+  return (
+    value >= range.min &&
+    value <= range.max &&
+    Math.abs(quotient - Math.round(quotient)) <= GRID_EPSILON
+  );
+}
+
 /** Decimal places of a step, including exponent notation: 0.25 → 2, 2.5e-7 → 8. */
 export function decimalsOf(step: number): number {
   const [coefficient, exponent = "0"] = step.toString().split("e");
