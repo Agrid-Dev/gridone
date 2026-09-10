@@ -26,6 +26,7 @@ from api.dependencies import (
     get_dashboards_service,
     get_device_manager,
     get_notifications_service,
+    get_target_resolver,
     get_ts_service,
     get_users_service,
 )
@@ -48,6 +49,14 @@ from apps import (
     RegistrationRequest,
     RegistrationRequestStatus,
 )
+from commands import (
+    AttributeWrite,
+    BatchCommandDispatch,
+    CommandsServiceInterface,
+    CommandStatus,
+    CommandTemplate,
+    UnitCommand,
+)
 from devices_manager import DiscoveryManagerInterface, IngressResult
 from devices_manager.core.device import Attribute
 from devices_manager.core.device.event_log import AttributeLogs
@@ -56,6 +65,7 @@ from devices_manager.dto.presentation_dto import UnavailablePresentationResponse
 from devices_manager.types import DataType
 from models.errors import NotFoundError
 from models.pagination import Page
+from models.targets import DevicesFilter, ResolvedTarget
 from models.types import Severity
 from notifications import (
     Notification,
@@ -199,6 +209,7 @@ def test_admin_me_has_all_permissions(app: FastAPI) -> None:
         assert "users:read" in data["permissions"]
         assert "users:write" in data["permissions"]
         assert "devices:write" in data["permissions"]
+        assert "devices:command" in data["permissions"]
 
 
 # --- Operator cannot access user endpoints ---
@@ -220,6 +231,7 @@ def test_operator_me_has_no_user_permissions(app: FastAPI) -> None:
         assert data["role"] == "operator"
         assert "users:read" not in data["permissions"]
         assert "devices:write" in data["permissions"]
+        assert "devices:command" in data["permissions"]
 
 
 # --- Viewer cannot access write endpoints ---
@@ -247,6 +259,7 @@ def test_viewer_me_has_read_only_permissions(app: FastAPI) -> None:
         assert data["role"] == "viewer"
         assert "devices:read" in data["permissions"]
         assert "devices:write" not in data["permissions"]
+        assert "devices:command" not in data["permissions"]
         assert "users:read" not in data["permissions"]
 
 
@@ -671,22 +684,74 @@ def test_devices_access_control(
 # --- Commands and asset-command RBAC ---
 
 
+def _build_commands_service_mock() -> AsyncMock:
+    now = datetime.now(UTC)
+    write = AttributeWrite(attribute="mode", value="auto", data_type=DataType.STRING)
+    unit = UnitCommand(
+        id=1,
+        batch_id="batch-1",
+        template_id=None,
+        device_id="d1",
+        attribute=write.attribute,
+        value=write.value,
+        data_type=write.data_type,
+        status=CommandStatus.PENDING,
+        status_details=None,
+        user_id="operator-id",
+        created_at=now,
+        executed_at=None,
+        completed_at=None,
+    )
+    dispatch = BatchCommandDispatch(batch_id="batch-1", commands=[unit])
+    template = CommandTemplate(
+        id="t-1",
+        target=DevicesFilter(ids=["d1"]),
+        write=write,
+        name="Template",
+        created_at=now,
+        created_by="operator-id",
+    )
+    svc = AsyncMock(spec=CommandsServiceInterface)
+    svc.dispatch_unit.return_value = unit
+    svc.dispatch_batch.return_value = dispatch
+    svc.dispatch_from_template.return_value = dispatch
+    svc.save_template.return_value = template
+    svc.get_template.return_value = template
+    svc.update_template.return_value = template
+    return svc
+
+
+def _build_target_resolver_mock() -> AsyncMock:
+    resolver = AsyncMock()
+    resolver.resolve.return_value = ResolvedTarget(
+        attribute="mode",
+        device_ids=["d1"],
+        data_type=DataType.STRING,
+        excluded_device_ids=[],
+    )
+    return resolver
+
+
 def _build_commands_app() -> FastAPI:
     """App with the devices_router and assets_router mounted.
 
     Used to verify that the permission decorators on the command endpoints
-    reject viewers and unauthenticated requests before any service is invoked.
+    let admins and operators through, and reject viewers and unauthenticated
+    requests before any service is invoked.
     """
     app = FastAPI()
     app.state.auth_service = AuthService(secret_key="test-secret")
     app.state.cookie_secure = False
     manager = MockUsersService()
+    dm = MagicMock()
+    assets_svc = AsyncMock()
     app.dependency_overrides[get_users_service] = lambda: manager
-    app.dependency_overrides[get_device_manager] = MagicMock
+    app.dependency_overrides[get_device_manager] = lambda: dm
+    app.dependency_overrides[get_target_resolver] = _build_target_resolver_mock
     app.dependency_overrides[get_ts_service] = lambda: AsyncMock(default_timezone="UTC")
-    app.dependency_overrides[get_assets_service] = MagicMock
+    app.dependency_overrides[get_assets_service] = lambda: assets_svc
     app.dependency_overrides[get_building_models_service] = MagicMock
-    app.dependency_overrides[get_commands_service] = AsyncMock
+    app.dependency_overrides[get_commands_service] = _build_commands_service_mock
     app.include_router(auth_router, prefix="/auth")
     jwt_dep = [Depends(get_current_user_id)]
     app.include_router(devices_router, prefix="/devices", dependencies=jwt_dep)
@@ -699,55 +764,60 @@ def commands_app() -> FastAPI:
     return _build_commands_app()
 
 
+_BATCH_COMMAND_BODY = {"target": {"ids": ["d1"]}, "attribute": "mode", "value": "auto"}
+_SINGLE_COMMAND_BODY = {"attribute": "mode", "value": "auto"}
+_ASSET_COMMAND_BODY = {
+    "attribute": "mode",
+    "value": "auto",
+    "device_type": "thermostat",
+}
+_TEMPLATE_BODY = {
+    "target": {"ids": ["d1"]},
+    "write": {"attribute": "mode", "value": "auto", "data_type": "str"},
+}
+
+
+def _command_scenarios(
+    method: str, endpoint: str, body: dict | None, success: int, prefix: str
+) -> list:
+    """The four scenarios every ``devices:command`` endpoint must satisfy."""
+    return [
+        pytest.param(method, endpoint, "admin", success, body, id=f"{prefix}-admin"),
+        pytest.param(method, endpoint, "operator", success, body, id=f"{prefix}-op"),
+        pytest.param(method, endpoint, "viewer", 403, body, id=f"{prefix}-viewer"),
+        pytest.param(method, endpoint, None, 401, body, id=f"{prefix}-no-auth"),
+    ]
+
+
 COMMANDS_ACCESS_CONTROL_SCENARIOS = [
-    # Viewer is forbidden from any device-write endpoint.
-    pytest.param(
-        "POST",
-        "/devices/commands",
-        "viewer",
-        403,
-        {"device_ids": ["x"], "attribute": "a", "value": 1},
-        id="batch-cmd-viewer",
+    # Dispatch and templates are gated by devices:command: admin and operator
+    # hold it, viewer does not.
+    *_command_scenarios("POST", "/devices/commands", _BATCH_COMMAND_BODY, 202, "batch"),
+    *_command_scenarios(
+        "POST", "/devices/any-id/commands", _SINGLE_COMMAND_BODY, 200, "single"
     ),
-    pytest.param(
+    *_command_scenarios(
+        "POST", "/assets/any-id/commands", _ASSET_COMMAND_BODY, 202, "asset-cmd"
+    ),
+    *_command_scenarios(
+        "POST", "/devices/commands/templates/", _TEMPLATE_BODY, 201, "create-tpl"
+    ),
+    *_command_scenarios(
+        "PATCH",
+        "/devices/commands/templates/any-id",
+        {"name": "Renamed"},
+        200,
+        "update-tpl",
+    ),
+    *_command_scenarios(
+        "DELETE", "/devices/commands/templates/any-id", None, 204, "delete-tpl"
+    ),
+    *_command_scenarios(
         "POST",
-        "/devices/commands",
+        "/devices/commands/templates/any-id/dispatch",
         None,
-        401,
-        {"device_ids": ["x"], "attribute": "a", "value": 1},
-        id="batch-cmd-no-auth",
-    ),
-    pytest.param(
-        "POST",
-        "/devices/any-id/commands",
-        "viewer",
-        403,
-        {"attribute": "a", "value": 1},
-        id="single-cmd-viewer",
-    ),
-    pytest.param(
-        "POST",
-        "/devices/any-id/commands",
-        None,
-        401,
-        {"attribute": "a", "value": 1},
-        id="single-cmd-no-auth",
-    ),
-    pytest.param(
-        "POST",
-        "/assets/any-id/commands",
-        "viewer",
-        403,
-        {"attribute": "a", "value": 1, "device_type": "thermostat"},
-        id="asset-cmd-viewer",
-    ),
-    pytest.param(
-        "POST",
-        "/assets/any-id/commands",
-        None,
-        401,
-        {"attribute": "a", "value": 1, "device_type": "thermostat"},
-        id="asset-cmd-no-auth",
+        202,
+        "dispatch-tpl",
     ),
     # PUT /assets/profile requires ASSETS_WRITE.
     pytest.param("PUT", "/assets/profile", "viewer", 403, {}, id="profile-put-viewer"),
@@ -825,85 +895,7 @@ COMMANDS_ACCESS_CONTROL_SCENARIOS = [
         None,
         id="get-device-cmds-no-auth",
     ),
-    # Command templates: viewer can READ, cannot WRITE; no-auth returns 401.
-    pytest.param(
-        "POST",
-        "/devices/commands/templates/",
-        "viewer",
-        403,
-        {
-            "target": {"ids": ["d1"]},
-            "write": {
-                "attribute": "mode",
-                "value": "auto",
-                "data_type": "str",
-            },
-        },
-        id="create-template-viewer",
-    ),
-    pytest.param(
-        "POST",
-        "/devices/commands/templates/",
-        None,
-        401,
-        {
-            "target": {"ids": ["d1"]},
-            "write": {
-                "attribute": "mode",
-                "value": "auto",
-                "data_type": "str",
-            },
-        },
-        id="create-template-no-auth",
-    ),
-    pytest.param(
-        "PATCH",
-        "/devices/commands/templates/any-id",
-        "viewer",
-        403,
-        {"name": "Renamed"},
-        id="update-template-viewer",
-    ),
-    pytest.param(
-        "PATCH",
-        "/devices/commands/templates/any-id",
-        None,
-        401,
-        {"name": "Renamed"},
-        id="update-template-no-auth",
-    ),
-    pytest.param(
-        "DELETE",
-        "/devices/commands/templates/any-id",
-        "viewer",
-        403,
-        None,
-        id="delete-template-viewer",
-    ),
-    pytest.param(
-        "DELETE",
-        "/devices/commands/templates/any-id",
-        None,
-        401,
-        None,
-        id="delete-template-no-auth",
-    ),
-    pytest.param(
-        "POST",
-        "/devices/commands/templates/any-id/dispatch",
-        "viewer",
-        403,
-        None,
-        id="dispatch-template-viewer",
-    ),
-    pytest.param(
-        "POST",
-        "/devices/commands/templates/any-id/dispatch",
-        None,
-        401,
-        None,
-        id="dispatch-template-no-auth",
-    ),
+    # Command templates: reading needs devices:read; no-auth returns 401.
     pytest.param(
         "GET",
         "/devices/commands/templates/",

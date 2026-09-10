@@ -19,11 +19,11 @@ from fastapi.security import OAuth2PasswordBearer
 from starlette.status import WS_1008_POLICY_VIOLATION
 
 from api.dependencies import get_auth_service, get_users_service
-from api.permissions import Permission, get_permissions_for_role
 from models.errors import BlockedUserError
 from users import UsersService
 from users.auth import AuthService, InvalidTokenError, TokenPayload
 from users.models import Role
+from users.permissions import Permission, get_permissions_for_role
 
 _oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token", auto_error=False)
 

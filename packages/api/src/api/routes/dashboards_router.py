@@ -15,10 +15,10 @@ from fastapi import APIRouter, Depends, status
 
 from api.auth import require_permission
 from api.dependencies import get_dashboards_service, get_target_resolver
-from api.permissions import Permission
 from api.schemas.dashboard import WidgetCreateBody, WidgetUpdateBody
 from api.targets import validate_targets
 from models.targets import TargetResolver
+from users.permissions import Permission
 
 router = APIRouter()
 

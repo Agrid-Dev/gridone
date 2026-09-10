@@ -83,6 +83,10 @@ class UnauthorizedError(Exception):
     """Raised when a request fails credential verification."""
 
 
+class ForbiddenError(Exception):
+    """Raised when an authenticated caller is not allowed to act on a resource."""
+
+
 class StorageError(Exception):
     """Base class for storage-related failures raised by services."""
 
