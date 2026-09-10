@@ -27,6 +27,7 @@ from api.routes import (
     health_router,
     notifications_router,
     presentations_router,
+    synoptics_router,
     transports_ingress_router,
     transports_router,
 )
@@ -46,6 +47,7 @@ from models.errors import ConfigurationError
 from models.service import Service
 from models.types import AttributeValueType, DataType
 from notifications import NotificationsService
+from synoptics import SynopticsService
 from timeseries import TimeSeriesService
 from users import UsersService
 from users.auth import AuthService
@@ -199,6 +201,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:  # pragma: no cover
     await dashboards_service.start()
     app.state.dashboards_service = dashboards_service
 
+    synoptics_service = SynopticsService(
+        settings.storage_url, target_resolver=CompositeTargetResolver(dm)
+    )
+    await synoptics_service.start()
+    app.state.synoptics_service = synoptics_service
+
     async def recipients() -> list[str]:
         users = await users_service.list_users()
         return [u.id for u in users if not u.is_blocked]
@@ -229,6 +237,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:  # pragma: no cover
                 apps_svc,
                 *assets_services,
                 dashboards_service,
+                synoptics_service,
             ]
         )
         await websocket_manager.close_all()
@@ -296,6 +305,12 @@ def create_app(*, logging_dict_config: dict | None = None) -> FastAPI:
         dashboards_router,
         prefix="/dashboards",
         tags=["dashboards"],
+        dependencies=jwt_dep,
+    )
+    app.include_router(
+        synoptics_router,
+        prefix="/synoptics",
+        tags=["synoptics"],
         dependencies=jwt_dep,
     )
     app.include_router(
