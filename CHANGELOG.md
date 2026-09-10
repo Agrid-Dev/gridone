@@ -1,3 +1,9 @@
+## v0.231.0 (2026-09-10)
+
+### Feat
+
+- **api**: let any user change their own password (#625)
+
 ## v0.230.1 (2026-09-10)
 
 ### Fix
