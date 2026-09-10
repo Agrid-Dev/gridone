@@ -122,3 +122,16 @@ class TestReplyMatch:
         matched = MqttAddress(topic="t", match=MqttReplyMatch(json_path="$.x"))
 
         assert plain.id != matched.id
+
+
+class TestReplyMatchAccepts:
+    match = MqttReplyMatch(json_path='$.data[?(@.name == "Temperature")]')
+
+    def test_accepts_a_frame_carrying_the_value(self) -> None:
+        assert self.match.accepts('{"data": [{"name": "Temperature", "value": 21}]}')
+
+    def test_rejects_a_frame_carrying_another_value(self) -> None:
+        assert not self.match.accepts('{"data": [{"name": "Other", "value": 1}]}')
+
+    def test_rejects_a_frame_that_is_not_json(self) -> None:
+        assert not self.match.accepts("not json")

@@ -1,3 +1,4 @@
+import re
 from typing import Any
 
 import pytest
@@ -5,6 +6,7 @@ import pytest
 from devices_manager.core.codecs.registry.json_path_codec import (
     json_path_codec,
 )
+from models.errors import InvalidError
 
 TEST_DATA = {
     "mac": "F0F5BD273F98",
@@ -77,3 +79,26 @@ def test_json_path_parser_raises_not_found() -> None:
     codec = json_path_codec('$.data[?(@.name == "UNKNOWN")].value')
     with pytest.raises(ValueError, match="Could not find value"):
         codec.decode(TEST_DATA)
+
+
+def test_invalid_expression_is_rejected_when_the_codec_is_built() -> None:
+    with pytest.raises(InvalidError, match="json_path"):
+        json_path_codec("$.data[?(")
+
+
+def test_codec_decodes_a_json_string_payload() -> None:
+    codec = json_path_codec('$.data[?(@.name == "Temperature")].value')
+
+    payload = (
+        '{"data": [{"name": "Other", "value": 1},'
+        ' {"name": "Temperature", "value": 21.5}]}'
+    )
+    assert codec.decode(payload) == 21.5
+
+
+def test_not_found_error_quotes_the_expression_as_written() -> None:
+    expression = '$.data[?(@.name == "Missing")].value'
+    codec = json_path_codec(expression)
+
+    with pytest.raises(ValueError, match=re.escape(expression)):
+        codec.decode('{"data": []}')
