@@ -13,9 +13,10 @@ work and lives in the API layer; this package stays document-only.
 """
 
 from collections.abc import Iterable, Iterator, Mapping, Sequence
+from dataclasses import dataclass
 from itertools import pairwise
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from models.errors import SchemaValidationError, ValidationErrorItem
 from synoptics.geometry import (
@@ -27,6 +28,7 @@ from synoptics.geometry import (
     translate,
 )
 from synoptics.models import (
+    MAX_POLYLINE_CELLS,
     Cell,
     CellPlacement,
     Endpoint,
@@ -49,6 +51,23 @@ class _Errors:
 
     def add(self, loc: tuple[str | int, ...], msg: str, type_: str) -> None:
         self.items.append(ValidationErrorItem(loc=loc, msg=msg, type=type_))
+
+
+@dataclass(frozen=True)
+class _Run:
+    """The cells a validated pipe crosses, as sets.
+
+    Tags, tees and inline symbols are unbounded in number and each asks "is
+    this cell on that run"; against a list of pydantic models that is a
+    linear scan per question, and a few thousand of them on one long run cost
+    tens of seconds. ``Cell`` is frozen precisely so it can be a set member.
+    """
+
+    cells: frozenset[Cell]
+    interior: frozenset[Cell]
+    """Every cell but the two ends: where an inline symbol may sit. A run that
+    doubles back over its own first cell passes through it again in the
+    middle, so this is position-based, not identity-based."""
 
 
 def validate_document(document: SynopticDocument, registry: SymbolRegistry) -> None:
@@ -154,7 +173,16 @@ def _check_symbols(
                 "rotation_locked",
             )
             continue
-        resolved[symbol.id] = _absolute_ports(symbol, registry, props)
+        try:
+            resolved[symbol.id] = _absolute_ports(symbol, registry, props)
+        except ValidationError:
+            # The placement is in bounds but a port offset carries it past
+            # the edge of the grid; ``Cell`` refuses the result.
+            errors.add(
+                (*loc, "placement"),
+                f"Symbol {symbol.id!r} has a port outside the grid",
+                "port_off_grid",
+            )
     return resolved
 
 
@@ -208,13 +236,14 @@ def _check_pipes(
     ports: Mapping[str, Mapping[str, tuple[Cell, Side]]],
     duplicates: set[str],
     errors: _Errors,
-) -> dict[str, list[Cell]]:
+) -> dict[str, _Run]:
     """Validate each run's geometry and return the cells it passes through.
 
     A pipe whose endpoints or segments are wrong contributes no polyline, so
     the tees and inline symbols that reference it report only their own error.
     """
-    polylines: dict[str, list[Cell]] = {}
+    polylines: dict[str, _Run] = {}
+    budget = MAX_POLYLINE_CELLS
     for i, pipe in enumerate(document.pipes):
         loc: tuple[str | int, ...] = ("pipes", i)
         if pipe.id in duplicates:
@@ -224,10 +253,21 @@ def _check_pipes(
             continue
         if not _check_segments(corners, loc, errors):
             continue
+        length = _run_length(corners)
+        if length > budget:
+            errors.add(
+                loc,
+                f"Pipe {pipe.id!r} crosses {length} cells, more than the "
+                f"{budget} left of the document's {MAX_POLYLINE_CELLS}",
+                "polyline_budget_exceeded",
+            )
+            continue
+        budget -= length
         cells = polyline_cells(corners)
+        run = _Run(frozenset(cells), frozenset(cells[1:-1]))
         _check_port_sides(pipe, corners, ports, loc, errors)
-        _check_tags(pipe, cells, i, errors)
-        polylines[pipe.id] = cells
+        _check_tags(pipe, run, i, errors)
+        polylines[pipe.id] = run
     return polylines
 
 
@@ -279,6 +319,14 @@ def _endpoint_cell(
         )
         return None
     return port[0]
+
+
+def _run_length(corners: Sequence[Cell]) -> int:
+    """How many cells :func:`polyline_cells` would produce, without producing
+    them. Segments are axis-aligned by now, so each spans its one delta."""
+    return 1 + sum(
+        abs(b.x - a.x) + abs(b.y - a.y) + abs(b.z - a.z) for a, b in pairwise(corners)
+    )
 
 
 def _check_segments(
@@ -335,9 +383,9 @@ def _check_port_sides(
             )
 
 
-def _check_tags(pipe: Pipe, cells: Sequence[Cell], index: int, errors: _Errors) -> None:
+def _check_tags(pipe: Pipe, run: _Run, index: int, errors: _Errors) -> None:
     for j, tag in enumerate(pipe.tags):
-        if tag.at not in cells:
+        if tag.at not in run.cells:
             errors.add(
                 ("pipes", index, "tags", j, "at"),
                 f"Tag {tag.id!r} at {_fmt(tag.at)} is not on pipe {pipe.id!r}",
@@ -347,7 +395,7 @@ def _check_tags(pipe: Pipe, cells: Sequence[Cell], index: int, errors: _Errors) 
 
 def _check_pipe_references(
     document: SynopticDocument,
-    polylines: Mapping[str, Sequence[Cell]],
+    polylines: Mapping[str, _Run],
     errors: _Errors,
 ) -> None:
     """Tees name another run and a cell on it, and the reference graph is
@@ -361,8 +409,8 @@ def _check_pipe_references(
             if endpoint.pipe == pipe.id:
                 errors.add(loc, "A pipe cannot tee onto itself", "self_reference")
                 continue
-            cells = polylines.get(endpoint.pipe)
-            if cells is None:
+            run = polylines.get(endpoint.pipe)
+            if run is None:
                 _report_unusable(
                     [p.id for p in document.pipes],
                     endpoint.pipe,
@@ -371,7 +419,7 @@ def _check_pipe_references(
                     errors,
                 )
                 continue
-            if endpoint.cell not in cells:
+            if endpoint.cell not in run.cells:
                 errors.add(
                     (*loc, "cell"),
                     f"{_fmt(endpoint.cell)} is not on pipe {endpoint.pipe!r}",
@@ -452,7 +500,7 @@ def _find_cycle(edges: Mapping[str, Iterable[str]]) -> list[str] | None:
 def _check_inline_placements(
     document: SynopticDocument,
     registry: SymbolRegistry,
-    polylines: Mapping[str, Sequence[Cell]],
+    polylines: Mapping[str, _Run],
     duplicates: set[str],
     errors: _Errors,
 ) -> None:
@@ -471,8 +519,8 @@ def _check_inline_placements(
                 f"Symbol type {symbol.type!r} cannot be placed on a pipe",
                 "not_inline_capable",
             )
-        cells = polylines.get(placement.pipe)
-        if cells is None:
+        run = polylines.get(placement.pipe)
+        if run is None:
             _report_unusable(
                 [p.id for p in document.pipes],
                 placement.pipe,
@@ -481,30 +529,19 @@ def _check_inline_placements(
                 errors,
             )
             continue
-        if placement.cell not in cells:
+        if placement.cell not in run.cells:
             errors.add(
                 (*loc, "cell"),
                 f"{_fmt(placement.cell)} is not on pipe {placement.pipe!r}",
                 "off_polyline",
             )
-        elif not _is_interior(placement.cell, cells):
+        elif placement.cell not in run.interior:
             errors.add(
                 (*loc, "cell"),
                 f"{_fmt(placement.cell)} is an endpoint of pipe "
                 f"{placement.pipe!r}, not a cell inside the run",
                 "inline_on_endpoint",
             )
-
-
-def _is_interior(cell: Cell, cells: Sequence[Cell]) -> bool:
-    """Whether *cell* occurs anywhere in the run other than at its two ends.
-
-    Position, not identity: a run that doubles back over its own first cell
-    passes through it again in the middle, and a valve there is genuinely
-    inside the run even though the same cell also starts it.
-    """
-    last = len(cells) - 1
-    return any(0 < i < last for i, c in enumerate(cells) if c == cell)
 
 
 def _check_flat_projection(document: SynopticDocument, errors: _Errors) -> None:

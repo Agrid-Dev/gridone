@@ -1,7 +1,7 @@
 -- Synoptics: plate documents, stored document-oriented.
 --
--- One row per plate. The whole authored document — version, projection,
--- defaults, symbols, pipes and labels — lives in the ``document`` JSONB
+-- One row per plate. The whole authored document (version, projection,
+-- defaults, symbols, pipes and labels) lives in the ``document`` JSONB
 -- column, because a plate is authored, validated and read as one unit.
 --
 -- The envelope fields an index needs (name, description, projection) are NOT

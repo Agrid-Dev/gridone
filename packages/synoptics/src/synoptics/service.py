@@ -1,5 +1,6 @@
 """Owns synoptic documents: validate, store, read back."""
 
+from datetime import datetime
 from typing import Any
 
 from models.errors import NotFoundError
@@ -71,14 +72,32 @@ class SynopticsService(SynopticsServiceInterface, Service):
         items = await self._storage.list_summaries()
         return Page(items=items, total=total, page=1, size=max(total, 1))
 
-    async def replace(self, synoptic_id: str, document: SynopticDocument) -> Synoptic:
-        """Replace a plate's whole document, keeping its id and creation time."""
+    async def replace(
+        self,
+        synoptic_id: str,
+        document: SynopticDocument,
+        *,
+        expected_updated_at: datetime | None = None,
+    ) -> Synoptic:
+        """Replace a plate's whole document, keeping its id and creation time.
+
+        A plate is edited whole and an edit can take a while, so two authors
+        can overlap; without a check the second save silently erases the first.
+        Pass ``expected_updated_at`` (the ``updated_at`` the author read) to
+        have the save refused with :class:`models.errors.ConflictError` if the
+        plate moved underneath them. The storage conditions its write on that
+        timestamp, so a change landing between the read here and the write is
+        caught by the same check.
+        """
         existing = await self.get(synoptic_id)
         validate_document(document, self._registry)
         synoptic = _with_envelope(
             document, synoptic_id, existing.metadata.touch_updated_at()
         )
-        return await self._storage.update(synoptic)
+        return await self._storage.update(
+            synoptic,
+            seen_updated_at=expected_updated_at or existing.metadata.updated_at,
+        )
 
     async def delete(self, synoptic_id: str) -> None:
         await self._storage.delete(synoptic_id)

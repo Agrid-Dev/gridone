@@ -39,6 +39,17 @@ worst case in milliseconds. Bounding the floats also keeps ``inf`` and
 ``nan`` out, which are not JSON and which the database refuses.
 """
 
+MAX_WAYPOINTS = 200
+"""Corners a single run may author. The reference plate's longest run has five."""
+
+MAX_POLYLINE_CELLS = 50_000
+"""Cells every run of one document may cross, added together.
+
+The coordinate bound caps one segment; it does not cap how many segments a
+run or a document has. Without a total, a few hundred waypoints bouncing
+across the grid still expand to millions of cells on the create path.
+"""
+
 Coordinate = Annotated[int, Field(ge=-MAX_COORDINATE, le=MAX_COORDINATE)]
 FreeCoordinate = Annotated[
     float, Field(ge=-MAX_COORDINATE, le=MAX_COORDINATE, allow_inf_nan=False)
@@ -244,7 +255,7 @@ class Pipe(BaseModel):
     fluid: Fluid
     from_: Endpoint = Field(alias="from")
     to: Endpoint
-    waypoints: list[Cell] = Field(default_factory=list)
+    waypoints: list[Cell] = Field(default_factory=list, max_length=MAX_WAYPOINTS)
     flow: AttributeSlot | None = None
     tags: list[Tag] = Field(default_factory=list)
 
@@ -272,7 +283,7 @@ class SynopticDefaults(BaseModel):
 class SynopticDocument(BaseModel):
     """A plate as authored: the create and import payload.
 
-    Carries no ``id`` and no ``metadata`` — those are service-assigned and live
+    Carries no ``id`` and no ``metadata``: those are service-assigned and live
     on :class:`Synoptic`.
     """
 
@@ -305,7 +316,7 @@ asserted.
 
 
 class SynopticSummary(BaseModel):
-    """Lightweight read model returned by ``list`` — the envelope only, so a
+    """Lightweight read model returned by ``list``: the envelope only, so a
     plate index never parses thirty-four pipes per row."""
 
     model_config = ConfigDict(extra="forbid")

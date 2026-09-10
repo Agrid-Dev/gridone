@@ -122,6 +122,47 @@ async def test_creating_over_an_existing_id_is_a_conflict(service, plate):
         await storage.close()
 
 
+async def test_a_stale_replace_is_a_conflict_in_the_database(service, plate):
+    """The row's timestamp is part of the UPDATE's WHERE clause, so the check
+    holds even when two saves race between the service's read and its write."""
+    svc, created = service
+    stored = await svc.create(plate)
+    created.append(stored.id)
+    seen = stored.metadata.updated_at
+
+    first = dict(plate.model_dump(by_alias=True), name="First")
+    await svc.replace(
+        stored.id, SynopticDocument.model_validate(first), expected_updated_at=seen
+    )
+
+    second = dict(plate.model_dump(by_alias=True), name="Second")
+    with pytest.raises(ConflictError):
+        await svc.replace(
+            stored.id, SynopticDocument.model_validate(second), expected_updated_at=seen
+        )
+    assert (await svc.get(stored.id)).name == "First"
+
+
+async def test_a_stale_write_is_caught_by_the_row_not_only_the_service(service, plate):
+    """Bypass the service's own timestamp comparison and hit the storage
+    directly with a stale ``seen_updated_at``: the SQL must refuse it."""
+    svc, created = service
+    stored = await svc.create(plate)
+    created.append(stored.id)
+
+    storage = await build_storage(POSTGRES_URL)
+    try:
+        stale = stored.model_copy(update={"name": "Stale"})
+        moved = stored.model_copy(
+            update={"metadata": stored.metadata.touch_updated_at()}
+        )
+        await storage.update(moved, seen_updated_at=stored.metadata.updated_at)
+        with pytest.raises(ConflictError):
+            await storage.update(stale, seen_updated_at=stored.metadata.updated_at)
+    finally:
+        await storage.close()
+
+
 async def test_deleting_a_missing_plate_is_a_not_found(service):
     svc, _ = service
     with pytest.raises(NotFoundError):

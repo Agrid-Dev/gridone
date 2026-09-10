@@ -3,7 +3,7 @@
 import pytest
 import pytest_asyncio
 
-from models.errors import NotFoundError, SchemaValidationError
+from models.errors import ConflictError, NotFoundError, SchemaValidationError
 from models.pagination import PaginationParams
 from synoptics.models import SynopticDocument
 from synoptics.service import SynopticsService
@@ -81,6 +81,38 @@ async def test_replace_keeps_the_id_and_the_creation_time(service, plate, docume
     assert replaced.name == "Renamed"
     assert replaced.metadata.created_at == created.metadata.created_at
     assert replaced.metadata.updated_at >= created.metadata.updated_at
+
+
+async def test_replace_refuses_a_stale_read(service, plate, document):
+    """An author who read the plate before someone else saved it gets a
+    conflict, not a silent overwrite of the other person's work."""
+    created = await service.create(plate)
+    seen = created.metadata.updated_at
+    document["name"] = "First"
+    await service.replace(
+        created.id,
+        SynopticDocument.model_validate(document),
+        expected_updated_at=seen,
+    )
+    document["name"] = "Second"
+    with pytest.raises(ConflictError):
+        await service.replace(
+            created.id,
+            SynopticDocument.model_validate(document),
+            expected_updated_at=seen,
+        )
+    assert (await service.get(created.id)).name == "First"
+
+
+async def test_replace_with_a_current_read_succeeds(service, plate, document):
+    created = await service.create(plate)
+    document["name"] = "Renamed"
+    replaced = await service.replace(
+        created.id,
+        SynopticDocument.model_validate(document),
+        expected_updated_at=created.metadata.updated_at,
+    )
+    assert replaced.name == "Renamed"
 
 
 async def test_replace_validates_before_writing(service, plate, document):

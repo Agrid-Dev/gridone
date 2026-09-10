@@ -1,7 +1,7 @@
 """A small valid plate the rule tests mutate one field at a time.
 
 It is deliberately the smallest document that still exercises a port endpoint,
-an inline symbol, a tag riding a run and a free label — the shapes most rules
+an inline symbol, a tag riding a run and a free label, the shapes most rules
 are about.
 """
 

@@ -14,7 +14,7 @@ from pydantic import (
     model_validator,
 )
 
-from synoptics.models import Side
+from synoptics.models import MAX_COORDINATE, Side
 
 
 class SymbolProps(BaseModel):
@@ -43,7 +43,7 @@ class LinkProps(SymbolProps):
     """A folio link or an off-plate boundary.
 
     ``synoptic_id`` set: clicking navigates. Unset: an inert labelled boundary.
-    The target's existence is deliberately never checked at save time — the
+    The target's existence is deliberately never checked at save time: the
     first plate links to plates that do not exist yet.
     """
 
@@ -54,12 +54,12 @@ class LinkProps(SymbolProps):
 class CollectorPort(SymbolProps):
     """A port authored on a collector: how far along the bar, and which face.
 
-    Inlets and outlets are not on opposite faces in general — a return
+    Inlets and outlets are not on opposite faces in general. A return
     collector can take its inlets from the north and let its outlet out west,
     along the bar.
     """
 
-    offset: int = Field(ge=0)
+    offset: int = Field(ge=0, le=MAX_COORDINATE)
     side: Side
 
 
@@ -77,11 +77,11 @@ class CollectorProps(SymbolProps):
     bar serving three departures is not the same shape as one serving eight.
 
     ``axis`` says which way the bar runs, which is why ``rotation`` must be 0 on
-    a collector — having both would let them disagree.
+    a collector: having both would let them disagree.
     """
 
     axis: Literal["x", "y"]
-    length: int = Field(ge=2)
+    length: int = Field(ge=2, le=MAX_COORDINATE)
     ports: dict[CollectorPortName, CollectorPort]
 
     @model_validator(mode="after")
@@ -89,7 +89,7 @@ class CollectorProps(SymbolProps):
         """Every port sits on the bar it is authored for.
 
         Without this ``length`` is validated and then read by nothing, and a
-        three-cell collector accepts a port ninety-six cells past its end — a
+        three-cell collector accepts a port ninety-six cells past its end, a
         run the renderer would draw departing from empty space.
         """
         for name, port in self.ports.items():

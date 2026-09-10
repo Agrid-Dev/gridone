@@ -1,5 +1,6 @@
 """Postgres plate store: one row per plate, the document in a JSONB column."""
 
+from datetime import datetime
 from typing import Any
 
 import asyncpg
@@ -103,22 +104,37 @@ class PostgresSynopticsStorage:
     async def count(self) -> int:
         return await self._pool.fetchval("SELECT COUNT(*) FROM synoptics")
 
-    async def update(self, synoptic: Synoptic) -> Synoptic:
+    async def update(
+        self, synoptic: Synoptic, *, seen_updated_at: datetime
+    ) -> Synoptic:
+        # Conditioning the write on the timestamp makes the check atomic: a
+        # save landing between the service's read and this statement matches
+        # no row, instead of being overwritten.
         row = await self._pool.fetchrow(
             """
             UPDATE synoptics
             SET document = $2, updated_at = $3
-            WHERE id = $1
+            WHERE id = $1 AND updated_at = $4
             RETURNING *
             """,
             synoptic.id,
             _document_json(synoptic),
             synoptic.metadata.updated_at,
+            seen_updated_at,
         )
-        if row is None:
-            msg = f"Synoptic {synoptic.id!r} not found"
-            raise NotFoundError(msg)
-        return self._row_to_synoptic(row)
+        if row is not None:
+            return self._row_to_synoptic(row)
+        # Not atomic with the UPDATE, but it only picks which error to raise:
+        # a delete racing in here turns a conflict into a not-found, and the
+        # write was refused either way.
+        exists = await self._pool.fetchval(
+            "SELECT EXISTS (SELECT 1 FROM synoptics WHERE id = $1)", synoptic.id
+        )
+        if exists:
+            msg = f"Synoptic {synoptic.id!r} was modified since it was read"
+            raise ConflictError(msg)
+        msg = f"Synoptic {synoptic.id!r} not found"
+        raise NotFoundError(msg)
 
     async def delete(self, synoptic_id: str) -> None:
         row = await self._pool.fetchrow(

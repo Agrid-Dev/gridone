@@ -54,15 +54,30 @@ async def test_writes_are_isolated_from_the_caller(storage):
 
 
 async def test_update_replaces_the_document(storage):
-    await storage.create(make("a"))
+    stored = await storage.create(make("a"))
     updated = make("a", name="Renamed")
-    assert (await storage.update(updated)).name == "Renamed"
+    seen = stored.metadata.updated_at
+    assert (await storage.update(updated, seen_updated_at=seen)).name == "Renamed"
     assert (await storage.get("a")).name == "Renamed"
 
 
 async def test_update_of_a_missing_plate_is_a_not_found(storage):
     with pytest.raises(NotFoundError):
-        await storage.update(make("nope"))
+        await storage.update(
+            make("nope"), seen_updated_at=make("nope").metadata.updated_at
+        )
+
+
+async def test_update_of_a_plate_written_since_it_was_read_is_a_conflict(storage):
+    """Two authors read the same plate; the second save must not erase the
+    first without anyone noticing."""
+    stored = await storage.create(make("a"))
+    seen = stored.metadata.updated_at
+    first = make("a", name="First")
+    await storage.update(first, seen_updated_at=seen)
+    with pytest.raises(ConflictError):
+        await storage.update(make("a", name="Second"), seen_updated_at=seen)
+    assert (await storage.get("a")).name == "First"
 
 
 async def test_delete(storage):

@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any, Protocol
 
 from models.pagination import Page, PaginationParams
@@ -11,7 +12,11 @@ class SynopticsServiceInterface(Protocol):
         self, *, pagination: PaginationParams | None = None
     ) -> Page[SynopticSummary]: ...
     async def replace(
-        self, synoptic_id: str, document: SynopticDocument
+        self,
+        synoptic_id: str,
+        document: SynopticDocument,
+        *,
+        expected_updated_at: datetime | None = None,
     ) -> Synoptic: ...
     async def delete(self, synoptic_id: str) -> None: ...
     def symbol_schemas(self) -> dict[str, dict[str, Any]]: ...

@@ -1,5 +1,6 @@
 """Persistence for whole synoptic documents."""
 
+from datetime import datetime
 from typing import Protocol
 
 from synoptics.models import Synoptic, SynopticSummary
@@ -25,17 +26,23 @@ class SynopticsStorage(Protocol):
     ) -> list[SynopticSummary]:
         """Return plate summaries (no symbols, pipes or labels).
 
-        Ordered by creation time then id: the timestamp alone is not unique — a
-        bulk import can land several plates on one value — and paging over a
+        Ordered by creation time then id: the timestamp alone is not unique (a
+        bulk import can land several plates on one value) and paging over a
         non-deterministic order repeats some rows and drops others.
         """
         ...
 
     async def count(self) -> int: ...
 
-    async def update(self, synoptic: Synoptic) -> Synoptic:
-        """Persist a full replacement. Raises
-        :class:`models.errors.NotFoundError` when no row matches its id."""
+    async def update(
+        self, synoptic: Synoptic, *, seen_updated_at: datetime
+    ) -> Synoptic:
+        """Persist a full replacement of the row still stamped *seen_updated_at*.
+
+        Raises :class:`models.errors.NotFoundError` when no row matches its id
+        and :class:`models.errors.ConflictError` when the row exists but was
+        written since it was read.
+        """
         ...
 
     async def delete(self, synoptic_id: str) -> None:

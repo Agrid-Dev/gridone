@@ -234,6 +234,19 @@ def test_a_summary_forbids_unknown_keys():
         )
 
 
+def test_a_run_has_a_waypoint_cap():
+    with pytest.raises(ValidationError):
+        Pipe.model_validate(
+            {
+                "id": "p",
+                "fluid": "dhw",
+                "from": {"kind": "cell", "cell": {"x": 0, "y": 0}},
+                "to": {"kind": "cell", "cell": {"x": 4, "y": 0}},
+                "waypoints": [{"x": i, "y": 0} for i in range(201)],
+            }
+        )
+
+
 def test_a_cell_is_frozen():
     """Cells are compared and used as set members by the polyline rules."""
     with pytest.raises(ValidationError):

@@ -5,6 +5,7 @@ message never breaks the suite while the rule itself stays pinned.
 """
 
 import copy
+import time
 
 import pytest
 
@@ -229,6 +230,41 @@ def test_a_run_leaves_a_port_through_its_declared_face(document, registry):
 # ----------------------------------------------------------------------
 # Pipe geometry
 # ----------------------------------------------------------------------
+
+
+def test_a_document_has_a_cell_budget(document, registry):
+    """The coordinate bound caps one segment, not how many a run has; a few
+    corners bouncing across the grid must be refused before being expanded."""
+    document["symbols"] = [document["symbols"][0]]
+    document["pipes"][0]["tags"] = []
+    document["pipes"][0]["to"] = {"kind": "cell", "cell": {"x": 10000, "y": 1}}
+    document["pipes"][0]["waypoints"] = [
+        {"x": 10000 if i % 2 == 0 else -10000, "y": 1} for i in range(6)
+    ]
+    assert check(document, registry) == ["polyline_budget_exceeded"]
+
+
+def test_many_tags_on_a_long_run_stay_cheap(document, registry):
+    """Membership against a run must not be a list scan: three thousand tags
+    on a twenty-thousand-cell run took forty seconds that way. The ceiling is
+    loose on purpose; it only has to sit far below that."""
+    document["symbols"] = [document["symbols"][0]]
+    document["pipes"][0]["to"] = {"kind": "cell", "cell": {"x": 10000, "y": 1}}
+    document["pipes"][0]["tags"] = [
+        {"id": f"t{i}", "at": {"x": 9999, "y": 1}, "label": "T"} for i in range(3000)
+    ]
+    started = time.perf_counter()
+    assert check(document, registry) == []
+    assert time.perf_counter() - started < 2
+
+
+def test_a_port_carried_off_the_grid_is_an_error_not_a_crash(document, registry):
+    """The placement is in bounds but the port offset is not: that is an
+    authoring error like any other, reported with the rest."""
+    document["symbols"] = [document["symbols"][0]]
+    document["symbols"][0]["placement"]["cell"] = {"x": 10000, "y": 0}
+    document["pipes"] = []
+    assert check(document, registry) == ["port_off_grid"]
 
 
 def test_segments_are_axis_aligned(document, registry):

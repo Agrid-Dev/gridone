@@ -1,6 +1,7 @@
 """In-process plate store. Default backend when no URL is given."""
 
 from dataclasses import dataclass, field
+from datetime import datetime
 
 from models.errors import ConflictError, NotFoundError
 from synoptics.models import Synoptic, SynopticSummary
@@ -9,7 +10,7 @@ from synoptics.models import Synoptic, SynopticSummary
 @dataclass
 class MemoryStorage:
     """Every read and write stores a deep copy, so callers can mutate what they
-    get without touching persisted state — the isolation a real database
+    get without touching persisted state, the isolation a real database
     gives."""
 
     _synoptics: dict[str, Synoptic] = field(default_factory=dict)
@@ -40,10 +41,16 @@ class MemoryStorage:
     async def count(self) -> int:
         return len(self._synoptics)
 
-    async def update(self, synoptic: Synoptic) -> Synoptic:
-        if synoptic.id not in self._synoptics:
+    async def update(
+        self, synoptic: Synoptic, *, seen_updated_at: datetime
+    ) -> Synoptic:
+        current = self._synoptics.get(synoptic.id)
+        if current is None:
             msg = f"Synoptic {synoptic.id!r} not found"
             raise NotFoundError(msg)
+        if current.metadata.updated_at != seen_updated_at:
+            msg = f"Synoptic {synoptic.id!r} was modified since it was read"
+            raise ConflictError(msg)
         self._synoptics[synoptic.id] = synoptic.model_copy(deep=True)
         return synoptic.model_copy(deep=True)
 

@@ -188,6 +188,24 @@ def test_props_are_not_silently_coerced(registry):
         )
 
 
+@pytest.mark.parametrize(
+    "props",
+    [
+        {"axis": "x", "length": 50000, "ports": {}},
+        {
+            "axis": "x",
+            "length": 50000,
+            "ports": {"out_1": {"offset": 20000, "side": "+y"}},
+        },
+    ],
+)
+def test_a_collector_cannot_be_longer_than_the_grid(registry, props):
+    """Otherwise the props validate and the port cell they imply does not,
+    and the crash escapes the save-time pass as a raw exception."""
+    with pytest.raises(InvalidError):
+        registry.validate_props("collector", props)
+
+
 def test_a_collector_port_must_sit_on_its_bar(registry):
     with pytest.raises(InvalidError):
         registry.validate_props(
