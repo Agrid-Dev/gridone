@@ -30,6 +30,7 @@ export function SetpointTable({
   language,
 }: SetpointTableProps) {
   const { t } = useTranslation("devices");
+  const hasRegulated = rows.some((row) => row.regulated != null);
   return (
     <div className="relative overflow-x-auto">
       <table className="w-full text-sm">
@@ -41,9 +42,11 @@ export function SetpointTable({
             <th className="py-2 pr-4 font-medium">
               {t("presentation.demanded")}
             </th>
-            <th className="py-2 pr-4 font-medium">
-              {t("presentation.regulated")}
-            </th>
+            {hasRegulated && (
+              <th className="py-2 pr-4 font-medium">
+                {t("presentation.regulated")}
+              </th>
+            )}
             <th className="py-2 pr-4 font-medium">
               {t("presentation.measured")}
             </th>
@@ -55,6 +58,7 @@ export function SetpointTable({
             <SetpointTableRow
               key={index}
               row={row}
+              hasRegulated={hasRegulated}
               runtime={runtime}
               reported={reported}
               attributeOf={attributeOf}
@@ -69,11 +73,15 @@ export function SetpointTable({
 
 function SetpointTableRow({
   row,
+  hasRegulated,
   runtime,
   reported,
   attributeOf,
   language,
-}: { row: SetpointRow } & Omit<SetpointTableProps, "rows">) {
+}: { row: SetpointRow; hasRegulated: boolean } & Omit<
+  SetpointTableProps,
+  "rows"
+>) {
   const { t } = useTranslation("devices");
   const unavailable = t("presentation.unavailable");
   const label = localize(row.label, language);
@@ -126,9 +134,14 @@ function SetpointTableRow({
           <Value text={cell(row.demanded.binding)} unavailable={unavailable} />
         )}
       </td>
-      <td className="py-2 pr-4">
-        <Value text={cell(row.regulated?.binding)} unavailable={unavailable} />
-      </td>
+      {hasRegulated && (
+        <td className="py-2 pr-4">
+          <Value
+            text={cell(row.regulated?.binding)}
+            unavailable={unavailable}
+          />
+        </td>
+      )}
       <td className="py-2 pr-4">
         <Value text={cell(row.measured?.binding)} unavailable={unavailable} />
       </td>

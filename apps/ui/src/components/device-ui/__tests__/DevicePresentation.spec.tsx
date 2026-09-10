@@ -10,7 +10,7 @@ import userEvent from "@testing-library/user-event";
 import type { Device } from "@gridone/sdk";
 import { createI18nMock } from "@/test/i18nMock";
 import { DevicePresentation } from "../DevicePresentation";
-import type { PresentationV1 } from "../document";
+import type { PresentationV1, SetpointRow } from "../document";
 import type { Scalar } from "../conditions";
 import type {
   AttributeLike,
@@ -439,6 +439,92 @@ describe("DevicePresentation", () => {
       control: "target",
       op: "increment",
     });
+  });
+
+  describe("regulated column", () => {
+    const row: SetpointRow = {
+      label: { default: "Temperature" },
+      demanded: { control: "target" },
+      measured: { binding: "measured" },
+      deviation: {
+        minuend: "measured",
+        subtrahend: "target",
+        tolerance: 0.5,
+      },
+      formatter: { decimals: 1 },
+    };
+
+    it("omits the header and cells when no row configures a regulated binding", () => {
+      const { runtime } = fakeRuntime();
+      renderPresentation(runtime, {
+        document: {
+          ...document,
+          page: { kind: "setpoint-table", rows: [row] },
+        },
+      });
+
+      expect(
+        screen.queryByRole("columnheader", { name: "Regulated" }),
+      ).not.toBeInTheDocument();
+      expect(screen.getAllByRole("columnheader")).toHaveLength(4);
+      const cells = within(
+        screen.getByRole("row", { name: /Temperature/ }),
+      ).getAllByRole("cell");
+      expect(cells).toHaveLength(3);
+      expect(
+        within(cells[0]).getByRole("button", { name: "Increase Temperature" }),
+      ).toBeInTheDocument();
+      expect(cells[1]).toHaveTextContent("21.4 °C");
+      expect(cells[2]).toHaveTextContent("+0.4 °C");
+      expect(screen.queryByText("Unavailable")).not.toBeInTheDocument();
+    });
+
+    it.each([17, null])(
+      "keeps mixed rows aligned when the regulated value is %s",
+      (value) => {
+        const { runtime } = fakeRuntime();
+        renderPresentation(
+          {
+            ...runtime,
+            reported: (attribute) =>
+              attribute === "setpoint_effective"
+                ? value
+                : runtime.reported(attribute),
+          },
+          {
+            document: {
+              ...document,
+              page: {
+                kind: "setpoint-table",
+                rows: [
+                  row,
+                  {
+                    ...row,
+                    label: { default: "Adjusted temperature" },
+                    regulated: { binding: "regulated" },
+                  },
+                ],
+              },
+            },
+          },
+        );
+
+        expect(
+          screen.getByRole("columnheader", { name: "Regulated" }),
+        ).toBeInTheDocument();
+        expect(screen.getAllByRole("columnheader")).toHaveLength(5);
+        const rows = screen.getAllByRole("row").slice(1);
+        rows.forEach((tableRow, index) => {
+          const cells = within(tableRow).getAllByRole("cell");
+          expect(cells).toHaveLength(4);
+          expect(cells[1]).toHaveTextContent(
+            index === 0 || value === null ? "Unavailable" : "17.0 °C",
+          );
+          expect(cells[2]).toHaveTextContent("21.4 °C");
+          expect(cells[3]).toHaveTextContent("+0.4 °C");
+        });
+      },
+    );
   });
 
   it("uses driver attribute labels when a measurement has no explicit label", () => {
