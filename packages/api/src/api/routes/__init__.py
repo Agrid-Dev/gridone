@@ -6,6 +6,7 @@ from .drivers_router import router as drivers_router
 from .health_router import router as health_router
 from .notifications_router import router as notifications_router
 from .presentations_router import router as presentations_router
+from .synoptics_router import router as synoptics_router
 from .transports_router import ingress_router as transports_ingress_router
 from .transports_router import router as transports_router
 
@@ -18,6 +19,7 @@ __all__ = [
     "health_router",
     "notifications_router",
     "presentations_router",
+    "synoptics_router",
     "transports_ingress_router",
     "transports_router",
 ]
