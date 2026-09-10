@@ -1,18 +1,14 @@
-## Unreleased
+## v0.230.0 (2026-09-10)
+
+## v0.229.1 (2026-09-10)
 
 ### Feat
 
-- **devices**: support driver-defined device presentations with localized attribute metadata, write constraints, controls, measurements and graphical device faces (AGR-1198)
-- **drivers**: import, replace and export validated YAML/ZIP packages with images, revision checks and atomic activation
-- **api**: serve authenticated presentation documents, normalized images and the presentation schema
-- **sdk**: expose driver packages, device presentations and structured import diagnostics
-- **cli**: validate driver packages and build ZIP archives within import limits
+- **drivers**: support driver-defined device presentations (AGR-1198)
 
 ### Fix
 
-- **devices**: preserve device communication when only presentation data changes
-- **devices-manager**: avoid false replacement conflicts for legacy drivers stored in PostgreSQL
-- **ui**: apply write permissions and accessible controls to driver-defined presentations
+- **devices-manager**: dispatch attribute updates for discovered devices (AGR-1201) (#621)
 
 ## v0.229.0 (2026-09-10)
 
