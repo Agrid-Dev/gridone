@@ -1,3 +1,9 @@
+## v0.234.2 (2026-09-10)
+
+### Fix
+
+- **devices-manager**: compile the json_path expression once per codec
+
 ## v0.234.1 (2026-09-10)
 
 ### Fix
