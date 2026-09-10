@@ -162,9 +162,21 @@
     "unlink": "Unlink",
     "unlinkConfirmTitle": "Unlink device",
     "unlinkConfirmDetails": "Detach \"{{device}}\" from zone \"{{zone}}\"? The device keeps its data and can be linked again later.",
-    "linked": "Device linked",
     "unlinked": "Device unlinked",
-    "selectDevice": "Select a device",
+    "selectDevices": "Select devices",
+    "selectHint": "Devices already in this zone are hidden. Linking a device moves it out of the zone it sits in.",
+    "searchDevices": "Search by name or ID",
+    "selectAllMatching": "Select all matching",
+    "selectedCount_one": "{{count}} selected",
+    "selectedCount_other": "{{count}} selected",
+    "linkCount_one": "Link {{count}} device",
+    "linkCount_other": "Link {{count}} devices",
+    "linkedCount_one": "{{count}} device linked",
+    "linkedCount_other": "{{count}} devices linked",
+    "linkFailed_one": "{{count}} device could not be linked",
+    "linkFailed_other": "{{count}} devices could not be linked",
+    "noZone": "No zone",
+    "loadError": "Devices could not be loaded",
     "noDevices": "No devices linked"
   }
 }

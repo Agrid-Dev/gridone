@@ -609,6 +609,21 @@ DEVICES_ACCESS_CONTROL_SCENARIOS = [
         401,
         id="refresh-attribute-no-auth",
     ),
+    # Bulk zone assignment — a device write, like the single-device tag it loops over
+    pytest.param(
+        "POST",
+        "/devices/asset-assignments",
+        "viewer",
+        403,
+        id="asset-assignments-viewer",
+    ),
+    pytest.param(
+        "POST",
+        "/devices/asset-assignments",
+        None,
+        401,
+        id="asset-assignments-no-auth",
+    ),
 ]
 
 

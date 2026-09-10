@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { RequestFn } from "../http/httpClient";
 import type {
+  AssetAssignment,
   BatchDeviceCommand,
   DeviceCreate,
   DeviceUpdate,
@@ -27,6 +28,10 @@ const CREATE: DeviceCreate = {
   transport_id: "trp1",
 };
 const UPDATE: DeviceUpdate = { name: "Fan 2" };
+const ASSIGNMENTS: AssetAssignment[] = [
+  { device_id: "dev1", asset_id: "zone1" },
+  { device_id: "dev2", asset_id: "zone2" },
+];
 const COMMAND: SingleDeviceCommand = {
   attribute: "setpoint",
   value: 21.5,
@@ -77,6 +82,15 @@ const CASES: Case[] = [
     "deleteTag",
     (d) => d.deleteTag("dev1", "zone"),
     ["DELETE", "/devices/dev1/tags/zone"],
+  ],
+  [
+    "assignAssets",
+    (d) => d.assignAssets(ASSIGNMENTS),
+    [
+      "POST",
+      "/devices/asset-assignments",
+      { body: { assignments: ASSIGNMENTS } },
+    ],
   ],
   [
     "sendCommand",

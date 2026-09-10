@@ -464,5 +464,63 @@
       "thunderstormHeavyHail": "Thunderstorm with heavy hail",
       "unknown": "Unknown"
     }
+  },
+  "zoneImport": {
+    "title": "Import zone mapping",
+    "caption": "Assign devices to zones in bulk from a CSV file listing device and zone IDs.",
+    "action": "Import zones",
+    "backToDevices": "Back to devices",
+    "downloadTemplate": "Download template",
+    "downloadZones": "Download zone IDs",
+    "chooseFile": "Choose a CSV file",
+    "replaceFile": "Choose another file",
+    "fileInputLabel": "Zone mapping CSV file",
+    "formatHint": "The file needs a header row with the columns",
+    "templateHint": "The template lists every device with the zone it sits in today. Fill in the asset_id column for the devices you want to move — lines left blank are ignored, never unlinked. The zone IDs file gives you the IDs to paste.",
+    "selectedFile_one": "{{filename}} — {{count}} row",
+    "selectedFile_other": "{{filename}} — {{count}} rows",
+    "fileErrors": {
+      "empty": "The file has no data rows.",
+      "missingColumns": "The file needs a header row with a device_id column and an asset_id column."
+    },
+    "rowErrors": {
+      "missingDeviceId": "Device ID is missing.",
+      "unknownDevice": "No device with this ID.",
+      "unknownZone": "No zone with this ID.",
+      "conflictingRows": "This device is sent to two different zones."
+    },
+    "table": {
+      "line": "Line",
+      "device": "Device",
+      "currentZone": "Current zone",
+      "targetZone": "New zone",
+      "status": "Change"
+    },
+    "status": {
+      "link": "Link",
+      "move": "Move",
+      "unchanged": "Unchanged",
+      "skipped": "Ignored",
+      "invalid": "Invalid"
+    },
+    "skippedNote_one": "{{count}} line has no zone and will be ignored.",
+    "skippedNote_other": "{{count}} lines have no zone and will be ignored.",
+    "blocked_one": "Fix {{count}} invalid row before importing.",
+    "blocked_other": "Fix {{count}} invalid rows before importing.",
+    "apply_one": "Import {{count}} assignment",
+    "apply_other": "Import {{count}} assignments",
+    "results": {
+      "title": "Import results",
+      "applied_one": "{{count}} device moved",
+      "applied_other": "{{count}} devices moved",
+      "unchanged_one": "{{count}} device already in its zone",
+      "unchanged_other": "{{count}} devices already in their zone",
+      "failed_one": "{{count}} device failed",
+      "failed_other": "{{count}} devices failed",
+      "unknownError": "Assignment failed",
+      "retry_one": "Retry {{count}} failure",
+      "retry_other": "Retry {{count}} failures",
+      "newImport": "Import another file"
+    }
   }
 }

@@ -1,6 +1,8 @@
 import type { operations } from "../generated/openapi";
 import type { RequestFn } from "../http/httpClient";
 import type {
+  AssetAssignment,
+  AssetAssignmentResponse,
   AttributeCoverageResponse,
   AttributeLogs,
   BatchDeviceCommand,
@@ -87,6 +89,23 @@ export class DevicesResource {
       `/devices/${encodeURIComponent(deviceId)}/tags/${encodeURIComponent(key)}`,
       { body },
     );
+  }
+
+  /**
+   * Moves several devices into zones in one call — the bulk form of
+   * `setTag(deviceId, "asset_id", assetId)`.
+   *
+   * Every assignment is reported on its own (`applied`, `unchanged`, or
+   * `failed` with a reason): the writes that went through stay applied, and
+   * the caller retries the failures. Sending one device to two different
+   * zones in the same call is rejected whole.
+   */
+  assignAssets(
+    assignments: AssetAssignment[],
+  ): Promise<AssetAssignmentResponse> {
+    return this.request("POST", "/devices/asset-assignments", {
+      body: { assignments },
+    });
   }
 
   deleteTag(deviceId: string, key: string): Promise<void> {

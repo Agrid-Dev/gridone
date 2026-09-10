@@ -464,5 +464,63 @@
       "thunderstormHeavyHail": "Orage avec grêle forte",
       "unknown": "Inconnu"
     }
+  },
+  "zoneImport": {
+    "title": "Importer une affectation de zones",
+    "caption": "Affecter des appareils à des zones en masse depuis un fichier CSV listant les identifiants d’appareil et de zone.",
+    "action": "Importer des zones",
+    "backToDevices": "Retour aux appareils",
+    "downloadTemplate": "Télécharger le modèle",
+    "downloadZones": "Télécharger les identifiants de zone",
+    "chooseFile": "Choisir un fichier CSV",
+    "replaceFile": "Choisir un autre fichier",
+    "fileInputLabel": "Fichier CSV d’affectation de zones",
+    "formatHint": "Le fichier doit comporter un en-tête avec les colonnes",
+    "templateHint": "Le modèle liste chaque appareil avec la zone où il se trouve aujourd’hui. Renseignez la colonne asset_id pour les appareils à déplacer : les lignes laissées vides sont ignorées, jamais déliées. Le fichier des zones fournit les identifiants à recopier.",
+    "selectedFile_one": "{{filename}} — {{count}} ligne",
+    "selectedFile_other": "{{filename}} — {{count}} lignes",
+    "fileErrors": {
+      "empty": "Le fichier ne contient aucune ligne de données.",
+      "missingColumns": "Le fichier doit comporter un en-tête avec une colonne device_id et une colonne asset_id."
+    },
+    "rowErrors": {
+      "missingDeviceId": "Identifiant d’appareil manquant.",
+      "unknownDevice": "Aucun appareil ne porte cet identifiant.",
+      "unknownZone": "Aucune zone ne porte cet identifiant.",
+      "conflictingRows": "Cet appareil est envoyé vers deux zones différentes."
+    },
+    "table": {
+      "line": "Ligne",
+      "device": "Appareil",
+      "currentZone": "Zone actuelle",
+      "targetZone": "Nouvelle zone",
+      "status": "Changement"
+    },
+    "status": {
+      "link": "Liaison",
+      "move": "Déplacement",
+      "unchanged": "Inchangé",
+      "skipped": "Ignoré",
+      "invalid": "Invalide"
+    },
+    "skippedNote_one": "{{count}} ligne sans zone sera ignorée.",
+    "skippedNote_other": "{{count}} lignes sans zone seront ignorées.",
+    "blocked_one": "Corrigez {{count}} ligne invalide avant d’importer.",
+    "blocked_other": "Corrigez {{count}} lignes invalides avant d’importer.",
+    "apply_one": "Importer {{count}} affectation",
+    "apply_other": "Importer {{count}} affectations",
+    "results": {
+      "title": "Résultat de l’import",
+      "applied_one": "{{count}} appareil déplacé",
+      "applied_other": "{{count}} appareils déplacés",
+      "unchanged_one": "{{count}} appareil déjà dans sa zone",
+      "unchanged_other": "{{count}} appareils déjà dans leur zone",
+      "failed_one": "{{count}} appareil en échec",
+      "failed_other": "{{count}} appareils en échec",
+      "unknownError": "Affectation échouée",
+      "retry_one": "Réessayer {{count}} échec",
+      "retry_other": "Réessayer {{count}} échecs",
+      "newImport": "Importer un autre fichier"
+    }
   }
 }

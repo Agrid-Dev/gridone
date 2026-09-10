@@ -162,9 +162,21 @@
     "unlink": "Délier",
     "unlinkConfirmTitle": "Délier l’appareil",
     "unlinkConfirmDetails": "Détacher « {{device}} » de la zone « {{zone}} » ? L’appareil conserve ses données et pourra être relié plus tard.",
-    "linked": "Appareil lié",
     "unlinked": "Appareil délié",
-    "selectDevice": "Sélectionner un appareil",
+    "selectDevices": "Sélectionner des appareils",
+    "selectHint": "Les appareils déjà dans cette zone sont masqués. Lier un appareil le sort de la zone où il se trouve.",
+    "searchDevices": "Rechercher par nom ou identifiant",
+    "selectAllMatching": "Tout sélectionner",
+    "selectedCount_one": "{{count}} sélectionné",
+    "selectedCount_other": "{{count}} sélectionnés",
+    "linkCount_one": "Lier {{count}} appareil",
+    "linkCount_other": "Lier {{count}} appareils",
+    "linkedCount_one": "{{count}} appareil lié",
+    "linkedCount_other": "{{count}} appareils liés",
+    "linkFailed_one": "{{count}} appareil n’a pas pu être lié",
+    "linkFailed_other": "{{count}} appareils n’ont pas pu être liés",
+    "noZone": "Aucune zone",
+    "loadError": "Impossible de charger les appareils",
     "noDevices": "Aucun appareil lié"
   }
 }

@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { usePermissions } from "@/contexts/AuthContext";
 import { HealthFilter } from "@/components/HealthFilter";
 import { ViewToggle } from "@/components/ViewToggle";
-import { History, Plus, Terminal } from "lucide-react";
+import { History, Plus, Terminal, Upload } from "lucide-react";
 import {
   readStoredView,
   writeStoredView,
@@ -63,6 +63,14 @@ export default function DevicesList() {
                 {t("commands.subtitle")}
               </Link>
             </Button>
+            {can("devices:write") && (
+              <Button asChild variant="outline" size="sm">
+                <Link to="/devices/zone-mapping/import">
+                  <Upload />
+                  {t("zoneImport.action")}
+                </Link>
+              </Button>
+            )}
             {can("devices:write") && (
               <Button asChild variant="outline" size="sm">
                 <Link to="/devices/new">
