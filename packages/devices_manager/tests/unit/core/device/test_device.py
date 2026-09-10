@@ -479,6 +479,7 @@ class TestDevicesListeners:
         await mock_push_transport_client.simulate_event(
             "/dev/up", {"ans": [{"id": 1, "result": 0}]}
         )
+        await asyncio.sleep(0)  # listener-driven status recompute runs after the turn
 
         assert device.attributes["temperature"].current_value == 22.5
         assert device.attributes["battery"].current_value is None
@@ -534,12 +535,14 @@ class TestDevicesListeners:
         await mock_push_transport_client.simulate_event(
             "/xx/temperature", {"payload": {"temperature": 25}}
         )
+        await asyncio.sleep(0)  # listener-driven status recompute runs after the turn
         await mock_push_transport_client.simulate_event(
             "/xx/temperature", {"payload": {"temperature": 25}}
         )
         await mock_push_transport_client.simulate_event(
             "/xx/temperature", {"payload": {"temperature": 26}}
         )
+        await asyncio.sleep(0)
 
         # connection_status transitions idle→ok on the first successful listen event,
         # then stays ok for subsequent events (no duplicate on_update).

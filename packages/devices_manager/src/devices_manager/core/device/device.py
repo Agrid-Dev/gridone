@@ -146,6 +146,7 @@ class CoreDevice:
         init=False, default_factory=dict, repr=False
     )
     _watchdog: SilenceWatchdog | None = field(init=False, default=None, repr=False)
+    _status_recompute_pending: bool = field(init=False, default=False, repr=False)
 
     def __post_init__(self) -> None:
         if self.driver.transport != self.transport.protocol:
@@ -312,7 +313,7 @@ class CoreDevice:
         return wrap_listen(
             on_message,
             attribute,
-            on_append=self._on_log_append,
+            on_append=self._schedule_status_recompute,
             on_data=self._on_data_received,
         )
 
@@ -583,6 +584,29 @@ class CoreDevice:
     def _on_log_append(self) -> None:
         with contextlib.suppress(Exception):
             self._recompute_connection_status()
+
+    def _schedule_status_recompute(self) -> None:
+        """Coalesce listener-driven recomputes to one per event-loop turn.
+
+        Every listener of a shared topic runs for every frame, back to back in
+        the same turn, and each one appends a log entry. Recomputing on each
+        append rescans every attribute's logs: quadratic in the attribute
+        count, minutes of blocked loop for a 257-attribute device dump. One
+        recompute once the turn is over sees all of the frame's appends.
+        """
+        if self._status_recompute_pending:
+            return
+        self._status_recompute_pending = True
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            self._flush_status_recompute()
+            return
+        loop.call_soon(self._flush_status_recompute)
+
+    def _flush_status_recompute(self) -> None:
+        self._status_recompute_pending = False
+        self._on_log_append()
 
     def _collect_event_logs(self) -> list[AttributeEventLog]:
         return [
