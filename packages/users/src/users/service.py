@@ -1,4 +1,9 @@
-from models.errors import BlockedUserError, NotFoundError
+from models.errors import (
+    BlockedUserError,
+    InvalidError,
+    NotFoundError,
+    UnauthorizedError,
+)
 from models.ids import gen_id
 from models.service import Service
 from users.models import Role, User, UserCreate, UserInDB, UserUpdate
@@ -117,6 +122,25 @@ class UsersService(Service):
                 raise ValueError(msg)
 
         updated_user = user.update(update_data)
+        await self._backend.save(updated_user)
+        return self._to_public_user(updated_user)
+
+    async def change_password(
+        self, user_id: str, current_password: str, new_password: str
+    ) -> User:
+        """Rotate the password after re-verifying the current one.
+
+        The write goes through ``UserUpdate``, which clears
+        ``must_change_password``.
+        """
+        user = await self._get_in_db_or_raise(user_id)
+        if not verify_password(current_password, user.hashed_password):
+            msg = f"Invalid current password for user '{user_id}'"
+            raise UnauthorizedError(msg)
+        if new_password == current_password:
+            msg = "The new password must differ from the current one"
+            raise InvalidError(msg)
+        updated_user = user.update(UserUpdate(password=new_password))
         await self._backend.save(updated_user)
         return self._to_public_user(updated_user)
 
