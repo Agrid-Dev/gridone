@@ -5,8 +5,8 @@ from pydantic import BaseModel
 
 from api.auth import require_permission
 from api.dependencies import get_apps_service
-from api.permissions import Permission
 from apps import App, AppsService, PushStatus
+from users.permissions import Permission
 
 router = APIRouter()
 

@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends
 
 from api.auth import require_permission
-from api.permissions import Permission
 from devices_manager.dto.presentation_schema import (
     PresentationSchema,
     presentation_schema,
 )
+from users.permissions import Permission
 
 router = APIRouter()
 
