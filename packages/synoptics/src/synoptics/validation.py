@@ -9,8 +9,9 @@ fixing a thirty-four pipe plate should get the whole list at once.
 
 Resolving a binding needs a target resolver, which the API layer builds and
 injects into the service. This package enumerates the slots to resolve
-(:func:`bound_slots`) and runs the rule against that resolver
-(:func:`validate_bindings`), so the rule's vocabulary still has one owner.
+(:func:`bound_slots`) and runs the rule against that resolver as part of
+:func:`validate_for_save`, so the rule's vocabulary still has one owner and
+document and binding violations arrive in one error.
 """
 
 import contextlib
@@ -101,6 +102,10 @@ class _Errors:
     def add(self, loc: tuple[str | int, ...], msg: str, type_: Violation) -> None:
         self.items.append(ValidationErrorItem(loc=loc, msg=msg, type=type_))
 
+    def raise_if_any(self) -> None:
+        if self.items:
+            raise SchemaValidationError(self.items, summary_prefix=_SUMMARY_PREFIX)
+
 
 @dataclass(frozen=True)
 class _Run:
@@ -121,18 +126,31 @@ class _Run:
 
 def validate_document(document: SynopticDocument, registry: SymbolRegistry) -> None:
     """Raise :class:`~models.errors.SchemaValidationError` unless *document*
-    satisfies every save-time rule this package owns."""
+    satisfies every save-time rule decidable without a resolver."""
     errors = _Errors()
+    _collect_document(document, registry, errors)
+    errors.raise_if_any()
 
+
+async def validate_for_save(
+    document: SynopticDocument, registry: SymbolRegistry, resolver: TargetResolver
+) -> None:
+    """Every save-time rule, document and bindings, reported as one error."""
+    errors = _Errors()
+    _collect_document(document, registry, errors)
+    await _collect_bindings(document, resolver, errors)
+    errors.raise_if_any()
+
+
+def _collect_document(
+    document: SynopticDocument, registry: SymbolRegistry, errors: _Errors
+) -> None:
     duplicates = _check_unique_ids(document, errors)
     ports = _check_symbols(document, registry, duplicates, errors)
     polylines = _check_pipes(document, ports, duplicates, errors)
     _check_pipe_references(document, polylines, errors)
     _check_inline_placements(document, registry, polylines, duplicates, errors)
     _check_flat_projection(document, errors)
-
-    if errors.items:
-        raise SchemaValidationError(errors.items, summary_prefix=_SUMMARY_PREFIX)
 
 
 # ----------------------------------------------------------------------
@@ -176,17 +194,14 @@ def bound_slots(document: SynopticDocument) -> list[BoundSlot]:
     return found
 
 
-async def validate_bindings(
-    document: SynopticDocument, resolver: TargetResolver
+async def _collect_bindings(
+    document: SynopticDocument, resolver: TargetResolver, errors: _Errors
 ) -> None:
-    """Resolve every bound slot and raise unless each one names exactly one
-    device, a bool sits behind ``flow``, and ``decimals`` is only set on a
-    numeric attribute.
-
-    A slot the resolver refuses is reported at its ``loc`` alongside the
+    """Resolve every bound slot and record each one that does not name exactly
+    one device, carry a bool behind ``flow``, or keep ``decimals`` to a numeric
+    attribute. A slot the resolver refuses is recorded at its ``loc`` like the
     others, so an author fixing thirty bindings sees them all at once.
     """
-    errors = _Errors()
     for bound in bound_slots(document):
         try:
             target = await resolver.resolve(bound.slot.target)
@@ -194,8 +209,6 @@ async def validate_bindings(
             errors.add(bound.loc, str(exc), Violation.UNRESOLVED_TARGET)
             continue
         _check_resolved(bound, target, errors)
-    if errors.items:
-        raise SchemaValidationError(errors.items, summary_prefix=_SUMMARY_PREFIX)
 
 
 def _check_resolved(bound: BoundSlot, target: ResolvedTarget, errors: _Errors) -> None:

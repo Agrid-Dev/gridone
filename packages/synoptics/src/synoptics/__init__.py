@@ -36,8 +36,8 @@ from synoptics.validation import (
     BoundSlot,
     Violation,
     bound_slots,
-    validate_bindings,
     validate_document,
+    validate_for_save,
 )
 
 __all__ = [
@@ -74,6 +74,6 @@ __all__ = [
     "Violation",
     "bound_slots",
     "build_default_registry",
-    "validate_bindings",
     "validate_document",
+    "validate_for_save",
 ]
