@@ -1,3 +1,9 @@
+## v0.229.1 (2026-09-10)
+
+### Fix
+
+- **devices-manager**: dispatch attribute updates for discovered devices (AGR-1201) (#621)
+
 ## v0.229.0 (2026-09-10)
 
 ### Feat
