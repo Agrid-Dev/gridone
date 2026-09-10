@@ -8,12 +8,13 @@ from models.ids import gen_id
 from models.metadata import ResourceMetadata
 from models.pagination import Page, PaginationParams
 from models.service import Service
+from models.targets import TargetResolver
 from synoptics.interface import SynopticsServiceInterface
 from synoptics.models import Synoptic, SynopticDocument, SynopticSummary
 from synoptics.storage import build_storage
 from synoptics.storage.protocol import SynopticsStorage
 from synoptics.symbols.registry import SymbolRegistry, build_default_registry
-from synoptics.validation import validate_document
+from synoptics.validation import validate_bindings, validate_document
 
 
 class SynopticsService(SynopticsServiceInterface, Service):
@@ -24,9 +25,10 @@ class SynopticsService(SynopticsServiceInterface, Service):
     tee lands on another run), so validating a fragment would mean loading the
     rest anyway. The editor, when it exists, sends the document it has.
 
-    Bindings are not resolved here. Checking that one resolves to exactly one
-    device needs the target resolver, which is composition work: the API layer
-    does it before calling in.
+    Bindings are resolved through the injected ``target_resolver`` on every
+    save, so a plate whose binding matches no device, or several, is refused
+    here whatever the caller. Resolution itself stays composition work: the
+    resolver comes from the API layer.
     """
 
     _storage: SynopticsStorage
@@ -34,9 +36,11 @@ class SynopticsService(SynopticsServiceInterface, Service):
     def __init__(
         self,
         storage_url: str | None,
+        target_resolver: TargetResolver,
         registry: SymbolRegistry | None = None,
     ) -> None:
         self._storage_url = storage_url
+        self._target_resolver = target_resolver
         self._registry = registry or build_default_registry()
 
     async def start(self) -> None:
@@ -47,7 +51,7 @@ class SynopticsService(SynopticsServiceInterface, Service):
             await self._storage.close()
 
     async def create(self, document: SynopticDocument) -> Synoptic:
-        validate_document(document, self._registry)
+        await self._validate(document)
         synoptic = _with_envelope(document, gen_id(), ResourceMetadata())
         return await self._storage.create(synoptic)
 
@@ -90,7 +94,7 @@ class SynopticsService(SynopticsServiceInterface, Service):
         caught by the same check.
         """
         existing = await self.get(synoptic_id)
-        validate_document(document, self._registry)
+        await self._validate(document)
         synoptic = _with_envelope(
             document, synoptic_id, existing.metadata.touch_updated_at()
         )
@@ -101,6 +105,10 @@ class SynopticsService(SynopticsServiceInterface, Service):
 
     async def delete(self, synoptic_id: str) -> None:
         await self._storage.delete(synoptic_id)
+
+    async def _validate(self, document: SynopticDocument) -> None:
+        validate_document(document, self._registry)
+        await validate_bindings(document, self._target_resolver)
 
     def symbol_schemas(self) -> dict[str, dict[str, Any]]:
         """A JSON Schema per registered symbol type."""

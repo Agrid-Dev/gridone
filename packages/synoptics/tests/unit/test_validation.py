@@ -9,10 +9,22 @@ import time
 
 import pytest
 
-from models.errors import SchemaValidationError
+from models.errors import InvalidError, SchemaValidationError
+from models.targets import (
+    AttributeCoverage,
+    AttributeTarget,
+    DevicesFilter,
+    ResolvedTarget,
+)
+from models.types import DataType
 from synoptics.models import Cell, SynopticDocument
 from synoptics.symbols import Footprint, SymbolType, build_default_registry
-from synoptics.validation import Violation, validate_document
+from synoptics.validation import (
+    Violation,
+    bound_slots,
+    validate_bindings,
+    validate_document,
+)
 
 
 @pytest.fixture
@@ -505,3 +517,135 @@ def test_a_broken_pipe_is_not_reported_as_a_missing_one(document, registry):
 def test_cell_is_hashable_for_membership_checks():
     assert Cell(x=1, y=2) == Cell(x=1, y=2, z=0)
     assert len({Cell(x=1, y=2), Cell(x=1, y=2, z=0)}) == 1
+
+
+# ----------------------------------------------------------------------
+# Bindings, once resolved
+# ----------------------------------------------------------------------
+
+
+class FakeResolver:
+    """Hands back one prepared outcome per call, in order; an exception is raised."""
+
+    def __init__(self, *outcomes: ResolvedTarget | Exception) -> None:
+        self._outcomes = list(outcomes)
+
+    async def resolve(
+        self,
+        target: AttributeTarget,  # noqa: ARG002
+        *,
+        writable: bool = False,  # noqa: ARG002
+    ) -> ResolvedTarget:
+        outcome = self._outcomes.pop(0)
+        if isinstance(outcome, Exception):
+            raise outcome
+        return outcome
+
+    async def list_attribute_coverage(
+        self,
+        devices: DevicesFilter,  # noqa: ARG002
+    ) -> list[AttributeCoverage]:
+        return []
+
+
+def resolved(*device_ids: str, data_type: DataType = DataType.BOOL) -> ResolvedTarget:
+    return ResolvedTarget(
+        attribute="a",
+        device_ids=list(device_ids),
+        data_type=data_type,
+        excluded_device_ids=[],
+    )
+
+
+async def check_bindings(raw: dict, *outcomes: ResolvedTarget | Exception) -> list:
+    document = SynopticDocument.model_validate(raw)
+    try:
+        await validate_bindings(document, FakeResolver(*outcomes))
+    except SchemaValidationError as exc:
+        return [(item.loc, item.type) for item in exc.errors]
+    return []
+
+
+def attribute_slot(attribute: str = "temp", **extra: int) -> dict:
+    return {
+        "kind": "attribute",
+        "target": {"devices": {"ids": ["dev-1"]}, "attribute": attribute},
+        **extra,
+    }
+
+
+def test_bound_slots_walk_every_element_that_carries_a_binding(document):
+    document["pipes"][0]["flow"] = attribute_slot("running")
+    document["pipes"][0]["tags"][0]["value"] = attribute_slot()
+    document["labels"][0]["value"] = attribute_slot()
+    slots = bound_slots(SynopticDocument.model_validate(document))
+    assert [(s.loc, s.is_flow) for s in slots] == [
+        (("symbols", 0, "bindings", "state"), False),
+        (("pipes", 0, "flow"), True),
+        (("pipes", 0, "tags", 0, "value"), False),
+        (("labels", 0, "value"), False),
+    ]
+
+
+def test_text_slots_are_not_bound(document):
+    slots = bound_slots(SynopticDocument.model_validate(document))
+    assert [s.loc for s in slots] == [("symbols", 0, "bindings", "state")]
+
+
+@pytest.mark.asyncio
+async def test_a_binding_resolving_to_one_device_is_valid(document):
+    assert await check_bindings(document, resolved("dev-1")) == []
+
+
+@pytest.mark.asyncio
+async def test_a_binding_the_resolver_refuses_is_reported_at_its_loc(document):
+    outcome = InvalidError("No device in the target exposes 'onoff_state'")
+    assert await check_bindings(document, outcome) == [
+        (("symbols", 0, "bindings", "state"), "unresolved_target")
+    ]
+
+
+@pytest.mark.asyncio
+async def test_a_binding_resolving_to_several_devices_is_ambiguous(document):
+    assert await check_bindings(document, resolved("dev-1", "dev-2")) == [
+        (("symbols", 0, "bindings", "state"), "ambiguous_target")
+    ]
+
+
+@pytest.mark.asyncio
+async def test_flow_must_resolve_to_a_bool(document):
+    document["pipes"][0]["flow"] = attribute_slot("running")
+    outcomes = (resolved("dev-1"), resolved("dev-1", data_type=DataType.FLOAT))
+    assert await check_bindings(document, *outcomes) == [
+        (("pipes", 0, "flow"), "flow_not_bool")
+    ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("data_type", [DataType.STRING, DataType.BOOL])
+async def test_decimals_need_a_numeric_attribute(document, data_type):
+    document["labels"][0]["value"] = attribute_slot(decimals=1)
+    outcomes = (resolved("dev-1"), resolved("dev-1", data_type=data_type))
+    assert await check_bindings(document, *outcomes) == [
+        (("labels", 0, "value", "decimals"), "decimals_not_numeric")
+    ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("data_type", [DataType.INT, DataType.FLOAT])
+async def test_decimals_on_a_numeric_attribute_are_valid(document, data_type):
+    document["labels"][0]["value"] = attribute_slot(decimals=1)
+    outcomes = (resolved("dev-1"), resolved("dev-1", data_type=data_type))
+    assert await check_bindings(document, *outcomes) == []
+
+
+@pytest.mark.asyncio
+async def test_every_binding_is_reported_at_once(document):
+    """A refused slot does not stop the pass: the next one is still judged."""
+    document["pipes"][0]["flow"] = attribute_slot("running", decimals=2)
+    outcomes = (InvalidError("nope"), resolved("dev-1", data_type=DataType.STRING))
+    assert [t for _, t in await check_bindings(document, *outcomes)] == [
+        "unresolved_target",
+        "flow_not_bool",
+        "decimals_not_numeric",
+    ]

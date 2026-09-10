@@ -91,7 +91,7 @@ The **collector** is the one type whose shape is authored per instance (`props.a
 ## Public API
 
 ```python
-service = SynopticsService(storage_url)   # None → in-memory backend
+service = SynopticsService(storage_url, target_resolver)   # None → in-memory backend
 await service.start()
 
 plate    = SynopticDocument.model_validate(json.loads(path.read_text()))
@@ -127,7 +127,7 @@ Because an edit is whole and can take a while, two authors can overlap. `replace
 | tags sit on their pipe's run | `validation` |
 | `projection: "flat"` implies every `z` is 0 | `validation` |
 
-One rule of the spec is deliberately **not** here: that a binding resolves to exactly one device. It needs the `TargetResolver`, which is composition work: the API layer applies it before calling in, and this package stays document-only.
+One rule of the spec needs a `models.targets.TargetResolver`: that a binding resolves to exactly one device. Building a resolver is composition work, so the service takes one at construction and the API layer passes its own. On every `create` and `replace`, `validate_bindings()` resolves each slot `bound_slots()` enumerates and reports every violation (unresolvable, several devices, a non-bool behind `flow`, `decimals` on a non-numeric attribute) at its `loc` with the same `{loc, msg, type}` errors.
 
 What is deliberately not a rule: pipes may share cells. A tee shares one by construction, and two runs crossing at different `z` share an xy.
 
@@ -142,7 +142,7 @@ What is deliberately not a rule: pipes may share cells. A tee shares one by cons
 
 ## Architectural notes
 
-- **Service shape.** Follows `models.service.Service`: `__init__(storage_url, registry=None)`, `async start` / `async stop`. Unsupported URL schemes raise `UnsupportedStorageError`; backend failures raise `StorageConnectionError`.
+- **Service shape.** Follows `models.service.Service`: `__init__(storage_url, target_resolver, registry=None)`, `async start` / `async stop`. Unsupported URL schemes raise `UnsupportedStorageError`; backend failures raise `StorageConnectionError`.
 - **No controller framework.** No FastAPI here; the HTTP layer lives in `packages/api`.
 - **16-hex ids** via `models.ids.gen_id()` for the document. Element ids are author-chosen slugs: pipes reference symbols by id, and `pac-03` reviews better than a hex string.
 - **Text is literal, not i18n keys.** A plate is authored for one customer, in that customer's language.

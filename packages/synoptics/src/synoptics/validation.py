@@ -7,9 +7,10 @@ never a blank tile discovered in production.
 The pass collects every violation instead of stopping at the first: an author
 fixing a thirty-four pipe plate should get the whole list at once.
 
-One rule of the format spec is deliberately absent. Checking that a binding
-resolves to exactly one device needs the target resolver, which is composition
-work and lives in the API layer; this package stays document-only.
+Resolving a binding needs a target resolver, which the API layer builds and
+injects into the service. This package enumerates the slots to resolve
+(:func:`bound_slots`) and runs the rule against that resolver
+(:func:`validate_bindings`), so the rule's vocabulary still has one owner.
 """
 
 import contextlib
@@ -20,7 +21,14 @@ from itertools import pairwise
 
 from pydantic import BaseModel, ValidationError
 
-from models.errors import NotFoundError, SchemaValidationError, ValidationErrorItem
+from models.errors import (
+    InvalidError,
+    NotFoundError,
+    SchemaValidationError,
+    ValidationErrorItem,
+)
+from models.targets import ResolvedTarget, TargetResolver
+from models.types import DataType
 from synoptics.geometry import (
     direction,
     is_axis_aligned,
@@ -31,6 +39,7 @@ from synoptics.geometry import (
 )
 from synoptics.models import (
     MAX_POLYLINE_CELLS,
+    AttributeSlot,
     Cell,
     CellPlacement,
     Endpoint,
@@ -74,6 +83,13 @@ class Violation(StrEnum):
     NOT_INLINE_CAPABLE = "not_inline_capable"
     INLINE_ON_ENDPOINT = "inline_on_endpoint"
     FLAT_DEPTH = "flat_depth"
+    UNRESOLVED_TARGET = "unresolved_target"
+    AMBIGUOUS_TARGET = "ambiguous_target"
+    FLOW_NOT_BOOL = "flow_not_bool"
+    DECIMALS_NOT_NUMERIC = "decimals_not_numeric"
+
+
+_SUMMARY_PREFIX = "Invalid synoptic: "
 
 
 class _Errors:
@@ -116,7 +132,92 @@ def validate_document(document: SynopticDocument, registry: SymbolRegistry) -> N
     _check_flat_projection(document, errors)
 
     if errors.items:
-        raise SchemaValidationError(errors.items, summary_prefix="Invalid synoptic: ")
+        raise SchemaValidationError(errors.items, summary_prefix=_SUMMARY_PREFIX)
+
+
+# ----------------------------------------------------------------------
+# Bindings
+# ----------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class BoundSlot:
+    """One ``attribute`` slot of a document and where it sits."""
+
+    loc: tuple[str | int, ...]
+    slot: AttributeSlot
+    is_flow: bool = False
+
+
+def bound_slots(document: SynopticDocument) -> list[BoundSlot]:
+    """Every ``attribute`` slot on the plate, in document order.
+
+    Symbol bindings, pipe ``flow``, tag values and label values, so a consumer
+    (resolution, live subscription, fault list, binding picker) never has to
+    know which elements carry a binding.
+    """
+    found: list[BoundSlot] = []
+
+    def add(
+        loc: tuple[str | int, ...], value: object, *, is_flow: bool = False
+    ) -> None:
+        if isinstance(value, AttributeSlot):
+            found.append(BoundSlot(loc, value, is_flow))
+
+    for i, symbol in enumerate(document.symbols):
+        for slot, value in symbol.bindings.items():
+            add(("symbols", i, "bindings", slot), value)
+    for i, pipe in enumerate(document.pipes):
+        add(("pipes", i, "flow"), pipe.flow, is_flow=True)
+        for j, tag in enumerate(pipe.tags):
+            add(("pipes", i, "tags", j, "value"), tag.value)
+    for i, label in enumerate(document.labels):
+        add(("labels", i, "value"), label.value)
+    return found
+
+
+async def validate_bindings(
+    document: SynopticDocument, resolver: TargetResolver
+) -> None:
+    """Resolve every bound slot and raise unless each one names exactly one
+    device, a bool sits behind ``flow``, and ``decimals`` is only set on a
+    numeric attribute.
+
+    A slot the resolver refuses is reported at its ``loc`` alongside the
+    others, so an author fixing thirty bindings sees them all at once.
+    """
+    errors = _Errors()
+    for bound in bound_slots(document):
+        try:
+            target = await resolver.resolve(bound.slot.target)
+        except InvalidError as exc:
+            errors.add(bound.loc, str(exc), Violation.UNRESOLVED_TARGET)
+            continue
+        _check_resolved(bound, target, errors)
+    if errors.items:
+        raise SchemaValidationError(errors.items, summary_prefix=_SUMMARY_PREFIX)
+
+
+def _check_resolved(bound: BoundSlot, target: ResolvedTarget, errors: _Errors) -> None:
+    if len(target.device_ids) != 1:
+        errors.add(
+            bound.loc,
+            f"Target resolves to {len(target.device_ids)} devices, expected 1",
+            Violation.AMBIGUOUS_TARGET,
+        )
+    if bound.is_flow and target.data_type != DataType.BOOL:
+        errors.add(
+            bound.loc,
+            f"Flow attribute is {target.data_type}, expected bool",
+            Violation.FLOW_NOT_BOOL,
+        )
+    numeric = target.data_type in (DataType.INT, DataType.FLOAT)
+    if bound.slot.decimals is not None and not numeric:
+        errors.add(
+            (*bound.loc, "decimals"),
+            f"Decimals set on a {target.data_type} attribute",
+            Violation.DECIMALS_NOT_NUMERIC,
+        )
 
 
 # ----------------------------------------------------------------------
