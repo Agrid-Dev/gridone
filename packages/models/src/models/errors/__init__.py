@@ -109,3 +109,11 @@ class StorageNotInitializedError(StorageError):
     This is a programming error (wrong lifecycle usage), kept explicit so a
     service used before loading fails fast instead of silently misbehaving.
     """
+
+
+class ConfigurationError(Exception):
+    """Raised when a service is started without configuration it requires.
+
+    The message names the missing setting in the service's own vocabulary;
+    the composition root translates it to the environment variable it reads.
+    """
