@@ -291,7 +291,9 @@ class CoreDevice:
                 render_struct(attribute_driver.read, context), context
             )
             await self.transport.register_listener(
-                address.topic, self._make_on_message(codec, attribute)
+                address.topic,
+                self._make_on_message(codec, attribute),
+                address=address,
             )
 
     def _make_on_message(

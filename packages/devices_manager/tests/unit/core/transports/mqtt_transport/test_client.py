@@ -18,7 +18,7 @@ from devices_manager.core.transports.mqtt_transport import (
 )
 from devices_manager.core.transports.mqtt_transport.client import build_ssl_context
 from devices_manager.core.transports.mqtt_transport.mqtt_address import (
-    MqttReplyMatch,
+    MqttFrameMatch,
     MqttRequest,
 )
 from devices_manager.core.transports.transport_metadata import TransportMetadata
@@ -377,6 +377,57 @@ class TestRead:
         mock_aiomqtt_client.publish.assert_not_awaited()
 
 
+def _message(topic: str, payload: str) -> AsyncMock:
+    message = AsyncMock()
+    message.topic = Topic(topic)
+    message.payload = payload.encode()
+    return message
+
+
+class TestListenerWithMatch:
+    """Every attribute of a push device listens on the same topic; the address
+    it was built from tells the transport which frames concern it, so the
+    others never reach its codec."""
+
+    @pytest.mark.asyncio
+    async def test_only_receives_the_frames_its_match_accepts(
+        self, mqtt_client, mock_aiomqtt_client
+    ):
+        address = MqttAddress(
+            topic="test/topic", match=MqttFrameMatch(regex='"name":"wanted"')
+        )
+        callback = Mock()
+        await mqtt_client.register_listener(address.topic, callback, address=address)
+
+        mock_aiomqtt_client.messages = AsyncIteratorMock(
+            [
+                _message("test/topic", '{"name":"other"}'),
+                _message("test/topic", '{"name":"wanted"}'),
+            ]
+        )
+        await mqtt_client._handle_incoming_messages()  # noqa: SLF001
+
+        callback.assert_called_once_with('{"name":"wanted"}')
+
+    @pytest.mark.asyncio
+    async def test_address_without_match_receives_every_frame(
+        self, mqtt_client, mock_aiomqtt_client
+    ):
+        address = MqttAddress(topic="test/topic")
+        callback = Mock()
+        await mqtt_client.register_listener(address.topic, callback, address=address)
+
+        mock_aiomqtt_client.messages = AsyncIteratorMock(
+            [
+                _message("test/topic", '{"name":"other"}'),
+                _message("test/topic", '{"name":"wanted"}'),
+            ]
+        )
+        await mqtt_client._handle_incoming_messages()  # noqa: SLF001
+
+        assert callback.call_count == 2
+
+
 class TestReadWithMatch:
     """A read on a reply topic shared by every attribute of a device may
     receive frames meant for other reads before its own; ``match`` tells the
@@ -385,7 +436,7 @@ class TestReadWithMatch:
     @pytest.fixture
     def matched_address(self, mqtt_read_address) -> MqttAddress:
         return mqtt_read_address.model_copy(
-            update={"match": MqttReplyMatch(json_path='$.data[?(@.name == "wanted")]')}
+            update={"match": MqttFrameMatch(json_path='$.data[?(@.name == "wanted")]')}
         )
 
     @staticmethod
