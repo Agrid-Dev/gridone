@@ -63,13 +63,16 @@ vi.mock("@/components/forms/targetPicker/AttributeCoverageSelect", () => ({
     id,
     value,
     onChange,
+    disabled,
   }: {
+    disabled?: boolean;
     id: string;
     value: string;
     onChange: (value: string, type: string) => void;
   }) => (
     <select
       id={id}
+      disabled={disabled}
       value={value}
       onChange={(event) => onChange(event.target.value, "float")}
     >
@@ -91,6 +94,11 @@ vi.mock("react-i18next", () =>
     "commands.new.targetMode.filters": "Filters",
     "commands.new.toggleVisible": "Select all",
     "commands.grouped.scope": "Scope",
+    "commands.grouped.who": "Which devices",
+    "commands.grouped.what": "What to change",
+    "commands.grouped.selectedDevices": "the selection",
+    "commands.grouped.affectedCount":
+      "{{count}} of {{total}} selected devices will receive the command",
     "commands.grouped.excluded": "{{count}} devices not concerned",
     "commands.grouped.readOnly": "Read-only attribute",
     "commands.grouped.absent": "Attribute absent",
@@ -224,31 +232,165 @@ afterEach(() => {
 });
 
 describe("grouped command page", () => {
-  it("selects writable devices first and exposes exclusions with reasons", async () => {
+  it("starts with devices visible and no implicit target, including attribute-only links", async () => {
+    const { router } = mount(
+      "/devices/commands/new?attribute=setpoint&value=23",
+    );
+    expect(
+      screen.getByRole("checkbox", { name: "Device 1" }),
+    ).not.toBeChecked();
+    expect(
+      screen.getByRole("checkbox", { name: "Device 2" }),
+    ).not.toBeChecked();
+    expect(screen.getByLabelText("Attribute")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Dispatch now" })).toBeDisabled();
+    expect(mocks.listAttributes).not.toHaveBeenCalled();
+    expect(
+      screen
+        .getByText("Which devices")
+        .compareDocumentPosition(screen.getByText("What to change")) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    await userEvent.click(screen.getByRole("checkbox", { name: "Device 1" }));
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Dispatch now" }),
+      ).toBeEnabled(),
+    );
+    expect(mocks.listAttributes).toHaveBeenCalledWith(
+      expect.objectContaining({ ids: ["1"] }),
+    );
+    await chooseAttribute("level");
+    expect(new URLSearchParams(router.state.location.search).get("ids")).toBe(
+      "1",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Dispatch now" }));
+    await waitFor(() =>
+      expect(mocks.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          target: { ids: ["1"] },
+          write: { attribute: "level", value: 5, data_type: "float" },
+        }),
+      ),
+    );
+  });
+
+  it("requires filter criteria before selecting a group", async () => {
+    mount("/devices/commands/new?mode=filters");
+    expect(
+      screen.queryByRole("checkbox", { name: "Device 1" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Attribute")).toBeDisabled();
+    expect(mocks.listAttributes).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: /thermostat/i }));
+    expect(
+      await screen.findByRole("checkbox", { name: "Device 1" }),
+    ).toBeChecked();
+    await chooseAttribute();
+    expect(screen.getByRole("checkbox", { name: "Device 2" })).toBeChecked();
+  });
+
+  it("combines zone and type filters without selecting other equipment with the same attribute", async () => {
+    mocks.devices.push(
+      { ...device("boiler"), type: "other" },
+      { ...device("outside"), tags: {} },
+    );
+    const { router } = mount(
+      "/devices/commands/new?mode=filters&scope=building&types=thermostat",
+    );
+    expect(screen.getByRole("checkbox", { name: "Device 1" })).toBeChecked();
+    expect(
+      screen.queryByRole("checkbox", { name: "Device boiler" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("checkbox", { name: "Device outside" }),
+    ).not.toBeInTheDocument();
+    await chooseAttribute();
+    expect(mocks.listAttributes).toHaveBeenCalledWith(
+      expect.objectContaining({ ids: ["1", "2"] }),
+    );
+    await userEvent.click(screen.getByRole("checkbox", { name: "Device 1" }));
+    await chooseAttribute("level");
+    expect(
+      screen.getByText("This command no longer follows the filter."),
+    ).toBeVisible();
+    expect(new URLSearchParams(router.state.location.search).get("ids")).toBe(
+      "2",
+    );
+    expect(
+      screen.getByRole("checkbox", { name: "Device boiler" }),
+    ).not.toBeChecked();
+  });
+
+  it("keeps an incompatible device selected and restores its preview when switching back", async () => {
+    mocks.devices = [
+      device("1", 21, {
+        setpoint: { read_write_modes: ["read", "write"], current_value: 21 },
+      }),
+      device("2"),
+    ];
+    mount("/devices/commands/new?ids=1,2");
+    await chooseAttribute("setpoint");
+    await chooseAttribute("level");
+    expect(screen.getByRole("checkbox", { name: "Device 1" })).toBeChecked();
+    expect(screen.getByText("Attribute absent")).toBeVisible();
+    expect(
+      screen.getByText("1 of 2 selected devices will receive the command"),
+    ).toBeVisible();
+    await chooseAttribute("setpoint");
+    expect(screen.queryByText("Attribute absent")).not.toBeInTheDocument();
+    expect(
+      screen.getByText("2 of 2 selected devices will receive the command"),
+    ).toBeVisible();
+  });
+
+  it("disables dispatch when none of the selected devices can receive the attribute", async () => {
+    mocks.devices = [
+      device("read-only", 0, { setpoint: { read_write_modes: ["read"] } }),
+    ];
+    mount("/devices/commands/new?ids=read-only&attribute=setpoint&value=23");
+    expect(await screen.findByText("Read-only attribute")).toBeVisible();
+    expect(
+      screen.getByRole("checkbox", { name: "Device read-only" }),
+    ).toBeChecked();
+    expect(screen.getByRole("button", { name: "Dispatch now" })).toBeDisabled();
+  });
+
+  it("keeps selected devices across attribute changes and explains exclusions", async () => {
     mocks.devices.push(
       device("read-only", 0, { setpoint: { read_write_modes: ["read"] } }),
       device("absent", 0, {}),
     );
     mount();
+    await userEvent.click(screen.getByRole("checkbox", { name: "Select all" }));
     await chooseAttribute();
     expect(screen.getByRole("checkbox", { name: "Device 1" })).toBeChecked();
     expect(screen.getByRole("checkbox", { name: "Device 2" })).toBeChecked();
     expect(
-      screen.queryByRole("checkbox", { name: "Device read-only" }),
-    ).not.toBeInTheDocument();
-    await userEvent.click(screen.getByText("2 devices not concerned"));
+      screen.getByRole("checkbox", { name: "Device read-only" }),
+    ).toBeChecked();
+    expect(screen.getByText("2 devices not concerned")).toBeVisible();
+    expect(
+      screen.getByText("2 of 4 selected devices will receive the command"),
+    ).toBeVisible();
     expect(screen.getByText("Read-only attribute")).toBeVisible();
     expect(screen.getByText("Attribute absent")).toBeVisible();
     expect(screen.getByLabelText(/Value/)).toHaveValue(21);
     await userEvent.click(screen.getByRole("checkbox", { name: "Device 1" }));
     await chooseAttribute("level");
-    expect(screen.getByRole("checkbox", { name: "Device 1" })).toBeChecked();
+    expect(
+      screen.getByRole("checkbox", { name: "Device 1" }),
+    ).not.toBeChecked();
+    expect(
+      screen.getByRole("checkbox", { name: "Device read-only" }),
+    ).toBeChecked();
     expect(screen.getByLabelText(/Value/)).toHaveValue(5);
   });
 
   it("leaves mixed current values blank and shows their range", async () => {
     mocks.devices = [device("1", 19), device("2", 21)];
     mount();
+    await userEvent.click(screen.getByRole("checkbox", { name: "Select all" }));
     await chooseAttribute();
     expect(screen.getByLabelText(/Value/)).toHaveValue(null);
     expect(await screen.findByText("Currently 19–21 °C")).toBeVisible();
@@ -257,7 +399,7 @@ describe("grouped command page", () => {
 
   it("materializes exceptions from Filters and visibly switches to Devices", async () => {
     const { router } = mount(
-      "/devices/commands/new?mode=filters&attribute=setpoint",
+      "/devices/commands/new?scope=building&mode=filters&attribute=setpoint",
     );
     await screen.findByRole("checkbox", { name: "Device 1" });
     await userEvent.click(screen.getByRole("checkbox", { name: "Device 1" }));
@@ -281,7 +423,7 @@ describe("grouped command page", () => {
 
   it("expands a live building target through empty rooms and stays on the page after dispatch", async () => {
     const { router } = mount(
-      "/devices/commands/new?mode=filters&attribute=setpoint&value=23",
+      "/devices/commands/new?scope=building&mode=filters&attribute=setpoint&value=23",
     );
     await waitFor(() =>
       expect(
@@ -315,7 +457,9 @@ describe("grouped command page", () => {
       mocks.devices = Array.from({ length: count }, (_, index) =>
         device(String(index + 1)),
       );
-      mount("/devices/commands/new?attribute=setpoint&value=23");
+      mount(
+        `/devices/commands/new?attribute=setpoint&value=23&ids=${mocks.devices.map((d) => d.id).join(",")}`,
+      );
       await waitFor(() =>
         expect(
           screen.getByRole("button", { name: "Dispatch now" }),
@@ -328,7 +472,7 @@ describe("grouped command page", () => {
         const dialog = screen.getByRole("alertdialog");
         expect(
           within(dialog).getByText(
-            "Set Setpoint to 23 °C on 11 devices in Building.",
+            "Set Setpoint to 23 °C on 11 devices in the selection.",
           ),
         ).toBeVisible();
         expect(mocks.dispatch).not.toHaveBeenCalled();
@@ -344,7 +488,7 @@ describe("grouped command page", () => {
     mocks.dispatch.mockRejectedValue(
       new GridoneError(422, "Target resolved to no devices"),
     );
-    mount("/devices/commands/new?attribute=setpoint&value=23");
+    mount("/devices/commands/new?attribute=setpoint&value=23&ids=1,2");
     await waitFor(() =>
       expect(
         screen.getByRole("button", { name: "Dispatch now" }),
@@ -359,7 +503,7 @@ describe("grouped command page", () => {
   });
 
   it("warns about bounds without blocking dispatch", async () => {
-    mount("/devices/commands/new?attribute=setpoint&value=30");
+    mount("/devices/commands/new?attribute=setpoint&value=30&ids=1,2");
     await waitFor(() =>
       expect(screen.getAllByText("Will be refused above 25.")).toHaveLength(2),
     );
@@ -426,7 +570,7 @@ describe("grouped command page", () => {
     "keeps %s selection semantics when the device list changes",
     async (mode) => {
       const { router } = mount(
-        `/devices/commands/new?attribute=setpoint&value=23&mode=${mode}`,
+        `/devices/commands/new?attribute=setpoint&value=23&scope=building&ids=1,2&mode=${mode}`,
       );
       await waitFor(() =>
         expect(
@@ -447,7 +591,7 @@ describe("grouped command page", () => {
 
   it("does not broaden scope when the asset tree fails to load", async () => {
     mocks.assetsError = new Error("Unavailable");
-    mount("/devices/commands/new?attribute=setpoint&value=23");
+    mount("/devices/commands/new?attribute=setpoint&value=23&ids=1,2");
     expect(
       screen.queryByRole("button", { name: "Dispatch now" }),
     ).not.toBeInTheDocument();
@@ -455,7 +599,7 @@ describe("grouped command page", () => {
   });
 
   it("requires a template name and keeps named saves separate from dispatch", async () => {
-    mount("/devices/commands/new?attribute=setpoint&value=23");
+    mount("/devices/commands/new?attribute=setpoint&value=23&ids=1,2");
     await waitFor(() =>
       expect(
         screen.getByRole("button", { name: "Save as template" }),

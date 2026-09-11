@@ -50,13 +50,12 @@ export function useGroupedCommand({
 }: Args) {
   const { t, i18n } = useTranslation("devices");
   const [params, setParams] = useSearchParams();
-  const buildings = assetsList.filter((asset) => asset.type === "building");
   const device = devices.find((item) => item.id === deviceId);
   const scope =
     assetId ??
     (deviceId ? (device?.tags?.asset_id ?? "all") : undefined) ??
     params.get("scope") ??
-    (buildings.length === 1 ? buildings[0].id : "all");
+    "all";
   const scopeExists =
     scope === "all" || assetsList.some((asset) => asset.id === scope);
   const ready = !loading && scopeExists && (!deviceId || !!device);
@@ -76,35 +75,36 @@ export function useGroupedCommand({
     () =>
       deviceId
         ? { ids: [deviceId] }
-        : scope === "all"
+        : mode === "devices" || scope === "all"
           ? {}
           : { tags: { asset_id: resolveAssetSubtreeIds(assetTree, scope) } },
-    [deviceId, scope, assetTree],
+    [deviceId, mode, scope, assetTree],
   );
-  const coverageQuery = useAttributeCoverage(scopeFilter, { enabled: ready });
   const scopeDevices = devices.filter(
     (item) => ready && deviceMatchesFilter(item, scopeFilter),
   );
+  const hasFilters = scope !== "all" || types.length > 0;
   const matched = scopeDevices.filter(
     (item) =>
-      mode !== "filters" ||
-      types.length === 0 ||
-      (item.type && types.includes(item.type)),
+      hasFilters &&
+      (types.length === 0 || (item.type && types.includes(item.type))),
   );
-  const eligible = scopeDevices.filter((item) =>
+  const storedIds = (params.get("ids") ?? "").split(",").filter(Boolean);
+  const selected = deviceId
+    ? scopeDevices
+    : mode === "filters"
+      ? matched
+      : scopeDevices.filter((item) => storedIds.includes(item.id));
+  const eligible = selected.filter((item) =>
     isAttributeWritable(item, attribute),
   );
   const excluded = attribute
-    ? matched.filter((item) => !isAttributeWritable(item, attribute))
+    ? selected.filter((item) => !isAttributeWritable(item, attribute))
     : [];
-  const storedIds = (params.get("ids") ?? "").split(",").filter(Boolean);
-  const eligibleMatches = matched.filter((item) =>
-    isAttributeWritable(item, attribute),
-  );
-  const selected =
-    mode === "filters" || !params.has("ids") || deviceId
-      ? eligibleMatches
-      : eligible.filter((item) => storedIds.includes(item.id));
+  const selectedFilter = { ids: selected.map((item) => item.id) };
+  const coverageQuery = useAttributeCoverage(selectedFilter, {
+    enabled: ready && selected.length > 0,
+  });
   const row = coverageQuery.coverage.find(
     (item) => item.attribute === attribute,
   );
@@ -114,10 +114,12 @@ export function useGroupedCommand({
     values: { value },
     mode: "onChange",
   });
-  const selectedFilter = { ids: selected.map((item) => item.id) };
-  const selectionCoverage = useAttributeCoverage(selectedFilter, {
-    enabled: ready && selected.length > 0,
-  });
+  const selectionCoverage = useAttributeCoverage(
+    { ids: eligible.map((item) => item.id) },
+    {
+      enabled: ready && eligible.length > 0,
+    },
+  );
   const presentation =
     selectionCoverage.coverage.find((item) => item.attribute === attribute) ??
     row;
@@ -144,15 +146,13 @@ export function useGroupedCommand({
     setParams(next, { replace });
   }
 
-  // Hydrate old attribute-only links once data is available, freezing ids and
-  // recording a consensus value. An explicit empty value means deliberately blank.
+  // Restore contextual links without inferring a target from the attribute.
+  // An explicit empty value means deliberately blank.
   useEffect(() => {
     if (!ready || coverageQuery.isLoading || coverageQuery.error) return;
     const changes: Record<string, string | undefined> = {};
     if (!params.has("scope")) changes.scope = scope;
     if (!params.has("mode")) changes.mode = mode;
-    if (attribute && row && !params.has("ids") && mode === "devices")
-      changes.ids = selected.map((item) => item.id).join(",");
     if (attribute && row && !params.has("value"))
       changes.value =
         JSON.stringify(currentValueFor(selected, attribute)) ?? "";
@@ -167,17 +167,9 @@ export function useGroupedCommand({
   ]);
 
   function chooseAttribute(next: string) {
-    const nextDevices = matched.filter((item) =>
-      isAttributeWritable(item, next),
-    );
     update({
       attribute: next,
-      ids:
-        mode === "devices"
-          ? nextDevices.map((item) => item.id).join(",")
-          : undefined,
-      value: JSON.stringify(currentValueFor(nextDevices, next)) ?? "",
-      detached: undefined,
+      value: JSON.stringify(currentValueFor(selected, next)) ?? "",
     });
   }
 
@@ -191,7 +183,7 @@ export function useGroupedCommand({
   }
 
   const preview: CommandPreview = {
-    devices: selected,
+    devices: eligible,
     target,
     write: {
       attribute,
@@ -199,7 +191,9 @@ export function useGroupedCommand({
       data_type: row?.data_types[0] ?? "str",
     },
     scope:
-      assetsList.find((asset) => asset.id === scope)?.name ??
+      (mode === "devices" && !locked
+        ? t("commands.grouped.selectedDevices")
+        : assetsList.find((asset) => asset.id === scope)?.name) ??
       (scope === "all" ? t("commands.new.allAssets") : scope),
     label: row?.label ? localize(row.label, i18n.language) : toLabel(attribute),
     unit: presentation?.unit,
@@ -216,20 +210,26 @@ export function useGroupedCommand({
     row,
     presentation,
     scopeFilter,
+    selectedFilter,
+    matchesScope: (item: Device) =>
+      ready && deviceMatchesFilter(item, scopeFilter),
     scopeDevices,
     eligible,
     excluded,
     selected,
     types,
     target,
-    isLoading: loading || coverageQuery.isLoading,
+    isLoading:
+      loading || coverageQuery.isLoading || selectionCoverage.isLoading,
     error: coverageQuery.error ?? selectionCoverage.error,
     detached: params.get("detached") === "1",
     canSubmit:
       ready &&
       !coverageQuery.isLoading &&
       !coverageQuery.error &&
-      selected.length > 0 &&
+      !selectionCoverage.isLoading &&
+      !selectionCoverage.error &&
+      eligible.length > 0 &&
       !!row &&
       row.writable_count > 0 &&
       row.data_types.length === 1 &&

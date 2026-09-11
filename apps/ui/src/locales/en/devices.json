@@ -366,26 +366,26 @@
       }
     },
     "grouped": {
-      "subtitle": "Pick what should change first. Eligible devices are selected for you; deselect any exceptions before dispatching.",
-      "scope": "Scope",
+      "subtitle": "Select the devices, then choose the setting to change. Review the changes in the preview before dispatching.",
+      "scope": "Zone",
       "scopeHint": "Includes this asset and all rooms and zones beneath it.",
       "scopeMissing": "This scope is no longer available. Choose another asset.",
       "what": "What to change",
-      "who": "Who’s affected",
+      "who": "Which devices",
       "review": "Review & dispatch",
-      "pickAttribute": "Choose an attribute to see the eligible devices.",
+      "pickAttribute": "Choose an attribute to preview the changes.",
       "detached": "This command no longer follows the filter. The selected devices are now a fixed list.",
       "locked": "The target is fixed by the page you opened.",
       "live": "Filters are resolved again at each dispatch.",
       "frozen": "Only the selected device IDs will be targeted.",
-      "excluded_one": "{{count}} device not concerned",
-      "excluded_other": "{{count}} devices not concerned",
+      "excluded_one": "{{count}} selected device will receive no command",
+      "excluded_other": "{{count}} selected devices will receive no command",
       "readOnly": "Read-only attribute",
       "absent": "Attribute absent",
       "chooseValue": "Choose a value",
       "currentRange": "Currently {{range}} {{unit}}",
       "invalidValue": "Enter a value matching this attribute’s type.",
-      "unavailableAttribute": "This attribute is no longer writable in this scope.",
+      "unavailableAttribute": "This attribute is not writable on the selected devices.",
       "nameRequired": "Enter a template name.",
       "setting": "Setting {{attribute}} to {{value}} {{unit}}.",
       "confirmTitle": "Dispatch this grouped command?",
@@ -403,7 +403,10 @@
         "maximum": "Will be refused above {{bound}}.",
         "step": "Will be refused: value must be a multiple of {{bound}}.",
         "options": "Will be refused: supported values are {{bound}}."
-      }
+      },
+      "pickDevices": "Select devices first, directly or using filters.",
+      "selectedDevices": "the selection",
+      "affectedCount": "{{count}} of {{total}} selected devices will receive the command"
     }
   },
   "controls": {

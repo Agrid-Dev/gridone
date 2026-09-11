@@ -366,26 +366,26 @@
       }
     },
     "grouped": {
-      "subtitle": "Choisissez d’abord ce qui doit changer. Les équipements compatibles sont présélectionnés ; décochez les exceptions avant l’envoi.",
-      "scope": "Périmètre",
+      "subtitle": "Sélectionnez les équipements, puis choisissez le réglage à modifier. Vérifiez les changements dans l’aperçu avant l’envoi.",
+      "scope": "Zone",
       "scopeHint": "Inclut cet espace et toutes les pièces et zones qu’il contient.",
       "scopeMissing": "Ce périmètre n’est plus disponible. Choisissez un autre espace.",
       "what": "Que modifier",
-      "who": "Équipements concernés",
+      "who": "Quels équipements",
       "review": "Vérifier et envoyer",
-      "pickAttribute": "Choisissez un attribut pour afficher les équipements compatibles.",
+      "pickAttribute": "Choisissez un attribut pour prévisualiser les changements.",
       "detached": "Cette commande ne suit plus le filtre. Les équipements sélectionnés constituent désormais une liste fixe.",
       "locked": "La cible est définie par la page depuis laquelle vous avez ouvert cette commande.",
       "live": "Les filtres sont réévalués à chaque envoi.",
       "frozen": "Seuls les équipements sélectionnés seront ciblés.",
-      "excluded_one": "{{count}} équipement non concerné",
-      "excluded_other": "{{count}} équipements non concernés",
+      "excluded_one": "{{count}} équipement sélectionné ne recevra pas la commande",
+      "excluded_other": "{{count}} équipements sélectionnés ne recevront pas la commande",
       "readOnly": "Attribut en lecture seule",
       "absent": "Attribut absent",
       "chooseValue": "Choisir une valeur",
       "currentRange": "Actuellement {{range}} {{unit}}",
       "invalidValue": "Saisissez une valeur correspondant au type de cet attribut.",
-      "unavailableAttribute": "Cet attribut n’est plus modifiable dans ce périmètre.",
+      "unavailableAttribute": "Cet attribut n’est pas modifiable sur les équipements sélectionnés.",
       "nameRequired": "Saisissez un nom de modèle.",
       "setting": "Modification de {{attribute}} à {{value}} {{unit}}.",
       "confirmTitle": "Envoyer cette commande groupée ?",
@@ -403,7 +403,10 @@
         "maximum": "Sera refusé au-dessus de {{bound}}.",
         "step": "Sera refusé : la valeur doit être un multiple de {{bound}}.",
         "options": "Sera refusé : les valeurs acceptées sont {{bound}}."
-      }
+      },
+      "pickDevices": "Sélectionnez d’abord des équipements, directement ou par filtres.",
+      "selectedDevices": "la sélection",
+      "affectedCount": "{{count}} sur {{total}} équipements sélectionnés recevront la commande"
     }
   },
   "controls": {

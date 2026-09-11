@@ -28,22 +28,30 @@ export function GroupedCommandFields({
   const dataType = command.row?.data_types[0];
   const options = command.presentation?.value_options;
   const unit = command.presentation?.unit;
-  const range = currentRange(command.selected, command.attribute);
-  const mixed = currentValues(command.selected, command.attribute).length > 1;
+  const range = currentRange(command.eligible, command.attribute);
+  const mixed = currentValues(command.eligible, command.attribute).length > 1;
   return (
     <div className="space-y-6">
+      {command.selected.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          {t("commands.grouped.pickDevices")}
+        </p>
+      )}
       <Field>
         <FieldLabel htmlFor="command-attribute">
           {t("commands.attribute")}
         </FieldLabel>
         <AttributeCoverageSelect
           id="command-attribute"
-          filter={command.scopeFilter}
+          filter={command.selectedFilter}
           value={command.attribute}
           onChange={command.chooseAttribute}
           writableOnly
-          allowAll
-          disabled={command.isLoading || !command.scopeExists}
+          disabled={
+            command.isLoading ||
+            !command.scopeExists ||
+            command.selected.length === 0
+          }
         />
         {!command.isLoading && !command.row && command.attribute && (
           <FieldDescription>

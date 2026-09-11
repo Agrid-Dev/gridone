@@ -18,7 +18,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DevicesFilterTabs } from "@/components/forms/targetPicker";
-import { deviceAttributes } from "@/lib/devices";
 import { GroupedCommandFields } from "./GroupedCommandFields";
 import { GroupedCommandReview } from "./GroupedCommandReview";
 import { useGroupedCommand } from "./useGroupedCommand";
@@ -55,43 +54,37 @@ export default function NewCommandPage() {
   if (loading || isLoading)
     return <Skeleton className="h-96 w-full rounded-lg" />;
 
+  const scopeSelect = (
+    <Field className="max-w-sm">
+      <FieldLabel htmlFor="command-scope">
+        {t("commands.grouped.scope")}
+      </FieldLabel>
+      <Select
+        value={command.scope}
+        onValueChange={command.chooseScope}
+        disabled={command.locked}
+      >
+        <SelectTrigger id="command-scope">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">{t("commands.new.allAssets")}</SelectItem>
+          {assetsList.map((asset) => (
+            <SelectItem key={asset.id} value={asset.id}>
+              {asset.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </Field>
+  );
+
   return (
     <section className="space-y-6">
       <ResourceHeader title={t("commands.new.title")} />
       <p className="text-sm text-muted-foreground">
         {t("commands.grouped.subtitle")}
       </p>
-      <fieldset disabled={!!actions.snapshot} className="min-w-0">
-        <div className="flex flex-wrap items-center gap-4 rounded-lg border bg-muted/20 p-4">
-          <Field className="max-w-sm">
-            <FieldLabel htmlFor="command-scope">
-              {t("commands.grouped.scope")}
-            </FieldLabel>
-            <Select
-              value={command.scope}
-              onValueChange={command.chooseScope}
-              disabled={command.locked}
-            >
-              <SelectTrigger id="command-scope">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">
-                  {t("commands.new.allAssets")}
-                </SelectItem>
-                {assetsList.map((asset) => (
-                  <SelectItem key={asset.id} value={asset.id}>
-                    {asset.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-          <p className="text-xs text-muted-foreground">
-            {t("commands.grouped.scopeHint")}
-          </p>
-        </div>
-      </fieldset>
       {!command.scopeExists && (
         <p role="alert" className="text-destructive">
           {t("commands.grouped.scopeMissing")}
@@ -108,17 +101,6 @@ export default function NewCommandPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-3">
                 <SectionNumber number={1} />
-                {t("commands.grouped.what")}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <GroupedCommandFields command={command} />
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-3">
-                <SectionNumber number={2} />
                 {t("commands.grouped.who")}
               </CardTitle>
             </CardHeader>
@@ -137,11 +119,8 @@ export default function NewCommandPage() {
                   {t("commands.grouped.locked")}
                 </p>
               )}
-              {!command.attribute ? (
-                <p className="text-sm text-muted-foreground">
-                  {t("commands.grouped.pickAttribute")}
-                </p>
-              ) : command.locked ? (
+              {command.locked && scopeSelect}
+              {command.locked ? (
                 <ul className="max-h-80 overflow-auto divide-y rounded-lg border">
                   {command.selected.map((device) => (
                     <li
@@ -154,59 +133,46 @@ export default function NewCommandPage() {
                 </ul>
               ) : (
                 <DevicesFilterTabs
-                  devices={command.eligible}
+                  devices={command.scopeDevices}
                   mode={command.mode}
                   onModeChange={command.chooseMode}
                   deviceIds={command.selected.map((device) => device.id)}
                   onDeviceIdsChange={command.chooseIds}
                   typesFilter={command.types}
                   onTypesFilterChange={command.chooseTypes}
-                  extraDeviceFilter={() => true}
+                  extraFilters={scopeSelect}
+                  extraDeviceFilter={
+                    command.scope !== "all" ? command.matchesScope : undefined
+                  }
                   onFilterDeviceIdsChange={command.chooseIds}
                 />
               )}
-              {command.attribute && (
-                <p className="text-xs text-muted-foreground">
-                  {t(
-                    command.mode === "filters"
-                      ? "commands.grouped.live"
-                      : "commands.grouped.frozen",
-                  )}
-                </p>
-              )}
-              {command.excluded.length > 0 && (
-                <details className="rounded-lg border p-4">
-                  <summary className="cursor-pointer text-sm font-medium">
-                    {t("commands.grouped.excluded", {
-                      count: command.excluded.length,
-                    })}
-                  </summary>
-                  <ul className="mt-3 space-y-2">
-                    {command.excluded.map((device) => (
-                      <li
-                        key={device.id}
-                        className="flex justify-between gap-3 text-sm"
-                      >
-                        <span>{device.name || device.id}</span>
-                        <span className="text-muted-foreground">
-                          {t(
-                            deviceAttributes(device)[command.attribute]
-                              ? "commands.grouped.readOnly"
-                              : "commands.grouped.absent",
-                          )}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </details>
-              )}
+              <p className="text-xs text-muted-foreground">
+                {t(
+                  command.mode === "filters"
+                    ? "commands.grouped.live"
+                    : "commands.grouped.frozen",
+                )}
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-3">
+                <SectionNumber number={2} />
+                {t("commands.grouped.what")}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <GroupedCommandFields command={command} />
             </CardContent>
           </Card>
         </fieldset>
         <GroupedCommandReview
           preview={command.preview}
           canSubmit={command.canSubmit}
-          eligibleCount={command.eligible.length}
+          selectedCount={command.selected.length}
+          excluded={command.excluded}
           actions={actions}
         />
       </div>

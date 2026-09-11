@@ -31,20 +31,23 @@ import type { useGroupedCommandActions } from "./useGroupedCommandActions";
 type Props = {
   preview: CommandPreview;
   canSubmit: boolean;
-  eligibleCount: number;
+  selectedCount: number;
+  excluded: Device[];
   actions: ReturnType<typeof useGroupedCommandActions>;
 };
 
 export function GroupedCommandReview({
   preview,
   canSubmit,
-  eligibleCount,
+  selectedCount,
+  excluded,
   actions,
 }: Props) {
   const { t } = useTranslation(["devices", "common"]);
   const snapshot = actions.snapshot;
   const shown = snapshot ?? preview;
   const tracking = !!snapshot;
+  const awaitingAttribute = !tracking && !shown.write.attribute;
   return (
     <Card className="lg:sticky lg:top-6">
       <CardHeader>
@@ -58,17 +61,24 @@ export function GroupedCommandReview({
       </CardHeader>
       <CardContent className="space-y-5">
         <Badge variant="secondary">
-          {t("commands.new.selectionCount", {
-            count: shown.devices.length,
-            total: tracking ? shown.devices.length : eligibleCount,
-          })}
+          {t(
+            tracking || awaitingAttribute
+              ? "commands.new.selectionCount"
+              : "commands.grouped.affectedCount",
+            {
+              count: awaitingAttribute ? selectedCount : shown.devices.length,
+              total: tracking ? shown.devices.length : selectedCount,
+            },
+          )}
         </Badge>
         <p className="text-sm">
-          {t("commands.grouped.setting", {
-            attribute: shown.label || "—",
-            value: shown.write.value === "" ? "—" : shown.write.value,
-            unit: shown.unit ?? "",
-          })}
+          {!shown.write.attribute
+            ? t("commands.grouped.pickAttribute")
+            : t("commands.grouped.setting", {
+                attribute: shown.label || "—",
+                value: shown.write.value === "" ? "—" : shown.write.value,
+                unit: shown.unit ?? "",
+              })}
         </p>
         {snapshot?.error && (
           <p role="alert" className="text-sm text-destructive">
@@ -83,66 +93,89 @@ export function GroupedCommandReview({
             {t("commands.grouped.trackingError")}
           </p>
         )}
-        <div
-          className="max-h-[min(28rem,45vh)] overflow-y-auto rounded-lg border"
-          aria-live={tracking ? "polite" : "off"}
-        >
-          <ul className="divide-y">
-            {shown.devices.map((device) => {
-              const command = actions.commandsByDevice.get(device.id);
-              const missing =
-                tracking &&
-                !actions.isDispatching &&
-                !command &&
-                (snapshot?.empty || !!snapshot?.result);
-              return (
-                <li key={device.id} className="p-4 space-y-2">
-                  <p className="text-sm font-medium">
-                    {device.name || device.id}
-                  </p>
-                  {tracking ? (
-                    <>
-                      {missing ? (
-                        <p className="text-sm text-destructive">
-                          {t("commands.grouped.vanished")}
-                        </p>
-                      ) : command ? (
-                        <CommandStatusLabel status={command.status} />
-                      ) : (
-                        <p className="text-sm text-muted-foreground">
-                          {t(
-                            actions.isDispatching
-                              ? "commands.new.dispatching"
-                              : "commands.grouped.notDispatched",
-                          )}
-                        </p>
-                      )}
-                      {command?.status === "error" &&
-                        command.status_details && (
-                          <p className="text-xs text-destructive">
-                            {command.status_details}
+        {!awaitingAttribute && (
+          <div
+            className="max-h-[min(28rem,45vh)] overflow-y-auto rounded-lg border"
+            aria-live={tracking ? "polite" : "off"}
+          >
+            <ul className="divide-y">
+              {shown.devices.map((device) => {
+                const command = actions.commandsByDevice.get(device.id);
+                const missing =
+                  tracking &&
+                  !actions.isDispatching &&
+                  !command &&
+                  (snapshot?.empty || !!snapshot?.result);
+                return (
+                  <li key={device.id} className="p-4 space-y-2">
+                    <p className="text-sm font-medium">
+                      {device.name || device.id}
+                    </p>
+                    {tracking ? (
+                      <>
+                        {missing ? (
+                          <p className="text-sm text-destructive">
+                            {t("commands.grouped.vanished")}
+                          </p>
+                        ) : command ? (
+                          <CommandStatusLabel status={command.status} />
+                        ) : (
+                          <p className="text-sm text-muted-foreground">
+                            {t(
+                              actions.isDispatching
+                                ? "commands.new.dispatching"
+                                : "commands.grouped.notDispatched",
+                            )}
                           </p>
                         )}
-                    </>
-                  ) : (
-                    <PreviewLine device={device} preview={shown} />
-                  )}
+                        {command?.status === "error" &&
+                          command.status_details && (
+                            <p className="text-xs text-destructive">
+                              {command.status_details}
+                            </p>
+                          )}
+                      </>
+                    ) : (
+                      <PreviewLine device={device} preview={shown} />
+                    )}
+                  </li>
+                );
+              })}
+              {actions.addedCommands.map((command) => (
+                <li key={command.id} className="p-4 space-y-2">
+                  <p className="text-sm font-medium">{command.device_id}</p>
+                  <CommandStatusLabel status={command.status} />
                 </li>
-              );
-            })}
-            {actions.addedCommands.map((command) => (
-              <li key={command.id} className="p-4 space-y-2">
-                <p className="text-sm font-medium">{command.device_id}</p>
-                <CommandStatusLabel status={command.status} />
-              </li>
-            ))}
-          </ul>
-          {shown.devices.length === 0 && (
-            <p className="p-6 text-sm text-muted-foreground">
-              {t("commands.new.noDevicesResolved")}
+              ))}
+            </ul>
+            {shown.devices.length === 0 && (
+              <p className="p-6 text-sm text-muted-foreground">
+                {t("commands.new.noDevicesResolved")}
+              </p>
+            )}
+          </div>
+        )}
+        {!tracking && excluded.length > 0 && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            <p className="font-medium">
+              {t("commands.grouped.excluded", { count: excluded.length })}
             </p>
-          )}
-        </div>
+            <ul className="mt-2 space-y-2">
+              {excluded.map((device) => (
+                <li key={device.id} className="flex justify-between gap-3">
+                  <span>{device.name || device.id}</span>
+                  <span>
+                    {t(
+                      deviceAttributes(device)[preview.write.attribute]
+                        ? "commands.grouped.readOnly"
+                        : "commands.grouped.absent",
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         {tracking ? (
           <div className="space-y-3">
             {snapshot.result && (
