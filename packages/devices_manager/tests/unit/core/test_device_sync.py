@@ -15,6 +15,7 @@ from devices_manager.core.device import (
     DeviceBase,
 )
 from devices_manager.core.device.connection_status import CONNECTION_STATUS_ATTR
+from devices_manager.core.device.sweep_schedule import SweepSchedule
 from devices_manager.core.driver import (
     AttributeDriver,
     Driver,
@@ -23,7 +24,13 @@ from devices_manager.core.driver import (
 )
 from devices_manager.types import ConnectionStatus, DataType, TransportProtocols
 
+from .fixtures.fake_time import fake_time
+
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
+    from devices_manager.core.transports import ReadResult
+
     from ..conftest import RecordedMetrics
 
 # An HTTP thermostat that answers every attribute from one endpoint. Dedup
@@ -198,9 +205,85 @@ class TestCoreDeviceSync:
         mock_transport_client,
     ):
         mock_transport_client.read = AsyncMock(return_value="25.5")
-        await device.start_sync()
+        await device.start_sync(sweep_now=True)
         await asyncio.sleep(0.1)
         await device.stop_sync()
+        assert mock_transport_client.read.called
+
+
+def record_read_times(transport) -> dict[str, list[float]]:
+    """Replace the transport's read with one logging each address's read times."""
+    times: dict[str, list[float]] = {}
+
+    async def recording_read(address, sweep_id: str | None = None) -> str:  # noqa: ARG001
+        times.setdefault(address.id, []).append(asyncio.get_running_loop().time())
+        return "20.0"
+
+    transport.read = recording_read
+    return times
+
+
+@pytest.mark.asyncio
+@fake_time
+class TestCoreDeviceSweepTiming:
+    async def test_start_sync_waits_for_each_group_slot(
+        self, grouped_device: CoreDevice, mock_transport_client
+    ):
+        reads = record_read_times(mock_transport_client)
+        core = SweepSchedule.for_group("gd", "core", 5)
+        default = SweepSchedule.for_group("gd", None, 30)
+
+        await grouped_device.start_sync()
+        await asyncio.sleep(60)
+        await grouped_device.stop_sync()
+
+        assert reads["GET /temperature"][:2] == pytest.approx(
+            [core.phase, core.phase + 5]
+        )
+        assert reads["GET /humidity"] == pytest.approx(
+            [default.phase, default.phase + 30]
+        )
+        assert "GET /install_date" not in reads  # its hourly slot comes later
+
+    async def test_sweep_now_reads_every_group_immediately(
+        self, grouped_device: CoreDevice, mock_transport_client
+    ):
+        reads = record_read_times(mock_transport_client)
+
+        await grouped_device.start_sync(sweep_now=True)
+        await asyncio.sleep(0.001)
+        await grouped_device.stop_sync()
+
+        assert reads == {
+            "GET /temperature": [0],
+            "GET /install_date": [0],
+            "GET /humidity": [0],
+        }
+
+    async def test_a_failing_sweep_does_not_stop_polling(
+        self, device: CoreDevice, driver: Driver, mock_transport_client, caplog
+    ):
+        mock_transport_client.read = AsyncMock(return_value="25.5")
+        real_read_many = mock_transport_client.read_many
+        sweeps = 0
+
+        def read_many_failing_once(
+            addresses, sweep_id: str | None = None
+        ) -> AsyncIterator[ReadResult]:
+            nonlocal sweeps
+            sweeps += 1
+            if sweeps == 1:
+                msg = "transport bug"
+                raise RuntimeError(msg)
+            return real_read_many(addresses, sweep_id)
+
+        mock_transport_client.read_many = read_many_failing_once
+
+        await device.start_sync(sweep_now=True)
+        await asyncio.sleep(driver.update_strategy.polling_interval)
+        await device.stop_sync()
+
+        assert "polling sweep failed" in caplog.text
         assert mock_transport_client.read.called
 
 

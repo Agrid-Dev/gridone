@@ -243,7 +243,7 @@ async def test_concurrent_installs_keep_sync_handoff_in_revision_order(
         if _presentation_title(device) in active_sync:
             active_sync.remove(_presentation_title(device))
 
-    async def start(device: CoreDevice) -> None:
+    async def start(device: CoreDevice, *, sweep_now: bool) -> None:  # noqa: ARG001
         active_sync.append(_presentation_title(device))
 
     storage.presentation_resources.installation = installation
@@ -390,4 +390,4 @@ async def test_contract_change_rebuilds_and_restarts_runtime(
     await asyncio.sleep(0)
     assert service._device_registry.get("device") is not device
     stop.assert_awaited_once()
-    start.assert_awaited_once()
+    start.assert_awaited_once_with(sweep_now=False)  # a fleet restart keeps slots
