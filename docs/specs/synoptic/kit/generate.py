@@ -11,10 +11,12 @@ geometry follows ``docs/specs/synoptic-visual-language.md``.
 
 import colorsys
 import itertools
+import json
 import math
 import re
 from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
+from typing import Any
 
 OUT = Path(__file__).resolve().parent
 ROOT = next(p for p in OUT.parents if (p / ".git").exists())
@@ -32,11 +34,18 @@ AXIS = 0.4
 # all sit 25 apart in the dark theme; 18 is what the palette reaches there.
 STATUS_DELTA_E = 25
 FLUID_DELTA_E = 18
+# Faces: lightness points between the plate and the top face and
+# between adjacent faces, and CIE76 between the detail stroke and any face.
+FACE_STEP = 4
+DETAIL_DELTA_E = 25
+FACES = ["synoptic-plate", "synoptic-body", "synoptic-body-x", "synoptic-body-y"]
 
 TOKENS = [
     "synoptic-plate",
     "synoptic-grid",
     "synoptic-body",
+    "synoptic-body-x",
+    "synoptic-body-y",
     "synoptic-stroke",
     "foreground",
     "muted-foreground",
@@ -110,6 +119,26 @@ def delta_e(a: str, b: str) -> float:
     return math.dist(hsl_to_lab(a), hsl_to_lab(b))
 
 
+def lightness(triplet: str) -> float:
+    return float(triplet.split()[2].rstrip("%"))
+
+
+def check_faces(values: Palette, theme: str) -> None:
+    """Refuse faces that do not step apart, or that the detail stroke sinks into."""
+    failures = []
+    for a, b in itertools.pairwise(FACES):
+        step = abs(lightness(values[a]) - lightness(values[b]))
+        if step < FACE_STEP:
+            failures.append(f"{a} vs {b}: {step:.0f} points < {FACE_STEP}")
+    for face in FACES[1:]:
+        d = delta_e(values["muted-foreground"], values[face])
+        if d < DETAIL_DELTA_E:
+            failures.append(f"muted-foreground vs {face}: {d:.1f} < {DETAIL_DELTA_E}")
+    if failures:
+        msg = f"{theme} faces too close:\n  " + "\n  ".join(failures)
+        raise ValueError(msg)
+
+
 def check_palette(values: Palette, theme: str) -> None:
     """Refuse a palette where a fluid could be mistaken for a status or for another fluid."""
     failures = []
@@ -131,7 +160,7 @@ def check_palette(values: Palette, theme: str) -> None:
 
 # Rules are grouped so shared declarations are written once; only the classes a
 # sheet uses are emitted. Weights: pipe 3, symbol outline 2, detail 1.25,
-# leader 1. The plate fill on faces occludes what sits behind a symbol.
+# leader 1. The body fill on faces occludes what sits behind a symbol.
 RULES: list[tuple[tuple[str, ...], str]] = [
     (("plate",), "fill:hsl(var(--synoptic-plate))"),
     (("grid",), "stroke:hsl(var(--synoptic-grid));stroke-width:1;fill:none"),
@@ -140,9 +169,12 @@ RULES: list[tuple[tuple[str, ...], str]] = [
         "stroke:hsl(var(--synoptic-stroke));stroke-linejoin:round;stroke-linecap:round",
     ),
     (("face", "outline"), "stroke-width:2"),
-    (("face",), "fill:hsl(var(--synoptic-plate))"),
+    (("face",), "fill:hsl(var(--synoptic-body))"),
+    (("side",), "stroke:none"),
+    (("side-x",), "fill:hsl(var(--synoptic-body-x))"),
+    (("side-y",), "fill:hsl(var(--synoptic-body-y))"),
     (("outline", "detail"), "fill:none"),
-    (("detail",), "stroke-width:1.25"),
+    (("detail",), "stroke:hsl(var(--muted-foreground));stroke-width:1.25"),
     (("duct",), "fill:hsl(var(--synoptic-body));stroke-width:1.5"),
     (("fill",), "fill:hsl(var(--synoptic-stroke))"),
     (
@@ -174,9 +206,9 @@ RULES: list[tuple[tuple[str, ...], str]] = [
         "font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase",
     ),
     (("note",), "font-size:11px;font-weight:400"),
-    (("tag",), "font-size:9px;font-weight:600;letter-spacing:.06em"),
+    (("tag",), "font-size:11px;font-weight:600;letter-spacing:.06em"),
     (("val",), "font-size:12px;font-weight:600"),
-    (("unit",), "font-size:10px;font-weight:500"),
+    (("unit",), "font-size:11px;font-weight:500"),
     (("sym",), "font-size:11px;font-weight:600"),
     (("h",), "font-size:12px;font-weight:600"),
     (
@@ -197,9 +229,10 @@ def style(body: str, light: Palette, dark: Palette) -> str:
 
     rules = []
     for classes, decl in RULES:
-        kept = [c for c in classes if c in used]
+        kept = [c for c in classes if all(part in used for part in c.split())]
         if kept:
-            rules.append(",".join(f".{c}" for c in kept) + "{" + decl + "}")
+            selectors = ",".join("." + c.replace(" ", " .") for c in kept)
+            rules.append(selectors + "{" + decl + "}")
     css = "\n".join(rules)
     return (
         "<style>\n"
@@ -321,11 +354,15 @@ def rot(points: Iterable[Pt], c: Pt, d: Pt) -> list[Pt]:
     ]
 
 
-def valve_glyph(p: Plane, c: Pt, d: Pt = (1, 0), *, tee: bool = False) -> str:
-    """ISA bowtie across the run. The third port of a mixing valve is on +y."""
+def valve_glyph(
+    p: Plane, c: Pt, d: Pt = (1, 0), *, tee: bool = False, closed: bool = False
+) -> str:
+    """ISA bowtie across the run, solid when closed. The third port of a
+    mixing valve is on +y."""
     r = 0.26
     out = p.poly(
-        rot([(-r, -r * 0.7), (-r, r * 0.7), (r, -r * 0.7), (r, r * 0.7)], c, d)
+        rot([(-r, -r * 0.7), (-r, r * 0.7), (r, -r * 0.7), (r, r * 0.7)], c, d),
+        "outline fill" if closed else "outline",
     )
     if tee:
         out += p.poly(rot([(0, 0), (-r * 0.7, r), (r * 0.7, r)], c, d))
@@ -436,16 +473,52 @@ def visible_arc(points: list[Pt], z: float) -> list[int]:
     return fwd if sum(proj[i][1] for i in fwd) / len(fwd) >= centre_y else walk(-1)
 
 
-def extrude(outline: list[Pt], z0: float, z1: float) -> str:
-    """A plan outline given height: the visible side as one plate-filled face,
-    then the top face. Hidden edges are not drawn."""
+def silhouette(outline: list[Pt], z0: float, z1: float) -> list[Pt]:
+    """Outer boundary of an extruded outline on screen: the visible arc at the
+    base, then the hidden arc at the top, so a fault outline wraps the whole
+    body and not only its lid."""
     idx = visible_arc(outline, z1)
-    side = [project(*outline[i], z0) for i in idx] + [
+    n = len(outline)
+    step = 1 if len(idx) < 2 or (idx[1] - idx[0]) % n == 1 else -1
+    hidden = [(idx[-1] + k * step) % n for k in range(1, n - len(idx) + 1)]
+    return [project(*outline[i], z0) for i in idx] + [
+        project(*outline[i], z1) for i in [idx[-1], *hidden, idx[0]]
+    ]
+
+
+def extrude(outline: list[Pt], z0: float, z1: float) -> str:
+    """A plan outline given height: the visible side split into the faces that
+    look along ``x`` and along ``y`` (``side-x`` / ``side-y``) so the kit
+    can tone them apart, then the side band outline and the top face. Hidden
+    edges are not drawn."""
+    idx = visible_arc(outline, z1)
+    n = len(outline)
+    cx = sum(p[0] for p in outline) / n
+    cy = sum(p[1] for p in outline) / n
+
+    def facing(a: int, b: int) -> str:
+        (ax, ay), (bx, by) = outline[a], outline[b]
+        mx, my = (ax + bx) / 2 - cx, (ay + by) / 2 - cy
+        return "side side-x" if abs(mx) >= abs(my) else "side side-y"
+
+    out = ""
+    runs: list[tuple[str, list[int]]] = []
+    for a, b in itertools.pairwise(idx):
+        cls = facing(a, b)
+        if runs and runs[-1][0] == cls:
+            runs[-1][1].append(b)
+        else:
+            runs.append((cls, [a, b]))
+    for cls, pts in runs:
+        face = [project(*outline[i], z0) for i in pts] + [
+            project(*outline[i], z1) for i in reversed(pts)
+        ]
+        out += spath(face, cls, close=True)
+    band = [project(*outline[i], z0) for i in idx] + [
         project(*outline[i], z1) for i in reversed(idx)
     ]
-    return spath(side, "face", close=True) + spath(
-        [project(*q, z1) for q in outline], "face", close=True
-    )
+    out += spath(band, "outline", close=True)
+    return out + spath([project(*q, z1) for q in outline], "face", close=True)
 
 
 def square(x: float, y: float, w: float, d: float) -> list[Pt]:
@@ -480,7 +553,8 @@ class Symbol:
     def __init__(
         self,
         title: str,
-        sub: str,
+        type_: str,
+        note: str,
         footprint: tuple[int, int],
         plan: Callable[[Plane, Pt], str],
         *,
@@ -492,18 +566,32 @@ class Symbol:
         label: str | None = None,
         label_on_face: bool = False,
     ) -> None:
-        self.title, self.sub, self.footprint, self.plan = title, sub, footprint, plan
+        self.title, self.type, self.note = title, type_, note
+        self.footprint, self.plan = footprint, plan
         self.ports, self.inline, self.base, self.height = ports, inline, base, height
         self.outline, self.label, self.label_on_face = outline, label, label_on_face
+
+    @property
+    def sub(self) -> str:
+        return f"{self.type} · {self.note}"
 
     @property
     def centre(self) -> Pt:
         return (self.footprint[0] / 2, self.footprint[1] / 2)
 
+    def label_anchor(self) -> Pt:
+        """Baseline centre of the label above the symbol, origin at (0, 0)."""
+        lx, ly = project(*self.centre, self.base + self.height)
+        return (lx, ly - 26 - (14 if self.height else 0))
+
     def draw_flat(self) -> str:
         return self.plan(Plane(flat), self.centre)
 
-    def draw_iso(self) -> str:
+    def draw_iso(self, origin: Pt = (0, 0), label: str | None = None) -> str:
+        """The symbol with its origin cell at ``origin``; the projection is
+        linear, so the offset is a screen translation. ``label`` replaces the
+        sheet label for a placed instance."""
+        label = label or self.label
         top = self.base + self.height
         out = ""
         if self.height and self.outline:
@@ -517,19 +605,19 @@ class Symbol:
                 "face",
             )
         out += self.plan(iso_plane(top), self.centre)
-        if self.label:
+        if label:
             lx, ly = project(*self.centre, top)
             if self.label_on_face:
-                out += text(lx + 8, ly + 4, self.label, "sym t", "middle")
-            else:
+                lines = label.replace(" ", "\n")
                 out += text(
-                    lx,
-                    ly - 26 - (14 if self.height else 0),
-                    self.label,
-                    "sym t",
-                    "middle",
+                    lx + 8, ly + 4 - 6 * lines.count("\n"), lines, "sym t", "middle"
                 )
-        return out
+            else:
+                out += text(*self.label_anchor(), label, "sym t", "middle")
+        if origin == (0, 0):
+            return out
+        dx, dy = project(*origin)
+        return f'<g transform="translate({dx:.1f} {dy:.1f})">{out}</g>'
 
 
 def heat_pump_plan(p: Plane, c: Pt) -> str:
@@ -563,7 +651,8 @@ def meter_plan(p: Plane, c: Pt) -> str:
 SYMBOLS: list[Symbol] = [
     Symbol(
         "Pompe à chaleur",
-        "heat_pump · 2×2",
+        "heat_pump",
+        "2×2",
         (2, 2),
         heat_pump_plan,
         ports=[(1, 1, "+x", "supply"), (0, 1, "-x", "return")],
@@ -572,7 +661,8 @@ SYMBOLS: list[Symbol] = [
     ),
     Symbol(
         "Ballon",
-        "tank · 1×2",
+        "tank",
+        "1×2",
         (1, 2),
         tank_plan,
         ports=[
@@ -586,7 +676,8 @@ SYMBOLS: list[Symbol] = [
     ),
     Symbol(
         "Nourrice",
-        "collector · no footprint, length and ports authored",
+        "collector",
+        "no footprint, length and ports authored",
         (4, 1),
         collector_plan,
         ports=[
@@ -598,7 +689,8 @@ SYMBOLS: list[Symbol] = [
     ),
     Symbol(
         "Vanne 3 voies",
-        "mixing_valve · 1×1",
+        "mixing_valve",
+        "1×1",
         (1, 1),
         lambda p, c: valve_glyph(p, c, tee=True),
         ports=[(0, 0, "-x", "hot_in"), (0, 0, "+y", "cold_in"), (0, 0, "+x", "out")],
@@ -607,7 +699,8 @@ SYMBOLS: list[Symbol] = [
     ),
     Symbol(
         "Pompe simple",
-        "pump · inline",
+        "pump",
+        "inline",
         (1, 1),
         pump_glyph,
         inline="fluid-primary-supply",
@@ -615,7 +708,8 @@ SYMBOLS: list[Symbol] = [
     ),
     Symbol(
         "Vanne d'isolement",
-        "valve_isolation · inline",
+        "valve_isolation",
+        "inline",
         (1, 1),
         valve_glyph,
         inline="fluid-primary-supply",
@@ -623,7 +717,8 @@ SYMBOLS: list[Symbol] = [
     ),
     Symbol(
         "Clapet",
-        "valve_check · inline",
+        "valve_check",
+        "inline",
         (1, 1),
         lambda p, c: valve_glyph(p, c) + p.dot((c[0] + 0.1, c[1]), 0.07),
         inline="fluid-primary-supply",
@@ -631,7 +726,8 @@ SYMBOLS: list[Symbol] = [
     ),
     Symbol(
         "Renvoi de folio",
-        "link · 1×2",
+        "link",
+        "1×2",
         (1, 2),
         link_glyph,
         ports=[(0, 0, "-x", "in"), (0, 1, "-x", "out")],
@@ -641,7 +737,8 @@ SYMBOLS: list[Symbol] = [
     ),
     Symbol(
         "Échangeur à plaques",
-        "not registered · 1×1 proposed",
+        "plate_exchanger",
+        "1×1 proposed, not registered",
         (1, 1),
         exchanger_plan,
         ports=[
@@ -655,7 +752,8 @@ SYMBOLS: list[Symbol] = [
     ),
     Symbol(
         "Séparateur d'air",
-        "not registered · inline proposed",
+        "air_separator",
+        "inline proposed, not registered",
         (1, 1),
         air_separator_glyph,
         inline="fluid-heating-supply",
@@ -663,7 +761,8 @@ SYMBOLS: list[Symbol] = [
     ),
     Symbol(
         "Vase d'expansion",
-        "not registered · 1×1 proposed",
+        "expansion_vessel",
+        "1×1 proposed, not registered",
         (1, 1),
         expansion_vessel_glyph,
         ports=[(0, 0, "-x", "in")],
@@ -672,7 +771,8 @@ SYMBOLS: list[Symbol] = [
     ),
     Symbol(
         "Pot à boue",
-        "not registered · inline proposed",
+        "dirt_separator",
+        "inline proposed, not registered",
         (1, 1),
         dirt_separator_glyph,
         inline="fluid-heating-return",
@@ -680,7 +780,8 @@ SYMBOLS: list[Symbol] = [
     ),
     Symbol(
         "Pompe double",
-        "not registered · inline proposed",
+        "pump_double",
+        "inline proposed, not registered",
         (1, 1),
         pump_double_plan,
         inline="fluid-heating-supply",
@@ -688,7 +789,8 @@ SYMBOLS: list[Symbol] = [
     ),
     Symbol(
         "Compteur d'énergie",
-        "not registered · inline proposed",
+        "energy_meter",
+        "inline proposed, not registered",
         (1, 1),
         meter_plan,
         inline="fluid-heating-supply",
@@ -773,15 +875,19 @@ def flat_symbol_drawing(sym: Symbol) -> str:
     return g + "</g>"
 
 
+def chip_width(value: str, unit: str) -> float:
+    return max(44, 7.2 * len(value) + 7.0 * len(unit) + 18)
+
+
 def chip(
     cx: float, cy: float, label: str, value: str, unit: str = "", state: str = "ok"
 ) -> str:
     """Value chip, 22 px tall: value and unit inside, label above."""
-    w = max(44, 7.2 * len(value) + 6.5 * len(unit) + 18)
+    w = chip_width(value, unit)
     cls = {"ok": "chip", "stale": "chip-stale", "fault": "chip-fault"}[state]
     tcls = "tm" if state == "stale" else "t"
     out = f'<rect class="{cls}" x="{cx - w / 2:.1f}" y="{cy - 11:.1f}" width="{w:.1f}" height="22" rx="4"/>'
-    vx = cx - (6.5 * len(unit) + 3) / 2 if unit else cx
+    vx = cx - (7.0 * len(unit) + 3) / 2 if unit else cx
     out += text(vx, cy + 4, value, f"val {tcls}", "middle")
     if unit:
         out += text(vx + 7.2 * len(value) / 2 + 3, cy + 4, unit, f"unit {tcls}")
@@ -799,8 +905,21 @@ def tag_iso(
     state: str = "ok",
     side: str = "above",
 ) -> str:
+    at = project(cell[0] + 0.5, cell[1] + 0.5, cell[2] + AXIS)
+    return tag(at, fluid, label, value, unit, state, side)
+
+
+def tag(
+    at: Pt,
+    fluid: str,
+    label: str,
+    value: str,
+    unit: str = "",
+    state: str = "ok",
+    side: str = "above",
+) -> str:
     """A tag riding on a run: leader from the chip to the pipe, dot on the pipe."""
-    px, py = project(cell[0] + 0.5, cell[1] + 0.5, cell[2] + AXIS)
+    px, py = at
     above = side == "above"
     cy = py - 44 if above else py + 44
     end = cy + 11 if above else cy - 15
@@ -816,36 +935,47 @@ def tag_iso(
 
 
 Row = tuple[str, str, str, str]
+PANEL_W = 164
+ON_STATES = {"MARCHE", "OUVERTE"}
+
+
+def led(x: float, y: float, *, on: bool, faulty: bool) -> str:
+    """Run-state LED: error when the device is faulty, ok when on, muted when off."""
+    colour = "status-error" if faulty else "status-ok" if on else "muted-foreground"
+    return (
+        f'<circle style="fill:hsl(var(--{colour}))" cx="{x:.1f}" cy="{y:.1f}" r="4"/>'
+    )
+
+
+def panel_height(rows: int) -> int:
+    return 30 + 20 * rows + 8
 
 
 def panel(
     x: float,
     y: float,
     title: str,
-    state: str,
-    fault: str,
     rows: list[Row],
     *,
+    on: bool = True,
     faulty: bool = False,
 ) -> str:
-    """Equipment panel: ÉTAT / DÉFAUT header with LED, then one row per bound slot."""
-    w, rh = 164, 20
-    h = 46 + rh * len(rows) + 8
+    """Equipment panel: title and LED, a rule, then one row per bound slot
+    (ÉTAT and DÉFAUT are rows like the others; a fault value is in the error
+    colour)."""
+    w, rh = PANEL_W, 20
+    h = panel_height(len(rows))
     out = f'<rect class="{"chip-fault" if faulty else "chip"}" x="{x}" y="{y}" width="{w}" height="{h}" rx="4"/>'
     out += text(x + 10, y + 16, title, "sym t")
-    led = "status-error" if faulty else "status-ok"
-    out += f'<circle style="fill:hsl(var(--{led}))" cx="{x + w - 12}" cy="{y + 11}" r="4"/>'
-    out += text(x + 10, y + 32, "ÉTAT", "tag tm") + text(x + 38, y + 32, state, "tag t")
-    out += text(x + 86, y + 32, "DÉFAUT", "tag tm") + text(
-        x + 128, y + 32, fault, "tag te" if faulty else "tag t"
-    )
-    out += f'<line class="leader" x1="{x + 8}" y1="{y + 40}" x2="{x + w - 8}" y2="{y + 40}"/>'
+    out += led(x + w - 12, y + 11, on=on, faulty=faulty)
+    out += f'<line class="leader" x1="{x + 8}" y1="{y + 24}" x2="{x + w - 8}" y2="{y + 24}"/>'
     for i, (label, value, unit, row_state) in enumerate(rows):
-        yy = y + 46 + rh * i + 13
+        yy = y + 30 + rh * i + 13
         stale = row_state == "stale"
         out += text(x + 10, yy, label, "tag tm")
-        vx = x + w - 10 - 6.5 * len(unit) - 4
-        out += text(vx, yy, value, "val tm" if stale else "val t", "end")
+        vx = x + w - 10 - 7.0 * len(unit) - 4 if unit else x + w - 10
+        vcls = {"stale": "val tm", "fault": "val te"}.get(row_state, "val t")
+        out += text(vx, yy, value, vcls, "end")
         out += text(x + w - 10, yy, unit, "unit tm", "end")
         if stale:
             out += f'<circle class="tm" cx="{vx - 7.2 * len(value) - 8}" cy="{yy - 4}" r="2.5"/>'
@@ -867,7 +997,7 @@ def card(ox: float, oy: float, w: float, h: float, sym: Symbol, draw: str) -> st
 
 
 def isometric_sheet(palettes: tuple[Palette, Palette]) -> str:
-    width, height = 1040, 2010
+    width, height = 1040, 2034
     out = [text(24, 36, "Synoptic kit · isometric hydronic set", "title t")]
     out.append(
         text(
@@ -890,35 +1020,45 @@ def isometric_sheet(palettes: tuple[Palette, Palette]) -> str:
             ox,
             oy + 20,
             "PAC 03",
-            "MARCHE",
-            "NORMAL",
-            [("DÉPART", "52,4", "°C", "ok"), ("PUISSANCE", "38,2", "kW", "ok")],
+            [
+                ("ÉTAT", "MARCHE", "", "ok"),
+                ("DÉFAUT", "NORMAL", "", "ok"),
+                ("DÉPART", "52,4", "°C", "ok"),
+                ("PUISSANCE", "38,2", "kW", "ok"),
+            ],
         )
     )
-    out.append(text(ox, oy + 132, "panel · live", "note tm"))
+    out.append(text(ox, oy + 156, "panel · live", "note tm"))
     out.append(
         panel(
             ox + 180,
             oy + 20,
             "PAC 04",
-            "MARCHE",
-            "NORMAL",
-            [("DÉPART", "51,9", "°C", "stale"), ("PUISSANCE", "36,0", "kW", "ok")],
+            [
+                ("ÉTAT", "MARCHE", "", "ok"),
+                ("DÉFAUT", "NORMAL", "", "ok"),
+                ("DÉPART", "51,9", "°C", "stale"),
+                ("PUISSANCE", "36,0", "kW", "ok"),
+            ],
         )
     )
-    out.append(text(ox + 180, oy + 132, "panel · one row stale", "note tm"))
+    out.append(text(ox + 180, oy + 156, "panel · one row stale", "note tm"))
     out.append(
         panel(
             ox + 360,
             oy + 20,
             "PAC 03",
-            "ARRÊT",
-            "DÉFAUT",
-            [("DÉPART", "31,0", "°C", "ok"), ("PUISSANCE", "0,0", "kW", "ok")],
+            [
+                ("ÉTAT", "ARRÊT", "", "ok"),
+                ("DÉFAUT", "DÉFAUT", "", "fault"),
+                ("DÉPART", "31,0", "°C", "ok"),
+                ("PUISSANCE", "0,0", "kW", "ok"),
+            ],
+            on=False,
             faulty=True,
         )
     )
-    out.append(text(ox + 360, oy + 132, "panel · device faulty", "note tm"))
+    out.append(text(ox + 360, oy + 156, "panel · device faulty", "note tm"))
     g = f'<g transform="translate({ox + 530} {oy + 40})">'
     g += pipe_iso([(0, 0, AXIS), (5, 0, AXIS)], "fluid-dhw", flow=True)
     g += tag_iso((0, -1, 0.0), "fluid-dhw", "TT-05", "55,1", "°C", "ok")
@@ -928,7 +1068,7 @@ def isometric_sheet(palettes: tuple[Palette, Palette]) -> str:
     out.append(
         text(
             ox + 530,
-            oy + 132,
+            oy + 156,
             "tag · live / stale (dashed, muted) / faulty device (error stroke)",
             "note tm",
         )
@@ -939,9 +1079,7 @@ def isometric_sheet(palettes: tuple[Palette, Palette]) -> str:
         + footprint_iso(1, 2)
         + extrude(circle_pts((0.5, 1), 0.45), 0, 1.6)
     )
-    g += spath(
-        [project(*q, 1.6) for q in circle_pts((0.5, 1), 0.45)], "fault", close=True
-    )
+    g += spath(silhouette(circle_pts((0.5, 1), 0.45), 0, 1.6), "fault", close=True)
     bx, by = project(1.1, 0.3, 1.6)
     g += f'<circle style="fill:hsl(var(--status-error))" cx="{bx:.1f}" cy="{by:.1f}" r="7"/>'
     g += f'<text class="tag" style="fill:hsl(var(--card))" x="{bx:.1f}" y="{by + 3.5:.1f}" text-anchor="middle">!</text>'
@@ -949,13 +1087,13 @@ def isometric_sheet(palettes: tuple[Palette, Palette]) -> str:
     out.append(
         text(
             ox + 860,
-            oy + 132,
+            oy + 156,
             f"symbol · device faulty ({tank.title.lower()})",
             "note tm",
         )
     )
 
-    oy += 160
+    oy += 184
     out.append(
         text(
             24,
@@ -1173,10 +1311,507 @@ def density_sheet(palettes: tuple[Palette, Palette]) -> str:
     return sheet(width, height, "\n".join(out), palettes)
 
 
+# ── plate: the ECS Est plate drawn from its document ─────────────────────────
+
+DOCUMENT = OUT.parent / "ecs-est.json"
+BY_TYPE = {sym.type: sym for sym in SYMBOLS}
+# App content area on a 1440 x 900 laptop at 100 %: 256 px sidebar, 64 px top bar.
+FRAME_W, FRAME_H = 1184, 836
+ROLE_CLASS = {"title": "title t", "caption": "caption tm", "note": "note tm"}
+SLOT_ROWS = {
+    "supply_temp": ("DÉPART", "°C"),
+    "power": ("PUISSANCE", "kW"),
+    "temperature": ("TEMPÉRATURE", "°C"),
+}
+# What the plate's bindings would read on the sheet.
+LIVE_SLOTS: dict[str, dict[str, str]] = {
+    "pac-03": {
+        "state": "MARCHE",
+        "fault": "NORMAL",
+        "supply_temp": "52,4",
+        "power": "38,2",
+    },
+    "pac-04": {
+        "state": "ARRÊT",
+        "fault": "DÉFAUT",
+        "supply_temp": "31,0",
+        "power": "0,0",
+    },
+    "b01": {"temperature": "56"},
+    "b04": {"temperature": "54"},
+    "b07": {"temperature": "49"},
+    "mitigeur": {"supply_temp": "55,0"},
+    "v-03": {"state": "OUVERTE"},
+    "v-04": {"state": "FERMÉE"},
+    "p-bcl": {"state": "MARCHE"},
+}
+LIVE_TAGS = {
+    "tt-03": "52,4",
+    "tt-04": "31,0",
+    "tt-05": "55,1",
+    "tt-06": "49,8",
+    "ft-01": "2,4",
+}
+FAULTY = {"pac-04"}
+STALE = {"tt-04", "pac-04.supply_temp"}
+FLOWING = {
+    "pac-03-supply",
+    "feed-col-1",
+    "feed-col-2",
+    "feed-col-3",
+    "feed-ecs-ouest",
+    "dhw-loop-return",
+    "dhw-loop-to-storage",
+}
+
+Doc = dict[str, Any]
+
+
+def fluid_class(fluid: str) -> str:
+    return "fluid-" + fluid.replace("_", "-")
+
+
+def origin_of(sym: Doc) -> Pt:
+    c = sym["placement"]["cell"]
+    return (c["x"], c["y"])
+
+
+def port_cell(sym: Doc, port: str) -> Pt:
+    """The port's cell: registry offset, or the authored offset along a
+    collector's axis."""
+    ox, oy = origin_of(sym)
+    if sym["type"] == "collector":
+        off = sym["props"]["ports"][port]["offset"]
+        dx, dy = (0, off) if sym["props"]["axis"] == "y" else (off, 0)
+    else:
+        dx, dy = next(
+            (px, py) for px, py, _, name in BY_TYPE[sym["type"]].ports if name == port
+        )
+    return (ox + dx, oy + dy)
+
+
+def endpoint_cell(symbols: dict[str, Doc], end: Doc) -> Pt3:
+    if end["kind"] == "port":
+        x, y = port_cell(symbols[end["symbol"]], end["port"])
+        return (x, y, 0)
+    c = end["cell"]
+    return (c["x"], c["y"], c.get("z", 0))
+
+
+def polyline(symbols: dict[str, Doc], pipe: Doc) -> list[Pt3]:
+    """From-cell, waypoints, to-cell (the format's Pipes section)."""
+    cells = [endpoint_cell(symbols, pipe["from"])]
+    cells += [(w["x"], w["y"], w.get("z", 0)) for w in pipe["waypoints"]]
+    return [*cells, endpoint_cell(symbols, pipe["to"])]
+
+
+def run_direction(cells: list[Pt3], cell: Pt) -> Pt:
+    """Direction of the axis-aligned segment through ``cell``."""
+    for (ax, ay, _), (bx, by, _) in itertools.pairwise(cells):
+        if min(ax, bx) <= cell[0] <= max(ax, bx) and min(ay, by) <= cell[1] <= max(
+            ay, by
+        ):
+            return ((bx > ax) - (bx < ax), (by > ay) - (by < ay))
+    msg = f"{cell} is not on the run"
+    raise ValueError(msg)
+
+
+Box = tuple[float, float, float, float]
+
+
+class View:
+    """How a plate reaches the screen: the isometric projection with height,
+    or the flat plan where height is ignored (the format's ``projection``)."""
+
+    def __init__(self, *, iso: bool, window: Pt) -> None:
+        self.iso = iso
+        # Screen point of the grid corner the frame shows at its top-left.
+        self.window = window
+
+    def pt(self, x: float, y: float, z: float = 0.0) -> Pt:
+        return project(x, y, z) if self.iso else flat(x, y)
+
+    def plane(self, z: float) -> Plane:
+        return iso_plane(z) if self.iso else Plane(flat)
+
+    def top(self, kind: Symbol) -> float:
+        return kind.base + kind.height if self.iso else 0.0
+
+    def body(self, kind: Symbol, origin: Pt) -> list[Pt]:
+        """Screen polygon of the body: the extruded silhouette, or the plan outline."""
+        ox, oy = origin
+        local = (
+            kind.outline(kind.centre) if kind.outline else square(0, 0, *kind.footprint)
+        )
+        body = [(x + ox, y + oy) for x, y in local]
+        if self.iso and kind.height:
+            return silhouette(body, kind.base, self.top(kind))
+        return [self.pt(x, y, self.top(kind)) for x, y in body]
+
+    def label_anchor(self, kind: Symbol, origin: Pt) -> Pt:
+        if self.iso:
+            dx, dy = project(*origin)
+            lx, ly = kind.label_anchor()
+            return (lx + dx, ly + dy)
+        fx, fy = flat(origin[0] + kind.centre[0], origin[1] + kind.centre[1])
+        return (fx, fy - kind.footprint[1] * FC / 2 - 10)
+
+    def anchors(self, kind: Symbol, origin: Pt) -> tuple[Pt, Pt, Pt]:
+        """Left, right and bottom points of the body a panel leads to."""
+        ox, oy = origin
+        w, d = kind.footprint
+        if self.iso:
+            top = self.top(kind)
+            return (
+                project(ox, oy + d, top),
+                project(ox + w, oy, top),
+                project(ox + w, oy + d, kind.base),
+            )
+        return flat(ox, oy + d / 2), flat(ox + w, oy + d / 2), flat(ox + w / 2, oy + d)
+
+    def visible(self, box: Box, margin: float = 8) -> bool:
+        """Whether a box lies inside the frame this view is shown through."""
+        x0, y0 = self.window[0] - 24, self.window[1] - 16
+        return (
+            box[0] >= x0 + margin
+            and box[1] >= y0 + margin
+            and box[2] <= x0 + FRAME_W - margin
+            and box[3] <= y0 + FRAME_H - margin
+        )
+
+    def behind(self, x: int, y: int) -> set[Pt]:
+        """Cells a chip rising screen-up from ``(x, y)`` would cover."""
+        if self.iso:
+            return {(x - 1, y - 1), (x - 1, y), (x, y - 1)}
+        return {(x, y - 1)}
+
+    def draw(self, kind: Symbol, origin: Pt, label: str | None) -> str:
+        if self.iso:
+            return kind.draw_iso(origin, label)
+        dx, dy = flat(*origin)
+        # The footprint takes the plate colour so the glyph occludes the runs
+        # ending at its ports, as an extruded body does.
+        footprint = Plane(flat).poly(square(0, 0, *kind.footprint), "face")
+        out = f'<g transform="translate({dx:.1f} {dy:.1f})">{footprint}{kind.draw_flat()}</g>'
+        if not label:
+            return out
+        if kind.label_on_face:
+            cx, cy = flat(origin[0] + kind.centre[0], origin[1] + kind.centre[1])
+            lines = label.replace(" ", "\n")
+            return out + text(
+                cx, cy + 4 - 6 * lines.count("\n"), lines, "sym t", "middle"
+            )
+        return out + text(*self.label_anchor(kind, origin), label, "sym t", "middle")
+
+
+ISO_VIEW = View(iso=True, window=(-14.5 * SX, -9.5 * SY))
+
+
+def inline_glyph(
+    view: View, sym: Symbol, cell: Pt, d: Pt, label: str | None, state: str | None
+) -> str:
+    """Inline glyph oriented by its run, body-filled so it breaks the run; a
+    valve shows its state on the glyph, a pump beside its label."""
+    plane = view.plane(AXIS)
+    c = (cell[0] + 0.5, cell[1] + 0.5)
+    if sym.type == "pump":
+        glyph = pump_glyph(plane, c, d)
+    elif sym.type == "valve_isolation":
+        glyph = valve_glyph(
+            plane, c, d, closed=state is not None and state not in ON_STATES
+        )
+    else:
+        glyph = sym.plan(plane, c)
+    out = plane.poly(circle_pts(c, 0.3), "face") + glyph
+    if label:
+        lx, ly = view.pt(*c, AXIS)
+        out += text(lx, ly + 22, label, "tag tm", "middle")
+        if sym.type == "pump" and state is not None:
+            out += led(
+                lx + 4 * len(label) + 10, ly + 18, on=state in ON_STATES, faulty=False
+            )
+    return out
+
+
+def collector_bar(sym: Doc) -> list[Pt]:
+    """Bar on the axis plane, authored length along the authored axis."""
+    x, y = origin_of(sym)
+    props = sym["props"]
+    if props["axis"] == "y":
+        return square(x + 0.3, y, 0.4, props["length"])
+    return square(x, y + 0.3, props["length"], 0.4)
+
+
+def collector_glyph(view: View, sym: Doc) -> str:
+    x, y = origin_of(sym)
+    lx, ly = view.pt(x + 0.5, y + 0.5, AXIS)
+    return view.plane(AXIS).poly(collector_bar(sym), "face") + text(
+        lx, ly - 14, sym["label"], "sym t", "middle"
+    )
+
+
+def fault_glyph(view: View, kind: Symbol, origin: Pt) -> str:
+    """Error outline around the whole body, badge at the top-right of the footprint."""
+    ox, oy = origin
+    out = spath(view.body(kind, origin), "fault", close=True)
+    bx, by = view.pt(ox + kind.footprint[0] + 0.1, oy + 0.2, view.top(kind))
+    out += f'<circle style="fill:hsl(var(--status-error))" cx="{bx:.1f}" cy="{by:.1f}" r="7"/>'
+    return out + (
+        f'<text class="tag" style="fill:hsl(var(--card))" x="{bx:.1f}" y="{by + 3.5:.1f}" '
+        'text-anchor="middle">!</text>'
+    )
+
+
+def panel_rows(sym: Doc, live: dict[str, str]) -> list[Row]:
+    rows: list[Row] = []
+    for slot in sym["bindings"]:
+        if slot == "state":
+            rows.append(("ÉTAT", live[slot], "", "ok"))
+        elif slot == "fault":
+            rows.append(
+                ("DÉFAUT", live[slot], "", "fault" if sym["id"] in FAULTY else "ok")
+            )
+        elif slot in SLOT_ROWS:
+            state = "stale" if f"{sym['id']}.{slot}" in STALE else "ok"
+            rows.append((SLOT_ROWS[slot][0], live[slot], SLOT_ROWS[slot][1], state))
+    return rows
+
+
+def bounds(points: list[Pt]) -> Box:
+    xs, ys = [x for x, _ in points], [y for _, y in points]
+    return (min(xs), min(ys), max(xs), max(ys))
+
+
+def overlaps(a: Box, b: Box, margin: float = 4) -> bool:
+    return (
+        a[0] < b[2] + margin
+        and b[0] < a[2] + margin
+        and a[1] < b[3] + margin
+        and b[1] < a[3] + margin
+    )
+
+
+def panel_place(
+    view: View, kind: Symbol, origin: Pt, h: float, obstacles: list[Box]
+) -> tuple[Box, Pt]:
+    """Panel box and the point its leader ends at: above the label, else left
+    of the body, else right, else below, the first spot inside the frame and
+    clear of every obstacle."""
+    lx, ly = view.label_anchor(kind, origin)
+    left, right, below = view.anchors(kind, origin)
+    candidates = [
+        ((lx - PANEL_W / 2, ly - 8 - h), (lx, ly - 4)),
+        ((left[0] - 20 - PANEL_W, left[1] - h / 2), left),
+        ((right[0] + 20, right[1] - h / 2), right),
+        ((below[0] - PANEL_W / 2, below[1] + 20), below),
+    ]
+    for (px, py), anchor in candidates:
+        box = (px, py, px + PANEL_W, py + h)
+        if view.visible(box) and not any(overlaps(box, o) for o in obstacles):
+            return box, anchor
+    box, anchor = candidates[0]
+    return (box[0], box[1], box[0] + PANEL_W, box[1] + h), anchor
+
+
+def readings(
+    view: View, sym: Doc, kind: Symbol, origin: Pt, obstacles: list[Box]
+) -> str:
+    """What the symbol's bindings show: an LED after the label when it has a
+    state, a chip under the label for a single reading, a panel for more,
+    placed clear of the bodies and panels in ``obstacles`` and joined to the
+    symbol by a leader."""
+    live = LIVE_SLOTS.get(sym["id"])
+    if live is None:
+        return ""
+    lx, ly = view.label_anchor(kind, origin)
+    faulty = sym["id"] in FAULTY
+    out = ""
+    if "state" in live:
+        out += led(
+            lx + 4 * len(sym["label"]) + 10,
+            ly - 4,
+            on=live["state"] in ON_STATES,
+            faulty=faulty,
+        )
+    rows = panel_rows(sym, live)
+    if len(rows) == 1:
+        _, value, unit, state = rows[0]
+        return out + chip(lx, ly + 16, "", value, unit, state)
+    h = panel_height(len(rows))
+    box, (ax, ay) = panel_place(view, kind, origin, h, obstacles)
+    obstacles.append(box)
+    px, py = box[0], box[1]
+    ex, ey = min(max(ax, px), px + PANEL_W), min(max(ay, py), py + h)
+    out += f'<line class="leader" x1="{ex:.1f}" y1="{ey:.1f}" x2="{ax:.1f}" y2="{ay:.1f}"/>'
+    return out + panel(
+        px, py, sym["label"], rows, on=live.get("state") in ON_STATES, faulty=faulty
+    )
+
+
+def symbol_glyph(
+    view: View, sym: Doc, symbols: dict[str, Doc], pipes: dict[str, Doc]
+) -> str:
+    kind = BY_TYPE[sym["type"]]
+    placement = sym["placement"]
+    live = LIVE_SLOTS.get(sym["id"], {})
+    if placement["kind"] == "pipe":
+        cell = (placement["cell"]["x"], placement["cell"]["y"])
+        d = run_direction(polyline(symbols, pipes[placement["pipe"]]), cell)
+        return inline_glyph(view, kind, cell, d, sym["label"], live.get("state"))
+    if sym["type"] == "collector":
+        return collector_glyph(view, sym)
+    origin = origin_of(sym)
+    out = view.draw(kind, origin, sym["label"])
+    if sym["id"] in FAULTY:
+        out += fault_glyph(view, kind, origin)
+    return out
+
+
+def plate(doc: Doc, view: View) -> str:
+    """The document drawn in the kit: runs, then symbols back to front, then
+    tags, readings and labels."""
+    symbols = {sym["id"]: sym for sym in doc["symbols"]}
+    pipes = {pipe["id"]: pipe for pipe in doc["pipes"]}
+    g = ""
+    for pipe_ in doc["pipes"]:
+        points = [
+            view.pt(x + 0.5, y + 0.5, z + AXIS) for x, y, z in polyline(symbols, pipe_)
+        ]
+        g += pipe(points, fluid_class(pipe_["fluid"]), flow=pipe_["id"] in FLOWING)
+    ordered = sorted(doc["symbols"], key=lambda sym: sum(origin_of(sym)))
+    for sym in ordered:
+        g += symbol_glyph(view, sym, symbols, pipes)
+    placed = [sym for sym in ordered if sym["placement"]["kind"] == "cell"]
+    bodies = {
+        (x + dx, y + dy)
+        for sym in placed
+        if BY_TYPE[sym["type"]].height
+        for x, y in [origin_of(sym)]
+        for dx in range(BY_TYPE[sym["type"]].footprint[0])
+        for dy in range(BY_TYPE[sym["type"]].footprint[1])
+    }
+    obstacles = [
+        bounds(
+            [view.pt(x, y, AXIS) for x, y in collector_bar(sym)]
+            if sym["type"] == "collector"
+            else view.body(BY_TYPE[sym["type"]], origin_of(sym))
+        )
+        for sym in placed
+    ]
+    for sym in ordered:
+        if sym["placement"]["kind"] == "pipe":
+            cx, cy = sym["placement"]["cell"]["x"], sym["placement"]["cell"]["y"]
+            obstacles.append(
+                bounds(
+                    [view.pt(cx + dx, cy + dy, AXIS) for dx in (0, 1) for dy in (0, 1)]
+                )
+            )
+    for pipe_ in doc["pipes"]:
+        for tag_ in pipe_["tags"]:
+            x, y, z = tag_["at"]["x"], tag_["at"]["y"], tag_["at"].get("z", 0)
+            # A chip rises screen-up, over the cells behind the run: when a
+            # body stands there the chip hangs below instead (Decision 15).
+            side = "below" if view.behind(x, y) & bodies else "above"
+            at = view.pt(x + 0.5, y + 0.5, z + AXIS)
+            value, unit = LIVE_TAGS[tag_["id"]], tag_["value"]["unit"]
+            g += tag(
+                at,
+                fluid_class(pipe_["fluid"]),
+                tag_["label"],
+                value,
+                unit,
+                "stale" if tag_["id"] in STALE else "ok",
+                side,
+            )
+            half = chip_width(value, unit) / 2
+            top = at[1] - 70 if side == "above" else at[1] + 41
+            obstacles.append((at[0] - half, top, at[0] + half, top + 37))
+    for sym in placed:
+        if sym["type"] != "collector":
+            g += readings(view, sym, BY_TYPE[sym["type"]], origin_of(sym), obstacles)
+    for label in doc["labels"]:
+        lx, ly = view.pt(label["at"]["x"], label["at"]["y"])
+        g += text(lx, ly, label["text"], ROLE_CLASS[label["role"]])
+    return g
+
+
+# Room around the plate's cells for panels, chips and labels.
+PAD_LEFT, PAD_TOP, PAD_RIGHT, PAD_BOTTOM = 230, 150, 60, 40
+
+
+def plate_bounds(doc: Doc, view: View) -> Box:
+    """Screen bounds of everything the document places, padded for what the
+    kit hangs on it."""
+    points: list[Pt] = []
+    for sym in doc["symbols"]:
+        if sym["placement"]["kind"] != "cell":
+            continue
+        kind = BY_TYPE[sym["type"]]
+        x, y = origin_of(sym)
+        w, d = kind.footprint
+        if sym["type"] == "collector":
+            length = sym["props"]["length"]
+            w, d = (1, length) if sym["props"]["axis"] == "y" else (length, 1)
+        for cx, cy in square(x, y, w, d):
+            points += [view.pt(cx, cy), view.pt(cx, cy, view.top(kind))]
+    symbols = {sym["id"]: sym for sym in doc["symbols"]}
+    for pipe_ in doc["pipes"]:
+        points += [view.pt(x, y, z) for x, y, z in polyline(symbols, pipe_)]
+        points += [view.pt(t["at"]["x"], t["at"]["y"]) for t in pipe_["tags"]]
+    points += [view.pt(lb["at"]["x"], lb["at"]["y"]) for lb in doc["labels"]]
+    x0, y0, x1, y1 = bounds(points)
+    return (x0 - PAD_LEFT, y0 - PAD_TOP, x1 + PAD_RIGHT, y1 + PAD_BOTTOM)
+
+
+def frame(ox: float, oy: float, drawing: str, box: Box, view: View) -> str:
+    """The whole plate at true size, the app content area marked on it as a
+    dashed rectangle."""
+    tx, ty = ox - box[0], oy - box[1]
+    w, h = box[2] - box[0], box[3] - box[1]
+    lx, ly = view.window[0] - 24 + tx, view.window[1] - 16 + ty
+    laptop = (
+        f'<rect style="fill:none;stroke:hsl(var(--muted-foreground));stroke-dasharray:6 4" '
+        f'x="{lx:.1f}" y="{ly:.1f}" width="{FRAME_W}" height="{FRAME_H}"/>'
+        + text(
+            lx + 8,
+            ly + FRAME_H - 8,
+            "laptop content area · 1184 × 836 at 100 %",
+            "note tm",
+        )
+    )
+    return (
+        f'<rect class="grid" x="{ox}" y="{oy}" width="{w:.0f}" height="{h:.0f}"/>'
+        f'<g transform="translate({tx:.1f} {ty:.1f})">{drawing}</g>{laptop}'
+    )
+
+
+def plate_sheet(palettes: tuple[Palette, Palette]) -> str:
+    """The ECS Est plate drawn whole in the kit: the reference for what run
+    state, readings, panels, fault and stale look like on a real plate."""
+    doc = json.loads(DOCUMENT.read_text())
+    box = plate_bounds(doc, ISO_VIEW)
+    ox, oy = 28, 90
+    out = [
+        text(ox, 36, "Plate · Production ECS Est in the kit", "title t"),
+        text(
+            ox,
+            56,
+            "Plate: synoptic/ecs-est.json, whole, at the kit's cell size. The dashed rectangle is the app content area on a 1440 × 900 laptop at 100 % "
+            "(256 px sidebar, 64 px top bar): what an operator sees before panning.",
+            "note tm",
+        ),
+        frame(ox, oy, plate(doc, ISO_VIEW), box, ISO_VIEW),
+    ]
+    width, height = box[2] - box[0] + 2 * ox, box[3] - box[1] + oy + ox
+    return sheet(round(width), round(height), "\n".join(out), palettes)
+
+
 if __name__ == "__main__":
     palettes = read_tokens()
-    check_palette(palettes[0], "light")
-    check_palette(palettes[1], "dark")
+    for values, theme in zip(palettes, ("light", "dark"), strict=True):
+        check_palette(values, theme)
+        check_faces(values, theme)
     (OUT / "isometric.svg").write_text(isometric_sheet(palettes))
     (OUT / "flat.svg").write_text(flat_sheet(palettes))
     (OUT / "density-collector-8.svg").write_text(density_sheet(palettes))
+    (OUT / "plate.svg").write_text(plate_sheet(palettes))
