@@ -1,4 +1,4 @@
-import { COLORS } from "../theme";
+import { SEMANTIC_FILL_CLASS } from "@/lib/semanticColors";
 import type { MonitorRow, Status } from "../types";
 
 type MonitorPanelProps = {
@@ -11,12 +11,6 @@ type MonitorPanelProps = {
   /** Value rows (typically SV / PV / OP). */
   rows: MonitorRow[];
   w?: number;
-};
-
-const STATUS_COLOR: Record<Status, string> = {
-  ok: COLORS.statusOk,
-  warn: COLORS.statusWarn,
-  idle: COLORS.statusIdle,
 };
 
 const SQ = 24;
@@ -47,17 +41,16 @@ export function MonitorPanel({
         y={y}
         width={w}
         height={h}
-        fill={COLORS.bg}
-        stroke={COLORS.panelStroke}
         strokeWidth={1.5}
+        className="fill-card stroke-border"
       />
       <text
         x={x + w / 2}
         y={y + 18}
         textAnchor="middle"
         dominantBaseline="central"
-        fill={COLORS.text}
         fontSize={15}
+        className="fill-foreground"
       >
         {title}
       </text>
@@ -68,21 +61,21 @@ export function MonitorPanel({
           y={y + 34}
           width={SQ}
           height={SQ}
-          fill={STATUS_COLOR[s]}
-          stroke="#0f141b"
-          strokeOpacity={0.4}
+          className={
+            s === "off" ? "fill-muted-foreground" : SEMANTIC_FILL_CLASS[s]
+          }
         />
       ))}
       {rows.map((row, i) => {
         const cy = y + 66 + i * ROW_H + ROW_H / 2 - 3;
         return (
-          <g key={row.label}>
+          <g key={i}>
             <text
               x={x + 10}
               y={cy}
               dominantBaseline="central"
-              fill={COLORS.text}
               fontSize={15}
+              className="fill-muted-foreground"
             >
               {row.label}
             </text>
@@ -91,17 +84,16 @@ export function MonitorPanel({
               y={cy - 13}
               width={72}
               height={26}
-              fill={COLORS.valueBoxFill}
-              stroke={COLORS.valueBoxStroke}
               strokeWidth={1.5}
+              className="fill-background stroke-border"
             />
             <text
               x={x + 40 + 36}
               y={cy}
               textAnchor="middle"
               dominantBaseline="central"
-              fill={COLORS.text}
               fontSize={15}
+              className="fill-foreground"
             >
               {row.value}
             </text>
@@ -109,8 +101,8 @@ export function MonitorPanel({
               x={x + 118}
               y={cy}
               dominantBaseline="central"
-              fill={COLORS.text}
               fontSize={13.5}
+              className="fill-muted-foreground"
             >
               {row.unit}
             </text>

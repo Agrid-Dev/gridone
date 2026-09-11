@@ -1,5 +1,3 @@
-import { COLORS } from "./theme";
-
 type PipeBadgeProps = {
   /** Center of the badge. */
   x: number;
@@ -20,18 +18,17 @@ export function PipeBadge({ x, y, text, w, h = 27 }: PipeBadgeProps) {
         width={width}
         height={h}
         rx={7}
-        fill={COLORS.badgeFill}
-        stroke={COLORS.badgeStroke}
         strokeWidth={1.2}
+        className="fill-card stroke-border"
       />
       <text
         x={x}
         y={y + 1}
         textAnchor="middle"
         dominantBaseline="central"
-        fill={COLORS.text}
         fontSize={14}
         fontWeight={600}
+        className="fill-foreground"
       >
         {text}
       </text>

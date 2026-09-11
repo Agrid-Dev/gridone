@@ -1,5 +1,3 @@
-import { COLORS } from "../theme";
-
 type PumpProps = {
   /** Center of the pump body. */
   cx: number;
@@ -18,7 +16,7 @@ export function Pump({ cx, cy, r = 27, label, labelPos = "top" }: PumpProps) {
     "Z",
   ].join(" ");
   return (
-    <g>
+    <g className="stroke-synoptic-stroke">
       {/* mounting base */}
       <rect
         x={cx - r * 0.95}
@@ -26,26 +24,23 @@ export function Pump({ cx, cy, r = 27, label, labelPos = "top" }: PumpProps) {
         width={r * 1.9}
         height={r * 0.42}
         rx={3}
-        fill={COLORS.pumpDark}
-        stroke={COLORS.pumpStroke}
         strokeWidth={2}
+        className="fill-synoptic-body-y"
       />
       {/* volute tail */}
       <path
         d={volute}
-        fill={COLORS.pumpFill}
-        stroke={COLORS.pumpStroke}
-        strokeWidth={2.5}
+        strokeWidth={2}
         strokeLinejoin="round"
+        className="fill-synoptic-body"
       />
       {/* casing */}
       <circle
         cx={cx}
         cy={cy}
         r={r}
-        fill={COLORS.pumpFill}
-        stroke={COLORS.pumpStroke}
-        strokeWidth={3}
+        strokeWidth={2}
+        className="fill-synoptic-body"
       />
       {/* impeller hint */}
       <circle
@@ -53,17 +48,18 @@ export function Pump({ cx, cy, r = 27, label, labelPos = "top" }: PumpProps) {
         cy={cy}
         r={r * 0.52}
         fill="none"
-        stroke={COLORS.pumpDark}
-        strokeWidth={3.5}
+        strokeWidth={1.25}
+        className="stroke-muted-foreground"
       />
       {label && (
         <text
           x={labelPos === "top" ? cx + r * 0.3 : cx}
           y={labelPos === "top" ? cy - r - 14 : cy + r * 1.22 + 20}
           textAnchor="middle"
-          fill={COLORS.text}
           fontSize={15}
           fontWeight={600}
+          stroke="none"
+          className="fill-foreground"
         >
           {label}
         </text>

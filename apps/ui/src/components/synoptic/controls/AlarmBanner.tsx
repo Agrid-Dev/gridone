@@ -1,8 +1,11 @@
+import type { Severity } from "@gridone/sdk";
+import { SEMANTIC_FILL_CLASS, SEVERITY_LEVEL } from "@/lib/semanticColors";
+
 export type Alarm = {
   id: string;
   time: string;
   text: string;
-  severity: "critical" | "warning" | "info";
+  severity: Severity;
   acked?: boolean;
 };
 
@@ -16,15 +19,9 @@ type AlarmBannerProps = {
   onAck?: (id: string) => void;
 };
 
-const SEV_COLOR: Record<Alarm["severity"], string> = {
-  critical: "#e2333f",
-  warning: "#f0af3d",
-  info: "#5b9bd5",
-};
-
 const ROW_H = 30;
 
-/** ISA-style alarm banner: color-coded rows, unacknowledged alarms blink, click to ack. */
+/** ISA-style alarm banner: colour-coded rows, unacknowledged alarms blink, click to ack. */
 export function AlarmBanner({
   x,
   y,
@@ -41,8 +38,8 @@ export function AlarmBanner({
           x={x + 10}
           y={y + ROW_H / 2}
           dominantBaseline="central"
-          fill="#7f8b96"
           fontSize={13.5}
+          className="fill-muted-foreground"
         >
           No active alarms
         </text>
@@ -54,7 +51,9 @@ export function AlarmBanner({
             key={a.id}
             onClick={() => onAck?.(a.id)}
             style={{ cursor: onAck ? "pointer" : "default" }}
-            className={a.acked ? undefined : "scada-blink"}
+            className={
+              a.acked ? undefined : "animate-blink motion-reduce:animate-none"
+            }
           >
             <rect
               x={x}
@@ -62,19 +61,19 @@ export function AlarmBanner({
               width={w}
               height={ROW_H}
               rx={3}
-              fill={SEV_COLOR[a.severity]}
               fillOpacity={a.acked ? 0.3 : 0.92}
+              className={SEMANTIC_FILL_CLASS[SEVERITY_LEVEL[a.severity]]}
             />
             <text
               x={x + 10}
               y={ry + ROW_H / 2}
               dominantBaseline="central"
-              fill={a.acked ? "#c9d2da" : "#ffffff"}
               fontSize={13.5}
               fontWeight={600}
+              className={a.acked ? "fill-muted-foreground" : "fill-white"}
             >
-              {a.time} — {a.text}
-              {a.acked ? "  ✓ ACK" : ""}
+              {a.time} {a.text}
+              {a.acked ? "  ACK" : ""}
             </text>
           </g>
         );

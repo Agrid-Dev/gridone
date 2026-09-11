@@ -1,4 +1,4 @@
-import { COLORS, VesselLabel } from "../theme";
+import { VesselLabel } from "./VesselLabel";
 
 type SkirtedTankProps = {
   x: number;
@@ -38,10 +38,8 @@ export function SkirtedTank({
     <g>
       <path
         d={d}
-        fill="url(#scada-metal)"
-        stroke={COLORS.metalStroke}
-        strokeWidth={1}
-        strokeOpacity={0.5}
+        strokeWidth={2}
+        className="fill-synoptic-body stroke-synoptic-stroke"
       />
       {label && (
         <VesselLabel x={x + w / 2} y={y + h * 0.5 + labelDy} text={label} />

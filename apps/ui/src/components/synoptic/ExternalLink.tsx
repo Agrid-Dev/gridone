@@ -1,4 +1,5 @@
-import { COLORS } from "./theme";
+import type { Fluid } from "@gridone/sdk";
+import { FLUID_STROKE_CLASS } from "@/lib/fluidColors";
 
 type ExternalLinkProps = {
   /** Top-left of the banner's bounding box. */
@@ -6,8 +7,8 @@ type ExternalLinkProps = {
   y: number;
   w: number;
   h: number;
-  /** Border color — conventionally the color of the connected pipe. */
-  color: string;
+  /** Fluid of the connected pipe, which colours the border. */
+  fluid: Fluid;
   /**
    * 'in'  = flow enters the diagram (arrow tip on the right)
    * 'out' = flow leaves the diagram (arrow tip on the left)
@@ -23,7 +24,7 @@ export function ExternalLink({
   y,
   w,
   h,
-  color,
+  fluid,
   direction,
   label,
 }: ExternalLinkProps) {
@@ -41,10 +42,9 @@ export function ExternalLink({
     <g>
       <path
         d={d}
-        fill={COLORS.bg}
-        stroke={color}
         strokeWidth={4}
         strokeLinejoin="round"
+        className={`fill-synoptic-plate ${FLUID_STROKE_CLASS[fluid]}`}
       />
       {lines.map((line, i) => (
         <text
@@ -53,9 +53,9 @@ export function ExternalLink({
           y={y + h / 2 + (i - (lines.length - 1) / 2) * 22}
           textAnchor="middle"
           dominantBaseline="central"
-          fill={COLORS.text}
           fontSize={17}
           fontWeight={600}
+          className="fill-foreground"
         >
           {line}
         </text>

@@ -1,4 +1,4 @@
-import { COLORS, VesselLabel } from "../theme";
+import { VesselLabel } from "./VesselLabel";
 
 type TankProps = {
   x: number;
@@ -27,10 +27,8 @@ export function Tank({ x, y, w, h, label, domeH, labelDy = 0 }: TankProps) {
     <g>
       <path
         d={d}
-        fill="url(#scada-metal)"
-        stroke={COLORS.metalStroke}
-        strokeWidth={1}
-        strokeOpacity={0.5}
+        strokeWidth={2}
+        className="fill-synoptic-body stroke-synoptic-stroke"
       />
       {label && (
         <VesselLabel

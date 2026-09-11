@@ -1,5 +1,3 @@
-import { COLORS } from "./theme";
-
 type PortProps = {
   /** Center of the connection diamond. */
   x: number;
@@ -13,9 +11,8 @@ export function Port({ x, y, size = 14 }: PortProps) {
   return (
     <path
       d={`M ${x} ${y - h} L ${x + h} ${y} L ${x} ${y + h} L ${x - h} ${y} Z`}
-      fill={COLORS.portFill}
-      stroke={COLORS.portStroke}
       strokeWidth={1.5}
+      className="fill-card stroke-synoptic-stroke"
     />
   );
 }

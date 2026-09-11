@@ -1,4 +1,4 @@
-import { COLORS, VesselLabel } from "../theme";
+import { VesselLabel } from "./VesselLabel";
 
 type SiloProps = {
   x: number;
@@ -44,10 +44,8 @@ export function Silo({
     <g>
       <path
         d={d}
-        fill="url(#scada-metal)"
-        stroke={COLORS.metalStroke}
-        strokeWidth={1}
-        strokeOpacity={0.5}
+        strokeWidth={2}
+        className="fill-synoptic-body stroke-synoptic-stroke"
       />
       {label && <VesselLabel x={cx} y={y + h * 0.5 + labelDy} text={label} />}
     </g>

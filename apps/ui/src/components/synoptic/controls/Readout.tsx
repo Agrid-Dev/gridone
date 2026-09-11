@@ -1,5 +1,3 @@
-import { COLORS } from "../theme";
-
 type ReadoutProps = {
   /** Top-left of the value box. */
   x: number;
@@ -10,10 +8,9 @@ type ReadoutProps = {
   unit?: string;
   /** Small caption above the box. */
   label?: string;
-  valueColor?: string;
 };
 
-/** Digital value box in the monitor style (dark fill, orange border). */
+/** Digital value box. */
 export function Readout({
   x,
   y,
@@ -22,12 +19,11 @@ export function Readout({
   value,
   unit,
   label,
-  valueColor = COLORS.text,
 }: ReadoutProps) {
   return (
     <g>
       {label && (
-        <text x={x} y={y - 9} fill="#9aa7b4" fontSize={12.5}>
+        <text x={x} y={y - 9} fontSize={12.5} className="fill-muted-foreground">
           {label}
         </text>
       )}
@@ -36,18 +32,17 @@ export function Readout({
         y={y}
         width={w}
         height={h}
-        fill={COLORS.valueBoxFill}
-        stroke={COLORS.valueBoxStroke}
         strokeWidth={1.5}
+        className="fill-card stroke-border"
       />
       <text
         x={x + w / 2}
         y={y + h / 2}
         textAnchor="middle"
         dominantBaseline="central"
-        fill={valueColor}
         fontSize={15}
         fontWeight={600}
+        className="fill-foreground"
       >
         {value}
         {unit ? ` ${unit}` : ""}

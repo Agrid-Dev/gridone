@@ -1,5 +1,5 @@
-import { COLORS } from "../theme";
 import type { Pt } from "../types";
+import { InstrumentLink } from "./InstrumentLink";
 
 type SensorFlagProps = {
   /** Anchor of the flag icon (top-left of the pole). */
@@ -8,10 +8,8 @@ type SensorFlagProps = {
   label: string;
   value: string | number;
   unit: string;
-  /** Equipment port this sensor measures — a dotted signal line is drawn to it. */
+  /** Equipment port this sensor measures: a dotted signal line is drawn to it. */
   port: Pt;
-  /** Signal line color (defaults to the steam/alarm red used by temperature probes). */
-  color?: string;
 };
 
 /** Field sensor: pennant icon, tag label, live value box and dotted signal line to its port. */
@@ -22,26 +20,18 @@ export function SensorFlag({
   value,
   unit,
   port,
-  color = COLORS.steam,
 }: SensorFlagProps) {
   const poleBottom = { x, y: y + 28 };
   return (
     <g>
-      <path
-        d={`M ${port.x} ${port.y} L ${poleBottom.x} ${poleBottom.y}`}
-        stroke={color}
-        strokeWidth={2.4}
-        strokeDasharray="0.5 7"
-        strokeLinecap="round"
-        fill="none"
-      />
+      <InstrumentLink from={port} to={poleBottom} />
       {/* pennant icon */}
       <g
-        stroke={COLORS.text}
         strokeWidth={2.4}
         fill="none"
         strokeLinejoin="round"
         strokeLinecap="round"
+        className="stroke-foreground"
       >
         <line x1={x} y1={y + 28} x2={x + 9} y2={y} />
         <path
@@ -52,9 +42,9 @@ export function SensorFlag({
         x={x + 40}
         y={y + 8}
         dominantBaseline="central"
-        fill={COLORS.text}
         fontSize={15}
         fontWeight={600}
+        className="fill-foreground"
       >
         {label}
       </text>
@@ -63,17 +53,16 @@ export function SensorFlag({
         y={y + 38}
         width={64}
         height={26}
-        fill={COLORS.bg}
-        stroke={COLORS.valueBoxStroke}
         strokeWidth={1.5}
+        className="fill-card stroke-border"
       />
       <text
         x={x + 20}
         y={y + 51}
         textAnchor="middle"
         dominantBaseline="central"
-        fill={COLORS.text}
         fontSize={15}
+        className="fill-foreground"
       >
         {value}
       </text>
@@ -81,8 +70,8 @@ export function SensorFlag({
         x={x + 60}
         y={y + 51}
         dominantBaseline="central"
-        fill={COLORS.text}
         fontSize={13.5}
+        className="fill-muted-foreground"
       >
         {unit}
       </text>

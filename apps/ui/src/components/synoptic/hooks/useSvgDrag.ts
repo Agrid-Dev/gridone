@@ -1,5 +1,6 @@
 import {
   useCallback,
+  useEffect,
   useRef,
   type PointerEvent as ReactPointerEvent,
 } from "react";
@@ -27,10 +28,14 @@ type DragHandlers = {
 /**
  * SVG-space dragging. Returns a pointerDown handler to spread on any SVG element:
  * `<g onPointerDown={dragHandler}>`. Coordinates are in viewBox units.
+ * A drag ends on pointer up or cancel, and is dropped when the component unmounts.
  */
 export function useSvgDrag({ onStart, onMove, onEnd }: DragHandlers) {
   const handlers = useRef({ onStart, onMove, onEnd });
   handlers.current = { onStart, onMove, onEnd };
+  const detach = useRef<() => void>(() => {});
+
+  useEffect(() => () => detach.current(), []);
 
   return useCallback((e: ReactPointerEvent<SVGElement>) => {
     if (e.button !== 0) return;
@@ -44,13 +49,21 @@ export function useSvgDrag({ onStart, onMove, onEnd }: DragHandlers) {
       handlers.current.onMove(p, { x: p.x - last.x, y: p.y - last.y }, start);
       last = p;
     };
-    const up = (ev: PointerEvent) => {
+    const stop = () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+      detach.current = () => {};
+    };
+    const up = (ev: PointerEvent) => {
+      stop();
       handlers.current.onEnd?.(clientToSvg(svg, ev.clientX, ev.clientY));
     };
+    detach.current();
+    detach.current = stop;
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
     e.stopPropagation();
     e.preventDefault();
   }, []);

@@ -1,4 +1,5 @@
-import { COLORS } from "../theme";
+import { SEMANTIC_FILL_CLASS } from "@/lib/semanticColors";
+import { fraction } from "../geometry";
 
 type BarMeterProps = {
   x: number;
@@ -8,11 +9,10 @@ type BarMeterProps = {
   min: number;
   max: number;
   value: number;
-  /** Optional setpoint marker drawn as an amber triangle on the left edge. */
+  /** Optional setpoint marker drawn as a triangle on the left edge. */
   setpoint?: number;
   label?: string;
   unit?: string;
-  color?: string;
   decimals?: number;
 };
 
@@ -28,12 +28,12 @@ export function BarMeter({
   setpoint,
   label,
   unit,
-  color = "#4fa3d1",
   decimals = 1,
 }: BarMeterProps) {
   const clamped = Math.min(max, Math.max(min, value));
-  const frac = (clamped - min) / (max - min);
-  const fillH = (h - 4) * frac;
+  const fillH = (h - 4) * fraction(value, min, max);
+  /** Bar y for a value, clamped to the scale. */
+  const toY = (v: number) => y + h - 2 - (h - 4) * fraction(v, min, max);
   const ticks = 5;
   return (
     <g>
@@ -42,16 +42,15 @@ export function BarMeter({
         y={y}
         width={w}
         height={h}
-        fill="#1a2634"
-        stroke="#3a4552"
         strokeWidth={1.5}
+        className="fill-card stroke-border"
       />
       <rect
         x={x + 2}
-        y={y + h - 2 - fillH}
+        y={toY(clamped)}
         width={w - 4}
         height={fillH}
-        fill={color}
+        className="fill-primary"
       />
       {Array.from({ length: ticks + 1 }, (_, i) => {
         const ty = y + h - (h * i) / ticks;
@@ -63,15 +62,15 @@ export function BarMeter({
               y1={ty}
               x2={x + w + 6}
               y2={ty}
-              stroke="#7f8b96"
               strokeWidth={1.5}
+              className="stroke-muted-foreground"
             />
             <text
               x={x + w + 10}
               y={ty}
               dominantBaseline="central"
-              fill="#9aa7b4"
               fontSize={11}
+              className="fill-muted-foreground"
             >
               {Math.round(tv)}
             </text>
@@ -80,17 +79,17 @@ export function BarMeter({
       })}
       {setpoint !== undefined && (
         <path
-          d={`M ${x - 10} ${y + h - 2 - (h - 4) * ((setpoint - min) / (max - min)) - 7} L ${x - 10} ${y + h - 2 - (h - 4) * ((setpoint - min) / (max - min)) + 7} L ${x} ${y + h - 2 - (h - 4) * ((setpoint - min) / (max - min))} Z`}
-          fill="#f0af3d"
+          d={`M ${x - 10} ${toY(setpoint) - 7} L ${x - 10} ${toY(setpoint) + 7} L ${x} ${toY(setpoint)} Z`}
+          className={SEMANTIC_FILL_CLASS.warning}
         />
       )}
       <text
         x={x + w / 2}
         y={y + h + 18}
         textAnchor="middle"
-        fill={COLORS.text}
         fontSize={14}
         fontWeight={600}
+        className="fill-foreground"
       >
         {clamped.toFixed(decimals)}
         {unit ? ` ${unit}` : ""}
@@ -100,8 +99,8 @@ export function BarMeter({
           x={x + w / 2}
           y={y - 12}
           textAnchor="middle"
-          fill="#9aa7b4"
           fontSize={12.5}
+          className="fill-muted-foreground"
         >
           {label}
         </text>

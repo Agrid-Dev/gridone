@@ -1,10 +1,17 @@
-export { COLORS, FONT, SymbolDefs, VesselLabel } from "./theme";
 export type { Pt, Status, MonitorRow } from "./types";
-export { roundedPath, arrowHead, unit } from "./geometry";
+export {
+  roundedPath,
+  arrowHead,
+  unit,
+  fraction,
+  polarPoint,
+  arcPath,
+  DIAL_START_DEG,
+  DIAL_SWEEP_DEG,
+} from "./geometry";
 
 export { PidDiagram } from "./PidDiagram";
 export { Pipe } from "./Pipe";
-export { AnimatedPipe } from "./AnimatedPipe";
 export { PipeBadge } from "./PipeBadge";
 export { Port } from "./Port";
 export { ExternalLink } from "./ExternalLink";
@@ -15,6 +22,7 @@ export { Mixer } from "./equipment/Mixer";
 export { SkirtedTank } from "./equipment/SkirtedTank";
 export { Pump } from "./equipment/Pump";
 export { Valve } from "./equipment/Valve";
+export { VesselLabel } from "./equipment/VesselLabel";
 
 export { MonitorPanel, monitorPanelHeight } from "./instruments/MonitorPanel";
 export { SensorFlag } from "./instruments/SensorFlag";
@@ -27,5 +35,4 @@ export { Readout } from "./controls/Readout";
 export { AlarmBanner } from "./controls/AlarmBanner";
 export type { Alarm } from "./controls/AlarmBanner";
 
-export { useTicker, drift } from "./hooks/useTicker";
 export { useSvgDrag, clientToSvg } from "./hooks/useSvgDrag";

@@ -1,13 +1,11 @@
-import { COLORS } from "../theme";
-
 type ValveProps = {
   /** Center of the valve body (on the pipe axis). */
   cx: number;
   cy: number;
   w?: number;
   h?: number;
-  /** red = actuated control valve, white = inline instrument/manual valve. */
-  variant?: "red" | "white";
+  /** A closed valve is a solid bowtie, an open one is hollow. */
+  closed?: boolean;
   /** Direction of the actuator stem. */
   stem?: "up" | "down" | "none";
   label?: string;
@@ -17,20 +15,17 @@ type ValveProps = {
 const STEM_LEN = 26;
 const CAP_W = 22;
 
-/** Inline valve: bowtie body with an actuator stem, colored by state/type. */
+/** Inline valve: bowtie body with an actuator stem, solid when closed. */
 export function Valve({
   cx,
   cy,
   w = 58,
   h = 30,
-  variant = "white",
+  closed = false,
   stem = "up",
   label,
   labelPos,
 }: ValveProps) {
-  const fill = variant === "red" ? COLORS.valveRed : COLORS.valveWhite;
-  const stroke =
-    variant === "red" ? COLORS.valveRedStroke : COLORS.valveWhiteStroke;
   const x = cx - w / 2;
   const hh = h / 2;
   const points = `${x},${cy - hh} ${cx},${cy} ${x + w},${cy - hh} ${x + w},${cy + hh} ${cx},${cy} ${x},${cy + hh}`;
@@ -44,9 +39,9 @@ export function Valve({
       : cy + hh + (stem === "down" ? STEM_LEN + 20 : 20);
 
   return (
-    <g>
+    <g className="stroke-synoptic-stroke">
       {stem !== "none" && (
-        <g stroke={fill} strokeWidth={3.5} strokeLinecap="round">
+        <g strokeWidth={2} strokeLinecap="round">
           <line x1={cx} y1={cy} x2={cx} y2={stemEnd} />
           <line
             x1={cx - CAP_W / 2}
@@ -58,19 +53,19 @@ export function Valve({
       )}
       <polygon
         points={points}
-        fill={fill}
-        stroke={stroke}
         strokeWidth={2}
         strokeLinejoin="round"
+        className={closed ? "fill-synoptic-stroke" : "fill-synoptic-body"}
       />
       {label && (
         <text
           x={cx}
           y={labelY}
           textAnchor="middle"
-          fill={COLORS.text}
           fontSize={15}
           fontWeight={600}
+          stroke="none"
+          className="fill-foreground"
         >
           {label}
         </text>
