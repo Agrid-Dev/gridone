@@ -256,6 +256,7 @@
     "batch": "Lot",
     "clearBatch": "Effacer le filtre de lot",
     "newCommand": "Nouvelle commande",
+    "newGroupedCommand": "Nouvelle commande groupée",
     "targetPresenter": {
       "empty": "Aucune cible",
       "deviceCount_one": "{{count}} appareil",
@@ -306,6 +307,7 @@
     "readOnlyDescription": "Cet appareil n'a aucun attribut contrôlable ; aucune commande ne peut être envoyée.",
     "new": {
       "title": "Nouvelle commande",
+      "groupedTitle": "Nouvelle commande groupée",
       "steps": {
         "target": "Cible",
         "command": "Commande",

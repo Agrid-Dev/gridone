@@ -81,7 +81,11 @@ export default function NewCommandPage() {
 
   return (
     <section className="space-y-6">
-      <ResourceHeader title={t("commands.new.title")} />
+      <ResourceHeader
+        title={t(
+          command.locked ? "commands.new.title" : "commands.new.groupedTitle",
+        )}
+      />
       <p className="text-sm text-muted-foreground">
         {t("commands.grouped.subtitle")}
       </p>
