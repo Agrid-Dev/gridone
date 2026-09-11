@@ -2,7 +2,7 @@
 
 - **Status**: Proposed — design recorded, implementation deferred (2026-09-11)
 - **Issues**: AGR-1227 (per-listener frame match, #637), AGR-1217 (connection
-  status recompute, #630)
+  status recompute, #630), AGR-1219 (incremental connection health)
 
 ## Context
 
@@ -64,9 +64,10 @@ rebuilds a flat list of every log entry of every attribute
 once per frame. With 258 attributes holding 10 entries each — the steady state
 of a device that has been running a while — it costs **464 µs per frame**:
 about four times the whole dispatch, and about nine times what an index would
-save. #630 batched it to once per turn but did not make it incremental. The
-end-to-end benchmark does not see it because its devices start with empty
-logs.
+save. #630 removed the quadratic part (one rescan per listener append, ~135 ms
+per frame) by folding a turn's appends into one rescan, and deliberately left
+the rescan O(N) per frame for AGR-1219. The end-to-end benchmark does not
+see it because its devices start with empty logs.
 
 ## Decision
 
@@ -127,9 +128,9 @@ read:
 
 ## Sequencing
 
-1. **Make the connection-status recompute incremental.** Keep per-attribute
-   outcome counts, updated on append and eviction, instead of rebuilding the
-   flat list per turn. Needs its own issue.
+1. **Make the connection-status recompute incremental (AGR-1219).** Keep
+   per-attribute outcome counts, updated on append and eviction, instead of
+   rebuilding the flat list per turn — now the largest per-frame cost.
 2. **Re-profile a production box** once 0.237.0 and the `contains` driver are
    installed — ideally the largest thermostat fleet (~70 devices) across an
    hourly refresh window — to see what dominates in steady state.
