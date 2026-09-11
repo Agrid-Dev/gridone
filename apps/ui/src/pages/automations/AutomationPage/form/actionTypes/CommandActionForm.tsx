@@ -44,11 +44,17 @@ function templateToFormValues(
   const target = template.target as DevicesFilter;
   const assetId = assetIdOf(target);
   const usingIdsOnly =
-    !!target.ids?.length && !assetId && !target.types?.length;
+    !!target.ids?.length &&
+    !assetId &&
+    !target.types?.length &&
+    !target.group_id;
   return {
     targetMode: usingIdsOnly ? "devices" : "filters",
     deviceIds: target.ids ?? [],
     targetFilter: {
+      groupId: target.group_id ?? undefined,
+      ids: usingIdsOnly ? undefined : (target.ids ?? undefined),
+      tags: target.tags ?? undefined,
       assetId,
       types: target.types ?? undefined,
     },

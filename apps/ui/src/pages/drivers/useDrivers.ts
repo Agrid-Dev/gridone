@@ -10,6 +10,7 @@ import type { Driver } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { serverErrorMessage } from "@/lib/serverErrorMessage";
 import { useTranslation } from "react-i18next";
+import { groupConflict } from "@/pages/devices/groups/GroupError";
 
 // The driver catalog is small and always fetched whole: the list page needs
 // the unfiltered totals for its type chips and filters client-side.
@@ -78,6 +79,7 @@ export const useDeleteDriver = () => {
       navigate("..");
     },
     onError: (err: Error) => {
+      if (groupConflict(err)) return;
       const detail = serverErrorMessage(err);
       const base = t("common:errors.default");
       toast.error(detail ? `${base}: ${detail}` : base);
@@ -85,5 +87,5 @@ export const useDeleteDriver = () => {
   });
   const handleDelete = async (driverId: string) =>
     deleteMutation.mutateAsync(driverId);
-  return { handleDelete };
+  return { handleDelete, error: deleteMutation.error };
 };

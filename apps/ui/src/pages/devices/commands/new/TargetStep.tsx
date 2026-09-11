@@ -12,6 +12,8 @@ import { cn } from "@/lib/utils";
 import type { Asset, Device } from "@gridone/sdk";
 import type { AssetTreeNode } from "@/lib/assets";
 import { DevicesFilterTabs } from "@/components/forms/targetPicker";
+import { useDeviceGroup } from "../../groups/useDeviceGroups";
+import { GroupSelect } from "../../groups/GroupSelect";
 import { resolveAssetSubtreeDeviceIds } from "./resolvers";
 import type { TargetMode } from "./types";
 import type { WizardFormValues } from "./types";
@@ -41,6 +43,7 @@ export function TargetStep({
 
   const mode = (modeCtl.field.value ?? "devices") as TargetMode;
   const targetFilter = filterCtl.field.value ?? {};
+  const { data: group } = useDeviceGroup(targetFilter.groupId ?? "");
 
   // Devices mode: local display filter narrowing the table to an asset's
   // subtree — it does not change the selection.
@@ -63,21 +66,38 @@ export function TargetStep({
       onTypesFilterChange={(types) =>
         filterCtl.field.onChange({ ...targetFilter, types })
       }
+      tagsFilter={targetFilter.tags}
+      onTagsFilterChange={(tags) =>
+        filterCtl.field.onChange({ ...targetFilter, tags })
+      }
       extraFilters={
-        <AssetSelect
-          value={assetId ?? null}
-          onChange={(v) =>
-            filterCtl.field.onChange({
-              ...targetFilter,
-              assetId: v ?? undefined,
-            })
-          }
-          assetsList={assetsList}
-          className="w-[240px]"
-        />
+        <>
+          <GroupSelect
+            value={targetFilter.groupId}
+            onChange={(groupId) =>
+              filterCtl.field.onChange({ ...targetFilter, groupId })
+            }
+          />
+          <AssetSelect
+            value={assetId ?? null}
+            onChange={(v) =>
+              filterCtl.field.onChange({
+                ...targetFilter,
+                assetId: v ?? undefined,
+              })
+            }
+            assetsList={assetsList}
+            className="w-[240px]"
+          />
+        </>
       }
       extraDeviceFilter={
-        assetId ? (d) => d.tags?.["asset_id"] === assetId : undefined
+        assetId || targetFilter.groupId || targetFilter.ids
+          ? (d) =>
+              (!assetId || d.tags?.["asset_id"] === assetId) &&
+              (!targetFilter.groupId || !!group?.device_ids?.includes(d.id)) &&
+              (!targetFilter.ids || targetFilter.ids.includes(d.id))
+          : undefined
       }
       pickerExtraFilters={
         <AssetSelect

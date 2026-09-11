@@ -13,6 +13,8 @@ import type { Device } from "@gridone/sdk";
 import { usePermissions } from "@/contexts/AuthContext";
 import { CommandTemplatePresenter } from "../presenters/CommandTemplatePresenter";
 import { TemplateExecutions } from "./TemplateExecutions";
+import { GroupCommandDialog } from "../../groups/GroupCommandDialog";
+import { GroupError } from "../../groups/GroupError";
 import { useTemplate } from "./useTemplate";
 
 export const TemplateDetailContent: FC = () => {
@@ -31,6 +33,7 @@ export const TemplateDetailContent: FC = () => {
     isExecuting,
     remove,
     isRemoving,
+    groupCommand,
   } = useTemplate(templateId);
 
   return (
@@ -67,6 +70,8 @@ export const TemplateDetailContent: FC = () => {
         }
       />
 
+      <GroupCommandDialog command={groupCommand} />
+      {!groupCommand.preview && <GroupError error={groupCommand.error} />}
       <CommandTemplatePresenter template={template} assetsById={assetsById} />
 
       <ResolvedDevicesSection

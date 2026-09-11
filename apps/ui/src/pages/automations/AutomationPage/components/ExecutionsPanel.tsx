@@ -76,6 +76,7 @@ function ExecutionRow({
   moment: string;
   batchLabel: string;
 }) {
+  const { t } = useTranslation("devices");
   const body = (
     <>
       <div className="flex items-center gap-2.5">
@@ -101,7 +102,18 @@ function ExecutionRow({
       </div>
       {execution.error && (
         <p className="mt-1 pl-[1.125rem] text-xs text-destructive/90">
-          {execution.error}
+          {execution.error_details
+            ? t(
+                execution.error_details.code === "empty_device_group"
+                  ? "groups.emptyAction"
+                  : "groups.invalidAction",
+                {
+                  name:
+                    execution.error_details.group_name ??
+                    execution.error_details.group_id,
+                },
+              )
+            : execution.error}
         </p>
       )}
     </>

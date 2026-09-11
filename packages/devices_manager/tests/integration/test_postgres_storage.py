@@ -11,7 +11,7 @@ import pytest
 import pytest_asyncio
 
 from devices_manager import DevicesService
-from devices_manager.core.device import Attribute, CoreDevice
+from devices_manager.core.device import Attribute, CoreDevice, DeviceBase
 from devices_manager.core.driver import (
     AttributeDriver,
     Driver,
@@ -149,6 +149,7 @@ async def pool():
     pool = await asyncpg.create_pool(POSTGRES_URL, init=_init_connection)
 
     async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM dm_device_groups")
         await conn.execute("DELETE FROM dm_device_attributes")
         await conn.execute("DELETE FROM dm_devices")
         await conn.execute("DELETE FROM dm_drivers")
@@ -930,3 +931,93 @@ async def test_package_replaces_legacy_driver_without_presentation(
         assert installed.attributes == service.get_driver(original.id).attributes
     finally:
         await service.stop()
+
+
+async def test_group_roundtrip_integrity_and_atomic_membership(composed_storage, pool):
+    from devices_manager.core.device_group import DeviceGroup
+
+    driver = _make_driver("group-driver")
+    await composed_storage.drivers.write(driver.id, driver)
+    transport = _make_transport("group-transport")
+    await composed_storage.transports.write(transport.id, transport)
+    from devices_manager.core.device import DeviceBase
+
+    device = CoreDevice.from_base(
+        DeviceBase(id="group-device", name="Member", config={}),
+        driver=driver,
+        transport=transport,
+    )
+    await composed_storage.devices.write(device.id, device)
+    group = DeviceGroup(
+        id="test-group",
+        name="East",
+        driver_id=driver.id,
+        device_ids=[device.id],
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+    await composed_storage.groups.compare_and_swap(group.id, group, None)
+    assert await composed_storage.groups.read(group.id) == group
+    assert [g.id for g in await composed_storage.groups.read_all()] == [group.id]
+    with pytest.raises(ConflictError):
+        await composed_storage.groups.compare_and_swap(group.id, group, None)
+    invalid = group.model_copy(update={"device_ids": [device.id, "missing"]})
+    with pytest.raises(asyncpg.CheckViolationError):
+        await composed_storage.groups.write(group.id, invalid)
+    assert await composed_storage.groups.read(group.id) == group
+    with pytest.raises(asyncpg.CheckViolationError):
+        await pool.execute(
+            "UPDATE dm_devices SET driver_id=NULL WHERE id=$1", device.id
+        )
+    # Database-local cleanup also protects against direct writes from another process.
+    await composed_storage.devices.delete(device.id)
+    emptied = await composed_storage.groups.read(group.id)
+    assert emptied.device_ids == []
+    with pytest.raises(asyncpg.ForeignKeyViolationError):
+        await composed_storage.drivers.delete(driver.id)
+    renamed = emptied.model_copy(update={"name": "New name"})
+    await composed_storage.groups.compare_and_swap(group.id, renamed, emptied)
+    with pytest.raises(ConflictError):
+        await composed_storage.groups.compare_and_swap(group.id, group, emptied)
+    await composed_storage.groups.delete(group.id)
+    await composed_storage.drivers.delete(driver.id)
+
+
+async def test_groups_and_device_removal_survive_service_restart(composed_storage):
+    from devices_manager.core.device_group import DeviceGroupCreate
+
+    transport = _make_transport()
+    driver = _make_driver()
+    device = CoreDevice.from_base(
+        DeviceBase(id="restart-device", name="Room", config={}),
+        driver=driver,
+        transport=transport,
+    )
+    await composed_storage.transports.write(transport.id, transport)
+    await composed_storage.drivers.write(driver.id, driver)
+    await composed_storage.devices.write(device.id, device)
+    service = DevicesService(POSTGRES_URL)
+    await service.load()
+    try:
+        group = await service.create_group(
+            DeviceGroupCreate(
+                name="Restart", driver_id=driver.id, device_ids=[device.id]
+            )
+        )
+    finally:
+        await service.stop()
+    reloaded = DevicesService(POSTGRES_URL)
+    await reloaded.load()
+    try:
+        assert reloaded.get_group(group.id) == group
+        await reloaded.delete_device(device.id)
+    finally:
+        await reloaded.stop()
+    reloaded = DevicesService(POSTGRES_URL)
+    await reloaded.load()
+    try:
+        assert reloaded.get_group(group.id).device_ids == []
+        await reloaded.delete_group(group.id)
+        assert reloaded.list_groups() == []
+    finally:
+        await reloaded.stop()

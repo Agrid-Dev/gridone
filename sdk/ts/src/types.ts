@@ -296,3 +296,13 @@ export type PresentationResponse =
   | Schemas["UnavailablePresentationResponse"];
 export type PresentationSchema = Schemas["PresentationSchema"];
 export type PresentationReference = Schemas["PresentationReference"];
+
+// Explicit device groups
+export type DeviceGroup = Schemas["DeviceGroup"];
+export type DeviceGroupCreate = Schemas["DeviceGroupCreate"];
+export type DeviceGroupUpdate = Schemas["DeviceGroupUpdate"];
+export type GroupCommandPrepare = Schemas["GroupCommandPrepare"];
+export type GroupCommandPreview = Schemas["GroupCommandPreview"];
+export type GroupCommandConfirm = Schemas["GroupCommandConfirm"];
+export type DeviceWritePreview = Schemas["DeviceWritePreview"];
+export type RelatedResource = Schemas["RelatedResource"];

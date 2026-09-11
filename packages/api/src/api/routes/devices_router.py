@@ -10,6 +10,7 @@ from api.dependencies import get_assets_service, get_device_manager, get_ts_serv
 from api.devices_filter import ASSET_TAG, parse_tags_params, to_list_devices_kwargs
 from api.permissions import Permission
 from api.routes.command_router import router as command_router
+from api.routes.device_groups_router import router as device_groups_router
 from api.routes.devices_timeseries_router import router as devices_ts_router
 from api.routes.faults_router import router as faults_router
 from api.schemas.device import (
@@ -54,6 +55,7 @@ router = APIRouter()
 # Command dispatch + templates live in their own router but are mounted
 # under /devices so URLs stay device-scoped (``/devices/commands``,
 # ``/devices/{id}/commands``, ``/devices/commands/templates/...``).
+router.include_router(device_groups_router, prefix="/groups")
 router.include_router(command_router)
 router.include_router(devices_ts_router)
 router.include_router(faults_router, prefix="/faults")
@@ -111,12 +113,17 @@ def get_devices_query(
     search: str | None = Query(None),
     driver_id: str | None = Query(None),
     transport_id: str | None = Query(None),
+    group_id: str | None = Query(None),
+    dm: DevicesServiceInterface = Depends(get_device_manager),
 ) -> dict[str, Any]:
     """Parse the device-list query params into ``DM.list_devices`` kwargs.
 
     Shared by every endpoint that selects a device set (``GET /devices``,
     ``GET /devices/attributes``) so the filters stay identical.
     """
+    if group_id is not None:
+        group = dm.get_group(group_id)
+        ids = [item for item in group.device_ids if ids is None or item in ids]
     return to_list_devices_kwargs(
         {
             "ids": ids,

@@ -1,4 +1,4 @@
-import type { Device } from "@gridone/sdk";
+import type { Device, DeviceGroup } from "@gridone/sdk";
 import type { AssetTreeNode } from "@/lib/assets";
 import {
   deviceAttributes,
@@ -40,7 +40,15 @@ export function currentValueFor(
 export function deviceMatchesFilter(
   device: Device,
   filter: DevicesFilter,
+  groups: DeviceGroup[] = [],
 ): boolean {
+  if (
+    filter.group_id &&
+    !groups
+      .find((group) => group.id === filter.group_id)
+      ?.device_ids?.includes(device.id)
+  )
+    return false;
   if (filter.ids && !filter.ids.includes(device.id)) {
     return false;
   }
@@ -49,9 +57,6 @@ export function deviceMatchesFilter(
       return false;
     }
   }
-  if (filter.asset_id && device.tags?.["asset_id"] !== filter.asset_id) {
-    return false;
-  }
   if (
     filter.tags &&
     !Object.entries(filter.tags).every(([key, values]) =>
@@ -59,6 +64,9 @@ export function deviceMatchesFilter(
     )
   )
     return false;
+  if (filter.asset_id && device.tags?.["asset_id"] !== filter.asset_id) {
+    return false;
+  }
   return true;
 }
 
@@ -67,9 +75,10 @@ export function deviceMatchesFilter(
 export function resolveFilter(
   devices: Device[],
   filter: DevicesFilter,
+  groups: DeviceGroup[] = [],
 ): Device[] {
   if (isEmptyFilter(filter)) return [];
-  return devices.filter((d) => deviceMatchesFilter(d, filter));
+  return devices.filter((d) => deviceMatchesFilter(d, filter, groups));
 }
 
 /** Map the filter-mode form state (camelCase ``assetId``) onto the
@@ -80,6 +89,9 @@ export function targetFilterToDevicesFilter(
 ): DevicesFilter {
   return {
     types: filter?.types,
+    ...(filter?.groupId ? { group_id: filter.groupId } : {}),
+    ...(filter?.ids ? { ids: filter.ids } : {}),
+    ...(filter?.tags ? { tags: filter.tags } : {}),
     asset_id: filter?.assetId,
   };
 }

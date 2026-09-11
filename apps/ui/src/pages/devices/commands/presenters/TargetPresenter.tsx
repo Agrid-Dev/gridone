@@ -1,3 +1,4 @@
+import { GroupTargetLabel } from "../../groups/GroupSelect";
 import type { ReactNode } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
@@ -27,6 +28,7 @@ type SubPresenter = (value: never, ctx: PresenterContext) => ReactNode;
  *  ``commands.targetPresenter.labels.<name>``. Unlisted keys are silently
  *  ignored. */
 const SUB_PRESENTERS: Record<string, SubPresenter> = {
+  group_id: (id: string) => <GroupTargetLabel id={id} />,
   ids: (ids: string[], { t }) => (
     <Badge variant="outline">
       {t("commands.targetPresenter.deviceCount", { count: ids.length })}
@@ -58,6 +60,7 @@ const SUB_PRESENTERS: Record<string, SubPresenter> = {
 
 /** i18n label names stay camelCase while the wire keys are snake_case. */
 const LABEL_KEYS: Record<string, string> = {
+  group_id: "groupId",
   ids: "ids",
   asset_id: "assetId",
   types: "types",
@@ -73,6 +76,7 @@ function normalizeTarget(target: DevicesFilter): Record<string, unknown> {
     Object.entries(target.tags ?? {}).filter(([key]) => key !== "asset_id"),
   );
   return {
+    group_id: target.group_id,
     ids: target.ids,
     asset_id: assetId,
     types: target.types,

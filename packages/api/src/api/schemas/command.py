@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from fastapi import Query
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from commands import UnitCommand
 from devices_manager.types import AttributeValueType
@@ -81,6 +81,7 @@ class DevicesFilterBody(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    group_id: str | None = Field(default=None, min_length=1)
     ids: list[str] | None = None
     types: list[str] | None = None
     tags: dict[str, list[str]] | None = None
@@ -95,7 +96,9 @@ class DevicesFilterBody(BaseModel):
             if self.asset_id not in values:
                 values.append(self.asset_id)
             tags["asset_id"] = values
-        return DevicesFilter(ids=self.ids, types=self.types, tags=tags)
+        return DevicesFilter(
+            group_id=self.group_id, ids=self.ids, types=self.types, tags=tags
+        )
 
 
 class BatchDeviceCommand(BaseModel):

@@ -791,3 +791,24 @@ class TestParamsValidation:
             await svc.create(_create_params(trigger=bad_trigger), created_by="u1")
         assert exc_info.value.errors[0].loc[:2] == ("trigger", "params")
         storage.create.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_structured_group_execution_failure_is_recorded():
+    from models.action_failure import ActionExecutionError, ActionFailure
+
+    provider = _make_action_provider()
+    details = ActionFailure(
+        code="empty_device_group", group_id="group", group_name="East"
+    )
+    provider.execute.side_effect = ActionExecutionError(details)
+    storage = _make_storage()
+    service = _make_service(storage, action_providers=[provider])
+    automation = await service.create(_create_params(), created_by="operator")
+    await service._execute_automation_actions(  # noqa: SLF001 -- exercise the trigger callback
+        automation.id, TriggerContext(timestamp=datetime.now(UTC))
+    )
+    execution = storage.log_execution.call_args.args[0]
+    assert execution.status == ExecutionStatus.FAILED
+    assert execution.error_details == details
+    assert execution.output_id is None

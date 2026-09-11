@@ -1,9 +1,7 @@
 import { useMemo, type ReactNode } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { useTranslation } from "react-i18next";
-import type { Device } from "@gridone/sdk";
 import { useAttributeLabel } from "@/hooks/useAttributeLabel";
-import { deviceAttributes } from "@/lib/devices";
 import type { Scalar } from "./conditions";
 import type { PageNode, PresentationV1 } from "./document";
 import { DeviceFace, type LoadedGlyphSet } from "./face";
@@ -21,9 +19,14 @@ import { PresentationSection } from "./widgets/PresentationSection";
  * back to the standard content without losing the device frame.
  */
 
+export type PresentationSubject = {
+  id: string;
+  attributes?: Record<string, unknown>;
+};
+
 export type DevicePresentationProps = {
   document: PresentationV1;
-  device: Device;
+  subject: PresentationSubject;
   runtime: DeviceUiRuntime;
   assetUrl: (assetId: string) => string | undefined;
   glyphSet: (glyphSetId: string) => LoadedGlyphSet | undefined;
@@ -39,7 +42,7 @@ export type DevicePresentationProps = {
 
 type PageContext = {
   document: PresentationV1;
-  device: Device;
+  subject: PresentationSubject;
   runtime: DeviceUiRuntime;
   assetUrl: DevicePresentationProps["assetUrl"];
   glyphSet: DevicePresentationProps["glyphSet"];
@@ -60,7 +63,7 @@ type PageContext = {
 
 export function DevicePresentation({
   document,
-  device,
+  subject,
   runtime,
   assetUrl,
   glyphSet,
@@ -73,7 +76,7 @@ export function DevicePresentation({
   const language = i18n.language;
 
   const context = useMemo<PageContext>(() => {
-    const attributes = deviceAttributes(device) as Record<
+    const attributes = (subject.attributes ?? {}) as Record<
       string,
       AttributeLike
     >;
@@ -91,7 +94,7 @@ export function DevicePresentation({
     };
     return {
       document,
-      device,
+      subject,
       runtime,
       assetUrl,
       glyphSet,
@@ -114,7 +117,7 @@ export function DevicePresentation({
     };
   }, [
     document,
-    device,
+    subject,
     runtime,
     assetUrl,
     glyphSet,
@@ -131,9 +134,9 @@ export function DevicePresentation({
           error instanceof Error ? error : new Error(String(error)),
         )
       }
-      resetKeys={[document, device.id]}
+      resetKeys={[document, subject.id]}
     >
-      <div key={device.id} data-testid="device-presentation">
+      <div key={subject.id} data-testid="device-presentation">
         <PageNodeView node={document.page} context={context} />
       </div>
     </ErrorBoundary>
@@ -212,6 +215,11 @@ function PageNodeView({
           items={node.items}
           layout={node.layout}
           reported={context.reported}
+          unavailableLabel={(binding) =>
+            context.runtime.valueLabel?.(
+              context.document.bindings[binding]?.attribute ?? "",
+            )
+          }
           attributeOf={context.attributeOf}
           attributeLabel={context.attributeLabel}
           language={context.language}
@@ -223,6 +231,11 @@ function PageNodeView({
           rows={node.rows}
           runtime={context.runtime}
           reported={context.reported}
+          unavailableLabel={(binding) =>
+            context.runtime.valueLabel?.(
+              context.document.bindings[binding]?.attribute ?? "",
+            )
+          }
           attributeOf={context.attributeOf}
           language={context.language}
         />

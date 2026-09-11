@@ -244,7 +244,7 @@ function renderPresentation(
   return render(
     <DevicePresentation
       document={document}
-      device={device}
+      subject={device}
       runtime={runtime}
       assetUrl={() => undefined}
       glyphSet={(id) => AGRID_THERMOSTAT_GLYPH_SETS[id]}
@@ -298,7 +298,7 @@ describe("DevicePresentation", () => {
     rerender(
       <DevicePresentation
         document={nested}
-        device={{ ...device }}
+        subject={{ ...device }}
         runtime={runtime}
         assetUrl={() => undefined}
         glyphSet={() => undefined}
@@ -310,7 +310,7 @@ describe("DevicePresentation", () => {
     rerender(
       <DevicePresentation
         document={nested}
-        device={{ ...device, id: "dev-2" }}
+        subject={{ ...device, id: "dev-2" }}
         runtime={runtime}
         assetUrl={() => undefined}
         glyphSet={() => undefined}
@@ -530,7 +530,7 @@ describe("DevicePresentation", () => {
   it("uses driver attribute labels when a measurement has no explicit label", () => {
     const { runtime } = fakeRuntime();
     renderPresentation(runtime, {
-      device: {
+      subject: {
         ...device,
         attributes: {
           ...device.attributes,

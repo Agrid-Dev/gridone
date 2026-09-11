@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
 
+from devices_manager.core.device_group import DeviceGroup
 from models.errors import ConflictError
 
 from .device_record import DeviceRecord, RecordDeviceStorage
@@ -69,6 +70,7 @@ class MemoryDevicesStorage:
     transports: TransportStorage
 
     def __init__(self) -> None:
+        self.groups = MemoryStorageBackend[DeviceGroup]()
         self.presentation_resources = MemoryPresentationResources()
         self._device_storage = RecordDeviceStorage(MemoryStorageBackend[DeviceRecord]())
         self.devices = self._device_storage

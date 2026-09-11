@@ -206,7 +206,7 @@ class TestDispatchUnit:
         cmd = page.items[0]
         assert cmd.status == CommandStatus.ERROR
         assert cmd.status_details is not None
-        assert "timeout" in cmd.status_details
+        assert cmd.status_details == "failed"
         assert cmd.completed_at is not None
         result_handler.assert_not_awaited()
 
@@ -478,7 +478,7 @@ class TestDispatchBatch:
         assert by_device["d1"].status == CommandStatus.SUCCESS
         assert by_device["d2"].status == CommandStatus.ERROR
         assert by_device["d2"].status_details is not None
-        assert "unreachable" in by_device["d2"].status_details
+        assert by_device["d2"].status_details == "failed"
         assert by_device["d3"].status == CommandStatus.SUCCESS
         # result_handler is only called on success.
         assert result_handler.await_count == 2

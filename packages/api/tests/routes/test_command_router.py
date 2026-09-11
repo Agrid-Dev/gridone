@@ -31,7 +31,9 @@ from models.targets import DevicesFilter, ResolvedTarget, TargetResolver
 
 @pytest.fixture
 def mock_commands_service():
-    return AsyncMock(spec=CommandsServiceInterface)
+    service = AsyncMock(spec=CommandsServiceInterface)
+    service.get_template.return_value = _template()
+    return service
 
 
 @pytest.fixture

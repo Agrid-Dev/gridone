@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { wizardSchema } from "./types";
 import { useForm } from "react-hook-form";
 import type {
   AttributeCoverage,
@@ -14,6 +16,7 @@ import {
   targetFilterToDevicesFilter,
 } from "./resolvers";
 import type { WizardFormValues } from "./types";
+import { useDeviceGroup } from "../../groups/useDeviceGroups";
 import { useCommandTemplate } from "./useCommandTemplate";
 
 type CommandPayload = {
@@ -55,6 +58,7 @@ export function useCommandWizard({
 
   const { control, watch, setValue, getValues, trigger } =
     useForm<WizardFormValues>({
+      resolver: zodResolver(wizardSchema),
       mode: "onChange",
       defaultValues: {
         targetMode: "devices",
@@ -71,15 +75,24 @@ export function useCommandWizard({
 
   // -- Derived state --------------------------------------------------------
   const values = watch();
+  const targetGroupId = isPredefined
+    ? predefinedTarget?.group_id
+    : values.targetFilter?.groupId;
+  const { data: selectedGroup } = useDeviceGroup(targetGroupId ?? "");
 
   const selectedDevices = useMemo(() => {
     if (isPredefined) {
-      return resolveFilter(devices, predefinedTarget!);
+      return resolveFilter(
+        devices,
+        predefinedTarget!,
+        selectedGroup ? [selectedGroup] : [],
+      );
     }
     if (values.targetMode === "filters") {
       return resolveFilter(
         devices,
         targetFilterToDevicesFilter(values.targetFilter),
+        selectedGroup ? [selectedGroup] : [],
       );
     }
     const ids = values.deviceIds ?? [];
@@ -91,6 +104,7 @@ export function useCommandWizard({
     values.targetMode,
     values.deviceIds,
     values.targetFilter,
+    selectedGroup,
   ]);
 
   // The effective device-set filter the attribute coverage is computed over.
@@ -291,10 +305,7 @@ function buildTarget(
     return predefinedTarget;
   }
   if (values.targetMode === "filters") {
-    return {
-      asset_id: values.targetFilter?.assetId,
-      types: values.targetFilter?.types,
-    };
+    return targetFilterToDevicesFilter(values.targetFilter);
   }
   return { ids: selectedDevices.map((d) => d.id) };
 }

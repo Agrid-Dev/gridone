@@ -1,3 +1,4 @@
+import { commandFailureLabel } from "@/lib/commandFailure";
 import type { ReactNode } from "react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Link } from "react-router";
@@ -132,8 +133,9 @@ export function buildCommandColumns(
       accessorKey: "status_details",
       header: () => t("commands.details"),
       cell: ({ row }) => {
-        const details = row.getValue<string | null>("status_details");
-        if (!details) return null;
+        const rawDetails = row.getValue<string | null>("status_details");
+        if (!rawDetails) return null;
+        const details = commandFailureLabel(t, rawDetails);
         return (
           <Popover>
             <PopoverTrigger asChild>

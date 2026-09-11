@@ -18,6 +18,7 @@ import { DevicesSummary } from "./DevicesSummary";
 import { DeviceTypeChips } from "./DeviceTypeChips";
 import { DevicesGrid } from "./DevicesGrid";
 import { DevicesTable } from "./DevicesTable";
+import { DevicesTabs } from "./groups/DevicesTabs";
 import { useDevicesPage } from "./useDevicesPage";
 
 /** Cards first: the fleet is read at a glance far more often than compared
@@ -91,6 +92,7 @@ export default function DevicesList() {
         }
       />
 
+      <DevicesTabs />
       {!summaryLoading && (
         <div className="text-sm text-muted-foreground">
           <DevicesSummary total={total} counts={connectionCounts} />

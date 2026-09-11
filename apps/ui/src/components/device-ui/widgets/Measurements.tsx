@@ -15,6 +15,7 @@ import { formatMeasurement } from "./formatters";
  */
 
 export type MeasurementsProps = {
+  unavailableLabel?: (binding: string) => string | undefined;
   items: MeasurementItem[];
   layout?: MeasurementLayout;
   reported: (binding: string) => Scalar | null;
@@ -25,6 +26,7 @@ export type MeasurementsProps = {
 
 export function Measurements({
   items,
+  unavailableLabel,
   layout = "grouped",
   reported,
   attributeOf,
@@ -59,6 +61,7 @@ export function Measurements({
             {groupItems.map((item) => (
               <MeasurementRow
                 key={item.binding}
+                unavailableLabel={unavailableLabel?.(item.binding)}
                 item={item}
                 value={reported(item.binding)}
                 attribute={attributeOf(item.binding)}
@@ -75,6 +78,7 @@ export function Measurements({
 }
 
 function MeasurementRow({
+  unavailableLabel,
   item,
   value,
   attribute,
@@ -82,6 +86,7 @@ function MeasurementRow({
   language,
   layout,
 }: {
+  unavailableLabel?: string;
   item: MeasurementItem;
   value: Scalar | null;
   attribute: AttributeLike | null;
@@ -123,7 +128,7 @@ function MeasurementRow({
             : "font-medium tabular-nums text-foreground"
         }
       >
-        {text ?? unavailable}
+        {text ?? unavailableLabel ?? unavailable}
       </dd>
     </div>
   );

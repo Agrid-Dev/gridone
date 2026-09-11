@@ -6,6 +6,7 @@ import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
+from commands.failures import command_failure
 from commands.filters import CommandsQueryFilters
 from commands.models import (
     BatchCommandDispatch,
@@ -44,7 +45,10 @@ class CommandsService(Service):
         device_writer: DeviceWriter,
         result_handler: CommandResultHandler,
         target_resolver: TargetResolver,
+        *,
+        mutation_lock: asyncio.Lock | None = None,
     ) -> None:
+        self._mutation_lock = mutation_lock or asyncio.Lock()
         self._storage_url = storage_url
         self._device_writer = device_writer
         self._result_handler = result_handler
@@ -75,6 +79,27 @@ class CommandsService(Service):
     async def save_template(
         self, template: CommandTemplateCreate, user_id: str
     ) -> CommandTemplate:
+        if template.target.group_id is None:
+            return await self._save_template(template, user_id)
+        async with self._mutation_lock:
+            await self._validate_group_template(template)
+            return await self._save_template(template, user_id)
+
+    async def _validate_group_template(self, template: CommandTemplateCreate) -> None:
+        if template.target.group_id is not None:
+            resolved = await self._target_resolver.resolve(
+                AttributeTarget(
+                    devices=template.target, attribute=template.write.attribute
+                ),
+                writable=True,
+            )
+            if resolved.data_type != template.write.data_type:
+                msg = "Group attribute type does not match the command"
+                raise InvalidError(msg)
+
+    async def _save_template(
+        self, template: CommandTemplateCreate, user_id: str
+    ) -> CommandTemplate:
         """Persist a :class:`CommandTemplate`.
 
         ``template.name`` governs visibility: non-null templates are saved
@@ -95,6 +120,12 @@ class CommandsService(Service):
     async def update_template(
         self, template_id: str, patch: CommandTemplatePatch
     ) -> CommandTemplate:
+        async with self._mutation_lock:
+            return await self._update_template(template_id, patch)
+
+    async def _update_template(
+        self, template_id: str, patch: CommandTemplatePatch
+    ) -> CommandTemplate:
         """Apply a partial update to a template's mutable fields.
 
         ``patch.model_fields_set`` drives the diff: omitted fields stay
@@ -108,6 +139,7 @@ class CommandsService(Service):
         if not diff:
             return existing
         updated = dataclasses.replace(existing, **diff)
+        await self._validate_group_template(updated)
         return await self._storage.update_template(updated)
 
     async def get_template(self, template_id: str) -> CommandTemplate:
@@ -300,6 +332,8 @@ class CommandsService(Service):
                 writable=True,
             )
         except InvalidError as e:
+            if template.target.group_id is not None:
+                raise
             logger.warning("dispatch: template %r unresolvable: %s", template.id, e)
             return []
         if resolved.excluded_device_ids:
@@ -360,7 +394,7 @@ class CommandsService(Service):
                 await self._storage.update_command_status(
                     command.id,
                     CommandStatus.ERROR,
-                    status_details=str(exc),
+                    status_details=command_failure(exc),
                     completed_at=datetime.now(UTC),
                 )
             except Exception:
