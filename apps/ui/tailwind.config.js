@@ -118,6 +118,8 @@ module.exports = {
           from: { opacity: 0, transform: "translateY(100%)" },
           to: { opacity: 1, transform: "translateY(0)" },
         },
+        flow: { to: { strokeDashoffset: "-52" } },
+        blink: { "0%, 55%": { opacity: 1 }, "56%, 100%": { opacity: 0.3 } },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -126,6 +128,8 @@ module.exports = {
         "fade-up": "fade-up 0.4s ease-out both",
         "roll-out": "roll-out 0.35s ease-out forwards",
         "roll-in": "roll-in 0.35s ease-out both",
+        flow: "flow 1.2s linear infinite",
+        blink: "blink 1.1s step-end infinite",
       },
     },
   },

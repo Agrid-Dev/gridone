@@ -7,7 +7,7 @@ export {
   FlowChevron,
   MeasureTag,
   ValueChip,
-} from "../synoptic";
+} from "@/components/synoptic";
 export { useAhuSynopticLabel, type AhuSynopticLabelKey } from "./labels";
 export { AhuPreviewBody } from "./AhuPreviewBody";
 export {

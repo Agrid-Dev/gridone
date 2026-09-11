@@ -86,6 +86,34 @@ export const SEMANTIC_BG_CLASS: Record<SemanticColor, string> = {
   water: "bg-water",
 };
 
+/** SVG fill utility per token (literal classes for Tailwind). */
+export const SEMANTIC_FILL_CLASS: Record<SemanticColor, string> = {
+  ok: "fill-status-ok",
+  info: "fill-status-info",
+  warning: "fill-status-warning",
+  error: "fill-status-error",
+  hvacHeat: "fill-hvac-heat",
+  hvacCool: "fill-hvac-cool",
+  hvacFan: "fill-hvac-fan",
+  hvacDry: "fill-hvac-dry",
+  hvacAuto: "fill-hvac-auto",
+  water: "fill-water",
+};
+
+/** SVG stroke utility per token (literal classes for Tailwind). */
+export const SEMANTIC_STROKE_CLASS: Record<SemanticColor, string> = {
+  ok: "stroke-status-ok",
+  info: "stroke-status-info",
+  warning: "stroke-status-warning",
+  error: "stroke-status-error",
+  hvacHeat: "stroke-hvac-heat",
+  hvacCool: "stroke-hvac-cool",
+  hvacFan: "stroke-hvac-fan",
+  hvacDry: "stroke-hvac-dry",
+  hvacAuto: "stroke-hvac-auto",
+  water: "stroke-water",
+};
+
 /** Fault severity mapped onto a semantic status level. */
 export const SEVERITY_LEVEL: Record<Severity, StatusLevel> = {
   alert: "error",

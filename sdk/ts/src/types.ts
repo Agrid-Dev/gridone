@@ -106,6 +106,9 @@ export type ConnectionStatus = Schemas["ConnectionStatus"];
 export type FaultView = Schemas["FaultView"];
 export type Severity = Schemas["Severity"];
 
+// Synoptics
+export type Fluid = Schemas["Fluid"];
+
 // Attributes
 export type Attribute = Schemas["Attribute"];
 /**
