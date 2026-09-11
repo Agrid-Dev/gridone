@@ -3,6 +3,10 @@ import { lazy, FC, Suspense } from "react";
 import DevicesList from "./DevicesList";
 import Device from "./device";
 
+const GroupsListPage = lazy(() => import("./groups/GroupsListPage"));
+const GroupFormPage = lazy(() => import("./groups/GroupFormPage"));
+const GroupDetailPage = lazy(() => import("./groups/GroupDetailPage"));
+
 const CommandsPage = lazy(() => import("./commands/CommandsPage"));
 const NewCommandPage = lazy(() => import("./commands/new/NewCommandPage"));
 const TemplatesListPage = lazy(
@@ -18,6 +22,40 @@ const ZoneMappingImportPage = lazy(
 const Devices: FC = () => (
   <Routes>
     <Route index element={<DevicesList />} />
+    <Route path="groups">
+      <Route
+        index
+        element={
+          <Suspense>
+            <GroupsListPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="new"
+        element={
+          <Suspense>
+            <GroupFormPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path=":groupId"
+        element={
+          <Suspense>
+            <GroupDetailPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path=":groupId/edit"
+        element={
+          <Suspense>
+            <GroupFormPage />
+          </Suspense>
+        }
+      />
+    </Route>
     {/* Legacy /devices/history → /devices/commands */}
     <Route
       path="history"

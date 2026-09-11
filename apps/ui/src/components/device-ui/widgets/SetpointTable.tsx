@@ -15,6 +15,7 @@ import { formatDeviation, formatMeasurement } from "./formatters";
  */
 
 export type SetpointTableProps = {
+  unavailableLabel?: (binding: string) => string | undefined;
   rows: SetpointRow[];
   runtime: DeviceUiRuntime;
   reported: (binding: string) => Scalar | null;
@@ -24,6 +25,7 @@ export type SetpointTableProps = {
 
 export function SetpointTable({
   rows,
+  unavailableLabel,
   runtime,
   reported,
   attributeOf,
@@ -57,6 +59,7 @@ export function SetpointTable({
           {rows.map((row, index) => (
             <SetpointTableRow
               key={index}
+              unavailableLabel={unavailableLabel}
               row={row}
               hasRegulated={hasRegulated}
               runtime={runtime}
@@ -72,6 +75,7 @@ export function SetpointTable({
 }
 
 function SetpointTableRow({
+  unavailableLabel,
   row,
   hasRegulated,
   runtime,
@@ -89,11 +93,14 @@ function SetpointTableRow({
     binding ? (attributeOf(binding)?.unit ?? null) : null;
   const cell = (binding: string | undefined) => {
     if (!binding) return null;
-    return formatMeasurement(
-      reported(binding),
-      row.formatter,
-      unitOf(binding),
-      language,
+    return (
+      unavailableLabel?.(binding) ??
+      formatMeasurement(
+        reported(binding),
+        row.formatter,
+        unitOf(binding),
+        language,
+      )
     );
   };
 
@@ -186,7 +193,17 @@ function DemandedControl({
   if (!state) return null;
   return (
     <div className="space-y-1">
-      {state.spec.kind === "number" ? (
+      {runtime.chooseValue &&
+      (state.displayed === null || state.constraints.unknown) ? (
+        <button
+          type="button"
+          className="rounded-md border px-3 py-2"
+          disabled={!state.writable}
+          onClick={() => runtime.chooseValue?.(id)}
+        >
+          {state.valueLabel ?? label}
+        </button>
+      ) : state.spec.kind === "number" ? (
         <NumberStepper id={id} state={state} runtime={runtime} label={label} />
       ) : state.spec.kind === "slider" ? (
         <NumberSlider id={id} state={state} runtime={runtime} label={label} />

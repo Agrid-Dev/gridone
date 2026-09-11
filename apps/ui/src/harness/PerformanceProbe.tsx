@@ -113,7 +113,7 @@ function Probe() {
       <output data-testid="performance-result">{report}</output>
       <DevicePresentation
         document={document}
-        device={device}
+        subject={device}
         runtime={runtime}
         assetUrl={() => undefined}
         glyphSet={() => undefined}

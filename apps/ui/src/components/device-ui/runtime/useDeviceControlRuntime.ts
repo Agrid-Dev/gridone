@@ -30,6 +30,7 @@ import {
 } from "./controls";
 
 export type BoundControlState = {
+  valueLabel?: string;
   spec: ControlSpec;
   attribute: AttributeLike | null;
   reported: Scalar | null;
@@ -47,6 +48,9 @@ export type BoundControlState = {
 };
 
 export type DeviceUiRuntime = {
+  /** A group can require an explicit absolute target for mixed values. */
+  chooseValue?(id: string): void;
+  valueLabel?(attribute: string): string | undefined;
   readControl(id: string): BoundControlState | undefined;
   /** Write a value; number changes are debounced unless `immediate`. */
   setValue(id: string, value: Scalar, options?: { immediate?: boolean }): void;

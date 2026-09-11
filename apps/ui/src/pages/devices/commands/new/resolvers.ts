@@ -1,4 +1,4 @@
-import type { Device } from "@gridone/sdk";
+import type { Device, DeviceGroup } from "@gridone/sdk";
 import type { AssetTreeNode } from "@/lib/assets";
 import {
   deviceAttributes,
@@ -58,27 +58,35 @@ function intersectValueOptions(
   return allMatch ? first : undefined;
 }
 
-/** The current value of *attributeName* on the first device, or undefined when
- *  the device, attribute, or value is missing. Used to pre-fill the command
- *  form's value with what the device currently reports. */
+/** Pre-fill only a value that every selected member has actually reported. */
 export function currentValueFor(
   devices: Device[],
   attributeName: string,
 ): AttributeValue | undefined {
-  const first = devices[0];
-  if (!first) return undefined;
-  const value = Object.values(deviceAttributes(first)).find(
-    (a) => a.name === attributeName,
-  )?.current_value as AttributeValue | null | undefined;
-  return value ?? undefined;
+  if (!devices.length) return undefined;
+  const values = devices.map(
+    (device) => deviceAttributes(device)[attributeName]?.current_value,
+  );
+  const value = values[0];
+  return value != null && values.every((item) => item === value)
+    ? (value as AttributeValue)
+    : undefined;
 }
 
 /** Is *device* a member of the given filter? Mirrors backend semantics. */
 export function deviceMatchesFilter(
   device: Device,
   filter: DevicesFilter,
+  groups: DeviceGroup[] = [],
 ): boolean {
-  if (filter.ids && filter.ids.length > 0 && !filter.ids.includes(device.id)) {
+  if (
+    filter.group_id &&
+    !groups
+      .find((group) => group.id === filter.group_id)
+      ?.device_ids?.includes(device.id)
+  )
+    return false;
+  if (filter.ids && !filter.ids.includes(device.id)) {
     return false;
   }
   if (filter.types && filter.types.length > 0) {
@@ -86,6 +94,13 @@ export function deviceMatchesFilter(
       return false;
     }
   }
+  if (
+    filter.tags &&
+    !Object.entries(filter.tags).every(([key, values]) =>
+      values.includes(device.tags?.[key] ?? ""),
+    )
+  )
+    return false;
   if (filter.asset_id && device.tags?.["asset_id"] !== filter.asset_id) {
     return false;
   }
@@ -97,9 +112,10 @@ export function deviceMatchesFilter(
 export function resolveFilter(
   devices: Device[],
   filter: DevicesFilter,
+  groups: DeviceGroup[] = [],
 ): Device[] {
   if (isEmptyFilter(filter)) return [];
-  return devices.filter((d) => deviceMatchesFilter(d, filter));
+  return devices.filter((d) => deviceMatchesFilter(d, filter, groups));
 }
 
 /** Map the filter-mode form state (camelCase ``assetId``) onto the
@@ -110,6 +126,9 @@ export function targetFilterToDevicesFilter(
 ): DevicesFilter {
   return {
     types: filter?.types,
+    ...(filter?.groupId ? { group_id: filter.groupId } : {}),
+    ...(filter?.ids ? { ids: filter.ids } : {}),
+    ...(filter?.tags ? { tags: filter.tags } : {}),
     asset_id: filter?.assetId,
   };
 }

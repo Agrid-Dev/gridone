@@ -743,6 +743,18 @@ class CoreDevice:
                 with contextlib.suppress(asyncio.CancelledError):
                     await poll_task
 
+    def validate_attribute_write(
+        self, attribute_name: str, value: AttributeValueType
+    ) -> AttributeValueType:
+        """Check the live contract without encoding, sending or changing values."""
+        attribute = self.get_attribute(attribute_name)
+        if not self.can_write(attribute_name):
+            msg = f"Attribute '{attribute_name}' is not writable on device '{self.id}'"
+            raise PermissionError(msg)
+        validated_value = attribute.ensure_type(value)
+        check_write_constraints(attribute, validated_value, self._known_attribute_value)
+        return validated_value
+
     @log_event(EventType.WRITE)
     async def write_attribute_value(
         self,
@@ -754,11 +766,7 @@ class CoreDevice:
         _log_attribute: Attribute | None = None,
     ) -> Attribute:
         attribute = _log_attribute or self.get_attribute(attribute_name)
-        if not self.can_write(attribute_name):
-            msg = f"Attribute '{attribute_name}' is not writable on device '{self.id}'"
-            raise PermissionError(msg)
-        validated_value = attribute.ensure_type(value)
-        check_write_constraints(attribute, validated_value, self._known_attribute_value)
+        validated_value = self.validate_attribute_write(attribute_name, value)
         attribute_driver = self.driver.attributes[attribute.name]
         codec = attribute_driver.codec
         if attribute_driver.write is None:

@@ -42,6 +42,7 @@ from commands import (
 from devices_manager import DevicesServiceInterface
 from models.errors import InvalidError
 from models.pagination import Page, PaginationParams
+from models.resource_conflict import ResourceConflictCode, ResourceConflictError
 from models.targets import (
     AttributeTarget,
     DevicesFilter,
@@ -161,6 +162,8 @@ async def dispatch_batch_command(
     user_id: str = Depends(get_current_user_id),
 ) -> BatchDispatchResponse:
     target = body.target.to_devices_filter()
+    if target.group_id is not None:
+        raise ResourceConflictError(ResourceConflictCode.GROUP_PREVIEW_REQUIRED, [])
     resolved = await _validated_write_target(
         resolver, devices=target, attribute=body.attribute
     )
@@ -316,6 +319,9 @@ async def dispatch_template(
     commands_svc: CommandsServiceInterface = Depends(get_commands_service),
     user_id: str = Depends(get_current_user_id),
 ) -> BatchDispatchResponse:
+    template = await commands_svc.get_template(template_id)
+    if template.target.group_id is not None:
+        raise ResourceConflictError(ResourceConflictCode.GROUP_PREVIEW_REQUIRED, [])
     dispatch = await commands_svc.dispatch_from_template(
         template_id=template_id, user_id=user_id
     )

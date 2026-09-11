@@ -1683,3 +1683,81 @@ def test_synoptics_access_control(  # noqa: PLR0913
             headers = _auth_header(token)
         resp = client.request(method, endpoint, headers=headers, json=body)
         assert resp.status_code == expected_status
+
+
+# --- Explicit device groups: the same read/write permissions as devices ---
+
+
+@pytest.mark.parametrize("role", ["admin", "operator", "viewer", None])
+@pytest.mark.parametrize(
+    ("method", "path", "body", "allowed"),
+    [
+        ("GET", "/devices/groups", None, 200),
+        ("GET", "/devices/groups/group", None, 200),
+        ("GET", "/devices/groups/group/references", None, 200),
+        ("GET", "/devices/groups/group/presentation", None, 200),
+        ("POST", "/devices/groups", {"name": "East", "driver_id": "driver"}, 201),
+        ("PATCH", "/devices/groups/group", {"name": "East", "device_ids": []}, 200),
+        ("DELETE", "/devices/groups/group", None, 204),
+        (
+            "POST",
+            "/devices/groups/group/commands/preview",
+            {"attribute": "setpoint", "value": 25},
+            200,
+        ),
+        (
+            "POST",
+            "/devices/groups/group/commands",
+            {"token": "token", "device_ids": ["device"]},
+            202,
+        ),
+    ],
+)
+def test_device_group_permissions(role, method, path, body, allowed):
+    from api.group_commands import GroupCommandPreview, GroupCommands
+    from api.group_references import GroupReferences
+    from api.schemas.command import BatchDispatchResponse
+    from devices_manager import DevicesServiceInterface
+    from devices_manager.core.device_group import DeviceGroup
+
+    app = _build_devices_app()
+    group = DeviceGroup(
+        id="group",
+        name="East",
+        driver_id="driver",
+        device_ids=[],
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+    dm = MagicMock(spec=DevicesServiceInterface)
+    dm.list_groups.return_value = [group]
+    dm.get_group.return_value = group
+    dm.create_group.return_value = group
+    dm.update_group.return_value = group
+    dm.get_driver_presentation_response.return_value = None
+    app.dependency_overrides[get_device_manager] = lambda: dm
+    commands = MagicMock(spec=GroupCommands)
+    commands.prepare.return_value = GroupCommandPreview(
+        token="token",
+        group_id="group",
+        group_name="East",
+        attribute="setpoint",
+        value=25,
+        members=[],
+    )
+    commands.confirm.return_value = BatchDispatchResponse(batch_id="batch", commands=[])
+    references = MagicMock(spec=GroupReferences)
+    references.list.return_value = []
+    app.state.group_commands = commands
+    app.state.group_references = references
+    with TestClient(app) as client:
+        headers = _auth_header(_login(client, role)) if role else {}
+        response = client.request(method, path, json=body, headers=headers)
+    expected = (
+        401
+        if role is None
+        else 403
+        if role == "viewer" and method != "GET"
+        else allowed
+    )
+    assert response.status_code == expected

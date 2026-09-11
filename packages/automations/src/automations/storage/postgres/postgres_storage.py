@@ -12,6 +12,7 @@ from automations.models import (
     ExecutionStatus,
     Trigger,
 )
+from models.action_failure import ActionFailure
 from models.errors import NotFoundError
 
 _trigger_adapter: TypeAdapter[Trigger] = TypeAdapter(Trigger)
@@ -54,6 +55,9 @@ class PostgresStorage:
             status=ExecutionStatus(row["status"]),
             error=row["error"],
             output_id=row["output_id"],
+            error_details=ActionFailure.model_validate_json(row["error_details"])
+            if row.get("error_details")
+            else None,
         )
 
     async def create(self, automation: Automation) -> None:
@@ -127,8 +131,9 @@ class PostgresStorage:
         await self._pool.execute(
             """
             INSERT INTO automation_executions
-                (id, automation_id, triggered_at, executed_at, status, error, output_id)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+                (id, automation_id, triggered_at, executed_at,
+                 status, error, output_id, error_details)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             """,
             execution.id,
             execution.automation_id,
@@ -137,6 +142,9 @@ class PostgresStorage:
             execution.status.value,
             execution.error,
             execution.output_id,
+            execution.error_details.model_dump_json()
+            if execution.error_details
+            else None,
         )
 
     async def list_executions(self, automation_id: str) -> list[AutomationExecution]:  # type: ignore[invalid-type-form]

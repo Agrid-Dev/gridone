@@ -577,6 +577,7 @@ function attributeValueReader(device: Device) {
  *  query-layer superset of the persisted target criteria
  *  (``ids`` | ``types`` | ``tags``). Intersection semantics across fields. */
 export type DevicesFilter = {
+  group_id?: string | null;
   ids?: string[] | null;
   types?: string[] | null;
   tags?: { [key: string]: string[] } | null;
@@ -598,7 +599,8 @@ export function isEmptyFilter(filter: DevicesFilter): boolean {
     !(filter.ids && filter.ids.length > 0) &&
     !(filter.types && filter.types.length > 0) &&
     !(filter.tags && Object.keys(filter.tags).length > 0) &&
-    !filter.asset_id
+    !filter.asset_id &&
+    !filter.group_id
   );
 }
 
@@ -628,6 +630,7 @@ export function devicesFilterToListParams(
     values.map((value) => `${key}:${value}`),
   );
   return {
+    group_id: filter.group_id ?? undefined,
     ids: filter.ids ?? undefined,
     type: filter.types ?? undefined,
     tags: tags.length ? tags : undefined,

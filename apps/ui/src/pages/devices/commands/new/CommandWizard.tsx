@@ -19,6 +19,8 @@ import { TargetStep } from "./TargetStep";
 import type { useCommandWizard } from "./useCommandWizard";
 
 export type CommandWizardSubmitSlot = {
+  onPrepare?: () => void | Promise<void>;
+  disabled?: boolean;
   label: string;
   /** Called with the materialized templateId after a successful commit
    *  (POST or PATCH). The slot decides what to do next — navigate, dispatch,
@@ -93,6 +95,7 @@ export function CommandWizard(props: CommandWizardProps) {
 
   const handleDispatch = async () => {
     if (!dispatchSubmit) return;
+    if (dispatchSubmit.onPrepare) return dispatchSubmit.onPrepare();
     const id = await wizard.dispatch();
     if (id) await dispatchSubmit.onSubmit(id);
   };
@@ -208,7 +211,7 @@ export function CommandWizard(props: CommandWizardProps) {
                   <Button
                     type="button"
                     onClick={handleDispatch}
-                    disabled={!canDispatch}
+                    disabled={!canDispatch || dispatchSubmit.disabled}
                   >
                     {isCommitting
                       ? t("commands.new.dispatching")

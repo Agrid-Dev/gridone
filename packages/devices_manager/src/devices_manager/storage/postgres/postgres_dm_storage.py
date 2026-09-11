@@ -10,6 +10,7 @@ from devices_manager.storage.storage_backend import (
 
 from .device_storage import PostgresDeviceStorage
 from .driver_storage import PostgresDriverStorage
+from .group_storage import PostgresGroupStorage
 from .presentation_resources import PostgresPresentationResources
 from .session import PostgresSession
 from .transport_storage import PostgresTransportStorage
@@ -29,6 +30,7 @@ class PostgresDevicesManagerStorage(DevicesManagerStorage):
 
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
+        self.groups = PostgresGroupStorage(pool)
         session = PostgresSession(pool)
         self.presentation_resources = PostgresPresentationResources(session)
         self._device_storage = PostgresDeviceStorage(pool)

@@ -46,9 +46,10 @@ async def loaded():
         transport=transport,
     )
     storage = MagicMock(spec=DevicesManagerStorage)
-    for name in ("devices", "drivers", "transports"):
+    for name in ("devices", "drivers", "transports", "groups"):
         backend = AsyncMock()
         backend.list_all.return_value = []
+        backend.read_all.return_value = []
         setattr(storage, name, backend)
     storage.presentation_resources = MagicMock()
     storage.presentation_resources.write_revision = AsyncMock()

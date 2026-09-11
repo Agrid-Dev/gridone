@@ -193,3 +193,21 @@ await svc.start()
 ...
 await svc.stop()
 ```
+
+### Device groups
+
+Device groups are shared, explicitly selected collections of devices with the
+same `driver_id`. A device can belong to several groups, and a group can be empty.
+The service owns group storage in memory, YAML, or PostgreSQL. Adding a member
+never writes to that device or synchronizes a previous group command.
+
+Use `create_group`, `get_group`, `list_groups`, `update_group`, and `delete_group`.
+The group's driver is fixed. Device deletion removes its memberships; driver
+changes are refused while a device belongs to groups, and a driver cannot be
+deleted while groups reference it. The API composition root supplies checks for
+reusable command templates and automations (including disabled automations).
+
+Group membership and reference mutations share the service's mutation lock in the
+application process. PostgreSQL additionally validates device membership and
+serializes structural changes in database triggers. Storage publishes group
+changes only after compare-and-swap succeeds.

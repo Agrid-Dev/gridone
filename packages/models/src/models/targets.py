@@ -34,6 +34,9 @@ class DevicesFilter(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    group_id: str | None = Field(
+        default=None, min_length=1, exclude_if=lambda value: value is None
+    )
     ids: list[str] | None = None
     types: list[str] | None = None
     tags: dict[str, list[str]] | None = None

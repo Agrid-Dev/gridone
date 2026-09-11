@@ -67,6 +67,9 @@ export function ControlRow({
     >
       <div className="min-w-0">
         <p className="text-sm font-medium text-foreground">{label}</p>
+        {state.valueLabel && (
+          <p className="text-xs text-muted-foreground">{state.valueLabel}</p>
+        )}
         <WriteStateIndicator state={state.write} />
       </div>
       <ControlInput id={id} state={state} runtime={runtime} label={label} />
@@ -85,6 +88,24 @@ function ControlInput({
   runtime: DeviceUiRuntime;
   label: string;
 }) {
+  const { t } = useTranslation("devices");
+  if (
+    runtime.chooseValue &&
+    (state.displayed === null ||
+      state.constraints.unknown ||
+      (state.spec.kind === "select" && !state.options.length))
+  ) {
+    return (
+      <Button
+        type="button"
+        variant="outline"
+        disabled={!state.writable}
+        onClick={() => runtime.chooseValue?.(id)}
+      >
+        {t("groups.chooseTarget")}
+      </Button>
+    );
+  }
   switch (state.spec.kind) {
     case "toggle":
       return (
