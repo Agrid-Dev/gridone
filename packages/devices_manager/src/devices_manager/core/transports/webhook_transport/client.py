@@ -43,7 +43,10 @@ class WebhookTransportClient(PushTransportClient[WebhookAddress]):
         await super().close()
 
     @connected
-    async def register_listener(self, topic: str, callback: ListenerCallback) -> str:
+    async def register_listener(
+        self, address: WebhookAddress, callback: ListenerCallback
+    ) -> str:
+        topic = address.topic
         listener_id = self._handlers_registry.register(topic, callback)
         logger.debug("New listener registered on topic %s", topic)
         return listener_id

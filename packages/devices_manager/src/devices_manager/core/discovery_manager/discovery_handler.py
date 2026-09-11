@@ -97,7 +97,8 @@ class DiscoveryHandler:
             seen.add(config_hash)
 
         self._transport_listener_id = await self.transport.register_listener(
-            self.discovery_listener.topic, handle_payload
+            self.transport.build_address(self.discovery_listener.topic),
+            handle_payload,
         )
 
     async def stop(self) -> None:

@@ -251,7 +251,10 @@ class OpcuaTransportClient(
             raise translate_write_error(e) from e
 
     @connected
-    async def register_listener(self, topic: str, callback: ListenerCallback) -> str:
+    async def register_listener(
+        self, address: OpcuaAddress, callback: ListenerCallback
+    ) -> str:
+        topic = address.topic
         # Holds _connection_lock for the whole call, like close()/connect() —
         # a reconnect racing an in-flight subscribe must not let this write
         # a _monitored_items entry for an already-torn-down subscription.

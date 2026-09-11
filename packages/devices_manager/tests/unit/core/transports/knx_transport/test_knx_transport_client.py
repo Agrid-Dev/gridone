@@ -180,7 +180,9 @@ class TestListeners:
     ) -> None:
         received: list[object] = []
         await knx_client.connect()
-        await knx_client.register_listener("1/0/0", received.append)
+        await knx_client.register_listener(
+            knx_client.build_address("1/0/0"), received.append
+        )
 
         knx_client._on_telegram_received(  # noqa: SLF001
             Telegram(GroupAddress("1/0/0"), payload=GroupValueWrite(DPTBinary(0)))
@@ -194,7 +196,9 @@ class TestListeners:
     ) -> None:
         received: list[object] = []
         await knx_client.connect()
-        await knx_client.register_listener("1/0/0", received.append)
+        await knx_client.register_listener(
+            knx_client.build_address("1/0/0"), received.append
+        )
 
         knx_client._on_telegram_received(  # noqa: SLF001
             Telegram(GroupAddress("1/0/0"), payload=GroupValueResponse(DPTBinary(1)))
@@ -208,7 +212,9 @@ class TestListeners:
     ) -> None:
         received: list[object] = []
         await knx_client.connect()
-        await knx_client.register_listener("1/0/0", received.append)
+        await knx_client.register_listener(
+            knx_client.build_address("1/0/0"), received.append
+        )
 
         knx_client._on_telegram_received(  # noqa: SLF001
             Telegram(GroupAddress("2/0/0"), payload=GroupValueWrite(DPTBinary(1)))
@@ -222,7 +228,9 @@ class TestListeners:
     ) -> None:
         received: list[object] = []
         await knx_client.connect()
-        await knx_client.register_listener("1/0/0", received.append)
+        await knx_client.register_listener(
+            knx_client.build_address("1/0/0"), received.append
+        )
 
         knx_client._on_telegram_received(  # noqa: SLF001
             Telegram(GroupAddress("1/0/0"), payload=GroupValueRead())
@@ -236,7 +244,9 @@ class TestListeners:
     ) -> None:
         received: list[object] = []
         await knx_client.connect()
-        lid = await knx_client.register_listener("1/0/0", received.append)
+        lid = await knx_client.register_listener(
+            knx_client.build_address("1/0/0"), received.append
+        )
         await knx_client.unregister_listener(lid, "1/0/0")
 
         knx_client._on_telegram_received(  # noqa: SLF001

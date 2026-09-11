@@ -83,7 +83,10 @@ class KNXTransportClient(PushTransportClient[KNXAddress]):
                 self._xknx_instance = None
             await super().close()
 
-    async def register_listener(self, topic: str, callback: ListenerCallback) -> str:
+    async def register_listener(
+        self, address: KNXAddress, callback: ListenerCallback
+    ) -> str:
+        topic = address.topic
         return self._handlers_registry.register(topic, callback)
 
     async def unregister_listener(

@@ -342,7 +342,9 @@ class PushTransportClient[T_PushTransportAddress: PushTransportAddress](
     push_is_opt_in: ClassVar[bool] = False
 
     @abstractmethod
-    async def register_listener(self, topic: str, callback: ListenerCallback) -> str:
+    async def register_listener(
+        self, address: T_PushTransportAddress, callback: ListenerCallback
+    ) -> str:
         """Register a listener on an address
         with a handler when receiving data on the address."""
 

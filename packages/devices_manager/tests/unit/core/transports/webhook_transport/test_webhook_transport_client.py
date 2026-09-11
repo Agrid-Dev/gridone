@@ -49,7 +49,7 @@ class TestMessageIngressPort:
 class TestIngressDispatch:
     async def test_dispatches_to_exact_topic_listeners(self, client) -> None:
         received: list[str] = []
-        await client.register_listener(TOPIC, received.append)
+        await client.register_listener(client.build_address(TOPIC), received.append)
         result = await client.ingress(_request())
         assert result.matched == 1
         assert received == ['{"temperature": 21.5}']
@@ -60,14 +60,14 @@ class TestIngressDispatch:
 
     async def test_no_wildcard_matching(self, client) -> None:
         received: list[str] = []
-        await client.register_listener(TOPIC, received.append)
+        await client.register_listener(client.build_address(TOPIC), received.append)
         result = await client.ingress(_request(topic="room2/snapshot"))
         assert result.matched == 0
         assert received == []
 
     async def test_matched_counts_all_listeners(self, client) -> None:
-        await client.register_listener(TOPIC, lambda _: None)
-        await client.register_listener(TOPIC, lambda _: None)
+        await client.register_listener(client.build_address(TOPIC), lambda _: None)
+        await client.register_listener(client.build_address(TOPIC), lambda _: None)
         result = await client.ingress(_request())
         assert result.matched == 2
 
@@ -78,22 +78,24 @@ class TestIngressDispatch:
             msg = "boom"
             raise RuntimeError(msg)
 
-        await client.register_listener(TOPIC, failing)
-        await client.register_listener(TOPIC, received.append)
+        await client.register_listener(client.build_address(TOPIC), failing)
+        await client.register_listener(client.build_address(TOPIC), received.append)
         result = await client.ingress(_request())
         assert result.matched == 2
         assert received == ['{"temperature": 21.5}']
 
     async def test_unregistered_listener_not_dispatched(self, client) -> None:
         received: list[str] = []
-        listener_id = await client.register_listener(TOPIC, received.append)
+        listener_id = await client.register_listener(
+            client.build_address(TOPIC), received.append
+        )
         await client.unregister_listener(listener_id, TOPIC)
         result = await client.ingress(_request())
         assert result.matched == 0
         assert received == []
 
     async def test_invalid_utf8_payload_rejected(self, client) -> None:
-        await client.register_listener(TOPIC, lambda _: None)
+        await client.register_listener(client.build_address(TOPIC), lambda _: None)
         with pytest.raises(InvalidError, match="UTF-8"):
             await client.ingress(_request(payload=b"\xff\xfe"))
 
@@ -146,7 +148,7 @@ class TestIngressAuth:
     async def test_rejected_push_is_not_dispatched(self) -> None:
         client = _make_client(auth="bearer", secret="s3cret")
         received: list[str] = []
-        await client.register_listener(TOPIC, received.append)
+        await client.register_listener(client.build_address(TOPIC), received.append)
         with pytest.raises(UnauthorizedError):
             await client.ingress(_request())
         assert received == []
@@ -164,7 +166,7 @@ class TestReadWrite:
     and mask watchdog-detected silence, so both directions raise."""
 
     async def test_read_is_not_supported(self, client) -> None:
-        await client.register_listener(TOPIC, lambda _: None)
+        await client.register_listener(client.build_address(TOPIC), lambda _: None)
         await client.ingress(_request())
         with pytest.raises(InvalidError, match="ingress-only"):
             await client.read(WebhookAddress(topic=TOPIC))
@@ -186,5 +188,5 @@ class TestLifecycle:
         assert not client.connection_state.is_connected
 
     async def test_register_listener_marks_connected(self, client) -> None:
-        await client.register_listener(TOPIC, lambda _: None)
+        await client.register_listener(client.build_address(TOPIC), lambda _: None)
         assert client.connection_state.is_connected

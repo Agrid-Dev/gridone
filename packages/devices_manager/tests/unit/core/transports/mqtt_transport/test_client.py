@@ -18,7 +18,7 @@ from devices_manager.core.transports.mqtt_transport import (
 )
 from devices_manager.core.transports.mqtt_transport.client import build_ssl_context
 from devices_manager.core.transports.mqtt_transport.mqtt_address import (
-    MqttReplyMatch,
+    MqttFrameMatch,
     MqttRequest,
 )
 from devices_manager.core.transports.transport_metadata import TransportMetadata
@@ -273,7 +273,9 @@ async def test_unregister_last_listener_unsubscribes_synchronously(
     # The unsubscribe must be awaited, not fired off as a detached task:
     # a sequential re-subscribe on the same topic would otherwise race it.
     await mqtt_client.connect()
-    listener_id = await mqtt_client.register_listener("test/topic", Mock())
+    listener_id = await mqtt_client.register_listener(
+        MqttAddress(topic="test/topic"), Mock()
+    )
     await mqtt_client.unregister_listener(listener_id, "test/topic")
     mock_aiomqtt_client.unsubscribe.assert_awaited_once_with("test/topic")
 
@@ -323,7 +325,7 @@ async def test_handle_incoming_messages(
     mock_message.payload = b'{"value": 42}'
 
     callback = Mock()
-    await mqtt_client.register_listener(mqtt_read_address.topic, callback)
+    await mqtt_client.register_listener(mqtt_read_address, callback)
 
     mock_aiomqtt_client.messages = AsyncIteratorMock([mock_message])
     await mqtt_client._handle_incoming_messages()  # noqa: SLF001
@@ -344,8 +346,8 @@ class TestRead:
 
         original_register = mqtt_client.register_listener
 
-        async def register_and_deliver(topic, callback):  # noqa: ANN202
-            listener_id = await original_register(topic, callback)
+        async def register_and_deliver(address, callback):  # noqa: ANN202
+            listener_id = await original_register(address, callback)
             callback("42")
             return listener_id
 
@@ -365,8 +367,8 @@ class TestRead:
 
         original_register = mqtt_client.register_listener
 
-        async def register_and_deliver(topic, callback):  # noqa: ANN202
-            listener_id = await original_register(topic, callback)
+        async def register_and_deliver(address, callback):  # noqa: ANN202
+            listener_id = await original_register(address, callback)
             callback("pushed_value")
             return listener_id
 
@@ -377,6 +379,57 @@ class TestRead:
         mock_aiomqtt_client.publish.assert_not_awaited()
 
 
+def _message(topic: str, payload: str) -> AsyncMock:
+    message = AsyncMock()
+    message.topic = Topic(topic)
+    message.payload = payload.encode()
+    return message
+
+
+class TestListenerWithMatch:
+    """Every attribute of a push device listens on the same topic; the address
+    it was built from tells the transport which frames concern it, so the
+    others never reach its codec."""
+
+    @pytest.mark.asyncio
+    async def test_only_receives_the_frames_its_match_accepts(
+        self, mqtt_client, mock_aiomqtt_client
+    ):
+        address = MqttAddress(
+            topic="test/topic", match=MqttFrameMatch(regex='"name":"wanted"')
+        )
+        callback = Mock()
+        await mqtt_client.register_listener(address, callback)
+
+        mock_aiomqtt_client.messages = AsyncIteratorMock(
+            [
+                _message("test/topic", '{"name":"other"}'),
+                _message("test/topic", '{"name":"wanted"}'),
+            ]
+        )
+        await mqtt_client._handle_incoming_messages()  # noqa: SLF001
+
+        callback.assert_called_once_with('{"name":"wanted"}')
+
+    @pytest.mark.asyncio
+    async def test_address_without_match_receives_every_frame(
+        self, mqtt_client, mock_aiomqtt_client
+    ):
+        address = MqttAddress(topic="test/topic")
+        callback = Mock()
+        await mqtt_client.register_listener(address, callback)
+
+        mock_aiomqtt_client.messages = AsyncIteratorMock(
+            [
+                _message("test/topic", '{"name":"other"}'),
+                _message("test/topic", '{"name":"wanted"}'),
+            ]
+        )
+        await mqtt_client._handle_incoming_messages()  # noqa: SLF001
+
+        assert callback.call_count == 2
+
+
 class TestReadWithMatch:
     """A read on a reply topic shared by every attribute of a device may
     receive frames meant for other reads before its own; ``match`` tells the
@@ -385,15 +438,15 @@ class TestReadWithMatch:
     @pytest.fixture
     def matched_address(self, mqtt_read_address) -> MqttAddress:
         return mqtt_read_address.model_copy(
-            update={"match": MqttReplyMatch(json_path='$.data[?(@.name == "wanted")]')}
+            update={"match": MqttFrameMatch(json_path='$.data[?(@.name == "wanted")]')}
         )
 
     @staticmethod
     def _deliver_on_register(mqtt_client, frames: list[str]) -> None:
         original_register = mqtt_client.register_listener
 
-        async def register_and_deliver(topic, callback):  # noqa: ANN202
-            listener_id = await original_register(topic, callback)
+        async def register_and_deliver(address, callback):  # noqa: ANN202
+            listener_id = await original_register(address, callback)
             for frame in frames:
                 callback(frame)
             return listener_id

@@ -177,8 +177,10 @@ class MockPushTransportClient(PushTransportClient[MockPushTransportAddress]):
     async def close(self) -> None:
         self._is_connected = False
 
-    async def register_listener(self, topic: str, callback: ListenerCallback) -> str:
-        return self._listener_registry.register(topic, callback)
+    async def register_listener(
+        self, address: MockPushTransportAddress, callback: ListenerCallback
+    ) -> str:
+        return self._listener_registry.register(address.topic, callback)
 
     async def unregister_listener(
         self, callback_id: str, topic: str | None = None

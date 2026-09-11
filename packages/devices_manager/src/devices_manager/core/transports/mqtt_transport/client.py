@@ -122,7 +122,14 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
             raise ValueError(msg)
         return self._client_instance
 
-    async def register_listener(self, topic: str, callback: ListenerCallback) -> str:
+    async def register_listener(
+        self, address: MqttAddress, callback: ListenerCallback
+    ) -> str:
+        topic = address.topic
+        if address.match is not None:
+            # Every attribute of a device may listen on the same topic: without
+            # a match, each frame would go through every attribute's codec.
+            callback = address.match.only_matching(callback)
         listener_id = self._handlers_registry.register(topic, callback)
         await self._subscribe(topic)
         self._message_handlers.register(topic, listener_id)
@@ -191,7 +198,7 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
             message = message_received
             message_event.set()
 
-        listener_id = await self.register_listener(address.topic, update_value)
+        listener_id = await self.register_listener(address, update_value)
         logger.debug("MQTT read: subscribed to reply topic %s", address.topic)
 
         if address.request is not None:
