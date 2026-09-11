@@ -34,7 +34,7 @@ attributes:
         data: ALL
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"FirmwareVersion"'
+      contains: '"FirmwareVersion"'
   write: null
   codecs:
   - name: json_path
@@ -50,7 +50,7 @@ attributes:
         data: GitHash
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"GitHash"'
+      contains: '"GitHash"'
   write: null
   codecs:
   - name: json_path
@@ -66,7 +66,7 @@ attributes:
         data: Boot_Mode
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Boot_Mode"'
+      contains: '"Boot_Mode"'
   write: null
   codecs:
   - name: json_path
@@ -87,7 +87,7 @@ attributes:
         data: Bootloader_Version
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Bootloader_Version"'
+      contains: '"Bootloader_Version"'
   write: null
   codecs:
   - name: json_path
@@ -103,7 +103,7 @@ attributes:
         data: Stage0_Version
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Stage0_Version"'
+      contains: '"Stage0_Version"'
   write: null
   codecs:
   - name: json_path
@@ -119,7 +119,7 @@ attributes:
         data: App_Version
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"App_Version"'
+      contains: '"App_Version"'
   write: null
   codecs:
   - name: json_path
@@ -135,7 +135,7 @@ attributes:
         data: Required_Bootloader_Version
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Required_Bootloader_Version"'
+      contains: '"Required_Bootloader_Version"'
   write: null
   codecs:
   - name: json_path
@@ -151,7 +151,7 @@ attributes:
         data: Required_Stage0_Version
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Required_Stage0_Version"'
+      contains: '"Required_Stage0_Version"'
   write: null
   codecs:
   - name: json_path
@@ -167,7 +167,7 @@ attributes:
         data: Timestamp_UTC
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Timestamp_UTC"'
+      contains: '"Timestamp_UTC"'
   write: null
   codecs:
   - name: json_path
@@ -183,7 +183,7 @@ attributes:
         data: Reboot_Timestamp
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Reboot_Timestamp"'
+      contains: '"Reboot_Timestamp"'
   write: null
   codecs:
   - name: json_path
@@ -199,7 +199,7 @@ attributes:
         data: Reboot_Count_UTC
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Reboot_Count_UTC"'
+      contains: '"Reboot_Count_UTC"'
   write: null
   codecs:
   - name: json_path
@@ -215,7 +215,7 @@ attributes:
         data: Event
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Event"'
+      contains: '"Event"'
   write: null
   codecs:
   - name: json_path
@@ -253,7 +253,7 @@ attributes:
         data: State
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"State"'
+      contains: '"State"'
   write:
     topic: ${mac}
     message:
@@ -274,7 +274,7 @@ attributes:
         data: HVAC_Mode
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"HVAC_Mode"'
+      contains: '"HVAC_Mode"'
   write:
     topic: ${mac}
     message:
@@ -301,7 +301,7 @@ attributes:
         data: HVAC_Real_Mode
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"HVAC_Real_Mode"'
+      contains: '"HVAC_Real_Mode"'
   write: null
   codecs:
   - name: json_path
@@ -325,7 +325,7 @@ attributes:
         data: Tsetpoint
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Tsetpoint"'
+      contains: '"Tsetpoint"'
   write:
     topic: ${mac}
     message:
@@ -346,7 +346,7 @@ attributes:
         data: Fanspeed
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Fanspeed"'
+      contains: '"Fanspeed"'
   write:
     topic: ${mac}
     message:
@@ -373,7 +373,7 @@ attributes:
         data: Fanspeed_Applied
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Fanspeed_Applied"'
+      contains: '"Fanspeed_Applied"'
   write: null
   codecs:
   - name: json_path
@@ -394,7 +394,7 @@ attributes:
         data: Resistance_Lockout
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Resistance_Lockout"'
+      contains: '"Resistance_Lockout"'
   write: null
   codecs:
   - name: json_path
@@ -410,7 +410,7 @@ attributes:
         data: Temperature_Unit
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Temperature_Unit"'
+      contains: '"Temperature_Unit"'
   write:
     topic: ${mac}
     message:
@@ -437,7 +437,7 @@ attributes:
         data: BackLight
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"BackLight"'
+      contains: '"BackLight"'
   write: null
   codecs:
   - name: json_path
@@ -453,7 +453,7 @@ attributes:
         data: RSSI
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"RSSI"'
+      contains: '"RSSI"'
   write: null
   codecs:
   - name: json_path
@@ -469,7 +469,7 @@ attributes:
         data: Temperature_CPU
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Temperature_CPU"'
+      contains: '"Temperature_CPU"'
   write: null
   codecs:
   - name: json_path
@@ -485,7 +485,7 @@ attributes:
         data: Temperature_Raw_1
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Temperature_Raw_1"'
+      contains: '"Temperature_Raw_1"'
   write: null
   codecs:
   - name: json_path
@@ -501,7 +501,7 @@ attributes:
         data: Temperature_Raw_2
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Temperature_Raw_2"'
+      contains: '"Temperature_Raw_2"'
   write: null
   codecs:
   - name: json_path
@@ -517,7 +517,7 @@ attributes:
         data: Humidity_Raw
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Humidity_Raw"'
+      contains: '"Humidity_Raw"'
   write: null
   codecs:
   - name: json_path
@@ -533,7 +533,7 @@ attributes:
         data: Brightness_Raw
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Brightness_Raw"'
+      contains: '"Brightness_Raw"'
   write: null
   codecs:
   - name: json_path
@@ -549,7 +549,7 @@ attributes:
         data: Radar_Raw
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Radar_Raw"'
+      contains: '"Radar_Raw"'
   write: null
   codecs:
   - name: json_path
@@ -565,7 +565,7 @@ attributes:
         data: Temperature
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Temperature"'
+      contains: '"Temperature"'
   write: null
   codecs:
   - name: json_path
@@ -581,7 +581,7 @@ attributes:
         data: Tsetpoint_Effective
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Tsetpoint_Effective"'
+      contains: '"Tsetpoint_Effective"'
   write: null
   codecs:
   - name: json_path
@@ -597,7 +597,7 @@ attributes:
         data: Humidity
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Humidity"'
+      contains: '"Humidity"'
   write: null
   codecs:
   - name: json_path
@@ -613,7 +613,7 @@ attributes:
         data: Brightness
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Brightness"'
+      contains: '"Brightness"'
   write: null
   codecs:
   - name: json_path
@@ -629,7 +629,7 @@ attributes:
         data: DI_1
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"DI_1"'
+      contains: '"DI_1"'
   write: null
   codecs:
   - name: json_path
@@ -645,7 +645,7 @@ attributes:
         data: DI_2
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"DI_2"'
+      contains: '"DI_2"'
   write: null
   codecs:
   - name: json_path
@@ -661,7 +661,7 @@ attributes:
         data: Keycard_Ext_Sensor_Value
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Keycard_Ext_Sensor_Value"'
+      contains: '"Keycard_Ext_Sensor_Value"'
   write: null
   codecs:
   - name: json_path
@@ -682,7 +682,7 @@ attributes:
         data: Keycard_Ext_Sensor_Timestamp
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Keycard_Ext_Sensor_Timestamp"'
+      contains: '"Keycard_Ext_Sensor_Timestamp"'
   write: null
   codecs:
   - name: json_path
@@ -698,7 +698,7 @@ attributes:
         data: Window_Ext_Sensor_Value
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Window_Ext_Sensor_Value"'
+      contains: '"Window_Ext_Sensor_Value"'
   write: null
   codecs:
   - name: json_path
@@ -719,7 +719,7 @@ attributes:
         data: Window_Ext_Sensor_Timestamp
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Window_Ext_Sensor_Timestamp"'
+      contains: '"Window_Ext_Sensor_Timestamp"'
   write: null
   codecs:
   - name: json_path
@@ -735,7 +735,7 @@ attributes:
         data: Occupancy_Ext_Sensor_Value
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Occupancy_Ext_Sensor_Value"'
+      contains: '"Occupancy_Ext_Sensor_Value"'
   write: null
   codecs:
   - name: json_path
@@ -756,7 +756,7 @@ attributes:
         data: Occupancy_Ext_Sensor_Timestamp
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Occupancy_Ext_Sensor_Timestamp"'
+      contains: '"Occupancy_Ext_Sensor_Timestamp"'
   write: null
   codecs:
   - name: json_path
@@ -772,7 +772,7 @@ attributes:
         data: ChangeOver_Temp_Value
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"ChangeOver_Temp_Value"'
+      contains: '"ChangeOver_Temp_Value"'
   write: null
   codecs:
   - name: json_path
@@ -788,7 +788,7 @@ attributes:
         data: ChangeOver_Temp_Timestamp
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"ChangeOver_Temp_Timestamp"'
+      contains: '"ChangeOver_Temp_Timestamp"'
   write: null
   codecs:
   - name: json_path
@@ -804,7 +804,7 @@ attributes:
         data: ChangeOver_Contact_Value
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"ChangeOver_Contact_Value"'
+      contains: '"ChangeOver_Contact_Value"'
   write: null
   codecs:
   - name: json_path
@@ -825,7 +825,7 @@ attributes:
         data: ChangeOver_Contact_Timestamp
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"ChangeOver_Contact_Timestamp"'
+      contains: '"ChangeOver_Contact_Timestamp"'
   write: null
   codecs:
   - name: json_path
@@ -841,7 +841,7 @@ attributes:
         data: ChangeOver_HVAC_Mode_Value
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"ChangeOver_HVAC_Mode_Value"'
+      contains: '"ChangeOver_HVAC_Mode_Value"'
   write:
     topic: ${mac}
     message:
@@ -868,7 +868,7 @@ attributes:
         data: ChangeOver_HVAC_Mode_Timestamp
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"ChangeOver_HVAC_Mode_Timestamp"'
+      contains: '"ChangeOver_HVAC_Mode_Timestamp"'
   write:
     topic: ${mac}
     message:
@@ -889,7 +889,7 @@ attributes:
         data: Window_Status
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Window_Status"'
+      contains: '"Window_Status"'
   write: null
   codecs:
   - name: json_path
@@ -910,7 +910,7 @@ attributes:
         data: Window_Status_Timestamp
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Window_Status_Timestamp"'
+      contains: '"Window_Status_Timestamp"'
   write: null
   codecs:
   - name: json_path
@@ -926,7 +926,7 @@ attributes:
         data: Occupancy
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Occupancy"'
+      contains: '"Occupancy"'
   write:
     topic: ${mac}
     message:
@@ -952,7 +952,7 @@ attributes:
         data: Occupancy_Timestamp
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Occupancy_Timestamp"'
+      contains: '"Occupancy_Timestamp"'
   write:
     topic: ${mac}
     message:
@@ -973,7 +973,7 @@ attributes:
         data: Outdoor_Temperature
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Outdoor_Temperature"'
+      contains: '"Outdoor_Temperature"'
   write:
     topic: ${mac}
     message:
@@ -994,7 +994,7 @@ attributes:
         data: Outdoor_Temperature_Timestamp
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Outdoor_Temperature_Timestamp"'
+      contains: '"Outdoor_Temperature_Timestamp"'
   write:
     topic: ${mac}
     message:
@@ -1015,7 +1015,7 @@ attributes:
         data: Current_Reservation_State
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Current_Reservation_State"'
+      contains: '"Current_Reservation_State"'
   write:
     topic: ${mac}
     message:
@@ -1041,7 +1041,7 @@ attributes:
         data: Current_Reservation_Timestamp
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Current_Reservation_Timestamp"'
+      contains: '"Current_Reservation_Timestamp"'
   write:
     topic: ${mac}
     message:
@@ -1062,7 +1062,7 @@ attributes:
         data: Future_Reservation_State
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Future_Reservation_State"'
+      contains: '"Future_Reservation_State"'
   write:
     topic: ${mac}
     message:
@@ -1088,7 +1088,7 @@ attributes:
         data: Future_Reservation_Timestamp
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Future_Reservation_Timestamp"'
+      contains: '"Future_Reservation_Timestamp"'
   write:
     topic: ${mac}
     message:
@@ -1109,7 +1109,7 @@ attributes:
         data: Relay_Low_FanSpeed
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Relay_Low_FanSpeed"'
+      contains: '"Relay_Low_FanSpeed"'
   write: null
   codecs:
   - name: json_path
@@ -1125,7 +1125,7 @@ attributes:
         data: Relay_Medium_FanSpeed
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Relay_Medium_FanSpeed"'
+      contains: '"Relay_Medium_FanSpeed"'
   write: null
   codecs:
   - name: json_path
@@ -1141,7 +1141,7 @@ attributes:
         data: Relay_High_FanSpeed
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Relay_High_FanSpeed"'
+      contains: '"Relay_High_FanSpeed"'
   write: null
   codecs:
   - name: json_path
@@ -1157,7 +1157,7 @@ attributes:
         data: Relay_Heat_Valve
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Relay_Heat_Valve"'
+      contains: '"Relay_Heat_Valve"'
   write: null
   codecs:
   - name: json_path
@@ -1173,7 +1173,7 @@ attributes:
         data: Relay_Cool_Valve
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Relay_Cool_Valve"'
+      contains: '"Relay_Cool_Valve"'
   write: null
   codecs:
   - name: json_path
@@ -1189,7 +1189,7 @@ attributes:
         data: Relay_Resistance
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Relay_Resistance"'
+      contains: '"Relay_Resistance"'
   write: null
   codecs:
   - name: json_path
@@ -1205,7 +1205,7 @@ attributes:
         data: DAC_FanSpeed
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"DAC_FanSpeed"'
+      contains: '"DAC_FanSpeed"'
   write: null
   codecs:
   - name: json_path
@@ -1221,7 +1221,7 @@ attributes:
         data: DAC_Heat_Valve
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"DAC_Heat_Valve"'
+      contains: '"DAC_Heat_Valve"'
   write: null
   codecs:
   - name: json_path
@@ -1237,7 +1237,7 @@ attributes:
         data: DAC_Cool_Valve
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"DAC_Cool_Valve"'
+      contains: '"DAC_Cool_Valve"'
   write: null
   codecs:
   - name: json_path
@@ -1253,7 +1253,7 @@ attributes:
         data: DAC_Resistance
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"DAC_Resistance"'
+      contains: '"DAC_Resistance"'
   write: null
   codecs:
   - name: json_path
@@ -1269,7 +1269,7 @@ attributes:
         data: Maintenance_Mode
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Maintenance_Mode"'
+      contains: '"Maintenance_Mode"'
   write: null
   codecs:
   - name: json_path
@@ -1285,7 +1285,7 @@ attributes:
         data: MAGIC_WORD
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"MAGIC_WORD"'
+      contains: '"MAGIC_WORD"'
   write: null
   codecs:
   - name: json_path
@@ -1301,7 +1301,7 @@ attributes:
         data: FLASH_DATA_COUNT
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"FLASH_DATA_COUNT"'
+      contains: '"FLASH_DATA_COUNT"'
   write: null
   codecs:
   - name: json_path
@@ -1317,7 +1317,7 @@ attributes:
         data: Thermostat_Name
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Thermostat_Name"'
+      contains: '"Thermostat_Name"'
   write:
     topic: ${mac}
     message:
@@ -1338,7 +1338,7 @@ attributes:
         data: Time_Zone_Difference_Minutes
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Time_Zone_Difference_Minutes"'
+      contains: '"Time_Zone_Difference_Minutes"'
   write:
     topic: ${mac}
     message:
@@ -1359,7 +1359,7 @@ attributes:
         data: Language
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Language"'
+      contains: '"Language"'
   write:
     topic: ${mac}
     message:
@@ -1384,7 +1384,7 @@ attributes:
         data: Typo
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Typo"'
+      contains: '"Typo"'
   write: null
   codecs:
   - name: json_path
@@ -1404,7 +1404,7 @@ attributes:
         data: Portrait
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Portrait"'
+      contains: '"Portrait"'
   write:
     topic: ${mac}
     message:
@@ -1425,7 +1425,7 @@ attributes:
         data: Print_Indoor_Temperature
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Print_Indoor_Temperature"'
+      contains: '"Print_Indoor_Temperature"'
   write:
     topic: ${mac}
     message:
@@ -1446,7 +1446,7 @@ attributes:
         data: Print_Humidity
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Print_Humidity"'
+      contains: '"Print_Humidity"'
   write:
     topic: ${mac}
     message:
@@ -1467,7 +1467,7 @@ attributes:
         data: Print_Keycard_Status
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Print_Keycard_Status"'
+      contains: '"Print_Keycard_Status"'
   write:
     topic: ${mac}
     message:
@@ -1488,7 +1488,7 @@ attributes:
         data: Print_Window_Status
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Print_Window_Status"'
+      contains: '"Print_Window_Status"'
   write:
     topic: ${mac}
     message:
@@ -1509,7 +1509,7 @@ attributes:
         data: Print_Occupancy
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Print_Occupancy"'
+      contains: '"Print_Occupancy"'
   write:
     topic: ${mac}
     message:
@@ -1530,7 +1530,7 @@ attributes:
         data: Print_Current_Reservation_State
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Print_Current_Reservation_State"'
+      contains: '"Print_Current_Reservation_State"'
   write:
     topic: ${mac}
     message:
@@ -1551,7 +1551,7 @@ attributes:
         data: Print_Outdoor_Temperature
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Print_Outdoor_Temperature"'
+      contains: '"Print_Outdoor_Temperature"'
   write:
     topic: ${mac}
     message:
@@ -1572,7 +1572,7 @@ attributes:
         data: Print_Green_Leaf
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Print_Green_Leaf"'
+      contains: '"Print_Green_Leaf"'
   write:
     topic: ${mac}
     message:
@@ -1593,7 +1593,7 @@ attributes:
         data: Print_Standby_Logo
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Print_Standby_Logo"'
+      contains: '"Print_Standby_Logo"'
   write:
     topic: ${mac}
     message:
@@ -1614,7 +1614,7 @@ attributes:
         data: Standby_Logo_Landscape
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Standby_Logo_Landscape"'
+      contains: '"Standby_Logo_Landscape"'
   write:
     topic: ${mac}
     message:
@@ -1635,7 +1635,7 @@ attributes:
         data: Standby_Logo_Portrait
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Standby_Logo_Portrait"'
+      contains: '"Standby_Logo_Portrait"'
   write:
     topic: ${mac}
     message:
@@ -1656,7 +1656,7 @@ attributes:
         data: Screen_Design_Type
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Screen_Design_Type"'
+      contains: '"Screen_Design_Type"'
   write:
     topic: ${mac}
     message:
@@ -1681,7 +1681,7 @@ attributes:
         data: Time_Delay_Screensaver
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Time_Delay_Screensaver"'
+      contains: '"Time_Delay_Screensaver"'
   write:
     topic: ${mac}
     message:
@@ -1702,7 +1702,7 @@ attributes:
         data: Settings_Idle_Timeout
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Settings_Idle_Timeout"'
+      contains: '"Settings_Idle_Timeout"'
   write: null
   codecs:
   - name: json_path
@@ -1718,7 +1718,7 @@ attributes:
         data: Fan_Coil_Type
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Fan_Coil_Type"'
+      contains: '"Fan_Coil_Type"'
   write:
     topic: ${mac}
     message:
@@ -1751,7 +1751,7 @@ attributes:
         data: Fan_Regulation_Type
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Fan_Regulation_Type"'
+      contains: '"Fan_Regulation_Type"'
   write:
     topic: ${mac}
     message:
@@ -1777,7 +1777,7 @@ attributes:
         data: Heat_Valve_Regulation_Type
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Heat_Valve_Regulation_Type"'
+      contains: '"Heat_Valve_Regulation_Type"'
   write:
     topic: ${mac}
     message:
@@ -1802,7 +1802,7 @@ attributes:
         data: Cool_Valve_Regulation_Type
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Cool_Valve_Regulation_Type"'
+      contains: '"Cool_Valve_Regulation_Type"'
   write:
     topic: ${mac}
     message:
@@ -1827,7 +1827,7 @@ attributes:
         data: Resistance_Regulation_Type
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Resistance_Regulation_Type"'
+      contains: '"Resistance_Regulation_Type"'
   write:
     topic: ${mac}
     message:
@@ -1852,7 +1852,7 @@ attributes:
         data: HVAC_Mode_0
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"HVAC_Mode_0"'
+      contains: '"HVAC_Mode_0"'
   write: null
   codecs:
   - name: json_path
@@ -1874,7 +1874,7 @@ attributes:
         data: HVAC_Mode_1
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"HVAC_Mode_1"'
+      contains: '"HVAC_Mode_1"'
   write: null
   codecs:
   - name: json_path
@@ -1896,7 +1896,7 @@ attributes:
         data: HVAC_Mode_2
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"HVAC_Mode_2"'
+      contains: '"HVAC_Mode_2"'
   write: null
   codecs:
   - name: json_path
@@ -1918,7 +1918,7 @@ attributes:
         data: HVAC_Mode_3
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"HVAC_Mode_3"'
+      contains: '"HVAC_Mode_3"'
   write: null
   codecs:
   - name: json_path
@@ -1940,7 +1940,7 @@ attributes:
         data: HVAC_Mode_4
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"HVAC_Mode_4"'
+      contains: '"HVAC_Mode_4"'
   write: null
   codecs:
   - name: json_path
@@ -1962,7 +1962,7 @@ attributes:
         data: HVAC_Mode_5
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"HVAC_Mode_5"'
+      contains: '"HVAC_Mode_5"'
   write: null
   codecs:
   - name: json_path
@@ -1984,7 +1984,7 @@ attributes:
         data: HVAC_Mode_6
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"HVAC_Mode_6"'
+      contains: '"HVAC_Mode_6"'
   write: null
   codecs:
   - name: json_path
@@ -2006,7 +2006,7 @@ attributes:
         data: HVAC_Mode_7
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"HVAC_Mode_7"'
+      contains: '"HVAC_Mode_7"'
   write: null
   codecs:
   - name: json_path
@@ -2028,7 +2028,7 @@ attributes:
         data: HVAC_Mode_8
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"HVAC_Mode_8"'
+      contains: '"HVAC_Mode_8"'
   write: null
   codecs:
   - name: json_path
@@ -2050,7 +2050,7 @@ attributes:
         data: HVAC_Mode_9
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"HVAC_Mode_9"'
+      contains: '"HVAC_Mode_9"'
   write: null
   codecs:
   - name: json_path
@@ -2072,7 +2072,7 @@ attributes:
         data: Tsetpoint_Range_Type
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Tsetpoint_Range_Type"'
+      contains: '"Tsetpoint_Range_Type"'
   write: null
   codecs:
   - name: json_path
@@ -2092,7 +2092,7 @@ attributes:
         data: Tmin_HEAT
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Tmin_HEAT"'
+      contains: '"Tmin_HEAT"'
   write:
     topic: ${mac}
     message:
@@ -2113,7 +2113,7 @@ attributes:
         data: Tmin_COLD
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Tmin_COLD"'
+      contains: '"Tmin_COLD"'
   write:
     topic: ${mac}
     message:
@@ -2134,7 +2134,7 @@ attributes:
         data: Tmax_HEAT
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Tmax_HEAT"'
+      contains: '"Tmax_HEAT"'
   write:
     topic: ${mac}
     message:
@@ -2155,7 +2155,7 @@ attributes:
         data: Tmax_COLD
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Tmax_COLD"'
+      contains: '"Tmax_COLD"'
   write:
     topic: ${mac}
     message:
@@ -2176,7 +2176,7 @@ attributes:
         data: Tmin_AUTO
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Tmin_AUTO"'
+      contains: '"Tmin_AUTO"'
   write:
     topic: ${mac}
     message:
@@ -2197,7 +2197,7 @@ attributes:
         data: Tmax_AUTO
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Tmax_AUTO"'
+      contains: '"Tmax_AUTO"'
   write:
     topic: ${mac}
     message:
@@ -2218,7 +2218,7 @@ attributes:
         data: Average_Tsetpoint_HEAT
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Average_Tsetpoint_HEAT"'
+      contains: '"Average_Tsetpoint_HEAT"'
   write: null
   codecs:
   - name: json_path
@@ -2234,7 +2234,7 @@ attributes:
         data: Average_Tsetpoint_COLD
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Average_Tsetpoint_COLD"'
+      contains: '"Average_Tsetpoint_COLD"'
   write: null
   codecs:
   - name: json_path
@@ -2250,7 +2250,7 @@ attributes:
         data: Average_Tsetpoint_AUTO
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Average_Tsetpoint_AUTO"'
+      contains: '"Average_Tsetpoint_AUTO"'
   write: null
   codecs:
   - name: json_path
@@ -2266,7 +2266,7 @@ attributes:
         data: Interval_Length_HEAT
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Interval_Length_HEAT"'
+      contains: '"Interval_Length_HEAT"'
   write: null
   codecs:
   - name: json_path
@@ -2282,7 +2282,7 @@ attributes:
         data: Interval_Length_COLD
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Interval_Length_COLD"'
+      contains: '"Interval_Length_COLD"'
   write: null
   codecs:
   - name: json_path
@@ -2298,7 +2298,7 @@ attributes:
         data: Interval_Length_AUTO
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Interval_Length_AUTO"'
+      contains: '"Interval_Length_AUTO"'
   write: null
   codecs:
   - name: json_path
@@ -2314,7 +2314,7 @@ attributes:
         data: HVAC_Mode_Block
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"HVAC_Mode_Block"'
+      contains: '"HVAC_Mode_Block"'
   write:
     topic: ${mac}
     message:
@@ -2335,7 +2335,7 @@ attributes:
         data: Tsetpoint_Block
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Tsetpoint_Block"'
+      contains: '"Tsetpoint_Block"'
   write:
     topic: ${mac}
     message:
@@ -2356,7 +2356,7 @@ attributes:
         data: State_Block
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"State_Block"'
+      contains: '"State_Block"'
   write:
     topic: ${mac}
     message:
@@ -2377,7 +2377,7 @@ attributes:
         data: FanSpeed_Block
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"FanSpeed_Block"'
+      contains: '"FanSpeed_Block"'
   write:
     topic: ${mac}
     message:
@@ -2398,7 +2398,7 @@ attributes:
         data: Use_Temperature_Raw_1
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Use_Temperature_Raw_1"'
+      contains: '"Use_Temperature_Raw_1"'
   write: null
   codecs:
   - name: json_path
@@ -2414,7 +2414,7 @@ attributes:
         data: Use_Temperature_Raw_2
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Use_Temperature_Raw_2"'
+      contains: '"Use_Temperature_Raw_2"'
   write: null
   codecs:
   - name: json_path
@@ -2430,7 +2430,7 @@ attributes:
         data: Use_Humidity_Raw
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Use_Humidity_Raw"'
+      contains: '"Use_Humidity_Raw"'
   write: null
   codecs:
   - name: json_path
@@ -2446,7 +2446,7 @@ attributes:
         data: Use_Brightness_Raw
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Use_Brightness_Raw"'
+      contains: '"Use_Brightness_Raw"'
   write: null
   codecs:
   - name: json_path
@@ -2462,7 +2462,7 @@ attributes:
         data: Temperature_Coeff_Raw
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Temperature_Coeff_Raw"'
+      contains: '"Temperature_Coeff_Raw"'
   write: null
   codecs:
   - name: json_path
@@ -2478,7 +2478,7 @@ attributes:
         data: Temperature_Coeff_CPU
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Temperature_Coeff_CPU"'
+      contains: '"Temperature_Coeff_CPU"'
   write: null
   codecs:
   - name: json_path
@@ -2494,7 +2494,7 @@ attributes:
         data: Temperature_Coeff_Constant
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Temperature_Coeff_Constant"'
+      contains: '"Temperature_Coeff_Constant"'
   write: null
   codecs:
   - name: json_path
@@ -2510,7 +2510,7 @@ attributes:
         data: Temperature_Coeff_Raw_Back
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Temperature_Coeff_Raw_Back"'
+      contains: '"Temperature_Coeff_Raw_Back"'
   write: null
   codecs:
   - name: json_path
@@ -2526,7 +2526,7 @@ attributes:
         data: Temperature_Coeff_Constant_Back
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Temperature_Coeff_Constant_Back"'
+      contains: '"Temperature_Coeff_Constant_Back"'
   write: null
   codecs:
   - name: json_path
@@ -2542,7 +2542,7 @@ attributes:
         data: Humidity_Coeff_Raw
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Humidity_Coeff_Raw"'
+      contains: '"Humidity_Coeff_Raw"'
   write: null
   codecs:
   - name: json_path
@@ -2558,7 +2558,7 @@ attributes:
         data: Humidity_Calibration
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Humidity_Calibration"'
+      contains: '"Humidity_Calibration"'
   write: null
   codecs:
   - name: json_path
@@ -2574,7 +2574,7 @@ attributes:
         data: Brightness_Coeff_Raw
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Brightness_Coeff_Raw"'
+      contains: '"Brightness_Coeff_Raw"'
   write: null
   codecs:
   - name: json_path
@@ -2590,7 +2590,7 @@ attributes:
         data: Brightness_Calibration
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Brightness_Calibration"'
+      contains: '"Brightness_Calibration"'
   write: null
   codecs:
   - name: json_path
@@ -2606,7 +2606,7 @@ attributes:
         data: Tsetpoint_Shift_HEAT
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Tsetpoint_Shift_HEAT"'
+      contains: '"Tsetpoint_Shift_HEAT"'
   write: null
   codecs:
   - name: json_path
@@ -2622,7 +2622,7 @@ attributes:
         data: Tsetpoint_Shift_COOL
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Tsetpoint_Shift_COOL"'
+      contains: '"Tsetpoint_Shift_COOL"'
   write: null
   codecs:
   - name: json_path
@@ -2638,7 +2638,7 @@ attributes:
         data: Tsetpoint_Limit_TrigShift_HEAT
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Tsetpoint_Limit_TrigShift_HEAT"'
+      contains: '"Tsetpoint_Limit_TrigShift_HEAT"'
   write: null
   codecs:
   - name: json_path
@@ -2654,7 +2654,7 @@ attributes:
         data: Tsetpoint_Limit_TrigShift_COOL
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Tsetpoint_Limit_TrigShift_COOL"'
+      contains: '"Tsetpoint_Limit_TrigShift_COOL"'
   write: null
   codecs:
   - name: json_path
@@ -2670,7 +2670,7 @@ attributes:
         data: Tsetpoint_Shift_Slope
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Tsetpoint_Shift_Slope"'
+      contains: '"Tsetpoint_Shift_Slope"'
   write: null
   codecs:
   - name: json_path
@@ -2686,7 +2686,7 @@ attributes:
         data: Tsetpoint_Precision
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Tsetpoint_Precision"'
+      contains: '"Tsetpoint_Precision"'
   write:
     topic: ${mac}
     message:
@@ -2707,7 +2707,7 @@ attributes:
         data: Temperature_Precision
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Temperature_Precision"'
+      contains: '"Temperature_Precision"'
   write:
     topic: ${mac}
     message:
@@ -2728,7 +2728,7 @@ attributes:
         data: ChangeOver_Temp_Precision
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"ChangeOver_Temp_Precision"'
+      contains: '"ChangeOver_Temp_Precision"'
   write: null
   codecs:
   - name: json_path
@@ -2744,7 +2744,7 @@ attributes:
         data: Humidity_Precision
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Humidity_Precision"'
+      contains: '"Humidity_Precision"'
   write:
     topic: ${mac}
     message:
@@ -2765,7 +2765,7 @@ attributes:
         data: Brightness_Precision
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Brightness_Precision"'
+      contains: '"Brightness_Precision"'
   write: null
   codecs:
   - name: json_path
@@ -2781,7 +2781,7 @@ attributes:
         data: DI_1_Logic
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"DI_1_Logic"'
+      contains: '"DI_1_Logic"'
   write:
     topic: ${mac}
     message:
@@ -2806,7 +2806,7 @@ attributes:
         data: DI_2_Logic
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"DI_2_Logic"'
+      contains: '"DI_2_Logic"'
   write:
     topic: ${mac}
     message:
@@ -2831,7 +2831,7 @@ attributes:
         data: DI_1_Calibration
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"DI_1_Calibration"'
+      contains: '"DI_1_Calibration"'
   write:
     topic: ${mac}
     message:
@@ -2852,7 +2852,7 @@ attributes:
         data: DI_2_Calibration
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"DI_2_Calibration"'
+      contains: '"DI_2_Calibration"'
   write:
     topic: ${mac}
     message:
@@ -2873,7 +2873,7 @@ attributes:
         data: ChangeOver_Temperature_Sensor
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"ChangeOver_Temperature_Sensor"'
+      contains: '"ChangeOver_Temperature_Sensor"'
   write:
     topic: ${mac}
     message:
@@ -2899,7 +2899,7 @@ attributes:
         data: ChangeOver_Contact_Sensor
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"ChangeOver_Contact_Sensor"'
+      contains: '"ChangeOver_Contact_Sensor"'
   write:
     topic: ${mac}
     message:
@@ -2925,7 +2925,7 @@ attributes:
         data: Temp_Limit_ChangeOver_HEAT
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Temp_Limit_ChangeOver_HEAT"'
+      contains: '"Temp_Limit_ChangeOver_HEAT"'
   write:
     topic: ${mac}
     message:
@@ -2946,7 +2946,7 @@ attributes:
         data: Temp_Limit_ChangeOver_COOL
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Temp_Limit_ChangeOver_COOL"'
+      contains: '"Temp_Limit_ChangeOver_COOL"'
   write:
     topic: ${mac}
     message:
@@ -2967,7 +2967,7 @@ attributes:
         data: Mode_Change_Delay
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Mode_Change_Delay"'
+      contains: '"Mode_Change_Delay"'
   write: null
   codecs:
   - name: json_path
@@ -2983,7 +2983,7 @@ attributes:
         data: ChangeOver_Calculation_Method
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"ChangeOver_Calculation_Method"'
+      contains: '"ChangeOver_Calculation_Method"'
   write: null
   codecs:
   - name: json_path
@@ -3004,7 +3004,7 @@ attributes:
         data: Relay_Low_FanSpeed_Active
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Relay_Low_FanSpeed_Active"'
+      contains: '"Relay_Low_FanSpeed_Active"'
   write:
     topic: ${mac}
     message:
@@ -3025,7 +3025,7 @@ attributes:
         data: Relay_Medium_FanSpeed_Active
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Relay_Medium_FanSpeed_Active"'
+      contains: '"Relay_Medium_FanSpeed_Active"'
   write:
     topic: ${mac}
     message:
@@ -3046,7 +3046,7 @@ attributes:
         data: Relay_High_FanSpeed_Active
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Relay_High_FanSpeed_Active"'
+      contains: '"Relay_High_FanSpeed_Active"'
   write:
     topic: ${mac}
     message:
@@ -3067,7 +3067,7 @@ attributes:
         data: Relay_Heat_Valve_Active
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Relay_Heat_Valve_Active"'
+      contains: '"Relay_Heat_Valve_Active"'
   write:
     topic: ${mac}
     message:
@@ -3088,7 +3088,7 @@ attributes:
         data: Relay_Cool_Valve_Active
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Relay_Cool_Valve_Active"'
+      contains: '"Relay_Cool_Valve_Active"'
   write:
     topic: ${mac}
     message:
@@ -3109,7 +3109,7 @@ attributes:
         data: Relay_Resistance_Active
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Relay_Resistance_Active"'
+      contains: '"Relay_Resistance_Active"'
   write:
     topic: ${mac}
     message:
@@ -3130,7 +3130,7 @@ attributes:
         data: DAC_FanSpeed_Active
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"DAC_FanSpeed_Active"'
+      contains: '"DAC_FanSpeed_Active"'
   write:
     topic: ${mac}
     message:
@@ -3151,7 +3151,7 @@ attributes:
         data: DAC_Heat_Valve_Active
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"DAC_Heat_Valve_Active"'
+      contains: '"DAC_Heat_Valve_Active"'
   write:
     topic: ${mac}
     message:
@@ -3172,7 +3172,7 @@ attributes:
         data: DAC_Cool_Valve_Active
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"DAC_Cool_Valve_Active"'
+      contains: '"DAC_Cool_Valve_Active"'
   write:
     topic: ${mac}
     message:
@@ -3193,7 +3193,7 @@ attributes:
         data: DAC_Resistance_Active
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"DAC_Resistance_Active"'
+      contains: '"DAC_Resistance_Active"'
   write:
     topic: ${mac}
     message:
@@ -3214,7 +3214,7 @@ attributes:
         data: Relay_FanSpeed_Logic
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Relay_FanSpeed_Logic"'
+      contains: '"Relay_FanSpeed_Logic"'
   write: null
   codecs:
   - name: json_path
@@ -3234,7 +3234,7 @@ attributes:
         data: Relay_Heat_Valve_Logic
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Relay_Heat_Valve_Logic"'
+      contains: '"Relay_Heat_Valve_Logic"'
   write: null
   codecs:
   - name: json_path
@@ -3254,7 +3254,7 @@ attributes:
         data: Relay_Cool_Valve_Logic
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Relay_Cool_Valve_Logic"'
+      contains: '"Relay_Cool_Valve_Logic"'
   write: null
   codecs:
   - name: json_path
@@ -3274,7 +3274,7 @@ attributes:
         data: Relay_Resistance_Logic
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Relay_Resistance_Logic"'
+      contains: '"Relay_Resistance_Logic"'
   write: null
   codecs:
   - name: json_path
@@ -3294,7 +3294,7 @@ attributes:
         data: DAC_FanSpeed_Logic
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"DAC_FanSpeed_Logic"'
+      contains: '"DAC_FanSpeed_Logic"'
   write: null
   codecs:
   - name: json_path
@@ -3314,7 +3314,7 @@ attributes:
         data: DAC_Heat_Valve_Logic
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"DAC_Heat_Valve_Logic"'
+      contains: '"DAC_Heat_Valve_Logic"'
   write: null
   codecs:
   - name: json_path
@@ -3334,7 +3334,7 @@ attributes:
         data: DAC_Cool_Valve_Logic
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"DAC_Cool_Valve_Logic"'
+      contains: '"DAC_Cool_Valve_Logic"'
   write: null
   codecs:
   - name: json_path
@@ -3354,7 +3354,7 @@ attributes:
         data: DAC_Resistance_Logic
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"DAC_Resistance_Logic"'
+      contains: '"DAC_Resistance_Logic"'
   write: null
   codecs:
   - name: json_path
@@ -3374,7 +3374,7 @@ attributes:
         data: Communication_Protocol
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Communication_Protocol"'
+      contains: '"Communication_Protocol"'
   write:
     topic: ${mac}
     message:
@@ -3399,7 +3399,7 @@ attributes:
         data: Wifi_SSID
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Wifi_SSID"'
+      contains: '"Wifi_SSID"'
   write:
     topic: ${mac}
     message:
@@ -3420,7 +3420,7 @@ attributes:
         data: Wifi_Password
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Wifi_Password"'
+      contains: '"Wifi_Password"'
   write:
     topic: ${mac}
     message:
@@ -3441,7 +3441,7 @@ attributes:
         data: Wifi_Hidden
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Wifi_Hidden"'
+      contains: '"Wifi_Hidden"'
   write:
     topic: ${mac}
     message:
@@ -3462,7 +3462,7 @@ attributes:
         data: BMS_Server_IP
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"BMS_Server_IP"'
+      contains: '"BMS_Server_IP"'
   write:
     topic: ${mac}
     message:
@@ -3483,7 +3483,7 @@ attributes:
         data: HTTP_Port
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"HTTP_Port"'
+      contains: '"HTTP_Port"'
   write:
     topic: ${mac}
     message:
@@ -3504,7 +3504,7 @@ attributes:
         data: HTTP_Timeout
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"HTTP_Timeout"'
+      contains: '"HTTP_Timeout"'
   write:
     topic: ${mac}
     message:
@@ -3525,7 +3525,7 @@ attributes:
         data: MQTT_Port
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"MQTT_Port"'
+      contains: '"MQTT_Port"'
   write:
     topic: ${mac}
     message:
@@ -3546,7 +3546,7 @@ attributes:
         data: MQTT_Username
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"MQTT_Username"'
+      contains: '"MQTT_Username"'
   write:
     topic: ${mac}
     message:
@@ -3567,7 +3567,7 @@ attributes:
         data: MQTT_Password
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"MQTT_Password"'
+      contains: '"MQTT_Password"'
   write:
     topic: ${mac}
     message:
@@ -3588,7 +3588,7 @@ attributes:
         data: MQTT_Use_TLS
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"MQTT_Use_TLS"'
+      contains: '"MQTT_Use_TLS"'
   write:
     topic: ${mac}
     message:
@@ -3609,7 +3609,7 @@ attributes:
         data: MQTT_Group_1
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"MQTT_Group_1"'
+      contains: '"MQTT_Group_1"'
   write:
     topic: ${mac}
     message:
@@ -3630,7 +3630,7 @@ attributes:
         data: MQTT_Group_2
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"MQTT_Group_2"'
+      contains: '"MQTT_Group_2"'
   write:
     topic: ${mac}
     message:
@@ -3651,7 +3651,7 @@ attributes:
         data: MQTT_Group_3
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"MQTT_Group_3"'
+      contains: '"MQTT_Group_3"'
   write:
     topic: ${mac}
     message:
@@ -3672,7 +3672,7 @@ attributes:
         data: MQTT_Group_4
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"MQTT_Group_4"'
+      contains: '"MQTT_Group_4"'
   write:
     topic: ${mac}
     message:
@@ -3693,7 +3693,7 @@ attributes:
         data: MQTT_Group_5
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"MQTT_Group_5"'
+      contains: '"MQTT_Group_5"'
   write:
     topic: ${mac}
     message:
@@ -3714,7 +3714,7 @@ attributes:
         data: Time_Server
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Time_Server"'
+      contains: '"Time_Server"'
   write: null
   codecs:
   - name: json_path
@@ -3730,7 +3730,7 @@ attributes:
         data: Modbus_Address
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Modbus_Address"'
+      contains: '"Modbus_Address"'
   write:
     topic: ${mac}
     message:
@@ -3751,7 +3751,7 @@ attributes:
         data: Baud_Rate
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Baud_Rate"'
+      contains: '"Baud_Rate"'
   write:
     topic: ${mac}
     message:
@@ -3772,7 +3772,7 @@ attributes:
         data: Bit_stop
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Bit_stop"'
+      contains: '"Bit_stop"'
   write:
     topic: ${mac}
     message:
@@ -3793,7 +3793,7 @@ attributes:
         data: Parity
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Parity"'
+      contains: '"Parity"'
   write:
     topic: ${mac}
     message:
@@ -3819,7 +3819,7 @@ attributes:
         data: Setting_Screen_Password_0
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Setting_Screen_Password_0"'
+      contains: '"Setting_Screen_Password_0"'
   write:
     topic: ${mac}
     message:
@@ -3840,7 +3840,7 @@ attributes:
         data: Setting_Screen_Password_1
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Setting_Screen_Password_1"'
+      contains: '"Setting_Screen_Password_1"'
   write:
     topic: ${mac}
     message:
@@ -3861,7 +3861,7 @@ attributes:
         data: Resistance_Usage_Type
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Resistance_Usage_Type"'
+      contains: '"Resistance_Usage_Type"'
   write:
     topic: ${mac}
     message:
@@ -3886,7 +3886,7 @@ attributes:
         data: Hys_ONOFFControl_Resistance_ON
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Hys_ONOFFControl_Resistance_ON"'
+      contains: '"Hys_ONOFFControl_Resistance_ON"'
   write:
     topic: ${mac}
     message:
@@ -3907,7 +3907,7 @@ attributes:
         data: Hys_ONOFFControl_Resistance_OFF
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Hys_ONOFFControl_Resistance_OFF"'
+      contains: '"Hys_ONOFFControl_Resistance_OFF"'
   write:
     topic: ${mac}
     message:
@@ -3928,7 +3928,7 @@ attributes:
         data: Time_Delay_Trigger_Resistance
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Time_Delay_Trigger_Resistance"'
+      contains: '"Time_Delay_Trigger_Resistance"'
   write:
     topic: ${mac}
     message:
@@ -3949,7 +3949,7 @@ attributes:
         data: Permanent_Fan
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Permanent_Fan"'
+      contains: '"Permanent_Fan"'
   write:
     topic: ${mac}
     message:
@@ -3970,7 +3970,7 @@ attributes:
         data: Fan_Off_Delay_Heat
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Fan_Off_Delay_Heat"'
+      contains: '"Fan_Off_Delay_Heat"'
   write:
     topic: ${mac}
     message:
@@ -3991,7 +3991,7 @@ attributes:
         data: Fan_Off_Delay_Cool
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Fan_Off_Delay_Cool"'
+      contains: '"Fan_Off_Delay_Cool"'
   write:
     topic: ${mac}
     message:
@@ -4012,7 +4012,7 @@ attributes:
         data: Fan_Off_Delay_Resistance
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Fan_Off_Delay_Resistance"'
+      contains: '"Fan_Off_Delay_Resistance"'
   write:
     topic: ${mac}
     message:
@@ -4033,7 +4033,7 @@ attributes:
         data: Resistance_Min_Fan_Percentage
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Resistance_Min_Fan_Percentage"'
+      contains: '"Resistance_Min_Fan_Percentage"'
   write:
     topic: ${mac}
     message:
@@ -4054,7 +4054,7 @@ attributes:
         data: Force_Fan_Off_Delay_After_Res
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Force_Fan_Off_Delay_After_Res"'
+      contains: '"Force_Fan_Off_Delay_After_Res"'
   write: null
   codecs:
   - name: json_path
@@ -4070,7 +4070,7 @@ attributes:
         data: Fan_Stage_Change_Delay
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Fan_Stage_Change_Delay"'
+      contains: '"Fan_Stage_Change_Delay"'
   write: null
   codecs:
   - name: json_path
@@ -4086,7 +4086,7 @@ attributes:
         data: Fan_Valve_Dependency
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Fan_Valve_Dependency"'
+      contains: '"Fan_Valve_Dependency"'
   write:
     topic: ${mac}
     message:
@@ -4111,7 +4111,7 @@ attributes:
         data: Percentage_Low_Fan_Speed
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Percentage_Low_Fan_Speed"'
+      contains: '"Percentage_Low_Fan_Speed"'
   write:
     topic: ${mac}
     message:
@@ -4132,7 +4132,7 @@ attributes:
         data: Percentage_Medium_Fan_Speed
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Percentage_Medium_Fan_Speed"'
+      contains: '"Percentage_Medium_Fan_Speed"'
   write:
     topic: ${mac}
     message:
@@ -4153,7 +4153,7 @@ attributes:
         data: Percentage_High_Fan_Speed
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Percentage_High_Fan_Speed"'
+      contains: '"Percentage_High_Fan_Speed"'
   write:
     topic: ${mac}
     message:
@@ -4174,7 +4174,7 @@ attributes:
         data: Delta_Fan_Transition_Low_Med
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Delta_Fan_Transition_Low_Med"'
+      contains: '"Delta_Fan_Transition_Low_Med"'
   write: null
   codecs:
   - name: json_path
@@ -4190,7 +4190,7 @@ attributes:
         data: Delta_Fan_Transition_Med_High
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Delta_Fan_Transition_Med_High"'
+      contains: '"Delta_Fan_Transition_Med_High"'
   write: null
   codecs:
   - name: json_path
@@ -4206,7 +4206,7 @@ attributes:
         data: Delta_Fan_Hysteresys
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Delta_Fan_Hysteresys"'
+      contains: '"Delta_Fan_Hysteresys"'
   write: null
   codecs:
   - name: json_path
@@ -4222,7 +4222,7 @@ attributes:
         data: Hysteresis_HVAC_Mode_AUTO
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Hysteresis_HVAC_Mode_AUTO"'
+      contains: '"Hysteresis_HVAC_Mode_AUTO"'
   write: null
   codecs:
   - name: json_path
@@ -4238,7 +4238,7 @@ attributes:
         data: Thermo_Need_Max_HEAT
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Thermo_Need_Max_HEAT"'
+      contains: '"Thermo_Need_Max_HEAT"'
   write: null
   codecs:
   - name: json_path
@@ -4254,7 +4254,7 @@ attributes:
         data: Thermo_Need_Max_COOL
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Thermo_Need_Max_COOL"'
+      contains: '"Thermo_Need_Max_COOL"'
   write: null
   codecs:
   - name: json_path
@@ -4270,7 +4270,7 @@ attributes:
         data: Heat_Delta_On
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Heat_Delta_On"'
+      contains: '"Heat_Delta_On"'
   write: null
   codecs:
   - name: json_path
@@ -4286,7 +4286,7 @@ attributes:
         data: Heat_Delta_Off
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Heat_Delta_Off"'
+      contains: '"Heat_Delta_Off"'
   write: null
   codecs:
   - name: json_path
@@ -4302,7 +4302,7 @@ attributes:
         data: Cool_Delta_On
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Cool_Delta_On"'
+      contains: '"Cool_Delta_On"'
   write: null
   codecs:
   - name: json_path
@@ -4318,7 +4318,7 @@ attributes:
         data: Cool_Delta_Off
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Cool_Delta_Off"'
+      contains: '"Cool_Delta_Off"'
   write: null
   codecs:
   - name: json_path
@@ -4334,7 +4334,7 @@ attributes:
         data: Feedbackloop_Time_Interval
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Feedbackloop_Time_Interval"'
+      contains: '"Feedbackloop_Time_Interval"'
   write: null
   codecs:
   - name: json_path
@@ -4350,7 +4350,7 @@ attributes:
         data: Saving_Strategy_Occupancy
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Saving_Strategy_Occupancy"'
+      contains: '"Saving_Strategy_Occupancy"'
   write:
     topic: ${mac}
     message:
@@ -4378,7 +4378,7 @@ attributes:
         data: Comfort_Temperature_HEAT
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Comfort_Temperature_HEAT"'
+      contains: '"Comfort_Temperature_HEAT"'
   write:
     topic: ${mac}
     message:
@@ -4399,7 +4399,7 @@ attributes:
         data: Comfort_Temperature_COOL
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Comfort_Temperature_COOL"'
+      contains: '"Comfort_Temperature_COOL"'
   write:
     topic: ${mac}
     message:
@@ -4420,7 +4420,7 @@ attributes:
         data: Comfort_Temperature_AUTO
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Comfort_Temperature_AUTO"'
+      contains: '"Comfort_Temperature_AUTO"'
   write:
     topic: ${mac}
     message:
@@ -4441,7 +4441,7 @@ attributes:
         data: Standby_Temperature_HEAT
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Standby_Temperature_HEAT"'
+      contains: '"Standby_Temperature_HEAT"'
   write:
     topic: ${mac}
     message:
@@ -4462,7 +4462,7 @@ attributes:
         data: Standby_Temperature_COOL
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Standby_Temperature_COOL"'
+      contains: '"Standby_Temperature_COOL"'
   write:
     topic: ${mac}
     message:
@@ -4483,7 +4483,7 @@ attributes:
         data: Tsetpoint_Shift_HEAT_Occupancy
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Tsetpoint_Shift_HEAT_Occupancy"'
+      contains: '"Tsetpoint_Shift_HEAT_Occupancy"'
   write:
     topic: ${mac}
     message:
@@ -4504,7 +4504,7 @@ attributes:
         data: Tsetpoint_Shift_COOL_Occupancy
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Tsetpoint_Shift_COOL_Occupancy"'
+      contains: '"Tsetpoint_Shift_COOL_Occupancy"'
   write:
     topic: ${mac}
     message:
@@ -4525,7 +4525,7 @@ attributes:
         data: Saving_Strategy_Window
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Saving_Strategy_Window"'
+      contains: '"Saving_Strategy_Window"'
   write:
     topic: ${mac}
     message:
@@ -4553,7 +4553,7 @@ attributes:
         data: Open_Window_Software_Feature
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Open_Window_Software_Feature"'
+      contains: '"Open_Window_Software_Feature"'
   write:
     topic: ${mac}
     message:
@@ -4574,7 +4574,7 @@ attributes:
         data: Delta_Temperature_Open_Window
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Delta_Temperature_Open_Window"'
+      contains: '"Delta_Temperature_Open_Window"'
   write:
     topic: ${mac}
     message:
@@ -4595,7 +4595,7 @@ attributes:
         data: Delta_Time_Open_Window
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Delta_Time_Open_Window"'
+      contains: '"Delta_Time_Open_Window"'
   write:
     topic: ${mac}
     message:
@@ -4616,7 +4616,7 @@ attributes:
         data: Threshold_Time_Open_Window
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Threshold_Time_Open_Window"'
+      contains: '"Threshold_Time_Open_Window"'
   write:
     topic: ${mac}
     message:
@@ -4637,7 +4637,7 @@ attributes:
         data: Setback_Feature_Activated
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Setback_Feature_Activated"'
+      contains: '"Setback_Feature_Activated"'
   write:
     topic: ${mac}
     message:
@@ -4658,7 +4658,7 @@ attributes:
         data: Setback_Temperature_HEAT
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Setback_Temperature_HEAT"'
+      contains: '"Setback_Temperature_HEAT"'
   write:
     topic: ${mac}
     message:
@@ -4679,7 +4679,7 @@ attributes:
         data: Setback_Temperature_COOL
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Setback_Temperature_COOL"'
+      contains: '"Setback_Temperature_COOL"'
   write:
     topic: ${mac}
     message:
@@ -4700,7 +4700,7 @@ attributes:
         data: Back_ON_Tsetpoint_Strategy
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Back_ON_Tsetpoint_Strategy"'
+      contains: '"Back_ON_Tsetpoint_Strategy"'
   write:
     topic: ${mac}
     message:
@@ -4725,7 +4725,7 @@ attributes:
         data: Back_ON_HVAC_Mode_Power
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Back_ON_HVAC_Mode_Power"'
+      contains: '"Back_ON_HVAC_Mode_Power"'
   write: null
   codecs:
   - name: json_path
@@ -4741,7 +4741,7 @@ attributes:
         data: Back_ON_State_Power
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Back_ON_State_Power"'
+      contains: '"Back_ON_State_Power"'
   write: null
   codecs:
   - name: json_path
@@ -4761,7 +4761,7 @@ attributes:
         data: Back_ON_Fanspeed
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Back_ON_Fanspeed"'
+      contains: '"Back_ON_Fanspeed"'
   write: null
   codecs:
   - name: json_path
@@ -4783,7 +4783,7 @@ attributes:
         data: Back_ON_Temperature_Unit
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Back_ON_Temperature_Unit"'
+      contains: '"Back_ON_Temperature_Unit"'
   write: null
   codecs:
   - name: json_path
@@ -4805,7 +4805,7 @@ attributes:
         data: ChangeOver_HVAC_Mode_External
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"ChangeOver_HVAC_Mode_External"'
+      contains: '"ChangeOver_HVAC_Mode_External"'
   write:
     topic: ${mac}
     message:
@@ -4832,7 +4832,7 @@ attributes:
         data: SHT_Sensor
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"SHT_Sensor"'
+      contains: '"SHT_Sensor"'
   write: null
   codecs:
   - name: json_path
@@ -4853,7 +4853,7 @@ attributes:
         data: External_Sensor_1
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"External_Sensor_1"'
+      contains: '"External_Sensor_1"'
   write:
     topic: ${mac}
     message:
@@ -4883,7 +4883,7 @@ attributes:
         data: External_Sensor_2
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"External_Sensor_2"'
+      contains: '"External_Sensor_2"'
   write:
     topic: ${mac}
     message:
@@ -4913,7 +4913,7 @@ attributes:
         data: BackLight_HIGH
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"BackLight_HIGH"'
+      contains: '"BackLight_HIGH"'
   write:
     topic: ${mac}
     message:
@@ -4934,7 +4934,7 @@ attributes:
         data: BackLight_MID
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"BackLight_MID"'
+      contains: '"BackLight_MID"'
   write:
     topic: ${mac}
     message:
@@ -4955,7 +4955,7 @@ attributes:
         data: BackLight_LOW
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"BackLight_LOW"'
+      contains: '"BackLight_LOW"'
   write:
     topic: ${mac}
     message:
@@ -4976,7 +4976,7 @@ attributes:
         data: BackLight_LOGO
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"BackLight_LOGO"'
+      contains: '"BackLight_LOGO"'
   write:
     topic: ${mac}
     message:
@@ -4997,7 +4997,7 @@ attributes:
         data: Night_Threshold
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Night_Threshold"'
+      contains: '"Night_Threshold"'
   write:
     topic: ${mac}
     message:
@@ -5018,7 +5018,7 @@ attributes:
         data: BackLight_Strategy
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"BackLight_Strategy"'
+      contains: '"BackLight_Strategy"'
   write:
     topic: ${mac}
     message:
@@ -5044,7 +5044,7 @@ attributes:
         data: Top_Element_Refresh
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Top_Element_Refresh"'
+      contains: '"Top_Element_Refresh"'
   write: null
   codecs:
   - name: json_path
@@ -5060,7 +5060,7 @@ attributes:
         data: Upload_Progress_Display
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Upload_Progress_Display"'
+      contains: '"Upload_Progress_Display"'
   write: null
   codecs:
   - name: json_path
@@ -5076,7 +5076,7 @@ attributes:
         data: Radar_Enable
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Radar_Enable"'
+      contains: '"Radar_Enable"'
   write:
     topic: ${mac}
     message:
@@ -5097,7 +5097,7 @@ attributes:
         data: Modbus_Access_Level
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Modbus_Access_Level"'
+      contains: '"Modbus_Access_Level"'
   write:
     topic: ${mac}
     message:
@@ -5118,7 +5118,7 @@ attributes:
         data: Max_Access_Level
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Max_Access_Level"'
+      contains: '"Max_Access_Level"'
   write:
     topic: ${mac}
     message:
@@ -5139,7 +5139,7 @@ attributes:
         data: Time_Delay_Setback_Retrigger
         command: READ_DATA
     match:
-      regex: '"name"\s*:\s*"Time_Delay_Setback_Retrigger"'
+      contains: '"Time_Delay_Setback_Retrigger"'
   write:
     topic: ${mac}
     message:

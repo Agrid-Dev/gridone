@@ -5,7 +5,7 @@ from typing import Self, cast
 import jsonpath
 from jsonpath import CompoundJSONPath, JSONPath
 from jsonpath.exceptions import JSONPathError
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from devices_manager.core.transports.hash_model import hash_model
 from devices_manager.core.transports.listener_registry import ListenerCallback
@@ -31,15 +31,20 @@ class MqttFrameMatch(BaseModel):
       e.g. ``$.data[?(@.name == "Temperature")]`` for a device that publishes
       ``{"data": [{"name": ..., "value": ...}]}`` frames. A frame that is not
       JSON never matches.
-    * ``regex``: searched in the raw payload, without parsing it — much cheaper
-      when every attribute of a device listens on the same busy topic. E.g.
-      ``"name":"Temperature"`` accepts a frame carrying the Temperature
-      variable; the closing quote keeps it from also accepting
-      ``"name":"Temperature_Raw_1"``.
+    * ``regex``: searched in the raw payload, without parsing it.
+    * ``contains``: a plain substring of the raw payload — the cheapest check,
+      for when every attribute of a device listens on the same busy topic.
+      E.g. ``"Temperature"``, quotes included, accepts a frame carrying the
+      Temperature variable whatever the spacing around it; the closing quote
+      keeps it from also accepting ``"Temperature_Raw_1"``.
+
+    For a listener the match only spares the codec frames it would not decode:
+    a looser match costs a wasted decode, never a wrong value.
     """
 
     json_path: str | None = None
     regex: str | None = None
+    contains: str | None = Field(default=None, min_length=1)
 
     @field_validator("json_path")
     @classmethod
@@ -65,8 +70,9 @@ class MqttFrameMatch(BaseModel):
 
     @model_validator(mode="after")
     def _exactly_one_criterion(self) -> Self:
-        if (self.json_path is None) == (self.regex is None):
-            msg = "A match needs exactly one of json_path or regex"
+        criteria = (self.json_path, self.regex, self.contains)
+        if sum(criterion is not None for criterion in criteria) != 1:
+            msg = "A match needs exactly one of json_path, regex or contains"
             raise ValueError(msg)
         return self
 
@@ -81,6 +87,8 @@ class MqttFrameMatch(BaseModel):
         return re.compile(cast("str", self.regex))
 
     def accepts(self, payload: str) -> bool:
+        if self.contains is not None:
+            return self.contains in payload
         if self.regex is not None:
             return self.compiled_regex.search(payload) is not None
         try:

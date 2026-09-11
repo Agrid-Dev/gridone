@@ -2,8 +2,8 @@
 thermostat, 257 attributes listening on ``updData/<mac>``. A full refresh
 answers with 86 frames of three variables each. Without a ``match`` on the read
 address, every attribute's codec decodes every frame of the topic (22 102
-decodes for 257 values); with ``match: {regex: '"name"\\s*:\\s*"<Var>"'}`` a
-frame only reaches the attributes it carries.
+decodes for 257 values); with ``match: {contains: '"<Var>"'}`` a frame only
+reaches the attributes it carries.
 
 Replays one full refresh per thermostat through the broker, once with the
 matches and once without, and checks that ``match`` changes what reaches the
@@ -11,7 +11,7 @@ codecs, not what the devices end up with — and that it makes dispatch much
 cheaper.
 
 Fixtures: ``raw_drivers/agrid_thermostat_mqtts.yaml`` is the production driver
-with a regex match on every attribute; ``agrid_thermostat_full_refresh.json`` is
+with a match on every attribute; ``agrid_thermostat_full_refresh.json`` is
 one full refresh in the firmware's own layout (hand-built, pretty-printed), MAC
 and IP anonymised, credentials scrubbed.
 """

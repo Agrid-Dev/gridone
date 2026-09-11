@@ -204,3 +204,40 @@ class TestFrameMatchOnlyMatching:
         listener('{"name":"B"}')
 
         assert received == ['{"name":"A"}']
+
+
+class TestFrameMatchContains:
+    def test_accepts_a_frame_carrying_the_quoted_name(self) -> None:
+        assert MqttFrameMatch(contains='"Temperature_Raw_1"').accepts(FIRMWARE_FRAME)
+
+    def test_closing_quote_keeps_a_name_prefix_from_matching(self) -> None:
+        assert not MqttFrameMatch(contains='"Temperature"').accepts(FIRMWARE_FRAME)
+
+    def test_does_not_depend_on_whitespace_around_the_colon(self) -> None:
+        match = MqttFrameMatch(contains='"Temperature_Raw_1"')
+
+        assert match.accepts('{"name": "Temperature_Raw_1", "value": 1}')
+
+    def test_empty_text_is_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            MqttFrameMatch(contains="")
+
+    def test_from_dict_builds_a_contains_match(self) -> None:
+        address = MqttAddress.from_dict(
+            {"topic": "updData/aa", "match": {"contains": '"Temperature"'}}
+        )
+
+        assert address.match == MqttFrameMatch(contains='"Temperature"')
+
+    @pytest.mark.parametrize(
+        "criteria",
+        [
+            {"contains": '"x"', "regex": "x"},
+            {"contains": '"x"', "json_path": "$.x"},
+        ],
+    )
+    def test_rejects_contains_combined_with_another_criterion(
+        self, criteria: dict[str, str]
+    ) -> None:
+        with pytest.raises(ValidationError):
+            MqttFrameMatch(**criteria)
