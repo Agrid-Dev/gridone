@@ -252,12 +252,9 @@ class OpcuaTransportClient(
 
     @connected
     async def register_listener(
-        self,
-        topic: str,
-        callback: ListenerCallback,
-        *,
-        address: OpcuaAddress | None = None,  # noqa: ARG002 - nothing to narrow on
+        self, address: OpcuaAddress, callback: ListenerCallback
     ) -> str:
+        topic = address.topic
         # Holds _connection_lock for the whole call, like close()/connect() —
         # a reconnect racing an in-flight subscribe must not let this write
         # a _monitored_items entry for an already-torn-down subscription.

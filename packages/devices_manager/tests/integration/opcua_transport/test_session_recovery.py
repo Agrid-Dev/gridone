@@ -73,7 +73,7 @@ async def test_reconnect_resubscribes_without_re_registering_listeners(
         if value == 99:
             event.set()
 
-    await opcua_client.register_listener(address.topic, on_change)
+    await opcua_client.register_listener(address, on_change)
 
     new_server, new_node = await _simulate_outage_and_recover(
         opcua_client, opcua_server.server, opcua_server.endpoint, opcua_server.idx
@@ -104,8 +104,8 @@ async def test_one_address_failing_to_resubscribe_does_not_block_the_others(
         if value == 99:
             event.set()
 
-    await opcua_client.register_listener(ok_address.topic, on_change)
-    await opcua_client.register_listener(missing_address.topic, lambda _v: None)
+    await opcua_client.register_listener(ok_address, on_change)
+    await opcua_client.register_listener(missing_address, lambda _v: None)
 
     new_server, new_node = await _simulate_outage_and_recover(
         opcua_client, opcua_server.server, opcua_server.endpoint, opcua_server.idx
@@ -130,7 +130,7 @@ async def test_repeated_outage_cycles_leak_no_monitored_items_or_listeners(
     listeners — each cycle tears the old session down and rebuilds exactly
     the state that was there before, not more."""
     address = string_address(opcua_server.idx, "Int32")
-    listener_id = await opcua_client.register_listener(address.topic, lambda _v: None)
+    listener_id = await opcua_client.register_listener(address, lambda _v: None)
 
     current_server = opcua_server.server
     for _ in range(3):

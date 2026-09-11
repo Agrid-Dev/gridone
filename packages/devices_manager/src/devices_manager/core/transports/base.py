@@ -343,18 +343,10 @@ class PushTransportClient[T_PushTransportAddress: PushTransportAddress](
 
     @abstractmethod
     async def register_listener(
-        self,
-        topic: str,
-        callback: ListenerCallback,
-        *,
-        address: T_PushTransportAddress | None = None,
+        self, address: T_PushTransportAddress, callback: ListenerCallback
     ) -> str:
         """Register a listener on an address
-        with a handler when receiving data on the address.
-
-        ``address`` is the full address the listener was built from, when
-        there is one: a transport may use it to narrow which messages reach
-        the handler."""
+        with a handler when receiving data on the address."""
 
     @abstractmethod
     async def unregister_listener(
