@@ -1,3 +1,9 @@
+## v0.237.0 (2026-09-11)
+
+### Feat
+
+- **devices-manager**: let MQTT listeners skip frames their match rejects (#637)
+
 ## v0.236.0 (2026-09-11)
 
 ### Feat
