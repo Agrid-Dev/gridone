@@ -1,3 +1,9 @@
+## v0.237.2 (2026-09-11)
+
+### Fix
+
+- **devices-manager**: sweep polling groups on hashed per-device slots
+
 ## v0.237.1 (2026-09-11)
 
 ### Perf
