@@ -29,7 +29,13 @@ if TYPE_CHECKING:
 
 
 def compute_attribute_coverage(devices: list[Device]) -> list[AttributeCoverage]:
-    """Report every attribute exposed across *devices*, with coverage counts."""
+    """Count exposure and retain presentation only when exposing devices agree.
+
+    Devices without the attribute do not participate in metadata unification.
+    Missing metadata on an exposing device counts as disagreement. Options
+    must have the same values in the same order; no partial option list is
+    presented as the driver's contract.
+    """
     by_name: dict[str, list[Device]] = {}
     for device in devices:
         for name in device.attributes:
@@ -42,9 +48,22 @@ def compute_attribute_coverage(devices: list[Device]) -> list[AttributeCoverage]
             writable_count=sum(
                 1 for d in exposing if "write" in d.attributes[name].read_write_modes
             ),
+            label=_unanimous([d.attributes[name].label for d in exposing]),
+            unit=_unanimous([d.attributes[name].unit for d in exposing]),
+            value_options=_unanimous(
+                [d.attributes[name].value_options or None for d in exposing]
+            ),
+            write_constraints=_unanimous(
+                [d.attributes[name].write_constraints for d in exposing]
+            ),
         )
         for name, exposing in sorted(by_name.items())
     ]
+
+
+def _unanimous[T](values: list[T]) -> T | None:
+    first = values[0]
+    return first if all(value == first for value in values) else None
 
 
 def _exposes(device: Device, attribute: str, *, writable: bool) -> bool:

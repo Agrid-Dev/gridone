@@ -162,6 +162,33 @@ describe("AttributeCoverageSelect", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("counts writable devices and uses the declared label and unit", () => {
+    mockUseQuery.mockReturnValue({
+      data: {
+        ...response,
+        attributes: [
+          {
+            ...response.attributes[0],
+            writable_count: 3,
+            label: { default: "Setpoint", translations: { fr: "Consigne" } },
+            unit: "°C",
+          },
+        ],
+      },
+      isLoading: false,
+    });
+    render(
+      <AttributeCoverageSelect
+        filter={{ ids: ["d1"] }}
+        writableOnly
+        onChange={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByRole("option", { name: /Consigne/ }).textContent,
+    ).toContain("3/12 devices · °C");
+  });
+
   it("emits the attribute with its single data type on change", () => {
     mockUseQuery.mockReturnValue({ data: response, isLoading: false });
     const onChange = vi.fn();

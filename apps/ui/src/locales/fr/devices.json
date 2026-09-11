@@ -364,6 +364,46 @@
         "saving": "Enregistrement…",
         "savedFeedback": "Modèle enregistré"
       }
+    },
+    "grouped": {
+      "subtitle": "Choisissez d’abord ce qui doit changer. Les équipements compatibles sont présélectionnés ; décochez les exceptions avant l’envoi.",
+      "scope": "Périmètre",
+      "scopeHint": "Inclut cet espace et toutes les pièces et zones qu’il contient.",
+      "scopeMissing": "Ce périmètre n’est plus disponible. Choisissez un autre espace.",
+      "what": "Que modifier",
+      "who": "Équipements concernés",
+      "review": "Vérifier et envoyer",
+      "pickAttribute": "Choisissez un attribut pour afficher les équipements compatibles.",
+      "detached": "Cette commande ne suit plus le filtre. Les équipements sélectionnés constituent désormais une liste fixe.",
+      "locked": "La cible est définie par la page depuis laquelle vous avez ouvert cette commande.",
+      "live": "Les filtres sont réévalués à chaque envoi.",
+      "frozen": "Seuls les équipements sélectionnés seront ciblés.",
+      "excluded_one": "{{count}} équipement non concerné",
+      "excluded_other": "{{count}} équipements non concernés",
+      "readOnly": "Attribut en lecture seule",
+      "absent": "Attribut absent",
+      "chooseValue": "Choisir une valeur",
+      "currentRange": "Actuellement {{range}} {{unit}}",
+      "invalidValue": "Saisissez une valeur correspondant au type de cet attribut.",
+      "unavailableAttribute": "Cet attribut n’est plus modifiable dans ce périmètre.",
+      "nameRequired": "Saisissez un nom de modèle.",
+      "setting": "Modification de {{attribute}} à {{value}} {{unit}}.",
+      "confirmTitle": "Envoyer cette commande groupée ?",
+      "confirmDescription": "Définir {{attribute}} à {{value}} {{unit}} sur {{count}} équipements dans {{scope}}.",
+      "dispatchResults": "Résultats de l’envoi",
+      "emptyBatch": "Aucun équipement n’était encore compatible lors de l’envoi. Les équipements ci-dessous n’ont reçu aucune commande.",
+      "vanished": "Aucune commande envoyée : cet équipement a quitté la cible ou n’est plus modifiable.",
+      "notDispatched": "L’envoi a échoué ; aucun résultat n’a été reçu.",
+      "fullHistory": "Voir l’historique complet",
+      "trackingError": "Impossible d’actualiser les statuts. Les derniers résultats reçus sont affichés.",
+      "newCommand": "Préparer une autre commande",
+      "dynamicBounds": "Certaines limites dépendent des valeurs des équipements et seront vérifiées à nouveau lors de l’écriture.",
+      "bounds": {
+        "minimum": "Sera refusé en dessous de {{bound}}.",
+        "maximum": "Sera refusé au-dessus de {{bound}}.",
+        "step": "Sera refusé : la valeur doit être un multiple de {{bound}}.",
+        "options": "Sera refusé : les valeurs acceptées sont {{bound}}."
+      }
     }
   },
   "controls": {

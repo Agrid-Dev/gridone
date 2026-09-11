@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
-import { useSearchParams } from "react-router";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import type {
   AttributeCoverage,
@@ -36,38 +35,25 @@ export type UseCommandWizardArgs = {
    *  ones PATCH the resolved row. */
   template?: { id?: string; name?: string | null };
   /** Seed the form's initial values (target, write, name) when editing an
-   *  existing template inline. The wizard skips draft loading when defaults
-   *  are provided, so the inline editor doesn't pick up a leftover from the
-   *  standalone wizard. */
+   *  existing template inline. Used by the inline automation editor. */
   defaultValues?: Partial<WizardFormValues>;
-  /** Disable the local-storage draft entirely. Set by inline use sites
-   *  (action form's "+ Create new") that don't share the standalone
-   *  wizard's draft buffer. */
-  disableDraft?: boolean;
   /** Attribute name to pre-select once it's known writable on the target —
    *  the deep-link from the device Overview. Applied once; the user still
    *  supplies the value. */
   preselectAttribute?: string;
 };
 
-const DRAFT_KEY = "commands.wizard.draft";
-const DRAFT_DEBOUNCE_MS = 250;
-
 export function useCommandWizard({
   devices,
   predefinedTarget,
   template,
   defaultValues,
-  disableDraft,
   preselectAttribute,
 }: UseCommandWizardArgs) {
-  const [searchParams, setSearchParams] = useSearchParams();
-
   const isPredefined = !!predefinedTarget && !isEmptyFilter(predefinedTarget);
   const initialStep = isPredefined ? 1 : 0;
-  const draftsDisabled = disableDraft || !!defaultValues;
 
-  const { control, watch, setValue, getValues, trigger, reset } =
+  const { control, watch, setValue, getValues, trigger } =
     useForm<WizardFormValues>({
       mode: "onChange",
       defaultValues: {
@@ -78,50 +64,10 @@ export function useCommandWizard({
       },
     });
 
-  // -- URL-driven step ------------------------------------------------------
-  const step = parseStep(searchParams.get("step"), initialStep);
-
-  useEffect(() => {
-    if (searchParams.get("step") === null) {
-      const next = new URLSearchParams(searchParams);
-      next.set("step", String(initialStep + 1));
-      setSearchParams(next, { replace: true });
-    }
-  }, []);
-
-  const setStep = (idx: number) => {
-    // When the target is predefined, step 0 isn't reachable.
-    const min = isPredefined ? 1 : 0;
-    const clamped = Math.max(min, Math.min(2, idx));
-    const next = new URLSearchParams(searchParams);
-    next.set("step", String(clamped + 1));
-    setSearchParams(next);
-  };
-
-  // -- Local-storage draft --------------------------------------------------
-  // Drafts only make sense for the open-context wizard — a predefined target
-  // is driven by the URL, and the inline editor seeds from the existing
-  // template, neither of which want the standalone wizard's draft.
-  useEffect(() => {
-    if (isPredefined || draftsDisabled) return;
-    const draft = loadDraft();
-    if (draft) reset(draft);
-  }, []);
-
-  useEffect(() => {
-    if (isPredefined || draftsDisabled) return;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    const sub = watch((draftValues) => {
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(() => {
-        saveDraft(draftValues as WizardFormValues);
-      }, DRAFT_DEBOUNCE_MS);
-    });
-    return () => {
-      if (timer) clearTimeout(timer);
-      sub.unsubscribe();
-    };
-  }, [watch, isPredefined, draftsDisabled]);
+  // Inline automation editing owns local steps and never touches page navigation.
+  const [step, updateStep] = useState(initialStep);
+  const setStep = (idx: number) =>
+    updateStep(Math.max(initialStep, Math.min(2, idx)));
 
   // -- Derived state --------------------------------------------------------
   const values = watch();
@@ -263,8 +209,7 @@ export function useCommandWizard({
     };
   };
 
-  /** Validate, snapshot the form, POST-or-PATCH the template, clear the
-   *  draft, return the resolved templateId. ``null`` when validation
+  /** Validate, snapshot the form, POST-or-PATCH the template, return the resolved templateId. ``null`` when validation
    *  fails or commit errors out — the error is exposed via
    *  ``commitError`` so the caller can render a toast off it. */
   const commit = async (name: string | null): Promise<string | null> => {
@@ -274,7 +219,6 @@ export function useCommandWizard({
     if (!payload) return null;
     try {
       const result = await templateMutation.commit({ ...payload, name });
-      clearDraft();
       return result.id;
     } catch {
       // Mutation error is already in flight via ``templateMutation.error`` —
@@ -319,18 +263,7 @@ export function useCommandWizard({
       const liveName = (getValues().templateName ?? "").trim();
       return commit(liveName.length > 0 ? liveName : null);
     },
-    /** Discard the local-storage draft. The wizard calls this on cancel
-     *  and on successful commit; explicit so callers can reset on
-     *  navigation if they need to. */
-    clearDraft,
   };
-}
-
-function parseStep(raw: string | null, fallback: number): number {
-  if (raw === null) return fallback;
-  const n = parseInt(raw, 10);
-  if (isNaN(n)) return fallback;
-  return Math.max(0, Math.min(2, n - 1));
 }
 
 function isCommandValid(
@@ -364,31 +297,4 @@ function buildTarget(
     };
   }
   return { ids: selectedDevices.map((d) => d.id) };
-}
-
-// -- Draft persistence ------------------------------------------------------
-
-function loadDraft(): WizardFormValues | null {
-  try {
-    const raw = localStorage.getItem(DRAFT_KEY);
-    return raw ? (JSON.parse(raw) as WizardFormValues) : null;
-  } catch {
-    return null;
-  }
-}
-
-function saveDraft(values: WizardFormValues): void {
-  try {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(values));
-  } catch {
-    /* quota / disabled storage */
-  }
-}
-
-function clearDraft(): void {
-  try {
-    localStorage.removeItem(DRAFT_KEY);
-  } catch {
-    /* ignore */
-  }
 }

@@ -4,7 +4,7 @@ groups and declarative write constraints."""
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
-from devices_manager.core.driver.attribute_metadata import (
+from models.attribute_metadata import (
     AttributeGroup,
     AttributeRef,
     LocalizedText,

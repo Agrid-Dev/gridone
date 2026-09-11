@@ -13,6 +13,7 @@ from devices_manager import DevicesServiceInterface
 from devices_manager.core.device import Attribute
 from devices_manager.dto.device_dto import Device
 from devices_manager.types import DataType
+from models.attribute_metadata import LocalizedText, WriteConstraints
 from models.errors import InvalidError
 from models.targets import AttributeTarget, DevicesFilter
 
@@ -232,3 +233,72 @@ class TestGroupDevicesByTag:
         assert by_id == {
             label: [d.id for d in group] for label, group in by_device.items()
         }
+
+
+def _coverage_device(attribute: Attribute | None) -> Device:
+    return _device("device", {attribute.name: attribute} if attribute else {})
+
+
+def attribute(**overrides: object) -> Attribute:
+    return Attribute.create(
+        "setpoint",
+        DataType.FLOAT,
+        {"read", "write"},
+        label=LocalizedText(default="Setpoint", translations={"fr": "Consigne"}),
+        unit="°C",
+        value_options=[19, 20, 21],
+        write_constraints=WriteConstraints(minimum=19, maximum=21, step=0.5),
+    ).model_copy(update=overrides)
+
+
+def test_metadata_agrees_and_absent_attribute_does_not_veto():
+    first = attribute()
+    (row,) = compute_attribute_coverage(
+        [_coverage_device(first), _coverage_device(attribute()), _coverage_device(None)]
+    )
+    assert row.label == first.label
+    assert row.unit == "°C"
+    assert row.value_options == [19, 20, 21]
+    assert row.write_constraints == first.write_constraints
+    assert row.device_count == row.writable_count == 2
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("label", LocalizedText(default="Target")),
+        ("unit", "°F"),
+        ("value_options", [19, 20]),
+        ("value_options", [21, 20, 19]),
+        ("value_options", []),
+        ("write_constraints", WriteConstraints(minimum=18)),
+        ("label", None),
+        ("unit", None),
+        ("value_options", None),
+        ("write_constraints", None),
+    ],
+)
+def test_disagreement_or_missing_metadata_is_null(field, value):
+    (row,) = compute_attribute_coverage(
+        [_coverage_device(attribute()), _coverage_device(attribute(**{field: value}))]
+    )
+    assert getattr(row, field) is None
+    assert row.device_count == 2
+
+
+def test_all_metadata_absent():
+    (row,) = compute_attribute_coverage(
+        [_coverage_device(Attribute.create("value", DataType.FLOAT, {"read"}))]
+    )
+    assert row.label is row.unit is row.value_options is row.write_constraints is None
+    assert row.writable_count == 0
+
+
+def test_read_only_devices_count_in_exposure_and_metadata():
+    read_only = attribute(unit="°F").model_copy(update={"read_write_modes": {"read"}})
+    (row,) = compute_attribute_coverage(
+        [_coverage_device(attribute()), _coverage_device(read_only)]
+    )
+    assert row.device_count == 2
+    assert row.writable_count == 1
+    assert row.unit is None

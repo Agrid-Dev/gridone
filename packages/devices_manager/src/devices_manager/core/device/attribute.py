@@ -12,18 +12,18 @@ from pydantic import (
     model_validator,
 )
 
-from devices_manager.core.driver.attribute_metadata import (
-    AttributeGroup,
-    LocalizedText,
-    Unit,
-    WriteConstraints,
-)
 from devices_manager.core.utils.cast import cast
 from devices_manager.types import (
     AttributeKind,
     AttributeValueType,
     DataType,
     ReadWriteMode,
+)
+from models.attribute_metadata import (
+    AttributeGroup,
+    LocalizedText,
+    Unit,
+    WriteConstraints,
 )
 from models.types import Severity
 

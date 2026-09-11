@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/select";
 import { isEmptyFilter, type DevicesFilter } from "@/lib/devices";
 import { toLabel } from "@/lib/textFormat";
+import { localize } from "@/lib/localizedText";
 import { useAttributeCoverage } from "./useAttributeCoverage";
 
 type AttributeCoverageSelectProps = {
@@ -19,6 +20,8 @@ type AttributeCoverageSelectProps = {
   /** Only offer attributes writable on at least one matched device. */
   writableOnly?: boolean;
   disabled?: boolean;
+  /** The scope banner explicitly allows the whole installation. */
+  allowAll?: boolean;
   id?: string;
 };
 
@@ -33,11 +36,12 @@ export function AttributeCoverageSelect({
   onChange,
   writableOnly,
   disabled,
+  allowAll,
   id,
 }: AttributeCoverageSelectProps) {
-  const { t } = useTranslation("common");
+  const { t, i18n } = useTranslation("common");
   const { coverage, totalDevices } = useAttributeCoverage(filter, {
-    enabled: !isEmptyFilter(filter),
+    enabled: !disabled && (allowAll || !isEmptyFilter(filter)),
   });
 
   const rows = writableOnly
@@ -66,15 +70,20 @@ export function AttributeCoverageSelect({
               value={row.attribute}
               disabled={mixed}
             >
-              <span>{toLabel(row.attribute)}</span>
+              <span>
+                {row.label
+                  ? localize(row.label, i18n.language)
+                  : toLabel(row.attribute)}
+              </span>
               <span className="ml-2 text-xs text-muted-foreground">
                 {mixed
                   ? t("pickers.attribute.mixedTypes")
                   : `(${row.data_types[0]})`}{" "}
                 {t("pickers.attribute.coverage", {
-                  count: row.device_count,
+                  count: writableOnly ? row.writable_count : row.device_count,
                   total: totalDevices,
                 })}
+                {row.unit && ` · ${row.unit}`}
               </span>
             </SelectItem>
           );
