@@ -3,9 +3,14 @@
 Run from the repo root: ``uv run python docs/specs/synoptic/kit/generate.py``.
 
 Token values are read from ``apps/ui/src/index.css`` so the sheets preview the
-app's own palette; the geometry follows ``docs/specs/synoptic-visual-language.md``.
+app's own palette, and the fluid palette is checked for colour distance before
+anything is written. Each symbol has one plan glyph; the flat sheet draws it as
+is, the isometric sheet projects the same glyph and gives it height. The
+geometry follows ``docs/specs/synoptic-visual-language.md``.
 """
 
+import colorsys
+import itertools
 import math
 import re
 from collections.abc import Callable, Iterable, Sequence
@@ -19,8 +24,14 @@ INDEX_CSS = ROOT / "apps/ui/src/index.css"
 SX, SY, SZ = 40, 20, 40
 # Flat projection, one cell = 48 px.
 FC = 48
-# Pipe axis height inside a cell.
+# Pipe axis height inside a cell, and the plane inline glyphs are drawn on.
 AXIS = 0.4
+
+# CIE76 floors: fluids against the two status colours a plate draws, and the
+# fluid set against itself. Eleven fluids in a 45-55 % band on six hues cannot
+# all sit 25 apart in the dark theme; 18 is what the palette reaches there.
+STATUS_DELTA_E = 25
+FLUID_DELTA_E = 18
 
 TOKENS = [
     "synoptic-plate",
@@ -34,7 +45,6 @@ TOKENS = [
     "status-error",
     "status-ok",
     "hvac-fan",
-    "water",
     "fluid-primary-supply",
     "fluid-primary-return",
     "fluid-heating-supply",
@@ -51,57 +61,101 @@ FLUIDS = [t for t in TOKENS if t.startswith("fluid-")]
 
 Pt = tuple[float, float]
 Pt3 = tuple[float, float, float]
+Palette = dict[str, str]
 
 
-def read_tokens() -> tuple[dict[str, str], dict[str, str]]:
-    """Light and dark ``H S% L%`` triplets of ``TOKENS`` from ``index.css``."""
+# ── tokens and colour distance ───────────────────────────────────────────────
+
+
+def read_tokens() -> tuple[Palette, Palette]:
+    """Light and dark ``H S% L%`` triplets of ``TOKENS`` from ``index.css``.
+
+    A token defined as ``var(--other)`` takes the other token's triplet, one
+    level deep: an alias of an alias is not resolved.
+    """
     light_block, dark_block = INDEX_CSS.read_text().split(".dark {", 1)
 
-    def pick(block: str) -> dict[str, str]:
-        values = {}
+    def pick(block: str) -> Palette:
+        values: Palette = {}
         for t in TOKENS:
             match = re.search(rf"--{t}: ([^;]+);", block)
             if match is None:
                 msg = f"--{t} is not defined in {INDEX_CSS}"
                 raise ValueError(msg)
             values[t] = match.group(1)
+        for t, v in values.items():
+            alias = re.fullmatch(r"var\(--([a-z-]+)\)", v)
+            if alias:
+                values[t] = values[alias.group(1)]
         return values
 
     return pick(light_block), pick(dark_block)
 
 
+def hsl_to_lab(triplet: str) -> tuple[float, float, float]:
+    """``"H S% L%"`` to CIE-Lab (D65), for perceptual distance."""
+    h, s, lightness = (float(v.rstrip("%")) for v in triplet.split())
+    rgb = colorsys.hls_to_rgb(h / 360, lightness / 100, s / 100)
+    r, g, b = (c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in rgb)
+    x = (0.4124 * r + 0.3576 * g + 0.1805 * b) / 0.95047
+    y = 0.2126 * r + 0.7152 * g + 0.0722 * b
+    z = (0.0193 * r + 0.1192 * g + 0.9505 * b) / 1.08883
+    fx, fy, fz = (
+        t ** (1 / 3) if t > 0.008856 else 7.787 * t + 16 / 116 for t in (x, y, z)
+    )
+    return 116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)
+
+
+def delta_e(a: str, b: str) -> float:
+    return math.dist(hsl_to_lab(a), hsl_to_lab(b))
+
+
+def check_palette(values: Palette, theme: str) -> None:
+    """Refuse a palette where a fluid could be mistaken for a status or for another fluid."""
+    failures = []
+    for fluid in FLUIDS:
+        for status in ("status-error", "status-ok"):
+            d = delta_e(values[fluid], values[status])
+            if d < STATUS_DELTA_E:
+                failures.append(f"{fluid} vs {status}: {d:.1f} < {STATUS_DELTA_E}")
+    for a, b in itertools.combinations(FLUIDS, 2):
+        d = delta_e(values[a], values[b])
+        if d < FLUID_DELTA_E:
+            failures.append(f"{a} vs {b}: {d:.1f} < {FLUID_DELTA_E}")
+    if failures:
+        msg = f"{theme} palette too close (CIE76):\n  " + "\n  ".join(failures)
+        raise ValueError(msg)
+
+
+# ── stylesheet ───────────────────────────────────────────────────────────────
+
 # Rules are grouped so shared declarations are written once; only the classes a
-# sheet uses are emitted.
+# sheet uses are emitted. Weights: pipe 3, symbol outline 2, detail 1.25,
+# leader 1. The plate fill on faces occludes what sits behind a symbol.
 RULES: list[tuple[tuple[str, ...], str]] = [
     (("plate",), "fill:hsl(var(--synoptic-plate))"),
     (("grid",), "stroke:hsl(var(--synoptic-grid));stroke-width:1;fill:none"),
     (
-        ("body", "shade", "shade2"),
-        "stroke:hsl(var(--synoptic-stroke));stroke-width:1.5;stroke-linejoin:round",
+        ("face", "outline", "detail", "duct"),
+        "stroke:hsl(var(--synoptic-stroke));stroke-linejoin:round;stroke-linecap:round",
     ),
-    (("body",), "fill:hsl(var(--synoptic-body))"),
-    (("shade",), "fill:#000;fill-opacity:.12"),
-    (("shade2",), "fill:#000;fill-opacity:.22"),
-    (
-        ("line",),
-        "stroke:hsl(var(--synoptic-stroke));stroke-width:1.5;fill:none;"
-        "stroke-linecap:round;stroke-linejoin:round",
-    ),
+    (("face", "outline"), "stroke-width:2"),
+    (("face",), "fill:hsl(var(--synoptic-plate))"),
+    (("outline", "detail"), "fill:none"),
+    (("detail",), "stroke-width:1.25"),
+    (("duct",), "fill:hsl(var(--synoptic-body));stroke-width:1.5"),
     (("fill",), "fill:hsl(var(--synoptic-stroke))"),
     (
         ("port",),
         "fill:hsl(var(--card));stroke:hsl(var(--synoptic-stroke));stroke-width:1.5",
     ),
-    (
-        ("casing",),
-        "stroke:hsl(var(--synoptic-plate));stroke-width:9;fill:none;"
-        "stroke-linejoin:round;stroke-linecap:round",
-    ),
-    (("pipe",), "stroke-width:5;fill:none;stroke-linejoin:round;stroke-linecap:round"),
+    (("casing", "pipe"), "fill:none;stroke-linejoin:round;stroke-linecap:butt"),
+    (("casing",), "stroke:hsl(var(--synoptic-plate));stroke-width:7"),
+    (("pipe",), "stroke-width:3"),
     (
         ("flow",),
-        "stroke:hsl(var(--synoptic-plate));stroke-width:1.6;fill:none;"
-        "stroke-dasharray:4 12;stroke-linecap:round;animation:flow 1s linear infinite",
+        "stroke:hsl(var(--synoptic-plate));stroke-width:1;fill:none;"
+        "stroke-dasharray:3 9;animation:flow 1s linear infinite",
     ),
     (("leader",), "stroke:hsl(var(--muted-foreground));stroke-width:1;fill:none"),
     (("chip", "chip-stale", "chip-fault"), "fill:hsl(var(--card))"),
@@ -133,12 +187,12 @@ RULES: list[tuple[tuple[str, ...], str]] = [
 ]
 
 
-def style(body: str) -> str:
-    light, dark = read_tokens()
-    used = set(re.findall(r'class="([^"]+)"', body))
-    used = {c for classes in used for c in classes.split()}
+def style(body: str, light: Palette, dark: Palette) -> str:
+    used = {
+        c for classes in re.findall(r'class="([^"]+)"', body) for c in classes.split()
+    }
 
-    def block(values: dict[str, str]) -> str:
+    def block(values: Palette) -> str:
         return "".join(f"--{k}:{v};" for k, v in values.items())
 
     rules = []
@@ -153,120 +207,59 @@ def style(body: str) -> str:
         'font-feature-settings:"tnum"}\n'
         f"@media (prefers-color-scheme: dark){{svg{{{block(dark)}}}}}\n"
         f"{css}\n"
-        "@keyframes flow{to{stroke-dashoffset:-16}}\n"
+        "@keyframes flow{to{stroke-dashoffset:-12}}\n"
         "@media (prefers-reduced-motion: reduce){.flow{animation:none}}\n"
         "</style>"
     )
 
 
-def sheet(width: int, height: int, body: str) -> str:
+def sheet(width: int, height: int, body: str, palettes: tuple[Palette, Palette]) -> str:
     body = f'<rect class="plate" width="{width}" height="{height}"/>\n{body}'
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" '
-        f'width="{width}" height="{height}">\n{style(body)}\n{body}\n</svg>\n'
+        f'width="{width}" height="{height}">\n{style(body, *palettes)}\n{body}\n</svg>\n'
     )
 
 
-# ── isometric helpers ────────────────────────────────────────────────────────
+# ── screen-space primitives ──────────────────────────────────────────────────
 
 
 def project(x: float, y: float, z: float = 0.0) -> Pt:
     return ((x - y) * SX, (x + y) * SY - z * SZ)
 
 
+def flat(x: float, y: float) -> Pt:
+    return (x * FC, y * FC)
+
+
 def pts(points: Iterable[Pt]) -> str:
     return " ".join(f"{x:.1f},{y:.1f}" for x, y in points)
 
 
-def poly(points: Iterable[Pt3], cls: str) -> str:
-    return f'<polygon class="{cls}" points="{pts(project(*p) for p in points)}"/>'
+def spath(points: Iterable[Pt], cls: str, *, close: bool = False) -> str:
+    d = "M " + " L ".join(f"{x:.1f} {y:.1f}" for x, y in points)
+    return f'<path class="{cls}" d="{d}{" Z" if close else ""}"/>'
 
 
-def path3d(points: Iterable[Pt3], cls: str, *, close: bool = False) -> str:
-    d = "M " + " L ".join(f"{x:.1f} {y:.1f}" for x, y in (project(*p) for p in points))
-    if close:
-        d += " Z"
-    return f'<path class="{cls}" d="{d}"/>'
-
-
-def circle3d(c: Pt3, r: float, plane: str, n: int = 36) -> list[Pt3]:
-    """Points of a circle of radius ``r`` around ``c`` in plane xy, xz or yz."""
-    out = []
-    for i in range(n):
-        t = 2 * math.pi * i / n
-        a, b = r * math.cos(t), r * math.sin(t)
-        if plane == "xy":
-            out.append((c[0] + a, c[1] + b, c[2]))
-        elif plane == "xz":
-            out.append((c[0] + a, c[1], c[2] + b))
-        else:
-            out.append((c[0], c[1] + a, c[2] + b))
-    return out
-
-
-def circle_path(c: Pt3, r: float, plane: str, cls: str) -> str:
-    return path3d(circle3d(c, r, plane), cls, close=True)
-
-
-def shaded(face: Sequence[Pt3], cls: str) -> str:
-    """A face in the body fill under its shade overlay."""
-    return poly(face, "body") + poly(face, cls)
-
-
-def box(x: float, y: float, z: float, w: float, d: float, h: float) -> str:
-    """Three visible faces of a box: top, +x face, +y face."""
-    top = [(x, y, z + h), (x + w, y, z + h), (x + w, y + d, z + h), (x, y + d, z + h)]
-    fx = [(x + w, y, z), (x + w, y + d, z), (x + w, y + d, z + h), (x + w, y, z + h)]
-    fy = [(x, y + d, z), (x + w, y + d, z), (x + w, y + d, z + h), (x, y + d, z + h)]
-    return shaded(fy, "shade2") + shaded(fx, "shade") + poly(top, "body")
-
-
-def cylinder_v(cx: float, cy: float, z: float, r: float, h: float) -> str:
-    """Vertical cylinder: the side sweep facing the viewer, then the top ellipse."""
-    top = circle3d((cx, cy, z + h), r, "xy")
-    bot = circle3d((cx, cy, z), r, "xy")
-    proj = [project(*p) for p in top]
-    li = min(range(len(proj)), key=lambda i: proj[i][0])
-    ri = max(range(len(proj)), key=lambda i: proj[i][0])
-
-    def walk(step: int) -> list[int]:
-        idx, i = [], li
-        while True:
-            idx.append(i)
-            if i == ri:
-                return idx
-            i = (i + step) % len(top)
-
-    idx = walk(1)
-    if sum(proj[i][1] for i in idx) / len(idx) < project(cx, cy, z + h)[1]:
-        idx = walk(-1)
-    side = [bot[i] for i in idx] + [top[i] for i in reversed(idx)]
-    return (
-        path3d(side, "body", close=True)
-        + path3d(side, "shade", close=True)
-        + circle_path((cx, cy, z + h), r, "xy", "body")
+def text(x: float, y: float, s: str, cls: str = "t", anchor: str = "start") -> str:
+    """One ``<text>`` per line; a newline in ``s`` stacks lines 12 px apart."""
+    return "".join(
+        f'<text class="{cls}" x="{x:.1f}" y="{y + 12 * i:.1f}" text-anchor="{anchor}">{line}</text>'
+        for i, line in enumerate(s.split("\n"))
     )
 
 
-def cylinder_h(x0: float, x1: float, y: float, z: float, r: float) -> str:
-    """Horizontal cylinder along x between ``x0`` and ``x1``."""
-    a = circle3d((x0, y, z), r, "yz")
-    b = circle3d((x1, y, z), r, "yz")
-    pa = [project(*p) for p in a]
-    ax = project(*b[0])[0] - pa[0][0], project(*b[0])[1] - pa[0][1]
-    n = (-ax[1], ax[0])
-    i0 = min(range(len(pa)), key=lambda i: pa[i][0] * n[0] + pa[i][1] * n[1])
-    i1 = max(range(len(pa)), key=lambda i: pa[i][0] * n[0] + pa[i][1] * n[1])
-    side = [a[i0], b[i0], b[i1], a[i1]]
-    front = b if project(*b[0])[1] > pa[0][1] else a
-    return (
-        path3d(side, "body", close=True)
-        + path3d(side, "shade", close=True)
-        + path3d(front, "body", close=True)
-    )
+def circle_pts(c: Pt, r: float, n: int = 40) -> list[Pt]:
+    return [
+        (
+            c[0] + r * math.cos(2 * math.pi * i / n),
+            c[1] + r * math.sin(2 * math.pi * i / n),
+        )
+        for i in range(n)
+    ]
 
 
-def arrow_head(a: Pt, b: Pt, fluid: str, ln: float = 11, w: float = 9) -> str:
+def arrow_head(a: Pt, b: Pt, fluid: str, ln: float = 8, w: float = 6) -> str:
     dx, dy = b[0] - a[0], b[1] - a[1]
     m = math.hypot(dx, dy) or 1
     ux, uy = dx / m, dy / m
@@ -279,10 +272,7 @@ def pipe(
     points: Sequence[Pt], fluid: str, *, arrow: bool = True, flow: bool = False
 ) -> str:
     d = "M " + " L ".join(f"{x:.1f} {y:.1f}" for x, y in points)
-    out = (
-        f'<path class="casing" d="{d}"/>'
-        f'<path class="pipe" style="stroke:hsl(var(--{fluid}))" d="{d}"/>'
-    )
+    out = f'<path class="casing" d="{d}"/><path class="pipe" style="stroke:hsl(var(--{fluid}))" d="{d}"/>'
     if flow:
         out += f'<path class="flow" d="{d}"/>'
     if arrow:
@@ -296,41 +286,491 @@ def pipe_iso(
     return pipe([project(*c) for c in cells], fluid, arrow=arrow, flow=flow)
 
 
+# ── plan glyphs, drawn on a plane ────────────────────────────────────────────
+
+
+class Plane:
+    """Plan-view drawing surface: the flat sheet, or a horizontal plane at
+    height ``z`` of the isometric view. Plan coordinates are cells."""
+
+    def __init__(self, to_screen: Callable[[float, float], Pt]) -> None:
+        self.to = to_screen
+
+    def poly(self, points: Iterable[Pt], cls: str = "outline") -> str:
+        return spath([self.to(*p) for p in points], cls, close=True)
+
+    def line(self, a: Pt, b: Pt, cls: str = "detail") -> str:
+        return spath([self.to(*a), self.to(*b)], cls)
+
+    def circle(self, c: Pt, r: float, cls: str = "outline") -> str:
+        return self.poly(circle_pts(c, r), cls)
+
+    def dot(self, c: Pt, r: float) -> str:
+        return self.poly(circle_pts(c, r), "fill")
+
+
+def iso_plane(z: float) -> Plane:
+    return Plane(lambda x, y: project(x, y, z))
+
+
+def rot(points: Iterable[Pt], c: Pt, d: Pt) -> list[Pt]:
+    """Turn points authored for a +x run so they follow direction ``d`` about ``c``."""
+    return [
+        (c[0] + px * d[0] - py * d[1], c[1] + px * d[1] + py * d[0])
+        for px, py in points
+    ]
+
+
+def valve_glyph(p: Plane, c: Pt, d: Pt = (1, 0), *, tee: bool = False) -> str:
+    """ISA bowtie across the run. The third port of a mixing valve is on +y."""
+    r = 0.26
+    out = p.poly(
+        rot([(-r, -r * 0.7), (-r, r * 0.7), (r, -r * 0.7), (r, r * 0.7)], c, d)
+    )
+    if tee:
+        out += p.poly(rot([(0, 0), (-r * 0.7, r), (r * 0.7, r)], c, d))
+    return out
+
+
+def pump_glyph(p: Plane, c: Pt, d: Pt = (1, 0), r: float = 0.3) -> str:
+    """ISA pump: circle with the impeller triangle pointing downstream."""
+    tri = rot([(-r * 0.45, -r * 0.55), (-r * 0.45, r * 0.55), (r * 0.7, 0)], c, d)
+    return p.circle(c, r) + p.poly(tri, "detail")
+
+
+def air_separator_glyph(p: Plane, c: Pt) -> str:
+    """Circle, a mesh of three chevrons, air collecting at the top."""
+    out = p.circle(c, 0.3)
+    for dy in (-0.1, 0.02, 0.14):
+        out += p.line((c[0] - 0.16, c[1] + dy + 0.06), (c[0], c[1] + dy - 0.04))
+        out += p.line((c[0], c[1] + dy - 0.04), (c[0] + 0.16, c[1] + dy + 0.06))
+    return out
+
+
+def dirt_separator_glyph(p: Plane, c: Pt) -> str:
+    """Circle with a settling cone: dirt collects at the bottom."""
+    out = p.circle(c, 0.3)
+    out += p.poly(
+        [(c[0] - 0.2, c[1] - 0.02), (c[0] + 0.2, c[1] - 0.02), (c[0], c[1] + 0.24)],
+        "detail",
+    )
+    return out
+
+
+def meter_glyph(p: Plane, c: Pt) -> str:
+    """Energy meter: a square housing with the register window."""
+    s = 0.3
+    out = p.poly(
+        [
+            (c[0] - s, c[1] - s),
+            (c[0] + s, c[1] - s),
+            (c[0] + s, c[1] + s),
+            (c[0] - s, c[1] + s),
+        ]
+    )
+    out += p.poly(
+        [
+            (c[0] - 0.18, c[1] - 0.12),
+            (c[0] + 0.18, c[1] - 0.12),
+            (c[0] + 0.18, c[1] + 0.02),
+            (c[0] - 0.18, c[1] + 0.02),
+        ],
+        "detail",
+    )
+    return out
+
+
+def capsule_pts(c: Pt, r: float = 0.24, dy: float = 0.14) -> list[Pt]:
+    arc = [math.pi * i / 20 for i in range(21)]
+    top = [(c[0] + r * math.cos(t), c[1] - dy - r * math.sin(t)) for t in arc]
+    bot = [(c[0] - r * math.cos(t), c[1] + dy + r * math.sin(t)) for t in arc]
+    return top + bot
+
+
+def expansion_vessel_glyph(p: Plane, c: Pt) -> str:
+    """Capsule with the diaphragm line, drawn as the trade draws it."""
+    return p.poly(capsule_pts(c)) + p.line((c[0] - 0.24, c[1]), (c[0] + 0.24, c[1]))
+
+
+def link_glyph(p: Plane, c: Pt) -> str:
+    """Off-page connector, pointing the way flow leaves the plate (-x)."""
+    return p.poly(
+        [
+            (c[0] - 0.1, c[1] - 1),
+            (c[0] + 0.4, c[1] - 1),
+            (c[0] + 0.4, c[1] + 1),
+            (c[0] - 0.1, c[1] + 1),
+            (c[0] - 0.45, c[1]),
+        ]
+    )
+
+
+def fan_glyph(p: Plane, c: Pt, r: float) -> str:
+    out = p.circle(c, r, "detail") + p.dot(c, r * 0.1)
+    for k in range(3):
+        t = 2 * math.pi * k / 3
+        out += p.line(c, (c[0] + r * 0.85 * math.cos(t), c[1] + r * 0.85 * math.sin(t)))
+    return out
+
+
+# ── isometric extrusion ──────────────────────────────────────────────────────
+
+
+def visible_arc(points: list[Pt], z: float) -> list[int]:
+    """Indices of a plan outline's points that face the viewer, leftmost to
+    rightmost on screen: the vertical silhouette edges rise from its ends."""
+    proj = [project(x, y, z) for x, y in points]
+    li = min(range(len(proj)), key=lambda i: proj[i][0])
+    ri = max(range(len(proj)), key=lambda i: proj[i][0])
+
+    def walk(step: int) -> list[int]:
+        idx, i = [], li
+        while True:
+            idx.append(i)
+            if i == ri:
+                return idx
+            i = (i + step) % len(points)
+
+    fwd = walk(1)
+    centre_y = sum(p[1] for p in proj) / len(proj)
+    return fwd if sum(proj[i][1] for i in fwd) / len(fwd) >= centre_y else walk(-1)
+
+
+def extrude(outline: list[Pt], z0: float, z1: float) -> str:
+    """A plan outline given height: the visible side as one plate-filled face,
+    then the top face. Hidden edges are not drawn."""
+    idx = visible_arc(outline, z1)
+    side = [project(*outline[i], z0) for i in idx] + [
+        project(*outline[i], z1) for i in reversed(idx)
+    ]
+    return spath(side, "face", close=True) + spath(
+        [project(*q, z1) for q in outline], "face", close=True
+    )
+
+
+def square(x: float, y: float, w: float, d: float) -> list[Pt]:
+    return [(x, y), (x + w, y), (x + w, y + d), (x, y + d)]
+
+
+def cylinder_x(x0: float, x1: float, y: float, z: float, r: float) -> str:
+    """Horizontal cylinder along x, hairline: the collector bar."""
+    ring = [
+        (y + r * math.cos(t), z + r * math.sin(t))
+        for t in (2 * math.pi * i / 40 for i in range(40))
+    ]
+    a = [project(x0, py, pz) for py, pz in ring]
+    b = [project(x1, py, pz) for py, pz in ring]
+    ax = (b[0][0] - a[0][0], b[0][1] - a[0][1])
+    n = (-ax[1], ax[0])
+    i0 = min(range(40), key=lambda i: a[i][0] * n[0] + a[i][1] * n[1])
+    i1 = max(range(40), key=lambda i: a[i][0] * n[0] + a[i][1] * n[1])
+    return (
+        spath([a[i0], b[i0], b[i1], a[i1]], "face", close=True)
+        + spath(b, "face", close=True)
+        + spath(a, "outline", close=True)
+    )
+
+
+# ── symbols ──────────────────────────────────────────────────────────────────
+# One plan glyph per type. ``height`` is the extrusion the isometric sheet adds,
+# measured from ``base``; inline types sit on the pipe axis plane with no height.
+
+
+class Symbol:
+    def __init__(
+        self,
+        title: str,
+        sub: str,
+        footprint: tuple[int, int],
+        plan: Callable[[Plane, Pt], str],
+        *,
+        ports: Sequence[tuple[int, int, str, str]] = (),
+        inline: str | None = None,
+        base: float = 0.0,
+        height: float = 0.0,
+        outline: Callable[[Pt], list[Pt]] | None = None,
+        label: str | None = None,
+        label_on_face: bool = False,
+    ) -> None:
+        self.title, self.sub, self.footprint, self.plan = title, sub, footprint, plan
+        self.ports, self.inline, self.base, self.height = ports, inline, base, height
+        self.outline, self.label, self.label_on_face = outline, label, label_on_face
+
+    @property
+    def centre(self) -> Pt:
+        return (self.footprint[0] / 2, self.footprint[1] / 2)
+
+    def draw_flat(self) -> str:
+        return self.plan(Plane(flat), self.centre)
+
+    def draw_iso(self) -> str:
+        top = self.base + self.height
+        out = ""
+        if self.height and self.outline:
+            out += extrude(self.outline(self.centre), self.base, top)
+        elif self.inline:
+            # Inline glyph on the axis plane: plate-fill so it breaks the run.
+            out += iso_plane(top).poly(
+                self.outline(self.centre)
+                if self.outline
+                else circle_pts(self.centre, 0.3),
+                "face",
+            )
+        out += self.plan(iso_plane(top), self.centre)
+        if self.label:
+            lx, ly = project(*self.centre, top)
+            if self.label_on_face:
+                out += text(lx + 8, ly + 4, self.label, "sym t", "middle")
+            else:
+                out += text(
+                    lx,
+                    ly - 26 - (14 if self.height else 0),
+                    self.label,
+                    "sym t",
+                    "middle",
+                )
+        return out
+
+
+def heat_pump_plan(p: Plane, c: Pt) -> str:
+    return p.poly(square(c[0] - 1, c[1] - 1, 2, 2)) + fan_glyph(p, c, 0.55)
+
+
+def tank_plan(p: Plane, c: Pt) -> str:
+    return p.circle(c, 0.45) + p.circle(c, 0.3, "detail")
+
+
+def collector_plan(p: Plane, c: Pt) -> str:
+    return p.poly(square(c[0] - 2, c[1] - 0.2, 4, 0.4))
+
+
+def exchanger_plan(p: Plane, c: Pt) -> str:
+    return p.poly(square(c[0] - 0.4, c[1] - 0.4, 0.8, 0.8)) + p.line(
+        (c[0] - 0.4, c[1] - 0.4), (c[0] + 0.4, c[1] + 0.4)
+    )
+
+
+def pump_double_plan(p: Plane, c: Pt, d: Pt = (1, 0)) -> str:
+    return pump_glyph(p, (c[0], c[1] - 0.24), d, 0.22) + pump_glyph(
+        p, (c[0], c[1] + 0.24), d, 0.22
+    )
+
+
+def meter_plan(p: Plane, c: Pt) -> str:
+    return meter_glyph(p, c)
+
+
+SYMBOLS: list[Symbol] = [
+    Symbol(
+        "Pompe à chaleur",
+        "heat_pump · 2×2",
+        (2, 2),
+        heat_pump_plan,
+        ports=[(1, 1, "+x", "supply"), (0, 1, "-x", "return")],
+        height=1.1,
+        outline=lambda c: square(c[0] - 1, c[1] - 1, 2, 2),
+    ),
+    Symbol(
+        "Ballon",
+        "tank · 1×2",
+        (1, 2),
+        tank_plan,
+        ports=[
+            (0, 0, "-x", "primary_in"),
+            (0, 1, "-x", "primary_out"),
+            (0, 0, "+x", "dhw_out"),
+            (0, 1, "+x", "dhw_in"),
+        ],
+        height=2.0,
+        outline=lambda c: circle_pts(c, 0.45),
+    ),
+    Symbol(
+        "Nourrice",
+        "collector · no footprint, length and ports authored",
+        (4, 1),
+        collector_plan,
+        ports=[
+            (0, 0, "-x", "in_1"),
+            (1, 0, "+y", "out_1"),
+            (2, 0, "+y", "out_2"),
+            (3, 0, "+y", "out_3"),
+        ],
+    ),
+    Symbol(
+        "Vanne 3 voies",
+        "mixing_valve · 1×1",
+        (1, 1),
+        lambda p, c: valve_glyph(p, c, tee=True),
+        ports=[(0, 0, "-x", "hot_in"), (0, 0, "+y", "cold_in"), (0, 0, "+x", "out")],
+        base=AXIS,
+        label="M",
+    ),
+    Symbol(
+        "Pompe simple",
+        "pump · inline",
+        (1, 1),
+        pump_glyph,
+        inline="fluid-primary-supply",
+        base=AXIS,
+    ),
+    Symbol(
+        "Vanne d'isolement",
+        "valve_isolation · inline",
+        (1, 1),
+        valve_glyph,
+        inline="fluid-primary-supply",
+        base=AXIS,
+    ),
+    Symbol(
+        "Clapet",
+        "valve_check · inline",
+        (1, 1),
+        lambda p, c: valve_glyph(p, c) + p.dot((c[0] + 0.1, c[1]), 0.07),
+        inline="fluid-primary-supply",
+        base=AXIS,
+    ),
+    Symbol(
+        "Renvoi de folio",
+        "link · 1×2",
+        (1, 2),
+        link_glyph,
+        ports=[(0, 0, "-x", "in"), (0, 1, "-x", "out")],
+        base=AXIS,
+        label="ECS\nOUEST",
+        label_on_face=True,
+    ),
+    Symbol(
+        "Échangeur à plaques",
+        "not registered · 1×1 proposed",
+        (1, 1),
+        exchanger_plan,
+        ports=[
+            (0, 0, "-x", "primary_in"),
+            (0, 0, "+x", "primary_out"),
+            (0, 0, "-y", "secondary_in"),
+            (0, 0, "+y", "secondary_out"),
+        ],
+        height=1.1,
+        outline=lambda c: square(c[0] - 0.4, c[1] - 0.4, 0.8, 0.8),
+    ),
+    Symbol(
+        "Séparateur d'air",
+        "not registered · inline proposed",
+        (1, 1),
+        air_separator_glyph,
+        inline="fluid-heating-supply",
+        base=AXIS,
+    ),
+    Symbol(
+        "Vase d'expansion",
+        "not registered · 1×1 proposed",
+        (1, 1),
+        expansion_vessel_glyph,
+        ports=[(0, 0, "-x", "in")],
+        height=0.8,
+        outline=capsule_pts,
+    ),
+    Symbol(
+        "Pot à boue",
+        "not registered · inline proposed",
+        (1, 1),
+        dirt_separator_glyph,
+        inline="fluid-heating-return",
+        base=AXIS,
+    ),
+    Symbol(
+        "Pompe double",
+        "not registered · inline proposed",
+        (1, 1),
+        pump_double_plan,
+        inline="fluid-heating-supply",
+        base=AXIS,
+    ),
+    Symbol(
+        "Compteur d'énergie",
+        "not registered · inline proposed",
+        (1, 1),
+        meter_plan,
+        inline="fluid-heating-supply",
+        base=AXIS,
+        label="kWh",
+        outline=lambda c: square(c[0] - 0.3, c[1] - 0.3, 0.6, 0.6),
+    ),
+]
+
+
+# ── sheet furniture: footprints, ports, chips, tags, panels ──────────────────
+
 SIDE_OFFSET = {"+x": (0.5, 0.0), "-x": (-0.5, 0.0), "+y": (0.0, 0.5), "-y": (0.0, -0.5)}
 
 
-def text(x: float, y: float, s: str, cls: str = "t", anchor: str = "start") -> str:
-    return (
-        f'<text class="{cls}" x="{x:.1f}" y="{y:.1f}" text-anchor="{anchor}">{s}</text>'
-    )
-
-
-def port_mark(x: int, y: int, side: str, name: str) -> str:
-    """Port marker: a disc on the face the pipe leaves through, named."""
-    cx, cy = x + 0.5, y + 0.5
-    ox, oy = SIDE_OFFSET[side]
-    px, py = project(cx + ox, cy + oy, AXIS)
-    lx, _ = project(cx + ox * 1.9, cy + oy * 1.9, AXIS)
-    anchor = "start" if lx > px else "end"
-    return f'<circle class="port" cx="{px:.1f}" cy="{py:.1f}" r="3.5"/>' + text(
-        lx, py + 3, name, "tag tm", anchor
-    )
-
-
-def footprint(x: int, y: int, w: int, d: int) -> str:
+def footprint_iso(w: int, d: int) -> str:
     return "".join(
-        poly(
-            [
-                (x + i, y + j, 0),
-                (x + i + 1, y + j, 0),
-                (x + i + 1, y + j + 1, 0),
-                (x + i, y + j + 1, 0),
-            ],
-            "grid",
-        )
+        iso_plane(0).poly(square(i, j, 1, 1), "grid")
         for i in range(w)
         for j in range(d)
     )
+
+
+def footprint_flat(w: int, d: int) -> str:
+    return "".join(
+        Plane(flat).poly(square(i, j, 1, 1), "grid") for i in range(w) for j in range(d)
+    )
+
+
+def port_mark(px: float, py: float, direction: Pt, name: str, clear: float) -> str:
+    """Port disc on the face, and the name on a leader that ends ``clear`` px
+    out along the face direction, past the symbol's silhouette."""
+    m = math.hypot(*direction) or 1
+    ux, uy = direction[0] / m, direction[1] / m
+    lx, ly = px + ux * clear, py + uy * clear
+    anchor = "start" if ux > 0.2 else "end" if ux < -0.2 else "middle"
+    ty = ly + (3 if abs(uy) < 0.7 else (10 if uy > 0 else -4))
+    tx = lx + (3 if ux > 0.2 else -3 if ux < -0.2 else 0)
+    return (
+        f'<line class="leader" x1="{px:.1f}" y1="{py:.1f}" x2="{lx:.1f}" y2="{ly:.1f}"/>'
+        f'<circle class="port" cx="{px:.1f}" cy="{py:.1f}" r="3"/>'
+        + text(tx, ty, name, "tag tm", anchor)
+    )
+
+
+def iso_symbol_drawing(sym: Symbol) -> str:
+    w, d = sym.footprint
+    cx, cy = project(w / 2, d / 2, 0)
+    g = f'<g transform="translate({-cx:.1f} {-cy + 10:.1f})">' + footprint_iso(w, d)
+    if sym.inline:
+        g += pipe_iso([(-0.7, 0.5, AXIS), (w + 0.7, 0.5, AXIS)], sym.inline)
+    g += sym.draw_iso()
+    # A leader must clear the widest thing between the port and the label: the
+    # symbol's own silhouette, which grows with footprint and height.
+    clear = 18 + 10 * max(w, d) + 8 * sym.height
+    for x, y, side, name in sym.ports:
+        ox, oy = SIDE_OFFSET[side]
+        px, py = project(x + 0.5 + ox, y + 0.5 + oy, AXIS)
+        far = project(x + 0.5 + 2 * ox, y + 0.5 + 2 * oy, AXIS)
+        g += port_mark(px, py, (far[0] - px, far[1] - py), name, clear)
+    return g + "</g>"
+
+
+def flat_symbol_drawing(sym: Symbol) -> str:
+    w, d = sym.footprint
+    g = (
+        f'<g transform="translate({-w * FC / 2:.1f} {-d * FC / 2:.1f})">'
+        + footprint_flat(w, d)
+    )
+    if sym.inline:
+        g += pipe([flat(-0.7, 0.5), flat(w + 0.7, 0.5)], sym.inline)
+    g += sym.draw_flat()
+    if sym.label:
+        lx, ly = flat(*sym.centre)
+        g += text(
+            lx, ly + (-2 if sym.label_on_face else -22), sym.label, "sym t", "middle"
+        )
+    for x, y, side, name in sym.ports:
+        ox, oy = SIDE_OFFSET[side]
+        px, py = flat(x + 0.5 + ox, y + 0.5 + oy)
+        g += port_mark(px, py, (ox, oy), name, 18)
+    return g + "</g>"
 
 
 def chip(
@@ -375,306 +815,6 @@ def tag_iso(
     )
 
 
-# ── isometric symbols, drawn at origin cell (0, 0), rotation 0 ───────────────
-
-
-def sym_heat_pump() -> str:
-    out = box(0, 0, 0, 2, 2, 1.3)
-    out += circle_path((1, 1, 1.3), 0.62, "xy", "line")
-    out += circle_path((1, 1, 1.3), 0.08, "xy", "fill")
-    for k in range(3):
-        t = 2 * math.pi * k / 3
-        out += path3d(
-            [(1, 1, 1.3), (1 + 0.55 * math.cos(t), 1 + 0.55 * math.sin(t), 1.3)], "line"
-        )
-    for i in range(1, 4):
-        out += path3d([(0.25, 2, 0.3 * i), (1.75, 2, 0.3 * i)], "line")
-    return out
-
-
-def sym_tank(z_top: float = 2.2) -> str:
-    return cylinder_v(0.5, 1.0, 0, 0.5, z_top) + circle_path(
-        (0.5, 1.0, z_top), 0.32, "xy", "line"
-    )
-
-
-def sym_collector(length: int = 4) -> str:
-    out = cylinder_h(0, length, 0.5, AXIS, 0.22)
-    for x in (0.05, length - 0.05):
-        out += circle_path((x, 0.5, AXIS), 0.28, "yz", "line")
-    return out
-
-
-def valve_body(
-    cx: float, cy: float, cz: float, axis: str = "x", *, tee: bool = False
-) -> str:
-    """ISA bowtie in the vertical plane along the pipe axis, with its stem."""
-    r = 0.28
-    if axis == "x":
-        a = [
-            (cx - r, cy, cz - r),
-            (cx - r, cy, cz + r),
-            (cx + r, cy, cz - r),
-            (cx + r, cy, cz + r),
-        ]
-    else:
-        a = [
-            (cx, cy - r, cz - r),
-            (cx, cy - r, cz + r),
-            (cx, cy + r, cz - r),
-            (cx, cy + r, cz + r),
-        ]
-    out = poly(a, "body")
-    if tee:
-        b = (
-            [(cx, cy + r, cz - r), (cx, cy + r, cz + r)]
-            if axis == "x"
-            else [(cx + r, cy, cz - r), (cx + r, cy, cz + r)]
-        )
-        out += poly([(cx, cy, cz), b[0], b[1]], "body")
-    out += path3d([(cx, cy, cz), (cx, cy, cz + 0.45)], "line")
-    out += path3d([(cx - 0.15, cy, cz + 0.45), (cx + 0.15, cy, cz + 0.45)], "line")
-    return out
-
-
-def sym_valve_isolation() -> str:
-    return valve_body(0.5, 0.5, AXIS)
-
-
-def sym_valve_check() -> str:
-    return valve_body(0.5, 0.5, AXIS) + circle_path(
-        (0.62, 0.5, AXIS), 0.09, "xz", "fill"
-    )
-
-
-def sym_mixing_valve() -> str:
-    return valve_body(0.5, 0.5, AXIS, tee=True) + text(
-        *project(0.5, 0.5, 1.1), "M", "sym t", "middle"
-    )
-
-
-def pump_body(cx: float, cy: float, cz: float, r: float = 0.3) -> str:
-    out = circle_path((cx, cy, cz), r, "xz", "body")
-    return out + poly(
-        [
-            (cx - r * 0.55, cy, cz + r * 0.6),
-            (cx - r * 0.55, cy, cz - r * 0.6),
-            (cx + r * 0.75, cy, cz),
-        ],
-        "fill",
-    )
-
-
-def sym_pump() -> str:
-    return pump_body(0.5, 0.5, AXIS)
-
-
-def sym_pump_double() -> str:
-    return pump_body(0.5, 0.5, AXIS) + pump_body(0.5, 0.5, 1.05, r=0.28)
-
-
-def sym_link() -> str:
-    out = poly([(0, 0, 0), (0, 2, 0), (0, 2, 0.8), (0, 1, 1.15), (0, 0, 0.8)], "body")
-    return out + text(*project(0.02, 1.0, 0.12), "ECS OUEST", "tag t", "middle")
-
-
-def sym_exchanger() -> str:
-    out = box(0, 0, 0, 1, 1, 1.4)
-    for i in range(1, 6):
-        out += path3d([(i / 6, 1, 0.1), (i / 6, 1, 1.3)], "line")
-    return out + path3d([(0, 0, 1.4), (1, 1, 1.4)], "line")
-
-
-def sym_air_separator() -> str:
-    out = cylinder_v(0.5, 0.5, 0.05, 0.3, 0.75)
-    out += path3d([(0.5, 0.5, 0.8), (0.5, 0.5, 1.1)], "line")
-    return out + circle_path((0.5, 0.5, 1.15), 0.1, "xy", "body")
-
-
-def sym_expansion_vessel() -> str:
-    out = cylinder_v(0.5, 0.5, 0.15, 0.32, 0.9)
-    out += circle_path((0.5, 0.5, 0.55), 0.32, "xy", "line")
-    return out + path3d([(0.5, 0.5, 0), (0.5, 0.5, 0.15)], "line")
-
-
-def sym_dirt_separator() -> str:
-    out = cylinder_v(0.5, 0.5, 0.05, 0.3, 0.75)
-    out += path3d([(0.5, 0.5, 0.05), (0.5, 0.5, -0.25)], "line")
-    return out + path3d([(0.4, 0.5, -0.25), (0.6, 0.5, -0.25)], "line")
-
-
-def sym_energy_meter() -> str:
-    out = circle_path((0.5, 0.5, AXIS), 0.3, "xz", "body")
-    out += text(*project(0.5, 0.5, 0.36), "kWh", "tag t", "middle")
-    return out + path3d([(0.5, 0.5, 0.7), (0.5, 0.5, 0.95)], "line")
-
-
-Ports = list[tuple[int, int, str, str]]
-IsoCard = tuple[
-    str, str, tuple[int, int], Callable[[], str], Ports, list[tuple[list[Pt3], str]]
-]
-
-INLINE_RUN: list[Pt3] = [(-0.6, 0.5, AXIS), (1.6, 0.5, AXIS)]
-
-ISO_CARDS: list[IsoCard] = [
-    (
-        "Pompe à chaleur",
-        "heat_pump · 2×2",
-        (2, 2),
-        sym_heat_pump,
-        [(1, 1, "+x", "supply"), (0, 1, "-x", "return")],
-        [],
-    ),
-    (
-        "Ballon",
-        "tank · 1×2",
-        (1, 2),
-        sym_tank,
-        [
-            (0, 0, "-x", "primary_in"),
-            (0, 1, "-x", "primary_out"),
-            (0, 0, "+x", "dhw_out"),
-            (0, 1, "+x", "dhw_in"),
-        ],
-        [],
-    ),
-    (
-        "Nourrice",
-        "collector · no footprint, length and ports authored",
-        (4, 1),
-        sym_collector,
-        [
-            (0, 0, "-x", "in_1"),
-            (1, 0, "+y", "out_1"),
-            (2, 0, "+y", "out_2"),
-            (3, 0, "+y", "out_3"),
-        ],
-        [],
-    ),
-    (
-        "Vanne 3 voies",
-        "mixing_valve · 1×1",
-        (1, 1),
-        sym_mixing_valve,
-        [(0, 0, "-x", "hot_in"), (0, 0, "+y", "cold_in"), (0, 0, "+x", "out")],
-        [],
-    ),
-    (
-        "Pompe simple",
-        "pump · inline",
-        (1, 1),
-        sym_pump,
-        [],
-        [(INLINE_RUN, "fluid-primary-supply")],
-    ),
-    (
-        "Vanne d'isolement",
-        "valve_isolation · inline",
-        (1, 1),
-        sym_valve_isolation,
-        [],
-        [(INLINE_RUN, "fluid-primary-supply")],
-    ),
-    (
-        "Clapet",
-        "valve_check · inline",
-        (1, 1),
-        sym_valve_check,
-        [],
-        [(INLINE_RUN, "fluid-primary-supply")],
-    ),
-    (
-        "Renvoi de folio",
-        "link · 1×2",
-        (1, 2),
-        sym_link,
-        [(0, 0, "-x", "in"), (0, 1, "-x", "out")],
-        [],
-    ),
-    (
-        "Échangeur à plaques",
-        "not registered · 1×1 proposed",
-        (1, 1),
-        sym_exchanger,
-        [
-            (0, 0, "-x", "primary_in"),
-            (0, 0, "+x", "primary_out"),
-            (0, 0, "-y", "secondary_in"),
-            (0, 0, "+y", "secondary_out"),
-        ],
-        [],
-    ),
-    (
-        "Séparateur d'air",
-        "not registered · inline proposed",
-        (1, 1),
-        sym_air_separator,
-        [],
-        [(INLINE_RUN, "fluid-heating-supply")],
-    ),
-    (
-        "Vase d'expansion",
-        "not registered · 1×1 proposed",
-        (1, 1),
-        sym_expansion_vessel,
-        [(0, 0, "-x", "in")],
-        [],
-    ),
-    (
-        "Pot à boue",
-        "not registered · inline proposed",
-        (1, 1),
-        sym_dirt_separator,
-        [],
-        [(INLINE_RUN, "fluid-heating-return")],
-    ),
-    (
-        "Pompe double",
-        "not registered · inline proposed",
-        (1, 1),
-        sym_pump_double,
-        [],
-        [(INLINE_RUN, "fluid-heating-supply")],
-    ),
-    (
-        "Compteur d'énergie",
-        "not registered · inline proposed",
-        (1, 1),
-        sym_energy_meter,
-        [],
-        [(INLINE_RUN, "fluid-heating-supply")],
-    ),
-]
-
-
-def card(
-    ox: float, oy: float, w: float, h: float, title: str, sub: str, draw: str
-) -> str:
-    out = f'<rect class="chip" x="{ox}" y="{oy}" width="{w}" height="{h}" rx="6"/>'
-    out += text(ox + 12, oy + 20, title, "h t") + text(ox + 12, oy + 36, sub, "note tm")
-    return (
-        out
-        + f'<g transform="translate({ox + w / 2:.1f} {oy + h / 2 + 30:.1f}) scale(1.15)">{draw}</g>'
-    )
-
-
-def iso_symbol_drawing(
-    fp: tuple[int, int],
-    draw: Callable[[], str],
-    ports: Ports,
-    pipes: list[tuple[list[Pt3], str]],
-) -> str:
-    w, d = fp
-    cx, cy = project(w / 2, d / 2, 0)
-    g = f'<g transform="translate({-cx:.1f} {-cy + 10:.1f})">' + footprint(0, 0, w, d)
-    for cells, fluid in pipes:
-        g += pipe_iso(cells, fluid)
-    g += draw()
-    for x, y, side, name in ports:
-        g += port_mark(x, y, side, name)
-    return g + "</g>"
-
-
 Row = tuple[str, str, str, str]
 
 
@@ -712,25 +852,37 @@ def panel(
     return out
 
 
-def isometric_sheet() -> str:
-    width, height = 1040, 1760
+def card(ox: float, oy: float, w: float, h: float, sym: Symbol, draw: str) -> str:
+    out = f'<rect class="chip" x="{ox}" y="{oy}" width="{w}" height="{h}" rx="6"/>'
+    out += text(ox + 12, oy + 20, sym.title, "h t") + text(
+        ox + 12, oy + 36, sym.sub, "note tm"
+    )
+    return (
+        out
+        + f'<g transform="translate({ox + w / 2:.1f} {oy + h / 2 + 24:.1f})">{draw}</g>'
+    )
+
+
+# ── sheets ───────────────────────────────────────────────────────────────────
+
+
+def isometric_sheet(palettes: tuple[Palette, Palette]) -> str:
+    width, height = 1040, 2010
     out = [text(24, 36, "Synoptic kit · isometric hydronic set", "title t")]
     out.append(
         text(
             24,
             56,
-            "one cell = 80 × 40 px, z = 40 px · pipe axis at z 0.4 · ports marked on the footprint face they leave through",
+            "one cell = 80 × 40 px, z = 40 px · each symbol is its plan glyph projected and given height · ports marked on the face they leave through",
             "note tm",
         )
     )
-    cw, ch, gap = 240, 250, 12
-    for i, (title, sub, fp, draw, ports, pipes) in enumerate(ISO_CARDS):
-        ox, oy = 24 + (i % 4) * (cw + gap), 76 + (i // 4) * (ch + gap)
-        out.append(
-            card(ox, oy, cw, ch, title, sub, iso_symbol_drawing(fp, draw, ports, pipes))
-        )
+    cw, ch, gap, cols = 324, 250, 12, 3
+    for i, sym in enumerate(SYMBOLS):
+        ox, oy = 24 + (i % cols) * (cw + gap), 76 + (i // cols) * (ch + gap)
+        out.append(card(ox, oy, cw, ch, sym, iso_symbol_drawing(sym)))
 
-    oy = 76 + 4 * (ch + gap)
+    oy = 76 + 5 * (ch + gap)
     out.append(text(24, oy + 8, "States", "caption tm"))
     ox = 24
     out.append(
@@ -781,24 +933,34 @@ def isometric_sheet() -> str:
             "note tm",
         )
     )
+    tank = SYMBOLS[1]
     g = (
-        f'<g transform="translate({ox + 860} {oy + 40})">'
-        + footprint(0, 0, 1, 2)
-        + sym_tank(1.6)
+        f'<g transform="translate({ox + 860} {oy + 50})">'
+        + footprint_iso(1, 2)
+        + extrude(circle_pts((0.5, 1), 0.45), 0, 1.6)
     )
-    g += path3d(circle3d((0.5, 1, 1.6), 0.5, "xy"), "fault", close=True)
+    g += spath(
+        [project(*q, 1.6) for q in circle_pts((0.5, 1), 0.45)], "fault", close=True
+    )
     bx, by = project(1.1, 0.3, 1.6)
     g += f'<circle style="fill:hsl(var(--status-error))" cx="{bx:.1f}" cy="{by:.1f}" r="7"/>'
     g += f'<text class="tag" style="fill:hsl(var(--card))" x="{bx:.1f}" y="{by + 3.5:.1f}" text-anchor="middle">!</text>'
     out.append(g + "</g>")
-    out.append(text(ox + 860, oy + 132, "symbol · device faulty", "note tm"))
+    out.append(
+        text(
+            ox + 860,
+            oy + 132,
+            f"symbol · device faulty ({tank.title.lower()})",
+            "note tm",
+        )
+    )
 
     oy += 160
     out.append(
         text(
             24,
             oy + 8,
-            "Fluids · supply saturated, return same hue desaturated and darker",
+            "Fluids · 45-55 % saturation, return = supply shifted 18 points of lightness",
             "caption tm",
         )
     )
@@ -824,7 +986,7 @@ def isometric_sheet() -> str:
     g += pipe_iso([(0, 0, AXIS), (6, 0, AXIS)], "fluid-primary-return")
     g += pipe_iso([(3, 0, AXIS), (3, 2, AXIS)], "fluid-primary-return")
     tx, ty = project(3, 0, AXIS)
-    g += f'<circle style="fill:hsl(var(--fluid-primary-return))" cx="{tx:.1f}" cy="{ty:.1f}" r="4.5"/>'
+    g += f'<circle style="fill:hsl(var(--fluid-primary-return))" cx="{tx:.1f}" cy="{ty:.1f}" r="3.5"/>'
     out.append(g + "</g>")
     g = f'<g transform="translate(640 {oy + 110})">'
     g += pipe_iso([(0, 1, AXIS), (6, 1, AXIS)], "fluid-cold-water")
@@ -840,284 +1002,7 @@ def isometric_sheet() -> str:
         "fluid-heating-return",
     )
     out.append(g + "</g>")
-    return sheet(width, height, "\n".join(out))
-
-
-# ── flat set ─────────────────────────────────────────────────────────────────
-
-
-def fpoly(points: Iterable[Pt], cls: str) -> str:
-    return f'<polygon class="{cls}" points="{pts(points)}"/>'
-
-
-def fgrid(x: float, y: float, w: int, d: int) -> str:
-    return "".join(
-        f'<rect class="grid" x="{x + i * FC}" y="{y + j * FC}" width="{FC}" height="{FC}"/>'
-        for i in range(w)
-        for j in range(d)
-    )
-
-
-def fport(cx: float, cy: float, side: str, name: str) -> str:
-    ox, oy = SIDE_OFFSET[side]
-    px, py = cx + ox * FC, cy + oy * FC
-    ly = py + oy * FC * 0.55 + (4 if oy > 0 else -2 if oy < 0 else 3)
-    anchor = "start" if ox > 0 else "end" if ox < 0 else "middle"
-    return f'<circle class="port" cx="{px:.1f}" cy="{py:.1f}" r="3.5"/>' + text(
-        px + ox * FC * 0.55, ly, name, "tag tm", anchor
-    )
-
-
-def fvalve(cx: float, cy: float, *, tee: bool = False) -> str:
-    r = 12
-    out = fpoly(
-        [
-            (cx - r, cy - r * 0.7),
-            (cx - r, cy + r * 0.7),
-            (cx + r, cy - r * 0.7),
-            (cx + r, cy + r * 0.7),
-        ],
-        "body",
-    )
-    if tee:
-        out += fpoly([(cx, cy), (cx - r * 0.7, cy + r), (cx + r * 0.7, cy + r)], "body")
-    return (
-        out
-        + f'<line class="line" x1="{cx}" y1="{cy}" x2="{cx}" y2="{cy - 18}"/><line class="line" x1="{cx - 6}" y1="{cy - 18}" x2="{cx + 6}" y2="{cy - 18}"/>'
-    )
-
-
-def fpump(cx: float, cy: float, r: float = 13) -> str:
-    return f'<circle class="body" cx="{cx}" cy="{cy}" r="{r}"/>' + fpoly(
-        [
-            (cx - r * 0.5, cy - r * 0.6),
-            (cx - r * 0.5, cy + r * 0.6),
-            (cx + r * 0.75, cy),
-        ],
-        "fill",
-    )
-
-
-def flat_heat_pump(cx: float, cy: float) -> str:
-    out = f'<rect class="body" x="{cx - 44}" y="{cy - 44}" width="88" height="88" rx="4"/>'
-    out += f'<circle class="line" cx="{cx}" cy="{cy}" r="26"/><circle class="fill" cx="{cx}" cy="{cy}" r="3"/>'
-    for k in range(3):
-        t = 2 * math.pi * k / 3
-        out += f'<line class="line" x1="{cx}" y1="{cy}" x2="{cx + 22 * math.cos(t):.1f}" y2="{cy + 22 * math.sin(t):.1f}"/>'
-    return out
-
-
-def flat_tank(cx: float, cy: float) -> str:
-    return f'<rect class="body" x="{cx - 18}" y="{cy - 46}" width="36" height="92" rx="18"/><line class="line" x1="{cx - 18}" y1="{cy - 28}" x2="{cx + 18}" y2="{cy - 28}"/>'
-
-
-def flat_collector(cx: float, cy: float, n: int = 4) -> str:
-    return f'<rect class="body" x="{cx - n * FC / 2}" y="{cy - 9}" width="{n * FC}" height="18" rx="9"/>'
-
-
-def flat_link(cx: float, cy: float) -> str:
-    out = fpoly(
-        [
-            (cx - 22, cy - 46),
-            (cx + 22, cy - 46),
-            (cx + 22, cy + 30),
-            (cx, cy + 46),
-            (cx - 22, cy + 30),
-        ],
-        "body",
-    )
-    return (
-        out
-        + text(cx, cy + 2, "ECS", "tag t", "middle")
-        + text(cx, cy + 14, "OUEST", "tag t", "middle")
-    )
-
-
-def flat_exchanger(cx: float, cy: float) -> str:
-    return f'<rect class="body" x="{cx - 20}" y="{cy - 20}" width="40" height="40"/><line class="line" x1="{cx - 20}" y1="{cy - 20}" x2="{cx + 20}" y2="{cy + 20}"/>'
-
-
-def flat_air_sep(cx: float, cy: float) -> str:
-    return f'<circle class="body" cx="{cx}" cy="{cy}" r="14"/><line class="line" x1="{cx}" y1="{cy - 14}" x2="{cx}" y2="{cy - 24}"/><circle class="body" cx="{cx}" cy="{cy - 27}" r="3.5"/>'
-
-
-def flat_exp_vessel(cx: float, cy: float) -> str:
-    return f'<circle class="body" cx="{cx}" cy="{cy - 4}" r="15"/><line class="line" x1="{cx - 15}" y1="{cy - 4}" x2="{cx + 15}" y2="{cy - 4}"/><line class="line" x1="{cx}" y1="{cy + 11}" x2="{cx}" y2="{cy + 22}"/>'
-
-
-def flat_dirt_sep(cx: float, cy: float) -> str:
-    return f'<circle class="body" cx="{cx}" cy="{cy}" r="14"/><line class="line" x1="{cx}" y1="{cy + 14}" x2="{cx}" y2="{cy + 24}"/><line class="line" x1="{cx - 5}" y1="{cy + 24}" x2="{cx + 5}" y2="{cy + 24}"/>'
-
-
-def flat_meter(cx: float, cy: float) -> str:
-    return f'<circle class="body" cx="{cx}" cy="{cy}" r="14"/>' + text(
-        cx, cy + 3, "kWh", "tag t", "middle"
-    )
-
-
-def flat_pump_double(cx: float, cy: float) -> str:
-    return fpump(cx, cy - 11, 11) + fpump(cx, cy + 11, 11)
-
-
-def flat_valve_check(cx: float, cy: float) -> str:
-    return fvalve(cx, cy) + f'<circle class="fill" cx="{cx + 6}" cy="{cy}" r="3.5"/>'
-
-
-def flat_mixing_valve(cx: float, cy: float) -> str:
-    return fvalve(cx, cy, tee=True)
-
-
-FlatCard = tuple[
-    str, str, tuple[int, int], Callable[[float, float], str], Ports, str | None
-]
-
-FLAT_CARDS: list[FlatCard] = [
-    (
-        "Pompe à chaleur",
-        "heat_pump · 2×2",
-        (2, 2),
-        flat_heat_pump,
-        [(1, 1, "+x", "supply"), (0, 1, "-x", "return")],
-        None,
-    ),
-    (
-        "Ballon",
-        "tank · 1×2",
-        (1, 2),
-        flat_tank,
-        [
-            (0, 0, "-x", "primary_in"),
-            (0, 1, "-x", "primary_out"),
-            (0, 0, "+x", "dhw_out"),
-            (0, 1, "+x", "dhw_in"),
-        ],
-        None,
-    ),
-    (
-        "Nourrice",
-        "collector · no footprint, length authored",
-        (4, 1),
-        flat_collector,
-        [
-            (0, 0, "-x", "in_1"),
-            (1, 0, "+y", "out_1"),
-            (2, 0, "+y", "out_2"),
-            (3, 0, "+y", "out_3"),
-        ],
-        None,
-    ),
-    (
-        "Vanne 3 voies",
-        "mixing_valve · 1×1",
-        (1, 1),
-        flat_mixing_valve,
-        [(0, 0, "-x", "hot_in"), (0, 0, "+y", "cold_in"), (0, 0, "+x", "out")],
-        None,
-    ),
-    ("Pompe simple", "pump · inline", (1, 1), fpump, [], "fluid-primary-supply"),
-    (
-        "Vanne d'isolement",
-        "valve_isolation · inline",
-        (1, 1),
-        fvalve,
-        [],
-        "fluid-primary-supply",
-    ),
-    (
-        "Clapet",
-        "valve_check · inline",
-        (1, 1),
-        flat_valve_check,
-        [],
-        "fluid-primary-supply",
-    ),
-    (
-        "Renvoi de folio",
-        "link · 1×2",
-        (1, 2),
-        flat_link,
-        [(0, 0, "-x", "in"), (0, 1, "-x", "out")],
-        None,
-    ),
-    (
-        "Échangeur à plaques",
-        "not registered",
-        (1, 1),
-        flat_exchanger,
-        [
-            (0, 0, "-x", "primary_in"),
-            (0, 0, "+x", "primary_out"),
-            (0, 0, "-y", "secondary_in"),
-            (0, 0, "+y", "secondary_out"),
-        ],
-        None,
-    ),
-    (
-        "Séparateur d'air",
-        "not registered · inline",
-        (1, 1),
-        flat_air_sep,
-        [],
-        "fluid-heating-supply",
-    ),
-    (
-        "Vase d'expansion",
-        "not registered",
-        (1, 1),
-        flat_exp_vessel,
-        [(0, 0, "-x", "in")],
-        None,
-    ),
-    (
-        "Pot à boue",
-        "not registered · inline",
-        (1, 1),
-        flat_dirt_sep,
-        [],
-        "fluid-heating-return",
-    ),
-    (
-        "Pompe double",
-        "not registered · inline",
-        (1, 1),
-        flat_pump_double,
-        [],
-        "fluid-heating-supply",
-    ),
-    (
-        "Compteur d'énergie",
-        "not registered · inline",
-        (1, 1),
-        flat_meter,
-        [],
-        "fluid-heating-supply",
-    ),
-]
-
-
-def flat_symbol_drawing(
-    fp: tuple[int, int],
-    draw: Callable[[float, float], str],
-    ports: Ports,
-    inline: str | None,
-) -> str:
-    w, d = fp
-    x0, y0 = -w * FC / 2, -d * FC / 2
-    g = fgrid(x0, y0, w, d)
-    if inline:
-        g += pipe([(x0 - 30, 0), (x0 + w * FC + 30, 0)], inline)
-    g += draw(0, 0)
-    for px, py, side, name in ports:
-        g += fport(x0 + px * FC + FC / 2, y0 + py * FC + FC / 2, side, name)
-    return g
-
-
-def fan_glyph(cx: float, cy: float, *, spinning: bool) -> str:
-    fill = "hsl(var(--hvac-fan))" if spinning else "hsl(var(--muted-foreground))"
-    out = f'<circle class="body" cx="{cx}" cy="{cy}" r="22"/><g transform="translate({cx} {cy})" style="fill:{fill}">'
-    for a in (0, 120, 240):
-        out += f'<path transform="rotate({a})" d="M0 -4 C7 -7 8 -17 0 -20 C-8 -17 -7 -7 0 -4 Z"/>'
-    return out + f'</g><circle class="fill" cx="{cx}" cy="{cy}" r="3"/>'
+    return sheet(width, height, "\n".join(out), palettes)
 
 
 def filter_glyph(cx: float, cy: float) -> str:
@@ -1125,44 +1010,48 @@ def filter_glyph(cx: float, cy: float) -> str:
         f"{cx + (-5 if i % 2 == 0 else 5)},{cy + dy}"
         for i, dy in enumerate((-20, -13, -6, 1, 8, 15, 22))
     )
-    return f'<rect class="body" x="{cx - 13}" y="{cy - 24}" width="26" height="48" rx="3"/><polyline class="line" points="{z}"/>'
+    return f'<rect class="face" x="{cx - 13}" y="{cy - 24}" width="26" height="48" rx="3"/><polyline class="detail" points="{z}"/>'
 
 
 def coil_glyph(cx: float, cy: float, fluid: str) -> str:
-    out = f'<rect class="body" x="{cx - 14}" y="{cy - 24}" width="28" height="48" rx="2" style="stroke:hsl(var(--{fluid}))"/>'
+    out = f'<rect class="face" x="{cx - 14}" y="{cy - 24}" width="28" height="48" rx="2" style="stroke:hsl(var(--{fluid}))"/>'
     for dx in (-7, 0, 7):
-        out += f'<line x1="{cx + dx}" y1="{cy - 19}" x2="{cx + dx}" y2="{cy + 19}" style="stroke:hsl(var(--{fluid}));stroke-width:1.5"/>'
+        out += f'<line x1="{cx + dx}" y1="{cy - 19}" x2="{cx + dx}" y2="{cy + 19}" style="stroke:hsl(var(--{fluid}));stroke-width:1.25"/>'
     return out
 
 
 def damper_glyph(cx: float, cy: float) -> str:
     out = (
-        f'<rect class="body" x="{cx - 8}" y="{cy - 24}" width="16" height="48" rx="2"/>'
+        f'<rect class="face" x="{cx - 8}" y="{cy - 24}" width="16" height="48" rx="2"/>'
     )
     for dy in (-14, 0, 14):
-        out += f'<line class="line" x1="{cx - 6}" y1="{cy + dy - 5}" x2="{cx + 6}" y2="{cy + dy + 5}"/>'
+        out += f'<line class="detail" x1="{cx - 6}" y1="{cy + dy - 5}" x2="{cx + 6}" y2="{cy + dy + 5}"/>'
     return out
 
 
-def flat_sheet() -> str:
+def duct_fan(cx: float, cy: float, *, spinning: bool) -> str:
+    fill = "hsl(var(--hvac-fan))" if spinning else "hsl(var(--muted-foreground))"
+    out = f'<circle class="face" cx="{cx}" cy="{cy}" r="22"/><g transform="translate({cx} {cy})" style="fill:{fill}">'
+    for a in (0, 120, 240):
+        out += f'<path transform="rotate({a})" d="M0 -4 C7 -7 8 -17 0 -20 C-8 -17 -7 -7 0 -4 Z"/>'
+    return out + f'</g><circle class="fill" cx="{cx}" cy="{cy}" r="3"/>'
+
+
+def flat_sheet(palettes: tuple[Palette, Palette]) -> str:
     width, height = 1040, 1250
     out = [text(24, 36, "Synoptic kit · flat set", "title t")]
     out.append(
         text(
             24,
             56,
-            "one cell = 48 px · same tokens, strokes and chips as the isometric set · the shipped AHU glyphs restyled below",
+            "one cell = 48 px · the plan glyphs the isometric set projects · the shipped AHU glyphs restyled below",
             "note tm",
         )
     )
     cw, ch, gap = 240, 200, 12
-    for i, (title, sub, fp, draw, ports, inline) in enumerate(FLAT_CARDS):
+    for i, sym in enumerate(SYMBOLS):
         ox, oy = 24 + (i % 4) * (cw + gap), 76 + (i // 4) * (ch + gap)
-        out.append(
-            card(
-                ox, oy, cw, ch, title, sub, flat_symbol_drawing(fp, draw, ports, inline)
-            )
-        )
+        out.append(card(ox, oy, cw, ch, sym, flat_symbol_drawing(sym)))
 
     oy = 76 + 4 * (ch + gap)
     out.append(
@@ -1173,14 +1062,14 @@ def flat_sheet() -> str:
             "caption tm",
         )
     )
-    g = f'<g transform="translate(60 {oy + 80})"><rect class="body" x="0" y="-26" width="900" height="52" rx="3"/>'
-    g += damper_glyph(40, 0) + filter_glyph(120, 0) + fan_glyph(220, 0, spinning=True)
+    g = f'<g transform="translate(60 {oy + 80})"><rect class="duct" x="0" y="-26" width="900" height="52" rx="3"/>'
+    g += damper_glyph(40, 0) + filter_glyph(120, 0) + duct_fan(220, 0, spinning=True)
     g += coil_glyph(330, 0, "fluid-heating-supply") + coil_glyph(
         400, 0, "fluid-chilled-supply"
     )
-    g += fan_glyph(520, 0, spinning=False)
+    g += duct_fan(520, 0, spinning=False)
     for x in (640, 760, 870):
-        g += f'<path class="line" d="M {x - 6} -8 L {x + 6} 0 L {x - 6} 8"/>'
+        g += f'<path class="detail" d="M {x - 6} -8 L {x + 6} 0 L {x - 6} 8"/>'
     chips = [
         (120, "ΔP", "142", "Pa", "ok"),
         (220, "VENT", "MARCHE", "", "ok"),
@@ -1218,17 +1107,15 @@ def flat_sheet() -> str:
         text(500, oy + 44, "Extérieur", "caption tm")
         + chip(600, oy + 40, "", "12,3", "°C")
     )
-    return sheet(width, height, "\n".join(out))
-
-
-# ── density sketch ───────────────────────────────────────────────────────────
+    return sheet(width, height, "\n".join(out), palettes)
 
 
 def departures(ox: float, oy: float, *, alternate: bool) -> str:
     n, length = 8, 10
-    g = f'<g transform="translate({ox} {oy})">' + footprint(0, 0, length, 1)
+    g = f'<g transform="translate({ox} {oy})">' + footprint_iso(length, 1)
     g += pipe_iso([(-2, 0.5, AXIS), (0, 0.5, AXIS)], "fluid-primary-supply", flow=True)
-    g += sym_collector(length)
+    g += cylinder_x(0, length, 0.5, AXIS, 0.2)
+    axis = iso_plane(AXIS)
     for i in range(n):
         x = i + 1
         g += pipe_iso(
@@ -1236,7 +1123,9 @@ def departures(ox: float, oy: float, *, alternate: bool) -> str:
             "fluid-primary-supply",
             flow=i % 3 != 1,
         )
-        g += valve_body(x + 0.5, 1.5, AXIS, axis="y")
+        g += axis.poly(circle_pts((x + 0.5, 1.5), 0.3), "face") + valve_glyph(
+            axis, (x + 0.5, 1.5), (0, 1)
+        )
         side = "below" if alternate and i % 2 else "above"
         cell: Pt3 = (x, 3, 0) if alternate else (x, 2, 0)
         value = f"{51 + i * 0.7:.1f}".replace(".", ",")
@@ -1249,10 +1138,11 @@ def departures(ox: float, oy: float, *, alternate: bool) -> str:
             "stale" if i == 5 else "ok",
             side,
         )
-    return g + port_mark(0, 0, "-x", "in_1") + "</g>"
+    px, py = project(0, 0.5, AXIS)
+    return g + port_mark(px, py, (-1, -0.5), "in_1", 30) + "</g>"
 
 
-def density_sheet() -> str:
+def density_sheet(palettes: tuple[Palette, Palette]) -> str:
     width, height = 1240, 560
     out = [
         text(
@@ -1280,10 +1170,13 @@ def density_sheet() -> str:
             "note tm",
         )
     )
-    return sheet(width, height, "\n".join(out))
+    return sheet(width, height, "\n".join(out), palettes)
 
 
 if __name__ == "__main__":
-    (OUT / "isometric.svg").write_text(isometric_sheet())
-    (OUT / "flat.svg").write_text(flat_sheet())
-    (OUT / "density-collector-8.svg").write_text(density_sheet())
+    palettes = read_tokens()
+    check_palette(palettes[0], "light")
+    check_palette(palettes[1], "dark")
+    (OUT / "isometric.svg").write_text(isometric_sheet(palettes))
+    (OUT / "flat.svg").write_text(flat_sheet(palettes))
+    (OUT / "density-collector-8.svg").write_text(density_sheet(palettes))

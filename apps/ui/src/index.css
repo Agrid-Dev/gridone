@@ -61,23 +61,25 @@
     --water: 206 88% 42%;
 
     /* Synoptic plates, see docs/specs/synoptic-visual-language.md.
-       Fluids are keyed on the document's Fluid vocabulary; a return keeps its
-       supply's hue, desaturated and darker, so a pair reads as one loop. */
+       Fluids are keyed on the document's Fluid vocabulary and kept at 45-55 %
+       saturation so --status-* stays the only saturated colour on a plate.
+       A return is its supply with the lightness shifted 18 points (down here,
+       up in .dark); docs/specs/synoptic/kit/generate.py checks the distances. */
     --synoptic-plate: 216 24% 97%;
     --synoptic-grid: 220 13% 88%;
     --synoptic-body: 210 16% 93%;
     --synoptic-stroke: 220 12% 40%;
-    --fluid-primary-supply: 355 78% 48%;
-    --fluid-primary-return: 355 40% 36%;
-    --fluid-heating-supply: 22 92% 50%;
-    --fluid-heating-return: 22 50% 38%;
-    --fluid-dhw: 40 92% 46%;
-    --fluid-dhw-loop: 40 45% 36%;
-    --fluid-cold-water: var(--water);
-    --fluid-chilled-supply: 190 85% 40%;
-    --fluid-chilled-return: 190 45% 30%;
-    --fluid-condenser-supply: 160 65% 36%;
-    --fluid-condenser-return: 160 35% 28%;
+    --fluid-primary-supply: 340 55% 40%;
+    --fluid-primary-return: 340 55% 22%;
+    --fluid-heating-supply: 22 55% 50%;
+    --fluid-heating-return: 22 55% 32%;
+    --fluid-dhw: 50 55% 44%;
+    --fluid-dhw-loop: 50 55% 26%;
+    --fluid-cold-water: 214 50% 38%;
+    --fluid-chilled-supply: 198 55% 40%;
+    --fluid-chilled-return: 198 55% 22%;
+    --fluid-condenser-supply: 275 45% 44%;
+    --fluid-condenser-return: 275 45% 26%;
   }
 
   .dark {
@@ -136,17 +138,17 @@
     --synoptic-grid: 220 12% 20%;
     --synoptic-body: 218 14% 24%;
     --synoptic-stroke: 220 10% 70%;
-    --fluid-primary-supply: 355 80% 62%;
-    --fluid-primary-return: 355 45% 48%;
-    --fluid-heating-supply: 22 92% 62%;
-    --fluid-heating-return: 22 55% 50%;
-    --fluid-dhw: 40 90% 58%;
-    --fluid-dhw-loop: 40 50% 48%;
-    --fluid-cold-water: var(--water);
-    --fluid-chilled-supply: 190 80% 56%;
-    --fluid-chilled-return: 190 45% 45%;
-    --fluid-condenser-supply: 160 60% 50%;
-    --fluid-condenser-return: 160 35% 42%;
+    --fluid-primary-supply: 340 55% 64%;
+    --fluid-primary-return: 340 55% 82%;
+    --fluid-heating-supply: 22 55% 64%;
+    --fluid-heating-return: 22 55% 82%;
+    --fluid-dhw: 50 55% 60%;
+    --fluid-dhw-loop: 50 55% 78%;
+    --fluid-cold-water: 214 50% 56%;
+    --fluid-chilled-supply: 198 55% 58%;
+    --fluid-chilled-return: 198 55% 76%;
+    --fluid-condenser-supply: 275 45% 62%;
+    --fluid-condenser-return: 275 45% 80%;
   }
 }
 
