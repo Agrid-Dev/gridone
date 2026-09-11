@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { attributeUnit } from "@/lib/attributeUnits";
 import { fmt } from "@/lib/formatValue";
-import { FlowChevron, MeasureTag } from "../synoptic";
+import { FlowChevron, MeasureTag } from "@/components/synoptic";
 import { PumpGlyph, pumpMotorBox } from "./PumpGlyph";
 import { pumpState } from "./state";
 import type { PumpFieldKey, PumpValues } from "./types";

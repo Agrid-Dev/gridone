@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { FanGlyph, FlowChevron, fmt, ValueChip } from "../synoptic";
+import { FanGlyph, FlowChevron, fmt, ValueChip } from "@/components/synoptic";
 import { FAN_STATUS_DOT_CLASS, fanIsSpinning, fanStatus } from "./fan";
 import { useAirExtractorLabel } from "./labels";
 import type { AirExtractorValues } from "./types";

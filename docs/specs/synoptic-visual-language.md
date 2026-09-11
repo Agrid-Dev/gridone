@@ -94,7 +94,7 @@ The generator measures the faces the way it measures the fluids: at least 4 poin
 
 ## Distribution views
 
-The shipped AHU and extractor glyphs (`apps/ui/src/pages/devices/standard-devices/synoptic/glyphs.tsx`) are kept as drawings and restyled: `--synoptic-plate` / `--synoptic-stroke` for glyphs and `--synoptic-body` for the duct instead of `fill-background` / `stroke-border`, the coil takes the fluid colour of what it carries (`--fluid-heating-supply`, `--fluid-chilled-supply`) instead of a caller-supplied class, the spinning fan keeps `--hvac-fan`, `ValueChip` and `MeasureTag` (label over value, leader line) become the chip and the tag. The pump synoptic shares the file and follows. The flat sheet shows the duct with damper, filter, fans, coils, chevrons and chips.
+The shipped AHU and extractor glyphs (`apps/ui/src/components/synoptic/glyphs.tsx`) are kept as drawings and restyled: `--synoptic-plate` / `--synoptic-stroke` for glyphs and `--synoptic-body` for the duct instead of `fill-background` / `stroke-border`, the coil takes the fluid colour of what it carries (`--fluid-heating-supply`, `--fluid-chilled-supply`) instead of a caller-supplied class, the spinning fan keeps `--hvac-fan`, `ValueChip` and `MeasureTag` (label over value, leader line) become the chip and the tag. The pump synoptic shares the file and follows. The flat sheet shows the duct with damper, filter, fans, coils, chevrons and chips.
 
 ## Open points
 
