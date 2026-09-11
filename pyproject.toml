@@ -152,6 +152,7 @@ exclude = [".user_projects"]
 [tool.pytest.ini_options]
 markers = [
     "integration: mark a test as an integration test",
+    "perf: benchmark comparing two code paths on the same run (relative, not wall-clock)",
 ]
 
 [tool.importlinter]

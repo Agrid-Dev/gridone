@@ -1,0 +1,5152 @@
+id: agrid_thermostat_mqtts
+vendor: Agrid
+model: null
+version: null
+image_src: null
+transport: mqtt
+env: {}
+update_strategy:
+  polling_enabled: false
+  polling_groups:
+    full_refresh: 1h
+  read_timeout: 10
+healthcheck:
+  expected_push_interval: 1h
+device_config:
+- name: mac
+  required: true
+discovery:
+  topic: updData/+
+  field_getters:
+  - name: mac
+    codecs:
+    - json_path: $.mac
+attributes:
+- kind: standard
+  name: firmware_version
+  data_type: int
+  polling_group: full_refresh
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: ALL
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"FirmwareVersion"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "FirmwareVersion")].value
+- kind: standard
+  name: git_hash
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: GitHash
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"GitHash"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "GitHash")].value
+- kind: standard
+  name: boot_mode
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Boot_Mode
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Boot_Mode"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Boot_Mode")].value
+  - name: options
+    argument:
+    - BOOT_MODE_NORMAL
+    - BOOT_MODE_FAKE_MINIMAL
+    - BOOT_MODE_MINIMAL
+- kind: standard
+  name: bootloader_version
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Bootloader_Version
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Bootloader_Version"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Bootloader_Version")].value
+- kind: standard
+  name: stage0_version
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Stage0_Version
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Stage0_Version"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Stage0_Version")].value
+- kind: standard
+  name: app_version
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: App_Version
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"App_Version"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "App_Version")].value
+- kind: standard
+  name: required_bootloader_version
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Required_Bootloader_Version
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Required_Bootloader_Version"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Required_Bootloader_Version")].value
+- kind: standard
+  name: required_stage0_version
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Required_Stage0_Version
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Required_Stage0_Version"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Required_Stage0_Version")].value
+- kind: standard
+  name: timestamp_utc
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Timestamp_UTC
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Timestamp_UTC"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Timestamp_UTC")].value
+- kind: standard
+  name: reboot_timestamp
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Reboot_Timestamp
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Reboot_Timestamp"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Reboot_Timestamp")].value
+- kind: standard
+  name: reboot_count_utc
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Reboot_Count_UTC
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Reboot_Count_UTC"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Reboot_Count_UTC")].value
+- kind: standard
+  name: event
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Event
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Event"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Event")].value
+  - name: options
+    argument:
+    - NO_EVENT
+    - EVENT_BOOT_NRST
+    - EVENT_BOOT_POWER
+    - EVENT_BOOT_SOFTWARE
+    - EVENT_BOOT_WDT
+    - EVENT_BOOT_WWDT
+    - EVENT_BOOT_LOWPOWER
+    - EVENT_WIFI_DISCONNECT
+    - EVENT_WIFI_RECONNECT
+    - EVENT_WIFI_GOT_IP
+    - EVENT_MQTT_DISCONNECT
+    - EVENT_MQTT_RECONNECT
+    - EVENT_SCRIPT_OK
+    - EVENT_SCRIPT_FILE_NOT_FOUND
+    - EVENT_SCRIPT_BAD_INSTRUCTION
+    - EVENT_SCRIPT_BAD_EXTENSION
+    - EVENT_MQTT_CMD_OK
+    - EVENT_MQTT_CMD_ERROR
+    - EVENT_MQTT_OVERFLOW
+    - EVENT_ACTION_FORMAT
+- kind: standard
+  name: onoff_state
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: State
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"State"'
+  write:
+    topic: ${mac}
+    message:
+      data: State
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "State")].value
+- kind: standard
+  name: mode
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: HVAC_Mode
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"HVAC_Mode"'
+  write:
+    topic: ${mac}
+    message:
+      data: HVAC_Mode
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "HVAC_Mode")].value
+  - name: mapping
+    argument:
+      '0': fan
+      '1': heat
+      '2': cool
+      '3': auto
+- kind: standard
+  name: hvac_real_mode
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: HVAC_Real_Mode
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"HVAC_Real_Mode"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "HVAC_Real_Mode")].value
+  - name: mapping
+    argument:
+      HVAC_MODE_FAN: fan
+      HVAC_MODE_HEAT: heat
+      HVAC_MODE_COOL: cool
+      HVAC_MODE_AUTO: auto
+      HVAC_MODE_COUNT: count
+      HVAC_MODE_ERROR: error
+- kind: standard
+  name: temperature_setpoint
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Tsetpoint
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Tsetpoint"'
+  write:
+    topic: ${mac}
+    message:
+      data: Tsetpoint
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Tsetpoint")].value
+- kind: standard
+  name: fan_speed
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Fanspeed
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Fanspeed"'
+  write:
+    topic: ${mac}
+    message:
+      data: Fanspeed
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Fanspeed")].value
+  - name: mapping
+    argument:
+      FAN_SPEED_LOW: low
+      FAN_SPEED_MEDIUM: medium
+      FAN_SPEED_HIGH: high
+      FAN_SPEED_AUTO: auto
+- kind: standard
+  name: fan_speed_applied
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Fanspeed_Applied
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Fanspeed_Applied"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Fanspeed_Applied")].value
+  - name: mapping
+    argument:
+      FAN_SPEED_LOW: low
+      FAN_SPEED_MEDIUM: medium
+      FAN_SPEED_HIGH: high
+- kind: standard
+  name: resistance_lockout
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Resistance_Lockout
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Resistance_Lockout"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Resistance_Lockout")].value
+- kind: standard
+  name: temperature_unit
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Temperature_Unit
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Temperature_Unit"'
+  write:
+    topic: ${mac}
+    message:
+      data: Temperature_Unit
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Temperature_Unit")].value
+  - name: options
+    argument:
+    - TEMPERATURE_UNIT_C
+    - TEMPERATURE_UNIT_F
+    - TEMPERATURE_UNIT_C_ONLY
+    - TEMPERATURE_UNIT_F_ONLY
+- kind: standard
+  name: back_light
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: BackLight
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"BackLight"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "BackLight")].value
+- kind: standard
+  name: rssi
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: RSSI
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"RSSI"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "RSSI")].value
+- kind: standard
+  name: temperature_cpu
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Temperature_CPU
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Temperature_CPU"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Temperature_CPU")].value
+- kind: standard
+  name: temperature_raw_1
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Temperature_Raw_1
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Temperature_Raw_1"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Temperature_Raw_1")].value
+- kind: standard
+  name: temperature_raw_2
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Temperature_Raw_2
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Temperature_Raw_2"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Temperature_Raw_2")].value
+- kind: standard
+  name: humidity_raw
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Humidity_Raw
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Humidity_Raw"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Humidity_Raw")].value
+- kind: standard
+  name: brightness_raw
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Brightness_Raw
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Brightness_Raw"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Brightness_Raw")].value
+- kind: standard
+  name: radar_raw
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Radar_Raw
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Radar_Raw"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Radar_Raw")].value
+- kind: standard
+  name: temperature
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Temperature
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Temperature"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Temperature")].value
+- kind: standard
+  name: temperature_setpoint_effective
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Tsetpoint_Effective
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Tsetpoint_Effective"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Tsetpoint_Effective")].value
+- kind: standard
+  name: humidity
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Humidity
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Humidity"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Humidity")].value
+- kind: standard
+  name: brightness
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Brightness
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Brightness"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Brightness")].value
+- kind: standard
+  name: di_1
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: DI_1
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"DI_1"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "DI_1")].value
+- kind: standard
+  name: di_2
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: DI_2
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"DI_2"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "DI_2")].value
+- kind: standard
+  name: keycard_ext_sensor_value
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Keycard_Ext_Sensor_Value
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Keycard_Ext_Sensor_Value"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Keycard_Ext_Sensor_Value")].value
+  - name: options
+    argument:
+    - TRISTATE_FALSE
+    - TRISTATE_TRUE
+    - TRISTATE_NA
+- kind: standard
+  name: keycard_ext_sensor_timestamp
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Keycard_Ext_Sensor_Timestamp
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Keycard_Ext_Sensor_Timestamp"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Keycard_Ext_Sensor_Timestamp")].value
+- kind: standard
+  name: window_ext_sensor_value
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Window_Ext_Sensor_Value
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Window_Ext_Sensor_Value"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Window_Ext_Sensor_Value")].value
+  - name: options
+    argument:
+    - TRISTATE_FALSE
+    - TRISTATE_TRUE
+    - TRISTATE_NA
+- kind: standard
+  name: window_ext_sensor_timestamp
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Window_Ext_Sensor_Timestamp
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Window_Ext_Sensor_Timestamp"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Window_Ext_Sensor_Timestamp")].value
+- kind: standard
+  name: occupancy_ext_sensor_value
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Occupancy_Ext_Sensor_Value
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Occupancy_Ext_Sensor_Value"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Occupancy_Ext_Sensor_Value")].value
+  - name: options
+    argument:
+    - TRISTATE_FALSE
+    - TRISTATE_TRUE
+    - TRISTATE_NA
+- kind: standard
+  name: occupancy_ext_sensor_timestamp
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Occupancy_Ext_Sensor_Timestamp
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Occupancy_Ext_Sensor_Timestamp"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Occupancy_Ext_Sensor_Timestamp")].value
+- kind: standard
+  name: change_over_temp_value
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: ChangeOver_Temp_Value
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"ChangeOver_Temp_Value"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "ChangeOver_Temp_Value")].value
+- kind: standard
+  name: change_over_temp_timestamp
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: ChangeOver_Temp_Timestamp
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"ChangeOver_Temp_Timestamp"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "ChangeOver_Temp_Timestamp")].value
+- kind: standard
+  name: change_over_contact_value
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: ChangeOver_Contact_Value
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"ChangeOver_Contact_Value"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "ChangeOver_Contact_Value")].value
+  - name: options
+    argument:
+    - TRISTATE_FALSE
+    - TRISTATE_TRUE
+    - TRISTATE_NA
+- kind: standard
+  name: change_over_contact_timestamp
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: ChangeOver_Contact_Timestamp
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"ChangeOver_Contact_Timestamp"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "ChangeOver_Contact_Timestamp")].value
+- kind: standard
+  name: change_over_hvac_mode_value
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: ChangeOver_HVAC_Mode_Value
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"ChangeOver_HVAC_Mode_Value"'
+  write:
+    topic: ${mac}
+    message:
+      data: ChangeOver_HVAC_Mode_Value
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "ChangeOver_HVAC_Mode_Value")].value
+  - name: mapping
+    argument:
+      HVAC_MODE_FAN: fan
+      HVAC_MODE_HEAT: heat
+      HVAC_MODE_COOL: cool
+      HVAC_MODE_AUTO: auto
+- kind: standard
+  name: change_over_hvac_mode_timestamp
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: ChangeOver_HVAC_Mode_Timestamp
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"ChangeOver_HVAC_Mode_Timestamp"'
+  write:
+    topic: ${mac}
+    message:
+      data: ChangeOver_HVAC_Mode_Timestamp
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "ChangeOver_HVAC_Mode_Timestamp")].value
+- kind: standard
+  name: window_status
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Window_Status
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Window_Status"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Window_Status")].value
+  - name: options
+    argument:
+    - TRISTATE_FALSE
+    - TRISTATE_TRUE
+    - TRISTATE_NA
+- kind: standard
+  name: window_status_timestamp
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Window_Status_Timestamp
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Window_Status_Timestamp"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Window_Status_Timestamp")].value
+- kind: standard
+  name: occupancy
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Occupancy
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Occupancy"'
+  write:
+    topic: ${mac}
+    message:
+      data: Occupancy
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Occupancy")].value
+  - name: options
+    argument:
+    - TRISTATE_FALSE
+    - TRISTATE_TRUE
+    - TRISTATE_NA
+- kind: standard
+  name: occupancy_timestamp
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Occupancy_Timestamp
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Occupancy_Timestamp"'
+  write:
+    topic: ${mac}
+    message:
+      data: Occupancy_Timestamp
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Occupancy_Timestamp")].value
+- kind: standard
+  name: outdoor_temperature
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Outdoor_Temperature
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Outdoor_Temperature"'
+  write:
+    topic: ${mac}
+    message:
+      data: Outdoor_Temperature
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Outdoor_Temperature")].value
+- kind: standard
+  name: outdoor_temperature_timestamp
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Outdoor_Temperature_Timestamp
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Outdoor_Temperature_Timestamp"'
+  write:
+    topic: ${mac}
+    message:
+      data: Outdoor_Temperature_Timestamp
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Outdoor_Temperature_Timestamp")].value
+- kind: standard
+  name: current_reservation_state
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Current_Reservation_State
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Current_Reservation_State"'
+  write:
+    topic: ${mac}
+    message:
+      data: Current_Reservation_State
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Current_Reservation_State")].value
+  - name: options
+    argument:
+    - TRISTATE_FALSE
+    - TRISTATE_TRUE
+    - TRISTATE_NA
+- kind: standard
+  name: current_reservation_timestamp
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Current_Reservation_Timestamp
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Current_Reservation_Timestamp"'
+  write:
+    topic: ${mac}
+    message:
+      data: Current_Reservation_Timestamp
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Current_Reservation_Timestamp")].value
+- kind: standard
+  name: future_reservation_state
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Future_Reservation_State
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Future_Reservation_State"'
+  write:
+    topic: ${mac}
+    message:
+      data: Future_Reservation_State
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Future_Reservation_State")].value
+  - name: options
+    argument:
+    - TRISTATE_FALSE
+    - TRISTATE_TRUE
+    - TRISTATE_NA
+- kind: standard
+  name: future_reservation_timestamp
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Future_Reservation_Timestamp
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Future_Reservation_Timestamp"'
+  write:
+    topic: ${mac}
+    message:
+      data: Future_Reservation_Timestamp
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Future_Reservation_Timestamp")].value
+- kind: standard
+  name: relay_low_fan_speed
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Relay_Low_FanSpeed
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Relay_Low_FanSpeed"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Relay_Low_FanSpeed")].value
+- kind: standard
+  name: relay_medium_fan_speed
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Relay_Medium_FanSpeed
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Relay_Medium_FanSpeed"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Relay_Medium_FanSpeed")].value
+- kind: standard
+  name: relay_high_fan_speed
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Relay_High_FanSpeed
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Relay_High_FanSpeed"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Relay_High_FanSpeed")].value
+- kind: standard
+  name: relay_heat_valve
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Relay_Heat_Valve
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Relay_Heat_Valve"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Relay_Heat_Valve")].value
+- kind: standard
+  name: relay_cool_valve
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Relay_Cool_Valve
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Relay_Cool_Valve"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Relay_Cool_Valve")].value
+- kind: standard
+  name: relay_resistance
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Relay_Resistance
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Relay_Resistance"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Relay_Resistance")].value
+- kind: standard
+  name: dac_fan_speed
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: DAC_FanSpeed
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"DAC_FanSpeed"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "DAC_FanSpeed")].value
+- kind: standard
+  name: dac_heat_valve
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: DAC_Heat_Valve
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"DAC_Heat_Valve"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "DAC_Heat_Valve")].value
+- kind: standard
+  name: dac_cool_valve
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: DAC_Cool_Valve
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"DAC_Cool_Valve"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "DAC_Cool_Valve")].value
+- kind: standard
+  name: dac_resistance
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: DAC_Resistance
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"DAC_Resistance"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "DAC_Resistance")].value
+- kind: standard
+  name: maintenance_mode
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Maintenance_Mode
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Maintenance_Mode"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Maintenance_Mode")].value
+- kind: standard
+  name: magic_word
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: MAGIC_WORD
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"MAGIC_WORD"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "MAGIC_WORD")].value
+- kind: standard
+  name: flash_data_count
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: FLASH_DATA_COUNT
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"FLASH_DATA_COUNT"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "FLASH_DATA_COUNT")].value
+- kind: standard
+  name: thermostat_name
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Thermostat_Name
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Thermostat_Name"'
+  write:
+    topic: ${mac}
+    message:
+      data: Thermostat_Name
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Thermostat_Name")].value
+- kind: standard
+  name: time_zone_difference_minutes
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Time_Zone_Difference_Minutes
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Time_Zone_Difference_Minutes"'
+  write:
+    topic: ${mac}
+    message:
+      data: Time_Zone_Difference_Minutes
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Time_Zone_Difference_Minutes")].value
+- kind: standard
+  name: language
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Language
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Language"'
+  write:
+    topic: ${mac}
+    message:
+      data: Language
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Language")].value
+  - name: options
+    argument:
+    - LANGUAGE_ENGLISH
+    - LANGUAGE_FRENCH
+- kind: standard
+  name: typo
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Typo
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Typo"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Typo")].value
+  - name: options
+    argument:
+    - MAIN_TYPO
+    - HAND_TYPO
+- kind: standard
+  name: portrait
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Portrait
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Portrait"'
+  write:
+    topic: ${mac}
+    message:
+      data: Portrait
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Portrait")].value
+- kind: standard
+  name: print_indoor_temperature
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Print_Indoor_Temperature
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Print_Indoor_Temperature"'
+  write:
+    topic: ${mac}
+    message:
+      data: Print_Indoor_Temperature
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Print_Indoor_Temperature")].value
+- kind: standard
+  name: print_humidity
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Print_Humidity
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Print_Humidity"'
+  write:
+    topic: ${mac}
+    message:
+      data: Print_Humidity
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Print_Humidity")].value
+- kind: standard
+  name: print_keycard_status
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Print_Keycard_Status
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Print_Keycard_Status"'
+  write:
+    topic: ${mac}
+    message:
+      data: Print_Keycard_Status
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Print_Keycard_Status")].value
+- kind: standard
+  name: print_window_status
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Print_Window_Status
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Print_Window_Status"'
+  write:
+    topic: ${mac}
+    message:
+      data: Print_Window_Status
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Print_Window_Status")].value
+- kind: standard
+  name: print_occupancy
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Print_Occupancy
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Print_Occupancy"'
+  write:
+    topic: ${mac}
+    message:
+      data: Print_Occupancy
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Print_Occupancy")].value
+- kind: standard
+  name: print_current_reservation_state
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Print_Current_Reservation_State
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Print_Current_Reservation_State"'
+  write:
+    topic: ${mac}
+    message:
+      data: Print_Current_Reservation_State
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Print_Current_Reservation_State")].value
+- kind: standard
+  name: print_outdoor_temperature
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Print_Outdoor_Temperature
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Print_Outdoor_Temperature"'
+  write:
+    topic: ${mac}
+    message:
+      data: Print_Outdoor_Temperature
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Print_Outdoor_Temperature")].value
+- kind: standard
+  name: print_green_leaf
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Print_Green_Leaf
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Print_Green_Leaf"'
+  write:
+    topic: ${mac}
+    message:
+      data: Print_Green_Leaf
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Print_Green_Leaf")].value
+- kind: standard
+  name: print_standby_logo
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Print_Standby_Logo
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Print_Standby_Logo"'
+  write:
+    topic: ${mac}
+    message:
+      data: Print_Standby_Logo
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Print_Standby_Logo")].value
+- kind: standard
+  name: standby_logo_landscape
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Standby_Logo_Landscape
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Standby_Logo_Landscape"'
+  write:
+    topic: ${mac}
+    message:
+      data: Standby_Logo_Landscape
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Standby_Logo_Landscape")].value
+- kind: standard
+  name: standby_logo_portrait
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Standby_Logo_Portrait
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Standby_Logo_Portrait"'
+  write:
+    topic: ${mac}
+    message:
+      data: Standby_Logo_Portrait
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Standby_Logo_Portrait")].value
+- kind: standard
+  name: screen_design_type
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Screen_Design_Type
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Screen_Design_Type"'
+  write:
+    topic: ${mac}
+    message:
+      data: Screen_Design_Type
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Screen_Design_Type")].value
+  - name: options
+    argument:
+    - SCREEN_DESIGN_WITH_TSET
+    - SCREEN_DESIGN_WITHOUT_TSET
+- kind: standard
+  name: time_delay_screensaver
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Time_Delay_Screensaver
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Time_Delay_Screensaver"'
+  write:
+    topic: ${mac}
+    message:
+      data: Time_Delay_Screensaver
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Time_Delay_Screensaver")].value
+- kind: standard
+  name: settings_idle_timeout
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Settings_Idle_Timeout
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Settings_Idle_Timeout"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Settings_Idle_Timeout")].value
+- kind: standard
+  name: fan_coil_type
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Fan_Coil_Type
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Fan_Coil_Type"'
+  write:
+    topic: ${mac}
+    message:
+      data: Fan_Coil_Type
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Fan_Coil_Type")].value
+  - name: options
+    argument:
+    - FAN_COIL_NO_VALVES
+    - FAN_COIL_NO_VALVES_2WIRES
+    - FAN_COIL_2T_MIXED
+    - FAN_COIL_2T_MIXED_2WIRES
+    - FAN_COIL_2T_HEAT_ONLY
+    - FAN_COIL_2T_HEAT_ONLY_2WIRES
+    - FAN_COIL_2T_COOL_ONLY
+    - FAN_COIL_2T_COOL_ONLY_2WIRES
+    - FAN_COIL_4T
+    - FAN_COIL_4T_2WIRES
+- kind: standard
+  name: fan_regulation_type
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Fan_Regulation_Type
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Fan_Regulation_Type"'
+  write:
+    topic: ${mac}
+    message:
+      data: Fan_Regulation_Type
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Fan_Regulation_Type")].value
+  - name: options
+    argument:
+    - REGULATION_0_10V
+    - REGULATION_ON_OFF
+    - FAN_REGULATION_3_SPEEDS
+- kind: standard
+  name: heat_valve_regulation_type
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Heat_Valve_Regulation_Type
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Heat_Valve_Regulation_Type"'
+  write:
+    topic: ${mac}
+    message:
+      data: Heat_Valve_Regulation_Type
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Heat_Valve_Regulation_Type")].value
+  - name: options
+    argument:
+    - REGULATION_0_10V
+    - REGULATION_ON_OFF
+- kind: standard
+  name: cool_valve_regulation_type
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Cool_Valve_Regulation_Type
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Cool_Valve_Regulation_Type"'
+  write:
+    topic: ${mac}
+    message:
+      data: Cool_Valve_Regulation_Type
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Cool_Valve_Regulation_Type")].value
+  - name: options
+    argument:
+    - REGULATION_0_10V
+    - REGULATION_ON_OFF
+- kind: standard
+  name: resistance_regulation_type
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Resistance_Regulation_Type
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Resistance_Regulation_Type"'
+  write:
+    topic: ${mac}
+    message:
+      data: Resistance_Regulation_Type
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Resistance_Regulation_Type")].value
+  - name: options
+    argument:
+    - REGULATION_0_10V
+    - REGULATION_ON_OFF
+- kind: standard
+  name: hvac_mode_0
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: HVAC_Mode_0
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"HVAC_Mode_0"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "HVAC_Mode_0")].value
+  - name: mapping
+    argument:
+      HVAC_MODE_FAN: fan
+      HVAC_MODE_HEAT: heat
+      HVAC_MODE_COOL: cool
+      HVAC_MODE_AUTO: auto
+- kind: standard
+  name: hvac_mode_1
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: HVAC_Mode_1
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"HVAC_Mode_1"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "HVAC_Mode_1")].value
+  - name: mapping
+    argument:
+      HVAC_MODE_FAN: fan
+      HVAC_MODE_HEAT: heat
+      HVAC_MODE_COOL: cool
+      HVAC_MODE_AUTO: auto
+- kind: standard
+  name: hvac_mode_2
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: HVAC_Mode_2
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"HVAC_Mode_2"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "HVAC_Mode_2")].value
+  - name: mapping
+    argument:
+      HVAC_MODE_FAN: fan
+      HVAC_MODE_HEAT: heat
+      HVAC_MODE_COOL: cool
+      HVAC_MODE_AUTO: auto
+- kind: standard
+  name: hvac_mode_3
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: HVAC_Mode_3
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"HVAC_Mode_3"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "HVAC_Mode_3")].value
+  - name: mapping
+    argument:
+      HVAC_MODE_FAN: fan
+      HVAC_MODE_HEAT: heat
+      HVAC_MODE_COOL: cool
+      HVAC_MODE_AUTO: auto
+- kind: standard
+  name: hvac_mode_4
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: HVAC_Mode_4
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"HVAC_Mode_4"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "HVAC_Mode_4")].value
+  - name: mapping
+    argument:
+      HVAC_MODE_FAN: fan
+      HVAC_MODE_HEAT: heat
+      HVAC_MODE_COOL: cool
+      HVAC_MODE_AUTO: auto
+- kind: standard
+  name: hvac_mode_5
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: HVAC_Mode_5
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"HVAC_Mode_5"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "HVAC_Mode_5")].value
+  - name: mapping
+    argument:
+      HVAC_MODE_FAN: fan
+      HVAC_MODE_HEAT: heat
+      HVAC_MODE_COOL: cool
+      HVAC_MODE_AUTO: auto
+- kind: standard
+  name: hvac_mode_6
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: HVAC_Mode_6
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"HVAC_Mode_6"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "HVAC_Mode_6")].value
+  - name: mapping
+    argument:
+      HVAC_MODE_FAN: fan
+      HVAC_MODE_HEAT: heat
+      HVAC_MODE_COOL: cool
+      HVAC_MODE_AUTO: auto
+- kind: standard
+  name: hvac_mode_7
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: HVAC_Mode_7
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"HVAC_Mode_7"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "HVAC_Mode_7")].value
+  - name: mapping
+    argument:
+      HVAC_MODE_FAN: fan
+      HVAC_MODE_HEAT: heat
+      HVAC_MODE_COOL: cool
+      HVAC_MODE_AUTO: auto
+- kind: standard
+  name: hvac_mode_8
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: HVAC_Mode_8
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"HVAC_Mode_8"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "HVAC_Mode_8")].value
+  - name: mapping
+    argument:
+      HVAC_MODE_FAN: fan
+      HVAC_MODE_HEAT: heat
+      HVAC_MODE_COOL: cool
+      HVAC_MODE_AUTO: auto
+- kind: standard
+  name: hvac_mode_9
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: HVAC_Mode_9
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"HVAC_Mode_9"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "HVAC_Mode_9")].value
+  - name: mapping
+    argument:
+      HVAC_MODE_FAN: fan
+      HVAC_MODE_HEAT: heat
+      HVAC_MODE_COOL: cool
+      HVAC_MODE_AUTO: auto
+- kind: standard
+  name: temperature_setpoint_range_type
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Tsetpoint_Range_Type
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Tsetpoint_Range_Type"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Tsetpoint_Range_Type")].value
+  - name: options
+    argument:
+    - TSETPOINT_VALUE_RANGE
+    - TSETPOINT_VALUE_VALUE
+- kind: standard
+  name: temperature_setpoint_min_heat
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Tmin_HEAT
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Tmin_HEAT"'
+  write:
+    topic: ${mac}
+    message:
+      data: Tmin_HEAT
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Tmin_HEAT")].value
+- kind: standard
+  name: temperature_setpoint_min_cold
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Tmin_COLD
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Tmin_COLD"'
+  write:
+    topic: ${mac}
+    message:
+      data: Tmin_COLD
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Tmin_COLD")].value
+- kind: standard
+  name: temperature_setpoint_max_heat
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Tmax_HEAT
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Tmax_HEAT"'
+  write:
+    topic: ${mac}
+    message:
+      data: Tmax_HEAT
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Tmax_HEAT")].value
+- kind: standard
+  name: temperature_setpoint_max_cold
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Tmax_COLD
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Tmax_COLD"'
+  write:
+    topic: ${mac}
+    message:
+      data: Tmax_COLD
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Tmax_COLD")].value
+- kind: standard
+  name: temperature_setpoint_min_auto
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Tmin_AUTO
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Tmin_AUTO"'
+  write:
+    topic: ${mac}
+    message:
+      data: Tmin_AUTO
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Tmin_AUTO")].value
+- kind: standard
+  name: temperature_setpoint_max_auto
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Tmax_AUTO
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Tmax_AUTO"'
+  write:
+    topic: ${mac}
+    message:
+      data: Tmax_AUTO
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Tmax_AUTO")].value
+- kind: standard
+  name: average_temperature_setpoint_heat
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Average_Tsetpoint_HEAT
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Average_Tsetpoint_HEAT"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Average_Tsetpoint_HEAT")].value
+- kind: standard
+  name: average_temperature_setpoint_cold
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Average_Tsetpoint_COLD
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Average_Tsetpoint_COLD"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Average_Tsetpoint_COLD")].value
+- kind: standard
+  name: average_temperature_setpoint_auto
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Average_Tsetpoint_AUTO
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Average_Tsetpoint_AUTO"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Average_Tsetpoint_AUTO")].value
+- kind: standard
+  name: interval_length_heat
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Interval_Length_HEAT
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Interval_Length_HEAT"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Interval_Length_HEAT")].value
+- kind: standard
+  name: interval_length_cold
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Interval_Length_COLD
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Interval_Length_COLD"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Interval_Length_COLD")].value
+- kind: standard
+  name: interval_length_auto
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Interval_Length_AUTO
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Interval_Length_AUTO"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Interval_Length_AUTO")].value
+- kind: standard
+  name: hvac_mode_block
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: HVAC_Mode_Block
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"HVAC_Mode_Block"'
+  write:
+    topic: ${mac}
+    message:
+      data: HVAC_Mode_Block
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "HVAC_Mode_Block")].value
+- kind: standard
+  name: temperature_setpoint_block
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Tsetpoint_Block
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Tsetpoint_Block"'
+  write:
+    topic: ${mac}
+    message:
+      data: Tsetpoint_Block
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Tsetpoint_Block")].value
+- kind: standard
+  name: state_block
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: State_Block
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"State_Block"'
+  write:
+    topic: ${mac}
+    message:
+      data: State_Block
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "State_Block")].value
+- kind: standard
+  name: fan_speed_block
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: FanSpeed_Block
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"FanSpeed_Block"'
+  write:
+    topic: ${mac}
+    message:
+      data: FanSpeed_Block
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "FanSpeed_Block")].value
+- kind: standard
+  name: use_temperature_raw_1
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Use_Temperature_Raw_1
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Use_Temperature_Raw_1"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Use_Temperature_Raw_1")].value
+- kind: standard
+  name: use_temperature_raw_2
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Use_Temperature_Raw_2
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Use_Temperature_Raw_2"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Use_Temperature_Raw_2")].value
+- kind: standard
+  name: use_humidity_raw
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Use_Humidity_Raw
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Use_Humidity_Raw"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Use_Humidity_Raw")].value
+- kind: standard
+  name: use_brightness_raw
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Use_Brightness_Raw
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Use_Brightness_Raw"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Use_Brightness_Raw")].value
+- kind: standard
+  name: temperature_coeff_raw
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Temperature_Coeff_Raw
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Temperature_Coeff_Raw"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Temperature_Coeff_Raw")].value
+- kind: standard
+  name: temperature_coeff_cpu
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Temperature_Coeff_CPU
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Temperature_Coeff_CPU"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Temperature_Coeff_CPU")].value
+- kind: standard
+  name: temperature_coeff_constant
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Temperature_Coeff_Constant
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Temperature_Coeff_Constant"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Temperature_Coeff_Constant")].value
+- kind: standard
+  name: temperature_coeff_raw_back
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Temperature_Coeff_Raw_Back
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Temperature_Coeff_Raw_Back"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Temperature_Coeff_Raw_Back")].value
+- kind: standard
+  name: temperature_coeff_constant_back
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Temperature_Coeff_Constant_Back
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Temperature_Coeff_Constant_Back"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Temperature_Coeff_Constant_Back")].value
+- kind: standard
+  name: humidity_coeff_raw
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Humidity_Coeff_Raw
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Humidity_Coeff_Raw"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Humidity_Coeff_Raw")].value
+- kind: standard
+  name: humidity_calibration
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Humidity_Calibration
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Humidity_Calibration"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Humidity_Calibration")].value
+- kind: standard
+  name: brightness_coeff_raw
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Brightness_Coeff_Raw
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Brightness_Coeff_Raw"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Brightness_Coeff_Raw")].value
+- kind: standard
+  name: brightness_calibration
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Brightness_Calibration
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Brightness_Calibration"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Brightness_Calibration")].value
+- kind: standard
+  name: temperature_setpoint_shift_heat
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Tsetpoint_Shift_HEAT
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Tsetpoint_Shift_HEAT"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Tsetpoint_Shift_HEAT")].value
+- kind: standard
+  name: temperature_setpoint_shift_cool
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Tsetpoint_Shift_COOL
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Tsetpoint_Shift_COOL"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Tsetpoint_Shift_COOL")].value
+- kind: standard
+  name: temperature_setpoint_limit_trig_shift_heat
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Tsetpoint_Limit_TrigShift_HEAT
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Tsetpoint_Limit_TrigShift_HEAT"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Tsetpoint_Limit_TrigShift_HEAT")].value
+- kind: standard
+  name: temperature_setpoint_limit_trig_shift_cool
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Tsetpoint_Limit_TrigShift_COOL
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Tsetpoint_Limit_TrigShift_COOL"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Tsetpoint_Limit_TrigShift_COOL")].value
+- kind: standard
+  name: temperature_setpoint_shift_slope
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Tsetpoint_Shift_Slope
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Tsetpoint_Shift_Slope"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Tsetpoint_Shift_Slope")].value
+- kind: standard
+  name: temperature_setpoint_precision
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Tsetpoint_Precision
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Tsetpoint_Precision"'
+  write:
+    topic: ${mac}
+    message:
+      data: Tsetpoint_Precision
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Tsetpoint_Precision")].value
+- kind: standard
+  name: temperature_precision
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Temperature_Precision
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Temperature_Precision"'
+  write:
+    topic: ${mac}
+    message:
+      data: Temperature_Precision
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Temperature_Precision")].value
+- kind: standard
+  name: change_over_temp_precision
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: ChangeOver_Temp_Precision
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"ChangeOver_Temp_Precision"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "ChangeOver_Temp_Precision")].value
+- kind: standard
+  name: humidity_precision
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Humidity_Precision
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Humidity_Precision"'
+  write:
+    topic: ${mac}
+    message:
+      data: Humidity_Precision
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Humidity_Precision")].value
+- kind: standard
+  name: brightness_precision
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Brightness_Precision
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Brightness_Precision"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Brightness_Precision")].value
+- kind: standard
+  name: di_1_logic
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: DI_1_Logic
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"DI_1_Logic"'
+  write:
+    topic: ${mac}
+    message:
+      data: DI_1_Logic
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "DI_1_Logic")].value
+  - name: options
+    argument:
+    - LOGIC_DIRECT
+    - LOGIC_INVERT
+- kind: standard
+  name: di_2_logic
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: DI_2_Logic
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"DI_2_Logic"'
+  write:
+    topic: ${mac}
+    message:
+      data: DI_2_Logic
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "DI_2_Logic")].value
+  - name: options
+    argument:
+    - LOGIC_DIRECT
+    - LOGIC_INVERT
+- kind: standard
+  name: di_1_calibration
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: DI_1_Calibration
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"DI_1_Calibration"'
+  write:
+    topic: ${mac}
+    message:
+      data: DI_1_Calibration
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "DI_1_Calibration")].value
+- kind: standard
+  name: di_2_calibration
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: DI_2_Calibration
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"DI_2_Calibration"'
+  write:
+    topic: ${mac}
+    message:
+      data: DI_2_Calibration
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "DI_2_Calibration")].value
+- kind: standard
+  name: change_over_temperature_sensor
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: ChangeOver_Temperature_Sensor
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"ChangeOver_Temperature_Sensor"'
+  write:
+    topic: ${mac}
+    message:
+      data: ChangeOver_Temperature_Sensor
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "ChangeOver_Temperature_Sensor")].value
+  - name: options
+    argument:
+    - NO_INPUT
+    - DI_1
+    - DI_2
+- kind: standard
+  name: change_over_contact_sensor
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: ChangeOver_Contact_Sensor
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"ChangeOver_Contact_Sensor"'
+  write:
+    topic: ${mac}
+    message:
+      data: ChangeOver_Contact_Sensor
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "ChangeOver_Contact_Sensor")].value
+  - name: options
+    argument:
+    - NO_INPUT
+    - DI_1
+    - DI_2
+- kind: standard
+  name: temp_limit_change_over_heat
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Temp_Limit_ChangeOver_HEAT
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Temp_Limit_ChangeOver_HEAT"'
+  write:
+    topic: ${mac}
+    message:
+      data: Temp_Limit_ChangeOver_HEAT
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Temp_Limit_ChangeOver_HEAT")].value
+- kind: standard
+  name: temp_limit_change_over_cool
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Temp_Limit_ChangeOver_COOL
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Temp_Limit_ChangeOver_COOL"'
+  write:
+    topic: ${mac}
+    message:
+      data: Temp_Limit_ChangeOver_COOL
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Temp_Limit_ChangeOver_COOL")].value
+- kind: standard
+  name: mode_change_delay
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Mode_Change_Delay
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Mode_Change_Delay"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Mode_Change_Delay")].value
+- kind: standard
+  name: change_over_calculation_method
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: ChangeOver_Calculation_Method
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"ChangeOver_Calculation_Method"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "ChangeOver_Calculation_Method")].value
+  - name: options
+    argument:
+    - EXTERNAL
+    - TEMPERATURE_SENSOR
+    - CONTACT_SENSOR
+- kind: standard
+  name: relay_low_fan_speed_active
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Relay_Low_FanSpeed_Active
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Relay_Low_FanSpeed_Active"'
+  write:
+    topic: ${mac}
+    message:
+      data: Relay_Low_FanSpeed_Active
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Relay_Low_FanSpeed_Active")].value
+- kind: standard
+  name: relay_medium_fan_speed_active
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Relay_Medium_FanSpeed_Active
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Relay_Medium_FanSpeed_Active"'
+  write:
+    topic: ${mac}
+    message:
+      data: Relay_Medium_FanSpeed_Active
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Relay_Medium_FanSpeed_Active")].value
+- kind: standard
+  name: relay_high_fan_speed_active
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Relay_High_FanSpeed_Active
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Relay_High_FanSpeed_Active"'
+  write:
+    topic: ${mac}
+    message:
+      data: Relay_High_FanSpeed_Active
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Relay_High_FanSpeed_Active")].value
+- kind: standard
+  name: relay_heat_valve_active
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Relay_Heat_Valve_Active
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Relay_Heat_Valve_Active"'
+  write:
+    topic: ${mac}
+    message:
+      data: Relay_Heat_Valve_Active
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Relay_Heat_Valve_Active")].value
+- kind: standard
+  name: relay_cool_valve_active
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Relay_Cool_Valve_Active
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Relay_Cool_Valve_Active"'
+  write:
+    topic: ${mac}
+    message:
+      data: Relay_Cool_Valve_Active
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Relay_Cool_Valve_Active")].value
+- kind: standard
+  name: relay_resistance_active
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Relay_Resistance_Active
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Relay_Resistance_Active"'
+  write:
+    topic: ${mac}
+    message:
+      data: Relay_Resistance_Active
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Relay_Resistance_Active")].value
+- kind: standard
+  name: dac_fan_speed_active
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: DAC_FanSpeed_Active
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"DAC_FanSpeed_Active"'
+  write:
+    topic: ${mac}
+    message:
+      data: DAC_FanSpeed_Active
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "DAC_FanSpeed_Active")].value
+- kind: standard
+  name: dac_heat_valve_active
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: DAC_Heat_Valve_Active
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"DAC_Heat_Valve_Active"'
+  write:
+    topic: ${mac}
+    message:
+      data: DAC_Heat_Valve_Active
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "DAC_Heat_Valve_Active")].value
+- kind: standard
+  name: dac_cool_valve_active
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: DAC_Cool_Valve_Active
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"DAC_Cool_Valve_Active"'
+  write:
+    topic: ${mac}
+    message:
+      data: DAC_Cool_Valve_Active
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "DAC_Cool_Valve_Active")].value
+- kind: standard
+  name: dac_resistance_active
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: DAC_Resistance_Active
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"DAC_Resistance_Active"'
+  write:
+    topic: ${mac}
+    message:
+      data: DAC_Resistance_Active
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "DAC_Resistance_Active")].value
+- kind: standard
+  name: relay_fan_speed_logic
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Relay_FanSpeed_Logic
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Relay_FanSpeed_Logic"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Relay_FanSpeed_Logic")].value
+  - name: options
+    argument:
+    - LOGIC_NC
+    - LOGIC_NO
+- kind: standard
+  name: relay_heat_valve_logic
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Relay_Heat_Valve_Logic
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Relay_Heat_Valve_Logic"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Relay_Heat_Valve_Logic")].value
+  - name: options
+    argument:
+    - LOGIC_NC
+    - LOGIC_NO
+- kind: standard
+  name: relay_cool_valve_logic
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Relay_Cool_Valve_Logic
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Relay_Cool_Valve_Logic"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Relay_Cool_Valve_Logic")].value
+  - name: options
+    argument:
+    - LOGIC_NC
+    - LOGIC_NO
+- kind: standard
+  name: relay_resistance_logic
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Relay_Resistance_Logic
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Relay_Resistance_Logic"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Relay_Resistance_Logic")].value
+  - name: options
+    argument:
+    - LOGIC_NC
+    - LOGIC_NO
+- kind: standard
+  name: dac_fan_speed_logic
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: DAC_FanSpeed_Logic
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"DAC_FanSpeed_Logic"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "DAC_FanSpeed_Logic")].value
+  - name: options
+    argument:
+    - LOGIC_NC
+    - LOGIC_NO
+- kind: standard
+  name: dac_heat_valve_logic
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: DAC_Heat_Valve_Logic
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"DAC_Heat_Valve_Logic"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "DAC_Heat_Valve_Logic")].value
+  - name: options
+    argument:
+    - LOGIC_NC
+    - LOGIC_NO
+- kind: standard
+  name: dac_cool_valve_logic
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: DAC_Cool_Valve_Logic
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"DAC_Cool_Valve_Logic"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "DAC_Cool_Valve_Logic")].value
+  - name: options
+    argument:
+    - LOGIC_NC
+    - LOGIC_NO
+- kind: standard
+  name: dac_resistance_logic
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: DAC_Resistance_Logic
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"DAC_Resistance_Logic"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "DAC_Resistance_Logic")].value
+  - name: options
+    argument:
+    - LOGIC_NC
+    - LOGIC_NO
+- kind: standard
+  name: communication_protocol
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Communication_Protocol
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Communication_Protocol"'
+  write:
+    topic: ${mac}
+    message:
+      data: Communication_Protocol
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Communication_Protocol")].value
+  - name: options
+    argument:
+    - COM_PROTOCOL_MQTT
+    - COM_PROTOCOL_MODBUS
+- kind: standard
+  name: wifi_ssid
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Wifi_SSID
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Wifi_SSID"'
+  write:
+    topic: ${mac}
+    message:
+      data: Wifi_SSID
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Wifi_SSID")].value
+- kind: standard
+  name: wifi_password
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Wifi_Password
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Wifi_Password"'
+  write:
+    topic: ${mac}
+    message:
+      data: Wifi_Password
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Wifi_Password")].value
+- kind: standard
+  name: wifi_hidden
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Wifi_Hidden
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Wifi_Hidden"'
+  write:
+    topic: ${mac}
+    message:
+      data: Wifi_Hidden
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Wifi_Hidden")].value
+- kind: standard
+  name: bms_server_ip
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: BMS_Server_IP
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"BMS_Server_IP"'
+  write:
+    topic: ${mac}
+    message:
+      data: BMS_Server_IP
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "BMS_Server_IP")].value
+- kind: standard
+  name: http_port
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: HTTP_Port
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"HTTP_Port"'
+  write:
+    topic: ${mac}
+    message:
+      data: HTTP_Port
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "HTTP_Port")].value
+- kind: standard
+  name: http_timeout
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: HTTP_Timeout
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"HTTP_Timeout"'
+  write:
+    topic: ${mac}
+    message:
+      data: HTTP_Timeout
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "HTTP_Timeout")].value
+- kind: standard
+  name: mqtt_port
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: MQTT_Port
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"MQTT_Port"'
+  write:
+    topic: ${mac}
+    message:
+      data: MQTT_Port
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "MQTT_Port")].value
+- kind: standard
+  name: mqtt_username
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: MQTT_Username
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"MQTT_Username"'
+  write:
+    topic: ${mac}
+    message:
+      data: MQTT_Username
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "MQTT_Username")].value
+- kind: standard
+  name: mqtt_password
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: MQTT_Password
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"MQTT_Password"'
+  write:
+    topic: ${mac}
+    message:
+      data: MQTT_Password
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "MQTT_Password")].value
+- kind: standard
+  name: mqtt_use_tls
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: MQTT_Use_TLS
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"MQTT_Use_TLS"'
+  write:
+    topic: ${mac}
+    message:
+      data: MQTT_Use_TLS
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "MQTT_Use_TLS")].value
+- kind: standard
+  name: mqtt_group_1
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: MQTT_Group_1
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"MQTT_Group_1"'
+  write:
+    topic: ${mac}
+    message:
+      data: MQTT_Group_1
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "MQTT_Group_1")].value
+- kind: standard
+  name: mqtt_group_2
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: MQTT_Group_2
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"MQTT_Group_2"'
+  write:
+    topic: ${mac}
+    message:
+      data: MQTT_Group_2
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "MQTT_Group_2")].value
+- kind: standard
+  name: mqtt_group_3
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: MQTT_Group_3
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"MQTT_Group_3"'
+  write:
+    topic: ${mac}
+    message:
+      data: MQTT_Group_3
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "MQTT_Group_3")].value
+- kind: standard
+  name: mqtt_group_4
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: MQTT_Group_4
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"MQTT_Group_4"'
+  write:
+    topic: ${mac}
+    message:
+      data: MQTT_Group_4
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "MQTT_Group_4")].value
+- kind: standard
+  name: mqtt_group_5
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: MQTT_Group_5
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"MQTT_Group_5"'
+  write:
+    topic: ${mac}
+    message:
+      data: MQTT_Group_5
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "MQTT_Group_5")].value
+- kind: standard
+  name: time_server
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Time_Server
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Time_Server"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Time_Server")].value
+- kind: standard
+  name: modbus_address
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Modbus_Address
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Modbus_Address"'
+  write:
+    topic: ${mac}
+    message:
+      data: Modbus_Address
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Modbus_Address")].value
+- kind: standard
+  name: baud_rate
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Baud_Rate
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Baud_Rate"'
+  write:
+    topic: ${mac}
+    message:
+      data: Baud_Rate
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Baud_Rate")].value
+- kind: standard
+  name: bit_stop
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Bit_stop
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Bit_stop"'
+  write:
+    topic: ${mac}
+    message:
+      data: Bit_stop
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Bit_stop")].value
+- kind: standard
+  name: parity
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Parity
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Parity"'
+  write:
+    topic: ${mac}
+    message:
+      data: Parity
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Parity")].value
+  - name: options
+    argument:
+    - PARITY_NONE
+    - PARITY_EVEN
+    - PARITY_ODD
+- kind: standard
+  name: setting_screen_password_0
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Setting_Screen_Password_0
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Setting_Screen_Password_0"'
+  write:
+    topic: ${mac}
+    message:
+      data: Setting_Screen_Password_0
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Setting_Screen_Password_0")].value
+- kind: standard
+  name: setting_screen_password_1
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Setting_Screen_Password_1
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Setting_Screen_Password_1"'
+  write:
+    topic: ${mac}
+    message:
+      data: Setting_Screen_Password_1
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Setting_Screen_Password_1")].value
+- kind: standard
+  name: resistance_usage_type
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Resistance_Usage_Type
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Resistance_Usage_Type"'
+  write:
+    topic: ${mac}
+    message:
+      data: Resistance_Usage_Type
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Resistance_Usage_Type")].value
+  - name: options
+    argument:
+    - RESISTANCE_USAGE_PARALLEL
+    - RESISTANCE_USAGE_SERIAL
+- kind: standard
+  name: hys_onoff_control_resistance_on
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Hys_ONOFFControl_Resistance_ON
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Hys_ONOFFControl_Resistance_ON"'
+  write:
+    topic: ${mac}
+    message:
+      data: Hys_ONOFFControl_Resistance_ON
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Hys_ONOFFControl_Resistance_ON")].value
+- kind: standard
+  name: hys_onoff_control_resistance_off
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Hys_ONOFFControl_Resistance_OFF
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Hys_ONOFFControl_Resistance_OFF"'
+  write:
+    topic: ${mac}
+    message:
+      data: Hys_ONOFFControl_Resistance_OFF
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Hys_ONOFFControl_Resistance_OFF")].value
+- kind: standard
+  name: time_delay_trigger_resistance
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Time_Delay_Trigger_Resistance
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Time_Delay_Trigger_Resistance"'
+  write:
+    topic: ${mac}
+    message:
+      data: Time_Delay_Trigger_Resistance
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Time_Delay_Trigger_Resistance")].value
+- kind: standard
+  name: permanent_fan
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Permanent_Fan
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Permanent_Fan"'
+  write:
+    topic: ${mac}
+    message:
+      data: Permanent_Fan
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Permanent_Fan")].value
+- kind: standard
+  name: fan_off_delay_heat
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Fan_Off_Delay_Heat
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Fan_Off_Delay_Heat"'
+  write:
+    topic: ${mac}
+    message:
+      data: Fan_Off_Delay_Heat
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Fan_Off_Delay_Heat")].value
+- kind: standard
+  name: fan_off_delay_cool
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Fan_Off_Delay_Cool
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Fan_Off_Delay_Cool"'
+  write:
+    topic: ${mac}
+    message:
+      data: Fan_Off_Delay_Cool
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Fan_Off_Delay_Cool")].value
+- kind: standard
+  name: fan_off_delay_resistance
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Fan_Off_Delay_Resistance
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Fan_Off_Delay_Resistance"'
+  write:
+    topic: ${mac}
+    message:
+      data: Fan_Off_Delay_Resistance
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Fan_Off_Delay_Resistance")].value
+- kind: standard
+  name: resistance_min_fan_percentage
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Resistance_Min_Fan_Percentage
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Resistance_Min_Fan_Percentage"'
+  write:
+    topic: ${mac}
+    message:
+      data: Resistance_Min_Fan_Percentage
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Resistance_Min_Fan_Percentage")].value
+- kind: standard
+  name: force_fan_off_delay_after_res
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Force_Fan_Off_Delay_After_Res
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Force_Fan_Off_Delay_After_Res"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Force_Fan_Off_Delay_After_Res")].value
+- kind: standard
+  name: fan_stage_change_delay
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Fan_Stage_Change_Delay
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Fan_Stage_Change_Delay"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Fan_Stage_Change_Delay")].value
+- kind: standard
+  name: fan_valve_dependency
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Fan_Valve_Dependency
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Fan_Valve_Dependency"'
+  write:
+    topic: ${mac}
+    message:
+      data: Fan_Valve_Dependency
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Fan_Valve_Dependency")].value
+  - name: options
+    argument:
+    - DEPENDENT
+    - INDEPENDENT
+- kind: standard
+  name: percentage_low_fan_speed
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Percentage_Low_Fan_Speed
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Percentage_Low_Fan_Speed"'
+  write:
+    topic: ${mac}
+    message:
+      data: Percentage_Low_Fan_Speed
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Percentage_Low_Fan_Speed")].value
+- kind: standard
+  name: percentage_medium_fan_speed
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Percentage_Medium_Fan_Speed
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Percentage_Medium_Fan_Speed"'
+  write:
+    topic: ${mac}
+    message:
+      data: Percentage_Medium_Fan_Speed
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Percentage_Medium_Fan_Speed")].value
+- kind: standard
+  name: percentage_high_fan_speed
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Percentage_High_Fan_Speed
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Percentage_High_Fan_Speed"'
+  write:
+    topic: ${mac}
+    message:
+      data: Percentage_High_Fan_Speed
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Percentage_High_Fan_Speed")].value
+- kind: standard
+  name: delta_fan_transition_low_med
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Delta_Fan_Transition_Low_Med
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Delta_Fan_Transition_Low_Med"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Delta_Fan_Transition_Low_Med")].value
+- kind: standard
+  name: delta_fan_transition_med_high
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Delta_Fan_Transition_Med_High
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Delta_Fan_Transition_Med_High"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Delta_Fan_Transition_Med_High")].value
+- kind: standard
+  name: delta_fan_hysteresys
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Delta_Fan_Hysteresys
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Delta_Fan_Hysteresys"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Delta_Fan_Hysteresys")].value
+- kind: standard
+  name: hysteresis_hvac_mode_auto
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Hysteresis_HVAC_Mode_AUTO
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Hysteresis_HVAC_Mode_AUTO"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Hysteresis_HVAC_Mode_AUTO")].value
+- kind: standard
+  name: thermo_need_max_heat
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Thermo_Need_Max_HEAT
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Thermo_Need_Max_HEAT"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Thermo_Need_Max_HEAT")].value
+- kind: standard
+  name: thermo_need_max_cool
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Thermo_Need_Max_COOL
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Thermo_Need_Max_COOL"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Thermo_Need_Max_COOL")].value
+- kind: standard
+  name: heat_delta_on
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Heat_Delta_On
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Heat_Delta_On"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Heat_Delta_On")].value
+- kind: standard
+  name: heat_delta_off
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Heat_Delta_Off
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Heat_Delta_Off"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Heat_Delta_Off")].value
+- kind: standard
+  name: cool_delta_on
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Cool_Delta_On
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Cool_Delta_On"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Cool_Delta_On")].value
+- kind: standard
+  name: cool_delta_off
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Cool_Delta_Off
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Cool_Delta_Off"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Cool_Delta_Off")].value
+- kind: standard
+  name: feedbackloop_time_interval
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Feedbackloop_Time_Interval
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Feedbackloop_Time_Interval"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Feedbackloop_Time_Interval")].value
+- kind: standard
+  name: saving_strategy_occupancy
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Saving_Strategy_Occupancy
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Saving_Strategy_Occupancy"'
+  write:
+    topic: ${mac}
+    message:
+      data: Saving_Strategy_Occupancy
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Saving_Strategy_Occupancy")].value
+  - name: options
+    argument:
+    - NO_SAVING_STRATEGY
+    - STATE_STRATEGY_1
+    - STATE_STRATEGY_2
+    - TSETPOINT_STRATEGY_1
+    - TSETPOINT_STRATEGY_2
+- kind: standard
+  name: comfort_temperature_heat
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Comfort_Temperature_HEAT
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Comfort_Temperature_HEAT"'
+  write:
+    topic: ${mac}
+    message:
+      data: Comfort_Temperature_HEAT
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Comfort_Temperature_HEAT")].value
+- kind: standard
+  name: comfort_temperature_cool
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Comfort_Temperature_COOL
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Comfort_Temperature_COOL"'
+  write:
+    topic: ${mac}
+    message:
+      data: Comfort_Temperature_COOL
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Comfort_Temperature_COOL")].value
+- kind: standard
+  name: comfort_temperature_auto
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Comfort_Temperature_AUTO
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Comfort_Temperature_AUTO"'
+  write:
+    topic: ${mac}
+    message:
+      data: Comfort_Temperature_AUTO
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Comfort_Temperature_AUTO")].value
+- kind: standard
+  name: standby_temperature_heat
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Standby_Temperature_HEAT
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Standby_Temperature_HEAT"'
+  write:
+    topic: ${mac}
+    message:
+      data: Standby_Temperature_HEAT
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Standby_Temperature_HEAT")].value
+- kind: standard
+  name: standby_temperature_cool
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Standby_Temperature_COOL
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Standby_Temperature_COOL"'
+  write:
+    topic: ${mac}
+    message:
+      data: Standby_Temperature_COOL
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Standby_Temperature_COOL")].value
+- kind: standard
+  name: temperature_setpoint_shift_heat_occupancy
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Tsetpoint_Shift_HEAT_Occupancy
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Tsetpoint_Shift_HEAT_Occupancy"'
+  write:
+    topic: ${mac}
+    message:
+      data: Tsetpoint_Shift_HEAT_Occupancy
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Tsetpoint_Shift_HEAT_Occupancy")].value
+- kind: standard
+  name: temperature_setpoint_shift_cool_occupancy
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Tsetpoint_Shift_COOL_Occupancy
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Tsetpoint_Shift_COOL_Occupancy"'
+  write:
+    topic: ${mac}
+    message:
+      data: Tsetpoint_Shift_COOL_Occupancy
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Tsetpoint_Shift_COOL_Occupancy")].value
+- kind: standard
+  name: saving_strategy_window
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Saving_Strategy_Window
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Saving_Strategy_Window"'
+  write:
+    topic: ${mac}
+    message:
+      data: Saving_Strategy_Window
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Saving_Strategy_Window")].value
+  - name: options
+    argument:
+    - NO_SAVING_STRATEGY
+    - STATE_STRATEGY_1
+    - STATE_STRATEGY_2
+    - TSETPOINT_STRATEGY_1
+    - TSETPOINT_STRATEGY_2
+- kind: standard
+  name: open_window_software_feature
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Open_Window_Software_Feature
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Open_Window_Software_Feature"'
+  write:
+    topic: ${mac}
+    message:
+      data: Open_Window_Software_Feature
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Open_Window_Software_Feature")].value
+- kind: standard
+  name: delta_temperature_open_window
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Delta_Temperature_Open_Window
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Delta_Temperature_Open_Window"'
+  write:
+    topic: ${mac}
+    message:
+      data: Delta_Temperature_Open_Window
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Delta_Temperature_Open_Window")].value
+- kind: standard
+  name: delta_time_open_window
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Delta_Time_Open_Window
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Delta_Time_Open_Window"'
+  write:
+    topic: ${mac}
+    message:
+      data: Delta_Time_Open_Window
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Delta_Time_Open_Window")].value
+- kind: standard
+  name: threshold_time_open_window
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Threshold_Time_Open_Window
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Threshold_Time_Open_Window"'
+  write:
+    topic: ${mac}
+    message:
+      data: Threshold_Time_Open_Window
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Threshold_Time_Open_Window")].value
+- kind: standard
+  name: setback_feature_activated
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Setback_Feature_Activated
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Setback_Feature_Activated"'
+  write:
+    topic: ${mac}
+    message:
+      data: Setback_Feature_Activated
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Setback_Feature_Activated")].value
+- kind: standard
+  name: setback_temperature_heat
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Setback_Temperature_HEAT
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Setback_Temperature_HEAT"'
+  write:
+    topic: ${mac}
+    message:
+      data: Setback_Temperature_HEAT
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Setback_Temperature_HEAT")].value
+- kind: standard
+  name: setback_temperature_cool
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Setback_Temperature_COOL
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Setback_Temperature_COOL"'
+  write:
+    topic: ${mac}
+    message:
+      data: Setback_Temperature_COOL
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Setback_Temperature_COOL")].value
+- kind: standard
+  name: back_on_temperature_setpoint_strategy
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Back_ON_Tsetpoint_Strategy
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Back_ON_Tsetpoint_Strategy"'
+  write:
+    topic: ${mac}
+    message:
+      data: Back_ON_Tsetpoint_Strategy
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Back_ON_Tsetpoint_Strategy")].value
+  - name: options
+    argument:
+    - NO_TSET_STRAT_BACK_ON
+    - TSET_STRAT_BACK_ON_COMFORT_T
+- kind: standard
+  name: back_on_hvac_mode_power
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Back_ON_HVAC_Mode_Power
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Back_ON_HVAC_Mode_Power"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Back_ON_HVAC_Mode_Power")].value
+- kind: standard
+  name: back_on_state_power
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Back_ON_State_Power
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Back_ON_State_Power"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Back_ON_State_Power")].value
+  - name: options
+    argument:
+    - POWER_BACK_ON_SWITCH_ON
+    - POWER_BACK_ON_KEEP_OFF
+- kind: standard
+  name: back_on_fan_speed
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Back_ON_Fanspeed
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Back_ON_Fanspeed"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Back_ON_Fanspeed")].value
+  - name: mapping
+    argument:
+      FAN_SPEED_LOW: low
+      FAN_SPEED_MEDIUM: medium
+      FAN_SPEED_HIGH: high
+      FAN_SPEED_AUTO: auto
+- kind: standard
+  name: back_on_temperature_unit
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Back_ON_Temperature_Unit
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Back_ON_Temperature_Unit"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Back_ON_Temperature_Unit")].value
+  - name: options
+    argument:
+    - TEMPERATURE_UNIT_C
+    - TEMPERATURE_UNIT_F
+    - TEMPERATURE_UNIT_C_ONLY
+    - TEMPERATURE_UNIT_F_ONLY
+- kind: standard
+  name: change_over_hvac_mode_external
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: ChangeOver_HVAC_Mode_External
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"ChangeOver_HVAC_Mode_External"'
+  write:
+    topic: ${mac}
+    message:
+      data: ChangeOver_HVAC_Mode_External
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "ChangeOver_HVAC_Mode_External")].value
+  - name: mapping
+    argument:
+      HVAC_MODE_FAN: fan
+      HVAC_MODE_HEAT: heat
+      HVAC_MODE_COOL: cool
+      HVAC_MODE_AUTO: auto
+- kind: standard
+  name: sht_sensor
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: SHT_Sensor
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"SHT_Sensor"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "SHT_Sensor")].value
+  - name: options
+    argument:
+    - SHT_NO_SENSOR
+    - SHT31_SENSOR
+    - SHT41_SENSOR
+- kind: standard
+  name: external_sensor_1
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: External_Sensor_1
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"External_Sensor_1"'
+  write:
+    topic: ${mac}
+    message:
+      data: External_Sensor_1
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "External_Sensor_1")].value
+  - name: options
+    argument:
+    - EXT_NO_SENSOR
+    - EXT_PIR_SENSOR
+    - EXT_WINDOW_SENSOR
+    - EXT_CARD_SENSOR
+    - EXT_PT1000_SENSOR
+    - EXT_NTC5k_SENSOR
+    - EXT_CONTACT_SENSOR
+- kind: standard
+  name: external_sensor_2
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: External_Sensor_2
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"External_Sensor_2"'
+  write:
+    topic: ${mac}
+    message:
+      data: External_Sensor_2
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "External_Sensor_2")].value
+  - name: options
+    argument:
+    - EXT_NO_SENSOR
+    - EXT_PIR_SENSOR
+    - EXT_WINDOW_SENSOR
+    - EXT_CARD_SENSOR
+    - EXT_PT1000_SENSOR
+    - EXT_NTC5k_SENSOR
+    - EXT_CONTACT_SENSOR
+- kind: standard
+  name: back_light_high
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: BackLight_HIGH
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"BackLight_HIGH"'
+  write:
+    topic: ${mac}
+    message:
+      data: BackLight_HIGH
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "BackLight_HIGH")].value
+- kind: standard
+  name: back_light_mid
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: BackLight_MID
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"BackLight_MID"'
+  write:
+    topic: ${mac}
+    message:
+      data: BackLight_MID
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "BackLight_MID")].value
+- kind: standard
+  name: back_light_low
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: BackLight_LOW
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"BackLight_LOW"'
+  write:
+    topic: ${mac}
+    message:
+      data: BackLight_LOW
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "BackLight_LOW")].value
+- kind: standard
+  name: back_light_logo
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: BackLight_LOGO
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"BackLight_LOGO"'
+  write:
+    topic: ${mac}
+    message:
+      data: BackLight_LOGO
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "BackLight_LOGO")].value
+- kind: standard
+  name: night_threshold
+  data_type: float
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Night_Threshold
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Night_Threshold"'
+  write:
+    topic: ${mac}
+    message:
+      data: Night_Threshold
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Night_Threshold")].value
+- kind: standard
+  name: back_light_strategy
+  data_type: str
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: BackLight_Strategy
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"BackLight_Strategy"'
+  write:
+    topic: ${mac}
+    message:
+      data: BackLight_Strategy
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "BackLight_Strategy")].value
+  - name: options
+    argument:
+    - BACKLIGHT_STRAT_OFF
+    - BACKLIGHT_STRAT_LOW
+    - BACKLIGHT_STRAT_AUTO
+- kind: standard
+  name: top_element_refresh
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Top_Element_Refresh
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Top_Element_Refresh"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Top_Element_Refresh")].value
+- kind: standard
+  name: upload_progress_display
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Upload_Progress_Display
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Upload_Progress_Display"'
+  write: null
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Upload_Progress_Display")].value
+- kind: standard
+  name: radar_enable
+  data_type: bool
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Radar_Enable
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Radar_Enable"'
+  write:
+    topic: ${mac}
+    message:
+      data: Radar_Enable
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Radar_Enable")].value
+- kind: standard
+  name: modbus_access_level
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Modbus_Access_Level
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Modbus_Access_Level"'
+  write:
+    topic: ${mac}
+    message:
+      data: Modbus_Access_Level
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Modbus_Access_Level")].value
+- kind: standard
+  name: max_access_level
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Max_Access_Level
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Max_Access_Level"'
+  write:
+    topic: ${mac}
+    message:
+      data: Max_Access_Level
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Max_Access_Level")].value
+- kind: standard
+  name: time_delay_setback_retrigger
+  data_type: int
+  read:
+    topic: updData/${mac}
+    request:
+      topic: ${mac}
+      message:
+        data: Time_Delay_Setback_Retrigger
+        command: READ_DATA
+    match:
+      regex: '"name"\s*:\s*"Time_Delay_Setback_Retrigger"'
+  write:
+    topic: ${mac}
+    message:
+      data: Time_Delay_Setback_Retrigger
+      value: ${value}
+      command: WRITE_DATA
+  codecs:
+  - name: json_path
+    argument: $.data[?(@.name == "Time_Delay_Setback_Retrigger")].value
+type: thermostat
