@@ -69,6 +69,8 @@ module.exports = {
         "synoptic-plate": "hsl(var(--synoptic-plate))",
         "synoptic-grid": "hsl(var(--synoptic-grid))",
         "synoptic-body": "hsl(var(--synoptic-body))",
+        "synoptic-body-x": "hsl(var(--synoptic-body-x))",
+        "synoptic-body-y": "hsl(var(--synoptic-body-y))",
         "synoptic-stroke": "hsl(var(--synoptic-stroke))",
         "fluid-primary-supply": "hsl(var(--fluid-primary-supply))",
         "fluid-primary-return": "hsl(var(--fluid-primary-return))",

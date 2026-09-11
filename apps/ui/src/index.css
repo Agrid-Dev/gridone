@@ -67,7 +67,9 @@
        up in .dark); docs/specs/synoptic/kit/generate.py checks the distances. */
     --synoptic-plate: 216 24% 97%;
     --synoptic-grid: 220 13% 88%;
-    --synoptic-body: 210 16% 93%;
+    --synoptic-body: 210 16% 91%;
+    --synoptic-body-x: 212 14% 84%;
+    --synoptic-body-y: 214 12% 76%;
     --synoptic-stroke: 220 12% 40%;
     --fluid-primary-supply: 340 55% 40%;
     --fluid-primary-return: 340 55% 22%;
@@ -136,7 +138,9 @@
 
     --synoptic-plate: 220 22% 11%;
     --synoptic-grid: 220 12% 20%;
-    --synoptic-body: 218 14% 24%;
+    --synoptic-body: 218 14% 33%;
+    --synoptic-body-x: 218 14% 26%;
+    --synoptic-body-y: 218 14% 21%;
     --synoptic-stroke: 220 10% 70%;
     --fluid-primary-supply: 340 55% 64%;
     --fluid-primary-return: 340 55% 82%;
