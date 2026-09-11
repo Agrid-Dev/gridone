@@ -1,5 +1,4 @@
-import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { skipToken, useQuery } from "@tanstack/react-query";
 import type { Device } from "@gridone/sdk";
 import { loadPresentationAssets, type LoadedAssets } from "./assets";
 import type { PresentationDiagnostic, PresentationV1 } from "./document";
@@ -46,12 +45,14 @@ export function presentationRevision(device: Device): string | null {
 }
 
 /**
- * Load a device's presentation once per revision — never per telemetry
- * value — then its assets as Blob URLs, and resolve the browser's own
- * compatibility with the document. Any missing asset or unsupported
- * capability makes the whole presentation unavailable with diagnostics;
- * the page then shows the standard content. Assets are revoked when the
- * revision changes or the page goes away.
+ * Load a presentation once per revision — never per telemetry value — then
+ * its assets as Blob URLs, and resolve the browser's own compatibility with
+ * the document. The revision identifies the document and asset bytes for
+ * every device of the driver, so both are cached by revision alone for the
+ * lifetime of the page: the next device on the same revision renders
+ * without a request. Any missing asset or unsupported capability makes the
+ * whole presentation unavailable with diagnostics; the page then shows the
+ * standard content. A partial asset load is retried on the next mount.
  */
 export function useDevicePresentation(
   device: Device,
@@ -59,18 +60,13 @@ export function useDevicePresentation(
 ): DevicePresentationState {
   const revision = presentationRevision(device);
   const query = useQuery({
-    queryKey: ["device-presentation", device.id, revision],
+    queryKey: ["presentation", revision],
     queryFn: () => api.getPresentation(device.id, revision ?? ""),
     enabled: revision !== null,
     staleTime: Infinity,
+    gcTime: Infinity,
     retry: false,
   });
-
-  const [assets, setAssets] = useState<
-    | { revision: string; loaded: LoadedAssets }
-    | { revision: string; error: true }
-    | null
-  >(null);
 
   const response = query.data;
   const resolution =
@@ -80,31 +76,19 @@ export function useDevicePresentation(
   const document =
     resolution?.status === "available" ? resolution.document : null;
 
-  useEffect(() => {
-    if (!document || revision === null) return;
-    let cancelled = false;
-    let loaded: LoadedAssets | null = null;
-    loadPresentationAssets(document, (assetId) =>
-      api.getAsset(device.id, revision, assetId),
-    ).then(
-      (result) => {
-        if (cancelled) {
-          result.revoke();
-          return;
-        }
-        loaded = result;
-        setAssets({ revision, loaded: result });
-      },
-      () => {
-        if (!cancelled) setAssets({ revision, error: true });
-      },
-    );
-    return () => {
-      cancelled = true;
-      loaded?.revoke();
-      setAssets(null);
-    };
-  }, [document, revision, device.id, api]);
+  const assets = useQuery({
+    queryKey: ["presentation-assets", revision],
+    queryFn: document
+      ? () =>
+          loadPresentationAssets(document, (assetId) =>
+            api.getAsset(device.id, revision ?? "", assetId),
+          )
+      : skipToken,
+    staleTime: (assetsQuery) =>
+      assetsQuery.state.data?.missing.length ? 0 : Infinity,
+    gcTime: Infinity,
+    retry: false,
+  });
 
   if (revision === null) return { status: "none" };
   if (query.isPending) return { status: "loading" };
@@ -120,11 +104,11 @@ export function useDevicePresentation(
   if (resolution?.status === "unavailable") {
     return { status: "unavailable", diagnostics: resolution.diagnostics };
   }
-  if (!document || assets === null || assets.revision !== revision) {
+  if (!document || assets.isPending) {
     return { status: "loading" };
   }
-  if ("error" in assets || assets.loaded.missing.length > 0) {
-    const missing = "error" in assets ? [] : assets.loaded.missing;
+  if (assets.isError || assets.data.missing.length > 0) {
+    const missing = assets.isError ? [] : assets.data.missing;
     return {
       status: "unavailable",
       diagnostics:
@@ -136,5 +120,5 @@ export function useDevicePresentation(
           : [{ code: "asset_unavailable" }],
     };
   }
-  return { status: "available", document, assets: assets.loaded };
+  return { status: "available", document, assets: assets.data };
 }

@@ -28,9 +28,9 @@ const available: PresentationResponse = {
   assets: { bezel: { sha256: "abc", media_type: "image/png" } },
 };
 
-function deviceWith(revision: string | null): Device {
+function deviceWith(revision: string | null, id = "dev-1"): Device {
   return {
-    id: "dev-1",
+    id,
     name: "d",
     attributes: {},
     presentation_ref: revision ? { revision } : null,
@@ -49,10 +49,13 @@ function fakeApi(
   return api;
 }
 
-function setup(device: Device, api: PresentationApi) {
-  const queryClient = new QueryClient({
+function setup(
+  device: Device,
+  api: PresentationApi,
+  queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
-  });
+  }),
+) {
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
@@ -76,7 +79,6 @@ vi.stubGlobal("URL", {
     urls.push(url);
     return url;
   },
-  revokeObjectURL: vi.fn(),
 });
 
 describe("useDevicePresentation", () => {
@@ -150,7 +152,7 @@ describe("useDevicePresentation", () => {
     });
   });
 
-  it("reloads and revokes on a revision change", async () => {
+  it("reloads on a revision change", async () => {
     const api = fakeApi();
     const { result, rerender } = setup(deviceWith("r1"), api);
     await waitFor(() => expect(result.current.status).toBe("available"));
@@ -161,7 +163,38 @@ describe("useDevicePresentation", () => {
       expect(api.getPresentation).toHaveBeenCalledWith("dev-1", "r2"),
     );
     await waitFor(() => expect(result.current.status).toBe("available"));
-    expect(URL.revokeObjectURL).toHaveBeenCalled();
+    expect(api.getAsset).toHaveBeenCalledWith("dev-1", "r2", "bezel");
+  });
+
+  it("renders the next device on the same revision without a request", async () => {
+    const api = fakeApi();
+    const queryClient = new QueryClient();
+    const first = setup(deviceWith("r1"), api, queryClient);
+    await waitFor(() => expect(first.result.current.status).toBe("available"));
+    first.unmount();
+
+    const second = setup(deviceWith("r1", "dev-2"), api, queryClient);
+    expect(second.result.current.status).toBe("available");
+    expect(api.getPresentation).toHaveBeenCalledTimes(1);
+    expect(api.getAsset).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries a partial asset load on the next mount", async () => {
+    const api = fakeApi({
+      getAsset: vi
+        .fn<PresentationApi["getAsset"]>()
+        .mockRejectedValueOnce(new Error("offline"))
+        .mockResolvedValue(new Blob(["png"], { type: "image/png" })),
+    });
+    const queryClient = new QueryClient();
+    const first = setup(deviceWith("r1"), api, queryClient);
+    await waitFor(() =>
+      expect(first.result.current.status).toBe("unavailable"),
+    );
+    first.unmount();
+
+    const second = setup(deviceWith("r1"), api, queryClient);
+    await waitFor(() => expect(second.result.current.status).toBe("available"));
     expect(api.getAsset).toHaveBeenCalledTimes(2);
   });
 });

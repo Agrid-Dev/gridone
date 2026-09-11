@@ -3,8 +3,8 @@ import type { GlyphCell, LoadedGlyphSet, Size } from "./face";
 
 /**
  * Resources of a presentation in the browser: the package's images are
- * fetched through the authenticated client, kept as Blob URLs for the
- * lifetime of the page, and revoked afterwards. Glyph sets are built from
+ * fetched through the authenticated client and kept as Blob URLs for the
+ * lifetime of the page. Glyph sets are built from
  * the document's cell metrics and the decoded size of their atlas. No URL
  * from the document is ever loaded directly: the document only names
  * asset ids, the server serves the bytes.
@@ -18,8 +18,6 @@ export type LoadedAssets = {
   glyphSet: (glyphSetId: string) => LoadedGlyphSet | undefined;
   /** Asset ids that could not be fetched or decoded. */
   missing: string[];
-  /** Revoke every Blob URL; call on unmount or revision change. */
-  revoke: () => void;
 };
 
 /** Decode an image blob to learn its pixel size (browser implementation). */
@@ -70,7 +68,6 @@ export async function loadPresentationAssets(
   fetchAsset: AssetFetcher,
   imageSize: ImageSizeReader = readImageSize,
   createUrl: (blob: Blob) => string = (blob) => URL.createObjectURL(blob),
-  revokeUrl: (url: string) => void = (url) => URL.revokeObjectURL(url),
 ): Promise<LoadedAssets> {
   const urls = new Map<string, string>();
   const sizes = new Map<string, Size>();
@@ -96,9 +93,5 @@ export async function loadPresentationAssets(
     assetUrl: (id) => urls.get(id),
     glyphSet: (id) => glyphSets.get(id),
     missing: missing.sort(),
-    revoke: () => {
-      for (const url of urls.values()) revokeUrl(url);
-      urls.clear();
-    },
   };
 }
