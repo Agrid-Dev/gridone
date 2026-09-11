@@ -1,3 +1,9 @@
+## v0.237.1 (2026-09-11)
+
+### Perf
+
+- **ui**: cache driver presentation by revision
+
 ## v0.237.0 (2026-09-11)
 
 ### Feat
