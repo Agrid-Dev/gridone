@@ -91,7 +91,7 @@ The **collector** is the one type whose shape is authored per instance (`props.a
 ## Public API
 
 ```python
-service = SynopticsService(storage_url)   # None → in-memory backend
+service = SynopticsService(storage_url, target_resolver)   # None → in-memory backend
 await service.start()
 
 plate    = SynopticDocument.model_validate(json.loads(path.read_text()))
@@ -107,11 +107,11 @@ await service.stop()
 
 A plate is written whole and read whole. There are no per-element operations: every save-time rule spans the document, so validating a fragment would mean loading the rest anyway.
 
-Because an edit is whole and can take a while, two authors can overlap. `replace` takes `expected_updated_at`, the `updated_at` the author read; if the plate has been written since, the save is refused with a `ConflictError` instead of erasing the other author's work. The check is the storage's: the write is conditioned on the row still carrying that timestamp, so a save landing between the service's read and its write is caught by the same clause.
+Because an edit is whole and can take a while, two authors can overlap. `replace` takes `expected_updated_at`, the `updated_at` the author read; if the plate has been written since, the save is refused with a `ConflictError` instead of erasing the other author's work. It is optional here for programmatic callers and required on the HTTP route, so every save through the API carries the guard. The service compares it with the plate it just read and refuses a stale save before validating anything, so no binding is resolved for a save that cannot land; the storage then conditions the write on the row still carrying that timestamp, so a save landing between the service's read and its write is caught as well.
 
 ## Save-time rules
 
-`validate_document` collects **every** violation and raises one `SchemaValidationError` carrying `{loc, msg, type}` items, so an author fixing a thirty-four pipe plate gets the whole list rather than one error per attempt. Every `type` is a member of `Violation`, the one definition of the vocabulary an editor branches on: `duplicate_id`, `unknown_symbol_type`, `invalid_props`, `unknown_slot`, `missing_slot`, `rotation_locked`, `port_off_grid`, `unknown_symbol`, `unusable_symbol`, `unknown_port`, `zero_length_segment`, `diagonal_segment`, `polyline_budget_exceeded`, `port_side_mismatch`, `off_polyline`, `self_reference`, `unknown_pipe`, `unusable_pipe`, `reference_cycle`, `not_inline_capable`, `inline_on_endpoint`, `flat_depth`. Messages may be reworded; these values are the contract.
+`validate_document` (document rules) and `validate_for_save` (document and binding rules) collect **every** violation and raises one `SchemaValidationError` carrying `{loc, msg, type}` items, so an author fixing a thirty-four pipe plate gets the whole list rather than one error per attempt. Every `type` is a member of `Violation`, the one definition of the vocabulary an editor branches on: `duplicate_id`, `unknown_symbol_type`, `invalid_props`, `unknown_slot`, `missing_slot`, `rotation_locked`, `port_off_grid`, `unknown_symbol`, `unusable_symbol`, `unknown_port`, `zero_length_segment`, `diagonal_segment`, `polyline_budget_exceeded`, `port_side_mismatch`, `off_polyline`, `self_reference`, `unknown_pipe`, `unusable_pipe`, `reference_cycle`, `not_inline_capable`, `inline_on_endpoint`, `flat_depth`, `binding_budget_exceeded`, `unresolved_target`, `ambiguous_target`, `flow_not_bool`, `decimals_not_numeric`. Messages may be reworded; these values are the contract.
 
 | Rule | Enforced by |
 |---|---|
@@ -127,7 +127,7 @@ Because an edit is whole and can take a while, two authors can overlap. `replace
 | tags sit on their pipe's run | `validation` |
 | `projection: "flat"` implies every `z` is 0 | `validation` |
 
-One rule of the spec is deliberately **not** here: that a binding resolves to exactly one device. It needs the `TargetResolver`, which is composition work: the API layer applies it before calling in, and this package stays document-only.
+One rule of the spec needs a `models.targets.TargetResolver`: that a binding resolves to exactly one device. Building a resolver is composition work, so the service takes one at construction and the API layer passes its own. On every `create` and `replace`, `validate_for_save()` runs the document rules above and then resolves each slot `bound_slots()` enumerates, reporting every violation (no device, several devices, a non-bool behind `flow`, `decimals` on a non-numeric attribute) at its `loc` in the same `{loc, msg, type}` list as the document rules, so an author gets one error for the whole plate. Resolution walks the fleet once per target, so a document may bind at most `MAX_BOUND_SLOTS` slots, checked before anything is resolved, and a target shared by several slots is resolved once.
 
 What is deliberately not a rule: pipes may share cells. A tee shares one by construction, and two runs crossing at different `z` share an xy.
 
@@ -142,7 +142,7 @@ What is deliberately not a rule: pipes may share cells. A tee shares one by cons
 
 ## Architectural notes
 
-- **Service shape.** Follows `models.service.Service`: `__init__(storage_url, registry=None)`, `async start` / `async stop`. Unsupported URL schemes raise `UnsupportedStorageError`; backend failures raise `StorageConnectionError`.
+- **Service shape.** Follows `models.service.Service`: `__init__(storage_url, target_resolver, registry=None)`, `async start` / `async stop`. Unsupported URL schemes raise `UnsupportedStorageError`; backend failures raise `StorageConnectionError`.
 - **No controller framework.** No FastAPI here; the HTTP layer lives in `packages/api`.
 - **16-hex ids** via `models.ids.gen_id()` for the document. Element ids are author-chosen slugs: pipes reference symbols by id, and `pac-03` reviews better than a hex string.
 - **Text is literal, not i18n keys.** A plate is authored for one customer, in that customer's language.

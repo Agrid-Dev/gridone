@@ -1591,6 +1591,86 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/synoptics/symbol-schemas": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Symbol Schemas */
+    get: operations["get_symbol_schemas_synoptics_symbol_schemas_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/synoptics/": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Synoptics */
+    get: operations["list_synoptics_synoptics__get"];
+    put?: never;
+    /** Create Synoptic */
+    post: operations["create_synoptic_synoptics__post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/synoptics/{synoptic_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Synoptic */
+    get: operations["get_synoptic_synoptics__synoptic_id__get"];
+    /**
+     * Replace Synoptic
+     * @description ``expected_updated_at`` is the ``updated_at`` the author read, offset
+     *     included; the save is refused (409) if the plate moved since. It is
+     *     required here so every HTTP save carries the guard; the service keeps it
+     *     optional for programmatic callers.
+     */
+    put: operations["replace_synoptic_synoptics__synoptic_id__put"];
+    post?: never;
+    /** Delete Synoptic */
+    delete: operations["delete_synoptic_synoptics__synoptic_id__delete"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/synoptics/{synoptic_id}/export": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Export Synoptic
+     * @description The authored document alone, so the file is a valid create payload.
+     */
+    get: operations["export_synoptic_synoptics__synoptic_id__export_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/apps/": {
     parameters: {
       query?: never;
@@ -2226,6 +2306,62 @@ export interface components {
       new_name: string;
     };
     /**
+     * AttributeSlot
+     * @description A live value: one attribute of one device, formatted.
+     *
+     *     ``labels`` maps a stringified raw value to display text
+     *     (``{"true": "MARCHE"}``) for bool, string and int attributes. Units and
+     *     decimals live here because ``Attribute`` carries no unit, so the document is
+     *     the only place "°C, one decimal" can be said; turning that into ``52,4 °C``
+     *     is the renderer's job.
+     */
+    "AttributeSlot-Input": {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      kind: "attribute";
+      target: components["schemas"]["AttributeTarget"];
+      /** Unit */
+      unit?: string | null;
+      /** Decimals */
+      decimals?: number | null;
+      /** Labels */
+      labels?: {
+        [key: string]: string;
+      } | null;
+      /** Stale After */
+      stale_after?: number | null;
+    };
+    /**
+     * AttributeSlot
+     * @description A live value: one attribute of one device, formatted.
+     *
+     *     ``labels`` maps a stringified raw value to display text
+     *     (``{"true": "MARCHE"}``) for bool, string and int attributes. Units and
+     *     decimals live here because ``Attribute`` carries no unit, so the document is
+     *     the only place "°C, one decimal" can be said; turning that into ``52,4 °C``
+     *     is the renderer's job.
+     */
+    "AttributeSlot-Output": {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      kind: "attribute";
+      target: components["schemas"]["AttributeTarget"];
+      /** Unit */
+      unit?: string | null;
+      /** Decimals */
+      decimals?: number | null;
+      /** Labels */
+      labels?: {
+        [key: string]: string;
+      } | null;
+      /** Stale After */
+      stale_after?: number | null;
+    };
+    /**
      * AttributeTarget
      * @description A device set paired with a single attribute.
      *
@@ -2722,6 +2858,53 @@ export interface components {
             | components["schemas"]["AnyCondition"]
           )
         | null;
+    };
+    /**
+     * Cell
+     * @description An integer grid cell. ``x`` right-and-down, ``y`` left-and-down, ``z`` up.
+     *
+     *     Frozen so cells can be compared and used as set members, which is how the
+     *     polyline rules check that a tag or an inline symbol sits on a run.
+     */
+    Cell: {
+      /** X */
+      x: number;
+      /** Y */
+      y: number;
+      /**
+       * Z
+       * @default 0
+       */
+      z?: number;
+    };
+    /**
+     * CellEndpoint
+     * @description A free cell: a run that starts or ends in the open.
+     */
+    CellEndpoint: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      kind: "cell";
+      cell: components["schemas"]["Cell"];
+    };
+    /**
+     * CellPlacement
+     * @description Free-standing on the grid.
+     */
+    CellPlacement: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      kind: "cell";
+      cell: components["schemas"]["Cell"];
+      /**
+       * Rotation
+       * @default 0
+       */
+      rotation?: number;
     };
     /**
      * ChartWidgetConfig
@@ -3526,6 +3709,27 @@ export interface components {
       height?: number | null;
     };
     /**
+     * Fluid
+     * @description What a pipe carries. Closed vocabulary owned by the format.
+     *
+     *     The renderer keys its palette on the fluid; the document never names a
+     *     colour. v1 is hydronic: air ducts and conductors reuse ``pipes`` with new
+     *     values when those plates come.
+     * @enum {string}
+     */
+    Fluid:
+      | "primary_supply"
+      | "primary_return"
+      | "dhw"
+      | "dhw_loop"
+      | "cold_water"
+      | "heating_supply"
+      | "heating_return"
+      | "chilled_supply"
+      | "chilled_return"
+      | "condenser_supply"
+      | "condenser_return";
+    /**
      * Formatter
      * @description How a measurement is displayed; every field is optional.
      */
@@ -3939,6 +4143,52 @@ export interface components {
        * @default live
        */
       temporal?: "live" | components["schemas"]["TimeAggregation"];
+    };
+    /**
+     * Label
+     * @description Free-placed text. ``role`` is what the text is, so the kit can size it.
+     */
+    "Label-Input": {
+      /** Id */
+      id: string;
+      at: components["schemas"]["Point"];
+      /** Text */
+      text: string;
+      /**
+       * Role
+       * @enum {string}
+       */
+      role: "title" | "caption" | "note";
+      /** Value */
+      value?:
+        | (
+            | components["schemas"]["AttributeSlot-Input"]
+            | components["schemas"]["TextSlot"]
+          )
+        | null;
+    };
+    /**
+     * Label
+     * @description Free-placed text. ``role`` is what the text is, so the kit can size it.
+     */
+    "Label-Output": {
+      /** Id */
+      id: string;
+      at: components["schemas"]["Point"];
+      /** Text */
+      text: string;
+      /**
+       * Role
+       * @enum {string}
+       */
+      role: "title" | "caption" | "note";
+      /** Value */
+      value?:
+        | (
+            | components["schemas"]["AttributeSlot-Output"]
+            | components["schemas"]["TextSlot"]
+          )
+        | null;
     };
     /**
      * LayoutItem
@@ -4543,6 +4793,20 @@ export interface components {
       total_pages: number;
       links: components["schemas"]["PaginationLinks"];
     };
+    /** PaginatedResponse[SynopticSummary] */
+    PaginatedResponse_SynopticSummary_: {
+      /** Items */
+      items: components["schemas"]["SynopticSummary"][];
+      /** Total */
+      total: number;
+      /** Page */
+      page: number;
+      /** Size */
+      size: number;
+      /** Total Pages */
+      total_pages: number;
+      links: components["schemas"]["PaginationLinks"];
+    };
     /** PaginatedResponse[UnitCommand] */
     PaginatedResponse_UnitCommand_: {
       /** Items */
@@ -4576,6 +4840,139 @@ export interface components {
       current_password: string;
       /** New Password */
       new_password: string;
+    };
+    /**
+     * Pipe
+     * @description A run between ports, cells and other pipes.
+     *
+     *     The polyline is ``from``-cell, waypoints, ``to``-cell. ``flow`` animates the
+     *     run when it resolves to ``true``; a pipe without ``flow`` is static.
+     *     Animation is never inferred from an inline pump, which would animate the
+     *     return of a loop whose pump is on the supply.
+     *
+     *     ``flow`` takes the ``attribute`` arm only. A literal has nothing to resolve,
+     *     so a ``text`` flow would reach production as a run that silently never
+     *     animates; the resolver cannot catch it either, because there is no target to
+     *     resolve. Whether the attribute is a bool is checked once it resolves.
+     */
+    "Pipe-Input": {
+      /** Id */
+      id: string;
+      fluid: components["schemas"]["Fluid"];
+      /** From */
+      from:
+        | components["schemas"]["PortEndpoint"]
+        | components["schemas"]["CellEndpoint"]
+        | components["schemas"]["PipeEndpoint"];
+      /** To */
+      to:
+        | components["schemas"]["PortEndpoint"]
+        | components["schemas"]["CellEndpoint"]
+        | components["schemas"]["PipeEndpoint"];
+      /** Waypoints */
+      waypoints?: components["schemas"]["Cell"][];
+      flow?: components["schemas"]["AttributeSlot-Input"] | null;
+      /** Tags */
+      tags?: components["schemas"]["Tag-Input"][];
+    };
+    /**
+     * Pipe
+     * @description A run between ports, cells and other pipes.
+     *
+     *     The polyline is ``from``-cell, waypoints, ``to``-cell. ``flow`` animates the
+     *     run when it resolves to ``true``; a pipe without ``flow`` is static.
+     *     Animation is never inferred from an inline pump, which would animate the
+     *     return of a loop whose pump is on the supply.
+     *
+     *     ``flow`` takes the ``attribute`` arm only. A literal has nothing to resolve,
+     *     so a ``text`` flow would reach production as a run that silently never
+     *     animates; the resolver cannot catch it either, because there is no target to
+     *     resolve. Whether the attribute is a bool is checked once it resolves.
+     */
+    "Pipe-Output": {
+      /** Id */
+      id: string;
+      fluid: components["schemas"]["Fluid"];
+      /** From */
+      from:
+        | components["schemas"]["PortEndpoint"]
+        | components["schemas"]["CellEndpoint"]
+        | components["schemas"]["PipeEndpoint"];
+      /** To */
+      to:
+        | components["schemas"]["PortEndpoint"]
+        | components["schemas"]["CellEndpoint"]
+        | components["schemas"]["PipeEndpoint"];
+      /** Waypoints */
+      waypoints?: components["schemas"]["Cell"][];
+      flow?: components["schemas"]["AttributeSlot-Output"] | null;
+      /** Tags */
+      tags?: components["schemas"]["Tag-Output"][];
+    };
+    /**
+     * PipeEndpoint
+     * @description A tee: a cell on another pipe's polyline.
+     *
+     *     No junction symbol type is needed. The renderer draws the branch point and
+     *     the editor snaps a pipe end onto a run.
+     */
+    PipeEndpoint: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      kind: "pipe";
+      /** Pipe */
+      pipe: string;
+      cell: components["schemas"]["Cell"];
+    };
+    /**
+     * PipePlacement
+     * @description Inline on a run, at a cell of that pipe's polyline (endpoints excluded).
+     *
+     *     Valves, pumps and meters sit *in* a run: modelling each as a node with its
+     *     own ports would split one departure into several pipes. Rotation follows
+     *     the segment, so it is not authored.
+     */
+    PipePlacement: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      kind: "pipe";
+      /** Pipe */
+      pipe: string;
+      cell: components["schemas"]["Cell"];
+    };
+    /**
+     * Point
+     * @description A free position, for labels only: they may sit between cells.
+     */
+    Point: {
+      /** X */
+      x: number;
+      /** Y */
+      y: number;
+      /**
+       * Z
+       * @default 0
+       */
+      z?: number;
+    };
+    /**
+     * PortEndpoint
+     * @description A port of a symbol; the endpoint cell is the port's cell.
+     */
+    PortEndpoint: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      kind: "port";
+      /** Symbol */
+      symbol: string;
+      /** Port */
+      port: string;
     };
     /** PresentationAsset */
     PresentationAsset: {
@@ -4760,6 +5157,22 @@ export interface components {
     ReorderRequest: {
       /** Ordered Ids */
       ordered_ids: string[];
+    };
+    /**
+     * ResourceMetadata
+     * @description Auditability timestamps shared by every resource's read model.
+     */
+    ResourceMetadata: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at?: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at?: string;
     };
     /**
      * Role
@@ -4947,6 +5360,227 @@ export interface components {
        */
       multiple?: boolean;
     };
+    /**
+     * Symbol
+     * @description Equipment, an instrument or a link, placed on the plate.
+     */
+    "Symbol-Input": {
+      /** Id */
+      id: string;
+      /** Type */
+      type: string;
+      /** Placement */
+      placement:
+        | components["schemas"]["CellPlacement"]
+        | components["schemas"]["PipePlacement"];
+      /** Label */
+      label?: string | null;
+      /** Device Id */
+      device_id?: string | null;
+      /** Props */
+      props?: {
+        [key: string]: unknown;
+      };
+      /** Bindings */
+      bindings?: {
+        [key: string]:
+          | components["schemas"]["AttributeSlot-Input"]
+          | components["schemas"]["TextSlot"];
+      };
+    };
+    /**
+     * Symbol
+     * @description Equipment, an instrument or a link, placed on the plate.
+     */
+    "Symbol-Output": {
+      /** Id */
+      id: string;
+      /** Type */
+      type: string;
+      /** Placement */
+      placement:
+        | components["schemas"]["CellPlacement"]
+        | components["schemas"]["PipePlacement"];
+      /** Label */
+      label?: string | null;
+      /** Device Id */
+      device_id?: string | null;
+      /** Props */
+      props?: {
+        [key: string]: unknown;
+      };
+      /** Bindings */
+      bindings?: {
+        [key: string]:
+          | components["schemas"]["AttributeSlot-Output"]
+          | components["schemas"]["TextSlot"];
+      };
+    };
+    /**
+     * Synoptic
+     * @description A stored plate: the authored document plus its service-assigned id.
+     */
+    Synoptic: {
+      /**
+       * Version
+       * @default 1
+       * @constant
+       */
+      version?: 1;
+      /** Name */
+      name: string;
+      /** Description */
+      description?: string | null;
+      /**
+       * Projection
+       * @default isometric
+       * @enum {string}
+       */
+      projection?: "isometric" | "flat";
+      defaults?: components["schemas"]["SynopticDefaults"];
+      /** Symbols */
+      symbols?: components["schemas"]["Symbol-Output"][];
+      /** Pipes */
+      pipes?: components["schemas"]["Pipe-Output"][];
+      /** Labels */
+      labels?: components["schemas"]["Label-Output"][];
+      /** Id */
+      id: string;
+      metadata: components["schemas"]["ResourceMetadata"];
+    };
+    /**
+     * SynopticDefaults
+     * @description Document-level defaults a binding may override.
+     */
+    SynopticDefaults: {
+      /** Stale After */
+      stale_after?: number | null;
+    };
+    /**
+     * SynopticDocument
+     * @description A plate as authored: the create and import payload.
+     *
+     *     Carries no ``id`` and no ``metadata``: those are service-assigned and live
+     *     on :class:`Synoptic`.
+     */
+    "SynopticDocument-Input": {
+      /**
+       * Version
+       * @default 1
+       * @constant
+       */
+      version?: 1;
+      /** Name */
+      name: string;
+      /** Description */
+      description?: string | null;
+      /**
+       * Projection
+       * @default isometric
+       * @enum {string}
+       */
+      projection?: "isometric" | "flat";
+      defaults?: components["schemas"]["SynopticDefaults"];
+      /** Symbols */
+      symbols?: components["schemas"]["Symbol-Input"][];
+      /** Pipes */
+      pipes?: components["schemas"]["Pipe-Input"][];
+      /** Labels */
+      labels?: components["schemas"]["Label-Input"][];
+    };
+    /**
+     * SynopticDocument
+     * @description A plate as authored: the create and import payload.
+     *
+     *     Carries no ``id`` and no ``metadata``: those are service-assigned and live
+     *     on :class:`Synoptic`.
+     */
+    "SynopticDocument-Output": {
+      /**
+       * Version
+       * @default 1
+       * @constant
+       */
+      version?: 1;
+      /** Name */
+      name: string;
+      /** Description */
+      description?: string | null;
+      /**
+       * Projection
+       * @default isometric
+       * @enum {string}
+       */
+      projection?: "isometric" | "flat";
+      defaults?: components["schemas"]["SynopticDefaults"];
+      /** Symbols */
+      symbols?: components["schemas"]["Symbol-Output"][];
+      /** Pipes */
+      pipes?: components["schemas"]["Pipe-Output"][];
+      /** Labels */
+      labels?: components["schemas"]["Label-Output"][];
+    };
+    /**
+     * SynopticSummary
+     * @description Lightweight read model returned by ``list``: the envelope only, so a
+     *     plate index never parses thirty-four pipes per row.
+     */
+    SynopticSummary: {
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+      /** Description */
+      description?: string | null;
+      /**
+       * Projection
+       * @enum {string}
+       */
+      projection: "isometric" | "flat";
+      metadata: components["schemas"]["ResourceMetadata"];
+    };
+    /**
+     * Tag
+     * @description A reading riding on a pipe at a cell of its run.
+     *
+     *     Instrumentation that only reads is a tag; equipment that changes the fluid
+     *     path is a symbol. A line code is a tag with no value.
+     */
+    "Tag-Input": {
+      /** Id */
+      id: string;
+      at: components["schemas"]["Cell"];
+      /** Label */
+      label: string;
+      /** Value */
+      value?:
+        | (
+            | components["schemas"]["AttributeSlot-Input"]
+            | components["schemas"]["TextSlot"]
+          )
+        | null;
+    };
+    /**
+     * Tag
+     * @description A reading riding on a pipe at a cell of its run.
+     *
+     *     Instrumentation that only reads is a tag; equipment that changes the fluid
+     *     path is a symbol. A line code is a tag with no value.
+     */
+    "Tag-Output": {
+      /** Id */
+      id: string;
+      at: components["schemas"]["Cell"];
+      /** Label */
+      label: string;
+      /** Value */
+      value?:
+        | (
+            | components["schemas"]["AttributeSlot-Output"]
+            | components["schemas"]["TextSlot"]
+          )
+        | null;
+    };
     /** TagGroupResponse */
     TagGroupResponse: {
       /** Label */
@@ -4971,6 +5605,19 @@ export interface components {
     TagValueBody: {
       /** Value */
       value: string;
+    };
+    /**
+     * TextSlot
+     * @description A literal, reserved for facts no device exposes.
+     */
+    TextSlot: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      kind: "text";
+      /** Text */
+      text: string;
     };
     /**
      * TextWidgetConfig
@@ -9458,6 +10105,223 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["Dashboard"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_symbol_schemas_synoptics_symbol_schemas_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            [key: string]: {
+              [key: string]: unknown;
+            };
+          };
+        };
+      };
+    };
+  };
+  list_synoptics_synoptics__get: {
+    parameters: {
+      query?: {
+        page?: number;
+        size?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PaginatedResponse_SynopticSummary_"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  create_synoptic_synoptics__post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SynopticDocument-Input"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Synoptic"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_synoptic_synoptics__synoptic_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        synoptic_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Synoptic"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  replace_synoptic_synoptics__synoptic_id__put: {
+    parameters: {
+      query: {
+        expected_updated_at: string;
+      };
+      header?: never;
+      path: {
+        synoptic_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SynopticDocument-Input"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Synoptic"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  delete_synoptic_synoptics__synoptic_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        synoptic_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  export_synoptic_synoptics__synoptic_id__export_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        synoptic_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SynopticDocument-Output"];
         };
       };
       /** @description Validation Error */

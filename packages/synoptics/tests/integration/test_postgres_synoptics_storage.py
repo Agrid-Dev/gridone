@@ -27,8 +27,8 @@ pytestmark = [
 
 
 @pytest_asyncio.fixture
-async def service():
-    svc = SynopticsService(storage_url=POSTGRES_URL)
+async def service(resolver):
+    svc = SynopticsService(storage_url=POSTGRES_URL, target_resolver=resolver)
     await svc.start()
     created: list[str] = []
     try:

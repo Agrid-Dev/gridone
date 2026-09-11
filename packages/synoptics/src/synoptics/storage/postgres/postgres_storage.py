@@ -8,6 +8,7 @@ import asyncpg
 from models.errors import ConflictError, NotFoundError
 from models.metadata import ResourceMetadata
 from synoptics.models import ENVELOPE_FIELDS, Synoptic, SynopticSummary
+from synoptics.storage.protocol import stale_write_error
 
 
 def _document_json(synoptic: Synoptic) -> dict[str, Any]:
@@ -131,8 +132,7 @@ class PostgresSynopticsStorage:
             "SELECT EXISTS (SELECT 1 FROM synoptics WHERE id = $1)", synoptic.id
         )
         if exists:
-            msg = f"Synoptic {synoptic.id!r} was modified since it was read"
-            raise ConflictError(msg)
+            raise stale_write_error(synoptic.id)
         msg = f"Synoptic {synoptic.id!r} not found"
         raise NotFoundError(msg)
 

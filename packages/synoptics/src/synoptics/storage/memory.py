@@ -5,6 +5,7 @@ from datetime import datetime
 
 from models.errors import ConflictError, NotFoundError
 from synoptics.models import Synoptic, SynopticSummary
+from synoptics.storage.protocol import stale_write_error
 
 
 @dataclass
@@ -49,8 +50,7 @@ class MemoryStorage:
             msg = f"Synoptic {synoptic.id!r} not found"
             raise NotFoundError(msg)
         if current.metadata.updated_at != seen_updated_at:
-            msg = f"Synoptic {synoptic.id!r} was modified since it was read"
-            raise ConflictError(msg)
+            raise stale_write_error(synoptic.id)
         self._synoptics[synoptic.id] = synoptic.model_copy(deep=True)
         return synoptic.model_copy(deep=True)
 

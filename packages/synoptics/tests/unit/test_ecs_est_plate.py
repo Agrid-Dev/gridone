@@ -11,7 +11,7 @@ import pytest_asyncio
 from synoptics.models import ENVELOPE_FIELDS, SynopticDocument
 from synoptics.service import SynopticsService
 from synoptics.symbols import build_default_registry
-from synoptics.validation import validate_document
+from synoptics.validation import bound_slots, validate_document
 
 
 @pytest.fixture
@@ -20,8 +20,8 @@ def plate(ecs_est_raw):
 
 
 @pytest_asyncio.fixture
-async def service():
-    svc = SynopticsService(storage_url=None)
+async def service(resolver):
+    svc = SynopticsService(storage_url=None, target_resolver=resolver)
     await svc.start()
     yield svc
     await svc.stop()
@@ -34,6 +34,14 @@ def test_the_plate_parses(plate):
 
 def test_the_plate_validates(plate):
     validate_document(plate, build_default_registry())
+
+
+def test_the_plate_binds_exactly_the_spec_inventory(plate):
+    """Thirty live values: 21 symbol slots, 5 tag readings, 4 animated runs."""
+    slots = bound_slots(plate)
+    assert len(slots) == 30
+    assert sum(s.is_flow for s in slots) == 4
+    assert sum(s.loc[0] == "symbols" for s in slots) == 21
 
 
 def test_the_plate_uses_only_registered_types(plate):

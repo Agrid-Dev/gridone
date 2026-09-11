@@ -3,8 +3,19 @@
 import pytest
 import pytest_asyncio
 
-from models.errors import ConflictError, NotFoundError, SchemaValidationError
+from models.errors import (
+    ConflictError,
+    InvalidError,
+    NotFoundError,
+    SchemaValidationError,
+)
 from models.pagination import PaginationParams
+from models.targets import (
+    AttributeCoverage,
+    AttributeTarget,
+    DevicesFilter,
+    ResolvedTarget,
+)
 from synoptics.models import SynopticDocument
 from synoptics.service import SynopticsService
 
@@ -12,8 +23,8 @@ pytestmark = pytest.mark.asyncio
 
 
 @pytest_asyncio.fixture
-async def service():
-    svc = SynopticsService(storage_url=None)
+async def service(resolver):
+    svc = SynopticsService(storage_url=None, target_resolver=resolver)
     await svc.start()
     yield svc
     await svc.stop()
@@ -30,6 +41,30 @@ async def test_create_assigns_an_id_and_metadata(service, plate):
     assert synoptic.metadata.created_at is not None
     assert synoptic.name == "Test plate"
     assert len(synoptic.symbols) == 2
+
+
+async def test_create_refuses_a_plate_whose_binding_is_refused(document):
+    """The binding rule runs inside the service, whatever the caller."""
+
+    class RefusingResolver:
+        async def resolve(
+            self,
+            target: AttributeTarget,  # noqa: ARG002
+            *,
+            writable: bool = False,  # noqa: ARG002
+        ) -> ResolvedTarget:
+            raise InvalidError
+
+        async def list_attribute_coverage(
+            self,
+            devices: DevicesFilter,  # noqa: ARG002
+        ) -> list[AttributeCoverage]:
+            return []
+
+    svc = SynopticsService(storage_url=None, target_resolver=RefusingResolver())
+    await svc.start()
+    with pytest.raises(SchemaValidationError, match="Invalid synoptic"):
+        await svc.create(SynopticDocument.model_validate(document))
 
 
 async def test_create_refuses_an_invalid_plate(service, document):
@@ -104,6 +139,31 @@ async def test_replace_refuses_a_stale_read(service, plate, document):
     assert (await service.get(created.id)).name == "First"
 
 
+async def test_a_stale_replace_is_refused_before_resolving_anything(document, resolver):
+    """No binding is resolved for a save that cannot land."""
+    calls = 0
+
+    async def counting_resolve(
+        target: AttributeTarget, *, writable: bool = False
+    ) -> ResolvedTarget:
+        nonlocal calls
+        calls += 1
+        return await type(resolver).resolve(resolver, target, writable=writable)
+
+    resolver.resolve = counting_resolve
+    svc = SynopticsService(storage_url=None, target_resolver=resolver)
+    await svc.start()
+    created = await svc.create(SynopticDocument.model_validate(document))
+    resolved_on_create = calls
+    with pytest.raises(ConflictError):
+        await svc.replace(
+            created.id,
+            SynopticDocument.model_validate(document),
+            expected_updated_at=created.metadata.updated_at.replace(year=2000),
+        )
+    assert calls == resolved_on_create
+
+
 async def test_replace_with_a_current_read_succeeds(service, plate, document):
     created = await service.create(plate)
     document["name"] = "Renamed"
@@ -146,13 +206,15 @@ async def test_symbol_schemas_come_from_the_registry(service):
     assert schemas["heat_pump"]["x-footprint"] == {"w": 2, "d": 2}
 
 
-async def test_stop_before_start_is_safe():
+async def test_stop_before_start_is_safe(resolver):
     """The composition root may tear down a service whose start failed."""
-    await SynopticsService(storage_url=None).stop()
+    await SynopticsService(storage_url=None, target_resolver=resolver).stop()
 
 
-async def test_an_unsupported_url_fails_at_start():
+async def test_an_unsupported_url_fails_at_start(resolver):
     from models.errors import UnsupportedStorageError
 
     with pytest.raises(UnsupportedStorageError):
-        await SynopticsService(storage_url="mysql://host/db").start()
+        await SynopticsService(
+            storage_url="mysql://host/db", target_resolver=resolver
+        ).start()

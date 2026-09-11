@@ -1,5 +1,6 @@
 from synoptics.interface import SynopticsServiceInterface
 from synoptics.models import (
+    ENVELOPE_FIELDS,
     AttributeSlot,
     Cell,
     CellEndpoint,
@@ -31,10 +32,18 @@ from synoptics.symbols import (
     TankProps,
     build_default_registry,
 )
-from synoptics.validation import Violation, validate_document
+from synoptics.validation import (
+    BoundSlot,
+    Violation,
+    bound_slots,
+    validate_document,
+    validate_for_save,
+)
 
 __all__ = [
+    "ENVELOPE_FIELDS",
     "AttributeSlot",
+    "BoundSlot",
     "Cell",
     "CellEndpoint",
     "CellPlacement",
@@ -63,6 +72,8 @@ __all__ = [
     "TankProps",
     "TextSlot",
     "Violation",
+    "bound_slots",
     "build_default_registry",
     "validate_document",
+    "validate_for_save",
 ]

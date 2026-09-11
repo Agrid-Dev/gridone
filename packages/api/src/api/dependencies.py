@@ -12,6 +12,7 @@ from commands import CommandsServiceInterface
 from devices_manager import DevicesServiceInterface
 from models.pagination import PaginationParams
 from notifications import NotificationsServiceInterface
+from synoptics import SynopticsServiceInterface
 from timeseries import TimeSeriesService
 from users import UsersService
 from users.auth import AuthService
@@ -61,6 +62,10 @@ def get_building_models_service(request: Request) -> BuildingModelsServiceInterf
 
 def get_dashboards_service(request: Request) -> DashboardsServiceInterface:
     return request.app.state.dashboards_service
+
+
+def get_synoptics_service(request: Request) -> SynopticsServiceInterface:
+    return request.app.state.synoptics_service
 
 
 def get_auth_service(request: HTTPConnection) -> AuthService:

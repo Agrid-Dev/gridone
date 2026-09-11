@@ -26,6 +26,7 @@ from api.dependencies import (
     get_dashboards_service,
     get_device_manager,
     get_notifications_service,
+    get_synoptics_service,
     get_ts_service,
     get_users_service,
 )
@@ -37,6 +38,7 @@ from api.routes.devices_router import router as devices_router
 from api.routes.drivers_router import router as drivers_router
 from api.routes.notifications_router import router as notifications_router
 from api.routes.presentations_router import router as presentations_router
+from api.routes.synoptics_router import router as synoptics_router
 from api.routes.transports_router import ingress_router as transports_ingress_router
 from api.routes.transports_router import router as transports_router
 from api.routes.users.auth_router import router as auth_router
@@ -55,6 +57,7 @@ from devices_manager.core.presentation.resources import StoredResource
 from devices_manager.dto.presentation_dto import UnavailablePresentationResponse
 from devices_manager.types import DataType
 from models.errors import NotFoundError
+from models.metadata import ResourceMetadata
 from models.pagination import Page
 from models.types import Severity
 from notifications import (
@@ -62,6 +65,7 @@ from notifications import (
     NotificationDispatch,
     NotificationsServiceInterface,
 )
+from synoptics import Synoptic, SynopticsServiceInterface
 from timeseries.domain import FetchPointsResult
 from users import Role, User
 from users.auth import AuthService
@@ -1580,6 +1584,99 @@ def test_dashboards_access_control(  # noqa: PLR0913
     body: object,
 ) -> None:
     with TestClient(dashboards_app) as client:
+        headers: dict[str, str] = {}
+        if username is not None:
+            token = _login(client, username)
+            headers = _auth_header(token)
+        resp = client.request(method, endpoint, headers=headers, json=body)
+        assert resp.status_code == expected_status
+
+
+# --- Synoptics RBAC ---
+# Write endpoints allow admin + operator; viewer is read-only; no-auth is 401.
+
+_SYNOPTIC_BODY = {"name": "Plate"}
+_SYNOPTIC_PUT = "/synoptics/any-id?expected_updated_at=2026-01-01T00:00:00Z"
+_SYNOPTIC = Synoptic(id="s1", name="Plate", metadata=ResourceMetadata())
+
+
+def _build_synoptics_mock() -> AsyncMock:
+    svc = AsyncMock(spec=SynopticsServiceInterface)
+    svc.list.return_value = Page(items=[], total=0, page=1, size=1)
+    svc.create.return_value = _SYNOPTIC
+    svc.get.return_value = _SYNOPTIC
+    svc.replace.return_value = _SYNOPTIC
+    svc.symbol_schemas = MagicMock(return_value={"tank": {}})
+    return svc
+
+
+@pytest.fixture
+def synoptics_app() -> FastAPI:
+    app = FastAPI()
+    app.state.auth_service = AuthService(secret_key="test-secret")
+    app.state.cookie_secure = False
+    manager = MockUsersService()
+    app.dependency_overrides[get_users_service] = lambda: manager
+    app.dependency_overrides[get_synoptics_service] = _build_synoptics_mock
+    app.include_router(auth_router, prefix="/auth")
+    jwt_dep = [Depends(get_current_user_id)]
+    app.include_router(synoptics_router, prefix="/synoptics", dependencies=jwt_dep)
+    return app
+
+
+SYNOPTICS_ACCESS_CONTROL_SCENARIOS = [
+    pytest.param("GET", "/synoptics/", "viewer", 200, None, id="list-viewer"),
+    pytest.param("GET", "/synoptics/", "operator", 200, None, id="list-operator"),
+    pytest.param("GET", "/synoptics/", None, 401, None, id="list-no-auth"),
+    pytest.param(
+        "GET", "/synoptics/symbol-schemas", "viewer", 200, None, id="schemas-viewer"
+    ),
+    pytest.param(
+        "GET", "/synoptics/symbol-schemas", None, 401, None, id="schemas-no-auth"
+    ),
+    pytest.param("GET", "/synoptics/any-id", "viewer", 200, None, id="get-viewer"),
+    pytest.param("GET", "/synoptics/any-id", None, 401, None, id="get-no-auth"),
+    pytest.param(
+        "GET", "/synoptics/any-id/export", "viewer", 200, None, id="export-viewer"
+    ),
+    pytest.param(
+        "GET", "/synoptics/any-id/export", None, 401, None, id="export-no-auth"
+    ),
+    pytest.param(
+        "POST", "/synoptics/", "operator", 201, _SYNOPTIC_BODY, id="create-op"
+    ),
+    pytest.param(
+        "POST", "/synoptics/", "viewer", 403, _SYNOPTIC_BODY, id="create-viewer"
+    ),
+    pytest.param("POST", "/synoptics/", None, 401, _SYNOPTIC_BODY, id="create-no-auth"),
+    pytest.param(
+        "PUT", _SYNOPTIC_PUT, "operator", 200, _SYNOPTIC_BODY, id="replace-op"
+    ),
+    pytest.param(
+        "PUT", _SYNOPTIC_PUT, "viewer", 403, _SYNOPTIC_BODY, id="replace-viewer"
+    ),
+    pytest.param("PUT", _SYNOPTIC_PUT, None, 401, _SYNOPTIC_BODY, id="replace-no-auth"),
+    pytest.param("DELETE", "/synoptics/any-id", "operator", 204, None, id="delete-op"),
+    pytest.param(
+        "DELETE", "/synoptics/any-id", "viewer", 403, None, id="delete-viewer"
+    ),
+    pytest.param("DELETE", "/synoptics/any-id", None, 401, None, id="delete-no-auth"),
+]
+
+
+@pytest.mark.parametrize(
+    ("method", "endpoint", "username", "expected_status", "body"),
+    SYNOPTICS_ACCESS_CONTROL_SCENARIOS,
+)
+def test_synoptics_access_control(  # noqa: PLR0913
+    synoptics_app: FastAPI,
+    method: str,
+    endpoint: str,
+    username: str | None,
+    expected_status: int,
+    body: object,
+) -> None:
+    with TestClient(synoptics_app) as client:
         headers: dict[str, str] = {}
         if username is not None:
             token = _login(client, username)
