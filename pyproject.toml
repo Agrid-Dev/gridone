@@ -60,6 +60,7 @@ dev = [
     "ruff==0.15.5",
     "ty==0.0.22",
     "import-linter==2.13",
+    "looptime>=0.7",
 ]
 
 [tool.commitizen]

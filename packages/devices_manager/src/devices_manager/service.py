@@ -433,8 +433,11 @@ class DevicesService(Service):
         self._presentation_driver(device_id, revision)
         return resource
 
-    def _schedule_start_sync(self, device: CoreDevice) -> None:
+    def _schedule_start_sync(self, device: CoreDevice, *, sweep_now: bool) -> None:
         """Start syncing a device off the request path.
+
+        ``sweep_now`` is for a write on this one device, whose author expects
+        fresh values; fleet restarts leave it off so devices keep their slots.
 
         By the time this runs the device is already stored, so reaching it is
         a separate concern from writing it: a transport that is down must
@@ -449,7 +452,7 @@ class DevicesService(Service):
         it reaches this point must cancel earlier still — see ``update_device``.
         """
         self._cancel_start_sync(device.id)
-        task = asyncio.create_task(device.start_sync())
+        task = asyncio.create_task(device.start_sync(sweep_now=sweep_now))
         self._sync_tasks[device.id] = task
         task.add_done_callback(partial(self._on_start_sync_done, device.id))
 
@@ -472,7 +475,7 @@ class DevicesService(Service):
             device_create_from_public(device_create)
         )
         if self._running:
-            self._schedule_start_sync(device)
+            self._schedule_start_sync(device, sweep_now=True)
         return device_to_public(device)
 
     async def update_device(
@@ -497,10 +500,10 @@ class DevicesService(Service):
             if self._running:
                 # Restoring the old device's sync must not replace the error
                 # that got us here with one of its own.
-                self._schedule_start_sync(old_device)
+                self._schedule_start_sync(old_device, sweep_now=False)
             raise
         if self._running:
-            self._schedule_start_sync(device)
+            self._schedule_start_sync(device, sweep_now=True)
         return device_to_public(device)
 
     async def delete_device(self, device_id: str) -> None:
@@ -545,8 +548,8 @@ class DevicesService(Service):
         return self._device_registry.get(device_id).stream_read()
 
     async def start_device_sync(self, device_id: str) -> None:
-        """Start background polling for a single device."""
-        await self._device_registry.get(device_id).start_sync()
+        """Start background polling for a single device, sweeping it at once."""
+        await self._device_registry.get(device_id).start_sync(sweep_now=True)
 
     async def stop_device_sync(self, device_id: str) -> None:
         """Stop background polling for a single device."""
@@ -668,7 +671,7 @@ class DevicesService(Service):
         """Register device and persist to storage. Used by discovery."""
         await self._device_registry.register(device)
         if self._running:
-            await device.start_sync()
+            await device.start_sync(sweep_now=True)
         for listener in self._discovery_listeners.values():
             try:
                 self._schedule_if_coroutine(listener(device))
@@ -927,7 +930,7 @@ class DevicesService(Service):
             except Exception:
                 logger.exception("Could not stop old sync for device %s", old.id)
             if self._running:
-                self._schedule_start_sync(device)
+                self._schedule_start_sync(device, sweep_now=False)
 
     def _notify_device_updates(self, devices: list[CoreDevice]) -> None:
         for device in devices:

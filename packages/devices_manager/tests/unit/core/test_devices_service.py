@@ -60,11 +60,12 @@ from models.errors import (
 )
 from models.types import Severity
 
+from .fixtures.fake_time import fake_time
 from .fixtures.transport_clients import MockPushTransportClient
 
 
 class FailingStartDevice(CoreDevice):
-    async def start_sync(self) -> None:
+    async def start_sync(self, *, sweep_now: bool = False) -> None:  # noqa: ARG002
         msg = "boom"
         raise RuntimeError(msg)
 
@@ -82,6 +83,21 @@ async def wait_until(predicate: Callable[[], bool]) -> None:
         # it without reaching into internals.
         while not predicate():  # noqa: ASYNC110
             await asyncio.sleep(0)
+
+
+def record_sweep_times(transport) -> set[float]:
+    """Replace the transport's read with one logging the loop time of each read.
+
+    Reads of one sweep land at the same instant, so each time is one sweep.
+    """
+    times: set[float] = set()
+
+    async def recording_read(address, sweep_id: str | None = None) -> str:  # noqa: ARG001
+        times.add(asyncio.get_running_loop().time())
+        return "25.5"
+
+    transport.read = recording_read
+    return times
 
 
 async def wait_for_syncing(device: CoreDevice) -> None:
@@ -196,6 +212,7 @@ class TestDevicesServiceSync:
         await manager.stop()
 
     @pytest.mark.asyncio
+    @fake_time
     async def test_start_sync_all_devices_are_polled(
         self, mock_transport_client, driver
     ):
@@ -219,7 +236,8 @@ class TestDevicesServiceSync:
         mock_transport_client.read = AsyncMock(return_value="25.5")
 
         await manager.start()
-        await asyncio.sleep(0.1)  # Should send first poll for both
+        # Every device sweeps once within an interval, each on its own slot.
+        await asyncio.sleep(driver.update_strategy.polling_interval)
         await manager.stop()
 
         assert mock_transport_client.read.call_count >= 2 * n_readable_attrs
@@ -258,14 +276,83 @@ class TestDevicesServiceSync:
         assert device.syncing is False
 
     @pytest.mark.asyncio
+    @fake_time
     async def test_devices_are_polled_during_sync(
-        self, devices_manager, mock_transport_client
+        self, devices_manager, mock_transport_client, driver
     ):
         await devices_manager.start()
         mock_transport_client.read = AsyncMock(return_value="25.5")
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(driver.update_strategy.polling_interval)
         await devices_manager.stop()
         assert mock_transport_client.read.called
+
+    @pytest.mark.asyncio
+    @fake_time
+    async def test_start_spreads_first_sweeps_over_the_interval(
+        self, mock_transport_client, driver
+    ):
+        devices = [
+            CoreDevice.from_base(
+                DeviceBase(
+                    id=f"device{i}", name=f"device{i}", config={"some_id": f"{i}"}
+                ),
+                driver=driver,
+                transport=mock_transport_client,
+            )
+            for i in range(20)
+        ]
+        manager = DevicesService(
+            devices={d.id: d for d in devices},
+            drivers={driver.id: driver},
+            transports={mock_transport_client.id: mock_transport_client},
+        )
+        sweep_times = record_sweep_times(mock_transport_client)
+        interval = driver.update_strategy.polling_interval
+
+        await manager.start()
+        await asyncio.sleep(2 * interval)
+        await manager.stop()
+
+        first = sorted(t for t in sweep_times if t < interval)
+        second = sorted(t for t in sweep_times if t >= interval)
+        assert 0 not in sweep_times  # a boot does not sweep every device at once
+        assert len(first) == len(devices)  # one distinct slot per device
+        assert second == pytest.approx([t + interval for t in first])
+
+    @pytest.mark.asyncio
+    @fake_time
+    async def test_driver_patch_restarts_devices_without_sweeping_them(
+        self, devices_manager, mock_transport_client, driver
+    ):
+        await devices_manager.start()
+        sweep_times = record_sweep_times(mock_transport_client)
+
+        await devices_manager.patch_driver(driver.id, DriverPatch(vendor="new"))
+        await asyncio.sleep(0.001)
+        await devices_manager.stop()
+
+        assert sweep_times == set()
+
+    @pytest.mark.asyncio
+    @fake_time
+    async def test_add_device_sweeps_it_immediately(
+        self, devices_manager, mock_transport_client, driver
+    ):
+        await devices_manager.start()
+        sweep_times = record_sweep_times(mock_transport_client)
+
+        await devices_manager.add_device(
+            DeviceCreate(
+                name="New device",
+                config={"some_id": "new"},
+                driver_id=driver.id,
+                transport_id=mock_transport_client.id,
+            )
+        )
+        await asyncio.sleep(0.001)
+        await devices_manager.stop()
+
+        assert sweep_times == {0}
 
 
 class TestDevicesServiceListeners:
@@ -2104,7 +2191,7 @@ class SlowStartDevice(CoreDevice):
 
     completed: ClassVar[list[str]] = []
 
-    async def start_sync(self) -> None:
+    async def start_sync(self, *, sweep_now: bool = False) -> None:  # noqa: ARG002
         await asyncio.sleep(0.2)
         SlowStartDevice.completed.append(self.id)
 
@@ -2120,7 +2207,7 @@ class ListenerRegisteringDevice(CoreDevice):
     registered: ClassVar[list[str]] = []
     entered: ClassVar[asyncio.Event | None] = None
 
-    async def start_sync(self) -> None:
+    async def start_sync(self, *, sweep_now: bool = False) -> None:  # noqa: ARG002
         if ListenerRegisteringDevice.entered is not None:
             ListenerRegisteringDevice.entered.set()
         for _ in range(4):

@@ -819,6 +819,7 @@ dev = [
     { name = "coverage" },
     { name = "docker" },
     { name = "import-linter" },
+    { name = "looptime" },
     { name = "polars" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -840,6 +841,7 @@ dev = [
     { name = "coverage", specifier = ">=7.13.0" },
     { name = "docker", specifier = ">=7.1.0" },
     { name = "import-linter", specifier = "==2.13" },
+    { name = "looptime", specifier = ">=0.7" },
     { name = "polars", specifier = ">=1.0.0" },
     { name = "pytest", specifier = ">=8.4.2" },
     { name = "pytest-asyncio", specifier = ">=1.3.0" },
@@ -1481,6 +1483,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/da/34/28fff3ab31ccff1fd4f6c7c7b0ceb2b6968d8ea4950663eadcb5720591a0/lark-1.3.1.tar.gz", hash = "sha256:b426a7a6d6d53189d318f2b6236ab5d6429eaf09259f1ca33eb716eed10d2905", size = 382732, upload-time = "2025-10-27T18:25:56.653Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/82/3d/14ce75ef66813643812f3093ab17e46d3a206942ce7376d31ec2d36229e7/lark-1.3.1-py3-none-any.whl", hash = "sha256:c629b661023a014c37da873b4ff58a817398d12635d3bbb2c5a03be7fe5d1e12", size = 113151, upload-time = "2025-10-27T18:25:54.882Z" },
+]
+
+[[package]]
+name = "looptime"
+version = "0.7"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/d6/3e/74b54612606b87eedd21820517d206c370888fea8c66d93c05f1f4d4388e/looptime-0.7.tar.gz", hash = "sha256:6b32eab62d2f11af9d2322a0d120054a38b9eb9380383a427a68155cf34963c4", size = 38328, upload-time = "2026-01-03T13:06:26.224Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/24/3c/2bec447bf2486dfe8ed9c99d01892d57388b3620883d2374b975f36f1963/looptime-0.7-py3-none-any.whl", hash = "sha256:efb3916196dbbe943a7f2853d79647e4476a5dd149306ce2736607d814930327", size = 21890, upload-time = "2026-01-03T13:06:24.785Z" },
 ]
 
 [[package]]

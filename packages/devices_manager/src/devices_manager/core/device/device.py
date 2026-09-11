@@ -6,6 +6,7 @@ import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from functools import partial
 from typing import TYPE_CHECKING, Any
 
 from devices_manager.core.driver import FaultAttributeDriver
@@ -22,6 +23,7 @@ from .connection_status import (
     compute_connection_status,
 )
 from .event_log import EventType, build_entry, log_event, wrap_listen
+from .sweep_schedule import SweepSchedule, run_on_schedule
 from .watchdog import SilenceWatchdog
 from .write_constraints import check_write_constraints
 
@@ -317,14 +319,24 @@ class CoreDevice:
             on_data=self._on_data_received,
         )
 
-    async def start_sync(self) -> None:
-        """Start listeners, polling, and silence watchdog for this device."""
+    async def start_sync(self, *, sweep_now: bool = False) -> None:
+        """Start listeners, polling, and silence watchdog for this device.
+
+        Each polling group sweeps on its own slots (see ``SweepSchedule``), so
+        devices started together do not sweep together. ``sweep_now`` adds one
+        immediate sweep per group, for a user acting on this one device; fleet
+        restarts leave it off.
+        """
         await self.init_listeners()
         for group_name, (interval, names) in self._polling_groups().items():
             task = self._poll_tasks.get(group_name)
             if task is None or task.done():
                 self._poll_tasks[group_name] = asyncio.create_task(
-                    self._poll_loop(interval, names)
+                    run_on_schedule(
+                        SweepSchedule.for_group(self.id, group_name, interval),
+                        partial(self._sweep, names),
+                        sweep_now=sweep_now,
+                    )
                 )
         interval = self.expected_interval
         if interval is not None:
@@ -382,13 +394,13 @@ class CoreDevice:
                 result[group_name] = (default_interval, names)
         return result
 
-    async def _poll_loop(self, interval: float, attribute_names: list[str]) -> None:
+    async def _sweep(self, attribute_names: list[str]) -> None:
+        """One scheduled sweep; an unexpected failure is logged so the group
+        keeps polling on its next slot."""
         try:
-            while True:
-                await self._read_group(attribute_names)
-                await asyncio.sleep(interval)
-        except asyncio.CancelledError:
-            return
+            await self._read_group(attribute_names)
+        except Exception:
+            logger.exception("[Device %s] polling sweep failed", self.id)
 
     async def _read_group(self, attribute_names: list[str]) -> None:
         """One polling-group sweep: a single ``read_many`` call sharing one
