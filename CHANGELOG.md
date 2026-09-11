@@ -1,3 +1,9 @@
+## v0.236.0 (2026-09-11)
+
+### Feat
+
+- **ui**: synoptic visual language and symbol kit (#635)
+
 ## v0.235.0 (2026-09-11)
 
 ### Feat
