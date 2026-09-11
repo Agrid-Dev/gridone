@@ -37,24 +37,17 @@ const document: PresentationV1 = {
 const blobOf = (name: string) => new Blob([name], { type: "image/png" });
 
 describe("loadPresentationAssets", () => {
-  it("fetches every asset once, builds glyph sets from the decoded atlas size and revokes URLs", async () => {
+  it("fetches every asset once and builds glyph sets from the decoded atlas size", async () => {
     const fetchAsset = vi.fn(async (id: string) => blobOf(id));
     const imageSize = vi.fn(async (blob: Blob) => ({
       width: blob.size * 10,
       height: 7,
     }));
-    const created: string[] = [];
-    const revoked: string[] = [];
     const assets = await loadPresentationAssets(
       document,
       fetchAsset,
       imageSize,
-      (blob) => {
-        const url = `blob:${blob.size}`;
-        created.push(url);
-        return url;
-      },
-      (url) => revoked.push(url),
+      (blob) => `blob:${blob.size}`,
     );
     expect(fetchAsset).toHaveBeenCalledTimes(2);
     expect(assets.missing).toEqual([]);
@@ -79,9 +72,6 @@ describe("loadPresentationAssets", () => {
     });
     // A glyph set whose asset is not declared cannot be built.
     expect(assets.glyphSet("orphan")).toBeUndefined();
-    assets.revoke();
-    expect(revoked.sort()).toEqual(created.sort());
-    expect(assets.assetUrl("bezel")).toBeUndefined();
   });
 
   it("reports assets that fail to fetch or decode instead of throwing", async () => {
@@ -97,7 +87,6 @@ describe("loadPresentationAssets", () => {
       fetchAsset,
       imageSize,
       () => "blob:x",
-      () => {},
     );
     expect(assets.missing).toEqual(["bezel", "font"]);
     expect(assets.assetUrl("font")).toBeUndefined();
