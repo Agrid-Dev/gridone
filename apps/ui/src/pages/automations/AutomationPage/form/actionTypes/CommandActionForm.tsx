@@ -83,7 +83,6 @@ const InlineWizard: FC<InlineWizardProps> = ({
       ? { id: template.id, name: template.name }
       : { id: undefined, name: null },
     defaultValues: template ? templateToFormValues(template) : undefined,
-    disableDraft: true,
   });
 
   return (

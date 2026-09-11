@@ -1,140 +1,196 @@
-import { useMemo } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router";
+import { useNavigate, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
-import { useQuery } from "@tanstack/react-query";
-import { toast } from "sonner";
-import type { Asset } from "@gridone/sdk";
-import { useGridoneClient } from "@/contexts/GridoneClientContext";
-import type { DevicesFilter } from "@/lib/devices";
+import { LockKeyhole } from "lucide-react";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorFallback } from "@/components/fallbacks/Error";
 import { usePermissions } from "@/contexts/AuthContext";
 import { useAssetTree } from "@/hooks/useAssetTree";
 import { useDevicesList } from "@/hooks/useDevicesList";
-import { CommandWizard } from "./CommandWizard";
-import { useCommandMutations } from "./useCommandMutations";
-import { useCommandWizard } from "./useCommandWizard";
-
-const STEP_KEYS = [
-  "commands.new.subtitle.target",
-  "commands.new.subtitle.command",
-  "commands.new.subtitle.review",
-] as const;
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Field, FieldLabel } from "@/components/ui/field";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { DevicesFilterTabs } from "@/components/forms/targetPicker";
+import { GroupedCommandFields } from "./GroupedCommandFields";
+import { GroupedCommandReview } from "./GroupedCommandReview";
+import { useGroupedCommand } from "./useGroupedCommand";
+import { useGroupedCommandActions } from "./useGroupedCommandActions";
 
 export default function NewCommandPage() {
-  const { t } = useTranslation(["devices", "common", "assets"]);
+  const { t } = useTranslation(["devices", "common"]);
   const can = usePermissions();
   const navigate = useNavigate();
-  const client = useGridoneClient();
   const { deviceId, assetId } = useParams<{
     deviceId?: string;
     assetId?: string;
   }>();
-
-  // The entry route dictates the wizard's target:
-  //   /devices/:deviceId/commands/new → pinned to that device
-  //   /assets/:assetId/commands/new   → pinned to that asset (membership is
-  //                                     re-evaluated on each dispatch)
-  //   /devices/commands/new           → user picks in step 1
-  const predefinedTarget: DevicesFilter | undefined = useMemo(() => {
-    if (deviceId) return { ids: [deviceId] };
-    if (assetId) return { asset_id: assetId };
-    return undefined;
-  }, [deviceId, assetId]);
-
-  const [searchParams] = useSearchParams();
-  const { devices, loading: devicesLoading } = useDevicesList();
-  const { assetTree, assetsList, isLoading: assetTreeLoading } = useAssetTree();
-  const wizard = useCommandWizard({
+  const { devices, loading, error } = useDevicesList();
+  const {
+    assetTree,
+    assetsList,
+    isLoading,
+    error: assetsError,
+  } = useAssetTree();
+  const command = useGroupedCommand({
     devices,
-    predefinedTarget,
-    // Deep-link from the device Overview: pre-select the attribute to command.
-    preselectAttribute: searchParams.get("attribute") ?? undefined,
+    assetTree,
+    assetsList,
+    deviceId,
+    assetId,
+    loading: loading || isLoading || !!assetsError,
   });
-  const mutations = useCommandMutations();
-
-  const { data: lockedAsset } = useQuery<Asset>({
-    queryKey: ["assets", assetId],
-    queryFn: () => client.assets.get(assetId!),
-    enabled: !!assetId,
-  });
-
-  if (!can("devices:write")) {
+  const actions = useGroupedCommandActions(
+    command.canSubmit ? command.preview : undefined,
+  );
+  if (!can("devices:write") || error || assetsError)
     return <ErrorFallback title={t("common:errors.default")} />;
-  }
+  if (loading || isLoading)
+    return <Skeleton className="h-96 w-full rounded-lg" />;
 
-  // Cancel returns to wherever the user came from (e.g. the device Overview
-  // when deep-linked from a writable attribute row).
-  const onCancel = () => navigate(-1);
-
-  const blocked = devicesLoading || (!!assetId && assetTreeLoading);
-
-  if (blocked) {
-    return (
-      <section className="space-y-4">
-        <Skeleton className="h-10 w-full rounded-lg" />
-        <Skeleton className="h-64 w-full rounded-lg" />
-      </section>
-    );
-  }
+  const scopeSelect = (
+    <Field className="max-w-sm">
+      <FieldLabel htmlFor="command-scope">
+        {t("commands.grouped.scope")}
+      </FieldLabel>
+      <Select
+        value={command.scope}
+        onValueChange={command.chooseScope}
+        disabled={command.locked}
+      >
+        <SelectTrigger id="command-scope">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">{t("commands.new.allAssets")}</SelectItem>
+          {assetsList.map((asset) => (
+            <SelectItem key={asset.id} value={asset.id}>
+              {asset.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </Field>
+  );
 
   return (
     <section className="space-y-6">
-      <ResourceHeader title={t("commands.new.title")} />
-      <StepSubtitle predefined={!!predefinedTarget} />
-      <CommandWizard
-        wizard={wizard}
-        devices={devices}
-        assetTree={assetTree}
-        assetsList={assetsList}
-        predefinedTarget={predefinedTarget}
-        onCancel={onCancel}
-        saveSubmit={{
-          label: t("commands.new.save.action"),
-          onSubmit: (templateId) => {
-            toast.success(t("commands.new.save.savedFeedback"));
-            navigate(`/devices/commands/templates/${templateId}`);
-          },
-        }}
-        dispatchSubmit={{
-          label: t("commands.new.dispatch"),
-          onSubmit: async (templateId) => {
-            // The wizard's commit already created an ephemeral template;
-            // dispatch fires through the resolved id. Device-scoped entries
-            // navigate to that device's history; everything else lands on
-            // the batch view filtered by the new ``batch_id``.
-            const result = await mutations.dispatchTemplate(templateId);
-            if (deviceId) {
-              toast.success(t("commands.new.feedback.dispatched"));
-              navigate(`/devices/${encodeURIComponent(deviceId)}/commands`);
-            } else {
-              toast.success(t("commands.new.feedback.batchDispatched"));
-              navigate(`/devices/commands?batch_id=${result.batchId}`);
-            }
-          },
-        }}
+      <ResourceHeader
+        title={t(
+          command.locked ? "commands.new.title" : "commands.new.groupedTitle",
+        )}
       />
-      {assetId && lockedAsset && (
-        <p className="text-xs text-muted-foreground">
-          <Link to={`/assets/${lockedAsset.id}`} className="hover:underline">
-            {lockedAsset.name}
-          </Link>
+      <p className="text-sm text-muted-foreground">
+        {t("commands.grouped.subtitle")}
+      </p>
+      {!command.scopeExists && (
+        <p role="alert" className="text-destructive">
+          {t("commands.grouped.scopeMissing")}
         </p>
       )}
+      {command.error && (
+        <p role="alert" className="text-destructive">
+          {t("common:errors.default")}
+        </p>
+      )}
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(320px,2fr)]">
+        <fieldset disabled={!!actions.snapshot} className="min-w-0 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-3">
+                <SectionNumber number={1} />
+                {t("commands.grouped.who")}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {command.detached && (
+                <p
+                  role="status"
+                  className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
+                >
+                  {t("commands.grouped.detached")}
+                </p>
+              )}
+              {command.locked && (
+                <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <LockKeyhole className="h-4 w-4" />
+                  {t("commands.grouped.locked")}
+                </p>
+              )}
+              {command.locked && scopeSelect}
+              {command.locked ? (
+                <ul className="max-h-80 overflow-auto divide-y rounded-lg border">
+                  {command.selected.map((device) => (
+                    <li
+                      key={device.id}
+                      className="bg-primary/10 px-4 py-3 text-sm"
+                    >
+                      {device.name || device.id}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <DevicesFilterTabs
+                  devices={command.scopeDevices}
+                  mode={command.mode}
+                  onModeChange={command.chooseMode}
+                  deviceIds={command.selected.map((device) => device.id)}
+                  onDeviceIdsChange={command.chooseIds}
+                  typesFilter={command.types}
+                  onTypesFilterChange={command.chooseTypes}
+                  extraFilters={scopeSelect}
+                  extraDeviceFilter={
+                    command.scope !== "all" ? command.matchesScope : undefined
+                  }
+                  onFilterDeviceIdsChange={command.chooseIds}
+                />
+              )}
+              <p className="text-xs text-muted-foreground">
+                {t(
+                  command.mode === "filters"
+                    ? "commands.grouped.live"
+                    : "commands.grouped.frozen",
+                )}
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-3">
+                <SectionNumber number={2} />
+                {t("commands.grouped.what")}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <GroupedCommandFields command={command} />
+            </CardContent>
+          </Card>
+        </fieldset>
+        <GroupedCommandReview
+          preview={command.preview}
+          canSubmit={command.canSubmit}
+          selectedCount={command.selected.length}
+          excluded={command.excluded}
+          actions={actions}
+        />
+      </div>
+      <Button variant="ghost" onClick={() => navigate(-1)}>
+        {t("common:common.cancel")}
+      </Button>
     </section>
   );
 }
 
-function StepSubtitle({ predefined }: { predefined: boolean }) {
-  const { t } = useTranslation("devices");
-  const [searchParams] = useSearchParams();
-  const raw = searchParams.get("step");
-  const parsed = raw ? parseInt(raw, 10) - 1 : predefined ? 1 : 0;
-  const clamped = Math.max(0, Math.min(2, isNaN(parsed) ? 0 : parsed));
+function SectionNumber({ number }: { number: number }) {
   return (
-    <p className="-mt-2 text-sm text-muted-foreground">
-      {t(STEP_KEYS[clamped])}
-    </p>
+    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-foreground text-sm text-background">
+      {number}
+    </span>
   );
 }

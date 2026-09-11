@@ -83,7 +83,7 @@ export default function DevicesList() {
               <Button asChild size="sm">
                 <Link to="/devices/commands/new">
                   <Terminal />
-                  {t("commands.newCommand")}
+                  {t("commands.newGroupedCommand")}
                 </Link>
               </Button>
             )}

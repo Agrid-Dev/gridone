@@ -25,7 +25,7 @@ from pydantic import (
     model_validator,
 )
 
-from devices_manager.core.driver.attribute_metadata import (
+from models.attribute_metadata import (
     AttributeGroup,
     LocalizedText,
     Number,

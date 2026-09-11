@@ -6,10 +6,10 @@ from pydantic import TypeAdapter
 from devices_manager.core.presentation.envelope import PresentationEnvelope
 from devices_manager.core.standard_schemas import validate_standard_schema
 from devices_manager.types import DataType, TransportProtocols
+from models.attribute_metadata import AttributeRef
 from models.errors import InvalidError
 
 from .attribute_driver import AttributeDriver
-from .attribute_metadata import AttributeRef
 from .device_config_field import DeviceConfigField
 from .discovery_listener import DiscoveryListener
 from .driver_metadata import DriverMetadata

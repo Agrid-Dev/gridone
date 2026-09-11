@@ -128,7 +128,12 @@ function Wrapper({
 
 describe("CommandStep value input", () => {
   it("renders a value select when the attribute has valueOptions", () => {
-    mockCoverage([coverageRow("mode", "str")]);
+    mockCoverage([
+      {
+        ...coverageRow("mode", "str"),
+        value_options: ["heat", "cool", "fan", "auto"],
+      },
+    ]);
     render(
       <Wrapper
         selectedAttribute="mode"
@@ -186,7 +191,9 @@ describe("CommandStep value input", () => {
   });
 
   it("prefers value select over number input when int attribute has valueOptions", () => {
-    mockCoverage([coverageRow("level", "int")]);
+    mockCoverage([
+      { ...coverageRow("level", "int"), value_options: [1, 2, 3] },
+    ]);
     render(
       <Wrapper
         selectedAttribute="level"
@@ -203,7 +210,9 @@ describe("CommandStep value input", () => {
   });
 
   it("renders icons in option items when all devices share a type with a known renderer", () => {
-    mockCoverage([coverageRow("mode", "str", 2)]);
+    mockCoverage([
+      { ...coverageRow("mode", "str", 2), value_options: ["heat", "cool"] },
+    ]);
     render(
       <Wrapper
         selectedAttribute="mode"
@@ -225,7 +234,9 @@ describe("CommandStep value input", () => {
   });
 
   it("renders plain text option items when devices have mixed types with different renderers", () => {
-    mockCoverage([coverageRow("mode", "str", 2)]);
+    mockCoverage([
+      { ...coverageRow("mode", "str", 2), value_options: ["heat"] },
+    ]);
     render(
       <Wrapper
         selectedAttribute="mode"

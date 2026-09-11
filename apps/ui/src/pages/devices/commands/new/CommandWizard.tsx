@@ -63,7 +63,6 @@ export function CommandWizard(props: CommandWizardProps) {
     commitError,
     handleNext,
     handleBack,
-    clearDraft,
   } = wizard;
 
   // Error toasts — fires once per distinct error instance.
@@ -77,7 +76,6 @@ export function CommandWizard(props: CommandWizardProps) {
 
   const onBack = isFirstStep
     ? () => {
-        clearDraft();
         props.onCancel();
       }
     : handleBack;

@@ -9,14 +9,14 @@ from __future__ import annotations
 import math
 from typing import TYPE_CHECKING
 
-from devices_manager.core.driver.attribute_metadata import AttributeRef
+from models.attribute_metadata import AttributeRef
 from models.errors import InvalidError
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from devices_manager.core.driver.attribute_metadata import Bound
     from devices_manager.types import AttributeValueType
+    from models.attribute_metadata import Bound
 
     from .attribute import Attribute
 

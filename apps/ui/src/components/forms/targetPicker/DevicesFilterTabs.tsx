@@ -42,6 +42,8 @@ type DevicesFilterTabsProps = {
   pickerExtraFilters?: ReactNode;
   /** Extra narrowing applied to the explicit-devices table rows. */
   pickerExtraDeviceFilter?: (device: Device) => boolean;
+  /** Allow exceptions in the live preview; the caller materializes these ids. */
+  onFilterDeviceIdsChange?: (ids: string[]) => void;
 };
 
 /** Two-tab device-set selection: explicit devices (search + type filter +
@@ -60,6 +62,7 @@ export function DevicesFilterTabs({
   extraDeviceFilter,
   pickerExtraFilters,
   pickerExtraDeviceFilter,
+  onFilterDeviceIdsChange,
 }: DevicesFilterTabsProps) {
   return (
     <Tabs
@@ -88,6 +91,7 @@ export function DevicesFilterTabs({
           onTagsFilterChange={onTagsFilterChange}
           extraFilters={extraFilters}
           extraDeviceFilter={extraDeviceFilter}
+          onDeviceIdsChange={onFilterDeviceIdsChange}
         />
       </TabsContent>
     </Tabs>
@@ -226,6 +230,7 @@ type FiltersModeBodyProps = {
   onTagsFilterChange?: (tags: TagsFilter | undefined) => void;
   extraFilters?: ReactNode;
   extraDeviceFilter?: (device: Device) => boolean;
+  onDeviceIdsChange?: (ids: string[]) => void;
 };
 
 function FiltersModeBody({
@@ -236,6 +241,7 @@ function FiltersModeBody({
   onTagsFilterChange,
   extraFilters,
   extraDeviceFilter,
+  onDeviceIdsChange,
 }: FiltersModeBodyProps) {
   const { t } = useTranslation(["devices", "common"]);
 
@@ -366,7 +372,15 @@ function FiltersModeBody({
         <span className="text-xs">{t("commands.new.filterPreviewHint")}</span>
       </div>
 
-      <FilterPreviewTable devices={resolved} />
+      {onDeviceIdsChange ? (
+        <DevicePickerTable
+          devices={resolved}
+          selectedIds={resolved.map((device) => device.id)}
+          onChange={onDeviceIdsChange}
+        />
+      ) : (
+        <FilterPreviewTable devices={resolved} />
+      )}
     </div>
   );
 }
