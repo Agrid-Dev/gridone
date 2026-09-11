@@ -17,6 +17,18 @@ import {
   AirExtractorSynoptic,
   type AirExtractorValues,
 } from "../devices/standard-devices/air-extractor";
+import {
+  ExternalLink,
+  MonitorPanel,
+  Pipe,
+  PidDiagram,
+  PipeBadge,
+  Port,
+  Pump,
+  SensorFlag,
+  Tank,
+  Valve,
+} from "@/components/synoptic";
 
 const HEATING_UNIT: AhuDoubleFluxValues = {
   supplyAirTemperature: 21.4,
@@ -229,6 +241,86 @@ function SandboxUnit({
   );
 }
 
+/** The vendored symbol kit on a plate, to eyeball the tokens in both themes. */
+function SymbolKitPlate() {
+  return (
+    <div className="space-y-2">
+      <h3 className="text-sm font-medium">Symbol kit on a plate</h3>
+      <div className="h-80 overflow-hidden rounded-lg border">
+        <PidDiagram width={900} height={360}>
+          <ExternalLink
+            x={20}
+            y={150}
+            w={150}
+            h={60}
+            fluid="cold_water"
+            direction="in"
+            label="Cold water"
+          />
+          <Pipe
+            points={[
+              { x: 170, y: 180 },
+              { x: 300, y: 180 },
+            ]}
+            fluid="cold_water"
+            flowing
+          />
+          <PipeBadge x={235} y={150} text="EF" />
+          <Valve cx={300} cy={180} closed />
+          <Pipe
+            points={[
+              { x: 330, y: 180 },
+              { x: 400, y: 180 },
+            ]}
+            fluid="cold_water"
+            endArrow
+          />
+          <Port x={400} y={180} />
+          <Tank x={400} y={100} w={110} h={200} label="B-01" />
+          <Port x={510} y={180} />
+          <Pipe
+            points={[
+              { x: 510, y: 180 },
+              { x: 600, y: 180 },
+            ]}
+            fluid="dhw"
+            flowing
+          />
+          <Pump cx={640} cy={180} label="P-01" />
+          <Pipe
+            points={[
+              { x: 670, y: 180 },
+              { x: 880, y: 180 },
+              { x: 880, y: 80 },
+            ]}
+            fluid="dhw"
+            endArrow
+            flowing={false}
+          />
+          <SensorFlag
+            x={560}
+            y={30}
+            label="TT-05"
+            value={57.2}
+            unit="°C"
+            port={{ x: 555, y: 180 }}
+          />
+          <MonitorPanel
+            x={700}
+            y={210}
+            title="P-01"
+            statuses={["ok", "off"]}
+            rows={[
+              { label: "SV", value: 60, unit: "°C" },
+              { label: "PV", value: 57.2, unit: "°C" },
+            ]}
+          />
+        </PidDiagram>
+      </div>
+    </div>
+  );
+}
+
 /** Dev-only page: the standard HVAC synoptics (AHUs, air extractor) fed
  *  with hard-coded data, covering the layout variants of each type. */
 export default function SynopticsSandbox() {
@@ -238,6 +330,7 @@ export default function SynopticsSandbox() {
         title="HVAC synoptics"
         caption="Sandbox — hard-coded device data"
       />
+      <SymbolKitPlate />
       <DoubleFluxUnit
         title="CTA 01 — double flux, heating (both coils, pressure sensors)"
         initial={HEATING_UNIT}
