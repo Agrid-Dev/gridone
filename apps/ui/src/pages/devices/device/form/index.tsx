@@ -10,6 +10,7 @@ import { useTranslation } from "react-i18next";
 import type { Device } from "@gridone/sdk";
 import { NetworkModal } from "@/components/NetworkModal";
 import { DeviceDiscoverySwitch } from "@/components/DeviceDiscoverySwitch";
+import { GroupError } from "@/pages/devices/groups/GroupError";
 
 type DeviceFormProps = {
   device?: Device;
@@ -27,6 +28,7 @@ const DeviceForm: React.FC<DeviceFormProps> = ({ device }) => {
     transportsLoading,
     transportsError,
     isPending,
+    groupError,
     handleSubmit,
     handleCancel,
     submitDisabled,
@@ -49,6 +51,7 @@ const DeviceForm: React.FC<DeviceFormProps> = ({ device }) => {
     <Card>
       <CardContent className="my-8">
         <form id="device-form" onSubmit={onSubmit} className="grid gap-8">
+          <GroupError error={groupError} />
           <FieldSet>
             <FieldLegend>{t("devices.sections.identity")}</FieldLegend>
             <div className="grid gap-4 md:grid-cols-2">

@@ -17,11 +17,14 @@ from models.errors import (
     UnauthorizedError,
     validation_details,
 )
+from models.resource_conflict import ResourceConflictError
 
 logger = logging.getLogger(__name__)
 
 
 def register_exception_handlers(app: FastAPI) -> None:
+    app.add_exception_handler(ResourceConflictError, resource_conflict_handler)
+
     @app.exception_handler(NotFoundError)
     async def not_found_handler(request: Request, exc: NotFoundError) -> JSONResponse:
         return JSONResponse(status_code=404, content={"detail": str(exc)})
@@ -95,4 +98,17 @@ async def package_import_handler(request: Request, exc: Exception) -> JSONRespon
     return JSONResponse(
         status_code=422,
         content=PackageImportErrorResponse(detail=error.diagnostics).model_dump(),
+    )
+
+
+async def resource_conflict_handler(request: Request, exc: Exception) -> JSONResponse:
+    error = cast("ResourceConflictError", exc)
+    return JSONResponse(
+        status_code=409,
+        content={
+            "detail": {
+                "code": error.code,
+                "resources": [r.model_dump() for r in error.resources],
+            }
+        },
     )

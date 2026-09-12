@@ -19,6 +19,7 @@ import type {
   TagValueBody,
   UnitCommand,
 } from "../types";
+import { DeviceGroupsResource } from "./deviceGroups";
 import { CommandTemplatesResource } from "./commandTemplates";
 
 export type DeviceListParams = NonNullable<
@@ -39,9 +40,11 @@ export type FaultListParams = NonNullable<
 /** `client.devices` — CRUD, tags, commands, faults and attribute logs. */
 export class DevicesResource {
   /** Reusable command templates (`/devices/commands/templates/`). */
+  readonly groups: DeviceGroupsResource;
   readonly commandTemplates: CommandTemplatesResource;
 
   constructor(private readonly request: RequestFn) {
+    this.groups = new DeviceGroupsResource(request);
     this.commandTemplates = new CommandTemplatesResource(request);
   }
 

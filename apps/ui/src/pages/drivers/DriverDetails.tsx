@@ -20,6 +20,7 @@ import { usePermissions } from "@/contexts/AuthContext";
 import { DriverDevicesSection } from "./DriverDevicesSection";
 import { DriverPresentationStatus } from "./DriverPresentationStatus";
 import { useExportDriverPackage } from "./useDriverPackage";
+import { GroupError, groupConflict } from "@/pages/devices/groups/GroupError";
 
 const LabelledProperty: FC<{
   label: React.ReactNode;
@@ -183,8 +184,13 @@ const DriverDetails: FC<{
 
 const DriverDetailsContent: FC = () => {
   const driver = useDriverFromRoute();
-  const { handleDelete } = useDeleteDriver();
-  return <DriverDetails driver={driver} onDelete={handleDelete} />;
+  const { handleDelete, error } = useDeleteDriver();
+  return (
+    <>
+      <GroupError error={groupConflict(error) ? error : null} />
+      <DriverDetails driver={driver} onDelete={handleDelete} />
+    </>
+  );
 };
 
 const DriverDetailsWrapper: FC = () => {

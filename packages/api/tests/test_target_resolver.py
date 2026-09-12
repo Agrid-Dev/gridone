@@ -232,3 +232,89 @@ class TestGroupDevicesByTag:
         assert by_id == {
             label: [d.id for d in group] for label, group in by_device.items()
         }
+
+
+@pytest.mark.asyncio
+async def test_group_targets_intersect_existing_filters_and_resolve_current_members():
+    from datetime import UTC, datetime
+
+    from devices_manager.core.device_group import DeviceGroup
+
+    dm = _make_dm([_THERMO_1, _THERMO_2, _METER])
+    group = DeviceGroup(
+        id="group",
+        name="East",
+        driver_id="drv",
+        device_ids=["t1", "t2"],
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+    dm.get_group.return_value = group
+    resolver = CompositeTargetResolver(dm)
+    target = AttributeTarget(
+        devices=DevicesFilter(group_id="group", ids=["t2", "m1"], types=["thermostat"]),
+        attribute="temperature",
+    )
+    assert (await resolver.resolve(target)).device_ids == ["t2"]
+    assert "group_id" not in dm.list_devices.call_args.kwargs
+    group.device_ids = ["t1"]
+    target.devices.ids = None
+    assert (await resolver.resolve(target)).device_ids == ["t1"]
+    coverage = await resolver.list_attribute_coverage(target.devices)
+    assert all(row.device_count == 1 for row in coverage)
+
+
+@pytest.mark.asyncio
+async def test_empty_group_stays_empty_and_uses_driver_attribute_contract():
+    from datetime import UTC, datetime
+
+    from devices_manager.core.device_group import DeviceGroup
+    from devices_manager.core.driver import AttributeDriver
+
+    dm = _make_dm([_THERMO_1])
+    dm.get_group.return_value = DeviceGroup(
+        id="group",
+        name="Empty",
+        driver_id="drv",
+        device_ids=[],
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+    dm.get_driver.return_value.attributes = [
+        AttributeDriver(
+            name="setpoint",
+            data_type=DataType.FLOAT,
+            read="GET /value",
+            write="POST /value",
+            codecs=[],
+        )
+    ]
+    resolver = CompositeTargetResolver(dm)
+    result = await resolver.resolve(
+        AttributeTarget(devices=DevicesFilter(group_id="group"), attribute="setpoint"),
+        writable=True,
+    )
+    assert result.device_ids == []
+    assert result.data_type == DataType.FLOAT
+    assert dm.list_devices.call_args.kwargs["ids"] == []
+    with pytest.raises(InvalidError):
+        await resolver.resolve(
+            AttributeTarget(
+                devices=DevicesFilter(group_id="group"), attribute="missing"
+            )
+        )
+
+
+@pytest.mark.asyncio
+async def test_unknown_group_never_becomes_global_target():
+    from models.errors import NotFoundError
+
+    dm = _make_dm([_THERMO_1])
+    dm.get_group.side_effect = NotFoundError("Group missing")
+    with pytest.raises(NotFoundError):
+        await CompositeTargetResolver(dm).resolve(
+            AttributeTarget(
+                devices=DevicesFilter(group_id="missing"), attribute="temperature"
+            )
+        )
+    dm.list_devices.assert_not_called()

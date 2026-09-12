@@ -264,7 +264,8 @@
         "ids": "Specific devices",
         "assetId": "Zone",
         "types": "Device type",
-        "tags": "Tags"
+        "tags": "Tags",
+        "groupId": "Groups"
       },
       "tag": "{{key}}: {{values}}"
     },
@@ -364,6 +365,14 @@
         "saving": "Saving…",
         "savedFeedback": "Template saved"
       }
+    },
+    "failure": {
+      "not_writable": "Attribute cannot be written. Check permissions and the driver.",
+      "invalid_value": "Value is invalid or outside allowed constraints. Check its limits.",
+      "unreachable": "Device unreachable. Check its connection.",
+      "unconfirmed": "The device did not confirm the requested value.",
+      "not_found": "Device or attribute not found. Check the recipient.",
+      "failed": "Command failed. Check the device before trying again."
     }
   },
   "controls": {
@@ -549,5 +558,95 @@
     "outOfTolerance": "out of tolerance",
     "fallbackTitle": "Custom presentation unavailable",
     "fallbackBody": "The standard view is shown instead."
+  },
+  "groups": {
+    "title": "Groups",
+    "caption": "Control several devices with a single command.",
+    "create": "Create group",
+    "edit": "Edit group",
+    "delete": "Delete group",
+    "name": "Name",
+    "description": "Description",
+    "driver": "Driver",
+    "members": "Members",
+    "chooseDriver": "Choose a driver",
+    "search": "Search compatible devices",
+    "cancel": "Cancel",
+    "save": "Save group",
+    "membershipWarning": "Changing membership affects the next executions of these automations and command templates:",
+    "noSynchronization": "Adding a member does not apply a previous command. Each group command is a one-time action.",
+    "empty": "This group contains no devices. Add devices to control it.",
+    "chooseTarget": "Choose target value",
+    "absoluteTarget": "Choose the absolute value to apply to {{attribute}}. You will review the recipients before sending.",
+    "invalidValue": "Enter a valid target value.",
+    "preview": "Preview command",
+    "previewTitle": "Command for {{name}}",
+    "previewChanged": "Recipients or their eligibility have changed. The preview has been refreshed. Review the selection and confirm again.",
+    "before": "Before",
+    "after": "After",
+    "eligibility": "Eligibility",
+    "liveValidation": "Constraints are checked for each device again when the command is executed. Exclusions apply only to this batch.",
+    "deleteDescription": "Delete “{{name}}”? Its devices and command history will remain available.",
+    "batchSummary": "{{success}} succeeded, {{failed}} failed, {{pending}} pending",
+    "executionFailed": "Command failed. Open history for details.",
+    "history": "View command history",
+    "dynamicHint": "Membership is resolved at each execution.",
+    "chooseGroup": "Choose a group",
+    "noGroup": "No group filter",
+    "values": {
+      "multiple": "Multiple values",
+      "unavailable": "Unavailable",
+      "partial_one": "Value unavailable for {{count}} member",
+      "partial_other": "Values unavailable for {{count}} members"
+    },
+    "reasons": {
+      "eligible": "Eligible",
+      "not_writable": "Attribute cannot be written. Choose a writable attribute.",
+      "invalid_value": "Invalid target value. Change the value.",
+      "constraints": "Value is outside allowed constraints, or a required bound is unavailable. Check this device.",
+      "unknown_attribute": "Attribute is unavailable on this device.",
+      "control_blocked": "Control blocked by this device’s current state, or its state is unknown."
+    },
+    "errors": {
+      "failed": "The operation could not be completed. Refresh and try again.",
+      "group_references": "Cannot delete this group. Edit or remove these automation and command-template references first.",
+      "group_incompatible_member": "Cannot add this device: its driver differs from the group driver. Choose a compatible device.",
+      "driver_group_references": "Cannot delete this driver. Remove the groups using it first.",
+      "device_group_driver_change": "Cannot change this device’s driver. Remove it from these groups first.",
+      "group_preview_changed": "The selected members have changed. Review a fresh preview and confirm again.",
+      "group_preview_expired": "This preview has expired or was already used. Prepare a new command.",
+      "group_preview_required": "Preview the group command and confirm its recipients before sending."
+    },
+    "emptyAction": "No commands sent: group “{{name}}” contains no devices.",
+    "invalidAction": "No commands sent: the device group is missing or invalid. Check the command target.",
+    "constraints": "Known limits",
+    "limits": {
+      "minimum": "Min. : {{value}}",
+      "maximum": "Max. : {{value}}",
+      "step": "Step: {{value}}"
+    },
+    "groupHeader_other": "Device group · {{count}} members · {{driver}}",
+    "groupHeader_one": "Device group · {{count}} member · {{driver}}",
+    "previewDescription_other": "{{attribute}} → {{value}} · {{count}} recipients",
+    "previewDescription_one": "{{attribute}} → {{value}} · {{count}} recipient",
+    "apply_other": "Apply to {{count}} devices",
+    "apply_one": "Apply to {{count}} device",
+    "formCaption": "Define your group and choose the devices to control together.",
+    "information": "Group information",
+    "informationHint": "A name and description to find it easily.",
+    "namePlaceholder": "E.g. First-floor thermostats",
+    "descriptionPlaceholder": "Floor, purpose, area…",
+    "optional": "(optional)",
+    "driverHint": "The driver determines compatible devices and available commands.",
+    "driverFixed": "All members share this driver. It is set when the group is created.",
+    "membersHint": "Select the devices to include in this group.",
+    "chooseDriverHint": "Compatible devices will appear here to build your group.",
+    "searchGroups": "Search groups…",
+    "equipmentCount_one": "{{count}} device",
+    "equipmentCount_other": "{{count}} devices",
+    "selectedCount_one": "{{count}} selected",
+    "selectedCount_other": "{{count}} selected",
+    "selectedEquipment_one": "{{count}} device selected",
+    "selectedEquipment_other": "{{count}} devices selected"
   }
 }

@@ -9,6 +9,8 @@ from __future__ import annotations
 import math
 from typing import TYPE_CHECKING
 
+from pydantic import BaseModel
+
 from devices_manager.core.driver.attribute_metadata import AttributeRef
 from models.errors import InvalidError
 
@@ -26,6 +28,32 @@ absorbs binary floating-point noise (``0.3 / 0.1`` is ``2.9999999999999996``).""
 
 type ValueResolver = Callable[[str], AttributeValueType | None]
 """Current value of a sibling attribute by name; ``None`` when unknown."""
+
+
+class WriteConstraintPreview(BaseModel):
+    minimum: float | None = None
+    maximum: float | None = None
+    step: float | None = None
+    unknown: list[str] = []
+
+
+def preview_write_constraints(
+    attribute: Attribute, resolve: ValueResolver
+) -> WriteConstraintPreview | None:
+    """Expose known limits and unresolved fields without revealing internal errors."""
+    if attribute.write_constraints is None:
+        return None
+    result = WriteConstraintPreview()
+    for name in ("minimum", "maximum", "step"):
+        try:
+            value = _resolve_bound(
+                attribute.name, getattr(attribute.write_constraints, name), resolve
+            )
+        except InvalidError:
+            result.unknown.append(name)
+        else:
+            setattr(result, name, value)
+    return result
 
 
 def check_write_constraints(

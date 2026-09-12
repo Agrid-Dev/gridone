@@ -264,7 +264,8 @@
         "ids": "Appareils spécifiques",
         "assetId": "Zone",
         "types": "Type d'appareil",
-        "tags": "Tags"
+        "tags": "Tags",
+        "groupId": "Groupes"
       },
       "tag": "{{key}} : {{values}}"
     },
@@ -364,6 +365,14 @@
         "saving": "Enregistrement…",
         "savedFeedback": "Modèle enregistré"
       }
+    },
+    "failure": {
+      "not_writable": "Attribut non modifiable. Vérifiez les permissions et le driver.",
+      "invalid_value": "Consigne hors de la plage autorisée ou invalide. Vérifiez les contraintes.",
+      "unreachable": "Équipement injoignable. Vérifiez sa connexion.",
+      "unconfirmed": "La valeur demandée n’a pas été confirmée par l’équipement.",
+      "not_found": "Équipement ou attribut introuvable. Vérifiez le destinataire.",
+      "failed": "Échec de la commande. Vérifiez l’équipement avant de réessayer."
     }
   },
   "controls": {
@@ -549,5 +558,95 @@
     "outOfTolerance": "hors tolérance",
     "fallbackTitle": "Présentation personnalisée indisponible",
     "fallbackBody": "La vue standard est affichée à la place."
+  },
+  "groups": {
+    "title": "Groupes",
+    "caption": "Pilotez plusieurs équipements en une seule commande.",
+    "create": "Créer un groupe",
+    "edit": "Modifier le groupe",
+    "delete": "Supprimer le groupe",
+    "name": "Nom",
+    "description": "Description",
+    "driver": "Driver",
+    "members": "Membres",
+    "chooseDriver": "Choisir un driver",
+    "search": "Rechercher des équipements compatibles",
+    "cancel": "Annuler",
+    "save": "Enregistrer le groupe",
+    "membershipWarning": "Modifier les membres affectera les prochaines exécutions de ces automatisations et modèles de commandes :",
+    "noSynchronization": "Ajouter un membre ne lui applique pas une consigne précédente. Chaque commande de groupe est une action ponctuelle.",
+    "empty": "Ce groupe ne contient aucun équipement. Ajoutez des équipements pour le piloter.",
+    "chooseTarget": "Choisir la valeur cible",
+    "absoluteTarget": "Choisissez la valeur absolue à appliquer à {{attribute}}. Vous vérifierez les destinataires avant l’envoi.",
+    "invalidValue": "Saisissez une valeur cible valide.",
+    "preview": "Prévisualiser la commande",
+    "previewTitle": "Commande pour {{name}}",
+    "previewChanged": "Les destinataires ou leur éligibilité ont changé. L’aperçu a été actualisé. Vérifiez la sélection et confirmez à nouveau.",
+    "before": "Avant",
+    "after": "Après",
+    "eligibility": "Éligibilité",
+    "liveValidation": "Les contraintes sont vérifiées pour chaque équipement au moment de l’écriture. Les exclusions concernent uniquement ce lot.",
+    "deleteDescription": "Supprimer « {{name}} » ? Ses équipements et l’historique des commandes restent disponibles.",
+    "batchSummary": "{{success}} commandes réussies, {{failed}} en échec, {{pending}} en cours",
+    "executionFailed": "Échec de la commande. Ouvrez l’historique pour plus de détails.",
+    "history": "Voir l’historique des commandes",
+    "dynamicHint": "Les membres sont résolus à chaque exécution.",
+    "chooseGroup": "Choisir un groupe",
+    "noGroup": "Aucun filtre de groupe",
+    "values": {
+      "multiple": "Valeurs multiples",
+      "unavailable": "Indisponible",
+      "partial_one": "Valeur indisponible pour {{count}} membre",
+      "partial_other": "Valeurs indisponibles pour {{count}} membres"
+    },
+    "reasons": {
+      "eligible": "Éligible",
+      "not_writable": "Cet attribut ne peut pas être écrit. Choisissez un attribut modifiable.",
+      "invalid_value": "Valeur cible invalide. Modifiez la valeur.",
+      "constraints": "La valeur dépasse les contraintes autorisées ou une limite est indisponible. Vérifiez cet équipement.",
+      "unknown_attribute": "Cet attribut est indisponible sur cet équipement.",
+      "control_blocked": "Commande bloquée par l’état actuel de cet équipement, ou son état est inconnu."
+    },
+    "errors": {
+      "failed": "L’opération n’a pas pu être effectuée. Actualisez et réessayez.",
+      "group_references": "Impossible de supprimer ce groupe. Modifiez ou supprimez d’abord ces références dans les automatisations et modèles de commandes.",
+      "group_incompatible_member": "Impossible d’ajouter cet équipement : son driver diffère de celui du groupe. Choisissez un équipement compatible.",
+      "driver_group_references": "Impossible de supprimer ce driver. Supprimez d’abord les groupes qui l’utilisent.",
+      "device_group_driver_change": "Impossible de changer le driver de cet équipement. Retirez-le d’abord de ces groupes.",
+      "group_preview_changed": "Les membres sélectionnés ont changé. Vérifiez un nouvel aperçu et confirmez à nouveau.",
+      "group_preview_expired": "Cet aperçu a expiré ou a déjà été utilisé. Préparez une nouvelle commande.",
+      "group_preview_required": "Prévisualisez la commande du groupe et confirmez les destinataires avant l’envoi."
+    },
+    "emptyAction": "Aucune commande envoyée : le groupe « {{name}} » ne contient aucun équipement.",
+    "invalidAction": "Aucune commande envoyée : le groupe est inconnu ou invalide. Vérifiez la cible de la commande.",
+    "constraints": "Limites connues",
+    "limits": {
+      "minimum": "Min. : {{value}}",
+      "maximum": "Max. : {{value}}",
+      "step": "Pas : {{value}}"
+    },
+    "groupHeader_other": "Groupe d’équipements · {{count}} membres · {{driver}}",
+    "groupHeader_one": "Groupe d’équipement · {{count}} membre · {{driver}}",
+    "previewDescription_other": "{{attribute}} → {{value}} · {{count}} destinataires",
+    "previewDescription_one": "{{attribute}} → {{value}} · {{count}} destinataire",
+    "apply_other": "Appliquer à {{count}} équipements",
+    "apply_one": "Appliquer à {{count}} équipement",
+    "formCaption": "Définissez votre groupe et choisissez les équipements à piloter ensemble.",
+    "information": "Informations du groupe",
+    "informationHint": "Un nom et une description pour le retrouver facilement.",
+    "namePlaceholder": "Ex. Thermostats du 1er étage",
+    "descriptionPlaceholder": "Étage, usage, zone concernée…",
+    "optional": "(facultatif)",
+    "driverHint": "Le driver détermine les équipements compatibles et les commandes disponibles.",
+    "driverFixed": "Tous les membres partagent ce driver. Il est défini à la création du groupe.",
+    "membersHint": "Sélectionnez les équipements qui feront partie de ce groupe.",
+    "chooseDriverHint": "Les équipements compatibles apparaîtront ici pour composer votre groupe.",
+    "searchGroups": "Rechercher un groupe…",
+    "equipmentCount_one": "{{count}} équipement",
+    "equipmentCount_other": "{{count}} équipements",
+    "selectedCount_one": "{{count}} sélectionné",
+    "selectedCount_other": "{{count}} sélectionnés",
+    "selectedEquipment_one": "{{count}} équipement sélectionné",
+    "selectedEquipment_other": "{{count}} équipements sélectionnés"
   }
 }

@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+import { useGroupCommand } from "../../groups/useGroupCommand";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
@@ -42,6 +44,14 @@ export function useTemplate(templateId: string) {
     enabled: !!target,
   });
 
+  const groupCommand = useGroupCommand(target.group_id ?? "");
+  useEffect(() => {
+    if (groupCommand.batch)
+      navigate(
+        `/devices/commands?batch_id=${encodeURIComponent(groupCommand.batch.batch_id)}`,
+      );
+  }, [groupCommand.batch, navigate]);
+
   const execute = useMutation({
     mutationFn: () => client.devices.commandTemplates.dispatch(templateId),
     onSuccess: (result) => {
@@ -69,8 +79,16 @@ export function useTemplate(templateId: string) {
     assetsById,
     resolvedDevices: resolvedDevices.data ?? [],
     isResolving: resolvedDevices.isLoading,
-    execute: () => execute.mutate(),
-    isExecuting: execute.isPending,
+    groupCommand,
+    execute: () =>
+      target.group_id
+        ? void groupCommand.prepare(
+            template.write.attribute,
+            template.write.value,
+            target,
+          )
+        : execute.mutate(),
+    isExecuting: execute.isPending || groupCommand.busy,
     remove: () => remove.mutate(),
     isRemoving: remove.isPending,
   };

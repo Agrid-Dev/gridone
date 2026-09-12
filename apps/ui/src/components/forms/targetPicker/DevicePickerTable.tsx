@@ -10,17 +10,20 @@ import {
 } from "@/components/ui/table";
 import { DeviceTypeChip } from "@/components/DeviceTypeChip";
 import type { Device } from "@gridone/sdk";
+import { cn } from "@/lib/utils";
 
 type DevicePickerTableProps = {
   devices: Device[];
   selectedIds: string[];
   onChange: (ids: string[]) => void;
+  className?: string;
 };
 
 export function DevicePickerTable({
   devices,
   selectedIds,
   onChange,
+  className,
 }: DevicePickerTableProps) {
   const { t } = useTranslation("devices");
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
@@ -45,7 +48,12 @@ export function DevicePickerTable({
   };
 
   return (
-    <div className="overflow-hidden rounded-lg border max-h-80 overflow-y-auto">
+    <div
+      className={cn(
+        "overflow-hidden rounded-lg border bg-card max-h-80 overflow-y-auto",
+        className,
+      )}
+    >
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/50 hover:bg-muted/50">
@@ -58,7 +66,7 @@ export function DevicePickerTable({
                 }}
                 onChange={toggleVisible}
                 aria-label={t("commands.new.toggleVisible")}
-                className="h-4 w-4"
+                className="h-4 w-4 cursor-pointer accent-primary"
               />
             </TableHead>
             <TableHead>{t("commands.device")}</TableHead>
@@ -82,7 +90,8 @@ export function DevicePickerTable({
                 <TableRow
                   key={d.id}
                   onClick={() => toggleOne(d.id)}
-                  className="cursor-pointer"
+                  data-state={checked ? "selected" : undefined}
+                  className="cursor-pointer data-[state=selected]:bg-primary/5"
                 >
                   <TableCell>
                     <input
@@ -91,7 +100,7 @@ export function DevicePickerTable({
                       onChange={() => toggleOne(d.id)}
                       onClick={(e) => e.stopPropagation()}
                       aria-label={d.name || d.id}
-                      className="h-4 w-4"
+                      className="h-4 w-4 cursor-pointer accent-primary"
                     />
                   </TableCell>
                   <TableCell className="font-medium">

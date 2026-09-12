@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { DataType } from "@gridone/sdk";
 import type { AttributeValue } from "@/lib/devices";
 import type { TargetPickerMode } from "@/components/forms/targetPicker";
@@ -13,6 +14,9 @@ export type TargetMode = TargetPickerMode;
 /** The filter-mode form state: the narrow subset of DevicesFilter that the
  *  filter-mode UI lets the user edit today. */
 export type TargetFilter = {
+  groupId?: string;
+  ids?: string[];
+  tags?: Record<string, string[]>;
   assetId?: string;
   types?: string[];
 };
@@ -29,3 +33,19 @@ export type WizardFormValues = {
   /** Only populated when the user is saving the wizard as a template. */
   templateName?: string;
 };
+
+export const wizardSchema = z.object({
+  targetMode: z.enum(["devices", "filters"]),
+  deviceIds: z.array(z.string()),
+  targetFilter: z.object({
+    groupId: z.string().optional(),
+    assetId: z.string().optional(),
+    ids: z.array(z.string()).optional(),
+    types: z.array(z.string()).optional(),
+    tags: z.record(z.string(), z.array(z.string())).optional(),
+  }),
+  attribute: z.string().optional(),
+  attributeDataType: z.enum(["int", "float", "str", "bool"]).optional(),
+  value: z.union([z.string(), z.number(), z.boolean()]).optional(),
+  templateName: z.string().optional(),
+});

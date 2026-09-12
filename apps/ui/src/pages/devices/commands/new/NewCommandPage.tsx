@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
@@ -12,6 +12,9 @@ import { ErrorFallback } from "@/components/fallbacks/Error";
 import { usePermissions } from "@/contexts/AuthContext";
 import { useAssetTree } from "@/hooks/useAssetTree";
 import { useDevicesList } from "@/hooks/useDevicesList";
+import { useGroupCommand } from "../../groups/useGroupCommand";
+import { GroupCommandDialog } from "../../groups/GroupCommandDialog";
+import { GroupError } from "../../groups/GroupError";
 import { CommandWizard } from "./CommandWizard";
 import { useCommandMutations } from "./useCommandMutations";
 import { useCommandWizard } from "./useCommandWizard";
@@ -53,6 +56,13 @@ export default function NewCommandPage() {
     preselectAttribute: searchParams.get("attribute") ?? undefined,
   });
   const mutations = useCommandMutations();
+  const groupCommand = useGroupCommand(wizard.coverageFilter.group_id ?? "");
+  useEffect(() => {
+    if (groupCommand.batch)
+      navigate(
+        `/devices/commands?batch_id=${encodeURIComponent(groupCommand.batch.batch_id)}`,
+      );
+  }, [groupCommand.batch, navigate]);
 
   const { data: lockedAsset } = useQuery<Asset>({
     queryKey: ["assets", assetId],
@@ -98,7 +108,29 @@ export default function NewCommandPage() {
           },
         }}
         dispatchSubmit={{
-          label: t("commands.new.dispatch"),
+          label: wizard.coverageFilter.group_id
+            ? t("devices:groups.preview")
+            : t("commands.new.dispatch"),
+          disabled: groupCommand.busy,
+          onPrepare: wizard.coverageFilter.group_id
+            ? async () => {
+                if (
+                  !wizard.values.attribute ||
+                  wizard.values.value === undefined
+                )
+                  return;
+                if (
+                  wizard.values.templateName?.trim() &&
+                  !(await wizard.save())
+                )
+                  return;
+                await groupCommand.prepare(
+                  wizard.values.attribute,
+                  wizard.values.value,
+                  wizard.coverageFilter,
+                );
+              }
+            : undefined,
           onSubmit: async (templateId) => {
             // The wizard's commit already created an ephemeral template;
             // dispatch fires through the resolved id. Device-scoped entries
@@ -115,6 +147,8 @@ export default function NewCommandPage() {
           },
         }}
       />
+      <GroupCommandDialog command={groupCommand} />
+      {!groupCommand.preview && <GroupError error={groupCommand.error} />}
       {assetId && lockedAsset && (
         <p className="text-xs text-muted-foreground">
           <Link to={`/assets/${lockedAsset.id}`} className="hover:underline">

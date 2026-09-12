@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 if TYPE_CHECKING:
     from devices_manager.core.device import Attribute, DeviceStorage
+    from devices_manager.core.device_group import DeviceGroup
     from devices_manager.core.driver import DriverStorage
     from devices_manager.core.presentation.resources import PresentationResourceStorage
     from devices_manager.core.transports import TransportStorage
@@ -28,6 +29,7 @@ class StorageBackend[M: BaseModel](Protocol):
 
 
 class DevicesManagerStorage(Protocol):
+    groups: StorageBackend[DeviceGroup]
     devices: DeviceStorage
     drivers: DriverStorage
     transports: TransportStorage

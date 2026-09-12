@@ -5,6 +5,7 @@ from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
+from models.action_failure import ActionFailure  # noqa: TC001 -- pydantic schema
 from models.metadata import ResourceMetadata
 
 
@@ -63,3 +64,4 @@ class AutomationExecution(BaseModel):
     status: ExecutionStatus
     error: str | None = None
     output_id: str | None = None
+    error_details: ActionFailure | None = None

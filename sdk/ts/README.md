@@ -83,3 +83,27 @@ npm run lint        # eslint
 npm run format -- --check
 npm run type-check  # tsc --noEmit
 ```
+
+### Device groups
+
+Shared device groups are available through `client.devices.groups` (CRUD,
+references, presentation, preview, and confirmation). Group manual commands
+always need a preview token:
+
+```ts
+const preview = await client.devices.groups.preview(groupId, {
+  attribute: "temperature_setpoint",
+  value: 25,
+});
+// Show the preview and let the operator confirm their selected recipients.
+const batch = await client.devices.groups.confirm(groupId, {
+  token: preview.token,
+  device_ids: preview.members
+    .filter((member) => member.eligible)
+    .map((member) => member.device_id),
+});
+```
+
+Save `{ group_id: groupId }` as a command template's target to resolve the group's
+current members on each automation execution. Keep the preview token and selected
+IDs for manual confirmation; never replace them with newly resolved membership.

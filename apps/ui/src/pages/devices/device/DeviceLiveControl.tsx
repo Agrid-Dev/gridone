@@ -51,7 +51,7 @@ function PresentedDevice({ device }: { device: Device }) {
     <div className="space-y-8">
       <DevicePresentation
         document={presentation.document}
-        device={device}
+        subject={device}
         runtime={runtime}
         assetUrl={presentation.assets.assetUrl}
         glyphSet={presentation.assets.glyphSet}

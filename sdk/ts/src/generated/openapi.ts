@@ -276,6 +276,128 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/devices/groups": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Device Groups */
+    get: operations["list_device_groups_devices_groups_get"];
+    put?: never;
+    /** Create Device Group */
+    post: operations["create_device_group_devices_groups_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/devices/groups/{group_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Device Group */
+    get: operations["get_device_group_devices_groups__group_id__get"];
+    put?: never;
+    post?: never;
+    /** Delete Device Group */
+    delete: operations["delete_device_group_devices_groups__group_id__delete"];
+    options?: never;
+    head?: never;
+    /** Update Device Group */
+    patch: operations["update_device_group_devices_groups__group_id__patch"];
+    trace?: never;
+  };
+  "/devices/groups/{group_id}/references": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Device Group References */
+    get: operations["list_device_group_references_devices_groups__group_id__references_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/devices/groups/{group_id}/presentation": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Group Presentation */
+    get: operations["get_group_presentation_devices_groups__group_id__presentation_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/devices/groups/{group_id}/commands/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Preview Group Command */
+    post: operations["preview_group_command_devices_groups__group_id__commands_preview_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/devices/groups/{group_id}/commands": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Confirm Group Command */
+    post: operations["confirm_group_command_devices_groups__group_id__commands_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/devices/groups/{group_id}/presentation/assets/{asset_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Group Presentation Asset */
+    get: operations["get_group_presentation_asset_devices_groups__group_id__presentation_assets__asset_id__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/devices/commands": {
     parameters: {
       query?: never;
@@ -1787,6 +1909,18 @@ export interface components {
         [key: string]: unknown;
       };
     };
+    /** ActionFailure */
+    ActionFailure: {
+      /**
+       * Code
+       * @enum {string}
+       */
+      code: "empty_device_group" | "invalid_device_group";
+      /** Group Id */
+      group_id: string;
+      /** Group Name */
+      group_name?: string | null;
+    };
     /**
      * ActionOp
      * @enum {string}
@@ -2469,6 +2603,7 @@ export interface components {
       error?: string | null;
       /** Output Id */
       output_id?: string | null;
+      error_details?: components["schemas"]["ActionFailure"] | null;
     };
     /** AutomationUpdate */
     AutomationUpdate: {
@@ -2973,6 +3108,8 @@ export interface components {
     ColumnItem: {
       /** Weight */
       weight: number;
+      /** Sticky */
+      sticky?: boolean | null;
       /** Content */
       content:
         | components["schemas"]["StackNode"]
@@ -3074,7 +3211,7 @@ export interface components {
      * ControlKind
      * @enum {string}
      */
-    ControlKind: "toggle" | "number" | "select";
+    ControlKind: "toggle" | "number" | "slider" | "select";
     /** ControlPanelNode */
     ControlPanelNode: {
       /**
@@ -3317,6 +3454,61 @@ export interface components {
         | components["schemas"]["ButtonLayer"]
       )[];
     };
+    /** DeviceGroup */
+    DeviceGroup: {
+      /** Name */
+      name: string;
+      /**
+       * Description
+       * @default
+       */
+      description?: string;
+      /** Driver Id */
+      driver_id: string;
+      /** Device Ids */
+      device_ids?: string[];
+      /** Id */
+      id: string;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /** DeviceGroupCreate */
+    DeviceGroupCreate: {
+      /** Name */
+      name: string;
+      /**
+       * Description
+       * @default
+       */
+      description?: string;
+      /** Driver Id */
+      driver_id: string;
+      /** Device Ids */
+      device_ids?: string[];
+    };
+    /**
+     * DeviceGroupUpdate
+     * @description Replace metadata and membership; the reference driver is immutable.
+     */
+    DeviceGroupUpdate: {
+      /** Name */
+      name: string;
+      /**
+       * Description
+       * @default
+       */
+      description?: string;
+      /** Device Ids */
+      device_ids: string[];
+    };
     /** DeviceUpdate */
     DeviceUpdate: {
       /** Name */
@@ -3330,6 +3522,28 @@ export interface components {
       /** Driver Id */
       driver_id?: string | null;
     };
+    /** DeviceWritePreview */
+    DeviceWritePreview: {
+      /** Device Id */
+      device_id: string;
+      /** Name */
+      name: string;
+      /** Current Value */
+      current_value: number | string | boolean | null;
+      /** Eligible */
+      eligible: boolean;
+      constraints?: components["schemas"]["WriteConstraintPreview"] | null;
+      /** Reason */
+      reason?:
+        | (
+            | "not_writable"
+            | "invalid_value"
+            | "constraints"
+            | "unknown_attribute"
+            | "control_blocked"
+          )
+        | null;
+    };
     /**
      * DevicesFilter
      * @description Persisted criteria selecting a set of devices.
@@ -3338,6 +3552,8 @@ export interface components {
      *     non-``None`` field. An empty filter matches all devices.
      */
     DevicesFilter: {
+      /** Group Id */
+      group_id?: string | null;
       /** Ids */
       ids?: string[] | null;
       /** Types */
@@ -3365,6 +3581,8 @@ export interface components {
      *     Writability is enforced against the dispatched attribute by the resolver.
      */
     DevicesFilterBody: {
+      /** Group Id */
+      group_id?: string | null;
       /** Ids */
       ids?: string[] | null;
       /** Types */
@@ -3856,6 +4074,44 @@ export interface components {
         | null;
       label?: components["schemas"]["LocalizedText"] | null;
     };
+    /** GroupCommandConfirm */
+    GroupCommandConfirm: {
+      /** Token */
+      token: string;
+      /** Device Ids */
+      device_ids: string[];
+    };
+    /** GroupCommandPrepare */
+    GroupCommandPrepare: {
+      /** Device Ids */
+      device_ids?: string[] | null;
+      target?: components["schemas"]["DevicesFilterBody"] | null;
+      /** Attribute */
+      attribute: string;
+      /** Value */
+      value: number | string | boolean;
+    };
+    /** GroupCommandPreview */
+    GroupCommandPreview: {
+      /** Device Ids */
+      device_ids?: string[] | null;
+      target?: components["schemas"]["DevicesFilterBody"] | null;
+      /** Attribute */
+      attribute: string;
+      /** Value */
+      value: number | string | boolean;
+      /** Token */
+      token: string;
+      /** Group Id */
+      group_id: string;
+      /** Group Name */
+      group_name: string;
+      attribute_label?: components["schemas"]["LocalizedText"] | null;
+      /** Unit */
+      unit?: string | null;
+      /** Members */
+      members: components["schemas"]["DeviceWritePreview"][];
+    };
     /**
      * GroupedSpaceAggregationResult
      * @description Like :class:`SpaceAggregationResult`, folded per group instead of
@@ -4333,6 +4589,11 @@ export interface components {
       label?: components["schemas"]["LocalizedText"] | null;
       formatter?: components["schemas"]["Formatter"] | null;
     };
+    /**
+     * MeasurementLayout
+     * @enum {string}
+     */
+    MeasurementLayout: "grouped" | "rows" | "inline";
     /** MeasurementsNode */
     MeasurementsNode: {
       /**
@@ -4340,6 +4601,7 @@ export interface components {
        * @enum {string}
        */
       kind: "measurements";
+      layout?: components["schemas"]["MeasurementLayout"] | null;
       /** Items */
       items: components["schemas"]["MeasurementItem"][];
     };
@@ -5153,6 +5415,23 @@ export interface components {
       config: string;
       capabilities: components["schemas"]["AppCapabilities"];
     };
+    /** RelatedResource */
+    RelatedResource: {
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind:
+        | "device"
+        | "driver"
+        | "device_group"
+        | "automation"
+        | "command_template";
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+    };
     /** ReorderRequest */
     ReorderRequest: {
       /** Ordered Ids */
@@ -5188,6 +5467,14 @@ export interface components {
       kind: "section";
       title: components["schemas"]["LocalizedText"];
       description?: components["schemas"]["LocalizedText"] | null;
+      /** Appearance */
+      appearance?: ("card" | "plain") | null;
+      /** Collapsible */
+      collapsible?: boolean | null;
+      /** Collapsed */
+      collapsed?: boolean | null;
+      /** Show Count */
+      show_count?: boolean | null;
       /** Children */
       children: (
         | components["schemas"]["StackNode"]
@@ -6082,6 +6369,20 @@ export interface components {
           )
         | null;
     };
+    /** WriteConstraintPreview */
+    WriteConstraintPreview: {
+      /** Minimum */
+      minimum?: number | null;
+      /** Maximum */
+      maximum?: number | null;
+      /** Step */
+      step?: number | null;
+      /**
+       * Unknown
+       * @default []
+       */
+      unknown?: string[];
+    };
     /**
      * WriteConstraints
      * @description Declarative limits the service enforces on every write of a numeric attribute.
@@ -6681,6 +6982,323 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["User"];
         };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_device_groups_devices_groups_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DeviceGroup"][];
+        };
+      };
+    };
+  };
+  create_device_group_devices_groups_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DeviceGroupCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DeviceGroup"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_device_group_devices_groups__group_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        group_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DeviceGroup"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  delete_device_group_devices_groups__group_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        group_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  update_device_group_devices_groups__group_id__patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        group_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DeviceGroupUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DeviceGroup"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_device_group_references_devices_groups__group_id__references_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        group_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RelatedResource"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_group_presentation_devices_groups__group_id__presentation_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        group_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json":
+            | (
+                | components["schemas"]["AvailablePresentationResponse"]
+                | components["schemas"]["UnavailablePresentationResponse"]
+              )
+            | null;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  preview_group_command_devices_groups__group_id__commands_preview_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        group_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["GroupCommandPrepare"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["GroupCommandPreview"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  confirm_group_command_devices_groups__group_id__commands_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        group_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["GroupCommandConfirm"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BatchDispatchResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_group_presentation_asset_devices_groups__group_id__presentation_assets__asset_id__get: {
+    parameters: {
+      query: {
+        revision: string;
+      };
+      header?: never;
+      path: {
+        group_id: string;
+        asset_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
       /** @description Validation Error */
       422: {
@@ -7486,6 +8104,7 @@ export interface operations {
         search?: string | null;
         driver_id?: string | null;
         transport_id?: string | null;
+        group_id?: string | null;
       };
       header?: never;
       path?: never;
@@ -7558,6 +8177,7 @@ export interface operations {
         search?: string | null;
         driver_id?: string | null;
         transport_id?: string | null;
+        group_id?: string | null;
       };
       header?: never;
       path?: never;
@@ -7598,6 +8218,7 @@ export interface operations {
         search?: string | null;
         driver_id?: string | null;
         transport_id?: string | null;
+        group_id?: string | null;
       };
       header?: never;
       path?: never;

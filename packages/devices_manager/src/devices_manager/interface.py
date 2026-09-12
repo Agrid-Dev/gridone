@@ -11,16 +11,19 @@ DeviceListener = Callable[[CoreDevice], Awaitable[None] | None]
 DeviceDiscoveredListener = DeviceListener
 
 if TYPE_CHECKING:
+    import asyncio
     import builtins
     from collections.abc import AsyncIterator, Collection
 
     from models.types import Severity
 
     from .core.device.event_log import AttributeLogs
+    from .core.device_group import DeviceGroup, DeviceGroupCreate, DeviceGroupUpdate
     from .core.discovery_manager import DiscoveryConfig
     from .core.driver.attribute_driver import AttributeDriver
     from .core.presentation import PresentationStatus
     from .core.presentation.resources import StoredResource
+    from .core.write_preview import DeviceWritePreview
     from .dto import (
         AttributePatch,
         Device,
@@ -113,6 +116,12 @@ class DiscoveryManagerInterface(Protocol):
 class DevicesServiceInterface(Protocol):
     """Protocol that the API layer uses to interact with device management."""
 
+    mutation_lock: asyncio.Lock
+
+    def preview_device_write(
+        self, device_id: str, attribute_name: str, value: AttributeValueType
+    ) -> DeviceWritePreview: ...
+
     # -- properties --
 
     @property
@@ -126,6 +135,24 @@ class DevicesServiceInterface(Protocol):
 
     @property
     def discovery_manager(self) -> DiscoveryManagerInterface: ...
+
+    async def get_group_presentation_asset(
+        self, group_id: str, revision: str, asset_id: str
+    ) -> StoredResource: ...
+
+    def list_groups(
+        self, *, device_id: str | None = None, driver_id: str | None = None
+    ) -> list[DeviceGroup]: ...
+
+    def get_group(self, group_id: str) -> DeviceGroup: ...
+
+    async def create_group(self, params: DeviceGroupCreate) -> DeviceGroup: ...
+
+    async def update_group(
+        self, group_id: str, params: DeviceGroupUpdate
+    ) -> DeviceGroup: ...
+
+    async def delete_group(self, group_id: str) -> None: ...
 
     # -- devices --
 

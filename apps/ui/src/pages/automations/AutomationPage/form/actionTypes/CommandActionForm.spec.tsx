@@ -64,6 +64,10 @@ const { mockedGetTemplate } = vi.hoisted(() => ({
 vi.mock("@/contexts/GridoneClientContext", () => ({
   useGridoneClient: () => ({
     devices: {
+      groups: {
+        get: () =>
+          Promise.resolve({ id: "group", name: "East", device_ids: [] }),
+      },
       listAttributes: () =>
         Promise.resolve({ total_devices: 0, attributes: [] }),
       commandTemplates: {
@@ -93,9 +97,18 @@ vi.mock("@/components/forms/resourcePickers/CommandTemplatePicker", () => ({
 vi.mock("@/pages/devices/commands/new/CommandWizard", () => ({
   CommandWizard: ({
     dispatchSubmit,
+    wizard,
   }: {
+    wizard: { values: { targetFilter: unknown } };
     dispatchSubmit: { label: string };
-  }) => <div data-testid="wizard">wizard:{dispatchSubmit.label}</div>,
+  }) => (
+    <div data-testid="wizard">
+      wizard:{dispatchSubmit.label}
+      <output data-testid="target-filter">
+        {JSON.stringify(wizard.values.targetFilter)}
+      </output>
+    </div>
+  ),
 }));
 
 import { CommandActionForm } from "./CommandActionForm";
@@ -165,5 +178,28 @@ describe("CommandActionForm", () => {
       expect(screen.getByTestId("wizard")).toBeInTheDocument(),
     );
     expect(screen.queryByTestId("picker")).not.toBeInTheDocument();
+  });
+});
+
+it("preserves a group's dynamic reference and intersecting filters when editing an automation", async () => {
+  mockedGetTemplate.mockResolvedValue({
+    ...ephemeralTemplate,
+    target: { group_id: "group", ids: ["d1"], tags: { floor: ["east"] } },
+  });
+  render(
+    <CommandActionForm
+      initialValue={{
+        provider_id: "command_template",
+        params: { template_id: "t-eph" },
+      }}
+      onChange={() => {}}
+    />,
+    { wrapper },
+  );
+  const output = await screen.findByTestId("target-filter");
+  expect(JSON.parse(output.textContent!)).toMatchObject({
+    groupId: "group",
+    ids: ["d1"],
+    tags: { floor: ["east"] },
   });
 });

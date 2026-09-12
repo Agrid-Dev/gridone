@@ -28,6 +28,25 @@ if TYPE_CHECKING:
     from models.targets import TargetResolver
 
 
+def resolve_devices(
+    dm: DevicesServiceInterface, devices: DevicesFilter
+) -> list[Device]:
+    """Resolve group membership before forwarding supported device filters.
+
+    Explicit IDs and other criteria intersect the current group. An empty
+    group stays an explicit empty set; an unknown reference raises.
+    """
+    kwargs = devices.model_dump(exclude_none=True, exclude={"group_id"})
+    if devices.group_id is not None:
+        group = dm.get_group(devices.group_id)
+        kwargs["ids"] = [
+            item
+            for item in group.device_ids
+            if devices.ids is None or item in devices.ids
+        ]
+    return dm.list_devices(**kwargs)
+
+
 def compute_attribute_coverage(devices: list[Device]) -> list[AttributeCoverage]:
     """Report every attribute exposed across *devices*, with coverage counts."""
     by_name: dict[str, list[Device]] = {}
@@ -111,10 +130,25 @@ class CompositeTargetResolver:
         devices — for a caller that needs device data beyond the id (e.g.
         current attribute values), sparing it a second ``list_devices`` scan.
         """
-        devices = self._dm.list_devices(**target.devices.model_dump(exclude_none=True))
+        devices = resolve_devices(self._dm, target.devices)
         exposing = [
             d for d in devices if _exposes(d, target.attribute, writable=writable)
         ]
+        if not devices and target.devices.group_id is not None:
+            group = self._dm.get_group(target.devices.group_id)
+            driver = self._dm.get_driver(group.driver_id)
+            attribute = next(
+                (a for a in driver.attributes if a.name == target.attribute), None
+            )
+            if attribute is None or (writable and attribute.write is None):
+                msg = "Group driver does not expose the requested attribute"
+                raise InvalidError(msg)
+            return ResolvedTarget(
+                attribute=target.attribute,
+                device_ids=[],
+                data_type=attribute.data_type,
+                excluded_device_ids=[],
+            ), []
         if not exposing:
             qualifier = " as writable" if writable else ""
             msg = f"No device in the target exposes '{target.attribute}'{qualifier}"
@@ -134,7 +168,7 @@ class CompositeTargetResolver:
     async def list_attribute_coverage(
         self, devices: DevicesFilter
     ) -> list[AttributeCoverage]:
-        matched = self._dm.list_devices(**devices.model_dump(exclude_none=True))
+        matched = resolve_devices(self._dm, devices)
         return compute_attribute_coverage(matched)
 
 

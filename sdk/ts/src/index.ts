@@ -36,6 +36,7 @@ export { CommandTemplatesResource } from "./resources/commandTemplates";
 export type { CommandTemplateListParams } from "./resources/commandTemplates";
 export { DashboardsResource } from "./resources/dashboards";
 export type { WidgetSchemas } from "./resources/dashboards";
+export { DeviceGroupsResource } from "./resources/deviceGroups";
 export { DevicesResource } from "./resources/devices";
 export type {
   CommandListParams,
