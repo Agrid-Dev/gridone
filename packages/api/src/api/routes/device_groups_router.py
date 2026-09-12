@@ -97,6 +97,7 @@ async def list_device_group_references(
 
 @router.get(
     "/{group_id}/presentation",
+    response_model_exclude_none=True,
     dependencies=[Depends(require_permission(Permission.DEVICES_READ))],
 )
 async def get_group_presentation(

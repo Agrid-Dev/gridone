@@ -561,7 +561,7 @@
   },
   "groups": {
     "title": "Groupes",
-    "caption": "Des groupes nommés d’équipements utilisant le même driver.",
+    "caption": "Pilotez plusieurs équipements en une seule commande.",
     "create": "Créer un groupe",
     "edit": "Modifier le groupe",
     "delete": "Supprimer le groupe",
@@ -630,6 +630,23 @@
     "previewDescription_other": "{{attribute}} → {{value}} · {{count}} destinataires",
     "previewDescription_one": "{{attribute}} → {{value}} · {{count}} destinataire",
     "apply_other": "Appliquer à {{count}} équipements",
-    "apply_one": "Appliquer à {{count}} équipement"
+    "apply_one": "Appliquer à {{count}} équipement",
+    "formCaption": "Définissez votre groupe et choisissez les équipements à piloter ensemble.",
+    "information": "Informations du groupe",
+    "informationHint": "Un nom et une description pour le retrouver facilement.",
+    "namePlaceholder": "Ex. Thermostats du 1er étage",
+    "descriptionPlaceholder": "Étage, usage, zone concernée…",
+    "optional": "(facultatif)",
+    "driverHint": "Le driver détermine les équipements compatibles et les commandes disponibles.",
+    "driverFixed": "Tous les membres partagent ce driver. Il est défini à la création du groupe.",
+    "membersHint": "Sélectionnez les équipements qui feront partie de ce groupe.",
+    "chooseDriverHint": "Les équipements compatibles apparaîtront ici pour composer votre groupe.",
+    "searchGroups": "Rechercher un groupe…",
+    "equipmentCount_one": "{{count}} équipement",
+    "equipmentCount_other": "{{count}} équipements",
+    "selectedCount_one": "{{count}} sélectionné",
+    "selectedCount_other": "{{count}} sélectionnés",
+    "selectedEquipment_one": "{{count}} équipement sélectionné",
+    "selectedEquipment_other": "{{count}} équipements sélectionnés"
   }
 }

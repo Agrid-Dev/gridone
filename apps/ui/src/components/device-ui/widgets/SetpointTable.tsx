@@ -193,17 +193,7 @@ function DemandedControl({
   if (!state) return null;
   return (
     <div className="space-y-1">
-      {runtime.chooseValue &&
-      (state.displayed === null || state.constraints.unknown) ? (
-        <button
-          type="button"
-          className="rounded-md border px-3 py-2"
-          disabled={!state.writable}
-          onClick={() => runtime.chooseValue?.(id)}
-        >
-          {state.valueLabel ?? label}
-        </button>
-      ) : state.spec.kind === "number" ? (
+      {state.spec.kind === "number" ? (
         <NumberStepper id={id} state={state} runtime={runtime} label={label} />
       ) : state.spec.kind === "slider" ? (
         <NumberSlider id={id} state={state} runtime={runtime} label={label} />

@@ -15,13 +15,14 @@ from devices_manager.dto.presentation_dto import AvailablePresentationResponse
 
 
 @pytest.mark.parametrize(
-    ("resource", "method"),
+    ("resource", "prefix", "method"),
     [
-        ("devices", "get_device_presentation"),
-        ("drivers", "get_driver_presentation_response"),
+        ("devices", "devices", "get_device_presentation"),
+        ("drivers", "drivers", "get_driver_presentation_response"),
+        ("device_groups", "devices/groups", "get_driver_presentation_response"),
     ],
 )
-def test_http_document_omits_nullable_model_defaults(resource, method):
+def test_http_document_omits_nullable_model_defaults(resource, prefix, method):
     document = PresentationV1.model_validate(
         {
             "schema_version": 1,
@@ -67,9 +68,9 @@ def test_http_document_omits_nullable_model_defaults(resource, method):
         for dependency in route.dependencies:
             app.dependency_overrides[dependency.dependency] = lambda: None
     app.dependency_overrides[get_device_manager] = lambda: dm
-    app.include_router(router, prefix=f"/{resource}")
+    app.include_router(router, prefix=f"/{prefix}")
     with TestClient(app) as client:
-        response = client.get(f"/{resource}/example/presentation")
+        response = client.get(f"/{prefix}/example/presentation")
     assert response.status_code == 200
     children = response.json()["document"]["page"]["children"]
     assert children[0] == {"kind": "attributes"}

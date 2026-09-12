@@ -561,7 +561,7 @@
   },
   "groups": {
     "title": "Groups",
-    "caption": "Named groups of devices sharing the same driver.",
+    "caption": "Control several devices with a single command.",
     "create": "Create group",
     "edit": "Edit group",
     "delete": "Delete group",
@@ -630,6 +630,23 @@
     "previewDescription_other": "{{attribute}} → {{value}} · {{count}} recipients",
     "previewDescription_one": "{{attribute}} → {{value}} · {{count}} recipient",
     "apply_other": "Apply to {{count}} devices",
-    "apply_one": "Apply to {{count}} device"
+    "apply_one": "Apply to {{count}} device",
+    "formCaption": "Define your group and choose the devices to control together.",
+    "information": "Group information",
+    "informationHint": "A name and description to find it easily.",
+    "namePlaceholder": "E.g. First-floor thermostats",
+    "descriptionPlaceholder": "Floor, purpose, area…",
+    "optional": "(optional)",
+    "driverHint": "The driver determines compatible devices and available commands.",
+    "driverFixed": "All members share this driver. It is set when the group is created.",
+    "membersHint": "Select the devices to include in this group.",
+    "chooseDriverHint": "Compatible devices will appear here to build your group.",
+    "searchGroups": "Search groups…",
+    "equipmentCount_one": "{{count}} device",
+    "equipmentCount_other": "{{count}} devices",
+    "selectedCount_one": "{{count}} selected",
+    "selectedCount_other": "{{count}} selected",
+    "selectedEquipment_one": "{{count}} device selected",
+    "selectedEquipment_other": "{{count}} devices selected"
   }
 }
