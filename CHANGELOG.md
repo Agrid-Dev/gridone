@@ -1,3 +1,9 @@
+## v0.237.3 (2026-09-12)
+
+### Fix
+
+- **requests**: trailing slash on discovery collection routes
+
 ## v0.237.2 (2026-09-11)
 
 ### Fix
