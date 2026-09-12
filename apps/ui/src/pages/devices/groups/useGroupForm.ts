@@ -32,6 +32,7 @@ export function useGroupForm(group?: DeviceGroup) {
     },
   });
   const driverId = form.watch("driver_id");
+  const selectedCount = form.watch("device_ids").length;
   const { devices, loading, error: devicesError } = useDevicesList();
   const drivers = useQuery({
     queryKey: ["drivers"],
@@ -62,6 +63,9 @@ export function useGroupForm(group?: DeviceGroup) {
   });
   return {
     form,
+    driverId,
+    selectedCount,
+    selectedDriver: drivers.data?.find((driver) => driver.id === driverId),
     search,
     setSearch,
     compatible,

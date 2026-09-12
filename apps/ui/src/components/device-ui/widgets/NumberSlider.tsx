@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { BoundControlState, DeviceUiRuntime } from "../runtime";
 import { decimalsOf, sliderRange } from "../runtime/controls";
 import { formatNumber } from "./formatters";
+import { ControlValue } from "./ControlValue";
 
 /** A native, keyboard-accessible range; drag intentions use the shared debounce. */
 export function NumberSlider({
@@ -30,7 +31,7 @@ export function NumberSlider({
           range ? decimalsOf(range.step) : undefined,
           i18n.language,
         )
-      : t("presentation.unavailable");
+      : (state.valueLabel ?? t("presentation.unavailable"));
   const text =
     displayed !== null && state.attribute?.unit
       ? `${value} ${state.attribute.unit}`
@@ -56,7 +57,13 @@ export function NumberSlider({
         htmlFor={inputId}
         className="min-w-16 text-right text-sm font-medium tabular-nums"
       >
-        {text}
+        <ControlValue
+          id={id}
+          state={state}
+          runtime={runtime}
+          label={label}
+          text={text}
+        />
       </output>
     </div>
   );
