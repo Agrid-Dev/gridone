@@ -274,6 +274,8 @@
       "label": "Global search",
       "placeholder": "Search a device, a zone, a fault…",
       "description": "Search and open a device, a zone or a fault.",
+      "moreDevices_one": "{{count}} more matching device. Refine your search to see it.",
+      "moreDevices_other": "{{count}} more matching devices. Refine your search to see them.",
       "empty": "No results",
       "loading": "Loading…",
       "groups": {

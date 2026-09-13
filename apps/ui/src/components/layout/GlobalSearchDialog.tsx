@@ -1,14 +1,14 @@
-import { useMemo } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Cpu } from "lucide-react";
 import { useAssetTree } from "@/hooks/useAssetTree";
 import { useDevicesList } from "@/hooks/useDevicesList";
+import { useDeviceSearch } from "@/hooks/useDeviceSearch";
 import { useFaultsList } from "@/hooks/useFaultsList";
 import { ancestorPathOf } from "@/lib/assets";
 import { deviceTypeIcon } from "@/lib/deviceTypes";
 import { faultLabel } from "@/lib/faultLabel";
-import { sortedByName } from "@/lib/sortByName";
+import { filterGlobalSearch } from "@/lib/deviceSearch";
 import { FaultSeverityIcon } from "@/components/FaultSeverityIcon";
 import {
   CommandDialog,
@@ -44,40 +44,64 @@ export function GlobalSearchDialog({
   const { devices, loading: devicesLoading } = useDevicesList();
   const { faults, loading: faultsLoading } = useFaultsList();
 
-  const sortedDevices = useMemo(() => sortedByName(devices), [devices]);
+  const deviceSearch = useDeviceSearch(devices);
   const isLoading = assetsLoading || devicesLoading || faultsLoading;
 
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) deviceSearch.setQuery("");
+    onOpenChange(nextOpen);
+  };
+
   const goTo = (path: string) => {
-    onOpenChange(false);
+    handleOpenChange(false);
     navigate(path);
   };
 
   return (
     <CommandDialog
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={handleOpenChange}
       label={t("topbar.search.label")}
       description={t("topbar.search.description")}
+      filter={filterGlobalSearch}
     >
-      <CommandInput placeholder={t("topbar.search.placeholder")} />
+      <CommandInput
+        placeholder={t("topbar.search.placeholder")}
+        value={deviceSearch.query}
+        onValueChange={deviceSearch.setQuery}
+      />
       <CommandList>
         <CommandEmpty>
           {isLoading ? t("topbar.search.loading") : t("topbar.search.empty")}
         </CommandEmpty>
-        <CommandGroup heading={t("topbar.search.groups.devices")}>
-          {sortedDevices.map((device) => {
+        <CommandGroup
+          heading={
+            <>
+              {t("topbar.search.groups.devices")}
+              {deviceSearch.overflow > 0 && (
+                <span className="mt-1 block font-normal">
+                  {t("topbar.search.moreDevices", {
+                    count: deviceSearch.overflow,
+                  })}
+                </span>
+              )}
+            </>
+          }
+        >
+          {deviceSearch.devices.map((device) => {
             const Icon = deviceTypeIcon(device.type) ?? Cpu;
             return (
               <CommandItem
                 key={device.id}
-                value={`${device.name} ${device.id}`}
+                value={`device:${device.name ?? ""} ${device.id}`}
+                keywords={[device.name ?? "", device.id]}
                 onSelect={() => goTo(`/devices/${device.id}`)}
               >
                 <Icon
                   aria-hidden
                   className="h-4 w-4 shrink-0 text-muted-foreground"
                 />
-                <span className="truncate">{device.name}</span>
+                <span className="truncate">{device.name || device.id}</span>
               </CommandItem>
             );
           })}
