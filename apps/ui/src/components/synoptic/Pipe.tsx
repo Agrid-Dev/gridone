@@ -1,5 +1,5 @@
 import type { Fluid } from "@gridone/sdk";
-import { FLUID_FILL_CLASS, FLUID_STROKE_CLASS } from "@/lib/fluidColors";
+import { fluidFillClass, fluidStrokeClass } from "@/lib/fluidColors";
 import { arrowHead, roundedPath, unit } from "./geometry";
 import type { Pt } from "./types";
 
@@ -38,17 +38,20 @@ export function Pipe({
   const last = points.length - 1;
   const arrows: string[] = [];
 
-  // Both directions come from the untouched waypoints: capping one end
-  // must not move the point the other end is measured against.
+  /** Arrow head at `tipIdx`, pulled back along the end segment so the
+   *  stroke does not poke past it. Directions come from the untouched
+   *  waypoints so capping one end cannot move the point the other end is
+   *  measured against. A segment shorter than the head gets no head: the
+   *  pull-back would otherwise run the line past its own origin. */
   const cap = (tipIdx: number, prevIdx: number) => {
     const tip = points[tipIdx];
-    const u = unit(points[prevIdx], tip);
+    const prev = points[prevIdx];
+    const segLen = Math.hypot(tip.x - prev.x, tip.y - prev.y);
+    if (segLen < ARROW_LEN) return;
+    const u = unit(prev, tip);
     arrows.push(arrowHead(tip, u, ARROW_LEN, ARROW_W));
-    // pull the line back so the stroke doesn't poke past the arrow head
-    pts[tipIdx] = {
-      x: tip.x - u.x * (ARROW_LEN - 3),
-      y: tip.y - u.y * (ARROW_LEN - 3),
-    };
+    const pull = Math.min(ARROW_LEN - 3, segLen / 2);
+    pts[tipIdx] = { x: tip.x - u.x * pull, y: tip.y - u.y * pull };
   };
   if (endArrow) cap(last, last - 1);
   if (startArrow) cap(0, 1);
@@ -60,10 +63,10 @@ export function Pipe({
         d={d}
         fill="none"
         strokeWidth={width}
-        className={FLUID_STROKE_CLASS[fluid]}
+        className={fluidStrokeClass(fluid)}
       />
       {arrows.map((a, i) => (
-        <polygon key={i} points={a} className={FLUID_FILL_CLASS[fluid]} />
+        <polygon key={i} points={a} className={fluidFillClass(fluid)} />
       ))}
       {flowing && (
         <path

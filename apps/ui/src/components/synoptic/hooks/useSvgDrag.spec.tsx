@@ -44,29 +44,40 @@ describe("clientToSvg", () => {
 });
 
 function Draggable(props: Parameters<typeof useSvgDrag>[0]) {
-  const onPointerDown = useSvgDrag(props);
+  const drag = useSvgDrag(props);
   return (
     <svg>
-      <rect data-testid="handle" onPointerDown={onPointerDown} />
+      <rect data-testid="handle" {...drag} />
     </svg>
   );
 }
 
-describe("useSvgDrag", () => {
-  it("reports start, per-move deltas and end in viewBox units", () => {
-    stubScreenCtm(2);
-    const onStart = vi.fn();
-    const onMove = vi.fn();
-    const onEnd = vi.fn();
-    const { getByTestId } = render(
-      <Draggable onStart={onStart} onMove={onMove} onEnd={onEnd} />,
-    );
-    const handle = getByTestId("handle");
+const DOWN = { button: 0, pointerId: 1, clientX: 20, clientY: 40 };
 
-    fireEvent.pointerDown(handle, { button: 0, clientX: 20, clientY: 40 });
-    fireEvent.pointerMove(window, { clientX: 30, clientY: 40 });
-    fireEvent.pointerMove(window, { clientX: 50, clientY: 60 });
-    fireEvent.pointerUp(window, { clientX: 50, clientY: 60 });
+function setup(props: Partial<Parameters<typeof useSvgDrag>[0]> = {}) {
+  stubScreenCtm(2);
+  const spies = {
+    onStart: vi.fn(),
+    onMove: vi.fn(),
+    onEnd: vi.fn(),
+    onCancel: vi.fn(),
+  };
+  const utils = render(<Draggable {...spies} {...props} />);
+  return { ...spies, ...utils, handle: utils.getByTestId("handle") };
+}
+
+describe("useSvgDrag", () => {
+  it("keeps the browser from scrolling the handle", () => {
+    const { handle } = setup();
+    expect(handle.style.touchAction).toBe("none");
+  });
+
+  it("reports start, per-move deltas and end in viewBox units", () => {
+    const { handle, onStart, onMove, onEnd } = setup();
+    fireEvent.pointerDown(handle, DOWN);
+    fireEvent.pointerMove(window, { pointerId: 1, clientX: 30, clientY: 40 });
+    fireEvent.pointerMove(window, { pointerId: 1, clientX: 50, clientY: 60 });
+    fireEvent.pointerUp(window, { pointerId: 1, clientX: 50, clientY: 60 });
 
     expect(onStart).toHaveBeenCalledWith({ x: 10, y: 20 });
     expect(onMove).toHaveBeenNthCalledWith(
@@ -83,38 +94,57 @@ describe("useSvgDrag", () => {
     );
     expect(onEnd).toHaveBeenCalledWith({ x: 25, y: 30 });
 
-    fireEvent.pointerMove(window, { clientX: 99, clientY: 99 });
+    fireEvent.pointerMove(window, { pointerId: 1, clientX: 99, clientY: 99 });
     expect(onMove).toHaveBeenCalledTimes(2);
   });
 
-  it("ends the drag on pointercancel", () => {
-    stubScreenCtm(1);
-    const onMove = vi.fn();
-    const onEnd = vi.fn();
-    const { getByTestId } = render(<Draggable onMove={onMove} onEnd={onEnd} />);
-    fireEvent.pointerDown(getByTestId("handle"), { button: 0 });
-    fireEvent.pointerCancel(window, { clientX: 3, clientY: 4 });
-    fireEvent.pointerMove(window, { clientX: 9, clientY: 9 });
-    expect(onEnd).toHaveBeenCalledWith({ x: 3, y: 4 });
+  it("ignores every pointer but the one that started the drag", () => {
+    const { handle, onMove, onEnd } = setup();
+    fireEvent.pointerDown(handle, DOWN);
+    fireEvent.pointerMove(window, { pointerId: 2, clientX: 90, clientY: 90 });
+    fireEvent.pointerUp(window, { pointerId: 2, clientX: 90, clientY: 90 });
+    expect(onMove).not.toHaveBeenCalled();
+    expect(onEnd).not.toHaveBeenCalled();
+
+    fireEvent.pointerUp(window, { pointerId: 1, clientX: 30, clientY: 40 });
+    expect(onEnd).toHaveBeenCalledWith({ x: 15, y: 20 });
+  });
+
+  it("reverts on pointercancel instead of committing", () => {
+    const { handle, onMove, onEnd, onCancel } = setup();
+    fireEvent.pointerDown(handle, DOWN);
+    fireEvent.pointerCancel(window, { pointerId: 1, clientX: 3, clientY: 4 });
+    fireEvent.pointerMove(window, { pointerId: 1, clientX: 9, clientY: 9 });
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(onEnd).not.toHaveBeenCalled();
     expect(onMove).not.toHaveBeenCalled();
   });
 
-  it("drops the listeners when the component unmounts mid-drag", () => {
-    stubScreenCtm(1);
-    const onMove = vi.fn();
-    const { getByTestId, unmount } = render(<Draggable onMove={onMove} />);
-    fireEvent.pointerDown(getByTestId("handle"), { button: 0 });
+  it("cancels a drag in progress when another pointer starts one", () => {
+    const { handle, onStart, onCancel, onEnd } = setup();
+    fireEvent.pointerDown(handle, DOWN);
+    fireEvent.pointerDown(handle, { ...DOWN, pointerId: 2 });
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(onStart).toHaveBeenCalledTimes(2);
+
+    fireEvent.pointerUp(window, { pointerId: 1, clientX: 30, clientY: 40 });
+    expect(onEnd).not.toHaveBeenCalled();
+    fireEvent.pointerUp(window, { pointerId: 2, clientX: 30, clientY: 40 });
+    expect(onEnd).toHaveBeenCalledWith({ x: 15, y: 20 });
+  });
+
+  it("cancels the drag when the component unmounts", () => {
+    const { handle, onMove, onCancel, unmount } = setup();
+    fireEvent.pointerDown(handle, DOWN);
     unmount();
-    fireEvent.pointerMove(window, { clientX: 9, clientY: 9 });
+    fireEvent.pointerMove(window, { pointerId: 1, clientX: 9, clientY: 9 });
+    expect(onCancel).toHaveBeenCalledTimes(1);
     expect(onMove).not.toHaveBeenCalled();
   });
 
   it("ignores buttons other than the primary one", () => {
-    stubScreenCtm(1);
-    const onMove = vi.fn();
-    const { getByTestId } = render(<Draggable onMove={onMove} />);
-    fireEvent.pointerDown(getByTestId("handle"), { button: 2 });
-    fireEvent.pointerMove(window, { clientX: 5, clientY: 5 });
-    expect(onMove).not.toHaveBeenCalled();
+    const { handle, onStart } = setup();
+    fireEvent.pointerDown(handle, { ...DOWN, button: 2 });
+    expect(onStart).not.toHaveBeenCalled();
   });
 });

@@ -43,10 +43,10 @@ export function RadialGauge({
   majorTicks = 5,
   decimals = 0,
 }: RadialGaugeProps) {
-  const clamped = Math.min(max, Math.max(min, value));
+  const outOfRange = !(value >= min && value <= max);
   const angle = (v: number) =>
     DIAL_START_DEG + DIAL_SWEEP_DEG * fraction(v, min, max);
-  const needleA = angle(clamped);
+  const needleA = angle(value);
   const tip = polar(cx, cy, r * 0.72, needleA);
   const b1 = polar(cx, cy, r * 0.08, needleA + 90);
   const b2 = polar(cx, cy, r * 0.08, needleA - 90);
@@ -98,7 +98,7 @@ export function RadialGauge({
               fontSize={r * 0.13}
               className="fill-muted-foreground"
             >
-              {Math.round(v)}
+              {v.toFixed(decimals)}
             </text>
           </g>
         );
@@ -114,9 +114,9 @@ export function RadialGauge({
         textAnchor="middle"
         fontSize={r * 0.19}
         fontWeight={600}
-        className="fill-foreground"
+        className={outOfRange ? SEMANTIC_FILL_CLASS.error : "fill-foreground"}
       >
-        {clamped.toFixed(decimals)}
+        {value.toFixed(decimals)}
         {unit ? ` ${unit}` : ""}
       </text>
       {label && (

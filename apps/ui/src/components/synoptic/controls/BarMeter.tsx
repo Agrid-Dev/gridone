@@ -30,10 +30,9 @@ export function BarMeter({
   unit,
   decimals = 1,
 }: BarMeterProps) {
-  const clamped = Math.min(max, Math.max(min, value));
-  const fillH = (h - 4) * fraction(value, min, max);
   /** Bar y for a value, clamped to the scale. */
   const toY = (v: number) => y + h - 2 - (h - 4) * fraction(v, min, max);
+  const outOfRange = !(value >= min && value <= max);
   const ticks = 5;
   return (
     <g>
@@ -47,14 +46,14 @@ export function BarMeter({
       />
       <rect
         x={x + 2}
-        y={toY(clamped)}
+        y={toY(value)}
         width={w - 4}
-        height={fillH}
+        height={toY(min) - toY(value)}
         className="fill-primary"
       />
       {Array.from({ length: ticks + 1 }, (_, i) => {
-        const ty = y + h - (h * i) / ticks;
         const tv = min + ((max - min) * i) / ticks;
+        const ty = toY(tv);
         return (
           <g key={i}>
             <line
@@ -72,7 +71,7 @@ export function BarMeter({
               fontSize={11}
               className="fill-muted-foreground"
             >
-              {Math.round(tv)}
+              {tv.toFixed(decimals)}
             </text>
           </g>
         );
@@ -89,9 +88,9 @@ export function BarMeter({
         textAnchor="middle"
         fontSize={14}
         fontWeight={600}
-        className="fill-foreground"
+        className={outOfRange ? SEMANTIC_FILL_CLASS.error : "fill-foreground"}
       >
-        {clamped.toFixed(decimals)}
+        {value.toFixed(decimals)}
         {unit ? ` ${unit}` : ""}
       </text>
       {label && (

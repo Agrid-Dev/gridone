@@ -37,7 +37,7 @@ export type { Alarm } from "./controls/AlarmBanner";
 
 export { useSvgDrag, clientToSvg } from "./hooks/useSvgDrag";
 
-export { fmt, airLine } from "./format";
+export { airLine } from "./format";
 export {
   CoilGlyph,
   FanGlyph,

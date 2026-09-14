@@ -36,9 +36,9 @@ export function arrowHead(tip: Pt, u: Pt, len: number, width: number): string {
 }
 
 /** Position of `value` inside [min, max], clamped to [0, 1]; 0 when the
- *  range is empty. */
+ *  range is empty or the value is not a number. */
 export function fraction(value: number, min: number, max: number): number {
-  if (!(max > min)) return 0;
+  if (!(max > min) || Number.isNaN(value)) return 0;
   return Math.min(1, Math.max(0, (value - min) / (max - min)));
 }
 

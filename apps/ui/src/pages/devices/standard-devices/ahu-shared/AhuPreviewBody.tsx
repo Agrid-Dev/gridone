@@ -1,7 +1,7 @@
 import { Fan } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { lookupSemanticColor, SEMANTIC_TEXT_CLASS } from "@/lib/semanticColors";
-import { fmt } from "@/components/synoptic";
+import { fmt } from "@/lib/formatValue";
 import { useAhuSynopticLabel } from "./labels";
 
 type AhuPreviewBodyProps = {

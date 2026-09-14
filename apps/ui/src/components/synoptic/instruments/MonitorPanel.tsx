@@ -14,6 +14,11 @@ type MonitorPanelProps = {
 };
 
 const SQ = 24;
+const PAD = 10;
+const LABEL_W = 30;
+const UNIT_W = 50;
+/** Narrower than this the label, box and unit columns cannot fit. */
+const MIN_W = PAD + LABEL_W + UNIT_W + 20;
 const ROW_H = 33;
 
 /** Height of a panel for a given number of rows (useful to anchor instrument links). */
@@ -34,18 +39,28 @@ export function MonitorPanel({
   w = 162,
 }: MonitorPanelProps) {
   const h = monitorPanelHeight(rows.length);
+  // Everything after the label is laid out from the width: the value box
+  // takes what the label and unit columns leave, indicators past the right
+  // edge are not drawn.
+  const width = Math.max(w, MIN_W);
+  const boxX = x + PAD + LABEL_W;
+  const boxW = width - PAD - LABEL_W - UNIT_W;
+  const shownStatuses = statuses.slice(
+    0,
+    Math.floor((width - 2 * PAD + 5) / (SQ + 5)),
+  );
   return (
     <g>
       <rect
         x={x}
         y={y}
-        width={w}
+        width={width}
         height={h}
         strokeWidth={1.5}
         className="fill-card stroke-border"
       />
       <text
-        x={x + w / 2}
+        x={x + width / 2}
         y={y + 18}
         textAnchor="middle"
         dominantBaseline="central"
@@ -54,10 +69,10 @@ export function MonitorPanel({
       >
         {title}
       </text>
-      {statuses.map((s, i) => (
+      {shownStatuses.map((s, i) => (
         <rect
           key={i}
-          x={x + 10 + i * (SQ + 5)}
+          x={x + PAD + i * (SQ + 5)}
           y={y + 34}
           width={SQ}
           height={SQ}
@@ -71,7 +86,7 @@ export function MonitorPanel({
         return (
           <g key={i}>
             <text
-              x={x + 10}
+              x={x + PAD}
               y={cy}
               dominantBaseline="central"
               fontSize={15}
@@ -80,15 +95,15 @@ export function MonitorPanel({
               {row.label}
             </text>
             <rect
-              x={x + 40}
+              x={boxX}
               y={cy - 13}
-              width={72}
+              width={boxW}
               height={26}
               strokeWidth={1.5}
               className="fill-background stroke-border"
             />
             <text
-              x={x + 40 + 36}
+              x={boxX + boxW / 2}
               y={cy}
               textAnchor="middle"
               dominantBaseline="central"
@@ -98,7 +113,7 @@ export function MonitorPanel({
               {row.value}
             </text>
             <text
-              x={x + 118}
+              x={x + width - UNIT_W + 6}
               y={cy}
               dominantBaseline="central"
               fontSize={13.5}

@@ -3,8 +3,11 @@ import {
   attributeValueChartColor,
   lookupSemanticColor,
   semanticChartColor,
+  SEMANTIC_FILL_CLASS,
+  SEMANTIC_STROKE_CLASS,
   SEMANTIC_TEXT_CLASS,
   SEVERITY_LEVEL,
+  type SemanticColor,
 } from "./semanticColors";
 
 describe("semantic colour registry", () => {
@@ -38,6 +41,14 @@ describe("semantic colour registry", () => {
       "hsl(var(--hvac-heat))",
     );
     expect(semanticChartColor("ok")).toBe("hsl(var(--status-ok))");
+  });
+
+  it("keeps the SVG fill and stroke classes on the same token as the text class", () => {
+    for (const token of Object.keys(SEMANTIC_TEXT_CLASS) as SemanticColor[]) {
+      const colour = SEMANTIC_TEXT_CLASS[token].replace(/^text-/, "");
+      expect(SEMANTIC_FILL_CLASS[token]).toBe(`fill-${colour}`);
+      expect(SEMANTIC_STROKE_CLASS[token]).toBe(`stroke-${colour}`);
+    }
   });
 
   it("keeps every severity mapped to an inline text class", () => {

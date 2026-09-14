@@ -32,3 +32,18 @@ export const FLUID_FILL_CLASS: Record<Fluid, string> = {
   condenser_supply: "fill-fluid-condenser-supply",
   condenser_return: "fill-fluid-condenser-return",
 };
+
+/** A fluid the generated types predate is drawn as primary supply rather
+ *  than not at all, and named in the console in development. */
+function lookup(map: Record<Fluid, string>, fluid: Fluid): string {
+  const cls = map[fluid];
+  if (cls) return cls;
+  if (import.meta.env.DEV) {
+    console.warn(`Unknown fluid "${fluid}", drawn as primary supply`);
+  }
+  return map.primary_supply;
+}
+
+export const fluidStrokeClass = (fluid: Fluid) =>
+  lookup(FLUID_STROKE_CLASS, fluid);
+export const fluidFillClass = (fluid: Fluid) => lookup(FLUID_FILL_CLASS, fluid);

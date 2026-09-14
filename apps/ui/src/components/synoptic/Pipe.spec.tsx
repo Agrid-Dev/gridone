@@ -2,45 +2,82 @@ import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { Pipe } from "./Pipe";
 
-const SHORT = [
+function draw(props: Omit<Parameters<typeof Pipe>[0], "fluid">) {
+  const { container } = render(
+    <svg>
+      <Pipe fluid="dhw" {...props} />
+    </svg>,
+  );
+  return {
+    g: container.querySelector("g")!,
+    paths: [...container.querySelectorAll("path")].map((p) =>
+      p.getAttribute("d"),
+    ),
+    arrows: [...container.querySelectorAll("polygon")].map((p) =>
+      p.getAttribute("points"),
+    ),
+  };
+}
+
+const RUN = [
   { x: 0, y: 0 },
   { x: 100, y: 0 },
 ];
 
-describe("Pipe", () => {
-  it("points both arrows outward on a short run", () => {
-    const { container } = render(
-      <svg>
-        <Pipe points={SHORT} fluid="dhw" startArrow endArrow />
-      </svg>,
-    );
-    const tips = [...container.querySelectorAll("polygon")].map(
-      (p) => p.getAttribute("points")?.split(" ")[0],
-    );
-    expect(tips).toEqual(["100,0", "0,0"]);
-    expect(container.querySelector("path")?.getAttribute("d")).toBe(
-      "M 14 0 L 86 0",
-    );
+describe("Pipe arrows", () => {
+  it("points each head outward and pulls the line back behind it", () => {
+    const { paths, arrows } = draw({
+      points: RUN,
+      startArrow: true,
+      endArrow: true,
+    });
+    expect(arrows).toEqual(["100,0 83,8 83,-8", "0,0 17,-8 17,8"]);
+    expect(paths).toEqual(["M 14 0 L 86 0"]);
+  });
+
+  it("keeps both heads outward on a run shorter than two pull-backs", () => {
+    const { paths, arrows } = draw({
+      points: [
+        { x: 0, y: 0 },
+        { x: 20, y: 0 },
+      ],
+      startArrow: true,
+      endArrow: true,
+    });
+    expect(arrows).toEqual(["20,0 3,8 3,-8", "0,0 17,-8 17,8"]);
+    expect(paths).toEqual(["M 10 0 L 10 0"]);
+  });
+
+  it("draws no head on a segment shorter than the head", () => {
+    const { paths, arrows } = draw({
+      points: [
+        { x: 0, y: 0 },
+        { x: 100, y: 0 },
+        { x: 100, y: 8 },
+      ],
+      endArrow: true,
+    });
+    expect(arrows).toEqual([]);
+    expect(paths).toEqual(["M 0 0 L 96 0 Q 100 0 100 4 L 100 8"]);
+  });
+});
+
+describe("Pipe flow state", () => {
+  it("is static and full strength when flow is not given", () => {
+    const { g, paths } = draw({ points: RUN });
+    expect(g.getAttribute("opacity")).toBe("1");
+    expect(paths).toHaveLength(1);
   });
 
   it("draws the flow dash on the capped path, not through the arrow", () => {
-    const { container } = render(
-      <svg>
-        <Pipe points={SHORT} fluid="dhw" endArrow flowing />
-      </svg>,
-    );
-    const paths = container.querySelectorAll("path");
-    expect(paths).toHaveLength(2);
-    expect(paths[1].getAttribute("d")).toBe(paths[0].getAttribute("d"));
+    const { g, paths } = draw({ points: RUN, endArrow: true, flowing: true });
+    expect(g.getAttribute("opacity")).toBe("1");
+    expect(paths).toEqual(["M 0 0 L 86 0", "M 0 0 L 86 0"]);
   });
 
   it("dims a stopped pipe and draws no dash", () => {
-    const { container } = render(
-      <svg>
-        <Pipe points={SHORT} fluid="dhw" flowing={false} />
-      </svg>,
-    );
-    expect(container.querySelector("g")?.getAttribute("opacity")).toBe("0.45");
-    expect(container.querySelectorAll("path")).toHaveLength(1);
+    const { g, paths } = draw({ points: RUN, flowing: false });
+    expect(g.getAttribute("opacity")).toBe("0.45");
+    expect(paths).toHaveLength(1);
   });
 });

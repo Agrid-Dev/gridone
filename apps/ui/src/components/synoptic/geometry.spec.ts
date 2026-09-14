@@ -80,6 +80,10 @@ describe("fraction", () => {
     expect(fraction(500, 0, 100)).toBe(1);
   });
 
+  it("is zero for a reading that is not a number", () => {
+    expect(fraction(Number.NaN, 0, 100)).toBe(0);
+  });
+
   it("is zero on an empty or reversed range", () => {
     expect(fraction(3, 3, 3)).toBe(0);
     expect(fraction(3, 10, 0)).toBe(0);

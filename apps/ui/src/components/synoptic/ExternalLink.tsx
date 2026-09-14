@@ -1,5 +1,5 @@
 import type { Fluid } from "@gridone/sdk";
-import { FLUID_STROKE_CLASS } from "@/lib/fluidColors";
+import { fluidStrokeClass } from "@/lib/fluidColors";
 
 type ExternalLinkProps = {
   /** Top-left of the banner's bounding box. */
@@ -18,7 +18,12 @@ type ExternalLinkProps = {
   label: string | string[];
 };
 
-/** Off-page banner marking a flow coming from / going to another system. */
+/** Off-page banner marking a flow coming from / going to another system.
+ *
+ *  The pointed end is a notch `tip` deep: nearly the full height so the
+ *  point stays sharp, capped at 62 so tall banners do not grow a long nose,
+ *  and at half the width so a narrow banner cannot fold over itself. The
+ *  label is centred on the rectangular part plus half the notch. */
 export function ExternalLink({
   x,
   y,
@@ -28,7 +33,7 @@ export function ExternalLink({
   direction,
   label,
 }: ExternalLinkProps) {
-  const tip = Math.min(h * 0.95, 62);
+  const tip = Math.min(h * 0.95, 62, w / 2);
   const d =
     direction === "in"
       ? `M ${x} ${y} L ${x + w - tip} ${y} L ${x + w} ${y + h / 2} L ${x + w - tip} ${y + h} L ${x} ${y + h} Z`
@@ -44,7 +49,7 @@ export function ExternalLink({
         d={d}
         strokeWidth={4}
         strokeLinejoin="round"
-        className={`fill-synoptic-plate ${FLUID_STROKE_CLASS[fluid]}`}
+        className={`fill-synoptic-plate ${fluidStrokeClass(fluid)}`}
       />
       {lines.map((line, i) => (
         <text
