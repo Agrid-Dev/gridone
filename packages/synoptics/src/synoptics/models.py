@@ -94,6 +94,9 @@ Projection = Literal["isometric", "flat"]
 StaleAfter = Annotated[int, Field(ge=0)]
 """Seconds after which a resolved value is shown as stale."""
 
+DEFAULT_STALE_AFTER: StaleAfter = 900
+"""The service's stale threshold when neither the document nor a binding sets one."""
+
 
 class Fluid(StrEnum):
     """What a pipe carries. Closed vocabulary owned by the format.
@@ -285,7 +288,7 @@ class SynopticDefaults(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    stale_after: StaleAfter | None = None
+    stale_after: StaleAfter = DEFAULT_STALE_AFTER
 
 
 class SynopticDocument(BaseModel):
