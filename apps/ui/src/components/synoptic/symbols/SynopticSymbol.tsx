@@ -2,7 +2,7 @@ import { symbolSchemas, type Cell, type Projection } from "@gridone/sdk";
 import { project, rotateQuarter, type Plane } from "../projection";
 import type { Pt } from "../types";
 import type { SymbolState } from "./Label";
-import { DRAWINGS, INLINE_R } from "./drawings";
+import { DRAWINGS, INLINE_R, type SymbolDrawing } from "./drawings";
 import { Label, LABEL_SIZE } from "./Label";
 import { Body } from "./Body";
 import { circlePts, silhouette, square } from "./extrude";
@@ -71,34 +71,40 @@ export function SynopticSymbol({
     local,
   );
   const base = (origin.z ?? 0) + drawing.base;
+  // An inline glyph sits on the run body-filled so it breaks it; a glyph
+  // with no height does the same on its plane in isometric, so the runs
+  // ending under it stop at its edge. A body with height occludes them
+  // itself, and on the sheet the footprint does it for every other type.
+  const face = schema["x-inline"]
+    ? (drawing.outline?.(centre) ?? circlePts(centre, INLINE_R))
+    : iso && !extruded && drawing.outline
+      ? drawing.outline(centre)
+      : null;
+  const anchor = labelAnchor(drawing, projection, planeAt(top), footprint);
+  const text = label ?? drawing.mark;
 
   return (
     <g>
-      {schema["x-inline"] ? (
-        <PlanPoly
-          plane={planeAt(top)}
-          points={drawing.outline?.(centre) ?? circlePts(centre, INLINE_R)}
-          cls="face"
-        />
-      ) : extruded ? (
-        <Body outline={bodyOutline} z0={base} z1={base + drawing.height} />
-      ) : (
-        !iso && (
-          <PlanPoly plane={planeAt(0)} points={square(0, 0, w, d)} cls="face" />
-        )
+      {!iso && !schema["x-inline"] && (
+        <PlanPoly plane={planeAt(0)} points={square(0, 0, w, d)} cls="face" />
       )}
-      {drawing.plan(planeAt(top), centre, direction, state === "off")}
-      {label && (
+      {extruded && (
+        <Body outline={bodyOutline} z0={base} z1={base + drawing.height} />
+      )}
+      {face && <PlanPoly plane={planeAt(top)} points={face} cls="face" />}
+      {drawing.plan(
+        planeAt(top),
+        centre,
+        direction,
+        state === undefined ? undefined : state === "off",
+      )}
+      {text && (
         <Label
-          text={label}
-          at={planeAt(top)(centre.x, centre.y)}
+          text={text}
+          at={anchor.at}
           onFace={drawing.labelOnFace}
           faceOffsetX={iso ? 8 : 0}
-          lift={
-            iso
-              ? 26 + (drawing.height ? 14 : 0)
-              : project("flat", 0, centre.y).y + 10
-          }
+          lift={anchor.lift}
           led={type === "valve_isolation" ? undefined : state}
           faulty={faulty}
         />
@@ -115,6 +121,24 @@ export function SynopticSymbol({
       )}
     </g>
   );
+}
+
+/** Where the label sits: above the top face in isometric, above the
+ *  footprint's highest edge on the sheet in flat, whichever way it turns. */
+function labelAnchor(
+  drawing: SymbolDrawing,
+  projection: Projection,
+  top: Plane,
+  { w, d }: { w: number; d: number },
+) {
+  const at = top(w / 2, d / 2);
+  if (projection === "isometric") {
+    return { at, lift: 26 + (drawing.height ? 14 : 0) };
+  }
+  const edge = Math.min(
+    ...square(0, 0, w, d).map((corner) => top(corner.x, corner.y).y),
+  );
+  return { at, lift: at.y - edge + 10 };
 }
 
 function Fault({ outline, badge }: { outline: Pt[]; badge: Pt }) {
