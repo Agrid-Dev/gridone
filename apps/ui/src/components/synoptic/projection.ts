@@ -32,7 +32,7 @@ export function project(
 export type Layer = "pipe" | "symbol" | "label";
 
 const LAYER_RANK: Record<Layer, number> = { pipe: 0, symbol: 1, label: 2 };
-const LAYER_COUNT = 3;
+const LAYER_COUNT = Object.keys(LAYER_RANK).length;
 
 /**
  * Painter's order of an element at `cell`: draw ascending.

@@ -14,9 +14,7 @@ export function DepthOrdered({ items }: { items: DepthItem[] }) {
   return (
     <>
       {ordered.map((item) => (
-        <g key={item.id} data-depth={item.depth}>
-          {item.node}
-        </g>
+        <g key={item.id}>{item.node}</g>
       ))}
     </>
   );

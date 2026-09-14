@@ -82,6 +82,35 @@ describe("PidDiagram", () => {
     expect(y + 20 * scale).toBeCloseTo(20, 5);
   });
 
+  it("leaves a plain click alone: no pan, no pointer capture", () => {
+    const capture = vi.spyOn(Element.prototype, "setPointerCapture");
+    const { svg, view } = setup();
+    fireEvent.pointerDown(svg, {
+      button: 0,
+      pointerId: 1,
+      clientX: 20,
+      clientY: 40,
+    });
+    fireEvent.pointerMove(window, { pointerId: 1, clientX: 21, clientY: 41 });
+    fireEvent.pointerUp(window, { pointerId: 1, clientX: 21, clientY: 41 });
+    expect(view()).toEqual({ x: 0, y: 0, scale: 1 });
+    expect(capture).not.toHaveBeenCalled();
+  });
+
+  it("fits again on double click", () => {
+    const { svg, view } = setup();
+    fireEvent.wheel(svg, { deltaY: -100, clientX: 20, clientY: 40 });
+    expect(view().scale).not.toBe(1);
+    fireEvent.doubleClick(svg);
+    expect(view()).toEqual({ x: 0, y: 0, scale: 1 });
+  });
+
+  it("scales a line-mode wheel by the line height", () => {
+    const { svg, view } = setup();
+    fireEvent.wheel(svg, { deltaY: -1, deltaMode: WheelEvent.DOM_DELTA_LINE });
+    expect(view().scale).toBeCloseTo(Math.exp(0.032), 5);
+  });
+
   it("clamps the zoom range", () => {
     const { svg, view } = setup();
     for (let i = 0; i < 30; i++) fireEvent.wheel(svg, { deltaY: -1000 });

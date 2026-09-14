@@ -246,13 +246,16 @@ function SandboxUnit({
   );
 }
 
+/** viewBox of the sandbox plates. */
+const PLATE = { width: 900, height: 360 };
+
 /** The vendored symbol kit on a plate, to eyeball the tokens in both themes. */
 function SymbolKitPlate() {
   return (
     <div className="space-y-2">
       <h3 className="text-sm font-medium">Symbol kit on a plate</h3>
       <div className="h-80 overflow-hidden rounded-lg border">
-        <PidDiagram width={900} height={360}>
+        <PidDiagram {...PLATE}>
           <ExternalLink
             x={20}
             y={150}
@@ -386,7 +389,7 @@ function IsometricPlate() {
     <div className="space-y-2">
       <h3 className="text-sm font-medium">Isometric depth, pan and zoom</h3>
       <div className="h-80 overflow-hidden rounded-lg border">
-        <PidDiagram width={900} height={360}>
+        <PidDiagram {...PLATE}>
           <g transform="translate(450 80)">
             <DepthOrdered items={items} />
           </g>
