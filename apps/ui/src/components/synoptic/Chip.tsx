@@ -8,6 +8,10 @@ const VALUE_SIZE = 12;
 const LABEL_GAP = 4;
 /** Border width a faulty device's chip or panel takes. */
 export const FAULT_STROKE = 1.5;
+/** Corner radius of a chip or panel. */
+export const FRAME_RADIUS = 4;
+/** Letter spacing of an uppercase caption. */
+export const CAPTION_TRACKING = 0.5;
 /** Rendered as a bare dash so a silent slot keeps its place on the plate. */
 export const SILENT_TEXT = "–";
 
@@ -59,7 +63,7 @@ export function Chip({ at, reading, label }: ChipProps) {
           textAnchor="middle"
           fontSize={LABEL_SIZE}
           fontWeight={600}
-          letterSpacing={0.5}
+          letterSpacing={CAPTION_TRACKING}
           className="fill-muted-foreground uppercase"
         >
           {label}
@@ -70,7 +74,7 @@ export function Chip({ at, reading, label }: ChipProps) {
         y={at.y - CHIP_H / 2}
         width={w}
         height={CHIP_H}
-        rx={4}
+        rx={FRAME_RADIUS}
         strokeWidth={faulty ? FAULT_STROKE : 1}
         strokeDasharray={stale ? "3 2" : undefined}
         className={frameClass(faulty, muted)}

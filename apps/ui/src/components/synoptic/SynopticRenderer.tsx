@@ -38,7 +38,9 @@ type SynopticRendererProps = {
 
 /** Plate margin around the drawn extent, in px. */
 const MARGIN = 60;
-/** A tag's chip sits this far above its cell on the run. */
+/** A tag's chip sits this far above its cell on the run, the visual
+ *  language's fixed lift. On the cell next to a body with height the chip
+ *  lands on its top face; moving it below is the editor lint's call. */
 const TAG_LIFT = 44;
 /** A readout sits this far above the symbol's label. */
 const READOUT_GAP = 16;
