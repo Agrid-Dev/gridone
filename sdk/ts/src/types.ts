@@ -110,6 +110,25 @@ export type Severity = Schemas["Severity"];
 export type Fluid = Schemas["Fluid"];
 export type Cell = Schemas["Cell"];
 export type Projection = NonNullable<Schemas["Synoptic"]["projection"]>;
+/** The face of a cell a pipe leaves through. */
+export type Side = "+x" | "-x" | "+y" | "-y" | "+z" | "-z";
+export type SymbolPort = { offset: Cell; side: Side };
+export type SymbolFootprint = { w: number; d: number };
+/**
+ * What the symbol registry publishes per type: the props JSON Schema plus
+ * the rest of the type contract under vendor extensions. A type whose ports
+ * are authored per instance (the collector) has no footprint and no ports.
+ */
+export type SymbolSchema = {
+  title: string;
+  "x-footprint": SymbolFootprint | null;
+  "x-ports": Record<string, SymbolPort>;
+  "x-ports-authored": boolean;
+  "x-slots": string[];
+  "x-required-slots": string[];
+  "x-inline": boolean;
+  "x-rotation-locked": boolean;
+};
 
 // Attributes
 export type Attribute = Schemas["Attribute"];
