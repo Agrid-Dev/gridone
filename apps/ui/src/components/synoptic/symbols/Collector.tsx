@@ -1,6 +1,7 @@
 import type { Cell, Projection } from "@gridone/sdk";
 import { PIPE_AXIS_Z, planeAt } from "../projection";
 import { square } from "./extrude";
+import { Label } from "./Label";
 import { PlanPoly } from "./plan";
 import type { CollectorProps } from "./ports";
 
@@ -12,6 +13,7 @@ type Props = {
 };
 
 const BAR_WIDTH = 0.4;
+const LABEL_LIFT = 14;
 
 /** The collector bar on the pipe axis plane, its length and ports authored
  *  per instance. Runs attach at the ports `symbolPort` resolves. */
@@ -26,18 +28,7 @@ export function Collector({ projection, origin, shape, label }: Props) {
   return (
     <g>
       <PlanPoly plane={plane} points={bar} cls="face" />
-      {label && (
-        <text
-          x={at.x}
-          y={at.y - 14}
-          textAnchor="middle"
-          fontSize={11}
-          fontWeight={600}
-          className="fill-foreground"
-        >
-          {label}
-        </text>
-      )}
+      {label && <Label text={label} at={at} lift={LABEL_LIFT} />}
     </g>
   );
 }

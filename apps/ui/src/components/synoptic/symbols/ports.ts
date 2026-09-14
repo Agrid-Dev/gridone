@@ -7,7 +7,9 @@ import {
 import { rotateQuarter, rotateSide } from "../projection";
 
 /** The collector's authored shape: which way the bar runs, how long it is,
- *  and where along it each port sits. */
+ *  and where along it each port sits. Mirrors the backend's `CollectorProps`;
+ *  the generated schema only carries it as JSON Schema, so the field names
+ *  are checked against it in the tests. */
 export type CollectorProps = {
   axis: "x" | "y";
   length: number;
@@ -16,7 +18,8 @@ export type CollectorProps = {
 
 export type PortAnchor = { cell: Cell; side: Side };
 
-/** Each offset authored along the bar, as a cell offset from the origin. */
+/** Each offset authored along the bar, as a cell offset from the origin.
+ *  The same rule as the backend's `collector_ports`. */
 export function collectorPorts(
   props: CollectorProps,
 ): Record<string, SymbolPort> {

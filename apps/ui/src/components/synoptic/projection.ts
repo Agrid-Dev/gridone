@@ -80,15 +80,22 @@ export function sideVector(side: Side): Pt & { z: number } {
   return SIDE_VECTORS[side];
 }
 
+/** Where each face goes after one quarter turn counter-clockwise; the
+ *  vertical faces stay put. */
+const NEXT_SIDE: Record<Side, Side> = {
+  "+x": "+y",
+  "+y": "-x",
+  "-x": "-y",
+  "-y": "+x",
+  "+z": "+z",
+  "-z": "-z",
+};
+
 /** The face `side` becomes after `turns` quarter turns. */
 export function rotateSide(side: Side, turns: number): Side {
-  const v = SIDE_VECTORS[side];
-  const r = rotateQuarter(v, turns);
-  const hit = (Object.keys(SIDE_VECTORS) as Side[]).find((s) => {
-    const w = SIDE_VECTORS[s];
-    return w.x === r.x && w.y === r.y && w.z === v.z;
-  });
-  return hit ?? side;
+  let s = side;
+  for (let i = 0; i < ((turns % 4) + 4) % 4; i++) s = NEXT_SIDE[s];
+  return s;
 }
 
 /** Screen point where a pipe meets a cell: the centre of its `side` face,

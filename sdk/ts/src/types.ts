@@ -121,6 +121,8 @@ export type SymbolFootprint = { w: number; d: number };
  */
 export type SymbolSchema = {
   title: string;
+  /** The props JSON Schema's own fields. */
+  properties: Record<string, unknown>;
   "x-footprint": SymbolFootprint | null;
   "x-ports": Record<string, SymbolPort>;
   "x-ports-authored": boolean;

@@ -1,5 +1,14 @@
+import { symbolSchemas } from "@gridone/sdk";
 import { describe, expect, it } from "vitest";
 import { collectorPorts, symbolPort } from "./ports";
+
+describe("CollectorProps", () => {
+  it("names the fields the backend's collector props schema declares", () => {
+    const props = { axis: "x", length: 2, ports: {} };
+    const declared = Object.keys(symbolSchemas.collector!.properties);
+    expect(Object.keys(props).sort()).toEqual(declared.sort());
+  });
+});
 
 describe("symbolPort", () => {
   it("moves the type's port offset to the symbol's origin", () => {
