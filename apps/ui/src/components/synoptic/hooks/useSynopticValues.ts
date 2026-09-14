@@ -95,9 +95,14 @@ export const useSynopticValues: UseSynopticValues = (doc) => {
   });
   // The per-device queries exist only once the list has answered, so their
   // initial data is the listed device and nothing fetches twice. A device
-  // the list lacks, or a failed list, fetches on its own.
-  const seededIds = seed.data || seed.isError ? deviceIds : [];
+  // the list does not return is not on this instance: it reads silent and
+  // is never fetched. A failed list lets every device fetch on its own.
   const seeded = (id: string) => seed.data?.find((d) => d.id === id);
+  const seededIds = seed.data
+    ? deviceIds.filter((id) => seeded(id))
+    : seed.isError
+      ? deviceIds
+      : [];
 
   const devices = useQueries({
     queries: seededIds.map((id) => ({

@@ -205,6 +205,18 @@ describe("useSynopticValues", () => {
     expect(mockGet).not.toHaveBeenCalled();
   });
 
+  it("never fetches a device the list does not return", async () => {
+    mockList.mockImplementation((params: { ids?: string[] }) =>
+      Promise.resolve(params.ids ? [PAC] : [PAC]),
+    );
+    const { rendered } = setup();
+    await waitFor(() =>
+      expect(rendered.result.current.slots["symbol.pac.state"].raw).toBe(true),
+    );
+    expect(rendered.result.current.faultyDevices).toEqual({ "PAC-03": true });
+    expect(mockGet).not.toHaveBeenCalled();
+  });
+
   it("warns in development when a filter target is ambiguous", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     mockList.mockImplementation((params: { ids?: string[] }) =>

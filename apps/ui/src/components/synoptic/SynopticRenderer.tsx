@@ -14,7 +14,7 @@ import { DepthOrdered, type DepthItem } from "./DepthOrdered";
 import { Panel, PANEL_W, panelHeight, type PanelRow } from "./Panel";
 import { PidDiagram } from "./PidDiagram";
 import { Pipe } from "./Pipe";
-import { depthKey, project } from "./projection";
+import { depthKey, project, rotateQuarter } from "./projection";
 import { pieceAt, runPieces, type RunPiece } from "./runs";
 import { Collector } from "./symbols/Collector";
 import type { SymbolState } from "./symbols/Label";
@@ -116,6 +116,8 @@ function buildPlate(doc: Synoptic, values: SynopticValues) {
     const run = runPieces(projection, pipe, symbols);
     pieces.set(pipe.id, run);
     const flow = pipe.flow && reading(flowSlotKey(pipe.id), pipe.flow).raw;
+    let arrowAt = run.length - 1;
+    while (arrowAt > 0 && run[arrowAt].stub) arrowAt -= 1;
     run.forEach((piece, i) => {
       extent.push(...piece.points);
       const last = i === run.length - 1;
@@ -129,7 +131,7 @@ function buildPlate(doc: Synoptic, values: SynopticValues) {
               points={piece.points}
               fluid={pipe.fluid}
               flowing={typeof flow === "boolean" ? flow : undefined}
-              endArrow={last}
+              endArrow={i === arrowAt}
             />
             {tee?.kind === "pipe" && (
               <circle
@@ -211,10 +213,11 @@ function buildPlate(doc: Synoptic, values: SynopticValues) {
     extent.push(...footprintExtent(projection, symbol, origin));
 
     const shape = collectorShape(symbol);
+    const bodyCell = nearestCell(symbol, origin, shape);
     if (shape) {
       items.push({
         id: symbol.id,
-        depth: depthKey(origin, "symbol"),
+        depth: depthKey(bodyCell, "symbol"),
         node: (
           <Collector
             projection={projection}
@@ -233,7 +236,7 @@ function buildPlate(doc: Synoptic, values: SynopticValues) {
     const rotation = placement.kind === "cell" ? placement.rotation : 0;
     items.push({
       id: symbol.id,
-      depth: depthKey(origin, "symbol"),
+      depth: depthKey(bodyCell, "symbol"),
       node: (
         <SynopticSymbol
           type={symbol.type}
@@ -328,6 +331,32 @@ function collectorShape(symbol: SymbolElement): CollectorProps | null {
   if (symbol.type !== "collector") return null;
   const props = symbol.props as Partial<CollectorProps> | undefined;
   return props?.axis && props.length ? (props as CollectorProps) : null;
+}
+
+/** The footprint cell nearest the viewer, which keys the body's depth: a
+ *  body then paints after the run stubs inside its own cells and after
+ *  every run behind it, and before every run in front. */
+function nearestCell(
+  symbol: SymbolElement,
+  origin: Cell,
+  bar: CollectorProps | null,
+): Cell {
+  const footprint = symbolSchemas[symbol.type]?.["x-footprint"];
+  const w = footprint?.w ?? (bar?.axis === "x" ? bar.length : 1);
+  const d = footprint?.d ?? (bar?.axis === "y" ? bar.length : 1);
+  const rotation =
+    symbol.placement.kind === "cell" ? (symbol.placement.rotation ?? 0) : 0;
+  let nearest = origin;
+  for (const corner of [
+    { x: w - 1, y: 0 },
+    { x: 0, y: d - 1 },
+    { x: w - 1, y: d - 1 },
+  ]) {
+    const r = rotateQuarter(corner, rotation);
+    const cell = { x: origin.x + r.x, y: origin.y + r.y, z: origin.z };
+    if (cell.x + cell.y > nearest.x + nearest.y) nearest = cell;
+  }
+  return nearest;
 }
 
 /** Projected corners of a symbol's footprint at its floor and two cells
