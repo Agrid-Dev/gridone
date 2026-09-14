@@ -9,7 +9,6 @@ tests/unit/core/fixtures (shared via conftest).
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 import pytest
@@ -25,6 +24,8 @@ from devices_manager.core.device.connection_status_attribute import (
 from devices_manager.ingress import IngressRequest
 from devices_manager.types import ConnectionStatus
 from models.errors import InvalidError
+
+from ..fixtures.fake_time import fake_time
 
 if TYPE_CHECKING:
     from devices_manager.core.driver import Driver
@@ -128,17 +129,16 @@ class TestWebhookIngressPipeline:
         assert device.attributes["temperature"].current_value == 21.5
 
 
-def _silence(device: CoreDevice, multiplier: float) -> None:
+async def _silence(device: CoreDevice, multiplier: float) -> None:
+    """Let ``multiplier`` silence intervals pass (fast-forwarded loop time)."""
     interval = device.expected_interval
     assert interval is not None
-    assert device._watchdog is not None  # noqa: SLF001
-    device._watchdog._last_data_time = datetime.now(UTC) - timedelta(  # noqa: SLF001
-        seconds=multiplier * interval
-    )
+    await asyncio.sleep(multiplier * interval)
 
 
+@fake_time
 @pytest.mark.asyncio
-class TestWebhookSilenceWatchdog:
+class TestWebhookSilenceDetection:
     """A webhook has no connection to monitor: device health comes from the
     silence watchdog fed by `healthcheck.expected_push_interval`."""
 
@@ -147,8 +147,7 @@ class TestWebhookSilenceWatchdog:
     ) -> None:
         device = _make_device(webhook_driver, webhook_transport_client)
         await device.start_sync()
-        _silence(device, SILENCE_DEGRADED_MULTIPLIER + 0.5)
-        await asyncio.sleep(TICK)
+        await _silence(device, SILENCE_DEGRADED_MULTIPLIER + 0.5)
         assert (
             device.get_attribute_value(CONNECTION_STATUS_ATTR)
             == ConnectionStatus.DEGRADED
@@ -160,8 +159,7 @@ class TestWebhookSilenceWatchdog:
     ) -> None:
         device = _make_device(webhook_driver, webhook_transport_client)
         await device.start_sync()
-        _silence(device, SILENCE_ERROR_MULTIPLIER + 0.5)
-        await asyncio.sleep(TICK)
+        await _silence(device, SILENCE_ERROR_MULTIPLIER + 0.5)
         assert (
             device.get_attribute_value(CONNECTION_STATUS_ATTR) == ConnectionStatus.ERROR
         )

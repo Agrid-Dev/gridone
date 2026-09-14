@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
 
 import pytest
@@ -20,6 +19,8 @@ from devices_manager.core.driver import (
     UpdateStrategy,
 )
 from devices_manager.types import ConnectionStatus, DataType, TransportProtocols
+
+from ..fixtures.fake_time import fake_time
 
 WATCHDOG_INTERVAL = 1
 TICK = 0.05
@@ -76,13 +77,11 @@ def _make_device(
     )
 
 
-def _silence(device: CoreDevice, multiplier: float) -> None:
+async def _silence(device: CoreDevice, multiplier: float) -> None:
+    """Let ``multiplier`` silence intervals pass (fast-forwarded loop time)."""
     interval = device.expected_interval
     assert interval is not None
-    assert device._watchdog is not None  # noqa: SLF001
-    device._watchdog._last_data_time = datetime.now(UTC) - timedelta(  # noqa: SLF001
-        seconds=multiplier * interval
-    )
+    await asyncio.sleep(multiplier * interval)
 
 
 # expected_interval resolution
@@ -110,6 +109,7 @@ class TestExpectedInterval:
 # Silence detection (observable connection_status)
 
 
+@fake_time
 @pytest.mark.asyncio
 class TestWatchdogSilenceDetection:
     async def test_degrades_after_silence(
@@ -117,8 +117,7 @@ class TestWatchdogSilenceDetection:
     ) -> None:
         device = _make_device(push_driver_with_interval, mock_push_transport_client)
         await device.start_sync()
-        _silence(device, 2.5)
-        await asyncio.sleep(TICK)
+        await _silence(device, 2.5)
         assert (
             device.get_attribute_value(CONNECTION_STATUS_ATTR)
             == ConnectionStatus.DEGRADED
@@ -130,8 +129,7 @@ class TestWatchdogSilenceDetection:
     ) -> None:
         device = _make_device(push_driver_with_interval, mock_push_transport_client)
         await device.start_sync()
-        _silence(device, SILENCE_ERROR_MULTIPLIER + 0.5)
-        await asyncio.sleep(TICK)
+        await _silence(device, SILENCE_ERROR_MULTIPLIER + 0.5)
         assert (
             device.get_attribute_value(CONNECTION_STATUS_ATTR) == ConnectionStatus.ERROR
         )
@@ -145,8 +143,7 @@ class TestWatchdogSilenceDetection:
         device = _make_device(push_driver_with_interval, mock_push_transport_client)
         await device.start_sync()
         await mock_push_transport_client.simulate_event("/sensors/temperature", 21.0)
-        _silence(device, SILENCE_ERROR_MULTIPLIER + 0.5)
-        await asyncio.sleep(TICK)
+        await _silence(device, SILENCE_ERROR_MULTIPLIER + 0.5)
         mock_push_transport_client.read = AsyncMock(side_effect=OSError("timeout"))
         with pytest.raises(OSError, match="timeout"):
             await device.read_attribute_value("temperature")
@@ -160,8 +157,7 @@ class TestWatchdogSilenceDetection:
     ) -> None:
         device = _make_device(push_driver_with_interval, mock_push_transport_client)
         await device.start_sync()
-        _silence(device, SILENCE_ERROR_MULTIPLIER + 0.5)
-        await asyncio.sleep(TICK)
+        await _silence(device, SILENCE_ERROR_MULTIPLIER + 0.5)
         await mock_push_transport_client.simulate_event("/sensors/temperature", 21.0)
         await asyncio.sleep(0)
         assert device.get_attribute_value(CONNECTION_STATUS_ATTR) == ConnectionStatus.OK

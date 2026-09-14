@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from functools import partial
@@ -17,16 +17,8 @@ from models.errors import ConfirmationError, InvalidError, NotFoundError
 from models.ids import gen_id
 
 from .attribute import Attribute, AttributeKind, FaultAttribute
-from .connection_health import ConnectionHealth
-from .connection_status.events import (
-    AttributeEventLog,
-    EventType,
-    log_event,
-    wrap_listen,
-)
-from .connection_status.watchdog import SilenceWatchdog
+from .connection_status import ConnectionMonitor, EventType
 from .connection_status_attribute import CONNECTION_STATUS_ATTR, build_cs_attribute
-from .event_journal import EventJournal
 from .sweep_schedule import SweepSchedule, run_on_schedule
 from .write_constraints import check_write_constraints
 
@@ -51,9 +43,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 DEFAULT_CONFIRM_TIMEOUT: float = 5.0
-
-# Outcomes that tell whether the device is reachable; writes do not.
-_HEALTH_EVENT_TYPES = (EventType.READ, EventType.LISTEN)
 
 # (device, attribute_name, previous, new). `previous` is `None` for the first
 # event ever observed for this attribute (i.e. its `current_value` was `None`
@@ -132,6 +121,13 @@ def _build_attribute(
     )
 
 
+def _decode_read_result(codec: FnCodec, result: ReadResult) -> AttributeValueType:
+    """The decoded value of a sweep result; a failed read raises its error."""
+    if isinstance(result, ReadError):
+        raise result.error
+    return codec.decode(result.value)
+
+
 @dataclass(kw_only=True)
 class CoreDevice:
     id: str
@@ -145,10 +141,7 @@ class CoreDevice:
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     on_update: AttributeListener | None = field(default=None, repr=False)
-    journal: EventJournal = field(init=False, default_factory=EventJournal, repr=False)
-    _health: ConnectionHealth = field(
-        init=False, default_factory=ConnectionHealth, repr=False
-    )
+    connection_monitor: ConnectionMonitor = field(init=False, repr=False)
     _syncing: bool = field(init=False, default=False, repr=False)
     _waiters: list[tuple[str, Callable[[AttributeValueType], bool], asyncio.Event]] = (
         field(init=False, default_factory=list, repr=False)
@@ -156,8 +149,6 @@ class CoreDevice:
     _poll_tasks: dict[str | None, asyncio.Task[None]] = field(
         init=False, default_factory=dict, repr=False
     )
-    _watchdog: SilenceWatchdog | None = field(init=False, default=None, repr=False)
-    _status_publish_pending: bool = field(init=False, default=False, repr=False)
 
     def __post_init__(self) -> None:
         if self.driver.transport != self.transport.protocol:
@@ -167,6 +158,7 @@ class CoreDevice:
             )
             raise TypeError(msg)
         self.type = self.driver.type
+        self.connection_monitor = self._new_connection_monitor()
 
     @property
     def syncing(self) -> bool:
@@ -216,16 +208,14 @@ class CoreDevice:
     def delete_attribute(self, attribute_name: str) -> None:
         """Delete a runtime attribute that no longer exists on the driver."""
         self.attributes.pop(attribute_name, None)
-        self.journal.forget(attribute_name)
-        self._health.forget(attribute_name)
+        self.connection_monitor.forget(attribute_name)
 
     def rename_attribute(self, old_name: str, new_name: str) -> None:
         """Rename a runtime attribute in place, preserving all of its state."""
         existing = self.attributes.pop(old_name, None)
         if existing is not None:
             self.attributes[new_name] = existing.model_copy(update={"name": new_name})
-        self.journal.rename(old_name, new_name)
-        self._health.rename(old_name, new_name)
+        self.connection_monitor.rename(old_name, new_name)
 
     @classmethod
     def from_base(  # noqa: PLR0913
@@ -313,32 +303,34 @@ class CoreDevice:
         self, codec: FnCodec, attribute: Attribute
     ) -> Callable[[object], None]:
         def on_message(v: object) -> None:
-            try:
-                decoded = codec.decode(v)
-            except Exception:  # noqa: BLE001 - best-effort: frame may not carry this attr
-                return
-            logger.debug(
-                "Attribute %s of device %s updated to value %s by listener",
-                attribute.name,
-                self.id,
-                decoded,
-            )
-            self._update_attribute(attribute, decoded)
+            with self.connection_monitor.observe(EventType.LISTEN, attribute.name):
+                try:
+                    decoded = codec.decode(v)
+                except Exception:  # noqa: BLE001 - best-effort: frame may not carry this attr
+                    return
+                logger.debug(
+                    "Attribute %s of device %s updated to value %s by listener",
+                    attribute.name,
+                    self.id,
+                    decoded,
+                )
+                self._update_attribute(attribute, decoded)
 
-        def record(entry: AttributeEventLog) -> None:
-            self._journal_event(attribute, entry)
-            self._schedule_status_publish()
-
-        return wrap_listen(on_message, record, on_data=self._on_data_received)
+        return on_message
 
     async def start_sync(self, *, sweep_now: bool = False) -> None:
-        """Start listeners, polling, and silence watchdog for this device.
+        """Start listeners, polling, and connection monitoring for this device.
 
         Each polling group sweeps on its own slots (see ``SweepSchedule``), so
         devices started together do not sweep together. ``sweep_now`` adds one
         immediate sweep per group, for a user acting on this one device; fleet
         restarts leave it off.
+
+        Monitoring starts afresh, from the driver's current healthcheck.
         """
+        self.connection_monitor.close()
+        self.connection_monitor = self._new_connection_monitor()
+        self.connection_monitor.watch()
         await self.init_listeners()
         for group_name, (interval, names) in self._polling_groups().items():
             task = self._poll_tasks.get(group_name)
@@ -350,14 +342,10 @@ class CoreDevice:
                         sweep_now=sweep_now,
                     )
                 )
-        interval = self.expected_interval
-        if interval is not None:
-            self._watchdog = SilenceWatchdog(interval, self._set_watchdog_status)
-            await self._watchdog.start()
         self._syncing = True
 
     async def stop_sync(self) -> None:
-        """Cancel polling, watchdog, and mark as not syncing."""
+        """Cancel polling, stop silence detection, and mark as not syncing."""
         for task in self._poll_tasks.values():
             if not task.done():
                 task.cancel()
@@ -371,11 +359,7 @@ class CoreDevice:
                     "[Device %s] poll group task ended with an error", self.id
                 )
         self._poll_tasks.clear()
-        if self._watchdog is not None:
-            await self._watchdog.stop()
-            self._watchdog = None
-        # A restarted watchdog grants a fresh grace period.
-        self._health.report_silence(None)
+        self.connection_monitor.close()
         self._syncing = False
 
     def _polling_groups(self) -> dict[str | None, tuple[float, list[str]]]:
@@ -455,49 +439,23 @@ class CoreDevice:
             for attr_name in attr_names_by_address_id.get(result.address_id, []):
                 self._apply_read_result(attr_name, result)
 
-    def _log_read_outcome(self, attribute: Attribute, error: Exception | None) -> None:
-        """Record a read/decode outcome in the event journal, publish
-        connection_status, and record the ``device.attribute.read`` metric —
-        group sweeps bypass ``read_attribute_value``'s ``@log_event`` decorator."""
-        self.record_event(attribute, AttributeEventLog.new(EventType.READ, error))
-        attribute_read.add(
-            1,
-            {
-                "protocol": self.transport.protocol,
-                "status": "error" if error is not None else "ok",
-            },
-        )
-
     def _apply_read_result(self, attr_name: str, result: ReadResult) -> None:
         attribute = self.attributes.get(attr_name)
-        if attribute is None:
-            return
-        if isinstance(result, ReadError):
-            self._log_read_outcome(attribute, result.error)
-            logger.warning(
-                "[Device %s] poll read failed for %s — %s: %s",
-                self.id,
-                attr_name,
-                type(result.error).__name__,
-                result.error,
-            )
-            return
         attribute_driver = self.driver.attributes.get(attr_name)
-        if attribute_driver is None:
+        if attribute is None or attribute_driver is None:
             return
         try:
-            decoded_value = attribute_driver.codec.decode(result.value)
+            with self._observe_read(attr_name):
+                decoded_value = _decode_read_result(attribute_driver.codec, result)
         except Exception as e:  # noqa: BLE001
-            self._log_read_outcome(attribute, e)
             logger.warning(
-                "[Device %s] failed to decode attribute %s — %s: %s",
+                "[Device %s] poll read failed for %s — %s: %s",
                 self.id,
                 attr_name,
                 type(e).__name__,
                 e,
             )
             return
-        self._log_read_outcome(attribute, None)
         try:
             self._update_attribute(attribute, decoded_value)
         except Exception as e:  # noqa: BLE001
@@ -507,6 +465,21 @@ class CoreDevice:
                 attr_name,
                 type(e).__name__,
                 e,
+            )
+
+    @contextlib.contextmanager
+    def _observe_read(self, attribute_name: str) -> Iterator[None]:
+        """Record the outcome of a read, decode included, in the connection
+        monitor and the ``device.attribute.read`` metric. Shared by single
+        reads and polling sweeps."""
+        status = "error"
+        try:
+            with self.connection_monitor.observe(EventType.READ, attribute_name):
+                yield
+            status = "ok"
+        finally:
+            attribute_read.add(
+                1, {"protocol": self.transport.protocol, "status": status}
             )
 
     async def _poll_attribute(self, attribute_name: str) -> None:
@@ -569,15 +542,13 @@ class CoreDevice:
         if self.on_update and attribute.current_value != previous_value:
             self.on_update(self, attribute.name, previous, attribute)
 
-    @log_event(EventType.READ)
     async def read_attribute_value(
         self,
         attribute_name: str,
         *,
         sweep_id: str | None = None,
-        _log_attribute: Attribute | None = None,
     ) -> AttributeValueType:
-        attribute = _log_attribute or self.get_attribute(attribute_name)
+        attribute = self.get_attribute(attribute_name)
         if attribute.kind == AttributeKind.INTERNAL:
             msg = f"Cannot read internal attribute '{attribute_name}' via transport"
             raise InvalidError(msg)
@@ -589,74 +560,18 @@ class CoreDevice:
         address = self.transport.build_address(
             render_struct(attribute_driver.read, context), context
         )
-        try:
+        with self._observe_read(attribute.name):
             raw_value = await self.transport.read(address, sweep_id)
-            codec = attribute_driver.codec
-            decoded_value = codec.decode(raw_value)
-        except Exception:
-            attribute_read.add(
-                1, {"protocol": self.transport.protocol, "status": "error"}
-            )
-            raise
-        attribute_read.add(1, {"protocol": self.transport.protocol, "status": "ok"})
-        self._update_attribute(attribute, decoded_value)
+            self._update_attribute(attribute, attribute_driver.codec.decode(raw_value))
         return attribute.current_value  # ty:ignore[invalid-return-type]
 
-    def record_event(self, attribute: Attribute, entry: AttributeEventLog) -> None:
-        """Journal a read/write outcome and publish connection_status."""
-        self._journal_event(attribute, entry)
-        self._publish_connection_status()
+    def _new_connection_monitor(self) -> ConnectionMonitor:
+        return ConnectionMonitor(
+            self._publish_connection_status, silence_interval=self.expected_interval
+        )
 
-    def _journal_event(self, attribute: Attribute, entry: AttributeEventLog) -> None:
-        """Keep the entry, and report the attribute's health when the outcome
-        says something about reachability. O(1): counts, not a log rescan."""
-        self.journal.record(attribute.name, entry)
-        if (
-            entry.event_type not in _HEALTH_EVENT_TYPES
-            or attribute.kind == AttributeKind.INTERNAL
-        ):
-            return
-        with contextlib.suppress(Exception):
-            self._health.track(
-                attribute.name,
-                [self.journal.counts(attribute.name, t) for t in _HEALTH_EVENT_TYPES],
-            )
-
-    def _on_data_received(self) -> None:
-        if self._watchdog is not None:
-            self._watchdog.record_data()
-        self._health.report_silence(None)
-
-    def _set_watchdog_status(self, status: ConnectionStatus) -> None:
-        self._health.report_silence(status)
-        self._publish_connection_status()
-
-    def _publish_connection_status(self) -> None:
-        with contextlib.suppress(Exception):
-            cs_attr = self.get_attribute(CONNECTION_STATUS_ATTR)
-            self._update_attribute(cs_attr, self._health.status)
-
-    def _schedule_status_publish(self) -> None:
-        """Coalesce listener-driven publishes to one per event-loop turn.
-
-        Every listener of a shared topic runs for every frame, back to back in
-        the same turn, and each one records an entry. Tracking health is O(1),
-        but publishing copies the status attribute and notifies listeners; one
-        publish once the turn is over sees all of the frame's records.
-        """
-        if self._status_publish_pending:
-            return
-        self._status_publish_pending = True
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            self._flush_status_publish()
-            return
-        loop.call_soon(self._flush_status_publish)
-
-    def _flush_status_publish(self) -> None:
-        self._status_publish_pending = False
-        self._publish_connection_status()
+    def _publish_connection_status(self, status: ConnectionStatus) -> None:
+        self._update_attribute(self.attributes[CONNECTION_STATUS_ATTR], status)
 
     async def _read_all_attributes(
         self,
@@ -786,7 +701,6 @@ class CoreDevice:
         check_write_constraints(attribute, validated_value, self._known_attribute_value)
         return validated_value
 
-    @log_event(EventType.WRITE)
     async def write_attribute_value(
         self,
         attribute_name: str,
@@ -794,35 +708,35 @@ class CoreDevice:
         *,
         confirm: bool = True,
         confirm_timeout: float = DEFAULT_CONFIRM_TIMEOUT,
-        _log_attribute: Attribute | None = None,
     ) -> Attribute:
-        attribute = _log_attribute or self.get_attribute(attribute_name)
-        validated_value = self.validate_attribute_write(attribute_name, value)
-        attribute_driver = self.driver.attributes[attribute.name]
-        codec = attribute_driver.codec
-        if attribute_driver.write is None:
-            msg = (
-                f"Driver '{self.driver.metadata.id}' has no write address"
-                " for attribute'{attribute_name}'"
+        attribute = self.get_attribute(attribute_name)
+        with self.connection_monitor.observe(EventType.WRITE, attribute_name):
+            validated_value = self.validate_attribute_write(attribute_name, value)
+            attribute_driver = self.driver.attributes[attribute.name]
+            codec = attribute_driver.codec
+            if attribute_driver.write is None:
+                msg = (
+                    f"Driver '{self.driver.metadata.id}' has no write address"
+                    " for attribute'{attribute_name}'"
+                )
+                raise PermissionError(msg)
+            encoded_value = codec.encode(value)
+            context = {**self.driver.env, **self.config, "value": encoded_value}
+            address = self.transport.build_address(
+                render_struct(attribute_driver.write, context), context
             )
-            raise PermissionError(msg)
-        encoded_value = codec.encode(value)
-        context = {**self.driver.env, **self.config, "value": encoded_value}
-        address = self.transport.build_address(
-            render_struct(attribute_driver.write, context), context
-        )
-        await self.transport.write(address, encoded_value)
-        logger.info(
-            "Wrote attribute '%s' with value '%s' to device '%s'",
-            attribute_name,
-            validated_value,
-            self.id,
-        )
-        if confirm:
-            await self._confirm_attribute_value(
-                attribute_name, validated_value, confirm_timeout
+            await self.transport.write(address, encoded_value)
+            logger.info(
+                "Wrote attribute '%s' with value '%s' to device '%s'",
+                attribute_name,
+                validated_value,
+                self.id,
             )
-        self._update_attribute(attribute, validated_value)
+            if confirm:
+                await self._confirm_attribute_value(
+                    attribute_name, validated_value, confirm_timeout
+                )
+            self._update_attribute(attribute, validated_value)
         return attribute
 
     def __eq__(self, other: object) -> bool:

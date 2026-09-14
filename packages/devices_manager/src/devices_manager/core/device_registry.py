@@ -422,7 +422,7 @@ class DeviceRegistry:
     def get_attribute_logs(self, device_id: str, attribute_name: str) -> AttributeLogs:
         device = self._get_or_raise(device_id)
         device.get_attribute(attribute_name)  # raises NotFoundError when unknown
-        return device.journal.logs(attribute_name)
+        return device.connection_monitor.logs(attribute_name)
 
     async def refresh_attribute(self, device_id: str, attribute_name: str) -> Attribute:
         device = self._get_or_raise(device_id)

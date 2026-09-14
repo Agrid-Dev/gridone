@@ -486,7 +486,9 @@ class TestDevicesListeners:
         assert device.attributes["temperature"].current_value == 22.5
         assert device.attributes["battery"].current_value is None
         # A decode miss is a non-error: the frame proves the device is alive.
-        assert all(e.status == "ok" for e in device.journal.logs("battery").listen)
+        assert all(
+            e.status == "ok" for e in device.connection_monitor.logs("battery").listen
+        )
         assert (
             device.attributes[CONNECTION_STATUS_ATTR].current_value
             == ConnectionStatus.OK
@@ -576,15 +578,18 @@ class TestEventLogWiring:
     async def test_read_appends_log(self, device: CoreDevice, mock_transport_client):
         mock_transport_client.read = AsyncMock(return_value="25.5")
         await device.read_attribute_value("temperature")
-        assert len(device.journal.logs("temperature").read) == 1
-        assert device.journal.logs("temperature").read[0].status == "ok"
+        assert len(device.connection_monitor.logs("temperature").read) == 1
+        assert device.connection_monitor.logs("temperature").read[0].status == "ok"
 
     @pytest.mark.asyncio
     async def test_write_appends_log(self, device: CoreDevice, mock_transport_client):
         mock_transport_client.read = AsyncMock(return_value="22.0")
         await device.write_attribute_value("temperature_setpoint", 22.0, confirm=False)
-        assert len(device.journal.logs("temperature_setpoint").write) == 1
-        assert device.journal.logs("temperature_setpoint").write[0].status == "ok"
+        assert len(device.connection_monitor.logs("temperature_setpoint").write) == 1
+        assert (
+            device.connection_monitor.logs("temperature_setpoint").write[0].status
+            == "ok"
+        )
 
     @pytest.mark.asyncio
     async def test_listen_appends_log(
@@ -594,7 +599,9 @@ class TestEventLogWiring:
         await mock_push_transport_client.simulate_event(
             "/xx/temperature", {"payload": {"temperature": 25.0}}
         )
-        listen_logs = device_w_push_transport.journal.logs("temperature").listen
+        listen_logs = device_w_push_transport.connection_monitor.logs(
+            "temperature"
+        ).listen
         assert len(listen_logs) == 1
         assert listen_logs[0].status == "ok"
 
@@ -1255,7 +1262,9 @@ class TestDeviceWriteConstraints:
             await constrained_device.write_attribute_value(
                 "temperature_setpoint", 99, confirm=False
             )
-        write_logs = constrained_device.journal.logs("temperature_setpoint").write
+        write_logs = constrained_device.connection_monitor.logs(
+            "temperature_setpoint"
+        ).write
         assert [entry.status for entry in write_logs] == ["error"]
         assert "above the maximum" in (write_logs[0].message or "")
 
