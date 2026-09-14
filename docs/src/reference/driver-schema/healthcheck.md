@@ -46,6 +46,8 @@ The watchdog escalates `connection_status` based on how long the device has been
 | ≥ 2× interval | `degraded` |
 | ≥ 3× interval | `error` |
 
+While the device is silent, the watchdog's status wins over read outcomes whenever it is worse: a failed poll cannot bring a silent device back from `error` to `degraded`. The first push message received hands the status back to read and listen outcomes.
+
 The clock resets every time a push message is successfully received. On service restart it resets to the current time, giving the device one full grace period to re-emit before any escalation.
 
 This field has no effect on pull devices. Pull devices track connection health through accumulated read outcomes.

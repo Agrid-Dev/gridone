@@ -12,7 +12,10 @@ import pytest
 from devices_manager.core.codecs.factory import CodecSpec
 from devices_manager.core.device import CoreDevice, DeviceBase
 from devices_manager.core.device.attribute import AttributeKind
-from devices_manager.core.device.connection_status import CONNECTION_STATUS_ATTR
+from devices_manager.core.device.connection_health import ConnectionHealth
+from devices_manager.core.device.connection_status_attribute import (
+    CONNECTION_STATUS_ATTR,
+)
 from devices_manager.core.driver import (
     AttributeDriver,
     Driver,
@@ -151,11 +154,7 @@ class TestConnectionStatusFailSafe:
         self, device: CoreDevice, mock_transport_client
     ) -> None:
         mock_transport_client.read = AsyncMock(return_value="25.5")
-        with patch.object(
-            device,
-            "_recompute_connection_status",
-            side_effect=RuntimeError("boom"),
-        ):
+        with patch.object(ConnectionHealth, "track", side_effect=RuntimeError("boom")):
             value = await device.read_attribute_value("temperature")
         assert value == 25.5
 

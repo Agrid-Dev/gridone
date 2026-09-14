@@ -17,14 +17,17 @@ from models.errors import ConfirmationError, InvalidError, NotFoundError
 from models.ids import gen_id
 
 from .attribute import Attribute, AttributeKind, FaultAttribute
-from .connection_status import (
-    CONNECTION_STATUS_ATTR,
-    build_cs_attribute,
-    compute_connection_status,
+from .connection_health import ConnectionHealth
+from .connection_status.events import (
+    AttributeEventLog,
+    EventType,
+    log_event,
+    wrap_listen,
 )
-from .event_log import EventType, build_entry, log_event, wrap_listen
+from .connection_status.watchdog import SilenceWatchdog
+from .connection_status_attribute import CONNECTION_STATUS_ATTR, build_cs_attribute
+from .event_journal import EventJournal
 from .sweep_schedule import SweepSchedule, run_on_schedule
-from .watchdog import SilenceWatchdog
 from .write_constraints import check_write_constraints
 
 if TYPE_CHECKING:
@@ -44,11 +47,13 @@ if TYPE_CHECKING:
     )
 
     from .device_base import DeviceBase
-    from .event_log import AttributeEventLog
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_CONFIRM_TIMEOUT: float = 5.0
+
+# Outcomes that tell whether the device is reachable; writes do not.
+_HEALTH_EVENT_TYPES = (EventType.READ, EventType.LISTEN)
 
 # (device, attribute_name, previous, new). `previous` is `None` for the first
 # event ever observed for this attribute (i.e. its `current_value` was `None`
@@ -140,6 +145,10 @@ class CoreDevice:
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     on_update: AttributeListener | None = field(default=None, repr=False)
+    journal: EventJournal = field(init=False, default_factory=EventJournal, repr=False)
+    _health: ConnectionHealth = field(
+        init=False, default_factory=ConnectionHealth, repr=False
+    )
     _syncing: bool = field(init=False, default=False, repr=False)
     _waiters: list[tuple[str, Callable[[AttributeValueType], bool], asyncio.Event]] = (
         field(init=False, default_factory=list, repr=False)
@@ -148,7 +157,7 @@ class CoreDevice:
         init=False, default_factory=dict, repr=False
     )
     _watchdog: SilenceWatchdog | None = field(init=False, default=None, repr=False)
-    _status_recompute_pending: bool = field(init=False, default=False, repr=False)
+    _status_publish_pending: bool = field(init=False, default=False, repr=False)
 
     def __post_init__(self) -> None:
         if self.driver.transport != self.transport.protocol:
@@ -207,12 +216,16 @@ class CoreDevice:
     def delete_attribute(self, attribute_name: str) -> None:
         """Delete a runtime attribute that no longer exists on the driver."""
         self.attributes.pop(attribute_name, None)
+        self.journal.forget(attribute_name)
+        self._health.forget(attribute_name)
 
     def rename_attribute(self, old_name: str, new_name: str) -> None:
         """Rename a runtime attribute in place, preserving all of its state."""
         existing = self.attributes.pop(old_name, None)
         if existing is not None:
             self.attributes[new_name] = existing.model_copy(update={"name": new_name})
+        self.journal.rename(old_name, new_name)
+        self._health.rename(old_name, new_name)
 
     @classmethod
     def from_base(  # noqa: PLR0913
@@ -312,12 +325,11 @@ class CoreDevice:
             )
             self._update_attribute(attribute, decoded)
 
-        return wrap_listen(
-            on_message,
-            attribute,
-            on_append=self._schedule_status_recompute,
-            on_data=self._on_data_received,
-        )
+        def record(entry: AttributeEventLog) -> None:
+            self._journal_event(attribute, entry)
+            self._schedule_status_publish()
+
+        return wrap_listen(on_message, record, on_data=self._on_data_received)
 
     async def start_sync(self, *, sweep_now: bool = False) -> None:
         """Start listeners, polling, and silence watchdog for this device.
@@ -362,6 +374,8 @@ class CoreDevice:
         if self._watchdog is not None:
             await self._watchdog.stop()
             self._watchdog = None
+        # A restarted watchdog grants a fresh grace period.
+        self._health.report_silence(None)
         self._syncing = False
 
     def _polling_groups(self) -> dict[str | None, tuple[float, list[str]]]:
@@ -442,11 +456,10 @@ class CoreDevice:
                 self._apply_read_result(attr_name, result)
 
     def _log_read_outcome(self, attribute: Attribute, error: Exception | None) -> None:
-        """Record a read/decode outcome in the attribute's event log, recompute
+        """Record a read/decode outcome in the event journal, publish
         connection_status, and record the ``device.attribute.read`` metric —
         group sweeps bypass ``read_attribute_value``'s ``@log_event`` decorator."""
-        attribute.append_log(build_entry(EventType.READ, error))
-        self._on_log_append()
+        self.record_event(attribute, AttributeEventLog.new(EventType.READ, error))
         attribute_read.add(
             1,
             {
@@ -589,55 +602,61 @@ class CoreDevice:
         self._update_attribute(attribute, decoded_value)
         return attribute.current_value  # ty:ignore[invalid-return-type]
 
+    def record_event(self, attribute: Attribute, entry: AttributeEventLog) -> None:
+        """Journal a read/write outcome and publish connection_status."""
+        self._journal_event(attribute, entry)
+        self._publish_connection_status()
+
+    def _journal_event(self, attribute: Attribute, entry: AttributeEventLog) -> None:
+        """Keep the entry, and report the attribute's health when the outcome
+        says something about reachability. O(1): counts, not a log rescan."""
+        self.journal.record(attribute.name, entry)
+        if (
+            entry.event_type not in _HEALTH_EVENT_TYPES
+            or attribute.kind == AttributeKind.INTERNAL
+        ):
+            return
+        with contextlib.suppress(Exception):
+            self._health.track(
+                attribute.name,
+                [self.journal.counts(attribute.name, t) for t in _HEALTH_EVENT_TYPES],
+            )
+
     def _on_data_received(self) -> None:
         if self._watchdog is not None:
             self._watchdog.record_data()
+        self._health.report_silence(None)
 
-    def _on_log_append(self) -> None:
+    def _set_watchdog_status(self, status: ConnectionStatus) -> None:
+        self._health.report_silence(status)
+        self._publish_connection_status()
+
+    def _publish_connection_status(self) -> None:
         with contextlib.suppress(Exception):
-            self._recompute_connection_status()
+            cs_attr = self.get_attribute(CONNECTION_STATUS_ATTR)
+            self._update_attribute(cs_attr, self._health.status)
 
-    def _schedule_status_recompute(self) -> None:
-        """Coalesce listener-driven recomputes to one per event-loop turn.
+    def _schedule_status_publish(self) -> None:
+        """Coalesce listener-driven publishes to one per event-loop turn.
 
         Every listener of a shared topic runs for every frame, back to back in
-        the same turn, and each one appends a log entry. Recomputing on each
-        append rescans every attribute's logs: quadratic in the attribute
-        count, minutes of blocked loop for a 257-attribute device dump. One
-        recompute once the turn is over sees all of the frame's appends.
+        the same turn, and each one records an entry. Tracking health is O(1),
+        but publishing copies the status attribute and notifies listeners; one
+        publish once the turn is over sees all of the frame's records.
         """
-        if self._status_recompute_pending:
+        if self._status_publish_pending:
             return
-        self._status_recompute_pending = True
+        self._status_publish_pending = True
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
-            self._flush_status_recompute()
+            self._flush_status_publish()
             return
-        loop.call_soon(self._flush_status_recompute)
+        loop.call_soon(self._flush_status_publish)
 
-    def _flush_status_recompute(self) -> None:
-        self._status_recompute_pending = False
-        self._on_log_append()
-
-    def _collect_event_logs(self) -> list[AttributeEventLog]:
-        return [
-            entry
-            for attr in self.attributes.values()
-            if attr.kind != AttributeKind.INTERNAL
-            for entry in attr.all_log_entries()
-            if entry.event_type in (EventType.READ, EventType.LISTEN)
-        ]
-
-    def _recompute_connection_status(self) -> None:
-        cs_attr = self.get_attribute(CONNECTION_STATUS_ATTR)
-        status = compute_connection_status(self._collect_event_logs())
-        self._update_attribute(cs_attr, status)
-
-    def _set_watchdog_status(self, status: ConnectionStatus) -> None:
-        with contextlib.suppress(Exception):
-            cs_attr = self.get_attribute(CONNECTION_STATUS_ATTR)
-            self._update_attribute(cs_attr, status)
+    def _flush_status_publish(self) -> None:
+        self._status_publish_pending = False
+        self._publish_connection_status()
 
     async def _read_all_attributes(
         self,

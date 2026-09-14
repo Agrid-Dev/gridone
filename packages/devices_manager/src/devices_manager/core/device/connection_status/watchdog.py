@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 
 from devices_manager.types import ConnectionStatus
 
-from .connection_status import SILENCE_DEGRADED_MULTIPLIER, SILENCE_ERROR_MULTIPLIER
+from .monitor import SILENCE_DEGRADED_MULTIPLIER, SILENCE_ERROR_MULTIPLIER
 
 _SILENCE_THRESHOLDS: Final = [
     (SILENCE_DEGRADED_MULTIPLIER, ConnectionStatus.DEGRADED),

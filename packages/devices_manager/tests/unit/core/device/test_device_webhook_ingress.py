@@ -16,9 +16,11 @@ import pytest
 
 from devices_manager.core.device import Attribute, CoreDevice, DeviceBase
 from devices_manager.core.device.connection_status import (
-    CONNECTION_STATUS_ATTR,
     SILENCE_DEGRADED_MULTIPLIER,
     SILENCE_ERROR_MULTIPLIER,
+)
+from devices_manager.core.device.connection_status_attribute import (
+    CONNECTION_STATUS_ATTR,
 )
 from devices_manager.ingress import IngressRequest
 from devices_manager.types import ConnectionStatus

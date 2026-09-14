@@ -82,7 +82,7 @@ if TYPE_CHECKING:
 
     from models.types import Severity
 
-    from .core.device.event_log import AttributeLogs
+    from .core.device.connection_status import AttributeLogs
     from .core.driver import Driver
     from .core.driver.attribute_driver import AttributeDriver
     from .core.presentation import PresentationStatus

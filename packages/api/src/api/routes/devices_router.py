@@ -43,7 +43,7 @@ from api.targets import (
 from assets import AssetsService
 from devices_manager import DevicesServiceInterface
 from devices_manager.core.device import Attribute
-from devices_manager.core.device.event_log import AttributeLogs
+from devices_manager.core.device.connection_status import AttributeLogs
 from devices_manager.core.tags import TagMutation, TagMutationResult
 from devices_manager.dto import StandardAttributeSchema
 from devices_manager.dto.device_dto import (

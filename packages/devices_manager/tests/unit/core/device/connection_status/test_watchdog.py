@@ -10,7 +10,7 @@ from devices_manager.core.device.connection_status import (
     SILENCE_DEGRADED_MULTIPLIER,
     SILENCE_ERROR_MULTIPLIER,
 )
-from devices_manager.core.device.watchdog import SilenceWatchdog
+from devices_manager.core.device.connection_status.watchdog import SilenceWatchdog
 from devices_manager.types import ConnectionStatus
 
 INTERVAL = 1

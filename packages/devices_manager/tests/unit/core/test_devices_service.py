@@ -16,7 +16,10 @@ from devices_manager.core.device import (
     FaultAttribute,
 )
 from devices_manager.core.device.attribute import AttributeKind
-from devices_manager.core.device.event_log import AttributeEventLog, EventType
+from devices_manager.core.device.connection_status.events import (
+    AttributeEventLog,
+    EventType,
+)
 from devices_manager.core.driver import (
     AttributeDriver,
     AttributeRef,
@@ -1994,21 +1997,22 @@ class TestDevicesServiceRestartSync:
         await dm.start()
         original = device.attributes["temperature"]
         original.update_value(22.0)
-        original.append_log(
+        device.record_event(
+            original,
             AttributeEventLog(
                 event_type=EventType.READ, timestamp=datetime.now(UTC), status="ok"
-            )
+            ),
         )
         original_last_changed = original.last_changed
         assert original_last_changed is not None
-        original_logs = original.all_log_entries()
-        assert original_logs
+        original_logs = dm.get_attribute_logs(device.id, "temperature")
+        assert original_logs.read
 
         await dm.rename_driver_attribute(driver.id, "temperature", "temp")
 
         renamed = device.attributes["temp"]
         assert renamed.last_changed == original_last_changed
-        assert renamed.all_log_entries() == original_logs
+        assert dm.get_attribute_logs(device.id, "temp") == original_logs
         await dm.stop()
 
 

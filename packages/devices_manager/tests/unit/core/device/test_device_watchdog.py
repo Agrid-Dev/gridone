@@ -2,14 +2,15 @@ from __future__ import annotations
 
 import asyncio
 from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock
 
 import pytest
 
 from devices_manager.core.codecs.factory import CodecSpec
 from devices_manager.core.device import CoreDevice, DeviceBase
-from devices_manager.core.device.connection_status import (
+from devices_manager.core.device.connection_status import SILENCE_ERROR_MULTIPLIER
+from devices_manager.core.device.connection_status_attribute import (
     CONNECTION_STATUS_ATTR,
-    SILENCE_ERROR_MULTIPLIER,
 )
 from devices_manager.core.driver import (
     AttributeDriver,
@@ -134,6 +135,36 @@ class TestWatchdogSilenceDetection:
         assert (
             device.get_attribute_value(CONNECTION_STATUS_ATTR) == ConnectionStatus.ERROR
         )
+        await device.stop_sync()
+
+    async def test_read_outcomes_do_not_override_silence(
+        self, push_driver_with_interval: Driver, mock_push_transport_client
+    ) -> None:
+        """A silent push device stays in error: a later failed read used to
+        pull it back to degraded."""
+        device = _make_device(push_driver_with_interval, mock_push_transport_client)
+        await device.start_sync()
+        await mock_push_transport_client.simulate_event("/sensors/temperature", 21.0)
+        _silence(device, SILENCE_ERROR_MULTIPLIER + 0.5)
+        await asyncio.sleep(TICK)
+        mock_push_transport_client.read = AsyncMock(side_effect=OSError("timeout"))
+        with pytest.raises(OSError, match="timeout"):
+            await device.read_attribute_value("temperature")
+        assert (
+            device.get_attribute_value(CONNECTION_STATUS_ATTR) == ConnectionStatus.ERROR
+        )
+        await device.stop_sync()
+
+    async def test_data_coming_back_clears_silence(
+        self, push_driver_with_interval: Driver, mock_push_transport_client
+    ) -> None:
+        device = _make_device(push_driver_with_interval, mock_push_transport_client)
+        await device.start_sync()
+        _silence(device, SILENCE_ERROR_MULTIPLIER + 0.5)
+        await asyncio.sleep(TICK)
+        await mock_push_transport_client.simulate_event("/sensors/temperature", 21.0)
+        await asyncio.sleep(0)
+        assert device.get_attribute_value(CONNECTION_STATUS_ATTR) == ConnectionStatus.OK
         await device.stop_sync()
 
     async def test_no_escalation_when_fresh(
