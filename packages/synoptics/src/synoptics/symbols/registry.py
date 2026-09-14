@@ -138,7 +138,8 @@ def collector_ports(props: CollectorProps) -> Mapping[str, Port]:
 
 
 def build_default_registry() -> SymbolRegistry:
-    """The types the first plates use, from the format spec's appendix.
+    """The types the first plates use, from the format spec's appendix, and
+    the six the visual-language spec proposes for the hydronic set.
 
     Inline types declare no ports: their in and out follow the segment they sit
     on, so a pipe never names one as an endpoint.
@@ -224,6 +225,34 @@ def build_default_registry() -> SymbolRegistry:
             props_model=LinkProps,
         )
     )
+    registry.register(
+        SymbolType(
+            type="plate_exchanger",
+            footprint=Footprint(w=1, d=1),
+            ports={
+                "primary_in": Port(offset=Cell(x=0, y=0), side="-x"),
+                "primary_out": Port(offset=Cell(x=0, y=0), side="+x"),
+                "secondary_in": Port(offset=Cell(x=0, y=0), side="-y"),
+                "secondary_out": Port(offset=Cell(x=0, y=0), side="+y"),
+            },
+        )
+    )
+    registry.register(
+        SymbolType(
+            type="expansion_vessel",
+            footprint=Footprint(w=1, d=1),
+            ports={"in": Port(offset=Cell(x=0, y=0), side="-x")},
+        )
+    )
+    for inline_type in (
+        "air_separator",
+        "dirt_separator",
+        "pump_double",
+        "energy_meter",
+    ):
+        registry.register(
+            SymbolType(type=inline_type, footprint=Footprint(w=1, d=1), inline=True)
+        )
     return registry
 
 
