@@ -24,6 +24,17 @@ SPEC_TYPES = {
     "valve_check",
     "link",
 }
+"""The format appendix's eight types."""
+
+HYDRONIC_TYPES = {
+    "plate_exchanger",
+    "expansion_vessel",
+    "air_separator",
+    "dirt_separator",
+    "pump_double",
+    "energy_meter",
+}
+"""The six the visual-language spec adds for the hydronic set."""
 
 
 @pytest.fixture
@@ -32,7 +43,7 @@ def registry():
 
 
 def test_the_default_registry_ships_the_types_the_first_plates_use(registry):
-    assert set(registry.types()) == SPEC_TYPES
+    assert set(registry.types()) == SPEC_TYPES | HYDRONIC_TYPES
 
 
 def test_registering_a_type_twice_is_rejected(registry):
@@ -64,14 +75,46 @@ def test_validating_props_for_an_unknown_type_is_an_authoring_error(registry):
         registry.validate_props("reactor", {})
 
 
-@pytest.mark.parametrize("type_", ["pump", "valve_isolation", "valve_check"])
+@pytest.mark.parametrize(
+    "type_",
+    [
+        "pump",
+        "valve_isolation",
+        "valve_check",
+        "air_separator",
+        "dirt_separator",
+        "pump_double",
+        "energy_meter",
+    ],
+)
 def test_inline_types_are_flagged_inline(registry, type_):
     assert registry.get(type_).inline is True
+    assert registry.get(type_).ports == {}
 
 
-@pytest.mark.parametrize("type_", ["heat_pump", "tank", "collector", "link"])
+@pytest.mark.parametrize(
+    "type_",
+    ["heat_pump", "tank", "collector", "link", "plate_exchanger", "expansion_vessel"],
+)
 def test_free_standing_types_are_not_inline(registry, type_):
     assert registry.get(type_).inline is False
+
+
+def test_a_plate_exchanger_has_a_port_on_each_face(registry):
+    ports = registry.get("plate_exchanger").ports
+    assert {name: port.side for name, port in ports.items()} == {
+        "primary_in": "-x",
+        "primary_out": "+x",
+        "secondary_in": "-y",
+        "secondary_out": "+y",
+    }
+    assert {port.offset for port in ports.values()} == {Cell(x=0, y=0)}
+
+
+def test_an_expansion_vessel_has_one_inlet(registry):
+    assert registry.get("expansion_vessel").ports == {
+        "in": Port(offset=Cell(x=0, y=0), side="-x")
+    }
 
 
 def test_a_types_own_ports_are_used_for_an_ordinary_symbol(registry):
@@ -129,7 +172,7 @@ def test_schemas_carry_the_whole_type_contract(registry):
     """Footprint, ports, slots and inline capability ship with the props
     schema so the kit and the editor read one definition."""
     schemas = registry.schemas()
-    assert set(schemas) == SPEC_TYPES
+    assert set(schemas) == SPEC_TYPES | HYDRONIC_TYPES
 
     heat_pump = schemas["heat_pump"]
     assert heat_pump["x-footprint"] == {"w": 2, "d": 2}
