@@ -9,8 +9,9 @@ import { PlanCircle, PlanLine, PlanPoly, rot } from "./plan";
  *  capability come from the registry, not from here. */
 export type SymbolDrawing = {
   /** Plan glyph centred on `c`, on `plane`. `d` is the run direction for
-   *  inline types; `closed` only matters to an isolation valve. */
-  plan: (plane: Plane, c: Pt, d: Pt, closed: boolean) => ReactNode;
+   *  inline types; `closed` only matters to an isolation valve, undefined
+   *  while its state is unknown. */
+  plan: (plane: Plane, c: Pt, d: Pt, closed: boolean | undefined) => ReactNode;
   /** Plan silhouette, extruded in the isometric view and used as the
    *  body-filled disc of an inline type. */
   outline?: (c: Pt) => Pt[];
@@ -20,6 +21,9 @@ export type SymbolDrawing = {
   height: number;
   /** The link writes its caption on the face instead of above the body. */
   labelOnFace?: boolean;
+  /** The mark the ISA glyph carries when the instance has no label: the
+   *  `M` of a motorised valve, the `kWh` of a meter. */
+  mark?: string;
 };
 
 const VALVE_R = 0.26;
@@ -33,16 +37,23 @@ const bowtie = (r: number) => [
   { x: r, y: r * 0.7 },
 ];
 
-/** ISA bowtie across the run, solid when closed; a tee adds the third port
- *  on the `+y` side of the run. */
-function valve(plane: Plane, c: Pt, d: Pt, tee: boolean, closed: boolean) {
+/** ISA bowtie across the run: solid when closed, hollow when open, muted
+ *  while the state is unknown so a silent valve never reads as open. A tee
+ *  adds the third port on the `+y` side of the run. */
+function valve(
+  plane: Plane,
+  c: Pt,
+  d: Pt,
+  tee: boolean,
+  closed: boolean | undefined,
+) {
   const r = VALVE_R;
   return (
     <>
       <PlanPoly
         plane={plane}
         points={rot(bowtie(r), c, d)}
-        cls={closed ? "fill" : "outline"}
+        cls={closed === undefined ? "detail" : closed ? "fill" : "outline"}
       />
       {tee && (
         <PlanPoly
@@ -126,8 +137,10 @@ const tank: SymbolDrawing = {
 
 const mixingValve: SymbolDrawing = {
   plan: (p, c, d) => valve(p, c, d, true, false),
+  outline: (c) => circlePts(c, VALVE_R),
   base: PIPE_AXIS_Z,
   height: 0,
+  mark: "M",
 };
 
 const pumpSingle: SymbolDrawing = {
@@ -282,6 +295,7 @@ const energyMeter: SymbolDrawing = {
   outline: (c) => square(c.x - 0.3, c.y - 0.3, 0.6, 0.6),
   base: PIPE_AXIS_Z,
   height: 0,
+  mark: "kWh",
 };
 
 /** The hydronic set, keyed by registry type. The collector is not a

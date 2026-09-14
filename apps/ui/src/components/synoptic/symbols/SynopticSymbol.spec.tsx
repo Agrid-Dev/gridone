@@ -74,8 +74,11 @@ describe("SynopticSymbol", () => {
     );
   });
 
-  it("turns an inline glyph with its run", () => {
-    const along = (d: { x: number; y: number }) =>
+  it("points an inline glyph downstream, whichever way its run goes", () => {
+    // The pump's impeller triangle, in the cell centred on (24, 24) of the
+    // flat sheet: its tip is the vertex farthest along the run, and it must
+    // be past the centre, not behind it.
+    const triangle = (d: { x: number; y: number }) =>
       draw(
         <SynopticSymbol
           type="pump"
@@ -85,8 +88,22 @@ describe("SynopticSymbol", () => {
         />,
       )
         .querySelectorAll("polygon")[2]!
-        .getAttribute("points");
-    expect(along({ x: 1, y: 0 })).not.toBe(along({ x: 0, y: 1 }));
+        .getAttribute("points")!
+        .split(" ")
+        .map((p) => p.split(",").map(Number));
+    const along = (d: { x: number; y: number }) =>
+      triangle(d).map(([x, y]) => (x - 24) * d.x + (y - 24) * d.y);
+    for (const d of [
+      { x: 1, y: 0 },
+      { x: -1, y: 0 },
+      { x: 0, y: 1 },
+      { x: 0, y: -1 },
+    ]) {
+      const reach = along(d);
+      // Two base corners behind the centre, one tip 0.21 cells past it.
+      expect(reach.filter((r) => r < 0)).toHaveLength(2);
+      expect(Math.max(...reach)).toBeCloseTo(10.08, 5);
+    }
   });
 
   it("shows a closed isolation valve as a solid bowtie", () => {
@@ -100,8 +117,68 @@ describe("SynopticSymbol", () => {
         />,
       ).querySelectorAll("polygon")[1]!.className.baseVal;
     expect(bowtie("off")).toContain("fill-synoptic-stroke");
-    expect(bowtie("on")).toContain("fill-none");
-    expect(bowtie()).toContain("fill-none");
+    expect(bowtie("on")).toContain("fill-none stroke-synoptic-stroke");
+    // No reading yet: muted, so the valve reads neither open nor closed.
+    expect(bowtie()).toContain("fill-none stroke-muted-foreground");
+  });
+
+  it("carries the ISA mark when the instance has no label", () => {
+    const text = (type: string, label?: string) =>
+      draw(
+        <SynopticSymbol
+          type={type}
+          projection="flat"
+          origin={{ x: 0, y: 0 }}
+          label={label}
+        />,
+      ).querySelector("text")?.textContent;
+    expect(text("mixing_valve")).toBe("M");
+    expect(text("energy_meter")).toBe("kWh");
+    expect(text("mixing_valve", "MITIGEUR")).toBe("MITIGEUR");
+    expect(text("pump")).toBeUndefined();
+  });
+
+  it("body-fills a flat glyph in isometric so the run stops at its edge", () => {
+    const first = (projection: Projection) =>
+      draw(
+        <SynopticSymbol
+          type="mixing_valve"
+          projection={projection}
+          origin={{ x: 0, y: 0 }}
+        />,
+      ).querySelector("polygon")!;
+    // The disc under the bowtie is a face in isometric; the sheet keeps the
+    // footprint square instead.
+    expect(first("isometric").className.baseVal).toContain(
+      "fill-synoptic-body",
+    );
+    expect(first("isometric").getAttribute("points")!.split(" ")).toHaveLength(
+      40,
+    );
+    expect(first("flat").getAttribute("points")).toBe("0,0 48,0 48,48 0,48");
+  });
+
+  it("keeps a flat label above the footprint's top edge when the body turns", () => {
+    const labelY = (rotation: number) =>
+      Number(
+        draw(
+          <SynopticSymbol
+            type="tank"
+            projection="flat"
+            origin={{ x: 2, y: 2 }}
+            rotation={rotation}
+            label="B01"
+          />,
+        )
+          .querySelector("text")!
+          .getAttribute("y"),
+      );
+    // Upright, the 1 x 2 body spans y 96..192: label 10 px above 96.
+    expect(labelY(0)).toBe(86);
+    // A quarter turn lays it along x on y 96..144 (about the origin cell's
+    // centre): the label follows the new top edge, not the old height.
+    expect(labelY(1)).toBe(86);
+    expect(labelY(2)).toBe(38);
   });
 
   it("labels above the body, with a run-state LED", () => {
