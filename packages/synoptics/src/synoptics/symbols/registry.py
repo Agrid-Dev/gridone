@@ -142,7 +142,9 @@ def build_default_registry() -> SymbolRegistry:
     the six the visual-language spec proposes for the hydronic set.
 
     Inline types declare no ports: their in and out follow the segment they sit
-    on, so a pipe never names one as an endpoint.
+    on, so a pipe never names one as an endpoint. The six hydronic types declare
+    no slots yet: which values they bind is decided by the first plate that
+    places them, an energy meter included.
     """
     registry = SymbolRegistry()
     registry.register(

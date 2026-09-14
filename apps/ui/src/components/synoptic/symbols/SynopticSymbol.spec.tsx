@@ -17,6 +17,8 @@ const TYPES = Object.keys(DRAWINGS);
 const PROJECTIONS: Projection[] = ["isometric", "flat"];
 
 describe("SynopticSymbol", () => {
+  // The drift guard between the kit and the registry; the per-type cases
+  // below are smoke only.
   it("draws every registered type except the collector", () => {
     const registered = Object.keys(symbolSchemas).filter(
       (t) => t !== "collector",

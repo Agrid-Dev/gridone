@@ -23,7 +23,8 @@ export type SymbolDrawing = {
 };
 
 const VALVE_R = 0.26;
-const PUMP_R = 0.3;
+/** Radius of an inline glyph and of the disc that breaks the run under it. */
+export const INLINE_R = 0.3;
 
 const bowtie = (r: number) => [
   { x: -r, y: -r * 0.7 },
@@ -62,7 +63,7 @@ function valve(plane: Plane, c: Pt, d: Pt, tee: boolean, closed: boolean) {
 }
 
 /** ISA pump: circle with the impeller triangle pointing downstream. */
-function pump(plane: Plane, c: Pt, d: Pt, r = PUMP_R) {
+function pump(plane: Plane, c: Pt, d: Pt, r = INLINE_R) {
   const tri = [
     { x: -r * 0.45, y: -r * 0.55 },
     { x: -r * 0.45, y: r * 0.55 },
@@ -196,7 +197,7 @@ const plateExchanger: SymbolDrawing = {
 const airSeparator: SymbolDrawing = {
   plan: (p, c) => (
     <>
-      <PlanCircle plane={p} c={c} r={0.3} />
+      <PlanCircle plane={p} c={c} r={INLINE_R} />
       {[-0.1, 0.02, 0.14].map((dy) => (
         <g key={dy}>
           <PlanLine
@@ -238,7 +239,7 @@ const expansionVessel: SymbolDrawing = {
 const dirtSeparator: SymbolDrawing = {
   plan: (p, c) => (
     <>
-      <PlanCircle plane={p} c={c} r={0.3} />
+      <PlanCircle plane={p} c={c} r={INLINE_R} />
       <PlanPoly
         plane={p}
         points={[

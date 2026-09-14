@@ -19,6 +19,7 @@ import {
 } from "../devices/standard-devices/air-extractor";
 import { symbolSchemas, type Projection } from "@gridone/sdk";
 import {
+  Body,
   Collector,
   DepthOrdered,
   depthKey,
@@ -33,6 +34,7 @@ import {
   project,
   Pump,
   SensorFlag,
+  square,
   SynopticSymbol,
   Tank,
   Valve,
@@ -334,31 +336,6 @@ function SymbolKitPlate() {
   );
 }
 
-/** A one-cell footprint of height `h` on the isometric grid: top face and
- *  the two visible sides. */
-function isoBlock(x: number, y: number, h: number) {
-  const c = (dx: number, dy: number, dz: number) =>
-    project("isometric", x + dx, y + dy, dz);
-  const face = (pts: ReturnType<typeof c>[]) =>
-    pts.map((p) => `${p.x},${p.y}`).join(" ");
-  return (
-    <g strokeWidth={2} className="stroke-synoptic-stroke">
-      <polygon
-        points={face([c(0, 0, h), c(1, 0, h), c(1, 1, h), c(0, 1, h)])}
-        className="fill-synoptic-body"
-      />
-      <polygon
-        points={face([c(1, 0, 0), c(1, 1, 0), c(1, 1, h), c(1, 0, h)])}
-        className="fill-synoptic-body-x"
-      />
-      <polygon
-        points={face([c(0, 1, 0), c(1, 1, 0), c(1, 1, h), c(0, 1, h)])}
-        className="fill-synoptic-body-y"
-      />
-    </g>
-  );
-}
-
 /** One cell of a run along `x` at row `y`, `z` cells above the floor. */
 function isoPipeCell(x: number, y: number, z: number) {
   const at = (dx: number) =>
@@ -375,7 +352,7 @@ function IsometricPlate() {
     {
       id: "body",
       depth: depthKey(body, "symbol"),
-      node: isoBlock(body.x, body.y, 2),
+      node: <Body outline={square(body.x, body.y, 1, 1)} z0={0} z1={2} />,
     },
   ];
   for (const [y, z] of [
@@ -424,11 +401,12 @@ const SHEET_COLUMNS = 4;
 
 /** One card per symbol on a grid of `pitch` cells, inline types on a run. */
 function symbolSheet(projection: Projection, pitch: number) {
+  const originOf = (i: number) => ({
+    x: (i % SHEET_COLUMNS) * pitch,
+    y: Math.floor(i / SHEET_COLUMNS) * pitch,
+  });
   const cards = SHEET_CARDS.map((card, i) => {
-    const origin = {
-      x: (i % SHEET_COLUMNS) * pitch,
-      y: Math.floor(i / SHEET_COLUMNS) * pitch,
-    };
+    const origin = originOf(i);
     const run = (dx: number) =>
       project(projection, origin.x + dx, origin.y + 0.5, PIPE_AXIS_Z);
     return (
@@ -440,11 +418,7 @@ function symbolSheet(projection: Projection, pitch: number) {
       </g>
     );
   });
-  const last = SHEET_CARDS.length;
-  const collector = {
-    x: (last % SHEET_COLUMNS) * pitch,
-    y: Math.floor(last / SHEET_COLUMNS) * pitch,
-  };
+  const collector = originOf(SHEET_CARDS.length);
   return (
     <>
       {cards}

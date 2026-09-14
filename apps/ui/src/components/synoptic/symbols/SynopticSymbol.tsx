@@ -1,12 +1,12 @@
 import { symbolSchemas, type Cell, type Projection } from "@gridone/sdk";
 import { project, rotateQuarter, type Plane } from "../projection";
 import type { Pt } from "../types";
-import { DRAWINGS } from "./drawings";
-import { circlePts, extrude, silhouette, square } from "./extrude";
+import type { SymbolState } from "./Label";
+import { DRAWINGS, INLINE_R } from "./drawings";
+import { Label, LABEL_SIZE } from "./Label";
+import { Body } from "./Body";
+import { circlePts, silhouette, square } from "./extrude";
 import { PlanPoly, pointsAttr, toPoints } from "./plan";
-
-/** Run state of a symbol whose `state` slot is bound. */
-export type SymbolState = "on" | "off";
 
 type SynopticSymbolProps = {
   /** Registry type name. */
@@ -24,13 +24,7 @@ type SynopticSymbolProps = {
   direction?: Pt;
 };
 
-const LABEL_CLASS = "fill-foreground";
-const LABEL_SIZE = 11;
 const RIGHT = { x: 1, y: 0 };
-const FACE_CLASS: Record<"x" | "y", string> = {
-  x: "fill-synoptic-body-x",
-  y: "fill-synoptic-body-y",
-};
 
 /**
  * A symbol of the hydronic set at its cell: the plan glyph on its plane,
@@ -81,7 +75,7 @@ export function SynopticSymbol({
       {schema["x-inline"] ? (
         <PlanPoly
           plane={planeAt(top)}
-          points={drawing.outline?.(centre) ?? circlePts(centre, 0.3)}
+          points={drawing.outline?.(centre) ?? circlePts(centre, INLINE_R)}
           cls="face"
         />
       ) : extruded ? (
@@ -96,9 +90,13 @@ export function SynopticSymbol({
         <Label
           text={label}
           at={planeAt(top)(centre.x, centre.y)}
-          onFace={drawing.labelOnFace === true}
-          lift={iso ? 26 + (drawing.height ? 14 : 0) : d * 24 + 10}
-          iso={iso}
+          onFace={drawing.labelOnFace}
+          faceOffsetX={iso ? 8 : 0}
+          lift={
+            iso
+              ? 26 + (drawing.height ? 14 : 0)
+              : project("flat", 0, centre.y).y + 10
+          }
           led={type === "valve_isolation" ? undefined : state}
           faulty={faulty}
         />
@@ -114,82 +112,6 @@ export function SynopticSymbol({
         />
       )}
     </g>
-  );
-}
-
-function Body({ outline, z0, z1 }: { outline: Pt[]; z0: number; z1: number }) {
-  const { faces, band, top } = extrude(outline, z0, z1);
-  const pts = pointsAttr;
-  return (
-    <>
-      {faces.map((face, i) => (
-        <polygon
-          key={i}
-          points={pts(face.points)}
-          className={FACE_CLASS[face.axis]}
-        />
-      ))}
-      <polygon
-        points={pts(band)}
-        strokeWidth={2}
-        strokeLinejoin="round"
-        className="fill-none stroke-synoptic-stroke"
-      />
-      <polygon
-        points={pts(top)}
-        strokeWidth={2}
-        strokeLinejoin="round"
-        className="fill-synoptic-body stroke-synoptic-stroke"
-      />
-    </>
-  );
-}
-
-type LabelProps = {
-  text: string;
-  at: Pt;
-  onFace: boolean;
-  lift: number;
-  iso: boolean;
-  led?: SymbolState;
-  faulty: boolean;
-};
-
-function Label({ text, at, onFace, lift, iso, led, faulty }: LabelProps) {
-  const lines = onFace ? text.split(" ") : [text];
-  const x = onFace && iso ? at.x + 8 : at.x;
-  const y = onFace ? at.y + 4 - 6 * (lines.length - 1) : at.y - lift;
-  return (
-    <>
-      <text
-        x={x}
-        y={y}
-        textAnchor="middle"
-        fontSize={LABEL_SIZE}
-        fontWeight={600}
-        className={LABEL_CLASS}
-      >
-        {lines.map((line, i) => (
-          <tspan key={i} x={x} dy={i === 0 ? 0 : 12}>
-            {line}
-          </tspan>
-        ))}
-      </text>
-      {led && (
-        <circle
-          cx={x + 4 * text.length + 10}
-          cy={y - 4}
-          r={4}
-          className={
-            faulty
-              ? "fill-status-error"
-              : led === "on"
-                ? "fill-status-ok"
-                : "fill-muted-foreground"
-          }
-        />
-      )}
-    </>
   );
 }
 

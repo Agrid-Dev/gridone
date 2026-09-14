@@ -25,8 +25,10 @@ export {
 } from "./projection";
 export type { Layer, Plane } from "./projection";
 export { SynopticSymbol } from "./symbols/SynopticSymbol";
-export type { SymbolState } from "./symbols/SynopticSymbol";
+export type { SymbolState } from "./symbols/Label";
 export { Collector } from "./symbols/Collector";
+export { Body } from "./symbols/Body";
+export { square } from "./symbols/extrude";
 export { symbolPort, collectorPorts } from "./symbols/ports";
 export type { CollectorProps, PortAnchor } from "./symbols/ports";
 export { DRAWINGS } from "./symbols/drawings";
