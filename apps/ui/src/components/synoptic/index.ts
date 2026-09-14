@@ -25,6 +25,9 @@ export {
 } from "./projection";
 export type { Layer, Plane } from "./projection";
 export { SynopticSymbol } from "./symbols/SynopticSymbol";
+export { SynopticRenderer } from "./SynopticRenderer";
+export { useSynopticValues } from "./hooks/useSynopticValues";
+export type { SynopticValues } from "./values";
 export type { SymbolState } from "./symbols/Label";
 export { Collector } from "./symbols/Collector";
 export { Body } from "./symbols/Body";
