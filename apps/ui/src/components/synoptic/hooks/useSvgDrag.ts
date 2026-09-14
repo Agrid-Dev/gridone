@@ -117,7 +117,11 @@ export function useSvgDrag({
     [threshold],
   );
 
-  return { onPointerDown, style: HANDLE_STYLE };
+  /** Lets go of the drag in progress, reverting it, for a caller that
+   *  takes the gesture over (a second finger starting a pinch). */
+  const cancel = useCallback(() => cancelActive.current(), []);
+
+  return { onPointerDown, style: HANDLE_STYLE, cancel };
 }
 
 const HANDLE_STYLE = { touchAction: "none" } as const;
