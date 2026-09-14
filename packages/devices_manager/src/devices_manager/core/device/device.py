@@ -136,7 +136,7 @@ class CoreDevice:
     transport: TransportClient
     config: DeviceConfig
     type: str | None = field(init=False, default=None)
-    tags: dict[str, str] = field(default_factory=dict)
+    tags: dict[str, list[str]] = field(default_factory=dict)
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     on_update: AttributeListener | None = field(default=None, repr=False)

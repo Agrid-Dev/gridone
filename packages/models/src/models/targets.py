@@ -23,7 +23,12 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from models.attribute_metadata import LocalizedText, Unit, WriteConstraints
 from models.errors import InvalidError
+from models.tags import Tags
 from models.types import AttributeValueType, DataType
+
+
+class EmptyTargetError(InvalidError):
+    """A valid filter currently matches no devices."""
 
 
 class DevicesFilter(BaseModel):
@@ -35,12 +40,10 @@ class DevicesFilter(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    group_id: str | None = Field(
-        default=None, min_length=1, exclude_if=lambda value: value is None
-    )
+    driver_id: str | None = Field(default=None, min_length=1)
     ids: list[str] | None = None
     types: list[str] | None = None
-    tags: dict[str, list[str]] | None = None
+    tags: Tags | None = None
 
 
 class AttributeTarget(BaseModel):

@@ -181,10 +181,10 @@ describe("CommandActionForm", () => {
   });
 });
 
-it("preserves a group's dynamic reference and intersecting filters when editing an automation", async () => {
+it("preserves dynamic tag and driver criteria and intersecting filters when editing an automation", async () => {
   mockedGetTemplate.mockResolvedValue({
     ...ephemeralTemplate,
-    target: { group_id: "group", ids: ["d1"], tags: { floor: ["east"] } },
+    target: { driver_id: "driver", ids: ["d1"], tags: { floor: ["east"] } },
   });
   render(
     <CommandActionForm
@@ -198,7 +198,7 @@ it("preserves a group's dynamic reference and intersecting filters when editing 
   );
   const output = await screen.findByTestId("target-filter");
   expect(JSON.parse(output.textContent!)).toMatchObject({
-    groupId: "group",
+    driverId: "driver",
     ids: ["d1"],
     tags: { floor: ["east"] },
   });

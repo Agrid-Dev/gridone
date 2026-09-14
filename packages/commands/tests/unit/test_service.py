@@ -51,7 +51,7 @@ def _resolved(
     return ResolvedTarget(
         attribute=attribute,
         device_ids=ids,
-        data_type=DataType.FLOAT,
+        data_type=DataType.STRING if attribute == "mode" else DataType.FLOAT,
         excluded_device_ids=excluded or [],
     )
 

@@ -3,9 +3,10 @@ import { lazy, FC, Suspense } from "react";
 import DevicesList from "./DevicesList";
 import Device from "./device";
 
-const GroupsListPage = lazy(() => import("./groups/GroupsListPage"));
-const GroupFormPage = lazy(() => import("./groups/GroupFormPage"));
-const GroupDetailPage = lazy(() => import("./groups/GroupDetailPage"));
+const TagEditorPage = lazy(() => import("./views/TagEditorPage"));
+const ViewsListPage = lazy(() => import("./views/ViewsListPage"));
+const ViewFormPage = lazy(() => import("./views/ViewFormPage"));
+const ViewDetailPage = lazy(() => import("./views/ViewDetailPage"));
 
 const CommandsPage = lazy(() => import("./commands/CommandsPage"));
 const NewCommandPage = lazy(() => import("./commands/new/NewCommandPage"));
@@ -22,12 +23,20 @@ const ZoneMappingImportPage = lazy(
 const Devices: FC = () => (
   <Routes>
     <Route index element={<DevicesList />} />
-    <Route path="groups">
+    <Route
+      path="tags/edit"
+      element={
+        <Suspense>
+          <TagEditorPage />
+        </Suspense>
+      }
+    />
+    <Route path="views">
       <Route
         index
         element={
           <Suspense>
-            <GroupsListPage />
+            <ViewsListPage />
           </Suspense>
         }
       />
@@ -35,23 +44,23 @@ const Devices: FC = () => (
         path="new"
         element={
           <Suspense>
-            <GroupFormPage />
+            <ViewFormPage />
           </Suspense>
         }
       />
       <Route
-        path=":groupId"
+        path=":viewId"
         element={
           <Suspense>
-            <GroupDetailPage />
+            <ViewDetailPage />
           </Suspense>
         }
       />
       <Route
-        path=":groupId/edit"
+        path=":viewId/edit"
         element={
           <Suspense>
-            <GroupFormPage />
+            <ViewFormPage />
           </Suspense>
         }
       />

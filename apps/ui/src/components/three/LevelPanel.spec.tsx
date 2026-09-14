@@ -94,7 +94,7 @@ const devices = [
     id: "d1",
     name: "Thermostat 101",
     type: "thermostat",
-    tags: { asset_id: "a1" },
+    tags: { asset_id: ["a1"] },
   },
   { id: "d2", name: "Compteur général", type: "electricity_meter", tags: {} },
 ] as unknown as Device[];

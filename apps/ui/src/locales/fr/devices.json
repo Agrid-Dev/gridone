@@ -266,7 +266,7 @@
         "assetId": "Zone",
         "types": "Type d'appareil",
         "tags": "Tags",
-        "groupId": "Groupes"
+        "driverId": "Driver"
       },
       "tag": "{{key}} : {{values}}"
     },
@@ -631,7 +631,7 @@
     "after": "Après",
     "eligibility": "Éligibilité",
     "liveValidation": "Les contraintes sont vérifiées pour chaque équipement au moment de l’écriture. Les exclusions concernent uniquement ce lot.",
-    "deleteDescription": "Supprimer « {{name}} » ? Ses équipements et l’historique des commandes restent disponibles.",
+    "deleteDescription": "Supprimer « {{name}} » ? Les équipements seront retirés de ce groupe. Leurs autres groupes et l’historique sont conservés. Les automatisations ciblant ce groupe n’auront plus de destinataires.",
     "batchSummary": "{{success}} commandes réussies, {{failed}} en échec, {{pending}} en cours",
     "executionFailed": "Échec de la commande. Ouvrez l’historique pour plus de détails.",
     "history": "Voir l’historique des commandes",
@@ -658,9 +658,11 @@
       "group_incompatible_member": "Impossible d’ajouter cet équipement : son driver diffère de celui du groupe. Choisissez un équipement compatible.",
       "driver_group_references": "Impossible de supprimer ce driver. Supprimez d’abord les groupes qui l’utilisent.",
       "device_group_driver_change": "Impossible de changer le driver de cet équipement. Retirez-le d’abord de ces groupes.",
-      "group_preview_changed": "Les membres sélectionnés ont changé. Vérifiez un nouvel aperçu et confirmez à nouveau.",
-      "group_preview_expired": "Cet aperçu a expiré ou a déjà été utilisé. Préparez une nouvelle commande.",
-      "group_preview_required": "Prévisualisez la commande du groupe et confirmez les destinataires avant l’envoi."
+      "command_preview_changed": "Les membres sélectionnés ont changé. Vérifiez un nouvel aperçu et confirmez à nouveau.",
+      "command_preview_expired": "Cet aperçu a expiré ou a déjà été utilisé. Préparez une nouvelle commande.",
+      "command_preview_required": "Prévisualisez la commande du groupe et confirmez les destinataires avant l’envoi.",
+      "empty_target": "Aucune commande envoyée : aucun équipement ne correspond à la cible.",
+      "invalid_target": "Aucune commande envoyée : la cible est invalide."
     },
     "emptyAction": "Aucune commande envoyée : le groupe « {{name}} » ne contient aucun équipement.",
     "invalidAction": "Aucune commande envoyée : le groupe est inconnu ou invalide. Vérifiez la cible de la commande.",
@@ -692,6 +694,59 @@
     "selectedCount_one": "{{count}} sélectionné",
     "selectedCount_other": "{{count}} sélectionnés",
     "selectedEquipment_one": "{{count}} équipement sélectionné",
-    "selectedEquipment_other": "{{count}} équipements sélectionnés"
+    "selectedEquipment_other": "{{count}} équipements sélectionnés",
+    "nameRequired": "Donnez un nom au groupe.",
+    "chooseDevices": "Équipements du groupe",
+    "membersHelp": "Cochez les équipements à piloter ensemble. Un équipement peut appartenir à plusieurs groupes.",
+    "filterDriver": "Filtrer la liste par driver",
+    "searchPlaceholder": "Nom d’un équipement…",
+    "selectedList": "Équipements sélectionnés",
+    "removeMember": "Retirer {{name}} de la sélection",
+    "membersSaveFailed": "Certains équipements n’ont pas pu être mis à jour. Votre sélection est conservée : réessayez d’enregistrer pour terminer.",
+    "advancedHint": "Besoin d’organiser les équipements par étage, pièce ou autre critère ?",
+    "noGroups": "Aucun groupe. Créez-en un en lui donnant un nom et en choisissant ses équipements."
+  },
+  "views": {
+    "title": "Vues",
+    "description": "Des vues partagées pour filtrer et organiser les équipements par tags.",
+    "create": "Créer une vue",
+    "createAdvanced": "Créer une vue avancée",
+    "advanced": "Organisation avancée",
+    "save": "Enregistrer la vue",
+    "edit": "Modifier la vue",
+    "noViews": "Aucune vue enregistrée. Créez une vue pour organiser les équipements par tags.",
+    "allDrivers": "Tous les drivers",
+    "invalid": "Vérifiez le format de ce champ.",
+    "empty": "Aucun équipement ne correspond à cette vue. Modifiez le filtre ou attribuez des tags aux équipements.",
+    "path": "Parcours de regroupement",
+    "untagged": "Sans {{key}} · {{count}} équipements",
+    "delete": "Supprimer la vue",
+    "deleteDescription": "Seule cette configuration d’affichage sera supprimée. Les équipements, tags et cibles des automatisations sont conservés.",
+    "fields": {
+      "name": "Nom",
+      "description": "Description",
+      "tags": "Critères de tags",
+      "groupBy": "Regrouper par"
+    },
+    "help": {
+      "tags": "Paires clé:valeur facultatives, séparées par des virgules. Exemple : étage:2, ecs:ouest.",
+      "groupBy": "Facultatif : clés de tags dans l’ordre d’affichage, séparées par des virgules. Exemple : étage, pièce. Laissez vide pour afficher tous les équipements ensemble."
+    },
+    "tagsTitle": "Tags des équipements",
+    "editTags": "Modifier les tags",
+    "tagKey": "Clé",
+    "tagValues": "Valeurs",
+    "tagHelp": "Valeurs séparées par des virgules. Lettres, chiffres, accents, tirets, points et tirets bas sont acceptés.",
+    "tagWarning": "Les changements de tags affectent les prochaines exécutions des automatisations. Supprimer ou renommer une valeur ne met pas à jour les filtres enregistrés.",
+    "addTags": "Ajouter des valeurs",
+    "removeTags": "Retirer des valeurs",
+    "renameTag": "Renommer une valeur",
+    "oldValue": "Valeur actuelle",
+    "newValue": "Nouvelle valeur",
+    "tagChanged": "{{count}} équipements mis à jour",
+    "tagFailed": "{{count}} équipements n’ont pas pu être modifiés. Réessayez pour ces équipements.",
+    "chooseDevices": "Choisir les équipements",
+    "renameHelp": "Renommer cette valeur sur tous les équipements qui la portent.",
+    "search": "Rechercher des équipements"
   }
 }

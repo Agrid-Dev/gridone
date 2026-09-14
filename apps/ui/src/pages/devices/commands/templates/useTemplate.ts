@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useGroupCommand } from "../../groups/useGroupCommand";
+import { useGroupCommand } from "../../views/useGroupCommand";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
@@ -44,7 +44,7 @@ export function useTemplate(templateId: string) {
     enabled: !!target,
   });
 
-  const groupCommand = useGroupCommand(target.group_id ?? "");
+  const groupCommand = useGroupCommand(target);
   useEffect(() => {
     if (groupCommand.batch)
       navigate(
@@ -81,7 +81,7 @@ export function useTemplate(templateId: string) {
     isResolving: resolvedDevices.isLoading,
     groupCommand,
     execute: () =>
-      target.group_id
+      target.tags || target.asset_id
         ? void groupCommand.prepare(
             template.write.attribute,
             template.write.value,

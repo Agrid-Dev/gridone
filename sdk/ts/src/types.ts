@@ -297,12 +297,17 @@ export type PresentationResponse =
 export type PresentationSchema = Schemas["PresentationSchema"];
 export type PresentationReference = Schemas["PresentationReference"];
 
-// Explicit device groups
-export type DeviceGroup = Schemas["DeviceGroup"];
-export type DeviceGroupCreate = Schemas["DeviceGroupCreate"];
-export type DeviceGroupUpdate = Schemas["DeviceGroupUpdate"];
-export type GroupCommandPrepare = Schemas["GroupCommandPrepare"];
-export type GroupCommandPreview = Schemas["GroupCommandPreview"];
-export type GroupCommandConfirm = Schemas["GroupCommandConfirm"];
+// Device views and confirmed selections
+export type DeviceView = Schemas["DeviceView"];
+export type DeviceViewInput = Schemas["DeviceViewInput"];
+export type TagFacet = Schemas["TagFacet"];
+export type TagFacetValue = Schemas["TagFacetValue"];
+export type BulkTagRequest = Schemas["BulkTagRequest"];
+export type RenameTagRequest = Schemas["RenameTagRequest"];
+export type TagMutationResult = Schemas["TagMutationResult"];
+export type SelectionCommandPrepare = Schemas["SelectionCommandPrepare"];
+export type SelectionCommandPreview = Schemas["SelectionCommandPreview"];
+export type SelectionCommandConfirm = Schemas["SelectionCommandConfirm"];
 export type DeviceWritePreview = Schemas["DeviceWritePreview"];
-export type RelatedResource = Schemas["RelatedResource"];
+export type ActionFailure = Schemas["ActionFailure"];
+export type DevicesFilter = Schemas["DevicesFilter"];

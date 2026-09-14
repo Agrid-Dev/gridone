@@ -23,7 +23,7 @@ def _device(
     attributes: dict[str, Attribute],
     *,
     device_type: str | None = None,
-    tags: dict[str, str] | None = None,
+    tags: dict[str, list[str]] | None = None,
 ) -> Device:
     return Device(
         id=device_id,
@@ -189,20 +189,20 @@ class TestResolveWithDevices:
 
 class TestGroupDeviceIdsByTag:
     def test_groups_by_tag_value(self):
-        floor1 = _device("t1", {}, tags={"floor": "1"})
-        floor1b = _device("t2", {}, tags={"floor": "1"})
-        floor2 = _device("t3", {}, tags={"floor": "2"})
+        floor1 = _device("t1", {}, tags={"floor": ["1"]})
+        floor1b = _device("t2", {}, tags={"floor": ["1"]})
+        floor2 = _device("t3", {}, tags={"floor": ["2"]})
         groups = group_device_ids_by_tag([floor1, floor1b, floor2], "floor")
         assert groups == {"1": ["t1", "t2"], "2": ["t3"]}
 
     def test_devices_without_the_tag_land_in_untagged(self):
-        tagged = _device("t1", {}, tags={"floor": "1"})
+        tagged = _device("t1", {}, tags={"floor": ["1"]})
         untagged = _device("t2", {})
         groups = group_device_ids_by_tag([tagged, untagged], "floor")
         assert groups == {"1": ["t1"], UNTAGGED_GROUP_LABEL: ["t2"]}
 
     def test_devices_with_a_different_tag_key_are_also_untagged(self):
-        device = _device("t1", {}, tags={"zone": "a"})
+        device = _device("t1", {}, tags={"zone": ["a"]})
         groups = group_device_ids_by_tag([device], "floor")
         assert groups == {UNTAGGED_GROUP_LABEL: ["t1"]}
 
@@ -212,20 +212,20 @@ class TestGroupDeviceIdsByTag:
 
 class TestGroupDevicesByTag:
     def test_groups_by_tag_value(self):
-        floor1 = _device("t1", {}, tags={"floor": "1"})
-        floor1b = _device("t2", {}, tags={"floor": "1"})
-        floor2 = _device("t3", {}, tags={"floor": "2"})
+        floor1 = _device("t1", {}, tags={"floor": ["1"]})
+        floor1b = _device("t2", {}, tags={"floor": ["1"]})
+        floor2 = _device("t3", {}, tags={"floor": ["2"]})
         groups = group_devices_by_tag([floor1, floor1b, floor2], "floor")
         assert groups == {"1": [floor1, floor1b], "2": [floor2]}
 
     def test_devices_without_the_tag_land_in_untagged(self):
-        tagged = _device("t1", {}, tags={"floor": "1"})
+        tagged = _device("t1", {}, tags={"floor": ["1"]})
         untagged = _device("t2", {})
         groups = group_devices_by_tag([tagged, untagged], "floor")
         assert groups == {"1": [tagged], UNTAGGED_GROUP_LABEL: [untagged]}
 
     def test_group_device_ids_by_tag_matches_the_ids_of_group_devices_by_tag(self):
-        floor1 = _device("t1", {}, tags={"floor": "1"})
+        floor1 = _device("t1", {}, tags={"floor": ["1"]})
         untagged = _device("t2", {})
         devices = [floor1, untagged]
         by_device = group_devices_by_tag(devices, "floor")
@@ -327,89 +327,3 @@ def test_writable_devices_still_veto_each_other():
     assert row.device_count == 3
     assert row.writable_count == 2
     assert row.unit is None
-
-
-@pytest.mark.asyncio
-async def test_group_targets_intersect_existing_filters_and_resolve_current_members():
-    from datetime import UTC, datetime
-
-    from devices_manager.core.device_group import DeviceGroup
-
-    dm = _make_dm([_THERMO_1, _THERMO_2, _METER])
-    group = DeviceGroup(
-        id="group",
-        name="East",
-        driver_id="drv",
-        device_ids=["t1", "t2"],
-        created_at=datetime.now(UTC),
-        updated_at=datetime.now(UTC),
-    )
-    dm.get_group.return_value = group
-    resolver = CompositeTargetResolver(dm)
-    target = AttributeTarget(
-        devices=DevicesFilter(group_id="group", ids=["t2", "m1"], types=["thermostat"]),
-        attribute="temperature",
-    )
-    assert (await resolver.resolve(target)).device_ids == ["t2"]
-    assert "group_id" not in dm.list_devices.call_args.kwargs
-    group.device_ids = ["t1"]
-    target.devices.ids = None
-    assert (await resolver.resolve(target)).device_ids == ["t1"]
-    coverage = await resolver.list_attribute_coverage(target.devices)
-    assert all(row.device_count == 1 for row in coverage)
-
-
-@pytest.mark.asyncio
-async def test_empty_group_stays_empty_and_uses_driver_attribute_contract():
-    from datetime import UTC, datetime
-
-    from devices_manager.core.device_group import DeviceGroup
-    from devices_manager.core.driver import AttributeDriver
-
-    dm = _make_dm([_THERMO_1])
-    dm.get_group.return_value = DeviceGroup(
-        id="group",
-        name="Empty",
-        driver_id="drv",
-        device_ids=[],
-        created_at=datetime.now(UTC),
-        updated_at=datetime.now(UTC),
-    )
-    dm.get_driver.return_value.attributes = [
-        AttributeDriver(
-            name="setpoint",
-            data_type=DataType.FLOAT,
-            read="GET /value",
-            write="POST /value",
-            codecs=[],
-        )
-    ]
-    resolver = CompositeTargetResolver(dm)
-    result = await resolver.resolve(
-        AttributeTarget(devices=DevicesFilter(group_id="group"), attribute="setpoint"),
-        writable=True,
-    )
-    assert result.device_ids == []
-    assert result.data_type == DataType.FLOAT
-    assert dm.list_devices.call_args.kwargs["ids"] == []
-    with pytest.raises(InvalidError):
-        await resolver.resolve(
-            AttributeTarget(
-                devices=DevicesFilter(group_id="group"), attribute="missing"
-            )
-        )
-
-
-@pytest.mark.asyncio
-async def test_unknown_group_never_becomes_global_target():
-    from models.errors import NotFoundError
-
-    dm = _make_dm([_THERMO_1])
-    dm.get_group.side_effect = NotFoundError("Group missing")
-    with pytest.raises(NotFoundError):
-        await CompositeTargetResolver(dm).resolve(
-            AttributeTarget(
-                devices=DevicesFilter(group_id="missing"), attribute="temperature"
-            )
-        )
-    dm.list_devices.assert_not_called()

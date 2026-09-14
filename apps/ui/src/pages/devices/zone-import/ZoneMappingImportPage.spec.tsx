@@ -75,7 +75,7 @@ function device(id: string, name: string, assetId?: string): Device {
   return {
     id,
     name,
-    tags: assetId ? { asset_id: assetId } : {},
+    tags: assetId ? { asset_id: [assetId] } : {},
     attributes: {},
     config: {},
     driver_id: "drv",

@@ -83,7 +83,7 @@ export function searchViewer({
     if (!haystack.includes(needle)) {
       continue;
     }
-    const assetId = device.tags?.asset_id;
+    const assetId = device.tags?.asset_id?.[0];
     const room = assetId ? rooms.get(assetId) : undefined;
     if (room) {
       deviceHits.push({ device, ...room });

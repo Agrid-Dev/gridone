@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from commands import UnitCommand
 from devices_manager.types import AttributeValueType
+from models.tags import Tags
 from models.targets import DevicesFilter
 from models.types import SortOrder
 
@@ -81,10 +82,10 @@ class DevicesFilterBody(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    group_id: str | None = Field(default=None, min_length=1)
+    driver_id: str | None = Field(default=None, min_length=1)
     ids: list[str] | None = None
     types: list[str] | None = None
-    tags: dict[str, list[str]] | None = None
+    tags: Tags | None = None
     asset_id: str | None = None
 
     def to_devices_filter(self) -> DevicesFilter:
@@ -97,7 +98,7 @@ class DevicesFilterBody(BaseModel):
                 values.append(self.asset_id)
             tags["asset_id"] = values
         return DevicesFilter(
-            group_id=self.group_id, ids=self.ids, types=self.types, tags=tags
+            driver_id=self.driver_id, ids=self.ids, types=self.types, tags=tags
         )
 
 

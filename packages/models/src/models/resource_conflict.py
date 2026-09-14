@@ -9,17 +9,13 @@ from models.errors import ConflictError
 
 
 class ResourceConflictCode(StrEnum):
-    GROUP_REFERENCES = "group_references"
-    GROUP_INCOMPATIBLE_MEMBER = "group_incompatible_member"
-    DRIVER_GROUP_REFERENCES = "driver_group_references"
-    DEVICE_GROUP_DRIVER_CHANGE = "device_group_driver_change"
-    GROUP_PREVIEW_REQUIRED = "group_preview_required"
-    GROUP_PREVIEW_EXPIRED = "group_preview_expired"
-    GROUP_PREVIEW_CHANGED = "group_preview_changed"
+    COMMAND_PREVIEW_REQUIRED = "command_preview_required"
+    COMMAND_PREVIEW_EXPIRED = "command_preview_expired"
+    COMMAND_PREVIEW_CHANGED = "command_preview_changed"
 
 
 class RelatedResource(BaseModel):
-    kind: Literal["device", "driver", "device_group", "automation", "command_template"]
+    kind: Literal["device", "driver", "automation", "command_template"]
     id: str
     name: str
 
@@ -28,6 +24,6 @@ class ResourceConflictError(ConflictError):
     def __init__(
         self, code: ResourceConflictCode, resources: list[RelatedResource]
     ) -> None:
-        super().__init__("Resource references must be updated before this operation")
+        super().__init__("Command preview must be refreshed before this operation")
         self.code = code
         self.resources = resources

@@ -10,6 +10,7 @@ import { useDeviceFromRoute } from "@/hooks/useDevice";
 import { useDeleteDevice } from "@/hooks/useDeleteDevice";
 import { usePermissions } from "@/contexts/AuthContext";
 import { useTransports } from "@/pages/transports/useTransports";
+import { formatTagCriteria } from "../views/viewFilters";
 import { toLabel } from "@/lib/textFormat";
 
 function Row({ label, value }: { label: string; value: ReactNode }) {
@@ -41,6 +42,19 @@ export default function DeviceConfigView() {
   return (
     <Card>
       <CardContent className="my-8 grid gap-8">
+        <FieldSet>
+          <FieldLegend>{t("views.tagsTitle")}</FieldLegend>
+          <p className="text-sm">{formatTagCriteria(device.tags) || "—"}</p>
+          {can("devices:write") && (
+            <Button asChild variant="outline">
+              <Link
+                to={`/devices/tags/edit?ids=${encodeURIComponent(device.id)}`}
+              >
+                {t("views.editTags")}
+              </Link>
+            </Button>
+          )}
+        </FieldSet>
         <FieldSet>
           <FieldLegend>{t("devices.sections.identity")}</FieldLegend>
           <Row label={t("devices.fields.name")} value={device.name} />

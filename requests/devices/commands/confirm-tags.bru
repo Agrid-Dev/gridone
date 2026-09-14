@@ -1,0 +1,18 @@
+meta {
+  name: confirm previewed command
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{BASE_URL}}/devices/commands/confirm
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "token": "paste_preview_token",
+    "device_ids": ["paste_selected_eligible_device_id"]
+  }
+}

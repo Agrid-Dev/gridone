@@ -47,12 +47,12 @@ function templateToFormValues(
     !!target.ids?.length &&
     !assetId &&
     !target.types?.length &&
-    !target.group_id;
+    !target.driver_id;
   return {
     targetMode: usingIdsOnly ? "devices" : "filters",
     deviceIds: target.ids ?? [],
     targetFilter: {
-      groupId: target.group_id ?? undefined,
+      driverId: target.driver_id ?? undefined,
       ids: usingIdsOnly ? undefined : (target.ids ?? undefined),
       tags: target.tags ?? undefined,
       assetId,

@@ -133,7 +133,12 @@ class TestCreateTemplate:
         body = response.json()
         assert body["id"] == saved.id
         assert body["name"] == "Thermostats to auto"
-        assert body["target"] == {"ids": None, "types": ["thermostat"], "tags": None}
+        assert body["target"] == {
+            "driver_id": None,
+            "ids": None,
+            "types": ["thermostat"],
+            "tags": None,
+        }
         assert body["write"] == {
             "attribute": "mode",
             "value": "auto",

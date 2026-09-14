@@ -266,7 +266,7 @@
         "assetId": "Zone",
         "types": "Device type",
         "tags": "Tags",
-        "groupId": "Groups"
+        "driverId": "Driver"
       },
       "tag": "{{key}}: {{values}}"
     },
@@ -631,7 +631,7 @@
     "after": "After",
     "eligibility": "Eligibility",
     "liveValidation": "Constraints are checked for each device again when the command is executed. Exclusions apply only to this batch.",
-    "deleteDescription": "Delete “{{name}}”? Its devices and command history will remain available.",
+    "deleteDescription": "Delete “{{name}}”? Devices will be removed from this group. Their other groups and command history are preserved. Automations targeting this group will have no recipients.",
     "batchSummary": "{{success}} succeeded, {{failed}} failed, {{pending}} pending",
     "executionFailed": "Command failed. Open history for details.",
     "history": "View command history",
@@ -658,9 +658,11 @@
       "group_incompatible_member": "Cannot add this device: its driver differs from the group driver. Choose a compatible device.",
       "driver_group_references": "Cannot delete this driver. Remove the groups using it first.",
       "device_group_driver_change": "Cannot change this device’s driver. Remove it from these groups first.",
-      "group_preview_changed": "The selected members have changed. Review a fresh preview and confirm again.",
-      "group_preview_expired": "This preview has expired or was already used. Prepare a new command.",
-      "group_preview_required": "Preview the group command and confirm its recipients before sending."
+      "command_preview_changed": "The selected members have changed. Review a fresh preview and confirm again.",
+      "command_preview_expired": "This preview has expired or was already used. Prepare a new command.",
+      "command_preview_required": "Preview the group command and confirm its recipients before sending.",
+      "empty_target": "No commands sent: no device matches the target.",
+      "invalid_target": "No commands sent: the target is invalid."
     },
     "emptyAction": "No commands sent: group “{{name}}” contains no devices.",
     "invalidAction": "No commands sent: the device group is missing or invalid. Check the command target.",
@@ -692,6 +694,59 @@
     "selectedCount_one": "{{count}} selected",
     "selectedCount_other": "{{count}} selected",
     "selectedEquipment_one": "{{count}} device selected",
-    "selectedEquipment_other": "{{count}} devices selected"
+    "selectedEquipment_other": "{{count}} devices selected",
+    "nameRequired": "Give the group a name.",
+    "chooseDevices": "Devices in this group",
+    "membersHelp": "Select the devices to control together. A device can belong to several groups.",
+    "filterDriver": "Filter the list by driver",
+    "searchPlaceholder": "Device name…",
+    "selectedList": "Selected devices",
+    "removeMember": "Remove {{name}} from the selection",
+    "membersSaveFailed": "Some devices could not be updated. Your selection is preserved: save again to finish.",
+    "advancedHint": "Need to organize devices by floor, room or another criterion?",
+    "noGroups": "No groups yet. Create one by giving it a name and choosing its devices."
+  },
+  "views": {
+    "title": "Views",
+    "description": "Shared ways to filter and organize devices by their tags.",
+    "create": "Create a view",
+    "createAdvanced": "Create an advanced view",
+    "advanced": "Advanced organization",
+    "save": "Save view",
+    "edit": "Edit view",
+    "noViews": "No saved views yet. Create a view to organize devices by their tags.",
+    "allDrivers": "All drivers",
+    "invalid": "Check the format of this field.",
+    "empty": "No devices match this view. Update the filter or assign tags to devices.",
+    "path": "Grouping path",
+    "untagged": "Without {{key}} · {{count}} devices",
+    "delete": "Delete view",
+    "deleteDescription": "Only this display configuration will be deleted. Devices, tags and automation targets stay as they are.",
+    "fields": {
+      "name": "Name",
+      "description": "Description",
+      "tags": "Tag criteria",
+      "groupBy": "Group by"
+    },
+    "help": {
+      "tags": "Optional key:value pairs, separated by commas. Example: floor:2, loop:west.",
+      "groupBy": "Optional tag keys in display order, separated by commas. Example: floor, room. Leave empty to show all devices together."
+    },
+    "tagsTitle": "Device tags",
+    "editTags": "Edit tags",
+    "tagKey": "Key",
+    "tagValues": "Values",
+    "tagHelp": "Comma-separated values. Letters, digits, accents, underscores, dots and hyphens are accepted.",
+    "tagWarning": "Tag changes affect future automation executions. Removing or renaming a value does not update saved filters.",
+    "addTags": "Add values",
+    "removeTags": "Remove values",
+    "renameTag": "Rename a value",
+    "oldValue": "Current value",
+    "newValue": "New value",
+    "tagChanged": "{{count}} devices updated",
+    "tagFailed": "{{count}} devices could not be updated. Retry the failed devices.",
+    "chooseDevices": "Select devices",
+    "renameHelp": "Rename this value on every device that carries it.",
+    "search": "Search devices"
   }
 }

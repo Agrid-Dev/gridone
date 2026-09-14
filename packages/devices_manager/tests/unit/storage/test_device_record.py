@@ -41,7 +41,7 @@ def core_device() -> CoreDevice:
         config={"some_id": "abc"},
         driver=driver,
         transport=transport,
-        tags={"floor": "3"},
+        tags={"floor": ["3"]},
         attributes={
             "temperature": Attribute.create(
                 "temperature", DataType.FLOAT, {"read"}, 22.5
@@ -61,7 +61,7 @@ class TestRoundTrip:
         assert base.config == core_device.config
         assert base.driver_id == "drv1"
         assert base.transport_id == "t1"
-        assert base.tags == {"floor": "3"}
+        assert base.tags == {"floor": ["3"]}
         assert base.attributes["temperature"].current_value == 22.5
         assert base.created_at == core_device.created_at
         assert base.updated_at == core_device.updated_at

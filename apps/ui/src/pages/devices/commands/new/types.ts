@@ -14,7 +14,7 @@ export type TargetMode = TargetPickerMode;
 /** The filter-mode form state: the narrow subset of DevicesFilter that the
  *  filter-mode UI lets the user edit today. */
 export type TargetFilter = {
-  groupId?: string;
+  driverId?: string;
   ids?: string[];
   tags?: Record<string, string[]>;
   assetId?: string;
@@ -38,7 +38,7 @@ export const wizardSchema = z.object({
   targetMode: z.enum(["devices", "filters"]),
   deviceIds: z.array(z.string()),
   targetFilter: z.object({
-    groupId: z.string().optional(),
+    driverId: z.string().optional(),
     assetId: z.string().optional(),
     ids: z.array(z.string()).optional(),
     types: z.array(z.string()).optional(),

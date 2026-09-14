@@ -119,7 +119,7 @@ async def get_tree_with_devices(
     name_map = {d.id: d.name for d in all_devices}
     links: dict[str, list[str]] = {}
     for device in all_devices:
-        if linked_asset_id := device.tags.get("asset_id"):
+        for linked_asset_id in device.tags.get("asset_id", []):
             links.setdefault(linked_asset_id, []).append(device.id)
 
     def enrich(nodes: list[dict]) -> None:

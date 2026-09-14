@@ -76,7 +76,7 @@ function device(
     id,
     name,
     type,
-    tags: assetId ? { asset_id: assetId } : {},
+    tags: assetId ? { asset_id: [assetId] } : {},
   } as unknown as Device;
 }
 

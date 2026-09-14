@@ -79,7 +79,7 @@ export function useDevicesPage(): DevicesPage {
   );
 
   const assetOf = (device: Device): Asset | null => {
-    const assetId = device.tags?.["asset_id"];
+    const assetId = device.tags?.["asset_id"]?.[0];
     return assetId ? (assetsById[assetId] ?? null) : null;
   };
 

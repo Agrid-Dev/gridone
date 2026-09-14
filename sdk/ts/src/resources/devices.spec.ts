@@ -75,8 +75,8 @@ const CASES: Case[] = [
   ["delete", (d) => d.delete("dev1"), ["DELETE", "/devices/dev1"]],
   [
     "setTag",
-    (d) => d.setTag("dev1", "zone", "roof"),
-    ["PUT", "/devices/dev1/tags/zone", { body: { value: "roof" } }],
+    (d) => d.setTag("dev1", "zone", ["roof"]),
+    ["PUT", "/devices/dev1/tags/zone", { body: { values: ["roof"] } }],
   ],
   [
     "deleteTag",

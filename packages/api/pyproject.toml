@@ -12,6 +12,7 @@ dependencies = [
     "gridone-automations",
     "gridone-commands",
     "gridone-dashboards",
+    "gridone-device-views",
     "gridone-synoptics",
     "gridone-notifications",
     "fastapi>=0.123.8",

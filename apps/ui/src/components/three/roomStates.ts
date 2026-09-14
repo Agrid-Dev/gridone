@@ -111,7 +111,7 @@ export function buildRoomStates(
   }
   const devicesByAssetId = new Map<string, Device[]>();
   for (const device of devices) {
-    const assetId = device.tags?.asset_id;
+    const assetId = device.tags?.asset_id?.[0];
     if (assetId) {
       const bucket = devicesByAssetId.get(assetId);
       if (bucket) {

@@ -127,7 +127,7 @@ function resolveMappingRows(
 
   return raw.map((row) => {
     const device = devicesById.get(row.deviceId);
-    const currentZone = zoneLabel(device?.tags?.[ASSET_TAG], assetsById);
+    const currentZone = zoneLabel(device?.tags?.[ASSET_TAG]?.[0], assetsById);
     const targetZone = zoneLabel(row.assetId, assetsById);
     const skipped = row.deviceId !== "" && row.assetId === "";
 
@@ -153,7 +153,9 @@ function resolveMappingRows(
       targetZone,
       skipped,
       unchanged:
-        error === null && !skipped && device?.tags?.[ASSET_TAG] === row.assetId,
+        error === null &&
+        !skipped &&
+        device?.tags?.[ASSET_TAG]?.[0] === row.assetId,
       error,
     };
   });

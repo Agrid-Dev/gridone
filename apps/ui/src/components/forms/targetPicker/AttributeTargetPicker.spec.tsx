@@ -80,13 +80,13 @@ vi.mock("@/components/ui/select", () => ({
 
 import { AttributeTargetPicker } from "./AttributeTargetPicker";
 
-function device(id: string, tags: Record<string, string> = {}): Device {
+function device(id: string, tags: Record<string, string[]> = {}): Device {
   return { id, name: id, tags } as Device;
 }
 
 const devices: Device[] = [
-  device("d1", { floor: "1" }),
-  device("d2", { floor: "1" }),
+  device("d1", { floor: ["1"] }),
+  device("d2", { floor: ["1"] }),
 ];
 
 const coverageResponse: AttributeCoverageResponse = {

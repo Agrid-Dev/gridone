@@ -64,7 +64,7 @@ function makeThermostat(
     id,
     name: id,
     type: "thermostat",
-    tags: { asset_id: assetId },
+    tags: { asset_id: [assetId] },
     attributes,
     config: {},
     driver_id: "d",

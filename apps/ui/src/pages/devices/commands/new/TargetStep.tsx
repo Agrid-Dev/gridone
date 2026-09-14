@@ -12,8 +12,6 @@ import { cn } from "@/lib/utils";
 import type { Asset, Device } from "@gridone/sdk";
 import type { AssetTreeNode } from "@/lib/assets";
 import { DevicesFilterTabs } from "@/components/forms/targetPicker";
-import { useDeviceGroup } from "../../groups/useDeviceGroups";
-import { GroupSelect } from "../../groups/GroupSelect";
 import { resolveAssetSubtreeDeviceIds } from "./resolvers";
 import type { TargetMode } from "./types";
 import type { WizardFormValues } from "./types";
@@ -37,13 +35,13 @@ export function TargetStep({
   assetTree,
   assetsList,
 }: TargetStepProps) {
+  const { t } = useTranslation("devices");
   const modeCtl = useController({ control, name: "targetMode" });
   const idsCtl = useController({ control, name: "deviceIds" });
   const filterCtl = useController({ control, name: "targetFilter" });
 
   const mode = (modeCtl.field.value ?? "devices") as TargetMode;
   const targetFilter = filterCtl.field.value ?? {};
-  const { data: group } = useDeviceGroup(targetFilter.groupId ?? "");
 
   // Devices mode: local display filter narrowing the table to an asset's
   // subtree — it does not change the selection.
@@ -72,12 +70,24 @@ export function TargetStep({
       }
       extraFilters={
         <>
-          <GroupSelect
-            value={targetFilter.groupId}
-            onChange={(groupId) =>
-              filterCtl.field.onChange({ ...targetFilter, groupId })
+          <select
+            aria-label="Driver"
+            className="h-10 rounded-md border bg-background px-3"
+            value={targetFilter.driverId ?? ""}
+            onChange={(e) =>
+              filterCtl.field.onChange({
+                ...targetFilter,
+                driverId: e.target.value || undefined,
+              })
             }
-          />
+          >
+            <option value="">{t("views.allDrivers")}</option>
+            {[...new Set(devices.map((d) => d.driver_id))].sort().map((id) => (
+              <option key={id} value={id}>
+                {id}
+              </option>
+            ))}
+          </select>
           <AssetSelect
             value={assetId ?? null}
             onChange={(v) =>
@@ -92,10 +102,11 @@ export function TargetStep({
         </>
       }
       extraDeviceFilter={
-        assetId || targetFilter.groupId || targetFilter.ids
+        assetId || targetFilter.driverId || targetFilter.ids
           ? (d) =>
-              (!assetId || d.tags?.["asset_id"] === assetId) &&
-              (!targetFilter.groupId || !!group?.device_ids?.includes(d.id)) &&
+              (!assetId || !!d.tags?.["asset_id"]?.includes(assetId)) &&
+              (!targetFilter.driverId ||
+                d.driver_id === targetFilter.driverId) &&
               (!targetFilter.ids || targetFilter.ids.includes(d.id))
           : undefined
       }

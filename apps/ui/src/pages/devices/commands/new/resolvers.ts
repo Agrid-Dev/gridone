@@ -1,4 +1,5 @@
-import type { Device, DeviceGroup } from "@gridone/sdk";
+import { tagValues } from "@/lib/devices";
+import type { Device } from "@gridone/sdk";
 import type { AssetTreeNode } from "@/lib/assets";
 import {
   deviceAttributes,
@@ -40,19 +41,12 @@ export function currentValueFor(
 export function deviceMatchesFilter(
   device: Device,
   filter: DevicesFilter,
-  groups: DeviceGroup[] = [],
 ): boolean {
-  if (
-    filter.group_id &&
-    !groups
-      .find((group) => group.id === filter.group_id)
-      ?.device_ids?.includes(device.id)
-  )
-    return false;
+  if (filter.driver_id && filter.driver_id !== device.driver_id) return false;
   if (filter.ids && !filter.ids.includes(device.id)) {
     return false;
   }
-  if (filter.types && filter.types.length > 0) {
+  if (filter.types) {
     if (!device.type || !filter.types.includes(device.type)) {
       return false;
     }
@@ -60,11 +54,14 @@ export function deviceMatchesFilter(
   if (
     filter.tags &&
     !Object.entries(filter.tags).every(([key, values]) =>
-      values.includes(device.tags?.[key] ?? ""),
+      tagValues(device.tags, key).some((value) => values.includes(value)),
     )
   )
     return false;
-  if (filter.asset_id && device.tags?.["asset_id"] !== filter.asset_id) {
+  if (
+    filter.asset_id &&
+    !device.tags?.["asset_id"]?.includes(filter.asset_id)
+  ) {
     return false;
   }
   return true;
@@ -75,10 +72,9 @@ export function deviceMatchesFilter(
 export function resolveFilter(
   devices: Device[],
   filter: DevicesFilter,
-  groups: DeviceGroup[] = [],
 ): Device[] {
   if (isEmptyFilter(filter)) return [];
-  return devices.filter((d) => deviceMatchesFilter(d, filter, groups));
+  return devices.filter((d) => deviceMatchesFilter(d, filter));
 }
 
 /** Map the filter-mode form state (camelCase ``assetId``) onto the
@@ -88,8 +84,8 @@ export function targetFilterToDevicesFilter(
   filter: TargetFilter | undefined,
 ): DevicesFilter {
   return {
-    types: filter?.types,
-    ...(filter?.groupId ? { group_id: filter.groupId } : {}),
+    types: filter?.types?.length ? filter.types : undefined,
+    ...(filter?.driverId ? { driver_id: filter.driverId } : {}),
     ...(filter?.ids ? { ids: filter.ids } : {}),
     ...(filter?.tags ? { tags: filter.tags } : {}),
     asset_id: filter?.assetId,

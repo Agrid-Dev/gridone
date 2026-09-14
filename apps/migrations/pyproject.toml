@@ -8,6 +8,7 @@ dependencies = [
     "psycopg2-binary>=2.9.0",
     "gridone-users",
     "gridone-devices-manager",
+    "gridone-device-views",
     "gridone-timeseries",
     "gridone-assets",
 ]

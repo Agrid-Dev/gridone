@@ -21,7 +21,7 @@ def make_device(driver, mock_transport_client) -> DeviceFactory:
         name: str,
         *,
         device_type: str | None = None,
-        tags: dict[str, str] | None = None,
+        tags: dict[str, list[str]] | None = None,
         attributes: dict[str, Attribute] | None = None,
     ) -> CoreDevice:
         if attributes is None:
@@ -176,12 +176,12 @@ class TestDeviceFiltersMatches:
         ],
     )
     def test_tags(self, make_device, filter_tags, expected):
-        device = make_device("d1", "Device", tags={"asset_id": "floor1"})
+        device = make_device("d1", "Device", tags={"asset_id": ["floor1"]})
         assert DeviceFilters(tags=filter_tags).matches(device) is expected
 
     def test_tags_and_across_keys_all_match(self, make_device):
         device = make_device(
-            "d1", "Device", tags={"asset_id": "floor1", "region": "north"}
+            "d1", "Device", tags={"asset_id": ["floor1"], "region": ["north"]}
         )
         assert DeviceFilters(
             tags={"asset_id": frozenset(["floor1"]), "region": frozenset(["north"])}
@@ -189,7 +189,7 @@ class TestDeviceFiltersMatches:
 
     def test_tags_and_across_keys_partial_match_excluded(self, make_device):
         device = make_device(
-            "d1", "Device", tags={"asset_id": "floor1", "region": "south"}
+            "d1", "Device", tags={"asset_id": ["floor1"], "region": ["south"]}
         )
         assert not DeviceFilters(
             tags={"asset_id": frozenset(["floor1"]), "region": frozenset(["north"])}
@@ -197,8 +197,8 @@ class TestDeviceFiltersMatches:
 
     def test_tags_or_within_key_values(self, make_device):
         filters = DeviceFilters(tags={"asset_id": frozenset(["floor1", "floor2"])})
-        assert filters.matches(make_device("d1", "D1", tags={"asset_id": "floor1"}))
-        assert filters.matches(make_device("d2", "D2", tags={"asset_id": "floor2"}))
+        assert filters.matches(make_device("d1", "D1", tags={"asset_id": ["floor1"]}))
+        assert filters.matches(make_device("d2", "D2", tags={"asset_id": ["floor2"]}))
 
     # -- is_faulty --
 
@@ -263,7 +263,7 @@ class TestDeviceFiltersMatches:
             "d1",
             "Chambre 12",
             device_type="thermostat",
-            tags={"asset_id": "floor1"},
+            tags={"asset_id": ["floor1"]},
             attributes=_writable_attrs(),
         )
         assert DeviceFilters(
@@ -279,7 +279,7 @@ class TestDeviceFiltersMatches:
             "d1",
             "Chambre 12",
             device_type="thermostat",
-            tags={"asset_id": "floor1"},
+            tags={"asset_id": ["floor1"]},
             attributes=_writable_attrs(),
         )
         # Everything matches except ids — wrong id

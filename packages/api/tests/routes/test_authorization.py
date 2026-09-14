@@ -1685,79 +1685,98 @@ def test_synoptics_access_control(  # noqa: PLR0913
         assert resp.status_code == expected_status
 
 
-# --- Explicit device groups: the same read/write permissions as devices ---
-
-
-@pytest.mark.parametrize("role", ["admin", "operator", "viewer", None])
+@pytest.mark.parametrize("username", [None, "viewer", "operator", "admin"])
 @pytest.mark.parametrize(
-    ("method", "path", "body", "allowed"),
+    ("method", "path", "body", "success"),
     [
-        ("GET", "/devices/groups", None, 200),
-        ("GET", "/devices/groups/group", None, 200),
-        ("GET", "/devices/groups/group/references", None, 200),
-        ("GET", "/devices/groups/group/presentation", None, 200),
-        ("POST", "/devices/groups", {"name": "East", "driver_id": "driver"}, 201),
-        ("PATCH", "/devices/groups/group", {"name": "East", "device_ids": []}, 200),
-        ("DELETE", "/devices/groups/group", None, 204),
+        ("GET", "/devices/tags", None, 200),
         (
             "POST",
-            "/devices/groups/group/commands/preview",
-            {"attribute": "setpoint", "value": 25},
+            "/devices/tags/bulk",
+            {
+                "target": {"ids": []},
+                "operation": "add",
+                "key": "ecs",
+                "values": ["east"],
+            },
             200,
         ),
         (
             "POST",
-            "/devices/groups/group/commands",
-            {"token": "token", "device_ids": ["device"]},
+            "/devices/tags/rename",
+            {"key": "ecs", "old_value": "east", "new_value": "west"},
+            200,
+        ),
+        (
+            "POST",
+            "/devices/commands/preview",
+            {
+                "target": {"tags": {"ecs": ["east"]}},
+                "attribute": "setpoint",
+                "value": 24,
+            },
+            200,
+        ),
+        (
+            "POST",
+            "/devices/commands/confirm",
+            {"token": "token", "device_ids": ["a"]},
             202,
         ),
+        ("GET", "/device-views", None, 200),
+        ("GET", "/device-views/v", None, 200),
+        ("POST", "/device-views", {"name": "Building", "group_by": ["floor"]}, 201),
+        ("PUT", "/device-views/v", {"name": "Building", "group_by": ["floor"]}, 200),
+        ("DELETE", "/device-views/v", None, 204),
     ],
 )
-def test_device_group_permissions(role, method, path, body, allowed):
-    from api.group_commands import GroupCommandPreview, GroupCommands
-    from api.group_references import GroupReferences
-    from api.schemas.command import BatchDispatchResponse
-    from devices_manager import DevicesServiceInterface
-    from devices_manager.core.device_group import DeviceGroup
+def test_tags_views_and_confirmation_permissions(username, method, path, body, success):
+    from api.dependencies import get_device_manager
+    from api.routes.command_router import get_selection_commands
+    from api.routes.device_views_router import get_device_views_service
+    from api.routes.device_views_router import router as view_router
+    from api.schemas.command import BatchDispatchResponse, DevicesFilterBody
+    from api.selection_commands import SelectionCommandPreview, SelectionCommands
+    from device_views import DeviceView, DeviceViewsService
 
     app = _build_devices_app()
-    group = DeviceGroup(
-        id="group",
-        name="East",
-        driver_id="driver",
-        device_ids=[],
-        created_at=datetime.now(UTC),
-        updated_at=datetime.now(UTC),
-    )
-    dm = MagicMock(spec=DevicesServiceInterface)
-    dm.list_groups.return_value = [group]
-    dm.get_group.return_value = group
-    dm.create_group.return_value = group
-    dm.update_group.return_value = group
-    dm.get_driver_presentation_response.return_value = None
+    dm = MagicMock()
+    dm.list_devices.return_value = []
+    dm.mutate_device_tags = AsyncMock(return_value=[])
     app.dependency_overrides[get_device_manager] = lambda: dm
-    commands = MagicMock(spec=GroupCommands)
-    commands.prepare.return_value = GroupCommandPreview(
-        token="token",
-        group_id="group",
-        group_name="East",
+    coordinator = MagicMock(spec=SelectionCommands)
+    coordinator.prepare.return_value = SelectionCommandPreview(
+        target=DevicesFilterBody(),
         attribute="setpoint",
-        value=25,
+        value=24,
+        token="token",
         members=[],
     )
-    commands.confirm.return_value = BatchDispatchResponse(batch_id="batch", commands=[])
-    references = MagicMock(spec=GroupReferences)
-    references.list.return_value = []
-    app.state.group_commands = commands
-    app.state.group_references = references
+    coordinator.confirm.return_value = BatchDispatchResponse(
+        batch_id="batch", commands=[]
+    )
+    app.dependency_overrides[get_selection_commands] = lambda: coordinator
+    views = AsyncMock(spec=DeviceViewsService)
+    now = datetime.now(UTC)
+    view = DeviceView(
+        id="v", name="Building", group_by=["floor"], created_at=now, updated_at=now
+    )
+    views.list.return_value = [view]
+    views.get.return_value = view
+    views.create.return_value = view
+    views.update.return_value = view
+    app.dependency_overrides[get_device_views_service] = lambda: views
+    app.include_router(
+        view_router, prefix="/device-views", dependencies=[Depends(get_current_user_id)]
+    )
     with TestClient(app) as client:
-        headers = _auth_header(_login(client, role)) if role else {}
+        headers = _auth_header(_login(client, username)) if username else {}
         response = client.request(method, path, json=body, headers=headers)
     expected = (
         401
-        if role is None
+        if username is None
         else 403
-        if role == "viewer" and method != "GET"
-        else allowed
+        if username == "viewer" and method != "GET"
+        else success
     )
     assert response.status_code == expected

@@ -796,10 +796,11 @@ class TestParamsValidation:
 @pytest.mark.asyncio
 async def test_structured_group_execution_failure_is_recorded():
     from models.action_failure import ActionExecutionError, ActionFailure
+    from models.targets import DevicesFilter
 
     provider = _make_action_provider()
     details = ActionFailure(
-        code="empty_device_group", group_id="group", group_name="East"
+        code="empty_target", target=DevicesFilter(tags={"loop": ["east"]})
     )
     provider.execute.side_effect = ActionExecutionError(details)
     storage = _make_storage()

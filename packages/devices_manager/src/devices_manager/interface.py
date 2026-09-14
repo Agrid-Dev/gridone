@@ -18,11 +18,11 @@ if TYPE_CHECKING:
     from models.types import Severity
 
     from .core.device.event_log import AttributeLogs
-    from .core.device_group import DeviceGroup, DeviceGroupCreate, DeviceGroupUpdate
     from .core.discovery_manager import DiscoveryConfig
     from .core.driver.attribute_driver import AttributeDriver
     from .core.presentation import PresentationStatus
     from .core.presentation.resources import StoredResource
+    from .core.tags import TagMutation, TagMutationResult
     from .core.write_preview import DeviceWritePreview
     from .dto import (
         AttributePatch,
@@ -78,7 +78,9 @@ class DeviceRegistryInterface(Protocol):
 
     async def remove(self, device_id: str) -> None: ...
 
-    async def set_tag(self, device_id: str, key: str, value: str) -> CoreDevice: ...
+    async def set_tag(
+        self, device_id: str, key: str, values: list[str]
+    ) -> CoreDevice: ...
 
     async def delete_tag(self, device_id: str, key: str) -> CoreDevice: ...
 
@@ -136,23 +138,9 @@ class DevicesServiceInterface(Protocol):
     @property
     def discovery_manager(self) -> DiscoveryManagerInterface: ...
 
-    async def get_group_presentation_asset(
-        self, group_id: str, revision: str, asset_id: str
+    async def get_driver_presentation_asset(
+        self, driver_id: str, revision: str, asset_id: str
     ) -> StoredResource: ...
-
-    def list_groups(
-        self, *, device_id: str | None = None, driver_id: str | None = None
-    ) -> list[DeviceGroup]: ...
-
-    def get_group(self, group_id: str) -> DeviceGroup: ...
-
-    async def create_group(self, params: DeviceGroupCreate) -> DeviceGroup: ...
-
-    async def update_group(
-        self, group_id: str, params: DeviceGroupUpdate
-    ) -> DeviceGroup: ...
-
-    async def delete_group(self, group_id: str) -> None: ...
 
     # -- devices --
 
@@ -181,7 +169,13 @@ class DevicesServiceInterface(Protocol):
 
     async def delete_device(self, device_id: str) -> None: ...
 
-    async def set_device_tag(self, device_id: str, key: str, value: str) -> Device: ...
+    async def mutate_device_tags(
+        self, device_ids: list[str], mutation: TagMutation
+    ) -> list[TagMutationResult]: ...
+
+    async def set_device_tag(
+        self, device_id: str, key: str, values: list[str]
+    ) -> Device: ...
 
     async def delete_device_tag(self, device_id: str, key: str) -> Device: ...
 

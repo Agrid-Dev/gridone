@@ -14,8 +14,6 @@ from api.action_providers.commands import CommandsActionProvider
 from api.action_providers.notifications import NotificationsActionProvider
 from api.auth import get_current_user_id
 from api.exception_handlers import register_exception_handlers
-from api.group_commands import GroupCommands
-from api.group_references import GroupReferences
 from api.listeners.device import on_device_discovered
 from api.listeners.fault import on_fault_transition
 from api.listeners.timeseries import historise_attribute_update, record_attribute_point
@@ -35,7 +33,9 @@ from api.routes import (
 )
 from api.routes import websocket as websocket_routes
 from api.routes.apps import apps_registration_router, apps_router
+from api.routes.device_views_router import router as device_views_router
 from api.routes.users import auth_router, users_router
+from api.selection_commands import SelectionCommands
 from api.settings import load_settings
 from api.targets import CompositeTargetResolver
 from api.trigger_providers.change_event import ChangeEventTriggerProvider
@@ -44,6 +44,7 @@ from apps import AppsService
 from assets import AssetsService, BuildingModelsService
 from assets.conversion.ifc import IfcSceneConverter
 from commands import CommandsService, WriteResult
+from device_views import DeviceViewsService
 from devices_manager import DevicesService
 from models.errors import ConfigurationError
 from models.service import Service
@@ -104,28 +105,23 @@ def _build_automations_service(
             ScheduleTriggerProvider(timezone),
             ChangeEventTriggerProvider(devices_service),
         ],
-        mutation_lock=devices_service.mutation_lock,
-        action_validator=GroupReferences(
-            devices_service, commands_service
-        ).validate_action,
         action_providers=[
-            CommandsActionProvider(commands_service, devices_service),
+            CommandsActionProvider(commands_service),
             NotificationsActionProvider(notifications_service),
         ],
     )
 
 
-def _wire_groups(
-    app: FastAPI,
-    dm: DevicesService,
-    commands: CommandsService,
-    automations: AutomationsService,
-) -> None:
-    app.state.automations_service = automations
-    references = GroupReferences(dm, commands, automations)
-    dm.group_references = references.list
-    app.state.group_references = references
-    app.state.group_commands = GroupCommands(dm, commands)
+async def _start_display_services(
+    app: FastAPI, storage_url: str | None
+) -> list[Service]:
+    views = DeviceViewsService(storage_url)
+    await views.start()
+    app.state.device_views_service = views
+    dashboards = DashboardsService(storage_url)
+    await dashboards.start()
+    app.state.dashboards_service = dashboards
+    return [views, dashboards]
 
 
 # Composition root: only the acceptance suite runs it, and that reports no
@@ -196,7 +192,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:  # pragma: no cover
         device_writer=_write_device,
         result_handler=_on_command_success,
         target_resolver=CompositeTargetResolver(dm),
-        mutation_lock=dm.mutation_lock,
     )
     await commands_service.start()
     app.state.commands_service = commands_service
@@ -209,7 +204,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:  # pragma: no cover
         settings.GRIDONE_TIMEZONE,
     )
     await automations_svc.start()
-    _wire_groups(app, dm, commands_service, automations_svc)
+    app.state.automations_service = automations_svc
+    app.state.selection_commands = SelectionCommands(dm, commands_service)
 
     apps_svc = AppsService(settings.storage_url, users_service)
     await apps_svc.start()
@@ -217,9 +213,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:  # pragma: no cover
 
     assets_services = await _start_assets_services(app, settings.storage_url)
 
-    dashboards_service = DashboardsService(settings.storage_url)
-    await dashboards_service.start()
-    app.state.dashboards_service = dashboards_service
+    display_services = await _start_display_services(app, settings.storage_url)
 
     synoptics_service = SynopticsService(
         settings.storage_url, target_resolver=CompositeTargetResolver(dm)
@@ -256,7 +250,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:  # pragma: no cover
                 users_service,
                 apps_svc,
                 *assets_services,
-                dashboards_service,
+                *display_services,
                 synoptics_service,
             ]
         )
@@ -282,6 +276,12 @@ def create_app(*, logging_dict_config: dict | None = None) -> FastAPI:
     # Protected routes — permissions are enforced per endpoint inside each router.
     # A blanket JWT dep is still applied so unauthenticated requests get a 401.
     jwt_dep = [Depends(get_current_user_id)]
+    app.include_router(
+        device_views_router,
+        prefix="/device-views",
+        tags=["device-views"],
+        dependencies=jwt_dep,
+    )
     app.include_router(
         users_router, prefix="/users", tags=["users"], dependencies=jwt_dep
     )

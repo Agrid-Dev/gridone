@@ -84,19 +84,28 @@ npm run format -- --check
 npm run type-check  # tsc --noEmit
 ```
 
-### Device groups
+### Tag groups and saved views
 
-Shared device groups are available through `client.devices.groups` (CRUD,
-references, presentation, preview, and confirmation). Group manual commands
-always need a preview token:
+Use `client.devices.setTag(deviceId, "ecs", ["east", "west"])` to replace a
+key's values, `bulkTags` to add/remove values, `renameTag` to rename a value and
+`listTags` to discover the vocabulary. Device response tags are lists, including
+single-valued zone membership (`device.tags?.asset_id?.[0]`).
+
+`client.deviceViews` provides shared display settings, with CRUD on
+`/device-views`. A building view can use `{ name: "Building", filter: {},
+group_by: ["étage", "pièce"] }`; it owns no devices.
+
+Manual commands use a tag filter and a preview token:
 
 ```ts
-const preview = await client.devices.groups.preview(groupId, {
+const target = { tags: { ecs: ["east"] }, driver_id: "driver" };
+const preview = await client.devices.previewCommand({
+  target,
   attribute: "temperature_setpoint",
   value: 25,
 });
-// Show the preview and let the operator confirm their selected recipients.
-const batch = await client.devices.groups.confirm(groupId, {
+// Show the preview, allow exclusions, then confirm the retained recipients.
+const batch = await client.devices.confirmCommand({
   token: preview.token,
   device_ids: preview.members
     .filter((member) => member.eligible)
@@ -104,6 +113,8 @@ const batch = await client.devices.groups.confirm(groupId, {
 });
 ```
 
-Save `{ group_id: groupId }` as a command template's target to resolve the group's
-current members on each automation execution. Keep the preview token and selected
-IDs for manual confirmation; never replace them with newly resolved membership.
+Save the same `target` in a command template for dynamic automation execution.
+Never store a view ID as a target. The server keeps manual recipients fixed and
+requires another preview if their tags, driver or eligibility change. Retry the
+same confirmation token to retrieve the existing batch. `command_preview_changed`
+and `command_preview_expired` require a new preview and operator confirmation.

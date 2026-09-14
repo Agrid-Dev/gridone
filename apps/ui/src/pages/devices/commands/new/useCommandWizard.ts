@@ -16,7 +16,6 @@ import {
   targetFilterToDevicesFilter,
 } from "./resolvers";
 import type { WizardFormValues } from "./types";
-import { useDeviceGroup } from "../../groups/useDeviceGroups";
 import { useCommandTemplate } from "./useCommandTemplate";
 
 type CommandPayload = {
@@ -75,24 +74,14 @@ export function useCommandWizard({
 
   // -- Derived state --------------------------------------------------------
   const values = watch();
-  const targetGroupId = isPredefined
-    ? predefinedTarget?.group_id
-    : values.targetFilter?.groupId;
-  const { data: selectedGroup } = useDeviceGroup(targetGroupId ?? "");
-
   const selectedDevices = useMemo(() => {
     if (isPredefined) {
-      return resolveFilter(
-        devices,
-        predefinedTarget!,
-        selectedGroup ? [selectedGroup] : [],
-      );
+      return resolveFilter(devices, predefinedTarget!);
     }
     if (values.targetMode === "filters") {
       return resolveFilter(
         devices,
         targetFilterToDevicesFilter(values.targetFilter),
-        selectedGroup ? [selectedGroup] : [],
       );
     }
     const ids = values.deviceIds ?? [];
@@ -104,7 +93,6 @@ export function useCommandWizard({
     values.targetMode,
     values.deviceIds,
     values.targetFilter,
-    selectedGroup,
   ]);
 
   // The effective device-set filter the attribute coverage is computed over.

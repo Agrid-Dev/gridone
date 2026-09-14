@@ -104,13 +104,15 @@ function ExecutionRow({
         <p className="mt-1 pl-[1.125rem] text-xs text-destructive/90">
           {execution.error_details
             ? t(
-                execution.error_details.code === "empty_device_group"
-                  ? "groups.emptyAction"
-                  : "groups.invalidAction",
+                execution.error_details.code === "empty_target"
+                  ? "groups.errors.empty_target"
+                  : "groups.errors.invalid_target",
                 {
-                  name:
-                    execution.error_details.group_name ??
-                    execution.error_details.group_id,
+                  name: Object.entries(
+                    execution.error_details.target.tags ?? {},
+                  )
+                    .map(([key, values]) => `${key}:${values.join(", ")}`)
+                    .join(" · "),
                 },
               )
             : execution.error}

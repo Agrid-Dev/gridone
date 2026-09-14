@@ -21,7 +21,7 @@ from models.errors import InvalidError, NotFoundError
 from models.ids import gen_id
 from models.pagination import Page, PaginationParams
 from models.service import Service
-from models.targets import AttributeTarget, DevicesFilter
+from models.targets import AttributeTarget, DevicesFilter, EmptyTargetError
 from models.types import SortOrder
 
 if TYPE_CHECKING:
@@ -45,10 +45,7 @@ class CommandsService(Service):
         device_writer: DeviceWriter,
         result_handler: CommandResultHandler,
         target_resolver: TargetResolver,
-        *,
-        mutation_lock: asyncio.Lock | None = None,
     ) -> None:
-        self._mutation_lock = mutation_lock or asyncio.Lock()
         self._storage_url = storage_url
         self._device_writer = device_writer
         self._result_handler = result_handler
@@ -79,27 +76,6 @@ class CommandsService(Service):
     async def save_template(
         self, template: CommandTemplateCreate, user_id: str
     ) -> CommandTemplate:
-        if template.target.group_id is None:
-            return await self._save_template(template, user_id)
-        async with self._mutation_lock:
-            await self._validate_group_template(template)
-            return await self._save_template(template, user_id)
-
-    async def _validate_group_template(self, template: CommandTemplateCreate) -> None:
-        if template.target.group_id is not None:
-            resolved = await self._target_resolver.resolve(
-                AttributeTarget(
-                    devices=template.target, attribute=template.write.attribute
-                ),
-                writable=True,
-            )
-            if resolved.data_type != template.write.data_type:
-                msg = "Group attribute type does not match the command"
-                raise InvalidError(msg)
-
-    async def _save_template(
-        self, template: CommandTemplateCreate, user_id: str
-    ) -> CommandTemplate:
         """Persist a :class:`CommandTemplate`.
 
         ``template.name`` governs visibility: non-null templates are saved
@@ -120,12 +96,6 @@ class CommandsService(Service):
     async def update_template(
         self, template_id: str, patch: CommandTemplatePatch
     ) -> CommandTemplate:
-        async with self._mutation_lock:
-            return await self._update_template(template_id, patch)
-
-    async def _update_template(
-        self, template_id: str, patch: CommandTemplatePatch
-    ) -> CommandTemplate:
         """Apply a partial update to a template's mutable fields.
 
         ``patch.model_fields_set`` drives the diff: omitted fields stay
@@ -139,7 +109,6 @@ class CommandsService(Service):
         if not diff:
             return existing
         updated = dataclasses.replace(existing, **diff)
-        await self._validate_group_template(updated)
         return await self._storage.update_template(updated)
 
     async def get_template(self, template_id: str) -> CommandTemplate:
@@ -259,7 +228,8 @@ class CommandsService(Service):
         """Resolve a template by id and fan-out the write across matched
         devices. Works for both named templates (the user-driven flow) and
         ephemeral ones (e.g. the inline command an automation references).
-        Raises :class:`NotFoundError` only when the row is missing.
+        Raises ``NotFoundError`` for a missing template and ``InvalidError``
+        if a dynamic target has become incompatible with the saved write.
         """
         template = await self.get_template(template_id)
         return await self._dispatch_template(
@@ -317,11 +287,10 @@ class CommandsService(Service):
     async def _resolve_template_devices(self, template: CommandTemplate) -> list[str]:
         """Resolve the template's stored target to writable device ids.
 
-        Never raises: the device set drifts after a template is saved, so an
-        unresolvable target (no writable coverage, conflicting data types)
-        degrades to an empty set and the dispatch takes the observable
-        empty-batch path. Devices matching the filter but not exposing the
-        attribute as writable are excluded up front and logged.
+        Empty filters return no recipients. Incompatible tag/driver targets
+        raise InvalidError so automations report invalid_target separately.
+        Legacy non-tag targets retain their empty-batch fallback. Devices that
+        do not expose the attribute as writable are reported and excluded.
         """
         try:
             resolved = await self._target_resolver.resolve(
@@ -331,11 +300,16 @@ class CommandsService(Service):
                 ),
                 writable=True,
             )
+        except EmptyTargetError:
+            return []
         except InvalidError as e:
-            if template.target.group_id is not None:
+            if template.target.tags or template.target.driver_id:
                 raise
             logger.warning("dispatch: template %r unresolvable: %s", template.id, e)
             return []
+        if resolved.data_type != template.write.data_type:
+            msg = "Target attribute type changed since the command was saved"
+            raise InvalidError(msg)
         if resolved.excluded_device_ids:
             logger.warning(
                 "dispatch: template %r excluded devices %s (attribute %r not writable)",

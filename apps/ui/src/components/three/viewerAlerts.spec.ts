@@ -64,7 +64,7 @@ function device(id: string, assetId?: string): Device {
   return {
     id,
     name: id,
-    tags: assetId ? { asset_id: assetId } : {},
+    tags: assetId ? { asset_id: [assetId] } : {},
   } as unknown as Device;
 }
 

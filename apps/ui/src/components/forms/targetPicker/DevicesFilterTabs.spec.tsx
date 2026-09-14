@@ -20,14 +20,14 @@ import { DevicesFilterTabs } from "./DevicesFilterTabs";
 
 afterEach(cleanup);
 
-function device(id: string, tags: Record<string, string> = {}): Device {
+function device(id: string, tags: Record<string, string[]> = {}): Device {
   return { id, name: id, tags } as Device;
 }
 
 const devices: Device[] = [
-  device("d1", { floor: "1", zone: "north" }),
-  device("d2", { floor: "1", zone: "south" }),
-  device("d3", { floor: "2", zone: "north" }),
+  device("d1", { floor: ["1"], zone: ["north"] }),
+  device("d2", { floor: ["1"], zone: ["south"] }),
+  device("d3", { floor: ["2"], zone: ["north"] }),
 ];
 
 describe("DevicesFilterTabs — filters mode tags", () => {

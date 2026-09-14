@@ -24,7 +24,7 @@ class DeviceBase:
     config: DeviceConfig
     driver_id: str = ""
     transport_id: str = ""
-    tags: dict[str, str] = field(default_factory=dict)
+    tags: dict[str, list[str]] = field(default_factory=dict)
     attributes: dict[str, Attribute] = field(default_factory=dict)
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))

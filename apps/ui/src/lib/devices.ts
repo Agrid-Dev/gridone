@@ -13,6 +13,12 @@ import type {
   StandardAttributeSchema,
 } from "@gridone/sdk";
 
+/** Read an opaque tag key safely, including names such as constructor. */
+export function tagValues(tags: Device["tags"], key: string): string[] {
+  const values = tags?.[key];
+  return Array.isArray(values) ? values : [];
+}
+
 /** Value type of one entry in `Device.attributes`. */
 export type DeviceAttribute = NonNullable<Device["attributes"]>[string];
 
@@ -577,7 +583,6 @@ function attributeValueReader(device: Device) {
  *  query-layer superset of the persisted target criteria
  *  (``ids`` | ``types`` | ``tags``). Intersection semantics across fields. */
 export type DevicesFilter = {
-  group_id?: string | null;
   ids?: string[] | null;
   types?: string[] | null;
   tags?: { [key: string]: string[] } | null;
@@ -586,7 +591,7 @@ export type DevicesFilter = {
   /** Free-text fuzzy match against the device ``name``. */
   search?: string;
   /** Restrict to devices bound to this driver. */
-  driver_id?: string;
+  driver_id?: string | null;
   /** Restrict to devices bound to this transport. */
   transport_id?: string;
 };
@@ -600,7 +605,7 @@ export function isEmptyFilter(filter: DevicesFilter): boolean {
     !(filter.types && filter.types.length > 0) &&
     !(filter.tags && Object.keys(filter.tags).length > 0) &&
     !filter.asset_id &&
-    !filter.group_id
+    !filter.driver_id
   );
 }
 
@@ -630,14 +635,15 @@ export function devicesFilterToListParams(
     values.map((value) => `${key}:${value}`),
   );
   return {
-    group_id: filter.group_id ?? undefined,
-    ids: filter.ids ?? undefined,
+    ids: Object.values(filter.tags ?? {}).some((values) => values.length === 0)
+      ? []
+      : (filter.ids ?? undefined),
     type: filter.types ?? undefined,
     tags: tags.length ? tags : undefined,
     is_faulty: filter.is_faulty ?? undefined,
     asset_id: filter.asset_id ?? undefined,
     search: filter.search,
-    driver_id: filter.driver_id,
+    driver_id: filter.driver_id ?? undefined,
     transport_id: filter.transport_id,
   };
 }

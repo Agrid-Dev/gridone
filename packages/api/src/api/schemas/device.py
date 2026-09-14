@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from devices_manager.dto.device_dto import Device
 from devices_manager.types import AttributeValueType
+from models.tags import Tag
 from models.targets import AttributeCoverage
 
 
@@ -30,7 +31,7 @@ class TimeseriesSingleAttrPushRequest(BaseModel):
 
 
 class TagValueBody(BaseModel):
-    value: str
+    values: list[Tag]
 
 
 class AttributeCoverageResponse(BaseModel):

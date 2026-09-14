@@ -1,5 +1,5 @@
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from pydantic import ValidationError
@@ -13,7 +13,7 @@ from models.types import DataType
 
 
 def _commands_service(batch_id: str = "batch-abc") -> AsyncMock:
-    dispatch = BatchCommandDispatch(batch_id=batch_id, commands=[])
+    dispatch = BatchCommandDispatch(batch_id=batch_id, commands=[MagicMock()])
     svc = AsyncMock(spec=CommandsServiceInterface)
     svc.get_template.return_value = CommandTemplate(
         id="tmpl-01",
@@ -62,12 +62,15 @@ async def test_empty_or_invalid_group_is_explicit(failure):
     from models.action_failure import ActionExecutionError
 
     svc = _commands_service()
-    svc.get_template.return_value.target = DevicesFilter(group_id="group")
+    svc.get_template.return_value.target = DevicesFilter(tags={"loop": ["east"]})
+    svc.dispatch_from_template.return_value = BatchCommandDispatch(
+        batch_id="empty", commands=[]
+    )
     svc.dispatch_from_template.side_effect = failure
     provider = CommandsActionProvider(svc)
     with pytest.raises(ActionExecutionError) as error:
         await provider.execute({"template_id": "tmpl-01"})
     assert error.value.details.code == (
-        "empty_device_group" if failure is None else "invalid_device_group"
+        "empty_target" if failure is None else "invalid_target"
     )
-    assert error.value.details.group_id == "group"
+    assert error.value.details.target.tags == {"loop": ["east"]}

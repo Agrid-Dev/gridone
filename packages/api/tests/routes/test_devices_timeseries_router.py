@@ -1214,7 +1214,7 @@ class TestSpaceAggregate:
     END = datetime(2026, 7, 1, 2, 0, tzinfo=UTC)
 
     @staticmethod
-    def _thermostat(device_id: str, tags: dict[str, str] | None = None) -> object:
+    def _thermostat(device_id: str, tags: dict[str, list[str]] | None = None) -> object:
         from devices_manager.core.device import Attribute
         from devices_manager.dto.device_dto import Device
         from devices_manager.types import DataType as DmDataType
@@ -1367,9 +1367,9 @@ class TestSpaceAggregate:
         self._install_dm(
             app,
             [
-                self._thermostat("t1", tags={"floor": "1"}),
-                self._thermostat("t2", tags={"floor": "1"}),
-                self._thermostat("t3", tags={"floor": "2"}),
+                self._thermostat("t1", tags={"floor": ["1"]}),
+                self._thermostat("t2", tags={"floor": ["1"]}),
+                self._thermostat("t3", tags={"floor": ["2"]}),
             ],
         )
         await self._seed(ts_service, "t1", [10.0, 20.0])
@@ -1394,7 +1394,7 @@ class TestSpaceAggregate:
         self._install_dm(
             app,
             [
-                self._thermostat("t1", tags={"floor": "1"}),
+                self._thermostat("t1", tags={"floor": ["1"]}),
                 self._thermostat("t2"),
             ],
         )
@@ -1422,7 +1422,7 @@ class TestLiveAggregate:
 
     @staticmethod
     def _meter(
-        device_id: str, value: float | None, tags: dict[str, str] | None = None
+        device_id: str, value: float | None, tags: dict[str, list[str]] | None = None
     ) -> object:
         from devices_manager.core.device import Attribute
         from devices_manager.dto.device_dto import Device

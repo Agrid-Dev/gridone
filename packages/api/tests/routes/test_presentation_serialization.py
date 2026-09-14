@@ -19,7 +19,6 @@ from devices_manager.dto.presentation_dto import AvailablePresentationResponse
     [
         ("devices", "devices", "get_device_presentation"),
         ("drivers", "drivers", "get_driver_presentation_response"),
-        ("device_groups", "devices/groups", "get_driver_presentation_response"),
     ],
 )
 def test_http_document_omits_nullable_model_defaults(resource, prefix, method):

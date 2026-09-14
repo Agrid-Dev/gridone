@@ -18,7 +18,7 @@ import { DevicesSummary } from "./DevicesSummary";
 import { DeviceTypeChips } from "./DeviceTypeChips";
 import { DevicesGrid } from "./DevicesGrid";
 import { DevicesTable } from "./DevicesTable";
-import { DevicesTabs } from "./groups/DevicesTabs";
+import { DevicesTabs } from "./views/DevicesTabs";
 import { useDevicesPage } from "./useDevicesPage";
 
 /** Cards first: the fleet is read at a glance far more often than compared
@@ -93,6 +93,11 @@ export default function DevicesList() {
       />
 
       <DevicesTabs />
+      {can("devices:write") && (
+        <Button asChild variant="outline">
+          <Link to="/devices/tags/edit">{t("views.editTags")}</Link>
+        </Button>
+      )}
       {!summaryLoading && (
         <div className="text-sm text-muted-foreground">
           <DevicesSummary total={total} counts={connectionCounts} />

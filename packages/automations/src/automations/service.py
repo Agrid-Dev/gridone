@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
@@ -29,7 +28,7 @@ from models.service import Service
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable, Mapping, Sequence
+    from collections.abc import Mapping, Sequence
 
     from automations.models import Action, Trigger
     from automations.protocols import ActionProvider, OnFireCallback, TriggerProvider
@@ -46,12 +45,7 @@ class AutomationsService(Service):
         storage_url: str | None,
         trigger_providers: Sequence[TriggerProvider],
         action_providers: Sequence[ActionProvider],
-        *,
-        mutation_lock: asyncio.Lock | None = None,
-        action_validator: Callable[[Action], Awaitable[None]] | None = None,
     ) -> None:
-        self._mutation_lock = mutation_lock or asyncio.Lock()
-        self._action_validator = action_validator
         self._storage_url = storage_url
         self._providers: dict[str, TriggerProvider] = {
             p.id: p for p in trigger_providers
@@ -76,12 +70,6 @@ class AutomationsService(Service):
     # CRUD
 
     async def create(self, params: AutomationCreate, *, created_by: str) -> Automation:
-        async with self._mutation_lock:
-            if self._action_validator is not None:
-                await self._action_validator(params.action)
-            return await self._create(params, created_by=created_by)
-
-    async def _create(self, params: AutomationCreate, *, created_by: str) -> Automation:
         self._validate_trigger(params.trigger)
         self._validate_action(params.action)
         now = datetime.now(UTC)
@@ -124,13 +112,6 @@ class AutomationsService(Service):
         return [a for a in automations if a.enabled == enabled]
 
     async def update(self, automation_id: str, params: AutomationUpdate) -> Automation:
-        async with self._mutation_lock:
-            existing = await self.get(automation_id)
-            if self._action_validator is not None:
-                await self._action_validator(params.action or existing.action)
-            return await self._update(automation_id, params)
-
-    async def _update(self, automation_id: str, params: AutomationUpdate) -> Automation:
         existing = await self.get(automation_id)
         if params.trigger is not None:
             self._validate_trigger(params.trigger)
@@ -304,10 +285,7 @@ class AutomationsService(Service):
             provider = self._action_providers[automation.action.provider_id]
             output_id = await provider.execute(automation.action.params)
         except ActionExecutionError as exc:
-            status, error = (
-                ExecutionStatus.FAILED,
-                "No commands sent to the device group",
-            )
+            status, error = ExecutionStatus.FAILED, "No commands sent to the target"
             error_details = exc.details
         except Exception:
             logger.exception("Automation %r action failed", automation_id)

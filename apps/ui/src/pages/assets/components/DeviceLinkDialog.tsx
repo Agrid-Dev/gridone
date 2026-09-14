@@ -106,7 +106,7 @@ export function DeviceLinkDialog({
   };
 
   const currentZoneOf = (device: Device): string | null => {
-    const current = device.tags?.[ASSET_TAG];
+    const current = device.tags?.[ASSET_TAG]?.[0];
     const asset = current ? assetsById[current] : undefined;
     if (!asset) return null;
     return zonePathOf(asset, assetsById) || asset.name;

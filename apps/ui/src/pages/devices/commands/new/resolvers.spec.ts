@@ -31,12 +31,12 @@ describe("targetFilterToDevicesFilter", () => {
     const inAsset = device([], {
       id: "in",
       type: "thermostat",
-      tags: { asset_id: "a1" },
+      tags: { asset_id: ["a1"] },
     });
     const outOfAsset = device([], {
       id: "out",
       type: "thermostat",
-      tags: { asset_id: "a2" },
+      tags: { asset_id: ["a2"] },
     });
 
     const filter = targetFilterToDevicesFilter({ assetId: "a1" });

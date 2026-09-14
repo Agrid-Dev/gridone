@@ -1,8 +1,7 @@
 # ruff: noqa: SLF001 - runtime identity is the invariant under test
 import asyncio
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
 from copy import deepcopy
+from typing import Literal
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -219,8 +218,7 @@ async def test_concurrent_installs_keep_sync_handoff_in_revision_order(
     loaded, monkeypatch
 ):
     """An old stop suspended in I/O must not restart after a newer installation."""
-    service, storage, driver = loaded
-    mutex = asyncio.Lock()
+    service, _storage, driver = loaded
     stopped = asyncio.Event()
     release_stop = asyncio.Event()
     second_attempt = asyncio.Event()
@@ -228,14 +226,13 @@ async def test_concurrent_installs_keep_sync_handoff_in_revision_order(
     active_sync = ["original"]
     notifications = []
 
-    @asynccontextmanager
-    async def installation(_driver_id: str) -> AsyncIterator[None]:
-        nonlocal attempts
-        attempts += 1
-        if attempts == 2:
-            second_attempt.set()
-        async with mutex:
-            yield
+    class ObservedMutationLock(asyncio.Lock):
+        async def acquire(self) -> Literal[True]:
+            nonlocal attempts
+            attempts += 1
+            if attempts == 2:
+                second_attempt.set()
+            return await super().acquire()
 
     async def stop(device: CoreDevice) -> None:
         if _presentation_title(device) == "original":
@@ -247,7 +244,7 @@ async def test_concurrent_installs_keep_sync_handoff_in_revision_order(
     async def start(device: CoreDevice, *, sweep_now: bool) -> None:  # noqa: ARG001
         active_sync.append(_presentation_title(device))
 
-    storage.presentation_resources.installation = installation
+    service.mutation_lock = ObservedMutationLock()
     monkeypatch.setattr(CoreDevice, "stop_sync", stop)
     monkeypatch.setattr(CoreDevice, "start_sync", start)
     monkeypatch.setattr(service, "_running", True)

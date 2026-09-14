@@ -4,7 +4,6 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from devices_manager.core.device_group import DeviceGroup
 from devices_manager.storage.device_record import DeviceRecord, RecordDeviceStorage
 from devices_manager.storage.driver_record import DriverRecord, RecordDriverStorage
 from devices_manager.storage.transport_record import (
@@ -13,6 +12,7 @@ from devices_manager.storage.transport_record import (
 )
 
 from .presentation_resources import FilePresentationResources
+from .tag_preflight import preflight_yaml_tags
 from .yaml_dm_storage import YamlFileStorage
 
 if TYPE_CHECKING:
@@ -33,10 +33,8 @@ class CoreFileStorage:
 
     def __init__(self, root_dir: str | Path) -> None:
         self._root_dir = Path(root_dir)
+        preflight_yaml_tags(self._root_dir / "devices")
         self._root_dir.mkdir(parents=True, exist_ok=True)
-        self.groups = YamlFileStorage[DeviceGroup](
-            self._root_dir / "groups", model_cls=DeviceGroup
-        )
         self.presentation_resources = FilePresentationResources(
             self._root_dir / "presentations"
         )

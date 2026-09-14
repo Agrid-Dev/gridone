@@ -10,7 +10,7 @@ above the storage layer).
 from datetime import datetime
 from typing import Any
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from devices_manager.core.device import (
     AnyAttribute,
@@ -20,6 +20,7 @@ from devices_manager.core.device import (
 )
 from devices_manager.storage.storage_backend import StorageBackend
 from models.metadata import ResourceMetadata
+from models.tags import Tags
 
 
 class DeviceRecord(ResourceMetadata):
@@ -36,8 +37,19 @@ class DeviceRecord(ResourceMetadata):
     config: dict[str, Any] = Field(default_factory=dict)
     driver_id: str
     transport_id: str
-    tags: dict[str, str] = Field(default_factory=dict)
+    tags: Tags = Field(default_factory=dict)
     attributes: dict[str, AnyAttribute] = Field(default_factory=dict)
+
+    @field_validator("tags", mode="before")
+    @classmethod
+    def upgrade_scalar_tags(
+        cls, tags: dict[str, str | list[str]]
+    ) -> dict[str, list[str]]:
+        """Read old YAML snapshots; all subsequent writes use value lists."""
+        return {
+            key: [value] if isinstance(value, str) else value
+            for key, value in tags.items()
+        }
 
 
 def to_record(device: CoreDevice) -> DeviceRecord:
@@ -103,12 +115,15 @@ class RecordDeviceStorage:
             return None
 
     async def set_tag(
-        self, device_id: str, key: str, value: str, updated_at: datetime
+        self, device_id: str, key: str, values: list[str], updated_at: datetime
     ) -> None:
         record = await self._read_for_mutation(device_id)
         if record is None:
             return
-        record.tags[key] = value
+        if values:
+            record.tags[key] = list(values)
+        else:
+            record.tags.pop(key, None)
         record.updated_at = updated_at
         await self._records.write(device_id, record)
 

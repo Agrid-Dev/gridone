@@ -19,7 +19,6 @@ import { useTransports } from "@/pages/transports/useTransports";
 import { toLabel } from "@/lib/textFormat";
 import { useTranslation } from "react-i18next";
 import { useDeviceDiscovery } from "@/hooks/useDeviceDiscovery";
-import { groupConflict } from "@/pages/devices/groups/GroupError";
 
 type BaseFormData = {
   name: string;
@@ -51,7 +50,6 @@ const toastSaveError = (
   error: unknown,
   fallbackKey: "devices.feedback.createError" | "devices.feedback.updateError",
 ) => {
-  if (groupConflict(error)) return;
   if (isGridoneError(error) && error.status === CONFLICT) {
     toast.error(t("devices.feedback.duplicateConfig"));
     return;
@@ -322,10 +320,7 @@ export const useDeviceForm = (device?: Device) => {
     transportsError: transportsQuery.error,
 
     // Mutation state
-    isPending: createMutation.isPending || updateMutation.isPending,
-    groupError: groupConflict(updateMutation.error)
-      ? updateMutation.error
-      : null,
+    isPending: createMutation.isPending,
 
     // Handlers
     handleSubmit,

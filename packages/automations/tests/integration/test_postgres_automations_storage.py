@@ -15,6 +15,7 @@ from automations.storage.postgres import PostgresStorage
 
 from models.action_failure import ActionFailure
 from models.ids import gen_id
+from models.targets import DevicesFilter
 
 POSTGRES_URL = os.environ.get("POSTGRES_TEST_URL")
 
@@ -42,7 +43,7 @@ async def test_group_failure_survives_postgres_restart():
         status=ExecutionStatus.FAILED,
         error="No commands sent to the device group",
         error_details=ActionFailure(
-            code="empty_device_group", group_id="group", group_name="East"
+            code="empty_target", target=DevicesFilter(tags={"loop": ["east"]})
         ),
     )
     await storage.log_execution(failure)

@@ -88,36 +88,71 @@ The session is bound to the token that opened it: when the access token's `exp`
 passes, the server closes the socket with code 1008 and reason `Token expired`.
 Clients are expected to refresh their token and reconnect.
 
-### Group commands
+### Tag groups and shared device views
 
-`/devices/groups` exposes group CRUD, references, driver presentation, and its
-resources. Read permission allows viewers to inspect groups; `devices:write`
-allows operators and administrators to manage groups and submit commands.
+Device tags are multi-valued: `{ "ecs": ["east", "west"] }`. Keys and values use
+Unicode NFC/casefold normalization. Filter keys combine with AND; values of the
+same key combine with OR. Empty value lists match nothing. Invalid `key:value`
+queries return 422 rather than losing the filter.
 
-Manual group writes require two requests:
+`GET /devices/tags` supplies the tag vocabulary and per-value device counts.
+`PUT /devices/{id}/tags/{key}` replaces a key using `{ "values": [...] }` (empty
+removes it). `/devices/tags/bulk` adds/removes values on a filtered selection;
+`/devices/tags/rename` replaces one value across matching devices. Both report
+per-device outcomes and preserve unrelated tags. Zone assignment temporarily
+retains its singleton `asset_id` adapter.
 
-1. `POST /devices/groups/{id}/commands/preview` with `attribute` and `value`.
-   Optional `device_ids` limits the preview to an explicit subset of the group.
-   Optional `target` intersects current IDs, types, tags, or an asset with the
-   group server-side; an explicit empty ID filter stays empty.
-   The response includes a token, current values, eligibility, and known limits.
-2. `POST /devices/groups/{id}/commands` with that token and the selected eligible
-   `device_ids`. It returns the existing command batch and per-device commands.
+`/device-views` exposes shared display configuration CRUD: name, description,
+filter and ordered `group_by` keys (empty for no subgroups). It stores no device membership. Commands
+never depend on view IDs, and deleting a view has no effect on an automation.
 
-Preparing sends nothing. Confirmation freezes the previewed recipients, validates
-current membership and eligibility again, and is idempotent for the token's
-lifetime. Removed or incompatible recipients produce `group_preview_changed`;
-clients must refresh and explicitly confirm again. Tokens belong to one user and
-group, expire after ten minutes, and are held in the serving process (a restart
-requires a fresh preview). New members cannot silently enter a confirmed batch.
+The UI's group editor assigns a stable value under the ordinary `group` tag and
+saves a view using that criterion. Renaming the group changes its display name;
+editing members adds/removes only that value. Deleting a group in the UI removes
+its membership tag before deleting the view, so automations targeting that tag
+then resolve an empty selection. Other memberships and saved criteria are preserved.
 
-Controls with driver presentation blocking conditions are checked per member.
-Because group writes set an absolute attribute value, all declared blockers on
-that attribute must allow it. Unknown blocking state excludes the member.
+Manual tag commands require `POST /devices/commands/preview` with `target`,
+`attribute`, `value` and optional `device_ids`, then
+`POST /devices/commands/confirm` with the token and selected eligible IDs.
+Preparing sends nothing. Confirmation revalidates the frozen members and their
+bindings under the device mutation lock. Added members cannot enter the batch;
+removed or incompatible members require another preview. Tokens are user-bound,
+expire in ten minutes and are stored in the serving process. Multiple API workers
+require client affinity; restarting the process requires a fresh preview. A retry returns the
+same batch; an uncertain failed dispatch cannot resend with the same token.
 
-Reusable templates and automation actions store `DevicesFilter.group_id`, which
-is intersected with any other filters and resolved once per execution. Empty or
-invalid groups never resolve to all devices. Automation history exposes localized
-structured group failures, and command history retains actual recipient IDs and
-independent per-device outcomes. Manual dispatch of a group template through the
-ordinary dispatch endpoint returns `group_preview_required`.
+Direct manual tag dispatch, including a tag-based template, returns
+`command_preview_required`. Automations resolve stored tag/driver criteria once
+per execution and report `empty_target` or `invalid_target` separately. Per-device
+command results use the existing history and batch APIs.
+
+Reads use `devices:read`; tag/view mutations and command preparation/confirmation
+use `devices:write`.
+
+### Upgrading scalar device tags
+
+Tags now contain arrays rather than scalar strings. Update API consumers together
+with the server and UI. After normalization, keys and values must contain 1–63
+letters, digits, underscores, dots or hyphens. Normalization collisions and invalid
+tokens must be corrected explicitly before upgrading.
+
+1. Back up and export all devices, command templates, dashboards (including widgets)
+   and synoptics from the previous version. Include all pages of each API response.
+   Combine the exported lists into one JSON object with `devices`,
+   `command_templates`, `dashboards` and `synoptics` keys.
+2. Run `uv run python -m migrations preflight-tags --snapshot export.json` from the
+   repository root. This read-only audit also checks saved filters and grouping
+   keys. Resolve every reported error before migrating.
+3. Stop writes from the previous version, back up the database, then run
+   `uv run python -m migrations apply` with `STORAGE_URL` or `DATABASE_URL` configured.
+   Start the updated API and UI together.
+4. Verify representative tag counts, group creation, a view with two grouping
+   levels, zone assignment and a previewed command on test devices.
+
+The PostgreSQL migration changes tag uniqueness to `(device_id, key, value)` after
+checking legacy data; rollback refuses to discard multiple values. Legacy scalar
+YAML tags remain readable and are written as arrays on the next mutation. Startup
+checks detect normalization collisions across YAML files. Zones continue to use a
+single `asset_id` value during this transition; asset and `usage_type` retirement
+are separate changes.

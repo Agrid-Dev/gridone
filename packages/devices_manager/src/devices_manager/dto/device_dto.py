@@ -13,6 +13,7 @@ from devices_manager.core.presentation.revision import get_presentation_revision
 from devices_manager.dto.presentation_dto import PresentationReference
 from models.ids import gen_id
 from models.metadata import ResourceMetadata
+from models.tags import Tags  # noqa: TC001 -- pydantic validates this alias at runtime
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -41,7 +42,7 @@ class Device(ResourceMetadata):
     id: str
     name: str
     type: str | None = None
-    tags: dict[str, str] = Field(default_factory=dict)
+    tags: Tags = Field(default_factory=dict)
     attributes: dict[str, _AttributeUnion] = Field(default_factory=dict)
     # Derived from the device's fault attributes (rolled up by `core_to_dto`,
     # recomputed on sync). Defaulted so authored/stored payloads need not carry

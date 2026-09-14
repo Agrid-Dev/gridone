@@ -10,7 +10,6 @@ from api.dependencies import get_assets_service, get_device_manager, get_ts_serv
 from api.devices_filter import ASSET_TAG, parse_tags_params, to_list_devices_kwargs
 from api.permissions import Permission
 from api.routes.command_router import router as command_router
-from api.routes.device_groups_router import router as device_groups_router
 from api.routes.devices_timeseries_router import router as devices_ts_router
 from api.routes.faults_router import router as faults_router
 from api.schemas.device import (
@@ -29,11 +28,23 @@ from api.schemas.device import (
     TimeseriesBulkPushRequest,
     TimeseriesSingleAttrPushRequest,
 )
-from api.targets import compute_attribute_coverage, group_device_ids_by_tag
+from api.tag_operations import (
+    BulkTagRequest,
+    RenameTagRequest,
+    TagFacet,
+    tag_facets,
+    validate_zone_values,
+)
+from api.targets import (
+    compute_attribute_coverage,
+    group_device_ids_by_tag,
+    resolve_devices,
+)
 from assets import AssetsService
 from devices_manager import DevicesServiceInterface
 from devices_manager.core.device import Attribute
 from devices_manager.core.device.event_log import AttributeLogs
+from devices_manager.core.tags import TagMutation, TagMutationResult
 from devices_manager.dto import StandardAttributeSchema
 from devices_manager.dto.device_dto import (
     Device,
@@ -42,6 +53,7 @@ from devices_manager.dto.device_dto import (
 )
 from devices_manager.dto.presentation_dto import PresentationResponse
 from models.errors import ConflictError, InvalidError, NotFoundError
+from models.tags import Tag
 from timeseries.domain import (
     DataPoint,
     SeriesKey,
@@ -55,7 +67,6 @@ router = APIRouter()
 # Command dispatch + templates live in their own router but are mounted
 # under /devices so URLs stay device-scoped (``/devices/commands``,
 # ``/devices/{id}/commands``, ``/devices/commands/templates/...``).
-router.include_router(device_groups_router, prefix="/groups")
 router.include_router(command_router)
 router.include_router(devices_ts_router)
 router.include_router(faults_router, prefix="/faults")
@@ -113,17 +124,12 @@ def get_devices_query(
     search: str | None = Query(None),
     driver_id: str | None = Query(None),
     transport_id: str | None = Query(None),
-    group_id: str | None = Query(None),
-    dm: DevicesServiceInterface = Depends(get_device_manager),
 ) -> dict[str, Any]:
     """Parse the device-list query params into ``DM.list_devices`` kwargs.
 
     Shared by every endpoint that selects a device set (``GET /devices``,
     ``GET /devices/attributes``) so the filters stay identical.
     """
-    if group_id is not None:
-        group = dm.get_group(group_id)
-        ids = [item for item in group.device_ids if ids is None or item in ids]
     return to_list_devices_kwargs(
         {
             "ids": ids,
@@ -145,6 +151,64 @@ def list_devices(
     query: Annotated[dict[str, Any], Depends(get_devices_query)],
 ) -> list[Device]:
     return dm.list_devices(**query)
+
+
+@router.get(
+    "/tags", dependencies=[Depends(require_permission(Permission.DEVICES_READ))]
+)
+def list_tags(
+    dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
+    query: Annotated[dict[str, Any], Depends(get_devices_query)],
+) -> list[TagFacet]:
+    return tag_facets(dm.list_devices(**query))
+
+
+@router.post(
+    "/tags/bulk", dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))]
+)
+async def bulk_tags(
+    body: BulkTagRequest,
+    dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
+) -> list[TagMutationResult]:
+    mutation = TagMutation(
+        key=body.key,
+        add=body.values if body.operation == "add" else [],
+        remove=body.values if body.operation == "remove" else [],
+    )
+    devices = resolve_devices(dm, body.target.to_devices_filter())
+    # Zone assignment retains replacement semantics through its existing route.
+    if body.key == ASSET_TAG and body.operation == "add":
+        msg = "Use zone assignment to change a device's zone"
+        raise InvalidError(msg)
+    ids = [device.id for device in devices]
+    if body.target.ids is not None:
+        known_ids = {device.id for device in dm.list_devices(ids=body.target.ids)}
+        ids.extend(
+            id_ for id_ in body.target.ids if id_ not in ids and id_ not in known_ids
+        )
+    return await dm.mutate_device_tags(ids, mutation)
+
+
+@router.post(
+    "/tags/rename", dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))]
+)
+async def rename_tag(
+    body: RenameTagRequest,
+    dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
+) -> list[TagMutationResult]:
+    if body.key == ASSET_TAG:
+        msg = "Use zone assignment to change a device's zone"
+        raise InvalidError(msg)
+    devices = dm.list_devices(tags={body.key: [body.old_value]})
+    return await dm.mutate_device_tags(
+        [device.id for device in devices],
+        TagMutation(
+            key=body.key,
+            add=[body.new_value],
+            remove=[body.old_value],
+            require_value=body.old_value,
+        ),
+    )
 
 
 @router.get(
@@ -175,7 +239,7 @@ def list_device_attributes(
 def list_device_tag_groups(
     dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
     query: Annotated[dict[str, Any], Depends(get_devices_query)],
-    tag_key: str = Query(..., min_length=1),
+    tag_key: Tag = Query(...),
 ) -> TagGroupsResponse:
     """Preview how the matched device set splits by *tag_key*.
 
@@ -321,11 +385,11 @@ async def _assign_one(
         return outcome(AssetAssignmentStatus.FAILED, "Device not found")
     if assignment.asset_id not in known_asset_ids:
         return outcome(AssetAssignmentStatus.FAILED, "Zone not found")
-    if device.tags.get(ASSET_TAG) == assignment.asset_id:
+    if device.tags.get(ASSET_TAG) == [assignment.asset_id]:
         return outcome(AssetAssignmentStatus.UNCHANGED)
 
     try:
-        await dm.set_device_tag(assignment.device_id, ASSET_TAG, assignment.asset_id)
+        await dm.set_device_tag(assignment.device_id, ASSET_TAG, [assignment.asset_id])
     except (InvalidError, NotFoundError, ConflictError) as e:
         return outcome(AssetAssignmentStatus.FAILED, str(e))
     return outcome(AssetAssignmentStatus.APPLIED)
@@ -398,11 +462,12 @@ async def delete_device(
 )
 async def set_device_tag(
     device_id: str,
-    key: str,
+    key: Tag,
     body: TagValueBody,
     dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
 ) -> Device:
-    return await dm.set_device_tag(device_id, key, body.value)
+    validate_zone_values(key, body.values)
+    return await dm.set_device_tag(device_id, key, body.values)
 
 
 @router.delete(
@@ -412,7 +477,7 @@ async def set_device_tag(
 )
 async def delete_device_tag(
     device_id: str,
-    key: str,
+    key: Tag,
     dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
 ) -> None:
     await dm.delete_device_tag(device_id, key)

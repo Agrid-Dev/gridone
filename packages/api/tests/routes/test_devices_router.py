@@ -151,7 +151,7 @@ def _make_dm(
     )
     mock.list_standard_schemas.return_value = []
 
-    updated = _DEVICE.model_copy(update={"tags": {"asset_id": "a1"}})
+    updated = _DEVICE.model_copy(update={"tags": {"asset_id": ["a1"]}})
     mock.set_device_tag = AsyncMock(return_value=updated)
     mock.delete_device_tag = AsyncMock(
         return_value=_DEVICE.model_copy(update={"tags": {}})
@@ -465,8 +465,8 @@ class TestListDeviceAttributes:
 class TestListDeviceTagGroups:
     @pytest.fixture
     def dm(self):
-        floor1 = _SENSOR.model_copy(update={"tags": {"floor": "1"}})
-        floor1b = _TYPED.model_copy(update={"tags": {"floor": "1"}})
+        floor1 = _SENSOR.model_copy(update={"tags": {"floor": ["1"]}})
+        floor1b = _TYPED.model_copy(update={"tags": {"floor": ["1"]}})
         untagged = _DEVICE.model_copy(update={"tags": {}})
         return _make_dm([floor1, floor1b, untagged])
 
@@ -725,7 +725,7 @@ class TestCreateDevicesBatch:
 
 
 _LINKED_DEVICE = _DEVICE.model_copy(
-    update={"id": "device2", "name": "Linked", "tags": {"asset_id": _ZONE_ID}}
+    update={"id": "device2", "name": "Linked", "tags": {"asset_id": [_ZONE_ID]}}
 )
 
 
@@ -750,7 +750,7 @@ class TestAssignDevicesToAssets:
 
         assert response.status_code == 200
         assert _statuses(response.json()) == {"device1": "applied"}
-        dm.set_device_tag.assert_awaited_once_with("device1", "asset_id", _ZONE_ID)
+        dm.set_device_tag.assert_awaited_once_with("device1", "asset_id", [_ZONE_ID])
 
     @pytest.mark.asyncio
     async def test_moves_a_device_between_zones(
@@ -768,7 +768,7 @@ class TestAssignDevicesToAssets:
 
         assert _statuses(response.json()) == {"device2": "applied"}
         dm.set_device_tag.assert_awaited_once_with(
-            "device2", "asset_id", _OTHER_ZONE_ID
+            "device2", "asset_id", [_OTHER_ZONE_ID]
         )
 
     @pytest.mark.asyncio
@@ -804,7 +804,7 @@ class TestAssignDevicesToAssets:
         body = response.json()
         assert _statuses(body) == {"ghost": "failed", "device1": "applied"}
         assert body["results"][0]["error"] == "Device not found"
-        dm.set_device_tag.assert_awaited_once_with("device1", "asset_id", _ZONE_ID)
+        dm.set_device_tag.assert_awaited_once_with("device1", "asset_id", [_ZONE_ID])
 
     @pytest.mark.asyncio
     async def test_unknown_zone_fails_without_writing(
@@ -865,7 +865,7 @@ class TestAssignDevicesToAssets:
     ):
         dm.set_device_tag = AsyncMock(
             side_effect=[
-                _DEVICE.model_copy(update={"tags": {"asset_id": _ZONE_ID}}),
+                _DEVICE.model_copy(update={"tags": {"asset_id": [_ZONE_ID]}}),
                 InvalidError("Tag value rejected"),
             ]
         )
@@ -1193,7 +1193,7 @@ class TestDispatchBatchCommand:
         assert kwargs["target"] == DevicesFilter(types=["thermostat"])
 
     @pytest.mark.asyncio
-    async def test_asset_id_preserved_in_target(
+    async def test_asset_alias_requires_tag_preview(
         self, async_client: AsyncClient, mock_commands_service: AsyncMock
     ):
         # asset_id is a wire convenience alias: the HTTP boundary folds it
@@ -1211,11 +1211,9 @@ class TestDispatchBatchCommand:
                     "value": 21.0,
                 },
             )
-        assert response.status_code == 202
-        kwargs = mock_commands_service.dispatch_batch.call_args.kwargs
-        assert kwargs["target"] == DevicesFilter(
-            types=["thermostat"], tags={"asset_id": ["a1"]}
-        )
+        assert response.status_code == 409
+        assert response.json()["detail"]["code"] == "command_preview_required"
+        mock_commands_service.dispatch_batch.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_unknown_target_key_returns_422(self, async_client: AsyncClient):
@@ -1617,15 +1615,15 @@ class TestSingleAttrPushTimeseries:
 
 class TestDeviceTags:
     def test_set_tag_returns_updated_device(self, client: TestClient, dm: MagicMock):
-        response = client.put("/device1/tags/asset_id", json={"value": "a1"})
+        response = client.put("/device1/tags/asset_id", json={"values": ["a1"]})
         assert response.status_code == 200
-        dm.set_device_tag.assert_called_once_with("device1", "asset_id", "a1")
+        dm.set_device_tag.assert_called_once_with("device1", "asset_id", ["a1"])
 
     def test_set_tag_unknown_device_returns_404(
         self, client: TestClient, dm: MagicMock
     ):
         dm.set_device_tag.side_effect = NotFoundError("Device unknown not found")
-        response = client.put("/unknown/tags/asset_id", json={"value": "a1"})
+        response = client.put("/unknown/tags/asset_id", json={"values": ["a1"]})
         assert response.status_code == 404
 
     def test_delete_tag_returns_204(self, client: TestClient, dm: MagicMock):
@@ -1685,3 +1683,80 @@ class TestGetAttributeLogs:
         assert data["read"] == []
         assert data["write"] == []
         assert data["listen"] == []
+
+
+class TestTagVocabulary:
+    def test_facets_count_devices_once_per_value(self, client, dm):
+        dm.list_devices.side_effect = None
+        dm.list_devices.return_value = [
+            _DEVICE.model_copy(update={"tags": {"ecs": ["east", "west"]}}),
+            _DEVICE.model_copy(update={"id": "other", "tags": {"ecs": ["east"]}}),
+        ]
+        response = client.get("/tags")
+        assert response.status_code == 200
+        assert response.json() == [
+            {
+                "key": "ecs",
+                "values": [
+                    {"value": "east", "device_count": 2},
+                    {"value": "west", "device_count": 1},
+                ],
+            }
+        ]
+
+    @pytest.mark.parametrize(
+        "token", ["floor", "floor:", ":2", "floor:2:3", "floor:second floor"]
+    )
+    def test_malformed_queries_fail_before_device_lookup(self, client, dm, token):
+        response = client.get("/", params={"tags": token})
+        assert response.status_code == 422
+        dm.list_devices.assert_not_called()
+
+    def test_replacement_accepts_multiple_values_and_empty_deletes(self, client, dm):
+        for values in [["east", "west"], []]:
+            response = client.put("/device1/tags/ECS", json={"values": values})
+            assert response.status_code == 200
+            dm.set_device_tag.assert_awaited_with("device1", "ecs", values)
+
+    def test_zone_adapter_rejects_multiple_zones(self, client, dm):
+        response = client.put("/device1/tags/asset_id", json={"values": ["a", "b"]})
+        assert response.status_code == 422
+        dm.set_device_tag.assert_not_awaited()
+
+    def test_bulk_tags_keep_unknown_explicit_ids_for_failure_reporting(
+        self, client, dm
+    ):
+        from devices_manager.core.tags import TagMutation, TagMutationResult
+
+        dm.mutate_device_tags.return_value = [
+            TagMutationResult(device_id="missing", status="failed", error="not_found")
+        ]
+        response = client.post(
+            "/tags/bulk",
+            json={
+                "target": {"ids": ["device1", "missing"]},
+                "operation": "add",
+                "key": "ECS",
+                "values": ["east"],
+            },
+        )
+        assert response.status_code == 200
+        assert response.json()[0]["error"] == "not_found"
+        dm.mutate_device_tags.assert_awaited_once_with(
+            ["device1", "missing"], TagMutation(key="ecs", add=["east"])
+        )
+
+    def test_rename_value_resolves_old_tag_and_preserves_other_values(self, client, dm):
+        from devices_manager.core.tags import TagMutation
+
+        dm.mutate_device_tags.return_value = []
+        response = client.post(
+            "/tags/rename",
+            json={"key": "ECS", "old_value": "east", "new_value": "west"},
+        )
+        assert response.status_code == 200
+        dm.list_devices.assert_called_once_with(tags={"ecs": ["east"]})
+        dm.mutate_device_tags.assert_awaited_once_with(
+            ["device1"],
+            TagMutation(key="ecs", add=["west"], remove=["east"], require_value="east"),
+        )

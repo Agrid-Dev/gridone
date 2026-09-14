@@ -11,6 +11,7 @@ import { AppsResource } from "./resources/apps";
 import { AssetsResource } from "./resources/assets";
 import { AutomationsResource } from "./resources/automations";
 import { DashboardsResource } from "./resources/dashboards";
+import { DeviceViewsResource } from "./resources/deviceViews";
 import { DevicesResource } from "./resources/devices";
 import { DriversResource } from "./resources/drivers";
 import { NotificationsResource } from "./resources/notifications";
@@ -36,6 +37,7 @@ export class GridoneClient {
   private readonly http: HttpClient;
 
   readonly devices: DevicesResource;
+  readonly deviceViews: DeviceViewsResource;
   readonly drivers: DriversResource;
   readonly transports: TransportsResource;
   readonly timeseries: TimeseriesResource;
@@ -56,6 +58,7 @@ export class GridoneClient {
     const request: RequestFn = (method, path, options) =>
       this.http.request(method, path, options);
     this.devices = new DevicesResource(request);
+    this.deviceViews = new DeviceViewsResource(request);
     this.drivers = new DriversResource(request);
     this.transports = new TransportsResource(request);
     this.timeseries = new TimeseriesResource(request);

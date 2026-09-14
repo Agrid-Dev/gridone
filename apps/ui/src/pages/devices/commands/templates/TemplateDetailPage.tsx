@@ -13,8 +13,8 @@ import type { Device } from "@gridone/sdk";
 import { usePermissions } from "@/contexts/AuthContext";
 import { CommandTemplatePresenter } from "../presenters/CommandTemplatePresenter";
 import { TemplateExecutions } from "./TemplateExecutions";
-import { GroupCommandDialog } from "../../groups/GroupCommandDialog";
-import { GroupError } from "../../groups/GroupError";
+import { GroupCommandDialog } from "../../views/GroupCommandDialog";
+import { GroupError } from "../../views/GroupError";
 import { useTemplate } from "./useTemplate";
 
 export const TemplateDetailContent: FC = () => {

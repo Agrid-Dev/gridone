@@ -13,6 +13,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from models.errors import InvalidError
+from models.tags import normalize_tags
+
 ASSET_TAG = "asset_id"
 """Device tag carrying zone membership — the one place the name is spelled."""
 
@@ -28,9 +31,15 @@ def parse_tags_params(raw: list[str] | None) -> dict[str, list[str]] | None:
     result: dict[str, list[str]] = {}
     for item in raw:
         key, _, value = item.partition(":")
-        if value:
-            result.setdefault(key, []).append(value)
-    return result or None
+        if not key or not value:
+            msg = "Tag filters must use key:value"
+            raise InvalidError(msg)
+        result.setdefault(key, []).append(value)
+    try:
+        return normalize_tags(result)
+    except ValueError as exc:
+        msg = "Invalid tag filter"
+        raise InvalidError(msg) from exc
 
 
 def to_list_devices_kwargs(filter_dict: dict[str, Any]) -> dict[str, Any]:

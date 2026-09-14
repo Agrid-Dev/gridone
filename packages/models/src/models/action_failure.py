@@ -4,14 +4,15 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from models.targets import DevicesFilter
+
 
 class ActionFailure(BaseModel):
-    code: Literal["empty_device_group", "invalid_device_group"]
-    group_id: str
-    group_name: str | None = None
+    code: Literal["empty_target", "invalid_target"]
+    target: DevicesFilter
 
 
 class ActionExecutionError(Exception):
     def __init__(self, details: ActionFailure) -> None:
-        super().__init__("No commands sent to the device group")
+        super().__init__("No commands sent to the target")
         self.details = details
