@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useQueries } from "@tanstack/react-query";
+import { keepPreviousData, useQueries, useQuery } from "@tanstack/react-query";
 import type { AttributeTarget, Device, Synoptic } from "@gridone/sdk";
 import { useDeviceContext } from "@/contexts/DeviceContext";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
@@ -27,10 +27,10 @@ export type UseSynopticValues = (doc: Synoptic, at?: string) => SynopticValues;
  *
  * A target naming one id reads that device; any other filter is listed
  * once and must yield one device, which the save-time rule guarantees.
- * Devices are read through the `["device", id]` query the WebSocket
- * handler patches, so a `device_update` re-renders the plate with no
- * polling. Only while the socket is down do the devices poll, as
- * `useDevice` does.
+ * All devices of a plate are listed in one call, then read through the
+ * `["device", id]` query the WebSocket handler patches, so a
+ * `device_update` re-renders the plate with no polling. Only while the
+ * socket is down do the devices poll, as `useDevice` does.
  */
 export const useSynopticValues: UseSynopticValues = (doc) => {
   const client = useGridoneClient();
@@ -58,8 +58,13 @@ export const useSynopticValues: UseSynopticValues = (doc) => {
       const ids: Record<string, string> = {};
       results.forEach((result, i) => {
         const devices = result.data;
-        if (devices?.length === 1) {
+        if (!devices) return;
+        if (devices.length === 1) {
           ids[targetKey(filterTargets[i])] = devices[0].id;
+        } else if (import.meta.env.DEV) {
+          console.warn(
+            `Synoptic target ${targetKey(filterTargets[i])} resolves to ${devices.length} devices, expected 1`,
+          );
         }
       });
       return ids;
@@ -79,16 +84,34 @@ export const useSynopticValues: UseSynopticValues = (doc) => {
     return [...ids];
   }, [doc, slots, resolved]);
 
+  // One list call seeds every device, so a plate over twenty devices costs
+  // one request on mount rather than twenty; the per-device queries then
+  // carry the socket patches and the offline poll.
+  const seed = useQuery({
+    queryKey: ["devices", { ids: deviceIds }],
+    queryFn: () => client.devices.list({ ids: deviceIds }),
+    enabled: deviceIds.length > 0,
+    placeholderData: keepPreviousData,
+  });
+  // The per-device queries exist only once the list has answered, so their
+  // initial data is the listed device and nothing fetches twice. A device
+  // the list lacks, or a failed list, fetches on its own.
+  const seededIds = seed.data || seed.isError ? deviceIds : [];
+  const seeded = (id: string) => seed.data?.find((d) => d.id === id);
+
   const devices = useQueries({
-    queries: deviceIds.map((id) => ({
+    queries: seededIds.map((id) => ({
       queryKey: ["device", id],
       queryFn: () => client.devices.get(id),
+      initialData: () => seeded(id),
+      initialDataUpdatedAt: () => seed.dataUpdatedAt,
+      staleTime: DEVICE_POLL_INTERVAL_MS,
       refetchInterval: isConnected ? false : DEVICE_POLL_INTERVAL_MS,
     })),
     combine: (results) => {
       const byId: Record<string, Device> = {};
       results.forEach((result, i) => {
-        if (result.data) byId[deviceIds[i]] = result.data;
+        if (result.data) byId[seededIds[i]] = result.data;
       });
       return byId;
     },

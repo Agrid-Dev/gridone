@@ -1,5 +1,7 @@
 import {
+  CAPTION_TRACKING,
   FAULT_STROKE,
+  FRAME_RADIUS,
   frameClass,
   SILENT_TEXT,
   textWidth,
@@ -48,7 +50,7 @@ export function Panel({ at, title, rows, led, faulty = false }: PanelProps) {
         y={y}
         width={PANEL_W}
         height={h}
-        rx={4}
+        rx={FRAME_RADIUS}
         strokeWidth={faulty ? FAULT_STROKE : 1}
         className={frameClass(faulty, false)}
       />
@@ -88,7 +90,7 @@ export function Panel({ at, title, rows, led, faulty = false }: PanelProps) {
               y={rowY}
               fontSize={LABEL_SIZE}
               fontWeight={600}
-              letterSpacing={0.5}
+              letterSpacing={CAPTION_TRACKING}
               className="fill-muted-foreground uppercase"
             >
               {row.label}

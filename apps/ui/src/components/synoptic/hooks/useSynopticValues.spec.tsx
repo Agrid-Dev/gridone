@@ -135,7 +135,15 @@ beforeEach(() => {
   mockGet.mockImplementation((id: string) =>
     Promise.resolve(id === "PAC-03" ? PAC : { id, attributes: {} }),
   );
-  mockList.mockResolvedValue([PAC]);
+  mockList.mockImplementation((params: { ids?: string[] }) =>
+    Promise.resolve(
+      params.ids
+        ? params.ids.map((id) =>
+            id === "PAC-03" ? PAC : { id, attributes: {} },
+          )
+        : [PAC],
+    ),
+  );
 });
 
 afterEach(() => {
@@ -185,14 +193,31 @@ describe("useSynopticValues", () => {
     expect(faultyDevices).toEqual({ "PAC-03": true, "B-01": false });
   });
 
-  it("resolves a filter target through the device list, once", async () => {
+  it("lists the plate's devices once and resolves a filter target through the list", async () => {
     const { rendered } = setup();
     await waitFor(() =>
       expect(rendered.result.current.slots["pipe.supply.flow"].raw).toBe(true),
     );
-    expect(mockList).toHaveBeenCalledTimes(1);
     expect(mockList).toHaveBeenCalledWith({ type: ["awhp"] });
-    expect(mockGet).toHaveBeenCalledTimes(2);
+    expect(mockList).toHaveBeenCalledWith({ ids: ["PAC-03", "B-01"] });
+    expect(mockList).toHaveBeenCalledTimes(2);
+    // Seeded from the list: no per-device request while the socket is up.
+    expect(mockGet).not.toHaveBeenCalled();
+  });
+
+  it("warns in development when a filter target is ambiguous", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    mockList.mockImplementation((params: { ids?: string[] }) =>
+      Promise.resolve(params.ids ? [] : [PAC, { ...PAC, id: "PAC-04" }]),
+    );
+    const { rendered } = setup();
+    await waitFor(() =>
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining("resolves to 2 devices"),
+      ),
+    );
+    expect(rendered.result.current.slots["pipe.supply.flow"].text).toBeNull();
+    warn.mockRestore();
   });
 
   it("follows a cache patch without refetching, as the socket handler writes it", async () => {
@@ -219,7 +244,7 @@ describe("useSynopticValues", () => {
       }),
     );
     expect(rendered.result.current.faultyDevices["PAC-03"]).toBe(false);
-    expect(mockGet).toHaveBeenCalledTimes(2);
+    expect(mockGet).not.toHaveBeenCalled();
   });
 
   it("polls the devices only while the socket is down", async () => {
@@ -227,11 +252,10 @@ describe("useSynopticValues", () => {
     await waitFor(() =>
       expect(rendered.result.current.slots["symbol.pac.state"].raw).toBe(true),
     );
-    expect(mockGet).toHaveBeenCalledTimes(2);
     act(() => {
       vi.advanceTimersByTime(2 * DEVICE_POLL_INTERVAL_MS);
     });
-    expect(mockGet).toHaveBeenCalledTimes(2);
+    expect(mockGet).not.toHaveBeenCalled();
 
     socket.isConnected = false;
     const offline = setup();
