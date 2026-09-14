@@ -5,6 +5,7 @@ from pydantic import ValidationError
 
 from models.metadata import ResourceMetadata
 from synoptics.models import (
+    DEFAULT_STALE_AFTER,
     AttributeSlot,
     Cell,
     CellEndpoint,
@@ -31,7 +32,7 @@ def test_a_document_defaults_to_an_empty_isometric_plate():
     document = SynopticDocument.model_validate({"name": "Empty"})
     assert document.projection == "isometric"
     assert (document.symbols, document.pipes, document.labels) == ([], [], [])
-    assert document.defaults.stale_after is None
+    assert document.defaults.stale_after == DEFAULT_STALE_AFTER
 
 
 def test_unknown_keys_are_rejected():
