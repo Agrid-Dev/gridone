@@ -12,6 +12,7 @@ healthcheck:
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `expected_push_interval` | duration or integer or `null` | `null` | Expected interval between push emissions. When set, enables silence detection (see below). |
+| `max_attribute_loss` | number in `[0, 1)` | `0` | Share of failed outcomes an attribute may show before the device is reported `degraded` (see [Tolerated loss](#tolerated-loss)). |
 
 ## Duration format
 
@@ -25,6 +26,31 @@ healthcheck:
 | Days | `d` |
 
 Examples: `30s`, `1min`, `2h`, `90` (= 90 seconds).
+
+## Connection status from read and listen outcomes
+
+Gridone keeps the last 10 read outcomes and the last 10 listen outcomes of every attribute. An attribute's **loss** is the share of failures in the worse of those two logs (they are not pooled: a failed poll adds a read error but no listen entry). `connection_status` is then:
+
+| Condition | `connection_status` |
+|---|---|
+| No outcome recorded yet | `idle` |
+| Every attribute with outcomes is at total loss | `error` |
+| At least one attribute loses more than `max_attribute_loss`, or is at total loss | `degraded` |
+| Otherwise | `ok` |
+
+### Tolerated loss
+
+By default (`max_attribute_loss: 0`) a single failure degrades the device until it leaves the window. Devices on flaky links, such as Wi-Fi thermostats polled hourly, can tolerate occasional misses:
+
+```yaml
+healthcheck:
+  expected_push_interval: 1h
+  max_attribute_loss: 0.2
+```
+
+With 10 outcomes per log, `0.2` keeps the device `ok` with up to 2 failures out of the last 10, and reports `degraded` from the third. An attribute that fails every time is never tolerated: it points at a wrong address or driver, not a flaky link.
+
+Changing `max_attribute_loss` on a live driver restarts its devices: their outcome logs start afresh and are judged against the new value, while the current `connection_status` is kept until the next outcome.
 
 ## Silence detection for push devices
 

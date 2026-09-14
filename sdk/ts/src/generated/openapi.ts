@@ -4114,6 +4114,12 @@ export interface components {
        * @description Expected emission interval (seconds) for push devices.
        */
       expected_push_interval?: number | null;
+      /**
+       * Max Attribute Loss
+       * @description Highest share of failed outcomes an attribute may show in its recent read or listen log before the device is reported degraded. Total loss is never tolerated.
+       * @default 0
+       */
+      max_attribute_loss?: number;
     };
     /** HealthResponse */
     HealthResponse: {

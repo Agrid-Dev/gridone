@@ -19,6 +19,7 @@ from devices_manager.core.driver import (
     AttributeDriver,
     Driver,
     DriverMetadata,
+    HealthCheck,
     UpdateStrategy,
 )
 from devices_manager.types import ConnectionStatus, DataType, TransportProtocols
@@ -145,6 +146,43 @@ class TestConnectionStatusRecompute:
             ConnectionStatus.DEGRADED,
             ConnectionStatus.ERROR,
         ]
+
+
+async def _read(device: CoreDevice, transport, *, fail: bool) -> None:
+    if fail:
+        transport.read = AsyncMock(side_effect=OSError("timeout"))
+        with pytest.raises(OSError, match="timeout"):
+            await device.read_attribute_value("temperature")
+    else:
+        transport.read = AsyncMock(return_value="25.5")
+        await device.read_attribute_value("temperature")
+
+
+@pytest.mark.asyncio
+class TestToleratedAttributeLoss:
+    """`healthcheck.max_attribute_loss` lets an attribute lose a share of its
+    recent outcomes before the device is reported degraded."""
+
+    async def test_driver_tolerance_applies_to_outcomes(
+        self, driver: Driver, mock_transport_client
+    ) -> None:
+        driver.healthcheck = HealthCheck(max_attribute_loss=0.2)
+        device = CoreDevice.from_base(
+            DeviceBase(id="d1", name="D", config={"some_id": "a"}),
+            driver=driver,
+            transport=mock_transport_client,
+        )
+        for _ in range(8):
+            await _read(device, mock_transport_client, fail=False)
+        for _ in range(2):
+            await _read(device, mock_transport_client, fail=True)
+        assert device.get_attribute_value(CONNECTION_STATUS_ATTR) == ConnectionStatus.OK
+
+        await _read(device, mock_transport_client, fail=True)
+        assert (
+            device.get_attribute_value(CONNECTION_STATUS_ATTR)
+            == ConnectionStatus.DEGRADED
+        )
 
 
 @pytest.mark.asyncio
