@@ -292,19 +292,27 @@ describe("runPieces", () => {
     expect(pieces[1].stub).toBe(true);
   });
 
-  it("is two stubs and nothing visible between two ports whose bodies touch", () => {
+  it("draws the run between two ports in adjacent cells as its own piece", () => {
     const pieces = runPieces(
-      "flat",
+      "isometric",
       pipe(
-        { kind: "port", symbol: "pac", port: "supply" },
-        { kind: "port", symbol: "beside", port: "primary_in" },
+        { kind: "port", symbol: "mv", port: "out" },
+        { kind: "port", symbol: "px", port: "primary_in" },
       ),
       new Map([
-        ...SYMBOLS,
-        ["beside", symbol("beside", "tank", { x: 2, y: 1 })],
+        ["mv", symbol("mv", "mixing_valve", { x: 0, y: 0 })],
+        ["px", symbol("px", "plate_exchanger", { x: 1, y: 0 })],
       ]),
     );
-    expect(pieces.map((p) => p.stub)).toEqual([true, true]);
+    expect(pieces.map((p) => p.stub ?? false)).toEqual([true, false, true]);
+    // The middle piece runs from one silhouette to the other, so the run
+    // has no hole and somewhere to put its arrow.
+    const [stubIn, run, stubOut] = pieces;
+    expect(run.points[0]).toEqual(stubIn.points[2]);
+    expect(run.points[2]).toEqual(stubOut.points[0]);
+    expect(run.cell).toEqual({ x: 1, y: 0, z: 0 });
+    expect(run.points[0]).toEqual({ x: 10.4, y: 9.2 });
+    expect(run.points[2]).toEqual({ x: 24, y: 16 });
   });
 
   it("turns the direction at a bend to the way the run leaves", () => {

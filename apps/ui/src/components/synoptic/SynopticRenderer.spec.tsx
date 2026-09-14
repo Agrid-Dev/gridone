@@ -2,11 +2,12 @@ import { cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import type { AttributeSlot, Synoptic } from "@gridone/sdk";
 import ecsEstPlate from "@/pages/sandbox/ecsEstPlate.json";
-import { SILENT_TEXT, textWidth } from "./Chip";
-import { PANEL_W } from "./Panel";
-import { portPoint } from "./projection";
+import { CHIP_H, SILENT_TEXT } from "./Chip";
+import { PANEL_W, panelHeight } from "./Panel";
+import { portPoint, project } from "./projection";
 import { SynopticRenderer } from "./SynopticRenderer";
 import { SynopticSymbol } from "./symbols/SynopticSymbol";
+import { textWidth } from "./text";
 import type { SlotReading, SynopticValues } from "./values";
 
 afterEach(cleanup);
@@ -16,8 +17,13 @@ const slot = (attribute: string): AttributeSlot => ({
   target: { devices: { ids: ["PAC-03"] }, attribute },
 });
 
-const live = (text: string, raw: SlotReading["raw"] = text): SlotReading => ({
+const live = (
+  text: string,
+  raw: SlotReading["raw"] = text,
+  unit: string | null = null,
+): SlotReading => ({
   text,
+  unit,
   raw,
   stale: false,
   faulty: false,
@@ -109,11 +115,11 @@ const VALUES: SynopticValues = {
   slots: {
     "symbol.pac.state": live("MARCHE", true),
     "symbol.pac.fault": live("NORMAL", false),
-    "symbol.pac.supply_temp": { ...live("52.4 °C", 52.4), stale: true },
-    "symbol.b01.temperature": live("55.0 °C", 55),
+    "symbol.pac.supply_temp": { ...live("52.4", 52.4, "°C"), stale: true },
+    "symbol.b01.temperature": live("55.0", 55, "°C"),
     "symbol.v-03.state": live("FERMÉE", false),
     "pipe.supply.flow": live("MARCHE", true),
-    "tag.tt-03": { ...live("51.9 °C", 51.9), faulty: true },
+    "tag.tt-03": { ...live("51.9", 51.9, "°C"), faulty: true },
     "label.note": live("104", null),
   },
   faultyDevices: { "PAC-03": true },
@@ -144,7 +150,7 @@ describe("SynopticRenderer", () => {
     expect(q(c, "[data-label='note'] [data-chip]")[0].textContent).toContain(
       "104",
     );
-    expect(c.querySelector("text.text-\\[18px\\]")?.textContent).toBe("PLATE");
+    expect(c.querySelector("text[font-size='18']")?.textContent).toBe("PLATE");
   });
 
   it("is silent everywhere without values", () => {
@@ -153,7 +159,8 @@ describe("SynopticRenderer", () => {
     // The label's literal needs no device, so it reads live regardless.
     expect(q(c, "[data-chip='live']")).toHaveLength(1);
     expect(q(c, "[data-panel] [data-row='silent']")).toHaveLength(3);
-    expect(q(c, "[data-tag='tt-03'] text")[1].textContent).toBe(SILENT_TEXT);
+    // TT-03 hangs below its run: the chip's dash comes before its caption.
+    expect(q(c, "[data-tag='tt-03'] text")[0].textContent).toBe(SILENT_TEXT);
     expect(q(c, ".stroke-status-error")).toHaveLength(1); // the unknown cell
   });
 
@@ -171,12 +178,95 @@ describe("SynopticRenderer", () => {
       "fault",
       "supply temp",
     ]);
-    expect(rows[2].querySelectorAll("text")[1].textContent).toBe("52.4 °C");
+    expect(rows[2].querySelectorAll("text")[1].textContent).toBe("52.4");
+    expect(rows[2].querySelector("[data-unit]")?.textContent).toBe("°C");
     expect(q(c, "[data-panel]")).toHaveLength(1);
     // Tank, valve and the tag: one chip each, plus the label's.
     expect(q(c, "[data-chip='live']")).toHaveLength(4);
-    expect(q(c, "[data-tag='tt-03'] [data-chip] text")[1].textContent).toBe(
-      "51.9 °C",
+    const tagTexts = q(c, "[data-tag='tt-03'] [data-chip] text");
+    expect(tagTexts.map((t) => t.textContent)).toEqual(["51.9", "°C"]);
+  });
+
+  it("hangs a single reading under the symbol's label and joins a panel to its body", () => {
+    const c = draw(DOC, VALUES);
+    const label = q(c, "text").find((t) => t.textContent === "B01")!;
+    const chip = c.querySelector("[data-chip='live'] rect")!;
+    const chips = q(c, "[data-chip]").map((g) => g.querySelector("rect")!);
+    // The tank's chip: top edge under the label's baseline, centred on it.
+    const tank = chips.find(
+      (r) =>
+        Number(r.getAttribute("x")) + Number(r.getAttribute("width")) / 2 ===
+        Number(label.getAttribute("x")),
+    )!;
+    expect(tank).toBeDefined();
+    expect(Number(tank.getAttribute("y"))).toBeGreaterThan(
+      Number(label.getAttribute("y")),
+    );
+    expect(chip).toBeDefined();
+    // The panel leads to the heat pump with a 1 px muted leader.
+    const leader = c.querySelector("[data-leader]")!;
+    expect(leader.getAttribute("stroke-width")).toBe("1");
+    expect(leader.classList.contains("stroke-muted-foreground")).toBe(true);
+  });
+
+  it("places a panel clear of bodies and other panels, above first", () => {
+    const twin = (id: string, x: number, y: number) => ({
+      ...DOC.symbols![0],
+      id,
+      label: id,
+      placement: { kind: "cell" as const, cell: { x, y } },
+    });
+    // Two heat pumps four cells apart along y, as the reference plate has:
+    // both panels above their labels would be 80 px apart for 100 px of
+    // panel, so the second one has to move.
+    const c = draw(
+      {
+        ...DOC,
+        symbols: [twin("a", 0, 0), twin("b", 0, 4)],
+        pipes: [],
+        labels: [],
+      },
+      VALUES,
+    );
+    const frame = (id: string) => {
+      const r = c.querySelector(`[data-panel='${id}'] rect`)!;
+      const x = Number(r.getAttribute("x"));
+      const y = Number(r.getAttribute("y"));
+      return { x0: x, y0: y, x1: x + PANEL_W, y1: y + panelHeight(3) };
+    };
+    const a = frame("a");
+    const b = frame("b");
+    const apart = a.x1 <= b.x0 || b.x1 <= a.x0 || a.y1 <= b.y0 || b.y1 <= a.y0;
+    expect(apart).toBe(true);
+    // The first panel takes the spot above its label (the panel's own
+    // title reads the same, so look outside the panels).
+    const labelA = q(c, "text").find(
+      (t) => t.textContent === "a" && !t.closest("[data-panel]"),
+    )!;
+    expect(a.y1).toBeLessThan(Number(labelA.getAttribute("y")));
+    expect((a.x0 + a.x1) / 2).toBe(Number(labelA.getAttribute("x")));
+  });
+
+  it("hangs a tag below its run when a body stands where the chip would rise", () => {
+    const c = draw(DOC, VALUES);
+    // TT-03 at (2,1) rises over the heat pump on (1,0)..(1,1): it hangs below.
+    const tt = c.querySelector("[data-tag='tt-03']")!;
+    expect(tt.getAttribute("data-side")).toBe("below");
+    const on = project("isometric", 2.5, 1.5, 0.4);
+    const rect = tt.querySelector("rect")!;
+    expect(Number(rect.getAttribute("y"))).toBeGreaterThan(on.y);
+    // Its caption sits under the chip, and the leader reaches the chip's top.
+    const caption = q(tt, "text").find((t) => t.textContent === "TT-03")!;
+    expect(Number(caption.getAttribute("y"))).toBeGreaterThan(
+      Number(rect.getAttribute("y")) + CHIP_H,
+    );
+    const leader = tt.querySelector("line")!;
+    expect(Number(leader.getAttribute("y1"))).toBe(
+      Number(rect.getAttribute("y")),
+    );
+    // LPS at (4,1) has open cells behind it and stays above.
+    expect(c.querySelector("[data-tag='lps']")?.getAttribute("data-side")).toBe(
+      "above",
     );
   });
 
@@ -199,28 +289,38 @@ describe("SynopticRenderer", () => {
     );
   });
 
-  it("animates a run whose flow is on and dims one whose flow is off", () => {
+  it("animates a run only on a live flow reading of true", () => {
     const on = draw(DOC, VALUES);
     expect(q(on, "path.animate-flow")).toHaveLength(7);
-    const off = draw(DOC, {
-      ...VALUES,
-      slots: { ...VALUES.slots, "pipe.supply.flow": live("ARRÊT", false) },
-    });
-    expect(q(off, "path.animate-flow")).toHaveLength(0);
-    expect(
-      q(off, "path.stroke-fluid-primary-supply").map((p) =>
-        p.parentElement?.getAttribute("opacity"),
-      ),
-    ).toEqual(Array(7).fill("0.45"));
-    // A bound flow with no reading yet is static, not dimmed.
-    const silent = draw(DOC);
-    expect(q(silent, "path.animate-flow")).toHaveLength(0);
-    expect(
+    const flow = (reading: SlotReading) =>
       q(
-        silent,
-        "path.stroke-fluid-primary-supply",
-      )[0].parentElement?.getAttribute("opacity"),
-    ).toBe("1");
+        draw(DOC, {
+          ...VALUES,
+          slots: { ...VALUES.slots, "pipe.supply.flow": reading },
+        }),
+        "path.animate-flow",
+      );
+    expect(flow(live("ARRÊT", false))).toHaveLength(0);
+    // A stale MARCHE is not a running pump.
+    expect(flow({ ...live("MARCHE", true), stale: true })).toHaveLength(0);
+    // A bound flow with no reading yet is static.
+    expect(q(draw(DOC), "path.animate-flow")).toHaveLength(0);
+  });
+
+  it("lights no LED on a stale state reading", () => {
+    const c = draw(DOC, {
+      ...VALUES,
+      slots: {
+        ...VALUES.slots,
+        "symbol.pac.state": { ...live("MARCHE", true), stale: true },
+      },
+      faultyDevices: {},
+    });
+    const panel = c.querySelector("[data-panel='PAC 03']")!;
+    expect(panel.querySelector("circle:not([data-row] circle)")).toBeNull();
+    expect(q(c, "circle.fill-status-ok")).toHaveLength(0);
+    // The row itself still says what it holds, muted with the disc.
+    expect(panel.querySelector("[data-row='stale']")).not.toBeNull();
   });
 
   it("paints an inline symbol over the run it sits on, turned with it", () => {
@@ -285,6 +385,45 @@ describe("SynopticRenderer", () => {
     );
   });
 
+  it("frames a rotated body where it is drawn", () => {
+    const pump = (rotation: 0 | 1 | 2 | 3) =>
+      draw({
+        ...DOC,
+        symbols: [
+          {
+            ...DOC.symbols![0],
+            bindings: {},
+            placement: { kind: "cell", cell: { x: 0, y: 0 }, rotation },
+          },
+        ],
+        pipes: [],
+        labels: [],
+      });
+    const size = (c: Element) =>
+      c.querySelector("svg")!.getAttribute("viewBox")!.split(" ").map(Number);
+    // A quarter turn of a square body keeps the same extent; the frame
+    // follows the body rather than the unrotated footprint.
+    expect(size(pump(1))).toEqual(size(pump(0)));
+    expect(size(pump(2))).toEqual(size(pump(0)));
+    const turned = pump(2);
+    const body = turned.querySelector("polygon.fill-synoptic-body")!;
+    const ys = body
+      .getAttribute("points")!
+      .split(" ")
+      .map((p) => Number(p.split(",")[1]));
+    const [, , , h] = size(turned);
+    // The plate group, inside the canvas's own, shifts the extent's corner
+    // to the margin.
+    const shift = Number(
+      turned
+        .querySelectorAll("g[transform^='translate']")[1]
+        .getAttribute("transform")!
+        .match(/translate\([-\d.]+ ([-\d.]+)\)/)![1],
+    );
+    expect(Math.min(...ys) + shift).toBeGreaterThanOrEqual(60);
+    expect(Math.max(...ys) + shift).toBeLessThanOrEqual(h - 60);
+  });
+
   it("counts a label's text and a symbol's panel into the extent", () => {
     const title = draw({
       ...DOC,
@@ -292,9 +431,10 @@ describe("SynopticRenderer", () => {
       pipes: [],
       labels: [DOC.labels![0]],
     });
-    // 18 px semibold, 5 glyphs, 60 px of margin each side.
+    // 18 px semibold, 5 glyphs wide and one line above the baseline, 60 px
+    // of margin each side.
     expect(title.querySelector("svg")!.getAttribute("viewBox")).toBe(
-      `0 0 ${120 + textWidth("PLATE", 18)} 120`,
+      `0 0 ${120 + textWidth("PLATE", 18)} ${120 + 18}`,
     );
     const panel = draw({
       ...DOC,
@@ -320,7 +460,8 @@ describe("SynopticRenderer", () => {
     });
     const text = c.querySelector("[data-label='legend'] text")!;
     expect(text.textContent).toBe("PLATE");
-    expect(text.classList.contains("text-[11px]")).toBe(true);
+    expect(text.getAttribute("font-size")).toBe("11");
+    expect(text.getAttribute("font-weight")).toBe("400");
   });
 
   it("degrades a collector without a bar to the unknown cell", () => {
@@ -342,5 +483,22 @@ describe("SynopticRenderer", () => {
     expect(q(c, "circle[data-tee]")).toHaveLength(5);
     expect(q(c, "[data-label]")).toHaveLength(5);
     expect(q(c, "polygon.fill-fluid-dhw").length).toBeGreaterThan(0);
+    // The PAC tags hang below their runs, clear of the bodies beside them.
+    expect(
+      q(c, "[data-tag][data-side='below']").map((t) =>
+        t.getAttribute("data-tag"),
+      ),
+    ).toEqual(["tt-03", "tt-04"]);
+    // The two panels do not overlap each other or a body.
+    const frames = q(c, "[data-panel] > rect").map((r) => ({
+      x0: Number(r.getAttribute("x")),
+      y0: Number(r.getAttribute("y")),
+      x1: Number(r.getAttribute("x")) + Number(r.getAttribute("width")),
+      y1: Number(r.getAttribute("y")) + Number(r.getAttribute("height")),
+    }));
+    const [a, b] = frames;
+    expect(a.x1 <= b.x0 || b.x1 <= a.x0 || a.y1 <= b.y0 || b.y1 <= a.y0).toBe(
+      true,
+    );
   });
 });

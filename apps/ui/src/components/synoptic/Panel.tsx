@@ -1,20 +1,27 @@
 import {
-  CAPTION_TRACKING,
+  Caption,
+  DISC_R,
   FAULT_STROKE,
   FRAME_RADIUS,
   frameClass,
   SILENT_TEXT,
-  textWidth,
+  Unit,
+  unitWidth,
   valueClass,
 } from "./Chip";
 import { LABEL_SIZE, Led, type SymbolState } from "./symbols/Label";
+import { textWidth } from "./text";
 import type { Pt } from "./types";
 import { readingState, type SlotReading } from "./values";
 
 export const PANEL_W = 164;
-const HEADER_H = 24;
-const ROW_H = 18;
+/** Title band: the rule sits at its bottom, the rows start below it. */
+const HEADER_H = 30;
+const RULE_Y = 24;
+const ROW_H = 20;
 const PAD = 8;
+/** Space between a row's value and the stale disc before it. */
+const DISC_GAP = 8;
 
 export type PanelRow = {
   label: string;
@@ -43,6 +50,7 @@ export function Panel({ at, title, rows, led, faulty = false }: PanelProps) {
   const h = panelHeight(rows.length);
   const x = at.x - PANEL_W / 2;
   const y = at.y - h;
+  const right = x + PANEL_W - PAD;
   return (
     <g data-panel={title}>
       <rect
@@ -64,47 +72,40 @@ export function Panel({ at, title, rows, led, faulty = false }: PanelProps) {
         {title}
       </text>
       {led && (
-        <Led
-          at={{ x: x + PANEL_W - PAD - 4, y: y + 12 }}
-          led={led}
-          faulty={faulty}
-        />
+        <Led at={{ x: right - 4, y: y + 12 }} led={led} faulty={faulty} />
       )}
       <line
         x1={x}
-        y1={y + HEADER_H}
+        y1={y + RULE_Y}
         x2={x + PANEL_W}
-        y2={y + HEADER_H}
+        y2={y + RULE_Y}
         strokeWidth={1}
         className="stroke-border"
       />
       {rows.map((row, i) => {
-        const rowY = y + HEADER_H + ROW_H * (i + 1) - 5;
+        const rowY = y + HEADER_H + ROW_H * i + 13;
         const state = readingState(row.reading);
         const muted = state !== "live";
+        const { unit } = row.reading;
         const text = row.reading.text ?? SILENT_TEXT;
+        const valueEnd = right - unitWidth(unit);
         return (
           <g key={row.label} data-row={state}>
-            <text
-              x={x + PAD}
-              y={rowY}
-              fontSize={LABEL_SIZE}
-              fontWeight={600}
-              letterSpacing={CAPTION_TRACKING}
-              className="fill-muted-foreground uppercase"
-            >
-              {row.label}
-            </text>
+            <Caption
+              at={{ x: x + PAD, y: rowY }}
+              text={row.label}
+              anchor="start"
+            />
             {state === "stale" && (
               <circle
-                cx={x + PANEL_W - PAD - 6 - textWidth(text, LABEL_SIZE)}
+                cx={valueEnd - textWidth(text, LABEL_SIZE) - DISC_GAP}
                 cy={rowY - 4}
-                r={2.5}
+                r={DISC_R}
                 className="fill-muted-foreground"
               />
             )}
             <text
-              x={x + PANEL_W - PAD}
+              x={valueEnd}
               y={rowY}
               textAnchor="end"
               fontSize={LABEL_SIZE}
@@ -117,6 +118,9 @@ export function Panel({ at, title, rows, led, faulty = false }: PanelProps) {
             >
               {text}
             </text>
+            {unit && (
+              <Unit at={{ x: right, y: rowY }} unit={unit} anchor="end" />
+            )}
           </g>
         );
       })}
