@@ -46,9 +46,11 @@ export function SynopticSymbol({
   const schema = symbolSchemas[type];
   const drawing = DRAWINGS[type];
   const footprint = schema?.["x-footprint"];
+  // Plan points turn about the centre of the origin cell, the same pivot
+  // `symbolPort` turns cell offsets about, so the glyph stays on its ports.
   const local = (p: Pt): Pt => {
-    const r = rotateQuarter(p, rotation);
-    return { x: origin.x + r.x, y: origin.y + r.y };
+    const r = rotateQuarter({ x: p.x - 0.5, y: p.y - 0.5 }, rotation);
+    return { x: origin.x + r.x + 0.5, y: origin.y + r.y + 0.5 };
   };
   const planeAt =
     (z: number): Plane =>

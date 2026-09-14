@@ -181,7 +181,9 @@ describe("SynopticSymbol", () => {
         />,
       );
     expect(first(at({ x: 1, y: 0 }))).toBe("48,0 144,0 144,96 48,96");
-    expect(first(at({ x: 0, y: 0 }, 1))).toBe("0,0 0,96 -96,96 -96,0");
+    // A quarter turn puts the 2 x 2 body on cells x in [-1, 1), y in [0, 2),
+    // where `symbolPort` puts its ports.
+    expect(first(at({ x: 0, y: 0 }, 1))).toBe("48,0 48,96 -48,96 -48,0");
   });
 
   it("degrades visibly on a type it cannot draw", () => {
