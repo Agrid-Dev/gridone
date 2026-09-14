@@ -9,6 +9,9 @@ import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { findDeviceInCachedLists } from "./useDeviceById";
 import { useDeviceContext } from "../contexts/DeviceContext";
 
+/** How often a device refetches while the WebSocket is down. */
+export const DEVICE_POLL_INTERVAL_MS = 15000;
+
 export function useDevice(deviceId: string | undefined) {
   const client = useGridoneClient();
   const { isConnected } = useDeviceContext();
@@ -21,7 +24,7 @@ export function useDevice(deviceId: string | undefined) {
       return client.devices.get(deviceId);
     },
     enabled: !!deviceId,
-    refetchInterval: isConnected ? false : 15000,
+    refetchInterval: isConnected ? false : DEVICE_POLL_INTERVAL_MS,
   });
 }
 
@@ -39,7 +42,7 @@ export function useDeviceFromRoute(): Device {
     queryFn: () => client.devices.get(deviceId),
     initialData: () => cachedFromList()?.device,
     initialDataUpdatedAt: () => cachedFromList()?.updatedAt,
-    refetchInterval: isConnected ? false : 15000,
+    refetchInterval: isConnected ? false : DEVICE_POLL_INTERVAL_MS,
   });
   return data;
 }
