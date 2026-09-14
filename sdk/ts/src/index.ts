@@ -5,6 +5,7 @@
  * OpenAPI schema); SDK code is idiomatic camelCase.
  */
 export { GridoneClient } from "./client";
+export { symbolSchemas } from "./symbolSchemas";
 export type { GridoneClientConfig } from "./client";
 export {
   GridoneError,
