@@ -54,9 +54,9 @@ def _attribute_status(logs: dict[EventType, _Log]) -> ConnectionStatus:
     Only called right after a read or listen was recorded, so the pooled
     logs are never empty.
     """
-    reachability = (logs[EventType.READ], logs[EventType.LISTEN])
-    errors = sum(log.errors for log in reachability)
-    total = sum(len(log.entries) for log in reachability)
+    read, listen = logs[EventType.READ], logs[EventType.LISTEN]
+    errors = read.errors + listen.errors
+    total = len(read.entries) + len(listen.entries)
     if errors == 0:
         return ConnectionStatus.OK
     if errors == total:
@@ -111,7 +111,9 @@ class ConnectionMonitor:
         error: Exception | None = None,
     ) -> None:
         """Record one outcome: ``error`` is the failure, ``None`` a success."""
-        logs = self._logs.setdefault(attribute, {t: _Log() for t in EventType})
+        logs = self._logs.get(attribute)
+        if logs is None:
+            logs = self._logs[attribute] = {t: _Log() for t in EventType}
         logs[event_type].append(AttributeEventLog.new(event_type, error))
         if event_type is EventType.WRITE:
             return
