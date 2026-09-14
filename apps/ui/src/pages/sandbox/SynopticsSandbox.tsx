@@ -19,6 +19,7 @@ import {
 } from "../devices/standard-devices/air-extractor";
 import { symbolSchemas, type Projection, type Synoptic } from "@gridone/sdk";
 import ecsEstPlate from "./ecsEstPlate.json";
+import { useSynopticValues } from "@/hooks/useSynopticValues";
 import {
   Body,
   Collector,
@@ -39,7 +40,6 @@ import {
   SynopticRenderer,
   SynopticSymbol,
   Tank,
-  useSynopticValues,
   Valve,
   type DepthItem,
   type SymbolState,

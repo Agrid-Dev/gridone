@@ -1,3 +1,4 @@
+import { textWidth } from "../text";
 import type { Pt } from "../types";
 
 /** Run state of a symbol whose `state` slot is bound. */
@@ -5,6 +6,8 @@ export type SymbolState = "on" | "off";
 
 /** Symbol labels are 11 px semibold: nothing on the plate is smaller. */
 export const LABEL_SIZE = 11;
+/** Space between a label's end and its LED. */
+const LED_GAP = 8;
 
 type LabelProps = {
   text: string;
@@ -52,7 +55,7 @@ export function Label({
       </text>
       {led && (
         <Led
-          at={{ x: x + 4 * text.length + 10, y: y - 4 }}
+          at={{ x: x + textWidth(text, LABEL_SIZE) / 2 + LED_GAP, y: y - 4 }}
           led={led}
           faulty={faulty}
         />

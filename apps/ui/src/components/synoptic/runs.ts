@@ -159,7 +159,9 @@ const planStep = (a: Cell, b: Cell): Pt => ({
  * the entry line meets the drawing's silhouette, with the arrow, and a
  * stub carries on to the cell centre under the body so the two always
  * join. A free or tee endpoint keeps a full piece stopping at the centre.
- * A bend cell holds its corner, so `Pipe` rounds it.
+ * A bend cell holds its corner, so `Pipe` rounds it. Two ports in
+ * adjacent cells have no cell of their own between them: the run between
+ * the two silhouettes is one more piece, keyed to the arrival cell.
  */
 export function runPieces(
   projection: Projection,
@@ -193,7 +195,7 @@ export function runPieces(
       y: face.y + (centres[i].y - face.y) * 2 * r,
     };
   };
-  return cells.map((cell, i) => {
+  const pieces = cells.map((cell, i) => {
     let entry = i === 0 ? centres[0] : midpoint(centres[i - 1], centres[i]);
     let exit = i === n - 1 ? centres[i] : midpoint(centres[i], centres[i + 1]);
     if (i === 1 && fromReach !== null) entry = inFrom(0, 1, fromReach);
@@ -225,6 +227,16 @@ export function runPieces(
     }
     return { cell, points: [entry, centres[i], exit], direction };
   });
+  if (n === 2 && fromReach !== null && toReach !== null) {
+    const start = inFrom(0, 1, fromReach);
+    const end = inFrom(1, 0, toReach);
+    pieces.splice(1, 0, {
+      cell: cells[1],
+      points: [start, midpoint(start, end), end],
+      direction: pieces[1].direction,
+    });
+  }
+  return pieces;
 }
 
 /** The piece of `pieces` that holds `cell`, for a symbol or tag riding on

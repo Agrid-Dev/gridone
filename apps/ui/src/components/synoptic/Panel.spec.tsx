@@ -6,8 +6,13 @@ import type { SlotReading } from "./values";
 
 afterEach(cleanup);
 
-const reading = (text: string | null, stale = false): SlotReading => ({
+const reading = (
+  text: string | null,
+  stale = false,
+  unit: string | null = null,
+): SlotReading => ({
   text,
+  unit,
   raw: text,
   stale,
   faulty: false,
@@ -16,7 +21,7 @@ const reading = (text: string | null, stale = false): SlotReading => ({
 const ROWS: PanelRow[] = [
   { label: "state", reading: reading("MARCHE") },
   { label: "fault", reading: reading("NORMAL"), error: true },
-  { label: "supply temp", reading: reading("52.4 °C", true) },
+  { label: "supply temp", reading: reading("52.4", true, "°C") },
   { label: "power", reading: reading(null) },
 ];
 
@@ -61,6 +66,14 @@ describe("Panel", () => {
     expect(rows[2].getAttribute("data-row")).toBe("stale");
     expect(rows[2].querySelector("circle")).not.toBeNull();
     expect(value(2).classList.contains("fill-muted-foreground")).toBe(true);
+    // The unit is its own muted text, end-aligned after the value.
+    const unit = rows[2].querySelector("[data-unit]")!;
+    expect(unit.textContent).toBe("°C");
+    expect(unit.classList.contains("fill-muted-foreground")).toBe(true);
+    expect(Number(unit.getAttribute("x"))).toBeGreaterThan(
+      Number(value(2).getAttribute("x")),
+    );
+    expect(rows[0].querySelector("[data-unit]")).toBeNull();
     expect(rows[3].getAttribute("data-row")).toBe("silent");
     expect(rows[3].querySelector("circle")).toBeNull();
     expect(value(3).textContent).toBe(SILENT_TEXT);

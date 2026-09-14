@@ -2,7 +2,7 @@ import type { AttributeSlot, Synoptic } from "@gridone/sdk";
 import { describe, expect, it } from "vitest";
 import {
   boundSlots,
-  formatValue,
+  formatReading,
   isStale,
   readingState,
   targetDeviceId,
@@ -111,19 +111,19 @@ describe("targetDeviceId", () => {
   });
 });
 
-describe("formatValue", () => {
+describe("formatReading", () => {
   it.each([
-    [slot("s", { labels: { true: "MARCHE" } }), true, "MARCHE"],
-    [slot("s", { labels: { true: "MARCHE" } }), false, "false"],
-    [slot("t", { unit: "°C", decimals: 1 }), 52.37, "52.4 °C"],
-    [slot("t", { unit: "°C", decimals: 0 }), 52.37, "52 °C"],
-    [slot("t", { decimals: 2 }), 7, "7.00"],
-    [slot("t", { unit: "kW" }), 3.14159, "3.14159 kW"],
-    [slot("t"), 42, "42"],
-    [slot("m"), "auto", "auto"],
-    [slot("n", { labels: { "2": "ECO" }, unit: "x" }), 2, "ECO"],
-  ])("formats %j with %j as %s", (s, raw, expected) => {
-    expect(formatValue(s, raw)).toBe(expected);
+    [slot("s", { labels: { true: "MARCHE" } }), true, "MARCHE", null],
+    [slot("s", { labels: { true: "MARCHE" } }), false, "false", null],
+    [slot("t", { unit: "°C", decimals: 1 }), 52.37, "52.4", "°C"],
+    [slot("t", { unit: "°C", decimals: 0 }), 52.37, "52", "°C"],
+    [slot("t", { decimals: 2 }), 7, "7.00", null],
+    [slot("t", { unit: "kW" }), 3.14159, "3.14159", "kW"],
+    [slot("t"), 42, "42", null],
+    [slot("m"), "auto", "auto", null],
+    [slot("n", { labels: { "2": "ECO" }, unit: "x" }), 2, "ECO", null],
+  ])("formats %j with %j as %s %s", (s, raw, text, unit) => {
+    expect(formatReading(s, raw)).toEqual({ text, unit });
   });
 });
 
@@ -155,8 +155,8 @@ describe("readingState", () => {
     [null, false, "silent"],
     [null, true, "stale"],
   ])("text %s stale %s reads %s", (text, stale, expected) => {
-    expect(readingState({ text, raw: null, stale, faulty: false })).toBe(
-      expected,
-    );
+    expect(
+      readingState({ text, unit: null, raw: null, stale, faulty: false }),
+    ).toBe(expected);
   });
 });

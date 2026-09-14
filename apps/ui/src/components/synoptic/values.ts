@@ -14,9 +14,11 @@ export type BoundSlot = {
 };
 
 /** The live reading of one slot. `text` is null when the slot is silent:
- *  no value has arrived, or it carries no timestamp. */
+ *  no value has arrived, or it carries no timestamp. `unit` is drawn after
+ *  the text, muted; null when the text is a label or the slot has none. */
 export type SlotReading = {
   text: string | null;
+  unit: string | null;
   raw: AttributeValue | null;
   stale: boolean;
   /** `Device.is_faulty` of the device the slot reads. */
@@ -75,16 +77,20 @@ export function targetDeviceId(target: AttributeTarget): string | undefined {
 export const targetKey = (target: AttributeTarget) =>
   JSON.stringify(target.devices);
 
-/** Display text of a raw value: the label map first, then decimals and
- *  unit for numbers, the value as written otherwise. */
-export function formatValue(slot: AttributeSlot, raw: AttributeValue): string {
+/** Display text of a raw value and the unit to draw after it: a mapped
+ *  label stands alone, a number takes its decimals and unit, anything else
+ *  reads as written. */
+export function formatReading(
+  slot: AttributeSlot,
+  raw: AttributeValue,
+): Pick<SlotReading, "text" | "unit"> {
   const label = slot.labels?.[String(raw)];
-  if (label !== undefined) return label;
+  if (label !== undefined) return { text: label, unit: null };
   const text =
     typeof raw === "number" && slot.decimals != null
       ? raw.toFixed(slot.decimals)
       : String(raw);
-  return slot.unit ? `${text} ${slot.unit}` : text;
+  return { text, unit: slot.unit ?? null };
 }
 
 /** A value is stale once older than its threshold: the binding's, else the

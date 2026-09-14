@@ -10,9 +10,11 @@ function draw(props: Omit<Parameters<typeof Pipe>[0], "fluid">) {
   );
   return {
     g: container.querySelector("g")!,
-    paths: [...container.querySelectorAll("path")].map((p) =>
+    paths: [...container.querySelectorAll("path:not([data-casing])")].map((p) =>
       p.getAttribute("d"),
     ),
+    casing: container.querySelector("path[data-casing]"),
+    pipe: container.querySelector("path:not([data-casing])")!,
     arrows: [...container.querySelectorAll("polygon")].map((p) =>
       p.getAttribute("points"),
     ),
@@ -31,21 +33,21 @@ describe("Pipe arrows", () => {
       startArrow: true,
       endArrow: true,
     });
-    expect(arrows).toEqual(["100,0 83,8 83,-8", "0,0 17,-8 17,8"]);
-    expect(paths).toEqual(["M 14 0 L 86 0"]);
+    expect(arrows).toEqual(["100,0 92,3 92,-3", "0,0 8,-3 8,3"]);
+    expect(paths).toEqual(["M 5 0 L 95 0"]);
   });
 
   it("keeps both heads outward on a run shorter than two pull-backs", () => {
     const { paths, arrows } = draw({
       points: [
         { x: 0, y: 0 },
-        { x: 20, y: 0 },
+        { x: 8, y: 0 },
       ],
       startArrow: true,
       endArrow: true,
     });
-    expect(arrows).toEqual(["20,0 3,8 3,-8", "0,0 17,-8 17,8"]);
-    expect(paths).toEqual(["M 10 0 L 10 0"]);
+    expect(arrows).toEqual(["8,0 0,3 0,-3", "0,0 8,-3 8,3"]);
+    expect(paths).toEqual(["M 4 0 L 4 0"]);
   });
 
   it("draws no head on a segment shorter than the head", () => {
@@ -53,31 +55,44 @@ describe("Pipe arrows", () => {
       points: [
         { x: 0, y: 0 },
         { x: 100, y: 0 },
-        { x: 100, y: 8 },
+        { x: 100, y: 6 },
       ],
       endArrow: true,
     });
     expect(arrows).toEqual([]);
-    expect(paths).toEqual(["M 0 0 L 96 0 Q 100 0 100 4 L 100 8"]);
+    expect(paths).toEqual(["M 0 0 L 97 0 Q 100 0 100 3 L 100 6"]);
+  });
+});
+
+describe("Pipe stroke", () => {
+  it("is 3 px of fluid colour on a 7 px plate casing", () => {
+    const { casing, pipe } = draw({ points: RUN });
+    expect(pipe.getAttribute("stroke-width")).toBe("3");
+    expect(pipe.getAttribute("class")).toBe("stroke-fluid-dhw");
+    expect(casing?.getAttribute("stroke-width")).toBe("7");
+    expect(casing?.getAttribute("class")).toBe("stroke-synoptic-plate");
+    expect(casing?.getAttribute("d")).toBe(pipe.getAttribute("d"));
+  });
+
+  it("keeps the casing 4 px wider than a custom width", () => {
+    const { casing, pipe } = draw({ points: RUN, width: 6 });
+    expect(pipe.getAttribute("stroke-width")).toBe("6");
+    expect(casing?.getAttribute("stroke-width")).toBe("10");
   });
 });
 
 describe("Pipe flow state", () => {
-  it("is static and full strength when flow is not given", () => {
-    const { g, paths } = draw({ points: RUN });
-    expect(g.getAttribute("opacity")).toBe("1");
-    expect(paths).toHaveLength(1);
-  });
+  it.each([undefined, false])(
+    "is static at full strength when flow is %s",
+    (flowing) => {
+      const { g, paths } = draw({ points: RUN, flowing });
+      expect(g.getAttribute("opacity")).toBeNull();
+      expect(paths).toHaveLength(1);
+    },
+  );
 
   it("draws the flow dash on the capped path, not through the arrow", () => {
-    const { g, paths } = draw({ points: RUN, endArrow: true, flowing: true });
-    expect(g.getAttribute("opacity")).toBe("1");
-    expect(paths).toEqual(["M 0 0 L 86 0", "M 0 0 L 86 0"]);
-  });
-
-  it("dims a stopped pipe and draws no dash", () => {
-    const { g, paths } = draw({ points: RUN, flowing: false });
-    expect(g.getAttribute("opacity")).toBe("0.45");
-    expect(paths).toHaveLength(1);
+    const { paths } = draw({ points: RUN, endArrow: true, flowing: true });
+    expect(paths).toEqual(["M 0 0 L 95 0", "M 0 0 L 95 0"]);
   });
 });
