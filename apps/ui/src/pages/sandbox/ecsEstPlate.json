@@ -1,7 +1,7 @@
 {
   "version": 1,
   "name": "Production ECS Est",
-  "description": "Hydraulique — production ECS Est : 2 PAC, collecteur départ, 9 ballons 500 L en 3 colonnes, mitigeur, départ ECS vers 104 chambres, bouclage, appoint eau froide. Rewritten from the mermaid POC with positions. Device ids are placeholders until AGR-1164.",
+  "description": "Hydraulique — production ECS Est : 2 PAC, collecteur départ, 9 ballons 500 L en 3 colonnes, mitigeur, départ ECS vers 104 chambres, bouclage, appoint eau froide. Rewritten from the mermaid POC with positions. Device ids are placeholders until the first live plate.",
   "projection": "isometric",
   "defaults": { "stale_after": 900 },
 
@@ -1118,7 +1118,7 @@
     {
       "id": "note-placeholders",
       "at": { "x": -1, "y": 15 },
-      "text": "Device ids are placeholders — AGR-1164",
+      "text": "Device ids are placeholders until the first live plate",
       "role": "note",
       "value": null
     }

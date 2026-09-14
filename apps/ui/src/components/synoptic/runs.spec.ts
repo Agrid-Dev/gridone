@@ -1,5 +1,6 @@
 import type { PipeElement, SymbolElement } from "@gridone/sdk";
 import { describe, expect, it } from "vitest";
+import { PIPE_AXIS_Z, project } from "./projection";
 import { endpointCell, pieceAt, runCells, runPieces } from "./runs";
 
 const symbol = (
@@ -156,21 +157,154 @@ describe("runPieces", () => {
       pipe(
         { kind: "port", symbol: "pac", port: "supply" },
         { kind: "port", symbol: "b01", port: "primary_in" },
-        [{ x: 4, y: 1 }],
+        [
+          { x: 3, y: 1 },
+          { x: 3, y: 0 },
+        ],
       ),
       SYMBOLS,
     );
-    // supply leaves (1, 1) through +x: the face centre is x = 96.
-    expect(pieces[0].points[0]).toEqual({ x: 96, y: 72 });
-    // primary_in enters (4, 0) through -x: the face centre is x = 192.
-    expect(pieces[pieces.length - 1].points[2]).toEqual({ x: 192, y: 24 });
-    expect(pieces.map((p) => p.cell)).toEqual([
-      { x: 1, y: 1, z: 0 },
+    // supply leaves (1, 1) through +x, at x = 96: the port cell holds a stub
+    // from its centre to that face, and the visible run starts there.
+    expect(pieces[0]).toEqual({
+      cell: { x: 1, y: 1, z: 0 },
+      points: [
+        { x: 72, y: 72 },
+        { x: 72, y: 72 },
+        { x: 96, y: 72 },
+      ],
+      direction: { x: 1, y: 0 },
+      stub: true,
+    });
+    expect(pieces[1].points[0]).toEqual({ x: 96, y: 72 });
+    // primary_in enters (4, 0) through -x, at x = 192. The tank's cylinder
+    // never meets that line, so the visible run ends at the face and the
+    // stub carries on to the cell centre, where it grazes the cylinder.
+    expect(pieces[pieces.length - 2].points[2]).toEqual({ x: 192, y: 24 });
+    expect(pieces[pieces.length - 1]).toEqual({
+      cell: { x: 4, y: 0, z: 0 },
+      points: [
+        { x: 192, y: 24 },
+        { x: 216, y: 24 },
+        { x: 216, y: 24 },
+      ],
+      direction: { x: 1, y: 0 },
+      stub: true,
+    });
+    expect(pieces.filter((p) => !p.stub).map((p) => p.cell)).toEqual([
       { x: 2, y: 1, z: 0 },
       { x: 3, y: 1, z: 0 },
-      { x: 4, y: 1, z: 0 },
-      { x: 4, y: 0, z: 0 },
+      { x: 3, y: 0, z: 0 },
     ]);
+  });
+
+  it("stops at a collector's bar edge, and at its end face along the bar", () => {
+    const across = runPieces(
+      "flat",
+      pipe(
+        { kind: "cell", cell: { x: 4, y: 2 } },
+        { kind: "port", symbol: "col", port: "in_1" },
+      ),
+      SYMBOLS,
+    );
+    // in_1 faces -x on a bar along y: the bar edge is 0.3 cells in from
+    // the face at x = 288, so the run ends at x = 302.4.
+    expect(across[1].points[2]).toEqual({ x: 302.4, y: 120 });
+    expect(across[2].points[0]).toEqual({ x: 302.4, y: 120 });
+    const along = runPieces(
+      "flat",
+      pipe(
+        { kind: "cell", cell: { x: 6, y: -2 } },
+        { kind: "port", symbol: "col", port: "out_1" },
+      ),
+      new Map(
+        [
+          ...SYMBOLS,
+          symbol(
+            "col",
+            "collector",
+            { x: 6, y: 0 },
+            {
+              props: {
+                axis: "y",
+                length: 3,
+                ports: { out_1: { offset: 0, side: "-y" } },
+              },
+            },
+          ),
+        ].map(
+          (s) => (Array.isArray(s) ? s : [s.id, s]) as [string, SymbolElement],
+        ),
+      ),
+    );
+    // out_1 faces -y along the bar: the bar reaches the face, y = 0.
+    expect(along[1].points[2]).toEqual({ x: 312, y: 0 });
+  });
+
+  it("stops at the silhouette of a drawing that meets the entry line", () => {
+    // plate_exchanger draws a 0.8 square centred in its cell: 0.1 in.
+    const pieces = runPieces(
+      "flat",
+      pipe(
+        { kind: "cell", cell: { x: 0, y: 0 } },
+        { kind: "port", symbol: "px", port: "primary_in" },
+      ),
+      new Map([
+        ...SYMBOLS,
+        ["px", symbol("px", "plate_exchanger", { x: 2, y: 0 })],
+      ]),
+    );
+    expect(pieces[1].points[2]).toEqual({ x: 100.8, y: 24 });
+  });
+
+  it("ends at the silhouette along the face the run actually arrives through", () => {
+    // primary_in faces -x, but this run drops in from +y: the pipe stops at
+    // the face it arrives through and never crosses the body.
+    const pieces = runPieces(
+      "flat",
+      pipe(cellA, { kind: "port", symbol: "b01", port: "primary_in" }, [
+        { x: 4, y: 1 },
+      ]),
+      SYMBOLS,
+    );
+    // Entering from +y, the line from that face runs through the cylinder
+    // and leaves it 0.05 cells short of the cell centre: y = 26.4.
+    const visible = pieces.filter((p) => !p.stub);
+    expect(visible[visible.length - 1].cell).toEqual({ x: 4, y: 1, z: 0 });
+    expect(visible[visible.length - 1].points[2]).toEqual({ x: 216, y: 26.4 });
+    expect(pieces[pieces.length - 1].stub).toBe(true);
+  });
+
+  it("stops at the face when the run drops in from above", () => {
+    const pieces = runPieces(
+      "isometric",
+      pipe(
+        { kind: "cell", cell: { x: 4, y: 0, z: 1 } },
+        { kind: "port", symbol: "b01", port: "primary_in" },
+      ),
+      SYMBOLS,
+    );
+    // (4, 0, 1) down to (4, 0): the visible piece ends at the face between
+    // the two, half a cell above the axis.
+    expect(pieces[0].points[2]).toEqual(
+      project("isometric", 4.5, 0.5, 0.5 + PIPE_AXIS_Z),
+    );
+    expect(pieces[1].stub).toBe(true);
+  });
+
+  it("is two stubs and nothing visible between two ports whose bodies touch", () => {
+    const pieces = runPieces(
+      "flat",
+      pipe(
+        { kind: "port", symbol: "pac", port: "supply" },
+        { kind: "port", symbol: "beside", port: "primary_in" },
+      ),
+      new Map([
+        ...SYMBOLS,
+        ["beside", symbol("beside", "tank", { x: 2, y: 1 })],
+      ]),
+    );
+    expect(pieces.map((p) => p.stub)).toEqual([true, true]);
   });
 
   it("turns the direction at a bend to the way the run leaves", () => {
@@ -215,12 +349,13 @@ describe("runPieces", () => {
     ]);
   });
 
-  it("stops at the centre when the port cannot be resolved", () => {
+  it("keeps the cell and stops at its centre when the port cannot be resolved", () => {
     const pieces = runPieces(
       "flat",
       pipe({ kind: "port", symbol: "pac", port: "nope" }, cellB),
       SYMBOLS,
     );
+    expect(pieces).toHaveLength(2);
     expect(pieces[0].points[0]).toEqual({ x: 24, y: 24 });
   });
 });

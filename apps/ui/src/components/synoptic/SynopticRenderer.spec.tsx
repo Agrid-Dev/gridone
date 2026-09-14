@@ -4,6 +4,7 @@ import type { AttributeSlot, Synoptic } from "@gridone/sdk";
 import ecsEstPlate from "@/pages/sandbox/ecsEstPlate.json";
 import { SILENT_TEXT, textWidth } from "./Chip";
 import { PANEL_W } from "./Panel";
+import { portPoint } from "./projection";
 import { SynopticRenderer } from "./SynopticRenderer";
 import { SynopticSymbol } from "./symbols/SynopticSymbol";
 import type { SlotReading, SynopticValues } from "./values";
@@ -73,7 +74,10 @@ const DOC: Synoptic = {
       fluid: "primary_supply",
       from: { kind: "port", symbol: "pac", port: "supply" },
       to: { kind: "port", symbol: "b01", port: "primary_in" },
-      waypoints: [{ x: 6, y: 1 }],
+      waypoints: [
+        { x: 5, y: 1 },
+        { x: 5, y: 0 },
+      ],
       flow: slot("onoff_state"),
       tags: [
         { id: "tt-03", at: { x: 2, y: 1 }, label: "TT-03", value: slot("t") },
@@ -125,7 +129,8 @@ const q = (c: Element, selector: string) => [...c.querySelectorAll(selector)];
 describe("SynopticRenderer", () => {
   it("places every symbol, cuts each run per cell and draws the labels", () => {
     const c = draw();
-    // supply: (1,1) along to (6,1) then up to (6,0) is seven cells; branch is three.
+    // supply: (1,1) along to (5,1), up to (5,0), on to (6,0) is seven cells,
+    // the two port cells as stubs under their bodies; branch is three.
     expect(q(c, "path.stroke-fluid-primary-supply")).toHaveLength(7);
     expect(q(c, "path.stroke-fluid-dhw")).toHaveLength(3);
     // One arrow, at the port the supply ends on; the branch ends at a free
@@ -245,6 +250,23 @@ describe("SynopticRenderer", () => {
       under.compareDocumentPosition(closed!) &
         under.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+  });
+
+  it("paints a run's stub under the body it enters, and the arrow outside it", () => {
+    const c = draw();
+    const body = c.querySelector("polygon.fill-synoptic-body-x")!;
+    const under = q(c, "path.stroke-fluid-primary-supply").filter(
+      (p) => p.compareDocumentPosition(body) & p.DOCUMENT_POSITION_FOLLOWING,
+    );
+    // Only the stub inside the heat pump's far cell precedes its body.
+    expect(under).toHaveLength(1);
+    // The arrow sits on the piece before the tank's stub, tip at the face
+    // the run enters the tank cell through.
+    const tip = portPoint("isometric", { x: 6, y: 0 }, "-x");
+    const arrow = c.querySelector("polygon.fill-fluid-primary-supply")!;
+    expect(arrow.getAttribute("points")!.startsWith(`${tip.x},${tip.y} `)).toBe(
+      true,
+    );
   });
 
   it("frames the drawn extent in the viewBox", () => {
