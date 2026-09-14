@@ -360,7 +360,7 @@ export function defaultVisibleAttributes(
 export const ConnectionStatus = {
   Idle: "idle",
   Ok: "ok",
-  Degraded: "degraded",
+  Unstable: "unstable",
   Error: "error",
 } as const satisfies Record<string, ConnectionStatusValue>;
 // eslint-disable-next-line no-redeclare -- intentional const + type merge
@@ -371,7 +371,7 @@ export function getConnectionStatus(device: Device): ConnectionStatus | null {
   if (
     val !== ConnectionStatus.Idle &&
     val !== ConnectionStatus.Ok &&
-    val !== ConnectionStatus.Degraded &&
+    val !== ConnectionStatus.Unstable &&
     val !== ConnectionStatus.Error
   )
     return null;

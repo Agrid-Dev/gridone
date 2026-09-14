@@ -33,7 +33,7 @@ const FIXTURE: FixtureSet = {
 };
 
 // connection_status comes from the last N read outcomes: one failure makes the
-// window mixed (degraded), a full window of failures makes it error. So a flip
+// window mixed (unstable), a full window of failures makes it error. So a flip
 // costs one poll and a drain costs a window. Keep in step with the driver
 // fixture (fixtures/thermocktat-http-driver-trimmed.yaml).
 const POLL_INTERVAL_MS = 1_000;
@@ -88,16 +88,16 @@ describe("Connection status updates when device goes down and up", () => {
 
   it("degrades on the first failed poll", async () => {
     await stopEmulator(SERVICE);
-    await expect.poll(readStatus, UNTIL_FLIP).toBe("degraded");
+    await expect.poll(readStatus, UNTIL_FLIP).toBe("unstable");
   });
 
   it("errors once the whole read window has failed", async () => {
     await expect.poll(readStatus, UNTIL_DRAIN).toBe("error");
   });
 
-  it("back to degraded on the first successful new poll", async () => {
+  it("back to unstable on the first successful new poll", async () => {
     await startService();
-    await expect.poll(readStatus, UNTIL_FLIP).toBe("degraded");
+    await expect.poll(readStatus, UNTIL_FLIP).toBe("unstable");
   });
 
   it("back to ok once window cleared", async () => {

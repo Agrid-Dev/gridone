@@ -17,10 +17,10 @@ describe("semantic colour registry", () => {
   });
 
   // AC: connection status history shares the badge's colour map. The badge maps
-  // ok→ok, degraded→warning, error→error, idle→info via the same tokens.
+  // ok→ok, unstable→warning, error→error, idle→info via the same tokens.
   it("maps connection status to the shared status tokens", () => {
     expect(lookupSemanticColor("connection_status", "ok")).toBe("ok");
-    expect(lookupSemanticColor("connection_status", "degraded")).toBe(
+    expect(lookupSemanticColor("connection_status", "unstable")).toBe(
       "warning",
     );
     expect(lookupSemanticColor("connection_status", "error")).toBe("error");

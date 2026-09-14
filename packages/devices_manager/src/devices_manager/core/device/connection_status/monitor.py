@@ -16,13 +16,13 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 LOG_SIZE: Final = 10
-SILENCE_DEGRADED_MULTIPLIER: Final = 2
+SILENCE_UNSTABLE_MULTIPLIER: Final = 2
 SILENCE_ERROR_MULTIPLIER: Final = 3
 
 _SEVERITY: Final = {
     ConnectionStatus.IDLE: 0,
     ConnectionStatus.OK: 1,
-    ConnectionStatus.DEGRADED: 2,
+    ConnectionStatus.UNSTABLE: 2,
     ConnectionStatus.ERROR: 3,
 }
 
@@ -65,7 +65,7 @@ def _attribute_status(
     if loss == 1:
         return ConnectionStatus.ERROR
     if loss > max_attribute_loss:
-        return ConnectionStatus.DEGRADED
+        return ConnectionStatus.UNSTABLE
     return ConnectionStatus.OK
 
 
@@ -81,12 +81,12 @@ class ConnectionMonitor:
 
     - ``idle``: no read or listen outcome yet
     - ``error``: every attribute with outcomes is at total loss
-    - ``degraded``: at least one attribute loses more than
+    - ``unstable``: at least one attribute loses more than
       ``max_attribute_loss``, or all of its outcomes
     - ``ok``: every attribute is within tolerance
 
     With a ``silence_interval``, ``watch`` starts silence detection: after 2
-    intervals without data the device is degraded, after 3 in error. A silence
+    intervals without data the device is unstable, after 3 in error. A silence
     worse than the outcomes wins until data is received again. ``close``
     stops it; a monitor lives for one synchronisation of its device.
 
@@ -195,14 +195,14 @@ class ConnectionMonitor:
 
     def _status_from_outcomes(self) -> ConnectionStatus:
         errored = self._status_counts[ConnectionStatus.ERROR]
-        failing = errored + self._status_counts[ConnectionStatus.DEGRADED]
+        failing = errored + self._status_counts[ConnectionStatus.UNSTABLE]
         tracked = failing + self._status_counts[ConnectionStatus.OK]
         if tracked == 0:
             return ConnectionStatus.IDLE
         if errored == tracked:
             return ConnectionStatus.ERROR
         if failing > 0:
-            return ConnectionStatus.DEGRADED
+            return ConnectionStatus.UNSTABLE
         return ConnectionStatus.OK
 
     def _set_attribute_status(
@@ -221,9 +221,9 @@ class ConnectionMonitor:
             self._arm_silence(self._silence_interval)
 
     def _arm_silence(self, interval: float) -> None:
-        """(Re)start the silence clock: degraded after 2 intervals."""
+        """(Re)start the silence clock: unstable after 2 intervals."""
         self._schedule_silence(
-            SILENCE_DEGRADED_MULTIPLIER * interval, ConnectionStatus.DEGRADED
+            SILENCE_UNSTABLE_MULTIPLIER * interval, ConnectionStatus.UNSTABLE
         )
 
     def _schedule_silence(self, delay: float, status: ConnectionStatus) -> None:
@@ -238,12 +238,12 @@ class ConnectionMonitor:
             self._silence_timer = None
 
     def _on_silence(self, status: ConnectionStatus) -> None:
-        """Escalate: degraded, then error one interval later."""
+        """Escalate: unstable, then error one interval later."""
         self._silence_timer = None
         self._silence = status
-        if status is ConnectionStatus.DEGRADED and self._silence_interval is not None:
+        if status is ConnectionStatus.UNSTABLE and self._silence_interval is not None:
             self._schedule_silence(
-                (SILENCE_ERROR_MULTIPLIER - SILENCE_DEGRADED_MULTIPLIER)
+                (SILENCE_ERROR_MULTIPLIER - SILENCE_UNSTABLE_MULTIPLIER)
                 * self._silence_interval,
                 ConnectionStatus.ERROR,
             )

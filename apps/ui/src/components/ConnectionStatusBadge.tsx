@@ -21,7 +21,7 @@ const STATUS_CONFIG: Record<
     labelKey:
       | "deviceDetails.connectionStatus.idle"
       | "deviceDetails.connectionStatus.ok"
-      | "deviceDetails.connectionStatus.degraded"
+      | "deviceDetails.connectionStatus.unstable"
       | "deviceDetails.connectionStatus.error";
   }
 > = {
@@ -37,11 +37,11 @@ const STATUS_CONFIG: Record<
     iconClass: "text-green-500",
     labelKey: "deviceDetails.connectionStatus.ok",
   },
-  [ConnectionStatus.Degraded]: {
+  [ConnectionStatus.Unstable]: {
     variant: "warning",
     Icon: Activity,
     iconClass: "text-yellow-500",
-    labelKey: "deviceDetails.connectionStatus.degraded",
+    labelKey: "deviceDetails.connectionStatus.unstable",
   },
   [ConnectionStatus.Error]: {
     variant: "destructive",
@@ -55,7 +55,7 @@ const STATUS_CONFIG: Record<
 export const STATUS_LEVEL: Record<ConnectionStatus, StatusLevel> = {
   [ConnectionStatus.Idle]: "info",
   [ConnectionStatus.Ok]: "ok",
-  [ConnectionStatus.Degraded]: "warning",
+  [ConnectionStatus.Unstable]: "warning",
   [ConnectionStatus.Error]: "error",
 };
 

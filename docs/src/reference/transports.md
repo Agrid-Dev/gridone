@@ -195,7 +195,7 @@ A failed check returns `401` with a generic message. Request bodies are capped a
 | `auth` | no | `bearer` | Authentication scheme: `none`, `bearer` or `hmac_sha256` |
 | `secret` | required unless `auth: none` | — | Shared secret used to verify pushes |
 
-**Device health** — a webhook has no connection to monitor. Declare `healthcheck.expected_push_interval` in the driver: the device is marked `degraded` after 2× the interval without a push, then `error` after 3×.
+**Device health** — a webhook has no connection to monitor. Declare `healthcheck.expected_push_interval` in the driver: the device is marked `unstable` after 2× the interval without a push, then `error` after 3×.
 
 ```yaml
 transport:

@@ -113,7 +113,7 @@ export const ATTRIBUTE_VALUE_COLORS: Record<
   },
   connection_status: {
     ok: "ok",
-    degraded: "warning",
+    unstable: "warning",
     error: "error",
     idle: "info",
   },

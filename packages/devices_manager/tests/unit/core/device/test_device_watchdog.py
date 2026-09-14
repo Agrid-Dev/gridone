@@ -120,7 +120,7 @@ class TestWatchdogSilenceDetection:
         await _silence(device, 2.5)
         assert (
             device.get_attribute_value(CONNECTION_STATUS_ATTR)
-            == ConnectionStatus.DEGRADED
+            == ConnectionStatus.UNSTABLE
         )
         await device.stop_sync()
 
@@ -139,7 +139,7 @@ class TestWatchdogSilenceDetection:
         self, push_driver_with_interval: Driver, mock_push_transport_client
     ) -> None:
         """A silent push device stays in error: a later failed read used to
-        pull it back to degraded."""
+        pull it back to unstable."""
         device = _make_device(push_driver_with_interval, mock_push_transport_client)
         await device.start_sync()
         await mock_push_transport_client.simulate_event("/sensors/temperature", 21.0)
@@ -170,7 +170,7 @@ class TestWatchdogSilenceDetection:
         await device.start_sync()
         await asyncio.sleep(TICK)
         assert device.get_attribute_value(CONNECTION_STATUS_ATTR) not in (
-            ConnectionStatus.DEGRADED,
+            ConnectionStatus.UNSTABLE,
             ConnectionStatus.ERROR,
         )
         await device.stop_sync()

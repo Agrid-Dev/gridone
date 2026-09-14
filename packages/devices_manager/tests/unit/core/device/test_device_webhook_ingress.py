@@ -15,8 +15,8 @@ import pytest
 
 from devices_manager.core.device import Attribute, CoreDevice, DeviceBase
 from devices_manager.core.device.connection_status import (
-    SILENCE_DEGRADED_MULTIPLIER,
     SILENCE_ERROR_MULTIPLIER,
+    SILENCE_UNSTABLE_MULTIPLIER,
 )
 from devices_manager.core.device.connection_status_attribute import (
     CONNECTION_STATUS_ATTR,
@@ -142,15 +142,15 @@ class TestWebhookSilenceDetection:
     """A webhook has no connection to monitor: device health comes from the
     silence watchdog fed by `healthcheck.expected_push_interval`."""
 
-    async def test_degraded_after_double_interval_silence(
+    async def test_unstable_after_double_interval_silence(
         self, webhook_driver, webhook_transport_client
     ) -> None:
         device = _make_device(webhook_driver, webhook_transport_client)
         await device.start_sync()
-        await _silence(device, SILENCE_DEGRADED_MULTIPLIER + 0.5)
+        await _silence(device, SILENCE_UNSTABLE_MULTIPLIER + 0.5)
         assert (
             device.get_attribute_value(CONNECTION_STATUS_ATTR)
-            == ConnectionStatus.DEGRADED
+            == ConnectionStatus.UNSTABLE
         )
         await device.stop_sync()
 
@@ -173,7 +173,7 @@ class TestWebhookSilenceDetection:
         await webhook_transport_client.ingress(_snapshot(21.5, 55.0))
         await asyncio.sleep(TICK)
         assert device.get_attribute_value(CONNECTION_STATUS_ATTR) not in (
-            ConnectionStatus.DEGRADED,
+            ConnectionStatus.UNSTABLE,
             ConnectionStatus.ERROR,
         )
         await device.stop_sync()

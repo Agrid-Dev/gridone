@@ -19,7 +19,7 @@ class AttributeKind(StrEnum):
 class ConnectionStatus(StrEnum):
     IDLE = "idle"
     OK = "ok"
-    DEGRADED = "degraded"
+    UNSTABLE = "unstable"
     ERROR = "error"
 
 

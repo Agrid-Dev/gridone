@@ -14,6 +14,7 @@ from devices_manager.core.device import CoreDevice, DeviceBase
 from devices_manager.core.device.attribute import AttributeKind
 from devices_manager.core.device.connection_status_attribute import (
     CONNECTION_STATUS_ATTR,
+    build_cs_attribute,
 )
 from devices_manager.core.driver import (
     AttributeDriver,
@@ -57,6 +58,37 @@ class TestConnectionStatusCreation:
         cs = device.attributes[CONNECTION_STATUS_ATTR]
         assert cs.current_value == ConnectionStatus.OK
 
+    def test_restores_legacy_degraded_value_as_unstable(
+        self, driver, mock_transport_client
+    ) -> None:
+        device = CoreDevice.from_base(
+            DeviceBase(id="d1", name="D", config={}),
+            driver=driver,
+            transport=mock_transport_client,
+            initial_values={CONNECTION_STATUS_ATTR: "degraded"},
+        )
+        assert (
+            device.get_attribute_value(CONNECTION_STATUS_ATTR)
+            == ConnectionStatus.UNSTABLE
+        )
+
+    def test_restores_legacy_degraded_attribute_as_unstable(
+        self, driver, mock_transport_client
+    ) -> None:
+        stored = build_cs_attribute(None).model_copy(
+            update={"current_value": "degraded"}  # persisted before the rename
+        )
+        device = CoreDevice.from_base(
+            DeviceBase(id="d1", name="D", config={}),
+            driver=driver,
+            transport=mock_transport_client,
+            restored_attributes={CONNECTION_STATUS_ATTR: stored},
+        )
+        assert (
+            device.get_attribute_value(CONNECTION_STATUS_ATTR)
+            == ConnectionStatus.UNSTABLE
+        )
+
     def test_restart_value_has_timestamps(self, driver, mock_transport_client) -> None:
         device = CoreDevice.from_base(
             DeviceBase(id="d1", name="D", config={}),
@@ -98,7 +130,7 @@ class TestConnectionStatusRecompute:
         cs = device.attributes[CONNECTION_STATUS_ATTR]
         assert cs.current_value == ConnectionStatus.ERROR
 
-    async def test_transitions_to_degraded_on_mixed_results(
+    async def test_transitions_to_unstable_on_mixed_results(
         self, device: CoreDevice, mock_transport_client
     ) -> None:
         mock_transport_client.read = AsyncMock(return_value="25.5")
@@ -107,7 +139,7 @@ class TestConnectionStatusRecompute:
         with pytest.raises(OSError, match="timeout"):
             await device.read_attribute_value("temperature")
         cs = device.attributes[CONNECTION_STATUS_ATTR]
-        assert cs.current_value == ConnectionStatus.DEGRADED
+        assert cs.current_value == ConnectionStatus.UNSTABLE
 
     async def test_no_duplicate_on_update_for_same_status(
         self, device: CoreDevice, mock_transport_client
@@ -136,14 +168,14 @@ class TestConnectionStatusRecompute:
         await device.read_attribute_value("temperature")  # idle→ok
         mock_transport_client.read = AsyncMock(side_effect=OSError("e"))
         with pytest.raises(OSError, match="e"):
-            await device.read_attribute_value("temperature")  # ok→degraded
+            await device.read_attribute_value("temperature")  # ok→unstable
         for _ in range(9):
             with pytest.raises(OSError, match="e"):
-                await device.read_attribute_value("temperature")  # degraded→error
+                await device.read_attribute_value("temperature")  # unstable→error
 
         assert transitions == [
             ConnectionStatus.OK,
-            ConnectionStatus.DEGRADED,
+            ConnectionStatus.UNSTABLE,
             ConnectionStatus.ERROR,
         ]
 
@@ -161,7 +193,7 @@ async def _read(device: CoreDevice, transport, *, fail: bool) -> None:
 @pytest.mark.asyncio
 class TestToleratedAttributeLoss:
     """`healthcheck.max_attribute_loss` lets an attribute lose a share of its
-    recent outcomes before the device is reported degraded."""
+    recent outcomes before the device is reported unstable."""
 
     async def test_driver_tolerance_applies_to_outcomes(
         self, driver: Driver, mock_transport_client
@@ -181,7 +213,7 @@ class TestToleratedAttributeLoss:
         await _read(device, mock_transport_client, fail=True)
         assert (
             device.get_attribute_value(CONNECTION_STATUS_ATTR)
-            == ConnectionStatus.DEGRADED
+            == ConnectionStatus.UNSTABLE
         )
 
 
@@ -305,7 +337,7 @@ class TestAttributeLifecycle:
             await device.read_attribute_value("humidity")
         assert (
             device.get_attribute_value(CONNECTION_STATUS_ATTR)
-            == ConnectionStatus.DEGRADED
+            == ConnectionStatus.UNSTABLE
         )
 
         device.delete_attribute("humidity")

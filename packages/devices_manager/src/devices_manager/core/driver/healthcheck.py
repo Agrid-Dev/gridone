@@ -19,7 +19,7 @@ class HealthCheck(BaseModel):
         lt=1.0,
         description=(
             "Highest share of failed outcomes an attribute may show in its recent"
-            " read or listen log before the device is reported degraded. Total"
+            " read or listen log before the device is reported unstable. Total"
             " loss is never tolerated."
         ),
     )

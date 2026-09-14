@@ -33,7 +33,7 @@ export type RoomState = {
 /** Ordered worst-first so a single bad device colours the whole room. */
 const CONNECTION_RANK: Record<ConnectionStatus, number> = {
   error: 3,
-  degraded: 2,
+  unstable: 2,
   ok: 1,
   idle: 0,
 };

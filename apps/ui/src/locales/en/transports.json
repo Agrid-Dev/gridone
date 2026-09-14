@@ -133,7 +133,7 @@
   },
   "status": {
     "ok": "Connected",
-    "degraded": "Degraded",
+    "unstable": "Unstable",
     "error": "Disconnected",
     "idle": "Idle",
     "unknown": "Unknown"

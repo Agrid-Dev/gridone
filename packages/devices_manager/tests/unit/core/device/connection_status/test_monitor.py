@@ -6,8 +6,8 @@ from unittest.mock import Mock
 import pytest
 
 from devices_manager.core.device.connection_status import (
-    SILENCE_DEGRADED_MULTIPLIER,
     SILENCE_ERROR_MULTIPLIER,
+    SILENCE_UNSTABLE_MULTIPLIER,
     ConnectionMonitor,
     EventType,
 )
@@ -92,16 +92,16 @@ class TestStatusFromOutcomes:
             ([(READ, "a", None)], ConnectionStatus.OK),
             ([(LISTEN, "a", None)], ConnectionStatus.OK),
             ([(READ, "a", OSError())], ConnectionStatus.ERROR),
-            ([(READ, "a", None), (READ, "a", OSError())], ConnectionStatus.DEGRADED),
+            ([(READ, "a", None), (READ, "a", OSError())], ConnectionStatus.UNSTABLE),
             # logs are not pooled: a fully failing read log is total loss even
             # when the attribute's listens succeed
             ([(LISTEN, "a", None), (READ, "a", OSError())], ConnectionStatus.ERROR),
             (
                 [(LISTEN, "a", None), (READ, "a", None), (READ, "a", OSError())],
-                ConnectionStatus.DEGRADED,
+                ConnectionStatus.UNSTABLE,
             ),
             # and across attributes
-            ([(READ, "a", None), (READ, "b", OSError())], ConnectionStatus.DEGRADED),
+            ([(READ, "a", None), (READ, "b", OSError())], ConnectionStatus.UNSTABLE),
             ([(READ, "a", OSError()), (READ, "b", OSError())], ConnectionStatus.ERROR),
             # writes say nothing about reachability
             ([(WRITE, "a", OSError())], ConnectionStatus.IDLE),
@@ -125,8 +125,8 @@ class TestStatusFromOutcomes:
             (1, ConnectionStatus.OK),
             # the tolerated loss itself is still acceptable
             (2, ConnectionStatus.OK),
-            (3, ConnectionStatus.DEGRADED),
-            (9, ConnectionStatus.DEGRADED),
+            (3, ConnectionStatus.UNSTABLE),
+            (9, ConnectionStatus.UNSTABLE),
             (10, ConnectionStatus.ERROR),
         ],
     )
@@ -142,8 +142,8 @@ class TestStatusFromOutcomes:
         ("outcomes", "expected"),
         [
             ([OSError()], ConnectionStatus.ERROR),
-            ([OSError(), None], ConnectionStatus.DEGRADED),
-            ([OSError(), None, None, None], ConnectionStatus.DEGRADED),
+            ([OSError(), None], ConnectionStatus.UNSTABLE),
+            ([OSError(), None, None, None], ConnectionStatus.UNSTABLE),
             ([OSError(), None, None, None, None], ConnectionStatus.OK),
         ],
     )
@@ -162,14 +162,14 @@ class TestStatusFromOutcomes:
         for i in range(10):
             monitor.record(LISTEN, "a", ValueError() if i < 1 else None)
             monitor.record(READ, "a", OSError() if i < 3 else None)
-        assert monitor.status == ConnectionStatus.DEGRADED
+        assert monitor.status == ConnectionStatus.UNSTABLE
 
     def test_total_loss_on_one_attribute_is_never_tolerated(self) -> None:
         monitor = ConnectionMonitor(Mock(), max_attribute_loss=0.2)
         for name in ("a", "b", "c"):
             monitor.record(READ, name)
         monitor.record(READ, "broken", OSError())
-        assert monitor.status == ConnectionStatus.DEGRADED
+        assert monitor.status == ConnectionStatus.UNSTABLE
 
     def test_only_retained_outcomes_count(self) -> None:
         monitor, _ = _monitor()
@@ -187,7 +187,7 @@ class TestStatusFromOutcomes:
             monitor.record(READ, "a", OSError())
         assert _published(publish) == [
             ConnectionStatus.OK,
-            ConnectionStatus.DEGRADED,
+            ConnectionStatus.UNSTABLE,
             ConnectionStatus.ERROR,
         ]
 
@@ -233,7 +233,7 @@ class TestForgetAndRename:
         monitor, publish = _monitor()
         monitor.record(READ, "a")
         monitor.record(READ, "b", OSError())
-        assert monitor.status == ConnectionStatus.DEGRADED
+        assert monitor.status == ConnectionStatus.UNSTABLE
         monitor.rename("a", "b")
         assert monitor.status == ConnectionStatus.OK
         assert _published(publish)[-1] == ConnectionStatus.OK
@@ -264,11 +264,11 @@ class TestSilence:
     async def test_escalates_with_the_silence(self) -> None:
         monitor, publish = _monitor(INTERVAL)
         monitor.watch()
-        await asyncio.sleep((SILENCE_DEGRADED_MULTIPLIER + 0.5) * INTERVAL)
-        assert monitor.status == ConnectionStatus.DEGRADED
+        await asyncio.sleep((SILENCE_UNSTABLE_MULTIPLIER + 0.5) * INTERVAL)
+        assert monitor.status == ConnectionStatus.UNSTABLE
         await asyncio.sleep(INTERVAL)
         assert _published(publish) == [
-            ConnectionStatus.DEGRADED,
+            ConnectionStatus.UNSTABLE,
             ConnectionStatus.ERROR,
         ]
         monitor.close()
@@ -279,7 +279,7 @@ class TestSilence:
         await asyncio.sleep(1.5 * INTERVAL)
         monitor.watch()
         await asyncio.sleep(INTERVAL)
-        assert monitor.status == ConnectionStatus.DEGRADED
+        assert monitor.status == ConnectionStatus.UNSTABLE
         monitor.close()
 
     async def test_outcomes_do_not_override_a_worse_silence(self) -> None:
@@ -295,7 +295,7 @@ class TestSilence:
         monitor, _ = _monitor(INTERVAL)
         monitor.watch()
         monitor.record(READ, "a", OSError("timeout"))
-        await asyncio.sleep((SILENCE_DEGRADED_MULTIPLIER + 0.5) * INTERVAL)
+        await asyncio.sleep((SILENCE_UNSTABLE_MULTIPLIER + 0.5) * INTERVAL)
         assert monitor.status == ConnectionStatus.ERROR
         monitor.close()
 
@@ -311,7 +311,7 @@ class TestSilence:
         await asyncio.sleep(1.5 * INTERVAL)
         assert monitor.status == ConnectionStatus.OK
         await asyncio.sleep(INTERVAL)
-        assert monitor.status == ConnectionStatus.DEGRADED
+        assert monitor.status == ConnectionStatus.UNSTABLE
         monitor.close()
 
     async def test_a_failed_listen_is_not_data(self) -> None:
