@@ -4,23 +4,25 @@ import { DepthOrdered } from "./DepthOrdered";
 
 afterEach(cleanup);
 
+const ids = (container: HTMLElement) =>
+  [...container.querySelectorAll("rect")].map((r) =>
+    r.getAttribute("data-testid"),
+  );
+
 describe("DepthOrdered", () => {
   it("renders items in ascending depth whatever their input order", () => {
     const { container } = render(
       <svg>
         <DepthOrdered
           items={[
-            { id: "front", depth: 9, node: <rect /> },
-            { id: "back", depth: -1, node: <rect /> },
-            { id: "middle", depth: 3, node: <rect /> },
+            { id: "front", depth: 9, node: <rect data-testid="front" /> },
+            { id: "back", depth: -1, node: <rect data-testid="back" /> },
+            { id: "middle", depth: 3, node: <rect data-testid="middle" /> },
           ]}
         />
       </svg>,
     );
-    const depths = [...container.querySelectorAll("g")].map((g) =>
-      g.getAttribute("data-depth"),
-    );
-    expect(depths).toEqual(["-1", "3", "9"]);
+    expect(ids(container)).toEqual(["back", "middle", "front"]);
   });
 
   it("keeps input order for equal depths", () => {
@@ -34,9 +36,6 @@ describe("DepthOrdered", () => {
         />
       </svg>,
     );
-    const ids = [...container.querySelectorAll("rect")].map((r) =>
-      r.getAttribute("data-testid"),
-    );
-    expect(ids).toEqual(["a", "b"]);
+    expect(ids(container)).toEqual(["a", "b"]);
   });
 });
