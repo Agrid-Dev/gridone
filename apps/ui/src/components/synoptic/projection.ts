@@ -1,4 +1,4 @@
-import type { Cell, Projection } from "@gridone/sdk";
+import type { Cell, Projection, Side } from "@gridone/sdk";
 import type { Pt } from "./types";
 
 /** Isometric (2:1 dimetric) cell vectors in px: `x` right-and-down,
@@ -57,4 +57,59 @@ export function depthKey(cell: Cell, layer: Layer): number {
   const sum = cell.x + cell.y + (cell.z ?? 0);
   if (layer === "label") return LABEL_PASS + sum;
   return sum * LAYER_COUNT + LAYER_RANK[layer];
+}
+
+/** Plan-to-screen mapping of a horizontal plane: `z` cells up in the
+ *  isometric projection, the sheet itself in flat. Plan coordinates are
+ *  cells. */
+export type Plane = (x: number, y: number) => Pt;
+
+export function planeAt(projection: Projection, z: number): Plane {
+  return (x, y) => project(projection, x, y, z);
+}
+
+/** `turns` quarter turns counter-clockwise about the origin cell, in the
+ *  xy plane: `(x, y) -> (-y, x)`. Same rule as the backend's port rotation. */
+export function rotateQuarter(p: Pt, turns: number): Pt {
+  let { x, y } = p;
+  for (let i = 0; i < ((turns % 4) + 4) % 4; i++) [x, y] = [-y, x];
+  // `|| 0` turns the -0 a negation leaves into 0.
+  return { x: x || 0, y: y || 0 };
+}
+
+const SIDE_VECTORS: Record<Side, Pt & { z: number }> = {
+  "+x": { x: 1, y: 0, z: 0 },
+  "-x": { x: -1, y: 0, z: 0 },
+  "+y": { x: 0, y: 1, z: 0 },
+  "-y": { x: 0, y: -1, z: 0 },
+  "+z": { x: 0, y: 0, z: 1 },
+  "-z": { x: 0, y: 0, z: -1 },
+};
+
+/** The unit step out of a cell through `side`. */
+export function sideVector(side: Side): Pt & { z: number } {
+  return SIDE_VECTORS[side];
+}
+
+/** The face `side` becomes after `turns` quarter turns. */
+export function rotateSide(side: Side, turns: number): Side {
+  const v = SIDE_VECTORS[side];
+  const r = rotateQuarter(v, turns);
+  const hit = (Object.keys(SIDE_VECTORS) as Side[]).find((s) => {
+    const w = SIDE_VECTORS[s];
+    return w.x === r.x && w.y === r.y && w.z === v.z;
+  });
+  return hit ?? side;
+}
+
+/** Screen point where a pipe meets a cell: the centre of its `side` face,
+ *  on the pipe axis. */
+export function portPoint(projection: Projection, cell: Cell, side: Side): Pt {
+  const v = sideVector(side);
+  return project(
+    projection,
+    cell.x + 0.5 + v.x / 2,
+    cell.y + 0.5 + v.y / 2,
+    (cell.z ?? 0) + PIPE_AXIS_Z + v.z / 2,
+  );
 }

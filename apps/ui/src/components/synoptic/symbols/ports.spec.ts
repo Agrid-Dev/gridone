@@ -1,0 +1,56 @@
+import { describe, expect, it } from "vitest";
+import { collectorPorts, symbolPort } from "./ports";
+
+describe("symbolPort", () => {
+  it("moves the type's port offset to the symbol's origin", () => {
+    expect(symbolPort("tank", { x: 2, y: 3 }, 0, "dhw_in")).toEqual({
+      cell: { x: 2, y: 4, z: 0 },
+      side: "+x",
+    });
+  });
+
+  it("turns the offset and the face with the symbol", () => {
+    expect(symbolPort("tank", { x: 2, y: 3 }, 1, "primary_out")).toEqual({
+      cell: { x: 1, y: 3, z: 0 },
+      side: "-y",
+    });
+  });
+
+  it("carries the origin's height", () => {
+    expect(
+      symbolPort("heat_pump", { x: 0, y: 0, z: 1 }, 0, "supply").cell,
+    ).toEqual({ x: 1, y: 1, z: 1 });
+  });
+
+  it("reads a collector's ports off its props", () => {
+    const props = {
+      axis: "y" as const,
+      length: 4,
+      ports: {
+        in_1: { offset: 0, side: "-y" as const },
+        out_1: { offset: 2, side: "+x" as const },
+      },
+    };
+    expect(symbolPort("collector", { x: 5, y: 5 }, 0, "out_1", props)).toEqual({
+      cell: { x: 5, y: 7, z: 0 },
+      side: "+x",
+    });
+    expect(collectorPorts({ ...props, axis: "x" }).out_1.offset).toEqual({
+      x: 2,
+      y: 0,
+      z: 0,
+    });
+  });
+
+  it("refuses an unknown type or port", () => {
+    expect(() => symbolPort("reactor", { x: 0, y: 0 }, 0, "in")).toThrow(
+      "Unknown symbol type reactor",
+    );
+    expect(() => symbolPort("tank", { x: 0, y: 0 }, 0, "steam")).toThrow(
+      "no port steam",
+    );
+    expect(() => symbolPort("collector", { x: 0, y: 0 }, 0, "in_1")).toThrow(
+      "no port in_1",
+    );
+  });
+});
