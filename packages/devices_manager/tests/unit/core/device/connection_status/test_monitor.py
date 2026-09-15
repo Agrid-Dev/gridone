@@ -93,8 +93,13 @@ class TestStatusFromOutcomes:
             ([(LISTEN, "a", None)], ConnectionStatus.OK),
             ([(READ, "a", OSError())], ConnectionStatus.ERROR),
             ([(READ, "a", None), (READ, "a", OSError())], ConnectionStatus.DEGRADED),
-            # outcomes are pooled across an attribute's read and listen logs
-            ([(LISTEN, "a", None), (READ, "a", OSError())], ConnectionStatus.DEGRADED),
+            # logs are not pooled: a fully failing read log is total loss even
+            # when the attribute's listens succeed
+            ([(LISTEN, "a", None), (READ, "a", OSError())], ConnectionStatus.ERROR),
+            (
+                [(LISTEN, "a", None), (READ, "a", None), (READ, "a", OSError())],
+                ConnectionStatus.DEGRADED,
+            ),
             # and across attributes
             ([(READ, "a", None), (READ, "b", OSError())], ConnectionStatus.DEGRADED),
             ([(READ, "a", OSError()), (READ, "b", OSError())], ConnectionStatus.ERROR),
@@ -112,6 +117,59 @@ class TestStatusFromOutcomes:
         for event_type, attribute, error in outcomes:
             monitor.record(event_type, attribute, error)
         assert monitor.status == expected
+
+    @pytest.mark.parametrize(
+        ("failures", "expected"),
+        [
+            (0, ConnectionStatus.OK),
+            (1, ConnectionStatus.OK),
+            # the tolerated loss itself is still acceptable
+            (2, ConnectionStatus.OK),
+            (3, ConnectionStatus.DEGRADED),
+            (9, ConnectionStatus.DEGRADED),
+            (10, ConnectionStatus.ERROR),
+        ],
+    )
+    def test_tolerated_attribute_loss(
+        self, failures: int, expected: ConnectionStatus
+    ) -> None:
+        monitor = ConnectionMonitor(Mock(), max_attribute_loss=0.2)
+        for i in range(10):
+            monitor.record(READ, "a", OSError() if i < failures else None)
+        assert monitor.status == expected
+
+    @pytest.mark.parametrize(
+        ("outcomes", "expected"),
+        [
+            ([OSError()], ConnectionStatus.ERROR),
+            ([OSError(), None], ConnectionStatus.DEGRADED),
+            ([OSError(), None, None, None], ConnectionStatus.DEGRADED),
+            ([OSError(), None, None, None, None], ConnectionStatus.OK),
+        ],
+    )
+    def test_loss_is_judged_from_the_first_outcome(
+        self, outcomes: list[Exception | None], expected: ConnectionStatus
+    ) -> None:
+        """Feedback comes as soon as outcomes do: the loss is over the outcomes
+        recorded so far, not over a full window."""
+        monitor = ConnectionMonitor(Mock(), max_attribute_loss=0.2)
+        for error in outcomes:
+            monitor.record(READ, "a", error)
+        assert monitor.status == expected
+
+    def test_the_worse_log_decides(self) -> None:
+        monitor = ConnectionMonitor(Mock(), max_attribute_loss=0.2)
+        for i in range(10):
+            monitor.record(LISTEN, "a", ValueError() if i < 1 else None)
+            monitor.record(READ, "a", OSError() if i < 3 else None)
+        assert monitor.status == ConnectionStatus.DEGRADED
+
+    def test_total_loss_on_one_attribute_is_never_tolerated(self) -> None:
+        monitor = ConnectionMonitor(Mock(), max_attribute_loss=0.2)
+        for name in ("a", "b", "c"):
+            monitor.record(READ, name)
+        monitor.record(READ, "broken", OSError())
+        assert monitor.status == ConnectionStatus.DEGRADED
 
     def test_only_retained_outcomes_count(self) -> None:
         monitor, _ = _monitor()

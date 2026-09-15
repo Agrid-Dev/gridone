@@ -573,7 +573,9 @@ class CoreDevice:
 
     def _new_connection_monitor(self) -> ConnectionMonitor:
         return ConnectionMonitor(
-            self._publish_connection_status, silence_interval=self.expected_interval
+            self._publish_connection_status,
+            silence_interval=self.expected_interval,
+            max_attribute_loss=self.driver.healthcheck.max_attribute_loss,
         )
 
     def _publish_connection_status(self, status: ConnectionStatus) -> None:

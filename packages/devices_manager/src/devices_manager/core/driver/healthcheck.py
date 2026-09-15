@@ -13,3 +13,13 @@ class HealthCheck(BaseModel):
         default=None,
         description="Expected emission interval (seconds) for push devices.",
     )
+    max_attribute_loss: float = Field(
+        default=0.0,
+        ge=0.0,
+        lt=1.0,
+        description=(
+            "Highest share of failed outcomes an attribute may show in its recent"
+            " read or listen log before the device is reported degraded. Total"
+            " loss is never tolerated."
+        ),
+    )

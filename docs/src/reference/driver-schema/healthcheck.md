@@ -12,6 +12,7 @@ healthcheck:
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `expected_push_interval` | duration or integer or `null` | `null` | Expected interval between push emissions. When set, enables silence detection (see below). |
+| `max_attribute_loss` | number in `[0, 1)` | `0` | Share of failed outcomes an attribute may show before the device is reported `degraded` (see [Tolerated loss](#tolerated-loss)). |
 
 ## Duration format
 
@@ -25,6 +26,33 @@ healthcheck:
 | Days | `d` |
 
 Examples: `30s`, `1min`, `2h`, `90` (= 90 seconds).
+
+## Connection status from read and listen outcomes
+
+Gridone keeps the last 10 read outcomes and the last 10 listen outcomes of every attribute. An attribute's **loss** is the share of failures among the outcomes recorded in the worse of those two logs (they are not pooled: a failed poll adds a read error but no listen entry). `connection_status` is then:
+
+| Condition | `connection_status` |
+|---|---|
+| No outcome recorded yet | `idle` |
+| Every attribute with outcomes is at total loss | `error` |
+| At least one attribute loses more than `max_attribute_loss`, or is at total loss | `degraded` |
+| Otherwise | `ok` |
+
+The loss is computed over the outcomes recorded so far, up to 10, so the status reacts from the first outcome rather than after a full window. Logs start empty whenever a device (re)starts: right after a restart, a first failed outcome is a total loss (`error`), one failure out of two is a 50 % loss, and so on until the log holds 10 outcomes.
+
+### Tolerated loss
+
+By default (`max_attribute_loss: 0`) any failure in an attribute's log reports the device `degraded` until it leaves the window, or `error` while the attribute has no successful outcome in its log. Devices on flaky links can tolerate occasional misses:
+
+```yaml
+healthcheck:
+  expected_push_interval: 1h
+  max_attribute_loss: 0.2
+```
+
+Once a log holds 10 outcomes, `0.2` keeps the device `ok` with up to 2 failures out of the last 10 and reports `degraded` from the third. Before that, the same share applies to fewer outcomes: 1 failure out of 5 is tolerated, 1 out of 4 is not. An attribute whose recorded outcomes all failed is never tolerated: it points at a wrong address or driver, or at a device that is down.
+
+Changing `max_attribute_loss` on a live driver restarts its devices: their outcome logs start afresh and are judged against the new value, while the current `connection_status` is kept until the next outcome.
 
 ## Silence detection for push devices
 

@@ -20,6 +20,7 @@ from devices_manager.core.driver import (
     AttributeDriver,
     AttributeRef,
     Driver,
+    HealthCheck,
     UpdateStrategy,
     WriteConstraints,
 )
@@ -1659,6 +1660,35 @@ class TestDevicesServiceRestartSync:
 
         assert device1.syncing is True
         assert device2.syncing is True
+        await dm.stop()
+
+    @pytest.mark.asyncio
+    async def test_patched_healthcheck_judges_outcomes_after_restart(
+        self, driver, mock_transport_client
+    ):
+        device = CoreDevice.from_base(
+            DeviceBase(id="d1", name="Device 1", config={"some_id": "a"}),
+            driver=driver,
+            transport=mock_transport_client,
+        )
+        dm = DevicesService(
+            devices={device.id: device},
+            drivers={driver.id: driver},
+            transports={mock_transport_client.id: mock_transport_client},
+        )
+        await dm.start()
+        await dm.patch_driver(
+            driver.id, DriverPatch(healthcheck=HealthCheck(max_attribute_loss=0.2))
+        )
+
+        mock_transport_client.read = AsyncMock(return_value="25.5")
+        for _ in range(9):
+            await device.read_attribute_value("temperature")
+        mock_transport_client.read = AsyncMock(side_effect=OSError("timeout"))
+        with pytest.raises(OSError, match="timeout"):
+            await device.read_attribute_value("temperature")
+
+        assert device.get_attribute_value("connection_status") == "ok"
         await dm.stop()
 
     @pytest.mark.asyncio

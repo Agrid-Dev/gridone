@@ -48,20 +48,25 @@ class _Log:
             self.errors += 1
 
 
-def _attribute_status(logs: dict[EventType, _Log]) -> ConnectionStatus:
-    """Pool an attribute's read and listen logs: all ok, all failed, or a mix.
+def _attribute_status(
+    logs: dict[EventType, _Log], max_attribute_loss: float
+) -> ConnectionStatus:
+    """Judge an attribute by the loss of its worse reachability log.
 
-    Only called right after a read or listen was recorded, so the pooled
-    logs are never empty.
+    Read and listen logs are not pooled: a failed poll adds a read error but
+    no listen entry, so pooling would dilute the read loss with unrelated
+    listen successes. Total loss is an error whatever the tolerance.
     """
     read, listen = logs[EventType.READ], logs[EventType.LISTEN]
-    errors = read.errors + listen.errors
-    total = len(read.entries) + len(listen.entries)
-    if errors == 0:
-        return ConnectionStatus.OK
-    if errors == total:
+    loss = max(
+        read.errors / len(read.entries) if read.entries else 0.0,
+        listen.errors / len(listen.entries) if listen.entries else 0.0,
+    )
+    if loss == 1:
         return ConnectionStatus.ERROR
-    return ConnectionStatus.DEGRADED
+    if loss > max_attribute_loss:
+        return ConnectionStatus.DEGRADED
+    return ConnectionStatus.OK
 
 
 class ConnectionMonitor:
@@ -69,14 +74,16 @@ class ConnectionMonitor:
     push silence, and publishes the resulting connection status.
 
     Every read, write and listen outcome is kept in a bounded per-attribute
-    log. Reads and listens also give their attribute a status; the monitor
-    only counts attributes per status, so recording costs O(1) whatever the
-    attribute count:
+    log. Reads and listens also give their attribute a status from the share
+    of failures in its worse log (its loss); the monitor only counts
+    attributes per status, so recording costs O(1) whatever the attribute
+    count:
 
     - ``idle``: no read or listen outcome yet
-    - ``error``: every attribute with outcomes has only failures
-    - ``degraded``: at least one attribute has a failure
-    - ``ok``: no failure at all
+    - ``error``: every attribute with outcomes is at total loss
+    - ``degraded``: at least one attribute loses more than
+      ``max_attribute_loss``, or all of its outcomes
+    - ``ok``: every attribute is within tolerance
 
     With a ``silence_interval``, ``watch`` starts silence detection: after 2
     intervals without data the device is degraded, after 3 in error. A silence
@@ -93,8 +100,10 @@ class ConnectionMonitor:
         publish: Callable[[ConnectionStatus], None],
         *,
         silence_interval: float | None = None,
+        max_attribute_loss: float = 0.0,
     ) -> None:
         self._publish = publish
+        self._max_attribute_loss = max_attribute_loss
         self._silence_interval = silence_interval
         self._logs: dict[str, dict[EventType, _Log]] = {}
         self._attribute_statuses: dict[str, ConnectionStatus] = {}
@@ -119,7 +128,9 @@ class ConnectionMonitor:
             return
         if event_type is EventType.LISTEN and error is None:
             self._data_received()
-        self._set_attribute_status(attribute, _attribute_status(logs))
+        self._set_attribute_status(
+            attribute, _attribute_status(logs, self._max_attribute_loss)
+        )
         self._publish_status()
 
     @contextmanager
