@@ -175,7 +175,13 @@ async def bulk_tags(
         add=body.values if body.operation == "add" else [],
         remove=body.values if body.operation == "remove" else [],
     )
-    devices = resolve_devices(dm, body.target.to_devices_filter())
+    target = body.target.to_devices_filter()
+    # A target with no criterion selects the whole fleet: one `remove` call
+    # would un-tag every device. Bulk mutations require an explicit selection.
+    if target.matches_every_device():
+        msg = "Bulk tag operations require at least one target criterion"
+        raise InvalidError(msg)
+    devices = resolve_devices(dm, target)
     # Zone assignment retains replacement semantics through its existing route.
     if body.key == ASSET_TAG and body.operation == "add":
         msg = "Use zone assignment to change a device's zone"

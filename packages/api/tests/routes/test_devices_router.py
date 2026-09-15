@@ -1723,6 +1723,22 @@ class TestTagVocabulary:
         assert response.status_code == 422
         dm.set_device_tag.assert_not_awaited()
 
+    @pytest.mark.parametrize(
+        "target", [{}, {"tags": {}}], ids=["no-criterion", "empty-tags"]
+    )
+    def test_bulk_tags_refuse_a_target_matching_every_device(self, client, dm, target):
+        response = client.post(
+            "/tags/bulk",
+            json={
+                "target": target,
+                "operation": "remove",
+                "key": "asset_id",
+                "values": ["zone-1"],
+            },
+        )
+        assert response.status_code == 422
+        dm.mutate_device_tags.assert_not_awaited()
+
     def test_bulk_tags_keep_unknown_explicit_ids_for_failure_reporting(
         self, client, dm
     ):

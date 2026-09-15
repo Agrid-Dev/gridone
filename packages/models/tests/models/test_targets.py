@@ -21,6 +21,26 @@ class TestDevicesFilter:
         with pytest.raises(ValidationError):
             DevicesFilter(is_faulty=True)  # ty: ignore[unknown-argument]
 
+    @pytest.mark.parametrize(
+        ("criteria", "unrestricted"),
+        [
+            ({}, True),
+            # No key to intersect on: every device satisfies the criteria.
+            ({"tags": {}}, True),
+            ({"tags": {"floor": ["2"]}}, False),
+            # Empty values match nothing, so the filter does restrict.
+            ({"tags": {"floor": []}}, False),
+            ({"ids": []}, False),
+            ({"ids": ["device1"]}, False),
+            ({"types": []}, False),
+            ({"driver_id": "test_driver"}, False),
+        ],
+    )
+    def test_matches_every_device_reports_an_unrestricted_filter(
+        self, criteria, unrestricted
+    ):
+        assert DevicesFilter(**criteria).matches_every_device() is unrestricted
+
 
 class TestAttributeTarget:
     def test_round_trips_persisted_shape(self):

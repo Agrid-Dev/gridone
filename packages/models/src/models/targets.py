@@ -45,6 +45,22 @@ class DevicesFilter(BaseModel):
     types: list[str] | None = None
     tags: Tags | None = None
 
+    def matches_every_device(self) -> bool:
+        """Whether the filter narrows nothing, so it selects the whole fleet.
+
+        ``tags={}`` is as unrestricted as ``tags=None``: :func:`matches_tags`
+        intersects per key, so criteria with no key exclude nobody. Empty
+        ``ids`` / ``types`` lists are the opposite — they match no device —
+        and are not reported here. Callers doing destructive bulk work refuse
+        a filter answering ``True`` rather than apply it fleet-wide.
+        """
+        return (
+            self.driver_id is None
+            and self.ids is None
+            and self.types is None
+            and not self.tags
+        )
+
 
 class AttributeTarget(BaseModel):
     """A device set paired with a single attribute.
