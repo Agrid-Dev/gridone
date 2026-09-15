@@ -148,12 +148,16 @@ class ConnectionMonitor:
             self._publish_status()
 
     def rename(self, old_name: str, new_name: str) -> None:
+        """Move an attribute's logs and status to ``new_name``, replacing
+        whatever ``new_name`` held."""
         logs = self._logs.pop(old_name, None)
-        if logs is not None:
-            self._logs[new_name] = logs
-        status = self._attribute_statuses.pop(old_name, None)
-        if status is not None:
-            self._attribute_statuses[new_name] = status
+        if logs is None:
+            return
+        status = self._attribute_statuses.get(old_name)
+        self._set_attribute_status(old_name, None)
+        self._logs[new_name] = logs
+        self._set_attribute_status(new_name, status)
+        self._publish_status()
 
     def watch(self) -> None:
         """Start silence detection, when a silence interval is set.

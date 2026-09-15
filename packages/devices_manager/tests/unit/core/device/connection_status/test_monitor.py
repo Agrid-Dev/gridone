@@ -171,6 +171,17 @@ class TestForgetAndRename:
         monitor.forget("c")
         assert monitor.status == ConnectionStatus.OK
 
+    def test_rename_onto_a_tracked_attribute_replaces_it(self) -> None:
+        monitor, publish = _monitor()
+        monitor.record(READ, "a")
+        monitor.record(READ, "b", OSError())
+        assert monitor.status == ConnectionStatus.DEGRADED
+        monitor.rename("a", "b")
+        assert monitor.status == ConnectionStatus.OK
+        assert _published(publish)[-1] == ConnectionStatus.OK
+        assert [e.status for e in monitor.logs("b").read] == ["ok"]
+        assert monitor.logs("a").read == []
+
     def test_rename_unknown_attribute_is_a_no_op(self) -> None:
         monitor, _ = _monitor()
         monitor.rename("a", "b")

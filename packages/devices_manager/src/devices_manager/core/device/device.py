@@ -448,9 +448,15 @@ class CoreDevice:
             with self._observe_read(attr_name):
                 decoded_value = _decode_read_result(attribute_driver.codec, result)
         except Exception as e:  # noqa: BLE001
+            failure = (
+                "poll read failed for"
+                if isinstance(result, ReadError)
+                else "failed to decode attribute"
+            )
             logger.warning(
-                "[Device %s] poll read failed for %s — %s: %s",
+                "[Device %s] %s %s — %s: %s",
                 self.id,
+                failure,
                 attr_name,
                 type(e).__name__,
                 e,
@@ -472,15 +478,15 @@ class CoreDevice:
         """Record the outcome of a read, decode included, in the connection
         monitor and the ``device.attribute.read`` metric. Shared by single
         reads and polling sweeps."""
-        status = "error"
         try:
             with self.connection_monitor.observe(EventType.READ, attribute_name):
                 yield
-            status = "ok"
-        finally:
+        except Exception:
             attribute_read.add(
-                1, {"protocol": self.transport.protocol, "status": status}
+                1, {"protocol": self.transport.protocol, "status": "error"}
             )
+            raise
+        attribute_read.add(1, {"protocol": self.transport.protocol, "status": "ok"})
 
     async def _poll_attribute(self, attribute_name: str) -> None:
         """Poll attribute_name with exponential backoff until cancelled."""

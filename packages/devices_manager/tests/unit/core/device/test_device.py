@@ -28,7 +28,7 @@ from devices_manager.core.driver import (
     UpdateStrategy,
     WriteConstraints,
 )
-from devices_manager.core.transports.read_result import ReadError, ReadOk
+from devices_manager.core.transports.read_result import ReadError, ReadOk, ReadResult
 from devices_manager.types import ConnectionStatus, DataType, TransportProtocols
 from models.errors import ConfirmationError, InvalidError, NotFoundError
 from models.types import Severity
@@ -1069,6 +1069,37 @@ class TestApplyReadResultMetrics:
 
         assert metrics.attribute_read.total(protocol="http", status="error") == 1
 
+    @pytest.mark.parametrize(
+        ("attribute", "result", "message"),
+        [
+            (
+                "temperature",
+                ReadError(address_id="a1", error=RuntimeError("boom")),
+                "poll read failed for temperature",
+            ),
+            (
+                "temperature_w_adapter",
+                ReadOk(address_id="a2", value="not-a-dict"),
+                "failed to decode attribute temperature_w_adapter",
+            ),
+        ],
+    )
+    def test_read_and_decode_failures_log_distinct_warnings(
+        self,
+        device: CoreDevice,
+        caplog: pytest.LogCaptureFixture,
+        attribute: str,
+        result: ReadResult,
+        message: str,
+    ):
+        with caplog.at_level(logging.WARNING):
+            device._apply_read_result(attribute, result)  # noqa: SLF001
+
+        assert message in caplog.text
+        assert [e.status for e in device.connection_monitor.logs(attribute).read] == [
+            "error"
+        ]
+
     def test_unknown_attribute_records_nothing(
         self, device: CoreDevice, metrics: RecordedMetrics
     ):
@@ -1110,6 +1141,24 @@ class TestReadAttributeValueMetrics:
             await device.read_attribute_value("temperature")
 
         assert metrics.attribute_read.total(protocol="http", status="error") == 1
+
+    @pytest.mark.asyncio
+    async def test_cancelled_read_records_nothing(
+        self,
+        device: CoreDevice,
+        mock_transport_client,
+        metrics: RecordedMetrics,
+    ):
+        """A cancelled read (e.g. the confirmation poll stopped once a write is
+        confirmed) is neither a failed read nor a connection outcome."""
+        mock_transport_client.read = AsyncMock(side_effect=asyncio.CancelledError)
+
+        with pytest.raises(asyncio.CancelledError):
+            await device.read_attribute_value("temperature")
+
+        assert metrics.attribute_read.total(protocol="http", status="error") == 0
+        assert metrics.attribute_read.total(protocol="http", status="ok") == 0
+        assert device.connection_monitor.logs("temperature").read == []
 
     @pytest.mark.asyncio
     async def test_refresh_attribute_records_metric(
