@@ -1,21 +1,11 @@
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Final
+from typing import Final
 
 from devices_manager.types import ConnectionStatus, DataType
 
 from .attribute import Attribute, AttributeKind
 
-if TYPE_CHECKING:
-    from .event_log import AttributeEventLog
-
 CONNECTION_STATUS_ATTR: Final = "connection_status"
-SILENCE_DEGRADED_MULTIPLIER: Final = 2
-SILENCE_ERROR_MULTIPLIER: Final = 3
-
-_STATUS_BY_OUTCOMES: dict[str, ConnectionStatus] = {
-    "ok": ConnectionStatus.OK,
-    "error": ConnectionStatus.ERROR,
-}
 
 
 def build_cs_attribute(
@@ -42,20 +32,3 @@ def build_cs_attribute(
         last_changed=last_changed,
         value_options=list(ConnectionStatus),
     )
-
-
-def compute_connection_status(entries: "list[AttributeEventLog]") -> ConnectionStatus:
-    """Derive connection health from a flat list of event-log entries.
-
-    Maps the set of distinct outcome statuses to a ConnectionStatus:
-      {}          → idle  (no activity observed yet)
-      {"ok"}      → ok
-      {"error"}   → error
-      {"ok","error"} → degraded
-    """
-    statuses = frozenset(e.status for e in entries)
-    if not statuses:
-        return ConnectionStatus.IDLE
-    if len(statuses) > 1:
-        return ConnectionStatus.DEGRADED
-    return _STATUS_BY_OUTCOMES[next(iter(statuses))]

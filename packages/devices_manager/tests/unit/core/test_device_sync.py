@@ -14,7 +14,9 @@ from devices_manager.core.device import (
     CoreDevice,
     DeviceBase,
 )
-from devices_manager.core.device.connection_status import CONNECTION_STATUS_ATTR
+from devices_manager.core.device.connection_status_attribute import (
+    CONNECTION_STATUS_ATTR,
+)
 from devices_manager.core.device.sweep_schedule import SweepSchedule
 from devices_manager.core.driver import (
     AttributeDriver,

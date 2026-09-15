@@ -17,7 +17,9 @@ from devices_manager.core.device import (
     DeviceBase,
     FaultAttribute,
 )
-from devices_manager.core.device.connection_status import CONNECTION_STATUS_ATTR
+from devices_manager.core.device.connection_status_attribute import (
+    CONNECTION_STATUS_ATTR,
+)
 from devices_manager.core.driver import (
     AttributeDriver,
     DriverMetadata,
@@ -26,7 +28,7 @@ from devices_manager.core.driver import (
     UpdateStrategy,
     WriteConstraints,
 )
-from devices_manager.core.transports.read_result import ReadError, ReadOk
+from devices_manager.core.transports.read_result import ReadError, ReadOk, ReadResult
 from devices_manager.types import ConnectionStatus, DataType, TransportProtocols
 from models.command_rules import CommandRejectedError
 from models.errors import ConfirmationError, InvalidError, NotFoundError
@@ -486,7 +488,9 @@ class TestDevicesListeners:
         assert device.attributes["temperature"].current_value == 22.5
         assert device.attributes["battery"].current_value is None
         # A decode miss is a non-error: the frame proves the device is alive.
-        assert all(e.status == "ok" for e in device.attributes["battery"].logs.listen)
+        assert all(
+            e.status == "ok" for e in device.connection_monitor.logs("battery").listen
+        )
         assert (
             device.attributes[CONNECTION_STATUS_ATTR].current_value
             == ConnectionStatus.OK
@@ -576,15 +580,18 @@ class TestEventLogWiring:
     async def test_read_appends_log(self, device: CoreDevice, mock_transport_client):
         mock_transport_client.read = AsyncMock(return_value="25.5")
         await device.read_attribute_value("temperature")
-        assert len(device.attributes["temperature"].logs.read) == 1
-        assert device.attributes["temperature"].logs.read[0].status == "ok"
+        assert len(device.connection_monitor.logs("temperature").read) == 1
+        assert device.connection_monitor.logs("temperature").read[0].status == "ok"
 
     @pytest.mark.asyncio
     async def test_write_appends_log(self, device: CoreDevice, mock_transport_client):
         mock_transport_client.read = AsyncMock(return_value="22.0")
         await device.write_attribute_value("temperature_setpoint", 22.0, confirm=False)
-        assert len(device.attributes["temperature_setpoint"].logs.write) == 1
-        assert device.attributes["temperature_setpoint"].logs.write[0].status == "ok"
+        assert len(device.connection_monitor.logs("temperature_setpoint").write) == 1
+        assert (
+            device.connection_monitor.logs("temperature_setpoint").write[0].status
+            == "ok"
+        )
 
     @pytest.mark.asyncio
     async def test_listen_appends_log(
@@ -594,7 +601,9 @@ class TestEventLogWiring:
         await mock_push_transport_client.simulate_event(
             "/xx/temperature", {"payload": {"temperature": 25.0}}
         )
-        listen_logs = device_w_push_transport.attributes["temperature"].logs.listen
+        listen_logs = device_w_push_transport.connection_monitor.logs(
+            "temperature"
+        ).listen
         assert len(listen_logs) == 1
         assert listen_logs[0].status == "ok"
 
@@ -1062,6 +1071,37 @@ class TestApplyReadResultMetrics:
 
         assert metrics.attribute_read.total(protocol="http", status="error") == 1
 
+    @pytest.mark.parametrize(
+        ("attribute", "result", "message"),
+        [
+            (
+                "temperature",
+                ReadError(address_id="a1", error=RuntimeError("boom")),
+                "poll read failed for temperature",
+            ),
+            (
+                "temperature_w_adapter",
+                ReadOk(address_id="a2", value="not-a-dict"),
+                "failed to decode attribute temperature_w_adapter",
+            ),
+        ],
+    )
+    def test_read_and_decode_failures_log_distinct_warnings(
+        self,
+        device: CoreDevice,
+        caplog: pytest.LogCaptureFixture,
+        attribute: str,
+        result: ReadResult,
+        message: str,
+    ):
+        with caplog.at_level(logging.WARNING):
+            device._apply_read_result(attribute, result)  # noqa: SLF001
+
+        assert message in caplog.text
+        assert [e.status for e in device.connection_monitor.logs(attribute).read] == [
+            "error"
+        ]
+
     def test_unknown_attribute_records_nothing(
         self, device: CoreDevice, metrics: RecordedMetrics
     ):
@@ -1103,6 +1143,24 @@ class TestReadAttributeValueMetrics:
             await device.read_attribute_value("temperature")
 
         assert metrics.attribute_read.total(protocol="http", status="error") == 1
+
+    @pytest.mark.asyncio
+    async def test_cancelled_read_records_nothing(
+        self,
+        device: CoreDevice,
+        mock_transport_client,
+        metrics: RecordedMetrics,
+    ):
+        """A cancelled read (e.g. the confirmation poll stopped once a write is
+        confirmed) is neither a failed read nor a connection outcome."""
+        mock_transport_client.read = AsyncMock(side_effect=asyncio.CancelledError)
+
+        with pytest.raises(asyncio.CancelledError):
+            await device.read_attribute_value("temperature")
+
+        assert metrics.attribute_read.total(protocol="http", status="error") == 0
+        assert metrics.attribute_read.total(protocol="http", status="ok") == 0
+        assert device.connection_monitor.logs("temperature").read == []
 
     @pytest.mark.asyncio
     async def test_refresh_attribute_records_metric(
@@ -1256,7 +1314,9 @@ class TestDeviceWriteConstraints:
             await constrained_device.write_attribute_value(
                 "temperature_setpoint", 99, confirm=False
             )
-        write_logs = constrained_device.attributes["temperature_setpoint"].logs.write
+        write_logs = constrained_device.connection_monitor.logs(
+            "temperature_setpoint"
+        ).write
         assert write_logs == []
 
     @pytest.mark.asyncio

@@ -5,14 +5,16 @@ from __future__ import annotations
 import asyncio
 import json
 import time
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 
 from devices_manager.core.codecs.factory import CodecSpec
 from devices_manager.core.device import CoreDevice, DeviceBase
 from devices_manager.core.device.attribute import AttributeKind
-from devices_manager.core.device.connection_status import CONNECTION_STATUS_ATTR
+from devices_manager.core.device.connection_status_attribute import (
+    CONNECTION_STATUS_ATTR,
+)
 from devices_manager.core.driver import (
     AttributeDriver,
     Driver,
@@ -147,16 +149,16 @@ class TestConnectionStatusRecompute:
 
 @pytest.mark.asyncio
 class TestConnectionStatusFailSafe:
-    async def test_compute_failure_does_not_disrupt_reads(
+    async def test_failing_status_listener_does_not_disrupt_reads(
         self, device: CoreDevice, mock_transport_client
     ) -> None:
+        def _fail_on_status(_d, name, _prev, _attr) -> None:
+            if name == CONNECTION_STATUS_ATTR:
+                raise RuntimeError("boom")
+
+        device.on_update = _fail_on_status
         mock_transport_client.read = AsyncMock(return_value="25.5")
-        with patch.object(
-            device,
-            "_recompute_connection_status",
-            side_effect=RuntimeError("boom"),
-        ):
-            value = await device.read_attribute_value("temperature")
+        value = await device.read_attribute_value("temperature")
         assert value == 25.5
 
     async def test_update_attributes_skips_connection_status(
@@ -240,3 +242,34 @@ class TestManyListenersOnOneTopic:
         assert device.attributes["point_5"].current_value == 1.0
         # ~5 s before the fix on a laptop (a rescan per listener), under 1 s after.
         assert elapsed < 3.0, f"{elapsed:.1f}s for {self.FRAME_COUNT} frames"
+
+
+@pytest.mark.asyncio
+class TestAttributeLifecycle:
+    async def test_renamed_attribute_keeps_its_logs(
+        self, device: CoreDevice, mock_transport_client
+    ) -> None:
+        mock_transport_client.read = AsyncMock(return_value="25.5")
+        await device.read_attribute_value("temperature")
+        logs = device.connection_monitor.logs("temperature")
+
+        device.rename_attribute("temperature", "temp")
+
+        assert device.connection_monitor.logs("temp") == logs
+
+    async def test_deleted_attribute_no_longer_counts(
+        self, device: CoreDevice, mock_transport_client
+    ) -> None:
+        mock_transport_client.read = AsyncMock(return_value="25.5")
+        await device.read_attribute_value("temperature")
+        mock_transport_client.read = AsyncMock(side_effect=OSError("timeout"))
+        with pytest.raises(OSError, match="timeout"):
+            await device.read_attribute_value("humidity")
+        assert (
+            device.get_attribute_value(CONNECTION_STATUS_ATTR)
+            == ConnectionStatus.DEGRADED
+        )
+
+        device.delete_attribute("humidity")
+
+        assert device.get_attribute_value(CONNECTION_STATUS_ATTR) == ConnectionStatus.OK

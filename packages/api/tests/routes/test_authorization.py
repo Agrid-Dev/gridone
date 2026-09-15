@@ -52,7 +52,7 @@ from apps import (
 )
 from devices_manager import DiscoveryManagerInterface, IngressResult
 from devices_manager.core.device import Attribute
-from devices_manager.core.device.event_log import AttributeLogs
+from devices_manager.core.device.connection_status import AttributeLogs
 from devices_manager.core.presentation.resources import StoredResource
 from devices_manager.dto.presentation_dto import UnavailablePresentationResponse
 from devices_manager.types import DataType

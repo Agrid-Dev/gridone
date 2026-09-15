@@ -11,8 +11,10 @@ from devices_manager.core.device import (
     DeviceBase,
     DeviceStorage,
 )
-from devices_manager.core.device.connection_status import CONNECTION_STATUS_ATTR
-from devices_manager.core.device.event_log import AttributeLogs
+from devices_manager.core.device.connection_status import AttributeLogs
+from devices_manager.core.device.connection_status_attribute import (
+    CONNECTION_STATUS_ATTR,
+)
 from devices_manager.core.device_registry import DeviceRegistry
 from models.command_rules import CommandRejectedError
 from models.errors import ConflictError, InvalidError, NotFoundError

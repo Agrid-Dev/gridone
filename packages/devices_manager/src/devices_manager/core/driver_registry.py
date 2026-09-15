@@ -9,7 +9,9 @@ from typing import TYPE_CHECKING, Any
 from pydantic import TypeAdapter, ValidationError
 
 from devices_manager.core.device.attribute import AttributeKind
-from devices_manager.core.device.connection_status import CONNECTION_STATUS_ATTR
+from devices_manager.core.device.connection_status_attribute import (
+    CONNECTION_STATUS_ATTR,
+)
 from devices_manager.core.driver import AnyAttributeDriver
 from devices_manager.core.driver.command_validation import rename_command_references
 from devices_manager.core.driver.driver import (

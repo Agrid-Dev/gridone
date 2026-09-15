@@ -23,8 +23,10 @@ from commands.models import CommandStatus
 from devices_manager import DevicesServiceInterface
 from devices_manager.core.device import Attribute
 from devices_manager.core.device.attribute import AttributeKind
-from devices_manager.core.device.connection_status import CONNECTION_STATUS_ATTR
-from devices_manager.core.device.event_log import AttributeLogs
+from devices_manager.core.device.connection_status import AttributeLogs
+from devices_manager.core.device.connection_status_attribute import (
+    CONNECTION_STATUS_ATTR,
+)
 from devices_manager.dto.device_dto import Device
 from devices_manager.types import ConnectionStatus, DataType
 from models.attribute_metadata import LocalizedText

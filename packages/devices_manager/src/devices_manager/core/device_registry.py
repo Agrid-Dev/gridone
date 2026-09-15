@@ -17,7 +17,7 @@ from .device import (
 from .device_filters import DeviceFilters
 
 if TYPE_CHECKING:
-    from devices_manager.core.device.event_log import AttributeLogs
+    from devices_manager.core.device.connection_status import AttributeLogs
     from devices_manager.core.driver.attribute_driver import AttributeDriver
     from devices_manager.types import AttributeValueType, DataType
 
@@ -425,7 +425,8 @@ class DeviceRegistry:
 
     def get_attribute_logs(self, device_id: str, attribute_name: str) -> AttributeLogs:
         device = self._get_or_raise(device_id)
-        return device.get_attribute(attribute_name).logs
+        device.get_attribute(attribute_name)  # raises NotFoundError when unknown
+        return device.connection_monitor.logs(attribute_name)
 
     async def refresh_attribute(self, device_id: str, attribute_name: str) -> Attribute:
         device = self._get_or_raise(device_id)

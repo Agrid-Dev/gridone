@@ -1,12 +1,12 @@
 # ruff: noqa: SLF001 -- direct observation/lifecycle unit tests
 import asyncio
-from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, Mock
 
 import pytest
 
 from devices_manager.core.conditions import EvaluationBudget, EvaluationContext
 from devices_manager.core.device import CoreDevice, DeviceBase
+from devices_manager.core.device.command_expiry import CommandExpiry
 from devices_manager.core.device.command_rules import (
     evaluate_write,
     project_write_state,
@@ -16,7 +16,6 @@ from devices_manager.core.device.value_mapping import (
     encode_mapping,
     project_mapping,
 )
-from devices_manager.core.device.watchdog import SilenceWatchdog
 from devices_manager.core.driver import AttributeDriver
 from devices_manager.core.driver.command_validation import validate_command_declarations
 from models.command_rules import CommandRejectedError, ValueMapping
@@ -195,21 +194,17 @@ def test_expiry_at_one_interval_keeps_last_displayed_sample(device):
             write_constraints={"minimum": {"attribute": "temperature"}},
         )
     )
-    now = datetime(2026, 1, 1, 10, tzinfo=UTC)
+    now = 0.0
     clock = Mock(return_value=now)
-    watchdog = SilenceWatchdog(
-        3600, Mock(), now=clock, on_expired=device._expire_command_context
-    )
-    device._watchdog = watchdog
+    expiry = CommandExpiry(3600, device._expire_command_context, now=clock)
+    device._command_expiry = expiry
     device._ingest_attribute("temperature", 16)
-    watchdog.record_data()
-    clock.return_value = now + timedelta(seconds=3599)
+    clock.return_value = now + 3599
     assert device.evaluate_attribute_write("temperature_setpoint", 22).eligible
-    clock.return_value = now + timedelta(hours=1)
+    clock.return_value = now + 3600
     assert not device.evaluate_attribute_write("temperature_setpoint", 22).eligible
     assert device.attributes["temperature"].current_value == 16
     device._ingest_attribute("temperature", 16)
-    watchdog.record_data()
     assert device.evaluate_attribute_write("temperature_setpoint", 22).eligible
 
 
@@ -228,7 +223,7 @@ async def test_guard_and_preview_never_read_transport(device, mock_transport_cli
         await device.write_attribute_value("temperature_setpoint", 22)
     mock_transport_client.read.assert_not_called()
     mock_transport_client.write.assert_not_called()
-    assert not device.attributes["temperature_setpoint"].logs.write
+    assert not device.connection_monitor.logs("temperature_setpoint").write
 
 
 @pytest.mark.asyncio
@@ -420,22 +415,19 @@ async def test_failed_acquisition_loses_trust_but_keeps_displayed_history(
 
 
 def test_observation_after_expiry_gets_a_new_bounded_knowledge_window(device):
-    clock = Mock(return_value=datetime(2026, 1, 1, 10, tzinfo=UTC))
-    watchdog = SilenceWatchdog(
-        3600, Mock(), now=clock, on_expired=device._expire_command_context
-    )
-    device._watchdog = watchdog
+    clock = Mock(return_value=0.0)
+    expiry = CommandExpiry(3600, device._expire_command_context, now=clock)
+    device._command_expiry = expiry
     device._ingest_attribute("temperature", 16)
-    watchdog.record_data()
-    clock.return_value += timedelta(hours=1)
-    watchdog.expire_if_due()
+    clock.return_value += 3600
+    expiry.expire_if_due()
     assert device._known_attribute_value("temperature") is None
     # A successful manual read is an observation, but does not restore push health.
-    clock.return_value += timedelta(minutes=5)
+    clock.return_value += 300
     device._ingest_attribute("temperature", 17)
     assert device._known_attribute_value("temperature") == 17
-    clock.return_value += timedelta(hours=1)
-    watchdog.expire_if_due()
+    clock.return_value += 3600
+    expiry.expire_if_due()
     assert device._known_attribute_value("temperature") is None
 
 

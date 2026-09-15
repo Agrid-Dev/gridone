@@ -1,11 +1,9 @@
-from collections import deque
 from datetime import UTC, datetime
 from typing import Annotated, Any, Literal
 
 from pydantic import (
     BaseModel,
     Discriminator,
-    PrivateAttr,
     Tag,
     computed_field,
     model_serializer,
@@ -28,8 +26,6 @@ from models.attribute_metadata import (
 from models.command_rules import AttributeWriteState, WriteReason
 from models.expressions import Scalar
 from models.types import Severity
-
-from .event_log import AttributeEventLog, AttributeLogs, EventType
 
 # Optional fields dropped from payloads when unset, so an attribute that
 # declares none of them serializes exactly as it did before they existed.
@@ -70,10 +66,6 @@ class Attribute(BaseModel):
     raw_value: Scalar | None = None
     resolution_error: WriteReason | None = None
 
-    _logs: dict[EventType, deque[AttributeEventLog]] = PrivateAttr(
-        default_factory=lambda: {t: deque(maxlen=10) for t in EventType}
-    )
-
     @model_serializer(mode="wrap")
     def _serialize(self, handler: Any) -> dict[str, Any]:  # noqa: ANN401
         data = handler(self)
@@ -112,16 +104,6 @@ class Attribute(BaseModel):
         object.__setattr__(self, "last_updated", datetime.now(UTC))
         if self.current_value != previous_value:
             object.__setattr__(self, "last_changed", datetime.now(UTC))
-
-    def append_log(self, entry: AttributeEventLog) -> None:
-        self._logs[entry.event_type].appendleft(entry)
-
-    def all_log_entries(self) -> list[AttributeEventLog]:
-        return [e for dq in self._logs.values() for e in dq]
-
-    @property
-    def logs(self) -> AttributeLogs:
-        return AttributeLogs(**{et.value: list(self._logs[et]) for et in EventType})
 
     @classmethod
     def create(  # noqa: PLR0913
