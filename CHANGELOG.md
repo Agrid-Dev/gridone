@@ -1,3 +1,19 @@
+## v0.238.0 (2026-09-15)
+
+### Feat
+
+- **commands**: redesign grouped command dispatch
+
+### Fix
+
+- **api**: scope attribute presentation to writable devices
+- **ui**: label the grouped command flow as grouped
+- **ui**: select command targets before attributes
+
+### Refactor
+
+- **ui**: split the grouped command hook
+
 ## v0.237.3 (2026-09-12)
 
 ### Fix
