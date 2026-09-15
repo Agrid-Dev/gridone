@@ -104,8 +104,8 @@ def validate_push_only_polling(
     """Reject polling on push-only transports.
 
     A webhook transport cannot solicit data — its reads raise — so polling
-    would only pile up READ-error log entries and degrade the connection
-    status of a device that is perfectly alimented by pushes. Named polling
+    would only pile up READ-error log entries and make the connection
+    status unstable for a device that is perfectly alimented by pushes. Named polling
     groups poll even when default polling is disabled, so they are rejected
     on the same grounds.
     """

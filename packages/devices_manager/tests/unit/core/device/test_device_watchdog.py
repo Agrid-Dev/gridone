@@ -112,7 +112,7 @@ class TestExpectedInterval:
 @fake_time
 @pytest.mark.asyncio
 class TestWatchdogSilenceDetection:
-    async def test_degrades_after_silence(
+    async def test_becomes_unstable_after_silence(
         self, push_driver_with_interval: Driver, mock_push_transport_client
     ) -> None:
         device = _make_device(push_driver_with_interval, mock_push_transport_client)

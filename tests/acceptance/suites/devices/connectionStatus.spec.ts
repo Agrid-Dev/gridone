@@ -86,7 +86,7 @@ describe("Connection status updates when device goes down and up", () => {
     await expect.poll(readStatus, UNTIL_DRAIN).toBe("ok");
   });
 
-  it("degrades on the first failed poll", async () => {
+  it("becomes unstable on the first failed poll", async () => {
     await stopEmulator(SERVICE);
     await expect.poll(readStatus, UNTIL_FLIP).toBe("unstable");
   });
