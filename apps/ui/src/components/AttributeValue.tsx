@@ -3,6 +3,7 @@ import {
   ArrowUpNarrowWide,
   Droplets,
   Fan,
+  Moon,
   RefreshCcwDot,
   SignalHigh,
   SignalLow,
@@ -31,6 +32,7 @@ const HVAC_MODE_ICONS: Record<string, LucideIcon> = {
   fan: Fan,
   dry: Droplets,
   auto: RefreshCcwDot,
+  idle: Moon,
 };
 
 /** Display label keys for the HVAC mode wire values ("Chauffage", "Froid"…);
@@ -41,6 +43,7 @@ const HVAC_MODE_LABEL_KEYS = {
   fan: "common.hvacMode.fan",
   dry: "common.hvacMode.dry",
   auto: "common.hvacMode.auto",
+  idle: "common.hvacMode.idle",
 } as const;
 
 const HVAC_MODE_ATTRIBUTES = new Set(["mode", "hvac_mode"]);

@@ -75,7 +75,7 @@ A climate control device that reads ambient temperature and allows setting a tar
 | `temperature_setpoint_min` | float | yes | Minimum allowed setpoint |
 | `temperature_setpoint_max` | float | yes | Maximum allowed setpoint |
 | `onoff_state` | bool | yes | Power on/off state |
-| `mode` | string | yes | Operating mode (Standard values: `heat`, `cool`, `fan`, `auto`) |
+| `mode` | string | yes | Operating mode (Standard values: `heat`, `cool`, `fan`, `auto`, `idle` — no current heating or cooling demand) |
 | `fan_speed` | string | no | Fan speed (Standard values: `low`, `medium`, `high`, `auto`)|
 
 
@@ -93,7 +93,7 @@ An air-to-water heat pump with water-side metrics and optional refrigerant circu
 |---|---|---|---|---|
 | `onoff_state` | bool | yes | no | Operating state |
 | `unit_run_status` | string | yes | no | Run status (e.g., running, idle) |
-| `mode` | string | yes | no | Operating mode (Standard values: `heat`, `cool`, `fan`, `auto`) |
+| `mode` | string | yes | no | Operating mode (Standard values: `heat`, `cool`, `fan`, `auto`, `idle` — no current heating or cooling demand) |
 | `inlet_temperature` | float | yes | no | Water inlet temperature |
 | `outlet_temperature` | float | yes | no | Water outlet temperature |
 | `setpoint_temperature` | float | yes | no | Target water temperature |

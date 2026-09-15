@@ -110,6 +110,7 @@ export const ATTRIBUTE_VALUE_COLORS: Record<
     fan: "hvacFan",
     dry: "hvacDry",
     auto: "hvacAuto",
+    idle: "info",
   },
   connection_status: {
     ok: "ok",
