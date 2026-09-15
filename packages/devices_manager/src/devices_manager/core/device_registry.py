@@ -291,21 +291,20 @@ class DeviceRegistry:
         if self._storage is not None:
             await self._storage.delete(device_id)
 
-    async def set_tag(self, device_id: str, key: str, value: str) -> CoreDevice:
+    async def set_tag(self, device_id: str, key: str, values: list[str]) -> CoreDevice:
         device = self._get_or_raise(device_id)
-        device.tags[key] = value
-        self._touch(device)
+        updated_at = datetime.now(UTC)
         if self._storage is not None:
-            await self._storage.set_tag(device_id, key, value, device.updated_at)
+            await self._storage.set_tag(device_id, key, values, updated_at)
+        if values:
+            device.tags[key] = list(values)
+        else:
+            device.tags.pop(key, None)
+        device.updated_at = updated_at
         return device
 
     async def delete_tag(self, device_id: str, key: str) -> CoreDevice:
-        device = self._get_or_raise(device_id)
-        device.tags.pop(key, None)
-        self._touch(device)
-        if self._storage is not None:
-            await self._storage.delete_tag(device_id, key, device.updated_at)
-        return device
+        return await self.set_tag(device_id, key, [])
 
     async def write_attribute(
         self,

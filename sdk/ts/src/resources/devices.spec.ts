@@ -65,6 +65,15 @@ const CASES: Case[] = [
     (d) => d.listAttributes({ type: ["thermostat"] }),
     ["GET", "/devices/attributes", { searchParams: { type: ["thermostat"] } }],
   ],
+  [
+    "listTags",
+    (d) => d.listTags({ tags: ["group:comfort"], driver_id: "drv1" }),
+    [
+      "GET",
+      "/devices/tags",
+      { searchParams: { tags: ["group:comfort"], driver_id: "drv1" } },
+    ],
+  ],
   ["get", (d) => d.get("dev1"), ["GET", "/devices/dev1"]],
   ["create", (d) => d.create(CREATE), ["POST", "/devices/", { body: CREATE }]],
   [
@@ -75,8 +84,8 @@ const CASES: Case[] = [
   ["delete", (d) => d.delete("dev1"), ["DELETE", "/devices/dev1"]],
   [
     "setTag",
-    (d) => d.setTag("dev1", "zone", "roof"),
-    ["PUT", "/devices/dev1/tags/zone", { body: { value: "roof" } }],
+    (d) => d.setTag("dev1", "zone", ["roof"]),
+    ["PUT", "/devices/dev1/tags/zone", { body: { values: ["roof"] } }],
   ],
   [
     "deleteTag",
@@ -129,6 +138,18 @@ const CASES: Case[] = [
 ];
 
 describe("DevicesResource", () => {
+  it.each([{ ids: [] }, { type: [] }, { tags: [] }])(
+    "does not serialize empty selection %j as an unrestricted GET",
+    async (params) => {
+      const { devices, request } = makeResource();
+
+      await expect(devices.list(params)).resolves.toEqual([]);
+      await expect(devices.listTags(params)).resolves.toEqual([]);
+
+      expect(request).not.toHaveBeenCalled();
+    },
+  );
+
   it.each(CASES)(
     "%s calls the wire endpoint and returns the response",
     async (_label, invoke, expected) => {

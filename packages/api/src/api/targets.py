@@ -16,6 +16,7 @@ from models.targets import (
     AttributeCoverage,
     AttributeTarget,
     DevicesFilter,
+    EmptyTargetError,
     ResolvedTarget,
     unify_data_types,
 )
@@ -26,6 +27,13 @@ if TYPE_CHECKING:
     from devices_manager import DevicesServiceInterface
     from devices_manager.dto.device_dto import Device
     from models.targets import TargetResolver
+
+
+def resolve_devices(
+    dm: DevicesServiceInterface, devices: DevicesFilter
+) -> list[Device]:
+    """Resolve the persisted criteria directly against devices-manager."""
+    return dm.list_devices(**devices.model_dump(exclude_none=True))
 
 
 def compute_attribute_coverage(devices: list[Device]) -> list[AttributeCoverage]:
@@ -98,8 +106,8 @@ def group_devices_by_tag(
     """
     groups: dict[str, list[Device]] = {}
     for device in devices:
-        label = device.tags.get(tag_key, UNTAGGED_GROUP_LABEL)
-        groups.setdefault(label, []).append(device)
+        for label in device.tags.get(tag_key) or [UNTAGGED_GROUP_LABEL]:
+            groups.setdefault(label, []).append(device)
     return groups
 
 
@@ -140,7 +148,10 @@ class CompositeTargetResolver:
         devices — for a caller that needs device data beyond the id (e.g.
         current attribute values), sparing it a second ``list_devices`` scan.
         """
-        devices = self._dm.list_devices(**target.devices.model_dump(exclude_none=True))
+        devices = resolve_devices(self._dm, target.devices)
+        if not devices:
+            msg = "No devices match the target"
+            raise EmptyTargetError(msg)
         exposing = [
             d for d in devices if _exposes(d, target.attribute, writable=writable)
         ]
@@ -163,7 +174,7 @@ class CompositeTargetResolver:
     async def list_attribute_coverage(
         self, devices: DevicesFilter
     ) -> list[AttributeCoverage]:
-        matched = self._dm.list_devices(**devices.model_dump(exclude_none=True))
+        matched = resolve_devices(self._dm, devices)
         return compute_attribute_coverage(matched)
 
 

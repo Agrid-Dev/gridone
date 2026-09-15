@@ -14,7 +14,6 @@ import { FieldShell } from "@/components/forms/controllers/FieldShell";
 import CommandTemplatePicker from "@/components/forms/resourcePickers/CommandTemplatePicker";
 import type { CommandTemplateResponse } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
-import { assetIdOf } from "@/lib/devices";
 import type { DevicesFilter } from "@/lib/devices";
 import { useAssetTree } from "@/hooks/useAssetTree";
 import { useDevicesList } from "@/hooks/useDevicesList";
@@ -37,18 +36,27 @@ function readInitialTemplateId(
 /** Map a saved template back into the wizard's form-state shape so
  *  ``InlineWizard`` can pre-populate when editing. ``targetMode`` mirrors
  *  the original target's flavour: a bare id list opens the picker in
- *  "devices" mode; anything else (asset_id / types) opens in "filters". */
+ *  "devices" mode; any intersecting criterion keeps the target in "filters". */
 function templateToFormValues(
   template: CommandTemplateResponse,
 ): Partial<WizardFormValues> {
   const target = template.target as DevicesFilter;
-  const assetId = assetIdOf(target);
+  // Keep canonical asset tags intact: synthesizing a single asset alias would
+  // narrow a target that contains several assets to its first asset.
+  const assetId = target.asset_id ?? undefined;
   const usingIdsOnly =
-    !!target.ids?.length && !assetId && !target.types?.length;
+    !!target.ids?.length &&
+    !assetId &&
+    target.types == null &&
+    !Object.keys(target.tags ?? {}).length &&
+    !target.driver_id;
   return {
     targetMode: usingIdsOnly ? "devices" : "filters",
     deviceIds: target.ids ?? [],
     targetFilter: {
+      driverId: target.driver_id ?? undefined,
+      ids: usingIdsOnly ? undefined : (target.ids ?? undefined),
+      tags: target.tags ?? undefined,
       assetId,
       types: target.types ?? undefined,
     },

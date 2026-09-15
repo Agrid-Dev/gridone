@@ -54,7 +54,7 @@ export function buildFloorRows(assets: Asset[], devices: Device[]): FloorRow[] {
 
   const assetsById = new Map(assets.map((a) => [a.id, a]));
   const taggedAssetByDevice = devices
-    .map((d) => d.tags?.asset_id)
+    .map((d) => d.tags?.asset_id?.[0])
     .map((id) => (id ? assetsById.get(id) : undefined));
 
   return floors.map((floor) => ({

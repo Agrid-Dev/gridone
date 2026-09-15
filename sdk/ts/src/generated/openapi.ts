@@ -205,6 +205,43 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/device-views": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Device Views */
+    get: operations["list_device_views_device_views_get"];
+    put?: never;
+    /** Create Device View */
+    post: operations["create_device_view_device_views_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/device-views/{view_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Device View */
+    get: operations["get_device_view_device_views__view_id__get"];
+    /** Update Device View */
+    put: operations["update_device_view_device_views__view_id__put"];
+    post?: never;
+    /** Delete Device View */
+    delete: operations["delete_device_view_device_views__view_id__delete"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/users/": {
     parameters: {
       query?: never;
@@ -306,6 +343,40 @@ export interface paths {
     put?: never;
     /** Dispatch Single Command */
     post: operations["dispatch_single_command_devices__device_id__commands_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/devices/commands/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Preview Selection Command */
+    post: operations["preview_selection_command_devices_commands_preview_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/devices/commands/confirm": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Confirm Selection Command */
+    post: operations["confirm_selection_command_devices_commands_confirm_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -582,6 +653,57 @@ export interface paths {
     put?: never;
     /** Create Device */
     post: operations["create_device_devices__post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/devices/tags": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Tags */
+    get: operations["list_tags_devices_tags_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/devices/tags/bulk": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Bulk Tags */
+    post: operations["bulk_tags_devices_tags_bulk_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/devices/tags/rename": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Rename Tag */
+    post: operations["rename_tag_devices_tags_rename_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -1001,6 +1123,23 @@ export interface paths {
     };
     /** Get Driver Presentation */
     get: operations["get_driver_presentation_drivers__driver_id__presentation_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/drivers/{driver_id}/presentation/assets/{asset_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Driver Presentation Asset */
+    get: operations["get_driver_presentation_asset_drivers__driver_id__presentation_assets__asset_id__get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -1787,6 +1926,15 @@ export interface components {
         [key: string]: unknown;
       };
     };
+    /** ActionFailure */
+    ActionFailure: {
+      /**
+       * Code
+       * @enum {string}
+       */
+      code: "empty_target" | "invalid_target";
+      target: components["schemas"]["DevicesFilter"];
+    };
     /**
      * ActionOp
      * @enum {string}
@@ -2475,6 +2623,7 @@ export interface components {
       error?: string | null;
       /** Output Id */
       output_id?: string | null;
+      error_details?: components["schemas"]["ActionFailure"] | null;
     };
     /** AutomationUpdate */
     AutomationUpdate: {
@@ -2829,6 +2978,19 @@ export interface components {
       cover_url?: string | null;
       /** Icon */
       icon?: string | null;
+    };
+    /** BulkTagRequest */
+    BulkTagRequest: {
+      target: components["schemas"]["DevicesFilterBody"];
+      /**
+       * Operation
+       * @enum {string}
+       */
+      operation: "add" | "remove";
+      /** Key */
+      key: string;
+      /** Values */
+      values: string[];
     };
     /** ButtonLayer */
     ButtonLayer: {
@@ -3205,7 +3367,7 @@ export interface components {
       type?: string | null;
       /** Tags */
       tags?: {
-        [key: string]: string;
+        [key: string]: string[];
       };
       /** Attributes */
       attributes?: {
@@ -3338,6 +3500,60 @@ export interface components {
       /** Driver Id */
       driver_id?: string | null;
     };
+    /** DeviceView */
+    DeviceView: {
+      /** Name */
+      name: string;
+      /** Description */
+      description?: string | null;
+      filter?: components["schemas"]["DevicesFilter"];
+      /** Group By */
+      group_by: string[];
+      /** Id */
+      id: string;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /** DeviceViewInput */
+    DeviceViewInput: {
+      /** Name */
+      name: string;
+      /** Description */
+      description?: string | null;
+      filter?: components["schemas"]["DevicesFilter"];
+      /** Group By */
+      group_by: string[];
+    };
+    /** DeviceWritePreview */
+    DeviceWritePreview: {
+      /** Device Id */
+      device_id: string;
+      /** Name */
+      name: string;
+      /** Current Value */
+      current_value: number | string | boolean | null;
+      /** Eligible */
+      eligible: boolean;
+      constraints?: components["schemas"]["WriteConstraintPreview"] | null;
+      /** Reason */
+      reason?:
+        | (
+            | "not_writable"
+            | "invalid_value"
+            | "constraints"
+            | "unknown_attribute"
+            | "control_blocked"
+          )
+        | null;
+    };
     /**
      * DevicesFilter
      * @description Persisted criteria selecting a set of devices.
@@ -3346,6 +3562,8 @@ export interface components {
      *     non-``None`` field. An empty filter matches all devices.
      */
     DevicesFilter: {
+      /** Driver Id */
+      driver_id?: string | null;
       /** Ids */
       ids?: string[] | null;
       /** Types */
@@ -3373,6 +3591,8 @@ export interface components {
      *     Writability is enforced against the dispatched attribute by the resolver.
      */
     DevicesFilterBody: {
+      /** Driver Id */
+      driver_id?: string | null;
       /** Ids */
       ids?: string[] | null;
       /** Types */
@@ -5167,6 +5387,15 @@ export interface components {
       config: string;
       capabilities: components["schemas"]["AppCapabilities"];
     };
+    /** RenameTagRequest */
+    RenameTagRequest: {
+      /** Key */
+      key: string;
+      /** Old Value */
+      old_value: string;
+      /** New Value */
+      new_value: string;
+    };
     /** ReorderRequest */
     ReorderRequest: {
       /** Ordered Ids */
@@ -5247,6 +5476,40 @@ export interface components {
       };
       /** Default */
       default?: string | null;
+    };
+    /** SelectionCommandConfirm */
+    SelectionCommandConfirm: {
+      /** Token */
+      token: string;
+      /** Device Ids */
+      device_ids: string[];
+    };
+    /** SelectionCommandPrepare */
+    SelectionCommandPrepare: {
+      /** Device Ids */
+      device_ids?: string[] | null;
+      target: components["schemas"]["DevicesFilterBody"];
+      /** Attribute */
+      attribute: string;
+      /** Value */
+      value: number | string | boolean;
+    };
+    /** SelectionCommandPreview */
+    SelectionCommandPreview: {
+      /** Device Ids */
+      device_ids?: string[] | null;
+      target: components["schemas"]["DevicesFilterBody"];
+      /** Attribute */
+      attribute: string;
+      /** Value */
+      value: number | string | boolean;
+      /** Token */
+      token: string;
+      attribute_label?: components["schemas"]["LocalizedText"] | null;
+      /** Unit */
+      unit?: string | null;
+      /** Members */
+      members: components["schemas"]["DeviceWritePreview"][];
     };
     /** SetpointRow */
     SetpointRow: {
@@ -5603,6 +5866,20 @@ export interface components {
           )
         | null;
     };
+    /** TagFacet */
+    TagFacet: {
+      /** Key */
+      key: string;
+      /** Values */
+      values: components["schemas"]["TagFacetValue"][];
+    };
+    /** TagFacetValue */
+    TagFacetValue: {
+      /** Value */
+      value: string;
+      /** Device Count */
+      device_count: number;
+    };
     /** TagGroupResponse */
     TagGroupResponse: {
       /** Label */
@@ -5623,10 +5900,26 @@ export interface components {
       /** Groups */
       groups: components["schemas"]["TagGroupResponse"][];
     };
+    /** TagMutationResult */
+    TagMutationResult: {
+      /** Device Id */
+      device_id: string;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "changed" | "unchanged" | "failed";
+      /** Tags */
+      tags?: {
+        [key: string]: string[];
+      } | null;
+      /** Error */
+      error?: ("not_found" | "storage_failure") | null;
+    };
     /** TagValueBody */
     TagValueBody: {
-      /** Value */
-      value: string;
+      /** Values */
+      values: string[];
     };
     /**
      * TextSlot
@@ -6104,6 +6397,20 @@ export interface components {
           )
         | null;
     };
+    /** WriteConstraintPreview */
+    WriteConstraintPreview: {
+      /** Minimum */
+      minimum?: number | null;
+      /** Maximum */
+      maximum?: number | null;
+      /** Step */
+      step?: number | null;
+      /**
+       * Unknown
+       * @default []
+       */
+      unknown?: string[];
+    };
     /**
      * WriteConstraints
      * @description Declarative limits the service enforces on every write of a numeric attribute.
@@ -6503,6 +6810,154 @@ export interface operations {
       };
     };
   };
+  list_device_views_device_views_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DeviceView"][];
+        };
+      };
+    };
+  };
+  create_device_view_device_views_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DeviceViewInput"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DeviceView"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_device_view_device_views__view_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        view_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DeviceView"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  update_device_view_device_views__view_id__put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        view_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DeviceViewInput"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DeviceView"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  delete_device_view_device_views__view_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        view_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   list_users_users__get: {
     parameters: {
       query?: never;
@@ -6856,6 +7311,72 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["UnitCommand"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  preview_selection_command_devices_commands_preview_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SelectionCommandPrepare"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SelectionCommandPreview"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  confirm_selection_command_devices_commands_confirm_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SelectionCommandConfirm"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BatchDispatchResponse"];
         };
       };
       /** @description Validation Error */
@@ -7555,6 +8076,111 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["Device"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_tags_devices_tags_get: {
+    parameters: {
+      query?: {
+        type?: string[] | null;
+        ids?: string[] | null;
+        tags?: string[] | null;
+        attribute?: string | null;
+        is_faulty?: boolean | null;
+        asset_id?: string | null;
+        search?: string | null;
+        driver_id?: string | null;
+        transport_id?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TagFacet"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  bulk_tags_devices_tags_bulk_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["BulkTagRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TagMutationResult"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  rename_tag_devices_tags_rename_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RenameTagRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TagMutationResult"][];
         };
       };
       /** @description Validation Error */
@@ -8749,6 +9375,38 @@ export interface operations {
               )
             | null;
         };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_driver_presentation_asset_drivers__driver_id__presentation_assets__asset_id__get: {
+    parameters: {
+      query: {
+        revision: string;
+      };
+      header?: never;
+      path: {
+        driver_id: string;
+        asset_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
       /** @description Validation Error */
       422: {

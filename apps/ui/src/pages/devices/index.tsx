@@ -3,6 +3,11 @@ import { lazy, FC, Suspense } from "react";
 import DevicesList from "./DevicesList";
 import Device from "./device";
 
+const TagEditorPage = lazy(() => import("./views/TagEditorPage"));
+const ViewsListPage = lazy(() => import("./views/ViewsListPage"));
+const ViewFormPage = lazy(() => import("./views/ViewFormPage"));
+const ViewDetailPage = lazy(() => import("./views/ViewDetailPage"));
+
 const CommandsPage = lazy(() => import("./commands/CommandsPage"));
 const NewCommandPage = lazy(() => import("./commands/new/NewCommandPage"));
 const TemplatesListPage = lazy(
@@ -18,6 +23,48 @@ const ZoneMappingImportPage = lazy(
 const Devices: FC = () => (
   <Routes>
     <Route index element={<DevicesList />} />
+    <Route
+      path="tags/edit"
+      element={
+        <Suspense>
+          <TagEditorPage />
+        </Suspense>
+      }
+    />
+    <Route path="views">
+      <Route
+        index
+        element={
+          <Suspense>
+            <ViewsListPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="new"
+        element={
+          <Suspense>
+            <ViewFormPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path=":viewId"
+        element={
+          <Suspense>
+            <ViewDetailPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path=":viewId/edit"
+        element={
+          <Suspense>
+            <ViewFormPage />
+          </Suspense>
+        }
+      />
+    </Route>
     {/* Legacy /devices/history → /devices/commands */}
     <Route
       path="history"

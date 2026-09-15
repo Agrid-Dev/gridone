@@ -33,6 +33,12 @@ from api.schemas.command_template import (
     CommandTemplateUpdatePayload,
 )
 from api.schemas.pagination import PaginatedResponse, to_paginated_response
+from api.selection_commands import (
+    SelectionCommandConfirm,
+    SelectionCommandPrepare,
+    SelectionCommandPreview,
+    SelectionCommands,
+)
 from api.targets import validate_targets
 from commands import (
     AttributeWrite,
@@ -42,6 +48,7 @@ from commands import (
 from devices_manager import DevicesServiceInterface
 from models.errors import InvalidError
 from models.pagination import Page, PaginationParams
+from models.resource_conflict import ResourceConflictCode, ResourceConflictError
 from models.targets import (
     AttributeTarget,
     DevicesFilter,
@@ -144,6 +151,35 @@ async def list_device_commands(
     return to_paginated_response(page, str(request.url))
 
 
+def get_selection_commands(request: Request) -> SelectionCommands:
+    return request.app.state.selection_commands
+
+
+@router.post(
+    "/commands/preview",
+    dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
+)
+async def preview_selection_command(
+    body: SelectionCommandPrepare,
+    coordinator: SelectionCommands = Depends(get_selection_commands),
+    user_id: str = Depends(get_current_user_id),
+) -> SelectionCommandPreview:
+    return coordinator.prepare(body, user_id)
+
+
+@router.post(
+    "/commands/confirm",
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
+)
+async def confirm_selection_command(
+    body: SelectionCommandConfirm,
+    coordinator: SelectionCommands = Depends(get_selection_commands),
+    user_id: str = Depends(get_current_user_id),
+) -> BatchDispatchResponse:
+    return await coordinator.confirm(body, user_id)
+
+
 # ---------------------------------------------------------------------------
 # Dispatch
 # ---------------------------------------------------------------------------
@@ -161,6 +197,8 @@ async def dispatch_batch_command(
     user_id: str = Depends(get_current_user_id),
 ) -> BatchDispatchResponse:
     target = body.target.to_devices_filter()
+    if bool(target.tags):
+        raise ResourceConflictError(ResourceConflictCode.COMMAND_PREVIEW_REQUIRED, [])
     resolved = await _validated_write_target(
         resolver, devices=target, attribute=body.attribute
     )
@@ -316,9 +354,10 @@ async def dispatch_template(
     commands_svc: CommandsServiceInterface = Depends(get_commands_service),
     user_id: str = Depends(get_current_user_id),
 ) -> BatchDispatchResponse:
-    dispatch = await commands_svc.dispatch_from_template(
-        template_id=template_id, user_id=user_id
-    )
+    template = await commands_svc.get_template(template_id)
+    if bool(template.target.tags):
+        raise ResourceConflictError(ResourceConflictCode.COMMAND_PREVIEW_REQUIRED, [])
+    dispatch = await commands_svc.dispatch_template(template=template, user_id=user_id)
     if not dispatch.commands:
         raise HTTPException(
             status_code=422,

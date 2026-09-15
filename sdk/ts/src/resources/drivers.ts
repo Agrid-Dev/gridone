@@ -67,6 +67,18 @@ export class DriversResource {
     );
   }
 
+  getPresentationAsset(
+    driverId: string,
+    revision: string,
+    assetId: string,
+  ): Promise<Blob> {
+    return this.request(
+      "GET",
+      `/drivers/${encodeURIComponent(driverId)}/presentation/assets/${encodeURIComponent(assetId)}`,
+      { searchParams: { revision }, responseType: "blob" },
+    );
+  }
+
   getPresentation(driverId: string): Promise<PresentationResponse | null> {
     return this.request(
       "GET",

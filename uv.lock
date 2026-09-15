@@ -17,6 +17,7 @@ members = [
     "gridone-automations",
     "gridone-commands",
     "gridone-dashboards",
+    "gridone-device-views",
     "gridone-devices-manager",
     "gridone-migrations",
     "gridone-models",
@@ -862,6 +863,7 @@ dependencies = [
     { name = "gridone-automations" },
     { name = "gridone-commands" },
     { name = "gridone-dashboards" },
+    { name = "gridone-device-views" },
     { name = "gridone-models" },
     { name = "gridone-notifications" },
     { name = "gridone-synoptics" },
@@ -880,6 +882,7 @@ requires-dist = [
     { name = "gridone-automations", editable = "packages/automations" },
     { name = "gridone-commands", editable = "packages/commands" },
     { name = "gridone-dashboards", editable = "packages/dashboards" },
+    { name = "gridone-device-views", editable = "packages/device_views" },
     { name = "gridone-models", editable = "packages/models" },
     { name = "gridone-notifications", editable = "packages/notifications" },
     { name = "gridone-synoptics", editable = "packages/synoptics" },
@@ -992,6 +995,25 @@ requires-dist = [
 ]
 
 [[package]]
+name = "gridone-device-views"
+version = "0.1.0"
+source = { editable = "packages/device_views" }
+dependencies = [
+    { name = "asyncpg" },
+    { name = "gridone-models" },
+    { name = "pydantic" },
+    { name = "yoyo-migrations" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "asyncpg", specifier = ">=0.30.0" },
+    { name = "gridone-models", editable = "packages/models" },
+    { name = "pydantic", specifier = ">=2.0" },
+    { name = "yoyo-migrations", specifier = ">=8.2.0" },
+]
+
+[[package]]
 name = "gridone-devices-manager"
 version = "0.1.0"
 source = { editable = "packages/devices_manager" }
@@ -1046,6 +1068,7 @@ version = "0.1.0"
 source = { editable = "apps/migrations" }
 dependencies = [
     { name = "gridone-assets" },
+    { name = "gridone-device-views" },
     { name = "gridone-devices-manager" },
     { name = "gridone-timeseries" },
     { name = "gridone-users" },
@@ -1056,6 +1079,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "gridone-assets", editable = "packages/assets" },
+    { name = "gridone-device-views", editable = "packages/device_views" },
     { name = "gridone-devices-manager", editable = "packages/devices_manager" },
     { name = "gridone-timeseries", editable = "packages/timeseries" },
     { name = "gridone-users", editable = "packages/users" },

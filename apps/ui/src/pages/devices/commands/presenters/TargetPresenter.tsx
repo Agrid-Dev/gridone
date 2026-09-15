@@ -27,6 +27,7 @@ type SubPresenter = (value: never, ctx: PresenterContext) => ReactNode;
  *  ``commands.targetPresenter.labels.<name>``. Unlisted keys are silently
  *  ignored. */
 const SUB_PRESENTERS: Record<string, SubPresenter> = {
+  driver_id: (id: string) => <Badge variant="outline">{id}</Badge>,
   ids: (ids: string[], { t }) => (
     <Badge variant="outline">
       {t("commands.targetPresenter.deviceCount", { count: ids.length })}
@@ -58,6 +59,7 @@ const SUB_PRESENTERS: Record<string, SubPresenter> = {
 
 /** i18n label names stay camelCase while the wire keys are snake_case. */
 const LABEL_KEYS: Record<string, string> = {
+  driver_id: "driverId",
   ids: "ids",
   asset_id: "assetId",
   types: "types",
@@ -70,9 +72,13 @@ const LABEL_KEYS: Record<string, string> = {
 function normalizeTarget(target: DevicesFilter): Record<string, unknown> {
   const assetId = assetIdOf(target);
   const residualTags = Object.fromEntries(
-    Object.entries(target.tags ?? {}).filter(([key]) => key !== "asset_id"),
+    Object.entries(target.tags ?? {}).filter(
+      ([key, values]) =>
+        key !== "asset_id" || values.length !== 1 || values[0] !== assetId,
+    ),
   );
   return {
+    driver_id: target.driver_id,
     ids: target.ids,
     asset_id: assetId,
     types: target.types,

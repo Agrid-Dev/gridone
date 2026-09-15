@@ -33,7 +33,9 @@ from api.routes import (
 )
 from api.routes import websocket as websocket_routes
 from api.routes.apps import apps_registration_router, apps_router
+from api.routes.device_views_router import router as device_views_router
 from api.routes.users import auth_router, users_router
+from api.selection_commands import SelectionCommands
 from api.settings import load_settings
 from api.targets import CompositeTargetResolver
 from api.trigger_providers.change_event import ChangeEventTriggerProvider
@@ -42,6 +44,7 @@ from apps import AppsService
 from assets import AssetsService, BuildingModelsService
 from assets.conversion.ifc import IfcSceneConverter
 from commands import CommandsService, WriteResult
+from device_views import DeviceViewsService
 from devices_manager import DevicesService
 from models.errors import ConfigurationError
 from models.service import Service
@@ -107,6 +110,18 @@ def _build_automations_service(
             NotificationsActionProvider(notifications_service),
         ],
     )
+
+
+async def _start_display_services(
+    app: FastAPI, storage_url: str | None
+) -> list[Service]:
+    views = DeviceViewsService(storage_url)
+    await views.start()
+    app.state.device_views_service = views
+    dashboards = DashboardsService(storage_url)
+    await dashboards.start()
+    app.state.dashboards_service = dashboards
+    return [views, dashboards]
 
 
 # Composition root: only the acceptance suite runs it, and that reports no
@@ -190,6 +205,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:  # pragma: no cover
     )
     await automations_svc.start()
     app.state.automations_service = automations_svc
+    app.state.selection_commands = SelectionCommands(dm, commands_service)
 
     apps_svc = AppsService(settings.storage_url, users_service)
     await apps_svc.start()
@@ -197,9 +213,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:  # pragma: no cover
 
     assets_services = await _start_assets_services(app, settings.storage_url)
 
-    dashboards_service = DashboardsService(settings.storage_url)
-    await dashboards_service.start()
-    app.state.dashboards_service = dashboards_service
+    display_services = await _start_display_services(app, settings.storage_url)
 
     synoptics_service = SynopticsService(
         settings.storage_url, target_resolver=CompositeTargetResolver(dm)
@@ -236,7 +250,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:  # pragma: no cover
                 users_service,
                 apps_svc,
                 *assets_services,
-                dashboards_service,
+                *display_services,
                 synoptics_service,
             ]
         )
@@ -262,6 +276,12 @@ def create_app(*, logging_dict_config: dict | None = None) -> FastAPI:
     # Protected routes — permissions are enforced per endpoint inside each router.
     # A blanket JWT dep is still applied so unauthenticated requests get a 401.
     jwt_dep = [Depends(get_current_user_id)]
+    app.include_router(
+        device_views_router,
+        prefix="/device-views",
+        tags=["device-views"],
+        dependencies=jwt_dep,
+    )
     app.include_router(
         users_router, prefix="/users", tags=["users"], dependencies=jwt_dep
     )

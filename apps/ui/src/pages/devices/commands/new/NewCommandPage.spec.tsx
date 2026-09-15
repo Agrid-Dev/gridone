@@ -22,6 +22,8 @@ const mocks = vi.hoisted(() => ({
   create: vi.fn(),
   dispatch: vi.fn(),
   listCommands: vi.fn(),
+  preview: vi.fn(),
+  confirm: vi.fn(),
 }));
 vi.mock("@/contexts/AuthContext", () => ({ usePermissions: () => () => true }));
 vi.mock("@/contexts/GridoneClientContext", () => ({
@@ -29,6 +31,8 @@ vi.mock("@/contexts/GridoneClientContext", () => ({
     devices: {
       listAttributes: mocks.listAttributes,
       listCommands: mocks.listCommands,
+      previewCommand: mocks.preview,
+      confirmCommand: mocks.confirm,
       commandTemplates: { create: mocks.create, dispatch: mocks.dispatch },
     },
   }),
@@ -132,7 +136,7 @@ function device(
     transport_id: "tr",
     config: {},
     is_faulty: false,
-    tags: { asset_id: "room" },
+    tags: { asset_id: ["room"] },
     attributes: attributes ?? {
       setpoint: {
         name: "setpoint",
@@ -149,6 +153,15 @@ function device(
         current_value: 5,
       },
     },
+  };
+}
+function previewMember(id: string, eligible = true) {
+  return {
+    device_id: id,
+    name: `Device ${id}`,
+    current_value: 21,
+    eligible,
+    reason: eligible ? null : "not_writable",
   };
 }
 function unitCommand(id: string, status = "pending") {
@@ -219,6 +232,14 @@ beforeEach(() => {
   });
   mocks.create.mockResolvedValue({ id: "template" });
   mocks.dispatch.mockResolvedValue({
+    batch_id: "batch",
+    commands: [unitCommand("1"), unitCommand("2")],
+  });
+  mocks.preview.mockResolvedValue({
+    token: "token",
+    members: [previewMember("1"), previewMember("2")],
+  });
+  mocks.confirm.mockResolvedValue({
     batch_id: "batch",
     commands: [unitCommand("1"), unitCommand("2")],
   });
@@ -434,13 +455,19 @@ describe("grouped command page", () => {
     await userEvent.click(screen.getByRole("button", { name: "Dispatch now" }));
     await screen.findByText("Dispatch results");
     await waitFor(() =>
-      expect(mocks.create).toHaveBeenCalledWith(
+      expect(mocks.preview).toHaveBeenCalledWith(
         expect.objectContaining({
+          attribute: "setpoint",
+          value: 23,
           target: { tags: { asset_id: ["building", "room", "empty-room"] } },
-          name: null,
         }),
       ),
     );
+    expect(mocks.confirm).toHaveBeenCalledWith({
+      token: "token",
+      device_ids: ["1", "2"],
+    });
+    expect(mocks.create).not.toHaveBeenCalled();
     expect(await screen.findByText("Success")).toBeVisible();
     expect(await screen.findByText("Failed")).toBeVisible();
     expect(router.state.location.pathname).toBe("/devices/commands/new");
@@ -581,13 +608,17 @@ describe("grouped command page", () => {
         screen.getByRole("button", { name: "Dispatch now" }),
       );
       await waitFor(() =>
-        expect(mocks.create).toHaveBeenCalledWith(
-          expect.objectContaining({
-            target: path.includes("/assets/")
-              ? { tags: { asset_id: ["building", "room", "empty-room"] } }
-              : { ids: ["1"] },
-          }),
-        ),
+        path.includes("/assets/")
+          ? expect(mocks.preview).toHaveBeenCalledWith(
+              expect.objectContaining({
+                target: {
+                  tags: { asset_id: ["building", "room", "empty-room"] },
+                },
+              }),
+            )
+          : expect(mocks.create).toHaveBeenCalledWith(
+              expect.objectContaining({ target: { ids: ["1"] } }),
+            ),
       );
     },
   );

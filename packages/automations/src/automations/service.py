@@ -15,6 +15,7 @@ from automations.models import (
     TriggerContext,
 )
 from automations.storage.factory import build_storage
+from models.action_failure import ActionExecutionError
 from models.errors import (
     NotFoundError,
     SchemaValidationError,
@@ -279,9 +280,13 @@ class AutomationsService(Service):
             msg = f"Automation {automation_id!r} not found"
             raise NotFoundError(msg)
         output_id, status, error = None, ExecutionStatus.SUCCESS, None
+        error_details = None
         try:
             provider = self._action_providers[automation.action.provider_id]
             output_id = await provider.execute(automation.action.params)
+        except ActionExecutionError as exc:
+            status, error = ExecutionStatus.FAILED, "No commands sent to the target"
+            error_details = exc.details
         except Exception:
             logger.exception("Automation %r action failed", automation_id)
             status, error = ExecutionStatus.FAILED, "Action execution failed"
@@ -293,6 +298,7 @@ class AutomationsService(Service):
                 executed_at=datetime.now(UTC),
                 status=status,
                 error=error,
+                error_details=error_details,
                 output_id=output_id,
             )
         )

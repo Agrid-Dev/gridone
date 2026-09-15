@@ -1,3 +1,4 @@
+import { tagValues } from "@/lib/devices";
 import { useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Search, X } from "lucide-react";
@@ -131,7 +132,7 @@ function deviceTagsOf(devices: Device[]): [string, string[]][] {
   devices.forEach((d) => {
     Object.entries(d.tags ?? {}).forEach(([key, value]) => {
       if (!byKey.has(key)) byKey.set(key, new Set());
-      byKey.get(key)!.add(value);
+      value.forEach((item) => byKey.get(key)!.add(item));
     });
   });
   return Array.from(byKey.entries())
@@ -146,8 +147,10 @@ function deviceTagsOf(devices: Device[]): [string, string[]][] {
  *  accepted values — intersection across keys, union of values within a key. */
 function matchesTags(device: Device, tagsFilter: TagsFilter): boolean {
   return Object.entries(tagsFilter).every(([key, values]) => {
-    const tagValue = device.tags?.[key];
-    return tagValue !== undefined && values.includes(tagValue);
+    const tagValue = tagValues(device.tags, key);
+    return (
+      tagValue !== undefined && tagValue.some((value) => values.includes(value))
+    );
   });
 }
 
@@ -270,6 +273,7 @@ function FiltersModeBody({
   // An empty filter matches nothing — "everything" is never an intentional
   // target. The caller's extraDeviceFilter counts as a set criterion.
   const derived = useMemo(() => {
+    if (typesFilter && typesFilter.length === 0) return [];
     if (selectedTypes.size === 0 && !hasTagsFilter && !extraDeviceFilter) {
       return [];
     }
@@ -281,7 +285,14 @@ function FiltersModeBody({
       if (extraDeviceFilter && !extraDeviceFilter(d)) return false;
       return true;
     });
-  }, [devices, selectedTypes, tagsFilter, hasTagsFilter, extraDeviceFilter]);
+  }, [
+    devices,
+    typesFilter,
+    selectedTypes,
+    tagsFilter,
+    hasTagsFilter,
+    extraDeviceFilter,
+  ]);
   const resolved = resolvedByCaller ?? derived;
 
   const toggleType = (dt: string) => {

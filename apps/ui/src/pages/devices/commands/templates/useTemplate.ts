@@ -1,3 +1,4 @@
+import { useGroupCommand } from "../../views/useGroupCommand";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
@@ -10,7 +11,11 @@ import { toast } from "sonner";
 import { type CommandTemplateResponse, type Device } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { serverErrorMessage } from "@/lib/serverErrorMessage";
-import { devicesFilterToListParams, type DevicesFilter } from "@/lib/devices";
+import {
+  devicesFilterToListParams,
+  isTagTarget,
+  type DevicesFilter,
+} from "@/lib/devices";
 import { useAssetTree } from "@/hooks/useAssetTree";
 
 /** Encapsulates everything the template detail page needs: the template
@@ -42,6 +47,8 @@ export function useTemplate(templateId: string) {
     enabled: !!target,
   });
 
+  const groupCommand = useGroupCommand(target);
+
   const execute = useMutation({
     mutationFn: () => client.devices.commandTemplates.dispatch(templateId),
     onSuccess: (result) => {
@@ -69,8 +76,16 @@ export function useTemplate(templateId: string) {
     assetsById,
     resolvedDevices: resolvedDevices.data ?? [],
     isResolving: resolvedDevices.isLoading,
-    execute: () => execute.mutate(),
-    isExecuting: execute.isPending,
+    groupCommand,
+    execute: () =>
+      isTagTarget(target)
+        ? void groupCommand.prepare(
+            template.write.attribute,
+            template.write.value,
+            target,
+          )
+        : execute.mutate(),
+    isExecuting: execute.isPending || groupCommand.busy,
     remove: () => remove.mutate(),
     isRemoving: remove.isPending,
   };

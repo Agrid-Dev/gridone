@@ -121,7 +121,7 @@ const thermostat: Device = {
   id: "thermostat",
   name: "Lobby thermostat",
   type: "thermostat",
-  tags: { asset_id: "lobby" },
+  tags: { asset_id: ["lobby"] },
   attributes: {},
   config: {},
   driver_id: "driver",

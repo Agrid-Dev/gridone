@@ -16,6 +16,7 @@ from models.errors import (
 )
 from models.ids import gen_id
 from models.service import Service
+from models.tags import normalize_tags
 from models.yaml_loader import BoundedYamlError
 
 from .core.device import (
@@ -40,8 +41,10 @@ from .core.presentation.package_install import InvalidPresentationError
 from .core.presentation.revision import get_presentation_revision
 from .core.presentation.validation import check_compatibility, validate_presentation
 from .core.standard_schemas.registry import default_registry
+from .core.tags import TagMutation, TagMutationResult
 from .core.transport_registry import TransportRegistry
 from .core.transports import TransportClient
+from .core.write_preview import DeviceWritePreview, preview_write
 from .dto import (
     AttributePatch,
     Device,
@@ -147,7 +150,9 @@ class DevicesService(Service):
         drivers: dict[str, Driver] | None = None,
         transports: dict[str, TransportClient] | None = None,
         devices: dict[str, CoreDevice] | None = None,
+        mutation_lock: asyncio.Lock | None = None,
     ) -> None:
+        self.mutation_lock = mutation_lock or asyncio.Lock()
         self._package_semaphore = asyncio.Semaphore(1)
         self._storage_url = storage_url
         self._seed_drivers = drivers if drivers is not None else {}
@@ -481,6 +486,12 @@ class DevicesService(Service):
     async def update_device(
         self, device_id: str, device_update: DeviceUpdate
     ) -> Device:
+        async with self.mutation_lock:
+            return await self._update_device(device_id, device_update)
+
+    async def _update_device(
+        self, device_id: str, device_update: DeviceUpdate
+    ) -> Device:
         old_device = self._device_registry.get(device_id)
         # Before any await: stop_sync only reaches the poll tasks and watchdog
         # that start_sync creates *last*, so a sync still in its listener phase
@@ -507,18 +518,62 @@ class DevicesService(Service):
         return device_to_public(device)
 
     async def delete_device(self, device_id: str) -> None:
+        async with self.mutation_lock:
+            await self._delete_device(device_id)
+
+    async def _delete_device(self, device_id: str) -> None:
         device = self._device_registry.get(device_id)
         self._cancel_start_sync(device_id)
         await device.stop_sync()
         await self._device_registry.remove(device_id)
 
-    async def set_device_tag(self, device_id: str, key: str, value: str) -> Device:
-        device = await self._device_registry.set_tag(device_id, key, value)
-        return device_to_public(device)
+    async def set_device_tag(
+        self, device_id: str, key: str, values: list[str]
+    ) -> Device:
+        canonical = normalize_tags({key: values})
+        key, values = next(iter(canonical.items()))
+        async with self.mutation_lock:
+            device = await self._device_registry.set_tag(device_id, key, values)
+            return device_to_public(device)
 
     async def delete_device_tag(self, device_id: str, key: str) -> Device:
-        device = await self._device_registry.delete_tag(device_id, key)
-        return device_to_public(device)
+        return await self.set_device_tag(device_id, key, [])
+
+    async def mutate_device_tags(
+        self, device_ids: list[str], mutation: TagMutation
+    ) -> list[TagMutationResult]:
+        async with self.mutation_lock:
+            return [
+                await self._mutate_device_tags(device_id, mutation)
+                for device_id in dict.fromkeys(device_ids)
+            ]
+
+    async def _mutate_device_tags(
+        self, device_id: str, mutation: TagMutation
+    ) -> TagMutationResult:
+        try:
+            device = self._device_registry.get(device_id)
+        except NotFoundError:
+            return TagMutationResult(
+                device_id=device_id, status="failed", error="not_found"
+            )
+        values = mutation.apply(device.tags)
+        if values == device.tags.get(mutation.key, []):
+            return TagMutationResult(
+                device_id=device_id, status="unchanged", tags=device.tags
+            )
+        try:
+            updated = await self._device_registry.set_tag(
+                device_id, mutation.key, values
+            )
+        except Exception:
+            logger.exception("Failed to persist tags for device %s", device_id)
+            return TagMutationResult(
+                device_id=device_id, status="failed", error="storage_failure"
+            )
+        return TagMutationResult(
+            device_id=device_id, status="changed", tags=updated.tags
+        )
 
     async def read_device(self, device_id: str) -> Device:
         """Force a fresh read of the device's attributes.
@@ -569,6 +624,13 @@ class DevicesService(Service):
 
     def get_attribute_logs(self, device_id: str, attribute_name: str) -> AttributeLogs:
         return self._device_registry.get_attribute_logs(device_id, attribute_name)
+
+    def preview_device_write(
+        self, device_id: str, attribute_name: str, value: AttributeValueType
+    ) -> DeviceWritePreview:
+        return preview_write(
+            self._device_registry.get(device_id), attribute_name, value
+        )
 
     # -- Faults --
 
@@ -873,7 +935,7 @@ class DevicesService(Service):
             if isinstance(status, UnavailablePresentation):
                 raise InvalidPresentationError(status.diagnostics)
         resources = self._storage.presentation_resources
-        async with resources.installation(driver_id):
+        async with self.mutation_lock, resources.installation(driver_id):
             current = deepcopy(self._driver_registry.all.get(driver_id))
             revision = None if current is None else get_presentation_revision(current)
             if expected_revision is not None and expected_revision != revision:
@@ -966,29 +1028,33 @@ class DevicesService(Service):
         return driver_to_public(driver)
 
     async def patch_driver(self, driver_id: str, patch: DriverPatch) -> DriverSpec:
-        driver = await self._driver_registry.patch(
-            driver_id, patch.model_dump(exclude_unset=True)
-        )
-        if "type" in patch.model_fields_set:
-            self._device_registry.update_type_in_devices(
-                driver.type, driver_id=driver_id
+        async with self.mutation_lock:
+            driver = await self._driver_registry.patch(
+                driver_id, patch.model_dump(exclude_unset=True)
             )
-        if self._running:
-            await self._device_registry.restart_devices(driver_id=driver_id)
-        return driver_to_public(driver)
+            if "type" in patch.model_fields_set:
+                self._device_registry.update_type_in_devices(
+                    driver.type, driver_id=driver_id
+                )
+            if self._running:
+                await self._device_registry.restart_devices(driver_id=driver_id)
+            return driver_to_public(driver)
 
     async def create_driver_attribute(
         self,
         driver_id: str,
         attribute: AttributeDriver,
     ) -> AttributeDriver:
-        result = await self._driver_registry.create_driver_attribute(
-            driver_id, attribute
-        )
-        self._device_registry.rebuild_attribute_in_devices(result, driver_id=driver_id)
-        if self._running:
-            await self._device_registry.restart_devices(driver_id=driver_id)
-        return result
+        async with self.mutation_lock:
+            result = await self._driver_registry.create_driver_attribute(
+                driver_id, attribute
+            )
+            self._device_registry.rebuild_attribute_in_devices(
+                result, driver_id=driver_id
+            )
+            if self._running:
+                await self._device_registry.restart_devices(driver_id=driver_id)
+            return result
 
     async def patch_driver_attribute(
         self,
@@ -996,46 +1062,53 @@ class DevicesService(Service):
         attribute_id: str,
         patch: AttributePatch,
     ) -> AttributeDriver:
-        result = await self._driver_registry.patch_driver_attribute(
-            driver_id, attribute_id, patch.model_dump(exclude_unset=True)
-        )
-        self._device_registry.rebuild_attribute_in_devices(result, driver_id=driver_id)
-        if self._running:
-            await self._device_registry.restart_devices(driver_id=driver_id)
-        return result
+        async with self.mutation_lock:
+            result = await self._driver_registry.patch_driver_attribute(
+                driver_id, attribute_id, patch.model_dump(exclude_unset=True)
+            )
+            self._device_registry.rebuild_attribute_in_devices(
+                result, driver_id=driver_id
+            )
+            if self._running:
+                await self._device_registry.restart_devices(driver_id=driver_id)
+            return result
 
     async def delete_driver_attribute(
         self, driver_id: str, attribute_id: str
     ) -> DriverSpec:
-        driver = await self._driver_registry.delete_driver_attribute(
-            driver_id, attribute_id
-        )
-        self._device_registry.delete_attribute_in_devices(
-            attribute_id, driver_id=driver_id
-        )
-        if self._running:
-            await self._device_registry.restart_devices(driver_id=driver_id)
-        return driver_to_public(driver)
+        async with self.mutation_lock:
+            driver = await self._driver_registry.delete_driver_attribute(
+                driver_id, attribute_id
+            )
+            self._device_registry.delete_attribute_in_devices(
+                attribute_id, driver_id=driver_id
+            )
+            if self._running:
+                await self._device_registry.restart_devices(driver_id=driver_id)
+            return driver_to_public(driver)
 
     async def rename_driver_attribute(
         self, driver_id: str, attribute_id: str, new_name: str
     ) -> AttributeDriver:
-        result = await self._driver_registry.rename_driver_attribute(
-            driver_id, attribute_id, new_name
-        )
-        self._device_registry.rename_attribute_in_devices(
-            attribute_id, new_name, driver_id=driver_id
-        )
-        # Attributes bounded on the renamed one carry the new name in their
-        # driver spec now; their runtime projection must follow too.
-        driver = self._driver_registry.get(driver_id)
-        for referencing in attributes_referencing(driver.attributes.values(), new_name):
-            self._device_registry.rebuild_attribute_in_devices(
-                referencing, driver_id=driver_id
+        async with self.mutation_lock:
+            result = await self._driver_registry.rename_driver_attribute(
+                driver_id, attribute_id, new_name
             )
-        if self._running:
-            await self._device_registry.restart_devices(driver_id=driver_id)
-        return result
+            self._device_registry.rename_attribute_in_devices(
+                attribute_id, new_name, driver_id=driver_id
+            )
+            # Attributes bounded on the renamed one carry the new name in their
+            # driver spec now; their runtime projection must follow too.
+            driver = self._driver_registry.get(driver_id)
+            for referencing in attributes_referencing(
+                driver.attributes.values(), new_name
+            ):
+                self._device_registry.rebuild_attribute_in_devices(
+                    referencing, driver_id=driver_id
+                )
+            if self._running:
+                await self._device_registry.restart_devices(driver_id=driver_id)
+            return result
 
     def _assert_driver_not_used(self, driver_id: str) -> None:
         device = next(
@@ -1047,8 +1120,36 @@ class DevicesService(Service):
             raise ConflictError(msg)
 
     async def delete_driver(self, driver_id: str) -> None:
+        async with self.mutation_lock:
+            await self._delete_driver(driver_id)
+
+    async def _delete_driver(self, driver_id: str) -> None:
         async with self._storage.presentation_resources.installation(driver_id):
             self._driver_registry.get(driver_id)
             self._assert_driver_not_used(driver_id)
             await self._driver_registry.remove(driver_id)
             await self._prune_driver_resources(driver_id, set())
+
+    async def get_driver_presentation_asset(
+        self, driver_id: str, revision: str, asset_id: str
+    ) -> StoredResource:
+        """Serve only an asset declared in the current driver presentation."""
+        driver = self._driver_registry.get(driver_id)
+        status = self._driver_registry.presentation_status(driver.id)
+        if get_presentation_revision(driver) != revision:
+            msg = "Presentation revision changed"
+            raise ConflictError(msg)
+        if (
+            not isinstance(status, AvailablePresentation)
+            or asset_id not in status.document.assets
+            or driver.presentation_revision is None
+        ):
+            msg = "Presentation resource is unavailable"
+            raise NotFoundError(msg)
+        resource = await self.get_driver_resource(
+            driver.id, driver.presentation_revision, asset_id
+        )
+        if get_presentation_revision(self._driver_registry.get(driver_id)) != revision:
+            msg = "Presentation revision changed"
+            raise ConflictError(msg)
+        return resource

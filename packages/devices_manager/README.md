@@ -193,3 +193,21 @@ await svc.start()
 ...
 await svc.stop()
 ```
+
+### Device tags and group controls
+
+Tags associate each key with several values, for example
+`{"floor": ["2"], "circuit": ["east", "west"]}`. Tokens are case-insensitive,
+Unicode-normalized and deduplicated. Device filters combine keys with AND and
+values within one key with OR; an empty value filter matches no devices.
+
+Use `set_device_tag` to replace a key's values, `delete_device_tag` to remove it,
+and `mutate_device_tags` to add or remove values across a selection. Bulk changes
+preserve unrelated tags and return an individual result for every device.
+Storage failures leave that device's in-memory tags unchanged.
+
+Saved views and group commands are composed in the API from these tags. The
+devices service exposes `preview_device_write` to check each device's live
+attribute type, write permissions, numeric constraints and presentation blockers
+without sending a command. Structural changes and tag mutations share the
+service's mutation lock with group command execution.

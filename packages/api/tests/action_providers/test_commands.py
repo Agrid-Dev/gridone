@@ -1,17 +1,29 @@
-from unittest.mock import AsyncMock
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from pydantic import ValidationError
 
 from api.action_providers.commands import CommandsActionProvider
 from commands.interface import CommandsServiceInterface
-from commands.models import BatchCommandDispatch
+from commands.models import AttributeWrite, BatchCommandDispatch, CommandTemplate
+from models.errors import InvalidError, NotFoundError
+from models.targets import DevicesFilter
+from models.types import DataType
 
 
 def _commands_service(batch_id: str = "batch-abc") -> AsyncMock:
-    dispatch = BatchCommandDispatch(batch_id=batch_id, commands=[])
+    dispatch = BatchCommandDispatch(batch_id=batch_id, commands=[MagicMock()])
     svc = AsyncMock(spec=CommandsServiceInterface)
-    svc.dispatch_from_template = AsyncMock(return_value=dispatch)
+    svc.get_template.return_value = CommandTemplate(
+        id="tmpl-01",
+        name="Comfort",
+        target=DevicesFilter(ids=["device"]),
+        write=AttributeWrite(attribute="mode", value="auto", data_type=DataType.STRING),
+        created_at=datetime.now(UTC),
+        created_by="operator",
+    )
+    svc.dispatch_template = AsyncMock(return_value=dispatch)
     return svc
 
 
@@ -34,9 +46,32 @@ class TestCommandsActionProvider:
         svc = _commands_service(batch_id="batch-xyz")
         provider = CommandsActionProvider(svc)
         result = await provider.execute({"template_id": "tmpl-01"})
-        svc.dispatch_from_template.assert_awaited_once_with(
-            template_id="tmpl-01",
+        svc.get_template.assert_awaited_once_with("tmpl-01")
+        svc.dispatch_template.assert_awaited_once_with(
+            template=svc.get_template.return_value,
             user_id="system",
             confirm=False,
         )
         assert result == "batch-xyz"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "failure", [None, NotFoundError("missing"), InvalidError("invalid")]
+)
+async def test_empty_or_invalid_group_is_explicit(failure):
+    from models.action_failure import ActionExecutionError
+
+    svc = _commands_service()
+    svc.get_template.return_value.target = DevicesFilter(tags={"loop": ["east"]})
+    svc.dispatch_template.return_value = BatchCommandDispatch(
+        batch_id="empty", commands=[]
+    )
+    svc.dispatch_template.side_effect = failure
+    provider = CommandsActionProvider(svc)
+    with pytest.raises(ActionExecutionError) as error:
+        await provider.execute({"template_id": "tmpl-01"})
+    assert error.value.details.code == (
+        "empty_target" if failure is None else "invalid_target"
+    )
+    assert error.value.details.target.tags == {"loop": ["east"]}

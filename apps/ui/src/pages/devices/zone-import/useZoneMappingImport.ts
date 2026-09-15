@@ -98,7 +98,7 @@ export function useZoneMappingImport() {
         sortedByName(devices).map((device) => [
           device.id,
           device.name,
-          device.tags?.[ASSET_TAG] ?? "",
+          device.tags?.[ASSET_TAG]?.[0] ?? "",
         ]),
         TEMPLATE_FILENAME,
       ),

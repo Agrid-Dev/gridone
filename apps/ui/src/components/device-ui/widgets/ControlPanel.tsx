@@ -10,6 +10,7 @@ import type { WriteState } from "../runtime";
 import { decimalsOf } from "../runtime/controls";
 import { formatNumber } from "./formatters";
 import { NumberSlider } from "./NumberSlider";
+import { ControlValue } from "./ControlValue";
 
 /**
  * Generic controls of a presentation: a toggle, a number stepper or a
@@ -67,6 +68,9 @@ export function ControlRow({
     >
       <div className="min-w-0">
         <p className="text-sm font-medium text-foreground">{label}</p>
+        {state.valueLabel && (
+          <p className="text-xs text-muted-foreground">{state.valueLabel}</p>
+        )}
         <WriteStateIndicator state={state.write} />
       </div>
       <ControlInput id={id} state={state} runtime={runtime} label={label} />
@@ -85,16 +89,42 @@ function ControlInput({
   runtime: DeviceUiRuntime;
   label: string;
 }) {
+  const { t } = useTranslation("devices");
+  if (
+    runtime.chooseValue &&
+    state.spec.kind === "select" &&
+    !state.options.length
+  ) {
+    return (
+      <Button
+        type="button"
+        variant="outline"
+        disabled={!state.writable}
+        onClick={() => runtime.chooseValue?.(id)}
+      >
+        {t("groups.chooseTarget")}
+      </Button>
+    );
+  }
   switch (state.spec.kind) {
-    case "toggle":
+    case "toggle": {
+      // A mixed checkbox has a neutral thumb; activating it asks for an
+      // explicit on/off target instead of treating missing reports as off.
+      const unknown = !!runtime.chooseValue && state.displayed === null;
       return (
         <Switch
           aria-label={label}
+          role={unknown ? "checkbox" : "switch"}
+          aria-checked={unknown ? "mixed" : state.displayed === true}
+          className={cn(unknown && "[&>span]:translate-x-2.5")}
           checked={state.displayed === true}
           disabled={!state.writable}
-          onCheckedChange={(checked) => runtime.setValue(id, checked)}
+          onCheckedChange={(checked) =>
+            unknown ? runtime.chooseValue?.(id) : runtime.setValue(id, checked)
+          }
         />
       );
+    }
     case "number":
       return (
         <NumberStepper id={id} state={state} runtime={runtime} label={label} />
@@ -127,7 +157,7 @@ export function NumberStepper({
   const value =
     typeof state.displayed === "number"
       ? formatNumber(state.displayed, decimals, i18n.language)
-      : t("presentation.unavailable");
+      : (state.valueLabel ?? t("presentation.unavailable"));
   const unit = state.attribute?.unit;
   const { minimum, maximum } = state.constraints;
   return (
@@ -145,8 +175,17 @@ export function NumberStepper({
       </Button>
       <div className="min-w-20 text-center">
         <span className="font-medium tabular-nums text-foreground">
-          {value}
-          {unit && typeof state.displayed === "number" ? ` ${unit}` : ""}
+          <ControlValue
+            id={id}
+            state={state}
+            runtime={runtime}
+            label={label}
+            text={
+              unit && typeof state.displayed === "number"
+                ? `${value} ${unit}`
+                : value
+            }
+          />
         </span>
         {minimum !== null && maximum !== null && (
           <p className="text-[11px] text-muted-foreground">

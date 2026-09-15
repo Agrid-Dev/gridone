@@ -12,6 +12,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import type { CommandTemplateResponse } from "@gridone/sdk";
 import { createI18nMock } from "@/test/i18nMock";
+import type { WizardFormValues } from "@/pages/devices/commands/new/types";
+import { targetFilterToDevicesFilter } from "@/pages/devices/commands/new/resolvers";
 
 vi.mock("react-i18next", () =>
   createI18nMock({
@@ -93,9 +95,19 @@ vi.mock("@/components/forms/resourcePickers/CommandTemplatePicker", () => ({
 vi.mock("@/pages/devices/commands/new/CommandWizard", () => ({
   CommandWizard: ({
     dispatchSubmit,
+    wizard,
   }: {
+    wizard: { values: WizardFormValues };
     dispatchSubmit: { label: string };
-  }) => <div data-testid="wizard">wizard:{dispatchSubmit.label}</div>,
+  }) => (
+    <div data-testid="wizard">
+      wizard:{dispatchSubmit.label}
+      <output data-testid="target-mode">{wizard.values.targetMode}</output>
+      <output data-testid="target-filter">
+        {JSON.stringify(wizard.values.targetFilter)}
+      </output>
+    </div>
+  ),
 }));
 
 import { CommandActionForm } from "./CommandActionForm";
@@ -166,4 +178,32 @@ describe("CommandActionForm", () => {
     );
     expect(screen.queryByTestId("picker")).not.toBeInTheDocument();
   });
+});
+
+it.each([
+  { driver_id: "driver", ids: ["d1"], tags: { floor: ["east"] } },
+  { ids: ["d1"], tags: { floor: ["east"] } },
+  { tags: { asset_id: ["building", "floor"] } },
+  { ids: ["d1"], types: [] },
+])("preserves intersecting criteria when editing target %j", async (target) => {
+  mockedGetTemplate.mockResolvedValue({
+    ...ephemeralTemplate,
+    target,
+  });
+  render(
+    <CommandActionForm
+      initialValue={{
+        provider_id: "command_template",
+        params: { template_id: "t-eph" },
+      }}
+      onChange={() => {}}
+    />,
+    { wrapper },
+  );
+  const output = await screen.findByTestId("target-filter");
+  expect(screen.getByTestId("target-mode")).toHaveTextContent("filters");
+  const roundtrip = targetFilterToDevicesFilter(
+    JSON.parse(output.textContent!),
+  );
+  expect(JSON.parse(JSON.stringify(roundtrip))).toEqual(target);
 });

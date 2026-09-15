@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from models.tags import matches_tags
+
 from .fuzzy_search import fuzzy_match
 
 if TYPE_CHECKING:
@@ -54,9 +56,7 @@ class DeviceFilters:
         )
 
     def _matches_tags(self, device: CoreDevice) -> bool:
-        return self.tags is None or all(
-            device.tags.get(key) in values for key, values in self.tags.items()
-        )
+        return self.tags is None or matches_tags(device.tags, self.tags)
 
     def _matches_is_faulty(self, device: CoreDevice) -> bool:
         return self.is_faulty is None or device.is_faulty == self.is_faulty

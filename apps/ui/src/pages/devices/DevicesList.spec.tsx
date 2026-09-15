@@ -111,7 +111,7 @@ function makeDevice(
   }: {
     type?: string | null;
     attributes?: Record<string, unknown>;
-    tags?: Record<string, string>;
+    tags?: Record<string, string[]>;
   } = {},
 ): Device {
   return {
@@ -325,7 +325,7 @@ describe("DevicesList — table", () => {
       devices: [
         makeDevice("d1", "Chambre 101", {
           type: "thermostat",
-          tags: { asset_id: "a1" },
+          tags: { asset_id: ["a1"] },
           attributes: {
             temperature: attr(20.5),
             temperature_setpoint: attr(21),
@@ -410,7 +410,7 @@ describe("DevicesList — table", () => {
 describe("DevicesList — view toggle", () => {
   const thermostat = makeDevice("d1", "Ch. 201", {
     type: "thermostat",
-    tags: { asset_id: "a1" },
+    tags: { asset_id: ["a1"] },
     attributes: {
       temperature: attr(21.4),
       temperature_setpoint: attr(21),
@@ -469,7 +469,7 @@ describe("DevicesList — cards", () => {
       devices: [
         makeDevice("d1", "Ch. 201", {
           type: "thermostat",
-          tags: { asset_id: "a1" },
+          tags: { asset_id: ["a1"] },
           attributes: {
             temperature: attr(21.4),
             temperature_setpoint: attr(21),

@@ -75,8 +75,8 @@ const roomStates = new Map<string, RoomState>([
 ]);
 
 const devices = [
-  { id: "d1", name: "Thermostat 101", tags: { asset_id: "a1" } },
-  { id: "d2", name: "Thermostat 201", tags: { asset_id: "a2" } },
+  { id: "d1", name: "Thermostat 101", tags: { asset_id: ["a1"] } },
+  { id: "d2", name: "Thermostat 201", tags: { asset_id: ["a2"] } },
   { id: "d9", name: "Compteur général", tags: {} },
 ] as unknown as Device[];
 

@@ -150,16 +150,76 @@ class TestTagMutations:
     @pytest.mark.asyncio
     async def test_set_tag(self, storage: CoreFileStorage):
         await storage.devices.write("dev1", _make_device())
-        await storage.devices.set_tag("dev1", "floor", "3", datetime.now(UTC))
+        await storage.devices.set_tag("dev1", "floor", ["3"], datetime.now(UTC))
 
         result = await storage.devices.read("dev1")
-        assert result.tags["floor"] == "3"
+        assert result.tags["floor"] == ["3"]
 
     @pytest.mark.asyncio
     async def test_delete_tag(self, storage: CoreFileStorage):
         await storage.devices.write("dev1", _make_device())
-        await storage.devices.set_tag("dev1", "floor", "3", datetime.now(UTC))
+        await storage.devices.set_tag("dev1", "floor", ["3"], datetime.now(UTC))
         await storage.devices.delete_tag("dev1", "floor", datetime.now(UTC))
 
         result = await storage.devices.read("dev1")
         assert "floor" not in result.tags
+
+
+@pytest.mark.asyncio
+async def test_legacy_scalar_yaml_upgrades_on_next_write(
+    storage: CoreFileStorage, tmp_path: Path
+):
+    file = tmp_path / "devices" / "legacy.yaml"
+    file.write_text(
+        "id: legacy\nname: Legacy\ndriver_id: d1\ntransport_id: t1\n"
+        "tags:\n  Étage: '2'\n  ecs: east\n",
+        encoding="utf-8",
+    )
+    assert (await storage.devices.read("legacy")).tags == {
+        "étage": ["2"],
+        "ecs": ["east"],
+    }
+    await storage.devices.set_tag("legacy", "ecs", ["east", "west"], datetime.now(UTC))
+    restarted = CoreFileStorage(tmp_path)
+    assert (await restarted.devices.read("legacy")).tags == {
+        "étage": ["2"],
+        "ecs": ["east", "west"],
+    }
+    await restarted.close()
+
+
+@pytest.mark.asyncio
+async def test_partially_upgraded_legacy_tags_survive_restart(tmp_path: Path):
+    folder = tmp_path / "devices"
+    folder.mkdir()
+    for device_id in ("first", "second"):
+        (folder / f"{device_id}.yaml").write_text(
+            f"id: {device_id}\ndriver_id: d1\ntransport_id: t1\ntags:\n  ECS: East\n",
+            encoding="utf-8",
+        )
+
+    storage = CoreFileStorage(tmp_path)
+    await storage.devices.set_tag("first", "floor", ["2"], datetime.now(UTC))
+    await storage.close()
+
+    restarted = CoreFileStorage(tmp_path)
+    assert (await restarted.devices.read("first")).tags == {
+        "ecs": ["east"],
+        "floor": ["2"],
+    }
+    assert (await restarted.devices.read("second")).tags == {"ecs": ["east"]}
+    await restarted.close()
+
+
+@pytest.mark.parametrize("tags", ["ecs: invalid value", "ECS: East\n  ecs: east"])
+def test_yaml_preflight_refuses_invalid_tags_and_collisions_without_writes(
+    tmp_path: Path, tags
+):
+    folder = tmp_path / "devices"
+    folder.mkdir()
+    file = folder / "legacy.yaml"
+    original = f"id: legacy\ndriver_id: d1\ntransport_id: t1\ntags:\n  {tags}\n"
+    file.write_text(original, encoding="utf-8")
+    with pytest.raises(ValueError, match=r"legacy|collision"):
+        CoreFileStorage(tmp_path)
+    assert file.read_text(encoding="utf-8") == original

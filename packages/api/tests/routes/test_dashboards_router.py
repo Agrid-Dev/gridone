@@ -45,12 +45,12 @@ _SUMMARY = DashboardSummary(id="d1", name="Ops", description="d", metadata=_META
 
 _TEXT_CONFIG = {"type": "text", "text": "hi", "color": "#1a2b3c"}
 _CHART_TARGET = {
-    "devices": {"ids": ["dev1"], "types": None, "tags": None},
+    "devices": {"driver_id": None, "ids": ["dev1"], "types": None, "tags": None},
     "attribute": "temperature",
 }
 _CHART_CONFIG = {"type": "chart", "target": _CHART_TARGET}
 _DEVICE_CONTROL_CONFIG = {"type": "device_control", "device_id": "dev1"}
-_KPI_DEVICES = {"ids": ["dev1"], "types": None, "tags": None}
+_KPI_DEVICES = {"driver_id": None, "ids": ["dev1"], "types": None, "tags": None}
 _KPI_ATTRIBUTE = {
     "label": "Temperature",
     "attribute": "temperature",

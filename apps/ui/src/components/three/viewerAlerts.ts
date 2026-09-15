@@ -97,7 +97,7 @@ export function buildViewerAlerts({
   const groups = new Map<string, AlertRoomGroup>();
   let offModelCount = 0;
   for (const [deviceId, deviceFaults] of faultsByDevice) {
-    const assetId = deviceById.get(deviceId)?.tags?.asset_id;
+    const assetId = deviceById.get(deviceId)?.tags?.asset_id?.[0];
     const room = assetId ? rooms.get(assetId) : undefined;
     if (!room) {
       offModelCount += 1;

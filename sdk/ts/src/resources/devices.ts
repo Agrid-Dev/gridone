@@ -1,6 +1,13 @@
 import type { operations } from "../generated/openapi";
 import type { RequestFn } from "../http/httpClient";
 import type {
+  TagFacet,
+  BulkTagRequest,
+  RenameTagRequest,
+  TagMutationResult,
+  SelectionCommandPrepare,
+  SelectionCommandPreview,
+  SelectionCommandConfirm,
   AssetAssignment,
   AssetAssignmentResponse,
   AttributeCoverageResponse,
@@ -36,6 +43,15 @@ export type FaultListParams = NonNullable<
   operations["list_faults_devices_faults__get"]["parameters"]["query"]
 >;
 
+/** Empty arrays disappear from query strings, so preserve the empty selection locally. */
+function hasEmptySelection(params?: DeviceListParams): boolean {
+  return (
+    params?.ids?.length === 0 ||
+    params?.type?.length === 0 ||
+    params?.tags?.length === 0
+  );
+}
+
 /** `client.devices` — CRUD, tags, commands, faults and attribute logs. */
 export class DevicesResource {
   /** Reusable command templates (`/devices/commands/templates/`). */
@@ -43,6 +59,27 @@ export class DevicesResource {
 
   constructor(private readonly request: RequestFn) {
     this.commandTemplates = new CommandTemplatesResource(request);
+  }
+
+  listTags(params?: DeviceListParams): Promise<TagFacet[]> {
+    if (hasEmptySelection(params)) return Promise.resolve([]);
+    return this.request("GET", "/devices/tags", { searchParams: params });
+  }
+  bulkTags(body: BulkTagRequest): Promise<TagMutationResult[]> {
+    return this.request("POST", "/devices/tags/bulk", { body });
+  }
+  renameTag(body: RenameTagRequest): Promise<TagMutationResult[]> {
+    return this.request("POST", "/devices/tags/rename", { body });
+  }
+  previewCommand(
+    body: SelectionCommandPrepare,
+  ): Promise<SelectionCommandPreview> {
+    return this.request("POST", "/devices/commands/preview", { body });
+  }
+  confirmCommand(
+    body: SelectionCommandConfirm,
+  ): Promise<BatchDispatchResponse> {
+    return this.request("POST", "/devices/commands/confirm", { body });
   }
 
   getPresentation(
@@ -69,6 +106,7 @@ export class DevicesResource {
   }
 
   list(params?: DeviceListParams): Promise<Device[]> {
+    if (hasEmptySelection(params)) return Promise.resolve([]);
     return this.request("GET", "/devices/", { searchParams: params });
   }
 
@@ -106,8 +144,8 @@ export class DevicesResource {
     return this.request("DELETE", `/devices/${encodeURIComponent(deviceId)}`);
   }
 
-  setTag(deviceId: string, key: string, value: string): Promise<Device> {
-    const body: TagValueBody = { value };
+  setTag(deviceId: string, key: string, values: string[]): Promise<Device> {
+    const body: TagValueBody = { values };
     return this.request(
       "PUT",
       `/devices/${encodeURIComponent(deviceId)}/tags/${encodeURIComponent(key)}`,

@@ -52,7 +52,7 @@ class PostgresDeviceStorage:
             config=cast("dict", row["config"] or {}),
             driver_id=row["driver_id"],
             transport_id=row["transport_id"],
-            tags={tag_row["key"]: tag_row["value"] for tag_row in tag_rows},
+            tags=_collect_tags(tag_rows),
             attributes=attributes,
             created_at=row["created_at"],
             updated_at=row["updated_at"],
@@ -210,16 +210,20 @@ class PostgresDeviceStorage:
             raise FileNotFoundError(msg)
 
     async def set_tag(
-        self, device_id: str, key: str, value: str, updated_at: datetime
+        self, device_id: str, key: str, values: list[str], updated_at: datetime
     ) -> None:
         async with self._pool.acquire() as conn, conn.transaction():
             await conn.execute(
-                "INSERT INTO dm_device_tags (device_id, key, value) VALUES ($1, $2, $3)"
-                " ON CONFLICT (device_id, key) DO UPDATE SET value = EXCLUDED.value",
+                "DELETE FROM dm_device_tags WHERE device_id = $1 AND key = $2",
                 device_id,
                 key,
-                value,
             )
+            if values:
+                await conn.executemany(
+                    "INSERT INTO dm_device_tags (device_id, key, value) "
+                    "VALUES ($1, $2, $3)",
+                    [(device_id, key, value) for value in values],
+                )
             await conn.execute(
                 "UPDATE dm_devices SET updated_at = $2 WHERE id = $1",
                 device_id,
@@ -258,19 +262,22 @@ async def _fetch_attrs_and_tags(
     return list(attr_rows), list(tag_rows)
 
 
+def _collect_tags(rows: list[asyncpg.Record]) -> dict[str, list[str]]:
+    tags: dict[str, list[str]] = {}
+    for row in rows:
+        tags.setdefault(row["key"], []).append(row["value"])
+    return {key: sorted(values) for key, values in tags.items()}
+
+
 async def _write_tags(
     conn: asyncpg.Connection,
     device_id: str,
-    tags: dict[str, str],
+    tags: dict[str, list[str]],
 ) -> None:
-    if tags:
+    await conn.execute("DELETE FROM dm_device_tags WHERE device_id = $1", device_id)
+    rows = [(device_id, key, value) for key, values in tags.items() for value in values]
+    if rows:
         await conn.executemany(
-            "INSERT INTO dm_device_tags (device_id, key, value) VALUES ($1, $2, $3)"
-            " ON CONFLICT (device_id, key) DO UPDATE SET value = EXCLUDED.value",
-            [(device_id, k, v) for k, v in tags.items()],
+            "INSERT INTO dm_device_tags (device_id, key, value) VALUES ($1, $2, $3)",
+            rows,
         )
-    await conn.execute(
-        "DELETE FROM dm_device_tags WHERE device_id = $1 AND key <> ALL($2::text[])",
-        device_id,
-        list(tags),
-    )

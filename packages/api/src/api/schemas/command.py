@@ -5,10 +5,11 @@ from __future__ import annotations
 from datetime import datetime
 
 from fastapi import Query
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from commands import UnitCommand
 from devices_manager.types import AttributeValueType
+from models.tags import Tag, Tags
 from models.targets import DevicesFilter
 from models.types import SortOrder
 
@@ -81,10 +82,11 @@ class DevicesFilterBody(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    driver_id: str | None = Field(default=None, min_length=1)
     ids: list[str] | None = None
     types: list[str] | None = None
-    tags: dict[str, list[str]] | None = None
-    asset_id: str | None = None
+    tags: Tags | None = None
+    asset_id: Tag | None = None
 
     def to_devices_filter(self) -> DevicesFilter:
         """Canonicalize into the strict filter, folding ``asset_id`` into tags."""
@@ -95,7 +97,9 @@ class DevicesFilterBody(BaseModel):
             if self.asset_id not in values:
                 values.append(self.asset_id)
             tags["asset_id"] = values
-        return DevicesFilter(ids=self.ids, types=self.types, tags=tags)
+        return DevicesFilter(
+            driver_id=self.driver_id, ids=self.ids, types=self.types, tags=tags
+        )
 
 
 class BatchDeviceCommand(BaseModel):

@@ -20,17 +20,34 @@ import { DevicesFilterTabs } from "./DevicesFilterTabs";
 
 afterEach(cleanup);
 
-function device(id: string, tags: Record<string, string> = {}): Device {
+function device(id: string, tags: Record<string, string[]> = {}): Device {
   return { id, name: id, tags } as Device;
 }
 
 const devices: Device[] = [
-  device("d1", { floor: "1", zone: "north" }),
-  device("d2", { floor: "1", zone: "south" }),
-  device("d3", { floor: "2", zone: "north" }),
+  device("d1", { floor: ["1"], zone: ["north"] }),
+  device("d2", { floor: ["1"], zone: ["south"] }),
+  device("d3", { floor: ["2"], zone: ["north"] }),
 ];
 
 describe("DevicesFilterTabs — filters mode tags", () => {
+  it("does not broaden an explicit empty type criterion to its matching tags", () => {
+    render(
+      <DevicesFilterTabs
+        devices={devices}
+        mode="filters"
+        onModeChange={vi.fn()}
+        deviceIds={[]}
+        onDeviceIdsChange={vi.fn()}
+        typesFilter={[]}
+        onTypesFilterChange={vi.fn()}
+        tagsFilter={{ floor: ["1"] }}
+      />,
+    );
+    expect(screen.getByText("0 devices")).toBeInTheDocument();
+    expect(screen.queryByText("d1")).not.toBeInTheDocument();
+  });
+
   it("offers a chip per observed tag value and matches devices by intersection across keys", () => {
     const onTagsFilterChange = vi.fn();
     render(

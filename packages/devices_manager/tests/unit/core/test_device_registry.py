@@ -514,31 +514,31 @@ class TestDeviceRegistryUpdate:
 
     @pytest.mark.asyncio
     async def test_set_tag(self, device_registry, device):
-        result = await device_registry.set_tag(device.id, "asset_id", "floor1")
-        assert result.tags == {"asset_id": "floor1"}
+        result = await device_registry.set_tag(device.id, "asset_id", ["floor1"])
+        assert result.tags == {"asset_id": ["floor1"]}
 
     @pytest.mark.asyncio
     async def test_set_tag_bumps_updated_at(self, device_registry, device):
         original_updated_at = device.updated_at
-        result = await device_registry.set_tag(device.id, "asset_id", "floor1")
+        result = await device_registry.set_tag(device.id, "asset_id", ["floor1"])
         assert result.updated_at > original_updated_at
 
     @pytest.mark.asyncio
     async def test_delete_tag_bumps_updated_at(self, device_registry, device):
-        device.tags = {"asset_id": "floor1"}
+        device.tags = {"asset_id": ["floor1"]}
         original_updated_at = device.updated_at
         result = await device_registry.delete_tag(device.id, "asset_id")
         assert result.updated_at > original_updated_at
 
     @pytest.mark.asyncio
     async def test_set_tag_overwrite(self, device_registry, device):
-        await device_registry.set_tag(device.id, "asset_id", "floor1")
-        result = await device_registry.set_tag(device.id, "asset_id", "floor2")
-        assert result.tags == {"asset_id": "floor2"}
+        await device_registry.set_tag(device.id, "asset_id", ["floor1"])
+        result = await device_registry.set_tag(device.id, "asset_id", ["floor2"])
+        assert result.tags == {"asset_id": ["floor2"]}
 
     @pytest.mark.asyncio
     async def test_delete_tag(self, device_registry, device):
-        device.tags = {"asset_id": "floor1"}
+        device.tags = {"asset_id": ["floor1"]}
         result = await device_registry.delete_tag(device.id, "asset_id")
         assert "asset_id" not in result.tags
 
@@ -559,9 +559,9 @@ class TestDeviceRegistryUpdate:
             on_attribute_update=on_attribute_update,
             storage=storage,
         )
-        await registry.set_tag(device.id, "zone", "north")
+        await registry.set_tag(device.id, "zone", ["north"])
         storage.set_tag.assert_awaited_once_with(
-            device.id, "zone", "north", device.updated_at
+            device.id, "zone", ["north"], device.updated_at
         )
         storage.write.assert_not_awaited()
 
@@ -569,7 +569,7 @@ class TestDeviceRegistryUpdate:
     async def test_delete_tag_calls_storage_delete_tag_not_write(
         self, device, driver, mock_transport_client, on_attribute_update
     ):
-        device.tags = {"zone": "north"}
+        device.tags = {"zone": ["north"]}
         storage = AsyncMock(spec=DeviceStorage)
         registry = DeviceRegistry(
             {device.id: device},
@@ -579,8 +579,8 @@ class TestDeviceRegistryUpdate:
             storage=storage,
         )
         await registry.delete_tag(device.id, "zone")
-        storage.delete_tag.assert_awaited_once_with(
-            device.id, "zone", device.updated_at
+        storage.set_tag.assert_awaited_once_with(
+            device.id, "zone", [], device.updated_at
         )
         storage.write.assert_not_awaited()
 

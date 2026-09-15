@@ -5,6 +5,7 @@ import {
   defaultVisibleAttributes,
   DeviceType,
   isEmptyFilter,
+  isTagTarget,
   standardAttributeNames,
   type DeviceAttribute,
 } from "./devices";
@@ -122,6 +123,10 @@ describe("assetIdOf", () => {
   it("is undefined when the filter has no asset scoping", () => {
     expect(assetIdOf({ types: ["thermostat"] })).toBeUndefined();
   });
+
+  it("keeps several accepted assets from becoming a single-asset scope", () => {
+    expect(assetIdOf({ tags: { asset_id: ["a1", "a2"] } })).toBeUndefined();
+  });
 });
 
 describe("isEmptyFilter", () => {
@@ -147,5 +152,14 @@ describe("isEmptyFilter", () => {
 
   it("is not empty with asset_id", () => {
     expect(isEmptyFilter({ asset_id: "a1" })).toBe(false);
+  });
+});
+
+describe("isTagTarget", () => {
+  it("is true for tag criteria and the asset alias, false for ids and types", () => {
+    expect(isTagTarget({ tags: { floor: ["1"] } })).toBe(true);
+    expect(isTagTarget({ asset_id: "a1" })).toBe(true);
+    expect(isTagTarget({ ids: ["d1"], types: ["thermostat"] })).toBe(false);
+    expect(isTagTarget({ tags: {} })).toBe(false);
   });
 });

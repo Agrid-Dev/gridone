@@ -246,7 +246,7 @@ function BenchPresentation({ device }: { device: Device }) {
   return (
     <DevicePresentation
       document={AGRID_THERMOSTAT_PRESENTATION}
-      device={device}
+      subject={device}
       runtime={runtime}
       assetUrl={(id) => AGRID_THERMOSTAT_ASSETS[id]}
       glyphSet={(id) => AGRID_THERMOSTAT_GLYPH_SETS[id]}

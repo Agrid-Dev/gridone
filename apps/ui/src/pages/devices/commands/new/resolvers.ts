@@ -1,3 +1,4 @@
+import { tagValues } from "@/lib/devices";
 import type { Device } from "@gridone/sdk";
 import type { AssetTreeNode } from "@/lib/assets";
 import {
@@ -41,24 +42,28 @@ export function deviceMatchesFilter(
   device: Device,
   filter: DevicesFilter,
 ): boolean {
+  if (filter.driver_id && filter.driver_id !== device.driver_id) return false;
   if (filter.ids && !filter.ids.includes(device.id)) {
     return false;
   }
-  if (filter.types && filter.types.length > 0) {
+  if (filter.types) {
     if (!device.type || !filter.types.includes(device.type)) {
       return false;
     }
   }
-  if (filter.asset_id && device.tags?.["asset_id"] !== filter.asset_id) {
-    return false;
-  }
   if (
     filter.tags &&
     !Object.entries(filter.tags).every(([key, values]) =>
-      values.includes(device.tags?.[key] ?? ""),
+      tagValues(device.tags, key).some((value) => values.includes(value)),
     )
   )
     return false;
+  if (
+    filter.asset_id &&
+    !device.tags?.["asset_id"]?.includes(filter.asset_id)
+  ) {
+    return false;
+  }
   return true;
 }
 
@@ -80,6 +85,9 @@ export function targetFilterToDevicesFilter(
 ): DevicesFilter {
   return {
     types: filter?.types,
+    ...(filter?.driverId ? { driver_id: filter.driverId } : {}),
+    ...(filter?.ids ? { ids: filter.ids } : {}),
+    ...(filter?.tags ? { tags: filter.tags } : {}),
     asset_id: filter?.assetId,
   };
 }

@@ -6,6 +6,7 @@ import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
+from commands.failures import command_failure
 from commands.filters import CommandsQueryFilters
 from commands.models import (
     BatchCommandDispatch,
@@ -20,7 +21,7 @@ from models.errors import InvalidError, NotFoundError
 from models.ids import gen_id
 from models.pagination import Page, PaginationParams
 from models.service import Service
-from models.targets import AttributeTarget, DevicesFilter
+from models.targets import AttributeTarget, DevicesFilter, EmptyTargetError
 from models.types import SortOrder
 
 if TYPE_CHECKING:
@@ -217,7 +218,7 @@ class CommandsService(Service):
             CommandTemplateCreate(target=target, write=write, name=None),
             user_id,
         )
-        return await self._dispatch_template(
+        return await self.dispatch_template(
             template=ephemeral, user_id=user_id, confirm=confirm
         )
 
@@ -227,25 +228,27 @@ class CommandsService(Service):
         """Resolve a template by id and fan-out the write across matched
         devices. Works for both named templates (the user-driven flow) and
         ephemeral ones (e.g. the inline command an automation references).
-        Raises :class:`NotFoundError` only when the row is missing.
+        Raises ``NotFoundError`` for a missing template and ``InvalidError``
+        if a dynamic target has become incompatible with the saved write.
         """
         template = await self.get_template(template_id)
-        return await self._dispatch_template(
+        return await self.dispatch_template(
             template=template, user_id=user_id, confirm=confirm
         )
 
-    async def _dispatch_template(
-        self, *, template: CommandTemplate, user_id: str, confirm: bool
+    async def dispatch_template(
+        self, *, template: CommandTemplate, user_id: str, confirm: bool = True
     ) -> BatchCommandDispatch:
         """Resolve the template's target, persist PENDING unit commands, and
         spawn the per-device writes in the background. Shared by
         :meth:`dispatch_batch` (ephemeral path) and
-        :meth:`dispatch_from_template` (saved-template path).
+        :meth:`dispatch_from_template` (saved-template path). Callers that
+        validate a stored template first can pass that exact snapshot without
+        re-fetching a potentially edited target or write.
 
-        An empty or unresolvable target logs a warning and returns a dispatch
-        with an empty ``commands`` list — no exception, no PENDING rows
-        created. The ``batch_id`` is still generated so the dispatch attempt
-        is observable.
+        An empty target logs a warning and returns a dispatch with no commands.
+        Incompatible dynamic targets raise ``InvalidError`` before any command
+        is queued.
         """
         batch_id = gen_id()
         device_ids = await self._resolve_template_devices(template)
@@ -285,11 +288,10 @@ class CommandsService(Service):
     async def _resolve_template_devices(self, template: CommandTemplate) -> list[str]:
         """Resolve the template's stored target to writable device ids.
 
-        Never raises: the device set drifts after a template is saved, so an
-        unresolvable target (no writable coverage, conflicting data types)
-        degrades to an empty set and the dispatch takes the observable
-        empty-batch path. Devices matching the filter but not exposing the
-        attribute as writable are excluded up front and logged.
+        Empty filters return no recipients. Incompatible tag/driver targets
+        raise InvalidError so automations report invalid_target separately.
+        Legacy non-tag targets retain their empty-batch fallback. Devices that
+        do not expose the attribute as writable are reported and excluded.
         """
         try:
             resolved = await self._target_resolver.resolve(
@@ -299,9 +301,16 @@ class CommandsService(Service):
                 ),
                 writable=True,
             )
+        except EmptyTargetError:
+            return []
         except InvalidError as e:
+            if template.target.tags or template.target.driver_id:
+                raise
             logger.warning("dispatch: template %r unresolvable: %s", template.id, e)
             return []
+        if resolved.data_type != template.write.data_type:
+            msg = "Target attribute type changed since the command was saved"
+            raise InvalidError(msg)
         if resolved.excluded_device_ids:
             logger.warning(
                 "dispatch: template %r excluded devices %s (attribute %r not writable)",
@@ -360,7 +369,7 @@ class CommandsService(Service):
                 await self._storage.update_command_status(
                     command.id,
                     CommandStatus.ERROR,
-                    status_details=str(exc),
+                    status_details=command_failure(exc),
                     completed_at=datetime.now(UTC),
                 )
             except Exception:

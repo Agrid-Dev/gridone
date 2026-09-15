@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { wizardSchema } from "./types";
 import { useForm } from "react-hook-form";
 import type {
   AttributeCoverage,
@@ -55,6 +57,7 @@ export function useCommandWizard({
 
   const { control, watch, setValue, getValues, trigger } =
     useForm<WizardFormValues>({
+      resolver: zodResolver(wizardSchema),
       mode: "onChange",
       defaultValues: {
         targetMode: "devices",
@@ -71,7 +74,6 @@ export function useCommandWizard({
 
   // -- Derived state --------------------------------------------------------
   const values = watch();
-
   const selectedDevices = useMemo(() => {
     if (isPredefined) {
       return resolveFilter(devices, predefinedTarget!);
@@ -291,10 +293,7 @@ function buildTarget(
     return predefinedTarget;
   }
   if (values.targetMode === "filters") {
-    return {
-      asset_id: values.targetFilter?.assetId,
-      types: values.targetFilter?.types,
-    };
+    return targetFilterToDevicesFilter(values.targetFilter);
   }
   return { ids: selectedDevices.map((d) => d.id) };
 }

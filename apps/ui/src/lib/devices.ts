@@ -13,6 +13,12 @@ import type {
   StandardAttributeSchema,
 } from "@gridone/sdk";
 
+/** Read an opaque tag key safely, including names such as constructor. */
+export function tagValues(tags: Device["tags"], key: string): string[] {
+  const values = tags?.[key];
+  return Array.isArray(values) ? values : [];
+}
+
 /** Value type of one entry in `Device.attributes`. */
 export type DeviceAttribute = NonNullable<Device["attributes"]>[string];
 
@@ -585,7 +591,7 @@ export type DevicesFilter = {
   /** Free-text fuzzy match against the device ``name``. */
   search?: string;
   /** Restrict to devices bound to this driver. */
-  driver_id?: string;
+  driver_id?: string | null;
   /** Restrict to devices bound to this transport. */
   transport_id?: string;
 };
@@ -598,8 +604,16 @@ export function isEmptyFilter(filter: DevicesFilter): boolean {
     !(filter.ids && filter.ids.length > 0) &&
     !(filter.types && filter.types.length > 0) &&
     !(filter.tags && Object.keys(filter.tags).length > 0) &&
-    !filter.asset_id
+    !filter.asset_id &&
+    !filter.driver_id
   );
+}
+
+/** True when the filter selects by tag, including the ``asset_id`` alias the
+ *  API folds into tags. Such a target is a group command: the server refuses
+ *  to dispatch it without a confirmed preview of its recipients. */
+export function isTagTarget(filter: DevicesFilter): boolean {
+  return !!filter.asset_id || Object.keys(filter.tags ?? {}).length > 0;
 }
 
 /** Sentinel group label the tag-groups and group-by aggregate endpoints use
@@ -607,11 +621,11 @@ export function isEmptyFilter(filter: DevicesFilter): boolean {
  *  Not display text: translate it before rendering. */
 export const UNTAGGED_GROUP_LABEL = "__untagged__";
 
-/** Asset scoping of a filter, wherever it is spelled: the ``asset_id``
- *  convenience alias (request bodies) or the canonical ``tags.asset_id``
- *  criterion the backend persists and returns. */
+/** Single-asset scoping of a filter, using its alias or canonical tag.
+ *  Multiple accepted assets remain a tag criterion, not a single-asset scope. */
 export function assetIdOf(filter: DevicesFilter): string | undefined {
-  return filter.asset_id ?? filter.tags?.asset_id?.[0] ?? undefined;
+  const assets = tagValues(filter.tags ?? undefined, "asset_id");
+  return filter.asset_id ?? (assets.length === 1 ? assets[0] : undefined);
 }
 
 /** Map a DevicesFilter onto ``GET /devices`` query params.
@@ -628,13 +642,15 @@ export function devicesFilterToListParams(
     values.map((value) => `${key}:${value}`),
   );
   return {
-    ids: filter.ids ?? undefined,
+    ids: Object.values(filter.tags ?? {}).some((values) => values.length === 0)
+      ? []
+      : (filter.ids ?? undefined),
     type: filter.types ?? undefined,
     tags: tags.length ? tags : undefined,
     is_faulty: filter.is_faulty ?? undefined,
     asset_id: filter.asset_id ?? undefined,
     search: filter.search,
-    driver_id: filter.driver_id,
+    driver_id: filter.driver_id ?? undefined,
     transport_id: filter.transport_id,
   };
 }

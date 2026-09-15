@@ -32,6 +32,18 @@ async def test_build_storage_yaml_unwritable_path_raises(tmp_path: Path):
         await build_storage(f"yaml:{blocker}/db")
 
 
+@pytest.mark.parametrize("tags", ["null", "{ecs: invalid value}"])
+async def test_build_storage_yaml_invalid_legacy_tags_raises(tmp_path: Path, tags):
+    directory = tmp_path / "devices"
+    directory.mkdir()
+    (directory / "device.yaml").write_text(f"tags: {tags}\n", encoding="utf-8")
+
+    with pytest.raises(StorageConnectionError) as error:
+        await build_storage(f"yaml:{tmp_path}")
+
+    assert isinstance(error.value.__cause__, TypeError | ValueError)
+
+
 async def test_build_storage_unsupported_scheme_raises():
     with pytest.raises(UnsupportedStorageError):
         await build_storage("redis://localhost")

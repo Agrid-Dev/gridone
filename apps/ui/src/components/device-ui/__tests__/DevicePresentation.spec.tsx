@@ -39,6 +39,7 @@ vi.mock("react-i18next", () =>
       "presentation.deviation": "Deviation",
       "presentation.withinTolerance": "within tolerance",
       "presentation.outOfTolerance": "out of tolerance",
+      "groups.chooseTarget": "Choose target",
     },
     { language: "en" },
   ),
@@ -244,7 +245,7 @@ function renderPresentation(
   return render(
     <DevicePresentation
       document={document}
-      device={device}
+      subject={device}
       runtime={runtime}
       assetUrl={() => undefined}
       glyphSet={(id) => AGRID_THERMOSTAT_GLYPH_SETS[id]}
@@ -298,7 +299,7 @@ describe("DevicePresentation", () => {
     rerender(
       <DevicePresentation
         document={nested}
-        device={{ ...device }}
+        subject={{ ...device }}
         runtime={runtime}
         assetUrl={() => undefined}
         glyphSet={() => undefined}
@@ -310,7 +311,7 @@ describe("DevicePresentation", () => {
     rerender(
       <DevicePresentation
         document={nested}
-        device={{ ...device, id: "dev-2" }}
+        subject={{ ...device, id: "dev-2" }}
         runtime={runtime}
         assetUrl={() => undefined}
         glyphSet={() => undefined}
@@ -406,6 +407,55 @@ describe("DevicePresentation", () => {
     });
     expect(screen.getByRole("slider")).toBeDisabled();
   });
+
+  it.each(["number", "slider"] as const)(
+    "keeps the %s widget when a group needs an absolute target",
+    (kind) => {
+      const { runtime, setValue } = fakeRuntime({
+        target: {
+          spec: {
+            kind,
+            attribute: "temperature_setpoint",
+            label: { default: "Target" },
+          },
+          displayed: null,
+          valueLabel: "Multiple values",
+          canIncrement: false,
+          canDecrement: false,
+          constraints: { step: 0.5, minimum: null, maximum: 30, unknown: true },
+        },
+      });
+      const choose = vi.fn();
+      runtime.chooseValue = choose;
+      renderPresentation(runtime, {
+        document: {
+          ...document,
+          page: { kind: "control-panel", controls: ["target"] },
+        },
+      });
+      if (kind === "slider") {
+        expect(screen.getByRole("slider")).toBeDisabled();
+        expect(screen.getByRole("slider")).toHaveAttribute(
+          "aria-valuetext",
+          "Multiple values",
+        );
+      } else {
+        expect(
+          screen.getByRole("button", { name: "Increase Target" }),
+        ).toBeDisabled();
+        expect(
+          screen.getByRole("button", { name: "Decrease Target" }),
+        ).toBeDisabled();
+      }
+      const value = screen.getByRole("button", {
+        name: "Choose target: Target",
+      });
+      expect(value).toHaveTextContent("Multiple values");
+      fireEvent.click(value);
+      expect(choose).toHaveBeenCalledWith("target");
+      expect(setValue).not.toHaveBeenCalled();
+    },
+  );
 
   it("renders the page tree with sections, controls, measurements and the attributes slot", () => {
     const { runtime } = fakeRuntime();
@@ -530,7 +580,7 @@ describe("DevicePresentation", () => {
   it("uses driver attribute labels when a measurement has no explicit label", () => {
     const { runtime } = fakeRuntime();
     renderPresentation(runtime, {
-      device: {
+      subject: {
         ...device,
         attributes: {
           ...device.attributes,

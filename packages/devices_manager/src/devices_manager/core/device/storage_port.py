@@ -29,7 +29,7 @@ class DeviceStorage(Protocol):
     async def delete(self, item_id: str) -> None: ...
 
     async def set_tag(
-        self, device_id: str, key: str, value: str, updated_at: datetime
+        self, device_id: str, key: str, values: list[str], updated_at: datetime
     ) -> None: ...
 
     async def delete_tag(

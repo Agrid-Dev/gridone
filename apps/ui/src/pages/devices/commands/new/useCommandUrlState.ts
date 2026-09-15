@@ -55,7 +55,7 @@ export function useCommandUrlState({
   const device = devices.find((item) => item.id === deviceId);
   const scope =
     assetId ??
-    (deviceId ? (device?.tags?.asset_id ?? "all") : undefined) ??
+    (deviceId ? (device?.tags?.asset_id?.[0] ?? "all") : undefined) ??
     params.get("scope") ??
     "all";
   const scopeExists =

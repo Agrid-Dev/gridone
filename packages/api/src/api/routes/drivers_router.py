@@ -247,3 +247,25 @@ async def get_driver_presentation(
     dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
 ) -> PresentationResponse | None:
     return await dm.get_driver_presentation_response(driver_id)
+
+
+@router.get(
+    "/{driver_id}/presentation/assets/{asset_id}",
+    dependencies=[Depends(require_permission(Permission.DRIVERS_READ))],
+    response_class=Response,
+)
+async def get_driver_presentation_asset(
+    driver_id: str,
+    asset_id: str,
+    revision: Annotated[str, Query(min_length=1)],
+    dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
+) -> Response:
+    resource = await dm.get_driver_presentation_asset(driver_id, revision, asset_id)
+    return Response(
+        content=resource.data,
+        media_type=resource.media_type,
+        headers={
+            "X-Content-Type-Options": "nosniff",
+            "Cache-Control": "private, max-age=31536000, immutable",
+        },
+    )

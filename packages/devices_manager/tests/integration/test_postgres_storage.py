@@ -680,11 +680,11 @@ class TestAttributePersistence:
         await driver_storage.write("d1", _make_driver("d1"))
 
         device = _make_device("dev1")
-        device.tags = {"asset_id": "asset-abc", "zone": "north"}
+        device.tags = {"asset_id": ["asset-abc"], "zone": ["north"]}
         await device_storage.write(device.id, device)
 
         result = await device_storage.read(device.id)
-        assert result.tags == {"asset_id": "asset-abc", "zone": "north"}
+        assert result.tags == {"asset_id": ["asset-abc"], "zone": ["north"]}
 
     async def test_tags_overwrite_on_write(
         self,
@@ -696,14 +696,14 @@ class TestAttributePersistence:
         await driver_storage.write("d1", _make_driver("d1"))
 
         device = _make_device("dev1")
-        device.tags = {"asset_id": "old-asset"}
+        device.tags = {"asset_id": ["old-asset"]}
         await device_storage.write(device.id, device)
 
-        device.tags = {"asset_id": "new-asset"}
+        device.tags = {"asset_id": ["new-asset"]}
         await device_storage.write(device.id, device)
 
         result = await device_storage.read(device.id)
-        assert result.tags == {"asset_id": "new-asset"}
+        assert result.tags == {"asset_id": ["new-asset"]}
 
     async def test_tags_removed_keys_deleted_on_write(
         self,
@@ -715,14 +715,14 @@ class TestAttributePersistence:
         await driver_storage.write("d1", _make_driver("d1"))
 
         device = _make_device("dev1")
-        device.tags = {"asset_id": "a1", "zone": "north"}
+        device.tags = {"asset_id": ["a1"], "zone": ["north"]}
         await device_storage.write(device.id, device)
 
-        device.tags = {"asset_id": "a1"}
+        device.tags = {"asset_id": ["a1"]}
         await device_storage.write(device.id, device)
 
         result = await device_storage.read(device.id)
-        assert result.tags == {"asset_id": "a1"}
+        assert result.tags == {"asset_id": ["a1"]}
 
     async def test_tags_cleared_on_write_with_empty_tags(
         self,
@@ -734,7 +734,7 @@ class TestAttributePersistence:
         await driver_storage.write("d1", _make_driver("d1"))
 
         device = _make_device("dev1")
-        device.tags = {"asset_id": "a1", "zone": "north"}
+        device.tags = {"asset_id": ["a1"], "zone": ["north"]}
         await device_storage.write(device.id, device)
 
         device.tags = {}
@@ -754,7 +754,7 @@ class TestAttributePersistence:
         await driver_storage.write("d1", _make_driver("d1"))
 
         device = _make_device("dev1")
-        device.tags = {"asset_id": "asset-abc"}
+        device.tags = {"asset_id": ["asset-abc"]}
         await device_storage.write(device.id, device)
         await device_storage.delete("dev1")
 
@@ -773,10 +773,10 @@ class TestAttributePersistence:
         await driver_storage.write("d1", _make_driver("d1"))
         await device_storage.write("dev1", _make_device("dev1"))
 
-        await device_storage.set_tag("dev1", "zone", "north", datetime.now(UTC))
+        await device_storage.set_tag("dev1", "zone", ["north"], datetime.now(UTC))
 
         result = await device_storage.read("dev1")
-        assert result.tags == {"zone": "north"}
+        assert result.tags == {"zone": ["north"]}
 
     async def test_set_tag_upserts_existing_tag(
         self,
@@ -787,13 +787,13 @@ class TestAttributePersistence:
         await transport_storage.write("t1", _make_transport("t1"))
         await driver_storage.write("d1", _make_driver("d1"))
         device = _make_device("dev1")
-        device.tags = {"zone": "north"}
+        device.tags = {"zone": ["north"]}
         await device_storage.write("dev1", device)
 
-        await device_storage.set_tag("dev1", "zone", "south", datetime.now(UTC))
+        await device_storage.set_tag("dev1", "zone", ["south"], datetime.now(UTC))
 
         result = await device_storage.read("dev1")
-        assert result.tags == {"zone": "south"}
+        assert result.tags == {"zone": ["south"]}
 
     async def test_delete_tag_removes_row(
         self,
@@ -804,7 +804,7 @@ class TestAttributePersistence:
         await transport_storage.write("t1", _make_transport("t1"))
         await driver_storage.write("d1", _make_driver("d1"))
         device = _make_device("dev1")
-        device.tags = {"zone": "north"}
+        device.tags = {"zone": ["north"]}
         await device_storage.write("dev1", device)
 
         await device_storage.delete_tag("dev1", "zone", datetime.now(UTC))
@@ -837,11 +837,13 @@ class TestAttributePersistence:
         await driver_storage.write("d1", _make_driver("d1"))
         await device_storage.write("dev1", _make_device("dev1"))
 
-        await device_storage.set_tag("dev1", "asset_id", "asset-xyz", datetime.now(UTC))
+        await device_storage.set_tag(
+            "dev1", "asset_id", ["asset-xyz"], datetime.now(UTC)
+        )
 
         all_devices = await device_storage.read_all()
         dev = next(d for d in all_devices if d.id == "dev1")
-        assert dev.tags == {"asset_id": "asset-xyz"}
+        assert dev.tags == {"asset_id": ["asset-xyz"]}
 
 
 async def test_presentation_resources_and_driver_cas(composed_storage):
@@ -930,3 +932,23 @@ async def test_package_replaces_legacy_driver_without_presentation(
         assert installed.attributes == service.get_driver(original.id).attributes
     finally:
         await service.stop()
+
+
+async def test_multiple_tags_replace_and_delete_without_losing_other_keys(
+    device_storage: PostgresDeviceStorage,
+    driver_storage: PostgresDriverStorage,
+    transport_storage: PostgresTransportStorage,
+):
+    await driver_storage.write("d1", _make_driver())
+    await transport_storage.write("t1", _make_transport())
+    device = _make_device()
+    device.tags = {"ecs": ["east", "west"], "floor": ["2"]}
+    await device_storage.write(device.id, device)
+    assert (await device_storage.read(device.id)).tags == device.tags
+    await device_storage.set_tag(device.id, "ecs", ["north", "west"], datetime.now(UTC))
+    assert (await device_storage.read(device.id)).tags == {
+        "ecs": ["north", "west"],
+        "floor": ["2"],
+    }
+    await device_storage.set_tag(device.id, "ecs", [], datetime.now(UTC))
+    assert (await device_storage.read(device.id)).tags == {"floor": ["2"]}

@@ -1,8 +1,7 @@
 # ruff: noqa: SLF001 - runtime identity is the invariant under test
 import asyncio
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
 from copy import deepcopy
+from typing import Literal
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -49,6 +48,7 @@ async def loaded():
     for name in ("devices", "drivers", "transports"):
         backend = AsyncMock()
         backend.list_all.return_value = []
+        backend.read_all.return_value = []
         setattr(storage, name, backend)
     storage.presentation_resources = MagicMock()
     storage.presentation_resources.write_revision = AsyncMock()
@@ -112,7 +112,8 @@ async def test_missing_device_and_absent_presentation(loaded):
         await service.get_device_presentation("device")
 
 
-async def test_only_declared_assets_are_read_using_resource_pointer(loaded):
+@pytest.mark.parametrize("scope", ["device", "driver"])
+async def test_only_declared_assets_are_read_using_resource_pointer(loaded, scope):
     service, storage, driver = loaded
     driver.presentation = PresentationEnvelope.model_validate(
         driver.presentation.document
@@ -120,17 +121,27 @@ async def test_only_declared_assets_are_read_using_resource_pointer(loaded):
     )
     driver.presentation_revision = "resource-pointer"
     revision = service.get_device("device").presentation_ref.revision
-    resource = await service.get_device_presentation_asset("device", revision, "bezel")
+    get_asset = (
+        service.get_device_presentation_asset
+        if scope == "device"
+        else service.get_driver_presentation_asset
+    )
+    resource_id = "device" if scope == "device" else driver.id
+    resource = await get_asset(resource_id, revision, "bezel")
     assert resource.data == b"PNG data"
     storage.presentation_resources.read.assert_awaited_once_with(
         driver.id, "resource-pointer", "bezel"
     )
     with pytest.raises(NotFoundError):
-        await service.get_device_presentation_asset("device", revision, "undeclared")
+        await get_asset(resource_id, revision, "undeclared")
+    assert storage.presentation_resources.read.await_count == 1
+    with pytest.raises(ConflictError):
+        await get_asset(resource_id, "stale", "bezel")
     assert storage.presentation_resources.read.await_count == 1
 
 
-async def test_revision_changed_during_resource_read_conflicts(loaded):
+@pytest.mark.parametrize("scope", ["device", "driver"])
+async def test_revision_changed_during_resource_read_conflicts(loaded, scope):
     service, storage, driver = loaded
     driver.presentation = PresentationEnvelope.model_validate(
         driver.presentation.document
@@ -144,8 +155,14 @@ async def test_revision_changed_during_resource_read_conflicts(loaded):
         return StoredResource(b"PNG", "image/png", "digest", 10, 10)
 
     storage.presentation_resources.read.side_effect = read
+    get_asset = (
+        service.get_device_presentation_asset
+        if scope == "device"
+        else service.get_driver_presentation_asset
+    )
+    resource_id = "device" if scope == "device" else driver.id
     with pytest.raises(ConflictError):
-        await service.get_device_presentation_asset("device", revision, "bezel")
+        await get_asset(resource_id, revision, "bezel")
 
 
 async def test_install_updates_devices_and_emits_complete_update(loaded):
@@ -218,8 +235,7 @@ async def test_concurrent_installs_keep_sync_handoff_in_revision_order(
     loaded, monkeypatch
 ):
     """An old stop suspended in I/O must not restart after a newer installation."""
-    service, storage, driver = loaded
-    mutex = asyncio.Lock()
+    service, _storage, driver = loaded
     stopped = asyncio.Event()
     release_stop = asyncio.Event()
     second_attempt = asyncio.Event()
@@ -227,14 +243,13 @@ async def test_concurrent_installs_keep_sync_handoff_in_revision_order(
     active_sync = ["original"]
     notifications = []
 
-    @asynccontextmanager
-    async def installation(_driver_id: str) -> AsyncIterator[None]:
-        nonlocal attempts
-        attempts += 1
-        if attempts == 2:
-            second_attempt.set()
-        async with mutex:
-            yield
+    class ObservedMutationLock(asyncio.Lock):
+        async def acquire(self) -> Literal[True]:
+            nonlocal attempts
+            attempts += 1
+            if attempts == 2:
+                second_attempt.set()
+            return await super().acquire()
 
     async def stop(device: CoreDevice) -> None:
         if _presentation_title(device) == "original":
@@ -246,7 +261,7 @@ async def test_concurrent_installs_keep_sync_handoff_in_revision_order(
     async def start(device: CoreDevice, *, sweep_now: bool) -> None:  # noqa: ARG001
         active_sync.append(_presentation_title(device))
 
-    storage.presentation_resources.installation = installation
+    service.mutation_lock = ObservedMutationLock()
     monkeypatch.setattr(CoreDevice, "stop_sync", stop)
     monkeypatch.setattr(CoreDevice, "start_sync", start)
     monkeypatch.setattr(service, "_running", True)

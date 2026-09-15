@@ -35,6 +35,7 @@ export function TargetStep({
   assetTree,
   assetsList,
 }: TargetStepProps) {
+  const { t } = useTranslation("devices");
   const modeCtl = useController({ control, name: "targetMode" });
   const idsCtl = useController({ control, name: "deviceIds" });
   const filterCtl = useController({ control, name: "targetFilter" });
@@ -63,21 +64,51 @@ export function TargetStep({
       onTypesFilterChange={(types) =>
         filterCtl.field.onChange({ ...targetFilter, types })
       }
+      tagsFilter={targetFilter.tags}
+      onTagsFilterChange={(tags) =>
+        filterCtl.field.onChange({ ...targetFilter, tags })
+      }
       extraFilters={
-        <AssetSelect
-          value={assetId ?? null}
-          onChange={(v) =>
-            filterCtl.field.onChange({
-              ...targetFilter,
-              assetId: v ?? undefined,
-            })
-          }
-          assetsList={assetsList}
-          className="w-[240px]"
-        />
+        <>
+          <select
+            aria-label="Driver"
+            className="h-10 rounded-md border bg-background px-3"
+            value={targetFilter.driverId ?? ""}
+            onChange={(e) =>
+              filterCtl.field.onChange({
+                ...targetFilter,
+                driverId: e.target.value || undefined,
+              })
+            }
+          >
+            <option value="">{t("views.allDrivers")}</option>
+            {[...new Set(devices.map((d) => d.driver_id))].sort().map((id) => (
+              <option key={id} value={id}>
+                {id}
+              </option>
+            ))}
+          </select>
+          <AssetSelect
+            value={assetId ?? null}
+            onChange={(v) =>
+              filterCtl.field.onChange({
+                ...targetFilter,
+                assetId: v ?? undefined,
+              })
+            }
+            assetsList={assetsList}
+            className="w-[240px]"
+          />
+        </>
       }
       extraDeviceFilter={
-        assetId ? (d) => d.tags?.["asset_id"] === assetId : undefined
+        assetId || targetFilter.driverId || targetFilter.ids
+          ? (d) =>
+              (!assetId || !!d.tags?.["asset_id"]?.includes(assetId)) &&
+              (!targetFilter.driverId ||
+                d.driver_id === targetFilter.driverId) &&
+              (!targetFilter.ids || targetFilter.ids.includes(d.id))
+          : undefined
       }
       pickerExtraFilters={
         <AssetSelect

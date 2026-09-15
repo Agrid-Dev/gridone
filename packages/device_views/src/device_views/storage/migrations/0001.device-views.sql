@@ -1,0 +1,1 @@
+CREATE TABLE device_views (id TEXT PRIMARY KEY, data JSONB NOT NULL);

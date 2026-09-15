@@ -27,6 +27,7 @@ jobs:
       assets: ${{ steps.filter.outputs.assets }}
       automations: ${{ steps.filter.outputs.automations }}
       commands: ${{ steps.filter.outputs.commands }}
+      device_views: ${{ steps.filter.outputs.device_views }}
       devices_manager: ${{ steps.filter.outputs.devices_manager }}
       notifications: ${{ steps.filter.outputs.notifications }}
       synoptics: ${{ steps.filter.outputs.synoptics }}
@@ -61,6 +62,9 @@ jobs:
             commands:
               - *shared
               - 'packages/commands/**'
+            device_views:
+              - *shared
+              - 'packages/device_views/**'
             devices_manager:
               - *shared
               - 'packages/devices_manager/**'
@@ -147,6 +151,7 @@ jobs:
       needs.changes.outputs.assets == 'true' ||
       needs.changes.outputs.automations == 'true' ||
       needs.changes.outputs.commands == 'true' ||
+      needs.changes.outputs.device_views == 'true' ||
       needs.changes.outputs.devices_manager == 'true' ||
       needs.changes.outputs.notifications == 'true' ||
       needs.changes.outputs.synoptics == 'true' ||
@@ -217,6 +222,7 @@ jobs:
             [ "${{ needs.changes.outputs.assets }}" = "true" ] && paths+=(packages/assets)
             [ "${{ needs.changes.outputs.automations }}" = "true" ] && paths+=(packages/automations)
             [ "${{ needs.changes.outputs.commands }}" = "true" ] && paths+=(packages/commands)
+            [ "${{ needs.changes.outputs.device_views }}" = "true" ] && paths+=(packages/device_views)
             [ "${{ needs.changes.outputs.devices_manager }}" = "true" ] && paths+=(packages/devices_manager)
             [ "${{ needs.changes.outputs.notifications }}" = "true" ] && paths+=(packages/notifications)
             [ "${{ needs.changes.outputs.synoptics }}" = "true" ] && paths+=(packages/synoptics)

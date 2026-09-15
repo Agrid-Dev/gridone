@@ -87,3 +87,73 @@ answers it with HTTP 403, so the client never reaches an open socket.
 The session is bound to the token that opened it: when the access token's `exp`
 passes, the server closes the socket with code 1008 and reason `Token expired`.
 Clients are expected to refresh their token and reconnect.
+
+### Tag groups and shared device views
+
+Device tags are multi-valued: `{ "ecs": ["east", "west"] }`. Keys and values use
+Unicode NFC/casefold normalization. Filter keys combine with AND; values of the
+same key combine with OR. Empty value lists match nothing. Invalid `key:value`
+queries return 422 rather than losing the filter.
+
+`GET /devices/tags` supplies the tag vocabulary and per-value device counts.
+`PUT /devices/{id}/tags/{key}` replaces a key using `{ "values": [...] }` (empty
+removes it). `/devices/tags/bulk` adds/removes values on a filtered selection;
+`/devices/tags/rename` replaces one value across matching devices. Both report
+per-device outcomes and preserve unrelated tags. Zone assignment temporarily
+retains its singleton `asset_id` adapter.
+
+`/device-views` exposes shared display configuration CRUD: name, description,
+filter and ordered `group_by` keys (empty for no subgroups). It stores no device membership. Commands
+never depend on view IDs, and deleting a view has no effect on an automation.
+
+The UI's group editor assigns a stable value under the ordinary `group` tag and
+saves a view using that criterion. Renaming the group changes its display name;
+editing members adds/removes only that value. Deleting a group in the UI removes
+its membership tag before deleting the view, so automations targeting that tag
+then resolve an empty selection. Other memberships and saved criteria are preserved.
+
+Manual tag commands require `POST /devices/commands/preview` with `target`,
+`attribute`, `value` and optional `device_ids`, then
+`POST /devices/commands/confirm` with the token and selected eligible IDs.
+Preparing sends nothing. Confirmation revalidates the frozen members and their
+bindings under the device mutation lock, including the write address, codec, unit,
+driver environment and device transport/configuration. Added members cannot enter
+the batch; removed or incompatible members require another preview. Tokens are user-bound,
+expire in ten minutes and are stored in the serving process. Multiple API workers
+require client affinity; restarting the process requires a fresh preview. A retry returns the
+same batch; an uncertain failed dispatch cannot resend with the same token.
+
+Direct manual tag dispatch, including a tag-based template, returns
+`command_preview_required`. Automations resolve stored tag/driver criteria once
+per execution and report `empty_target` or `invalid_target` separately. Per-device
+command results use the existing history and batch APIs.
+
+Reads use `devices:read`; tag/view mutations and command preparation/confirmation
+use `devices:write`.
+
+### Upgrading scalar device tags
+
+Tags now contain arrays rather than scalar strings. Update API consumers together
+with the server and UI. After normalization, keys and values must contain 1–63
+letters, digits, underscores, dots or hyphens. Normalization collisions and invalid
+tokens must be corrected explicitly before upgrading.
+
+1. Back up and export all devices, command templates, dashboards (including widgets)
+   and synoptics from the previous version. Include all pages of each API response.
+   Combine the exported lists into one JSON object with `devices`,
+   `command_templates`, `dashboards` and `synoptics` keys.
+2. Run `uv run python -m migrations preflight-tags --snapshot export.json` from the
+   repository root. This read-only audit also checks saved filters and grouping
+   keys. Resolve every reported error before migrating.
+3. Stop writes from the previous version, back up the database, then run
+   `uv run python -m migrations apply` with `STORAGE_URL` or `DATABASE_URL` configured.
+   Start the updated API and UI together.
+4. Verify representative tag counts, group creation, a view with two grouping
+   levels, zone assignment and a previewed command on test devices.
+
+The PostgreSQL migration changes tag uniqueness to `(device_id, key, value)` after
+checking legacy data; rollback refuses to discard multiple values. Legacy scalar
+YAML tags remain readable and are written as arrays on the next mutation. Startup
+checks detect normalization collisions across YAML files. Zones continue to use a
+single `asset_id` value during this transition; asset and `usage_type` retirement
+are separate changes.
