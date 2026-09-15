@@ -1,4 +1,10 @@
-import type { AttributeKind, DataType, Device, Severity } from "@gridone/sdk";
+import type {
+  AttributeKind,
+  AttributeWriteState,
+  DataType,
+  Device,
+  Severity,
+} from "@gridone/sdk";
 import type { LocalizedText } from "@/lib/localizedText";
 import {
   deviceAttributes,
@@ -18,6 +24,8 @@ export type AttributeFields = {
   last_updated: string | null;
   last_changed: string | null;
   value_options?: AttributeValue[];
+  write_state?: AttributeWriteState | null;
+  default_value?: AttributeValue | null;
   // Optional presentation metadata a driver may declare on the attribute.
   label?: LocalizedText | null;
   description?: LocalizedText | null;

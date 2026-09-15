@@ -14,6 +14,7 @@ if TYPE_CHECKING:
         UnitCommand,
         UnitCommandCreate,
     )
+    from models.command_rules import WriteEvaluation
 
 
 class CommandsStorage(Protocol):
@@ -32,6 +33,7 @@ class CommandsStorage(Protocol):
         *,
         status_details: str | None = None,
         completed_at: datetime | None = None,
+        validation: WriteEvaluation | None = None,
     ) -> UnitCommand: ...
 
     async def get_commands(

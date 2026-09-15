@@ -28,11 +28,17 @@ export function currentValueFor(
   const attributes = devices
     .map((d) => deviceAttributes(d)[attributeName])
     .filter((attr) => attr && isWritable(attr));
-  const value = attributes[0]?.current_value;
+  const allUnknown = attributes.every((attr) => attr.current_value == null);
+  const value = allUnknown
+    ? attributes[0]?.default_value
+    : attributes[0]?.current_value;
   return (typeof value === "string" ||
     typeof value === "number" ||
     typeof value === "boolean") &&
-    attributes.every((attr) => attr.current_value === value)
+    attributes.every(
+      (attr) =>
+        (allUnknown ? attr.default_value : attr.current_value) === value,
+    )
     ? value
     : undefined;
 }

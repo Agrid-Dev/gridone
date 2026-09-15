@@ -769,5 +769,22 @@
     "chooseDevices": "Select devices",
     "renameHelp": "Rename this value on every device that carries it.",
     "search": "Search devices"
+  },
+  "commandReasons": {
+    "rejected": "Command unavailable",
+    "not_writable": "This attribute is read only",
+    "invalid_value": "Invalid value",
+    "invalid_option": "Choose a declared option",
+    "option_unavailable": "This option is unavailable",
+    "unknown_dependencies": "Waiting for current device data",
+    "constraints": "The value does not satisfy the device limits",
+    "no_available_options": "No option is currently available",
+    "unavailable_mapping": "This value cannot currently be sent",
+    "ambiguous_mapping": "The device table contains ambiguous values",
+    "invalid_mapping_code": "Unknown device code",
+    "invalid_mapping_value": "Invalid value in the device table",
+    "mapping_changed": "The device table changed during confirmation",
+    "evaluation_limit": "The driver evaluation limit was reached",
+    "unknown_attribute": "Unknown attribute"
   }
 }

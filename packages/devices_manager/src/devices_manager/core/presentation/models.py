@@ -447,7 +447,11 @@ FaceLayer = Annotated[
 # --- Page nodes ---------------------------------------------------------------
 
 
-class StackNode(StrictModel):
+class PageVisibility(StrictModel):
+    visible_when: Condition | None = None
+
+
+class StackNode(PageVisibility):
     kind: Literal["stack"]
     children: list["PageNode"]
 
@@ -458,12 +462,12 @@ class ColumnItem(StrictModel):
     content: "PageNode"
 
 
-class ColumnsNode(StrictModel):
+class ColumnsNode(PageVisibility):
     kind: Literal["columns"]
     items: list[ColumnItem]
 
 
-class SectionNode(StrictModel):
+class SectionNode(PageVisibility):
     kind: Literal["section"]
     title: LocalizedText
     description: LocalizedText | None = None
@@ -481,14 +485,14 @@ class SectionNode(StrictModel):
         return self
 
 
-class AttributesNode(StrictModel):
+class AttributesNode(PageVisibility):
     """The generic attribute panes, optionally filtered on an attribute group."""
 
     kind: Literal["attributes"]
     group: AttributeGroup | None = None
 
 
-class ControlPanelNode(StrictModel):
+class ControlPanelNode(PageVisibility):
     kind: Literal["control-panel"]
     controls: list[LocalId]
 
@@ -514,7 +518,7 @@ class MeasurementLayout(StrEnum):
     INLINE = "inline"
 
 
-class MeasurementsNode(StrictModel):
+class MeasurementsNode(PageVisibility):
     kind: Literal["measurements"]
     layout: MeasurementLayout | None = None
     items: list[MeasurementItem]
@@ -568,18 +572,28 @@ class SetpointRow(StrictModel):
     formatter: Formatter | None = None
 
 
-class SetpointTableNode(StrictModel):
+class SetpointTableNode(PageVisibility):
     kind: Literal["setpoint-table"]
     rows: list[SetpointRow]
 
 
-class DeviceFaceNode(StrictModel):
+class DeviceFaceNode(PageVisibility):
     """An exact graphical surface: fixed view box, layers in paint order."""
 
     kind: Literal["device-face"]
     label: LocalizedText
     view_box: Size
     layers: list[FaceLayer]
+
+
+class LayoutVariant(StrictModel):
+    when: Condition
+    content: "PageNode"
+
+
+class VariantNode(PageVisibility):
+    kind: Literal["variant"]
+    variants: Annotated[list[LayoutVariant], Field(min_length=1, max_length=16)]
 
 
 PageNode = Annotated[
@@ -590,13 +604,16 @@ PageNode = Annotated[
     | ControlPanelNode
     | MeasurementsNode
     | SetpointTableNode
-    | DeviceFaceNode,
+    | DeviceFaceNode
+    | VariantNode,
     Field(discriminator="kind"),
 ]
 
 StackNode.model_rebuild()
 ColumnItem.model_rebuild()
 SectionNode.model_rebuild()
+LayoutVariant.model_rebuild()
+VariantNode.model_rebuild()
 
 
 # --- Root ---------------------------------------------------------------------
@@ -642,6 +659,8 @@ class ControlKind(StrEnum):
 
 
 class Control(StrictModel):
+    visible_when: Condition | None = None
+    blocked_when: Condition | None = None
     kind: ControlKind
     binding: LocalId
     label: LocalizedText

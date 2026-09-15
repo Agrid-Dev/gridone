@@ -52,6 +52,11 @@ type Case = [
 
 const CASES: Case[] = [
   [
+    "previewDeviceCommand",
+    (d) => d.previewDeviceCommand("dev1", COMMAND),
+    ["POST", "/devices/dev1/commands/preview", { body: COMMAND }],
+  ],
+  [
     "list",
     (d) => d.list({ type: ["thermostat"], is_faulty: false }),
     [

@@ -164,7 +164,7 @@ export type AttributeLogs = Schemas["AttributeLogs"];
 // may declare (`label`, `description`, `group`, `unit`, `write_constraints`).
 export type LocalizedText = Schemas["LocalizedText"];
 export type AttributeRef = Schemas["AttributeRef"];
-export type WriteConstraints = Schemas["WriteConstraints"];
+export type WriteConstraints = Schemas["WriteConstraints-Output"];
 export type EventType = Schemas["EventType"];
 export type DataType = Schemas["DataType"];
 export type StandardAttributeSchema = Schemas["StandardAttributeSchema"];
@@ -346,3 +346,7 @@ export type SelectionCommandConfirm = Schemas["SelectionCommandConfirm"];
 export type DeviceWritePreview = Schemas["DeviceWritePreview"];
 export type ActionFailure = Schemas["ActionFailure"];
 export type DevicesFilter = Schemas["DevicesFilter"];
+
+export type AttributeWriteState = Schemas["AttributeWriteState"];
+export type WriteReason = Schemas["WriteReason"];
+export type ResolvedOption = Schemas["ResolvedOption"];

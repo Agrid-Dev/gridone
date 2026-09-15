@@ -145,12 +145,17 @@ export function TagGroupControls({
       ) : presentation.loading ? (
         <p role="status">{t("presentation.loading")}</p>
       ) : document &&
+        detail.presentationState &&
         presentation.assets &&
         !presentation.assets.missing.length ? (
         <>
           <DevicePresentation
             document={document}
-            subject={{ id: driverId, attributes }}
+            subject={{
+              id: driverId,
+              attributes,
+              presentation_state: detail.presentationState,
+            }}
             runtime={runtime}
             assetUrl={presentation.assets.assetUrl}
             glyphSet={presentation.assets.glyphSet}

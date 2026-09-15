@@ -130,6 +130,9 @@ class SelectionCommands:
                     "codecs",
                     "unit",
                     "write_constraints",
+                    "write_rules",
+                    "write_options",
+                    "value_mapping",
                 },
             )
             if contract
@@ -219,7 +222,16 @@ class SelectionCommands:
                 raise ResourceConflictError(
                     ResourceConflictCode.COMMAND_PREVIEW_CHANGED, []
                 ) from exc
-            if (binding != item.bindings[device_id]) or not row.eligible:
+            previous = next(
+                member
+                for member in item.preview.members
+                if member.device_id == device_id
+            )
+            if (
+                (binding != item.bindings[device_id])
+                or not row.eligible
+                or row.warnings != previous.warnings
+            ):
                 item.consumed = True
                 raise ResourceConflictError(
                     ResourceConflictCode.COMMAND_PREVIEW_CHANGED, []

@@ -1,3 +1,4 @@
+import { commandReasons } from "@/lib/commandReasons";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { Loader2 } from "lucide-react";
@@ -22,6 +23,20 @@ import {
 } from "./useGroupCommand";
 
 type GroupCommand = ReturnType<typeof useGroupCommand>;
+
+const BUILT_IN_REASONS = [
+  "not_writable",
+  "invalid_value",
+  "constraints",
+  "unknown_attribute",
+  "control_blocked",
+] as const;
+
+/** The catalog key of a preview that reports a code without its reasons. */
+function builtInReason(code: string | null | undefined) {
+  const known = BUILT_IN_REASONS.find((reason) => reason === code);
+  return `groups.reasons.${known ?? "not_writable"}` as const;
+}
 
 export function GroupCommandDialog({
   command,
@@ -277,10 +292,21 @@ function PreparedWrite({
                           target
                         ) : (
                           <span className="font-normal">
-                            {t(
-                              `groups.reasons.${row.reason ?? "not_writable"}`,
-                            )}
+                            {/* A driver authors its own refusals, which the
+                                app catalog cannot name; `reason` alone is the
+                                older, closed set of codes. */}
+                            {row.reasons?.length
+                              ? commandReasons(row.reasons)
+                              : t(builtInReason(row.reason))}
                           </span>
+                        )}
+                        {!!row.warnings?.length && (
+                          <p
+                            role="status"
+                            className="font-normal text-muted-foreground"
+                          >
+                            {commandReasons(row.warnings)}
+                          </p>
                         )}
                       </td>
                     </tr>

@@ -5,7 +5,10 @@ import { usePermissions } from "@/contexts/AuthContext";
 import type { Device, DevicesFilter } from "@gridone/sdk";
 import { controlSpecsOf } from "@/components/device-ui/presentationControls";
 import type { ControlSpec } from "@/components/device-ui/runtime";
-import { aggregateGroupAttributes } from "@/components/group-command/groupAttributes";
+import {
+  aggregateGroupAttributes,
+  aggregatePresentationState,
+} from "@/components/group-command/groupAttributes";
 import { useGroupTarget } from "@/components/group-command/useGroupTarget";
 import { useGroupPresentation } from "./useGroupPresentation";
 
@@ -21,6 +24,10 @@ export function useGroupDetails(
     queryFn: () => client.drivers.get(driverId),
   });
   const presentation = useGroupPresentation(driverId);
+  const presentationState = useMemo(
+    () => aggregatePresentationState(currentMembers),
+    [currentMembers],
+  );
   const attributes = useMemo(
     () =>
       driver.data
@@ -34,7 +41,7 @@ export function useGroupDetails(
   );
   const controls = useMemo<Record<string, ControlSpec>>(
     () =>
-      presentation.document
+      presentation.document && presentationState
         ? controlSpecsOf(presentation.document)
         : Object.fromEntries(
             Object.values(attributes)
@@ -53,7 +60,7 @@ export function useGroupDetails(
                 },
               ]),
           ),
-    [presentation.document, attributes],
+    [presentation.document, presentationState, attributes],
   );
   const canWrite = can("devices:write");
   const target = useGroupTarget(
@@ -61,11 +68,13 @@ export function useGroupDetails(
     attributes,
     controls,
     canWrite && !!currentMembers.length,
+    presentationState,
   );
   return {
     members: { devices: currentMembers },
     driver,
     presentation,
+    presentationState,
     attributes,
     controls,
     canWrite,

@@ -1,8 +1,9 @@
-import { useId } from "react";
+import { moveRadioFocus } from "@/lib/radioNavigation";
 import { useTranslation } from "react-i18next";
 import { Check, Loader2, Minus, Plus } from "lucide-react";
 import { Button, Switch } from "@/components/ui";
 import { attributeValueLabel } from "@/lib/attributeValueLabel";
+import { commandReasons } from "@/lib/commandReasons";
 import { toLabel } from "@/lib/textFormat";
 import { cn } from "@/lib/utils";
 import type { Scalar } from "../conditions";
@@ -36,7 +37,7 @@ export function ControlPanel({
     <div className="divide-y divide-border rounded-lg border">
       {controls.map((id) => {
         const state = runtime.readControl(id);
-        if (!state) return null;
+        if (!state || state.visible === false) return null;
         return (
           <ControlRow
             key={id}
@@ -62,6 +63,7 @@ export function ControlRow({
   runtime: DeviceUiRuntime;
   language: string;
 }) {
+  const { t } = useTranslation();
   const label = localize(state.spec.label, language);
   return (
     <div
@@ -73,7 +75,24 @@ export function ControlRow({
         {state.valueLabel && (
           <p className="text-xs text-muted-foreground">{state.valueLabel}</p>
         )}
+        {state.spec.kind === "select" &&
+          state.reported !== null &&
+          !state.options.includes(state.reported) && (
+            <p className="text-xs text-muted-foreground">
+              {t("common.currentValue")}: {String(state.reported)}
+            </p>
+          )}
         <WriteStateIndicator state={state.write} />
+        {state.reasons?.length ? (
+          <p role="status" className="text-xs text-muted-foreground">
+            {commandReasons(state.reasons, language)}
+          </p>
+        ) : null}
+        {state.attribute?.write_state?.warnings?.length ? (
+          <p className="text-xs text-amber-700">
+            {commandReasons(state.attribute.write_state.warnings, language)}
+          </p>
+        ) : null}
       </div>
       <ControlInput id={id} state={state} runtime={runtime} label={label} />
     </div>
@@ -120,7 +139,12 @@ function ControlInput({
           aria-checked={unknown ? "mixed" : state.displayed === true}
           className={cn(unknown && "[&>span]:translate-x-2.5")}
           checked={state.displayed === true}
-          disabled={!state.writable}
+          disabled={
+            !state.writable ||
+            state.optionStates?.find(
+              (option) => option.value === !(state.displayed === true),
+            )?.available === false
+          }
           onCheckedChange={(checked) =>
             unknown ? runtime.chooseValue?.(id) : runtime.setValue(id, checked)
           }
@@ -224,8 +248,7 @@ function SelectControl({
   runtime: DeviceUiRuntime;
   label: string;
 }) {
-  const name = useId();
-  const { t } = useTranslation("common");
+  const { t, i18n } = useTranslation("common");
   // A standard enum value shows its business label; anything else keeps the
   // wire value prettified. What is sent is always the option itself.
   const optionLabel = (option: Scalar) =>
@@ -235,32 +258,45 @@ function SelectControl({
     <div
       role="radiogroup"
       aria-label={label}
-      className="flex max-w-full flex-wrap rounded-full bg-muted p-1"
+      className="flex max-w-full flex-wrap gap-1 rounded-lg bg-muted p-1"
     >
-      {state.options.map((option) => {
+      {state.options.map((option, index) => {
         const active = option === state.displayed;
+        const resolved = state.optionStates?.find(
+          (item) => item.value === option,
+        );
+        const unavailable = !state.writable || resolved?.available === false;
+        const reason = commandReasons(resolved?.reasons, i18n.language);
+        const reasonId = `${id}-option-${index}-reason`;
         return (
-          <label key={String(option)} className="relative min-w-0">
-            <input
-              type="radio"
-              name={name}
-              checked={active}
-              disabled={!state.writable}
-              aria-label={optionLabel(option)}
-              className="peer sr-only"
-              onChange={() => runtime.setValue(id, option)}
-            />
-            <span
+          <div key={`${typeof option}:${String(option)}`}>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={active}
+              aria-disabled={unavailable}
+              aria-describedby={reason ? reasonId : undefined}
+              onClick={() => {
+                if (!unavailable) runtime.setValue(id, option);
+              }}
+              onKeyDown={moveRadioFocus}
               className={cn(
-                "block rounded-full px-3 py-1.5 text-sm font-medium transition-colors peer-disabled:opacity-50 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-ring",
-                active
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-foreground/80 hover:text-foreground",
+                "rounded-full px-3 py-1.5 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring",
+                unavailable && "opacity-50",
+                active && "bg-background shadow-sm",
               )}
             >
               {optionLabel(option)}
-            </span>
-          </label>
+            </button>
+            {reason && (
+              <p
+                id={reasonId}
+                className="max-w-48 px-2 text-xs text-muted-foreground"
+              >
+                {reason}
+              </p>
+            )}
+          </div>
         );
       })}
     </div>

@@ -24,6 +24,9 @@ const state = vi.hoisted(() => ({
       getPresentation: vi.fn(),
       getPresentationAsset: vi.fn(),
       sendCommand: vi.fn(),
+      previewDeviceCommand: vi
+        .fn()
+        .mockResolvedValue({ eligible: true, reasons: [], warnings: [] }),
       get: vi.fn(),
       list: vi.fn(),
       previewCommand: vi.fn(),
@@ -342,7 +345,9 @@ describe("DeviceLiveControl presentation integration", () => {
       const { rerender } = setup();
       const power = await screen.findByRole("switch", { name: "Power" });
       act(() => power.click());
-      expect(state.client.devices.sendCommand).toHaveBeenCalledTimes(1);
+      await waitFor(() =>
+        expect(state.client.devices.sendCommand).toHaveBeenCalledTimes(1),
+      );
       state.device = device(transition === "removed" ? undefined : "v2");
       state.client.devices.getPresentation.mockResolvedValue({
         status: "unavailable",

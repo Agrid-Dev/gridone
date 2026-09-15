@@ -120,6 +120,10 @@ const members = ["a", "b"].map(
         name: "setpoint",
         data_type: "float",
         current_value: 22,
+        write_state: {
+          status: "ready",
+          constraints: { minimum: 16, maximum: 30, step: 0.5 },
+        },
         read_write_modes: ["read", "write"],
       },
       power: {

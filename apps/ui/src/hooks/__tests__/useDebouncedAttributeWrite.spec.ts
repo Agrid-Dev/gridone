@@ -16,6 +16,9 @@ const { mockSendCommand, mockGetDevice, mockSetQueryData, mockToast } =
 vi.mock("@/contexts/GridoneClientContext", () => ({
   useGridoneClient: () => ({
     devices: {
+      previewDeviceCommand: vi
+        .fn()
+        .mockResolvedValue({ eligible: true, reasons: [], warnings: [] }),
       sendCommand: (...args: unknown[]) => mockSendCommand(...args),
       get: (...args: unknown[]) => mockGetDevice(...args),
     },
@@ -23,7 +26,10 @@ vi.mock("@/contexts/GridoneClientContext", () => ({
 }));
 
 vi.mock("@tanstack/react-query", () => ({
-  useQueryClient: () => ({ setQueryData: mockSetQueryData }),
+  useQueryClient: () => ({
+    setQueryData: mockSetQueryData,
+    getQueryData: () => undefined,
+  }),
 }));
 
 vi.mock("react-i18next", () => ({
@@ -95,6 +101,7 @@ describe("useDebouncedAttributeWrite", () => {
     expect(mockSendCommand).toHaveBeenCalledWith(DEVICE_ID, {
       attribute: "temperature_setpoint",
       value: 22,
+      confirm: true,
     });
   });
 
@@ -115,6 +122,7 @@ describe("useDebouncedAttributeWrite", () => {
     expect(mockSendCommand).toHaveBeenCalledWith(DEVICE_ID, {
       attribute: "temperature_setpoint",
       value: 22,
+      confirm: true,
     });
   });
 
@@ -129,6 +137,7 @@ describe("useDebouncedAttributeWrite", () => {
     expect(mockSendCommand).toHaveBeenCalledWith(DEVICE_ID, {
       attribute: "onoff_state",
       value: true,
+      confirm: true,
     });
   });
 
@@ -152,6 +161,7 @@ describe("useDebouncedAttributeWrite", () => {
     expect(mockSendCommand).toHaveBeenCalledWith(DEVICE_ID, {
       attribute: "onoff_state",
       value: true,
+      confirm: true,
     });
   });
 

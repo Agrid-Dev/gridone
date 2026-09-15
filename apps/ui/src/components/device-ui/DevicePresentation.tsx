@@ -22,6 +22,7 @@ import { PresentationSection } from "./widgets/PresentationSection";
 export type PresentationSubject = {
   id: string;
   attributes?: Record<string, unknown>;
+  presentation_state?: Record<string, boolean>;
 };
 
 export type DevicePresentationProps = {
@@ -156,16 +157,37 @@ export function DevicePresentation({
 function PageNodeView({
   node,
   context,
+  path = "/page",
 }: {
+  path?: string;
   node: PageNode;
   context: PageContext;
 }) {
+  const state = context.subject.presentation_state;
+  if (node.visible_when && state?.[`${path}/visible`] !== true) return null;
   switch (node.kind) {
+    case "variant": {
+      const index = node.variants.findIndex(
+        (_, index) => state?.[`${path}/variants/${index}/selected`] === true,
+      );
+      return index < 0 ? null : (
+        <PageNodeView
+          node={node.variants[index].content}
+          context={context}
+          path={`${path}/variants/${index}/content`}
+        />
+      );
+    }
     case "stack":
       return (
         <div className="space-y-6" data-node="stack">
           {node.children.map((child, index) => (
-            <PageNodeView key={index} node={child} context={context} />
+            <PageNodeView
+              key={index}
+              node={child}
+              context={context}
+              path={`${path}/children/${index}`}
+            />
           ))}
         </div>
       );
@@ -189,7 +211,11 @@ function PageNodeView({
                     "lg:sticky lg:top-[5.5rem] lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto",
                 )}
               >
-                <PageNodeView node={item.content} context={context} />
+                <PageNodeView
+                  node={item.content}
+                  context={context}
+                  path={`${path}/items/${index}/content`}
+                />
               </div>
             </div>
           ))}
@@ -200,7 +226,12 @@ function PageNodeView({
         <PresentationSection node={node} language={context.language}>
           <div className="space-y-6">
             {node.children.map((child, index) => (
-              <PageNodeView key={index} node={child} context={context} />
+              <PageNodeView
+                key={index}
+                node={child}
+                context={context}
+                path={`${path}/children/${index}`}
+              />
             ))}
           </div>
         </PresentationSection>
@@ -255,6 +286,9 @@ function PageNodeView({
       return (
         <DeviceFace
           document={node}
+          interactionEnabled={(index) =>
+            state?.[`${path}/layers/${index}/enabled`] === true
+          }
           resolve={context.displayed}
           assetUrl={context.assetUrl}
           glyphSet={context.glyphSet}

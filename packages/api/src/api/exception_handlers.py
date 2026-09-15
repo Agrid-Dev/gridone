@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 from api.schemas.driver_package import PackageImportErrorResponse
 from apps import AppUnreachableError, InvalidAppSchemaError
 from devices_manager.dto.driver_dto.package_errors import PackageImportError
+from models.command_rules import CommandRejectedError
 from models.errors import (
     BlockedUserError,
     ConfirmationError,
@@ -24,6 +25,8 @@ logger = logging.getLogger(__name__)
 
 def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(ResourceConflictError, resource_conflict_handler)
+
+    app.add_exception_handler(CommandRejectedError, command_rejected_handler)
 
     @app.exception_handler(NotFoundError)
     async def not_found_handler(request: Request, exc: NotFoundError) -> JSONResponse:
@@ -110,5 +113,19 @@ async def resource_conflict_handler(request: Request, exc: Exception) -> JSONRes
                 "code": error.code,
                 "resources": [r.model_dump() for r in error.resources],
             }
+        },
+    )
+
+
+async def command_rejected_handler(request: Request, exc: Exception) -> JSONResponse:
+    rejected = cast("CommandRejectedError", exc)
+    return JSONResponse(
+        status_code=422,
+        content={
+            "detail": "Command rejected",
+            "reasons": [
+                reason.model_dump(mode="json", exclude_none=True)
+                for reason in rejected.reasons
+            ],
         },
     )

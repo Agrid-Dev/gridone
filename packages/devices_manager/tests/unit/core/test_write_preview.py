@@ -1,9 +1,7 @@
 import pytest
 
-from devices_manager.core.device import Attribute
 from devices_manager.core.driver import AttributeRef, WriteConstraints
 from devices_manager.core.write_preview import preview_write
-from devices_manager.types import DataType
 
 
 @pytest.mark.parametrize(
@@ -37,14 +35,21 @@ def test_preview_uses_write_contract_without_changing_values(
 def test_preview_checks_live_per_device_constraints(
     device, value, known_bound, eligible
 ):
-    attribute = device.get_attribute("temperature_setpoint")
-    attribute.write_constraints = WriteConstraints(
+    spec = device.driver.attributes["temperature_setpoint"].model_copy()
+    spec.write_constraints = WriteConstraints(
         minimum=18, maximum=AttributeRef(attribute="temperature"), step=0.5
     )
-    device.get_attribute("temperature").current_value = known_bound
+    device.rebuild_attribute(spec)
+    device._update_attribute(device.get_attribute("temperature"), known_bound)  # noqa: SLF001 -- simulate observations / injected service collaborators
     result = preview_write(device, "temperature_setpoint", value)
     assert result.eligible == eligible
-    assert result.reason == (None if eligible else "constraints")
+    assert result.reason == (
+        None
+        if eligible
+        else "unknown_dependencies"
+        if known_bound is None
+        else "constraints"
+    )
     assert result.constraints is not None
     assert result.constraints.minimum == 18
     assert result.constraints.maximum == known_bound
@@ -54,12 +59,7 @@ def test_preview_checks_live_per_device_constraints(
     )
 
 
-@pytest.mark.parametrize(
-    ("locked", "eligible"), [(True, False), (False, True), (None, False)]
-)
-def test_group_preview_checks_presentation_blockers_on_each_member(
-    device, locked, eligible
-):
+def test_generic_preview_does_not_evaluate_presentation_blockers(device):
     from devices_manager.core.presentation import PresentationEnvelope
 
     device.driver.presentation = PresentationEnvelope.model_validate(
@@ -93,9 +93,6 @@ def test_group_preview_checks_presentation_blockers_on_each_member(
             },
         }
     )
-    device.attributes["state"] = Attribute.create(
-        "state", DataType.BOOL, {"read"}, value=locked
-    )
     result = preview_write(device, "temperature_setpoint", 23)
-    assert result.eligible == eligible
-    assert result.reason == (None if eligible else "control_blocked")
+    assert result.eligible
+    assert result.reason is None

@@ -67,10 +67,13 @@ describe("preview constraints", () => {
     const d = device(21);
     d.attributes = {
       target: {
-        write_constraints: {
-          minimum: { attribute: "min" },
-          maximum: 25,
-          step: 0.5,
+        write_state: {
+          candidate_required: true,
+          constraints: {
+            minimum: 19,
+            maximum: 25,
+            step: 0.5,
+          },
         },
       },
       min: { current_value: 19 },
@@ -90,7 +93,12 @@ describe("preview constraints", () => {
   it("leaves unknown reference bounds to the server", () => {
     const d = device(21);
     d.attributes = {
-      target: { write_constraints: { maximum: { attribute: "missing" } } },
+      target: {
+        write_state: {
+          missing_dependencies: true,
+          constraints: { unknown: ["maximum"] },
+        },
+      },
     };
     expect(constraintWarnings(d, "target", 99)).toEqual({
       dynamic: true,

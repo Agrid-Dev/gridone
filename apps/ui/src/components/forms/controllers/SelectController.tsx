@@ -19,6 +19,7 @@ type SelectOption<V> = {
   value: V;
   label: React.ReactNode;
   disabled?: boolean;
+  reason?: string;
 };
 
 /** Radix Select reserves `""` for "nothing selected" and throws on an item
@@ -91,7 +92,18 @@ export function SelectController<
       invalid={fieldState.invalid}
       label={label}
       required={required}
-      description={description}
+      description={
+        <>
+          {description}
+          {options
+            .filter((option) => option.disabled && option.reason)
+            .map((option) => (
+              <span key={String(option.value)} className="block">
+                {option.label}: {option.reason}
+              </span>
+            ))}
+        </>
+      }
       error={fieldState.error}
       orientation={orientation}
     >
@@ -102,6 +114,7 @@ export function SelectController<
           if (allowEmpty && key === EMPTY_KEY)
             return field.onChange(emptyValue);
           const selected = options.find((o) => String(o.value) === key);
+          if (selected?.disabled) return;
           field.onChange(selected ? selected.value : key);
         }}
         disabled={field.disabled}
