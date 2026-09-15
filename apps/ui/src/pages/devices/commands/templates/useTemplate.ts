@@ -12,7 +12,11 @@ import { toast } from "sonner";
 import { type CommandTemplateResponse, type Device } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { serverErrorMessage } from "@/lib/serverErrorMessage";
-import { devicesFilterToListParams, type DevicesFilter } from "@/lib/devices";
+import {
+  devicesFilterToListParams,
+  isTagTarget,
+  type DevicesFilter,
+} from "@/lib/devices";
 import { useAssetTree } from "@/hooks/useAssetTree";
 
 /** Encapsulates everything the template detail page needs: the template
@@ -81,7 +85,7 @@ export function useTemplate(templateId: string) {
     isResolving: resolvedDevices.isLoading,
     groupCommand,
     execute: () =>
-      target.tags || target.asset_id
+      isTagTarget(target)
         ? void groupCommand.prepare(
             template.write.attribute,
             template.write.value,

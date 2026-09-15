@@ -5,6 +5,7 @@ import {
   defaultVisibleAttributes,
   DeviceType,
   isEmptyFilter,
+  isTagTarget,
   standardAttributeNames,
   type DeviceAttribute,
 } from "./devices";
@@ -147,5 +148,14 @@ describe("isEmptyFilter", () => {
 
   it("is not empty with asset_id", () => {
     expect(isEmptyFilter({ asset_id: "a1" })).toBe(false);
+  });
+});
+
+describe("isTagTarget", () => {
+  it("is true for tag criteria and the asset alias, false for ids and types", () => {
+    expect(isTagTarget({ tags: { floor: ["1"] } })).toBe(true);
+    expect(isTagTarget({ asset_id: "a1" })).toBe(true);
+    expect(isTagTarget({ ids: ["d1"], types: ["thermostat"] })).toBe(false);
+    expect(isTagTarget({ tags: {} })).toBe(false);
   });
 });

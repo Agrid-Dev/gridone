@@ -17,7 +17,7 @@ const device = (value: unknown): Device => ({
   name: "Device",
   driver_id: "driver",
   transport_id: "transport",
-  tags: { asset_id: "room" },
+  tags: { asset_id: ["room"] },
   config: {},
   attributes: { target: { current_value: value, read_write_modes: ["write"] } },
 });

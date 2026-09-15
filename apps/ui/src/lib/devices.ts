@@ -609,6 +609,13 @@ export function isEmptyFilter(filter: DevicesFilter): boolean {
   );
 }
 
+/** True when the filter selects by tag, including the ``asset_id`` alias the
+ *  API folds into tags. Such a target is a group command: the server refuses
+ *  to dispatch it without a confirmed preview of its recipients. */
+export function isTagTarget(filter: DevicesFilter): boolean {
+  return !!filter.asset_id || Object.keys(filter.tags ?? {}).length > 0;
+}
+
 /** Sentinel group label the tag-groups and group-by aggregate endpoints use
  *  for devices without the tag — matches `api.targets.UNTAGGED_GROUP_LABEL`.
  *  Not display text: translate it before rendering. */

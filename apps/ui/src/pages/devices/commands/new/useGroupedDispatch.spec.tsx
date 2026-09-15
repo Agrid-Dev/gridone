@@ -8,12 +8,16 @@ const mocks = vi.hoisted(() => ({
   create: vi.fn(),
   dispatch: vi.fn(),
   listCommands: vi.fn(),
+  preview: vi.fn(),
+  confirm: vi.fn(),
 }));
 vi.mock("@/contexts/GridoneClientContext", () => ({
   useGridoneClient: () => ({
     devices: {
       commandTemplates: { create: mocks.create, dispatch: mocks.dispatch },
       listCommands: mocks.listCommands,
+      previewCommand: mocks.preview,
+      confirmCommand: mocks.confirm,
     },
   }),
 }));
@@ -89,4 +93,69 @@ it("stops polling a batch the server reported as empty", async () => {
   const calls = mocks.listCommands.mock.calls.length;
   await new Promise((resolve) => setTimeout(resolve, 2500));
   expect(mocks.listCommands.mock.calls.length).toBe(calls);
+});
+
+const tagPayload: CommandPayload = {
+  target: { tags: { asset_id: ["building"] } },
+  write: { attribute: "setpoint", value: 21, data_type: "float" },
+};
+
+it("dispatches a tag target from a confirmed preview of its eligible members", async () => {
+  const success = { id: 1, device_id: "1", status: "success" };
+  mocks.preview.mockResolvedValue({
+    token: "token",
+    members: [
+      { device_id: "1", name: "One", current_value: 20, eligible: true },
+      {
+        device_id: "2",
+        name: "Two",
+        current_value: null,
+        eligible: false,
+        reason: "not_writable",
+      },
+    ],
+  });
+  mocks.confirm.mockResolvedValue({ batch_id: "batch", commands: [success] });
+  mocks.listCommands.mockResolvedValue({ items: [success], total_pages: 1 });
+  const { result } = mountDispatch();
+  await act(async () => {
+    await result.current.dispatch(tagPayload, []);
+  });
+  expect(mocks.preview).toHaveBeenCalledWith({
+    attribute: "setpoint",
+    value: 21,
+    target: tagPayload.target,
+  });
+  expect(mocks.confirm).toHaveBeenCalledWith({
+    token: "token",
+    device_ids: ["1"],
+  });
+  expect(mocks.create).not.toHaveBeenCalled();
+  expect(result.current.snapshot?.result?.batch_id).toBe("batch");
+  await waitFor(() =>
+    expect(result.current.commandsByDevice.get("1")?.status).toBe("success"),
+  );
+});
+
+it("reports an empty batch when no previewed member is eligible", async () => {
+  mocks.preview.mockResolvedValue({
+    token: "token",
+    members: [
+      {
+        device_id: "1",
+        name: "One",
+        current_value: null,
+        eligible: false,
+        reason: "not_writable",
+      },
+    ],
+  });
+  const { result } = mountDispatch();
+  await act(async () => {
+    await result.current.dispatch(tagPayload, []);
+  });
+  expect(mocks.confirm).not.toHaveBeenCalled();
+  expect(result.current.snapshot?.empty).toBe(true);
+  expect(result.current.snapshot?.result).toBeUndefined();
+  expect(mocks.listCommands).not.toHaveBeenCalled();
 });
