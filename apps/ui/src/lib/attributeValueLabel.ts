@@ -23,6 +23,7 @@ const HVAC_MODE_LABEL_KEYS = {
   fan: "common.hvacMode.fan",
   dry: "common.hvacMode.dry",
   auto: "common.hvacMode.auto",
+  idle: "common.hvacMode.idle",
   off: "common.hvacMode.off",
   on: "common.hvacMode.on",
   error: "common.hvacMode.error",
