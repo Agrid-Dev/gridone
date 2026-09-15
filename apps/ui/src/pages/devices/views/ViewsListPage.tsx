@@ -63,17 +63,6 @@ export default function ViewsListPage() {
           })}
         </div>
       )}
-      {can("devices:write") && (
-        <details className="text-sm text-muted-foreground">
-          <summary className="cursor-pointer">{t("views.advanced")}</summary>
-          <p className="mt-3">
-            {t("groups.advancedHint")}{" "}
-            <Link className="underline" to="/devices/views/new?advanced=1">
-              {t("views.createAdvanced")}
-            </Link>
-          </p>
-        </details>
-      )}
     </section>
   );
 }

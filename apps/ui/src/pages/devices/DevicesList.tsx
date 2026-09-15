@@ -93,11 +93,11 @@ export default function DevicesList() {
       />
 
       <DevicesTabs />
-      {can("devices:write") && (
+      {/* {can("devices:write") && (
         <Button asChild variant="outline">
           <Link to="/devices/tags/edit">{t("views.editTags")}</Link>
         </Button>
-      )}
+      )} */}
       {!summaryLoading && (
         <div className="text-sm text-muted-foreground">
           <DevicesSummary total={total} counts={connectionCounts} />
