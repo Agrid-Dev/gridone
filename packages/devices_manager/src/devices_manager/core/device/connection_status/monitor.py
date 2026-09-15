@@ -53,18 +53,21 @@ def _attribute_status(
 ) -> ConnectionStatus:
     """Judge an attribute by the loss of its worse reachability log.
 
+    The loss is the share of failures among the last ``LOG_SIZE`` outcomes,
+    always over the whole window: outcomes not recorded yet (after a restart)
+    are unknown, not failures. So a first miss is one failure in ten rather
+    than a 100 % loss, and the tolerance means the same from the first
+    outcome. Only a full window of failures is an error, whatever the
+    tolerance.
+
     Read and listen logs are not pooled: a failed poll adds a read error but
     no listen entry, so pooling would dilute the read loss with unrelated
-    listen successes. Total loss is an error whatever the tolerance.
+    listen successes.
     """
-    read, listen = logs[EventType.READ], logs[EventType.LISTEN]
-    loss = max(
-        read.errors / len(read.entries) if read.entries else 0.0,
-        listen.errors / len(listen.entries) if listen.entries else 0.0,
-    )
-    if loss == 1:
+    errors = max(logs[EventType.READ].errors, logs[EventType.LISTEN].errors)
+    if errors == LOG_SIZE:
         return ConnectionStatus.ERROR
-    if loss > max_attribute_loss:
+    if errors / LOG_SIZE > max_attribute_loss:
         return ConnectionStatus.DEGRADED
     return ConnectionStatus.OK
 
@@ -75,14 +78,14 @@ class ConnectionMonitor:
 
     Every read, write and listen outcome is kept in a bounded per-attribute
     log. Reads and listens also give their attribute a status from the share
-    of failures in its worse log (its loss); the monitor only counts
-    attributes per status, so recording costs O(1) whatever the attribute
-    count:
+    of failures among the last ``LOG_SIZE`` outcomes of its worse log (its
+    loss); the monitor only counts attributes per status, so recording costs
+    O(1) whatever the attribute count:
 
     - ``idle``: no read or listen outcome yet
-    - ``error``: every attribute with outcomes is at total loss
+    - ``error``: every attribute with outcomes failed a full window in a row
     - ``degraded``: at least one attribute loses more than
-      ``max_attribute_loss``, or all of its outcomes
+      ``max_attribute_loss``, or is in error
     - ``ok``: every attribute is within tolerance
 
     With a ``silence_interval``, ``watch`` starts silence detection: after 2

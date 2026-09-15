@@ -12,6 +12,7 @@ import pytest
 from devices_manager.core.codecs.factory import CodecSpec
 from devices_manager.core.device import CoreDevice, DeviceBase
 from devices_manager.core.device.attribute import AttributeKind
+from devices_manager.core.device.connection_status.monitor import LOG_SIZE
 from devices_manager.core.device.connection_status_attribute import (
     CONNECTION_STATUS_ATTR,
 )
@@ -83,10 +84,20 @@ class TestConnectionStatusRecompute:
         self, device: CoreDevice, mock_transport_client
     ) -> None:
         mock_transport_client.read = AsyncMock(side_effect=OSError("timeout"))
+        for _ in range(LOG_SIZE):
+            with pytest.raises(OSError, match="timeout"):
+                await device.read_attribute_value("temperature")
+        cs = device.attributes[CONNECTION_STATUS_ATTR]
+        assert cs.current_value == ConnectionStatus.ERROR
+
+    async def test_first_failed_read_is_not_yet_an_error(
+        self, device: CoreDevice, mock_transport_client
+    ) -> None:
+        mock_transport_client.read = AsyncMock(side_effect=OSError("timeout"))
         with pytest.raises(OSError, match="timeout"):
             await device.read_attribute_value("temperature")
         cs = device.attributes[CONNECTION_STATUS_ATTR]
-        assert cs.current_value == ConnectionStatus.ERROR
+        assert cs.current_value == ConnectionStatus.DEGRADED
 
     async def test_read_of_absent_field_still_errors(
         self, device: CoreDevice, mock_transport_client
@@ -95,8 +106,8 @@ class TestConnectionStatusRecompute:
         mock_transport_client.read = AsyncMock(return_value={"data": {}})
         with pytest.raises(KeyError):
             await device.read_attribute_value("temperature_w_adapter")
-        cs = device.attributes[CONNECTION_STATUS_ATTR]
-        assert cs.current_value == ConnectionStatus.ERROR
+        read_log = device.connection_monitor.logs("temperature_w_adapter").read
+        assert [e.status for e in read_log] == ["error"]
 
     async def test_transitions_to_degraded_on_mixed_results(
         self, device: CoreDevice, mock_transport_client
