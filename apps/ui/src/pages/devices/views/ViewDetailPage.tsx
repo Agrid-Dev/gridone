@@ -152,6 +152,7 @@ function ViewDetails({ id }: { id: string }) {
           {detail.driverIds.map((driverId) => (
             <div key={driverId} className="rounded-xl border bg-card p-5">
               <TagGroupControls
+                key={JSON.stringify(detail.filter)}
                 driverId={driverId}
                 filter={{ ...detail.filter, driver_id: driverId }}
                 devices={detail.devices.filter((d) => d.driver_id === driverId)}

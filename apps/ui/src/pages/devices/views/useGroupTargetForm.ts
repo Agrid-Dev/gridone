@@ -7,7 +7,8 @@ import type { GroupAttribute } from "./groupAttributes";
 
 export function useGroupTargetForm(
   attribute: GroupAttribute,
-  onPrepare: (value: Scalar) => void,
+  onStage: (value: Scalar) => void,
+  initialValue?: Scalar | null,
 ) {
   const { t } = useTranslation("devices");
   const options =
@@ -31,7 +32,7 @@ export function useGroupTargetForm(
   });
   const form = useForm<{ value: string }>({
     resolver: zodResolver(schema),
-    defaultValues: { value: "" },
+    defaultValues: { value: initialValue == null ? "" : String(initialValue) },
   });
   const submit = form.handleSubmit(({ value }) => {
     const target = options.length
@@ -39,7 +40,7 @@ export function useGroupTargetForm(
       : attribute.data_type === "int" || attribute.data_type === "float"
         ? Number(value)
         : value;
-    onPrepare(target);
+    onStage(target);
   });
   return { options, form, submit };
 }

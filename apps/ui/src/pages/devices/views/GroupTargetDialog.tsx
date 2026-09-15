@@ -18,17 +18,23 @@ import { localize } from "@/lib/localizedText";
 export function GroupTargetDialog({
   attribute,
   onCancel,
-  onPrepare,
+  onStage,
+  initialValue,
 }: {
   attribute: GroupAttribute;
   onCancel: () => void;
-  onPrepare: (value: Scalar) => void;
+  onStage: (value: Scalar) => void;
+  initialValue?: Scalar | null;
 }) {
   const { t, i18n } = useTranslation("devices");
   const label = attribute.label
     ? localize(attribute.label, i18n.language)
     : attribute.name;
-  const { options, form, submit } = useGroupTargetForm(attribute, onPrepare);
+  const { options, form, submit } = useGroupTargetForm(
+    attribute,
+    onStage,
+    initialValue,
+  );
   return (
     <Dialog
       open
@@ -81,7 +87,7 @@ export function GroupTargetDialog({
             <Button type="button" variant="outline" onClick={onCancel}>
               {t("groups.cancel")}
             </Button>
-            <Button type="submit">{t("groups.preview")}</Button>
+            <Button type="submit">{t("groups.stageTarget")}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

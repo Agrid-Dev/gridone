@@ -102,4 +102,46 @@ describe("group reported values", () => {
       [],
     );
   });
+
+  it("steps from an explicit draft while mixed reported values remain unknown", () => {
+    const attributes = aggregateGroupAttributes(
+      driver,
+      [device("a", 20), device("b", 22)],
+      2,
+    );
+    attributes.setpoint.write_constraints = {
+      step: 0.5,
+      minimum: 16,
+      maximum: 28,
+    };
+    const stage = vi.fn();
+    const { result } = renderHook(() =>
+      useGroupRuntime(
+        attributes,
+        {
+          setpoint: {
+            attribute: "setpoint",
+            kind: "number",
+            label: { default: "Setpoint" },
+          },
+        },
+        true,
+        stage,
+        vi.fn(),
+        { setpoint: 24 },
+      ),
+    );
+
+    expect(result.current.readControl("setpoint")).toMatchObject({
+      displayed: 24,
+      reported: null,
+      canIncrement: true,
+    });
+    result.current.activate({ control: "setpoint", op: "increment" });
+    expect(stage).toHaveBeenCalledWith("setpoint", 24.5);
+    expect(result.current.reported("setpoint")).toBeNull();
+    expect(result.current.valueLabel?.("setpoint")).toBe(
+      "groups.values.multiple",
+    );
+  });
 });

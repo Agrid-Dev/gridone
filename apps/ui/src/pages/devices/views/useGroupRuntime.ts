@@ -11,13 +11,14 @@ import {
 import type { Scalar } from "@/components/device-ui/conditions";
 import type { GroupAttribute } from "./groupAttributes";
 
-/** Presentation controls prepare absolute commands; reported values remain untouched. */
+/** Controls edit local targets; measurements and conditions use reported values. */
 export function useGroupRuntime(
   attributes: Record<string, GroupAttribute>,
   controls: Record<string, ControlSpec>,
   canWrite: boolean,
-  prepare: (attribute: string, value: Scalar) => void,
+  stage: (attribute: string, value: Scalar) => void,
   choose: (attribute: string) => void,
+  drafts: Readonly<Record<string, Scalar>> = {},
 ): DeviceUiRuntime {
   const { t } = useTranslation("devices");
   return useMemo(() => {
@@ -33,6 +34,8 @@ export function useGroupRuntime(
       if (!spec) return undefined;
       const attribute = attributes[spec.attribute];
       const current = reported(spec.attribute);
+      const hasDraft = Object.hasOwn(drafts, spec.attribute);
+      const displayed = hasDraft ? drafts[spec.attribute] : current;
       const constraints = resolveConstraints(
         attribute?.write_constraints,
         reported,
@@ -42,13 +45,15 @@ export function useGroupRuntime(
       const can = (op: Parameters<typeof nextValue>[0]) =>
         writable &&
         !!attribute &&
-        nextValue(op, spec, attribute, current, constraints) !== null;
+        nextValue(op, spec, attribute, displayed, constraints) !== null;
       return {
         spec,
         attribute,
         reported: current,
-        displayed: current,
-        valueLabel: valueLabel(spec.attribute),
+        displayed,
+        valueLabel: hasDraft
+          ? t("groups.draftValue")
+          : valueLabel(spec.attribute),
         writable,
         write: { kind: "idle" },
         pending: false,
@@ -70,7 +75,7 @@ export function useGroupRuntime(
       },
       setValue: (id, value) => {
         const state = readControl(id);
-        if (state?.writable) prepare(state.spec.attribute, value);
+        if (state?.writable) stage(state.spec.attribute, value);
       },
       activate: (action) => {
         const state = readControl(action.control);
@@ -83,8 +88,8 @@ export function useGroupRuntime(
           state.constraints,
         );
         if (value === null) choose(state.spec.attribute);
-        else prepare(state.spec.attribute, value);
+        else stage(state.spec.attribute, value);
       },
     };
-  }, [attributes, controls, canWrite, prepare, choose, t]);
+  }, [attributes, controls, canWrite, stage, choose, drafts, t]);
 }

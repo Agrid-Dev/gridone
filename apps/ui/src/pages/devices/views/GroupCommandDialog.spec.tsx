@@ -6,6 +6,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
@@ -36,6 +37,8 @@ vi.mock("react-i18next", () =>
     "groups.previewTitle": "Preview {{name}}",
     "groups.previewDescription": "Set {{attribute}} to {{value}}",
     "groups.cancel": "Cancel",
+    "groups.applyWrites": "Apply {{count}} setpoints",
+    "groups.writeAccepted": "Sent {{attribute}} to {{value}}",
   }),
 );
 const member = (id: string, eligible = true) => ({
@@ -79,6 +82,16 @@ function Harness({ filtered = false }: { filtered?: boolean }) {
       >
         Prepare
       </button>
+      <button
+        onClick={() =>
+          void command.prepareMany([
+            { attribute: "setpoint", value: 24 },
+            { attribute: "power", value: true },
+          ])
+        }
+      >
+        Prepare many
+      </button>
       <GroupCommandDialog command={command} />
       <output>{command.batch?.batch_id}</output>
     </>
@@ -106,6 +119,42 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("manual group confirmation", () => {
+  it("shows independent recipients in one dialog and identifies accepted setpoints after a partial failure", async () => {
+    api.preview.mockImplementation(async ({ attribute }) => ({
+      ...preview([member("a"), member("b")], attribute),
+      attribute,
+      value: attribute === "power" ? true : 24,
+    }));
+    api.confirm
+      .mockResolvedValueOnce({ batch_id: "setpoint-sent", commands: [] })
+      .mockRejectedValueOnce(new Error("Unavailable"))
+      .mockResolvedValueOnce({ batch_id: "power-sent", commands: [] });
+    setup();
+    fireEvent.click(screen.getByText("Prepare many"));
+    const apply = await screen.findByRole("button", {
+      name: "Apply 2 setpoints",
+    });
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    const setpoint = within(screen.getByRole("region", { name: "setpoint" }));
+    const power = within(screen.getByRole("region", { name: "power" }));
+    fireEvent.click(setpoint.getByRole("checkbox", { name: "b" }));
+    fireEvent.click(power.getByRole("checkbox", { name: "a" }));
+    fireEvent.click(apply);
+    await screen.findByText("Sent setpoint to 24");
+    expect(api.confirm.mock.calls.map(([body]) => body)).toEqual([
+      { token: "setpoint", device_ids: ["a"] },
+      { token: "power", device_ids: ["b"] },
+    ]);
+    expect(setpoint.queryByRole("checkbox")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Apply 1 setpoints" }));
+    await screen.findByText("power-sent");
+    expect(api.confirm).toHaveBeenLastCalledWith({
+      token: "power",
+      device_ids: ["b"],
+    });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
   it("previews without sending, excludes members for one send, and disables ineligible members", async () => {
     setup();
     fireEvent.click(screen.getByText("Prepare"));
