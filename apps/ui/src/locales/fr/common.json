@@ -126,6 +126,7 @@
       "fan": "Ventilation",
       "dry": "Déshumidification",
       "auto": "Auto",
+      "idle": "Veille",
       "off": "Arrêt",
       "on": "Marche"
     },
