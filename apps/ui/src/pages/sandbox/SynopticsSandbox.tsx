@@ -18,16 +18,21 @@ import {
   type AirExtractorValues,
 } from "../devices/standard-devices/air-extractor";
 import {
+  DepthOrdered,
+  depthKey,
   ExternalLink,
   MonitorPanel,
   Pipe,
   PidDiagram,
   PipeBadge,
+  PIPE_AXIS_Z,
   Port,
+  project,
   Pump,
   SensorFlag,
   Tank,
   Valve,
+  type DepthItem,
 } from "@/components/synoptic";
 
 const HEATING_UNIT: AhuDoubleFluxValues = {
@@ -241,13 +246,16 @@ function SandboxUnit({
   );
 }
 
+/** viewBox of the sandbox plates. */
+const PLATE = { width: 900, height: 360 };
+
 /** The vendored symbol kit on a plate, to eyeball the tokens in both themes. */
 function SymbolKitPlate() {
   return (
     <div className="space-y-2">
       <h3 className="text-sm font-medium">Symbol kit on a plate</h3>
       <div className="h-80 overflow-hidden rounded-lg border">
-        <PidDiagram width={900} height={360}>
+        <PidDiagram {...PLATE}>
           <ExternalLink
             x={20}
             y={150}
@@ -321,6 +329,76 @@ function SymbolKitPlate() {
   );
 }
 
+/** A one-cell footprint of height `h` on the isometric grid: top face and
+ *  the two visible sides. */
+function isoBlock(x: number, y: number, h: number) {
+  const c = (dx: number, dy: number, dz: number) =>
+    project("isometric", x + dx, y + dy, dz);
+  const face = (pts: ReturnType<typeof c>[]) =>
+    pts.map((p) => `${p.x},${p.y}`).join(" ");
+  return (
+    <g strokeWidth={2} className="stroke-synoptic-stroke">
+      <polygon
+        points={face([c(0, 0, h), c(1, 0, h), c(1, 1, h), c(0, 1, h)])}
+        className="fill-synoptic-body"
+      />
+      <polygon
+        points={face([c(1, 0, 0), c(1, 1, 0), c(1, 1, h), c(1, 0, h)])}
+        className="fill-synoptic-body-x"
+      />
+      <polygon
+        points={face([c(0, 1, 0), c(1, 1, 0), c(1, 1, h), c(0, 1, h)])}
+        className="fill-synoptic-body-y"
+      />
+    </g>
+  );
+}
+
+/** One cell of a run along `x` at row `y`, `z` cells above the floor. */
+function isoPipeCell(x: number, y: number, z: number) {
+  const at = (dx: number) =>
+    project("isometric", x + dx + 0.5, y + 0.5, z + PIPE_AXIS_Z);
+  return <Pipe points={[at(0), at(1)]} fluid="heating_supply" />;
+}
+
+/** Depth ordering on the isometric grid: a floor run behind a tall body
+ *  and a raised run in front of it, each keyed per cell. Drag to pan,
+ *  wheel to zoom. */
+function IsometricPlate() {
+  const body = { x: 2, y: 2 };
+  const items: DepthItem[] = [
+    {
+      id: "body",
+      depth: depthKey(body, "symbol"),
+      node: isoBlock(body.x, body.y, 2),
+    },
+  ];
+  for (const [y, z] of [
+    [1, 0],
+    [3, 1],
+  ]) {
+    for (let x = -2; x < 5; x++) {
+      items.push({
+        id: `run-${y}-${x}`,
+        depth: depthKey({ x, y, z }, "pipe"),
+        node: isoPipeCell(x, y, z),
+      });
+    }
+  }
+  return (
+    <div className="space-y-2">
+      <h3 className="text-sm font-medium">Isometric depth, pan and zoom</h3>
+      <div className="h-80 overflow-hidden rounded-lg border">
+        <PidDiagram {...PLATE}>
+          <g transform="translate(450 80)">
+            <DepthOrdered items={items} />
+          </g>
+        </PidDiagram>
+      </div>
+    </div>
+  );
+}
+
 /** Dev-only page: the standard HVAC synoptics (AHUs, air extractor) fed
  *  with hard-coded data, covering the layout variants of each type. */
 export default function SynopticsSandbox() {
@@ -331,6 +409,7 @@ export default function SynopticsSandbox() {
         caption="Sandbox — hard-coded device data"
       />
       <SymbolKitPlate />
+      <IsometricPlate />
       <DoubleFluxUnit
         title="CTA 01 — double flux, heating (both coils, pressure sensors)"
         initial={HEATING_UNIT}
