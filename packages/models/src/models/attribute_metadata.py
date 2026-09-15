@@ -7,16 +7,21 @@ they are projected verbatim so API clients see them on the device).
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Self
+from typing import Annotated, Self
 
 from pydantic import (
     BaseModel,
-    BeforeValidator,
     ConfigDict,
     Field,
     StringConstraints,
     model_validator,
 )
+
+from models.expressions import (
+    AttributeRef as AttributeRef,  # noqa: PLC0414 -- public re-export
+)
+from models.expressions import Expression, expression_nodes, rename_references
+from models.expressions import Number as Number  # noqa: PLC0414 -- public re-export
 
 Text = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)
@@ -46,22 +51,6 @@ and inventing one here would create a second vocabulary to reconcile later.
 """
 
 
-def _reject_bool(value: Any) -> Any:  # noqa: ANN401
-    """``True`` is an ``int`` to Python, and pydantic would happily read a
-    bound of ``true`` as ``1.0``; that is an authoring mistake, not a number."""
-    if isinstance(value, bool):
-        msg = "must be a number, not a boolean"
-        # pydantic only turns ValueError into a ValidationError; a TypeError
-        # would escape the validator as a crash.
-        raise ValueError(msg)  # noqa: TRY004
-    return value
-
-
-Number = Annotated[
-    float | int, BeforeValidator(_reject_bool), Field(allow_inf_nan=False)
-]
-
-
 class LocalizedText(BaseModel):
     """A text with a mandatory default and optional per-language translations."""
 
@@ -85,19 +74,7 @@ class LocalizedText(BaseModel):
         return self.translations.get(base_language, self.default)
 
 
-class AttributeRef(BaseModel):
-    """A bound taken from another attribute of the same driver: ``{attribute: name}``.
-
-    The referenced attribute's *current* value is the bound at write time.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    attribute: Annotated[str, Field(min_length=1)]
-
-
-Bound = Number | AttributeRef
-"""A constraint bound: a JSON number, or a reference to a sibling attribute."""
+Bound = Expression
 
 
 class WriteConstraints(BaseModel):
@@ -112,12 +89,25 @@ class WriteConstraints(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    step: Annotated[Number, Field(gt=0)] | AttributeRef | None = None
+    step: Expression | None = None
     minimum: Bound | None = None
     maximum: Bound | None = None
 
+    sentinels: list[Number] = Field(
+        default_factory=list, max_length=256, exclude_if=lambda value: not value
+    )
+
     @model_validator(mode="after")
     def _check_consistency(self) -> Self:
+        for value in (self.minimum, self.maximum, self.step):
+            if isinstance(value, bool | str):
+                msg = "bounds must be numeric, not a boolean or string"
+                raise ValueError(msg)  # noqa: TRY004 -- pydantic validator
+        if isinstance(self.step, int | float) and (
+            isinstance(self.step, bool) or self.step <= 0
+        ):
+            msg = "step must be greater than 0"
+            raise ValueError(msg)
         if self.step is None and self.minimum is None and self.maximum is None:
             msg = "at least one of step, minimum or maximum must be set"
             raise ValueError(msg)
@@ -131,35 +121,18 @@ class WriteConstraints(BaseModel):
         return self
 
     def bound_refs(self) -> dict[str, AttributeRef]:
-        """The step and bounds given as attribute references, keyed by field name."""
+        """All references in bounds, including nested arithmetic and conditions."""
         return {
-            name: bound
-            for name, bound in (
-                ("step", self.step),
-                ("minimum", self.minimum),
-                ("maximum", self.maximum),
-            )
-            if isinstance(bound, AttributeRef)
+            name + path: node
+            for name in ("step", "minimum", "maximum")
+            for path, node, _ in expression_nodes(getattr(self, name))
+            if isinstance(node, AttributeRef)
         }
 
     def references(self, attribute_name: str) -> bool:
-        """Whether the step or one of the bounds is taken from ``attribute_name``."""
         return any(
             ref.attribute == attribute_name for ref in self.bound_refs().values()
         )
 
     def with_reference_renamed(self, old_name: str, new_name: str) -> Self:
-        """Copy where every reference to ``old_name`` now names ``new_name``."""
-
-        def follow(bound: Bound | None) -> Bound | None:
-            if isinstance(bound, AttributeRef) and bound.attribute == old_name:
-                return AttributeRef(attribute=new_name)
-            return bound
-
-        return self.model_copy(
-            update={
-                "step": follow(self.step),
-                "minimum": follow(self.minimum),
-                "maximum": follow(self.maximum),
-            }
-        )
+        return self.model_validate(rename_references(self, old_name, new_name))

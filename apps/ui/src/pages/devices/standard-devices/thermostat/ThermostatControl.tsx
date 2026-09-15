@@ -1,3 +1,9 @@
+import { commandReasons } from "@/lib/commandReasons";
+import {
+  resolveConstraints,
+  optionStates,
+  type AttributeLike,
+} from "@/components/device-ui/runtime/controls";
 import { useTranslation } from "react-i18next";
 import { Loader2, Minus, Plus, Power } from "lucide-react";
 import {
@@ -27,8 +33,6 @@ import { ThermostatModeControl } from "./ThermostatModeControl";
 import { dialRange } from "./dialGeometry";
 import { resolveModeOptions } from "./modeOptions";
 
-const STEP = 0.5;
-
 export function ThermostatControl({
   device,
   draft,
@@ -52,13 +56,26 @@ export function ThermostatControl({
 
   const isOn = draft.onoff_state != null ? Boolean(draft.onoff_state) : false;
   const mode = draft.mode != null ? String(draft.mode) : attrs.mode;
-  const min = attrs.temperatureSetpointMin;
-  const max = attrs.temperatureSetpointMax;
+  const setpointAttr = deviceAttributes(device).temperature_setpoint as
+    | AttributeLike
+    | undefined;
+  const limits = resolveConstraints(setpointAttr?.write_state);
+  const { minimum: min, maximum: max, step } = limits;
+  const setpointWritable =
+    isAttributeWritable(device, "temperature_setpoint") &&
+    !limits.unknown &&
+    step !== null;
   // min/max optional: clamp only in the direction that has a bound.
   const canIncrement =
-    setpoint != null && (max == null || setpoint + STEP <= max);
+    setpointWritable &&
+    setpoint != null &&
+    step !== null &&
+    (max == null || setpoint + step <= max);
   const canDecrement =
-    setpoint != null && (min == null || setpoint - STEP >= min);
+    setpointWritable &&
+    setpoint != null &&
+    step !== null &&
+    (min == null || setpoint - step >= min);
 
   const powerSaving = isSaving("onoff_state");
   const setpointSaving = isSaving("temperature_setpoint");
@@ -100,7 +117,16 @@ export function ThermostatControl({
                     ? t("controls.thermostat.turnOff")
                     : t("controls.thermostat.turnOn")
                 }
-                disabled={powerSaving}
+                disabled={
+                  powerSaving ||
+                  !isAttributeWritable(device, "onoff_state") ||
+                  optionStates(
+                    deviceAttributes(device).onoff_state as
+                      | AttributeLike
+                      | undefined,
+                  )?.find((option) => option.value === !isOn)?.available ===
+                    false
+                }
                 onClick={() => changeAndSaveNow("onoff_state", !isOn)}
                 className={cn(
                   "flex h-8 w-8 items-center justify-center rounded-full border transition-all duration-200 disabled:opacity-50",
@@ -139,10 +165,14 @@ export function ThermostatControl({
           isOn={isOn}
           modeColorClass={onColor}
           saving={setpointSaving}
-          step={STEP}
+          step={step ?? undefined}
           // Same write path as the steppers: the debounce collapses a whole
           // drag into a single command, sent once the knob comes to rest.
-          onChange={(value) => changeAndSave("temperature_setpoint", value)}
+          onChange={
+            setpointWritable && min != null && max != null
+              ? (value) => changeAndSave("temperature_setpoint", value)
+              : undefined
+          }
         />
 
         {/* Setpoint steppers flanking the humidity readout */}
@@ -155,7 +185,8 @@ export function ThermostatControl({
             disabled={!canDecrement || setpointSaving}
             onClick={() =>
               setpoint != null &&
-              changeAndSave("temperature_setpoint", Number(setpoint) - STEP)
+              step !== null &&
+              changeAndSave("temperature_setpoint", Number(setpoint) - step)
             }
           >
             <Minus className="h-4 w-4" />
@@ -178,21 +209,41 @@ export function ThermostatControl({
             disabled={!canIncrement || setpointSaving}
             onClick={() =>
               setpoint != null &&
-              changeAndSave("temperature_setpoint", Number(setpoint) + STEP)
+              step !== null &&
+              changeAndSave("temperature_setpoint", Number(setpoint) + step)
             }
           >
             <Plus className="h-4 w-4" />
           </Button>
         </div>
 
-        {modeWritable && (
+        {modeAttr?.read_write_modes?.includes("write") && (
           <ThermostatModeControl
             value={mode != null ? String(mode) : null}
             options={resolveModeOptions(modeAttr)}
-            saving={isSaving("mode")}
+            optionStates={optionStates(modeAttr)}
+            saving={isSaving("mode") || !modeWritable}
             onSelect={(next) => changeAndSaveNow("mode", next)}
           />
         )}
+        {["temperature_setpoint", "mode", "onoff_state"].map((name) => {
+          const attribute = deviceAttributes(device)[name] as
+            | AttributeLike
+            | undefined;
+          const reasons = commandReasons([
+            ...(attribute?.write_state?.reasons ?? []),
+            ...(attribute?.write_state?.warnings ?? []),
+          ]);
+          return reasons ? (
+            <p
+              key={name}
+              role="status"
+              className="text-sm text-muted-foreground"
+            >
+              {reasons}
+            </p>
+          ) : null;
+        })}
       </CardContent>
     </Card>
   );

@@ -17,6 +17,7 @@ from commands.models import (
     UnitCommandCreate,
 )
 from commands.storage import build_storage
+from models.command_rules import CommandRejectedError, WriteEvaluation
 from models.errors import InvalidError, NotFoundError
 from models.ids import gen_id
 from models.pagination import Page, PaginationParams
@@ -28,6 +29,7 @@ if TYPE_CHECKING:
     from commands.models import AttributeWrite, CommandTemplatePatch
     from commands.protocols import (
         CommandResultHandler,
+        CommandValidator,
         DeviceWriter,
     )
     from commands.storage.protocol import CommandsStorage
@@ -45,11 +47,13 @@ class CommandsService(Service):
         device_writer: DeviceWriter,
         result_handler: CommandResultHandler,
         target_resolver: TargetResolver,
+        command_validator: CommandValidator | None = None,
     ) -> None:
         self._storage_url = storage_url
         self._device_writer = device_writer
         self._result_handler = result_handler
         self._target_resolver = target_resolver
+        self._command_validator = command_validator
         self._tasks: set[asyncio.Task[object]] = set()
 
     async def start(self) -> None:
@@ -165,6 +169,11 @@ class CommandsService(Service):
     # Dispatch
     # ------------------------------------------------------------------
 
+    def _validate(self, device_id: str, write: AttributeWrite) -> WriteEvaluation:
+        if self._command_validator is None:
+            return WriteEvaluation(eligible=True, value=write.value)
+        return self._command_validator(device_id, write.attribute, write.value)
+
     async def dispatch_unit(
         self,
         *,
@@ -181,6 +190,7 @@ class CommandsService(Service):
         is re-raised — callers receive a typed exception rather than an ERROR
         record.
         """
+        evaluation = self._validate(device_id, write)
         command = await self._storage.save_command(
             UnitCommandCreate(
                 batch_id=batch_id,
@@ -189,14 +199,19 @@ class CommandsService(Service):
                 attribute=write.attribute,
                 value=write.value,
                 data_type=write.data_type,
-                status=CommandStatus.PENDING,
-                status_details=None,
+                status=CommandStatus.PENDING
+                if evaluation.eligible
+                else CommandStatus.ERROR,
+                status_details=None if evaluation.eligible else "Command rejected",
+                validation=evaluation,
                 user_id=user_id,
                 created_at=datetime.now(UTC),
-                executed_at=datetime.now(UTC),
-                completed_at=None,
+                executed_at=datetime.now(UTC) if evaluation.eligible else None,
+                completed_at=None if evaluation.eligible else datetime.now(UTC),
             )
         )
+        if not evaluation.eligible:
+            raise CommandRejectedError(evaluation.reasons)
         return await self._execute_command(command, write=write, confirm=confirm)
 
     async def dispatch_batch(
@@ -256,6 +271,10 @@ class CommandsService(Service):
             logger.warning("dispatch: template %r resolved to no devices", template.id)
             return BatchCommandDispatch(batch_id=batch_id, commands=[])
 
+        evaluations = {
+            device_id: self._validate(device_id, template.write)
+            for device_id in device_ids
+        }
         now = datetime.now(UTC)
         commands = await self._storage.save_commands(
             [
@@ -266,12 +285,17 @@ class CommandsService(Service):
                     attribute=template.write.attribute,
                     value=template.write.value,
                     data_type=template.write.data_type,
-                    status=CommandStatus.PENDING,
-                    status_details=None,
+                    status=CommandStatus.PENDING
+                    if evaluations[device_id].eligible
+                    else CommandStatus.ERROR,
+                    status_details=None
+                    if evaluations[device_id].eligible
+                    else "Command rejected",
+                    validation=evaluations[device_id],
                     user_id=user_id,
                     created_at=now,
-                    executed_at=now,
-                    completed_at=None,
+                    executed_at=now if evaluations[device_id].eligible else None,
+                    completed_at=None if evaluations[device_id].eligible else now,
                 )
                 for device_id in device_ids
             ]
@@ -337,6 +361,7 @@ class CommandsService(Service):
             *(
                 self._execute_command(cmd, write=write, confirm=confirm)
                 for cmd in commands
+                if cmd.status == CommandStatus.PENDING
             ),
             return_exceptions=True,
         )
@@ -371,6 +396,9 @@ class CommandsService(Service):
                     CommandStatus.ERROR,
                     status_details=command_failure(exc),
                     completed_at=datetime.now(UTC),
+                    validation=WriteEvaluation(eligible=False, reasons=exc.reasons)
+                    if isinstance(exc, CommandRejectedError)
+                    else None,
                 )
             except Exception:
                 logger.exception(
@@ -383,14 +411,17 @@ class CommandsService(Service):
             CommandStatus.SUCCESS,
             completed_at=datetime.now(UTC),
         )
-        await self._result_handler(
-            device_id=command.device_id,
-            attribute=write.attribute,
-            value=write.value,
-            data_type=write.data_type,
-            command_id=updated.id,
-            last_changed=result.last_changed,
-        )
+        if result.confirmed:
+            await self._result_handler(
+                device_id=command.device_id,
+                attribute=write.attribute,
+                value=result.observed_value
+                if result.observed_value is not None
+                else write.value,
+                data_type=write.data_type,
+                command_id=updated.id,
+                last_changed=result.last_changed,
+            )
         return updated
 
     async def get_commands(  # noqa: PLR0913

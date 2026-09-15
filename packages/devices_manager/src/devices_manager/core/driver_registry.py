@@ -11,6 +11,7 @@ from pydantic import TypeAdapter, ValidationError
 from devices_manager.core.device.attribute import AttributeKind
 from devices_manager.core.device.connection_status import CONNECTION_STATUS_ATTR
 from devices_manager.core.driver import AnyAttributeDriver
+from devices_manager.core.driver.command_validation import rename_command_references
 from devices_manager.core.driver.driver import (
     attributes_referencing,
     validate_polling_groups,
@@ -82,16 +83,8 @@ def _reject_dangling_references(
 def _follow_rename(
     attribute: AttributeDriver, old_name: str, new_name: str
 ) -> AttributeDriver:
-    """Copy of ``attribute`` whose write-constraint bounds on ``old_name``
-    now name ``new_name``; the attribute itself when it has no such bound."""
-    constraints = attribute.write_constraints
-    if constraints is None or not constraints.references(old_name):
-        return attribute
-    return attribute.model_copy(
-        update={
-            "write_constraints": constraints.with_reference_renamed(old_name, new_name)
-        }
-    )
+    """Copy of ``attribute`` with command references following the renamed sibling."""
+    return rename_command_references(attribute, old_name, new_name)
 
 
 def _summarize(diagnostics: list[PresentationDiagnostic]) -> str:

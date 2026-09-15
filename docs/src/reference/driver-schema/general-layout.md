@@ -119,3 +119,8 @@ Every attribute may carry optional presentation metadata. It is stored with the 
 The service enforces these constraints on **every** write — UI, API commands, CLI and automations alike — before anything reaches the device. A write whose referenced step or bound is unknown (the attribute has no value yet, or is missing on the device), or whose referenced step is not positive, is refused rather than let through unchecked.
 
 Constraints are validated when the driver is loaded or edited: a constraint on a non-numeric attribute, a bound referencing a missing or non-numeric attribute, or a self-reference is rejected. Renaming a referenced attribute updates the references that point at it; deleting one is refused while another attribute still bounds itself on it.
+
+## Command validation
+
+See [declarative command validation](command-validation.md) for write rules, dynamic
+options and value mappings, defaults, previews, and server-resolved UI state.

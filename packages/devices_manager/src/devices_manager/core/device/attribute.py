@@ -25,6 +25,8 @@ from models.attribute_metadata import (
     Unit,
     WriteConstraints,
 )
+from models.command_rules import AttributeWriteState, WriteReason
+from models.expressions import Scalar
 from models.types import Severity
 
 from .event_log import AttributeEventLog, AttributeLogs, EventType
@@ -38,6 +40,10 @@ _OMITTED_WHEN_NONE = (
     "group",
     "unit",
     "write_constraints",
+    "write_state",
+    "default_value",
+    "raw_value",
+    "resolution_error",
 )
 
 
@@ -59,6 +65,10 @@ class Attribute(BaseModel):
     group: AttributeGroup | None = None
     unit: Unit | None = None
     write_constraints: WriteConstraints | None = None
+    default_value: Scalar | None = None
+    write_state: AttributeWriteState | None = None
+    raw_value: Scalar | None = None
+    resolution_error: WriteReason | None = None
 
     _logs: dict[EventType, deque[AttributeEventLog]] = PrivateAttr(
         default_factory=lambda: {t: deque(maxlen=10) for t in EventType}

@@ -6,10 +6,10 @@ from pydantic import TypeAdapter
 from devices_manager.core.presentation.envelope import PresentationEnvelope
 from devices_manager.core.standard_schemas import validate_standard_schema
 from devices_manager.types import DataType, TransportProtocols
-from models.attribute_metadata import AttributeRef
 from models.errors import InvalidError
 
 from .attribute_driver import AttributeDriver
+from .command_validation import command_references, validate_command_declarations
 from .device_config_field import DeviceConfigField
 from .discovery_listener import DiscoveryListener
 from .driver_metadata import DriverMetadata
@@ -44,12 +44,11 @@ _NUMERIC_DATA_TYPES = frozenset({DataType.INT, DataType.FLOAT})
 def attributes_referencing(
     attributes: Iterable[AttributeDriver], attribute_name: str
 ) -> list[AttributeDriver]:
-    """The attributes whose write constraints take a bound from ``attribute_name``."""
+    """The attributes whose command declarations refer to ``attribute_name``."""
     return [
         attribute
         for attribute in attributes
-        if attribute.write_constraints is not None
-        and attribute.write_constraints.references(attribute_name)
+        if attribute_name in command_references(attribute)
     ]
 
 
@@ -61,41 +60,8 @@ def validate_write_constraints(attributes: Iterable[AttributeDriver]) -> None:
     numeric attribute of the same driver: its current value is read at
     write time, so a string or bool sibling could never serve as a bound.
     """
-    by_name = {attribute.name: attribute for attribute in attributes}
-    for attribute in by_name.values():
-        constraints = attribute.write_constraints
-        if constraints is None:
-            continue
-        if attribute.data_type not in _NUMERIC_DATA_TYPES:
-            msg = (
-                f"Attribute '{attribute.name}' declares write_constraints but its "
-                f"data_type '{attribute.data_type}' is not numeric (int or float)"
-            )
-            raise InvalidError(msg)
-        for bound_name, ref in constraints.bound_refs().items():
-            _validate_bound_reference(attribute, bound_name, ref, by_name)
-
-
-def _validate_bound_reference(
-    attribute: AttributeDriver,
-    bound_name: str,
-    ref: AttributeRef,
-    by_name: dict[str, AttributeDriver],
-) -> None:
-    path = f"Attribute '{attribute.name}' write_constraints.{bound_name}"
-    if ref.attribute == attribute.name:
-        msg = f"{path} must not reference the attribute itself"
-        raise InvalidError(msg)
-    target = by_name.get(ref.attribute)
-    if target is None:
-        msg = f"{path} references unknown attribute '{ref.attribute}'"
-        raise InvalidError(msg)
-    if target.data_type not in _NUMERIC_DATA_TYPES:
-        msg = (
-            f"{path} references attribute '{ref.attribute}' whose data_type "
-            f"'{target.data_type}' is not numeric (int or float)"
-        )
-        raise InvalidError(msg)
+    attributes = list(attributes)
+    validate_command_declarations(attributes)
 
 
 def validate_push_only_polling(

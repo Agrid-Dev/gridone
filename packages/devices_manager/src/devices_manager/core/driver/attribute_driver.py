@@ -15,7 +15,13 @@ from models.attribute_metadata import (  # noqa: TC001
     Unit,
     WriteConstraints,
 )
+from models.command_rules import (  # noqa: TC001 -- schema runtime
+    ValueMapping,
+    WriteOption,
+    WriteRule,
+)
 from models.errors import InvalidError
+from models.expressions import MAX_LIST_ITEMS, MAX_RULES, Scalar
 from models.types import Severity
 
 _FAULT_HEALTHY_VALUE_DEFAULTS: dict[DataType, list[AttributeValueType]] = {
@@ -48,6 +54,12 @@ class AttributeDriver(BaseModel):
     group: AttributeGroup | None = None
     unit: Unit | None = None
     write_constraints: WriteConstraints | None = None
+    default_value: Scalar | None = None
+    write_rules: list[WriteRule] = Field(default_factory=list, max_length=MAX_RULES)
+    write_options: list[WriteOption] | None = Field(
+        default=None, max_length=MAX_LIST_ITEMS
+    )
+    value_mapping: ValueMapping | None = None
 
     @cached_property
     def codec(self) -> FnCodec:

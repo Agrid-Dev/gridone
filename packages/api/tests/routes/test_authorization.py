@@ -704,6 +704,22 @@ def commands_app() -> FastAPI:
 
 
 COMMANDS_ACCESS_CONTROL_SCENARIOS = [
+    pytest.param(
+        "POST",
+        "/devices/any-id/commands/preview",
+        "viewer",
+        403,
+        {"attribute": "a", "value": 1},
+        id="preview-cmd-viewer",
+    ),
+    pytest.param(
+        "POST",
+        "/devices/any-id/commands/preview",
+        None,
+        401,
+        {"attribute": "a", "value": 1},
+        id="preview-cmd-no-auth",
+    ),
     # Viewer is forbidden from any device-write endpoint.
     pytest.param(
         "POST",

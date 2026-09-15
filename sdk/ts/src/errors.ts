@@ -1,3 +1,4 @@
+import type { WriteReason } from "./types";
 /**
  * One entry of a FastAPI/pydantic 422 validation error array:
  * `{"detail": [{"loc": ["body", "config", "host"], "msg": "...", "type": "..."}]}`.
@@ -53,12 +54,18 @@ export class GridoneError extends Error {
   readonly rawDetail: unknown;
   /** Parsed entries when `detail` is a well-formed 422 validation array. */
   readonly validationErrors?: ValidationErrorItem[];
+  readonly reasons?: WriteReason[];
 
-  constructor(status: number, detail: unknown, options?: ErrorOptions) {
+  constructor(
+    status: number,
+    detail: unknown,
+    options?: ErrorOptions & { reasons?: WriteReason[] },
+  ) {
     const detailString = detailToString(detail);
     super(`HTTP ${status}: ${detailString}`, options);
     this.name = "GridoneError";
     this.status = status;
+    this.reasons = options?.reasons;
     this.detail = detailString;
     this.rawDetail = detail;
     this.validationErrors = parseValidationErrors(detail);

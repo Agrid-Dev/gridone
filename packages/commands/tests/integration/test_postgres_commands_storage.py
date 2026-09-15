@@ -26,6 +26,7 @@ from commands.storage.postgres import (
     PostgresCommandsStorage,
     build_postgres_storage,
 )
+from models.attribute_metadata import LocalizedText
 from models.errors import NotFoundError
 from models.targets import DevicesFilter
 from models.types import DataType, SortOrder
@@ -399,3 +400,74 @@ class TestTemplates:
         rows = await storage.get_commands_by_ids([saved.id])
         assert len(rows) == 1
         assert rows[0].template_id is None
+
+
+@pytest.mark.parametrize("value", ["not-a-number", False, 0, 0.0, ""])
+async def test_rejected_commands_preserve_requested_scalar_and_diagnostics(
+    storage, value
+):
+    from dataclasses import replace
+
+    from models.command_rules import WriteEvaluation, WriteReason
+
+    validation = WriteEvaluation(
+        eligible=False,
+        reasons=[
+            WriteReason(
+                code="invalid_value", message=LocalizedText(default="Invalid value")
+            )
+        ],
+    )
+    rejected = replace(
+        _unit(value=value, data_type=DataType.FLOAT, status=CommandStatus.ERROR),
+        executed_at=None,
+        completed_at=datetime.now(UTC),
+        validation=validation,
+    )
+    saved = await storage.save_command(rejected)
+    restored = (await storage.get_commands_by_ids([saved.id]))[0]
+    assert type(restored.value) is type(value)
+    assert restored.value == value
+    assert restored.validation == validation
+    assert restored.executed_at is None
+    assert restored.completed_at is not None
+
+
+async def test_legacy_rows_and_execution_rejection_round_trip(storage):
+    from models.command_rules import WriteEvaluation, WriteReason
+
+    saved = await storage.save_command(_unit(value=21.5, data_type=DataType.FLOAT))
+    # Existing rows have NULL in the new columns.
+    await storage._pool.execute(  # noqa: SLF001
+        "UPDATE unit_commands SET requested_value = NULL, validation = NULL "
+        "WHERE id = $1",
+        saved.id,
+    )
+    restored = (await storage.get_commands_by_ids([saved.id]))[0]
+    assert restored.value == 21.5
+    assert restored.validation is None
+    validation = WriteEvaluation(eligible=False, reasons=[WriteReason(code="locked")])
+    updated = await storage.update_command_status(
+        saved.id, CommandStatus.ERROR, validation=validation
+    )
+    assert updated.validation == validation
+    assert (await storage.get_commands_by_ids([saved.id]))[0].validation == validation
+
+
+async def test_command_validation_migration_rolls_back_and_reapplies(storage):
+    from commands.storage.postgres import MIGRATIONS_PATH
+
+    async with storage._pool.acquire() as conn:  # noqa: SLF001
+        # Rollback is deliberately lossy for the new fields; legacy rows survive.
+        await conn.execute(
+            (MIGRATIONS_PATH / "0007.command-validation.rollback.sql").read_text()
+        )
+        columns = await conn.fetch(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_name = 'unit_commands'"
+        )
+        assert "validation" not in {row["column_name"] for row in columns}
+        await conn.execute(
+            (MIGRATIONS_PATH / "0007.command-validation.sql").read_text()
+        )
+    await storage.save_command(_unit())

@@ -9,14 +9,24 @@ from datetime import UTC, datetime
 from functools import partial
 from typing import TYPE_CHECKING, Any
 
+from devices_manager.core.conditions import EvaluationBudget, EvaluationContext
 from devices_manager.core.driver import FaultAttributeDriver
+from devices_manager.core.presentation.state import (
+    compile_presentation,
+    project_presentation,
+)
 from devices_manager.core.transports import PushTransportClient, ReadError
 from devices_manager.core.utils.templating.render import render_struct
 from devices_manager.observability.metrics import attribute_read
+from devices_manager.types import DataType
+from models.command_rules import CommandRejectedError, WriteEvaluation, WriteReason
 from models.errors import ConfirmationError, InvalidError, NotFoundError
+from models.expressions import MAX_DEVICE_OPERATIONS
 from models.ids import gen_id
 
 from .attribute import Attribute, AttributeKind, FaultAttribute
+from .command_rules import evaluate_write, project_write_state
+from .command_runtime import CommandRuntime
 from .connection_status import (
     CONNECTION_STATUS_ATTR,
     build_cs_attribute,
@@ -24,12 +34,13 @@ from .connection_status import (
 )
 from .event_log import EventType, build_entry, log_event, wrap_listen
 from .sweep_schedule import SweepSchedule, run_on_schedule
+from .value_mapping import encode_mapping
 from .watchdog import SilenceWatchdog
-from .write_constraints import check_write_constraints
 
 if TYPE_CHECKING:
     from devices_manager.core.codecs import FnCodec
     from devices_manager.core.driver import AttributeDriver, Driver
+    from devices_manager.core.presentation.models import PresentationV1
     from devices_manager.core.transports import (
         ReadResult,
         TransportAddress,
@@ -38,7 +49,6 @@ if TYPE_CHECKING:
     from devices_manager.types import (
         AttributeValueType,
         ConnectionStatus,
-        DataType,
         DeviceConfig,
         ReadWriteMode,
     )
@@ -149,6 +159,18 @@ class CoreDevice:
     )
     _watchdog: SilenceWatchdog | None = field(init=False, default=None, repr=False)
     _status_recompute_pending: bool = field(init=False, default=False, repr=False)
+    _commands: CommandRuntime = field(init=False, repr=False)
+    presentation_state: dict[str, bool] = field(init=False, default_factory=dict)
+    _presentation_source: object = field(init=False, default=None, repr=False)
+    _presentation_document: PresentationV1 | None = field(
+        init=False, default=None, repr=False
+    )
+    _write_lock: asyncio.Lock = field(
+        init=False, default_factory=asyncio.Lock, repr=False
+    )
+    on_write_state_update: Callable[[CoreDevice], None] | None = field(
+        default=None, repr=False
+    )
 
     def __post_init__(self) -> None:
         if self.driver.transport != self.transport.protocol:
@@ -158,6 +180,11 @@ class CoreDevice:
             )
             raise TypeError(msg)
         self.type = self.driver.type
+        self._commands = CommandRuntime(self.driver)
+        for name, attribute in self.attributes.items():
+            if name in self.driver.attributes and attribute.current_value is not None:
+                self._commands.values[name] = attribute.current_value
+        self._refresh_write_states()
 
     @property
     def syncing(self) -> bool:
@@ -199,17 +226,33 @@ class CoreDevice:
         telemetry and fault age are not lost; a new attribute (no prior
         value) starts at None.
         """
+        self.driver.attributes[attribute_driver.name] = attribute_driver
         existing = self.attributes.get(attribute_driver.name)
         self.attributes[attribute_driver.name] = _build_attribute(
             attribute_driver, None, restored=existing
         )
+        self._commands.rebuild_index()
+        self._commands.invalidate({attribute_driver.name})
+        self._refresh_write_states()
 
     def delete_attribute(self, attribute_name: str) -> None:
         """Delete a runtime attribute that no longer exists on the driver."""
         self.attributes.pop(attribute_name, None)
+        self.driver.attributes.pop(attribute_name, None)
+        self._commands.rebuild_index()
+        self._commands.invalidate({attribute_name})
+        self._refresh_write_states()
 
     def rename_attribute(self, old_name: str, new_name: str) -> None:
         """Rename a runtime attribute in place, preserving all of its state."""
+        for values in (self._commands.values, self._commands.raw_values):
+            if old_name in values:
+                values[new_name] = values.pop(old_name)
+        if old_name in self.driver.attributes:
+            self.driver.attributes[new_name] = self.driver.attributes.pop(
+                old_name
+            ).model_copy(update={"name": new_name})
+        self._commands.rebuild_index()
         existing = self.attributes.pop(old_name, None)
         if existing is not None:
             self.attributes[new_name] = existing.model_copy(update={"name": new_name})
@@ -229,7 +272,7 @@ class CoreDevice:
         restored = (
             restored_attributes if restored_attributes is not None else base.attributes
         )
-        return cls(
+        device = cls(
             id=base.id,
             name=base.name,
             config=base.config,
@@ -252,6 +295,13 @@ class CoreDevice:
                 ),
             },
         )
+
+        device._commands.invalidate()
+        for name, value in initial.items():
+            if name in device.driver.attributes and value is not None:
+                device._ingest_attribute(name, value)
+        device._refresh_write_states()
+        return device
 
     @contextlib.asynccontextmanager
     async def wait_for_attribute(
@@ -310,7 +360,7 @@ class CoreDevice:
                 self.id,
                 decoded,
             )
-            self._update_attribute(attribute, decoded)
+            self._ingest_attribute(attribute.name, decoded)
 
         return wrap_listen(
             on_message,
@@ -340,7 +390,11 @@ class CoreDevice:
                 )
         interval = self.expected_interval
         if interval is not None:
-            self._watchdog = SilenceWatchdog(interval, self._set_watchdog_status)
+            self._watchdog = SilenceWatchdog(
+                interval,
+                self._set_watchdog_status,
+                on_expired=self._expire_command_context,
+            )
             await self._watchdog.start()
         self._syncing = True
 
@@ -363,6 +417,7 @@ class CoreDevice:
             await self._watchdog.stop()
             self._watchdog = None
         self._syncing = False
+        self._expire_command_context()
 
     def _polling_groups(self) -> dict[str | None, tuple[float, list[str]]]:
         """Bucket readable, non-internal attributes by polling group.
@@ -460,6 +515,7 @@ class CoreDevice:
         if attribute is None:
             return
         if isinstance(result, ReadError):
+            self._invalidate_attribute_context(attr_name)
             self._log_read_outcome(attribute, result.error)
             logger.warning(
                 "[Device %s] poll read failed for %s — %s: %s",
@@ -475,6 +531,7 @@ class CoreDevice:
         try:
             decoded_value = attribute_driver.codec.decode(result.value)
         except Exception as e:  # noqa: BLE001
+            self._invalidate_attribute_context(attr_name)
             self._log_read_outcome(attribute, e)
             logger.warning(
                 "[Device %s] failed to decode attribute %s — %s: %s",
@@ -486,7 +543,7 @@ class CoreDevice:
             return
         self._log_read_outcome(attribute, None)
         try:
-            self._update_attribute(attribute, decoded_value)
+            self._ingest_attribute(attribute.name, decoded_value)
         except Exception as e:  # noqa: BLE001
             logger.warning(
                 "[Device %s] on_update listener failed for %s — %s: %s",
@@ -526,8 +583,7 @@ class CoreDevice:
     def _known_attribute_value(self, attribute_name: str) -> AttributeValueType | None:
         """Current value of a sibling attribute; ``None`` when the attribute
         does not exist on this device or has no value yet."""
-        attribute = self.attributes.get(attribute_name)
-        return None if attribute is None else attribute.current_value
+        return self._commands.known(attribute_name)
 
     def can_write(
         self,
@@ -544,7 +600,12 @@ class CoreDevice:
         self,
         attribute: Attribute,
         new_value: AttributeValueType | None,
+        *,
+        observed: bool = True,
     ) -> None:
+        if observed and attribute.name in self.driver.attributes:
+            self._ingest_attribute(attribute.name, new_value)
+            return
         # Compared here so Attribute stays unaware of the listener contract.
         previous_value = attribute.current_value
         previous = attribute.model_copy() if previous_value is not None else None
@@ -581,12 +642,13 @@ class CoreDevice:
             codec = attribute_driver.codec
             decoded_value = codec.decode(raw_value)
         except Exception:
+            self._invalidate_attribute_context(attribute_name)
             attribute_read.add(
                 1, {"protocol": self.transport.protocol, "status": "error"}
             )
             raise
         attribute_read.add(1, {"protocol": self.transport.protocol, "status": "ok"})
-        self._update_attribute(attribute, decoded_value)
+        self._ingest_attribute(attribute.name, decoded_value)
         return attribute.current_value  # ty:ignore[invalid-return-type]
 
     def _on_data_received(self) -> None:
@@ -737,7 +799,7 @@ class CoreDevice:
         async with self.wait_for_attribute(
             attribute_name, lambda v: v == expected_value
         ) as confirmed:
-            if self.get_attribute_value(attribute_name) == expected_value:
+            if self._known_attribute_value(attribute_name) == expected_value:
                 return
 
             poll_task = asyncio.create_task(self._poll_attribute(attribute_name))
@@ -755,19 +817,129 @@ class CoreDevice:
                 with contextlib.suppress(asyncio.CancelledError):
                     await poll_task
 
+    @property
+    def write_state_revision(self) -> int:
+        return self._commands.revision
+
+    def _ingest_attribute(self, name: str, raw: AttributeValueType | None) -> None:
+        if self._watchdog is not None:
+            self._watchdog.expire_if_due()
+        if raw is not None and not self.driver.attributes[name].value_mapping:
+            raw = self.attributes[name].ensure_type(raw)
+        updates = self._commands.ingest(name, raw)
+        if self._watchdog is not None and raw is not None:
+            self._watchdog.record_observation()
+        for key, value in updates.items():
+            attribute = self.attributes[key]
+            self._update_attribute(attribute, value, observed=False)
+        self._refresh_write_states(set(updates))
+
+    def refresh_command_contract(self) -> None:
+        """Rebind projections after a committed driver change."""
+        self._commands.driver = self.driver
+        self._commands.rebuild_index()
+        self._refresh_write_states()
+
+    def _refresh_write_states(self, changed_names: set[str] | None = None) -> None:
+        if self._commands.driver is not self.driver:
+            self._commands.driver = self.driver
+            self._commands.rebuild_index()
+        affected = (
+            self._commands.affected(changed_names)
+            if changed_names is not None
+            else None
+        )
+        budget = EvaluationBudget(MAX_DEVICE_OPERATIONS)
+        if self._presentation_source is not self.driver.presentation:
+            self._presentation_source = self.driver.presentation
+            self._presentation_document = compile_presentation(self.driver.presentation)
+        presentation = project_presentation(
+            self._presentation_document, self._known_attribute_value
+        )
+        changed = self.presentation_state != presentation
+        self.presentation_state = presentation
+        changed |= self._sync_mapping_resolutions()
+        for name, spec in self.driver.attributes.items():
+            attribute = self.attributes.get(name)
+            if attribute is None or (affected is not None and name not in affected):
+                continue
+            state = project_write_state(
+                spec, self._known_attribute_value, budget=budget
+            )
+            changed |= attribute.write_state != state
+            attribute.write_state = state
+            attribute.default_value = spec.default_value
+        if changed:
+            self._commands.revision += 1
+        if changed and self.on_write_state_update:
+            self.on_write_state_update(self)
+
+    def _sync_mapping_resolutions(self) -> bool:
+        """Publish raw-code and resolution changes without inventing telemetry."""
+        changed = False
+        for name, spec in self.driver.attributes.items():
+            attribute = self.attributes.get(name)
+            if attribute is None:
+                continue
+            raw = self._commands.raw_values.get(name) if spec.value_mapping else None
+            error = (
+                self._commands.resolution_errors.get(name)
+                if spec.value_mapping
+                else None
+            )
+            changed |= attribute.raw_value != raw or attribute.resolution_error != error
+            attribute.raw_value = raw
+            attribute.resolution_error = error
+        return changed
+
+    def _expire_command_context(self) -> None:
+        self._commands.invalidate()
+        self._refresh_write_states()
+
+    def _invalidate_attribute_context(self, name: str) -> None:
+        """An explicit acquisition failure loses trust, preserving displayed history."""
+        self._commands.invalidate({name})
+        self._refresh_write_states()
+
+    def evaluate_attribute_write(
+        self, attribute_name: str, value: AttributeValueType
+    ) -> WriteEvaluation:
+        if self._watchdog is not None:
+            self._watchdog.expire_if_due()
+        attribute = self.get_attribute(attribute_name)
+        if not self.can_write(attribute_name):
+            return WriteEvaluation(
+                eligible=False, reasons=[WriteReason(code="not_writable")]
+            )
+        if (
+            attribute.data_type == DataType.INT
+            and isinstance(value, float)
+            and not value.is_integer()
+        ):
+            return WriteEvaluation(
+                eligible=False, reasons=[WriteReason(code="invalid_value")]
+            )
+        try:
+            validated = attribute.ensure_type(value)
+        except (TypeError, ValueError, OverflowError):
+            return WriteEvaluation(
+                eligible=False, reasons=[WriteReason(code="invalid_value")]
+            )
+        return evaluate_write(
+            self.driver.attributes[attribute_name],
+            validated,
+            self._known_attribute_value,
+        )
+
     def validate_attribute_write(
         self, attribute_name: str, value: AttributeValueType
     ) -> AttributeValueType:
-        """Check the live contract without encoding, sending or changing values."""
-        attribute = self.get_attribute(attribute_name)
-        if not self.can_write(attribute_name):
-            msg = f"Attribute '{attribute_name}' is not writable on device '{self.id}'"
-            raise PermissionError(msg)
-        validated_value = attribute.ensure_type(value)
-        check_write_constraints(attribute, validated_value, self._known_attribute_value)
-        return validated_value
+        """The universal, side-effect-free guard, also used by the direct CLI."""
+        evaluation = self.evaluate_attribute_write(attribute_name, value)
+        if not evaluation.eligible or evaluation.value is None:
+            raise CommandRejectedError(evaluation.reasons)
+        return evaluation.value
 
-    @log_event(EventType.WRITE)
     async def write_attribute_value(
         self,
         attribute_name: str,
@@ -777,33 +949,53 @@ class CoreDevice:
         confirm_timeout: float = DEFAULT_CONFIRM_TIMEOUT,
         _log_attribute: Attribute | None = None,
     ) -> Attribute:
+        """Serialize related writes; validation failures are not transport failures."""
+        async with self._write_lock:
+            validated = self.validate_attribute_write(attribute_name, value)
+            return await self._write_validated_attribute(
+                attribute_name,
+                validated,
+                confirm=confirm,
+                confirm_timeout=confirm_timeout,
+            )
+
+    @log_event(EventType.WRITE)
+    async def _write_validated_attribute(
+        self,
+        attribute_name: str,
+        value: AttributeValueType,
+        *,
+        confirm: bool,
+        confirm_timeout: float,
+        _log_attribute: Attribute | None = None,
+    ) -> Attribute:
+        """Encode from one live context, then await a post-write observation."""
         attribute = _log_attribute or self.get_attribute(attribute_name)
-        validated_value = self.validate_attribute_write(attribute_name, value)
-        attribute_driver = self.driver.attributes[attribute.name]
-        codec = attribute_driver.codec
-        if attribute_driver.write is None:
-            msg = (
-                f"Driver '{self.driver.metadata.id}' has no write address"
-                " for attribute'{attribute_name}'"
+        spec = self.driver.attributes[attribute_name]
+        if spec.write is None:
+            raise CommandRejectedError([WriteReason(code="not_writable")])
+        mapping_context = self._commands.mapping_context(attribute_name)
+        code = (
+            encode_mapping(
+                spec.value_mapping,
+                value,
+                EvaluationContext(self._known_attribute_value, candidate=value),
             )
-            raise PermissionError(msg)
-        encoded_value = codec.encode(value)
-        context = {**self.driver.env, **self.config, "value": encoded_value}
+            if spec.value_mapping
+            else value
+        )
+        encoded = spec.codec.encode(code)
+        context = {**self.driver.env, **self.config, "value": encoded}
         address = self.transport.build_address(
-            render_struct(attribute_driver.write, context), context
+            render_struct(spec.write, context), context
         )
-        await self.transport.write(address, encoded_value)
-        logger.info(
-            "Wrote attribute '%s' with value '%s' to device '%s'",
-            attribute_name,
-            validated_value,
-            self.id,
-        )
+        self._commands.invalidate({attribute_name})
+        self._refresh_write_states()
+        await self.transport.write(address, encoded)
         if confirm:
-            await self._confirm_attribute_value(
-                attribute_name, validated_value, confirm_timeout
-            )
-        self._update_attribute(attribute, validated_value)
+            await self._confirm_attribute_value(attribute_name, value, confirm_timeout)
+            if mapping_context != self._commands.mapping_context(attribute_name):
+                raise CommandRejectedError([WriteReason(code="mapping_changed")])
         return attribute
 
     def __eq__(self, other: object) -> bool:

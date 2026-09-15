@@ -5,6 +5,7 @@
  * what `@gridone/sdk` returns); the typed *views* built here (e.g.
  * `ThermostatAttributes`) are UI-side objects and use idiomatic camelCase.
  */
+import type { AttributeWriteState } from "@gridone/sdk";
 import type {
   ConnectionStatus as ConnectionStatusValue,
   DataType,
@@ -66,8 +67,14 @@ export function isReadOnlyDevice(device: Device): boolean {
 
 /** Whether a single attribute (by wire name) supports writing. */
 export function isAttributeWritable(device: Device, name: string): boolean {
-  const attrModes = deviceAttributes(device)[name]?.read_write_modes;
-  return Array.isArray(attrModes) && attrModes.includes("write");
+  const attribute = deviceAttributes(device)[name];
+  const attrModes = attribute?.read_write_modes;
+  return (
+    Array.isArray(attrModes) &&
+    attrModes.includes("write") &&
+    ((attribute?.write_state as AttributeWriteState | undefined)?.status ??
+      "ready") === "ready"
+  );
 }
 
 /** An attribute's recorded data type (by wire name). Attributes arrive as an

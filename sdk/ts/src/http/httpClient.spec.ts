@@ -131,3 +131,25 @@ describe("error conversion", () => {
     expect(error.validationErrors).toBeUndefined();
   });
 });
+
+it("preserves authored reasons and discards malformed localized messages", async () => {
+  const reason = {
+    code: "locked",
+    message: { default: "Locked", translations: { fr: "Verrouillé" } },
+  };
+  const client = makeClient(
+    vi.fn(async () =>
+      jsonResponse(
+        {
+          detail: "Command rejected",
+          reasons: [reason, null, { code: "bad", message: { default: 42 } }],
+        },
+        422,
+      ),
+    ),
+  );
+  const error = await rejectionOf(
+    client.request("POST", "/devices/d/commands"),
+  );
+  expect(error.reasons).toEqual([reason]);
+});

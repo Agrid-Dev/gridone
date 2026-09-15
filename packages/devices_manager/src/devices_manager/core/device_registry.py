@@ -40,7 +40,7 @@ class DeviceRegistry:
     _on_attribute_update: AttributeListener | None
     _storage: DeviceStorage | None
 
-    def __init__(
+    def __init__(  # noqa: PLR0913 -- injected lifecycle listeners
         self,
         devices: dict[str, CoreDevice] | None = None,
         *,
@@ -48,11 +48,13 @@ class DeviceRegistry:
         resolve_transport: TransportResolver,
         storage: DeviceStorage | None = None,
         on_attribute_update: AttributeListener | None = None,
+        on_write_state_update: Callable[[CoreDevice], None] | None = None,
     ) -> None:
         self._devices = devices if devices is not None else {}
         self._resolve_driver = resolve_driver
         self._resolve_transport = resolve_transport
         self._on_attribute_update = on_attribute_update
+        self._on_write_state_update = on_write_state_update
         self._storage = storage
         for device in self._devices.values():
             self._attach_update_listener(device)
@@ -118,6 +120,7 @@ class DeviceRegistry:
         builder has to remember to pass it.
         """
         device.on_update = self._on_attribute_update
+        device.on_write_state_update = self._on_write_state_update
 
     async def register(self, device: CoreDevice) -> None:
         """Register device in memory and persist."""
@@ -366,6 +369,7 @@ class DeviceRegistry:
         devices = self._devices_for_driver(driver.id)
         for device in devices:
             device.driver = driver
+            device.refresh_command_contract()
         return devices
 
     def prepare_driver_devices(self, driver: Driver) -> list[CoreDevice]:

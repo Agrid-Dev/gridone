@@ -14,7 +14,13 @@ export function controlSpecsOf(
   for (const [id, control] of Object.entries(document.controls)) {
     const attribute = document.bindings[control.binding]?.attribute;
     if (!attribute) continue;
-    specs[id] = { kind: control.kind, attribute, label: control.label };
+    specs[id] = {
+      kind: control.kind,
+      attribute,
+      label: control.label,
+      conditionalVisibility: !!control.visible_when,
+      conditionalInteraction: !!control.blocked_when,
+    };
   }
   return specs;
 }

@@ -1,3 +1,7 @@
+import type {
+  AttributeWriteState,
+  WriteConstraints as DriverWriteConstraints,
+} from "@gridone/sdk";
 import type { Scalar } from "../conditions";
 import type { ControlKind } from "../document";
 import type { FaceAction, LocalizedText } from "../face";
@@ -14,6 +18,8 @@ export type { ControlKind } from "../document";
 
 export type ControlSpec = {
   kind: ControlKind;
+  conditionalVisibility?: boolean;
+  conditionalInteraction?: boolean;
   /** Attribute of the current device the control is bound to. */
   attribute: string;
   label: LocalizedText;
@@ -22,11 +28,7 @@ export type ControlSpec = {
 /** A bound given as a constant or as a sibling attribute reference. */
 export type Bound = number | { attribute: string };
 
-export type WriteConstraints = {
-  step?: Bound | null;
-  minimum?: Bound | null;
-  maximum?: Bound | null;
-};
+export type WriteConstraints = DriverWriteConstraints;
 
 /** The slice of a device attribute the runtime and the widgets read. */
 export type AttributeLike = {
@@ -36,6 +38,8 @@ export type AttributeLike = {
   current_value: Scalar | null;
   value_options?: readonly Scalar[];
   write_constraints?: WriteConstraints | null;
+  write_state?: AttributeWriteState | null;
+  default_value?: Scalar | null;
   label?: LocalizedText | null;
   description?: LocalizedText | null;
   group?: string | null;
@@ -54,41 +58,35 @@ export type ValueResolver = (attribute: string) => Scalar | null | undefined;
 
 const GRID_EPSILON = 1e-9;
 
-function resolveBound(
-  bound: Bound | null | undefined,
-  resolve: ValueResolver,
-): { value: number | null; unknown: boolean } {
-  if (bound === null || bound === undefined)
-    return { value: null, unknown: false };
-  if (typeof bound === "number") return { value: bound, unknown: false };
-  const value = resolve(bound.attribute);
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    return { value: null, unknown: true };
-  }
-  return { value, unknown: false };
-}
-
+/** Read server-resolved numbers; never resolve a sibling in the browser. */
 export function resolveConstraints(
-  constraints: WriteConstraints | null | undefined,
-  resolve: ValueResolver,
+  state: AttributeWriteState | null | undefined,
 ): ResolvedConstraints {
-  const step = resolveBound(constraints?.step, resolve);
-  const minimum = resolveBound(constraints?.minimum, resolve);
-  const maximum = resolveBound(constraints?.maximum, resolve);
+  const constraints = state?.constraints;
   return {
-    step: step.value !== null && step.value > 0 ? step.value : null,
-    minimum: minimum.value,
-    maximum: maximum.value,
-    unknown:
-      step.unknown ||
-      minimum.unknown ||
-      maximum.unknown ||
-      (step.value !== null && step.value <= 0),
+    step: constraints?.step ?? null,
+    minimum: constraints?.minimum ?? null,
+    maximum: constraints?.maximum ?? null,
+    unknown: (constraints?.unknown?.length ?? 0) > 0,
   };
 }
 
+export function optionStates(attribute: AttributeLike | null | undefined) {
+  return (
+    attribute?.write_state?.options ??
+    attribute?.value_options?.map((value) => ({
+      value,
+      available: true,
+      reasons: [],
+    }))
+  );
+}
+
 export function isWritable(attribute: AttributeLike): boolean {
-  return attribute.read_write_modes.includes("write");
+  return (
+    attribute.read_write_modes.includes("write") &&
+    (attribute.write_state?.status ?? "ready") === "ready"
+  );
 }
 
 /**
@@ -108,14 +106,20 @@ export function nextValue(
 ): Scalar | null {
   if (spec.kind === "toggle") {
     if (op !== "toggle" || typeof current !== "boolean") return null;
-    return !current;
+    return optionStates(attribute)?.find((option) => option.value === !current)
+      ?.available === false
+      ? null
+      : !current;
   }
   if (spec.kind === "select") {
     if (op !== "cycle") return null;
-    const options = attribute.value_options ?? [];
+    const options =
+      optionStates(attribute)
+        ?.filter((option) => option.available)
+        .map((option) => option.value) ?? [];
     if (options.length === 0 || current === null) return null;
     const index = options.indexOf(current);
-    if (index === -1) return null;
+    if (index === -1) return options[0];
     return options[(index + 1) % options.length];
   }
   if (op !== "increment" && op !== "decrement") return null;
