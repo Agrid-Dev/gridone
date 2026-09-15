@@ -1,3 +1,11 @@
+## v0.238.1 (2026-09-15)
+
+### Fix
+
+- **ui**: scroll command lists back to the top on a new query
+- **ui**: report global search overflow as a status line
+- **ui**: cap and rank device results in global search
+
 ## v0.238.0 (2026-09-15)
 
 ### Feat
