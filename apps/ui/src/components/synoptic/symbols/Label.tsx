@@ -1,3 +1,4 @@
+import { textWidth } from "../text";
 import type { Pt } from "../types";
 
 /** Run state of a symbol whose `state` slot is bound. */
@@ -5,6 +6,8 @@ export type SymbolState = "on" | "off";
 
 /** Symbol labels are 11 px semibold: nothing on the plate is smaller. */
 export const LABEL_SIZE = 11;
+/** Space between a label's end and its LED. */
+const LED_GAP = 8;
 
 type LabelProps = {
   text: string;
@@ -51,19 +54,39 @@ export function Label({
         ))}
       </text>
       {led && (
-        <circle
-          cx={x + 4 * text.length + 10}
-          cy={y - 4}
-          r={4}
-          className={
-            faulty
-              ? "fill-status-error"
-              : led === "on"
-                ? "fill-status-ok"
-                : "fill-muted-foreground"
-          }
+        <Led
+          at={{ x: x + textWidth(text, LABEL_SIZE) / 2 + LED_GAP, y: y - 4 }}
+          led={led}
+          faulty={faulty}
         />
       )}
     </>
+  );
+}
+
+/** The 4 px run-state LED: ok when on, muted when off, error first when
+ *  the device is faulty. */
+export function Led({
+  at,
+  led,
+  faulty,
+}: {
+  at: Pt;
+  led: SymbolState;
+  faulty: boolean;
+}) {
+  return (
+    <circle
+      cx={at.x}
+      cy={at.y}
+      r={4}
+      className={
+        faulty
+          ? "fill-status-error"
+          : led === "on"
+            ? "fill-status-ok"
+            : "fill-muted-foreground"
+      }
+    />
   );
 }

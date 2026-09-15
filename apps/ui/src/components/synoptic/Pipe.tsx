@@ -14,20 +14,25 @@ type PipeProps = {
   endArrow?: boolean;
   /** Draw a solid arrow head at the first point (reversed). */
   startArrow?: boolean;
-  /** Live flow: a moving dash in the plate colour when true, the pipe dimmed
-   *  when false. Omit for a static pipe. The dash stands still under
-   *  `prefers-reduced-motion`. */
+  /** Live flow: a moving dash in the plate colour when true. The dash
+   *  stands still under `prefers-reduced-motion`. Stop state is on the
+   *  symbol, never on the pipe, so false and omitted both draw it static. */
   flowing?: boolean;
 };
 
-const ARROW_LEN = 17;
-const ARROW_W = 16;
+/** The arrow head the visual language draws at the `to` end. */
+const ARROW_LEN = 8;
+const ARROW_W = 6;
+/** Pipe colour and the plate-coloured casing around it, so a run crossing
+ *  another at a higher `z` reads as in front. */
+export const PIPE_WIDTH = 3;
+const CASING_WIDTH = 7;
 
 /** A process pipe: rounded orthogonal polyline with optional flow arrows. */
 export function Pipe({
   points,
   fluid,
-  width = 6,
+  width = PIPE_WIDTH,
   radius = 10,
   endArrow = false,
   startArrow = false,
@@ -58,7 +63,14 @@ export function Pipe({
 
   const d = roundedPath(pts, radius);
   return (
-    <g opacity={flowing === false ? 0.45 : 1}>
+    <g>
+      <path
+        d={d}
+        fill="none"
+        strokeWidth={width + CASING_WIDTH - PIPE_WIDTH}
+        className="stroke-synoptic-plate"
+        data-casing
+      />
       <path
         d={d}
         fill="none"

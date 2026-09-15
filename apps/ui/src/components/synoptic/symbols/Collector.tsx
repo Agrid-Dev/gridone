@@ -13,13 +13,15 @@ type Props = {
 };
 
 const BAR_WIDTH = 0.4;
+/** How far the bar sits in from the faces its ports leave through. */
+export const COLLECTOR_INSET = (1 - BAR_WIDTH) / 2;
 const LABEL_LIFT = 14;
 
 /** The collector bar on the pipe axis plane, its length and ports authored
  *  per instance. Runs attach at the ports `symbolPort` resolves. */
 export function Collector({ projection, origin, shape, label }: Props) {
   const plane = planeAt(projection, (origin.z ?? 0) + PIPE_AXIS_Z);
-  const inset = (1 - BAR_WIDTH) / 2;
+  const inset = COLLECTOR_INSET;
   const bar =
     shape.axis === "x"
       ? square(origin.x, origin.y + inset, shape.length, BAR_WIDTH)

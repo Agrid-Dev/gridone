@@ -5738,8 +5738,11 @@ export interface components {
      * @description Document-level defaults a binding may override.
      */
     SynopticDefaults: {
-      /** Stale After */
-      stale_after?: number | null;
+      /**
+       * Stale After
+       * @default 900
+       */
+      stale_after?: number;
     };
     /**
      * SynopticDocument
