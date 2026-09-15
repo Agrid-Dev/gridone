@@ -7,6 +7,10 @@ import type { Device } from "@gridone/sdk";
 import type { DeviceAttribute } from "@/lib/devices";
 import type { FaultAttribute } from "@/lib/faults";
 
+vi.mock("@/contexts/AuthContext", () => ({
+  usePermissions: () => () => true,
+}));
+
 vi.mock("react-i18next", () =>
   createI18nMock({
     "common.severity.alert": "alert",

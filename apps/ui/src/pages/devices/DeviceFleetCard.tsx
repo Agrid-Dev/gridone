@@ -6,6 +6,7 @@ import { Card } from "@/components/ui";
 import { ConnectionStatusDot } from "@/components/ConnectionStatusBadge";
 import { EmptyValue } from "@/components/EmptyValue";
 import { useInViewOnce } from "@/hooks/useInViewOnce";
+import { useCanSeeConnectionStatus } from "@/hooks/useCanSeeConnectionStatus";
 import { getConnectionStatus, isPmsMonitor } from "@/lib/devices";
 import {
   deviceMeasureReading,
@@ -48,6 +49,7 @@ export function DeviceFleetCard({
   });
 
   const status = getConnectionStatus(device);
+  const canSeeConnectionStatus = useCanSeeConnectionStatus();
   const measure = deviceMeasureReading(device);
   const setpoint = deviceSetpointReading(device);
   const lead = setpoint?.value != null ? setpoint : measure;
@@ -76,7 +78,9 @@ export function DeviceFleetCard({
               {zonePath ?? <EmptyValue />}
             </p>
           </div>
-          <ConnectionStatusDot status={status} className="mt-1.5 shrink-0" />
+          {canSeeConnectionStatus && (
+            <ConnectionStatusDot status={status} className="mt-1.5 shrink-0" />
+          )}
         </div>
 
         {isPms ? (

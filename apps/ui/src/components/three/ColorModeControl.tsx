@@ -9,6 +9,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useCanSeeConnectionStatus } from "@/hooks/useCanSeeConnectionStatus";
 import {
   hslToCss,
   temperatureHsl,
@@ -58,6 +59,10 @@ export const ColorModeControl: FC<{
 }> = ({ mode, onChange, theme, functionKeys }) => {
   const { t } = useTranslation("home");
   const [legendOpen, setLegendOpen] = useState(false);
+  const canSeeConnectionStatus = useCanSeeConnectionStatus();
+  const modes = canSeeConnectionStatus
+    ? MODES
+    : MODES.filter(({ mode: value }) => value !== "connectivity");
 
   const gradient = useMemo(() => {
     const stops = Array.from({ length: STOPS }, (_, index) => {
@@ -81,7 +86,7 @@ export const ColorModeControl: FC<{
         role="radiogroup"
         aria-label={t("zonesByLevel.viewer.colorBy")}
       >
-        {MODES.map(({ mode: value, Icon }) => (
+        {modes.map(({ mode: value, Icon }) => (
           <button
             key={value}
             type="button"

@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { STATUS_LEVEL } from "@/components/ConnectionStatusBadge";
+import { useCanSeeConnectionStatus } from "@/hooks/useCanSeeConnectionStatus";
 import { ConnectionStatus } from "@/lib/devices";
 import type { ConnectionCounts } from "@/lib/deviceSummary";
 import { SEMANTIC_TEXT_CLASS } from "@/lib/semanticColors";
@@ -29,13 +30,17 @@ export function DevicesSummary({
   counts: ConnectionCounts;
 }) {
   const { t } = useTranslation("devices");
+  const canSeeConnectionStatus = useCanSeeConnectionStatus();
+  const shownStatuses = canSeeConnectionStatus
+    ? SUMMARY_ORDER.filter((status) => counts[status] > 0)
+    : [];
 
   return (
     <span>
       <span className="font-medium text-foreground">
         {t("devices.summary.deviceCount", { count: total })}
       </span>
-      {SUMMARY_ORDER.filter((status) => counts[status] > 0).map((status) => (
+      {shownStatuses.map((status) => (
         <span key={status}>
           {" · "}
           <span

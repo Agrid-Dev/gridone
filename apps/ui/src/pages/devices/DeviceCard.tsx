@@ -12,6 +12,7 @@ import { Link } from "react-router";
 import { DeviceTypeChip } from "@/components/DeviceTypeChip";
 import { DeviceFaultBadge } from "@/components/DeviceFaultBadge";
 import { ConnectionStatusIcon } from "@/components/ConnectionStatusBadge";
+import { useCanSeeConnectionStatus } from "@/hooks/useCanSeeConnectionStatus";
 import { getStandardDeviceEntry } from "./standard-devices/registry";
 
 /** Default card content for devices without a registered standard type. */
@@ -43,9 +44,11 @@ export function DeviceCard({ device }: { device: Device }) {
   const standardEntry = getStandardDeviceEntry(device.type);
   const Content = standardEntry?.Preview ?? DefaultCardContent;
   const connectionStatus = getConnectionStatus(device);
+  const canSeeConnectionStatus = useCanSeeConnectionStatus();
   const showConnectionIssue =
-    connectionStatus === ConnectionStatus.Degraded ||
-    connectionStatus === ConnectionStatus.Error;
+    canSeeConnectionStatus &&
+    (connectionStatus === ConnectionStatus.Degraded ||
+      connectionStatus === ConnectionStatus.Error);
 
   return (
     <Link to={`/devices/${device.id}`} className="group block h-full">

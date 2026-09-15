@@ -13,6 +13,10 @@ import { createI18nMock } from "@/test/i18nMock";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import type { AssetFormValues } from "./AssetForm";
 
+vi.mock("@/contexts/AuthContext", () => ({
+  usePermissions: () => () => true,
+}));
+
 vi.mock("react-i18next", () =>
   createI18nMock({
     title: "Zones",

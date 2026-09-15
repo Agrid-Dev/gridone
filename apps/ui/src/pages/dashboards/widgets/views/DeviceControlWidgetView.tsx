@@ -9,6 +9,7 @@ import {
 import { ConnectionStatusDot } from "@/components/ConnectionStatusBadge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDeviceById } from "@/hooks/useDeviceById";
+import { useCanSeeConnectionStatus } from "@/hooks/useCanSeeConnectionStatus";
 import { useDeviceDetails } from "@/hooks/useDeviceDetails";
 import { getConnectionStatus } from "@/lib/devices";
 import { getStandardDeviceEntry } from "@/pages/devices/standard-devices/registry";
@@ -64,6 +65,7 @@ export const DeviceControlWidgetView: FC<{ config: unknown }> = ({
   const { device_id: deviceId } = config as DeviceControlWidgetConfig;
   const { t } = useTranslation("dashboards");
   const result = useDeviceById(deviceId || undefined);
+  const canSeeConnectionStatus = useCanSeeConnectionStatus();
 
   if (!deviceId) return <Message>{t("widgets.deviceControl.empty")}</Message>;
   if (result.isLoading) {
@@ -91,10 +93,12 @@ export const DeviceControlWidgetView: FC<{ config: unknown }> = ({
         </Link>
         {/* Fixed "live" label — the dot alone carries the connection status. */}
         <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
-          <ConnectionStatusDot
-            status={getConnectionStatus(device)}
-            className="animate-pulse"
-          />
+          {canSeeConnectionStatus && (
+            <ConnectionStatusDot
+              status={getConnectionStatus(device)}
+              className="animate-pulse"
+            />
+          )}
           {t("widgets.deviceControl.live")}
         </span>
       </div>
