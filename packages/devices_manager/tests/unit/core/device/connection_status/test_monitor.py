@@ -11,7 +11,6 @@ from devices_manager.core.device.connection_status import (
     ConnectionMonitor,
     EventType,
 )
-from devices_manager.core.device.connection_status.monitor import LOG_SIZE
 from devices_manager.types import ConnectionStatus
 
 from ...fixtures.fake_time import fake_time
@@ -22,16 +21,9 @@ WRITE = EventType.WRITE
 LISTEN = EventType.LISTEN
 
 
-def _monitor(
-    silence_interval: float | None = None, max_attribute_loss: float = 0.0
-) -> tuple[ConnectionMonitor, Mock]:
+def _monitor(silence_interval: float | None = None) -> tuple[ConnectionMonitor, Mock]:
     publish = Mock()
-    monitor = ConnectionMonitor(
-        publish,
-        silence_interval=silence_interval,
-        max_attribute_loss=max_attribute_loss,
-    )
-    return monitor, publish
+    return ConnectionMonitor(publish, silence_interval=silence_interval), publish
 
 
 def _published(publish: Mock) -> list[ConnectionStatus]:
@@ -99,28 +91,18 @@ class TestStatusFromOutcomes:
             ([], ConnectionStatus.IDLE),
             ([(READ, "a", None)], ConnectionStatus.OK),
             ([(LISTEN, "a", None)], ConnectionStatus.OK),
-            # the loss is measured against the whole window: a failure counts
-            # the same whether the window is full or just started
-            ([(READ, "a", OSError())], ConnectionStatus.DEGRADED),
-            ([(READ, "a", OSError())] * LOG_SIZE, ConnectionStatus.ERROR),
+            ([(READ, "a", OSError())], ConnectionStatus.ERROR),
             ([(READ, "a", None), (READ, "a", OSError())], ConnectionStatus.DEGRADED),
             # logs are not pooled: a fully failing read log is total loss even
             # when the attribute's listens succeed
-            (
-                [(LISTEN, "a", None)] + [(READ, "a", OSError())] * LOG_SIZE,
-                ConnectionStatus.ERROR,
-            ),
+            ([(LISTEN, "a", None), (READ, "a", OSError())], ConnectionStatus.ERROR),
             (
                 [(LISTEN, "a", None), (READ, "a", None), (READ, "a", OSError())],
                 ConnectionStatus.DEGRADED,
             ),
             # and across attributes
             ([(READ, "a", None), (READ, "b", OSError())], ConnectionStatus.DEGRADED),
-            (
-                [(READ, "a", OSError())] * LOG_SIZE
-                + [(READ, "b", OSError())] * LOG_SIZE,
-                ConnectionStatus.ERROR,
-            ),
+            ([(READ, "a", OSError()), (READ, "b", OSError())], ConnectionStatus.ERROR),
             # writes say nothing about reachability
             ([(WRITE, "a", OSError())], ConnectionStatus.IDLE),
             ([(READ, "a", None), (WRITE, "a", OSError())], ConnectionStatus.OK),
@@ -157,23 +139,23 @@ class TestStatusFromOutcomes:
         assert monitor.status == expected
 
     @pytest.mark.parametrize(
-        ("failures", "expected"),
+        ("outcomes", "expected"),
         [
-            (1, ConnectionStatus.OK),
-            (2, ConnectionStatus.OK),
-            (3, ConnectionStatus.DEGRADED),
+            ([OSError()], ConnectionStatus.ERROR),
+            ([OSError(), None], ConnectionStatus.DEGRADED),
+            ([OSError(), None, None, None], ConnectionStatus.DEGRADED),
+            ([OSError(), None, None, None, None], ConnectionStatus.OK),
         ],
     )
-    def test_tolerance_holds_before_the_window_fills(
-        self, failures: int, expected: ConnectionStatus
+    def test_loss_is_judged_from_the_first_outcome(
+        self, outcomes: list[Exception | None], expected: ConnectionStatus
     ) -> None:
-        """Right after a restart the window is short: its missing outcomes are
-        unknown, not successes, so a first miss is not a 100 % loss."""
-        monitor, publish = _monitor(max_attribute_loss=0.2)
-        for _ in range(failures):
-            monitor.record(READ, "a", OSError())
+        """Feedback comes as soon as outcomes do: the loss is over the outcomes
+        recorded so far, not over a full window."""
+        monitor = ConnectionMonitor(Mock(), max_attribute_loss=0.2)
+        for error in outcomes:
+            monitor.record(READ, "a", error)
         assert monitor.status == expected
-        assert ConnectionStatus.ERROR not in _published(publish)
 
     def test_the_worse_log_decides(self) -> None:
         monitor = ConnectionMonitor(Mock(), max_attribute_loss=0.2)
@@ -186,8 +168,7 @@ class TestStatusFromOutcomes:
         monitor = ConnectionMonitor(Mock(), max_attribute_loss=0.2)
         for name in ("a", "b", "c"):
             monitor.record(READ, name)
-        for _ in range(LOG_SIZE):
-            monitor.record(READ, "broken", OSError())
+        monitor.record(READ, "broken", OSError())
         assert monitor.status == ConnectionStatus.DEGRADED
 
     def test_only_retained_outcomes_count(self) -> None:
@@ -313,8 +294,7 @@ class TestSilence:
     async def test_outcomes_win_over_a_milder_silence(self) -> None:
         monitor, _ = _monitor(INTERVAL)
         monitor.watch()
-        for _ in range(LOG_SIZE):
-            monitor.record(READ, "a", OSError("timeout"))
+        monitor.record(READ, "a", OSError("timeout"))
         await asyncio.sleep((SILENCE_DEGRADED_MULTIPLIER + 0.5) * INTERVAL)
         assert monitor.status == ConnectionStatus.ERROR
         monitor.close()

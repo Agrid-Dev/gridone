@@ -14,7 +14,6 @@ from devices_manager.core.device import (
     CoreDevice,
     DeviceBase,
 )
-from devices_manager.core.device.connection_status.monitor import LOG_SIZE
 from devices_manager.core.device.connection_status_attribute import (
     CONNECTION_STATUS_ATTR,
 )
@@ -452,8 +451,7 @@ class TestCoreDevicePollingGroups:
 
         mock_transport_client.read = failing_read
 
-        for _ in range(LOG_SIZE):
-            await grouped_device._read_group(["temperature"])  # noqa: SLF001
+        await grouped_device._read_group(["temperature"])  # noqa: SLF001
 
         assert (
             grouped_device.get_attribute_value(CONNECTION_STATUS_ATTR)

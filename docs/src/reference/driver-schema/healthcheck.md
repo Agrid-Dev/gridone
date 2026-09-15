@@ -29,18 +29,20 @@ Examples: `30s`, `1min`, `2h`, `90` (= 90 seconds).
 
 ## Connection status from read and listen outcomes
 
-Gridone keeps the last 10 read outcomes and the last 10 listen outcomes of every attribute. An attribute's **loss** is the number of failures in the worse of those two logs, out of 10 (the logs are not pooled: a failed poll adds a read error but no listen entry). The denominator is always 10: after a device (re)starts, outcomes not recorded yet count as unknown, not as failures. `connection_status` is then:
+Gridone keeps the last 10 read outcomes and the last 10 listen outcomes of every attribute. An attribute's **loss** is the share of failures among the outcomes recorded in the worse of those two logs (they are not pooled: a failed poll adds a read error but no listen entry). `connection_status` is then:
 
 | Condition | `connection_status` |
 |---|---|
 | No outcome recorded yet | `idle` |
-| Every attribute with outcomes failed its last 10 outcomes | `error` |
-| At least one attribute loses more than `max_attribute_loss`, or failed its last 10 outcomes | `degraded` |
+| Every attribute with outcomes is at total loss | `error` |
+| At least one attribute loses more than `max_attribute_loss`, or is at total loss | `degraded` |
 | Otherwise | `ok` |
+
+The loss is computed over the outcomes recorded so far, up to 10, so the status reacts from the first outcome rather than after a full window. Logs start empty whenever a device (re)starts: right after a restart, a first failed outcome is a total loss (`error`), one failure out of two is a 50 % loss, and so on until the log holds 10 outcomes.
 
 ### Tolerated loss
 
-By default (`max_attribute_loss: 0`) any failure among an attribute's last 10 outcomes reports the device `degraded` until it leaves the window, and a device reaches `error` once its attributes have failed 10 outcomes in a row. Devices on flaky links can tolerate occasional misses:
+By default (`max_attribute_loss: 0`) any failure in an attribute's log reports the device `degraded` until it leaves the window, or `error` while the attribute has no successful outcome in its log. Devices on flaky links can tolerate occasional misses:
 
 ```yaml
 healthcheck:
@@ -48,9 +50,7 @@ healthcheck:
   max_attribute_loss: 0.2
 ```
 
-`0.2` keeps the device `ok` with up to 2 failures out of the last 10 outcomes, from the first outcome on, and reports `degraded` from the third. An attribute that fails 10 outcomes in a row is never tolerated: it points at a wrong address or driver, or at a device that is down, not at a flaky link.
-
-Because the window is counted in outcomes, reaching `error` takes 10 failed polls: 10 seconds for a device polled every second, 10 hours for one polled hourly. Push devices also reach `error` through silence detection (below), after 3 × `expected_push_interval` without data.
+Once a log holds 10 outcomes, `0.2` keeps the device `ok` with up to 2 failures out of the last 10 and reports `degraded` from the third. Before that, the same share applies to fewer outcomes: 1 failure out of 5 is tolerated, 1 out of 4 is not. An attribute whose recorded outcomes all failed is never tolerated: it points at a wrong address or driver, or at a device that is down.
 
 Changing `max_attribute_loss` on a live driver restarts its devices: their outcome logs start afresh and are judged against the new value, while the current `connection_status` is kept until the next outcome.
 
