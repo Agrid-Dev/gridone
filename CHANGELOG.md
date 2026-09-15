@@ -1,3 +1,21 @@
+## v0.239.0 (2026-09-15)
+
+### Feat
+
+- **ui**: stage group setpoints before confirmation
+- **ui**: hide advanced group entry points
+- **ui**: simplify tag-based group creation
+- **ui**: improve equipment group pages
+- **devices**: add shared equipment groups
+
+### Fix
+
+- **ui**: keep group command feedback visible
+- **devices**: harden tag groups and command previews
+- **devices**: refuse a fleet-wide target in bulk tag mutations
+- **ui**: dispatch tag targets through the command preview
+- **tests**: avoid postgres test module collision
+
 ## v0.238.1 (2026-09-15)
 
 ### Fix
