@@ -1,3 +1,9 @@
+## v0.241.0 (2026-09-15)
+
+### Feat
+
+- **ui**: show device connection status to admins only (AGR-1258)
+
 ## v0.240.0 (2026-09-15)
 
 ## v0.239.1 (2026-09-15)
