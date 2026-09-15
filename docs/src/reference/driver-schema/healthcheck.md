@@ -40,7 +40,7 @@ Gridone keeps the last 10 read outcomes and the last 10 listen outcomes of every
 
 ### Tolerated loss
 
-By default (`max_attribute_loss: 0`) a single failure degrades the device until it leaves the window. Devices on flaky links, such as Wi-Fi thermostats polled hourly, can tolerate occasional misses:
+By default (`max_attribute_loss: 0`) a single failure degrades the device until it leaves the window. Devices on flaky links can tolerate occasional misses:
 
 ```yaml
 healthcheck:
