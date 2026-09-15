@@ -276,6 +276,7 @@
       "description": "Recherchez et ouvrez un appareil, une zone ou un défaut.",
       "moreDevices_one": "{{count}} autre appareil correspondant. Affinez votre recherche pour le voir.",
       "moreDevices_other": "{{count}} autres appareils correspondants. Affinez votre recherche pour les voir.",
+      "showingDevices": "{{shown}} appareils affichés sur {{total}}",
       "empty": "Aucun résultat",
       "loading": "Chargement…",
       "groups": {

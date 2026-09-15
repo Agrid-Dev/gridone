@@ -9,6 +9,7 @@ import { ancestorPathOf } from "@/lib/assets";
 import { deviceTypeIcon } from "@/lib/deviceTypes";
 import { faultLabel } from "@/lib/faultLabel";
 import { filterGlobalSearch } from "@/lib/deviceSearch";
+import { serializeResourceReference } from "@/lib/resourceReference";
 import { FaultSeverityIcon } from "@/components/FaultSeverityIcon";
 import {
   CommandDialog,
@@ -30,7 +31,12 @@ import {
  *  legitimate results (same rationale as ``AssetPicker``).
  *
  *  A fault opens its device's detail page — faults have no page of their
- *  own, and the detail's active-faults section carries the full context. */
+ *  own, and the detail's active-faults section carries the full context.
+ *
+ *  The overflow hint renders beside the devices group, never inside its
+ *  heading: cmdk derives a group's ``data-value`` and its accessible name from
+ *  the heading's text, so a count in there would rename the group on every
+ *  keystroke. */
 export function GlobalSearchDialog({
   open,
   onOpenChange,
@@ -57,6 +63,15 @@ export function GlobalSearchDialog({
     navigate(path);
   };
 
+  /** Nothing has been searched yet on open, so the fleet is merely capped —
+   *  only a typed query leaves matches out. */
+  const overflowMessage = deviceSearch.query.trim()
+    ? t("topbar.search.moreDevices", { count: deviceSearch.overflow })
+    : t("topbar.search.showingDevices", {
+        shown: deviceSearch.devices.length,
+        total: deviceSearch.devices.length + deviceSearch.overflow,
+      });
+
   return (
     <CommandDialog
       open={open}
@@ -74,27 +89,17 @@ export function GlobalSearchDialog({
         <CommandEmpty>
           {isLoading ? t("topbar.search.loading") : t("topbar.search.empty")}
         </CommandEmpty>
-        <CommandGroup
-          heading={
-            <>
-              {t("topbar.search.groups.devices")}
-              {deviceSearch.overflow > 0 && (
-                <span className="mt-1 block font-normal">
-                  {t("topbar.search.moreDevices", {
-                    count: deviceSearch.overflow,
-                  })}
-                </span>
-              )}
-            </>
-          }
-        >
+        <CommandGroup heading={t("topbar.search.groups.devices")}>
           {deviceSearch.devices.map((device) => {
             const Icon = deviceTypeIcon(device.type) ?? Cpu;
             return (
               <CommandItem
                 key={device.id}
-                value={`device:${device.name ?? ""} ${device.id}`}
-                keywords={[device.name ?? "", device.id]}
+                value={serializeResourceReference({
+                  type: "device",
+                  id: device.id,
+                })}
+                keywords={[device.name, device.id]}
                 onSelect={() => goTo(`/devices/${device.id}`)}
               >
                 <Icon
@@ -106,6 +111,14 @@ export function GlobalSearchDialog({
             );
           })}
         </CommandGroup>
+        {deviceSearch.overflow > 0 && (
+          <div
+            role="status"
+            className="px-4 pb-2 text-xs text-muted-foreground"
+          >
+            {overflowMessage}
+          </div>
+        )}
         <CommandSeparator />
         <CommandGroup heading={t("topbar.search.groups.zones")}>
           {assetsList.map((asset) => {

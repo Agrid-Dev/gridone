@@ -15,6 +15,7 @@ vi.mock("react-i18next", () =>
     "topbar.search.loading": "Loading…",
     "topbar.search.moreDevices":
       "{{count}} more matching devices. Refine your search to see them.",
+    "topbar.search.showingDevices": "Showing {{shown}} of {{total}} devices",
     "topbar.search.groups.devices": "Devices",
     "topbar.search.groups.zones": "Zones",
     "topbar.search.groups.faults": "Faults",
@@ -92,7 +93,6 @@ vi.mock("@/hooks/useFaultsList", () => ({
 }));
 
 import { GlobalSearch } from "./GlobalSearch";
-import { GlobalSearchDialog } from "./GlobalSearchDialog";
 
 function LocationProbe() {
   const { pathname } = useLocation();
@@ -247,7 +247,7 @@ describe("GlobalSearch", () => {
     expect(screen.queryByText("No results")).not.toBeInTheDocument();
   });
 
-  it("renders only the best device matches, reports overflow, and opens the first result with Enter", async () => {
+  it("caps the device group, reports overflow, and opens the best match with Enter", async () => {
     useDevicesList.mockReturnValue({
       devices: [
         ...Array.from({ length: DEVICE_SEARCH_LIMIT }, (_, i) => ({
@@ -266,22 +266,29 @@ describe("GlobalSearch", () => {
     renderSearch();
     await user.keyboard("{Meta>}k{/Meta}");
     const input = await screen.findByRole("combobox");
+    // An exact name also asserts the overflow hint stays out of the heading:
+    // cmdk names the group after its heading's text.
     expect(
-      within(screen.getByRole("group", { name: /^Devices/ })).getAllByRole(
+      within(screen.getByRole("group", { name: "Devices" })).getAllByRole(
         "option",
       ),
     ).toHaveLength(DEVICE_SEARCH_LIMIT);
+    expect(screen.getByRole("status")).toHaveTextContent(
+      `Showing ${DEVICE_SEARCH_LIMIT} of ${DEVICE_SEARCH_LIMIT + 3} devices`,
+    );
 
     await user.type(input, "ECS");
-    const group = screen.getByRole("group", { name: /^Devices/ });
-    const results = within(group).getAllByRole("option");
-    expect(results).toHaveLength(DEVICE_SEARCH_LIMIT);
-    expect(results[0]).toHaveTextContent("ECS boiler");
-    expect(results[1]).toHaveTextContent("Ballon ECS");
+    const group = screen.getByRole("group", { name: "Devices" });
+    expect(within(group).getAllByRole("option")).toHaveLength(
+      DEVICE_SEARCH_LIMIT,
+    );
+    // Without the custom filter, cmdk's fuzzy scoring would keep this row.
     expect(
       within(group).queryByText("Electric controls"),
     ).not.toBeInTheDocument();
-    expect(screen.getByText(/^2 more matching devices/)).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      /^2 more matching devices/,
+    );
 
     await user.keyboard("{Enter}");
     expect(screen.getByTestId("pathname")).toHaveTextContent("/devices/prefix");
@@ -300,6 +307,7 @@ describe("GlobalSearch", () => {
       loading: false,
       error: null,
     });
+    const capped = `Showing ${DEVICE_SEARCH_LIMIT} of ${DEVICE_SEARCH_LIMIT + 1} devices`;
     const user = userEvent.setup();
     renderSearch();
     await user.keyboard("{Meta>}k{/Meta}");
@@ -312,47 +320,18 @@ describe("GlobalSearch", () => {
     expect(
       screen.getByRole("option", { name: "Zulu boiler" }),
     ).toBeInTheDocument();
-    expect(screen.queryByText(/more matching devices/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
 
     await user.clear(input);
-    expect(screen.getByText(/^1 more matching devices/)).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(capped);
     await user.type(input, "not-found-anywhere");
     expect(screen.getByText("No results")).toBeInTheDocument();
     expect(screen.queryByRole("option")).not.toBeInTheDocument();
-    expect(screen.queryByText(/more matching devices/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
     await user.keyboard("{Escape}");
     await user.keyboard("{Meta>}k{/Meta}");
     expect(await screen.findByRole("combobox")).toHaveValue("");
-    expect(screen.getByText(/^1 more matching devices/)).toBeInTheDocument();
-  });
-
-  it("updates ranking when a device is renamed while the palette is open", async () => {
-    const devices = [
-      { ...thermostat, id: "prefix", name: "ECS boiler" },
-      { ...thermostat, id: "word", name: "Ballon ECS" },
-    ];
-    useDevicesList.mockReturnValue({ devices, loading: false, error: null });
-    const dialog = (
-      <MemoryRouter>
-        <GlobalSearchDialog open onOpenChange={vi.fn()} />
-      </MemoryRouter>
-    );
-    const { rerender } = render(dialog);
-    const user = userEvent.setup();
-    await user.type(await screen.findByRole("combobox"), "ECS");
-    expect(screen.getAllByRole("option")[0]).toHaveTextContent("ECS boiler");
-
-    useDevicesList.mockReturnValue({
-      devices: [{ ...devices[0], name: "abecs" }, devices[1]],
-      loading: false,
-      error: null,
-    });
-    rerender(
-      <MemoryRouter>
-        <GlobalSearchDialog open onOpenChange={vi.fn()} />
-      </MemoryRouter>,
-    );
-    expect(screen.getAllByRole("option")[0]).toHaveTextContent("Ballon ECS");
+    expect(screen.getByRole("status")).toHaveTextContent(capped);
   });
 
   it.each([

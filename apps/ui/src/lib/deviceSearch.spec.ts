@@ -1,8 +1,16 @@
 import { describe, expect, it } from "vitest";
 import type { Device } from "@gridone/sdk";
-import { DEVICE_SEARCH_LIMIT, searchDevices } from "./deviceSearch";
+import {
+  DEVICE_SEARCH_LIMIT,
+  filterGlobalSearch,
+  searchDevices,
+} from "./deviceSearch";
+import { serializeResourceReference } from "./resourceReference";
 
-function device(id: string, name?: string): Device {
+/** A device also carries required config/driver/transport fields the ranking
+ *  never reads, hence the cast. `name` is required but may be empty: the API
+ *  defaults it to "" for devices created before they are labelled. */
+function device(id: string, name = ""): Device {
   return { id, name } as Device;
 }
 
@@ -114,4 +122,37 @@ describe("searchDevices", () => {
       });
     },
   );
+});
+
+describe("filterGlobalSearch", () => {
+  const deviceValue = serializeResourceReference({ type: "device", id: "d1" });
+
+  it("ranks device rows from their keywords, not their opaque value", () => {
+    expect(
+      filterGlobalSearch(deviceValue, "ecs", ["Ballon ECS", "d1"]),
+    ).toBeGreaterThan(filterGlobalSearch(deviceValue, "ecs", ["abecs", "d1"]));
+  });
+
+  it("excludes device rows that only match fuzzily", () => {
+    expect(
+      filterGlobalSearch(deviceValue, "ecs", ["Electric controls", "d1"]),
+    ).toBe(0);
+  });
+
+  it.each([
+    {
+      label: "a zone row",
+      value: "Building A b1",
+      query: "blda",
+      keywords: undefined,
+    },
+    {
+      label: "another resource type",
+      value: serializeResourceReference({ type: "asset", id: "a1" }),
+      query: "ecs",
+      keywords: ["Electric controls", "a1"],
+    },
+  ])("keeps cmdk's fuzzy filter for $label", ({ value, query, keywords }) => {
+    expect(filterGlobalSearch(value, query, keywords)).toBeGreaterThan(0);
+  });
 });

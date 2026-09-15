@@ -1,5 +1,6 @@
 import type { Device } from "@gridone/sdk";
 import { defaultFilter } from "cmdk";
+import { parseResourceReference } from "./resourceReference";
 import { compareByName } from "./sortByName";
 
 /** Match the viewer's per-group cap to keep large fleets scannable. */
@@ -39,7 +40,7 @@ export function searchDevices(devices: readonly Device[], query: string) {
   const matches = devices
     .map((device) => ({
       device,
-      score: deviceScore(device.name ?? "", device.id, query),
+      score: deviceScore(device.name, device.id, query),
     }))
     .filter(({ score }) => score > 0)
     .sort((a, b) => b.score - a.score || compareByName(a.device, b.device));
@@ -50,13 +51,20 @@ export function searchDevices(devices: readonly Device[], query: string) {
   };
 }
 
-/** Use the same device ranking in cmdk; preserve its zone and fault search. */
+/** Use the same device ranking in cmdk; preserve its zone and fault search.
+ *
+ *  Device rows are recognized by their ``resource://device/<id>`` value and
+ *  carry their searchable text in ``keywords`` (name first, then id). Zone and
+ *  fault rows keep a human-readable value because that is what
+ *  ``defaultFilter`` matches on — only rows bringing their own scorer can
+ *  afford an opaque one. */
 export function filterGlobalSearch(
   value: string,
   query: string,
   keywords?: string[],
 ): number {
-  if (value.startsWith("device:") && keywords) {
+  const reference = parseResourceReference(value);
+  if (reference?.type === "device" && keywords) {
     return deviceScore(keywords[0] ?? "", keywords[1] ?? "", query);
   }
   return defaultFilter(value, query, keywords);
