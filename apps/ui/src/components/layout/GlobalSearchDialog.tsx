@@ -1,14 +1,15 @@
-import { useMemo } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Cpu } from "lucide-react";
 import { useAssetTree } from "@/hooks/useAssetTree";
 import { useDevicesList } from "@/hooks/useDevicesList";
+import { useDeviceSearch } from "@/hooks/useDeviceSearch";
 import { useFaultsList } from "@/hooks/useFaultsList";
 import { ancestorPathOf } from "@/lib/assets";
 import { deviceTypeIcon } from "@/lib/deviceTypes";
 import { faultLabel } from "@/lib/faultLabel";
-import { sortedByName } from "@/lib/sortByName";
+import { filterGlobalSearch } from "@/lib/deviceSearch";
+import { serializeResourceReference } from "@/lib/resourceReference";
 import { FaultSeverityIcon } from "@/components/FaultSeverityIcon";
 import {
   CommandDialog,
@@ -30,7 +31,12 @@ import {
  *  legitimate results (same rationale as ``AssetPicker``).
  *
  *  A fault opens its device's detail page — faults have no page of their
- *  own, and the detail's active-faults section carries the full context. */
+ *  own, and the detail's active-faults section carries the full context.
+ *
+ *  The overflow hint renders beside the devices group, never inside its
+ *  heading: cmdk derives a group's ``data-value`` and its accessible name from
+ *  the heading's text, so a count in there would rename the group on every
+ *  keystroke. */
 export function GlobalSearchDialog({
   open,
   onOpenChange,
@@ -44,44 +50,75 @@ export function GlobalSearchDialog({
   const { devices, loading: devicesLoading } = useDevicesList();
   const { faults, loading: faultsLoading } = useFaultsList();
 
-  const sortedDevices = useMemo(() => sortedByName(devices), [devices]);
+  const deviceSearch = useDeviceSearch(devices);
   const isLoading = assetsLoading || devicesLoading || faultsLoading;
 
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) deviceSearch.setQuery("");
+    onOpenChange(nextOpen);
+  };
+
   const goTo = (path: string) => {
-    onOpenChange(false);
+    handleOpenChange(false);
     navigate(path);
   };
+
+  /** Nothing has been searched yet on open, so the fleet is merely capped —
+   *  only a typed query leaves matches out. */
+  const overflowMessage = deviceSearch.query.trim()
+    ? t("topbar.search.moreDevices", { count: deviceSearch.overflow })
+    : t("topbar.search.showingDevices", {
+        shown: deviceSearch.devices.length,
+        total: deviceSearch.devices.length + deviceSearch.overflow,
+      });
 
   return (
     <CommandDialog
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={handleOpenChange}
       label={t("topbar.search.label")}
       description={t("topbar.search.description")}
+      filter={filterGlobalSearch}
     >
-      <CommandInput placeholder={t("topbar.search.placeholder")} />
+      <CommandInput
+        placeholder={t("topbar.search.placeholder")}
+        value={deviceSearch.query}
+        onValueChange={deviceSearch.setQuery}
+      />
       <CommandList>
         <CommandEmpty>
           {isLoading ? t("topbar.search.loading") : t("topbar.search.empty")}
         </CommandEmpty>
         <CommandGroup heading={t("topbar.search.groups.devices")}>
-          {sortedDevices.map((device) => {
+          {deviceSearch.devices.map((device) => {
             const Icon = deviceTypeIcon(device.type) ?? Cpu;
             return (
               <CommandItem
                 key={device.id}
-                value={`${device.name} ${device.id}`}
+                value={serializeResourceReference({
+                  type: "device",
+                  id: device.id,
+                })}
+                keywords={[device.name, device.id]}
                 onSelect={() => goTo(`/devices/${device.id}`)}
               >
                 <Icon
                   aria-hidden
                   className="h-4 w-4 shrink-0 text-muted-foreground"
                 />
-                <span className="truncate">{device.name}</span>
+                <span className="truncate">{device.name || device.id}</span>
               </CommandItem>
             );
           })}
         </CommandGroup>
+        {deviceSearch.overflow > 0 && (
+          <div
+            role="status"
+            className="px-4 pb-2 text-xs text-muted-foreground"
+          >
+            {overflowMessage}
+          </div>
+        )}
         <CommandSeparator />
         <CommandGroup heading={t("topbar.search.groups.zones")}>
           {assetsList.map((asset) => {

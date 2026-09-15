@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import type { Asset, Device, FaultView } from "@gridone/sdk";
 import { createI18nMock } from "@/test/i18nMock";
+import { DEVICE_SEARCH_LIMIT } from "@/lib/deviceSearch";
 
 vi.mock("react-i18next", () =>
   createI18nMock({
@@ -12,6 +13,9 @@ vi.mock("react-i18next", () =>
     "topbar.search.description": "Search and open a device, a zone or a fault.",
     "topbar.search.empty": "No results",
     "topbar.search.loading": "Loading…",
+    "topbar.search.moreDevices":
+      "{{count}} more matching devices. Refine your search to see them.",
+    "topbar.search.showingDevices": "Showing {{shown}} of {{total}} devices",
     "topbar.search.groups.devices": "Devices",
     "topbar.search.groups.zones": "Zones",
     "topbar.search.groups.faults": "Faults",
@@ -110,6 +114,22 @@ beforeEach(() => {
   useAssetTree.mockClear();
   useDevicesList.mockClear();
   useFaultsList.mockClear();
+  useAssetTree.mockReturnValue({
+    assetsList: [building, room],
+    assetsById: { b1: building, r1: room },
+    assetTree: [],
+    isLoading: false,
+  });
+  useDevicesList.mockReturnValue({
+    devices: [thermostat],
+    loading: false,
+    error: null,
+  });
+  useFaultsList.mockReturnValue({
+    faults: [fault],
+    loading: false,
+    error: null,
+  });
 });
 afterEach(cleanup);
 
@@ -226,4 +246,106 @@ describe("GlobalSearch", () => {
     expect(await screen.findByText("Loading…")).toBeInTheDocument();
     expect(screen.queryByText("No results")).not.toBeInTheDocument();
   });
+
+  it("caps the device group, reports overflow, and opens the best match with Enter", async () => {
+    useDevicesList.mockReturnValue({
+      devices: [
+        ...Array.from({ length: DEVICE_SEARCH_LIMIT }, (_, i) => ({
+          ...thermostat,
+          id: `substring-${i}`,
+          name: `abecs ${i.toString().padStart(2, "0")}`,
+        })),
+        { ...thermostat, id: "fuzzy", name: "Electric controls" },
+        { ...thermostat, id: "word", name: "Ballon ECS" },
+        { ...thermostat, id: "prefix", name: "ECS boiler" },
+      ],
+      loading: false,
+      error: null,
+    });
+    const user = userEvent.setup();
+    renderSearch();
+    await user.keyboard("{Meta>}k{/Meta}");
+    const input = await screen.findByRole("combobox");
+    // An exact name also asserts the overflow hint stays out of the heading:
+    // cmdk names the group after its heading's text.
+    expect(
+      within(screen.getByRole("group", { name: "Devices" })).getAllByRole(
+        "option",
+      ),
+    ).toHaveLength(DEVICE_SEARCH_LIMIT);
+    expect(screen.getByRole("status")).toHaveTextContent(
+      `Showing ${DEVICE_SEARCH_LIMIT} of ${DEVICE_SEARCH_LIMIT + 3} devices`,
+    );
+
+    await user.type(input, "ECS");
+    const group = screen.getByRole("group", { name: "Devices" });
+    expect(within(group).getAllByRole("option")).toHaveLength(
+      DEVICE_SEARCH_LIMIT,
+    );
+    // Without the custom filter, cmdk's fuzzy scoring would keep this row.
+    expect(
+      within(group).queryByText("Electric controls"),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      /^2 more matching devices/,
+    );
+
+    await user.keyboard("{Enter}");
+    expect(screen.getByTestId("pathname")).toHaveTextContent("/devices/prefix");
+  });
+
+  it("searches devices beyond the initial cap, removes overflow when narrowed, and resets on reopen", async () => {
+    useDevicesList.mockReturnValue({
+      devices: [
+        ...Array.from({ length: DEVICE_SEARCH_LIMIT }, (_, i) => ({
+          ...thermostat,
+          id: `device-${i}`,
+          name: `Device ${i}`,
+        })),
+        { ...thermostat, id: "ecs-unique", name: "Zulu boiler" },
+      ],
+      loading: false,
+      error: null,
+    });
+    const capped = `Showing ${DEVICE_SEARCH_LIMIT} of ${DEVICE_SEARCH_LIMIT + 1} devices`;
+    const user = userEvent.setup();
+    renderSearch();
+    await user.keyboard("{Meta>}k{/Meta}");
+    const input = await screen.findByRole("combobox");
+    expect(
+      screen.queryByRole("option", { name: "Zulu boiler" }),
+    ).not.toBeInTheDocument();
+    await user.type(input, " ECS-UNIQUE ");
+    expect(screen.getAllByRole("option")).toHaveLength(1);
+    expect(
+      screen.getByRole("option", { name: "Zulu boiler" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+
+    await user.clear(input);
+    expect(screen.getByRole("status")).toHaveTextContent(capped);
+    await user.type(input, "not-found-anywhere");
+    expect(screen.getByText("No results")).toBeInTheDocument();
+    expect(screen.queryByRole("option")).not.toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    await user.keyboard("{Escape}");
+    await user.keyboard("{Meta>}k{/Meta}");
+    expect(await screen.findByRole("combobox")).toHaveValue("");
+    expect(screen.getByRole("status")).toHaveTextContent(capped);
+  });
+
+  it.each([
+    ["BldA", /Suite 701/, "/assets/r1"],
+    ["fltc", /Filter Clogged/, "/devices/d1"],
+  ])(
+    "preserves fuzzy zone and fault search for %s",
+    async (query, name, path) => {
+      const user = userEvent.setup();
+      renderSearch();
+      await user.keyboard("{Meta>}k{/Meta}");
+      await user.type(await screen.findByRole("combobox"), query);
+      await user.click(await screen.findByRole("option", { name }));
+      expect(screen.getByTestId("pathname")).toHaveTextContent(path);
+    },
+  );
 });

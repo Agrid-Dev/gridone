@@ -1,6 +1,6 @@
 import * as React from "react";
 import { type DialogProps } from "@radix-ui/react-dialog";
-import { Command as CommandPrimitive } from "cmdk";
+import { Command as CommandPrimitive, useCommandState } from "cmdk";
 import { Search } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -32,12 +32,14 @@ type CommandDialogProps = DialogProps & {
   label: string;
   /** Accessible description, announced after the label. */
   description?: string;
+  filter?: React.ComponentPropsWithoutRef<typeof CommandPrimitive>["filter"];
 };
 
 const CommandDialog = ({
   children,
   label,
   description,
+  filter,
   ...props
 }: CommandDialogProps) => {
   return (
@@ -49,7 +51,10 @@ const CommandDialog = ({
             {description}
           </DialogDescription>
         )}
-        <Command className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5">
+        <Command
+          filter={filter}
+          className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5"
+        >
           {children}
         </Command>
       </DialogContent>
@@ -77,16 +82,41 @@ const CommandInput = React.forwardRef<
 
 CommandInput.displayName = CommandPrimitive.Input.displayName;
 
+/** cmdk scrolls the list only when the *selected* item changes, so a list left
+ *  scrolled mid-way keeps its offset while the results underneath it change —
+ *  whatever happens to sit at that offset then reads as the best matches for
+ *  the new query. Send the list back to the top whenever the query changes. */
 const CommandList = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.List>,
   React.ComponentPropsWithoutRef<typeof CommandPrimitive.List>
->(({ className, ...props }, ref) => (
-  <CommandPrimitive.List
-    ref={ref}
-    className={cn("max-h-[300px] overflow-y-auto overflow-x-hidden", className)}
-    {...props}
-  />
-));
+>(({ className, ...props }, ref) => {
+  const listRef = React.useRef<HTMLDivElement | null>(null);
+  const search = useCommandState((state) => state.search);
+
+  const attachList = React.useCallback(
+    (node: HTMLDivElement | null) => {
+      listRef.current = node;
+      if (typeof ref === "function") ref(node);
+      else if (ref) ref.current = node;
+    },
+    [ref],
+  );
+
+  React.useEffect(() => {
+    if (listRef.current) listRef.current.scrollTop = 0;
+  }, [search]);
+
+  return (
+    <CommandPrimitive.List
+      ref={attachList}
+      className={cn(
+        "max-h-[300px] overflow-y-auto overflow-x-hidden",
+        className,
+      )}
+      {...props}
+    />
+  );
+});
 
 CommandList.displayName = CommandPrimitive.List.displayName;
 
