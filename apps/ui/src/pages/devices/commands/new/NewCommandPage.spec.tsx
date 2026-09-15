@@ -163,14 +163,15 @@ function unitCommand(id: string, status = "pending") {
     created_at: "2026-09-11T00:00:00Z",
   };
 }
-function mount(url = "/devices/commands/new") {
+function mount(url: string | string[] = "/devices/commands/new") {
+  const entries = Array.isArray(url) ? url : [url];
   const router = createMemoryRouter(
     [
       { path: "/devices/commands/new", element: <NewCommandPage /> },
       { path: "/devices/:deviceId/commands/new", element: <NewCommandPage /> },
       { path: "/assets/:assetId/commands/new", element: <NewCommandPage /> },
     ],
-    { initialEntries: [url] },
+    { initialEntries: entries, initialIndex: entries.length - 1 },
   );
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -514,29 +515,54 @@ describe("grouped command page", () => {
     await waitFor(() => expect(mocks.dispatch).toHaveBeenCalledTimes(1));
   });
 
-  it("restores value and ids with back navigation and ignores old drafts and steps", async () => {
+  it("keeps typing a value out of history and ignores old drafts and steps", async () => {
     vi.stubGlobal("localStorage", {
       getItem: vi.fn().mockReturnValue(JSON.stringify({ value: 99 })),
     });
-    const { router } = mount(
+    const { router } = mount([
+      "/devices/commands/new?ids=1",
       "/devices/commands/new?attribute=setpoint&value=23&ids=1&step=3",
-    );
+    ]);
     await screen.findByLabelText(/Value/);
     expect(screen.getByLabelText(/Value/)).toHaveValue(23);
-    fireEvent.change(screen.getByLabelText(/Value/), {
-      target: { value: "24" },
-    });
-    expect(screen.getByLabelText(/Value/)).toHaveValue(24);
-    await act(async () => router.navigate(-1));
-    await waitFor(() => expect(screen.getByLabelText(/Value/)).toHaveValue(23));
-    expect(screen.getByRole("checkbox", { name: "Device 1" })).toBeChecked();
-    expect(
-      screen.getByRole("checkbox", { name: "Device 2" }),
-    ).not.toBeChecked();
     expect(new URLSearchParams(router.state.location.search).has("step")).toBe(
       false,
     );
     expect(localStorage.getItem).not.toHaveBeenCalled();
+    await userEvent.type(screen.getByLabelText(/Value/), "45");
+    await waitFor(() =>
+      expect(screen.getByLabelText(/Value/)).toHaveValue(2345),
+    );
+    // Two keystrokes, no new entry: back leaves the value edit instead of
+    // rewinding it one character at a time.
+    await act(async () => router.navigate(-1));
+    await waitFor(() =>
+      expect(
+        new URLSearchParams(router.state.location.search).get("attribute"),
+      ).toBe(null),
+    );
+    expect(screen.getByRole("checkbox", { name: "Device 1" })).toBeChecked();
+    expect(
+      screen.getByRole("checkbox", { name: "Device 2" }),
+    ).not.toBeChecked();
+  });
+
+  it("restores the attribute and ids with back navigation", async () => {
+    const { router } = mount("/devices/commands/new?ids=1,2");
+    await chooseAttribute("setpoint");
+    await chooseAttribute("level");
+    expect(
+      new URLSearchParams(router.state.location.search).get("attribute"),
+    ).toBe("level");
+    await act(async () => router.navigate(-1));
+    await waitFor(() =>
+      expect(
+        new URLSearchParams(router.state.location.search).get("attribute"),
+      ).toBe("setpoint"),
+    );
+    expect(new URLSearchParams(router.state.location.search).get("ids")).toBe(
+      "1,2",
+    );
   });
 
   it.each(["/devices/1/commands/new", "/assets/building/commands/new"])(

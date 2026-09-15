@@ -24,20 +24,26 @@ import {
 } from "@/components/ui/alert-dialog";
 import { deviceAttributes } from "@/lib/devices";
 import { serverErrorMessage } from "@/lib/serverErrorMessage";
-import { constraintWarnings } from "./groupedCommand";
-import type { CommandPreview } from "./useGroupedDispatch";
-import type { useGroupedCommandActions } from "./useGroupedCommandActions";
+import { constraintWarnings, type CommandDisplay } from "./groupedCommand";
+import type { CommandPayload } from "./useGroupedDispatch";
+import type { GroupedCommandActions } from "./useGroupedCommandActions";
 
 type Props = {
-  preview: CommandPreview;
+  /** The command being prepared. Once dispatched the rail shows the snapshot
+   *  instead, so a late edit cannot rewrite what was sent. */
+  payload: CommandPayload;
+  devices: Device[];
+  display: CommandDisplay;
   canSubmit: boolean;
   selectedCount: number;
   excluded: Device[];
-  actions: ReturnType<typeof useGroupedCommandActions>;
+  actions: GroupedCommandActions;
 };
 
 export function GroupedCommandReview({
-  preview,
+  payload,
+  devices,
+  display,
   canSubmit,
   selectedCount,
   excluded,
@@ -45,9 +51,10 @@ export function GroupedCommandReview({
 }: Props) {
   const { t } = useTranslation(["devices", "common"]);
   const snapshot = actions.snapshot;
-  const shown = snapshot ?? preview;
   const tracking = !!snapshot;
-  const awaitingAttribute = !tracking && !shown.write.attribute;
+  const shown = snapshot ?? { payload, devices };
+  const write = shown.payload.write;
+  const awaitingAttribute = !tracking && !write.attribute;
   return (
     <Card className="lg:sticky lg:top-6">
       <CardHeader>
@@ -72,12 +79,12 @@ export function GroupedCommandReview({
           )}
         </Badge>
         <p className="text-sm">
-          {!shown.write.attribute
+          {!write.attribute
             ? t("commands.grouped.pickAttribute")
             : t("commands.grouped.setting", {
-                attribute: shown.label || "—",
-                value: shown.write.value === "" ? "—" : shown.write.value,
-                unit: shown.unit ?? "",
+                attribute: display.label || "—",
+                value: write.value === "" ? "—" : write.value,
+                unit: display.unit ?? "",
               })}
         </p>
         {snapshot?.error && (
@@ -136,7 +143,7 @@ export function GroupedCommandReview({
                           )}
                       </>
                     ) : (
-                      <PreviewLine device={device} preview={shown} />
+                      <PreviewLine device={device} write={write} />
                     )}
                   </li>
                 );
@@ -166,7 +173,7 @@ export function GroupedCommandReview({
                   <span>{device.name || device.id}</span>
                   <span>
                     {t(
-                      deviceAttributes(device)[preview.write.attribute]
+                      deviceAttributes(device)[payload.write.attribute]
                         ? "commands.grouped.readOnly"
                         : "commands.grouped.absent",
                     )}
@@ -266,11 +273,11 @@ export function GroupedCommandReview({
               <AlertDialogDescription>
                 {actions.confirmation &&
                   t("commands.grouped.confirmDescription", {
-                    attribute: actions.confirmation.label,
-                    value: actions.confirmation.write.value,
-                    unit: actions.confirmation.unit ?? "",
+                    attribute: display.label,
+                    value: actions.confirmation.payload.write.value,
+                    unit: display.unit ?? "",
                     count: actions.confirmation.devices.length,
-                    scope: actions.confirmation.scope,
+                    scope: display.scope,
                   })}
               </AlertDialogDescription>
             </AlertDialogHeader>
@@ -289,17 +296,17 @@ export function GroupedCommandReview({
 
 function PreviewLine({
   device,
-  preview,
+  write,
 }: {
   device: Device;
-  preview: CommandPreview;
+  write: CommandPayload["write"];
 }) {
   const { t } = useTranslation("devices");
-  const attr = deviceAttributes(device)[preview.write.attribute];
+  const attr = deviceAttributes(device)[write.attribute];
   const { warnings, dynamic } = constraintWarnings(
     device,
-    preview.write.attribute,
-    preview.write.value,
+    write.attribute,
+    write.value,
   );
   const unit = typeof attr?.unit === "string" ? attr.unit : "";
   return (
@@ -310,8 +317,7 @@ function PreviewLine({
         </span>
         <ArrowRight className="h-3.5 w-3.5" />
         <span className="font-semibold text-primary">
-          {String(preview.write.value === "" ? "—" : preview.write.value)}{" "}
-          {unit}
+          {String(write.value === "" ? "—" : write.value)} {unit}
         </span>
       </p>
       {warnings.map(({ kind, bound }) => (

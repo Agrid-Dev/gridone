@@ -20,8 +20,6 @@ type AttributeCoverageSelectProps = {
   /** Only offer attributes writable on at least one matched device. */
   writableOnly?: boolean;
   disabled?: boolean;
-  /** The scope banner explicitly allows the whole installation. */
-  allowAll?: boolean;
   id?: string;
 };
 
@@ -36,12 +34,11 @@ export function AttributeCoverageSelect({
   onChange,
   writableOnly,
   disabled,
-  allowAll,
   id,
 }: AttributeCoverageSelectProps) {
   const { t, i18n } = useTranslation("common");
   const { coverage, totalDevices } = useAttributeCoverage(filter, {
-    enabled: !disabled && (allowAll || !isEmptyFilter(filter)),
+    enabled: !disabled && !isEmptyFilter(filter),
   });
 
   const rows = writableOnly

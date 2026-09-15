@@ -1,33 +1,23 @@
-import { useEffect, useMemo } from "react";
-import { useTranslation } from "react-i18next";
-import { localize } from "@/lib/localizedText";
-import { toLabel } from "@/lib/textFormat";
-import type { CommandPreview } from "./useGroupedDispatch";
-import { useSearchParams } from "react-router";
-import type { z } from "zod";
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import type { Asset, Device } from "@gridone/sdk";
+import type { z } from "zod";
+import type { Asset, AttributeCoverage, Device } from "@gridone/sdk";
 import type { AssetTreeNode } from "@/lib/assets";
-import {
-  isAttributeWritable,
-  type AttributeValue,
-  type DevicesFilter,
-} from "@/lib/devices";
-import {
-  useAttributeCoverage,
-  type TargetPickerMode,
-} from "@/components/forms/targetPicker";
-import {
-  currentValueFor,
-  deviceMatchesFilter,
-  resolveAssetSubtreeIds,
-} from "./resolvers";
+import type { AttributeValue } from "@/lib/devices";
+import { useAttributeCoverage } from "@/components/forms/targetPicker";
+import { currentValueFor } from "./resolvers";
 import {
   commandValueSchema,
-  parseCommandValue,
   valueMatchesType,
+  type CommandValues,
 } from "./groupedCommand";
+import { useCommandUrlState, type CommandUrlState } from "./useCommandUrlState";
+import {
+  useCommandSelection,
+  type CommandSelection,
+} from "./useCommandSelection";
+import type { CommandPayload } from "./useGroupedDispatch";
 
 type Args = {
   devices: Device[];
@@ -38,8 +28,30 @@ type Args = {
   loading: boolean;
 };
 
-/** The URL owns the pending command. Edits are navigation entries so back/forward
- * restores the exact selection; polling never adds devices to an explicit list. */
+export type GroupedCommand = {
+  url: CommandUrlState;
+  selection: CommandSelection;
+  /** Coverage of the whole selection for the chosen attribute. Its four
+   *  presentation fields already unify over the writable devices server-side,
+   *  so one query answers both "how many" and "how to render". */
+  coverage: AttributeCoverage | undefined;
+  /** The selection as an id filter — what the attribute select covers. */
+  selectedFilter: { ids: string[] };
+  form: ReturnType<typeof useForm<CommandValues>>;
+  payload: CommandPayload;
+  canSubmit: boolean;
+  isLoading: boolean;
+  error: Error | null;
+  chooseAttribute: (attribute: string) => void;
+  chooseIds: (ids: string[]) => void;
+  chooseScope: (scope: string) => void;
+  chooseMode: (mode: CommandUrlState["mode"]) => void;
+  chooseTypes: (types: string[] | undefined) => void;
+  changeValue: (value: AttributeValue | undefined) => void;
+};
+
+/** Compose the URL state, the device sets it resolves to, and the coverage of
+ *  the chosen attribute into the one command the page is preparing. */
 export function useGroupedCommand({
   devices,
   assetTree,
@@ -47,195 +59,85 @@ export function useGroupedCommand({
   deviceId,
   assetId,
   loading,
-}: Args) {
-  const { t, i18n } = useTranslation("devices");
-  const [params, setParams] = useSearchParams();
-  const device = devices.find((item) => item.id === deviceId);
-  const scope =
-    assetId ??
-    (deviceId ? (device?.tags?.asset_id ?? "all") : undefined) ??
-    params.get("scope") ??
-    "all";
-  const scopeExists =
-    scope === "all" || assetsList.some((asset) => asset.id === scope);
-  const ready = !loading && scopeExists && (!deviceId || !!device);
-  const locked = !!deviceId || !!assetId;
-  const mode: TargetPickerMode = deviceId
-    ? "devices"
-    : assetId
-      ? "filters"
-      : params.get("mode") === "filters"
-        ? "filters"
-        : "devices";
-  const attribute = params.get("attribute") ?? "";
-  const types = locked
-    ? []
-    : (params.get("types") ?? "").split(",").filter(Boolean);
-  const scopeFilter = useMemo<DevicesFilter>(
-    () =>
-      deviceId
-        ? { ids: [deviceId] }
-        : mode === "devices" || scope === "all"
-          ? {}
-          : { tags: { asset_id: resolveAssetSubtreeIds(assetTree, scope) } },
-    [deviceId, mode, scope, assetTree],
-  );
-  const scopeDevices = devices.filter(
-    (item) => ready && deviceMatchesFilter(item, scopeFilter),
-  );
-  const hasFilters = scope !== "all" || types.length > 0;
-  const matched = scopeDevices.filter(
-    (item) =>
-      hasFilters &&
-      (types.length === 0 || (item.type && types.includes(item.type))),
-  );
-  const storedIds = (params.get("ids") ?? "").split(",").filter(Boolean);
-  const selected = deviceId
-    ? scopeDevices
-    : mode === "filters"
-      ? matched
-      : scopeDevices.filter((item) => storedIds.includes(item.id));
-  const eligible = selected.filter((item) =>
-    isAttributeWritable(item, attribute),
-  );
-  const excluded = attribute
-    ? selected.filter((item) => !isAttributeWritable(item, attribute))
-    : [];
+}: Args): GroupedCommand {
+  const url = useCommandUrlState({
+    devices,
+    assetsList,
+    deviceId,
+    assetId,
+    loading,
+  });
+  const selection = useCommandSelection({ devices, assetTree, url, deviceId });
+  const { attribute, ready, update } = url;
+  const { selected, eligible } = selection;
   const selectedFilter = { ids: selected.map((item) => item.id) };
   const coverageQuery = useAttributeCoverage(selectedFilter, {
     enabled: ready && selected.length > 0,
   });
-  const row = coverageQuery.coverage.find(
+  const coverage = coverageQuery.coverage.find(
     (item) => item.attribute === attribute,
   );
-  const value = parseCommandValue(params.get("value"));
   const form = useForm<z.infer<typeof commandValueSchema>>({
     resolver: zodResolver(commandValueSchema),
-    values: { value },
+    values: { value: url.value },
     mode: "onChange",
   });
-  const selectionCoverage = useAttributeCoverage(
-    { ids: eligible.map((item) => item.id) },
-    {
-      enabled: ready && eligible.length > 0,
-    },
-  );
-  const presentation =
-    selectionCoverage.coverage.find((item) => item.attribute === attribute) ??
-    row;
-  const target: DevicesFilter =
-    mode === "devices"
-      ? selectedFilter
-      : {
-          ...scopeFilter,
-          ...(types.length ? { types } : {}),
-        };
-
-  function update(
-    changes: Record<string, string | undefined>,
-    replace = false,
-  ) {
-    const next = new URLSearchParams(params);
-    next.delete("step");
-    next.set("scope", scope);
-    next.set("mode", mode);
-    for (const [key, val] of Object.entries(changes)) {
-      if (val === undefined) next.delete(key);
-      else next.set(key, val);
-    }
-    setParams(next, { replace });
-  }
 
   // Restore contextual links without inferring a target from the attribute.
   // An explicit empty value means deliberately blank.
   useEffect(() => {
     if (!ready || coverageQuery.isLoading || coverageQuery.error) return;
     const changes: Record<string, string | undefined> = {};
-    if (!params.has("scope")) changes.scope = scope;
-    if (!params.has("mode")) changes.mode = mode;
-    if (attribute && row && !params.has("value"))
+    if (!url.has("scope")) changes.scope = url.scope;
+    if (!url.has("mode")) changes.mode = url.mode;
+    if (attribute && coverage && !url.has("value"))
       changes.value =
         JSON.stringify(currentValueFor(selected, attribute)) ?? "";
-    if (Object.keys(changes).length || params.has("step"))
-      update(changes, true);
+    if (Object.keys(changes).length || url.has("step")) update(changes, true);
   }, [
     ready,
     coverageQuery.isLoading,
     coverageQuery.error,
-    params.toString(),
-    row,
+    url.search,
+    coverage,
   ]);
 
-  function chooseAttribute(next: string) {
-    update({
-      attribute: next,
-      value: JSON.stringify(currentValueFor(selected, next)) ?? "",
-    });
-  }
-
-  function chooseIds(ids: string[]) {
-    update({
-      ids: ids.join(","),
-      mode: "devices",
-      detached:
-        mode === "filters" ? "1" : (params.get("detached") ?? undefined),
-    });
-  }
-
-  const preview: CommandPreview = {
-    devices: eligible,
-    target,
-    write: {
-      attribute,
-      value: value ?? "",
-      data_type: row?.data_types[0] ?? "str",
-    },
-    scope:
-      (mode === "devices" && !locked
-        ? t("commands.grouped.selectedDevices")
-        : assetsList.find((asset) => asset.id === scope)?.name) ??
-      (scope === "all" ? t("commands.new.allAssets") : scope),
-    label: row?.label ? localize(row.label, i18n.language) : toLabel(attribute),
-    unit: presentation?.unit,
-  };
   return {
-    preview,
-    form,
-    scope,
-    scopeExists,
-    locked,
-    mode,
-    attribute,
-    value,
-    row,
-    presentation,
-    scopeFilter,
+    url,
+    selection,
+    coverage,
     selectedFilter,
-    matchesScope: (item: Device) =>
-      ready && deviceMatchesFilter(item, scopeFilter),
-    scopeDevices,
-    eligible,
-    excluded,
-    selected,
-    types,
-    target,
-    isLoading:
-      loading || coverageQuery.isLoading || selectionCoverage.isLoading,
-    error: coverageQuery.error ?? selectionCoverage.error,
-    detached: params.get("detached") === "1",
+    form,
+    payload: {
+      target: selection.target,
+      write: {
+        attribute,
+        value: url.value ?? "",
+        data_type: coverage?.data_types[0] ?? "str",
+      },
+    },
+    isLoading: loading || coverageQuery.isLoading,
+    error: coverageQuery.error,
     canSubmit:
       ready &&
       !coverageQuery.isLoading &&
       !coverageQuery.error &&
-      !selectionCoverage.isLoading &&
-      !selectionCoverage.error &&
       eligible.length > 0 &&
-      !!row &&
-      row.writable_count > 0 &&
-      row.data_types.length === 1 &&
-      valueMatchesType(value, row.data_types[0]),
-    chooseAttribute,
-    chooseIds,
+      !!coverage &&
+      coverage.writable_count > 0 &&
+      coverage.data_types.length === 1 &&
+      valueMatchesType(url.value, coverage.data_types[0]),
+    chooseAttribute: (next: string) =>
+      update({
+        attribute: next,
+        value: JSON.stringify(currentValueFor(selected, next)) ?? "",
+      }),
+    chooseIds: (ids: string[]) =>
+      update({
+        ids: ids.join(","),
+        mode: "devices",
+        detached: url.mode === "filters" || url.detached ? "1" : undefined,
+      }),
     chooseScope: (next: string) =>
       update({
         scope: next,
@@ -244,7 +146,7 @@ export function useGroupedCommand({
         ids: undefined,
         detached: undefined,
       }),
-    chooseMode: (next: TargetPickerMode) =>
+    chooseMode: (next: CommandUrlState["mode"]) =>
       update({
         mode: next,
         ids:
@@ -255,7 +157,9 @@ export function useGroupedCommand({
       }),
     chooseTypes: (next: string[] | undefined) =>
       update({ types: next?.join(",") }),
+    // Continuous edit: replace, so a typed value costs one "back", not one per
+    // keystroke — the URL stays shareable either way.
     changeValue: (next: AttributeValue | undefined) =>
-      update({ value: JSON.stringify(next) ?? "" }),
+      update({ value: JSON.stringify(next) ?? "" }, true),
   };
 }

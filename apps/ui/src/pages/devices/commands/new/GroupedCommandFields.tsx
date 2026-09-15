@@ -1,5 +1,6 @@
-import { Controller } from "react-hook-form";
+import { Controller, type UseFormReturn } from "react-hook-form";
 import { useTranslation } from "react-i18next";
+import type { AttributeCoverage, Device } from "@gridone/sdk";
 import {
   Field,
   FieldDescription,
@@ -15,24 +16,55 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { AttributeCoverageSelect } from "@/components/forms/targetPicker";
-import { currentRange, currentValues, inputBounds } from "./groupedCommand";
-import type { useGroupedCommand } from "./useGroupedCommand";
+import type { AttributeValue, DevicesFilter } from "@/lib/devices";
+import {
+  currentRange,
+  currentValues,
+  inputBounds,
+  type CommandValues,
+} from "./groupedCommand";
+
+type Props = {
+  form: UseFormReturn<CommandValues>;
+  /** Device set the attribute select offers attributes from. */
+  filter: DevicesFilter;
+  attribute: string;
+  /** Coverage of *attribute* over the selection: data type, unit, options and
+   *  bounds, already unified over the devices that can be written to. */
+  coverage: AttributeCoverage | undefined;
+  /** Selected devices that will receive the command — the reported values the
+   *  range hint is drawn from. */
+  eligible: Device[];
+  hasSelection: boolean;
+  disabled: boolean;
+  /** No coverage row for a chosen attribute: it is not on the selection. */
+  unavailable: boolean;
+  onAttributeChange: (attribute: string) => void;
+  onValueChange: (value: AttributeValue | undefined) => void;
+};
 
 export function GroupedCommandFields({
-  command,
-}: {
-  command: ReturnType<typeof useGroupedCommand>;
-}) {
+  form,
+  filter,
+  attribute,
+  coverage,
+  eligible,
+  hasSelection,
+  disabled,
+  unavailable,
+  onAttributeChange,
+  onValueChange,
+}: Props) {
   const { t } = useTranslation("devices");
-  const bounds = inputBounds(command.presentation);
-  const dataType = command.row?.data_types[0];
-  const options = command.presentation?.value_options;
-  const unit = command.presentation?.unit;
-  const range = currentRange(command.eligible, command.attribute);
-  const mixed = currentValues(command.eligible, command.attribute).length > 1;
+  const bounds = inputBounds(coverage);
+  const dataType = coverage?.data_types[0];
+  const options = coverage?.value_options;
+  const unit = coverage?.unit;
+  const range = currentRange(eligible, attribute);
+  const mixed = currentValues(eligible, attribute).length > 1;
   return (
     <div className="space-y-6">
-      {command.selected.length === 0 && (
+      {!hasSelection && (
         <p className="text-sm text-muted-foreground">
           {t("commands.grouped.pickDevices")}
         </p>
@@ -43,25 +75,21 @@ export function GroupedCommandFields({
         </FieldLabel>
         <AttributeCoverageSelect
           id="command-attribute"
-          filter={command.selectedFilter}
-          value={command.attribute}
-          onChange={command.chooseAttribute}
+          filter={filter}
+          value={attribute}
+          onChange={onAttributeChange}
           writableOnly
-          disabled={
-            command.isLoading ||
-            !command.scopeExists ||
-            command.selected.length === 0
-          }
+          disabled={disabled}
         />
-        {!command.isLoading && !command.row && command.attribute && (
+        {unavailable && (
           <FieldDescription>
             {t("commands.grouped.unavailableAttribute")}
           </FieldDescription>
         )}
       </Field>
-      {command.row && (
+      {coverage && (
         <Controller
-          control={command.form.control}
+          control={form.control}
           name="value"
           render={({ field, fieldState }) => (
             <Field data-invalid={fieldState.invalid}>
@@ -76,7 +104,7 @@ export function GroupedCommandFields({
                   }
                   onValueChange={(value) => {
                     field.onChange(JSON.parse(value));
-                    command.changeValue(JSON.parse(value));
+                    onValueChange(JSON.parse(value));
                   }}
                 >
                   <SelectTrigger
@@ -123,7 +151,7 @@ export function GroupedCommandFields({
                           ? undefined
                           : event.currentTarget.valueAsNumber;
                     field.onChange(value);
-                    command.changeValue(value);
+                    onValueChange(value);
                   }}
                 />
               )}

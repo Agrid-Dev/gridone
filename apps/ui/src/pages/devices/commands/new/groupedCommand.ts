@@ -14,6 +14,16 @@ export const commandValueSchema = z.object({
     .refine((value) => value !== undefined),
 });
 export const templateNameSchema = z.object({ name: z.string().trim().min(1) });
+export type CommandValues = z.infer<typeof commandValueSchema>;
+
+/** The command as the page renders it: translated strings that never reach the
+ *  server. Its wire counterpart is `CommandPayload`. */
+export type CommandDisplay = {
+  /** Where the command applies, in the user's words. */
+  scope: string;
+  label: string;
+  unit?: string | null;
+};
 
 /** JSON preserves false, zero and numeric-looking strings in shared URLs. */
 export function parseCommandValue(

@@ -10,19 +10,28 @@ import {
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import type { DevicesFilter } from "@/lib/devices";
 
-export type CommandPreview = {
-  devices: Device[];
+/** Exactly what goes on the wire — no display text, so a dispatch never has to
+ *  route through the i18n layer to be issued. Its rendering counterpart is
+ *  `CommandDisplay`. */
+export type CommandPayload = {
   target: DevicesFilter;
   write: AttributeWritePayload;
-  scope: string;
-  label: string;
-  unit?: string | null;
 };
-export type DispatchSnapshot = CommandPreview & {
+
+export type DispatchSnapshot = {
+  payload: CommandPayload;
+  /** The devices as previewed, kept so the rail can report the ones that
+   *  vanished from the target between preview and dispatch. */
+  devices: Device[];
   result?: BatchDispatchResponse;
   empty?: boolean;
   error?: Error;
 };
+
+const POLL_INTERVAL_MS = 2000;
+/** A batch whose commands are not listable yet is worth a few retries; past
+ *  that it is not a delay but an empty batch, and polling must stop. */
+const EMPTY_LISTING_RETRIES = 5;
 
 /** Keep the preview after dispatch, including vanished devices, while polling
  * every page of this batch. Named saves and ephemeral dispatches have separate
@@ -32,44 +41,47 @@ export function useGroupedDispatch() {
   const queryClient = useQueryClient();
   const [snapshot, setSnapshot] = useState<DispatchSnapshot>();
   const inFlight = useRef(false);
+  const emptyListings = useRef(0);
   const save = useMutation({
     mutationFn: ({
-      preview,
+      payload,
       name,
     }: {
-      preview: CommandPreview;
+      payload: CommandPayload;
       name: string;
-    }) =>
-      client.devices.commandTemplates.create({
-        target: preview.target,
-        write: preview.write,
-        name,
-      }),
+    }) => client.devices.commandTemplates.create({ ...payload, name }),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ["command-templates"] }),
   });
   const dispatch = useMutation({
-    mutationFn: async (preview: CommandPreview) => {
+    mutationFn: async (payload: CommandPayload) => {
       const template = await client.devices.commandTemplates.create({
-        target: preview.target,
-        write: preview.write,
+        ...payload,
         name: null,
       });
       return client.devices.commandTemplates.dispatch(template.id);
     },
-    onSuccess: (result, preview) => {
-      setSnapshot({ ...preview, result, empty: result.commands.length === 0 });
-      queryClient.invalidateQueries({ queryKey: ["commands"] });
-    },
-    onError: (error, preview) =>
-      setSnapshot({
-        ...preview,
-        error,
-        empty:
-          isGridoneError(error) &&
-          error.status === 422 &&
-          error.detail === "Target resolved to no devices",
-      }),
+    onSuccess: (result) =>
+      setSnapshot(
+        (current) =>
+          current && {
+            ...current,
+            result,
+            empty: result.commands.length === 0,
+          },
+      ),
+    onError: (error) =>
+      setSnapshot(
+        (current) =>
+          current && {
+            ...current,
+            error,
+            empty:
+              isGridoneError(error) &&
+              error.status === 422 &&
+              error.detail === "Target resolved to no devices",
+          },
+      ),
   });
   const batchId = snapshot?.result?.batch_id;
   const tracking = useQuery({
@@ -92,10 +104,19 @@ export function useGroupedDispatch() {
       return commands;
     },
     refetchInterval: (query) => {
+      // The server already said this batch holds no command: there is nothing
+      // left to appear, and polling would never end.
+      if (snapshot?.empty) return false;
       const commands = query.state.data ?? snapshot?.result?.commands ?? [];
-      return commands.length === 0 ||
-        commands.some((command) => command.status === "pending")
-        ? 2000
+      if (commands.length === 0) {
+        emptyListings.current += 1;
+        return emptyListings.current <= EMPTY_LISTING_RETRIES
+          ? POLL_INTERVAL_MS
+          : false;
+      }
+      emptyListings.current = 0;
+      return commands.some((command) => command.status === "pending")
+        ? POLL_INTERVAL_MS
         : false;
     },
   });
@@ -116,14 +137,15 @@ export function useGroupedDispatch() {
     isDispatching: dispatch.isPending,
     isSaving: save.isPending,
     saveError: save.error,
-    save: (preview: CommandPreview, name: string) =>
-      save.mutateAsync({ preview, name }),
-    dispatch: async (preview: CommandPreview) => {
+    save: (payload: CommandPayload, name: string) =>
+      save.mutateAsync({ payload, name }),
+    dispatch: async (payload: CommandPayload, devices: Device[]) => {
       if (inFlight.current) return;
       inFlight.current = true;
-      setSnapshot(preview);
+      emptyListings.current = 0;
+      setSnapshot({ payload, devices });
       try {
-        await dispatch.mutateAsync(preview);
+        await dispatch.mutateAsync(payload);
       } catch {
         /* rendered in the rail */
       } finally {
