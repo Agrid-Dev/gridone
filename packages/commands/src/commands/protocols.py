@@ -6,6 +6,7 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from commands.models import WriteResult
+    from models.command_rules import WriteEvaluation
     from models.types import AttributeValueType, DataType
 
 
@@ -30,3 +31,9 @@ class CommandResultHandler(Protocol):
         command_id: int,
         last_changed: datetime | None,
     ) -> None: ...
+
+
+class CommandValidator(Protocol):
+    def __call__(
+        self, device_id: str, attribute: str, value: AttributeValueType
+    ) -> WriteEvaluation: ...

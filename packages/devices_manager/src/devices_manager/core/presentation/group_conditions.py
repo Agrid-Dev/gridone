@@ -6,9 +6,19 @@ from typing import TYPE_CHECKING
 
 from pydantic import ValidationError
 
+from devices_manager.core.conditions import EvaluationContext
+from models.expressions import (
+    AttributeRef,
+    Comparison,
+    IsKnown,
+    Junction,
+    Membership,
+    Negation,
+)
+from models.expressions import Condition as CommandCondition
+
 from .capabilities import DOCUMENT_BUDGETS
 from .models import (
-    AllCondition,
     ButtonLayer,
     ColumnsNode,
     DeviceFaceNode,
@@ -31,42 +41,37 @@ if TYPE_CHECKING:
     from .models import Condition, PageNode
 
 
-def evaluate_condition(  # noqa: PLR0911 -- each condition operator has its own result
+def command_condition(condition: Condition) -> CommandCondition:
+    """Adapt legacy presentation binding operands to the shared expression tree."""
+    if isinstance(condition, EqCondition):
+        return Comparison(
+            op="eq",
+            left=AttributeRef(attribute=condition.binding),
+            right=condition.value,
+        )
+    if isinstance(condition, InCondition):
+        return Membership(
+            op="in",
+            value=AttributeRef(attribute=condition.binding),
+            values=condition.values,
+        )
+    if isinstance(condition, IsKnownCondition):
+        return IsKnown(op="is_known", value=AttributeRef(attribute=condition.binding))
+    if isinstance(condition, NotCondition):
+        return Negation(op="not", condition=command_condition(condition.condition))
+    return Junction(
+        op=condition.op,
+        conditions=[command_condition(child) for child in condition.conditions],
+    )
+
+
+def evaluate_condition(
     condition: Condition, resolve: ValueResolver, *, depth: int = 1
 ) -> bool | None:
-    """Evaluate validated conditions with Kleene logic; unknown never grants access.
-
-    Documents already enforce the operation budget on ingestion. Depth remains
-    bounded here as well. Booleans and numbers compare as distinct scalar types,
-    matching the presentation renderer's strict equality.
-    """
+    """Compatibility adapter; all Python conditions use the common evaluator."""
     if depth > DOCUMENT_BUDGETS.max_condition_depth:
         return None
-    if isinstance(condition, IsKnownCondition):
-        return resolve(condition.binding) is not None
-    if isinstance(condition, EqCondition | InCondition):
-        value = resolve(condition.binding)
-        if value is None:
-            return None
-        options = (
-            [condition.value]
-            if isinstance(condition, EqCondition)
-            else condition.values
-        )
-        return any(
-            value == option and isinstance(value, bool) == isinstance(option, bool)
-            for option in options
-        )
-    if isinstance(condition, NotCondition):
-        value = evaluate_condition(condition.condition, resolve, depth=depth + 1)
-        return None if value is None else not value
-    values = [
-        evaluate_condition(child, resolve, depth=depth + 1)
-        for child in condition.conditions
-    ]
-    if isinstance(condition, AllCondition):
-        return False if False in values else None if None in values else True
-    return True if True in values else None if None in values else False
+    return EvaluationContext(resolve).condition(command_condition(condition))
 
 
 def _buttons(node: PageNode) -> Iterator[ButtonLayer]:

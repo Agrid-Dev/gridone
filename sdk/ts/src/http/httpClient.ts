@@ -1,3 +1,4 @@
+import type { WriteReason } from "../types";
 import { GridoneError, NetworkError } from "../errors";
 import type { TokenStorage } from "./tokenStorage";
 
@@ -41,6 +42,31 @@ export interface HttpClientConfig {
   baseUrl: string;
   tokenStorage: TokenStorage;
   fetch?: FetchLike;
+}
+
+/** Ignore malformed public diagnostics while retaining ordinary HTTP errors. */
+function isWriteReason(value: unknown): value is WriteReason {
+  if (
+    value === null ||
+    typeof value !== "object" ||
+    !("code" in value) ||
+    typeof value.code !== "string"
+  )
+    return false;
+  if (!("message" in value) || value.message == null) return true;
+  const message = value.message;
+  return (
+    typeof message === "object" &&
+    "default" in message &&
+    typeof message.default === "string" &&
+    (!("translations" in message) ||
+      (message.translations !== null &&
+        typeof message.translations === "object" &&
+        !Array.isArray(message.translations) &&
+        Object.values(message.translations).every(
+          (text) => typeof text === "string",
+        )))
+  );
 }
 
 /**
@@ -242,7 +268,14 @@ export class HttpClient {
       data !== null && typeof data === "object" && "detail" in data
         ? data.detail
         : response.statusText;
-    return new GridoneError(response.status, detail);
+    const reasons =
+      data !== null &&
+      typeof data === "object" &&
+      "reasons" in data &&
+      Array.isArray(data.reasons)
+        ? data.reasons.filter(isWriteReason)
+        : undefined;
+    return new GridoneError(response.status, detail, { reasons });
   }
 
   private async parseBody<T>(

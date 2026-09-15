@@ -1,7 +1,6 @@
 import {
   EvaluationBudget,
   evaluateCondition,
-  isBlocked,
   isVisible,
   type BindingResolver,
   type Condition,
@@ -63,6 +62,7 @@ export type FaceLayoutInput = {
   resolve: BindingResolver;
   glyphSet: (id: string) => LoadedGlyphSet | undefined;
   budget?: EvaluationBudget;
+  interactionEnabled?: (layerIndex: number) => boolean;
 };
 
 export function layoutFace({
@@ -70,6 +70,7 @@ export function layoutFace({
   resolve,
   glyphSet,
   budget = new EvaluationBudget(),
+  interactionEnabled,
 }: FaceLayoutInput): PlacedLayer[] {
   const verdict = (condition: Condition | undefined): Verdict | undefined =>
     condition === undefined
@@ -84,7 +85,7 @@ export function layoutFace({
   const boxes = new Map<string, Box>();
   const placed: PlacedLayer[] = [];
 
-  for (const layer of document.layers) {
+  for (const [index, layer] of document.layers.entries()) {
     if (!isVisible(verdict(layer.visible_when))) continue;
     switch (layer.kind) {
       case "rect":
@@ -150,7 +151,7 @@ export function layoutFace({
           box: layer.box,
           label: layer.label,
           action: layer.action,
-          blocked: isBlocked(verdict(layer.blocked_when)),
+          blocked: !!layer.blocked_when && interactionEnabled?.(index) !== true,
         });
         break;
     }

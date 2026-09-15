@@ -15,6 +15,7 @@ import type {
   BatchDeviceCommand,
   BatchDispatchResponse,
   Device,
+  DeviceWritePreview,
   DeviceCreate,
   DeviceUpdate,
   FaultView,
@@ -174,6 +175,18 @@ export class DevicesResource {
     return this.request(
       "DELETE",
       `/devices/${encodeURIComponent(deviceId)}/tags/${encodeURIComponent(key)}`,
+    );
+  }
+
+  /** Evaluates a candidate without dispatching or creating command history. */
+  previewDeviceCommand(
+    deviceId: string,
+    params: SingleDeviceCommand,
+  ): Promise<DeviceWritePreview> {
+    return this.request(
+      "POST",
+      `/devices/${encodeURIComponent(deviceId)}/commands/preview`,
+      { body: params },
     );
   }
 

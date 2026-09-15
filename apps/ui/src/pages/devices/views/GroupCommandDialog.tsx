@@ -1,3 +1,4 @@
+import { commandReasons } from "@/lib/commandReasons";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { Loader2 } from "lucide-react";
@@ -256,8 +257,11 @@ function PreparedWrite({
                       </td>
                       <td className="p-3 text-muted-foreground">
                         {row.reason
-                          ? t(`groups.reasons.${row.reason}`)
+                          ? commandReasons(row.reasons)
                           : t("groups.reasons.eligible")}
+                        {!!row.warnings?.length && (
+                          <p role="status">{commandReasons(row.warnings)}</p>
+                        )}
                       </td>
                       <td className="p-3 text-muted-foreground">
                         {row.constraints ? (

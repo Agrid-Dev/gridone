@@ -699,3 +699,84 @@ describe("DevicePresentation", () => {
     );
   });
 });
+
+it("shows a disabled choice and its authored reason, skipping it with keyboard navigation", async () => {
+  const user = userEvent.setup();
+  const { runtime, setValue } = fakeRuntime({
+    fan: {
+      options: ["low", "middle", "high"],
+      optionStates: [
+        { value: "low", available: true },
+        {
+          value: "middle",
+          available: false,
+          reasons: [
+            { code: "locked", message: { default: "Middle speed is locked" } },
+          ],
+        },
+        { value: "high", available: true },
+      ],
+    },
+  });
+  renderPresentation(runtime);
+  const disabled = screen.getByRole("radio", { name: /middle/i });
+  expect(disabled).toHaveAttribute("aria-disabled", "true");
+  expect(screen.getByText("Middle speed is locked")).toBeInTheDocument();
+  await user.click(disabled);
+  expect(setValue).not.toHaveBeenCalled();
+  screen.getByRole("radio", { name: /^low$/i }).focus();
+  await user.keyboard("{ArrowRight}");
+  expect(screen.getByRole("radio", { name: /^high$/i })).toHaveFocus();
+  expect(setValue).toHaveBeenCalledWith("fan", "high");
+});
+
+it("renders layout variants from the server projection even when local values differ", () => {
+  const { runtime } = fakeRuntime();
+  const conditional: PresentationV1 = {
+    ...document,
+    page: {
+      kind: "variant",
+      variants: [
+        {
+          when: { op: "eq", binding: "power", value: false },
+          content: {
+            kind: "section",
+            title: { default: "Server selected layout" },
+            children: [],
+          },
+        },
+        {
+          when: { op: "is_known", binding: "power" },
+          content: {
+            kind: "section",
+            title: { default: "Other layout" },
+            children: [],
+          },
+        },
+      ],
+    },
+  };
+  renderPresentation(runtime, {
+    document: conditional,
+    subject: {
+      ...device,
+      presentation_state: {
+        "/page/variants/0/selected": true,
+        "/page/variants/1/selected": false,
+      },
+    },
+  });
+  expect(screen.getByText("Server selected layout")).toBeInTheDocument();
+  expect(screen.queryByText("Other layout")).not.toBeInTheDocument();
+});
+
+it("keeps an observed out-of-list value visible without making it selectable", () => {
+  const { runtime } = fakeRuntime({
+    fan: { reported: "reserved", displayed: "reserved" },
+  });
+  renderPresentation(runtime);
+  expect(screen.getByText(/reserved/)).toBeInTheDocument();
+  expect(
+    screen.queryByRole("radio", { name: /reserved/i }),
+  ).not.toBeInTheDocument();
+});

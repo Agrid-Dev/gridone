@@ -16,6 +16,7 @@ from commands.models import (
     WriteResult,
 )
 from commands.service import CommandsService
+from models.command_rules import CommandRejectedError, WriteEvaluation, WriteReason
 from models.errors import (
     InvalidError,
     NotFoundError,
@@ -893,3 +894,61 @@ class TestUpdateTemplate:
         )
         same = await service.update_template(original.id, CommandTemplatePatch())
         assert same == original
+
+
+class TestDeclarativeCommandValidation:
+    async def test_preflight_refusal_is_stored_directly_as_error(
+        self, service, device_writer, result_handler
+    ):
+        service._command_validator = lambda *_: WriteEvaluation(  # noqa: SLF001
+            eligible=False, reasons=[WriteReason(code="locked")]
+        )
+        with pytest.raises(CommandRejectedError):
+            await service.dispatch_unit(device_id="d1", write=MODE_AUTO, user_id="user")
+        (command,) = (await service.get_commands()).items
+        assert command.status == CommandStatus.ERROR
+        assert command.executed_at is None
+        assert command.completed_at is not None
+        assert command.validation.reasons[0].code == "locked"
+        device_writer.assert_not_awaited()
+        result_handler.assert_not_awaited()
+
+    async def test_last_moment_guard_failure_keeps_structured_reason(
+        self, service, device_writer
+    ):
+        device_writer.side_effect = CommandRejectedError(
+            [WriteReason(code="unknown_dependencies")]
+        )
+        with pytest.raises(CommandRejectedError):
+            await service.dispatch_unit(device_id="d1", write=MODE_AUTO, user_id="user")
+        (command,) = (await service.get_commands()).items
+        assert command.status == CommandStatus.ERROR
+        assert command.validation.reasons[0].code == "unknown_dependencies"
+
+    async def test_batch_only_executes_currently_eligible_members(
+        self, service, device_writer
+    ):
+        service._command_validator = lambda device_id, *_: WriteEvaluation(  # noqa: SLF001
+            eligible=device_id == "d1",
+            reasons=[] if device_id == "d1" else [WriteReason(code="locked")],
+        )
+        await service.dispatch_batch(
+            target=DevicesFilter(ids=["d1", "d2"]), write=MODE_AUTO, user_id="user"
+        )
+        await service._await_pending()  # noqa: SLF001 -- simulate observations / injected service collaborators
+        commands = (await service.get_commands()).items
+        assert {command.device_id: command.status for command in commands} == {
+            "d1": CommandStatus.SUCCESS,
+            "d2": CommandStatus.ERROR,
+        }
+        device_writer.assert_awaited_once()
+
+    async def test_no_telemetry_point_is_created_for_unconfirmed_write(
+        self, service, device_writer, result_handler
+    ):
+        device_writer.return_value = WriteResult(last_changed=None, confirmed=False)
+        command = await service.dispatch_unit(
+            device_id="d1", write=MODE_AUTO, user_id="user", confirm=False
+        )
+        assert command.status == CommandStatus.SUCCESS
+        result_handler.assert_not_awaited()

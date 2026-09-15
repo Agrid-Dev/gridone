@@ -164,6 +164,8 @@ class DevicesService(Service):
         self._attribute_update_handlers: dict[str, AttributeListener] = {}
         self._discovery_listeners: dict[str, DeviceDiscoveredListener] = {}
         self._device_update_listeners: dict[str, DeviceListener] = {}
+        self._write_state_listeners: dict[str, DeviceListener] = {}
+        self._pending_write_states: dict[str, CoreDevice] = {}
         self._background_tasks: set[asyncio.Task[Any]] = set()
         # Keyed by device so a superseded sync can be cancelled by the write
         # that superseded it; also the strong reference that keeps the task
@@ -231,6 +233,7 @@ class DevicesService(Service):
             resolve_driver=driver_registry.get,
             resolve_transport=transport_registry.get,
             on_attribute_update=self._on_attribute_update,
+            on_write_state_update=self._on_write_state_update,
             storage=storage.devices,
         )
         self._loaded = _LoadedState(
@@ -717,6 +720,31 @@ class DevicesService(Service):
     def remove_device_discovery_listener(self, listener_id: str) -> None:
         """Unregister a previously registered discovery handler."""
         self._discovery_listeners.pop(listener_id, None)
+
+    def add_write_state_listener(self, callback: DeviceListener) -> str:
+        listener_id = gen_id()
+        self._write_state_listeners[listener_id] = callback
+        return listener_id
+
+    def remove_write_state_listener(self, listener_id: str) -> None:
+        self._write_state_listeners.pop(listener_id, None)
+
+    def _on_write_state_update(self, device: CoreDevice) -> None:
+        """Coalesce a burst of shared-topic observations into one projection event."""
+        scheduled = bool(self._pending_write_states)
+        self._pending_write_states[device.id] = device
+        if not scheduled:
+            try:
+                asyncio.get_running_loop().call_soon(self._flush_write_states)
+            except RuntimeError:
+                self._flush_write_states()
+
+    def _flush_write_states(self) -> None:
+        devices = list(self._pending_write_states.values())
+        self._pending_write_states.clear()
+        for device in devices:
+            for listener in self._write_state_listeners.values():
+                self._schedule_if_coroutine(listener(device))
 
     def add_device_update_listener(self, callback: DeviceListener) -> str:
         """Listen for complete device replacements, independently of telemetry."""

@@ -6,7 +6,10 @@ import type { Device, DevicesFilter } from "@gridone/sdk";
 import { controlSpecsOf } from "@/components/device-ui/presentationControls";
 import type { ControlSpec } from "@/components/device-ui/runtime";
 import type { Scalar } from "@/components/device-ui/conditions";
-import { aggregateGroupAttributes } from "./groupAttributes";
+import {
+  aggregateGroupAttributes,
+  aggregatePresentationState,
+} from "./groupAttributes";
 import { useGroupPresentation } from "./useGroupPresentation";
 import { useGroupCommand } from "./useGroupCommand";
 import { useGroupRuntime } from "./useGroupRuntime";
@@ -23,6 +26,10 @@ export function useGroupDetails(
     queryFn: () => client.drivers.get(driverId),
   });
   const presentation = useGroupPresentation(driverId);
+  const presentationState = useMemo(
+    () => aggregatePresentationState(currentMembers),
+    [currentMembers],
+  );
   const command = useGroupCommand(filter);
   const [drafts, setDrafts] = useState<Record<string, Scalar>>({});
   const stage = useCallback((attribute: string, value: Scalar) => {
@@ -79,7 +86,7 @@ export function useGroupDetails(
   );
   const controls = useMemo<Record<string, ControlSpec>>(
     () =>
-      presentation.document
+      presentation.document && presentationState
         ? controlSpecsOf(presentation.document)
         : Object.fromEntries(
             Object.values(attributes)
@@ -98,7 +105,7 @@ export function useGroupDetails(
                 },
               ]),
           ),
-    [presentation.document, attributes],
+    [presentation.document, presentationState, attributes],
   );
   const canWrite = can("devices:write");
   const runtime = useGroupRuntime(
@@ -108,11 +115,13 @@ export function useGroupDetails(
     stage,
     choose,
     drafts,
+    presentationState,
   );
   return {
     members: { devices: currentMembers },
     driver,
     presentation,
+    presentationState,
     attributes,
     controls,
     runtime,

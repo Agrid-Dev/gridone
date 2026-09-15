@@ -299,3 +299,22 @@ async def test_display_and_live_value_changes_preserve_preview(context):
         SelectionCommandConfirm(token=preview.token, device_ids=["a"]), "operator"
     )
     commands.dispatch_batch.assert_awaited_once()
+
+
+async def test_changed_warning_requires_a_new_preview(context):
+    from models.command_rules import WriteReason
+
+    coordinator, dm, commands, _ = context
+    preview = prepare(coordinator)
+    dm.preview_device_write.side_effect = lambda id_, *_args: DeviceWritePreview(
+        device_id=id_,
+        name=id_,
+        current_value=20,
+        eligible=True,
+        warnings=[WriteReason(code="side_effect")],
+    )
+    with pytest.raises(ResourceConflictError):
+        await coordinator.confirm(
+            SelectionCommandConfirm(token=preview.token, device_ids=["a"]), "operator"
+        )
+    commands.dispatch_batch.assert_not_awaited()

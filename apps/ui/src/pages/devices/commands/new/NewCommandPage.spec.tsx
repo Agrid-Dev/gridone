@@ -145,6 +145,7 @@ function device(
         current_value: value,
         unit: "°C",
         write_constraints: { maximum: 25 },
+        write_state: { status: "ready", constraints: { maximum: 25 } },
       },
       level: {
         name: "level",
@@ -221,6 +222,7 @@ beforeEach(() => {
         label: { default: "Setpoint" },
         unit: "°C",
         write_constraints: { maximum: 25 },
+        write_state: { status: "ready", constraints: { maximum: 25 } },
       },
       {
         attribute: "level",

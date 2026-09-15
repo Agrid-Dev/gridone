@@ -25,6 +25,7 @@ function renderPump(values: Record<string, Scalar | null>, onAction = vi.fn()) {
       assetUrl={() => undefined}
       glyphSet={glyphSet}
       onAction={onAction}
+      interactionEnabled={() => values.panel_lock === false}
       language="fr"
     />,
   );

@@ -1,4 +1,5 @@
-import { normalizeError } from "@gridone/sdk";
+import { commandReasons } from "./commandReasons";
+import { isGridoneError, normalizeError } from "@gridone/sdk";
 
 /**
  * Server-authored text safe to show on a non-form surface (toast, inline
@@ -11,6 +12,8 @@ import { normalizeError } from "@gridone/sdk";
  * `applyServerFieldErrors`, which maps those onto their fields.
  */
 export function serverErrorMessage(error: unknown): string | undefined {
+  if (isGridoneError(error) && error.status === 422 && error.reasons?.length)
+    return commandReasons(error.reasons);
   const normalized = normalizeError(error);
   if (normalized.kind === "message") return normalized.message;
   if (normalized.kind === "unknown") return undefined;

@@ -10,6 +10,7 @@ from commands.models import (
     UnitCommand,
 )
 from commands.storage.postgres.deserialize import deserialize_command_value
+from models.command_rules import WriteEvaluation
 from models.errors import NotFoundError
 from models.targets import DevicesFilter
 from models.types import DataType, SortOrder
@@ -54,7 +55,9 @@ class PostgresCommandsStorage:
             template_id=row["template_id"],
             device_id=row["device_id"],
             attribute=row["attribute"],
-            value=deserialize_command_value(row["value"], DataType(row["data_type"])),
+            value=row["requested_value"]
+            if row.get("requested_value") is not None
+            else deserialize_command_value(row["value"], DataType(row["data_type"])),
             data_type=DataType(row["data_type"]),
             status=CommandStatus(row["status"]),
             status_details=row["status_details"],
@@ -62,6 +65,9 @@ class PostgresCommandsStorage:
             created_at=row["created_at"],
             executed_at=row["executed_at"],
             completed_at=row["completed_at"],
+            validation=WriteEvaluation.model_validate(row["validation"])
+            if row.get("validation")
+            else None,
         )
 
     async def save_command(self, command: UnitCommandCreate) -> UnitCommand:
@@ -70,8 +76,8 @@ class PostgresCommandsStorage:
             INSERT INTO unit_commands
                 (batch_id, template_id, device_id, attribute, value, data_type,
                  status, status_details, user_id, created_at,
-                 executed_at, completed_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                 executed_at, completed_at, validation, requested_value)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
             RETURNING *
             """,
             command.batch_id,
@@ -86,6 +92,8 @@ class PostgresCommandsStorage:
             command.created_at,
             command.executed_at,
             command.completed_at,
+            command.validation.model_dump(mode="json") if command.validation else None,
+            command.value,
         )
         return self._row_to_command(row)
 
@@ -100,8 +108,8 @@ class PostgresCommandsStorage:
                     INSERT INTO unit_commands
                         (batch_id, template_id, device_id, attribute, value, data_type,
                          status, status_details, user_id, created_at,
-                         executed_at, completed_at)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                         executed_at, completed_at, validation, requested_value)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
                     RETURNING *
                     """,
                     cmd.batch_id,
@@ -116,6 +124,8 @@ class PostgresCommandsStorage:
                     cmd.created_at,
                     cmd.executed_at,
                     cmd.completed_at,
+                    cmd.validation.model_dump(mode="json") if cmd.validation else None,
+                    cmd.value,
                 )
                 result.append(self._row_to_command(row))
         return result
@@ -127,11 +137,13 @@ class PostgresCommandsStorage:
         *,
         status_details: str | None = None,
         completed_at: datetime | None = None,
+        validation: WriteEvaluation | None = None,
     ) -> UnitCommand:
         row = await self._pool.fetchrow(
             """
             UPDATE unit_commands
-            SET status = $1, status_details = $2, completed_at = $3
+            SET status = $1, status_details = $2, completed_at = $3,
+                validation = COALESCE($5, validation)
             WHERE id = $4
             RETURNING *
             """,
@@ -139,6 +151,7 @@ class PostgresCommandsStorage:
             status_details,
             completed_at,
             command_id,
+            validation.model_dump(mode="json") if validation else None,
         )
         if row is None:
             msg = f"Command {command_id} not found"

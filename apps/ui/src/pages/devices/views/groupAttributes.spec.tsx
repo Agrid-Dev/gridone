@@ -1,3 +1,4 @@
+import { aggregatePresentationState } from "./groupAttributes";
 import { describe, it, expect, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
 import type { Device, Driver } from "@gridone/sdk";
@@ -109,10 +110,13 @@ describe("group reported values", () => {
       [device("a", 20), device("b", 22)],
       2,
     );
-    attributes.setpoint.write_constraints = {
-      step: 0.5,
-      minimum: 16,
-      maximum: 28,
+    attributes.setpoint.write_state = {
+      status: "ready",
+      constraints: {
+        step: 0.5,
+        minimum: 16,
+        maximum: 28,
+      },
     };
     const stage = vi.fn();
     const { result } = renderHook(() =>
@@ -144,4 +148,27 @@ describe("group reported values", () => {
       "groups.values.multiple",
     );
   });
+});
+
+it("uses the generic group layout when server-selected variants disagree", () => {
+  const members = [
+    {
+      ...device("a", 20),
+      presentation_state: {
+        "/page/variants/0/selected": true,
+        "/page/variants/1/selected": false,
+      },
+    },
+    {
+      ...device("b", 20),
+      presentation_state: {
+        "/page/variants/0/selected": false,
+        "/page/variants/1/selected": true,
+      },
+    },
+  ];
+  expect(aggregatePresentationState(members)).toBeUndefined();
+  expect(aggregatePresentationState([members[0], members[0]])).toEqual(
+    members[0].presentation_state,
+  );
 });

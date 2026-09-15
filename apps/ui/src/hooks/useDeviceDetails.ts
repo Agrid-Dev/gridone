@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import type { Device } from "@gridone/sdk";
-import { useGridoneClient } from "@/contexts/GridoneClientContext";
+import { useAttributeWriter } from "./useAttributeCommandRuntime";
 import { deviceAttributes } from "@/lib/devices";
 import type { AttributeFields } from "@/lib/faults";
 
@@ -10,7 +10,7 @@ export type Feedback = { type: "success" | "error"; message: string };
 
 export function useDeviceDetails(device: Device) {
   const { t } = useTranslation("devices");
-  const client = useGridoneClient();
+  const writer = useAttributeWriter(device.id);
   const queryClient = useQueryClient();
   const deviceId = device.id;
 
@@ -59,11 +59,13 @@ export function useDeviceDetails(device: Device) {
             : value;
       // Attribute writes go through the commands endpoint; refetch the device
       // to surface the applied value.
-      await client.devices.sendCommand(device.id, {
-        attribute: name,
-        value: parsedValue as string | number | boolean,
-      });
-      const updated = await client.devices.get(device.id);
+      const outcome = await writer(
+        name,
+        parsedValue as string | number | boolean,
+      );
+      if (outcome.kind !== "ok") throw new Error(outcome.message);
+      const updated =
+        queryClient.getQueryData<Device>(["device", deviceId]) ?? device;
 
       // Update the query cache with the new device data
       queryClient.setQueryData(["device", deviceId], updated);
