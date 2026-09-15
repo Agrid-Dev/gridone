@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/select";
 import { isEmptyFilter, type DevicesFilter } from "@/lib/devices";
 import { toLabel } from "@/lib/textFormat";
+import { localize } from "@/lib/localizedText";
 import { useAttributeCoverage } from "./useAttributeCoverage";
 
 type AttributeCoverageSelectProps = {
@@ -35,9 +36,9 @@ export function AttributeCoverageSelect({
   disabled,
   id,
 }: AttributeCoverageSelectProps) {
-  const { t } = useTranslation("common");
+  const { t, i18n } = useTranslation("common");
   const { coverage, totalDevices } = useAttributeCoverage(filter, {
-    enabled: !isEmptyFilter(filter),
+    enabled: !disabled && !isEmptyFilter(filter),
   });
 
   const rows = writableOnly
@@ -66,15 +67,20 @@ export function AttributeCoverageSelect({
               value={row.attribute}
               disabled={mixed}
             >
-              <span>{toLabel(row.attribute)}</span>
+              <span>
+                {row.label
+                  ? localize(row.label, i18n.language)
+                  : toLabel(row.attribute)}
+              </span>
               <span className="ml-2 text-xs text-muted-foreground">
                 {mixed
                   ? t("pickers.attribute.mixedTypes")
                   : `(${row.data_types[0]})`}{" "}
                 {t("pickers.attribute.coverage", {
-                  count: row.device_count,
+                  count: writableOnly ? row.writable_count : row.device_count,
                   total: totalDevices,
                 })}
+                {row.unit && ` · ${row.unit}`}
               </span>
             </SelectItem>
           );

@@ -256,6 +256,7 @@
     "batch": "Lot",
     "clearBatch": "Effacer le filtre de lot",
     "newCommand": "Nouvelle commande",
+    "newGroupedCommand": "Nouvelle commande groupée",
     "targetPresenter": {
       "empty": "Aucune cible",
       "deviceCount_one": "{{count}} appareil",
@@ -306,6 +307,7 @@
     "readOnlyDescription": "Cet appareil n'a aucun attribut contrôlable ; aucune commande ne peut être envoyée.",
     "new": {
       "title": "Nouvelle commande",
+      "groupedTitle": "Nouvelle commande groupée",
       "steps": {
         "target": "Cible",
         "command": "Commande",
@@ -364,6 +366,49 @@
         "saving": "Enregistrement…",
         "savedFeedback": "Modèle enregistré"
       }
+    },
+    "grouped": {
+      "subtitle": "Sélectionnez les équipements, puis choisissez le réglage à modifier. Vérifiez les changements dans l’aperçu avant l’envoi.",
+      "scope": "Zone",
+      "scopeHint": "Inclut cet espace et toutes les pièces et zones qu’il contient.",
+      "scopeMissing": "Ce périmètre n’est plus disponible. Choisissez un autre espace.",
+      "what": "Que modifier",
+      "who": "Quels équipements",
+      "review": "Vérifier et envoyer",
+      "pickAttribute": "Choisissez un attribut pour prévisualiser les changements.",
+      "detached": "Cette commande ne suit plus le filtre. Les équipements sélectionnés constituent désormais une liste fixe.",
+      "locked": "La cible est définie par la page depuis laquelle vous avez ouvert cette commande.",
+      "live": "Les filtres sont réévalués à chaque envoi.",
+      "frozen": "Seuls les équipements sélectionnés seront ciblés.",
+      "excluded_one": "{{count}} équipement sélectionné ne recevra pas la commande",
+      "excluded_other": "{{count}} équipements sélectionnés ne recevront pas la commande",
+      "readOnly": "Attribut en lecture seule",
+      "absent": "Attribut absent",
+      "chooseValue": "Choisir une valeur",
+      "currentRange": "Actuellement {{range}} {{unit}}",
+      "invalidValue": "Saisissez une valeur correspondant au type de cet attribut.",
+      "unavailableAttribute": "Cet attribut n’est pas modifiable sur les équipements sélectionnés.",
+      "nameRequired": "Saisissez un nom de modèle.",
+      "setting": "Modification de {{attribute}} à {{value}} {{unit}}.",
+      "confirmTitle": "Envoyer cette commande groupée ?",
+      "confirmDescription": "Définir {{attribute}} à {{value}} {{unit}} sur {{count}} équipements dans {{scope}}.",
+      "dispatchResults": "Résultats de l’envoi",
+      "emptyBatch": "Aucun équipement n’était encore compatible lors de l’envoi. Les équipements ci-dessous n’ont reçu aucune commande.",
+      "vanished": "Aucune commande envoyée : cet équipement a quitté la cible ou n’est plus modifiable.",
+      "notDispatched": "L’envoi a échoué ; aucun résultat n’a été reçu.",
+      "fullHistory": "Voir l’historique complet",
+      "trackingError": "Impossible d’actualiser les statuts. Les derniers résultats reçus sont affichés.",
+      "newCommand": "Préparer une autre commande",
+      "dynamicBounds": "Certaines limites dépendent des valeurs des équipements et seront vérifiées à nouveau lors de l’écriture.",
+      "bounds": {
+        "minimum": "Sera refusé en dessous de {{bound}}.",
+        "maximum": "Sera refusé au-dessus de {{bound}}.",
+        "step": "Sera refusé : la valeur doit être un multiple de {{bound}}.",
+        "options": "Sera refusé : les valeurs acceptées sont {{bound}}."
+      },
+      "pickDevices": "Sélectionnez d’abord des équipements, directement ou par filtres.",
+      "selectedDevices": "la sélection",
+      "affectedCount": "{{count}} sur {{total}} équipements sélectionnés recevront la commande"
     }
   },
   "controls": {

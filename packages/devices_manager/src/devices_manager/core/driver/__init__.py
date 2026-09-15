@@ -1,15 +1,16 @@
-from .attribute_driver import (
-    AnyAttributeDriver,
-    AttributeDriver,
-    FaultAttributeDriver,
-)
-from .attribute_metadata import (
+from models.attribute_metadata import (
     AttributeGroup,
     AttributeRef,
     Bound,
     LocalizedText,
     Unit,
     WriteConstraints,
+)
+
+from .attribute_driver import (
+    AnyAttributeDriver,
+    AttributeDriver,
+    FaultAttributeDriver,
 )
 from .device_config_field import DeviceConfigField
 from .discovery_listener import DiscoveryListener

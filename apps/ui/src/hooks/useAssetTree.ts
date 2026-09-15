@@ -24,9 +24,14 @@ export function useAssetTree(): {
   assetsById: Record<string, Asset>;
   assetByDeviceId: Record<string, Asset>;
   isLoading: boolean;
+  error: Error | null;
 } {
   const client = useGridoneClient();
-  const { data: assetTree = [], isLoading } = useQuery<AssetTreeNode[]>({
+  const {
+    data: assetTree = [],
+    isLoading,
+    error,
+  } = useQuery<AssetTreeNode[]>({
     queryKey: ["assets", "tree-with-devices"],
     queryFn: () =>
       client.assets.getTreeWithDevices() as Promise<AssetTreeNode[]>,
@@ -42,5 +47,12 @@ export function useAssetTree(): {
     [assetTree],
   );
 
-  return { assetTree, assetsList, assetsById, assetByDeviceId, isLoading };
+  return {
+    assetTree,
+    assetsList,
+    assetsById,
+    assetByDeviceId,
+    isLoading,
+    error,
+  };
 }

@@ -31,17 +31,26 @@ type DevicesFilterTabsProps = {
   tagsFilter?: TagsFilter;
   onTagsFilterChange?: (tags: TagsFilter | undefined) => void;
   /** Caller-specific controls rendered in filters mode (e.g. an asset
-   *  select). Paired with ``extraDeviceFilter`` for the preview. */
+   *  select). Paired with ``extraDeviceFilter`` or ``resolved`` for the
+   *  preview. */
   extraFilters?: ReactNode;
   /** Extra constraint the caller applies to the filters-mode matched list
    *  (e.g. asset membership). Its presence also marks the filter as
    *  non-empty, so a match-all preview only appears when intended. */
   extraDeviceFilter?: (device: Device) => boolean;
+  /** The filters-mode matches, already resolved by the caller. Pass it when
+   *  the same set drives something else (a dispatch, a payload) so the table
+   *  and that consumer cannot drift apart; the caller then owns the rule that
+   *  an empty filter matches nothing. Falls back to deriving from
+   *  ``typesFilter``/``tagsFilter``/``extraDeviceFilter``. */
+  resolved?: Device[];
   /** Caller-specific narrowing controls rendered in the explicit-devices
    *  toolbar (display-only; they do not change the selection). */
   pickerExtraFilters?: ReactNode;
   /** Extra narrowing applied to the explicit-devices table rows. */
   pickerExtraDeviceFilter?: (device: Device) => boolean;
+  /** Allow exceptions in the live preview; the caller materializes these ids. */
+  onFilterDeviceIdsChange?: (ids: string[]) => void;
 };
 
 /** Two-tab device-set selection: explicit devices (search + type filter +
@@ -58,8 +67,10 @@ export function DevicesFilterTabs({
   onTagsFilterChange,
   extraFilters,
   extraDeviceFilter,
+  resolved,
   pickerExtraFilters,
   pickerExtraDeviceFilter,
+  onFilterDeviceIdsChange,
 }: DevicesFilterTabsProps) {
   return (
     <Tabs
@@ -88,6 +99,8 @@ export function DevicesFilterTabs({
           onTagsFilterChange={onTagsFilterChange}
           extraFilters={extraFilters}
           extraDeviceFilter={extraDeviceFilter}
+          resolved={resolved}
+          onDeviceIdsChange={onFilterDeviceIdsChange}
         />
       </TabsContent>
     </Tabs>
@@ -226,6 +239,8 @@ type FiltersModeBodyProps = {
   onTagsFilterChange?: (tags: TagsFilter | undefined) => void;
   extraFilters?: ReactNode;
   extraDeviceFilter?: (device: Device) => boolean;
+  resolved?: Device[];
+  onDeviceIdsChange?: (ids: string[]) => void;
 };
 
 function FiltersModeBody({
@@ -236,6 +251,8 @@ function FiltersModeBody({
   onTagsFilterChange,
   extraFilters,
   extraDeviceFilter,
+  resolved: resolvedByCaller,
+  onDeviceIdsChange,
 }: FiltersModeBodyProps) {
   const { t } = useTranslation(["devices", "common"]);
 
@@ -252,7 +269,7 @@ function FiltersModeBody({
 
   // An empty filter matches nothing — "everything" is never an intentional
   // target. The caller's extraDeviceFilter counts as a set criterion.
-  const resolved = useMemo(() => {
+  const derived = useMemo(() => {
     if (selectedTypes.size === 0 && !hasTagsFilter && !extraDeviceFilter) {
       return [];
     }
@@ -265,6 +282,7 @@ function FiltersModeBody({
       return true;
     });
   }, [devices, selectedTypes, tagsFilter, hasTagsFilter, extraDeviceFilter]);
+  const resolved = resolvedByCaller ?? derived;
 
   const toggleType = (dt: string) => {
     const next = new Set(selectedTypes);
@@ -366,7 +384,15 @@ function FiltersModeBody({
         <span className="text-xs">{t("commands.new.filterPreviewHint")}</span>
       </div>
 
-      <FilterPreviewTable devices={resolved} />
+      {onDeviceIdsChange ? (
+        <DevicePickerTable
+          devices={resolved}
+          selectedIds={resolved.map((device) => device.id)}
+          onChange={onDeviceIdsChange}
+        />
+      ) : (
+        <FilterPreviewTable devices={resolved} />
+      )}
     </div>
   );
 }

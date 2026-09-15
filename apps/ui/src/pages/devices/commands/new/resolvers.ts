@@ -19,58 +19,21 @@ function isWritable(attr: DeviceAttribute): boolean {
   );
 }
 
-/** Value options for *attrName* across the selected devices that expose it as
- *  writable — mirroring dispatch semantics, where devices not exposing the
- *  attribute as writable are excluded server-side. Defined only when every
- *  exposing device agrees on the same non-empty option list (driver-defined,
- *  so same-type devices always agree; mixed sets fall back to free-text). */
-export function valueOptionsFor(
-  devices: Device[],
-  attrName: string,
-): AttributeValue[] | undefined {
-  const exposing = devices.filter((d) => {
-    const match = Object.values(deviceAttributes(d)).find(
-      (a) => a.name === attrName,
-    );
-    return !!match && isWritable(match);
-  });
-  if (exposing.length === 0) return undefined;
-  return intersectValueOptions(exposing, attrName);
-}
-
-function intersectValueOptions(
-  devices: Device[],
-  attrName: string,
-): AttributeValue[] | undefined {
-  const optionSets = devices.map(
-    (d) =>
-      (Object.values(deviceAttributes(d)).find((a) => a.name === attrName)
-        ?.value_options as AttributeValue[] | undefined) ?? null,
-  );
-  const first = optionSets[0];
-  if (!first || first.length === 0) return undefined;
-  const allMatch = optionSets.every(
-    (opts) =>
-      opts !== null &&
-      opts.length === first.length &&
-      opts.every((v, i) => v === first[i]),
-  );
-  return allMatch ? first : undefined;
-}
-
-/** The current value of *attributeName* on the first device, or undefined when
- *  the device, attribute, or value is missing. Used to pre-fill the command
- *  form's value with what the device currently reports. */
+/** Prefill only when every writable device reports the same known value. */
 export function currentValueFor(
   devices: Device[],
   attributeName: string,
 ): AttributeValue | undefined {
-  const first = devices[0];
-  if (!first) return undefined;
-  const value = Object.values(deviceAttributes(first)).find(
-    (a) => a.name === attributeName,
-  )?.current_value as AttributeValue | null | undefined;
-  return value ?? undefined;
+  const attributes = devices
+    .map((d) => deviceAttributes(d)[attributeName])
+    .filter((attr) => attr && isWritable(attr));
+  const value = attributes[0]?.current_value;
+  return (typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean") &&
+    attributes.every((attr) => attr.current_value === value)
+    ? value
+    : undefined;
 }
 
 /** Is *device* a member of the given filter? Mirrors backend semantics. */
@@ -78,7 +41,7 @@ export function deviceMatchesFilter(
   device: Device,
   filter: DevicesFilter,
 ): boolean {
-  if (filter.ids && filter.ids.length > 0 && !filter.ids.includes(device.id)) {
+  if (filter.ids && !filter.ids.includes(device.id)) {
     return false;
   }
   if (filter.types && filter.types.length > 0) {
@@ -89,6 +52,13 @@ export function deviceMatchesFilter(
   if (filter.asset_id && device.tags?.["asset_id"] !== filter.asset_id) {
     return false;
   }
+  if (
+    filter.tags &&
+    !Object.entries(filter.tags).every(([key, values]) =>
+      values.includes(device.tags?.[key] ?? ""),
+    )
+  )
+    return false;
   return true;
 }
 
@@ -134,6 +104,20 @@ function findAssetNode(
     if (found) return found;
   }
   return null;
+}
+
+/** Asset itself and every descendant, including empty rooms for live targets. */
+export function resolveAssetSubtreeIds(
+  tree: AssetTreeNode[],
+  assetId: string,
+): string[] {
+  const node = findAssetNode(tree, assetId);
+  if (!node) return [];
+  const collect = (current: AssetTreeNode): string[] => [
+    current.id,
+    ...current.children.flatMap(collect),
+  ];
+  return collect(node);
 }
 
 function collectSubtreeDeviceIds(node: AssetTreeNode): string[] {

@@ -21,7 +21,7 @@ import {
   type DevicesFilter,
   type DeviceType,
 } from "@/lib/devices";
-import { currentValueFor, valueOptionsFor } from "./resolvers";
+import { currentValueFor } from "./resolvers";
 import type { WizardFormValues } from "./types";
 
 type CommandStepProps = {
@@ -78,8 +78,7 @@ export function CommandStep({
               onChange={(attribute, dataType) => {
                 field.onChange(attribute);
                 setValue("attributeDataType", dataType);
-                // Pre-fill the value with the first selected device's current
-                // value. Firing inside the user handler (not a useEffect) means
+                // Pre-fill only when the writable devices agree. Firing inside the user handler (not a useEffect) means
                 // device polling can't overwrite edits the user makes after.
                 setValue("value", currentValueFor(selectedDevices, attribute));
               }}
@@ -91,10 +90,9 @@ export function CommandStep({
       {selectedAttribute &&
         selectedDataType &&
         (() => {
-          const selectedValueOptions = valueOptionsFor(
-            selectedDevices,
-            selectedAttribute,
-          );
+          const selectedValueOptions = coverage.find(
+            (row) => row.attribute === selectedAttribute,
+          )?.value_options;
           const hint = t(`commands.new.valueHint.${selectedDataType}`, {
             defaultValue: "",
           });

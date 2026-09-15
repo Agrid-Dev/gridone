@@ -21,8 +21,9 @@ from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from models.attribute_metadata import LocalizedText, Unit, WriteConstraints
 from models.errors import InvalidError
-from models.types import DataType
+from models.types import AttributeValueType, DataType
 
 
 class DevicesFilter(BaseModel):
@@ -78,6 +79,10 @@ class AttributeCoverage(BaseModel):
     data_types: list[DataType]
     device_count: int
     writable_count: int
+    label: LocalizedText | None = None
+    unit: Unit | None = None
+    value_options: list[AttributeValueType] | None = None
+    write_constraints: WriteConstraints | None = None
 
 
 def unify_data_types(types: Iterable[DataType]) -> DataType:

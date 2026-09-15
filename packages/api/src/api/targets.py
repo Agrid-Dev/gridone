@@ -29,22 +29,51 @@ if TYPE_CHECKING:
 
 
 def compute_attribute_coverage(devices: list[Device]) -> list[AttributeCoverage]:
-    """Report every attribute exposed across *devices*, with coverage counts."""
+    """Count exposure and retain presentation only when the devices agree.
+
+    Counts cover every device exposing the attribute; presentation unifies over
+    the *writable* ones, since writing is what these four fields drive — a
+    read-only device with a different unit must not blank the label a caller
+    needs to render its write form. Without any writable device the whole
+    exposing set is used, so a read-only attribute still presents itself.
+
+    Devices without the attribute do not participate in metadata unification.
+    Missing metadata on a presenting device counts as disagreement. Options
+    must have the same values in the same order; no partial option list is
+    presented as the driver's contract.
+    """
     by_name: dict[str, list[Device]] = {}
     for device in devices:
         for name in device.attributes:
             by_name.setdefault(name, []).append(device)
-    return [
-        AttributeCoverage(
-            attribute=name,
-            data_types=sorted({d.attributes[name].data_type for d in exposing}),
-            device_count=len(exposing),
-            writable_count=sum(
-                1 for d in exposing if "write" in d.attributes[name].read_write_modes
-            ),
+    coverage = []
+    for name, exposing in sorted(by_name.items()):
+        writable = [
+            d for d in exposing if "write" in d.attributes[name].read_write_modes
+        ]
+        presenting = writable or exposing
+        coverage.append(
+            AttributeCoverage(
+                attribute=name,
+                data_types=sorted({d.attributes[name].data_type for d in exposing}),
+                device_count=len(exposing),
+                writable_count=len(writable),
+                label=_unanimous([d.attributes[name].label for d in presenting]),
+                unit=_unanimous([d.attributes[name].unit for d in presenting]),
+                value_options=_unanimous(
+                    [d.attributes[name].value_options or None for d in presenting]
+                ),
+                write_constraints=_unanimous(
+                    [d.attributes[name].write_constraints for d in presenting]
+                ),
+            )
         )
-        for name, exposing in sorted(by_name.items())
-    ]
+    return coverage
+
+
+def _unanimous[T](values: list[T]) -> T | None:
+    first = values[0]
+    return first if all(value == first for value in values) else None
 
 
 def _exposes(device: Device, attribute: str, *, writable: bool) -> bool:

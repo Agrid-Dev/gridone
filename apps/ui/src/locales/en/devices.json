@@ -256,6 +256,7 @@
     "batch": "Batch",
     "clearBatch": "Clear batch filter",
     "newCommand": "New command",
+    "newGroupedCommand": "New grouped command",
     "targetPresenter": {
       "empty": "No target",
       "deviceCount_one": "{{count}} device",
@@ -306,6 +307,7 @@
     "readOnlyDescription": "This device has no writable attributes, so no commands can be sent.",
     "new": {
       "title": "New command",
+      "groupedTitle": "New grouped command",
       "steps": {
         "target": "Target",
         "command": "Command",
@@ -364,6 +366,49 @@
         "saving": "Saving…",
         "savedFeedback": "Template saved"
       }
+    },
+    "grouped": {
+      "subtitle": "Select the devices, then choose the setting to change. Review the changes in the preview before dispatching.",
+      "scope": "Zone",
+      "scopeHint": "Includes this asset and all rooms and zones beneath it.",
+      "scopeMissing": "This scope is no longer available. Choose another asset.",
+      "what": "What to change",
+      "who": "Which devices",
+      "review": "Review & dispatch",
+      "pickAttribute": "Choose an attribute to preview the changes.",
+      "detached": "This command no longer follows the filter. The selected devices are now a fixed list.",
+      "locked": "The target is fixed by the page you opened.",
+      "live": "Filters are resolved again at each dispatch.",
+      "frozen": "Only the selected device IDs will be targeted.",
+      "excluded_one": "{{count}} selected device will receive no command",
+      "excluded_other": "{{count}} selected devices will receive no command",
+      "readOnly": "Read-only attribute",
+      "absent": "Attribute absent",
+      "chooseValue": "Choose a value",
+      "currentRange": "Currently {{range}} {{unit}}",
+      "invalidValue": "Enter a value matching this attribute’s type.",
+      "unavailableAttribute": "This attribute is not writable on the selected devices.",
+      "nameRequired": "Enter a template name.",
+      "setting": "Setting {{attribute}} to {{value}} {{unit}}.",
+      "confirmTitle": "Dispatch this grouped command?",
+      "confirmDescription": "Set {{attribute}} to {{value}} {{unit}} on {{count}} devices in {{scope}}.",
+      "dispatchResults": "Dispatch results",
+      "emptyBatch": "No devices remained eligible at dispatch. The devices below received no command.",
+      "vanished": "No command sent: this device left the target or is no longer writable.",
+      "notDispatched": "Dispatch failed; no result was returned.",
+      "fullHistory": "View full command history",
+      "trackingError": "Unable to refresh statuses. Showing the last received results.",
+      "newCommand": "Prepare another command",
+      "dynamicBounds": "Some limits depend on device readings and will be checked again at write time.",
+      "bounds": {
+        "minimum": "Will be refused below {{bound}}.",
+        "maximum": "Will be refused above {{bound}}.",
+        "step": "Will be refused: value must be a multiple of {{bound}}.",
+        "options": "Will be refused: supported values are {{bound}}."
+      },
+      "pickDevices": "Select devices first, directly or using filters.",
+      "selectedDevices": "the selection",
+      "affectedCount": "{{count}} of {{total}} selected devices will receive the command"
     }
   },
   "controls": {

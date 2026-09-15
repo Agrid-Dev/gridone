@@ -43,6 +43,7 @@ vi.mock("react-i18next", () =>
     "deviceDetails.connectionStatus.idle": "Idle",
     "commands.subtitle": "Command history",
     "commands.newCommand": "New command",
+    "commands.newGroupedCommand": "New grouped command",
     "common.hvacMode.heat": "Heating",
     "common.hvacMode.off": "Off",
     "common.severityCount.alert": "{{count}} alert(s)",

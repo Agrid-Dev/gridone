@@ -2153,6 +2153,12 @@ export interface components {
       device_count: number;
       /** Writable Count */
       writable_count: number;
+      label?: components["schemas"]["LocalizedText"] | null;
+      /** Unit */
+      unit?: string | null;
+      /** Value Options */
+      value_options?: (number | string | boolean)[] | null;
+      write_constraints?: components["schemas"]["WriteConstraints"] | null;
     };
     /**
      * AttributeCoverageResponse
@@ -2973,6 +2979,8 @@ export interface components {
     ColumnItem: {
       /** Weight */
       weight: number;
+      /** Sticky */
+      sticky?: boolean | null;
       /** Content */
       content:
         | components["schemas"]["StackNode"]
@@ -3074,7 +3082,7 @@ export interface components {
      * ControlKind
      * @enum {string}
      */
-    ControlKind: "toggle" | "number" | "select";
+    ControlKind: "toggle" | "number" | "slider" | "select";
     /** ControlPanelNode */
     ControlPanelNode: {
       /**
@@ -4333,6 +4341,11 @@ export interface components {
       label?: components["schemas"]["LocalizedText"] | null;
       formatter?: components["schemas"]["Formatter"] | null;
     };
+    /**
+     * MeasurementLayout
+     * @enum {string}
+     */
+    MeasurementLayout: "grouped" | "rows" | "inline";
     /** MeasurementsNode */
     MeasurementsNode: {
       /**
@@ -4340,6 +4353,7 @@ export interface components {
        * @enum {string}
        */
       kind: "measurements";
+      layout?: components["schemas"]["MeasurementLayout"] | null;
       /** Items */
       items: components["schemas"]["MeasurementItem"][];
     };
@@ -5188,6 +5202,14 @@ export interface components {
       kind: "section";
       title: components["schemas"]["LocalizedText"];
       description?: components["schemas"]["LocalizedText"] | null;
+      /** Appearance */
+      appearance?: ("card" | "plain") | null;
+      /** Collapsible */
+      collapsible?: boolean | null;
+      /** Collapsed */
+      collapsed?: boolean | null;
+      /** Show Count */
+      show_count?: boolean | null;
       /** Children */
       children: (
         | components["schemas"]["StackNode"]

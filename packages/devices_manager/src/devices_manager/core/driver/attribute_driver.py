@@ -9,15 +9,14 @@ from devices_manager.core.codecs import FnCodec, build_codec
 from devices_manager.core.codecs.factory import CodecSpec, codec_spec_from_raw
 from devices_manager.core.transports import RawTransportAddress  # noqa: TC001
 from devices_manager.types import AttributeKind, AttributeValueType, DataType
-from models.errors import InvalidError
-from models.types import Severity
-
-from .attribute_metadata import (  # noqa: TC001
+from models.attribute_metadata import (  # noqa: TC001
     AttributeGroup,
     LocalizedText,
     Unit,
     WriteConstraints,
 )
+from models.errors import InvalidError
+from models.types import Severity
 
 _FAULT_HEALTHY_VALUE_DEFAULTS: dict[DataType, list[AttributeValueType]] = {
     DataType.BOOL: [False],

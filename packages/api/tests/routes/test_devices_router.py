@@ -431,6 +431,10 @@ class TestListDeviceAttributes:
             "data_types": ["float"],
             "device_count": 3,
             "writable_count": 0,
+            "label": None,
+            "unit": None,
+            "value_options": None,
+            "write_constraints": None,
         }
         assert by_name["setpoint"]["writable_count"] == 1
 

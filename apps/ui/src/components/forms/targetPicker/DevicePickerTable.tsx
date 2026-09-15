@@ -82,7 +82,8 @@ export function DevicePickerTable({
                 <TableRow
                   key={d.id}
                   onClick={() => toggleOne(d.id)}
-                  className="cursor-pointer"
+                  data-state={checked ? "selected" : undefined}
+                  className="cursor-pointer data-[state=selected]:bg-primary/10"
                 >
                   <TableCell>
                     <input
