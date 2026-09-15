@@ -294,11 +294,36 @@ def test_all_metadata_absent():
     assert row.writable_count == 0
 
 
-def test_read_only_devices_count_in_exposure_and_metadata():
+def test_read_only_devices_count_in_exposure_but_do_not_veto_presentation():
     read_only = attribute(unit="°F").model_copy(update={"read_write_modes": {"read"}})
     (row,) = compute_attribute_coverage(
         [_coverage_device(attribute()), _coverage_device(read_only)]
     )
     assert row.device_count == 2
     assert row.writable_count == 1
+    assert row.unit == "°C"
+
+
+def test_presentation_falls_back_to_exposing_devices_when_none_is_writable():
+    read_only = attribute().model_copy(update={"read_write_modes": {"read"}})
+    (row,) = compute_attribute_coverage(
+        [_coverage_device(read_only), _coverage_device(read_only)]
+    )
+    assert row.writable_count == 0
+    assert row.unit == "°C"
+    assert row.label == read_only.label
+
+
+def test_writable_devices_still_veto_each_other():
+    (row,) = compute_attribute_coverage(
+        [
+            _coverage_device(attribute()),
+            _coverage_device(attribute(unit="°F")),
+            _coverage_device(
+                attribute(unit="K").model_copy(update={"read_write_modes": {"read"}})
+            ),
+        ]
+    )
+    assert row.device_count == 3
+    assert row.writable_count == 2
     assert row.unit is None
