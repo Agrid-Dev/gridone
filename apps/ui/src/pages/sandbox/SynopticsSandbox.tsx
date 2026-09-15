@@ -17,9 +17,13 @@ import {
   AirExtractorSynoptic,
   type AirExtractorValues,
 } from "../devices/standard-devices/air-extractor";
+import { symbolSchemas, type Projection } from "@gridone/sdk";
 import {
+  Body,
+  Collector,
   DepthOrdered,
   depthKey,
+  DRAWINGS,
   ExternalLink,
   MonitorPanel,
   Pipe,
@@ -30,9 +34,12 @@ import {
   project,
   Pump,
   SensorFlag,
+  square,
+  SynopticSymbol,
   Tank,
   Valve,
   type DepthItem,
+  type SymbolState,
 } from "@/components/synoptic";
 
 const HEATING_UNIT: AhuDoubleFluxValues = {
@@ -329,31 +336,6 @@ function SymbolKitPlate() {
   );
 }
 
-/** A one-cell footprint of height `h` on the isometric grid: top face and
- *  the two visible sides. */
-function isoBlock(x: number, y: number, h: number) {
-  const c = (dx: number, dy: number, dz: number) =>
-    project("isometric", x + dx, y + dy, dz);
-  const face = (pts: ReturnType<typeof c>[]) =>
-    pts.map((p) => `${p.x},${p.y}`).join(" ");
-  return (
-    <g strokeWidth={2} className="stroke-synoptic-stroke">
-      <polygon
-        points={face([c(0, 0, h), c(1, 0, h), c(1, 1, h), c(0, 1, h)])}
-        className="fill-synoptic-body"
-      />
-      <polygon
-        points={face([c(1, 0, 0), c(1, 1, 0), c(1, 1, h), c(1, 0, h)])}
-        className="fill-synoptic-body-x"
-      />
-      <polygon
-        points={face([c(0, 1, 0), c(1, 1, 0), c(1, 1, h), c(0, 1, h)])}
-        className="fill-synoptic-body-y"
-      />
-    </g>
-  );
-}
-
 /** One cell of a run along `x` at row `y`, `z` cells above the floor. */
 function isoPipeCell(x: number, y: number, z: number) {
   const at = (dx: number) =>
@@ -370,7 +352,7 @@ function IsometricPlate() {
     {
       id: "body",
       depth: depthKey(body, "symbol"),
-      node: isoBlock(body.x, body.y, 2),
+      node: <Body outline={square(body.x, body.y, 1, 1)} z0={0} z1={2} />,
     },
   ];
   for (const [y, z] of [
@@ -399,6 +381,77 @@ function IsometricPlate() {
   );
 }
 
+type SheetCard = {
+  type: string;
+  label: string;
+  state?: SymbolState;
+  faulty?: boolean;
+};
+
+/** Every drawn type, then the state variants the visual language specifies. */
+const SHEET_CARDS: SheetCard[] = [
+  ...Object.keys(DRAWINGS).map((type) => ({ type, label: type })),
+  { type: "tank", label: "B-02", faulty: true },
+  { type: "valve_isolation", label: "V-12", state: "off" },
+  { type: "pump", label: "P-01", state: "on" },
+  { type: "pump", label: "P-02", state: "off" },
+];
+
+const SHEET_COLUMNS = 4;
+
+/** One card per symbol on a grid of `pitch` cells, inline types on a run. */
+function symbolSheet(projection: Projection, pitch: number) {
+  const originOf = (i: number) => ({
+    x: (i % SHEET_COLUMNS) * pitch,
+    y: Math.floor(i / SHEET_COLUMNS) * pitch,
+  });
+  const cards = SHEET_CARDS.map((card, i) => {
+    const origin = originOf(i);
+    const run = (dx: number) =>
+      project(projection, origin.x + dx, origin.y + 0.5, PIPE_AXIS_Z);
+    return (
+      <g key={i}>
+        {symbolSchemas[card.type]?.["x-inline"] && (
+          <Pipe points={[run(-0.7), run(1.7)]} fluid="heating_supply" />
+        )}
+        <SynopticSymbol projection={projection} origin={origin} {...card} />
+      </g>
+    );
+  });
+  const collector = originOf(SHEET_CARDS.length);
+  return (
+    <>
+      {cards}
+      <Collector
+        projection={projection}
+        origin={collector}
+        shape={{ axis: "x", length: 3, ports: {} }}
+        label="collector"
+      />
+    </>
+  );
+}
+
+/** The hydronic set in both projections, to compare with the design
+ *  sheets in both themes. Drag to pan, wheel to zoom. */
+function HydronicSymbolSheets() {
+  return (
+    <div className="space-y-2">
+      <h3 className="text-sm font-medium">Hydronic symbol set</h3>
+      <div className="h-[28rem] overflow-hidden rounded-lg border">
+        <PidDiagram width={1400} height={760}>
+          <g transform="translate(700 70)">{symbolSheet("isometric", 4)}</g>
+        </PidDiagram>
+      </div>
+      <div className="h-[28rem] overflow-hidden rounded-lg border">
+        <PidDiagram width={1000} height={760}>
+          <g transform="translate(80 60)">{symbolSheet("flat", 3)}</g>
+        </PidDiagram>
+      </div>
+    </div>
+  );
+}
+
 /** Dev-only page: the standard HVAC synoptics (AHUs, air extractor) fed
  *  with hard-coded data, covering the layout variants of each type. */
 export default function SynopticsSandbox() {
@@ -410,6 +463,7 @@ export default function SynopticsSandbox() {
       />
       <SymbolKitPlate />
       <IsometricPlate />
+      <HydronicSymbolSheets />
       <DoubleFluxUnit
         title="CTA 01 — double flux, heating (both coils, pressure sensors)"
         initial={HEATING_UNIT}

@@ -23,6 +23,7 @@
   },
   "scripts": {
     "build": "tsup",
+    "generate-symbol-schemas": "uv run --project ../.. python ../../packages/synoptics/generate_symbol_schemas.py && prettier --write src/generated/symbol-schemas.json",
     "generate-types": "uv run --project ../.. python ../../packages/api/generate_openapi.py && openapi-typescript ../../docs/src/openapi.json -o src/generated/openapi.ts --default-non-nullable false && prettier --write src/generated/openapi.ts",
     "test": "vitest run",
     "test:watch": "vitest watch",

@@ -1,0 +1,69 @@
+import type { Pt } from "../types";
+
+/** Run state of a symbol whose `state` slot is bound. */
+export type SymbolState = "on" | "off";
+
+/** Symbol labels are 11 px semibold: nothing on the plate is smaller. */
+export const LABEL_SIZE = 11;
+
+type LabelProps = {
+  text: string;
+  /** Anchor the label sits `lift` px above, or on when `onFace`. */
+  at: Pt;
+  lift: number;
+  /** Write the caption on the face, one line per word. */
+  onFace?: boolean;
+  /** Nudge a face caption right, as the isometric link does. */
+  faceOffsetX?: number;
+  /** Lights a run-state LED after the text. */
+  led?: SymbolState;
+  faulty?: boolean;
+};
+
+/** A symbol label, with the run-state LED the visual language puts after
+ *  it: ok when on, muted when off, error first when the device is faulty. */
+export function Label({
+  text,
+  at,
+  lift,
+  onFace = false,
+  faceOffsetX = 0,
+  led,
+  faulty = false,
+}: LabelProps) {
+  const lines = onFace ? text.split(" ") : [text];
+  const x = onFace ? at.x + faceOffsetX : at.x;
+  const y = onFace ? at.y + 4 - 6 * (lines.length - 1) : at.y - lift;
+  return (
+    <>
+      <text
+        x={x}
+        y={y}
+        textAnchor="middle"
+        fontSize={LABEL_SIZE}
+        fontWeight={600}
+        className="fill-foreground"
+      >
+        {lines.map((line, i) => (
+          <tspan key={i} x={x} dy={i === 0 ? 0 : 12}>
+            {line}
+          </tspan>
+        ))}
+      </text>
+      {led && (
+        <circle
+          cx={x + 4 * text.length + 10}
+          cy={y - 4}
+          r={4}
+          className={
+            faulty
+              ? "fill-status-error"
+              : led === "on"
+                ? "fill-status-ok"
+                : "fill-muted-foreground"
+          }
+        />
+      )}
+    </>
+  );
+}
