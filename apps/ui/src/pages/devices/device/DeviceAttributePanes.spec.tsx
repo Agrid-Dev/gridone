@@ -14,6 +14,12 @@ import type { Device } from "@gridone/sdk";
 import type { DeviceAttribute } from "@/lib/devices";
 import type { AttributeFields, FaultAttribute } from "@/lib/faults";
 
+/** Admins hold every permission; other users hold none of theirs. */
+let isAdmin = true;
+vi.mock("@/contexts/AuthContext", () => ({
+  usePermissions: () => () => isAdmin,
+}));
+
 vi.mock("react-i18next", () =>
   createI18nMock({
     "deviceDetails.panes.standard": "Attributes",
@@ -92,6 +98,7 @@ const rowFor = (label: string): HTMLElement =>
 
 beforeEach(() => {
   vi.setSystemTime(new Date(NOW));
+  isAdmin = true;
 });
 
 afterEach(() => {
@@ -195,6 +202,25 @@ describe("DeviceAttributePanes", () => {
     expect(screen.getByText("Internal")).toBeInTheDocument();
     const value = within(rowFor("Connection Status")).getByText("Connected");
     expect(value).toHaveClass("text-status-ok");
+  });
+
+  it("hides the connection status row from non-admin users", () => {
+    isAdmin = false;
+    renderPanes(
+      makeDevice({
+        temperature: attr({ name: "temperature" }),
+        connection_status: attr({
+          name: "connection_status",
+          kind: "internal",
+          data_type: "str",
+          current_value: "ok",
+        }),
+      }),
+    );
+
+    expect(screen.getByText("Outdoor temperature")).toBeInTheDocument();
+    expect(screen.queryByText("Connection Status")).not.toBeInTheDocument();
+    expect(screen.queryByText("Internal")).not.toBeInTheDocument();
   });
 
   it("links writable rows to the command form pre-targeted to the attribute", () => {

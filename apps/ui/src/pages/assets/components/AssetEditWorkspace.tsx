@@ -42,6 +42,7 @@ import { Card } from "@/components/ui/card";
 import { InputController } from "@/components/forms/controllers/InputController";
 import { SelectController } from "@/components/forms/controllers/SelectController";
 import { ConnectionStatusDot } from "@/components/ConnectionStatusBadge";
+import { useCanSeeConnectionStatus } from "@/hooks/useCanSeeConnectionStatus";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { ResourceDeleteButton } from "@/components/ResourceDeleteButton";
 import { getConnectionStatus } from "@/lib/devices";
@@ -198,6 +199,7 @@ export function AssetEditWorkspace({
   const { t } = useTranslation(["assets", "common"]);
   const { t: tCommon } = useTranslation("common");
   const { t: tTypes } = useTranslation("standardDevices");
+  const canSeeConnectionStatus = useCanSeeConnectionStatus();
 
   const form = useForm<AssetFormValues>({
     resolver: zodResolver(assetFormSchema),
@@ -629,10 +631,12 @@ export function AssetEditWorkspace({
                                 t("common:common.unknown")}
                             </p>
                           </div>
-                          <ConnectionStatusDot
-                            status={getConnectionStatus(device)}
-                            className="shrink-0"
-                          />
+                          {canSeeConnectionStatus && (
+                            <ConnectionStatusDot
+                              status={getConnectionStatus(device)}
+                              className="shrink-0"
+                            />
+                          )}
                           <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
                         </Link>
                         {canWriteDevices && onUnlinkDevice && (

@@ -9,6 +9,7 @@ import { ConnectionStatusBadge } from "@/components/ConnectionStatusBadge";
 import { DeviceFaultBadge } from "@/components/DeviceFaultBadge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { useAssetTree } from "@/hooks/useAssetTree";
+import { useCanSeeConnectionStatus } from "@/hooks/useCanSeeConnectionStatus";
 import type { Device } from "@gridone/sdk";
 import { getConnectionStatus, isReadOnlyDevice } from "@/lib/devices";
 
@@ -47,10 +48,13 @@ export function DeviceHeader({ device }: { device: Device }) {
 
 function DeviceStatus({ device }: { device: Device }) {
   const { assetByDeviceId } = useAssetTree();
+  const canSeeConnectionStatus = useCanSeeConnectionStatus();
   return (
     <>
       <DeviceTypeChip type={device.type} />
-      <ConnectionStatusBadge status={getConnectionStatus(device)} />
+      {canSeeConnectionStatus && (
+        <ConnectionStatusBadge status={getConnectionStatus(device)} />
+      )}
       <AssetChip asset={assetByDeviceId[device.id]} />
       <DeviceFaultBadge device={device} />
     </>

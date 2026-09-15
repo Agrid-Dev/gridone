@@ -6,6 +6,10 @@ import { TooltipProvider } from "@/components/ui";
 import { createI18nMock } from "@/test/i18nMock";
 import { DeviceAttributePanes } from "../DeviceAttributePanes";
 
+vi.mock("@/contexts/AuthContext", () => ({
+  usePermissions: () => () => true,
+}));
+
 vi.mock("react-i18next", () =>
   createI18nMock(
     {

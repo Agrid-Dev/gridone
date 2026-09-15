@@ -10,6 +10,7 @@ import {
   Th,
 } from "@/components/ui/table";
 import { type DeviceTypeGroup } from "@/lib/deviceTypes";
+import { useCanSeeConnectionStatus } from "@/hooks/useCanSeeConnectionStatus";
 import { DeviceGroupHeading } from "./DeviceGroupHeading";
 import { DeviceRow } from "./DeviceRow";
 
@@ -22,6 +23,7 @@ type DevicesTableProps = {
  *  {@link DeviceRow} per device. */
 export function DevicesTable({ groups, assetNameOf }: DevicesTableProps) {
   const { t } = useTranslation("devices");
+  const canSeeConnectionStatus = useCanSeeConnectionStatus();
 
   return (
     <div className="overflow-hidden rounded-lg border bg-card">
@@ -33,7 +35,7 @@ export function DevicesTable({ groups, assetNameOf }: DevicesTableProps) {
             <Th className="text-right">{t("devices.table.measure")}</Th>
             <Th className="text-right">{t("devices.table.setpoint")}</Th>
             <Th>{t("devices.table.mode")}</Th>
-            <Th>{t("devices.table.connection")}</Th>
+            {canSeeConnectionStatus && <Th>{t("devices.table.connection")}</Th>}
             <Th>{t("devices.table.faults")}</Th>
           </TableRow>
         </TableHeader>
@@ -41,7 +43,10 @@ export function DevicesTable({ groups, assetNameOf }: DevicesTableProps) {
           {groups.map((group) => (
             <Fragment key={group.key}>
               <TableRow className="bg-muted/30 hover:bg-muted/30">
-                <TableCell colSpan={7} className="py-2">
+                <TableCell
+                  colSpan={canSeeConnectionStatus ? 7 : 6}
+                  className="py-2"
+                >
                   <DeviceGroupHeading
                     typeKey={group.key}
                     count={group.devices.length}

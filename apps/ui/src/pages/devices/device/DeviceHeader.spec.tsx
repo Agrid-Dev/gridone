@@ -5,8 +5,15 @@ import { createI18nMock } from "@/test/i18nMock";
 import type { Asset, Device } from "@gridone/sdk";
 import { DeviceHeader } from "./DeviceHeader";
 
+/** Admins hold every permission; other users hold none of theirs. */
+let isAdmin = true;
+vi.mock("@/contexts/AuthContext", () => ({
+  usePermissions: () => () => isAdmin,
+}));
+
 vi.mock("react-i18next", () =>
   createI18nMock({
+    "deviceDetails.connectionStatus.ok": "Connected",
     "deviceDetails.backToDevices": "Devices",
     "deviceDetails.sendCommand": "Send a command",
     "deviceDetails.readOnly": "Read only",
@@ -34,6 +41,13 @@ function makeDevice(readOnly = false): Device {
     attributes: readOnly
       ? {}
       : {
+          connection_status: {
+            name: "connection_status",
+            kind: "internal",
+            data_type: "str",
+            read_write_modes: ["read"],
+            current_value: "ok",
+          },
           setpoint: {
             name: "setpoint",
             kind: "standard",
@@ -59,6 +73,7 @@ function renderHeader(device = makeDevice()) {
 
 afterEach(() => {
   cleanup();
+  isAdmin = true;
   delete assetByDeviceId["d1"];
 });
 
@@ -102,6 +117,19 @@ describe("DeviceHeader", () => {
 
     expect(screen.getByText("Étage 1")).toBeInTheDocument();
   });
+
+  it.each([
+    [true, 1],
+    [false, 0],
+  ])(
+    "shows the connection badge only to admins (admin: %s)",
+    (admin, count) => {
+      isAdmin = admin;
+      renderHeader();
+
+      expect(screen.queryAllByText("Connected")).toHaveLength(count);
+    },
+  );
 
   it("shows no asset chip when the device maps to no asset", () => {
     renderHeader();

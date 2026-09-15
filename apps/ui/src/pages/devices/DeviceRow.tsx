@@ -9,6 +9,7 @@ import {
   ConnectionStatusValue,
 } from "@/components/ConnectionStatusBadge";
 import { getConnectionStatus } from "@/lib/devices";
+import { useCanSeeConnectionStatus } from "@/hooks/useCanSeeConnectionStatus";
 import {
   deviceMeasureReading,
   deviceSetpointReading,
@@ -32,6 +33,7 @@ export function DeviceRow({
   const navigate = useNavigate();
   const { i18n } = useTranslation();
   const status = getConnectionStatus(device);
+  const canSeeConnectionStatus = useCanSeeConnectionStatus();
   const Icon = deviceTypeIcon(device.type) ?? Cpu;
 
   return (
@@ -65,12 +67,14 @@ export function DeviceRow({
       <TableCell className="py-2.5">
         <DeviceModeValue device={device} />
       </TableCell>
-      <TableCell className="py-2.5">
-        <span className="flex items-center gap-2">
-          <ConnectionStatusDot status={status} />
-          <ConnectionStatusValue status={status} />
-        </span>
-      </TableCell>
+      {canSeeConnectionStatus && (
+        <TableCell className="py-2.5">
+          <span className="flex items-center gap-2">
+            <ConnectionStatusDot status={status} />
+            <ConnectionStatusValue status={status} />
+          </span>
+        </TableCell>
+      )}
       <TableCell className="py-2.5">
         <FaultsCell device={device} />
       </TableCell>

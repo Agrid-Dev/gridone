@@ -31,6 +31,7 @@ import { localize } from "@/lib/localizedText";
 import { cn, compactTimeAgo } from "@/lib/utils";
 import { toLabel } from "@/lib/textFormat";
 import { useAttributeLabel } from "@/hooks/useAttributeLabel";
+import { useCanSeeConnectionStatus } from "@/hooks/useCanSeeConnectionStatus";
 
 /** Wire-format map key of the connection-status attribute. We identify it by
  *  object identity against the device's attribute map, not by
@@ -92,11 +93,15 @@ export function DeviceAttributePanes({
   group?: string;
 }) {
   const { t } = useTranslation("devices");
+  const canSeeConnectionStatus = useCanSeeConnectionStatus();
+  const connectionStatus = deviceAttributes(device)[CONNECTION_STATUS_ATTR];
 
   const panes = PANES.map((pane) => ({
     ...pane,
     rows: attributesForKind(device, pane.kind).filter(
-      (attribute) => group === undefined || attribute.group === group,
+      (attribute) =>
+        (group === undefined || attribute.group === group) &&
+        (canSeeConnectionStatus || attribute !== connectionStatus),
     ),
   })).filter((pane) => pane.rows.length > 0);
 

@@ -95,8 +95,10 @@ vi.mock("@/lib/viewPreference", async (importOriginal) => ({
   writeStoredView: vi.fn(),
 }));
 
+/** Admins hold every permission; other users hold none of theirs. */
+let isAdmin = true;
 vi.mock("@/contexts/AuthContext", () => ({
-  usePermissions: () => () => true,
+  usePermissions: () => () => isAdmin,
 }));
 
 import DevicesList from "./DevicesList";
@@ -147,6 +149,7 @@ function lastTableFilter(): DevicesFilter | undefined {
 
 beforeEach(() => {
   storedView = "table";
+  isAdmin = true;
   mockUseDevicesList.mockReturnValue({
     devices: [makeDevice("d1", "Alpha")],
     loading: false,
@@ -583,5 +586,26 @@ describe("DevicesList — summary", () => {
     expect(screen.getByText("1 degraded")).toBeInTheDocument();
     expect(screen.getByText("1 disconnected")).toBeInTheDocument();
     expect(screen.queryByText(/idle/)).not.toBeInTheDocument();
+  });
+
+  it("hides connection status from non-admin users", () => {
+    isAdmin = false;
+    mockUseDevicesList.mockReturnValue({
+      devices: [
+        makeDevice("d1", "Chambre 101", {
+          type: "thermostat",
+          attributes: { connection_status: attr("error") },
+        }),
+      ],
+      loading: false,
+      error: null,
+    });
+    renderAt();
+    expect(screen.getByText("1 devices")).toBeInTheDocument();
+    expect(screen.queryByText("1 disconnected")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("columnheader", { name: "Connection" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Disconnected")).not.toBeInTheDocument();
   });
 });

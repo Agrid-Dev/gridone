@@ -5,6 +5,10 @@ import { GridoneError, type Device } from "@gridone/sdk";
 import { createI18nMock } from "@/test/i18nMock";
 import type { StandardControlProps } from "@/pages/devices/standard-devices/types";
 
+vi.mock("@/contexts/AuthContext", () => ({
+  usePermissions: () => () => true,
+}));
+
 vi.mock("react-i18next", () =>
   createI18nMock({
     "widgets.deviceControl.empty": "Pick a device",

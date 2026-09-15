@@ -4,6 +4,10 @@ import { MemoryRouter } from "react-router";
 import type { Device } from "@gridone/sdk";
 import { createI18nMock } from "@/test/i18nMock";
 
+vi.mock("@/contexts/AuthContext", () => ({
+  usePermissions: () => () => true,
+}));
+
 vi.mock("react-i18next", () =>
   createI18nMock({
     "devices.card.measured": "{{value}} measured",
