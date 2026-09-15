@@ -20,7 +20,7 @@ class WebhookTransportClient(PushTransportClient[WebhookAddress]):
     A webhook endpoint is passive: there is no socket to open or monitor, so
     ``connect()`` only marks the client connected. Device health is measured
     by silence instead (``healthcheck.expected_push_interval`` drives the
-    device-level ``SilenceWatchdog``).
+    silence detection of the device's ``ConnectionMonitor``).
 
     Topics are matched exactly — each device subscribes to its rendered path
     (e.g. ``${room_id}/snapshot``). Wildcard matching is out of scope.

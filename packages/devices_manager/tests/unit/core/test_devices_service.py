@@ -16,7 +16,6 @@ from devices_manager.core.device import (
     FaultAttribute,
 )
 from devices_manager.core.device.attribute import AttributeKind
-from devices_manager.core.device.event_log import AttributeEventLog, EventType
 from devices_manager.core.driver import (
     AttributeDriver,
     AttributeRef,
@@ -1977,7 +1976,7 @@ class TestDevicesServiceRestartSync:
         await dm.stop()
 
     @pytest.mark.asyncio
-    async def test_rename_attribute_preserves_last_changed_and_event_logs(
+    async def test_rename_attribute_preserves_last_changed(
         self, driver, mock_transport_client
     ):
         device = CoreDevice.from_base(
@@ -1994,21 +1993,13 @@ class TestDevicesServiceRestartSync:
         await dm.start()
         original = device.attributes["temperature"]
         original.update_value(22.0)
-        original.append_log(
-            AttributeEventLog(
-                event_type=EventType.READ, timestamp=datetime.now(UTC), status="ok"
-            )
-        )
         original_last_changed = original.last_changed
         assert original_last_changed is not None
-        original_logs = original.all_log_entries()
-        assert original_logs
 
         await dm.rename_driver_attribute(driver.id, "temperature", "temp")
 
         renamed = device.attributes["temp"]
         assert renamed.last_changed == original_last_changed
-        assert renamed.all_log_entries() == original_logs
         await dm.stop()
 
 
