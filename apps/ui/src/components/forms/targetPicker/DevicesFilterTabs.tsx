@@ -273,6 +273,7 @@ function FiltersModeBody({
   // An empty filter matches nothing — "everything" is never an intentional
   // target. The caller's extraDeviceFilter counts as a set criterion.
   const derived = useMemo(() => {
+    if (typesFilter && typesFilter.length === 0) return [];
     if (selectedTypes.size === 0 && !hasTagsFilter && !extraDeviceFilter) {
       return [];
     }
@@ -284,7 +285,14 @@ function FiltersModeBody({
       if (extraDeviceFilter && !extraDeviceFilter(d)) return false;
       return true;
     });
-  }, [devices, selectedTypes, tagsFilter, hasTagsFilter, extraDeviceFilter]);
+  }, [
+    devices,
+    typesFilter,
+    selectedTypes,
+    tagsFilter,
+    hasTagsFilter,
+    extraDeviceFilter,
+  ]);
   const resolved = resolvedByCaller ?? derived;
 
   const toggleType = (dt: string) => {

@@ -621,11 +621,11 @@ export function isTagTarget(filter: DevicesFilter): boolean {
  *  Not display text: translate it before rendering. */
 export const UNTAGGED_GROUP_LABEL = "__untagged__";
 
-/** Asset scoping of a filter, wherever it is spelled: the ``asset_id``
- *  convenience alias (request bodies) or the canonical ``tags.asset_id``
- *  criterion the backend persists and returns. */
+/** Single-asset scoping of a filter, using its alias or canonical tag.
+ *  Multiple accepted assets remain a tag criterion, not a single-asset scope. */
 export function assetIdOf(filter: DevicesFilter): string | undefined {
-  return filter.asset_id ?? filter.tags?.asset_id?.[0] ?? undefined;
+  const assets = tagValues(filter.tags ?? undefined, "asset_id");
+  return filter.asset_id ?? (assets.length === 1 ? assets[0] : undefined);
 }
 
 /** Map a DevicesFilter onto ``GET /devices`` query params.

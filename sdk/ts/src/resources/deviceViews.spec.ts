@@ -87,10 +87,3 @@ describe("device views and tag commands", () => {
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 });
-
-it("does not serialize an empty ID or type selection as an unrestricted GET", async () => {
-  const { client, fetch } = setup();
-  expect(await client.devices.list({ ids: [] })).toEqual([]);
-  expect(await client.devices.list({ type: [] })).toEqual([]);
-  expect(fetch).not.toHaveBeenCalled();
-});

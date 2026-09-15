@@ -87,7 +87,6 @@ describe("group reported values", () => {
     const target = targetFilterToDevicesFilter({
       driverId: "driver",
       ids: ["b"],
-      types: [],
       tags: { ecs: ["east"] },
     });
     expect(target.driver_id).toBe("driver");

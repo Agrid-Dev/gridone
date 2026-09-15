@@ -27,8 +27,8 @@ class CommandsActionProvider:
         action = CommandAction(**params)
         template = await self._commands_service.get_template(action.template_id)
         try:
-            dispatch = await self._commands_service.dispatch_from_template(
-                template_id=action.template_id,
+            dispatch = await self._commands_service.dispatch_template(
+                template=template,
                 user_id=SYSTEM_ACTOR,
                 confirm=False,
             )

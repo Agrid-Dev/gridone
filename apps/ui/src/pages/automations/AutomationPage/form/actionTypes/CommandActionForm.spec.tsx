@@ -12,6 +12,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import type { CommandTemplateResponse } from "@gridone/sdk";
 import { createI18nMock } from "@/test/i18nMock";
+import type { WizardFormValues } from "@/pages/devices/commands/new/types";
+import { targetFilterToDevicesFilter } from "@/pages/devices/commands/new/resolvers";
 
 vi.mock("react-i18next", () =>
   createI18nMock({
@@ -64,10 +66,6 @@ const { mockedGetTemplate } = vi.hoisted(() => ({
 vi.mock("@/contexts/GridoneClientContext", () => ({
   useGridoneClient: () => ({
     devices: {
-      groups: {
-        get: () =>
-          Promise.resolve({ id: "group", name: "East", device_ids: [] }),
-      },
       listAttributes: () =>
         Promise.resolve({ total_devices: 0, attributes: [] }),
       commandTemplates: {
@@ -99,11 +97,12 @@ vi.mock("@/pages/devices/commands/new/CommandWizard", () => ({
     dispatchSubmit,
     wizard,
   }: {
-    wizard: { values: { targetFilter: unknown } };
+    wizard: { values: WizardFormValues };
     dispatchSubmit: { label: string };
   }) => (
     <div data-testid="wizard">
       wizard:{dispatchSubmit.label}
+      <output data-testid="target-mode">{wizard.values.targetMode}</output>
       <output data-testid="target-filter">
         {JSON.stringify(wizard.values.targetFilter)}
       </output>
@@ -181,10 +180,15 @@ describe("CommandActionForm", () => {
   });
 });
 
-it("preserves dynamic tag and driver criteria and intersecting filters when editing an automation", async () => {
+it.each([
+  { driver_id: "driver", ids: ["d1"], tags: { floor: ["east"] } },
+  { ids: ["d1"], tags: { floor: ["east"] } },
+  { tags: { asset_id: ["building", "floor"] } },
+  { ids: ["d1"], types: [] },
+])("preserves intersecting criteria when editing target %j", async (target) => {
   mockedGetTemplate.mockResolvedValue({
     ...ephemeralTemplate,
-    target: { driver_id: "driver", ids: ["d1"], tags: { floor: ["east"] } },
+    target,
   });
   render(
     <CommandActionForm
@@ -197,9 +201,9 @@ it("preserves dynamic tag and driver criteria and intersecting filters when edit
     { wrapper },
   );
   const output = await screen.findByTestId("target-filter");
-  expect(JSON.parse(output.textContent!)).toMatchObject({
-    driverId: "driver",
-    ids: ["d1"],
-    tags: { floor: ["east"] },
-  });
+  expect(screen.getByTestId("target-mode")).toHaveTextContent("filters");
+  const roundtrip = targetFilterToDevicesFilter(
+    JSON.parse(output.textContent!),
+  );
+  expect(JSON.parse(JSON.stringify(roundtrip))).toEqual(target);
 });

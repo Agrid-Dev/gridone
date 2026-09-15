@@ -43,6 +43,15 @@ export type FaultListParams = NonNullable<
   operations["list_faults_devices_faults__get"]["parameters"]["query"]
 >;
 
+/** Empty arrays disappear from query strings, so preserve the empty selection locally. */
+function hasEmptySelection(params?: DeviceListParams): boolean {
+  return (
+    params?.ids?.length === 0 ||
+    params?.type?.length === 0 ||
+    params?.tags?.length === 0
+  );
+}
+
 /** `client.devices` — CRUD, tags, commands, faults and attribute logs. */
 export class DevicesResource {
   /** Reusable command templates (`/devices/commands/templates/`). */
@@ -53,6 +62,7 @@ export class DevicesResource {
   }
 
   listTags(params?: DeviceListParams): Promise<TagFacet[]> {
+    if (hasEmptySelection(params)) return Promise.resolve([]);
     return this.request("GET", "/devices/tags", { searchParams: params });
   }
   bulkTags(body: BulkTagRequest): Promise<TagMutationResult[]> {
@@ -96,12 +106,7 @@ export class DevicesResource {
   }
 
   list(params?: DeviceListParams): Promise<Device[]> {
-    if (
-      params?.ids?.length === 0 ||
-      params?.type?.length === 0 ||
-      params?.tags?.length === 0
-    )
-      return Promise.resolve([]);
+    if (hasEmptySelection(params)) return Promise.resolve([]);
     return this.request("GET", "/devices/", { searchParams: params });
   }
 

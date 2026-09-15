@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import type { Device } from "@gridone/sdk";
 import { afterEach, expect, it, vi } from "vitest";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -99,6 +100,13 @@ const tagPayload: CommandPayload = {
   target: { tags: { asset_id: ["building"] } },
   write: { attribute: "setpoint", value: 21, data_type: "float" },
 };
+const reviewedDevices: Device[] = ["1", "2"].map((id) => ({
+  id,
+  name: id,
+  driver_id: "driver",
+  transport_id: "transport",
+  config: {},
+}));
 
 it("dispatches a tag target from a confirmed preview of its eligible members", async () => {
   const success = { id: 1, device_id: "1", status: "success" };
@@ -113,18 +121,25 @@ it("dispatches a tag target from a confirmed preview of its eligible members", a
         eligible: false,
         reason: "not_writable",
       },
+      {
+        device_id: "new",
+        name: "New member",
+        current_value: 20,
+        eligible: true,
+      },
     ],
   });
   mocks.confirm.mockResolvedValue({ batch_id: "batch", commands: [success] });
   mocks.listCommands.mockResolvedValue({ items: [success], total_pages: 1 });
   const { result } = mountDispatch();
   await act(async () => {
-    await result.current.dispatch(tagPayload, []);
+    await result.current.dispatch(tagPayload, reviewedDevices);
   });
   expect(mocks.preview).toHaveBeenCalledWith({
     attribute: "setpoint",
     value: 21,
     target: tagPayload.target,
+    device_ids: ["1", "2"],
   });
   expect(mocks.confirm).toHaveBeenCalledWith({
     token: "token",
@@ -152,7 +167,7 @@ it("reports an empty batch when no previewed member is eligible", async () => {
   });
   const { result } = mountDispatch();
   await act(async () => {
-    await result.current.dispatch(tagPayload, []);
+    await result.current.dispatch(tagPayload, reviewedDevices);
   });
   expect(mocks.confirm).not.toHaveBeenCalled();
   expect(result.current.snapshot?.empty).toBe(true);

@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from commands import UnitCommand
 from devices_manager.types import AttributeValueType
-from models.tags import Tags
+from models.tags import Tag, Tags
 from models.targets import DevicesFilter
 from models.types import SortOrder
 
@@ -86,7 +86,7 @@ class DevicesFilterBody(BaseModel):
     ids: list[str] | None = None
     types: list[str] | None = None
     tags: Tags | None = None
-    asset_id: str | None = None
+    asset_id: Tag | None = None
 
     def to_devices_filter(self) -> DevicesFilter:
         """Canonicalize into the strict filter, folding ``asset_id`` into tags."""

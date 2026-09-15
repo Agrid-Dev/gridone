@@ -120,7 +120,7 @@ def get_devices_query(
     *,
     attribute: str | None = Query(None),
     is_faulty: bool | None = Query(None),
-    asset_id: str | None = Query(None),
+    asset_id: Tag | None = Query(None),
     search: str | None = Query(None),
     driver_id: str | None = Query(None),
     transport_id: str | None = Query(None),

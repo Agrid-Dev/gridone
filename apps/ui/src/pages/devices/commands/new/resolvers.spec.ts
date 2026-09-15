@@ -24,6 +24,14 @@ function device(
 }
 
 describe("targetFilterToDevicesFilter", () => {
+  it("keeps an explicit empty type criterion from widening a persisted target", () => {
+    const filter = targetFilterToDevicesFilter({ ids: ["d1"], types: [] });
+    expect(filter.types).toEqual([]);
+    expect(resolveFilter([device([], { type: "thermostat" })], filter)).toEqual(
+      [],
+    );
+  });
+
   // Regression: the wizard used to pass the form-state ``{assetId}`` shape
   // straight into resolveFilter (which reads ``asset_id``), so the asset
   // constraint silently no-oped in the filters-mode preview.

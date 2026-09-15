@@ -31,6 +31,23 @@ const devices: Device[] = [
 ];
 
 describe("DevicesFilterTabs — filters mode tags", () => {
+  it("does not broaden an explicit empty type criterion to its matching tags", () => {
+    render(
+      <DevicesFilterTabs
+        devices={devices}
+        mode="filters"
+        onModeChange={vi.fn()}
+        deviceIds={[]}
+        onDeviceIdsChange={vi.fn()}
+        typesFilter={[]}
+        onTypesFilterChange={vi.fn()}
+        tagsFilter={{ floor: ["1"] }}
+      />,
+    );
+    expect(screen.getByText("0 devices")).toBeInTheDocument();
+    expect(screen.queryByText("d1")).not.toBeInTheDocument();
+  });
+
   it("offers a chip per observed tag value and matches devices by intersection across keys", () => {
     const onTagsFilterChange = vi.fn();
     render(

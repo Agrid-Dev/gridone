@@ -194,20 +194,20 @@ await svc.start()
 await svc.stop()
 ```
 
-### Device groups
+### Device tags and group controls
 
-Device groups are shared, explicitly selected collections of devices with the
-same `driver_id`. A device can belong to several groups, and a group can be empty.
-The service owns group storage in memory, YAML, or PostgreSQL. Adding a member
-never writes to that device or synchronizes a previous group command.
+Tags associate each key with several values, for example
+`{"floor": ["2"], "circuit": ["east", "west"]}`. Tokens are case-insensitive,
+Unicode-normalized and deduplicated. Device filters combine keys with AND and
+values within one key with OR; an empty value filter matches no devices.
 
-Use `create_group`, `get_group`, `list_groups`, `update_group`, and `delete_group`.
-The group's driver is fixed. Device deletion removes its memberships; driver
-changes are refused while a device belongs to groups, and a driver cannot be
-deleted while groups reference it. The API composition root supplies checks for
-reusable command templates and automations (including disabled automations).
+Use `set_device_tag` to replace a key's values, `delete_device_tag` to remove it,
+and `mutate_device_tags` to add or remove values across a selection. Bulk changes
+preserve unrelated tags and return an individual result for every device.
+Storage failures leave that device's in-memory tags unchanged.
 
-Group membership and reference mutations share the service's mutation lock in the
-application process. PostgreSQL additionally validates device membership and
-serializes structural changes in database triggers. Storage publishes group
-changes only after compare-and-swap succeeds.
+Saved views and group commands are composed in the API from these tags. The
+devices service exposes `preview_device_write` to check each device's live
+attribute type, write permissions, numeric constraints and presentation blockers
+without sending a command. Structural changes and tag mutations share the
+service's mutation lock with group command execution.

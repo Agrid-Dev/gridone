@@ -49,6 +49,14 @@ class CommandsServiceInterface(Protocol):
         confirm: bool = True,
     ) -> BatchCommandDispatch: ...
 
+    async def dispatch_template(
+        self,
+        *,
+        template: CommandTemplate,
+        user_id: str,
+        confirm: bool = True,
+    ) -> BatchCommandDispatch: ...
+
     async def get_commands(  # noqa: PLR0913
         self,
         *,

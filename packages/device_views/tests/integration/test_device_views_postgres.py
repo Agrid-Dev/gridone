@@ -37,6 +37,9 @@ async def test_views_survive_restart_and_do_not_depend_on_any_devices():
         assert updated.created_at == created.created_at
         assert (await second.get(created.id)).group_by == ["ecs"]
         await second.delete(created.id)
+        # A concurrent deletion must not be silently undone by an in-flight update.
+        with pytest.raises(NotFoundError):
+            await second.storage.update(updated)
         with pytest.raises(NotFoundError):
             await second.get(created.id)
         with pytest.raises(NotFoundError):

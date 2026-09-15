@@ -23,7 +23,7 @@ def _commands_service(batch_id: str = "batch-abc") -> AsyncMock:
         created_at=datetime.now(UTC),
         created_by="operator",
     )
-    svc.dispatch_from_template = AsyncMock(return_value=dispatch)
+    svc.dispatch_template = AsyncMock(return_value=dispatch)
     return svc
 
 
@@ -46,8 +46,9 @@ class TestCommandsActionProvider:
         svc = _commands_service(batch_id="batch-xyz")
         provider = CommandsActionProvider(svc)
         result = await provider.execute({"template_id": "tmpl-01"})
-        svc.dispatch_from_template.assert_awaited_once_with(
-            template_id="tmpl-01",
+        svc.get_template.assert_awaited_once_with("tmpl-01")
+        svc.dispatch_template.assert_awaited_once_with(
+            template=svc.get_template.return_value,
             user_id="system",
             confirm=False,
         )
@@ -63,10 +64,10 @@ async def test_empty_or_invalid_group_is_explicit(failure):
 
     svc = _commands_service()
     svc.get_template.return_value.target = DevicesFilter(tags={"loop": ["east"]})
-    svc.dispatch_from_template.return_value = BatchCommandDispatch(
+    svc.dispatch_template.return_value = BatchCommandDispatch(
         batch_id="empty", commands=[]
     )
-    svc.dispatch_from_template.side_effect = failure
+    svc.dispatch_template.side_effect = failure
     provider = CommandsActionProvider(svc)
     with pytest.raises(ActionExecutionError) as error:
         await provider.execute({"template_id": "tmpl-01"})

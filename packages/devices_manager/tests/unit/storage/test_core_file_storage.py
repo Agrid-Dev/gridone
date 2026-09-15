@@ -188,6 +188,29 @@ async def test_legacy_scalar_yaml_upgrades_on_next_write(
     await restarted.close()
 
 
+@pytest.mark.asyncio
+async def test_partially_upgraded_legacy_tags_survive_restart(tmp_path: Path):
+    folder = tmp_path / "devices"
+    folder.mkdir()
+    for device_id in ("first", "second"):
+        (folder / f"{device_id}.yaml").write_text(
+            f"id: {device_id}\ndriver_id: d1\ntransport_id: t1\ntags:\n  ECS: East\n",
+            encoding="utf-8",
+        )
+
+    storage = CoreFileStorage(tmp_path)
+    await storage.devices.set_tag("first", "floor", ["2"], datetime.now(UTC))
+    await storage.close()
+
+    restarted = CoreFileStorage(tmp_path)
+    assert (await restarted.devices.read("first")).tags == {
+        "ecs": ["east"],
+        "floor": ["2"],
+    }
+    assert (await restarted.devices.read("second")).tags == {"ecs": ["east"]}
+    await restarted.close()
+
+
 @pytest.mark.parametrize("tags", ["ecs: invalid value", "ECS: East\n  ecs: east"])
 def test_yaml_preflight_refuses_invalid_tags_and_collisions_without_writes(
     tmp_path: Path, tags

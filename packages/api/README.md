@@ -116,8 +116,9 @@ Manual tag commands require `POST /devices/commands/preview` with `target`,
 `attribute`, `value` and optional `device_ids`, then
 `POST /devices/commands/confirm` with the token and selected eligible IDs.
 Preparing sends nothing. Confirmation revalidates the frozen members and their
-bindings under the device mutation lock. Added members cannot enter the batch;
-removed or incompatible members require another preview. Tokens are user-bound,
+bindings under the device mutation lock, including the write address, codec, unit,
+driver environment and device transport/configuration. Added members cannot enter
+the batch; removed or incompatible members require another preview. Tokens are user-bound,
 expire in ten minutes and are stored in the serving process. Multiple API workers
 require client affinity; restarting the process requires a fresh preview. A retry returns the
 same batch; an uncertain failed dispatch cannot resend with the same token.

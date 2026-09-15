@@ -61,20 +61,23 @@ async function dispatchTemplate(
   return client.devices.commandTemplates.dispatch(template.id);
 }
 
-/** A tag target is a group command: the server only dispatches it from a
- *  confirmed preview, whose eligible members become the frozen recipients, so
- *  a device joining the group in between never receives the write. */
+/** Restrict a live target to the recipients already reviewed in the rail.
+ *  The server rechecks eligibility before confirming; a device joining since
+ *  the review never receives this one-shot write. Saved targets stay dynamic. */
 async function dispatchPreviewed(
   client: GridoneClient,
   payload: CommandPayload,
+  devices: Device[],
 ): Promise<BatchDispatchResponse> {
+  const reviewedIds = new Set(devices.map((device) => device.id));
   const preview = await client.devices.previewCommand({
     attribute: payload.write.attribute,
     value: payload.write.value,
     target: payload.target,
+    device_ids: [...reviewedIds],
   });
   const deviceIds = preview.members
-    .filter((member) => member.eligible)
+    .filter((member) => member.eligible && reviewedIds.has(member.device_id))
     .map((member) => member.device_id);
   if (deviceIds.length === 0) throw new EmptyPreviewError();
   return client.devices.confirmCommand({
@@ -104,9 +107,12 @@ export function useGroupedDispatch() {
       queryClient.invalidateQueries({ queryKey: ["command-templates"] }),
   });
   const dispatch = useMutation({
-    mutationFn: (payload: CommandPayload) =>
+    mutationFn: ({
+      payload,
+      devices,
+    }: Pick<DispatchSnapshot, "payload" | "devices">) =>
       isTagTarget(payload.target)
-        ? dispatchPreviewed(client, payload)
+        ? dispatchPreviewed(client, payload, devices)
         : dispatchTemplate(client, payload),
     onSuccess: (result) =>
       setSnapshot(
@@ -185,7 +191,7 @@ export function useGroupedDispatch() {
       emptyListings.current = 0;
       setSnapshot({ payload, devices });
       try {
-        await dispatch.mutateAsync(payload);
+        await dispatch.mutateAsync({ payload, devices });
       } catch {
         /* rendered in the rail */
       } finally {

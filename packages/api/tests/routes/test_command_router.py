@@ -108,6 +108,25 @@ def _batch(template_id: str, device_ids: list[str]) -> BatchCommandDispatch:
 
 class TestCreateTemplate:
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("asset_id", ["", "invalid zone", "zone:one", "x" * 64])
+    async def test_invalid_asset_alias_returns_422(
+        self,
+        async_client: AsyncClient,
+        mock_commands_service: AsyncMock,
+        asset_id: str,
+    ):
+        async with async_client as ac:
+            response = await ac.post(
+                "/commands/templates/",
+                json={
+                    "target": {"asset_id": asset_id},
+                    "write": {"attribute": "mode", "value": "auto", "data_type": "str"},
+                },
+            )
+        assert response.status_code == 422
+        mock_commands_service.save_template.assert_not_awaited()
+
+    @pytest.mark.asyncio
     async def test_creates_named_template(
         self,
         async_client: AsyncClient,
@@ -404,7 +423,7 @@ class TestDispatchTemplate:
         async_client: AsyncClient,
         mock_commands_service: AsyncMock,
     ):
-        mock_commands_service.dispatch_from_template.return_value = _batch(
+        mock_commands_service.dispatch_template.return_value = _batch(
             "abc1234567890def", ["d1", "d2"]
         )
         async with async_client as ac:
@@ -414,8 +433,25 @@ class TestDispatchTemplate:
         assert body["batch_id"] == "batch00000000001"
         assert [c["device_id"] for c in body["commands"]] == ["d1", "d2"]
 
-        kwargs = mock_commands_service.dispatch_from_template.call_args.kwargs
-        assert kwargs["template_id"] == "abc1234567890def"
+        mock_commands_service.get_template.assert_awaited_once_with("abc1234567890def")
+        kwargs = mock_commands_service.dispatch_template.call_args.kwargs
+        assert kwargs["template"] == mock_commands_service.get_template.return_value
+        mock_commands_service.dispatch_from_template.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_tag_target_requires_preview(
+        self,
+        async_client: AsyncClient,
+        mock_commands_service: AsyncMock,
+    ):
+        mock_commands_service.get_template.return_value = _template(
+            target=DevicesFilter(tags={"group": ["east"]})
+        )
+        async with async_client as ac:
+            response = await ac.post("/commands/templates/abc1234567890def/dispatch")
+        assert response.status_code == 409
+        mock_commands_service.dispatch_template.assert_not_awaited()
+        mock_commands_service.dispatch_from_template.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_empty_resolve_returns_422(
@@ -423,8 +459,8 @@ class TestDispatchTemplate:
         async_client: AsyncClient,
         mock_commands_service: AsyncMock,
     ):
-        mock_commands_service.dispatch_from_template.return_value = (
-            BatchCommandDispatch(batch_id="abc1234567890def", commands=[])
+        mock_commands_service.dispatch_template.return_value = BatchCommandDispatch(
+            batch_id="abc1234567890def", commands=[]
         )
         async with async_client as ac:
             response = await ac.post("/commands/templates/abc1234567890def/dispatch")
@@ -436,7 +472,7 @@ class TestDispatchTemplate:
         async_client: AsyncClient,
         mock_commands_service: AsyncMock,
     ):
-        mock_commands_service.dispatch_from_template.side_effect = NotFoundError(
+        mock_commands_service.get_template.side_effect = NotFoundError(
             "Template 'nope' not found"
         )
         async with async_client as ac:

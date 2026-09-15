@@ -5,9 +5,16 @@ from pathlib import Path
 import yaml
 
 from devices_manager.storage.tag_migration import canonical_tag_rows
+from models.tags import normalize_tags
 
 
 def preflight_yaml_tags(directory: Path) -> None:
+    """Check legacy spellings while allowing records to upgrade independently.
+
+    A successful write replaces scalar tags with canonical value lists. Those
+    upgraded records must coexist with untouched legacy files on later starts;
+    only scalar spellings participate in the legacy collision check.
+    """
     rows = []
     for path in sorted(directory.glob("*.yaml")):
         try:
@@ -30,5 +37,8 @@ def preflight_yaml_tags(directory: Path) -> None:
             ):
                 msg = f"Invalid legacy tags in {path.name}"
                 raise TypeError(msg)
-            rows.extend((path.stem, key, value) for value in values)
+            if isinstance(stored, str):
+                rows.append((path.stem, key, stored))
+            else:
+                normalize_tags({key: values})
     canonical_tag_rows(rows)

@@ -84,7 +84,7 @@ export function targetFilterToDevicesFilter(
   filter: TargetFilter | undefined,
 ): DevicesFilter {
   return {
-    types: filter?.types?.length ? filter.types : undefined,
+    types: filter?.types,
     ...(filter?.driverId ? { driver_id: filter.driverId } : {}),
     ...(filter?.ids ? { ids: filter.ids } : {}),
     ...(filter?.tags ? { tags: filter.tags } : {}),

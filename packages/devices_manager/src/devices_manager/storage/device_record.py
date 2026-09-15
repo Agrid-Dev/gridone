@@ -7,6 +7,7 @@ snapshots on read (assembly needs the driver and transport, resolved
 above the storage layer).
 """
 
+from asyncio import Lock
 from datetime import datetime
 from typing import Any
 
@@ -42,10 +43,10 @@ class DeviceRecord(ResourceMetadata):
 
     @field_validator("tags", mode="before")
     @classmethod
-    def upgrade_scalar_tags(
-        cls, tags: dict[str, str | list[str]]
-    ) -> dict[str, list[str]]:
+    def upgrade_scalar_tags(cls, tags: object) -> object:
         """Read old YAML snapshots; all subsequent writes use value lists."""
+        if not isinstance(tags, dict):
+            return tags
         return {
             key: [value] if isinstance(value, str) else value
             for key, value in tags.items()
@@ -92,12 +93,16 @@ class RecordDeviceStorage:
 
     def __init__(self, records: StorageBackend[DeviceRecord]) -> None:
         self._records = records
+        # Attribute polling and tag changes both replace the whole record.
+        # Serialize their read-modify-write cycles so neither loses the other.
+        self._mutation_lock = Lock()
 
     async def read(self, item_id: str) -> DeviceBase:
         return base_from_record(await self._records.read(item_id))
 
     async def write(self, item_id: str, device: CoreDevice) -> None:
-        await self._records.write(item_id, to_record(device))
+        async with self._mutation_lock:
+            await self._records.write(item_id, to_record(device))
 
     async def read_all(self) -> list[DeviceBase]:
         return [base_from_record(record) for record in await self._records.read_all()]
@@ -106,7 +111,8 @@ class RecordDeviceStorage:
         return await self._records.list_all()
 
     async def delete(self, item_id: str) -> None:
-        await self._records.delete(item_id)
+        async with self._mutation_lock:
+            await self._records.delete(item_id)
 
     async def _read_for_mutation(self, device_id: str) -> DeviceRecord | None:
         try:
@@ -117,30 +123,27 @@ class RecordDeviceStorage:
     async def set_tag(
         self, device_id: str, key: str, values: list[str], updated_at: datetime
     ) -> None:
-        record = await self._read_for_mutation(device_id)
-        if record is None:
-            return
-        if values:
-            record.tags[key] = list(values)
-        else:
-            record.tags.pop(key, None)
-        record.updated_at = updated_at
-        await self._records.write(device_id, record)
+        async with self._mutation_lock:
+            record = await self._read_for_mutation(device_id)
+            if record is None:
+                return
+            if values:
+                record.tags[key] = list(values)
+            else:
+                record.tags.pop(key, None)
+            record.updated_at = updated_at
+            await self._records.write(device_id, record)
 
     async def delete_tag(self, device_id: str, key: str, updated_at: datetime) -> None:
-        record = await self._read_for_mutation(device_id)
-        if record is None:
-            return
-        record.tags.pop(key, None)
-        record.updated_at = updated_at
-        await self._records.write(device_id, record)
+        await self.set_tag(device_id, key, [], updated_at)
 
     async def save_attribute(self, device_id: str, attribute: Attribute) -> bool:
         """Persist a single attribute value. Returns False for an unknown
         device so composites can decide whether that deserves a warning."""
-        record = await self._read_for_mutation(device_id)
-        if record is None:
-            return False
-        record.attributes[attribute.name] = attribute
-        await self._records.write(device_id, record)
-        return True
+        async with self._mutation_lock:
+            record = await self._read_for_mutation(device_id)
+            if record is None:
+                return False
+            record.attributes[attribute.name] = attribute
+            await self._records.write(device_id, record)
+            return True

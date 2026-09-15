@@ -218,7 +218,7 @@ class CommandsService(Service):
             CommandTemplateCreate(target=target, write=write, name=None),
             user_id,
         )
-        return await self._dispatch_template(
+        return await self.dispatch_template(
             template=ephemeral, user_id=user_id, confirm=confirm
         )
 
@@ -232,22 +232,23 @@ class CommandsService(Service):
         if a dynamic target has become incompatible with the saved write.
         """
         template = await self.get_template(template_id)
-        return await self._dispatch_template(
+        return await self.dispatch_template(
             template=template, user_id=user_id, confirm=confirm
         )
 
-    async def _dispatch_template(
-        self, *, template: CommandTemplate, user_id: str, confirm: bool
+    async def dispatch_template(
+        self, *, template: CommandTemplate, user_id: str, confirm: bool = True
     ) -> BatchCommandDispatch:
         """Resolve the template's target, persist PENDING unit commands, and
         spawn the per-device writes in the background. Shared by
         :meth:`dispatch_batch` (ephemeral path) and
-        :meth:`dispatch_from_template` (saved-template path).
+        :meth:`dispatch_from_template` (saved-template path). Callers that
+        validate a stored template first can pass that exact snapshot without
+        re-fetching a potentially edited target or write.
 
-        An empty or unresolvable target logs a warning and returns a dispatch
-        with an empty ``commands`` list — no exception, no PENDING rows
-        created. The ``batch_id`` is still generated so the dispatch attempt
-        is observable.
+        An empty target logs a warning and returns a dispatch with no commands.
+        Incompatible dynamic targets raise ``InvalidError`` before any command
+        is queued.
         """
         batch_id = gen_id()
         device_ids = await self._resolve_template_devices(template)

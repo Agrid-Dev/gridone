@@ -1,5 +1,7 @@
 """Confirmed selection commands reuse the command service and freeze recipient IDs."""
 
+import hashlib
+import json
 from dataclasses import dataclass
 from time import monotonic
 
@@ -15,7 +17,7 @@ from models.errors import InvalidError, NotFoundError
 from models.ids import gen_id
 from models.resource_conflict import ResourceConflictCode, ResourceConflictError
 from models.targets import AttributeTarget, DevicesFilter
-from models.types import AttributeValueType, DataType
+from models.types import AttributeValueType
 
 PREVIEW_TTL_SECONDS = 600
 MAX_PREVIEWS = 1000
@@ -47,7 +49,7 @@ class _Preparation:
     user_id: str
     preview: SelectionCommandPreview
     created: float
-    bindings: dict[str, tuple[str, DataType | None]]
+    bindings: dict[str, str]
     consumed: bool = False
     response: BatchDispatchResponse | None = None
 
@@ -100,10 +102,42 @@ class SelectionCommands:
         )
         return preview
 
-    def _binding(self, device_id: str, attribute: str) -> tuple[str, DataType | None]:
+    def _binding(self, device_id: str, attribute: str) -> str:
+        """Freeze the write contract and physical destination, excluding live values.
+
+        An unchanged driver ID can acquire a different address, codec or unit.
+        Hash the relevant configuration so these changes invalidate the preview,
+        while device names, tags, telemetry and metadata timestamps do not.
+        """
         device = self.dm.get_device(device_id)
+        driver = self.dm.get_driver(device.driver_id)
         definition = device.attributes.get(attribute)
-        return device.driver_id, definition.data_type if definition else None
+        contract = next((a for a in driver.attributes if a.name == attribute), None)
+        payload = {
+            "device": device.model_dump(
+                mode="json", include={"driver_id", "transport_id", "config"}
+            ),
+            "driver": driver.model_dump(
+                mode="json", include={"transport", "env", "device_config"}
+            ),
+            "attribute": contract.model_dump(
+                mode="json",
+                include={
+                    "name",
+                    "data_type",
+                    "read",
+                    "write",
+                    "codecs",
+                    "unit",
+                    "write_constraints",
+                },
+            )
+            if contract
+            else None,
+            "data_type": definition.data_type if definition else None,
+        }
+        canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(canonical.encode()).hexdigest()
 
     def _recipient_ids(self, body: SelectionCommandPrepare) -> list[str]:
         target = body.target.to_devices_filter()

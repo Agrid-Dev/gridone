@@ -72,7 +72,10 @@ const LABEL_KEYS: Record<string, string> = {
 function normalizeTarget(target: DevicesFilter): Record<string, unknown> {
   const assetId = assetIdOf(target);
   const residualTags = Object.fromEntries(
-    Object.entries(target.tags ?? {}).filter(([key]) => key !== "asset_id"),
+    Object.entries(target.tags ?? {}).filter(
+      ([key, values]) =>
+        key !== "asset_id" || values.length !== 1 || values[0] !== assetId,
+    ),
   );
   return {
     driver_id: target.driver_id,

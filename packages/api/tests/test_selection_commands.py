@@ -15,8 +15,10 @@ from api.selection_commands import (
 from commands import BatchCommandDispatch, CommandsServiceInterface
 from devices_manager import DevicesServiceInterface
 from devices_manager.core.device import Attribute
+from devices_manager.core.driver import AttributeDriver
 from devices_manager.core.write_preview import DeviceWritePreview
-from devices_manager.dto import Device
+from devices_manager.dto import Device, DriverSpec
+from devices_manager.types import TransportProtocols
 from models.errors import InvalidError, NotFoundError
 from models.resource_conflict import ResourceConflictError
 from models.types import DataType
@@ -44,6 +46,21 @@ def context():
     ]
     dm = MagicMock(spec=DevicesServiceInterface)
     dm.mutation_lock = asyncio.Lock()
+    dm.get_driver.return_value = DriverSpec(
+        id="driver",
+        transport=TransportProtocols.HTTP,
+        env={},
+        device_config=[],
+        attributes=[
+            AttributeDriver(
+                name="setpoint",
+                data_type=DataType.FLOAT,
+                read="/setpoint",
+                write="/setpoint",
+                codecs=[],
+            )
+        ],
+    )
 
     def matches(device, **kwargs: Any) -> bool:
         return (
@@ -242,3 +259,43 @@ async def test_driver_binding_is_frozen_even_without_driver_filter(context):
             SelectionCommandConfirm(token=preview.token, device_ids=["a"]), "operator"
         )
     commands.dispatch_batch.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    "change", ["unit", "write_address", "driver_env", "config", "transport"]
+)
+async def test_changed_write_destination_or_contract_requires_new_preview(
+    context, change
+):
+    coordinator, dm, commands, devices = context
+    preview = prepare(coordinator)
+    driver = dm.get_driver.return_value
+    if change == "unit":
+        driver.attributes[0].unit = "°F"
+    elif change == "write_address":
+        driver.attributes[0].write = "/other-setpoint"
+    elif change == "driver_env":
+        driver.env["address"] = "other-address"
+    elif change == "config":
+        devices[0].config["address"] = "other-address"
+    else:
+        devices[0].transport_id = "other-transport"
+    with pytest.raises(ResourceConflictError):
+        await coordinator.confirm(
+            SelectionCommandConfirm(token=preview.token, device_ids=["a"]), "operator"
+        )
+    commands.dispatch_batch.assert_not_awaited()
+
+
+async def test_display_and_live_value_changes_preserve_preview(context):
+    coordinator, dm, commands, devices = context
+    preview = prepare(coordinator)
+    devices[0].name = "Renamed"
+    devices[0].tags["floor"] = ["first"]
+    devices[0].attributes["setpoint"].update_value(23)
+    dm.get_driver.return_value.model = "Renamed driver"
+    dm.get_driver.return_value.attributes[0].label = {"en": "New label"}
+    await coordinator.confirm(
+        SelectionCommandConfirm(token=preview.token, device_ids=["a"]), "operator"
+    )
+    commands.dispatch_batch.assert_awaited_once()

@@ -323,6 +323,14 @@ class TestListDevices:
             search=None,
         )
 
+    @pytest.mark.parametrize("asset_id", ["", "invalid zone", "zone:one", "x" * 64])
+    def test_invalid_asset_alias_returns_422(
+        self, client: TestClient, dm: MagicMock, asset_id: str
+    ):
+        response = client.get("/", params={"asset_id": asset_id})
+        assert response.status_code == 422
+        dm.list_devices.assert_not_called()
+
     def test_asset_id_translated_to_tag(self, client: TestClient, dm: MagicMock):
         client.get("/", params={"asset_id": "a1"})
         dm.list_devices.assert_called_once_with(

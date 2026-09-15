@@ -123,6 +123,10 @@ describe("assetIdOf", () => {
   it("is undefined when the filter has no asset scoping", () => {
     expect(assetIdOf({ types: ["thermostat"] })).toBeUndefined();
   });
+
+  it("keeps several accepted assets from becoming a single-asset scope", () => {
+    expect(assetIdOf({ tags: { asset_id: ["a1", "a2"] } })).toBeUndefined();
+  });
 });
 
 describe("isEmptyFilter", () => {

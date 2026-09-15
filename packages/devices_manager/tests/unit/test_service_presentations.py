@@ -45,7 +45,7 @@ async def loaded():
         transport=transport,
     )
     storage = MagicMock(spec=DevicesManagerStorage)
-    for name in ("devices", "drivers", "transports", "groups"):
+    for name in ("devices", "drivers", "transports"):
         backend = AsyncMock()
         backend.list_all.return_value = []
         backend.read_all.return_value = []
@@ -112,7 +112,8 @@ async def test_missing_device_and_absent_presentation(loaded):
         await service.get_device_presentation("device")
 
 
-async def test_only_declared_assets_are_read_using_resource_pointer(loaded):
+@pytest.mark.parametrize("scope", ["device", "driver"])
+async def test_only_declared_assets_are_read_using_resource_pointer(loaded, scope):
     service, storage, driver = loaded
     driver.presentation = PresentationEnvelope.model_validate(
         driver.presentation.document
@@ -120,17 +121,27 @@ async def test_only_declared_assets_are_read_using_resource_pointer(loaded):
     )
     driver.presentation_revision = "resource-pointer"
     revision = service.get_device("device").presentation_ref.revision
-    resource = await service.get_device_presentation_asset("device", revision, "bezel")
+    get_asset = (
+        service.get_device_presentation_asset
+        if scope == "device"
+        else service.get_driver_presentation_asset
+    )
+    resource_id = "device" if scope == "device" else driver.id
+    resource = await get_asset(resource_id, revision, "bezel")
     assert resource.data == b"PNG data"
     storage.presentation_resources.read.assert_awaited_once_with(
         driver.id, "resource-pointer", "bezel"
     )
     with pytest.raises(NotFoundError):
-        await service.get_device_presentation_asset("device", revision, "undeclared")
+        await get_asset(resource_id, revision, "undeclared")
+    assert storage.presentation_resources.read.await_count == 1
+    with pytest.raises(ConflictError):
+        await get_asset(resource_id, "stale", "bezel")
     assert storage.presentation_resources.read.await_count == 1
 
 
-async def test_revision_changed_during_resource_read_conflicts(loaded):
+@pytest.mark.parametrize("scope", ["device", "driver"])
+async def test_revision_changed_during_resource_read_conflicts(loaded, scope):
     service, storage, driver = loaded
     driver.presentation = PresentationEnvelope.model_validate(
         driver.presentation.document
@@ -144,8 +155,14 @@ async def test_revision_changed_during_resource_read_conflicts(loaded):
         return StoredResource(b"PNG", "image/png", "digest", 10, 10)
 
     storage.presentation_resources.read.side_effect = read
+    get_asset = (
+        service.get_device_presentation_asset
+        if scope == "device"
+        else service.get_driver_presentation_asset
+    )
+    resource_id = "device" if scope == "device" else driver.id
     with pytest.raises(ConflictError):
-        await service.get_device_presentation_asset("device", revision, "bezel")
+        await get_asset(resource_id, revision, "bezel")
 
 
 async def test_install_updates_devices_and_emits_complete_update(loaded):

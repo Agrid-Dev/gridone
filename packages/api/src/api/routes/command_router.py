@@ -357,9 +357,7 @@ async def dispatch_template(
     template = await commands_svc.get_template(template_id)
     if bool(template.target.tags):
         raise ResourceConflictError(ResourceConflictCode.COMMAND_PREVIEW_REQUIRED, [])
-    dispatch = await commands_svc.dispatch_from_template(
-        template_id=template_id, user_id=user_id
-    )
+    dispatch = await commands_svc.dispatch_template(template=template, user_id=user_id)
     if not dispatch.commands:
         raise HTTPException(
             status_code=422,

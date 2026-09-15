@@ -35,7 +35,7 @@ async def build_storage(url: str | None = None) -> DevicesManagerStorage:
         root_dir = url[len(_YAML_PREFIX) :]
         try:
             return CoreFileStorage(root_dir)
-        except OSError as exc:
+        except (OSError, TypeError, ValueError) as exc:
             msg = "Failed to initialize devices_manager yaml backend"
             raise StorageConnectionError(msg) from exc
 

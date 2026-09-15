@@ -719,6 +719,39 @@ class TestTemplateCrud:
         assert dispatch.commands == []
         assert any("unresolvable" in rec.message for rec in caplog.records)
 
+    async def test_dispatch_preserves_the_validated_template_after_edit(
+        self,
+        service: CommandsService,
+        device_writer: AsyncMock,
+        target_resolver: AsyncMock,
+    ):
+        template = await service.save_template(
+            CommandTemplateCreate(
+                target=DevicesFilter(ids=["d1"]), write=MODE_AUTO, name="Saved"
+            ),
+            user_id="u1",
+        )
+        await service.update_template(
+            template.id,
+            CommandTemplatePatch(
+                target=DevicesFilter(tags={"group": ["east"]}),
+                write=AttributeWrite(
+                    attribute="mode", value="off", data_type=DataType.STRING
+                ),
+            ),
+        )
+
+        dispatch = await service.dispatch_template(template=template, user_id="u1")
+        await service._await_pending()  # noqa: SLF001
+
+        target_resolver.resolve.assert_awaited_once_with(
+            AttributeTarget(devices=DevicesFilter(ids=["d1"]), attribute="mode"),
+            writable=True,
+        )
+        assert [command.device_id for command in dispatch.commands] == ["d1"]
+        assert dispatch.commands[0].template_id == template.id
+        device_writer.assert_awaited_once_with("d1", "mode", "auto", confirm=True)
+
     async def test_dispatch_from_template_raises_on_unknown_id(
         self,
         service: CommandsService,

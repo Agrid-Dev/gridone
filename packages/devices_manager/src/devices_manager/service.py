@@ -1146,6 +1146,10 @@ class DevicesService(Service):
         ):
             msg = "Presentation resource is unavailable"
             raise NotFoundError(msg)
-        return await self.get_driver_resource(
+        resource = await self.get_driver_resource(
             driver.id, driver.presentation_revision, asset_id
         )
+        if get_presentation_revision(self._driver_registry.get(driver_id)) != revision:
+            msg = "Presentation revision changed"
+            raise ConflictError(msg)
+        return resource
