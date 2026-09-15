@@ -165,6 +165,8 @@ describe("several group setpoints", () => {
       device_ids: ["a", "b"],
     });
     expect(result.current.successfulWrites).toEqual([writes[0]]);
+    expect(result.current.preview).not.toBeNull();
+    act(() => result.current.cancel());
     expect(result.current.preview).toBeNull();
   });
 
@@ -192,6 +194,8 @@ describe("several group setpoints", () => {
       "power",
     ]);
     expect(result.current.successfulWrites).toEqual(writes);
+    expect(result.current.preview).not.toBeNull();
+    act(() => result.current.cancel());
     expect(result.current.preview).toBeNull();
   });
 
@@ -301,6 +305,7 @@ describe("several group setpoints", () => {
     await confirm(result);
     expect(api.confirm).toHaveBeenCalledTimes(1);
     expect(result.current.busy).toBe(true);
+    expect(result.current.sending).toBe(true);
     await act(async () => {
       finish(batch("setpoint"));
       await sending;
@@ -309,6 +314,7 @@ describe("several group setpoints", () => {
       "setpoint",
       "power",
     ]);
+    expect(result.current.sending).toBe(false);
   });
 
   it("polls all pages of every accepted batch and keeps pending results after an empty listing", async () => {

@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { useGroupCommand } from "../../views/useGroupCommand";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
@@ -49,12 +48,6 @@ export function useTemplate(templateId: string) {
   });
 
   const groupCommand = useGroupCommand(target);
-  useEffect(() => {
-    if (groupCommand.batch)
-      navigate(
-        `/devices/commands?batch_id=${encodeURIComponent(groupCommand.batch.batch_id)}`,
-      );
-  }, [groupCommand.batch, navigate]);
 
   const execute = useMutation({
     mutationFn: () => client.devices.commandTemplates.dispatch(templateId),

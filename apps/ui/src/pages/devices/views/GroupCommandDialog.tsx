@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -12,6 +13,7 @@ import {
 import { formatValue } from "@/lib/formatValue";
 import { localize } from "@/lib/localizedText";
 import { GroupError, groupConflict } from "./GroupError";
+import { GroupCommandResults } from "./GroupCommandResults";
 import {
   canConfirmPreparation,
   type GroupCommandPreparation,
@@ -25,6 +27,13 @@ export function GroupCommandDialog({ command }: { command: GroupCommand }) {
   const { preview, preparations, busy } = command;
   const multiple = preparations.length > 1;
   const pending = preparations.filter(canConfirmPreparation);
+  const complete =
+    command.batches.length > 0 &&
+    preparations.every(
+      (item) =>
+        item.batch ||
+        (item.preview && !item.needsRefresh && !item.selected.length),
+    );
   const first = preparations[0];
   const firstPreview = first?.preview;
   return (
@@ -37,28 +46,32 @@ export function GroupCommandDialog({ command }: { command: GroupCommand }) {
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>
-            {multiple
-              ? t("groups.previewManyTitle")
-              : t("groups.previewTitle", {
-                  name: Object.entries(preview?.target.tags ?? {})
-                    .map(([key, values]) => `${key}:${values.join(", ")}`)
-                    .join(" · "),
-                })}
+            {complete
+              ? t("groups.resultsTitle")
+              : multiple
+                ? t("groups.previewManyTitle")
+                : t("groups.previewTitle", {
+                    name: Object.entries(preview?.target.tags ?? {})
+                      .map(([key, values]) => `${key}:${values.join(", ")}`)
+                      .join(" · "),
+                  })}
           </DialogTitle>
           <DialogDescription>
-            {multiple
-              ? t("groups.previewManyDescription", {
-                  count: preparations.length,
-                })
-              : t("groups.previewDescription", {
-                  attribute: firstPreview?.attribute_label
-                    ? localize(firstPreview.attribute_label, i18n.language)
-                    : first?.write.attribute,
-                  value: first
-                    ? `${formatValue(first.write.value)}${firstPreview?.unit ? ` ${firstPreview.unit}` : ""}`
-                    : "",
-                  count: first?.selected.length ?? 0,
-                })}
+            {complete
+              ? t("groups.resultsDescription")
+              : multiple
+                ? t("groups.previewManyDescription", {
+                    count: preparations.length,
+                  })
+                : t("groups.previewDescription", {
+                    attribute: firstPreview?.attribute_label
+                      ? localize(firstPreview.attribute_label, i18n.language)
+                      : first?.write.attribute,
+                    value: first
+                      ? `${formatValue(first.write.value)}${firstPreview?.unit ? ` ${firstPreview.unit}` : ""}`
+                      : "",
+                    count: first?.selected.length ?? 0,
+                  })}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-6">
@@ -71,10 +84,12 @@ export function GroupCommandDialog({ command }: { command: GroupCommand }) {
             />
           ))}
         </div>
-        <GroupError error={command.resultsError} />
-        <p className="text-xs text-muted-foreground">
-          {t("groups.liveValidation")}
-        </p>
+        <GroupCommandResults command={command} />
+        {!complete && (
+          <p className="text-xs text-muted-foreground">
+            {t("groups.liveValidation")}
+          </p>
+        )}
         <DialogFooter>
           <Button variant="outline" onClick={command.cancel} disabled={busy}>
             {t(
@@ -83,14 +98,23 @@ export function GroupCommandDialog({ command }: { command: GroupCommand }) {
                 : "groups.cancel",
             )}
           </Button>
-          <Button
-            onClick={() => void command.confirm()}
-            disabled={busy || !pending.length}
-          >
-            {multiple
-              ? t("groups.applyWrites", { count: pending.length })
-              : t("groups.apply", { count: pending[0]?.selected.length ?? 0 })}
-          </Button>
+          {(!complete || command.sending) && (
+            <Button
+              onClick={() => void command.confirm()}
+              disabled={busy || !pending.length}
+            >
+              {command.sending ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" aria-hidden />
+                  {t("groups.sending")}
+                </>
+              ) : multiple ? (
+                t("groups.applyWrites", { count: pending.length })
+              ) : (
+                t("groups.apply", { count: pending[0]?.selected.length ?? 0 })
+              )}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -127,14 +151,8 @@ function PreparedWrite({
         </div>
       )}
       {item.batch ? (
-        <div className="rounded-md border border-green-500/40 bg-green-500/5 p-3 text-sm">
+        <div className="rounded-md border bg-muted/50 p-3 text-sm">
           <p role="status">{t("groups.writeAccepted", { attribute, value })}</p>
-          <Link
-            className="underline"
-            to={`/devices/commands?batch_id=${encodeURIComponent(item.batch.batch_id)}`}
-          >
-            {t("groups.historyAttribute", { attribute })}
-          </Link>
         </div>
       ) : (
         <>

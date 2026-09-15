@@ -10,18 +10,29 @@ import type { useGroupCommand } from "./useGroupCommand";
 
 export function GroupCommandResults({
   command,
-  devices,
-  attributes,
+  devices = [],
+  attributes = {},
 }: {
   command: ReturnType<typeof useGroupCommand>;
-  devices: Device[];
-  attributes: Record<string, GroupAttribute>;
+  devices?: Device[];
+  attributes?: Record<string, GroupAttribute>;
 }) {
   const { t, i18n } = useTranslation("devices");
   if (!command.batches.length) return null;
+  const previews = command.preparations.flatMap((item) =>
+    item.preview ? [item.preview] : [],
+  );
+  const deviceNames = new Map([
+    ...previews.flatMap((preview) =>
+      preview.members.map((member) => [member.device_id, member.name] as const),
+    ),
+    ...devices.map((device) => [device.id, device.name] as const),
+  ]);
   const label = (name: string) => {
-    const attribute = attributes[name];
-    return attribute?.label ? localize(attribute.label, i18n.language) : name;
+    const label =
+      attributes[name]?.label ??
+      previews.find((preview) => preview.attribute === name)?.attribute_label;
+    return label ? localize(label, i18n.language) : name;
   };
   return (
     <div role="status" className="space-y-3 rounded-lg border p-4">
@@ -39,8 +50,7 @@ export function GroupCommandResults({
         {command.commands.map((item) => (
           <li key={item.id} className="flex justify-between gap-4 py-1">
             <span>
-              {devices.find((d) => d.id === item.device_id)?.name ??
-                item.device_id}
+              {deviceNames.get(item.device_id) ?? item.device_id}
               <span className="ml-2 text-muted-foreground">
                 {label(item.attribute)} → {formatValue(item.value)}
               </span>

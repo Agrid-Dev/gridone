@@ -74,6 +74,7 @@ export function useGroupCommand(target: DevicesFilter) {
     new Map<string, GroupCommandPreparation>(),
   );
   const [busy, setBusy] = useState(false);
+  const [sending, setSending] = useState(false);
   const [open, setOpen] = useState(false);
   const [preparations, setPreparations] = useState<GroupCommandPreparation[]>(
     [],
@@ -195,7 +196,7 @@ export function useGroupCommand(target: DevicesFilter) {
     if (!open || !pending.length || inFlight.current) return;
     inFlight.current = true;
     setBusy(true);
-    let failed = false;
+    setSending(true);
     try {
       // Stop on the first failure. Accepted attributes stay recorded, while the
       // remaining attributes require another deliberate confirmation.
@@ -213,7 +214,6 @@ export function useGroupCommand(target: DevicesFilter) {
           });
           void cache.invalidateQueries({ queryKey: ["commands"] });
         } catch (error) {
-          failed = true;
           const code = groupConflict(error)?.code;
           if (
             (code === "command_preview_changed" ||
@@ -240,11 +240,10 @@ export function useGroupCommand(target: DevicesFilter) {
           break;
         }
       }
-      if (!failed && !preparations.some((item) => item.needsRefresh))
-        setOpen(false);
     } finally {
       inFlight.current = false;
       setBusy(false);
+      setSending(false);
     }
   };
 
@@ -322,6 +321,7 @@ export function useGroupCommand(target: DevicesFilter) {
     batch: batches.at(-1) ?? null,
     successfulWrites,
     busy,
+    sending,
     error: preparations.find((item) => item.error)?.error ?? null,
     changed: preparations.some((item) => item.changed),
     prepare,

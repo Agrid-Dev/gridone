@@ -10,6 +10,7 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import type {
+  BatchDispatchResponse,
   Device,
   DevicesFilter,
   Driver,
@@ -56,6 +57,13 @@ vi.mock("react-i18next", () =>
       "groups.previewTitle": "Preview {{name}}",
       "groups.previewDescription": "Set {{attribute}} to {{value}}",
       "groups.cancel": "Cancel",
+      "groups.close": "Close results",
+      "groups.resultsTitle": "Command results",
+      "groups.resultsDescription": "Execution of prepared setpoints",
+      "groups.sending": "Sending setpoints",
+      "groups.batchSummary":
+        "Succeeded {{success}}, failed {{failed}}, pending {{pending}}",
+      "groups.historyAttribute": "History for {{attribute}}",
     },
     { language: "en" },
   ),
@@ -217,9 +225,26 @@ beforeEach(() => {
     }),
   );
   api.devices.confirmCommand.mockImplementation(
-    async ({ token }: SelectionCommandConfirm) => ({
+    async ({
+      token,
+      device_ids,
+    }: SelectionCommandConfirm): Promise<BatchDispatchResponse> => ({
       batch_id: `batch-${token}`,
-      commands: [],
+      commands: device_ids.map((device_id, index) => ({
+        id: (token.startsWith("setpoint") ? 0 : 2) + index,
+        batch_id: `batch-${token}`,
+        template_id: null,
+        device_id,
+        attribute: token.startsWith("setpoint") ? "setpoint" : "power",
+        value: token.startsWith("setpoint") ? 24 : true,
+        data_type: token.startsWith("setpoint") ? "float" : "bool",
+        status: "success",
+        status_details: null,
+        user_id: "operator",
+        created_at: "2026-09-15T12:00:00Z",
+        executed_at: "2026-09-15T12:00:01Z",
+        completed_at: "2026-09-15T12:00:02Z",
+      })),
     }),
   );
   api.devices.listCommands.mockResolvedValue({ items: [], total_pages: 1 });
@@ -280,9 +305,20 @@ describe("group setpoint drafts", () => {
       fireEvent.click(
         within(dialog).getByRole("button", { name: "Apply 2 setpoints" }),
       );
-      await waitFor(() =>
-        expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
-      );
+      expect(
+        await within(dialog).findByRole("heading", { name: "Command results" }),
+      ).toBeInTheDocument();
+      expect(screen.getByRole("dialog")).toBe(dialog);
+      expect(
+        within(dialog).getByText("Succeeded 4, failed 0, pending 0"),
+      ).toBeInTheDocument();
+      for (const attribute of ["Setpoint", "Power"]) {
+        expect(
+          within(dialog).getAllByRole("link", {
+            name: `History for ${attribute}`,
+          }).length,
+        ).toBeGreaterThan(0);
+      }
       expect(api.devices.confirmCommand).toHaveBeenCalledTimes(2);
       expect(api.devices.confirmCommand).toHaveBeenCalledWith({
         token: "setpoint-24",
@@ -292,10 +328,34 @@ describe("group setpoint drafts", () => {
         token: "power-true",
         device_ids: ["a", "b"],
       });
+      const apply = within(dialog).queryByRole("button", { name: /^Apply/ });
+      if (apply) {
+        expect(apply).toBeDisabled();
+        fireEvent.click(apply);
+      }
+      fireEvent.click(
+        within(dialog).getByRole("button", { name: "Close results" }),
+      );
+      await waitFor(() =>
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+      );
       expectReportedValues();
       expect(
         screen.queryByRole("region", { name: "Draft setpoints" }),
       ).not.toBeInTheDocument();
+      expect(
+        screen.getByText("Succeeded 4, failed 0, pending 0"),
+      ).toBeInTheDocument();
+      for (const attribute of ["Setpoint", "Power"]) {
+        expect(
+          screen.getByRole("link", { name: `History for ${attribute}` }),
+        ).toBeInTheDocument();
+      }
+      expect(
+        screen.queryByRole("button", { name: /^Apply/ }),
+      ).not.toBeInTheDocument();
+      expect(api.devices.confirmCommand).toHaveBeenCalledTimes(2);
+      expect(api.devices.previewCommand).toHaveBeenCalledTimes(2);
       cache.clear();
     },
   );

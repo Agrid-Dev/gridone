@@ -123,11 +123,13 @@ export function TagGroupControls({
           onClear={detail.clearDrafts}
         />
       )}
-      <GroupCommandResults
-        command={command}
-        devices={devices}
-        attributes={attributes}
-      />
+      {!command.preview && (
+        <GroupCommandResults
+          command={command}
+          devices={devices}
+          attributes={attributes}
+        />
+      )}
       <details open className="rounded-lg border p-4">
         <summary className="cursor-pointer font-medium">
           {t("groups.members")}

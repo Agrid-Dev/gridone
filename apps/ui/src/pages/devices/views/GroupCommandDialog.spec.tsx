@@ -37,6 +37,16 @@ vi.mock("react-i18next", () =>
     "groups.previewTitle": "Preview {{name}}",
     "groups.previewDescription": "Set {{attribute}} to {{value}}",
     "groups.cancel": "Cancel",
+    "groups.close": "Close results",
+    "groups.sending": "Sending setpoints…",
+    "groups.resultsTitle": "Command results",
+    "groups.batchSummary":
+      "{{success}} succeeded, {{failed}} failed, {{pending}} pending",
+    "commands.statusLabels.pending": "Pending",
+    "commands.statusLabels.success": "Succeeded",
+    "commands.statusLabels.error": "Failed",
+    "commands.failure.unreachable": "Device unreachable",
+    "groups.history": "View command history",
     "groups.applyWrites": "Apply {{count}} setpoints",
     "groups.writeAccepted": "Sent {{attribute}} to {{value}}",
   }),
@@ -119,6 +129,59 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("manual group confirmation", () => {
+  it("keeps live recipient outcomes visible until the user closes the dialog", async () => {
+    const commands = ["a", "b"].map((device_id, index) => ({
+      id: index + 1,
+      batch_id: "sent",
+      device_id,
+      attribute: "setpoint",
+      value: 24,
+      data_type: "float",
+      status: "pending",
+    }));
+    api.confirm.mockResolvedValue({ batch_id: "sent", commands });
+    api.listCommands
+      .mockResolvedValueOnce({ items: commands, total_pages: 1 })
+      .mockResolvedValue({
+        items: [
+          { ...commands[0], status: "success" },
+          { ...commands[1], status: "error", status_details: "unreachable" },
+        ],
+        total_pages: 1,
+      });
+    setup();
+    fireEvent.click(screen.getByText("Prepare"));
+    fireEvent.click(await screen.findByRole("button", { name: "Apply to 2" }));
+    const dialog = within(screen.getByRole("dialog"));
+    expect(
+      await dialog.findByRole("heading", { name: "Command results" }),
+    ).toBeVisible();
+    expect(
+      await dialog.findByText("0 succeeded, 0 failed, 2 pending"),
+    ).toBeVisible();
+    expect(dialog.getAllByText("Pending")).toHaveLength(2);
+    expect(
+      dialog.queryByRole("button", { name: /Apply/ }),
+    ).not.toBeInTheDocument();
+    await waitFor(
+      () =>
+        expect(
+          dialog.getByText("1 succeeded, 1 failed, 0 pending"),
+        ).toBeVisible(),
+      { timeout: 2500 },
+    );
+    expect(dialog.getByText("Succeeded")).toBeVisible();
+    expect(dialog.getByText(/Device unreachable/)).toBeVisible();
+    expect(dialog.getAllByText("setpoint → 24")).toHaveLength(2);
+    expect(
+      dialog.getByRole("link", { name: "View command history" }),
+    ).toHaveAttribute("href", "/devices/commands?batch_id=sent");
+    expect(screen.getByRole("dialog")).toBeVisible();
+    expect(api.confirm).toHaveBeenCalledTimes(1);
+    fireEvent.click(dialog.getByRole("button", { name: "Close results" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
   it("shows independent recipients in one dialog and identifies accepted setpoints after a partial failure", async () => {
     api.preview.mockImplementation(async ({ attribute }) => ({
       ...preview([member("a"), member("b")], attribute),
@@ -152,6 +215,8 @@ describe("manual group confirmation", () => {
       token: "power",
       device_ids: ["b"],
     });
+    expect(screen.getByRole("dialog")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Close results" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
@@ -168,6 +233,7 @@ describe("manual group confirmation", () => {
       token: "token",
       device_ids: ["a"],
     });
+    fireEvent.click(screen.getByRole("button", { name: "Close results" }));
     fireEvent.click(screen.getByText("Prepare"));
     expect(
       await screen.findByRole("button", { name: "Apply to 2" }),
@@ -249,9 +315,15 @@ describe("manual group confirmation", () => {
     fireEvent.click(button);
     expect(api.confirm).toHaveBeenCalledTimes(1);
     expect(button).toBeDisabled();
+    expect(button).toHaveTextContent("Sending setpoints…");
     await act(async () => finish({ batch_id: "sent", commands: [] }));
     await waitFor(() =>
-      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+      expect(
+        screen.getByRole("button", { name: "Close results" }),
+      ).toBeEnabled(),
     );
+    expect(screen.getByRole("dialog")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Close results" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });
