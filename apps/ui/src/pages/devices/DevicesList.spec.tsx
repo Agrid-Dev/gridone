@@ -19,7 +19,7 @@ vi.mock("react-i18next", () =>
     "devices.filters.all": "All types",
     "devices.summary.deviceCount": "{{count}} devices",
     "devices.summary.ok": "{{count}} connected",
-    "devices.summary.degraded": "{{count}} degraded",
+    "devices.summary.unstable": "{{count}} unstable",
     "devices.summary.error": "{{count}} disconnected",
     "devices.summary.idle": "{{count}} idle",
     "devices.table.device": "Device",
@@ -38,7 +38,7 @@ vi.mock("react-i18next", () =>
     "common:common.severityCount.alert": "{{count}} alert(s)",
     "common:common.severityCount.warning": "{{count}} warning(s)",
     "deviceDetails.connectionStatus.ok": "Connected",
-    "deviceDetails.connectionStatus.degraded": "Degraded",
+    "deviceDetails.connectionStatus.unstable": "Unstable",
     "deviceDetails.connectionStatus.error": "Disconnected",
     "deviceDetails.connectionStatus.idle": "Idle",
     "commands.subtitle": "Command history",
@@ -568,7 +568,7 @@ describe("DevicesList — summary", () => {
           attributes: { connection_status: attr("ok") },
         }),
         makeDevice("d3", "C", {
-          attributes: { connection_status: attr("degraded") },
+          attributes: { connection_status: attr("unstable") },
         }),
         makeDevice("d4", "D", {
           attributes: { connection_status: attr("error") },
@@ -580,7 +580,7 @@ describe("DevicesList — summary", () => {
     renderAt();
     expect(screen.getByText("4 devices")).toBeInTheDocument();
     expect(screen.getByText("2 connected")).toBeInTheDocument();
-    expect(screen.getByText("1 degraded")).toBeInTheDocument();
+    expect(screen.getByText("1 unstable")).toBeInTheDocument();
     expect(screen.getByText("1 disconnected")).toBeInTheDocument();
     expect(screen.queryByText(/idle/)).not.toBeInTheDocument();
   });

@@ -353,7 +353,7 @@ class TestDeviceAttributeSerialization:
                     "name": "connection_status",
                     "data_type": "str",
                     "read_write_modes": ["read"],
-                    "current_value": "degraded",
+                    "current_value": "unstable",
                 }
             },
         }
@@ -361,4 +361,4 @@ class TestDeviceAttributeSerialization:
         attr = device.attributes["connection_status"]
         assert isinstance(attr, Attribute)
         assert attr.kind == AttributeKind.INTERNAL
-        assert attr.current_value == "degraded"
+        assert attr.current_value == "unstable"

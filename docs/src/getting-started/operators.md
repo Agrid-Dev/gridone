@@ -48,7 +48,7 @@ red dot means you have unread messages.
    value of the device's key attributes. 
 
 3. The connection status badge next to the device name in the header — **Connected**,
-   **Degraded**, **Disconnected**, or **Idle** — shows whether Gridone is successfully
+   **Unstable**, **Disconnected**, or **Idle** — shows whether Gridone is successfully
    communicating with the device. If the status is anything other than **Connected**, there is a
    connection or driver issue; contact your integrator.
 

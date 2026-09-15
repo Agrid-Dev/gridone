@@ -7,19 +7,19 @@ import { cn } from "@/lib/utils";
 
 const SUMMARY_ORDER = [
   ConnectionStatus.Ok,
-  ConnectionStatus.Degraded,
+  ConnectionStatus.Unstable,
   ConnectionStatus.Error,
   ConnectionStatus.Idle,
 ] as const;
 
 const SUMMARY_KEYS = {
   [ConnectionStatus.Ok]: "devices.summary.ok",
-  [ConnectionStatus.Degraded]: "devices.summary.degraded",
+  [ConnectionStatus.Unstable]: "devices.summary.unstable",
   [ConnectionStatus.Error]: "devices.summary.error",
   [ConnectionStatus.Idle]: "devices.summary.idle",
 } as const;
 
-/** "49 appareils · 47 connectés · 1 dégradé · 1 déconnecté" — connection
+/** "49 appareils · 47 connectés · 1 instable · 1 déconnecté" — connection
  *  buckets at zero are omitted, each colored by its semantic status level. */
 export function DevicesSummary({
   total,

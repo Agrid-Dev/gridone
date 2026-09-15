@@ -62,8 +62,8 @@
       "deviceCount_other": "{{count}} appareils",
       "ok_one": "{{count}} connecté",
       "ok_other": "{{count}} connectés",
-      "degraded_one": "{{count}} dégradé",
-      "degraded_other": "{{count}} dégradés",
+      "unstable_one": "{{count}} instable",
+      "unstable_other": "{{count}} instables",
       "error_one": "{{count}} déconnecté",
       "error_other": "{{count}} déconnectés",
       "idle_one": "{{count}} inactif",
@@ -147,7 +147,7 @@
     "connectionStatus": {
       "idle": "Inactif",
       "ok": "Connecté",
-      "degraded": "Dégradé",
+      "unstable": "Instable",
       "error": "Déconnecté"
     },
     "noHistoryDescription": "Aucune donnée de série temporelle n'a encore été enregistrée pour cet appareil."

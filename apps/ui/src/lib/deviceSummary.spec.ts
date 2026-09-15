@@ -198,12 +198,12 @@ describe("countByConnectionStatus", () => {
     const counts = countByConnectionStatus([
       device("thermostat", { connection_status: attr("ok") }),
       device("thermostat", { connection_status: attr("ok") }),
-      device("thermostat", { connection_status: attr("degraded") }),
+      device("thermostat", { connection_status: attr("unstable") }),
       device("thermostat", { connection_status: attr("error") }),
       device("thermostat", { connection_status: attr("idle") }),
       device("thermostat", { connection_status: attr("garbage") }),
       device("thermostat"),
     ]);
-    expect(counts).toEqual({ ok: 2, degraded: 1, error: 1, idle: 1 });
+    expect(counts).toEqual({ ok: 2, unstable: 1, error: 1, idle: 1 });
   });
 });

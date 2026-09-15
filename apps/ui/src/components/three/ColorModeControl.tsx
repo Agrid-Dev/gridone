@@ -186,7 +186,7 @@ export const ColorModeControl: FC<{
               {(
                 [
                   ["ok", theme.ok],
-                  ["degraded", theme.heat],
+                  ["unstable", theme.heat],
                   ["error", theme.error],
                 ] as const
               ).map(([key, color]) => (

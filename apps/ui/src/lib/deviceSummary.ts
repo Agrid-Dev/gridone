@@ -212,7 +212,7 @@ export function countByConnectionStatus(
   const counts: ConnectionCounts = {
     [ConnectionStatus.Idle]: 0,
     [ConnectionStatus.Ok]: 0,
-    [ConnectionStatus.Degraded]: 0,
+    [ConnectionStatus.Unstable]: 0,
     [ConnectionStatus.Error]: 0,
   };
   for (const device of devices) {

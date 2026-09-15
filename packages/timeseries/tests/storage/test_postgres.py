@@ -3,10 +3,12 @@ from __future__ import annotations
 import asyncio
 import os
 from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING
 
 import asyncpg
 import pytest
 import pytest_asyncio
+from yoyo import get_backend, read_migrations
 
 from commands.storage.postgres import run_migrations as run_commands_migrations
 from models.errors import InvalidError, NotFoundError
@@ -19,7 +21,15 @@ from timeseries.domain import (
     SeriesKey,
     TimeSeries,
 )
-from timeseries.storage.postgres import PostgresStorage, run_migrations
+
+if TYPE_CHECKING:
+    from yoyo.migrations import MigrationList
+
+from timeseries.storage.postgres import (
+    MIGRATIONS_PATH,
+    PostgresStorage,
+    run_migrations,
+)
 
 POSTGRES_URL = os.environ.get("POSTGRES_TEST_URL")
 
@@ -464,3 +474,48 @@ class TestAggregate:
         )
         with pytest.raises(RuntimeError, match="timezone must be resolved"):
             await storage.aggregate(KEY, query)
+
+
+RENAME_DEGRADED_MIGRATION = "0002.timeseries-rename-degraded-connection-status"
+
+
+def _rename_degraded_migration() -> MigrationList:
+    return read_migrations(str(MIGRATIONS_PATH)).filter(
+        lambda migration: migration.id == RENAME_DEGRADED_MIGRATION
+    )
+
+
+class TestRenameDegradedConnectionStatusMigration:
+    async def test_rewrites_recorded_degraded_connection_status_only(self, storage):
+        assert POSTGRES_URL is not None
+        backend = get_backend(POSTGRES_URL)
+        migration = _rename_degraded_migration()
+        with backend.lock():
+            backend.rollback_migrations(backend.to_rollback(migration))
+        try:
+            status = SeriesKey(owner_id="d1", metric="connection_status")
+            other = SeriesKey(owner_id="d1", metric="mode")
+            for key in (status, other):
+                await storage.create_series(_make_series(key, DataType.STRING))
+            t0 = datetime(2026, 9, 1, tzinfo=UTC)
+            await storage.upsert_points(
+                status,
+                [
+                    DataPoint(timestamp=t0, value="degraded"),
+                    DataPoint(timestamp=t0 + timedelta(minutes=1), value="ok"),
+                ],
+            )
+            await storage.upsert_points(
+                other, [DataPoint(timestamp=t0, value="degraded")]
+            )
+
+            with backend.lock():
+                backend.apply_migrations(backend.to_apply(migration))
+
+            assert [p.value for p in await storage.fetch_points(status)] == [
+                "unstable",
+                "ok",
+            ]
+            assert [p.value for p in await storage.fetch_points(other)] == ["degraded"]
+        finally:
+            run_migrations(POSTGRES_URL)

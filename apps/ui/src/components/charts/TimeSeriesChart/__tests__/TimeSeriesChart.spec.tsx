@@ -65,11 +65,11 @@ describe("StringPanel — semantic colours", () => {
           connection_status: [
             "ok",
             "ok",
-            "degraded",
+            "unstable",
             "error",
             "idle",
             "ok",
-            "degraded",
+            "unstable",
             "error",
             "idle",
             "ok",
@@ -79,7 +79,7 @@ describe("StringPanel — semantic colours", () => {
       />,
     );
     expect(swatchFor("ok").style.backgroundColor).toBe("hsl(var(--status-ok))");
-    expect(swatchFor("degraded").style.backgroundColor).toBe(
+    expect(swatchFor("unstable").style.backgroundColor).toBe(
       "hsl(var(--status-warning))",
     );
     expect(swatchFor("error").style.backgroundColor).toBe(

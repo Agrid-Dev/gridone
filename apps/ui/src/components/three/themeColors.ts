@@ -227,7 +227,7 @@ export function zoneTriplet(
       return NEUTRAL_SPACE;
     case "connectivity":
       if (zone.connection === "ok") return theme.ok;
-      if (zone.connection === "degraded") return theme.heat;
+      if (zone.connection === "unstable") return theme.heat;
       if (zone.connection === "error") return theme.error;
       return NEUTRAL_SPACE;
     case "temperature":

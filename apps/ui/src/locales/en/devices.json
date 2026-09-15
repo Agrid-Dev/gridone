@@ -62,8 +62,8 @@
       "deviceCount_other": "{{count}} devices",
       "ok_one": "{{count}} connected",
       "ok_other": "{{count}} connected",
-      "degraded_one": "{{count}} degraded",
-      "degraded_other": "{{count}} degraded",
+      "unstable_one": "{{count}} unstable",
+      "unstable_other": "{{count}} unstable",
       "error_one": "{{count}} disconnected",
       "error_other": "{{count}} disconnected",
       "idle_one": "{{count}} idle",
@@ -147,7 +147,7 @@
     "connectionStatus": {
       "idle": "Idle",
       "ok": "Connected",
-      "degraded": "Degraded",
+      "unstable": "Unstable",
       "error": "Disconnected"
     },
     "noHistoryDescription": "No time-series data has been recorded for this device yet."

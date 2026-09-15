@@ -65,7 +65,7 @@ class DriverSpec(ResourceMetadata):
     @model_validator(mode="after")
     def _disable_polling_on_push_only_transport(self) -> Self:
         """Webhook is push-only (reads raise), so polling would only log
-        READ errors and degrade a healthy device. An explicit
+        READ errors and make a healthy device unstable. An explicit
         ``polling_enabled: true`` is a contradiction and is rejected; a
         driver that simply omits it gets polling disabled instead of the
         polling default. Named polling groups poll regardless of the default,

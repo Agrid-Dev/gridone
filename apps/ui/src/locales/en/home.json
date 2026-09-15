@@ -86,7 +86,7 @@
       },
       "connectivityLegend": {
         "ok": "Online",
-        "degraded": "Degraded",
+        "unstable": "Unstable",
         "error": "Offline",
         "unknown": "No data"
       },

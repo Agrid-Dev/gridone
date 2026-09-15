@@ -44,7 +44,7 @@ export function DeviceCard({ device }: { device: Device }) {
   const Content = standardEntry?.Preview ?? DefaultCardContent;
   const connectionStatus = getConnectionStatus(device);
   const showConnectionIssue =
-    connectionStatus === ConnectionStatus.Degraded ||
+    connectionStatus === ConnectionStatus.Unstable ||
     connectionStatus === ConnectionStatus.Error;
 
   return (

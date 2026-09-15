@@ -12,7 +12,7 @@ healthcheck:
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `expected_push_interval` | duration or integer or `null` | `null` | Expected interval between push emissions. When set, enables silence detection (see below). |
-| `max_attribute_loss` | number in `[0, 1)` | `0` | Share of failed outcomes an attribute may show before the device is reported `degraded` (see [Tolerated loss](#tolerated-loss)). |
+| `max_attribute_loss` | number in `[0, 1)` | `0` | Share of failed outcomes an attribute may show before the device is reported `unstable` (see [Tolerated loss](#tolerated-loss)). |
 
 ## Duration format
 
@@ -35,14 +35,14 @@ Gridone keeps the last 10 read outcomes and the last 10 listen outcomes of every
 |---|---|
 | No outcome recorded yet | `idle` |
 | Every attribute with outcomes is at total loss | `error` |
-| At least one attribute loses more than `max_attribute_loss`, or is at total loss | `degraded` |
+| At least one attribute loses more than `max_attribute_loss`, or is at total loss | `unstable` |
 | Otherwise | `ok` |
 
 The loss is computed over the outcomes recorded so far, up to 10, so the status reacts from the first outcome rather than after a full window. Logs start empty whenever a device (re)starts: right after a restart, a first failed outcome is a total loss (`error`), one failure out of two is a 50 % loss, and so on until the log holds 10 outcomes.
 
 ### Tolerated loss
 
-By default (`max_attribute_loss: 0`) any failure in an attribute's log reports the device `degraded` until it leaves the window, or `error` while the attribute has no successful outcome in its log. Devices on flaky links can tolerate occasional misses:
+By default (`max_attribute_loss: 0`) any failure in an attribute's log reports the device `unstable` until it leaves the window, or `error` while the attribute has no successful outcome in its log. Devices on flaky links can tolerate occasional misses:
 
 ```yaml
 healthcheck:
@@ -50,7 +50,7 @@ healthcheck:
   max_attribute_loss: 0.2
 ```
 
-Once a log holds 10 outcomes, `0.2` keeps the device `ok` with up to 2 failures out of the last 10 and reports `degraded` from the third. Before that, the same share applies to fewer outcomes: 1 failure out of 5 is tolerated, 1 out of 4 is not. An attribute whose recorded outcomes all failed is never tolerated: it points at a wrong address or driver, or at a device that is down.
+Once a log holds 10 outcomes, `0.2` keeps the device `ok` with up to 2 failures out of the last 10 and reports `unstable` from the third. Before that, the same share applies to fewer outcomes: 1 failure out of 5 is tolerated, 1 out of 4 is not. An attribute whose recorded outcomes all failed is never tolerated: it points at a wrong address or driver, or at a device that is down.
 
 Changing `max_attribute_loss` on a live driver restarts its devices: their outcome logs start afresh and are judged against the new value, while the current `connection_status` is kept until the next outcome.
 
@@ -71,10 +71,10 @@ The watchdog escalates `connection_status` based on how long the device has been
 | Silence duration | `connection_status` |
 |---|---|
 | < 2× interval | `ok` (within grace period) |
-| ≥ 2× interval | `degraded` |
+| ≥ 2× interval | `unstable` |
 | ≥ 3× interval | `error` |
 
-While the device is silent, the watchdog's status wins over read outcomes whenever it is worse: a failed poll cannot bring a silent device back from `error` to `degraded`. The first push message received hands the status back to read and listen outcomes.
+While the device is silent, the watchdog's status wins over read outcomes whenever it is worse: a failed poll cannot bring a silent device back from `error` to `unstable`. The first push message received hands the status back to read and listen outcomes.
 
 The clock resets every time a push message is successfully received. On service restart it resets to the current time, giving the device one full grace period to re-emit before any escalation.
 

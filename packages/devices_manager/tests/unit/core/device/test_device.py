@@ -439,7 +439,7 @@ class TestDevicesListeners:
         assert device.attributes["humidity"].current_value == 65.0
 
     @pytest.mark.asyncio
-    async def test_partial_and_irrelevant_frames_do_not_degrade(
+    async def test_partial_and_irrelevant_frames_keep_the_device_ok(
         self, mock_push_transport_client
     ):
         """Best-effort push: frames missing attributes (or carrying none) stay ok."""
