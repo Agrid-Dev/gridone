@@ -112,8 +112,7 @@ a changed context produces `mapping_changed`.
 
 Every device attribute exposes `write_state`: status, resolved numeric constraints,
 options with availability and reasons, warnings, missing-dependency flag and whether
-a candidate-specific preview is needed. Device DTOs include `write_state_revision`
-and server-resolved `presentation_state`.
+a candidate-specific preview is needed. Device DTOs include `write_state_revision`.
 
 `POST /devices/{id}/commands/preview` accepts the same attribute/value body as command
 submission. It returns eligibility, normalized candidate, reasons, warnings and a
@@ -133,10 +132,18 @@ The UI displays server decisions; it does not resolve guard dependencies locally
 Presentation controls support `visible_when` and `blocked_when` under
 `control-conditions/1`; page nodes support `visible_when` under `page-conditions/1`.
 A `variant` page node (`layout-variants/1`) chooses the first matching
-`{when, content}` entry. These use the existing presentation binding condition syntax.
-Graphical face visibility and colors retain local rendering; interaction blockers
-are server-resolved. Groups use generic controls when member layout selections differ. Presentation visibility does not itself forbid an API command:
-a corresponding attribute rule must enforce that restriction.
+`{when, content}` entry. These use the presentation binding condition syntax and are
+evaluated by the client that renders the document, like face visibility and colors.
+Groups use generic controls when member layout selections differ.
+
+The two condition syntaxes have distinct jobs. Write rules and option conditions use
+the expression syntax and are evaluated only by the server: they decide whether a
+command is accepted. Presentation conditions use the binding syntax and are evaluated
+only by the client: they decide what a page shows. A control bound to an attribute
+already follows that attribute's `write_state`, so a restriction declared once as a
+write rule disables the control and refuses the API command without any `blocked_when`.
+Reserve `blocked_when` for purely graphical blocking; presentation visibility never
+forbids an API command.
 
 ## Budgets and rollout
 

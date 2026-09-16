@@ -51,7 +51,6 @@ def broadcast_write_state(websocket_manager: WebSocketManager) -> DeviceListener
             DeviceWriteStateMessage(
                 device_id=device.id,
                 revision=device.write_state_revision,
-                presentation_state=device.presentation_state,
                 attributes={
                     name: attribute.write_state
                     for name, attribute in device.attributes.items()

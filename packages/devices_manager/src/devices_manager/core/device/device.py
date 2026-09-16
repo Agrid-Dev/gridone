@@ -11,10 +11,6 @@ from typing import TYPE_CHECKING, Any
 
 from devices_manager.core.conditions import EvaluationBudget, EvaluationContext
 from devices_manager.core.driver import FaultAttributeDriver
-from devices_manager.core.presentation.state import (
-    compile_presentation,
-    project_presentation,
-)
 from devices_manager.core.transports import PushTransportClient, ReadError
 from devices_manager.core.utils.templating.render import render_struct
 from devices_manager.observability.metrics import attribute_read
@@ -41,7 +37,6 @@ from .write_rules import evaluate_write, project_write_state
 if TYPE_CHECKING:
     from devices_manager.core.codecs import FnCodec
     from devices_manager.core.driver import AttributeDriver, Driver
-    from devices_manager.core.presentation.models import PresentationV1
     from devices_manager.core.transports import (
         ReadResult,
         TransportAddress,
@@ -167,11 +162,6 @@ class CoreDevice:
     )
     _trust_expiry: TrustExpiry | None = field(init=False, default=None, repr=False)
     _commands: CommandRuntime = field(init=False, repr=False)
-    presentation_state: dict[str, bool] = field(init=False, default_factory=dict)
-    _presentation_source: object = field(init=False, default=None, repr=False)
-    _presentation_document: PresentationV1 | None = field(
-        init=False, default=None, repr=False
-    )
     _write_lock: asyncio.Lock = field(
         init=False, default_factory=asyncio.Lock, repr=False
     )
@@ -810,15 +800,7 @@ class CoreDevice:
             else None
         )
         budget = EvaluationBudget(MAX_DEVICE_OPERATIONS)
-        if self._presentation_source is not self.driver.presentation:
-            self._presentation_source = self.driver.presentation
-            self._presentation_document = compile_presentation(self.driver.presentation)
-        presentation = project_presentation(
-            self._presentation_document, self._known_attribute_value
-        )
-        changed = self.presentation_state != presentation
-        self.presentation_state = presentation
-        changed |= self._sync_mapping_resolutions()
+        changed = self._sync_mapping_resolutions()
         for name, spec in self.driver.attributes.items():
             attribute = self.attributes.get(name)
             if attribute is None or (affected is not None and name not in affected):

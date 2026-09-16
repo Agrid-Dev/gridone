@@ -85,7 +85,6 @@ async def test_write_state_event_carries_resolution_without_a_measurement():
 
     device = _make_device()
     device.write_state_revision = 3
-    device.presentation_state = {"/page/visible": False}
     attribute = _make_attribute()
     attribute.write_state = AttributeWriteState(status="unknown")
     attribute.raw_value = 7

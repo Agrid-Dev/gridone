@@ -43,7 +43,6 @@ class DeviceWriteStateMessage(WebSocketMessage):
     type: Literal["device_write_state"] = "device_write_state"
     device_id: str
     revision: int
-    presentation_state: dict[str, bool] = Field(default_factory=dict)
     attributes: dict[str, AttributeWriteState]
     resolutions: dict[str, AttributeResolution] = Field(default_factory=dict)
 

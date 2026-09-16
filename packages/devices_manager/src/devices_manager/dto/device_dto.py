@@ -54,7 +54,6 @@ class Device(ResourceMetadata):
     # Derived from the current driver, never persisted on the device snapshot.
     presentation_ref: PresentationReference | None = None
     write_state_revision: int = 0
-    presentation_state: dict[str, bool] = Field(default_factory=dict)
 
 
 class DeviceUpdate(BaseModel):
@@ -78,7 +77,6 @@ def core_to_dto(device: CoreDevice) -> Device:
         tags=device.tags,
         attributes=device.attributes,
         write_state_revision=device.write_state_revision,
-        presentation_state=device.presentation_state,
         is_faulty=device.is_faulty,
         created_at=device.created_at,
         updated_at=device.updated_at,
