@@ -18,7 +18,7 @@ Deltas from production, each deliberate:
 | Delta                                                           | Why                                                                                                                            |
 | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | Bridge network + service-name URLs (prod: `network_mode: host`) | Host networking only exists in prod for building-LAN device discovery, untested here; it does not work on macOS Docker Desktop |
-| No postgres volume                                              | Fresh database every run: reproducible tests, `admin` seeded from `GRIDONE_ADMIN_PASSWORD` (compose default `admin`)            |
+| No postgres volume                                              | Fresh database every run: reproducible tests, `admin` seeded from `GRIDONE_ADMIN_PASSWORD` (compose default `admin`)           |
 | `COOKIE_SECURE=false`, throwaway `SECRET_KEY`                   | Served over plain `http://localhost`; the SDK uses bearer headers anyway                                                       |
 | No `restart` policies, no `container_name`                      | Ephemeral stack; fixed names would collide between parallel stacks                                                             |
 | Health probe every 5s (prod: 30s)                               | `docker compose up --wait` returns as soon as the app is up                                                                    |
@@ -97,6 +97,12 @@ Two files may share one emulator as long as they drive _different attributes_:
 `suites/automations/` points both specs at `thermocktat-automations` (`9089`),
 one writing `temperature_setpoint` and the other `onoff_state`, each with its
 own device and transport. That is what lets vitest run them in parallel.
+
+`commandValidation.spec.ts` owns `thermocktat-command-rules` (`9090`) and its
+own driver, `thermocktat_http_rules` (`fixtures/thermocktat-http-rules-driver.yaml`):
+its write rules change what the driver accepts, so it must not share
+`thermocktat_http`. Drivers are create-or-409, never updated: editing those
+rules needs `stack:down` before they apply.
 
 `connectionStatus.spec.ts` owns `thermocktat-connection-status` (`9087`) and
 stops and starts it via `lib/emulator.ts`. It is the one
