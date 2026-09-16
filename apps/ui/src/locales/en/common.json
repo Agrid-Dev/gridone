@@ -79,6 +79,9 @@
     "currentPasswordPlaceholder": "Enter your current password"
   },
   "common": {
+    "deviceNotFound": "This device no longer exists.",
+    "deviceLoadError": "Could not load this device.",
+    "noStandardControl": "This device type has no standard control.",
     "update": "Update",
     "updating": "Updating...",
     "back": "Back",
@@ -249,6 +252,7 @@
     "version": "Version {{version}}",
     "description": "Monitor real-time data, inspect device readouts, and push updates through the Gridone API.",
     "dashboards": "Dashboards",
+    "synoptics": "Synoptics",
     "assets": "Zones",
     "devices": "Devices",
     "drivers": "Drivers",
