@@ -25,17 +25,18 @@ describe("DepthOrdered", () => {
     expect(ids(container)).toEqual(["back", "middle", "front"]);
   });
 
-  it("keeps input order for equal depths", () => {
+  it("keeps input order for equal depths while still sorting the rest", () => {
     const { container } = render(
       <svg>
         <DepthOrdered
           items={[
-            { id: "a", depth: 1, node: <rect data-testid="a" /> },
             { id: "b", depth: 1, node: <rect data-testid="b" /> },
+            { id: "a", depth: 1, node: <rect data-testid="a" /> },
+            { id: "c", depth: 0, node: <rect data-testid="c" /> },
           ]}
         />
       </svg>,
     );
-    expect(ids(container)).toEqual(["a", "b"]);
+    expect(ids(container)).toEqual(["c", "b", "a"]);
   });
 });

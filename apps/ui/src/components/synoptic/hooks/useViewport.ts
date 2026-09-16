@@ -16,6 +16,9 @@ const WHEEL_SENSITIVITY = 0.002;
  *  those instead of pixels. */
 const LINE_PX = 16;
 const PAGE_PX = 40 * LINE_PX;
+/** The most one wheel event may move the zoom, in pixels of delta, so a
+ *  page-mode notch or a flung trackpad stays one sensible step. */
+const MAX_WHEEL_PX = 200;
 /** Client px a press may wander before it becomes a pan rather than a click. */
 const PAN_THRESHOLD = 3;
 
@@ -55,6 +58,9 @@ export function useViewport() {
   });
   /** Pointers down on the canvas, by id, in svg units; two make a pinch. */
   const pointers = useRef(new Map<number, Pt>());
+  /** Set once a pinch has taken the gesture over from the drag: the finger
+   *  left down afterwards pans from here, since the drag is gone. */
+  const pinched = useRef(false);
 
   useEffect(() => {
     const svg = svgRef.current;
@@ -69,19 +75,27 @@ export function useViewport() {
           : e.deltaMode === WheelEvent.DOM_DELTA_PAGE
             ? PAGE_PX
             : 1;
-      setView((v) =>
-        zoomAbout(v, p, Math.exp(-e.deltaY * px * WHEEL_SENSITIVITY)),
+      const delta = Math.max(
+        -MAX_WHEEL_PX,
+        Math.min(MAX_WHEEL_PX, e.deltaY * px),
       );
+      setView((v) => zoomAbout(v, p, Math.exp(-delta * WHEEL_SENSITIVITY)));
     };
     svg.addEventListener("wheel", onWheel, { passive: false });
     return () => svg.removeEventListener("wheel", onWheel);
   }, []);
 
-  const pinch = useCallback((e: ReactPointerEvent<SVGSVGElement>) => {
+  const follow = useCallback((e: ReactPointerEvent<SVGSVGElement>) => {
     const svg = e.currentTarget;
     const before = [...pointers.current.values()];
     pointers.current.set(e.pointerId, clientToSvg(svg, e.clientX, e.clientY));
     const after = [...pointers.current.values()];
+    if (before.length === 1 && after.length === 1 && pinched.current) {
+      const dx = after[0].x - before[0].x;
+      const dy = after[0].y - before[0].y;
+      setView((v) => ({ ...v, x: v.x + dx, y: v.y + dy }));
+      return;
+    }
     if (before.length !== 2 || after.length !== 2) return;
     const mid = (pts: Pt[]): Pt => ({
       x: (pts[0].x + pts[1].x) / 2,
@@ -115,6 +129,7 @@ export function useViewport() {
       // A second finger turns the pan into a pinch: the drag lets go of the
       // first one and both are followed here.
       drag.cancel();
+      pinched.current = true;
       for (const id of pointers.current.keys()) {
         e.currentTarget.setPointerCapture(id);
       }
@@ -123,18 +138,18 @@ export function useViewport() {
   );
   const onPointerMove = useCallback(
     (e: ReactPointerEvent<SVGSVGElement>) => {
-      if (pointers.current.has(e.pointerId)) pinch(e);
+      if (pointers.current.has(e.pointerId)) follow(e);
     },
-    [pinch],
+    [follow],
   );
   const onPointerUp = useCallback((e: ReactPointerEvent<SVGSVGElement>) => {
     pointers.current.delete(e.pointerId);
+    if (pointers.current.size === 0) pinched.current = false;
   }, []);
 
   return {
     svgRef,
     handle: {
-      style: drag.style,
       onPointerDown,
       onPointerMove,
       onPointerUp,

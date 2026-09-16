@@ -27,10 +27,10 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function setup() {
+function setup(props: Partial<Parameters<typeof PidDiagram>[0]> = {}) {
   stubScreenCtm();
   const { container } = render(
-    <PidDiagram width={100} height={50}>
+    <PidDiagram width={100} height={50} {...props}>
       <rect />
     </PidDiagram>,
   );
@@ -50,7 +50,28 @@ describe("PidDiagram", () => {
     const { svg, view } = setup();
     expect(svg.getAttribute("viewBox")).toBe("0 0 100 50");
     expect(view()).toEqual({ x: 0, y: 0, scale: 1 });
-    expect(svg.style.touchAction).toBe("none");
+  });
+
+  it("leaves one-finger vertical swipes to the page unless told to take every gesture", () => {
+    expect(setup().svg.style.touchAction).toBe("pan-y");
+    cleanup();
+    expect(setup({ touchAction: "none" }).svg.style.touchAction).toBe("none");
+  });
+
+  it("leaves a press as the browser makes it until it becomes a pan", () => {
+    const { svg } = setup();
+    const press = new PointerEvent("pointerdown", {
+      button: 0,
+      pointerId: 1,
+      clientX: 20,
+      clientY: 40,
+      bubbles: true,
+      cancelable: true,
+    });
+    svg.dispatchEvent(press);
+    // Not cancelled: focus, selection and the click that follows survive,
+    // and the double click that fits the view with them.
+    expect(press.defaultPrevented).toBe(false);
   });
 
   it("pans by the drag delta in viewBox units", () => {
@@ -137,7 +158,14 @@ describe("PidDiagram", () => {
       deltaMode: WheelEvent.DOM_DELTA_PAGE,
       ctrlKey: true,
     });
-    expect(page.view().scale).toBeCloseTo(Math.exp(1.28), 5);
+    // One page notch is capped to the same step a 200 px wheel makes.
+    expect(page.view().scale).toBeCloseTo(Math.exp(0.4), 5);
+  });
+
+  it("caps a single wheel event so a flung trackpad is one step, not a jump", () => {
+    const { svg, view } = setup();
+    fireEvent.wheel(svg, { deltaY: -5000, ctrlKey: true });
+    expect(view().scale).toBeCloseTo(Math.exp(0.4), 5);
   });
 
   it("clamps the zoom range", () => {
@@ -180,9 +208,21 @@ describe("PidDiagram", () => {
     // after the 5 px pan) now sits under the new one.
     expect(x + 17.5 * scale).toBeCloseTo(25, 5);
     expect(y + 20 * scale).toBeCloseTo(20, 5);
-    // Once a finger lifts, the drag is gone: the other finger pans nothing.
+    // Once a finger lifts, the other keeps panning: pinch then drag to
+    // reposition is one gesture on a touch screen.
     fireEvent.pointerUp(svg, { pointerId: 2, clientX: 80, clientY: 40 });
     fireEvent.pointerMove(svg, { pointerId: 1, clientX: 40, clientY: 40 });
-    expect(view().x).toBe(x);
+    expect(view().x).toBe(x + 10);
+    expect(view().scale).toBeCloseTo(scale, 5);
+    // With every finger up, the next press is a plain drag again.
+    fireEvent.pointerUp(svg, { pointerId: 1, clientX: 40, clientY: 40 });
+    fireEvent.pointerDown(svg, {
+      button: 0,
+      pointerId: 3,
+      clientX: 20,
+      clientY: 40,
+    });
+    fireEvent.pointerMove(svg, { pointerId: 3, clientX: 30, clientY: 40 });
+    expect(view().x).toBe(x + 15);
   });
 });

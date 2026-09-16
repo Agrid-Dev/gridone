@@ -38,12 +38,18 @@ describe("depthKey", () => {
     );
   });
 
-  it("orders pipe, symbol, label within one cell", () => {
-    const cell = { x: 2, y: 2 };
-    const pipe = depthKey(cell, "pipe");
-    const label = depthKey(cell, "label");
+  it("orders pipe under symbol within one cell", () => {
+    const pipe = depthKey({ x: 2, y: 2 }, "pipe");
     expect(pipe).toBeLessThan(tank);
-    expect(tank).toBeLessThan(label);
-    expect(label).toBeLessThan(depthKey({ x: 3, y: 2 }, "pipe"));
+    expect(tank).toBeLessThan(depthKey({ x: 3, y: 2 }, "pipe"));
+  });
+
+  it("paints every label after every body, in cell order among labels", () => {
+    // A chip hung above its cell at (2,2) reaches into the tank at (3,2):
+    // the tank is nearer, the chip must still be on top.
+    const chip = depthKey({ x: 2, y: 2 }, "label");
+    expect(chip).toBeGreaterThan(tank);
+    expect(chip).toBeGreaterThan(depthKey({ x: 40, y: 40, z: 3 }, "symbol"));
+    expect(chip).toBeLessThan(depthKey({ x: 3, y: 2 }, "label"));
   });
 });

@@ -73,7 +73,15 @@ export function useSvgDrag({
         last = start;
         handlers.current.onStart?.(start);
       };
-      if (threshold === 0) begin(down.x, down.y);
+      // A drag that starts on the press owns it, so the browser's own
+      // response to the press (focus, selection, the compatibility mouse
+      // events) is cancelled. A press that has to travel first stays a
+      // plain press until it does, so clicks and double clicks are left
+      // exactly as the browser makes them.
+      if (threshold === 0) {
+        begin(down.x, down.y);
+        e.preventDefault();
+      }
 
       const teardown = () => {
         window.removeEventListener("pointermove", move);
@@ -112,7 +120,6 @@ export function useSvgDrag({
       window.addEventListener("pointerup", up);
       window.addEventListener("pointercancel", cancel);
       e.stopPropagation();
-      e.preventDefault();
     },
     [threshold],
   );

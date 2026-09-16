@@ -67,9 +67,17 @@ function setup(props: Partial<Parameters<typeof useSvgDrag>[0]> = {}) {
 }
 
 describe("useSvgDrag", () => {
-  it("keeps the browser from scrolling the handle", () => {
+  it("keeps the browser from scrolling the handle and owns the press", () => {
     const { handle } = setup();
     expect(handle.style.touchAction).toBe("none");
+    const press = new PointerEvent("pointerdown", {
+      button: 0,
+      pointerId: 1,
+      bubbles: true,
+      cancelable: true,
+    });
+    handle.dispatchEvent(press);
+    expect(press.defaultPrevented).toBe(true);
   });
 
   it("reports start, per-move deltas and end in viewBox units", () => {

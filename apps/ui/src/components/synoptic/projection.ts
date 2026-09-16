@@ -31,8 +31,16 @@ export function project(
 /** What an element is, for the draw order within one cell. */
 export type Layer = "pipe" | "symbol" | "label";
 
-const LAYER_RANK: Record<Layer, number> = { pipe: 0, symbol: 1, label: 2 };
+/** Within a cell a pipe paints under the symbol riding it. */
+const LAYER_RANK: Record<Exclude<Layer, "label">, number> = {
+  pipe: 0,
+  symbol: 1,
+};
 const LAYER_COUNT = Object.keys(LAYER_RANK).length;
+/** Labels paint in a pass above every cell: a chip or panel hangs outside
+ *  the cell it belongs to, so a rank inside the cell sum would let a
+ *  nearer body cover it. No plate reaches a cell sum this large. */
+const LABEL_PASS = 1_000_000;
 
 /**
  * Painter's order of an element at `cell`: draw ascending.
@@ -41,9 +49,12 @@ const LAYER_COUNT = Object.keys(LAYER_RANK).length;
  * diagonal, so a unit cell further along `x + y + z` is nearer and must be
  * painted later. A pipe run is keyed per cell it crosses: one key cannot
  * hold for a run that passes behind one body and in front of the next.
- * Within a cell the layer decides: a pipe under the symbol riding it, tags
- * and labels on top of everything.
+ * Within a cell the layer decides: a pipe under the symbol riding it.
+ * Labels, chips and panels come after every cell, ordered by their own
+ * cell among themselves.
  */
 export function depthKey(cell: Cell, layer: Layer): number {
-  return (cell.x + cell.y + (cell.z ?? 0)) * LAYER_COUNT + LAYER_RANK[layer];
+  const sum = cell.x + cell.y + (cell.z ?? 0);
+  if (layer === "label") return LABEL_PASS + sum;
+  return sum * LAYER_COUNT + LAYER_RANK[layer];
 }
