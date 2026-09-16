@@ -13,7 +13,6 @@ from devices_manager.core.device.connection_status_attribute import (
     CONNECTION_STATUS_ATTR,
 )
 from devices_manager.core.driver import AnyAttributeDriver
-from devices_manager.core.driver.command_validation import rename_command_references
 from devices_manager.core.driver.driver import (
     attributes_referencing,
     validate_polling_groups,
@@ -21,6 +20,7 @@ from devices_manager.core.driver.driver import (
     validate_write_constraints,
 )
 from devices_manager.core.driver.driver_metadata import DriverMetadata
+from devices_manager.core.driver.write_validation import rename_write_references
 from devices_manager.core.presentation import (
     PresentationEnvelope,
     PresentationStatus,
@@ -86,7 +86,7 @@ def _follow_rename(
     attribute: AttributeDriver, old_name: str, new_name: str
 ) -> AttributeDriver:
     """Copy of ``attribute`` with command references following the renamed sibling."""
-    return rename_command_references(attribute, old_name, new_name)
+    return rename_write_references(attribute, old_name, new_name)
 
 
 def _summarize(diagnostics: list[PresentationDiagnostic]) -> str:

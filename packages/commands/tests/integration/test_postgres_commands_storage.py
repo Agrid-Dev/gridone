@@ -408,7 +408,7 @@ async def test_rejected_commands_preserve_requested_scalar_and_diagnostics(
 ):
     from dataclasses import replace
 
-    from models.command_rules import WriteEvaluation, WriteReason
+    from models.write_rules import WriteEvaluation, WriteReason
 
     validation = WriteEvaluation(
         eligible=False,
@@ -434,7 +434,7 @@ async def test_rejected_commands_preserve_requested_scalar_and_diagnostics(
 
 
 async def test_legacy_rows_and_execution_rejection_round_trip(storage):
-    from models.command_rules import WriteEvaluation, WriteReason
+    from models.write_rules import WriteEvaluation, WriteReason
 
     saved = await storage.save_command(_unit(value=21.5, data_type=DataType.FLOAT))
     # Existing rows have NULL in the new columns.
@@ -454,7 +454,7 @@ async def test_legacy_rows_and_execution_rejection_round_trip(storage):
     assert (await storage.get_commands_by_ids([saved.id]))[0].validation == validation
 
 
-async def test_command_validation_migration_rolls_back_and_reapplies(storage):
+async def test_write_validation_migration_rolls_back_and_reapplies(storage):
     from commands.storage.postgres import MIGRATIONS_PATH
 
     async with storage._pool.acquire() as conn:  # noqa: SLF001

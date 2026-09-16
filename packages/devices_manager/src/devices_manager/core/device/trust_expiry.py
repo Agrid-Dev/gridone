@@ -8,8 +8,8 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 
-class CommandExpiry:
-    """Expire observed command context independently of communication health."""
+class TrustExpiry:
+    """Expire trusted observations independently of communication health."""
 
     def __init__(
         self,
@@ -33,7 +33,7 @@ class CommandExpiry:
             self._on_expired()
 
     def record_observation(self) -> None:
-        """Renew command knowledge from acquisition without changing push health."""
+        """Renew trust from acquisition without changing push health."""
         self._deadline = self._now() + self._interval
         self._cancel_timer()
         if self._loop is not None:
@@ -55,7 +55,7 @@ class CommandExpiry:
             self.record_observation()
 
     def close(self) -> None:
-        """Cancel expiry without publishing a command-state change."""
+        """Cancel expiry without publishing a write-state change."""
         self._cancel_timer()
         self._loop = None
         self._deadline = None

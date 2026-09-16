@@ -6,8 +6,8 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from commands.models import WriteResult
-    from models.command_rules import WriteEvaluation
     from models.types import AttributeValueType, DataType
+    from models.write_rules import WriteEvaluation
 
 
 class DeviceWriter(Protocol):

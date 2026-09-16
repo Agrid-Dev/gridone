@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
     from commands.filters import CommandsQueryFilters
     from commands.models import CommandStatus, UnitCommandCreate
-    from models.command_rules import WriteEvaluation
+    from models.write_rules import WriteEvaluation
 
 
 @dataclass

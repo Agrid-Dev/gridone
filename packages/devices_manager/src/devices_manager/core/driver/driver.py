@@ -9,12 +9,12 @@ from devices_manager.types import DataType, TransportProtocols
 from models.errors import InvalidError
 
 from .attribute_driver import AttributeDriver
-from .command_validation import command_references, validate_command_declarations
 from .device_config_field import DeviceConfigField
 from .discovery_listener import DiscoveryListener
 from .driver_metadata import DriverMetadata
 from .healthcheck import HealthCheck
 from .update_strategy import UpdateStrategy
+from .write_validation import validate_write_declarations, write_references
 
 _attribute_driver_spec_adapter: TypeAdapter[AttributeDriver] = TypeAdapter(
     AttributeDriver
@@ -48,7 +48,7 @@ def attributes_referencing(
     return [
         attribute
         for attribute in attributes
-        if attribute_name in command_references(attribute)
+        if attribute_name in write_references(attribute)
     ]
 
 
@@ -61,7 +61,7 @@ def validate_write_constraints(attributes: Iterable[AttributeDriver]) -> None:
     write time, so a string or bool sibling could never serve as a bound.
     """
     attributes = list(attributes)
-    validate_command_declarations(attributes)
+    validate_write_declarations(attributes)
 
 
 def validate_push_only_polling(

@@ -6,9 +6,9 @@ from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict
 
-from models.command_rules import WriteEvaluation  # noqa: TC001 -- schema runtime
 from models.targets import DevicesFilter  # noqa: TC001
 from models.types import AttributeValueType, DataType  # noqa: TC001
+from models.write_rules import WriteEvaluation  # noqa: TC001 -- schema runtime
 
 
 class CommandStatus(StrEnum):

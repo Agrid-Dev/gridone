@@ -23,9 +23,9 @@ from models.attribute_metadata import (
     Unit,
     WriteConstraints,
 )
-from models.command_rules import AttributeWriteState, WriteReason
 from models.expressions import Scalar
 from models.types import Severity
+from models.write_rules import AttributeWriteState, WriteReason
 
 # Optional fields dropped from payloads when unset, so an attribute that
 # declares none of them serializes exactly as it did before they existed.

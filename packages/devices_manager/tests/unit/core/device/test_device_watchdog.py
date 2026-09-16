@@ -206,7 +206,7 @@ class TestWatchdogSilenceDetection:
 
 @fake_time
 @pytest.mark.asyncio
-class TestCommandExpiryAndConnectionHealth:
+class TestTrustExpiryAndConnectionHealth:
     async def test_commands_expire_before_health_degrades(
         self, guarded_push_device, mock_push_transport_client
     ):

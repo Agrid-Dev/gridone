@@ -17,13 +17,13 @@ from commands.models import (
     UnitCommandCreate,
 )
 from commands.storage import build_storage
-from models.command_rules import CommandRejectedError, WriteEvaluation
-from models.errors import InvalidError, NotFoundError
+from models.errors import InvalidError, NotFoundError, WriteRejectedError
 from models.ids import gen_id
 from models.pagination import Page, PaginationParams
 from models.service import Service
 from models.targets import AttributeTarget, DevicesFilter, EmptyTargetError
 from models.types import SortOrder
+from models.write_rules import WriteEvaluation
 
 if TYPE_CHECKING:
     from commands.models import AttributeWrite, CommandTemplatePatch
@@ -211,7 +211,7 @@ class CommandsService(Service):
             )
         )
         if not evaluation.eligible:
-            raise CommandRejectedError(evaluation.reasons)
+            raise WriteRejectedError(evaluation.reasons)
         return await self._execute_command(command, write=write, confirm=confirm)
 
     async def dispatch_batch(
@@ -397,7 +397,7 @@ class CommandsService(Service):
                     status_details=command_failure(exc),
                     completed_at=datetime.now(UTC),
                     validation=WriteEvaluation(eligible=False, reasons=exc.reasons)
-                    if isinstance(exc, CommandRejectedError)
+                    if isinstance(exc, WriteRejectedError)
                     else None,
                 )
             except Exception:

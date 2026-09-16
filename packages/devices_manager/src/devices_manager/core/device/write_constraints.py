@@ -15,9 +15,9 @@ from devices_manager.core.conditions import (
     on_step_grid,
     scalar_equal,
 )
-from models.command_rules import CommandRejectedError, ResolvedConstraints, WriteReason
-from models.errors import InvalidError
+from models.errors import InvalidError, WriteRejectedError
 from models.expressions import AttributeRef
+from models.write_rules import ResolvedConstraints, WriteReason
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -100,19 +100,19 @@ def check_write_constraints(
     )
     if step is not None and step <= 0:
         msg = f"step of '{attribute.name}' resolved to {step}; write refused"
-        raise CommandRejectedError([WriteReason(code="constraints")], msg)
+        raise WriteRejectedError([WriteReason(code="constraints")], msg)
     if minimum is not None and number < minimum:
         msg = f"Value {number} for '{attribute.name}' is below the minimum {minimum}"
-        raise CommandRejectedError([WriteReason(code="constraints")], msg)
+        raise WriteRejectedError([WriteReason(code="constraints")], msg)
     if maximum is not None and number > maximum:
         msg = f"Value {number} for '{attribute.name}' is above the maximum {maximum}"
-        raise CommandRejectedError([WriteReason(code="constraints")], msg)
+        raise WriteRejectedError([WriteReason(code="constraints")], msg)
     if step is not None and not on_step_grid(number, step):
         msg = (
             f"Value {number} for '{attribute.name}' is not a multiple of the step "
             f"{step}"
         )
-        raise CommandRejectedError([WriteReason(code="constraints")], msg)
+        raise WriteRejectedError([WriteReason(code="constraints")], msg)
 
 
 def _as_number(attribute_name: str, value: AttributeValueType) -> float | int:
@@ -126,7 +126,7 @@ def _as_number(attribute_name: str, value: AttributeValueType) -> float | int:
         raise TypeError(msg)
     if isinstance(value, float) and not math.isfinite(value):
         msg = f"Value for '{attribute_name}' must be finite; write refused"
-        raise CommandRejectedError([WriteReason(code="constraints")], msg)
+        raise WriteRejectedError([WriteReason(code="constraints")], msg)
     return value
 
 
@@ -143,7 +143,7 @@ def _resolve_bound(
     try:
         resolved = (context or EvaluationContext(resolve)).value(bound)
     except EvaluationLimitError as exc:
-        raise CommandRejectedError([WriteReason(code="evaluation_limit")]) from exc
+        raise WriteRejectedError([WriteReason(code="evaluation_limit")]) from exc
     if (
         resolved is None
         or isinstance(resolved, bool)
@@ -152,5 +152,5 @@ def _resolve_bound(
     ):
         label = f" '{bound.attribute}'" if isinstance(bound, AttributeRef) else ""
         msg = f"{what}{label} of '{attribute_name}' is unknown; write refused"
-        raise CommandRejectedError([WriteReason(code="unknown_dependencies")], msg)
+        raise WriteRejectedError([WriteReason(code="unknown_dependencies")], msg)
     return resolved

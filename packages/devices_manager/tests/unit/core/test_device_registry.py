@@ -16,8 +16,7 @@ from devices_manager.core.device.connection_status_attribute import (
     CONNECTION_STATUS_ATTR,
 )
 from devices_manager.core.device_registry import DeviceRegistry
-from models.command_rules import CommandRejectedError
-from models.errors import ConflictError, InvalidError, NotFoundError
+from models.errors import ConflictError, InvalidError, NotFoundError, WriteRejectedError
 from models.ids import gen_id
 
 if TYPE_CHECKING:
@@ -800,14 +799,14 @@ class TestDeviceRegistryWriteAttribute:
 
     @pytest.mark.asyncio
     async def test_write_attribute_not_writable(self, device_registry, device):
-        with pytest.raises(CommandRejectedError):
+        with pytest.raises(WriteRejectedError):
             await device_registry.write_attribute(device.id, "temperature", 22.0)
 
     @pytest.mark.asyncio
     async def test_write_attribute_internal_raises_permission_error(
         self, device_registry, device
     ):
-        with pytest.raises(CommandRejectedError):
+        with pytest.raises(WriteRejectedError):
             await device_registry.write_attribute(
                 device.id, CONNECTION_STATUS_ATTR, "ok"
             )

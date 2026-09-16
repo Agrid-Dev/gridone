@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from pydantic import BaseModel, Field
 
 from devices_manager.types import AttributeValueType  # noqa: TC001 -- pydantic schema
-from models.command_rules import AttributeWriteState, WriteReason
+from models.write_rules import AttributeWriteState, WriteReason
 
 from .device.write_constraints import (
     WriteConstraintPreview,  # noqa: TC001 -- schema runtime

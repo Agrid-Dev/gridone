@@ -19,19 +19,24 @@ from devices_manager.core.transports import PushTransportClient, ReadError
 from devices_manager.core.utils.templating.render import render_struct
 from devices_manager.observability.metrics import attribute_read
 from devices_manager.types import DataType
-from models.command_rules import CommandRejectedError, WriteEvaluation, WriteReason
-from models.errors import ConfirmationError, InvalidError, NotFoundError
+from models.errors import (
+    ConfirmationError,
+    InvalidError,
+    NotFoundError,
+    WriteRejectedError,
+)
 from models.expressions import MAX_DEVICE_OPERATIONS
 from models.ids import gen_id
+from models.write_rules import WriteEvaluation, WriteReason
 
 from .attribute import Attribute, AttributeKind, FaultAttribute
-from .command_expiry import CommandExpiry
-from .command_rules import evaluate_write, project_write_state
 from .command_runtime import CommandRuntime
 from .connection_status import ConnectionMonitor, EventType
 from .connection_status_attribute import CONNECTION_STATUS_ATTR, build_cs_attribute
 from .sweep_schedule import SweepSchedule, run_on_schedule
+from .trust_expiry import TrustExpiry
 from .value_mapping import encode_mapping
+from .write_rules import evaluate_write, project_write_state
 
 if TYPE_CHECKING:
     from devices_manager.core.codecs import FnCodec
@@ -160,7 +165,7 @@ class CoreDevice:
     _poll_tasks: dict[str | None, asyncio.Task[None]] = field(
         init=False, default_factory=dict, repr=False
     )
-    _command_expiry: CommandExpiry | None = field(init=False, default=None, repr=False)
+    _trust_expiry: TrustExpiry | None = field(init=False, default=None, repr=False)
     _commands: CommandRuntime = field(init=False, repr=False)
     presentation_state: dict[str, bool] = field(init=False, default_factory=dict)
     _presentation_source: object = field(init=False, default=None, repr=False)
@@ -383,11 +388,11 @@ class CoreDevice:
         self.connection_monitor.close()
         self.connection_monitor = self._new_connection_monitor()
         self.connection_monitor.watch()
-        if self._command_expiry is not None:
-            self._command_expiry.close()
+        if self._trust_expiry is not None:
+            self._trust_expiry.close()
         interval = self.expected_interval
-        self._command_expiry = (
-            CommandExpiry(
+        self._trust_expiry = (
+            TrustExpiry(
                 interval,
                 self._expire_command_context,
                 now=asyncio.get_running_loop().time,
@@ -395,8 +400,8 @@ class CoreDevice:
             if interval is not None
             else None
         )
-        if self._command_expiry is not None:
-            self._command_expiry.watch()
+        if self._trust_expiry is not None:
+            self._trust_expiry.watch()
         await self.init_listeners()
         for group_name, (interval, names) in self._polling_groups().items():
             task = self._poll_tasks.get(group_name)
@@ -426,9 +431,9 @@ class CoreDevice:
                 )
         self._poll_tasks.clear()
         self.connection_monitor.close()
-        if self._command_expiry is not None:
-            self._command_expiry.close()
-            self._command_expiry = None
+        if self._trust_expiry is not None:
+            self._trust_expiry.close()
+            self._trust_expiry = None
         self._syncing = False
         self._expire_command_context()
 
@@ -777,19 +782,19 @@ class CoreDevice:
         return self._commands.revision
 
     def _ingest_attribute(self, name: str, raw: AttributeValueType | None) -> None:
-        if self._command_expiry is not None:
-            self._command_expiry.expire_if_due()
+        if self._trust_expiry is not None:
+            self._trust_expiry.expire_if_due()
         if raw is not None and not self.driver.attributes[name].value_mapping:
             raw = self.attributes[name].ensure_type(raw)
         updates = self._commands.ingest(name, raw)
-        if self._command_expiry is not None and raw is not None:
-            self._command_expiry.record_observation()
+        if self._trust_expiry is not None and raw is not None:
+            self._trust_expiry.record_observation()
         for key, value in updates.items():
             attribute = self.attributes[key]
             self._update_attribute(attribute, value, observed=False)
         self._refresh_write_states(set(updates))
 
-    def refresh_command_contract(self) -> None:
+    def rebind_driver(self) -> None:
         """Rebind projections after a committed driver change."""
         self._commands.driver = self.driver
         self._commands.rebuild_index()
@@ -859,8 +864,8 @@ class CoreDevice:
     def evaluate_attribute_write(
         self, attribute_name: str, value: AttributeValueType
     ) -> WriteEvaluation:
-        if self._command_expiry is not None:
-            self._command_expiry.expire_if_due()
+        if self._trust_expiry is not None:
+            self._trust_expiry.expire_if_due()
         attribute = self.get_attribute(attribute_name)
         if not self.can_write(attribute_name):
             return WriteEvaluation(
@@ -892,7 +897,7 @@ class CoreDevice:
         """The universal, side-effect-free guard, also used by the direct CLI."""
         evaluation = self.evaluate_attribute_write(attribute_name, value)
         if not evaluation.eligible or evaluation.value is None:
-            raise CommandRejectedError(evaluation.reasons)
+            raise WriteRejectedError(evaluation.reasons)
         return evaluation.value
 
     async def write_attribute_value(
@@ -926,7 +931,7 @@ class CoreDevice:
         attribute = self.get_attribute(attribute_name)
         spec = self.driver.attributes[attribute_name]
         if spec.write is None:
-            raise CommandRejectedError([WriteReason(code="not_writable")])
+            raise WriteRejectedError([WriteReason(code="not_writable")])
         mapping_context = self._commands.mapping_context(attribute_name)
         code = (
             encode_mapping(
@@ -954,7 +959,7 @@ class CoreDevice:
         if confirm:
             await self._confirm_attribute_value(attribute_name, value, confirm_timeout)
             if mapping_context != self._commands.mapping_context(attribute_name):
-                raise CommandRejectedError([WriteReason(code="mapping_changed")])
+                raise WriteRejectedError([WriteReason(code="mapping_changed")])
         return attribute
 
     def __eq__(self, other: object) -> bool:

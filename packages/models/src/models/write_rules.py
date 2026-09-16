@@ -1,4 +1,4 @@
-"""Driver-authored command rules and their public, resolved results."""
+"""Driver-authored write rules and their public, resolved results."""
 
 from __future__ import annotations
 
@@ -7,7 +7,6 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from models.attribute_metadata import LocalizedText  # noqa: TC001 -- schema runtime
-from models.errors import InvalidError
 from models.expressions import MAX_LIST_ITEMS, Condition, Expression, Scalar
 
 
@@ -97,13 +96,3 @@ class WriteEvaluation(BaseModel):
     value: Scalar | None = None
     reasons: list[WriteReason] = Field(default_factory=list)
     warnings: list[WriteReason] = Field(default_factory=list)
-
-
-class CommandRejectedError(InvalidError):
-    """A public rejection carrying only authored or stable built-in diagnostics."""
-
-    def __init__(
-        self, reasons: list[WriteReason], message: str = "Command rejected"
-    ) -> None:
-        super().__init__(message)
-        self.reasons = reasons

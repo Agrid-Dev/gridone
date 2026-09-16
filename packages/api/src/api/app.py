@@ -50,10 +50,10 @@ from assets.conversion.ifc import IfcSceneConverter
 from commands import CommandsService, WriteResult
 from device_views import DeviceViewsService
 from devices_manager import DevicesService
-from models.command_rules import WriteEvaluation
 from models.errors import ConfigurationError
 from models.service import Service
 from models.types import AttributeValueType, DataType
+from models.write_rules import WriteEvaluation
 from notifications import NotificationsService
 from synoptics import SynopticsService
 from timeseries import TimeSeriesService

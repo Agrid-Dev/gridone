@@ -6,20 +6,20 @@ import pytest
 
 from devices_manager.core.conditions import EvaluationBudget, EvaluationContext
 from devices_manager.core.device import CoreDevice, DeviceBase
-from devices_manager.core.device.command_expiry import CommandExpiry
-from devices_manager.core.device.command_rules import (
-    evaluate_write,
-    project_write_state,
-)
+from devices_manager.core.device.trust_expiry import TrustExpiry
 from devices_manager.core.device.value_mapping import (
     decode_mapping,
     encode_mapping,
     project_mapping,
 )
+from devices_manager.core.device.write_rules import (
+    evaluate_write,
+    project_write_state,
+)
 from devices_manager.core.driver import AttributeDriver
-from devices_manager.core.driver.command_validation import validate_command_declarations
-from models.command_rules import CommandRejectedError, ValueMapping
-from models.errors import InvalidError
+from devices_manager.core.driver.write_validation import validate_write_declarations
+from models.errors import InvalidError, WriteRejectedError
+from models.write_rules import ValueMapping
 
 
 def spec(**fields: object):
@@ -121,7 +121,7 @@ def test_projected_mapping_agrees_with_inverse(values, policy, available):
     if available:
         assert encode_mapping(mapping, 5, EvaluationContext(values.get)) == 1
     else:
-        with pytest.raises(CommandRejectedError):
+        with pytest.raises(WriteRejectedError):
             encode_mapping(mapping, 5, EvaluationContext(values.get))
 
 
@@ -130,7 +130,7 @@ def test_reserved_and_terminated_entries_remain_readable():
     values = {"first": -1, "second": 8}
     assert decode_mapping(mapping, 0, EvaluationContext(values.get)) == 0
     assert decode_mapping(mapping, 2, EvaluationContext(values.get)) == 8
-    with pytest.raises(CommandRejectedError):
+    with pytest.raises(WriteRejectedError):
         encode_mapping(mapping, 8, EvaluationContext(values.get))
 
 
@@ -157,7 +157,7 @@ def test_full_size_table_projects_without_quadratic_evaluation():
 )
 def test_invalid_declarations_are_rejected_at_import(fields):
     with pytest.raises(InvalidError):
-        validate_command_declarations([spec(**fields)])
+        validate_write_declarations([spec(**fields)])
 
 
 def test_persisted_telemetry_is_not_known_and_defaults_are_not_observations(
@@ -196,8 +196,8 @@ def test_expiry_at_one_interval_keeps_last_displayed_sample(device):
     )
     now = 0.0
     clock = Mock(return_value=now)
-    expiry = CommandExpiry(3600, device._expire_command_context, now=clock)
-    device._command_expiry = expiry
+    expiry = TrustExpiry(3600, device._expire_command_context, now=clock)
+    device._trust_expiry = expiry
     device._ingest_attribute("temperature", 16)
     clock.return_value = now + 3599
     assert device.evaluate_attribute_write("temperature_setpoint", 22).eligible
@@ -219,7 +219,7 @@ async def test_guard_and_preview_never_read_transport(device, mock_transport_cli
     mock_transport_client.read = AsyncMock()
     mock_transport_client.write = AsyncMock()
     assert not device.evaluate_attribute_write("temperature_setpoint", 22).eligible
-    with pytest.raises(CommandRejectedError):
+    with pytest.raises(WriteRejectedError):
         await device.write_attribute_value("temperature_setpoint", 22)
     mock_transport_client.read.assert_not_called()
     mock_transport_client.write.assert_not_called()
@@ -337,7 +337,7 @@ async def test_waiting_write_revalidates_after_an_earlier_write(
     device._ingest_attribute("temperature", 25)
     finish.set()
     await first
-    with pytest.raises(CommandRejectedError):
+    with pytest.raises(WriteRejectedError):
         await second
     mock_transport_client.write.assert_awaited_once()
 
@@ -366,7 +366,7 @@ async def test_mapping_change_during_confirmation_never_reports_success(
         device._ingest_attribute("temperature_setpoint", 2)
 
     mock_transport_client.write = AsyncMock(side_effect=send)
-    with pytest.raises(CommandRejectedError) as error:
+    with pytest.raises(WriteRejectedError) as error:
         await device.write_attribute_value("temperature_setpoint", 22)
     assert error.value.reasons[0].code == "mapping_changed"
 
@@ -416,8 +416,8 @@ async def test_failed_acquisition_loses_trust_but_keeps_displayed_history(
 
 def test_observation_after_expiry_gets_a_new_bounded_knowledge_window(device):
     clock = Mock(return_value=0.0)
-    expiry = CommandExpiry(3600, device._expire_command_context, now=clock)
-    device._command_expiry = expiry
+    expiry = TrustExpiry(3600, device._expire_command_context, now=clock)
+    device._trust_expiry = expiry
     device._ingest_attribute("temperature", 16)
     clock.return_value += 3600
     expiry.expire_if_due()

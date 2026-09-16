@@ -22,10 +22,10 @@ from typing import Protocol
 from pydantic import BaseModel, ConfigDict, Field
 
 from models.attribute_metadata import LocalizedText, Unit, WriteConstraints
-from models.command_rules import AttributeWriteState
 from models.errors import InvalidError
 from models.tags import Tags
 from models.types import AttributeValueType, DataType
+from models.write_rules import AttributeWriteState
 
 
 class EmptyTargetError(InvalidError):

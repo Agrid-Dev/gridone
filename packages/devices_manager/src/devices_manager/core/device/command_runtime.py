@@ -11,11 +11,12 @@ from devices_manager.core.conditions import (
     EvaluationLimitError,
     attribute_references,
 )
-from devices_manager.core.driver.command_validation import command_references
+from devices_manager.core.driver.write_validation import write_references
 from devices_manager.core.utils.cast import cast
-from models.command_rules import CommandRejectedError, WriteReason
+from models.errors import WriteRejectedError
 from models.expressions import MAX_DEVICE_OPERATIONS
 from models.types import DataType
+from models.write_rules import WriteReason
 
 from .value_mapping import decode_mapping
 
@@ -42,7 +43,7 @@ class CommandRuntime:
         self.dependents = {}
         pending = {}
         for name, spec in self.driver.attributes.items():
-            for ref in command_references(spec):
+            for ref in write_references(spec):
                 self.dependents.setdefault(ref, set()).add(name)
             if spec.value_mapping:
                 pending[name] = attribute_references(spec.value_mapping)
@@ -137,7 +138,7 @@ class CommandRuntime:
                     )
                     continue
                 self.values[name] = cast(value, data_type)
-            except CommandRejectedError as exc:
+            except WriteRejectedError as exc:
                 self.values.pop(name, None)
                 self.resolution_errors[name] = exc.reasons[0]
             except EvaluationLimitError:

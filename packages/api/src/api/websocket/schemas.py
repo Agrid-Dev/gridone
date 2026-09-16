@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 from devices_manager.dto import Device
 from devices_manager.types import AttributeValueType
-from models.command_rules import AttributeWriteState, WriteReason
+from models.write_rules import AttributeWriteState, WriteReason
 
 
 class WebSocketMessage(BaseModel):

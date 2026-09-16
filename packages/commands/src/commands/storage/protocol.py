@@ -14,7 +14,7 @@ if TYPE_CHECKING:
         UnitCommand,
         UnitCommandCreate,
     )
-    from models.command_rules import WriteEvaluation
+    from models.write_rules import WriteEvaluation
 
 
 class CommandsStorage(Protocol):

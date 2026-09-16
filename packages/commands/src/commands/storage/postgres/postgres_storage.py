@@ -10,10 +10,10 @@ from commands.models import (
     UnitCommand,
 )
 from commands.storage.postgres.deserialize import deserialize_command_value
-from models.command_rules import WriteEvaluation
 from models.errors import NotFoundError
 from models.targets import DevicesFilter
 from models.types import DataType, SortOrder
+from models.write_rules import WriteEvaluation
 
 if TYPE_CHECKING:
     from datetime import datetime

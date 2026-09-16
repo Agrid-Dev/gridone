@@ -5,16 +5,17 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from devices_manager.core.conditions import scalar_equal
-from models.command_rules import CommandRejectedError, ResolvedOption, WriteReason
+from models.errors import WriteRejectedError
+from models.write_rules import ResolvedOption, WriteReason
 
 if TYPE_CHECKING:
     from devices_manager.core.conditions import EvaluationContext
-    from models.command_rules import ValueMapping
     from models.types import AttributeValueType
+    from models.write_rules import ValueMapping
 
 
 def _refuse(code: str) -> None:
-    raise CommandRejectedError([WriteReason(code=code)])
+    raise WriteRejectedError([WriteReason(code=code)])
 
 
 def decode_mapping(

@@ -27,8 +27,9 @@ async def test_command_composition_uses_the_guard_and_records_observations():
     from commands.models import AttributeWrite
     from devices_manager import Attribute, DevicesService
     from devices_manager.core.write_preview import DeviceWritePreview
-    from models.command_rules import CommandRejectedError, WriteReason
+    from models.errors import WriteRejectedError
     from models.types import DataType
+    from models.write_rules import WriteReason
     from timeseries import TimeSeriesService
 
     dm = MagicMock(spec=DevicesService)
@@ -64,7 +65,7 @@ async def test_command_composition_uses_the_guard_and_records_observations():
                 eligible=False,
                 reasons=[WriteReason(code="locked")],
             )
-            with pytest.raises(CommandRejectedError):
+            with pytest.raises(WriteRejectedError):
                 await service.dispatch_unit(device_id="d", write=write, user_id="u")
             assert dm.write_device_attribute.await_count == 2
     finally:

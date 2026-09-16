@@ -30,8 +30,12 @@ from devices_manager.core.driver import (
 )
 from devices_manager.core.transports.read_result import ReadError, ReadOk, ReadResult
 from devices_manager.types import ConnectionStatus, DataType, TransportProtocols
-from models.command_rules import CommandRejectedError
-from models.errors import ConfirmationError, InvalidError, NotFoundError
+from models.errors import (
+    ConfirmationError,
+    InvalidError,
+    NotFoundError,
+    WriteRejectedError,
+)
 from models.types import Severity
 
 from ..fixtures.transport_clients import MockTransportAddress
@@ -248,7 +252,7 @@ class TestDeviceWrite:
 
     @pytest.mark.asyncio
     async def test_write_value_not_writable(self, device: CoreDevice):
-        with pytest.raises(CommandRejectedError) as rejected:
+        with pytest.raises(WriteRejectedError) as rejected:
             await device.write_attribute_value("humidity", 12)
         assert rejected.value.reasons[0].code == "not_writable"
 
@@ -1296,7 +1300,7 @@ class TestDeviceWriteConstraints:
     async def test_violating_write_is_refused_before_transport(
         self, constrained_device: CoreDevice, mock_transport_client, value, reason
     ):
-        with pytest.raises(CommandRejectedError) as rejected:
+        with pytest.raises(WriteRejectedError) as rejected:
             await constrained_device.write_attribute_value(
                 "temperature_setpoint", value, confirm=False
             )
@@ -1325,11 +1329,11 @@ class TestDeviceWriteConstraints:
     ):
         await constrained_device.write_attribute_value("fan_speed", 3, confirm=False)
         mock_transport_client.write.assert_called_once()
-        with pytest.raises(CommandRejectedError):
+        with pytest.raises(WriteRejectedError):
             await constrained_device.write_attribute_value(
                 "fan_speed", 4, confirm=False
             )
-        with pytest.raises(CommandRejectedError):
+        with pytest.raises(WriteRejectedError):
             await constrained_device.write_attribute_value(
                 "fan_speed", -1, confirm=False
             )
@@ -1345,7 +1349,7 @@ class TestDeviceWriteConstraints:
             driver=constrained_driver,
             transport=mock_transport_client,
         )
-        with pytest.raises(CommandRejectedError) as rejected:
+        with pytest.raises(WriteRejectedError) as rejected:
             await device.write_attribute_value(
                 "temperature_setpoint", 21.5, confirm=False
             )
@@ -1362,7 +1366,7 @@ class TestDeviceWriteConstraints:
         constrained_device._update_attribute(  # noqa: SLF001 -- observed update
             constrained_device.attributes["temperature_setpoint_max"], 24.0
         )
-        with pytest.raises(CommandRejectedError):
+        with pytest.raises(WriteRejectedError):
             await constrained_device.write_attribute_value(
                 "temperature_setpoint", 25.0, confirm=False
             )

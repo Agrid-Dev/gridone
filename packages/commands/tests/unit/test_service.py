@@ -16,17 +16,18 @@ from commands.models import (
     WriteResult,
 )
 from commands.service import CommandsService
-from models.command_rules import CommandRejectedError, WriteEvaluation, WriteReason
 from models.errors import (
     InvalidError,
     NotFoundError,
     StorageConnectionError,
     UnsupportedStorageError,
+    WriteRejectedError,
 )
 from models.pagination import PaginationParams
 from models.service import Service
 from models.targets import AttributeTarget, DevicesFilter, ResolvedTarget
 from models.types import DataType
+from models.write_rules import WriteEvaluation, WriteReason
 
 pytestmark = pytest.mark.asyncio
 
@@ -903,7 +904,7 @@ class TestDeclarativeCommandValidation:
         service._command_validator = lambda *_: WriteEvaluation(  # noqa: SLF001
             eligible=False, reasons=[WriteReason(code="locked")]
         )
-        with pytest.raises(CommandRejectedError):
+        with pytest.raises(WriteRejectedError):
             await service.dispatch_unit(device_id="d1", write=MODE_AUTO, user_id="user")
         (command,) = (await service.get_commands()).items
         assert command.status == CommandStatus.ERROR
@@ -916,10 +917,10 @@ class TestDeclarativeCommandValidation:
     async def test_last_moment_guard_failure_keeps_structured_reason(
         self, service, device_writer
     ):
-        device_writer.side_effect = CommandRejectedError(
+        device_writer.side_effect = WriteRejectedError(
             [WriteReason(code="unknown_dependencies")]
         )
-        with pytest.raises(CommandRejectedError):
+        with pytest.raises(WriteRejectedError):
             await service.dispatch_unit(device_id="d1", write=MODE_AUTO, user_id="user")
         (command,) = (await service.get_commands()).items
         assert command.status == CommandStatus.ERROR

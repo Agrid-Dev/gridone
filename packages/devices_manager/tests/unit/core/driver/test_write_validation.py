@@ -4,11 +4,11 @@ import pytest
 from pydantic import ValidationError
 
 from devices_manager.core.driver import AttributeDriver
-from devices_manager.core.driver.command_validation import (
-    rename_command_references,
-    validate_command_declarations,
-)
 from devices_manager.core.driver.driver import attributes_referencing
+from devices_manager.core.driver.write_validation import (
+    rename_write_references,
+    validate_write_declarations,
+)
 from models.errors import InvalidError
 
 
@@ -74,7 +74,7 @@ def rule(condition):
 )
 def test_invalid_driver_declaration_reports_a_problem(fields):
     with pytest.raises((InvalidError, ValidationError)):
-        validate_command_declarations([attribute(**fields)])
+        validate_write_declarations([attribute(**fields)])
 
 
 @pytest.mark.parametrize(
@@ -100,7 +100,7 @@ def test_invalid_driver_declaration_reports_a_problem(fields):
     ],
 )
 def test_typed_candidate_conditions_are_valid_at_import(condition):
-    validate_command_declarations(
+    validate_write_declarations(
         [attribute(write_rules=[rule(condition)]), attribute(name="floor")]
     )
 
@@ -129,10 +129,10 @@ def test_conditional_mapping_and_options_validate_and_follow_renames():
     floor = attribute(
         name="floor", write_constraints={"minimum": {"attribute": "target"}}
     )
-    validate_command_declarations([target, floor])
+    validate_write_declarations([target, floor])
     assert attributes_referencing([target, floor], "floor") == [target]
-    renamed = rename_command_references(target, "floor", "lower")
-    validate_command_declarations([renamed, attribute(name="lower")])
+    renamed = rename_write_references(target, "floor", "lower")
+    validate_write_declarations([renamed, attribute(name="lower")])
     assert not attributes_referencing([renamed], "floor")
     assert attributes_referencing([renamed], "lower") == [renamed]
 
@@ -142,7 +142,7 @@ def test_expression_depth_is_checked_before_evaluation():
     for _ in range(17):
         expression = {"op": "add", "args": [expression, 1]}
     with pytest.raises(InvalidError, match="depth budget"):
-        validate_command_declarations(
+        validate_write_declarations(
             [
                 attribute(write_constraints={"minimum": expression}),
                 attribute(name="floor"),
@@ -153,6 +153,6 @@ def test_expression_depth_is_checked_before_evaluation():
 def test_declaration_budget_cannot_be_raised_by_a_driver():
     condition = {"op": "in", "value": {"candidate": True}, "values": list(range(256))}
     with pytest.raises(InvalidError, match="operation budget"):
-        validate_command_declarations(
+        validate_write_declarations(
             [attribute(write_rules=[rule(condition) for _ in range(64)])]
         )

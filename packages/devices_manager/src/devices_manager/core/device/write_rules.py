@@ -1,4 +1,4 @@
-"""Command evaluation and UI projections share one attribute contract."""
+"""Write evaluation and UI projections share one attribute contract."""
 
 from __future__ import annotations
 
@@ -12,14 +12,14 @@ from devices_manager.core.conditions import (
     scalar_equal,
     uses_candidate,
 )
-from models.command_rules import (
+from models.errors import WriteRejectedError
+from models.types import DataType
+from models.write_rules import (
     AttributeWriteState,
-    CommandRejectedError,
     ResolvedOption,
     WriteEvaluation,
     WriteReason,
 )
-from models.types import DataType
 
 from .value_mapping import encode_mapping, project_mapping
 from .write_constraints import check_write_constraints, preview_write_constraints
@@ -48,11 +48,11 @@ def _check_options(
             (o for o in spec.write_options if scalar_equal(o.value, value)), None
         )
         if option is None:
-            raise CommandRejectedError([WriteReason(code="invalid_option")])
+            raise WriteRejectedError([WriteReason(code="invalid_option")])
         if option.allowed_when:
             allowed = context.condition(option.allowed_when)
             if allowed is not True:
-                raise CommandRejectedError(
+                raise WriteRejectedError(
                     [
                         option.reason
                         or WriteReason(
@@ -64,7 +64,7 @@ def _check_options(
                 )
     elif not spec.value_mapping and spec.value_options is not None:
         if not any(scalar_equal(value, option) for option in spec.value_options):
-            raise CommandRejectedError([WriteReason(code="invalid_option")])
+            raise WriteRejectedError([WriteReason(code="invalid_option")])
     if spec.value_mapping and not mapping_checked:
         encode_mapping(spec.value_mapping, value, context)
 
@@ -98,7 +98,7 @@ def evaluate_write(
         check_write_constraints(spec, value, resolve, context=context)
         _check_options(spec, value, context, mapping_checked=mapping_checked)
         _evaluate_rules(spec, context, result)
-    except CommandRejectedError as exc:
+    except WriteRejectedError as exc:
         result.reasons.extend(exc.reasons)
     except EvaluationLimitError:
         result.reasons.append(WriteReason(code="evaluation_limit"))

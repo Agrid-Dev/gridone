@@ -12,7 +12,7 @@ from fixtures.config import HTTP_PORT
 from thermocktat_client import ThermocktatAsync
 
 from devices_manager.core.device import CoreDevice, DeviceBase, FaultAttribute
-from models.command_rules import CommandRejectedError
+from models.errors import WriteRejectedError
 
 
 @pytest_asyncio.fixture
@@ -78,7 +78,7 @@ async def test_write_attribute_invalid_value(
     attribute: str,
     invalid_value,
 ):
-    with pytest.raises(CommandRejectedError) as rejected:
+    with pytest.raises(WriteRejectedError) as rejected:
         await mqtt_device.write_attribute_value(attribute, invalid_value)
     assert rejected.value.reasons[0].code == "invalid_value"
 

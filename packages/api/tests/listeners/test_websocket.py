@@ -81,7 +81,7 @@ async def test_full_update_broadcast_preserves_presentation_reference():
 
 async def test_write_state_event_carries_resolution_without_a_measurement():
     from api.listeners.websocket import broadcast_write_state
-    from models.command_rules import AttributeWriteState, WriteReason
+    from models.write_rules import AttributeWriteState, WriteReason
 
     device = _make_device()
     device.write_state_revision = 3

@@ -369,7 +369,7 @@ class DeviceRegistry:
         devices = self._devices_for_driver(driver.id)
         for device in devices:
             device.driver = driver
-            device.refresh_command_contract()
+            device.rebind_driver()
         return devices
 
     def prepare_driver_devices(self, driver: Driver) -> list[CoreDevice]:

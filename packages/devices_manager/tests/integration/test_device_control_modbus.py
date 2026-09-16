@@ -8,7 +8,7 @@ from devices_manager.core.transports import (
     make_transport_config,
 )
 from devices_manager.types import TransportProtocols
-from models.command_rules import CommandRejectedError
+from models.errors import WriteRejectedError
 
 
 @pytest.fixture(params=["single", "multi"])
@@ -83,6 +83,6 @@ async def test_write_attribute_invalid_value(
 ):
     if attribute not in device.attributes:
         pytest.skip("Attribute not supported by this driver variant")
-    with pytest.raises(CommandRejectedError) as rejected:
+    with pytest.raises(WriteRejectedError) as rejected:
         await device.write_attribute_value(attribute, invalid_value)
     assert rejected.value.reasons[0].code == "invalid_value"

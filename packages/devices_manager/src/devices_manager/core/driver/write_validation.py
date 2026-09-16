@@ -1,4 +1,4 @@
-"""Import-time validation and reference maintenance for command declarations."""
+"""Import-time validation and reference maintenance for write declarations."""
 
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 
     from .attribute_driver import AttributeDriver
 
-COMMAND_FIELDS = ("write_constraints", "write_rules", "write_options", "value_mapping")
+WRITE_FIELDS = ("write_constraints", "write_rules", "write_options", "value_mapping")
 _TYPE_NAMES = {
     DataType.INT: "number",
     DataType.FLOAT: "number",
@@ -38,19 +38,19 @@ _TYPE_NAMES = {
 }
 
 
-def command_references(attribute: AttributeDriver) -> set[str]:
+def write_references(attribute: AttributeDriver) -> set[str]:
     return set().union(
-        *(attribute_references(getattr(attribute, key)) for key in COMMAND_FIELDS)
+        *(attribute_references(getattr(attribute, key)) for key in WRITE_FIELDS)
     )
 
 
-def rename_command_references(
+def rename_write_references(
     attribute: AttributeDriver, old: str, new: str
 ) -> AttributeDriver:
     return attribute.model_copy(
         update={
             key: rename_references(getattr(attribute, key), old, new)
-            for key in COMMAND_FIELDS
+            for key in WRITE_FIELDS
         }
     )
 
@@ -133,7 +133,7 @@ def _infer_condition(
     return "bool"
 
 
-def validate_command_declarations(attributes: Iterable[AttributeDriver]) -> None:
+def validate_write_declarations(attributes: Iterable[AttributeDriver]) -> None:
     """Validate scalar references; only value-computation edges form a DAG.
 
     Reciprocal guards (low <= high and high >= low) read observations and
@@ -146,7 +146,7 @@ def validate_command_declarations(attributes: Iterable[AttributeDriver]) -> None
     for name, attribute in by_name.items():
         cost = sum(
             sum(1 for _ in expression_nodes(getattr(attribute, key)))
-            for key in COMMAND_FIELDS
+            for key in WRITE_FIELDS
         )
         operations += cost
         if cost > MAX_ATTRIBUTE_OPERATIONS or operations > MAX_DEVICE_OPERATIONS:

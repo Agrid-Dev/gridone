@@ -26,11 +26,11 @@ from devices_manager.core.driver import (
 from devices_manager.core.presentation import PresentationEnvelope
 from devices_manager.core.transports import RawTransportAddress
 from devices_manager.types import AttributeValueType, TransportProtocols
-from models.command_rules import ValueMapping, WriteOption, WriteRule
 from models.errors import InvalidError
 from models.expressions import MAX_LIST_ITEMS, MAX_RULES, Scalar
 from models.metadata import ResourceMetadata
 from models.types import Severity
+from models.write_rules import ValueMapping, WriteOption, WriteRule
 from models.yaml_loader import BoundedYamlError, load_bounded_yaml
 
 # The wire shape of a driver attribute is the core discriminated union

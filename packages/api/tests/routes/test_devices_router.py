@@ -30,11 +30,16 @@ from devices_manager.core.device.connection_status_attribute import (
 from devices_manager.dto.device_dto import Device
 from devices_manager.types import ConnectionStatus, DataType
 from models.attribute_metadata import LocalizedText
-from models.command_rules import CommandRejectedError, WriteReason
-from models.errors import ConfirmationError, InvalidError, NotFoundError
+from models.errors import (
+    ConfirmationError,
+    InvalidError,
+    NotFoundError,
+    WriteRejectedError,
+)
 from models.pagination import Page, PaginationParams
 from models.targets import DevicesFilter
 from models.types import SortOrder
+from models.write_rules import WriteReason
 
 # ---------------------------------------------------------------------------
 # Shared device fixtures
@@ -1077,7 +1082,7 @@ class TestDispatchSingleCommand:
         self, async_client: AsyncClient, mock_commands_service: AsyncMock
     ):
         # The command service records the rejected submission before re-raising.
-        mock_commands_service.dispatch_unit.side_effect = CommandRejectedError(
+        mock_commands_service.dispatch_unit.side_effect = WriteRejectedError(
             [WriteReason(code="not_writable")]
         )
         async with async_client as ac:
@@ -1822,7 +1827,7 @@ def test_command_preview_is_read_only_and_returns_public_reasons(
 
 
 def test_rejection_hides_internal_messages(client, mock_commands_service):
-    mock_commands_service.dispatch_unit.side_effect = CommandRejectedError(
+    mock_commands_service.dispatch_unit.side_effect = WriteRejectedError(
         [WriteReason(code="locked")], "/private/internal/path"
     )
     response = client.post(
@@ -1837,7 +1842,7 @@ def test_rejection_hides_internal_messages(client, mock_commands_service):
 
 
 def test_attribute_coverage_combines_server_options_and_only_common_limits(client, dm):
-    from models.command_rules import (
+    from models.write_rules import (
         AttributeWriteState,
         ResolvedConstraints,
         ResolvedOption,

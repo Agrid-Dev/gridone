@@ -11,7 +11,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from models.command_rules import AttributeWriteState, ResolvedOption
 from models.errors import InvalidError
 from models.targets import (
     AttributeCoverage,
@@ -21,6 +20,7 @@ from models.targets import (
     ResolvedTarget,
     unify_data_types,
 )
+from models.write_rules import AttributeWriteState, ResolvedOption
 
 if TYPE_CHECKING:
     from collections.abc import Iterable

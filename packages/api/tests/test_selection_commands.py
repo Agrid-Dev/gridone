@@ -302,7 +302,7 @@ async def test_display_and_live_value_changes_preserve_preview(context):
 
 
 async def test_changed_warning_requires_a_new_preview(context):
-    from models.command_rules import WriteReason
+    from models.write_rules import WriteReason
 
     coordinator, dm, commands, _ = context
     preview = prepare(coordinator)
