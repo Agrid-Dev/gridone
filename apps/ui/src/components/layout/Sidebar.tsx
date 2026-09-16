@@ -10,6 +10,7 @@ import {
   Puzzle,
   TriangleAlert,
   Users,
+  Waypoints,
   Zap,
 } from "lucide-react";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
@@ -110,6 +111,11 @@ export function Sidebar() {
               {t("app.dashboards")}
             </NavLink>
           )}
+
+          <NavLink to="/synoptics" className={navLinkClass}>
+            <Waypoints className="h-4 w-4" />
+            {t("app.synoptics")}
+          </NavLink>
 
           <NavLink to="/devices" className={navLinkClass}>
             <Cpu className="h-4 w-4" />

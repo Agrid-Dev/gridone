@@ -14,6 +14,7 @@ import BuildingProfileEdit from "./pages/building/BuildingProfileEdit";
 import LoginPage from "./pages/login/LoginPage";
 import UsersPage from "./pages/users/UsersPage";
 import SettingsPage from "./pages/settings/SettingsPage";
+import Synoptics from "./pages/synoptics";
 import { NotFoundFallback } from "./components/fallbacks/NotFound";
 import { Sidebar } from "./components/layout/Sidebar";
 import { TopBar } from "./components/layout/TopBar";
@@ -49,6 +50,7 @@ function ProtectedLayout() {
               {dashboardsEnabled && (
                 <Route path="/dashboards/*" element={<Dashboards />} />
               )}
+              <Route path="/synoptics/*" element={<Synoptics />} />
               <Route path="/assets/*" element={<Assets />} />
               <Route path="/devices/*" element={<Devices />} />
               <Route path="/drivers/*" element={<Drivers />} />

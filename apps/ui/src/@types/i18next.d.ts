@@ -11,6 +11,7 @@ import type faults from "../locales/en/faults.json";
 import type home from "../locales/en/home.json";
 import type notifications from "../locales/en/notifications.json";
 import type standardDevices from "../locales/en/standardDevices.json";
+import type synoptics from "../locales/en/synoptics.json";
 import type transports from "../locales/en/transports.json";
 import type users from "../locales/en/users.json";
 
@@ -31,6 +32,7 @@ declare module "i18next" {
       home: typeof home;
       notifications: typeof notifications;
       standardDevices: typeof standardDevices;
+      synoptics: typeof synoptics;
       profile: typeof profile;
     };
   }

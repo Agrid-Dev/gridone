@@ -1,0 +1,15 @@
+{
+  "title": "Synoptiques",
+  "caption": "Schémas d'installation en direct : cliquez un équipement pour l'ouvrir, un lien pour changer de vue.",
+  "resourceName": "synoptique",
+  "emptyTitle": "Aucun synoptique pour le moment.",
+  "emptyDescription": "Les vues sont créées via l'API et apparaissent ici une fois enregistrées.",
+  "panel": {
+    "label": "Appareil sélectionné",
+    "close": "Fermer le panneau"
+  },
+  "faults": {
+    "title": "Défauts sur cette vue",
+    "none": "Aucun défaut actif sur les appareils de cette vue."
+  }
+}
