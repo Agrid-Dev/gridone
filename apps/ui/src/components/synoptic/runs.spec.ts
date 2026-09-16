@@ -133,6 +133,8 @@ describe("runPieces", () => {
 
   it("gives each cell its half-segments in and out, meeting at its centre", () => {
     const pieces = runPieces("flat", pipe(cellA, cellB), SYMBOLS);
+    // The last cell of a run ending in the open keeps only its half in,
+    // so the arrow has a 24 px segment to sit on.
     expect(pieces.map((p) => p.points)).toEqual([
       [
         { x: 24, y: 24 },
@@ -141,7 +143,6 @@ describe("runPieces", () => {
       ],
       [
         { x: 48, y: 24 },
-        { x: 72, y: 24 },
         { x: 72, y: 24 },
       ],
     ]);
@@ -336,12 +337,36 @@ describe("runPieces", () => {
   });
 
   it("gives a vertical cell the plan direction of the run it belongs to", () => {
-    const pieces = runPieces(
+    // A riser at the end of a run along +y keeps +y, not the +x default.
+    const riser = runPieces(
+      "isometric",
+      pipe(cellA, { kind: "cell", cell: { x: 0, y: 2, z: 1 } }, [
+        { x: 0, y: 2 },
+      ]),
+      SYMBOLS,
+    );
+    expect(riser.map((p) => p.direction)).toEqual([
+      { x: 0, y: 1 },
+      { x: 0, y: 1 },
+      { x: 0, y: 1 },
+      { x: 0, y: 1 },
+    ]);
+    // A run that climbs first takes the direction it goes on to.
+    const climb = runPieces(
+      "isometric",
+      pipe(cellA, { kind: "cell", cell: { x: 0, y: 2, z: 1 } }, [
+        { x: 0, y: 0, z: 1 },
+      ]),
+      SYMBOLS,
+    );
+    expect(climb[0].direction).toEqual({ x: 0, y: 1 });
+    // A bare riser has no plan direction at all: +x by convention.
+    const bare = runPieces(
       "isometric",
       pipe(cellA, { kind: "cell", cell: { x: 0, y: 0, z: 1 } }),
       SYMBOLS,
     );
-    expect(pieces.map((p) => p.direction)).toEqual([
+    expect(bare.map((p) => p.direction)).toEqual([
       { x: 1, y: 0 },
       { x: 1, y: 0 },
     ]);
@@ -351,7 +376,6 @@ describe("runPieces", () => {
     const pieces = runPieces("flat", pipe(cellA, cellA), SYMBOLS);
     expect(pieces).toHaveLength(1);
     expect(pieces[0].points).toEqual([
-      { x: 24, y: 24 },
       { x: 24, y: 24 },
       { x: 24, y: 24 },
     ]);

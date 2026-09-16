@@ -208,6 +208,33 @@ describe("useSynopticValues", () => {
     expect(mockGet).not.toHaveBeenCalled();
   });
 
+  it("lists the plate once even when a filter resolves to a device no symbol names", async () => {
+    const pump = { ...PAC, id: "PUMP-1", is_faulty: false };
+    mockList.mockImplementation((params: { ids?: string[]; type?: string[] }) =>
+      Promise.resolve(
+        params.ids
+          ? params.ids.map((id) =>
+              id === "PAC-03"
+                ? PAC
+                : id === "PUMP-1"
+                  ? pump
+                  : { id, attributes: {} },
+            )
+          : [pump],
+      ),
+    );
+    const { rendered } = setup();
+    await waitFor(() =>
+      expect(rendered.result.current.slots["pipe.supply.flow"].raw).toBe(true),
+    );
+    // The filter query, then one plate list that already carries PUMP-1.
+    expect(mockList).toHaveBeenCalledTimes(2);
+    expect(mockList).toHaveBeenLastCalledWith({
+      ids: ["PAC-03", "B-01", "PUMP-1"],
+    });
+    expect(rendered.result.current.faultyDevices["PUMP-1"]).toBe(false);
+  });
+
   it("never fetches a device the list does not return", async () => {
     mockList.mockImplementation((params: { ids?: string[] }) =>
       Promise.resolve(params.ids ? [PAC] : [PAC]),
@@ -251,8 +278,9 @@ describe("useSynopticValues", () => {
       });
     });
     await waitFor(() =>
+      // The labels name only `true`, so a false reads silent with its raw.
       expect(rendered.result.current.slots["symbol.pac.state"]).toEqual({
-        text: "false",
+        text: null,
         unit: null,
         raw: false,
         stale: false,

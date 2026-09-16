@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   boundSlots,
   formatReading,
+  truthOf,
   isStale,
   readingState,
   targetDeviceId,
@@ -114,16 +115,40 @@ describe("targetDeviceId", () => {
 describe("formatReading", () => {
   it.each([
     [slot("s", { labels: { true: "MARCHE" } }), true, "MARCHE", null],
-    [slot("s", { labels: { true: "MARCHE" } }), false, "false", null],
+    // A boolean the labels do not name is silent, not the word `false`.
+    [slot("s", { labels: { true: "MARCHE" } }), false, null, null],
+    [slot("s"), true, null, null],
     [slot("t", { unit: "°C", decimals: 1 }), 52.37, "52.4", "°C"],
     [slot("t", { unit: "°C", decimals: 0 }), 52.37, "52", "°C"],
     [slot("t", { decimals: 2 }), 7, "7.00", null],
     [slot("t", { unit: "kW" }), 3.14159, "3.14159", "kW"],
+    // A scaled register without decimals keeps six significant digits.
+    [slot("t", { unit: "°C" }), 52.900000000000006, "52.9", "°C"],
+    [slot("t"), 1234567.891, "1234570", null],
     [slot("t"), 42, "42", null],
     [slot("m"), "auto", "auto", null],
     [slot("n", { labels: { "2": "ECO" }, unit: "x" }), 2, "ECO", null],
   ])("formats %j with %j as %s %s", (s, raw, text, unit) => {
     expect(formatReading(s, raw)).toEqual({ text, unit });
+  });
+});
+
+describe("truthOf", () => {
+  it.each([
+    [true, true],
+    [false, false],
+    [1, true],
+    [0, false],
+    ["1", true],
+    ["0", false],
+    ["true", true],
+    ["OFF", false],
+    [" on ", true],
+    [2, undefined],
+    ["auto", undefined],
+    [null, undefined],
+  ])("reads %j as %s", (raw, expected) => {
+    expect(truthOf(raw)).toBe(expected);
   });
 });
 

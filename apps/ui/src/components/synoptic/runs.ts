@@ -26,17 +26,15 @@ function portAnchor(
   if (!symbol) return null;
   const { cell, kind } = symbol.placement;
   const rotation = kind === "cell" ? (symbol.placement.rotation ?? 0) : 0;
-  try {
-    return symbolPort(
+  return (
+    symbolPort(
       symbol.type,
       cell,
       rotation,
       endpoint.port,
       symbol.props as CollectorProps | undefined,
-    );
-  } catch {
-    return { cell, side: null };
-  }
+    ) ?? { cell, side: null }
+  );
 }
 
 /** The cell an endpoint lands on: a port's cell, a free cell, or the cell
@@ -129,7 +127,9 @@ export function runCells(polyline: Cell[]): Cell[] {
 }
 
 /** One cell's share of a run: the screen points of its half-segments in
- *  and out, meeting at the cell's centre on the pipe axis. */
+ *  and out, meeting at the cell's centre on the pipe axis; `points[1]` is
+ *  that centre. The last cell of a run that does not end on a port has
+ *  only the half in, ending at the centre. */
 export type RunPiece = {
   cell: Cell;
   points: Pt[];
@@ -195,18 +195,27 @@ export function runPieces(
       y: face.y + (centres[i].y - face.y) * 2 * r,
     };
   };
+  // The plan direction through cell `i`: the step it leaves by, else the
+  // last plan step the run made before it (a riser keeps the direction of
+  // the run it rises from), else the first one after it.
+  const planSteps = cells.map((c, i) =>
+    i < n - 1 ? planStep(c, cells[i + 1]) : { x: 0, y: 0 },
+  );
+  const isPlan = (d: Pt) => d.x !== 0 || d.y !== 0;
+  const directionAt = (i: number): Pt => {
+    for (let k = i; k >= 0; k--) if (isPlan(planSteps[k])) return planSteps[k];
+    for (let k = i + 1; k < n; k++)
+      if (isPlan(planSteps[k])) return planSteps[k];
+    return { x: 1, y: 0 };
+  };
   const pieces = cells.map((cell, i) => {
     let entry = i === 0 ? centres[0] : midpoint(centres[i - 1], centres[i]);
-    let exit = i === n - 1 ? centres[i] : midpoint(centres[i], centres[i + 1]);
     if (i === 1 && fromReach !== null) entry = inFrom(0, 1, fromReach);
-    if (i === n - 2 && toReach !== null) exit = inFrom(n - 1, n - 2, toReach);
-    const step =
-      i < n - 1
-        ? planStep(cell, cells[i + 1])
-        : i > 0
-          ? planStep(cells[i - 1], cell)
-          : { x: 1, y: 0 };
-    const direction = step.x === 0 && step.y === 0 ? { x: 1, y: 0 } : step;
+    const exit =
+      i === n - 2 && toReach !== null
+        ? inFrom(n - 1, n - 2, toReach)
+        : midpoint(centres[i], centres[i + 1] ?? centres[i]);
+    const direction = directionAt(i);
     if (i === 0 && fromReach !== null) {
       const start = inFrom(0, 1, fromReach);
       return {
@@ -225,6 +234,9 @@ export function runPieces(
         stub: true,
       };
     }
+    // A run ending in the open or on a tee stops at the cell centre with a
+    // half segment behind it, so the arrow has somewhere to sit.
+    if (i === n - 1) return { cell, points: [entry, centres[i]], direction };
     return { cell, points: [entry, centres[i], exit], direction };
   });
   if (n === 2 && fromReach !== null && toReach !== null) {

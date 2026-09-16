@@ -34,6 +34,7 @@ import {
   labelSlotKey,
   symbolSlotKey,
   tagSlotKey,
+  truthOf,
   type SlotReading,
   type SynopticValues,
 } from "./values";
@@ -95,14 +96,11 @@ const slotLabel = (slot: string) => slot.replace(/_/g, " ");
 
 /** The run state a symbol shows: none once the reading is old, since a
  *  stale MARCHE is not a running machine. */
-const stateOf = (reading: SlotReading | undefined): SymbolState | undefined =>
-  !reading || reading.stale
-    ? undefined
-    : reading.raw === true
-      ? "on"
-      : reading.raw === false
-        ? "off"
-        : undefined;
+const stateOf = (reading: SlotReading | undefined): SymbolState | undefined => {
+  if (!reading || reading.stale) return undefined;
+  const on = truthOf(reading.raw);
+  return on === undefined ? undefined : on ? "on" : "off";
+};
 
 /**
  * Turns a stored document into the depth-ordered items of a plate. Symbols
@@ -114,7 +112,13 @@ export function SynopticRenderer({
   doc,
   values = EMPTY_VALUES,
 }: SynopticRendererProps) {
-  const { items, box } = useMemo(() => buildPlate(doc, values), [doc, values]);
+  // The geometry (runs cut per cell, bodies, what they occupy) depends on
+  // the document alone, so a value tick only binds readings to it.
+  const geometry = useMemo(() => plateGeometry(doc), [doc]);
+  const { items, box } = useMemo(
+    () => buildPlate(geometry, values),
+    [geometry, values],
+  );
   return (
     <PidDiagram
       width={box.x1 - box.x0 + 2 * MARGIN}
@@ -144,22 +148,77 @@ const overlaps = (a: Box, b: Box) =>
 
 const cellKey = (x: number, y: number) => `${x},${y}`;
 
-/** Everything the element builders share while a plate is assembled. */
-type Plate = {
+/** What a document alone decides: the runs cut per cell, every body's
+ *  screen corners and box, the cells bodies with height stand on, and the
+ *  boxes runs occupy. Computed once per document and shared by every value
+ *  tick. */
+type Geometry = {
   projection: Projection;
   symbols: Map<string, SymbolElement>;
   pipes: PipeElement[];
+  labels: LabelElement[];
+  pieces: Map<string, RunPiece[]>;
+  corners: Map<string, Pt[]>;
+  bodies: Map<string, Box>;
+  bodyCells: Set<string>;
+  runs: Box[];
+};
+
+/** Everything the element builders share while a plate is assembled. */
+type Plate = Geometry & {
   values: SynopticValues;
   items: DepthItem[];
   extent: Pt[];
-  /** What a chip or panel must keep clear of: every body and bar, every
-   *  inline glyph, then each tag and readout as it is placed. */
+  /** What a chip or panel must keep clear of: every body, bar, inline
+   *  glyph and run, then each tag and readout as it is placed. */
   obstacles: Box[];
-  /** Cells a body with height stands on: a chip rising over one hangs
-   *  below its run instead. */
-  bodyCells: Set<string>;
-  pieces: Map<string, RunPiece[]>;
 };
+
+/** Half the width a run occupies on screen, casing included. */
+const RUN_HALF_WIDTH = 4;
+
+function plateGeometry(doc: Synoptic): Geometry {
+  const projection = doc.projection ?? "isometric";
+  const symbols = new Map((doc.symbols ?? []).map((s) => [s.id, s]));
+  const pipes = doc.pipes ?? [];
+  const pieces = new Map(
+    pipes.map((pipe) => [pipe.id, runPieces(projection, pipe, symbols)]),
+  );
+  const corners = new Map(
+    [...symbols.values()].map((s) => [s.id, symbolCorners(projection, s)]),
+  );
+  const bodies = new Map(
+    [...corners].map(([id, points]) => [id, bounds(points)]),
+  );
+  const bodyCells = new Set<string>();
+  for (const symbol of symbols.values()) {
+    if (symbol.placement.kind === "cell" && DRAWINGS[symbol.type]?.height) {
+      for (const cell of footprintCells(symbol)) {
+        bodyCells.add(cellKey(cell.x, cell.y));
+      }
+    }
+  }
+  const runs = [...pieces.values()].flat().map((piece) => {
+    const b = bounds(piece.points);
+    return {
+      x0: b.x0 - RUN_HALF_WIDTH,
+      y0: b.y0 - RUN_HALF_WIDTH,
+      x1: b.x1 + RUN_HALF_WIDTH,
+      y1: b.y1 + RUN_HALF_WIDTH,
+    };
+  });
+  return {
+    projection,
+    symbols,
+    pipes,
+    labels: doc.labels ?? [],
+    pieces,
+    corners,
+    bodies,
+    bodyCells,
+    runs,
+  };
+}
 
 const reading = (plate: Plate, key: string, value: SlotValue) =>
   readingOf(plate.values, key, value);
@@ -170,22 +229,17 @@ function place(plate: Plate, box: Box) {
   plate.extent.push({ x: box.x0, y: box.y0 }, { x: box.x1, y: box.y1 });
 }
 
-function buildPlate(doc: Synoptic, values: SynopticValues) {
+function buildPlate(geometry: Geometry, values: SynopticValues) {
   const plate: Plate = {
-    projection: doc.projection ?? "isometric",
-    symbols: new Map((doc.symbols ?? []).map((s) => [s.id, s])),
-    pipes: doc.pipes ?? [],
+    ...geometry,
     values,
     items: [],
-    extent: [],
-    obstacles: [],
-    bodyCells: new Set(),
-    pieces: new Map(),
+    extent: [...geometry.corners.values()].flat(),
+    obstacles: [...geometry.bodies.values(), ...geometry.runs],
   };
-  addBodies(plate);
   addRuns(plate);
   addSymbols(plate);
-  addLabels(plate, doc.labels ?? []);
+  addLabels(plate, geometry.labels);
   const { items, extent } = plate;
   return {
     items,
@@ -193,31 +247,12 @@ function buildPlate(doc: Synoptic, values: SynopticValues) {
   };
 }
 
-/** Every body and bar as an obstacle and part of the extent, and the cells
- *  the bodies with height stand on. */
-function addBodies(plate: Plate) {
-  const { projection, symbols, obstacles, extent, bodyCells } = plate;
-
-  for (const symbol of symbols.values()) {
-    const corners = symbolCorners(projection, symbol);
-    obstacles.push(bounds(corners));
-    extent.push(...corners);
-    if (symbol.placement.kind === "cell" && DRAWINGS[symbol.type]?.height) {
-      for (const cell of footprintCells(symbol)) {
-        bodyCells.add(cellKey(cell.x, cell.y));
-      }
-    }
-  }
-}
-
 /** Each run cut per cell, with its arrow, tee discs and tags. */
 function addRuns(plate: Plate) {
-  const { projection, symbols, pipes, items, extent, bodyCells, pieces } =
-    plate;
+  const { projection, pipes, items, extent, bodyCells, pieces } = plate;
 
   for (const pipe of pipes) {
-    const run = runPieces(projection, pipe, symbols);
-    pieces.set(pipe.id, run);
+    const run = pieces.get(pipe.id)!;
     const flow = pipe.flow && reading(plate, flowSlotKey(pipe.id), pipe.flow);
     const flowing = !!flow && !flow.stale && flow.raw === true;
     let arrowAt = run.length - 1;
@@ -319,8 +354,7 @@ function addRuns(plate: Plate) {
 /** Each symbol at its cell, with its readout: a chip under the label for
  *  one bound slot, a panel placed clear of the plate for several. */
 function addSymbols(plate: Plate) {
-  const { projection, symbols, values, items, extent, obstacles, pieces } =
-    plate;
+  const { projection, symbols, values, items, extent, pieces } = plate;
 
   for (const symbol of symbols.values()) {
     const placement = symbol.placement;
@@ -393,28 +427,36 @@ function addSymbols(plate: Plate) {
     if (readings.length === 0) continue;
     if (readings.length === 1) {
       const { reading: single } = readings[0];
-      const at = { x: labelPoint.x, y: labelPoint.y + READOUT_GAP };
       const w = chipWidth(single.text ?? "", single.unit);
-      place(plate, {
-        x0: at.x - w / 2,
-        y0: at.y - CHIP_H / 2,
-        x1: at.x + w / 2,
-        y1: at.y + CHIP_H / 2,
-      });
+      const { box } = placeReadout(
+        plate,
+        symbol,
+        labelPoint,
+        w,
+        CHIP_H,
+        "chip",
+      );
+      place(plate, box);
       items.push({
         id: `${symbol.id}:readout`,
         depth: depthKey(origin, "label"),
-        node: <Chip at={at} reading={single} />,
+        node: (
+          <Chip
+            at={{ x: (box.x0 + box.x1) / 2, y: (box.y0 + box.y1) / 2 }}
+            reading={single}
+          />
+        ),
       });
       continue;
     }
     const h = panelHeight(readings.length);
-    const { box, anchor } = placePanel(
-      projection,
+    const { box, anchor } = placeReadout(
+      plate,
       symbol,
       labelPoint,
+      PANEL_W,
       h,
-      obstacles,
+      "panel",
     );
     place(plate, box);
     // The leader leaves the panel at the point of its edge nearest the anchor.
@@ -589,39 +631,71 @@ function cellsBehind(projection: Projection, cell: Cell): Pt[] {
   ];
 }
 
+/** How many times the gaps widen when every spot of a ring is taken. */
+const PLACEMENT_RINGS = 3;
+
 /**
- * Where a symbol's panel goes: above its label, else left of the body,
- * else right, else below, the first spot clear of every obstacle; above
- * when none is. The anchor is where the leader ends on the symbol.
+ * Where a symbol's readout goes: a panel above the label, a chip under it,
+ * else left of the body, right, below, then the four corners, the first
+ * spot clear of every obstacle but the symbol's own body, whose box the
+ * spots are measured from. When a ring of eight is taken the gaps widen
+ * and the ring is tried again, up to `PLACEMENT_RINGS`; the first spot is
+ * the last resort. The anchor is where a panel's leader ends on the symbol.
  */
-function placePanel(
-  projection: Projection,
+function placeReadout(
+  plate: Plate,
   symbol: SymbolElement,
   labelPoint: Pt,
+  w: number,
   h: number,
-  obstacles: Box[],
+  kind: "chip" | "panel",
 ): { box: Box; anchor: Pt } {
-  const body = bounds(symbolCorners(projection, symbol));
+  const body = plate.bodies.get(symbol.id)!;
+  const others = plate.obstacles.filter((o) => o !== body);
   const midY = (body.y0 + body.y1) / 2;
   const left = { x: body.x0, y: midY };
   const right = { x: body.x1, y: midY };
   const below = { x: (body.x0 + body.x1) / 2, y: body.y1 };
-  const candidates: { x: number; y: number; anchor: Pt }[] = [
-    {
-      x: labelPoint.x - PANEL_W / 2,
-      y: labelPoint.y - PANEL_LABEL_GAP - h,
-      anchor: { x: labelPoint.x, y: labelPoint.y - CLEARANCE },
-    },
-    { x: left.x - PANEL_BODY_GAP - PANEL_W, y: left.y - h / 2, anchor: left },
-    { x: right.x + PANEL_BODY_GAP, y: right.y - h / 2, anchor: right },
-    { x: below.x - PANEL_W / 2, y: below.y + PANEL_BODY_GAP, anchor: below },
+  const ring = (gap: number): { x: number; y: number; anchor: Pt }[] => [
+    kind === "panel"
+      ? {
+          x: labelPoint.x - w / 2,
+          y: labelPoint.y - PANEL_LABEL_GAP * gap - h,
+          anchor: { x: labelPoint.x, y: labelPoint.y - CLEARANCE },
+        }
+      : {
+          x: labelPoint.x - w / 2,
+          y: labelPoint.y + READOUT_GAP * gap - h / 2,
+          anchor: labelPoint,
+        },
+    { x: left.x - PANEL_BODY_GAP * gap - w, y: left.y - h / 2, anchor: left },
+    { x: right.x + PANEL_BODY_GAP * gap, y: right.y - h / 2, anchor: right },
+    { x: below.x - w / 2, y: below.y + PANEL_BODY_GAP * gap, anchor: below },
+    ...[
+      { x: body.x0, y: body.y0, dx: -1, dy: -1 },
+      { x: body.x1, y: body.y0, dx: 1, dy: -1 },
+      { x: body.x0, y: body.y1, dx: -1, dy: 1 },
+      { x: body.x1, y: body.y1, dx: 1, dy: 1 },
+    ].map((corner) => ({
+      x:
+        corner.x +
+        (corner.dx > 0 ? PANEL_BODY_GAP * gap : -PANEL_BODY_GAP * gap - w),
+      y:
+        corner.y +
+        (corner.dy > 0 ? PANEL_BODY_GAP * gap : -PANEL_BODY_GAP * gap - h),
+      anchor: { x: corner.x, y: corner.y },
+    })),
   ];
-  const boxed = candidates.map(({ x, y, anchor }) => ({
-    box: { x0: x, y0: y, x1: x + PANEL_W, y1: y + h },
-    anchor,
-  }));
-  return (
-    boxed.find(({ box }) => !obstacles.some((o) => overlaps(box, o))) ??
-    boxed[0]
-  );
+  const boxed = (gap: number) =>
+    ring(gap).map(({ x, y, anchor }) => ({
+      box: { x0: x, y0: y, x1: x + w, y1: y + h },
+      anchor,
+    }));
+  for (let gap = 1; gap <= PLACEMENT_RINGS; gap++) {
+    const clear = boxed(gap).find(
+      ({ box }) => !others.some((o) => overlaps(box, o)),
+    );
+    if (clear) return clear;
+  }
+  return boxed(1)[0];
 }

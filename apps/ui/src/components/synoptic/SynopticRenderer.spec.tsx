@@ -139,10 +139,15 @@ describe("SynopticRenderer", () => {
     // the two port cells as stubs under their bodies; branch is three.
     expect(q(c, "path.stroke-fluid-primary-supply")).toHaveLength(7);
     expect(q(c, "path.stroke-fluid-dhw")).toHaveLength(3);
-    // One arrow, at the port the supply ends on; the branch ends at a free
-    // cell, where its last piece has no length left to carry a head.
+    // One arrow per pipe at its `to` end: on the port the supply ends on,
+    // and at the centre of the free cell the branch ends in.
     expect(q(c, "polygon.fill-fluid-primary-supply")).toHaveLength(1);
-    expect(q(c, "polygon.fill-fluid-dhw")).toHaveLength(0);
+    const branchTip = project("isometric", 5.5, 3.5, 0.4);
+    expect(
+      q(c, "polygon.fill-fluid-dhw")[0]
+        .getAttribute("points")!
+        .startsWith(`${branchTip.x},${branchTip.y} `),
+    ).toBe(true);
     // The tee disc takes the trunk's colour.
     expect(q(c, "circle[data-tee].fill-fluid-primary-supply")).toHaveLength(1);
     expect(q(c, "[data-unknown-symbol='not_a_type']")).toHaveLength(1);
@@ -305,6 +310,60 @@ describe("SynopticRenderer", () => {
     expect(flow({ ...live("MARCHE", true), stale: true })).toHaveLength(0);
     // A bound flow with no reading yet is static.
     expect(q(draw(DOC), "path.animate-flow")).toHaveLength(0);
+  });
+
+  it("lights the LED from an int or string state the labels name, not only a boolean", () => {
+    const lit = (raw: SlotReading["raw"]) =>
+      q(
+        draw(DOC, {
+          ...VALUES,
+          slots: { ...VALUES.slots, "symbol.pac.state": live("MARCHE", raw) },
+          faultyDevices: {},
+        }),
+        "circle.fill-status-ok",
+      ).length;
+    // The symbol's LED and the panel's.
+    expect(lit(true)).toBe(2);
+    expect(lit(1)).toBe(2);
+    expect(lit("1")).toBe(2);
+    expect(lit("on")).toBe(2);
+    expect(lit(0)).toBe(0);
+    expect(lit("auto")).toBe(0);
+  });
+
+  it("places a single chip clear of its neighbours too", () => {
+    // Two tanks at one-cell pitch: their label points are 40 px apart, a
+    // chip is at least 36 px wide, so a blind placement would overlap.
+    const tank = (id: string, x: number) => ({
+      ...DOC.symbols![1],
+      id,
+      label: id,
+      placement: { kind: "cell" as const, cell: { x, y: 0 } },
+    });
+    const c = draw(
+      {
+        ...DOC,
+        symbols: [tank("a", 10), tank("b", 11)],
+        pipes: [],
+        labels: [],
+      },
+      {
+        slots: {
+          "symbol.a.temperature": live("55.0", 55, "°C"),
+          "symbol.b.temperature": live("54.0", 54, "°C"),
+        },
+        faultyDevices: {},
+      },
+    );
+    const [a, b] = q(c, "[data-chip] rect").map((r) => ({
+      x0: Number(r.getAttribute("x")),
+      y0: Number(r.getAttribute("y")),
+      x1: Number(r.getAttribute("x")) + Number(r.getAttribute("width")),
+      y1: Number(r.getAttribute("y")) + Number(r.getAttribute("height")),
+    }));
+    expect(a.x1 <= b.x0 || b.x1 <= a.x0 || a.y1 <= b.y0 || b.y1 <= a.y0).toBe(
+      true,
+    );
   });
 
   it("lights no LED on a stale state reading", () => {
@@ -489,16 +548,32 @@ describe("SynopticRenderer", () => {
         t.getAttribute("data-tag"),
       ),
     ).toEqual(["tt-03", "tt-04"]);
-    // The two panels do not overlap each other or a body.
-    const frames = q(c, "[data-panel] > rect").map((r) => ({
+    // The two panels do not overlap each other, and no run is drawn
+    // across either: a panel clears the runs as well as the bodies.
+    const box = (r: Element) => ({
       x0: Number(r.getAttribute("x")),
       y0: Number(r.getAttribute("y")),
       x1: Number(r.getAttribute("x")) + Number(r.getAttribute("width")),
       y1: Number(r.getAttribute("y")) + Number(r.getAttribute("height")),
-    }));
-    const [a, b] = frames;
-    expect(a.x1 <= b.x0 || b.x1 <= a.x0 || a.y1 <= b.y0 || b.y1 <= a.y0).toBe(
-      true,
-    );
+    });
+    const apart = (a: ReturnType<typeof box>, b: ReturnType<typeof box>) =>
+      a.x1 <= b.x0 || b.x1 <= a.x0 || a.y1 <= b.y0 || b.y1 <= a.y0;
+    const frames = q(c, "[data-panel] > rect").map(box);
+    expect(apart(frames[0], frames[1])).toBe(true);
+    const runs = q(c, "path[data-casing]").map((path) => {
+      const pts = path
+        .getAttribute("d")!
+        .match(/-?[\d.]+ -?[\d.]+/g)!
+        .map((p) => p.split(" ").map(Number));
+      return {
+        x0: Math.min(...pts.map((p) => p[0])),
+        y0: Math.min(...pts.map((p) => p[1])),
+        x1: Math.max(...pts.map((p) => p[0])),
+        y1: Math.max(...pts.map((p) => p[1])),
+      };
+    });
+    for (const frame of frames) {
+      expect(runs.every((run) => apart(frame, run))).toBe(true);
+    }
   });
 });

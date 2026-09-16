@@ -55,7 +55,10 @@ export const useSynopticValues: UseSynopticValues = (doc) => {
     return [...byKey.values()];
   }, [slots]);
 
-  const resolved = useQueries({
+  // The filter targets, each resolved to the one device it names; `settled`
+  // once every list has answered or failed, so the plate is listed once
+  // with every id it will need rather than once per resolution.
+  const { resolved, settled } = useQueries({
     queries: filterTargets.map((target) => ({
       queryKey: ["devices", target.devices],
       queryFn: () =>
@@ -75,7 +78,10 @@ export const useSynopticValues: UseSynopticValues = (doc) => {
             );
           }
         });
-        return ids;
+        return {
+          resolved: ids,
+          settled: results.every((r) => r.data !== undefined || r.isError),
+        };
       },
       [filterTargets],
     ),
@@ -100,7 +106,7 @@ export const useSynopticValues: UseSynopticValues = (doc) => {
   const seed = useQuery({
     queryKey: ["devices", { ids: deviceIds }],
     queryFn: () => client.devices.list({ ids: deviceIds }),
-    enabled: deviceIds.length > 0,
+    enabled: settled && deviceIds.length > 0,
     placeholderData: keepPreviousData,
     refetchInterval: isConnected ? false : DEVICE_POLL_INTERVAL_MS,
   });

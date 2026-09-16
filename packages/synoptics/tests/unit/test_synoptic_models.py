@@ -35,6 +35,20 @@ def test_a_document_defaults_to_an_empty_isometric_plate():
     assert document.defaults.stale_after == DEFAULT_STALE_AFTER
 
 
+def test_a_stored_null_stale_threshold_reads_as_the_service_default():
+    # Plates stored before the default existed persisted ``null`` explicitly.
+    document = SynopticDocument.model_validate(
+        {"name": "Old", "defaults": {"stale_after": None}}
+    )
+    assert document.defaults.stale_after == DEFAULT_STALE_AFTER
+    assert (
+        SynopticDocument.model_validate(
+            {"name": "Set", "defaults": {"stale_after": 30}}
+        ).defaults.stale_after
+        == 30
+    )
+
+
 def test_unknown_keys_are_rejected():
     with pytest.raises(ValidationError):
         SynopticDocument.model_validate({"name": "x", "theme": "dark"})

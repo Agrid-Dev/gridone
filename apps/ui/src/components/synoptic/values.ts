@@ -77,8 +77,14 @@ export function targetDeviceId(target: AttributeTarget): string | undefined {
 export const targetKey = (target: AttributeTarget) =>
   JSON.stringify(target.devices);
 
+/** Significant digits a number keeps when the binding sets no `decimals`,
+ *  so a scaled register never prints as a wall of digits. */
+const DEFAULT_PRECISION = 6;
+
 /** Display text of a raw value and the unit to draw after it: a mapped
- *  label stands alone, a number takes its decimals and unit, anything else
+ *  label stands alone; a number takes its decimals, or a bounded precision
+ *  without them, and its unit; a boolean with no label for its value is
+ *  silent, since `true` is not a word an operator reads; anything else
  *  reads as written. */
 export function formatReading(
   slot: AttributeSlot,
@@ -86,11 +92,29 @@ export function formatReading(
 ): Pick<SlotReading, "text" | "unit"> {
   const label = slot.labels?.[String(raw)];
   if (label !== undefined) return { text: label, unit: null };
+  if (typeof raw === "boolean") return { text: null, unit: null };
   const text =
-    typeof raw === "number" && slot.decimals != null
-      ? raw.toFixed(slot.decimals)
-      : String(raw);
+    typeof raw !== "number"
+      ? String(raw)
+      : slot.decimals != null
+        ? raw.toFixed(slot.decimals)
+        : String(Number(raw.toPrecision(DEFAULT_PRECISION)));
   return { text, unit: slot.unit ?? null };
+}
+
+/** The run state a raw value stands for, whatever type the device exposes
+ *  it as: a boolean, 0 / 1, or the usual words. Undefined when it is none
+ *  of those, so an unknown value never lights or clears an LED. */
+export function truthOf(raw: AttributeValue | null): boolean | undefined {
+  if (typeof raw === "boolean") return raw;
+  if (typeof raw === "number")
+    return raw === 1 ? true : raw === 0 ? false : undefined;
+  if (typeof raw === "string") {
+    const word = raw.trim().toLowerCase();
+    if (["true", "on", "1"].includes(word)) return true;
+    if (["false", "off", "0"].includes(word)) return false;
+  }
+  return undefined;
 }
 
 /** A value is stale once older than its threshold: the binding's, else the
