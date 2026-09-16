@@ -9,7 +9,14 @@ the symbol kit, and are deliberately unexpressible here. See
 from enum import StrEnum
 from typing import Annotated, Any, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
+from pydantic import (
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    model_validator,
+)
 
 from models.metadata import ResourceMetadata
 from models.targets import AttributeTarget
@@ -93,6 +100,9 @@ Projection = Literal["isometric", "flat"]
 
 StaleAfter = Annotated[int, Field(ge=0)]
 """Seconds after which a resolved value is shown as stale."""
+
+DEFAULT_STALE_AFTER: StaleAfter = 900
+"""The service's stale threshold when neither the document nor a binding sets one."""
 
 
 class Fluid(StrEnum):
@@ -280,12 +290,24 @@ class Label(BaseModel):
     value: SlotValue | None = None
 
 
+def _default_when_none(value: object) -> object:
+    return DEFAULT_STALE_AFTER if value is None else value
+
+
 class SynopticDefaults(BaseModel):
-    """Document-level defaults a binding may override."""
+    """Document-level defaults a binding may override.
+
+    ``stale_after`` accepts ``null`` and reads back as the service default:
+    plates stored before the default existed carry an explicit ``null``, and
+    the format documents the field as ``int | null``.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
-    stale_after: StaleAfter | None = None
+    stale_after: Annotated[
+        StaleAfter,
+        BeforeValidator(_default_when_none, json_schema_input_type=StaleAfter | None),
+    ] = DEFAULT_STALE_AFTER
 
 
 class SynopticDocument(BaseModel):

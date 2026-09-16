@@ -26,6 +26,27 @@ type SynopticSymbolProps = {
 
 const RIGHT = { x: 1, y: 0 };
 
+/** A plan point turned by the symbol's rotation and moved to its origin.
+ *  The pivot is the centre of the origin cell, the same one `symbolPort`
+ *  turns cell offsets about, so the glyph stays on its ports. */
+export function symbolPoint(origin: Cell, rotation: number, p: Pt): Pt {
+  const r = rotateQuarter({ x: p.x - 0.5, y: p.y - 0.5 }, rotation);
+  return { x: origin.x + r.x + 0.5, y: origin.y + r.y + 0.5 };
+}
+
+/** The plane `z` cells above a symbol's floor, in the symbol's own frame. */
+function symbolPlane(
+  projection: Projection,
+  origin: Cell,
+  rotation: number,
+  z: number,
+): Plane {
+  return (x, y) => {
+    const q = symbolPoint(origin, rotation, { x, y });
+    return project(projection, q.x, q.y, (origin.z ?? 0) + z);
+  };
+}
+
 /**
  * A symbol of the hydronic set at its cell: the plan glyph on its plane,
  * extruded in the isometric view when the type has height, body-filled
@@ -46,18 +67,8 @@ export function SynopticSymbol({
   const schema = symbolSchemas[type];
   const drawing = DRAWINGS[type];
   const footprint = schema?.["x-footprint"];
-  // Plan points turn about the centre of the origin cell, the same pivot
-  // `symbolPort` turns cell offsets about, so the glyph stays on its ports.
-  const local = (p: Pt): Pt => {
-    const r = rotateQuarter({ x: p.x - 0.5, y: p.y - 0.5 }, rotation);
-    return { x: origin.x + r.x + 0.5, y: origin.y + r.y + 0.5 };
-  };
-  const planeAt =
-    (z: number): Plane =>
-    (x, y) => {
-      const q = local({ x, y });
-      return project(projection, q.x, q.y, (origin.z ?? 0) + z);
-    };
+  const local = (p: Pt) => symbolPoint(origin, rotation, p);
+  const planeAt = (z: number) => symbolPlane(projection, origin, rotation, z);
   if (!footprint || !drawing) {
     return <UnknownSymbol type={type} plane={planeAt(0)} />;
   }
@@ -145,6 +156,27 @@ function labelAnchor(
     ...square(0, 0, w, d).map((corner) => top(corner.x, corner.y).y),
   );
   return { at, lift: at.y - edge + 10 };
+}
+
+/** Screen point the symbol's label sits at, where a readout hangs from.
+ *  Null for a type the kit cannot draw. */
+export function symbolLabelPoint(
+  type: string,
+  projection: Projection,
+  origin: Cell,
+  rotation = 0,
+): Pt | null {
+  const footprint = symbolSchemas[type]?.["x-footprint"];
+  const drawing = DRAWINGS[type];
+  if (!footprint || !drawing) return null;
+  const top = symbolPlane(
+    projection,
+    origin,
+    rotation,
+    drawing.base + drawing.height,
+  );
+  const { at, lift } = labelAnchor(drawing, projection, top, footprint);
+  return { x: at.x, y: at.y - lift };
 }
 
 function Fault({ outline, badge }: { outline: Pt[]; badge: Pt }) {

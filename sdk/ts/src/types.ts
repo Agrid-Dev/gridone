@@ -109,6 +109,15 @@ export type Severity = Schemas["Severity"];
 // Synoptics
 export type Fluid = Schemas["Fluid"];
 export type Cell = Schemas["Cell"];
+export type Synoptic = Schemas["Synoptic"];
+export type SymbolElement = Schemas["Symbol-Output"];
+export type PipeElement = Schemas["Pipe-Output"];
+export type TagElement = Schemas["Tag-Output"];
+export type LabelElement = Schemas["Label-Output"];
+export type AttributeSlot = Schemas["AttributeSlot-Output"];
+export type SlotValue = AttributeSlot | Schemas["TextSlot"];
+export type Endpoint = PipeElement["from"];
+export type AttributeTarget = Schemas["AttributeTarget"];
 export type Projection = NonNullable<Schemas["Synoptic"]["projection"]>;
 /** The face of a cell a pipe leaves through. */
 export type Side = "+x" | "-x" | "+y" | "-y" | "+z" | "-z";

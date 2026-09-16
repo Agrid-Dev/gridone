@@ -5728,7 +5728,7 @@ export interface components {
        * @enum {string}
        */
       projection?: "isometric" | "flat";
-      defaults?: components["schemas"]["SynopticDefaults"];
+      defaults?: components["schemas"]["SynopticDefaults-Output"];
       /** Symbols */
       symbols?: components["schemas"]["Symbol-Output"][];
       /** Pipes */
@@ -5742,10 +5742,32 @@ export interface components {
     /**
      * SynopticDefaults
      * @description Document-level defaults a binding may override.
+     *
+     *     ``stale_after`` accepts ``null`` and reads back as the service default:
+     *     plates stored before the default existed carry an explicit ``null``, and
+     *     the format documents the field as ``int | null``.
      */
-    SynopticDefaults: {
-      /** Stale After */
+    "SynopticDefaults-Input": {
+      /**
+       * Stale After
+       * @default 900
+       */
       stale_after?: number | null;
+    };
+    /**
+     * SynopticDefaults
+     * @description Document-level defaults a binding may override.
+     *
+     *     ``stale_after`` accepts ``null`` and reads back as the service default:
+     *     plates stored before the default existed carry an explicit ``null``, and
+     *     the format documents the field as ``int | null``.
+     */
+    "SynopticDefaults-Output": {
+      /**
+       * Stale After
+       * @default 900
+       */
+      stale_after?: number;
     };
     /**
      * SynopticDocument
@@ -5771,7 +5793,7 @@ export interface components {
        * @enum {string}
        */
       projection?: "isometric" | "flat";
-      defaults?: components["schemas"]["SynopticDefaults"];
+      defaults?: components["schemas"]["SynopticDefaults-Input"];
       /** Symbols */
       symbols?: components["schemas"]["Symbol-Input"][];
       /** Pipes */
@@ -5803,7 +5825,7 @@ export interface components {
        * @enum {string}
        */
       projection?: "isometric" | "flat";
-      defaults?: components["schemas"]["SynopticDefaults"];
+      defaults?: components["schemas"]["SynopticDefaults-Output"];
       /** Symbols */
       symbols?: components["schemas"]["Symbol-Output"][];
       /** Pipes */
