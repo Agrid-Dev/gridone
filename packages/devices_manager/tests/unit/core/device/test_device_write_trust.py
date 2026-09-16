@@ -396,3 +396,34 @@ async def test_failed_acquisition_loses_trust_but_keeps_displayed_history(
         await device.read_attribute_value("temperature")
     assert not eligible(device, "temperature_setpoint", 22)
     assert device.get_attribute_value("temperature") == 16
+
+
+@fake_time
+@pytest.mark.asyncio
+async def test_a_reinterpreted_sibling_never_confirms_a_write(mock_transport_client):
+    driver = build_driver(
+        spec("temperature", write=None),
+        spec(
+            "mode",
+            value_mapping={
+                "entries": [
+                    {"code": 1, "value": {"attribute": "temperature"}},
+                    {"code": 2, "value": 30},
+                ]
+            },
+        ),
+    )
+    device = make_device(driver, mock_transport_client)
+    await observe(device, mock_transport_client, "temperature", 22)
+    await observe(device, mock_transport_client, "mode", 1)
+
+    async def send(*_args: object) -> None:
+        # The sibling moves while the command is in flight: the saved code now
+        # reads as the requested value, but the device never reported it.
+        await observe(device, mock_transport_client, "temperature", 30)
+        mock_transport_client.read = AsyncMock(side_effect=TimeoutError)
+
+    mock_transport_client.write = AsyncMock(side_effect=send)
+    with pytest.raises(ConfirmationError):
+        await device.write_attribute_value("mode", 30, confirm_timeout=1)
+    assert device.get_attribute_value("mode") == 30  # displayed, as reinterpreted
