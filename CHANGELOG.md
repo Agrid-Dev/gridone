@@ -1,3 +1,10 @@
+## v0.242.0 (2026-09-16)
+
+### Feat
+
+- **ui**: give the command target a surface of its own (AGR-1260)
+- **ui**: choose the target of a change from a thermostat page
+
 ## v0.241.0 (2026-09-15)
 
 ### Feat
