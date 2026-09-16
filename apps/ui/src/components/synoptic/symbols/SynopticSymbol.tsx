@@ -72,16 +72,17 @@ export function SynopticSymbol({
   );
   const base = (origin.z ?? 0) + drawing.base;
   // In isometric an inline glyph sits on the run body-filled so it breaks
-  // it, as the sheets draw it; a glyph with no height gets a plate patch
-  // under it so the runs ending at its ports stop at its edge. On the
-  // sheet the footprint is that patch for every type. A body with height
-  // occludes on its own.
+  // it, as the sheets draw it; on the sheet the same disc is a plate patch.
+  // A glyph with no height gets a plate patch of its own outline in both
+  // projections, so a run stops at the drawn edge and its stub reaches it;
+  // a body with height occludes on its own. Nothing wider than the glyph
+  // is ever painted, so a run never ends at a line nothing draws.
   const face: { points: Pt[]; cls: PlanClass } | null = schema["x-inline"]
     ? {
         points: drawing.outline?.(centre) ?? circlePts(centre, INLINE_R),
         cls: iso ? "face" : "plate",
       }
-    : iso && !extruded && drawing.outline
+    : !extruded && drawing.outline
       ? { points: drawing.outline(centre), cls: "plate" }
       : null;
   const anchor = labelAnchor(drawing, projection, planeAt(top), footprint);
@@ -89,9 +90,6 @@ export function SynopticSymbol({
 
   return (
     <g>
-      {!iso && !schema["x-inline"] && (
-        <PlanPoly plane={planeAt(0)} points={square(0, 0, w, d)} cls="plate" />
-      )}
       {extruded && (
         <Body outline={bodyOutline} z0={base} z1={base + drawing.height} />
       )}

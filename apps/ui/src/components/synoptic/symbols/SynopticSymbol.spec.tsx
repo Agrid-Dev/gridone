@@ -55,10 +55,12 @@ describe("SynopticSymbol", () => {
       <SynopticSymbol type="tank" projection="flat" origin={{ x: 0, y: 0 }} />,
     );
     expect(flat.querySelector(".fill-synoptic-body-x")).toBeNull();
-    // The footprint takes the body colour so it occludes the runs at its ports.
-    expect(flat.querySelector("polygon")!.getAttribute("points")).toBe(
-      "0,0 48,0 48,96 0,96",
-    );
+    // On the sheet nothing but the glyph is drawn: no footprint rectangle.
+    expect(
+      [...flat.querySelectorAll("polygon")].map((p) =>
+        p.getAttribute("points"),
+      ),
+    ).not.toContain("0,0 48,0 48,96 0,96");
   });
 
   it("body-fills an inline glyph so it breaks the run", () => {
@@ -138,7 +140,7 @@ describe("SynopticSymbol", () => {
     expect(text("pump")).toBeUndefined();
   });
 
-  it("occludes the run under a flat glyph with a plate patch, never a body face", () => {
+  it("occludes the run under a glyph with a plate patch of its own outline, never wider", () => {
     const first = (projection: Projection, type = "mixing_valve") =>
       draw(
         <SynopticSymbol
@@ -147,19 +149,19 @@ describe("SynopticSymbol", () => {
           origin={{ x: 0, y: 0 }}
         />,
       ).querySelector("polygon")!;
-    // Isometric: the disc under the bowtie, plate-coloured with no stroke,
-    // so the heaviest line stays the glyph's own.
-    const iso = first("isometric");
-    expect(iso.className.baseVal).toBe("fill-synoptic-plate stroke-none");
-    expect(iso.getAttribute("stroke-width")).toBe("0");
-    expect(iso.getAttribute("points")!.split(" ")).toHaveLength(40);
-    // The sheet: the footprint square is that patch, for a tank as well.
-    const flat = first("flat");
-    expect(flat.className.baseVal).toBe("fill-synoptic-plate stroke-none");
-    expect(flat.getAttribute("points")).toBe("0,0 48,0 48,48 0,48");
-    expect(first("flat", "tank").className.baseVal).toBe(
-      "fill-synoptic-plate stroke-none",
-    );
+    // The disc under the bowtie, plate-coloured with no stroke, in both
+    // projections: a run stops at the drawn edge, its stub reaches it.
+    for (const projection of PROJECTIONS) {
+      const patch = first(projection);
+      expect(patch.className.baseVal).toBe("fill-synoptic-plate stroke-none");
+      expect(patch.getAttribute("stroke-width")).toBe("0");
+      expect(patch.getAttribute("points")!.split(" ")).toHaveLength(40);
+    }
+    // A tank on the sheet: the cylinder's circle, not the footprint square.
+    const tank = first("flat", "tank");
+    expect(tank.className.baseVal).toBe("fill-synoptic-plate stroke-none");
+    expect(tank.getAttribute("points")!.split(" ")).toHaveLength(40);
+    expect(tank.getAttribute("points")).not.toBe("0,0 48,0 48,96 0,96");
     // An inline glyph is body-filled in isometric, as the sheets draw it,
     // and plate-patched on the sheet.
     expect(first("isometric", "pump").className.baseVal).toContain(
