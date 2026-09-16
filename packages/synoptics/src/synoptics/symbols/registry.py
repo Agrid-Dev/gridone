@@ -138,10 +138,14 @@ def collector_ports(props: CollectorProps) -> Mapping[str, Port]:
 
 
 def build_default_registry() -> SymbolRegistry:
-    """The types the first plates use, from the format spec's appendix.
+    """The types the first plates use, from the format spec's appendix, and
+    the six the visual-language spec proposes for the hydronic set.
 
     Inline types declare no ports: their in and out follow the segment they sit
-    on, so a pipe never names one as an endpoint.
+    on, so a pipe never names one as an endpoint. Of the six hydronic types only
+    the double pump declares a slot, the run state its single sibling has; what
+    the others bind (an energy meter's register above all) is declared here once
+    the first plate that places them says so.
     """
     registry = SymbolRegistry()
     registry.register(
@@ -223,6 +227,42 @@ def build_default_registry() -> SymbolRegistry:
             },
             props_model=LinkProps,
         )
+    )
+    registry.register(
+        SymbolType(
+            type="plate_exchanger",
+            footprint=Footprint(w=1, d=1),
+            ports={
+                "primary_in": Port(offset=Cell(x=0, y=0), side="-x"),
+                "primary_out": Port(offset=Cell(x=0, y=0), side="+x"),
+                "secondary_in": Port(offset=Cell(x=0, y=0), side="-y"),
+                "secondary_out": Port(offset=Cell(x=0, y=0), side="+y"),
+            },
+        )
+    )
+    registry.register(
+        SymbolType(
+            type="expansion_vessel",
+            footprint=Footprint(w=1, d=1),
+            ports={"in": Port(offset=Cell(x=0, y=0), side="-x")},
+        )
+    )
+    registry.register(
+        SymbolType(type="air_separator", footprint=Footprint(w=1, d=1), inline=True)
+    )
+    registry.register(
+        SymbolType(type="dirt_separator", footprint=Footprint(w=1, d=1), inline=True)
+    )
+    registry.register(
+        SymbolType(
+            type="pump_double",
+            footprint=Footprint(w=1, d=1),
+            slots=("state",),
+            inline=True,
+        )
+    )
+    registry.register(
+        SymbolType(type="energy_meter", footprint=Footprint(w=1, d=1), inline=True)
     )
     return registry
 

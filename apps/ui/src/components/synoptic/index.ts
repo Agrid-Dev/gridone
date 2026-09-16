@@ -13,8 +13,25 @@ export {
 export { PidDiagram } from "./PidDiagram";
 export { DepthOrdered } from "./DepthOrdered";
 export type { DepthItem } from "./DepthOrdered";
-export { project, depthKey, PIPE_AXIS_Z } from "./projection";
-export type { Layer } from "./projection";
+export {
+  project,
+  planeAt,
+  depthKey,
+  portPoint,
+  rotateQuarter,
+  rotateSide,
+  sideVector,
+  PIPE_AXIS_Z,
+} from "./projection";
+export type { Layer, Plane } from "./projection";
+export { SynopticSymbol } from "./symbols/SynopticSymbol";
+export type { SymbolState } from "./symbols/Label";
+export { Collector } from "./symbols/Collector";
+export { Body } from "./symbols/Body";
+export { square } from "./symbols/extrude";
+export { symbolPort, collectorPorts } from "./symbols/ports";
+export type { CollectorProps, PortAnchor } from "./symbols/ports";
+export { DRAWINGS } from "./symbols/drawings";
 export { Pipe } from "./Pipe";
 export { PipeBadge } from "./PipeBadge";
 export { Port } from "./Port";

@@ -738,7 +738,7 @@ SYMBOLS: list[Symbol] = [
     Symbol(
         "Échangeur à plaques",
         "plate_exchanger",
-        "1×1 proposed, not registered",
+        "1×1",
         (1, 1),
         exchanger_plan,
         ports=[
@@ -753,7 +753,7 @@ SYMBOLS: list[Symbol] = [
     Symbol(
         "Séparateur d'air",
         "air_separator",
-        "inline proposed, not registered",
+        "inline",
         (1, 1),
         air_separator_glyph,
         inline="fluid-heating-supply",
@@ -762,7 +762,7 @@ SYMBOLS: list[Symbol] = [
     Symbol(
         "Vase d'expansion",
         "expansion_vessel",
-        "1×1 proposed, not registered",
+        "1×1",
         (1, 1),
         expansion_vessel_glyph,
         ports=[(0, 0, "-x", "in")],
@@ -772,7 +772,7 @@ SYMBOLS: list[Symbol] = [
     Symbol(
         "Pot à boue",
         "dirt_separator",
-        "inline proposed, not registered",
+        "inline",
         (1, 1),
         dirt_separator_glyph,
         inline="fluid-heating-return",
@@ -781,7 +781,7 @@ SYMBOLS: list[Symbol] = [
     Symbol(
         "Pompe double",
         "pump_double",
-        "inline proposed, not registered",
+        "inline",
         (1, 1),
         pump_double_plan,
         inline="fluid-heating-supply",
@@ -790,7 +790,7 @@ SYMBOLS: list[Symbol] = [
     Symbol(
         "Compteur d'énergie",
         "energy_meter",
-        "inline proposed, not registered",
+        "inline",
         (1, 1),
         meter_plan,
         inline="fluid-heating-supply",

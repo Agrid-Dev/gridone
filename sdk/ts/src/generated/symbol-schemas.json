@@ -1,0 +1,445 @@
+{
+  "heat_pump": {
+    "additionalProperties": false,
+    "description": "For types that declare none.",
+    "properties": {},
+    "title": "heat_pump",
+    "type": "object",
+    "x-footprint": {
+      "w": 2,
+      "d": 2
+    },
+    "x-ports": {
+      "supply": {
+        "offset": {
+          "x": 1,
+          "y": 1,
+          "z": 0
+        },
+        "side": "+x"
+      },
+      "return": {
+        "offset": {
+          "x": 0,
+          "y": 1,
+          "z": 0
+        },
+        "side": "-x"
+      }
+    },
+    "x-ports-authored": false,
+    "x-slots": ["state", "fault", "supply_temp", "power"],
+    "x-required-slots": [],
+    "x-inline": false,
+    "x-rotation-locked": false
+  },
+  "tank": {
+    "additionalProperties": false,
+    "properties": {
+      "capacity": {
+        "title": "Capacity",
+        "type": "string"
+      }
+    },
+    "required": ["capacity"],
+    "title": "tank",
+    "type": "object",
+    "x-footprint": {
+      "w": 1,
+      "d": 2
+    },
+    "x-ports": {
+      "primary_in": {
+        "offset": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "side": "-x"
+      },
+      "primary_out": {
+        "offset": {
+          "x": 0,
+          "y": 1,
+          "z": 0
+        },
+        "side": "-x"
+      },
+      "dhw_out": {
+        "offset": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "side": "+x"
+      },
+      "dhw_in": {
+        "offset": {
+          "x": 0,
+          "y": 1,
+          "z": 0
+        },
+        "side": "+x"
+      }
+    },
+    "x-ports-authored": false,
+    "x-slots": ["temperature"],
+    "x-required-slots": [],
+    "x-inline": false,
+    "x-rotation-locked": false
+  },
+  "collector": {
+    "$defs": {
+      "CollectorPort": {
+        "additionalProperties": false,
+        "description": "A port authored on a collector: how far along the bar, and which face.\n\nInlets and outlets are not on opposite faces in general. A return\ncollector can take its inlets from the north and let its outlet out west,\nalong the bar.",
+        "properties": {
+          "offset": {
+            "maximum": 10000,
+            "minimum": 0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "side": {
+            "enum": ["+x", "-x", "+y", "-y", "+z", "-z"],
+            "title": "Side",
+            "type": "string"
+          }
+        },
+        "required": ["offset", "side"],
+        "title": "CollectorPort",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "description": "The collector is the one type whose shape is authored per instance: a\nbar serving three departures is not the same shape as one serving eight.\n\n``axis`` says which way the bar runs, which is why ``rotation`` must be 0 on\na collector: having both would let them disagree.",
+    "properties": {
+      "axis": {
+        "enum": ["x", "y"],
+        "title": "Axis",
+        "type": "string"
+      },
+      "length": {
+        "maximum": 10000,
+        "minimum": 2,
+        "title": "Length",
+        "type": "integer"
+      },
+      "ports": {
+        "patternProperties": {
+          "^(in|out)_[1-9][0-9]*$": {
+            "$ref": "#/$defs/CollectorPort"
+          }
+        },
+        "title": "Ports",
+        "type": "object"
+      }
+    },
+    "required": ["axis", "length", "ports"],
+    "title": "collector",
+    "type": "object",
+    "x-footprint": null,
+    "x-ports": {},
+    "x-ports-authored": true,
+    "x-slots": [],
+    "x-required-slots": [],
+    "x-inline": false,
+    "x-rotation-locked": true
+  },
+  "mixing_valve": {
+    "additionalProperties": false,
+    "description": "For types that declare none.",
+    "properties": {},
+    "title": "mixing_valve",
+    "type": "object",
+    "x-footprint": {
+      "w": 1,
+      "d": 1
+    },
+    "x-ports": {
+      "hot_in": {
+        "offset": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "side": "-x"
+      },
+      "cold_in": {
+        "offset": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "side": "+y"
+      },
+      "out": {
+        "offset": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "side": "+x"
+      }
+    },
+    "x-ports-authored": false,
+    "x-slots": ["supply_temp"],
+    "x-required-slots": [],
+    "x-inline": false,
+    "x-rotation-locked": false
+  },
+  "pump": {
+    "additionalProperties": false,
+    "description": "For types that declare none.",
+    "properties": {},
+    "title": "pump",
+    "type": "object",
+    "x-footprint": {
+      "w": 1,
+      "d": 1
+    },
+    "x-ports": {},
+    "x-ports-authored": false,
+    "x-slots": ["state"],
+    "x-required-slots": [],
+    "x-inline": true,
+    "x-rotation-locked": false
+  },
+  "valve_isolation": {
+    "additionalProperties": false,
+    "description": "For types that declare none.",
+    "properties": {},
+    "title": "valve_isolation",
+    "type": "object",
+    "x-footprint": {
+      "w": 1,
+      "d": 1
+    },
+    "x-ports": {},
+    "x-ports-authored": false,
+    "x-slots": ["state"],
+    "x-required-slots": [],
+    "x-inline": true,
+    "x-rotation-locked": false
+  },
+  "valve_check": {
+    "additionalProperties": false,
+    "description": "For types that declare none.",
+    "properties": {},
+    "title": "valve_check",
+    "type": "object",
+    "x-footprint": {
+      "w": 1,
+      "d": 1
+    },
+    "x-ports": {},
+    "x-ports-authored": false,
+    "x-slots": [],
+    "x-required-slots": [],
+    "x-inline": true,
+    "x-rotation-locked": false
+  },
+  "link": {
+    "additionalProperties": false,
+    "description": "A folio link or an off-plate boundary.\n\n``synoptic_id`` set: clicking navigates. Unset: an inert labelled boundary.\nThe target's existence is deliberately never checked at save time: the\nfirst plate links to plates that do not exist yet.",
+    "properties": {
+      "synoptic_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Synoptic Id"
+      },
+      "caption": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Caption"
+      }
+    },
+    "title": "link",
+    "type": "object",
+    "x-footprint": {
+      "w": 1,
+      "d": 2
+    },
+    "x-ports": {
+      "in": {
+        "offset": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "side": "-x"
+      },
+      "out": {
+        "offset": {
+          "x": 0,
+          "y": 1,
+          "z": 0
+        },
+        "side": "-x"
+      }
+    },
+    "x-ports-authored": false,
+    "x-slots": [],
+    "x-required-slots": [],
+    "x-inline": false,
+    "x-rotation-locked": false
+  },
+  "plate_exchanger": {
+    "additionalProperties": false,
+    "description": "For types that declare none.",
+    "properties": {},
+    "title": "plate_exchanger",
+    "type": "object",
+    "x-footprint": {
+      "w": 1,
+      "d": 1
+    },
+    "x-ports": {
+      "primary_in": {
+        "offset": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "side": "-x"
+      },
+      "primary_out": {
+        "offset": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "side": "+x"
+      },
+      "secondary_in": {
+        "offset": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "side": "-y"
+      },
+      "secondary_out": {
+        "offset": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "side": "+y"
+      }
+    },
+    "x-ports-authored": false,
+    "x-slots": [],
+    "x-required-slots": [],
+    "x-inline": false,
+    "x-rotation-locked": false
+  },
+  "expansion_vessel": {
+    "additionalProperties": false,
+    "description": "For types that declare none.",
+    "properties": {},
+    "title": "expansion_vessel",
+    "type": "object",
+    "x-footprint": {
+      "w": 1,
+      "d": 1
+    },
+    "x-ports": {
+      "in": {
+        "offset": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "side": "-x"
+      }
+    },
+    "x-ports-authored": false,
+    "x-slots": [],
+    "x-required-slots": [],
+    "x-inline": false,
+    "x-rotation-locked": false
+  },
+  "air_separator": {
+    "additionalProperties": false,
+    "description": "For types that declare none.",
+    "properties": {},
+    "title": "air_separator",
+    "type": "object",
+    "x-footprint": {
+      "w": 1,
+      "d": 1
+    },
+    "x-ports": {},
+    "x-ports-authored": false,
+    "x-slots": [],
+    "x-required-slots": [],
+    "x-inline": true,
+    "x-rotation-locked": false
+  },
+  "dirt_separator": {
+    "additionalProperties": false,
+    "description": "For types that declare none.",
+    "properties": {},
+    "title": "dirt_separator",
+    "type": "object",
+    "x-footprint": {
+      "w": 1,
+      "d": 1
+    },
+    "x-ports": {},
+    "x-ports-authored": false,
+    "x-slots": [],
+    "x-required-slots": [],
+    "x-inline": true,
+    "x-rotation-locked": false
+  },
+  "pump_double": {
+    "additionalProperties": false,
+    "description": "For types that declare none.",
+    "properties": {},
+    "title": "pump_double",
+    "type": "object",
+    "x-footprint": {
+      "w": 1,
+      "d": 1
+    },
+    "x-ports": {},
+    "x-ports-authored": false,
+    "x-slots": ["state"],
+    "x-required-slots": [],
+    "x-inline": true,
+    "x-rotation-locked": false
+  },
+  "energy_meter": {
+    "additionalProperties": false,
+    "description": "For types that declare none.",
+    "properties": {},
+    "title": "energy_meter",
+    "type": "object",
+    "x-footprint": {
+      "w": 1,
+      "d": 1
+    },
+    "x-ports": {},
+    "x-ports-authored": false,
+    "x-slots": [],
+    "x-required-slots": [],
+    "x-inline": true,
+    "x-rotation-locked": false
+  }
+}
