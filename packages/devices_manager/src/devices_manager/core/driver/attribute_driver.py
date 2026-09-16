@@ -48,7 +48,7 @@ class AttributeDriver(BaseModel):
     # Optional presentation metadata, projected verbatim onto the runtime
     # attribute. `write_constraints` is also enforced by the service on every
     # write (see core.device.write_constraints); its cross-attribute rules are
-    # checked at the driver level (see driver.validate_write_constraints).
+    # checked at the driver level (see driver.write_validation).
     label: LocalizedText | None = None
     description: LocalizedText | None = None
     group: AttributeGroup | None = None

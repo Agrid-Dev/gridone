@@ -22,6 +22,7 @@ from devices_manager.types import TransportProtocols
 from models.errors import InvalidError, NotFoundError
 from models.resource_conflict import ResourceConflictError
 from models.types import DataType
+from models.write_rules import WriteReason
 
 pytestmark = pytest.mark.asyncio
 
@@ -108,11 +109,11 @@ async def test_preview_is_read_only_and_reports_ineligible_members(context):
         name=id_,
         current_value=None,
         eligible=id_ == "a",
-        reason="constraints" if id_ == "b" else None,
+        reasons=[WriteReason(code="constraints")] if id_ == "b" else [],
     )
     preview = prepare(coordinator)
     assert [row.eligible for row in preview.members] == [True, False]
-    assert preview.members[1].reason == "constraints"
+    assert preview.members[1].reasons[0].code == "constraints"
     commands.dispatch_batch.assert_not_awaited()
 
 
@@ -153,7 +154,7 @@ async def test_changed_recipient_requires_new_preview(context, change):
             device_id=id_,
             name=id_,
             eligible=False,
-            reason="constraints",
+            reasons=[WriteReason(code="constraints")],
             current_value=20,
         )
     with pytest.raises(ResourceConflictError, match="preview"):

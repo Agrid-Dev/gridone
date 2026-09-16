@@ -7,10 +7,10 @@ from typing import TYPE_CHECKING
 from pydantic import BaseModel, Field
 
 from devices_manager.types import AttributeValueType  # noqa: TC001 -- pydantic schema
-from models.write_rules import AttributeWriteState, WriteReason
-
-from .device.write_constraints import (
-    WriteConstraintPreview,  # noqa: TC001 -- schema runtime
+from models.write_rules import (
+    AttributeWriteState,
+    ResolvedConstraints,
+    WriteReason,
 )
 
 if TYPE_CHECKING:
@@ -23,8 +23,7 @@ class DeviceWritePreview(BaseModel):
     current_value: AttributeValueType | None
     eligible: bool
     value: AttributeValueType | None = None
-    constraints: WriteConstraintPreview | None = None
-    reason: str | None = None
+    constraints: ResolvedConstraints | None = None
     reasons: list[WriteReason] = Field(default_factory=list)
     warnings: list[WriteReason] = Field(default_factory=list)
     write_state: AttributeWriteState | None = None
@@ -43,7 +42,6 @@ def preview_write(
             name=device.name,
             current_value=None,
             eligible=False,
-            reason="unknown_attribute",
             reasons=[WriteReason(code="unknown_attribute")],
         )
     evaluation = device.evaluate_attribute_write(attribute_name, value)
@@ -58,7 +56,6 @@ def preview_write(
         if attribute.write_state
         else None,
         write_state=attribute.write_state,
-        reason=evaluation.reasons[0].code if evaluation.reasons else None,
         reasons=evaluation.reasons,
         warnings=evaluation.warnings,
         revision=device.write_state_revision,

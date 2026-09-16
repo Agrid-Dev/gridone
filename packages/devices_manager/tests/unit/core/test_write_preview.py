@@ -20,7 +20,7 @@ def test_preview_uses_write_contract_without_changing_values(
 ):
     before = device.get_attribute("temperature_setpoint").current_value
     result = preview_write(device, attribute, value)
-    assert result.reason == reason
+    assert [r.code for r in result.reasons][:1] == ([reason] if reason else [])
     assert result.eligible == (reason is None)
     assert device.get_attribute("temperature_setpoint").current_value == before
 
@@ -49,7 +49,7 @@ async def test_preview_checks_live_per_device_constraints(
         await device.read_attribute_value("temperature")
     result = preview_write(device, "temperature_setpoint", value)
     assert result.eligible == eligible
-    assert result.reason == (
+    assert (result.reasons[0].code if result.reasons else None) == (
         None
         if eligible
         else "unknown_dependencies"
@@ -101,4 +101,4 @@ def test_generic_preview_does_not_evaluate_presentation_blockers(device):
     )
     result = preview_write(device, "temperature_setpoint", 23)
     assert result.eligible
-    assert result.reason is None
+    assert result.reasons == []

@@ -18,12 +18,12 @@ from .driver import (
     Driver,
     attributes_referencing,
     validate_polling_groups,
-    validate_write_constraints,
 )
 from .driver_metadata import DriverMetadata
 from .healthcheck import HealthCheck
 from .storage_port import DriverStorage
 from .update_strategy import UpdateStrategy
+from .write_validation import validate_write_declarations
 
 __all__ = [
     "AnyAttributeDriver",
@@ -44,5 +44,5 @@ __all__ = [
     "WriteConstraints",
     "attributes_referencing",
     "validate_polling_groups",
-    "validate_write_constraints",
+    "validate_write_declarations",
 ]

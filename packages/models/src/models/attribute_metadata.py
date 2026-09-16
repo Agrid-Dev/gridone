@@ -20,7 +20,7 @@ from pydantic import (
 from models.expressions import (
     AttributeRef as AttributeRef,  # noqa: PLC0414 -- public re-export
 )
-from models.expressions import Expression, expression_nodes, rename_references
+from models.expressions import Expression
 from models.expressions import Number as Number  # noqa: PLC0414 -- public re-export
 
 Text = Annotated[
@@ -119,20 +119,3 @@ class WriteConstraints(BaseModel):
             msg = f"minimum ({self.minimum}) must not exceed maximum ({self.maximum})"
             raise ValueError(msg)
         return self
-
-    def bound_refs(self) -> dict[str, AttributeRef]:
-        """All references in bounds, including nested arithmetic and conditions."""
-        return {
-            name + path: node
-            for name in ("step", "minimum", "maximum")
-            for path, node, _ in expression_nodes(getattr(self, name))
-            if isinstance(node, AttributeRef)
-        }
-
-    def references(self, attribute_name: str) -> bool:
-        return any(
-            ref.attribute == attribute_name for ref in self.bound_refs().values()
-        )
-
-    def with_reference_renamed(self, old_name: str, new_name: str) -> Self:
-        return self.model_validate(rename_references(self, old_name, new_name))

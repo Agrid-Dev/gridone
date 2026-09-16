@@ -17,10 +17,12 @@ from devices_manager.core.driver.driver import (
     attributes_referencing,
     validate_polling_groups,
     validate_push_only_polling,
-    validate_write_constraints,
 )
 from devices_manager.core.driver.driver_metadata import DriverMetadata
-from devices_manager.core.driver.write_validation import rename_write_references
+from devices_manager.core.driver.write_validation import (
+    rename_write_references,
+    validate_write_declarations,
+)
 from devices_manager.core.presentation import (
     PresentationEnvelope,
     PresentationStatus,
@@ -316,7 +318,7 @@ class DriverRegistry:
             ),
         )
         validate_polling_groups(driver.update_strategy, [attribute])
-        validate_write_constraints(candidate_attrs)
+        validate_write_declarations(candidate_attrs)
         driver.attributes[attribute.name] = attribute
         await self._persist(driver)
         return attribute
@@ -352,7 +354,7 @@ class DriverRegistry:
             updated if aid == attribute_id else a
             for aid, a in driver.attributes.items()
         ]
-        validate_write_constraints(candidate_attrs)
+        validate_write_declarations(candidate_attrs)
         driver.attributes[attribute_id] = updated
         _log_if_presentation_unavailable(driver)
         await self._persist(driver)

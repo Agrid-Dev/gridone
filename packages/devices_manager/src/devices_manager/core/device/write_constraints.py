@@ -36,19 +36,16 @@ type ValueResolver = Callable[[str], AttributeValueType | None]
 """Current value of a sibling attribute by name; ``None`` when unknown."""
 
 
-WriteConstraintPreview = ResolvedConstraints
-
-
 def preview_write_constraints(
     attribute: Attribute | AttributeDriver,
     resolve: ValueResolver,
     *,
     context: EvaluationContext | None = None,
-) -> WriteConstraintPreview | None:
+) -> ResolvedConstraints | None:
     """Expose known limits and unresolved fields without revealing internal errors."""
     if attribute.write_constraints is None:
         return None
-    result = WriteConstraintPreview(sentinels=attribute.write_constraints.sentinels)
+    result = ResolvedConstraints(sentinels=attribute.write_constraints.sentinels)
     for name in ("minimum", "maximum", "step"):
         try:
             value = _resolve_bound(

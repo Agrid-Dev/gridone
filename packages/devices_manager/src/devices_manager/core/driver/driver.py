@@ -5,7 +5,7 @@ from pydantic import TypeAdapter
 
 from devices_manager.core.presentation.envelope import PresentationEnvelope
 from devices_manager.core.standard_schemas import validate_standard_schema
-from devices_manager.types import DataType, TransportProtocols
+from devices_manager.types import TransportProtocols
 from models.errors import InvalidError
 
 from .attribute_driver import AttributeDriver
@@ -38,9 +38,6 @@ def validate_polling_groups(
             raise InvalidError(msg)
 
 
-_NUMERIC_DATA_TYPES = frozenset({DataType.INT, DataType.FLOAT})
-
-
 def attributes_referencing(
     attributes: Iterable[AttributeDriver], attribute_name: str
 ) -> list[AttributeDriver]:
@@ -50,18 +47,6 @@ def attributes_referencing(
         for attribute in attributes
         if attribute_name in write_references(attribute)
     ]
-
-
-def validate_write_constraints(attributes: Iterable[AttributeDriver]) -> None:
-    """Reject write constraints the service could never enforce.
-
-    Constraints only make sense on numeric (int/float) attributes, and a
-    bound given as ``{attribute: name}`` must point at a *different*,
-    numeric attribute of the same driver: its current value is read at
-    write time, so a string or bool sibling could never serve as a bound.
-    """
-    attributes = list(attributes)
-    validate_write_declarations(attributes)
 
 
 def validate_push_only_polling(
@@ -106,7 +91,7 @@ class Driver:
 
     def __post_init__(self) -> None:
         validate_polling_groups(self.update_strategy, self.attributes.values())
-        validate_write_constraints(self.attributes.values())
+        validate_write_declarations(self.attributes.values())
         validate_push_only_polling(self.transport, self.update_strategy)
         if self.type is not None:
             validate_standard_schema(self.type, list(self.attributes.values()))

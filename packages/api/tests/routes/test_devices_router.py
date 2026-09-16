@@ -1811,7 +1811,6 @@ def test_command_preview_is_read_only_and_returns_public_reasons(
         name="Device",
         current_value=None,
         eligible=False,
-        reason="locked",
         reasons=[WriteReason(code="locked", message=LocalizedText(default="Locked"))],
     )
     response = client.post(
