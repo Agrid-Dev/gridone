@@ -1,10 +1,17 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   attributeValueChartColor,
   lookupSemanticColor,
   semanticChartColor,
+  SEMANTIC_FILL_CLASS,
+  SEMANTIC_ON_FILL_CLASS,
+  SEMANTIC_STROKE_CLASS,
   SEMANTIC_TEXT_CLASS,
   SEVERITY_LEVEL,
+  type SemanticColor,
+  type StatusLevel,
 } from "./semanticColors";
 
 describe("semantic colour registry", () => {
@@ -38,6 +45,35 @@ describe("semantic colour registry", () => {
       "hsl(var(--hvac-heat))",
     );
     expect(semanticChartColor("ok")).toBe("hsl(var(--status-ok))");
+  });
+
+  it("keeps the SVG fill and stroke classes on the same token as the text class", () => {
+    for (const token of Object.keys(SEMANTIC_TEXT_CLASS) as SemanticColor[]) {
+      const colour = SEMANTIC_TEXT_CLASS[token].replace(/^text-/, "");
+      expect(SEMANTIC_FILL_CLASS[token]).toBe(`fill-${colour}`);
+      expect(SEMANTIC_STROKE_CLASS[token]).toBe(`stroke-${colour}`);
+    }
+  });
+
+  it("pairs every status fill with a registered foreground token", () => {
+    const css = readFileSync(
+      resolve(import.meta.dirname, "../index.css"),
+      "utf8",
+    );
+    const tailwind = readFileSync(
+      resolve(import.meta.dirname, "../../tailwind.config.js"),
+      "utf8",
+    );
+    for (const level of Object.keys(SEMANTIC_ON_FILL_CLASS) as StatusLevel[]) {
+      const colour = SEMANTIC_FILL_CLASS[level].replace(/^fill-/, "");
+      expect(SEMANTIC_ON_FILL_CLASS[level]).toBe(`fill-${colour}-foreground`);
+      expect(tailwind).toContain(
+        `"${colour}-foreground": "hsl(var(--${colour}-foreground))"`,
+      );
+      expect(
+        css.match(new RegExp(`--${colour}-foreground:`, "g")),
+      ).toHaveLength(2);
+    }
   });
 
   it("keeps every severity mapped to an inline text class", () => {

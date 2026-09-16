@@ -1,13 +1,13 @@
+export { fmt } from "@/lib/formatValue";
+export { airLine } from "@/components/synoptic/format";
 export {
-  fmt,
-  airLine,
   CoilGlyph,
   FanGlyph,
   FilterGlyph,
   FlowChevron,
   MeasureTag,
   ValueChip,
-} from "../synoptic";
+} from "@/components/synoptic/glyphs";
 export { useAhuSynopticLabel, type AhuSynopticLabelKey } from "./labels";
 export { AhuPreviewBody } from "./AhuPreviewBody";
 export {

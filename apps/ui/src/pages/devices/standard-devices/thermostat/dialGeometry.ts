@@ -8,8 +8,19 @@
  * through the top, and ends at 45° (bottom-right, i.e. 135 + 270 = 405°).
  */
 
-export const DIAL_START_DEG = 135;
-export const DIAL_SWEEP_DEG = 270;
+import {
+  DIAL_START_DEG,
+  DIAL_SWEEP_DEG,
+  fraction,
+} from "@/components/synoptic/geometry";
+
+export {
+  DIAL_START_DEG,
+  DIAL_SWEEP_DEG,
+  fraction,
+  polarPoint,
+  arcPath,
+} from "@/components/synoptic/geometry";
 
 /** Setpoint range drawn when a thermostat exposes no (or degenerate)
  *  `temperature_setpoint_min` / `temperature_setpoint_max` bounds. */
@@ -25,18 +36,9 @@ export function dialRange(
   return { min, max };
 }
 
-/** Position of `value` inside [min, max], clamped to [0, 1]. */
-export function valueToFraction(
-  value: number,
-  min: number,
-  max: number,
-): number {
-  return Math.min(1, Math.max(0, (value - min) / (max - min)));
-}
-
 /** Dial angle (degrees, SVG convention) for `value` inside [min, max]. */
 export function valueToAngle(value: number, min: number, max: number): number {
-  return DIAL_START_DEG + DIAL_SWEEP_DEG * valueToFraction(value, min, max);
+  return DIAL_START_DEG + DIAL_SWEEP_DEG * fraction(value, min, max);
 }
 
 /** Angle (degrees, SVG convention) of the vector (dx, dy) measured from the
@@ -77,36 +79,4 @@ export function pointToValue(
   // toFixed guards against binary drift for steps like 0.1 (0.30000000000004).
   const snapped = Number((Math.round(raw / step) * step).toFixed(4));
   return Math.min(max, Math.max(min, snapped));
-}
-
-/** Cartesian point at `angleDeg` on the circle (cx, cy, r). */
-export function polarPoint(
-  cx: number,
-  cy: number,
-  r: number,
-  angleDeg: number,
-): { x: number; y: number } {
-  const rad = (angleDeg * Math.PI) / 180;
-  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
-}
-
-/**
- * SVG path drawing the clockwise arc from `startDeg` to `endDeg`
- * (startDeg <= endDeg <= startDeg + 360).
- *
- * The large-arc flag must flip once the swept angle passes 180°: the full
- * 270° track needs it set while a small progress arc must leave it unset,
- * otherwise SVG picks the complementary arc.
- */
-export function arcPath(
-  cx: number,
-  cy: number,
-  r: number,
-  startDeg: number,
-  endDeg: number,
-): string {
-  const start = polarPoint(cx, cy, r, startDeg);
-  const end = polarPoint(cx, cy, r, endDeg);
-  const largeArcFlag = endDeg - startDeg > 180 ? 1 : 0;
-  return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArcFlag} 1 ${end.x} ${end.y}`;
 }

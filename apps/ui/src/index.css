@@ -50,6 +50,12 @@
     --status-info: 200 98% 39%;
     --status-warning: 32 95% 44%;
     --status-error: 0 72% 51%;
+    /* Text painted on a --status-* fill (alarm rows): the darker ink wins
+       on the light-theme ok, info and warning, white on error. */
+    --status-ok-foreground: 222 47% 11%;
+    --status-info-foreground: 222 47% 11%;
+    --status-warning-foreground: 222 47% 11%;
+    --status-error-foreground: 0 0% 100%;
     --hvac-heat: 25 95% 53%;
     --hvac-cool: 217 91% 60%;
     --hvac-fan: 142 71% 45%;
@@ -129,6 +135,10 @@
     --status-info: 200 90% 60%;
     --status-warning: 36 90% 58%;
     --status-error: 0 75% 62%;
+    --status-ok-foreground: 222 47% 11%;
+    --status-info-foreground: 222 47% 11%;
+    --status-warning-foreground: 222 47% 11%;
+    --status-error-foreground: 222 47% 11%;
     --hvac-heat: 25 95% 62%;
     --hvac-cool: 217 91% 68%;
     --hvac-fan: 142 65% 55%;
