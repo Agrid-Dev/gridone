@@ -13,6 +13,7 @@ import { decimalsOf } from "../runtime/controls";
 import { formatNumber } from "./formatters";
 import { NumberSlider } from "./NumberSlider";
 import { ControlValue } from "./ControlValue";
+import { DescriptionHint, describedAttributes } from "./DescriptionHint";
 
 /**
  * Generic controls of a presentation: a toggle, a number stepper or a
@@ -69,7 +70,16 @@ export function ControlRow({
       data-control={id}
     >
       <div className="min-w-0">
-        <p className="text-sm font-medium text-foreground">{label}</p>
+        <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+          {label}
+          <DescriptionHint
+            name={label}
+            entries={describedAttributes(
+              [{ caption: label, attribute: state.attribute }],
+              language,
+            )}
+          />
+        </p>
         {state.valueLabel && (
           <p className="text-xs text-muted-foreground">{state.valueLabel}</p>
         )}

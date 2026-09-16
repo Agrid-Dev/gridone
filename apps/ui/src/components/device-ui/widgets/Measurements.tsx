@@ -6,6 +6,7 @@ import type { MeasurementItem, MeasurementLayout } from "../document";
 import { localize } from "../face";
 import type { AttributeLike } from "../runtime";
 import type { useAttributeLabel } from "@/hooks/useAttributeLabel";
+import { DescriptionHint, describedAttributes } from "./DescriptionHint";
 import { formatMeasurement } from "./formatters";
 
 /**
@@ -120,7 +121,16 @@ function MeasurementRow({
       )}
       data-binding={item.binding}
     >
-      <dt className="text-muted-foreground">{label}</dt>
+      <dt className="flex items-center gap-1.5 text-muted-foreground">
+        {label}
+        <DescriptionHint
+          name={label}
+          entries={describedAttributes(
+            [{ caption: label, attribute }],
+            language,
+          )}
+        />
+      </dt>
       <dd
         className={
           text === null

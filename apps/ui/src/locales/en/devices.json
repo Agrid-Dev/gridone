@@ -585,6 +585,7 @@
     "sectionItems_one": "{{count}} item",
     "sectionItems_other": "{{count}} items",
     "parameter": "Parameter",
+    "describe": "Description: {{name}}",
     "loading": "Loading device presentation…",
     "allAttributes": "All attributes",
     "sending": "Sending…",

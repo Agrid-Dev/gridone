@@ -5,6 +5,7 @@ import type { SetpointRow } from "../document";
 import { localize } from "../face";
 import type { AttributeLike, DeviceUiRuntime } from "../runtime";
 import { NumberStepper, WriteStateIndicator } from "./ControlPanel";
+import { DescriptionHint, describedAttributes } from "./DescriptionHint";
 import { NumberSlider } from "./NumberSlider";
 import { formatDeviation, formatMeasurement } from "./formatters";
 
@@ -103,6 +104,26 @@ function SetpointTableRow({
   const { t } = useTranslation("devices");
   const unavailable = t("presentation.unavailable");
   const label = localize(row.label, language);
+  // The driver's descriptions of the attributes behind each column, keyed by
+  // the column name so the hint reads "Demanded: …", "Regulated: …".
+  const demandedAttribute =
+    "control" in row.demanded
+      ? (runtime.readControl(row.demanded.control)?.attribute ?? null)
+      : attributeOf(row.demanded.binding);
+  const hints = describedAttributes(
+    [
+      { caption: t("presentation.demanded"), attribute: demandedAttribute },
+      {
+        caption: t("presentation.regulated"),
+        attribute: row.regulated ? attributeOf(row.regulated.binding) : null,
+      },
+      {
+        caption: t("presentation.measured"),
+        attribute: row.measured ? attributeOf(row.measured.binding) : null,
+      },
+    ],
+    language,
+  );
   const unitOf = (binding: string | undefined) =>
     binding ? (attributeOf(binding)?.unit ?? null) : null;
   const cell = (binding: string | undefined) => {
@@ -142,7 +163,10 @@ function SetpointTableRow({
         scope="row"
         className="py-2 pr-4 text-left font-medium text-foreground"
       >
-        {label}
+        <span className="inline-flex items-center gap-1.5">
+          {label}
+          <DescriptionHint name={label} entries={hints} />
+        </span>
       </th>
       <td className="py-2 pr-4">
         {"control" in row.demanded ? (
