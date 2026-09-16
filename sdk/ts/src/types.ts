@@ -110,6 +110,7 @@ export type Severity = Schemas["Severity"];
 export type Fluid = Schemas["Fluid"];
 export type Cell = Schemas["Cell"];
 export type Synoptic = Schemas["Synoptic"];
+export type SynopticSummary = Schemas["SynopticSummary"];
 export type SymbolElement = Schemas["Symbol-Output"];
 export type PipeElement = Schemas["Pipe-Output"];
 export type TagElement = Schemas["Tag-Output"];
