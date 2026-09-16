@@ -119,7 +119,7 @@ it("dispatches a tag target from a confirmed preview of its eligible members", a
         name: "Two",
         current_value: null,
         eligible: false,
-        reason: "not_writable",
+        reasons: [{ code: "not_writable" }],
       },
       {
         device_id: "new",
@@ -161,7 +161,7 @@ it("reports an empty batch when no previewed member is eligible", async () => {
         name: "One",
         current_value: null,
         eligible: false,
-        reason: "not_writable",
+        reasons: [{ code: "not_writable" }],
       },
     ],
   });

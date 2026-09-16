@@ -2,8 +2,14 @@ import { useMemo, type ReactNode } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { useTranslation } from "react-i18next";
 import { useAttributeLabel } from "@/hooks/useAttributeLabel";
-import type { Scalar } from "./conditions";
+import {
+  judgeWith,
+  type Condition,
+  type ConditionJudge,
+  type Scalar,
+} from "./conditions";
 import type { PageNode, PresentationV1 } from "./document";
+import { bindCondition } from "./presentationControls";
 import { DeviceFace, type LoadedGlyphSet } from "./face";
 import { cn } from "@/lib/utils";
 import type { AttributeLike, DeviceUiRuntime } from "./runtime";
@@ -22,7 +28,11 @@ import { PresentationSection } from "./widgets/PresentationSection";
 export type PresentationSubject = {
   id: string;
   attributes?: Record<string, unknown>;
-  presentation_state?: Record<string, boolean>;
+  /**
+   * How page and control conditions are judged; absent, the subject's own
+   * reported values decide. A group judges across its members.
+   */
+  judge?: ConditionJudge;
 };
 
 export type DevicePresentationProps = {
@@ -57,8 +67,12 @@ type PageContext = {
   attributeLabel: ReturnType<typeof useAttributeLabel>;
   renderAttributes: DevicePresentationProps["renderAttributes"];
   renderDeviceFace: DevicePresentationProps["renderDeviceFace"];
+  /** Attribute name behind a binding id, if the document declares it. */
+  attributeName: (binding: string) => string | undefined;
   /** Attribute behind a binding id, if the device has it. */
   attributeOf: (binding: string) => AttributeLike | null;
+  /** Judge of the page conditions, over attribute names. */
+  judge: ConditionJudge;
   /** Value reported by the device for a binding (measurements). */
   reported: (binding: string) => Scalar | null;
   /**
@@ -101,6 +115,8 @@ export function DevicePresentation({
       const name = attributeName(binding);
       return name ? runtime.reported(name) : null;
     };
+    const judge =
+      subject.judge ?? judgeWith((name: string) => runtime.reported(name));
     return {
       document,
       subject,
@@ -111,6 +127,8 @@ export function DevicePresentation({
       attributeLabel,
       renderAttributes,
       renderDeviceFace,
+      attributeName,
+      judge,
       attributeOf: (binding) => {
         const name = attributeName(binding);
         return name ? (attributes[name] ?? null) : null;
@@ -163,12 +181,17 @@ function PageNodeView({
   node: PageNode;
   context: PageContext;
 }) {
-  const state = context.subject.presentation_state;
-  if (node.visible_when && state?.[`${path}/visible`] !== true) return null;
+  const holds = (
+    condition: Condition | undefined,
+    expected: "true" | "false",
+  ) =>
+    !condition ||
+    context.judge(bindCondition(condition, context.attributeName), expected);
+  if (!holds(node.visible_when, "true")) return null;
   switch (node.kind) {
     case "variant": {
-      const index = node.variants.findIndex(
-        (_, index) => state?.[`${path}/variants/${index}/selected`] === true,
+      const index = node.variants.findIndex((variant) =>
+        holds(variant.when, "true"),
       );
       return index < 0 ? null : (
         <PageNodeView
@@ -286,9 +309,6 @@ function PageNodeView({
       return (
         <DeviceFace
           document={node}
-          interactionEnabled={(index) =>
-            state?.[`${path}/layers/${index}/enabled`] === true
-          }
           resolve={context.displayed}
           assetUrl={context.assetUrl}
           glyphSet={context.glyphSet}

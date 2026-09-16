@@ -95,7 +95,6 @@ function renderFace(
   const utils = render(
     <DeviceFace
       document={doc}
-      interactionEnabled={() => values.lock === false}
       resolve={(b) => values[b]}
       assetUrl={(id) => (id === "case" ? "blob:case" : undefined)}
       glyphSet={(id) => (id === "lcd" ? lcd : undefined)}

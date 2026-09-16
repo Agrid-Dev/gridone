@@ -760,44 +760,50 @@ it("shows a disabled choice and its authored reason, skipping it with keyboard n
   expect(setValue).toHaveBeenCalledWith("fan", "high");
 });
 
-it("renders layout variants from the server projection even when local values differ", () => {
+const variants: PresentationV1 = {
+  ...document,
+  page: {
+    kind: "variant",
+    variants: [
+      {
+        when: { op: "eq", binding: "power", value: false },
+        content: {
+          kind: "section",
+          title: { default: "Off layout" },
+          children: [],
+        },
+      },
+      {
+        when: { op: "is_known", binding: "power" },
+        content: {
+          kind: "section",
+          title: { default: "On layout" },
+          children: [],
+        },
+      },
+    ],
+  },
+};
+
+it("renders the first layout variant the reported values select", () => {
   const { runtime } = fakeRuntime();
-  const conditional: PresentationV1 = {
-    ...document,
-    page: {
-      kind: "variant",
-      variants: [
-        {
-          when: { op: "eq", binding: "power", value: false },
-          content: {
-            kind: "section",
-            title: { default: "Server selected layout" },
-            children: [],
-          },
-        },
-        {
-          when: { op: "is_known", binding: "power" },
-          content: {
-            kind: "section",
-            title: { default: "Other layout" },
-            children: [],
-          },
-        },
-      ],
-    },
-  };
+  renderPresentation(runtime, { document: variants });
+  expect(screen.getByText("On layout")).toBeInTheDocument();
+  expect(screen.queryByText("Off layout")).not.toBeInTheDocument();
+});
+
+it("lets a group subject judge page conditions across its members", () => {
+  const { runtime } = fakeRuntime();
   renderPresentation(runtime, {
-    document: conditional,
+    document: variants,
     subject: {
       ...device,
-      presentation_state: {
-        "/page/variants/0/selected": true,
-        "/page/variants/1/selected": false,
-      },
+      judge: (condition, expected) =>
+        condition.op === "eq" && expected === "true",
     },
   });
-  expect(screen.getByText("Server selected layout")).toBeInTheDocument();
-  expect(screen.queryByText("Other layout")).not.toBeInTheDocument();
+  expect(screen.getByText("Off layout")).toBeInTheDocument();
+  expect(screen.queryByText("On layout")).not.toBeInTheDocument();
 });
 
 it("keeps an observed out-of-list value visible without making it selectable", () => {

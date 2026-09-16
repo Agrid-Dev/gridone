@@ -103,7 +103,6 @@ describe("write state events", () => {
       type: "device_write_state" as const,
       device_id: "d1",
       revision: 2,
-      presentation_state: { "/page/visible": false },
       attributes: { temperature: { status: "unknown" as const } },
       resolutions: {
         temperature: {

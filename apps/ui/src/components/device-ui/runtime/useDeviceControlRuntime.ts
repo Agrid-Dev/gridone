@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo } from "react";
 import type { Device, ResolvedOption, WriteReason } from "@gridone/sdk";
 import { useAttributeCommandRuntime } from "@/hooks/useAttributeCommandRuntime";
 import { deviceAttributes } from "@/lib/devices";
-import type { Scalar } from "../conditions";
+import { judgeWith, type Scalar } from "../conditions";
 import type { FaceAction } from "../face";
 import { DEFAULT_DEBOUNCE_MS, type WriteState } from "./controlRuntime";
 import {
@@ -82,6 +82,7 @@ export function useDeviceControlRuntime(
     (attribute: string) => attributes[attribute]?.current_value ?? null,
     [attributes],
   );
+  const judge = useMemo(() => judgeWith(reported), [reported]);
 
   const readControl = useCallback(
     (id: string): BoundControlState | undefined => {
@@ -90,13 +91,10 @@ export function useDeviceControlRuntime(
       const attribute = attributes[spec.attribute] ?? null;
       const snapshot = runtime.snapshot(spec.attribute);
       const constraints = resolveConstraints(attribute?.write_state);
-      const visible =
-        !spec.conditionalVisibility ||
-        device.presentation_state?.[`/controls/${id}/visible`] === true;
+      const visible = !spec.visibleWhen || judge(spec.visibleWhen, "true");
       const writable =
         visible &&
-        (!spec.conditionalInteraction ||
-          device.presentation_state?.[`/controls/${id}/enabled`] === true) &&
+        (!spec.blockedWhen || judge(spec.blockedWhen, "false")) &&
         canWrite &&
         attribute !== null &&
         isWritable(attribute);
@@ -124,7 +122,7 @@ export function useDeviceControlRuntime(
         canCycle: can("cycle"),
       };
     },
-    [controls, attributes, runtime, canWrite, device.presentation_state],
+    [controls, attributes, runtime, canWrite, judge],
   );
 
   const setValue = useCallback(

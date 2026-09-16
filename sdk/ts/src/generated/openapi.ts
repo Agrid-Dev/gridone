@@ -3611,10 +3611,6 @@ export interface components {
        * @default 0
        */
       write_state_revision?: number;
-      /** Presentation State */
-      presentation_state?: {
-        [key: string]: boolean;
-      };
     };
     /**
      * DeviceBatchCreate
@@ -3782,8 +3778,6 @@ export interface components {
       /** Value */
       value?: number | string | boolean | null;
       constraints?: components["schemas"]["ResolvedConstraints"] | null;
-      /** Reason */
-      reason?: string | null;
       /** Reasons */
       reasons?: components["schemas"]["WriteReason"][];
       /** Warnings */

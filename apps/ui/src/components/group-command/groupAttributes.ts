@@ -4,7 +4,13 @@ import type {
   AttributeWriteState,
   ResolvedOption,
 } from "@gridone/sdk";
-import type { Scalar } from "@/components/device-ui/conditions";
+import {
+  judgeWith,
+  type ConditionJudge,
+  type Scalar,
+} from "@/components/device-ui/conditions";
+import type { PageNode, PresentationV1 } from "@/components/device-ui/document";
+import { bindCondition } from "@/components/device-ui/presentationControls";
 import type { AttributeLike } from "@/components/device-ui/runtime";
 import { deviceAttributes } from "@/lib/devices";
 
@@ -93,24 +99,62 @@ function aggregateWriteStates(
   };
 }
 
-/** Aggregate resolved flags only; mixed layout choices use the generic group UI. */
-export function aggregatePresentationState(
+/** A member's reported values, keyed by attribute name. */
+function memberValues(member: Device): (attribute: string) => Scalar | null {
+  return (attribute) =>
+    (member.attributes?.[attribute]?.current_value ?? null) as Scalar | null;
+}
+
+/**
+ * A condition holds for the group as soon as it holds for one member: a
+ * control visible on one device is offered, and an interaction one device
+ * allows is enabled; the preview then answers for each member.
+ */
+export function groupJudge(members: Device[]): ConditionJudge {
+  const judges = members.map((member) => judgeWith(memberValues(member)));
+  return (condition, expected) =>
+    judges.some((judge) => judge(condition, expected));
+}
+
+/**
+ * Whether every member selects the same layout variants. When they differ,
+ * the group falls back to the generic controls rather than showing one
+ * member's layout to all of them.
+ */
+export function layoutsAgree(
+  document: PresentationV1,
   members: Device[],
-): Record<string, boolean> | undefined {
-  const states = members.map((member) => member.presentation_state ?? {});
-  const keys = [...new Set(states.flatMap((state) => Object.keys(state)))];
-  const selected = keys.filter((key) => key.endsWith("/selected"));
-  if (
-    selected.some(
-      (key) =>
-        states.some((state) => state[key] === true) &&
-        !states.every((state) => state[key] === true),
-    )
-  )
-    return undefined;
-  return Object.fromEntries(
-    keys.map((key) => [key, states.some((state) => state[key] === true)]),
-  );
+): boolean {
+  const attributeOf = (binding: string) =>
+    document.bindings[binding]?.attribute;
+  const selections = members.map((member) => {
+    const judge = judgeWith(memberValues(member));
+    const selected: number[] = [];
+    const visit = (node: PageNode): void => {
+      switch (node.kind) {
+        case "variant":
+          selected.push(
+            node.variants.findIndex((variant) =>
+              judge(bindCondition(variant.when, attributeOf), "true"),
+            ),
+          );
+          for (const variant of node.variants) visit(variant.content);
+          break;
+        case "stack":
+        case "section":
+          for (const child of node.children) visit(child);
+          break;
+        case "columns":
+          for (const item of node.items) visit(item.content);
+          break;
+        default:
+          break;
+      }
+    };
+    visit(document.page);
+    return selected.join(",");
+  });
+  return new Set(selections).size <= 1;
 }
 
 /** One device seen as a command target. Its own values are by construction

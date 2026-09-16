@@ -1,4 +1,5 @@
-import { aggregatePresentationState } from "./groupAttributes";
+import type { PresentationV1 } from "@/components/device-ui/document";
+import { groupJudge, layoutsAgree } from "./groupAttributes";
 import { describe, it, expect, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
 import type { Device, Driver } from "@gridone/sdk";
@@ -150,25 +151,45 @@ describe("group reported values", () => {
   });
 });
 
-it("uses the generic group layout when server-selected variants disagree", () => {
-  const members = [
-    {
-      ...device("a", 20),
-      presentation_state: {
-        "/page/variants/0/selected": true,
-        "/page/variants/1/selected": false,
+const presentation: PresentationV1 = {
+  schema_version: 1,
+  requires: [],
+  assets: {},
+  bindings: { target: { attribute: "setpoint" } },
+  controls: {},
+  page: {
+    kind: "variant",
+    variants: [
+      {
+        when: { op: "eq", binding: "target", value: 20 },
+        content: { kind: "attributes" },
       },
-    },
-    {
-      ...device("b", 20),
-      presentation_state: {
-        "/page/variants/0/selected": false,
-        "/page/variants/1/selected": true,
+      {
+        when: { op: "is_known", binding: "target" },
+        content: { kind: "attributes" },
       },
-    },
-  ];
-  expect(aggregatePresentationState(members)).toBeUndefined();
-  expect(aggregatePresentationState([members[0], members[0]])).toEqual(
-    members[0].presentation_state,
+    ],
+  },
+};
+
+it("judges a condition true for the group when one member reaches it", () => {
+  const judge = groupJudge([device("a", 20), device("b", null)]);
+  const eq = { op: "eq", binding: "setpoint", value: 20 } as const;
+  expect(judge(eq, "true")).toBe(true);
+  expect(judge(eq, "false")).toBe(false);
+  expect(groupJudge([device("b", null)])(eq, "true")).toBe(false);
+  expect(groupJudge([])(eq, "true")).toBe(false);
+  expect(groupJudge([device("a", 21), device("b", null)])(eq, "false")).toBe(
+    true,
   );
+});
+
+it("uses the generic group layout when members select different variants", () => {
+  expect(layoutsAgree(presentation, [device("a", 20), device("b", 21)])).toBe(
+    false,
+  );
+  expect(layoutsAgree(presentation, [device("a", 20), device("b", 20)])).toBe(
+    true,
+  );
+  expect(layoutsAgree(presentation, [])).toBe(true);
 });

@@ -234,7 +234,15 @@ const client = {
         name: device.name,
         current_value: current(request.attribute, index),
         eligible: index !== 5,
-        reason: index === 5 ? "control_blocked" : null,
+        reasons:
+          index === 5
+            ? [
+                {
+                  code: "control_blocked",
+                  message: { default: "Blocked by the room's current state" },
+                },
+              ]
+            : [],
       })),
     }),
     confirmCommand: async () => ({ batch_id: "batch-1", commands: [] }),

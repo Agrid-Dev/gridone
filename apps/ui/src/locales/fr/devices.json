@@ -645,14 +645,6 @@
       "partial_one": "Valeur indisponible pour {{count}} membre",
       "partial_other": "Valeurs indisponibles pour {{count}} membres"
     },
-    "reasons": {
-      "eligible": "Éligible",
-      "not_writable": "Cet attribut ne peut pas être écrit. Choisissez un attribut modifiable.",
-      "invalid_value": "Valeur cible invalide. Modifiez la valeur.",
-      "constraints": "La valeur dépasse les contraintes autorisées ou une limite est indisponible. Vérifiez cet équipement.",
-      "unknown_attribute": "Cet attribut est indisponible sur cet équipement.",
-      "control_blocked": "Commande bloquée par l’état actuel de cet équipement, ou son état est inconnu."
-    },
     "errors": {
       "failed": "L’opération n’a pas pu être effectuée. Actualisez et réessayez.",
       "group_references": "Impossible de supprimer ce groupe. Modifiez ou supprimez d’abord ces références dans les automatisations et modèles de commandes.",

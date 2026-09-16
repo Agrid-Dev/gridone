@@ -21,7 +21,6 @@ export type DeviceFaceProps = {
   onAction: (action: FaceAction) => void;
   /** Runtime permissions and attribute availability, in addition to local locks. */
   canActivate?: (action: FaceAction) => boolean;
-  interactionEnabled?: (layerIndex: number) => boolean;
   /** BCP-47 tag used to resolve labels. */
   language: string;
   /** Called with the CSS scale applied to the face on every resize. */
@@ -46,7 +45,6 @@ export function DeviceFace({
   glyphSet,
   onAction,
   canActivate,
-  interactionEnabled,
   language,
   onScale,
   className,
@@ -77,12 +75,7 @@ export function DeviceFace({
     return () => observer.disconnect();
   }, [applyWidth]);
 
-  const layers = layoutFace({
-    document,
-    resolve,
-    glyphSet,
-    interactionEnabled,
-  });
+  const layers = layoutFace({ document, resolve, glyphSet });
 
   return (
     <div

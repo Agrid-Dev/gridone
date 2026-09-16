@@ -2,7 +2,7 @@ import type {
   AttributeWriteState,
   WriteConstraints as DriverWriteConstraints,
 } from "@gridone/sdk";
-import type { Scalar } from "../conditions";
+import type { Condition, Scalar } from "../conditions";
 import type { ControlKind } from "../document";
 import type { FaceAction, LocalizedText } from "../face";
 
@@ -18,8 +18,12 @@ export type { ControlKind } from "../document";
 
 export type ControlSpec = {
   kind: ControlKind;
-  conditionalVisibility?: boolean;
-  conditionalInteraction?: boolean;
+  /**
+   * Presentation conditions of the control, over attribute names (rebound
+   * from the document's binding ids by `controlSpecsOf`).
+   */
+  visibleWhen?: Condition;
+  blockedWhen?: Condition;
   /** Attribute of the current device the control is bound to. */
   attribute: string;
   label: LocalizedText;

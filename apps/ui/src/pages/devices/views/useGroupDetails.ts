@@ -7,7 +7,8 @@ import { controlSpecsOf } from "@/components/device-ui/presentationControls";
 import type { ControlSpec } from "@/components/device-ui/runtime";
 import {
   aggregateGroupAttributes,
-  aggregatePresentationState,
+  groupJudge,
+  layoutsAgree,
 } from "@/components/group-command/groupAttributes";
 import { useGroupTarget } from "@/components/group-command/useGroupTarget";
 import { useGroupPresentation } from "./useGroupPresentation";
@@ -24,9 +25,12 @@ export function useGroupDetails(
     queryFn: () => client.drivers.get(driverId),
   });
   const presentation = useGroupPresentation(driverId);
-  const presentationState = useMemo(
-    () => aggregatePresentationState(currentMembers),
-    [currentMembers],
+  const judge = useMemo(() => groupJudge(currentMembers), [currentMembers]);
+  const layoutsAgreed = useMemo(
+    () =>
+      !presentation.document ||
+      layoutsAgree(presentation.document, currentMembers),
+    [presentation.document, currentMembers],
   );
   const attributes = useMemo(
     () =>
@@ -41,7 +45,7 @@ export function useGroupDetails(
   );
   const controls = useMemo<Record<string, ControlSpec>>(
     () =>
-      presentation.document && presentationState
+      presentation.document && layoutsAgreed
         ? controlSpecsOf(presentation.document)
         : Object.fromEntries(
             Object.values(attributes)
@@ -60,7 +64,7 @@ export function useGroupDetails(
                 },
               ]),
           ),
-    [presentation.document, presentationState, attributes],
+    [presentation.document, layoutsAgreed, attributes],
   );
   const canWrite = can("devices:write");
   const target = useGroupTarget(
@@ -68,13 +72,14 @@ export function useGroupDetails(
     attributes,
     controls,
     canWrite && !!currentMembers.length,
-    presentationState,
+    judge,
   );
   return {
     members: { devices: currentMembers },
     driver,
     presentation,
-    presentationState,
+    judge,
+    layoutsAgreed,
     attributes,
     controls,
     canWrite,

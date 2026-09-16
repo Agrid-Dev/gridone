@@ -9,7 +9,11 @@ import {
   resolveConstraints,
   optionStates,
 } from "@/components/device-ui/runtime/controls";
-import type { Scalar } from "@/components/device-ui/conditions";
+import {
+  judgeWith,
+  type ConditionJudge,
+  type Scalar,
+} from "@/components/device-ui/conditions";
 import type { GroupAttribute } from "./groupAttributes";
 
 /** Controls edit local targets; measurements and conditions use reported values. */
@@ -20,11 +24,12 @@ export function useGroupRuntime(
   stage: (attribute: string, value: Scalar) => void,
   choose: (attribute: string) => void,
   drafts: Readonly<Record<string, Scalar>> = {},
-  presentationState?: Record<string, boolean>,
+  judge?: ConditionJudge,
 ): DeviceUiRuntime {
   const { t } = useTranslation("devices");
   return useMemo(() => {
     const reported = (name: string) => attributes[name]?.current_value ?? null;
+    const holds = judge ?? judgeWith(reported);
     const valueLabel = (name: string) => {
       const attribute = attributes[name];
       return !attribute || attribute.state === "common"
@@ -39,13 +44,10 @@ export function useGroupRuntime(
       const hasDraft = Object.hasOwn(drafts, spec.attribute);
       const displayed = hasDraft ? drafts[spec.attribute] : current;
       const constraints = resolveConstraints(attribute?.write_state);
-      const visible =
-        !spec.conditionalVisibility ||
-        presentationState?.[`/controls/${id}/visible`] === true;
+      const visible = !spec.visibleWhen || holds(spec.visibleWhen, "true");
       const writable =
         visible &&
-        (!spec.conditionalInteraction ||
-          presentationState?.[`/controls/${id}/enabled`] === true) &&
+        (!spec.blockedWhen || holds(spec.blockedWhen, "false")) &&
         canWrite &&
         !!attribute?.read_write_modes.includes("write");
       const can = (op: Parameters<typeof nextValue>[0]) =>
@@ -105,14 +107,5 @@ export function useGroupRuntime(
         else stage(state.spec.attribute, value);
       },
     };
-  }, [
-    attributes,
-    controls,
-    canWrite,
-    stage,
-    choose,
-    drafts,
-    presentationState,
-    t,
-  ]);
+  }, [attributes, controls, canWrite, stage, choose, drafts, judge, t]);
 }

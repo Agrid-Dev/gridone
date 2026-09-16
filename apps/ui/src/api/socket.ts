@@ -35,7 +35,6 @@ export type DeviceWriteStateMessage = {
   type: "device_write_state";
   device_id: string;
   revision: number;
-  presentation_state: Record<string, boolean>;
   attributes: Record<string, AttributeWriteState>;
   resolutions?: Record<
     string,
@@ -55,7 +54,6 @@ export function applyWriteState(
   return {
     ...device,
     write_state_revision: message.revision,
-    presentation_state: message.presentation_state,
     attributes: Object.fromEntries(
       Object.entries(device.attributes ?? {}).map(([name, attribute]) => [
         name,

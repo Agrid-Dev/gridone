@@ -645,14 +645,6 @@
       "partial_one": "Value unavailable for {{count}} member",
       "partial_other": "Values unavailable for {{count}} members"
     },
-    "reasons": {
-      "eligible": "Eligible",
-      "not_writable": "Attribute cannot be written. Choose a writable attribute.",
-      "invalid_value": "Invalid target value. Change the value.",
-      "constraints": "Value is outside allowed constraints, or a required bound is unavailable. Check this device.",
-      "unknown_attribute": "Attribute is unavailable on this device.",
-      "control_blocked": "Control blocked by this device’s current state, or its state is unknown."
-    },
     "errors": {
       "failed": "The operation could not be completed. Refresh and try again.",
       "group_references": "Cannot delete this group. Edit or remove these automation and command-template references first.",

@@ -24,20 +24,6 @@ import {
 
 type GroupCommand = ReturnType<typeof useGroupCommand>;
 
-const BUILT_IN_REASONS = [
-  "not_writable",
-  "invalid_value",
-  "constraints",
-  "unknown_attribute",
-  "control_blocked",
-] as const;
-
-/** The catalog key of a preview that reports a code without its reasons. */
-function builtInReason(code: string | null | undefined) {
-  const known = BUILT_IN_REASONS.find((reason) => reason === code);
-  return `groups.reasons.${known ?? "not_writable"}` as const;
-}
-
 export function GroupCommandDialog({
   command,
   targetName,
@@ -292,12 +278,13 @@ function PreparedWrite({
                           target
                         ) : (
                           <span className="font-normal">
-                            {/* A driver authors its own refusals, which the
-                                app catalog cannot name; `reason` alone is the
-                                older, closed set of codes. */}
-                            {row.reasons?.length
-                              ? commandReasons(row.reasons)
-                              : t(builtInReason(row.reason))}
+                            {/* A driver authors its own refusals; the app
+                                catalog names the built-in codes. */}
+                            {commandReasons(
+                              row.reasons?.length
+                                ? row.reasons
+                                : [{ code: "not_writable" }],
+                            )}
                           </span>
                         )}
                         {!!row.warnings?.length && (

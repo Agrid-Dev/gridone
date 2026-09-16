@@ -162,7 +162,7 @@ function previewMember(id: string, eligible = true) {
     name: `Device ${id}`,
     current_value: 21,
     eligible,
-    reason: eligible ? null : "not_writable",
+    reasons: eligible ? [] : [{ code: "not_writable" }],
   };
 }
 function unitCommand(id: string, status = "pending") {
