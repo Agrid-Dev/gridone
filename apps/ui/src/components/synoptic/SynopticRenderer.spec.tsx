@@ -1,6 +1,11 @@
-import { cleanup, render } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
-import type { AttributeSlot, PipeElement, Synoptic } from "@gridone/sdk";
+import { cleanup, fireEvent, render } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type {
+  AttributeSlot,
+  PipeElement,
+  SymbolElement,
+  Synoptic,
+} from "@gridone/sdk";
 import ecsEstPlate from "@/pages/sandbox/ecsEstPlate.json";
 import { CHIP_H, SILENT_TEXT } from "./Chip";
 import { PANEL_W, panelHeight } from "./Panel";
@@ -687,5 +692,125 @@ describe("SynopticRenderer", () => {
     for (const chip of q(c, "[data-tag] rect").map(box)) {
       expect(runs.every((run) => apart(chip, run))).toBe(true);
     }
+  });
+
+  describe("click-through", () => {
+    const link = (id: string, synoptic_id: string | null): SymbolElement => ({
+      id,
+      type: "link",
+      placement: { kind: "cell", cell: { x: 12, y: 0 } },
+      label: id,
+      props: { synoptic_id, caption: null },
+    });
+    const LINKED: Synoptic = {
+      ...DOC,
+      symbols: [
+        ...(DOC.symbols ?? []),
+        link("to-west", "west"),
+        link("to-gone", "gone"),
+        link("boundary", null),
+        { ...(DOC.symbols ?? [])[2], id: "col-dev", device_id: "COL-1" },
+      ],
+    };
+    const known = new Set(["west"]);
+    const drawLinked = (knownSynoptics: Set<string> | undefined = known) => {
+      const onSymbolClick = vi.fn();
+      const { container } = render(
+        <SynopticRenderer
+          doc={LINKED}
+          knownSynoptics={knownSynoptics}
+          onSymbolClick={onSymbolClick}
+        />,
+      );
+      return { c: container, onSymbolClick };
+    };
+    const buttons = (c: Element) =>
+      q(c, "[role='button']").map((g) => g.getAttribute("data-symbol"));
+
+    it("makes a button of a device symbol and of a link to a known plate, nothing else", () => {
+      const { c } = drawLinked();
+      // "An explicit, optional device_id on the symbol is the sole source of
+      // click-through": b01 reads PAC-03's temperature but is no device.
+      // A collector that is a device gets the same button as a drawn type.
+      expect(buttons(c).sort()).toEqual(["col-dev", "pac", "to-west"]);
+      expect(
+        c.querySelector("[data-symbol='pac']")?.getAttribute("data-affordance"),
+      ).toBe("device");
+      expect(
+        c
+          .querySelector("[data-symbol='to-west']")
+          ?.getAttribute("data-affordance"),
+      ).toBe("link");
+      expect(c.querySelector("[data-symbol='boundary']")).toBeNull();
+    });
+
+    it("draws a link to an unknown plate faded, dashed and inert", () => {
+      const { c } = drawLinked();
+      const gone = c.querySelector("[data-symbol='to-gone']")!;
+      expect(gone.hasAttribute("data-missing")).toBe(true);
+      expect(gone.getAttribute("role")).toBeNull();
+      expect(gone.getAttribute("stroke-dasharray")).toBe("3 2");
+      expect(gone.querySelector("title")?.textContent).toBe("gone");
+    });
+
+    it("makes no button at all without a click handler, but still marks a missing link", () => {
+      const { container: c } = render(
+        <SynopticRenderer doc={LINKED} knownSynoptics={known} />,
+      );
+      expect(buttons(c)).toEqual([]);
+      expect(
+        q(c, "[data-missing]").map((g) => g.getAttribute("data-symbol")),
+      ).toEqual(["to-gone"]);
+    });
+
+    it("keeps a double click on the symbol, away from the canvas refit", () => {
+      const onCanvasDoubleClick = vi.fn();
+      const { container: c } = render(
+        <div onDoubleClick={onCanvasDoubleClick}>
+          <SynopticRenderer
+            doc={LINKED}
+            knownSynoptics={known}
+            onSymbolClick={vi.fn()}
+          />
+        </div>,
+      );
+      fireEvent.doubleClick(c.querySelector("[data-symbol='pac']")!);
+      expect(onCanvasDoubleClick).not.toHaveBeenCalled();
+      fireEvent.doubleClick(c.querySelector("svg")!);
+      expect(onCanvasDoubleClick).toHaveBeenCalledTimes(1);
+    });
+
+    it("leaves every link inert when no plate list is given", () => {
+      const { container: c } = render(
+        <SynopticRenderer doc={LINKED} onSymbolClick={vi.fn()} />,
+      );
+      expect(buttons(c).sort()).toEqual(["col-dev", "pac"]);
+      expect(q(c, "[data-missing]")).toHaveLength(0);
+    });
+
+    it("reports the activated symbol on click and on Enter, not on other keys", () => {
+      const { c, onSymbolClick } = drawLinked();
+      const pac = c.querySelector("[data-symbol='pac']")!;
+      fireEvent.click(pac);
+      expect(onSymbolClick).toHaveBeenCalledTimes(1);
+      expect(onSymbolClick.mock.calls[0][0].id).toBe("pac");
+      fireEvent.keyDown(c.querySelector("[data-symbol='to-west']")!, {
+        key: "Enter",
+      });
+      expect(onSymbolClick.mock.calls[1][0].id).toBe("to-west");
+      fireEvent.keyDown(pac, { key: "a" });
+      expect(onSymbolClick).toHaveBeenCalledTimes(2);
+    });
+
+    it("renders the same buttons on the flat sheet", () => {
+      const { container } = render(
+        <SynopticRenderer
+          doc={{ ...LINKED, projection: "flat" }}
+          knownSynoptics={known}
+          onSymbolClick={vi.fn()}
+        />,
+      );
+      expect(buttons(container).sort()).toEqual(["col-dev", "pac", "to-west"]);
+    });
   });
 });
