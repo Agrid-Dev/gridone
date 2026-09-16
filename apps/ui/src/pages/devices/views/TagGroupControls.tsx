@@ -11,11 +11,7 @@ import {
 } from "@/components/device-ui/writableOnly";
 import { attributeValueText } from "@/lib/attributeValueLabel";
 import { localize } from "@/lib/localizedText";
-import {
-  OTHER_KEY,
-  deviceTypeLabel,
-  uniformDeviceTypeKey,
-} from "@/lib/deviceTypes";
+import { useDeviceCountLabel } from "@/hooks/useDeviceCountLabel";
 import { GroupError } from "@/components/group-command/GroupError";
 import { GroupCommandDialog } from "@/components/group-command/GroupCommandDialog";
 import { GroupTargetDialog } from "@/components/group-command/GroupTargetDialog";
@@ -38,22 +34,13 @@ export function TagGroupControls({
   targetName?: string;
 }) {
   const { t, i18n } = useTranslation("devices");
-  const { t: tTypes } = useTranslation("standardDevices");
   const { t: tCommon } = useTranslation("common");
   const detail = useGroupDetails(driverId, filter, devices);
   const { attributes, controls, runtime, presentation, command, canWrite } =
     detail;
-  // Business vocabulary, never the driver id: the same catalog the fleet
-  // views use (AGR-1029). A mixed card falls back to the generic noun rather
-  // than calling eight thermostats "others".
-  const typeKey = uniformDeviceTypeKey(devices);
-  const heading =
-    typeKey && typeKey !== OTHER_KEY
-      ? t("groups.deviceCount", {
-          total: devices.length,
-          type: deviceTypeLabel(typeKey, devices.length, tTypes),
-        })
-      : t("groups.equipmentCount", { count: devices.length });
+  // Business vocabulary, never the driver id — the same phrasing the device
+  // page uses for the group it targets.
+  const heading = useDeviceCountLabel()(devices);
   // Only commandable settings: an aggregated reading is either identical on
   // every member or "several values", and this screen exists to send one
   // setpoint to all of them.

@@ -116,6 +116,23 @@ describe("ActiveFaultsSection", () => {
     ).toHaveAttribute("aria-expanded", "false");
   });
 
+  it("carries the severity as a rule, not as a filled panel", () => {
+    const { container } = render(
+      <ActiveFaultsSection
+        device={makeDevice({
+          a: fault({ name: "alert_fault", severity: "alert", is_faulty: true }),
+        })}
+      />,
+    );
+
+    // The count is already in the device's title chip; repeating it as a
+    // full-width tinted panel outweighed every control on the page.
+    expect(container.querySelector('[class*="bg-status-"]')).toBeNull();
+    expect(
+      container.querySelector('[class*="border-l-"][class*="border-status-"]'),
+    ).not.toBeNull();
+  });
+
   it("expands to the fault list and collapses back", () => {
     render(
       <ActiveFaultsSection

@@ -12,6 +12,7 @@ import { DeviceProvider } from "@/contexts/DeviceContext";
 import { TooltipProvider } from "@/components/ui";
 import { AGRID_THERMOSTAT_PRESENTATION } from "@/components/device-ui/fixtures/agridThermostat/presentation";
 import { AGRID_THERMOSTAT_GLYPH_SETS } from "@/components/device-ui/fixtures/agridThermostat";
+import { ActiveFaultsSection } from "@/components/ActiveFaultsSection";
 import { TagGroupControls } from "@/pages/devices/views/TagGroupControls";
 import DeviceLiveControl from "@/pages/devices/device/DeviceLiveControl";
 import bezelUrl from "@/components/device-ui/fixtures/agridThermostat/assets/thermostat-bezel.png?url";
@@ -148,6 +149,23 @@ function current(name: string, index: number): unknown {
 }
 
 const rooms = Array.from({ length: 8 }, (_, index) => room(index));
+const faulty = {
+  ...rooms[0],
+  attributes: {
+    ...rooms[0].attributes,
+    filter_alarm: {
+      name: "filter_alarm",
+      kind: "fault",
+      data_type: "bool",
+      severity: "alert",
+      is_faulty: true,
+      current_value: true,
+      label: { default: "Alarme filtre" },
+      read_write_modes: ["read"],
+      last_changed: "2026-09-15T22:10:00Z",
+    },
+  },
+} as unknown as Device;
 const assets: Record<string, string> = {
   bezel: bezelUrl,
   main_font: mainFontUrl,
@@ -189,6 +207,7 @@ const client = {
   devices: {
     get: async () => rooms[0],
     list: async () => rooms,
+    listCommandsForDevice: async () => ({ items: [], total_pages: 1 }),
     getPresentation: async () => ({
       status: "available",
       revision: "harness",
@@ -250,6 +269,9 @@ function Harness() {
                     </div>
                   ) : (
                     <Suspense fallback={<p>chargement…</p>}>
+                      <div style={{ marginBottom: 24 }}>
+                        <ActiveFaultsSection device={faulty} />
+                      </div>
                       <Routes>
                         <Route
                           path="/devices/:deviceId"

@@ -11,6 +11,7 @@ import {
 } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
+import { viewsKey } from "@/hooks/useDeviceViews";
 import { GridoneError, type Device } from "@gridone/sdk";
 import { createI18nMock } from "@/test/i18nMock";
 const state = vi.hoisted(() => ({
@@ -24,6 +25,7 @@ const state = vi.hoisted(() => ({
       getPresentationAsset: vi.fn(),
       sendCommand: vi.fn(),
       get: vi.fn(),
+      list: vi.fn(),
       previewCommand: vi.fn(),
       confirmCommand: vi.fn(),
       listCommands: vi.fn(),
@@ -125,6 +127,10 @@ vi.mock("react-i18next", () =>
       "groups.sentToTarget": "Command sent to {{name}}",
       "groups.batchSummary":
         "Succeeded {{success}}, failed {{failed}}, pending {{pending}}",
+      "commandTarget.availableGroups": "{{count}} groups available",
+      "groups.deviceCount": "{{total}} {{type}}",
+      "groups.equipmentCount": "{{count}} devices",
+      "thermostat.name_plural": "thermostats",
     },
     { language: "en" },
   ),
@@ -192,10 +198,14 @@ function available(overrides = {}) {
     document: { ...document, ...overrides },
   };
 }
-function setup() {
+function setup({ seedViews }: { seedViews?: unknown[] } = {}) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
+  // Seeding the views makes group membership available on the first render,
+  // so a test can assert the ABSENCE of the target bar without racing the
+  // query that would have populated it.
+  if (seedViews) queryClient.setQueryData(viewsKey, seedViews);
   const tree = () => (
     <StrictMode>
       <MemoryRouter>
@@ -217,6 +227,7 @@ beforeEach(() => {
   state.client.devices.get.mockImplementation(async () => state.device);
   state.client.devices.sendCommand.mockResolvedValue({ id: "cmd" });
   state.client.deviceViews.list.mockResolvedValue([]);
+  state.client.devices.list.mockResolvedValue([]);
   state.client.devices.listCommands.mockResolvedValue({
     items: [],
     total_pages: 1,
@@ -569,5 +580,79 @@ describe("choosing what a change applies to", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("what the target bar tells you before you touch a control", () => {
+  const groupView = (value: string, name: string) => ({
+    id: value,
+    name,
+    description: null,
+    group_by: [],
+    filter: { tags: { group: [value] } },
+  });
+
+  function inGroups(...names: [string, string][]) {
+    state.device = {
+      ...device("v1"),
+      tags: { group: names.map(([value]) => value) },
+    } as Device;
+    state.client.deviceViews.list.mockResolvedValue(
+      names.map(([value, name]) => groupView(value, name)),
+    );
+  }
+
+  it("says how many groups are on offer while this device is the target", async () => {
+    inGroups(["g1", "Second floor rooms"], ["g2", "South facade"]);
+    setup();
+    expect(await screen.findByText("2 groups available")).toBeVisible();
+  });
+
+  it("names the reach of the targeted group in business vocabulary", async () => {
+    inGroups(["g1", "Second floor rooms"]);
+    state.client.devices.list.mockResolvedValue(
+      ["a", "b", "c"].map((id) => ({ id, name: id, type: "thermostat" })),
+    );
+    setup();
+    await screen.findByRole("combobox", { name: "Apply to" });
+    act(() => {
+      fireEvent.change(screen.getByRole("combobox", { name: "Apply to" }), {
+        target: { value: "g1" },
+      });
+    });
+    expect(await screen.findByText("3 thermostats")).toBeVisible();
+    expect(state.client.devices.list).toHaveBeenCalledWith({
+      tags: ["group:g1"],
+    });
+    expect(screen.queryByText(/groups available/)).not.toBeInTheDocument();
+  });
+
+  it("does not fetch a group's members while the device is the target", async () => {
+    inGroups(["g1", "Second floor rooms"]);
+    setup();
+    await screen.findByRole("combobox", { name: "Apply to" });
+    expect(state.client.devices.list).not.toHaveBeenCalled();
+  });
+
+  it("offers no target on a device the presentation engine does not drive", async () => {
+    inGroups(["g1", "Second floor rooms"]);
+    const views = [groupView("g1", "Second floor rooms")];
+    // Control: with a presentation, these very groups do produce the bar.
+    setup({ seedViews: views });
+    expect(
+      await screen.findByRole("combobox", { name: "Apply to" }),
+    ).toBeVisible();
+    cleanup();
+
+    // Without one, the legacy control writes straight to this device, so a
+    // target selector would promise a scope nothing honours.
+    state.device = { ...state.device, presentation_ref: null } as Device;
+    setup({ seedViews: views });
+    expect(
+      await screen.findByRole("button", { name: "Supervision" }),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("combobox", { name: "Apply to" }),
+    ).not.toBeInTheDocument();
   });
 });

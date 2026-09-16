@@ -19,7 +19,12 @@ import { GroupCommandResults } from "@/components/group-command/GroupCommandResu
 import { GroupError } from "@/components/group-command/GroupError";
 import { GroupTargetDialog } from "@/components/group-command/GroupTargetDialog";
 import { useGroupTarget } from "@/components/group-command/useGroupTarget";
-import { useDeviceGroups, type DeviceGroup } from "@/hooks/useDeviceGroups";
+import {
+  useDeviceGroups,
+  useGroupMembers,
+  type DeviceGroup,
+} from "@/hooks/useDeviceGroups";
+import { useDeviceCountLabel } from "@/hooks/useDeviceCountLabel";
 import type { DevicesFilter } from "@/lib/devices";
 
 export default function DeviceLiveControl() {
@@ -31,34 +36,35 @@ function PresentedDevice({ device }: { device: Device }) {
   const { groups } = useDeviceGroups(device);
   const [targetValue, setTargetValue] = useState<string | null>(null);
   const target = groups.find((group) => group.value === targetValue) ?? null;
+  // Remounting on target change is the point: the previous runtime is
+  // detached, so a setpoint still waiting for its debounce is cancelled
+  // instead of landing on the group that was just selected.
   return (
-    <div className="space-y-6">
-      <DeviceCommandTarget
-        groups={groups}
-        value={target?.value ?? null}
-        onChange={setTargetValue}
-      />
-      {/* Remounting on target change is the point: the previous runtime is
-          detached, so a setpoint still waiting for its debounce is cancelled
-          instead of landing on the group that was just selected. */}
-      <DeviceControl
-        key={target?.value ?? "self"}
-        device={device}
-        target={target}
-      />
-    </div>
+    <DeviceControl
+      key={target?.value ?? "self"}
+      device={device}
+      target={target}
+      groups={groups}
+      onTargetChange={setTargetValue}
+    />
   );
 }
 
 function DeviceControl({
   device,
   target,
+  groups,
+  onTargetChange,
 }: {
   device: Device;
   target: DeviceGroup | null;
+  groups: DeviceGroup[];
+  onTargetChange: (group: string | null) => void;
 }) {
   const { t } = useTranslation("devices");
   const can = usePermissions();
+  const members = useGroupMembers(target?.value ?? null);
+  const countLabel = useDeviceCountLabel();
   const { presentation, controls, runtime, pending } =
     usePresentedDevice(device);
   // Controls keep showing this thermostat's own values: the target says where
@@ -118,31 +124,41 @@ function DeviceControl({
   }
   return (
     <div className="space-y-8">
-      {target && (
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <GroupError error={!command.preview && command.error} />
-          {!!group.writes.length && (
-            <Button
-              type="button"
-              disabled={command.busy || !!command.preview}
-              onClick={() => void command.prepareMany(group.writes)}
-            >
-              {t("groups.reviewDrafts", { count: group.writes.length })}
-            </Button>
+      {/* The bar and the controls are one block: 12px between them against the
+          24px the page puts above, so the bar reads as the head of what it
+          governs rather than as another line of page chrome. */}
+      <div className="space-y-3">
+        <DeviceCommandTarget
+          groups={groups}
+          value={target?.value ?? null}
+          onChange={onTargetChange}
+          memberLabel={members && countLabel(members)}
+          action={
+            target && group.writes.length ? (
+              <Button
+                type="button"
+                size="sm"
+                disabled={command.busy || !!command.preview}
+                onClick={() => void command.prepareMany(group.writes)}
+              >
+                {t("groups.reviewDrafts", { count: group.writes.length })}
+              </Button>
+            ) : null
+          }
+        />
+        {target && <GroupError error={!command.preview && command.error} />}
+        <DevicePresentation
+          document={presentation.document}
+          subject={device}
+          runtime={target ? group.runtime : runtime}
+          assetUrl={presentation.assets.assetUrl}
+          glyphSet={presentation.assets.glyphSet}
+          fallback={fallback([{ code: "render_error" }])}
+          renderAttributes={({ group: attributeGroup }) => (
+            <DeviceAttributePanes device={device} group={attributeGroup} />
           )}
-        </div>
-      )}
-      <DevicePresentation
-        document={presentation.document}
-        subject={device}
-        runtime={target ? group.runtime : runtime}
-        assetUrl={presentation.assets.assetUrl}
-        glyphSet={presentation.assets.glyphSet}
-        fallback={fallback([{ code: "render_error" }])}
-        renderAttributes={({ group: attributeGroup }) => (
-          <DeviceAttributePanes device={device} group={attributeGroup} />
-        )}
-      />
+        />
+      </div>
       {target && (
         <>
           <GroupCommandDrafts

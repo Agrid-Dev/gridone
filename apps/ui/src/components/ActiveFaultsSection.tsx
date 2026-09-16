@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronDown, ChevronUp } from "lucide-react";
 import type { Device } from "@gridone/sdk";
 import { Button } from "@/components/ui";
 import { FaultItem } from "./FaultItem";
@@ -13,21 +12,25 @@ import {
 } from "@/lib/semanticColors";
 import { cn } from "@/lib/utils";
 
-/** Panel tint per status level (literal classes so Tailwind keeps them). */
-const PANEL_CLASSES: Record<StatusLevel, string> = {
-  ok: "border-status-ok/30 bg-status-ok/10",
-  info: "border-status-info/30 bg-status-info/10",
-  warning: "border-status-warning/30 bg-status-warning/10",
-  error: "border-status-error/30 bg-status-error/10",
+/** Rule colour per status level (literal classes so Tailwind keeps them). */
+const RULE_CLASSES: Record<StatusLevel, string> = {
+  ok: "border-status-ok",
+  info: "border-status-info",
+  warning: "border-status-warning",
+  error: "border-status-error",
 };
 
 type ActiveFaultsSectionProps = {
   device: Device;
 };
 
-/** Collapsed-by-default banner showing the active-fault count, tinted by the
- *  highest active severity, expandable to the full fault list — so many
- *  simultaneous faults don't push the main device content off-screen. */
+/** Collapsed-by-default fault line, tinted by the highest active severity and
+ *  expandable to the full list.
+ *
+ *  It is a rule and a sentence rather than a filled panel: the count is
+ *  already in the device's title chip, and as a full-width panel this repeat
+ *  outweighed every control on the page — including the one that decides where
+ *  a command is sent. Severity keeps its colour; it loses its surface. */
 export function ActiveFaultsSection({ device }: ActiveFaultsSectionProps) {
   const { t } = useTranslation("devices");
   const [expanded, setExpanded] = useState(false);
@@ -40,22 +43,28 @@ export function ActiveFaultsSection({ device }: ActiveFaultsSectionProps) {
   const level = SEVERITY_LEVEL[severity];
 
   return (
-    <div
-      data-severity={severity}
-      className={cn("rounded-xl border p-4", PANEL_CLASSES[level])}
-    >
-      <div className="flex items-center justify-between gap-2">
-        <div
+    <div data-severity={severity} className="-my-1">
+      <div
+        className={cn(
+          "flex flex-wrap items-center gap-x-3 gap-y-1 border-l-[3px] pl-3",
+          RULE_CLASSES[level],
+        )}
+      >
+        <span
           className={cn("flex items-center gap-2", SEMANTIC_TEXT_CLASS[level])}
         >
           <FaultSeverityIcon severity={severity} />
-          <h3 className="text-sm font-semibold">
+          <span className="text-sm font-semibold">
             {t("deviceDetails.activeFaults.badge", { count: faults.length })}
-          </h3>
-        </div>
+          </span>
+        </span>
+        <span aria-hidden className="text-muted-foreground/40">
+          ·
+        </span>
         <Button
-          variant="ghost"
+          variant="link"
           size="sm"
+          className="h-auto p-0 text-sm"
           aria-expanded={expanded}
           onClick={() => setExpanded((prev) => !prev)}
         >
@@ -64,15 +73,10 @@ export function ActiveFaultsSection({ device }: ActiveFaultsSectionProps) {
               ? "deviceDetails.activeFaults.collapse"
               : "deviceDetails.activeFaults.expand",
           )}
-          {expanded ? (
-            <ChevronUp className="ml-1 h-4 w-4" />
-          ) : (
-            <ChevronDown className="ml-1 h-4 w-4" />
-          )}
         </Button>
       </div>
       {expanded && (
-        <div className="mt-2 space-y-1.5">
+        <div className="mt-3 space-y-1.5 pl-3">
           {faults.map((fault) => (
             <FaultItem key={fault.name} attribute={fault} />
           ))}

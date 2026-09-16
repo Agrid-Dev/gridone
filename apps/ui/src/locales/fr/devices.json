@@ -722,8 +722,10 @@
     "confirmationExpired": "Le résultat de cet envoi est inconnu et sa vérification n’est plus disponible. Consultez l’historique avant de préparer un nouvel envoi."
   },
   "commandTarget": {
-    "label": "Appliquer à",
-    "thisDevice": "Cet appareil uniquement"
+    "label": "Appliquer les réglages à",
+    "thisDevice": "Cet appareil uniquement",
+    "availableGroups_one": "{{count}} groupe disponible",
+    "availableGroups_other": "{{count}} groupes disponibles"
   },
   "views": {
     "title": "Vues",

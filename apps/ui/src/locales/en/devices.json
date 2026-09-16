@@ -722,8 +722,10 @@
     "confirmationExpired": "The outcome of this send is unknown and its verification is no longer available. Check the history before preparing another send."
   },
   "commandTarget": {
-    "label": "Apply to",
-    "thisDevice": "This device only"
+    "label": "Apply the settings to",
+    "thisDevice": "This device only",
+    "availableGroups_one": "{{count}} group available",
+    "availableGroups_other": "{{count}} groups available"
   },
   "views": {
     "title": "Views",
