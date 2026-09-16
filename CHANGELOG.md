@@ -1,3 +1,12 @@
+## v0.244.0 (2026-09-16)
+
+### Feat
+
+- **ui**: live synoptic renderer (#648)
+- **ui**: hydronic symbol set (#647)
+- **ui**: isometric projection, depth ordering and pan/zoom (#645)
+- **ui**: vendor the SCADA symbol kit into apps/ui (#641)
+
 ## v0.243.0 (2026-09-16)
 
 ### Feat
