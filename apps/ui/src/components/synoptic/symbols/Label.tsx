@@ -7,7 +7,7 @@ export type SymbolState = "on" | "off";
 /** Symbol labels are 11 px semibold: nothing on the plate is smaller. */
 export const LABEL_SIZE = 11;
 /** Space between a label's end and its LED. */
-const LED_GAP = 8;
+export const LED_GAP = 8;
 
 type LabelProps = {
   text: string;

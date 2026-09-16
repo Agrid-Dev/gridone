@@ -15,11 +15,17 @@ import { DepthOrdered, type DepthItem } from "./DepthOrdered";
 import { Panel, PANEL_W, panelHeight, type PanelRow } from "./Panel";
 import { PidDiagram } from "./PidDiagram";
 import { Pipe } from "./Pipe";
-import { depthKey, PIPE_AXIS_Z, project, rotateQuarter } from "./projection";
+import {
+  depthKey,
+  PIPE_AXIS_Z,
+  planeAt,
+  project,
+  rotateQuarter,
+} from "./projection";
 import { pieceAt, runPieces, type RunPiece } from "./runs";
-import { Collector } from "./symbols/Collector";
+import { Collector, COLLECTOR_LABEL_LIFT } from "./symbols/Collector";
 import { DRAWINGS } from "./symbols/drawings";
-import { LABEL_SIZE, type SymbolState } from "./symbols/Label";
+import { LABEL_SIZE, LED_GAP, type SymbolState } from "./symbols/Label";
 import type { CollectorProps } from "./symbols/ports";
 import {
   SynopticSymbol,
@@ -162,6 +168,9 @@ type Geometry = {
   bodies: Map<string, Box>;
   bodyCells: Set<string>;
   runs: Box[];
+  /** The box each symbol's label takes, LED included, so a tag's chip
+   *  never covers a name or a run-state light. */
+  labelBoxes: Map<string, Box>;
 };
 
 /** Everything the element builders share while a plate is assembled. */
@@ -207,6 +216,12 @@ function plateGeometry(doc: Synoptic): Geometry {
       y1: b.y1 + RUN_HALF_WIDTH,
     };
   });
+  const labelBoxes = new Map(
+    [...symbols.values()].flatMap((symbol) => {
+      const box = symbolLabelBox(projection, symbol);
+      return box ? [[symbol.id, box] as const] : [];
+    }),
+  );
   return {
     projection,
     symbols,
@@ -217,8 +232,43 @@ function plateGeometry(doc: Synoptic): Geometry {
     bodies,
     bodyCells,
     runs,
+    labelBoxes,
   };
 }
+
+/** Where a symbol's label sits on screen, its LED allowance included: the
+ *  kit's label point for a drawn type, the bar's lifted origin for a
+ *  collector. Null for a symbol that draws no text. */
+function symbolLabelBox(
+  projection: Projection,
+  symbol: SymbolElement,
+): Box | null {
+  const text = symbol.label ?? DRAWINGS[symbol.type]?.mark;
+  if (!text) return null;
+  const origin = symbol.placement.cell;
+  const shape = collectorShape(symbol);
+  const at = shape
+    ? (() => {
+        const p = planeAt(projection, (origin.z ?? 0) + PIPE_AXIS_Z)(
+          origin.x + 0.5,
+          origin.y + 0.5,
+        );
+        return { x: p.x, y: p.y - COLLECTOR_LABEL_LIFT };
+      })()
+    : symbolLabelPoint(symbol.type, projection, origin, symbolRotation(symbol));
+  if (!at) return null;
+  const half = textWidth(text, LABEL_SIZE) / 2;
+  return {
+    x0: at.x - half,
+    y0: at.y - LABEL_SIZE,
+    // The LED sits after the text; leave it room whether or not it is lit.
+    x1: at.x + half + LED_GAP + 2 * LED_R,
+    y1: at.y,
+  };
+}
+
+/** Radius of the run-state LED after a label. */
+const LED_R = 4;
 
 const reading = (plate: Plate, key: string, value: SlotValue) =>
   readingOf(plate.values, key, value);
@@ -235,7 +285,11 @@ function buildPlate(geometry: Geometry, values: SynopticValues) {
     values,
     items: [],
     extent: [...geometry.corners.values()].flat(),
-    obstacles: [...geometry.bodies.values(), ...geometry.runs],
+    obstacles: [
+      ...geometry.bodies.values(),
+      ...geometry.runs,
+      ...geometry.labelBoxes.values(),
+    ],
   };
   addRuns(plate);
   addSymbols(plate);
@@ -295,23 +349,24 @@ function addRuns(plate: Plate) {
       const piece = pieceAt(run, tag.at);
       if (!piece) continue;
       const on = piece.points[1];
-      const below = cellsBehind(projection, tag.at).some((c) =>
-        bodyCells.has(cellKey(c.x, c.y)),
-      );
-      const at = { x: on.x, y: on.y + (below ? TAG_LIFT : -TAG_LIFT) };
       const value = tag.value && reading(plate, tagSlotKey(tag.id), tag.value);
-      const captionY = below
-        ? at.y + CHIP_H / 2 + TAG_CAPTION_GAP
-        : at.y - CHIP_H / 2 - TAG_CAPTION_GAP;
       const w = value
         ? chipWidth(value.text ?? "", value.unit)
         : textWidth(tag.label, LABEL_SIZE);
-      place(plate, {
-        x0: at.x - w / 2,
-        y0: Math.min(at.y - CHIP_H / 2, captionY - LABEL_SIZE),
-        x1: at.x + w / 2,
-        y1: Math.max(at.y + CHIP_H / 2, captionY),
-      });
+      // The chip rises over the cells behind the run unless a body stands
+      // there; either way it takes the first lift clear of every body,
+      // run, label and readout already placed, the other side next, then
+      // further out.
+      const bodyBehind = cellsBehind(projection, tag.at).some((c) =>
+        bodyCells.has(cellKey(c.x, c.y)),
+      );
+      const { below, at, captionY, box } = placeTag(
+        plate,
+        on,
+        w,
+        bodyBehind ? "below" : "above",
+      );
+      place(plate, box);
       items.push({
         id: tag.id,
         depth: depthKey(tag.at, "label"),
@@ -631,6 +686,54 @@ function cellsBehind(projection: Projection, cell: Cell): Pt[] {
   ];
 }
 
+const nearest = (points: Pt[], to: Pt): Pt =>
+  points.reduce((best, p) =>
+    Math.hypot(p.x - to.x, p.y - to.y) <
+    Math.hypot(best.x - to.x, best.y - to.y)
+      ? p
+      : best,
+  );
+
+/**
+ * Where a tag's chip hangs: `TAG_LIFT` above or below its point on the run,
+ * the preferred side first, the other next, then both again further out,
+ * the first box clear of every obstacle. The box holds the chip and its
+ * caption, above the chip when the chip is above the run, below it when
+ * it hangs below.
+ */
+function placeTag(
+  plate: Plate,
+  on: Pt,
+  w: number,
+  prefer: "above" | "below",
+): { below: boolean; at: Pt; captionY: number; box: Box } {
+  const candidate = (below: boolean, lift: number) => {
+    const at = { x: on.x, y: on.y + (below ? lift : -lift) };
+    const captionY = below
+      ? at.y + CHIP_H / 2 + TAG_CAPTION_GAP
+      : at.y - CHIP_H / 2 - TAG_CAPTION_GAP;
+    return {
+      below,
+      at,
+      captionY,
+      box: {
+        x0: at.x - w / 2,
+        y0: Math.min(at.y - CHIP_H / 2, captionY - LABEL_SIZE),
+        x1: at.x + w / 2,
+        y1: Math.max(at.y + CHIP_H / 2, captionY),
+      },
+    };
+  };
+  const sides = prefer === "below" ? [true, false] : [false, true];
+  for (let gap = 0; gap < PLACEMENT_RINGS; gap++) {
+    for (const below of sides) {
+      const c = candidate(below, TAG_LIFT + PANEL_BODY_GAP * gap);
+      if (!plate.obstacles.some((o) => overlaps(c.box, o))) return c;
+    }
+  }
+  return candidate(sides[0], TAG_LIFT);
+}
+
 /** How many times the gaps widen when every spot of a ring is taken. */
 const PLACEMENT_RINGS = 3;
 
@@ -651,7 +754,8 @@ function placeReadout(
   kind: "chip" | "panel",
 ): { box: Box; anchor: Pt } {
   const body = plate.bodies.get(symbol.id)!;
-  const others = plate.obstacles.filter((o) => o !== body);
+  const ownLabel = plate.labelBoxes.get(symbol.id);
+  const others = plate.obstacles.filter((o) => o !== body && o !== ownLabel);
   const midY = (body.y0 + body.y1) / 2;
   const left = { x: body.x0, y: midY };
   const right = { x: body.x1, y: midY };
@@ -683,7 +787,9 @@ function placeReadout(
       y:
         corner.y +
         (corner.dy > 0 ? PANEL_BODY_GAP * gap : -PANEL_BODY_GAP * gap - h),
-      anchor: { x: corner.x, y: corner.y },
+      // A box corner of an isometric body is not on its silhouette: the
+      // leader ends at the drawn corner nearest to it instead.
+      anchor: nearest(plate.corners.get(symbol.id)!, corner),
     })),
   ];
   const boxed = (gap: number) =>

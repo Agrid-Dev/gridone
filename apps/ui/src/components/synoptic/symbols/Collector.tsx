@@ -15,7 +15,7 @@ type Props = {
 const BAR_WIDTH = 0.4;
 /** How far the bar sits in from the faces its ports leave through. */
 export const COLLECTOR_INSET = (1 - BAR_WIDTH) / 2;
-const LABEL_LIFT = 14;
+export const COLLECTOR_LABEL_LIFT = 14;
 
 /** The collector bar on the pipe axis plane, its length and ports authored
  *  per instance. Runs attach at the ports `symbolPort` resolves. */
@@ -30,7 +30,7 @@ export function Collector({ projection, origin, shape, label }: Props) {
   return (
     <g>
       <PlanPoly plane={plane} points={bar} cls="face" />
-      {label && <Label text={label} at={at} lift={LABEL_LIFT} />}
+      {label && <Label text={label} at={at} lift={COLLECTOR_LABEL_LIFT} />}
     </g>
   );
 }

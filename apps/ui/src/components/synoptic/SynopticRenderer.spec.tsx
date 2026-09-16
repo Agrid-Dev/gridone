@@ -1,6 +1,6 @@
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import type { AttributeSlot, Synoptic } from "@gridone/sdk";
+import type { AttributeSlot, PipeElement, Synoptic } from "@gridone/sdk";
 import ecsEstPlate from "@/pages/sandbox/ecsEstPlate.json";
 import { CHIP_H, SILENT_TEXT } from "./Chip";
 import { PANEL_W, panelHeight } from "./Panel";
@@ -131,6 +131,30 @@ function draw(doc = DOC, values?: SynopticValues) {
 }
 
 const q = (c: Element, selector: string) => [...c.querySelectorAll(selector)];
+
+type TestBox = { x0: number; y0: number; x1: number; y1: number };
+const box = (r: Element): TestBox => ({
+  x0: Number(r.getAttribute("x")),
+  y0: Number(r.getAttribute("y")),
+  x1: Number(r.getAttribute("x")) + Number(r.getAttribute("width")),
+  y1: Number(r.getAttribute("y")) + Number(r.getAttribute("height")),
+});
+const apart = (a: TestBox, b: TestBox) =>
+  a.x1 <= b.x0 || b.x1 <= a.x0 || a.y1 <= b.y0 || b.y1 <= a.y0;
+/** Bounding boxes of every run piece, read off the casing paths. */
+const casings = (c: Element): TestBox[] =>
+  q(c, "path[data-casing]").map((path) => {
+    const pts = path
+      .getAttribute("d")!
+      .match(/-?[\d.]+ -?[\d.]+/g)!
+      .map((p) => p.split(" ").map(Number));
+    return {
+      x0: Math.min(...pts.map((p) => p[0])),
+      y0: Math.min(...pts.map((p) => p[1])),
+      x1: Math.max(...pts.map((p) => p[0])),
+      y1: Math.max(...pts.map((p) => p[1])),
+    };
+  });
 
 describe("SynopticRenderer", () => {
   it("places every symbol, cuts each run per cell and draws the labels", () => {
@@ -366,6 +390,107 @@ describe("SynopticRenderer", () => {
     );
   });
 
+  it("hangs a tag clear of a parallel run one row behind, and of a neighbour's label", () => {
+    // Two free runs along +x one row apart: a chip lifted 44 px from the
+    // front run is centred on the back one, 40 px up on screen.
+    const run = (id: string, y: number, tags: PipeElement["tags"] = []) => ({
+      id,
+      fluid: "dhw" as const,
+      from: { kind: "cell" as const, cell: { x: 0, y } },
+      to: { kind: "cell" as const, cell: { x: 6, y } },
+      waypoints: [],
+      tags,
+    });
+    const c = draw(
+      {
+        ...DOC,
+        symbols: [],
+        labels: [],
+        pipes: [
+          run("back", 0),
+          run("front", 1, [
+            { id: "tt", at: { x: 3, y: 1 }, label: "TT", value: slot("t") },
+          ]),
+        ],
+      },
+      { slots: { "tag.tt": live("52.4", 52.4, "°C") }, faultyDevices: {} },
+    );
+    const chip = box(c.querySelector("[data-tag='tt'] rect")!);
+    for (const casing of casings(c)) expect(apart(chip, casing)).toBe(true);
+    // The same tag beside an inline pump: the pump's label and LED keep
+    // their room, so the chip does not cover them.
+    const pumped = draw(
+      {
+        ...DOC,
+        labels: [],
+        symbols: [
+          {
+            id: "p",
+            type: "pump",
+            placement: { kind: "pipe", pipe: "front", cell: { x: 2, y: 1 } },
+            label: "P-01",
+            bindings: { state: slot("onoff_state") },
+          },
+        ],
+        pipes: [
+          run("front", 1, [
+            { id: "tt", at: { x: 3, y: 1 }, label: "TT", value: slot("t") },
+          ]),
+        ],
+      },
+      {
+        slots: {
+          "tag.tt": live("52.4", 52.4, "°C"),
+          "symbol.p.state": live("MARCHE", true),
+        },
+        faultyDevices: {},
+      },
+    );
+    const led = pumped.querySelector("circle.fill-status-ok")!;
+    const ledBox = {
+      x0: Number(led.getAttribute("cx")) - 4,
+      y0: Number(led.getAttribute("cy")) - 4,
+      x1: Number(led.getAttribute("cx")) + 4,
+      y1: Number(led.getAttribute("cy")) + 4,
+    };
+    expect(
+      apart(box(pumped.querySelector("[data-tag='tt'] rect")!), ledBox),
+    ).toBe(true);
+  });
+
+  it("ends every panel leader on a drawn corner of its body", () => {
+    const c = draw(
+      { ...(ecsEstPlate as Synoptic), id: "ecs", metadata: {} },
+      VALUES,
+    );
+    const vertices = q(c, "polygon[class*='fill-synoptic-body']").flatMap((p) =>
+      p
+        .getAttribute("points")!
+        .split(" ")
+        .map((pt) => pt.split(",").map(Number)),
+    );
+    // A panel above its label leads to the label; any other spot leads to
+    // a drawn corner of the body, never to a bounding-box corner in the void.
+    const labels = q(c, "text").map((t) => [
+      Number(t.getAttribute("x")),
+      Number(t.getAttribute("y")) - 4,
+    ]);
+    const leaders = q(c, "[data-leader]");
+    expect(leaders).toHaveLength(2);
+    const ends = leaders.map((leader) => [
+      Number(leader.getAttribute("x2")),
+      Number(leader.getAttribute("y2")),
+    ]);
+    const near = (pts: number[][], end: number[]) =>
+      pts.some(([x, y]) => Math.hypot(x - end[0], y - end[1]) < 0.5);
+    for (const end of ends) {
+      expect(near(vertices, end) || near(labels, end)).toBe(true);
+    }
+    // PAC 04 takes a corner spot on the reference plate: its leader is the
+    // one that must land on the body.
+    expect(ends.some((end) => near(vertices, end))).toBe(true);
+  });
+
   it("lights no LED on a stale state reading", () => {
     const c = draw(DOC, {
       ...VALUES,
@@ -542,38 +667,25 @@ describe("SynopticRenderer", () => {
     expect(q(c, "circle[data-tee]")).toHaveLength(5);
     expect(q(c, "[data-label]")).toHaveLength(5);
     expect(q(c, "polygon.fill-fluid-dhw").length).toBeGreaterThan(0);
-    // The PAC tags hang below their runs, clear of the bodies beside them.
+    // The PAC tags hang below their runs, clear of the bodies beside them;
+    // TT-06 hangs below because the supply run passes where its chip would
+    // rise.
     expect(
       q(c, "[data-tag][data-side='below']").map((t) =>
         t.getAttribute("data-tag"),
       ),
-    ).toEqual(["tt-03", "tt-04"]);
+    ).toEqual(["tt-03", "tt-04", "tt-06"]);
     // The two panels do not overlap each other, and no run is drawn
-    // across either: a panel clears the runs as well as the bodies.
-    const box = (r: Element) => ({
-      x0: Number(r.getAttribute("x")),
-      y0: Number(r.getAttribute("y")),
-      x1: Number(r.getAttribute("x")) + Number(r.getAttribute("width")),
-      y1: Number(r.getAttribute("y")) + Number(r.getAttribute("height")),
-    });
-    const apart = (a: ReturnType<typeof box>, b: ReturnType<typeof box>) =>
-      a.x1 <= b.x0 || b.x1 <= a.x0 || a.y1 <= b.y0 || b.y1 <= a.y0;
+    // across either or across a tag: readouts clear the runs as well as
+    // the bodies.
     const frames = q(c, "[data-panel] > rect").map(box);
     expect(apart(frames[0], frames[1])).toBe(true);
-    const runs = q(c, "path[data-casing]").map((path) => {
-      const pts = path
-        .getAttribute("d")!
-        .match(/-?[\d.]+ -?[\d.]+/g)!
-        .map((p) => p.split(" ").map(Number));
-      return {
-        x0: Math.min(...pts.map((p) => p[0])),
-        y0: Math.min(...pts.map((p) => p[1])),
-        x1: Math.max(...pts.map((p) => p[0])),
-        y1: Math.max(...pts.map((p) => p[1])),
-      };
-    });
+    const runs = casings(c);
     for (const frame of frames) {
       expect(runs.every((run) => apart(frame, run))).toBe(true);
+    }
+    for (const chip of q(c, "[data-tag] rect").map(box)) {
+      expect(runs.every((run) => apart(chip, run))).toBe(true);
     }
   });
 });
