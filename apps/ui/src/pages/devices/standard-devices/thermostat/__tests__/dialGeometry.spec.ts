@@ -10,7 +10,6 @@ import {
   pointToValue,
   polarPoint,
   valueToAngle,
-  valueToFraction,
 } from "../dialGeometry";
 
 describe("dialRange", () => {
@@ -29,24 +28,17 @@ describe("dialRange", () => {
   });
 });
 
-describe("valueToFraction", () => {
-  it("maps min, midpoint and max to 0, 0.5 and 1", () => {
-    expect(valueToFraction(10, 10, 30)).toBe(0);
-    expect(valueToFraction(20, 10, 30)).toBe(0.5);
-    expect(valueToFraction(30, 10, 30)).toBe(1);
-  });
-
-  it("clamps values outside the range", () => {
-    expect(valueToFraction(5, 10, 30)).toBe(0);
-    expect(valueToFraction(35, 10, 30)).toBe(1);
-  });
-});
-
 describe("valueToAngle", () => {
   it("spans the dial sweep from start to start + sweep", () => {
     expect(valueToAngle(10, 10, 30)).toBe(DIAL_START_DEG);
     expect(valueToAngle(20, 10, 30)).toBe(DIAL_START_DEG + DIAL_SWEEP_DEG / 2);
     expect(valueToAngle(30, 10, 30)).toBe(DIAL_START_DEG + DIAL_SWEEP_DEG);
+  });
+
+  it("clamps outside the range and stays finite on an empty one", () => {
+    expect(valueToAngle(5, 10, 30)).toBe(DIAL_START_DEG);
+    expect(valueToAngle(35, 10, 30)).toBe(DIAL_START_DEG + DIAL_SWEEP_DEG);
+    expect(valueToAngle(20, 20, 20)).toBe(DIAL_START_DEG);
   });
 });
 

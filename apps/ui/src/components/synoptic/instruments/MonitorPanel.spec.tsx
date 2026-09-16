@@ -24,14 +24,20 @@ function draw(props: Partial<Parameters<typeof MonitorPanel>[0]>) {
 
 describe("MonitorPanel geometry", () => {
   it("keeps the value box and unit inside a narrow panel", () => {
-    const { rects, texts } = draw({ w: 100, rows: [ROW] });
+    // 120 is above the 110 px minimum, so this is the panel's own width.
+    const { rects, texts } = draw({ w: 120, rows: [ROW] });
+    const right = Number(rects[0].getAttribute("width"));
+    expect(right).toBe(120);
     const box = rects[1];
     const boxRight =
       Number(box.getAttribute("x")) + Number(box.getAttribute("width"));
     const unit = texts.find((t) => t.textContent === "°C")!;
-    expect(boxRight).toBeLessThan(100);
-    expect(Number(unit.getAttribute("x"))).toBeLessThan(100);
-    expect(Number(unit.getAttribute("x"))).toBeGreaterThan(boxRight);
+    const unitX = Number(unit.getAttribute("x"));
+    expect(boxRight).toBeLessThan(right);
+    expect(unitX).toBeGreaterThan(boxRight);
+    // The unit column is 50 px wide: the text starts inside it and a unit
+    // as long as "m³/h" (4 glyphs at 13 px) still ends before the frame.
+    expect(unitX + 4 * 13 * 0.6).toBeLessThan(right);
   });
 
   it("refuses to shrink below the width its columns need", () => {

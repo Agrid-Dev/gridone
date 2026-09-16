@@ -18,10 +18,16 @@ const FLUIDS = [
     .matchAll(/"([a-z_]+)"/g),
 ].map((m) => m[1]);
 
-/** Colour names Tailwind registers as `hsl(var(--name))`. */
-const TAILWIND_COLORS = [
-  ...read("../../tailwind.config.js").matchAll(/hsl\(var\(--([\w-]+)\)\)/g),
-].map((m) => m[1]);
+/** Colours Tailwind registers, config key to the variable it wraps. The
+ *  key is what the `stroke-<key>` utility is generated from, so a renamed
+ *  key drops the class even while the variable stays defined. */
+const TAILWIND_COLORS = new Map(
+  [
+    ...read("../../tailwind.config.js").matchAll(
+      /"?([\w-]+)"?:\s*"hsl\(var\(--([\w-]+)\)\)"/g,
+    ),
+  ].map((m) => [m[1], m[2]]),
+);
 
 const INDEX_CSS = read("../index.css");
 
@@ -39,7 +45,7 @@ describe("fluid colour classes", () => {
       ...Object.values(FLUID_FILL_CLASS).map((c) => c.replace(/^fill-/, "")),
     ];
     for (const name of names) {
-      expect(TAILWIND_COLORS).toContain(name);
+      expect(TAILWIND_COLORS.get(name)).toBe(name);
       expect(INDEX_CSS.match(new RegExp(`--${name}:`, "g"))).toHaveLength(2);
     }
   });

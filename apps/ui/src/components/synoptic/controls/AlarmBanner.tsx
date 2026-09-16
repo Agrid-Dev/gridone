@@ -1,5 +1,10 @@
+import { useTranslation } from "react-i18next";
 import type { Severity } from "@gridone/sdk";
-import { SEMANTIC_FILL_CLASS, SEVERITY_LEVEL } from "@/lib/semanticColors";
+import {
+  SEMANTIC_FILL_CLASS,
+  SEMANTIC_ON_FILL_CLASS,
+  SEVERITY_LEVEL,
+} from "@/lib/semanticColors";
 
 export type Alarm = {
   id: string;
@@ -30,6 +35,7 @@ export function AlarmBanner({
   maxRows = 3,
   onAck,
 }: AlarmBannerProps) {
+  const { t } = useTranslation("common");
   const shown = alarms.slice(0, maxRows);
   return (
     <g>
@@ -41,7 +47,7 @@ export function AlarmBanner({
           fontSize={13.5}
           className="fill-muted-foreground"
         >
-          No active alarms
+          {t("empty.noActiveAlarms")}
         </text>
       )}
       {shown.map((a, i) => {
@@ -70,7 +76,11 @@ export function AlarmBanner({
               dominantBaseline="central"
               fontSize={13.5}
               fontWeight={600}
-              className={a.acked ? "fill-muted-foreground" : "fill-white"}
+              className={
+                a.acked
+                  ? "fill-muted-foreground"
+                  : SEMANTIC_ON_FILL_CLASS[SEVERITY_LEVEL[a.severity]]
+              }
             >
               {a.time} {a.text}
               {a.acked ? "  ACK" : ""}

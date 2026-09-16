@@ -197,7 +197,8 @@
     "new": "Create a {{resourceName}}",
     "noMatch": "No matching {{resourceName}}",
     "clearFiltersHint": "Try adjusting or clearing your filters.",
-    "clearFilters": "Clear filters"
+    "clearFilters": "Clear filters",
+    "noActiveAlarms": "No active alarms"
   },
   "pickers": {
     "device": {

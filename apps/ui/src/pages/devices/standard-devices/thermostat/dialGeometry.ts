@@ -8,11 +8,16 @@
  * through the top, and ends at 45° (bottom-right, i.e. 135 + 270 = 405°).
  */
 
-import { DIAL_START_DEG, DIAL_SWEEP_DEG } from "@/components/synoptic/geometry";
+import {
+  DIAL_START_DEG,
+  DIAL_SWEEP_DEG,
+  fraction,
+} from "@/components/synoptic/geometry";
 
 export {
   DIAL_START_DEG,
   DIAL_SWEEP_DEG,
+  fraction,
   polarPoint,
   arcPath,
 } from "@/components/synoptic/geometry";
@@ -31,18 +36,9 @@ export function dialRange(
   return { min, max };
 }
 
-/** Position of `value` inside [min, max], clamped to [0, 1]. */
-export function valueToFraction(
-  value: number,
-  min: number,
-  max: number,
-): number {
-  return Math.min(1, Math.max(0, (value - min) / (max - min)));
-}
-
 /** Dial angle (degrees, SVG convention) for `value` inside [min, max]. */
 export function valueToAngle(value: number, min: number, max: number): number {
-  return DIAL_START_DEG + DIAL_SWEEP_DEG * valueToFraction(value, min, max);
+  return DIAL_START_DEG + DIAL_SWEEP_DEG * fraction(value, min, max);
 }
 
 /** Angle (degrees, SVG convention) of the vector (dx, dy) measured from the

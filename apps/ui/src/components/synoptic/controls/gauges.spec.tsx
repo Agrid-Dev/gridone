@@ -35,6 +35,28 @@ describe("BarMeter", () => {
     expect(readout.getAttribute("class")).toBe("fill-status-error");
   });
 
+  it("clamps the setpoint marker to the scale", () => {
+    const marker = (setpoint: number) =>
+      render(
+        <svg>
+          <BarMeter
+            x={0}
+            y={0}
+            h={170}
+            min={0}
+            max={100}
+            value={50}
+            setpoint={setpoint}
+          />
+        </svg>,
+      )
+        .container.querySelector("path")!
+        .getAttribute("d");
+    // 140 on a 0..100 bar sits on the top graduation, at toY(max) = 2.
+    expect(marker(140)).toBe(marker(100));
+    expect(marker(140)).toBe("M -10 -5 L -10 9 L 0 2 Z");
+  });
+
   it("labels ticks to the readout precision and in register with the bar", () => {
     const { container } = render(
       <svg>
@@ -69,6 +91,29 @@ describe("RadialGauge", () => {
       (t) => t.textContent === "118",
     )!;
     expect(readout.getAttribute("class")).toBe("fill-status-error");
+  });
+
+  it("sweeps a zone the short way round whichever way it is authored", () => {
+    const arc = (from: number, to: number) =>
+      render(
+        <svg>
+          <RadialGauge
+            cx={0}
+            cy={0}
+            r={100}
+            min={0}
+            max={100}
+            value={50}
+            zones={[{ from, to, level: "error" }]}
+          />
+        </svg>,
+      )
+        .container.querySelector("path")!
+        .getAttribute("d");
+    expect(arc(80, 20)).toBe(arc(20, 80));
+    // 20..80 is 60 % of the 270 degree dial: a 162 degree arc, so the
+    // large-arc flag stays clear.
+    expect(arc(20, 80)).toMatch(/ A 86 86 0 0 1 /);
   });
 
   it("labels ticks to the readout precision", () => {

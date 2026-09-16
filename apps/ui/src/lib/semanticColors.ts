@@ -114,6 +114,15 @@ export const SEMANTIC_STROKE_CLASS: Record<SemanticColor, string> = {
   water: "stroke-water",
 };
 
+/** SVG fill for text painted on a status fill, the `--status-*-foreground`
+ *  pairing (literal classes for Tailwind). */
+export const SEMANTIC_ON_FILL_CLASS: Record<StatusLevel, string> = {
+  ok: "fill-status-ok-foreground",
+  info: "fill-status-info-foreground",
+  warning: "fill-status-warning-foreground",
+  error: "fill-status-error-foreground",
+};
+
 /** Fault severity mapped onto a semantic status level. */
 export const SEVERITY_LEVEL: Record<Severity, StatusLevel> = {
   alert: "error",
