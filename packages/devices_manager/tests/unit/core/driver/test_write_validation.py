@@ -65,6 +65,10 @@ def rule(condition):
                 "entries": [{"code": 1, "value": 1}, {"code": 1.0, "value": 2}]
             }
         },
+        {"default_value": 2.5, "data_type": "int"},
+        {"default_value": 2, "write_options": [{"value": 1}]},
+        {"write_constraints": {"minimum": {"attribute": "missing"}}},
+        {"value_mapping": {"entries": [{"code": 1, "value": {"attribute": "target"}}]}},
         {"default_value": False},
         {"default_value": "x"},
         {"default_value": 2, "write_constraints": {"minimum": 3}},

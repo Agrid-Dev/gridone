@@ -2525,6 +2525,10 @@ async def test_write_state_notifications_coalesce_per_device_and_can_be_removed(
     listener.assert_not_called()
     await asyncio.sleep(0)
     listener.assert_called_once_with(device)
+    # Nothing moved since the flush: a new notification projects but emits nothing.
+    service._on_write_state_update(device)  # noqa: SLF001
+    await asyncio.sleep(0)
+    listener.assert_called_once_with(device)
     service.remove_write_state_listener(listener_id)
     service._on_write_state_update(device)  # noqa: SLF001
     await asyncio.sleep(0)

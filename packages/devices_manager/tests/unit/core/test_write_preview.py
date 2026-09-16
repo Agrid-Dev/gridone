@@ -1,3 +1,5 @@
+from unittest.mock import AsyncMock
+
 import pytest
 
 from devices_manager.core.driver import AttributeRef, WriteConstraints
@@ -32,15 +34,19 @@ def test_preview_uses_write_contract_without_changing_values(
         (23.5, None, False),
     ],
 )
-def test_preview_checks_live_per_device_constraints(
-    device, value, known_bound, eligible
+@pytest.mark.asyncio
+async def test_preview_checks_live_per_device_constraints(
+    device, mock_transport_client, value, known_bound, eligible
 ):
     spec = device.driver.attributes["temperature_setpoint"].model_copy()
     spec.write_constraints = WriteConstraints(
         minimum=18, maximum=AttributeRef(attribute="temperature"), step=0.5
     )
-    device.rebuild_attribute(spec)
-    device._update_attribute(device.get_attribute("temperature"), known_bound)  # noqa: SLF001 -- simulate observations / injected service collaborators
+    device.driver.attributes["temperature_setpoint"] = spec
+    device.rebuild_attribute("temperature_setpoint")
+    if known_bound is not None:
+        mock_transport_client.read = AsyncMock(return_value=known_bound)
+        await device.read_attribute_value("temperature")
     result = preview_write(device, "temperature_setpoint", value)
     assert result.eligible == eligible
     assert result.reason == (

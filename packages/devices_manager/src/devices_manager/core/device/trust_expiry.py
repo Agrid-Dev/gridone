@@ -33,10 +33,14 @@ class TrustExpiry:
             self._on_expired()
 
     def record_observation(self) -> None:
-        """Renew trust from acquisition without changing push health."""
+        """Renew trust from acquisition without changing push health.
+
+        Only the deadline moves: a pending timer that fires early re-arms
+        itself for the remainder, so a dump of many samples costs no heap
+        churn.
+        """
         self._deadline = self._now() + self._interval
-        self._cancel_timer()
-        if self._loop is not None:
+        if self._loop is not None and self._timer is None:
             self._timer = self._loop.call_later(self._interval, self._on_timer)
 
     def _on_timer(self) -> None:

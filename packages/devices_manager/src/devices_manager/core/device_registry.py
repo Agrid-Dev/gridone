@@ -397,7 +397,7 @@ class DeviceRegistry:
     ) -> None:
         """Rebuild the runtime attribute for all devices using driver_id."""
         for device in self._devices_for_driver(driver_id):
-            device.rebuild_attribute(attribute_driver)
+            device.rebuild_attribute(attribute_driver.name)
 
     def delete_attribute_in_devices(
         self, attribute_name: str, *, driver_id: str

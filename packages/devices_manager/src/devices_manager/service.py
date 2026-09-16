@@ -166,6 +166,7 @@ class DevicesService(Service):
         self._device_update_listeners: dict[str, DeviceListener] = {}
         self._write_state_listeners: dict[str, DeviceListener] = {}
         self._pending_write_states: dict[str, CoreDevice] = {}
+        self._write_state_flush_scheduled = False
         self._background_tasks: set[asyncio.Task[Any]] = set()
         # Keyed by device so a superseded sync can be cancelled by the write
         # that superseded it; also the strong reference that keeps the task
@@ -730,19 +731,30 @@ class DevicesService(Service):
         self._write_state_listeners.pop(listener_id, None)
 
     def _on_write_state_update(self, device: CoreDevice) -> None:
-        """Coalesce a burst of shared-topic observations into one projection event."""
-        scheduled = bool(self._pending_write_states)
+        """Coalesce a burst of observations into one projection per device per turn.
+
+        The device only reports that its write states may have moved; the
+        projection itself runs in the flush, once, and only publishes an
+        event when something changed. Nothing is projected synchronously:
+        a device may be in the middle of applying an observation.
+        """
         self._pending_write_states[device.id] = device
-        if not scheduled:
-            try:
-                asyncio.get_running_loop().call_soon(self._flush_write_states)
-            except RuntimeError:
-                self._flush_write_states()
+        if self._write_state_flush_scheduled:
+            return
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return
+        loop.call_soon(self._flush_write_states)
+        self._write_state_flush_scheduled = True
 
     def _flush_write_states(self) -> None:
+        self._write_state_flush_scheduled = False
         devices = list(self._pending_write_states.values())
         self._pending_write_states.clear()
         for device in devices:
+            if not device.flush_write_states():
+                continue
             for listener in self._write_state_listeners.values():
                 self._schedule_if_coroutine(listener(device))
 

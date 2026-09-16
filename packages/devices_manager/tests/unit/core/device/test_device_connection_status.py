@@ -274,7 +274,7 @@ class TestManyListenersOnOneTopic:
         for frame in frames:
             await mock_push_transport_client.simulate_event("updData/AA", frame)
         elapsed = time.perf_counter() - started
-        await asyncio.sleep(0)  # listener-driven recomputes run once the turn is over
+        await asyncio.sleep(0)  # the write guard projects once per turn; let it end
 
         assert device.attributes[CONNECTION_STATUS_ATTR].current_value == "ok"
         assert device.attributes["point_5"].current_value == 1.0

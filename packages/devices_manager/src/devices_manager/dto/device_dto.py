@@ -66,6 +66,7 @@ class DeviceUpdate(BaseModel):
 
 
 def core_to_dto(device: CoreDevice) -> Device:
+    device.project_write_states()
     revision = get_presentation_revision(device.driver)
     return Device(
         id=device.id,

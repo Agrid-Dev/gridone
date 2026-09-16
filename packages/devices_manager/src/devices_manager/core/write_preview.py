@@ -47,6 +47,7 @@ def preview_write(
             reasons=[WriteReason(code="unknown_attribute")],
         )
     evaluation = device.evaluate_attribute_write(attribute_name, value)
+    device.project_write_states()
     return DeviceWritePreview(
         device_id=device.id,
         name=device.name,

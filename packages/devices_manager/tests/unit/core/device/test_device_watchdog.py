@@ -79,19 +79,16 @@ def _make_device(
 
 @pytest.fixture
 def guarded_push_device(push_driver_with_interval, mock_push_transport_client):
-    device = _make_device(push_driver_with_interval, mock_push_transport_client)
-    device.rebuild_attribute(
-        AttributeDriver.model_validate(
-            {
-                "name": "setpoint",
-                "data_type": "float",
-                "read": {"topic": "/sensors/setpoint"},
-                "write": {"topic": "/sensors/setpoint"},
-                "write_constraints": {"minimum": {"attribute": "temperature"}},
-            }
-        )
+    push_driver_with_interval.attributes["setpoint"] = AttributeDriver.model_validate(
+        {
+            "name": "setpoint",
+            "data_type": "float",
+            "read": {"topic": "/sensors/setpoint"},
+            "write": {"topic": "/sensors/setpoint"},
+            "write_constraints": {"minimum": {"attribute": "temperature"}},
+        }
     )
-    return device
+    return _make_device(push_driver_with_interval, mock_push_transport_client)
 
 
 async def _silence(device: CoreDevice, multiplier: float) -> None:
@@ -215,6 +212,7 @@ class TestTrustExpiryAndConnectionHealth:
         await mock_push_transport_client.simulate_event("/sensors/temperature", 21.0)
         assert device.evaluate_attribute_write("setpoint", 22).eligible
         await _silence(device, 1.1)
+        device.project_write_states()
         assert device.get_attribute("setpoint").write_state.status == "unknown"
         assert not device.evaluate_attribute_write("setpoint", 22).eligible
         assert device.get_attribute_value("temperature") == 21.0

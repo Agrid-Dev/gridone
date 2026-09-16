@@ -850,9 +850,7 @@ class TestCoreDeviceRebuildAttribute:
     def test_preserves_value_and_timestamps(self, device: CoreDevice):
         device.attributes["temperature"].update_value(25.5)
         original = device.attributes["temperature"]
-        attribute_driver = device.driver.attributes["temperature"]
-
-        device.rebuild_attribute(attribute_driver)
+        device.rebuild_attribute("temperature")
 
         rebuilt = device.attributes["temperature"]
         assert rebuilt.current_value == 25.5
@@ -861,10 +859,9 @@ class TestCoreDeviceRebuildAttribute:
 
     def test_new_attribute_has_no_timestamps(self, device: CoreDevice):
         """An attribute with no prior state starts fresh (no backdating)."""
-        attribute_driver = device.driver.attributes["temperature"]
         device.delete_attribute("temperature")
 
-        device.rebuild_attribute(attribute_driver)
+        device.rebuild_attribute("temperature")
 
         rebuilt = device.attributes["temperature"]
         assert rebuilt.current_value is None
@@ -1251,7 +1248,8 @@ class TestCoreDeviceAttributeMetadata:
             update={"unit": "K", "write_constraints": WriteConstraints(step=1)}
         )
 
-        device.rebuild_attribute(updated_spec)
+        constrained_driver.attributes["temperature_setpoint"] = updated_spec
+        device.rebuild_attribute("temperature_setpoint")
 
         rebuilt = device.attributes["temperature_setpoint"]
         assert rebuilt.unit == "K"
@@ -1363,9 +1361,8 @@ class TestDeviceWriteConstraints:
         await constrained_device.write_attribute_value(
             "temperature_setpoint", 25.0, confirm=False
         )
-        constrained_device._update_attribute(  # noqa: SLF001 -- observed update
-            constrained_device.attributes["temperature_setpoint_max"], 24.0
-        )
+        mock_transport_client.read = AsyncMock(return_value=24.0)
+        await constrained_device.read_attribute_value("temperature_setpoint_max")
         with pytest.raises(WriteRejectedError):
             await constrained_device.write_attribute_value(
                 "temperature_setpoint", 25.0, confirm=False
