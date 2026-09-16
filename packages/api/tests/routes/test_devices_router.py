@@ -1091,6 +1091,10 @@ class TestDispatchSingleCommand:
                 json={"attribute": "temperature", "value": 22.0},
             )
         assert response.status_code == 422
+        # Resolution no longer refuses a read-only attribute: the submission
+        # reaches the service, which records it as a rejected command.
+        mock_commands_service.dispatch_unit.assert_awaited_once()
+        assert response.json()["reasons"] == [{"code": "not_writable"}]
 
     @pytest.mark.asyncio
     async def test_write_constraint_violation_returns_422(

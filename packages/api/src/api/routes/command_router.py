@@ -223,11 +223,13 @@ async def dispatch_batch_command(
     "/{device_id}/commands/preview",
     dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
 )
-def preview_single_command(
+async def preview_single_command(
     device_id: str,
     body: SingleDeviceCommand,
     dm: DevicesServiceInterface = Depends(get_device_manager),
 ) -> DeviceWritePreview:
+    # The preview reads and expires loop-owned device state: it must run on the
+    # event loop like every other route, never in a worker thread.
     return dm.preview_device_write(device_id, body.attribute, body.value)
 
 
