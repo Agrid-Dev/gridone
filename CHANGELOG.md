@@ -1,3 +1,9 @@
+## v0.246.0 (2026-09-16)
+
+### Feat
+
+- **ui**: synoptic navigation and device panel (#659)
+
 ## v0.245.0 (2026-09-16)
 
 ### Feat
