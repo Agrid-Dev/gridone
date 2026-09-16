@@ -416,14 +416,16 @@ async def test_a_reinterpreted_sibling_never_confirms_a_write(mock_transport_cli
     device = make_device(driver, mock_transport_client)
     await observe(device, mock_transport_client, "temperature", 22)
     await observe(device, mock_transport_client, "mode", 1)
-
-    async def send(*_args: object) -> None:
-        # The sibling moves while the command is in flight: the saved code now
-        # reads as the requested value, but the device never reported it.
-        await observe(device, mock_transport_client, "temperature", 30)
-        mock_transport_client.read = AsyncMock(side_effect=TimeoutError)
-
-    mock_transport_client.write = AsyncMock(side_effect=send)
-    with pytest.raises(ConfirmationError):
-        await device.write_attribute_value("mode", 30, confirm_timeout=1)
+    mock_transport_client.write = AsyncMock()
+    mock_transport_client.read = AsyncMock(side_effect=TimeoutError)
+    pending = asyncio.create_task(
+        device.write_attribute_value("mode", 30, confirm_timeout=5)
+    )
+    await asyncio.sleep(0.1)  # sent; the confirmation now waits for mode
+    # The sibling moves meanwhile: the saved code now reads as the requested
+    # value, but the device never reported it.
+    await observe(device, mock_transport_client, "temperature", 30)
     assert device.get_attribute_value("mode") == 30  # displayed, as reinterpreted
+    mock_transport_client.read = AsyncMock(side_effect=TimeoutError)
+    with pytest.raises(ConfirmationError):
+        await pending
