@@ -3,6 +3,7 @@ import {
   ArrowUpNarrowWide,
   Droplets,
   Fan,
+  Moon,
   RefreshCcwDot,
   SignalHigh,
   SignalLow,
@@ -32,6 +33,7 @@ const HVAC_MODE_ICONS: Record<string, LucideIcon> = {
   fan: Fan,
   dry: Droplets,
   auto: RefreshCcwDot,
+  idle: Moon,
 };
 
 const HVAC_MODE_RENDERERS: Record<string, ValueRenderer> = Object.fromEntries(

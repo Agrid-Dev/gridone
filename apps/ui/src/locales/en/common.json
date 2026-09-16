@@ -126,6 +126,7 @@
       "fan": "Fan",
       "dry": "Dry",
       "auto": "Auto",
+      "idle": "Idle",
       "off": "Off",
       "on": "On",
       "error": "Error"

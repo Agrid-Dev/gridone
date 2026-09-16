@@ -8,6 +8,7 @@ vi.mock("react-i18next", () =>
     "common.hvacMode.cool": "Cooling",
     "common.hvacMode.fan": "Fan",
     "common.hvacMode.auto": "Auto",
+    "common.hvacMode.idle": "Idle",
   }),
 );
 
@@ -73,6 +74,18 @@ describe("AttributeValue — standard enum badge", () => {
       />,
     );
     expect(screen.getByText("Heating")).toBeInTheDocument();
+    expect(document.querySelector("svg")).toBeTruthy();
+  });
+
+  it("renders the idle mode with an icon and a translated label", () => {
+    render(
+      <AttributeValue
+        value="idle"
+        attributeName="mode"
+        deviceType={DeviceType.Thermostat}
+      />,
+    );
+    expect(screen.getByText("Idle")).toBeInTheDocument();
     expect(document.querySelector("svg")).toBeTruthy();
   });
 
