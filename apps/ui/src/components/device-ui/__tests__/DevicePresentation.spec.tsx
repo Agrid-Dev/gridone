@@ -9,6 +9,7 @@ import {
 import userEvent from "@testing-library/user-event";
 import type { Device } from "@gridone/sdk";
 import { createI18nMock } from "@/test/i18nMock";
+import { TooltipProvider } from "@/components/ui";
 import { DevicePresentation } from "../DevicePresentation";
 import type { PresentationV1, SetpointRow } from "../document";
 import type { Scalar } from "../conditions";
@@ -37,6 +38,7 @@ vi.mock("react-i18next", () =>
       "presentation.regulated": "Regulated",
       "presentation.measured": "Measured",
       "presentation.deviation": "Deviation",
+      "presentation.describe": "Description: {{name}}",
       "presentation.withinTolerance": "within tolerance",
       "presentation.outOfTolerance": "out of tolerance",
       "groups.chooseTarget": "Choose target",
@@ -59,6 +61,10 @@ const attributes: Record<string, AttributeLike> = {
     current_value: 21,
     unit: "°C",
     write_constraints: { step: 0.5, minimum: 16, maximum: 30 },
+    description: {
+      default: "Base setpoint before any local offset",
+      translations: { fr: "Consigne de base avant décalage local" },
+    },
   },
   setpoint_effective: {
     name: "setpoint_effective",
@@ -66,6 +72,7 @@ const attributes: Record<string, AttributeLike> = {
     read_write_modes: ["read"],
     current_value: 17,
     unit: "°C",
+    description: { default: "Setpoint the device regulates to" },
   },
   temperature: {
     name: "temperature",
@@ -247,16 +254,18 @@ function renderPresentation(
   extra: Partial<Parameters<typeof DevicePresentation>[0]> = {},
 ) {
   return render(
-    <DevicePresentation
-      document={document}
-      subject={device}
-      runtime={runtime}
-      assetUrl={() => undefined}
-      glyphSet={(id) => AGRID_THERMOSTAT_GLYPH_SETS[id]}
-      fallback={<p>standard view</p>}
-      renderAttributes={({ group }) => <p>attributes of {group}</p>}
-      {...extra}
-    />,
+    <TooltipProvider>
+      <DevicePresentation
+        document={document}
+        subject={device}
+        runtime={runtime}
+        assetUrl={() => undefined}
+        glyphSet={(id) => AGRID_THERMOSTAT_GLYPH_SETS[id]}
+        fallback={<p>standard view</p>}
+        renderAttributes={({ group }) => <p>attributes of {group}</p>}
+        {...extra}
+      />
+    </TooltipProvider>,
   );
 }
 
@@ -614,6 +623,23 @@ describe("DevicePresentation", () => {
     renderPresentation(runtime);
     const row = screen.getByRole("row", { name: /Temperature/ });
     expect(within(row).getByText(text)).toBeInTheDocument();
+  });
+
+  it("explains a column from its header hint with the driver description behind it", async () => {
+    const user = userEvent.setup();
+    const { runtime } = fakeRuntime();
+    renderPresentation(runtime);
+    await user.hover(
+      screen.getByRole("button", { name: "Description: Regulated" }),
+    );
+    const tooltip = await screen.findByRole("tooltip");
+    expect(tooltip).toHaveTextContent("Setpoint the device regulates to");
+    // One row: the text stands alone, without the row caption.
+    expect(tooltip).not.toHaveTextContent("Temperature");
+    // The measured attribute declares no description: no hint on its column.
+    expect(
+      screen.queryByRole("button", { name: "Description: Measured" }),
+    ).toBeNull();
   });
 
   it("shows the write state of the demanded control inside the table", () => {

@@ -5,6 +5,7 @@ import type { SetpointRow } from "../document";
 import { localize } from "../face";
 import type { AttributeLike, DeviceUiRuntime } from "../runtime";
 import { NumberStepper, WriteStateIndicator } from "./ControlPanel";
+import { DescriptionHint, describedAttributes } from "./DescriptionHint";
 import { NumberSlider } from "./NumberSlider";
 import { formatDeviation, formatMeasurement } from "./formatters";
 
@@ -35,6 +36,33 @@ export function SetpointTable({
   const hasRegulated = rows.some((row) => row.regulated != null);
   const hasMeasured = rows.some((row) => row.measured != null);
   const hasDeviation = rows.some((row) => row.deviation != null);
+  // What each column means for this device: the driver descriptions of the
+  // attributes behind it, one entry per row (captioned by the row label).
+  const columnHints = (pick: (row: SetpointRow) => AttributeLike | null) =>
+    describedAttributes(
+      rows.map((row) => ({
+        caption: localize(row.label, language),
+        attribute: pick(row),
+      })),
+      language,
+    );
+  const demandedHints = columnHints((row) =>
+    "control" in row.demanded
+      ? (runtime.readControl(row.demanded.control)?.attribute ?? null)
+      : attributeOf(row.demanded.binding),
+  );
+  const regulatedHints = columnHints((row) =>
+    row.regulated ? attributeOf(row.regulated.binding) : null,
+  );
+  const measuredHints = columnHints((row) =>
+    row.measured ? attributeOf(row.measured.binding) : null,
+  );
+  const header = (label: string, hints: typeof demandedHints) => (
+    <span className="inline-flex items-center gap-1">
+      {label}
+      <DescriptionHint name={label} entries={hints} />
+    </span>
+  );
   return (
     <div className="relative overflow-x-auto">
       <table className="w-full text-sm">
@@ -44,16 +72,16 @@ export function SetpointTable({
               <span className="sr-only">{t("presentation.parameter")}</span>
             </th>
             <th className="py-2 pr-4 font-medium">
-              {t("presentation.demanded")}
+              {header(t("presentation.demanded"), demandedHints)}
             </th>
             {hasRegulated && (
               <th className="py-2 pr-4 font-medium">
-                {t("presentation.regulated")}
+                {header(t("presentation.regulated"), regulatedHints)}
               </th>
             )}
             {hasMeasured && (
               <th className="py-2 pr-4 font-medium">
-                {t("presentation.measured")}
+                {header(t("presentation.measured"), measuredHints)}
               </th>
             )}
             {hasDeviation && (
