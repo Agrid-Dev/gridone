@@ -33,6 +33,7 @@ function ProtectedLayout() {
   const { data: profile } = useBuildingProfile();
   const sandboxEnabled = useFeatureEnabled("uiSandbox");
   const dashboardsEnabled = useFeatureEnabled("dashboards");
+  const synopticsEnabled = useFeatureEnabled("synoptics");
 
   useEffect(() => {
     document.title = profile?.name ? `${profile.name} | Gridone` : "Gridone";
@@ -50,7 +51,9 @@ function ProtectedLayout() {
               {dashboardsEnabled && (
                 <Route path="/dashboards/*" element={<Dashboards />} />
               )}
-              <Route path="/synoptics/*" element={<Synoptics />} />
+              {synopticsEnabled && (
+                <Route path="/synoptics/*" element={<Synoptics />} />
+              )}
               <Route path="/assets/*" element={<Assets />} />
               <Route path="/devices/*" element={<Devices />} />
               <Route path="/drivers/*" element={<Drivers />} />

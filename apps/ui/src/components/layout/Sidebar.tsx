@@ -68,6 +68,7 @@ export function Sidebar() {
   const can = usePermissions();
   const { health } = useAuth();
   const dashboardsEnabled = useFeatureEnabled("dashboards");
+  const synopticsEnabled = useFeatureEnabled("synoptics");
   const { faults } = useFaultsList();
   const { devices } = useDevicesList();
   const { pendingCount: pendingAppRequests } = usePendingAppRequests();
@@ -112,10 +113,12 @@ export function Sidebar() {
             </NavLink>
           )}
 
-          <NavLink to="/synoptics" className={navLinkClass}>
-            <Waypoints className="h-4 w-4" />
-            {t("app.synoptics")}
-          </NavLink>
+          {synopticsEnabled && (
+            <NavLink to="/synoptics" className={navLinkClass}>
+              <Waypoints className="h-4 w-4" />
+              {t("app.synoptics")}
+            </NavLink>
+          )}
 
           <NavLink to="/devices" className={navLinkClass}>
             <Cpu className="h-4 w-4" />
