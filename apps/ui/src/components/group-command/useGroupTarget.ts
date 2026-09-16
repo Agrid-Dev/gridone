@@ -19,6 +19,7 @@ export function useGroupTarget(
   attributes: Record<string, GroupAttribute>,
   controls: Record<string, ControlSpec>,
   canWrite: boolean,
+  presentationState?: Record<string, boolean>,
 ) {
   const command = useGroupCommand(filter);
   const { drafts, writes, stage, removeDraft, clearDrafts } = useCommandDrafts(
@@ -35,6 +36,7 @@ export function useGroupTarget(
     stage,
     choose,
     drafts,
+    presentationState,
   );
   return {
     command,

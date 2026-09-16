@@ -188,6 +188,10 @@ function device(revision?: string): Device {
         unit: "°C",
         read_write_modes: ["read", "write"],
         write_constraints: { step: 0.5, minimum: 16, maximum: 30 },
+        write_state: {
+          status: "ready",
+          constraints: { step: 0.5, minimum: 16, maximum: 30 },
+        },
       },
     },
     presentation_ref: revision ? { revision } : null,
@@ -452,11 +456,13 @@ describe("choosing what a change applies to", () => {
     setup();
     const power = await screen.findByRole("switch", { name: "Power" });
     act(() => power.click());
-    expect(state.client.devices.sendCommand).toHaveBeenCalledWith("device", {
-      attribute: "power",
-      value: false,
-      confirm: true,
-    });
+    await waitFor(() =>
+      expect(state.client.devices.sendCommand).toHaveBeenCalledWith("device", {
+        attribute: "power",
+        value: false,
+        confirm: true,
+      }),
+    );
     expect(state.client.devices.previewCommand).not.toHaveBeenCalled();
     expect(
       screen.queryByRole("button", { name: /^Review/ }),
