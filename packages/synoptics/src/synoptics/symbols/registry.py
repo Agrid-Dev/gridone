@@ -142,9 +142,10 @@ def build_default_registry() -> SymbolRegistry:
     the six the visual-language spec proposes for the hydronic set.
 
     Inline types declare no ports: their in and out follow the segment they sit
-    on, so a pipe never names one as an endpoint. The six hydronic types declare
-    no slots yet: which values they bind is decided by the first plate that
-    places them, an energy meter included.
+    on, so a pipe never names one as an endpoint. Of the six hydronic types only
+    the double pump declares a slot, the run state its single sibling has; what
+    the others bind (an energy meter's register above all) is declared here once
+    the first plate that places them says so.
     """
     registry = SymbolRegistry()
     registry.register(
@@ -246,15 +247,23 @@ def build_default_registry() -> SymbolRegistry:
             ports={"in": Port(offset=Cell(x=0, y=0), side="-x")},
         )
     )
-    for inline_type in (
-        "air_separator",
-        "dirt_separator",
-        "pump_double",
-        "energy_meter",
-    ):
-        registry.register(
-            SymbolType(type=inline_type, footprint=Footprint(w=1, d=1), inline=True)
+    registry.register(
+        SymbolType(type="air_separator", footprint=Footprint(w=1, d=1), inline=True)
+    )
+    registry.register(
+        SymbolType(type="dirt_separator", footprint=Footprint(w=1, d=1), inline=True)
+    )
+    registry.register(
+        SymbolType(
+            type="pump_double",
+            footprint=Footprint(w=1, d=1),
+            slots=("state",),
+            inline=True,
         )
+    )
+    registry.register(
+        SymbolType(type="energy_meter", footprint=Footprint(w=1, d=1), inline=True)
+    )
     return registry
 
 

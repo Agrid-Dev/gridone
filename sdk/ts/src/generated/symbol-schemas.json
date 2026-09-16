@@ -420,7 +420,7 @@
     },
     "x-ports": {},
     "x-ports-authored": false,
-    "x-slots": [],
+    "x-slots": ["state"],
     "x-required-slots": [],
     "x-inline": true,
     "x-rotation-locked": false

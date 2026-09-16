@@ -100,6 +100,15 @@ def test_free_standing_types_are_not_inline(registry, type_):
     assert registry.get(type_).inline is False
 
 
+def test_a_double_pump_binds_the_run_state_its_single_sibling_has(registry):
+    assert registry.get("pump_double").slots == registry.get("pump").slots == ("state",)
+
+
+@pytest.mark.parametrize("type_", ["air_separator", "dirt_separator", "energy_meter"])
+def test_the_other_hydronic_inline_types_declare_no_slot_yet(registry, type_):
+    assert registry.get(type_).slots == ()
+
+
 def test_a_plate_exchanger_has_a_port_on_each_face(registry):
     ports = registry.get("plate_exchanger").ports
     assert {name: port.side for name, port in ports.items()} == {

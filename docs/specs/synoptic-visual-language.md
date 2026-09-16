@@ -73,16 +73,16 @@ Footprints and ports are the registry's (`synoptics/symbols/registry.py`), resta
 | `valve_check` | 1 × 1, inline | bowtie, ball downstream | bowtie, ball | none |
 | `link` | 1 × 2 | pentagon on the axis plane, caption on the face | pentagon, caption inside | none |
 
-Not in the registry, asked for by the issue, drawn on the sheets. The footprints and ports below are input for the registry addition, which is where they become binding (as the format's appendix was for the first eight types); until then nothing checks a sheet against them:
+Asked for by the issue and registered with the footprints and ports below (AGR-1159); the sheets draw them against the registry like the first eight. Only the double pump declares a slot; the others bind nothing until the first plate that places them says what:
 
-| Proposed type | Footprint | Ports | Drawing |
-|---|---|---|---|
-| `plate_exchanger` | 1 × 1 | `primary_in −x`, `primary_out +x`, `secondary_in −y`, `secondary_out +y` | square with diagonal, extruded 1.1 |
-| `air_separator` | inline | none | circle with a chevron mesh, air collecting at the top |
-| `expansion_vessel` | 1 × 1 | `in −x` | capsule with diaphragm line, extruded 0.8 |
-| `dirt_separator` | inline | none | circle with a settling cone, dirt collecting at the bottom |
-| `pump_double` | inline | none | two pumps side by side across the run |
-| `energy_meter` | inline | none | square housing with register window, `kWh` above |
+| Type | Footprint | Ports | Drawing | Panel rows (slots) |
+|---|---|---|---|---|
+| `plate_exchanger` | 1 × 1 | `primary_in −x`, `primary_out +x`, `secondary_in −y`, `secondary_out +y` | square with diagonal, extruded 1.1 | none |
+| `air_separator` | inline | none | circle with a chevron mesh, air collecting at the top | none |
+| `expansion_vessel` | 1 × 1 | `in −x` | capsule with diaphragm line, extruded 0.8 | none |
+| `dirt_separator` | inline | none | circle with a settling cone, dirt collecting at the bottom | none |
+| `pump_double` | inline | none | two pumps side by side across the run | `state` |
+| `energy_meter` | inline | none | square housing with register window, `kWh` above | none |
 
 The 2-way valve of the issue is `valve_isolation`; a motorised 2-way valve is the same glyph with an `M`, the registry decides whether that is a type or a slot.
 
@@ -99,5 +99,5 @@ The shipped AHU and extractor glyphs (`apps/ui/src/components/synoptic/glyphs.ts
 ## Open points
 
 - The fluid floor of 18 is what six hues reach in the dark theme; if a twelfth fluid comes, the check says whether the band has room.
-- Whether `energy_meter` and `pump_double` are inline or free-standing depends on how the first plate pipes them (AGR-1164).
+- `energy_meter` and `pump_double` are registered inline; whether the first plate pipes them that way is what confirms it (AGR-1164).
 - Whether 11 px holds on a wall screen at distance is the first thing to revisit after the first real view.
