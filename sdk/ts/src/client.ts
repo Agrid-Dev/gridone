@@ -16,6 +16,7 @@ import { DevicesResource } from "./resources/devices";
 import { DriversResource } from "./resources/drivers";
 import { NotificationsResource } from "./resources/notifications";
 import { PresentationsResource } from "./resources/presentations";
+import { SynopticsResource } from "./resources/synoptics";
 import { TimeseriesResource } from "./resources/timeseries";
 import { TransportsResource } from "./resources/transports";
 import { UsersResource } from "./resources/users";
@@ -48,6 +49,7 @@ export class GridoneClient {
   readonly notifications: NotificationsResource;
   readonly dashboards: DashboardsResource;
   readonly presentations: PresentationsResource;
+  readonly synoptics: SynopticsResource;
 
   constructor(config: GridoneClientConfig) {
     this.http = new HttpClient({
@@ -69,6 +71,7 @@ export class GridoneClient {
     this.notifications = new NotificationsResource(request);
     this.dashboards = new DashboardsResource(request);
     this.presentations = new PresentationsResource(request);
+    this.synoptics = new SynopticsResource(request);
   }
 
   health(): Promise<HealthResponse> {

@@ -1,3 +1,16 @@
+## v0.246.0 (2026-09-16)
+
+### Feat
+
+- **ui**: synoptic navigation and device panel (#659)
+
+## v0.245.0 (2026-09-16)
+
+### Feat
+
+- **ui**: explain setpoint-table columns and controls from driver descriptions (#658)
+- **ui**: explain setpoint-table columns and controls from driver descriptions
+
 ## v0.244.0 (2026-09-16)
 
 ### Feat

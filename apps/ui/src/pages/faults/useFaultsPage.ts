@@ -33,7 +33,9 @@ export function faultKey(fault: FaultView): string {
 
 /**
  * Everything the faults page renders: rows enriched with their zone, the
- * per-severity counts behind the summary cards, and the CSV export.
+ * per-severity counts behind the summary cards, and the CSV export. With
+ * `deviceIds` only the faults of those devices are kept, for a surface
+ * scoped to a few devices.
  *
  * The zone is joined client-side because `FaultView` carries no location:
  * `useAssetTree` already caches the device-to-asset map for the whole app, so
@@ -41,7 +43,7 @@ export function faultKey(fault: FaultView): string {
  * the tree resolving a beat later fills the zone column in place rather than
  * holding the whole table back.
  */
-export function useFaultsPage() {
+export function useFaultsPage(deviceIds?: string[]) {
   const { t } = useTranslation("faults");
   // `formatDurationSince` and the severity labels live in the default
   // (`common`) namespace, which a namespaced `t` would not resolve.
@@ -52,12 +54,13 @@ export function useFaultsPage() {
   const rows = useMemo<FaultRow[]>(
     () =>
       faults
+        .filter((fault) => !deviceIds || deviceIds.includes(fault.device_id))
         .map((fault) => ({
           ...fault,
           zone: assetByDeviceId[fault.device_id]?.name ?? null,
         }))
         .sort(compareRows),
-    [faults, assetByDeviceId],
+    [faults, deviceIds, assetByDeviceId],
   );
 
   const counts = useMemo<SeverityCounts>(

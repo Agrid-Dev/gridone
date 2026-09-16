@@ -1,0 +1,15 @@
+{
+  "title": "Synoptics",
+  "caption": "Live plant diagrams: click an equipment to open it, a link to move to another view.",
+  "resourceName": "synoptic",
+  "emptyTitle": "No synoptic yet.",
+  "emptyDescription": "Plates are authored through the API and appear here once stored.",
+  "panel": {
+    "label": "Selected device",
+    "close": "Close panel"
+  },
+  "faults": {
+    "title": "Faults on this view",
+    "none": "No active fault on the devices of this view."
+  }
+}

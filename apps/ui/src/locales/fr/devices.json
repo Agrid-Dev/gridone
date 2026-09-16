@@ -585,6 +585,7 @@
     "sectionItems_one": "{{count}} élément",
     "sectionItems_other": "{{count}} éléments",
     "parameter": "Paramètre",
+    "describe": "Description : {{name}}",
     "loading": "Chargement de la présentation de l’appareil…",
     "allAttributes": "Tous les attributs",
     "sending": "Envoi…",
