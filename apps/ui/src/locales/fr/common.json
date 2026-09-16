@@ -79,6 +79,9 @@
     "currentPasswordPlaceholder": "Saisissez votre mot de passe actuel"
   },
   "common": {
+    "deviceNotFound": "Cet appareil n'existe plus.",
+    "deviceLoadError": "Impossible de charger cet appareil.",
+    "noStandardControl": "Ce type d'appareil n'a pas de contrôle standard.",
     "update": "Mettre à jour",
     "updating": "Mise à jour...",
     "back": "Retour",
@@ -249,6 +252,7 @@
     "version": "Version {{version}}",
     "description": "Surveillez les données en temps réel, inspectez les relevés des appareils et envoyez des mises à jour via l'API Gridone.",
     "dashboards": "Tableaux de bord",
+    "synoptics": "Synoptiques",
     "assets": "Zones",
     "devices": "Appareils",
     "drivers": "Drivers",

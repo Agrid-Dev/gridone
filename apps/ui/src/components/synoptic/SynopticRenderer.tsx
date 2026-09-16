@@ -1,4 +1,9 @@
-import { useMemo } from "react";
+import {
+  useMemo,
+  type KeyboardEvent,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
 import {
   symbolSchemas,
   type Cell,
@@ -48,6 +53,12 @@ import {
 type SynopticRendererProps = {
   doc: Synoptic;
   values?: SynopticValues;
+  /** The plates that exist. A link naming one of them navigates; a link
+   *  naming another reads missing. Without the set every link is inert. */
+  knownSynoptics?: ReadonlySet<string>;
+  /** A symbol the user activated: one that is a device, or a link whose
+   *  target exists. Nothing else is clickable. */
+  onSymbolClick?: (symbol: SymbolElement) => void;
 };
 
 /** Plate margin around the drawn extent, in px. */
@@ -117,13 +128,15 @@ const stateOf = (reading: SlotReading | undefined): SymbolState | undefined => {
 export function SynopticRenderer({
   doc,
   values = EMPTY_VALUES,
+  knownSynoptics,
+  onSymbolClick,
 }: SynopticRendererProps) {
   // The geometry (runs cut per cell, bodies, what they occupy) depends on
   // the document alone, so a value tick only binds readings to it.
   const geometry = useMemo(() => plateGeometry(doc), [doc]);
   const { items, box } = useMemo(
-    () => buildPlate(geometry, values),
-    [geometry, values],
+    () => buildPlate(geometry, values, { knownSynoptics, onSymbolClick }),
+    [geometry, values, knownSynoptics, onSymbolClick],
   );
   return (
     <PidDiagram
@@ -173,15 +186,22 @@ type Geometry = {
   labelBoxes: Map<string, Box>;
 };
 
+/** What the surface hosting the plate lets the user do with a symbol. */
+type Interaction = Pick<
+  SynopticRendererProps,
+  "knownSynoptics" | "onSymbolClick"
+>;
+
 /** Everything the element builders share while a plate is assembled. */
-type Plate = Geometry & {
-  values: SynopticValues;
-  items: DepthItem[];
-  extent: Pt[];
-  /** What a chip or panel must keep clear of: every body, bar, inline
-   *  glyph and run, then each tag and readout as it is placed. */
-  obstacles: Box[];
-};
+type Plate = Geometry &
+  Interaction & {
+    values: SynopticValues;
+    items: DepthItem[];
+    extent: Pt[];
+    /** What a chip or panel must keep clear of: every body, bar, inline
+     *  glyph and run, then each tag and readout as it is placed. */
+    obstacles: Box[];
+  };
 
 /** Half the width a run occupies on screen, casing included. */
 const RUN_HALF_WIDTH = 4;
@@ -279,9 +299,14 @@ function place(plate: Plate, box: Box) {
   plate.extent.push({ x: box.x0, y: box.y0 }, { x: box.x1, y: box.y1 });
 }
 
-function buildPlate(geometry: Geometry, values: SynopticValues) {
+function buildPlate(
+  geometry: Geometry,
+  values: SynopticValues,
+  interaction: Interaction,
+) {
   const plate: Plate = {
     ...geometry,
+    ...interaction,
     values,
     items: [],
     extent: [...geometry.corners.values()].flat(),
@@ -406,6 +431,84 @@ function addRuns(plate: Plate) {
   }
 }
 
+/** What a symbol offers on click: `device` opens the device it is, `link`
+ *  jumps to the plate it names, `missing` marks a link whose target is not
+ *  among the known plates. Null is inert, as is everything on a surface
+ *  with no click handler. The device comes from `device_id` alone, never
+ *  from what the symbol reads. */
+type AffordanceKind = "device" | "link" | "missing";
+
+function symbolAffordance(
+  symbol: SymbolElement,
+  { knownSynoptics, onSymbolClick }: Interaction,
+): AffordanceKind | null {
+  if (symbol.type === "link") {
+    const target = symbol.props?.synoptic_id;
+    if (typeof target !== "string" || !knownSynoptics) return null;
+    if (!knownSynoptics.has(target)) return "missing";
+    return onSymbolClick ? "link" : null;
+  }
+  return symbol.device_id && onSymbolClick ? "device" : null;
+}
+
+/** The clickable wrapper of a symbol. A missing link is drawn faded and
+ *  dashed, and is not a button. A press that becomes a pan never reaches
+ *  the click: the canvas captures the pointer once it travels, so the
+ *  browser fires the click on the canvas, not here. A double click stays
+ *  on the symbol too, so it never refits the canvas under the panel it
+ *  just opened. */
+function Affordance({
+  symbol,
+  kind,
+  onClick,
+  children,
+}: {
+  symbol: SymbolElement;
+  kind: AffordanceKind;
+  onClick: ((symbol: SymbolElement) => void) | undefined;
+  children: ReactNode;
+}) {
+  if (kind === "missing") {
+    return (
+      <g
+        data-symbol={symbol.id}
+        data-missing
+        className="opacity-40"
+        strokeDasharray="3 2"
+      >
+        <title>{String(symbol.props?.synoptic_id)}</title>
+        {children}
+      </g>
+    );
+  }
+  const activate = () => onClick?.(symbol);
+  // A double click's second click is not a second activation.
+  const onClickOnce = (e: MouseEvent<SVGGElement>) => {
+    if (e.detail <= 1) activate();
+  };
+  const onKeyDown = (e: KeyboardEvent<SVGGElement>) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      activate();
+    }
+  };
+  return (
+    <g
+      data-symbol={symbol.id}
+      data-affordance={kind}
+      role="button"
+      tabIndex={0}
+      aria-label={symbol.label ?? symbol.id}
+      className="cursor-pointer outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      onClick={onClickOnce}
+      onDoubleClick={(e) => e.stopPropagation()}
+      onKeyDown={onKeyDown}
+    >
+      {children}
+    </g>
+  );
+}
+
 /** Each symbol at its cell, with its readout: a chip under the label for
  *  one bound slot, a panel placed clear of the plate for several. */
 function addSymbols(plate: Plate) {
@@ -434,17 +537,30 @@ function addSymbols(plate: Plate) {
 
     const shape = collectorShape(symbol);
     const bodyCell = nearestCell(symbol);
+    const affordance = symbolAffordance(symbol, plate);
+    const wrap = (node: ReactNode) =>
+      affordance ? (
+        <Affordance
+          symbol={symbol}
+          kind={affordance}
+          onClick={plate.onSymbolClick}
+        >
+          {node}
+        </Affordance>
+      ) : (
+        node
+      );
     if (shape) {
       items.push({
         id: symbol.id,
         depth: depthKey(bodyCell, "symbol"),
-        node: (
+        node: wrap(
           <Collector
             projection={projection}
             origin={origin}
             shape={shape}
             label={symbol.label ?? undefined}
-          />
+          />,
         ),
       });
       continue;
@@ -457,7 +573,7 @@ function addSymbols(plate: Plate) {
     items.push({
       id: symbol.id,
       depth: depthKey(bodyCell, "symbol"),
-      node: (
+      node: wrap(
         <SynopticSymbol
           type={symbol.type}
           projection={projection}
@@ -467,7 +583,7 @@ function addSymbols(plate: Plate) {
           state={state}
           faulty={faulty}
           direction={direction}
-        />
+        />,
       ),
     });
 

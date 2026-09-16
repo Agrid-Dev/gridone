@@ -9,6 +9,7 @@ vi.mock("react-i18next", () =>
     "app.title": "Gridone",
     "app.version": "Version {{version}}",
     "app.dashboards": "Dashboards",
+    "app.synoptics": "Synoptics",
     "app.devices": "Devices",
     "app.assets": "Zones",
     "app.automations": "Automations",
@@ -29,7 +30,7 @@ vi.mock("react-i18next", () =>
 const permissions: { can: (permission: string) => boolean } = {
   can: () => true,
 };
-const flags = { dashboards: true };
+const flags = { dashboards: true, synoptics: true };
 let faults: FaultView[] = [];
 let devices: Device[] = [];
 let pendingAppRequests = 0;
@@ -40,7 +41,7 @@ vi.mock("@/contexts/AuthContext", () => ({
 }));
 
 vi.mock("@/utils/featureFlags", () => ({
-  useFeatureEnabled: (flag: "dashboards") => flags[flag],
+  useFeatureEnabled: (flag: "dashboards" | "synoptics") => flags[flag],
 }));
 
 vi.mock("@/hooks/useFaultsList", () => ({
@@ -73,6 +74,7 @@ function renderSidebar() {
 beforeEach(() => {
   permissions.can = () => true;
   flags.dashboards = true;
+  flags.synoptics = true;
   faults = [];
   devices = [];
   pendingAppRequests = 0;
@@ -141,6 +143,14 @@ describe("Sidebar", () => {
     renderSidebar();
     expect(
       screen.queryByRole("link", { name: "Dashboards" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("hides Synoptics when the feature flag is off", () => {
+    flags.synoptics = false;
+    renderSidebar();
+    expect(
+      screen.queryByRole("link", { name: "Synoptics" }),
     ).not.toBeInTheDocument();
   });
 

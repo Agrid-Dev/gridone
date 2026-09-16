@@ -14,6 +14,7 @@ import BuildingProfileEdit from "./pages/building/BuildingProfileEdit";
 import LoginPage from "./pages/login/LoginPage";
 import UsersPage from "./pages/users/UsersPage";
 import SettingsPage from "./pages/settings/SettingsPage";
+import Synoptics from "./pages/synoptics";
 import { NotFoundFallback } from "./components/fallbacks/NotFound";
 import { Sidebar } from "./components/layout/Sidebar";
 import { TopBar } from "./components/layout/TopBar";
@@ -32,6 +33,7 @@ function ProtectedLayout() {
   const { data: profile } = useBuildingProfile();
   const sandboxEnabled = useFeatureEnabled("uiSandbox");
   const dashboardsEnabled = useFeatureEnabled("dashboards");
+  const synopticsEnabled = useFeatureEnabled("synoptics");
 
   useEffect(() => {
     document.title = profile?.name ? `${profile.name} | Gridone` : "Gridone";
@@ -48,6 +50,9 @@ function ProtectedLayout() {
               <Route index element={<Home />} />
               {dashboardsEnabled && (
                 <Route path="/dashboards/*" element={<Dashboards />} />
+              )}
+              {synopticsEnabled && (
+                <Route path="/synoptics/*" element={<Synoptics />} />
               )}
               <Route path="/assets/*" element={<Assets />} />
               <Route path="/devices/*" element={<Devices />} />

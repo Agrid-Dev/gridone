@@ -10,6 +10,7 @@ import {
   Puzzle,
   TriangleAlert,
   Users,
+  Waypoints,
   Zap,
 } from "lucide-react";
 import { useAuth, usePermissions } from "@/contexts/AuthContext";
@@ -67,6 +68,7 @@ export function Sidebar() {
   const can = usePermissions();
   const { health } = useAuth();
   const dashboardsEnabled = useFeatureEnabled("dashboards");
+  const synopticsEnabled = useFeatureEnabled("synoptics");
   const { faults } = useFaultsList();
   const { devices } = useDevicesList();
   const { pendingCount: pendingAppRequests } = usePendingAppRequests();
@@ -108,6 +110,13 @@ export function Sidebar() {
             <NavLink to="/dashboards" className={navLinkClass}>
               <LayoutDashboard className="h-4 w-4" />
               {t("app.dashboards")}
+            </NavLink>
+          )}
+
+          {synopticsEnabled && (
+            <NavLink to="/synoptics" className={navLinkClass}>
+              <Waypoints className="h-4 w-4" />
+              {t("app.synoptics")}
             </NavLink>
           )}
 

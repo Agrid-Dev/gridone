@@ -12,9 +12,9 @@ vi.mock("@/contexts/AuthContext", () => ({
 vi.mock("react-i18next", () =>
   createI18nMock({
     "widgets.deviceControl.empty": "Pick a device",
-    "widgets.deviceControl.notFound": "This device no longer exists",
-    "widgets.deviceControl.error": "Could not load this device",
-    "widgets.deviceControl.noControl": "No standard control",
+    "common.deviceNotFound": "This device no longer exists",
+    "common.deviceLoadError": "Could not load this device",
+    "common.noStandardControl": "No standard control",
     "widgets.deviceControl.live": "Live",
   }),
 );
