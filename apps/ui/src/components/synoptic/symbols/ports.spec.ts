@@ -1,5 +1,5 @@
 import { symbolSchemas } from "@gridone/sdk";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { collectorPorts, symbolPort } from "./ports";
 
 describe("CollectorProps", () => {
@@ -27,7 +27,7 @@ describe("symbolPort", () => {
 
   it("carries the origin's height", () => {
     expect(
-      symbolPort("heat_pump", { x: 0, y: 0, z: 1 }, 0, "supply").cell,
+      symbolPort("heat_pump", { x: 0, y: 0, z: 1 }, 0, "supply")?.cell,
     ).toEqual({ x: 1, y: 1, z: 1 });
   });
 
@@ -51,15 +51,13 @@ describe("symbolPort", () => {
     });
   });
 
-  it("refuses an unknown type or port", () => {
-    expect(() => symbolPort("reactor", { x: 0, y: 0 }, 0, "in")).toThrow(
-      "Unknown symbol type reactor",
-    );
-    expect(() => symbolPort("tank", { x: 0, y: 0 }, 0, "steam")).toThrow(
-      "no port steam",
-    );
-    expect(() => symbolPort("collector", { x: 0, y: 0 }, 0, "in_1")).toThrow(
-      "no port in_1",
-    );
+  it("resolves nothing for an unknown type or port, and says so in development", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(symbolPort("reactor", { x: 0, y: 0 }, 0, "in")).toBeUndefined();
+    expect(warn).toHaveBeenLastCalledWith("Unknown symbol type reactor");
+    expect(symbolPort("tank", { x: 0, y: 0 }, 0, "steam")).toBeUndefined();
+    expect(warn).toHaveBeenLastCalledWith("Symbol type tank has no port steam");
+    expect(symbolPort("collector", { x: 0, y: 0 }, 0, "in_1")).toBeUndefined();
+    warn.mockRestore();
   });
 });

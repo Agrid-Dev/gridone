@@ -6,7 +6,7 @@ import { DRAWINGS, INLINE_R, type SymbolDrawing } from "./drawings";
 import { Label, LABEL_SIZE } from "./Label";
 import { Body } from "./Body";
 import { circlePts, silhouette, square } from "./extrude";
-import { PlanPoly, pointsAttr, toPoints } from "./plan";
+import { PlanPoly, pointsAttr, toPoints, type PlanClass } from "./plan";
 
 type SynopticSymbolProps = {
   /** Registry type name. */
@@ -71,14 +71,18 @@ export function SynopticSymbol({
     local,
   );
   const base = (origin.z ?? 0) + drawing.base;
-  // An inline glyph sits on the run body-filled so it breaks it; a glyph
-  // with no height does the same on its plane in isometric, so the runs
-  // ending under it stop at its edge. A body with height occludes them
-  // itself, and on the sheet the footprint does it for every other type.
-  const face = schema["x-inline"]
-    ? (drawing.outline?.(centre) ?? circlePts(centre, INLINE_R))
+  // In isometric an inline glyph sits on the run body-filled so it breaks
+  // it, as the sheets draw it; a glyph with no height gets a plate patch
+  // under it so the runs ending at its ports stop at its edge. On the
+  // sheet the footprint is that patch for every type. A body with height
+  // occludes on its own.
+  const face: { points: Pt[]; cls: PlanClass } | null = schema["x-inline"]
+    ? {
+        points: drawing.outline?.(centre) ?? circlePts(centre, INLINE_R),
+        cls: iso ? "face" : "plate",
+      }
     : iso && !extruded && drawing.outline
-      ? drawing.outline(centre)
+      ? { points: drawing.outline(centre), cls: "plate" }
       : null;
   const anchor = labelAnchor(drawing, projection, planeAt(top), footprint);
   const text = label ?? drawing.mark;
@@ -86,12 +90,14 @@ export function SynopticSymbol({
   return (
     <g>
       {!iso && !schema["x-inline"] && (
-        <PlanPoly plane={planeAt(0)} points={square(0, 0, w, d)} cls="face" />
+        <PlanPoly plane={planeAt(0)} points={square(0, 0, w, d)} cls="plate" />
       )}
       {extruded && (
         <Body outline={bodyOutline} z0={base} z1={base + drawing.height} />
       )}
-      {face && <PlanPoly plane={planeAt(top)} points={face} cls="face" />}
+      {face && (
+        <PlanPoly plane={planeAt(top)} points={face.points} cls={face.cls} />
+      )}
       {drawing.plan(
         planeAt(top),
         centre,
@@ -114,7 +120,9 @@ export function SynopticSymbol({
           outline={
             extruded
               ? silhouette(bodyOutline, base, base + drawing.height)
-              : bodyOutline.map((p) => project(projection, p.x, p.y, top))
+              : bodyOutline.map((p) =>
+                  project(projection, p.x, p.y, base + drawing.height),
+                )
           }
           badge={planeAt(top)(w + 0.1, 0.2)}
         />

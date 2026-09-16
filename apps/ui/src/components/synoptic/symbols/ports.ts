@@ -40,7 +40,10 @@ export function collectorPorts(
 /**
  * The cell and face a pipe attaches to: the type's port offset turned by
  * the symbol's rotation and moved to its origin. A collector reads its
- * ports off `props` instead of the type.
+ * ports off `props` instead of the type. Undefined, named in the console
+ * in development, for a type or port the bundled registry does not know:
+ * the schemas are a build-time snapshot, so a plate stored by a newer
+ * backend degrades one run at a time rather than unmounting the plate.
  */
 export function symbolPort(
   type: string,
@@ -48,15 +51,24 @@ export function symbolPort(
   rotation: number,
   name: string,
   props?: CollectorProps,
-): PortAnchor {
+): PortAnchor | undefined {
   const schema = symbolSchemas[type];
-  if (!schema) throw new Error(`Unknown symbol type ${type}`);
-  const ports =
-    schema["x-ports-authored"] && props
+  const ports = schema
+    ? schema["x-ports-authored"] && props
       ? collectorPorts(props)
-      : schema["x-ports"];
+      : schema["x-ports"]
+    : {};
   const port = ports[name];
-  if (!port) throw new Error(`Symbol type ${type} has no port ${name}`);
+  if (!port) {
+    if (import.meta.env.DEV) {
+      console.warn(
+        schema
+          ? `Symbol type ${type} has no port ${name}`
+          : `Unknown symbol type ${type}`,
+      );
+    }
+    return undefined;
+  }
   const r = rotateQuarter(port.offset, rotation);
   return {
     cell: {

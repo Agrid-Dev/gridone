@@ -2,15 +2,17 @@ import type { Plane } from "../projection";
 import type { Pt } from "../types";
 import { circlePts } from "./extrude";
 
-/** The three line tiers of the visual language, plus the solid fill a
- *  closed valve takes. */
-export type PlanClass = "face" | "outline" | "detail" | "fill";
+/** The three line tiers of the visual language, the solid fill a closed
+ *  valve takes, and the plate-coloured patch that occludes a run under a
+ *  glyph without adding a line of its own. */
+export type PlanClass = "face" | "outline" | "detail" | "fill" | "plate";
 
 const CLASS: Record<PlanClass, string> = {
   face: "fill-synoptic-body stroke-synoptic-stroke",
   outline: "fill-none stroke-synoptic-stroke",
   detail: "fill-none stroke-muted-foreground",
   fill: "fill-synoptic-stroke stroke-synoptic-stroke",
+  plate: "fill-synoptic-plate stroke-none",
 };
 
 const WIDTH: Record<PlanClass, number> = {
@@ -18,6 +20,7 @@ const WIDTH: Record<PlanClass, number> = {
   outline: 2,
   detail: 1.25,
   fill: 2,
+  plate: 0,
 };
 
 const round = (v: number) => Math.round(v * 100) / 100;

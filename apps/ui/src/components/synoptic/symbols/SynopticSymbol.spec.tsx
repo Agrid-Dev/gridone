@@ -138,24 +138,58 @@ describe("SynopticSymbol", () => {
     expect(text("pump")).toBeUndefined();
   });
 
-  it("body-fills a flat glyph in isometric so the run stops at its edge", () => {
-    const first = (projection: Projection) =>
+  it("occludes the run under a flat glyph with a plate patch, never a body face", () => {
+    const first = (projection: Projection, type = "mixing_valve") =>
       draw(
         <SynopticSymbol
-          type="mixing_valve"
+          type={type}
           projection={projection}
           origin={{ x: 0, y: 0 }}
         />,
       ).querySelector("polygon")!;
-    // The disc under the bowtie is a face in isometric; the sheet keeps the
-    // footprint square instead.
-    expect(first("isometric").className.baseVal).toContain(
+    // Isometric: the disc under the bowtie, plate-coloured with no stroke,
+    // so the heaviest line stays the glyph's own.
+    const iso = first("isometric");
+    expect(iso.className.baseVal).toBe("fill-synoptic-plate stroke-none");
+    expect(iso.getAttribute("stroke-width")).toBe("0");
+    expect(iso.getAttribute("points")!.split(" ")).toHaveLength(40);
+    // The sheet: the footprint square is that patch, for a tank as well.
+    const flat = first("flat");
+    expect(flat.className.baseVal).toBe("fill-synoptic-plate stroke-none");
+    expect(flat.getAttribute("points")).toBe("0,0 48,0 48,48 0,48");
+    expect(first("flat", "tank").className.baseVal).toBe(
+      "fill-synoptic-plate stroke-none",
+    );
+    // An inline glyph is body-filled in isometric, as the sheets draw it,
+    // and plate-patched on the sheet.
+    expect(first("isometric", "pump").className.baseVal).toContain(
       "fill-synoptic-body",
     );
-    expect(first("isometric").getAttribute("points")!.split(" ")).toHaveLength(
-      40,
+    expect(first("flat", "pump").className.baseVal).toBe(
+      "fill-synoptic-plate stroke-none",
     );
-    expect(first("flat").getAttribute("points")).toBe("0,0 48,0 48,48 0,48");
+  });
+
+  it("wraps a raised flat glyph's fault outline at the glyph's own height", () => {
+    const outline = (z: number) =>
+      draw(
+        <SynopticSymbol
+          type="valve_isolation"
+          projection="isometric"
+          origin={{ x: 2, y: 1, z }}
+          faulty
+        />,
+      )
+        .querySelector("polygon.stroke-status-error")!
+        .getAttribute("points")!;
+    // One cell up is 40 px up on screen, for the glyph and its outline.
+    const ys = (pts: string) =>
+      pts.split(" ").map((p) => Number(p.split(",")[1]));
+    const floor = ys(outline(0));
+    const raised = ys(outline(1));
+    expect(raised.map((y, i) => Math.round(floor[i] - y))).toEqual(
+      floor.map(() => 40),
+    );
   });
 
   it("keeps a flat label above the footprint's top edge when the body turns", () => {
