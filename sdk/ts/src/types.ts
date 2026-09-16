@@ -108,6 +108,8 @@ export type Severity = Schemas["Severity"];
 
 // Synoptics
 export type Fluid = Schemas["Fluid"];
+export type Cell = Schemas["Cell"];
+export type Projection = NonNullable<Schemas["Synoptic"]["projection"]>;
 
 // Attributes
 export type Attribute = Schemas["Attribute"];

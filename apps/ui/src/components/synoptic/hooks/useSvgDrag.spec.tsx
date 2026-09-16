@@ -67,9 +67,17 @@ function setup(props: Partial<Parameters<typeof useSvgDrag>[0]> = {}) {
 }
 
 describe("useSvgDrag", () => {
-  it("keeps the browser from scrolling the handle", () => {
+  it("keeps the browser from scrolling the handle and owns the press", () => {
     const { handle } = setup();
     expect(handle.style.touchAction).toBe("none");
+    const press = new PointerEvent("pointerdown", {
+      button: 0,
+      pointerId: 1,
+      bubbles: true,
+      cancelable: true,
+    });
+    handle.dispatchEvent(press);
+    expect(press.defaultPrevented).toBe(true);
   });
 
   it("reports start, per-move deltas and end in viewBox units", () => {
@@ -140,6 +148,36 @@ describe("useSvgDrag", () => {
     fireEvent.pointerMove(window, { pointerId: 1, clientX: 9, clientY: 9 });
     expect(onCancel).toHaveBeenCalledTimes(1);
     expect(onMove).not.toHaveBeenCalled();
+  });
+
+  it("waits for the threshold before capturing, so a click stays a click", () => {
+    const capture = vi.spyOn(Element.prototype, "setPointerCapture");
+    const { handle, onStart, onMove, onEnd } = setup({ threshold: 5 });
+    fireEvent.pointerDown(handle, DOWN);
+    fireEvent.pointerMove(window, { pointerId: 1, clientX: 23, clientY: 40 });
+    expect(onStart).not.toHaveBeenCalled();
+    expect(onMove).not.toHaveBeenCalled();
+    expect(capture).not.toHaveBeenCalled();
+
+    fireEvent.pointerMove(window, { pointerId: 1, clientX: 30, clientY: 40 });
+    expect(capture).toHaveBeenCalledTimes(1);
+    expect(onStart).toHaveBeenCalledWith({ x: 10, y: 20 });
+    expect(onMove).toHaveBeenCalledWith(
+      { x: 15, y: 20 },
+      { x: 5, y: 0 },
+      { x: 10, y: 20 },
+    );
+    fireEvent.pointerUp(window, { pointerId: 1, clientX: 30, clientY: 40 });
+    expect(onEnd).toHaveBeenCalledWith({ x: 15, y: 20 });
+  });
+
+  it("reports nothing for a press released under the threshold", () => {
+    const { handle, onStart, onEnd, onCancel } = setup({ threshold: 5 });
+    fireEvent.pointerDown(handle, DOWN);
+    fireEvent.pointerUp(window, { pointerId: 1, clientX: 21, clientY: 40 });
+    expect(onStart).not.toHaveBeenCalled();
+    expect(onEnd).not.toHaveBeenCalled();
+    expect(onCancel).not.toHaveBeenCalled();
   });
 
   it("ignores buttons other than the primary one", () => {

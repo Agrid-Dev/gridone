@@ -11,6 +11,10 @@ export {
 } from "./geometry";
 
 export { PidDiagram } from "./PidDiagram";
+export { DepthOrdered } from "./DepthOrdered";
+export type { DepthItem } from "./DepthOrdered";
+export { project, depthKey, PIPE_AXIS_Z } from "./projection";
+export type { Layer } from "./projection";
 export { Pipe } from "./Pipe";
 export { PipeBadge } from "./PipeBadge";
 export { Port } from "./Port";
