@@ -2,8 +2,10 @@ import { useId } from "react";
 import { useTranslation } from "react-i18next";
 import { Check, Loader2, Minus, Plus } from "lucide-react";
 import { Button, Switch } from "@/components/ui";
+import { attributeValueLabel } from "@/lib/attributeValueLabel";
 import { toLabel } from "@/lib/textFormat";
 import { cn } from "@/lib/utils";
+import type { Scalar } from "../conditions";
 import { localize } from "../face";
 import type { BoundControlState, DeviceUiRuntime } from "../runtime";
 import type { WriteState } from "../runtime";
@@ -223,6 +225,12 @@ function SelectControl({
   label: string;
 }) {
   const name = useId();
+  const { t } = useTranslation("common");
+  // A standard enum value shows its business label; anything else keeps the
+  // wire value prettified. What is sent is always the option itself.
+  const optionLabel = (option: Scalar) =>
+    attributeValueLabel(state.spec.attribute, option, t) ??
+    toLabel(String(option));
   return (
     <div
       role="radiogroup"
@@ -238,7 +246,7 @@ function SelectControl({
               name={name}
               checked={active}
               disabled={!state.writable}
-              aria-label={toLabel(String(option))}
+              aria-label={optionLabel(option)}
               className="peer sr-only"
               onChange={() => runtime.setValue(id, option)}
             />
@@ -250,7 +258,7 @@ function SelectControl({
                   : "text-foreground/80 hover:text-foreground",
               )}
             >
-              {toLabel(String(option))}
+              {optionLabel(option)}
             </span>
           </label>
         );

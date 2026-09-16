@@ -127,7 +127,14 @@
       "dry": "Dry",
       "auto": "Auto",
       "off": "Off",
-      "on": "On"
+      "on": "On",
+      "error": "Error"
+    },
+    "fanSpeed": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "auto": "Auto"
     },
     "recentlyUpdated": "Recently updated",
     "lastUpdate": "Updated",

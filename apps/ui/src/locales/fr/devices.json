@@ -629,10 +629,10 @@
     "previewChanged": "Les destinataires ou leur éligibilité ont changé. L’aperçu a été actualisé. Vérifiez la sélection et confirmez à nouveau.",
     "before": "Avant",
     "after": "Après",
-    "eligibility": "Éligibilité",
     "liveValidation": "Les contraintes sont vérifiées pour chaque équipement au moment de l’écriture. Les exclusions concernent uniquement ce lot.",
     "deleteDescription": "Supprimer « {{name}} » ? Les équipements seront retirés de ce groupe. Leurs autres groupes et l’historique sont conservés. Les automatisations ciblant ce groupe n’auront plus de destinataires.",
     "batchSummary": "{{success}} commandes réussies, {{failed}} en échec, {{pending}} en cours",
+    "sentToTarget": "Commande envoyée à « {{name}} »",
     "executionFailed": "Échec de la commande. Ouvrez l’historique pour plus de détails.",
     "history": "Voir l’historique des commandes",
     "dynamicHint": "Les membres sont résolus à chaque exécution.",
@@ -666,14 +666,6 @@
     },
     "emptyAction": "Aucune commande envoyée : le groupe « {{name}} » ne contient aucun équipement.",
     "invalidAction": "Aucune commande envoyée : le groupe est inconnu ou invalide. Vérifiez la cible de la commande.",
-    "constraints": "Limites connues",
-    "limits": {
-      "minimum": "Min. : {{value}}",
-      "maximum": "Max. : {{value}}",
-      "step": "Pas : {{value}}"
-    },
-    "groupHeader_other": "Groupe d’équipements · {{count}} membres · {{driver}}",
-    "groupHeader_one": "Groupe d’équipement · {{count}} membre · {{driver}}",
     "previewDescription_other": "{{attribute}} → {{value}} · {{count}} destinataires",
     "previewDescription_one": "{{attribute}} → {{value}} · {{count}} destinataire",
     "apply_other": "Appliquer à {{count}} équipements",
@@ -691,6 +683,7 @@
     "searchGroups": "Rechercher un groupe…",
     "equipmentCount_one": "{{count}} équipement",
     "equipmentCount_other": "{{count}} équipements",
+    "deviceCount": "{{total}} {{type, lowercase}}",
     "selectedCount_one": "{{count}} sélectionné",
     "selectedCount_other": "{{count}} sélectionnés",
     "selectedEquipment_one": "{{count}} équipement sélectionné",
@@ -727,6 +720,10 @@
     "close": "Fermer",
     "confirmationUncertain": "La réponse à cet envoi a été perdue. Les destinataires sont conservés : confirmez à nouveau pour retrouver le résultat sans renvoyer la consigne.",
     "confirmationExpired": "Le résultat de cet envoi est inconnu et sa vérification n’est plus disponible. Consultez l’historique avant de préparer un nouvel envoi."
+  },
+  "commandTarget": {
+    "label": "Appliquer à",
+    "thisDevice": "Cet appareil uniquement"
   },
   "views": {
     "title": "Vues",

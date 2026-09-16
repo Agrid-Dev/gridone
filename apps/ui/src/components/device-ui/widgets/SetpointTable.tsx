@@ -33,6 +33,8 @@ export function SetpointTable({
 }: SetpointTableProps) {
   const { t } = useTranslation("devices");
   const hasRegulated = rows.some((row) => row.regulated != null);
+  const hasMeasured = rows.some((row) => row.measured != null);
+  const hasDeviation = rows.some((row) => row.deviation != null);
   return (
     <div className="relative overflow-x-auto">
       <table className="w-full text-sm">
@@ -49,10 +51,16 @@ export function SetpointTable({
                 {t("presentation.regulated")}
               </th>
             )}
-            <th className="py-2 pr-4 font-medium">
-              {t("presentation.measured")}
-            </th>
-            <th className="py-2 font-medium">{t("presentation.deviation")}</th>
+            {hasMeasured && (
+              <th className="py-2 pr-4 font-medium">
+                {t("presentation.measured")}
+              </th>
+            )}
+            {hasDeviation && (
+              <th className="py-2 font-medium">
+                {t("presentation.deviation")}
+              </th>
+            )}
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
@@ -62,6 +70,8 @@ export function SetpointTable({
               unavailableLabel={unavailableLabel}
               row={row}
               hasRegulated={hasRegulated}
+              hasMeasured={hasMeasured}
+              hasDeviation={hasDeviation}
               runtime={runtime}
               reported={reported}
               attributeOf={attributeOf}
@@ -78,14 +88,18 @@ function SetpointTableRow({
   unavailableLabel,
   row,
   hasRegulated,
+  hasMeasured,
+  hasDeviation,
   runtime,
   reported,
   attributeOf,
   language,
-}: { row: SetpointRow; hasRegulated: boolean } & Omit<
-  SetpointTableProps,
-  "rows"
->) {
+}: {
+  row: SetpointRow;
+  hasRegulated: boolean;
+  hasMeasured: boolean;
+  hasDeviation: boolean;
+} & Omit<SetpointTableProps, "rows">) {
   const { t } = useTranslation("devices");
   const unavailable = t("presentation.unavailable");
   const label = localize(row.label, language);
@@ -149,33 +163,37 @@ function SetpointTableRow({
           />
         </td>
       )}
-      <td className="py-2 pr-4">
-        <Value text={cell(row.measured?.binding)} unavailable={unavailable} />
-      </td>
-      <td className="py-2">
-        {row.deviation &&
-          (deviation ? (
-            <span
-              data-deviation={deviation.withinTolerance ? "ok" : "out"}
-              className={cn(
-                "font-medium tabular-nums",
-                deviation.withinTolerance
-                  ? "text-emerald-700 dark:text-emerald-400"
-                  : "text-amber-700 dark:text-amber-400",
-              )}
-            >
-              {deviation.text}
-              <span className="sr-only">
-                {" "}
-                {deviation.withinTolerance
-                  ? t("presentation.withinTolerance")
-                  : t("presentation.outOfTolerance")}
+      {hasMeasured && (
+        <td className="py-2 pr-4">
+          <Value text={cell(row.measured?.binding)} unavailable={unavailable} />
+        </td>
+      )}
+      {hasDeviation && (
+        <td className="py-2">
+          {row.deviation &&
+            (deviation ? (
+              <span
+                data-deviation={deviation.withinTolerance ? "ok" : "out"}
+                className={cn(
+                  "font-medium tabular-nums",
+                  deviation.withinTolerance
+                    ? "text-emerald-700 dark:text-emerald-400"
+                    : "text-amber-700 dark:text-amber-400",
+                )}
+              >
+                {deviation.text}
+                <span className="sr-only">
+                  {" "}
+                  {deviation.withinTolerance
+                    ? t("presentation.withinTolerance")
+                    : t("presentation.outOfTolerance")}
+                </span>
               </span>
-            </span>
-          ) : (
-            <span className="text-muted-foreground">{unavailable}</span>
-          ))}
-      </td>
+            ) : (
+              <span className="text-muted-foreground">{unavailable}</span>
+            ))}
+        </td>
+      )}
     </tr>
   );
 }

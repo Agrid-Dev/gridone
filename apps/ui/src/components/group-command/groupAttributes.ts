@@ -1,6 +1,7 @@
 import type { Device, Driver } from "@gridone/sdk";
 import type { Scalar } from "@/components/device-ui/conditions";
 import type { AttributeLike } from "@/components/device-ui/runtime";
+import { deviceAttributes } from "@/lib/devices";
 
 export type GroupValueState = "common" | "multiple" | "partial" | "unavailable";
 export type GroupAttribute = AttributeLike & {
@@ -45,5 +46,25 @@ export function aggregateGroupAttributes(
         },
       ];
     }),
+  );
+}
+
+/** One device seen as a command target. Its own values are by construction
+ *  the only ones, so every known attribute is in the `common` state — the
+ *  staging runtime then behaves exactly as it does for a group of one. */
+export function deviceGroupAttributes(
+  device: Device,
+): Record<string, GroupAttribute> {
+  return Object.fromEntries(
+    Object.entries(deviceAttributes(device)).map(([name, attribute]) => [
+      name,
+      {
+        ...(attribute as unknown as AttributeLike),
+        state: (attribute.current_value == null
+          ? "unavailable"
+          : "common") as GroupValueState,
+        missing: 0,
+      },
+    ]),
   );
 }

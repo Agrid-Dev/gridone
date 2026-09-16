@@ -1,12 +1,26 @@
+import { useMemo, useState } from "react";
 import { useDeviceDetails } from "@/hooks/useDeviceDetails";
 import { useDeviceFromRoute } from "@/hooks/useDevice";
 import { getStandardDeviceEntry } from "../standard-devices/registry";
 import { DeviceAttributePanes } from "./DeviceAttributePanes";
+import { DeviceCommandTarget } from "./DeviceCommandTarget";
 import type { Device } from "@gridone/sdk";
 import { useTranslation } from "react-i18next";
+import { Button } from "@/components/ui/button";
+import { usePermissions } from "@/contexts/AuthContext";
 import { DevicePresentation } from "@/components/device-ui/DevicePresentation";
 import { usePresentedDevice } from "@/components/device-ui/usePresentedDevice";
 import type { PresentationDiagnostic } from "@/components/device-ui/document";
+import { deviceGroupAttributes } from "@/components/group-command/groupAttributes";
+import { GROUP_TAG_KEY } from "@/components/group-command/groupMembership";
+import { GroupCommandDialog } from "@/components/group-command/GroupCommandDialog";
+import { GroupCommandDrafts } from "@/components/group-command/GroupCommandDrafts";
+import { GroupCommandResults } from "@/components/group-command/GroupCommandResults";
+import { GroupError } from "@/components/group-command/GroupError";
+import { GroupTargetDialog } from "@/components/group-command/GroupTargetDialog";
+import { useGroupTarget } from "@/components/group-command/useGroupTarget";
+import { useDeviceGroups, type DeviceGroup } from "@/hooks/useDeviceGroups";
+import type { DevicesFilter } from "@/lib/devices";
 
 export default function DeviceLiveControl() {
   const device = useDeviceFromRoute();
@@ -14,8 +28,63 @@ export default function DeviceLiveControl() {
 }
 
 function PresentedDevice({ device }: { device: Device }) {
+  const { groups } = useDeviceGroups(device);
+  const [targetValue, setTargetValue] = useState<string | null>(null);
+  const target = groups.find((group) => group.value === targetValue) ?? null;
+  return (
+    <div className="space-y-6">
+      <DeviceCommandTarget
+        groups={groups}
+        value={target?.value ?? null}
+        onChange={setTargetValue}
+      />
+      {/* Remounting on target change is the point: the previous runtime is
+          detached, so a setpoint still waiting for its debounce is cancelled
+          instead of landing on the group that was just selected. */}
+      <DeviceControl
+        key={target?.value ?? "self"}
+        device={device}
+        target={target}
+      />
+    </div>
+  );
+}
+
+function DeviceControl({
+  device,
+  target,
+}: {
+  device: Device;
+  target: DeviceGroup | null;
+}) {
   const { t } = useTranslation("devices");
-  const { presentation, runtime, pending } = usePresentedDevice(device);
+  const can = usePermissions();
+  const { presentation, controls, runtime, pending } =
+    usePresentedDevice(device);
+  // Controls keep showing this thermostat's own values: the target says where
+  // a change is sent, not what is being looked at. What each member of the
+  // group will actually receive is shown per device on the validation screen.
+  const attributes = useMemo(() => deviceGroupAttributes(device), [device]);
+  const filter = useMemo<DevicesFilter>(
+    () =>
+      target
+        ? {
+            tags: { [GROUP_TAG_KEY]: [target.value] },
+            driver_id: device.driver_id,
+          }
+        : { ids: [device.id] },
+    [target, device.driver_id, device.id],
+  );
+  // A tag target cannot be written in one shot (the API answers 409
+  // `command_preview_required`), so selecting a group turns every gesture
+  // into a staged setpoint reviewed before it is sent.
+  const group = useGroupTarget(
+    filter,
+    attributes,
+    controls,
+    !!target && can("devices:write"),
+  );
+  const { command } = group;
   const fallback = (diagnostics: PresentationDiagnostic[]) => (
     <div className="space-y-4">
       <div role="status" className="rounded-md border p-4 text-sm">
@@ -49,17 +118,62 @@ function PresentedDevice({ device }: { device: Device }) {
   }
   return (
     <div className="space-y-8">
+      {target && (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <GroupError error={!command.preview && command.error} />
+          {!!group.writes.length && (
+            <Button
+              type="button"
+              disabled={command.busy || !!command.preview}
+              onClick={() => void command.prepareMany(group.writes)}
+            >
+              {t("groups.reviewDrafts", { count: group.writes.length })}
+            </Button>
+          )}
+        </div>
+      )}
       <DevicePresentation
         document={presentation.document}
         subject={device}
-        runtime={runtime}
+        runtime={target ? group.runtime : runtime}
         assetUrl={presentation.assets.assetUrl}
         glyphSet={presentation.assets.glyphSet}
         fallback={fallback([{ code: "render_error" }])}
-        renderAttributes={({ group }) => (
-          <DeviceAttributePanes device={device} group={group} />
+        renderAttributes={({ group: attributeGroup }) => (
+          <DeviceAttributePanes device={device} group={attributeGroup} />
         )}
       />
+      {target && (
+        <>
+          <GroupCommandDrafts
+            writes={group.writes}
+            attributes={attributes}
+            disabled={command.busy || !!command.preview}
+            onRemove={group.removeDraft}
+            onClear={group.clearDrafts}
+          />
+          {!command.preview && (
+            <GroupCommandResults command={command} targetName={target.name} />
+          )}
+          <GroupCommandDialog command={command} targetName={target.name} />
+          {group.chosen && attributes[group.chosen] && (
+            <GroupTargetDialog
+              key={group.chosen}
+              attribute={attributes[group.chosen]}
+              onCancel={() => group.setChosen(null)}
+              initialValue={
+                group.drafts[group.chosen] ??
+                attributes[group.chosen].current_value
+              }
+              onStage={(value) => {
+                const name = group.chosen!;
+                group.setChosen(null);
+                group.stage(name, value);
+              }}
+            />
+          )}
+        </>
+      )}
       <details>
         <summary className="cursor-pointer text-sm font-medium">
           {t("presentation.allAttributes")}

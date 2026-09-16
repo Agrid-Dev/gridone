@@ -34,5 +34,5 @@ export function usePresentedDevice(device: Device) {
   const runtime = useDeviceControlRuntime(device, controls, {
     canWrite: can("devices:write"),
   });
-  return { presentation, runtime, pending: runtime.busy };
+  return { presentation, controls, runtime, pending: runtime.busy };
 }

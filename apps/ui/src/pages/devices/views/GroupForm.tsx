@@ -8,8 +8,8 @@ import { ResourceHeader } from "@/components/ResourceHeader";
 import { DevicePickerTable } from "@/components/forms/targetPicker/DevicePickerTable";
 import { useDevicesList } from "@/hooks/useDevicesList";
 import { useGroupForm } from "./useGroupForm";
-import { GroupError } from "./GroupError";
-import { GroupMembershipError } from "./groupMembership";
+import { GroupError } from "@/components/group-command/GroupError";
+import { GroupMembershipError } from "@/components/group-command/groupMembership";
 
 export function GroupForm({ view }: { view?: DeviceView }) {
   const { t } = useTranslation("devices");

@@ -8,7 +8,7 @@ import {
   currentValueFor,
   resolveFilter,
   targetFilterToDevicesFilter,
-} from "../commands/new/resolvers";
+} from "@/pages/devices/commands/new/resolvers";
 
 vi.mock("react-i18next", () => createI18nMock({}));
 const driver = {

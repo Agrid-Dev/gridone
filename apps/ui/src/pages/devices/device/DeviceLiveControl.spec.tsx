@@ -1,7 +1,16 @@
-import { StrictMode } from "react";
+import { StrictMode, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter } from "react-router";
 import { GridoneError, type Device } from "@gridone/sdk";
 import { createI18nMock } from "@/test/i18nMock";
 const state = vi.hoisted(() => ({
@@ -15,7 +24,11 @@ const state = vi.hoisted(() => ({
       getPresentationAsset: vi.fn(),
       sendCommand: vi.fn(),
       get: vi.fn(),
+      previewCommand: vi.fn(),
+      confirmCommand: vi.fn(),
+      listCommands: vi.fn(),
     },
+    deviceViews: { list: vi.fn() },
   },
 }));
 vi.mock("@/hooks/useDevice", () => ({
@@ -51,6 +64,36 @@ vi.mock("./DeviceAttributePanes", () => ({
     return <p>Attributes {group ?? "all"}</p>;
   },
 }));
+// Stub the shadcn Select with a native <select> so jsdom can drive it without
+// Radix's pointer-event quirks.
+vi.mock("@/components/ui/select", () => ({
+  Select: ({
+    value,
+    onValueChange,
+    disabled,
+    children,
+  }: {
+    value: string;
+    onValueChange: (v: string) => void;
+    disabled?: boolean;
+    children: ReactNode;
+  }) => (
+    <select
+      aria-label="Apply to"
+      value={value}
+      disabled={disabled}
+      onChange={(event) => onValueChange(event.target.value)}
+    >
+      {children}
+    </select>
+  ),
+  SelectTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
+  SelectValue: () => null,
+  SelectContent: ({ children }: { children: ReactNode }) => <>{children}</>,
+  SelectItem: ({ value, children }: { value: string; children: ReactNode }) => (
+    <option value={value}>{children}</option>
+  ),
+}));
 vi.mock("react-i18next", () =>
   createI18nMock(
     {
@@ -59,6 +102,29 @@ vi.mock("react-i18next", () =>
       "presentation.loading": "Loading presentation",
       "presentation.allAttributes": "All attributes",
       "presentation.sending": "Sending",
+      "presentation.increase": "Increase {{name}}",
+      "presentation.decrease": "Decrease {{name}}",
+      "presentation.range": "{{min}} to {{max}}",
+      "presentation.unavailable": "Unavailable",
+      "commandTarget.label": "Apply to",
+      "commandTarget.thisDevice": "This device only",
+      "groups.reviewDrafts": "Review {{count}} setpoints",
+      "groups.draftTitle": "Draft setpoints",
+      "groups.draftDescription": "Prepare your setpoints",
+      "groups.clearDrafts": "Clear all",
+      "groups.removeDraft": "Remove {{attribute}}",
+      "groups.previewTitle": "Preview {{name}}",
+      "groups.previewManyTitle": "Review setpoints",
+      "groups.previewDescription": "Set {{attribute}} to {{value}}",
+      "groups.members": "Member",
+      "groups.before": "Before",
+      "groups.after": "After",
+      "groups.apply": "Apply to {{count}}",
+      "groups.cancel": "Cancel",
+      "groups.close": "Close results",
+      "groups.sentToTarget": "Command sent to {{name}}",
+      "groups.batchSummary":
+        "Succeeded {{success}}, failed {{failed}}, pending {{pending}}",
     },
     { language: "en" },
   ),
@@ -97,12 +163,22 @@ function device(revision?: string): Device {
   return {
     id: "device",
     type: "thermostat",
+    driver_id: "driver",
+    tags: {},
     attributes: {
       power: {
         name: "power",
         data_type: "bool",
         current_value: true,
         read_write_modes: ["read", "write"],
+      },
+      setpoint: {
+        name: "setpoint",
+        data_type: "float",
+        current_value: 21,
+        unit: "°C",
+        read_write_modes: ["read", "write"],
+        write_constraints: { step: 0.5, minimum: 16, maximum: 30 },
       },
     },
     presentation_ref: revision ? { revision } : null,
@@ -122,9 +198,11 @@ function setup() {
   });
   const tree = () => (
     <StrictMode>
-      <QueryClientProvider client={queryClient}>
-        <DeviceLiveControl />
-      </QueryClientProvider>
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <DeviceLiveControl />
+        </QueryClientProvider>
+      </MemoryRouter>
     </StrictMode>
   );
   const result = render(tree());
@@ -138,6 +216,11 @@ beforeEach(() => {
   state.client.devices.getPresentation.mockResolvedValue(available());
   state.client.devices.get.mockImplementation(async () => state.device);
   state.client.devices.sendCommand.mockResolvedValue({ id: "cmd" });
+  state.client.deviceViews.list.mockResolvedValue([]);
+  state.client.devices.listCommands.mockResolvedValue({
+    items: [],
+    total_pages: 1,
+  });
 });
 afterEach(() => {
   cleanup();
@@ -283,5 +366,208 @@ describe("DeviceLiveControl presentation integration", () => {
     expect(await screen.findByText("invalid_document")).toBeInTheDocument();
     expect(state.client.devices.get).toHaveBeenCalledTimes(1);
     expect(state.client.devices.getPresentation).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("choosing what a change applies to", () => {
+  const groupView = (value: string, name: string) => ({
+    id: value,
+    name,
+    description: null,
+    group_by: [],
+    filter: { tags: { group: [value] } },
+  });
+  const withSetpoint = {
+    ...document,
+    bindings: {
+      power: { attribute: "power" },
+      setpoint: { attribute: "setpoint" },
+    },
+    controls: {
+      power: { kind: "toggle", binding: "power", label: { default: "Power" } },
+      setpoint: {
+        kind: "number",
+        binding: "setpoint",
+        label: { default: "Setpoint" },
+      },
+    },
+    page: {
+      kind: "stack",
+      children: [{ kind: "control-panel", controls: ["power", "setpoint"] }],
+    },
+  };
+
+  function inGroups(...names: [string, string][]) {
+    state.device = {
+      ...device("v1"),
+      tags: { group: names.map(([value]) => value) },
+    } as Device;
+    state.client.deviceViews.list.mockResolvedValue(
+      names.map(([value, name]) => groupView(value, name)),
+    );
+    state.client.devices.getPresentation.mockResolvedValue(
+      available(withSetpoint),
+    );
+  }
+
+  const target = () => screen.getByRole("combobox", { name: "Apply to" });
+
+  it("offers this device and each of its groups, this device by default", async () => {
+    inGroups(["g1", "Second floor rooms"], ["g2", "South facade"]);
+    setup();
+    const select = await screen.findByRole("combobox", { name: "Apply to" });
+    expect(
+      [...select.querySelectorAll("option")].map((o) => o.textContent),
+    ).toEqual(["This device only", "Second floor rooms", "South facade"]);
+    expect(select).toHaveValue("self");
+    expect(screen.queryByText(/g1|g2/)).not.toBeInTheDocument();
+  });
+
+  it("hides the selector for a device that belongs to no group", async () => {
+    setup();
+    await screen.findByRole("switch", { name: "Power" });
+    expect(
+      screen.queryByRole("combobox", { name: "Apply to" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("writes straight to this device while it is the target", async () => {
+    inGroups(["g1", "Second floor rooms"]);
+    setup();
+    const power = await screen.findByRole("switch", { name: "Power" });
+    act(() => power.click());
+    expect(state.client.devices.sendCommand).toHaveBeenCalledWith("device", {
+      attribute: "power",
+      value: false,
+      confirm: true,
+    });
+    expect(state.client.devices.previewCommand).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole("button", { name: /^Review/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("stages setpoints for a group and previews them against that group alone", async () => {
+    inGroups(["g1", "Second floor rooms"], ["g2", "South facade"]);
+    state.client.devices.previewCommand.mockResolvedValue({
+      token: "token",
+      target: { tags: { group: ["g1"] }, driver_id: "driver" },
+      attribute: "power",
+      value: false,
+      members: [
+        {
+          device_id: "device",
+          name: "Room 201",
+          current_value: true,
+          eligible: true,
+        },
+        {
+          device_id: "other",
+          name: "Room 202",
+          current_value: true,
+          eligible: true,
+        },
+      ],
+    });
+    state.client.devices.confirmCommand.mockResolvedValue({
+      batch_id: "sent",
+      commands: [],
+    });
+    setup();
+    await screen.findByRole("combobox", { name: "Apply to" });
+    act(() => {
+      fireEvent.change(target(), { target: { value: "g1" } });
+    });
+    const power = await screen.findByRole("switch", { name: "Power" });
+    act(() => power.click());
+    expect(state.client.devices.sendCommand).not.toHaveBeenCalled();
+
+    const review = await screen.findByRole("button", {
+      name: "Review 1 setpoints",
+    });
+    act(() => review.click());
+    await waitFor(() =>
+      expect(state.client.devices.previewCommand).toHaveBeenCalledWith({
+        attribute: "power",
+        value: false,
+        target: { tags: { group: ["g1"] }, driver_id: "driver" },
+      }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    expect(
+      within(dialog).getByRole("heading", {
+        name: "Preview Second floor rooms",
+      }),
+    ).toBeVisible();
+    expect(
+      within(dialog).getByRole("checkbox", { name: "Room 201" }),
+    ).toBeVisible();
+    expect(
+      within(dialog).getByRole("checkbox", { name: "Room 202" }),
+    ).toBeVisible();
+    expect(screen.queryByText(/g1/)).not.toBeInTheDocument();
+
+    act(() => {
+      within(dialog).getByRole("button", { name: "Apply to 2" }).click();
+    });
+    await waitFor(() =>
+      expect(state.client.devices.confirmCommand).toHaveBeenCalledWith({
+        token: "token",
+        device_ids: ["device", "other"],
+      }),
+    );
+    expect(state.client.devices.sendCommand).not.toHaveBeenCalled();
+  });
+
+  it("drops the setpoints staged for a group when the target changes", async () => {
+    inGroups(["g1", "Second floor rooms"], ["g2", "South facade"]);
+    setup();
+    await screen.findByRole("combobox", { name: "Apply to" });
+    act(() => {
+      fireEvent.change(target(), { target: { value: "g1" } });
+    });
+    const power = await screen.findByRole("switch", { name: "Power" });
+    act(() => power.click());
+    expect(
+      await screen.findByRole("button", { name: "Review 1 setpoints" }),
+    ).toBeVisible();
+    act(() => {
+      fireEvent.change(target(), { target: { value: "g2" } });
+    });
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: /^Review/ }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(state.client.devices.previewCommand).not.toHaveBeenCalled();
+    expect(state.client.devices.sendCommand).not.toHaveBeenCalled();
+  });
+
+  it("cancels a setpoint still waiting for its debounce when the target changes", async () => {
+    vi.useFakeTimers();
+    try {
+      inGroups(["g1", "Second floor rooms"]);
+      setup();
+      await vi.waitFor(() =>
+        expect(
+          screen.getByRole("button", { name: "Increase Setpoint" }),
+        ).toBeEnabled(),
+      );
+      act(() => {
+        screen.getByRole("button", { name: "Increase Setpoint" }).click();
+      });
+      // Numeric intentions are debounced: nothing has left yet.
+      expect(state.client.devices.sendCommand).not.toHaveBeenCalled();
+      act(() => {
+        fireEvent.change(target(), { target: { value: "g1" } });
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2000);
+      });
+      expect(state.client.devices.sendCommand).not.toHaveBeenCalled();
+      expect(state.client.devices.previewCommand).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

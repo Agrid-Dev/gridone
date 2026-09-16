@@ -127,7 +127,14 @@
       "dry": "Déshumidification",
       "auto": "Auto",
       "off": "Arrêt",
-      "on": "Marche"
+      "on": "Marche",
+      "error": "Erreur"
+    },
+    "fanSpeed": {
+      "low": "Basse",
+      "medium": "Moyenne",
+      "high": "Haute",
+      "auto": "Auto"
     },
     "recentlyUpdated": "Mis à jour récemment",
     "lastUpdate": "Mis à jour il y a",

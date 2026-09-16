@@ -2,7 +2,7 @@ import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 import type { Device } from "@gridone/sdk";
 import { commandFailureLabel } from "@/lib/commandFailure";
-import { formatValue } from "@/lib/formatValue";
+import { attributeValueText } from "@/lib/attributeValueLabel";
 import { localize } from "@/lib/localizedText";
 import { GroupError } from "./GroupError";
 import type { GroupAttribute } from "./groupAttributes";
@@ -12,12 +12,17 @@ export function GroupCommandResults({
   command,
   devices = [],
   attributes = {},
+  targetName,
 }: {
   command: ReturnType<typeof useGroupCommand>;
   devices?: Device[];
   attributes?: Record<string, GroupAttribute>;
+  /** Human name of the target, announced to the user. The tag that resolves
+   *  the recipients is never shown. */
+  targetName?: string;
 }) {
   const { t, i18n } = useTranslation("devices");
+  const { t: tCommon } = useTranslation("common");
   if (!command.batches.length) return null;
   const previews = command.preparations.flatMap((item) =>
     item.preview ? [item.preview] : [],
@@ -36,7 +41,12 @@ export function GroupCommandResults({
   };
   return (
     <div role="status" className="space-y-3 rounded-lg border p-4">
-      <p className="font-medium">
+      {targetName && (
+        <p className="font-medium">
+          {t("groups.sentToTarget", { name: targetName })}
+        </p>
+      )}
+      <p className="text-sm text-muted-foreground">
         {t("groups.batchSummary", {
           success: command.commands.filter((c) => c.status === "success")
             .length,
@@ -52,7 +62,8 @@ export function GroupCommandResults({
             <span>
               {deviceNames.get(item.device_id) ?? item.device_id}
               <span className="ml-2 text-muted-foreground">
-                {label(item.attribute)} → {formatValue(item.value)}
+                {label(item.attribute)} →{" "}
+                {attributeValueText(item.attribute, item.value, tCommon)}
               </span>
             </span>
             <span>
@@ -69,7 +80,7 @@ export function GroupCommandResults({
         {command.preparations.map(
           ({ write, batch }) =>
             batch && (
-              <li key={batch.batch_id}>
+              <li key={write.attribute}>
                 <Link
                   className="text-sm underline"
                   to={`/devices/commands?batch_id=${encodeURIComponent(batch.batch_id)}`}

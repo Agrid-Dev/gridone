@@ -2,9 +2,9 @@ import { tagValues } from "@/lib/devices";
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { useDevicesList } from "@/hooks/useDevicesList";
-import { useDeviceView, useDeleteDeviceView } from "./useDeviceViews";
+import { useDeviceView, useDeleteDeviceView } from "@/hooks/useDeviceViews";
 import { groupedValues, drilldownFilter } from "./viewFilters";
-import { groupTagValue } from "./groupMembership";
+import { groupTagValue } from "@/components/group-command/groupMembership";
 
 export function useViewDetails(id: string) {
   const view = useDeviceView(id);

@@ -1,4 +1,4 @@
-import { useGroupCommand } from "../../views/useGroupCommand";
+import { useGroupCommand } from "@/components/group-command/useGroupCommand";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import {

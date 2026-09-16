@@ -64,6 +64,15 @@ vi.mock("react-i18next", () =>
       "groups.batchSummary":
         "Succeeded {{success}}, failed {{failed}}, pending {{pending}}",
       "groups.historyAttribute": "History for {{attribute}}",
+      "groups.deviceCount": "{{total}} {{type}}",
+      "groups.equipmentCount": "{{count}} devices",
+      "groups.draftDescription": "Prepare your setpoints",
+      "presentation.demanded": "Demanded",
+      "presentation.regulated": "Regulated",
+      "presentation.measured": "Measured",
+      "presentation.deviation": "Deviation",
+      "presentation.unavailable": "Unavailable",
+      "thermostat.name_plural": "Thermostats",
     },
     { language: "en" },
   ),
@@ -445,5 +454,186 @@ describe("group setpoint drafts", () => {
     expect(api.devices.confirmCommand).not.toHaveBeenCalled();
     expectReportedValues();
     cache.clear();
+  });
+});
+
+describe("what a multi-device cockpit shows", () => {
+  const thermostats = members.map((device) => ({
+    ...device,
+    type: "thermostat",
+    attributes: {
+      ...device.attributes,
+      humidity: {
+        name: "humidity",
+        data_type: "float",
+        current_value: 54,
+        read_write_modes: ["read"],
+      },
+      radar: {
+        name: "radar",
+        data_type: "bool",
+        current_value: true,
+        read_write_modes: ["read"],
+      },
+      measured: {
+        name: "measured",
+        data_type: "float",
+        current_value: 21.4,
+        read_write_modes: ["read"],
+      },
+    },
+  })) as Device[];
+  const richDriver: Driver = {
+    ...driver,
+    attributes: [
+      ...driver.attributes,
+      { name: "humidity", data_type: "float", unit: "%", read: {} },
+      { name: "radar", data_type: "bool", read: {} },
+      { name: "measured", data_type: "float", unit: "°C", read: {} },
+    ],
+  } as Driver;
+  const richPresentation = {
+    status: "available",
+    revision: "rich",
+    assets: {},
+    document: {
+      schema_version: 1,
+      requires: ["layout/1", "controls/1"],
+      assets: {},
+      bindings: {
+        setpoint: { attribute: "setpoint" },
+        power: { attribute: "power" },
+        humidity: { attribute: "humidity" },
+        radar: { attribute: "radar" },
+        measured: { attribute: "measured" },
+      },
+      controls: {
+        setpoint: {
+          kind: "number",
+          binding: "setpoint",
+          label: { default: "Setpoint" },
+        },
+        power: {
+          kind: "toggle",
+          binding: "power",
+          label: { default: "Power" },
+        },
+      },
+      page: {
+        kind: "columns",
+        items: [
+          {
+            weight: 3,
+            content: {
+              kind: "stack",
+              children: [
+                { kind: "control-panel", controls: ["setpoint", "power"] },
+                {
+                  kind: "setpoint-table",
+                  rows: [
+                    {
+                      label: { default: "Temperature" },
+                      demanded: { control: "setpoint" },
+                      measured: { binding: "measured" },
+                      deviation: {
+                        minuend: "measured",
+                        subtrahend: "setpoint",
+                        tolerance: 0.5,
+                      },
+                    },
+                  ],
+                },
+                {
+                  kind: "measurements",
+                  layout: "rows",
+                  items: [{ binding: "humidity" }, { binding: "radar" }],
+                },
+              ],
+            },
+          },
+          {
+            weight: 2,
+            sticky: true,
+            content: {
+              kind: "device-face",
+              label: { default: "Thermostat" },
+              view_box: { width: 10, height: 10 },
+              layers: [],
+            },
+          },
+        ],
+      },
+    },
+  };
+
+  function setupRich(devices: Device[] = thermostats) {
+    api.drivers.get.mockResolvedValue(richDriver);
+    api.drivers.getPresentation.mockResolvedValue(richPresentation);
+    const cache = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    });
+    render(
+      <MemoryRouter>
+        <QueryClientProvider client={cache}>
+          <TagGroupControls
+            driverId={driver.id}
+            filter={filter}
+            devices={devices}
+            targetName="Second floor rooms"
+          />
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+    return cache;
+  }
+
+  it("heads the card with a business noun, never the driver id", async () => {
+    setupRich();
+    expect(
+      await screen.findByRole("heading", { name: "2 Thermostats" }),
+    ).toBeVisible();
+    expect(screen.queryByText(/driver/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Thermostat · 2")).not.toBeInTheDocument();
+  });
+
+  it("falls back to the generic noun when the members are not one known type", async () => {
+    setupRich(members);
+    expect(
+      await screen.findByRole("heading", { name: "2 devices" }),
+    ).toBeVisible();
+  });
+
+  it("shows no read-only value: no measurements, no measured or deviation column", async () => {
+    setupRich();
+    expect(
+      await screen.findByRole("button", { name: "Increase Setpoint" }),
+    ).toBeVisible();
+    expect(screen.getByText("Demanded")).toBeVisible();
+    for (const gone of ["Measured", "Deviation", "Regulated"]) {
+      expect(screen.queryByText(gone)).not.toBeInTheDocument();
+    }
+    for (const reading of ["54", "21.4", "true"]) {
+      expect(screen.queryByText(reading)).not.toBeInTheDocument();
+    }
+  });
+
+  it("puts the setpoints awaiting validation where the device illustration was", async () => {
+    setupRich();
+    const increase = await screen.findByRole("button", {
+      name: "Increase Setpoint",
+    });
+    const recap = screen.getByRole("region", { name: "Draft setpoints" });
+    expect(recap).toBeVisible();
+    expect(within(recap).getByText("Prepare your setpoints")).toBeVisible();
+    // The recap sits inside the sticky column the face document declared.
+    expect(recap.closest("[data-sticky]")).not.toBeNull();
+    fireEvent.click(increase);
+    expect(within(recap).getByText("Setpoint")).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Review 1 setpoints" }),
+    ).toBeEnabled();
   });
 });

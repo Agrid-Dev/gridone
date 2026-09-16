@@ -7,11 +7,11 @@ import { Field, FieldLabel, FieldError } from "@/components/ui/field";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { NotFoundFallback } from "@/components/fallbacks/NotFound";
 import { usePermissions } from "@/contexts/AuthContext";
-import { useDeviceView } from "./useDeviceViews";
+import { useDeviceView } from "@/hooks/useDeviceViews";
 import { useViewForm } from "./useViewForm";
-import { GroupError } from "./GroupError";
+import { GroupError } from "@/components/group-command/GroupError";
 import { GroupForm } from "./GroupForm";
-import { groupTagValue } from "./groupMembership";
+import { groupTagValue } from "@/components/group-command/groupMembership";
 
 export default function ViewFormPage() {
   const { viewId } = useParams();

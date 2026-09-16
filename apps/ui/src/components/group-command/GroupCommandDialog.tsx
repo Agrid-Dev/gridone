@@ -10,7 +10,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { formatValue } from "@/lib/formatValue";
+import { attributeValueText } from "@/lib/attributeValueLabel";
+import { cn } from "@/lib/utils";
 import { localize } from "@/lib/localizedText";
 import { GroupError, groupConflict } from "./GroupError";
 import { GroupCommandResults } from "./GroupCommandResults";
@@ -22,8 +23,17 @@ import {
 
 type GroupCommand = ReturnType<typeof useGroupCommand>;
 
-export function GroupCommandDialog({ command }: { command: GroupCommand }) {
+export function GroupCommandDialog({
+  command,
+  targetName,
+}: {
+  command: GroupCommand;
+  /** Human name of the target. Absent, the dialog uses a neutral title — it
+   *  never falls back to the tag that resolves the recipients. */
+  targetName?: string;
+}) {
   const { t, i18n } = useTranslation("devices");
+  const { t: tCommon } = useTranslation("common");
   const { preview, preparations, busy } = command;
   const multiple = preparations.length > 1;
   const pending = preparations.filter(canConfirmPreparation);
@@ -48,13 +58,9 @@ export function GroupCommandDialog({ command }: { command: GroupCommand }) {
           <DialogTitle>
             {complete
               ? t("groups.resultsTitle")
-              : multiple
-                ? t("groups.previewManyTitle")
-                : t("groups.previewTitle", {
-                    name: Object.entries(preview?.target.tags ?? {})
-                      .map(([key, values]) => `${key}:${values.join(", ")}`)
-                      .join(" · "),
-                  })}
+              : targetName
+                ? t("groups.previewTitle", { name: targetName })
+                : t("groups.previewManyTitle")}
           </DialogTitle>
           <DialogDescription>
             {complete
@@ -68,7 +74,7 @@ export function GroupCommandDialog({ command }: { command: GroupCommand }) {
                       ? localize(firstPreview.attribute_label, i18n.language)
                       : first?.write.attribute,
                     value: first
-                      ? `${formatValue(first.write.value)}${firstPreview?.unit ? ` ${firstPreview.unit}` : ""}`
+                      ? `${attributeValueText(first.write.attribute, first.write.value, tCommon)}${firstPreview?.unit ? ` ${firstPreview.unit}` : ""}`
                       : "",
                     count: first?.selected.length ?? 0,
                   })}
@@ -84,7 +90,7 @@ export function GroupCommandDialog({ command }: { command: GroupCommand }) {
             />
           ))}
         </div>
-        <GroupCommandResults command={command} />
+        <GroupCommandResults command={command} targetName={targetName} />
         {!complete && (
           <p className="text-xs text-muted-foreground">
             {t("groups.liveValidation")}
@@ -131,11 +137,17 @@ function PreparedWrite({
   showTitle: boolean;
 }) {
   const { t, i18n } = useTranslation("devices");
+  const { t: tCommon } = useTranslation("common");
   const { preview, selected } = item;
   const attribute = preview?.attribute_label
     ? localize(preview.attribute_label, i18n.language)
     : item.write.attribute;
-  const value = `${formatValue(item.write.value)}${preview?.unit ? ` ${preview.unit}` : ""}`;
+  const target = attributeValueText(
+    item.write.attribute,
+    item.write.value,
+    tCommon,
+  );
+  const value = `${target}${preview?.unit ? ` ${preview.unit}` : ""}`;
   return (
     <section aria-label={attribute} className="space-y-3">
       {showTitle && (
@@ -205,8 +217,6 @@ function PreparedWrite({
                       t("groups.members"),
                       t("groups.before"),
                       t("groups.after"),
-                      t("groups.eligibility"),
-                      t("groups.constraints"),
                     ].map((label, i) => (
                       <th key={i} className="p-3">
                         {label}
@@ -216,7 +226,11 @@ function PreparedWrite({
                 </thead>
                 <tbody className="divide-y">
                   {preview.members.map((row) => (
-                    <tr key={row.device_id}>
+                    <tr
+                      key={row.device_id}
+                      data-eligible={row.eligible}
+                      className={cn(!row.eligible && "text-muted-foreground")}
+                    >
                       <td className="p-3">
                         <input
                           type="checkbox"
@@ -249,38 +263,24 @@ function PreparedWrite({
                       <td className="p-3">
                         {row.current_value == null
                           ? t("groups.values.unavailable")
-                          : formatValue(row.current_value)}
-                      </td>
-                      <td className="p-3 font-medium">
-                        {formatValue(item.write.value)}
-                      </td>
-                      <td className="p-3 text-muted-foreground">
-                        {row.reason
-                          ? t(`groups.reasons.${row.reason}`)
-                          : t("groups.reasons.eligible")}
-                      </td>
-                      <td className="p-3 text-muted-foreground">
-                        {row.constraints ? (
-                          <ul>
-                            {(["minimum", "maximum", "step"] as const).map(
-                              (key) =>
-                                row.constraints?.[key] != null ? (
-                                  <li key={key}>
-                                    {t(`groups.limits.${key}`, {
-                                      value: row.constraints[key],
-                                    })}
-                                  </li>
-                                ) : row.constraints?.unknown?.includes(key) ? (
-                                  <li key={key}>
-                                    {t(`groups.limits.${key}`, {
-                                      value: t("groups.values.unavailable"),
-                                    })}
-                                  </li>
-                                ) : null,
+                          : attributeValueText(
+                              item.write.attribute,
+                              row.current_value,
+                              tCommon,
                             )}
-                          </ul>
+                      </td>
+                      {/* An excluded member keeps its row and says why, in
+                          place of a value it will not receive: the server
+                          refuses a confirmation that selects it. */}
+                      <td className="p-3 font-medium">
+                        {row.eligible ? (
+                          target
                         ) : (
-                          "—"
+                          <span className="font-normal">
+                            {t(
+                              `groups.reasons.${row.reason ?? "not_writable"}`,
+                            )}
+                          </span>
                         )}
                       </td>
                     </tr>

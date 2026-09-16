@@ -60,11 +60,20 @@ function flattenKeys(obj: NestedJSON, prefix = ""): string[] {
   return keys;
 }
 
-/** Extract all {{variable}} placeholders from a string. */
+/** Extract all {{variable}} placeholders from a string, normalising away any
+ *  i18next formatter: `{{type, lowercase}}` still interpolates `type`, and
+ *  only one language may need the formatter (French composes "8 thermostats"
+ *  from a catalog label that stands alone as "Thermostats"). */
 function extractInterpolations(value: unknown): string[] {
   const matches =
-    typeof value === "string" ? value.match(/\{\{(\w+)\}\}/g) : null;
-  return matches ? matches.sort() : [];
+    typeof value === "string"
+      ? value.match(/\{\{\s*(\w+)\s*(?:,[^}]*)?\}\}/g)
+      : null;
+  return matches
+    ? matches
+        .map((match) => `{{${/\{\{\s*(\w+)/.exec(match)![1]}}}`)
+        .sort()
+    : [];
 }
 
 /** Resolve a dot-path to a value in a nested object. */

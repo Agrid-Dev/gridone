@@ -6,14 +6,14 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import type { Device, DeviceView } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
-import { viewsKey } from "./useDeviceViews";
+import { viewsKey } from "@/hooks/useDeviceViews";
 import {
   GROUP_TAG_KEY,
   createGroupTagValue,
   groupMembers,
   groupTagValue,
   saveGroupMembers,
-} from "./groupMembership";
+} from "@/components/group-command/groupMembership";
 
 const schema = z.object({
   name: z.string().trim().min(1).max(255),
