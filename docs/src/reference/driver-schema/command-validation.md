@@ -77,10 +77,14 @@ invalidates knowledge, and an explicit failed read invalidates its attribute con
 at one expected interval after the last acquired observation, independently of health degradation
 thresholds. A manual refresh renews this command-knowledge window without resetting push health. A sample at 10:00 with a one-hour interval expires at 11:00.
 
-Writes are serialized per device. Immediately before transport encoding, the common
-guard checks the current context again. Sending a command invalidates knowledge of
-its target until a new observation arrives. The requested value is never published
-as telemetry, including when `confirm: false` is used.
+The check, the encoding and the send of a write run under one per-device lock, so
+no concurrent write moves the context between them; confirmations wait outside it,
+and a value table that moved meanwhile is reported as `mapping_changed`. Sending a
+command invalidates knowledge of its target until a new observation arrives. The
+requested value is never published as telemetry, including when `confirm: false`
+is used: automations send unconfirmed writes, so their command rows record the
+request and the device keeps its last observation until it is polled or pushes
+again.
 
 ## Instance-specific value mappings
 

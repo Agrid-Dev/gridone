@@ -47,6 +47,8 @@ Choose a command source:
 - **Use a saved template** — pick an existing [command template](../commands/templates.md) from the list. The command is dispatched to its saved target each time the automation fires.
 - **Define a new command** — opens the [command wizard](../commands/send-command.md) inline. Configure the target and command as usual, then click **Use this command**.
 
+A command run by an automation is sent without waiting for the device to confirm it. It appears under **History > Commands** with the value it requested; the device's own value only changes once the device reports it again, so charts and history show what the device did, never what was asked. A command the device's driver rules refuse is recorded there too, in error, with the reason.
+
 **Send a notification**
 
 Enter a **Title** (required) and an optional **Message** (Markdown supported). Select a **Severity** and pick at least one **Recipient**.
