@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   cleanup,
@@ -60,16 +61,18 @@ vi.mock("@/hooks/useDeviceDetails", () => ({
     handleSave: vi.fn(),
   }),
 }));
-vi.mock("@/pages/devices/standard-devices/registry", () => ({
-  getStandardDeviceEntry: (type: string | null | undefined) =>
-    type === "awhp"
-      ? {
-          Control: ({ device }: StandardControlProps) => (
-            <div data-testid="standard-control">{device.id}</div>
-          ),
-        }
-      : undefined,
-}));
+// Stable component (a fresh one per call would remount on every render)
+// reporting the device it mounted with.
+vi.mock("@/pages/devices/standard-devices/registry", () => {
+  const Control = ({ device }: StandardControlProps) => {
+    const [mountedAs] = useState(device.id);
+    return <div data-testid="standard-control">{mountedAs}</div>;
+  };
+  return {
+    getStandardDeviceEntry: (type: string | null | undefined) =>
+      type === "awhp" ? { Control } : undefined,
+  };
+});
 
 import SynopticDetail from "./SynopticDetail";
 
@@ -85,6 +88,13 @@ const DOC: Synoptic = {
       placement: { kind: "cell", cell: { x: 0, y: 0 } },
       label: "PAC 03",
       device_id: "PAC-03",
+    },
+    {
+      id: "pac4",
+      type: "heat_pump",
+      placement: { kind: "cell", cell: { x: 0, y: 4 } },
+      label: "PAC 04",
+      device_id: "PAC-04",
     },
     {
       id: "b01",
@@ -177,11 +187,11 @@ beforeEach(() => {
     loading: false,
     error: null,
   });
-  mockUseDeviceById.mockReturnValue({
-    data: PAC,
+  mockUseDeviceById.mockImplementation((id: string) => ({
+    data: { ...PAC, id, name: id },
     isLoading: false,
     error: null,
-  });
+  }));
 });
 
 afterEach(() => {
@@ -216,6 +226,17 @@ describe("SynopticDetail", () => {
 
     await userEvent.click(screen.getByLabelText("Close panel"));
     expect(screen.queryByLabelText("Selected device")).toBeNull();
+  });
+
+  it("remounts the control when the panel switches to another device", async () => {
+    renderDetail();
+    await screen.findByText("ECS Est");
+    clickSymbol("pac");
+    expect(screen.getByTestId("standard-control").textContent).toBe("PAC-03");
+
+    clickSymbol("pac4");
+
+    expect(screen.getByTestId("standard-control").textContent).toBe("PAC-04");
   });
 
   it.each([

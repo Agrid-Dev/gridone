@@ -19,6 +19,10 @@ export function useSynoptics(): SynopticSummary[] {
   return data;
 }
 
+/** Module-level so react-query memoises it and the Set stays stable. */
+const toIdSet = (page: { items: SynopticSummary[] }) =>
+  new Set(page.items.map((s) => s.id));
+
 /** The plate named by the `:synopticId` route param, and the ids of every
  *  plate a link may point to, fetched together so a cold deep link costs
  *  one round trip. An unknown id propagates as a 404 from the backend
@@ -42,8 +46,7 @@ export function useSynopticPage(): {
       {
         queryKey: SYNOPTICS_KEY,
         queryFn: () => client.synoptics.list(),
-        select: (page: { items: SynopticSummary[] }) =>
-          new Set(page.items.map((s) => s.id)),
+        select: toIdSet,
       },
     ],
   });

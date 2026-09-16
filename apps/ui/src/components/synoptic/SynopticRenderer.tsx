@@ -1,4 +1,9 @@
-import { useMemo, type KeyboardEvent, type ReactNode } from "react";
+import {
+  useMemo,
+  type KeyboardEvent,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
 import {
   symbolSchemas,
   type Cell,
@@ -477,6 +482,10 @@ function Affordance({
     );
   }
   const activate = () => onClick?.(symbol);
+  // A double click's second click is not a second activation.
+  const onClickOnce = (e: MouseEvent<SVGGElement>) => {
+    if (e.detail <= 1) activate();
+  };
   const onKeyDown = (e: KeyboardEvent<SVGGElement>) => {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
@@ -491,7 +500,7 @@ function Affordance({
       tabIndex={0}
       aria-label={symbol.label ?? symbol.id}
       className="cursor-pointer outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-      onClick={activate}
+      onClick={onClickOnce}
       onDoubleClick={(e) => e.stopPropagation()}
       onKeyDown={onKeyDown}
     >

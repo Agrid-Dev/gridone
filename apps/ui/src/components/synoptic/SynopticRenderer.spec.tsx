@@ -763,18 +763,23 @@ describe("SynopticRenderer", () => {
       ).toEqual(["to-gone"]);
     });
 
-    it("keeps a double click on the symbol, away from the canvas refit", () => {
+    it("keeps a double click on the symbol, away from the canvas refit, and activates once", () => {
       const onCanvasDoubleClick = vi.fn();
+      const onSymbolClick = vi.fn();
       const { container: c } = render(
         <div onDoubleClick={onCanvasDoubleClick}>
           <SynopticRenderer
             doc={LINKED}
             knownSynoptics={known}
-            onSymbolClick={vi.fn()}
+            onSymbolClick={onSymbolClick}
           />
         </div>,
       );
-      fireEvent.doubleClick(c.querySelector("[data-symbol='pac']")!);
+      const pac = c.querySelector("[data-symbol='pac']")!;
+      fireEvent.click(pac, { detail: 1 });
+      fireEvent.click(pac, { detail: 2 });
+      fireEvent.doubleClick(pac);
+      expect(onSymbolClick).toHaveBeenCalledTimes(1);
       expect(onCanvasDoubleClick).not.toHaveBeenCalled();
       fireEvent.doubleClick(c.querySelector("svg")!);
       expect(onCanvasDoubleClick).toHaveBeenCalledTimes(1);
