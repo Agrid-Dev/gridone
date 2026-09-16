@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import type { DeviceViewInput } from "@gridone/sdk";
-import { saveGroupMembers } from "./groupMembership";
+import { saveGroupMembers } from "@/components/group-command/groupMembership";
 
 export const viewsKey = ["device-views"];
 export function useDeviceViews() {

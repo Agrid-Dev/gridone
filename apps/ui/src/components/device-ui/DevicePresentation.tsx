@@ -37,6 +37,12 @@ export type DevicePresentationProps = {
    * the page so this component stays independent of page-level views.
    */
   renderAttributes?: (options: { group?: string }) => ReactNode;
+  /**
+   * What a `device-face` node renders, when the page wants something else in
+   * that slot — a group cockpit puts the setpoints awaiting validation where
+   * one device would show its screen. Absent, the face renders.
+   */
+  renderDeviceFace?: () => ReactNode;
   onRenderError?: (error: Error) => void;
 };
 
@@ -49,6 +55,7 @@ type PageContext = {
   language: string;
   attributeLabel: ReturnType<typeof useAttributeLabel>;
   renderAttributes: DevicePresentationProps["renderAttributes"];
+  renderDeviceFace: DevicePresentationProps["renderDeviceFace"];
   /** Attribute behind a binding id, if the device has it. */
   attributeOf: (binding: string) => AttributeLike | null;
   /** Value reported by the device for a binding (measurements). */
@@ -69,6 +76,7 @@ export function DevicePresentation({
   glyphSet,
   fallback,
   renderAttributes,
+  renderDeviceFace,
   onRenderError,
 }: DevicePresentationProps) {
   const { i18n } = useTranslation("devices");
@@ -101,6 +109,7 @@ export function DevicePresentation({
       language,
       attributeLabel,
       renderAttributes,
+      renderDeviceFace,
       attributeOf: (binding) => {
         const name = attributeName(binding);
         return name ? (attributes[name] ?? null) : null;
@@ -124,6 +133,7 @@ export function DevicePresentation({
     language,
     attributeLabel,
     renderAttributes,
+    renderDeviceFace,
   ]);
 
   return (
@@ -241,6 +251,7 @@ function PageNodeView({
         />
       );
     case "device-face":
+      if (context.renderDeviceFace) return <>{context.renderDeviceFace()}</>;
       return (
         <DeviceFace
           document={node}

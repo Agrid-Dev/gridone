@@ -3,11 +3,14 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { usePermissions } from "@/contexts/AuthContext";
-import { useDeviceViews } from "./useDeviceViews";
+import { useDeviceViews } from "@/hooks/useDeviceViews";
 import { DevicesTabs } from "./DevicesTabs";
-import { GroupError } from "./GroupError";
+import { GroupError } from "@/components/group-command/GroupError";
 import { useDevicesList } from "@/hooks/useDevicesList";
-import { groupMembers, groupTagValue } from "./groupMembership";
+import {
+  groupMembers,
+  groupTagValue,
+} from "@/components/group-command/groupMembership";
 
 export default function ViewsListPage() {
   const { t } = useTranslation("devices");

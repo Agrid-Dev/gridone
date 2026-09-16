@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Field, FieldLabel, FieldError } from "@/components/ui/field";
 import { DevicePickerTable } from "@/components/forms/targetPicker/DevicePickerTable";
 import { useTagEditor } from "./useTagEditor";
-import { GroupError } from "./GroupError";
+import { GroupError } from "@/components/group-command/GroupError";
 import { formatTagCriteria } from "./viewFilters";
 
 export default function TagEditorPage() {

@@ -49,6 +49,12 @@ vi.mock("react-i18next", () =>
     "groups.history": "View command history",
     "groups.applyWrites": "Apply {{count}} setpoints",
     "groups.writeAccepted": "Sent {{attribute}} to {{value}}",
+    "groups.previewManyTitle": "Review setpoints",
+    "groups.sentToTarget": "Command sent to {{name}}",
+    "groups.members": "Member",
+    "groups.before": "Before",
+    "groups.after": "After",
+    "groups.reasons.constraints": "Outside the allowed limits",
   }),
 );
 const member = (id: string, eligible = true) => ({
@@ -68,7 +74,13 @@ const preview = (
   value: 24,
   members,
 });
-function Harness({ filtered = false }: { filtered?: boolean }) {
+function Harness({
+  filtered = false,
+  targetName,
+}: {
+  filtered?: boolean;
+  targetName?: string;
+}) {
   const command = useGroupCommand({
     tags: { ecs: ["east"] },
     driver_id: "driver",
@@ -102,19 +114,19 @@ function Harness({ filtered = false }: { filtered?: boolean }) {
       >
         Prepare many
       </button>
-      <GroupCommandDialog command={command} />
+      <GroupCommandDialog command={command} targetName={targetName} />
       <output>{command.batch?.batch_id}</output>
     </>
   );
 }
-function setup(filtered = false) {
+function setup(filtered = false, targetName?: string) {
   const cache = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   render(
     <MemoryRouter>
       <QueryClientProvider client={cache}>
-        <Harness filtered={filtered} />
+        <Harness filtered={filtered} targetName={targetName} />
       </QueryClientProvider>
     </MemoryRouter>,
   );
@@ -325,5 +337,53 @@ describe("manual group confirmation", () => {
     expect(screen.getByRole("dialog")).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Close results" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+});
+
+describe("what the user reads about the target", () => {
+  it("names the group and never shows the tag that resolves it", async () => {
+    setup(false, "Chambres étage 2");
+    fireEvent.click(screen.getByText("Prepare"));
+    const dialog = within(await screen.findByRole("dialog"));
+    expect(
+      dialog.getByRole("heading", { name: "Preview Chambres étage 2" }),
+    ).toBeVisible();
+    expect(screen.queryByText(/ecs:east/)).not.toBeInTheDocument();
+    fireEvent.click(dialog.getByRole("button", { name: "Apply to 2" }));
+    expect(
+      await dialog.findByText("Command sent to Chambres étage 2"),
+    ).toBeVisible();
+    expect(screen.queryByText(/ecs:east/)).not.toBeInTheDocument();
+  });
+
+  it("falls back to a neutral title rather than the tag when no name is given", async () => {
+    setup();
+    fireEvent.click(screen.getByText("Prepare"));
+    const dialog = within(await screen.findByRole("dialog"));
+    expect(
+      dialog.getByRole("heading", { name: "Review setpoints" }),
+    ).toBeVisible();
+    expect(screen.queryByText(/ecs:east/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/east/)).not.toBeInTheDocument();
+  });
+
+  it("drops the eligibility and limits columns and says why a member is excluded", async () => {
+    setup();
+    fireEvent.click(screen.getByText("Prepare"));
+    const dialog = within(await screen.findByRole("dialog"));
+    expect(
+      dialog.getAllByRole("columnheader").map((c) => c.textContent),
+    ).toEqual(["", "Member", "Before", "After"]);
+    const blocked = dialog.getByRole("checkbox", { name: "blocked" });
+    expect(blocked).toBeDisabled();
+    const row = blocked.closest("tr")!;
+    expect(row).toHaveAttribute("data-eligible", "false");
+    expect(within(row).getByText("Outside the allowed limits")).toBeVisible();
+    expect(within(row).queryByText("24")).not.toBeInTheDocument();
+    const eligible = dialog.getByRole("checkbox", { name: "a" }).closest("tr")!;
+    expect(within(eligible).getByText("24")).toBeVisible();
+    expect(
+      within(eligible).queryByText("Outside the allowed limits"),
+    ).not.toBeInTheDocument();
   });
 });

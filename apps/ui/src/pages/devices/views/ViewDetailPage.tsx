@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { TargetPresenter } from "../commands/presenters/TargetPresenter";
 import { TagGroupControls } from "./TagGroupControls";
-import { GroupError } from "./GroupError";
+import { GroupError } from "@/components/group-command/GroupError";
 import { useViewDetails } from "./useViewDetails";
 
 export default function ViewDetailPage() {
@@ -156,6 +156,7 @@ function ViewDetails({ id }: { id: string }) {
                 driverId={driverId}
                 filter={{ ...detail.filter, driver_id: driverId }}
                 devices={detail.devices.filter((d) => d.driver_id === driverId)}
+                targetName={view.name}
               />
             </div>
           ))}

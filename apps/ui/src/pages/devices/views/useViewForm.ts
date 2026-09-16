@@ -5,7 +5,7 @@ import { useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import type { DeviceView } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
-import { useSaveDeviceView } from "./useDeviceViews";
+import { useSaveDeviceView } from "@/hooks/useDeviceViews";
 import { tagToken, parseTagCriteria, formatTagCriteria } from "./viewFilters";
 
 const schema = z.object({

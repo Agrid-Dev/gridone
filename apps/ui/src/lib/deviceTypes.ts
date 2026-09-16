@@ -112,6 +112,19 @@ export function groupDevicesByType(
   }));
 }
 
+/** The single bucket every device falls in, or null when they differ or the
+ *  list is empty. `other` is a legitimate answer: callers that need a
+ *  business noun decide for themselves whether to use it. */
+export function uniformDeviceTypeKey(
+  devices: readonly Device[],
+): DeviceTypeKey | null {
+  if (!devices.length) return null;
+  const first = deviceTypeKey(devices[0]);
+  return devices.every((device) => deviceTypeKey(device) === first)
+    ? first
+    : null;
+}
+
 /** Singular/plural bucket label from the `standardDevices` catalog. */
 export function deviceTypeLabel(
   key: DeviceTypeKey,

@@ -40,6 +40,10 @@ vi.mock("react-i18next", () =>
       "presentation.withinTolerance": "within tolerance",
       "presentation.outOfTolerance": "out of tolerance",
       "groups.chooseTarget": "Choose target",
+      // A standard fan-speed value is shown by its business label, not its
+      // wire value (see lib/attributeValueLabel).
+      "common.fanSpeed.low": "Low",
+      "common.fanSpeed.high": "High",
     },
     { language: "en" },
   ),

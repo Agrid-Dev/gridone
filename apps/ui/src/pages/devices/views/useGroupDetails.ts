@@ -1,15 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { usePermissions } from "@/contexts/AuthContext";
 import type { Device, DevicesFilter } from "@gridone/sdk";
 import { controlSpecsOf } from "@/components/device-ui/presentationControls";
 import type { ControlSpec } from "@/components/device-ui/runtime";
-import type { Scalar } from "@/components/device-ui/conditions";
-import { aggregateGroupAttributes } from "./groupAttributes";
+import { aggregateGroupAttributes } from "@/components/group-command/groupAttributes";
+import { useGroupTarget } from "@/components/group-command/useGroupTarget";
 import { useGroupPresentation } from "./useGroupPresentation";
-import { useGroupCommand } from "./useGroupCommand";
-import { useGroupRuntime } from "./useGroupRuntime";
 
 export function useGroupDetails(
   driverId: string,
@@ -23,49 +21,6 @@ export function useGroupDetails(
     queryFn: () => client.drivers.get(driverId),
   });
   const presentation = useGroupPresentation(driverId);
-  const command = useGroupCommand(filter);
-  const [drafts, setDrafts] = useState<Record<string, Scalar>>({});
-  const stage = useCallback((attribute: string, value: Scalar) => {
-    setDrafts((current) =>
-      current[attribute] === value
-        ? current
-        : { ...current, [attribute]: value },
-    );
-  }, []);
-  const removeDraft = useCallback((attribute: string) => {
-    setDrafts((current) => {
-      const next = { ...current };
-      delete next[attribute];
-      return next;
-    });
-  }, []);
-  const clearDrafts = useCallback(() => setDrafts({}), []);
-  // Successful sends are removed even if another instruction fails. Retrying
-  // the remaining drafts must never send an already accepted instruction again.
-  useEffect(() => {
-    if (!command.successfulWrites.length) return;
-    setDrafts((current) => {
-      const accepted = command.successfulWrites.filter(
-        (write) =>
-          Object.hasOwn(current, write.attribute) &&
-          current[write.attribute] === write.value,
-      );
-      if (!accepted.length) return current;
-      const next = { ...current };
-      for (const write of accepted) delete next[write.attribute];
-      return next;
-    });
-  }, [command.successfulWrites]);
-  const writes = useMemo(
-    () =>
-      Object.entries(drafts).map(([attribute, value]) => ({
-        attribute,
-        value,
-      })),
-    [drafts],
-  );
-  const [chosen, setChosen] = useState<string | null>(null);
-  const choose = useCallback((attribute: string) => setChosen(attribute), []);
   const attributes = useMemo(
     () =>
       driver.data
@@ -101,13 +56,11 @@ export function useGroupDetails(
     [presentation.document, attributes],
   );
   const canWrite = can("devices:write");
-  const runtime = useGroupRuntime(
+  const target = useGroupTarget(
+    filter,
     attributes,
     controls,
-    canWrite && !!currentMembers.length && !command.busy && !command.preview,
-    stage,
-    choose,
-    drafts,
+    canWrite && !!currentMembers.length,
   );
   return {
     members: { devices: currentMembers },
@@ -115,16 +68,7 @@ export function useGroupDetails(
     presentation,
     attributes,
     controls,
-    runtime,
-    command,
-    chosen,
-    setChosen,
-    choose,
     canWrite,
-    drafts,
-    writes,
-    stage,
-    removeDraft,
-    clearDrafts,
+    ...target,
   };
 }

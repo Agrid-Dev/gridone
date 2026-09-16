@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import type { GroupAttribute } from "./groupAttributes";
 import { localize } from "@/lib/localizedText";
+import { attributeValueLabel } from "@/lib/attributeValueLabel";
 
 export function GroupTargetDialog({
   attribute,
@@ -27,6 +28,7 @@ export function GroupTargetDialog({
   initialValue?: Scalar | null;
 }) {
   const { t, i18n } = useTranslation("devices");
+  const { t: tCommon } = useTranslation("common");
   const label = attribute.label
     ? localize(attribute.label, i18n.language)
     : attribute.name;
@@ -64,7 +66,8 @@ export function GroupTargetDialog({
                 <option value="">{t("groups.chooseTarget")}</option>
                 {options.map((option) => (
                   <option key={String(option)} value={String(option)}>
-                    {String(option)}
+                    {attributeValueLabel(attribute.name, option, tCommon) ??
+                      String(option)}
                   </option>
                 ))}
               </select>

@@ -72,4 +72,11 @@ i18n.use(initReactI18next).init({
   },
 });
 
+// French composes "8 thermostats" where the catalog label is a standalone
+// "Thermostats"; the casing belongs to the sentence, so the locale file asks
+// for it ({{type, lowercase}}) and only the languages that need it do.
+i18n.services.formatter?.add("lowercase", (value, lng) =>
+  String(value).toLocaleLowerCase(lng),
+);
+
 export default i18n;

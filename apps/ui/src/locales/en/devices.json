@@ -629,10 +629,10 @@
     "previewChanged": "Recipients or their eligibility have changed. The preview has been refreshed. Review the selection and confirm again.",
     "before": "Before",
     "after": "After",
-    "eligibility": "Eligibility",
     "liveValidation": "Constraints are checked for each device again when the command is executed. Exclusions apply only to this batch.",
     "deleteDescription": "Delete “{{name}}”? Devices will be removed from this group. Their other groups and command history are preserved. Automations targeting this group will have no recipients.",
     "batchSummary": "{{success}} succeeded, {{failed}} failed, {{pending}} pending",
+    "sentToTarget": "Command sent to “{{name}}”",
     "executionFailed": "Command failed. Open history for details.",
     "history": "View command history",
     "dynamicHint": "Membership is resolved at each execution.",
@@ -666,14 +666,6 @@
     },
     "emptyAction": "No commands sent: group “{{name}}” contains no devices.",
     "invalidAction": "No commands sent: the device group is missing or invalid. Check the command target.",
-    "constraints": "Known limits",
-    "limits": {
-      "minimum": "Min. : {{value}}",
-      "maximum": "Max. : {{value}}",
-      "step": "Step: {{value}}"
-    },
-    "groupHeader_other": "Device group · {{count}} members · {{driver}}",
-    "groupHeader_one": "Device group · {{count}} member · {{driver}}",
     "previewDescription_other": "{{attribute}} → {{value}} · {{count}} recipients",
     "previewDescription_one": "{{attribute}} → {{value}} · {{count}} recipient",
     "apply_other": "Apply to {{count}} devices",
@@ -691,6 +683,7 @@
     "searchGroups": "Search groups…",
     "equipmentCount_one": "{{count}} device",
     "equipmentCount_other": "{{count}} devices",
+    "deviceCount": "{{total}} {{type}}",
     "selectedCount_one": "{{count}} selected",
     "selectedCount_other": "{{count}} selected",
     "selectedEquipment_one": "{{count}} device selected",
@@ -727,6 +720,12 @@
     "close": "Close",
     "confirmationUncertain": "The response to this send was lost. Recipients are preserved: confirm again to recover the result without sending the setpoint again.",
     "confirmationExpired": "The outcome of this send is unknown and its verification is no longer available. Check the history before preparing another send."
+  },
+  "commandTarget": {
+    "label": "Apply the settings to",
+    "thisDevice": "This device only",
+    "availableGroups_one": "{{count}} group available",
+    "availableGroups_other": "{{count}} groups available"
   },
   "views": {
     "title": "Views",
