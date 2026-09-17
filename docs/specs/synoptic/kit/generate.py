@@ -429,6 +429,24 @@ def expansion_vessel_glyph(p: Plane, c: Pt) -> str:
     return p.poly(capsule_pts(c)) + p.line((c[0] - 0.24, c[1]), (c[0] + 0.24, c[1]))
 
 
+def loop_heater_glyph(p: Plane, c: Pt) -> str:
+    """Loop heater: a square housing with the heating element's zigzag across
+    it, the electric heater the panoplie P&IDs put on the bouclage return."""
+    s = 0.3
+    out = p.poly(
+        [
+            (c[0] - s, c[1] - s),
+            (c[0] + s, c[1] - s),
+            (c[0] + s, c[1] + s),
+            (c[0] - s, c[1] + s),
+        ]
+    )
+    zig = [(c[0] - 0.2 + 0.08 * i, c[1] + (0.1 if i % 2 else -0.1)) for i in range(6)]
+    for a, b in itertools.pairwise(zig):
+        out += p.line(a, b)
+    return out
+
+
 def link_glyph(p: Plane, c: Pt) -> str:
     """Off-page connector, pointing the way flow leaves the plate (-x)."""
     return p.poly(
@@ -796,6 +814,16 @@ SYMBOLS: list[Symbol] = [
         inline="fluid-heating-supply",
         base=AXIS,
         label="kWh",
+        outline=lambda c: square(c[0] - 0.3, c[1] - 0.3, 0.6, 0.6),
+    ),
+    Symbol(
+        "Réchauffeur de boucle",
+        "loop_heater",
+        "inline",
+        (1, 1),
+        loop_heater_glyph,
+        inline="fluid-dhw-loop",
+        base=AXIS,
         outline=lambda c: square(c[0] - 0.3, c[1] - 0.3, 0.6, 0.6),
     ),
 ]

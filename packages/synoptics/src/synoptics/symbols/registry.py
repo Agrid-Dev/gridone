@@ -138,8 +138,9 @@ def collector_ports(props: CollectorProps) -> Mapping[str, Port]:
 
 
 def build_default_registry() -> SymbolRegistry:
-    """The types the first plates use, from the format spec's appendix, and
-    the six the visual-language spec proposes for the hydronic set.
+    """The types the first plates use, from the format spec's appendix, the
+    six the visual-language spec proposes for the hydronic set, and the loop
+    heater the panoplie P&IDs put on the bouclage return.
 
     Inline types declare no ports: their in and out follow the segment they sit
     on, so a pipe never names one as an endpoint. Of the six hydronic types only
@@ -263,6 +264,14 @@ def build_default_registry() -> SymbolRegistry:
     )
     registry.register(
         SymbolType(type="energy_meter", footprint=Footprint(w=1, d=1), inline=True)
+    )
+    registry.register(
+        SymbolType(
+            type="loop_heater",
+            footprint=Footprint(w=1, d=1),
+            slots=("state", "fault"),
+            inline=True,
+        )
     )
     return registry
 

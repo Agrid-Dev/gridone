@@ -441,5 +441,22 @@
     "x-required-slots": [],
     "x-inline": true,
     "x-rotation-locked": false
+  },
+  "loop_heater": {
+    "additionalProperties": false,
+    "description": "For types that declare none.",
+    "properties": {},
+    "title": "loop_heater",
+    "type": "object",
+    "x-footprint": {
+      "w": 1,
+      "d": 1
+    },
+    "x-ports": {},
+    "x-ports-authored": false,
+    "x-slots": ["state", "fault"],
+    "x-required-slots": [],
+    "x-inline": true,
+    "x-rotation-locked": false
   }
 }

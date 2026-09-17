@@ -298,6 +298,28 @@ const energyMeter: SymbolDrawing = {
   mark: "kWh",
 };
 
+/** Loop heater: a square housing with the heating element's zigzag across
+ *  it, the electric heater the panoplie P&IDs put on the bouclage return. */
+const loopHeater: SymbolDrawing = {
+  plan: (p, c) => {
+    const zig = [0, 1, 2, 3, 4, 5].map((i) => ({
+      x: c.x - 0.2 + 0.08 * i,
+      y: c.y + (i % 2 ? 0.1 : -0.1),
+    }));
+    return (
+      <>
+        <PlanPoly plane={p} points={square(c.x - 0.3, c.y - 0.3, 0.6, 0.6)} />
+        {zig.slice(1).map((b, i) => (
+          <PlanLine key={i} plane={p} a={zig[i]} b={b} />
+        ))}
+      </>
+    );
+  },
+  outline: (c) => square(c.x - 0.3, c.y - 0.3, 0.6, 0.6),
+  base: PIPE_AXIS_Z,
+  height: 0,
+};
+
 /** The hydronic set, keyed by registry type. The collector is not a
  *  drawing: its shape is authored per instance. */
 export const DRAWINGS: Record<string, SymbolDrawing> = {
@@ -314,4 +336,5 @@ export const DRAWINGS: Record<string, SymbolDrawing> = {
   dirt_separator: dirtSeparator,
   pump_double: pumpDouble,
   energy_meter: energyMeter,
+  loop_heater: loopHeater,
 };
