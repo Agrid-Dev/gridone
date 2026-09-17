@@ -338,6 +338,36 @@ describe("useSynopticValues", () => {
     expect(mockGet).not.toHaveBeenCalled();
   });
 
+  it("never puts a pushed value back behind a list answer that predates it", async () => {
+    // The list is requested, a push lands, then the list answers with the
+    // value it saw before the push: the pushed reading is the newer one and
+    // stays, only the attributes the snapshot is newer for are taken.
+    const { queryClient, rendered } = setup();
+    await waitFor(() =>
+      expect(rendered.result.current.slots["symbol.pac.state"].raw).toBe(true),
+    );
+    mockList.mockResolvedValue([pacWith({ onoff_state: attr(true, ago(5)) })]);
+    act(() => {
+      queryClient.setQueryData<Device>(["device", "PAC-03"], (cached) => ({
+        ...cached!,
+        attributes: { ...cached!.attributes, onoff_state: attr(false, ago(0)) },
+      }));
+    });
+    const listed = mockList.mock.calls.length;
+    act(() => {
+      vi.advanceTimersByTime(FRESHNESS_POLL_MS + 100);
+    });
+    await waitFor(() =>
+      expect(mockList.mock.calls.length).toBeGreaterThan(listed),
+    );
+    // The poll has answered when its (older) snapshot would have shown: a
+    // second tick of the clock lets the effect run.
+    await act(async () => {
+      vi.advanceTimersByTime(100);
+    });
+    expect(rendered.result.current.slots["symbol.pac.state"].raw).toBe(false);
+  });
+
   it("keeps a reading that holds fresh while the list keeps reading it", async () => {
     // A push carries a change, never a fresh last_updated for a value that
     // held, so the poll is what ages the reading: it goes stale when the
@@ -355,10 +385,11 @@ describe("useSynopticValues", () => {
       ),
     );
     const listed = mockList.mock.calls.length;
-    // Sixteen minutes on the page, past the binding's 600 s threshold.
+    // Sixteen minutes on the page, past the binding's 600 s threshold. The
+    // stimulus is the threshold, not the poll: a poll longer than the
+    // threshold leaves the reading stale for the rest of its period.
     act(() => {
-      vi.setSystemTime(new Date(NOW.getTime() + 16 * 60_000));
-      vi.advanceTimersByTime(FRESHNESS_POLL_MS + 100);
+      vi.advanceTimersByTime(16 * 60_000);
     });
     await waitFor(() =>
       expect(mockList.mock.calls.length).toBeGreaterThan(listed),

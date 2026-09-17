@@ -1368,6 +1368,16 @@ def polyline(symbols: dict[str, Doc], pipe: Doc) -> list[Pt3]:
     return [*cells, endpoint_cell(symbols, pipe["to"])]
 
 
+def run_cells(corners: list[Pt3]) -> set[Pt]:
+    """Every grid cell an axis-aligned run covers, in plan (``z`` dropped)."""
+    cells: set[Pt] = set()
+    for (ax, ay, _), (bx, by, _) in itertools.pairwise(corners):
+        for x in range(min(ax, bx), max(ax, bx) + 1):
+            for y in range(min(ay, by), max(ay, by) + 1):
+                cells.add((x, y))
+    return cells
+
+
 def run_direction(cells: list[Pt3], cell: Pt) -> Pt:
     """Direction of the axis-aligned segment through ``cell``."""
     for (ax, ay, _), (bx, by, _) in itertools.pairwise(cells):
@@ -1676,9 +1686,14 @@ def plate(doc: Doc, view: View) -> str:
                     [view.pt(cx + dx, cy + dy, AXIS) for dx in (0, 1) for dy in (0, 1)]
                 )
             )
+    # A chip rising over another run reads as hanging off that run, so a
+    # tag treats the other runs' cells like bodies: the renderer's
+    # clearance search sends such a tag below, and the sheet must agree.
+    cells = {p["id"]: run_cells(polyline(symbols, p)) for p in doc["pipes"]}
     for pipe_ in doc["pipes"]:
+        others = set().union(*(c for pid, c in cells.items() if pid != pipe_["id"]))
         for tag_ in pipe_["tags"]:
-            g += plate_tag(view, pipe_, tag_, bodies, obstacles)
+            g += plate_tag(view, pipe_, tag_, bodies | others, obstacles)
     for sym in placed:
         if sym["type"] != "collector":
             g += readings(view, sym, BY_TYPE[sym["type"]], origin_of(sym), obstacles)
@@ -1688,13 +1703,13 @@ def plate(doc: Doc, view: View) -> str:
 
 
 def plate_tag(
-    view: View, pipe_: Doc, tag_: Doc, bodies: set[Pt], obstacles: list[Box]
+    view: View, pipe_: Doc, tag_: Doc, occupied: set[Pt], obstacles: list[Box]
 ) -> str:
     """A tag on its run, reading its slot."""
     x, y, z = tag_["at"]["x"], tag_["at"]["y"], tag_["at"].get("z", 0)
-    # A chip rises screen-up, over the cells behind the run: when a body
-    # stands there the chip hangs below instead (Decision 15).
-    side = "below" if view.behind(x, y) & bodies else "above"
+    # A chip rises screen-up, over the cells behind the run: when a body or
+    # another run stands there the chip hangs below instead (Decision 15).
+    side = "below" if view.behind(x, y) & occupied else "above"
     at = view.pt(x + 0.5, y + 0.5, z + AXIS)
     value, unit = slot_reading(tag_)
     half = chip_width(value, unit) / 2

@@ -15,6 +15,7 @@ document and binding violations arrive in one error.
 """
 
 import contextlib
+from collections import defaultdict
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
@@ -158,30 +159,39 @@ def _collect_document(
 def overlaps(
     document: SynopticDocument, registry: SymbolRegistry
 ) -> dict[tuple[str, str], frozenset[Cell]]:
-    """Cells two runs share at one height outside a tee or a port cell, by pair
-    of pipe ids.
+    """Cells two runs share at one height that neither a tee between them nor
+    a port both attach to accounts for, by pair of pipe ids.
 
     Not a violation: the format lets runs share cells (see the spec), but two
     runs meeting at grade with no tee read as a junction on the drawing, so
-    the editor shows them and a plate keeps its own list empty. Runs that do
-    not validate are left out.
+    the editor shows them and a plate keeps its own list empty. A tee excuses
+    the cell for the branch and its trunk only, and a port cell for the runs
+    attached there only, so a third run crossing at either is still reported.
+    Runs that do not validate are left out.
     """
     errors = _Errors()
     duplicates = _check_unique_ids(document, errors)
     ports = _check_symbols(document, registry, duplicates, errors)
     runs = _check_pipes(document, ports, duplicates, errors)
-    meant = {cell for symbol in ports.values() for cell, _ in symbol.values()}
-    meant |= {
-        end.cell
-        for pipe in document.pipes
-        for end in (pipe.from_, pipe.to)
-        if isinstance(end, PipeEndpoint)
-    }
-    shared = {
-        (a, b): (runs[a].cells & runs[b].cells) - meant
+    attached: dict[Cell, set[str]] = defaultdict(set)
+    tees: set[tuple[str, str, Cell]] = set()
+    for pipe in document.pipes:
+        for end in (pipe.from_, pipe.to):
+            if isinstance(end, PortEndpoint) and end.port in ports.get(end.symbol, {}):
+                attached[ports[end.symbol][end.port][0]].add(pipe.id)
+            elif isinstance(end, PipeEndpoint):
+                tees.add((pipe.id, end.pipe, end.cell))
+
+    def meant(a: str, b: str, cell: Cell) -> bool:
+        return {a, b} <= attached[cell] or (a, b, cell) in tees or (b, a, cell) in tees
+
+    found = {
+        (a, b): frozenset(
+            cell for cell in runs[a].cells & runs[b].cells if not meant(a, b, cell)
+        )
         for a, b in combinations(runs, 2)
     }
-    return {pair: cells for pair, cells in shared.items() if cells}
+    return {pair: cells for pair, cells in found.items() if cells}
 
 
 # ----------------------------------------------------------------------

@@ -443,6 +443,76 @@ def test_a_run_crossing_overhead_or_at_a_tee_is_not_an_overlap(document, registr
     assert overlaps(SynopticDocument.model_validate(document), registry) == {}
 
 
+def test_a_tee_excuses_its_own_pair_only(document, registry):
+    """A third run ending on the tee cell is reported against both the trunk
+    and the branch: the cell where three runs meet is the one the author most
+    wants shown."""
+    document["pipes"] += [
+        {
+            "id": "branch",
+            "fluid": "primary_supply",
+            "from": {"kind": "pipe", "pipe": "supply", "cell": {"x": 4, "y": 1}},
+            "to": {"kind": "cell", "cell": {"x": 4, "y": -3}},
+        },
+        {
+            "id": "riser",
+            "fluid": "dhw",
+            "from": {"kind": "cell", "cell": {"x": 4, "y": 4}},
+            "to": {"kind": "cell", "cell": {"x": 4, "y": 1}},
+        },
+    ]
+    assert check(document, registry) == []
+    tee = frozenset({Cell(x=4, y=1)})
+    assert overlaps(SynopticDocument.model_validate(document), registry) == {
+        ("supply", "riser"): tee,
+        ("branch", "riser"): tee,
+    }
+
+
+def test_a_port_cell_excuses_the_runs_attached_there_only(document, registry):
+    """A tank's upper inlet and outlet share one cell, so the two runs attached
+    to them meet there by construction; a run passing through that cell is
+    reported against each of them."""
+    document["symbols"].append(
+        {
+            "id": "b01",
+            "type": "tank",
+            "placement": {"kind": "cell", "cell": {"x": 8, "y": 0}, "rotation": 0},
+            "props": {"capacity": "500 L"},
+        }
+    )
+    document["pipes"] += [
+        {
+            "id": "feed",
+            "fluid": "primary_supply",
+            "from": {"kind": "cell", "cell": {"x": 6, "y": 0}},
+            "to": {"kind": "port", "symbol": "b01", "port": "primary_in"},
+        },
+        {
+            "id": "draw",
+            "fluid": "dhw",
+            "from": {"kind": "port", "symbol": "b01", "port": "dhw_out"},
+            "to": {"kind": "cell", "cell": {"x": 10, "y": 0}},
+        },
+    ]
+    assert check(document, registry) == []
+    assert overlaps(SynopticDocument.model_validate(document), registry) == {}
+
+    document["pipes"].append(
+        {
+            "id": "riser",
+            "fluid": "cold_water",
+            "from": {"kind": "cell", "cell": {"x": 8, "y": -2}},
+            "to": {"kind": "cell", "cell": {"x": 8, "y": 2}},
+        }
+    )
+    port = frozenset({Cell(x=8, y=0)})
+    assert overlaps(SynopticDocument.model_validate(document), registry) == {
+        ("feed", "riser"): port,
+        ("draw", "riser"): port,
+    }
+
+
 # ----------------------------------------------------------------------
 # Inline placements
 # ----------------------------------------------------------------------

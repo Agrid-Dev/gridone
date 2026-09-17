@@ -27,6 +27,23 @@ import type { AttributeFields } from "@/lib/faults";
  *  it, so adding the cursor is an addition rather than a refactor. */
 export type UseSynopticValues = (doc: Synoptic, at?: string) => SynopticValues;
 
+/** The list snapshot, except the attributes the cache already holds with a
+ *  later `last_updated`: those were pushed after the snapshot was taken. */
+function keepNewer(cached: Device, listed: Device): Device {
+  const attributes = { ...listed.attributes };
+  for (const [name, held] of Object.entries(cached.attributes ?? {})) {
+    const fresh = attributes[name];
+    if (
+      fresh?.last_updated &&
+      held.last_updated &&
+      held.last_updated > fresh.last_updated
+    ) {
+      attributes[name] = held;
+    }
+  }
+  return { ...listed, attributes };
+}
+
 /** How often the one device list refetches with the socket up, to move
  *  `last_updated` on values that hold. Staleness is judged on the minute
  *  tick, so a finer poll would show nothing sooner. */
@@ -119,10 +136,14 @@ export const useSynopticValues: UseSynopticValues = (doc) => {
     refetchInterval: isConnected ? FRESHNESS_POLL_MS : DEVICE_POLL_INTERVAL_MS,
   });
   // Every answer of the list refreshes the per-device entries the socket
-  // patches, so a poll reaches the plate the way a push does.
+  // patches, so a poll reaches the plate the way a push does. A push that
+  // landed while the list was in flight is newer than the snapshot, so the
+  // snapshot never puts an attribute back behind it.
   useEffect(() => {
     for (const device of seed.data ?? []) {
-      queryClient.setQueryData(["device", device.id], device);
+      queryClient.setQueryData<Device>(["device", device.id], (cached) =>
+        cached ? keepNewer(cached, device) : device,
+      );
     }
   }, [queryClient, seed.data]);
   // The per-device queries exist only once the list has answered, so their
