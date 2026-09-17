@@ -62,7 +62,7 @@ MAX_BOUND_SLOTS = 1_000
 
 Each slot is resolved against the device fleet on every save, and the
 resolver walks the fleet synchronously, so the count is the one factor of
-that product the document controls. The reference plate binds thirty.
+that product the document controls. The reference plate binds seven.
 """
 
 Coordinate = Annotated[int, Field(ge=-MAX_COORDINATE, le=MAX_COORDINATE)]

@@ -13,8 +13,14 @@ from models.targets import (
     ResolvedTarget,
 )
 from models.types import DataType
+from synoptics.symbols import SymbolRegistry, build_default_registry
 
 PLATE_PATH = Path(__file__).parents[3] / "docs" / "specs" / "synoptic" / "ecs-est.json"
+
+
+@pytest.fixture
+def registry() -> SymbolRegistry:
+    return build_default_registry()
 
 
 @pytest.fixture
@@ -23,15 +29,16 @@ def ecs_est_raw() -> dict:
     return json.loads(PLATE_PATH.read_text(encoding="utf-8"))
 
 
-BOOL_SUFFIXES = ("_state", "_open", "_running", "_fault")
-"""Attribute names the plate binds as bool; everything else reads as a float."""
+BOOL_SUFFIXES = ("_state", "fault")
+"""Attribute names the plate binds as bool (run states, fault flags); everything
+else reads as a float."""
 
 
 class AcceptingResolver:
     """Resolves every target to the one device its filter names.
 
-    The plate's device ids are placeholders, so a real resolver refuses it;
-    this one lets the service tests exercise storage without a fleet.
+    The plate names one instance's devices, which no test fleet has; this one
+    lets the service tests exercise storage without that fleet.
     """
 
     async def resolve(

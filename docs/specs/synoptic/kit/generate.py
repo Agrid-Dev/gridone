@@ -1318,51 +1318,14 @@ BY_TYPE = {sym.type: sym for sym in SYMBOLS}
 # App content area on a 1440 x 900 laptop at 100 %: 256 px sidebar, 64 px top bar.
 FRAME_W, FRAME_H = 1184, 836
 ROLE_CLASS = {"title": "title t", "caption": "caption tm", "note": "note tm"}
-SLOT_ROWS = {
-    "supply_temp": ("DÉPART", "°C"),
-    "power": ("PUISSANCE", "kW"),
-    "temperature": ("TEMPÉRATURE", "°C"),
-}
 # What the plate's bindings would read on the sheet.
 LIVE_SLOTS: dict[str, dict[str, str]] = {
-    "pac-03": {
-        "state": "MARCHE",
-        "fault": "NORMAL",
-        "supply_temp": "52,4",
-        "power": "38,2",
-    },
-    "pac-04": {
-        "state": "ARRÊT",
-        "fault": "DÉFAUT",
-        "supply_temp": "31,0",
-        "power": "0,0",
-    },
-    "b01": {"temperature": "56"},
-    "b04": {"temperature": "54"},
-    "b07": {"temperature": "49"},
-    "mitigeur": {"supply_temp": "55,0"},
-    "v-03": {"state": "OUVERTE"},
-    "v-04": {"state": "FERMÉE"},
-    "p-bcl": {"state": "MARCHE"},
+    "pac-03": {"state": "ARRÊT", "fault": "DÉFAUT"},
+    "pac-04": {"state": "MARCHE", "fault": "NORMAL"},
 }
-LIVE_TAGS = {
-    "tt-03": "52,4",
-    "tt-04": "31,0",
-    "tt-05": "55,1",
-    "tt-06": "49,8",
-    "ft-01": "2,4",
-}
-FAULTY = {"pac-04"}
-STALE = {"tt-04", "pac-04.supply_temp"}
-FLOWING = {
-    "pac-03-supply",
-    "feed-col-1",
-    "feed-col-2",
-    "feed-col-3",
-    "feed-ecs-ouest",
-    "dhw-loop-return",
-    "dhw-loop-to-storage",
-}
+LIVE_READINGS = {"cpt-ballon-est": "237 680 000"}
+FAULTY = {"pac-03"}
+FLOWING = {"pac-04-supply"}
 
 Doc = dict[str, Any]
 
@@ -1403,6 +1366,16 @@ def polyline(symbols: dict[str, Doc], pipe: Doc) -> list[Pt3]:
     cells = [endpoint_cell(symbols, pipe["from"])]
     cells += [(w["x"], w["y"], w.get("z", 0)) for w in pipe["waypoints"]]
     return [*cells, endpoint_cell(symbols, pipe["to"])]
+
+
+def run_cells(corners: list[Pt3]) -> set[Pt]:
+    """Every grid cell an axis-aligned run covers, in plan (``z`` dropped)."""
+    cells: set[Pt] = set()
+    for (ax, ay, _), (bx, by, _) in itertools.pairwise(corners):
+        for x in range(min(ax, bx), max(ax, bx) + 1):
+            for y in range(min(ay, by), max(ay, by) + 1):
+                cells.add((x, y))
+    return cells
 
 
 def run_direction(cells: list[Pt3], cell: Pt) -> Pt:
@@ -1562,6 +1535,16 @@ def fault_glyph(view: View, kind: Symbol, origin: Pt) -> str:
     )
 
 
+def slot_reading(element: Doc) -> tuple[str, str]:
+    """What a tag or label reads on the sheet: a text slot its literal with no
+    unit, an attribute slot the value ``LIVE_READINGS`` stands in for and the
+    unit the binding names."""
+    value = element["value"]
+    if value["kind"] == "text":
+        return value["text"], ""
+    return LIVE_READINGS[element["id"]], value["unit"]
+
+
 def panel_rows(sym: Doc, live: dict[str, str]) -> list[Row]:
     rows: list[Row] = []
     for slot in sym["bindings"]:
@@ -1571,9 +1554,6 @@ def panel_rows(sym: Doc, live: dict[str, str]) -> list[Row]:
             rows.append(
                 ("DÉFAUT", live[slot], "", "fault" if sym["id"] in FAULTY else "ok")
             )
-        elif slot in SLOT_ROWS:
-            state = "stale" if f"{sym['id']}.{slot}" in STALE else "ok"
-            rows.append((SLOT_ROWS[slot][0], live[slot], SLOT_ROWS[slot][1], state))
     return rows
 
 
@@ -1706,33 +1686,47 @@ def plate(doc: Doc, view: View) -> str:
                     [view.pt(cx + dx, cy + dy, AXIS) for dx in (0, 1) for dy in (0, 1)]
                 )
             )
+    # A chip rising over another run reads as hanging off that run, so a
+    # tag treats the other runs' cells like bodies: the renderer's
+    # clearance search sends such a tag below, and the sheet must agree.
+    cells = {p["id"]: run_cells(polyline(symbols, p)) for p in doc["pipes"]}
     for pipe_ in doc["pipes"]:
+        others = set().union(*(c for pid, c in cells.items() if pid != pipe_["id"]))
         for tag_ in pipe_["tags"]:
-            x, y, z = tag_["at"]["x"], tag_["at"]["y"], tag_["at"].get("z", 0)
-            # A chip rises screen-up, over the cells behind the run: when a
-            # body stands there the chip hangs below instead (Decision 15).
-            side = "below" if view.behind(x, y) & bodies else "above"
-            at = view.pt(x + 0.5, y + 0.5, z + AXIS)
-            value, unit = LIVE_TAGS[tag_["id"]], tag_["value"]["unit"]
-            g += tag(
-                at,
-                fluid_class(pipe_["fluid"]),
-                tag_["label"],
-                value,
-                unit,
-                "stale" if tag_["id"] in STALE else "ok",
-                side,
-            )
-            half = chip_width(value, unit) / 2
-            top = at[1] - 70 if side == "above" else at[1] + 41
-            obstacles.append((at[0] - half, top, at[0] + half, top + 37))
+            g += plate_tag(view, pipe_, tag_, bodies | others, obstacles)
     for sym in placed:
         if sym["type"] != "collector":
             g += readings(view, sym, BY_TYPE[sym["type"]], origin_of(sym), obstacles)
     for label in doc["labels"]:
-        lx, ly = view.pt(label["at"]["x"], label["at"]["y"])
-        g += text(lx, ly, label["text"], ROLE_CLASS[label["role"]])
+        g += plate_label(view, label)
     return g
+
+
+def plate_tag(
+    view: View, pipe_: Doc, tag_: Doc, occupied: set[Pt], obstacles: list[Box]
+) -> str:
+    """A tag on its run, reading its slot."""
+    x, y, z = tag_["at"]["x"], tag_["at"]["y"], tag_["at"].get("z", 0)
+    # A chip rises screen-up, over the cells behind the run: when a body or
+    # another run stands there the chip hangs below instead (Decision 15).
+    side = "below" if view.behind(x, y) & occupied else "above"
+    at = view.pt(x + 0.5, y + 0.5, z + AXIS)
+    value, unit = slot_reading(tag_)
+    half = chip_width(value, unit) / 2
+    top = at[1] - 70 if side == "above" else at[1] + 41
+    obstacles.append((at[0] - half, top, at[0] + half, top + 37))
+    return tag(at, fluid_class(pipe_["fluid"]), tag_["label"], value, unit, "ok", side)
+
+
+def plate_label(view: View, label: Doc) -> str:
+    """A free label, with the reading it may carry hanging under the text,
+    its left edge on the text's."""
+    lx, ly = view.pt(label["at"]["x"], label["at"]["y"])
+    out = text(lx, ly, label["text"], ROLE_CLASS[label["role"]])
+    if label["value"] is None:
+        return out
+    value, unit = slot_reading(label)
+    return out + chip(lx + chip_width(value, unit) / 2, ly + 22, "", value, unit)
 
 
 # Room around the plate's cells for panels, chips and labels.
@@ -1787,7 +1781,7 @@ def frame(ox: float, oy: float, drawing: str, box: Box, view: View) -> str:
 
 def plate_sheet(palettes: tuple[Palette, Palette]) -> str:
     """The ECS Est plate drawn whole in the kit: the reference for what run
-    state, readings, panels, fault and stale look like on a real plate."""
+    state, readings, panels and fault look like on a real plate."""
     doc = json.loads(DOCUMENT.read_text())
     box = plate_bounds(doc, ISO_VIEW)
     ox, oy = 28, 90
