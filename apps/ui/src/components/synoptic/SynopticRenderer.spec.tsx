@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type {
@@ -6,7 +8,6 @@ import type {
   SymbolElement,
   Synoptic,
 } from "@gridone/sdk";
-import ecsEstPlate from "@/pages/sandbox/ecsEstPlate.json";
 import { CHIP_H, SILENT_TEXT } from "./Chip";
 import { PANEL_W, panelHeight } from "./Panel";
 import { portPoint, project } from "./projection";
@@ -128,6 +129,24 @@ const VALUES: SynopticValues = {
     "label.note": live("104", null),
   },
   faultyDevices: { "PAC-03": true },
+};
+
+/** The spec's reference plate as the API would store it, read from the
+ *  spec so the customer-bound document lives in docs/ and on the instance,
+ *  never in the bundle. Resolved from this file, so the runner's working
+ *  directory is moot. */
+const REFERENCE_PLATE: Synoptic = {
+  ...JSON.parse(
+    readFileSync(
+      resolve(
+        import.meta.dirname,
+        "../../../../../docs/specs/synoptic/ecs-est.json",
+      ),
+      "utf8",
+    ),
+  ),
+  id: "ecs",
+  metadata: {},
 };
 
 function draw(doc = DOC, values?: SynopticValues) {
@@ -464,10 +483,7 @@ describe("SynopticRenderer", () => {
   });
 
   it("ends every panel leader on a drawn corner of its body", () => {
-    const c = draw(
-      { ...(ecsEstPlate as Synoptic), id: "ecs", metadata: {} },
-      VALUES,
-    );
+    const c = draw(REFERENCE_PLATE, VALUES);
     const vertices = q(c, "polygon[class*='fill-synoptic-body']").flatMap((p) =>
       p
         .getAttribute("points")!
@@ -664,22 +680,31 @@ describe("SynopticRenderer", () => {
   });
 
   it("renders the reference plate whole", () => {
-    const plate = { ...(ecsEstPlate as Synoptic), id: "ecs", metadata: {} };
-    const c = draw(plate);
+    const c = draw(REFERENCE_PLATE);
     expect(q(c, "[data-unknown-symbol]")).toHaveLength(0);
     expect(q(c, "[data-panel]")).toHaveLength(2);
-    expect(q(c, "[data-tag]")).toHaveLength(5);
-    expect(q(c, "circle[data-tee]")).toHaveLength(5);
-    expect(q(c, "[data-label]")).toHaveLength(5);
-    expect(q(c, "polygon.fill-fluid-dhw").length).toBeGreaterThan(0);
-    // The PAC tags hang below their runs, clear of the bodies beside them;
-    // TT-06 hangs below because the supply run passes where its chip would
-    // rise.
+    // Two tags, the mitigeur's départ and retour the drawing shows and no
+    // device reads, each a chip on its run carrying a literal that says so.
     expect(
-      q(c, "[data-tag][data-side='below']").map((t) =>
-        t.getAttribute("data-tag"),
-      ),
-    ).toEqual(["tt-03", "tt-04", "tt-06"]);
+      q(c, "[data-tag]")
+        .map((t) => [
+          t.getAttribute("data-tag"),
+          q(t, "[data-chip] text").some((x) => x.textContent === "non mesurée"),
+        ])
+        .sort(),
+    ).toEqual([
+      ["tt-depart", true],
+      ["tt-retour", true],
+    ]);
+    // Two tees: the PAC 04 return off the return loop, the bouclage branch
+    // off the loop return.
+    expect(q(c, "circle[data-tee]")).toHaveLength(2);
+    expect(q(c, "[data-label]")).toHaveLength(5);
+    // Three chips: the energy counter under its caption and the two tags.
+    expect(q(c, "[data-chip]")).toHaveLength(3);
+    expect(q(c, "[data-label='caption'] [data-chip]")).toHaveLength(1);
+    expect(q(c, "polygon.fill-fluid-dhw").length).toBeGreaterThan(0);
+    expect(q(c, "polygon.fill-fluid-primary-supply").length).toBeGreaterThan(0);
     // The two panels do not overlap each other, and no run is drawn
     // across either or across a tag: readouts clear the runs as well as
     // the bodies.

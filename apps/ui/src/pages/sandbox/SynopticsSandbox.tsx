@@ -17,9 +17,7 @@ import {
   AirExtractorSynoptic,
   type AirExtractorValues,
 } from "../devices/standard-devices/air-extractor";
-import { symbolSchemas, type Projection, type Synoptic } from "@gridone/sdk";
-import ecsEstPlate from "./ecsEstPlate.json";
-import { useSynopticValues } from "@/hooks/useSynopticValues";
+import { symbolSchemas, type Projection } from "@gridone/sdk";
 import {
   Body,
   Collector,
@@ -37,7 +35,6 @@ import {
   Pump,
   SensorFlag,
   square,
-  SynopticRenderer,
   SynopticSymbol,
   Tank,
   Valve,
@@ -455,28 +452,6 @@ function HydronicSymbolSheets() {
   );
 }
 
-/** The reference plate of the document spec as the API would store it. */
-const LIVE_PLATE: Synoptic = {
-  ...(ecsEstPlate as Synoptic),
-  id: "ecs-est",
-  metadata: {},
-};
-
-/** The stored document rendered live: values arrive over the WebSocket for
- *  whichever of its device ids the instance has, the rest read silent.
- *  Drag to pan, wheel to zoom. */
-function LivePlate() {
-  const values = useSynopticValues(LIVE_PLATE);
-  return (
-    <div className="space-y-2">
-      <h3 className="text-sm font-medium">Live plate: {LIVE_PLATE.name}</h3>
-      <div className="h-[40rem] overflow-hidden rounded-lg border">
-        <SynopticRenderer doc={LIVE_PLATE} values={values} />
-      </div>
-    </div>
-  );
-}
-
 /** Dev-only page: the standard HVAC synoptics (AHUs, air extractor) fed
  *  with hard-coded data, covering the layout variants of each type. */
 export default function SynopticsSandbox() {
@@ -486,7 +461,6 @@ export default function SynopticsSandbox() {
         title="HVAC synoptics"
         caption="Sandbox — hard-coded device data"
       />
-      <LivePlate />
       <SymbolKitPlate />
       <IsometricPlate />
       <HydronicSymbolSheets />

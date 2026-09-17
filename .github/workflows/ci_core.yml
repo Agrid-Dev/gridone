@@ -8,6 +8,7 @@ on:
       - apps/**
       - packages/**
       - docker/**
+      - docs/specs/synoptic/ecs-est.json
       - pyproject.toml
       - uv.lock
   push:
@@ -16,6 +17,7 @@ on:
       - apps/**
       - packages/**
       - docker/**
+      - docs/specs/synoptic/ecs-est.json
       - pyproject.toml
       - uv.lock
   workflow_dispatch:
@@ -74,6 +76,7 @@ jobs:
             synoptics:
               - *shared
               - 'packages/synoptics/**'
+              - 'docs/specs/synoptic/ecs-est.json'
             timeseries:
               - *shared
               - 'packages/timeseries/**'
