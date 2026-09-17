@@ -83,6 +83,8 @@ export function attributeValueText(
   t: TFunction<"common">,
   dataType?: string,
 ): string {
+  if (typeof value === "boolean")
+    return t(value ? "common.true" : "common.false");
   return (
     attributeValueLabel(attributeName, value, t) ?? formatValue(value, dataType)
   );

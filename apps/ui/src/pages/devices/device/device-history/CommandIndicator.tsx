@@ -51,8 +51,13 @@ export function CommandIndicator({
           {initials ?? <UserIcon className="h-3 w-3" />}
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-56 space-y-2 p-3 text-sm" side="top">
-        <CommandConfirmationDetails command={command} />
+      <PopoverContent
+        className={cn(
+          "space-y-2 p-3 text-sm",
+          command.ui_confirmation ? "w-80" : "w-56",
+        )}
+        side="top"
+      >
         <div>
           <p className="font-medium">
             {user?.name || user?.username || command.user_id}
@@ -94,6 +99,7 @@ export function CommandIndicator({
             <p className="text-destructive">{command.status_details}</p>
           )}
         </div>
+        <CommandConfirmationDetails command={command} />
       </PopoverContent>
     </Popover>
   );

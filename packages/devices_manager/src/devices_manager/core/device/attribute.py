@@ -60,7 +60,6 @@ class Attribute(BaseModel):
     label: LocalizedText | None = None
     description: LocalizedText | None = None
     user_confirmation: LocalizedText | None = None
-    sensitive: bool = False
     group: AttributeGroup | None = None
     unit: Unit | None = None
     write_constraints: WriteConstraints | None = None
@@ -72,8 +71,6 @@ class Attribute(BaseModel):
     @model_serializer(mode="wrap")
     def _serialize(self, handler: Any) -> dict[str, Any]:  # noqa: ANN401
         data = handler(self)
-        if not self.sensitive:
-            data.pop("sensitive", None)
         for name in _OMITTED_WHEN_NONE:
             if data.get(name) is None:
                 data.pop(name, None)

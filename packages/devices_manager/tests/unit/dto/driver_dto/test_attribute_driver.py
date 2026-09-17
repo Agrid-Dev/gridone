@@ -49,14 +49,11 @@ def test_invalid_user_confirmation_is_rejected(message):
         )
 
 
-def test_user_confirmation_roundtrips_and_projects_to_runtime():
-    from devices_manager.core.device.device import _build_attribute
-
+def test_user_confirmation_roundtrips():
     raw = {
         "name": "network",
         "data_type": "str",
         "read_write": "/network",
-        "sensitive": True,
         "user_confirmation": {
             "default": "May disconnect",
             "translations": {"fr": "Peut déconnecter"},
@@ -66,10 +63,7 @@ def test_user_confirmation_roundtrips_and_projects_to_runtime():
     exported = driver.model_dump(mode="json")
     assert exported["user_confirmation"] == raw["user_confirmation"]
     restored = AttributeDriver.model_validate(exported)
-    attribute = _build_attribute(restored, "secret")
-    assert attribute.user_confirmation == driver.user_confirmation
-    assert attribute.sensitive
-    assert attribute.model_dump()["user_confirmation"] == raw["user_confirmation"]
+    assert restored.user_confirmation == driver.user_confirmation
 
 
 def test_attribute_schema_polling_group() -> None:

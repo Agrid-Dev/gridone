@@ -18,6 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { attributeValueText } from "@/lib/attributeValueLabel";
 import { localize } from "@/lib/localizedText";
 
 type ConfirmationRequest = {
@@ -42,6 +43,7 @@ export function AttributeConfirmationProvider({
   children: ReactNode;
 }) {
   const { t } = useTranslation("devices");
+  const { t: tCommon } = useTranslation("common");
   const [queue, setQueue] = useState<Pending[]>([]);
   const pending = useRef(new Set<Pending>());
   const lastTrigger = useRef<HTMLElement | null>(null);
@@ -78,11 +80,9 @@ export function AttributeConfirmationProvider({
   }, [item]);
   const preview = item?.preview;
   const previous =
-    preview?.sensitive && preview.current_value_known
-      ? t("confirmation.masked")
-      : preview?.current_value == null
-        ? t("confirmation.unknown")
-        : String(preview.current_value);
+    preview?.current_value == null
+      ? t("confirmation.unknown")
+      : attributeValueText(item.attribute, preview.current_value, tCommon);
   return (
     <Context.Provider value={request}>
       {children}
@@ -126,9 +126,7 @@ export function AttributeConfirmationProvider({
               </dd>
               <dt>{t("groups.after")}</dt>
               <dd>
-                {preview?.sensitive
-                  ? t("confirmation.masked")
-                  : String(item.value)}
+                {attributeValueText(item.attribute, item.value, tCommon)}
                 {preview?.unit ? ` ${preview.unit}` : ""}
               </dd>
             </dl>

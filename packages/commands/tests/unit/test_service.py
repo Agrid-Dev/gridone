@@ -16,7 +16,7 @@ from commands.models import (
     WriteResult,
 )
 from commands.service import CommandsService
-from models.command_confirmation import REDACTED_VALUE, UIConfirmationContext
+from models.command_confirmation import UIConfirmationContext
 from models.errors import (
     ConfirmationError,
     InvalidError,
@@ -85,46 +85,6 @@ async def test_ui_context_is_durable_before_transport(service, device_writer, fa
         if failure
         else None
     )
-
-
-async def test_sensitive_batch_masks_history_but_transports_original_value(
-    device_writer, result_handler, target_resolver
-):
-    service = CommandsService(
-        None,
-        device_writer,
-        result_handler,
-        target_resolver,
-        is_sensitive=lambda *_: True,
-    )
-    await service.start()
-    try:
-        dispatch = await service.dispatch_batch(
-            target=DevicesFilter(ids=["a", "b"]), write=MODE_AUTO, user_id="operator"
-        )
-        await service._await_pending()  # noqa: SLF001
-        for command in (await service.get_commands()).items:
-            assert command.value == REDACTED_VALUE
-            assert command.value_redacted
-            assert command.validation is not None
-            assert command.validation.value is None
-            assert command.ui_confirmation is None
-        template_id = dispatch.commands[0].template_id
-        assert template_id is not None
-        template = await service.get_template(template_id)
-        assert template.write.value == REDACTED_VALUE
-        assert template.write.value_redacted
-        with pytest.raises(InvalidError, match="redacted"):
-            await service.dispatch_from_template(
-                template_id=template.id, user_id="operator"
-            )
-        assert [call.args[2] for call in device_writer.call_args_list] == [
-            "auto",
-            "auto",
-        ]
-        result_handler.assert_not_awaited()
-    finally:
-        await service.stop()
 
 
 @pytest.fixture

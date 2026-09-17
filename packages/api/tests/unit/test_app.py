@@ -41,9 +41,6 @@ async def test_command_composition_uses_the_guard_and_records_observations():
             "setpoint", DataType.FLOAT, {"read", "write"}, value=22
         )
     )
-    dm.get_device.return_value.attributes = {
-        "setpoint": dm.write_device_attribute.return_value
-    }
     service = await _start_commands_service(None, dm, MagicMock(spec=TimeSeriesService))
     try:
         write = AttributeWrite(

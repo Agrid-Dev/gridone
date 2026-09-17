@@ -161,7 +161,6 @@ describe("manual group confirmation", () => {
         {
           ...member("b"),
           user_confirmation: { default: "Restarts the device" },
-          sensitive: true,
           current_value: null,
           current_value_known: true,
         },

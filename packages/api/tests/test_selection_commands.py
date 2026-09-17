@@ -369,6 +369,16 @@ async def test_non_ui_confirmation_never_invents_context(context):
     assert "ui_confirmations" not in commands.dispatch_batch.call_args.kwargs
 
 
+async def test_unit_token_without_a_presented_warning_cannot_invent_ui_consent(context):
+    coordinator, _, commands, _ = context
+    preview = prepare(coordinator, device_ids=["a"])
+    with pytest.raises(InvalidError, match="No UI confirmation was presented"):
+        coordinator.consume_unit_confirmation(
+            preview.token, "operator", "a", "setpoint", 25, "en"
+        )
+    commands.dispatch_unit.assert_not_awaited()
+
+
 @pytest.mark.parametrize(
     "change", ["warning", "target", "value", "user", "guards", "expired"]
 )

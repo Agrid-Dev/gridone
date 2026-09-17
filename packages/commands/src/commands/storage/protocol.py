@@ -26,14 +26,13 @@ class CommandsStorage(Protocol):
         self, commands: list[UnitCommandCreate]
     ) -> list[UnitCommand]: ...
 
-    async def update_command_status(  # noqa: PLR0913
+    async def update_command_status(
         self,
         command_id: int,
         status: CommandStatus,
         *,
         status_details: str | None = None,
         completed_at: datetime | None = None,
-        executed_at: datetime | None = None,
         validation: WriteEvaluation | None = None,
     ) -> UnitCommand: ...
 

@@ -137,7 +137,6 @@ class SelectionCommands:
                     "write_options",
                     "value_mapping",
                     "user_confirmation",
-                    "sensitive",
                 },
             )
             if contract
@@ -227,7 +226,6 @@ class SelectionCommands:
                 language=language,
                 previous_value=row.current_value,
                 previous_value_known=row.current_value_known,
-                value_redacted=row.sensitive,
             )
             for row in item.preview.members
             if row.device_id in selected and row.user_confirmation is not None

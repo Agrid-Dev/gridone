@@ -785,8 +785,7 @@
     "confirm": "Confirmer",
     "cancel": "Annuler",
     "unknown": "Inconnue",
-    "masked": "Valeur masquée",
-    "accepted": "Confirmation dans l’interface",
+    "accepted": "Confirmé dans l’interface",
     "noResponse": "Une absence de réponse ne signifie pas que l’équipement n’a pas été modifié."
   }
 }

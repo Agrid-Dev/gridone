@@ -1,4 +1,3 @@
-import { useRef, useState } from "react";
 import { useGroupCommand } from "@/components/group-command/useGroupCommand";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
@@ -12,11 +11,7 @@ import { toast } from "sonner";
 import { type CommandTemplateResponse, type Device } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { serverErrorMessage } from "@/lib/serverErrorMessage";
-import {
-  devicesFilterToListParams,
-  isTagTarget,
-  type DevicesFilter,
-} from "@/lib/devices";
+import { devicesFilterToListParams, type DevicesFilter } from "@/lib/devices";
 import { useAssetTree } from "@/hooks/useAssetTree";
 
 /** Encapsulates everything the template detail page needs: the template
@@ -49,20 +44,6 @@ export function useTemplate(templateId: string) {
   });
 
   const groupCommand = useGroupCommand(target);
-  const preparingRef = useRef(false);
-  const [preparing, setPreparing] = useState(false);
-
-  const execute = useMutation({
-    mutationFn: () => client.devices.commandTemplates.dispatch(templateId),
-    onSuccess: (result) => {
-      toast.success(t("commands.templates.executed"));
-      queryClient.invalidateQueries({ queryKey: ["commands"] });
-      navigate(`/devices/commands?batch_id=${result.batch_id}`);
-    },
-    onError: (err) =>
-      toast.error(serverErrorMessage(err) ?? t("common:errors.default")),
-  });
-
   const remove = useMutation({
     mutationFn: () => client.devices.commandTemplates.delete(templateId),
     onSuccess: () => {
@@ -80,31 +61,13 @@ export function useTemplate(templateId: string) {
     resolvedDevices: resolvedDevices.data ?? [],
     isResolving: resolvedDevices.isLoading,
     groupCommand,
-    execute: async () => {
-      if (preparingRef.current || execute.isPending || groupCommand.busy)
-        return;
-      preparingRef.current = true;
-      setPreparing(true);
-      try {
-        const preview = await client.devices.previewCommand({
-          target,
-          attribute: template.write.attribute,
-          value: template.write.value,
-        });
-        if (
-          isTagTarget(target) ||
-          preview.members.some((row) => row.user_confirmation)
-        ) {
-          await groupCommand.review(preview);
-        } else execute.mutate();
-      } catch (error) {
-        toast.error(serverErrorMessage(error) ?? t("common:errors.default"));
-      } finally {
-        preparingRef.current = false;
-        setPreparing(false);
-      }
-    },
-    isExecuting: execute.isPending || groupCommand.busy || preparing,
+    execute: () =>
+      groupCommand.prepare(
+        template.write.attribute,
+        template.write.value,
+        target,
+      ),
+    isExecuting: groupCommand.busy,
     remove: () => remove.mutate(),
     isRemoving: remove.isPending,
   };

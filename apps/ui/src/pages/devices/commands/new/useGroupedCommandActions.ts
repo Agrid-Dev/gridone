@@ -1,21 +1,17 @@
 import { useGroupCommand } from "@/components/group-command/useGroupCommand";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
-import { serverErrorMessage } from "@/lib/serverErrorMessage";
-import { useRef, useState, type BaseSyntheticEvent } from "react";
+import { useState, type BaseSyntheticEvent } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm, type UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import type { Device, UnitCommand } from "@gridone/sdk";
 import {
-  GROUPED_COMMAND_CONFIRMATION_THRESHOLD,
   templateNameSchema,
-} from "./groupedCommand";
-import {
-  useGroupedDispatch,
   type CommandPayload,
   type DispatchSnapshot,
-} from "./useGroupedDispatch";
+} from "./groupedCommand";
 
 /** A command ready to leave: the wire payload and the devices it was previewed
  *  against. No display text — the rail supplies its own. */
@@ -35,14 +31,10 @@ export type GroupedCommandActions = {
   isDispatching: boolean;
   isSaving: boolean;
   saveError: Error | null;
-  /** Set while a large dispatch awaits confirmation. */
-  confirmation: PendingCommand | undefined;
   saveOpen: boolean;
   setSaveOpen: (open: boolean) => void;
   nameForm: UseFormReturn<{ name: string }>;
   requestDispatch: () => void;
-  cancelConfirmation: () => void;
-  confirmDispatch: () => void;
   saveTemplate: (event?: BaseSyntheticEvent) => Promise<void>;
   clear: () => void;
 };
@@ -51,12 +43,33 @@ export function useGroupedCommandActions(
   command: PendingCommand | undefined,
 ): GroupedCommandActions {
   const { t } = useTranslation(["devices", "common"]);
-  const dispatch = useGroupedDispatch();
   const client = useGridoneClient();
   const groupCommand = useGroupCommand(command?.payload.target ?? {});
-  const [preparing, setPreparing] = useState(false);
-  const preparingRef = useRef(false);
-  const [confirmation, setConfirmation] = useState<PendingCommand>();
+  const cache = useQueryClient();
+  const [reviewed, setReviewed] = useState<PendingCommand>();
+  const save = useMutation({
+    mutationFn: ({
+      payload,
+      name,
+    }: {
+      payload: CommandPayload;
+      name: string;
+    }) => client.devices.commandTemplates.create({ ...payload, name }),
+    onSuccess: () =>
+      cache.invalidateQueries({ queryKey: ["command-templates"] }),
+  });
+  const snapshot =
+    reviewed && (groupCommand.batch || groupCommand.sending)
+      ? {
+          ...reviewed,
+          result: groupCommand.batch ?? undefined,
+          empty: groupCommand.batch?.commands.length === 0,
+        }
+      : undefined;
+  const commandsByDevice = new Map(
+    groupCommand.commands.map((item) => [item.device_id, item]),
+  );
+  const reviewedIds = new Set(reviewed?.devices.map((device) => device.id));
   const [saveOpen, setSaveOpen] = useState(false);
   const nameForm = useForm({
     resolver: zodResolver(templateNameSchema),
@@ -64,55 +77,38 @@ export function useGroupedCommandActions(
   });
   return {
     groupCommand,
-    snapshot: dispatch.snapshot,
-    commandsByDevice: dispatch.commandsByDevice,
-    addedCommands: dispatch.addedCommands,
-    trackingError: dispatch.trackingError,
-    isDispatching: dispatch.isDispatching || preparing || groupCommand.busy,
-    isSaving: dispatch.isSaving,
-    saveError: dispatch.saveError,
-    clear: dispatch.clear,
-    confirmation,
+    snapshot,
+    commandsByDevice,
+    addedCommands: groupCommand.commands.filter(
+      (item) => !reviewedIds.has(item.device_id),
+    ),
+    trackingError: groupCommand.resultsError,
+    isDispatching: groupCommand.busy,
+    isSaving: save.isPending,
+    saveError: save.error,
+    clear: () => {
+      setReviewed(undefined);
+      groupCommand.cancel();
+    },
     saveOpen,
     setSaveOpen,
     nameForm,
-    requestDispatch: async () => {
-      if (!command || dispatch.isDispatching || preparingRef.current) return;
-      preparingRef.current = true;
-      setPreparing(true);
-      try {
-        const preview = await client.devices.previewCommand({
-          target: command.payload.target,
-          attribute: command.payload.write.attribute,
-          value: command.payload.write.value,
-          device_ids: command.devices.map((device) => device.id),
-        });
-        if (preview.members.some((row) => row.user_confirmation)) {
-          await groupCommand.review(preview);
-        } else if (
-          command.devices.length > GROUPED_COMMAND_CONFIRMATION_THRESHOLD
-        ) {
-          setConfirmation(command);
-        } else {
-          await dispatch.dispatch(command.payload, command.devices);
-        }
-      } catch (error) {
-        toast.error(serverErrorMessage(error) ?? t("common:errors.default"));
-      } finally {
-        preparingRef.current = false;
-        setPreparing(false);
-      }
-    },
-    cancelConfirmation: () => setConfirmation(undefined),
-    confirmDispatch: () => {
-      if (confirmation)
-        void dispatch.dispatch(confirmation.payload, confirmation.devices);
-      setConfirmation(undefined);
+    requestDispatch: () => {
+      if (!command || groupCommand.busy) return;
+      setReviewed(command);
+      void groupCommand.prepare(
+        command.payload.write.attribute,
+        command.payload.write.value,
+        {
+          ...command.payload.target,
+          ids: command.devices.map((device) => device.id),
+        },
+      );
     },
     saveTemplate: nameForm.handleSubmit(async ({ name }) => {
       if (!command) return;
       try {
-        await dispatch.save(command.payload, name);
+        await save.mutateAsync({ payload: command.payload, name });
         setSaveOpen(false);
         nameForm.reset();
         toast.success(t("commands.new.save.savedFeedback"));

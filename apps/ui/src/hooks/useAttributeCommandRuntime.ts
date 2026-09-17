@@ -19,12 +19,12 @@ import {
   ControlRuntime,
   DEFAULT_DEBOUNCE_MS,
   type AttributeWriter,
-  type AttributePreparer,
+  type PreparedSend,
   type WriteOutcome,
 } from "@/components/device-ui/runtime/controlRuntime";
 
 /** Prepare human consent before reserving the runtime's in-flight write slot. */
-function useAttributePreparation(deviceId: string): AttributePreparer {
+function useAttributePreparation(deviceId: string): AttributeWriter {
   const client = useGridoneClient();
   const queryClient = useQueryClient();
   const requestConfirmation = useAttributeConfirmation();
@@ -44,44 +44,52 @@ function useAttributePreparation(deviceId: string): AttributePreparer {
         if (!preview.eligible)
           return { kind: "error", message: commandReasons(preview.reasons) };
         const language = i18n?.language || "en";
-        if (preview.user_confirmation) {
-          if (!preview.confirmation_token)
-            return { kind: "error", message: "" };
-          const accepted = await requestConfirmation({
-            attribute,
-            value,
-            preview,
-            language,
-            signal,
-            trigger,
-          });
-          if (!accepted || signal.aborted) return { kind: "cancelled" };
-        }
         if (preview.warnings?.length)
           toast.warning(commandReasons(preview.warnings));
-        return async () => {
-          try {
-            await client.devices.sendCommand(deviceId, {
+        const prepared: PreparedSend = {
+          kind: "send",
+          send: async () => {
+            try {
+              await client.devices.sendCommand(deviceId, {
+                attribute,
+                value,
+                confirm: true,
+                ...(preview.user_confirmation
+                  ? {
+                      ui_confirmation_token: preview.confirmation_token,
+                      confirmation_language: language,
+                    }
+                  : {}),
+              });
+            } catch (error) {
+              return writeError(error, t);
+            }
+            try {
+              const updated = await client.devices.get(deviceId);
+              queryClient.setQueryData<Device>(["device", deviceId], updated);
+            } catch {
+              /* Normal observations will catch up. */
+            }
+            return { kind: "ok" };
+          },
+        };
+        if (!preview.user_confirmation) return prepared;
+        if (!preview.confirmation_token) return { kind: "error", message: "" };
+        return {
+          kind: "confirm",
+          confirm: async () => {
+            const accepted = await requestConfirmation({
               attribute,
               value,
-              confirm: true,
-              ...(preview.user_confirmation
-                ? {
-                    ui_confirmation_token: preview.confirmation_token,
-                    confirmation_language: language,
-                  }
-                : {}),
+              preview,
+              language,
+              signal,
+              trigger,
             });
-          } catch (error) {
-            return writeError(error, t);
-          }
-          try {
-            const updated = await client.devices.get(deviceId);
-            queryClient.setQueryData<Device>(["device", deviceId], updated);
-          } catch {
-            /* Normal observations will catch up. */
-          }
-          return { kind: "ok" };
+            return accepted && !signal.aborted
+              ? prepared
+              : { kind: "cancelled" };
+          },
         };
       } catch (error) {
         return writeError(error, t);
@@ -107,33 +115,19 @@ function writeError(error: unknown, t: TFunction<"devices">): WriteOutcome {
 }
 
 /** Explicit-save editors use the same preflight and consent as live controls. */
-export function useAttributeWriter(deviceId: string): AttributeWriter {
-  const prepare = useAttributePreparation(deviceId);
-  const active = useRef(new Map<string, AbortController>());
-  useEffect(() => {
-    const requests = active.current;
-    return () => {
-      for (const abort of requests.values()) abort.abort();
-      requests.clear();
-    };
-  }, [deviceId]);
+export function useAttributeWriter(deviceId: string) {
+  const runtime = useAttributeCommandRuntime(deviceId);
   return useCallback(
-    async (attribute, value) => {
-      if (active.current.has(attribute)) return { kind: "cancelled" };
-      const abort = new AbortController();
-      active.current.set(attribute, abort);
-      try {
-        const prepared = await prepare(attribute, value, abort.signal);
-        if (abort.signal.aborted) return { kind: "cancelled" };
-        return typeof prepared === "function"
-          ? await prepared(attribute, value)
-          : prepared;
-      } finally {
-        if (active.current.get(attribute) === abort)
-          active.current.delete(attribute);
-      }
+    (
+      attribute: string,
+      value: string | number | boolean,
+    ): Promise<WriteOutcome> => {
+      const state = runtime.snapshot(attribute);
+      if (state.pending || state.confirming || state.write.kind === "sending")
+        return Promise.resolve({ kind: "cancelled" });
+      return runtime.request(attribute, value, { immediate: true });
     },
-    [prepare],
+    [runtime],
   );
 }
 
@@ -150,10 +144,9 @@ export function useAttributeCommandRuntime(
   const runtime = useMemo(
     () =>
       new ControlRuntime(
-        async () => ({ kind: "cancelled" }),
-        debounceMs,
         (attribute, value, signal) =>
           prepareRef.current(attribute, value, signal),
+        debounceMs,
       ),
     [deviceId, debounceMs],
   );

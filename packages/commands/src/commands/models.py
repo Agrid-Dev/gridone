@@ -34,7 +34,6 @@ class AttributeWrite:
     attribute: str
     value: AttributeValueType
     data_type: DataType
-    value_redacted: bool = field(default=False, kw_only=True)
 
 
 @dataclass
@@ -90,7 +89,6 @@ class UnitCommandCreate:
     completed_at: datetime | None
     validation: WriteEvaluation | None = field(default=None, kw_only=True)
     ui_confirmation: UIConfirmationContext | None = field(default=None, kw_only=True)
-    value_redacted: bool = field(default=False, kw_only=True)
 
 
 @dataclass

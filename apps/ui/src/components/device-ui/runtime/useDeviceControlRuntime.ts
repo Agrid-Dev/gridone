@@ -96,7 +96,7 @@ export function useDeviceControlRuntime(
         visible &&
         (!spec.blockedWhen || judge(spec.blockedWhen, "false")) &&
         canWrite &&
-        !snapshot.preparing &&
+        !snapshot.confirming &&
         attribute !== null &&
         isWritable(attribute);
       const can = (op: FaceAction["op"]) =>

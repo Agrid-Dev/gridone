@@ -46,16 +46,14 @@ it("does not imply a possible write for a refused command", () => {
   expect(screen.queryByText("confirmation.noResponse")).not.toBeInTheDocument();
 });
 
-it("distinguishes unknown and masked values without rendering secrets", () => {
-  const { container } = render(
+it("identifies an unknown previous value", () => {
+  render(
     <CommandConfirmationDetails
       command={{
         ...command,
-        value_redacted: true,
         ui_confirmation: {
           ...command.ui_confirmation!,
           previous_value_known: false,
-          value_redacted: true,
         },
       }}
     />,
@@ -63,11 +61,7 @@ it("distinguishes unknown and masked values without rendering secrets", () => {
   expect(
     screen.getByText("groups.before: confirmation.unknown"),
   ).toBeInTheDocument();
-  expect(
-    screen.getByText("groups.after: confirmation.masked"),
-  ).toBeInTheDocument();
-  expect(container).not.toHaveTextContent("old");
-  expect(container).not.toHaveTextContent("new");
+  expect(screen.getByText("groups.after: new")).toBeInTheDocument();
 });
 
 it("does not invent confirmation evidence for legacy or non-UI commands", () => {

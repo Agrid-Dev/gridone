@@ -231,6 +231,12 @@ async def preview_single_command(
     coordinator: SelectionCommands = Depends(get_selection_commands),
     user_id: str = Depends(get_current_user_id),
 ) -> SingleCommandPreview:
+    """Prepare optional UI consent while retaining synchronous unit-write outcomes.
+
+    A one-device selection reuses the same bound, expiring preview contract as
+    grouped commands. Its token is consumed by the synchronous unit dispatch:
+    live controls await the write/read-back outcome rather than polling a batch.
+    """
     # The preview reads and expires loop-owned device state: it must run on the
     # event loop like every other route, never in a worker thread.
     preview = dm.preview_device_write(device_id, body.attribute, body.value)
@@ -271,16 +277,13 @@ async def dispatch_single_command(
     )
     context = None
     if body.ui_confirmation_token is not None:
-        if body.confirmation_language is None:
-            msg = "Confirmation language is required with a UI preview"
-            raise InvalidError(msg)
         context = coordinator.consume_unit_confirmation(
             body.ui_confirmation_token,
             user_id,
             device_id,
             body.attribute,
             body.value,
-            body.confirmation_language,
+            body.confirmation_language or "en",
         )
     return await commands_svc.dispatch_unit(
         device_id=device_id,

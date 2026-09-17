@@ -118,16 +118,20 @@ it("keeps a tag template's result dialog on the detail page until manually close
   expect(api.dispatch).not.toHaveBeenCalled();
 });
 
-it("preserves navigation to history for a directly dispatched template", async () => {
+it("confirms an ordinary template with the same reviewed token", async () => {
   const { result } = setup({ ids: ["a"] });
   await act(async () => {
     await result.current.execute();
   });
-  await waitFor(() =>
-    expect(api.navigate).toHaveBeenCalledWith(
-      "/devices/commands?batch_id=sent",
-    ),
-  );
-  expect(api.dispatch).toHaveBeenCalledWith("template");
+  expect(api.confirm).not.toHaveBeenCalled();
+  await act(async () => {
+    await result.current.groupCommand.confirm();
+  });
+  expect(api.confirm).toHaveBeenCalledExactlyOnceWith({
+    token: "preview",
+    device_ids: ["a"],
+  });
+  expect(api.dispatch).not.toHaveBeenCalled();
   expect(api.preview).toHaveBeenCalledTimes(1);
+  expect(api.navigate).not.toHaveBeenCalled();
 });

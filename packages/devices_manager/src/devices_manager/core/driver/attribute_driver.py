@@ -53,7 +53,6 @@ class AttributeDriver(BaseModel):
     description: LocalizedText | None = None
     # Human consent in interactive clients, independent of device read-back.
     user_confirmation: LocalizedText | None = None
-    sensitive: bool = False
     group: AttributeGroup | None = None
     unit: Unit | None = None
     write_constraints: WriteConstraints | None = None

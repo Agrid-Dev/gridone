@@ -392,7 +392,14 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** Preview Single Command */
+    /**
+     * Preview Single Command
+     * @description Prepare optional UI consent while retaining synchronous unit-write outcomes.
+     *
+     *     A one-device selection reuses the same bound, expiring preview contract as
+     *     grouped commands. Its token is consumed by the synchronous unit dispatch:
+     *     live controls await the write/read-back outcome rather than polling a batch.
+     */
     post: operations["preview_single_command_devices__device_id__commands_preview_post"];
     delete?: never;
     options?: never;
@@ -2388,11 +2395,6 @@ export interface components {
       label?: components["schemas"]["LocalizedText"] | null;
       description?: components["schemas"]["LocalizedText"] | null;
       user_confirmation?: components["schemas"]["LocalizedText"] | null;
-      /**
-       * Sensitive
-       * @default false
-       */
-      sensitive?: boolean;
       /** Group */
       group?: string | null;
       /** Unit */
@@ -2433,11 +2435,6 @@ export interface components {
       label?: components["schemas"]["LocalizedText"] | null;
       description?: components["schemas"]["LocalizedText"] | null;
       user_confirmation?: components["schemas"]["LocalizedText"] | null;
-      /**
-       * Sensitive
-       * @default false
-       */
-      sensitive?: boolean;
       /** Group */
       group?: string | null;
       /** Unit */
@@ -2616,11 +2613,6 @@ export interface components {
       /** Value */
       value: number | string | boolean;
       data_type: components["schemas"]["DataType"];
-      /**
-       * Value Redacted
-       * @default false
-       */
-      value_redacted?: boolean;
     };
     /**
      * AttributeWriteState
@@ -3807,11 +3799,6 @@ export interface components {
       revision?: number;
       user_confirmation?: components["schemas"]["LocalizedText"] | null;
       /**
-       * Sensitive
-       * @default false
-       */
-      sensitive?: boolean;
-      /**
        * Current Value Known
        * @default false
        */
@@ -4133,11 +4120,6 @@ export interface components {
       label?: components["schemas"]["LocalizedText"] | null;
       description?: components["schemas"]["LocalizedText"] | null;
       user_confirmation?: components["schemas"]["LocalizedText"] | null;
-      /**
-       * Sensitive
-       * @default false
-       */
-      sensitive?: boolean;
       /** Group */
       group?: string | null;
       /** Unit */
@@ -4182,11 +4164,6 @@ export interface components {
       label?: components["schemas"]["LocalizedText"] | null;
       description?: components["schemas"]["LocalizedText"] | null;
       user_confirmation?: components["schemas"]["LocalizedText"] | null;
-      /**
-       * Sensitive
-       * @default false
-       */
-      sensitive?: boolean;
       /** Group */
       group?: string | null;
       /** Unit */
@@ -6072,11 +6049,6 @@ export interface components {
       revision?: number;
       user_confirmation?: components["schemas"]["LocalizedText"] | null;
       /**
-       * Sensitive
-       * @default false
-       */
-      sensitive?: boolean;
-      /**
        * Current Value Known
        * @default false
        */
@@ -6644,8 +6616,7 @@ export interface components {
      * @description The server's snapshot of the action the UI presented and accepted.
      *
      *     Target, requested value, authenticated user and server timestamp live on
-     *     the enclosing unit command. Unknown and redacted previous values are
-     *     explicitly distinguished. Messages are static driver text, never templates.
+     *     the enclosing unit command. Unknown previous values are explicitly identified. Messages are static driver text, never templates.
      */
     UIConfirmationContext: {
       /** Message */
@@ -6656,11 +6627,6 @@ export interface components {
       previous_value: number | string | boolean | null;
       /** Previous Value Known */
       previous_value_known: boolean;
-      /**
-       * Value Redacted
-       * @default false
-       */
-      value_redacted?: boolean;
     };
     /** UnavailablePresentationResponse */
     UnavailablePresentationResponse: {
@@ -6705,11 +6671,6 @@ export interface components {
       id: number;
       validation?: components["schemas"]["WriteEvaluation"] | null;
       ui_confirmation?: components["schemas"]["UIConfirmationContext"] | null;
-      /**
-       * Value Redacted
-       * @default false
-       */
-      value_redacted?: boolean;
     };
     /** UpdateStrategy */
     UpdateStrategy: {

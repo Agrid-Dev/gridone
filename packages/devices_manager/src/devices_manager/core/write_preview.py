@@ -7,8 +7,7 @@ from typing import TYPE_CHECKING
 from pydantic import BaseModel, Field
 
 from devices_manager.types import AttributeValueType  # noqa: TC001 -- pydantic schema
-from models.attribute_metadata import LocalizedText
-from models.command_confirmation import redact_text
+from models.attribute_metadata import LocalizedText  # noqa: TC001 -- pydantic schema
 from models.write_rules import (
     AttributeWriteState,
     ResolvedConstraints,
@@ -31,7 +30,6 @@ class DeviceWritePreview(BaseModel):
     write_state: AttributeWriteState | None = None
     revision: int = 0
     user_confirmation: LocalizedText | None = None
-    sensitive: bool = False
     current_value_known: bool = False
     attribute_label: LocalizedText | None = None
     unit: str | None = None
@@ -53,22 +51,12 @@ def preview_write(
         )
     evaluation = device.evaluate_attribute_write(attribute_name, value)
     device.project_write_states()
-    message = attribute.user_confirmation
-    if message is not None and attribute.sensitive:
-        message = LocalizedText(
-            default=redact_text(message.default, attribute.current_value, value),
-            translations={
-                language: redact_text(text, attribute.current_value, value)
-                for language, text in message.translations.items()
-            },
-        )
     return DeviceWritePreview(
         device_id=device.id,
         name=device.name,
-        current_value=None if attribute.sensitive else attribute.current_value,
+        current_value=attribute.current_value,
         current_value_known=attribute.current_value is not None,
-        user_confirmation=message,
-        sensitive=attribute.sensitive,
+        user_confirmation=attribute.user_confirmation,
         attribute_label=attribute.label,
         unit=attribute.unit,
         eligible=evaluation.eligible,

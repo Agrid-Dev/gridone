@@ -785,8 +785,7 @@
     "confirm": "Confirm",
     "cancel": "Cancel",
     "unknown": "Unknown",
-    "masked": "Hidden value",
-    "accepted": "UI confirmation",
+    "accepted": "Confirmed in UI",
     "noResponse": "A missing response does not mean the device was unchanged."
   }
 }

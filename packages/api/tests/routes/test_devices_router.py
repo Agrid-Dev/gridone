@@ -1932,10 +1932,11 @@ def test_invalid_single_confirmation_never_dispatches(
             "confirmation_language": language,
         },
     )
-    assert response.status_code == (422 if language is None else 409)
+    assert response.status_code == 409
     mock_commands_service.dispatch_unit.assert_not_called()
-    if language is None:
-        mock_selection_commands.consume_unit_confirmation.assert_not_called()
+    assert mock_selection_commands.consume_unit_confirmation.call_args.args[-1] == (
+        language or "en"
+    )
 
 
 def test_rejection_hides_internal_messages(client, mock_commands_service):

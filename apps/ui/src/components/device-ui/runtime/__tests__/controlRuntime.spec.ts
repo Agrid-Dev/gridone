@@ -15,10 +15,13 @@ type Deferred = {
 /** A writer whose completions the test controls one by one. */
 function deferredWriter() {
   const calls: Deferred[] = [];
-  const writer: AttributeWriter = (attribute, value) =>
-    new Promise((resolve, reject) => {
-      calls.push({ attribute, value, resolve, reject });
-    });
+  const writer: AttributeWriter = (attribute, value) => ({
+    kind: "send",
+    send: () =>
+      new Promise((resolve, reject) => {
+        calls.push({ attribute, value, resolve, reject });
+      }),
+  });
   return { writer, calls };
 }
 
@@ -203,6 +206,8 @@ describe("ControlRuntime", () => {
     runtime.attach();
     runtime.request("setpoint", 25, { immediate: true });
     expect(calls).toHaveLength(2);
+    runtime.request("power", false, { immediate: true });
+    expect(calls).toHaveLength(3);
   });
 
   it("keeps attributes independent", async () => {

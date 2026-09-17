@@ -217,3 +217,63 @@ it("keeps ordinary attributes on the existing immediate dispatch path", async ()
     confirm: true,
   });
 });
+
+it("keeps ordinary controls enabled and queues clicks during a slow preview", async () => {
+  let resolvePreview!: (preview: { eligible: boolean }) => void;
+  api.previewDeviceCommand
+    .mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolvePreview = resolve;
+        }),
+    )
+    .mockResolvedValue({ eligible: true });
+  setup();
+  await increment();
+  await settle(600);
+  expect(screen.getByText("Increment")).toBeEnabled();
+  await increment();
+  await settle(600);
+  expect(screen.getByTestId("value")).toHaveTextContent("22");
+  await act(async () => resolvePreview({ eligible: true }));
+  await settle();
+  expect(api.sendCommand.mock.calls.map(([, body]) => body.value)).toEqual([
+    21, 22,
+  ]);
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+});
+
+it("discards an older warning preview and reviews only the final debounced intention", async () => {
+  let resolvePreview!: (preview: object) => void;
+  api.previewDeviceCommand.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        resolvePreview = resolve;
+      }),
+  );
+  setup();
+  await increment();
+  await settle(600);
+  await increment();
+  await act(async () =>
+    resolvePreview({
+      eligible: true,
+      confirmation_token: "stale",
+      user_confirmation: { default: "Old warning" },
+    }),
+  );
+  await settle(599);
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  await settle(1);
+  expect(screen.getByRole("dialog")).toBeInTheDocument();
+  expect(screen.queryByText("Old warning")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByText("confirmation.confirm"));
+  await settle();
+  expect(api.sendCommand).toHaveBeenCalledExactlyOnceWith(
+    "a",
+    expect.objectContaining({
+      value: 22,
+      ui_confirmation_token: "frozen-preview",
+    }),
+  );
+});

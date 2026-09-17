@@ -75,7 +75,7 @@ export function GroupCommandDialog({
                       ? localize(firstPreview.attribute_label, i18n.language)
                       : first?.write.attribute,
                     value: first
-                      ? `${firstPreview?.members.some((row) => row.sensitive) ? t("confirmation.masked") : attributeValueText(first.write.attribute, first.write.value, tCommon)}${firstPreview?.unit ? ` ${firstPreview.unit}` : ""}`
+                      ? `${attributeValueText(first.write.attribute, first.write.value, tCommon)}${firstPreview?.unit ? ` ${firstPreview.unit}` : ""}`
                       : "",
                     count: first?.selected.length ?? 0,
                   })}
@@ -143,9 +143,11 @@ function PreparedWrite({
   const attribute = preview?.attribute_label
     ? localize(preview.attribute_label, i18n.language)
     : item.write.attribute;
-  const target = preview?.members.some((row) => row.sensitive)
-    ? t("confirmation.masked")
-    : attributeValueText(item.write.attribute, item.write.value, tCommon);
+  const target = attributeValueText(
+    item.write.attribute,
+    item.write.value,
+    tCommon,
+  );
   const value = `${target}${preview?.unit ? ` ${preview.unit}` : ""}`;
   return (
     <section aria-label={attribute} className="space-y-3">
@@ -260,26 +262,20 @@ function PreparedWrite({
                         </Link>
                       </td>
                       <td className="p-3">
-                        {row.sensitive && row.current_value_known
-                          ? t("confirmation.masked")
-                          : row.current_value == null
-                            ? t("groups.values.unavailable")
-                            : attributeValueText(
-                                item.write.attribute,
-                                row.current_value,
-                                tCommon,
-                              )}
+                        {row.current_value == null
+                          ? t("groups.values.unavailable")
+                          : attributeValueText(
+                              item.write.attribute,
+                              row.current_value,
+                              tCommon,
+                            )}
                       </td>
                       {/* An excluded member keeps its row and says why, in
                           place of a value it will not receive: the server
                           refuses a confirmation that selects it. */}
                       <td className="p-3 font-medium">
                         {row.eligible ? (
-                          row.sensitive ? (
-                            t("confirmation.masked")
-                          ) : (
-                            target
-                          )
+                          target
                         ) : (
                           <span className="font-normal">
                             {/* A driver authors its own refusals; the app

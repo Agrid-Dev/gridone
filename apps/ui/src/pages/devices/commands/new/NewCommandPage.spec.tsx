@@ -11,7 +11,7 @@ import {
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { GridoneError, type Device } from "@gridone/sdk";
+import { type Device } from "@gridone/sdk";
 import { createI18nMock } from "@/test/i18nMock";
 import NewCommandPage from "./NewCommandPage";
 
@@ -88,6 +88,9 @@ vi.mock("@/components/forms/targetPicker/AttributeCoverageSelect", () => ({
 }));
 vi.mock("react-i18next", () =>
   createI18nMock({
+    "groups.apply": "Apply to {{count}}",
+    "groups.close": "Close results",
+    "groups.cancel": "Cancel review",
     "commands.new.title": "Send a grouped command",
     "commands.attribute": "Attribute",
     "commands.value": "Value",
@@ -237,10 +240,13 @@ beforeEach(() => {
     batch_id: "batch",
     commands: [unitCommand("1"), unitCommand("2")],
   });
-  mocks.preview.mockResolvedValue({
+  mocks.preview.mockImplementation(async (request) => ({
+    ...request,
     token: "token",
-    members: [previewMember("1"), previewMember("2")],
-  });
+    members: (request.target.ids ?? ["1", "2"]).map((id: string) =>
+      previewMember(id),
+    ),
+  }));
   mocks.confirm.mockResolvedValue({
     batch_id: "batch",
     commands: [unitCommand("1"), unitCommand("2")],
@@ -290,10 +296,11 @@ describe("grouped command page", () => {
     );
     await userEvent.click(screen.getByRole("button", { name: "Dispatch now" }));
     await waitFor(() =>
-      expect(mocks.create).toHaveBeenCalledWith(
+      expect(mocks.preview).toHaveBeenCalledWith(
         expect.objectContaining({
           target: { ids: ["1"] },
-          write: { attribute: "level", value: 5, data_type: "float" },
+          attribute: "level",
+          value: 5,
         }),
       ),
     );
@@ -439,7 +446,7 @@ describe("grouped command page", () => {
     );
     await userEvent.click(screen.getByRole("button", { name: "Dispatch now" }));
     await waitFor(() =>
-      expect(mocks.create).toHaveBeenCalledWith(
+      expect(mocks.preview).toHaveBeenCalledWith(
         expect.objectContaining({ target: { ids: ["2"] } }),
       ),
     );
@@ -455,13 +462,17 @@ describe("grouped command page", () => {
       ).toBeEnabled(),
     );
     await userEvent.click(screen.getByRole("button", { name: "Dispatch now" }));
+    await confirmReview();
     await screen.findByText("Dispatch results");
     await waitFor(() =>
       expect(mocks.preview).toHaveBeenCalledWith(
         expect.objectContaining({
           attribute: "setpoint",
           value: 23,
-          target: { tags: { asset_id: ["building", "room", "empty-room"] } },
+          target: {
+            ids: ["1", "2"],
+            tags: { asset_id: ["building", "room", "empty-room"] },
+          },
         }),
       ),
     );
@@ -481,43 +492,41 @@ describe("grouped command page", () => {
     );
   });
 
-  it.each([10, 11])(
-    "confirms only above the threshold (%s devices)",
-    async (count) => {
-      mocks.devices = Array.from({ length: count }, (_, index) =>
-        device(String(index + 1)),
-      );
-      mount(
-        `/devices/commands/new?attribute=setpoint&value=23&ids=${mocks.devices.map((d) => d.id).join(",")}`,
-      );
-      await waitFor(() =>
-        expect(
-          screen.getByRole("button", { name: "Dispatch now" }),
-        ).toBeEnabled(),
-      );
-      await userEvent.click(
-        screen.getByRole("button", { name: "Dispatch now" }),
-      );
-      if (count === 11) {
-        const dialog = screen.getByRole("alertdialog");
-        expect(
-          within(dialog).getByText(
-            "Set Setpoint to 23 °C on 11 devices in the selection.",
-          ),
-        ).toBeVisible();
-        expect(mocks.dispatch).not.toHaveBeenCalled();
-        await userEvent.click(
-          within(dialog).getByRole("button", { name: "Dispatch now" }),
-        );
-      } else expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
-      await waitFor(() => expect(mocks.dispatch).toHaveBeenCalledTimes(1));
-    },
-  );
-
-  it("keeps vanished devices in the empty-batch rail", async () => {
-    mocks.dispatch.mockRejectedValue(
-      new GridoneError(422, "Target resolved to no devices"),
+  it.each([2, 10, 11])("uses the same review for %s devices", async (count) => {
+    mocks.devices = Array.from({ length: count }, (_, index) =>
+      device(String(index + 1)),
     );
+    mount(
+      `/devices/commands/new?attribute=setpoint&value=23&ids=${mocks.devices.map((d) => d.id).join(",")}`,
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Dispatch now" }),
+      ).toBeEnabled(),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Dispatch now" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(mocks.confirm).not.toHaveBeenCalled();
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: `Apply to ${count}` }),
+    );
+    await waitFor(() =>
+      expect(mocks.confirm).toHaveBeenCalledExactlyOnceWith({
+        token: "token",
+        device_ids: mocks.devices.map((d) => d.id),
+      }),
+    );
+    expect(mocks.dispatch).not.toHaveBeenCalled();
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+
+  it("keeps excluded targets visible and sends nothing when none are eligible", async () => {
+    mocks.preview.mockImplementation(async (request) => ({
+      ...request,
+      token: "token",
+      members: [previewMember("1", false), previewMember("2", false)],
+    }));
     mount("/devices/commands/new?attribute=setpoint&value=23&ids=1,2");
     await waitFor(() =>
       expect(
@@ -525,10 +534,12 @@ describe("grouped command page", () => {
       ).toBeEnabled(),
     );
     await userEvent.click(screen.getByRole("button", { name: "Dispatch now" }));
-    await waitFor(() =>
-      expect(screen.getAllByText("Device left the target")).toHaveLength(2),
-    );
-    expect(screen.getAllByText("Device 1").length).toBeGreaterThan(0);
+    const dialog = await screen.findByRole("dialog");
+    expect(
+      within(dialog).getByRole("button", { name: "Apply to 0" }),
+    ).toBeDisabled();
+    expect(within(dialog).getByText("Device 1")).toBeVisible();
+    expect(mocks.confirm).not.toHaveBeenCalled();
     expect(mocks.listCommands).not.toHaveBeenCalled();
   });
 
@@ -541,7 +552,9 @@ describe("grouped command page", () => {
       expect(screen.getByLabelText(/Value/)).toHaveAttribute("max", "25"),
     );
     await userEvent.click(screen.getByRole("button", { name: "Dispatch now" }));
-    await waitFor(() => expect(mocks.dispatch).toHaveBeenCalledTimes(1));
+    expect(mocks.confirm).not.toHaveBeenCalled();
+    await confirmReview();
+    await waitFor(() => expect(mocks.confirm).toHaveBeenCalledTimes(1));
   });
 
   it("keeps typing a value out of history and ignores old drafts and steps", async () => {
@@ -614,11 +627,12 @@ describe("grouped command page", () => {
           ? expect(mocks.preview).toHaveBeenCalledWith(
               expect.objectContaining({
                 target: {
+                  ids: ["1", "2"],
                   tags: { asset_id: ["building", "room", "empty-room"] },
                 },
               }),
             )
-          : expect(mocks.create).toHaveBeenCalledWith(
+          : expect(mocks.preview).toHaveBeenCalledWith(
               expect.objectContaining({ target: { ids: ["1"] } }),
             ),
       );
@@ -682,10 +696,21 @@ describe("grouped command page", () => {
       ),
     );
     await userEvent.click(screen.getByRole("button", { name: "Dispatch now" }));
-    await waitFor(() =>
-      expect(mocks.create).toHaveBeenLastCalledWith(
-        expect.objectContaining({ name: null }),
-      ),
+    await confirmReview();
+    expect(mocks.confirm).toHaveBeenCalledTimes(1);
+    expect(mocks.create).toHaveBeenCalledTimes(1);
+    expect(mocks.create).toHaveBeenLastCalledWith(
+      expect.objectContaining({ name: "Morning" }),
     );
   });
 });
+
+async function confirmReview() {
+  const dialog = await screen.findByRole("dialog");
+  await userEvent.click(
+    within(dialog).getByRole("button", { name: /^Apply to / }),
+  );
+  await userEvent.click(
+    await within(dialog).findByRole("button", { name: "Close results" }),
+  );
+}

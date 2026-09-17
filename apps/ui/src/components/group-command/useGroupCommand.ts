@@ -92,11 +92,7 @@ export function useGroupCommand(target: DevicesFilter) {
   );
 
   const prepareMany = useCallback(
-    async (
-      writes: GroupCommandWrite[],
-      filter?: DevicesFilter,
-      initialPreview?: SelectionCommandPreview,
-    ) => {
+    async (writes: GroupCommandWrite[], filter?: DevicesFilter) => {
       if (inFlight.current || !writes.length) return;
       inFlight.current = true;
       setBusy(true);
@@ -104,13 +100,7 @@ export function useGroupCommand(target: DevicesFilter) {
       const pending: GroupCommandPreparation[] = [
         ...new Map(writes.map((write) => [write.attribute, write])).values(),
       ].map((write) => {
-        const request = {
-          ...write,
-          target: filter ?? target,
-          ...(initialPreview?.device_ids
-            ? { device_ids: initialPreview.device_ids }
-            : {}),
-        };
+        const request = { ...write, target: filter ?? target };
         return (
           uncertainPreparations.current.get(preparationKey(request)) ?? {
             write,
@@ -132,9 +122,7 @@ export function useGroupCommand(target: DevicesFilter) {
           pending.map((item) =>
             item.uncertain
               ? Promise.resolve(item.preview!)
-              : initialPreview
-                ? Promise.resolve(initialPreview)
-                : client.devices.previewCommand(item.request),
+              : client.devices.previewCommand(item.request),
           ),
         );
         setPreparations(
@@ -343,12 +331,6 @@ export function useGroupCommand(target: DevicesFilter) {
     changed: preparations.some((item) => item.changed),
     prepare,
     prepareMany,
-    review: (preview: SelectionCommandPreview) =>
-      prepareMany(
-        [{ attribute: preview.attribute, value: preview.value }],
-        preview.target,
-        preview,
-      ),
     retryPreview,
     confirm,
     commands: results.flatMap(
