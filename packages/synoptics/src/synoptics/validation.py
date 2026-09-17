@@ -18,7 +18,7 @@ import contextlib
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
-from itertools import pairwise
+from itertools import combinations, pairwise
 
 from pydantic import BaseModel, ValidationError
 
@@ -153,6 +153,35 @@ def _collect_document(
     _check_pipe_references(document, polylines, errors)
     _check_inline_placements(document, registry, polylines, duplicates, errors)
     _check_flat_projection(document, errors)
+
+
+def overlaps(
+    document: SynopticDocument, registry: SymbolRegistry
+) -> dict[tuple[str, str], frozenset[Cell]]:
+    """Cells two runs share at one height outside a tee or a port cell, by pair
+    of pipe ids.
+
+    Not a violation: the format lets runs share cells (see the spec), but two
+    runs meeting at grade with no tee read as a junction on the drawing, so
+    the editor shows them and a plate keeps its own list empty. Runs that do
+    not validate are left out.
+    """
+    errors = _Errors()
+    duplicates = _check_unique_ids(document, errors)
+    ports = _check_symbols(document, registry, duplicates, errors)
+    runs = _check_pipes(document, ports, duplicates, errors)
+    meant = {cell for symbol in ports.values() for cell, _ in symbol.values()}
+    meant |= {
+        end.cell
+        for pipe in document.pipes
+        for end in (pipe.from_, pipe.to)
+        if isinstance(end, PipeEndpoint)
+    }
+    shared = {
+        (a, b): (runs[a].cells & runs[b].cells) - meant
+        for a, b in combinations(runs, 2)
+    }
+    return {pair: cells for pair, cells in shared.items() if cells}
 
 
 # ----------------------------------------------------------------------

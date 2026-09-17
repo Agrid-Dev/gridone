@@ -22,19 +22,14 @@ from synoptics.symbols import (
     Footprint,
     SymbolRegistry,
     SymbolType,
-    build_default_registry,
 )
 from synoptics.validation import (
     Violation,
     bound_slots,
+    overlaps,
     validate_document,
     validate_for_save,
 )
-
-
-@pytest.fixture
-def registry():
-    return build_default_registry()
 
 
 def check(raw, registry):
@@ -408,6 +403,44 @@ def test_pipes_may_share_cells(document, registry):
         }
     )
     assert check(document, registry) == []
+
+
+# ----------------------------------------------------------------------
+# Overlaps
+# ----------------------------------------------------------------------
+
+
+def crossing(z: int) -> dict:
+    """A run down x=4 through the base document's supply at (4, 1)."""
+    return {
+        "id": "riser",
+        "fluid": "dhw",
+        "from": {"kind": "cell", "cell": {"x": 4, "y": -2, "z": z}},
+        "to": {"kind": "cell", "cell": {"x": 4, "y": 4, "z": z}},
+    }
+
+
+def test_two_runs_meeting_at_grade_are_reported_as_an_overlap(document, registry):
+    """Not a violation, since the format lets runs share cells, but the pair
+    and the cell come back so the editor can show the junction the drawing
+    does not mean."""
+    document["pipes"].append(crossing(0))
+    assert check(document, registry) == []
+    found = overlaps(SynopticDocument.model_validate(document), registry)
+    assert found == {("supply", "riser"): frozenset({Cell(x=4, y=1)})}
+
+
+def test_a_run_crossing_overhead_or_at_a_tee_is_not_an_overlap(document, registry):
+    document["pipes"].append(crossing(1))
+    document["pipes"].append(
+        {
+            "id": "branch",
+            "fluid": "primary_supply",
+            "from": {"kind": "pipe", "pipe": "supply", "cell": {"x": 3, "y": 1}},
+            "to": {"kind": "cell", "cell": {"x": 3, "y": 5}},
+        }
+    )
+    assert overlaps(SynopticDocument.model_validate(document), registry) == {}
 
 
 # ----------------------------------------------------------------------

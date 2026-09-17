@@ -11,7 +11,6 @@ from synoptics.symbols import (
     SymbolRegistry,
     SymbolType,
     TankProps,
-    build_default_registry,
 )
 
 SPEC_TYPES = {
@@ -35,11 +34,6 @@ HYDRONIC_TYPES = {
     "energy_meter",
 }
 """The six the visual-language spec adds for the hydronic set."""
-
-
-@pytest.fixture
-def registry():
-    return build_default_registry()
 
 
 def test_the_default_registry_ships_the_types_the_first_plates_use(registry):
