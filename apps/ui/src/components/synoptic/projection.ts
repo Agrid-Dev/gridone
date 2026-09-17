@@ -13,6 +13,9 @@ const FLAT_CELL = 48;
 /** Height of the pipe axis inside a cell, in cells. */
 export const PIPE_AXIS_Z = 0.4;
 
+/** How a document with no `projection` is drawn. */
+export const DEFAULT_PROJECTION: Projection = "isometric";
+
 /** Screen position of a grid point. Fractional coordinates are allowed:
  *  `(x + 0.5, y + 0.5)` is a cell centre. Flat ignores `z`. */
 export function project(
