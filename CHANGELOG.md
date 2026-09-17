@@ -1,3 +1,21 @@
+## v0.247.0 (2026-09-17)
+
+### Feat
+
+- **drivers**: add declarative command validation
+
+### Fix
+
+- **api**: run the command preview on the event loop
+- **drivers**: reconcile command validation with what main refactored
+
+### Refactor
+
+- **ui**: evaluate presentation conditions locally
+- **devices-manager**: extract the write guard from CoreDevice
+- **devices-manager**: leave presentation evaluation to clients
+- **devices-manager**: name write rules and rejections after writes
+
 ## v0.246.0 (2026-09-16)
 
 ### Feat
