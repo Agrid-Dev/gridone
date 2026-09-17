@@ -45,19 +45,18 @@ def plate(ecs_est_raw):
     return SynopticDocument.model_validate(ecs_est_raw)
 
 
-async def test_the_plate_round_trips_through_postgres(service, plate, ecs_est_raw):
-    """The milestone's exit: the hand-written plate is stored in Postgres and
+async def test_every_plate_round_trips_through_postgres(service, plate_raw):
+    """The milestone's exit: each hand-written plate is stored in Postgres and
     served back unchanged."""
     svc, created = service
-    stored = await svc.create(plate)
+    document = SynopticDocument.model_validate(plate_raw)
+    stored = await svc.create(document)
     created.append(stored.id)
 
     read = await svc.get(stored.id)
     assert read.model_dump(
         mode="json", by_alias=True, exclude=ENVELOPE_FIELDS
-    ) == SynopticDocument.model_validate(ecs_est_raw).model_dump(
-        mode="json", by_alias=True
-    )
+    ) == document.model_dump(mode="json", by_alias=True)
 
 
 async def test_the_index_reads_the_envelope_out_of_the_document(service, plate):

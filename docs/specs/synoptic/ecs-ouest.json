@@ -1,0 +1,711 @@
+{
+  "version": 1,
+  "name": "Production ECS Ouest",
+  "description": "Hydraulique, production ECS Ouest : 2 PAC, collecteur départ, 9 ballons 500 L en 3 colonnes, départ ECS vers la distribution par la pompe de surpression et le mitigeur (eau froide adoucie), retour de bouclage vers le stockage par la pompe de bouclage et le réchauffeur de boucle, retour vers les PAC avec appoint eau froide. Températures départ / retour mitigeur non mesurées.",
+  "projection": "isometric",
+  "defaults": { "stale_after": 900 },
+  "symbols": [
+    {
+      "id": "pac-01",
+      "type": "heat_pump",
+      "placement": {
+        "kind": "cell",
+        "cell": { "x": 0, "y": 0 },
+        "rotation": 0
+      },
+      "label": "PAC 01",
+      "device_id": "4c7fe2de7065466e",
+      "props": {},
+      "bindings": {
+        "state": {
+          "kind": "attribute",
+          "target": {
+            "devices": { "ids": ["4c7fe2de7065466e"] },
+            "attribute": "onoff_state"
+          },
+          "labels": { "true": "MARCHE", "false": "ARRÊT" }
+        },
+        "fault": {
+          "kind": "attribute",
+          "target": {
+            "devices": { "ids": ["4c7fe2de7065466e"] },
+            "attribute": "fault"
+          },
+          "labels": { "true": "DÉFAUT", "false": "NORMAL" }
+        }
+      }
+    },
+    {
+      "id": "pac-02",
+      "type": "heat_pump",
+      "placement": {
+        "kind": "cell",
+        "cell": { "x": 0, "y": 4 },
+        "rotation": 0
+      },
+      "label": "PAC 02",
+      "device_id": "0218e040ec0d48dd",
+      "props": {},
+      "bindings": {
+        "state": {
+          "kind": "attribute",
+          "target": {
+            "devices": { "ids": ["0218e040ec0d48dd"] },
+            "attribute": "onoff_state"
+          },
+          "labels": { "true": "MARCHE", "false": "ARRÊT" }
+        },
+        "fault": {
+          "kind": "attribute",
+          "target": {
+            "devices": { "ids": ["0218e040ec0d48dd"] },
+            "attribute": "fault"
+          },
+          "labels": { "true": "DÉFAUT", "false": "NORMAL" }
+        }
+      }
+    },
+    {
+      "id": "v-01",
+      "type": "valve_isolation",
+      "placement": {
+        "kind": "pipe",
+        "pipe": "pac-01-supply",
+        "cell": { "x": 3, "y": 1 }
+      },
+      "label": "V-01",
+      "device_id": null,
+      "props": {},
+      "bindings": {}
+    },
+    {
+      "id": "v-02",
+      "type": "valve_isolation",
+      "placement": {
+        "kind": "pipe",
+        "pipe": "pac-02-supply",
+        "cell": { "x": 3, "y": 5 }
+      },
+      "label": "V-02",
+      "device_id": null,
+      "props": {},
+      "bindings": {}
+    },
+    {
+      "id": "collector-supply",
+      "type": "collector",
+      "placement": {
+        "kind": "cell",
+        "cell": { "x": 5, "y": -2 },
+        "rotation": 0
+      },
+      "label": "COLLECTEUR DÉPART PAC",
+      "device_id": null,
+      "props": {
+        "axis": "y",
+        "length": 9,
+        "ports": {
+          "out_2": { "offset": 1, "side": "+x" },
+          "out_1": { "offset": 2, "side": "+x" },
+          "in_1": { "offset": 3, "side": "-x" },
+          "in_2": { "offset": 7, "side": "-x" }
+        }
+      },
+      "bindings": {}
+    },
+    {
+      "id": "collector-return",
+      "type": "collector",
+      "placement": {
+        "kind": "cell",
+        "cell": { "x": 3, "y": 13 },
+        "rotation": 0
+      },
+      "label": "COLLECTEUR RETOUR PAC",
+      "device_id": null,
+      "props": {
+        "axis": "x",
+        "length": 16,
+        "ports": {
+          "out_1": { "offset": 0, "side": "-x" },
+          "in_1": { "offset": 6, "side": "-y" },
+          "in_2": { "offset": 10, "side": "-y" },
+          "in_3": { "offset": 14, "side": "-y" },
+          "in_4": { "offset": 15, "side": "+x" }
+        }
+      },
+      "bindings": {}
+    },
+    {
+      "id": "collector-dhw",
+      "type": "collector",
+      "placement": {
+        "kind": "cell",
+        "cell": { "x": 11, "y": -3 },
+        "rotation": 0
+      },
+      "label": "COLLECTEUR ECS",
+      "device_id": null,
+      "props": {
+        "axis": "x",
+        "length": 11,
+        "ports": {
+          "in_1": { "offset": 0, "side": "+y" },
+          "in_2": { "offset": 4, "side": "+y" },
+          "in_3": { "offset": 8, "side": "+y" },
+          "out_1": { "offset": 10, "side": "+x" }
+        }
+      },
+      "bindings": {}
+    },
+    {
+      "id": "b01",
+      "type": "tank",
+      "placement": {
+        "kind": "cell",
+        "cell": { "x": 10, "y": 0 },
+        "rotation": 0
+      },
+      "label": null,
+      "device_id": null,
+      "props": { "capacity": "500 L" },
+      "bindings": {}
+    },
+    {
+      "id": "b02",
+      "type": "tank",
+      "placement": {
+        "kind": "cell",
+        "cell": { "x": 14, "y": 0 },
+        "rotation": 0
+      },
+      "label": null,
+      "device_id": null,
+      "props": { "capacity": "500 L" },
+      "bindings": {}
+    },
+    {
+      "id": "b03",
+      "type": "tank",
+      "placement": {
+        "kind": "cell",
+        "cell": { "x": 18, "y": 0 },
+        "rotation": 0
+      },
+      "label": null,
+      "device_id": null,
+      "props": { "capacity": "500 L" },
+      "bindings": {}
+    },
+    {
+      "id": "b04",
+      "type": "tank",
+      "placement": {
+        "kind": "cell",
+        "cell": { "x": 10, "y": 4 },
+        "rotation": 0
+      },
+      "label": null,
+      "device_id": null,
+      "props": { "capacity": "500 L" },
+      "bindings": {}
+    },
+    {
+      "id": "b05",
+      "type": "tank",
+      "placement": {
+        "kind": "cell",
+        "cell": { "x": 14, "y": 4 },
+        "rotation": 0
+      },
+      "label": null,
+      "device_id": null,
+      "props": { "capacity": "500 L" },
+      "bindings": {}
+    },
+    {
+      "id": "b06",
+      "type": "tank",
+      "placement": {
+        "kind": "cell",
+        "cell": { "x": 18, "y": 4 },
+        "rotation": 0
+      },
+      "label": null,
+      "device_id": null,
+      "props": { "capacity": "500 L" },
+      "bindings": {}
+    },
+    {
+      "id": "b07",
+      "type": "tank",
+      "placement": {
+        "kind": "cell",
+        "cell": { "x": 10, "y": 8 },
+        "rotation": 0
+      },
+      "label": null,
+      "device_id": null,
+      "props": { "capacity": "500 L" },
+      "bindings": {}
+    },
+    {
+      "id": "b08",
+      "type": "tank",
+      "placement": {
+        "kind": "cell",
+        "cell": { "x": 14, "y": 8 },
+        "rotation": 0
+      },
+      "label": null,
+      "device_id": null,
+      "props": { "capacity": "500 L" },
+      "bindings": {}
+    },
+    {
+      "id": "b09",
+      "type": "tank",
+      "placement": {
+        "kind": "cell",
+        "cell": { "x": 18, "y": 8 },
+        "rotation": 0
+      },
+      "label": null,
+      "device_id": null,
+      "props": { "capacity": "500 L" },
+      "bindings": {}
+    },
+    {
+      "id": "mitigeur",
+      "type": "mixing_valve",
+      "placement": {
+        "kind": "cell",
+        "cell": { "x": 26, "y": -3 },
+        "rotation": 0
+      },
+      "label": "MITIGEUR",
+      "device_id": null,
+      "props": {},
+      "bindings": {}
+    },
+    {
+      "id": "pompe-surpression",
+      "type": "pump",
+      "placement": {
+        "kind": "pipe",
+        "pipe": "dhw-departure",
+        "cell": { "x": 23, "y": -3 }
+      },
+      "label": "POMPE DE SURPRESSION",
+      "device_id": null,
+      "props": {},
+      "bindings": {}
+    },
+    {
+      "id": "pompe-bouclage",
+      "type": "pump",
+      "placement": {
+        "kind": "pipe",
+        "pipe": "dhw-loop-return",
+        "cell": { "x": 28, "y": 0 }
+      },
+      "label": "POMPE DE BOUCLAGE",
+      "device_id": null,
+      "props": {},
+      "bindings": { "state": { "kind": "text", "text": "non identifiée" } }
+    },
+    {
+      "id": "rechauffeur-boucle",
+      "type": "loop_heater",
+      "placement": {
+        "kind": "pipe",
+        "pipe": "dhw-loop-return",
+        "cell": { "x": 22, "y": 1 }
+      },
+      "label": "RÉCHAUFFEUR DE BOUCLE",
+      "device_id": null,
+      "props": {},
+      "bindings": {
+        "state": { "kind": "text", "text": "non identifiée" },
+        "fault": { "kind": "text", "text": "non identifiée" }
+      }
+    },
+    {
+      "id": "link-distribution",
+      "type": "link",
+      "placement": {
+        "kind": "cell",
+        "cell": { "x": 32, "y": -3 },
+        "rotation": 0
+      },
+      "label": "DISTRIBUTION ECS",
+      "device_id": null,
+      "props": { "synoptic_id": null, "caption": null },
+      "bindings": {}
+    },
+    {
+      "id": "link-efa",
+      "type": "link",
+      "placement": {
+        "kind": "cell",
+        "cell": { "x": 25, "y": -1 },
+        "rotation": 1
+      },
+      "label": "EAU FROIDE ADOUCIE",
+      "device_id": null,
+      "props": { "synoptic_id": null, "caption": null },
+      "bindings": {}
+    },
+    {
+      "id": "link-cold-water",
+      "type": "link",
+      "placement": {
+        "kind": "cell",
+        "cell": { "x": 32, "y": 9 },
+        "rotation": 0
+      },
+      "label": "EAU FROIDE",
+      "device_id": null,
+      "props": { "synoptic_id": null, "caption": "appoint réseau" },
+      "bindings": {}
+    }
+  ],
+  "pipes": [
+    {
+      "id": "pac-01-supply",
+      "fluid": "primary_supply",
+      "from": { "kind": "port", "symbol": "pac-01", "port": "supply" },
+      "to": { "kind": "port", "symbol": "collector-supply", "port": "in_1" },
+      "waypoints": [],
+      "flow": {
+        "kind": "attribute",
+        "target": {
+          "devices": { "ids": ["4c7fe2de7065466e"] },
+          "attribute": "onoff_state"
+        }
+      },
+      "tags": []
+    },
+    {
+      "id": "pac-02-supply",
+      "fluid": "primary_supply",
+      "from": { "kind": "port", "symbol": "pac-02", "port": "supply" },
+      "to": { "kind": "port", "symbol": "collector-supply", "port": "in_2" },
+      "waypoints": [],
+      "flow": {
+        "kind": "attribute",
+        "target": {
+          "devices": { "ids": ["0218e040ec0d48dd"] },
+          "attribute": "onoff_state"
+        }
+      },
+      "tags": []
+    },
+    {
+      "id": "feed-col-1",
+      "fluid": "primary_supply",
+      "from": { "kind": "port", "symbol": "collector-supply", "port": "out_1" },
+      "to": { "kind": "port", "symbol": "b01", "port": "primary_in" },
+      "waypoints": [],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "feed-col-2",
+      "fluid": "primary_supply",
+      "from": { "kind": "port", "symbol": "collector-supply", "port": "out_2" },
+      "to": { "kind": "port", "symbol": "b02", "port": "primary_in" },
+      "waypoints": [
+        { "x": 6, "y": -1 },
+        { "x": 6, "y": -1, "z": 1 },
+        { "x": 13, "y": -1, "z": 1 },
+        { "x": 13, "y": -1 },
+        { "x": 13, "y": 0 }
+      ],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "feed-col-3",
+      "fluid": "primary_supply",
+      "from": {
+        "kind": "pipe",
+        "pipe": "feed-col-2",
+        "cell": { "x": 13, "y": -1, "z": 1 }
+      },
+      "to": { "kind": "port", "symbol": "b03", "port": "primary_in" },
+      "waypoints": [
+        { "x": 17, "y": -1, "z": 1 },
+        { "x": 17, "y": -1 },
+        { "x": 17, "y": 0 }
+      ],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "b01-b04",
+      "fluid": "primary_supply",
+      "from": { "kind": "port", "symbol": "b01", "port": "primary_out" },
+      "to": { "kind": "port", "symbol": "b04", "port": "primary_in" },
+      "waypoints": [
+        { "x": 9, "y": 1 },
+        { "x": 9, "y": 4 }
+      ],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "b04-b07",
+      "fluid": "primary_supply",
+      "from": { "kind": "port", "symbol": "b04", "port": "primary_out" },
+      "to": { "kind": "port", "symbol": "b07", "port": "primary_in" },
+      "waypoints": [
+        { "x": 9, "y": 5 },
+        { "x": 9, "y": 8 }
+      ],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "b02-b05",
+      "fluid": "primary_supply",
+      "from": { "kind": "port", "symbol": "b02", "port": "primary_out" },
+      "to": { "kind": "port", "symbol": "b05", "port": "primary_in" },
+      "waypoints": [
+        { "x": 13, "y": 1 },
+        { "x": 13, "y": 4 }
+      ],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "b05-b08",
+      "fluid": "primary_supply",
+      "from": { "kind": "port", "symbol": "b05", "port": "primary_out" },
+      "to": { "kind": "port", "symbol": "b08", "port": "primary_in" },
+      "waypoints": [
+        { "x": 13, "y": 5 },
+        { "x": 13, "y": 8 }
+      ],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "b03-b06",
+      "fluid": "primary_supply",
+      "from": { "kind": "port", "symbol": "b03", "port": "primary_out" },
+      "to": { "kind": "port", "symbol": "b06", "port": "primary_in" },
+      "waypoints": [
+        { "x": 17, "y": 1 },
+        { "x": 17, "y": 4 }
+      ],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "b06-b09",
+      "fluid": "primary_supply",
+      "from": { "kind": "port", "symbol": "b06", "port": "primary_out" },
+      "to": { "kind": "port", "symbol": "b09", "port": "primary_in" },
+      "waypoints": [
+        { "x": 17, "y": 5 },
+        { "x": 17, "y": 8 }
+      ],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "col-1-return",
+      "fluid": "primary_return",
+      "from": { "kind": "port", "symbol": "b07", "port": "primary_out" },
+      "to": { "kind": "port", "symbol": "collector-return", "port": "in_1" },
+      "waypoints": [{ "x": 9, "y": 9 }],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "col-2-return",
+      "fluid": "primary_return",
+      "from": { "kind": "port", "symbol": "b08", "port": "primary_out" },
+      "to": { "kind": "port", "symbol": "collector-return", "port": "in_2" },
+      "waypoints": [{ "x": 13, "y": 9 }],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "col-3-return",
+      "fluid": "primary_return",
+      "from": { "kind": "port", "symbol": "b09", "port": "primary_out" },
+      "to": { "kind": "port", "symbol": "collector-return", "port": "in_3" },
+      "waypoints": [{ "x": 17, "y": 9 }],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "return-loop",
+      "fluid": "primary_return",
+      "from": { "kind": "port", "symbol": "collector-return", "port": "out_1" },
+      "to": { "kind": "port", "symbol": "pac-01", "port": "return" },
+      "waypoints": [
+        { "x": -1, "y": 13 },
+        { "x": -1, "y": 1 }
+      ],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "return-pac-02",
+      "fluid": "primary_return",
+      "from": {
+        "kind": "pipe",
+        "pipe": "return-loop",
+        "cell": { "x": -1, "y": 5 }
+      },
+      "to": { "kind": "port", "symbol": "pac-02", "port": "return" },
+      "waypoints": [],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "col-1-dhw-out",
+      "fluid": "dhw",
+      "from": { "kind": "port", "symbol": "b01", "port": "dhw_out" },
+      "to": { "kind": "port", "symbol": "collector-dhw", "port": "in_1" },
+      "waypoints": [{ "x": 11, "y": 0 }],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "col-2-dhw-out",
+      "fluid": "dhw",
+      "from": { "kind": "port", "symbol": "b02", "port": "dhw_out" },
+      "to": { "kind": "port", "symbol": "collector-dhw", "port": "in_2" },
+      "waypoints": [{ "x": 15, "y": 0 }],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "col-3-dhw-out",
+      "fluid": "dhw",
+      "from": { "kind": "port", "symbol": "b03", "port": "dhw_out" },
+      "to": { "kind": "port", "symbol": "collector-dhw", "port": "in_3" },
+      "waypoints": [{ "x": 19, "y": 0 }],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "dhw-departure",
+      "fluid": "dhw",
+      "from": { "kind": "port", "symbol": "collector-dhw", "port": "out_1" },
+      "to": { "kind": "port", "symbol": "mitigeur", "port": "hot_in" },
+      "waypoints": [],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "dhw-supply",
+      "fluid": "dhw",
+      "from": { "kind": "port", "symbol": "mitigeur", "port": "out" },
+      "to": { "kind": "port", "symbol": "link-distribution", "port": "in" },
+      "waypoints": [],
+      "flow": null,
+      "tags": [
+        {
+          "id": "tt-depart",
+          "at": { "x": 31, "y": -3 },
+          "label": "DÉPART",
+          "value": { "kind": "text", "text": "non mesurée" }
+        }
+      ]
+    },
+    {
+      "id": "dhw-loop-return",
+      "fluid": "dhw_loop",
+      "from": { "kind": "port", "symbol": "link-distribution", "port": "out" },
+      "to": { "kind": "port", "symbol": "b03", "port": "dhw_in" },
+      "waypoints": [
+        { "x": 28, "y": -2 },
+        { "x": 28, "y": 1 },
+        { "x": 19, "y": 1 }
+      ],
+      "flow": null,
+      "tags": [
+        {
+          "id": "tt-retour",
+          "at": { "x": 29, "y": -2 },
+          "label": "RETOUR",
+          "value": { "kind": "text", "text": "non mesurée" }
+        }
+      ]
+    },
+    {
+      "id": "efa-mitigeur",
+      "fluid": "cold_water",
+      "from": { "kind": "port", "symbol": "link-efa", "port": "out" },
+      "to": { "kind": "port", "symbol": "mitigeur", "port": "cold_in" },
+      "waypoints": [
+        { "x": 24, "y": -2 },
+        { "x": 26, "y": -2 }
+      ],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "cold-main",
+      "fluid": "cold_water",
+      "from": { "kind": "port", "symbol": "link-cold-water", "port": "out" },
+      "to": { "kind": "port", "symbol": "collector-return", "port": "in_4" },
+      "waypoints": [
+        { "x": 31, "y": 10 },
+        { "x": 31, "y": 13 }
+      ],
+      "flow": null,
+      "tags": []
+    }
+  ],
+  "labels": [
+    {
+      "id": "title",
+      "at": { "x": -1, "y": -6 },
+      "text": "PRODUCTION ECS OUEST",
+      "role": "title",
+      "value": null
+    },
+    {
+      "id": "zone-production",
+      "at": { "x": 0, "y": -3.5 },
+      "text": "PRODUCTION",
+      "role": "caption",
+      "value": null
+    },
+    {
+      "id": "zone-storage",
+      "at": { "x": 20, "y": 10.5 },
+      "text": "STOCKAGE · 9 × 500 L",
+      "role": "caption",
+      "value": null
+    },
+    {
+      "id": "cpt-ballon-ouest",
+      "at": { "x": 20, "y": 11.5 },
+      "text": "COMPTEUR ÉLEC. BALLON OUEST",
+      "role": "caption",
+      "value": {
+        "kind": "attribute",
+        "target": {
+          "devices": { "ids": ["85c1860c02504d3d"] },
+          "attribute": "energy"
+        },
+        "unit": "Wh",
+        "decimals": 0
+      }
+    },
+    {
+      "id": "zone-distribution",
+      "at": { "x": 29, "y": -6 },
+      "text": "DISTRIBUTION",
+      "role": "caption",
+      "value": null
+    }
+  ]
+}

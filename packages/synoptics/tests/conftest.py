@@ -1,10 +1,8 @@
-"""The committed plate and a resolver that accepts it, shared by the unit and
-integration suites."""
-
-import json
-from pathlib import Path
+"""The committed plates and a resolver that accepts them, shared by the unit
+and integration suites."""
 
 import pytest
+from plates import PLATE_NAMES, read
 
 from models.targets import (
     AttributeCoverage,
@@ -15,18 +13,26 @@ from models.targets import (
 from models.types import DataType
 from synoptics.symbols import SymbolRegistry, build_default_registry
 
-PLATE_PATH = Path(__file__).parents[3] / "docs" / "specs" / "synoptic" / "ecs-est.json"
-
 
 @pytest.fixture
 def registry() -> SymbolRegistry:
     return build_default_registry()
 
 
+@pytest.fixture(params=PLATE_NAMES)
+def plate_raw(request: pytest.FixtureRequest) -> dict:
+    """Each committed plate in turn."""
+    return read(request.param)
+
+
 @pytest.fixture
 def ecs_est_raw() -> dict:
-    """The plate as committed, straight off disk."""
-    return json.loads(PLATE_PATH.read_text(encoding="utf-8"))
+    return read("ecs-est")
+
+
+@pytest.fixture
+def ecs_ouest_raw() -> dict:
+    return read("ecs-ouest")
 
 
 BOOL_SUFFIXES = ("_state", "fault")

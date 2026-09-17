@@ -7,7 +7,7 @@ on:
       - "apps/ui/**"
       - "sdk/ts/**"
       - "packages/devices_manager/tests/unit/core/presentation/fixtures/**"
-      - "docs/specs/synoptic/ecs-est.json"
+      - "docs/specs/synoptic/*.json"
       - ".github/workflows/ui-ci.yaml"
   workflow_dispatch:
 
