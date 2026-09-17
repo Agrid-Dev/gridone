@@ -1,3 +1,9 @@
+## v0.248.0 (2026-09-17)
+
+### Feat
+
+- **synoptics**: bind the first plate to the live installation (#661)
+
 ## v0.247.0 (2026-09-17)
 
 ### Feat
