@@ -24,6 +24,7 @@ import type { Scalar } from "../conditions";
  */
 
 export type WriteOutcome =
+  | { kind: "cancelled" }
   | { kind: "ok" }
   | { kind: "error"; message: string }
   | { kind: "unconfirmed"; message: string };
@@ -35,6 +36,7 @@ export type WriteState =
   | { kind: "error" | "unconfirmed"; requested: Scalar; message: string };
 
 export type ControlSnapshot = {
+  preparing?: boolean;
   /** Last value reported by the device (null when unknown). */
   reported: Scalar | null;
   /** What the representations show: the newest intention, else reported. */
@@ -49,11 +51,19 @@ export type AttributeWriter = (
   value: Scalar,
 ) => Promise<WriteOutcome>;
 
+export type AttributePreparer = (
+  attribute: string,
+  value: Scalar,
+  signal: AbortSignal,
+) => Promise<AttributeWriter | WriteOutcome>;
+
 export const DEFAULT_DEBOUNCE_MS = 600;
 
 type Intent = { value: Scalar; seq: number };
 
 type AttributeState = {
+  preparing: Intent | null;
+  abort: AbortController | null;
   pending: Intent | null;
   timer: ReturnType<typeof setTimeout> | null;
   inFlight: Intent | null;
@@ -74,12 +84,16 @@ export class ControlRuntime {
   constructor(
     private readonly writer: AttributeWriter,
     private readonly debounceMs = DEFAULT_DEBOUNCE_MS,
+    private readonly prepare?: AttributePreparer,
   ) {}
 
   /** Includes writes already sent, even if their control disappeared on reload. */
   get busy(): boolean {
     return [...this.states.values()].some(
-      (state) => state.pending !== null || state.inFlight !== null,
+      (state) =>
+        state.pending !== null ||
+        state.inFlight !== null ||
+        state.preparing !== null,
     );
   }
 
@@ -94,12 +108,14 @@ export class ControlRuntime {
   snapshot(attribute: string): ControlSnapshot {
     const reported = this.reported.get(attribute) ?? null;
     const state = this.states.get(attribute);
-    const intent = state?.pending ?? state?.inFlight ?? null;
+    const intent =
+      state?.pending ?? state?.preparing ?? state?.inFlight ?? null;
     return {
       reported,
       displayed: intent ? intent.value : reported,
       write: state?.write ?? IDLE,
       pending: state?.pending != null,
+      ...(state?.preparing ? { preparing: true } : {}),
     };
   }
 
@@ -115,6 +131,7 @@ export class ControlRuntime {
   ): void {
     if (this.detached) return;
     const state = this.state(attribute);
+    if (state.preparing) return;
     this.seq += 1;
     state.pending = { value, seq: this.seq };
     if (state.timer) clearTimeout(state.timer);
@@ -147,13 +164,23 @@ export class ControlRuntime {
       if (state.timer) clearTimeout(state.timer);
       state.timer = null;
       state.pending = null;
+      state.abort?.abort();
+      state.abort = null;
+      state.preparing = null;
     }
   }
 
   private state(attribute: string): AttributeState {
     let state = this.states.get(attribute);
     if (!state) {
-      state = { pending: null, timer: null, inFlight: null, write: IDLE };
+      state = {
+        pending: null,
+        timer: null,
+        inFlight: null,
+        preparing: null,
+        abort: null,
+        write: IDLE,
+      };
       this.states.set(attribute, state);
     }
     return state;
@@ -162,13 +189,57 @@ export class ControlRuntime {
   /** Send the pending intention unless a write is already in flight. */
   private flush(attribute: string): void {
     const state = this.state(attribute);
-    if (state.inFlight || !state.pending) return;
+    if (state.inFlight || state.preparing || !state.pending) return;
     const intent = state.pending;
     state.pending = null;
+    if (this.prepare) {
+      state.preparing = intent;
+      const abort = new AbortController();
+      state.abort = abort;
+      this.notify();
+      void this.prepare(attribute, intent.value, abort.signal)
+        .catch(
+          (error: unknown): WriteOutcome => ({
+            kind: "error",
+            message: error instanceof Error ? error.message : String(error),
+          }),
+        )
+        .then((prepared) => {
+          if (
+            this.detached ||
+            abort.signal.aborted ||
+            state.preparing?.seq !== intent.seq
+          )
+            return;
+          state.preparing = null;
+          state.abort = null;
+          if (typeof prepared === "function")
+            this.send(attribute, intent, prepared);
+          else {
+            state.write =
+              prepared.kind === "cancelled"
+                ? IDLE
+                : prepared.kind === "ok"
+                  ? { kind: "confirmed", requested: intent.value }
+                  : { ...prepared, requested: intent.value };
+            this.notify();
+          }
+        });
+      return;
+    }
+    this.send(attribute, intent, this.writer);
+  }
+
+  private send(
+    attribute: string,
+    intent: Intent,
+    writer: AttributeWriter,
+  ): void {
+    const state = this.state(attribute);
     state.inFlight = intent;
     state.write = { kind: "sending", requested: intent.value };
     this.notify();
-    void this.writer(attribute, intent.value)
+    void writer(attribute, intent.value)
       .then(
         (outcome) => outcome,
         (error: unknown): WriteOutcome => ({
@@ -191,13 +262,15 @@ export class ControlRuntime {
       return;
     }
     state.write =
-      outcome.kind === "ok"
-        ? { kind: "confirmed", requested: intent.value }
-        : {
-            kind: outcome.kind,
-            requested: intent.value,
-            message: outcome.message,
-          };
+      outcome.kind === "cancelled"
+        ? IDLE
+        : outcome.kind === "ok"
+          ? { kind: "confirmed", requested: intent.value }
+          : {
+              kind: outcome.kind,
+              requested: intent.value,
+              message: outcome.message,
+            };
     this.notify();
   }
 

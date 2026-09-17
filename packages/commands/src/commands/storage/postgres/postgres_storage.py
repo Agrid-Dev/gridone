@@ -10,6 +10,7 @@ from commands.models import (
     UnitCommand,
 )
 from commands.storage.postgres.deserialize import deserialize_command_value
+from models.command_confirmation import UIConfirmationContext
 from models.errors import NotFoundError
 from models.targets import DevicesFilter
 from models.types import DataType, SortOrder
@@ -31,6 +32,7 @@ def _write_to_jsonb(write: AttributeWrite) -> dict[str, Any]:
         "attribute": write.attribute,
         "value": write.value,
         "data_type": write.data_type.value,
+        **({"value_redacted": True} if write.value_redacted else {}),
     }
 
 
@@ -39,6 +41,7 @@ def _write_from_jsonb(raw: dict[str, Any]) -> AttributeWrite:
         attribute=raw["attribute"],
         value=raw["value"],
         data_type=DataType(raw["data_type"]),
+        value_redacted=raw.get("value_redacted", False),
     )
 
 
@@ -65,6 +68,10 @@ class PostgresCommandsStorage:
             created_at=row["created_at"],
             executed_at=row["executed_at"],
             completed_at=row["completed_at"],
+            ui_confirmation=UIConfirmationContext.model_validate(row["ui_confirmation"])
+            if row.get("ui_confirmation")
+            else None,
+            value_redacted=row.get("value_redacted", False),
             validation=WriteEvaluation.model_validate(row["validation"])
             if row.get("validation")
             else None,
@@ -76,8 +83,10 @@ class PostgresCommandsStorage:
             INSERT INTO unit_commands
                 (batch_id, template_id, device_id, attribute, value, data_type,
                  status, status_details, user_id, created_at,
-                 executed_at, completed_at, validation, requested_value)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                 executed_at, completed_at, validation, requested_value,
+                 ui_confirmation, value_redacted)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
+                    $13, $14, $15, $16)
             RETURNING *
             """,
             command.batch_id,
@@ -94,6 +103,10 @@ class PostgresCommandsStorage:
             command.completed_at,
             command.validation.model_dump(mode="json") if command.validation else None,
             command.value,
+            command.ui_confirmation.model_dump(mode="json")
+            if command.ui_confirmation
+            else None,
+            command.value_redacted,
         )
         return self._row_to_command(row)
 
@@ -108,8 +121,10 @@ class PostgresCommandsStorage:
                     INSERT INTO unit_commands
                         (batch_id, template_id, device_id, attribute, value, data_type,
                          status, status_details, user_id, created_at,
-                         executed_at, completed_at, validation, requested_value)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                         executed_at, completed_at, validation, requested_value,
+                         ui_confirmation, value_redacted)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
+                            $13, $14, $15, $16)
                     RETURNING *
                     """,
                     cmd.batch_id,
@@ -126,24 +141,30 @@ class PostgresCommandsStorage:
                     cmd.completed_at,
                     cmd.validation.model_dump(mode="json") if cmd.validation else None,
                     cmd.value,
+                    cmd.ui_confirmation.model_dump(mode="json")
+                    if cmd.ui_confirmation
+                    else None,
+                    cmd.value_redacted,
                 )
                 result.append(self._row_to_command(row))
         return result
 
-    async def update_command_status(
+    async def update_command_status(  # noqa: PLR0913
         self,
         command_id: int,
         status: CommandStatus,
         *,
         status_details: str | None = None,
         completed_at: datetime | None = None,
+        executed_at: datetime | None = None,
         validation: WriteEvaluation | None = None,
     ) -> UnitCommand:
         row = await self._pool.fetchrow(
             """
             UPDATE unit_commands
             SET status = $1, status_details = $2, completed_at = $3,
-                validation = COALESCE($5, validation)
+                validation = COALESCE($5, validation),
+                executed_at = COALESCE($6, executed_at)
             WHERE id = $4
             RETURNING *
             """,
@@ -152,6 +173,7 @@ class PostgresCommandsStorage:
             completed_at,
             command_id,
             validation.model_dump(mode="json") if validation else None,
+            executed_at,
         )
         if row is None:
             msg = f"Command {command_id} not found"

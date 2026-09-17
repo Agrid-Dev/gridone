@@ -6,6 +6,7 @@ from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict
 
+from models.command_confirmation import UIConfirmationContext  # noqa: TC001
 from models.targets import DevicesFilter  # noqa: TC001
 from models.types import AttributeValueType, DataType  # noqa: TC001
 from models.write_rules import WriteEvaluation  # noqa: TC001 -- schema runtime
@@ -33,6 +34,7 @@ class AttributeWrite:
     attribute: str
     value: AttributeValueType
     data_type: DataType
+    value_redacted: bool = field(default=False, kw_only=True)
 
 
 @dataclass
@@ -87,6 +89,8 @@ class UnitCommandCreate:
     executed_at: datetime | None
     completed_at: datetime | None
     validation: WriteEvaluation | None = field(default=None, kw_only=True)
+    ui_confirmation: UIConfirmationContext | None = field(default=None, kw_only=True)
+    value_redacted: bool = field(default=False, kw_only=True)
 
 
 @dataclass

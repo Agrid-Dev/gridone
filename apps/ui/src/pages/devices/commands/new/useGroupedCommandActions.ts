@@ -1,4 +1,7 @@
-import { useState, type BaseSyntheticEvent } from "react";
+import { useGroupCommand } from "@/components/group-command/useGroupCommand";
+import { useGridoneClient } from "@/contexts/GridoneClientContext";
+import { serverErrorMessage } from "@/lib/serverErrorMessage";
+import { useRef, useState, type BaseSyntheticEvent } from "react";
 import { useForm, type UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslation } from "react-i18next";
@@ -23,6 +26,7 @@ export type PendingCommand = {
 
 export type GroupedCommandActions = {
   /** The dispatched command, kept while its batch is tracked. */
+  groupCommand: ReturnType<typeof useGroupCommand>;
   snapshot: DispatchSnapshot | undefined;
   commandsByDevice: Map<string, UnitCommand>;
   /** Commands the server created for devices that were not in the preview. */
@@ -46,8 +50,12 @@ export type GroupedCommandActions = {
 export function useGroupedCommandActions(
   command: PendingCommand | undefined,
 ): GroupedCommandActions {
-  const { t } = useTranslation("devices");
+  const { t } = useTranslation(["devices", "common"]);
   const dispatch = useGroupedDispatch();
+  const client = useGridoneClient();
+  const groupCommand = useGroupCommand(command?.payload.target ?? {});
+  const [preparing, setPreparing] = useState(false);
+  const preparingRef = useRef(false);
   const [confirmation, setConfirmation] = useState<PendingCommand>();
   const [saveOpen, setSaveOpen] = useState(false);
   const nameForm = useForm({
@@ -55,11 +63,12 @@ export function useGroupedCommandActions(
     defaultValues: { name: "" },
   });
   return {
+    groupCommand,
     snapshot: dispatch.snapshot,
     commandsByDevice: dispatch.commandsByDevice,
     addedCommands: dispatch.addedCommands,
     trackingError: dispatch.trackingError,
-    isDispatching: dispatch.isDispatching,
+    isDispatching: dispatch.isDispatching || preparing || groupCommand.busy,
     isSaving: dispatch.isSaving,
     saveError: dispatch.saveError,
     clear: dispatch.clear,
@@ -67,11 +76,32 @@ export function useGroupedCommandActions(
     saveOpen,
     setSaveOpen,
     nameForm,
-    requestDispatch: () => {
-      if (!command || dispatch.isDispatching) return;
-      if (command.devices.length > GROUPED_COMMAND_CONFIRMATION_THRESHOLD)
-        setConfirmation(command);
-      else void dispatch.dispatch(command.payload, command.devices);
+    requestDispatch: async () => {
+      if (!command || dispatch.isDispatching || preparingRef.current) return;
+      preparingRef.current = true;
+      setPreparing(true);
+      try {
+        const preview = await client.devices.previewCommand({
+          target: command.payload.target,
+          attribute: command.payload.write.attribute,
+          value: command.payload.write.value,
+          device_ids: command.devices.map((device) => device.id),
+        });
+        if (preview.members.some((row) => row.user_confirmation)) {
+          await groupCommand.review(preview);
+        } else if (
+          command.devices.length > GROUPED_COMMAND_CONFIRMATION_THRESHOLD
+        ) {
+          setConfirmation(command);
+        } else {
+          await dispatch.dispatch(command.payload, command.devices);
+        }
+      } catch (error) {
+        toast.error(serverErrorMessage(error) ?? t("common:errors.default"));
+      } finally {
+        preparingRef.current = false;
+        setPreparing(false);
+      }
     },
     cancelConfirmation: () => setConfirmation(undefined),
     confirmDispatch: () => {

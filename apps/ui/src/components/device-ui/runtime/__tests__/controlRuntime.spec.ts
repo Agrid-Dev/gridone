@@ -131,7 +131,7 @@ describe("ControlRuntime", () => {
         write: {
           kind,
           requested: 40,
-          message: outcome.kind === "ok" ? "" : outcome.message,
+          message: "message" in outcome ? outcome.message : "",
         },
       });
       await vi.advanceTimersByTimeAsync(5000);

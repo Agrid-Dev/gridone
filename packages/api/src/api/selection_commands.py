@@ -13,6 +13,8 @@ from commands import AttributeWrite, CommandsServiceInterface
 from devices_manager import DevicesServiceInterface
 from devices_manager.core.driver import LocalizedText
 from devices_manager.core.write_preview import DeviceWritePreview
+from models.attribute_metadata import LanguageTag
+from models.command_confirmation import UIConfirmationContext
 from models.errors import InvalidError, NotFoundError
 from models.ids import gen_id
 from models.resource_conflict import ResourceConflictCode, ResourceConflictError
@@ -42,6 +44,7 @@ class SelectionCommandConfirm(BaseModel):
     model_config = ConfigDict(extra="forbid")
     token: str
     device_ids: list[str] = Field(min_length=1)
+    confirmation_language: LanguageTag | None = None
 
 
 @dataclass
@@ -133,6 +136,8 @@ class SelectionCommands:
                     "write_rules",
                     "write_options",
                     "value_mapping",
+                    "user_confirmation",
+                    "sensitive",
                 },
             )
             if contract
@@ -197,11 +202,79 @@ class SelectionCommands:
                 ),
                 user_id=user_id,
                 confirm=True,
+                **(
+                    {
+                        "ui_confirmations": self._confirmation_contexts(
+                            item, selected, body.confirmation_language
+                        )
+                    }
+                    if body.confirmation_language is not None
+                    else {}
+                ),
             )
             item.response = BatchDispatchResponse(
                 batch_id=dispatch.batch_id, commands=dispatch.commands
             )
             return item.response
+
+    @staticmethod
+    def _confirmation_contexts(
+        item: _Preparation, selected: list[str], language: str
+    ) -> dict[str, UIConfirmationContext]:
+        return {
+            row.device_id: UIConfirmationContext(
+                message=row.user_confirmation.resolve(language),
+                language=language,
+                previous_value=row.current_value,
+                previous_value_known=row.current_value_known,
+                value_redacted=row.sensitive,
+            )
+            for row in item.preview.members
+            if row.device_id in selected and row.user_confirmation is not None
+        }
+
+    def consume_unit_confirmation(
+        self,
+        token: str,
+        user_id: str,
+        device_id: str,
+        attribute: str,
+        value: AttributeValueType,
+        language: str,
+    ) -> UIConfirmationContext:
+        """Consume UI evidence once, bound to this user, destination and value.
+
+        This optional path never exempts a command from the service's live
+        guards. Reusing an accepted token cannot enqueue another command.
+        """
+        item = self._preparations.get(token)
+        if (
+            item is None
+            or item.consumed
+            or monotonic() - item.created >= PREVIEW_TTL_SECONDS
+        ):
+            raise ResourceConflictError(
+                ResourceConflictCode.COMMAND_PREVIEW_EXPIRED, []
+            )
+        if item.user_id != user_id:
+            msg = "Command preview not found"
+            raise NotFoundError(msg)
+        if (
+            item.preview.attribute != attribute
+            or type(item.preview.value) is not type(value)
+            or item.preview.value != value
+            or [row.device_id for row in item.preview.members] != [device_id]
+        ):
+            raise ResourceConflictError(
+                ResourceConflictCode.COMMAND_PREVIEW_CHANGED, []
+            )
+        self._validate_members(item, [device_id])
+        contexts = self._confirmation_contexts(item, [device_id], language)
+        if device_id not in contexts:
+            msg = "No UI confirmation was presented"
+            raise InvalidError(msg)
+        item.consumed = True
+        return contexts[device_id]
 
     def _validate_members(self, item: _Preparation, selected: list[str]) -> None:
         target = item.preview.target.to_devices_filter()
@@ -231,6 +304,7 @@ class SelectionCommands:
                 (binding != item.bindings[device_id])
                 or not row.eligible
                 or row.warnings != previous.warnings
+                or row.user_confirmation != previous.user_confirmation
             ):
                 item.consumed = True
                 raise ResourceConflictError(

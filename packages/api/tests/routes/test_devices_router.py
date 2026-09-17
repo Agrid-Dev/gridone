@@ -14,7 +14,9 @@ from api.dependencies import (
     get_ts_service,
 )
 from api.exception_handlers import register_exception_handlers
+from api.routes.command_router import get_selection_commands
 from api.routes.devices_router import router
+from api.selection_commands import SelectionCommandPrepare, SelectionCommands
 from api.targets import UNTAGGED_GROUP_LABEL
 from assets import AssetsService
 from assets.models import Asset, AssetType
@@ -27,9 +29,11 @@ from devices_manager.core.device.connection_status import AttributeLogs
 from devices_manager.core.device.connection_status_attribute import (
     CONNECTION_STATUS_ATTR,
 )
+from devices_manager.core.write_preview import DeviceWritePreview
 from devices_manager.dto.device_dto import Device
 from devices_manager.types import ConnectionStatus, DataType
 from models.attribute_metadata import LocalizedText
+from models.command_confirmation import UIConfirmationContext
 from models.errors import (
     ConfirmationError,
     InvalidError,
@@ -37,6 +41,7 @@ from models.errors import (
     WriteRejectedError,
 )
 from models.pagination import Page, PaginationParams
+from models.resource_conflict import ResourceConflictCode, ResourceConflictError
 from models.targets import DevicesFilter
 from models.types import SortOrder
 from models.write_rules import WriteReason
@@ -195,6 +200,11 @@ def dm():
 
 
 @pytest.fixture
+def mock_selection_commands():
+    return MagicMock(spec=SelectionCommands)
+
+
+@pytest.fixture
 def assets_service():
     svc = MagicMock(spec=AssetsService)
     svc.list_all = AsyncMock(
@@ -209,10 +219,16 @@ def assets_service():
 
 
 @pytest.fixture
-def app(
-    dm, mock_ts_service, mock_commands_service, assets_service, admin_token_payload
+def app(  # noqa: PLR0913 -- dependency overrides use separate fixtures
+    dm,
+    mock_ts_service,
+    mock_commands_service,
+    mock_selection_commands,
+    assets_service,
+    admin_token_payload,
 ) -> FastAPI:
     app = FastAPI()
+    app.dependency_overrides[get_selection_commands] = lambda: mock_selection_commands
     register_exception_handlers(app)
     app.include_router(router)
     app.dependency_overrides[get_device_manager] = lambda: dm
@@ -1024,6 +1040,7 @@ class TestDispatchSingleCommand:
         assert kwargs["write"].value == 22.0
         assert kwargs["write"].data_type == DataType.FLOAT
         assert kwargs["confirm"] is True
+        assert kwargs["ui_confirmation"] is None
 
     @pytest.mark.asyncio
     async def test_confirm_false_passed_through(
@@ -1443,6 +1460,9 @@ def push_app(
     dm_two_devices, mock_ts_service, mock_commands_service, admin_token_payload
 ) -> FastAPI:
     app = FastAPI()
+    app.dependency_overrides[get_selection_commands] = lambda: MagicMock(
+        spec=SelectionCommands
+    )
     register_exception_handlers(app)
     app.include_router(router)
     ws = MagicMock()
@@ -1808,8 +1828,6 @@ class TestTagVocabulary:
 def test_command_preview_is_read_only_and_returns_public_reasons(
     client, dm, mock_commands_service
 ):
-    from devices_manager.core.write_preview import DeviceWritePreview
-
     dm.preview_device_write.return_value = DeviceWritePreview(
         device_id="device1",
         name="Device",
@@ -1827,6 +1845,97 @@ def test_command_preview_is_read_only_and_returns_public_reasons(
         "device1", "temperature_setpoint", 22
     )
     mock_commands_service.dispatch_unit.assert_not_called()
+
+
+@pytest.mark.parametrize("eligible", [False, True])
+def test_single_preview_only_reserves_consent_for_eligible_warning(
+    client, dm, mock_selection_commands, mock_commands_service, eligible
+):
+    warning = LocalizedText(default="Connectivity may be lost")
+    preview = DeviceWritePreview(
+        device_id="device1",
+        name="Device",
+        current_value=20,
+        eligible=eligible,
+        user_confirmation=warning,
+    )
+    dm.preview_device_write.return_value = preview
+    mock_selection_commands.prepare.return_value = MagicMock(
+        token="frozen-preview", members=[preview]
+    )
+    response = client.post(
+        "/device1/commands/preview",
+        json={"attribute": "temperature_setpoint", "value": 22},
+    )
+    assert response.status_code == 200
+    assert response.json()["confirmation_token"] == (
+        "frozen-preview" if eligible else None
+    )
+    assert response.json()["user_confirmation"] == warning.model_dump()
+    if eligible:
+        body, user_id = mock_selection_commands.prepare.call_args.args
+        assert isinstance(body, SelectionCommandPrepare)
+        assert body.target.ids == ["device1"]
+        assert body.attribute == "temperature_setpoint"
+        assert body.value == 22
+        assert user_id == "test-user"
+    else:
+        mock_selection_commands.prepare.assert_not_called()
+    mock_commands_service.dispatch_unit.assert_not_called()
+
+
+def test_single_dispatch_uses_server_consent_independently_of_readback(
+    client, mock_selection_commands, mock_commands_service
+):
+    context = UIConfirmationContext(
+        message="Connectivity may be lost",
+        language="en",
+        previous_value=20,
+        previous_value_known=True,
+    )
+    mock_selection_commands.consume_unit_confirmation.return_value = context
+    mock_commands_service.dispatch_unit.return_value = _completed_command()
+    response = client.post(
+        "/device1/commands",
+        json={
+            "attribute": "temperature_setpoint",
+            "value": 22,
+            "confirm": False,
+            "ui_confirmation_token": "frozen-preview",
+            "confirmation_language": "en",
+        },
+    )
+    assert response.status_code == 200
+    mock_selection_commands.consume_unit_confirmation.assert_called_once_with(
+        "frozen-preview", "test-user", "device1", "temperature_setpoint", 22, "en"
+    )
+    assert (
+        mock_commands_service.dispatch_unit.call_args.kwargs["ui_confirmation"]
+        == context
+    )
+    assert mock_commands_service.dispatch_unit.call_args.kwargs["confirm"] is False
+
+
+@pytest.mark.parametrize("language", [None, "en"])
+def test_invalid_single_confirmation_never_dispatches(
+    client, mock_selection_commands, mock_commands_service, language
+):
+    mock_selection_commands.consume_unit_confirmation.side_effect = (
+        ResourceConflictError(ResourceConflictCode.COMMAND_PREVIEW_CHANGED, [])
+    )
+    response = client.post(
+        "/device1/commands",
+        json={
+            "attribute": "temperature_setpoint",
+            "value": 22,
+            "ui_confirmation_token": "frozen-preview",
+            "confirmation_language": language,
+        },
+    )
+    assert response.status_code == (422 if language is None else 409)
+    mock_commands_service.dispatch_unit.assert_not_called()
+    if language is None:
+        mock_selection_commands.consume_unit_confirmation.assert_not_called()
 
 
 def test_rejection_hides_internal_messages(client, mock_commands_service):

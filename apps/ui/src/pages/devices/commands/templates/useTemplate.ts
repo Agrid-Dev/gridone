@@ -1,3 +1,4 @@
+import { useRef, useState } from "react";
 import { useGroupCommand } from "@/components/group-command/useGroupCommand";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
@@ -48,6 +49,8 @@ export function useTemplate(templateId: string) {
   });
 
   const groupCommand = useGroupCommand(target);
+  const preparingRef = useRef(false);
+  const [preparing, setPreparing] = useState(false);
 
   const execute = useMutation({
     mutationFn: () => client.devices.commandTemplates.dispatch(templateId),
@@ -77,15 +80,31 @@ export function useTemplate(templateId: string) {
     resolvedDevices: resolvedDevices.data ?? [],
     isResolving: resolvedDevices.isLoading,
     groupCommand,
-    execute: () =>
-      isTagTarget(target)
-        ? void groupCommand.prepare(
-            template.write.attribute,
-            template.write.value,
-            target,
-          )
-        : execute.mutate(),
-    isExecuting: execute.isPending || groupCommand.busy,
+    execute: async () => {
+      if (preparingRef.current || execute.isPending || groupCommand.busy)
+        return;
+      preparingRef.current = true;
+      setPreparing(true);
+      try {
+        const preview = await client.devices.previewCommand({
+          target,
+          attribute: template.write.attribute,
+          value: template.write.value,
+        });
+        if (
+          isTagTarget(target) ||
+          preview.members.some((row) => row.user_confirmation)
+        ) {
+          await groupCommand.review(preview);
+        } else execute.mutate();
+      } catch (error) {
+        toast.error(serverErrorMessage(error) ?? t("common:errors.default"));
+      } finally {
+        preparingRef.current = false;
+        setPreparing(false);
+      }
+    },
+    isExecuting: execute.isPending || groupCommand.busy || preparing,
     remove: () => remove.mutate(),
     isRemoving: remove.isPending,
   };

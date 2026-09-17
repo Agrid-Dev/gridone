@@ -16,7 +16,9 @@ from commands.models import (
     WriteResult,
 )
 from commands.service import CommandsService
+from models.command_confirmation import REDACTED_VALUE, UIConfirmationContext
 from models.errors import (
+    ConfirmationError,
     InvalidError,
     NotFoundError,
     StorageConnectionError,
@@ -33,6 +35,96 @@ pytestmark = pytest.mark.asyncio
 
 
 MODE_AUTO = AttributeWrite(attribute="mode", value="auto", data_type=DataType.STRING)
+
+
+@pytest.mark.parametrize(
+    "failure", [None, OSError("offline"), ConfirmationError("no echo")]
+)
+async def test_ui_context_is_durable_before_transport(service, device_writer, failure):
+    context = UIConfirmationContext(
+        message="May disconnect",
+        language="en",
+        previous_value="manual",
+        previous_value_known=True,
+    )
+
+    async def write(*_args: object, **_kwargs: object) -> WriteResult:
+        commands = (await service.get_commands()).items
+        assert len(commands) == 1
+        assert commands[0].status == CommandStatus.PENDING
+        assert commands[0].ui_confirmation == context
+        assert commands[0].user_id == "authenticated-user"
+        assert commands[0].created_at.tzinfo is not None
+        if failure:
+            raise failure
+        return WriteResult(last_changed=None)
+
+    device_writer.side_effect = write
+    if failure:
+        with pytest.raises(type(failure)):
+            await service.dispatch_unit(
+                device_id="d1",
+                write=MODE_AUTO,
+                user_id="authenticated-user",
+                ui_confirmation=context,
+            )
+    else:
+        await service.dispatch_unit(
+            device_id="d1",
+            write=MODE_AUTO,
+            user_id="authenticated-user",
+            ui_confirmation=context,
+        )
+    record = (await service.get_commands()).items[0]
+    assert record.ui_confirmation == context
+    assert record.status == (CommandStatus.ERROR if failure else CommandStatus.SUCCESS)
+    assert record.status_details == (
+        "unconfirmed"
+        if isinstance(failure, ConfirmationError)
+        else "unreachable"
+        if failure
+        else None
+    )
+
+
+async def test_sensitive_batch_masks_history_but_transports_original_value(
+    device_writer, result_handler, target_resolver
+):
+    service = CommandsService(
+        None,
+        device_writer,
+        result_handler,
+        target_resolver,
+        is_sensitive=lambda *_: True,
+    )
+    await service.start()
+    try:
+        dispatch = await service.dispatch_batch(
+            target=DevicesFilter(ids=["a", "b"]), write=MODE_AUTO, user_id="operator"
+        )
+        await service._await_pending()  # noqa: SLF001
+        for command in (await service.get_commands()).items:
+            assert command.value == REDACTED_VALUE
+            assert command.value_redacted
+            assert command.validation is not None
+            assert command.validation.value is None
+            assert command.ui_confirmation is None
+        template_id = dispatch.commands[0].template_id
+        assert template_id is not None
+        template = await service.get_template(template_id)
+        assert template.write.value == REDACTED_VALUE
+        assert template.write.value_redacted
+        with pytest.raises(InvalidError, match="redacted"):
+            await service.dispatch_from_template(
+                template_id=template.id, user_id="operator"
+            )
+        assert [call.args[2] for call in device_writer.call_args_list] == [
+            "auto",
+            "auto",
+        ]
+        result_handler.assert_not_awaited()
+    finally:
+        await service.stop()
 
 
 @pytest.fixture

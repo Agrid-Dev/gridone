@@ -149,6 +149,62 @@ write rule disables the control and refuses the API command without any `blocked
 Reserve `blocked_when` for purely graphical blocking; presentation visibility never
 forbids an API command.
 
+## Human confirmation in the UI
+
+An attribute can declare `user_confirmation` using the same `LocalizedText`
+contract as its label (a nonempty `default`, optional `translations`). The text
+must describe the actual consequence of the change. It is plain text, never an
+expression or value-interpolated template. Nothing is inferred from a group,
+attribute name or manufacturer.
+
+```yaml
+- name: network_password
+  data_type: str
+  read_write: /network/password
+  sensitive: true
+  user_confirmation:
+    default: Changing this setting can disconnect the device until its network configuration is updated.
+    translations:
+      fr: Cette modification peut déconnecter l'équipement jusqu'à la mise à jour de sa configuration réseau.
+```
+
+Live controls wait for the final 600 ms debounced intention before opening a
+dialog. The dialog shows the target, setting, previous known value, requested
+value and consequence. The control remains locked during review. Cancel, Escape,
+close and navigation discard the intention. No write slot or command is created
+until consent. Generic attribute forms use the same gate. Group commands show
+each member's warning in their existing review, with one consent for the selected
+targets and values.
+
+Single-device preview responses include a `confirmation_token` when a warning
+applies. The UI submits it as `ui_confirmation_token`, with
+`confirmation_language`. Group confirmations optionally send
+`confirmation_language` with their existing token. Tokens bind the authenticated
+user, target, requested value and driver write contract; changes require a fresh
+review. Every transport write still revalidates server guards. API, CLI and
+automation clients may omit this evidence. It is independent of `confirm`, which
+controls device read-back verification.
+
+Command history stores optional `ui_confirmation` with the accepted localized
+message and previous value (explicitly known or unknown). The unit command
+already carries the target, attribute, requested value, authenticated user and
+server timestamp. Both single and batch paths persist these rows before transport.
+Existing records and non-UI writes have no invented confirmation context.
+
+`sensitive: true` masks previous and requested values in confirmation history and
+command audit rows, including ephemeral batch templates. Known secret values are
+also removed from the accepted warning text; authors must never embed credentials
+in warning messages. Sensitive command results do not create command-linked
+time-series observations. This classification does not change device telemetry
+storage or turn a saved executable command template into a secrets store.
+
+The existing command states retain their meaning: `pending` with no `executed_at`
+is queued; `executed_at` records the start of a transport attempt; `success` records
+completion. Refusals have `error` plus ineligible `validation`; transport failures
+have a stable failure code, and missing read-back uses `unconfirmed`. A transport
+attempt or missing reply cannot prove whether the physical device changed.
+Confirmation evidence is informational, not a hardware protection mechanism.
+
 ## Budgets and rollout
 
 The server owns limits: expression depth 16, 64 rules per attribute, 256 list/table

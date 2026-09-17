@@ -779,5 +779,14 @@
     "mapping_changed": "The device table changed during confirmation",
     "evaluation_limit": "The driver evaluation limit was reached",
     "unknown_attribute": "Unknown attribute"
+  },
+  "confirmation": {
+    "title": "Confirm this change?",
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "unknown": "Unknown",
+    "masked": "Hidden value",
+    "accepted": "UI confirmation",
+    "noResponse": "A missing response does not mean the device was unchanged."
   }
 }

@@ -2387,6 +2387,12 @@ export interface components {
       push?: boolean;
       label?: components["schemas"]["LocalizedText"] | null;
       description?: components["schemas"]["LocalizedText"] | null;
+      user_confirmation?: components["schemas"]["LocalizedText"] | null;
+      /**
+       * Sensitive
+       * @default false
+       */
+      sensitive?: boolean;
       /** Group */
       group?: string | null;
       /** Unit */
@@ -2426,6 +2432,12 @@ export interface components {
       push?: boolean;
       label?: components["schemas"]["LocalizedText"] | null;
       description?: components["schemas"]["LocalizedText"] | null;
+      user_confirmation?: components["schemas"]["LocalizedText"] | null;
+      /**
+       * Sensitive
+       * @default false
+       */
+      sensitive?: boolean;
       /** Group */
       group?: string | null;
       /** Unit */
@@ -2604,6 +2616,11 @@ export interface components {
       /** Value */
       value: number | string | boolean;
       data_type: components["schemas"]["DataType"];
+      /**
+       * Value Redacted
+       * @default false
+       */
+      value_redacted?: boolean;
     };
     /**
      * AttributeWriteState
@@ -3788,6 +3805,20 @@ export interface components {
        * @default 0
        */
       revision?: number;
+      user_confirmation?: components["schemas"]["LocalizedText"] | null;
+      /**
+       * Sensitive
+       * @default false
+       */
+      sensitive?: boolean;
+      /**
+       * Current Value Known
+       * @default false
+       */
+      current_value_known?: boolean;
+      attribute_label?: components["schemas"]["LocalizedText"] | null;
+      /** Unit */
+      unit?: string | null;
     };
     /**
      * DevicesFilter
@@ -4101,6 +4132,12 @@ export interface components {
       push?: boolean;
       label?: components["schemas"]["LocalizedText"] | null;
       description?: components["schemas"]["LocalizedText"] | null;
+      user_confirmation?: components["schemas"]["LocalizedText"] | null;
+      /**
+       * Sensitive
+       * @default false
+       */
+      sensitive?: boolean;
       /** Group */
       group?: string | null;
       /** Unit */
@@ -4144,6 +4181,12 @@ export interface components {
       push?: boolean;
       label?: components["schemas"]["LocalizedText"] | null;
       description?: components["schemas"]["LocalizedText"] | null;
+      user_confirmation?: components["schemas"]["LocalizedText"] | null;
+      /**
+       * Sensitive
+       * @default false
+       */
+      sensitive?: boolean;
       /** Group */
       group?: string | null;
       /** Unit */
@@ -5926,6 +5969,8 @@ export interface components {
       token: string;
       /** Device Ids */
       device_ids: string[];
+      /** Confirmation Language */
+      confirmation_language?: string | null;
     };
     /** SelectionCommandPrepare */
     SelectionCommandPrepare: {
@@ -6002,6 +6047,46 @@ export interface components {
       /** Value */
       value: number | string | boolean;
     };
+    /** SingleCommandPreview */
+    SingleCommandPreview: {
+      /** Device Id */
+      device_id: string;
+      /** Name */
+      name: string;
+      /** Current Value */
+      current_value: number | string | boolean | null;
+      /** Eligible */
+      eligible: boolean;
+      /** Value */
+      value?: number | string | boolean | null;
+      constraints?: components["schemas"]["ResolvedConstraints"] | null;
+      /** Reasons */
+      reasons?: components["schemas"]["WriteReason"][];
+      /** Warnings */
+      warnings?: components["schemas"]["WriteReason"][];
+      write_state?: components["schemas"]["AttributeWriteState"] | null;
+      /**
+       * Revision
+       * @default 0
+       */
+      revision?: number;
+      user_confirmation?: components["schemas"]["LocalizedText"] | null;
+      /**
+       * Sensitive
+       * @default false
+       */
+      sensitive?: boolean;
+      /**
+       * Current Value Known
+       * @default false
+       */
+      current_value_known?: boolean;
+      attribute_label?: components["schemas"]["LocalizedText"] | null;
+      /** Unit */
+      unit?: string | null;
+      /** Confirmation Token */
+      confirmation_token?: string | null;
+    };
     /**
      * SingleDeviceCommand
      * @description Request body for ``POST /devices/{device_id}/commands``.
@@ -6016,6 +6101,10 @@ export interface components {
        * @default true
        */
       confirm?: boolean;
+      /** Ui Confirmation Token */
+      ui_confirmation_token?: string | null;
+      /** Confirmation Language */
+      confirmation_language?: string | null;
     };
     /**
      * Size
@@ -6550,6 +6639,29 @@ export interface components {
         [key: string]: unknown;
       };
     };
+    /**
+     * UIConfirmationContext
+     * @description The server's snapshot of the action the UI presented and accepted.
+     *
+     *     Target, requested value, authenticated user and server timestamp live on
+     *     the enclosing unit command. Unknown and redacted previous values are
+     *     explicitly distinguished. Messages are static driver text, never templates.
+     */
+    UIConfirmationContext: {
+      /** Message */
+      message: string;
+      /** Language */
+      language: string;
+      /** Previous Value */
+      previous_value: number | string | boolean | null;
+      /** Previous Value Known */
+      previous_value_known: boolean;
+      /**
+       * Value Redacted
+       * @default false
+       */
+      value_redacted?: boolean;
+    };
     /** UnavailablePresentationResponse */
     UnavailablePresentationResponse: {
       /**
@@ -6592,6 +6704,12 @@ export interface components {
       /** Id */
       id: number;
       validation?: components["schemas"]["WriteEvaluation"] | null;
+      ui_confirmation?: components["schemas"]["UIConfirmationContext"] | null;
+      /**
+       * Value Redacted
+       * @default false
+       */
+      value_redacted?: boolean;
     };
     /** UpdateStrategy */
     UpdateStrategy: {
@@ -8014,7 +8132,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["DeviceWritePreview"];
+          "application/json": components["schemas"]["SingleCommandPreview"];
         };
       };
       /** @description Validation Error */

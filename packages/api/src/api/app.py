@@ -375,6 +375,10 @@ async def _start_commands_service(
         storage_url,
         device_writer=_write_device,
         command_validator=_validate_device_command,
+        is_sensitive=lambda device_id, attribute: bool(
+            (item := dm.get_device(device_id).attributes.get(attribute))
+            and item.sensitive
+        ),
         result_handler=_on_command_success,
         target_resolver=CompositeTargetResolver(dm),
     )

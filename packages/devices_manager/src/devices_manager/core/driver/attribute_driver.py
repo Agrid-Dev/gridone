@@ -51,6 +51,9 @@ class AttributeDriver(BaseModel):
     # checked at the driver level (see driver.write_validation).
     label: LocalizedText | None = None
     description: LocalizedText | None = None
+    # Human consent in interactive clients, independent of device read-back.
+    user_confirmation: LocalizedText | None = None
+    sensitive: bool = False
     group: AttributeGroup | None = None
     unit: Unit | None = None
     write_constraints: WriteConstraints | None = None

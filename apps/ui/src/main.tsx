@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import App from "./App";
+import { AttributeConfirmationProvider } from "./contexts/AttributeConfirmationContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { GridoneClientProvider } from "./contexts/GridoneClientContext";
 import { AuthProvider } from "./contexts/AuthContext";
@@ -27,7 +28,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <GridoneClientProvider>
             <AuthProvider>
               <DeviceProvider>
-                <App />
+                <AttributeConfirmationProvider>
+                  <App />
+                </AttributeConfirmationProvider>
               </DeviceProvider>
             </AuthProvider>
           </GridoneClientProvider>

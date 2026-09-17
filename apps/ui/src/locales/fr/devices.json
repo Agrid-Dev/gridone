@@ -779,5 +779,14 @@
     "mapping_changed": "La table a changé pendant la confirmation",
     "evaluation_limit": "La limite d’évaluation du driver est atteinte",
     "unknown_attribute": "Attribut inconnu"
+  },
+  "confirmation": {
+    "title": "Confirmer cette modification ?",
+    "confirm": "Confirmer",
+    "cancel": "Annuler",
+    "unknown": "Inconnue",
+    "masked": "Valeur masquée",
+    "accepted": "Confirmation dans l’interface",
+    "noResponse": "Une absence de réponse ne signifie pas que l’équipement n’a pas été modifié."
   }
 }

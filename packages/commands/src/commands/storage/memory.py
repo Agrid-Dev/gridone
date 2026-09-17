@@ -32,13 +32,14 @@ class MemoryStorage:
     ) -> list[UnitCommand]:
         return [await self.save_command(cmd) for cmd in commands]
 
-    async def update_command_status(
+    async def update_command_status(  # noqa: PLR0913
         self,
         command_id: int,
         status: CommandStatus,
         *,
         status_details: str | None = None,
         completed_at: datetime | None = None,
+        executed_at: datetime | None = None,
         validation: WriteEvaluation | None = None,
     ) -> UnitCommand:
         for cmd in self._history:
@@ -46,6 +47,8 @@ class MemoryStorage:
                 cmd.status = status
                 cmd.status_details = status_details
                 cmd.completed_at = completed_at
+                if executed_at is not None:
+                    cmd.executed_at = executed_at
                 if validation is not None:
                     cmd.validation = validation
                 return cmd

@@ -17,6 +17,7 @@ from commands.models import (
     UnitCommandCreate,
 )
 from commands.storage import build_storage
+from models.command_confirmation import REDACTED_VALUE, UIConfirmationContext
 from models.errors import InvalidError, NotFoundError, WriteRejectedError
 from models.ids import gen_id
 from models.pagination import Page, PaginationParams
@@ -26,6 +27,8 @@ from models.types import SortOrder
 from models.write_rules import WriteEvaluation
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from commands.models import AttributeWrite, CommandTemplatePatch
     from commands.protocols import (
         CommandResultHandler,
@@ -41,19 +44,21 @@ logger = logging.getLogger(__name__)
 class CommandsService(Service):
     _storage: CommandsStorage
 
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         storage_url: str | None,
         device_writer: DeviceWriter,
         result_handler: CommandResultHandler,
         target_resolver: TargetResolver,
         command_validator: CommandValidator | None = None,
+        is_sensitive: Callable[[str, str], bool] | None = None,
     ) -> None:
         self._storage_url = storage_url
         self._device_writer = device_writer
         self._result_handler = result_handler
         self._target_resolver = target_resolver
         self._command_validator = command_validator
+        self._is_sensitive = is_sensitive or (lambda _device, _attribute: False)
         self._tasks: set[asyncio.Task[object]] = set()
 
     async def start(self) -> None:
@@ -174,7 +179,25 @@ class CommandsService(Service):
             return WriteEvaluation(eligible=True, value=write.value)
         return self._command_validator(device_id, write.attribute, write.value)
 
-    async def dispatch_unit(
+    @staticmethod
+    def _audit_validation(
+        evaluation: WriteEvaluation, *, sensitive: bool
+    ) -> WriteEvaluation:
+        if not sensitive:
+            return evaluation
+        return WriteEvaluation(
+            eligible=evaluation.eligible,
+            reasons=[
+                reason.model_copy(update={"message": None})
+                for reason in evaluation.reasons
+            ],
+            warnings=[
+                reason.model_copy(update={"message": None})
+                for reason in evaluation.warnings
+            ],
+        )
+
+    async def dispatch_unit(  # noqa: PLR0913
         self,
         *,
         device_id: str,
@@ -182,6 +205,7 @@ class CommandsService(Service):
         user_id: str,
         confirm: bool = True,
         batch_id: str | None = None,
+        ui_confirmation: UIConfirmationContext | None = None,
     ) -> UnitCommand:
         """Dispatch a command to a single device, awaiting the result before returning.
 
@@ -191,22 +215,25 @@ class CommandsService(Service):
         record.
         """
         evaluation = self._validate(device_id, write)
+        sensitive = self._is_sensitive(device_id, write.attribute)
         command = await self._storage.save_command(
             UnitCommandCreate(
                 batch_id=batch_id,
                 template_id=None,
                 device_id=device_id,
                 attribute=write.attribute,
-                value=write.value,
+                value=REDACTED_VALUE if sensitive else write.value,
+                value_redacted=sensitive,
+                ui_confirmation=ui_confirmation,
                 data_type=write.data_type,
                 status=CommandStatus.PENDING
                 if evaluation.eligible
                 else CommandStatus.ERROR,
                 status_details=None if evaluation.eligible else "Command rejected",
-                validation=evaluation,
+                validation=self._audit_validation(evaluation, sensitive=sensitive),
                 user_id=user_id,
                 created_at=datetime.now(UTC),
-                executed_at=datetime.now(UTC) if evaluation.eligible else None,
+                executed_at=None,
                 completed_at=None if evaluation.eligible else datetime.now(UTC),
             )
         )
@@ -221,6 +248,7 @@ class CommandsService(Service):
         write: AttributeWrite,
         user_id: str,
         confirm: bool = True,
+        ui_confirmations: dict[str, UIConfirmationContext] | None = None,
     ) -> BatchCommandDispatch:
         """Fan-out a command to the devices matched by *target*.
 
@@ -229,12 +257,32 @@ class CommandsService(Service):
         dispatch from a user-saved template by id, call
         :meth:`dispatch_from_template` instead.
         """
-        ephemeral = await self.save_template(
-            CommandTemplateCreate(target=target, write=write, name=None),
-            user_id,
+        ephemeral = CommandTemplate(
+            id=gen_id(),
+            target=target,
+            write=write,
+            name=None,
+            created_by=user_id,
+            created_at=datetime.now(UTC),
         )
-        return await self.dispatch_template(
-            template=ephemeral, user_id=user_id, confirm=confirm
+        device_ids = await self._resolve_template_devices(ephemeral)
+        sensitive = any(
+            self._is_sensitive(item, write.attribute) for item in device_ids
+        )
+        audit_write = (
+            dataclasses.replace(write, value=REDACTED_VALUE, value_redacted=True)
+            if sensitive
+            else write
+        )
+        await self._storage.save_template(
+            dataclasses.replace(ephemeral, write=audit_write)
+        )
+        return await self._dispatch_to_devices(
+            template=ephemeral,
+            device_ids=device_ids,
+            user_id=user_id,
+            confirm=confirm,
+            ui_confirmations=ui_confirmations,
         )
 
     async def dispatch_from_template(
@@ -252,7 +300,12 @@ class CommandsService(Service):
         )
 
     async def dispatch_template(
-        self, *, template: CommandTemplate, user_id: str, confirm: bool = True
+        self,
+        *,
+        template: CommandTemplate,
+        user_id: str,
+        confirm: bool = True,
+        ui_confirmations: dict[str, UIConfirmationContext] | None = None,
     ) -> BatchCommandDispatch:
         """Resolve the template's target, persist PENDING unit commands, and
         spawn the per-device writes in the background. Shared by
@@ -265,14 +318,36 @@ class CommandsService(Service):
         Incompatible dynamic targets raise ``InvalidError`` before any command
         is queued.
         """
-        batch_id = gen_id()
         device_ids = await self._resolve_template_devices(template)
+        return await self._dispatch_to_devices(
+            template=template,
+            device_ids=device_ids,
+            user_id=user_id,
+            confirm=confirm,
+            ui_confirmations=ui_confirmations,
+        )
+
+    async def _dispatch_to_devices(
+        self,
+        *,
+        template: CommandTemplate,
+        device_ids: list[str],
+        user_id: str,
+        confirm: bool,
+        ui_confirmations: dict[str, UIConfirmationContext] | None,
+    ) -> BatchCommandDispatch:
+        """Persist every target's audit row before starting any transport write."""
+        batch_id = gen_id()
         if not device_ids:
             logger.warning("dispatch: template %r resolved to no devices", template.id)
             return BatchCommandDispatch(batch_id=batch_id, commands=[])
 
         evaluations = {
             device_id: self._validate(device_id, template.write)
+            for device_id in device_ids
+        }
+        sensitive = {
+            device_id: self._is_sensitive(device_id, template.write.attribute)
             for device_id in device_ids
         }
         now = datetime.now(UTC)
@@ -283,7 +358,11 @@ class CommandsService(Service):
                     template_id=template.id,
                     device_id=device_id,
                     attribute=template.write.attribute,
-                    value=template.write.value,
+                    value=REDACTED_VALUE
+                    if sensitive[device_id]
+                    else template.write.value,
+                    value_redacted=sensitive[device_id],
+                    ui_confirmation=(ui_confirmations or {}).get(device_id),
                     data_type=template.write.data_type,
                     status=CommandStatus.PENDING
                     if evaluations[device_id].eligible
@@ -291,10 +370,12 @@ class CommandsService(Service):
                     status_details=None
                     if evaluations[device_id].eligible
                     else "Command rejected",
-                    validation=evaluations[device_id],
+                    validation=self._audit_validation(
+                        evaluations[device_id], sensitive=sensitive[device_id]
+                    ),
                     user_id=user_id,
                     created_at=now,
-                    executed_at=now if evaluations[device_id].eligible else None,
+                    executed_at=None,
                     completed_at=None if evaluations[device_id].eligible else now,
                 )
                 for device_id in device_ids
@@ -317,6 +398,9 @@ class CommandsService(Service):
         Legacy non-tag targets retain their empty-batch fallback. Devices that
         do not expose the attribute as writable are reported and excluded.
         """
+        if template.write.value_redacted:
+            msg = "A redacted command requires a new value before dispatch"
+            raise InvalidError(msg)
         try:
             resolved = await self._target_resolver.resolve(
                 AttributeTarget(
@@ -379,6 +463,11 @@ class CommandsService(Service):
         original exception is re-raised. Status-update failures on the error path
         are logged but do not suppress the original exception.
         """
+        await self._storage.update_command_status(
+            command.id,
+            CommandStatus.PENDING,
+            executed_at=datetime.now(UTC),
+        )
         try:
             result = await self._device_writer(
                 command.device_id, write.attribute, write.value, confirm=confirm
@@ -396,7 +485,10 @@ class CommandsService(Service):
                     CommandStatus.ERROR,
                     status_details=command_failure(exc),
                     completed_at=datetime.now(UTC),
-                    validation=WriteEvaluation(eligible=False, reasons=exc.reasons)
+                    validation=self._audit_validation(
+                        WriteEvaluation(eligible=False, reasons=exc.reasons),
+                        sensitive=command.value_redacted,
+                    )
                     if isinstance(exc, WriteRejectedError)
                     else None,
                 )
@@ -411,7 +503,7 @@ class CommandsService(Service):
             CommandStatus.SUCCESS,
             completed_at=datetime.now(UTC),
         )
-        if result.confirmed:
+        if result.confirmed and not command.value_redacted:
             await self._result_handler(
                 device_id=command.device_id,
                 attribute=write.attribute,

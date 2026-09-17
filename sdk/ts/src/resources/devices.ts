@@ -15,7 +15,7 @@ import type {
   BatchDeviceCommand,
   BatchDispatchResponse,
   Device,
-  DeviceWritePreview,
+  SingleCommandPreview,
   DeviceCreate,
   DeviceUpdate,
   FaultView,
@@ -182,7 +182,7 @@ export class DevicesResource {
   previewDeviceCommand(
     deviceId: string,
     params: SingleDeviceCommand,
-  ): Promise<DeviceWritePreview> {
+  ): Promise<SingleCommandPreview> {
     return this.request(
       "POST",
       `/devices/${encodeURIComponent(deviceId)}/commands/preview`,

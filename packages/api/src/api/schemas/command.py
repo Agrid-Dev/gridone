@@ -8,7 +8,9 @@ from fastapi import Query
 from pydantic import BaseModel, ConfigDict, Field
 
 from commands import UnitCommand
+from devices_manager.core.write_preview import DeviceWritePreview
 from devices_manager.types import AttributeValueType
+from models.attribute_metadata import LanguageTag
 from models.tags import Tag, Tags
 from models.targets import DevicesFilter
 from models.types import SortOrder
@@ -61,6 +63,12 @@ class SingleDeviceCommand(BaseModel):
     attribute: str
     value: AttributeValueType
     confirm: bool = True
+    ui_confirmation_token: str | None = None
+    confirmation_language: LanguageTag | None = None
+
+
+class SingleCommandPreview(DeviceWritePreview):
+    confirmation_token: str | None = None
 
 
 class DevicesFilterBody(BaseModel):

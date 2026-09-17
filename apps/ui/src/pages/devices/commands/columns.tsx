@@ -1,4 +1,5 @@
 import { commandFailureLabel } from "@/lib/commandFailure";
+import { CommandConfirmationDetails } from "@/components/CommandConfirmationDetails";
 import type { ReactNode } from "react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Link } from "react-router";
@@ -41,6 +42,11 @@ export function buildCommandColumns(
   const { showDevice = true, showTemplate = true } = lookups;
 
   return [
+    {
+      id: "ui_confirmation",
+      header: () => t("confirmation.accepted"),
+      cell: ({ row }) => <CommandConfirmationDetails command={row.original} />,
+    },
     {
       accessorKey: "created_at",
       header: () => t("common:common.timestamp"),

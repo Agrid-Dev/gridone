@@ -1,3 +1,4 @@
+import { GroupCommandDialog } from "@/components/group-command/GroupCommandDialog";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 import { ArrowRight, Check, Loader2, TriangleAlert, X } from "lucide-react";
@@ -259,6 +260,7 @@ export function GroupedCommandReview({
             </Popover>
           </div>
         )}
+        <GroupCommandDialog command={actions.groupCommand} />
         <AlertDialog
           open={!!actions.confirmation}
           onOpenChange={(open) => {

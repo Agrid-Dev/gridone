@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from api.schemas.command import DevicesFilterBody
 from commands import (
@@ -15,6 +15,7 @@ from commands import (
     CommandTemplatePatch,
 )
 from devices_manager.types import AttributeValueType
+from models.errors import InvalidError
 from models.targets import DevicesFilter
 from models.types import DataType
 
@@ -25,6 +26,7 @@ class AttributeWritePayload(BaseModel):
     attribute: str
     value: AttributeValueType
     data_type: DataType
+    value_redacted: bool = Field(default=False, exclude_if=lambda value: not value)
 
     @classmethod
     def from_domain(cls, write: AttributeWrite) -> AttributeWritePayload:
@@ -32,9 +34,13 @@ class AttributeWritePayload(BaseModel):
             attribute=write.attribute,
             value=write.value,
             data_type=write.data_type,
+            value_redacted=write.value_redacted,
         )
 
     def to_domain(self) -> AttributeWrite:
+        if self.value_redacted:
+            msg = "A redacted command requires a new value"
+            raise InvalidError(msg)
         return AttributeWrite(
             attribute=self.attribute,
             value=self.value,
