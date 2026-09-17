@@ -136,3 +136,19 @@ export function isVisible(v: Verdict | undefined): boolean {
 export function isBlocked(v: Verdict | undefined): boolean {
   return v !== undefined && v !== "false";
 }
+
+/**
+ * Whether a condition reaches `expected` for the subject being rendered: one
+ * device, or any member of a group. Visibility asks for "true", interaction
+ * asks for "false", so an unknown verdict never activates anything.
+ */
+export type ConditionJudge = (
+  condition: Condition,
+  expected: "true" | "false",
+) => boolean;
+
+/** The judge of one subject: its own values, one budget per condition. */
+export function judgeWith(resolve: BindingResolver): ConditionJudge {
+  return (condition, expected) =>
+    evaluateCondition(condition, resolve) === expected;
+}

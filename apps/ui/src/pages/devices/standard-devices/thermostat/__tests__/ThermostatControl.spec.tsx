@@ -35,6 +35,15 @@ type AttributeFixture = {
   current_value: unknown;
   last_updated: string | null;
   value_options?: unknown[];
+  write_state?: {
+    status: "ready" | "unknown";
+    constraints: {
+      minimum?: number | null;
+      maximum?: number | null;
+      step?: number;
+      unknown?: string[];
+    };
+  };
 };
 
 function makeThermostat(
@@ -53,6 +62,10 @@ function makeThermostat(
       data_type: "float",
       read_write_modes: ["read", "write"],
       current_value: 22.0,
+      write_state: {
+        status: "ready",
+        constraints: { minimum: 16, maximum: 30, step: 0.5 },
+      },
       last_updated: null,
     },
     temperature_setpoint_min: {
@@ -226,6 +239,12 @@ describe("ThermostatControl", () => {
 
   it("bounds the dial by the device's setpoint range", () => {
     const device = makeThermostat({
+      temperature_setpoint: {
+        write_state: {
+          status: "ready",
+          constraints: { minimum: 18, maximum: 24, step: 0.5 },
+        },
+      },
       temperature_setpoint_min: { current_value: 18 },
       temperature_setpoint_max: { current_value: 24 },
     });

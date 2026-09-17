@@ -1,3 +1,4 @@
+import { optionStates } from "@/components/device-ui/runtime/controls";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -14,7 +15,9 @@ export function useGroupTargetForm(
   const options =
     attribute.data_type === "bool"
       ? [false, true]
-      : (attribute.value_options ?? []);
+      : (optionStates(attribute)
+          ?.filter((option) => option.available)
+          .map((option) => option.value) ?? []);
   const schema = z.object({
     value: z
       .string()

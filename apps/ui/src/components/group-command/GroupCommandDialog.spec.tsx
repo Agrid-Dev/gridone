@@ -54,7 +54,6 @@ vi.mock("react-i18next", () =>
     "groups.members": "Member",
     "groups.before": "Before",
     "groups.after": "After",
-    "groups.reasons.constraints": "Outside the allowed limits",
   }),
 );
 const member = (id: string, eligible = true) => ({
@@ -62,7 +61,14 @@ const member = (id: string, eligible = true) => ({
   name: id,
   current_value: 20,
   eligible,
-  reason: eligible ? null : "constraints",
+  reasons: eligible
+    ? []
+    : [
+        {
+          code: "constraints",
+          message: { default: "Outside the allowed limits" },
+        },
+      ],
 });
 const preview = (
   members = [member("a"), member("b"), member("blocked", false)],

@@ -27,8 +27,10 @@ from devices_manager.core.presentation import PresentationEnvelope
 from devices_manager.core.transports import RawTransportAddress
 from devices_manager.types import AttributeValueType, TransportProtocols
 from models.errors import InvalidError
+from models.expressions import MAX_LIST_ITEMS, MAX_RULES, Scalar
 from models.metadata import ResourceMetadata
 from models.types import Severity
+from models.write_rules import ValueMapping, WriteOption, WriteRule
 from models.yaml_loader import BoundedYamlError, load_bounded_yaml
 
 # The wire shape of a driver attribute is the core discriminated union
@@ -141,6 +143,12 @@ class AttributePatch(BaseModel):
     group: AttributeGroup | None = None
     unit: Unit | None = None
     write_constraints: WriteConstraints | None = None
+    default_value: Scalar | None = None
+    write_rules: list[WriteRule] | None = Field(default=None, max_length=MAX_RULES)
+    write_options: list[WriteOption] | None = Field(
+        default=None, max_length=MAX_LIST_ITEMS
+    )
+    value_mapping: ValueMapping | None = None
 
     @field_validator(
         "read", "codecs", "kind", "severity", "healthy_values", mode="before"

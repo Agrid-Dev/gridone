@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 
     from commands.filters import CommandsQueryFilters
     from commands.models import CommandStatus, UnitCommandCreate
+    from models.write_rules import WriteEvaluation
 
 
 @dataclass
@@ -38,12 +39,15 @@ class MemoryStorage:
         *,
         status_details: str | None = None,
         completed_at: datetime | None = None,
+        validation: WriteEvaluation | None = None,
     ) -> UnitCommand:
         for cmd in self._history:
             if cmd.id == command_id:
                 cmd.status = status
                 cmd.status_details = status_details
                 cmd.completed_at = completed_at
+                if validation is not None:
+                    cmd.validation = validation
                 return cmd
         msg = f"Command {command_id} not found"
         raise ValueError(msg)

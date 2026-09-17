@@ -17,9 +17,12 @@ from devices_manager.core.driver.driver import (
     attributes_referencing,
     validate_polling_groups,
     validate_push_only_polling,
-    validate_write_constraints,
 )
 from devices_manager.core.driver.driver_metadata import DriverMetadata
+from devices_manager.core.driver.write_validation import (
+    rename_write_references,
+    validate_write_declarations,
+)
 from devices_manager.core.presentation import (
     PresentationEnvelope,
     PresentationStatus,
@@ -84,16 +87,8 @@ def _reject_dangling_references(
 def _follow_rename(
     attribute: AttributeDriver, old_name: str, new_name: str
 ) -> AttributeDriver:
-    """Copy of ``attribute`` whose write-constraint bounds on ``old_name``
-    now name ``new_name``; the attribute itself when it has no such bound."""
-    constraints = attribute.write_constraints
-    if constraints is None or not constraints.references(old_name):
-        return attribute
-    return attribute.model_copy(
-        update={
-            "write_constraints": constraints.with_reference_renamed(old_name, new_name)
-        }
-    )
+    """Copy of ``attribute`` with command references following the renamed sibling."""
+    return rename_write_references(attribute, old_name, new_name)
 
 
 def _summarize(diagnostics: list[PresentationDiagnostic]) -> str:
@@ -323,7 +318,7 @@ class DriverRegistry:
             ),
         )
         validate_polling_groups(driver.update_strategy, [attribute])
-        validate_write_constraints(candidate_attrs)
+        validate_write_declarations(candidate_attrs)
         driver.attributes[attribute.name] = attribute
         await self._persist(driver)
         return attribute
@@ -359,7 +354,7 @@ class DriverRegistry:
             updated if aid == attribute_id else a
             for aid, a in driver.attributes.items()
         ]
-        validate_write_constraints(candidate_attrs)
+        validate_write_declarations(candidate_attrs)
         driver.attributes[attribute_id] = updated
         _log_if_presentation_unavailable(driver)
         await self._persist(driver)

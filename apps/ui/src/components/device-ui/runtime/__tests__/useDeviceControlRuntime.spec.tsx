@@ -20,6 +20,9 @@ const { mockSendCommand, mockGet } = vi.hoisted(() => ({
 vi.mock("@/contexts/GridoneClientContext", () => ({
   useGridoneClient: () => ({
     devices: {
+      previewDeviceCommand: vi
+        .fn()
+        .mockResolvedValue({ eligible: true, reasons: [], warnings: [] }),
       sendCommand: (...args: unknown[]) => mockSendCommand(...args),
       get: (...args: unknown[]) => mockGet(...args),
     },
@@ -59,6 +62,10 @@ function makeDevice(
       data_type: "float",
       read_write_modes: ["read", "write"],
       current_value: 21,
+      write_state: {
+        status: "ready",
+        constraints: { step: 0.5, minimum: 16, maximum: 30 },
+      },
       write_constraints: {
         step: { attribute: "precision" },
         minimum: 16,
@@ -189,7 +196,14 @@ describe("useDeviceControlRuntime", () => {
 
   it("refuses slider writes with unresolved bounds or missing user permissions", () => {
     const { rendered } = setup(
-      makeDevice({ precision: { current_value: null } }),
+      makeDevice({
+        temperature_setpoint: {
+          write_state: {
+            status: "unknown",
+            constraints: { minimum: 16, maximum: 30, unknown: ["step"] },
+          },
+        },
+      }),
     );
     act(() =>
       rendered.result.current.setValue("slider", 22, { immediate: true }),
@@ -319,6 +333,9 @@ describe("useDeviceControlRuntime", () => {
       rendered.result.current.activate({ control: "fan", op: "cycle" }); // not writable
       rendered.result.current.activate({ control: "target", op: "toggle" }); // kind mismatch
     });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
     expect(mockSendCommand).toHaveBeenCalledTimes(1);
     expect(mockSendCommand).toHaveBeenCalledWith("dev-1", {
       attribute: "onoff_state",
@@ -329,7 +346,14 @@ describe("useDeviceControlRuntime", () => {
 
   it("keeps increments unavailable while the referenced step is unknown", () => {
     const { rendered } = setup(
-      makeDevice({ precision: { current_value: null } }),
+      makeDevice({
+        temperature_setpoint: {
+          write_state: {
+            status: "unknown",
+            constraints: { minimum: 16, maximum: 30, unknown: ["step"] },
+          },
+        },
+      }),
     );
     const target = rendered.result.current.readControl("target");
     expect(target?.constraints.unknown).toBe(true);

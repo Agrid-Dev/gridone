@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime  # noqa: TC003
 from enum import StrEnum
 
@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict
 
 from models.targets import DevicesFilter  # noqa: TC001
 from models.types import AttributeValueType, DataType  # noqa: TC001
+from models.write_rules import WriteEvaluation  # noqa: TC001 -- schema runtime
 
 
 class CommandStatus(StrEnum):
@@ -21,6 +22,8 @@ class WriteResult:
     """Minimal result returned by DeviceWriter, decoupled from devices_manager."""
 
     last_changed: datetime | None
+    confirmed: bool = True
+    observed_value: AttributeValueType | None = None
 
 
 @dataclass
@@ -83,6 +86,7 @@ class UnitCommandCreate:
     created_at: datetime
     executed_at: datetime | None
     completed_at: datetime | None
+    validation: WriteEvaluation | None = field(default=None, kw_only=True)
 
 
 @dataclass

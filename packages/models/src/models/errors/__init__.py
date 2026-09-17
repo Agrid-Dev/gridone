@@ -1,7 +1,14 @@
-from collections.abc import Sequence
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
 from pydantic import ValidationError as PydanticValidationError
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from models.write_rules import WriteReason
 
 
 class NotFoundError(Exception):
@@ -65,6 +72,20 @@ class SchemaValidationError(InvalidError):
             for item in self.errors
         )
         super().__init__(f"{summary_prefix}{summary}")
+
+
+class WriteRejectedError(InvalidError):
+    """Raised when a device write is refused before it reaches the transport.
+
+    Carries the authored or stable built-in ``reasons``; ``str(exc)`` stays a
+    generic summary so no internal detail leaks into API responses.
+    """
+
+    def __init__(
+        self, reasons: Sequence[WriteReason], message: str = "Write rejected"
+    ) -> None:
+        super().__init__(message)
+        self.reasons = list(reasons)
 
 
 class ConflictError(Exception):

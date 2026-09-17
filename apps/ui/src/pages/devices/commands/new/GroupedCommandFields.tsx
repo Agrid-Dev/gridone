@@ -1,3 +1,4 @@
+import { commandReasons } from "@/lib/commandReasons";
 import { Controller, type UseFormReturn } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import type { AttributeCoverage, Device } from "@gridone/sdk";
@@ -58,7 +59,9 @@ export function GroupedCommandFields({
   const { t } = useTranslation("devices");
   const bounds = inputBounds(coverage);
   const dataType = coverage?.data_types[0];
-  const options = coverage?.value_options;
+  const projectedOptions = coverage?.write_state?.options;
+  const options =
+    projectedOptions?.map((option) => option.value) ?? coverage?.value_options;
   const unit = coverage?.unit;
   const range = currentRange(eligible, attribute);
   const mixed = currentValues(eligible, attribute).length > 1;
@@ -121,6 +124,11 @@ export function GroupedCommandFields({
                         <SelectItem
                           key={JSON.stringify(value)}
                           value={JSON.stringify(value)}
+                          disabled={
+                            projectedOptions?.find(
+                              (option) => option.value === value,
+                            )?.available === false
+                          }
                         >
                           {typeof value === "boolean"
                             ? t(value ? "commands.new.on" : "commands.new.off")
@@ -155,6 +163,13 @@ export function GroupedCommandFields({
                   }}
                 />
               )}
+              {projectedOptions
+                ?.filter((option) => !option.available)
+                .map((option) => (
+                  <FieldDescription key={JSON.stringify(option.value)}>
+                    {String(option.value)}: {commandReasons(option.reasons)}
+                  </FieldDescription>
+                ))}
               {mixed && (
                 <FieldDescription>
                   {t("commands.grouped.currentRange", {

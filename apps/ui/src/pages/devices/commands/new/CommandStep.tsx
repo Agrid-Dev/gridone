@@ -1,3 +1,4 @@
+import { commandReasons } from "@/lib/commandReasons";
 import { useTranslation } from "react-i18next";
 import {
   Controller,
@@ -90,9 +91,13 @@ export function CommandStep({
       {selectedAttribute &&
         selectedDataType &&
         (() => {
-          const selectedValueOptions = coverage.find(
+          const selectedCoverage = coverage.find(
             (row) => row.attribute === selectedAttribute,
-          )?.value_options;
+          );
+          const projectedOptions = selectedCoverage?.write_state?.options;
+          const selectedValueOptions =
+            projectedOptions?.map((option) => option.value) ??
+            selectedCoverage?.value_options;
           const hint = t(`commands.new.valueHint.${selectedDataType}`, {
             defaultValue: "",
           });
@@ -109,6 +114,13 @@ export function CommandStep({
                 description={hint || undefined}
                 options={selectedValueOptions.map((opt) => ({
                   value: opt,
+                  disabled:
+                    projectedOptions?.find((option) => option.value === opt)
+                      ?.available === false,
+                  reason: commandReasons(
+                    projectedOptions?.find((option) => option.value === opt)
+                      ?.reasons,
+                  ),
                   label: (
                     <AttributeValue
                       deviceType={deviceTypes}

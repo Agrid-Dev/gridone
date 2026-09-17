@@ -20,6 +20,7 @@ from models.targets import (
     ResolvedTarget,
     unify_data_types,
 )
+from models.write_rules import AttributeWriteState, ResolvedOption
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -68,6 +69,12 @@ def compute_attribute_coverage(devices: list[Device]) -> list[AttributeCoverage]
                 writable_count=len(writable),
                 label=_unanimous([d.attributes[name].label for d in presenting]),
                 unit=_unanimous([d.attributes[name].unit for d in presenting]),
+                default_value=_unanimous(
+                    [d.attributes[name].default_value for d in presenting]
+                ),
+                write_state=_aggregate_write_states(
+                    [d.attributes[name].write_state for d in presenting]
+                ),
                 value_options=_unanimous(
                     [d.attributes[name].value_options or None for d in presenting]
                 ),
@@ -77,6 +84,32 @@ def compute_attribute_coverage(devices: list[Device]) -> list[AttributeCoverage]
             )
         )
     return coverage
+
+
+def _aggregate_write_states(
+    states: list[AttributeWriteState | None],
+) -> AttributeWriteState | None:
+    """Offer values available on at least one member; dispatch previews each member."""
+    if not states or any(state is None for state in states):
+        return None
+    known = [state for state in states if state is not None]
+    options: dict[tuple[bool, object], ResolvedOption] = {}
+    for state in known:
+        for option in state.options or []:
+            key = (isinstance(option.value, bool), option.value)
+            if key not in options or option.available:
+                options[key] = option
+    return AttributeWriteState(
+        status="ready"
+        if any(state.status == "ready" for state in known)
+        else "blocked",
+        constraints=_unanimous([state.constraints for state in known]),
+        options=list(options.values())
+        if all(state.options is not None for state in known)
+        else None,
+        candidate_required=True,
+        missing_dependencies=any(state.missing_dependencies for state in known),
+    )
 
 
 def _unanimous[T](values: list[T]) -> T | None:

@@ -17,7 +17,11 @@ from api.exception_handlers import register_exception_handlers
 from api.listeners.device import on_device_discovered
 from api.listeners.fault import on_fault_transition
 from api.listeners.timeseries import historise_attribute_update, record_attribute_point
-from api.listeners.websocket import broadcast_attribute_update, broadcast_device_update
+from api.listeners.websocket import (
+    broadcast_attribute_update,
+    broadcast_device_update,
+    broadcast_write_state,
+)
 from api.routes import (
     assets_router,
     automations_router,
@@ -49,6 +53,7 @@ from devices_manager import DevicesService
 from models.errors import ConfigurationError
 from models.service import Service
 from models.types import AttributeValueType, DataType
+from models.write_rules import WriteEvaluation
 from notifications import NotificationsService
 from synoptics import SynopticsService
 from timeseries import TimeSeriesService
@@ -127,7 +132,9 @@ async def _start_display_services(
 # Composition root: only the acceptance suite runs it, and that reports no
 # coverage, so it is excluded from the unit gate rather than left red.
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:  # pragma: no cover
+async def lifespan(
+    app: FastAPI,
+) -> AsyncIterator[None]:  # pragma: no cover
     settings = load_settings()
     auth_service = AuthService(
         secret_key=settings.secret_key,
@@ -157,43 +164,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:  # pragma: no cover
     await notifications_svc.start()
     app.state.notifications_service = notifications_svc
 
-    async def _write_device(
-        device_id: str,
-        attribute_name: str,
-        value: AttributeValueType,
-        *,
-        confirm: bool = True,
-    ) -> WriteResult:
-        attr = await dm.write_device_attribute(
-            device_id, attribute_name, value, confirm=confirm
-        )
-        return WriteResult(last_changed=attr.last_changed)
-
-    async def _on_command_success(
-        device_id: str,
-        attribute: str,
-        value: AttributeValueType,
-        data_type: DataType,
-        command_id: int,
-        last_changed: datetime | None,
-    ) -> None:
-        await record_attribute_point(
-            ts_service,
-            device_id,
-            attribute,
-            value,
-            data_type,
-            last_changed,
-            command_id=command_id,
-        )
-
-    commands_service = CommandsService(
-        settings.storage_url,
-        device_writer=_write_device,
-        result_handler=_on_command_success,
-        target_resolver=CompositeTargetResolver(dm),
+    commands_service = await _start_commands_service(
+        settings.storage_url, dm, ts_service
     )
-    await commands_service.start()
     app.state.commands_service = commands_service
 
     automations_svc = _build_automations_service(
@@ -231,6 +204,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:  # pragma: no cover
     dm.add_device_attribute_listener(on_fault_transition(notifications_svc, recipients))
     dm.add_device_attribute_listener(broadcast_attribute_update(websocket_manager))
     dm.add_device_update_listener(broadcast_device_update(websocket_manager))
+    dm.add_write_state_listener(broadcast_write_state(websocket_manager))
     dm.add_device_attribute_listener(historise_attribute_update(ts_service))
 
     # Start the devices service last so listeners are registered before
@@ -347,3 +321,62 @@ def create_app(*, logging_dict_config: dict | None = None) -> FastAPI:
 
 
 app = create_app()
+
+
+async def _start_commands_service(
+    storage_url: str | None, dm: DevicesService, ts_service: TimeSeriesService
+) -> CommandsService:
+    async def _write_device(
+        device_id: str,
+        attribute_name: str,
+        value: AttributeValueType,
+        *,
+        confirm: bool = True,
+    ) -> WriteResult:
+        attr = await dm.write_device_attribute(
+            device_id, attribute_name, value, confirm=confirm
+        )
+        return WriteResult(
+            last_changed=attr.last_changed,
+            observed_value=attr.current_value,
+            confirmed=confirm,
+        )
+
+    async def _on_command_success(
+        device_id: str,
+        attribute: str,
+        value: AttributeValueType,
+        data_type: DataType,
+        command_id: int,
+        last_changed: datetime | None,
+    ) -> None:
+        await record_attribute_point(
+            ts_service,
+            device_id,
+            attribute,
+            value,
+            data_type,
+            last_changed,
+            command_id=command_id,
+        )
+
+    def _validate_device_command(
+        device_id: str, attribute: str, value: AttributeValueType
+    ) -> WriteEvaluation:
+        preview = dm.preview_device_write(device_id, attribute, value)
+        return WriteEvaluation(
+            eligible=preview.eligible,
+            value=preview.value,
+            reasons=preview.reasons,
+            warnings=preview.warnings,
+        )
+
+    commands_service = CommandsService(
+        storage_url,
+        device_writer=_write_device,
+        command_validator=_validate_device_command,
+        result_handler=_on_command_success,
+        target_resolver=CompositeTargetResolver(dm),
+    )
+    await commands_service.start()
+    return commands_service

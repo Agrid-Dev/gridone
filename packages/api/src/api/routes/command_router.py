@@ -46,6 +46,7 @@ from commands import (
     UnitCommand,
 )
 from devices_manager import DevicesServiceInterface
+from devices_manager.core.write_preview import DeviceWritePreview
 from models.errors import InvalidError
 from models.pagination import Page, PaginationParams
 from models.resource_conflict import ResourceConflictCode, ResourceConflictError
@@ -219,6 +220,20 @@ async def dispatch_batch_command(
 
 
 @router.post(
+    "/{device_id}/commands/preview",
+    dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
+)
+async def preview_single_command(
+    device_id: str,
+    body: SingleDeviceCommand,
+    dm: DevicesServiceInterface = Depends(get_device_manager),
+) -> DeviceWritePreview:
+    # The preview reads and expires loop-owned device state: it must run on the
+    # event loop like every other route, never in a worker thread.
+    return dm.preview_device_write(device_id, body.attribute, body.value)
+
+
+@router.post(
     "/{device_id}/commands",
     dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
 )
@@ -235,7 +250,7 @@ async def dispatch_single_command(
         AttributeTarget(
             devices=DevicesFilter(ids=[device_id]), attribute=body.attribute
         ),
-        writable=True,
+        writable=False,
     )
     return await commands_svc.dispatch_unit(
         device_id=device_id,

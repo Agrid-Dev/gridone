@@ -29,10 +29,17 @@ from devices_manager.core.device.connection_status_attribute import (
 )
 from devices_manager.dto.device_dto import Device
 from devices_manager.types import ConnectionStatus, DataType
-from models.errors import ConfirmationError, InvalidError, NotFoundError
+from models.attribute_metadata import LocalizedText
+from models.errors import (
+    ConfirmationError,
+    InvalidError,
+    NotFoundError,
+    WriteRejectedError,
+)
 from models.pagination import Page, PaginationParams
 from models.targets import DevicesFilter
 from models.types import SortOrder
+from models.write_rules import WriteReason
 
 # ---------------------------------------------------------------------------
 # Shared device fixtures
@@ -445,6 +452,8 @@ class TestListDeviceAttributes:
             "unit": None,
             "value_options": None,
             "write_constraints": None,
+            "write_state": None,
+            "default_value": None,
         }
         assert by_name["setpoint"]["writable_count"] == 1
 
@@ -1069,15 +1078,23 @@ class TestDispatchSingleCommand:
         assert response.status_code == 422
 
     @pytest.mark.asyncio
-    async def test_read_only_attribute_returns_422(self, async_client: AsyncClient):
-        # 'temperature' on device1 is read-only — no device exposes it as
-        # writable, so the helper raises InvalidError (422).
+    async def test_read_only_attribute_returns_422(
+        self, async_client: AsyncClient, mock_commands_service: AsyncMock
+    ):
+        # The command service records the rejected submission before re-raising.
+        mock_commands_service.dispatch_unit.side_effect = WriteRejectedError(
+            [WriteReason(code="not_writable")]
+        )
         async with async_client as ac:
             response = await ac.post(
                 "/device1/commands",
                 json={"attribute": "temperature", "value": 22.0},
             )
         assert response.status_code == 422
+        # Resolution no longer refuses a read-only attribute: the submission
+        # reaches the service, which records it as a rejected command.
+        mock_commands_service.dispatch_unit.assert_awaited_once()
+        assert response.json()["reasons"] == [{"code": "not_writable"}]
 
     @pytest.mark.asyncio
     async def test_write_constraint_violation_returns_422(
@@ -1786,3 +1803,74 @@ class TestTagVocabulary:
             ["device1"],
             TagMutation(key="ecs", add=["west"], remove=["east"], require_value="east"),
         )
+
+
+def test_command_preview_is_read_only_and_returns_public_reasons(
+    client, dm, mock_commands_service
+):
+    from devices_manager.core.write_preview import DeviceWritePreview
+
+    dm.preview_device_write.return_value = DeviceWritePreview(
+        device_id="device1",
+        name="Device",
+        current_value=None,
+        eligible=False,
+        reasons=[WriteReason(code="locked", message=LocalizedText(default="Locked"))],
+    )
+    response = client.post(
+        "/device1/commands/preview",
+        json={"attribute": "temperature_setpoint", "value": 22},
+    )
+    assert response.status_code == 200
+    assert response.json()["reasons"][0]["message"]["default"] == "Locked"
+    dm.preview_device_write.assert_called_once_with(
+        "device1", "temperature_setpoint", 22
+    )
+    mock_commands_service.dispatch_unit.assert_not_called()
+
+
+def test_rejection_hides_internal_messages(client, mock_commands_service):
+    mock_commands_service.dispatch_unit.side_effect = WriteRejectedError(
+        [WriteReason(code="locked")], "/private/internal/path"
+    )
+    response = client.post(
+        "/device1/commands",
+        json={"attribute": "temperature_setpoint", "value": 22},
+    )
+    assert response.status_code == 422
+    assert response.json() == {
+        "detail": "Command rejected",
+        "reasons": [{"code": "locked"}],
+    }
+
+
+def test_attribute_coverage_combines_server_options_and_only_common_limits(client, dm):
+    from models.write_rules import (
+        AttributeWriteState,
+        ResolvedConstraints,
+        ResolvedOption,
+    )
+
+    devices = [_DEVICE.model_copy(deep=True), _SENSOR.model_copy(deep=True)]
+    for index, device in enumerate(devices):
+        device.attributes["temperature"].write_state = AttributeWriteState(
+            status="ready",
+            constraints=ResolvedConstraints(maximum=25 + index),
+            options=[
+                ResolvedOption(value=22, available=index == 0),
+                ResolvedOption(value=23, available=index == 1),
+            ],
+        )
+    dm.list_devices.return_value = devices
+    dm.list_devices.side_effect = None
+    response = client.get("/attributes")
+    state = next(
+        a["write_state"]
+        for a in response.json()["attributes"]
+        if a["attribute"] == "temperature"
+    )
+    assert state["constraints"] is None
+    assert state["status"] == "ready"
+    assert state["candidate_required"]
+    assert [option["value"] for option in state["options"]] == [22, 23]
+    assert all(option["available"] for option in state["options"])

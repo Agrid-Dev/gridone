@@ -65,6 +65,7 @@ from .models import (
     SetpointTableNode,
     StackNode,
     TextPart,
+    VariantNode,
 )
 
 if TYPE_CHECKING:
@@ -87,6 +88,7 @@ _NODE_CAPABILITIES: Final[dict[type, str]] = {
     StackNode: "layout/1",
     ColumnsNode: "layout/1",
     SectionNode: "layout/1",
+    VariantNode: "layout-variants/1",
     AttributesNode: "layout/1",
     ControlPanelNode: "controls/1",
     MeasurementsNode: "measurements/1",
@@ -304,7 +306,11 @@ def _control_accepts(kind: ControlKind, attribute: AttributeDriver) -> bool:
         return attribute.data_type is DataType.BOOL
     if kind in {ControlKind.NUMBER, ControlKind.SLIDER}:
         return attribute.data_type in _NUMERIC_DATA_TYPES
-    return attribute.value_options is not None
+    return (
+        attribute.write_options is not None
+        or attribute.value_mapping is not None
+        or attribute.value_options is not None
+    )
 
 
 def _describe(attribute: AttributeDriver) -> str:
@@ -320,7 +326,7 @@ def _check_glyph_sets(scope: _Scope, report: _Report) -> None:
 
 
 def _check_page(scope: _Scope, report: _Report) -> None:
-    for node, path, depth in _walk_nodes(scope.document.page, "/page"):
+    for node, path, depth in walk_page_nodes(scope.document.page, "/page"):
         if depth == DOCUMENT_BUDGETS.max_layout_depth + 1:
             report.add(
                 DiagnosticCode.BUDGET_EXCEEDED,
@@ -526,7 +532,17 @@ def _check_operand(
 
 def _iter_conditions(document: PresentationV1) -> Iterator[tuple[Condition, str]]:
     """Every top-level condition of the document, with the path it sits at."""
-    for node, path, _ in _walk_nodes(document.page, "/page"):
+    for control_id, control in document.controls.items():
+        if control.visible_when:
+            yield control.visible_when, f"/controls/{control_id}/visible_when"
+        if control.blocked_when:
+            yield control.blocked_when, f"/controls/{control_id}/blocked_when"
+    for node, path, _ in walk_page_nodes(document.page, "/page"):
+        if node.visible_when:
+            yield node.visible_when, f"{path}/visible_when"
+        if isinstance(node, VariantNode):
+            for i, variant in enumerate(node.variants):
+                yield variant.when, f"{path}/variants/{i}/when"
         if isinstance(node, DeviceFaceNode):
             for index, layer in enumerate(node.layers):
                 yield from _layer_conditions(layer, f"{path}/layers/{index}")
@@ -570,10 +586,17 @@ def _check_capabilities_declared(scope: _Scope, report: _Report) -> None:
 
 
 def _used_capabilities(document: PresentationV1) -> set[str]:
-    nodes = [node for node, _, _ in _walk_nodes(document.page, "/page")]
+    nodes = [node for node, _, _ in walk_page_nodes(document.page, "/page")]
     used = {_NODE_CAPABILITIES[type(node)] for node in nodes}
     if document.controls:
         used.add("controls/1")
+    if any(
+        control.visible_when or control.blocked_when
+        for control in document.controls.values()
+    ):
+        used.add("control-conditions/1")
+    if any(node.visible_when for node in nodes):
+        used.add("page-conditions/1")
     if any(
         control.kind is ControlKind.SLIDER for control in document.controls.values()
     ):
@@ -627,7 +650,7 @@ def _check_budgets(scope: _Scope, report: _Report) -> None:
         )
     nodes = sum(
         1 + (len(node.layers) if isinstance(node, DeviceFaceNode) else 0)
-        for node, _, _ in _walk_nodes(document.page, "/page")
+        for node, _, _ in walk_page_nodes(document.page, "/page")
     )
     if nodes > budgets.max_nodes:
         report.add(
@@ -702,16 +725,21 @@ def _require_glyph_set(
         )
 
 
-def _walk_nodes(
+def walk_page_nodes(
     node: PageNode, path: str, depth: int = 1
 ) -> Iterator[tuple[PageNode, str, int]]:
     """Every page node in document order, with its path and nesting depth."""
     yield node, path, depth
     if isinstance(node, StackNode | SectionNode):
         for index, child in enumerate(node.children):
-            yield from _walk_nodes(child, f"{path}/children/{index}", depth + 1)
+            yield from walk_page_nodes(child, f"{path}/children/{index}", depth + 1)
+    elif isinstance(node, VariantNode):
+        for index, variant in enumerate(node.variants):
+            yield from walk_page_nodes(
+                variant.content, f"{path}/variants/{index}/content", depth + 1
+            )
     elif isinstance(node, ColumnsNode):
         for index, item in enumerate(node.items):
-            yield from _walk_nodes(
+            yield from walk_page_nodes(
                 item.content, f"{path}/items/{index}/content", depth + 1
             )

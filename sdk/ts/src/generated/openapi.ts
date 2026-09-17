@@ -383,6 +383,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/devices/{device_id}/commands/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Preview Single Command */
+    post: operations["preview_single_command_devices__device_id__commands_preview_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/devices/commands/templates/": {
     parameters: {
       query?: never;
@@ -2123,6 +2140,26 @@ export interface components {
      * @enum {string}
      */
     AppStatus: "registered" | "healthy" | "needs_config" | "unhealthy";
+    /** ArithmeticExpression */
+    "ArithmeticExpression-Input": {
+      /**
+       * Op
+       * @enum {string}
+       */
+      op: "add" | "subtract" | "min" | "max";
+      /** Args */
+      args: components["schemas"]["Expression-Input"][];
+    };
+    /** ArithmeticExpression */
+    "ArithmeticExpression-Output": {
+      /**
+       * Op
+       * @enum {string}
+       */
+      op: "add" | "subtract" | "min" | "max";
+      /** Args */
+      args: components["schemas"]["Expression-Output"][];
+    };
     /**
      * Asset
      * @description Public asset model (API response).
@@ -2306,7 +2343,12 @@ export interface components {
       unit?: string | null;
       /** Value Options */
       value_options?: (number | string | boolean)[] | null;
-      write_constraints?: components["schemas"]["WriteConstraints"] | null;
+      write_constraints?:
+        | components["schemas"]["WriteConstraints-Output"]
+        | null;
+      write_state?: components["schemas"]["AttributeWriteState"] | null;
+      /** Default Value */
+      default_value?: number | string | boolean | null;
     };
     /**
      * AttributeCoverageResponse
@@ -2349,7 +2391,16 @@ export interface components {
       group?: string | null;
       /** Unit */
       unit?: string | null;
-      write_constraints?: components["schemas"]["WriteConstraints"] | null;
+      write_constraints?:
+        | components["schemas"]["WriteConstraints-Input"]
+        | null;
+      /** Default Value */
+      default_value?: boolean | number | string | null;
+      /** Write Rules */
+      write_rules?: components["schemas"]["WriteRule-Input"][];
+      /** Write Options */
+      write_options?: components["schemas"]["WriteOption-Input"][] | null;
+      value_mapping?: components["schemas"]["ValueMapping-Input"] | null;
     };
     /** AttributeDriver */
     "AttributeDriver-Output": {
@@ -2379,7 +2430,16 @@ export interface components {
       group?: string | null;
       /** Unit */
       unit?: string | null;
-      write_constraints?: components["schemas"]["WriteConstraints"] | null;
+      write_constraints?:
+        | components["schemas"]["WriteConstraints-Output"]
+        | null;
+      /** Default Value */
+      default_value?: boolean | number | string | null;
+      /** Write Rules */
+      write_rules?: components["schemas"]["WriteRule-Output"][];
+      /** Write Options */
+      write_options?: components["schemas"]["WriteOption-Output"][] | null;
+      value_mapping?: components["schemas"]["ValueMapping-Output"] | null;
     };
     /** AttributeEventLog */
     AttributeEventLog: {
@@ -2439,13 +2499,20 @@ export interface components {
       group?: string | null;
       /** Unit */
       unit?: string | null;
-      write_constraints?: components["schemas"]["WriteConstraints"] | null;
+      write_constraints?:
+        | components["schemas"]["WriteConstraints-Input"]
+        | null;
+      /** Default Value */
+      default_value?: boolean | number | string | null;
+      /** Write Rules */
+      write_rules?: components["schemas"]["WriteRule-Input"][] | null;
+      /** Write Options */
+      write_options?: components["schemas"]["WriteOption-Input"][] | null;
+      value_mapping?: components["schemas"]["ValueMapping-Input"] | null;
     };
     /**
      * AttributeRef
-     * @description A bound taken from another attribute of the same driver: ``{attribute: name}``.
-     *
-     *     The referenced attribute's *current* value is the bound at write time.
+     * @description Current observed value of a sibling attribute, e.g. ``{attribute: limit}``.
      */
     AttributeRef: {
       /** Attribute */
@@ -2539,10 +2606,50 @@ export interface components {
       data_type: components["schemas"]["DataType"];
     };
     /**
+     * AttributeWriteState
+     * @description Server projection; clients never need to fetch or evaluate dependencies.
+     */
+    AttributeWriteState: {
+      /**
+       * Status
+       * @default ready
+       * @enum {string}
+       */
+      status?: "ready" | "blocked" | "unknown";
+      constraints?: components["schemas"]["ResolvedConstraints"] | null;
+      /** Options */
+      options?: components["schemas"]["ResolvedOption"][] | null;
+      /** Reasons */
+      reasons?: components["schemas"]["WriteReason"][];
+      /** Warnings */
+      warnings?: components["schemas"]["WriteReason"][];
+      /**
+       * Missing Dependencies
+       * @default false
+       */
+      missing_dependencies?: boolean;
+      /**
+       * Candidate Required
+       * @default false
+       */
+      candidate_required?: boolean;
+    };
+    /**
      * AttributesNode
      * @description The generic attribute panes, optionally filtered on an attribute group.
      */
     AttributesNode: {
+      /** Visible When */
+      visible_when?:
+        | (
+            | components["schemas"]["EqCondition"]
+            | components["schemas"]["InCondition"]
+            | components["schemas"]["IsKnownCondition"]
+            | components["schemas"]["NotCondition"]
+            | components["schemas"]["AllCondition"]
+            | components["schemas"]["AnyCondition"]
+          )
+        | null;
       /**
        * @description discriminator enum property added by openapi-typescript
        * @enum {string}
@@ -3028,6 +3135,17 @@ export interface components {
         | null;
     };
     /**
+     * CandidateRef
+     * @description The typed proposed value, without changing the observed device state.
+     */
+    CandidateRef: {
+      /**
+       * Candidate
+       * @constant
+       */
+      candidate: true;
+    };
+    /**
      * Cell
      * @description An integer grid cell. ``x`` right-and-down, ``y`` left-and-down, ``z`` up.
      *
@@ -3111,6 +3229,28 @@ export interface components {
       /** Group By */
       group_by?: string | null;
     };
+    /** ChoiceExpression */
+    "ChoiceExpression-Input": {
+      /**
+       * Op
+       * @constant
+       */
+      op: "if";
+      condition: components["schemas"]["Condition-Input"];
+      then: components["schemas"]["Expression-Input"];
+      otherwise: components["schemas"]["Expression-Input"];
+    };
+    /** ChoiceExpression */
+    "ChoiceExpression-Output": {
+      /**
+       * Op
+       * @constant
+       */
+      op: "if";
+      condition: components["schemas"]["Condition-Output"];
+      then: components["schemas"]["Expression-Output"];
+      otherwise: components["schemas"]["Expression-Output"];
+    };
     /** CodecSpec */
     CodecSpec: {
       /** Name */
@@ -3152,10 +3292,22 @@ export interface components {
         | components["schemas"]["ControlPanelNode"]
         | components["schemas"]["MeasurementsNode"]
         | components["schemas"]["SetpointTableNode"]
-        | components["schemas"]["DeviceFaceNode"];
+        | components["schemas"]["DeviceFaceNode"]
+        | components["schemas"]["VariantNode"];
     };
     /** ColumnsNode */
     ColumnsNode: {
+      /** Visible When */
+      visible_when?:
+        | (
+            | components["schemas"]["EqCondition"]
+            | components["schemas"]["InCondition"]
+            | components["schemas"]["IsKnownCondition"]
+            | components["schemas"]["NotCondition"]
+            | components["schemas"]["AllCondition"]
+            | components["schemas"]["AnyCondition"]
+          )
+        | null;
       /**
        * @description discriminator enum property added by openapi-typescript
        * @enum {string}
@@ -3218,6 +3370,38 @@ export interface components {
       /** Name */
       name?: string | null;
     };
+    /** Comparison */
+    "Comparison-Input": {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      op: "eq" | "gt" | "gte" | "lt" | "lte";
+      left: components["schemas"]["Expression-Input"];
+      right: components["schemas"]["Expression-Input"];
+    };
+    /** Comparison */
+    "Comparison-Output": {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      op: "eq" | "gt" | "gte" | "lt" | "lte";
+      left: components["schemas"]["Expression-Output"];
+      right: components["schemas"]["Expression-Output"];
+    };
+    "Condition-Input":
+      | components["schemas"]["Comparison-Input"]
+      | components["schemas"]["Membership-Input"]
+      | components["schemas"]["IsKnown-Input"]
+      | components["schemas"]["Negation-Input"]
+      | components["schemas"]["Junction-Input"];
+    "Condition-Output":
+      | components["schemas"]["Comparison-Output"]
+      | components["schemas"]["Membership-Output"]
+      | components["schemas"]["IsKnown-Output"]
+      | components["schemas"]["Negation-Output"]
+      | components["schemas"]["Junction-Output"];
     /**
      * ConditionalColor
      * @description A colour that depends on device state: the first matching rule wins.
@@ -3235,6 +3419,28 @@ export interface components {
     ConnectionStatus: "idle" | "ok" | "degraded" | "error";
     /** Control */
     Control: {
+      /** Visible When */
+      visible_when?:
+        | (
+            | components["schemas"]["EqCondition"]
+            | components["schemas"]["InCondition"]
+            | components["schemas"]["IsKnownCondition"]
+            | components["schemas"]["NotCondition"]
+            | components["schemas"]["AllCondition"]
+            | components["schemas"]["AnyCondition"]
+          )
+        | null;
+      /** Blocked When */
+      blocked_when?:
+        | (
+            | components["schemas"]["EqCondition"]
+            | components["schemas"]["InCondition"]
+            | components["schemas"]["IsKnownCondition"]
+            | components["schemas"]["NotCondition"]
+            | components["schemas"]["AllCondition"]
+            | components["schemas"]["AnyCondition"]
+          )
+        | null;
       kind: components["schemas"]["ControlKind"];
       /** Binding */
       binding: string;
@@ -3247,6 +3453,17 @@ export interface components {
     ControlKind: "toggle" | "number" | "slider" | "select";
     /** ControlPanelNode */
     ControlPanelNode: {
+      /** Visible When */
+      visible_when?:
+        | (
+            | components["schemas"]["EqCondition"]
+            | components["schemas"]["InCondition"]
+            | components["schemas"]["IsKnownCondition"]
+            | components["schemas"]["NotCondition"]
+            | components["schemas"]["AllCondition"]
+            | components["schemas"]["AnyCondition"]
+          )
+        | null;
       /**
        * @description discriminator enum property added by openapi-typescript
        * @enum {string}
@@ -3389,6 +3606,11 @@ export interface components {
       /** Transport Id */
       transport_id: string;
       presentation_ref?: components["schemas"]["PresentationReference"] | null;
+      /**
+       * Write State Revision
+       * @default 0
+       */
+      write_state_revision?: number;
     };
     /**
      * DeviceBatchCreate
@@ -3471,6 +3693,17 @@ export interface components {
      * @description An exact graphical surface: fixed view box, layers in paint order.
      */
     DeviceFaceNode: {
+      /** Visible When */
+      visible_when?:
+        | (
+            | components["schemas"]["EqCondition"]
+            | components["schemas"]["InCondition"]
+            | components["schemas"]["IsKnownCondition"]
+            | components["schemas"]["NotCondition"]
+            | components["schemas"]["AllCondition"]
+            | components["schemas"]["AnyCondition"]
+          )
+        | null;
       /**
        * @description discriminator enum property added by openapi-typescript
        * @enum {string}
@@ -3542,17 +3775,19 @@ export interface components {
       current_value: number | string | boolean | null;
       /** Eligible */
       eligible: boolean;
-      constraints?: components["schemas"]["WriteConstraintPreview"] | null;
-      /** Reason */
-      reason?:
-        | (
-            | "not_writable"
-            | "invalid_value"
-            | "constraints"
-            | "unknown_attribute"
-            | "control_blocked"
-          )
-        | null;
+      /** Value */
+      value?: number | string | boolean | null;
+      constraints?: components["schemas"]["ResolvedConstraints"] | null;
+      /** Reasons */
+      reasons?: components["schemas"]["WriteReason"][];
+      /** Warnings */
+      warnings?: components["schemas"]["WriteReason"][];
+      write_state?: components["schemas"]["AttributeWriteState"] | null;
+      /**
+       * Revision
+       * @default 0
+       */
+      revision?: number;
     };
     /**
      * DevicesFilter
@@ -3814,6 +4049,22 @@ export interface components {
      * @enum {string}
      */
     ExecutionStatus: "success" | "failed";
+    "Expression-Input":
+      | boolean
+      | number
+      | string
+      | components["schemas"]["AttributeRef"]
+      | components["schemas"]["CandidateRef"]
+      | components["schemas"]["ArithmeticExpression-Input"]
+      | components["schemas"]["ChoiceExpression-Input"];
+    "Expression-Output":
+      | boolean
+      | number
+      | string
+      | components["schemas"]["AttributeRef"]
+      | components["schemas"]["CandidateRef"]
+      | components["schemas"]["ArithmeticExpression-Output"]
+      | components["schemas"]["ChoiceExpression-Output"];
     /**
      * FaceAction
      * @description An interaction on a declared control; ``op`` must suit the control's kind.
@@ -3854,7 +4105,16 @@ export interface components {
       group?: string | null;
       /** Unit */
       unit?: string | null;
-      write_constraints?: components["schemas"]["WriteConstraints"] | null;
+      write_constraints?:
+        | components["schemas"]["WriteConstraints-Input"]
+        | null;
+      /** Default Value */
+      default_value?: boolean | number | string | null;
+      /** Write Rules */
+      write_rules?: components["schemas"]["WriteRule-Input"][];
+      /** Write Options */
+      write_options?: components["schemas"]["WriteOption-Input"][] | null;
+      value_mapping?: components["schemas"]["ValueMapping-Input"] | null;
       /** @default warning */
       severity?: components["schemas"]["Severity"];
       /** Healthy Values */
@@ -3888,7 +4148,16 @@ export interface components {
       group?: string | null;
       /** Unit */
       unit?: string | null;
-      write_constraints?: components["schemas"]["WriteConstraints"] | null;
+      write_constraints?:
+        | components["schemas"]["WriteConstraints-Output"]
+        | null;
+      /** Default Value */
+      default_value?: boolean | number | string | null;
+      /** Write Rules */
+      write_rules?: components["schemas"]["WriteRule-Output"][];
+      /** Write Options */
+      write_options?: components["schemas"]["WriteOption-Output"][] | null;
+      value_mapping?: components["schemas"]["ValueMapping-Output"] | null;
       /** @default warning */
       severity?: components["schemas"]["Severity"];
       /** Healthy Values */
@@ -4253,6 +4522,24 @@ export interface components {
      * @enum {string}
      */
     IntervalUnit: "min" | "h" | "d" | "mo";
+    /** IsKnown */
+    "IsKnown-Input": {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      op: "is_known";
+      value: components["schemas"]["Expression-Input"];
+    };
+    /** IsKnown */
+    "IsKnown-Output": {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      op: "is_known";
+      value: components["schemas"]["Expression-Output"];
+    };
     /** IsKnownCondition */
     IsKnownCondition: {
       /**
@@ -4264,6 +4551,26 @@ export interface components {
       binding: string;
     };
     JsonValue: unknown;
+    /** Junction */
+    "Junction-Input": {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      op: "all" | "any";
+      /** Conditions */
+      conditions: components["schemas"]["Condition-Input"][];
+    };
+    /** Junction */
+    "Junction-Output": {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      op: "all" | "any";
+      /** Conditions */
+      conditions: components["schemas"]["Condition-Output"][];
+    };
     /** KNXTransportConfig */
     KNXTransportConfig: {
       /**
@@ -4444,6 +4751,28 @@ export interface components {
       /** I */
       i: string;
     };
+    /** LayoutVariant */
+    LayoutVariant: {
+      /** When */
+      when:
+        | components["schemas"]["EqCondition"]
+        | components["schemas"]["InCondition"]
+        | components["schemas"]["IsKnownCondition"]
+        | components["schemas"]["NotCondition"]
+        | components["schemas"]["AllCondition"]
+        | components["schemas"]["AnyCondition"];
+      /** Content */
+      content:
+        | components["schemas"]["StackNode"]
+        | components["schemas"]["ColumnsNode"]
+        | components["schemas"]["SectionNode"]
+        | components["schemas"]["AttributesNode"]
+        | components["schemas"]["ControlPanelNode"]
+        | components["schemas"]["MeasurementsNode"]
+        | components["schemas"]["SetpointTableNode"]
+        | components["schemas"]["DeviceFaceNode"]
+        | components["schemas"]["VariantNode"];
+    };
     /** LiteralPart */
     LiteralPart: {
       /** Literal */
@@ -4506,6 +4835,28 @@ export interface components {
        * @default 2400
        */
       baud_rate?: number;
+    };
+    /** MappingEntry */
+    "MappingEntry-Input": {
+      /** Code */
+      code: boolean | number | string;
+      value: components["schemas"]["Expression-Input"];
+      /**
+       * Selectable
+       * @default true
+       */
+      selectable?: boolean;
+    };
+    /** MappingEntry */
+    "MappingEntry-Output": {
+      /** Code */
+      code: boolean | number | string;
+      value: components["schemas"]["Expression-Output"];
+      /**
+       * Selectable
+       * @default true
+       */
+      selectable?: boolean;
     };
     /** MbusTransport */
     MbusTransport: {
@@ -4574,6 +4925,17 @@ export interface components {
     MeasurementLayout: "grouped" | "rows" | "inline";
     /** MeasurementsNode */
     MeasurementsNode: {
+      /** Visible When */
+      visible_when?:
+        | (
+            | components["schemas"]["EqCondition"]
+            | components["schemas"]["InCondition"]
+            | components["schemas"]["IsKnownCondition"]
+            | components["schemas"]["NotCondition"]
+            | components["schemas"]["AllCondition"]
+            | components["schemas"]["AnyCondition"]
+          )
+        | null;
       /**
        * @description discriminator enum property added by openapi-typescript
        * @enum {string}
@@ -4582,6 +4944,28 @@ export interface components {
       layout?: components["schemas"]["MeasurementLayout"] | null;
       /** Items */
       items: components["schemas"]["MeasurementItem"][];
+    };
+    /** Membership */
+    "Membership-Input": {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      op: "in";
+      value: components["schemas"]["Expression-Input"];
+      /** Values */
+      values: (boolean | number | string)[];
+    };
+    /** Membership */
+    "Membership-Output": {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      op: "in";
+      value: components["schemas"]["Expression-Output"];
+      /** Values */
+      values: (boolean | number | string)[];
     };
     /**
      * Metadata
@@ -4807,6 +5191,24 @@ export interface components {
        */
       protocol: "mqtt";
       config: components["schemas"]["MqttTransportConfig"];
+    };
+    /** Negation */
+    "Negation-Input": {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      op: "not";
+      condition: components["schemas"]["Condition-Input"];
+    };
+    /** Negation */
+    "Negation-Output": {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      op: "not";
+      condition: components["schemas"]["Condition-Output"];
     };
     /** NotCondition */
     NotCondition: {
@@ -5310,7 +5712,8 @@ export interface components {
         | components["schemas"]["ControlPanelNode"]
         | components["schemas"]["MeasurementsNode"]
         | components["schemas"]["SetpointTableNode"]
-        | components["schemas"]["DeviceFaceNode"];
+        | components["schemas"]["DeviceFaceNode"]
+        | components["schemas"]["VariantNode"];
     };
     /**
      * PushStatus
@@ -5407,6 +5810,28 @@ export interface components {
       /** Ordered Ids */
       ordered_ids: string[];
     };
+    /** ResolvedConstraints */
+    ResolvedConstraints: {
+      /** Minimum */
+      minimum?: number | null;
+      /** Maximum */
+      maximum?: number | null;
+      /** Step */
+      step?: number | null;
+      /** Unknown */
+      unknown?: string[];
+      /** Sentinels */
+      sentinels?: number[];
+    };
+    /** ResolvedOption */
+    ResolvedOption: {
+      /** Value */
+      value: boolean | number | string;
+      /** Available */
+      available: boolean;
+      /** Reasons */
+      reasons?: components["schemas"]["WriteReason"][];
+    };
     /**
      * ResourceMetadata
      * @description Auditability timestamps shared by every resource's read model.
@@ -5430,6 +5855,17 @@ export interface components {
     Role: "admin" | "operator" | "viewer";
     /** SectionNode */
     SectionNode: {
+      /** Visible When */
+      visible_when?:
+        | (
+            | components["schemas"]["EqCondition"]
+            | components["schemas"]["InCondition"]
+            | components["schemas"]["IsKnownCondition"]
+            | components["schemas"]["NotCondition"]
+            | components["schemas"]["AllCondition"]
+            | components["schemas"]["AnyCondition"]
+          )
+        | null;
       /**
        * @description discriminator enum property added by openapi-typescript
        * @enum {string}
@@ -5455,6 +5891,7 @@ export interface components {
         | components["schemas"]["MeasurementsNode"]
         | components["schemas"]["SetpointTableNode"]
         | components["schemas"]["DeviceFaceNode"]
+        | components["schemas"]["VariantNode"]
       )[];
     };
     /** @enum {string} */
@@ -5531,6 +5968,17 @@ export interface components {
     };
     /** SetpointTableNode */
     SetpointTableNode: {
+      /** Visible When */
+      visible_when?:
+        | (
+            | components["schemas"]["EqCondition"]
+            | components["schemas"]["InCondition"]
+            | components["schemas"]["IsKnownCondition"]
+            | components["schemas"]["NotCondition"]
+            | components["schemas"]["AllCondition"]
+            | components["schemas"]["AnyCondition"]
+          )
+        | null;
       /**
        * @description discriminator enum property added by openapi-typescript
        * @enum {string}
@@ -5610,6 +6058,17 @@ export interface components {
     };
     /** StackNode */
     StackNode: {
+      /** Visible When */
+      visible_when?:
+        | (
+            | components["schemas"]["EqCondition"]
+            | components["schemas"]["InCondition"]
+            | components["schemas"]["IsKnownCondition"]
+            | components["schemas"]["NotCondition"]
+            | components["schemas"]["AllCondition"]
+            | components["schemas"]["AnyCondition"]
+          )
+        | null;
       /**
        * @description discriminator enum property added by openapi-typescript
        * @enum {string}
@@ -5625,6 +6084,7 @@ export interface components {
         | components["schemas"]["MeasurementsNode"]
         | components["schemas"]["SetpointTableNode"]
         | components["schemas"]["DeviceFaceNode"]
+        | components["schemas"]["VariantNode"]
       )[];
     };
     /** StandardAttributeSchema */
@@ -6131,6 +6591,7 @@ export interface components {
       completed_at: string | null;
       /** Id */
       id: number;
+      validation?: components["schemas"]["WriteEvaluation"] | null;
     };
     /** UpdateStrategy */
     UpdateStrategy: {
@@ -6276,6 +6737,59 @@ export interface components {
       input?: unknown;
       /** Context */
       ctx?: Record<string, never>;
+    };
+    /**
+     * ValueMapping
+     * @description An ordered per-instance table above the ordinary mono-value codecs.
+     */
+    "ValueMapping-Input": {
+      /** Entries */
+      entries: components["schemas"]["MappingEntry-Input"][];
+      /**
+       * Duplicates
+       * @default reject
+       * @enum {string}
+       */
+      duplicates?: "reject" | "first";
+      /** Stop Value */
+      stop_value?: boolean | number | string | null;
+    };
+    /**
+     * ValueMapping
+     * @description An ordered per-instance table above the ordinary mono-value codecs.
+     */
+    "ValueMapping-Output": {
+      /** Entries */
+      entries: components["schemas"]["MappingEntry-Output"][];
+      /**
+       * Duplicates
+       * @default reject
+       * @enum {string}
+       */
+      duplicates?: "reject" | "first";
+      /** Stop Value */
+      stop_value?: boolean | number | string | null;
+    };
+    /** VariantNode */
+    VariantNode: {
+      /** Visible When */
+      visible_when?:
+        | (
+            | components["schemas"]["EqCondition"]
+            | components["schemas"]["InCondition"]
+            | components["schemas"]["IsKnownCondition"]
+            | components["schemas"]["NotCondition"]
+            | components["schemas"]["AllCondition"]
+            | components["schemas"]["AnyCondition"]
+          )
+        | null;
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      kind: "variant";
+      /** Variants */
+      variants: components["schemas"]["LayoutVariant"][];
     };
     /** WebhookTransport */
     WebhookTransport: {
@@ -6425,19 +6939,22 @@ export interface components {
           )
         | null;
     };
-    /** WriteConstraintPreview */
-    WriteConstraintPreview: {
-      /** Minimum */
-      minimum?: number | null;
-      /** Maximum */
-      maximum?: number | null;
-      /** Step */
-      step?: number | null;
-      /**
-       * Unknown
-       * @default []
-       */
-      unknown?: string[];
+    /**
+     * WriteConstraints
+     * @description Declarative limits the service enforces on every write of a numeric attribute.
+     *
+     *     ``minimum`` and ``maximum`` are inclusive; ``step`` is the grid, anchored
+     *     at 0, that accepted values must sit on. Each of the three is a constant
+     *     or a reference to a sibling attribute whose current value is read at
+     *     write time (a device's configurable precision, its per-mode bounds). An
+     *     empty object is rejected: declare at least one of the three.
+     */
+    "WriteConstraints-Input": {
+      step?: components["schemas"]["Expression-Input"] | null;
+      minimum?: components["schemas"]["Expression-Input"] | null;
+      maximum?: components["schemas"]["Expression-Input"] | null;
+      /** Sentinels */
+      sentinels?: number[];
     };
     /**
      * WriteConstraints
@@ -6449,13 +6966,71 @@ export interface components {
      *     write time (a device's configurable precision, its per-mode bounds). An
      *     empty object is rejected: declare at least one of the three.
      */
-    WriteConstraints: {
-      /** Step */
-      step?: number | components["schemas"]["AttributeRef"] | null;
-      /** Minimum */
-      minimum?: number | components["schemas"]["AttributeRef"] | null;
-      /** Maximum */
-      maximum?: number | components["schemas"]["AttributeRef"] | null;
+    "WriteConstraints-Output": {
+      step?: components["schemas"]["Expression-Output"] | null;
+      minimum?: components["schemas"]["Expression-Output"] | null;
+      maximum?: components["schemas"]["Expression-Output"] | null;
+      /** Sentinels */
+      sentinels?: number[];
+    };
+    /** WriteEvaluation */
+    WriteEvaluation: {
+      /** Eligible */
+      eligible: boolean;
+      /** Value */
+      value?: boolean | number | string | null;
+      /** Reasons */
+      reasons?: components["schemas"]["WriteReason"][];
+      /** Warnings */
+      warnings?: components["schemas"]["WriteReason"][];
+    };
+    /** WriteOption */
+    "WriteOption-Input": {
+      /** Value */
+      value: boolean | number | string;
+      allowed_when?: components["schemas"]["Condition-Input"] | null;
+      reason?: components["schemas"]["WriteReason"] | null;
+    };
+    /** WriteOption */
+    "WriteOption-Output": {
+      /** Value */
+      value: boolean | number | string;
+      allowed_when?: components["schemas"]["Condition-Output"] | null;
+      reason?: components["schemas"]["WriteReason"] | null;
+    };
+    /** WriteReason */
+    WriteReason: {
+      /** Code */
+      code: string;
+      message?: components["schemas"]["LocalizedText"] | null;
+    };
+    /**
+     * WriteRule
+     * @description Require a condition, or announce a warning when its condition is true.
+     */
+    "WriteRule-Input": {
+      condition: components["schemas"]["Condition-Input"];
+      reason: components["schemas"]["WriteReason"];
+      /**
+       * Effect
+       * @default require
+       * @enum {string}
+       */
+      effect?: "require" | "warn";
+    };
+    /**
+     * WriteRule
+     * @description Require a condition, or announce a warning when its condition is true.
+     */
+    "WriteRule-Output": {
+      condition: components["schemas"]["Condition-Output"];
+      reason: components["schemas"]["WriteReason"];
+      /**
+       * Effect
+       * @default require
+       * @enum {string}
+       */
+      effect?: "require" | "warn";
     };
     /** YamlLimits */
     YamlLimits: {
@@ -7405,6 +7980,41 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["BatchDispatchResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  preview_single_command_devices__device_id__commands_preview_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        device_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SingleDeviceCommand"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DeviceWritePreview"];
         };
       };
       /** @description Validation Error */

@@ -23,7 +23,9 @@ from models.attribute_metadata import (
     Unit,
     WriteConstraints,
 )
+from models.expressions import Scalar
 from models.types import Severity
+from models.write_rules import AttributeWriteState, WriteReason
 
 # Optional fields dropped from payloads when unset, so an attribute that
 # declares none of them serializes exactly as it did before they existed.
@@ -34,6 +36,10 @@ _OMITTED_WHEN_NONE = (
     "group",
     "unit",
     "write_constraints",
+    "write_state",
+    "default_value",
+    "raw_value",
+    "resolution_error",
 )
 
 
@@ -55,6 +61,10 @@ class Attribute(BaseModel):
     group: AttributeGroup | None = None
     unit: Unit | None = None
     write_constraints: WriteConstraints | None = None
+    default_value: Scalar | None = None
+    write_state: AttributeWriteState | None = None
+    raw_value: Scalar | None = None
+    resolution_error: WriteReason | None = None
 
     @model_serializer(mode="wrap")
     def _serialize(self, handler: Any) -> dict[str, Any]:  # noqa: ANN401

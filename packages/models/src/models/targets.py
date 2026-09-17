@@ -25,6 +25,7 @@ from models.attribute_metadata import LocalizedText, Unit, WriteConstraints
 from models.errors import InvalidError
 from models.tags import Tags
 from models.types import AttributeValueType, DataType
+from models.write_rules import AttributeWriteState
 
 
 class EmptyTargetError(InvalidError):
@@ -105,6 +106,8 @@ class AttributeCoverage(BaseModel):
     unit: Unit | None = None
     value_options: list[AttributeValueType] | None = None
     write_constraints: WriteConstraints | None = None
+    write_state: AttributeWriteState | None = None
+    default_value: AttributeValueType | None = None
 
 
 def unify_data_types(types: Iterable[DataType]) -> DataType:

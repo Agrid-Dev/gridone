@@ -16,28 +16,20 @@ function modeAttr(valueOptions?: AttributeFields["value_options"]) {
 }
 
 describe("resolveModeOptions", () => {
-  it("falls back to heat/cool/auto when the attribute is absent", () => {
-    expect(resolveModeOptions(undefined)).toEqual(["heat", "cool", "auto"]);
+  it("offers no invented modes when no options are declared", () => {
+    expect(resolveModeOptions(undefined)).toEqual([]);
+    expect(resolveModeOptions(modeAttr())).toEqual([]);
+    expect(resolveModeOptions(modeAttr([]))).toEqual([]);
   });
-
-  it("falls back when value_options is missing or empty", () => {
-    expect(resolveModeOptions(modeAttr())).toEqual(["heat", "cool", "auto"]);
-    expect(resolveModeOptions(modeAttr([]))).toEqual(["heat", "cool", "auto"]);
-  });
-
-  it("keeps only the declared options, in canonical order", () => {
+  it("preserves declared order and unfamiliar modes", () => {
     expect(resolveModeOptions(modeAttr(["cool", "heat"]))).toEqual([
-      "heat",
       "cool",
+      "heat",
     ]);
-    expect(
-      resolveModeOptions(modeAttr(["dry", "fan", "auto", "cool", "heat"])),
-    ).toEqual(["heat", "cool", "auto", "fan", "dry"]);
-  });
-
-  it("drops wire values the UI cannot render", () => {
     expect(resolveModeOptions(modeAttr(["heat", "eco", "boost"]))).toEqual([
       "heat",
+      "eco",
+      "boost",
     ]);
   });
 });

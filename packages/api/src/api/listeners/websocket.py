@@ -1,6 +1,11 @@
 from api.listeners import AttributeListener
 from api.websocket.manager import WebSocketManager
-from api.websocket.schemas import DeviceFullUpdateMessage, DeviceUpdateMessage
+from api.websocket.schemas import (
+    AttributeResolution,
+    DeviceFullUpdateMessage,
+    DeviceUpdateMessage,
+    DeviceWriteStateMessage,
+)
 from devices_manager import Attribute, CoreDevice
 from devices_manager.dto import device_to_public
 from devices_manager.interface import DeviceListener
@@ -36,5 +41,30 @@ def broadcast_attribute_update(
             last_changed=attribute.last_changed,
         )
         await websocket_manager.broadcast(message)
+
+    return listener
+
+
+def broadcast_write_state(websocket_manager: WebSocketManager) -> DeviceListener:
+    async def listener(device: CoreDevice) -> None:
+        await websocket_manager.broadcast(
+            DeviceWriteStateMessage(
+                device_id=device.id,
+                revision=device.write_state_revision,
+                attributes={
+                    name: attribute.write_state
+                    for name, attribute in device.attributes.items()
+                    if attribute.write_state is not None
+                },
+                resolutions={
+                    name: AttributeResolution(
+                        raw_value=attribute.raw_value,
+                        resolution_error=attribute.resolution_error,
+                    )
+                    for name, attribute in device.attributes.items()
+                    if attribute.write_state is not None
+                },
+            )
+        )
 
     return listener

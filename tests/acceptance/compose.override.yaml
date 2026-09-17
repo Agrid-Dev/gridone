@@ -157,3 +157,14 @@ services:
       TMK_CONTROLLER: http
     ports:
       - "9089:8080"
+
+  # Dedicated to suites/devices/commandValidation.spec.ts: its driver carries
+  # write rules that read onoff_state, which the suite flips through the http
+  # side-channel while also writing temperature_setpoint.
+  thermocktat-command-rules:
+    image: ghcr.io/agrid-dev/thermocktat:v0.10.0
+    environment:
+      TMK_DEVICE_ID: TMK_command_rules_0
+      TMK_CONTROLLER: http
+    ports:
+      - "9090:8080"

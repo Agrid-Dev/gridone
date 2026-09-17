@@ -1,3 +1,4 @@
+import { commandReasons } from "@/lib/commandReasons";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { Loader2 } from "lucide-react";
@@ -277,10 +278,22 @@ function PreparedWrite({
                           target
                         ) : (
                           <span className="font-normal">
-                            {t(
-                              `groups.reasons.${row.reason ?? "not_writable"}`,
+                            {/* A driver authors its own refusals; the app
+                                catalog names the built-in codes. */}
+                            {commandReasons(
+                              row.reasons?.length
+                                ? row.reasons
+                                : [{ code: "not_writable" }],
                             )}
                           </span>
+                        )}
+                        {!!row.warnings?.length && (
+                          <p
+                            role="status"
+                            className="font-normal text-muted-foreground"
+                          >
+                            {commandReasons(row.warnings)}
+                          </p>
                         )}
                       </td>
                     </tr>

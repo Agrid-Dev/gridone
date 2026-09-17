@@ -1,7 +1,12 @@
+import { QueryClient } from "@tanstack/react-query";
 import { afterEach, describe, it, expect, vi } from "vitest";
 import type { Device } from "@gridone/sdk";
 import type { DeviceAttribute } from "@/lib/devices";
-import { applyDeviceUpdate } from "./socket";
+import {
+  applyDeviceUpdate,
+  applyWriteState,
+  createDeviceMessageHandler,
+} from "./socket";
 
 const attribute = (over: Partial<DeviceAttribute>): DeviceAttribute => ({
   kind: "standard",
@@ -77,5 +82,51 @@ describe("applyDeviceUpdate", () => {
   it("returns the device untouched when the attribute is unknown", () => {
     const original = device({ temperature: attribute({}) });
     expect(applyDeviceUpdate(original, "unknown", 1, "ts")).toBe(original);
+  });
+});
+
+describe("write state events", () => {
+  it("updates eligibility in both caches without changing telemetry or series", () => {
+    const client = new QueryClient();
+    const current = device({ temperature: attribute({}) });
+    client.setQueryData(["device", "d1"], current);
+    client.setQueryData(["devices"], [current]);
+    client.setQueryData(
+      ["timeseries", "series", "d1"],
+      [{ id: "s1", metric: "temperature" }],
+    );
+    const points = {
+      points: [{ timestamp: "2026-01-01T00:00:00Z", value: 20 }],
+    };
+    client.setQueryData(["timeseries", "points", "s1"], points);
+    const message = {
+      type: "device_write_state" as const,
+      device_id: "d1",
+      revision: 2,
+      attributes: { temperature: { status: "unknown" as const } },
+      resolutions: {
+        temperature: {
+          raw_value: 7,
+          resolution_error: { code: "invalid_mapping_code" },
+        },
+      },
+    };
+    createDeviceMessageHandler(client)(message);
+    const updated = client.getQueryData<Device>(["device", "d1"])!;
+    expect(updated.attributes!.temperature).toMatchObject({
+      current_value: 20,
+      last_changed: "2026-01-01T00:00:00Z",
+      write_state: { status: "unknown" },
+      raw_value: 7,
+    });
+    expect(client.getQueryData<Device[]>(["devices"])![0]).toEqual(updated);
+    expect(client.getQueryData(["timeseries", "points", "s1"])).toEqual(points);
+    expect(
+      applyWriteState(updated, {
+        ...message,
+        revision: 1,
+        attributes: { temperature: { status: "ready" } },
+      }),
+    ).toBe(updated);
   });
 });

@@ -7,8 +7,13 @@ import type {
 import {
   nextValue,
   resolveConstraints,
+  optionStates,
 } from "@/components/device-ui/runtime/controls";
-import type { Scalar } from "@/components/device-ui/conditions";
+import {
+  judgeWith,
+  type ConditionJudge,
+  type Scalar,
+} from "@/components/device-ui/conditions";
 import type { GroupAttribute } from "./groupAttributes";
 
 /** Controls edit local targets; measurements and conditions use reported values. */
@@ -19,10 +24,12 @@ export function useGroupRuntime(
   stage: (attribute: string, value: Scalar) => void,
   choose: (attribute: string) => void,
   drafts: Readonly<Record<string, Scalar>> = {},
+  judge?: ConditionJudge,
 ): DeviceUiRuntime {
   const { t } = useTranslation("devices");
   return useMemo(() => {
     const reported = (name: string) => attributes[name]?.current_value ?? null;
+    const holds = judge ?? judgeWith(reported);
     const valueLabel = (name: string) => {
       const attribute = attributes[name];
       return !attribute || attribute.state === "common"
@@ -36,12 +43,13 @@ export function useGroupRuntime(
       const current = reported(spec.attribute);
       const hasDraft = Object.hasOwn(drafts, spec.attribute);
       const displayed = hasDraft ? drafts[spec.attribute] : current;
-      const constraints = resolveConstraints(
-        attribute?.write_constraints,
-        reported,
-      );
+      const constraints = resolveConstraints(attribute?.write_state);
+      const visible = !spec.visibleWhen || holds(spec.visibleWhen, "true");
       const writable =
-        canWrite && !!attribute?.read_write_modes.includes("write");
+        visible &&
+        (!spec.blockedWhen || holds(spec.blockedWhen, "false")) &&
+        canWrite &&
+        !!attribute?.read_write_modes.includes("write");
       const can = (op: Parameters<typeof nextValue>[0]) =>
         writable &&
         !!attribute &&
@@ -55,10 +63,13 @@ export function useGroupRuntime(
           ? t("groups.draftValue")
           : valueLabel(spec.attribute),
         writable,
+        visible,
         write: { kind: "idle" },
         pending: false,
         constraints,
-        options: attribute?.value_options ?? [],
+        options: optionStates(attribute)?.map((option) => option.value) ?? [],
+        optionStates: optionStates(attribute),
+        reasons: attribute?.write_state?.reasons,
         canIncrement: can("increment"),
         canDecrement: can("decrement"),
         canToggle: can("toggle"),
@@ -75,7 +86,12 @@ export function useGroupRuntime(
       },
       setValue: (id, value) => {
         const state = readControl(id);
-        if (state?.writable) stage(state.spec.attribute, value);
+        if (
+          state?.writable &&
+          state.optionStates?.find((option) => option.value === value)
+            ?.available !== false
+        )
+          stage(state.spec.attribute, value);
       },
       activate: (action) => {
         const state = readControl(action.control);
@@ -91,5 +107,5 @@ export function useGroupRuntime(
         else stage(state.spec.attribute, value);
       },
     };
-  }, [attributes, controls, canWrite, stage, choose, drafts, t]);
+  }, [attributes, controls, canWrite, stage, choose, drafts, judge, t]);
 }

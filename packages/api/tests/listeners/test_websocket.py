@@ -77,3 +77,26 @@ async def test_full_update_broadcast_preserves_presentation_reference():
     assert message.model_dump(mode="json")["device"]["presentation_ref"] == {
         "revision": "presentation-revision"
     }
+
+
+async def test_write_state_event_carries_resolution_without_a_measurement():
+    from api.listeners.websocket import broadcast_write_state
+    from models.write_rules import AttributeWriteState, WriteReason
+
+    device = _make_device()
+    device.write_state_revision = 3
+    attribute = _make_attribute()
+    attribute.write_state = AttributeWriteState(status="unknown")
+    attribute.raw_value = 7
+    attribute.resolution_error = WriteReason(code="invalid_mapping_code")
+    device.attributes = {"temperature": attribute}
+    manager = AsyncMock(spec=WebSocketManager)
+    pending = broadcast_write_state(manager)(device)
+    assert pending is not None
+    await pending
+    message = manager.broadcast.await_args.args[0].model_dump(mode="json")
+    assert message["type"] == "device_write_state"
+    assert message["revision"] == 3
+    assert message["resolutions"]["temperature"]["raw_value"] == 7
+    assert "current_value" not in message["attributes"]["temperature"]
+    assert "value" not in message

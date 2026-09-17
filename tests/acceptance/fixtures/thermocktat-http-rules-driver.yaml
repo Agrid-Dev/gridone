@@ -1,0 +1,83 @@
+# HTTP driver for suites/devices/commandValidation.spec.ts: the thermocktat
+# attributes that scenario needs, plus the declarative command rules it
+# exercises (docs/src/reference/driver-schema/command-validation.md).
+#
+# Suite-owned under its own id: the rules change what writes the driver
+# accepts, and thermocktat_http is shared with goldenPath.ts and the
+# automations suites. The driver is create-or-409 on a non-fresh stack, so
+# editing these rules needs `npm run stack:down` first.
+id: thermocktat_http_rules
+transport: http
+
+update_strategy:
+  polling: 2s
+
+device_config:
+  - name: ip
+
+attributes:
+  - name: temperature
+    data_type: float
+    read: "GET ${ip}/v1"
+    codecs:
+      - json_pointer: /ambient_temperature
+
+  # The sibling flag the rules read: `enabled` on the emulator.
+  - name: onoff_state
+    data_type: bool
+    read: "GET ${ip}/v1"
+    codecs:
+      - json_pointer: /enabled
+    write:
+      method: "POST"
+      path: "${ip}/v1/enabled"
+      body:
+        value: ${value}
+
+  # Refused while the thermostat runs; the authored reason travels to clients.
+  - name: temperature_setpoint
+    data_type: float
+    read: "GET ${ip}/v1"
+    codecs:
+      - json_pointer: /temperature_setpoint
+    write:
+      method: "POST"
+      path: "${ip}/v1/temperature_setpoint"
+      body:
+        value: ${value}
+    write_rules:
+      - condition:
+          op: eq
+          left: { attribute: onoff_state }
+          right: false
+        reason:
+          code: setpoint_locked_while_running
+          message:
+            default: Turn the thermostat off before changing the setpoint
+            translations:
+              fr: Éteignez le thermostat avant de changer la consigne
+
+  # An exhaustive option list whose last entry needs the thermostat on.
+  - name: fan_speed
+    data_type: str
+    read: "GET ${ip}/v1"
+    codecs:
+      - json_pointer: /fan_speed
+    write:
+      method: "POST"
+      path: "${ip}/v1/fan_speed"
+      body:
+        value: ${value}
+    write_options:
+      - value: auto
+      - value: low
+      - value: medium
+      - value: high
+        allowed_when:
+          op: eq
+          left: { attribute: onoff_state }
+          right: true
+        reason:
+          code: fan_high_requires_power
+          message:
+            default: High fan speed needs the thermostat on

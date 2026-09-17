@@ -52,3 +52,28 @@ export async function writeThermocktat(
     );
   }
 }
+
+/** The emulator's state as its `GET /v1` snapshot reports it. */
+export interface ThermocktatSnapshot {
+  enabled: boolean;
+  temperature_setpoint: number;
+  fan_speed: string;
+  mode: string;
+}
+
+/**
+ * Reads the emulator's own state, to assert what a refused command must not
+ * have changed. Like `writeThermocktat`, a non-2xx fails the test.
+ */
+export async function readThermocktat(
+  baseUrl: string,
+): Promise<ThermocktatSnapshot> {
+  const url = `${baseUrl}/v1`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(
+      `GET ${url} failed: ${response.status} ${response.statusText}`,
+    );
+  }
+  return (await response.json()) as ThermocktatSnapshot;
+}

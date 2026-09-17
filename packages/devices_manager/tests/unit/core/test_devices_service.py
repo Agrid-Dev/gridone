@@ -2461,6 +2461,9 @@ class TestDevicesServiceRenamePropagatesBounds:
             maximum=AttributeRef(attribute="temperature_setpoint_max"),
         )
         assert device.attributes["min_setpoint"].current_value == 16.0
+        # Restarted acquisition must observe the renamed bounds before writing.
+        device._update_attribute(device.attributes["min_setpoint"], 16.0)  # noqa: SLF001 -- simulate observations / injected service collaborators
+        device._update_attribute(device.attributes["temperature_setpoint_max"], 30.0)  # noqa: SLF001 -- simulate observations / injected service collaborators
         # the bound resolves against the renamed attribute: the write goes through
         mock_transport_client.write = AsyncMock()
         await device.write_attribute_value("temperature_setpoint", 21.5, confirm=False)
@@ -2510,3 +2513,23 @@ class TestDevicesServiceDriverPresentation:
         dm = DevicesService(devices={}, drivers={driver.id: driver}, transports={})
         await dm.load()
         assert dm.get_driver_presentation(driver.id) is None
+
+
+@pytest.mark.asyncio
+async def test_write_state_notifications_coalesce_per_device_and_can_be_removed(device):
+    service = DevicesService(None)
+    listener = MagicMock()
+    listener_id = service.add_write_state_listener(listener)
+    service._on_write_state_update(device)  # noqa: SLF001
+    service._on_write_state_update(device)  # noqa: SLF001
+    listener.assert_not_called()
+    await asyncio.sleep(0)
+    listener.assert_called_once_with(device)
+    # Nothing moved since the flush: a new notification projects but emits nothing.
+    service._on_write_state_update(device)  # noqa: SLF001
+    await asyncio.sleep(0)
+    listener.assert_called_once_with(device)
+    service.remove_write_state_listener(listener_id)
+    service._on_write_state_update(device)  # noqa: SLF001
+    await asyncio.sleep(0)
+    listener.assert_called_once_with(device)

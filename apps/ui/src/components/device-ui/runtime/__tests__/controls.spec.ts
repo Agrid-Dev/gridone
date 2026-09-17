@@ -31,39 +31,21 @@ const attribute = (overrides: Partial<AttributeLike> = {}): AttributeLike => ({
   ...overrides,
 });
 
-const siblings = (values: Record<string, number | null>) => (name: string) =>
-  values[name];
-
 describe("resolveConstraints", () => {
-  it("resolves constants and sibling references", () => {
+  it("uses only the server projection", () => {
     expect(
-      resolveConstraints(
-        {
-          step: { attribute: "precision" },
-          minimum: 16,
-          maximum: { attribute: "max" },
-        },
-        siblings({ precision: 0.5, max: 30 }),
-      ),
+      resolveConstraints({
+        constraints: { step: 0.5, minimum: 16, maximum: 30 },
+      }),
     ).toEqual({ step: 0.5, minimum: 16, maximum: 30, unknown: false });
   });
-
-  it.each([
-    ["unknown step reference", { step: { attribute: "precision" } }, {}],
-    [
-      "unknown bound reference",
-      { minimum: { attribute: "min" } },
-      { min: null },
-    ],
-    ["non-positive step", { step: 0 }, {}],
-  ])("flags %s as unknown", (_label, constraints, values) => {
-    expect(resolveConstraints(constraints, siblings(values)).unknown).toBe(
-      true,
-    );
+  it("preserves an unresolved bound", () => {
+    expect(
+      resolveConstraints({ constraints: { step: 0.5, unknown: ["minimum"] } }),
+    ).toEqual({ step: 0.5, minimum: null, maximum: null, unknown: true });
   });
-
-  it("is empty without constraints", () => {
-    expect(resolveConstraints(null, siblings({}))).toEqual({
+  it("does not invent bounds without a projection", () => {
+    expect(resolveConstraints(null)).toEqual({
       step: null,
       minimum: null,
       maximum: null,
@@ -142,7 +124,7 @@ describe("nextValue", () => {
     });
     expect(nextValue("cycle", select, fan, "high", known)).toBe("low");
     expect(nextValue("cycle", select, fan, "medium", known)).toBe("high");
-    expect(nextValue("cycle", select, fan, "turbo", known)).toBeNull();
+    expect(nextValue("cycle", select, fan, "turbo", known)).toBe("low");
     expect(
       nextValue("cycle", select, attribute({ value_options: [] }), "a", known),
     ).toBeNull();
@@ -154,4 +136,19 @@ describe("isWritable", () => {
     expect(isWritable(attribute())).toBe(true);
     expect(isWritable(attribute({ read_write_modes: ["read"] }))).toBe(false);
   });
+});
+
+it("cycles past disabled options including an invalid current option", () => {
+  const fan = attribute({
+    write_state: {
+      options: [
+        { value: "low", available: true },
+        { value: "medium", available: false },
+        { value: "high", available: true },
+      ],
+    },
+  });
+  const limits = resolveConstraints(undefined);
+  expect(nextValue("cycle", select, fan, "low", limits)).toBe("high");
+  expect(nextValue("cycle", select, fan, "medium", limits)).toBe("low");
 });

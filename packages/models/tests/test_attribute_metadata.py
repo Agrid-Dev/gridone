@@ -170,36 +170,8 @@ class TestWriteConstraints:
         assert isinstance(constraints.minimum, int)
         assert isinstance(constraints.maximum, float)
 
-    def test_bound_refs_lists_only_references(self):
-        constraints = WriteConstraints(
-            step=1, minimum=16, maximum=AttributeRef(attribute="max")
-        )
-        assert constraints.bound_refs() == {"maximum": AttributeRef(attribute="max")}
-        assert constraints.references("max") is True
-        assert constraints.references("min") is False
-
-    def test_with_reference_renamed_follows_only_matching_bounds(self):
-        constraints = WriteConstraints(
-            minimum=AttributeRef(attribute="min"), maximum=AttributeRef(attribute="max")
-        )
-        renamed = constraints.with_reference_renamed("min", "floor")
-        assert renamed == WriteConstraints(
-            minimum=AttributeRef(attribute="floor"),
-            maximum=AttributeRef(attribute="max"),
-        )
-        # the original is untouched
-        assert constraints.minimum == AttributeRef(attribute="min")
-
-    def test_with_reference_renamed_keeps_constants(self):
-        constraints = WriteConstraints(step=0.5, minimum=16, maximum=30)
-        assert constraints.with_reference_renamed("min", "floor") == constraints
-
     def test_referenced_step_is_a_reference_like_the_bounds(self):
         constraints = WriteConstraints(
             step=AttributeRef(attribute="precision"), minimum=16
         )
-        assert constraints.bound_refs() == {"step": AttributeRef(attribute="precision")}
-        assert constraints.references("precision") is True
-        assert constraints.with_reference_renamed(
-            "precision", "grid"
-        ) == WriteConstraints(step=AttributeRef(attribute="grid"), minimum=16)
+        assert constraints.step == AttributeRef(attribute="precision")

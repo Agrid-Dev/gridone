@@ -1,13 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { useCallback, useEffect, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { deviceAttributes } from "@/lib/devices";
+import type { Device } from "@gridone/sdk";
 import { toast } from "sonner";
-import { type Device } from "@gridone/sdk";
-import { useGridoneClient } from "@/contexts/GridoneClientContext";
-import { serverErrorMessage } from "@/lib/serverErrorMessage";
+import { useAttributeCommandRuntime } from "./useAttributeCommandRuntime";
 
 type DraftValue = string | number | boolean | null;
-
 type Options = {
   deviceId: string;
   onDraftChange: (name: string, value: DraftValue) => void;
@@ -20,84 +19,64 @@ export function useDebouncedAttributeWrite({
   delay = 600,
 }: Options) {
   const { t } = useTranslation("devices");
-  const client = useGridoneClient();
+  const runtime = useAttributeCommandRuntime(deviceId, delay);
   const queryClient = useQueryClient();
-  const timers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
-  const [saving, setSaving] = useState<Set<string>>(new Set());
-  // Cleanup all timers on unmount
+  const observed = queryClient.getQueryData<Device>(["device", deviceId]);
+  const requested = useRef(new Set<string>());
   useEffect(() => {
-    const map = timers.current;
-    return () => {
-      for (const timer of map.values()) clearTimeout(timer);
-      map.clear();
-    };
-  }, []);
-
-  const save = useCallback(
-    async (name: string, value: DraftValue) => {
-      setSaving((prev) => new Set(prev).add(name));
-      try {
-        // Attribute writes go through the commands endpoint; refetch the
-        // device to surface the applied value.
-        await client.devices.sendCommand(deviceId, {
-          attribute: name,
-          value: value as string | number | boolean,
-        });
-        const updated = await client.devices.get(deviceId);
-        queryClient.setQueryData<Device>(["device", deviceId], updated);
+    for (const [name, attribute] of Object.entries(
+      observed ? deviceAttributes(observed) : {},
+    )) {
+      runtime.setReported(
+        name,
+        typeof attribute.current_value === "number" ||
+          typeof attribute.current_value === "boolean" ||
+          typeof attribute.current_value === "string"
+          ? attribute.current_value
+          : null,
+      );
+    }
+  }, [runtime, observed]);
+  useEffect(() => {
+    for (const name of requested.current) {
+      const state = runtime.snapshot(name);
+      if (state.pending || state.write.kind === "sending") continue;
+      requested.current.delete(name);
+      onDraftChange(name, state.reported);
+      if (state.write.kind === "error" || state.write.kind === "unconfirmed")
+        toast.error(state.write.message || t("deviceDetails.updateFailed"));
+      if (state.write.kind === "confirmed")
         toast.success(
           t("controls.thermostat.attributeUpdated", {
             name,
-            value: String(value ?? "—"),
+            value: String(state.write.requested),
           }),
         );
-      } catch (err) {
-        toast.error(serverErrorMessage(err) ?? t("deviceDetails.updateFailed"));
-      } finally {
-        setSaving((prev) => {
-          const next = new Set(prev);
-          next.delete(name);
-          return next;
-        });
-      }
+    }
+  }, [runtime, runtime.version, onDraftChange, t]);
+  const request = useCallback(
+    (name: string, value: DraftValue, immediate: boolean) => {
+      if (value === null) return;
+      requested.current.add(name);
+      onDraftChange(name, value);
+      runtime.request(name, value, { immediate });
     },
-    [client, deviceId, queryClient, t],
+    [runtime, onDraftChange],
   );
-
   const changeAndSave = useCallback(
-    (name: string, value: DraftValue) => {
-      onDraftChange(name, value);
-
-      const existing = timers.current.get(name);
-      if (existing) clearTimeout(existing);
-
-      timers.current.set(
-        name,
-        setTimeout(() => {
-          timers.current.delete(name);
-          save(name, value);
-        }, delay),
-      );
-    },
-    [onDraftChange, save, delay],
+    (name: string, value: DraftValue) => request(name, value, false),
+    [request],
   );
-
   const changeAndSaveNow = useCallback(
-    (name: string, value: DraftValue) => {
-      onDraftChange(name, value);
-
-      const existing = timers.current.get(name);
-      if (existing) {
-        clearTimeout(existing);
-        timers.current.delete(name);
-      }
-
-      save(name, value);
-    },
-    [onDraftChange, save],
+    (name: string, value: DraftValue) => request(name, value, true),
+    [request],
   );
-
-  const isSaving = useCallback((name: string) => saving.has(name), [saving]);
-
+  const isSaving = useCallback(
+    (name: string) => {
+      const state = runtime.snapshot(name);
+      return state.pending || state.write.kind === "sending";
+    },
+    [runtime, runtime.version],
+  );
   return { changeAndSave, changeAndSaveNow, isSaving };
 }

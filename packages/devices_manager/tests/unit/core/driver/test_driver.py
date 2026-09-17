@@ -7,7 +7,7 @@ from devices_manager.core.driver import (
     Driver,
     WriteConstraints,
     attributes_referencing,
-    validate_write_constraints,
+    validate_write_declarations,
 )
 from devices_manager.core.driver.attribute_driver import AttributeDriver
 from devices_manager.core.driver.driver_metadata import DriverMetadata
@@ -362,10 +362,10 @@ class TestDriverWriteConstraintsValidation:
         ):
             _make_driver(attributes=attrs)
 
-    def test_validate_write_constraints_is_a_plain_function(self):
+    def test_validate_write_declarations_is_a_plain_function(self):
         """Usable on a candidate attribute list, outside any Driver."""
         with pytest.raises(InvalidError, match="unknown attribute 'nope'"):
-            validate_write_constraints(
+            validate_write_declarations(
                 [_constrained("setpoint", DataType.FLOAT, minimum="nope")]
             )
 

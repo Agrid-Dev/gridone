@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import type { ConditionJudge } from "@/components/device-ui/conditions";
 import type { ControlSpec } from "@/components/device-ui/runtime";
 import type { DevicesFilter } from "@/lib/devices";
 import type { GroupAttribute } from "./groupAttributes";
@@ -19,6 +20,7 @@ export function useGroupTarget(
   attributes: Record<string, GroupAttribute>,
   controls: Record<string, ControlSpec>,
   canWrite: boolean,
+  judge?: ConditionJudge,
 ) {
   const command = useGroupCommand(filter);
   const { drafts, writes, stage, removeDraft, clearDrafts } = useCommandDrafts(
@@ -35,6 +37,7 @@ export function useGroupTarget(
     stage,
     choose,
     drafts,
+    judge,
   );
   return {
     command,

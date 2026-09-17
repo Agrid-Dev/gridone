@@ -2,6 +2,7 @@ import pytest
 from fixtures.config import HTTP_PORT, TMK_DEVICE_ID
 
 from devices_manager.core.device import CoreDevice, DeviceBase
+from models.errors import WriteRejectedError
 
 
 @pytest.fixture
@@ -54,5 +55,6 @@ async def test_write_attribute_invalid_value(
     attribute: str,
     invalid_value,
 ):
-    with pytest.raises(TypeError):
+    with pytest.raises(WriteRejectedError) as rejected:
         await device.write_attribute_value(attribute, invalid_value)
+    assert rejected.value.reasons[0].code == "invalid_value"

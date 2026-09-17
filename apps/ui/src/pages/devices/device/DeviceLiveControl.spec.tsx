@@ -24,6 +24,9 @@ const state = vi.hoisted(() => ({
       getPresentation: vi.fn(),
       getPresentationAsset: vi.fn(),
       sendCommand: vi.fn(),
+      previewDeviceCommand: vi
+        .fn()
+        .mockResolvedValue({ eligible: true, reasons: [], warnings: [] }),
       get: vi.fn(),
       list: vi.fn(),
       previewCommand: vi.fn(),
@@ -185,6 +188,10 @@ function device(revision?: string): Device {
         unit: "°C",
         read_write_modes: ["read", "write"],
         write_constraints: { step: 0.5, minimum: 16, maximum: 30 },
+        write_state: {
+          status: "ready",
+          constraints: { step: 0.5, minimum: 16, maximum: 30 },
+        },
       },
     },
     presentation_ref: revision ? { revision } : null,
@@ -342,7 +349,9 @@ describe("DeviceLiveControl presentation integration", () => {
       const { rerender } = setup();
       const power = await screen.findByRole("switch", { name: "Power" });
       act(() => power.click());
-      expect(state.client.devices.sendCommand).toHaveBeenCalledTimes(1);
+      await waitFor(() =>
+        expect(state.client.devices.sendCommand).toHaveBeenCalledTimes(1),
+      );
       state.device = device(transition === "removed" ? undefined : "v2");
       state.client.devices.getPresentation.mockResolvedValue({
         status: "unavailable",
@@ -447,11 +456,13 @@ describe("choosing what a change applies to", () => {
     setup();
     const power = await screen.findByRole("switch", { name: "Power" });
     act(() => power.click());
-    expect(state.client.devices.sendCommand).toHaveBeenCalledWith("device", {
-      attribute: "power",
-      value: false,
-      confirm: true,
-    });
+    await waitFor(() =>
+      expect(state.client.devices.sendCommand).toHaveBeenCalledWith("device", {
+        attribute: "power",
+        value: false,
+        confirm: true,
+      }),
+    );
     expect(state.client.devices.previewCommand).not.toHaveBeenCalled();
     expect(
       screen.queryByRole("button", { name: /^Review/ }),

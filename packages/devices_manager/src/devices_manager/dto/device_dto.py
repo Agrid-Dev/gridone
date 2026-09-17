@@ -53,6 +53,7 @@ class Device(ResourceMetadata):
     transport_id: str
     # Derived from the current driver, never persisted on the device snapshot.
     presentation_ref: PresentationReference | None = None
+    write_state_revision: int = 0
 
 
 class DeviceUpdate(BaseModel):
@@ -65,6 +66,7 @@ class DeviceUpdate(BaseModel):
 
 
 def core_to_dto(device: CoreDevice) -> Device:
+    device.project_write_states()
     revision = get_presentation_revision(device.driver)
     return Device(
         id=device.id,
@@ -75,6 +77,7 @@ def core_to_dto(device: CoreDevice) -> Device:
         type=device.type,
         tags=device.tags,
         attributes=device.attributes,
+        write_state_revision=device.write_state_revision,
         is_faulty=device.is_faulty,
         created_at=device.created_at,
         updated_at=device.updated_at,

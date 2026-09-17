@@ -30,7 +30,12 @@ from devices_manager.core.driver import (
 )
 from devices_manager.core.transports.read_result import ReadError, ReadOk, ReadResult
 from devices_manager.types import ConnectionStatus, DataType, TransportProtocols
-from models.errors import ConfirmationError, InvalidError, NotFoundError
+from models.errors import (
+    ConfirmationError,
+    InvalidError,
+    NotFoundError,
+    WriteRejectedError,
+)
 from models.types import Severity
 
 from ..fixtures.transport_clients import MockTransportAddress
@@ -243,18 +248,19 @@ class TestDeviceWrite:
             "temperature_setpoint", 20, confirm=False
         )
         assert isinstance(result, Attribute)
-        assert result.current_value == 20
+        assert result.current_value is None
 
     @pytest.mark.asyncio
     async def test_write_value_not_writable(self, device: CoreDevice):
-        with pytest.raises(PermissionError):
+        with pytest.raises(WriteRejectedError) as rejected:
             await device.write_attribute_value("humidity", 12)
+        assert rejected.value.reasons[0].code == "not_writable"
 
     @pytest.mark.asyncio
-    async def test_write_confirm_early_return_when_value_already_in_cache(
+    async def test_write_confirmation_requires_a_post_write_observation(
         self, mock_transport_client, driver
     ):
-        """Cache already holds the expected value — confirm returns without polling."""
+        """A previous sample cannot confirm that the new command reached the device."""
         device = CoreDevice.from_base(
             DeviceBase(id="d1", name="My pull device", config={"some_id": "abcd"}),
             driver=driver,
@@ -264,7 +270,7 @@ class TestDeviceWrite:
         mock_transport_client.write = AsyncMock()
         mock_transport_client.read = AsyncMock(return_value=20)
         await device.write_attribute_value("temperature_setpoint", 20, confirm=True)
-        mock_transport_client.read.assert_not_called()
+        mock_transport_client.read.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_write_confirm_succeeds_via_push_update(
@@ -844,9 +850,7 @@ class TestCoreDeviceRebuildAttribute:
     def test_preserves_value_and_timestamps(self, device: CoreDevice):
         device.attributes["temperature"].update_value(25.5)
         original = device.attributes["temperature"]
-        attribute_driver = device.driver.attributes["temperature"]
-
-        device.rebuild_attribute(attribute_driver)
+        device.rebuild_attribute("temperature")
 
         rebuilt = device.attributes["temperature"]
         assert rebuilt.current_value == 25.5
@@ -855,10 +859,9 @@ class TestCoreDeviceRebuildAttribute:
 
     def test_new_attribute_has_no_timestamps(self, device: CoreDevice):
         """An attribute with no prior state starts fresh (no backdating)."""
-        attribute_driver = device.driver.attributes["temperature"]
         device.delete_attribute("temperature")
 
-        device.rebuild_attribute(attribute_driver)
+        device.rebuild_attribute("temperature")
 
         rebuilt = device.attributes["temperature"]
         assert rebuilt.current_value is None
@@ -1245,7 +1248,8 @@ class TestCoreDeviceAttributeMetadata:
             update={"unit": "K", "write_constraints": WriteConstraints(step=1)}
         )
 
-        device.rebuild_attribute(updated_spec)
+        constrained_driver.attributes["temperature_setpoint"] = updated_spec
+        device.rebuild_attribute("temperature_setpoint")
 
         rebuilt = device.attributes["temperature_setpoint"]
         assert rebuilt.unit == "K"
@@ -1280,31 +1284,32 @@ class TestDeviceWriteConstraints:
             "temperature_setpoint", 21.5, confirm=False
         )
         mock_transport_client.write.assert_called_once()
-        assert result.current_value == 21.5
+        assert result.current_value is None
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
-        ("value", "message"),
+        ("value", "reason"),
         [
-            (15.5, "below the minimum 16.0"),
-            (30.5, "above the maximum 30.0"),
-            (21.3, "not a multiple of the step 0.5"),
+            (15.5, "constraints"),
+            (30.5, "constraints"),
+            (21.3, "constraints"),
         ],
     )
     async def test_violating_write_is_refused_before_transport(
-        self, constrained_device: CoreDevice, mock_transport_client, value, message
+        self, constrained_device: CoreDevice, mock_transport_client, value, reason
     ):
-        with pytest.raises(InvalidError, match=message):
+        with pytest.raises(WriteRejectedError) as rejected:
             await constrained_device.write_attribute_value(
                 "temperature_setpoint", value, confirm=False
             )
+        assert rejected.value.reasons[0].code == reason
         mock_transport_client.write.assert_not_called()
         assert (
             constrained_device.attributes["temperature_setpoint"].current_value is None
         )
 
     @pytest.mark.asyncio
-    async def test_refused_write_is_logged_on_the_attribute(
+    async def test_refused_write_is_not_a_communication_failure(
         self, constrained_device: CoreDevice
     ):
         with pytest.raises(InvalidError):
@@ -1314,8 +1319,7 @@ class TestDeviceWriteConstraints:
         write_logs = constrained_device.connection_monitor.logs(
             "temperature_setpoint"
         ).write
-        assert [entry.status for entry in write_logs] == ["error"]
-        assert "above the maximum" in (write_logs[0].message or "")
+        assert write_logs == []
 
     @pytest.mark.asyncio
     async def test_constant_bounds(
@@ -1323,11 +1327,11 @@ class TestDeviceWriteConstraints:
     ):
         await constrained_device.write_attribute_value("fan_speed", 3, confirm=False)
         mock_transport_client.write.assert_called_once()
-        with pytest.raises(InvalidError, match="above the maximum 3"):
+        with pytest.raises(WriteRejectedError):
             await constrained_device.write_attribute_value(
                 "fan_speed", 4, confirm=False
             )
-        with pytest.raises(InvalidError, match="below the minimum 0"):
+        with pytest.raises(WriteRejectedError):
             await constrained_device.write_attribute_value(
                 "fan_speed", -1, confirm=False
             )
@@ -1343,14 +1347,11 @@ class TestDeviceWriteConstraints:
             driver=constrained_driver,
             transport=mock_transport_client,
         )
-        with pytest.raises(
-            InvalidError,
-            match="bound 'temperature_setpoint_min' of 'temperature_setpoint' is "
-            "unknown; write refused",
-        ):
+        with pytest.raises(WriteRejectedError) as rejected:
             await device.write_attribute_value(
                 "temperature_setpoint", 21.5, confirm=False
             )
+        assert rejected.value.reasons[0].code == "unknown_dependencies"
         mock_transport_client.write.assert_not_called()
 
     @pytest.mark.asyncio
@@ -1360,8 +1361,9 @@ class TestDeviceWriteConstraints:
         await constrained_device.write_attribute_value(
             "temperature_setpoint", 25.0, confirm=False
         )
-        constrained_device.attributes["temperature_setpoint_max"].update_value(24.0)
-        with pytest.raises(InvalidError, match=r"above the maximum 24\.0"):
+        mock_transport_client.read = AsyncMock(return_value=24.0)
+        await constrained_device.read_attribute_value("temperature_setpoint_max")
+        with pytest.raises(WriteRejectedError):
             await constrained_device.write_attribute_value(
                 "temperature_setpoint", 25.0, confirm=False
             )

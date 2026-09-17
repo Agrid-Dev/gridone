@@ -145,6 +145,7 @@ function device(
         current_value: value,
         unit: "°C",
         write_constraints: { maximum: 25 },
+        write_state: { status: "ready", constraints: { maximum: 25 } },
       },
       level: {
         name: "level",
@@ -161,7 +162,7 @@ function previewMember(id: string, eligible = true) {
     name: `Device ${id}`,
     current_value: 21,
     eligible,
-    reason: eligible ? null : "not_writable",
+    reasons: eligible ? [] : [{ code: "not_writable" }],
   };
 }
 function unitCommand(id: string, status = "pending") {
@@ -221,6 +222,7 @@ beforeEach(() => {
         label: { default: "Setpoint" },
         unit: "°C",
         write_constraints: { maximum: 25 },
+        write_state: { status: "ready", constraints: { maximum: 25 } },
       },
       {
         attribute: "level",

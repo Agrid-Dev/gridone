@@ -2,8 +2,14 @@ import { useMemo, type ReactNode } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { useTranslation } from "react-i18next";
 import { useAttributeLabel } from "@/hooks/useAttributeLabel";
-import type { Scalar } from "./conditions";
+import {
+  judgeWith,
+  type Condition,
+  type ConditionJudge,
+  type Scalar,
+} from "./conditions";
 import type { PageNode, PresentationV1 } from "./document";
+import { bindCondition } from "./presentationControls";
 import { DeviceFace, type LoadedGlyphSet } from "./face";
 import { cn } from "@/lib/utils";
 import type { AttributeLike, DeviceUiRuntime } from "./runtime";
@@ -22,6 +28,11 @@ import { PresentationSection } from "./widgets/PresentationSection";
 export type PresentationSubject = {
   id: string;
   attributes?: Record<string, unknown>;
+  /**
+   * How page and control conditions are judged; absent, the subject's own
+   * reported values decide. A group judges across its members.
+   */
+  judge?: ConditionJudge;
 };
 
 export type DevicePresentationProps = {
@@ -56,8 +67,12 @@ type PageContext = {
   attributeLabel: ReturnType<typeof useAttributeLabel>;
   renderAttributes: DevicePresentationProps["renderAttributes"];
   renderDeviceFace: DevicePresentationProps["renderDeviceFace"];
+  /** Attribute name behind a binding id, if the document declares it. */
+  attributeName: (binding: string) => string | undefined;
   /** Attribute behind a binding id, if the device has it. */
   attributeOf: (binding: string) => AttributeLike | null;
+  /** Judge of the page conditions, over attribute names. */
+  judge: ConditionJudge;
   /** Value reported by the device for a binding (measurements). */
   reported: (binding: string) => Scalar | null;
   /**
@@ -100,6 +115,8 @@ export function DevicePresentation({
       const name = attributeName(binding);
       return name ? runtime.reported(name) : null;
     };
+    const judge =
+      subject.judge ?? judgeWith((name: string) => runtime.reported(name));
     return {
       document,
       subject,
@@ -110,6 +127,8 @@ export function DevicePresentation({
       attributeLabel,
       renderAttributes,
       renderDeviceFace,
+      attributeName,
+      judge,
       attributeOf: (binding) => {
         const name = attributeName(binding);
         return name ? (attributes[name] ?? null) : null;
@@ -156,16 +175,42 @@ export function DevicePresentation({
 function PageNodeView({
   node,
   context,
+  path = "/page",
 }: {
+  path?: string;
   node: PageNode;
   context: PageContext;
 }) {
+  const holds = (
+    condition: Condition | undefined,
+    expected: "true" | "false",
+  ) =>
+    !condition ||
+    context.judge(bindCondition(condition, context.attributeName), expected);
+  if (!holds(node.visible_when, "true")) return null;
   switch (node.kind) {
+    case "variant": {
+      const index = node.variants.findIndex((variant) =>
+        holds(variant.when, "true"),
+      );
+      return index < 0 ? null : (
+        <PageNodeView
+          node={node.variants[index].content}
+          context={context}
+          path={`${path}/variants/${index}/content`}
+        />
+      );
+    }
     case "stack":
       return (
         <div className="space-y-6" data-node="stack">
           {node.children.map((child, index) => (
-            <PageNodeView key={index} node={child} context={context} />
+            <PageNodeView
+              key={index}
+              node={child}
+              context={context}
+              path={`${path}/children/${index}`}
+            />
           ))}
         </div>
       );
@@ -189,7 +234,11 @@ function PageNodeView({
                     "lg:sticky lg:top-[5.5rem] lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto",
                 )}
               >
-                <PageNodeView node={item.content} context={context} />
+                <PageNodeView
+                  node={item.content}
+                  context={context}
+                  path={`${path}/items/${index}/content`}
+                />
               </div>
             </div>
           ))}
@@ -200,7 +249,12 @@ function PageNodeView({
         <PresentationSection node={node} language={context.language}>
           <div className="space-y-6">
             {node.children.map((child, index) => (
-              <PageNodeView key={index} node={child} context={context} />
+              <PageNodeView
+                key={index}
+                node={child}
+                context={context}
+                path={`${path}/children/${index}`}
+              />
             ))}
           </div>
         </PresentationSection>

@@ -1,3 +1,4 @@
+import type { Condition } from "./conditions";
 import type { DeviceFaceDocument, LocalizedText } from "./face";
 import type { PresentationResponse } from "@gridone/sdk";
 
@@ -11,6 +12,8 @@ export type ControlKind = "toggle" | "number" | "slider" | "select";
 
 export type ControlDocument = {
   kind: ControlKind;
+  visible_when?: Condition;
+  blocked_when?: Condition;
   /** Binding id (not an attribute name). */
   binding: string;
   label: LocalizedText;
@@ -75,7 +78,8 @@ export type SectionNode = {
 
 export type MeasurementLayout = "grouped" | "rows" | "inline";
 
-export type PageNode =
+export type PageNode = { visible_when?: Condition } & (
+  | { kind: "variant"; variants: { when: Condition; content: PageNode }[] }
   | { kind: "stack"; children: PageNode[] }
   | {
       kind: "columns";
@@ -90,7 +94,8 @@ export type PageNode =
       items: MeasurementItem[];
     }
   | { kind: "setpoint-table"; rows: SetpointRow[] }
-  | DeviceFaceDocument;
+  | DeviceFaceDocument
+);
 
 export type PresentationV1 = {
   schema_version: 1;

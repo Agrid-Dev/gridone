@@ -1,5 +1,16 @@
-import type { Device, Driver } from "@gridone/sdk";
-import type { Scalar } from "@/components/device-ui/conditions";
+import type {
+  Device,
+  Driver,
+  AttributeWriteState,
+  ResolvedOption,
+} from "@gridone/sdk";
+import {
+  judgeWith,
+  type ConditionJudge,
+  type Scalar,
+} from "@/components/device-ui/conditions";
+import type { PageNode, PresentationV1 } from "@/components/device-ui/document";
+import { bindCondition } from "@/components/device-ui/presentationControls";
 import type { AttributeLike } from "@/components/device-ui/runtime";
 import { deviceAttributes } from "@/lib/devices";
 
@@ -34,6 +45,14 @@ export function aggregateGroupAttributes(
         attribute.name,
         {
           ...attribute,
+          write_state: aggregateWriteStates(
+            members.map(
+              (member) =>
+                member.attributes?.[attribute.name]?.write_state as
+                  | AttributeWriteState
+                  | undefined,
+            ),
+          ),
           value_options: (members[0]?.attributes?.[attribute.name]
             ?.value_options ?? []) as Scalar[],
           read_write_modes: [
@@ -47,6 +66,95 @@ export function aggregateGroupAttributes(
       ];
     }),
   );
+}
+
+/** Only combine server projections; mixed bounds are left to per-device previews. */
+function aggregateWriteStates(
+  states: (AttributeWriteState | undefined)[],
+): AttributeWriteState {
+  const options = new Map<string, ResolvedOption>();
+  for (const state of states)
+    for (const option of state?.options ?? []) {
+      const key = JSON.stringify(option.value);
+      if (!options.has(key) || option.available) options.set(key, option);
+    }
+  const constraints =
+    states.length &&
+    states.every(
+      (state) =>
+        JSON.stringify(state?.constraints) ===
+        JSON.stringify(states[0]?.constraints),
+    )
+      ? states[0]?.constraints
+      : null;
+  return {
+    status: states.some((state) => state?.status === "ready")
+      ? "ready"
+      : "unknown",
+    constraints,
+    options: states.some((state) => state?.options != null)
+      ? [...options.values()]
+      : null,
+    candidate_required: true,
+  };
+}
+
+/** A member's reported values, keyed by attribute name. */
+function memberValues(member: Device): (attribute: string) => Scalar | null {
+  return (attribute) =>
+    (member.attributes?.[attribute]?.current_value ?? null) as Scalar | null;
+}
+
+/**
+ * A condition holds for the group as soon as it holds for one member: a
+ * control visible on one device is offered, and an interaction one device
+ * allows is enabled; the preview then answers for each member.
+ */
+export function groupJudge(members: Device[]): ConditionJudge {
+  const judges = members.map((member) => judgeWith(memberValues(member)));
+  return (condition, expected) =>
+    judges.some((judge) => judge(condition, expected));
+}
+
+/**
+ * Whether every member selects the same layout variants. When they differ,
+ * the group falls back to the generic controls rather than showing one
+ * member's layout to all of them.
+ */
+export function layoutsAgree(
+  document: PresentationV1,
+  members: Device[],
+): boolean {
+  const attributeOf = (binding: string) =>
+    document.bindings[binding]?.attribute;
+  const selections = members.map((member) => {
+    const judge = judgeWith(memberValues(member));
+    const selected: number[] = [];
+    const visit = (node: PageNode): void => {
+      switch (node.kind) {
+        case "variant":
+          selected.push(
+            node.variants.findIndex((variant) =>
+              judge(bindCondition(variant.when, attributeOf), "true"),
+            ),
+          );
+          for (const variant of node.variants) visit(variant.content);
+          break;
+        case "stack":
+        case "section":
+          for (const child of node.children) visit(child);
+          break;
+        case "columns":
+          for (const item of node.items) visit(item.content);
+          break;
+        default:
+          break;
+      }
+    };
+    visit(document.page);
+    return selected.join(",");
+  });
+  return new Set(selections).size <= 1;
 }
 
 /** One device seen as a command target. Its own values are by construction

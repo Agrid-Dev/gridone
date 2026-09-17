@@ -645,14 +645,6 @@
       "partial_one": "Valeur indisponible pour {{count}} membre",
       "partial_other": "Valeurs indisponibles pour {{count}} membres"
     },
-    "reasons": {
-      "eligible": "Éligible",
-      "not_writable": "Cet attribut ne peut pas être écrit. Choisissez un attribut modifiable.",
-      "invalid_value": "Valeur cible invalide. Modifiez la valeur.",
-      "constraints": "La valeur dépasse les contraintes autorisées ou une limite est indisponible. Vérifiez cet équipement.",
-      "unknown_attribute": "Cet attribut est indisponible sur cet équipement.",
-      "control_blocked": "Commande bloquée par l’état actuel de cet équipement, ou son état est inconnu."
-    },
     "errors": {
       "failed": "L’opération n’a pas pu être effectuée. Actualisez et réessayez.",
       "group_references": "Impossible de supprimer ce groupe. Modifiez ou supprimez d’abord ces références dans les automatisations et modèles de commandes.",
@@ -770,5 +762,22 @@
     "chooseDevices": "Choisir les équipements",
     "renameHelp": "Renommer cette valeur sur tous les équipements qui la portent.",
     "search": "Rechercher des équipements"
+  },
+  "commandReasons": {
+    "rejected": "Commande indisponible",
+    "not_writable": "Cet attribut est en lecture seule",
+    "invalid_value": "Valeur invalide",
+    "invalid_option": "Choisissez une option déclarée",
+    "option_unavailable": "Cette option est indisponible",
+    "unknown_dependencies": "En attente de données actuelles de l’équipement",
+    "constraints": "La valeur ne respecte pas les limites de l’équipement",
+    "no_available_options": "Aucune option disponible actuellement",
+    "unavailable_mapping": "Cette valeur ne peut pas être envoyée actuellement",
+    "ambiguous_mapping": "La table de l’équipement contient des valeurs ambiguës",
+    "invalid_mapping_code": "Code équipement inconnu",
+    "invalid_mapping_value": "Valeur invalide dans la table de l’équipement",
+    "mapping_changed": "La table a changé pendant la confirmation",
+    "evaluation_limit": "La limite d’évaluation du driver est atteinte",
+    "unknown_attribute": "Attribut inconnu"
   }
 }

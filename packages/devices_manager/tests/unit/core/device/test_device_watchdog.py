@@ -77,6 +77,20 @@ def _make_device(
     )
 
 
+@pytest.fixture
+def guarded_push_device(push_driver_with_interval, mock_push_transport_client):
+    push_driver_with_interval.attributes["setpoint"] = AttributeDriver.model_validate(
+        {
+            "name": "setpoint",
+            "data_type": "float",
+            "read": {"topic": "/sensors/setpoint"},
+            "write": {"topic": "/sensors/setpoint"},
+            "write_constraints": {"minimum": {"attribute": "temperature"}},
+        }
+    )
+    return _make_device(push_driver_with_interval, mock_push_transport_client)
+
+
 async def _silence(device: CoreDevice, multiplier: float) -> None:
     """Let ``multiplier`` silence intervals pass (fast-forwarded loop time)."""
     interval = device.expected_interval
@@ -184,4 +198,65 @@ class TestWatchdogSilenceDetection:
         assert (
             device.get_attribute_value(CONNECTION_STATUS_ATTR) == ConnectionStatus.IDLE
         )
+        await device.stop_sync()
+
+
+@fake_time
+@pytest.mark.asyncio
+class TestTrustExpiryAndConnectionHealth:
+    async def test_commands_expire_before_health_degrades(
+        self, guarded_push_device, mock_push_transport_client
+    ):
+        device = guarded_push_device
+        await device.start_sync()
+        await mock_push_transport_client.simulate_event("/sensors/temperature", 21.0)
+        assert device.evaluate_attribute_write("setpoint", 22).eligible
+        await _silence(device, 1.1)
+        device.project_write_states()
+        assert device.get_attribute("setpoint").write_state.status == "unknown"
+        assert not device.evaluate_attribute_write("setpoint", 22).eligible
+        assert device.get_attribute_value("temperature") == 21.0
+        assert device.connection_monitor.status == ConnectionStatus.OK
+        await _silence(device, 1)
+        assert device.connection_monitor.status == ConnectionStatus.DEGRADED
+        await _silence(device, 1)
+        assert device.connection_monitor.status == ConnectionStatus.ERROR
+        await mock_push_transport_client.simulate_event("/sensors/temperature", 21.0)
+        assert device.evaluate_attribute_write("setpoint", 22).eligible
+        assert device.connection_monitor.status == ConnectionStatus.OK
+        await device.stop_sync()
+
+    async def test_manual_read_renews_commands_without_clearing_push_silence(
+        self, guarded_push_device, mock_push_transport_client
+    ):
+        device = guarded_push_device
+        await device.start_sync()
+        await mock_push_transport_client.simulate_event("/sensors/temperature", 21.0)
+        await _silence(device, 3.1)
+        mock_push_transport_client.read = AsyncMock(return_value=21.0)
+        await device.read_attribute_value("temperature")
+        assert device.evaluate_attribute_write("setpoint", 22).eligible
+        assert device.connection_monitor.status == ConnectionStatus.ERROR
+        await _silence(device, 1.1)
+        assert not device.evaluate_attribute_write("setpoint", 22).eligible
+        assert device.connection_monitor.status == ConnectionStatus.ERROR
+        await device.stop_sync()
+
+    @pytest.mark.parametrize("stop_first", [False, True])
+    async def test_restart_cancels_the_old_expiry_timer(
+        self, guarded_push_device, mock_push_transport_client, stop_first
+    ):
+        device = guarded_push_device
+        await device.start_sync()
+        await mock_push_transport_client.simulate_event("/sensors/temperature", 21.0)
+        await _silence(device, 0.75)
+        if stop_first:
+            await device.stop_sync()
+            assert not device.evaluate_attribute_write("setpoint", 22).eligible
+        await device.start_sync()
+        await mock_push_transport_client.simulate_event("/sensors/temperature", 21.0)
+        await _silence(device, 0.5)
+        assert device.evaluate_attribute_write("setpoint", 22).eligible
+        await _silence(device, 0.6)
+        assert not device.evaluate_attribute_write("setpoint", 22).eligible
         await device.stop_sync()

@@ -729,3 +729,90 @@ describe("DevicePresentation", () => {
     );
   });
 });
+
+it("shows a disabled choice and its authored reason, skipping it with keyboard navigation", async () => {
+  const user = userEvent.setup();
+  const { runtime, setValue } = fakeRuntime({
+    fan: {
+      options: ["low", "middle", "high"],
+      optionStates: [
+        { value: "low", available: true },
+        {
+          value: "middle",
+          available: false,
+          reasons: [
+            { code: "locked", message: { default: "Middle speed is locked" } },
+          ],
+        },
+        { value: "high", available: true },
+      ],
+    },
+  });
+  renderPresentation(runtime);
+  const disabled = screen.getByRole("radio", { name: /middle/i });
+  expect(disabled).toHaveAttribute("aria-disabled", "true");
+  expect(screen.getByText("Middle speed is locked")).toBeInTheDocument();
+  await user.click(disabled);
+  expect(setValue).not.toHaveBeenCalled();
+  screen.getByRole("radio", { name: /^low$/i }).focus();
+  await user.keyboard("{ArrowRight}");
+  expect(screen.getByRole("radio", { name: /^high$/i })).toHaveFocus();
+  expect(setValue).toHaveBeenCalledWith("fan", "high");
+});
+
+const variants: PresentationV1 = {
+  ...document,
+  page: {
+    kind: "variant",
+    variants: [
+      {
+        when: { op: "eq", binding: "power", value: false },
+        content: {
+          kind: "section",
+          title: { default: "Off layout" },
+          children: [],
+        },
+      },
+      {
+        when: { op: "is_known", binding: "power" },
+        content: {
+          kind: "section",
+          title: { default: "On layout" },
+          children: [],
+        },
+      },
+    ],
+  },
+};
+
+it("renders the first layout variant the reported values select", () => {
+  const { runtime } = fakeRuntime();
+  renderPresentation(runtime, { document: variants });
+  expect(screen.getByText("On layout")).toBeInTheDocument();
+  expect(screen.queryByText("Off layout")).not.toBeInTheDocument();
+});
+
+it("lets a group subject judge page conditions across its members", () => {
+  const { runtime } = fakeRuntime();
+  renderPresentation(runtime, {
+    document: variants,
+    subject: {
+      ...device,
+      judge: (condition, expected) =>
+        condition.op === "eq" && expected === "true",
+    },
+  });
+  expect(screen.getByText("Off layout")).toBeInTheDocument();
+  expect(screen.queryByText("On layout")).not.toBeInTheDocument();
+});
+
+it("keeps an observed out-of-list value visible without making it selectable", () => {
+  const { runtime } = fakeRuntime({
+    fan: { reported: "reserved", displayed: "reserved" },
+  });
+  renderPresentation(runtime);
+  expect(screen.getByText(/reserved/)).toBeInTheDocument();
+  expect(
+    screen.queryByRole("radio", { name: /reserved/i }),
+  ).not.toBeInTheDocument();
+});

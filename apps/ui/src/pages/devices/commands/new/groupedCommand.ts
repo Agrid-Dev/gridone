@@ -1,10 +1,8 @@
+import type { AttributeLike } from "@/components/device-ui/runtime/controls";
 import { z } from "zod";
 import type { AttributeCoverage, Device } from "@gridone/sdk";
 import { deviceAttributes, type AttributeValue } from "@/lib/devices";
-import {
-  resolveConstraints,
-  type WriteConstraints,
-} from "@/components/device-ui/runtime/controls";
+import { resolveConstraints } from "@/components/device-ui/runtime/controls";
 
 export const GROUPED_COMMAND_CONFIRMATION_THRESHOLD = 10;
 export const commandValueSchema = z.object({
@@ -89,7 +87,7 @@ export function currentRange(devices: Device[], attribute: string): string {
 
 /** Native input hints use only shared literal bounds; references stay best-effort. */
 export function inputBounds(coverage: AttributeCoverage | undefined) {
-  const constraints = coverage?.write_constraints;
+  const constraints = coverage?.write_state?.constraints;
   return {
     min:
       typeof constraints?.minimum === "number"
@@ -112,13 +110,12 @@ export function constraintWarnings(
   attribute: string,
   value: AttributeValue | undefined,
 ) {
-  const attr = deviceAttributes(device)[attribute];
-  const constraints = resolveConstraints(
-    attr?.write_constraints as WriteConstraints | undefined,
-    (name) => reportedValue(device, name),
-  );
+  const attr = deviceAttributes(device)[attribute] as AttributeLike | undefined;
+  const constraints = resolveConstraints(attr?.write_state);
   const warnings: { kind: ConstraintWarning; bound: AttributeValue }[] = [];
-  const options = attr?.value_options;
+  const options = attr?.write_state?.options
+    ?.filter((option) => option.available)
+    .map((option) => option.value);
   if (
     value !== undefined &&
     Array.isArray(options) &&
@@ -140,8 +137,9 @@ export function constraintWarnings(
     )
       warnings.push({ kind: "step", bound: constraints.step });
   }
-  const dynamic = Object.values(attr?.write_constraints ?? {}).some(
-    (bound) => bound !== null && typeof bound === "object",
-  );
+  const dynamic =
+    attr?.write_state?.candidate_required ||
+    attr?.write_state?.missing_dependencies ||
+    false;
   return { warnings, dynamic };
 }

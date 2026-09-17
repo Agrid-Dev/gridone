@@ -1,6 +1,8 @@
 import { QueryClient } from "@tanstack/react-query";
 import type {
   DataPoint,
+  AttributeWriteState,
+  WriteReason,
   Device,
   FetchPointsResultResponse,
   TimeSeries,
@@ -29,10 +31,49 @@ export type DeviceListUpdateMessage = {
   devices: Device[];
 };
 
+export type DeviceWriteStateMessage = {
+  type: "device_write_state";
+  device_id: string;
+  revision: number;
+  attributes: Record<string, AttributeWriteState>;
+  resolutions?: Record<
+    string,
+    {
+      raw_value: string | number | boolean | null;
+      resolution_error: WriteReason | null;
+    }
+  >;
+};
+
+/** Eligibility events contain no telemetry and never append a time-series point. */
+export function applyWriteState(
+  device: Device,
+  message: DeviceWriteStateMessage,
+): Device {
+  if (message.revision <= (device.write_state_revision ?? -1)) return device;
+  return {
+    ...device,
+    write_state_revision: message.revision,
+    attributes: Object.fromEntries(
+      Object.entries(device.attributes ?? {}).map(([name, attribute]) => [
+        name,
+        message.attributes[name]
+          ? {
+              ...attribute,
+              ...message.resolutions?.[name],
+              write_state: message.attributes[name],
+            }
+          : attribute,
+      ]),
+    ),
+  };
+}
+
 export type ErrorMessage = { type: "error"; message: string };
 export type PingMessage = { type: "ping" | "pong"; timestamp?: string };
 
 export type WebSocketMessage =
+  | DeviceWriteStateMessage
   | DeviceUpdateMessage
   | DeviceFullUpdateMessage
   | DeviceListUpdateMessage
@@ -100,6 +141,22 @@ export function applyDeviceUpdate(
 export function createDeviceMessageHandler(queryClient: QueryClient) {
   return (message: WebSocketMessage) => {
     if (typeof message !== "object" || !message || !("type" in message)) {
+      return;
+    }
+
+    if (message.type === "device_write_state") {
+      const update = message as DeviceWriteStateMessage;
+      queryClient.setQueryData<Device>(
+        ["device", update.device_id],
+        (current) => (current ? applyWriteState(current, update) : current),
+      );
+      queryClient.setQueryData<Device[]>(["devices"], (current) =>
+        current?.map((device) =>
+          device.id === update.device_id
+            ? applyWriteState(device, update)
+            : device,
+        ),
+      );
       return;
     }
 

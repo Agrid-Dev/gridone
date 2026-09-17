@@ -9,14 +9,20 @@ from __future__ import annotations
 import math
 from typing import TYPE_CHECKING
 
-from pydantic import BaseModel
-
-from models.attribute_metadata import AttributeRef
-from models.errors import InvalidError
+from devices_manager.core.conditions import (
+    EvaluationContext,
+    EvaluationLimitError,
+    on_step_grid,
+    scalar_equal,
+)
+from models.errors import InvalidError, WriteRejectedError
+from models.expressions import AttributeRef
+from models.write_rules import ResolvedConstraints, WriteReason
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from devices_manager.core.driver.attribute_driver import AttributeDriver
     from devices_manager.types import AttributeValueType
     from models.attribute_metadata import Bound
 
@@ -30,34 +36,40 @@ type ValueResolver = Callable[[str], AttributeValueType | None]
 """Current value of a sibling attribute by name; ``None`` when unknown."""
 
 
-class WriteConstraintPreview(BaseModel):
-    minimum: float | None = None
-    maximum: float | None = None
-    step: float | None = None
-    unknown: list[str] = []
-
-
 def preview_write_constraints(
-    attribute: Attribute, resolve: ValueResolver
-) -> WriteConstraintPreview | None:
+    attribute: Attribute | AttributeDriver,
+    resolve: ValueResolver,
+    *,
+    context: EvaluationContext | None = None,
+) -> ResolvedConstraints | None:
     """Expose known limits and unresolved fields without revealing internal errors."""
     if attribute.write_constraints is None:
         return None
-    result = WriteConstraintPreview()
+    result = ResolvedConstraints(sentinels=attribute.write_constraints.sentinels)
     for name in ("minimum", "maximum", "step"):
         try:
             value = _resolve_bound(
-                attribute.name, getattr(attribute.write_constraints, name), resolve
+                attribute.name,
+                getattr(attribute.write_constraints, name),
+                resolve,
+                context=context,
             )
         except InvalidError:
             result.unknown.append(name)
         else:
-            setattr(result, name, value)
+            if name == "step" and value is not None and value <= 0:
+                result.unknown.append(name)
+            else:
+                setattr(result, name, value)
     return result
 
 
 def check_write_constraints(
-    attribute: Attribute, value: AttributeValueType, resolve: ValueResolver
+    attribute: Attribute | AttributeDriver,
+    value: AttributeValueType,
+    resolve: ValueResolver,
+    *,
+    context: EvaluationContext | None = None,
 ) -> None:
     """Refuse ``value`` when it violates ``attribute.write_constraints``.
 
@@ -72,24 +84,32 @@ def check_write_constraints(
     if constraints is None:
         return
     number = _as_number(attribute.name, value)
-    minimum = _resolve_bound(attribute.name, constraints.minimum, resolve)
-    maximum = _resolve_bound(attribute.name, constraints.maximum, resolve)
-    step = _resolve_bound(attribute.name, constraints.step, resolve, what="step")
+    if any(scalar_equal(number, sentinel) for sentinel in constraints.sentinels):
+        return
+    minimum = _resolve_bound(
+        attribute.name, constraints.minimum, resolve, context=context
+    )
+    maximum = _resolve_bound(
+        attribute.name, constraints.maximum, resolve, context=context
+    )
+    step = _resolve_bound(
+        attribute.name, constraints.step, resolve, what="step", context=context
+    )
     if step is not None and step <= 0:
         msg = f"step of '{attribute.name}' resolved to {step}; write refused"
-        raise InvalidError(msg)
+        raise WriteRejectedError([WriteReason(code="constraints")], msg)
     if minimum is not None and number < minimum:
         msg = f"Value {number} for '{attribute.name}' is below the minimum {minimum}"
-        raise InvalidError(msg)
+        raise WriteRejectedError([WriteReason(code="constraints")], msg)
     if maximum is not None and number > maximum:
         msg = f"Value {number} for '{attribute.name}' is above the maximum {maximum}"
-        raise InvalidError(msg)
-    if step is not None and not _on_step_grid(number, step):
+        raise WriteRejectedError([WriteReason(code="constraints")], msg)
+    if step is not None and not on_step_grid(number, step):
         msg = (
             f"Value {number} for '{attribute.name}' is not a multiple of the step "
             f"{step}"
         )
-        raise InvalidError(msg)
+        raise WriteRejectedError([WriteReason(code="constraints")], msg)
 
 
 def _as_number(attribute_name: str, value: AttributeValueType) -> float | int:
@@ -103,7 +123,7 @@ def _as_number(attribute_name: str, value: AttributeValueType) -> float | int:
         raise TypeError(msg)
     if isinstance(value, float) and not math.isfinite(value):
         msg = f"Value for '{attribute_name}' must be finite; write refused"
-        raise InvalidError(msg)
+        raise WriteRejectedError([WriteReason(code="constraints")], msg)
     return value
 
 
@@ -113,31 +133,21 @@ def _resolve_bound(
     resolve: ValueResolver,
     *,
     what: str = "bound",
+    context: EvaluationContext | None = None,
 ) -> float | int | None:
-    if not isinstance(bound, AttributeRef):
-        return bound
-    resolved = resolve(bound.attribute)
+    if bound is None:
+        return None
+    try:
+        resolved = (context or EvaluationContext(resolve)).value(bound)
+    except EvaluationLimitError as exc:
+        raise WriteRejectedError([WriteReason(code="evaluation_limit")]) from exc
     if (
         resolved is None
         or isinstance(resolved, bool)
         or not isinstance(resolved, int | float)
         or (isinstance(resolved, float) and not math.isfinite(resolved))
     ):
-        msg = (
-            f"{what} '{bound.attribute}' of '{attribute_name}' is unknown; "
-            "write refused"
-        )
-        raise InvalidError(msg)
+        label = f" '{bound.attribute}'" if isinstance(bound, AttributeRef) else ""
+        msg = f"{what}{label} of '{attribute_name}' is unknown; write refused"
+        raise WriteRejectedError([WriteReason(code="unknown_dependencies")], msg)
     return resolved
-
-
-def _on_step_grid(value: float, step: float) -> bool:
-    """Whether ``value`` is a whole number of ``step``s away from 0.
-
-    The grid is anchored at 0, not at the minimum: with ``step: 0.5``, 21.5
-    (``21.5 / 0.5 = 43``) is accepted and 21.3 (``42.6``) refused, whatever
-    the bounds are. ``value / step`` may drift from an integer by up to
-    ``STEP_TOLERANCE`` to absorb floating-point noise.
-    """
-    quotient = value / step
-    return math.isfinite(quotient) and abs(quotient - round(quotient)) <= STEP_TOLERANCE

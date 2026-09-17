@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from devices_manager.dto import Device
 from devices_manager.types import AttributeValueType
+from models.write_rules import AttributeWriteState, WriteReason
 
 
 class WebSocketMessage(BaseModel):
@@ -33,6 +34,19 @@ class DeviceUpdateMessage(WebSocketMessage):
     last_changed: datetime | None = None
 
 
+class AttributeResolution(BaseModel):
+    raw_value: AttributeValueType | None = None
+    resolution_error: WriteReason | None = None
+
+
+class DeviceWriteStateMessage(WebSocketMessage):
+    type: Literal["device_write_state"] = "device_write_state"
+    device_id: str
+    revision: int
+    attributes: dict[str, AttributeWriteState]
+    resolutions: dict[str, AttributeResolution] = Field(default_factory=dict)
+
+
 class DeviceFullUpdateMessage(WebSocketMessage):
     type: Literal["device_full_update"] = "device_full_update"
     device: Device
@@ -50,6 +64,7 @@ class ErrorMessage(WebSocketMessage):
 
 WebSocketEvent = (
     DeviceUpdateMessage
+    | DeviceWriteStateMessage
     | DeviceFullUpdateMessage
     | DeviceListUpdateMessage
     | PingMessage
