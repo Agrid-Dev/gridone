@@ -27,6 +27,11 @@ import type { AttributeFields } from "@/lib/faults";
  *  it, so adding the cursor is an addition rather than a refactor. */
 export type UseSynopticValues = (doc: Synoptic, at?: string) => SynopticValues;
 
+/** How often the one device list refetches with the socket up, to move
+ *  `last_updated` on values that hold. Staleness is judged on the minute
+ *  tick, so a finer poll would show nothing sooner. */
+export const FRESHNESS_POLL_MS = 60_000;
+
 /**
  * The live reading of every device-bound slot of a plate, and the fault
  * state of every device it names. Literal slots are the renderer's.
@@ -35,8 +40,11 @@ export type UseSynopticValues = (doc: Synoptic, at?: string) => SynopticValues;
  * once and must yield one device, which the save-time rule guarantees.
  * All devices of a plate are listed in one call, then read through the
  * `["device", id]` query the WebSocket handler patches, so a
- * `device_update` re-renders the plate with no polling. While the socket
- * is down the one list polls and refreshes every device it returns.
+ * `device_update` re-renders the plate at once. The one list also polls:
+ * at the device cadence while the socket is down, when it is the only
+ * source of values, and once a minute with it up, since a push carries a
+ * change, never a fresh `last_updated` for a value that held, and without
+ * that a run state holding all day reads stale once the threshold passes.
  */
 export const useSynopticValues: UseSynopticValues = (doc) => {
   const client = useGridoneClient();
@@ -101,14 +109,14 @@ export const useSynopticValues: UseSynopticValues = (doc) => {
   }, [doc, slots, resolved]);
 
   // One list call seeds every device, so a plate over twenty devices costs
-  // one request on mount rather than twenty, and one per poll while the
-  // socket is down rather than twenty.
+  // one request on mount rather than twenty, and one per poll rather than
+  // twenty.
   const seed = useQuery({
     queryKey: ["devices", { ids: deviceIds }],
     queryFn: () => client.devices.list({ ids: deviceIds }),
     enabled: settled && deviceIds.length > 0,
     placeholderData: keepPreviousData,
-    refetchInterval: isConnected ? false : DEVICE_POLL_INTERVAL_MS,
+    refetchInterval: isConnected ? FRESHNESS_POLL_MS : DEVICE_POLL_INTERVAL_MS,
   });
   // Every answer of the list refreshes the per-device entries the socket
   // patches, so a poll reaches the plate the way a push does.

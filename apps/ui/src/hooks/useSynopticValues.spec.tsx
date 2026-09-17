@@ -25,7 +25,7 @@ vi.mock("@/contexts/GridoneClientContext", () => ({
 
 // Imports below this line must come after the vi.mock calls.
 import { DEVICE_POLL_INTERVAL_MS } from "@/hooks/useDevice";
-import { useSynopticValues } from "./useSynopticValues";
+import { FRESHNESS_POLL_MS, useSynopticValues } from "./useSynopticValues";
 
 const NOW = new Date("2026-09-14T12:00:00Z");
 const ago = (seconds: number) =>
@@ -54,6 +54,12 @@ const PAC: Device = {
     power: attr(12, null),
   },
 };
+
+/** PAC with some attributes replaced. */
+const pacWith = (attributes: Device["attributes"]): Device => ({
+  ...PAC,
+  attributes: { ...PAC.attributes, ...attributes },
+});
 
 const slot = (
   devices: AttributeSlot["target"]["devices"],
@@ -204,7 +210,7 @@ describe("useSynopticValues", () => {
     expect(mockList).toHaveBeenCalledWith({ type: ["awhp"] });
     expect(mockList).toHaveBeenCalledWith({ ids: ["PAC-03", "B-01"] });
     expect(mockList).toHaveBeenCalledTimes(2);
-    // Seeded from the list: no per-device request while the socket is up.
+    // Seeded from the list: no per-device request.
     expect(mockGet).not.toHaveBeenCalled();
   });
 
@@ -291,7 +297,7 @@ describe("useSynopticValues", () => {
     expect(mockGet).not.toHaveBeenCalled();
   });
 
-  it("polls the one device list only while the socket is down, never each device", async () => {
+  it("polls the one device list once a minute with the socket up, at the device cadence with it down, and its answer reaches the reading", async () => {
     const { rendered } = setup();
     await waitFor(() =>
       expect(rendered.result.current.slots["symbol.pac.state"].raw).toBe(true),
@@ -301,7 +307,13 @@ describe("useSynopticValues", () => {
       vi.advanceTimersByTime(2 * DEVICE_POLL_INTERVAL_MS);
     });
     expect(mockList).toHaveBeenCalledTimes(listed);
-    expect(mockGet).not.toHaveBeenCalled();
+    act(() => {
+      vi.advanceTimersByTime(FRESHNESS_POLL_MS);
+    });
+    await waitFor(() =>
+      expect(mockList.mock.calls.length).toBeGreaterThan(listed),
+    );
+    expect(mockList).toHaveBeenLastCalledWith({ ids: ["PAC-03", "B-01"] });
 
     socket.isConnected = false;
     const offline = setup();
@@ -311,35 +323,51 @@ describe("useSynopticValues", () => {
       ).toBe(true),
     );
     const before = mockList.mock.calls.length;
-    // The poll answers with a changed value, which reaches the reading.
-    mockList.mockImplementation((params: { ids?: string[] }) =>
-      Promise.resolve(
-        params.ids
-          ? [
-              {
-                ...PAC,
-                attributes: {
-                  ...PAC.attributes,
-                  onoff_state: attr(false, ago(0)),
-                },
-              },
-            ]
-          : [PAC],
-      ),
-    );
+    mockList.mockResolvedValue([pacWith({ onoff_state: attr(false, ago(0)) })]);
     act(() => {
       vi.advanceTimersByTime(DEVICE_POLL_INTERVAL_MS + 100);
     });
     await waitFor(() =>
-      expect(mockList).toHaveBeenCalledWith({ ids: ["PAC-03", "B-01"] }),
+      expect(mockList.mock.calls.length).toBeGreaterThan(before),
     );
-    expect(mockList.mock.calls.length).toBeGreaterThan(before);
     await waitFor(() =>
       expect(
         offline.rendered.result.current.slots["symbol.pac.state"].raw,
       ).toBe(false),
     );
     expect(mockGet).not.toHaveBeenCalled();
+  });
+
+  it("keeps a reading that holds fresh while the list keeps reading it", async () => {
+    // A push carries a change, never a fresh last_updated for a value that
+    // held, so the poll is what ages the reading: it goes stale when the
+    // server stops reading it, not when the page has been open for the
+    // threshold.
+    mockList.mockImplementation(() =>
+      Promise.resolve([
+        pacWith({ outlet_temperature: attr(52.37, new Date().toISOString()) }),
+      ]),
+    );
+    const { rendered } = setup();
+    await waitFor(() =>
+      expect(rendered.result.current.slots["symbol.pac.supply_temp"].raw).toBe(
+        52.37,
+      ),
+    );
+    const listed = mockList.mock.calls.length;
+    // Sixteen minutes on the page, past the binding's 600 s threshold.
+    act(() => {
+      vi.setSystemTime(new Date(NOW.getTime() + 16 * 60_000));
+      vi.advanceTimersByTime(FRESHNESS_POLL_MS + 100);
+    });
+    await waitFor(() =>
+      expect(mockList.mock.calls.length).toBeGreaterThan(listed),
+    );
+    await waitFor(() =>
+      expect(
+        rendered.result.current.slots["symbol.pac.supply_temp"].stale,
+      ).toBe(false),
+    );
   });
 
   it("never goes stale when neither the binding nor the document sets a threshold", async () => {
