@@ -64,7 +64,7 @@ Conventions the renderer and the kit agree on, stated here so a plate can be wri
 | `id` | `str` | Slug, `^[a-z0-9][a-z0-9_-]{0,63}$`, unique across the document. |
 | `type` | `str` | A registered symbol type (see the appendix for the ones this plate uses). |
 | `placement` | `Placement` | Where the symbol sits — see below. |
-| `label` | `str \| null` | The tag drawn with the symbol: `PAC 03`, `B01`, `V-03`. |
+| `label` | `str \| null` | The tag drawn with the symbol: `PAC 03`, `V-03`; null for a symbol the drawing leaves unnamed (the ballons). |
 | `device_id` | `str \| null` | The device this symbol *is*. Click-through and fault badge; nothing else. |
 | `props` | `object` | Type-specific static configuration, validated by the type's model. `{}` when the type has none. |
 | `bindings` | `{slot: SlotValue}` | One entry per slot the type declares; slots not listed render empty. |
@@ -150,87 +150,82 @@ Written down so nobody adds it by accident. Each is either a rendering concern t
 - **Screen coordinates, sizes, colours, stroke styles, fonts, dash patterns, draw order.** All derived. A plate that looks wrong is fixed in the kit or the projection, never by a field in the document.
 - **Diagonal or curved pipes.** Segments are axis-aligned, `z` included. The kit rounds corners; the document does not know.
 - **Per-instance symbol size.** Only the collector has a length, in cells.
-- **A value computed from several attributes**: no averages over the nine ballons, no sum of two meters, no unit conversion, no threshold colouring. A slot shows one attribute of one device, formatted. Adding `space_agg` to the `attribute` arm would be the additive path.
+- **A value computed from several attributes**: no averages over the seven ballons, no sum of two meters, no unit conversion, no threshold colouring. A slot shows one attribute of one device, formatted. Adding `space_agg` to the `attribute` arm would be the additive path.
 - **Flow as an OR.** The primary return loop of the plate runs when PAC 03 *or* PAC 04 runs; a `flow` binding names one attribute, so that pipe stays static. Found while writing the plate; acceptable in v1 since both PACs feed the same collector and the supply pipes animate individually.
 - **Writes, commands, setpoints.** Read-only by project decision.
-- **Groups, layers, frames, nested synoptics, conditional visibility.** The ballon bay is nine tanks and thirty pipes, not a group; a caption label says "9 × 500 L".
+- **Groups, layers, frames, nested synoptics, conditional visibility.** The ballon bay is seven tanks and their pipes, not a group; a caption label says "7 × 500 L".
 - **Historical values.** A binding has no time. The renderer's value hook takes an optional timestamp (AGR-1162); the document is unchanged by it.
 - **Alarm thresholds.** Faults come from the device's fault attributes and `is_faulty`; the plate only says which device a symbol is.
 - **Deep links into an element of another plate.** A link targets a plate.
-- **Anything off-plate.** Where cold water comes from, where the 104 rooms are: a `link` boundary and nothing more.
+- **Anything off-plate.** Where cold water comes from, where the rooms are: a `link` boundary and nothing more.
 - **Translations.** Text is literal (Decision 18).
 
 ## The plate: `synoptic/ecs-est.json`
 
-The mermaid POC's *Production ECS Est* (`poc/mermaid-ecs-est/` in the gallery repo) rewritten with positions: two PAC, a supply collector with departures, nine 500 L ballons in three columns, a return collector, the mitigeur, the ECS departure to the 104 rooms, the bouclage with its pump, cold water make-up, and a folio link to a sibling plate. Plan view of the grid, `z` up, one cell ≈ one metre:
+The mermaid POC's *Production ECS Est* (`poc/mermaid-ecs-est/` in the gallery repo) rewritten with positions, then corrected against the old GTB drawing "Production ECS - Chambre Est": two heat pumps, a supply header, seven 500 L ballons in three columns (three, three and one), the ECS departure off the top of the bay to the mitigeur and the distribution, the bouclage back into the bay, and a return header to the heat pumps with the cold-water make-up on it. Plan view of the grid, `z` up, one cell ≈ one metre:
 
 ```
- y=-6  PRODUCTION ECS EST (title)
- y=-3            [DHW collector x=11..21] --TT-05-- [MIT 24] --FT-01-- [DIST 30]
- y=-2  overhead feed col.3 (z=1)              bouclage <- P-BCL <- TT-06 <-┘ (y=-2)
+ y=-6  PRODUCTION ECS EST (title)                                DISTRIBUTION (x=27)
+ y=-3            [DHW collector x=11..21] -------- [MIT 24] -- DÉPART -- [DIST 30]
+ y=-2                                         bouclage <----- RETOUR ----┘ (y=-2)
  y=-1  overhead feed col.2 (z=1)                                  │ x=25
- y= 0  [PAC 03] TT V CL -> [C]-> B01     B02     B03              │
- y= 3     x=0-1           x=5   B04     B05     B06              │
- y= 4  [PAC 04] TT V CL ->      B07     B08     B09              │
- y= 6           [ECS OUEST link x=8]   x=10    x=14    x=18      │
- y=10           cold water main  <--------------------------------┴-- [EAU FROIDE 30]
- y=13  [return collector x=3..17] <- column returns (hop over y=10 at z=1)
- x=-1  primary return loop up to PAC 03, tee to PAC 04
+ y= 0  [PAC 03] V  ->      [C]-> b01     b02                     │
+ y= 4  [PAC 04] V  ->      x=5   b04     b05 <-- bouclage (y=5)
+ y= 8     x=0-1                 b07     b08 --> b09
+ y= 9                                  x=10    x=14    x=18      [EAU FROIDE 30]
+ y=10                                                            STOCKAGE, COMPTEUR (x=20)
+ y=13  [return collector x=3..18] <- column returns <- cold make-up x=29
+ x=-1  return loop up to PAC 03, tee to PAC 04
 ```
 
-Primary flows top-down through each column (`B01 → B04 → B07`, west lane), domestic water bottom-up (`B07 → B04 → B01`, east lane), columns in parallel between the two collectors. That topology is plausible for a stratified bay and is what AGR-1164 checks against the GTB drawing; it is not verified.
+One water circuit, as drawn: the heat pumps heat the sanitary water directly, so there is no exchanger and no separate heating loop. Hot water enters the top of columns 1 and 2 (`primary_in`, the tank type's port name for its upper inlet), works down the column (`b01 → b04 → b07`), leaves the bottom tank to the return header and back to the heat pumps; the seventh ballon (`b09`, bottom right) is where the drawing's single outlet leaves the bay, so it is fed along the bottom row from `b08` and drains to the return header, with no feed or departure of its own; the departure is taken off the top tanks of columns 1 and 2 (`dhw_out`); the bouclage returns into the middle of the bay (`b05.dhw_in`, where the drawing's arrow enters) and to the mitigeur's cold inlet; the cold make-up joins the return header. Fluids key the palette by circuit role, not by medium: the production loop (heat pumps to bay and back) is `primary_supply` / `primary_return`, the departure `dhw`, the bouclage `dhw_loop`, the make-up `cold_water`, the grammar the visual language keeps from the POC. The drawing shows the bay as a block fed at the top left, drained at the bottom right and entered by the bouclage on the right, without per tank piping, so the plate keeps those three connections where the drawing has them and the series-per-column reading inside the bay is the POC's, which the drawing neither confirms nor contradicts. The tank count and arrangement, the single circuit and the manual valve on each PAC departure are the drawing's. The drawing draws no bouclage pump, but the plant has one: the two room panoplie P&IDs ("Départ EC 104 Chambres" and "Départ EC 80 Chambres", identical in layout; which one this bay serves is unconfirmed, so the distribution link carries no room count) place a *pompe de bouclage EC* and a *réchauffeur de boucle* on the retour ECS, and the GTB's PLOMBERIE view lists a *Synthèse Défauts Pompe Bouclage* for the 3500 L station; it is undrawn here, not absent. The same P&IDs put the two temperature sensors on the départ ECS after the mitigeur and on the retour ECS before the pump, which is where the plate's `DÉPART` and `RETOUR` tags sit; the tanks carry the same text there, "Ballon ECS Q TON 500L", and no name or number, so no tank carries a `label`: the STOCKAGE caption names the bay, and the ids are only the pipes' handles.
 
 ### The shapes the issue asked to confront
 
 | Shape | How the format holds it | Where in the plate |
 |---|---|---|
-| Collector with departures | One `collector` symbol, four outlets authored in `props.ports`, one per column plus one to the ECS Ouest link. Outlets two and three leave overhead (`z = 1`) so they clear the domestic-water risers. | `collector-primary-supply`, pipes `feed-col-*`, `feed-ecs-ouest` |
-| Drawn return loop | The POC amputated it into a folio stub. Here `primary-return-loop` runs from the return collector west and north to PAC 03, and `primary-return-pac-04` tees off it. Positions make the cycle a non-event. | `primary-return-loop`, `primary-return-pac-04` |
-| Device with a standard synoptic | `pac-03.device_id` names an `awhp`; AGR-1163 resolves the standard entry from `device.type`. The format needs nothing beyond `device_id`. | `pac-03` |
-| Tee | Three forms: a pipe branching off a pipe (`primary-return-pac-04`), a branch feeding a run at both ends (`dhw-loop-to-storage`, pipe-to-pipe), cold-water risers off the main. | `cold-col-2`, `cold-col-3`, `dhw-loop-to-storage` |
-| Crossing | Column 2 and 3 returns hop over the cold-water main at `z = 1`; the overhead feeds cross the risers the same way. | `col-2-return`, `col-3-return` |
-| Inline equipment | Isolation and check valves on each PAC departure, the bouclage pump on the return, all inline. | `v-03`, `cl-03`, `p-bcl` |
-| Readings on the run | `TT-03/04` on the PAC departures, `TT-05` on the ECS departure, `TT-06` on the bouclage, `FT-01` on the distribution supply. | `pipes[].tags` |
-| Folio link and boundary | `link-ecs-ouest` navigates (placeholder id); `link-distribution` and `link-cold-water` are boundaries. | `link-*` |
+| Collector with departures | One `collector` symbol, two outlets authored in `props.ports`, one per fed column. The second leaves overhead (`z = 1`) so it clears the column-1 departure riser. | `collector-supply`, pipes `feed-col-*` |
+| Drawn return loop | The POC amputated it into a folio stub. Here `return-loop` runs from the return collector west and north to PAC 03, and `return-pac-04` tees off it. Positions make the cycle a non-event. | `return-loop`, `return-pac-04` |
+| Device with a standard synoptic | `pac-03.device_id` names the PAC device; the detail page resolves the standard entry from `device.type` when the device has one (the PAC devices are untyped, so they open the device panel). The format needs nothing beyond `device_id`. | `pac-03` |
+| Tee | Two forms: a pipe branching off a pipe (`return-pac-04`), a branch leaving a run for a port (`dhw-loop-to-storage`). | `return-pac-04`, `dhw-loop-to-storage` |
+| Crossing | The overhead feed of column 2 crosses the column-1 departure riser at `z = 1`; nothing else on the plate meets at grade outside a tee (`validation.overlaps` lists such cells for the editor; the plate keeps its list empty). | `feed-col-2` |
+| Inline equipment | A manual isolation valve on each PAC departure (drawn, unbound). | `v-03`, `v-04` |
+| Readings on the run | `DÉPART` on the mitigeur's outlet and `RETOUR` on the bouclage return, the drawing's Température Départ / Retour, each a `text` slot saying it is not measured. | `tt-depart`, `tt-retour` |
+| Folio link and boundary | `link-distribution` and `link-cold-water` are boundaries. The drawing reaches the Ouest plate through a navigation button, not an off-page connector, so no folio link is placed; the form waits for the Ouest plate. | `link-*` |
 
 ### Bindings inventory
 
-Every live value on the plate, which is also the point inventory AGR-1155 needs for this view. Device ids are **placeholder tokens** (`PAC-03`, `PAC-04`, `ECS-EST-CTRL`), attribute names on the controller are **guesses** in the AWHP naming style; AGR-1164 replaces them. The API will refuse to import the plate until it does, which is the intended save-time check.
+Every live value on the plate, bound to the instance's devices by their ids. The rule: a point is bound only if the source drawing shows it and a device exposes it. What the drawing shows but no device exposes carries a `text` slot that says so (Decision 6), so the gap is marked rather than silently missing.
 
 | Element | Slot / tag | Device | Attribute | Format |
 |---|---|---|---|---|
-| `pac-03`, `pac-04` | `state` | PAC | `onoff_state` (AWHP standard) | MARCHE / ARRÊT |
-| | `fault` | PAC | `general_fault` (not in the AWHP standard — confirm) | DÉFAUT / NORMAL |
-| | `supply_temp` | PAC | `outlet_temperature` (standard) | °C, 1 |
-| | `power` | PAC | `active_power` (not in the standard — confirm, may be a separate meter) | kW, 1 |
-| `tt-03`, `tt-04` | value | PAC | `outlet_temperature` | °C, 1 |
-| `v-03`, `v-04` | `state` | controller | `valve_03_open`, `valve_04_open` | OUVERTE / FERMÉE |
-| `b01` … `b09` | `temperature` | controller | `tank_01_temperature` … `tank_09_temperature` | °C, 0 |
-| `mitigeur` | `supply_temp` | controller | `mixed_supply_temperature` | °C, 1 |
-| `tt-05` | value | controller | `dhw_departure_temperature` | °C, 1 |
-| `tt-06` | value | controller | `dhw_loop_return_temperature` | °C, 1 |
-| `ft-01` | value | controller | `dhw_flow_rate` | m³/h, 1 |
-| `p-bcl` | `state` | controller | `loop_pump_running` | MARCHE / ARRÊT |
-| pipes `pac-0x-supply`, `feed-*` | `flow` | PAC | `onoff_state` | bool |
-| pipes `dhw-loop-*` | `flow` | controller | `loop_pump_running` | bool |
+| `pac-03`, `pac-04` | `state` | `schneider_pac_qton3` / `_qton4` | `onoff_state` | MARCHE / ARRÊT |
+| | `fault` | same | `fault` | DÉFAUT / NORMAL |
+| pipes `pac-0x-supply` | `flow` | same | `onoff_state` | bool |
+| `cpt-ballon-est` (label) | value | `schneider_cpt_ballon_est` | `energy` | Wh, 0. The unit is inferred: the driver declares none; the GTB's meter pages show every counter in kWh with the site's meters between 10^5 and 10^6 kWh, so 237 794 000 reads as Wh (237 794 kWh) and cannot be kWh. The format does not scale, so the chip is nine digits wide; open point. |
+| `tt-depart`, `tt-retour` | value | none | mitigeur départ / retour (the PLOMBERIE view's Température Aller / Retour): the `wago_ss1_ecs` registers have read 0 since June, the gateway's S3/S4 record a single 0 | `text`, "non mesurée" |
+
+Not on the source drawing, so dropped rather than integrated: per tank temperature, PAC outlet temperature and power, isolation valve states, the distribution flow meter, the bouclage pump (real, see above) and its animated runs, the PLOMBERIE view's *Etat Mitigeur*, and the Charot gateway's S1 / SP probes (live, but nothing ties that controller to this bay; its tanks are another model). The ballon energy counter is an electricity meter, not a heat meter in the water loop, so it is a caption label carrying the reading rather than an inline `energy_meter`. The PAC `alarm` (synthèse défaut) is a fault attribute, surfaced by the view-scoped fault list through the PAC symbols' `device_id`, not by a slot. The meter's `defaut_ballon` / `alarme_ballon` are not: the meter is bound through a label, and a label carries no `device_id`, so the view's fault list does not reach it.
 
 ### What writing the plate taught about the format
 
 - **Moving a symbol drags the pipe ends attached to its ports, and nothing else.** Waypoints, tags, inline placements and tees are absolute cells. Spreading the distribution corner by two cells meant editing one symbol origin and four absolute cells, and no pipe endpoint. This is the right split — a port-attached end has no independent position — but it is what the editor (AGR-1165) has to make invisible.
 - **Isometric crowds at one-cell spacing.** A pump, a tag and a link one cell apart collide in a crude 2:1 projection. The kit's minimum spacing between inline elements is a design-pass output (AGR-1156), and the checker for this spec cannot know it; the plate leaves two cells between anything that carries text.
-- **A collector with `n` outlets is `n` pipes, each routed by hand.** The overhead departures needed five waypoints apiece. That is the cost the editor is meant to remove, and the reason the format does not try to route.
-- **Thirty-four pipes for one bay is the honest count**, not a symptom. Nine tanks with two fluids in counter-flow between four collectors have that many runs on the real drawing too.
+- **A collector with `n` outlets is `n` pipes, each routed by hand.** The overhead departure needed five waypoints. That is the cost the editor is meant to remove, and the reason the format does not try to route.
+- **Twenty-one pipes for one bay is the honest count**, not a symptom. Seven tanks, two columns fed, chained and drained by their own runs and a seventh ballon fed along the row, plus the three headers, the departure, the bouclage and the make-up, are that many runs.
 
-### Open points for AGR-1164
+### Answered by the first live plate
 
-- Which device each placeholder is, and whether the PACs are `awhp`-typed on `okko-paris-la-defense`.
-- Whether the ballons are piped as drawn.
-- Whether `fault` and `power` exist on the PAC devices or belong to a meter.
-- Whether the plant has the energy counters the old GTB showed; the format has no `energy_meter` on this plate because the POC had none, and the type is a registry addition, not a format change.
+- PAC 03/04 are `schneider_pac_qton3` / `_qton4`, split from the AS-B panel, untyped (not `awhp`). They expose `onoff_state`, `fault`, `alarm` and nothing else: no outlet temperature, no power.
+- The old GTB view shows seven ballons all labelled "Ballon ECS Q TON 500L", no name and no per ballon value; the bay is drawn, not read, and its single outlet leaves the bottom-right ballon.
+- The energy counter exists (`schneider_cpt_ballon_est.energy`) on an electricity meter; it is bound on a label, and `energy_meter` still declares no slot.
+- The mitigeur départ / retour has no live source on the instance. Both ride their runs as tags carrying a `text` slot reading "non mesurée" until the probes read.
+- The heat pumps heat the sanitary water directly (one circuit on the drawing, cold make-up on the return to the heat pumps); the POC's primary loop and counter-flow lanes were a generic stratified bay, not this plant.
+- Pan or scale: the plate is wider than a laptop content area, and the renderer scales it to fit its container, then pans by drag and zooms with a modifier wheel or a pinch (`PidDiagram`). The first view is the whole plate, small, and the operator zooms in.
 
-## Appendix — symbol types used by the plate
+## Appendix — symbol types of the hydronic kit
 
-Input for the registry (AGR-1160) and the kit (AGR-1156, AGR-1159). Footprints are `w × d` at rotation 0; port offsets are relative to the origin cell.
+Input for the registry (AGR-1160) and the kit (AGR-1156, AGR-1159); the plate places all of them but `pump` and `valve_check`. Footprints are `w × d` at rotation 0; port offsets are relative to the origin cell.
 
 | Type | Footprint | Inline | Ports (offset, side) | Slots | Props |
 |---|---|---|---|---|---|

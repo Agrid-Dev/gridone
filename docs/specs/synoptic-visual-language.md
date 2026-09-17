@@ -88,7 +88,7 @@ The 2-way valve of the issue is `valve_isolation`; a motorised 2-way valve is th
 
 ## Plate reference
 
-[`plate.svg`](synoptic/kit/plate.svg) draws the ECS Est plate (`synoptic/ecs-est.json`) whole in the kit, with the app content area (1184 × 836 px: a 1440 × 900 laptop at 100 % less the 256 px sidebar and 64 px top bar) marked on it, with its names, values, states, panels, a faulty machine, a closed valve and a stale reading. It is the reference for Decisions 10 to 18 on a real plate, and what AGR-1159 draws against. The whole plate is 1960 × 1000 px, so the first real view pans or scales; that is AGR-1164's call, not this sheet's.
+[`plate.svg`](synoptic/kit/plate.svg) draws the ECS Est plate (`synoptic/ecs-est.json`) whole in the kit, with the app content area (1184 × 836 px: a 1440 × 900 laptop at 100 % less the 256 px sidebar and 64 px top bar) marked on it, with its names, values, states, panels, a faulty machine and the two readings no device exposes. It is the reference for Decisions 10 to 18 on a real plate, and what AGR-1159 draws against. The whole plate is 2210 × 1170 px, so the first real view pans or scales; that is AGR-1164's call, not this sheet's.
 
 The generator measures the faces the way it measures the fluids: at least 4 points of lightness between the plate and the top face and between adjacent faces, and at least 25 CIE76 between `--muted-foreground` and any face, in both themes; a token edit that breaks it fails generation.
 
