@@ -138,15 +138,13 @@ def collector_ports(props: CollectorProps) -> Mapping[str, Port]:
 
 
 def build_default_registry() -> SymbolRegistry:
-    """The types the first plates use, from the format spec's appendix, the
-    six the visual-language spec proposes for the hydronic set, and the loop
-    heater the panoplie P&IDs put on the bouclage return.
+    """The types the committed plates use: the format spec's appendix, the
+    hydronic set of the visual-language spec, the loop heater of the
+    panoplie P&IDs, the motorised two-way valve of the hot-production view.
 
     Inline types declare no ports: their in and out follow the segment they sit
-    on, so a pipe never names one as an endpoint. Of the six hydronic types only
-    the double pump declares a slot, the run state its single sibling has; what
-    the others bind (an energy meter's register above all) is declared here once
-    the first plate that places them says so.
+    on, so a pipe never names one as an endpoint. A slot is declared once the
+    first plate that places the type shows it.
     """
     registry = SymbolRegistry()
     registry.register(
@@ -199,7 +197,7 @@ def build_default_registry() -> SymbolRegistry:
         SymbolType(
             type="pump",
             footprint=Footprint(w=1, d=1),
-            slots=("state",),
+            slots=("state", "speed"),
             inline=True,
         )
     )
@@ -215,6 +213,14 @@ def build_default_registry() -> SymbolRegistry:
         SymbolType(
             type="valve_check",
             footprint=Footprint(w=1, d=1),
+            inline=True,
+        )
+    )
+    registry.register(
+        SymbolType(
+            type="valve_control",
+            footprint=Footprint(w=1, d=1),
+            slots=("position",),
             inline=True,
         )
     )
@@ -252,7 +258,12 @@ def build_default_registry() -> SymbolRegistry:
         SymbolType(type="air_separator", footprint=Footprint(w=1, d=1), inline=True)
     )
     registry.register(
-        SymbolType(type="dirt_separator", footprint=Footprint(w=1, d=1), inline=True)
+        SymbolType(
+            type="dirt_separator",
+            footprint=Footprint(w=1, d=1),
+            slots=("fault",),
+            inline=True,
+        )
     )
     registry.register(
         SymbolType(
@@ -263,7 +274,12 @@ def build_default_registry() -> SymbolRegistry:
         )
     )
     registry.register(
-        SymbolType(type="energy_meter", footprint=Footprint(w=1, d=1), inline=True)
+        SymbolType(
+            type="energy_meter",
+            footprint=Footprint(w=1, d=1),
+            slots=("energy",),
+            inline=True,
+        )
     )
     registry.register(
         SymbolType(

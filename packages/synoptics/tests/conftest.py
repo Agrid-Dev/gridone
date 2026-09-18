@@ -2,7 +2,7 @@
 and integration suites."""
 
 import pytest
-from plates import PLATE_NAMES, read
+from plates import ECS_PLATES, PLATE_NAMES, read
 
 from models.targets import (
     AttributeCoverage,
@@ -11,6 +11,7 @@ from models.targets import (
     ResolvedTarget,
 )
 from models.types import DataType
+from synoptics.models import SynopticDocument
 from synoptics.symbols import SymbolRegistry, build_default_registry
 
 
@@ -23,6 +24,12 @@ def registry() -> SymbolRegistry:
 def plate_raw(request: pytest.FixtureRequest) -> dict:
     """Each committed plate in turn."""
     return read(request.param)
+
+
+@pytest.fixture(params=ECS_PLATES)
+def ecs_plate(request: pytest.FixtureRequest) -> SynopticDocument:
+    """Each hot-water bay in turn, for what their shared template decides."""
+    return SynopticDocument.model_validate(read(request.param))
 
 
 @pytest.fixture

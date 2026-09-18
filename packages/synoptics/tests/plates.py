@@ -4,12 +4,24 @@
 import json
 from pathlib import Path
 
+from synoptics.models import SynopticDocument
+from synoptics.validation import bound_slots
+
 PLATES_DIR = Path(__file__).parents[3] / "docs" / "specs" / "synoptic"
 PLATE_NAMES = sorted(path.stem for path in PLATES_DIR.glob("*.json"))
 """Every committed plate, so a new one is held to the format's probes the
 moment it lands next to the others."""
 
+ECS_PLATES = ("ecs-est", "ecs-ouest")
+"""The two hot-water bays, the same template twice."""
+
 
 def read(name: str) -> dict:
     """A committed plate, straight off disk."""
     return json.loads((PLATES_DIR / f"{name}.json").read_text(encoding="utf-8"))
+
+
+def bound_device_ids(document: SynopticDocument) -> set[str]:
+    """Every device a plate names: through a slot or as a symbol's own."""
+    bound = {i for s in bound_slots(document) for i in s.slot.target.devices.ids or []}
+    return bound | {s.device_id for s in document.symbols if s.device_id}

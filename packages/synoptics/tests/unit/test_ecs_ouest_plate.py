@@ -10,9 +10,9 @@ entering the top row. The probes every committed plate shares are in
 from collections import Counter
 
 import pytest
+from plates import bound_device_ids
 
 from synoptics.models import PortEndpoint, SynopticDocument
-from synoptics.validation import bound_slots
 
 
 @pytest.fixture
@@ -25,14 +25,7 @@ def test_the_plate_binds_none_of_the_est_devices(plate, ecs_est_raw):
     devices. A PAC id copied over from the Est plate would read the wrong
     machine and still validate."""
     est = SynopticDocument.model_validate(ecs_est_raw)
-
-    def ids(document: SynopticDocument) -> set[str]:
-        bound = {
-            i for s in bound_slots(document) for i in s.slot.target.devices.ids or []
-        }
-        return bound | {s.device_id for s in document.symbols if s.device_id}
-
-    assert ids(plate).isdisjoint(ids(est))
+    assert bound_device_ids(plate).isdisjoint(bound_device_ids(est))
 
 
 def test_the_bay_is_the_drawing_s(plate):
