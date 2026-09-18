@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { cleanup, fireEvent, render } from "@testing-library/react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type {
   AttributeSlot,
@@ -149,17 +150,24 @@ const plate = (name: string): Synoptic => ({
   id: name,
   metadata: {},
 });
-/** What each committed plate draws. Both bays share the template: two heat
- *  pumps with a panel each, the same two unread mitigeur readings, the
- *  energy counter under its caption, and the panoplie their P&ID draws:
- *  two pumps and a loop heater, the last with a panel of its own on an
- *  inline glyph, the bouclage pump with a chip. They differ in the tank
- *  grid, which the format's own suite pins. Tees: the second PAC's return
- *  off the return loop on both, the column-3 feed on Ouest. */
-const PLATES = {
-  "ecs-est": { tees: 1, panels: 3, chips: 4 },
-  "ecs-ouest": { tees: 2, panels: 3, chips: 4 },
-};
+/** What the renderer decides on each committed plate: its tees (a disc at
+ *  every branch point), its panels (a symbol with several bound slots) and
+ *  its chips (every single reading, on a tag, a symbol or a caption). What
+ *  the document itself says (its tags and their literals, its fluids, its
+ *  labels) is read from the plate under test rather than copied here. The
+ *  two bays share the template: two heat pumps with a panel each, the loop
+ *  heater's panel on an inline glyph, the energy counter under its caption,
+ *  the two unread mitigeur readings and the bouclage pump's marked state.
+ *  They differ in the tees: the second PAC's return off the return loop on
+ *  both, the column-3 feed on Ouest. The hot production has four pump heads
+ *  with a panel each, a chip on every marked valve, meter and reading, and
+ *  tees wherever its manifold, its vessel and its change-over legs branch. */
+const ECS_BAY = { panels: 3, chips: 4 };
+const PLATES: Record<string, { tees: number; panels: number; chips: number }> =
+  {
+    "ecs-est": { ...ECS_BAY, tees: 1 },
+    "ecs-ouest": { ...ECS_BAY, tees: 2 },
+  };
 const PLATE_CASES = Object.entries(PLATES);
 
 function draw(doc = DOC, values?: SynopticValues) {
@@ -178,6 +186,24 @@ const box = (r: Element): TestBox => ({
 });
 const apart = (a: TestBox, b: TestBox) =>
   a.x1 <= b.x0 || b.x1 <= a.x0 || a.y1 <= b.y0 || b.y1 <= a.y0;
+const pairwiseApart = (boxes: TestBox[]) =>
+  boxes.forEach((a, i) =>
+    boxes.slice(i + 1).forEach((b) => expect(apart(a, b)).toBe(true)),
+  );
+/** A free run along +x on row `y`, from x = 0. */
+const freeRun = (
+  id: string,
+  y: number,
+  tags: PipeElement["tags"] = [],
+  length = 6,
+): PipeElement => ({
+  id,
+  fluid: "dhw",
+  from: { kind: "cell", cell: { x: 0, y } },
+  to: { kind: "cell", cell: { x: length, y } },
+  waypoints: [],
+  tags,
+});
 /** Bounding boxes of every run piece, read off the casing paths. */
 const casings = (c: Element): TestBox[] =>
   q(c, "path[data-casing]").map((path) => {
@@ -453,25 +479,57 @@ describe("SynopticRenderer", () => {
     );
   });
 
+  it("keeps a collector bar's empty bounding box out of a tag's way", () => {
+    // A bar drawn across the plate spans a bounding box that is mostly
+    // empty plate: taken whole as an obstacle it forbade every readout
+    // under it, and a tag with a run one row behind fell back onto that
+    // run. The bar stands as one box per cell instead, so the tag hangs
+    // below its run, where the bar's cells are not.
+    const c = draw(
+      {
+        ...DOC,
+        labels: [],
+        symbols: [
+          {
+            id: "bar",
+            type: "collector",
+            placement: { kind: "cell", cell: { x: 0, y: 0 }, rotation: 0 },
+            props: {
+              axis: "x",
+              length: 12,
+              ports: { in_1: { offset: 0, side: "-x" } },
+            },
+          },
+        ],
+        pipes: [
+          freeRun("back", 2, [], 12),
+          freeRun(
+            "front",
+            3,
+            [{ id: "tt", at: { x: 2, y: 3 }, label: "TT", value: slot("t") }],
+            12,
+          ),
+        ],
+      },
+      { slots: { "tag.tt": live("52.4", 52.4, "°C") }, faultyDevices: {} },
+    );
+    const tag = c.querySelector("[data-tag='tt']")!;
+    expect(tag.getAttribute("data-side")).toBe("below");
+    const chip = box(tag.querySelector("rect")!);
+    for (const casing of casings(c)) expect(apart(chip, casing)).toBe(true);
+  });
+
   it("hangs a tag clear of a parallel run one row behind, and of a neighbour's label", () => {
     // Two free runs along +x one row apart: a chip lifted 44 px from the
     // front run is centred on the back one, 40 px up on screen.
-    const run = (id: string, y: number, tags: PipeElement["tags"] = []) => ({
-      id,
-      fluid: "dhw" as const,
-      from: { kind: "cell" as const, cell: { x: 0, y } },
-      to: { kind: "cell" as const, cell: { x: 6, y } },
-      waypoints: [],
-      tags,
-    });
     const c = draw(
       {
         ...DOC,
         symbols: [],
         labels: [],
         pipes: [
-          run("back", 0),
-          run("front", 1, [
+          freeRun("back", 0),
+          freeRun("front", 1, [
             { id: "tt", at: { x: 3, y: 1 }, label: "TT", value: slot("t") },
           ]),
         ],
@@ -496,7 +554,7 @@ describe("SynopticRenderer", () => {
           },
         ],
         pipes: [
-          run("front", 1, [
+          freeRun("front", 1, [
             { id: "tt", at: { x: 3, y: 1 }, label: "TT", value: slot("t") },
           ]),
         ],
@@ -520,43 +578,6 @@ describe("SynopticRenderer", () => {
       apart(box(pumped.querySelector("[data-tag='tt'] rect")!), ledBox),
     ).toBe(true);
   });
-
-  // The Est plate's panels hang off bodies with height; the Ouest plate adds
-  // a panel on an inline glyph (the loop heater), whose drawn outline is
-  // smaller than its cell.
-  it.each(PLATE_CASES)(
-    "ends every panel leader of the %s plate on a drawn corner",
-    (name, { panels }) => {
-      const c = draw(plate(name), VALUES);
-      const vertices = q(c, "polygon[class*='fill-synoptic-body']").flatMap(
-        (p) =>
-          p
-            .getAttribute("points")!
-            .split(" ")
-            .map((pt) => pt.split(",").map(Number)),
-      );
-      // A panel above its label leads to the label; any other spot leads to
-      // a drawn corner of the body, never to a bounding-box corner in the void.
-      const labels = q(c, "text").map((t) => [
-        Number(t.getAttribute("x")),
-        Number(t.getAttribute("y")) - 4,
-      ]);
-      const leaders = q(c, "[data-leader]");
-      expect(leaders).toHaveLength(panels);
-      const ends = leaders.map((leader) => [
-        Number(leader.getAttribute("x2")),
-        Number(leader.getAttribute("y2")),
-      ]);
-      const near = (pts: number[][], end: number[]) =>
-        pts.some(([x, y]) => Math.hypot(x - end[0], y - end[1]) < 0.5);
-      for (const end of ends) {
-        expect(near(vertices, end) || near(labels, end)).toBe(true);
-      }
-      // PAC 04 takes a corner spot on the reference plate: its leader is the
-      // one that must land on the body.
-      expect(ends.some((end) => near(vertices, end))).toBe(true);
-    },
-  );
 
   it("lights no LED on a stale state reading", () => {
     const c = draw(DOC, {
@@ -732,108 +753,171 @@ describe("SynopticRenderer", () => {
     expect(committed.sort()).toEqual(Object.keys(PLATES).sort());
   });
 
-  it.each(PLATE_CASES)(
-    "renders the %s plate whole",
+  // One static render per plate serves its probes: the renderer is pure, and
+  // the values fixture binds nothing on a committed plate.
+  describe.each(PLATE_CASES)(
+    "the %s plate",
     (name, { tees, panels, chips }) => {
-      const c = draw(plate(name));
-      expect(q(c, "[data-unknown-symbol]")).toHaveLength(0);
-      expect(q(c, "[data-panel]")).toHaveLength(panels);
-      // Two tags, the mitigeur's départ and retour the drawing shows and no
-      // device reads, each a chip on its run carrying a literal that says so.
-      expect(
-        q(c, "[data-tag]")
-          .map((t) => [
-            t.getAttribute("data-tag"),
-            q(t, "[data-chip] text").some(
-              (x) => x.textContent === "non mesurée",
-            ),
-          ])
-          .sort(),
-      ).toEqual([
-        ["tt-depart", true],
-        ["tt-retour", true],
-      ]);
-      // The second PAC's return off the return loop on both plates, plus the
-      // column-3 feed on Ouest; the loop return runs whole into the bay.
-      expect(q(c, "circle[data-tee]")).toHaveLength(tees);
-      expect(q(c, "[data-label]")).toHaveLength(5);
-      // The energy counter under its caption, the two tags and the bouclage
-      // pump's single marked state under its label.
-      expect(q(c, "[data-chip]")).toHaveLength(chips);
-      expect(q(c, "[data-label='caption'] [data-chip]")).toHaveLength(1);
-      expect(q(c, "polygon.fill-fluid-dhw").length).toBeGreaterThan(0);
-      expect(q(c, "polygon.fill-fluid-primary-supply").length).toBeGreaterThan(
-        0,
-      );
-      // The two panels do not overlap each other, and no run is drawn
-      // across either or across a tag: readouts clear the runs as well as
-      // the bodies.
-      const frames = q(c, "[data-panel] > rect").map(box);
-      frames.forEach((a, i) =>
-        frames.slice(i + 1).forEach((b) => expect(apart(a, b)).toBe(true)),
-      );
-      const runs = casings(c);
-      for (const frame of frames) {
-        expect(runs.every((run) => apart(frame, run))).toBe(true);
-      }
-      for (const chip of q(c, "[data-tag] rect").map(box)) {
-        expect(runs.every((run) => apart(chip, run))).toBe(true);
-      }
-      // A readout takes the first spot clear of everything already placed,
-      // symbol labels included (visual language, Decision 14): a chip sent
-      // beside its symbol because a run blocks the spot under the label
-      // must not land on that label.
-      const labels = q(c, "text[font-size='11'][font-weight='600']").map(
-        (t) => {
-          const x = Number(t.getAttribute("x"));
-          const y = Number(t.getAttribute("y"));
-          const half = textWidth(t.textContent ?? "", 11) / 2;
-          return { x0: x - half, y0: y - 11, x1: x + half, y1: y };
-        },
-      );
-      for (const chip of q(c, "[data-chip] rect").map(box)) {
-        expect(labels.every((label) => apart(chip, label))).toBe(true);
-      }
-    },
-  );
-
-  // In the 2:1 projection a cell at z = 1 lands where the cell one step
-  // back on both axes lands at grade, so an overhead run along a row paints
-  // straight over whatever sits on the row behind it: a feed routed over
-  // the departure collector's row read as a hot run through the collector.
-  it.each(PLATE_CASES)(
-    "draws no run of the %s plate along another run or a collector bar",
-    (name) => {
       const doc = plate(name);
-      const projection = doc.projection ?? DEFAULT_PROJECTION;
-      const c = draw(doc);
-      const segs = casingSegments(c);
-      const along: string[] = [];
-      segs.forEach((a, i) =>
-        segs.slice(i + 1).forEach((b) => {
-          if (collinearOverlap(a, b) > 1) along.push(`${a} over ${b}`);
-        }),
-      );
-      expect(along).toEqual([]);
-      // A bar's own port stubs leave from a port cell's centre, so a run
-      // along the bar between its first and last cell centres is foreign.
-      for (const s of doc.symbols ?? []) {
-        if (s.type !== "collector" || s.placement.kind !== "cell") continue;
-        const { x, y } = s.placement.cell;
-        const { axis, length } = s.props as { axis: "x" | "y"; length: number };
-        const end =
-          axis === "x"
-            ? [x + length - 0.5, y + 0.5]
-            : [x + 0.5, y + length - 0.5];
-        const p0 = project(projection, x + 0.5, y + 0.5, PIPE_AXIS_Z);
-        const p1 = project(projection, end[0], end[1], PIPE_AXIS_Z);
-        const bar: Seg = [
-          [p0.x, p0.y],
-          [p1.x, p1.y],
-        ];
-        const over = segs.filter((seg) => collinearOverlap(bar, seg) > 1);
-        expect(over, s.id).toEqual([]);
-      }
+      const c = document.createElement("div");
+      c.innerHTML = renderToStaticMarkup(<SynopticRenderer doc={doc} />);
+
+      // The Est plate's panels hang off bodies with height; the Ouest plate
+      // adds a panel on an inline glyph (the loop heater), whose drawn outline
+      // is smaller than its cell.
+      it("ends every readout leader on a drawn corner", () => {
+        const vertices = q(c, "polygon[class*='fill-synoptic-body']").flatMap(
+          (p) =>
+            p
+              .getAttribute("points")!
+              .split(" ")
+              .map((pt) => pt.split(",").map(Number)),
+        );
+        // A panel above its label leads to the label; any other spot, a
+        // panel's or a displaced chip's, leads to a drawn corner of the
+        // body, never to a bounding-box corner in the void.
+        const labels = q(c, "text").map((t) => [
+          Number(t.getAttribute("x")),
+          Number(t.getAttribute("y")) - 4,
+        ]);
+        expect(q(c, "[data-leader='panel']")).toHaveLength(panels);
+        const ends = q(c, "[data-leader]").map((leader) => [
+          Number(leader.getAttribute("x2")),
+          Number(leader.getAttribute("y2")),
+        ]);
+        const near = (pts: number[][], end: number[]) =>
+          pts.some(([x, y]) => Math.hypot(x - end[0], y - end[1]) < 0.5);
+        for (const end of ends) {
+          expect(near(vertices, end) || near(labels, end)).toBe(true);
+        }
+        // PAC 04 takes a corner spot on the reference plate: its leader is the
+        // one that must land on the body.
+        expect(ends.some((end) => near(vertices, end))).toBe(true);
+      });
+
+      // A chip under its symbol's label needs no leader; one sent elsewhere
+      // by the search is joined to its symbol like a panel, so a marked
+      // valve the drawing leaves unnamed still owns its "non mesurée". The
+      // spot under the label is centred on the symbol's cell.
+      it("joins every displaced chip to its symbol", () => {
+        const projection = doc.projection ?? DEFAULT_PROJECTION;
+        const cells = new Map(
+          (doc.symbols ?? []).map((s) => [s.id, s.placement.cell]),
+        );
+        const readouts = q(c, "[data-readout]").filter((g) =>
+          g.querySelector("[data-chip]"),
+        );
+        expect(readouts.length).toBeGreaterThan(0);
+        for (const readout of readouts) {
+          const cell = cells.get(readout.getAttribute("data-readout")!)!;
+          const centre = project(projection, cell.x + 0.5, cell.y + 0.5, 0).x;
+          const rect = box(readout.querySelector("rect")!);
+          const hanging = Math.abs((rect.x0 + rect.x1) / 2 - centre) < 0.5;
+          const leader = readout.querySelector("[data-leader='chip']");
+          expect(hanging || leader !== null, readout.outerHTML).toBe(true);
+        }
+      });
+
+      it("renders whole", () => {
+        expect(q(c, "[data-unknown-symbol]")).toHaveLength(0);
+        expect(q(c, "[data-panel]")).toHaveLength(panels);
+        expect(q(c, "circle[data-tee]")).toHaveLength(tees);
+        expect(q(c, "[data-chip]")).toHaveLength(chips);
+        // Every tag is a chip on its run: a reading the drawing shows and no
+        // device reads carries the literal that says so, a live one without a
+        // value the silent dash; a line code carries no chip.
+        // The value is the text right after the chip's frame; a caption may
+        // precede the frame and a unit follow the value.
+        const chipText = (id: string) =>
+          q(c, `[data-tag='${id}'] [data-chip] rect + text`)[0]?.textContent;
+        for (const tag of (doc.pipes ?? []).flatMap((p) => p.tags ?? [])) {
+          const value = tag.value;
+          expect(chipText(tag.id)).toBe(
+            value
+              ? value.kind === "text"
+                ? value.text
+                : SILENT_TEXT
+              : undefined,
+          );
+        }
+        // Free labels, and a chip only under the ones carrying a reading.
+        const freeLabels = doc.labels ?? [];
+        expect(q(c, "[data-label]")).toHaveLength(freeLabels.length);
+        expect(q(c, "[data-label='caption'] [data-chip]")).toHaveLength(
+          freeLabels.filter((label) => label.value).length,
+        );
+        for (const fluid of new Set((doc.pipes ?? []).map((p) => p.fluid))) {
+          expect(
+            q(c, `polygon.fill-fluid-${fluid.replace(/_/g, "-")}`).length,
+          ).toBeGreaterThan(0);
+        }
+        // Readouts clear the runs as well as the bodies: no panel overlaps
+        // another, no run is drawn across a panel, and every chip (a tag's or
+        // a symbol's single reading) clears every run, panel, other chip and
+        // symbol label. A readout whose search found no spot falls back onto
+        // its own glyph, which is where a run passes; a chip sent beside its
+        // symbol because a run blocks the spot under the label must not land
+        // on that label (visual language, Decision 14).
+        const frames = q(c, "[data-panel] > rect").map(box);
+        const runs = casings(c);
+        const labels = q(c, "text[font-size='11'][font-weight='600']").map(
+          (t) => {
+            const x = Number(t.getAttribute("x"));
+            const y = Number(t.getAttribute("y"));
+            const half = textWidth(t.textContent ?? "", 11) / 2;
+            return { x0: x - half, y0: y - 11, x1: x + half, y1: y };
+          },
+        );
+        pairwiseApart(frames);
+        for (const frame of frames) {
+          expect(runs.every((run) => apart(frame, run))).toBe(true);
+        }
+        const chipBoxes = q(c, "[data-chip] rect").map(box);
+        pairwiseApart(chipBoxes);
+        for (const chip of chipBoxes) {
+          expect(
+            [...runs, ...frames, ...labels].every((o) => apart(chip, o)),
+          ).toBe(true);
+        }
+      });
+
+      // In the 2:1 projection a cell at z = 1 lands where the cell one step
+      // back on both axes lands at grade, so an overhead run along a row paints
+      // straight over whatever sits on the row behind it: a feed routed over
+      // the departure collector's row read as a hot run through the collector.
+      it("draws no run along another run or a collector bar", () => {
+        const projection = doc.projection ?? DEFAULT_PROJECTION;
+        const segs = casingSegments(c);
+        const along: string[] = [];
+        segs.forEach((a, i) =>
+          segs.slice(i + 1).forEach((b) => {
+            if (collinearOverlap(a, b) > 1) along.push(`${a} over ${b}`);
+          }),
+        );
+        expect(along).toEqual([]);
+        // A bar's own port stubs leave from a port cell's centre, so a run
+        // along the bar between its first and last cell centres is foreign.
+        for (const s of doc.symbols ?? []) {
+          if (s.type !== "collector" || s.placement.kind !== "cell") continue;
+          const { x, y } = s.placement.cell;
+          const { axis, length } = s.props as {
+            axis: "x" | "y";
+            length: number;
+          };
+          const end =
+            axis === "x"
+              ? [x + length - 0.5, y + 0.5]
+              : [x + 0.5, y + length - 0.5];
+          const p0 = project(projection, x + 0.5, y + 0.5, PIPE_AXIS_Z);
+          const p1 = project(projection, end[0], end[1], PIPE_AXIS_Z);
+          const bar: Seg = [
+            [p0.x, p0.y],
+            [p1.x, p1.y],
+          ];
+          const over = segs.filter((seg) => collinearOverlap(bar, seg) > 1);
+          expect(over, s.id).toEqual([]);
+        }
+      });
     },
   );
 
