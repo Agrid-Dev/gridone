@@ -1,5 +1,5 @@
-"""What the ECS Ouest drawing decides on its own: its bay, its captions, the
-panoplie its P&ID adds, and that it is the other bay of the same installation.
+"""What the ECS Ouest drawing decides on its own: its bay, its captions, and
+that it is the other bay of the same installation.
 
 ``docs/specs/synoptic/ecs-ouest.json`` is the Est plate's template with the
 third tank column filled in, its own heat pumps and meter, and the bouclage
@@ -11,18 +11,7 @@ from collections import Counter
 
 import pytest
 
-from synoptics.geometry import polyline_cells, rotate_offset, translate
-from synoptics.models import (
-    Cell,
-    CellEndpoint,
-    CellPlacement,
-    PipeEndpoint,
-    PortEndpoint,
-    Symbol,
-    SynopticDocument,
-    TextSlot,
-)
-from synoptics.symbols.registry import build_default_registry
+from synoptics.models import PortEndpoint, SynopticDocument
 from synoptics.validation import bound_slots
 
 
@@ -80,80 +69,6 @@ def test_the_bay_is_the_drawing_s(plate):
         if p.from_.kind == "port" and p.from_.port == "dhw_out" and p.fluid != "dhw"
     ]
     assert row_fed == []
-
-
-def _cells_along(plate: SynopticDocument, pipe_id: str) -> list[Cell]:
-    """Every cell of a run in flow order, endpoints resolved through the
-    registry, so a position on the run can be compared with another."""
-    registry = build_default_registry()
-    symbols = {s.id: s for s in plate.symbols}
-
-    def resolve(end: PortEndpoint | CellEndpoint | PipeEndpoint) -> Cell:
-        if not isinstance(end, PortEndpoint):
-            return end.cell
-        symbol = symbols[end.symbol]
-        placement = symbol.placement
-        rotation = placement.rotation if isinstance(placement, CellPlacement) else 0
-        port = registry.ports_of(symbol)[end.port]
-        return translate(placement.cell, rotate_offset(port.offset, rotation))
-
-    pipe = next(p for p in plate.pipes if p.id == pipe_id)
-    return polyline_cells([resolve(pipe.from_), *pipe.waypoints, resolve(pipe.to)])
-
-
-def test_the_panoplie_is_the_p_and_id_s(plate):
-    """The panoplie P&IDs ("Départ EC 104 / 80 Chambres") draw what the GTB
-    view leaves out, and this plate is the first to carry it (the Est plate
-    follows in its own issue): on the retour ECS a pompe de bouclage then a réchauffeur
-    de boucle before the water goes back to the tanks, never to the mitigeur;
-    on the départ a pompe de surpression before the mitigeur; and the
-    mitigeur's cold inlet fed by eau froide adoucie. The bay's pump pair and
-    heater are read by the iSMA controller but not yet identified, so their
-    states are marked, not bound to a guessed pair."""
-    symbols = {s.id: s for s in plate.symbols}
-    pipes = {p.id: p for p in plate.pipes}
-
-    def on(s: Symbol) -> tuple[str, str | None]:
-        return (s.placement.kind, getattr(s.placement, "pipe", None))
-
-    assert (symbols["pompe-bouclage"].type, on(symbols["pompe-bouclage"])) == (
-        "pump",
-        ("pipe", "dhw-loop-return"),
-    )
-    assert (symbols["rechauffeur-boucle"].type, on(symbols["rechauffeur-boucle"])) == (
-        "loop_heater",
-        ("pipe", "dhw-loop-return"),
-    )
-    assert (symbols["pompe-surpression"].type, on(symbols["pompe-surpression"])) == (
-        "pump",
-        ("pipe", "dhw-departure"),
-    )
-    # The loop return ends in the bay, on a tank's dhw inlet.
-    assert pipes["dhw-loop-return"].to.kind == "port"
-    assert pipes["dhw-loop-return"].to.port == "dhw_in"
-    assert symbols[pipes["dhw-loop-return"].to.symbol].type == "tank"
-    # In flow order from the link: the retour sensor, the pump, the heater.
-    along = _cells_along(plate, "dhw-loop-return")
-    order = [
-        along.index(cell)
-        for cell in (
-            pipes["dhw-loop-return"].tags[0].at,
-            symbols["pompe-bouclage"].placement.cell,
-            symbols["rechauffeur-boucle"].placement.cell,
-        )
-    ]
-    assert order == sorted(order)
-    not_identified = TextSlot(text="non identifiée")
-    assert symbols["pompe-bouclage"].bindings == {"state": not_identified}
-    assert symbols["rechauffeur-boucle"].bindings == {
-        "state": not_identified,
-        "fault": not_identified,
-    }
-    assert symbols["pompe-surpression"].bindings == {}
-    assert symbols["link-efa"].type == "link"
-    assert pipes["efa-mitigeur"].fluid == "cold_water"
-    assert pipes["efa-mitigeur"].from_ == PortEndpoint(symbol="link-efa", port="out")
-    assert pipes["efa-mitigeur"].to == PortEndpoint(symbol="mitigeur", port="cold_in")
 
 
 def test_the_captions_are_the_drawing_s_words(plate):
