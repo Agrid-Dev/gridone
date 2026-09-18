@@ -6,8 +6,8 @@
     "new": "New dashboard"
   },
   "toolbox": {
-    "show": "Toolbox",
-    "hide": "Close toolbox"
+    "show": "Edit dashboard",
+    "hide": "Close editing tools"
   },
   "layout": {
     "edit": "Edit layout",
@@ -164,7 +164,7 @@
       }
     },
     "actions": {
-      "label": "Widget actions",
+      "label": "Actions",
       "edit": "Edit",
       "delete": "Delete"
     },
@@ -179,7 +179,8 @@
       "noReading": "—",
       "empty": "No tree configured.",
       "apiOnly": "This widget is created through the API for now — its hierarchy is a nested tree, which this form cannot yet edit."
-    }
+    },
+    "untitled": "Untitled widget"
   },
   "fields": {
     "name": "Name",
@@ -205,7 +206,7 @@
   },
   "delete": {
     "title": "Delete dashboard?",
-    "details": "\"{{name}}\" will be permanently deleted. This cannot be undone.",
+    "details": "\"{{name}}\" will be permanently deleted.",
     "confirm": "Delete",
     "success": "Dashboard deleted"
   }

@@ -7,7 +7,7 @@
   "updated": "Zone mise à jour",
   "deleted": "Zone supprimée",
   "deleteConfirmTitle": "Supprimer la zone",
-  "deleteConfirmDetails": "Supprimer la zone « {{name}} » ? Cette action est irréversible.",
+  "deleteConfirmDetails": "Supprimer la zone « {{name}} » ?",
   "moved": "Zone déplacée",
   "renamed": "Zone renommée",
   "children": "Enfants",
@@ -42,7 +42,7 @@
     },
     "devices": {
       "title": "Appareils rattachés",
-      "description": "Équipements actuellement rattachés à cette zone."
+      "description": "Appareils actuellement rattachés à cette zone."
     },
     "model": {
       "title": "Modèle 3D",
@@ -162,6 +162,8 @@
     "unlink": "Délier",
     "unlinkConfirmTitle": "Délier l’appareil",
     "unlinkConfirmDetails": "Détacher « {{device}} » de la zone « {{zone}} » ? L’appareil conserve ses données et pourra être relié plus tard.",
+    "unlinkPending": "Dissociation…",
+    "unlinkError": "Dissociation impossible. Réessayez.",
     "unlinked": "Appareil délié",
     "selectDevices": "Sélectionner des appareils",
     "selectHint": "Les appareils déjà dans cette zone sont masqués. Lier un appareil le sort de la zone où il se trouve.",

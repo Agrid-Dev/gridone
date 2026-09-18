@@ -1,7 +1,7 @@
 {
   "devices": {
     "title": "Devices",
-    "caption": "Monitor building equipment, readings, and connection health.",
+    "caption": "Monitor building devices, readings, and connection health.",
     "unableToLoad": "Unable to load devices",
     "create": {
       "title": "Create Device",
@@ -31,7 +31,7 @@
       "delete": "Delete",
       "update": "Update",
       "deleteDialogTitle": "Confirm deletion",
-      "deleteDialogContent": "Delete device {{name}} ? This action cannot be undone.",
+      "deleteDialogContent": "Delete device {{name}} ?",
       "edit": "Edit"
     },
     "feedback": {
@@ -95,6 +95,12 @@
         "nextArrival": "Next arrival: {{date}}",
         "noUpcomingArrival": "No upcoming arrival"
       }
+    },
+    "search": {
+      "label": "Search devices",
+      "placeholder": "Search by name…",
+      "clear": "Clear search",
+      "empty": "No devices match these filters"
     }
   },
   "deviceDetails": {
@@ -111,9 +117,9 @@
     },
     "activeFaults": {
       "title": "Active faults",
-      "empty": "No active faults.",
-      "badge_one": "{{count}} active fault",
-      "badge_other": "{{count}} active faults",
+      "empty": "No active faults",
+      "badge_one": "{{count}} fault",
+      "badge_other": "{{count}} faults",
       "expand": "Show details",
       "collapse": "Hide details"
     },
@@ -148,7 +154,8 @@
       "idle": "Idle",
       "ok": "Connected",
       "degraded": "Degraded",
-      "error": "Disconnected"
+      "error": "Disconnected",
+      "unknown": "Unknown"
     },
     "noHistoryDescription": "No time-series data has been recorded for this device yet."
   },
@@ -371,8 +378,8 @@
     "grouped": {
       "subtitle": "Select the devices, then choose the setting to change. Review the changes in the preview before dispatching.",
       "scope": "Zone",
-      "scopeHint": "Includes this asset and all rooms and zones beneath it.",
-      "scopeMissing": "This scope is no longer available. Choose another asset.",
+      "scopeHint": "Includes this zone and all rooms and zones beneath it.",
+      "scopeMissing": "This scope is no longer available. Choose another zone.",
       "what": "What to change",
       "who": "Which devices",
       "review": "Review & dispatch",
@@ -690,7 +697,7 @@
     "removeMember": "Remove {{name}} from the selection",
     "membersSaveFailed": "Some devices could not be updated. Your selection is preserved: save again to finish.",
     "advancedHint": "Need to organize devices by floor, room or another criterion?",
-    "noGroups": "No groups yet. Create one by giving it a name and choosing its devices.",
+    "noGroups": "No groups available.",
     "draftTitle": "Pending setpoints",
     "draftDescription": "Prepare your setpoints, then review the recipients before sending.",
     "draftValue": "Pending target",
@@ -787,5 +794,6 @@
     "unknown": "Unknown",
     "accepted": "Confirmed in UI",
     "noResponse": "A missing response does not mean the device was unchanged."
-  }
+  },
+  "deleted": "Deleted device"
 }

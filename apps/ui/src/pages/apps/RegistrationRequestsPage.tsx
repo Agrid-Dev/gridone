@@ -96,7 +96,6 @@ export default function RegistrationRequestsPage() {
       queryClient.invalidateQueries({ queryKey: ["registration-requests"] });
       toast.success(t("requests.discardedToast"));
     },
-    onError: (err: Error) => toast.error(err.message),
   });
 
   // username, app name, status, registered on — plus the actions column.
@@ -135,11 +134,13 @@ export default function RegistrationRequestsPage() {
                   variant="outline"
                   size="sm"
                   className="text-destructive"
-                  onConfirm={() => discardMutation.mutate(req.id)}
+                  onConfirm={() => discardMutation.mutateAsync(req.id)}
                   confirmTitle={t("requests.discardConfirmTitle")}
                   confirmDetails={t("requests.discardConfirmDetails", {
                     name: req.username,
                   })}
+                  confirmPendingLabel={t("requests.discardPending")}
+                  confirmErrorLabel={t("requests.discardError")}
                   icon={<XCircle />}
                   disabled={discardMutation.isPending}
                 >

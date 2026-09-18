@@ -1,6 +1,6 @@
 {
   "title": "Networks",
-  "caption": "A network connects Gridone to equipment through a protocol and its connection settings.",
+  "caption": "A network connects Gridone to devices through a protocol and its connection settings.",
   "listTitle": "List of available networks ({{count}})",
   "subtitle": "Integration channels",
   "backToList": "Back to list",

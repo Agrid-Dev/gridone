@@ -69,6 +69,8 @@
     "discardedToast": "Request discarded",
     "discardConfirmTitle": "Discard request",
     "discardConfirmDetails": "Discard registration request from \"{{name}}\"? This action cannot be undone.",
+    "discardPending": "Discarding…",
+    "discardError": "Could not discard the request. Try again.",
     "showArchive": "Show processed ({{count}})",
     "hideArchive": "Hide processed"
   },

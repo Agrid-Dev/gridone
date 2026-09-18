@@ -7,7 +7,7 @@
   "updated": "Zone updated",
   "deleted": "Zone deleted",
   "deleteConfirmTitle": "Delete zone",
-  "deleteConfirmDetails": "Delete zone \"{{name}}\"? This action cannot be undone.",
+  "deleteConfirmDetails": "Delete zone \"{{name}}\"?",
   "moved": "Zone moved",
   "renamed": "Zone renamed",
   "children": "Children",
@@ -19,7 +19,7 @@
   "editPage": {
     "breadcrumbLabel": "Zone location",
     "editingHint": "Edit the zone's identity and place in the building.",
-    "overviewHint": "Zone identity, location, sub-zones and linked equipment.",
+    "overviewHint": "Zone identity, location, sub-zones and linked devices.",
     "lastModified": "Last modified {{time}}.",
     "addSubzone": "Add a sub-zone",
     "saveChanges": "Save changes",
@@ -42,7 +42,7 @@
     },
     "devices": {
       "title": "Linked devices",
-      "description": "Equipment currently attached to this zone."
+      "description": "Devices currently attached to this zone."
     },
     "model": {
       "title": "3D model",
@@ -162,6 +162,8 @@
     "unlink": "Unlink",
     "unlinkConfirmTitle": "Unlink device",
     "unlinkConfirmDetails": "Detach \"{{device}}\" from zone \"{{zone}}\"? The device keeps its data and can be linked again later.",
+    "unlinkPending": "Unlinking…",
+    "unlinkError": "Could not unlink the device. Try again.",
     "unlinked": "Device unlinked",
     "selectDevices": "Select devices",
     "selectHint": "Devices already in this zone are hidden. Linking a device moves it out of the zone it sits in.",
