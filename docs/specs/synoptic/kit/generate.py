@@ -355,14 +355,20 @@ def rot(points: Iterable[Pt], c: Pt, d: Pt) -> list[Pt]:
 
 
 def valve_glyph(
-    p: Plane, c: Pt, d: Pt = (1, 0), *, tee: bool = False, closed: bool = False
+    p: Plane,
+    c: Pt,
+    d: Pt = (1, 0),
+    *,
+    tee: bool = False,
+    closed: bool | None = False,
 ) -> str:
-    """ISA bowtie across the run, solid when closed. The third port of a
-    mixing valve is on +y."""
+    """ISA bowtie across the run, solid when closed, hollow when open, in the
+    muted detail stroke while its state is unknown (``closed=None``). The
+    third port of a mixing valve is on +y."""
     r = 0.26
     out = p.poly(
         rot([(-r, -r * 0.7), (-r, r * 0.7), (r, -r * 0.7), (r, r * 0.7)], c, d),
-        "outline fill" if closed else "outline",
+        "detail" if closed is None else "outline fill" if closed else "outline",
     )
     if tee:
         out += p.poly(rot([(0, 0), (-r * 0.7, r), (r * 0.7, r)], c, d))
@@ -732,6 +738,16 @@ SYMBOLS: list[Symbol] = [
         valve_glyph,
         inline="fluid-primary-supply",
         base=AXIS,
+    ),
+    Symbol(
+        "Vanne 2 voies motorisée",
+        "valve_control",
+        "inline",
+        (1, 1),
+        lambda p, c: valve_glyph(p, c, closed=None),
+        inline="fluid-primary-return",
+        base=AXIS,
+        label="M",
     ),
     Symbol(
         "Clapet",
@@ -1512,14 +1528,15 @@ def inline_glyph(
     view: View, sym: Symbol, cell: Pt, d: Pt, label: str | None, state: str | None
 ) -> str:
     """Inline glyph oriented by its run, body-filled so it breaks the run; a
-    valve shows its state on the glyph, a pump beside its label."""
+    valve shows its state on the glyph (muted while it has none), a pump
+    beside its label."""
     plane = view.plane(AXIS)
     c = (cell[0] + 0.5, cell[1] + 0.5)
     if sym.type == "pump":
         glyph = pump_glyph(plane, c, d)
     elif sym.type == "valve_isolation":
         glyph = valve_glyph(
-            plane, c, d, closed=state is not None and state not in ON_STATES
+            plane, c, d, closed=None if state is None else state not in ON_STATES
         )
     else:
         glyph = sym.plan(plane, c)

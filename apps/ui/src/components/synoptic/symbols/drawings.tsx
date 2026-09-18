@@ -155,6 +155,11 @@ const valveIsolation: SymbolDrawing = {
   height: 0,
 };
 
+/** Motorised two-way valve: the isolation bowtie with an actuator's `M`.
+ *  Its slot is a position, never a state, so the bowtie always takes the
+ *  no-reading stroke. */
+const valveControl: SymbolDrawing = { ...valveIsolation, mark: "M" };
+
 const valveCheck: SymbolDrawing = {
   plan: (p, c, d) => (
     <>
@@ -329,6 +334,7 @@ export const DRAWINGS: Record<string, SymbolDrawing> = {
   pump: pumpSingle,
   valve_isolation: valveIsolation,
   valve_check: valveCheck,
+  valve_control: valveControl,
   link,
   plate_exchanger: plateExchanger,
   air_separator: airSeparator,

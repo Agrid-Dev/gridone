@@ -200,7 +200,7 @@
     },
     "x-ports": {},
     "x-ports-authored": false,
-    "x-slots": ["state"],
+    "x-slots": ["state", "speed"],
     "x-required-slots": [],
     "x-inline": true,
     "x-rotation-locked": false
@@ -235,6 +235,23 @@
     "x-ports": {},
     "x-ports-authored": false,
     "x-slots": [],
+    "x-required-slots": [],
+    "x-inline": true,
+    "x-rotation-locked": false
+  },
+  "valve_control": {
+    "additionalProperties": false,
+    "description": "For types that declare none.",
+    "properties": {},
+    "title": "valve_control",
+    "type": "object",
+    "x-footprint": {
+      "w": 1,
+      "d": 1
+    },
+    "x-ports": {},
+    "x-ports-authored": false,
+    "x-slots": ["position"],
     "x-required-slots": [],
     "x-inline": true,
     "x-rotation-locked": false
@@ -403,7 +420,7 @@
     },
     "x-ports": {},
     "x-ports-authored": false,
-    "x-slots": [],
+    "x-slots": ["fault"],
     "x-required-slots": [],
     "x-inline": true,
     "x-rotation-locked": false
@@ -437,7 +454,7 @@
     },
     "x-ports": {},
     "x-ports-authored": false,
-    "x-slots": [],
+    "x-slots": ["energy"],
     "x-required-slots": [],
     "x-inline": true,
     "x-rotation-locked": false
