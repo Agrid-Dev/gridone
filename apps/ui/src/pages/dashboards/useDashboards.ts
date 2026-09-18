@@ -129,7 +129,6 @@ export function useDeleteDashboard() {
   const { t } = useTranslation("dashboards");
   const client = useGridoneClient();
   const queryClient = useQueryClient();
-  const onApiError = useApiErrorToast();
 
   const mutation = useMutation({
     mutationFn: (id: string) => client.dashboards.delete(id),
@@ -137,13 +136,12 @@ export function useDeleteDashboard() {
       await queryClient.invalidateQueries({ queryKey: DASHBOARDS_KEY });
       toast.success(t("delete.success"));
     },
-    onError: onApiError,
   });
 
   const deleteDashboard = (
     id: string,
     options?: Parameters<typeof mutation.mutate>[1],
-  ) => mutation.mutate(id, options);
+  ) => mutation.mutateAsync(id, options);
 
   return { deleteDashboard };
 }

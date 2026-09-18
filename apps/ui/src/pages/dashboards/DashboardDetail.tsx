@@ -1,3 +1,5 @@
+import { usePermissions } from "@/contexts/AuthContext";
+import { AddWidgetButton } from "./widgets/AddWidgetButton";
 import { useState } from "react";
 import type { FC } from "react";
 import { useParams } from "react-router";
@@ -20,6 +22,7 @@ import { useLayoutEditor } from "./useLayoutEditor";
 
 const DashboardDetailContent: FC = () => {
   const { t } = useTranslation("dashboards");
+  const can = usePermissions();
   const summaries = useDashboards();
   const dashboard = useDashboardFromRoute();
   const { editing, layout, dirty, enter, save, cancel, onLayoutChange } =
@@ -29,7 +32,10 @@ const DashboardDetailContent: FC = () => {
   const hasWidgets = (dashboard.widgets ?? []).length > 0;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div
+      className="flex min-w-0 flex-col gap-6"
+      data-navigation-title={dashboard.name || dashboard.id}
+    >
       {/* Constant section title (the active dashboard's name is its tab, not a
           second header) with the switcher row below it. The period sits in the
           header actions: it applies to the whole page, above the tabs, so it
@@ -48,7 +54,7 @@ const DashboardDetailContent: FC = () => {
         {/* Navigation row: tabs on the left; a toolbox toggle on the right (or
             the layout Save/Cancel controls while editing). Edition actions live
             in the opt-in toolbox row below, kept out of navigation. */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <DashboardTabs
             summaries={summaries}
             activeId={dashboard.id}
@@ -56,12 +62,12 @@ const DashboardDetailContent: FC = () => {
           />
           {/* The toggle is hidden while editing — the toolbox row is locked to
               the layout Save/Cancel controls until you exit. */}
-          {!editing && (
+          {!editing && can("dashboards:write") && (
             <Button
               variant={toolboxOpen ? "secondary" : "ghost"}
-              size="icon"
-              className="ml-auto"
-              aria-pressed={toolboxOpen}
+              className="ml-auto min-h-11"
+              aria-expanded={toolboxOpen}
+              aria-controls="dashboard-toolbox"
               aria-label={toolboxOpen ? t("toolbox.hide") : t("toolbox.show")}
               onClick={() => setToolboxOpen((open) => !open)}
             >
@@ -70,6 +76,7 @@ const DashboardDetailContent: FC = () => {
               ) : (
                 <Settings2 className="h-4 w-4" />
               )}
+              {toolboxOpen ? t("toolbox.hide") : t("toolbox.show")}
             </Button>
           )}
         </div>
@@ -82,7 +89,7 @@ const DashboardDetailContent: FC = () => {
             <Button
               variant="outline"
               size="sm"
-              className="ml-auto"
+              className="ml-auto min-h-11"
               onClick={cancel}
             >
               {t("layout.cancel")}
@@ -92,13 +99,16 @@ const DashboardDetailContent: FC = () => {
             </Button>
           </div>
         ) : (
-          toolboxOpen && (
-            <DashboardToolbox
-              dashboard={dashboard}
-              summaries={summaries}
-              hasWidgets={hasWidgets}
-              onEditLayout={enter}
-            />
+          toolboxOpen &&
+          can("dashboards:write") && (
+            <div id="dashboard-toolbox">
+              <DashboardToolbox
+                dashboard={dashboard}
+                summaries={summaries}
+                hasWidgets={hasWidgets}
+                onEditLayout={enter}
+              />
+            </div>
           )
         )}
         {dashboard.description && (
@@ -118,7 +128,10 @@ const DashboardDetailContent: FC = () => {
         />
       ) : (
         <div className="rounded-lg border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
-          {t("widgets.empty")}
+          <p className="mb-4">{t("widgets.empty")}</p>
+          {can("dashboards:write") && (
+            <AddWidgetButton dashboardId={dashboard.id} />
+          )}
         </div>
       )}
     </div>

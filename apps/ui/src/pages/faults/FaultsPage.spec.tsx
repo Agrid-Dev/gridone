@@ -300,3 +300,38 @@ describe("FaultsPage", () => {
     expect(screen.getByText("Unable to load faults")).toBeInTheDocument();
   });
 });
+
+it("filters exclusively, retains global counts and exports only visible faults", async () => {
+  renderPage();
+  await userEvent.click(summaryCard("warning"));
+  expect(summaryCard("warning")).toHaveAttribute("aria-pressed", "true");
+  expect(summaryCard("alert")).toHaveTextContent("1");
+  expect(screen.queryByText("Alpha")).not.toBeInTheDocument();
+  expect(screen.getByText("Bravo")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Export" }));
+  expect(mockDownloadCsv.mock.calls[0][1]).toHaveLength(1);
+  expect(mockDownloadCsv.mock.calls[0][1][0][0]).toBe("Bravo");
+  await userEvent.click(summaryCard("warning"));
+  expect(bodyRows()).toHaveLength(3);
+});
+it("keeps zero-count cards usable with a filtered empty state", async () => {
+  mockUseFaultsList.mockReturnValue({
+    faults: [makeFault()],
+    loading: false,
+    error: null,
+  });
+  renderPage();
+  await userEvent.click(summaryCard("info"));
+  expect(screen.getByText("faults.filteredEmpty")).toBeInTheDocument();
+  expect(
+    screen.queryByText("No active faults across your fleet."),
+  ).not.toBeInTheDocument();
+  expect(summaryCard("alert")).toHaveTextContent("1");
+  expect(
+    screen.queryByRole("button", { name: "Export" }),
+  ).not.toBeInTheDocument();
+  await userEvent.click(
+    screen.getByRole("button", { name: "faults.clearFilter" }),
+  );
+  expect(screen.getByText("Alpha")).toBeInTheDocument();
+});
