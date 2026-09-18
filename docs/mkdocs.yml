@@ -97,6 +97,7 @@ nav:
       - Update Strategy: reference/driver-schema/update-strategy.md
       - Health Check: reference/driver-schema/healthcheck.md
       - Command Validation: reference/driver-schema/command-validation.md
+      - Discovery: reference/driver-schema/discovery.md
     - Devices: reference/devices.md
     - Device Presentations: reference/device-presentations.md
     - Standard Devices: reference/standard-devices.md
