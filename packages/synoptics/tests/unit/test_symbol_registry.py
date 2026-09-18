@@ -32,8 +32,10 @@ HYDRONIC_TYPES = {
     "dirt_separator",
     "pump_double",
     "energy_meter",
+    "loop_heater",
 }
-"""The six the visual-language spec adds for the hydronic set."""
+"""The six the visual-language spec adds for the hydronic set, and the loop
+heater the panoplie P&IDs put on the bouclage return."""
 
 
 def test_the_default_registry_ships_the_types_the_first_plates_use(registry):
@@ -96,6 +98,15 @@ def test_free_standing_types_are_not_inline(registry, type_):
 
 def test_a_double_pump_binds_the_run_state_its_single_sibling_has(registry):
     assert registry.get("pump_double").slots == registry.get("pump").slots == ("state",)
+
+
+def test_a_loop_heater_is_inline_with_a_state_and_a_fault(registry):
+    """An electric loop heater sits in the bouclage return and reports marche
+    and défaut, the two dry contacts its controller exposes."""
+    heater = registry.get("loop_heater")
+    assert heater.inline is True
+    assert heater.slots == ("state", "fault")
+    assert heater.ports == {}
 
 
 @pytest.mark.parametrize("type_", ["air_separator", "dirt_separator", "energy_meter"])

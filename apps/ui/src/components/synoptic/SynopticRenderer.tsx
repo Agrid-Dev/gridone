@@ -21,6 +21,7 @@ import { Panel, PANEL_W, panelHeight, type PanelRow } from "./Panel";
 import { PidDiagram } from "./PidDiagram";
 import { Pipe } from "./Pipe";
 import {
+  DEFAULT_PROJECTION,
   depthKey,
   PIPE_AXIS_Z,
   planeAt,
@@ -29,7 +30,8 @@ import {
 } from "./projection";
 import { pieceAt, runPieces, type RunPiece } from "./runs";
 import { Collector, COLLECTOR_LABEL_LIFT } from "./symbols/Collector";
-import { DRAWINGS } from "./symbols/drawings";
+import { DRAWINGS, INLINE_R } from "./symbols/drawings";
+import { circlePts } from "./symbols/extrude";
 import { LABEL_SIZE, LED_GAP, type SymbolState } from "./symbols/Label";
 import type { CollectorProps } from "./symbols/ports";
 import {
@@ -207,7 +209,7 @@ type Plate = Geometry &
 const RUN_HALF_WIDTH = 4;
 
 function plateGeometry(doc: Synoptic): Geometry {
-  const projection = doc.projection ?? "isometric";
+  const projection = doc.projection ?? DEFAULT_PROJECTION;
   const symbols = new Map((doc.symbols ?? []).map((s) => [s.id, s]));
   const pipes = doc.pipes ?? [];
   const pieces = new Map(
@@ -767,27 +769,34 @@ function nearestCell(symbol: SymbolElement): Cell {
 
 /** Projected corners of a symbol's rotated footprint at its floor and at
  *  the top of its drawing, which bound the whole body. An inline glyph
- *  sits on the pipe axis. */
+ *  sits on the pipe axis and is smaller than its cell, so its drawn
+ *  outline (or the inline disc) is what a leader can end on, never the
+ *  cell's corners in the void around it. */
 function symbolCorners(projection: Projection, symbol: SymbolElement): Pt[] {
   const { w, d } = footprintSize(symbol);
   const origin = symbol.placement.cell;
   const rotation = symbolRotation(symbol);
   const drawing = DRAWINGS[symbol.type];
   const z = origin.z ?? 0;
-  const levels =
-    symbol.placement.kind === "pipe" || !drawing
-      ? [PIPE_AXIS_Z]
-      : [drawing.base, drawing.base + drawing.height];
+  const at = (p: Pt, dz: number) => {
+    const q = symbolPoint(origin, rotation, p);
+    return project(projection, q.x, q.y, z + dz);
+  };
+  if (symbol.placement.kind === "pipe" && drawing) {
+    const centre = { x: w / 2, y: d / 2 };
+    const outline = drawing.outline?.(centre) ?? circlePts(centre, INLINE_R);
+    return outline.map((p) => at(p, PIPE_AXIS_Z));
+  }
+  const levels = drawing
+    ? [drawing.base, drawing.base + drawing.height]
+    : [PIPE_AXIS_Z];
   return levels.flatMap((dz) =>
     [
       { x: 0, y: 0 },
       { x: w, y: 0 },
       { x: w, y: d },
       { x: 0, y: d },
-    ].map((corner) => {
-      const p = symbolPoint(origin, rotation, corner);
-      return project(projection, p.x, p.y, z + dz);
-    }),
+    ].map((corner) => at(corner, dz)),
   );
 }
 

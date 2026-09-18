@@ -83,12 +83,13 @@ Asked for by the issue and registered with the footprints and ports below (AGR-1
 | `dirt_separator` | inline | none | circle with a settling cone, dirt collecting at the bottom | none |
 | `pump_double` | inline | none | two pumps side by side across the run | `state` |
 | `energy_meter` | inline | none | square housing with register window, `kWh` above | none |
+| `loop_heater` | inline | none | square housing with the heating element's zigzag | `state`, `fault` |
 
-The 2-way valve of the issue is `valve_isolation`; a motorised 2-way valve is the same glyph with an `M`, the registry decides whether that is a type or a slot.
+The 2-way valve of the issue is `valve_isolation`; a motorised 2-way valve is the same glyph with an `M`, the registry decides whether that is a type or a slot. The loop heater is the panoplie P&IDs' réchauffeur de boucle on the bouclage return, added with the second plate.
 
 ## Plate reference
 
-[`plate.svg`](synoptic/kit/plate.svg) draws the ECS Est plate (`synoptic/ecs-est.json`) whole in the kit, with the app content area (1184 × 836 px: a 1440 × 900 laptop at 100 % less the 256 px sidebar and 64 px top bar) marked on it, with its names, values, states, panels, a faulty machine and the two readings no device exposes. It is the reference for Decisions 10 to 18 on a real plate, and what AGR-1159 draws against. The whole plate is 2210 × 1170 px, so the first real view pans or scales; that is AGR-1164's call, not this sheet's.
+[`plate.svg`](synoptic/kit/plate.svg) draws the ECS Est plate (`synoptic/ecs-est.json`) whole in the kit, with the app content area (1184 × 836 px: a 1440 × 900 laptop at 100 % less the 256 px sidebar and 64 px top bar) marked on it, with its names, values, states, panels, a faulty machine and the two readings no device exposes. It is the reference for Decisions 10 to 18 on a real plate, and what AGR-1159 draws against. The whole plate is 2210 × 1170 px, so the first real view pans or scales; that is AGR-1164's call, not this sheet's. The Ouest plate (`synoptic/ecs-ouest.json`) is the same template with a third tank column and gets no sheet of its own; the renderer's spec draws both plates.
 
 The generator measures the faces the way it measures the fluids: at least 4 points of lightness between the plate and the top face and between adjacent faces, and at least 25 CIE76 between `--muted-foreground` and any face, in both themes; a token edit that breaks it fails generation.
 
@@ -101,3 +102,4 @@ The shipped AHU and extractor glyphs (`apps/ui/src/components/synoptic/glyphs.ts
 - The fluid floor of 18 is what six hues reach in the dark theme; if a twelfth fluid comes, the check says whether the band has room.
 - `energy_meter` and `pump_double` are registered inline; whether the first plate pipes them that way is what confirms it (AGR-1164).
 - Whether 11 px holds on a wall screen at distance is the first thing to revisit after the first real view.
+- `plate.svg` draws readouts for free-standing symbols only; the marked chip on the bouclage pump and the panel on the loop heater, both inline, are the renderer's (its spec draws them), not the sheet's.
