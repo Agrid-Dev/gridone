@@ -110,6 +110,8 @@ export type Severity = Schemas["Severity"];
 export type Fluid = Schemas["Fluid"];
 export type Cell = Schemas["Cell"];
 export type Synoptic = Schemas["Synoptic"];
+/** A plate as authored: the create and replace payload, no envelope. */
+export type SynopticDocument = Schemas["SynopticDocument-Input"];
 export type SynopticSummary = Schemas["SynopticSummary"];
 export type SymbolElement = Schemas["Symbol-Output"];
 export type PipeElement = Schemas["Pipe-Output"];
