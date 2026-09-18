@@ -1,3 +1,9 @@
+## v0.251.0 (2026-09-18)
+
+### Feat
+
+- **synoptics**: panoplie on the east hot-water plate (#665)
+
 ## v0.250.0 (2026-09-18)
 
 ### Feat
