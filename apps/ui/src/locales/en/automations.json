@@ -77,7 +77,6 @@
       "change_event": "Reacts when a device attribute changes or crosses a threshold."
     },
     "type": "Trigger type",
-
     "cron": "Cron expression",
     "schedule": {
       "frequency": "Repeats",
@@ -131,7 +130,7 @@
   "executions": {
     "title": "Executions",
     "status": {
-      "success": "Success",
+      "success": "Succeeded",
       "failed": "Failed"
     },
     "triggeredAt": "Triggered at",
@@ -156,7 +155,7 @@
       "notification": "Send a notification"
     },
     "typeDescriptions": {
-      "command_template": "Sends a command to the targeted equipment.",
+      "command_template": "Sends a command to the targeted devices.",
       "notification": "Notifies the selected users."
     },
     "commandActionForm": {
@@ -189,7 +188,7 @@
   },
   "deleteConfirm": {
     "title": "Delete automation",
-    "details": "Delete \"{{name}}\"? This action cannot be undone."
+    "details": "Delete \"{{name}}\"?"
   },
   "enabledBadge": "Enabled",
   "disabledBadge": "Disabled"

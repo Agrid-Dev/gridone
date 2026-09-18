@@ -1,6 +1,6 @@
 {
   "title": "Réseaux",
-  "caption": "Un réseau connecte Gridone aux équipements via un protocole et ses paramètres de connexion.",
+  "caption": "Un réseau connecte Gridone aux appareils via un protocole et ses paramètres de connexion.",
   "listTitle": "Liste des réseaux ({{count}})",
   "subtitle": "Canaux d'intégration",
   "backToList": "Retour à la liste",

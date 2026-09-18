@@ -3,7 +3,7 @@
     "title": "Défauts actifs",
     "caption": "Problèmes actifs sur l'ensemble de votre flotte — investiguez et résolvez.",
     "emptyTitle": "Aucun défaut actif sur votre flotte.",
-    "emptyDescription": "Tous les équipements signalent des attributs sains.",
+    "emptyDescription": "Tous les appareils signalent des attributs sains.",
     "unableToLoad": "Impossible de charger les défauts",
     "export": "Exporter",
     "exportFilenameStem": "defauts-actifs",
@@ -16,12 +16,15 @@
       "info_other": "Infos — pour information"
     },
     "columns": {
-      "device": "Équipement",
+      "device": "Appareil",
       "zone": "Zone",
       "fault": "Défaut",
       "severity": "Gravité",
       "activeSince": "Actif depuis",
       "since": "Depuis (horodatage)"
-    }
+    },
+    "filteredEmpty": "Aucun défaut pour ce filtre",
+    "clearFilter": "Effacer le filtre",
+    "activeFilter": "Filtre actif"
   }
 }

@@ -209,7 +209,17 @@
     "noMatch": "No matching {{resourceName}}",
     "clearFiltersHint": "Try adjusting or clearing your filters.",
     "clearFilters": "Clear filters",
-    "noActiveAlarms": "No active alarms"
+    "noActiveAlarms": "No active alarms",
+    "neutral": "No {{resourceName}} available.",
+    "create": {
+      "devices": "Add device",
+      "assets": "Create zone",
+      "transports": "Add network",
+      "drivers": "Import driver",
+      "automations": "Create automation",
+      "views": "Create group",
+      "dashboards": "Create dashboard"
+    }
   },
   "pickers": {
     "device": {
@@ -235,10 +245,10 @@
       "noUsers": "No users found"
     },
     "asset": {
-      "label": "Locations",
-      "placeholder": "Select locations",
-      "search": "Search locations",
-      "noAssets": "No locations found"
+      "label": "Zones",
+      "placeholder": "Select zones",
+      "search": "Search zones",
+      "noAssets": "No zones found"
     },
     "multiSelect": {
       "placeholder": "Select values",
@@ -296,8 +306,11 @@
         "devices": "Devices",
         "zones": "Zones",
         "faults": "Faults"
-      }
-    }
+      },
+      "action": "Search"
+    },
+    "unread_one": "Notifications, {{count}} unread",
+    "unread_other": "Notifications, {{count}} unread"
   },
   "schemaForm": {
     "addItem": "Add item",
@@ -308,5 +321,29 @@
     "serverErrorTitle": "Check this form",
     "showSecret": "Show value",
     "hideSecret": "Hide value"
+  },
+  "navigation": {
+    "backToResource": "Back to “{{name}}”",
+    "backToPage": "Back to {{name}}",
+    "skip": "Skip to main content",
+    "menu": "Menu",
+    "closeMenu": "Close menu",
+    "back": {
+      "devices": "Back to devices",
+      "assets": "Back to zones",
+      "faults": "Back to faults",
+      "commands": "Back to commands",
+      "transports": "Back to networks",
+      "drivers": "Back to drivers",
+      "automations": "Back to automations",
+      "views": "Back to groups"
+    }
+  },
+  "deletion": {
+    "title": "Delete “{{name}}”?",
+    "irreversible": "This action cannot be undone.",
+    "pending": "Deleting…",
+    "error": "Could not delete. Try again.",
+    "success": "Deleted successfully"
   }
 }
