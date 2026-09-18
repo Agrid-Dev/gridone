@@ -150,23 +150,19 @@ const plate = (name: string): Synoptic => ({
   id: name,
   metadata: {},
 });
-/** What the renderer decides on each committed plate: its tees (a disc at
- *  every branch point), its panels (a symbol with several bound slots) and
- *  its chips (every single reading, on a tag, a symbol or a caption). What
- *  the document itself says (its tags and their literals, its fluids, its
- *  labels) is read from the plate under test rather than copied here. The
- *  two bays share the template: two heat pumps with a panel each, the loop
- *  heater's panel on an inline glyph, the energy counter under its caption,
- *  the two unread mitigeur readings and the bouclage pump's marked state.
- *  They differ in the tees: the second PAC's return off the return loop on
- *  both, the column-3 feed on Ouest. The hot production has four pump heads
- *  with a panel each, a chip on every marked valve, meter and reading, and
- *  tees wherever its manifold, its vessel and its change-over legs branch. */
+/** What the renderer decides on each committed plate: tees (a disc at every
+ *  branch point), panels (a symbol with several bound slots) and chips
+ *  (every single reading, on a tag, a symbol or a caption). What the
+ *  document says (tags and their literals, fluids, labels) is read from the
+ *  plate under test. The bays share the template and differ in their tees:
+ *  the second PAC's return off the return loop on both, the column-3 feed on
+ *  Ouest. */
 const ECS_BAY = { panels: 3, chips: 4 };
 const PLATES: Record<string, { tees: number; panels: number; chips: number }> =
   {
     "ecs-est": { ...ECS_BAY, tees: 1 },
     "ecs-ouest": { ...ECS_BAY, tees: 2 },
+    "production-chaud": { tees: 14, panels: 4, chips: 35 },
   };
 const PLATE_CASES = Object.entries(PLATES);
 
@@ -795,10 +791,8 @@ describe("SynopticRenderer", () => {
         expect(ends.some((end) => near(vertices, end))).toBe(true);
       });
 
-      // A chip under its symbol's label needs no leader; one sent elsewhere
-      // by the search is joined to its symbol like a panel, so a marked
-      // valve the drawing leaves unnamed still owns its "non mesurée". The
-      // spot under the label is centred on the symbol's cell.
+      // A chip under its label (centred on the symbol's cell) needs no
+      // leader; one the search sent elsewhere is joined to its symbol.
       it("joins every displaced chip to its symbol", () => {
         const projection = doc.projection ?? DEFAULT_PROJECTION;
         const cells = new Map(
