@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
@@ -9,9 +10,23 @@ import pytest
 from timeseries.domain import DataPoint, DataType, TimeSeries
 from timeseries.exporters.png import to_figure
 
+if TYPE_CHECKING:
+    from matplotlib.axes import Axes
+
 T1 = datetime(2024, 1, 1, tzinfo=UTC)
 T2 = datetime(2024, 1, 2, tzinfo=UTC)
 T3 = datetime(2024, 1, 3, tzinfo=UTC)
+T4 = datetime(2024, 1, 4, tzinfo=UTC)
+
+
+def filled_spans(ax: Axes, label: str) -> list[tuple[datetime, datetime]]:
+    """Time extents of the filled areas labelled `label`, in drawing order."""
+    (collection,) = [c for c in ax.collections if c.get_label() == label]
+    spans = []
+    for path in collection.get_paths():
+        extents = path.get_extents()
+        spans.append((mdates.num2date(extents.x0), mdates.num2date(extents.x1)))
+    return spans
 
 
 def make_series(
@@ -84,6 +99,20 @@ class TestToFigure:
         assert len(fig.axes) == 1
         labels = [t.get_text() for t in fig.axes[0].get_legend().get_texts()]  # ty: ignore[unresolved-attribute]
         assert "status: ok" in labels
+
+    def test_string_value_fills_until_next_change(self):
+        s = make_series(
+            DataType.STRING,
+            "mode",
+            [
+                DataPoint(timestamp=T1, value="auto"),
+                DataPoint(timestamp=T2, value="cool"),
+                DataPoint(timestamp=T3, value="auto"),
+            ],
+        )
+        fig = to_figure([s], end=T4)
+        assert filled_spans(fig.axes[0], "mode: auto") == [(T1, T2), (T3, T4)]
+        assert filled_spans(fig.axes[0], "mode: cool") == [(T2, T3)]
 
     def test_all_series_extended_to_same_end(self):
         float_s = make_series(

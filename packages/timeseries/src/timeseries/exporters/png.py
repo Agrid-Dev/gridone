@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from timeseries.domain import DataType
 
 if TYPE_CHECKING:
-    from datetime import datetime
+    from datetime import datetime, timedelta
 
     from matplotlib.axes import Axes
     from matplotlib.figure import Figure
@@ -55,6 +55,31 @@ def _extend(ts: list, vals: list, end: datetime) -> tuple[list, list]:
     return ts, vals
 
 
+def _held_spans(
+    ts: list[datetime], vals: list[str], val: str
+) -> list[tuple[datetime, timedelta]]:
+    """(start, duration) of each interval during which `val` holds.
+
+    A value holds from its sample to the next sample (step-post), so a value
+    recorded once — the norm, since points are stored on change — still spans
+    until the next change. Repeated samples merge into one span. E.g. ts
+    [t1, t2, t3, t4], vals ["auto", "cool", "auto", "auto"] gives "auto"
+    [(t1, t2 - t1), (t3, t4 - t3)]. The last sample has no successor, so it
+    only holds when the caller appended a closing point (see `_extend`).
+    """
+    spans: list[tuple[datetime, timedelta]] = []
+    start: datetime | None = None
+    for i in range(len(ts) - 1):
+        if vals[i] == val and start is None:
+            start = ts[i]
+        if start is not None and vals[i + 1] != val:
+            spans.append((start, ts[i + 1] - start))
+            start = None
+    if start is not None:
+        spans.append((start, ts[-1] - start))
+    return spans
+
+
 def _plot_categorical(ax: Axes, s: TimeSeries, end: datetime | None) -> None:
     ts = [p.timestamp for p in s.data_points]
     is_bool = s.data_type == DataType.BOOL
@@ -87,12 +112,11 @@ def _plot_categorical(ax: Axes, s: TimeSeries, end: datetime | None) -> None:
         )
     else:
         for i, val in enumerate(sorted(set(raw))):
-            ax.fill_between(
-                ts,  # ty: ignore[invalid-argument-type]
-                0,
-                1,
-                where=[v == val for v in raw],
-                step="post",
+            # fill_between(where=...) only fills between consecutive matching
+            # samples, which erased every value recorded once.
+            ax.broken_barh(
+                _held_spans(ts, raw, val),  # ty: ignore[invalid-argument-type]
+                (0, 1),
                 color=_color(i),
                 alpha=0.35,
                 zorder=0,
