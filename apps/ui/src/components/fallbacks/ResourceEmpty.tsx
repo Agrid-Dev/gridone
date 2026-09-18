@@ -9,7 +9,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { FileSearchCorner, Plus } from "lucide-react";
-import { Link } from "react-router";
+import { Link, type To } from "react-router";
 import { useTranslation } from "react-i18next";
 
 interface ResourceEmptyProps {
@@ -17,6 +17,9 @@ interface ResourceEmptyProps {
   filtered?: boolean;
   onClearFilters?: () => void;
   showCreate?: boolean;
+  createTo?: To;
+  createLabel?: string;
+  clearLabel?: string;
   title?: string;
   description?: string;
   /** Call to action for resources that are not created from this page (an app
@@ -30,6 +33,9 @@ export const ResourceEmpty: FC<ResourceEmptyProps> = ({
   filtered,
   onClearFilters,
   showCreate = true,
+  createTo,
+  createLabel,
+  clearLabel,
   title,
   description,
   action,
@@ -52,21 +58,25 @@ export const ResourceEmpty: FC<ResourceEmptyProps> = ({
           {description ??
             (filtered
               ? t("empty.clearFiltersHint")
-              : t("empty.details", { resourceName }))}
+              : showCreate
+                ? t("empty.details", { resourceName })
+                : t("empty.neutral", { resourceName }))}
         </EmptyDescription>
       </EmptyHeader>
       {(filtered || showCreate || action) && (
         <EmptyContent className="flex-row justify-center gap-2">
           {filtered && (
             <Button variant="outline" onClick={onClearFilters}>
-              {t("empty.clearFilters")}
+              {clearLabel ?? t("empty.clearFilters")}
             </Button>
           )}
+          {/* Callers move to an explicit destination in the navigation part;
+              until then the relative `new` route they already used keeps working. */}
           {!filtered && showCreate && (
             <Button variant="default" asChild>
-              <Link to="new">
+              <Link to={createTo ?? "new"}>
                 <Plus />
-                {t("empty.new", { resourceName })}
+                {createLabel ?? t("empty.new", { resourceName })}
               </Link>
             </Button>
           )}

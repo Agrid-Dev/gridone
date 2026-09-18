@@ -103,7 +103,6 @@ export function BuildingModelCard({
       queryClient.setQueryData(buildingModelKey(assetId), null);
       toast.success(t("editPage.model.deleted"));
     },
-    onError: (error: Error) => toast.error(error.message),
   });
 
   // The stored scene is a snapshot of the converter that produced it, so a
@@ -228,7 +227,7 @@ export function BuildingModelCard({
             confirmTitle={t("editPage.model.deleteConfirmTitle")}
             confirmDetails={t("editPage.model.deleteConfirmDetails")}
             confirmLabel={t("editPage.model.delete")}
-            onConfirm={() => deleteMutation.mutate()}
+            onConfirm={() => deleteMutation.mutateAsync()}
           >
             <Trash2 />
             {t("editPage.model.delete")}

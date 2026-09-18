@@ -209,7 +209,17 @@
     "noMatch": "Aucun {{resourceName}} correspondant",
     "clearFiltersHint": "Essayez d'ajuster ou de supprimer vos filtres.",
     "clearFilters": "Effacer les filtres",
-    "noActiveAlarms": "Aucune alarme active"
+    "noActiveAlarms": "Aucune alarme active",
+    "neutral": "Aucun {{resourceName}} disponible.",
+    "create": {
+      "devices": "Ajouter un appareil",
+      "assets": "Créer une zone",
+      "transports": "Ajouter un réseau",
+      "drivers": "Importer un driver",
+      "automations": "Créer une automatisation",
+      "views": "Créer un groupe",
+      "dashboards": "Créer un tableau de bord"
+    }
   },
   "pickers": {
     "device": {
@@ -235,10 +245,10 @@
       "noUsers": "Aucun utilisateur trouvé"
     },
     "asset": {
-      "label": "Emplacements",
-      "placeholder": "Sélectionner des emplacements",
-      "search": "Rechercher des emplacements",
-      "noAssets": "Aucun emplacement trouvé"
+      "label": "Zones",
+      "placeholder": "Sélectionner des zones",
+      "search": "Rechercher des zones",
+      "noAssets": "Aucune zone trouvée"
     },
     "multiSelect": {
       "placeholder": "Sélectionner des valeurs",
@@ -296,8 +306,11 @@
         "devices": "Appareils",
         "zones": "Zones",
         "faults": "Défauts"
-      }
-    }
+      },
+      "action": "Rechercher"
+    },
+    "unread_one": "Notifications, {{count}} non lue",
+    "unread_other": "Notifications, {{count}} non lues"
   },
   "schemaForm": {
     "addItem": "Ajouter un élément",
@@ -308,5 +321,29 @@
     "serverErrorTitle": "Vérifiez ce formulaire",
     "showSecret": "Afficher la valeur",
     "hideSecret": "Masquer la valeur"
+  },
+  "navigation": {
+    "backToResource": "Retour à « {{name}} »",
+    "backToPage": "Retour à {{name}}",
+    "skip": "Aller au contenu principal",
+    "menu": "Menu",
+    "closeMenu": "Fermer le menu",
+    "back": {
+      "devices": "Retour aux appareils",
+      "assets": "Retour aux zones",
+      "faults": "Retour aux défauts",
+      "commands": "Retour aux commandes",
+      "transports": "Retour aux réseaux",
+      "drivers": "Retour aux drivers",
+      "automations": "Retour aux automatisations",
+      "views": "Retour aux groupes"
+    }
+  },
+  "deletion": {
+    "title": "Supprimer « {{name}} » ?",
+    "irreversible": "Cette action est irréversible.",
+    "pending": "Suppression…",
+    "error": "Suppression impossible. Réessayez.",
+    "success": "Suppression effectuée"
   }
 }

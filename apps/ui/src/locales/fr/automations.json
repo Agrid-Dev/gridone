@@ -1,6 +1,6 @@
 {
   "title": "Automatisations",
-  "caption": "Les règles qui pilotent le bâtiment sans intervention.",
+  "caption": "Les règles qui drivernt le bâtiment sans intervention.",
   "singular": "Automatisation",
   "comingSoon": "Bientôt disponible",
   "flow": {
@@ -130,8 +130,8 @@
   "executions": {
     "title": "Exécutions",
     "status": {
-      "success": "Succès",
-      "failed": "Échec"
+      "success": "Réussie",
+      "failed": "Échouée"
     },
     "triggeredAt": "Déclenchée à",
     "executedAt": "Exécutée à",
@@ -155,7 +155,7 @@
       "notification": "Envoyer une notification"
     },
     "typeDescriptions": {
-      "command_template": "Envoie une commande aux équipements ciblés.",
+      "command_template": "Envoie une commande aux appareils ciblés.",
       "notification": "Notifie les utilisateurs choisis."
     },
     "commandActionForm": {
@@ -188,7 +188,7 @@
   },
   "deleteConfirm": {
     "title": "Supprimer l'automatisation",
-    "details": "Supprimer « {{name}} » ? Cette action est irréversible."
+    "details": "Supprimer « {{name}} » ?"
   },
   "enabledBadge": "Activée",
   "disabledBadge": "Désactivée"

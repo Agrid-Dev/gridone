@@ -6,8 +6,8 @@
     "new": "Nouveau tableau de bord"
   },
   "toolbox": {
-    "show": "Boîte à outils",
-    "hide": "Fermer la boîte à outils"
+    "show": "Modifier le tableau de bord",
+    "hide": "Fermer les outils d’édition"
   },
   "layout": {
     "edit": "Modifier la disposition",
@@ -164,7 +164,7 @@
       }
     },
     "actions": {
-      "label": "Actions du widget",
+      "label": "Actions",
       "edit": "Modifier",
       "delete": "Supprimer"
     },
@@ -179,7 +179,8 @@
       "noReading": "—",
       "empty": "Aucune arborescence configurée.",
       "apiOnly": "Ce widget se crée pour l'instant via l'API : sa hiérarchie est une arborescence imbriquée, que ce formulaire ne sait pas encore éditer."
-    }
+    },
+    "untitled": "Widget sans titre"
   },
   "fields": {
     "name": "Nom",
@@ -205,7 +206,7 @@
   },
   "delete": {
     "title": "Supprimer le tableau de bord ?",
-    "details": "« {{name}} » sera définitivement supprimé. Cette action est irréversible.",
+    "details": "« {{name}} » sera définitivement supprimé.",
     "confirm": "Supprimer",
     "success": "Tableau de bord supprimé"
   }
