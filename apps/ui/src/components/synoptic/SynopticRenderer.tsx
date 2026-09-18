@@ -31,7 +31,7 @@ import {
 import { pieceAt, runPieces, type RunPiece } from "./runs";
 import { Collector, COLLECTOR_LABEL_LIFT } from "./symbols/Collector";
 import { DRAWINGS, INLINE_R } from "./symbols/drawings";
-import { circlePts } from "./symbols/extrude";
+import { circlePts, square } from "./symbols/extrude";
 import { LABEL_SIZE, LED_GAP, type SymbolState } from "./symbols/Label";
 import type { CollectorProps } from "./symbols/ports";
 import {
@@ -182,6 +182,9 @@ type Geometry = {
   corners: Map<string, Pt[]>;
   bodies: Map<string, Box>;
   bodyCells: Set<string>;
+  /** What each symbol keeps readouts off: its body's box, or one box per
+   *  cell for a collector (a long bar's box is mostly empty plate). */
+  bodyObstacles: Map<string, Box[]>;
   runs: Box[];
   /** The box each symbol's label takes, LED included, so a tag's chip
    *  never covers a name or a run-state light. */
@@ -221,6 +224,12 @@ function plateGeometry(doc: Synoptic): Geometry {
   const bodies = new Map(
     [...corners].map(([id, points]) => [id, bounds(points)]),
   );
+  const bodyObstacles = new Map(
+    [...symbols.values()].map((s) => [
+      s.id,
+      barCellBoxes(projection, s) ?? [bodies.get(s.id)!],
+    ]),
+  );
   const bodyCells = new Set<string>();
   for (const symbol of symbols.values()) {
     if (symbol.placement.kind === "cell" && DRAWINGS[symbol.type]?.height) {
@@ -252,6 +261,7 @@ function plateGeometry(doc: Synoptic): Geometry {
     pieces,
     corners,
     bodies,
+    bodyObstacles,
     bodyCells,
     runs,
     labelBoxes,
@@ -313,7 +323,7 @@ function buildPlate(
     items: [],
     extent: [...geometry.corners.values()].flat(),
     obstacles: [
-      ...geometry.bodies.values(),
+      ...[...geometry.bodyObstacles.values()].flat(),
       ...geometry.runs,
       ...geometry.labelBoxes.values(),
     ],
@@ -601,7 +611,7 @@ function addSymbols(plate: Plate) {
     if (readings.length === 1) {
       const { reading: single } = readings[0];
       const w = chipWidth(single.text ?? "", single.unit);
-      const { box } = placeReadout(
+      const { box, anchor, hanging } = placeReadout(
         plate,
         symbol,
         labelPoint,
@@ -610,14 +620,19 @@ function addSymbols(plate: Plate) {
         "chip",
       );
       place(plate, box);
+      // A chip sent anywhere but under its label is joined to its symbol
+      // as a panel is, or it floats with no owner.
       items.push({
         id: `${symbol.id}:readout`,
         depth: depthKey(origin, "label"),
         node: (
-          <Chip
-            at={{ x: (box.x0 + box.x1) / 2, y: (box.y0 + box.y1) / 2 }}
-            reading={single}
-          />
+          <g data-readout={symbol.id}>
+            {!hanging && <Leader box={box} anchor={anchor} kind="chip" />}
+            <Chip
+              at={{ x: (box.x0 + box.x1) / 2, y: (box.y0 + box.y1) / 2 }}
+              reading={single}
+            />
+          </g>
         ),
       });
       continue;
@@ -632,25 +647,12 @@ function addSymbols(plate: Plate) {
       "panel",
     );
     place(plate, box);
-    // The leader leaves the panel at the point of its edge nearest the anchor.
-    const from = {
-      x: Math.min(Math.max(anchor.x, box.x0), box.x1),
-      y: Math.min(Math.max(anchor.y, box.y0), box.y1),
-    };
     items.push({
       id: `${symbol.id}:readout`,
       depth: depthKey(origin, "label"),
       node: (
-        <>
-          <line
-            x1={from.x}
-            y1={from.y}
-            x2={anchor.x}
-            y2={anchor.y}
-            strokeWidth={1}
-            className="stroke-muted-foreground"
-            data-leader
-          />
+        <g data-readout={symbol.id}>
+          <Leader box={box} anchor={anchor} kind="panel" />
           <Panel
             at={{ x: (box.x0 + box.x1) / 2, y: box.y1 }}
             title={symbol.label ?? symbol.id}
@@ -662,10 +664,34 @@ function addSymbols(plate: Plate) {
             led={state}
             faulty={faulty}
           />
-        </>
+        </g>
       ),
     });
   }
+}
+
+/** The 1 px line from the readout's edge nearest the anchor to the anchor,
+ *  a drawn corner of the body or the label point. */
+function Leader({
+  box,
+  anchor,
+  kind,
+}: {
+  box: Box;
+  anchor: Pt;
+  kind: "chip" | "panel";
+}) {
+  return (
+    <line
+      x1={Math.min(Math.max(anchor.x, box.x0), box.x1)}
+      y1={Math.min(Math.max(anchor.y, box.y0), box.y1)}
+      x2={anchor.x}
+      y2={anchor.y}
+      strokeWidth={1}
+      className="stroke-muted-foreground"
+      data-leader={kind}
+    />
+  );
 }
 
 /** Free labels, each with the reading it may carry. */
@@ -765,6 +791,22 @@ function nearestCell(symbol: SymbolElement): Cell {
     if (cell.x + cell.y > nearest.x + nearest.y) nearest = cell;
   }
   return nearest;
+}
+
+/** One box per cell of a collector's bar, on the pipe axis plane; null for
+ *  any other symbol. */
+function barCellBoxes(
+  projection: Projection,
+  symbol: SymbolElement,
+): Box[] | null {
+  if (!collectorShape(symbol)) return null;
+  const plane = planeAt(
+    projection,
+    (symbol.placement.cell.z ?? 0) + PIPE_AXIS_Z,
+  );
+  return footprintCells(symbol).map((cell) =>
+    bounds(square(cell.x, cell.y, 1, 1).map((p) => plane(p.x, p.y))),
+  );
 }
 
 /** Projected corners of a symbol's rotated footprint at its floor and at
@@ -877,10 +919,11 @@ function placeReadout(
   w: number,
   h: number,
   kind: "chip" | "panel",
-): { box: Box; anchor: Pt } {
+): { box: Box; anchor: Pt; hanging: boolean } {
   const body = plate.bodies.get(symbol.id)!;
   const ownLabel = plate.labelBoxes.get(symbol.id);
-  const others = plate.obstacles.filter((o) => o !== body && o !== ownLabel);
+  const own = new Set([...plate.bodyObstacles.get(symbol.id)!, ownLabel]);
+  const others = plate.obstacles.filter((o) => !own.has(o));
   const midY = (body.y0 + body.y1) / 2;
   const left = { x: body.x0, y: midY };
   const right = { x: body.x1, y: midY };
@@ -917,18 +960,21 @@ function placeReadout(
       anchor: nearest(plate.corners.get(symbol.id)!, corner),
     })),
   ];
+  // The first spot of a ring hangs off the symbol's label: a panel above
+  // it, a chip under it.
   const boxed = (gap: number) =>
-    ring(gap).map(({ x, y, anchor }) => ({
+    ring(gap).map(({ x, y, anchor }, i) => ({
       box: { x0: x, y0: y, x1: x + w, y1: y + h },
       anchor,
+      hanging: i === 0,
     }));
   for (let gap = 1; gap <= PLACEMENT_RINGS; gap++) {
     const clear = boxed(gap).find(
-      ({ box }, i) =>
+      ({ box, hanging }) =>
         !others.some((o) => overlaps(box, o)) &&
         // Only the spot hanging off the symbol's label may touch that label;
         // any other spot must clear it like every other label.
-        (i === 0 || !ownLabel || !overlaps(box, ownLabel)),
+        (hanging || !ownLabel || !overlaps(box, ownLabel)),
     );
     if (clear) return clear;
   }
