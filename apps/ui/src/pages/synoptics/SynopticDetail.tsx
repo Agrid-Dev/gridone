@@ -1,12 +1,14 @@
 import { useCallback, useMemo, useState, type FC } from "react";
-import { useNavigate, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import type { Synoptic, SymbolElement } from "@gridone/sdk";
 import { ErrorFallback } from "@/components/fallbacks/Error";
 import { ResourceBoundary } from "@/components/ResourceBoundary";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { SynopticRenderer } from "@/components/synoptic";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { usePermissions } from "@/contexts/AuthContext";
 import { useSynopticValues } from "@/hooks/useSynopticValues";
 import { FaultsTable } from "@/pages/faults/components/FaultsTable";
 import { useFaultsPage } from "@/pages/faults/useFaultsPage";
@@ -44,7 +46,9 @@ const SynopticFaults: FC<{ deviceIds: string[] }> = ({ deviceIds }) => {
 };
 
 const SynopticDetailContent: FC = () => {
+  const { t } = useTranslation(["synoptics", "common"]);
   const navigate = useNavigate();
+  const can = usePermissions();
   const { doc, knownSynoptics } = useSynopticPage();
   const values = useSynopticValues(doc);
   const [deviceId, setDeviceId] = useState<string | null>(null);
@@ -65,7 +69,19 @@ const SynopticDetailContent: FC = () => {
 
   return (
     <div className="flex flex-col gap-6">
-      <ResourceHeader title={doc.name} caption={doc.description} />
+      <ResourceHeader
+        title={doc.name}
+        caption={doc.description}
+        actions={
+          can("synoptics:write") && (
+            <Button asChild variant="outline">
+              <Link to={`/synoptics/${encodeURIComponent(doc.id)}/edit`}>
+                {t("common:common.edit")}
+              </Link>
+            </Button>
+          )
+        }
+      />
       <div className="flex h-[40rem] gap-4">
         <div className="min-w-0 flex-1 overflow-hidden rounded-lg border">
           <SynopticRenderer

@@ -3,7 +3,7 @@
   "caption": "Schémas d'installation en direct : cliquez un équipement pour l'ouvrir, un lien pour changer de vue.",
   "resourceName": "synoptique",
   "emptyTitle": "Aucun synoptique pour le moment.",
-  "emptyDescription": "Les vues sont créées via l'API et apparaissent ici une fois enregistrées.",
+  "emptyDescription": "Aucune vue enregistrée. Créez-en une avec l'éditeur.",
   "panel": {
     "label": "Appareil sélectionné",
     "close": "Fermer le panneau"
@@ -11,5 +11,47 @@
   "faults": {
     "title": "Défauts sur cette vue",
     "none": "Aucun défaut actif sur les appareils de cette vue."
+  },
+  "editor": {
+    "new": "Nouveau synoptique",
+    "untitled": "Vue sans titre",
+    "name": "Nom",
+    "level": "Niveau",
+    "fluid": "Fluide",
+    "flow": "Débit",
+    "palette": "Symboles",
+    "noSelection": "Sélectionnez un symbole ou un tuyau pour le modifier.",
+    "pipe": "tuyau",
+    "label": "Libellé",
+    "rotation": "Rotation",
+    "device": "Appareil",
+    "linkTarget": "Synoptique cible",
+    "slot": {
+      "none": "Aucun",
+      "attribute": "Attribut",
+      "text": "Texte",
+      "unit": "Unité",
+      "decimals": "Décimales",
+      "label": {
+        "true": "Affiché si vrai",
+        "false": "Affiché si faux"
+      }
+    },
+    "collector": {
+      "axis": "Axe",
+      "length": "Longueur",
+      "ports": "Ports",
+      "removePort": "Retirer",
+      "add": {
+        "in": "Ajouter une entrée",
+        "out": "Ajouter une sortie"
+      }
+    },
+    "modes": {
+      "select": "Sélection",
+      "draw": "Tracer un tuyau"
+    },
+    "mode": "Mode",
+    "discard": "Abandonner les modifications non enregistrées ?"
   }
 }

@@ -4,10 +4,12 @@ import { useTranslation } from "react-i18next";
 import { ResourceBoundary } from "@/components/ResourceBoundary";
 import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
 import { ResourceHeader } from "@/components/ResourceHeader";
+import { Button } from "@/components/ui/button";
+import { usePermissions } from "@/contexts/AuthContext";
 import { useSynoptics } from "./useSynoptics";
 
-/** `/synoptics`: one card per stored plate. Plates are authored by
- *  operators through the API, so the empty state offers no creation. */
+/** `/synoptics`: one card per stored plate. Creation is the editor's,
+ *  offered in the header to those who may write. */
 const SynopticsIndexContent: FC = () => {
   const { t } = useTranslation("synoptics");
   const synoptics = useSynoptics();
@@ -48,9 +50,20 @@ const SynopticsIndexContent: FC = () => {
 
 const SynopticsIndex: FC = () => {
   const { t } = useTranslation("synoptics");
+  const can = usePermissions();
   return (
     <section className="space-y-6">
-      <ResourceHeader title={t("title")} caption={t("caption")} />
+      <ResourceHeader
+        title={t("title")}
+        caption={t("caption")}
+        actions={
+          can("synoptics:write") && (
+            <Button asChild>
+              <Link to="/synoptics/new">{t("editor.new")}</Link>
+            </Button>
+          )
+        }
+      />
       <ResourceBoundary resetKeys={[]}>
         <SynopticsIndexContent />
       </ResourceBoundary>
