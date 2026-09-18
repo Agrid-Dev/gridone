@@ -1,8 +1,10 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import type { Cell, PipeElement, Synoptic } from "@gridone/sdk";
+import type { Cell, PipeElement, Side, Synoptic } from "@gridone/sdk";
 import {
+  attachedPorts,
+  defaultProps,
   emptyDocument,
   moveSymbol,
   nextId,
@@ -11,6 +13,7 @@ import {
   rotateSymbol,
   routeWaypoints,
   toDocument,
+  type RoutePoint,
 } from "./document";
 import type { PlateDocument } from "@/components/synoptic";
 
@@ -204,6 +207,93 @@ describe("routeWaypoints", () => {
         { endpoint: { kind: "cell", cell: cell(3, 0) }, cell: cell(3, 0) },
       ]),
     ).toEqual([]);
+  });
+
+  it("leaves and enters through the declared faces for every side pair and small offset", () => {
+    // The invariant the router exists for, held against the backend's own
+    // rules: every segment moves along one axis and is not empty, the first
+    // leaves the start port through its face, the last reaches the end port
+    // through its face. Sweeping the four in-plane faces against offsets in
+    // ±6 covers the two-symbol layouts an author actually draws.
+    const sides: Side[] = ["+x", "-x", "+y", "-y"];
+    const port = (id: string, at: Cell, side: Side): RoutePoint => ({
+      endpoint: { kind: "port", symbol: id, port: "p" },
+      cell: at,
+      side,
+    });
+    const direction = (a: Cell, b: Cell): string => {
+      const d = { x: b.x - a.x, y: b.y - a.y, z: (b.z ?? 0) - (a.z ?? 0) };
+      const axes = (["x", "y", "z"] as const).filter((k) => d[k] !== 0);
+      if (axes.length !== 1) return "diagonal or empty";
+      const k = axes[0];
+      return `${d[k] > 0 ? "+" : "-"}${k}`;
+    };
+    const failures: string[] = [];
+    for (const s1 of sides) {
+      for (const s2 of sides) {
+        for (let dx = -6; dx <= 6; dx++) {
+          for (let dy = -6; dy <= 6; dy++) {
+            if (dx === 0 && dy === 0) continue;
+            const a = cell(0, 0);
+            const b = cell(dx, dy);
+            const run = [
+              a,
+              ...routeWaypoints([port("a", a, s1), port("b", b, s2)]),
+              b,
+            ];
+            const first = direction(run[0], run[1]);
+            const last = direction(run[run.length - 1], run[run.length - 2]);
+            const broken = run.some(
+              (c, i) =>
+                i > 0 && direction(run[i - 1], c) === "diagonal or empty",
+            );
+            if (first !== s1 || last !== s2 || broken) {
+              failures.push(
+                `${s1} -> (${dx},${dy}) ${s2}: leaves ${first}, arrives ${last}, ` +
+                  `${broken ? "broken segment" : "segments fine"} via ${JSON.stringify(run.slice(1, -1))}`,
+              );
+            }
+          }
+        }
+      }
+    }
+    // Mutant: the halving that lands on the start cell, or the spike pass
+    // deleting a port's step cell, each hand the backend a
+    // port_side_mismatch on 64 of these 2688 pairs.
+    expect(failures).toEqual([]);
+  });
+});
+
+describe("defaultProps", () => {
+  it("seeds every required prop with the value the inspector shows for it", () => {
+    // Mutant: an empty props object displays as a valid collector and is
+    // refused at save as invalid_props with no field named.
+    expect(defaultProps("collector")).toEqual({
+      axis: "x",
+      length: 2,
+      ports: {},
+    });
+    // The one empty string the type accepts, so a fresh tank saves.
+    expect(defaultProps("tank")).toEqual({ capacity: "" });
+    // Optional props keep the backend's own defaults.
+    expect(defaultProps("link")).toEqual({});
+    expect(defaultProps("pump")).toEqual({});
+    expect(defaultProps("no_such_type")).toEqual({});
+  });
+});
+
+describe("attachedPorts", () => {
+  it("names the ports of a symbol a run starts or ends on", () => {
+    const doc = toDocument(PLATE);
+    expect([...attachedPorts(doc, "collector-supply")].sort()).toEqual([
+      "in_1",
+      "in_2",
+      "out_1",
+      "out_2",
+    ]);
+    // A port endpoint on another symbol, or a free cell, is not this one's.
+    expect(attachedPorts(doc, "b01").has("primary_in")).toBe(true);
+    expect(attachedPorts(doc, "nope").size).toBe(0);
   });
 });
 

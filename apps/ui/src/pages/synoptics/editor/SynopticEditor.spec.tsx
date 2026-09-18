@@ -29,6 +29,9 @@ vi.mock("react-i18next", () =>
     "editor.palette": "Symbols",
     "editor.label": "Label",
     "editor.rotation": "Rotation",
+    "editor.collector.length": "Length",
+    "editor.collector.removePort": "Remove",
+    "editor.collector.portAttached": "A run is attached",
     "common:common.save": "Save",
     "common:common.cancel": "Cancel",
     "editor.discard": "Discard the unsaved changes?",
@@ -187,6 +190,81 @@ describe("SynopticEditor", () => {
     ]);
   });
 
+  it("seeds a placed collector with the shape its form shows, so it saves as placed", async () => {
+    const api = renderEditor("/synoptics/new");
+    await screen.findByDisplayValue("Untitled plate");
+    fireEvent.click(screen.getByRole("button", { name: "collector" }));
+    clickCell(2, 2);
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await screen.findByText("detail");
+    // Mutant: props {} is refused as invalid_props while every field on
+    // screen shows a valid value.
+    expect(api.create.mock.calls[0][0].symbols[0].props).toEqual({
+      axis: "x",
+      length: 2,
+      ports: {},
+    });
+  });
+
+  it("keeps an integer field whole and an emptied text empty, the shapes the types accept", async () => {
+    const api = renderEditor("/synoptics/ouest/edit", PLATE);
+    await screen.findByDisplayValue(PLATE.name);
+    fireEvent.click(
+      document.querySelector(
+        "[data-editor-symbol='collector-supply'] rect[fill='transparent']",
+      )!,
+    );
+    fireEvent.change(await screen.findByLabelText("Length"), {
+      target: { value: "9.5" },
+    });
+    fireEvent.click(
+      document.querySelector(
+        "[data-editor-symbol='b01'] rect[fill='transparent']",
+      )!,
+    );
+    fireEvent.change(await screen.findByLabelText("capacity"), {
+      target: { value: "" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await screen.findByText("detail");
+    const symbols: SymbolElement[] = api.replace.mock.calls[0][1].symbols;
+    // Mutants: 9.5 in a strict integer, null in a required string, each
+    // refused as a fieldless invalid_props.
+    expect(
+      symbols.find((s) => s.id === "collector-supply")!.props!.length,
+    ).toBe(9);
+    expect(symbols.find((s) => s.id === "b01")!.props).toEqual({
+      capacity: "",
+    });
+  });
+
+  it("refuses to remove a collector port a run is attached to", async () => {
+    const api = renderEditor("/synoptics/ouest/edit", PLATE);
+    await screen.findByDisplayValue(PLATE.name);
+    fireEvent.click(
+      document.querySelector(
+        "[data-editor-symbol='collector-supply'] rect[fill='transparent']",
+      )!,
+    );
+    const remove = await screen.findByRole("button", { name: "Remove in_1" });
+    expect(remove).toHaveProperty("disabled", true);
+    expect(remove.getAttribute("title")).toBe("A run is attached");
+    fireEvent.click(remove);
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await screen.findByText("detail");
+    // Mutant: the port goes, the run keeps naming it, and the save is
+    // refused as unknown_port.
+    const collector = api.replace.mock.calls[0][1].symbols.find(
+      (s: SymbolElement) => s.id === "collector-supply",
+    );
+    expect(Object.keys(collector.props.ports).sort()).toEqual([
+      "in_1",
+      "in_2",
+      "out_1",
+      "out_2",
+    ]);
+  });
+
   it("edits the scalar props a type declares, so a tank gets its capacity", async () => {
     const api = renderEditor("/synoptics/ouest/edit");
     await screen.findByDisplayValue(PLATE.name);
@@ -284,6 +362,59 @@ describe("SynopticEditor", () => {
     expect(added.id).toBe(`${added.fluid}-1`);
   });
 
+  it("drops the run being drawn when the symbol it started from is deleted", async () => {
+    // The selection survives the switch to draw mode, so Delete still
+    // removes the pump while a run leaves its port. Mutant: the run keeps
+    // the port point and the next click stores a pipe from a symbol that
+    // is gone, refused at save as unknown_symbol.
+    const api = renderEditor("/synoptics/ouest/edit");
+    await screen.findByDisplayValue(PLATE.name);
+    fireEvent.click(
+      document.querySelector(
+        "[data-editor-symbol='pac-01'] rect[fill='transparent']",
+      )!,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Draw pipe" }));
+    fireEvent.click(
+      document.querySelector("[data-editor-port='pac-01.supply']")!,
+    );
+    fireEvent.keyDown(window, { key: "Delete" });
+    expect(document.querySelector("[data-editor-symbol='pac-01']")).toBeNull();
+    fireEvent.click(
+      document.querySelector("[data-editor-port='b01.primary_in']")!,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await screen.findByText("detail");
+    const body = api.replace.mock.calls[0][1];
+    expect(body.pipes).toEqual([]);
+    expect(body.symbols.map((s: SymbolElement) => s.id)).toEqual(["b01"]);
+  });
+
+  it("keeps the run being drawn through an edit that removes nothing", async () => {
+    // Mutant: dropping the points on every document change loses the run
+    // the moment the author touches the inspector.
+    const api = renderEditor("/synoptics/ouest/edit");
+    await screen.findByDisplayValue(PLATE.name);
+    fireEvent.click(
+      document.querySelector(
+        "[data-editor-symbol='pac-01'] rect[fill='transparent']",
+      )!,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Draw pipe" }));
+    fireEvent.click(
+      document.querySelector("[data-editor-port='pac-01.supply']")!,
+    );
+    fireEvent.change(screen.getByLabelText("Label"), {
+      target: { value: "PAC 01 bis" },
+    });
+    fireEvent.click(
+      document.querySelector("[data-editor-port='b01.primary_in']")!,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await screen.findByText("detail");
+    expect(api.replace.mock.calls[0][1].pipes).toHaveLength(1);
+  });
+
   it("ignores a second click on the port a run just started from", async () => {
     const api = renderEditor("/synoptics/ouest/edit");
     await screen.findByDisplayValue(PLATE.name);
@@ -315,6 +446,13 @@ describe("SynopticEditor", () => {
     fireEvent.keyDown(screen.getByLabelText("Rotation"), { key: "Delete" });
     expect(document.querySelector("[data-editor-symbol='b01']")).not.toBeNull();
     expect(screen.getByLabelText("Rotation").textContent).toContain("0°");
+    // A reload shortcut is not a rotation. Mutant: reading the key alone
+    // turns the tank on Cmd+R, Ctrl+R and Cmd+Shift+R, and the reload then
+    // warns about an edit the author never made.
+    fireEvent.keyDown(window, { key: "r", metaKey: true });
+    fireEvent.keyDown(window, { key: "r", ctrlKey: true });
+    fireEvent.keyDown(window, { key: "R", metaKey: true, shiftKey: true });
+    expect(screen.getByLabelText("Rotation").textContent).toContain("0°");
     // On the plate the shortcut works with caps lock on as well.
     fireEvent.keyDown(window, { key: "R" });
     expect(screen.getByLabelText("Rotation").textContent).toContain("90°");
@@ -329,6 +467,12 @@ describe("SynopticEditor", () => {
           loc: ["symbols", 0, "bindings", "state"],
           msg: "no device exposes onoff_state",
           type: "unresolved_target",
+        },
+        // The shape of a required slot left unbound: on `bindings` itself.
+        {
+          loc: ["symbols", 0, "bindings"],
+          msg: "fault is required",
+          type: "missing_slot",
         },
         {
           loc: ["pipes"],
@@ -350,11 +494,15 @@ describe("SynopticEditor", () => {
       )!,
     );
     await screen.findByText("no device exposes onoff_state");
+    // Mutant: reading the slot name off a one-segment path gives undefined,
+    // which no field claims, and the halo comes with no message.
+    expect(screen.getByText("bindings: fault is required")).toBeTruthy();
     // Editing the element forgets its errors: the halo and the message go.
     fireEvent.change(screen.getByLabelText("Label"), {
       target: { value: "PAC 01 bis" },
     });
     expect(screen.queryByText("no device exposes onoff_state")).toBeNull();
+    expect(screen.queryByText("bindings: fault is required")).toBeNull();
     expect(
       document.querySelector(
         "[data-editor-symbol='pac-01'] rect.stroke-destructive",
@@ -384,6 +532,88 @@ describe("SynopticEditor", () => {
       (s: SymbolElement) => s.id === "b01",
     );
     expect(tank.placement.cell).toEqual({ x: 10, y: 0, z: 0 });
+  });
+
+  it("keeps moving the symbol in flight when another button presses a second one", async () => {
+    // A mouse keeps its pointer id: a right-press over the pump during a
+    // drag of the tank is refused by the hook, so the tank stays the one
+    // moving. Mutant: recording the grab before the hook relocates the
+    // pump the author never dragged and leaves the tank where the press
+    // interrupted it.
+    const api = renderEditor("/synoptics/ouest/edit");
+    await screen.findByDisplayValue(PLATE.name);
+    const hit = (id: string) =>
+      document.querySelector(
+        `[data-editor-symbol='${id}'] rect[fill='transparent']`,
+      )!;
+    const at = (x: number, y: number) => {
+      const p = project("isometric", x + 0.5, y + 0.5);
+      return { clientX: p.x, clientY: p.y };
+    };
+    fireEvent.pointerDown(hit("b01"), {
+      button: 0,
+      pointerId: 1,
+      ...at(10, 0),
+    });
+    fireEvent.pointerMove(window, { pointerId: 1, ...at(13, 2) });
+    fireEvent.pointerDown(hit("pac-01"), {
+      button: 2,
+      pointerId: 1,
+      ...at(1, 1),
+    });
+    fireEvent.pointerMove(window, { pointerId: 1, ...at(15, 5) });
+    fireEvent.pointerUp(window, { pointerId: 1, ...at(15, 5) });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await screen.findByText("detail");
+    const cells = Object.fromEntries(
+      api.replace.mock.calls[0][1].symbols.map((s: SymbolElement) => [
+        s.id,
+        s.placement.kind === "cell" ? s.placement.cell : null,
+      ]),
+    );
+    expect(cells["b01"]).toEqual({ x: 15, y: 5, z: 0 });
+    const stored = PLATE.symbols!.find((s) => s.id === "pac-01")!.placement;
+    expect(cells["pac-01"]).toEqual(stored.kind === "cell" && stored.cell);
+  });
+
+  it("hands the gesture to a second finger on another symbol and puts the first back", async () => {
+    // Mutant: recording the grab before the hook cancels the first drag
+    // reverts the pump instead of the tank, leaves the tank at its partial
+    // position and the second drag dead.
+    const api = renderEditor("/synoptics/ouest/edit");
+    await screen.findByDisplayValue(PLATE.name);
+    const hit = (id: string) =>
+      document.querySelector(
+        `[data-editor-symbol='${id}'] rect[fill='transparent']`,
+      )!;
+    const at = (x: number, y: number) => {
+      const p = project("isometric", x + 0.5, y + 0.5);
+      return { clientX: p.x, clientY: p.y };
+    };
+    fireEvent.pointerDown(hit("b01"), {
+      button: 0,
+      pointerId: 1,
+      ...at(10, 0),
+    });
+    fireEvent.pointerMove(window, { pointerId: 1, ...at(13, 2) });
+    fireEvent.pointerDown(hit("pac-01"), {
+      button: 0,
+      pointerId: 2,
+      ...at(1, 1),
+    });
+    fireEvent.pointerMove(window, { pointerId: 2, ...at(4, 4) });
+    fireEvent.pointerUp(window, { pointerId: 2, ...at(4, 4) });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await screen.findByText("detail");
+    const cells = Object.fromEntries(
+      api.replace.mock.calls[0][1].symbols.map((s: SymbolElement) => [
+        s.id,
+        s.placement.kind === "cell" ? s.placement.cell : null,
+      ]),
+    );
+    expect(cells["b01"]).toEqual({ x: 10, y: 0, z: 0 });
+    // Grabbed at its (1,1) cell, so the body follows one cell behind the finger.
+    expect(cells["pac-01"]).toEqual({ x: 3, y: 3, z: 0 });
   });
 
   it("forgets a document-level violation once the name is edited", async () => {

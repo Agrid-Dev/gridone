@@ -42,6 +42,7 @@
       "length": "Longueur",
       "ports": "Ports",
       "removePort": "Retirer",
+      "portAttached": "Un tuyau est raccordé à ce port ; supprimez-le d'abord",
       "add": {
         "in": "Ajouter une entrée",
         "out": "Ajouter une sortie"

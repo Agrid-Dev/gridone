@@ -34,6 +34,16 @@ const EMPTY_ATTRIBUTE: AttributeSlot = {
   target: { devices: {}, attribute: "" },
 };
 
+/** A number field's text as the document stores it: null while blank,
+ *  whole for an integer field, since `2.5` in a strict integer is refused
+ *  at save with nothing on screen to correct. */
+export const readNumber = (type: "integer" | "number", text: string) =>
+  text === ""
+    ? null
+    : type === "integer"
+      ? Math.trunc(Number(text))
+      : Number(text);
+
 /** One binding: nothing, a device attribute through the shared target
  *  picker with its unit, decimals and the words a bool reads as, or a
  *  literal. */
@@ -115,10 +125,7 @@ export const SlotEditor: FC<SlotEditorProps> = ({
                 step={1}
                 value={value.decimals ?? ""}
                 onChange={(e) =>
-                  patch({
-                    decimals:
-                      e.target.value === "" ? null : Number(e.target.value),
-                  })
+                  patch({ decimals: readNumber("integer", e.target.value) })
                 }
               />
             </div>

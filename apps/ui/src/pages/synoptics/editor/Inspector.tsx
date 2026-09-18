@@ -23,7 +23,7 @@ import {
 import { FLUIDS } from "@/lib/fluidColors";
 import { canRotate, nextFree, type Selection } from "./document";
 import { describeError, type ElementError } from "./saveErrors";
-import { SlotEditor } from "./SlotEditor";
+import { readNumber, SlotEditor } from "./SlotEditor";
 
 const SIDES: Side[] = ["+x", "-x", "+y", "-y", "+z", "-z"];
 const ROTATIONS = [0, 1, 2, 3];
@@ -37,13 +37,28 @@ type InspectorProps = {
   pipe: PipeElement | undefined;
   devices: Device[];
   synoptics: SynopticSummary[];
+  /** The selected symbol's ports a run is attached to. */
+  attached: ReadonlySet<string>;
   errors: ElementError[];
   onSymbolChange: (patch: (symbol: SymbolElement) => SymbolElement) => void;
   onPipeChange: (patch: (pipe: PipeElement) => PipeElement) => void;
   onDelete: () => void;
 };
 
-type ScalarProp = { type: "string" | "integer" | "number"; enum?: string[] };
+type ScalarProp = {
+  type: "string" | "integer" | "number";
+  enum?: string[];
+  minimum?: number;
+};
+
+/** The floor a number field shows, read off its schema. */
+const minimumOf = (raw: unknown): number | undefined =>
+  (raw as { minimum?: number } | undefined)?.minimum;
+
+/** The collector's length floor, the same value its placement seeds. */
+const COLLECTOR_LENGTH_MIN = minimumOf(
+  symbolSchemas.collector?.properties.length,
+);
 
 /** The props a type declares that a text or number field can hold: a
  *  plain scalar, or one that may also be null. The collector's port map
@@ -62,7 +77,12 @@ function scalarProps(
       schema.type ??
       schema.anyOf?.map((a) => a.type).find((t) => t && t !== "null");
     if (type !== "string" && type !== "integer" && type !== "number") return [];
-    return [[key, { type, enum: schema.enum }] as [string, ScalarProp]];
+    return [
+      [key, { type, enum: schema.enum, minimum: minimumOf(schema) }] as [
+        string,
+        ScalarProp,
+      ],
+    ];
   });
 }
 
@@ -82,6 +102,7 @@ export const Inspector: FC<InspectorProps> = ({
   pipe,
   devices,
   synoptics,
+  attached,
   errors,
   onSymbolChange,
   onPipeChange,
@@ -94,15 +115,17 @@ export const Inspector: FC<InspectorProps> = ({
     );
   }
   // A violation under `bindings.<slot>` or `flow` reads under that slot,
-  // with whatever path is left below it; the rest read at the top.
+  // with whatever path is left below it; the rest read at the top, which
+  // includes one on `bindings` itself (a required slot left unbound).
   const sorted = errors.map((e) => {
+    const [head, name] = e.path;
     const slot =
-      e.path[0] === "flow"
+      head === "flow"
         ? "flow"
-        : e.path[0] === "bindings"
-          ? e.path[1]
+        : head === "bindings" && typeof name === "string"
+          ? name
           : null;
-    const depth = e.path[0] === "bindings" ? 2 : e.path[0] === "flow" ? 1 : 0;
+    const depth = slot === "flow" ? 1 : slot ? 2 : 0;
     return { slot, text: describeError(e, depth) };
   });
   const slotErrors = (slot: string) =>
@@ -137,6 +160,7 @@ export const Inspector: FC<InspectorProps> = ({
           symbol={symbol}
           devices={devices}
           synoptics={synoptics}
+          attached={attached}
           slotErrors={slotErrors}
           onChange={onSymbolChange}
         />
@@ -188,6 +212,7 @@ type SymbolFieldsProps = {
   symbol: SymbolElement;
   devices: Device[];
   synoptics: SynopticSummary[];
+  attached: ReadonlySet<string>;
   slotErrors: (slot: string) => string[];
   onChange: InspectorProps["onSymbolChange"];
 };
@@ -196,6 +221,7 @@ const SymbolFields: FC<SymbolFieldsProps> = ({
   symbol,
   devices,
   synoptics,
+  attached,
   slotErrors,
   onChange,
 }) => {
@@ -316,15 +342,16 @@ const SymbolFields: FC<SymbolFieldsProps> = ({
               <Input
                 id={`prop-${key}`}
                 type={prop.type === "string" ? "text" : "number"}
+                min={prop.minimum}
                 value={String(symbol.props?.[key] ?? "")}
                 onChange={(e) =>
+                  // An emptied text stays a text: the type requires a
+                  // string, and "" is the one empty value it saves.
                   setProp(
                     key,
-                    e.target.value === ""
-                      ? null
-                      : prop.type === "string"
-                        ? e.target.value
-                        : Number(e.target.value),
+                    prop.type === "string"
+                      ? e.target.value
+                      : readNumber(prop.type, e.target.value),
                   )
                 }
               />
@@ -333,7 +360,8 @@ const SymbolFields: FC<SymbolFieldsProps> = ({
         )}
       {schema?.["x-ports-authored"] && (
         <CollectorFields
-          value={symbol.props as Partial<CollectorShape>}
+          value={symbol.props as CollectorShape}
+          attached={attached}
           onChange={(props) => onChange((s) => ({ ...s, props }))}
         />
       )}
@@ -367,21 +395,19 @@ type CollectorShape = {
   ports: Record<string, { offset: number | null; side: Side }>;
 };
 
-const blankToNull = (value: string) => (value === "" ? null : Number(value));
-
 /** The collector's authored shape: which way the bar runs, how long it
  *  is, and each port's offset along it and the face it takes. The shared
- *  form builder cannot render a map of ports, so this is by hand. */
+ *  form builder cannot render a map of ports, so this is by hand. The
+ *  shape arrives complete: placement seeds it, and a stored plate holds
+ *  what the backend validated. A port a run is attached to cannot be
+ *  removed: the run would be left naming it, so the author deletes the
+ *  run first and sees what they are breaking. */
 const CollectorFields: FC<{
-  value: Partial<CollectorShape>;
+  value: CollectorShape;
+  attached: ReadonlySet<string>;
   onChange: (props: CollectorShape) => void;
-}> = ({ value, onChange }) => {
+}> = ({ value: shape, attached, onChange }) => {
   const { t } = useTranslation("synoptics");
-  const shape: CollectorShape = {
-    axis: value.axis ?? "x",
-    length: value.length === undefined ? 2 : value.length,
-    ports: value.ports ?? {},
-  };
   const setPort = (
     name: string,
     port: CollectorShape["ports"][string] | null,
@@ -423,10 +449,13 @@ const CollectorFields: FC<{
           <Input
             id="collector-length"
             type="number"
-            min={2}
+            min={COLLECTOR_LENGTH_MIN}
             value={shape.length ?? ""}
             onChange={(e) =>
-              onChange({ ...shape, length: blankToNull(e.target.value) })
+              onChange({
+                ...shape,
+                length: readNumber("integer", e.target.value),
+              })
             }
           />,
         )}
@@ -442,7 +471,10 @@ const CollectorFields: FC<{
             className="w-20"
             value={port.offset ?? ""}
             onChange={(e) =>
-              setPort(name, { ...port, offset: blankToNull(e.target.value) })
+              setPort(name, {
+                ...port,
+                offset: readNumber("integer", e.target.value),
+              })
             }
           />
           <Select
@@ -467,6 +499,12 @@ const CollectorFields: FC<{
             size="sm"
             variant="ghost"
             aria-label={`${t("editor.collector.removePort")} ${name}`}
+            title={
+              attached.has(name)
+                ? t("editor.collector.portAttached")
+                : undefined
+            }
+            disabled={attached.has(name)}
             onClick={() => setPort(name, null)}
           >
             ×

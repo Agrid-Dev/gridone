@@ -5,6 +5,7 @@ import { describeError, forgetElement, mapSaveErrors } from "./saveErrors";
 
 const DOC: PlateDocument = {
   ...emptyDocument("p"),
+  labels: [{ id: "title", at: { x: 0, y: 0 }, text: "p", role: "title" }],
   symbols: [
     {
       id: "pac-01",
@@ -111,6 +112,13 @@ describe("mapSaveErrors", () => {
         },
         { loc: ["symbols", 7, "id"], msg: "dup", type: "duplicate_id" },
         { loc: [], msg: "nul", type: "value_error" },
+        // A label exists at that index, but the editor cannot select one.
+        // Mutant: filing it under "title" shows nothing anywhere.
+        {
+          loc: ["labels", 0, "value"],
+          msg: "unresolved",
+          type: "unresolved_target",
+        },
       ],
       DOC,
     );
@@ -119,6 +127,7 @@ describe("mapSaveErrors", () => {
       "pipes: too many cells",
       "symbols.7.id: dup",
       "nul",
+      "labels.0.value: unresolved",
     ]);
   });
 });

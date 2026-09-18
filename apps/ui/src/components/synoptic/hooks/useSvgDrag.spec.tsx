@@ -216,4 +216,27 @@ describe("useSvgDrag", () => {
     fireEvent.pointerDown(handle, { ...DOWN, button: 2 });
     expect(onStart).not.toHaveBeenCalled();
   });
+
+  it("says whether it took the press, so a caller's own record follows the hook's", () => {
+    stubScreenCtm(2);
+    const taken: boolean[] = [];
+    function Recorder() {
+      const drag = useSvgDrag({ onMove: vi.fn() });
+      return (
+        <svg>
+          <rect
+            data-testid="handle"
+            onPointerDown={(e) => {
+              taken.push(drag.onPointerDown(e));
+            }}
+          />
+        </svg>
+      );
+    }
+    const { getByTestId } = render(<Recorder />);
+    fireEvent.pointerDown(getByTestId("handle"), { ...DOWN, button: 2 });
+    fireEvent.pointerDown(getByTestId("handle"), DOWN);
+    // Mutant: a void handler leaves the caller recording the refused press.
+    expect(taken).toEqual([false, true]);
+  });
 });

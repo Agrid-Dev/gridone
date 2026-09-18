@@ -81,6 +81,24 @@ type Dir = { x: number; y: number };
 const opposite = (a: Dir | null, b: Dir) =>
   !!a && a.x === -b.x && a.y === -b.y && (a.x !== 0 || a.y !== 0);
 
+/** Which way a straight run steps aside along `axis`: `+1` unless that
+ *  runs back into the face just left or onto the body about to be
+ *  entered, in which case `-1`. Only one of the two can constrain it: the
+ *  other faces along the run, which is why the run steps aside at all. */
+function clearSide(axis: "x" | "y", out: Dir | null, into: Dir | null): 1 | -1 {
+  return out?.[axis] === -1 || into?.[axis] === 1 ? -1 : 1;
+}
+
+/** The coordinate a run turns at between `from` and `to` on one axis:
+ *  halfway when there is room, one cell back from `from` when the two are
+ *  adjacent, so the turn never lands on `from` itself. */
+function excursion(from: number, to: number): number {
+  const delta = to - from;
+  return Math.abs(delta) >= 2
+    ? from + Math.trunc(delta / 2)
+    : from - Math.sign(delta);
+}
+
 /** Axis-aligned corners from `a` to `b`, `a` and `b` excluded. The plan
  *  travels one axis then the other; the order is the one whose first
  *  segment does not run back against `out` (the face a run just left)
@@ -104,32 +122,39 @@ function corners(a: Cell, b: Cell, out: Dir | null, into: Dir | null): Cell[] {
   if (dx === 0 || dy === 0) {
     // A straight run that would leave or arrive against a face steps one
     // cell aside, travels, and steps back, so it never crosses the body.
+    // The side it steps to is the one neither port's body sits on: a step
+    // back into the face just left, or onto the body about to be entered,
+    // is the doubling back this branch exists to avoid.
     const along: Dir = { x: dx, y: dy };
     if (opposite(out, along) || opposite(into, along)) {
+      const axis = dx !== 0 ? "y" : "x";
+      const aside = clearSide(axis, out, into);
       plan =
-        dx !== 0
+        axis === "y"
           ? [
-              { x: a.x, y: a.y + 1, z },
-              { x: b.x, y: a.y + 1, z },
+              { x: a.x, y: a.y + aside, z },
+              { x: b.x, y: a.y + aside, z },
             ]
           : [
-              { x: a.x + 1, y: a.y, z },
-              { x: a.x + 1, y: b.y, z },
+              { x: a.x + aside, y: a.y, z },
+              { x: a.x + aside, y: b.y, z },
             ];
     } else {
       plan = [];
     }
   } else if (bad(alongX, alongY) && bad(alongY, alongX)) {
     // Out on the axis the face left does not run along, halfway, across,
-    // then on to the approach.
+    // then on to the approach. Cells one apart on that axis have no
+    // halfway: the run goes one cell the other way instead, so the
+    // excursion never collapses into the single bend just refused.
     if (out ? out.x === 0 : into?.x !== 0) {
-      const mid = a.x + Math.trunc((b.x - a.x) / 2);
+      const mid = excursion(a.x, b.x);
       plan = [
         { x: mid, y: a.y, z },
         { x: mid, y: b.y, z },
       ];
     } else {
-      const mid = a.y + Math.trunc((b.y - a.y) / 2);
+      const mid = excursion(a.y, b.y);
       plan = [
         { x: a.x, y: mid, z },
         { x: b.x, y: mid, z },
@@ -206,6 +231,17 @@ export function routeWaypoints(points: RoutePoint[]): Cell[] {
   );
 }
 
+/** The ports of `id` a run starts or ends on. */
+export function attachedPorts(doc: PlateDocument, id: string): Set<string> {
+  return new Set(
+    (doc.pipes ?? []).flatMap((p) =>
+      [p.from, p.to].flatMap((e) =>
+        e.kind === "port" && e.symbol === id ? [e.port] : [],
+      ),
+    ),
+  );
+}
+
 /** Removes a symbol. A run attached to one of its ports keeps its cell as
  *  a free endpoint, so nothing vanishes with the symbol. */
 export function removeSymbol(doc: PlateDocument, id: string): PlateDocument {
@@ -274,6 +310,32 @@ export const updatePipe = (
   ...doc,
   pipes: (doc.pipes ?? []).map((p) => (p.id === id ? patch(p) : p)),
 });
+
+/** What a placed symbol's props start as: every field its type requires,
+ *  at the value the inspector would show for it (an enum's first choice,
+ *  a number's minimum, an empty text, no ports). Seeded at placement so
+ *  the document saves as it reads; a type whose required field has no
+ *  such value gets none, and the save names the type. */
+export function defaultProps(type: string): Record<string, unknown> {
+  const schema = symbolSchemas[type];
+  return Object.fromEntries(
+    (schema?.required ?? []).flatMap((key) => {
+      const prop = schema.properties[key] as
+        | { type?: string; enum?: unknown[]; minimum?: number }
+        | undefined;
+      const value = prop?.enum
+        ? prop.enum[0]
+        : prop?.type === "string"
+          ? ""
+          : prop?.type === "integer" || prop?.type === "number"
+            ? (prop.minimum ?? 0)
+            : prop?.type === "object"
+              ? {}
+              : undefined;
+      return value === undefined ? [] : [[key, value]];
+    }),
+  );
+}
 
 /** Whether a symbol's rotation is the author's to set: free-standing, and
  *  of a type that does not lock it (a collector's bar direction is

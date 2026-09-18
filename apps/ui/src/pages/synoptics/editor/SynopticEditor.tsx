@@ -32,6 +32,8 @@ import {
 import {
   addPipe,
   addSymbol,
+  attachedPorts,
+  defaultProps,
   emptyDocument,
   moveSymbol,
   nextId,
@@ -101,6 +103,10 @@ const Editor: FC<EditorProps> = ({ initial, stored }) => {
         : undefined,
     [doc.pipes, selection],
   );
+  const attached = useMemo(
+    () => (symbol ? attachedPorts(doc, symbol.id) : new Set<string>()),
+    [doc, symbol],
+  );
 
   /** Applies a change to one element; the errors the last save left on
    *  it are forgotten, since the author has touched what they named. */
@@ -116,7 +122,13 @@ const Editor: FC<EditorProps> = ({ initial, stored }) => {
     (type: string, placement: SymbolElement["placement"]) => {
       const id = nextId(doc, type);
       setDoc((d) =>
-        addSymbol(d, { id, type, placement, props: {}, bindings: {} }),
+        addSymbol(d, {
+          id,
+          type,
+          placement,
+          props: defaultProps(type),
+          bindings: {},
+        }),
       );
       setSelection({ kind: "symbol", id });
       setPlacing(null);
@@ -322,6 +334,7 @@ const Editor: FC<EditorProps> = ({ initial, stored }) => {
             pipe={pipe}
             devices={devices}
             synoptics={synoptics}
+            attached={attached}
             errors={selection ? (errors.byElement.get(selection.id) ?? []) : []}
             onSymbolChange={(patch) =>
               symbol &&

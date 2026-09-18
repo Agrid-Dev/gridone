@@ -37,14 +37,6 @@ export function collectorPorts(
   );
 }
 
-/**
- * The cell and face a pipe attaches to: the type's port offset turned by
- * the symbol's rotation and moved to its origin. A collector reads its
- * ports off `props` instead of the type. Undefined, named in the console
- * in development, for a type or port the bundled registry does not know:
- * the schemas are a build-time snapshot, so a plate stored by a newer
- * backend degrades one run at a time rather than unmounting the plate.
- */
 /** The ports a type offers at rotation 0, by name: the type's own, or
  *  the authored ones for a collector. A port whose offset is not yet a
  *  number (a collector being authored) is left out. Empty for a type the
@@ -64,6 +56,14 @@ export function portsOf(
   );
 }
 
+/**
+ * The cell and face a pipe attaches to: the type's port offset turned by
+ * the symbol's rotation and moved to its origin. A collector reads its
+ * ports off `props` instead of the type. Undefined, named in the console
+ * in development, for a type or port the bundled registry does not know:
+ * the schemas are a build-time snapshot, so a plate stored by a newer
+ * backend degrades one run at a time rather than unmounting the plate.
+ */
 export function symbolPort(
   type: string,
   origin: Cell,

@@ -218,6 +218,18 @@ export function EditorCanvas({
     setPoints([]);
   }, [mode]);
 
+  // The run being drawn names symbols and runs by id. Delete, from the
+  // keyboard or the inspector, removes one through the document, so the
+  // run in progress goes with it rather than ending up naming a symbol
+  // or a tee that is no longer there.
+  useEffect(() => {
+    const pipeIds = new Set((doc.pipes ?? []).map((p) => p.id));
+    const gone = (p: RoutePoint) =>
+      (p.endpoint.kind === "port" && !symbols.has(p.endpoint.symbol)) ||
+      (p.endpoint.kind === "pipe" && !pipeIds.has(p.endpoint.pipe));
+    setPoints((ps) => (ps.some(gone) ? [] : ps));
+  }, [symbols, doc.pipes]);
+
   /** Adds a point to the run being drawn; a port or a tee after the first
    *  point ends it. */
   const addPoint = useCallback(
@@ -257,7 +269,14 @@ export function EditorCanvas({
       } else if ((e.key === "Delete" || e.key === "Backspace") && selection) {
         e.preventDefault();
         onDelete(selection);
-      } else if (e.key.toLowerCase() === "r" && selection?.kind === "symbol") {
+      } else if (
+        e.key.toLowerCase() === "r" &&
+        !e.metaKey &&
+        !e.ctrlKey &&
+        !e.altKey &&
+        selection?.kind === "symbol"
+      ) {
+        // A bare R only: Cmd+R and Ctrl+R are the browser's reload.
         onRotate(selection.id);
       }
     };
@@ -485,7 +504,10 @@ export function EditorCanvas({
                   onSelect({ kind: "symbol", id: symbol.id });
                 }}
                 onPointerDown={(e) => {
-                  if (!free) return;
+                  // The hook first: a press it refuses leaves the drag in
+                  // flight alone, and one it takes has already cancelled
+                  // that drag, reverting the symbol it was moving.
+                  if (!free || !move.onPointerDown(e)) return;
                   const origin = symbol.placement.cell;
                   const z = origin.z ?? 0;
                   const at = toCell(e.clientX, e.clientY, z);
@@ -496,7 +518,6 @@ export function EditorCanvas({
                     z,
                     offset: { x: at.x - origin.x, y: at.y - origin.y },
                   };
-                  move.onPointerDown(e);
                 }}
               />
             )}

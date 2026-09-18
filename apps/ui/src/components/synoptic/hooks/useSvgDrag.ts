@@ -47,7 +47,9 @@ type DragHandlers = {
  * `<g {...drag}>`. Coordinates are in viewBox units. The pointer that
  * started the drag is captured and is the only one that moves or ends it;
  * `touch-action: none` on the handle keeps the browser from claiming the
- * gesture for scrolling.
+ * gesture for scrolling. `onPointerDown` says whether it took the press,
+ * so a caller keeping its own record of what is dragged writes it only
+ * for a press the hook accepted, after any drag it cancelled on the way.
  */
 export function useSvgDrag({
   threshold = 0,
@@ -65,8 +67,8 @@ export function useSvgDrag({
   useEffect(() => () => cancelActive.current(), []);
 
   const onPointerDown = useCallback(
-    (e: ReactPointerEvent<SVGElement>) => {
-      if (e.button !== 0) return;
+    (e: ReactPointerEvent<SVGElement>): boolean => {
+      if (e.button !== 0) return false;
       cancelActive.current();
       const id = e.pointerId;
       const el = e.currentTarget as SVGGraphicsElement;
@@ -131,6 +133,7 @@ export function useSvgDrag({
       window.addEventListener("pointerup", up);
       window.addEventListener("pointercancel", cancel);
       e.stopPropagation();
+      return true;
     },
     [threshold, frame],
   );

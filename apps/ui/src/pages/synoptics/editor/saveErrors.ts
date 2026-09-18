@@ -8,7 +8,8 @@ export type ElementError = { path: (string | number)[]; msg: string };
 
 /** The save-time violations of a plate, sorted to where the author can
  *  fix them: on the element a `loc` names, or on the document when it
- *  names none (the polyline budget, an unknown shape). */
+ *  names none (the polyline budget, an unknown shape) or names one the
+ *  editor cannot select (a label, carried through untouched). */
 export type SaveErrors = {
   byElement: Map<string, ElementError[]>;
   document: string[];
@@ -19,7 +20,10 @@ export const NO_SAVE_ERRORS: SaveErrors = {
   document: [],
 };
 
-const LISTS = ["symbols", "pipes", "labels"] as const;
+/** The lists whose elements the canvas can select and halo. A label's
+ *  violation would be filed under an id nothing looks up, and the save
+ *  would fail with nothing on screen. */
+const LISTS = ["symbols", "pipes"] as const;
 type ListName = (typeof LISTS)[number];
 const isList = (v: unknown): v is ListName => LISTS.includes(v as ListName);
 

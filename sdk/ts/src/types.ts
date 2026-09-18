@@ -135,6 +135,8 @@ export type SymbolSchema = {
   title: string;
   /** The props JSON Schema's own fields. */
   properties: Record<string, unknown>;
+  /** The props a document must author for the type. */
+  required?: string[];
   "x-footprint": SymbolFootprint | null;
   "x-ports": Record<string, SymbolPort>;
   "x-ports-authored": boolean;
