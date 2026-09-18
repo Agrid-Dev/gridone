@@ -1048,3 +1048,31 @@ class TestDriverRegistryPresentation:
         message = str(excinfo.value)
         assert "[missing_attribute] /bindings/power/attribute" in message
         assert f"[invalid_action] {LAYERS_PATH}/24/action/op" in message
+
+
+class TestDriverAttributeDiscoveryNameReference:
+    @pytest.mark.asyncio
+    async def test_rename_follows_name_attribute(self, driver_w_name_attribute):
+        registry = DriverRegistry({driver_w_name_attribute.id: driver_w_name_attribute})
+        await registry.rename_driver_attribute(
+            driver_w_name_attribute.id, "label", "title"
+        )
+        assert driver_w_name_attribute.discovery_listener.name_attribute == "title"
+
+    @pytest.mark.asyncio
+    async def test_delete_name_attribute_conflicts(self, driver_w_name_attribute):
+        registry = DriverRegistry({driver_w_name_attribute.id: driver_w_name_attribute})
+        with pytest.raises(ConflictError, match="name_attribute"):
+            await registry.delete_driver_attribute(driver_w_name_attribute.id, "label")
+        assert "label" in driver_w_name_attribute.attributes
+
+    @pytest.mark.asyncio
+    async def test_update_name_attribute_to_non_str_rejected(
+        self, driver_w_name_attribute
+    ):
+        registry = DriverRegistry({driver_w_name_attribute.id: driver_w_name_attribute})
+        with pytest.raises(InvalidError, match="must be a str attribute"):
+            await registry.patch_driver_attribute(
+                driver_w_name_attribute.id, "label", {"data_type": DataType.INT}
+            )
+        assert driver_w_name_attribute.attributes["label"].data_type == DataType.STRING

@@ -81,7 +81,7 @@ attributes:                   # (required) list of attribute drivers
 | `update_strategy` | no | Polling frequency configuration. See [Update strategy](../glossary.md#update-strategy) |
 | `healthcheck` | no | Device liveness configuration. See [Health check](../glossary.md#health-check) |
 | `attributes` | yes | List of readable/writable [attributes](../glossary.md#attribute) |
-| `discovery` | no | Auto-[discovery](../glossary.md#discovery) configuration (protocol-dependent) |
+| `discovery` | no | Auto-[discovery](../glossary.md#discovery) configuration (protocol-dependent). See [Discovery](discovery.md) |
 
 Each attribute under `attributes` must declare a `name`, a `data_type`, and at least one of `read`, `write`, or `read_write`. See [Attribute Drivers](#attribute-drivers) for full details.
 

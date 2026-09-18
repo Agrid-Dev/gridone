@@ -15,6 +15,7 @@ from devices_manager.core.device.connection_status_attribute import (
 from devices_manager.core.driver import AnyAttributeDriver
 from devices_manager.core.driver.driver import (
     attributes_referencing,
+    validate_discovery_name_attribute,
     validate_polling_groups,
     validate_push_only_polling,
 )
@@ -80,6 +81,18 @@ def _reject_dangling_references(
         msg = (
             f"Attribute {attribute_id} of driver {driver_id} is a write_constraints "
             f"bound of {names}. Update or remove those constraints before deleting it."
+        )
+        raise ConflictError(msg)
+
+
+def _reject_deleting_name_attribute(driver: Driver, attribute_id: str) -> None:
+    """Deleting the attribute discovery names devices from would leave the
+    driver unloadable."""
+    listener = driver.discovery_listener
+    if listener is not None and listener.name_attribute == attribute_id:
+        msg = (
+            f"Attribute {attribute_id} of driver {driver.id} is the discovery "
+            "name_attribute. Update the discovery block before deleting it."
         )
         raise ConflictError(msg)
 
@@ -355,6 +368,9 @@ class DriverRegistry:
             for aid, a in driver.attributes.items()
         ]
         validate_write_declarations(candidate_attrs)
+        validate_discovery_name_attribute(
+            driver.discovery_listener, {a.name: a for a in candidate_attrs}
+        )
         driver.attributes[attribute_id] = updated
         _log_if_presentation_unavailable(driver)
         await self._persist(driver)
@@ -376,6 +392,7 @@ class DriverRegistry:
             ),
         )
         _reject_dangling_references(driver_id, attribute_id, remaining)
+        _reject_deleting_name_attribute(driver, attribute_id)
         del driver.attributes[attribute_id]
         _log_if_presentation_unavailable(driver)
         await self._persist(driver)
@@ -413,6 +430,11 @@ class DriverRegistry:
         del driver.attributes[attribute_id]
         driver.attributes[new_name] = renamed
         driver.attributes.update(followed)
+        if (
+            driver.discovery_schema is not None
+            and driver.discovery_schema.get("name_attribute") == attribute_id
+        ):
+            driver.discovery_schema["name_attribute"] = new_name
         if driver.presentation is not None:
             # Bindings on the renamed attribute follow it structurally; an
             # unsupported version is returned untouched.

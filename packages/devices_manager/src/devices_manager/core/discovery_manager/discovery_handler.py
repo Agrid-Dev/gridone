@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 from devices_manager.core.device import CoreDevice, DeviceBase
 from devices_manager.core.transports import PushTransportClient
+from devices_manager.core.utils.templating.render import render_struct
 from models.ids import gen_id
 
 if TYPE_CHECKING:
@@ -72,6 +73,48 @@ class DiscoveryHandler:
                     config_values.append(str(v))
         return "/".join(config_values)
 
+    async def try_reading_name(self, config: DeviceConfig) -> str | None:
+        """Read the driver's discovery ``name_attribute`` once, straight
+        through the transport: the device does not exist yet, so nothing is
+        recorded against its connection status. ``None`` (no declaration,
+        transport or decode failure, non-string or blank value) leaves the
+        config-based fallback name in place."""
+        attribute_name = self.discovery_listener.name_attribute
+        if attribute_name is None:
+            return None
+        attribute_driver = self.driver.attributes[attribute_name]
+        context = {**self.driver.env, **config}
+        try:
+            address = self.transport.build_address(
+                render_struct(attribute_driver.read, context), context
+            )
+            value = attribute_driver.codec.decode(await self.transport.read(address))
+        except Exception as e:  # noqa: BLE001
+            logger.info(
+                "Discovery: could not read %s for %s, keeping the config-based "
+                "name — %s: %s",
+                attribute_name,
+                config,
+                type(e).__name__,
+                e,
+            )
+            return None
+        if not isinstance(value, str) or not value.strip():
+            return None
+        return value.strip()
+
+    async def _discover(self, device_config: DeviceConfig, payload: Any) -> None:  # noqa: ANN401
+        name = await self.try_reading_name(device_config) or self.try_parsing_name(
+            device_config
+        )
+        device = CoreDevice.from_base(
+            DeviceBase(id=gen_id(), name=name, config=device_config),
+            transport=self.transport,
+            driver=self.driver,
+            initial_values=self.try_parsing_attributes(payload),
+        )
+        await self.on_discover(device)
+
     async def start(self) -> None:
         seen: set[str] = set()
 
@@ -81,20 +124,10 @@ class DiscoveryHandler:
             config_hash = _hash_config(device_config)
             if config_hash in seen:
                 return
-            initial_attribute_values = self.try_parsing_attributes(payload)
-            device = CoreDevice.from_base(
-                DeviceBase(
-                    id=gen_id(),
-                    name=self.try_parsing_name(device_config),
-                    config=device_config,
-                ),
-                transport=self.transport,
-                driver=self.driver,
-                initial_values=initial_attribute_values,
-            )
-
-            asyncio.create_task(self.on_discover(device))  # noqa: RUF006 # @TODO: make listeners async
+            # Marked before the task runs: the name read can take seconds and
+            # the same device keeps publishing meanwhile.
             seen.add(config_hash)
+            asyncio.create_task(self._discover(device_config, payload))  # noqa: RUF006 # @TODO: make listeners async
 
         self._transport_listener_id = await self.transport.register_listener(
             self.transport.build_address(self.discovery_listener.topic),

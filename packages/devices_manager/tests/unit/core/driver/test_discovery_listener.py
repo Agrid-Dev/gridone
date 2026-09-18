@@ -27,3 +27,12 @@ def test_parse(listener_raw, transport_payload):
         "vendor_id": "30523-042:47",
         "gateway_id": "b831c424a37e41fba308bf7119f95e47907214eeeae4bedfa08df6c2a28f448",
     }
+
+
+def test_name_attribute_defaults_to_none(listener_raw):
+    assert DiscoveryListener.from_dict(listener_raw).name_attribute is None
+
+
+def test_name_attribute_from_dict(listener_raw):
+    listener = DiscoveryListener.from_dict({**listener_raw, "name_attribute": "label"})
+    assert listener.name_attribute == "label"

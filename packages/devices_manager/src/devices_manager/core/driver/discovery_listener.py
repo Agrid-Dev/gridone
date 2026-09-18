@@ -17,6 +17,7 @@ class DiscoveryListener(BaseModel):
     _codecs: dict[str, FnCodec] = {}
     topic: str
     field_getters: list[DeviceConfigFieldGetter]
+    name_attribute: str | None = None
 
     @model_validator(mode="after")
     def build_codecs(self) -> "DiscoveryListener":
