@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { FC } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { PencilLine, Trash2, Wand2 } from "lucide-react";
 import type { Dashboard, DashboardSummary } from "@gridone/sdk";
@@ -11,16 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { ConfirmationDialog } from "@/components/ConfirmationDialog";
 import { DashboardForm, type DashboardFormValues } from "./DashboardForm";
 import { AddWidgetButton } from "./widgets/AddWidgetButton";
 import { useDeleteDashboard, useUpdateDashboard } from "./useDashboards";
@@ -36,8 +27,10 @@ export const DashboardToolbox: FC<{
 }> = ({ dashboard, summaries, hasWidgets, onEditLayout }) => {
   const { t } = useTranslation(["dashboards", "common"]);
   const navigate = useNavigate();
+  const [params] = useSearchParams();
   const [renameOpen, setRenameOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const deleteTrigger = useRef<HTMLButtonElement>(null);
   const { updateDashboard } = useUpdateDashboard();
   const { deleteDashboard } = useDeleteDashboard();
 
@@ -55,29 +48,46 @@ export const DashboardToolbox: FC<{
     }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     // After removing the active dashboard, the item that shifts into its slot
     // is the "next"; if it was last, fall back to the new last (previous).
     const idx = summaries.findIndex((s) => s.id === dashboard.id);
     const remaining = summaries.filter((s) => s.id !== dashboard.id);
     const target = remaining[idx] ?? remaining[remaining.length - 1];
 
-    deleteDashboard(dashboard.id, {
-      onSuccess: () => {
-        setDeleteOpen(false);
-        navigate(target ? `/dashboards/${target.id}` : "/dashboards");
+    await deleteDashboard(dashboard.id);
+    const search = new URLSearchParams();
+    for (const key of ["last", "start", "end"]) {
+      const value = params.get(key);
+      if (value) search.set(key, value);
+    }
+    navigate(
+      {
+        pathname: target ? `/dashboards/${target.id}` : "/dashboards",
+        search: search.toString(),
       },
-    });
+      { replace: true },
+    );
   };
 
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/40 p-2">
-      <Button variant="outline" size="sm" onClick={() => setRenameOpen(true)}>
+      <Button
+        variant="outline"
+        size="sm"
+        className="min-h-11"
+        onClick={() => setRenameOpen(true)}
+      >
         <PencilLine className="h-4 w-4" />
         {t("actions.rename")}
       </Button>
       {hasWidgets && (
-        <Button variant="outline" size="sm" onClick={onEditLayout}>
+        <Button
+          variant="outline"
+          size="sm"
+          className="min-h-11"
+          onClick={onEditLayout}
+        >
           <Wand2 className="h-4 w-4" />
           {t("layout.edit")}
         </Button>
@@ -87,7 +97,8 @@ export const DashboardToolbox: FC<{
       <Button
         variant="outline"
         size="sm"
-        className="ml-auto text-destructive hover:text-destructive"
+        className="ml-auto min-h-11 text-destructive hover:text-destructive"
+        ref={deleteTrigger}
         onClick={() => setDeleteOpen(true)}
       >
         <Trash2 className="h-4 w-4" />
@@ -112,25 +123,28 @@ export const DashboardToolbox: FC<{
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("delete.title")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("delete.details", { name: dashboard.name })}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t("common:common.cancel")}</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-white hover:bg-destructive/90"
-              onClick={handleDelete}
-            >
-              {t("delete.confirm")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmationDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        onConfirm={handleDelete}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          (
+            deleteTrigger.current ??
+            document.querySelector<HTMLElement>("[data-page-title]") ??
+            document.getElementById("main-content")
+          )?.focus({ preventScroll: true });
+        }}
+        title={t("common:deletion.title", {
+          name: dashboard.name || dashboard.id,
+        })}
+        details={
+          <>
+            {t("delete.details", { name: dashboard.name })}{" "}
+            {t("common:deletion.irreversible")}
+          </>
+        }
+      />
     </div>
   );
 };

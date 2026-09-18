@@ -33,12 +33,10 @@ export const WidgetFrame: FC<{
       className,
     )}
   >
-    {overlay && (
-      <div className="absolute right-1.5 top-1.5 z-10">{overlay}</div>
-    )}
-    {title && (
-      <div className="border-b border-border px-3 py-1.5 text-xs font-medium text-foreground">
-        {title}
+    {(title || overlay) && (
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-1.5 text-xs font-medium text-foreground">
+        <span className="min-w-0 truncate">{title}</span>
+        {overlay}
       </div>
     )}
     <div className="min-h-0 flex-1">
