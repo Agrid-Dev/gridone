@@ -38,7 +38,7 @@ export type { SymbolState } from "./symbols/Label";
 export { Collector } from "./symbols/Collector";
 export { Body } from "./symbols/Body";
 export { square } from "./symbols/extrude";
-export { symbolPort, collectorPorts } from "./symbols/ports";
+export { symbolPort, portsOf, collectorPorts } from "./symbols/ports";
 export type { CollectorProps, PortAnchor } from "./symbols/ports";
 export { DRAWINGS } from "./symbols/drawings";
 export { Pipe } from "./Pipe";
@@ -70,6 +70,7 @@ export { runCells, runPieces, endpointCell, axisCentre } from "./runs";
 export type { RunPiece } from "./runs";
 
 export { airLine } from "./format";
+export { humanize } from "./text";
 export {
   CoilGlyph,
   FanGlyph,

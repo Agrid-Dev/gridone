@@ -45,6 +45,25 @@ export function collectorPorts(
  * the schemas are a build-time snapshot, so a plate stored by a newer
  * backend degrades one run at a time rather than unmounting the plate.
  */
+/** The ports a type offers at rotation 0, by name: the type's own, or
+ *  the authored ones for a collector. A port whose offset is not yet a
+ *  number (a collector being authored) is left out. Empty for a type the
+ *  bundled registry does not know. */
+export function portsOf(
+  type: string,
+  props?: CollectorProps,
+): Record<string, SymbolPort> {
+  const schema = symbolSchemas[type];
+  if (!schema) return {};
+  if (!schema["x-ports-authored"]) return schema["x-ports"];
+  if (!props?.ports) return {};
+  return Object.fromEntries(
+    Object.entries(collectorPorts(props)).filter(
+      ([name]) => typeof props.ports[name]?.offset === "number",
+    ),
+  );
+}
+
 export function symbolPort(
   type: string,
   origin: Cell,
@@ -53,12 +72,7 @@ export function symbolPort(
   props?: CollectorProps,
 ): PortAnchor | undefined {
   const schema = symbolSchemas[type];
-  const ports = schema
-    ? schema["x-ports-authored"] && props
-      ? collectorPorts(props)
-      : schema["x-ports"]
-    : {};
-  const port = ports[name];
+  const port = portsOf(type, props)[name];
   if (!port) {
     if (import.meta.env.DEV) {
       console.warn(

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import type { Dashboard, LayoutItem } from "@gridone/sdk";
+import { useUnsavedChangesWarning } from "@/hooks/useUnsavedChangesWarning";
 import { useUpdateLayout } from "./useDashboards";
 
 export interface GridLayoutItem {
@@ -109,17 +110,8 @@ export function useLayoutEditor(dashboard: Dashboard) {
     exit();
   }, [storedLayout, exit]);
 
-  // Warn on browser-level navigation (refresh / close) while there are unsaved
-  // layout changes. In-app navigation is prevented by disabling the tabs.
-  useEffect(() => {
-    if (!dirty) return;
-    const handler = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = "";
-    };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, [dirty]);
+  // In-app navigation is prevented by disabling the tabs.
+  useUnsavedChangesWarning(dirty);
 
   return {
     editing,

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FC } from "react";
+import { useCallback, useMemo, useState, type FC } from "react";
 import { useNavigate, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
@@ -11,6 +11,7 @@ import {
 import { ResourceBoundary } from "@/components/ResourceBoundary";
 import type { PlateDocument } from "@/components/synoptic";
 import { ResourceHeader } from "@/components/ResourceHeader";
+import { humanize } from "@/components/synoptic";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -21,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useDevicesList } from "@/hooks/useDevicesList";
+import { useUnsavedChangesWarning } from "@/hooks/useUnsavedChangesWarning";
 import {
   useSaveSynoptic,
   useSynopticPage,
@@ -190,15 +192,7 @@ const Editor: FC<EditorProps> = ({ initial, stored }) => {
   // as the dashboard layout editor does, and Cancel asks first. A sidebar
   // link does not: the app runs on BrowserRouter, which has no blocker.
   const dirty = doc !== initial;
-  useEffect(() => {
-    if (!dirty) return;
-    const handler = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = "";
-    };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, [dirty]);
+  useUnsavedChangesWarning(dirty);
   const onCancelPage = () => {
     if (dirty && !window.confirm(t("editor.discard"))) return;
     navigate(
@@ -269,7 +263,7 @@ const Editor: FC<EditorProps> = ({ initial, stored }) => {
           <SelectContent>
             {FLUIDS.map((f) => (
               <SelectItem key={f} value={f}>
-                {f.replace(/_/g, " ")}
+                {humanize(f)}
               </SelectItem>
             ))}
           </SelectContent>

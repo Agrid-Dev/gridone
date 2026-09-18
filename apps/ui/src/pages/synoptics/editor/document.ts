@@ -52,13 +52,23 @@ function usedIds(doc: PlateDocument): Set<string> {
   ]);
 }
 
+/** The first of `name(1)`, `name(2)`, ... that is not `taken`. */
+export function nextFree(
+  name: (n: number) => string,
+  taken: (candidate: string) => boolean,
+): string {
+  for (let n = 1; ; n++) {
+    if (!taken(name(n))) return name(n);
+  }
+}
+
 /** `<prefix>-<n>`, the smallest `n` no element of the plate uses. */
 export function nextId(doc: PlateDocument, prefix: string): string {
   const used = usedIds(doc);
-  for (let n = 1; ; n++) {
-    const id = `${prefix}-${n}`;
-    if (!used.has(id)) return id;
-  }
+  return nextFree(
+    (n) => `${prefix}-${n}`,
+    (id) => used.has(id),
+  );
 }
 
 const step = (from: Cell, side: Side): Cell => {
@@ -196,13 +206,10 @@ export function routeWaypoints(points: RoutePoint[]): Cell[] {
   );
 }
 
-const symbolsOf = (doc: PlateDocument) =>
-  new Map((doc.symbols ?? []).map((s) => [s.id, s]));
-
 /** Removes a symbol. A run attached to one of its ports keeps its cell as
  *  a free endpoint, so nothing vanishes with the symbol. */
 export function removeSymbol(doc: PlateDocument, id: string): PlateDocument {
-  const symbols = symbolsOf(doc);
+  const symbols = new Map((doc.symbols ?? []).map((s) => [s.id, s]));
   const free = (e: Endpoint): Endpoint =>
     e.kind === "port" && e.symbol === id
       ? { kind: "cell", cell: endpointCell(e, symbols) }
@@ -268,11 +275,17 @@ export const updatePipe = (
   pipes: (doc.pipes ?? []).map((p) => (p.id === id ? patch(p) : p)),
 });
 
-/** A quarter turn more, unless the type locks its rotation (a collector's
- *  bar direction is authored in its props). */
+/** Whether a symbol's rotation is the author's to set: free-standing, and
+ *  of a type that does not lock it (a collector's bar direction is
+ *  authored in its props). */
+export const canRotate = (symbol: SymbolElement) =>
+  symbol.placement.kind === "cell" &&
+  !symbolSchemas[symbol.type]?.["x-rotation-locked"];
+
+/** A quarter turn more, when the symbol can turn. */
 export const rotateSymbol = (doc: PlateDocument, id: string): PlateDocument =>
   updateSymbol(doc, id, (s) =>
-    s.placement.kind === "cell" && !symbolSchemas[s.type]?.["x-rotation-locked"]
+    canRotate(s) && s.placement.kind === "cell"
       ? {
           ...s,
           placement: {

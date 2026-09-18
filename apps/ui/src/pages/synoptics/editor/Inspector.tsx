@@ -9,7 +9,7 @@ import {
   type SymbolElement,
   type SynopticSummary,
 } from "@gridone/sdk";
-import type { CollectorProps } from "@/components/synoptic";
+import { humanize, type CollectorProps } from "@/components/synoptic";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { FLUIDS } from "@/lib/fluidColors";
-import type { Selection } from "./document";
+import { canRotate, nextFree, type Selection } from "./document";
 import { describeError, type ElementError } from "./saveErrors";
 import { SlotEditor } from "./SlotEditor";
 
@@ -95,19 +95,19 @@ export const Inspector: FC<InspectorProps> = ({
   }
   // A violation under `bindings.<slot>` or `flow` reads under that slot,
   // with whatever path is left below it; the rest read at the top.
-  const onSlot = (e: ElementError) =>
-    e.path[0] === "flow" ? 1 : e.path[0] === "bindings" ? 2 : 0;
+  const sorted = errors.map((e) => {
+    const slot =
+      e.path[0] === "flow"
+        ? "flow"
+        : e.path[0] === "bindings"
+          ? e.path[1]
+          : null;
+    const depth = e.path[0] === "bindings" ? 2 : e.path[0] === "flow" ? 1 : 0;
+    return { slot, text: describeError(e, depth) };
+  });
   const slotErrors = (slot: string) =>
-    errors
-      .filter(
-        (e) =>
-          (onSlot(e) === 1 && slot === "flow") ||
-          (onSlot(e) === 2 && e.path[1] === slot),
-      )
-      .map((e) => describeError(e, onSlot(e)));
-  const otherErrors = errors
-    .filter((e) => onSlot(e) === 0)
-    .map((e) => describeError(e));
+    sorted.filter((e) => e.slot === slot).map((e) => e.text);
+  const otherErrors = sorted.filter((e) => e.slot === null).map((e) => e.text);
 
   return (
     <div className="space-y-4">
@@ -115,7 +115,7 @@ export const Inspector: FC<InspectorProps> = ({
         <h3 className="text-sm font-semibold">
           {selection.id}
           <span className="ml-2 font-normal text-muted-foreground">
-            {symbol ? symbol.type.replace(/_/g, " ") : t("editor.pipe")}
+            {symbol ? humanize(symbol.type) : t("editor.pipe")}
           </span>
         </h3>
         <Button
@@ -158,7 +158,7 @@ export const Inspector: FC<InspectorProps> = ({
               <SelectContent>
                 {FLUIDS.map((fluid) => (
                   <SelectItem key={fluid} value={fluid}>
-                    {fluid.replace(/_/g, " ")}
+                    {humanize(fluid)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -202,7 +202,7 @@ const SymbolFields: FC<SymbolFieldsProps> = ({
   const { t } = useTranslation("synoptics");
   const schema = symbolSchemas[symbol.type];
   const rotation =
-    symbol.placement.kind === "cell" && !schema?.["x-rotation-locked"]
+    canRotate(symbol) && symbol.placement.kind === "cell"
       ? (symbol.placement.rotation ?? 0)
       : null;
   const setProp = (key: string, value: unknown) =>
@@ -295,7 +295,7 @@ const SymbolFields: FC<SymbolFieldsProps> = ({
         scalarProps(schema?.properties).map(([key, prop]) =>
           field(
             `prop-${key}`,
-            key.replace(/_/g, " "),
+            humanize(key),
             prop.enum ? (
               <Select
                 value={String(symbol.props?.[key] ?? "")}
@@ -341,7 +341,7 @@ const SymbolFields: FC<SymbolFieldsProps> = ({
         <SlotEditor
           key={slot}
           id={`slot-${slot}`}
-          label={slot.replace(/_/g, " ")}
+          label={humanize(slot)}
           value={symbol.bindings?.[slot]}
           devices={devices}
           errors={slotErrors(slot)}
@@ -391,11 +391,11 @@ const CollectorFields: FC<{
     else delete ports[name];
     onChange({ ...shape, ports });
   };
-  const nextName = (kind: "in" | "out") => {
-    for (let n = 1; ; n++) {
-      if (!(`${kind}_${n}` in shape.ports)) return `${kind}_${n}`;
-    }
-  };
+  const nextName = (kind: "in" | "out") =>
+    nextFree(
+      (n) => `${kind}_${n}`,
+      (name) => name in shape.ports,
+    );
   return (
     <div className="space-y-2">
       <div className="grid grid-cols-2 gap-2">

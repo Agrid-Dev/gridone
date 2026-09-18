@@ -40,7 +40,7 @@ import {
   symbolLabelPoint,
   symbolPoint,
 } from "./symbols/SynopticSymbol";
-import { textWidth } from "./text";
+import { humanize, textWidth } from "./text";
 import type { Pt } from "./types";
 import {
   EMPTY_VALUES,
@@ -123,8 +123,6 @@ function readingOf(
   if (value.kind === "text") return { ...SILENT, text: value.text };
   return values.slots[key] ?? SILENT;
 }
-
-const slotLabel = (slot: string) => slot.replace(/_/g, " ");
 
 /** The run state a symbol shows: none once the reading is old, since a
  *  stale MARCHE is not a running machine. */
@@ -679,7 +677,7 @@ function addSymbols(plate: Plate) {
             at={{ x: (box.x0 + box.x1) / 2, y: box.y1 }}
             title={symbol.label ?? symbol.id}
             rows={readings.map<PanelRow>(({ slot, reading }) => ({
-              label: slotLabel(slot),
+              label: humanize(slot),
               reading,
               error: slot === FAULT_SLOT,
             }))}

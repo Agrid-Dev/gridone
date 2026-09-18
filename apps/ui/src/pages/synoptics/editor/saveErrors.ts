@@ -1,4 +1,5 @@
 import type { ValidationErrorItem } from "@gridone/sdk";
+import { normalizeServerErrorLocation } from "@/components/forms/schema-form/serverErrors";
 import type { PlateDocument } from "@/components/synoptic";
 
 /** One violation on an element: the path below the element (`["bindings",
@@ -31,7 +32,7 @@ export function mapSaveErrors(
 ): SaveErrors {
   const out: SaveErrors = { byElement: new Map(), document: [] };
   for (const { loc, msg } of errors) {
-    const path = loc[0] === "body" ? loc.slice(1) : loc;
+    const path = normalizeServerErrorLocation(loc);
     const [list, index, ...rest] = path;
     const element =
       isList(list) && typeof index === "number"

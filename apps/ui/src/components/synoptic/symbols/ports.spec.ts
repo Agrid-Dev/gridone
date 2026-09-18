@@ -1,6 +1,6 @@
 import { symbolSchemas } from "@gridone/sdk";
 import { describe, expect, it, vi } from "vitest";
-import { collectorPorts, symbolPort } from "./ports";
+import { collectorPorts, portsOf, symbolPort } from "./ports";
 
 describe("CollectorProps", () => {
   it("names the fields the backend's collector props schema declares", () => {
@@ -59,5 +59,29 @@ describe("symbolPort", () => {
     expect(warn).toHaveBeenLastCalledWith("Symbol type tank has no port steam");
     expect(symbolPort("collector", { x: 0, y: 0 }, 0, "in_1")).toBeUndefined();
     warn.mockRestore();
+  });
+});
+
+describe("portsOf", () => {
+  it("lists a type's own ports, a collector's authored ones, and nothing for an unknown type", () => {
+    expect(Object.keys(portsOf("tank"))).toEqual([
+      "primary_in",
+      "primary_out",
+      "dhw_out",
+      "dhw_in",
+    ]);
+    // A port whose offset is still blank while the collector is authored
+    // is left out rather than resolved to a NaN cell.
+    const ports = portsOf("collector", {
+      axis: "x",
+      length: 4,
+      ports: {
+        in_1: { offset: 0, side: "-y" },
+        out_1: { offset: null as unknown as number, side: "+y" },
+      },
+    });
+    expect(Object.keys(ports)).toEqual(["in_1"]);
+    expect(portsOf("collector")).toEqual({});
+    expect(portsOf("no_such_type")).toEqual({});
   });
 });

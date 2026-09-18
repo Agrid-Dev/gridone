@@ -17,7 +17,6 @@ import {
 import {
   axisCentre,
   clientToSvg,
-  collectorPorts,
   DEFAULT_PROJECTION,
   DRAG_THRESHOLD,
   footprintCells,
@@ -25,6 +24,7 @@ import {
   Pipe,
   Port,
   portPoint,
+  portsOf,
   project,
   runPieces,
   symbolBox,
@@ -103,23 +103,9 @@ function gridRange(cells: Cell[]): Range {
 /** The ports a placed symbol offers, with where each meets a run. */
 function symbolPorts(projection: Projection, symbol: SymbolElement) {
   if (symbol.placement.kind !== "cell") return [];
-  const schema = symbolSchemas[symbol.type];
   const props = symbol.props as CollectorProps | undefined;
-  const names = schema
-    ? Object.keys(
-        schema["x-ports-authored"]
-          ? props?.ports
-            ? collectorPorts(props)
-            : {}
-          : schema["x-ports"],
-      ).filter(
-        (name) =>
-          !schema["x-ports-authored"] ||
-          typeof props?.ports?.[name]?.offset === "number",
-      )
-    : [];
   const { cell, rotation } = symbol.placement;
-  return names.flatMap((name) => {
+  return Object.keys(portsOf(symbol.type, props)).flatMap((name) => {
     const anchor = symbolPort(symbol.type, cell, rotation ?? 0, name, props);
     return anchor
       ? [{ name, anchor, at: portPoint(projection, anchor.cell, anchor.side) }]
@@ -140,15 +126,16 @@ const diamond = (projection: Projection, c: Cell): string =>
     })
     .join(" ");
 
+const pressedIn = (e: KeyboardEvent, selector: string) =>
+  e.target instanceof Element && !!e.target.closest(selector);
 /** Keys pressed while the author works a field, a dropdown or the
  *  inspector belong to that control, not to the plate. */
 const inControl = (e: KeyboardEvent) =>
-  e.target instanceof Element &&
-  !!e.target.closest(
+  pressedIn(
+    e,
     "aside, input, textarea, select, [role=listbox], [role=combobox], [contenteditable=true]",
   );
-const onButton = (e: KeyboardEvent) =>
-  e.target instanceof Element && !!e.target.closest("button");
+const onButton = (e: KeyboardEvent) => pressedIn(e, "button");
 
 /**
  * The plate drawn by the renderer, with the authoring surface over it: a
@@ -182,6 +169,15 @@ export function EditorCanvas({
   const symbols = useMemo(
     () => new Map((doc.symbols ?? []).map((s) => [s.id, s])),
     [doc.symbols],
+  );
+  const symbolList = useMemo(() => [...symbols.values()], [symbols]);
+  // Offered while a run is drawn; a hover tick must not recompute them.
+  const ports = useMemo(
+    () =>
+      drawing
+        ? new Map(symbolList.map((s) => [s.id, symbolPorts(projection, s)]))
+        : null,
+    [drawing, symbolList, projection],
   );
   const range = useMemo(() => gridRange(plateCells(doc)), [doc]);
   const extent = useMemo(
@@ -275,6 +271,8 @@ export function EditorCanvas({
   const grab = useRef<{
     id: string;
     origin: Cell;
+    /** The cell last committed, so a pointer sample inside it is free. */
+    at: Cell;
     offset: Pt;
     z: number;
   } | null>(null);
@@ -285,11 +283,14 @@ export function EditorCanvas({
       const g = grab.current;
       if (!g) return;
       const u = unproject(projection, p, g.z);
-      onMove(g.id, {
+      const cell = {
         x: Math.floor(u.x) - g.offset.x,
         y: Math.floor(u.y) - g.offset.y,
         z: g.z,
-      });
+      };
+      if (cellKey(cell) === cellKey(g.at)) return;
+      g.at = cell;
+      onMove(g.id, cell);
     },
     onEnd: () => {
       grab.current = null;
@@ -343,28 +344,31 @@ export function EditorCanvas({
     />
   );
 
-  const gridLines: Pt[][] = [];
-  for (let x = range.x0; x <= range.x1; x++) {
-    gridLines.push([
-      project(projection, x, range.y0),
-      project(projection, x, range.y1),
-    ]);
-  }
-  for (let y = range.y0; y <= range.y1; y++) {
-    gridLines.push([
-      project(projection, range.x0, y),
-      project(projection, range.x1, y),
-    ]);
-  }
-  const surface = [
-    [range.x0, range.y0],
-    [range.x1, range.y0],
-    [range.x1, range.y1],
-    [range.x0, range.y1],
-  ]
-    .map(([x, y]) => project(projection, x, y))
-    .map((p) => `${p.x},${p.y}`)
-    .join(" ");
+  const { gridLines, surface } = useMemo(() => {
+    const lines: Pt[][] = [];
+    for (let x = range.x0; x <= range.x1; x++) {
+      lines.push([
+        project(projection, x, range.y0),
+        project(projection, x, range.y1),
+      ]);
+    }
+    for (let y = range.y0; y <= range.y1; y++) {
+      lines.push([
+        project(projection, range.x0, y),
+        project(projection, range.x1, y),
+      ]);
+    }
+    const floor = [
+      [range.x0, range.y0],
+      [range.x1, range.y0],
+      [range.x1, range.y1],
+      [range.x0, range.y1],
+    ]
+      .map(([x, y]) => project(projection, x, y))
+      .map((p) => `${p.x},${p.y}`)
+      .join(" ");
+    return { gridLines: lines, surface: floor };
+  }, [range, projection]);
 
   return (
     <SynopticRenderer
@@ -458,7 +462,7 @@ export function EditorCanvas({
       })}
       {/* Bodies: a hit box each, dragged in select mode; ports on top,
           offered while a run is drawn. */}
-      {[...symbols.values()].map((symbol) => {
+      {symbolList.map((symbol) => {
         const box = symbolBox(projection, symbol);
         const selected =
           selection?.kind === "symbol" && selection.id === symbol.id;
@@ -488,6 +492,7 @@ export function EditorCanvas({
                   grab.current = {
                     id: symbol.id,
                     origin: { x: origin.x, y: origin.y, z },
+                    at: { x: origin.x, y: origin.y, z },
                     z,
                     offset: { x: at.x - origin.x, y: at.y - origin.y },
                   };
@@ -495,8 +500,8 @@ export function EditorCanvas({
                 }}
               />
             )}
-            {drawing &&
-              symbolPorts(projection, symbol).map(({ name, anchor, at }) => (
+            {ports &&
+              (ports.get(symbol.id) ?? []).map(({ name, anchor, at }) => (
                 <g
                   key={name}
                   data-editor-port={`${symbol.id}.${name}`}

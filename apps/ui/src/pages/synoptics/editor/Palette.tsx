@@ -1,6 +1,7 @@
 import type { FC } from "react";
 import { useTranslation } from "react-i18next";
 import { symbolSchemas } from "@gridone/sdk";
+import { humanize } from "@/components/synoptic";
 import { Button } from "@/components/ui/button";
 
 type PaletteProps = {
@@ -30,7 +31,7 @@ export const Palette: FC<PaletteProps> = ({ placing, onPick }) => {
           aria-pressed={placing === type}
           onClick={() => onPick(placing === type ? null : type)}
         >
-          {type.replace(/_/g, " ")}
+          {humanize(type)}
         </Button>
       ))}
     </div>
