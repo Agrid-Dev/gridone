@@ -15,7 +15,7 @@ import {
 export type ConfirmationDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onConfirm: () => void | Promise<unknown>;
+  onConfirm: () => Promise<unknown>;
   title: ReactNode;
   details: ReactNode;
   label?: ReactNode;

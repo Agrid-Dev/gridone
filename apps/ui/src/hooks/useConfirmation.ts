@@ -7,7 +7,7 @@ import { serverErrorMessage } from "@/lib/serverErrorMessage";
  *  `serverErrorMessage` withholds it for the errors ADR 0002 keeps internal —
  *  and `errorLabel` otherwise, which defaults to the deletion wording. */
 export function useConfirmation(
-  onConfirm: () => void | Promise<unknown>,
+  onConfirm: () => Promise<unknown>,
   onOpenChange: (open: boolean) => void,
   errorLabel?: string,
 ) {

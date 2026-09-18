@@ -31,7 +31,7 @@ const IDENTITY_FORM_ID = "automation-identity-form";
 interface AutomationWorkspaceProps {
   automationId: string;
   automation: Automation;
-  onDelete: () => void | Promise<unknown>;
+  onDelete: () => Promise<unknown>;
   isDeleting: boolean;
 }
 
