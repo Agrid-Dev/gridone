@@ -3,7 +3,7 @@
 - **Status**: Draft
 - **Milestone**: M1 — Use cases, data and specs (Synoptique project)
 - **Issues**: AGR-1184 (this spec), AGR-1160 (model and service), AGR-1161 (router and binding resolution), AGR-1162 (renderer), AGR-1164 (first plate, production-correct)
-- **Plates**: [`synoptic/ecs-est.json`](synoptic/ecs-est.json), the ECS Est plate written by hand in this format, and [`synoptic/ecs-ouest.json`](synoptic/ecs-ouest.json), the Ouest bay of the same installation. They are the documents AGR-1160 stores, AGR-1161 serves and AGR-1162 renders; neither is a throwaway fixture.
+- **Plates**: [`synoptic/ecs-est.json`](synoptic/ecs-est.json), the ECS Est plate written by hand in this format, [`synoptic/ecs-ouest.json`](synoptic/ecs-ouest.json), the Ouest bay of the same installation, and [`synoptic/production-chaud.json`](synoptic/production-chaud.json), the hot production that feeds the building's heating circuits. They are the documents AGR-1160 stores, AGR-1161 serves and AGR-1162 renders; none is a throwaway fixture.
 - **Out of scope**: the visual language (AGR-1156), the projection and depth ordering (AGR-1158), the editor (AGR-1165), anything the renderer decides from the document alone.
 
 The document describes a plate; it never describes a drawing. Everything that is a rendering choice — screen coordinates, colours, stroke styles, fonts, arrow weights, what a stale value looks like — is derived by the renderer from the document plus the symbol kit, and is deliberately unexpressible here (see *What the format cannot express*).
@@ -151,9 +151,9 @@ Written down so nobody adds it by accident. Each is either a rendering concern t
 - **Diagonal or curved pipes.** Segments are axis-aligned, `z` included. The kit rounds corners; the document does not know.
 - **Per-instance symbol size.** Only the collector has a length, in cells.
 - **A value computed from several attributes**: no averages over the seven ballons, no sum of two meters, no unit conversion, no threshold colouring. A slot shows one attribute of one device, formatted. Adding `space_agg` to the `attribute` arm would be the additive path.
-- **Flow as an OR.** The primary return loop of a plate runs when PAC 03 *or* PAC 04 runs (PAC 01 or PAC 02 on the Ouest plate); a `flow` binding names one attribute, so that pipe stays static. Found while writing the plate; acceptable in v1 since both PACs feed the same collector and the supply pipes animate individually.
+- **Flow as an OR.** The primary return loop of a plate runs when PAC 03 *or* PAC 04 runs (PAC 01 or PAC 02 on the Ouest plate), and the hot production's trunk runs when any of four pump heads does; a `flow` binding names one attribute, so those pipes stay static. Found while writing the plate; acceptable in v1 since the machines feed the same collector and their own runs animate individually.
 - **Writes, commands, setpoints.** Read-only by project decision.
-- **Groups, layers, frames, nested synoptics, conditional visibility.** A ballon bay is seven or nine tanks and their pipes, not a group; a caption label says "7 × 500 L" or "9 × 500 L".
+- **Groups, layers, frames, nested synoptics, conditional visibility.** A ballon bay is seven or nine tanks and their pipes, not a group; a caption label says "7 × 500 L" or "9 × 500 L". The old GTB's dashed box around the hot production's pump group is the same non-thing: four heads on four branches.
 - **Historical values.** A binding has no time. The renderer's value hook takes an optional timestamp (AGR-1162); the document is unchanged by it.
 - **Alarm thresholds.** Faults come from the device's fault attributes and `is_faulty`; the plate only says which device a symbol is.
 - **Deep links into an element of another plate.** A link targets a plate.
@@ -257,9 +257,63 @@ Dropped for the same reason as on the first plate: the PACs' `alarm` (a fault at
 - The renderer draws both plates from the same test (`SynopticRenderer.spec.tsx`), which also checks that no run is drawn along another run or along a collector bar, the overlay the projection makes possible; the format's suite (`test_plates.py`) holds every committed plate to the same probes, and each plate's own file to what its drawing decides: the two plates bind disjoint devices, the tags project onto distinct screen columns (`x - y` differs), every tank is fed exactly once, the Ouest caption carries no total.
 - A `link` between the two bays is still not placed: the GTB's "Vue Production ECS CH EST / OUEST" buttons are navigation, and the synoptics index is that navigation.
 
+
+## The third plate: `synoptic/production-chaud.json`
+
+The old GTB drawing "PRODUCTION CHAUD" is the first view off the hot-water template: a district primary ("Depuis Bâtiment D") on the plate exchanger ECH EC04, regulated by a motorised valve on the primary return next to the heat meter; a secondary loop through an air separator and two twin pumps PEC-D2 / PEC-D3 in parallel; a supply collector feeding four circuits (ECS cuisine, change-over VCV RdC, CTA / radiateur / RAC, change-over VCV chambres) and a return collector; a dirt separator and the expansion vessel VEC 04 on the return, with a leg from the cold production joining at the vessel. The same VEC 04 is drawn on the "PRODUCTION FROID" view, so that leg is read as the pressure-balance line the two circuits share, a reading the drawing neither confirms nor denies. No P&ID of the sub-station exists in the project folder; the GTB view and its counter page are the only drawings. Plan view of the grid, `z` up:
+
+```
+ y=-25  [trunk top 16] ------- PEC-D2 A (22) ------------- [merge top 28]
+ y=-20  PRESSION 16 (suction D2)                            PRESSION 28 (discharge D2, y=-19)
+ y=-18  (16) ----------------- PEC-D2 B (22) ------------- (28)
+ y=-11  (16) ----------------- PEC-D3 A (22) ------------- (28)
+ y= -6  PRESSION 16 (suction D3)                            PRESSION 28 (discharge D3)
+ y= -4  (16) ----------------- PEC-D3 B (22) ------------- (28)
+ y= -3  [ECH 10] -- DÉPART 12 -- SÉPARATEUR 14 -- (16,-3)   (28,-3) --> [supply collector 30..68]
+ y= -1  [LINK -1] ==== DÉPART 4 ==== overhead 9..12 ==> (12,0)   departures at xs = 32, 44, 56, 68
+ y=  0  [LINK -1] <-- M 2 <-- CPT 4 <-- RETOUR 6 <-- [ECH 10]    each riser up to a jog on row -14 into a link at xs+6
+ y=  2  [ECH 10] <-- MANQUE D'EAU 14 <-- vase tee 24 <-- POT À BOUE 27 <-- [return collector 30..70]
+ y=  4        [EG link 19] --> (24,3) tee     [VEC 04 at 24]     returns at xs+2, meter at row -11, over the bar at z=1
+        change-over blocks: valves at (xs,-5), (xs,-7), (xs+2,-7); cold legs on row -9 from a link at xs-8 and to a link at xs+10
+```
+
+The primary enters the exchanger's `primary_in` and leaves its `primary_out` on the opposite face (the type's ports), so the exchanger sits at rotation 2 with its return running straight west to the link and its supply looping round to the east face, crossing the secondary's column overhead. The four heads are four `pump` symbols on four parallel branches of twelve cells, seven rows apart, between a trunk column and a merge column: the trunk ends where the top branch starts and the other three tee off it, every branch ends on the merge column, and the merge feeds the supply collector. Each circuit is a departure off the supply collector, a riser, a jog along `x` into a `link` and a return jog back, the return riser dropping to the return collector past the supply bar at `z = 1`. The two change-over circuits add the crossover the view draws: a second valve on the hot supply riser, one on the hot return riser, and a cold leg on each side to its own "VERS PRODUCTION EG" link, each through a valve. The old GTB's counter page names the counters (CPT-EC-ECH-04, CPT-EC-ECS CUISINE, CPT-EC-VCO, CPT-EC-CTA, CPT-EC-CHAMBRES), so the meters carry those names; the circuit meters sit on the return risers above the change-over tee, where the flow is the circuit's own, as the primary's meter sits on the primary return. The valves the view draws unnamed carry no name (a label would also replace the control valve's `M` mark), the bars carry no text, and the captions are the view's own words.
+
+### Bindings inventory
+
+| Element | Slot / tag | Device | Attribute | Format |
+|---|---|---|---|---|
+| `pompe-pec-d2-a` … `pompe-pec-d3-b` | `state` | `schneider_pompe_pec_e2a` / `_e2b` / `_e3a` / `_e3b` | `onoff_state` | MARCHE / ARRÊT |
+| | `speed` | same | `speed` | tr/min, 0 |
+| pipes `pec-*-branch` | `flow` | same | `onoff_state` | bool |
+| `cpt-ec-ech-04` | `energy` | `schneider_heat_meter_ec` | `energie` | Wh, 0. Inferred as the ballon meters' unit was: the driver declares none, the GTB's counter page showed CPT-EC-ECH-04 at 1 065 434 kWh on 2025-11-06 and the register read 1 311 988 992 on 2026-09-18, ten months and 246 555 kWh later. Ten raw digits on the chip; the register arrives as a BACnet float, quantised in its last digits. |
+| `tt-primaire-depart`, `tt-primaire-retour` | value | same meter | `tmpdepart`, `tmpretour` | °C, 1 |
+| `tt-secondaire-depart` | value | `schneider_prod_divers` | `echec_tmpdepart` | °C, 1 |
+| `tt-manque-eau` | value | same | `ec04_defmanqueeau` (BI7) | NORMAL / DÉFAUT, on the return under the separator where the view draws the switch |
+| `pot-a-boue` | `fault` | same | `ec04_defpotboue` (BI9) | NORMAL / DÉFAUT. The pot has no `device_id` (it is no device), so its glyph never takes the fault outline; its chip, like the MANQUE D'EAU tag's, follows `is_faulty` of the controller device it reads, so both frame red whenever any of that device's seven fault contacts is up, even while they read NORMAL |
+| `pression-*` (4) | value | none | the view's suction and discharge pressure per twin pump: no device exposes a pressure | `text`, "non mesurée", on the manifold columns at the twin's join |
+| `v-primaire` | `position` | none | the view's "Signal 93 %": no device exposes the valve's output, only its setpoint | `text`, "non mesurée" |
+| `tt-cuisine-*`, `tt-cta-*`, `tt-vcv-*-retour` (6) | value | none | no device reads these circuit temperatures | `text`, "non mesurée" |
+| `cpt-cuisine`, `cpt-vcv-rdc`, `cpt-cta`, `cpt-vcv-chambres` | `energy` | none | the counter page's CPT-EC-ECS CUISINE / VCO / CTA / CHAMBRES: on the controller's mirror before the 2026-09-04 split, on no device since | `text`, "non mesurée" |
+| `v-cuisine`, `v-cta` | `state` | none | no end switch for these two circuit valves | `text`, "non mesurée" |
+| `tt-vcv-rdc-depart`, `tt-vcv-chambres-depart`, the ten `v-vcv-*` valves | value, `state` | not yet | `schneider_circuits_ec_eg` reads two change-over departures (`vc_tmpdepart`, `vcv_tmpdepart`) and two pairs of valve end switches (`vcec_*`, `vceg_*`, `vcvec_*`, `vcveg_*`), and nothing says which of `vc` and `vcv` is the RdC circuit; both read the same value in cooling mode | `text`, "non identifiée" |
+
+Not on the view, so dropped rather than integrated: the heat meter's `puissance`, `debit`, `volume` and `deltat`; the pumps' head, flow, current, hours, starts, frequency, warnings and control registers; the pump electricity meters; the sub-station's discordance and cabinet alarms, the pump group fault (`ec04_defgmp`) and the alarm copies of the two bound contacts (`alamanqueeauec`, `alapotboueec`); the controller's setpoints and curves; everything of the cold production; the cabinet AEL-04E. None of those faults reaches the view's fault list: no symbol on the plate *is* one of the controller devices (Decision 7), and the exchanger has no device of its own; the four pumps and the heat meter are the plate's devices.
+
+### What the third plate taught
+
+- **A collector's obstacle is its cells, not its bounding box.** A bar of thirty cells drawn across the plate spans a box of about 1200 × 600 px that is mostly empty plate, and the renderer, which kept readouts off every body's box, could place nothing under or over it; the bays' shorter bars never showed it. The renderer now stands a bar as one box per cell, and its spec pins a tag hanging below its run under such a bar.
+- **A panel on an inline symbol needs room the 2:1 projection does not give on a lattice.** A run climbs at slope 1/2 through the corner spots of the readout search, so an inline pump with two bound slots (a 164 × 78 px panel) takes the spot below its body, three gaps out, and needs the next parallel branch further than that: seven rows between branches, and columns further than the panel reaches, twelve cells. The manifold's size is that cost, not the plant's.
+- **A tag on a riser has no spot.** Above a `y`-run lies the parallel riser two columns back, below it the run's own next piece, so the circuit temperatures ride the jogs along `x` at the top of each riser, as the bays' tags ride their `x`-runs.
+- **Two links per change-over block.** A `link` has one inlet and one outlet a cell apart; the cold supply joins the hot supply riser and the cold return leaves the hot return riser two columns away, so one link would cross a riser. Each leg has its own link, as the bays' cold water has.
+- **A readout on a riser two columns from another riser has no corner spot either**: the neighbour passes 80 px left and 40 px up of every cell, into the top-left ring. The change-over blocks put their circuits twelve columns apart and their cold legs four cells from the tees, so each of the five marked valves finds a spot; the renderer's spec now holds every chip of every plate clear of every run, panel and other chip, which is the test the first layout of this plate failed.
+- **The plate is 3760 × 1761 px**, seven tenths again the bays'; the first view is the whole plate, small, and the operator zooms (AGR-1164's call on the first plate holds).
+- **Every symbol type of the hydronic set but `pump_double` and `valve_check` is now placed.** The double pump stays registered and unplaced: each head is a device on the instance, and a symbol carries one `device_id`.
+- **What authoring cost**, the number the next view is measured against (AGR-1164): about 3 h 10 of agent time in one afternoon, 2026-09-18. Preflight 55 min (sources, instance facts, drawing inventory, report); plate, registry, renderer fix, tests and docs 60 min; a code-review fix pass 25 min; a simplification pass and the chip leader 30 min; PR, CI fix, claim audit and amend 20 min. About half of the authoring went into fourteen render-and-diagnose rounds against the readout search's unwritten limits, which are now written (this list and the visual language's open points). For comparison, the Ouest bay cost 2 h 10 of preflight and 4 h 50 of plate, tests and docs on 2026-09-17; the Est bay's cost was not recorded.
+
 ## Appendix — symbol types of the hydronic kit
 
-Input for the registry (AGR-1160) and the kit (AGR-1156, AGR-1159); the plates place all of them but `valve_check`. Footprints are `w × d` at rotation 0; port offsets are relative to the origin cell.
+Input for the registry (AGR-1160) and the kit (AGR-1156, AGR-1159); the plates place all of them but `valve_check` and `pump_double`. Footprints are `w × d` at rotation 0; port offsets are relative to the origin cell.
 
 | Type | Footprint | Inline | Ports (offset, side) | Slots | Props |
 |---|---|---|---|---|---|
@@ -267,10 +321,17 @@ Input for the registry (AGR-1160) and the kit (AGR-1156, AGR-1159); the plates p
 | `tank` | 1 × 2 | no | `primary_in` (0,0,−x), `primary_out` (0,1,−x), `dhw_out` (0,0,+x), `dhw_in` (0,1,+x) | `temperature` | `capacity: str` |
 | `collector` | 1 × `length` along `axis` | no | authored: `ports: {name: {offset: int, side}}`, names `in_<n>` / `out_<n>` | — | `axis: "x" \| "y"`, `length: int ≥ 2`, `ports` |
 | `mixing_valve` | 1 × 1 | no | `hot_in` (0,0,−x), `cold_in` (0,0,+y), `out` (0,0,+x) | `supply_temp` | — |
-| `pump` | 1 × 1 | yes | `in`, `out` (from the segment when inline) | `state` | — |
+| `pump` | 1 × 1 | yes | `in`, `out` (from the segment when inline) | `state`, `speed` | — |
 | `valve_isolation` | 1 × 1 | yes | `in`, `out` | `state` | — |
 | `valve_check` | 1 × 1 | yes | `in`, `out` | — | — |
+| `valve_control` | 1 × 1 | yes | `in`, `out` | `position` | — |
 | `link` | 1 × 2 | no | `in` (0,0,−x) flow leaving the plate, `out` (0,1,−x) flow entering it | — | `synoptic_id: str \| null`, `caption: str \| null` |
+| `plate_exchanger` | 1 × 1 | no | `primary_in` (0,0,−x), `primary_out` (0,0,+x), `secondary_in` (0,0,−y), `secondary_out` (0,0,+y) | — | — |
+| `air_separator` | 1 × 1 | yes | `in`, `out` | — | — |
+| `expansion_vessel` | 1 × 1 | no | `in` (0,0,−x) | — | — |
+| `dirt_separator` | 1 × 1 | yes | `in`, `out` | `fault` | — |
+| `pump_double` | 1 × 1 | yes | `in`, `out` | `state` | — |
+| `energy_meter` | 1 × 1 | yes | `in`, `out` | `energy` | — |
 | `loop_heater` | 1 × 1 | yes | `in`, `out` | `state`, `fault` | — |
 
 No slot is required on any of these types in v1: a panel with fewer bound rows is a smaller panel, the same rule the shipped AHU synoptic applies to its coils.
