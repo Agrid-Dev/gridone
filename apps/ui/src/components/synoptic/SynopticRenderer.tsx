@@ -924,7 +924,11 @@ function placeReadout(
     }));
   for (let gap = 1; gap <= PLACEMENT_RINGS; gap++) {
     const clear = boxed(gap).find(
-      ({ box }) => !others.some((o) => overlaps(box, o)),
+      ({ box }, i) =>
+        !others.some((o) => overlaps(box, o)) &&
+        // Only the spot hanging off the symbol's label may touch that label;
+        // any other spot must clear it like every other label.
+        (i === 0 || !ownLabel || !overlaps(box, ownLabel)),
     );
     if (clear) return clear;
   }

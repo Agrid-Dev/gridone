@@ -151,14 +151,13 @@ const plate = (name: string): Synoptic => ({
 });
 /** What each committed plate draws. Both bays share the template: two heat
  *  pumps with a panel each, the same two unread mitigeur readings, the
- *  energy counter under its caption; they differ in the tank grid, which
- *  the format's own suite pins, and the Ouest plate carries the panoplie
- *  its P&ID draws: two pumps and a loop heater, the last with a panel of
- *  its own on an inline glyph, the pump with a chip. Tees: the second PAC's
- *  return off the return loop on both, the bouclage branch on Est, the
- *  column-3 feed on Ouest. */
+ *  energy counter under its caption, and the panoplie their P&ID draws:
+ *  two pumps and a loop heater, the last with a panel of its own on an
+ *  inline glyph, the bouclage pump with a chip. They differ in the tank
+ *  grid, which the format's own suite pins. Tees: the second PAC's return
+ *  off the return loop on both, the column-3 feed on Ouest. */
 const PLATES = {
-  "ecs-est": { tees: 2, panels: 2, chips: 3 },
+  "ecs-est": { tees: 1, panels: 3, chips: 4 },
   "ecs-ouest": { tees: 2, panels: 3, chips: 4 },
 };
 const PLATE_CASES = Object.entries(PLATES);
@@ -754,13 +753,12 @@ describe("SynopticRenderer", () => {
         ["tt-depart", true],
         ["tt-retour", true],
       ]);
-      // Est: the PAC 04 return off the return loop and the bouclage branch off
-      // the loop return. Ouest: the PAC 02 return and the column-3 feed; its
-      // loop return runs whole into the bay.
+      // The second PAC's return off the return loop on both plates, plus the
+      // column-3 feed on Ouest; the loop return runs whole into the bay.
       expect(q(c, "circle[data-tee]")).toHaveLength(tees);
       expect(q(c, "[data-label]")).toHaveLength(5);
-      // The energy counter under its caption and the two tags; on Ouest also
-      // the bouclage pump's single marked state under its label.
+      // The energy counter under its caption, the two tags and the bouclage
+      // pump's single marked state under its label.
       expect(q(c, "[data-chip]")).toHaveLength(chips);
       expect(q(c, "[data-label='caption'] [data-chip]")).toHaveLength(1);
       expect(q(c, "polygon.fill-fluid-dhw").length).toBeGreaterThan(0);
@@ -780,6 +778,21 @@ describe("SynopticRenderer", () => {
       }
       for (const chip of q(c, "[data-tag] rect").map(box)) {
         expect(runs.every((run) => apart(chip, run))).toBe(true);
+      }
+      // A readout takes the first spot clear of everything already placed,
+      // symbol labels included (visual language, Decision 14): a chip sent
+      // beside its symbol because a run blocks the spot under the label
+      // must not land on that label.
+      const labels = q(c, "text[font-size='11'][font-weight='600']").map(
+        (t) => {
+          const x = Number(t.getAttribute("x"));
+          const y = Number(t.getAttribute("y"));
+          const half = textWidth(t.textContent ?? "", 11) / 2;
+          return { x0: x - half, y0: y - 11, x1: x + half, y1: y };
+        },
+      );
+      for (const chip of q(c, "[data-chip] rect").map(box)) {
+        expect(labels.every((label) => apart(chip, label))).toBe(true);
       }
     },
   );
