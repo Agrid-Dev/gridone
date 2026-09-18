@@ -31,12 +31,14 @@ export const ResourceHeader: FC<ResourceHeaderProps> = ({
   flush = false,
 }) => (
   <div className={cn(!flush && "pb-6 border-b border-border")}>
-    <div className="flex items-center justify-between gap-4">
-      <div className="flex min-w-0 items-center gap-3">
-        <TypographyH2>{title}</TypographyH2>
+    <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex min-w-0 flex-wrap items-center gap-3">
+        <TypographyH2 data-page-title tabIndex={-1}>
+          {title}
+        </TypographyH2>
         {status}
       </div>
-      <div className="flex shrink-0 justify-end gap-2">{actions}</div>
+      <div className="flex flex-wrap justify-end gap-2">{actions}</div>
     </div>
     {caption && (
       <div className="mt-1 max-w-2xl text-sm text-muted-foreground">

@@ -8,6 +8,7 @@ import {
   legendLabelStyle,
 } from "./constants";
 import { LegendSwatch } from "./LegendSwatch";
+import { SeriesLabel } from "./SeriesLabel";
 
 /** The legend band above a panel whose swatches stand for series — one entry
  *  per series, coloured by its position, shared by the line and bar panels
@@ -24,7 +25,9 @@ export const PanelLegend: FC<{
           variant={variant}
           dash={s.dash}
         />
-        <span style={legendLabelStyle}>{s.label}</span>
+        <span style={legendLabelStyle}>
+          <SeriesLabel series={s} />
+        </span>
       </div>
     ))}
   </div>

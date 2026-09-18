@@ -1,5 +1,5 @@
 import { type FC, type ReactNode, useMemo } from "react";
-import { Link } from "react-router";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui";
@@ -39,6 +39,7 @@ const TransportsListContainer: FC<{ children: ReactNode }> = ({ children }) => {
 };
 
 const TransportsList: FC = () => {
+  const can = usePermissions();
   const { t } = useTranslation(["transports", "common"]);
   const { transportsListQuery } = useTransports();
   const { devices, loading: devicesLoading } = useDevicesList();
@@ -85,8 +86,10 @@ const TransportsList: FC = () => {
         />
       ) : (
         <ResourceEmpty
-          resourceName="network"
-          showCreate={false}
+          resourceName={t("common:common.transport").toLowerCase()}
+          showCreate={can("transports:write")}
+          createTo="/transports/new"
+          createLabel={t("common:empty.create.transports")}
           title={t("empty")}
         />
       )}

@@ -8,6 +8,7 @@ import {
 } from "react";
 import type { MeResponse } from "@gridone/sdk";
 import { useGridoneClient } from "./GridoneClientContext";
+import { clearNavigation } from "@/lib/navigation";
 import { clearLoginReturn } from "@/lib/loginRedirect";
 
 type AuthState =
@@ -39,6 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     clearLoginReturn();
+    clearNavigation();
     await client.logout().catch(() => {});
     setState({ status: "unauthenticated" });
   }, [client]);

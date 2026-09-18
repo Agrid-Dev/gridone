@@ -48,7 +48,10 @@ export default function HistoryEventsTable() {
 
   // URL-synced pagination (1-based in URL, 0-based internally)
   const [searchParams, setSearchParams] = useSearchParams();
-  const pageIndex = Math.max(0, Number(searchParams.get("page") ?? "1") - 1);
+  const requestedPage = Number(searchParams.get("page") ?? "1");
+  const pageIndex = Number.isInteger(requestedPage)
+    ? Math.max(0, requestedPage - 1)
+    : 0;
 
   const handlePaginationChange = useCallback(
     (

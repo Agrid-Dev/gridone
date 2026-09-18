@@ -1,4 +1,5 @@
-import { useNavigate } from "react-router";
+import { useResourceNavigation } from "@/hooks/useResourceNavigation";
+import { markResourceDeleted } from "@/lib/navigation";
 import { useTranslation } from "react-i18next";
 import {
   useMutation,
@@ -8,7 +9,6 @@ import {
 import { toast } from "sonner";
 import type { Automation } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
-import { serverErrorMessage } from "@/lib/serverErrorMessage";
 
 /**
  * Fetches the automation under Suspense — an unknown id propagates as
@@ -17,7 +17,7 @@ import { serverErrorMessage } from "@/lib/serverErrorMessage";
  */
 export function useAutomation(automationId: string) {
   const { t } = useTranslation("automations");
-  const navigate = useNavigate();
+  const { back } = useResourceNavigation();
   const queryClient = useQueryClient();
   const client = useGridoneClient();
 
@@ -32,15 +32,15 @@ export function useAutomation(automationId: string) {
       queryClient.invalidateQueries({ queryKey: ["automations"] });
       queryClient.removeQueries({ queryKey: ["automations", automationId] });
       toast.success(t("toasts.deleted"));
-      navigate("/automations");
+      markResourceDeleted(`/automations/${automationId}`);
+      back("/automations");
     },
-    onError: (err: Error) =>
-      toast.error(serverErrorMessage(err) ?? t("toasts.saveError")),
+    onError: () => toast.error(t("toasts.saveError")),
   });
 
   return {
     automation,
-    remove: () => remove.mutate(),
+    remove: () => remove.mutateAsync(),
     isDeleting: remove.isPending,
   };
 }

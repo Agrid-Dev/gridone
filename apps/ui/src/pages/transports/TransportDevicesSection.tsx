@@ -1,5 +1,5 @@
 import { type FC, useMemo } from "react";
-import { Link } from "react-router";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
 import { ChevronRight, Cpu } from "lucide-react";
 import { Card } from "@/components/ui";
@@ -45,7 +45,10 @@ export const TransportDevicesSection: FC<{ transportId: string }> = ({
           {t("devicesSection.error")}
         </p>
       ) : sorted.length > 0 ? (
-        <div className="max-h-[30rem] divide-y overflow-y-auto">
+        <div
+          data-scroll-restoration="network-devices"
+          className="max-h-[30rem] divide-y overflow-y-auto"
+        >
           {sorted.map((device) => {
             const Icon = deviceTypeIcon(device.type) ?? Cpu;
             const asset = assetByDeviceId[device.id];

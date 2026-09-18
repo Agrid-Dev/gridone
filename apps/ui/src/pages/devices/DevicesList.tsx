@@ -1,5 +1,7 @@
-import { useState } from "react";
-import { Link, useSearchParams } from "react-router";
+import { useEntryState } from "@/hooks/useEntryState";
+import { DeviceSearchField } from "./DeviceSearchField";
+import { useSearchParams } from "react-router";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui";
 import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
@@ -30,7 +32,8 @@ export default function DevicesList() {
   const { t } = useTranslation(["devices", "common"]);
   const [, setSearchParams] = useSearchParams();
   const can = usePermissions();
-  const [view, setView] = useState<ResourceView>(
+  const [view, setView] = useEntryState<ResourceView>(
+    "devices.view",
     () => readStoredView(VIEW_STORAGE_KEY) ?? DEFAULT_VIEW,
   );
   const {
@@ -105,6 +108,7 @@ export default function DevicesList() {
       )}
 
       <div className="flex flex-wrap items-center gap-3">
+        <DeviceSearchField />
         <DeviceTypeChips counts={typeCounts} total={total} />
         <div className="ml-auto flex items-center gap-2">
           <HealthFilter />
@@ -128,7 +132,21 @@ export default function DevicesList() {
         <ResourceEmpty
           resourceName={t("common:common.device").toLowerCase()}
           filtered={hasFilters}
-          onClearFilters={() => setSearchParams({})}
+          title={hasFilters ? t("devices.search.empty") : undefined}
+          onClearFilters={() =>
+            setSearchParams(
+              (prev) => {
+                const next = new URLSearchParams(prev);
+                for (const key of ["search", "type", "health"])
+                  next.delete(key);
+                return next;
+              },
+              { replace: true },
+            )
+          }
+          showCreate={can("devices:write")}
+          createTo="/devices/new"
+          createLabel={t("devices.actions.add")}
         />
       ) : view === "grid" ? (
         <DevicesGrid groups={groups} zonePathOf={zonePathOf} />

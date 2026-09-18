@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Building2, CornerDownRight, Layers3, Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import type { AssetUsage } from "@gridone/sdk";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

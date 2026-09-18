@@ -2,7 +2,7 @@ import { commandFailureLabel } from "@/lib/commandFailure";
 import { CommandConfirmationBadge } from "@/components/CommandConfirmationBadge";
 import type { ReactNode } from "react";
 import { ColumnDef } from "@tanstack/react-table";
-import { Link } from "react-router";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import { TFunction } from "i18next";
 import { Check, Loader2, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";

@@ -1,4 +1,5 @@
-import { Link, useParams, useSearchParams } from "react-router";
+import { useParams, useSearchParams } from "react-router";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
 import type { DeviceView } from "@gridone/sdk";
 import { Button } from "@/components/ui/button";

@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useLocation } from "react-router";
 import { useTranslation } from "react-i18next";
 import { rememberLoginReturn } from "./lib/loginRedirect";
 import { locationUrl } from "./lib/navigation";
+import { useNavigationEntries } from "./hooks/useNavigationEntries";
 import Apps from "./pages/apps";
 import Assets from "./pages/assets";
 import Automations from "./pages/automations";
@@ -33,6 +34,7 @@ const DevicePresentationSandbox = lazy(
 
 function ProtectedLayout() {
   const { t } = useTranslation();
+  useNavigationEntries();
   const { data: profile } = useBuildingProfile();
   const sandboxEnabled = useFeatureEnabled("uiSandbox");
   const dashboardsEnabled = useFeatureEnabled("dashboards");

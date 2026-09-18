@@ -1,4 +1,5 @@
-import { Link, useNavigate } from "react-router";
+import { useResourceNavigation } from "@/hooks/useResourceNavigation";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
 import { Network } from "lucide-react";
 import type { Transport } from "@gridone/sdk";
@@ -61,12 +62,18 @@ function TransportRow({
   summary?: TransportDeviceSummary;
 }) {
   const { t } = useTranslation("transports");
-  const navigate = useNavigate();
+  const { open: navigate } = useResourceNavigation();
   const to = `/transports/${transport.id}`;
   const endpoint = transportEndpoint(transport);
 
   return (
-    <TableRow onClick={() => navigate(to)} className="cursor-pointer">
+    <TableRow
+      onClick={(event) => {
+        if (!(event.target as HTMLElement).closest("a,button,input,select"))
+          navigate(to);
+      }}
+      className="cursor-pointer"
+    >
       <TableCell className="py-2.5">
         <span className="flex items-center gap-2.5">
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
@@ -74,7 +81,7 @@ function TransportRow({
           </span>
           <Link
             to={to}
-            className="font-medium text-foreground hover:underline"
+            className="font-medium text-primary hover:underline focus-visible:underline"
             onClick={(event) => event.stopPropagation()}
           >
             {transport.name}

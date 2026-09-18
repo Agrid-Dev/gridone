@@ -1,5 +1,5 @@
 import { GroupCommandDialog } from "@/components/group-command/GroupCommandDialog";
-import { Link } from "react-router";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
 import { ArrowRight, Check, Loader2, TriangleAlert, X } from "lucide-react";
 import type { CommandStatus, Device } from "@gridone/sdk";
@@ -93,6 +93,7 @@ export function GroupedCommandReview({
         )}
         {!awaitingAttribute && (
           <div
+            data-scroll-restoration="command-results"
             className="max-h-[min(28rem,45vh)] overflow-y-auto rounded-lg border"
             aria-live={tracking ? "polite" : "off"}
           >
@@ -107,7 +108,12 @@ export function GroupedCommandReview({
                 return (
                   <li key={device.id} className="p-4 space-y-2">
                     <p className="text-sm font-medium">
-                      {device.name || device.id}
+                      <Link
+                        to={`/devices/${device.id}`}
+                        className="text-primary hover:underline focus-visible:underline"
+                      >
+                        {device.name || device.id}
+                      </Link>
                     </p>
                     {tracking ? (
                       <>
@@ -141,7 +147,14 @@ export function GroupedCommandReview({
               })}
               {actions.addedCommands.map((command) => (
                 <li key={command.id} className="p-4 space-y-2">
-                  <p className="text-sm font-medium">{command.device_id}</p>
+                  <p className="text-sm font-medium">
+                    <Link
+                      to={`/devices/${command.device_id}`}
+                      className="text-primary hover:underline focus-visible:underline"
+                    >
+                      {command.device_id}
+                    </Link>
+                  </p>
                   <CommandStatusLabel status={command.status} />
                 </li>
               ))}
@@ -161,7 +174,14 @@ export function GroupedCommandReview({
             <ul className="mt-2 space-y-2">
               {excluded.map((device) => (
                 <li key={device.id} className="flex justify-between gap-3">
-                  <span>{device.name || device.id}</span>
+                  <span>
+                    <Link
+                      to={`/devices/${device.id}`}
+                      className="text-primary hover:underline focus-visible:underline"
+                    >
+                      {device.name || device.id}
+                    </Link>
+                  </span>
                   <span>
                     {t(
                       deviceAttributes(device)[payload.write.attribute]

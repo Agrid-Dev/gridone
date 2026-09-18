@@ -1,6 +1,6 @@
 import { useMemo, useState, type FC } from "react";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import { ArrowUpRight, TriangleAlert } from "lucide-react";
 import type { Device } from "@gridone/sdk";
 import {

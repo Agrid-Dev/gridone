@@ -3,15 +3,15 @@ import { ErrorBoundary } from "react-error-boundary";
 import { Card } from "@/components/ui";
 import { Badge } from "@/components/ui/badge";
 import type { Device } from "@gridone/sdk";
-import {
-  ConnectionStatus,
-  deviceAttributes,
-  getConnectionStatus,
-} from "@/lib/devices";
-import { Link } from "react-router";
+import { deviceAttributes, getConnectionStatus } from "@/lib/devices";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import { DeviceTypeChip } from "@/components/DeviceTypeChip";
 import { DeviceFaultBadge } from "@/components/DeviceFaultBadge";
-import { ConnectionStatusIcon } from "@/components/ConnectionStatusBadge";
+import { useResourceNavigation } from "@/hooks/useResourceNavigation";
+import {
+  ConnectionStatusIcon,
+  ConnectionStatusValue,
+} from "@/components/ConnectionStatusBadge";
 import { useCanSeeConnectionStatus } from "@/hooks/useCanSeeConnectionStatus";
 import { getStandardDeviceEntry } from "./standard-devices/registry";
 
@@ -41,23 +41,29 @@ function DefaultCardContent({ device }: { device: Device }) {
 }
 
 export function DeviceCard({ device }: { device: Device }) {
+  const { open } = useResourceNavigation();
   const standardEntry = getStandardDeviceEntry(device.type);
   const Content = standardEntry?.Preview ?? DefaultCardContent;
   const connectionStatus = getConnectionStatus(device);
   const canSeeConnectionStatus = useCanSeeConnectionStatus();
-  const showConnectionIssue =
-    canSeeConnectionStatus &&
-    (connectionStatus === ConnectionStatus.Degraded ||
-      connectionStatus === ConnectionStatus.Error);
 
   return (
-    <Link to={`/devices/${device.id}`} className="group block h-full">
-      <Card className="card-glow flex h-full flex-col justify-between gap-2 p-4 transition-all duration-200 hover:-translate-y-0.5">
+    <div className="group block h-full">
+      <Card
+        onClick={(event) => {
+          if (!(event.target as HTMLElement).closest("a,button,input"))
+            open(`/devices/${device.id}`);
+        }}
+        className="card-glow flex h-full flex-col justify-between gap-2 p-4 transition-all duration-200 hover:-translate-y-0.5"
+      >
         {/* ── Header (generic) ── */}
         <div>
           <div className="flex items-center gap-1.5">
-            {showConnectionIssue && (
-              <ConnectionStatusIcon status={connectionStatus} />
+            {canSeeConnectionStatus && (
+              <span className="inline-flex items-center gap-1 text-xs">
+                <ConnectionStatusIcon status={connectionStatus} />
+                <ConnectionStatusValue status={connectionStatus} />
+              </span>
             )}
             <DeviceFaultBadge device={device} />
             <span className="ml-auto">
@@ -65,7 +71,10 @@ export function DeviceCard({ device }: { device: Device }) {
             </span>
           </div>
           <h2 className="mt-0.5 min-w-0 truncate font-display text-base font-semibold text-card-foreground">
-            {device.name || device.id}
+            <Link to={`/devices/${device.id}`}>
+              {device.name || device.id}
+              <span aria-hidden> →</span>
+            </Link>
           </h2>
         </div>
 
@@ -74,6 +83,6 @@ export function DeviceCard({ device }: { device: Device }) {
           <Content device={device} />
         </ErrorBoundary>
       </Card>
-    </Link>
+    </div>
   );
 }

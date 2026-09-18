@@ -13,6 +13,14 @@ import type { ColorMode } from "./themeColors";
 /** "plan" turns the isolated storey into a top-down 2D floor plan. */
 type ViewMode = "3d" | "plan";
 
+/** Navigation selection only; camera poses and uncommitted changes are excluded. */
+export type ViewerSelection = {
+  selectedId: string | null;
+  focusedLevelId: string | null;
+  viewMode: ViewMode;
+  panelExpanded: boolean;
+};
+
 /** Depths the breadcrumb can pop back to, from the whole building inwards —
  *  the same layers Escape peels. The selected room is not one of them: it is
  *  where the viewer already is. */
@@ -62,30 +70,52 @@ export function useViewerState({
   levels,
   spaceStoreys,
   scene,
+  initialSelection,
+  onSelectionChange,
 }: {
   levels: LevelSummary[];
   /** Storey of every space, by global id. */
   spaceStoreys: ReadonlyMap<string, string>;
   /** The loaded scene graph — a new object means a regenerated model. */
   scene: Group | null;
+  initialSelection?: ViewerSelection | null;
+  onSelectionChange?: (selection: ViewerSelection) => void;
 }) {
   const [hover, setHover] = useState<HoverInfo | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [focusedLevelId, setFocusedLevelId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(
+    initialSelection?.selectedId ?? null,
+  );
+  const [focusedLevelId, setFocusedLevelId] = useState<string | null>(
+    initialSelection?.focusedLevelId ?? null,
+  );
   // The building arrives whole — facade up, the way its owner knows it. The
   // explode control is what opens it into an operational view.
   const [exploded, setExploded] = useState(false);
   const [showFacade, setShowFacade] = useState(true);
   const [showMarkers, setShowMarkers] = useState(false);
   const [colorMode, setColorMode] = useState<ColorMode>("temperature");
-  const [panelExpanded, setPanelExpanded] = useState(prefersExpandedPanel);
-  const [viewMode, setViewMode] = useState<ViewMode>("3d");
+  const [panelExpanded, setPanelExpanded] = useState(
+    () => initialSelection?.panelExpanded ?? prefersExpandedPanel(),
+  );
+  const [viewMode, setViewMode] = useState<ViewMode>(
+    initialSelection?.viewMode ?? "3d",
+  );
+  const previousScene = useRef(scene);
   const [viewRequest, setViewRequest] = useState<ViewRequest | null>(null);
   const [revealedDevice, setRevealedDevice] = useState<RevealedDevice | null>(
     null,
   );
   const nonceRef = useRef(0);
   const planStoreyId = viewMode === "plan" ? focusedLevelId : null;
+
+  useEffect(() => {
+    onSelectionChange?.({
+      selectedId,
+      focusedLevelId,
+      viewMode,
+      panelExpanded,
+    });
+  }, [selectedId, focusedLevelId, viewMode, panelExpanded, onSelectionChange]);
 
   const requestView = useCallback(
     (kind: ViewRequest["kind"], zoneId?: string) => {
@@ -196,7 +226,9 @@ export function useViewerState({
   // A regenerated model swaps the scene object: close the plan before the
   // new scene's instant first-frame fit stomps the orthographic pose.
   useEffect(() => {
-    setViewMode("3d");
+    if (previousScene.current && previousScene.current !== scene)
+      setViewMode("3d");
+    previousScene.current = scene;
   }, [scene]);
 
   // The new model may not contain the focused storey at all.

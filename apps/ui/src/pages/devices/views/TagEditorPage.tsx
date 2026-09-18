@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import { usePermissions } from "@/contexts/AuthContext";
 import { NotFoundFallback } from "@/components/fallbacks/NotFound";
 import { ResourceHeader } from "@/components/ResourceHeader";

@@ -1,3 +1,7 @@
+import { createI18nMock } from "@/test/i18nMock";
+import { BackLink } from "@/components/BackLink";
+import { clearNavigation } from "@/lib/navigation";
+import { useNavigationEntries } from "@/hooks/useNavigationEntries";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   act,
@@ -9,10 +13,9 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { createMemoryRouter, RouterProvider } from "react-router";
+import { createMemoryRouter, Outlet, RouterProvider } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type Device } from "@gridone/sdk";
-import { createI18nMock } from "@/test/i18nMock";
 import NewCommandPage from "./NewCommandPage";
 
 const mocks = vi.hoisted(() => ({
@@ -180,13 +183,36 @@ function unitCommand(id: string, status = "pending") {
     created_at: "2026-09-11T00:00:00Z",
   };
 }
+function NavigationFrame() {
+  useNavigationEntries();
+  return (
+    <main id="main-content">
+      <Outlet />
+    </main>
+  );
+}
 function mount(url: string | string[] = "/devices/commands/new") {
   const entries = Array.isArray(url) ? url : [url];
   const router = createMemoryRouter(
     [
-      { path: "/devices/commands/new", element: <NewCommandPage /> },
-      { path: "/devices/:deviceId/commands/new", element: <NewCommandPage /> },
-      { path: "/assets/:assetId/commands/new", element: <NewCommandPage /> },
+      {
+        element: <NavigationFrame />,
+        children: [
+          { path: "/devices/commands/new", element: <NewCommandPage /> },
+          {
+            path: "/devices/:deviceId",
+            element: <BackLink to="/devices/commands/new">Back</BackLink>,
+          },
+          {
+            path: "/devices/:deviceId/commands/new",
+            element: <NewCommandPage />,
+          },
+          {
+            path: "/assets/:assetId/commands/new",
+            element: <NewCommandPage />,
+          },
+        ],
+      },
     ],
     { initialEntries: entries, initialIndex: entries.length - 1 },
   );
@@ -211,6 +237,8 @@ async function chooseAttribute(name = "setpoint") {
 }
 
 beforeEach(() => {
+  clearNavigation();
+  vi.spyOn(window, "scrollTo").mockImplementation(() => {});
   vi.clearAllMocks();
   mocks.assetsError = null;
   mocks.devices = [device("1"), device("2")];
@@ -714,3 +742,24 @@ async function confirmReview() {
     await within(dialog).findByRole("button", { name: "Close results" }),
   );
 }
+
+it("returns to the same executed batch without preparing or sending it again", async () => {
+  const { router } = mount(
+    "/devices/commands/new?scope=building&mode=filters&attribute=setpoint&value=23",
+  );
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: "Dispatch now" })).toBeEnabled(),
+  );
+  await userEvent.click(screen.getByRole("button", { name: "Dispatch now" }));
+  await confirmReview();
+  await screen.findByText("Success");
+  await userEvent.click(screen.getByRole("link", { name: "Device 1" }));
+  expect(router.state.location.pathname).toBe("/devices/1");
+  await userEvent.click(screen.getByRole("link"));
+  expect(await screen.findByText("Dispatch results")).toBeVisible();
+  expect(await screen.findByText("Success")).toBeVisible();
+  expect(await screen.findByText("Failed")).toBeVisible();
+  expect(mocks.preview).toHaveBeenCalledTimes(1);
+  expect(mocks.confirm).toHaveBeenCalledTimes(1);
+  expect(mocks.dispatch).not.toHaveBeenCalled();
+});

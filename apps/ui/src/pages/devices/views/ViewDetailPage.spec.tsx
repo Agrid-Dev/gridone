@@ -1,3 +1,4 @@
+import { clearNavigation } from "@/lib/navigation";
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -42,6 +43,7 @@ vi.mock("./TagGroupControls", () => ({
   ),
 }));
 beforeEach(() => {
+  clearNavigation();
   vi.clearAllMocks();
   api.canWrite = true;
   api.get.mockResolvedValue({
@@ -124,10 +126,10 @@ describe("tag drilldown", () => {
   it("deletes display settings with no device mutation", async () => {
     api.delete.mockResolvedValue(undefined);
     setup();
-    await screen.findByRole("button", { name: "views.delete" });
-    fireEvent.click(screen.getByRole("button", { name: "views.delete" }));
+    await screen.findByRole("button", { name: "common.delete" });
+    fireEvent.click(screen.getByRole("button", { name: "common.delete" }));
     fireEvent.click(
-      screen.getAllByRole("button", { name: "views.delete" }).at(-1)!,
+      screen.getAllByRole("button", { name: "common.delete" }).at(-1)!,
     );
     await screen.findByText("All views");
     expect(api.delete).toHaveBeenCalledWith("building");
@@ -182,10 +184,10 @@ describe("tag drilldown", () => {
     api.bulkTags.mockResolvedValue([{ device_id: "a", status: "changed" }]);
     setup();
     fireEvent.click(
-      await screen.findByRole("button", { name: "groups.delete" }),
+      await screen.findByRole("button", { name: "common.delete" }),
     );
     fireEvent.click(
-      screen.getAllByRole("button", { name: "groups.delete" }).at(-1)!,
+      screen.getAllByRole("button", { name: "common.delete" }).at(-1)!,
     );
     await screen.findByText("All views");
     expect(api.bulkTags).toHaveBeenCalledWith({
@@ -218,10 +220,10 @@ describe("tag drilldown", () => {
     api.bulkTags.mockResolvedValue([{ device_id: "a", status: "failed" }]);
     setup();
     fireEvent.click(
-      await screen.findByRole("button", { name: "groups.delete" }),
+      await screen.findByRole("button", { name: "common.delete" }),
     );
     fireEvent.click(
-      screen.getAllByRole("button", { name: "groups.delete" }).at(-1)!,
+      screen.getAllByRole("button", { name: "common.delete" }).at(-1)!,
     );
     await screen.findByRole("alert");
     expect(api.delete).not.toHaveBeenCalled();

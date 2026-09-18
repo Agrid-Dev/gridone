@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { Axis, AreaSeries, XYChart } from "@visx/xychart";
+import { SeriesLabel } from "../SeriesLabel";
 import { curveStepAfter } from "@visx/curve";
 
 import type {
@@ -94,7 +95,9 @@ export function StringPanel({
           swatch restating it — a mode panel reads "Mode  heat  auto  cool"
           instead of "Mode: heat  Mode: auto  Mode: cool". */}
       <div style={legendStyle}>
-        <span style={legendSeriesLabelStyle}>{series.label}</span>
+        <span style={legendSeriesLabelStyle}>
+          <SeriesLabel series={series} />
+        </span>
         {renderItems.map((item) => (
           <div key={item.dataKey} style={legendItemStyle}>
             <LegendSwatch color={item.color} variant="area" />

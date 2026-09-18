@@ -161,7 +161,12 @@ export function parseRangeParams(
 
   const start = searchParams.get("start");
   const end = searchParams.get("end");
-  if (start || end) {
+  if (
+    (start || end) &&
+    (!start || Number.isFinite(Date.parse(start))) &&
+    (!end || Number.isFinite(Date.parse(end))) &&
+    (!start || !end || Date.parse(start) < Date.parse(end))
+  ) {
     return { kind: "custom", start: start ?? "", end: end ?? "" };
   }
 

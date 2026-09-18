@@ -1,5 +1,5 @@
 import { type ReactNode } from "react";
-import { Link } from "react-router";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { TrendingUp } from "lucide-react";
@@ -42,7 +42,7 @@ export const ChangeEventPresenter = ({ trigger }: { trigger: Trigger }) => {
         {deviceId ? (
           <Link
             to={`/devices/${encodeURIComponent(deviceId)}`}
-            className="hover:underline"
+            className="text-primary hover:underline focus-visible:underline"
           >
             {device?.name ?? t("triggers.unknownDevice")}
           </Link>
