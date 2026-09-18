@@ -270,8 +270,14 @@ export function EditorCanvas({
   }, [points.length, selection, finish, onCancel, onDelete, onRotate]);
 
   // One drag for whichever symbol is grabbed; the grab keeps the offset
-  // between the pointer's cell and the origin so the body does not jump.
-  const grab = useRef<{ id: string; offset: Pt; z: number } | null>(null);
+  // between the pointer's cell and the origin so the body does not jump,
+  // and the origin itself so a cancelled gesture puts the body back.
+  const grab = useRef<{
+    id: string;
+    origin: Cell;
+    offset: Pt;
+    z: number;
+  } | null>(null);
   const move = useSvgDrag({
     threshold: DRAG_THRESHOLD,
     frame: frameRef,
@@ -289,6 +295,8 @@ export function EditorCanvas({
       grab.current = null;
     },
     onCancel: () => {
+      const g = grab.current;
+      if (g) onMove(g.id, g.origin);
       grab.current = null;
     },
   });
@@ -479,6 +487,7 @@ export function EditorCanvas({
                   const at = toCell(e.clientX, e.clientY, z);
                   grab.current = {
                     id: symbol.id,
+                    origin: { x: origin.x, y: origin.y, z },
                     z,
                     offset: { x: at.x - origin.x, y: at.y - origin.y },
                   };

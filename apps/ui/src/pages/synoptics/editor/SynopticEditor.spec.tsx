@@ -74,6 +74,16 @@ Object.defineProperty(SVGElement.prototype, "getScreenCTM", {
   configurable: true,
   value: () => ({ inverse: () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }) }),
 });
+for (const method of ["setPointerCapture", "releasePointerCapture"]) {
+  Object.defineProperty(SVGElement.prototype, method, {
+    configurable: true,
+    value: () => {},
+  });
+}
+Object.defineProperty(SVGElement.prototype, "hasPointerCapture", {
+  configurable: true,
+  value: () => false,
+});
 vi.stubGlobal(
   "DOMPoint",
   class {
@@ -352,6 +362,44 @@ describe("SynopticEditor", () => {
     ).toBeNull();
     // The document-level one is not the element's and stays.
     expect(screen.getByText("pipes: too many cells")).toBeTruthy();
+  });
+
+  it("puts a symbol back where it was when the gesture moving it is cancelled", async () => {
+    const api = renderEditor("/synoptics/ouest/edit");
+    await screen.findByDisplayValue(PLATE.name);
+    const hit = document.querySelector(
+      "[data-editor-symbol='b01'] rect[fill='transparent']",
+    )!;
+    const at = (x: number, y: number) => {
+      const p = project("isometric", x + 0.5, y + 0.5);
+      return { clientX: p.x, clientY: p.y };
+    };
+    fireEvent.pointerDown(hit, { button: 0, pointerId: 1, ...at(10, 0) });
+    fireEvent.pointerMove(window, { pointerId: 1, ...at(13, 2) });
+    // Mutant: clearing the grab alone leaves the tank at (13,2).
+    fireEvent.pointerCancel(window, { pointerId: 1 });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await screen.findByText("detail");
+    const tank = api.replace.mock.calls[0][1].symbols.find(
+      (s: SymbolElement) => s.id === "b01",
+    );
+    expect(tank.placement.cell).toEqual({ x: 10, y: 0, z: 0 });
+  });
+
+  it("forgets a document-level violation once the name is edited", async () => {
+    const api = renderEditor("/synoptics/new");
+    await screen.findByDisplayValue("Untitled plate");
+    api.create.mockRejectedValueOnce(
+      new GridoneError(422, [
+        { loc: ["body", "name"], msg: "too short", type: "string_too_short" },
+      ]),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await screen.findByText("name: too short");
+    fireEvent.change(screen.getByDisplayValue("Untitled plate"), {
+      target: { value: "Cold production" },
+    });
+    expect(screen.queryByText("name: too short")).toBeNull();
   });
 
   it("asks before Cancel throws away unsaved work, and not otherwise", async () => {

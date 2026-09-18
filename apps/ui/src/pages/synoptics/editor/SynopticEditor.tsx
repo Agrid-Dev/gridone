@@ -187,7 +187,8 @@ const Editor: FC<EditorProps> = ({ initial, stored }) => {
   const errorIds = useMemo(() => new Set(errors.byElement.keys()), [errors]);
 
   // Unsaved work is held in this page alone: a reload or a close warns,
-  // as the dashboard layout editor does, and Cancel asks first.
+  // as the dashboard layout editor does, and Cancel asks first. A sidebar
+  // link does not: the app runs on BrowserRouter, which has no blocker.
   const dirty = doc !== initial;
   useEffect(() => {
     if (!dirty) return;
@@ -213,7 +214,11 @@ const Editor: FC<EditorProps> = ({ initial, stored }) => {
             aria-label={t("editor.name")}
             className="w-80 text-lg font-semibold"
             value={doc.name}
-            onChange={(e) => setDoc((d) => ({ ...d, name: e.target.value }))}
+            onChange={(e) => {
+              setDoc((d) => ({ ...d, name: e.target.value }));
+              // A document-level violation (an empty name) is being fixed.
+              setErrors((err) => ({ ...err, document: [] }));
+            }}
           />
         }
         actions={
