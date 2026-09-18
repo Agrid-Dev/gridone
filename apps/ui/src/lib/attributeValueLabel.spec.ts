@@ -9,6 +9,8 @@ import {
 } from "./attributeValueLabel";
 
 const LABELS: Record<string, string> = {
+  "common.true": "True",
+  "common.false": "False",
   "common.hvacMode.heat": "Heating",
   "common.hvacMode.fan": "Fan",
   "common.hvacMode.auto": "Auto",
@@ -130,8 +132,8 @@ describe("attributeValueText", () => {
   });
 
   it("renders a boolean", () => {
-    expect(attributeValueText("occupancy", true, t)).toBe("true");
-    expect(attributeValueText("occupancy", false, t)).toBe("false");
+    expect(attributeValueText("occupancy", true, t)).toBe("True");
+    expect(attributeValueText("occupancy", false, t)).toBe("False");
   });
 
   it("renders null as an em dash", () => {

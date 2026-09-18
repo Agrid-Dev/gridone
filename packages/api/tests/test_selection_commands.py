@@ -19,6 +19,7 @@ from devices_manager.core.driver import AttributeDriver
 from devices_manager.core.write_preview import DeviceWritePreview
 from devices_manager.dto import Device, DriverSpec
 from devices_manager.types import TransportProtocols
+from models.attribute_metadata import LocalizedText
 from models.errors import InvalidError, NotFoundError
 from models.resource_conflict import ResourceConflictError
 from models.types import DataType
@@ -319,3 +320,103 @@ async def test_changed_warning_requires_a_new_preview(context):
             SelectionCommandConfirm(token=preview.token, device_ids=["a"]), "operator"
         )
     commands.dispatch_batch.assert_not_awaited()
+
+
+def add_confirmation(dm):
+    message = LocalizedText(
+        default="This can disconnect the device",
+        translations={"fr": "Cette action peut déconnecter l'équipement"},
+    )
+    dm.get_driver.return_value.attributes[0].user_confirmation = message
+    dm.preview_device_write.side_effect = lambda id_, *_args: DeviceWritePreview(
+        device_id=id_,
+        name=id_,
+        current_value=20 if id_ == "a" else None,
+        current_value_known=id_ == "a",
+        eligible=True,
+        user_confirmation=message,
+    )
+    return message
+
+
+async def test_confirmed_group_records_the_presented_context_per_target(context):
+    coordinator, dm, commands, _ = context
+    message = add_confirmation(dm)
+    preview = prepare(coordinator)
+    await coordinator.confirm(
+        SelectionCommandConfirm(
+            token=preview.token,
+            device_ids=["a", "b"],
+            confirmation_language="fr-CA",
+        ),
+        "operator",
+    )
+    contexts = commands.dispatch_batch.call_args.kwargs["ui_confirmations"]
+    assert contexts["a"].message == message.resolve("fr")
+    assert contexts["a"].previous_value == 20
+    assert contexts["a"].previous_value_known
+    assert contexts["b"].previous_value is None
+    assert not contexts["b"].previous_value_known
+
+
+async def test_non_ui_confirmation_never_invents_context(context):
+    coordinator, dm, commands, _ = context
+    add_confirmation(dm)
+    preview = prepare(coordinator)
+    await coordinator.confirm(
+        SelectionCommandConfirm(token=preview.token, device_ids=["a"]), "operator"
+    )
+    assert "ui_confirmations" not in commands.dispatch_batch.call_args.kwargs
+
+
+async def test_unit_token_without_a_presented_warning_cannot_invent_ui_consent(context):
+    coordinator, _, commands, _ = context
+    preview = prepare(coordinator, device_ids=["a"])
+    with pytest.raises(InvalidError, match="No UI confirmation was presented"):
+        coordinator.consume_unit_confirmation(
+            preview.token, "operator", "a", "setpoint", 25, "en"
+        )
+    commands.dispatch_unit.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    "change", ["warning", "target", "value", "user", "guards", "expired"]
+)
+async def test_unit_consent_is_bound_to_presented_action(context, change, monkeypatch):
+    coordinator, dm, commands, _ = context
+    add_confirmation(dm)
+    preview = prepare(coordinator, device_ids=["a"])
+    if change == "warning":
+        dm.get_driver.return_value.attributes[0].user_confirmation = LocalizedText(
+            default="Different consequence"
+        )
+    if change == "guards":
+        dm.preview_device_write.side_effect = lambda id_, *_: DeviceWritePreview(
+            device_id=id_, name=id_, current_value=20, eligible=False
+        )
+    if change == "expired":
+        monkeypatch.setattr(selection_commands, "PREVIEW_TTL_SECONDS", -1)
+    with pytest.raises((ResourceConflictError, NotFoundError)):
+        coordinator.consume_unit_confirmation(
+            preview.token,
+            "other" if change == "user" else "operator",
+            "b" if change == "target" else "a",
+            "setpoint",
+            26 if change == "value" else 25,
+            "en",
+        )
+    commands.dispatch_unit.assert_not_awaited()
+
+
+async def test_unit_consent_is_consumed_once_and_keeps_old_value(context):
+    coordinator, dm, _, _ = context
+    add_confirmation(dm)
+    preview = prepare(coordinator, device_ids=["a"])
+    context = coordinator.consume_unit_confirmation(
+        preview.token, "operator", "a", "setpoint", 25, "en"
+    )
+    assert context.previous_value == 20
+    with pytest.raises(ResourceConflictError):
+        coordinator.consume_unit_confirmation(
+            preview.token, "operator", "a", "setpoint", 25, "en"
+        )

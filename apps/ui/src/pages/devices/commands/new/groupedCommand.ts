@@ -1,10 +1,29 @@
 import type { AttributeLike } from "@/components/device-ui/runtime/controls";
 import { z } from "zod";
-import type { AttributeCoverage, Device } from "@gridone/sdk";
-import { deviceAttributes, type AttributeValue } from "@/lib/devices";
+import type {
+  AttributeCoverage,
+  Device,
+  AttributeWritePayload,
+  BatchDispatchResponse,
+} from "@gridone/sdk";
+import {
+  deviceAttributes,
+  type AttributeValue,
+  type DevicesFilter,
+} from "@/lib/devices";
 import { resolveConstraints } from "@/components/device-ui/runtime/controls";
 
-export const GROUPED_COMMAND_CONFIRMATION_THRESHOLD = 10;
+export type CommandPayload = {
+  target: DevicesFilter;
+  write: AttributeWritePayload;
+};
+export type DispatchSnapshot = {
+  payload: CommandPayload;
+  devices: Device[];
+  result?: BatchDispatchResponse;
+  empty?: boolean;
+  error?: Error;
+};
 export const commandValueSchema = z.object({
   value: z
     .union([z.string().min(1), z.number().finite(), z.boolean()])

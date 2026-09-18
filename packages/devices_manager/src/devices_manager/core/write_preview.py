@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from pydantic import BaseModel, Field
 
 from devices_manager.types import AttributeValueType  # noqa: TC001 -- pydantic schema
+from models.attribute_metadata import LocalizedText  # noqa: TC001 -- pydantic schema
 from models.write_rules import (
     AttributeWriteState,
     ResolvedConstraints,
@@ -28,6 +29,10 @@ class DeviceWritePreview(BaseModel):
     warnings: list[WriteReason] = Field(default_factory=list)
     write_state: AttributeWriteState | None = None
     revision: int = 0
+    user_confirmation: LocalizedText | None = None
+    current_value_known: bool = False
+    attribute_label: LocalizedText | None = None
+    unit: str | None = None
 
 
 def preview_write(
@@ -50,6 +55,10 @@ def preview_write(
         device_id=device.id,
         name=device.name,
         current_value=attribute.current_value,
+        current_value_known=attribute.current_value is not None,
+        user_confirmation=attribute.user_confirmation,
+        attribute_label=attribute.label,
+        unit=attribute.unit,
         eligible=evaluation.eligible,
         value=evaluation.value,
         constraints=attribute.write_state.constraints

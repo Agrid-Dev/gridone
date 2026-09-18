@@ -10,6 +10,7 @@ from commands.models import (
     UnitCommand,
 )
 from commands.storage.postgres.deserialize import deserialize_command_value
+from models.command_confirmation import UIConfirmationContext
 from models.errors import NotFoundError
 from models.targets import DevicesFilter
 from models.types import DataType, SortOrder
@@ -65,6 +66,9 @@ class PostgresCommandsStorage:
             created_at=row["created_at"],
             executed_at=row["executed_at"],
             completed_at=row["completed_at"],
+            ui_confirmation=UIConfirmationContext.model_validate(row["ui_confirmation"])
+            if row.get("ui_confirmation")
+            else None,
             validation=WriteEvaluation.model_validate(row["validation"])
             if row.get("validation")
             else None,
@@ -76,8 +80,10 @@ class PostgresCommandsStorage:
             INSERT INTO unit_commands
                 (batch_id, template_id, device_id, attribute, value, data_type,
                  status, status_details, user_id, created_at,
-                 executed_at, completed_at, validation, requested_value)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                 executed_at, completed_at, validation, requested_value,
+                 ui_confirmation)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
+                    $13, $14, $15)
             RETURNING *
             """,
             command.batch_id,
@@ -94,6 +100,9 @@ class PostgresCommandsStorage:
             command.completed_at,
             command.validation.model_dump(mode="json") if command.validation else None,
             command.value,
+            command.ui_confirmation.model_dump(mode="json")
+            if command.ui_confirmation
+            else None,
         )
         return self._row_to_command(row)
 
@@ -108,8 +117,10 @@ class PostgresCommandsStorage:
                     INSERT INTO unit_commands
                         (batch_id, template_id, device_id, attribute, value, data_type,
                          status, status_details, user_id, created_at,
-                         executed_at, completed_at, validation, requested_value)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                         executed_at, completed_at, validation, requested_value,
+                         ui_confirmation)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
+                            $13, $14, $15)
                     RETURNING *
                     """,
                     cmd.batch_id,
@@ -126,6 +137,9 @@ class PostgresCommandsStorage:
                     cmd.completed_at,
                     cmd.validation.model_dump(mode="json") if cmd.validation else None,
                     cmd.value,
+                    cmd.ui_confirmation.model_dump(mode="json")
+                    if cmd.ui_confirmation
+                    else None,
                 )
                 result.append(self._row_to_command(row))
         return result

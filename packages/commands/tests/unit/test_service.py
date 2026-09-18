@@ -16,7 +16,9 @@ from commands.models import (
     WriteResult,
 )
 from commands.service import CommandsService
+from models.command_confirmation import UIConfirmationContext
 from models.errors import (
+    ConfirmationError,
     InvalidError,
     NotFoundError,
     StorageConnectionError,
@@ -33,6 +35,56 @@ pytestmark = pytest.mark.asyncio
 
 
 MODE_AUTO = AttributeWrite(attribute="mode", value="auto", data_type=DataType.STRING)
+
+
+@pytest.mark.parametrize(
+    "failure", [None, OSError("offline"), ConfirmationError("no echo")]
+)
+async def test_ui_context_is_durable_before_transport(service, device_writer, failure):
+    context = UIConfirmationContext(
+        message="May disconnect",
+        language="en",
+        previous_value="manual",
+        previous_value_known=True,
+    )
+
+    async def write(*_args: object, **_kwargs: object) -> WriteResult:
+        commands = (await service.get_commands()).items
+        assert len(commands) == 1
+        assert commands[0].status == CommandStatus.PENDING
+        assert commands[0].ui_confirmation == context
+        assert commands[0].user_id == "authenticated-user"
+        assert commands[0].created_at.tzinfo is not None
+        if failure:
+            raise failure
+        return WriteResult(last_changed=None)
+
+    device_writer.side_effect = write
+    if failure:
+        with pytest.raises(type(failure)):
+            await service.dispatch_unit(
+                device_id="d1",
+                write=MODE_AUTO,
+                user_id="authenticated-user",
+                ui_confirmation=context,
+            )
+    else:
+        await service.dispatch_unit(
+            device_id="d1",
+            write=MODE_AUTO,
+            user_id="authenticated-user",
+            ui_confirmation=context,
+        )
+    record = (await service.get_commands()).items[0]
+    assert record.ui_confirmation == context
+    assert record.status == (CommandStatus.ERROR if failure else CommandStatus.SUCCESS)
+    assert record.status_details == (
+        "unconfirmed"
+        if isinstance(failure, ConfirmationError)
+        else "unreachable"
+        if failure
+        else None
+    )
 
 
 @pytest.fixture

@@ -45,6 +45,8 @@ vi.mock("react-i18next", () =>
       "presentation.increase": "Increase {{name}}",
       "presentation.decrease": "Decrease {{name}}",
       "presentation.range": "{{min}} to {{max}}",
+      "common.false": "False",
+      "common.true": "True",
       "groups.chooseTarget": "Choose target",
       "groups.absoluteTarget": "Choose a target for {{attribute}}",
       "groups.stageTarget": "Add setpoint",
@@ -190,7 +192,7 @@ function setup() {
 function expectReportedValues() {
   const rows = screen.getAllByRole("definition");
   expect(rows.some((row) => within(row).queryByText("22"))).toBe(true);
-  expect(rows.some((row) => within(row).queryByText("false"))).toBe(true);
+  expect(rows.some((row) => within(row).queryByText("False"))).toBe(true);
   for (const member of members) {
     expect(member.attributes?.setpoint.current_value).toBe(22);
     expect(member.attributes?.power.current_value).toBe(false);

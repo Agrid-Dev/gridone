@@ -4,6 +4,7 @@ import pytest
 
 from devices_manager.core.driver import AttributeRef, WriteConstraints
 from devices_manager.core.write_preview import preview_write
+from models.attribute_metadata import LocalizedText
 
 
 @pytest.mark.parametrize(
@@ -23,6 +24,22 @@ def test_preview_uses_write_contract_without_changing_values(
     assert [r.code for r in result.reasons][:1] == ([reason] if reason else [])
     assert result.eligible == (reason is None)
     assert device.get_attribute("temperature_setpoint").current_value == before
+
+
+def test_preview_projects_user_confirmation_through_public_device_path(device):
+    spec = device.driver.attributes["temperature_setpoint"]
+    spec.user_confirmation = LocalizedText(
+        default="This setting can interrupt communication",
+        translations={"fr": "Ce réglage peut interrompre la communication"},
+    )
+    device.rebuild_attribute("temperature_setpoint")
+    attribute = device.get_attribute("temperature_setpoint")
+    attribute.update_value(21)
+    assert attribute.user_confirmation == spec.user_confirmation
+    preview = preview_write(device, "temperature_setpoint", 23)
+    assert preview.current_value == 21
+    assert preview.current_value_known
+    assert preview.user_confirmation == spec.user_confirmation
 
 
 @pytest.mark.parametrize(

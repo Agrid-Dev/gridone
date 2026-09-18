@@ -1,3 +1,4 @@
+import { GroupCommandDialog } from "@/components/group-command/GroupCommandDialog";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 import { ArrowRight, Check, Loader2, TriangleAlert, X } from "lucide-react";
@@ -12,20 +13,10 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { deviceAttributes } from "@/lib/devices";
 import { serverErrorMessage } from "@/lib/serverErrorMessage";
 import { constraintWarnings, type CommandDisplay } from "./groupedCommand";
-import type { CommandPayload } from "./useGroupedDispatch";
+import type { CommandPayload } from "./groupedCommand";
 import type { GroupedCommandActions } from "./useGroupedCommandActions";
 
 type Props = {
@@ -259,36 +250,7 @@ export function GroupedCommandReview({
             </Popover>
           </div>
         )}
-        <AlertDialog
-          open={!!actions.confirmation}
-          onOpenChange={(open) => {
-            if (!open) actions.cancelConfirmation();
-          }}
-        >
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>
-                {t("commands.grouped.confirmTitle")}
-              </AlertDialogTitle>
-              <AlertDialogDescription>
-                {actions.confirmation &&
-                  t("commands.grouped.confirmDescription", {
-                    attribute: display.label,
-                    value: actions.confirmation.payload.write.value,
-                    unit: display.unit ?? "",
-                    count: actions.confirmation.devices.length,
-                    scope: display.scope,
-                  })}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>{t("common:common.cancel")}</AlertDialogCancel>
-              <AlertDialogAction onClick={actions.confirmDispatch}>
-                {t("commands.new.dispatch")}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        <GroupCommandDialog command={actions.groupCommand} />
       </CardContent>
     </Card>
   );

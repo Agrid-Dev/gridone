@@ -33,6 +33,7 @@ _OMITTED_WHEN_NONE = (
     "value_options",
     "label",
     "description",
+    "user_confirmation",
     "group",
     "unit",
     "write_constraints",
@@ -58,6 +59,7 @@ class Attribute(BaseModel):
     # Presentation metadata and write constraints, copied from the driver.
     label: LocalizedText | None = None
     description: LocalizedText | None = None
+    user_confirmation: LocalizedText | None = None
     group: AttributeGroup | None = None
     unit: Unit | None = None
     write_constraints: WriteConstraints | None = None

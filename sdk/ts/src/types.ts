@@ -351,3 +351,6 @@ export type DevicesFilter = Schemas["DevicesFilter"];
 export type AttributeWriteState = Schemas["AttributeWriteState"];
 export type WriteReason = Schemas["WriteReason"];
 export type ResolvedOption = Schemas["ResolvedOption"];
+
+export type SingleCommandPreview = Schemas["SingleCommandPreview"];
+export type UIConfirmationContext = Schemas["UIConfirmationContext"];

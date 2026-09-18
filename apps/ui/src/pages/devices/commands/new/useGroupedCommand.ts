@@ -17,7 +17,7 @@ import {
   useCommandSelection,
   type CommandSelection,
 } from "./useCommandSelection";
-import type { CommandPayload } from "./useGroupedDispatch";
+import type { CommandPayload } from "./groupedCommand";
 
 type Args = {
   devices: Device[];

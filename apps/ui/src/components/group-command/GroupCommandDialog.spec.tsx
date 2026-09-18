@@ -147,6 +147,43 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("manual group confirmation", () => {
+  it("shows each localized consequence and accepts all selected actions once", async () => {
+    api.preview.mockResolvedValue({
+      ...preview(),
+      members: [
+        {
+          ...member("a"),
+          user_confirmation: {
+            default: "Disconnects",
+            translations: { fr: "Coupe la communication" },
+          },
+        },
+        {
+          ...member("b"),
+          user_confirmation: { default: "Restarts the device" },
+          current_value: null,
+          current_value_known: true,
+        },
+      ],
+    });
+    setup();
+    fireEvent.click(screen.getByText("Prepare"));
+    expect(
+      await screen.findByText("Coupe la communication"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Restarts the device")).toBeInTheDocument();
+    expect(api.confirm).not.toHaveBeenCalled();
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Apply to 2" }));
+    await waitFor(() =>
+      expect(api.confirm).toHaveBeenCalledExactlyOnceWith({
+        token: "token",
+        device_ids: ["a", "b"],
+        confirmation_language: "fr",
+      }),
+    );
+  });
+
   it("keeps live recipient outcomes visible until the user closes the dialog", async () => {
     const commands = ["a", "b"].map((device_id, index) => ({
       id: index + 1,

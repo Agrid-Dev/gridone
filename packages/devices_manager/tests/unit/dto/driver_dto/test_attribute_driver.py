@@ -28,6 +28,44 @@ def test_attribute_schema_from_dict() -> None:
     assert attribute_dto.polling_group is None
 
 
+@pytest.mark.parametrize(
+    "message",
+    [
+        {},
+        {"default": " "},
+        {"default": "x", "extra": True},
+        {"default": "x", "translations": {"french": "x"}},
+    ],
+)
+def test_invalid_user_confirmation_is_rejected(message):
+    with pytest.raises(ValidationError):
+        AttributeDriver.model_validate(
+            {
+                "name": "network",
+                "data_type": "str",
+                "read_write": "/network",
+                "user_confirmation": message,
+            }
+        )
+
+
+def test_user_confirmation_roundtrips():
+    raw = {
+        "name": "network",
+        "data_type": "str",
+        "read_write": "/network",
+        "user_confirmation": {
+            "default": "May disconnect",
+            "translations": {"fr": "Peut déconnecter"},
+        },
+    }
+    driver = AttributeDriver.model_validate(raw)
+    exported = driver.model_dump(mode="json")
+    assert exported["user_confirmation"] == raw["user_confirmation"]
+    restored = AttributeDriver.model_validate(exported)
+    assert restored.user_confirmation == driver.user_confirmation
+
+
 def test_attribute_schema_polling_group() -> None:
     data = {
         "name": "temperature",

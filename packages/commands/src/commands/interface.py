@@ -15,6 +15,7 @@ if TYPE_CHECKING:
         CommandTemplatePatch,
         UnitCommand,
     )
+    from models.command_confirmation import UIConfirmationContext
     from models.pagination import Page, PaginationParams
     from models.targets import DevicesFilter
 
@@ -22,7 +23,7 @@ if TYPE_CHECKING:
 class CommandsServiceInterface(Protocol):
     # -- dispatch --
 
-    async def dispatch_unit(
+    async def dispatch_unit(  # noqa: PLR0913
         self,
         *,
         device_id: str,
@@ -30,6 +31,7 @@ class CommandsServiceInterface(Protocol):
         user_id: str,
         confirm: bool = True,
         batch_id: str | None = None,
+        ui_confirmation: UIConfirmationContext | None = None,
     ) -> UnitCommand: ...
 
     async def dispatch_batch(
@@ -39,6 +41,7 @@ class CommandsServiceInterface(Protocol):
         write: AttributeWrite,
         user_id: str,
         confirm: bool = True,
+        ui_confirmations: dict[str, UIConfirmationContext] | None = None,
     ) -> BatchCommandDispatch: ...
 
     async def dispatch_from_template(

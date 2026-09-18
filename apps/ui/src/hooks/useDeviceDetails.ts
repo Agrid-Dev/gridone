@@ -63,6 +63,10 @@ export function useDeviceDetails(device: Device) {
         name,
         parsedValue as string | number | boolean,
       );
+      if (outcome.kind === "cancelled") {
+        handleDraftChange(name, attribute.current_value);
+        return;
+      }
       if (outcome.kind !== "ok") throw new Error(outcome.message);
       const updated =
         queryClient.getQueryData<Device>(["device", deviceId]) ?? device;

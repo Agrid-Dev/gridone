@@ -33,6 +33,7 @@ if TYPE_CHECKING:
         DeviceWriter,
     )
     from commands.storage.protocol import CommandsStorage
+    from models.command_confirmation import UIConfirmationContext
     from models.targets import TargetResolver
 
 logger = logging.getLogger(__name__)
@@ -174,7 +175,7 @@ class CommandsService(Service):
             return WriteEvaluation(eligible=True, value=write.value)
         return self._command_validator(device_id, write.attribute, write.value)
 
-    async def dispatch_unit(
+    async def dispatch_unit(  # noqa: PLR0913
         self,
         *,
         device_id: str,
@@ -182,6 +183,7 @@ class CommandsService(Service):
         user_id: str,
         confirm: bool = True,
         batch_id: str | None = None,
+        ui_confirmation: UIConfirmationContext | None = None,
     ) -> UnitCommand:
         """Dispatch a command to a single device, awaiting the result before returning.
 
@@ -198,6 +200,7 @@ class CommandsService(Service):
                 device_id=device_id,
                 attribute=write.attribute,
                 value=write.value,
+                ui_confirmation=ui_confirmation,
                 data_type=write.data_type,
                 status=CommandStatus.PENDING
                 if evaluation.eligible
@@ -221,6 +224,7 @@ class CommandsService(Service):
         write: AttributeWrite,
         user_id: str,
         confirm: bool = True,
+        ui_confirmations: dict[str, UIConfirmationContext] | None = None,
     ) -> BatchCommandDispatch:
         """Fan-out a command to the devices matched by *target*.
 
@@ -234,7 +238,10 @@ class CommandsService(Service):
             user_id,
         )
         return await self.dispatch_template(
-            template=ephemeral, user_id=user_id, confirm=confirm
+            template=ephemeral,
+            user_id=user_id,
+            confirm=confirm,
+            ui_confirmations=ui_confirmations,
         )
 
     async def dispatch_from_template(
@@ -252,7 +259,12 @@ class CommandsService(Service):
         )
 
     async def dispatch_template(
-        self, *, template: CommandTemplate, user_id: str, confirm: bool = True
+        self,
+        *,
+        template: CommandTemplate,
+        user_id: str,
+        confirm: bool = True,
+        ui_confirmations: dict[str, UIConfirmationContext] | None = None,
     ) -> BatchCommandDispatch:
         """Resolve the template's target, persist PENDING unit commands, and
         spawn the per-device writes in the background. Shared by
@@ -284,6 +296,7 @@ class CommandsService(Service):
                     device_id=device_id,
                     attribute=template.write.attribute,
                     value=template.write.value,
+                    ui_confirmation=(ui_confirmations or {}).get(device_id),
                     data_type=template.write.data_type,
                     status=CommandStatus.PENDING
                     if evaluations[device_id].eligible

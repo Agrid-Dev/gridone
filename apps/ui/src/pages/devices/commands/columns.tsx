@@ -1,4 +1,5 @@
 import { commandFailureLabel } from "@/lib/commandFailure";
+import { CommandConfirmationBadge } from "@/components/CommandConfirmationBadge";
 import type { ReactNode } from "react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Link } from "react-router";
@@ -104,7 +105,10 @@ export function buildCommandColumns(
         const value = row.original.value;
         const dataType = row.original.data_type;
         return (
-          <span className="tabular-nums">{formatValue(value, dataType)}</span>
+          <span className="inline-flex items-center gap-2 tabular-nums">
+            {formatValue(value, dataType)}
+            <CommandConfirmationBadge command={row.original} />
+          </span>
         );
       },
     },

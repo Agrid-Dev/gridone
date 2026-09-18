@@ -68,6 +68,7 @@ def _metadata_kwargs(attribute_driver: AttributeDriver) -> dict[str, Any]:
     return {
         "label": attribute_driver.label,
         "description": attribute_driver.description,
+        "user_confirmation": attribute_driver.user_confirmation,
         "group": attribute_driver.group,
         "unit": attribute_driver.unit,
         "write_constraints": attribute_driver.write_constraints,

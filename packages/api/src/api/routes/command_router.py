@@ -24,6 +24,8 @@ from api.schemas.command import (
     BatchDeviceCommand,
     BatchDispatchResponse,
     CommandsQuery,
+    DevicesFilterBody,
+    SingleCommandPreview,
     SingleDeviceCommand,
     get_commands_query,
 )
@@ -46,7 +48,6 @@ from commands import (
     UnitCommand,
 )
 from devices_manager import DevicesServiceInterface
-from devices_manager.core.write_preview import DeviceWritePreview
 from models.errors import InvalidError
 from models.pagination import Page, PaginationParams
 from models.resource_conflict import ResourceConflictCode, ResourceConflictError
@@ -227,10 +228,31 @@ async def preview_single_command(
     device_id: str,
     body: SingleDeviceCommand,
     dm: DevicesServiceInterface = Depends(get_device_manager),
-) -> DeviceWritePreview:
+    coordinator: SelectionCommands = Depends(get_selection_commands),
+    user_id: str = Depends(get_current_user_id),
+) -> SingleCommandPreview:
+    """Prepare optional UI consent while retaining synchronous unit-write outcomes.
+
+    A one-device selection reuses the same bound, expiring preview contract as
+    grouped commands. Its token is consumed by the synchronous unit dispatch:
+    live controls await the write/read-back outcome rather than polling a batch.
+    """
     # The preview reads and expires loop-owned device state: it must run on the
     # event loop like every other route, never in a worker thread.
-    return dm.preview_device_write(device_id, body.attribute, body.value)
+    preview = dm.preview_device_write(device_id, body.attribute, body.value)
+    token = None
+    if preview.eligible and preview.user_confirmation is not None:
+        prepared = coordinator.prepare(
+            SelectionCommandPrepare(
+                target=DevicesFilterBody(ids=[device_id]),
+                attribute=body.attribute,
+                value=body.value,
+            ),
+            user_id,
+        )
+        preview = prepared.members[0]
+        token = prepared.token
+    return SingleCommandPreview(**preview.model_dump(), confirmation_token=token)
 
 
 @router.post(
@@ -244,6 +266,7 @@ async def dispatch_single_command(
     resolver: TargetResolver = Depends(get_target_resolver),
     commands_svc: CommandsServiceInterface = Depends(get_commands_service),
     user_id: str = Depends(get_current_user_id),
+    coordinator: SelectionCommands = Depends(get_selection_commands),
 ) -> UnitCommand:
     dm.get_device(device_id)  # raises NotFoundError → 404 if unknown
     resolved = await resolver.resolve(
@@ -252,6 +275,16 @@ async def dispatch_single_command(
         ),
         writable=False,
     )
+    context = None
+    if body.ui_confirmation_token is not None:
+        context = coordinator.consume_unit_confirmation(
+            body.ui_confirmation_token,
+            user_id,
+            device_id,
+            body.attribute,
+            body.value,
+            body.confirmation_language or "en",
+        )
     return await commands_svc.dispatch_unit(
         device_id=device_id,
         write=AttributeWrite(
@@ -259,6 +292,7 @@ async def dispatch_single_command(
         ),
         user_id=user_id,
         confirm=body.confirm,
+        ui_confirmation=context,
     )
 
 

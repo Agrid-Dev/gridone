@@ -27,6 +27,7 @@ from commands.storage.postgres import (
     build_postgres_storage,
 )
 from models.attribute_metadata import LocalizedText
+from models.command_confirmation import UIConfirmationContext
 from models.errors import NotFoundError
 from models.targets import DevicesFilter
 from models.types import DataType, SortOrder
@@ -41,6 +42,27 @@ pytestmark = [
 
 
 MODE_AUTO = AttributeWrite(attribute="mode", value="auto", data_type=DataType.STRING)
+
+
+async def test_confirmation_context_roundtrips_before_and_after_failure(storage):
+    command = _unit()
+    command.ui_confirmation = UIConfirmationContext(
+        message="May disconnect",
+        language="en",
+        previous_value=None,
+        previous_value_known=False,
+    )
+    saved = await storage.save_command(command)
+    assert saved.ui_confirmation == command.ui_confirmation
+    await storage.update_command_status(
+        saved.id,
+        CommandStatus.ERROR,
+        status_details="unconfirmed",
+        completed_at=datetime.now(UTC),
+    )
+    restored = (await storage.get_commands_by_ids([saved.id]))[0]
+    assert restored.ui_confirmation == command.ui_confirmation
+    assert restored.status_details == "unconfirmed"
 
 
 def _unit(  # noqa: PLR0913

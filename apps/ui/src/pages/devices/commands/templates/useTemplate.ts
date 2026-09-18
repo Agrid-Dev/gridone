@@ -11,11 +11,7 @@ import { toast } from "sonner";
 import { type CommandTemplateResponse, type Device } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { serverErrorMessage } from "@/lib/serverErrorMessage";
-import {
-  devicesFilterToListParams,
-  isTagTarget,
-  type DevicesFilter,
-} from "@/lib/devices";
+import { devicesFilterToListParams, type DevicesFilter } from "@/lib/devices";
 import { useAssetTree } from "@/hooks/useAssetTree";
 
 /** Encapsulates everything the template detail page needs: the template
@@ -48,18 +44,6 @@ export function useTemplate(templateId: string) {
   });
 
   const groupCommand = useGroupCommand(target);
-
-  const execute = useMutation({
-    mutationFn: () => client.devices.commandTemplates.dispatch(templateId),
-    onSuccess: (result) => {
-      toast.success(t("commands.templates.executed"));
-      queryClient.invalidateQueries({ queryKey: ["commands"] });
-      navigate(`/devices/commands?batch_id=${result.batch_id}`);
-    },
-    onError: (err) =>
-      toast.error(serverErrorMessage(err) ?? t("common:errors.default")),
-  });
-
   const remove = useMutation({
     mutationFn: () => client.devices.commandTemplates.delete(templateId),
     onSuccess: () => {
@@ -78,14 +62,12 @@ export function useTemplate(templateId: string) {
     isResolving: resolvedDevices.isLoading,
     groupCommand,
     execute: () =>
-      isTagTarget(target)
-        ? void groupCommand.prepare(
-            template.write.attribute,
-            template.write.value,
-            target,
-          )
-        : execute.mutate(),
-    isExecuting: execute.isPending || groupCommand.busy,
+      groupCommand.prepare(
+        template.write.attribute,
+        template.write.value,
+        target,
+      ),
+    isExecuting: groupCommand.busy,
     remove: () => remove.mutate(),
     isRemoving: remove.isPending,
   };

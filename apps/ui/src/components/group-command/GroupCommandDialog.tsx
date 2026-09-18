@@ -287,6 +287,11 @@ function PreparedWrite({
                             )}
                           </span>
                         )}
+                        {row.user_confirmation && (
+                          <p className="mt-2 whitespace-pre-wrap font-normal text-amber-700">
+                            {localize(row.user_confirmation, i18n.language)}
+                          </p>
+                        )}
                         {!!row.warnings?.length && (
                           <p
                             role="status"

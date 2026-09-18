@@ -149,6 +149,92 @@ write rule disables the control and refuses the API command without any `blocked
 Reserve `blocked_when` for purely graphical blocking; presentation visibility never
 forbids an API command.
 
+## Human confirmation in the UI
+
+An attribute can declare `user_confirmation` using the same `LocalizedText`
+contract as its label (a nonempty `default`, optional `translations`). The text
+must describe the actual consequence of the change. It is plain text, never an
+expression or value-interpolated template. Nothing is inferred from a group,
+attribute name or manufacturer.
+
+```yaml
+- name: network_mode
+  data_type: str
+  read_write: /network/mode
+  user_confirmation:
+    default: Changing this setting can disconnect the device until its network configuration is updated.
+    translations:
+      fr: Cette modification peut déconnecter l'équipement jusqu'à la mise à jour de sa configuration réseau.
+```
+
+Live controls wait for the final 600 ms debounced intention before opening a
+dialog. The dialog shows the target, setting, previous known value, requested
+value and consequence. The control remains locked during review. Cancel, Escape,
+close and navigation discard the intention. No write slot or command is created
+until consent. Generic attribute forms use the same gate. Group commands show
+each member's warning in their existing review, with one consent for the selected
+targets and values.
+
+Single-device preview responses include a `confirmation_token` when a warning
+applies. The UI submits it as `ui_confirmation_token`, with
+`confirmation_language` (English by default if omitted). Group confirmations optionally send
+`confirmation_language` with their existing token. Tokens bind the authenticated
+user, target, requested value and driver write contract; changes require a fresh
+review. Every transport write still revalidates server guards. API, CLI and
+automation clients may omit this evidence. It is independent of `confirm`, which
+controls device read-back verification.
+
+The single-device path intentionally waits for the unit command outcome so live
+controls can show success or failure directly. It reuses the grouped coordinator's
+one-device preview and token validation. Group confirmation dispatches a batch in
+the background and the UI tracks each recipient. Sending a language on a group
+confirmation opts into recording UI evidence; non-UI callers can omit it.
+
+Secret attributes and changes to command lifecycle timestamps require separate
+designs; `user_confirmation` does not protect or mask values.
+
+### Verify the confirmation flow
+
+Use a disposable device or HTTP simulator whose received writes can be counted.
+Declare the localized warning above on one writable attribute, and keep a second
+writable attribute without a warning. Repeat these checks in French and English
+using the language selector in the account menu:
+
+1. On a live control, click increment several times within 600 ms. Review must
+   show the final requested value. Cancel, Escape and the close button must
+   restore the reported value without creating a command or a transport write.
+   Confirm must produce exactly one write, even after a double click.
+2. Delay the preview response for the ordinary attribute. Further clicks must
+   remain possible; the final queued value must still be sent. A warning preview
+   superseded by a newer click must be discarded before opening a dialog.
+3. Open the generic command form from a writable attribute. Enter a value and
+   submit it: review must precede the send. The new-command page and saved
+   templates use this same per-device review for every target size, including
+   attributes without a warning. Confirmation submits the reviewed token.
+4. In command history, open the shield beside a confirmed value. Check the exact
+   warning and before/after values. In device history, open the command author
+   indicator on a recorded change; the evidence appears in the same popover.
+5. Make the simulator accept a write but stop responding to read-back. The
+   command must retain its confirmation evidence and report failure or missing
+   verification. Its history must not claim that the device was unchanged.
+
+No UI evidence is added to ordinary API or automation writes. A driver reload,
+changed guard or expired token requires a fresh review; it never bypasses the
+server's normal write validation.
+
+Command history stores optional `ui_confirmation` with the accepted localized
+message and previous value (explicitly known or unknown). The unit command
+already carries the target, attribute, requested value, authenticated user and
+server timestamp. Both single and batch paths persist these rows before transport.
+Existing records and non-UI writes have no invented confirmation context.
+
+Command timestamps keep their existing meaning: `executed_at` is assigned when
+an eligible command is saved, not proof that a transport write occurred. This
+applies equally to old and new rows. Server validation records refusals; stable
+failure codes distinguish transport failures from missing read-back. A failed
+reply cannot prove whether the physical device changed.
+Confirmation evidence is informational, not a hardware protection mechanism.
+
 ## Budgets and rollout
 
 The server owns limits: expression depth 16, 64 rules per attribute, 256 list/table

@@ -6,6 +6,10 @@ repo_name: Agrid-Dev/gridone
 
 docs_dir: src
 
+validation:
+  nav:
+    omitted_files: warn
+
 theme:
   name: material
   custom_dir: src/overrides
@@ -92,6 +96,7 @@ nav:
       - Codecs: reference/driver-schema/codecs.md
       - Update Strategy: reference/driver-schema/update-strategy.md
       - Health Check: reference/driver-schema/healthcheck.md
+      - Command Validation: reference/driver-schema/command-validation.md
     - Devices: reference/devices.md
     - Device Presentations: reference/device-presentations.md
     - Standard Devices: reference/standard-devices.md

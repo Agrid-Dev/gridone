@@ -40,7 +40,8 @@ export function useDebouncedAttributeWrite({
   useEffect(() => {
     for (const name of requested.current) {
       const state = runtime.snapshot(name);
-      if (state.pending || state.write.kind === "sending") continue;
+      if (state.pending || state.confirming || state.write.kind === "sending")
+        continue;
       requested.current.delete(name);
       onDraftChange(name, state.reported);
       if (state.write.kind === "error" || state.write.kind === "unconfirmed")
@@ -56,7 +57,7 @@ export function useDebouncedAttributeWrite({
   }, [runtime, runtime.version, onDraftChange, t]);
   const request = useCallback(
     (name: string, value: DraftValue, immediate: boolean) => {
-      if (value === null) return;
+      if (value === null || runtime.snapshot(name).confirming) return;
       requested.current.add(name);
       onDraftChange(name, value);
       runtime.request(name, value, { immediate });
@@ -74,7 +75,9 @@ export function useDebouncedAttributeWrite({
   const isSaving = useCallback(
     (name: string) => {
       const state = runtime.snapshot(name);
-      return state.pending || state.write.kind === "sending";
+      return (
+        state.pending || !!state.confirming || state.write.kind === "sending"
+      );
     },
     [runtime, runtime.version],
   );

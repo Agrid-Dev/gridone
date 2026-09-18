@@ -68,9 +68,43 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+it("reviews a warning on an explicit-id template before any dispatch", async () => {
+  api.preview.mockImplementation(async (request) => ({
+    ...request,
+    token: "warned",
+    members: [
+      {
+        device_id: "a",
+        name: "A",
+        current_value: 20,
+        eligible: true,
+        user_confirmation: { default: "May disconnect" },
+      },
+    ],
+  }));
+  const { result } = setup({ ids: ["a"] });
+  await act(async () => {
+    await result.current.execute();
+  });
+  expect(api.dispatch).not.toHaveBeenCalled();
+  expect(api.confirm).not.toHaveBeenCalled();
+  expect(api.preview).toHaveBeenCalledTimes(1);
+  expect(result.current.groupCommand.preview).not.toBeNull();
+  await act(async () => {
+    await result.current.groupCommand.confirm();
+  });
+  expect(api.confirm).toHaveBeenCalledExactlyOnceWith({
+    token: "warned",
+    device_ids: ["a"],
+    confirmation_language: "fr",
+  });
+});
+
 it("keeps a tag template's result dialog on the detail page until manually closed", async () => {
   const { result } = setup({ tags: { group: ["comfort"] } });
-  act(() => result.current.execute());
+  await act(async () => {
+    await result.current.execute();
+  });
   await waitFor(() => expect(result.current.groupCommand.busy).toBe(false));
   await act(async () => {
     await result.current.groupCommand.confirm();
@@ -84,14 +118,20 @@ it("keeps a tag template's result dialog on the detail page until manually close
   expect(api.dispatch).not.toHaveBeenCalled();
 });
 
-it("preserves navigation to history for a directly dispatched template", async () => {
+it("confirms an ordinary template with the same reviewed token", async () => {
   const { result } = setup({ ids: ["a"] });
-  act(() => result.current.execute());
-  await waitFor(() =>
-    expect(api.navigate).toHaveBeenCalledWith(
-      "/devices/commands?batch_id=sent",
-    ),
-  );
-  expect(api.dispatch).toHaveBeenCalledWith("template");
-  expect(api.preview).not.toHaveBeenCalled();
+  await act(async () => {
+    await result.current.execute();
+  });
+  expect(api.confirm).not.toHaveBeenCalled();
+  await act(async () => {
+    await result.current.groupCommand.confirm();
+  });
+  expect(api.confirm).toHaveBeenCalledExactlyOnceWith({
+    token: "preview",
+    device_ids: ["a"],
+  });
+  expect(api.dispatch).not.toHaveBeenCalled();
+  expect(api.preview).toHaveBeenCalledTimes(1);
+  expect(api.navigate).not.toHaveBeenCalled();
 });

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useCallback, useMemo, useRef, useState } from "react";
 import {
   hashKey,
@@ -68,6 +69,7 @@ function preparationKey(request: SelectionCommandPrepare): string {
 
 export function useGroupCommand(target: DevicesFilter) {
   const client = useGridoneClient();
+  const { i18n } = useTranslation();
   const cache = useQueryClient();
   const inFlight = useRef(false);
   const uncertainPreparations = useRef(
@@ -205,6 +207,9 @@ export function useGroupCommand(target: DevicesFilter) {
           const batch = await client.devices.confirmCommand({
             token: item.preview!.token,
             device_ids: item.selected,
+            ...(item.preview!.members.some((row) => row.user_confirmation)
+              ? { confirmation_language: i18n.language || "en" }
+              : {}),
           });
           uncertainPreparations.current.delete(preparationKey(item.request));
           updatePreparation(item.write.attribute, {
