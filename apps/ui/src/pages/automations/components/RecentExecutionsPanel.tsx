@@ -1,5 +1,5 @@
 import { History } from "lucide-react";
-import { Link } from "react-router";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
 import { Card } from "@/components/ui/card";
 import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";

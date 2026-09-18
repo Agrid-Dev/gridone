@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
@@ -16,6 +16,7 @@ import { toSearchString } from "@/lib/pagination";
 import { useDevicesList } from "@/hooks/useDevicesList";
 import { useUsers } from "@/hooks/useUsers";
 import { buildCommandColumns } from "@/pages/devices/commands/columns";
+import { parseRangeParams, resolveTimeRange } from "@/lib/timeRange";
 const DEFAULT_SORT = "desc";
 const DEFAULT_SIZE = "20";
 
@@ -37,12 +38,19 @@ function buildApiParams(searchParams: URLSearchParams): URLSearchParams {
   if (!api.has("sort")) api.set("sort", DEFAULT_SORT);
   if (!api.has("size")) api.set("size", DEFAULT_SIZE);
 
-  // Commands default to all time (few rows, and a recent-window default
-  // usually hides them): an explicit "all" or no time params alike send no
-  // time constraint to the API.
-  if (api.get("last") === "all") {
-    api.delete("last");
+  const period = resolveTimeRange(parseRangeParams(searchParams, "all"));
+  for (const key of ["last", "start", "end"]) api.delete(key);
+  for (const [key, value] of Object.entries(period))
+    if (value) api.set(key, value);
+  for (const key of ["page", "size"]) {
+    const value = Number(api.get(key));
+    if (!Number.isSafeInteger(value) || value < 1) {
+      if (key === "size") api.set(key, DEFAULT_SIZE);
+      else api.delete(key);
+    }
   }
+  if (!["asc", "desc"].includes(api.get("sort") ?? ""))
+    api.set("sort", DEFAULT_SORT);
 
   return api;
 }
@@ -156,6 +164,21 @@ export function useCommands({
       return age > POLL_FAST_CAP_MS ? POLL_SLOW_MS : POLL_FAST_MS;
     },
   });
+
+  useEffect(() => {
+    if (!data || isPlaceholderData) return;
+    const lastPage = Math.max(1, data.total_pages);
+    if (Number(searchParams.get("page") ?? 1) <= lastPage) return;
+    setSearchParams(
+      (previous) => {
+        const next = new URLSearchParams(previous);
+        if (lastPage === 1) next.delete("page");
+        else next.set("page", String(lastPage));
+        return next;
+      },
+      { replace: true },
+    );
+  }, [data, isPlaceholderData, searchParams, setSearchParams]);
 
   // Lookups for display names
   const deviceNames = useMemo(

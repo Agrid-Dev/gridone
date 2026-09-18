@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { useResourceNavigation } from "@/hooks/useResourceNavigation";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
 import { Cpu } from "lucide-react";
 import type { Driver } from "@gridone/sdk";
@@ -46,11 +47,17 @@ export function DriversTable({ drivers }: { drivers: Driver[] }) {
  *  the id stays a real link for accessibility. */
 function DriverRow({ driver }: { driver: Driver }) {
   const { t } = useTranslation("transports");
-  const navigate = useNavigate();
+  const { open: navigate } = useResourceNavigation();
   const to = `/drivers/${driver.id}`;
 
   return (
-    <TableRow onClick={() => navigate(to)} className="cursor-pointer">
+    <TableRow
+      onClick={(event) => {
+        if (!(event.target as HTMLElement).closest("a,button,input,select"))
+          navigate(to);
+      }}
+      className="cursor-pointer"
+    >
       <TableCell className="py-2.5">
         <span className="flex items-center gap-2.5">
           <DriverIcon driver={driver} />

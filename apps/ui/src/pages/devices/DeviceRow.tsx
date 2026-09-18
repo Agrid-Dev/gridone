@@ -1,4 +1,6 @@
-import { Link, useNavigate } from "react-router";
+import { DeviceFaultBadge } from "@/components/DeviceFaultBadge";
+import { useResourceNavigation } from "@/hooks/useResourceNavigation";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
 import { Cpu } from "lucide-react";
 import type { Device } from "@gridone/sdk";
@@ -16,9 +18,6 @@ import {
   formatReading,
 } from "@/lib/deviceSummary";
 import { deviceTypeIcon } from "@/lib/deviceTypes";
-import { activeFaultSummary } from "@/lib/faults";
-import { SEVERITY_TEXT_CLASS } from "@/lib/severity";
-import { cn } from "@/lib/utils";
 import { DeviceModeValue } from "./DeviceModeValue";
 
 /** One device of the fleet table. The whole row navigates to the device
@@ -30,7 +29,7 @@ export function DeviceRow({
   device: Device;
   zoneName: string | null;
 }) {
-  const navigate = useNavigate();
+  const { open: navigate } = useResourceNavigation();
   const { i18n } = useTranslation();
   const status = getConnectionStatus(device);
   const canSeeConnectionStatus = useCanSeeConnectionStatus();
@@ -38,7 +37,10 @@ export function DeviceRow({
 
   return (
     <TableRow
-      onClick={() => navigate(`/devices/${device.id}`)}
+      onClick={(event) => {
+        if (!(event.target as HTMLElement).closest("a,button,input,select"))
+          navigate(`/devices/${device.id}`);
+      }}
       className="cursor-pointer"
     >
       <TableCell className="py-2.5">
@@ -48,10 +50,10 @@ export function DeviceRow({
           </span>
           <Link
             to={`/devices/${device.id}`}
-            className="font-medium hover:underline"
+            className="font-medium text-primary hover:underline focus-visible:underline"
             onClick={(event) => event.stopPropagation()}
           >
-            {device.name}
+            {device.name || device.id}
           </Link>
         </span>
       </TableCell>
@@ -82,15 +84,6 @@ export function DeviceRow({
   );
 }
 
-/** Count of active faults at the device's highest active severity
- *  ("1 alerte"); lower-severity faults are visible on the detail page. */
 function FaultsCell({ device }: { device: Device }) {
-  const { t } = useTranslation();
-  const summary = activeFaultSummary(device);
-  if (!summary) return <EmptyValue />;
-  return (
-    <span className={cn("font-medium", SEVERITY_TEXT_CLASS[summary.severity])}>
-      {t(`common.severityCount.${summary.severity}`, { count: summary.count })}
-    </span>
-  );
+  return <DeviceFaultBadge device={device} />;
 }

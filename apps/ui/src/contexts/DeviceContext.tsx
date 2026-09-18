@@ -31,7 +31,7 @@ const DeviceContext = createContext<DeviceContextValue | null>(null);
 
 export function DeviceProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
-  const { state, refreshMe, logout } = useAuth();
+  const { state, refreshMe } = useAuth();
 
   const handleMessage = useCallback(createDeviceMessageHandler(queryClient), [
     queryClient,
@@ -59,10 +59,10 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
       // logged in. Anything else is a transport blip — keep the session and let
       // the backoff retry.
       if (isGridoneError(error) && error.status === 401) {
-        logout();
+        cookieTokenStorage.clear();
       }
     }
-  }, [refreshMe, logout]);
+  }, [refreshMe]);
 
   const { status, isConnected } = useWebSocket<WebSocketMessage>({
     url: websocketUrl,

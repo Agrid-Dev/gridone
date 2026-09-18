@@ -72,13 +72,15 @@ afterEach(() => {
 });
 
 describe("DeviceControlWidgetView", () => {
-  it("renders the standard control with a live indicator and a device page link", () => {
+  it("renders the standard control with its connection status and a device page link", () => {
     useDeviceById.mockReturnValue({ data: DEVICE, isLoading: false });
 
     const { container } = renderView();
 
     expect(screen.getByTestId("standard-control")).toHaveTextContent("dev1");
-    expect(screen.getByText("Live")).toBeInTheDocument();
+    expect(
+      screen.getByText("deviceDetails.connectionStatus.ok"),
+    ).toBeInTheDocument();
     // The dot carries the device's connection status colour.
     expect(container.querySelector(".bg-status-ok")).toBeInTheDocument();
     const link = screen.getByRole("link", { name: "Thermostat hall" });

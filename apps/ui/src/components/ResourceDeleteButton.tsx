@@ -3,7 +3,7 @@ import { Trash2 } from "lucide-react";
 import { ConfirmButton } from "@/components/ConfirmButton";
 
 type ResourceDeleteButtonProps = {
-  onDelete: () => void | Promise<unknown>;
+  onDelete: () => Promise<unknown>;
   isDeleting?: boolean;
   confirmTitle: string;
   confirmDetails: string;

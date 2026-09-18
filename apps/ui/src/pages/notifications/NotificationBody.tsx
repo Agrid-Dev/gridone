@@ -1,6 +1,6 @@
 import type { ComponentPropsWithoutRef } from "react";
 import Markdown from "react-markdown";
-import { Link } from "react-router";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import {
   parseResourceReference,
   resourceTypeToPath,

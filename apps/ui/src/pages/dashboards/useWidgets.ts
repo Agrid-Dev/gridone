@@ -90,7 +90,6 @@ export function useRemoveWidget(dashboardId: string) {
   const { t } = useTranslation("dashboards");
   const client = useGridoneClient();
   const queryClient = useQueryClient();
-  const onError = useWidgetErrorToast();
 
   const mutation = useMutation({
     mutationFn: (id: string) => client.dashboards.removeWidget(dashboardId, id),
@@ -100,13 +99,12 @@ export function useRemoveWidget(dashboardId: string) {
       });
       toast.success(t("widgets.deleteSuccess"));
     },
-    onError,
   });
 
   return {
     removeWidget: (
       id: string,
       options?: Parameters<typeof mutation.mutate>[1],
-    ) => mutation.mutate(id, options),
+    ) => mutation.mutateAsync(id, options),
   };
 }

@@ -1,4 +1,6 @@
-import { useNavigate } from "react-router";
+import { ResourceLink } from "@/components/ResourceLink";
+import { useResourceNavigation } from "@/hooks/useResourceNavigation";
+import { navigationStore, persistNavigation } from "@/lib/navigation";
 import { useTranslation } from "react-i18next";
 import { Cpu } from "lucide-react";
 import { useAssetTree } from "@/hooks/useAssetTree";
@@ -45,22 +47,21 @@ export function GlobalSearchDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const { t } = useTranslation("common");
-  const navigate = useNavigate();
+  const { open: navigate } = useResourceNavigation();
   const { assetsList, assetsById, isLoading: assetsLoading } = useAssetTree();
   const { devices, loading: devicesLoading } = useDevicesList();
   const { faults, loading: faultsLoading } = useFaultsList();
 
-  const deviceSearch = useDeviceSearch(devices);
+  const deviceSearch = useDeviceSearch(devices, navigationStore.search);
   const isLoading = assetsLoading || devicesLoading || faultsLoading;
 
   const handleOpenChange = (nextOpen: boolean) => {
-    if (!nextOpen) deviceSearch.setQuery("");
     onOpenChange(nextOpen);
   };
 
   const goTo = (path: string) => {
     handleOpenChange(false);
-    navigate(path);
+    navigate(path, { originPageTitle: true });
   };
 
   /** Nothing has been searched yet on open, so the fleet is merely capped —
@@ -83,7 +84,11 @@ export function GlobalSearchDialog({
       <CommandInput
         placeholder={t("topbar.search.placeholder")}
         value={deviceSearch.query}
-        onValueChange={deviceSearch.setQuery}
+        onValueChange={(query) => {
+          deviceSearch.setQuery(query);
+          navigationStore.search = query;
+          persistNavigation();
+        }}
       />
       <CommandList>
         <CommandEmpty>
@@ -101,12 +106,30 @@ export function GlobalSearchDialog({
                 })}
                 keywords={[device.name, device.id]}
                 onSelect={() => goTo(`/devices/${device.id}`)}
+                className="p-0"
               >
-                <Icon
-                  aria-hidden
-                  className="h-4 w-4 shrink-0 text-muted-foreground"
-                />
-                <span className="truncate">{device.name || device.id}</span>
+                <ResourceLink
+                  to={`/devices/${device.id}`}
+                  className="flex min-h-11 w-full items-center gap-2 px-2 py-1.5"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (
+                      !event.ctrlKey &&
+                      !event.metaKey &&
+                      !event.shiftKey &&
+                      !event.altKey
+                    ) {
+                      event.preventDefault();
+                      goTo(`/devices/${device.id}`);
+                    }
+                  }}
+                >
+                  <Icon
+                    aria-hidden
+                    className="h-4 w-4 shrink-0 text-muted-foreground"
+                  />
+                  <span className="truncate">{device.name || device.id}</span>
+                </ResourceLink>
               </CommandItem>
             );
           })}
@@ -128,15 +151,33 @@ export function GlobalSearchDialog({
                 key={asset.id}
                 value={`${asset.name} ${ancestors} ${asset.id}`}
                 onSelect={() => goTo(`/assets/${asset.id}`)}
+                className="p-0"
               >
-                <span className="flex min-w-0 flex-col">
-                  <span className="truncate">{asset.name}</span>
-                  {ancestors && (
-                    <span className="truncate text-xs text-muted-foreground">
-                      {ancestors}
-                    </span>
-                  )}
-                </span>
+                <ResourceLink
+                  to={`/assets/${asset.id}`}
+                  className="flex min-h-11 w-full px-2 py-1.5"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (
+                      !event.ctrlKey &&
+                      !event.metaKey &&
+                      !event.shiftKey &&
+                      !event.altKey
+                    ) {
+                      event.preventDefault();
+                      goTo(`/assets/${asset.id}`);
+                    }
+                  }}
+                >
+                  <span className="flex min-w-0 flex-col">
+                    <span className="truncate">{asset.name || asset.id}</span>
+                    {ancestors && (
+                      <span className="truncate text-xs text-muted-foreground">
+                        {ancestors}
+                      </span>
+                    )}
+                  </span>
+                </ResourceLink>
               </CommandItem>
             );
           })}
@@ -153,15 +194,37 @@ export function GlobalSearchDialog({
               <CommandItem
                 key={`${fault.device_id}:${fault.attribute_name}`}
                 value={`${fault.device_name} ${label} ${fault.device_id}:${fault.attribute_name}`}
-                onSelect={() => goTo(`/devices/${fault.device_id}`)}
+                onSelect={() =>
+                  goTo(`/devices/${fault.device_id}#active-faults`)
+                }
+                className="p-0"
               >
-                <FaultSeverityIcon severity={fault.severity} />
-                <span className="flex min-w-0 flex-col">
-                  <span className="truncate">{fault.device_name}</span>
-                  <span className="truncate text-xs text-muted-foreground">
-                    {label}
+                <ResourceLink
+                  to={`/devices/${fault.device_id}#active-faults`}
+                  className="flex min-h-11 w-full items-center gap-2 px-2 py-1.5"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (
+                      !event.ctrlKey &&
+                      !event.metaKey &&
+                      !event.shiftKey &&
+                      !event.altKey
+                    ) {
+                      event.preventDefault();
+                      goTo(`/devices/${fault.device_id}#active-faults`);
+                    }
+                  }}
+                >
+                  <FaultSeverityIcon severity={fault.severity} />
+                  <span className="flex min-w-0 flex-col">
+                    <span className="truncate">
+                      {fault.device_name || fault.device_id}
+                    </span>
+                    <span className="truncate text-xs text-muted-foreground">
+                      {label}
+                    </span>
                   </span>
-                </span>
+                </ResourceLink>
               </CommandItem>
             );
           })}

@@ -1,3 +1,4 @@
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useCallback, useState, type FC } from "react";
 import { useTranslation } from "react-i18next";
 import { Group } from "@visx/group";
@@ -130,17 +131,31 @@ const NodeBox: FC<{
                 : "fill-card stroke-border"
         }
       />
-      <text
-        x={10}
-        y={15}
-        className={
-          residual
-            ? "fill-muted-foreground text-[11px] italic"
-            : "fill-foreground text-[11px] font-medium"
-        }
-      >
-        {label.length > MAX_LABEL ? `${label.slice(0, MAX_LABEL - 1)}…` : label}
-      </text>
+      {datum.deviceId ? (
+        <foreignObject x={10} y={2} width={NODE_W - 20} height={18}>
+          <Link
+            to={`/devices/${encodeURIComponent(datum.deviceId)}`}
+            onClick={(event) => event.stopPropagation()}
+            className="block truncate text-[11px] font-medium text-primary hover:underline focus-visible:underline"
+          >
+            {label}
+          </Link>
+        </foreignObject>
+      ) : (
+        <text
+          x={10}
+          y={15}
+          className={
+            residual
+              ? "fill-muted-foreground text-[11px] italic"
+              : "fill-foreground text-[11px] font-medium"
+          }
+        >
+          {label.length > MAX_LABEL
+            ? `${label.slice(0, MAX_LABEL - 1)}…`
+            : label}
+        </text>
+      )}
       <text
         x={10}
         y={30}

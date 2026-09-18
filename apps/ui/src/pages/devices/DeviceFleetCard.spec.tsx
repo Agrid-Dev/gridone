@@ -10,6 +10,7 @@ vi.mock("@/contexts/AuthContext", () => ({
 
 vi.mock("react-i18next", () =>
   createI18nMock({
+    "deviceDetails.activeFaults.badge": "{{count}} fault(s)",
     "devices.card.measured": "{{value}} measured",
     "devices.card.noFault": "No fault",
     "devices.card.trendLabel": "24 h trend",
@@ -147,7 +148,7 @@ describe("DeviceFleetCard", () => {
         },
       }),
     );
-    expect(screen.getByText("1 alert(s)")).toBeInTheDocument();
+    expect(screen.getByText("2 fault(s)")).toBeInTheDocument();
   });
 
   it("links the whole card to the device detail", () => {

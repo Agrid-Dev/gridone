@@ -32,7 +32,7 @@ export const ResourceEmpty: FC<ResourceEmptyProps> = ({
   resourceName,
   filtered,
   onClearFilters,
-  showCreate = true,
+  showCreate = false,
   createTo,
   createLabel,
   clearLabel,
@@ -70,13 +70,11 @@ export const ResourceEmpty: FC<ResourceEmptyProps> = ({
               {clearLabel ?? t("empty.clearFilters")}
             </Button>
           )}
-          {/* Callers move to an explicit destination in the navigation part;
-              until then the relative `new` route they already used keeps working. */}
-          {!filtered && showCreate && (
+          {!filtered && showCreate && createTo && createLabel && (
             <Button variant="default" asChild>
-              <Link to={createTo ?? "new"}>
+              <Link to={createTo}>
                 <Plus />
-                {createLabel ?? t("empty.new", { resourceName })}
+                {createLabel}
               </Link>
             </Button>
           )}

@@ -1,8 +1,9 @@
+import { BackLink } from "@/components/BackLink";
 import { useMemo, type ReactNode } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch } from "react-hook-form";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import {
   DndContext,
   KeyboardSensor,
@@ -74,9 +75,9 @@ type AssetEditWorkspaceProps = {
   canWriteDevices: boolean;
   headerActions?: ReactNode;
   onSubmit?: (data: AssetFormValues) => void;
-  onDelete?: () => void;
+  onDelete?: () => Promise<unknown>;
   onLinkDevice: () => void;
-  onUnlinkDevice?: (deviceId: string) => void;
+  onUnlinkDevice?: (deviceId: string) => Promise<unknown>;
   onReorder?: (orderedIds: string[]) => void;
 };
 
@@ -288,9 +289,7 @@ export function AssetEditWorkspace({
         aria-label={t("editPage.breadcrumbLabel")}
         className="flex min-w-0 items-center gap-1 overflow-hidden text-sm text-muted-foreground"
       >
-        <Link to="/assets" className="shrink-0 hover:text-foreground">
-          {t("title")}
-        </Link>
+        <BackLink to="/assets">{t("title")}</BackLink>
         {[...ancestors, asset].map((item, index) => (
           <span key={item.id} className="contents">
             <ChevronRight className="h-4 w-4 shrink-0 opacity-50" />
@@ -317,7 +316,11 @@ export function AssetEditWorkspace({
           </div>
           <div className="min-w-0 pt-0.5">
             <div className="flex flex-wrap items-center gap-2.5">
-              <h1 className="truncate font-display text-3xl font-semibold tracking-tight text-foreground">
+              <h1
+                data-page-title
+                tabIndex={-1}
+                className="truncate font-display text-3xl font-semibold tracking-tight text-foreground"
+              >
                 {asset.name}
               </h1>
               <Badge variant="info" className="px-3 py-1 text-sm">
@@ -398,7 +401,9 @@ export function AssetEditWorkspace({
             <ResourceDeleteButton
               onDelete={onDelete}
               isDeleting={isDeleting}
-              confirmTitle={t("deleteConfirmTitle")}
+              confirmTitle={t("common:deletion.title", {
+                name: asset.name || asset.id,
+              })}
               confirmDetails={t("deleteConfirmDetails", {
                 name: asset.name,
               })}
@@ -653,6 +658,8 @@ export function AssetEditWorkspace({
                               zone: asset.name,
                             })}
                             confirmLabel={t("devices.unlink")}
+                            confirmPendingLabel={t("devices.unlinkPending")}
+                            confirmErrorLabel={t("devices.unlinkError")}
                           >
                             <Unlink2 className="h-4 w-4" />
                           </ConfirmButton>

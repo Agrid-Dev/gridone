@@ -1,5 +1,5 @@
 import { lazy, Suspense, type FC } from "react";
-import { Link } from "react-router";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
 import type { Asset, Device } from "@gridone/sdk";
 import { CardHeaderLink } from "./CardHeaderLink";

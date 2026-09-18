@@ -3,7 +3,6 @@ import { Activity, Clock, Wifi, WifiOff } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
 import type { BadgeProps } from "@/components/ui/badge";
-import { EmptyValue } from "@/components/EmptyValue";
 import { cn } from "@/lib/utils";
 import {
   SEMANTIC_BG_CLASS,
@@ -67,7 +66,8 @@ export function ConnectionStatusValue({
   status: ConnectionStatus | null;
 }) {
   const { t } = useTranslation("devices");
-  if (!status) return <EmptyValue />;
+  if (!status)
+    return <span>{t("deviceDetails.connectionStatus.unknown")}</span>;
   return (
     <span
       className={cn("font-medium", SEMANTIC_TEXT_CLASS[STATUS_LEVEL[status]])}

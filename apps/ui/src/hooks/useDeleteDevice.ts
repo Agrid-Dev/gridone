@@ -1,32 +1,35 @@
 import { useTranslation } from "react-i18next";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { useNavigate } from "react-router";
+import { useResourceNavigation } from "./useResourceNavigation";
+import { markResourceDeleted } from "@/lib/navigation";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
-import { serverErrorMessage } from "@/lib/serverErrorMessage";
 
 export const useDeleteDevice = () => {
-  const navigate = useNavigate();
+  const { back } = useResourceNavigation();
   const client = useGridoneClient();
   const queryClient = useQueryClient();
   const { t } = useTranslation(["devices", "common"]);
   const deleteMutation = useMutation({
     mutationFn: (deviceId: string) => client.devices.delete(deviceId),
-    onSuccess: () => {
-      navigate("/devices");
+    onSuccess: async (_, deviceId) => {
+      markResourceDeleted(`/devices/${deviceId}`);
+      await Promise.all(
+        ["devices", "assets", "faults", "transport"].map((key) =>
+          queryClient.invalidateQueries({ queryKey: [key] }),
+        ),
+      );
+      back("/devices");
+      queryClient.removeQueries({
+        queryKey: ["device", deviceId],
+        type: "inactive",
+      });
       toast.success(t("devices.feedback.deleted"));
     },
-    onError: (err: Error) => {
-      const detail = serverErrorMessage(err);
-      const base = t("common:errors.default");
-      toast.error(detail ? `${base}: ${detail}` : base);
-    },
-    onSettled: () => {
-      queryClient.refetchQueries({ queryKey: ["devices"] });
-    },
+    onError: () => toast.error(t("common:deletion.error")),
   });
   const handleDelete = async (deviceId: string) => {
-    deleteMutation.mutateAsync(deviceId);
+    return deleteMutation.mutateAsync(deviceId);
   };
 
   return { handleDelete, isDeleting: deleteMutation.isPending };

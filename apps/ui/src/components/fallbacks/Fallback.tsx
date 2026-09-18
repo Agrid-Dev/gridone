@@ -9,6 +9,7 @@ export interface FallbackProps {
   message?: string;
   showHomeLink?: boolean;
   showBackLink?: boolean;
+  action?: React.ReactNode;
 }
 
 export const Fallback: FC<FallbackProps> = ({
@@ -17,6 +18,7 @@ export const Fallback: FC<FallbackProps> = ({
   icon,
   showHomeLink = true,
   showBackLink = true,
+  action,
 }) => {
   const { t } = useTranslation();
 
@@ -36,7 +38,8 @@ export const Fallback: FC<FallbackProps> = ({
         )}
 
         <div className="mt-8 flex justify-center gap-3">
-          {showBackLink && (
+          {action}
+          {!action && showBackLink && (
             <Button
               variant="outline"
               onClick={() => window.history.back()}

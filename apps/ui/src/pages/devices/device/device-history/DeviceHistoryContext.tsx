@@ -236,7 +236,8 @@ export function DeviceHistoryProvider({
   const urlMetric = searchParams.get("metric");
   const activeMetric = useMemo(() => {
     if (numericAttributes.length === 0) return null;
-    if (urlMetric && numericAttributes.includes(urlMetric)) return urlMetric;
+    if (urlMetric)
+      return numericAttributes.includes(urlMetric) ? urlMetric : defaultMetric;
     const stored = readStoredMetric(deviceId);
     if (stored && numericAttributes.includes(stored)) return stored;
     return defaultMetric;

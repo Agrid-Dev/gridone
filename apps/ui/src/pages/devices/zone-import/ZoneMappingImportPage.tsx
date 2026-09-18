@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { Link } from "react-router";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, Download, Upload } from "lucide-react";
 import { Button, Card, CardContent } from "@/components/ui";

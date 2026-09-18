@@ -30,10 +30,13 @@ export function GlobalSearch() {
         aria-label={t("topbar.search.label")}
         aria-haspopup="dialog"
         aria-keyshortcuts="Meta+K Control+K"
-        className="flex h-9 w-full items-center gap-2 rounded-md border border-border bg-background px-3 text-sm text-muted-foreground transition-colors hover:bg-accent/60"
+        className="flex h-11 w-full items-center gap-2 rounded-md border border-border bg-background px-3 text-sm text-muted-foreground transition-colors hover:bg-accent/60"
       >
         <Search aria-hidden className="h-4 w-4 shrink-0" />
-        <span className="truncate">{t("topbar.search.placeholder")}</span>
+        <span className="hidden truncate sm:inline">
+          {t("topbar.search.placeholder")}
+        </span>
+        <span className="sm:hidden">{t("topbar.search.action")}</span>
         <kbd
           aria-hidden
           className="ml-auto hidden h-5 select-none items-center rounded border border-border bg-muted px-1.5 text-[10px] font-medium sm:inline-flex"

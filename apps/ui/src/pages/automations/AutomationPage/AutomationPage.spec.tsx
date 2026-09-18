@@ -37,6 +37,11 @@ vi.mock("@tanstack/react-query", () => ({
       const data = await opts.mutationFn(...args);
       opts.onSuccess?.(data, args[0]);
     },
+    mutateAsync: async (...args: unknown[]) => {
+      const data = await opts.mutationFn(...args);
+      opts.onSuccess?.(data, args[0]);
+      return data;
+    },
     isPending: false,
   }),
   useQueryClient: () => ({
@@ -429,6 +434,9 @@ describe("AutomationPage", () => {
     await userEvent.click(buttons[buttons.length - 1]);
 
     expect(mockDeleteAutomation).toHaveBeenCalled();
-    expect(mockNavigate).toHaveBeenCalledWith("/automations");
+    expect(mockNavigate).toHaveBeenCalledWith("/automations", {
+      replace: true,
+      state: null,
+    });
   });
 });

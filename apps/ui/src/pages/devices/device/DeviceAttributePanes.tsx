@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Link } from "react-router";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
 import { Terminal } from "lucide-react";
 import {

@@ -1,3 +1,5 @@
+import { useResourceNavigation } from "@/hooks/useResourceNavigation";
+import { markResourceDeleted } from "@/lib/navigation";
 import {
   useQuery,
   useMutation,
@@ -54,17 +56,18 @@ export const useTransports = () => {
 
 export const useDeleteTransport = () => {
   const { t } = useTranslation(["transports", "common"]);
-  const navigate = useNavigate();
+  const { back } = useResourceNavigation();
   const queryClient = useQueryClient();
   const client = useGridoneClient();
   const deleteMutation = useMutation({
     mutationFn: (transportId: string) => client.transports.delete(transportId),
-    onSuccess: () => {
+    onSuccess: (_, transportId) => {
       queryClient.invalidateQueries({ queryKey: ["transports"] });
       toast.success(t("feedback.deleted"));
-      navigate("..");
+      markResourceDeleted(`/transports/${transportId}`);
+      back("/transports");
     },
-    onError: (err: Error) => toastApiError(t, err),
+    onError: () => toast.error(t("common:deletion.error")),
   });
   const handleDelete = async (transportId: string) =>
     deleteMutation.mutateAsync(transportId);
