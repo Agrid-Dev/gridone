@@ -1,3 +1,13 @@
+## v0.249.0 (2026-09-18)
+
+### Feat
+
+- **drivers**: add declarative UI confirmations and audit context
+
+### Fix
+
+- **drivers**: address declarative confirmation review feedback
+
 ## v0.248.0 (2026-09-17)
 
 ### Feat
