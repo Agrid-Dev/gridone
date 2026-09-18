@@ -303,6 +303,7 @@ function childrenAreExact(
 export type MeterTreeDatum = {
   key: string;
   label: string;
+  deviceId?: string;
   kind: "meter" | "residual";
   /** What this node contributes to its parent. */
   total: number | null;
@@ -385,6 +386,9 @@ export function buildMeterTreeHierarchy(
     return {
       key,
       label: node.label,
+      ...(node.meter?.devices?.ids?.[0]
+        ? { deviceId: node.meter.devices.ids[0] }
+        : {}),
       kind: "meter",
       total: resolved.total,
       ratioOfParent: ratio(resolved.total, parentTotal),

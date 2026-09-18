@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from "react";
+import { useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import type { FaultView, Severity } from "@gridone/sdk";
 import { useAssetTree } from "@/hooks/useAssetTree";
@@ -10,7 +11,7 @@ import { formatDurationSince } from "@/lib/utils";
 
 /** A fault joined with the zone its device sits in — `zone` is null when the
  *  device is attached to no asset. */
-export type FaultRow = FaultView & { zone: string | null };
+export type FaultRow = FaultView & { zone: string | null; assetId?: string };
 
 /** How many faults are open at each severity. */
 export type SeverityCounts = Record<Severity, number>;
@@ -50,14 +51,28 @@ export function useFaultsPage(deviceIds?: string[]) {
   const { t: tCommon } = useTranslation();
   const { faults, loading, error } = useFaultsList();
   const { assetByDeviceId } = useAssetTree();
+  const [params, setParams] = useSearchParams();
+  const rawSeverity = params.get("severity");
+  const severity = SEVERITIES.find((value) => value === rawSeverity);
+  const setSeverity = (value?: Severity) =>
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (value && value !== severity) next.set("severity", value);
+        else next.delete("severity");
+        return next;
+      },
+      { replace: true },
+    );
 
-  const rows = useMemo<FaultRow[]>(
+  const allRows = useMemo<FaultRow[]>(
     () =>
       faults
         .filter((fault) => !deviceIds || deviceIds.includes(fault.device_id))
         .map((fault) => ({
           ...fault,
           zone: assetByDeviceId[fault.device_id]?.name ?? null,
+          assetId: assetByDeviceId[fault.device_id]?.id,
         }))
         .sort(compareRows),
     [faults, deviceIds, assetByDeviceId],
@@ -65,11 +80,16 @@ export function useFaultsPage(deviceIds?: string[]) {
 
   const counts = useMemo<SeverityCounts>(
     () =>
-      rows.reduce<SeverityCounts>(
+      allRows.reduce<SeverityCounts>(
         (acc, row) => ({ ...acc, [row.severity]: acc[row.severity] + 1 }),
         { info: 0, warning: 0, alert: 0 },
       ),
-    [rows],
+    [allRows],
+  );
+  const rows = useMemo(
+    () =>
+      severity ? allRows.filter((row) => row.severity === severity) : allRows,
+    [allRows, severity],
   );
 
   const exportCsv = useCallback(() => {
@@ -99,5 +119,14 @@ export function useFaultsPage(deviceIds?: string[]) {
     downloadCsv(header, body, `${t("faults.exportFilenameStem")}-${day}.csv`);
   }, [rows, t, tCommon]);
 
-  return { rows, counts, loading, error, exportCsv };
+  return {
+    rows,
+    counts,
+    loading,
+    error,
+    exportCsv,
+    severity,
+    setSeverity,
+    total: allRows.length,
+  };
 }

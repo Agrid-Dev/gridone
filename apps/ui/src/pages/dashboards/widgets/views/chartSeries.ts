@@ -11,6 +11,7 @@ export type NumericMark = "line" | "bar";
 export type ChartSeriesInput = {
   key: string;
   label: string;
+  href?: string;
   points: DataPoint[];
 };
 
@@ -52,12 +53,13 @@ export function singleSeriesChartProps(
   points: DataPoint[],
   attribute?: string,
   mark: NumericMark = "line",
+  href?: string,
 ): TimeSeriesChartProps {
   const timestamps = points.map((p) => new Date(p.timestamp));
   return chartPropsFor(
     dataType,
     timestamps,
-    [{ key, label, semanticKey: attribute }],
+    [{ key, label, semanticKey: attribute, ...(href ? { href } : {}) }],
     { [key]: points.map((p) => p.value) },
     mark,
   );
@@ -88,6 +90,7 @@ export function multiSeriesChartProps(
       s.points,
       attribute,
       mark,
+      s.href,
     );
   }
 
@@ -105,7 +108,12 @@ export function multiSeriesChartProps(
     // Series are keyed per device, so each carries the attribute as its
     // semantic key — value colours (hvac modes, statuses) resolve from the
     // attribute, not the device.
-    series.map(({ key, label }) => ({ key, label, semanticKey: attribute })),
+    series.map(({ key, label, href }) => ({
+      key,
+      label,
+      semanticKey: attribute,
+      ...(href ? { href } : {}),
+    })),
     values,
     mark,
   );

@@ -1,3 +1,4 @@
+import { usePermissions } from "@/contexts/AuthContext";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import type { Dashboard, LayoutItem } from "@gridone/sdk";
@@ -47,7 +48,9 @@ function layoutsEqual(a: GridLayoutItem[], b: GridLayoutItem[]): boolean {
  */
 export function useLayoutEditor(dashboard: Dashboard) {
   const [searchParams, setSearchParams] = useSearchParams();
-  const editing = searchParams.get(EDIT_PARAM) === EDIT_VALUE;
+  const can = usePermissions();
+  const editing =
+    can("dashboards:write") && searchParams.get(EDIT_PARAM) === EDIT_VALUE;
   const { updateLayout } = useUpdateLayout(dashboard.id);
 
   const storedLayout = useMemo(
