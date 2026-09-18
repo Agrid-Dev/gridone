@@ -1,6 +1,11 @@
-import { useSuspenseQueries, useSuspenseQuery } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQueryClient,
+  useSuspenseQueries,
+  useSuspenseQuery,
+} from "@tanstack/react-query";
 import { useParams } from "react-router";
-import type { Synoptic, SynopticSummary } from "@gridone/sdk";
+import type { Synoptic, SynopticDocument, SynopticSummary } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 
 export const SYNOPTICS_KEY = ["synoptics"] as const;
@@ -51,4 +56,28 @@ export function useSynopticPage(): {
     ],
   });
   return { doc: doc.data, knownSynoptics: knownSynoptics.data };
+}
+
+/** Where a save lands: a new plate, or an existing one read at
+ *  `updatedAt`, which the replace carries so a plate that moved since is
+ *  refused rather than overwritten. */
+export type SaveTarget = { id: string; updatedAt: string } | null;
+
+/** Creates or replaces a plate whole. Errors are the caller's: a 422 is
+ *  shown where the author can fix it, so no toast is raised here. */
+export function useSaveSynoptic(target: SaveTarget) {
+  const client = useGridoneClient();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (document: SynopticDocument) =>
+      target
+        ? client.synoptics.replace(target.id, document, target.updatedAt)
+        : client.synoptics.create(document),
+    onSuccess: async (saved: Synoptic) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: SYNOPTICS_KEY }),
+        queryClient.invalidateQueries({ queryKey: synopticKey(saved.id) }),
+      ]);
+    },
+  });
 }
