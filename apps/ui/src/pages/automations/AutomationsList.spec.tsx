@@ -269,7 +269,7 @@ describe("AutomationsList", () => {
     renderList();
 
     expect(
-      within(getCard("Morning warmup")).getByText("Ran 25 minutes ago"),
+      within(getCard("Morning warmup")).getByText(/Ran 25 minutes ago/),
     ).toBeInTheDocument();
 
     const panel = screen

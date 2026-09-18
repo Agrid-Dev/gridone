@@ -4,11 +4,12 @@ import {
   useQueryClient,
   useSuspenseQuery,
 } from "@tanstack/react-query";
-import { useNavigate, useParams } from "react-router";
+import { useParams } from "react-router";
 import { toast } from "sonner";
 import type { Driver } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
-import { serverErrorMessage } from "@/lib/serverErrorMessage";
+import { useResourceNavigation } from "@/hooks/useResourceNavigation";
+import { markResourceDeleted } from "@/lib/navigation";
 import { useTranslation } from "react-i18next";
 
 // The driver catalog is small and always fetched whole: the list page needs
@@ -69,19 +70,18 @@ export const useDriverFromRoute = (): Driver => {
 
 export const useDeleteDriver = () => {
   const { t } = useTranslation(["drivers", "common"]);
-  const navigate = useNavigate();
+  const { back } = useResourceNavigation();
+  const queryClient = useQueryClient();
   const client = useGridoneClient();
   const deleteMutation = useMutation({
     mutationFn: (driverId: string) => client.drivers.delete(driverId),
-    onSuccess: () => {
+    onSuccess: (_, driverId) => {
       toast.success(t("feedback.deleted"));
-      navigate("..");
+      markResourceDeleted(`/drivers/${driverId}`);
+      queryClient.invalidateQueries({ queryKey: ["drivers"] });
+      back("/drivers");
     },
-    onError: (err: Error) => {
-      const detail = serverErrorMessage(err);
-      const base = t("common:errors.default");
-      toast.error(detail ? `${base}: ${detail}` : base);
-    },
+    onError: () => toast.error(t("common:deletion.error")),
   });
   const handleDelete = async (driverId: string) =>
     deleteMutation.mutateAsync(driverId);

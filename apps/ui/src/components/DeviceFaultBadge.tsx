@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { FaultSeverityIcon } from "@/components/FaultSeverityIcon";
 import { getActiveFaults } from "@/lib/faults";
 import type { Device } from "@gridone/sdk";
+import { ResourceLink } from "./ResourceLink";
 
 /** Compact device-health badge: the active-fault count, coloured by the
  *  highest active severity. Renders nothing when the device has no active
@@ -16,14 +17,20 @@ export function DeviceFaultBadge({ device }: { device: Device }) {
   const severity = faults[0].severity;
 
   return (
-    <Badge
-      variant="outline"
-      data-severity={severity}
-      className="gap-1"
-      title={t("deviceDetails.activeFaults.badge", { count: faults.length })}
+    <ResourceLink
+      to={`/devices/${device.id}#active-faults`}
+      onClick={(event) => event.stopPropagation()}
+      className="inline-flex rounded focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <FaultSeverityIcon severity={severity} className="h-3.5 w-3.5" />
-      {faults.length}
-    </Badge>
+      <Badge
+        variant="outline"
+        data-severity={severity}
+        className="gap-1"
+        title={t("deviceDetails.activeFaults.badge", { count: faults.length })}
+      >
+        <FaultSeverityIcon severity={severity} className="h-3.5 w-3.5" />
+        {t("deviceDetails.activeFaults.badge", { count: faults.length })}
+      </Badge>
+    </ResourceLink>
   );
 }

@@ -1,5 +1,6 @@
 import { FC, useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { useNavigate } from "react-router";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import type { FloorRow } from "./rollup";

@@ -1,5 +1,6 @@
 import { type FC } from "react";
-import { Link, useParams } from "react-router";
+import { useParams } from "react-router";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
 import { Play, RefreshCw, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -137,7 +138,7 @@ function ResolvedDevicesSection({
                 <li key={d.id} className="py-1.5">
                   <Link
                     to={`/devices/${encodeURIComponent(d.id)}`}
-                    className="hover:underline"
+                    className="text-primary hover:underline focus-visible:underline"
                   >
                     {d.name || d.id}
                   </Link>

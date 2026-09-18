@@ -1,4 +1,5 @@
 import { Axis, AreaSeries, XYChart } from "@visx/xychart";
+import { SeriesLabel } from "../SeriesLabel";
 import { curveStepAfter } from "@visx/curve";
 
 import type {
@@ -39,7 +40,9 @@ export function BooleanPanel({
       <div style={legendStyle}>
         <div style={legendItemStyle}>
           <LegendSwatch color={BOOL_COLOR} variant="area" />
-          <span style={legendLabelStyle}>{series.label}</span>
+          <span style={legendLabelStyle}>
+            <SeriesLabel series={series} />
+          </span>
         </div>
       </div>
       <XYChart

@@ -1,4 +1,4 @@
-import { Link } from "react-router";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
@@ -14,7 +14,7 @@ import type { AssetTreeNode } from "@/lib/assets";
 import { AssetTree } from "./components/AssetTree";
 
 export default function AssetsList() {
-  const { t } = useTranslation("assets");
+  const { t } = useTranslation(["assets", "common"]);
   const client = useGridoneClient();
   const can = usePermissions();
   const canEdit = can("assets:write");
@@ -63,7 +63,12 @@ export default function AssetsList() {
           isSettingUsage={setUsage.isPending}
         />
       ) : (
-        <ResourceEmpty resourceName={t("singular").toLowerCase()} />
+        <ResourceEmpty
+          resourceName={t("singular").toLowerCase()}
+          showCreate={canEdit}
+          createTo="/assets/new?type=zone"
+          createLabel={t("common:empty.create.assets")}
+        />
       )}
     </section>
   );

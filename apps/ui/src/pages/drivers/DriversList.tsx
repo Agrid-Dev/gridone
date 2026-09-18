@@ -1,5 +1,6 @@
 import { FC } from "react";
-import { Link, useSearchParams } from "react-router";
+import { useSearchParams } from "react-router";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui";
@@ -62,6 +63,9 @@ const DriversList: FC = () => {
       ) : (
         <ResourceEmpty
           resourceName="driver"
+          showCreate={can("drivers:write")}
+          createTo="/drivers/new"
+          createLabel={t("common:empty.create.drivers")}
           filtered={hasFilters}
           onClearFilters={() => setSearchParams({})}
         />

@@ -4,6 +4,7 @@ import { Canvas } from "@react-three/fiber";
 import { Bloom, EffectComposer } from "@react-three/postprocessing";
 import type { Asset, BuildingModel, Device } from "@gridone/sdk";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useEntryState } from "@/hooks/useEntryState";
 import { AlertsChip } from "./AlertsChip";
 import { ColorModeControl } from "./ColorModeControl";
 import { LevelPanel } from "./LevelPanel";
@@ -15,7 +16,11 @@ import { parseBuildingScene } from "./sceneContract";
 import { hslToCss } from "./temperature";
 import { functionKeyOf, useViewerTheme, zoneTriplet } from "./themeColors";
 import { useModelScene } from "./useModelScene";
-import { useViewerState, type HoverInfo } from "./useViewerState";
+import {
+  useViewerState,
+  type HoverInfo,
+  type ViewerSelection,
+} from "./useViewerState";
 import { ViewportControls } from "./ViewportControls";
 
 export type BuildingViewerProps = {
@@ -88,6 +93,10 @@ const BuildingViewer: FC<BuildingViewerProps> = ({
 }) => {
   const { t } = useTranslation("home");
   const theme = useViewerTheme();
+  const [selection, setSelection] = useEntryState<ViewerSelection | null>(
+    `building:${building.id}`,
+    null,
+  );
   const { scene, isLoading, error } = useModelScene(
     building.id,
     model.updated_at,
@@ -138,6 +147,8 @@ const BuildingViewer: FC<BuildingViewerProps> = ({
     levels,
     spaceStoreys: parsed?.spaceStoreys ?? NO_STOREYS,
     scene,
+    initialSelection: selection,
+    onSelectionChange: setSelection,
   });
   const composerRef = useComposerJanitor();
 

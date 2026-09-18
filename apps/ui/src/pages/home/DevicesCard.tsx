@@ -1,5 +1,5 @@
 import { FC } from "react";
-import { Link } from "react-router";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import type { Device } from "@gridone/sdk";

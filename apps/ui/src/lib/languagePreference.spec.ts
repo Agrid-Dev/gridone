@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { applyLanguage, readLanguage } from "./languagePreference";
 import { clearLoginReturn } from "./loginRedirect";
+import { clearNavigation } from "./navigation";
 beforeEach(() => localStorage.clear());
 afterEach(() => vi.restoreAllMocks());
 it.each([null, "de", "en-US", "", "fr"])(
@@ -14,6 +15,7 @@ it("persists English and updates html lang, including after logout", () => {
   applyLanguage("en");
   expect(document.documentElement.lang).toBe("en");
   expect(readLanguage()).toBe("en");
+  clearNavigation();
   clearLoginReturn();
   expect(readLanguage()).toBe("en");
   applyLanguage("de");

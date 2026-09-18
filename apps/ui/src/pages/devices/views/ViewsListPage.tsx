@@ -1,4 +1,5 @@
-import { Link } from "react-router";
+import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { ResourceHeader } from "@/components/ResourceHeader";
@@ -13,7 +14,7 @@ import {
 } from "@/components/group-command/groupMembership";
 
 export default function ViewsListPage() {
-  const { t } = useTranslation("devices");
+  const { t } = useTranslation(["devices", "common"]);
   const can = usePermissions();
   const views = useDeviceViews();
   const members = useDevicesList();
@@ -35,9 +36,13 @@ export default function ViewsListPage() {
       {views.isLoading ? (
         <p role="status">{t("presentation.loading")}</p>
       ) : !views.data?.length ? (
-        <p className="rounded-lg border border-dashed p-8 text-muted-foreground">
-          {t("groups.noGroups")}
-        </p>
+        <ResourceEmpty
+          resourceName={t("groups.title").toLowerCase()}
+          showCreate={can("devices:write")}
+          title={t("groups.noGroups")}
+          createTo="/devices/views/new"
+          createLabel={t("common:empty.create.views")}
+        />
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {views.data.map((view) => {

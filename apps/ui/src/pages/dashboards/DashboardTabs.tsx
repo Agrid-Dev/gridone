@@ -1,5 +1,7 @@
+import { usePermissions } from "@/contexts/AuthContext";
 import { useMemo, type FC } from "react";
-import { NavLink, useSearchParams } from "react-router";
+import { useSearchParams } from "react-router";
+import { ResourceNavLink as NavLink } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
 import { Plus } from "lucide-react";
 import type { DashboardSummary } from "@gridone/sdk";
@@ -18,6 +20,7 @@ export const DashboardTabs: FC<{
   disabled?: boolean;
 }> = ({ summaries, activeId, disabled = false }) => {
   const { t } = useTranslation("dashboards");
+  const can = usePermissions();
   const [searchParams] = useSearchParams();
 
   // The viewing period is a page-level concern owned by the header, above the
@@ -38,7 +41,7 @@ export const DashboardTabs: FC<{
   return (
     <div
       className={cn(
-        "flex items-center gap-2",
+        "flex min-w-0 max-w-full flex-wrap items-center gap-2",
         disabled && "pointer-events-none opacity-60",
       )}
       aria-disabled={disabled}
@@ -46,22 +49,39 @@ export const DashboardTabs: FC<{
       <Tabs value={activeId} variant="pill">
         <TabsList aria-label={t("tabs.label")}>
           {summaries.map((dashboard) => (
-            <TabsTrigger key={dashboard.id} value={dashboard.id} asChild>
-              <NavLink
-                to={{ pathname: `/dashboards/${dashboard.id}`, search }}
-                title={dashboard.description ?? undefined}
-              >
-                {dashboard.name}
-              </NavLink>
+            <TabsTrigger
+              key={dashboard.id}
+              value={dashboard.id}
+              disabled={disabled}
+              asChild={!disabled}
+            >
+              {disabled ? (
+                dashboard.name
+              ) : (
+                <NavLink
+                  to={{ pathname: `/dashboards/${dashboard.id}`, search }}
+                  title={dashboard.description ?? undefined}
+                >
+                  {dashboard.name}
+                </NavLink>
+              )}
             </TabsTrigger>
           ))}
         </TabsList>
       </Tabs>
-      <Button variant="ghost" size="icon" asChild>
-        <NavLink to="/dashboards/new" aria-label={t("tabs.new")}>
-          <Plus className="h-4 w-4" />
-        </NavLink>
-      </Button>
+      {can("dashboards:write") &&
+        (disabled ? (
+          <Button disabled variant="ghost">
+            {t("tabs.new")}
+          </Button>
+        ) : (
+          <Button variant="ghost" className="min-h-11" asChild>
+            <NavLink to="/dashboards/new" aria-label={t("tabs.new")}>
+              <Plus className="h-4 w-4" />
+              {t("tabs.new")}
+            </NavLink>
+          </Button>
+        ))}
     </div>
   );
 };

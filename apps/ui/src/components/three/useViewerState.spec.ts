@@ -1,5 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { Group } from "three";
 import type { LevelSummary } from "./levelSummaries";
 import { useViewerState } from "./useViewerState";
@@ -57,6 +57,38 @@ function pressEscapeIn(tagName: "input" | "textarea") {
 }
 
 describe("useViewerState", () => {
+  it("restores plan selection through initial model loading without replaying camera instructions", () => {
+    const selection = {
+      selectedId: "sp-1",
+      focusedLevelId: "st-1",
+      viewMode: "plan" as const,
+      panelExpanded: true,
+    };
+    const onSelectionChange = vi.fn();
+    const { result, rerender } = renderHook(
+      ({ scene }: { scene: Group | null }) =>
+        useViewerState({
+          levels: LEVELS,
+          spaceStoreys: SPACE_STOREYS,
+          scene,
+          initialSelection: selection,
+          onSelectionChange,
+        }),
+      { initialProps: { scene: null as Group | null } },
+    );
+    rerender({ scene: new Group() });
+    expect(result.current).toMatchObject({
+      ...selection,
+      planStoreyId: "st-1",
+      viewRequest: null,
+    });
+    act(() => result.current.focusZone("sp-0"));
+    expect(onSelectionChange).toHaveBeenLastCalledWith({
+      ...selection,
+      selectedId: "sp-0",
+      focusedLevelId: "st-0",
+    });
+  });
   it("starts whole, in 3D, with nothing picked", () => {
     const { result } = setup();
     expect(result.current).toMatchObject({

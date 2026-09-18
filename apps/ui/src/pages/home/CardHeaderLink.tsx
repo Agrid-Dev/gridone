@@ -1,5 +1,5 @@
 import { FC, ReactNode } from "react";
-import { Link } from "react-router";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import { ArrowRight } from "lucide-react";
 
 /** Right-aligned card-header action of the building page: "label →" linking

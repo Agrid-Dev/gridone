@@ -1,17 +1,12 @@
-import { Link, useParams } from "react-router";
+import { useParams } from "react-router";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { NotFoundFallback } from "@/components/fallbacks/NotFound";
 import { usePermissions } from "@/contexts/AuthContext";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import { ResourceDeleteButton } from "@/components/ResourceDeleteButton";
+import { BackLink } from "@/components/BackLink";
 import { TargetPresenter } from "../commands/presenters/TargetPresenter";
 import { TagGroupControls } from "./TagGroupControls";
 import { GroupError } from "@/components/group-command/GroupError";
@@ -26,7 +21,7 @@ export default function ViewDetailPage() {
   );
 }
 function ViewDetails({ id }: { id: string }) {
-  const { t } = useTranslation("devices");
+  const { t } = useTranslation(["devices", "common"]);
   const can = usePermissions();
   const detail = useViewDetails(id);
   if (detail.view.isLoading)
@@ -35,12 +30,7 @@ function ViewDetails({ id }: { id: string }) {
   if (!view) return <NotFoundFallback />;
   return (
     <section className="space-y-6">
-      <Link
-        className="text-sm text-muted-foreground hover:underline"
-        to="/devices/views"
-      >
-        ← {t("groups.title")}
-      </Link>
+      <BackLink to="/devices/views">{t("groups.title")}</BackLink>
       <ResourceHeader
         title={view.name}
         caption={view.description}
@@ -52,12 +42,19 @@ function ViewDetails({ id }: { id: string }) {
                   {t(detail.isGroup ? "groups.edit" : "views.edit")}
                 </Link>
               </Button>
-              <Button
-                variant="outline"
-                onClick={() => detail.setDeleting(true)}
-              >
-                {t(detail.isGroup ? "groups.delete" : "views.delete")}
-              </Button>
+              <ResourceDeleteButton
+                onDelete={detail.deleteView}
+                isDeleting={detail.remove.isPending}
+                confirmTitle={t("common:deletion.title", {
+                  name: view.name || view.id,
+                })}
+                confirmDetails={t(
+                  detail.isGroup
+                    ? "groups.deleteDescription"
+                    : "views.deleteDescription",
+                  { name: view.name || view.id },
+                )}
+              />
             </>
           )
         }
@@ -162,36 +159,6 @@ function ViewDetails({ id }: { id: string }) {
           ))}
         </>
       )}
-      <Dialog open={detail.deleting} onOpenChange={detail.setDeleting}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {t(detail.isGroup ? "groups.delete" : "views.delete")}
-            </DialogTitle>
-            <DialogDescription>
-              {t(
-                detail.isGroup
-                  ? "groups.deleteDescription"
-                  : "views.deleteDescription",
-                { name: view.name },
-              )}
-            </DialogDescription>
-          </DialogHeader>
-          <GroupError error={detail.remove.error} />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => detail.setDeleting(false)}>
-              {t("groups.cancel")}
-            </Button>
-            <Button
-              variant="destructive"
-              disabled={detail.remove.isPending}
-              onClick={() => void detail.deleteView()}
-            >
-              {t(detail.isGroup ? "groups.delete" : "views.delete")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </section>
   );
 }

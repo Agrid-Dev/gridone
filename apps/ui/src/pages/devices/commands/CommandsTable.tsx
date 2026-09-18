@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import { flexRender, type Table as TTable } from "@tanstack/react-table";
 import { ChevronLeft, ChevronRight, History } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";

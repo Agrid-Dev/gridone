@@ -1,4 +1,4 @@
-import { Link } from "react-router";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
 import type { Device, DevicesFilter } from "@gridone/sdk";
 import { Button } from "@/components/ui/button";
@@ -182,7 +182,10 @@ export function TagGroupControls({
         <ul className="mt-3 divide-y">
           {detail.members.devices.map((member) => (
             <li key={member.id} className="py-2 text-sm">
-              <Link className="hover:underline" to={`/devices/${member.id}`}>
+              <Link
+                className="text-primary hover:underline focus-visible:underline"
+                to={`/devices/${member.id}`}
+              >
                 {member.name}
               </Link>
             </li>

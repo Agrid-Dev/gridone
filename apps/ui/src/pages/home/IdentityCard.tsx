@@ -1,5 +1,5 @@
 import { FC } from "react";
-import { Link } from "react-router";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
 import { MapPin, Pencil } from "lucide-react";
 import type { BuildingProfile } from "@gridone/sdk";

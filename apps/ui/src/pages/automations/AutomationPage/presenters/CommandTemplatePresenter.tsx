@@ -1,4 +1,4 @@
-import { Link } from "react-router";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import { type FC } from "react";
 import { useTranslation } from "react-i18next";
 import { type TFunction } from "i18next";

@@ -67,7 +67,10 @@ function preparationKey(request: SelectionCommandPrepare): string {
   ]);
 }
 
-export function useGroupCommand(target: DevicesFilter) {
+export function useGroupCommand(
+  target: DevicesFilter,
+  restoredBatch?: BatchDispatchResponse,
+) {
   const client = useGridoneClient();
   const { i18n } = useTranslation();
   const cache = useQueryClient();
@@ -257,8 +260,15 @@ export function useGroupCommand(target: DevicesFilter) {
     [preparations],
   );
   const batches = useMemo(
-    () => accepted.map((item) => item.batch!),
-    [accepted],
+    () => [
+      ...new Map(
+        [
+          ...(restoredBatch ? [restoredBatch] : []),
+          ...accepted.map((item) => item.batch!),
+        ].map((batch) => [batch.batch_id, batch]),
+      ).values(),
+    ],
+    [accepted, restoredBatch],
   );
   const successfulWrites = useMemo(
     () => accepted.map((item) => item.write),

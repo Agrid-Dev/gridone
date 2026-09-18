@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useLocation } from "react-router";
 import { useTranslation } from "react-i18next";
 import type { Device } from "@gridone/sdk";
 import { Button } from "@/components/ui";
@@ -34,16 +35,41 @@ type ActiveFaultsSectionProps = {
 export function ActiveFaultsSection({ device }: ActiveFaultsSectionProps) {
   const { t } = useTranslation("devices");
   const [expanded, setExpanded] = useState(false);
+  const location = useLocation();
+  const targeted = location.hash === "#active-faults";
+  const section = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!targeted) return;
+    setExpanded(true);
+    section.current?.scrollIntoView?.({ block: "start" });
+    section.current?.focus({ preventScroll: true });
+  }, [targeted, location.key]);
   const faults = getActiveFaults(device);
 
-  if (faults.length === 0) return null;
+  if (faults.length === 0)
+    return targeted ? (
+      <div
+        id="active-faults"
+        ref={section}
+        tabIndex={-1}
+        className="scroll-mt-20 text-sm text-muted-foreground"
+      >
+        {t("deviceDetails.activeFaults.empty")}
+      </div>
+    ) : null;
 
   // getActiveFaults sorts most-severe first, so [0] is the highest severity.
   const severity = faults[0].severity;
   const level = SEVERITY_LEVEL[severity];
 
   return (
-    <div data-severity={severity} className="-my-1">
+    <div
+      id="active-faults"
+      ref={section}
+      tabIndex={-1}
+      data-severity={severity}
+      className="-my-1 scroll-mt-20"
+    >
       <div
         className={cn(
           "flex flex-wrap items-center gap-x-3 gap-y-1 border-l-[3px] pl-3",

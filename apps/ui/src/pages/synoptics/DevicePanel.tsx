@@ -1,5 +1,5 @@
 import type { FC } from "react";
-import { Link } from "react-router";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
 import { ArrowUpRight, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,7 @@ export const DevicePanel: FC<{ deviceId: string; onClose: () => void }> = ({
         {device ? (
           <Link
             to={`/devices/${device.id}`}
-            className="flex min-w-0 items-center gap-1 text-sm font-medium text-foreground hover:underline"
+            className="flex min-w-0 items-center gap-1 text-sm font-medium text-primary hover:underline focus-visible:underline"
           >
             <span className="truncate">{device.name}</span>
             <ArrowUpRight className="h-3.5 w-3.5 shrink-0" />

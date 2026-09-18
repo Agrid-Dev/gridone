@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { clearNavigation } from "@/lib/navigation";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
@@ -130,6 +131,7 @@ function renderPanel(overrides: Partial<LevelPanelProps> = {}) {
 const searchBox = () =>
   screen.getByRole("searchbox", { name: "Search a zone or a device…" });
 
+beforeEach(clearNavigation);
 afterEach(cleanup);
 
 describe("LevelPanel", () => {

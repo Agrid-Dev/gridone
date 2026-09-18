@@ -7,7 +7,8 @@ import {
   type ReactNode,
 } from "react";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router";
+import { ResourceLink as Link } from "@/components/ResourceLink";
+import { useEntryState } from "@/hooks/useEntryState";
 import {
   ArrowUpRight,
   ChevronLeft,
@@ -176,7 +177,10 @@ export const LevelPanel: FC<LevelPanelProps> = ({
 }) => {
   const { t } = useTranslation("home");
   // One level unfolded at a time keeps the panel short on tall buildings.
-  const [openLevelId, setOpenLevelId] = useState<string | null>(null);
+  const [openLevelId, setOpenLevelId] = useEntryState<string | null>(
+    "building.openLevel",
+    null,
+  );
   const [search, setSearch] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);

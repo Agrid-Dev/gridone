@@ -1,4 +1,5 @@
-import { NavLink, useLocation } from "react-router";
+import { useLocation } from "react-router";
+import { ResourceNavLink as NavLink } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
 import { Gauge, History, Settings2, Terminal } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
