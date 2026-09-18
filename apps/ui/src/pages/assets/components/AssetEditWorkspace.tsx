@@ -75,9 +75,9 @@ type AssetEditWorkspaceProps = {
   canWriteDevices: boolean;
   headerActions?: ReactNode;
   onSubmit?: (data: AssetFormValues) => void;
-  onDelete?: () => void | Promise<unknown>;
+  onDelete?: () => Promise<unknown>;
   onLinkDevice: () => void;
-  onUnlinkDevice?: (deviceId: string) => void;
+  onUnlinkDevice?: (deviceId: string) => Promise<unknown>;
   onReorder?: (orderedIds: string[]) => void;
 };
 
@@ -658,6 +658,8 @@ export function AssetEditWorkspace({
                               zone: asset.name,
                             })}
                             confirmLabel={t("devices.unlink")}
+                            confirmPendingLabel={t("devices.unlinkPending")}
+                            confirmErrorLabel={t("devices.unlinkError")}
                           >
                             <Unlink2 className="h-4 w-4" />
                           </ConfirmButton>

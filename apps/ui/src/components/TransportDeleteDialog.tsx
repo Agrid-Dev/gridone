@@ -7,7 +7,7 @@ export function TransportDeleteDialog({
   isDeleting,
 }: {
   transportName: string;
-  onConfirm: () => void | Promise<unknown>;
+  onConfirm: () => Promise<unknown>;
   isDeleting: boolean;
 }) {
   const { t } = useTranslation(["transports", "common"]);

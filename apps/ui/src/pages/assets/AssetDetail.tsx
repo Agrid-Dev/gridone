@@ -99,7 +99,7 @@ export default function AssetDetail() {
           ) : null
         }
         onLinkDevice={() => setLinkDialogOpen(true)}
-        onUnlinkDevice={(deviceId) => unlink.mutate(deviceId)}
+        onUnlinkDevice={(deviceId) => unlink.mutateAsync(deviceId)}
         onReorder={(orderedIds) => reorderMutation.mutate(orderedIds)}
       />
       <DeviceLinkDialog

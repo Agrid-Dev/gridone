@@ -15,7 +15,7 @@ interface ConfirmButtonProps extends Omit<
   confirmPendingLabel?: ReactNode;
   confirmErrorLabel?: string;
   icon?: ReactNode;
-  onConfirm: () => void | Promise<unknown>;
+  onConfirm: () => Promise<unknown>;
 }
 
 export function ConfirmButton({
