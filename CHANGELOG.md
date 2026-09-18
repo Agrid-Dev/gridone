@@ -1,3 +1,9 @@
+## v0.251.1 (2026-09-18)
+
+### Fix
+
+- **timeseries**: fill string states until the next change in PNG export
+
 ## v0.251.0 (2026-09-18)
 
 ### Feat
