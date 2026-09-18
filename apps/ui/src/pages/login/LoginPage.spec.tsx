@@ -92,7 +92,10 @@ describe("LoginPage", () => {
     await waitFor(() =>
       expect(loginMock).toHaveBeenCalledWith("alice", "secret"),
     );
-    expect(navigateMock).toHaveBeenCalledWith("/", { replace: true });
+    expect(navigateMock).toHaveBeenCalledWith("/", {
+      replace: true,
+      state: { resumeNavigation: true },
+    });
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 

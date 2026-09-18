@@ -44,6 +44,7 @@ export class CookieTokenStorage implements TokenStorage {
   clear(): void {
     writeCookie(ACCESS_COOKIE, "", 0);
     writeCookie(REFRESH_COOKIE, "", 0);
+    window.dispatchEvent(new Event("gridone:session-ended"));
   }
 }
 
