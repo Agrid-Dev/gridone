@@ -8,6 +8,7 @@ import {
 } from "react";
 import type { MeResponse } from "@gridone/sdk";
 import { useGridoneClient } from "./GridoneClientContext";
+import { clearLoginReturn } from "@/lib/loginRedirect";
 
 type AuthState =
   | { status: "loading" }
@@ -37,9 +38,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [health, setHealth] = useState<HealthState>(HEALTH_FALLBACK);
 
   const logout = useCallback(async () => {
+    clearLoginReturn();
     await client.logout().catch(() => {});
     setState({ status: "unauthenticated" });
   }, [client]);
+
+  useEffect(() => {
+    const endSession = () => setState({ status: "unauthenticated" });
+    window.addEventListener("gridone:session-ended", endSession);
+    return () =>
+      window.removeEventListener("gridone:session-ended", endSession);
+  }, []);
 
   const refreshMe = useCallback(async () => {
     const user = await client.me();
