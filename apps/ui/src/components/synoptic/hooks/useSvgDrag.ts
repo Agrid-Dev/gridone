@@ -3,26 +3,35 @@ import {
   useEffect,
   useRef,
   type PointerEvent as ReactPointerEvent,
+  type RefObject,
 } from "react";
 import type { Pt } from "../types";
 
-/** Convert client (mouse) coordinates into the SVG viewBox coordinate space. */
+/** Convert client (mouse) coordinates into the coordinate space of `el`:
+ *  the viewBox for the svg itself, the local frame for a transformed group. */
 export function clientToSvg(
-  svg: SVGSVGElement,
+  el: SVGGraphicsElement,
   clientX: number,
   clientY: number,
 ): Pt {
-  const ctm = svg.getScreenCTM();
+  const ctm = el.getScreenCTM();
   if (!ctm) return { x: clientX, y: clientY };
   const p = new DOMPoint(clientX, clientY).matrixTransform(ctm.inverse());
   return { x: p.x, y: p.y };
 }
+
+/** Client px a press may travel before it is a drag rather than a click:
+ *  a pan of the canvas, a move of a symbol. */
+export const DRAG_THRESHOLD = 3;
 
 type DragHandlers = {
   /** Client px the pointer must travel before the drag starts. Until then
    *  the pointer is not captured, so a plain click still reaches its
    *  target. Default 0: the drag starts on pointerdown. */
   threshold?: number;
+  /** The element whose local frame the points are reported in. Default:
+   *  the svg root, in viewBox units. */
+  frame?: RefObject<SVGGraphicsElement | null>;
   onStart?: (p: Pt) => void;
   /** Called on every move with the current point, the delta since last move, and the start point. */
   onMove: (p: Pt, delta: Pt, start: Pt) => void;
@@ -42,6 +51,7 @@ type DragHandlers = {
  */
 export function useSvgDrag({
   threshold = 0,
+  frame,
   onStart,
   onMove,
   onEnd,
@@ -60,7 +70,8 @@ export function useSvgDrag({
       cancelActive.current();
       const id = e.pointerId;
       const el = e.currentTarget as SVGGraphicsElement;
-      const svg = el.ownerSVGElement ?? (el as unknown as SVGSVGElement);
+      const svg: SVGGraphicsElement =
+        frame?.current ?? el.ownerSVGElement ?? (el as SVGGraphicsElement);
       const down = { x: e.clientX, y: e.clientY };
       let started = false;
       let start = clientToSvg(svg, down.x, down.y);
@@ -121,7 +132,7 @@ export function useSvgDrag({
       window.addEventListener("pointercancel", cancel);
       e.stopPropagation();
     },
-    [threshold],
+    [threshold, frame],
   );
 
   /** Lets go of the drag in progress, reverting it, for a caller that

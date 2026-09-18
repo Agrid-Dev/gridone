@@ -5,6 +5,7 @@ import {
   project,
   rotateQuarter,
   rotateSide,
+  unproject,
 } from "./projection";
 
 describe("project", () => {
@@ -23,6 +24,31 @@ describe("project", () => {
 
   it("projects fractional cell centres", () => {
     expect(project("isometric", 0.5, 0.5)).toEqual({ x: 0, y: 20 });
+  });
+});
+
+describe("unproject", () => {
+  // Cells the real plates use: negative y, and a run raised to z 1.
+  it.each([
+    [{ x: 0, y: 0 }, 0],
+    [{ x: 3, y: -1 }, 0],
+    [{ x: 13, y: -1 }, 1],
+    [{ x: 2.5, y: 4.25 }, 0],
+  ])("inverts project for %j at z %i", (cell, z) => {
+    const screen = project("isometric", cell.x, cell.y, z);
+    const back = unproject("isometric", screen, z);
+    expect(back.x).toBeCloseTo(cell.x);
+    expect(back.y).toBeCloseTo(cell.y);
+  });
+
+  it("reads a raised point at grade as the cell one step back on both axes", () => {
+    // In the 2:1 projection (13, -1, z 1) lands where (12, -2) lands at grade.
+    const screen = project("isometric", 13, -1, 1);
+    expect(unproject("isometric", screen, 0)).toEqual({ x: 12, y: -2 });
+  });
+
+  it("inverts flat cells and ignores z", () => {
+    expect(unproject("flat", { x: 96, y: 48 }, 3)).toEqual({ x: 2, y: 1 });
   });
 });
 

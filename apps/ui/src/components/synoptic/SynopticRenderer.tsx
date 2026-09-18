@@ -3,6 +3,7 @@ import {
   type KeyboardEvent,
   type MouseEvent,
   type ReactNode,
+  type RefObject,
 } from "react";
 import {
   symbolSchemas,
@@ -18,7 +19,7 @@ import { fluidFillClass } from "@/lib/fluidColors";
 import { Caption, Chip, CHIP_H, chipWidth, DISC_R } from "./Chip";
 import { DepthOrdered, type DepthItem } from "./DepthOrdered";
 import { Panel, PANEL_W, panelHeight, type PanelRow } from "./Panel";
-import { PidDiagram } from "./PidDiagram";
+import { PidDiagram, type CanvasTouchAction } from "./PidDiagram";
 import { Pipe } from "./Pipe";
 import {
   DEFAULT_PROJECTION,
@@ -52,8 +53,12 @@ import {
   type SynopticValues,
 } from "./values";
 
+/** What the renderer draws: a plate with or without its envelope, so a
+ *  document being authored renders before it is stored. */
+export type PlateDocument = Omit<Synoptic, "id" | "metadata">;
+
 type SynopticRendererProps = {
-  doc: Synoptic;
+  doc: PlateDocument;
   values?: SynopticValues;
   /** The plates that exist. A link naming one of them navigates; a link
    *  naming another reads missing. Without the set every link is inert. */
@@ -61,6 +66,14 @@ type SynopticRendererProps = {
   /** A symbol the user activated: one that is a device, or a link whose
    *  target exists. Nothing else is clickable. */
   onSymbolClick?: (symbol: SymbolElement) => void;
+  /** Screen points the plate must include besides what it draws: an
+   *  editor's grid, so an empty plate still has room. */
+  extent?: Pt[];
+  touchAction?: CanvasTouchAction;
+  /** Painted over the plate, in its frame; `frameRef` receives that frame
+   *  so a pointer can be read in plate coordinates. */
+  frameRef?: RefObject<SVGGElement>;
+  children?: ReactNode;
 };
 
 /** Plate margin around the drawn extent, in px. */
@@ -132,27 +145,37 @@ export function SynopticRenderer({
   values = EMPTY_VALUES,
   knownSynoptics,
   onSymbolClick,
+  extent,
+  touchAction,
+  frameRef,
+  children,
 }: SynopticRendererProps) {
   // The geometry (runs cut per cell, bodies, what they occupy) depends on
   // the document alone, so a value tick only binds readings to it.
   const geometry = useMemo(() => plateGeometry(doc), [doc]);
   const { items, box } = useMemo(
-    () => buildPlate(geometry, values, { knownSynoptics, onSymbolClick }),
-    [geometry, values, knownSynoptics, onSymbolClick],
+    () =>
+      buildPlate(geometry, values, { knownSynoptics, onSymbolClick }, extent),
+    [geometry, values, knownSynoptics, onSymbolClick, extent],
   );
   return (
     <PidDiagram
       width={box.x1 - box.x0 + 2 * MARGIN}
       height={box.y1 - box.y0 + 2 * MARGIN}
+      touchAction={touchAction}
     >
-      <g transform={`translate(${MARGIN - box.x0} ${MARGIN - box.y0})`}>
+      <g
+        ref={frameRef}
+        transform={`translate(${MARGIN - box.x0} ${MARGIN - box.y0})`}
+      >
         <DepthOrdered items={items} />
+        {children}
       </g>
     </PidDiagram>
   );
 }
 
-type Box = { x0: number; y0: number; x1: number; y1: number };
+export type Box = { x0: number; y0: number; x1: number; y1: number };
 
 const bounds = (points: Pt[]): Box => ({
   x0: Math.min(...points.map((p) => p.x)),
@@ -208,7 +231,7 @@ type Plate = Geometry &
 /** Half the width a run occupies on screen, casing included. */
 const RUN_HALF_WIDTH = 4;
 
-function plateGeometry(doc: Synoptic): Geometry {
+function plateGeometry(doc: PlateDocument): Geometry {
   const projection = doc.projection ?? DEFAULT_PROJECTION;
   const symbols = new Map((doc.symbols ?? []).map((s) => [s.id, s]));
   const pipes = doc.pipes ?? [];
@@ -305,13 +328,14 @@ function buildPlate(
   geometry: Geometry,
   values: SynopticValues,
   interaction: Interaction,
+  extra: Pt[] = [],
 ) {
   const plate: Plate = {
     ...geometry,
     ...interaction,
     values,
     items: [],
-    extent: [...geometry.corners.values()].flat(),
+    extent: [...[...geometry.corners.values()].flat(), ...extra],
     obstacles: [
       ...geometry.bodies.values(),
       ...geometry.runs,
@@ -742,7 +766,7 @@ const symbolRotation = (symbol: SymbolElement) =>
   symbol.placement.kind === "cell" ? (symbol.placement.rotation ?? 0) : 0;
 
 /** The cells a symbol's footprint covers, turned by its rotation. */
-function footprintCells(symbol: SymbolElement): Cell[] {
+export function footprintCells(symbol: SymbolElement): Cell[] {
   const { w, d } = footprintSize(symbol);
   const origin = symbol.placement.cell;
   const rotation = symbolRotation(symbol);
@@ -810,6 +834,10 @@ function cellsBehind(projection: Projection, cell: Cell): Pt[] {
     { x, y: y - 1 },
   ];
 }
+
+/** The screen box a symbol's body takes, for a surface that hits it. */
+export const symbolBox = (projection: Projection, symbol: SymbolElement): Box =>
+  bounds(symbolCorners(projection, symbol));
 
 const nearest = (points: Pt[], to: Pt): Pt =>
   points.reduce((best, p) =>

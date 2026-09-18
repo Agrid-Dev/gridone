@@ -6,7 +6,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import type { Pt } from "../types";
-import { clientToSvg, useSvgDrag } from "./useSvgDrag";
+import { clientToSvg, DRAG_THRESHOLD, useSvgDrag } from "./useSvgDrag";
 
 const MIN_SCALE = 0.25;
 const MAX_SCALE = 8;
@@ -19,8 +19,6 @@ const PAGE_PX = 40 * LINE_PX;
 /** The most one wheel event may move the zoom, in pixels of delta, so a
  *  page-mode notch or a flung trackpad stays one sensible step. */
 const MAX_WHEEL_PX = 200;
-/** Client px a press may wander before it becomes a pan rather than a click. */
-const PAN_THRESHOLD = 3;
 
 type View = { x: number; y: number; scale: number };
 
@@ -52,7 +50,7 @@ export function useViewport() {
   const svgRef = useRef<SVGSVGElement>(null);
   const [view, setView] = useState<View>(FIT);
   const drag = useSvgDrag({
-    threshold: PAN_THRESHOLD,
+    threshold: DRAG_THRESHOLD,
     onMove: (_p, delta) =>
       setView((v) => ({ ...v, x: v.x + delta.x, y: v.y + delta.y })),
   });

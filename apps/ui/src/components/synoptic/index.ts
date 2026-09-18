@@ -21,11 +21,18 @@ export {
   rotateQuarter,
   rotateSide,
   sideVector,
+  unproject,
   PIPE_AXIS_Z,
+  DEFAULT_PROJECTION,
 } from "./projection";
 export type { Layer, Plane } from "./projection";
 export { SynopticSymbol } from "./symbols/SynopticSymbol";
-export { SynopticRenderer } from "./SynopticRenderer";
+export {
+  SynopticRenderer,
+  footprintCells,
+  symbolBox,
+} from "./SynopticRenderer";
+export type { Box, PlateDocument } from "./SynopticRenderer";
 export type { SynopticValues } from "./values";
 export type { SymbolState } from "./symbols/Label";
 export { Collector } from "./symbols/Collector";
@@ -58,7 +65,9 @@ export { Readout } from "./controls/Readout";
 export { AlarmBanner } from "./controls/AlarmBanner";
 export type { Alarm } from "./controls/AlarmBanner";
 
-export { useSvgDrag, clientToSvg } from "./hooks/useSvgDrag";
+export { useSvgDrag, clientToSvg, DRAG_THRESHOLD } from "./hooks/useSvgDrag";
+export { runCells, runPieces, endpointCell, axisCentre } from "./runs";
+export type { RunPiece } from "./runs";
 
 export { airLine } from "./format";
 export {

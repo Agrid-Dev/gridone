@@ -19,6 +19,11 @@ export const FLUID_STROKE_CLASS: Record<Fluid, string> = {
   condenser_return: "stroke-fluid-condenser-return",
 };
 
+/** Every fluid the vocabulary holds, in the order the maps list them: the
+ *  generated types carry no runtime list, so the maps are the one place
+ *  that names them all. */
+export const FLUIDS = Object.keys(FLUID_STROKE_CLASS) as Fluid[];
+
 export const FLUID_FILL_CLASS: Record<Fluid, string> = {
   primary_supply: "fill-fluid-primary-supply",
   primary_return: "fill-fluid-primary-return",
