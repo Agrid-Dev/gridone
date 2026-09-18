@@ -17,6 +17,9 @@ class DiscoveryListener(BaseModel):
     _codecs: dict[str, FnCodec] = {}
     topic: str
     field_getters: list[DeviceConfigFieldGetter]
+    # A readable ``str`` attribute of the same driver, read once at discovery
+    # to name the device instead of the config-based fallback.
+    name_attribute: str | None = None
 
     @model_validator(mode="after")
     def build_codecs(self) -> "DiscoveryListener":

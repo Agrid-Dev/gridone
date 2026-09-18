@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -158,3 +159,69 @@ async def tests_initializes_name_from_config_fields(
     assert isinstance(device, CoreDevice)
     assert "gtw" in device.name
     assert "abc" in device.name
+
+
+CONFIG_BASED_NAME = "abc/gtw"
+
+
+async def _discover(driver, transport, spy) -> CoreDevice:
+    dh = DiscoveryHandler(driver, transport, spy.call)
+    await dh.start()
+    await transport.simulate_event(
+        "/xx", {"id": "abc", "gateway_id": "gtw", "payload": {"temperature": 22}}
+    )
+    await spy.wait()
+    return spy.call_args[0]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("read_result", "expected_name"),
+    [
+        ({"label": "  Ch 02  "}, "Ch 02"),
+        ({"label": ""}, CONFIG_BASED_NAME),
+        ({"label": "   "}, CONFIG_BASED_NAME),
+        ({"label": 42}, CONFIG_BASED_NAME),
+        ({"label": None}, CONFIG_BASED_NAME),
+        ({}, CONFIG_BASED_NAME),
+        (TimeoutError("no reply"), CONFIG_BASED_NAME),
+    ],
+)
+async def test_names_device_from_name_attribute_read_at_discovery(
+    driver_w_name_attribute,
+    mock_push_transport_client,
+    on_discover_spy,
+    read_result,
+    expected_name,
+):
+    mock_push_transport_client._read = AsyncMock(  # noqa: SLF001
+        side_effect=[read_result]
+    )
+    device = await _discover(
+        driver_w_name_attribute, mock_push_transport_client, on_discover_spy
+    )
+    assert device.name == expected_name
+
+
+@pytest.mark.asyncio
+async def test_name_read_uses_the_attribute_address_rendered_with_config(
+    driver_w_name_attribute, mock_push_transport_client, on_discover_spy
+):
+    mock_push_transport_client._read = AsyncMock(return_value={"label": "Ch 02"})  # noqa: SLF001
+    await _discover(
+        driver_w_name_attribute, mock_push_transport_client, on_discover_spy
+    )
+    (address,) = mock_push_transport_client._read.call_args.args  # noqa: SLF001
+    assert address.topic == "/xx/abc/label"
+
+
+@pytest.mark.asyncio
+async def test_no_read_without_name_attribute(
+    driver_w_push_transport, mock_push_transport_client, on_discover_spy
+):
+    mock_push_transport_client._read = AsyncMock(return_value={"label": "Ch 02"})  # noqa: SLF001
+    device = await _discover(
+        driver_w_push_transport, mock_push_transport_client, on_discover_spy
+    )
+    assert device.name == CONFIG_BASED_NAME
+    mock_push_transport_client._read.assert_not_awaited()  # noqa: SLF001

@@ -9,6 +9,7 @@ discovery:
     - name: device_id
       codecs:
         - json_pointer: /device_id
+  name_attribute: mode
 
 attributes:
   - name: temperature

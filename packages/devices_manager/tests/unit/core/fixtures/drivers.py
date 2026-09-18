@@ -1,3 +1,5 @@
+import dataclasses
+
 import pytest
 
 from devices_manager.core.codecs.factory import CodecSpec
@@ -219,6 +221,26 @@ def driver_w_push_transport(push_attributes: list[AttributeDriver]) -> Driver:
                 {"name": "vendor_id", "codecs": [{"json_pointer": "/id"}]},
                 {"name": "gateway_id", "codecs": [{"json_pointer": "/gateway_id"}]},
             ],
+        },
+    )
+
+
+@pytest.fixture
+def driver_w_name_attribute(driver_w_push_transport: Driver) -> Driver:
+    """Discovery driver whose ``label`` attribute names discovered devices."""
+    label = AttributeDriver(
+        name="label",
+        data_type=DataType.STRING,
+        read={"topic": "/xx/${vendor_id}/label"},
+        write=None,
+        codecs=[CodecSpec(name="json_pointer", argument="/label")],
+    )
+    return dataclasses.replace(
+        driver_w_push_transport,
+        attributes={**driver_w_push_transport.attributes, "label": label},
+        discovery_schema={
+            **driver_w_push_transport.discovery_schema,  # type: ignore[dict-item]
+            "name_attribute": "label",
         },
     )
 

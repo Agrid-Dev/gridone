@@ -375,3 +375,41 @@ class TestDriverWriteConstraintsValidation:
         floor = _make_attribute("floor", DataType.FLOAT)
         assert attributes_referencing([setpoint, fan, floor], "floor") == [setpoint]
         assert attributes_referencing([setpoint, fan, floor], "setpoint") == []
+
+
+class TestDriverDiscoveryNameAttributeValidation:
+    @staticmethod
+    def _discovery(name_attribute: str) -> dict:
+        return {"topic": "/xx", "field_getters": [], "name_attribute": name_attribute}
+
+    def test_str_attribute_accepted(self):
+        driver = Driver(
+            metadata=DriverMetadata(id="test"),
+            transport=TransportProtocols.MQTT,
+            env={},
+            device_config_required=[],
+            update_strategy=UpdateStrategy(),
+            attributes={"label": _make_attribute("label", DataType.STRING)},
+            discovery_schema=self._discovery("label"),
+        )
+        assert driver.discovery_listener is not None
+        assert driver.discovery_listener.name_attribute == "label"
+
+    @pytest.mark.parametrize(
+        ("name_attribute", "attributes", "match"),
+        [
+            ("missing", {}, "unknown attribute 'missing'"),
+            ("temp", {"temp": _make_attribute("temp")}, "must be a str attribute"),
+        ],
+    )
+    def test_invalid_reference_rejected(self, name_attribute, attributes, match):
+        with pytest.raises(InvalidError, match=match):
+            Driver(
+                metadata=DriverMetadata(id="test"),
+                transport=TransportProtocols.MQTT,
+                env={},
+                device_config_required=[],
+                update_strategy=UpdateStrategy(),
+                attributes=attributes,
+                discovery_schema=self._discovery(name_attribute),
+            )
