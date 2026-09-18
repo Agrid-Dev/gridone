@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
+import { consumeLoginReturn } from "@/lib/loginRedirect";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
@@ -66,7 +67,10 @@ export default function LoginPage() {
     form.clearErrors("root");
     try {
       await login(values.username, values.password);
-      navigate("/", { replace: true });
+      navigate(consumeLoginReturn(), {
+        replace: true,
+        state: { resumeNavigation: true },
+      });
     } catch (err) {
       if (isGridoneError(err) && !(err instanceof NetworkError)) {
         form.setError("root", {

@@ -1,5 +1,6 @@
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
+import { readLanguage, applyLanguage } from "./lib/languagePreference";
 import enApps from "./locales/en/apps.json";
 import enAssets from "./locales/en/assets.json";
 import enAutomations from "./locales/en/automations.json";
@@ -69,12 +70,15 @@ i18n.use(initReactI18next).init({
     },
   },
   defaultNS: "common",
-  lng: "fr", // Default language is French
+  lng: readLanguage(),
   fallbackLng: "fr",
   interpolation: {
     escapeValue: false, // React already escapes values
   },
 });
+
+applyLanguage(i18n.language);
+i18n.on("languageChanged", applyLanguage);
 
 // French composes "8 thermostats" where the catalog label is a standalone
 // "Thermostats"; the casing belongs to the sentence, so the locale file asks
