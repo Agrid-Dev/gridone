@@ -1,7 +1,7 @@
 {
   "version": 1,
   "name": "Production ECS Est",
-  "description": "Hydraulique, production ECS Est : 2 PAC, collecteur départ, 7 ballons 500 L en 3 colonnes, départ ECS vers la distribution, mitigeur, retour de bouclage vers le stockage, retour vers les PAC avec appoint eau froide. Températures départ / retour mitigeur non mesurées.",
+  "description": "Hydraulique, production ECS Est : 2 PAC, collecteur départ, 7 ballons 500 L en 3 colonnes, départ ECS vers la distribution par la pompe de surpression et le mitigeur (eau froide adoucie), retour de bouclage vers le stockage par la pompe de bouclage et le réchauffeur de boucle, retour vers les PAC avec appoint eau froide. Températures départ / retour mitigeur non mesurées.",
   "projection": "isometric",
   "defaults": { "stale_after": 900 },
   "symbols": [
@@ -253,7 +253,7 @@
       "type": "mixing_valve",
       "placement": {
         "kind": "cell",
-        "cell": { "x": 24, "y": -3 },
+        "cell": { "x": 26, "y": -3 },
         "rotation": 0
       },
       "label": "MITIGEUR",
@@ -262,14 +262,69 @@
       "bindings": {}
     },
     {
+      "id": "pompe-surpression",
+      "type": "pump",
+      "placement": {
+        "kind": "pipe",
+        "pipe": "dhw-departure",
+        "cell": { "x": 23, "y": -3 }
+      },
+      "label": "POMPE DE SURPRESSION",
+      "device_id": null,
+      "props": {},
+      "bindings": {}
+    },
+    {
+      "id": "pompe-bouclage",
+      "type": "pump",
+      "placement": {
+        "kind": "pipe",
+        "pipe": "dhw-loop-return",
+        "cell": { "x": 28, "y": 4 }
+      },
+      "label": "POMPE DE BOUCLAGE",
+      "device_id": null,
+      "props": {},
+      "bindings": { "state": { "kind": "text", "text": "non identifiée" } }
+    },
+    {
+      "id": "rechauffeur-boucle",
+      "type": "loop_heater",
+      "placement": {
+        "kind": "pipe",
+        "pipe": "dhw-loop-return",
+        "cell": { "x": 24, "y": 5 }
+      },
+      "label": "RÉCHAUFFEUR DE BOUCLE",
+      "device_id": null,
+      "props": {},
+      "bindings": {
+        "state": { "kind": "text", "text": "non identifiée" },
+        "fault": { "kind": "text", "text": "non identifiée" }
+      }
+    },
+    {
       "id": "link-distribution",
       "type": "link",
       "placement": {
         "kind": "cell",
-        "cell": { "x": 30, "y": -3 },
+        "cell": { "x": 32, "y": -3 },
         "rotation": 0
       },
       "label": "DISTRIBUTION ECS",
+      "device_id": null,
+      "props": { "synoptic_id": null, "caption": null },
+      "bindings": {}
+    },
+    {
+      "id": "link-efa",
+      "type": "link",
+      "placement": {
+        "kind": "cell",
+        "cell": { "x": 25, "y": -1 },
+        "rotation": 1
+      },
+      "label": "EAU FROIDE ADOUCIE",
       "device_id": null,
       "props": { "synoptic_id": null, "caption": null },
       "bindings": {}
@@ -279,7 +334,7 @@
       "type": "link",
       "placement": {
         "kind": "cell",
-        "cell": { "x": 30, "y": 9 },
+        "cell": { "x": 32, "y": 9 },
         "rotation": 0
       },
       "label": "EAU FROIDE",
@@ -489,7 +544,7 @@
       "tags": [
         {
           "id": "tt-depart",
-          "at": { "x": 29, "y": -3 },
+          "at": { "x": 31, "y": -3 },
           "label": "DÉPART",
           "value": { "kind": "text", "text": "non mesurée" }
         }
@@ -499,30 +554,30 @@
       "id": "dhw-loop-return",
       "fluid": "dhw_loop",
       "from": { "kind": "port", "symbol": "link-distribution", "port": "out" },
-      "to": { "kind": "port", "symbol": "mitigeur", "port": "cold_in" },
-      "waypoints": [{ "x": 24, "y": -2 }],
+      "to": { "kind": "port", "symbol": "b05", "port": "dhw_in" },
+      "waypoints": [
+        { "x": 28, "y": -2 },
+        { "x": 28, "y": 5 },
+        { "x": 15, "y": 5 }
+      ],
       "flow": null,
       "tags": [
         {
           "id": "tt-retour",
-          "at": { "x": 27, "y": -2 },
+          "at": { "x": 29, "y": -2 },
           "label": "RETOUR",
           "value": { "kind": "text", "text": "non mesurée" }
         }
       ]
     },
     {
-      "id": "dhw-loop-to-storage",
-      "fluid": "dhw_loop",
-      "from": {
-        "kind": "pipe",
-        "pipe": "dhw-loop-return",
-        "cell": { "x": 25, "y": -2 }
-      },
-      "to": { "kind": "port", "symbol": "b05", "port": "dhw_in" },
+      "id": "efa-mitigeur",
+      "fluid": "cold_water",
+      "from": { "kind": "port", "symbol": "link-efa", "port": "out" },
+      "to": { "kind": "port", "symbol": "mitigeur", "port": "cold_in" },
       "waypoints": [
-        { "x": 25, "y": 5 },
-        { "x": 15, "y": 5 }
+        { "x": 24, "y": -2 },
+        { "x": 26, "y": -2 }
       ],
       "flow": null,
       "tags": []
@@ -533,8 +588,8 @@
       "from": { "kind": "port", "symbol": "link-cold-water", "port": "out" },
       "to": { "kind": "port", "symbol": "collector-return", "port": "in_4" },
       "waypoints": [
-        { "x": 29, "y": 10 },
-        { "x": 29, "y": 13 }
+        { "x": 31, "y": 10 },
+        { "x": 31, "y": 13 }
       ],
       "flow": null,
       "tags": []
@@ -579,7 +634,7 @@
     },
     {
       "id": "zone-distribution",
-      "at": { "x": 27, "y": -6 },
+      "at": { "x": 29, "y": -6 },
       "text": "DISTRIBUTION",
       "role": "caption",
       "value": null
