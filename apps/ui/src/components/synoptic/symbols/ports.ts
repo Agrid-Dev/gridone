@@ -37,6 +37,25 @@ export function collectorPorts(
   );
 }
 
+/** The ports a type offers at rotation 0, by name: the type's own, or
+ *  the authored ones for a collector. A port whose offset is not yet a
+ *  number (a collector being authored) is left out. Empty for a type the
+ *  bundled registry does not know. */
+export function portsOf(
+  type: string,
+  props?: CollectorProps,
+): Record<string, SymbolPort> {
+  const schema = symbolSchemas[type];
+  if (!schema) return {};
+  if (!schema["x-ports-authored"]) return schema["x-ports"];
+  if (!props?.ports) return {};
+  return Object.fromEntries(
+    Object.entries(collectorPorts(props)).filter(
+      ([name]) => typeof props.ports[name]?.offset === "number",
+    ),
+  );
+}
+
 /**
  * The cell and face a pipe attaches to: the type's port offset turned by
  * the symbol's rotation and moved to its origin. A collector reads its
@@ -53,12 +72,7 @@ export function symbolPort(
   props?: CollectorProps,
 ): PortAnchor | undefined {
   const schema = symbolSchemas[type];
-  const ports = schema
-    ? schema["x-ports-authored"] && props
-      ? collectorPorts(props)
-      : schema["x-ports"]
-    : {};
-  const port = ports[name];
+  const port = portsOf(type, props)[name];
   if (!port) {
     if (import.meta.env.DEV) {
       console.warn(

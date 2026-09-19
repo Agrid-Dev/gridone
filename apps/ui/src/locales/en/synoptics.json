@@ -3,7 +3,7 @@
   "caption": "Live plant diagrams: click an equipment to open it, a link to move to another view.",
   "resourceName": "synoptic",
   "emptyTitle": "No synoptic yet.",
-  "emptyDescription": "Plates are authored through the API and appear here once stored.",
+  "emptyDescription": "No plate stored yet. Create one with the editor.",
   "panel": {
     "label": "Selected device",
     "close": "Close panel"
@@ -11,5 +11,48 @@
   "faults": {
     "title": "Faults on this view",
     "none": "No active fault on the devices of this view."
+  },
+  "editor": {
+    "new": "New synoptic",
+    "untitled": "Untitled plate",
+    "name": "Name",
+    "level": "Level",
+    "fluid": "Fluid",
+    "flow": "Flow",
+    "palette": "Symbols",
+    "noSelection": "Select a symbol or a pipe to edit it.",
+    "pipe": "pipe",
+    "label": "Label",
+    "rotation": "Rotation",
+    "device": "Device",
+    "linkTarget": "Target synoptic",
+    "slot": {
+      "none": "None",
+      "attribute": "Attribute",
+      "text": "Text",
+      "unit": "Unit",
+      "decimals": "Decimals",
+      "label": {
+        "true": "Reads when true",
+        "false": "Reads when false"
+      }
+    },
+    "collector": {
+      "axis": "Axis",
+      "length": "Length",
+      "ports": "Ports",
+      "removePort": "Remove",
+      "portAttached": "A run is attached to this port; delete the run first",
+      "add": {
+        "in": "Add inlet",
+        "out": "Add outlet"
+      }
+    },
+    "modes": {
+      "select": "Select",
+      "draw": "Draw pipe"
+    },
+    "mode": "Mode",
+    "discard": "Discard the unsaved changes?"
   }
 }

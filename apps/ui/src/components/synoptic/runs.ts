@@ -140,7 +140,8 @@ export type RunPiece = {
   stub?: boolean;
 };
 
-const axisCentre = (projection: Projection, c: Cell) =>
+/** The centre of a cell on the pipe axis, on screen. */
+export const axisCentre = (projection: Projection, c: Cell) =>
   project(projection, c.x + 0.5, c.y + 0.5, (c.z ?? 0) + PIPE_AXIS_Z);
 
 const midpoint = (a: Pt, b: Pt): Pt => ({

@@ -33,8 +33,15 @@ vi.mock("react-i18next", () =>
     "faults.title": "Faults on this view",
     "faults.none": "No active fault on this view",
     "faults.columns.device": "Device",
+    "common:common.edit": "Edit",
   }),
 );
+
+const permissions = { write: false };
+vi.mock("@/contexts/AuthContext", () => ({
+  usePermissions: () => (permission: string) =>
+    permission === "synoptics:write" && permissions.write,
+}));
 
 vi.mock("@/hooks/useSynopticValues", () => ({
   useSynopticValues: () => EMPTY_VALUES,
@@ -196,6 +203,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  permissions.write = false;
   mockUseFaultsList.mockReset();
   mockUseDeviceById.mockReset();
 });
@@ -208,6 +216,19 @@ describe("SynopticDetail", () => {
     expect(rows.map((r) => r.textContent)).toEqual([
       expect.stringContaining("PAC-03"),
     ]);
+  });
+
+  it("links to the editor for those who may write, and hides it otherwise", async () => {
+    renderDetail();
+    await screen.findByText("ECS Est");
+    expect(screen.queryByRole("link", { name: "Edit" })).toBeNull();
+    cleanup();
+    permissions.write = true;
+    renderDetail();
+    await screen.findByText("ECS Est");
+    expect(
+      screen.getByRole("link", { name: "Edit" }).getAttribute("href"),
+    ).toBe("/synoptics/ecs/edit");
   });
 
   it("opens the device's standard control beside the plate on click, and closes it", async () => {

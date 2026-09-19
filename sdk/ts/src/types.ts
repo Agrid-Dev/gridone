@@ -110,6 +110,8 @@ export type Severity = Schemas["Severity"];
 export type Fluid = Schemas["Fluid"];
 export type Cell = Schemas["Cell"];
 export type Synoptic = Schemas["Synoptic"];
+/** A plate as authored: the create and replace payload, no envelope. */
+export type SynopticDocument = Schemas["SynopticDocument-Input"];
 export type SynopticSummary = Schemas["SynopticSummary"];
 export type SymbolElement = Schemas["Symbol-Output"];
 export type PipeElement = Schemas["Pipe-Output"];
@@ -133,6 +135,8 @@ export type SymbolSchema = {
   title: string;
   /** The props JSON Schema's own fields. */
   properties: Record<string, unknown>;
+  /** The props a document must author for the type. */
+  required?: string[];
   "x-footprint": SymbolFootprint | null;
   "x-ports": Record<string, SymbolPort>;
   "x-ports-authored": boolean;

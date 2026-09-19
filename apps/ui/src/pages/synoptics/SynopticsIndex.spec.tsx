@@ -10,12 +10,22 @@ vi.mock("react-i18next", () =>
   createI18nMock({
     title: "Synoptics",
     emptyTitle: "No synoptic yet.",
+    "editor.new": "New synoptic",
   }),
 );
 
+const permissions = { write: false };
+vi.mock("@/contexts/AuthContext", () => ({
+  usePermissions: () => (permission: string) =>
+    permission === "synoptics:write" && permissions.write,
+}));
+
 import SynopticsIndex from "./SynopticsIndex";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  permissions.write = false;
+});
 
 function renderIndex(items: SynopticSummary[]) {
   const queryClient = new QueryClient({
@@ -59,5 +69,12 @@ describe("SynopticsIndex", () => {
     renderIndex([]);
     await screen.findByText("No synoptic yet.");
     expect(screen.queryByRole("link")).toBeNull();
+  });
+
+  it("offers the editor to those who may write, and to nobody else", async () => {
+    permissions.write = true;
+    renderIndex([]);
+    const create = await screen.findByRole("link", { name: "New synoptic" });
+    expect(create.getAttribute("href")).toBe("/synoptics/new");
   });
 });

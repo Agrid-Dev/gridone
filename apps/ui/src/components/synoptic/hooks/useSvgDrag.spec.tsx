@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { clientToSvg, useSvgDrag } from "./useSvgDrag";
@@ -106,6 +107,36 @@ describe("useSvgDrag", () => {
     expect(onMove).toHaveBeenCalledTimes(2);
   });
 
+  it("reports points in the frame's own space when one is given", () => {
+    stubScreenCtm(2);
+    // The frame is a group under a transform: its screen transform differs
+    // from the root's, so a frame drag must read the group's, not the svg's.
+    Object.defineProperty(SVGElement.prototype, "getScreenCTM", {
+      configurable: true,
+      value: () => ({ inverse: () => ({ a: 1 / 4 }) }),
+    });
+    const onMove = vi.fn();
+    function Framed() {
+      const frame = useRef<SVGGElement>(null);
+      const drag = useSvgDrag({ frame, onMove });
+      return (
+        <svg>
+          <g ref={frame}>
+            <rect data-testid="handle" {...drag} />
+          </g>
+        </svg>
+      );
+    }
+    const { getByTestId } = render(<Framed />);
+    fireEvent.pointerDown(getByTestId("handle"), DOWN);
+    fireEvent.pointerMove(window, { pointerId: 1, clientX: 60, clientY: 40 });
+    expect(onMove).toHaveBeenCalledWith(
+      { x: 15, y: 10 },
+      { x: 10, y: 0 },
+      { x: 5, y: 10 },
+    );
+  });
+
   it("ignores every pointer but the one that started the drag", () => {
     const { handle, onMove, onEnd } = setup();
     fireEvent.pointerDown(handle, DOWN);
@@ -184,5 +215,28 @@ describe("useSvgDrag", () => {
     const { handle, onStart } = setup();
     fireEvent.pointerDown(handle, { ...DOWN, button: 2 });
     expect(onStart).not.toHaveBeenCalled();
+  });
+
+  it("says whether it took the press, so a caller's own record follows the hook's", () => {
+    stubScreenCtm(2);
+    const taken: boolean[] = [];
+    function Recorder() {
+      const drag = useSvgDrag({ onMove: vi.fn() });
+      return (
+        <svg>
+          <rect
+            data-testid="handle"
+            onPointerDown={(e) => {
+              taken.push(drag.onPointerDown(e));
+            }}
+          />
+        </svg>
+      );
+    }
+    const { getByTestId } = render(<Recorder />);
+    fireEvent.pointerDown(getByTestId("handle"), { ...DOWN, button: 2 });
+    fireEvent.pointerDown(getByTestId("handle"), DOWN);
+    // Mutant: a void handler leaves the caller recording the refused press.
+    expect(taken).toEqual([false, true]);
   });
 });

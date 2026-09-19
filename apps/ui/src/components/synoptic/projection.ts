@@ -31,6 +31,15 @@ export function project(
   };
 }
 
+/** The grid point under a screen position, at height `z`: the inverse of
+ *  `project`. Fractional; the cell is its floor. Flat ignores `z`. */
+export function unproject(projection: Projection, p: Pt, z = 0): Pt {
+  if (projection === "flat") return { x: p.x / FLAT_CELL, y: p.y / FLAT_CELL };
+  const sum = (p.y + z * ISO_Z) / ISO_X.y;
+  const diff = p.x / ISO_X.x;
+  return { x: (sum + diff) / 2, y: (sum - diff) / 2 };
+}
+
 /** What an element is, for the draw order within one cell. */
 export type Layer = "pipe" | "symbol" | "label";
 
