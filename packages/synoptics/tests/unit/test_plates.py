@@ -38,7 +38,7 @@ EXPECTED = {
     "Production ECS Ouest": Expected(
         (23, 24, 5), {"symbols": 4, "labels": 1, "flow": 2}
     ),
-    "Production Chaud": Expected((38, 23, 1), {"symbols": 10, "pipes": 4, "flow": 4}),
+    "Production Chaud": Expected((38, 23, 1), {"symbols": 10, "pipes": 8, "flow": 4}),
 }
 
 
@@ -77,7 +77,7 @@ def test_the_plate_validates(plate, registry):
 def test_the_plate_binds_exactly_the_live_inventory(plate, expected):
     """Only what the source drawing shows and a device exposes is bound: PAC
     state and fault, the energy counter, the two supply runs on a bay; the
-    four pump heads, the heat meter, the sludge pot, four readings and four
+    four pump heads, the heat meter, the sludge pot, eight readings and four
     branches on the hot production. A tank temperature or a mitigeur
     ``supply_temp`` would be a value the drawing does not show."""
     kinds = Counter("flow" if s.is_flow else s.loc[0] for s in bound_slots(plate))

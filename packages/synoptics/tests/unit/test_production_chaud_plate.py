@@ -10,19 +10,16 @@ hot-water template. The probes every committed plate shares are in
 from collections import Counter
 
 import pytest
-from plates import ECS_PLATES, bound_device_ids, read
-
-from synoptics.models import (
-    AttributeSlot,
-    Endpoint,
-    PipeEndpoint,
-    PortEndpoint,
-    SynopticDocument,
-    TextSlot,
+from plates import (
+    NOT_IDENTIFIED,
+    NOT_MEASURED,
+    device_of,
+    joins,
+    read,
+    shares_no_device_with_the_bays,
 )
 
-NOT_MEASURED = TextSlot(text="non mesurée")
-NOT_IDENTIFIED = TextSlot(text="non identifiée")
+from synoptics.models import AttributeSlot, PortEndpoint, SynopticDocument
 
 PUMP_HEADS = ("d2-a", "d2-b", "d3-a", "d3-b")
 CIRCUITS = ("cuisine", "vcv-rdc", "cta", "vcv-chambres")
@@ -34,38 +31,8 @@ def plate() -> SynopticDocument:
     return SynopticDocument.model_validate(read("production-chaud"))
 
 
-@pytest.fixture
-def symbols(plate):
-    return {s.id: s for s in plate.symbols}
-
-
-@pytest.fixture
-def pipes(plate):
-    return {p.id: p for p in plate.pipes}
-
-
-@pytest.fixture
-def tags(plate):
-    """Every tag by id, with the run it rides and its value."""
-    return {t.id: (p.id, t.value) for p in plate.pipes for t in p.tags}
-
-
-def _device(slot: AttributeSlot | TextSlot | None) -> str:
-    assert isinstance(slot, AttributeSlot)
-    return (slot.target.devices.ids or [""])[0]
-
-
-def _joins(endpoint: Endpoint, pipe_id: str) -> bool:
-    """Whether an endpoint tees onto the run *pipe_id*."""
-    return isinstance(endpoint, PipeEndpoint) and endpoint.pipe == pipe_id
-
-
 def test_the_plate_binds_none_of_the_bay_devices(plate):
-    """A device id copied from a bay plate would read another plant and
-    still validate."""
-    for name in ECS_PLATES:
-        bay = SynopticDocument.model_validate(read(name))
-        assert bound_device_ids(plate).isdisjoint(bound_device_ids(bay))
+    assert shares_no_device_with_the_bays(plate)
 
 
 def test_the_primary_is_the_district_side_of_the_exchanger(symbols, pipes):
@@ -95,7 +62,7 @@ def test_the_primary_is_the_district_side_of_the_exchanger(symbols, pipes):
     assert isinstance(energy, AttributeSlot)
     assert energy.target.attribute == "energie"
     assert (energy.unit, energy.decimals) == ("Wh", 0)
-    assert symbols["cpt-ec-ech-04"].device_id == _device(energy)
+    assert symbols["cpt-ec-ech-04"].device_id == device_of(energy)
 
 
 def test_the_three_temperatures_read_the_meter_and_the_controller(tags):
@@ -104,7 +71,7 @@ def test_the_three_temperatures_read_the_meter_and_the_controller(tags):
     _, depart = tags["tt-primaire-depart"]
     _, retour = tags["tt-primaire-retour"]
     _, secondaire = tags["tt-secondaire-depart"]
-    assert _device(depart) == _device(retour) != _device(secondaire)
+    assert device_of(depart) == device_of(retour) != device_of(secondaire)
     assert (depart.target.attribute, retour.target.attribute) == (
         "tmpdepart",
         "tmpretour",
@@ -126,34 +93,36 @@ def test_the_manifold_gives_every_head_its_own_branch(symbols, pipes):
         assert head.placement.kind == "pipe"
         assert head.placement.pipe == branch.id
         assert set(head.bindings) == {"state", "speed"}
-        assert {_device(v) for v in head.bindings.values()} == {head.device_id}
+        assert {device_of(v) for v in head.bindings.values()} == {head.device_id}
         assert head.bindings["speed"].unit == "tr/min"
-        assert _device(branch.flow) == head.device_id
+        assert device_of(branch.flow) == head.device_id
+        # The view's pressure dials are the heads' own differential head
+        # registers (the cold view's 65.5 bar is a stopped head's sentinel),
+        # so each branch carries its head's reading, raw.
+        pression = next(t for t in branch.tags if t.id == f"pression-pec-{name}")
+        assert device_of(pression.value) == head.device_id
+        assert (pression.value.target.attribute, pression.value.unit) == (
+            "head",
+            "bar",
+        )
         assert branch.flow.target.attribute == "onoff_state"
-        assert _joins(branch.to, "sec-supply-out")
+        assert joins(branch.to, "sec-supply-out")
     assert pipes["sec-supply"].flow is None
     assert pipes["sec-supply-out"].flow is None
     # D2 above D3 and A above B, as the view stacks them: rows ascend in y.
     rows = [heads[h].placement.cell.y for h in PUMP_HEADS]
     assert rows == sorted(rows)
     # The trunk ends where the top branch starts; the other three tee off it.
-    assert _joins(pipes["sec-supply"].to, "pec-d2-a-branch")
+    assert joins(pipes["sec-supply"].to, "pec-d2-a-branch")
     assert pipes["sec-supply"].to.cell == pipes["pec-d2-a-branch"].from_.cell
     for name in PUMP_HEADS[1:]:
-        assert _joins(pipes[f"pec-{name}-branch"].from_, "sec-supply")
+        assert joins(pipes[f"pec-{name}-branch"].from_, "sec-supply")
 
 
 def test_the_markers_sit_where_the_view_draws_the_sensor(symbols, tags):
-    """Seventeen drawn readings have no device and say "non mesurée" where
+    """Thirteen drawn readings have no device and say "non mesurée" where
     the view draws their sensor; the change-over circuits' say "non
     identifiée", read by a device but not yet told apart."""
-    for side in ("aspiration", "refoulement"):
-        for twin in ("d2", "d3"):
-            pipe_id, value = tags[f"pression-{twin}-{side}"]
-            assert value == NOT_MEASURED
-            assert pipe_id == (
-                "sec-supply" if side == "aspiration" else "sec-supply-out"
-            )
     for k in CIRCUITS:
         expected = NOT_IDENTIFIED if k in CHANGE_OVER else NOT_MEASURED
         assert tags[f"tt-{k}-depart"] == (f"{k}-depart", expected)
@@ -171,6 +140,7 @@ def test_the_markers_sit_where_the_view_draws_the_sensor(symbols, tags):
         "tt-primaire-retour",
         "tt-secondaire-depart",
         "tt-manque-eau",
+        *(f"pression-pec-{head}" for head in PUMP_HEADS),
     }
 
 
@@ -195,8 +165,8 @@ def test_the_change_over_blocks_are_the_view_s(symbols, pipes):
         aller, retour = pipes[f"eg-{k}-aller"], pipes[f"eg-{k}-retour"]
         assert (aller.fluid, retour.fluid) == ("chilled_supply", "chilled_return")
         assert aller.from_ == PortEndpoint(symbol=f"link-eg-{k}-aller", port="out")
-        assert _joins(aller.to, f"{k}-depart")
-        assert _joins(retour.from_, f"{k}-retour")
+        assert joins(aller.to, f"{k}-depart")
+        assert joins(retour.from_, f"{k}-retour")
         assert retour.to == PortEndpoint(symbol=f"link-eg-{k}-retour", port="in")
         for end in ("aller", "retour"):
             assert symbols[f"link-eg-{k}-{end}"].type == "link"
@@ -240,15 +210,15 @@ def test_the_return_side_reads_the_controller_s_contacts(symbols, pipes):
     assert pot.bindings["fault"].target.attribute == "ec04_defpotboue"
     manque = next(t for t in pipes["sec-return"].tags if t.id == "tt-manque-eau")
     assert manque.value.target.attribute == "ec04_defmanqueeau"
-    assert _device(manque.value) == _device(pot.bindings["fault"])
+    assert device_of(manque.value) == device_of(pot.bindings["fault"])
     assert manque.value.labels == {"true": "DÉFAUT", "false": "NORMAL"}
-    assert _joins(pipes["vase-connection"].from_, "sec-return")
+    assert joins(pipes["vase-connection"].from_, "sec-return")
     assert pipes["vase-connection"].to == PortEndpoint(symbol="vec-04", port="in")
     assert symbols["vec-04"].type == "expansion_vessel"
     assert pipes["eg-balance"].from_ == PortEndpoint(
         symbol="link-production-eg", port="out"
     )
-    assert _joins(pipes["eg-balance"].to, "vase-connection")
+    assert joins(pipes["eg-balance"].to, "vase-connection")
     assert pipes["eg-balance"].fluid == "chilled_return"
 
 

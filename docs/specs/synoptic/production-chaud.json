@@ -758,18 +758,6 @@
             "unit": "°C",
             "decimals": 1
           }
-        },
-        {
-          "id": "pression-d3-aspiration",
-          "at": { "x": 16, "y": -6 },
-          "label": "PRESSION",
-          "value": { "kind": "text", "text": "non mesurée" }
-        },
-        {
-          "id": "pression-d2-aspiration",
-          "at": { "x": 16, "y": -20 },
-          "label": "PRESSION",
-          "value": { "kind": "text", "text": "non mesurée" }
         }
       ]
     },
@@ -796,7 +784,22 @@
         },
         "labels": { "true": "MARCHE", "false": "ARRÊT" }
       },
-      "tags": []
+      "tags": [
+        {
+          "id": "pression-pec-d2-a",
+          "at": { "x": 18, "y": -25 },
+          "label": "PRESSION",
+          "value": {
+            "kind": "attribute",
+            "target": {
+              "devices": { "ids": ["52ed0f86ef794a28"] },
+              "attribute": "head"
+            },
+            "unit": "bar",
+            "decimals": 1
+          }
+        }
+      ]
     },
     {
       "id": "pec-d2-b-branch",
@@ -822,7 +825,22 @@
         },
         "labels": { "true": "MARCHE", "false": "ARRÊT" }
       },
-      "tags": []
+      "tags": [
+        {
+          "id": "pression-pec-d2-b",
+          "at": { "x": 18, "y": -18 },
+          "label": "PRESSION",
+          "value": {
+            "kind": "attribute",
+            "target": {
+              "devices": { "ids": ["cd1eb8257cce468b"] },
+              "attribute": "head"
+            },
+            "unit": "bar",
+            "decimals": 1
+          }
+        }
+      ]
     },
     {
       "id": "pec-d3-a-branch",
@@ -848,7 +866,22 @@
         },
         "labels": { "true": "MARCHE", "false": "ARRÊT" }
       },
-      "tags": []
+      "tags": [
+        {
+          "id": "pression-pec-d3-a",
+          "at": { "x": 18, "y": -11 },
+          "label": "PRESSION",
+          "value": {
+            "kind": "attribute",
+            "target": {
+              "devices": { "ids": ["da726c2051f04915"] },
+              "attribute": "head"
+            },
+            "unit": "bar",
+            "decimals": 1
+          }
+        }
+      ]
     },
     {
       "id": "pec-d3-b-branch",
@@ -874,7 +907,22 @@
         },
         "labels": { "true": "MARCHE", "false": "ARRÊT" }
       },
-      "tags": []
+      "tags": [
+        {
+          "id": "pression-pec-d3-b",
+          "at": { "x": 18, "y": -4 },
+          "label": "PRESSION",
+          "value": {
+            "kind": "attribute",
+            "target": {
+              "devices": { "ids": ["44b799a6fd4f4023"] },
+              "attribute": "head"
+            },
+            "unit": "bar",
+            "decimals": 1
+          }
+        }
+      ]
     },
     {
       "id": "sec-supply-out",
@@ -886,20 +934,7 @@
       "to": { "kind": "port", "symbol": "collector-supply", "port": "in_1" },
       "waypoints": [{ "x": 28, "y": -3 }],
       "flow": null,
-      "tags": [
-        {
-          "id": "pression-d2-refoulement",
-          "at": { "x": 28, "y": -19 },
-          "label": "PRESSION",
-          "value": { "kind": "text", "text": "non mesurée" }
-        },
-        {
-          "id": "pression-d3-refoulement",
-          "at": { "x": 28, "y": -6 },
-          "label": "PRESSION",
-          "value": { "kind": "text", "text": "non mesurée" }
-        }
-      ]
+      "tags": []
     },
     {
       "id": "sec-return",
