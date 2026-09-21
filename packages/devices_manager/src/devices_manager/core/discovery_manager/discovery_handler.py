@@ -33,6 +33,8 @@ class DiscoveryHandler:
     transport: PushTransportClient
     on_discover: DiscoveryCallback
     _transport_listener_id: str | None
+    _seen: set[str]
+    _tasks: set[asyncio.Task[None]]
 
     def __init__(
         self,
@@ -52,6 +54,8 @@ class DiscoveryHandler:
         self.discovery_listener = discovery_listener
         self.on_discover = on_discover
         self._transport_listener_id = None
+        self._seen = set()
+        self._tasks = set()
 
     def try_parsing_attributes(self, payload: Any) -> dict[str, AttributeValueType]:  # noqa: ANN401
         attributes = {}
@@ -103,31 +107,44 @@ class DiscoveryHandler:
             return None
         return value.strip()
 
-    async def _discover(self, device_config: DeviceConfig, payload: Any) -> None:  # noqa: ANN401
-        name = await self.try_reading_name(device_config) or self.try_parsing_name(
-            device_config
-        )
-        device = CoreDevice.from_base(
-            DeviceBase(id=gen_id(), name=name, config=device_config),
-            transport=self.transport,
-            driver=self.driver,
-            initial_values=self.try_parsing_attributes(payload),
-        )
-        await self.on_discover(device)
+    async def _discover(
+        self,
+        config_hash: str,
+        device_config: DeviceConfig,
+        payload: Any,  # noqa: ANN401
+    ) -> None:
+        try:
+            name = await self.try_reading_name(device_config)
+            if name is None:
+                name = self.try_parsing_name(device_config)
+            device = CoreDevice.from_base(
+                DeviceBase(id=gen_id(), name=name, config=device_config),
+                transport=self.transport,
+                driver=self.driver,
+                initial_values=self.try_parsing_attributes(payload),
+            )
+            await self.on_discover(device)
+        except Exception:
+            # Unmarked so the next announcement of this device retries.
+            self._seen.discard(config_hash)
+            logger.exception("Discovery of %s failed", device_config)
 
     async def start(self) -> None:
-        seen: set[str] = set()
+        self._seen = set()
 
         def handle_payload(payload: Any) -> None:  # noqa: ANN401
-            nonlocal seen
             device_config: DeviceConfig = self.discovery_listener.parse(payload)
             config_hash = _hash_config(device_config)
-            if config_hash in seen:
+            if config_hash in self._seen:
                 return
             # Marked before the task runs: the name read can take seconds and
             # the same device keeps publishing meanwhile.
-            seen.add(config_hash)
-            asyncio.create_task(self._discover(device_config, payload))  # noqa: RUF006 # @TODO: make listeners async
+            self._seen.add(config_hash)
+            task = asyncio.create_task(
+                self._discover(config_hash, device_config, payload)
+            )
+            self._tasks.add(task)
+            task.add_done_callback(self._tasks.discard)
 
         self._transport_listener_id = await self.transport.register_listener(
             self.transport.build_address(self.discovery_listener.topic),
@@ -141,3 +158,8 @@ class DiscoveryHandler:
         await self.transport.unregister_listener(
             self._transport_listener_id, self.discovery_listener.topic
         )
+        # A name read still in flight must not hand a device over after stop.
+        pending = list(self._tasks)
+        for task in pending:
+            task.cancel()
+        await asyncio.gather(*pending, return_exceptions=True)

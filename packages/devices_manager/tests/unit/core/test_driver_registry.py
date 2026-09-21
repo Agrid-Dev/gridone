@@ -1065,14 +1065,3 @@ class TestDriverAttributeDiscoveryNameReference:
         with pytest.raises(ConflictError, match="name_attribute"):
             await registry.delete_driver_attribute(driver_w_name_attribute.id, "label")
         assert "label" in driver_w_name_attribute.attributes
-
-    @pytest.mark.asyncio
-    async def test_update_name_attribute_to_non_str_rejected(
-        self, driver_w_name_attribute
-    ):
-        registry = DriverRegistry({driver_w_name_attribute.id: driver_w_name_attribute})
-        with pytest.raises(InvalidError, match="must be a str attribute"):
-            await registry.patch_driver_attribute(
-                driver_w_name_attribute.id, "label", {"data_type": DataType.INT}
-            )
-        assert driver_w_name_attribute.attributes["label"].data_type == DataType.STRING

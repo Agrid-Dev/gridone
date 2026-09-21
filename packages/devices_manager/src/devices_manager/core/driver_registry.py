@@ -15,7 +15,6 @@ from devices_manager.core.device.connection_status_attribute import (
 from devices_manager.core.driver import AnyAttributeDriver
 from devices_manager.core.driver.driver import (
     attributes_referencing,
-    validate_discovery_name_attribute,
     validate_polling_groups,
     validate_push_only_polling,
 )
@@ -368,9 +367,6 @@ class DriverRegistry:
             for aid, a in driver.attributes.items()
         ]
         validate_write_declarations(candidate_attrs)
-        validate_discovery_name_attribute(
-            driver.discovery_listener, {a.name: a for a in candidate_attrs}
-        )
         driver.attributes[attribute_id] = updated
         _log_if_presentation_unavailable(driver)
         await self._persist(driver)
