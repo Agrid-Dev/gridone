@@ -65,9 +65,10 @@ def _auth(client: TestClient) -> dict[str, str]:
     return {"Authorization": f"Bearer {resp.json()['access_token']}"}
 
 
-def test_list_roles_returns_the_service_roles(app: FastAPI) -> None:
+@pytest.mark.parametrize("path", ["/users/roles", "/users/roles/"])
+def test_list_roles_returns_the_service_roles(app: FastAPI, path: str) -> None:
     with TestClient(app) as client:
-        resp = client.get("/users/roles/", headers=_auth(client))
+        resp = client.get(path, headers=_auth(client))
         assert resp.status_code == 200
         assert resp.json() == [VIEWER_ROLE.model_dump()]
 

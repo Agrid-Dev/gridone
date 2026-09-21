@@ -10,7 +10,14 @@ from users.permissions import Permission
 router = APIRouter()
 
 
+# Both spellings are registered: the slashless one would otherwise fall through
+# to users_router's GET /users/{user_id}, which matches before any redirect.
 @router.get("/", dependencies=[Depends(require_permission(Permission.ROLES_READ))])
+@router.get(
+    "",
+    include_in_schema=False,
+    dependencies=[Depends(require_permission(Permission.ROLES_READ))],
+)
 async def list_roles(
     um: Annotated[UsersService, Depends(get_users_service)],
 ) -> list[Role]:
