@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -158,3 +159,145 @@ async def tests_initializes_name_from_config_fields(
     assert isinstance(device, CoreDevice)
     assert "gtw" in device.name
     assert "abc" in device.name
+
+
+CONFIG_BASED_NAME = "abc/gtw"
+
+
+async def _discover(driver, transport, spy) -> CoreDevice:
+    dh = DiscoveryHandler(driver, transport, spy.call)
+    await dh.start()
+    await transport.simulate_event(
+        "/xx", {"id": "abc", "gateway_id": "gtw", "payload": {"temperature": 22}}
+    )
+    await spy.wait()
+    return spy.call_args[0]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("read_result", "expected_name"),
+    [
+        ({"label": "  Ch 02  "}, "Ch 02"),
+        ({"label": ""}, CONFIG_BASED_NAME),
+        ({"label": "   "}, CONFIG_BASED_NAME),
+        ({"label": 42}, CONFIG_BASED_NAME),
+        ({"label": None}, CONFIG_BASED_NAME),
+        ({}, CONFIG_BASED_NAME),
+        (TimeoutError("no reply"), CONFIG_BASED_NAME),
+    ],
+)
+async def test_names_device_from_name_attribute_read_at_discovery(
+    driver_w_name_attribute,
+    mock_push_transport_client,
+    on_discover_spy,
+    read_result,
+    expected_name,
+):
+    mock_push_transport_client._read = AsyncMock(  # noqa: SLF001
+        side_effect=[read_result]
+    )
+    device = await _discover(
+        driver_w_name_attribute, mock_push_transport_client, on_discover_spy
+    )
+    assert device.name == expected_name
+
+
+@pytest.mark.asyncio
+async def test_name_read_uses_the_attribute_address_rendered_with_config(
+    driver_w_name_attribute, mock_push_transport_client, on_discover_spy
+):
+    mock_push_transport_client._read = AsyncMock(return_value={"label": "Ch 02"})  # noqa: SLF001
+    await _discover(
+        driver_w_name_attribute, mock_push_transport_client, on_discover_spy
+    )
+    (address,) = mock_push_transport_client._read.call_args.args  # noqa: SLF001
+    assert address.topic == "/xx/abc/label"
+
+
+@pytest.mark.asyncio
+async def test_no_read_without_name_attribute(
+    driver_w_push_transport, mock_push_transport_client, on_discover_spy
+):
+    mock_push_transport_client._read = AsyncMock(return_value={"label": "Ch 02"})  # noqa: SLF001
+    device = await _discover(
+        driver_w_push_transport, mock_push_transport_client, on_discover_spy
+    )
+    assert device.name == CONFIG_BASED_NAME
+    mock_push_transport_client._read.assert_not_awaited()  # noqa: SLF001
+
+
+EVENT = {"id": "abc", "gateway_id": "gtw", "payload": {"temperature": 22}}
+
+
+def _gated_read(transport) -> asyncio.Event:
+    """Make the transport's reads wait on the returned event before replying."""
+    gate = asyncio.Event()
+
+    async def read(_address: object) -> dict:
+        await gate.wait()
+        return {"label": "Ch 02"}
+
+    transport._read = read  # noqa: SLF001
+    return gate
+
+
+@pytest.mark.asyncio
+async def test_announcements_during_the_name_read_do_not_duplicate_the_device(
+    driver_w_name_attribute, mock_push_transport_client, on_discover_spy
+):
+    gate = _gated_read(mock_push_transport_client)
+    dh = DiscoveryHandler(
+        driver_w_name_attribute, mock_push_transport_client, on_discover_spy.call
+    )
+    await dh.start()
+    await mock_push_transport_client.simulate_event("/xx", EVENT)
+    await asyncio.sleep(0)  # the read is now in flight
+    await mock_push_transport_client.simulate_event("/xx", EVENT)
+    gate.set()
+    await on_discover_spy.wait()
+    await asyncio.sleep(0)
+    assert on_discover_spy.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_stop_cancels_an_in_flight_name_read(
+    driver_w_name_attribute, mock_push_transport_client, on_discover_spy
+):
+    gate = _gated_read(mock_push_transport_client)
+    dh = DiscoveryHandler(
+        driver_w_name_attribute, mock_push_transport_client, on_discover_spy.call
+    )
+    await dh.start()
+    await mock_push_transport_client.simulate_event("/xx", EVENT)
+    await asyncio.sleep(0)
+    await dh.stop()
+    gate.set()
+    await asyncio.sleep(0)
+    assert on_discover_spy.call_count == 0
+
+
+@pytest.mark.asyncio
+async def test_failed_discovery_is_retried_on_the_next_announcement(
+    driver_w_push_transport, mock_push_transport_client, on_discover_spy, caplog
+):
+    attempts = 0
+
+    async def flaky_on_discover(device: CoreDevice) -> None:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            msg = "storage down"
+            raise RuntimeError(msg)
+        await on_discover_spy.call(device)
+
+    dh = DiscoveryHandler(
+        driver_w_push_transport, mock_push_transport_client, flaky_on_discover
+    )
+    await dh.start()
+    await mock_push_transport_client.simulate_event("/xx", EVENT)
+    await asyncio.sleep(0)
+    await mock_push_transport_client.simulate_event("/xx", EVENT)
+    await on_discover_spy.wait()
+    assert attempts == 2
+    assert "storage down" in caplog.text

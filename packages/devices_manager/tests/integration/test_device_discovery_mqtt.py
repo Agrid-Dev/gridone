@@ -3,6 +3,7 @@ import asyncio
 import pytest
 import pytest_asyncio
 from fixtures.config import TMK_DEVICE_ID
+from fixtures.containers import thermocktat_initial_state
 
 from devices_manager import DevicesService
 
@@ -37,3 +38,5 @@ async def test_discover_devices(
     device = devices_service.list_devices()[0]
     assert device.config is not None
     assert device.config["device_id"] == TMK_DEVICE_ID
+    # discovery.name_attribute: read once from the simulator at discovery
+    assert device.name == thermocktat_initial_state["mode"]

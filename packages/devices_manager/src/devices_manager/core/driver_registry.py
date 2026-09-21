@@ -84,6 +84,18 @@ def _reject_dangling_references(
         raise ConflictError(msg)
 
 
+def _reject_deleting_name_attribute(driver: Driver, attribute_id: str) -> None:
+    """Deleting the attribute discovery names devices from would leave the
+    driver unloadable."""
+    listener = driver.discovery_listener
+    if listener is not None and listener.name_attribute == attribute_id:
+        msg = (
+            f"Attribute {attribute_id} of driver {driver.id} is the discovery "
+            "name_attribute. Update the discovery block before deleting it."
+        )
+        raise ConflictError(msg)
+
+
 def _follow_rename(
     attribute: AttributeDriver, old_name: str, new_name: str
 ) -> AttributeDriver:
@@ -376,6 +388,7 @@ class DriverRegistry:
             ),
         )
         _reject_dangling_references(driver_id, attribute_id, remaining)
+        _reject_deleting_name_attribute(driver, attribute_id)
         del driver.attributes[attribute_id]
         _log_if_presentation_unavailable(driver)
         await self._persist(driver)
@@ -413,6 +426,11 @@ class DriverRegistry:
         del driver.attributes[attribute_id]
         driver.attributes[new_name] = renamed
         driver.attributes.update(followed)
+        if (
+            driver.discovery_schema is not None
+            and driver.discovery_schema.get("name_attribute") == attribute_id
+        ):
+            driver.discovery_schema["name_attribute"] = new_name
         if driver.presentation is not None:
             # Bindings on the renamed attribute follow it structurally; an
             # unsupported version is returned untouched.

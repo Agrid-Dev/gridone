@@ -1,11 +1,11 @@
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 
 from pydantic import TypeAdapter
 
 from devices_manager.core.presentation.envelope import PresentationEnvelope
 from devices_manager.core.standard_schemas import validate_standard_schema
-from devices_manager.types import TransportProtocols
+from devices_manager.types import DataType, TransportProtocols
 from models.errors import InvalidError
 
 from .attribute_driver import AttributeDriver
@@ -47,6 +47,26 @@ def attributes_referencing(
         for attribute in attributes
         if attribute_name in write_references(attribute)
     ]
+
+
+def validate_discovery_name_attribute(
+    discovery_listener: DiscoveryListener | None,
+    attributes: Mapping[str, AttributeDriver],
+) -> None:
+    """Reject a discovery ``name_attribute`` that is not a ``str`` attribute
+    of the same driver: its decoded value becomes the device name as is."""
+    if discovery_listener is None or discovery_listener.name_attribute is None:
+        return
+    name_attribute = discovery_listener.name_attribute
+    attribute = attributes.get(name_attribute)
+    if attribute is None:
+        msg = (
+            f"discovery.name_attribute references unknown attribute '{name_attribute}'"
+        )
+        raise InvalidError(msg)
+    if attribute.data_type != DataType.STRING:
+        msg = f"discovery.name_attribute '{name_attribute}' must be a str attribute"
+        raise InvalidError(msg)
 
 
 def validate_push_only_polling(
@@ -93,6 +113,7 @@ class Driver:
         validate_polling_groups(self.update_strategy, self.attributes.values())
         validate_write_declarations(self.attributes.values())
         validate_push_only_polling(self.transport, self.update_strategy)
+        validate_discovery_name_attribute(self.discovery_listener, self.attributes)
         if self.type is not None:
             validate_standard_schema(self.type, list(self.attributes.values()))
 
