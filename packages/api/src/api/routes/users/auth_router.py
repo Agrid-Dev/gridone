@@ -5,11 +5,11 @@ from pydantic import BaseModel, Field
 
 from api.auth import get_current_user_id
 from api.dependencies import get_auth_service, get_users_service
-from api.permissions import get_permissions_for_role
 from models.errors import NotFoundError
 from users import UsersService
 from users.auth import AuthService, InvalidTokenError
 from users.models import Role, User
+from users.permissions import get_permissions_for_role
 from users.validation import PasswordField, get_auth_payload_schema
 
 router = APIRouter()

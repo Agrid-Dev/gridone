@@ -5,7 +5,6 @@ from fastapi import APIRouter, Depends, Query, Request, Response, status
 
 from api.auth import require_permission
 from api.dependencies import get_device_manager, get_ts_service
-from api.permissions import Permission
 from api.schemas.driver_package import PackageImportErrorResponse
 from devices_manager import DevicesServiceInterface
 from devices_manager.core.presentation.package import DEFAULT_PACKAGE_LIMITS
@@ -24,6 +23,7 @@ from devices_manager.dto.driver_dto.package_errors import (
 from devices_manager.dto.presentation_dto import PresentationResponse
 from models.errors import InvalidError
 from timeseries.service import TimeSeriesService
+from users.permissions import Permission
 
 logger = logging.getLogger(__name__)
 

@@ -10,7 +10,6 @@ from api.dependencies import (
     get_pagination_params,
     get_synoptics_service,
 )
-from api.permissions import Permission
 from api.schemas.pagination import PaginatedResponse, to_paginated_response
 from models.pagination import PaginationParams
 from synoptics import (
@@ -20,6 +19,7 @@ from synoptics import (
     SynopticsServiceInterface,
     SynopticSummary,
 )
+from users.permissions import Permission
 
 router = APIRouter()
 
