@@ -102,6 +102,7 @@ The shipped AHU and extractor glyphs (`apps/ui/src/components/synoptic/glyphs.ts
 
 - The fluid floor of 18 is what six hues reach in the dark theme; if a twelfth fluid comes, the check says whether the band has room.
 - `energy_meter` is placed inline five times on the hot-production plate, which confirms it; `pump_double` is still placed by no plate, since each twin's heads are two devices on the instance and a symbol carries one `device_id`.
+- A symbol's label is not placed by the readout search: it sits at a fixed lift above the body and crosses a run's centreline where the plate is dense (seven labels on each bay, fifteen on the hot production). Whether the label joins the search, moves with a leader, or the author moves the symbol, is open.
 - The readout search (Decision 14) has no spot for a tag on a `y`-run at one-cell lift and needs seven rows between parallel runs for an inline panel; the hot-production plate lays its riser tags on `x` jogs and its pump manifold at that pitch. Whether the search should try a spot beside a riser, or a panel should shrink to a chip and an LED when `state` is one of two bound slots, is open.
 - Whether 11 px holds on a wall screen at distance is the first thing to revisit after the first real view.
 - `plate.svg` draws readouts for free-standing symbols only; the marked chip on the bouclage pump and the panel on the loop heater, both inline, are the renderer's (its spec draws them), not the sheet's.

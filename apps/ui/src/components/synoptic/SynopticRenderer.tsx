@@ -986,21 +986,23 @@ function placeReadout(
       anchor: nearest(plate.corners.get(symbol.id)!, corner),
     })),
   ];
-  // The first spot of a ring hangs off the symbol's label: a panel above
-  // it, a chip under it.
+  // The first spot of a ring hangs off the symbol's label, a panel above it
+  // and a chip under it; only on the first ring is it close enough to need
+  // no leader.
   const boxed = (gap: number) =>
     ring(gap).map(({ x, y, anchor }, i) => ({
       box: { x0: x, y0: y, x1: x + w, y1: y + h },
       anchor,
-      hanging: i === 0,
+      underLabel: i === 0,
+      hanging: i === 0 && gap === 1,
     }));
   for (let gap = 1; gap <= PLACEMENT_RINGS; gap++) {
     const clear = boxed(gap).find(
-      ({ box, hanging }) =>
+      ({ box, underLabel }) =>
         !others.some((o) => overlaps(box, o)) &&
         // Only the spot hanging off the symbol's label may touch that label;
         // any other spot must clear it like every other label.
-        (hanging || !ownLabel || !overlaps(box, ownLabel)),
+        (underLabel || !ownLabel || !overlaps(box, ownLabel)),
     );
     if (clear) return clear;
   }

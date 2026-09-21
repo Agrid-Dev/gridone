@@ -18,13 +18,17 @@ PLATE_NAMES = sorted(path.stem for path in PLATES_DIR.glob("*.json"))
 """Every committed plate, so a new one is held to the format's probes the
 moment it lands next to the others."""
 
-ECS_PLATES = ("ecs-est", "ecs-ouest")
-"""The two hot-water bays, the same template twice."""
-
 
 def read(name: str) -> dict:
     """A committed plate, straight off disk."""
     return json.loads((PLATES_DIR / f"{name}.json").read_text(encoding="utf-8"))
+
+
+ECS_PLATES = tuple(
+    name for name in PLATE_NAMES if read(name)["name"].startswith("Production ECS")
+)
+"""The hot-water bays, the same template each time: read off the plates, so a
+third bay is held to the template's probes the moment it lands."""
 
 
 def bound_device_ids(document: SynopticDocument) -> set[str]:

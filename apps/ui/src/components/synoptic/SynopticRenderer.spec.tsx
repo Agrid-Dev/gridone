@@ -317,8 +317,10 @@ describe("SynopticRenderer", () => {
       Number(label.getAttribute("y")),
     );
     expect(chip).toBeDefined();
+    // Hanging under its label, the chip needs no leader.
+    expect(c.querySelector("[data-readout='b01'] [data-leader]")).toBeNull();
     // The panel leads to the heat pump with a 1 px muted leader.
-    const leader = c.querySelector("[data-leader]")!;
+    const leader = c.querySelector("[data-leader='panel']")!;
     expect(leader.getAttribute("stroke-width")).toBe("1");
     expect(leader.classList.contains("stroke-muted-foreground")).toBe(true);
   });
