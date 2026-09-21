@@ -74,7 +74,7 @@
   },
   "required": "Saisissez une valeur non vide.",
   "formInvalid": "Complétez les champs obligatoires et vérifiez les points, les valeurs et les conditions sélectionnés.",
-  "invalidDefinition": "La protection est invalide. Vérifiez les types des points, leur rythme d’acquisition et la structure de la condition.",
+  "invalidDefinition": "La protection est invalide. Vérifiez les types des points, la durée de fraîcheur et la structure de la condition.",
   "failed": "Impossible d’enregistrer ou de charger cette protection. Réessayez.",
   "conflict": "Cette protection a changé depuis son ouverture. Votre saisie est conservée. Chargez la dernière version et vérifiez-la avant de réessayer.",
   "reloadLatest": "Charger la dernière version",
@@ -150,5 +150,17 @@
   "inPlainWords": "En clair",
   "needsRepair": "À réparer",
   "notEnforced": "Un point référencé n'existe plus — cette protection n'est pas appliquée.",
-  "repair": "Réparer"
+  "repair": "Réparer",
+  "attributeGone": "L'attribut {{id}} n'est plus accessible en écriture sur cet appareil. Choisissez-en un autre avant d'enregistrer.",
+  "searchPoints": "Rechercher un appareil, un attribut ou un identifiant…",
+  "noPoints": "Aucun point correspondant.",
+  "morePoints_one": "{{count}} autre point. Affinez votre recherche.",
+  "morePoints_other": "{{count}} autres points. Affinez votre recherche.",
+  "freshnessCheck": "Contrôler la fraîcheur",
+  "freshnessHelp": "Désactivé par défaut : utilise la dernière valeur reçue, quel que soit son âge. Une valeur jamais reçue ou invalidée reste inconnue.",
+  "maxAge": "Âge maximal (secondes)",
+  "maxAgeHelp": "S’applique à chaque point utilisé dans la condition. Passé ce délai sans nouvelle observation, sa valeur est considérée comme inconnue. Ce réglage ne déclenche pas de lecture.",
+  "maxAgeInvalid": "Saisissez une durée supérieure à zéro.",
+  "freshnessDisabled": "Désactivé — aucune limite d’âge",
+  "freshnessDuration": "Âge maximal : {{seconds}} secondes"
 }

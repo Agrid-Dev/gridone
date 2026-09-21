@@ -40,9 +40,8 @@ existing Kleene evaluator receives a resolver. Existing depth, list and operatio
 budgets apply. Per-rule budgets chain to a device budget, including point checks;
 at most 64 active rules may target an attribute.
 
-Creation rejects missing points, non-writable targets, incompatible types and
-dependencies without acquisition cadence. Saved rules retain point types. Missing
-points, changed types or removed cadence later yield `protection_reference_invalid`,
+Creation rejects missing points, non-writable targets and incompatible types. Saved rules retain point types. Missing
+points or changed types later yield `protection_reference_invalid`,
 even in a branch that would short-circuit. List/get diagnostics expose missing
 targets too. Target type drift blocks writes to that point until repaired, so the
 old typed value cannot silently stop matching. Renames/deletions never silently
@@ -56,20 +55,26 @@ prerequisite without claiming the whole of AGR-1318 is complete.
 
 ## Freshness
 
+Freshness is optional per protection and **disabled by default**. The nullable
+`max_age_seconds` field sets a strictly positive, finite maximum observation age
+for every point used by the condition. Missing/null means no age-based expiry,
+including for older stored definitions. No driver acquisition cadence is required
+when creating a protection, whether or not its freshness check is enabled.
+
 Only acquired observations establish trust: reads, push reception and actual
 readback. Persisted/default/requested values never do. Reception uses a monotonic
-clock per point; receiving the same value renews trust. A write to that point,
-failed read, device stop or expiry drops trust without erasing displayed history.
-Evaluation never reads the transport.
+clock per point; receiving the same value renews its age. A write to that point,
+failed read or device stop invalidates the observation without erasing displayed
+history, even when freshness checking is disabled. Never-observed values are unknown.
+Evaluation never reads the transport; enabling freshness does not schedule reads.
 
-Polling trust lasts **two configured intervals plus the read timeout**. Named groups
-use their own interval. This tolerates a scheduled acquisition's IO and scheduling
-delay while bounding trust if a sweep stalls. Push trust lasts one declared
-`expected_push_interval`; when both exist the shorter window wins. Another point's
-reception cannot renew this point. Mapped values also depend on their inputs' trust.
-Points without cadence remain valid driver points but cannot be protection inputs.
-A connection error is not evidence about every point: read failures invalidate the
-affected observation immediately, and deadlines bound the rest.
+A protection with a duration treats a point as unknown when its age reaches that
+limit. Another point's reception cannot renew it. Mapped values and every input
+used to resolve them obey the same protection-specific age limit. Different
+protections may apply different durations to the same observations; evaluating a
+shorter deadline must not invalidate data for another rule. Driver-rule expiry
+and connection monitoring keep their own policies and do not impose a deadline
+on site protections. Explicit observation failures still apply to all rules.
 
 ## Decisions and confirmation
 

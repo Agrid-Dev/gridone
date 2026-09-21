@@ -173,6 +173,14 @@ export function ProtectionSummary({
         </dd>
       </div>
       <div>
+        <dt className="mb-1 font-medium">{t("freshnessCheck")}</dt>
+        <dd>
+          {rule.max_age_seconds == null
+            ? t("freshnessDisabled")
+            : t("freshnessDuration", { seconds: rule.max_age_seconds })}
+        </dd>
+      </div>
+      <div>
         <dt className="mb-1 font-medium">{t("explanation")}</dt>
         <dd className="whitespace-pre-wrap">{rule.explanation}</dd>
       </div>

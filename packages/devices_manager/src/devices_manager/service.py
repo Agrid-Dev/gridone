@@ -681,12 +681,14 @@ class DevicesService(Service):
             max_age_seconds=observation_max_age(device.driver, point.attribute),
         )
 
-    def resolve_point(self, point: DevicePointRef) -> PointObservation:
+    def resolve_point(
+        self, point: DevicePointRef, *, max_age_seconds: float | None = None
+    ) -> PointObservation:
         definition = self.inspect_point(point)
-        if definition is None or definition.max_age_seconds is None:
+        if definition is None:
             return PointObservation(validity="invalid")
-        value = self._device_registry.get(point.device_id).known_attribute_value(
-            point.attribute
+        value = self._device_registry.get(point.device_id).observed_attribute_value(
+            point.attribute, max_age_seconds=max_age_seconds
         )
         return PointObservation(
             value=value, validity="known" if value is not None else "unknown"

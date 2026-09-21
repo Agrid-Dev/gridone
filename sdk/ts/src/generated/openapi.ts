@@ -5859,6 +5859,11 @@ export interface components {
       condition: components["schemas"]["Condition-Output"];
       /** Explanation */
       explanation: string;
+      /**
+       * Max Age Seconds
+       * @description Maximum age of each observed condition point in seconds. Null disables freshness checks; never-observed or invalidated values remain unknown.
+       */
+      max_age_seconds?: number | null;
       /** Id */
       id: string;
       /**
@@ -5909,6 +5914,11 @@ export interface components {
       condition: components["schemas"]["Condition-Input"];
       /** Explanation */
       explanation: string;
+      /**
+       * Max Age Seconds
+       * @description Maximum age of each observed condition point in seconds. Null disables freshness checks; never-observed or invalidated values remain unknown.
+       */
+      max_age_seconds?: number | null;
     };
     /** ProtectionRetirement */
     ProtectionRetirement: {
@@ -6920,6 +6930,11 @@ export interface components {
       condition: components["schemas"]["Condition-Input"];
       /** Explanation */
       explanation: string;
+      /**
+       * Max Age Seconds
+       * @description Maximum age of each observed condition point in seconds. Null disables freshness checks; never-observed or invalidated values remain unknown.
+       */
+      max_age_seconds?: number | null;
       /** Revision */
       revision: number;
     };

@@ -6,6 +6,7 @@ import pytest
 
 from devices_manager.core.conditions import EvaluationContext, EvaluationLimitError
 from devices_manager.core.device import CoreDevice, DeviceBase
+from devices_manager.core.device.freshness import observation_max_age
 from devices_manager.core.driver import (
     AttributeDriver,
     Driver,
@@ -124,7 +125,7 @@ def test_acknowledgement_cannot_override_another_known_prohibition(policy):
     assert guard.evaluate(
         "a", "command", WriteEvaluation(eligible=True, value=True), confirmation
     ).eligible
-    resolver.side_effect = lambda point: (
+    resolver.side_effect = lambda point, **_kwargs: (
         PointObservation(validity="unknown")
         if point.device_id == "b"
         else PointObservation(value=True, validity="known")
@@ -166,7 +167,7 @@ def test_changed_rules_and_new_unknowns_cannot_reuse_confirmation(policy):
     ).eligible
 
 
-@pytest.mark.parametrize("failure", ["missing", "type", "cadence"])
+@pytest.mark.parametrize("failure", ["missing", "type"])
 def test_broken_reference_in_unselected_branch_is_a_hard_denial(policy, failure):
     guard, provider, inspector, _ = policy
     broken = rule()
@@ -374,11 +375,16 @@ async def test_cross_device_trust_loss_preserves_display(
         await device.read_attribute_value("running")  # another point cannot renew it
     assert device.known_attribute_value("command") is None
     assert device.attributes["command"].current_value is False
+    assert device.observed_attribute_value("command") is (
+        False if loss == "expiry" else None
+    )
+    assert device.observed_attribute_value("command", max_age_seconds=30) is None
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("default_polling", [True, False])
 async def test_polling_groups_use_reception_not_last_change(
-    mock_transport_client, monkeypatch
+    mock_transport_client, monkeypatch, default_polling
 ):
     from types import SimpleNamespace
 
@@ -393,6 +399,11 @@ async def test_polling_groups_use_reception_not_last_change(
     device = build_device("b", mock_transport_client)
     device.driver.attributes["running"].polling_group = "slow"
     device.driver.update_strategy.polling_groups = {"slow": 60}
+    device.driver.update_strategy.polling_enabled = default_polling
+    assert observation_max_age(device.driver, "running") == 130
+    assert observation_max_age(device.driver, "command") == (
+        30 if default_polling else None
+    )
     mock_transport_client.read = AsyncMock(return_value=False)
     await device.read_attribute_value("running")
     changed = device.attributes["running"].last_changed
@@ -404,3 +415,68 @@ async def test_polling_groups_use_reception_not_last_change(
     assert device.known_attribute_value("running") is False
     now[0] = 251
     assert device.known_attribute_value("running") is None
+
+
+@pytest.mark.asyncio
+async def test_each_protection_uses_its_own_optional_age_limit(
+    mock_transport_client, monkeypatch
+):
+    from types import SimpleNamespace
+
+    from devices_manager.core.device import write_guard
+
+    now = [0.0]
+    monkeypatch.setattr(
+        write_guard,
+        "time",
+        SimpleNamespace(monotonic=lambda: now[0], time_ns=lambda: 0),
+    )
+    a = build_device("a", mock_transport_client)
+    b = build_device("b", mock_transport_client)
+    b.driver.update_strategy.polling_enabled = False
+    service = DevicesService(None, devices={"a": a, "b": b})
+    provider = Mock()
+    current = rule()
+    provider.for_target.side_effect = lambda device_id, _: (
+        [current] if device_id == "a" else []
+    )
+    service.set_protection_provider(provider)
+    await service.load()
+    try:
+        assert (
+            service.preview_device_write("a", "command", value=True).reasons[0].code
+            == "protection_unknown"
+        )
+        mock_transport_client.read = AsyncMock(return_value=False)
+        await b.read_attribute_value("running")
+        changed = b.attributes["running"].last_changed
+        now[0] = 600
+        assert service.preview_device_write("a", "command", value=True).eligible
+        no_limit_binding = service.protection_binding("a", "command")
+        current = current.model_copy(update={"max_age_seconds": 60})
+        assert service.protection_binding("a", "command") != no_limit_binding
+        expired = service.preview_device_write("a", "command", value=True)
+        assert expired.reasons[0].code == "protection_unknown"
+        current = current.model_copy(update={"max_age_seconds": 1200})
+        assert service.preview_device_write("a", "command", value=True).eligible
+        current = current.model_copy(update={"max_age_seconds": 60})
+        await b.read_attribute_value("running")
+        assert b.attributes["running"].last_changed == changed
+        assert service.preview_device_write("a", "command", value=True).eligible
+        now[0] = 660
+        await b.read_attribute_value("command")
+        assert (
+            service.preview_device_write("a", "command", value=True).reasons[0].code
+            == "protection_unknown"
+        )
+        current = current.model_copy(update={"max_age_seconds": None})
+        assert service.preview_device_write("a", "command", value=True).eligible
+        mock_transport_client.read.side_effect = TimeoutError
+        with pytest.raises(TimeoutError):
+            await b.read_attribute_value("running")
+        assert (
+            service.preview_device_write("a", "command", value=True).reasons[0].code
+            == "protection_unknown"
+        )
+    finally:
+        await service.stop()

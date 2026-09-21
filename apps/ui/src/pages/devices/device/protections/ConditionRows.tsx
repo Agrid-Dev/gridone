@@ -8,9 +8,7 @@ import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -21,8 +19,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useAttributeLabel } from "@/hooks/useAttributeLabel";
 import { attributeUnit } from "@/lib/attributeUnits";
+import { PointSelect } from "./PointSelect";
 import { ConditionEditor } from "./ConditionEditor";
 import { ConditionSummary, WithoutPointIds } from "./ProtectionSummary";
 import {
@@ -54,101 +52,6 @@ import {
 
 /** How deep the row editor goes before a condition becomes an expression. */
 const maxGroupDepth = 1;
-const separator = "/";
-
-const pointKey = (point: DevicePointRef) =>
-  `${point.device_id}${separator}${point.attribute}`;
-const parsePoint = (key: string): DevicePointRef => {
-  const at = key.indexOf(separator);
-  return { device_id: key.slice(0, at), attribute: key.slice(at + 1) };
-};
-
-/**
- * Device and attribute in one control. The two dependent selects the tree
- * editor uses are correct but cost two decisions for what a reader says as one
- * thing ("primary pump flow"), so the options are grouped by device instead.
- */
-export function PointSelect({
-  value,
-  onChange,
-  catalog,
-  label,
-  writable = false,
-  className,
-}: {
-  value: DevicePointRef;
-  onChange: (value: DevicePointRef) => void;
-  catalog: PointCatalog;
-  label: string;
-  writable?: boolean;
-  className?: string;
-}) {
-  const { t } = useTranslation("protections");
-  const attributeLabel = useAttributeLabel();
-  const selected = pointAttribute(catalog, value);
-  const broken = !!value.device_id && !selected;
-  // An unset point has no value at all, so the trigger shows its placeholder
-  // rather than the empty "/" key that would read as a selection.
-  const chosen = value.device_id || value.attribute;
-  const select = (
-    <Select
-      value={chosen ? pointKey(value) : undefined}
-      onValueChange={(k) => onChange(parsePoint(k))}
-    >
-      <SelectTrigger
-        aria-label={label}
-        aria-invalid={broken}
-        className={cn(
-          broken ? "w-full border-destructive text-destructive" : className,
-        )}
-      >
-        <SelectValue placeholder={t("choosePoint")} />
-      </SelectTrigger>
-      <SelectContent>
-        {broken && (
-          <SelectItem value={pointKey(value)}>
-            {t("missing", { id: `${value.device_id}/${value.attribute}` })}
-          </SelectItem>
-        )}
-        {catalog.devices.map((device) => {
-          const attributes = Object.entries(device.attributes ?? {}).filter(
-            ([, attribute]) =>
-              !writable ||
-              (Array.isArray(attribute.read_write_modes) &&
-                attribute.read_write_modes.includes("write")),
-          );
-          if (!attributes.length) return null;
-          return (
-            <SelectGroup key={device.id}>
-              <SelectLabel>{device.name}</SelectLabel>
-              {attributes.map(([name, attribute]) => (
-                <SelectItem
-                  key={name}
-                  value={pointKey({ device_id: device.id, attribute: name })}
-                >
-                  {device.name} · {attributeLabel(name, attribute)}
-                </SelectItem>
-              ))}
-            </SelectGroup>
-          );
-        })}
-      </SelectContent>
-    </Select>
-  );
-  if (!broken) return select;
-  return (
-    <span className={cn("flex min-w-0 flex-col gap-1", className)}>
-      {select}
-      <span role="status" className="text-xs text-destructive">
-        {t("brokenPoint", {
-          device: value.device_id,
-          attribute: value.attribute,
-        })}
-      </span>
-    </span>
-  );
-}
-
 /** A typed value field: the type comes from the point, never from a select. */
 export function ValueInput({
   value,
@@ -594,7 +497,7 @@ function ConditionGroup({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        {rows.length > 1 && (
+        {(rows.length > 1 || isGroup(value)) && (
           <>
             <div
               role="group"

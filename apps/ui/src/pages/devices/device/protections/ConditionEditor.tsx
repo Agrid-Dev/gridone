@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SelectItem } from "@/components/ui/select";
 import { FieldShell } from "@/components/forms/controllers/FieldShell";
-import { EditorSelect, PointPicker } from "./PointPicker";
+import { EditorSelect } from "./PointPicker";
+import { PointSelect } from "./PointSelect";
 import {
   defaultScalar,
   expressionKind,
@@ -156,7 +157,12 @@ export function ExpressionEditor({
           />
         </>
       ) : "device_id" in value ? (
-        <PointPicker value={value} catalog={catalog} onChange={onChange} />
+        <PointSelect
+          label={t("observedPoint")}
+          value={value}
+          catalog={catalog}
+          onChange={onChange}
+        />
       ) : "candidate" in value ? (
         <p className="text-sm text-muted-foreground">{t("candidateHelp")}</p>
       ) : "args" in value ? (

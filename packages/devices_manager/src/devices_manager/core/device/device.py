@@ -835,6 +835,14 @@ class CoreDevice:
         """An acquired, still-trusted observation; this never reads the transport."""
         return self._guard.known(attribute_name)
 
+    def observed_attribute_value(
+        self, attribute_name: str, *, max_age_seconds: float | None = None
+    ) -> AttributeValueType | None:
+        """An acquired value with the protection's optional freshness limit."""
+        return self._guard.observed_value(
+            attribute_name, max_age_seconds=max_age_seconds
+        )
+
     def validate_attribute_write(
         self,
         attribute_name: str,

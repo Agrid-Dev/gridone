@@ -162,8 +162,8 @@ export function withPoint(
     // Retyping collapses distinct values onto the new type's default, so
     // `in [1, 2, 3]` moved to a boolean point must not become `[false, false,
     // false]` — three entries that all say the same thing.
-    const values = [...new Set(row.values.map((value) => retype(value, type)))];
-    return { op: row.op, value: next, values };
+    const values = row.values.map((value) => retype(value, type));
+    return { op: row.op, value: next, values: [...new Set(values)] };
   }
   const ordering = ordered.includes(row.op);
   return {

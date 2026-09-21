@@ -319,6 +319,20 @@
         "minLength": 1,
         "title": "Explanation",
         "type": "string"
+      },
+      "max_age_seconds": {
+        "anyOf": [
+          {
+            "exclusiveMinimum": 0,
+            "type": "number"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Maximum age of each observed condition point in seconds. Null disables freshness checks; never-observed or invalidated values remain unknown.",
+        "title": "Max Age Seconds"
       }
     },
     "required": ["name", "target", "condition", "explanation"],

@@ -81,12 +81,6 @@ async def test_stale_or_retired_rule_cannot_be_edited(service, definition):
         ),
         (
             PointDefinition(
-                data_type=DataType.BOOL, writable=True, max_age_seconds=None
-            ),
-            "protection_cadence_missing",
-        ),
-        (
-            PointDefinition(
                 data_type=DataType.STRING, writable=True, max_age_seconds=30
             ),
             "invalid_value",
@@ -103,7 +97,7 @@ async def test_invalid_references_rejected_without_saving(  # noqa: PLR0913 -- p
     storage.save.assert_not_awaited()
 
 
-@pytest.mark.parametrize("failure", ["missing", "type", "cadence", "writable"])
+@pytest.mark.parametrize("failure", ["missing", "type", "writable"])
 async def test_broken_references_remain_visible(
     service, inspector, definition, failure
 ):
@@ -114,7 +108,7 @@ async def test_broken_references_remain_visible(
         else PointDefinition(
             data_type=DataType.INT if failure == "type" else DataType.BOOL,
             writable=failure != "writable",
-            max_age_seconds=None if failure == "cadence" else 30,
+            max_age_seconds=30,
         )
     )
     view = service.list_protections()[0]
@@ -230,3 +224,35 @@ async def test_fractional_integer_target_is_rejected(service, inspector, definit
 async def test_start_is_idempotent(service, storage):
     await service.start()
     storage.list_protections.assert_awaited_once()
+
+
+@pytest.mark.parametrize("max_age", [None, 45])
+async def test_freshness_is_independent_of_driver_cadence(
+    service, inspector, definition, max_age
+):
+    inspector.return_value = PointDefinition(
+        data_type=DataType.BOOL, writable=True, max_age_seconds=None
+    )
+    payload = definition.model_copy(update={"max_age_seconds": max_age})
+    rule = await service.create(payload, "admin")
+    assert rule.max_age_seconds == max_age
+    assert service.diagnose(rule) == []
+    updated = await service.update(
+        rule.id, payload.model_copy(update={"max_age_seconds": 120}), "editor", 1
+    )
+    assert updated.max_age_seconds == 120
+    assert rule.max_age_seconds == max_age
+    assert updated.revision == 2
+
+
+@pytest.mark.parametrize("max_age", [0, -1, float("inf"), float("nan")])
+async def test_freshness_duration_must_be_positive_and_finite(definition, max_age):
+    with pytest.raises(ValidationError):
+        ProtectionDefinition.model_validate(
+            {**definition.model_dump(), "max_age_seconds": max_age}
+        )
+
+
+async def test_missing_freshness_is_disabled_for_existing_definitions(definition):
+    payload = definition.model_dump(exclude={"max_age_seconds"})
+    assert ProtectionDefinition.model_validate(payload).max_age_seconds is None

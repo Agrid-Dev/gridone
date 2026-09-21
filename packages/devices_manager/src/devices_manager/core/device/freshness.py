@@ -22,7 +22,10 @@ def observation_max_age(driver: Driver, name: str) -> float | None:
     if driver.healthcheck.expected_push_interval is not None:
         windows.append(float(driver.healthcheck.expected_push_interval))
     strategy = driver.update_strategy
-    if strategy.polling_enabled and spec.read is not None:
+    # Named groups opt in to polling even when default polling is disabled.
+    if spec.read is not None and (
+        strategy.polling_enabled or spec.polling_group in strategy.polling_groups
+    ):
         interval = strategy.polling_groups.get(
             spec.polling_group or "", strategy.polling_interval
         )

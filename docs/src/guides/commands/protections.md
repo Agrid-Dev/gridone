@@ -31,9 +31,21 @@ Use `POST /protections/` to prevent starting A unless B is observed stopped:
 }
 ```
 
-A reciprocal interlock is a separate rule with device IDs reversed. Dependencies
-need a polling or expected push cadence. Missing points and incompatible types
-are rejected.
+A reciprocal interlock is a separate rule with device IDs reversed. Missing points
+and incompatible types are rejected.
+
+Freshness checking is optional and disabled by default. Set `max_age_seconds` to a
+positive duration to limit the age of each observed condition point; omit it or
+set it to `null` to use the last acquired value regardless of age. The device
+configuration form exposes this as **Check data freshness**, with a duration in
+seconds. The setting is saved and audited with each protection revision.
+
+No driver cadence is required, including for devices that publish only on change.
+A never-observed value remains unknown; a failed read, write or device stop still
+invalidates its observation. With freshness enabled, expiry also makes the value
+unknown. This setting does not poll the device or alter the driver's update
+strategy. A change-only publisher may therefore become stale even when its value
+has not changed. Fresh reception of the same value renews the observation's age.
 
 `GET /protections/` includes reference diagnostics; pass `device_id` to filter by
 the protected device. `GET /protections/schema` supplies the definition and

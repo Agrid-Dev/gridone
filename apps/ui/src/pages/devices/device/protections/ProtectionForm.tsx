@@ -8,6 +8,7 @@ import { ResourceHeader } from "@/components/ResourceHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -132,7 +133,14 @@ export function ProtectionForm({
                     <SelectTrigger
                       aria-label={t("attribute")}
                       aria-invalid={missingAttribute}
-                      className="w-56"
+                      aria-describedby={
+                        missingAttribute
+                          ? "protection-attribute-gone"
+                          : undefined
+                      }
+                      className={
+                        missingAttribute ? "w-56 border-destructive" : "w-56"
+                      }
                     >
                       <SelectValue placeholder={t("chooseAttribute")} />
                     </SelectTrigger>
@@ -166,6 +174,14 @@ export function ProtectionForm({
                   <span className="text-muted-foreground">
                     {t("onDeviceInline", { device: device.name })}
                   </span>
+                  {missingAttribute && (
+                    <p
+                      id="protection-attribute-gone"
+                      className="w-full text-sm text-destructive"
+                    >
+                      {t("attributeGone", { id: field.value.attribute })}
+                    </p>
+                  )}
                 </div>
               )}
             />
@@ -186,6 +202,57 @@ export function ProtectionForm({
                   value={field.value}
                   onChange={field.onChange}
                 />
+              )}
+            />
+            <Controller
+              name="max_age_seconds"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <div className="space-y-3 border-t pt-4">
+                  <FieldShell
+                    id="protection-freshness"
+                    label={t("freshnessCheck")}
+                    description={t("freshnessHelp")}
+                  >
+                    <Switch
+                      id="protection-freshness"
+                      checked={field.value != null}
+                      onCheckedChange={(checked) =>
+                        field.onChange(checked ? 60 : null)
+                      }
+                    />
+                  </FieldShell>
+                  {field.value != null && (
+                    <FieldShell
+                      id="protection-max-age"
+                      label={t("maxAge")}
+                      description={t("maxAgeHelp")}
+                      required
+                      invalid={fieldState.invalid}
+                      error={
+                        fieldState.error
+                          ? { type: "validate", message: t("maxAgeInvalid") }
+                          : undefined
+                      }
+                    >
+                      <Input
+                        id="protection-max-age"
+                        type="number"
+                        min="0"
+                        step="any"
+                        className="w-40"
+                        name={field.name}
+                        ref={field.ref}
+                        value={Number.isFinite(field.value) ? field.value : ""}
+                        onChange={(event) =>
+                          field.onChange(event.target.valueAsNumber)
+                        }
+                        onBlur={field.onBlur}
+                        aria-invalid={fieldState.invalid}
+                      />
+                    </FieldShell>
+                  )}
+                </div>
               )}
             />
           </Step>

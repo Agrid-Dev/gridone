@@ -74,7 +74,7 @@
   },
   "required": "Enter a nonblank value.",
   "formInvalid": "Complete the required fields and check the selected points, values and conditions.",
-  "invalidDefinition": "The protection is invalid. Check the point types, acquisition cadence and condition structure.",
+  "invalidDefinition": "The protection is invalid. Check the point types, freshness duration and condition structure.",
   "failed": "Unable to save or load this protection. Please try again.",
   "conflict": "This protection changed since you opened it. Your draft is preserved. Load the latest version and review it before saving again.",
   "reloadLatest": "Load latest version",
@@ -150,5 +150,17 @@
   "inPlainWords": "In plain words",
   "needsRepair": "Needs repair",
   "notEnforced": "A referenced point no longer exists — this protection is not enforced.",
-  "repair": "Repair"
+  "repair": "Repair",
+  "attributeGone": "The attribute {{id}} is no longer writable on this device. Choose another before saving.",
+  "searchPoints": "Search devices, attributes or IDs…",
+  "noPoints": "No matching point.",
+  "morePoints_one": "{{count}} more point. Refine your search.",
+  "morePoints_other": "{{count}} more points. Refine your search.",
+  "freshnessCheck": "Check data freshness",
+  "freshnessHelp": "Off by default: use the last observed value, regardless of its age. Values that have never been received or have been invalidated remain unknown.",
+  "maxAge": "Maximum age (seconds)",
+  "maxAgeHelp": "Applies to every point used by this condition. After this duration without a new observation, its value is treated as unknown. This setting does not request new readings.",
+  "maxAgeInvalid": "Enter a duration greater than zero.",
+  "freshnessDisabled": "Disabled — no age limit",
+  "freshnessDuration": "Maximum age: {{seconds}} seconds"
 }

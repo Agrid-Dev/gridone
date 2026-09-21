@@ -14,7 +14,6 @@ from devices_manager.core.conditions import (
     scalar_equal,
 )
 from models.expressions import MAX_DEVICE_OPERATIONS, MAX_RULES
-from models.protections import protection_points
 from models.write_rules import WriteEvaluation, WriteReason
 
 if TYPE_CHECKING:
@@ -162,20 +161,10 @@ class ProtectionGuard:
                 )
             if not scalar_equal(rule.target.value, value):
                 return None
-            dependencies = {
-                (point.device_id, point.attribute) for point in protection_points(rule)
-            }
             for point in rule.points:
                 budget.spend()
                 definition = self._inspect(point)
-                if (
-                    definition is None
-                    or definition.data_type != point.data_type
-                    or (
-                        (point.device_id, point.attribute) in dependencies
-                        and definition.max_age_seconds is None
-                    )
-                ):
+                if definition is None or definition.data_type != point.data_type:
                     return WriteReason(
                         code="protection_reference_invalid",
                         protection_id=rule.id,
@@ -186,7 +175,7 @@ class ProtectionGuard:
 
             def resolve(point: DevicePointRef) -> AttributeValueType | None:
                 nonlocal invalid
-                observation = self._resolve(point)
+                observation = self._resolve(point, max_age_seconds=rule.max_age_seconds)
                 invalid |= observation.validity == "invalid"
                 return observation.value if observation.validity == "known" else None
 

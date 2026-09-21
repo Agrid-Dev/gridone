@@ -108,9 +108,6 @@ class ProtectionsService:
 
     def diagnose(self, rule: Protection) -> list[WriteReason]:
         """Retain broken rules and report target/dependency drift explicitly."""
-        dependencies = {
-            (point.device_id, point.attribute) for point in protection_points(rule)
-        }
         for point in rule.points:
             definition = self._inspect(point)
             is_target = (point.device_id, point.attribute) == (
@@ -121,10 +118,6 @@ class ProtectionsService:
                 definition is None
                 or definition.data_type != point.data_type
                 or (is_target and not definition.writable)
-                or (
-                    (point.device_id, point.attribute) in dependencies
-                    and definition.max_age_seconds is None
-                )
             ):
                 return [
                     WriteReason(
@@ -138,7 +131,7 @@ class ProtectionsService:
     def _validate(
         self, definition: ProtectionDefinition, replacing: str | None = None
     ) -> list[PointContract]:
-        """Validate the destination, source cadence and shared expression types."""
+        """Validate the destination, referenced points and shared expression types."""
         if (
             len(
                 [
@@ -174,10 +167,6 @@ class ProtectionsService:
                 and not definition.target.value.is_integer()
             ):
                 raise WriteRejectedError([WriteReason(code="invalid_value")])
-            if point in references and info.max_age_seconds is None:
-                raise WriteRejectedError(
-                    [WriteReason(code="protection_cadence_missing")]
-                )
             contracts.append(
                 PointContract(**point.model_dump(), data_type=info.data_type)
             )

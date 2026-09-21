@@ -143,12 +143,19 @@ class WriteGuard:
         return results
 
     def forget(self, name: str | None = None) -> None:
-        """Drop trust in one attribute, or in everything, without touching display.
+        """Invalidate an observation after a read failure, write or device stop.
 
-        A read failure, a write that was just sent, a stop or an expiry all
-        end here. Value-mapped attributes whose table references ``name``
-        lose their resolution too, until ``name`` is observed again.
+        Display history remains, but neither driver rules nor protections may
+        rely on it until a new observation arrives.
         """
+        if name is None:
+            self._observed_at.clear()
+        else:
+            self._observed_at.pop(name, None)
+        self._forget_trust(name)
+
+    def _forget_trust(self, name: str | None = None) -> None:
+        """Drop driver-rule trust without imposing its deadline on site protections."""
         if name is None:
             self._trusted.clear()
             self._resolved.clear()
@@ -172,11 +179,55 @@ class WriteGuard:
             and observed_at is not None
             and time.monotonic() - observed_at >= deadline
         ):
-            self.forget(name)
+            self._forget_trust(name)
         for dependency in self._mapping_refs.get(name, ()):
             if self.known(dependency) is None:
                 self._resolved.discard(name)
         return self._values(name) if self._is_known(name) else None
+
+    def observed_value(
+        self, name: str, *, max_age_seconds: float | None = None
+    ) -> AttributeValueType | None:
+        """Resolve acquired observations using this protection's own age limit.
+
+        Driver expiry cannot erase reception times: another protection may allow
+        older data or disable expiry. Explicit invalidation still removes them.
+        Decode mapped values afresh so all mapping inputs obey the same limit,
+        regardless of the driver's cached resolution or another rule's deadline.
+        """
+        now = time.monotonic()
+        budget = EvaluationBudget(MAX_DEVICE_OPERATIONS)
+        cache: dict[str, AttributeValueType | None] = {}
+
+        def resolve(ref: str) -> AttributeValueType | None:
+            budget.spend()
+            if ref in cache:
+                return cache[ref]
+            spec = self._driver.attributes.get(ref)
+            observed_at = self._observed_at.get(ref)
+            if (
+                spec is None
+                or observed_at is None
+                or (
+                    max_age_seconds is not None and now - observed_at >= max_age_seconds
+                )
+            ):
+                cache[ref] = None
+            elif spec.value_mapping is None:
+                cache[ref] = self._values(ref)
+            else:
+                code = self._codes(ref)
+                cache[ref] = (
+                    self._decode(spec, code, resolve, budget).value
+                    if code is not None
+                    else None
+                )
+            return cache[ref]
+
+        try:
+            return resolve(name)
+        except EvaluationLimitError:
+            return None
 
     # --- eligibility ------------------------------------------------------
 
@@ -282,6 +333,11 @@ class WriteGuard:
         names = driver.attributes.keys()
         self._trusted &= names
         self._resolved &= names
+        self._observed_at = {
+            name: observed_at
+            for name, observed_at in self._observed_at.items()
+            if name in names
+        }
         for cache in (self._states, self._decoded):
             for stale in [name for name in cache if name not in names]:
                 del cache[stale]
@@ -328,7 +384,7 @@ class WriteGuard:
     # --- internals --------------------------------------------------------
 
     def _expire(self) -> None:
-        self.forget()
+        self._forget_trust()
         if self._on_expired is not None:
             self._on_expired()
 

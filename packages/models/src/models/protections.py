@@ -33,6 +33,16 @@ class ProtectionDefinition(BaseModel):
     target: ProtectionTarget
     condition: Condition
     explanation: NonBlank
+    max_age_seconds: float | None = Field(
+        default=None,
+        gt=0,
+        allow_inf_nan=False,
+        description=(
+            "Maximum age of each observed condition point in seconds. "
+            "Null disables freshness checks; never-observed or invalidated values "
+            "remain unknown."
+        ),
+    )
 
     @model_validator(mode="after")
     def bounded_condition(self) -> ProtectionDefinition:
@@ -95,7 +105,9 @@ class PointInspector(Protocol):
 
 
 class PointResolver(Protocol):
-    def __call__(self, point: DevicePointRef) -> PointObservation: ...
+    def __call__(
+        self, point: DevicePointRef, *, max_age_seconds: float | None = None
+    ) -> PointObservation: ...
 
 
 def protection_points(definition: ProtectionDefinition) -> list[DevicePointRef]:

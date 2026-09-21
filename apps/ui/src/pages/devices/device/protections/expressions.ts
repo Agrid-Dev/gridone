@@ -38,6 +38,7 @@ export const emptyDefinition = (): ProtectionDefinition => ({
   explanation: "",
   target: { ...emptyPoint(), value: true },
   condition: emptyCondition(),
+  max_age_seconds: null,
 });
 export function definitionOf(rule: Protection): ProtectionDefinition {
   return {
@@ -45,6 +46,7 @@ export function definitionOf(rule: Protection): ProtectionDefinition {
     explanation: rule.explanation,
     target: structuredClone(rule.target),
     condition: structuredClone(rule.condition),
+    max_age_seconds: rule.max_age_seconds ?? null,
   };
 }
 export function pointAttribute(catalog: PointCatalog, point: DevicePointRef) {

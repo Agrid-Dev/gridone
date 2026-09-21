@@ -335,6 +335,7 @@ async def test_rule_crud_and_broken_point_diagnostics(harness):
         "/protections/", json=harness.definition.model_dump(mode="json")
     )
     assert created.status_code == 201
+    assert created.json()["max_age_seconds"] is None
     id_ = created.json()["id"]
     updated = await harness.client.put(
         f"/protections/{id_}",
@@ -342,11 +343,14 @@ async def test_rule_crud_and_broken_point_diagnostics(harness):
             **harness.definition.model_dump(mode="json"),
             "revision": 1,
             "name": "Updated",
+            "max_age_seconds": 120,
         },
     )
     assert updated.status_code == 200
     assert updated.json()["revision"] == 2
-    assert len((await harness.client.get(f"/protections/{id_}/history")).json()) == 2
+    assert updated.json()["max_age_seconds"] == 120
+    history = (await harness.client.get(f"/protections/{id_}/history")).json()
+    assert [revision["max_age_seconds"] for revision in history] == [None, 120]
     await harness.dm.delete_device("b")
     view = (await harness.client.get(f"/protections/{id_}")).json()
     assert view["reasons"][0]["code"] == "protection_reference_invalid"
@@ -363,3 +367,16 @@ async def test_device_protections_filter_and_form_schemas(harness):
     # Referenced devices are not targets of this rule.
     unrelated = await harness.client.get("/protections/", params={"device_id": "b"})
     assert unrelated.json() == []
+
+
+@pytest.mark.parametrize("max_age_seconds", [0, -1])
+async def test_http_rejects_invalid_freshness_duration(harness, max_age_seconds):
+    response = await harness.client.post(
+        "/protections/",
+        json={
+            **harness.definition.model_dump(mode="json"),
+            "max_age_seconds": max_age_seconds,
+        },
+    )
+    assert response.status_code == 422
+    assert len(harness.protections.list_protections()) == 1

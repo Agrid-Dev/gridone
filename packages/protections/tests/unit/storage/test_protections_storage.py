@@ -29,7 +29,9 @@ async def test_revision_roundtrip_and_restart(definition, tmp_path, persistent):
     assert await storage.history("missing") == []
     saved = await storage.save(rule)
     saved.points.clear()
-    second = rule.model_copy(update={"revision": 2, "name": "Changed"})
+    second = rule.model_copy(
+        update={"revision": 2, "name": "Changed", "max_age_seconds": 120}
+    )
     await storage.save(second)
     with pytest.raises(ConflictError):
         await storage.save(second)
