@@ -43,20 +43,30 @@ export function websocketUrl(path: string): string {
 let roleClientCounter = 0;
 
 /**
- * Create a fresh user with the given role (as admin) and return a client
- * logged in as that user — used for RBAC checks. Usernames are unique so
+ * Create a fresh user with the given role id (built-in or custom, as admin)
+ * and return a client logged in as that user plus the user's id, so a suite
+ * can delete the user again — used for RBAC checks. Usernames are unique so
  * re-runs against a non-fresh stack don't collide.
  */
-export async function makeRoleClient(
-  role: "operator" | "viewer",
-): Promise<GridoneClient> {
+export async function makeRoleUser(
+  role: string,
+): Promise<{ client: GridoneClient; userId: string }> {
   const admin = await makeAdminClient();
   const uname = `acceptance-${role}-${Date.now()}-${roleClientCounter++}`;
   const pwd = "acceptance-pass";
-  await admin.users.create({ username: uname, password: pwd, role });
+  const user = await admin.users.create({
+    username: uname,
+    password: pwd,
+    role,
+  });
   const client = makeClient();
   await client.login(uname, pwd);
-  return client;
+  return { client, userId: user.id };
+}
+
+/** `makeRoleUser` for the common case where the user's id is not needed. */
+export async function makeRoleClient(role: string): Promise<GridoneClient> {
+  return (await makeRoleUser(role)).client;
 }
 
 export interface PollOptions {
