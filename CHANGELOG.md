@@ -1,3 +1,9 @@
+## v0.257.0 (2026-09-21)
+
+### Feat
+
+- **drivers**: value_labels on boolean attributes (#675)
+
 ## v0.256.0 (2026-09-21)
 
 ### Feat
