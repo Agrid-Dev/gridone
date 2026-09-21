@@ -12,11 +12,18 @@ from plates import (
     NOT_MEASURED,
     bound_device_ids,
     device_of,
+    joins,
     read,
     shares_no_device_with_the_bays,
 )
 
-from synoptics.models import Cell, PipeEndpoint, PortEndpoint, SynopticDocument
+from synoptics.models import (
+    AttributeSlot,
+    Cell,
+    PipeEndpoint,
+    PortEndpoint,
+    SynopticDocument,
+)
 
 PUMP_HEADS = {"a": "72cc846bcccc41f5", "b": "173e8e56d4d84473"}
 """The twin's two heads on the instance, PEG E2-A and PEG E2-B."""
@@ -52,6 +59,7 @@ def test_the_twin_pump_is_two_heads_on_two_branches(symbols, pipes):
         assert pump.device_id == device_id
         assert pump.placement.pipe == branch.id
         assert device_of(pump.bindings["state"]) == device_id
+        assert pump.bindings["state"].labels == {"true": "MARCHE", "false": "ARRÊT"}
         assert device_of(pump.bindings["speed"]) == device_id
         assert pump.bindings["speed"].unit == "tr/min"
         assert device_of(branch.flow) == device_id
@@ -125,12 +133,68 @@ def test_the_balance_line_leaves_for_the_hot_production(symbols, pipes):
     assert len(links) == 5
 
 
-def test_the_primary_counter_is_marked_on_the_meter_device(symbols, tags):
-    """The meter is still the click-through device, but its energy register
-    has not moved since June while power and flow read live, so the chip
-    says so rather than show a frozen number."""
+def test_the_primary_counter_reads_the_meter_s_register(symbols):
+    """The register has read one value since June while power and flow move
+    every poll; it is displayed raw all the same (a frozen register is the
+    driver's to explain, not a plate's to hide), so the chip reads what the
+    hot plate's does, in the unit inferred there."""
     meter = symbols["cpt-eg-ech-04"]
+    energy = meter.bindings["energy"]
     assert meter.device_id == "0b747b02e8e84cea"
-    assert meter.bindings == {"energy": NOT_MEASURED}
-    assert device_of(tags["tt-primaire-depart"][1]) == meter.device_id
-    assert device_of(tags["tt-primaire-retour"][1]) == meter.device_id
+    assert isinstance(energy, AttributeSlot)
+    assert energy.target.attribute == "energie"
+    assert (energy.unit, energy.decimals) == ("Wh", 0)
+    assert device_of(energy) == meter.device_id
+
+
+def test_the_three_temperatures_read_the_meter_and_the_controller(symbols, tags):
+    """Two probes of the heat meter and one of the controller, the cold
+    exchanger's: the hot exchanger's departure sits on the same controller
+    device and would read 55 °C on a chilled run and still validate."""
+    _, depart = tags["tt-primaire-depart"]
+    _, retour = tags["tt-primaire-retour"]
+    _, secondaire = tags["tt-secondaire-depart"]
+    meter = symbols["cpt-eg-ech-04"].device_id
+    assert device_of(depart) == device_of(retour) == meter
+    assert device_of(secondaire) == CONTROLLER
+    assert (depart.target.attribute, retour.target.attribute) == (
+        "tmpdepart",
+        "tmpretour",
+    )
+    assert secondaire.target.attribute == "echeg_tmpdepart"
+    for reading in (depart, retour, secondaire):
+        assert (reading.unit, reading.decimals) == ("°C", 1)
+
+
+def test_the_return_side_reads_the_controller_s_contacts(symbols, pipes):
+    """The cold production's low-water switch and pot contact, physical
+    inputs on the controller both productions share: the hot production's
+    `ec04_*` contacts sit on the same device and would validate."""
+    pot = symbols["pot-a-boue"]
+    assert (pot.type, pot.placement.pipe) == ("dirt_separator", "sec-return")
+    assert pot.bindings["fault"].target.attribute == "eg04_defpotboue"
+    manque = next(t for t in pipes["sec-return"].tags if t.id == "tt-manque-eau")
+    assert manque.value.target.attribute == "eg04_defmanqueeau"
+    assert device_of(manque.value) == device_of(pot.bindings["fault"]) == CONTROLLER
+    for slot in (manque.value, pot.bindings["fault"]):
+        assert slot.labels == {"true": "DÉFAUT", "false": "NORMAL"}
+    assert joins(pipes["vase-connection"].from_, "sec-return")
+    assert pipes["vase-connection"].to == PortEndpoint(symbol="vec-04", port="in")
+
+
+def test_the_fluids_are_keyed_by_circuit_role(pipes):
+    """A run keyed as the hot template's fluid would take the heating palette
+    on a chilled plate and still validate."""
+    fluid = {p.id: p.fluid for p in pipes.values()}
+    supply = ("sec-supply", "sec-supply-out", "peg-e2-a-branch", "peg-e2-b-branch")
+    ret = ("sec-return", "vase-connection", "ec-balance")
+    assert fluid["prim-supply"] == "primary_supply"
+    assert fluid["prim-return"] == "primary_return"
+    assert {fluid[p] for p in supply} == {"chilled_supply"}
+    assert {fluid[p] for p in ret} == {"chilled_return"}
+    assert set(fluid.values()) == {
+        "primary_supply",
+        "primary_return",
+        "chilled_supply",
+        "chilled_return",
+    }

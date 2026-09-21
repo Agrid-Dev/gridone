@@ -167,7 +167,17 @@
       "device_id": "0b747b02e8e84cea",
       "props": {},
       "bindings": {
-        "energy": { "kind": "text", "text": "non mesurée" }
+        "energy": {
+          "kind": "attribute",
+          "target": {
+            "devices": {
+              "ids": ["0b747b02e8e84cea"]
+            },
+            "attribute": "energie"
+          },
+          "unit": "Wh",
+          "decimals": 0
+        }
       }
     },
     {
