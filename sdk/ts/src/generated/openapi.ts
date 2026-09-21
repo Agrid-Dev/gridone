@@ -2382,6 +2382,8 @@ export interface components {
       label?: components["schemas"]["LocalizedText"] | null;
       /** Unit */
       unit?: string | null;
+      /** Value Labels */
+      value_labels?: components["schemas"]["ValueLabel"][] | null;
       /** Value Options */
       value_options?: (number | string | boolean)[] | null;
       write_constraints?:
@@ -2433,6 +2435,8 @@ export interface components {
       group?: string | null;
       /** Unit */
       unit?: string | null;
+      /** Value Labels */
+      value_labels?: components["schemas"]["ValueLabel"][] | null;
       write_constraints?:
         | components["schemas"]["WriteConstraints-Input"]
         | null;
@@ -2473,6 +2477,8 @@ export interface components {
       group?: string | null;
       /** Unit */
       unit?: string | null;
+      /** Value Labels */
+      value_labels?: components["schemas"]["ValueLabel"][] | null;
       write_constraints?:
         | components["schemas"]["WriteConstraints-Output"]
         | null;
@@ -2542,6 +2548,8 @@ export interface components {
       group?: string | null;
       /** Unit */
       unit?: string | null;
+      /** Value Labels */
+      value_labels?: components["schemas"]["ValueLabel"][] | null;
       write_constraints?:
         | components["schemas"]["WriteConstraints-Input"]
         | null;
@@ -4158,6 +4166,8 @@ export interface components {
       group?: string | null;
       /** Unit */
       unit?: string | null;
+      /** Value Labels */
+      value_labels?: components["schemas"]["ValueLabel"][] | null;
       write_constraints?:
         | components["schemas"]["WriteConstraints-Input"]
         | null;
@@ -4202,6 +4212,8 @@ export interface components {
       group?: string | null;
       /** Unit */
       unit?: string | null;
+      /** Value Labels */
+      value_labels?: components["schemas"]["ValueLabel"][] | null;
       write_constraints?:
         | components["schemas"]["WriteConstraints-Output"]
         | null;
@@ -6903,6 +6915,18 @@ export interface components {
       input?: unknown;
       /** Context */
       ctx?: Record<string, never>;
+    };
+    /**
+     * ValueLabel
+     * @description Human wording for one state of a boolean attribute.
+     *
+     *     ``value`` is strict: ``0`` / ``1`` are rejected rather than coerced, since
+     *     Python treats ``True`` as an ``int``.
+     */
+    ValueLabel: {
+      /** Value */
+      value: boolean;
+      label: components["schemas"]["LocalizedText"];
     };
     /**
      * ValueMapping

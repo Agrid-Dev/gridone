@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import cached_property
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, Self
 
 from pydantic import BaseModel, Discriminator, Field, Tag, model_validator
 
@@ -13,6 +13,7 @@ from models.attribute_metadata import (  # noqa: TC001
     AttributeGroup,
     LocalizedText,
     Unit,
+    ValueLabels,
     WriteConstraints,
 )
 from models.errors import InvalidError
@@ -55,6 +56,7 @@ class AttributeDriver(BaseModel):
     user_confirmation: LocalizedText | None = None
     group: AttributeGroup | None = None
     unit: Unit | None = None
+    value_labels: ValueLabels | None = None
     write_constraints: WriteConstraints | None = None
     default_value: Scalar | None = None
     write_rules: list[WriteRule] = Field(default_factory=list, max_length=MAX_RULES)
@@ -70,6 +72,13 @@ class AttributeDriver(BaseModel):
     @property
     def value_options(self) -> list[AttributeValueType] | None:
         return self.codec.value_options
+
+    @model_validator(mode="after")
+    def _check_value_labels(self) -> Self:
+        if self.value_labels is not None and self.data_type != DataType.BOOL:
+            msg = "value_labels is only valid on bool attributes"
+            raise InvalidError(msg)
+        return self
 
     @model_validator(mode="before")
     @classmethod

@@ -175,9 +175,15 @@ class TestAttributePatchMetadata:
                 "group": "setpoints",
                 "unit": "°C",
                 "write_constraints": {"step": 0.5, "minimum": {"attribute": "floor"}},
+                "value_labels": [
+                    {"value": True, "label": {"default": "On"}},
+                    {"value": False, "label": {"default": "Off"}},
+                ],
             }
         )
         assert patch.label == LocalizedText(default="Setpoint")
+        assert patch.value_labels is not None
+        assert [entry.value for entry in patch.value_labels] == [False, True]
         assert patch.write_constraints == WriteConstraints(
             step=0.5, minimum=AttributeRef(attribute="floor")
         )
@@ -187,10 +193,12 @@ class TestAttributePatchMetadata:
             "group",
             "unit",
             "write_constraints",
+            "value_labels",
         }
 
     @pytest.mark.parametrize(
-        "field", ["label", "description", "group", "unit", "write_constraints"]
+        "field",
+        ["label", "description", "group", "unit", "write_constraints", "value_labels"],
     )
     def test_null_clears_the_field(self, field):
         patch = AttributePatch.model_validate({field: None})
@@ -204,6 +212,8 @@ class TestAttributePatchMetadata:
             {"label": {"translations": {"fr": "Consigne"}}},
             {"write_constraints": {}},
             {"write_constraints": {"step": 0}},
+            {"value_labels": [{"value": True, "label": {"default": "On"}}]},
+            {"value_labels": [{"value": 1, "label": {"default": "On"}}]},
         ],
     )
     def test_rejects_invalid_metadata(self, payload):

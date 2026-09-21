@@ -66,6 +66,70 @@ def test_user_confirmation_roundtrips():
     assert restored.user_confirmation == driver.user_confirmation
 
 
+_VALUE_LABELS = [
+    {"value": True, "label": {"default": "Running", "translations": {"fr": "Marche"}}},
+    {"value": False, "label": {"default": "Stopped", "translations": {"fr": "Arrêt"}}},
+]
+
+
+def _bool_attribute(**overrides: object) -> dict[str, object]:
+    return {"name": "running", "data_type": "bool", "read": "/running", **overrides}
+
+
+@pytest.mark.parametrize("cls", [AttributeDriver, FaultAttributeDriver])
+def test_value_labels_roundtrip_on_bool_attribute(cls: type[AttributeDriver]) -> None:
+    driver = cls.model_validate(_bool_attribute(value_labels=_VALUE_LABELS))
+    exported = driver.model_dump(mode="json")
+    # canonical order is (false, true) whatever the author wrote
+    assert exported["value_labels"] == list(reversed(_VALUE_LABELS))
+    restored = cls.model_validate(exported)
+    assert restored.value_labels == driver.value_labels
+
+
+def test_value_labels_default_to_none() -> None:
+    driver = AttributeDriver.model_validate(_bool_attribute())
+    assert driver.value_labels is None
+    assert "value_labels" in driver.model_dump()
+
+
+@pytest.mark.parametrize("data_type", ["int", "float", "str"])
+def test_value_labels_rejected_on_non_bool_attribute(data_type: str) -> None:
+    with pytest.raises(ValidationError, match="only valid on bool"):
+        AttributeDriver.model_validate(
+            _bool_attribute(data_type=data_type, value_labels=_VALUE_LABELS)
+        )
+
+
+@pytest.mark.parametrize(
+    ("value_labels", "match"),
+    [
+        (_VALUE_LABELS[:1], "both true and false"),
+        ([_VALUE_LABELS[0], _VALUE_LABELS[0]], "both true and false"),
+        ([*_VALUE_LABELS, _VALUE_LABELS[1]], "both true and false"),
+        (
+            [{"value": 1, "label": {"default": "a"}}, _VALUE_LABELS[1]],
+            "valid boolean",
+        ),
+        (
+            [_VALUE_LABELS[0], {"value": 0, "label": {"default": "a"}}],
+            "valid boolean",
+        ),
+        ({"true": {"default": "a"}, "false": {"default": "b"}}, "valid list"),
+    ],
+    ids=[
+        "only_true",
+        "true_twice",
+        "false_twice",
+        "int_one",
+        "int_zero",
+        "map_keyed_by_value",
+    ],
+)
+def test_invalid_value_labels_are_rejected(value_labels: object, match: str) -> None:
+    with pytest.raises(ValidationError, match=match):
+        AttributeDriver.model_validate(_bool_attribute(value_labels=value_labels))
+
+
 def test_attribute_schema_polling_group() -> None:
     data = {
         "name": "temperature",

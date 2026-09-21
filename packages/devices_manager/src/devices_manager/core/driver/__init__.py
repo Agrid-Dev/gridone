@@ -4,6 +4,8 @@ from models.attribute_metadata import (
     Bound,
     LocalizedText,
     Unit,
+    ValueLabel,
+    ValueLabels,
     WriteConstraints,
 )
 
@@ -41,6 +43,8 @@ __all__ = [
     "LocalizedText",
     "Unit",
     "UpdateStrategy",
+    "ValueLabel",
+    "ValueLabels",
     "WriteConstraints",
     "attributes_referencing",
     "validate_polling_groups",

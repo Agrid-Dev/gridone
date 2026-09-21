@@ -53,6 +53,12 @@ attributes:                   # (required) list of attribute drivers
       default: Requested room temperature
     group: setpoints            # snake_case key grouping related attributes together
     unit: °C                    # free unit symbol (°C, %, W, kWh, m³/h)
+    # value_labels (optional, bool attributes only) — wording of both states, same shape as label
+    # value_labels:
+    #   - value: true
+    #     label: { default: Running, translations: { fr: Marche } }
+    #   - value: false
+    #     label: { default: Stopped, translations: { fr: Arrêt } }
 
     # Write constraints (optional, int/float attributes only) — enforced on every write
     write_constraints:
@@ -93,6 +99,7 @@ Every attribute may carry optional presentation metadata. It is stored with the 
 |---|---|
 | `label` | Display name. An object with a required `default` (1–200 characters) and optional `translations` keyed by language tag (`fr`, `en`, `fr-CA`). Clients resolve the exact tag, then the base language, then `default` |
 | `description` | Longer help text, same shape as `label` |
+| `value_labels` | `bool` attributes only. A list of `{value, label}` entries naming the two states, where `label` has the same shape as `label` above. Both `true` and `false` must be labelled exactly once; `0` / `1` are rejected, not coerced. Stored and served with `false` first, whatever the authored order. A list rather than a map keyed by the value, because JSON has no boolean keys |
 | `group` | snake_case key (`^[a-z][a-z0-9_]*$`, 64 characters max) grouping related attributes together |
 | `unit` | Free unit symbol, 1–16 characters (`°C`, `%`, `W`, `kWh`, `m³/h`). Gridone has no unit nomenclature yet: the symbol is displayed as-is |
 

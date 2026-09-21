@@ -166,8 +166,10 @@ export type AttributeWritePayload = Schemas["AttributeWritePayload"];
 export type AttributeEventLog = Schemas["AttributeEventLog"];
 export type AttributeLogs = Schemas["AttributeLogs"];
 // Optional presentation metadata and write constraints a driver attribute
-// may declare (`label`, `description`, `group`, `unit`, `write_constraints`).
+// may declare (`label`, `description`, `group`, `unit`, `value_labels`,
+// `write_constraints`).
 export type LocalizedText = Schemas["LocalizedText"];
+export type ValueLabel = Schemas["ValueLabel"];
 export type AttributeRef = Schemas["AttributeRef"];
 export type WriteConstraints = Schemas["WriteConstraints-Output"];
 export type EventType = Schemas["EventType"];

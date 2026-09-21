@@ -21,6 +21,7 @@ from models.attribute_metadata import (
     AttributeGroup,
     LocalizedText,
     Unit,
+    ValueLabels,
     WriteConstraints,
 )
 from models.expressions import Scalar
@@ -36,6 +37,7 @@ _OMITTED_WHEN_NONE = (
     "user_confirmation",
     "group",
     "unit",
+    "value_labels",
     "write_constraints",
     "write_state",
     "default_value",
@@ -62,6 +64,7 @@ class Attribute(BaseModel):
     user_confirmation: LocalizedText | None = None
     group: AttributeGroup | None = None
     unit: Unit | None = None
+    value_labels: ValueLabels | None = None
     write_constraints: WriteConstraints | None = None
     default_value: Scalar | None = None
     write_state: AttributeWriteState | None = None

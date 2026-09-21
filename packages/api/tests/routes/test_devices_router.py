@@ -466,6 +466,7 @@ class TestListDeviceAttributes:
             "writable_count": 0,
             "label": None,
             "unit": None,
+            "value_labels": None,
             "value_options": None,
             "write_constraints": None,
             "write_state": None,
