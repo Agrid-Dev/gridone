@@ -17,6 +17,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { FieldShell } from "@/components/forms/controllers/FieldShell";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldLabel,
+} from "@/components/ui/field";
 import { useAttributeLabel } from "@/hooks/useAttributeLabel";
 import { attributeUnit } from "@/lib/attributeUnits";
 import { useDeviceFromRoute } from "@/hooks/useDevice";
@@ -209,11 +215,15 @@ export function ProtectionForm({
               control={form.control}
               render={({ field, fieldState }) => (
                 <div className="space-y-3 border-t pt-4">
-                  <FieldShell
-                    id="protection-freshness"
-                    label={t("freshnessCheck")}
-                    description={t("freshnessHelp")}
-                  >
+                  {/* Settings-row layout: a vertical Field stretches every
+                      child to full width, which would blow up the switch. */}
+                  <Field orientation="horizontal">
+                    <FieldContent>
+                      <FieldLabel htmlFor="protection-freshness">
+                        {t("freshnessCheck")}
+                      </FieldLabel>
+                      <FieldDescription>{t("freshnessHelp")}</FieldDescription>
+                    </FieldContent>
                     <Switch
                       id="protection-freshness"
                       checked={field.value != null}
@@ -221,7 +231,7 @@ export function ProtectionForm({
                         field.onChange(checked ? 60 : null)
                       }
                     />
-                  </FieldShell>
+                  </Field>
                   {field.value != null && (
                     <FieldShell
                       id="protection-max-age"

@@ -223,6 +223,12 @@ describe("device protections", () => {
       name: "Check data freshness",
     });
     expect(toggle).not.toBeChecked();
+    // A vertical Field stretches every child to full width; the toggle sits on
+    // a settings row so it keeps its own size.
+    expect(toggle.closest('[data-slot="field"]')).toHaveAttribute(
+      "data-orientation",
+      "horizontal",
+    );
     expect(
       screen.queryByRole("spinbutton", { name: /Maximum age/ }),
     ).not.toBeInTheDocument();
