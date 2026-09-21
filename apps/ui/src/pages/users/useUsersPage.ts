@@ -50,7 +50,9 @@ export function useUsersPage() {
     queryKey: ["users"],
     queryFn: () => client.users.list() as Promise<User[]>,
   });
-  const { data: roles = [] } = useRoles();
+  // The role select only offers what has loaded: opening the form earlier
+  // would display one role while the form keeps another.
+  const { data: roles = [], isSuccess: rolesReady } = useRoles();
 
   const [dialogMode, setDialogMode] = useState<"create" | "edit" | null>(null);
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -245,6 +247,7 @@ export function useUsersPage() {
     roleCounts,
     roleFilter,
     roles,
+    rolesReady,
     setPendingAction,
     setQuery,
     setRoleFilter,

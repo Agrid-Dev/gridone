@@ -177,6 +177,7 @@ export default function UsersPage() {
     roleCounts,
     roleFilter,
     roles,
+    rolesReady,
     setPendingAction,
     setQuery,
     setRoleFilter,
@@ -191,7 +192,11 @@ export default function UsersPage() {
         caption={<span className="text-base">{t("subtitle")}</span>}
         actions={
           canWrite ? (
-            <Button onClick={openCreate} className="shadow-sm">
+            <Button
+              onClick={openCreate}
+              disabled={!rolesReady}
+              className="shadow-sm"
+            >
               <UserPlus />
               {t("create")}
             </Button>
@@ -314,6 +319,7 @@ export default function UsersPage() {
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end" className="w-48">
                                 <DropdownMenuItem
+                                  disabled={!rolesReady}
                                   onSelect={() => openEdit(user)}
                                 >
                                   <Pencil />

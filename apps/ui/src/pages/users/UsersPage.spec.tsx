@@ -257,6 +257,36 @@ describe("UsersPage", () => {
     });
   });
 
+  it("opens the user form only once the roles are loaded", async () => {
+    const user = userEvent.setup();
+    let resolveRoles: (roles: Role[]) => void = () => {};
+    mockListRoles.mockReturnValue(
+      new Promise<Role[]>((resolve) => {
+        resolveRoles = resolve;
+      }),
+    );
+    renderPage();
+    await screen.findByText("Alice Martin");
+
+    expect(screen.getByRole("button", { name: "Add user" })).toBeDisabled();
+
+    resolveRoles(ROLES);
+    const addUser = screen.getByRole("button", { name: "Add user" });
+    await waitFor(() => expect(addUser).toBeEnabled());
+    await user.click(addUser);
+
+    expect(screen.getByLabelText("Role")).toHaveValue("operator");
+  });
+
+  it("keeps the user form closed when the roles cannot be loaded", async () => {
+    mockListRoles.mockRejectedValue(new Error("unavailable"));
+    renderPage();
+    await screen.findByText("Alice Martin");
+
+    await waitFor(() => expect(mockListRoles).toHaveBeenCalled());
+    expect(screen.getByRole("button", { name: "Add user" })).toBeDisabled();
+  });
+
   it("hides mutation controls from read-only users", async () => {
     canWrite = false;
     renderPage();
