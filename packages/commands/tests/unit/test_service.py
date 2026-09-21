@@ -16,7 +16,7 @@ from commands.models import (
     WriteResult,
 )
 from commands.service import CommandsService
-from models.command_confirmation import ProtectionConfirmation, UIConfirmationContext
+from models.command_confirmation import OperatingRuleConfirmation, UIConfirmationContext
 from models.errors import (
     ConfirmationError,
     InvalidError,
@@ -40,15 +40,15 @@ MODE_AUTO = AttributeWrite(attribute="mode", value="auto", data_type=DataType.ST
 async def test_guard_rejection_retains_acknowledgement_audit(
     device_writer, result_handler, target_resolver
 ):
-    consent = ProtectionConfirmation(
+    consent = OperatingRuleConfirmation(
         binding="binding",
-        protection_ids=["rule"],
+        operating_rule_ids=["rule"],
         actor_id="operator",
         confirmed_at=datetime.now(UTC),
     )
     validator = Mock(
         return_value=WriteEvaluation(
-            eligible=True, value="auto", protection_confirmation=consent
+            eligible=True, value="auto", operating_rule_confirmation=consent
         )
     )
     service = CommandsService(
@@ -60,7 +60,7 @@ async def test_guard_rejection_retains_acknowledgement_audit(
     )
     await service.start()
     device_writer.side_effect = WriteRejectedError(
-        [WriteReason(code="protection_blocked")]
+        [WriteReason(code="operating_rule_blocked")]
     )
     try:
         with pytest.raises(WriteRejectedError):
@@ -68,20 +68,20 @@ async def test_guard_rejection_retains_acknowledgement_audit(
                 device_id="d1",
                 write=MODE_AUTO,
                 user_id="operator",
-                protection_confirmation=consent,
+                operating_rule_confirmation=consent,
             )
         record = (await service.get_commands()).items[0]
         assert record.status == CommandStatus.ERROR
         assert record.validation is not None
-        assert record.validation.protection_confirmation == consent
-        assert record.validation.reasons[0].code == "protection_blocked"
-        assert device_writer.call_args.kwargs["protection_confirmation"] == consent
+        assert record.validation.operating_rule_confirmation == consent
+        assert record.validation.reasons[0].code == "operating_rule_blocked"
+        assert device_writer.call_args.kwargs["operating_rule_confirmation"] == consent
         with pytest.raises(InvalidError):
             await service.dispatch_unit(
                 device_id="d1",
                 write=MODE_AUTO,
                 user_id="another",
-                protection_confirmation=consent,
+                operating_rule_confirmation=consent,
             )
     finally:
         await service.stop()

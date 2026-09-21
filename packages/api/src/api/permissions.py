@@ -26,14 +26,14 @@ class Permission(StrEnum):
     DASHBOARDS_WRITE = "dashboards:write"
     SYNOPTICS_READ = "synoptics:read"
     SYNOPTICS_WRITE = "synoptics:write"
-    PROTECTIONS_READ = "protections:read"
-    PROTECTIONS_WRITE = "protections:write"
+    OPERATING_RULES_READ = "operating_rules:read"
+    OPERATING_RULES_WRITE = "operating_rules:write"
 
 
 ROLE_PERMISSIONS: dict[Role, set[Permission]] = {
     Role.ADMIN: set(Permission),
     Role.OPERATOR: {
-        Permission.PROTECTIONS_READ,
+        Permission.OPERATING_RULES_READ,
         Permission.DEVICES_READ,
         Permission.DEVICES_WRITE,
         Permission.ASSETS_READ,
@@ -50,7 +50,7 @@ ROLE_PERMISSIONS: dict[Role, set[Permission]] = {
         Permission.SYNOPTICS_WRITE,
     },
     Role.VIEWER: {
-        Permission.PROTECTIONS_READ,
+        Permission.OPERATING_RULES_READ,
         Permission.USERS_READ_BASIC,
         Permission.DEVICES_READ,
         Permission.ASSETS_READ,

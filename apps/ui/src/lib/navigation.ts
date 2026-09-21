@@ -150,7 +150,7 @@ export const RESOURCE_SECTIONS: Record<string, readonly string[]> = {
     "edit",
     "history",
     "new",
-    "protections",
+    "operating-rules",
     "tags",
     "templates",
     "views",
@@ -173,15 +173,15 @@ export function resourcePath(url: string): string | null {
     return second && second !== "new" ? `/devices/views/${second}` : null;
   const reserved = RESOURCE_SECTIONS[list];
   if (!reserved || !first || reserved.includes(first)) return null;
-  // A missing protection must not mark its parent device as deleted.
+  // A missing operatingRule must not mark its parent device as deleted.
   if (
     list === "devices" &&
     second === "config" &&
-    third === "protections" &&
+    third === "operating-rules" &&
     fourth &&
     fourth !== "new"
   )
-    return `/devices/${first}/config/protections/${fourth}`;
+    return `/devices/${first}/config/operating-rules/${fourth}`;
   return `/${list}/${first}`;
 }
 

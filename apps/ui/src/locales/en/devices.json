@@ -161,7 +161,7 @@
     "configurationTabs": {
       "label": "Device configuration sections",
       "general": "General",
-      "protections": "Protections"
+      "operatingRules": "Operating rules"
     }
   },
   "attributes": {
@@ -791,11 +791,11 @@
     "mapping_changed": "The device table changed during confirmation",
     "evaluation_limit": "The driver evaluation limit was reached",
     "unknown_attribute": "Unknown attribute",
-    "protection_blocked": "A site protection prohibits this command.",
-    "protection_unknown": "A protection depends on an unknown or stale observation.",
-    "protection_reference_invalid": "A protection references a missing or incompatible device point.",
-    "protection_cadence_missing": "A protection dependency must have a declared polling or push interval.",
-    "protection_unavailable": "Site protections could not be evaluated."
+    "operating_rule_blocked": "A site operating rule prohibits this command.",
+    "operating_rule_unknown": "An operating rule depends on an unknown or stale observation.",
+    "operating_rule_reference_invalid": "An operating rule references a missing or incompatible device point.",
+    "operating_rule_cadence_missing": "An operating rule dependency must have a declared polling or push interval.",
+    "operating_rule_unavailable": "Site operating rules could not be evaluated."
   },
   "confirmation": {
     "title": "Confirm this change?",
@@ -804,7 +804,7 @@
     "unknown": "Unknown",
     "accepted": "Confirmed in UI",
     "noResponse": "A missing response does not mean the device was unchanged.",
-    "unknownProtection": "Confirm only after checking the equipment state. This acknowledgement will be recorded."
+    "unknownOperatingRule": "Confirm only after checking the equipment state. This acknowledgement will be recorded."
   },
   "deleted": "Deleted device"
 }

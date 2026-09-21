@@ -280,7 +280,7 @@ async def test_watch_bounds_trust_to_one_interval_and_close_drops_it():
     stores.expired.assert_called_once_with()
 
 
-def test_protection_age_limits_do_not_inherit_driver_expiry(monkeypatch):
+def test_operating_rule_age_limits_do_not_inherit_driver_expiry(monkeypatch):
     from types import SimpleNamespace
 
     from devices_manager.core.device import write_guard
@@ -307,7 +307,7 @@ def test_protection_age_limits_do_not_inherit_driver_expiry(monkeypatch):
     assert guard.observed_value("value") is None
 
 
-def test_mapped_protection_observations_follow_the_same_age_limit(monkeypatch):
+def test_mapped_operating_rule_observations_follow_the_same_age_limit(monkeypatch):
     from types import SimpleNamespace
 
     from devices_manager.core.device import write_guard
@@ -358,7 +358,7 @@ def test_mapped_protection_observations_follow_the_same_age_limit(monkeypatch):
 
 @pytest.mark.asyncio
 @fake_time
-async def test_push_expiry_does_not_expire_unbounded_protections():
+async def test_push_expiry_does_not_expire_unbounded_operating_rules():
     stores = Stores(build_driver(spec("value")))
     stores.guard.watch(1)
     stores.observe("value", 7)

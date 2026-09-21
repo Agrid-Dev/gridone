@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from models.attribute_metadata import LocalizedText  # noqa: TC001 -- schema runtime
 from models.command_confirmation import (
-    ProtectionConfirmation,  # noqa: TC001 -- pydantic schema
+    OperatingRuleConfirmation,  # noqa: TC001 -- pydantic schema
 )
 from models.expressions import MAX_LIST_ITEMS, Condition, Expression, Scalar
 
@@ -18,8 +18,8 @@ class WriteReason(BaseModel):
 
     code: Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]*$", max_length=64)]
     message: LocalizedText | None = None
-    protection_id: str | None = None
-    protection_explanation: str | None = None
+    operating_rule_id: str | None = None
+    operating_rule_explanation: str | None = None
 
 
 class WriteRule(BaseModel):
@@ -101,12 +101,12 @@ class WriteEvaluation(BaseModel):
     value: Scalar | None = None
     reasons: list[WriteReason] = Field(default_factory=list)
     warnings: list[WriteReason] = Field(default_factory=list)
-    protection_binding: str | None = None
-    unknown_protection_ids: list[str] = Field(default_factory=list)
-    protection_confirmation: ProtectionConfirmation | None = None
+    operating_rule_binding: str | None = None
+    unknown_operating_rule_ids: list[str] = Field(default_factory=list)
+    operating_rule_confirmation: OperatingRuleConfirmation | None = None
 
     @property
-    def can_confirm_protections(self) -> bool:
+    def can_confirm_operating_rules(self) -> bool:
         return bool(self.reasons) and all(
-            reason.code == "protection_unknown" for reason in self.reasons
+            reason.code == "operating_rule_unknown" for reason in self.reasons
         )

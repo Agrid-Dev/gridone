@@ -108,10 +108,10 @@ export function AttributeConfirmationProvider({
             <DialogDescription>
               {preview?.user_confirmation &&
                 localize(preview.user_confirmation, item.language)}
-              {preview?.protection_confirmation_required && (
+              {preview?.operating_rule_confirmation_required && (
                 <span className="block mt-2 text-amber-700">
                   {commandReasons(preview.reasons, item.language)}{" "}
-                  {t("confirmation.unknownProtection")}
+                  {t("confirmation.unknownOperatingRule")}
                 </span>
               )}
             </DialogDescription>

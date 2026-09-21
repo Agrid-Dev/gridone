@@ -145,7 +145,7 @@ class WriteGuard:
     def forget(self, name: str | None = None) -> None:
         """Invalidate an observation after a read failure, write or device stop.
 
-        Display history remains, but neither driver rules nor protections may
+        Display history remains, but neither driver rules nor operating rules may
         rely on it until a new observation arrives.
         """
         if name is None:
@@ -155,7 +155,7 @@ class WriteGuard:
         self._forget_trust(name)
 
     def _forget_trust(self, name: str | None = None) -> None:
-        """Drop driver-rule trust without imposing its deadline on site protections."""
+        """Drop driver-rule trust without imposing its deadline on site rules."""
         if name is None:
             self._trusted.clear()
             self._resolved.clear()
@@ -188,9 +188,9 @@ class WriteGuard:
     def observed_value(
         self, name: str, *, max_age_seconds: float | None = None
     ) -> AttributeValueType | None:
-        """Resolve acquired observations using this protection's own age limit.
+        """Resolve acquired observations using this operating rule's own age limit.
 
-        Driver expiry cannot erase reception times: another protection may allow
+        Driver expiry cannot erase reception times: another operating rule may allow
         older data or disable expiry. Explicit invalidation still removes them.
         Decode mapped values afresh so all mapping inputs obey the same limit,
         regardless of the driver's cached resolution or another rule's deadline.

@@ -12,8 +12,8 @@ export function commandReason(
     : i18n.t(`devices:commandReasons.${reason.code}`, {
         defaultValue: "Command unavailable",
       });
-  return reason.protection_explanation
-    ? `${message} ${reason.protection_explanation}`
+  return reason.operating_rule_explanation
+    ? `${message} ${reason.operating_rule_explanation}`
     : message;
 }
 export function commandReasons(

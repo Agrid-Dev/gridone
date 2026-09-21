@@ -218,18 +218,18 @@ it("keeps ordinary attributes on the existing immediate dispatch path", async ()
   });
 });
 
-it("requires explicit consent before a command with unknown protection state", async () => {
+it("requires explicit consent before a command with unknown operating rule state", async () => {
   api.previewDeviceCommand.mockResolvedValue({
     eligible: false,
-    protection_confirmation_required: true,
+    operating_rule_confirmation_required: true,
     confirmation_token: "unknown-preview",
-    reasons: [{ code: "protection_unknown" }],
+    reasons: [{ code: "operating_rule_unknown" }],
   });
   setup();
   await increment();
   await settle(600);
   expect(screen.getByRole("dialog")).toBeVisible();
-  expect(screen.getByText("confirmation.unknownProtection")).toBeVisible();
+  expect(screen.getByText("confirmation.unknownOperatingRule")).toBeVisible();
   expect(api.sendCommand).not.toHaveBeenCalled();
   fireEvent.click(screen.getByText("confirmation.confirm"));
   await settle();
@@ -239,15 +239,15 @@ it("requires explicit consent before a command with unknown protection state", a
     confirm: true,
     ui_confirmation_token: "unknown-preview",
     confirmation_language: "en",
-    acknowledge_unknown_protections: true,
+    acknowledge_unknown_operating_rules: true,
   });
 });
 
-it("does not offer consent for a known protection refusal", async () => {
+it("does not offer consent for a known operating rule refusal", async () => {
   api.previewDeviceCommand.mockResolvedValue({
     eligible: false,
-    protection_confirmation_required: false,
-    reasons: [{ code: "protection_blocked" }],
+    operating_rule_confirmation_required: false,
+    reasons: [{ code: "operating_rule_blocked" }],
   });
   setup();
   await increment();

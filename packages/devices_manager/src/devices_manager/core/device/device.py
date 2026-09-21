@@ -31,7 +31,7 @@ from .write_guard import WriteGuard
 if TYPE_CHECKING:
     from devices_manager.core.codecs import FnCodec
     from devices_manager.core.driver import AttributeDriver, Driver
-    from devices_manager.core.protections import ProtectionGuard
+    from devices_manager.core.operating_rules import OperatingRuleGuard
     from devices_manager.core.transports import (
         ReadResult,
         TransportAddress,
@@ -44,7 +44,7 @@ if TYPE_CHECKING:
         DeviceConfig,
         ReadWriteMode,
     )
-    from models.command_confirmation import ProtectionConfirmation
+    from models.command_confirmation import OperatingRuleConfirmation
 
     from .device_base import DeviceBase
 
@@ -173,7 +173,7 @@ class CoreDevice:
     on_write_state_update: Callable[[CoreDevice], None] | None = field(
         default=None, repr=False
     )
-    protection_guard: ProtectionGuard | None = field(default=None, repr=False)
+    operating_rule_guard: OperatingRuleGuard | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         if self.driver.transport != self.transport.protocol:
@@ -821,13 +821,13 @@ class CoreDevice:
         attribute_name: str,
         value: AttributeValueType,
         *,
-        protection_confirmation: ProtectionConfirmation | None = None,
+        operating_rule_confirmation: OperatingRuleConfirmation | None = None,
     ) -> WriteEvaluation:
         self.get_attribute(attribute_name)
         evaluation = self._guard.evaluate(attribute_name, value)
-        if self.protection_guard is not None:
-            return self.protection_guard.evaluate(
-                self.id, attribute_name, evaluation, protection_confirmation
+        if self.operating_rule_guard is not None:
+            return self.operating_rule_guard.evaluate(
+                self.id, attribute_name, evaluation, operating_rule_confirmation
             )
         return evaluation
 
@@ -838,7 +838,7 @@ class CoreDevice:
     def observed_attribute_value(
         self, attribute_name: str, *, max_age_seconds: float | None = None
     ) -> AttributeValueType | None:
-        """An acquired value with the protection's optional freshness limit."""
+        """An acquired value with the operating rule's optional freshness limit."""
         return self._guard.observed_value(
             attribute_name, max_age_seconds=max_age_seconds
         )
@@ -848,11 +848,13 @@ class CoreDevice:
         attribute_name: str,
         value: AttributeValueType,
         *,
-        protection_confirmation: ProtectionConfirmation | None = None,
+        operating_rule_confirmation: OperatingRuleConfirmation | None = None,
     ) -> AttributeValueType:
         """The universal, side-effect-free guard, also used by the direct CLI."""
         evaluation = self.evaluate_attribute_write(
-            attribute_name, value, protection_confirmation=protection_confirmation
+            attribute_name,
+            value,
+            operating_rule_confirmation=operating_rule_confirmation,
         )
         if not evaluation.eligible or evaluation.value is None:
             raise WriteRejectedError(evaluation.reasons)
@@ -865,7 +867,7 @@ class CoreDevice:
         *,
         confirm: bool = True,
         confirm_timeout: float = DEFAULT_CONFIRM_TIMEOUT,
-        protection_confirmation: ProtectionConfirmation | None = None,
+        operating_rule_confirmation: OperatingRuleConfirmation | None = None,
     ) -> Attribute:
         """Check, encode and send under the write lock; confirm after releasing it.
 
@@ -878,7 +880,9 @@ class CoreDevice:
         attribute = self.get_attribute(attribute_name)
         async with self._write_lock:
             validated = self.validate_attribute_write(
-                attribute_name, value, protection_confirmation=protection_confirmation
+                attribute_name,
+                value,
+                operating_rule_confirmation=operating_rule_confirmation,
             )
             spec = self.driver.attributes[attribute_name]
             if spec.write is None:

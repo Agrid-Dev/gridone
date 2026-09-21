@@ -239,7 +239,7 @@ function PreparedWrite({
                           checked={selected.includes(row.device_id)}
                           disabled={
                             (!row.eligible &&
-                              !row.protection_confirmation_required) ||
+                              !row.operating_rule_confirmation_required) ||
                             command.busy ||
                             item.needsRefresh ||
                             item.uncertain
@@ -301,9 +301,9 @@ function PreparedWrite({
                             {commandReasons(row.warnings)}
                           </p>
                         )}
-                        {row.protection_confirmation_required && (
+                        {row.operating_rule_confirmation_required && (
                           <p className="mt-2 text-amber-700 font-normal">
-                            {t("confirmation.unknownProtection")}
+                            {t("confirmation.unknownOperatingRule")}
                           </p>
                         )}
                       </td>

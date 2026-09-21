@@ -180,14 +180,16 @@ describe("resource sections", () => {
     expect(resourcePath("/users/a")).toBeNull();
   });
 
-  it("keeps protection detail and edit navigation separate from its parent device", () => {
+  it("keeps operating rule detail and edit navigation separate from its parent device", () => {
     for (const suffix of ["", "/edit"]) {
-      const path = `/devices/a/config/protections/rule${suffix}`;
-      expect(resourcePath(path)).toBe("/devices/a/config/protections/rule");
-      expect(canonicalList(path)).toBe("/devices/a/config/protections");
+      const path = `/devices/a/config/operating-rules/rule${suffix}`;
+      expect(resourcePath(path)).toBe("/devices/a/config/operating-rules/rule");
+      expect(canonicalList(path)).toBe("/devices/a/config/operating-rules");
     }
-    expect(resourcePath("/devices/a/config/protections")).toBe("/devices/a");
-    expect(resourcePath("/devices/a/config/protections/new")).toBe(
+    expect(resourcePath("/devices/a/config/operating-rules")).toBe(
+      "/devices/a",
+    );
+    expect(resourcePath("/devices/a/config/operating-rules/new")).toBe(
       "/devices/a",
     );
   });

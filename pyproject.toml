@@ -26,7 +26,7 @@ gridone-notifications = { workspace = true }
 gridone-dashboards = { workspace = true }
 gridone-device-views = { workspace = true }
 gridone-synoptics = { workspace = true }
-gridone-protections = { workspace = true }
+gridone-operating-rules = { workspace = true }
 
 
 
@@ -49,7 +49,7 @@ members = [
     "packages/dashboards",
     "packages/device_views",
     "packages/synoptics",
-    "packages/protections",
+    "packages/operating_rules",
 ]
 
 [dependency-groups]
@@ -96,7 +96,7 @@ fixable = ["ALL"]
 "opentelemetry.sdk".msg = "Only apps/api_server may import the OpenTelemetry SDK; use the opentelemetry-api facade (or a test fake)."
 
 [tool.ruff.lint.isort]
-known-first-party = ["api", "apps", "assets", "commands", "device_views", "devices_manager", "models", "notifications", "protections", "synoptics", "timeseries", "users"]
+known-first-party = ["api", "apps", "assets", "commands", "device_views", "devices_manager", "models", "notifications", "operating_rules", "synoptics", "timeseries", "users"]
 
 [tool.ruff.lint.per-file-ignores]
 "**/test_*.py" = ["T201", "TID252", "FBT001", "S101", "S106", "ANN201", "ANN401", "PLR2004", "EM101", "INP001", "ANN001", "S603", "PLW1510", "PLC0415"]
@@ -138,7 +138,7 @@ source = [
     "packages/device_views/src",
     "packages/notifications/src",
     "packages/synoptics/src",
-    "packages/protections/src",
+    "packages/operating_rules/src",
     "packages/timeseries/src",
     "packages/users/src",
     "packages/apps/src",
@@ -164,12 +164,12 @@ markers = [
 ]
 
 [tool.importlinter]
-root_packages = ["devices_manager", "assets", "protections"]
+root_packages = ["devices_manager", "assets", "operating_rules"]
 
 [[tool.importlinter.contracts]]
-name = "protections and devices are independent services"
+name = "operating rules and devices are independent services"
 type = "independence"
-modules = ["protections", "devices_manager"]
+modules = ["operating_rules", "devices_manager"]
 
 # AGR-918: core, storage and dto are three projections of one domain model.
 # Core owns the domain and the storage ports; storage and dto each import

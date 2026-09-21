@@ -322,14 +322,14 @@ describe("manual group confirmation", () => {
     expect(api.list).not.toHaveBeenCalled();
     expect(api.confirm).not.toHaveBeenCalled();
   });
-  it("leaves unknown protections unchecked and acknowledges only selected warnings", async () => {
+  it("leaves unknown operating rules unchecked and acknowledges only selected warnings", async () => {
     api.preview.mockResolvedValue({
       ...preview(),
       members: [
         {
           ...member("unknown", false),
-          protection_confirmation_required: true,
-          reasons: [{ code: "protection_unknown" }],
+          operating_rule_confirmation_required: true,
+          reasons: [{ code: "operating_rule_unknown" }],
         },
       ],
     });
@@ -346,7 +346,7 @@ describe("manual group confirmation", () => {
     expect(api.confirm).toHaveBeenCalledWith({
       token: "token",
       device_ids: ["unknown"],
-      acknowledge_unknown_protections: true,
+      acknowledge_unknown_operating_rules: true,
     });
   });
   it("cancels with no writes and refuses an empty selection", async () => {

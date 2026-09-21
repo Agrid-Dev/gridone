@@ -216,9 +216,9 @@ export function useGroupCommand(
             ...(item.preview!.members.some(
               (row) =>
                 item.selected.includes(row.device_id) &&
-                row.protection_confirmation_required,
+                row.operating_rule_confirmation_required,
             )
-              ? { acknowledge_unknown_protections: true }
+              ? { acknowledge_unknown_operating_rules: true }
               : {}),
           });
           uncertainPreparations.current.delete(preparationKey(item.request));
@@ -332,7 +332,9 @@ export function useGroupCommand(
       if (!item || item.batch || item.uncertain) return;
       const eligible = new Set(
         item.preview?.members
-          .filter((row) => row.eligible || row.protection_confirmation_required)
+          .filter(
+            (row) => row.eligible || row.operating_rule_confirmation_required,
+          )
           .map((row) => row.device_id),
       );
       updatePreparation(item.write.attribute, {

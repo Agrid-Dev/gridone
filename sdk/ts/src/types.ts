@@ -359,13 +359,13 @@ export type ResolvedOption = Schemas["ResolvedOption"];
 export type SingleCommandPreview = Schemas["SingleCommandPreview"];
 export type UIConfirmationContext = Schemas["UIConfirmationContext"];
 
-// Site protections share the declarative language used by device write guards.
-export type Protection = Schemas["Protection"];
-export type ProtectionDefinition = Schemas["ProtectionDefinition"];
-export type ProtectionView = Schemas["ProtectionView"];
-export type ProtectionUpdate = Schemas["UpdateProtection"];
-export type ProtectionRetire = Schemas["RetireProtection"];
-export type ProtectionSchemas = Schemas["ProtectionSchemas"];
+// Site operatingRules share the declarative language used by device write guards.
+export type OperatingRule = Schemas["OperatingRule"];
+export type OperatingRuleDefinition = Schemas["OperatingRuleDefinition"];
+export type OperatingRuleView = Schemas["OperatingRuleView"];
+export type OperatingRuleUpdate = Schemas["UpdateOperatingRule"];
+export type OperatingRuleRetire = Schemas["RetireOperatingRule"];
+export type OperatingRuleSchemas = Schemas["OperatingRuleSchemas"];
 export type DevicePointRef = Schemas["DevicePointRef"];
 export type WriteCondition = Schemas["Condition-Input"];
 export type WriteExpression = Schemas["Expression-Input"];

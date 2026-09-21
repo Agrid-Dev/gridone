@@ -5,7 +5,7 @@ server evaluates them for every write: HTTP, CLI, automation and grouped command
 A driver contains data only; expressions cannot execute code or read another device.
 
 The shared language also supports explicit `device_id` point references for
-[site protections](../../guides/commands/protections.md). These remain forbidden in
+[site operating rules](../../guides/commands/operating-rules.md). These remain forbidden in
 drivers (`external_device_reference` at import). Site rules survive driver updates;
 broken point references remain visible and block their targeted writes.
 
@@ -238,7 +238,7 @@ an eligible command is saved, not proof that a transport write occurred. This
 applies equally to old and new rows. Server validation records refusals; stable
 failure codes distinguish transport failures from missing read-back. A failed
 reply cannot prove whether the physical device changed.
-Confirmation evidence is informational, not a hardware protection mechanism.
+Confirmation evidence is informational, not a hardware operating rule mechanism.
 
 ## Budgets and rollout
 

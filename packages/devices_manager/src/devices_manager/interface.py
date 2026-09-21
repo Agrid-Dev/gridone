@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     import builtins
     from collections.abc import AsyncIterator, Collection
 
-    from models.command_confirmation import ProtectionConfirmation
+    from models.command_confirmation import OperatingRuleConfirmation
     from models.types import Severity
     from models.write_rules import WriteEvaluation
 
@@ -122,7 +122,7 @@ class DevicesServiceInterface(Protocol):
 
     mutation_lock: asyncio.Lock
 
-    def protection_binding(self, device_id: str, attribute: str) -> str | None: ...
+    def operating_rule_binding(self, device_id: str, attribute: str) -> str | None: ...
 
     def evaluate_device_write(
         self,
@@ -130,7 +130,7 @@ class DevicesServiceInterface(Protocol):
         attribute: str,
         value: AttributeValueType,
         *,
-        protection_confirmation: ProtectionConfirmation | None = None,
+        operating_rule_confirmation: OperatingRuleConfirmation | None = None,
     ) -> WriteEvaluation: ...
 
     def preview_device_write(
@@ -213,7 +213,7 @@ class DevicesServiceInterface(Protocol):
         value: AttributeValueType,
         *,
         confirm: bool = True,
-        protection_confirmation: ProtectionConfirmation | None = None,
+        operating_rule_confirmation: OperatingRuleConfirmation | None = None,
     ) -> Attribute: ...
 
     def get_attribute_logs(

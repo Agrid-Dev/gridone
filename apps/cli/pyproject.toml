@@ -5,7 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "gridone-protections",
+    "gridone-operating-rules",
     "gridone-devices-manager",
     "python-dotenv>=1.2.1",
     "typer>=0.20.0",

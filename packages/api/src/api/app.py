@@ -38,7 +38,7 @@ from api.routes import (
 from api.routes import websocket as websocket_routes
 from api.routes.apps import apps_registration_router, apps_router
 from api.routes.device_views_router import router as device_views_router
-from api.routes.protections_router import router as protections_router
+from api.routes.operating_rules_router import router as operating_rules_router
 from api.routes.users import auth_router, users_router
 from api.selection_commands import SelectionCommands
 from api.settings import load_settings
@@ -51,13 +51,16 @@ from assets.conversion.ifc import IfcSceneConverter
 from commands import CommandsService, WriteResult
 from device_views import DeviceViewsService
 from devices_manager import DevicesService
-from models.command_confirmation import ProtectionConfirmation, protection_write_options
+from models.command_confirmation import (
+    OperatingRuleConfirmation,
+    operating_rule_write_options,
+)
 from models.errors import ConfigurationError
 from models.service import Service
 from models.types import AttributeValueType, DataType
 from models.write_rules import WriteEvaluation
 from notifications import NotificationsService
-from protections import ProtectionsService
+from operating_rules import OperatingRulesService
 from synoptics import SynopticsService
 from timeseries import TimeSeriesService
 from users import UsersService
@@ -151,10 +154,10 @@ async def lifespan(
     app.state.websocket_manager = websocket_manager
 
     dm = DevicesService(settings.storage_url)
-    protections = ProtectionsService(settings.storage_url, dm.inspect_point)
-    await protections.start()
-    dm.set_protection_provider(protections)
-    app.state.protections_service = protections
+    operating_rules = OperatingRulesService(settings.storage_url, dm.inspect_point)
+    await operating_rules.start()
+    dm.set_operating_rule_provider(operating_rules)
+    app.state.operating_rules_service = operating_rules
     ts_service = TimeSeriesService(
         settings.storage_url, default_timezone=settings.GRIDONE_TIMEZONE
     )
@@ -233,7 +236,7 @@ async def lifespan(
                 *assets_services,
                 *display_services,
                 synoptics_service,
-                protections,
+                operating_rules,
             ]
         )
         await websocket_manager.close_all()
@@ -246,9 +249,9 @@ def create_app(*, logging_dict_config: dict | None = None) -> FastAPI:
     register_exception_handlers(app)
 
     app.include_router(
-        protections_router,
-        prefix="/protections",
-        tags=["protections"],
+        operating_rules_router,
+        prefix="/operating-rules",
+        tags=["operating_rules"],
         dependencies=[Depends(get_current_user_id)],
     )
 
@@ -347,14 +350,14 @@ async def _start_commands_service(
         value: AttributeValueType,
         *,
         confirm: bool = True,
-        protection_confirmation: ProtectionConfirmation | None = None,
+        operating_rule_confirmation: OperatingRuleConfirmation | None = None,
     ) -> WriteResult:
         attr = await dm.write_device_attribute(
             device_id,
             attribute_name,
             value,
             confirm=confirm,
-            **protection_write_options(protection_confirmation),
+            **operating_rule_write_options(operating_rule_confirmation),
         )
         return WriteResult(
             last_changed=attr.last_changed,
@@ -385,10 +388,13 @@ async def _start_commands_service(
         attribute: str,
         value: AttributeValueType,
         *,
-        protection_confirmation: ProtectionConfirmation | None = None,
+        operating_rule_confirmation: OperatingRuleConfirmation | None = None,
     ) -> WriteEvaluation:
         return dm.evaluate_device_write(
-            device_id, attribute, value, protection_confirmation=protection_confirmation
+            device_id,
+            attribute,
+            value,
+            operating_rule_confirmation=operating_rule_confirmation,
         )
 
     commands_service = CommandsService(

@@ -249,7 +249,7 @@ action is just a flash save, `data_actions.c:522-531`). All four default to fals
 | Occupancy source of an eco setpoint | see B11 | | | | | |
 
 **What setback actually is (README≠task wording).** In code, setback is a **temperature floor/ceiling
-protection**, not an "unoccupied eco setpoint": every 5 min (`FW/features/optimization/optimization.c:22,
+operating rule**, not an "unoccupied eco setpoint": every 5 min (`FW/features/optimization/optimization.c:22,
 349-361`) if the room is colder than `Setback_Temperature_HEAT` (real mode HEAT) it forces `State = true` and
 raises `Tsetpoint` to that floor (COOL: symmetric ceiling) (`setback_feature.c:90-133`). It never lowers a
 setpoint. Occupancy plays no role. The occupancy/window "eco" behaviour is a *different* feature:

@@ -1,0 +1,13 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Protocol
+
+if TYPE_CHECKING:
+    from models.operating_rules import OperatingRule
+
+
+class OperatingRulesStorage(Protocol):
+    async def list_operating_rules(self) -> list[OperatingRule]: ...
+    async def save(self, operating_rule: OperatingRule) -> OperatingRule: ...
+    async def history(self, operating_rule_id: str) -> list[OperatingRule]: ...
+    async def close(self) -> None: ...

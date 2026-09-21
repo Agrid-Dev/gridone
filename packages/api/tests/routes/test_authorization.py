@@ -37,13 +37,13 @@ from api.routes.dashboards_router import router as dashboards_router
 from api.routes.devices_router import router as devices_router
 from api.routes.drivers_router import router as drivers_router
 from api.routes.notifications_router import router as notifications_router
+from api.routes.operating_rules_router import (
+    get_operating_rules_service,
+)
+from api.routes.operating_rules_router import (
+    router as operating_rules_router,
+)
 from api.routes.presentations_router import router as presentations_router
-from api.routes.protections_router import (
-    get_protections_service,
-)
-from api.routes.protections_router import (
-    router as protections_router,
-)
 from api.routes.synoptics_router import router as synoptics_router
 from api.routes.transports_router import ingress_router as transports_ingress_router
 from api.routes.transports_router import router as transports_router
@@ -64,15 +64,15 @@ from devices_manager.dto.presentation_dto import UnavailablePresentationResponse
 from devices_manager.types import DataType
 from models.errors import NotFoundError
 from models.metadata import ResourceMetadata
+from models.operating_rules import OperatingRule
 from models.pagination import Page
-from models.protections import Protection
 from models.types import Severity
 from notifications import (
     Notification,
     NotificationDispatch,
     NotificationsServiceInterface,
 )
-from protections import ProtectionsService
+from operating_rules import OperatingRulesService
 from synoptics import Synoptic, SynopticsServiceInterface
 from timeseries.domain import FetchPointsResult
 from users import Role, User
@@ -194,16 +194,16 @@ def _auth_header(token: str) -> dict[str, str]:
 @pytest.mark.parametrize(
     ("method", "endpoint", "write"),
     [
-        ("GET", "/protections/", False),
-        ("GET", "/protections/schema", False),
-        ("GET", "/protections/rule", False),
-        ("GET", "/protections/rule/history", False),
-        ("POST", "/protections/", True),
-        ("PUT", "/protections/rule", True),
-        ("POST", "/protections/rule/retire", True),
+        ("GET", "/operating-rules/", False),
+        ("GET", "/operating-rules/schema", False),
+        ("GET", "/operating-rules/rule", False),
+        ("GET", "/operating-rules/rule/history", False),
+        ("POST", "/operating-rules/", True),
+        ("PUT", "/operating-rules/rule", True),
+        ("POST", "/operating-rules/rule/retire", True),
     ],
 )
-def test_protections_access_control(app, username, method, endpoint, write):
+def test_operating_rules_access_control(app, username, method, endpoint, write):
     now = datetime.now(UTC)
     definition = {
         "name": "Interlock",
@@ -215,7 +215,7 @@ def test_protections_access_control(app, username, method, endpoint, write):
             "right": False,
         },
     }
-    rule = Protection.model_validate(
+    rule = OperatingRule.model_validate(
         {
             **definition,
             "id": "rule",
@@ -226,16 +226,16 @@ def test_protections_access_control(app, username, method, endpoint, write):
             "updated_by": "admin",
         }
     )
-    svc = AsyncMock(spec=ProtectionsService)
-    svc.list_protections.return_value = []
+    svc = AsyncMock(spec=OperatingRulesService)
+    svc.list_operating_rules.return_value = []
     svc.get.return_value = rule
     svc.diagnose.return_value = []
     svc.history.return_value = [rule]
     svc.create.return_value = svc.update.return_value = svc.retire.return_value = rule
-    app.dependency_overrides[get_protections_service] = lambda: svc
+    app.dependency_overrides[get_operating_rules_service] = lambda: svc
     app.include_router(
-        protections_router,
-        prefix="/protections",
+        operating_rules_router,
+        prefix="/operating-rules",
         dependencies=[Depends(get_current_user_id)],
     )
     body = (
@@ -252,7 +252,7 @@ def test_protections_access_control(app, username, method, endpoint, write):
         else 403
         if write and username != "admin"
         else 201
-        if method == "POST" and endpoint == "/protections/"
+        if method == "POST" and endpoint == "/operating-rules/"
         else 200
     )
     assert response.status_code == expected, response.text

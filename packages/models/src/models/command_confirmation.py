@@ -27,34 +27,40 @@ class UIConfirmationContext(BaseModel):
     previous_value_known: bool
 
 
-class ProtectionConfirmation(BaseModel):
-    """Server-issued evidence of the unknown protections a human acknowledged."""
+class OperatingRuleConfirmation(BaseModel):
+    """Server-issued evidence of the unknown operating rules a human acknowledged."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     binding: str
-    protection_ids: list[str]
+    operating_rule_ids: list[str]
     actor_id: str
     confirmed_at: datetime
 
 
-class ProtectionWriteOptions(TypedDict, total=False):
-    protection_confirmation: ProtectionConfirmation
+class OperatingRuleWriteOptions(TypedDict, total=False):
+    operating_rule_confirmation: OperatingRuleConfirmation
 
 
-def protection_write_options(
-    confirmation: ProtectionConfirmation | None,
-) -> ProtectionWriteOptions:
-    return {"protection_confirmation": confirmation} if confirmation is not None else {}
-
-
-class ProtectionBatchOptions(TypedDict, total=False):
-    protection_confirmations: dict[str, ProtectionConfirmation]
-
-
-def protection_batch_options(
-    confirmations: dict[str, ProtectionConfirmation] | None,
-) -> ProtectionBatchOptions:
+def operating_rule_write_options(
+    confirmation: OperatingRuleConfirmation | None,
+) -> OperatingRuleWriteOptions:
     return (
-        {"protection_confirmations": confirmations} if confirmations is not None else {}
+        {"operating_rule_confirmation": confirmation}
+        if confirmation is not None
+        else {}
+    )
+
+
+class OperatingRuleBatchOptions(TypedDict, total=False):
+    operating_rule_confirmations: dict[str, OperatingRuleConfirmation]
+
+
+def operating_rule_batch_options(
+    confirmations: dict[str, OperatingRuleConfirmation] | None,
+) -> OperatingRuleBatchOptions:
+    return (
+        {"operating_rule_confirmations": confirmations}
+        if confirmations is not None
+        else {}
     )

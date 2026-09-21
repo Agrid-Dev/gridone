@@ -330,7 +330,7 @@
     "closeMenu": "Fermer le menu",
     "back": {
       "devices": "Retour aux appareils",
-      "protections": "Retour aux protections de l’appareil",
+      "operating-rules": "Retour aux règles de l’appareil",
       "assets": "Retour aux zones",
       "faults": "Retour aux défauts",
       "commands": "Retour aux commandes",

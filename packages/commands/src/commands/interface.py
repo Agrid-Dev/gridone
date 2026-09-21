@@ -16,7 +16,7 @@ if TYPE_CHECKING:
         UnitCommand,
     )
     from models.command_confirmation import (
-        ProtectionConfirmation,
+        OperatingRuleConfirmation,
         UIConfirmationContext,
     )
     from models.pagination import Page, PaginationParams
@@ -35,7 +35,7 @@ class CommandsServiceInterface(Protocol):
         confirm: bool = True,
         batch_id: str | None = None,
         ui_confirmation: UIConfirmationContext | None = None,
-        protection_confirmation: ProtectionConfirmation | None = None,
+        operating_rule_confirmation: OperatingRuleConfirmation | None = None,
     ) -> UnitCommand: ...
 
     async def dispatch_batch(  # noqa: PLR0913 -- command dispatch contract
@@ -46,7 +46,8 @@ class CommandsServiceInterface(Protocol):
         user_id: str,
         confirm: bool = True,
         ui_confirmations: dict[str, UIConfirmationContext] | None = None,
-        protection_confirmations: dict[str, ProtectionConfirmation] | None = None,
+        operating_rule_confirmations: dict[str, OperatingRuleConfirmation]
+        | None = None,
     ) -> BatchCommandDispatch: ...
 
     async def dispatch_from_template(

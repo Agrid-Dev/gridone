@@ -161,7 +161,7 @@
     "configurationTabs": {
       "label": "Sections de configuration de l’appareil",
       "general": "Général",
-      "protections": "Protections"
+      "operatingRules": "Règles de fonctionnement"
     }
   },
   "attributes": {
@@ -791,11 +791,11 @@
     "mapping_changed": "La table a changé pendant la confirmation",
     "evaluation_limit": "La limite d’évaluation du driver est atteinte",
     "unknown_attribute": "Attribut inconnu",
-    "protection_blocked": "Une protection du site interdit cette commande.",
-    "protection_unknown": "Une protection dépend d’une observation inconnue ou périmée.",
-    "protection_reference_invalid": "Une protection référence un point absent ou incompatible.",
-    "protection_cadence_missing": "Un point référencé doit avoir un intervalle de relève ou de réception déclaré.",
-    "protection_unavailable": "Les protections du site n’ont pas pu être évaluées."
+    "operating_rule_blocked": "Une règle de fonctionnement du site interdit cette commande.",
+    "operating_rule_unknown": "Une règle de fonctionnement dépend d’une observation inconnue ou périmée.",
+    "operating_rule_reference_invalid": "Une règle de fonctionnement référence un point absent ou incompatible.",
+    "operating_rule_cadence_missing": "Un point référencé doit avoir un intervalle de relève ou de réception déclaré.",
+    "operating_rule_unavailable": "Les règles de fonctionnement du site n’ont pas pu être évaluées."
   },
   "confirmation": {
     "title": "Confirmer cette modification ?",
@@ -804,7 +804,7 @@
     "unknown": "Inconnue",
     "accepted": "Confirmé dans l’interface",
     "noResponse": "Une absence de réponse ne signifie pas que l’appareil n’a pas été modifié.",
-    "unknownProtection": "Confirmez uniquement après avoir vérifié l’état des équipements. Cette confirmation sera enregistrée."
+    "unknownOperatingRule": "Confirmez uniquement après avoir vérifié l’état des équipements. Cette confirmation sera enregistrée."
   },
   "deleted": "Appareil supprimé"
 }

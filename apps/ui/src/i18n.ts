@@ -5,7 +5,7 @@ import enApps from "./locales/en/apps.json";
 import enAssets from "./locales/en/assets.json";
 import enAutomations from "./locales/en/automations.json";
 import enProfile from "./locales/en/profile.json";
-import enProtections from "./locales/en/protections.json";
+import enOperatingRules from "./locales/en/operatingRules.json";
 import enCommon from "./locales/en/common.json";
 import enDashboards from "./locales/en/dashboards.json";
 import enDevices from "./locales/en/devices.json";
@@ -21,7 +21,7 @@ import frApps from "./locales/fr/apps.json";
 import frAssets from "./locales/fr/assets.json";
 import frAutomations from "./locales/fr/automations.json";
 import frProfile from "./locales/fr/profile.json";
-import frProtections from "./locales/fr/protections.json";
+import frOperatingRules from "./locales/fr/operatingRules.json";
 import frCommon from "./locales/fr/common.json";
 import frDashboards from "./locales/fr/dashboards.json";
 import frDevices from "./locales/fr/devices.json";
@@ -52,7 +52,7 @@ i18n.use(initReactI18next).init({
       standardDevices: enStandardDevices,
       synoptics: enSynoptics,
       profile: enProfile,
-      protections: enProtections,
+      operatingRules: enOperatingRules,
     },
     fr: {
       common: frCommon,
@@ -70,7 +70,7 @@ i18n.use(initReactI18next).init({
       standardDevices: frStandardDevices,
       synoptics: frSynoptics,
       profile: frProfile,
-      protections: frProtections,
+      operatingRules: frOperatingRules,
     },
   },
   defaultNS: "common",

@@ -41,7 +41,7 @@ function useAttributePreparation(deviceId: string): AttributeWriter {
           value,
         });
         if (signal.aborted) return { kind: "cancelled" };
-        if (!preview.eligible && !preview.protection_confirmation_required)
+        if (!preview.eligible && !preview.operating_rule_confirmation_required)
           return { kind: "error", message: commandReasons(preview.reasons) };
         const language = i18n?.language || "en";
         if (preview.warnings?.length)
@@ -55,12 +55,12 @@ function useAttributePreparation(deviceId: string): AttributeWriter {
                 value,
                 confirm: true,
                 ...(preview.user_confirmation ||
-                preview.protection_confirmation_required
+                preview.operating_rule_confirmation_required
                   ? {
                       ui_confirmation_token: preview.confirmation_token,
                       confirmation_language: language,
-                      ...(preview.protection_confirmation_required
-                        ? { acknowledge_unknown_protections: true }
+                      ...(preview.operating_rule_confirmation_required
+                        ? { acknowledge_unknown_operating_rules: true }
                         : {}),
                     }
                   : {}),
@@ -79,7 +79,7 @@ function useAttributePreparation(deviceId: string): AttributeWriter {
         };
         if (
           !preview.user_confirmation &&
-          !preview.protection_confirmation_required
+          !preview.operating_rule_confirmation_required
         )
           return prepared;
         if (!preview.confirmation_token) return { kind: "error", message: "" };

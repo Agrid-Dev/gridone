@@ -9,7 +9,7 @@ vi.mock("react-i18next", () =>
   createI18nMock({
     "deviceDetails.configurationTabs.label": "Device configuration sections",
     "deviceDetails.configurationTabs.general": "General",
-    "deviceDetails.configurationTabs.protections": "Protections",
+    "deviceDetails.configurationTabs.operatingRules": "Operating rules",
   }),
 );
 vi.mock("@/hooks/useDevice", () => ({
@@ -29,8 +29,8 @@ function setup(suffix = "") {
           <Route index element={<h2>General configuration</h2>} />
           <Route path="edit" element={<h2>Edit configuration</h2>} />
           <Route
-            path="protections/*"
-            element={<h2>Protection configuration</h2>}
+            path="operating-rules/*"
+            element={<h2>Operating rule configuration</h2>}
           />
         </Route>
       </Routes>
@@ -40,7 +40,7 @@ function setup(suffix = "") {
 }
 
 describe("device configuration navigation", () => {
-  it("opens protections from the configuration sub-tabs", async () => {
+  it("opens operating rules from the configuration sub-tabs", async () => {
     const user = setup();
     const tabs = screen.getByRole("tablist", {
       name: "Device configuration sections",
@@ -49,26 +49,29 @@ describe("device configuration navigation", () => {
       "aria-selected",
       "true",
     );
-    const protections = within(tabs).getByRole("tab", { name: "Protections" });
-    expect(protections).toHaveAttribute(
+    const operatingRules = within(tabs).getByRole("tab", {
+      name: "Operating rules",
+    });
+    expect(operatingRules).toHaveAttribute(
       "href",
-      "/devices/a/config/protections",
+      "/devices/a/config/operating-rules",
     );
-    await user.click(protections);
+    await user.click(operatingRules);
     expect(
-      await screen.findByRole("heading", { name: "Protection configuration" }),
+      await screen.findByRole("heading", {
+        name: "Operating rule configuration",
+      }),
     ).toBeInTheDocument();
-    expect(protections).toHaveAttribute("aria-selected", "true");
+    expect(operatingRules).toHaveAttribute("aria-selected", "true");
   });
 
-  it.each(["/protections/new", "/protections/rule/edit"])(
-    "keeps protections selected on %s",
+  it.each(["/operating-rules/new", "/operating-rules/rule/edit"])(
+    "keeps operating rules selected on %s",
     (suffix) => {
       setup(suffix);
-      expect(screen.getByRole("tab", { name: "Protections" })).toHaveAttribute(
-        "aria-selected",
-        "true",
-      );
+      expect(
+        screen.getByRole("tab", { name: "Operating rules" }),
+      ).toHaveAttribute("aria-selected", "true");
       expect(screen.getByRole("tab", { name: "General" })).toHaveAttribute(
         "aria-selected",
         "false",

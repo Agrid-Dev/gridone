@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from functools import partial
 from typing import TYPE_CHECKING, Any
 
-from models.command_confirmation import protection_write_options
+from models.command_confirmation import operating_rule_write_options
 from models.errors import (
     ConflictError,
     InvalidError,
@@ -16,7 +16,7 @@ from models.errors import (
     StorageNotInitializedError,
 )
 from models.ids import gen_id
-from models.protections import PointDefinition, PointObservation
+from models.operating_rules import PointDefinition, PointObservation
 from models.service import Service
 from models.tags import normalize_tags
 from models.yaml_loader import BoundedYamlError
@@ -34,6 +34,7 @@ from .core.discovery_manager import (
 )
 from .core.driver import attributes_referencing
 from .core.driver_registry import DriverRegistry
+from .core.operating_rules import OperatingRuleGuard
 from .core.presentation.diagnostics import (
     AvailablePresentation,
     UnavailablePresentation,
@@ -43,7 +44,6 @@ from .core.presentation.package import read_payload
 from .core.presentation.package_install import InvalidPresentationError
 from .core.presentation.revision import get_presentation_revision
 from .core.presentation.validation import check_compatibility, validate_presentation
-from .core.protections import ProtectionGuard
 from .core.standard_schemas.registry import default_registry
 from .core.tags import TagMutation, TagMutationResult
 from .core.transport_registry import TransportRegistry
@@ -84,9 +84,9 @@ from .storage.factory import build_storage
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Collection
 
-    from models.command_confirmation import ProtectionConfirmation
+    from models.command_confirmation import OperatingRuleConfirmation
     from models.expressions import DevicePointRef
-    from models.protections import ProtectionProvider
+    from models.operating_rules import OperatingRuleProvider
     from models.types import Severity
     from models.write_rules import WriteEvaluation
 
@@ -167,7 +167,7 @@ class DevicesService(Service):
         self._seed_transports = transports if transports is not None else {}
         self._seed_devices = devices if devices is not None else {}
         self._loaded: _LoadedState | None = None
-        self._protection_guard: ProtectionGuard | None = None
+        self._operating_rule_guard: OperatingRuleGuard | None = None
         self._load_errors: list[LoadError] = []
         self._running = False
         self._attribute_update_handlers: dict[str, AttributeListener] = {}
@@ -245,7 +245,7 @@ class DevicesService(Service):
             on_attribute_update=self._on_attribute_update,
             on_write_state_update=self._on_write_state_update,
             storage=storage.devices,
-            protection_guard=self._protection_guard,
+            operating_rule_guard=self._operating_rule_guard,
         )
         self._loaded = _LoadedState(
             storage=storage,
@@ -631,14 +631,14 @@ class DevicesService(Service):
         value: AttributeValueType,
         *,
         confirm: bool = True,
-        protection_confirmation: ProtectionConfirmation | None = None,
+        operating_rule_confirmation: OperatingRuleConfirmation | None = None,
     ) -> Attribute:
         return await self._device_registry.write_attribute(
             device_id,
             attribute_name,
             value,
             confirm=confirm,
-            **protection_write_options(protection_confirmation),
+            **operating_rule_write_options(operating_rule_confirmation),
         )
 
     def get_attribute_logs(self, device_id: str, attribute_name: str) -> AttributeLogs:
@@ -651,20 +651,20 @@ class DevicesService(Service):
             self._device_registry.get(device_id), attribute_name, value
         )
 
-    def set_protection_provider(self, provider: ProtectionProvider) -> None:
+    def set_operating_rule_provider(self, provider: OperatingRuleProvider) -> None:
         """Inject the site-rule owner into existing and future devices."""
-        self._protection_guard = ProtectionGuard(
+        self._operating_rule_guard = OperatingRuleGuard(
             provider, self.inspect_point, self.resolve_point
         )
         if self._loaded is not None:
-            self._device_registry.protection_guard = self._protection_guard
+            self._device_registry.operating_rule_guard = self._operating_rule_guard
             for device in self._device_registry.all.values():
-                device.protection_guard = self._protection_guard
+                device.operating_rule_guard = self._operating_rule_guard
 
-    def protection_binding(self, device_id: str, attribute: str) -> str | None:
+    def operating_rule_binding(self, device_id: str, attribute: str) -> str | None:
         return (
-            self._protection_guard.binding(device_id, attribute)
-            if self._protection_guard
+            self._operating_rule_guard.binding(device_id, attribute)
+            if self._operating_rule_guard
             else None
         )
 
@@ -700,10 +700,10 @@ class DevicesService(Service):
         attribute: str,
         value: AttributeValueType,
         *,
-        protection_confirmation: ProtectionConfirmation | None = None,
+        operating_rule_confirmation: OperatingRuleConfirmation | None = None,
     ) -> WriteEvaluation:
         return self._device_registry.get(device_id).evaluate_attribute_write(
-            attribute, value, protection_confirmation=protection_confirmation
+            attribute, value, operating_rule_confirmation=operating_rule_confirmation
         )
 
     # -- Faults --
