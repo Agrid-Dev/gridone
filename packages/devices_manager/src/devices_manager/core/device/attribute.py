@@ -21,7 +21,7 @@ from models.attribute_metadata import (
     AttributeGroup,
     LocalizedText,
     Unit,
-    ValueLabel,
+    ValueLabels,
     WriteConstraints,
 )
 from models.expressions import Scalar
@@ -64,7 +64,7 @@ class Attribute(BaseModel):
     user_confirmation: LocalizedText | None = None
     group: AttributeGroup | None = None
     unit: Unit | None = None
-    value_labels: list[ValueLabel] | None = None
+    value_labels: ValueLabels | None = None
     write_constraints: WriteConstraints | None = None
     default_value: Scalar | None = None
     write_state: AttributeWriteState | None = None

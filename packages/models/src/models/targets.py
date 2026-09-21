@@ -24,7 +24,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from models.attribute_metadata import (
     LocalizedText,
     Unit,
-    ValueLabel,
+    ValueLabels,
     WriteConstraints,
 )
 from models.errors import InvalidError
@@ -109,7 +109,7 @@ class AttributeCoverage(BaseModel):
     writable_count: int
     label: LocalizedText | None = None
     unit: Unit | None = None
-    value_labels: list[ValueLabel] | None = None
+    value_labels: ValueLabels | None = None
     value_options: list[AttributeValueType] | None = None
     write_constraints: WriteConstraints | None = None
     write_state: AttributeWriteState | None = None

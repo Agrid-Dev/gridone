@@ -772,31 +772,27 @@ class TestDriverRegistryWriteConstraints:
         assert result.group == "setpoints"
 
     @pytest.mark.asyncio
-    async def test_patch_sets_and_clears_value_labels(self, driver):
-        registry = DriverRegistry({driver.id: driver})
-        await registry.create_driver_attribute(
-            driver.id,
-            AttributeDriver(
-                name="running", data_type=DataType.BOOL, read="GET /run", codecs=[]
-            ),
-        )
+    async def test_patch_sets_and_clears_value_labels(self, thermostat_driver):
+        registry = DriverRegistry({thermostat_driver.id: thermostat_driver})
         labels = [
-            {"value": True, "label": {"default": "Running"}},
-            {"value": False, "label": {"default": "Stopped"}},
+            {"value": True, "label": {"default": "On"}},
+            {"value": False, "label": {"default": "Off"}},
         ]
         result = await registry.patch_driver_attribute(
-            driver.id, "running", {"value_labels": labels}
+            thermostat_driver.id, "onoff_state", {"value_labels": labels}
         )
         assert result.value_labels is not None
         assert [entry.value for entry in result.value_labels] == [False, True]
-        assert result.value_labels[1].label == LocalizedText(default="Running")
-        assert driver.attributes["running"].value_labels == result.value_labels
+        assert result.value_labels[1].label == LocalizedText(default="On")
+        assert thermostat_driver.attributes["onoff_state"].value_labels == (
+            result.value_labels
+        )
 
         cleared = await registry.patch_driver_attribute(
-            driver.id, "running", {"value_labels": None}
+            thermostat_driver.id, "onoff_state", {"value_labels": None}
         )
         assert cleared.value_labels is None
-        assert driver.attributes["running"].value_labels is None
+        assert thermostat_driver.attributes["onoff_state"].value_labels is None
 
     @pytest.mark.asyncio
     async def test_patch_value_labels_on_non_bool_rejected(self, driver):

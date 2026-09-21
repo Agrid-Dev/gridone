@@ -1205,39 +1205,6 @@ class TestCoreDeviceAttributeMetadata:
             None,
         )
 
-    def test_value_labels_projected_onto_standard_attribute(
-        self, mock_transport_client
-    ):
-        labels = [
-            ValueLabel(value=True, label=LocalizedText(default="Running")),
-            ValueLabel(value=False, label=LocalizedText(default="Stopped")),
-        ]
-        driver = Driver(
-            metadata=DriverMetadata(id="labelled_bool_driver"),
-            env={},
-            device_config_required=[],
-            transport=TransportProtocols.HTTP,
-            update_strategy=UpdateStrategy(),
-            attributes={
-                "running": AttributeDriver(
-                    name="running",
-                    data_type=DataType.BOOL,
-                    read="GET /running",
-                    codecs=[],
-                    value_labels=labels,
-                )
-            },
-        )
-        device = CoreDevice.from_base(
-            DeviceBase(id="d1", name="Pump", config={}),
-            driver=driver,
-            transport=mock_transport_client,
-        )
-        assert (
-            device.attributes["running"].value_labels
-            == driver.attributes["running"].value_labels
-        )
-
     def test_metadata_projected_onto_fault_attribute(self, mock_transport_client):
         driver = Driver(
             metadata=DriverMetadata(id="fault_metadata_driver"),

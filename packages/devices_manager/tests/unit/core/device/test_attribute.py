@@ -409,8 +409,8 @@ def test_attribute_metadata_round_trips_through_validation():
 
 def test_value_labels_serialize_when_set_and_round_trip():
     labels = [
-        ValueLabel(value=True, label=LocalizedText(default="Running")),
         ValueLabel(value=False, label=LocalizedText(default="Stopped")),
+        ValueLabel(value=True, label=LocalizedText(default="Running")),
     ]
     attr = Attribute.create("running", DataType.BOOL, {"read"}).model_copy(
         update={"value_labels": labels}
@@ -418,7 +418,7 @@ def test_value_labels_serialize_when_set_and_round_trip():
     dumped = attr.model_dump(mode="json")
     assert set(dumped) == _PLAIN_ATTRIBUTE_KEYS | {"value_labels"}
     assert dumped["value_labels"] == [
-        {"value": True, "label": {"default": "Running", "translations": {}}},
         {"value": False, "label": {"default": "Stopped", "translations": {}}},
+        {"value": True, "label": {"default": "Running", "translations": {}}},
     ]
     assert Attribute.model_validate(dumped).value_labels == labels

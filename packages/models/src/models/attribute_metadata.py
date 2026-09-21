@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Annotated, Self
 
 from pydantic import (
+    AfterValidator,
     BaseModel,
     ConfigDict,
     Field,
@@ -86,6 +87,18 @@ class ValueLabel(BaseModel):
 
     value: StrictBool
     label: LocalizedText
+
+
+def _both_states_once(labels: list[ValueLabel]) -> list[ValueLabel]:
+    labels = sorted(labels, key=lambda entry: entry.value)
+    if [entry.value for entry in labels] != [False, True]:
+        msg = "value_labels must label both true and false exactly once"
+        raise ValueError(msg)
+    return labels
+
+
+ValueLabels = Annotated[list[ValueLabel], AfterValidator(_both_states_once)]
+"""Wording of both states of a boolean attribute, kept in ``(false, true)`` order."""
 
 
 Bound = Expression

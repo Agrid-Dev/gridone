@@ -21,7 +21,7 @@ from devices_manager.core.driver import (
     LocalizedText,
     Unit,
     UpdateStrategy,
-    ValueLabel,
+    ValueLabels,
     WriteConstraints,
 )
 from devices_manager.core.presentation import PresentationEnvelope
@@ -143,7 +143,7 @@ class AttributePatch(BaseModel):
     description: LocalizedText | None = None
     group: AttributeGroup | None = None
     unit: Unit | None = None
-    value_labels: list[ValueLabel] | None = None
+    value_labels: ValueLabels | None = None
     write_constraints: WriteConstraints | None = None
     default_value: Scalar | None = None
     write_rules: list[WriteRule] | None = Field(default=None, max_length=MAX_RULES)
