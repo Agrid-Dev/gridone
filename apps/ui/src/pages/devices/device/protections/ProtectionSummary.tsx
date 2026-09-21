@@ -1,3 +1,4 @@
+import { createContext, useContext, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type {
   DevicePointRef,
@@ -7,6 +8,17 @@ import type {
 } from "@gridone/sdk";
 import { useAttributeLabel } from "@/hooks/useAttributeLabel";
 import { pointAttribute, type PointCatalog } from "./expressions";
+
+/**
+ * Whether a point prints its raw `device_id/attribute`. The detail page and the
+ * revision history keep them — they are what an operator quotes when repairing
+ * a reference — while the editor names points the way the rest of the app does.
+ */
+const PointIds = createContext(true);
+
+export const WithoutPointIds = ({ children }: { children: ReactNode }) => (
+  <PointIds.Provider value={false}>{children}</PointIds.Provider>
+);
 
 export function PointName({
   point,
@@ -19,15 +31,18 @@ export function PointName({
   const attributeLabel = useAttributeLabel();
   const device = catalog.devices.find((d) => d.id === point.device_id);
   const attribute = pointAttribute(catalog, point);
+  const withIds = useContext(PointIds);
   return (
     <span className={!device || !attribute ? "text-destructive" : undefined}>
       {device?.name ?? t("missing", { id: point.device_id })} /{" "}
       {attribute
         ? attributeLabel(point.attribute, attribute)
         : t("missing", { id: point.attribute })}
-      <span className="ml-1 text-xs text-muted-foreground">
-        ({point.device_id}/{point.attribute})
-      </span>
+      {withIds && (
+        <span className="ml-1 text-xs text-muted-foreground">
+          ({point.device_id}/{point.attribute})
+        </span>
+      )}
     </span>
   );
 }

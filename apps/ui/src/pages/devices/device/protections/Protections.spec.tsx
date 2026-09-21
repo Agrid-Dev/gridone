@@ -166,35 +166,29 @@ describe("device protections", () => {
       expect(link).toHaveAttribute("href", "/devices/a/config/protections/new");
   });
 
-  it("creates a rule with typed point selectors and a fixed target device", async () => {
+  it("creates a rule from one condition row and a fixed target device", async () => {
     const { user } = setup("/new");
     await screen.findByLabelText(/Why this protection exists/);
-    await user.type(screen.getByLabelText(/^Name/), "Interlock A");
+    await user.type(
+      screen.getByRole("textbox", { name: "Name" }),
+      "Interlock A",
+    );
     await user.type(
       screen.getByLabelText(/Why this protection exists/),
       "Only one pump",
     );
-    const target = screen.getByRole("region", { name: "Protected write" });
-    expect(
-      within(target).getByRole("combobox", { name: "Device" }),
-    ).toBeDisabled();
-    await user.click(
-      within(target).getByRole("combobox", { name: "Attribute" }),
-    );
-    await user.click(screen.getByRole("option", { name: "Command · command" }));
-    await user.click(
-      within(target).getByRole("combobox", { name: "Requested value" }),
-    );
-    await user.click(screen.getByRole("option", { name: "True / on" }));
-    const observed = screen.getByRole("group", { name: "Observed value" });
-    await user.click(
-      within(observed).getByRole("combobox", { name: "Device" }),
-    );
-    await user.click(screen.getByRole("option", { name: "Pump B · b" }));
-    await user.click(
-      within(observed).getByRole("combobox", { name: "Attribute" }),
-    );
-    await user.click(screen.getByRole("option", { name: "Running · running" }));
+    await user.click(screen.getByRole("combobox", { name: "Attribute" }));
+    await user.click(screen.getByRole("option", { name: "Command" }));
+    await user.click(screen.getByRole("combobox", { name: "Requested value" }));
+    await user.click(screen.getByRole("option", { name: "On" }));
+    // One row, one control per part of the sentence: no nested value-source
+    // or value-type selects on the way to "pump B running is false".
+    await user.click(screen.getByRole("combobox", { name: "Observed point" }));
+    await user.click(screen.getByRole("option", { name: "Pump B · Running" }));
+    await user.click(screen.getByRole("combobox", { name: "Comparison" }));
+    await user.click(screen.getByRole("option", { name: "equals" }));
+    await user.click(screen.getByRole("combobox", { name: "Compared value" }));
+    await user.click(screen.getByRole("option", { name: "Off" }));
     await user.click(screen.getByRole("button", { name: "Save protection" }));
     await screen.findByRole("heading", { name: "Interlock A" });
     expect(api.create).toHaveBeenCalledWith({
@@ -207,6 +201,91 @@ describe("device protections", () => {
         right: false,
       },
     });
+  });
+
+  it("previews the rule in plain words before it is saved", async () => {
+    const { user } = setup("/new");
+    await screen.findByLabelText(/Why this protection exists/);
+    await user.click(screen.getByRole("combobox", { name: "Attribute" }));
+    await user.click(screen.getByRole("option", { name: "Command" }));
+    await user.click(screen.getByRole("combobox", { name: "Observed point" }));
+    await user.click(screen.getByRole("option", { name: "Pump B · Pressure" }));
+    const preview = screen.getByText("In plain words").parentElement!;
+    // The preview names the write it refuses and the point it watches, and
+    // follows the point's type: a float point offers ordering comparisons.
+    expect(preview).toHaveTextContent("Refuses");
+    expect(preview).toHaveTextContent("Command");
+    expect(preview).toHaveTextContent("Pump B · Pressure");
+    await user.click(screen.getByRole("combobox", { name: "Comparison" }));
+    expect(
+      screen.getByRole("option", { name: "is greater than" }),
+    ).toBeInTheDocument();
+  });
+
+  it("wraps a boolean row back to equality when it moves to a boolean point", async () => {
+    api.get.mockResolvedValue({
+      protection: rule({
+        condition: {
+          op: "gt",
+          left: { device_id: "b", attribute: "pressure" },
+          right: 4,
+        },
+      }),
+      reasons: [],
+    });
+    const { user } = setup("/rule/edit");
+    await screen.findByDisplayValue("Pump interlock");
+    await user.click(screen.getByRole("combobox", { name: "Observed point" }));
+    await user.click(screen.getByRole("option", { name: "Pump B · Running" }));
+    await user.click(screen.getByRole("button", { name: "Save protection" }));
+    await waitFor(() =>
+      expect(api.update).toHaveBeenCalledWith(
+        "rule",
+        expect.objectContaining({
+          condition: {
+            op: "eq",
+            left: { device_id: "b", attribute: "running" },
+            right: false,
+          },
+        }),
+      ),
+    );
+  });
+
+  it("keeps a lone condition lone and wraps it only when a second is added", async () => {
+    const { user } = setup("/rule/edit");
+    await screen.findByDisplayValue("Pump interlock");
+    // A single row shows no All/Any switch: there is nothing to combine yet.
+    expect(
+      screen.queryByRole("group", { name: "Combine conditions" }),
+    ).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Add condition" }));
+    const added = screen.getAllByRole("combobox", {
+      name: "Observed point",
+    })[1];
+    await user.click(added);
+    await user.click(screen.getByRole("option", { name: "Pump B · Running" }));
+    const combine = screen.getByRole("group", { name: "Combine conditions" });
+    await user.click(within(combine).getByRole("button", { name: "Any" }));
+    await user.click(screen.getByRole("button", { name: "Save protection" }));
+    await waitFor(() =>
+      expect(api.update).toHaveBeenCalledWith(
+        "rule",
+        expect.objectContaining({
+          condition: {
+            op: "any",
+            conditions: [
+              rule().condition,
+              {
+                op: "eq",
+                left: { device_id: "b", attribute: "running" },
+                right: false,
+              },
+            ],
+          },
+        }),
+      ),
+    );
   });
 
   it("preserves a composed condition exactly when editing metadata", async () => {
@@ -239,7 +318,12 @@ describe("device protections", () => {
     api.get.mockResolvedValue({ protection: rule({ condition }), reasons: [] });
     setup("/rule/edit");
     await screen.findByDisplayValue("Pump interlock");
-    fireEvent.change(screen.getByLabelText(/^Name/), {
+    // The shapes the rows cannot draw stay reachable as expressions, and the
+    // rule round-trips byte for byte when only its metadata is edited.
+    expect(
+      screen.getAllByRole("button", { name: "Edit as expression" }).length,
+    ).toBeGreaterThan(0);
+    fireEvent.change(screen.getByRole("textbox", { name: "Name" }), {
       target: { value: "Updated" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Save protection" }));
@@ -255,12 +339,14 @@ describe("device protections", () => {
     api.update.mockRejectedValueOnce(new GridoneError(409, "changed"));
     const { user } = setup("/rule/edit");
     await screen.findByDisplayValue("Pump interlock");
-    fireEvent.change(screen.getByLabelText(/^Name/), {
+    fireEvent.change(screen.getByRole("textbox", { name: "Name" }), {
       target: { value: "My draft" },
     });
     await user.click(screen.getByRole("button", { name: "Save protection" }));
     await screen.findByText(/Your draft is preserved/);
-    expect(screen.getByLabelText(/^Name/)).toHaveValue("My draft");
+    expect(screen.getByRole("textbox", { name: "Name" })).toHaveValue(
+      "My draft",
+    );
     expect(
       screen.getByRole("button", { name: "Save protection" }),
     ).toBeDisabled();
@@ -272,7 +358,9 @@ describe("device protections", () => {
       screen.getByRole("button", { name: "Load latest version" }),
     );
     await screen.findByText("Latest version · revision 2");
-    expect(screen.getByLabelText(/^Name/)).toHaveValue("My draft");
+    expect(screen.getByRole("textbox", { name: "Name" })).toHaveValue(
+      "My draft",
+    );
     expect(api.update).toHaveBeenCalledTimes(1);
     await user.click(
       screen.getByRole("button", { name: "Keep my draft for the next save" }),
@@ -294,10 +382,11 @@ describe("device protections", () => {
     });
     setup("/rule/edit");
     await screen.findByText(/point b \/ running is missing/);
-    expect(screen.getAllByText("Unavailable: b").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Unavailable: running").length).toBeGreaterThan(
-      0,
-    );
+    expect(
+      screen.getByRole("combobox", { name: "Observed point" }),
+    ).toHaveAttribute("aria-invalid", "true");
+    // The preview says the rule is broken rather than printing a dangling id.
+    expect(screen.getAllByText("Deleted point").length).toBeGreaterThan(0);
     expect(
       screen.getByRole("button", { name: "Save protection" }),
     ).toBeEnabled();
@@ -315,15 +404,9 @@ describe("device protections", () => {
       reasons: [],
     });
     const { user } = setup("/rule/edit");
-    const observed = await screen.findByRole("group", {
-      name: "Value to check",
-    });
-    await user.click(
-      within(observed).getByRole("combobox", { name: "Attribute" }),
-    );
-    await user.click(
-      screen.getByRole("option", { name: "Pressure · pressure" }),
-    );
+    await screen.findByDisplayValue("Pump interlock");
+    await user.click(screen.getByRole("combobox", { name: "Observed point" }));
+    await user.click(screen.getByRole("option", { name: "Pump B · Pressure" }));
     fireEvent.change(
       screen.getByRole("spinbutton", { name: /Allowed value 1/ }),
       { target: { value: "2.5" } },
