@@ -3,7 +3,7 @@
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, Query, Request, status
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from api.auth import get_current_user_id, require_permission
@@ -36,6 +36,13 @@ class RetireOperatingRule(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     reason: NonBlank
+    revision: int = Field(ge=1)
+
+
+class SetOperatingRuleEnabled(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool
     revision: int = Field(ge=1)
 
 
@@ -133,3 +140,32 @@ async def retire_operating_rule(
         ),
         body.revision,
     )
+
+
+@router.patch(
+    "/{operating_rule_id}/enabled",
+    dependencies=[Depends(require_permission(Permission.OPERATING_RULES_WRITE))],
+)
+async def set_operating_rule_enabled(
+    operating_rule_id: str,
+    body: SetOperatingRuleEnabled,
+    service: ServiceDep,
+    actor: ActorDep,
+) -> OperatingRule:
+    return await service.set_enabled(
+        operating_rule_id, actor, body.revision, enabled=body.enabled
+    )
+
+
+@router.delete(
+    "/{operating_rule_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_permission(Permission.OPERATING_RULES_WRITE))],
+)
+async def delete_operating_rule(
+    operating_rule_id: str,
+    revision: Annotated[int, Query(ge=1)],
+    service: ServiceDep,
+    actor: ActorDep,
+) -> None:
+    await service.delete(operating_rule_id, actor, revision)

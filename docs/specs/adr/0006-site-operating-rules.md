@@ -17,11 +17,20 @@ The owner receives a `PointInspector`; evaluation receives a `PointResolver`.
 Adding a source requires code and root wiring, never a user plugin or executable
 configuration. The service follows the repository start/stop lifecycle.
 
-Only administrators may create, replace or retire operating rules through the HTTP
-permission boundary. All roles may read them. Retirement requires a nonblank
-reason, authenticated actor and server timestamp. There is no pause/delete endpoint.
-Every revision and its author remain in the ledger. Stale updates fail with 409.
-Retirement is independent of suspending an automation for maintenance.
+Only administrators may create, replace, enable/disable or delete operating rules
+through the HTTP permission boundary. All roles may read them. Rules are enabled
+by default; disabling preserves their definition for editing and later activation.
+Activation revalidates the stored point contracts, definition and active-rule limit.
+Disabling or deleting remains possible when references are broken.
+
+`PATCH /operating-rules/{id}/enabled` and `DELETE /operating-rules/{id}?revision=N`
+require the displayed revision. Every change records the authenticated actor and
+server timestamp; stale mutations fail with 409. Deletion appends a tombstone:
+list/get and enforcement exclude the rule, but `/history` retains all revisions.
+Deleted rules cannot be reactivated. The legacy retirement endpoint remains
+compatible; retired rules can be explicitly reactivated or deleted, with the old
+retirement reason preserved in history. Rule activation is independent of
+suspending an automation for maintenance.
 
 Memory, the CLI file store and PostgreSQL implement the storage contract. Storage
 owns migrations and connections; no database references cross service boundaries.
@@ -95,7 +104,7 @@ Driver-authored UI confirmation metadata remains separate. CLI writes cannot
 acknowledge unknown state and are refused.
 
 Preview never writes, queues or reserves values. Group confirmation compares the
-physical write contract and operating rule binding; editing or retiring rules requires
+physical write contract and operating rule binding; editing, toggling, deleting or retiring rules requires
 a new preview even if eligibility stays true. Every group member is checked again
 at the universal write gate. OperatingRules do not depend on a presentation.
 

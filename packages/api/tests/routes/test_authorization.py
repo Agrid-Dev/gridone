@@ -201,6 +201,8 @@ def _auth_header(token: str) -> dict[str, str]:
         ("POST", "/operating-rules/", True),
         ("PUT", "/operating-rules/rule", True),
         ("POST", "/operating-rules/rule/retire", True),
+        ("PATCH", "/operating-rules/rule/enabled", True),
+        ("DELETE", "/operating-rules/rule?revision=1", True),
     ],
 )
 def test_operating_rules_access_control(app, username, method, endpoint, write):
@@ -232,6 +234,7 @@ def test_operating_rules_access_control(app, username, method, endpoint, write):
     svc.diagnose.return_value = []
     svc.history.return_value = [rule]
     svc.create.return_value = svc.update.return_value = svc.retire.return_value = rule
+    svc.set_enabled.return_value = rule
     app.dependency_overrides[get_operating_rules_service] = lambda: svc
     app.include_router(
         operating_rules_router,
@@ -239,7 +242,9 @@ def test_operating_rules_access_control(app, username, method, endpoint, write):
         dependencies=[Depends(get_current_user_id)],
     )
     body = (
-        {"revision": 1, "reason": "Equipment removed"}
+        {"revision": 1, "enabled": False}
+        if method == "PATCH"
+        else {"revision": 1, "reason": "Equipment removed"}
         if endpoint.endswith("/retire")
         else {**definition, **({"revision": 1} if method == "PUT" else {})}
     )
@@ -253,6 +258,8 @@ def test_operating_rules_access_control(app, username, method, endpoint, write):
         if write and username != "admin"
         else 201
         if method == "POST" and endpoint == "/operating-rules/"
+        else 204
+        if method == "DELETE"
         else 200
     )
     assert response.status_code == expected, response.text

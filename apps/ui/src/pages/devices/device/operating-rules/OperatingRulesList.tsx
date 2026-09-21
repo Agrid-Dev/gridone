@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { usePermissions } from "@/contexts/AuthContext";
 import { useDeviceFromRoute } from "@/hooks/useDevice";
 import {
+  isOperatingRuleEnabled,
   useOperatingRuleDevices,
   useOperatingRules,
   operatingRulesPath,
@@ -17,13 +18,10 @@ import {
 import { RuleSentence } from "./RuleSentence";
 import type { PointCatalog } from "./expressions";
 
-/**
- * A row's state, which drives both the dot and the wording: a rule whose points
- * no longer exist is not enforced, so it reads as a repair task rather than as
- * one more badge on an otherwise healthy rule.
- */
+/** Disabled rules stay visible; active rules with broken references need repair. */
 function status(view: OperatingRuleView) {
   if (view.operating_rule.retirement) return "retired" as const;
+  if (!isOperatingRuleEnabled(view.operating_rule)) return "disabled" as const;
   return view.reasons?.length ? ("broken" as const) : ("active" as const);
 }
 
@@ -39,6 +37,7 @@ function OperatingRuleRow({
   const { t } = useTranslation("operatingRules");
   const rule = view.operating_rule;
   const state = status(view);
+  const inactive = !isOperatingRuleEnabled(rule);
   return (
     <Link
       to={operatingRulePath(rule)}
@@ -53,15 +52,10 @@ function OperatingRuleRow({
           "mt-2 h-2 w-2 shrink-0 rounded-full",
           state === "active" && "bg-success",
           state === "broken" && "bg-amber-600",
-          state === "retired" && "bg-muted-foreground/40",
+          inactive && "bg-muted-foreground/40",
         )}
       />
-      <div
-        className={cn(
-          "min-w-0 flex-1 space-y-2",
-          state === "retired" && "opacity-60",
-        )}
-      >
+      <div className={cn("min-w-0 flex-1 space-y-2", inactive && "opacity-60")}>
         <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
           <span className="font-semibold">{rule.name}</span>
           <span
@@ -72,19 +66,13 @@ function OperatingRuleRow({
                 : "text-muted-foreground",
             )}
           >
-            {t(
-              state === "broken"
-                ? "needsRepair"
-                : state === "retired"
-                  ? "retired"
-                  : "active",
-            )}
+            {t(state === "broken" ? "needsRepair" : state)}
           </span>
         </div>
         <RuleSentence
           rule={rule}
           catalog={{ ...catalog, contracts: rule.points }}
-          retired={state === "retired"}
+          retired={inactive}
         />
         {state === "broken" ? (
           <p className="flex items-center gap-2 text-sm text-amber-700">

@@ -31,6 +31,16 @@ describe("operatingRules", () => {
       reason: "Wiring removed",
       revision: 3,
     });
+    await client.operatingRules.setEnabled("rule/1", {
+      enabled: true,
+      revision: 4,
+    });
+    await client.operatingRules.setEnabled("rule/1", {
+      enabled: false,
+      revision: 5,
+    });
+    fetch.mockResolvedValueOnce(new Response(null, { status: 204 }));
+    expect(await client.operatingRules.delete("rule/1", 6)).toBeUndefined();
     expect(
       fetch.mock.calls.map(([url, options]) => [url, options.method]),
     ).toEqual([
@@ -41,6 +51,9 @@ describe("operatingRules", () => {
       ["https://gridone.test/operating-rules/rule%2F1", "PUT"],
       ["https://gridone.test/operating-rules/rule%2F1/history", "GET"],
       ["https://gridone.test/operating-rules/rule%2F1/retire", "POST"],
+      ["https://gridone.test/operating-rules/rule%2F1/enabled", "PATCH"],
+      ["https://gridone.test/operating-rules/rule%2F1/enabled", "PATCH"],
+      ["https://gridone.test/operating-rules/rule%2F1?revision=6", "DELETE"],
     ]);
     expect(JSON.parse(fetch.mock.calls[3]![1].body)).toEqual(body);
     expect(JSON.parse(fetch.mock.calls[4]![1].body)).toEqual({
@@ -50,6 +63,14 @@ describe("operatingRules", () => {
     expect(JSON.parse(fetch.mock.calls[6]![1].body)).toEqual({
       reason: "Wiring removed",
       revision: 3,
+    });
+    expect(JSON.parse(fetch.mock.calls[7]![1].body)).toEqual({
+      enabled: true,
+      revision: 4,
+    });
+    expect(JSON.parse(fetch.mock.calls[8]![1].body)).toEqual({
+      enabled: false,
+      revision: 5,
     });
   });
 });

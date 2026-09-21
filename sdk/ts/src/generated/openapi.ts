@@ -51,7 +51,8 @@ export interface paths {
     /** Update Operating Rule */
     put: operations["update_operating_rule_operating_rules__operating_rule_id__put"];
     post?: never;
-    delete?: never;
+    /** Delete Operating Rule */
+    delete: operations["delete_operating_rule_operating_rules__operating_rule_id__delete"];
     options?: never;
     head?: never;
     patch?: never;
@@ -89,6 +90,23 @@ export interface paths {
     options?: never;
     head?: never;
     patch?: never;
+    trace?: never;
+  };
+  "/operating-rules/{operating_rule_id}/enabled": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Set Operating Rule Enabled */
+    patch: operations["set_operating_rule_enabled_operating_rules__operating_rule_id__enabled_patch"];
     trace?: never;
   };
   "/health": {
@@ -5492,6 +5510,13 @@ export interface components {
        * @description Maximum age of each observed condition point in seconds. Null disables freshness checks; never-observed or invalidated values remain unknown.
        */
       max_age_seconds?: number | null;
+      /**
+       * Enabled
+       * @default true
+       */
+      enabled?: boolean;
+      /** Deleted At */
+      deleted_at?: string | null;
       /** Id */
       id: string;
       /**
@@ -6210,6 +6235,13 @@ export interface components {
       unit?: string | null;
       /** Members */
       members: components["schemas"]["DeviceWritePreview"][];
+    };
+    /** SetOperatingRuleEnabled */
+    SetOperatingRuleEnabled: {
+      /** Enabled */
+      enabled: boolean;
+      /** Revision */
+      revision: number;
     };
     /** SetpointRow */
     SetpointRow: {
@@ -7570,6 +7602,37 @@ export interface operations {
       };
     };
   };
+  delete_operating_rule_operating_rules__operating_rule_id__delete: {
+    parameters: {
+      query: {
+        revision: number;
+      };
+      header?: never;
+      path: {
+        operating_rule_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   get_operating_rule_history_operating_rules__operating_rule_id__history_get: {
     parameters: {
       query?: never;
@@ -7613,6 +7676,41 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": components["schemas"]["RetireOperatingRule"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OperatingRule"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  set_operating_rule_enabled_operating_rules__operating_rule_id__enabled_patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        operating_rule_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SetOperatingRuleEnabled"];
       };
     };
     responses: {

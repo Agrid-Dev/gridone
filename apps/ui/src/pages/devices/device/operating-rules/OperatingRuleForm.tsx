@@ -273,7 +273,7 @@ export function OperatingRuleForm({
           </Step>
 
           <Step number={3} title={t("nameStep")}>
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid items-start gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
               <FieldShell
                 id="operating-rule-name"
                 label={t("name")}
@@ -288,13 +288,13 @@ export function OperatingRuleForm({
                 <Input
                   id="operating-rule-name"
                   {...form.register("name")}
+                  placeholder={t("namePlaceholder")}
                   aria-invalid={!!form.formState.errors.name}
                 />
               </FieldShell>
               <FieldShell
                 id="operating-rule-explanation"
                 label={t("explanation")}
-                description={t("explanationHelp")}
                 required
                 invalid={!!form.formState.errors.explanation}
                 error={
@@ -306,8 +306,14 @@ export function OperatingRuleForm({
                 <Textarea
                   id="operating-rule-explanation"
                   {...form.register("explanation")}
+                  className="min-h-24 resize-y"
+                  placeholder={t("explanationPlaceholder")}
+                  aria-describedby="operating-rule-explanation-help"
                   aria-invalid={!!form.formState.errors.explanation}
                 />
+                <FieldDescription id="operating-rule-explanation-help">
+                  {t("explanationHelp")}
+                </FieldDescription>
               </FieldShell>
             </div>
           </Step>

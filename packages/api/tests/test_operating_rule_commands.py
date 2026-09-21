@@ -149,6 +149,47 @@ async def observe(harness, value):
     harness.transport.read.reset_mock()
 
 
+async def test_toggle_and_delete_change_write_enforcement_and_keep_history(harness):
+    await observe(harness, value=True)
+    path = f"/operating-rules/{harness.rule_id}"
+    command = {"attribute": "command", "value": True, "confirm": False}
+    assert (
+        await harness.client.post("/devices/a/commands", json=command)
+    ).status_code == 422
+    disabled = await harness.client.patch(
+        f"{path}/enabled", json={"enabled": False, "revision": 1}
+    )
+    assert disabled.status_code == 200
+    assert disabled.json()["enabled"] is False
+    assert disabled.json()["revision"] == 2
+    assert (
+        await harness.client.post("/devices/a/commands", json=command)
+    ).status_code == 200
+    assert (await harness.client.delete(f"{path}?revision=1")).status_code == 409
+    enabled = await harness.client.patch(
+        f"{path}/enabled", json={"enabled": True, "revision": 2}
+    )
+    assert enabled.status_code == 200
+    assert (
+        await harness.client.post("/devices/a/commands", json=command)
+    ).status_code == 422
+    assert (await harness.client.delete(f"{path}?revision=3")).status_code == 204
+    assert (await harness.client.get(path)).status_code == 404
+    assert (await harness.client.get("/operating-rules/")).json() == []
+    assert (
+        await harness.client.post("/devices/a/commands", json=command)
+    ).status_code == 200
+    history = (await harness.client.get(f"{path}/history")).json()
+    assert [row["revision"] for row in history] == [1, 2, 3, 4]
+    assert history[-1]["deleted_at"]
+    assert history[-1]["updated_by"] == history[0]["created_by"]
+    assert (
+        await harness.client.patch(
+            f"{path}/enabled", json={"enabled": True, "revision": 4}
+        )
+    ).status_code == 404
+
+
 async def test_preview_and_execution_reject_without_io_and_audit(harness):
     await observe(harness, value=True)
     body = {"attribute": "command", "value": True, "confirm": False}
@@ -222,7 +263,9 @@ async def test_confirmation_requires_a_preview_and_cannot_override_known_denial(
     harness.transport.write.assert_not_called()
 
 
-@pytest.mark.parametrize("change", ["state", "definition", "retirement"])
+@pytest.mark.parametrize(
+    "change", ["state", "definition", "retirement", "disable", "delete", "reactivate"]
+)
 async def test_group_confirmation_rejects_state_or_rule_changes(harness, change):
     await observe(harness, value=False)
     preview = (
@@ -240,12 +283,25 @@ async def test_group_confirmation_rejects_state_or_rule_changes(harness, change)
             "admin",
             1,
         )
-    else:
+    elif change == "retirement":
         response = await harness.client.post(
             f"/operating-rules/{harness.rule_id}/retire",
             json={"reason": "Wiring removed", "revision": 1},
         )
         assert response.status_code == 200
+    elif change == "delete":
+        response = await harness.client.delete(
+            f"/operating-rules/{harness.rule_id}?revision=1"
+        )
+        assert response.status_code == 204
+    else:
+        await harness.operating_rules.set_enabled(
+            harness.rule_id, "admin", 1, enabled=False
+        )
+        if change == "reactivate":
+            await harness.operating_rules.set_enabled(
+                harness.rule_id, "admin", 2, enabled=True
+            )
     response = await harness.client.post(
         "/devices/commands/confirm",
         json={"token": preview["token"], "device_ids": ["a"]},

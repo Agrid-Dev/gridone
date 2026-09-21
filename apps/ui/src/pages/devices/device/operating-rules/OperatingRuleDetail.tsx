@@ -1,14 +1,13 @@
-import { useState } from "react";
 import { useParams } from "react-router";
 import { useTranslation } from "react-i18next";
-import type { OperatingRule } from "@gridone/sdk";
 import { ResourceLink as Link } from "@/components/ResourceLink";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { ResourceBoundary } from "@/components/ResourceBoundary";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
-import { FieldShell } from "@/components/forms/controllers/FieldShell";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Trash2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -26,86 +25,14 @@ import {
 } from "./OperatingRuleFeedback";
 import type { PointCatalog } from "./expressions";
 import {
-  isConflict,
+  isOperatingRuleEnabled,
   operatingRulePath,
   operatingRulesPath,
   useOperatingRule,
   useOperatingRuleDevices,
   useOperatingRuleHistory,
-  useOperatingRuleSchemas,
-  useRetirement,
+  useOperatingRuleActions,
 } from "./useOperatingRules";
-
-function Retirement({
-  rule,
-  catalog,
-  onDone,
-}: {
-  rule: OperatingRule;
-  catalog: PointCatalog;
-  onDone: () => void;
-}) {
-  const { t } = useTranslation("operatingRules");
-  const { data: schemas } = useOperatingRuleSchemas();
-  const state = useRetirement(rule, schemas, onDone);
-  return (
-    <form onSubmit={state.submit} className="space-y-4" noValidate>
-      <OperatingRuleSummary rule={state.rule} catalog={catalog} />
-      <FieldShell
-        id="retirement-reason"
-        label={t("retirementReason")}
-        required
-        invalid={!!state.form.formState.errors.reason}
-        error={
-          state.form.formState.errors.reason
-            ? { type: "validate", message: t("required") }
-            : undefined
-        }
-      >
-        <Textarea
-          id="retirement-reason"
-          {...state.form.register("reason")}
-          disabled={state.retire.isPending}
-          aria-invalid={!!state.form.formState.errors.reason}
-        />
-      </FieldShell>
-      <OperatingRuleError error={state.reload.error ?? state.retire.error} />
-      {state.rule.retirement && <p role="status">{t("retiredHelp")}</p>}
-      {isConflict(state.retire.error) && (
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => state.reload.mutate()}
-          disabled={state.reload.isPending}
-        >
-          {t("reloadLatest")}
-        </Button>
-      )}
-      <DialogFooter>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onDone}
-          disabled={state.retire.isPending}
-        >
-          {t("cancel")}
-        </Button>
-        <Button
-          type="submit"
-          variant="destructive"
-          disabled={
-            state.retire.isPending ||
-            state.reload.isPending ||
-            !!state.rule.retirement ||
-            isConflict(state.retire.error)
-          }
-        >
-          {t("confirmRetirement")}
-        </Button>
-      </DialogFooter>
-    </form>
-  );
-}
 
 function History({ id, catalog }: { id: string; catalog: PointCatalog }) {
   const { t, i18n } = useTranslation("operatingRules");
@@ -125,7 +52,7 @@ function History({ id, catalog }: { id: string; catalog: PointCatalog }) {
               {t("revision", { revision: rule.revision })} ·{" "}
               {new Date(rule.updated_at).toLocaleString(i18n.language)} ·{" "}
               {rule.updated_by}
-              {rule.retirement && ` · ${t("retired")}`}
+              {` · ${t(rule.deleted_at ? "deleted" : rule.retirement ? "retired" : isOperatingRuleEnabled(rule) ? "active" : "disabled")}`}
             </summary>
             <div className="mt-4 space-y-4">
               <OperatingRuleSummary
@@ -153,7 +80,8 @@ export default function OperatingRuleDetail() {
     data: { operating_rule: rule, reasons },
   } = useOperatingRule(device.id, operatingRuleId);
   const { data: devices } = useOperatingRuleDevices();
-  const [retiring, setRetiring] = useState(false);
+  const actions = useOperatingRuleActions(rule);
+  const enabled = isOperatingRuleEnabled(rule);
   const catalog = { devices, contracts: rule.points };
   return (
     <section className="space-y-6">
@@ -166,24 +94,60 @@ export default function OperatingRuleDetail() {
       <ResourceHeader
         title={rule.name}
         status={
-          <Badge variant="outline">
-            {t(rule.retirement ? "retired" : "active")}
-          </Badge>
+          <Badge variant="outline">{t(enabled ? "active" : "disabled")}</Badge>
         }
         actions={
-          can("operating_rules:write") &&
-          !rule.retirement && (
+          can("operating_rules:write") && (
             <>
-              <Button variant="outline" onClick={() => setRetiring(true)}>
-                {t("retire")}
+              <Button
+                variant="outline"
+                onClick={() => actions.setDeleting(true)}
+                disabled={actions.locked}
+              >
+                <Trash2 className="h-4 w-4" />
+                {t("delete")}
               </Button>
-              <Button asChild>
-                <Link to={`${operatingRulePath(rule)}/edit`}>{t("edit")}</Link>
-              </Button>
+              {!rule.retirement && (
+                <Button asChild disabled={actions.pending}>
+                  <Link to={`${operatingRulePath(rule)}/edit`}>
+                    {t("edit")}
+                  </Link>
+                </Button>
+              )}
             </>
           )
         }
       />
+      <div className="flex items-center justify-between gap-6 rounded-xl border bg-card p-5">
+        <div className="space-y-1">
+          <Label htmlFor="operating-rule-enabled" className="font-semibold">
+            {t("enabledLabel")}
+          </Label>
+          <p
+            id="operating-rule-enabled-help"
+            className="text-sm text-muted-foreground"
+          >
+            {t(enabled ? "enabledHelp" : "disabledHelp")}
+          </p>
+        </div>
+        <Switch
+          id="operating-rule-enabled"
+          checked={enabled}
+          onCheckedChange={actions.toggle}
+          disabled={actions.locked}
+          aria-describedby="operating-rule-enabled-help"
+        />
+      </div>
+      {!actions.deleting && <OperatingRuleError error={actions.error} />}
+      {!actions.deleting && actions.conflict && (
+        <Button
+          variant="outline"
+          onClick={actions.reload}
+          disabled={actions.pending}
+        >
+          {t("reloadLatest")}
+        </Button>
+      )}
       <OperatingRuleDiagnostics reasons={reasons} />
       <div className="rounded-xl border bg-card p-5">
         <OperatingRuleSummary rule={rule} catalog={catalog} />
@@ -204,21 +168,38 @@ export default function OperatingRuleDetail() {
         <History id={rule.id} catalog={catalog} />
       </ResourceBoundary>
       <p className="text-sm text-muted-foreground">{t("limits")}</p>
-      <Dialog open={retiring} onOpenChange={setRetiring}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
+      <Dialog open={actions.deleting} onOpenChange={actions.setDeleting}>
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t("retire")}</DialogTitle>
-            <DialogDescription>{t("retireHelp")}</DialogDescription>
+            <DialogTitle>{t("deleteTitle", { name: rule.name })}</DialogTitle>
+            <DialogDescription>{t("deleteHelp")}</DialogDescription>
           </DialogHeader>
-          {retiring && (
-            <ResourceBoundary resetKeys={[rule.id]}>
-              <Retirement
-                rule={rule}
-                catalog={catalog}
-                onDone={() => setRetiring(false)}
-              />
-            </ResourceBoundary>
+          <OperatingRuleError error={actions.error} />
+          {actions.conflict && (
+            <Button
+              variant="outline"
+              onClick={actions.reload}
+              disabled={actions.pending}
+            >
+              {t("reloadLatest")}
+            </Button>
           )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => actions.setDeleting(false)}
+              disabled={actions.pending}
+            >
+              {t("cancel")}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={actions.remove}
+              disabled={actions.locked}
+            >
+              {t("confirmDelete")}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </section>

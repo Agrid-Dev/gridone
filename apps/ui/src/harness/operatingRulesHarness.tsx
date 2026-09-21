@@ -160,6 +160,9 @@ const rules: Record<string, OperatingRule> = {
   r2: brokenRule,
   r3: retiredRule,
 };
+const history = Object.fromEntries(
+  Object.values(rules).map((rule) => [rule.id, [rule]]),
+);
 
 const client = {
   me: async () => ({
@@ -178,26 +181,43 @@ const client = {
     get: async (id: string) => devices.find((d) => d.id === id) ?? chiller,
   },
   operatingRules: {
-    list: async () => [
-      { operating_rule: flowRule, reasons: [] },
-      {
-        operating_rule: brokenRule,
-        reasons: [{ code: "operating_rule_reference_invalid" }],
-      },
-      { operating_rule: retiredRule, reasons: [] },
-    ],
+    list: async () =>
+      Object.values(rules).map((rule) => ({
+        operating_rule: rule,
+        reasons:
+          rule.id === "r2"
+            ? [{ code: "operating_rule_reference_invalid" }]
+            : [],
+      })),
     get: async (id: string) => ({
       operating_rule: rules[id] ?? flowRule,
       reasons:
         id === "r2" ? [{ code: "operating_rule_reference_invalid" }] : [],
     }),
-    history: async (id: string) => [rules[id] ?? flowRule],
+    history: async (id: string) => history[id] ?? [],
     schemas: async () => schemas,
     create: async (body: unknown) => ({ ...flowRule, ...(body as object) }),
     update: async (_id: string, body: unknown) => ({
       ...flowRule,
       ...(body as object),
     }),
+    setEnabled: async (
+      id: string,
+      body: { enabled: boolean; revision: number },
+    ) => {
+      const saved = {
+        ...rules[id],
+        ...body,
+        revision: body.revision + 1,
+        retirement: null,
+      };
+      rules[id] = saved;
+      history[id].push(saved);
+      return saved;
+    },
+    delete: async (id: string) => {
+      delete rules[id];
+    },
   },
 };
 

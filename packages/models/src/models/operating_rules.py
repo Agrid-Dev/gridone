@@ -81,6 +81,8 @@ class OperatingRuleRetirement(BaseModel):
 
 
 class OperatingRule(OperatingRuleDefinition):
+    enabled: bool = True
+    deleted_at: datetime | None = None
     id: str
     revision: int = 1
     created_at: datetime

@@ -84,11 +84,20 @@ class OperatingRulesService:
             rule.model_copy(deep=True)
             for rule in self._rules.values()
             if rule.retirement is None
+            and rule.enabled
+            and rule.deleted_at is None
             and rule.target.device_id == device_id
             and rule.target.attribute == attribute
         ]
 
     def get(self, operating_rule_id: str) -> OperatingRule:
+        rule = self._snapshot(operating_rule_id)
+        if rule.deleted_at is not None:
+            msg = "OperatingRule not found"
+            raise NotFoundError(msg)
+        return rule
+
+    def _snapshot(self, operating_rule_id: str) -> OperatingRule:
         _ = self.storage
         rule = self._rules.get(operating_rule_id)
         if rule is None:
@@ -105,7 +114,8 @@ class OperatingRulesService:
                 operating_rule=rule.model_copy(deep=True), reasons=self.diagnose(rule)
             )
             for rule in self._rules.values()
-            if device_id is None or rule.target.device_id == device_id
+            if rule.deleted_at is None
+            and (device_id is None or rule.target.device_id == device_id)
         ]
 
     def diagnose(self, rule: OperatingRule) -> list[WriteReason]:
@@ -240,9 +250,53 @@ class OperatingRulesService:
                 )
             )
 
-    def _editable(self, operating_rule_id: str, revision: int) -> OperatingRule:
+    async def set_enabled(
+        self, operating_rule_id: str, actor_id: str, revision: int, *, enabled: bool
+    ) -> OperatingRule:
+        """Revalidate before activation; disabling remains possible for broken rules."""
+        async with self._lock:
+            old = self._editable(operating_rule_id, revision, allow_retired=True)
+            if enabled and (reasons := self.diagnose(old)):
+                raise WriteRejectedError(reasons)
+            points = self._validate(old, old.id) if enabled else old.points
+            return await self._save(
+                old.model_copy(
+                    update={
+                        "enabled": enabled,
+                        "retirement": None,
+                        "points": points,
+                        "revision": old.revision + 1,
+                        "updated_at": datetime.now(UTC),
+                        "updated_by": actor_id,
+                    }
+                )
+            )
+
+    async def delete(
+        self, operating_rule_id: str, actor_id: str, revision: int
+    ) -> OperatingRule:
+        """Remove the rule from configuration while retaining its audit ledger."""
+        async with self._lock:
+            old = self._editable(operating_rule_id, revision, allow_retired=True)
+            now = datetime.now(UTC)
+            return await self._save(
+                old.model_copy(
+                    update={
+                        "deleted_at": now,
+                        "revision": old.revision + 1,
+                        "updated_at": now,
+                        "updated_by": actor_id,
+                    }
+                )
+            )
+
+    def _editable(
+        self, operating_rule_id: str, revision: int, *, allow_retired: bool = False
+    ) -> OperatingRule:
         old = self.get(operating_rule_id)
-        if old.retirement is not None or old.revision != revision:
+        if (
+            old.retirement is not None and not allow_retired
+        ) or old.revision != revision:
             msg = "OperatingRule changed or retired; reload before editing"
             raise ConflictError(msg)
         return old
@@ -253,5 +307,5 @@ class OperatingRulesService:
         return saved
 
     async def history(self, operating_rule_id: str) -> list[OperatingRule]:
-        self.get(operating_rule_id)
+        self._snapshot(operating_rule_id)
         return await self.storage.history(operating_rule_id)

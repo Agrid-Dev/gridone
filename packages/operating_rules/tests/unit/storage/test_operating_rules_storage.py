@@ -5,6 +5,7 @@ import pytest
 
 from models.errors import ConflictError, StorageConnectionError, UnsupportedStorageError
 from models.operating_rules import OperatingRule
+from operating_rules.service import OperatingRulesService
 from operating_rules.storage import build_storage
 from operating_rules.storage.yaml import YamlStorage
 
@@ -50,6 +51,29 @@ async def test_bad_backend_and_corrupt_ledger(tmp_path):
     (tmp_path / "operating_rules.json").write_text("not valid json")
     with pytest.raises(StorageConnectionError):
         await build_storage(f"yaml:{tmp_path}")
+
+
+async def test_disabled_and_deleted_rules_survive_restart(
+    definition, inspector, tmp_path
+):
+    url = f"yaml:{tmp_path}"
+    service = OperatingRulesService(url, inspector)
+    await service.start()
+    disabled = await service.create(definition, "admin")
+    deleted = await service.create(definition, "admin")
+    await service.set_enabled(disabled.id, "admin", 1, enabled=False)
+    await service.delete(deleted.id, "admin", 1)
+    await service.stop()
+    await service.start()
+    try:
+        assert service.for_target("a", "command") == []
+        assert [row.operating_rule.id for row in service.list_operating_rules()] == [
+            disabled.id
+        ]
+        assert not service.get(disabled.id).enabled
+        assert (await service.history(deleted.id))[-1].deleted_at is not None
+    finally:
+        await service.stop()
 
 
 async def test_database_connection_failure(monkeypatch):

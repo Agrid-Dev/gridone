@@ -11,7 +11,6 @@ import {
   isGridoneError,
   type OperatingRule,
   type OperatingRuleDefinition,
-  type OperatingRuleRetire,
   type OperatingRuleSchemas,
 } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
@@ -176,62 +175,85 @@ export function useOperatingRuleForm(
   };
 }
 
-export function useRetirement(
-  initial: OperatingRule,
-  schemas: OperatingRuleSchemas,
-  onDone: () => void,
-) {
+/** Lifecycle changes use the displayed revision; conflicts require an explicit reload. */
+export function useOperatingRuleActions(rule: OperatingRule) {
   const client = useGridoneClient();
-  const can = usePermissions();
   const queryClient = useQueryClient();
-  const [rule, setRule] = useState(initial);
-  const schema = useMemo(
-    () =>
-      (
-        z.fromJSONSchema(schemas.retirement) as z.ZodType<
-          OperatingRuleRetire,
-          OperatingRuleRetire
-        >
-      ).refine((value) => !!value.reason.trim(), { path: ["reason"] }),
-    [schemas],
-  );
-  const form = useForm<OperatingRuleRetire>({
-    resolver: zodResolver(schema),
-    defaultValues: { reason: "", revision: initial.revision ?? 1 },
-  });
-  const retire = useMutation({
-    mutationFn: (body: OperatingRuleRetire) =>
-      client.operatingRules.retire(rule.id, body),
-    onSuccess: async () => {
+  const navigation = useResourceNavigation();
+  const can = usePermissions();
+  const [deleting, setDeleting] = useState(false);
+  const setEnabled = useMutation({
+    mutationFn: (enabled: boolean) =>
+      client.operatingRules.setEnabled(rule.id, {
+        enabled,
+        revision: rule.revision ?? 1,
+      }),
+    onSuccess: async (saved) => {
+      queryClient.setQueryData(["operatingRules", "detail", rule.id], {
+        operating_rule: saved,
+        reasons: [],
+      });
       await queryClient.invalidateQueries({ queryKey: ["operatingRules"] });
-      onDone();
+    },
+  });
+  const remove = useMutation({
+    mutationFn: () => client.operatingRules.delete(rule.id, rule.revision ?? 1),
+    onSuccess: () => {
+      setDeleting(false);
+      navigation.open(operatingRulesPath(rule.target.device_id), {
+        replace: true,
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["operatingRules", "list"],
+      });
+      queryClient.removeQueries({
+        queryKey: ["operatingRules", "detail", rule.id],
+      });
+      queryClient.removeQueries({
+        queryKey: ["operatingRules", "history", rule.id],
+      });
     },
   });
   const reload = useMutation({
     mutationFn: async () => {
       const view = await client.operatingRules.get(rule.id);
-      if (view.operating_rule.target.device_id !== initial.target.device_id)
+      if (view.operating_rule.target.device_id !== rule.target.device_id)
         throw new ResourceNotFoundError();
       return view;
     },
     onSuccess: (view) => {
-      setRule(view.operating_rule);
-      form.setValue("revision", view.operating_rule.revision ?? 1);
-      retire.reset();
+      queryClient.setQueryData(["operatingRules", "detail", rule.id], view);
+      void queryClient.invalidateQueries({
+        queryKey: ["operatingRules", "history", rule.id],
+      });
+      setEnabled.reset();
+      remove.reset();
+      setDeleting(false);
     },
   });
+  const pending = setEnabled.isPending || remove.isPending || reload.isPending;
+  const conflict = isConflict(setEnabled.error) || isConflict(remove.error);
+  const locked = pending || conflict || !can("operating_rules:write");
   return {
-    form,
-    rule,
-    retire,
-    reload,
-    submit: form.handleSubmit((body) => {
-      if (
-        can("operating_rules:write") &&
-        !rule.retirement &&
-        !isConflict(retire.error)
-      )
-        retire.mutate({ ...body, reason: body.reason.trim() });
-    }),
+    deleting,
+    setDeleting: (open: boolean) => {
+      if (pending) return;
+      setDeleting(open);
+      if (!open && !conflict) remove.reset();
+    },
+    pending,
+    locked,
+    conflict,
+    error: reload.error ?? remove.error ?? setEnabled.error,
+    reload: () => reload.mutate(),
+    toggle: () => {
+      if (!locked) setEnabled.mutate(!isOperatingRuleEnabled(rule));
+    },
+    remove: () => {
+      if (!locked) remove.mutate();
+    },
   };
 }
+
+export const isOperatingRuleEnabled = (rule: OperatingRule) =>
+  rule.enabled !== false && !rule.retirement;

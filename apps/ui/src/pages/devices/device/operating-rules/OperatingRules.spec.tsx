@@ -18,6 +18,7 @@ import {
   type OperatingRuleDefinition,
 } from "@gridone/sdk";
 import i18n from "@/i18n";
+import { clearNavigation } from "@/lib/navigation";
 import DeviceOperatingRules from "./index";
 import schemas from "./__fixtures__/schemas.json";
 
@@ -26,7 +27,8 @@ const api = vi.hoisted(() => ({
   get: vi.fn(),
   create: vi.fn(),
   update: vi.fn(),
-  retire: vi.fn(),
+  setEnabled: vi.fn(),
+  delete: vi.fn(),
   history: vi.fn(),
   schemas: vi.fn(),
   devices: vi.fn(),
@@ -99,6 +101,7 @@ function rule(overrides: Partial<OperatingRule> = {}): OperatingRule {
 }
 beforeEach(async () => {
   vi.resetAllMocks();
+  clearNavigation();
   api.editable = true;
   await i18n.changeLanguage("en");
   api.schemas.mockResolvedValue(schemas);
@@ -119,18 +122,19 @@ beforeEach(async () => {
       return saved;
     },
   );
-  api.retire.mockImplementation(async (_: string, body: { reason: string }) => {
-    const saved = rule({
-      revision: 2,
-      retirement: {
-        reason: body.reason,
-        actor_id: "admin",
-        retired_at: "2026-09-21T11:00:00Z",
-      },
-    });
-    api.get.mockResolvedValue({ operating_rule: saved, reasons: [] });
-    api.history.mockResolvedValue([rule(), saved]);
-    return saved;
+  api.setEnabled.mockImplementation(
+    async (_: string, body: { enabled: boolean; revision: number }) => {
+      const saved = rule({
+        enabled: body.enabled,
+        revision: body.revision + 1,
+      });
+      api.get.mockResolvedValue({ operating_rule: saved, reasons: [] });
+      api.history.mockResolvedValue([rule(), saved]);
+      return saved;
+    },
+  );
+  api.delete.mockImplementation(async () => {
+    api.list.mockResolvedValue([]);
   });
 });
 afterEach(cleanup);
@@ -847,39 +851,141 @@ describe("device operating rules", () => {
     expect(api.update).toHaveBeenCalledTimes(1);
   });
 
-  it("requires a nonblank retirement reason and retains the server audit in history", async () => {
+  it("disables and re-enables a rule using the latest revision while retaining its history", async () => {
     const { user } = setup("/rule");
-    await user.click(
-      await screen.findByRole("button", { name: "Retire operating rule" }),
-    );
-    await screen.findByLabelText(/Reason for retirement/);
-    await user.type(screen.getByLabelText(/Reason for retirement/), "   ");
-    await user.click(
-      screen.getByRole("button", { name: "Confirm retirement" }),
-    );
-    await screen.findByText("Enter a nonblank value.");
-    expect(api.retire).not.toHaveBeenCalled();
-    await user.clear(screen.getByLabelText(/Reason for retirement/));
-    await user.type(
-      screen.getByLabelText(/Reason for retirement/),
-      " Wiring removed ",
-    );
-    await user.click(
-      screen.getByRole("button", { name: "Confirm retirement" }),
-    );
-    await waitFor(() =>
-      expect(api.retire).toHaveBeenCalledWith("rule", {
-        reason: "Wiring removed",
-        revision: 1,
-      }),
-    );
-    await waitFor(() =>
-      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
-    );
-    expect(screen.getAllByText("Wiring removed").length).toBeGreaterThan(0);
+    const toggle = await screen.findByRole("switch", { name: "Rule enabled" });
+    expect(toggle).toBeChecked();
+    await user.click(toggle);
+    await waitFor(() => expect(toggle).not.toBeChecked());
+    expect(api.setEnabled).toHaveBeenLastCalledWith("rule", {
+      enabled: false,
+      revision: 1,
+    });
+    await screen.findByText(/Revision 2/);
     expect(
-      screen.queryByRole("link", { name: "Edit operating rule" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("link", { name: "Edit operating rule" }),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(toggle).toBeEnabled());
+    await user.click(toggle);
+    await waitFor(() => expect(toggle).toBeChecked());
+    expect(api.setEnabled).toHaveBeenLastCalledWith("rule", {
+      enabled: true,
+      revision: 2,
+    });
+    await screen.findByText(/Revision 3/);
+  });
+
+  it("can reactivate an old retired rule", async () => {
+    api.get.mockResolvedValue({
+      operating_rule: rule({
+        retirement: {
+          reason: "Maintenance",
+          actor_id: "admin",
+          retired_at: "2026-09-21T11:00:00Z",
+        },
+      }),
+      reasons: [],
+    });
+    const { user } = setup("/rule");
+    const toggle = await screen.findByRole("switch", { name: "Rule enabled" });
+    expect(toggle).not.toBeChecked();
+    await user.click(toggle);
+    await waitFor(() => expect(toggle).toBeChecked());
+    expect(api.setEnabled).toHaveBeenCalledWith("rule", {
+      enabled: true,
+      revision: 1,
+    });
+  });
+
+  it("requires confirmation before deleting and returns to the device list", async () => {
+    const { user } = setup("/rule");
+    await user.click(await screen.findByRole("button", { name: "Delete" }));
+    let dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent("Delete “Pump interlock”?");
+    expect(api.delete).not.toHaveBeenCalled();
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(api.delete).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+    dialog = screen.getByRole("dialog");
+    await user.click(
+      within(dialog).getByRole("button", { name: "Delete operating rule" }),
+    );
+    await screen.findByText("No operating rules for this device");
+    expect(api.delete).toHaveBeenCalledWith("rule", 1);
+  });
+
+  it("keeps the displayed state when a toggle fails and lets the user retry", async () => {
+    api.setEnabled.mockRejectedValueOnce(new GridoneError(500, "private path"));
+    const { user } = setup("/rule");
+    const toggle = await screen.findByRole("switch", { name: "Rule enabled" });
+    await user.click(toggle);
+    await screen.findByRole("alert");
+    expect(toggle).toBeChecked();
+    expect(screen.queryByText(/private path/)).not.toBeInTheDocument();
+    await user.click(toggle);
+    await waitFor(() => expect(toggle).not.toBeChecked());
+  });
+
+  it.each(["toggle", "delete"])(
+    "reloads stale data before retrying %s",
+    async (action) => {
+      const mutation = action === "toggle" ? api.setEnabled : api.delete;
+      mutation.mockRejectedValueOnce(new GridoneError(409, "Changed"));
+      const { user } = setup("/rule");
+      const toggle = await screen.findByRole("switch", {
+        name: "Rule enabled",
+      });
+      if (action === "toggle") await user.click(toggle);
+      else {
+        await user.click(screen.getByRole("button", { name: "Delete" }));
+        await user.click(
+          screen.getByRole("button", { name: "Delete operating rule" }),
+        );
+      }
+      await screen.findByRole("button", { name: "Load latest version" });
+      expect(toggle).toBeDisabled();
+      if (action === "delete")
+        expect(
+          screen.getByRole("button", { name: "Delete operating rule" }),
+        ).toBeDisabled();
+      api.get.mockResolvedValue({
+        operating_rule: rule({ name: "Updated rule", revision: 2 }),
+        reasons: [],
+      });
+      await user.click(
+        screen.getByRole("button", { name: "Load latest version" }),
+      );
+      await screen.findByRole("heading", { name: "Updated rule" });
+      expect(mutation).toHaveBeenCalledTimes(1);
+      await waitFor(() => expect(toggle).toBeEnabled());
+      if (action === "toggle") {
+        await user.click(toggle);
+        await waitFor(() =>
+          expect(api.setEnabled).toHaveBeenLastCalledWith("rule", {
+            enabled: false,
+            revision: 2,
+          }),
+        );
+      } else {
+        await user.click(screen.getByRole("button", { name: "Delete" }));
+        await user.click(
+          screen.getByRole("button", { name: "Delete operating rule" }),
+        );
+        await waitFor(() =>
+          expect(api.delete).toHaveBeenLastCalledWith("rule", 2),
+        );
+      }
+    },
+  );
+
+  it("identifies disabled rules in the list", async () => {
+    api.list.mockResolvedValue([
+      { operating_rule: rule({ enabled: false }), reasons: [] },
+    ]);
+    setup();
+    const row = await screen.findByRole("link", { name: /Pump interlock/ });
+    expect(row).toHaveTextContent("Disabled");
+    expect(row).toHaveTextContent("Refused");
   });
 
   it.each(["/new", "/rule/edit"])(
@@ -888,7 +994,7 @@ describe("device operating rules", () => {
       api.editable = false;
       setup(suffix);
       await screen.findByText(
-        "Only administrators can create, edit or retire operating rules.",
+        "Only administrators can manage operating rules.",
       );
       expect(api.create).not.toHaveBeenCalled();
       expect(api.update).not.toHaveBeenCalled();
@@ -900,8 +1006,9 @@ describe("device operating rules", () => {
     setup("/rule");
     await screen.findByRole("heading", { name: "Pump interlock" });
     await screen.findByText(/Revision 1/);
+    expect(screen.getByRole("switch", { name: "Rule enabled" })).toBeDisabled();
     expect(
-      screen.queryByRole("button", { name: "Retire operating rule" }),
+      screen.queryByRole("button", { name: "Delete" }),
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("link", { name: "Edit operating rule" }),

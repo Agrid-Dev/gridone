@@ -5,6 +5,7 @@ import type {
   OperatingRuleView,
   OperatingRuleUpdate,
   OperatingRuleRetire,
+  OperatingRuleEnabled,
   OperatingRuleSchemas,
 } from "../types";
 
@@ -35,5 +36,11 @@ export class OperatingRulesResource {
   }
   retire(id: string, body: OperatingRuleRetire): Promise<OperatingRule> {
     return this.request("POST", `${path(id)}/retire`, { body });
+  }
+  setEnabled(id: string, body: OperatingRuleEnabled): Promise<OperatingRule> {
+    return this.request("PATCH", `${path(id)}/enabled`, { body });
+  }
+  delete(id: string, revision: number): Promise<void> {
+    return this.request("DELETE", path(id), { searchParams: { revision } });
   }
 }

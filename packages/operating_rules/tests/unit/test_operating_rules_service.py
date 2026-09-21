@@ -260,3 +260,111 @@ async def test_freshness_duration_must_be_positive_and_finite(definition, max_ag
 async def test_missing_freshness_is_disabled_for_existing_definitions(definition):
     payload = definition.model_dump(exclude={"max_age_seconds"})
     assert OperatingRuleDefinition.model_validate(payload).max_age_seconds is None
+
+
+async def test_disable_edit_reactivate_and_delete_are_audited(
+    service, storage, definition
+):
+    rule = await service.create(definition, "admin")
+    assert rule.enabled
+    disabled = await service.set_enabled(rule.id, "editor", 1, enabled=False)
+    assert not disabled.enabled
+    assert disabled.revision == 2
+    assert disabled.updated_by == "editor"
+    assert service.for_target("a", "command") == []
+    assert service.list_operating_rules()[0].operating_rule == disabled
+    edited = await service.update(rule.id, definition, "editor", 2)
+    assert not edited.enabled
+    enabled = await service.set_enabled(rule.id, "admin", 3, enabled=True)
+    assert service.for_target("a", "command") == [enabled]
+    deleted = await service.delete(rule.id, "editor", 4)
+    assert deleted.deleted_at == deleted.updated_at
+    assert deleted.updated_by == "editor"
+    assert deleted.revision == 5
+    assert service.list_operating_rules() == []
+    assert service.for_target("a", "command") == []
+    with pytest.raises(NotFoundError):
+        service.get(rule.id)
+    with pytest.raises(NotFoundError):
+        await service.set_enabled(rule.id, "admin", 5, enabled=True)
+    revisions = [rule, disabled, edited, enabled, deleted]
+    storage.history.return_value = revisions
+    assert await service.history(rule.id) == revisions
+
+
+@pytest.mark.parametrize("operation", ["disable", "enable", "delete"])
+async def test_lifecycle_rejects_stale_revision(
+    service, storage, definition, operation
+):
+    rule = await service.create(definition, "admin")
+    mutation = (
+        service.delete(rule.id, "admin", 2)
+        if operation == "delete"
+        else service.set_enabled(rule.id, "admin", 2, enabled=operation == "enable")
+    )
+    with pytest.raises(ConflictError):
+        await mutation
+    assert service.get(rule.id) == rule
+    assert storage.save.await_count == 1
+
+
+@pytest.mark.parametrize("operation", ["disable", "delete"])
+async def test_failed_lifecycle_save_keeps_enforcement(
+    service, storage, definition, operation
+):
+    rule = await service.create(definition, "admin")
+    storage.save.side_effect = OSError("unavailable")
+    mutation = (
+        service.delete(rule.id, "admin", 1)
+        if operation == "delete"
+        else service.set_enabled(rule.id, "admin", 1, enabled=False)
+    )
+    with pytest.raises(OSError, match="unavailable"):
+        await mutation
+    assert service.for_target("a", "command") == [rule]
+
+
+async def test_broken_rule_can_be_disabled_and_deleted_but_not_reactivated(
+    service, inspector, definition
+):
+    rule = await service.create(definition, "admin")
+    inspector.return_value = None
+    disabled = await service.set_enabled(rule.id, "admin", 1, enabled=False)
+    with pytest.raises(WriteRejectedError) as error:
+        await service.set_enabled(rule.id, "admin", 2, enabled=True)
+    assert error.value.reasons[0].code == "operating_rule_reference_invalid"
+    assert service.get(rule.id) == disabled
+    await service.delete(rule.id, "admin", 2)
+    assert service.list_operating_rules() == []
+
+
+async def test_activation_rechecks_active_rule_limit(service, definition, monkeypatch):
+    monkeypatch.setattr("operating_rules.service.MAX_RULES", 1)
+    first = await service.create(definition, "admin")
+    await service.set_enabled(first.id, "admin", 1, enabled=False)
+    second = await service.create(definition, "admin")
+    with pytest.raises(WriteRejectedError) as error:
+        await service.set_enabled(first.id, "admin", 2, enabled=True)
+    assert error.value.reasons[0].code == "evaluation_limit"
+    assert service.for_target("a", "command") == [second]
+
+
+@pytest.mark.parametrize("operation", ["enable", "delete"])
+async def test_legacy_retired_rule_can_be_reactivated_or_deleted(
+    service, definition, operation
+):
+    rule = await service.create(definition, "admin")
+    await service.retire(
+        rule.id,
+        OperatingRuleRetirement(
+            reason="Maintenance", actor_id="admin", retired_at=datetime.now(UTC)
+        ),
+        1,
+    )
+    if operation == "enable":
+        enabled = await service.set_enabled(rule.id, "admin", 2, enabled=True)
+        assert enabled.retirement is None
+        assert service.for_target("a", "command") == [enabled]
+    else:
+        await service.delete(rule.id, "admin", 2)
+        assert service.list_operating_rules() == []
