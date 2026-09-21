@@ -48,6 +48,8 @@ const CASES: Case[] = [
   ["delete", (u) => u.delete("u1"), ["DELETE", "/users/u1"]],
   ["block", (u) => u.block("u1"), ["POST", "/users/u1/block"]],
   ["unblock", (u) => u.unblock("u1"), ["POST", "/users/u1/unblock"]],
+  ["listRoles", (u) => u.listRoles(), ["GET", "/users/roles/"]],
+  ["getRole", (u) => u.getRole("viewer"), ["GET", "/users/roles/viewer"]],
   [
     "changePassword",
     (u) => u.changePassword(PASSWORD_CHANGE),

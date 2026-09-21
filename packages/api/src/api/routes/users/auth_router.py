@@ -8,8 +8,8 @@ from api.dependencies import get_auth_service, get_users_service
 from models.errors import NotFoundError
 from users import UsersService
 from users.auth import AuthService, InvalidTokenError
-from users.models import Role, User
-from users.permissions import get_permissions_for_role
+from users.models import User
+from users.roles import get_permissions_for_role
 from users.validation import PasswordField, get_auth_payload_schema
 
 router = APIRouter()
@@ -193,7 +193,7 @@ async def get_auth_schema() -> dict:
 class MeResponse(BaseModel):
     id: str
     username: str
-    role: Role
+    role: str
     name: str
     email: str
     title: str

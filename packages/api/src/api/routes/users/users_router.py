@@ -5,10 +5,12 @@ from pydantic import BaseModel
 
 from api.auth import get_current_token_payload, get_current_user_id, require_permission
 from api.dependencies import get_users_service
-from users import Role, User, UserCreate, UsersService, UserType, UserUpdate
+from models.errors import InvalidError
+from users import User, UserCreate, UsersService, UserType, UserUpdate
 from users.auth import TokenPayload
-from users.models import Role as RoleEnum
-from users.permissions import Permission, get_permissions_for_role
+from users.models import DEFAULT_ROLE_ID
+from users.permissions import Permission
+from users.roles import get_permissions_for_role
 from users.validation import PasswordField, UsernameField
 
 router = APIRouter()
@@ -36,7 +38,7 @@ def _make_display_name(name: str) -> str:
 class UserCreateRequest(BaseModel):
     username: UsernameField
     password: PasswordField
-    role: Role = Role.OPERATOR
+    role: str = DEFAULT_ROLE_ID
     type: UserType = UserType.USER
     name: str = ""
     email: str = ""
@@ -46,7 +48,7 @@ class UserCreateRequest(BaseModel):
 class UserUpdateRequest(BaseModel):
     username: UsernameField | None = None
     password: PasswordField | None = None
-    role: Role | None = None
+    role: str | None = None
     name: str | None = None
     email: str | None = None
     title: str | None = None
@@ -57,7 +59,7 @@ async def list_users(
     payload: Annotated[TokenPayload, Depends(get_current_token_payload)],
     um: Annotated[UsersService, Depends(get_users_service)],
 ) -> list[User] | list[UserBasic]:
-    perms = get_permissions_for_role(RoleEnum(payload.role))
+    perms = get_permissions_for_role(payload.role)
     if Permission.USERS_READ in perms:
         return await um.list_users()
     if Permission.USERS_READ_BASIC in perms:
@@ -82,6 +84,8 @@ async def create_user(
     create_data = UserCreate(**body.model_dump())
     try:
         return await um.create_user(create_data)
+    except InvalidError:
+        raise  # unknown role -> 422 is handled by exception_handlers.py
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail=_USERNAME_TAKEN
@@ -113,6 +117,8 @@ async def update_user(
     try:
         # NotFoundError -> 404 is handled by exception_handlers.py
         return await um.update_user(user_id, update_data)
+    except InvalidError:
+        raise  # unknown role -> 422 is handled by exception_handlers.py
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail=_USERNAME_TAKEN
