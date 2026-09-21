@@ -48,6 +48,7 @@ from commands import (
     UnitCommand,
 )
 from devices_manager import DevicesServiceInterface
+from models.command_confirmation import protection_write_options
 from models.errors import InvalidError
 from models.pagination import Page, PaginationParams
 from models.resource_conflict import ResourceConflictCode, ResourceConflictError
@@ -241,7 +242,9 @@ async def preview_single_command(
     # event loop like every other route, never in a worker thread.
     preview = dm.preview_device_write(device_id, body.attribute, body.value)
     token = None
-    if preview.eligible and preview.user_confirmation is not None:
+    if (
+        preview.eligible and preview.user_confirmation is not None
+    ) or preview.protection_confirmation_required:
         prepared = coordinator.prepare(
             SelectionCommandPrepare(
                 target=DevicesFilterBody(ids=[device_id]),
@@ -276,7 +279,22 @@ async def dispatch_single_command(
         writable=False,
     )
     context = None
-    if body.ui_confirmation_token is not None:
+    protection_confirmation = None
+    if body.acknowledge_unknown_protections:
+        if body.ui_confirmation_token is None:
+            msg = "A protection warning preview must be confirmed first"
+            raise InvalidError(msg)
+        protection_confirmation, context = (
+            coordinator.consume_unit_protection_confirmation(
+                body.ui_confirmation_token,
+                user_id,
+                device_id,
+                body.attribute,
+                body.value,
+                body.confirmation_language or "en",
+            )
+        )
+    elif body.ui_confirmation_token is not None:
         context = coordinator.consume_unit_confirmation(
             body.ui_confirmation_token,
             user_id,
@@ -293,6 +311,7 @@ async def dispatch_single_command(
         user_id=user_id,
         confirm=body.confirm,
         ui_confirmation=context,
+        **protection_write_options(protection_confirmation),
     )
 
 

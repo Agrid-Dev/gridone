@@ -22,6 +22,7 @@ members = [
     "gridone-migrations",
     "gridone-models",
     "gridone-notifications",
+    "gridone-protections",
     "gridone-synoptics",
     "gridone-timeseries",
     "gridone-users",
@@ -362,6 +363,7 @@ version = "0.1.0"
 source = { editable = "apps/cli" }
 dependencies = [
     { name = "gridone-devices-manager" },
+    { name = "gridone-protections" },
     { name = "python-dotenv" },
     { name = "typer" },
 ]
@@ -369,6 +371,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "gridone-devices-manager", editable = "packages/devices_manager" },
+    { name = "gridone-protections", editable = "packages/protections" },
     { name = "python-dotenv", specifier = ">=1.2.1" },
     { name = "typer", specifier = ">=0.20.0" },
 ]
@@ -866,6 +869,7 @@ dependencies = [
     { name = "gridone-device-views" },
     { name = "gridone-models" },
     { name = "gridone-notifications" },
+    { name = "gridone-protections" },
     { name = "gridone-synoptics" },
     { name = "gridone-users" },
     { name = "httpx" },
@@ -885,6 +889,7 @@ requires-dist = [
     { name = "gridone-device-views", editable = "packages/device_views" },
     { name = "gridone-models", editable = "packages/models" },
     { name = "gridone-notifications", editable = "packages/notifications" },
+    { name = "gridone-protections", editable = "packages/protections" },
     { name = "gridone-synoptics", editable = "packages/synoptics" },
     { name = "gridone-users", editable = "packages/users" },
     { name = "httpx", specifier = ">=0.28.1" },
@@ -1070,6 +1075,7 @@ dependencies = [
     { name = "gridone-assets" },
     { name = "gridone-device-views" },
     { name = "gridone-devices-manager" },
+    { name = "gridone-protections" },
     { name = "gridone-timeseries" },
     { name = "gridone-users" },
     { name = "psycopg2-binary" },
@@ -1081,6 +1087,7 @@ requires-dist = [
     { name = "gridone-assets", editable = "packages/assets" },
     { name = "gridone-device-views", editable = "packages/device_views" },
     { name = "gridone-devices-manager", editable = "packages/devices_manager" },
+    { name = "gridone-protections", editable = "packages/protections" },
     { name = "gridone-timeseries", editable = "packages/timeseries" },
     { name = "gridone-users", editable = "packages/users" },
     { name = "psycopg2-binary", specifier = ">=2.9.0" },
@@ -1118,6 +1125,25 @@ requires-dist = [
     { name = "asyncpg", specifier = ">=0.30.0" },
     { name = "gridone-models", editable = "packages/models" },
     { name = "markdown-it-py", specifier = ">=4.0.0" },
+    { name = "yoyo-migrations", specifier = ">=8.2.0" },
+]
+
+[[package]]
+name = "gridone-protections"
+version = "0.1.0"
+source = { editable = "packages/protections" }
+dependencies = [
+    { name = "asyncpg" },
+    { name = "gridone-models" },
+    { name = "pydantic" },
+    { name = "yoyo-migrations" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "asyncpg", specifier = ">=0.30.0" },
+    { name = "gridone-models", editable = "packages/models" },
+    { name = "pydantic", specifier = ">=2.0" },
     { name = "yoyo-migrations", specifier = ">=8.2.0" },
 ]
 

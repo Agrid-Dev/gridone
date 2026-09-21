@@ -7,11 +7,14 @@ export function commandReason(
   reason: WriteReason,
   language = i18n.language || "en",
 ): string {
-  return reason.message
+  const message = reason.message
     ? localize(reason.message, language)
     : i18n.t(`devices:commandReasons.${reason.code}`, {
         defaultValue: "Command unavailable",
       });
+  return reason.protection_explanation
+    ? `${message} ${reason.protection_explanation}`
+    : message;
 }
 export function commandReasons(
   reasons: readonly WriteReason[] | undefined,

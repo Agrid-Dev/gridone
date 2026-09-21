@@ -1,0 +1,13 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Protocol
+
+if TYPE_CHECKING:
+    from models.protections import Protection
+
+
+class ProtectionsStorage(Protocol):
+    async def list_protections(self) -> list[Protection]: ...
+    async def save(self, protection: Protection) -> Protection: ...
+    async def history(self, protection_id: str) -> list[Protection]: ...
+    async def close(self) -> None: ...

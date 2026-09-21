@@ -31,6 +31,7 @@ from .write_guard import WriteGuard
 if TYPE_CHECKING:
     from devices_manager.core.codecs import FnCodec
     from devices_manager.core.driver import AttributeDriver, Driver
+    from devices_manager.core.protections import ProtectionGuard
     from devices_manager.core.transports import (
         ReadResult,
         TransportAddress,
@@ -43,6 +44,7 @@ if TYPE_CHECKING:
         DeviceConfig,
         ReadWriteMode,
     )
+    from models.command_confirmation import ProtectionConfirmation
 
     from .device_base import DeviceBase
 
@@ -171,6 +173,7 @@ class CoreDevice:
     on_write_state_update: Callable[[CoreDevice], None] | None = field(
         default=None, repr=False
     )
+    protection_guard: ProtectionGuard | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         if self.driver.transport != self.transport.protocol:
@@ -814,17 +817,38 @@ class CoreDevice:
             self.on_write_state_update(self)
 
     def evaluate_attribute_write(
-        self, attribute_name: str, value: AttributeValueType
+        self,
+        attribute_name: str,
+        value: AttributeValueType,
+        *,
+        protection_confirmation: ProtectionConfirmation | None = None,
     ) -> WriteEvaluation:
         self.get_attribute(attribute_name)
-        return self._guard.evaluate(attribute_name, value)
+        evaluation = self._guard.evaluate(attribute_name, value)
+        if self.protection_guard is not None:
+            return self.protection_guard.evaluate(
+                self.id, attribute_name, evaluation, protection_confirmation
+            )
+        return evaluation
+
+    def known_attribute_value(self, attribute_name: str) -> AttributeValueType | None:
+        """An acquired, still-trusted observation; this never reads the transport."""
+        return self._guard.known(attribute_name)
 
     def validate_attribute_write(
-        self, attribute_name: str, value: AttributeValueType
+        self,
+        attribute_name: str,
+        value: AttributeValueType,
+        *,
+        protection_confirmation: ProtectionConfirmation | None = None,
     ) -> AttributeValueType:
         """The universal, side-effect-free guard, also used by the direct CLI."""
-        self.get_attribute(attribute_name)
-        return self._guard.check(attribute_name, value)
+        evaluation = self.evaluate_attribute_write(
+            attribute_name, value, protection_confirmation=protection_confirmation
+        )
+        if not evaluation.eligible or evaluation.value is None:
+            raise WriteRejectedError(evaluation.reasons)
+        return evaluation.value
 
     async def write_attribute_value(
         self,
@@ -833,6 +857,7 @@ class CoreDevice:
         *,
         confirm: bool = True,
         confirm_timeout: float = DEFAULT_CONFIRM_TIMEOUT,
+        protection_confirmation: ProtectionConfirmation | None = None,
     ) -> Attribute:
         """Check, encode and send under the write lock; confirm after releasing it.
 
@@ -844,7 +869,9 @@ class CoreDevice:
         """
         attribute = self.get_attribute(attribute_name)
         async with self._write_lock:
-            validated = self._guard.check(attribute_name, value)
+            validated = self.validate_attribute_write(
+                attribute_name, value, protection_confirmation=protection_confirmation
+            )
             spec = self.driver.attributes[attribute_name]
             if spec.write is None:
                 raise WriteRejectedError([WriteReason(code="not_writable")])

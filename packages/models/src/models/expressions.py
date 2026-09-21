@@ -1,7 +1,8 @@
-"""Bounded declarative expressions over one device's attributes.
+"""Bounded declarative expressions over observed device points.
 
 References deliberately retain the existing ``{attribute: name}`` spelling.
-There are no executable strings, paths, external references or named helpers.
+Drivers accept only local references; site rules may use explicit device points.
+There are no executable strings, paths or named helpers.
 """
 
 from __future__ import annotations
@@ -52,6 +53,13 @@ class CandidateRef(ExpressionModel):
     candidate: Literal[True]
 
 
+class DevicePointRef(ExpressionModel):
+    """An explicit observed point, e.g. ``{device_id: pump, attribute: running}``."""
+
+    device_id: Annotated[str, Field(min_length=1)]
+    attribute: Annotated[str, Field(min_length=1)]
+
+
 class ArithmeticExpression(ExpressionModel):
     op: Literal["add", "subtract", "min", "max"]
     args: Annotated[list[Expression], Field(min_length=2, max_length=MAX_LIST_ITEMS)]
@@ -65,7 +73,12 @@ class ChoiceExpression(ExpressionModel):
 
 
 type Expression = (
-    Scalar | AttributeRef | CandidateRef | ArithmeticExpression | ChoiceExpression
+    Scalar
+    | AttributeRef
+    | DevicePointRef
+    | CandidateRef
+    | ArithmeticExpression
+    | ChoiceExpression
 )
 
 

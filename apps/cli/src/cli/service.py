@@ -8,6 +8,7 @@ from typing import Any
 
 from cli.config import get_storage_url
 from devices_manager import DevicesService
+from protections import ProtectionsService
 
 
 @contextlib.asynccontextmanager
@@ -18,11 +19,15 @@ async def service() -> AsyncIterator[DevicesService]:
     CLI commands never start the full service or write to the DB on their own.
     """
     svc = DevicesService(get_storage_url())
-    await svc.load()
+    protections = ProtectionsService(get_storage_url(), svc.inspect_point)
+    await protections.start()
+    svc.set_protection_provider(protections)
     try:
+        await svc.load()
         yield svc
     finally:
         await svc.stop()
+        await protections.stop()
 
 
 def run_async[**P](fn: Callable[P, Coroutine[Any, Any, None]]) -> Callable[P, None]:

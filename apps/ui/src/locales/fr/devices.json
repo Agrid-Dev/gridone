@@ -785,7 +785,12 @@
     "invalid_mapping_value": "Valeur invalide dans la table de l’appareil",
     "mapping_changed": "La table a changé pendant la confirmation",
     "evaluation_limit": "La limite d’évaluation du driver est atteinte",
-    "unknown_attribute": "Attribut inconnu"
+    "unknown_attribute": "Attribut inconnu",
+    "protection_blocked": "Une protection du site interdit cette commande.",
+    "protection_unknown": "Une protection dépend d’une observation inconnue ou périmée.",
+    "protection_reference_invalid": "Une protection référence un point absent ou incompatible.",
+    "protection_cadence_missing": "Un point référencé doit avoir un intervalle de relève ou de réception déclaré.",
+    "protection_unavailable": "Les protections du site n’ont pas pu être évaluées."
   },
   "confirmation": {
     "title": "Confirmer cette modification ?",
@@ -793,7 +798,8 @@
     "cancel": "Annuler",
     "unknown": "Inconnue",
     "accepted": "Confirmé dans l’interface",
-    "noResponse": "Une absence de réponse ne signifie pas que l’appareil n’a pas été modifié."
+    "noResponse": "Une absence de réponse ne signifie pas que l’appareil n’a pas été modifié.",
+    "unknownProtection": "Confirmez uniquement après avoir vérifié l’état des équipements. Cette confirmation sera enregistrée."
   },
   "deleted": "Appareil supprimé"
 }

@@ -41,7 +41,7 @@ function useAttributePreparation(deviceId: string): AttributeWriter {
           value,
         });
         if (signal.aborted) return { kind: "cancelled" };
-        if (!preview.eligible)
+        if (!preview.eligible && !preview.protection_confirmation_required)
           return { kind: "error", message: commandReasons(preview.reasons) };
         const language = i18n?.language || "en";
         if (preview.warnings?.length)
@@ -54,10 +54,14 @@ function useAttributePreparation(deviceId: string): AttributeWriter {
                 attribute,
                 value,
                 confirm: true,
-                ...(preview.user_confirmation
+                ...(preview.user_confirmation ||
+                preview.protection_confirmation_required
                   ? {
                       ui_confirmation_token: preview.confirmation_token,
                       confirmation_language: language,
+                      ...(preview.protection_confirmation_required
+                        ? { acknowledge_unknown_protections: true }
+                        : {}),
                     }
                   : {}),
               });
@@ -73,7 +77,11 @@ function useAttributePreparation(deviceId: string): AttributeWriter {
             return { kind: "ok" };
           },
         };
-        if (!preview.user_confirmation) return prepared;
+        if (
+          !preview.user_confirmation &&
+          !preview.protection_confirmation_required
+        )
+          return prepared;
         if (!preview.confirmation_token) return { kind: "error", message: "" };
         return {
           kind: "confirm",

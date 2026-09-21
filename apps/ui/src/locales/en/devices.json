@@ -785,7 +785,12 @@
     "invalid_mapping_value": "Invalid value in the device table",
     "mapping_changed": "The device table changed during confirmation",
     "evaluation_limit": "The driver evaluation limit was reached",
-    "unknown_attribute": "Unknown attribute"
+    "unknown_attribute": "Unknown attribute",
+    "protection_blocked": "A site protection prohibits this command.",
+    "protection_unknown": "A protection depends on an unknown or stale observation.",
+    "protection_reference_invalid": "A protection references a missing or incompatible device point.",
+    "protection_cadence_missing": "A protection dependency must have a declared polling or push interval.",
+    "protection_unavailable": "Site protections could not be evaluated."
   },
   "confirmation": {
     "title": "Confirm this change?",
@@ -793,7 +798,8 @@
     "cancel": "Cancel",
     "unknown": "Unknown",
     "accepted": "Confirmed in UI",
-    "noResponse": "A missing response does not mean the device was unchanged."
+    "noResponse": "A missing response does not mean the device was unchanged.",
+    "unknownProtection": "Confirm only after checking the equipment state. This acknowledgement will be recorded."
   },
   "deleted": "Deleted device"
 }

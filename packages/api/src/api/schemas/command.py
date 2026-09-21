@@ -65,6 +65,7 @@ class SingleDeviceCommand(BaseModel):
     confirm: bool = True
     ui_confirmation_token: str | None = None
     confirmation_language: LanguageTag | None = None
+    acknowledge_unknown_protections: bool = False
 
 
 class SingleCommandPreview(DeviceWritePreview):

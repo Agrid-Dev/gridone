@@ -33,6 +33,7 @@ from models.expressions import MAX_DEVICE_OPERATIONS
 from models.types import DataType
 from models.write_rules import AttributeWriteState, WriteEvaluation, WriteReason
 
+from .freshness import observation_max_age
 from .trust_expiry import TrustExpiry
 from .value_mapping import decode_mapping, encode_mapping
 from .write_rules import evaluate_write, project_write_state
@@ -73,6 +74,7 @@ class WriteGuard:
         self._on_expired = on_expired
         self._expiry: TrustExpiry | None = None
         self._trusted: set[str] = set()
+        self._observed_at: dict[str, float] = {}
         self._resolved: set[str] = set()
         self._states: dict[str, AttributeWriteState] = {}
         self._decoded: dict[str, Decoded] = {}
@@ -108,6 +110,7 @@ class WriteGuard:
         if self._expiry is not None:
             self._expiry.record_observation()
         self._trusted.add(name)
+        self._observed_at[name] = time.monotonic()
         fresh: dict[str, AttributeValueType | None] = {}
 
         def resolve(ref: str) -> AttributeValueType | None:
@@ -161,6 +164,18 @@ class WriteGuard:
 
     def known(self, name: str) -> AttributeValueType | None:
         """The trusted value of an attribute; ``None`` when it must not be relied on."""
+        self.expire_if_due()
+        deadline = observation_max_age(self._driver, name)
+        observed_at = self._observed_at.get(name)
+        if (
+            deadline is not None
+            and observed_at is not None
+            and time.monotonic() - observed_at >= deadline
+        ):
+            self.forget(name)
+        for dependency in self._mapping_refs.get(name, ()):
+            if self.known(dependency) is None:
+                self._resolved.discard(name)
         return self._values(name) if self._is_known(name) else None
 
     # --- eligibility ------------------------------------------------------
@@ -220,6 +235,8 @@ class WriteGuard:
         a write state, a raw code or a resolution error.
         """
         self.expire_if_due()
+        for name in tuple(self._trusted):
+            self.known(name)
         if not (self._dirty_all or self._dirty or self._published_changed):
             return {}
         names = list(self._driver.attributes) if self._dirty_all else list(self._dirty)
@@ -280,6 +297,8 @@ class WriteGuard:
         for cache in (self._states, self._decoded):
             if old in cache:
                 cache[new] = cache.pop(old)  # type: ignore[assignment]
+        if old in self._observed_at:
+            self._observed_at[new] = self._observed_at.pop(old)
         self.rebind(self._driver)
 
     def watch(self, interval: float | None) -> None:

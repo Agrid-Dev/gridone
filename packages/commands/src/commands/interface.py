@@ -15,7 +15,10 @@ if TYPE_CHECKING:
         CommandTemplatePatch,
         UnitCommand,
     )
-    from models.command_confirmation import UIConfirmationContext
+    from models.command_confirmation import (
+        ProtectionConfirmation,
+        UIConfirmationContext,
+    )
     from models.pagination import Page, PaginationParams
     from models.targets import DevicesFilter
 
@@ -32,9 +35,10 @@ class CommandsServiceInterface(Protocol):
         confirm: bool = True,
         batch_id: str | None = None,
         ui_confirmation: UIConfirmationContext | None = None,
+        protection_confirmation: ProtectionConfirmation | None = None,
     ) -> UnitCommand: ...
 
-    async def dispatch_batch(
+    async def dispatch_batch(  # noqa: PLR0913 -- command dispatch contract
         self,
         *,
         target: DevicesFilter,
@@ -42,6 +46,7 @@ class CommandsServiceInterface(Protocol):
         user_id: str,
         confirm: bool = True,
         ui_confirmations: dict[str, UIConfirmationContext] | None = None,
+        protection_confirmations: dict[str, ProtectionConfirmation] | None = None,
     ) -> BatchCommandDispatch: ...
 
     async def dispatch_from_template(

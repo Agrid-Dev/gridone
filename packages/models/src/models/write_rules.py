@@ -7,6 +7,9 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from models.attribute_metadata import LocalizedText  # noqa: TC001 -- schema runtime
+from models.command_confirmation import (
+    ProtectionConfirmation,  # noqa: TC001 -- pydantic schema
+)
 from models.expressions import MAX_LIST_ITEMS, Condition, Expression, Scalar
 
 
@@ -15,6 +18,8 @@ class WriteReason(BaseModel):
 
     code: Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]*$", max_length=64)]
     message: LocalizedText | None = None
+    protection_id: str | None = None
+    protection_explanation: str | None = None
 
 
 class WriteRule(BaseModel):
@@ -96,3 +101,12 @@ class WriteEvaluation(BaseModel):
     value: Scalar | None = None
     reasons: list[WriteReason] = Field(default_factory=list)
     warnings: list[WriteReason] = Field(default_factory=list)
+    protection_binding: str | None = None
+    unknown_protection_ids: list[str] = Field(default_factory=list)
+    protection_confirmation: ProtectionConfirmation | None = None
+
+    @property
+    def can_confirm_protections(self) -> bool:
+        return bool(self.reasons) and all(
+            reason.code == "protection_unknown" for reason in self.reasons
+        )

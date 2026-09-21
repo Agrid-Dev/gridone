@@ -33,6 +33,9 @@ class DeviceWritePreview(BaseModel):
     current_value_known: bool = False
     attribute_label: LocalizedText | None = None
     unit: str | None = None
+    protection_binding: str | None = None
+    unknown_protection_ids: list[str] = Field(default_factory=list)
+    protection_confirmation_required: bool = False
 
 
 def preview_write(
@@ -68,4 +71,7 @@ def preview_write(
         reasons=evaluation.reasons,
         warnings=evaluation.warnings,
         revision=device.write_state_revision,
+        protection_binding=evaluation.protection_binding,
+        unknown_protection_ids=evaluation.unknown_protection_ids,
+        protection_confirmation_required=evaluation.can_confirm_protections,
     )

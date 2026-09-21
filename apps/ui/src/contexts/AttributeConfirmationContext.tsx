@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import { attributeValueText } from "@/lib/attributeValueLabel";
 import { localize } from "@/lib/localizedText";
+import { commandReasons } from "@/lib/commandReasons";
 
 type ConfirmationRequest = {
   attribute: string;
@@ -107,6 +108,12 @@ export function AttributeConfirmationProvider({
             <DialogDescription>
               {preview?.user_confirmation &&
                 localize(preview.user_confirmation, item.language)}
+              {preview?.protection_confirmation_required && (
+                <span className="block mt-2 text-amber-700">
+                  {commandReasons(preview.reasons, item.language)}{" "}
+                  {t("confirmation.unknownProtection")}
+                </span>
+              )}
             </DialogDescription>
           </DialogHeader>
           {item && (

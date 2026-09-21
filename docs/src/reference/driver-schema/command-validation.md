@@ -4,6 +4,11 @@ Drivers can declare command rules independently of protocols and UI layouts. The
 server evaluates them for every write: HTTP, CLI, automation and grouped command.
 A driver contains data only; expressions cannot execute code or read another device.
 
+The shared language also supports explicit `device_id` point references for
+[site protections](../../guides/commands/protections.md). These remain forbidden in
+drivers (`external_device_reference` at import). Site rules survive driver updates;
+broken point references remain visible and block their targeted writes.
+
 ## Attribute contract
 
 ```yaml

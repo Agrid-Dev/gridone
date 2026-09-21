@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 import pytest_asyncio
@@ -16,7 +16,7 @@ from commands.models import (
     WriteResult,
 )
 from commands.service import CommandsService
-from models.command_confirmation import UIConfirmationContext
+from models.command_confirmation import ProtectionConfirmation, UIConfirmationContext
 from models.errors import (
     ConfirmationError,
     InvalidError,
@@ -35,6 +35,56 @@ pytestmark = pytest.mark.asyncio
 
 
 MODE_AUTO = AttributeWrite(attribute="mode", value="auto", data_type=DataType.STRING)
+
+
+async def test_guard_rejection_retains_acknowledgement_audit(
+    device_writer, result_handler, target_resolver
+):
+    consent = ProtectionConfirmation(
+        binding="binding",
+        protection_ids=["rule"],
+        actor_id="operator",
+        confirmed_at=datetime.now(UTC),
+    )
+    validator = Mock(
+        return_value=WriteEvaluation(
+            eligible=True, value="auto", protection_confirmation=consent
+        )
+    )
+    service = CommandsService(
+        None,
+        device_writer,
+        result_handler,
+        target_resolver,
+        command_validator=validator,
+    )
+    await service.start()
+    device_writer.side_effect = WriteRejectedError(
+        [WriteReason(code="protection_blocked")]
+    )
+    try:
+        with pytest.raises(WriteRejectedError):
+            await service.dispatch_unit(
+                device_id="d1",
+                write=MODE_AUTO,
+                user_id="operator",
+                protection_confirmation=consent,
+            )
+        record = (await service.get_commands()).items[0]
+        assert record.status == CommandStatus.ERROR
+        assert record.validation is not None
+        assert record.validation.protection_confirmation == consent
+        assert record.validation.reasons[0].code == "protection_blocked"
+        assert device_writer.call_args.kwargs["protection_confirmation"] == consent
+        with pytest.raises(InvalidError):
+            await service.dispatch_unit(
+                device_id="d1",
+                write=MODE_AUTO,
+                user_id="another",
+                protection_confirmation=consent,
+            )
+    finally:
+        await service.stop()
 
 
 @pytest.mark.parametrize(

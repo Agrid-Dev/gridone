@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from functools import partial
 from typing import TYPE_CHECKING, Any
 
+from models.command_confirmation import protection_write_options
 from models.errors import (
     ConflictError,
     InvalidError,
@@ -15,6 +16,7 @@ from models.errors import (
     StorageNotInitializedError,
 )
 from models.ids import gen_id
+from models.protections import PointDefinition, PointObservation
 from models.service import Service
 from models.tags import normalize_tags
 from models.yaml_loader import BoundedYamlError
@@ -24,6 +26,7 @@ from .core.device import (
     CoreDevice,
     FaultAttribute,
 )
+from .core.device.freshness import observation_max_age
 from .core.device_registry import DeviceRegistry
 from .core.discovery_manager import (
     DevicesDiscoveryManager,
@@ -40,6 +43,7 @@ from .core.presentation.package import read_payload
 from .core.presentation.package_install import InvalidPresentationError
 from .core.presentation.revision import get_presentation_revision
 from .core.presentation.validation import check_compatibility, validate_presentation
+from .core.protections import ProtectionGuard
 from .core.standard_schemas.registry import default_registry
 from .core.tags import TagMutation, TagMutationResult
 from .core.transport_registry import TransportRegistry
@@ -80,7 +84,11 @@ from .storage.factory import build_storage
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Collection
 
+    from models.command_confirmation import ProtectionConfirmation
+    from models.expressions import DevicePointRef
+    from models.protections import ProtectionProvider
     from models.types import Severity
+    from models.write_rules import WriteEvaluation
 
     from .core.device.connection_status import AttributeLogs
     from .core.driver import Driver
@@ -159,6 +167,7 @@ class DevicesService(Service):
         self._seed_transports = transports if transports is not None else {}
         self._seed_devices = devices if devices is not None else {}
         self._loaded: _LoadedState | None = None
+        self._protection_guard: ProtectionGuard | None = None
         self._load_errors: list[LoadError] = []
         self._running = False
         self._attribute_update_handlers: dict[str, AttributeListener] = {}
@@ -236,6 +245,7 @@ class DevicesService(Service):
             on_attribute_update=self._on_attribute_update,
             on_write_state_update=self._on_write_state_update,
             storage=storage.devices,
+            protection_guard=self._protection_guard,
         )
         self._loaded = _LoadedState(
             storage=storage,
@@ -621,9 +631,14 @@ class DevicesService(Service):
         value: AttributeValueType,
         *,
         confirm: bool = True,
+        protection_confirmation: ProtectionConfirmation | None = None,
     ) -> Attribute:
         return await self._device_registry.write_attribute(
-            device_id, attribute_name, value, confirm=confirm
+            device_id,
+            attribute_name,
+            value,
+            confirm=confirm,
+            **protection_write_options(protection_confirmation),
         )
 
     def get_attribute_logs(self, device_id: str, attribute_name: str) -> AttributeLogs:
@@ -634,6 +649,59 @@ class DevicesService(Service):
     ) -> DeviceWritePreview:
         return preview_write(
             self._device_registry.get(device_id), attribute_name, value
+        )
+
+    def set_protection_provider(self, provider: ProtectionProvider) -> None:
+        """Inject the site-rule owner into existing and future devices."""
+        self._protection_guard = ProtectionGuard(
+            provider, self.inspect_point, self.resolve_point
+        )
+        if self._loaded is not None:
+            self._device_registry.protection_guard = self._protection_guard
+            for device in self._device_registry.all.values():
+                device.protection_guard = self._protection_guard
+
+    def protection_binding(self, device_id: str, attribute: str) -> str | None:
+        return (
+            self._protection_guard.binding(device_id, attribute)
+            if self._protection_guard
+            else None
+        )
+
+    def inspect_point(self, point: DevicePointRef) -> PointDefinition | None:
+        device = self._device_registry.all.get(point.device_id)
+        if device is None or point.attribute not in device.attributes:
+            return None
+        spec = device.driver.attributes.get(point.attribute)
+        if spec is None:
+            return None
+        return PointDefinition(
+            data_type=spec.data_type,
+            writable=spec.write is not None,
+            max_age_seconds=observation_max_age(device.driver, point.attribute),
+        )
+
+    def resolve_point(self, point: DevicePointRef) -> PointObservation:
+        definition = self.inspect_point(point)
+        if definition is None or definition.max_age_seconds is None:
+            return PointObservation(validity="invalid")
+        value = self._device_registry.get(point.device_id).known_attribute_value(
+            point.attribute
+        )
+        return PointObservation(
+            value=value, validity="known" if value is not None else "unknown"
+        )
+
+    def evaluate_device_write(
+        self,
+        device_id: str,
+        attribute: str,
+        value: AttributeValueType,
+        *,
+        protection_confirmation: ProtectionConfirmation | None = None,
+    ) -> WriteEvaluation:
+        return self._device_registry.get(device_id).evaluate_attribute_write(
+            attribute, value, protection_confirmation=protection_confirmation
         )
 
     # -- Faults --
