@@ -1,28 +1,13 @@
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, model_validator
 
 from users.password import hash_password
-from users.permissions import Permission
 
+# A user references its role by id only; the role documents live in
+# ``users.roles`` and this module must not import them.
 DEFAULT_ROLE_ID = "operator"
-
-
-class Role(BaseModel):
-    """A named set of permissions users are assigned to, by id."""
-
-    id: str
-    name: str
-    description: str = ""
-    permissions: list[Permission]
-    builtin: bool = False
-
-    @field_validator("permissions")
-    @classmethod
-    def _sort_permissions(cls, permissions: list[Permission]) -> list[Permission]:
-        """A role's permissions are a set: serve them in one canonical order."""
-        return sorted(permissions)
 
 
 class UserType(StrEnum):
@@ -111,4 +96,4 @@ class UserCreate(BaseModel):
     title: str = ""
 
 
-__all__ = ["Role", "User", "UserCreate", "UserInDB", "UserType", "UserUpdate"]
+__all__ = ["User", "UserCreate", "UserInDB", "UserType", "UserUpdate"]

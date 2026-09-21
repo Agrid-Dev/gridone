@@ -12,7 +12,7 @@ from models.errors import (
 from users import UsersService
 from users.models import UserCreate, UserInDB, UserUpdate
 from users.password import hash_password, verify_password
-from users.storage import MemoryUsersStorage
+from users.storage import MemoryRolesStorage, MemoryUsersStorage, UsersStorages
 
 pytestmark = pytest.mark.asyncio
 
@@ -44,7 +44,7 @@ def service(storage: MemoryUsersStorage) -> UsersService:
     # Inject the shared storage so tests can seed UserInDB rows directly (with
     # pre-computed hashed_password) without paying bcrypt for every fixture.
     # Skipping ``start`` also keeps the default-admin seed out of assertions.
-    svc._storage = storage  # noqa: SLF001
+    svc._storages = UsersStorages(users=storage, roles=MemoryRolesStorage())  # noqa: SLF001
     return svc
 
 
@@ -203,7 +203,9 @@ class TestEnsureDefaultAdmin:
         self, storage: MemoryUsersStorage
     ):
         service = UsersService(storage_url=None, admin_password="configured-password")
-        service._storage = storage  # noqa: SLF001
+        service._storages = UsersStorages(  # noqa: SLF001
+            users=storage, roles=MemoryRolesStorage()
+        )
 
         await service.ensure_default_admin()
 

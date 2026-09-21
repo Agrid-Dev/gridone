@@ -22,6 +22,14 @@ class UsersStorageBackend(Protocol):
 
     async def delete(self, user_id: str) -> None: ...
 
+    async def any_with_role(self, role_id: str) -> bool:
+        """Whether at least one user references ``role_id``.
+
+        The one fact the roles side needs from the users table, asked through
+        the users backend so no roles code ever reads it directly.
+        """
+        ...
+
     async def close(self) -> None: ...
 
 

@@ -37,10 +37,11 @@ def _alice(**overrides: object) -> UserInDB:
 @pytest_asyncio.fixture
 async def storage():
     assert POSTGRES_URL is not None
-    store: PostgresUsersStorage = await build_users_storage(POSTGRES_URL)  # type: ignore[assignment]
+    storages = await build_users_storage(POSTGRES_URL)
+    store: PostgresUsersStorage = storages.users  # type: ignore[assignment]
     await store._pool.execute("DELETE FROM users")  # noqa: SLF001
     yield store
-    await store.close()
+    await storages.close()
 
 
 async def test_save_get_list_delete_round_trip(storage: PostgresUsersStorage):

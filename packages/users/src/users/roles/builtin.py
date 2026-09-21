@@ -1,7 +1,7 @@
 """Built-in roles: defined in code, immutable, served like any other role."""
 
-from users.models import Role
 from users.permissions import Permission
+from users.roles.models import Role
 
 BUILTIN_ROLES: tuple[Role, ...] = (
     Role(
@@ -65,6 +65,13 @@ def find_builtin_role(role_id: str) -> Role | None:
 
 
 def get_permissions_for_role(role_id: str) -> list[str]:
-    """Return the sorted permission strings of a role; none for an unknown id."""
+    """Return the sorted permission strings of a built-in role; none otherwise.
+
+    Transitional: the API resolves permissions through ``UsersService`` once
+    custom roles exist, and this helper goes with it.
+    """
     role = find_builtin_role(role_id)
     return sorted(role.permissions) if role is not None else []
+
+
+__all__ = ["BUILTIN_ROLES", "find_builtin_role", "get_permissions_for_role"]
