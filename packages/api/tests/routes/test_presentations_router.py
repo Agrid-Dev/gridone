@@ -1,9 +1,10 @@
 from dataclasses import asdict
 
+from conftest import ADMIN_PERMISSIONS
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from api.auth import get_current_token_payload
+from api.auth import get_current_permissions, get_current_token_payload
 from api.routes.presentations_router import router
 from devices_manager.core.presentation.capabilities import (
     DOCUMENT_BUDGETS,
@@ -20,6 +21,7 @@ def test_schema_exposes_the_importers_actual_contract(admin_token_payload):
     app = FastAPI()
     app.include_router(router, prefix="/presentations")
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
+    app.dependency_overrides[get_current_permissions] = lambda: ADMIN_PERMISSIONS
     with TestClient(app) as client:
         response = client.get("/presentations/schema")
     assert response.status_code == 200

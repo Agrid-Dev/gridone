@@ -14,6 +14,8 @@ from models.errors import (
 )
 from users import User
 from users.auth import AuthService
+from users.permissions import Permission
+from users.roles import get_permissions_for_role
 from users.validation import (
     PASSWORD_MAX_LENGTH,
     PASSWORD_MIN_LENGTH,
@@ -94,6 +96,9 @@ class MockUsersService:
             return self._users[username]
         msg = f"User '{user_id}' not found"
         raise NotFoundError(msg)
+
+    async def get_role_permissions(self, role_id: str) -> list[Permission]:
+        return [Permission(p) for p in get_permissions_for_role(role_id)]
 
     def set_role(self, username: str, role: str) -> None:
         """Simulate a role change persisted to storage between two requests."""

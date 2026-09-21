@@ -2,10 +2,11 @@ import logging
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from conftest import ADMIN_PERMISSIONS
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from api.auth import get_current_token_payload
+from api.auth import get_current_permissions, get_current_token_payload
 from api.dependencies import get_device_manager, get_ts_service
 from api.exception_handlers import register_exception_handlers
 from api.routes.drivers_router import router
@@ -92,6 +93,7 @@ def app(dm, ts, admin_token_payload) -> FastAPI:
     app.dependency_overrides[get_device_manager] = lambda: dm
     app.dependency_overrides[get_ts_service] = lambda: ts
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
+    app.dependency_overrides[get_current_permissions] = lambda: ADMIN_PERMISSIONS
     return app
 
 

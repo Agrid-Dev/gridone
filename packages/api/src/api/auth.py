@@ -23,7 +23,6 @@ from models.errors import BlockedUserError
 from users import UsersService
 from users.auth import AuthService, InvalidTokenError, TokenPayload
 from users.permissions import Permission
-from users.roles import get_permissions_for_role
 
 _oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token", auto_error=False)
 
@@ -146,13 +145,26 @@ async def get_websocket_token_payload(
     )
 
 
+async def get_current_permissions(
+    payload: TokenPayload = Depends(get_current_token_payload),
+    users_service: UsersService = Depends(get_users_service),
+) -> frozenset[Permission]:
+    """The permissions the caller's role grants right now.
+
+    Resolved from the role document on every request, not from the token: an
+    edit to a custom role applies on the next request, and a role that no
+    longer exists grants nothing.
+    """
+    return frozenset(await users_service.get_role_permissions(payload.role))
+
+
 def require_permission(perm: Permission) -> Callable:
     """Factory that returns a FastAPI dependency enforcing *perm*."""
 
     async def _check(
         payload: TokenPayload = Depends(get_current_token_payload),
+        allowed: frozenset[Permission] = Depends(get_current_permissions),
     ) -> str:
-        allowed = get_permissions_for_role(payload.role)
         if perm not in allowed:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,

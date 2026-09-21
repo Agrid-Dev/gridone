@@ -4,10 +4,15 @@ from typing import TYPE_CHECKING
 
 import pytest
 import pytest_asyncio
+from conftest import ADMIN_PERMISSIONS
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from api.auth import get_current_token_payload, get_current_user_id
+from api.auth import (
+    get_current_permissions,
+    get_current_token_payload,
+    get_current_user_id,
+)
 from api.dependencies import get_device_manager
 from api.exception_handlers import register_exception_handlers
 from api.routes.devices_router import router
@@ -62,6 +67,7 @@ async def integration_app(
     await dm.start()
     app.dependency_overrides[get_device_manager] = lambda: dm
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
+    app.dependency_overrides[get_current_permissions] = lambda: ADMIN_PERMISSIONS
     app.dependency_overrides[get_current_user_id] = lambda: admin_token_payload.sub
     try:
         yield app

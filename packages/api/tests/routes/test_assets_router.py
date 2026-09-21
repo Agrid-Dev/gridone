@@ -2,10 +2,15 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from conftest import ADMIN_PERMISSIONS
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from api.auth import get_current_token_payload, get_current_user_id
+from api.auth import (
+    get_current_permissions,
+    get_current_token_payload,
+    get_current_user_id,
+)
 from api.dependencies import (
     get_assets_service,
     get_building_models_service,
@@ -206,6 +211,7 @@ def app(
     app.dependency_overrides[get_building_models_service] = lambda: models_service
     app.dependency_overrides[get_commands_service] = lambda: mock_commands_service
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
+    app.dependency_overrides[get_current_permissions] = lambda: ADMIN_PERMISSIONS
     app.dependency_overrides[get_current_user_id] = lambda: admin_token_payload.sub
     return app
 

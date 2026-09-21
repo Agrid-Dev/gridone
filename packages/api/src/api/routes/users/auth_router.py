@@ -9,7 +9,6 @@ from models.errors import NotFoundError
 from users import UsersService
 from users.auth import AuthService, InvalidTokenError
 from users.models import User
-from users.roles import get_permissions_for_role
 from users.validation import PasswordField, get_auth_payload_schema
 
 router = APIRouter()
@@ -201,10 +200,10 @@ class MeResponse(BaseModel):
     permissions: list[str]
 
 
-def _me_response(user: User) -> MeResponse:
+async def _me_response(user: User, um: UsersService) -> MeResponse:
     return MeResponse(
         **user.model_dump(),
-        permissions=get_permissions_for_role(user.role),
+        permissions=[str(p) for p in await um.get_role_permissions(user.role)],
     )
 
 
@@ -214,7 +213,7 @@ async def get_me(
     um: Annotated[UsersService, Depends(get_users_service)],
 ) -> MeResponse:
     user = await um.get_by_id(current_user_id)
-    return _me_response(user)
+    return await _me_response(user, um)
 
 
 class PasswordChangeRequest(BaseModel):
@@ -239,4 +238,4 @@ async def change_password(
     user = await um.change_password(
         current_user_id, body.current_password, body.new_password
     )
-    return _me_response(user)
+    return await _me_response(user, um)

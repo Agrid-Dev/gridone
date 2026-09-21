@@ -15,6 +15,7 @@ from api.routes.users.users_router import router as users_router
 from models.errors import BlockedUserError, NotFoundError
 from users import User, UserUpdate
 from users.auth import AuthService
+from users.roles import get_permissions_for_role
 
 ADMIN = User(id="admin-id", username="admin", role="admin", name="Admin User")
 BOB = User(id="bob-id", username="bob", role="operator", name="Bob User")
@@ -59,6 +60,7 @@ def users_manager() -> AsyncMock:
     um.update_user = AsyncMock(side_effect=_update_user)
     um.get_by_id = AsyncMock(side_effect=_get_by_id)
     um.is_blocked = AsyncMock(side_effect=_is_blocked)
+    um.get_role_permissions = AsyncMock(side_effect=get_permissions_for_role)
     um.list_users = AsyncMock(return_value=[ADMIN, BOB])
     um.block_user = AsyncMock(
         side_effect=lambda uid: (

@@ -2,11 +2,16 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from conftest import ADMIN_PERMISSIONS
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
 
-from api.auth import get_current_token_payload, get_current_user_id
+from api.auth import (
+    get_current_permissions,
+    get_current_token_payload,
+    get_current_user_id,
+)
 from api.dependencies import (
     get_assets_service,
     get_commands_service,
@@ -236,6 +241,7 @@ def app(  # noqa: PLR0913 -- dependency overrides use separate fixtures
     app.dependency_overrides[get_commands_service] = lambda: mock_commands_service
     app.dependency_overrides[get_assets_service] = lambda: assets_service
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
+    app.dependency_overrides[get_current_permissions] = lambda: ADMIN_PERMISSIONS
     app.dependency_overrides[get_current_user_id] = lambda: admin_token_payload.sub
     return app
 
@@ -1473,6 +1479,7 @@ def push_app(
     app.dependency_overrides[get_ts_service] = lambda: mock_ts_service
     app.dependency_overrides[get_commands_service] = lambda: mock_commands_service
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
+    app.dependency_overrides[get_current_permissions] = lambda: ADMIN_PERMISSIONS
     app.dependency_overrides[get_current_user_id] = lambda: admin_token_payload.sub
     return app
 

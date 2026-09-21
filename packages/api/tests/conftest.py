@@ -5,6 +5,7 @@ import pytest
 
 from devices_manager.interface import DevicesServiceInterface
 from users.auth import TokenPayload
+from users.permissions import Permission
 from users.validation import PASSWORD_MAX_LENGTH
 
 _ADMIN_PAYLOAD = TokenPayload(
@@ -12,6 +13,11 @@ _ADMIN_PAYLOAD = TokenPayload(
     role="admin",
     exp=datetime.now(UTC) + timedelta(hours=1),
 )
+
+# Router tests that bypass authentication override `get_current_token_payload`
+# with the admin payload and `get_current_permissions` with this, so no users
+# service is needed to resolve what the admin may do.
+ADMIN_PERMISSIONS = frozenset(Permission)
 
 # Bytes vs. characters: bcrypt's 72-byte limit means a multi-byte password can
 # be over it well under PASSWORD_MAX_LENGTH characters (40 "é" is 80 bytes).

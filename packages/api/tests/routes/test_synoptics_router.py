@@ -4,10 +4,15 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from conftest import ADMIN_PERMISSIONS
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from api.auth import get_current_token_payload, get_current_user_id
+from api.auth import (
+    get_current_permissions,
+    get_current_token_payload,
+    get_current_user_id,
+)
 from api.dependencies import get_synoptics_service
 from api.exception_handlers import register_exception_handlers
 from api.routes.synoptics_router import router
@@ -66,6 +71,7 @@ def app(svc, admin_token_payload) -> FastAPI:
     app.include_router(router)
     app.dependency_overrides[get_synoptics_service] = lambda: svc
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
+    app.dependency_overrides[get_current_permissions] = lambda: ADMIN_PERMISSIONS
     app.dependency_overrides[get_current_user_id] = lambda: admin_token_payload.sub
     return app
 

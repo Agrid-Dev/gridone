@@ -3,14 +3,12 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
-from api.auth import get_current_token_payload, get_current_user_id, require_permission
+from api.auth import get_current_permissions, get_current_user_id, require_permission
 from api.dependencies import get_users_service
 from models.errors import InvalidError
 from users import User, UserCreate, UsersService, UserType, UserUpdate
-from users.auth import TokenPayload
 from users.models import DEFAULT_ROLE_ID
 from users.permissions import Permission
-from users.roles import get_permissions_for_role
 from users.validation import PasswordField, UsernameField
 
 router = APIRouter()
@@ -56,10 +54,9 @@ class UserUpdateRequest(BaseModel):
 
 @router.get("/")
 async def list_users(
-    payload: Annotated[TokenPayload, Depends(get_current_token_payload)],
+    perms: Annotated[frozenset[Permission], Depends(get_current_permissions)],
     um: Annotated[UsersService, Depends(get_users_service)],
 ) -> list[User] | list[UserBasic]:
-    perms = get_permissions_for_role(payload.role)
     if Permission.USERS_READ in perms:
         return await um.list_users()
     if Permission.USERS_READ_BASIC in perms:

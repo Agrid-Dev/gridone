@@ -8,6 +8,7 @@ class Permission(StrEnum):
     USERS_READ_BASIC = "users:read:basic"
     USERS_WRITE = "users:write"
     ROLES_READ = "roles:read"
+    ROLES_WRITE = "roles:write"
     DEVICES_READ = "devices:read"
     DEVICES_WRITE = "devices:write"
     DEVICES_COMMAND = "devices:command"
