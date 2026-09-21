@@ -1,3 +1,4 @@
+from users.models import Role
 from users.permissions import Permission
 from users.roles import BUILTIN_ROLES, find_builtin_role, get_permissions_for_role
 
@@ -50,3 +51,17 @@ def test_viewer_permissions():
 def test_unknown_role_has_no_permission():
     assert find_builtin_role("ghost") is None
     assert get_permissions_for_role("ghost") == []
+
+
+def test_role_serves_its_permissions_in_canonical_order():
+    role = Role(
+        id="custom",
+        name="Custom",
+        permissions=[Permission.USERS_READ_BASIC, Permission.ASSETS_READ],
+    )
+    assert role.permissions == [Permission.ASSETS_READ, Permission.USERS_READ_BASIC]
+
+
+def test_builtin_role_documents_match_the_granted_permissions():
+    for role in BUILTIN_ROLES:
+        assert role.permissions == get_permissions_for_role(role.id)
