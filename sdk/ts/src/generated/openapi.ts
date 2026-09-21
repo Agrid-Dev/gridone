@@ -4,6 +4,23 @@
  */
 
 export interface paths {
+  "/protections/schema": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Protection Schemas */
+    get: operations["protection_schemas_protections_schema_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/protections/": {
     parameters: {
       query?: never;
@@ -5905,6 +5922,17 @@ export interface components {
        */
       retired_at: string;
     };
+    /** ProtectionSchemas */
+    ProtectionSchemas: {
+      /** Definition */
+      definition: {
+        [key: string]: components["schemas"]["JsonValue"];
+      };
+      /** Retirement */
+      retirement: {
+        [key: string]: components["schemas"]["JsonValue"];
+      };
+    };
     /** ProtectionTarget */
     ProtectionTarget: {
       /** Device Id */
@@ -7377,7 +7405,7 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-  list_protections_protections__get: {
+  protection_schemas_protections_schema_get: {
     parameters: {
       query?: never;
       header?: never;
@@ -7392,7 +7420,38 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
+          "application/json": components["schemas"]["ProtectionSchemas"];
+        };
+      };
+    };
+  };
+  list_protections_protections__get: {
+    parameters: {
+      query?: {
+        device_id?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
           "application/json": components["schemas"]["ProtectionView"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };

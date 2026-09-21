@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request, status
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from api.auth import get_current_user_id, require_permission
 from api.permissions import Permission
@@ -39,11 +39,28 @@ class RetireProtection(BaseModel):
     revision: int = Field(ge=1)
 
 
+class ProtectionSchemas(BaseModel):
+    definition: dict[str, JsonValue]
+    retirement: dict[str, JsonValue]
+
+
+@router.get(
+    "/schema", dependencies=[Depends(require_permission(Permission.PROTECTIONS_READ))]
+)
+async def protection_schemas() -> ProtectionSchemas:
+    return ProtectionSchemas(
+        definition=ProtectionDefinition.model_json_schema(),
+        retirement=RetireProtection.model_json_schema(),
+    )
+
+
 @router.get(
     "/", dependencies=[Depends(require_permission(Permission.PROTECTIONS_READ))]
 )
-async def list_protections(service: ServiceDep) -> list[ProtectionView]:
-    return service.list_protections()
+async def list_protections(
+    service: ServiceDep, device_id: str | None = None
+) -> list[ProtectionView]:
+    return service.list_protections(device_id)
 
 
 @router.post(

@@ -330,6 +330,7 @@
     "closeMenu": "Close menu",
     "back": {
       "devices": "Back to devices",
+      "protections": "Back to device protections",
       "assets": "Back to zones",
       "faults": "Back to faults",
       "commands": "Back to commands",

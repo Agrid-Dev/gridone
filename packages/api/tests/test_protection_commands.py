@@ -351,3 +351,15 @@ async def test_rule_crud_and_broken_point_diagnostics(harness):
     view = (await harness.client.get(f"/protections/{id_}")).json()
     assert view["reasons"][0]["code"] == "protection_reference_invalid"
     assert not harness.dm.preview_device_write("a", "command", value=True).eligible
+
+
+async def test_device_protections_filter_and_form_schemas(harness):
+    schemas = await harness.client.get("/protections/schema")
+    assert schemas.status_code == 200
+    assert schemas.json()["definition"] == ProtectionDefinition.model_json_schema()
+    assert "reason" in schemas.json()["retirement"]["required"]
+    matching = await harness.client.get("/protections/", params={"device_id": "a"})
+    assert [view["protection"]["id"] for view in matching.json()] == [harness.rule_id]
+    # Referenced devices are not targets of this rule.
+    unrelated = await harness.client.get("/protections/", params={"device_id": "b"})
+    assert unrelated.json() == []

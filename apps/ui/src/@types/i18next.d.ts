@@ -15,10 +15,13 @@ import type synoptics from "../locales/en/synoptics.json";
 import type transports from "../locales/en/transports.json";
 import type users from "../locales/en/users.json";
 
+import type protections from "../locales/en/protections.json";
+
 declare module "i18next" {
   interface CustomTypeOptions {
     defaultNS: "common";
     resources: {
+      protections: typeof protections;
       common: typeof common;
       dashboards: typeof dashboards;
       devices: typeof devices;

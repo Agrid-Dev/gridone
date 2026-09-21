@@ -195,6 +195,7 @@ def _auth_header(token: str) -> dict[str, str]:
     ("method", "endpoint", "write"),
     [
         ("GET", "/protections/", False),
+        ("GET", "/protections/schema", False),
         ("GET", "/protections/rule", False),
         ("GET", "/protections/rule/history", False),
         ("POST", "/protections/", True),

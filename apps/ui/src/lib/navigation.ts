@@ -147,8 +147,10 @@ export const RESOURCE_SECTIONS: Record<string, readonly string[]> = {
   devices: [
     "commands",
     "config",
+    "edit",
     "history",
     "new",
+    "protections",
     "tags",
     "templates",
     "views",
@@ -165,12 +167,21 @@ export const RESOURCE_SECTIONS: Record<string, readonly string[]> = {
 export function resourcePath(url: string): string | null {
   const path = internalUrl(url)?.split(/[?#]/)[0];
   if (!path) return null;
-  const [list, first, second] = path.split("/").filter(Boolean);
+  const [list, first, second, third, fourth] = path.split("/").filter(Boolean);
   // A device view is a resource of its own, one level deeper than the others.
   if (list === "devices" && first === "views")
     return second && second !== "new" ? `/devices/views/${second}` : null;
   const reserved = RESOURCE_SECTIONS[list];
   if (!reserved || !first || reserved.includes(first)) return null;
+  // A missing protection must not mark its parent device as deleted.
+  if (
+    list === "devices" &&
+    second === "config" &&
+    third === "protections" &&
+    fourth &&
+    fourth !== "new"
+  )
+    return `/devices/${first}/config/protections/${fourth}`;
   return `/${list}/${first}`;
 }
 

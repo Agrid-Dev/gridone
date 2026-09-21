@@ -157,7 +157,12 @@
       "error": "Disconnected",
       "unknown": "Unknown"
     },
-    "noHistoryDescription": "No time-series data has been recorded for this device yet."
+    "noHistoryDescription": "No time-series data has been recorded for this device yet.",
+    "configurationTabs": {
+      "label": "Device configuration sections",
+      "general": "General",
+      "protections": "Protections"
+    }
   },
   "attributes": {
     "active_power": "Active power",

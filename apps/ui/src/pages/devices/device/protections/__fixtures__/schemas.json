@@ -1,0 +1,346 @@
+{
+  "definition": {
+    "$defs": {
+      "ArithmeticExpression": {
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "enum": ["add", "subtract", "min", "max"],
+            "title": "Op",
+            "type": "string"
+          },
+          "args": {
+            "items": {
+              "$ref": "#/$defs/Expression"
+            },
+            "maxItems": 256,
+            "minItems": 2,
+            "title": "Args",
+            "type": "array"
+          }
+        },
+        "required": ["op", "args"],
+        "title": "ArithmeticExpression",
+        "type": "object"
+      },
+      "AttributeRef": {
+        "additionalProperties": false,
+        "description": "Current observed value of a sibling attribute, e.g. ``{attribute: limit}``.",
+        "properties": {
+          "attribute": {
+            "minLength": 1,
+            "title": "Attribute",
+            "type": "string"
+          }
+        },
+        "required": ["attribute"],
+        "title": "AttributeRef",
+        "type": "object"
+      },
+      "CandidateRef": {
+        "additionalProperties": false,
+        "description": "The typed proposed value, without changing the observed device state.",
+        "properties": {
+          "candidate": {
+            "const": true,
+            "title": "Candidate",
+            "type": "boolean"
+          }
+        },
+        "required": ["candidate"],
+        "title": "CandidateRef",
+        "type": "object"
+      },
+      "ChoiceExpression": {
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "if",
+            "title": "Op",
+            "type": "string"
+          },
+          "condition": {
+            "$ref": "#/$defs/Condition"
+          },
+          "then": {
+            "$ref": "#/$defs/Expression"
+          },
+          "otherwise": {
+            "$ref": "#/$defs/Expression"
+          }
+        },
+        "required": ["op", "condition", "then", "otherwise"],
+        "title": "ChoiceExpression",
+        "type": "object"
+      },
+      "Comparison": {
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "enum": ["eq", "lt", "lte", "gt", "gte"],
+            "title": "Op",
+            "type": "string"
+          },
+          "left": {
+            "$ref": "#/$defs/Expression"
+          },
+          "right": {
+            "$ref": "#/$defs/Expression"
+          }
+        },
+        "required": ["op", "left", "right"],
+        "title": "Comparison",
+        "type": "object"
+      },
+      "Condition": {
+        "discriminator": {
+          "mapping": {
+            "all": "#/$defs/Junction",
+            "any": "#/$defs/Junction",
+            "eq": "#/$defs/Comparison",
+            "gt": "#/$defs/Comparison",
+            "gte": "#/$defs/Comparison",
+            "in": "#/$defs/Membership",
+            "is_known": "#/$defs/IsKnown",
+            "lt": "#/$defs/Comparison",
+            "lte": "#/$defs/Comparison",
+            "not": "#/$defs/Negation"
+          },
+          "propertyName": "op"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/Comparison"
+          },
+          {
+            "$ref": "#/$defs/Membership"
+          },
+          {
+            "$ref": "#/$defs/IsKnown"
+          },
+          {
+            "$ref": "#/$defs/Negation"
+          },
+          {
+            "$ref": "#/$defs/Junction"
+          }
+        ]
+      },
+      "DevicePointRef": {
+        "additionalProperties": false,
+        "description": "An explicit observed point, e.g. ``{device_id: pump, attribute: running}``.",
+        "properties": {
+          "device_id": {
+            "minLength": 1,
+            "title": "Device Id",
+            "type": "string"
+          },
+          "attribute": {
+            "minLength": 1,
+            "title": "Attribute",
+            "type": "string"
+          }
+        },
+        "required": ["device_id", "attribute"],
+        "title": "DevicePointRef",
+        "type": "object"
+      },
+      "Expression": {
+        "anyOf": [
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "integer"
+          },
+          {
+            "type": "number"
+          },
+          {
+            "type": "string"
+          },
+          {
+            "$ref": "#/$defs/AttributeRef"
+          },
+          {
+            "$ref": "#/$defs/DevicePointRef"
+          },
+          {
+            "$ref": "#/$defs/CandidateRef"
+          },
+          {
+            "$ref": "#/$defs/ArithmeticExpression"
+          },
+          {
+            "$ref": "#/$defs/ChoiceExpression"
+          }
+        ]
+      },
+      "IsKnown": {
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "is_known",
+            "title": "Op",
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/$defs/Expression"
+          }
+        },
+        "required": ["op", "value"],
+        "title": "IsKnown",
+        "type": "object"
+      },
+      "Junction": {
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "enum": ["all", "any"],
+            "title": "Op",
+            "type": "string"
+          },
+          "conditions": {
+            "items": {
+              "$ref": "#/$defs/Condition"
+            },
+            "maxItems": 256,
+            "title": "Conditions",
+            "type": "array"
+          }
+        },
+        "required": ["op", "conditions"],
+        "title": "Junction",
+        "type": "object"
+      },
+      "Membership": {
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "in",
+            "title": "Op",
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/$defs/Expression"
+          },
+          "values": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "maxItems": 256,
+            "title": "Values",
+            "type": "array"
+          }
+        },
+        "required": ["op", "value", "values"],
+        "title": "Membership",
+        "type": "object"
+      },
+      "Negation": {
+        "additionalProperties": false,
+        "properties": {
+          "op": {
+            "const": "not",
+            "title": "Op",
+            "type": "string"
+          },
+          "condition": {
+            "$ref": "#/$defs/Condition"
+          }
+        },
+        "required": ["op", "condition"],
+        "title": "Negation",
+        "type": "object"
+      },
+      "ProtectionTarget": {
+        "additionalProperties": false,
+        "properties": {
+          "device_id": {
+            "minLength": 1,
+            "title": "Device Id",
+            "type": "string"
+          },
+          "attribute": {
+            "minLength": 1,
+            "title": "Attribute",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": ["device_id", "attribute", "value"],
+        "title": "ProtectionTarget",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "name": {
+        "minLength": 1,
+        "title": "Name",
+        "type": "string"
+      },
+      "target": {
+        "$ref": "#/$defs/ProtectionTarget"
+      },
+      "condition": {
+        "$ref": "#/$defs/Condition"
+      },
+      "explanation": {
+        "minLength": 1,
+        "title": "Explanation",
+        "type": "string"
+      }
+    },
+    "required": ["name", "target", "condition", "explanation"],
+    "title": "ProtectionDefinition",
+    "type": "object"
+  },
+  "retirement": {
+    "additionalProperties": false,
+    "properties": {
+      "reason": {
+        "minLength": 1,
+        "title": "Reason",
+        "type": "string"
+      },
+      "revision": {
+        "minimum": 1,
+        "title": "Revision",
+        "type": "integer"
+      }
+    },
+    "required": ["reason", "revision"],
+    "title": "RetireProtection",
+    "type": "object"
+  }
+}

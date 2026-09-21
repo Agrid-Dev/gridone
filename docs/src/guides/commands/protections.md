@@ -4,6 +4,18 @@ A protection refuses a requested write when its condition is not met. It never
 sends a stop. Administrators manage `/protections/`; rules apply to UI, API, CLI,
 automations and grouped commands.
 
+In the UI, open a device, select **Configuration**, then **Protections**. Administrators can
+create a protection, choose a writable attribute and the requested value, then
+build the condition from other device observations. The protected device is fixed
+to the device being configured. Add a name and an explanation, then save.
+
+The tab lists active and retired protections targeting that device. Open a
+protection to inspect its references and revision history, edit it, or retire it
+with a reason. Operators and viewers can inspect protections without changing
+them. If another administrator changes a rule while it is being edited, the form
+keeps the draft and asks the editor to review the latest revision before saving
+again. Missing references stay visible so an administrator can repair them.
+
 Use `POST /protections/` to prevent starting A unless B is observed stopped:
 
 ```json
@@ -23,7 +35,9 @@ A reciprocal interlock is a separate rule with device IDs reversed. Dependencies
 need a polling or expected push cadence. Missing points and incompatible types
 are rejected.
 
-`GET /protections/` includes reference diagnostics. `GET /protections/{id}/history`
+`GET /protections/` includes reference diagnostics; pass `device_id` to filter by
+the protected device. `GET /protections/schema` supplies the definition and
+retirement form schemas. `GET /protections/{id}/history`
 returns every revision. Replace with `PUT /protections/{id}`, including the current
 `revision`. Retire with `POST /protections/{id}/retire`, including `revision` and a
 nonblank `reason`. Retirement retains its author, reason and time.

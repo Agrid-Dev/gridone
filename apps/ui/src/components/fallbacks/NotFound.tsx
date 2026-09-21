@@ -52,6 +52,7 @@ function ResourceNotFound(props: NotFoundFallbackProps) {
       "drivers",
       "automations",
       "views",
+      "protections",
     ].includes(name)
       ? t(`navigation.back.${name}` as "navigation.back.devices")
       : t("common.home");

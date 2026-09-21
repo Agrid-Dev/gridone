@@ -105,4 +105,16 @@ describe("DeviceTabs", () => {
       "aria-current",
     );
   });
+
+  it("keeps Config active throughout the protection configuration flow", () => {
+    renderAt("/devices/d1/config/protections/rule/edit", makeDevice());
+    expect(screen.getByRole("tab", { name: "Config" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.getAllByRole("tab")).toHaveLength(4);
+    expect(
+      screen.queryByRole("tab", { name: "Protections" }),
+    ).not.toBeInTheDocument();
+  });
 });

@@ -137,6 +137,9 @@ async def test_two_directions_and_defensive_copies(service, definition):
         }
     )
     second = await service.create(reverse, "admin")
+    assert [view.protection.id for view in service.list_protections("a")] == [first.id]
+    assert [view.protection.id for view in service.list_protections("b")] == [second.id]
+    assert service.list_protections("missing") == []
     assert service.for_target("a", "command")[0].id == first.id
     assert service.for_target("b", "command")[0].id == second.id
     first.points.clear()

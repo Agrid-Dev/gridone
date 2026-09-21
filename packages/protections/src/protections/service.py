@@ -96,13 +96,14 @@ class ProtectionsService:
             raise NotFoundError(msg)
         return rule.model_copy(deep=True)
 
-    def list_protections(self) -> list[ProtectionView]:
+    def list_protections(self, device_id: str | None = None) -> list[ProtectionView]:
         _ = self.storage
         return [
             ProtectionView(
                 protection=rule.model_copy(deep=True), reasons=self.diagnose(rule)
             )
             for rule in self._rules.values()
+            if device_id is None or rule.target.device_id == device_id
         ]
 
     def diagnose(self, rule: Protection) -> list[WriteReason]:

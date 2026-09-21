@@ -46,6 +46,7 @@ export type {
 } from "./resources/devices";
 export { DriversResource } from "./resources/drivers";
 export { PresentationsResource } from "./resources/presentations";
+export { ProtectionsResource } from "./resources/protections";
 export { SynopticsResource } from "./resources/synoptics";
 export type { DriverAttribute, DriverListParams } from "./resources/drivers";
 export { NotificationsResource } from "./resources/notifications";

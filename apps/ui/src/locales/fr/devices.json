@@ -157,7 +157,12 @@
       "error": "Déconnecté",
       "unknown": "Inconnu"
     },
-    "noHistoryDescription": "Aucune donnée de série temporelle n'a encore été enregistrée pour cet appareil."
+    "noHistoryDescription": "Aucune donnée de série temporelle n'a encore été enregistrée pour cet appareil.",
+    "configurationTabs": {
+      "label": "Sections de configuration de l’appareil",
+      "general": "Général",
+      "protections": "Protections"
+    }
   },
   "attributes": {
     "active_power": "Puissance active",

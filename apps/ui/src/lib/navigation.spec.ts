@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Location } from "react-router";
 import {
   RESOURCE_SECTIONS,
+  canonicalList,
   clearNavigation,
   flushNavigation,
   markResourceDeleted,
@@ -177,5 +178,17 @@ describe("resource sections", () => {
     expect(resourcePath("/devices/views/v1")).toBe("/devices/views/v1");
     expect(resourcePath("/devices/views/new")).toBeNull();
     expect(resourcePath("/users/a")).toBeNull();
+  });
+
+  it("keeps protection detail and edit navigation separate from its parent device", () => {
+    for (const suffix of ["", "/edit"]) {
+      const path = `/devices/a/config/protections/rule${suffix}`;
+      expect(resourcePath(path)).toBe("/devices/a/config/protections/rule");
+      expect(canonicalList(path)).toBe("/devices/a/config/protections");
+    }
+    expect(resourcePath("/devices/a/config/protections")).toBe("/devices/a");
+    expect(resourcePath("/devices/a/config/protections/new")).toBe(
+      "/devices/a",
+    );
   });
 });
