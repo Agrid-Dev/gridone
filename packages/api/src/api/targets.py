@@ -41,7 +41,7 @@ def compute_attribute_coverage(devices: list[Device]) -> list[AttributeCoverage]
     """Count exposure and retain presentation only when the devices agree.
 
     Counts cover every device exposing the attribute; presentation unifies over
-    the *writable* ones, since writing is what these four fields drive — a
+    the *writable* ones, since writing is what the presentation fields drive — a
     read-only device with a different unit must not blank the label a caller
     needs to render its write form. Without any writable device the whole
     exposing set is used, so a read-only attribute still presents itself.
