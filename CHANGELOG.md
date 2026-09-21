@@ -1,3 +1,9 @@
+## v0.254.0 (2026-09-21)
+
+### Feat
+
+- **devices**: name discovered devices from a driver attribute (#672)
+
 ## v0.253.0 (2026-09-21)
 
 ### Feat
