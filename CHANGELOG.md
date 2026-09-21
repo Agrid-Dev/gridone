@@ -1,3 +1,9 @@
+## v0.255.0 (2026-09-21)
+
+### Feat
+
+- **synoptics**: production chaud plate (#671)
+
 ## v0.254.0 (2026-09-21)
 
 ### Feat
