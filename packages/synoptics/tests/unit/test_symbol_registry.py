@@ -33,9 +33,11 @@ HYDRONIC_TYPES = {
     "pump_double",
     "energy_meter",
     "loop_heater",
+    "valve_control",
 }
-"""The six the visual-language spec adds for the hydronic set, and the loop
-heater the panoplie P&IDs put on the bouclage return."""
+"""The six the visual-language spec adds for the hydronic set, the loop
+heater the panoplie P&IDs put on the bouclage return, and the motorised
+two-way valve on the hot-production primary."""
 
 
 def test_the_default_registry_ships_the_types_the_first_plates_use(registry):
@@ -77,6 +79,7 @@ def test_validating_props_for_an_unknown_type_is_an_authoring_error(registry):
         "pump",
         "valve_isolation",
         "valve_check",
+        "valve_control",
         "air_separator",
         "dirt_separator",
         "pump_double",
@@ -96,10 +99,6 @@ def test_free_standing_types_are_not_inline(registry, type_):
     assert registry.get(type_).inline is False
 
 
-def test_a_double_pump_binds_the_run_state_its_single_sibling_has(registry):
-    assert registry.get("pump_double").slots == registry.get("pump").slots == ("state",)
-
-
 def test_a_loop_heater_is_inline_with_a_state_and_a_fault(registry):
     """An electric loop heater sits in the bouclage return and reports marche
     and défaut, the two dry contacts its controller exposes."""
@@ -109,9 +108,21 @@ def test_a_loop_heater_is_inline_with_a_state_and_a_fault(registry):
     assert heater.ports == {}
 
 
-@pytest.mark.parametrize("type_", ["air_separator", "dirt_separator", "energy_meter"])
-def test_the_other_hydronic_inline_types_declare_no_slot_yet(registry, type_):
-    assert registry.get(type_).slots == ()
+@pytest.mark.parametrize(
+    ("type_", "slots"),
+    [
+        ("pump", ("state", "speed")),
+        ("pump_double", ("state",)),
+        ("energy_meter", ("energy",)),
+        ("dirt_separator", ("fault",)),
+        ("valve_control", ("position",)),
+        ("air_separator", ()),
+    ],
+)
+def test_each_hydronic_type_declares_the_slots_its_plates_show(registry, type_, slots):
+    """A slot is declared once a plate shows it; a binding to an undeclared
+    slot stays an authoring error."""
+    assert registry.get(type_).slots == slots
 
 
 def test_a_plate_exchanger_has_a_port_on_each_face(registry):
