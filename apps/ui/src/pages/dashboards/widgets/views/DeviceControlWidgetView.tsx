@@ -1,8 +1,11 @@
 import type { FC } from "react";
-import { Link } from "react-router";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
 import type { DeviceControlWidgetConfig } from "@gridone/sdk";
-import { ConnectionStatusDot } from "@/components/ConnectionStatusBadge";
+import {
+  ConnectionStatusDot,
+  ConnectionStatusValue,
+} from "@/components/ConnectionStatusBadge";
 import { useDeviceById } from "@/hooks/useDeviceById";
 import { useCanSeeConnectionStatus } from "@/hooks/useCanSeeConnectionStatus";
 import { getConnectionStatus } from "@/lib/devices";
@@ -41,19 +44,18 @@ export const DeviceControlWidgetView: FC<{ config: unknown }> = ({
         <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-1.5">
           <Link
             to={`/devices/${device.id}`}
-            className="truncate text-xs font-medium text-foreground hover:underline"
+            className="truncate text-xs font-medium text-primary hover:underline focus-visible:underline"
           >
-            {device.name}
+            {device.name || device.id}
           </Link>
-          {/* Fixed "live" label — the dot alone carries the connection status. */}
+
           <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
             {canSeeConnectionStatus && (
-              <ConnectionStatusDot
-                status={getConnectionStatus(device)}
-                className="animate-pulse"
-              />
+              <>
+                <ConnectionStatusDot status={getConnectionStatus(device)} />
+                <ConnectionStatusValue status={getConnectionStatus(device)} />
+              </>
             )}
-            {t("widgets.deviceControl.live")}
           </span>
         </div>
       )}

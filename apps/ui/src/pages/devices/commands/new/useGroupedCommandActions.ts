@@ -1,6 +1,7 @@
 import { useGroupCommand } from "@/components/group-command/useGroupCommand";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
-import { useState, type BaseSyntheticEvent } from "react";
+import { useEffect, useState, type BaseSyntheticEvent } from "react";
+import { useEntryState } from "@/hooks/useEntryState";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm, type UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -44,7 +45,13 @@ export function useGroupedCommandActions(
 ): GroupedCommandActions {
   const { t } = useTranslation(["devices", "common"]);
   const client = useGridoneClient();
-  const groupCommand = useGroupCommand(command?.payload.target ?? {});
+  const [savedResult, setSavedResult] = useEntryState<
+    DispatchSnapshot | undefined
+  >("command-result", undefined);
+  const groupCommand = useGroupCommand(
+    command?.payload.target ?? {},
+    savedResult?.result,
+  );
   const cache = useQueryClient();
   const [reviewed, setReviewed] = useState<PendingCommand>();
   const save = useMutation({
@@ -65,11 +72,24 @@ export function useGroupedCommandActions(
           result: groupCommand.batch ?? undefined,
           empty: groupCommand.batch?.commands.length === 0,
         }
-      : undefined;
+      : savedResult;
+  useEffect(() => {
+    if (
+      reviewed &&
+      groupCommand.batch &&
+      savedResult?.result?.batch_id !== groupCommand.batch.batch_id
+    ) {
+      setSavedResult({
+        ...reviewed,
+        result: groupCommand.batch,
+        empty: groupCommand.batch.commands.length === 0,
+      });
+    }
+  }, [reviewed, groupCommand.batch, savedResult, setSavedResult]);
   const commandsByDevice = new Map(
     groupCommand.commands.map((item) => [item.device_id, item]),
   );
-  const reviewedIds = new Set(reviewed?.devices.map((device) => device.id));
+  const reviewedIds = new Set(snapshot?.devices.map((device) => device.id));
   const [saveOpen, setSaveOpen] = useState(false);
   const nameForm = useForm({
     resolver: zodResolver(templateNameSchema),
@@ -88,6 +108,7 @@ export function useGroupedCommandActions(
     saveError: save.error,
     clear: () => {
       setReviewed(undefined);
+      setSavedResult(undefined);
       groupCommand.cancel();
     },
     saveOpen,

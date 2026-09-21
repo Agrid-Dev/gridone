@@ -28,7 +28,6 @@ export function useDeviceAssetLink() {
       invalidate();
       toast.success(t("devices.unlinked"));
     },
-    onError: (err: Error) => toast.error(err.message),
   });
 
   return { unlink };

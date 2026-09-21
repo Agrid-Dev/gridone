@@ -1,6 +1,10 @@
 import { tagValues } from "@/lib/devices";
 import { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { useSearchParams } from "react-router";
+import { useResourceNavigation } from "@/hooks/useResourceNavigation";
+import { markResourceDeleted } from "@/lib/navigation";
+import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import { useDevicesList } from "@/hooks/useDevicesList";
 import { useDeviceView, useDeleteDeviceView } from "@/hooks/useDeviceViews";
 import { groupedValues, drilldownFilter } from "./viewFilters";
@@ -32,17 +36,16 @@ export function useViewDetails(id: string) {
   const groupValue = view.data ? groupTagValue(view.data) : null;
   const isGroup = groupValue !== null;
   const remove = useDeleteDeviceView(groupValue);
-  const navigate = useNavigate();
+  const { back } = useResourceNavigation();
+  const { t } = useTranslation();
   const [deleting, setDeleting] = useState(false);
   const selectPath = (values: string[]) =>
     setParams(values.map((value): [string, string] => ["value", value]));
   const deleteView = async () => {
-    try {
-      await remove.mutateAsync(id);
-      navigate("/devices/views");
-    } catch {
-      /* Error rendered beside confirmation. */
-    }
+    await remove.mutateAsync(id);
+    markResourceDeleted(`/devices/views/${id}`);
+    toast.success(t("deletion.success"));
+    back("/devices/views");
   };
   return {
     view,

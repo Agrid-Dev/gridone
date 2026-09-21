@@ -1,62 +1,50 @@
-import React from "react";
-import { useTranslation } from "react-i18next";
-import { Button } from "./ui";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "./ui/alert-dialog";
+import { useState, type ComponentProps, type ReactNode } from "react";
+import { Button } from "./ui/button";
+import { AlertDialogTrigger } from "./ui/alert-dialog";
+import { ConfirmationDialog } from "./ConfirmationDialog";
 
 interface ConfirmButtonProps extends Omit<
-  React.ComponentProps<typeof Button>,
+  ComponentProps<typeof Button>,
   "onClick" | "asChild"
 > {
-  confirmTitle: React.ReactNode;
-  confirmDetails: React.ReactNode;
-  confirmLabel?: React.ReactNode;
-  icon?: React.ReactNode;
-  onConfirm: React.ButtonHTMLAttributes<HTMLButtonElement>["onClick"];
+  confirmTitle: ReactNode;
+  confirmDetails: ReactNode;
+  confirmLabel?: ReactNode;
+  /** An action that is not a deletion says so while it runs and when it fails;
+   *  both default to the deletion wording. */
+  confirmPendingLabel?: ReactNode;
+  confirmErrorLabel?: string;
+  icon?: ReactNode;
+  onConfirm: () => Promise<unknown>;
 }
 
-export const ConfirmButton: React.FC<ConfirmButtonProps> = ({
+export function ConfirmButton({
   confirmTitle,
   confirmDetails,
   confirmLabel,
+  confirmPendingLabel,
+  confirmErrorLabel,
   onConfirm,
   icon,
   children,
   ...buttonProps
-}) => {
-  const { t } = useTranslation();
+}: ConfirmButtonProps) {
+  const [open, setOpen] = useState(false);
   return (
-    <AlertDialog>
+    <ConfirmationDialog
+      open={open}
+      onOpenChange={setOpen}
+      onConfirm={onConfirm}
+      title={confirmTitle}
+      details={confirmDetails}
+      label={confirmLabel ?? children}
+      pendingLabel={confirmPendingLabel}
+      errorLabel={confirmErrorLabel}
+      icon={icon}
+    >
       <AlertDialogTrigger asChild>
         <Button {...buttonProps}>{children}</Button>
       </AlertDialogTrigger>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          {icon && (
-            <div className="bg-muted rounded-sm p-2 self-center">{icon}</div>
-          )}
-          <AlertDialogTitle>{confirmTitle}</AlertDialogTitle>
-          <AlertDialogDescription>{confirmDetails}</AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
-          <AlertDialogAction
-            className="bg-destructive text-white hover:bg-destructive/90"
-            onClick={onConfirm}
-          >
-            {confirmLabel ?? children ?? t("common.delete")}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    </ConfirmationDialog>
   );
-};
+}

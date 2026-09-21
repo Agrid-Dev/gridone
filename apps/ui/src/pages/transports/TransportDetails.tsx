@@ -1,5 +1,6 @@
 import { type FC, type ReactNode, useMemo } from "react";
-import { Link, useParams } from "react-router";
+import { useParams } from "react-router";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
 import { Pencil, RefreshCw } from "lucide-react";
 import type { Transport } from "@gridone/sdk";
@@ -113,7 +114,9 @@ export const TransportDetails: FC<{
               </Button>
               <ResourceDeleteButton
                 onDelete={() => onDelete(transport.id)}
-                confirmTitle={t("deleteConfirmTitle")}
+                confirmTitle={t("common:deletion.title", {
+                  name: transport.name || transport.id,
+                })}
                 confirmDetails={t("deleteConfirm", { name: transport.name })}
                 deleteLabel={t("deleteAction")}
               />

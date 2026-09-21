@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FC } from "react";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import { ArrowUpRight, Cpu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { deviceMeasureReading, formatReading } from "@/lib/deviceSummary";
@@ -78,7 +78,10 @@ export const RoomPanel: FC<{
         </Button>
       </div>
 
-      <div className="mt-3 min-h-0 space-y-2 overflow-y-auto">
+      <div
+        className="mt-3 min-h-0 space-y-2 overflow-y-auto"
+        data-scroll-restoration="room-devices"
+      >
         {state.devices.length === 0 ? (
           <p className="text-xs text-muted-foreground">
             {t("zonesByLevel.viewer.noDevices")}
@@ -104,9 +107,12 @@ export const RoomPanel: FC<{
               >
                 <div className="flex min-w-0 items-center gap-2">
                   <DeviceIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                  <span className="truncate text-xs text-foreground">
+                  <Link
+                    to={`/devices/${device.id}`}
+                    className="truncate text-xs text-primary hover:underline focus-visible:underline"
+                  >
                     {device.name || device.id}
-                  </span>
+                  </Link>
                 </div>
                 <span className="shrink-0 text-xs font-semibold text-foreground">
                   {reading ? formatReading(reading, i18n.language) : "—"}

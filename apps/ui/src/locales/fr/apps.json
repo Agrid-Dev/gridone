@@ -69,6 +69,8 @@
     "discardedToast": "Demande rejet\u00e9e",
     "discardConfirmTitle": "Rejeter la demande",
     "discardConfirmDetails": "Rejeter la demande d'enregistrement de \u00ab {{name}} \u00bb ? Cette action est irr\u00e9versible.",
+    "discardPending": "Rejet\u2026",
+    "discardError": "Rejet impossible. R\u00e9essayez.",
     "showArchive": "Afficher les trait\u00e9es ({{count}})",
     "hideArchive": "Masquer les trait\u00e9es"
   },

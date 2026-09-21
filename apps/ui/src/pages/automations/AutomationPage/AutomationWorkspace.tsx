@@ -1,5 +1,5 @@
+import { BackLink } from "@/components/BackLink";
 import { type FC, type ReactNode } from "react";
-import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 import { ChevronRight, Play, Trash2 } from "lucide-react";
 import type { Automation } from "@gridone/sdk";
@@ -31,7 +31,7 @@ const IDENTITY_FORM_ID = "automation-identity-form";
 interface AutomationWorkspaceProps {
   automationId: string;
   automation: Automation;
-  onDelete: () => void;
+  onDelete: () => Promise<unknown>;
   isDeleting: boolean;
 }
 
@@ -44,7 +44,7 @@ const AutomationWorkspace: FC<AutomationWorkspaceProps> = ({
   onDelete,
   isDeleting,
 }) => {
-  const { t } = useTranslation("automations");
+  const { t } = useTranslation(["automations", "common"]);
   const { t: tCommon } = useTranslation("common");
   const {
     canWrite,
@@ -73,9 +73,7 @@ const AutomationWorkspace: FC<AutomationWorkspaceProps> = ({
         aria-label={t("editPage.breadcrumbLabel")}
         className="flex min-w-0 items-center gap-1 overflow-hidden text-sm text-muted-foreground"
       >
-        <Link to="/automations" className="shrink-0 hover:text-foreground">
-          {t("title")}
-        </Link>
+        <BackLink to="/automations">{t("title")}</BackLink>
         <ChevronRight aria-hidden className="h-4 w-4 shrink-0 opacity-50" />
         <span className="truncate font-medium text-foreground">
           {automation.name}
@@ -89,7 +87,11 @@ const AutomationWorkspace: FC<AutomationWorkspaceProps> = ({
           </div>
           <div className="min-w-0 pt-0.5">
             <div className="flex flex-wrap items-center gap-2.5">
-              <h1 className="truncate font-display text-3xl font-semibold tracking-tight text-foreground">
+              <h1
+                data-page-title
+                tabIndex={-1}
+                className="truncate font-display text-3xl font-semibold tracking-tight text-foreground"
+              >
                 {automation.name}
               </h1>
               <AutomationStatusBadge enabled={enabled} />
@@ -234,7 +236,9 @@ const AutomationWorkspace: FC<AutomationWorkspaceProps> = ({
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="min-w-0">
                   <h2 className="font-display text-base font-semibold text-destructive">
-                    {t("deleteConfirm.title")}
+                    {t("common:deletion.title", {
+                      name: automation.name || automation.id,
+                    })}
                   </h2>
                   <p className="mt-1 text-sm text-muted-foreground">
                     {t("editPage.deleteHint")}
@@ -242,13 +246,20 @@ const AutomationWorkspace: FC<AutomationWorkspaceProps> = ({
                 </div>
                 <ConfirmButton
                   variant="outline"
-                  className="shrink-0 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  className="min-h-11 shrink-0 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
                   disabled={isDeleting}
                   onConfirm={onDelete}
-                  confirmTitle={t("deleteConfirm.title")}
-                  confirmDetails={t("deleteConfirm.details", {
-                    name: automation.name,
+                  confirmTitle={t("common:deletion.title", {
+                    name: automation.name || automation.id,
                   })}
+                  confirmDetails={
+                    <>
+                      {t("deleteConfirm.details", {
+                        name: automation.name || automation.id,
+                      })}{" "}
+                      {t("common:deletion.irreversible")}
+                    </>
+                  }
                   confirmLabel={t("actions.delete")}
                 >
                   <Trash2 aria-hidden />
@@ -304,7 +315,7 @@ function WorkspaceCard({
 /** Provenance footer of the identity card: who created the automation and when
  *  it last changed. */
 function AuthorshipLine({ automation }: { automation: Automation }) {
-  const { t } = useTranslation("automations");
+  const { t } = useTranslation(["automations", "common"]);
   const creator = useUser(automation.created_by);
   const { created_at: createdAt, updated_at: updatedAt } = automation;
 

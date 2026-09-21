@@ -1,3 +1,4 @@
+import { clearNavigation } from "@/lib/navigation";
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -111,6 +112,7 @@ function renderSearch() {
 }
 
 beforeEach(() => {
+  clearNavigation();
   useAssetTree.mockClear();
   useDevicesList.mockClear();
   useFaultsList.mockClear();
@@ -294,7 +296,7 @@ describe("GlobalSearch", () => {
     expect(screen.getByTestId("pathname")).toHaveTextContent("/devices/prefix");
   });
 
-  it("searches devices beyond the initial cap, removes overflow when narrowed, and resets on reopen", async () => {
+  it("searches devices beyond the initial cap, removes overflow when narrowed, and remembers the query on reopen", async () => {
     useDevicesList.mockReturnValue({
       devices: [
         ...Array.from({ length: DEVICE_SEARCH_LIMIT }, (_, i) => ({
@@ -330,8 +332,10 @@ describe("GlobalSearch", () => {
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
     await user.keyboard("{Escape}");
     await user.keyboard("{Meta>}k{/Meta}");
-    expect(await screen.findByRole("combobox")).toHaveValue("");
-    expect(screen.getByRole("status")).toHaveTextContent(capped);
+    expect(await screen.findByRole("combobox")).toHaveValue(
+      "not-found-anywhere",
+    );
+    expect(screen.getByText("No results")).toBeInTheDocument();
   });
 
   it.each([

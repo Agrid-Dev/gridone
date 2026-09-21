@@ -56,3 +56,29 @@ describe("DashboardTabs", () => {
     expect(href("Comfort")).toBe("/dashboards/d2");
   });
 });
+
+const permission = vi.hoisted(() => ({ write: true }));
+vi.mock("@/contexts/AuthContext", () => ({
+  usePermissions: () => () => permission.write,
+}));
+
+it("removes dashboard links from the keyboard path during layout editing", () => {
+  render(
+    <MemoryRouter>
+      <DashboardTabs summaries={SUMMARIES} activeId="d1" disabled />
+    </MemoryRouter>,
+  );
+  expect(screen.queryByRole("link")).not.toBeInTheDocument();
+  expect(screen.getByRole("tab", { name: "Comfort" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "New dashboard" })).toBeDisabled();
+});
+it("keeps consultation without offering creation to a viewer", () => {
+  permission.write = false;
+  renderTabs("/dashboards/d1?last=1d");
+  expect(screen.queryByText("New dashboard")).not.toBeInTheDocument();
+  expect(screen.getByText("Comfort").closest("a")).toHaveAttribute(
+    "href",
+    "/dashboards/d2?last=1d",
+  );
+  permission.write = true;
+});

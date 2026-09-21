@@ -1,6 +1,7 @@
 import React, { FC } from "react";
 import { useDriverFromRoute, useDeleteDriver } from "./useDrivers";
-import { Link, useParams } from "react-router";
+import { useParams } from "react-router";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
 import type { Driver, DriverAttribute } from "@gridone/sdk";
 import {
@@ -59,7 +60,7 @@ const DriverDetails: FC<{
   driver: Driver;
   onDelete: (driverId: string) => Promise<void>;
 }> = ({ driver, onDelete }) => {
-  const { t } = useTranslation("drivers");
+  const { t } = useTranslation(["drivers", "common"]);
   const can = usePermissions();
   const { exportPackage, exporting } = useExportDriverPackage(driver.id);
   return (
@@ -82,7 +83,7 @@ const DriverDetails: FC<{
                 </Button>
                 <ResourceDeleteButton
                   onDelete={() => onDelete(driver.id)}
-                  confirmTitle={t("actions.deleteConfirmTitle")}
+                  confirmTitle={t("common:deletion.title", { name: driver.id })}
                   confirmDetails={t("actions.deleteConfirmDetails")}
                   deleteLabel={t("actions.delete")}
                 />

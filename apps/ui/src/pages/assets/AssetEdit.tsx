@@ -1,3 +1,5 @@
+import { useResourceNavigation } from "@/hooks/useResourceNavigation";
+import { markResourceDeleted } from "@/lib/navigation";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
@@ -18,9 +20,10 @@ import { DeviceLinkDialog } from "./components/DeviceLinkDialog";
 import { usePermissions } from "@/contexts/AuthContext";
 
 export default function AssetEdit() {
-  const { t } = useTranslation("assets");
+  const { t } = useTranslation(["assets", "common"]);
   const { assetId } = useParams<{ assetId: string }>();
   const navigate = useNavigate();
+  const { back } = useResourceNavigation();
   const queryClient = useQueryClient();
   const client = useGridoneClient();
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
@@ -64,7 +67,7 @@ export default function AssetEdit() {
       toast.success(t("updated"));
       navigate(`/assets/${assetId}`);
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: () => toast.error(t("common:errors.default")),
   });
 
   const reorderMutation = useReorderSubzones(assetId);
@@ -75,9 +78,10 @@ export default function AssetEdit() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["assets"] });
       toast.success(t("deleted"));
-      navigate("/assets");
+      markResourceDeleted(`/assets/${assetId}`);
+      back("/assets");
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: () => toast.error(t("common:errors.default")),
   });
 
   if (isLoading || !asset) {
@@ -121,9 +125,9 @@ export default function AssetEdit() {
         canWriteAssets={can("assets:write")}
         canWriteDevices={can("devices:write")}
         onSubmit={handleSubmit}
-        onDelete={() => deleteMutation.mutate()}
+        onDelete={() => deleteMutation.mutateAsync()}
         onLinkDevice={() => setLinkDialogOpen(true)}
-        onUnlinkDevice={(deviceId) => unlink.mutate(deviceId)}
+        onUnlinkDevice={(deviceId) => unlink.mutateAsync(deviceId)}
         onReorder={(orderedIds) => reorderMutation.mutate(orderedIds)}
       />
       <DeviceLinkDialog

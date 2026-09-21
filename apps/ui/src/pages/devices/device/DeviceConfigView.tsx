@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Link, useNavigate } from "react-router";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
 import { Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui";
@@ -27,7 +27,6 @@ function Row({ label, value }: { label: string; value: ReactNode }) {
  *  actions. The editable form lives one level down at `config/edit`. */
 export default function DeviceConfigView() {
   const { t } = useTranslation(["devices", "common"]);
-  const navigate = useNavigate();
   const device = useDeviceFromRoute();
   const can = usePermissions();
   const { handleDelete, isDeleting } = useDeleteDevice();
@@ -103,22 +102,31 @@ export default function DeviceConfigView() {
       {can("devices:write") && (
         <CardFooter className="flex justify-end gap-3">
           <ConfirmButton
-            variant="ghost"
+            variant="outline"
             className="text-destructive hover:text-destructive"
             disabled={isDeleting}
             onConfirm={() => handleDelete(device.id)}
-            confirmTitle={t("devices.actions.deleteDialogTitle")}
-            confirmDetails={t("devices.actions.deleteDialogContent", {
+            confirmTitle={t("common:deletion.title", {
               name: device.name || device.id,
             })}
+            confirmDetails={
+              <>
+                {t("devices.actions.deleteDialogContent", {
+                  name: device.name || device.id,
+                })}{" "}
+                {t("common:deletion.irreversible")}
+              </>
+            }
             confirmLabel={t("devices.actions.delete")}
           >
             <Trash2 className="h-4 w-4" />
             {t("devices.actions.delete")}
           </ConfirmButton>
-          <Button type="button" onClick={() => navigate("edit")}>
-            <Pencil className="h-4 w-4" />
-            {t("devices.actions.edit")}
+          <Button asChild>
+            <Link to="edit">
+              <Pencil className="h-4 w-4" />
+              {t("devices.actions.edit")}
+            </Link>
           </Button>
         </CardFooter>
       )}

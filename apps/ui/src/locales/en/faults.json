@@ -22,6 +22,9 @@
       "severity": "Severity",
       "activeSince": "Active for",
       "since": "Since (timestamp)"
-    }
+    },
+    "filteredEmpty": "No faults match this filter",
+    "clearFilter": "Clear filter",
+    "activeFilter": "Active filter"
   }
 }

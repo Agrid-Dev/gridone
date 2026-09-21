@@ -233,3 +233,15 @@ describe("parseRangeParams / writeRangeParams round-trip", () => {
     expect(written.has("end")).toBe(false);
   });
 });
+
+it.each([
+  "start=garbage",
+  "end=2026-99-99",
+  "start=2026-02-01&end=2026-01-01",
+  "last=not-a-period",
+])("falls back for invalid period %s", (query) => {
+  expect(parseRangeParams(new URLSearchParams(query), "7d")).toEqual({
+    kind: "preset",
+    preset: "7d",
+  });
+});

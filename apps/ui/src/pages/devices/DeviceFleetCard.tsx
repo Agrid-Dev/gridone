@@ -1,9 +1,11 @@
-import { Link } from "react-router";
+import { useResourceNavigation } from "@/hooks/useResourceNavigation";
+import { DeviceFaultBadge } from "@/components/DeviceFaultBadge";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
-import { TriangleAlert } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import type { Device } from "@gridone/sdk";
 import { Card } from "@/components/ui";
-import { ConnectionStatusDot } from "@/components/ConnectionStatusBadge";
+import { ConnectionStatusValue } from "@/components/ConnectionStatusBadge";
 import { EmptyValue } from "@/components/EmptyValue";
 import { useInViewOnce } from "@/hooks/useInViewOnce";
 import { useCanSeeConnectionStatus } from "@/hooks/useCanSeeConnectionStatus";
@@ -14,7 +16,6 @@ import {
   formatReading,
 } from "@/lib/deviceSummary";
 import { activeFaultSummary } from "@/lib/faults";
-import { SEVERITY_TEXT_CLASS } from "@/lib/severity";
 import { cn } from "@/lib/utils";
 import { DeviceModeValue } from "./DeviceModeValue";
 import { DeviceSparkline } from "./DeviceSparkline";
@@ -44,10 +45,11 @@ export function DeviceFleetCard({
   zonePath: string | null;
 }) {
   const { t, i18n } = useTranslation(["devices", "common"]);
-  const [ref, inView] = useInViewOnce<HTMLAnchorElement>({
+  const [ref, inView] = useInViewOnce<HTMLDivElement>({
     rootMargin: "200px",
   });
 
+  const { open } = useResourceNavigation();
   const status = getConnectionStatus(device);
   const canSeeConnectionStatus = useCanSeeConnectionStatus();
   const measure = deviceMeasureReading(device);
@@ -62,8 +64,12 @@ export function DeviceFleetCard({
   const hasVerdictSummary = isPms || Boolean(FleetSummary);
 
   return (
-    <Link ref={ref} to={`/devices/${device.id}`} className="group block h-full">
+    <div ref={ref} className="group block h-full">
       <Card
+        onClick={(event) => {
+          if (!(event.target as HTMLElement).closest("a,button,input"))
+            open(`/devices/${device.id}`);
+        }}
         className={cn(
           "flex h-full flex-col gap-3 p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md",
           faults && CARD_SEVERITY_CLASS[faults.severity],
@@ -72,14 +78,22 @@ export function DeviceFleetCard({
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
             <h3 className="truncate font-display text-sm font-semibold text-card-foreground">
-              {device.name || device.id}
+              <Link
+                to={`/devices/${device.id}`}
+                className="inline-flex items-center gap-1"
+              >
+                {device.name || device.id}
+                <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+              </Link>
             </h3>
             <p className="truncate text-xs text-muted-foreground">
               {zonePath ?? <EmptyValue />}
             </p>
           </div>
           {canSeeConnectionStatus && (
-            <ConnectionStatusDot status={status} className="mt-1.5 shrink-0" />
+            <span className="text-xs">
+              <ConnectionStatusValue status={status} />
+            </span>
           )}
         </div>
 
@@ -117,17 +131,7 @@ export function DeviceFleetCard({
           {!hasVerdictSummary && <DeviceModeValue device={device} />}
           <span className="ml-auto truncate">
             {faults ? (
-              <span
-                className={cn(
-                  "inline-flex items-center gap-1 font-medium",
-                  SEVERITY_TEXT_CLASS[faults.severity],
-                )}
-              >
-                <TriangleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                {t(`common:common.severityCount.${faults.severity}`, {
-                  count: faults.count,
-                })}
-              </span>
+              <DeviceFaultBadge device={device} />
             ) : (
               <span className="text-muted-foreground">
                 {t("devices.card.noFault")}
@@ -136,6 +140,6 @@ export function DeviceFleetCard({
           </span>
         </div>
       </Card>
-    </Link>
+    </div>
   );
 }

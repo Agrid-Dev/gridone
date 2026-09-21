@@ -1,4 +1,4 @@
-import { Link } from "react-router";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pencil, Play, Plus } from "lucide-react";
@@ -23,7 +23,7 @@ import { useAutomationsExecutions } from "./components/useAutomationsExecutions"
 import { executionTime } from "./components/executionsSummary";
 
 export default function AutomationsList() {
-  const { t } = useTranslation("automations");
+  const { t } = useTranslation(["automations", "common"]);
   const can = usePermissions();
   const queryClient = useQueryClient();
   const client = useGridoneClient();
@@ -98,6 +98,8 @@ export default function AutomationsList() {
         <ResourceEmpty
           resourceName={t("singular").toLowerCase()}
           showCreate={canWrite}
+          createTo="/automations/new"
+          createLabel={t("common:empty.create.automations")}
         />
       </section>
     );
@@ -164,7 +166,7 @@ function AutomationCard({
   isMutating: boolean;
   onToggle: () => void;
 }) {
-  const { t } = useTranslation("automations");
+  const { t } = useTranslation(["automations", "common"]);
   const { t: tCommon } = useTranslation("common");
   const enabled = automation.enabled ?? true;
   const Icon = getTriggerDescriptor(automation.trigger.provider_id).icon;
@@ -216,6 +218,12 @@ function AutomationCard({
                         : SEMANTIC_BG_CLASS.error,
                     )}
                   />
+                  {t(
+                    lastExecution.status === "success"
+                      ? "executions.status.success"
+                      : "executions.status.failed",
+                  )}
+                  {" · "}
                   {t("card.lastExecuted", {
                     ago: formatTimeAgo(executionTime(lastExecution), tCommon),
                   })}
@@ -240,6 +248,7 @@ function AutomationCard({
                   <Pencil />
                 </Link>
               </Button>
+              <AutomationStatusBadge enabled={enabled} />
               <Switch
                 checked={enabled}
                 onCheckedChange={onToggle}

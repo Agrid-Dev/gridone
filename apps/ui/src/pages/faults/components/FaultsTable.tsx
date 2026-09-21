@@ -1,4 +1,4 @@
-import { Link } from "react-router";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
 import { EmptyValue } from "@/components/EmptyValue";
 import {
@@ -79,13 +79,22 @@ function FaultTableRow({ row }: { row: FaultRow }) {
       >
         <Link
           to={`/devices/${row.device_id}`}
-          className="text-foreground hover:underline"
+          className="text-primary hover:underline focus-visible:underline"
         >
-          {row.device_name}
+          {row.device_name || row.device_id}
         </Link>
       </TableCell>
       <TableCell className="py-2.5 text-muted-foreground">
-        {row.zone ?? <EmptyValue />}
+        {row.assetId ? (
+          <Link
+            to={`/assets/${row.assetId}`}
+            className="text-primary hover:underline focus-visible:underline"
+          >
+            {row.zone || row.assetId}
+          </Link>
+        ) : (
+          (row.zone ?? <EmptyValue />)
+        )}
       </TableCell>
       <TableCell className="py-2.5">{label}</TableCell>
       <TableCell className="whitespace-nowrap py-2.5">

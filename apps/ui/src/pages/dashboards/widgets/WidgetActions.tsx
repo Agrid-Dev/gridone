@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { FC } from "react";
-import { Link } from "react-router";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
 import { MoreVertical, Pencil, Trash2 } from "lucide-react";
 import type { Widget } from "@gridone/sdk";
@@ -11,16 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { ConfirmationDialog } from "@/components/ConfirmationDialog";
 import { useRemoveWidget } from "../useWidgets";
 
 /** Per-widget actions (edit / delete). Edit leads to the widget editor page,
@@ -31,10 +22,15 @@ export const WidgetActions: FC<{ dashboardId: string; widget: Widget }> = ({
 }) => {
   const { t } = useTranslation(["dashboards", "common"]);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const actionsTrigger = useRef<HTMLButtonElement>(null);
+  const deletedIndex = useRef(0);
   const { removeWidget } = useRemoveWidget(dashboardId);
 
   const handleDelete = () => {
-    removeWidget(widget.id, { onSuccess: () => setDeleteOpen(false) });
+    deletedIndex.current = Array.from(
+      document.querySelectorAll("[data-widget-actions]"),
+    ).indexOf(actionsTrigger.current!);
+    return removeWidget(widget.id);
   };
 
   return (
@@ -42,12 +38,14 @@ export const WidgetActions: FC<{ dashboardId: string; widget: Widget }> = ({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
+            ref={actionsTrigger}
+            data-widget-actions
             variant="secondary"
-            size="icon"
-            className="h-7 w-7 shadow-sm"
+            className="min-h-11 shadow-sm"
             aria-label={t("widgets.actions.label")}
           >
             <MoreVertical className="h-4 w-4" />
+            {t("widgets.actions.label")}
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
@@ -67,25 +65,31 @@ export const WidgetActions: FC<{ dashboardId: string; widget: Widget }> = ({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("widgets.delete.title")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("widgets.delete.details")}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t("common:common.cancel")}</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-white hover:bg-destructive/90"
-              onClick={handleDelete}
-            >
-              {t("widgets.delete.confirm")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmationDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        onConfirm={handleDelete}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          const buttons = document.querySelectorAll<HTMLElement>(
+            "[data-widget-actions]",
+          );
+          (
+            actionsTrigger.current ??
+            buttons[deletedIndex.current] ??
+            buttons[deletedIndex.current - 1] ??
+            document.querySelector<HTMLElement>("[data-page-title]")
+          )?.focus({ preventScroll: true });
+        }}
+        title={t("common:deletion.title", {
+          name: widget.title || t("widgets.untitled"),
+        })}
+        details={
+          <>
+            {t("widgets.delete.details")} {t("common:deletion.irreversible")}
+          </>
+        }
+      />
     </>
   );
 };

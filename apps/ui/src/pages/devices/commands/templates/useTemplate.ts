@@ -10,7 +10,6 @@ import {
 import { toast } from "sonner";
 import { type CommandTemplateResponse, type Device } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
-import { serverErrorMessage } from "@/lib/serverErrorMessage";
 import { devicesFilterToListParams, type DevicesFilter } from "@/lib/devices";
 import { useAssetTree } from "@/hooks/useAssetTree";
 
@@ -51,8 +50,6 @@ export function useTemplate(templateId: string) {
       queryClient.invalidateQueries({ queryKey: ["command-templates"] });
       navigate("/devices/commands/templates");
     },
-    onError: (err) =>
-      toast.error(serverErrorMessage(err) ?? t("common:errors.default")),
   });
 
   return {
@@ -68,7 +65,7 @@ export function useTemplate(templateId: string) {
         target,
       ),
     isExecuting: groupCommand.busy,
-    remove: () => remove.mutate(),
+    remove: () => remove.mutateAsync(),
     isRemoving: remove.isPending,
   };
 }

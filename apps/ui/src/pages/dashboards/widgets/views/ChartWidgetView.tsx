@@ -463,6 +463,7 @@ const FanOutChartView: FC<{
     plotted.map((s) => ({
       key: s.deviceId,
       label: label(s.deviceId, s.interval),
+      href: `/devices/${encodeURIComponent(s.deviceId)}/history?${new URLSearchParams({ metric: target.attribute, ...(query.last ? { last: query.last } : query.start ? { start: query.start, ...(query.end ? { end: query.end } : {}) } : { last: "all" }) })}`,
       points: s.points,
     })),
     target.attribute,

@@ -1,4 +1,4 @@
-import { Link } from "react-router";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ClipboardList } from "lucide-react";
@@ -115,7 +115,7 @@ export default function AppsList() {
                     <div className="min-w-0 flex-1">
                       <Link
                         to={`/apps/${app.id}`}
-                        className="text-sm font-medium text-foreground hover:underline"
+                        className="text-sm font-medium text-primary hover:underline focus-visible:underline"
                       >
                         {app.name}
                       </Link>

@@ -1,4 +1,5 @@
-import { Link, useSearchParams } from "react-router";
+import { useSearchParams } from "react-router";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
@@ -205,7 +206,7 @@ function TemplateRow({
       <TableCell className="font-medium">
         <Link
           to={`/devices/commands/templates/${template.id}`}
-          className="hover:underline"
+          className="text-primary hover:underline focus-visible:underline"
         >
           {template.name}
         </Link>

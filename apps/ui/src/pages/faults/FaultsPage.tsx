@@ -15,7 +15,16 @@ const SUMMARY_ORDER = [...SEVERITIES].reverse();
 
 export default function FaultsPage() {
   const { t } = useTranslation(["faults", "common"]);
-  const { rows, counts, loading, error, exportCsv } = useFaultsPage();
+  const {
+    rows,
+    counts,
+    loading,
+    error,
+    exportCsv,
+    severity: selectedSeverity,
+    setSeverity,
+    total,
+  } = useFaultsPage();
 
   const header = (
     <ResourceHeader
@@ -55,7 +64,7 @@ export default function FaultsPage() {
     );
   }
 
-  if (rows.length === 0) {
+  if (total === 0 && !selectedSeverity) {
     return (
       <section className="space-y-6">
         {header}
@@ -79,6 +88,8 @@ export default function FaultsPage() {
             key={severity}
             severity={severity}
             count={counts[severity]}
+            active={selectedSeverity === severity}
+            onClick={() => setSeverity(severity)}
             label={t(`faults.summary.${severity}`, {
               count: counts[severity],
             })}
@@ -86,7 +97,18 @@ export default function FaultsPage() {
         ))}
       </div>
 
-      <FaultsTable rows={rows} />
+      {rows.length ? (
+        <FaultsTable rows={rows} />
+      ) : (
+        <ResourceEmpty
+          resourceName={t("common:common.fault")}
+          filtered
+          showCreate={false}
+          title={t("faults.filteredEmpty")}
+          clearLabel={t("faults.clearFilter")}
+          onClearFilters={() => setSeverity()}
+        />
+      )}
     </section>
   );
 }

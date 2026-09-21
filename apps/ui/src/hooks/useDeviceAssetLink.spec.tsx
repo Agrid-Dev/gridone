@@ -68,13 +68,18 @@ describe("useDeviceAssetLink", () => {
     }
   });
 
-  it("toasts and refreshes nothing when unlinking fails", async () => {
+  // The confirmation dialog keeps the refusal on screen (AGR-1223 §6), so the hook
+  // raises no toast of its own — and the raw message never reaches the user.
+  it("refreshes nothing when unlinking fails, and leaves the message to the dialog", async () => {
     mockDeleteTag.mockRejectedValue(new Error("boom"));
     const { invalidate, rendered } = setup();
 
     act(() => rendered.result.current.unlink.mutate("thermostat"));
 
-    await waitFor(() => expect(mockToastError).toHaveBeenCalledWith("boom"));
+    await waitFor(() =>
+      expect(rendered.result.current.unlink.isError).toBe(true),
+    );
+    expect(mockToastError).not.toHaveBeenCalled();
     expect(mockToastSuccess).not.toHaveBeenCalled();
     expect(invalidate).not.toHaveBeenCalled();
   });

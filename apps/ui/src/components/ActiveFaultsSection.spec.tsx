@@ -1,5 +1,12 @@
+import type { ReactElement } from "react";
+import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render as rtlRender,
+  screen,
+} from "@testing-library/react";
 import { createI18nMock } from "@/test/i18nMock";
 import { ActiveFaultsSection } from "./ActiveFaultsSection";
 import type { Device } from "@gridone/sdk";
@@ -234,3 +241,7 @@ describe("ActiveFaultsSection", () => {
     expect(screen.queryByText("Temperature")).not.toBeInTheDocument();
   });
 });
+
+function render(element: ReactElement) {
+  return rtlRender(<MemoryRouter>{element}</MemoryRouter>);
+}

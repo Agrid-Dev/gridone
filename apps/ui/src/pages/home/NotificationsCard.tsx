@@ -1,5 +1,5 @@
 import { ComponentType, FC } from "react";
-import { Link } from "react-router";
+import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
 import { Check, CircleAlert, Info, TriangleAlert } from "lucide-react";
 import type { NotificationDispatch } from "@gridone/sdk";

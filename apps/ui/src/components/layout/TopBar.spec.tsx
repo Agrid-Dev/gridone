@@ -1,3 +1,4 @@
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { afterEach, describe, it, expect, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -12,6 +13,7 @@ vi.mock("react-i18next", () =>
     "settings.subtitle": "My profile",
     "auth.logout": "Log out",
     "app.devices": "Devices",
+    "topbar.unread": "Notifications, {{count}} unread",
   }),
 );
 
@@ -30,8 +32,11 @@ vi.mock("@/contexts/AuthContext", () => ({
   }),
 }));
 
+const notificationCount = vi.hoisted(() => ({ value: 0 }));
 vi.mock("@/hooks/useNotifications", () => ({
-  useNotifications: () => ({ page: { total: 0, items: [] } }),
+  useNotifications: () => ({
+    page: { total: notificationCount.value, items: [] },
+  }),
 }));
 
 import { TopBar } from "./TopBar";
@@ -66,7 +71,9 @@ function renderTopBar() {
     <GridoneClientProvider client={fakeClient}>
       <QueryClientProvider client={queryClient}>
         <MemoryRouter initialEntries={["/devices"]}>
-          <TopBar />
+          <TooltipProvider>
+            <TopBar />
+          </TooltipProvider>
         </MemoryRouter>
       </QueryClientProvider>
     </GridoneClientProvider>,
@@ -98,4 +105,13 @@ describe("TopBar", () => {
     renderTopBar();
     expect(screen.queryByText("Tour Mercure")).not.toBeInTheDocument();
   });
+});
+
+it("shows 99+ visually while announcing the exact unread count", () => {
+  notificationCount.value = 105;
+  renderTopBar();
+  expect(
+    screen.getByRole("link", { name: "Notifications, 105 unread" }),
+  ).toHaveTextContent("99+");
+  notificationCount.value = 0;
 });

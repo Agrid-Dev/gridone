@@ -1,3 +1,5 @@
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { clearNavigation } from "@/lib/navigation";
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, cleanup, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -29,6 +31,7 @@ vi.mock("react-i18next", () =>
     "devices.table.mode": "Mode",
     "devices.table.connection": "Connection",
     "devices.table.faults": "Faults",
+    "deviceDetails.activeFaults.badge": "{{count}} fault(s)",
     "devices.card.measured": "{{value}} measured",
     "devices.card.noFault": "No fault",
     "devices.card.trendLabel": "24 h trend",
@@ -134,7 +137,9 @@ const attr = (value: unknown) => ({ current_value: value });
 function renderAt(initialEntries: string[] = ["/devices"]) {
   return render(
     <MemoryRouter initialEntries={initialEntries}>
-      <DevicesList />
+      <TooltipProvider>
+        <DevicesList />
+      </TooltipProvider>
     </MemoryRouter>,
   );
 }
@@ -148,6 +153,7 @@ function lastTableFilter(): DevicesFilter | undefined {
 }
 
 beforeEach(() => {
+  clearNavigation();
   storedView = "table";
   isAdmin = true;
   mockUseDevicesList.mockReturnValue({
@@ -399,7 +405,7 @@ describe("DevicesList — table", () => {
     const row = screen
       .getByRole("link", { name: "CTA Restaurant" })
       .closest("tr");
-    expect(row).toHaveTextContent("1 alert(s)");
+    expect(row).toHaveTextContent("2 fault(s)");
   });
 
   it("dashes out unavailable cells", () => {
@@ -486,8 +492,9 @@ describe("DevicesList — cards", () => {
       error: null,
     });
     renderAt();
-    const card = screen.getByRole("link", { name: /Ch\. 201/ });
-    expect(card).toHaveAttribute("href", "/devices/d1");
+    const link = screen.getByRole("link", { name: /Ch\. 201/ });
+    const card = link.closest(".group");
+    expect(link).toHaveAttribute("href", "/devices/d1");
     expect(card).toHaveTextContent("Floor 2 · Floor 1");
     expect(card).toHaveTextContent("21,0°");
     expect(card).toHaveTextContent("21,4° measured");
@@ -515,8 +522,10 @@ describe("DevicesList — cards", () => {
       error: null,
     });
     renderAt();
-    const card = screen.getByRole("link", { name: /Ch\. 411/ });
-    expect(card).toHaveTextContent("1 alert(s)");
+    const card = screen
+      .getByRole("link", { name: /Ch\. 411/ })
+      .closest(".group");
+    expect(card).toHaveTextContent("1 fault(s)");
     expect(card).not.toHaveTextContent("No fault");
   });
 

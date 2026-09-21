@@ -21,7 +21,7 @@ import { useFeatureEnabled } from "@/utils/featureFlags";
 import { BuildingSwitcher } from "./BuildingSwitcher";
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-  `group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+  `group flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
     isActive
       ? "bg-accent text-accent-foreground"
       : "text-sidebar-foreground hover:bg-accent/60 hover:text-foreground"
@@ -63,7 +63,13 @@ function NavBadge({
   );
 }
 
-export function Sidebar() {
+export function Sidebar({
+  mobile = false,
+  onNavigate,
+}: {
+  mobile?: boolean;
+  onNavigate?: () => void;
+}) {
   const { t } = useTranslation("common");
   const can = usePermissions();
   const { health } = useAuth();
@@ -85,7 +91,23 @@ export function Sidebar() {
      *   z-50  RESERVED for Radix portals (dialog, dropdown, popover, tooltip)
      * The topbar used to sit at z-50 and only won against those overlays by
      * DOM order, which is not a contract. */
-    <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-border bg-sidebar">
+    <aside
+      onClick={(event) => {
+        if (
+          !event.ctrlKey &&
+          !event.metaKey &&
+          !event.shiftKey &&
+          !event.altKey &&
+          (event.target as HTMLElement).closest("a[href]")
+        )
+          onNavigate?.();
+      }}
+      className={
+        mobile
+          ? "h-full w-full"
+          : "fixed left-0 top-0 z-40 hidden h-screen w-64 border-r border-border bg-sidebar lg:block"
+      }
+    >
       <div className="flex h-full flex-col">
         <div className="shrink-0 px-4 py-4">
           <Link

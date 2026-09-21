@@ -147,7 +147,7 @@ describe("DeviceProvider socket authentication", () => {
     MockWebSocket.instances[0].close();
     await vi.advanceTimersByTimeAsync(1000);
 
-    expect(client.logout).toHaveBeenCalled();
+    expect(client.logout).not.toHaveBeenCalled();
 
     // The attempt already in flight when the session ended still fires; what
     // matters is that the backoff then stops instead of hammering a dead

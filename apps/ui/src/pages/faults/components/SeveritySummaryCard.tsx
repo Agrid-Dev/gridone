@@ -1,6 +1,6 @@
 import { Info, TriangleAlert } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import { useTranslation } from "react-i18next";
 import type { Severity } from "@/lib/severity";
 import { cn } from "@/lib/utils";
 
@@ -22,6 +22,8 @@ type SeveritySummaryCardProps = {
   severity: Severity;
   count: number;
   label: string;
+  active?: boolean;
+  onClick?: () => void;
 };
 
 /** One of the three counters above the faults table: how many faults sit at
@@ -30,14 +32,23 @@ export function SeveritySummaryCard({
   severity,
   count,
   label,
+  active = false,
+  onClick,
 }: SeveritySummaryCardProps) {
+  const { t } = useTranslation("faults");
   const Icon = ICON[severity];
 
   return (
-    <Card
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
       data-slot="severity-summary"
       data-severity={severity}
-      className="flex min-h-[5.75rem] items-center gap-4 p-5"
+      className={cn(
+        "flex min-h-[5.75rem] items-center gap-4 rounded-lg border bg-card p-5 text-left shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        active && "border-primary",
+      )}
     >
       <div
         className={cn(
@@ -52,10 +63,15 @@ export function SeveritySummaryCard({
         <p className="font-display text-2xl font-semibold leading-none tabular-nums">
           {count}
         </p>
+        {active && (
+          <p className="mt-1 text-xs font-medium text-primary">
+            {t("faults.activeFilter")}
+          </p>
+        )}
         <p className="mt-1.5 text-sm leading-snug text-muted-foreground">
           {label}
         </p>
       </div>
-    </Card>
+    </button>
   );
 }

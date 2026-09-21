@@ -142,7 +142,9 @@ function renderWorkspace({
   childAssets = [bar],
   onSubmit = vi.fn<(data: AssetFormValues) => void>(),
   onLinkDevice = vi.fn<() => void>(),
-  onUnlinkDevice = vi.fn<(deviceId: string) => void>(),
+  onUnlinkDevice = vi.fn<(deviceId: string) => Promise<unknown>>(
+    async () => {},
+  ),
   onReorder,
 }: {
   mode?: "detail" | "edit";
@@ -152,7 +154,7 @@ function renderWorkspace({
   childAssets?: Asset[];
   onSubmit?: (data: AssetFormValues) => void;
   onLinkDevice?: () => void;
-  onUnlinkDevice?: (deviceId: string) => void;
+  onUnlinkDevice?: (deviceId: string) => Promise<unknown>;
   onReorder?: (orderedIds: string[]) => void;
 } = {}) {
   render(
@@ -170,7 +172,7 @@ function renderWorkspace({
           canWriteAssets={canWriteAssets}
           canWriteDevices={canWriteDevices}
           onSubmit={onSubmit}
-          onDelete={vi.fn<() => void>()}
+          onDelete={vi.fn<() => Promise<unknown>>()}
           onLinkDevice={onLinkDevice}
           onUnlinkDevice={onUnlinkDevice}
           onReorder={onReorder}
@@ -250,7 +252,9 @@ describe("AssetEditWorkspace", () => {
 
   it("unlinks a linked device once the detachment is confirmed", async () => {
     const user = userEvent.setup();
-    const onUnlinkDevice = vi.fn<(deviceId: string) => void>();
+    const onUnlinkDevice = vi.fn<(deviceId: string) => Promise<unknown>>(
+      async () => {},
+    );
     renderWorkspace({ onUnlinkDevice });
 
     await user.click(screen.getByRole("button", { name: "Unlink" }));
@@ -269,7 +273,9 @@ describe("AssetEditWorkspace", () => {
 
   it("abandons the unlink when the confirmation is cancelled", async () => {
     const user = userEvent.setup();
-    const onUnlinkDevice = vi.fn<(deviceId: string) => void>();
+    const onUnlinkDevice = vi.fn<(deviceId: string) => Promise<unknown>>(
+      async () => {},
+    );
     renderWorkspace({ onUnlinkDevice });
 
     await user.click(screen.getByRole("button", { name: "Unlink" }));

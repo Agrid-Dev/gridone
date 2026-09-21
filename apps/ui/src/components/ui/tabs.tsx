@@ -35,7 +35,11 @@ const TabsList = React.forwardRef<
   return (
     <TabsPrimitive.List
       ref={ref}
-      className={cn(tabsListClass[variant], className)}
+      className={cn(
+        tabsListClass[variant],
+        "max-w-full overflow-x-auto",
+        className,
+      )}
       {...props}
     />
   );

@@ -1,5 +1,7 @@
+import type { ReactElement } from "react";
+import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render as rtlRender, screen } from "@testing-library/react";
 import { createI18nMock } from "@/test/i18nMock";
 import { DeviceFaultBadge } from "./DeviceFaultBadge";
 import type { Device } from "@gridone/sdk";
@@ -8,6 +10,7 @@ import type { AttributeFields, FaultAttribute } from "@/lib/faults";
 
 vi.mock("react-i18next", () =>
   createI18nMock({
+    "deviceDetails.activeFaults.badge": "{{count}} active faults",
     "deviceDetails.activeFaults.badge_one": "{{count}} active fault",
     "deviceDetails.activeFaults.badge_other": "{{count}} active faults",
     "common.severity.alert": "alert",
@@ -85,7 +88,13 @@ describe("DeviceFaultBadge", () => {
     );
 
     // 2 active faults, highest severity = alert.
-    expect(screen.getByText("2")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /2 active faults/ }),
+    ).toBeInTheDocument();
     expect(screen.getByLabelText("alert")).toBeInTheDocument();
   });
 });
+
+function render(element: ReactElement) {
+  return rtlRender(<MemoryRouter>{element}</MemoryRouter>);
+}

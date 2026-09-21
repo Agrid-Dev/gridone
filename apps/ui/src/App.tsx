@@ -1,5 +1,9 @@
 import { lazy, Suspense, useEffect } from "react";
-import { Navigate, Route, Routes } from "react-router";
+import { Navigate, Route, Routes, useLocation } from "react-router";
+import { useTranslation } from "react-i18next";
+import { rememberLoginReturn } from "./lib/loginRedirect";
+import { locationUrl } from "./lib/navigation";
+import { useNavigationEntries } from "./hooks/useNavigationEntries";
 import Apps from "./pages/apps";
 import Assets from "./pages/assets";
 import Automations from "./pages/automations";
@@ -16,8 +20,7 @@ import UsersPage from "./pages/users/UsersPage";
 import SettingsPage from "./pages/settings/SettingsPage";
 import Synoptics from "./pages/synoptics";
 import { NotFoundFallback } from "./components/fallbacks/NotFound";
-import { Sidebar } from "./components/layout/Sidebar";
-import { TopBar } from "./components/layout/TopBar";
+import { ShellNavigation } from "./components/layout/ShellNavigation";
 import { Toaster } from "./components/ui/sonner";
 import { TooltipProvider } from "./components/ui/tooltip";
 import { useAuth } from "./contexts/AuthContext";
@@ -30,6 +33,8 @@ const DevicePresentationSandbox = lazy(
 );
 
 function ProtectedLayout() {
+  const { t } = useTranslation();
+  useNavigationEntries();
   const { data: profile } = useBuildingProfile();
   const sandboxEnabled = useFeatureEnabled("uiSandbox");
   const dashboardsEnabled = useFeatureEnabled("dashboards");
@@ -41,11 +46,20 @@ function ProtectedLayout() {
 
   return (
     <div className="min-h-screen bg-background bg-grid">
-      <TopBar />
-      <Sidebar />
-      <div className="ml-64 flex min-h-screen flex-col pt-16">
-        <main className="flex-1">
-          <div className="mx-auto flex max-w-7xl flex-col px-6 py-8 lg:px-8">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-2 focus:z-[60] focus:rounded focus:bg-background focus:p-3 focus:text-primary"
+      >
+        {t("navigation.skip")}
+      </a>
+      <ShellNavigation />
+      <div className="flex min-h-screen min-w-0 flex-col pt-16 lg:ml-64">
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="min-w-0 flex-1 scroll-mt-20"
+        >
+          <div className="mx-auto flex max-w-7xl min-w-0 flex-col px-4 py-8 sm:px-6 lg:px-8">
             <Routes>
               <Route index element={<Home />} />
               {dashboardsEnabled && (
@@ -95,6 +109,12 @@ function ProtectedLayout() {
   );
 }
 
+function LoginRedirect() {
+  const location = useLocation();
+  useEffect(() => rememberLoginReturn(locationUrl(location)), [location]);
+  return <Navigate to="/login" replace />;
+}
+
 export default function App() {
   const { state } = useAuth();
 
@@ -116,7 +136,7 @@ export default function App() {
       <>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
-          <Route path="*" element={<Navigate to="/login" replace />} />
+          <Route path="*" element={<LoginRedirect />} />
         </Routes>
         <Toaster />
       </>
