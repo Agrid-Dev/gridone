@@ -1,3 +1,16 @@
+## v0.253.0 (2026-09-21)
+
+### Feat
+
+- **ui**: make resource navigation consistent
+- **ui**: search devices, filter faults, name dashboard actions
+- **ui**: mobile shell, login return and language preference
+- **ui**: unify resource wording, confirmations and empty states
+
+### Fix
+
+- **ui**: let a confirmation only close once its action answered
+
 ## v0.252.0 (2026-09-19)
 
 ### Feat
