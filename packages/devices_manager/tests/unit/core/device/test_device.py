@@ -26,6 +26,7 @@ from devices_manager.core.driver import (
     FaultAttributeDriver,
     LocalizedText,
     UpdateStrategy,
+    ValueLabel,
     WriteConstraints,
 )
 from devices_manager.core.transports.read_result import ReadError, ReadOk, ReadResult
@@ -1204,6 +1205,39 @@ class TestCoreDeviceAttributeMetadata:
             None,
         )
 
+    def test_value_labels_projected_onto_standard_attribute(
+        self, mock_transport_client
+    ):
+        labels = [
+            ValueLabel(value=True, label=LocalizedText(default="Running")),
+            ValueLabel(value=False, label=LocalizedText(default="Stopped")),
+        ]
+        driver = Driver(
+            metadata=DriverMetadata(id="labelled_bool_driver"),
+            env={},
+            device_config_required=[],
+            transport=TransportProtocols.HTTP,
+            update_strategy=UpdateStrategy(),
+            attributes={
+                "running": AttributeDriver(
+                    name="running",
+                    data_type=DataType.BOOL,
+                    read="GET /running",
+                    codecs=[],
+                    value_labels=labels,
+                )
+            },
+        )
+        device = CoreDevice.from_base(
+            DeviceBase(id="d1", name="Pump", config={}),
+            driver=driver,
+            transport=mock_transport_client,
+        )
+        assert (
+            device.attributes["running"].value_labels
+            == driver.attributes["running"].value_labels
+        )
+
     def test_metadata_projected_onto_fault_attribute(self, mock_transport_client):
         driver = Driver(
             metadata=DriverMetadata(id="fault_metadata_driver"),
@@ -1220,6 +1254,10 @@ class TestCoreDeviceAttributeMetadata:
                     healthy_values=[False],
                     label=LocalizedText(default="Alarm", translations={"fr": "Alarme"}),
                     group="diagnostics",
+                    value_labels=[
+                        ValueLabel(value=True, label=LocalizedText(default="Fault")),
+                        ValueLabel(value=False, label=LocalizedText(default="OK")),
+                    ],
                 )
             },
         )
@@ -1234,6 +1272,7 @@ class TestCoreDeviceAttributeMetadata:
             default="Alarm", translations={"fr": "Alarme"}
         )
         assert alarm.group == "diagnostics"
+        assert alarm.value_labels == driver.attributes["alarm"].value_labels
 
     def test_rebuild_attribute_refreshes_metadata_and_keeps_value(
         self, constrained_driver: Driver, mock_transport_client

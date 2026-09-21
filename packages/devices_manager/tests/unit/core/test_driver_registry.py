@@ -772,6 +772,49 @@ class TestDriverRegistryWriteConstraints:
         assert result.group == "setpoints"
 
     @pytest.mark.asyncio
+    async def test_patch_sets_and_clears_value_labels(self, driver):
+        registry = DriverRegistry({driver.id: driver})
+        await registry.create_driver_attribute(
+            driver.id,
+            AttributeDriver(
+                name="running", data_type=DataType.BOOL, read="GET /run", codecs=[]
+            ),
+        )
+        labels = [
+            {"value": True, "label": {"default": "Running"}},
+            {"value": False, "label": {"default": "Stopped"}},
+        ]
+        result = await registry.patch_driver_attribute(
+            driver.id, "running", {"value_labels": labels}
+        )
+        assert result.value_labels is not None
+        assert [entry.value for entry in result.value_labels] == [False, True]
+        assert result.value_labels[1].label == LocalizedText(default="Running")
+        assert driver.attributes["running"].value_labels == result.value_labels
+
+        cleared = await registry.patch_driver_attribute(
+            driver.id, "running", {"value_labels": None}
+        )
+        assert cleared.value_labels is None
+        assert driver.attributes["running"].value_labels is None
+
+    @pytest.mark.asyncio
+    async def test_patch_value_labels_on_non_bool_rejected(self, driver):
+        registry = DriverRegistry({driver.id: driver})
+        with pytest.raises(InvalidError, match="Invalid attribute configuration"):
+            await registry.patch_driver_attribute(
+                driver.id,
+                "temperature",
+                {
+                    "value_labels": [
+                        {"value": True, "label": {"default": "On"}},
+                        {"value": False, "label": {"default": "Off"}},
+                    ]
+                },
+            )
+        assert driver.attributes["temperature"].value_labels is None
+
+    @pytest.mark.asyncio
     async def test_rename_updates_bounds_that_reference_the_attribute(
         self, constrained_driver
     ):

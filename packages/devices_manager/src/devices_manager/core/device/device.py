@@ -71,6 +71,7 @@ def _metadata_kwargs(attribute_driver: AttributeDriver) -> dict[str, Any]:
         "user_confirmation": attribute_driver.user_confirmation,
         "group": attribute_driver.group,
         "unit": attribute_driver.unit,
+        "value_labels": attribute_driver.value_labels,
         "write_constraints": attribute_driver.write_constraints,
         "default_value": attribute_driver.default_value,
     }

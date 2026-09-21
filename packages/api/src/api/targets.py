@@ -69,6 +69,9 @@ def compute_attribute_coverage(devices: list[Device]) -> list[AttributeCoverage]
                 writable_count=len(writable),
                 label=_unanimous([d.attributes[name].label for d in presenting]),
                 unit=_unanimous([d.attributes[name].unit for d in presenting]),
+                value_labels=_unanimous(
+                    [d.attributes[name].value_labels for d in presenting]
+                ),
                 default_value=_unanimous(
                     [d.attributes[name].default_value for d in presenting]
                 ),

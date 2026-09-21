@@ -9,7 +9,12 @@ from devices_manager.core.device.attribute import (
     AttributeKind,
     FaultAttribute,
 )
-from devices_manager.core.driver import AttributeRef, LocalizedText, WriteConstraints
+from devices_manager.core.driver import (
+    AttributeRef,
+    LocalizedText,
+    ValueLabel,
+    WriteConstraints,
+)
 from devices_manager.types import DataType
 from models.types import Severity
 
@@ -400,3 +405,20 @@ def test_attribute_metadata_round_trips_through_validation():
     restored = Attribute.model_validate(_annotated_attribute().model_dump(mode="json"))
     assert restored.write_constraints == _CONSTRAINTS
     assert restored.label == _LABEL
+
+
+def test_value_labels_serialize_when_set_and_round_trip():
+    labels = [
+        ValueLabel(value=True, label=LocalizedText(default="Running")),
+        ValueLabel(value=False, label=LocalizedText(default="Stopped")),
+    ]
+    attr = Attribute.create("running", DataType.BOOL, {"read"}).model_copy(
+        update={"value_labels": labels}
+    )
+    dumped = attr.model_dump(mode="json")
+    assert set(dumped) == _PLAIN_ATTRIBUTE_KEYS | {"value_labels"}
+    assert dumped["value_labels"] == [
+        {"value": True, "label": {"default": "Running", "translations": {}}},
+        {"value": False, "label": {"default": "Stopped", "translations": {}}},
+    ]
+    assert Attribute.model_validate(dumped).value_labels == labels

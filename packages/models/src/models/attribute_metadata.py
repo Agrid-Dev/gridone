@@ -13,6 +13,7 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    StrictBool,
     StringConstraints,
     model_validator,
 )
@@ -72,6 +73,19 @@ class LocalizedText(BaseModel):
             return exact
         base_language = language.split("-", 1)[0].lower()
         return self.translations.get(base_language, self.default)
+
+
+class ValueLabel(BaseModel):
+    """Human wording for one state of a boolean attribute.
+
+    ``value`` is strict: ``0`` / ``1`` are rejected rather than coerced, since
+    Python treats ``True`` as an ``int``.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    value: StrictBool
+    label: LocalizedText
 
 
 Bound = Expression
