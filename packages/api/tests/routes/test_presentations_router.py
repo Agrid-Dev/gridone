@@ -1,6 +1,5 @@
 from dataclasses import asdict
 
-from conftest import ADMIN_PERMISSIONS
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -15,13 +14,14 @@ from devices_manager.core.presentation.models import PresentationV1
 from devices_manager.core.presentation.package import DEFAULT_PACKAGE_LIMITS
 from devices_manager.core.presentation.resource import DEFAULT_IMAGE_LIMITS
 from models.yaml_loader import DEFAULT_YAML_LIMITS
+from users.permissions import Permission
 
 
 def test_schema_exposes_the_importers_actual_contract(admin_token_payload):
     app = FastAPI()
     app.include_router(router, prefix="/presentations")
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
-    app.dependency_overrides[get_current_permissions] = lambda: ADMIN_PERMISSIONS
+    app.dependency_overrides[get_current_permissions] = lambda: frozenset(Permission)
     with TestClient(app) as client:
         response = client.get("/presentations/schema")
     assert response.status_code == 200

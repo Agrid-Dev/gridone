@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING
 
 import pytest
 import pytest_asyncio
-from conftest import ADMIN_PERMISSIONS
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
@@ -24,6 +23,7 @@ from devices_manager.core.transports.http_transport import (
     HttpTransportConfig,
 )
 from devices_manager.types import TransportProtocols
+from users.permissions import Permission
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -67,7 +67,7 @@ async def integration_app(
     await dm.start()
     app.dependency_overrides[get_device_manager] = lambda: dm
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
-    app.dependency_overrides[get_current_permissions] = lambda: ADMIN_PERMISSIONS
+    app.dependency_overrides[get_current_permissions] = lambda: frozenset(Permission)
     app.dependency_overrides[get_current_user_id] = lambda: admin_token_payload.sub
     try:
         yield app

@@ -8,7 +8,6 @@ from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
 
 import pytest
-from conftest import ADMIN_PERMISSIONS
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -26,6 +25,7 @@ from apps.errors import (
 )
 from models.errors import InvalidError, NotFoundError
 from users.auth import TokenPayload
+from users.permissions import Permission
 
 NOW = datetime.now(UTC)
 
@@ -93,7 +93,9 @@ def app(apps_service: AsyncMock) -> FastAPI:
     test_app = FastAPI()
     test_app.dependency_overrides[get_apps_service] = lambda: apps_service
     test_app.dependency_overrides[get_current_token_payload] = lambda: ADMIN_PAYLOAD
-    test_app.dependency_overrides[get_current_permissions] = lambda: ADMIN_PERMISSIONS
+    test_app.dependency_overrides[get_current_permissions] = lambda: frozenset(
+        Permission
+    )
     test_app.include_router(apps_router, prefix="/apps")
     register_exception_handlers(test_app)
     return test_app

@@ -2,7 +2,6 @@ import logging
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from conftest import ADMIN_PERMISSIONS
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -16,6 +15,7 @@ from devices_manager.dto import Device, DriverSpec
 from devices_manager.types import DataType, TransportProtocols
 from models.errors import ConflictError, NotFoundError
 from timeseries.service import TimeSeriesService
+from users.permissions import Permission
 
 _ATTRIBUTE = AttributeDriver(
     name="temperature",
@@ -93,7 +93,7 @@ def app(dm, ts, admin_token_payload) -> FastAPI:
     app.dependency_overrides[get_device_manager] = lambda: dm
     app.dependency_overrides[get_ts_service] = lambda: ts
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
-    app.dependency_overrides[get_current_permissions] = lambda: ADMIN_PERMISSIONS
+    app.dependency_overrides[get_current_permissions] = lambda: frozenset(Permission)
     return app
 
 

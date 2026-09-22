@@ -1,7 +1,6 @@
 from unittest.mock import AsyncMock
 
 import pytest
-from conftest import ADMIN_PERMISSIONS
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -13,6 +12,7 @@ from devices_manager import DevicesServiceInterface
 from devices_manager.core.presentation.resources import StoredResource
 from devices_manager.dto.presentation_dto import UnavailablePresentationResponse
 from models.errors import ConflictError, NotFoundError
+from users.permissions import Permission
 
 
 @pytest.fixture
@@ -34,7 +34,7 @@ def client(dm, admin_token_payload):
     app.include_router(router, prefix="/devices")
     app.dependency_overrides[get_device_manager] = lambda: dm
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
-    app.dependency_overrides[get_current_permissions] = lambda: ADMIN_PERMISSIONS
+    app.dependency_overrides[get_current_permissions] = lambda: frozenset(Permission)
     with TestClient(app) as client:
         yield client
 

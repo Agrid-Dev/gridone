@@ -6,7 +6,6 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import pytest_asyncio
-from conftest import ADMIN_PERMISSIONS
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
@@ -22,6 +21,7 @@ from timeseries.domain import (
     DataType,
     SeriesKey,
 )
+from users.permissions import Permission
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -68,7 +68,7 @@ def app(ts_service: TimeSeriesService, admin_token_payload) -> FastAPI:
     app.include_router(router)
     app.dependency_overrides[get_ts_service] = lambda: ts_service
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
-    app.dependency_overrides[get_current_permissions] = lambda: ADMIN_PERMISSIONS
+    app.dependency_overrides[get_current_permissions] = lambda: frozenset(Permission)
     app.dependency_overrides[get_device_manager] = _make_dm
     return app
 
@@ -522,7 +522,9 @@ class TestExportPng:
         app.dependency_overrides[get_current_token_payload] = lambda: (
             admin_token_payload
         )
-        app.dependency_overrides[get_current_permissions] = lambda: ADMIN_PERMISSIONS
+        app.dependency_overrides[get_current_permissions] = lambda: frozenset(
+            Permission
+        )
         app.dependency_overrides[get_device_manager] = _make_dm
         return app
 
@@ -590,7 +592,9 @@ class TestOldPathsGone:
         app.dependency_overrides[get_current_token_payload] = lambda: (
             admin_token_payload
         )
-        app.dependency_overrides[get_current_permissions] = lambda: ADMIN_PERMISSIONS
+        app.dependency_overrides[get_current_permissions] = lambda: frozenset(
+            Permission
+        )
         app.dependency_overrides[get_device_manager] = _make_dm
         return app
 
@@ -950,7 +954,7 @@ def paris_app(paris_ts_service: TimeSeriesService, admin_token_payload) -> FastA
     app.include_router(router)
     app.dependency_overrides[get_ts_service] = lambda: paris_ts_service
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
-    app.dependency_overrides[get_current_permissions] = lambda: ADMIN_PERMISSIONS
+    app.dependency_overrides[get_current_permissions] = lambda: frozenset(Permission)
     app.dependency_overrides[get_device_manager] = _make_dm
     return app
 

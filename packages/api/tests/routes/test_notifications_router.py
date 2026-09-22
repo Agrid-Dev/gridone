@@ -3,7 +3,6 @@ from typing import ClassVar
 from unittest.mock import AsyncMock
 
 import pytest
-from conftest import ADMIN_PERMISSIONS
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
@@ -23,6 +22,7 @@ from notifications import (
     NotificationDispatch,
     NotificationsServiceInterface,
 )
+from users.permissions import Permission
 
 pytestmark = pytest.mark.asyncio
 
@@ -66,7 +66,7 @@ def app(svc, admin_token_payload) -> FastAPI:
     app.include_router(router)
     app.dependency_overrides[get_notifications_service] = lambda: svc
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
-    app.dependency_overrides[get_current_permissions] = lambda: ADMIN_PERMISSIONS
+    app.dependency_overrides[get_current_permissions] = lambda: frozenset(Permission)
     app.dependency_overrides[get_current_user_id] = lambda: _USER_ID
     return app
 

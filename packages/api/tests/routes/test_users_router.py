@@ -3,7 +3,6 @@
 from unittest.mock import AsyncMock
 
 import pytest
-from conftest import OVERSIZED_PASSWORDS
 from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
 
@@ -16,6 +15,14 @@ from models.errors import BlockedUserError, NotFoundError
 from users import User, UserUpdate
 from users.auth import AuthService
 from users.roles import get_permissions_for_role
+from users.validation import PASSWORD_MAX_LENGTH
+
+# Bytes vs. characters: bcrypt's 72-byte limit means a multi-byte password can
+# be over it well under PASSWORD_MAX_LENGTH characters (40 "é" is 80 bytes).
+OVERSIZED_PASSWORDS = [
+    pytest.param("a" * (PASSWORD_MAX_LENGTH + 1), id="ascii-over-limit"),
+    pytest.param("é" * 40, id="multibyte-over-limit"),
+]
 
 ADMIN = User(id="admin-id", username="admin", role="admin", name="Admin User")
 BOB = User(id="bob-id", username="bob", role="operator", name="Bob User")

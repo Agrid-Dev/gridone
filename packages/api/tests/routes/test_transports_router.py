@@ -2,7 +2,6 @@ from collections.abc import Iterator
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from conftest import ADMIN_PERMISSIONS
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
@@ -24,6 +23,7 @@ from devices_manager.dto import (
 )
 from devices_manager.types import TransportProtocols
 from models.errors import InvalidError, NotFoundError, UnauthorizedError
+from users.permissions import Permission
 
 _HTTP = build_transport("my-http", "My Http client", TransportProtocols.HTTP, {})
 _MQTT = build_transport(
@@ -67,7 +67,7 @@ def app(dm, admin_token_payload) -> FastAPI:
     app.include_router(ingress_router)
     app.dependency_overrides[get_device_manager] = lambda: dm
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
-    app.dependency_overrides[get_current_permissions] = lambda: ADMIN_PERMISSIONS
+    app.dependency_overrides[get_current_permissions] = lambda: frozenset(Permission)
     return app
 
 
