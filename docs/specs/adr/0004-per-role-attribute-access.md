@@ -72,10 +72,10 @@ scopes do not cover. Nothing below the API layer knows roles exist.**
   ],
   "scopes": {
     "devices:read": [
-      { "types": ["thermostat"] }
+      { "devices": { "types": ["thermostat"] } }
     ],
     "devices:command": [
-      { "types": ["thermostat"], "attributes": ["temperature_setpoint", "hvac_mode", "fan_speed"] }
+      { "devices": { "types": ["thermostat"] }, "attributes": ["temperature_setpoint", "hvac_mode", "fan_speed"] }
     ]
   }
 }
@@ -90,11 +90,15 @@ scopes that permission is limited to. Only `devices:read` and
 `devices:command` accept scopes; the rest are all-or-nothing, as today.
 
 ```python
-class DeviceScope(BaseModel):
+class DeviceSelector(BaseModel):
     model_config = ConfigDict(extra="forbid")
     types: list[str] | None = None        # standard device types; None = any
     driver_ids: list[str] | None = None   # None = any
-    attributes: list[str] | None = None   # None = every attribute of the matched devices
+
+class DeviceScope(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    devices: DeviceSelector = DeviceSelector()   # {} = every device
+    attributes: list[str] | None = None          # None = every attribute of the selected devices
 
 SCOPABLE_PERMISSIONS = {Permission.DEVICES_READ, Permission.DEVICES_COMMAND}
 
@@ -138,7 +142,7 @@ by driver and leaves `devices:read` unscoped:
   "permissions": ["devices:read", "devices:command", "timeseries:read", "dashboards:read"],
   "scopes": {
     "devices:command": [
-      { "driver_ids": ["vendor_thermostat_mqtts", "vendor_thermostat_modbus"] }
+      { "devices": { "driver_ids": ["vendor_thermostat_mqtts", "vendor_thermostat_modbus"] } }
     ]
   }
 }
@@ -157,9 +161,12 @@ def allows(role, permission, device, attribute) -> bool:
     return any(scope_matches(s, device, attribute) for s in role.scopes[permission])
 
 def scope_matches(scope, device, attribute) -> bool:
-    return ((scope.types is None or device.type in scope.types)
-        and (scope.driver_ids is None or device.driver_id in scope.driver_ids)
+    return (selects(scope.devices, device)
         and (scope.attributes is None or attribute in scope.attributes))
+
+def selects(selector, device) -> bool:
+    return ((selector.types is None or device.type in selector.types)
+        and (selector.driver_ids is None or device.driver_id in selector.driver_ids))
 
 def can_read(role, device, attribute) -> bool:
     return (allows(role, "devices:read", device, attribute)
@@ -171,7 +178,10 @@ def can_command(role, device, attribute) -> bool:
 
 - **Inside a scope, fields intersect.** Every field that is set must match. A
   field left out is no constraint. `{}` matches everything, which is the
-  same as not scoping the permission.
+  same as not scoping the permission. A scope has two levels, like
+  `AttributeTarget`: `devices` selects the devices, `attributes` the
+  attributes of those devices (revised 2026-09-22 during AGR-1209; the
+  first draft flattened both levels into one object).
 - **Across scopes, matches union.** The permission applies to an attribute if
   any of its scopes matches. There are no deny entries and no ordering, so
   there is no precedence to explain.

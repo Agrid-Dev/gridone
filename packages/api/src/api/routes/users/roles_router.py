@@ -44,8 +44,8 @@ async def create_role(
     um: Annotated[UsersService, Depends(get_users_service)],
 ) -> Role:
     # ConflictError -> 409 (duplicate or built-in id) is handled by
-    # exception_handlers.py; a scopes key or an unknown permission is a 422
-    # from the DTO itself.
+    # exception_handlers.py; an invalid scope or an unknown permission is a
+    # 422 from the DTO itself.
     return await um.create_role(body)
 
 
