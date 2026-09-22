@@ -95,8 +95,7 @@ attributes:
       translations:
         fr: Consigne
         fr-CA: Consigne (CA)
-    description:
-      default: Requested room temperature
+    description: Requested room temperature
     group: setpoints
     unit: °C
     write_constraints:
