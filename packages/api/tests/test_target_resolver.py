@@ -13,7 +13,7 @@ from devices_manager import DevicesServiceInterface
 from devices_manager.core.device import Attribute
 from devices_manager.dto.device_dto import Device
 from devices_manager.types import DataType
-from models.attribute_metadata import LocalizedText, WriteConstraints
+from models.attribute_metadata import LocalizedText, ValueLabel, WriteConstraints
 from models.errors import InvalidError
 from models.targets import AttributeTarget, DevicesFilter
 
@@ -251,6 +251,18 @@ def attribute(**overrides: object) -> Attribute:
     ).model_copy(update=overrides)
 
 
+_VALUE_LABELS = [
+    ValueLabel(value=False, label=LocalizedText(default="Stopped")),
+    ValueLabel(value=True, label=LocalizedText(default="Running")),
+]
+
+
+def bool_attribute(value_labels: list[ValueLabel] | None = _VALUE_LABELS) -> Attribute:
+    return Attribute.create("running", DataType.BOOL, {"read", "write"}).model_copy(
+        update={"value_labels": value_labels}
+    )
+
+
 def test_metadata_agrees_and_absent_attribute_does_not_veto():
     first = attribute()
     (row,) = compute_attribute_coverage(
@@ -291,7 +303,32 @@ def test_all_metadata_absent():
         [_coverage_device(Attribute.create("value", DataType.FLOAT, {"read"}))]
     )
     assert row.label is row.unit is row.value_options is row.write_constraints is None
+    assert row.value_labels is None
     assert row.writable_count == 0
+
+
+def test_value_labels_kept_when_devices_agree():
+    (row,) = compute_attribute_coverage(
+        [_coverage_device(bool_attribute()), _coverage_device(bool_attribute())]
+    )
+    assert row.value_labels == _VALUE_LABELS
+
+
+@pytest.mark.parametrize(
+    "other",
+    [
+        [
+            ValueLabel(value=False, label=LocalizedText(default="Off")),
+            ValueLabel(value=True, label=LocalizedText(default="On")),
+        ],
+        None,
+    ],
+)
+def test_value_labels_null_on_disagreement_or_missing(other):
+    (row,) = compute_attribute_coverage(
+        [_coverage_device(bool_attribute()), _coverage_device(bool_attribute(other))]
+    )
+    assert row.value_labels is None
 
 
 def test_read_only_devices_count_in_exposure_but_do_not_veto_presentation():

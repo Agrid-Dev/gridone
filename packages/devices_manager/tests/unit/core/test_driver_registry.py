@@ -772,6 +772,45 @@ class TestDriverRegistryWriteConstraints:
         assert result.group == "setpoints"
 
     @pytest.mark.asyncio
+    async def test_patch_sets_and_clears_value_labels(self, thermostat_driver):
+        registry = DriverRegistry({thermostat_driver.id: thermostat_driver})
+        labels = [
+            {"value": True, "label": {"default": "On"}},
+            {"value": False, "label": {"default": "Off"}},
+        ]
+        result = await registry.patch_driver_attribute(
+            thermostat_driver.id, "onoff_state", {"value_labels": labels}
+        )
+        assert result.value_labels is not None
+        assert [entry.value for entry in result.value_labels] == [False, True]
+        assert result.value_labels[1].label == LocalizedText(default="On")
+        assert thermostat_driver.attributes["onoff_state"].value_labels == (
+            result.value_labels
+        )
+
+        cleared = await registry.patch_driver_attribute(
+            thermostat_driver.id, "onoff_state", {"value_labels": None}
+        )
+        assert cleared.value_labels is None
+        assert thermostat_driver.attributes["onoff_state"].value_labels is None
+
+    @pytest.mark.asyncio
+    async def test_patch_value_labels_on_non_bool_rejected(self, driver):
+        registry = DriverRegistry({driver.id: driver})
+        with pytest.raises(InvalidError, match="Invalid attribute configuration"):
+            await registry.patch_driver_attribute(
+                driver.id,
+                "temperature",
+                {
+                    "value_labels": [
+                        {"value": True, "label": {"default": "On"}},
+                        {"value": False, "label": {"default": "Off"}},
+                    ]
+                },
+            )
+        assert driver.attributes["temperature"].value_labels is None
+
+    @pytest.mark.asyncio
     async def test_rename_updates_bounds_that_reference_the_attribute(
         self, constrained_driver
     ):

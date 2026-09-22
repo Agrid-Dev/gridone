@@ -7,7 +7,6 @@ from fastapi import APIRouter, Depends, Query, Request, status
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from api.auth import get_current_user_id, require_permission
-from api.permissions import Permission
 from models.operating_rules import (
     NonBlank,
     OperatingRule,
@@ -16,6 +15,7 @@ from models.operating_rules import (
     OperatingRuleView,
 )
 from operating_rules import OperatingRulesService
+from users.permissions import Permission
 
 router = APIRouter()
 

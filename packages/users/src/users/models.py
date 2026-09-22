@@ -1,15 +1,28 @@
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, field_validator, model_validator
 
 from users.password import hash_password
+from users.permissions import Permission
+
+DEFAULT_ROLE_ID = "operator"
 
 
-class Role(StrEnum):
-    ADMIN = "admin"
-    OPERATOR = "operator"
-    VIEWER = "viewer"
+class Role(BaseModel):
+    """A named set of permissions users are assigned to, by id."""
+
+    id: str
+    name: str
+    description: str = ""
+    permissions: list[Permission]
+    builtin: bool = False
+
+    @field_validator("permissions")
+    @classmethod
+    def _sort_permissions(cls, permissions: list[Permission]) -> list[Permission]:
+        """A role's permissions are a set: serve them in one canonical order."""
+        return sorted(permissions)
 
 
 class UserType(StrEnum):
@@ -22,7 +35,7 @@ class User(BaseModel):
 
     id: str
     username: str
-    role: Role = Role.OPERATOR
+    role: str = DEFAULT_ROLE_ID
     type: UserType = UserType.USER
     name: str = ""
     email: str = ""
@@ -35,7 +48,7 @@ class User(BaseModel):
     def _migrate_is_admin(cls, data: dict[str, Any]) -> dict[str, Any]:
         """Backward compat: convert legacy ``is_admin`` field to ``role``."""
         if isinstance(data, dict) and "is_admin" in data and "role" not in data:
-            data["role"] = Role.ADMIN if data.pop("is_admin") else Role.OPERATOR
+            data["role"] = "admin" if data.pop("is_admin") else DEFAULT_ROLE_ID
         elif isinstance(data, dict) and "is_admin" in data:
             data.pop("is_admin", None)
         return data
@@ -54,7 +67,7 @@ class UserInDB(User):
 class UserUpdate(BaseModel):
     username: str | None = None
     password: str | None = None
-    role: Role | None = None
+    role: str | None = None
     name: str | None = None
     email: str | None = None
     title: str | None = None
@@ -91,7 +104,7 @@ class UserUpdate(BaseModel):
 class UserCreate(BaseModel):
     username: str
     password: str
-    role: Role = Role.OPERATOR
+    role: str = DEFAULT_ROLE_ID
     type: UserType = UserType.USER
     name: str = ""
     email: str = ""

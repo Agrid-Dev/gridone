@@ -310,6 +310,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/users/roles/": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Roles */
+    get: operations["list_roles_users_roles__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/users/roles/{role_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Role */
+    get: operations["get_role_users_roles__role_id__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/device-views": {
     parameters: {
       query?: never;
@@ -2453,6 +2487,8 @@ export interface components {
       label?: components["schemas"]["LocalizedText"] | null;
       /** Unit */
       unit?: string | null;
+      /** Value Labels */
+      value_labels?: components["schemas"]["ValueLabel"][] | null;
       /** Value Options */
       value_options?: (number | string | boolean)[] | null;
       write_constraints?:
@@ -2504,6 +2540,8 @@ export interface components {
       group?: string | null;
       /** Unit */
       unit?: string | null;
+      /** Value Labels */
+      value_labels?: components["schemas"]["ValueLabel"][] | null;
       write_constraints?:
         | components["schemas"]["WriteConstraints-Input"]
         | null;
@@ -2544,6 +2582,8 @@ export interface components {
       group?: string | null;
       /** Unit */
       unit?: string | null;
+      /** Value Labels */
+      value_labels?: components["schemas"]["ValueLabel"][] | null;
       write_constraints?:
         | components["schemas"]["WriteConstraints-Output"]
         | null;
@@ -2613,6 +2653,8 @@ export interface components {
       group?: string | null;
       /** Unit */
       unit?: string | null;
+      /** Value Labels */
+      value_labels?: components["schemas"]["ValueLabel"][] | null;
       write_constraints?:
         | components["schemas"]["WriteConstraints-Input"]
         | null;
@@ -4250,6 +4292,8 @@ export interface components {
       group?: string | null;
       /** Unit */
       unit?: string | null;
+      /** Value Labels */
+      value_labels?: components["schemas"]["ValueLabel"][] | null;
       write_constraints?:
         | components["schemas"]["WriteConstraints-Input"]
         | null;
@@ -4294,6 +4338,8 @@ export interface components {
       group?: string | null;
       /** Unit */
       unit?: string | null;
+      /** Value Labels */
+      value_labels?: components["schemas"]["ValueLabel"][] | null;
       write_constraints?:
         | components["schemas"]["WriteConstraints-Output"]
         | null;
@@ -5045,7 +5091,8 @@ export interface components {
       id: string;
       /** Username */
       username: string;
-      role: components["schemas"]["Role"];
+      /** Role */
+      role: string;
       /** Name */
       name: string;
       /** Email */
@@ -5744,6 +5791,35 @@ export interface components {
       new_password: string;
     };
     /**
+     * Permission
+     * @enum {string}
+     */
+    Permission:
+      | "users:read"
+      | "users:read:basic"
+      | "users:write"
+      | "roles:read"
+      | "devices:read"
+      | "devices:write"
+      | "devices:command"
+      | "assets:read"
+      | "assets:write"
+      | "transports:read"
+      | "transports:write"
+      | "drivers:read"
+      | "drivers:write"
+      | "timeseries:read"
+      | "automations:read"
+      | "automations:write"
+      | "notifications:write"
+      | "devices:logs:read"
+      | "dashboards:read"
+      | "dashboards:write"
+      | "synoptics:read"
+      | "synoptics:write"
+      | "operating_rules:read"
+      | "operating_rules:write";
+    /**
      * Pipe
      * @description A run between ports, cells and other pipes.
      *
@@ -6125,9 +6201,26 @@ export interface components {
     };
     /**
      * Role
-     * @enum {string}
+     * @description A named set of permissions users are assigned to, by id.
      */
-    Role: "admin" | "operator" | "viewer";
+    Role: {
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+      /**
+       * Description
+       * @default
+       */
+      description?: string;
+      /** Permissions */
+      permissions: components["schemas"]["Permission"][];
+      /**
+       * Builtin
+       * @default false
+       */
+      builtin?: boolean;
+    };
     /** SectionNode */
     SectionNode: {
       /** Visible When */
@@ -7020,8 +7113,11 @@ export interface components {
       id: string;
       /** Username */
       username: string;
-      /** @default operator */
-      role?: components["schemas"]["Role"];
+      /**
+       * Role
+       * @default operator
+       */
+      role?: string;
       /** @default user */
       type?: components["schemas"]["UserType"];
       /**
@@ -7063,8 +7159,11 @@ export interface components {
       username: string;
       /** Password */
       password: string;
-      /** @default operator */
-      role?: components["schemas"]["Role"];
+      /**
+       * Role
+       * @default operator
+       */
+      role?: string;
       /** @default user */
       type?: components["schemas"]["UserType"];
       /**
@@ -7094,7 +7193,8 @@ export interface components {
       username?: string | null;
       /** Password */
       password?: string | null;
-      role?: components["schemas"]["Role"] | null;
+      /** Role */
+      role?: string | null;
       /** Name */
       name?: string | null;
       /** Email */
@@ -7114,6 +7214,18 @@ export interface components {
       input?: unknown;
       /** Context */
       ctx?: Record<string, never>;
+    };
+    /**
+     * ValueLabel
+     * @description Human wording for one state of a boolean attribute.
+     *
+     *     ``value`` is strict: ``0`` / ``1`` are rejected rather than coerced, since
+     *     Python treats ``True`` as an ``int``.
+     */
+    ValueLabel: {
+      /** Value */
+      value: boolean;
+      label: components["schemas"]["LocalizedText"];
     };
     /**
      * ValueMapping
@@ -8071,6 +8183,57 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_roles_users_roles__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Role"][];
+        };
+      };
+    };
+  };
+  get_role_users_roles__role_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        role_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Role"];
+        };
       };
       /** @description Validation Error */
       422: {

@@ -1,6 +1,6 @@
 import pytest
 
-from users.models import Role, UserInDB, UserUpdate
+from users.models import UserInDB, UserUpdate
 from users.storage import MemoryUsersStorage
 
 pytestmark = pytest.mark.asyncio
@@ -11,7 +11,7 @@ def _alice(**overrides: object) -> UserInDB:
         "id": "u1",
         "username": "alice",
         "hashed_password": "old-hash",
-        "role": Role.OPERATOR,
+        "role": "operator",
     }
     fields.update(overrides)
     return UserInDB.model_validate(fields)

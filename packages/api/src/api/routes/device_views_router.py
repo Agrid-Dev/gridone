@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, Request, status
 
 from api.auth import require_permission
-from api.permissions import Permission
 from device_views import DeviceView, DeviceViewInput, DeviceViewsService
+from users.permissions import Permission
 
 router = APIRouter()
 

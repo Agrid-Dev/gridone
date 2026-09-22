@@ -1,11 +1,12 @@
 import { isGridoneError } from "@gridone/sdk";
 import { describe, expect, it } from "vitest";
 // The stack starts from an empty database, so the default admin user exists.
-import { makeClient, password, username } from "../../lib/api";
+import { makeClient, makeRoleClient, password, username } from "../../lib/api";
 
 interface CurrentUser {
   username: string;
   role: string;
+  permissions: string[];
 }
 
 async function rejectionOf(promise: Promise<unknown>): Promise<unknown> {
@@ -42,6 +43,17 @@ describe("authentication", () => {
 
     expect(me.username).toBe(username);
     expect(me.role).toBe("admin");
+  });
+
+  it("grants devices:command to operators but not to viewers", async () => {
+    const operator = await makeRoleClient("operator");
+    const viewer = await makeRoleClient("viewer");
+
+    const operatorMe = await operator.request<CurrentUser>("GET", "/auth/me");
+    const viewerMe = await viewer.request<CurrentUser>("GET", "/auth/me");
+
+    expect(operatorMe.permissions).toContain("devices:command");
+    expect(viewerMe.permissions).not.toContain("devices:command");
   });
 
   it("no longer authenticates after logout", async () => {

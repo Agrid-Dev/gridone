@@ -1,3 +1,19 @@
+## v0.257.0 (2026-09-21)
+
+### Feat
+
+- **drivers**: value_labels on boolean attributes (#675)
+
+## v0.256.0 (2026-09-21)
+
+### Feat
+
+- **users**: serve built-in roles on GET /users/roles and drive the user form from it (#633)
+
+### Refactor
+
+- **users**: own the permission vocabulary and split devices:command (#629)
+
 ## v0.255.0 (2026-09-21)
 
 ### Feat

@@ -9,6 +9,7 @@ from models.ids import gen_id
 from models.service import Service
 from users.models import Role, User, UserCreate, UserInDB, UserUpdate
 from users.password import hash_password, verify_password
+from users.roles import BUILTIN_ROLES, find_builtin_role
 from users.storage import build_users_storage
 from users.storage.storage_backend import UsersStorageBackend
 
@@ -74,7 +75,7 @@ class UsersService(Service):
             id=gen_id(),
             username="admin",
             hashed_password=hash_password(self._admin_password),
-            role=Role.ADMIN,
+            role="admin",
         )
         await self._backend.save(admin)
 
@@ -103,6 +104,21 @@ class UsersService(Service):
         users = await self._backend.list_all()
         return [self._to_public_user(u) for u in users]
 
+    async def list_roles(self) -> list[Role]:
+        return list(BUILTIN_ROLES)
+
+    async def get_role(self, role_id: str) -> Role:
+        role = find_builtin_role(role_id)
+        if role is None:
+            msg = f"Role '{role_id}' not found"
+            raise NotFoundError(msg)
+        return role
+
+    async def _ensure_role_exists(self, role_id: str) -> None:
+        if find_builtin_role(role_id) is None:
+            msg = f"Unknown role '{role_id}'"
+            raise InvalidError(msg)
+
     async def create_user(
         self,
         create_data: UserCreate,
@@ -113,6 +129,7 @@ class UsersService(Service):
         if existing is not None:
             msg = f"Username '{create_data.username}' already exists"
             raise ValueError(msg)
+        await self._ensure_role_exists(create_data.role)
         hashed = pre_hashed_password or hash_password(create_data.password)
         user = UserInDB(
             id=gen_id(),
@@ -140,6 +157,8 @@ class UsersService(Service):
             if conflict is not None and conflict.id != user_id:
                 msg = f"Username '{update_data.username}' already exists"
                 raise ValueError(msg)
+        if update_data.role is not None:
+            await self._ensure_role_exists(update_data.role)
         return await self._apply_update(user_id, update_data)
 
     async def change_password(

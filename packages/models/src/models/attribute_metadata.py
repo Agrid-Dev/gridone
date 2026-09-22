@@ -10,9 +10,11 @@ from __future__ import annotations
 from typing import Annotated, Self
 
 from pydantic import (
+    AfterValidator,
     BaseModel,
     ConfigDict,
     Field,
+    StrictBool,
     StringConstraints,
     model_validator,
 )
@@ -72,6 +74,31 @@ class LocalizedText(BaseModel):
             return exact
         base_language = language.split("-", 1)[0].lower()
         return self.translations.get(base_language, self.default)
+
+
+class ValueLabel(BaseModel):
+    """Human wording for one state of a boolean attribute.
+
+    ``value`` is strict: ``0`` / ``1`` are rejected rather than coerced, since
+    Python treats ``True`` as an ``int``.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    value: StrictBool
+    label: LocalizedText
+
+
+def _both_states_once(labels: list[ValueLabel]) -> list[ValueLabel]:
+    labels = sorted(labels, key=lambda entry: entry.value)
+    if [entry.value for entry in labels] != [False, True]:
+        msg = "value_labels must label both true and false exactly once"
+        raise ValueError(msg)
+    return labels
+
+
+ValueLabels = Annotated[list[ValueLabel], AfterValidator(_both_states_once)]
+"""Wording of both states of a boolean attribute, kept in ``(false, true)`` order."""
 
 
 Bound = Expression

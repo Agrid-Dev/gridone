@@ -19,7 +19,6 @@ from api.dependencies import (
     get_pagination_params,
     get_target_resolver,
 )
-from api.permissions import Permission
 from api.schemas.command import (
     BatchDeviceCommand,
     BatchDispatchResponse,
@@ -59,6 +58,7 @@ from models.targets import (
     TargetResolver,
 )
 from models.types import DataType
+from users.permissions import Permission
 
 router = APIRouter()
 
@@ -160,7 +160,7 @@ def get_selection_commands(request: Request) -> SelectionCommands:
 
 @router.post(
     "/commands/preview",
-    dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
+    dependencies=[Depends(require_permission(Permission.DEVICES_COMMAND))],
 )
 async def preview_selection_command(
     body: SelectionCommandPrepare,
@@ -173,7 +173,7 @@ async def preview_selection_command(
 @router.post(
     "/commands/confirm",
     status_code=status.HTTP_202_ACCEPTED,
-    dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
+    dependencies=[Depends(require_permission(Permission.DEVICES_COMMAND))],
 )
 async def confirm_selection_command(
     body: SelectionCommandConfirm,
@@ -191,7 +191,7 @@ async def confirm_selection_command(
 @router.post(
     "/commands",
     status_code=status.HTTP_202_ACCEPTED,
-    dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
+    dependencies=[Depends(require_permission(Permission.DEVICES_COMMAND))],
 )
 async def dispatch_batch_command(
     body: BatchDeviceCommand,
@@ -223,7 +223,7 @@ async def dispatch_batch_command(
 
 @router.post(
     "/{device_id}/commands/preview",
-    dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
+    dependencies=[Depends(require_permission(Permission.DEVICES_COMMAND))],
 )
 async def preview_single_command(
     device_id: str,
@@ -260,7 +260,7 @@ async def preview_single_command(
 
 @router.post(
     "/{device_id}/commands",
-    dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
+    dependencies=[Depends(require_permission(Permission.DEVICES_COMMAND))],
 )
 async def dispatch_single_command(
     device_id: str,
@@ -323,7 +323,7 @@ async def dispatch_single_command(
 @router.post(
     "/commands/templates/",
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
+    dependencies=[Depends(require_permission(Permission.DEVICES_COMMAND))],
 )
 async def create_template(
     body: CommandTemplateCreatePayload,
@@ -374,7 +374,7 @@ async def get_template(
 
 @router.patch(
     "/commands/templates/{template_id}",
-    dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
+    dependencies=[Depends(require_permission(Permission.DEVICES_COMMAND))],
 )
 async def update_template(
     template_id: str,
@@ -403,7 +403,7 @@ async def update_template(
 @router.delete(
     "/commands/templates/{template_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
+    dependencies=[Depends(require_permission(Permission.DEVICES_COMMAND))],
 )
 async def delete_template(
     template_id: str,
@@ -415,7 +415,7 @@ async def delete_template(
 @router.post(
     "/commands/templates/{template_id}/dispatch",
     status_code=status.HTTP_202_ACCEPTED,
-    dependencies=[Depends(require_permission(Permission.DEVICES_WRITE))],
+    dependencies=[Depends(require_permission(Permission.DEVICES_COMMAND))],
 )
 async def dispatch_template(
     template_id: str,
