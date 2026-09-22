@@ -59,6 +59,8 @@ export type UserUpdateRequest = Schemas["UserUpdateRequest"];
 export type PasswordChangeRequest = Schemas["PasswordChangeRequest"];
 export type UserType = Schemas["UserType"];
 export type Role = Schemas["Role"];
+export type RoleCreate = Schemas["RoleCreate"];
+export type RoleUpdate = Schemas["RoleUpdate"];
 export type RegistrationRequestCreateBody =
   Schemas["RegistrationRequestCreateBody"];
 export type RegistrationRequestResponse =

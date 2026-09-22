@@ -6,7 +6,11 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from api.auth import get_current_token_payload, get_current_user_id
+from api.auth import (
+    get_current_permissions,
+    get_current_token_payload,
+    get_current_user_id,
+)
 from api.dependencies import get_notifications_service
 from api.exception_handlers import register_exception_handlers
 from api.routes.notifications_router import router
@@ -18,6 +22,7 @@ from notifications import (
     NotificationDispatch,
     NotificationsServiceInterface,
 )
+from users.permissions import Permission
 
 pytestmark = pytest.mark.asyncio
 
@@ -61,6 +66,7 @@ def app(svc, admin_token_payload) -> FastAPI:
     app.include_router(router)
     app.dependency_overrides[get_notifications_service] = lambda: svc
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
+    app.dependency_overrides[get_current_permissions] = lambda: frozenset(Permission)
     app.dependency_overrides[get_current_user_id] = lambda: _USER_ID
     return app
 

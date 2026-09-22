@@ -5,7 +5,11 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from api.auth import get_current_token_payload, get_current_user_id
+from api.auth import (
+    get_current_permissions,
+    get_current_token_payload,
+    get_current_user_id,
+)
 from api.dependencies import get_device_manager
 from api.exception_handlers import register_exception_handlers
 from api.routes.faults_router import router
@@ -13,6 +17,7 @@ from devices_manager import DevicesServiceInterface
 from devices_manager.dto import FaultView
 from models.errors import NotFoundError
 from models.types import DataType, Severity
+from users.permissions import Permission
 
 _FAULT_A = FaultView(
     device_id="dev-1",
@@ -50,6 +55,7 @@ def app(dm, admin_token_payload) -> FastAPI:
     app.include_router(router)
     app.dependency_overrides[get_device_manager] = lambda: dm
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
+    app.dependency_overrides[get_current_permissions] = lambda: frozenset(Permission)
     app.dependency_overrides[get_current_user_id] = lambda: admin_token_payload.sub
     return app
 

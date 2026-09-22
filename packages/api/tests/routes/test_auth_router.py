@@ -14,6 +14,8 @@ from models.errors import (
 )
 from users import User
 from users.auth import AuthService
+from users.permissions import Permission
+from users.roles import find_builtin_role
 from users.validation import (
     PASSWORD_MAX_LENGTH,
     PASSWORD_MIN_LENGTH,
@@ -94,6 +96,10 @@ class MockUsersService:
             return self._users[username]
         msg = f"User '{user_id}' not found"
         raise NotFoundError(msg)
+
+    async def get_role_permissions(self, role_id: str) -> list[Permission]:
+        role = find_builtin_role(role_id)
+        return list(role.permissions) if role is not None else []
 
     def set_role(self, username: str, role: str) -> None:
         """Simulate a role change persisted to storage between two requests."""
@@ -364,6 +370,20 @@ def test_me_with_bearer_header(client: TestClient) -> None:
     assert "permissions" in data
     assert "users:read" in data["permissions"]
     assert "devices:read" in data["permissions"]
+
+
+def test_me_reports_the_role_the_token_enforces(
+    client: TestClient, users_service: MockUsersService
+) -> None:
+    """A role change lands at refresh; until then /me must not promise more
+    than the gates will grant, or the web app shows controls that answer 403."""
+    access_token = _login(client)["access_token"]
+    users_service.set_role("admin", "viewer")
+
+    data = client.get("/me", headers=_auth(access_token)).json()
+
+    assert data["role"] == "admin"
+    assert "users:write" in data["permissions"]
 
 
 def test_me_with_cookie(client: TestClient) -> None:

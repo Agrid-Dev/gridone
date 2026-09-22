@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import type { RequestFn } from "../http/httpClient";
 import type {
   PasswordChangeRequest,
+  RoleCreate,
+  RoleUpdate,
   UserCreateRequest,
   UserUpdateRequest,
 } from "../types";
@@ -25,6 +27,12 @@ const CREATE: UserCreateRequest = {
   title: "Technician",
 };
 const UPDATE: UserUpdateRequest = { name: "Op One bis" };
+const ROLE_CREATE: RoleCreate = {
+  id: "thermostat_operator",
+  name: "Thermostat operator",
+  permissions: ["devices:read", "devices:command"],
+};
+const ROLE_UPDATE: RoleUpdate = { name: "Comfort" };
 const PASSWORD_CHANGE: PasswordChangeRequest = {
   current_password: "s3cret",
   new_password: "s3cret-bis",
@@ -50,6 +58,21 @@ const CASES: Case[] = [
   ["unblock", (u) => u.unblock("u1"), ["POST", "/users/u1/unblock"]],
   ["listRoles", (u) => u.listRoles(), ["GET", "/users/roles/"]],
   ["getRole", (u) => u.getRole("viewer"), ["GET", "/users/roles/viewer"]],
+  [
+    "createRole",
+    (u) => u.createRole(ROLE_CREATE),
+    ["POST", "/users/roles/", { body: ROLE_CREATE }],
+  ],
+  [
+    "updateRole",
+    (u) => u.updateRole("thermostat_operator", ROLE_UPDATE),
+    ["PATCH", "/users/roles/thermostat_operator", { body: ROLE_UPDATE }],
+  ],
+  [
+    "deleteRole",
+    (u) => u.deleteRole("thermostat_operator"),
+    ["DELETE", "/users/roles/thermostat_operator"],
+  ],
   [
     "changePassword",
     (u) => u.changePassword(PASSWORD_CHANGE),

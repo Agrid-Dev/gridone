@@ -92,5 +92,10 @@ class PostgresUsersStorage:
     async def delete(self, user_id: str) -> None:
         await self._pool.execute("DELETE FROM users WHERE id = $1", user_id)
 
+    async def any_with_role(self, role_id: str) -> bool:
+        return await self._pool.fetchval(
+            "SELECT EXISTS (SELECT 1 FROM users WHERE role = $1)", role_id
+        )
+
     async def close(self) -> None:
         await self._pool.close()

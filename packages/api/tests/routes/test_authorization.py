@@ -88,9 +88,21 @@ from notifications import (
 from operating_rules import OperatingRulesService
 from synoptics import Synoptic, SynopticsServiceInterface
 from timeseries.domain import FetchPointsResult
-from users import Role, User
+from users import Role, RoleCreate, RoleUpdate, User
 from users.auth import AuthService
-from users.roles import BUILTIN_ROLES
+from users.permissions import Permission
+from users.roles import BUILTIN_ROLES, find_builtin_role
+
+INTEGRATION_ROLE = Role(
+    id="integration",
+    name="Integration",
+    # Everything except user and role management, per AGR-1118.
+    permissions=[
+        p
+        for p in Permission
+        if not p.startswith("users:") and p is not Permission.ROLES_WRITE
+    ],
+)
 
 
 class MockUsersService:
@@ -101,6 +113,7 @@ class MockUsersService:
             "admin": "admin",
             "operator": "operator",
             "viewer": "viewer",
+            "integrator": "integrator",
         }
         self._users = {
             "admin": User(
@@ -117,6 +130,13 @@ class MockUsersService:
                 username="viewer",
                 role="viewer",
                 name="Charlie Viewer",
+            ),
+            # Holds a custom role: everything except user and role management.
+            "integrator": User(
+                id="integrator-id",
+                username="integrator",
+                role=INTEGRATION_ROLE.id,
+                name="Dana Integrator",
             ),
         }
 
@@ -136,7 +156,24 @@ class MockUsersService:
         return list(self._users.values())
 
     async def list_roles(self) -> list[Role]:
-        return list(BUILTIN_ROLES)
+        return [*BUILTIN_ROLES, INTEGRATION_ROLE]
+
+    async def get_role_permissions(self, role_id: str) -> list[Permission]:
+        if role_id == INTEGRATION_ROLE.id:
+            return list(INTEGRATION_ROLE.permissions)
+        role = find_builtin_role(role_id)
+        return list(role.permissions) if role is not None else []
+
+    # The write routes only need to exist here: what they do is the roles
+    # router test's business, who may call them is this file's.
+    async def create_role(self, create_data: RoleCreate) -> Role:
+        return create_data.to_role()
+
+    async def update_role(self, role_id: str, update_data: RoleUpdate) -> Role:
+        return update_data.apply_to(INTEGRATION_ROLE.model_copy(update={"id": role_id}))
+
+    async def delete_role(self, role_id: str) -> None:
+        self._deleted_role = role_id
 
     async def is_blocked(self, user_id: str) -> bool:
         for user in self._users.values():
@@ -291,7 +328,7 @@ def test_admin_can_list_users(app: FastAPI) -> None:
         token = _login(client, "admin")
         resp = client.get("/users/", headers=_auth_header(token))
         assert resp.status_code == 200
-        assert len(resp.json()) == 3
+        assert len(resp.json()) == 4
 
 
 def test_admin_me_has_all_permissions(app: FastAPI) -> None:
@@ -338,7 +375,7 @@ def test_viewer_gets_basic_user_list(app: FastAPI) -> None:
         resp = client.get("/users/", headers=_auth_header(token))
         assert resp.status_code == 200
         data = resp.json()
-        assert len(data) == 3
+        assert len(data) == 4
         assert all(set(u.keys()) == {"id", "name"} for u in data)
         names = {u["name"] for u in data}
         assert "Alice A." in names
@@ -367,12 +404,69 @@ def test_every_role_can_list_roles(app: FastAPI, username: str) -> None:
         token = _login(client, username)
         resp = client.get("/users/roles/", headers=_auth_header(token))
         assert resp.status_code == 200
-        assert [r["id"] for r in resp.json()] == ["admin", "operator", "viewer"]
+        assert [r["id"] for r in resp.json()] == [
+            "admin",
+            "operator",
+            "viewer",
+            "integration",
+        ]
 
 
 def test_list_roles_unauthenticated_returns_401(app: FastAPI) -> None:
     with TestClient(app) as client:
         assert client.get("/users/roles/").status_code == 401
+
+
+# --- Only admin writes roles ---
+
+ROLE_BODIES = {
+    "POST": {
+        "id": "night_shift",
+        "name": "Night shift",
+        "permissions": ["devices:read"],
+    },
+    "PATCH": {"name": "Night shift"},
+    "DELETE": None,
+}
+
+ROLES_WRITE_SCENARIOS = [
+    pytest.param("POST", "/users/roles/", "admin", 201, id="create-admin"),
+    pytest.param("POST", "/users/roles/", "operator", 403, id="create-operator"),
+    pytest.param("POST", "/users/roles/", "integrator", 403, id="create-custom"),
+    pytest.param("POST", "/users/roles/", None, 401, id="create-no-auth"),
+    pytest.param("PATCH", "/users/roles/x", "admin", 200, id="update-admin"),
+    pytest.param("PATCH", "/users/roles/x", "viewer", 403, id="update-viewer"),
+    pytest.param("DELETE", "/users/roles/x", "admin", 204, id="delete-admin"),
+    pytest.param("DELETE", "/users/roles/x", "operator", 403, id="delete-operator"),
+]
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "username", "expected"), ROLES_WRITE_SCENARIOS
+)
+def test_roles_write_requires_roles_write(
+    app: FastAPI, method: str, path: str, username: str | None, expected: int
+) -> None:
+    with TestClient(app) as client:
+        headers = _auth_header(_login(client, username)) if username else {}
+        resp = client.request(method, path, json=ROLE_BODIES[method], headers=headers)
+        assert resp.status_code == expected
+
+
+# --- A custom role is resolved from the service, not from the built-in table ---
+
+
+def test_custom_role_permissions_gate_requests(app: FastAPI) -> None:
+    with TestClient(app) as client:
+        token = _login(client, "integrator")
+        assert client.get("/users/", headers=_auth_header(token)).status_code == 403
+        assert (
+            client.get("/users/roles/", headers=_auth_header(token)).status_code == 200
+        )
+        me = client.get("/auth/me", headers=_auth_header(token)).json()
+        assert me["role"] == "integration"
+        assert "users:read" not in me["permissions"]
+        assert "devices:command" in me["permissions"]
 
 
 # --- Unauthenticated request is 401 ---

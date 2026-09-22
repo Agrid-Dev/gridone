@@ -320,7 +320,8 @@ export interface paths {
     /** List Roles */
     get: operations["list_roles_users_roles__get"];
     put?: never;
-    post?: never;
+    /** Create Role */
+    post: operations["create_role_users_roles__post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -338,10 +339,12 @@ export interface paths {
     get: operations["get_role_users_roles__role_id__get"];
     put?: never;
     post?: never;
-    delete?: never;
+    /** Delete Role */
+    delete: operations["delete_role_users_roles__role_id__delete"];
     options?: never;
     head?: never;
-    patch?: never;
+    /** Update Role */
+    patch: operations["update_role_users_roles__role_id__patch"];
     trace?: never;
   };
   "/device-views": {
@@ -5110,7 +5113,7 @@ export interface components {
       /** Must Change Password */
       must_change_password: boolean;
       /** Permissions */
-      permissions: string[];
+      permissions: components["schemas"]["Permission"][];
     };
     /** MeasurementItem */
     MeasurementItem: {
@@ -5790,6 +5793,7 @@ export interface components {
       | "users:read:basic"
       | "users:write"
       | "roles:read"
+      | "roles:write"
       | "devices:read"
       | "devices:write"
       | "devices:command"
@@ -6203,6 +6207,39 @@ export interface components {
        * @default false
        */
       builtin?: boolean;
+    };
+    /**
+     * RoleCreate
+     * @description A custom role as submitted for creation.
+     *
+     *     ``extra="forbid"`` is what rejects a ``scopes`` key until scopes ship:
+     *     accepting and ignoring it would let a role author believe a restriction
+     *     is in force.
+     */
+    RoleCreate: {
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+      /**
+       * Description
+       * @default
+       */
+      description?: string;
+      /** Permissions */
+      permissions: components["schemas"]["Permission"][];
+    };
+    /**
+     * RoleUpdate
+     * @description A partial edit of a custom role; unset fields are left untouched.
+     */
+    RoleUpdate: {
+      /** Name */
+      name?: string | null;
+      /** Description */
+      description?: string | null;
+      /** Permissions */
+      permissions?: components["schemas"]["Permission"][] | null;
     };
     /** SectionNode */
     SectionNode: {
@@ -8218,6 +8255,39 @@ export interface operations {
       };
     };
   };
+  create_role_users_roles__post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RoleCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Role"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   get_role_users_roles__role_id__get: {
     parameters: {
       query?: never;
@@ -8228,6 +8298,70 @@ export interface operations {
       cookie?: never;
     };
     requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Role"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  delete_role_users_roles__role_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        role_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  update_role_users_roles__role_id__patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        role_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RoleUpdate"];
+      };
+    };
     responses: {
       /** @description Successful Response */
       200: {

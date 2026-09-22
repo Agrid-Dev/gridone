@@ -59,6 +59,7 @@ plugins:
   - swagger-ui-tag
 
 markdown_extensions:
+  - admonition
   - attr_list
   - md_in_html
   - pymdownx.superfences
@@ -103,4 +104,7 @@ nav:
     - Device Presentations: reference/device-presentations.md
     - Standard Devices: reference/standard-devices.md
     - Transports: reference/transports.md
+    - Users and Roles:
+      - Users and Authentication: reference/users-and-roles/users.md
+      - Roles and Permissions: reference/users-and-roles/roles.md
     - API Reference: api-reference.md

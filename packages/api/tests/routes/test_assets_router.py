@@ -5,7 +5,11 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from api.auth import get_current_token_payload, get_current_user_id
+from api.auth import (
+    get_current_permissions,
+    get_current_token_payload,
+    get_current_user_id,
+)
 from api.dependencies import (
     get_assets_service,
     get_building_models_service,
@@ -34,6 +38,7 @@ from devices_manager.dto.device_dto import Device
 from devices_manager.types import DataType
 from models.errors import InvalidError, NotFoundError
 from models.targets import DevicesFilter
+from users.permissions import Permission
 
 _ASSET_ID = "asset-1"
 _CHILD_ASSET_ID = "asset-2"
@@ -206,6 +211,7 @@ def app(
     app.dependency_overrides[get_building_models_service] = lambda: models_service
     app.dependency_overrides[get_commands_service] = lambda: mock_commands_service
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
+    app.dependency_overrides[get_current_permissions] = lambda: frozenset(Permission)
     app.dependency_overrides[get_current_user_id] = lambda: admin_token_payload.sub
     return app
 

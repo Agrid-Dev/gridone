@@ -11,7 +11,11 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from api.auth import get_current_token_payload, get_current_user_id
+from api.auth import (
+    get_current_permissions,
+    get_current_token_payload,
+    get_current_user_id,
+)
 from api.dependencies import get_commands_service, get_target_resolver
 from api.exception_handlers import register_exception_handlers
 from api.routes.command_router import router
@@ -27,6 +31,7 @@ from devices_manager.types import DataType
 from models.errors import InvalidError, NotFoundError
 from models.pagination import Page, PaginationParams
 from models.targets import DevicesFilter, ResolvedTarget, TargetResolver
+from users.permissions import Permission
 
 
 @pytest.fixture
@@ -56,6 +61,7 @@ def app(mock_commands_service, mock_target_resolver, admin_token_payload) -> Fas
     app.dependency_overrides[get_commands_service] = lambda: mock_commands_service
     app.dependency_overrides[get_target_resolver] = lambda: mock_target_resolver
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
+    app.dependency_overrides[get_current_permissions] = lambda: frozenset(Permission)
     app.dependency_overrides[get_current_user_id] = lambda: admin_token_payload.sub
     return app
 

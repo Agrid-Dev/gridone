@@ -34,6 +34,9 @@ class MemoryUsersStorage:
     async def delete(self, user_id: str) -> None:
         self._users.pop(user_id, None)
 
+    async def any_with_role(self, role_id: str) -> bool:
+        return any(user.role == role_id for user in self._users.values())
+
     async def close(self) -> None:
         pass
 

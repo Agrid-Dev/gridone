@@ -5,13 +5,14 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
 
-from api.auth import get_current_token_payload
+from api.auth import get_current_permissions, get_current_token_payload
 from api.dependencies import get_device_manager
 from api.routes.discovery_router import get_transport_id, router
 from devices_manager import DevicesServiceInterface, DiscoveryManagerInterface
 from devices_manager.dto import DriverSpec, Transport, build_transport
 from devices_manager.types import TransportProtocols
 from models.errors import NotFoundError
+from users.permissions import Permission
 
 _MQTT_DRIVER = DriverSpec.model_validate(
     {
@@ -68,6 +69,7 @@ def app(dm, admin_token_payload) -> FastAPI:
     app.include_router(router)
     app.dependency_overrides[get_device_manager] = lambda: dm
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
+    app.dependency_overrides[get_current_permissions] = lambda: frozenset(Permission)
     return app
 
 

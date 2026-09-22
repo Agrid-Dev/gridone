@@ -17,7 +17,11 @@ from dashboards import (
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from api.auth import get_current_token_payload, get_current_user_id
+from api.auth import (
+    get_current_permissions,
+    get_current_token_payload,
+    get_current_user_id,
+)
 from api.dependencies import get_dashboards_service, get_target_resolver
 from api.exception_handlers import register_exception_handlers
 from api.routes.dashboards_router import router
@@ -26,6 +30,7 @@ from models.errors import InvalidError, NotFoundError
 from models.pagination import Page
 from models.targets import ResolvedTarget, TargetResolver
 from models.types import DataType
+from users.permissions import Permission
 
 pytestmark = pytest.mark.asyncio
 
@@ -88,6 +93,7 @@ def app(svc, mock_target_resolver, admin_token_payload) -> FastAPI:
     app.dependency_overrides[get_dashboards_service] = lambda: svc
     app.dependency_overrides[get_target_resolver] = lambda: mock_target_resolver
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
+    app.dependency_overrides[get_current_permissions] = lambda: frozenset(Permission)
     app.dependency_overrides[get_current_user_id] = lambda: admin_token_payload.sub
     return app
 

@@ -164,7 +164,50 @@ markers = [
 ]
 
 [tool.importlinter]
-root_packages = ["devices_manager", "assets", "operating_rules"]
+root_packages = ["devices_manager", "assets", "operating_rules", "users"]
+
+# AGR-1208: users and roles share one service and one schema but no logic.
+# Each side has its own models and storage; `users.service` is the only
+# module allowed to import both. See packages/users/README.md.
+
+[[tool.importlinter.contracts]]
+name = "roles know nothing about users"
+type = "forbidden"
+source_modules = ["users.roles"]
+forbidden_modules = [
+    "users.models",
+    "users.auth",
+    "users.password",
+    "users.service",
+    "users.storage",
+]
+
+[[tool.importlinter.contracts]]
+name = "user models never import roles"
+type = "forbidden"
+source_modules = ["users.models"]
+forbidden_modules = ["users.roles"]
+
+[[tool.importlinter.contracts]]
+name = "users storage backends serve the users table only"
+type = "forbidden"
+source_modules = [
+    "users.storage.users_backend",
+    "users.storage.memory_users",
+    "users.storage.postgres.postgres_users_storage",
+]
+forbidden_modules = ["users.roles"]
+
+[[tool.importlinter.contracts]]
+name = "roles storage backends serve the roles table only"
+type = "forbidden"
+source_modules = [
+    "users.storage.roles_backend",
+    "users.storage.memory_roles",
+    "users.storage.postgres.postgres_roles_storage",
+]
+forbidden_modules = ["users.models"]
+
 
 [[tool.importlinter.contracts]]
 name = "operating rules and devices are independent services"

@@ -11,7 +11,11 @@ from httpx import ASGITransport, AsyncClient
 
 from api.action_providers.commands import CommandsActionProvider
 from api.app import _start_commands_service
-from api.auth import get_current_token_payload, get_current_user_id
+from api.auth import (
+    get_current_permissions,
+    get_current_token_payload,
+    get_current_user_id,
+)
 from api.exception_handlers import register_exception_handlers
 from api.routes.command_router import router
 from api.routes.operating_rules_router import router as operating_rules_router
@@ -43,6 +47,7 @@ from models.types import DataType
 from models.write_rules import WriteReason
 from operating_rules import OperatingRuleGuard, OperatingRulesService
 from timeseries import TimeSeriesService
+from users.permissions import Permission
 
 pytestmark = pytest.mark.asyncio
 
@@ -133,6 +138,7 @@ async def harness(admin_token_payload):
     app.state.operating_rules_service = operating_rules
     app.state.selection_commands = SelectionCommands(dm, commands)
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
+    app.dependency_overrides[get_current_permissions] = lambda: frozenset(Permission)
     app.dependency_overrides[get_current_user_id] = lambda: admin_token_payload.sub
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"

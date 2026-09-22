@@ -3,13 +3,16 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, status
 from pydantic import BaseModel, Field
 
-from api.auth import get_current_user_id
+from api.auth import (
+    get_current_permissions,
+    get_current_token_payload,
+)
 from api.dependencies import get_auth_service, get_users_service
 from models.errors import NotFoundError
 from users import UsersService
-from users.auth import AuthService, InvalidTokenError
+from users.auth import AuthService, InvalidTokenError, TokenPayload
 from users.models import User
-from users.roles import get_permissions_for_role
+from users.permissions import Permission
 from users.validation import PasswordField, get_auth_payload_schema
 
 router = APIRouter()
@@ -198,23 +201,34 @@ class MeResponse(BaseModel):
     email: str
     title: str
     must_change_password: bool
-    permissions: list[str]
+    permissions: list[Permission]
 
 
-def _me_response(user: User) -> MeResponse:
+def _me_response(
+    user: User, payload: TokenPayload, permissions: frozenset[Permission]
+) -> MeResponse:
+    """The caller as the API enforces it, not as storage holds it.
+
+    ``role`` and ``permissions`` come from the token, like every permission
+    check: a role change lands at the next refresh, and until then this
+    endpoint says what the current token can do, so the web app's controls
+    match the answers it will get.
+    """
     return MeResponse(
-        **user.model_dump(),
-        permissions=get_permissions_for_role(user.role),
+        **user.model_dump(exclude={"role"}),
+        role=payload.role,
+        permissions=sorted(permissions),
     )
 
 
 @router.get("/me")
 async def get_me(
-    current_user_id: Annotated[str, Depends(get_current_user_id)],
+    payload: Annotated[TokenPayload, Depends(get_current_token_payload)],
+    permissions: Annotated[frozenset[Permission], Depends(get_current_permissions)],
     um: Annotated[UsersService, Depends(get_users_service)],
 ) -> MeResponse:
-    user = await um.get_by_id(current_user_id)
-    return _me_response(user)
+    user = await um.get_by_id(payload.sub)
+    return _me_response(user, payload, permissions)
 
 
 class PasswordChangeRequest(BaseModel):
@@ -228,7 +242,8 @@ class PasswordChangeRequest(BaseModel):
 @router.post("/password")
 async def change_password(
     body: PasswordChangeRequest,
-    current_user_id: Annotated[str, Depends(get_current_user_id)],
+    payload: Annotated[TokenPayload, Depends(get_current_token_payload)],
+    permissions: Annotated[frozenset[Permission], Depends(get_current_permissions)],
     um: Annotated[UsersService, Depends(get_users_service)],
 ) -> MeResponse:
     """Change your own password.
@@ -237,6 +252,6 @@ async def change_password(
     ``users:write`` permission.
     """
     user = await um.change_password(
-        current_user_id, body.current_password, body.new_password
+        payload.sub, body.current_password, body.new_password
     )
-    return _me_response(user)
+    return _me_response(user, payload, permissions)

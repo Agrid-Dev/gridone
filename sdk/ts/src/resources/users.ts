@@ -3,6 +3,8 @@ import type {
   MeResponse,
   PasswordChangeRequest,
   Role,
+  RoleCreate,
+  RoleUpdate,
   User,
   UserBasic,
   UserCreateRequest,
@@ -51,6 +53,23 @@ export class UsersResource {
 
   getRole(roleId: string): Promise<Role> {
     return this.request("GET", `/users/roles/${encodeURIComponent(roleId)}`);
+  }
+
+  /** Create a custom role. Needs `roles:write` (admin only). */
+  createRole(params: RoleCreate): Promise<Role> {
+    return this.request("POST", "/users/roles/", { body: params });
+  }
+
+  /** Edit a custom role; built-ins answer 409. Needs `roles:write`. */
+  updateRole(roleId: string, params: RoleUpdate): Promise<Role> {
+    return this.request("PATCH", `/users/roles/${encodeURIComponent(roleId)}`, {
+      body: params,
+    });
+  }
+
+  /** Delete a custom role; 409 while a user still holds it. Needs `roles:write`. */
+  deleteRole(roleId: string): Promise<void> {
+    return this.request("DELETE", `/users/roles/${encodeURIComponent(roleId)}`);
   }
 
   /** Change your own password. Any role, no `users:write` needed. */

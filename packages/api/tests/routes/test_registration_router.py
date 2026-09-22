@@ -11,7 +11,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from api.auth import get_current_token_payload
+from api.auth import get_current_permissions, get_current_token_payload
 from api.dependencies import get_apps_service
 from api.exception_handlers import register_exception_handlers
 from api.routes.apps import apps_registration_router
@@ -24,6 +24,7 @@ from apps import (
 from models.errors import InvalidError, NotFoundError
 from users import User
 from users.auth import TokenPayload
+from users.permissions import Permission
 
 NOW = datetime.now(UTC)
 
@@ -100,6 +101,9 @@ def app(apps_service: AsyncMock) -> FastAPI:
     test_app = FastAPI()
     test_app.dependency_overrides[get_apps_service] = lambda: apps_service
     test_app.dependency_overrides[get_current_token_payload] = lambda: ADMIN_PAYLOAD
+    test_app.dependency_overrides[get_current_permissions] = lambda: frozenset(
+        Permission
+    )
     test_app.include_router(apps_registration_router, prefix="/apps")
     register_exception_handlers(test_app)
     return test_app

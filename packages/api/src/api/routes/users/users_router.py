@@ -3,14 +3,12 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
-from api.auth import get_current_token_payload, get_current_user_id, require_permission
+from api.auth import get_current_permissions, get_current_user_id, require_permission
 from api.dependencies import get_users_service
-from models.errors import InvalidError
+from models.errors import ForbiddenError, InvalidError
 from users import User, UserCreate, UsersService, UserType, UserUpdate
-from users.auth import TokenPayload
 from users.models import DEFAULT_ROLE_ID
 from users.permissions import Permission
-from users.roles import get_permissions_for_role
 from users.validation import PasswordField, UsernameField
 
 router = APIRouter()
@@ -56,10 +54,9 @@ class UserUpdateRequest(BaseModel):
 
 @router.get("/")
 async def list_users(
-    payload: Annotated[TokenPayload, Depends(get_current_token_payload)],
+    perms: Annotated[frozenset[Permission], Depends(get_current_permissions)],
     um: Annotated[UsersService, Depends(get_users_service)],
 ) -> list[User] | list[UserBasic]:
-    perms = get_permissions_for_role(payload.role)
     if Permission.USERS_READ in perms:
         return await um.list_users()
     if Permission.USERS_READ_BASIC in perms:
@@ -71,6 +68,21 @@ async def list_users(
     )
 
 
+async def _ensure_grantable(
+    role_id: str, granted: frozenset[Permission], um: UsersService
+) -> None:
+    """A caller may only assign a role whose permissions it holds itself.
+
+    Without this, ``users:write`` alone is admin-equivalent: promote an
+    account (yours or another) to ``admin`` and log in as it. An unknown
+    role resolves to no permissions and is left for the service to reject.
+    """
+    missing = set(await um.get_role_permissions(role_id)) - granted
+    if missing:
+        msg = f"Cannot assign role '{role_id}': it grants permissions you do not hold"
+        raise ForbiddenError(msg)
+
+
 @router.post(
     "/",
     status_code=status.HTTP_201_CREATED,
@@ -78,10 +90,12 @@ async def list_users(
 )
 async def create_user(
     body: UserCreateRequest,
+    granted: Annotated[frozenset[Permission], Depends(get_current_permissions)],
     um: Annotated[UsersService, Depends(get_users_service)],
 ) -> User:
     # Built outside the try: a model error is a 422, not a username conflict.
     create_data = UserCreate(**body.model_dump())
+    await _ensure_grantable(create_data.role, granted, um)
     try:
         return await um.create_user(create_data)
     except InvalidError:
@@ -111,9 +125,12 @@ async def get_user(
 async def update_user(
     user_id: str,
     body: UserUpdateRequest,
+    granted: Annotated[frozenset[Permission], Depends(get_current_permissions)],
     um: Annotated[UsersService, Depends(get_users_service)],
 ) -> User:
     update_data = UserUpdate(**body.model_dump())
+    if update_data.role is not None:
+        await _ensure_grantable(update_data.role, granted, um)
     try:
         # NotFoundError -> 404 is handled by exception_handlers.py
         return await um.update_user(user_id, update_data)

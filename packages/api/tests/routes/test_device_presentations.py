@@ -4,7 +4,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from api.auth import get_current_token_payload
+from api.auth import get_current_permissions, get_current_token_payload
 from api.dependencies import get_device_manager
 from api.exception_handlers import register_exception_handlers
 from api.routes.devices_router import router
@@ -12,6 +12,7 @@ from devices_manager import DevicesServiceInterface
 from devices_manager.core.presentation.resources import StoredResource
 from devices_manager.dto.presentation_dto import UnavailablePresentationResponse
 from models.errors import ConflictError, NotFoundError
+from users.permissions import Permission
 
 
 @pytest.fixture
@@ -33,6 +34,7 @@ def client(dm, admin_token_payload):
     app.include_router(router, prefix="/devices")
     app.dependency_overrides[get_device_manager] = lambda: dm
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
+    app.dependency_overrides[get_current_permissions] = lambda: frozenset(Permission)
     with TestClient(app) as client:
         yield client
 
