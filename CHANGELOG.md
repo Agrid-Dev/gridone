@@ -1,3 +1,9 @@
+## v0.260.0 (2026-09-22)
+
+### Feat
+
+- **users**: custom roles CRUD with permissions only (#674)
+
 ## v0.259.0 (2026-09-22)
 
 ### Feat
