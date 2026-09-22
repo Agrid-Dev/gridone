@@ -1,3 +1,22 @@
+## v0.258.0 (2026-09-22)
+
+### Feat
+
+- **operating-rules**: add enable-disable and delete actions
+- **protections**: make freshness checks optional
+- design
+- **ui**: manage protections within device configuration
+- **protections**: enforce cross-device write guards
+
+### Fix
+
+- **ui**: scope device faults to supervision and size the freshness toggle
+
+### Refactor
+
+- **operating-rules**: own evaluation through generic write policy
+- rename protections to operating rules
+
 ## v0.257.0 (2026-09-21)
 
 ### Feat
