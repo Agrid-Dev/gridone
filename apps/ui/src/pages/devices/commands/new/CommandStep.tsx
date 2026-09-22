@@ -14,7 +14,12 @@ import {
   useAttributeCoverage,
 } from "@/components/forms/targetPicker";
 import { AttributeValue } from "@/components/AttributeValue";
-import type { Device, ResolvedOption, ValueLabel } from "@gridone/sdk";
+import type {
+  AttributeCoverage,
+  Device,
+  ResolvedOption,
+  ValueLabel,
+} from "@gridone/sdk";
 import {
   isEmptyFilter,
   type DevicesFilter,
@@ -33,6 +38,8 @@ type CommandStepProps = {
   selectedDevices: Device[];
   selectedAttribute: string | undefined;
   selectedDataType: WizardFormValues["attributeDataType"];
+  /** Coverage row of the selected attribute, looked up once by the wizard. */
+  selectedCoverage: AttributeCoverage | undefined;
 };
 
 export function CommandStep({
@@ -42,6 +49,7 @@ export function CommandStep({
   selectedDevices,
   selectedAttribute,
   selectedDataType,
+  selectedCoverage,
 }: CommandStepProps) {
   const { t } = useTranslation("devices");
 
@@ -90,9 +98,6 @@ export function CommandStep({
       {selectedAttribute &&
         selectedDataType &&
         (() => {
-          const selectedCoverage = coverage.find(
-            (row) => row.attribute === selectedAttribute,
-          );
           const projectedOptions = selectedCoverage?.write_state?.options;
           const selectedValueOptions =
             projectedOptions?.map((option) => option.value) ??

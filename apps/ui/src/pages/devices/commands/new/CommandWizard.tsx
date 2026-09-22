@@ -72,14 +72,15 @@ export function CommandWizard(props: CommandWizardProps) {
     toast.error(serverErrorMessage(commitError) ?? t("common:errors.default"));
   }, [commitError, t]);
 
-  // Same query as the command step (react-query dedupes): the attribute's
-  // wording for the collapsed summary and the review.
+  // Same query as the command step (react-query dedupes). The chosen
+  // attribute's row feeds the step, the collapsed summary and the review.
   const { coverage } = useAttributeCoverage(coverageFilter, {
     enabled: !isEmptyFilter(coverageFilter),
   });
-  const valueLabels = coverage.find(
+  const selectedCoverage = coverage.find(
     (row) => row.attribute === values.attribute,
-  )?.value_labels;
+  );
+  const valueLabels = selectedCoverage?.value_labels;
 
   const stateOf = (idx: number) =>
     idx < step ? "done" : idx === step ? "active" : "pending";
@@ -150,6 +151,7 @@ export function CommandWizard(props: CommandWizardProps) {
               selectedDevices={selectedDevices}
               selectedAttribute={values.attribute}
               selectedDataType={values.attributeDataType}
+              selectedCoverage={selectedCoverage}
             />
             <StepFooter
               onBack={onBack}

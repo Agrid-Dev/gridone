@@ -96,7 +96,10 @@ function coverageRow(
   };
 }
 
+let coverageRows: AttributeCoverage[] = [];
+
 function mockCoverage(rows: AttributeCoverage[]) {
+  coverageRows = rows;
   mockUseQuery.mockReturnValue({
     data: { total_devices: rows.length ? 1 : 0, attributes: rows },
     isLoading: false,
@@ -124,6 +127,9 @@ function Wrapper({
       selectedDevices={selectedDevices}
       selectedAttribute={selectedAttribute}
       selectedDataType={selectedDataType}
+      selectedCoverage={coverageRows.find(
+        (row) => row.attribute === selectedAttribute,
+      )}
     />
   );
 }

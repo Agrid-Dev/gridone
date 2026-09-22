@@ -1,8 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
-import { useValueLabel } from "@/hooks/useValueLabel";
+import { useValueText } from "@/hooks/useValueText";
 import { toLabel } from "@/lib/textFormat";
-import { formatValue } from "@/lib/formatValue";
 import type { Device, ValueLabel } from "@gridone/sdk";
 import type { WizardFormValues } from "./types";
 
@@ -43,7 +42,7 @@ export function CommandSummary({
   values: WizardFormValues;
   valueLabels?: ValueLabel[] | null;
 }) {
-  const labelFor = useValueLabel();
+  const valueText = useValueText();
   if (!values.attribute || values.value === undefined) {
     return <span>—</span>;
   }
@@ -52,9 +51,7 @@ export function CommandSummary({
       <span className="font-medium">{toLabel(values.attribute)}</span>
       <span className="mx-2 text-muted-foreground">=</span>
       <span className="tabular-nums">
-        {typeof values.value === "boolean"
-          ? labelFor(values.value, valueLabels)
-          : formatValue(values.value, values.attributeDataType)}
+        {valueText(values.value, valueLabels, values.attributeDataType)}
       </span>
     </span>
   );
