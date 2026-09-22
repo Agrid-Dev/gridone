@@ -168,3 +168,15 @@ services:
       TMK_CONTROLLER: http
     ports:
       - "9090:8080"
+
+  # Dedicated to suites/roles/scopes.spec.ts: the scope suite flips
+  # temperature_setpoint and mode through the http side-channel to prove
+  # which updates a scoped role receives, a mutation the shared golden-path
+  # devices can't absorb.
+  thermocktat-scopes:
+    image: ghcr.io/agrid-dev/thermocktat:v0.10.0
+    environment:
+      TMK_DEVICE_ID: TMK_scopes_0
+      TMK_CONTROLLER: http
+    ports:
+      - "9091:8080"
