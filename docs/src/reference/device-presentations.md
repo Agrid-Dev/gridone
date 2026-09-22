@@ -53,7 +53,7 @@ presentation:
 - `bindings` give local names to attributes of the current device. Every other reference (`controls`, `measurements`, face layers, conditions) uses a binding id, never an attribute name.
 - `controls` declare what may be written. `toggle` needs a boolean attribute, `number` and `slider` an `int`/`float` one, `select` an attribute that has `value_options`. The step and bounds of numeric controls come from the attribute's `write_constraints` (see [Attributes](driver-schema/attributes.md)), never from the presentation; while a referenced step or bound is unknown, increments are unavailable. `slider` additionally requires `slider/1` and renders a horizontal range with its current value and unit.
 
-Texts are `LocalizedText` objects: `{ default: …, translations: { fr: …, en-GB: … } }`, resolved exact tag → base language → default.
+Texts are `LocalizedText` objects: `{ default: …, translations: { fr: …, en-GB: … } }`, resolved exact tag → base language → default. A bare string is accepted as a shortcut for `{ default: … }`.
 
 ## Page nodes (`layout/1`, `controls/1`, `measurements/1`, `setpoint-table/1`)
 
