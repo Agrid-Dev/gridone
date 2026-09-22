@@ -578,17 +578,17 @@ class TestOnFire:
         provider = _make_action_provider(action.provider_id)
         svc = _make_service(action_providers=[provider])
         created = await svc.create(
-            _create_params(action=action, enabled=False), created_by="u1"
+            _create_params(action=action, enabled=True), created_by="u1"
         )
         await svc._make_on_fire(created.id)(_CTX)  # noqa: SLF001
-        provider.execute.assert_awaited_once_with(expected_params)
+        provider.execute.assert_awaited_once_with(expected_params, _CTX)
 
     async def test_logs_success_execution(self):
         storage = _make_storage()
         action_provider = _make_action_provider("command_template")
         action_provider.execute.return_value = "output-abc123"
         svc = _make_service(storage=storage, action_providers=[action_provider])
-        created = await svc.create(_create_params(enabled=False), created_by="u1")
+        created = await svc.create(_create_params(enabled=True), created_by="u1")
         await svc._make_on_fire(created.id)(_CTX)  # noqa: SLF001
         execution = storage.log_execution.call_args[0][0]
         assert execution.automation_id == created.id
@@ -601,7 +601,7 @@ class TestOnFire:
         action_provider = _make_action_provider("command_template")
         action_provider.execute.side_effect = RuntimeError("boom")
         svc = _make_service(storage=storage, action_providers=[action_provider])
-        created = await svc.create(_create_params(enabled=False), created_by="u1")
+        created = await svc.create(_create_params(enabled=True), created_by="u1")
         await svc._make_on_fire(created.id)(_CTX)  # noqa: SLF001
         execution = storage.log_execution.call_args[0][0]
         assert execution.status == ExecutionStatus.FAILED
@@ -612,7 +612,7 @@ class TestOnFire:
         action_provider = _make_action_provider("command_template")
         action_provider.execute.side_effect = RuntimeError("boom")
         svc = _make_service(action_providers=[action_provider])
-        created = await svc.create(_create_params(enabled=False), created_by="u1")
+        created = await svc.create(_create_params(enabled=True), created_by="u1")
         await svc._make_on_fire(created.id)(_CTX)  # must not raise  # noqa: SLF001
 
     async def test_raises_not_found_when_automation_missing(self):
@@ -627,7 +627,7 @@ class TestOnFire:
         storage = _make_storage()
         svc = _make_service(storage=storage, action_providers=[])
         automation = Automation(
-            id="auto-1", name="a", trigger=_SCHEDULE, action=_ACTION, enabled=False
+            id="auto-1", name="a", trigger=_SCHEDULE, action=_ACTION, enabled=True
         )
         svc._cache[automation.id] = automation  # noqa: SLF001
         await svc._make_on_fire(automation.id)(_CTX)  # noqa: SLF001
@@ -688,10 +688,13 @@ class _FakeTriggerProvider:
 
 
 class _FakeActionProvider:
+    async def describe_writes(self, params: dict, trigger: Trigger) -> list:  # noqa: ARG002
+        return []
+
     id = "fake_action"
     params_model = _FakeParams
 
-    async def execute(self, params: dict) -> str | None:  # noqa: ARG002
+    async def execute(self, params: dict, context: TriggerContext) -> str | None:  # noqa: ARG002
         return "output-test"
 
 

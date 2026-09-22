@@ -131,7 +131,10 @@
     "title": "Executions",
     "status": {
       "success": "Succeeded",
-      "failed": "Failed"
+      "failed": "Failed",
+      "no_match": "No matching branch",
+      "initialized": "Initialized without action",
+      "suspended": "Suspended"
     },
     "triggeredAt": "Triggered at",
     "executedAt": "Executed at",
@@ -152,11 +155,13 @@
     "type": "Action type",
     "types": {
       "command_template": "Run a command",
-      "notification": "Send a notification"
+      "notification": "Send a notification",
+      "write_attribute": "Write a point"
     },
     "typeDescriptions": {
       "command_template": "Sends a command to the targeted devices.",
-      "notification": "Notifies the selected users."
+      "notification": "Notifies the selected users.",
+      "write_attribute": "Choose a device or use the triggering event."
     },
     "commandActionForm": {
       "sourceLabel": "Command source",
@@ -191,5 +196,83 @@
     "details": "Delete \"{{name}}\"?"
   },
   "enabledBadge": "Enabled",
-  "disabledBadge": "Disabled"
+  "disabledBadge": "Disabled",
+  "tree": {
+    "title": "Decision tree",
+    "firstMatch": "Evaluate from top to bottom. Only the first matching branch runs.",
+    "editBranch": "Edit branch",
+    "loading": "Loading editor…",
+    "branchName": "Branch name",
+    "useCondition": "Only when a condition matches",
+    "always": "Always, if this branch is reached",
+    "invalidCondition": "Complete the condition before applying this branch.",
+    "cancel": "Cancel",
+    "applyBranch": "Apply branch",
+    "otherwise": "Otherwise, continue",
+    "branch": "Branch {{number}}",
+    "then": "Then",
+    "stopAfterMatch": "End this execution",
+    "moveUp": "Move branch {{number}} up",
+    "moveDown": "Move branch {{number}} down",
+    "removeBranch": "Remove branch {{number}}",
+    "noMatch": "No match → record in history. No action or notification.",
+    "addBranch": "Add branch",
+    "expand": "Add conditions and decision branches",
+    "branchCount_one": "{{count}} decision branch",
+    "branchCount_other": "{{count}} decision branches",
+    "unreachable": "An earlier unconditional branch always matches. Move this branch above it or add a condition.",
+    "startTree": "Build a decision tree",
+    "evaluation": "Branch {{number}}: {{result}}",
+    "results": {
+      "matched": "matched",
+      "not_matched": "not matched",
+      "unknown": "unknown"
+    },
+    "guardrails": "Up to {{max}} actions per {{seconds}} seconds; suspension after {{failures}} consecutive failures. Reactivation is manual."
+  },
+  "event": {
+    "title": "Triggering event",
+    "device_id": "Event device",
+    "attribute": "Event attribute",
+    "previous_value": "Previous value",
+    "value": "New value",
+    "has_previous": "Has a previous observation",
+    "is_initial": "First observation"
+  },
+  "write": {
+    "eventDevice": "Write to the triggering device",
+    "attribute": "Attribute to write",
+    "target": "Target point",
+    "value": "Requested value",
+    "protected": "Every write passes through the equipment protections. A refusal is recorded; no automatic retry."
+  },
+  "suspension": {
+    "title": "Suspend {{name}}",
+    "resumeTitle": "Reactivate {{name}}",
+    "help": "Suspend this entire automation until you explicitly reactivate it. Equipment protections remain active.",
+    "resumeHelp": "Reactivation resumes listening. It does not send a command or replay events missed during suspension.",
+    "reason": "Reason for suspension",
+    "confirm": "Suspend automation",
+    "resume": "Reactivate",
+    "badge": "Suspended",
+    "breaker": "Circuit breaker open"
+  },
+  "reasons": {
+    "overlapping_execution": "Another execution was already running.",
+    "execution_rate_exceeded": "Too many executions in the configured time window.",
+    "consecutive_failures": "Repeated executions failed.",
+    "direct_feedback": "The action would write its own triggering point.",
+    "condition_unknown": "A condition could not be evaluated.",
+    "evaluation_limit": "The evaluation budget was exceeded.",
+    "no_matching_branch": "No branch matched.",
+    "first_observation": "Initial observation; no action was sent.",
+    "write_rejected": "The write was refused by a protection."
+  },
+  "diagnostics": {
+    "title": "Potential conflicts",
+    "potential_write_conflict": "Another active automation can write a different value to",
+    "direct_feedback": "This action writes its own triggering point:",
+    "openOther": "Open automation",
+    "unavailable": "Conflict checks are currently unavailable."
+  }
 }

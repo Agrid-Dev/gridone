@@ -1,7 +1,7 @@
-import { FC, FormEvent, useState } from "react";
+import { FC, FormEvent, useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui";
-import type { Action } from "@gridone/sdk";
+import type { Action, WriteExpression } from "@gridone/sdk";
 import type { Severity } from "@/lib/severity";
 import { TypePickerCards } from "../../components/TypePickerCards";
 import {
@@ -34,6 +34,21 @@ interface ActionFormProps {
 function actionToResult(action: Action | undefined): ActionFormResult | null {
   if (!action) return null;
   const params = action.params ?? {};
+  if (
+    action.provider_id === "write_attribute" &&
+    typeof params.attribute === "string" &&
+    params.value != null
+  ) {
+    return {
+      provider_id: "write_attribute",
+      params: {
+        device_id:
+          typeof params.device_id === "string" ? params.device_id : null,
+        attribute: params.attribute,
+        value: params.value as WriteExpression,
+      },
+    };
+  }
   if (action.provider_id === "command_template") {
     const id = params.template_id;
     if (typeof id !== "string") return null;
@@ -80,10 +95,13 @@ const ActionForm: FC<ActionFormProps> = ({
     actionToResult(initialValue),
   );
 
-  const updateResult = (next: ActionFormResult | null) => {
-    setResult(next);
-    onChange?.(next);
-  };
+  const updateResult = useCallback(
+    (next: ActionFormResult | null) => {
+      setResult(next);
+      onChange?.(next);
+    },
+    [onChange],
+  );
 
   const handleTypeChange = (next: string) => {
     setType(next as ActionType);

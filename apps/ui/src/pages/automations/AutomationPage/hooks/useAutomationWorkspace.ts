@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -9,6 +9,7 @@ import type {
   Action,
   Automation,
   AutomationUpdate,
+  AutomationBranch,
   Trigger,
 } from "@gridone/sdk";
 import { usePermissions } from "@/contexts/AuthContext";
@@ -48,6 +49,13 @@ export function useAutomationWorkspace(
 
   const [trigger, setTrigger] = useState<Trigger | null>(automation.trigger);
   const [action, setAction] = useState<Action | null>(automation.action);
+  const [branches, setBranches] = useState<AutomationBranch[]>(
+    automation.branches ?? [{ action: automation.action }],
+  );
+  const [useTree, setUseTree] = useState(
+    (automation.branches?.length ?? 0) > 1 ||
+      Boolean(automation.branches?.[0]?.condition),
+  );
   // Bumped on cancel so the trigger and action sub-forms remount on their
   // saved values — they own their own react-hook-form state.
   const [draftKey, setDraftKey] = useState(0);
@@ -60,7 +68,11 @@ export function useAutomationWorkspace(
   const { mutate: mutateUpdate, isPending: isSaving } = useMutation({
     mutationFn: (payload: AutomationUpdate) =>
       client.automations.update(automationId, payload),
-    onSuccess: (_data, payload) => {
+    onSuccess: (saved, payload) => {
+      queryClient.setQueryData(["automations", automationId], saved);
+      setBranches(saved.branches ?? [{ action: saved.action }]);
+      setAction(saved.action);
+      setTrigger(saved.trigger);
       setServerError(undefined);
       invalidate();
       identityForm.reset({
@@ -76,26 +88,14 @@ export function useAutomationWorkspace(
   });
 
   const enabled = automation.enabled ?? true;
-  const { mutate: mutateToggle, isPending: isToggling } = useMutation({
-    mutationFn: () =>
-      enabled
-        ? client.automations.disable(automationId)
-        : client.automations.enable(automationId),
-    onSuccess: () => {
-      invalidate();
-      toast.success(t(enabled ? "toasts.disabled" : "toasts.enabled"));
-    },
-    onError: (error: Error) =>
-      toast.error(serverErrorMessage(error) ?? t("toasts.saveError")),
-  });
 
   const save = identityForm.handleSubmit((values) => {
-    if (!trigger || !action) return;
+    if (!trigger || (!useTree && !action)) return;
     mutateUpdate({
       name: values.name.trim(),
       description: values.description,
       trigger,
-      action,
+      ...(useTree ? { branches } : { action: action! }),
     });
   });
 
@@ -103,6 +103,11 @@ export function useAutomationWorkspace(
     identityForm.reset();
     setTrigger(automation.trigger);
     setAction(automation.action);
+    setBranches(automation.branches ?? [{ action: automation.action }]);
+    setUseTree(
+      (automation.branches?.length ?? 0) > 1 ||
+        Boolean(automation.branches?.[0]?.condition),
+    );
     setServerError(undefined);
     setDraftKey((key) => key + 1);
   };
@@ -110,7 +115,12 @@ export function useAutomationWorkspace(
   const hasChanges =
     identityForm.formState.isDirty ||
     !sameShape(trigger, automation.trigger) ||
-    !sameShape(action, automation.action);
+    (useTree
+      ? !sameShape(
+          branches,
+          automation.branches ?? [{ action: automation.action }],
+        )
+      : !sameShape(action, automation.action));
 
   return {
     canWrite: can("automations:write"),
@@ -120,14 +130,23 @@ export function useAutomationWorkspace(
     // callback identity — the raw setters are already stable.
     onTriggerChange: setTrigger,
     onActionChange: setAction,
+    branches,
+    useTree,
+    onBranchesChange: setBranches,
+    expandTree: () => {
+      if (action)
+        setBranches([{ ...(automation.branches?.[0] ?? {}), action }]);
+      setUseTree(true);
+    },
     enabled,
-    toggle: useCallback(() => mutateToggle(), [mutateToggle]),
-    isToggling,
     save,
     cancel,
     isSaving,
     hasChanges,
-    canSave: hasChanges && trigger !== null && action !== null,
+    canSave:
+      hasChanges &&
+      trigger !== null &&
+      (useTree ? branches.length > 0 : action !== null),
     serverError,
   };
 }

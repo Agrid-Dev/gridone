@@ -3,7 +3,7 @@ import { useNavigate } from "react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import type { Automation, Trigger } from "@gridone/sdk";
+import type { Automation, AutomationBranch, Trigger } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { serverErrorMessage } from "@/lib/serverErrorMessage";
 import { type MetadataFormValues } from "../form/MetadataForm";
@@ -32,23 +32,28 @@ export function useCreateAutomation() {
   const [metadata, setMetadata] = useState<MetadataFormValues | null>(null);
   const [trigger, setTrigger] = useState<Trigger | null>(null);
   const [action, setAction] = useState<ActionFormResult | null>(null);
+  const [branches, setBranches] = useState<AutomationBranch[] | null>(null);
 
   const { mutate, isPending } = useMutation({
     mutationFn: ({
       values,
       triggerValue,
       actionValue,
+      branchValues,
     }: {
       values: MetadataFormValues;
       triggerValue: Trigger;
-      actionValue: ActionFormResult;
+      actionValue?: ActionFormResult;
+      branchValues?: AutomationBranch[];
     }) =>
       client.automations.create({
         name: values.name,
         description: values.description,
         enabled: values.enabled,
         trigger: triggerValue,
-        action: actionValue,
+        ...(branchValues
+          ? { branches: branchValues }
+          : { action: actionValue }),
       }),
     onSuccess: (automation: Automation) => {
       queryClient.invalidateQueries({ queryKey: ["automations"] });
@@ -94,6 +99,17 @@ export function useCreateAutomation() {
   };
 
   return {
+    branches,
+    setBranches,
+    startTree: () => setBranches(action ? [{ action }] : []),
+    submitTree: () => {
+      if (metadata && trigger && branches?.length)
+        mutate({
+          values: metadata,
+          triggerValue: trigger,
+          branchValues: branches,
+        });
+    },
     currentStep,
     metadata,
     trigger,

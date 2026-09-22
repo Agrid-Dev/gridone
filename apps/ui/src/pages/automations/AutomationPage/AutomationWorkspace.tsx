@@ -5,7 +5,9 @@ import { ChevronRight, Play, Trash2 } from "lucide-react";
 import type { Automation } from "@gridone/sdk";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Switch } from "@/components/ui/switch";
+import { AutomationControl } from "../components/AutomationControl";
+import { DecisionTree } from "./components/DecisionTree";
+import { AutomationDiagnostics } from "./components/AutomationDiagnostics";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { InputController } from "@/components/forms/controllers/InputController";
 import { TextareaController } from "@/components/forms/controllers/TextAreaController";
@@ -53,8 +55,10 @@ const AutomationWorkspace: FC<AutomationWorkspaceProps> = ({
     onTriggerChange,
     onActionChange,
     enabled,
-    toggle,
-    isToggling,
+    branches,
+    useTree,
+    onBranchesChange,
+    expandTree,
     save,
     cancel,
     isSaving,
@@ -94,7 +98,10 @@ const AutomationWorkspace: FC<AutomationWorkspaceProps> = ({
               >
                 {automation.name}
               </h1>
-              <AutomationStatusBadge enabled={enabled} />
+              <AutomationStatusBadge
+                enabled={enabled}
+                suspension={automation.suspension}
+              />
               {!isLoading && (
                 <StatPill
                   count={count24h}
@@ -118,18 +125,37 @@ const AutomationWorkspace: FC<AutomationWorkspaceProps> = ({
             <span className="text-sm font-medium">
               {t(enabled ? "enabledBadge" : "disabledBadge")}
             </span>
-            <Switch
-              checked={enabled}
-              onCheckedChange={toggle}
-              disabled={isToggling}
-              // Running/paused is a status, not a brand action — green when on.
-              className={enabled ? "bg-success" : undefined}
-              aria-label={t(enabled ? "actions.disable" : "actions.enable")}
-            />
+            <AutomationControl automation={automation} />
           </div>
         )}
       </header>
+      <AutomationDiagnostics id={automationId} />
 
+      {automation.suspension && (
+        <div
+          role="status"
+          className="rounded-xl border border-amber-500/40 bg-amber-500/5 p-4 text-sm"
+        >
+          <p className="font-semibold">
+            {t(
+              automation.suspension.source === "circuit_breaker"
+                ? "suspension.breaker"
+                : "suspension.badge",
+            )}
+          </p>
+          <p>
+            {automation.suspension.source === "circuit_breaker"
+              ? t(`reasons.${automation.suspension.reason}`, {
+                  defaultValue: automation.suspension.reason,
+                })
+              : automation.suspension.reason}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {automation.suspension.actor_id} ·{" "}
+            {formatMoment(automation.suspension.suspended_at)}
+          </p>
+        </div>
+      )}
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(19rem,0.85fr)]">
         <div className="space-y-6">
           <WorkspaceCard
@@ -186,15 +212,26 @@ const AutomationWorkspace: FC<AutomationWorkspaceProps> = ({
             title={t("editPage.then.title")}
             description={t("editPage.then.description")}
           >
-            {canWrite ? (
-              <ActionForm
-                key={`action-${draftKey}`}
-                initialValue={automation.action}
-                onChange={onActionChange}
-                onSubmit={() => void save()}
-                onCancel={cancel}
-                hideActions
+            {useTree ? (
+              <DecisionTree
+                branches={branches}
+                onChange={canWrite ? onBranchesChange : undefined}
+                selectedBranchId={last?.branch_id}
               />
+            ) : canWrite ? (
+              <>
+                <ActionForm
+                  key={`action-${draftKey}`}
+                  initialValue={automation.action}
+                  onChange={onActionChange}
+                  onSubmit={() => void save()}
+                  onCancel={cancel}
+                  hideActions
+                />
+                <Button className="mt-4" variant="outline" onClick={expandTree}>
+                  {t("tree.expand")}
+                </Button>
+              </>
             ) : (
               <ActionPresenter action={automation.action} />
             )}
@@ -229,6 +266,15 @@ const AutomationWorkspace: FC<AutomationWorkspaceProps> = ({
         </div>
 
         <div className="space-y-6">
+          {automation.guardrails && (
+            <p className="rounded-xl border p-4 text-sm text-muted-foreground">
+              {t("tree.guardrails", {
+                max: automation.guardrails.max_executions,
+                seconds: automation.guardrails.window_seconds,
+                failures: automation.guardrails.max_consecutive_failures,
+              })}
+            </p>
+          )}
           <ExecutionsPanel executions={executions} isLoading={isLoading} />
 
           {canWrite && (

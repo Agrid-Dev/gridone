@@ -59,6 +59,9 @@ class TestConditionEvaluate:
             (ConditionOperator.EQ, True, False, False),
             (ConditionOperator.EQ, "on", "on", True),
             (ConditionOperator.EQ, "on", "off", False),
+            # Retain legacy trigger-filter semantics for existing payloads.
+            (ConditionOperator.EQ, 1, True, True),
+            (ConditionOperator.GT, "a", "b", True),
         ],
     )
     def test_operator(self, op, threshold, value, expected):
@@ -72,6 +75,17 @@ class TestConditionEvaluate:
     def test_incompatible_types_returns_false(self):
         c = Condition(operator=ConditionOperator.GT, threshold=10)
         assert c.evaluate("not-a-number") is False
+
+
+@pytest.mark.asyncio
+async def test_one_listener_failure_does_not_drop_other_automations(mock_dm):
+    provider = ChangeEventTriggerProvider(mock_dm)
+    failing = AsyncMock(side_effect=RuntimeError("storage unavailable"))
+    healthy = AsyncMock()
+    for listener in (failing, healthy):
+        await provider.register({"device_id": "a", "attribute": "running"}, listener)
+    await _fire(mock_dm, "a", "running", _make_attr(value=True))
+    healthy.assert_awaited_once()
 
 
 class TestChangeEventTriggerProviderConfig:
@@ -188,3 +202,43 @@ class TestChangeEventTriggerProvider:
         on_fire.assert_called_once()
         ctx: TriggerContext = on_fire.call_args[0][0]
         assert ctx.timestamp is not None
+
+
+@pytest.mark.asyncio
+async def test_initial_observation_passes_context_without_filtering(mock_dm):
+    callback = AsyncMock()
+    provider = ChangeEventTriggerProvider(mock_dm)
+    await provider.register(
+        {
+            "device_id": "a",
+            "attribute": "fault",
+            "condition": {"operator": "eq", "threshold": True},
+        },
+        callback,
+    )
+    initial = _make_attr(value=False)
+    initial.is_initial_observation = True
+    await _fire(mock_dm, "a", "fault", initial)
+    context = callback.call_args.args[0]
+    assert context.is_initial
+    assert not context.has_previous
+    assert context.device_id == "a"
+    assert context.attribute == "fault"
+    assert context.value is False
+
+
+@pytest.mark.asyncio
+async def test_shared_subscription_dispatches_only_matching_point(mock_dm):
+    provider = ChangeEventTriggerProvider(mock_dm)
+    callbacks = [AsyncMock() for _ in range(100)]
+    handles = [
+        await provider.register({"device_id": str(i), "attribute": "fault"}, callback)
+        for i, callback in enumerate(callbacks)
+    ]
+    mock_dm.add_device_attribute_listener.assert_called_once()
+    await _fire(mock_dm, "42", "fault", _make_attr(value=True))
+    assert sum(callback.await_count for callback in callbacks) == 1
+    callbacks[42].assert_awaited_once()
+    for handle in handles:
+        await provider.unregister(handle)
+    mock_dm.remove_device_attribute_listener.assert_called_once()

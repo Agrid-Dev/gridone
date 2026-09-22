@@ -13,6 +13,7 @@ from devices_manager.core.driver import FaultAttributeDriver
 from devices_manager.core.transports import PushTransportClient, ReadError
 from devices_manager.core.utils.templating.render import render_struct
 from devices_manager.observability.metrics import attribute_read
+from devices_manager.types import ConnectionStatus
 from models.errors import (
     ConfirmationError,
     InvalidError,
@@ -38,7 +39,6 @@ if TYPE_CHECKING:
     )
     from devices_manager.types import (
         AttributeValueType,
-        ConnectionStatus,
         DataType,
         DeviceConfig,
         ReadWriteMode,
@@ -162,6 +162,7 @@ class CoreDevice:
     on_update: AttributeListener | None = field(default=None, repr=False)
     connection_monitor: ConnectionMonitor = field(init=False, repr=False)
     _syncing: bool = field(init=False, default=False, repr=False)
+    _observed_attributes: set[str] = field(init=False, default_factory=set, repr=False)
     _waiters: list[tuple[str, Callable[[AttributeValueType], bool], asyncio.Event]] = (
         field(init=False, default_factory=list, repr=False)
     )
@@ -380,6 +381,7 @@ class CoreDevice:
         """
         self.connection_monitor.close()
         self.connection_monitor = self._new_connection_monitor()
+        self._observed_attributes.clear()
         self.connection_monitor.watch()
         self._guard.watch(self.expected_interval)
         await self.init_listeners()
@@ -536,6 +538,7 @@ class CoreDevice:
                 yield
         except Exception:
             self._guard.forget(attribute_name)
+            self._observed_attributes.discard(attribute_name)
             self._notify_write_state()
             attribute_read.add(
                 1, {"protocol": self.transport.protocol, "status": "error"}
@@ -619,6 +622,11 @@ class CoreDevice:
         # Compared here so Attribute stays unaware of the listener contract.
         previous_value = attribute.current_value
         previous = attribute.model_copy() if previous_value is not None else None
+        attribute.mark_observation(
+            initial=attribute.name not in self._observed_attributes
+        )
+        if observation:
+            self._observed_attributes.add(attribute.name)
         attribute.update_value(value)  # ty:ignore[invalid-argument-type]
         if observation and value is not None:
             for wname, pred, event in self._waiters:
@@ -658,6 +666,8 @@ class CoreDevice:
         )
 
     def _publish_connection_status(self, status: ConnectionStatus) -> None:
+        if status == ConnectionStatus.ERROR:
+            self._observed_attributes.clear()
         self._update_attribute(self.attributes[CONNECTION_STATUS_ATTR], status)
 
     async def _read_all_attributes(

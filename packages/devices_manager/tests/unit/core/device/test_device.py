@@ -1459,3 +1459,55 @@ class TestDeviceWriteConstraints:
     ):
         await constrained_device.write_attribute_value("mode", "auto", confirm=False)
         mock_transport_client.write.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_first_divergent_read_and_reconnection_are_initial(
+    device, mock_transport_client
+):
+    device.attributes["temperature"].update_value(10)
+    observations = []
+    device.on_update = lambda _device, name, previous, attr: observations.append(
+        (
+            name,
+            previous.current_value if previous else None,
+            attr.current_value,
+            attr.is_initial_observation,
+        )
+    )
+    mock_transport_client.read = AsyncMock(return_value=25.5)
+    await device.read_attribute_value("temperature")
+    mock_transport_client.read.return_value = 26
+    await device.read_attribute_value("temperature")
+    mock_transport_client.read.side_effect = OSError("connection lost")
+    with pytest.raises(OSError, match="connection lost"):
+        await device.read_attribute_value("temperature")
+    mock_transport_client.read.side_effect = None
+    mock_transport_client.read.return_value = 30
+    await device.read_attribute_value("temperature")
+    mock_transport_client.read.return_value = 31
+    await device.read_attribute_value("temperature")
+    assert [row for row in observations if row[0] == "temperature"] == [
+        ("temperature", 10, 25.5, True),
+        ("temperature", 25.5, 26, False),
+        ("temperature", 26, 30, True),
+        ("temperature", 30, 31, False),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_equal_initial_read_does_not_hide_the_next_transition(
+    device, mock_transport_client
+):
+    device.attributes["temperature"].update_value(25.5)
+    observations = []
+    device.on_update = lambda _device, name, _previous, attr: observations.append(
+        (name, attr.is_initial_observation)
+    )
+    mock_transport_client.read = AsyncMock(return_value=25.5)
+    await device.read_attribute_value("temperature")
+    mock_transport_client.read.return_value = 26
+    await device.read_attribute_value("temperature")
+    assert [row for row in observations if row[0] == "temperature"] == [
+        ("temperature", False)
+    ]

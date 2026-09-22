@@ -740,6 +740,9 @@ class DevicesService(Service):
         attribute: Attribute,
     ) -> None:
         """Dispatch attribute update to all registered handlers."""
+        # Callbacks may run after the next reading. Preserve this event's value
+        # and acquisition marker rather than handing them a live mutable object.
+        attribute = attribute.model_copy(deep=True)
         for handler in self._attribute_update_handlers.values():
             try:
                 self._schedule_if_coroutine(

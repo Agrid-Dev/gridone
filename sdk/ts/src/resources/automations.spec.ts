@@ -33,6 +33,21 @@ type Case = [
 ];
 
 const CASES: Case[] = [
+  ["schema", (a) => a.schema(), ["GET", "/automations/schema"]],
+  [
+    "suspend",
+    (a) => a.suspend("auto/1", "Maintenance"),
+    [
+      "POST",
+      "/automations/auto%2F1/suspend",
+      { body: { reason: "Maintenance" } },
+    ],
+  ],
+  [
+    "diagnostics",
+    (a) => a.listDiagnostics("auto/1"),
+    ["GET", "/automations/auto%2F1/diagnostics"],
+  ],
   [
     "list",
     (a) => a.list({ enabled: true }),

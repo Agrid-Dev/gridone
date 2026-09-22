@@ -100,6 +100,7 @@ class TestAutomationUseCases:
 
     def test_automation_with_notification_action(self):
         a = AutomationCreate(name="notif", trigger=_SCHEDULE, action=_NOTIF_ACTION)
+        assert a.action is not None
         assert a.action.provider_id == "notification"
 
     def test_automation_metadata_defaults(self):

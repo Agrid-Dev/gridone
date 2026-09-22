@@ -5,6 +5,7 @@ import type {
   AutomationCreate,
   AutomationExecution,
   AutomationUpdate,
+  AutomationDiagnostic,
 } from "../types";
 
 export type AutomationListParams = NonNullable<
@@ -59,6 +60,25 @@ export class AutomationsResource {
     return this.request(
       "POST",
       `/automations/${encodeURIComponent(automationId)}/disable`,
+    );
+  }
+
+  suspend(automationId: string, reason: string): Promise<Automation> {
+    return this.request(
+      "POST",
+      `/automations/${encodeURIComponent(automationId)}/suspend`,
+      { body: { reason } },
+    );
+  }
+
+  schema(): Promise<Record<string, unknown>> {
+    return this.request("GET", "/automations/schema");
+  }
+
+  listDiagnostics(automationId: string): Promise<AutomationDiagnostic[]> {
+    return this.request(
+      "GET",
+      `/automations/${encodeURIComponent(automationId)}/diagnostics`,
     );
   }
 

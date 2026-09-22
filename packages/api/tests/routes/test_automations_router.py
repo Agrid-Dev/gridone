@@ -9,7 +9,7 @@ from automations import (
     AutomationExecution,
     AutomationsServiceInterface,
 )
-from automations.models import Action, ExecutionStatus, Trigger
+from automations.models import Action, AutomationUpdate, ExecutionStatus, Trigger
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
@@ -154,9 +154,9 @@ class TestCreateAutomation:
         assert kwargs["created_by"] == admin_token_payload.sub
 
     async def test_notification_action_accepted(self, client, svc):
-        notif_auto = _AUTO.model_copy(
-            update={
-                "action": Action(
+        notif_auto = _AUTO.apply_update(
+            AutomationUpdate(
+                action=Action(
                     provider_id="notification",
                     params={
                         "title": "Hot!",
@@ -165,7 +165,7 @@ class TestCreateAutomation:
                         "user_ids": ["u1"],
                     },
                 )
-            }
+            )
         )
         svc.create.return_value = notif_auto
         async with client as c:
@@ -359,3 +359,37 @@ class TestListTriggerSchemas:
         assert resp.status_code == 200
         svc.list_trigger_schemas.assert_called_once()
         svc.get.assert_not_called()
+
+
+async def test_suspension_records_authenticated_actor(client, svc, admin_token_payload):
+    svc.suspend.return_value = _AUTO.model_copy(update={"enabled": False})
+    async with client as c:
+        response = await c.post("/auto-01/suspend", json={"reason": " Maintenance "})
+    assert response.status_code == 200
+    svc.suspend.assert_awaited_once_with(
+        "auto-01", reason="Maintenance", actor_id=admin_token_payload.sub
+    )
+
+
+async def test_suspension_requires_reason(client, svc):
+    async with client as c:
+        response = await c.post("/auto-01/suspend", json={"reason": " "})
+    assert response.status_code == 422
+    svc.suspend.assert_not_awaited()
+
+
+async def test_tree_schema_is_not_shadowed_by_id_route(client, svc):
+    async with client as c:
+        response = await c.get("/schema")
+    assert response.status_code == 200
+    assert "AutomationBranch" in response.json()["$defs"]
+    svc.get.assert_not_awaited()
+
+
+async def test_diagnostics_response(client, svc):
+    svc.list_diagnostics.return_value = []
+    async with client as c:
+        response = await c.get("/auto-01/diagnostics")
+    assert response.status_code == 200
+    assert response.json() == []
+    svc.list_diagnostics.assert_awaited_once_with("auto-01")

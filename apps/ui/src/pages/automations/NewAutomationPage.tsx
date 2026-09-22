@@ -13,6 +13,7 @@ import TriggerForm from "./AutomationPage/form/TriggerForm";
 import { TriggerPresenter } from "./AutomationPage/presenters/TriggerPresenter";
 import ActionForm from "./AutomationPage/form/ActionForm";
 import { RuleSentence } from "./components/RuleSentence";
+import { DecisionTree } from "./AutomationPage/components/DecisionTree";
 import {
   DEFAULT_METADATA,
   useCreateAutomation,
@@ -35,6 +36,10 @@ const NewAutomationPage: FC = () => {
     submitAction,
     goPrevious,
     isSubmitting,
+    branches,
+    setBranches,
+    startTree,
+    submitTree,
   } = useCreateAutomation();
 
   const onTrigger = currentStep !== "metadata";
@@ -45,7 +50,8 @@ const NewAutomationPage: FC = () => {
   // On the action step the parent button drives submit but the form's
   // gate is ``result``-based (no required fields to react-hook-form-validate
   // against), so we surface readiness here.
-  const submitDisabled = isSubmitting || (onAction && !action);
+  const submitDisabled =
+    isSubmitting || (onAction && (branches ? !branches.length : !action));
 
   return (
     <section className="space-y-6">
@@ -57,7 +63,12 @@ const NewAutomationPage: FC = () => {
         <p className="font-display text-base font-semibold">
           {metadata?.name || t("automations:wizard.untitled")}
         </p>
-        <RuleSentence trigger={trigger} action={action} className="mt-2.5" />
+        <RuleSentence
+          trigger={trigger}
+          action={action}
+          branches={branches ?? undefined}
+          className="mt-2.5"
+        />
       </Card>
 
       <EditableCard
@@ -110,14 +121,36 @@ const NewAutomationPage: FC = () => {
                 isSubmitting={isSubmitting}
                 className="border-primary/50"
               >
-                <ActionForm
-                  formId={WIZARD_FORM_ID}
-                  hideActions
-                  initialValue={action ?? undefined}
-                  onChange={setAction}
-                  onSubmit={submitAction}
-                  onCancel={goPrevious}
-                />
+                {branches ? (
+                  <>
+                    <form
+                      id={WIZARD_FORM_ID}
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        submitTree();
+                      }}
+                    />
+                    <DecisionTree branches={branches} onChange={setBranches} />
+                  </>
+                ) : (
+                  <>
+                    <ActionForm
+                      formId={WIZARD_FORM_ID}
+                      hideActions
+                      initialValue={action ?? undefined}
+                      onChange={setAction}
+                      onSubmit={submitAction}
+                      onCancel={goPrevious}
+                    />
+                    <Button
+                      className="mt-4"
+                      variant="outline"
+                      onClick={startTree}
+                    >
+                      {t("automations:tree.startTree")}
+                    </Button>
+                  </>
+                )}
               </EditableCard>
             </>
           )}

@@ -1207,6 +1207,7 @@ def _build_automations_mock() -> AsyncMock:
     svc = AsyncMock(spec=AutomationsServiceInterface)
     svc.list.return_value = []
     svc.list_executions.return_value = []
+    svc.list_diagnostics.return_value = []
     svc.list_trigger_schemas = MagicMock(return_value={})
     svc.list_action_schemas = MagicMock(return_value={})
     return svc
@@ -1231,6 +1232,23 @@ def automations_app() -> FastAPI:
 
 
 AUTOMATIONS_ACCESS_CONTROL_SCENARIOS = [
+    pytest.param(
+        "GET", "/automations/any-id/diagnostics", "viewer", 200, id="diagnostics-viewer"
+    ),
+    pytest.param(
+        "GET", "/automations/any-id/diagnostics", None, 401, id="diagnostics-no-auth"
+    ),
+    pytest.param("GET", "/automations/schema", "viewer", 200, id="schema-viewer"),
+    pytest.param("GET", "/automations/schema", None, 401, id="schema-no-auth"),
+    pytest.param(
+        "POST", "/automations/any-id/suspend", "viewer", 403, id="suspend-viewer"
+    ),
+    pytest.param(
+        "POST", "/automations/any-id/suspend", "operator", 403, id="suspend-operator"
+    ),
+    pytest.param(
+        "POST", "/automations/any-id/suspend", None, 401, id="suspend-no-auth"
+    ),
     # Read endpoints — all authenticated roles can access
     pytest.param("GET", "/automations/", "viewer", 200, id="list-viewer"),
     pytest.param("GET", "/automations/", "operator", 200, id="list-operator"),

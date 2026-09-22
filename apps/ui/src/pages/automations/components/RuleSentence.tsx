@@ -1,6 +1,6 @@
-import { ArrowRight, Play, Zap } from "lucide-react";
+import { ArrowRight, GitBranch, Play, Zap } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { Action, Trigger } from "@gridone/sdk";
+import type { Action, AutomationBranch, Trigger } from "@gridone/sdk";
 import { cn } from "@/lib/utils";
 import { RuleChip } from "./RuleChip";
 import { TriggerChip } from "./TriggerChip";
@@ -10,6 +10,7 @@ interface RuleSentenceProps {
   trigger?: Trigger | null;
   action?: Action | null;
   className?: string;
+  branches?: AutomationBranch[];
 }
 
 /** The automation read as a sentence: trigger chip → action chip. Missing
@@ -18,6 +19,7 @@ export function RuleSentence({
   trigger,
   action,
   className,
+  branches,
 }: RuleSentenceProps) {
   const { t } = useTranslation("automations");
   return (
@@ -33,7 +35,11 @@ export function RuleSentence({
         aria-hidden
         className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50"
       />
-      {action ? (
+      {branches && (branches.length > 1 || branches[0]?.condition) ? (
+        <RuleChip icon={GitBranch}>
+          {t("tree.branchCount", { count: branches.length })}
+        </RuleChip>
+      ) : action ? (
         <ActionChip action={action} />
       ) : (
         <RuleChip icon={Play} placeholder>

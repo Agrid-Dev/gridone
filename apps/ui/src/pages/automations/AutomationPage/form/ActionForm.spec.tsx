@@ -38,7 +38,7 @@ describe("ActionForm", () => {
 
     const picker = screen.getByRole("radiogroup", { name: "Action type" });
     const radios = within(picker).getAllByRole("radio");
-    expect(radios).toHaveLength(2);
+    expect(radios).toHaveLength(3);
     expect(
       within(picker).getByRole("radio", { name: /Run a command/ }),
     ).toHaveAttribute("aria-checked", "true");

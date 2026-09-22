@@ -45,6 +45,7 @@ vi.mock("@tanstack/react-query", () => ({
     isPending: false,
   }),
   useQueryClient: () => ({
+    setQueryData: vi.fn(),
     invalidateQueries: vi.fn(),
     removeQueries: vi.fn(),
   }),
@@ -58,6 +59,7 @@ vi.mock("@/contexts/GridoneClientContext", () => ({
       getTriggerSchemas: vi.fn(),
       enable: vi.fn(),
       disable: () => mockDisableAutomation(),
+      suspend: (_id: string, reason: string) => mockDisableAutomation(reason),
       delete: () => mockDeleteAutomation(),
       update: (id: string, payload: unknown) =>
         mockUpdateAutomation(id, payload),
@@ -265,6 +267,10 @@ function renderDetail() {
 
 beforeEach(() => {
   canPermission = () => true;
+  mockUpdateAutomation.mockImplementation(async (_id, payload) => ({
+    ...automation,
+    ...payload,
+  }));
 });
 
 afterEach(() => {
@@ -376,13 +382,21 @@ describe("AutomationPage", () => {
     expect(screen.queryByText("Unsaved changes")).not.toBeInTheDocument();
   });
 
-  it("toggles the automation off from the header switch", async () => {
+  it("requires a reason before suspending from the header switch", async () => {
     setQueryResults();
     renderDetail();
 
     await userEvent.click(screen.getByRole("switch", { name: "Disable" }));
 
-    expect(mockDisableAutomation).toHaveBeenCalled();
+    expect(mockDisableAutomation).not.toHaveBeenCalled();
+    await userEvent.type(
+      screen.getByLabelText(/suspension.reason/),
+      "Maintenance",
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "suspension.confirm" }),
+    );
+    expect(mockDisableAutomation).toHaveBeenCalledWith("Maintenance");
   });
 
   it("renders the error of a failed execution", () => {

@@ -131,7 +131,10 @@
     "title": "Exécutions",
     "status": {
       "success": "Réussie",
-      "failed": "Échouée"
+      "failed": "Échouée",
+      "no_match": "Aucune branche correspondante",
+      "initialized": "Initialisation sans action",
+      "suspended": "Suspendu"
     },
     "triggeredAt": "Déclenchée à",
     "executedAt": "Exécutée à",
@@ -152,11 +155,13 @@
     "type": "Type d'action",
     "types": {
       "command_template": "Exécuter une commande",
-      "notification": "Envoyer une notification"
+      "notification": "Envoyer une notification",
+      "write_attribute": "Écrire un point"
     },
     "typeDescriptions": {
       "command_template": "Envoie une commande aux appareils ciblés.",
-      "notification": "Notifie les utilisateurs choisis."
+      "notification": "Notifie les utilisateurs choisis.",
+      "write_attribute": "Choisir un appareil ou utiliser l’événement déclencheur."
     },
     "commandActionForm": {
       "sourceLabel": "Source de la commande",
@@ -191,5 +196,83 @@
     "details": "Supprimer « {{name}} » ?"
   },
   "enabledBadge": "Activée",
-  "disabledBadge": "Désactivée"
+  "disabledBadge": "Désactivée",
+  "tree": {
+    "title": "Arbre de décision",
+    "firstMatch": "Évaluation de haut en bas. Seule la première branche correspondante est exécutée.",
+    "editBranch": "Modifier la branche",
+    "loading": "Chargement de l’éditeur…",
+    "branchName": "Nom de la branche",
+    "useCondition": "Seulement si une condition est remplie",
+    "always": "Toujours, si cette branche est atteinte",
+    "invalidCondition": "Complétez la condition avant d’appliquer cette branche.",
+    "cancel": "Annuler",
+    "applyBranch": "Appliquer la branche",
+    "otherwise": "Sinon, continuer",
+    "branch": "Branche {{number}}",
+    "then": "Alors",
+    "stopAfterMatch": "Fin de cette exécution",
+    "moveUp": "Monter la branche {{number}}",
+    "moveDown": "Descendre la branche {{number}}",
+    "removeBranch": "Supprimer la branche {{number}}",
+    "noMatch": "Aucune correspondance → inscription dans l’historique. Aucune action ni notification.",
+    "addBranch": "Ajouter une branche",
+    "expand": "Ajouter des conditions et des branches",
+    "branchCount_one": "{{count}} branche de décision",
+    "branchCount_other": "{{count}} branches de décision",
+    "unreachable": "Une branche précédente est inconditionnelle. Déplacez cette branche avant elle ou ajoutez une condition.",
+    "startTree": "Construire un arbre de décision",
+    "evaluation": "Branche {{number}} : {{result}}",
+    "results": {
+      "matched": "correspondance",
+      "not_matched": "sans correspondance",
+      "unknown": "inconnu"
+    },
+    "guardrails": "Jusqu’à {{max}} actions par période de {{seconds}} secondes ; suspension après {{failures}} échecs consécutifs. La réactivation est manuelle."
+  },
+  "event": {
+    "title": "Événement déclencheur",
+    "device_id": "Appareil de l’événement",
+    "attribute": "Attribut de l’événement",
+    "previous_value": "Valeur précédente",
+    "value": "Nouvelle valeur",
+    "has_previous": "Observation précédente disponible",
+    "is_initial": "Première observation"
+  },
+  "write": {
+    "eventDevice": "Écrire sur l’appareil déclencheur",
+    "attribute": "Attribut à écrire",
+    "target": "Point cible",
+    "value": "Valeur demandée",
+    "protected": "Chaque écriture traverse les protections de l’équipement. Un refus est enregistré, sans nouvelle tentative automatique."
+  },
+  "suspension": {
+    "title": "Suspendre {{name}}",
+    "resumeTitle": "Réactiver {{name}}",
+    "help": "Suspendez cet automatisme entier jusqu’à sa réactivation explicite. Les protections restent actives.",
+    "resumeHelp": "La réactivation remet à l’écoute. Elle n’envoie aucune commande et ne rejoue pas les événements survenus pendant la suspension.",
+    "reason": "Motif de suspension",
+    "confirm": "Suspendre l’automatisme",
+    "resume": "Réactiver",
+    "badge": "Suspendu",
+    "breaker": "Coupe-circuit ouvert"
+  },
+  "reasons": {
+    "overlapping_execution": "Une exécution était déjà en cours.",
+    "execution_rate_exceeded": "Trop d’exécutions dans la fenêtre configurée.",
+    "consecutive_failures": "Échecs répétés des exécutions.",
+    "direct_feedback": "L’action écrirait son propre point déclencheur.",
+    "condition_unknown": "Une condition ne peut pas être évaluée.",
+    "evaluation_limit": "Le budget d’évaluation est dépassé.",
+    "no_matching_branch": "Aucune branche ne correspond.",
+    "first_observation": "Première observation ; aucune action envoyée.",
+    "write_rejected": "L’écriture a été refusée par une protection."
+  },
+  "diagnostics": {
+    "title": "Conflits potentiels",
+    "potential_write_conflict": "Un autre automatisme actif peut écrire une valeur différente sur",
+    "direct_feedback": "Cette action écrit son propre point déclencheur :",
+    "openOther": "Ouvrir l’automatisme",
+    "unavailable": "La vérification des conflits est indisponible."
+  }
 }

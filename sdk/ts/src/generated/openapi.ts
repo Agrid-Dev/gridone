@@ -1633,6 +1633,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/automations/schema": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Automation Schema */
+    get: operations["automation_schema_automations_schema_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/automations/triggers": {
     parameters: {
       query?: never;
@@ -1749,6 +1766,40 @@ export interface paths {
     get: operations["list_executions_automations__automation_id__executions_get"];
     put?: never;
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/automations/{automation_id}/diagnostics": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Automation Diagnostics */
+    get: operations["list_automation_diagnostics_automations__automation_id__diagnostics_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/automations/{automation_id}/suspend": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Suspend Automation */
+    post: operations["suspend_automation_automations__automation_id__suspend_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -2846,11 +2897,16 @@ export interface components {
       description?: string;
       trigger: components["schemas"]["Trigger"];
       action: components["schemas"]["Action"];
+      /** Branches */
+      branches?: components["schemas"]["AutomationBranch-Output"][];
       /**
        * Enabled
        * @default true
        */
       enabled?: boolean;
+      guardrails?: components["schemas"]["AutomationGuardrails"];
+      /** Max Age Seconds */
+      max_age_seconds?: number | null;
       /**
        * Id
        * @default
@@ -2861,6 +2917,31 @@ export interface components {
        * @default
        */
       created_by?: string;
+      suspension?: components["schemas"]["AutomationSuspension"] | null;
+    };
+    /** AutomationBranch */
+    "AutomationBranch-Input": {
+      /** Id */
+      id?: string;
+      /**
+       * Name
+       * @default
+       */
+      name?: string;
+      condition?: components["schemas"]["Condition-Input"] | null;
+      action: components["schemas"]["Action"];
+    };
+    /** AutomationBranch */
+    "AutomationBranch-Output": {
+      /** Id */
+      id?: string;
+      /**
+       * Name
+       * @default
+       */
+      name?: string;
+      condition?: components["schemas"]["Condition-Output"] | null;
+      action: components["schemas"]["Action"];
     };
     /** AutomationCreate */
     AutomationCreate: {
@@ -2872,12 +2953,29 @@ export interface components {
        */
       description?: string;
       trigger: components["schemas"]["Trigger"];
-      action: components["schemas"]["Action"];
+      /** @deprecated */
+      action?: components["schemas"]["Action"] | null;
+      /** Branches */
+      branches?: components["schemas"]["AutomationBranch-Input"][];
       /**
        * Enabled
        * @default true
        */
       enabled?: boolean;
+      guardrails?: components["schemas"]["AutomationGuardrails"];
+      /** Max Age Seconds */
+      max_age_seconds?: number | null;
+    };
+    /** AutomationDiagnostic */
+    AutomationDiagnostic: {
+      /**
+       * Code
+       * @enum {string}
+       */
+      code: "potential_write_conflict" | "direct_feedback";
+      target: components["schemas"]["DeviceAttributeRef"];
+      /** Other Automation Id */
+      other_automation_id?: string | null;
     };
     /** AutomationExecution */
     AutomationExecution: {
@@ -2898,6 +2996,49 @@ export interface components {
       /** Output Id */
       output_id?: string | null;
       error_details?: components["schemas"]["ActionFailure"] | null;
+      context?: components["schemas"]["TriggerContext"] | null;
+      /** Branch Id */
+      branch_id?: string | null;
+      /** Branches */
+      branches?: components["schemas"]["BranchEvaluation"][];
+      /** Reason */
+      reason?: string | null;
+    };
+    /** AutomationGuardrails */
+    AutomationGuardrails: {
+      /**
+       * Max Executions
+       * @default 10
+       */
+      max_executions?: number;
+      /**
+       * Window Seconds
+       * @default 60
+       */
+      window_seconds?: number;
+      /**
+       * Max Consecutive Failures
+       * @default 3
+       */
+      max_consecutive_failures?: number;
+    };
+    /** AutomationSuspension */
+    AutomationSuspension: {
+      /** Reason */
+      reason: string;
+      /** Actor Id */
+      actor_id: string;
+      /**
+       * Suspended At
+       * Format: date-time
+       */
+      suspended_at: string;
+      /**
+       * Source
+       * @default operator
+       * @enum {string}
+       */
+      source?: "operator" | "circuit_breaker";
     };
     /** AutomationUpdate */
     AutomationUpdate: {
@@ -2912,6 +3053,11 @@ export interface components {
       action?: components["schemas"]["Action"] | null;
       /** Enabled */
       enabled?: boolean | null;
+      /** Branches */
+      branches?: components["schemas"]["AutomationBranch-Input"][] | null;
+      guardrails?: components["schemas"]["AutomationGuardrails"] | null;
+      /** Max Age Seconds */
+      max_age_seconds?: number | null;
     };
     /** AvailablePresentationResponse */
     AvailablePresentationResponse: {
@@ -3131,6 +3277,18 @@ export interface components {
        */
       dy?: number;
       box: components["schemas"]["Box"];
+    };
+    /** BranchEvaluation */
+    BranchEvaluation: {
+      /** Branch Id */
+      branch_id: string;
+      /**
+       * Result
+       * @enum {string}
+       */
+      result: "matched" | "not_matched" | "unknown";
+      /** Missing */
+      missing?: string[];
     };
     /** Budgets */
     Budgets: {
@@ -4264,6 +4422,23 @@ export interface components {
       value: string | number | boolean;
     };
     /**
+     * EventRef
+     * @description An automation event value; unavailable in driver and write-rule contexts.
+     */
+    EventRef: {
+      /**
+       * Event
+       * @enum {string}
+       */
+      event:
+        | "device_id"
+        | "attribute"
+        | "previous_value"
+        | "value"
+        | "has_previous"
+        | "is_initial";
+    };
+    /**
      * EventType
      * @enum {string}
      */
@@ -4272,13 +4447,19 @@ export interface components {
      * ExecutionStatus
      * @enum {string}
      */
-    ExecutionStatus: "success" | "failed";
+    ExecutionStatus:
+      | "success"
+      | "failed"
+      | "no_match"
+      | "initialized"
+      | "suspended";
     "Expression-Input":
       | boolean
       | number
       | string
       | components["schemas"]["AttributeRef"]
       | components["schemas"]["DeviceAttributeRef"]
+      | components["schemas"]["EventRef"]
       | components["schemas"]["CandidateRef"]
       | components["schemas"]["ArithmeticExpression-Input"]
       | components["schemas"]["ChoiceExpression-Input"];
@@ -4288,6 +4469,7 @@ export interface components {
       | string
       | components["schemas"]["AttributeRef"]
       | components["schemas"]["DeviceAttributeRef"]
+      | components["schemas"]["EventRef"]
       | components["schemas"]["CandidateRef"]
       | components["schemas"]["ArithmeticExpression-Output"]
       | components["schemas"]["ChoiceExpression-Output"];
@@ -6614,6 +6796,11 @@ export interface components {
        */
       multiple?: boolean;
     };
+    /** SuspensionRequest */
+    SuspensionRequest: {
+      /** Reason */
+      reason: string;
+    };
     /**
      * Symbol
      * @description Equipment, an instrument or a link, placed on the plate.
@@ -7052,6 +7239,32 @@ export interface components {
       params?: {
         [key: string]: unknown;
       };
+    };
+    /** TriggerContext */
+    TriggerContext: {
+      /**
+       * Timestamp
+       * Format: date-time
+       */
+      timestamp: string;
+      /** Device Id */
+      device_id?: string | null;
+      /** Attribute */
+      attribute?: string | null;
+      /** Previous Value */
+      previous_value?: number | string | boolean | null;
+      /** Value */
+      value?: number | string | boolean | null;
+      /**
+       * Has Previous
+       * @default false
+       */
+      has_previous?: boolean;
+      /**
+       * Is Initial
+       * @default false
+       */
+      is_initial?: boolean;
     };
     /**
      * UIConfirmationContext
@@ -11748,6 +11961,28 @@ export interface operations {
       };
     };
   };
+  automation_schema_automations_schema_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            [key: string]: unknown;
+          };
+        };
+      };
+    };
+  };
   list_trigger_schemas_automations_triggers_get: {
     parameters: {
       query?: never;
@@ -12035,6 +12270,72 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["AutomationExecution"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_automation_diagnostics_automations__automation_id__diagnostics_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        automation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AutomationDiagnostic"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  suspend_automation_automations__automation_id__suspend_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        automation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SuspensionRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Automation"];
         };
       };
       /** @description Validation Error */

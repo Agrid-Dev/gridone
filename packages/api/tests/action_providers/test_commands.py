@@ -2,6 +2,8 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from automations.errors import AutomationLoopError
+from automations.models import Trigger, TriggerContext
 from pydantic import ValidationError
 
 from api.action_providers.commands import CommandsActionProvider
@@ -75,3 +77,31 @@ async def test_empty_or_invalid_group_is_explicit(failure):
         "empty_target" if failure is None else "invalid_target"
     )
     assert error.value.details.target.tags == {"loop": ["east"]}
+
+
+@pytest.mark.asyncio
+async def test_template_cannot_write_its_own_trigger_point():
+    svc = _commands_service()
+    provider = CommandsActionProvider(svc)
+    with pytest.raises(AutomationLoopError):
+        await provider.execute(
+            {"template_id": "tmpl-01"},
+            TriggerContext(
+                timestamp=datetime.now(UTC), device_id="device", attribute="mode"
+            ),
+        )
+    svc.dispatch_template.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_template_describes_only_known_targets():
+    svc = _commands_service()
+    provider = CommandsActionProvider(svc)
+    trigger = Trigger(provider_id="schedule")
+    writes = await provider.describe_writes({"template_id": "tmpl-01"}, trigger)
+    assert writes[0].device_id == "device"
+    assert writes[0].value == "auto"
+    svc.get_template.return_value.target = DevicesFilter(tags={"loop": ["east"]})
+    assert await provider.describe_writes({"template_id": "tmpl-01"}, trigger) == []
+    svc.get_template.side_effect = NotFoundError("missing")
+    assert await provider.describe_writes({"template_id": "tmpl-01"}, trigger) == []

@@ -8,6 +8,8 @@ from pydantic import BaseModel, Field
 from models.types import Severity
 
 if TYPE_CHECKING:
+    from automations.models import AutomationWrite, Trigger, TriggerContext
+
     from notifications.interface import NotificationsServiceInterface
 
 
@@ -25,7 +27,18 @@ class NotificationsActionProvider:
     def __init__(self, notifications_service: NotificationsServiceInterface) -> None:
         self._notifications_service = notifications_service
 
-    async def execute(self, params: dict) -> str | None:
+    async def describe_writes(
+        self,
+        params: dict,  # noqa: ARG002 -- provider contract
+        trigger: Trigger,  # noqa: ARG002 -- provider contract
+    ) -> list[AutomationWrite]:
+        return []
+
+    async def execute(
+        self,
+        params: dict,
+        context: TriggerContext | None = None,  # noqa: ARG002 -- provider contract
+    ) -> str | None:
         action = NotificationAction(**params)
         dispatches = await self._notifications_service.dispatch(
             title=action.title,

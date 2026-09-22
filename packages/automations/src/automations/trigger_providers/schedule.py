@@ -4,13 +4,13 @@ import logging
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, tzinfo
 from typing import ClassVar
-from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 from croniter import croniter
 from pydantic import BaseModel, Field, field_validator
 
 from automations.models import TriggerContext
+from models.ids import gen_id
 
 logger = logging.getLogger(__name__)
 
@@ -52,14 +52,15 @@ class ScheduleListener:
 
     async def stop(self) -> None:
         if self._task is not None:
-            self._task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await self._task
+            if self._task is not asyncio.current_task():
+                self._task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await self._task
             self._task = None
 
     async def _run(self) -> None:
         it = croniter(self._cron, datetime.now(self._tz))
-        while True:
+        while self._task is not None:
             next_dt: datetime = it.get_next(datetime)
             # Both operands are aware, so the subtraction is exact whatever
             # zone each one carries.
@@ -87,7 +88,7 @@ class ScheduleTriggerProvider:
         on_fire: Callable[[TriggerContext], Awaitable[None]],
     ) -> str:
         trigger = ScheduleTrigger(**params)
-        handle_id = uuid4().hex[:16]
+        handle_id = gen_id()
         listener = ScheduleListener(trigger.cron, on_fire, self._tz)
         await listener.start()
         self._listeners[handle_id] = listener

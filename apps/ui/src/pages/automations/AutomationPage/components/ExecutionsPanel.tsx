@@ -77,6 +77,7 @@ function ExecutionRow({
   batchLabel: string;
 }) {
   const { t } = useTranslation("devices");
+  const { t: tAutomation } = useTranslation("automations");
   const body = (
     <>
       <div className="flex items-center gap-2.5">
@@ -86,7 +87,10 @@ function ExecutionRow({
             "h-2 w-2 shrink-0 rounded-full",
             execution.status === "success"
               ? SEMANTIC_BG_CLASS.ok
-              : SEMANTIC_BG_CLASS.error,
+              : execution.status === "failed" ||
+                  execution.status === "suspended"
+                ? SEMANTIC_BG_CLASS.error
+                : "bg-muted-foreground",
           )}
         />
         <span className="min-w-0 flex-1 truncate text-sm">{label}</span>
@@ -100,6 +104,35 @@ function ExecutionRow({
           {moment}
         </span>
       </div>
+      {execution.reason && (
+        <p className="mt-1 text-xs text-muted-foreground">
+          {tAutomation(`reasons.${execution.reason}`, {
+            defaultValue: execution.reason,
+          })}
+        </p>
+      )}
+      {execution.context?.device_id && (
+        <p className="mt-1 text-xs text-muted-foreground">
+          {execution.context.device_id}/{execution.context.attribute} ·{" "}
+          {execution.context.has_previous
+            ? JSON.stringify(execution.context.previous_value)
+            : "—"}{" "}
+          → {JSON.stringify(execution.context.value)}
+        </p>
+      )}
+      {!!execution.branches?.length && (
+        <ol className="mt-2 space-y-1 text-xs text-muted-foreground">
+          {execution.branches.map((branch, index) => (
+            <li key={branch.branch_id}>
+              {tAutomation("tree.evaluation", {
+                number: index + 1,
+                result: tAutomation(`tree.results.${branch.result}`),
+              })}
+              {!!branch.missing?.length && ` · ${branch.missing.join(", ")}`}
+            </li>
+          ))}
+        </ol>
+      )}
       {execution.error && (
         <p className="mt-1 pl-[1.125rem] text-xs text-destructive/90">
           {execution.error_details

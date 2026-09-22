@@ -1,6 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import type { ComponentType } from "react";
-import type { Action, Trigger } from "@gridone/sdk";
+import type { Action, Trigger, WriteExpression } from "@gridone/sdk";
 import type { Severity } from "@/lib/severity";
 
 export type CustomTriggerFormProps = {
@@ -31,6 +31,14 @@ export type TriggerDescriptor = {
  *  but tightly typed per provider so the parent can submit it as-is without
  *  ``params`` casts. Each provider lands as another arm of the union. */
 export type ActionFormResult =
+  | {
+      provider_id: "write_attribute";
+      params: {
+        device_id: string | null;
+        attribute: string;
+        value: WriteExpression;
+      };
+    }
   | {
       provider_id: "command_template";
       params: { template_id: string };

@@ -9,6 +9,7 @@ from automations import (
     AutomationsServiceInterface,
     AutomationUpdate,
 )
+from automations.models import AutomationDiagnostic, SuspensionRequest
 from fastapi import APIRouter, Depends, Query, status
 
 from api.auth import get_current_user_id, require_permission
@@ -16,6 +17,14 @@ from api.dependencies import get_automations_service
 from users.permissions import Permission
 
 router = APIRouter()
+
+
+@router.get(
+    "/schema",
+    dependencies=[Depends(require_permission(Permission.AUTOMATIONS_READ))],
+)
+async def automation_schema() -> dict:
+    return AutomationCreate.model_json_schema()
 
 
 @router.get(
@@ -136,3 +145,31 @@ async def list_executions(
     svc: Annotated[AutomationsServiceInterface, Depends(get_automations_service)],
 ) -> list[AutomationExecution]:
     return list(await svc.list_executions(automation_id))
+
+
+@router.get(
+    "/{automation_id}/diagnostics",
+    response_model=list[AutomationDiagnostic],
+    dependencies=[Depends(require_permission(Permission.AUTOMATIONS_READ))],
+)
+async def list_automation_diagnostics(
+    automation_id: str,
+    svc: Annotated[AutomationsServiceInterface, Depends(get_automations_service)],
+) -> list[AutomationDiagnostic]:
+    return list(await svc.list_diagnostics(automation_id))
+
+
+@router.post(
+    "/{automation_id}/suspend",
+    response_model=Automation,
+    dependencies=[Depends(require_permission(Permission.AUTOMATIONS_WRITE))],
+)
+async def suspend_automation(
+    automation_id: str,
+    body: SuspensionRequest,
+    svc: Annotated[AutomationsServiceInterface, Depends(get_automations_service)],
+    current_user_id: str = Depends(get_current_user_id),
+) -> Automation:
+    return await svc.suspend(
+        automation_id, reason=body.reason, actor_id=current_user_id
+    )

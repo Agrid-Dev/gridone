@@ -4,6 +4,8 @@ import { NotificationActionForm } from "../form/actionTypes/NotificationActionFo
 import { CommandActionPresenter } from "./CommandActionPresenter";
 import { NotificationPresenter } from "./NotificationPresenter";
 import type { ActionDescriptor } from "./types";
+import { WriteAttributeActionForm } from "../form/actionTypes/WriteAttributeActionForm";
+import { WriteAttributePresenter } from "./WriteAttributePresenter";
 
 /** Action types the user can pick in the automation action form. The select
  *  in ``ActionForm`` enumerates this map and the chosen descriptor's
@@ -12,6 +14,11 @@ import type { ActionDescriptor } from "./types";
  *  adding a row here, two i18n keys under ``actions.types.<key>``, a renderer
  *  that emits an ``ActionFormResult``, and a Presenter. */
 export const ACTION_PROVIDER_DESCRIPTORS: Record<string, ActionDescriptor> = {
+  write_attribute: {
+    icon: Terminal,
+    CustomFormRenderer: WriteAttributeActionForm,
+    Presenter: WriteAttributePresenter,
+  },
   command_template: {
     icon: Terminal,
     CustomFormRenderer: CommandActionForm,

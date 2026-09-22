@@ -39,6 +39,10 @@ class PostgresStorage:
             description=row["description"],
             trigger=trigger,
             action=action,
+            branches=json.loads(row["branches"]),
+            suspension=json.loads(row["suspension"]) if row["suspension"] else None,
+            guardrails=json.loads(row["guardrails"]),
+            max_age_seconds=row["max_age_seconds"],
             enabled=row["enabled"],
             created_at=row["created_at"],
             updated_at=row["updated_at"],
@@ -58,6 +62,10 @@ class PostgresStorage:
             error_details=ActionFailure.model_validate_json(row["error_details"])
             if row.get("error_details")
             else None,
+            context=json.loads(row["context"]) if row["context"] else None,
+            branch_id=row["branch_id"],
+            branches=json.loads(row["branches"]),
+            reason=row["reason"],
         )
 
     async def create(self, automation: Automation) -> None:
@@ -65,8 +73,9 @@ class PostgresStorage:
             """
             INSERT INTO automations
                 (id, name, description, trigger, action, enabled,
-                 created_at, updated_at, created_by)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                 created_at, updated_at, created_by, branches, suspension,
+                 guardrails, max_age_seconds)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
             """,
             automation.id,
             automation.name,
@@ -77,6 +86,12 @@ class PostgresStorage:
             automation.created_at,
             automation.updated_at,
             automation.created_by,
+            json.dumps(
+                [branch.model_dump(mode="json") for branch in automation.branches]
+            ),
+            automation.suspension.model_dump_json() if automation.suspension else None,
+            automation.guardrails.model_dump_json(),
+            automation.max_age_seconds,
         )
 
     async def get(self, automation_id: str) -> Automation:
@@ -103,7 +118,8 @@ class PostgresStorage:
             """
             UPDATE automations
             SET name = $2, description = $3,
-                trigger = $4, action = $5, enabled = $6, updated_at = $7
+                trigger = $4, action = $5, enabled = $6, updated_at = $7,
+                branches = $8, suspension = $9, guardrails = $10, max_age_seconds = $11
             WHERE id = $1
             """,
             automation.id,
@@ -113,6 +129,12 @@ class PostgresStorage:
             _action_adapter.dump_json(automation.action).decode(),
             automation.enabled,
             automation.updated_at,
+            json.dumps(
+                [branch.model_dump(mode="json") for branch in automation.branches]
+            ),
+            automation.suspension.model_dump_json() if automation.suspension else None,
+            automation.guardrails.model_dump_json(),
+            automation.max_age_seconds,
         )
         if result == "UPDATE 0":
             msg = f"Automation {automation.id!r} not found"
@@ -132,8 +154,9 @@ class PostgresStorage:
             """
             INSERT INTO automation_executions
                 (id, automation_id, triggered_at, executed_at,
-                 status, error, output_id, error_details)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                 status, error, output_id, error_details, context, branch_id,
+                 branches, reason)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
             """,
             execution.id,
             execution.automation_id,
@@ -145,6 +168,12 @@ class PostgresStorage:
             execution.error_details.model_dump_json()
             if execution.error_details
             else None,
+            execution.context.model_dump_json() if execution.context else None,
+            execution.branch_id,
+            json.dumps(
+                [branch.model_dump(mode="json") for branch in execution.branches]
+            ),
+            execution.reason,
         )
 
     async def list_executions(self, automation_id: str) -> list[AutomationExecution]:  # type: ignore[invalid-type-form]

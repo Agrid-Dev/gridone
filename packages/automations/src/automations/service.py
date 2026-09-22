@@ -1,25 +1,35 @@
 from __future__ import annotations
 
 import logging
+from collections import deque
 from datetime import UTC, datetime
+from time import monotonic
 from typing import TYPE_CHECKING
 
 from pydantic import ValidationError as PydanticValidationError
 
+from automations.constants import SYSTEM_ACTOR
+from automations.diagnostics import diagnose
+from automations.errors import AutomationLoopError
+from automations.evaluation import select_branch
 from automations.models import (
     Automation,
     AutomationCreate,
     AutomationExecution,
+    AutomationSuspension,
     AutomationUpdate,
     ExecutionStatus,
     TriggerContext,
 )
 from automations.storage.factory import build_storage
 from models.action_failure import ActionExecutionError
+from models.conditions import EvaluationLimitError
 from models.errors import (
+    InvalidError,
     NotFoundError,
     SchemaValidationError,
     ValidationErrorItem,
+    WriteRejectedError,
     validation_error_items,
 )
 from models.ids import gen_id
@@ -30,9 +40,10 @@ logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
 
-    from automations.models import Action, Trigger
+    from automations.models import Action, AutomationDiagnostic, Trigger
     from automations.protocols import ActionProvider, OnFireCallback, TriggerProvider
     from automations.storage.backend import AutomationsStorageBackend
+    from models.attribute_observation import AttributeResolver
 
 
 class AutomationsService(Service):
@@ -45,6 +56,8 @@ class AutomationsService(Service):
         storage_url: str | None,
         trigger_providers: Sequence[TriggerProvider],
         action_providers: Sequence[ActionProvider],
+        *,
+        resolve_attribute: AttributeResolver | None = None,
     ) -> None:
         self._storage_url = storage_url
         self._providers: dict[str, TriggerProvider] = {
@@ -56,6 +69,10 @@ class AutomationsService(Service):
         self._cache = {}
         self._handles = {}
         self._started = False
+        self._resolve_attribute = resolve_attribute
+        self._running: set[str] = set()
+        self._recent: dict[str, deque[float]] = {}
+        self._failures: dict[str, int] = {}
 
     async def start(self) -> None:
         """Build storage, then register all persisted automations."""
@@ -71,14 +88,18 @@ class AutomationsService(Service):
 
     async def create(self, params: AutomationCreate, *, created_by: str) -> Automation:
         self._validate_trigger(params.trigger)
-        self._validate_action(params.action)
+        for branch in params.branches:
+            self._validate_action(branch.action)
         now = datetime.now(UTC)
         automation = Automation(
             id=gen_id(),
             name=params.name,
             description=params.description,
             trigger=params.trigger,
-            action=params.action,
+            action=params.branches[0].action,
+            branches=params.branches,
+            guardrails=params.guardrails,
+            max_age_seconds=params.max_age_seconds,
             enabled=params.enabled,
             created_at=now,
             updated_at=now,
@@ -113,15 +134,12 @@ class AutomationsService(Service):
 
     async def update(self, automation_id: str, params: AutomationUpdate) -> Automation:
         existing = await self.get(automation_id)
-        if params.trigger is not None:
-            self._validate_trigger(params.trigger)
-        if params.action is not None:
-            self._validate_action(params.action)
+        self._validate_update(params)
         trigger_changed = (
             params.trigger is not None and params.trigger != existing.trigger
         )
         was_enabled = existing.enabled
-        updated = existing.apply_update(params)
+        updated = self._apply_update(existing, params)
         need_stop = was_enabled and (not updated.enabled or trigger_changed)
         need_start = updated.enabled and (not was_enabled or trigger_changed)
 
@@ -142,7 +160,27 @@ class AutomationsService(Service):
                 await self._restore_trigger(automation_id, existing)
             raise
         self._cache[automation_id] = updated
+        return updated
 
+    def _validate_update(self, params: AutomationUpdate) -> None:
+        if params.trigger is not None:
+            self._validate_trigger(params.trigger)
+        if params.action is not None:
+            self._validate_action(params.action)
+        if params.branches is not None:
+            for branch in params.branches:
+                self._validate_action(branch.action)
+
+    @staticmethod
+    def _apply_update(existing: Automation, params: AutomationUpdate) -> Automation:
+        try:
+            updated = existing.apply_update(params)
+        except ValueError as exc:
+            msg = "Invalid automation update"
+            raise InvalidError(msg) from exc
+        if updated.enabled and existing.suspension is not None:
+            msg = "Resume the suspended automation explicitly"
+            raise InvalidError(msg)
         return updated
 
     async def delete(self, automation_id: str) -> None:
@@ -157,6 +195,19 @@ class AutomationsService(Service):
         automation = await self.get(automation_id)
         if automation.enabled:
             return automation
+        if automation.suspension is not None:
+            resumed = automation.touch_updated_at(enabled=True, suspension=None)
+            await self._storage.update(resumed)
+            self._cache[automation_id] = resumed
+            try:
+                await self._start_trigger(resumed)
+            except Exception:
+                self._cache[automation_id] = automation
+                await self._storage.update(automation)
+                raise
+            self._recent.pop(automation_id, None)
+            self._failures.pop(automation_id, None)
+            return resumed
         return await self.update(automation_id, AutomationUpdate(enabled=True))
 
     async def disable(self, automation_id: str) -> Automation:
@@ -164,6 +215,40 @@ class AutomationsService(Service):
         if not automation.enabled:
             return automation
         return await self.update(automation_id, AutomationUpdate(enabled=False))
+
+    async def suspend(
+        self, automation_id: str, *, reason: str, actor_id: str
+    ) -> Automation:
+        return await self._suspend(
+            automation_id,
+            AutomationSuspension(
+                reason=reason, actor_id=actor_id, suspended_at=datetime.now(UTC)
+            ),
+        )
+
+    async def _suspend(
+        self, automation_id: str, suspension: AutomationSuspension
+    ) -> Automation:
+        """Close the runtime gate before awaiting persistence or unregistration."""
+        existing = await self.get(automation_id)
+        if existing.suspension is not None:
+            return existing
+        updated = existing.touch_updated_at(enabled=False, suspension=suspension)
+        self._cache[automation_id] = updated
+        await self._storage.update(updated)
+        await self._stop_trigger(automation_id)
+        return updated
+
+    async def _trip(self, automation_id: str, reason: str) -> None:
+        await self._suspend(
+            automation_id,
+            AutomationSuspension(
+                reason=reason,
+                actor_id=SYSTEM_ACTOR,
+                suspended_at=datetime.now(UTC),
+                source="circuit_breaker",
+            ),
+        )
 
     # Execution log
 
@@ -174,6 +259,14 @@ class AutomationsService(Service):
         self, automation_id: str
     ) -> Sequence[AutomationExecution]:
         return await self._storage.list_executions(automation_id)
+
+    async def list_diagnostics(
+        self, automation_id: str
+    ) -> Sequence[AutomationDiagnostic]:
+        automation = await self.get(automation_id)
+        return await diagnose(
+            automation, list(self._cache.values()), self._action_providers
+        )
 
     def list_trigger_schemas(self) -> dict[str, dict]:
         return {
@@ -279,29 +372,101 @@ class AutomationsService(Service):
         if automation is None:
             msg = f"Automation {automation_id!r} not found"
             raise NotFoundError(msg)
-        output_id, status, error = None, ExecutionStatus.SUCCESS, None
-        error_details = None
-        try:
-            provider = self._action_providers[automation.action.provider_id]
-            output_id = await provider.execute(automation.action.params)
-        except ActionExecutionError as exc:
-            status, error = ExecutionStatus.FAILED, "No commands sent to the target"
-            error_details = exc.details
-        except Exception:
-            logger.exception("Automation %r action failed", automation_id)
-            status, error = ExecutionStatus.FAILED, "Action execution failed"
-        await self._log_execution(
-            AutomationExecution(
-                id=gen_id(),
-                automation_id=automation_id,
-                triggered_at=context.timestamp,
-                executed_at=datetime.now(UTC),
-                status=status,
-                error=error,
-                error_details=error_details,
-                output_id=output_id,
-            )
+        if not automation.enabled or automation.suspension is not None:
+            return
+        execution = AutomationExecution(
+            id=gen_id(),
+            automation_id=automation_id,
+            triggered_at=context.timestamp,
+            context=context,
+            status=ExecutionStatus.SUCCESS,
         )
+        if context.is_initial:
+            execution.status = ExecutionStatus.INITIALIZED
+            execution.reason = "first_observation"
+            await self._log_execution(execution)
+            return
+        reason = "overlapping_execution" if automation_id in self._running else None
+        if reason:
+            execution.status = ExecutionStatus.SUSPENDED
+            execution.reason = reason
+            await self._trip(automation_id, reason)
+            await self._log_execution(execution)
+            return
+        self._running.add(automation_id)
+        try:
+            await self._run_branch(automation, context, execution)
+            await self._log_execution(execution)
+            failures = (
+                self._failures.get(automation_id, 0) + 1
+                if execution.status == ExecutionStatus.FAILED
+                else 0
+            )
+            self._failures[automation_id] = failures
+            if failures >= automation.guardrails.max_consecutive_failures:
+                await self._trip(automation_id, "consecutive_failures")
+        finally:
+            self._running.discard(automation_id)
+
+    def _guard_reason(self, automation: Automation) -> str | None:
+        """Bound activity per automation using a monotonic rolling window."""
+        now = monotonic()
+        recent = self._recent.setdefault(automation.id, deque())
+        while recent and now - recent[0] >= automation.guardrails.window_seconds:
+            recent.popleft()
+        if len(recent) >= automation.guardrails.max_executions:
+            return "execution_rate_exceeded"
+        recent.append(now)
+        return None
+
+    async def _run_branch(
+        self,
+        automation: Automation,
+        context: TriggerContext,
+        execution: AutomationExecution,
+    ) -> None:
+        """Select once and dispatch once; a failed action never falls through."""
+        try:
+            branch = select_branch(
+                automation, context, self._resolve_attribute, execution.branches
+            )
+            if branch is None:
+                unknown = any(item.result == "unknown" for item in execution.branches)
+                execution.status = (
+                    ExecutionStatus.FAILED if unknown else ExecutionStatus.NO_MATCH
+                )
+                execution.reason = (
+                    "condition_unknown" if unknown else "no_matching_branch"
+                )
+                return
+            execution.branch_id = branch.id
+            if reason := self._guard_reason(automation):
+                execution.status = ExecutionStatus.SUSPENDED
+                execution.reason = reason
+                await self._trip(automation.id, reason)
+                return
+            provider = self._action_providers[branch.action.provider_id]
+            execution.executed_at = datetime.now(UTC)
+            execution.output_id = await provider.execute(branch.action.params, context)
+        except ActionExecutionError as exc:
+            execution.status = ExecutionStatus.FAILED
+            execution.error = "No commands sent to the target"
+            execution.error_details = exc.details
+        except AutomationLoopError:
+            execution.status = ExecutionStatus.SUSPENDED
+            execution.reason = "direct_feedback"
+            await self._trip(automation.id, "direct_feedback")
+        except WriteRejectedError:
+            execution.status = ExecutionStatus.FAILED
+            execution.error = "Write rejected by protection"
+            execution.reason = "write_rejected"
+        except EvaluationLimitError:
+            execution.status = ExecutionStatus.FAILED
+            execution.reason = "evaluation_limit"
+        except Exception:
+            logger.exception("Automation %r action failed", automation.id)
+            execution.status = ExecutionStatus.FAILED
+            execution.error = "Action execution failed"
 
     def _make_on_fire(self, automation_id: str) -> OnFireCallback:
         async def on_fire(context: TriggerContext) -> None:
