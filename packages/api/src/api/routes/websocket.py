@@ -6,10 +6,12 @@ from datetime import UTC, datetime
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from starlette.status import WS_1008_POLICY_VIOLATION
 
-from api.auth import get_websocket_token_payload
+from api.access import AccessPolicy
+from api.auth import get_websocket_role, get_websocket_token_payload
 from api.websocket.manager import WebSocketManager
 from api.websocket.schemas import PongMessage
 from users.auth import TokenPayload
+from users.roles import Role
 
 logger = logging.getLogger(__name__)
 
@@ -30,13 +32,16 @@ async def websocket_endpoint(
     websocket: WebSocket,
     manager: WebSocketManager = Depends(get_websocket_manager),
     payload: TokenPayload = Depends(get_websocket_token_payload),
+    role: Role | None = Depends(get_websocket_role),
 ) -> None:
     # Echo the subprotocol only when it was offered: RFC 6455 section 4.1 makes a
     # client fail the connection on a subprotocol it never proposed, and a client
     # that authenticated with the `Authorization` header offers none.
     offered = _SUBPROTOCOL in websocket.scope.get("subprotocols", [])
     connection_id = await manager.connect(
-        websocket, subprotocol=_SUBPROTOCOL if offered else None
+        websocket,
+        policy=AccessPolicy.from_role(role),
+        subprotocol=_SUBPROTOCOL if offered else None,
     )
 
     try:

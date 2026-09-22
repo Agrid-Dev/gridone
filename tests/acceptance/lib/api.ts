@@ -64,6 +64,31 @@ export async function makeRoleUser(
   return { client, userId: user.id };
 }
 
+/**
+ * `makeRoleUser` plus the raw access token, for a suite that opens the
+ * `/ws/devices` handshake as that user (see `makeAdminClientWithToken`).
+ */
+export async function makeRoleUserWithToken(
+  role: string,
+): Promise<{ client: GridoneClient; userId: string; accessToken: string }> {
+  const admin = await makeAdminClient();
+  const uname = `acceptance-${role}-${Date.now()}-${roleClientCounter++}`;
+  const pwd = "acceptance-pass";
+  const user = await admin.users.create({
+    username: uname,
+    password: pwd,
+    role,
+  });
+  const tokenStorage = new MemoryTokenStorage();
+  const client = new GridoneClient({ baseUrl, tokenStorage });
+  await client.login(uname, pwd);
+  const tokens = await tokenStorage.getTokens();
+  if (!tokens) {
+    throw new Error(`login as "${uname}" stored no tokens`);
+  }
+  return { client, userId: user.id, accessToken: tokens.accessToken };
+}
+
 /** `makeRoleUser` for the common case where the user's id is not needed. */
 export async function makeRoleClient(role: string): Promise<GridoneClient> {
   return (await makeRoleUser(role)).client;

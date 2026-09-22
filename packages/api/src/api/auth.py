@@ -134,8 +134,9 @@ async def get_websocket_token_payload(
     `accept()`, and uvicorn renders that as an HTTP 403 handshake rejection.
 
     No permission check: the feed carries device reads, and `viewer` — the lowest
-    role — already holds `devices:read`, so being a user is the whole gate. Should
-    the feed ever narrow per user, the check belongs here.
+    role — already holds `devices:read`, so being a user is the whole gate. What
+    the feed then shows is narrowed per connection by the caller's role, see
+    `get_websocket_role`.
     """
     return await authenticate(
         _websocket_credential(websocket),
@@ -144,6 +145,16 @@ async def get_websocket_token_payload(
         unauthenticated=_websocket_denial,
         blocked=_websocket_denial,
     )
+
+
+async def get_websocket_role(
+    payload: TokenPayload = Depends(get_websocket_token_payload),
+    users_service: UsersService = Depends(get_users_service),
+) -> Role | None:
+    """The role document behind a WebSocket handshake, resolved once at
+    connect time: the connection lasts no longer than its access token, which
+    bounds how long an edit to the role goes unseen on an open feed."""
+    return await users_service.find_role(payload.role)
 
 
 async def get_current_role(

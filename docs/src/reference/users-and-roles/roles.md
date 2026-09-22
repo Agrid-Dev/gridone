@@ -176,4 +176,6 @@ How a scope is read:
 
 What a scoped role is served follows one rule: what it cannot read does not exist for it. A hidden attribute is absent from the device, its history and the live feed. A device with no readable attribute is absent from lists, answers "not found" when addressed directly, and is left out of attribute coverage, faults and communication logs. Two pieces of metadata stay visible because Gridone computes them over the whole device: whether a device is faulty, and the fact that a device exists when a command targets it.
 
+The live feed applies the role as it was when the connection opened; a connection lasts no longer than the access token behind it, so an edit to the role reaches the feed at the next reconnection.
+
 Roles without scopes, built-in or custom, are unaffected: scopes only narrow, they never grant.

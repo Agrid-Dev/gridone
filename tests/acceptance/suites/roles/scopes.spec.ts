@@ -4,11 +4,19 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   baseUrl,
   makeAdminClient,
+  makeAdminClientWithToken,
   makeRoleUser,
+  makeRoleUserWithToken,
   pollUntil,
 } from "../../lib/api";
 import { currentValue } from "../../lib/devices";
 import { seedFixtureSet, type FixtureSet } from "../../lib/fixtures";
+import { readThermocktat, writeThermocktat } from "../../lib/thermocktat";
+import {
+  authSubprotocols,
+  collectMessagesOfType,
+  openSocket,
+} from "../../lib/websocket";
 
 // A devices:read scope narrows what a role is served, on every read path
 // (AGR-1209, ADR 0004): what the role cannot read does not exist for it.
@@ -48,7 +56,9 @@ describe("devices:read scopes", () => {
   let admin: GridoneClient;
   let thermostatReader: GridoneClient;
   let setpointReader: GridoneClient;
+  let setpointReaderToken: string;
   let thermostatId: string;
+  let thermostatUrl: string;
   let roomId: string;
   let roomTransportId: string;
   const userIds: string[] = [];
@@ -60,6 +70,7 @@ describe("devices:read scopes", () => {
     const [thermostat] = await seedFixtureSet(admin, THERMOSTAT_FIXTURE);
     if (!thermostat) throw new Error("the scopes thermostat was not seeded");
     thermostatId = thermostat.id;
+    thermostatUrl = thermostat.externalUrl;
 
     // The room device is the ingress suite's, seeded here per run: pushing one
     // snapshot gives it values, so hiding it is not hiding an empty device.
@@ -124,9 +135,10 @@ describe("devices:read scopes", () => {
     roleIds.push(thermostatReaderRole.id, setpointReaderRole.id);
 
     const reader = await makeRoleUser(thermostatReaderRole.id);
-    const setpoint = await makeRoleUser(setpointReaderRole.id);
+    const setpoint = await makeRoleUserWithToken(setpointReaderRole.id);
     thermostatReader = reader.client;
     setpointReader = setpoint.client;
+    setpointReaderToken = setpoint.accessToken;
     userIds.push(reader.userId, setpoint.userId);
 
     // Polled every 2s by the driver: wait for the first read so the
@@ -221,6 +233,64 @@ describe("devices:read scopes", () => {
           ),
         ),
       ).toBeNull();
+    });
+  });
+
+  describe("the live feed", () => {
+    const sockets: WebSocket[] = [];
+
+    afterAll(() => {
+      for (const socket of sockets) socket.close();
+    });
+
+    // Two sockets on the same device: the scoped one must receive updates
+    // for a listed attribute and never for another, while an admin's gets
+    // both. The emulator, not gridone, changes the values: the feed then
+    // carries what the driver's poll observed. `temperature` itself is the
+    // emulator's own ambient reading and cannot be driven, so delivery is
+    // asserted on the other listed attribute, `temperature_setpoint`.
+    it("delivers a scoped role the listed attributes only, per connection", async () => {
+      const { accessToken: adminToken } = await makeAdminClientWithToken();
+      const readerSocket = await openSocket(
+        authSubprotocols(setpointReaderToken),
+      );
+      const adminSocket = await openSocket(authSubprotocols(adminToken));
+      sockets.push(readerSocket, adminSocket);
+      const readerFrames = collectMessagesOfType(readerSocket, "device_update");
+      const adminFrames = collectMessagesOfType(adminSocket, "device_update");
+      const forThermostat = (frames: Record<string, unknown>[]) =>
+        frames.filter((f) => f.device_id === thermostatId);
+      const attributesSeen = (frames: Record<string, unknown>[]) =>
+        new Set(forThermostat(frames).map((f) => f.attribute));
+
+      const state = await readThermocktat(thermostatUrl);
+      await writeThermocktat(
+        thermostatUrl,
+        "temperature_setpoint",
+        state.temperature_setpoint === 24 ? 25 : 24,
+      );
+      await writeThermocktat(
+        thermostatUrl,
+        "mode",
+        state.mode === "heat" ? "cool" : "heat",
+      );
+
+      await pollUntil(
+        async () => attributesSeen(adminFrames),
+        (seen) => seen.has("temperature_setpoint") && seen.has("mode"),
+        { description: "admin feed carries both updates" },
+      );
+      await pollUntil(
+        async () => attributesSeen(readerFrames),
+        (seen) => seen.has("temperature_setpoint"),
+        { description: "scoped feed carries the setpoint update" },
+      );
+
+      const readerSaw = attributesSeen(readerFrames);
+      expect(readerSaw.has("mode")).toBe(false);
+      for (const attribute of readerSaw) {
+        expect(["temperature", "temperature_setpoint"]).toContain(attribute);
+      }
     });
   });
 

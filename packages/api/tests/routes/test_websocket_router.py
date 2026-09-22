@@ -8,12 +8,15 @@ from fastapi.testclient import TestClient
 from jose import jwt
 from starlette.websockets import WebSocketDisconnect
 
+from api.access import UNRESTRICTED
 from api.dependencies import get_users_service
 from api.routes.websocket import router as websocket_router
 from api.routes.websocket import websocket_endpoint
 from api.websocket.manager import WebSocketManager
 from users import User
 from users.auth import AuthService, TokenPayload
+from users.permissions import Permission
+from users.roles import DeviceScope, Role, find_builtin_role
 
 _SECRET = "test-secret"  # noqa: S105
 _PATH = "/ws/devices"
@@ -32,6 +35,9 @@ class _UsersService:
     async def is_blocked(self, user_id: str) -> bool:
         user = _USERS.get(user_id)
         return user is not None and user.is_blocked
+
+    async def find_role(self, role_id: str) -> Role | None:
+        return find_builtin_role(role_id)
 
 
 def _token(
@@ -252,6 +258,38 @@ async def test_unexpected_exception_triggers_disconnect() -> None:
         sub="admin-id", role="admin", exp=datetime.now(UTC) + timedelta(hours=1)
     )
 
-    await websocket_endpoint(websocket=ws, manager=manager, payload=payload)
+    await websocket_endpoint(websocket=ws, manager=manager, payload=payload, role=None)
 
     manager.disconnect.assert_awaited_once_with("conn-id")
+
+
+@pytest.mark.asyncio
+async def test_connection_registers_the_policy_of_the_callers_role() -> None:
+    """A scoped role opens a restricted connection; a built-in an unrestricted one."""
+    ws = AsyncMock()
+    ws.scope = {"subprotocols": []}
+    ws.receive_text.side_effect = WebSocketDisconnect()
+    manager = AsyncMock(spec=WebSocketManager)
+    manager.connect.return_value = "conn-id"
+    payload = TokenPayload(
+        sub="reader-id", role="reader", exp=datetime.now(UTC) + timedelta(hours=1)
+    )
+    reader = Role(
+        id="reader",
+        name="Reader",
+        permissions=[Permission.DEVICES_READ],
+        scopes={Permission.DEVICES_READ: [DeviceScope(attributes=["temperature"])]},
+    )
+
+    await websocket_endpoint(
+        websocket=ws, manager=manager, payload=payload, role=reader
+    )
+    await websocket_endpoint(
+        websocket=ws, manager=manager, payload=payload, role=find_builtin_role("viewer")
+    )
+
+    restricted, unrestricted = (
+        call.kwargs["policy"] for call in manager.connect.await_args_list
+    )
+    assert restricted.is_unrestricted is False
+    assert unrestricted is UNRESTRICTED
