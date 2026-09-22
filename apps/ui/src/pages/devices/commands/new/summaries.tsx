@@ -1,8 +1,9 @@
 import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
+import { useValueLabel } from "@/hooks/useValueLabel";
 import { toLabel } from "@/lib/textFormat";
 import { formatValue } from "@/lib/formatValue";
-import type { Device } from "@gridone/sdk";
+import type { Device, ValueLabel } from "@gridone/sdk";
 import type { WizardFormValues } from "./types";
 
 const MAX_NAMES = 10;
@@ -35,7 +36,14 @@ export function TargetSummary({
   );
 }
 
-export function CommandSummary({ values }: { values: WizardFormValues }) {
+export function CommandSummary({
+  values,
+  valueLabels,
+}: {
+  values: WizardFormValues;
+  valueLabels?: ValueLabel[] | null;
+}) {
+  const labelFor = useValueLabel();
   if (!values.attribute || values.value === undefined) {
     return <span>—</span>;
   }
@@ -44,7 +52,9 @@ export function CommandSummary({ values }: { values: WizardFormValues }) {
       <span className="font-medium">{toLabel(values.attribute)}</span>
       <span className="mx-2 text-muted-foreground">=</span>
       <span className="tabular-nums">
-        {formatValue(values.value, values.attributeDataType)}
+        {typeof values.value === "boolean"
+          ? labelFor(values.value, valueLabels)
+          : formatValue(values.value, values.attributeDataType)}
       </span>
     </span>
   );

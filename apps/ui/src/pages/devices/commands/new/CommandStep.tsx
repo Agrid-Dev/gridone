@@ -7,21 +7,20 @@ import {
 } from "react-hook-form";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { SelectController } from "@/components/forms/controllers/SelectController";
 import {
   AttributeCoverageSelect,
   useAttributeCoverage,
 } from "@/components/forms/targetPicker";
-import { cn } from "@/lib/utils";
 import { AttributeValue } from "@/components/AttributeValue";
-import type { Device } from "@gridone/sdk";
+import type { Device, ResolvedOption, ValueLabel } from "@gridone/sdk";
 import {
   isEmptyFilter,
   type DevicesFilter,
   type DeviceType,
 } from "@/lib/devices";
+import { BoolInput } from "./BoolInput";
 import { currentValueFor } from "./resolvers";
 import type { WizardFormValues } from "./types";
 
@@ -102,7 +101,11 @@ export function CommandStep({
             defaultValue: "",
           });
 
-          if (selectedValueOptions && selectedValueOptions.length > 0) {
+          if (
+            selectedDataType !== "bool" &&
+            selectedValueOptions &&
+            selectedValueOptions.length > 0
+          ) {
             const deviceTypes = [
               ...new Set(selectedDevices.map((d) => d.type).filter(Boolean)),
             ] as DeviceType[];
@@ -139,11 +142,16 @@ export function CommandStep({
               name="value"
               render={({ field }) => (
                 <Field>
-                  <FieldLabel>{t("commands.value")}</FieldLabel>
+                  <FieldLabel htmlFor="command-value">
+                    {t("commands.value")}
+                  </FieldLabel>
                   <ValueInput
+                    id="command-value"
                     dataType={selectedDataType}
                     value={field.value}
                     onChange={field.onChange}
+                    valueLabels={selectedCoverage?.value_labels}
+                    options={projectedOptions}
                   />
                   {hint && <FieldDescription>{hint}</FieldDescription>}
                 </Field>
@@ -159,15 +167,34 @@ type ValueInputProps = {
   dataType: NonNullable<WizardFormValues["attributeDataType"]>;
   value: WizardFormValues["value"];
   onChange: (v: WizardFormValues["value"]) => void;
+  valueLabels?: ValueLabel[] | null;
+  options?: ResolvedOption[] | null;
+  id: string;
 };
 
-function ValueInput({ dataType, value, onChange }: ValueInputProps) {
+function ValueInput({
+  dataType,
+  value,
+  onChange,
+  valueLabels,
+  options,
+  id,
+}: ValueInputProps) {
   if (dataType === "bool") {
-    return <BoolInput value={value} onChange={onChange} />;
+    return (
+      <BoolInput
+        id={id}
+        value={value}
+        onChange={onChange}
+        valueLabels={valueLabels}
+        options={options}
+      />
+    );
   }
   if (dataType === "int" || dataType === "float") {
     return (
       <Input
+        id={id}
         type="number"
         step={dataType === "int" ? 1 : "any"}
         value={typeof value === "number" ? value : ""}
@@ -182,42 +209,10 @@ function ValueInput({ dataType, value, onChange }: ValueInputProps) {
   }
   return (
     <Input
+      id={id}
       type="text"
       value={typeof value === "string" ? value : ""}
       onChange={(e) => onChange(e.currentTarget.value)}
     />
-  );
-}
-
-function BoolInput({
-  value,
-  onChange,
-}: {
-  value: WizardFormValues["value"];
-  onChange: (v: WizardFormValues["value"]) => void;
-}) {
-  const { t } = useTranslation("devices");
-  const isOn = value === true;
-  const isOff = value === false;
-  return (
-    <div className="inline-flex items-center gap-3">
-      <span
-        className={cn(
-          "text-sm",
-          isOff ? "font-semibold text-foreground" : "text-muted-foreground",
-        )}
-      >
-        {t("commands.new.off")}
-      </span>
-      <Switch checked={isOn} onCheckedChange={onChange} />
-      <span
-        className={cn(
-          "text-sm",
-          isOn ? "font-semibold text-foreground" : "text-muted-foreground",
-        )}
-      >
-        {t("commands.new.on")}
-      </span>
-    </div>
   );
 }

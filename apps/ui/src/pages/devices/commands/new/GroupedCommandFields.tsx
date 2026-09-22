@@ -17,7 +17,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { AttributeCoverageSelect } from "@/components/forms/targetPicker";
+import { useValueLabel } from "@/hooks/useValueLabel";
 import type { AttributeValue, DevicesFilter } from "@/lib/devices";
+import { BoolInput } from "./BoolInput";
 import {
   currentRange,
   currentValues,
@@ -63,8 +65,15 @@ export function GroupedCommandFields({
   const options =
     projectedOptions?.map((option) => option.value) ?? coverage?.value_options;
   const unit = coverage?.unit;
-  const range = currentRange(eligible, attribute);
-  const mixed = currentValues(eligible, attribute).length > 1;
+  const labelFor = useValueLabel();
+  const values = currentValues(eligible, attribute);
+  const range =
+    dataType === "bool"
+      ? values
+          .map((value) => labelFor(value === true, coverage?.value_labels))
+          .join(", ")
+      : currentRange(eligible, attribute);
+  const mixed = values.length > 1;
   return (
     <div className="space-y-6">
       {!hasSelection && (
@@ -100,7 +109,19 @@ export function GroupedCommandFields({
                 {t("commands.value")}
                 {unit ? ` (${unit})` : ""}
               </FieldLabel>
-              {dataType === "bool" || !!options?.length ? (
+              {dataType === "bool" ? (
+                <BoolInput
+                  id="command-value"
+                  aria-invalid={fieldState.invalid}
+                  value={field.value}
+                  valueLabels={coverage.value_labels}
+                  options={projectedOptions}
+                  onChange={(value) => {
+                    field.onChange(value);
+                    onValueChange(value);
+                  }}
+                />
+              ) : options?.length ? (
                 <Select
                   value={
                     field.value === undefined ? "" : JSON.stringify(field.value)
@@ -119,23 +140,19 @@ export function GroupedCommandFields({
                     />
                   </SelectTrigger>
                   <SelectContent>
-                    {(options?.length ? options : [false, true]).map(
-                      (value) => (
-                        <SelectItem
-                          key={JSON.stringify(value)}
-                          value={JSON.stringify(value)}
-                          disabled={
-                            projectedOptions?.find(
-                              (option) => option.value === value,
-                            )?.available === false
-                          }
-                        >
-                          {typeof value === "boolean"
-                            ? t(value ? "commands.new.on" : "commands.new.off")
-                            : String(value)}
-                        </SelectItem>
-                      ),
-                    )}
+                    {options.map((value) => (
+                      <SelectItem
+                        key={JSON.stringify(value)}
+                        value={JSON.stringify(value)}
+                        disabled={
+                          projectedOptions?.find(
+                            (option) => option.value === value,
+                          )?.available === false
+                        }
+                      >
+                        {String(value)}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               ) : (
@@ -163,13 +180,14 @@ export function GroupedCommandFields({
                   }}
                 />
               )}
-              {projectedOptions
-                ?.filter((option) => !option.available)
-                .map((option) => (
-                  <FieldDescription key={JSON.stringify(option.value)}>
-                    {String(option.value)}: {commandReasons(option.reasons)}
-                  </FieldDescription>
-                ))}
+              {dataType !== "bool" &&
+                projectedOptions
+                  ?.filter((option) => !option.available)
+                  .map((option) => (
+                    <FieldDescription key={JSON.stringify(option.value)}>
+                      {String(option.value)}: {commandReasons(option.reasons)}
+                    </FieldDescription>
+                  ))}
               {mixed && (
                 <FieldDescription>
                   {t("commands.grouped.currentRange", {

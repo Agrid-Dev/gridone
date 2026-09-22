@@ -71,6 +71,7 @@ export default function NewCommandPage() {
       ? localize(coverage.label, i18n.language)
       : toLabel(url.attribute),
     unit: coverage?.unit,
+    valueLabels: coverage?.value_labels,
   };
 
   const scopeSelect = (

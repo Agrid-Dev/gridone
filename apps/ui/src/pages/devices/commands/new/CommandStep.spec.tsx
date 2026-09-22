@@ -31,6 +31,8 @@ vi.mock("react-i18next", () =>
     "pickers.attribute.mixedTypes": "mixed data types",
     "commands.new.noCompatibleTitle": "No compatible attributes",
     "commands.new.noCompatibleDescription": "No attributes found",
+    "common.true": "True",
+    "common.false": "False",
   }),
 );
 
@@ -253,6 +255,90 @@ describe("CommandStep value input", () => {
     );
     // WeatherSensor has no mode renderer — no badge icon classes
     expect(document.querySelector(".lucide-sun, .lucide-snowflake")).toBeNull();
+  });
+
+  it("labels the boolean switch with the driver's value_labels", () => {
+    // The server always projects [false, true] as write options for a
+    // boolean; that must not turn the switch into a select.
+    mockCoverage([
+      {
+        ...coverageRow("onoff_state", "bool"),
+        value_labels: [
+          { value: false, label: { default: "Stopped" } },
+          { value: true, label: { default: "Running" } },
+        ],
+        write_state: {
+          options: [
+            { value: false, available: true },
+            { value: true, available: true },
+          ],
+        },
+      },
+    ]);
+    render(
+      <Wrapper
+        selectedAttribute="onoff_state"
+        selectedDataType="bool"
+        selectedDevices={[
+          device("d1", null, [attr("onoff_state", { dataType: "bool" })]),
+        ]}
+      />,
+    );
+    expect(screen.getByRole("switch")).toBeTruthy();
+    expect(screen.getByText("Stopped")).toBeInTheDocument();
+    expect(screen.getByText("Running")).toBeInTheDocument();
+  });
+
+  it("falls back to False / True on the switch, never ON / OFF", () => {
+    mockCoverage([coverageRow("radar_enable", "bool")]);
+    render(
+      <Wrapper
+        selectedAttribute="radar_enable"
+        selectedDataType="bool"
+        selectedDevices={[
+          device("d1", null, [attr("radar_enable", { dataType: "bool" })]),
+        ]}
+      />,
+    );
+    expect(screen.getByText("False")).toBeInTheDocument();
+    expect(screen.getByText("True")).toBeInTheDocument();
+    expect(screen.queryByText(/^(ON|OFF)$/)).toBeNull();
+  });
+
+  it("blocks only the unavailable state and keeps the other side reachable", () => {
+    mockCoverage([
+      {
+        ...coverageRow("onoff_state", "bool"),
+        write_state: {
+          options: [
+            { value: false, available: true },
+            {
+              value: true,
+              available: false,
+              reasons: [
+                { code: "blocked", message: { default: "Filter running" } },
+              ],
+            },
+          ],
+        },
+      },
+    ]);
+    render(
+      <Wrapper
+        selectedAttribute="onoff_state"
+        selectedDataType="bool"
+        selectedDevices={[
+          device("d1", null, [attr("onoff_state", { dataType: "bool" })]),
+        ]}
+      />,
+    );
+    // Nothing chosen yet: the switch would toggle to the unavailable `true`,
+    // but `false` stays one click away on its own side.
+    expect(screen.getByRole("switch")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "True" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "False" })).toBeEnabled();
+    expect(screen.getByText(/^True: Filter running$/)).toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "Value" })).toBeNull();
   });
 
   it("renders an alert when the target has no writable attribute", () => {

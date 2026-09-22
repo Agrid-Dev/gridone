@@ -8,9 +8,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { formatValue } from "@/lib/formatValue";
 import { AttributeValue } from "@/components/AttributeValue";
-import type { Device } from "@gridone/sdk";
+import type { Device, ValueLabel } from "@gridone/sdk";
 import {
   deviceAttributes,
   type AttributeValue as AttributeValueType,
@@ -21,19 +20,21 @@ import type { WizardFormValues } from "./types";
 type ReviewStepProps = {
   values: WizardFormValues;
   selectedDevices: Device[];
+  /** The chosen attribute's wording from the coverage the form used, so
+   *  the review reads exactly like the switch. */
+  valueLabels?: ValueLabel[] | null;
 };
 
-export function ReviewStep({ values, selectedDevices }: ReviewStepProps) {
+export function ReviewStep({
+  values,
+  selectedDevices,
+  valueLabels,
+}: ReviewStepProps) {
   const { t } = useTranslation("devices");
 
   const deviceTypes = [
     ...new Set(selectedDevices.map((d) => d.type).filter(Boolean)),
   ] as DeviceType[];
-
-  const newValueFormatted =
-    values.value !== undefined
-      ? formatValue(values.value, values.attributeDataType)
-      : "—";
 
   return (
     <div className="space-y-3">
@@ -71,10 +72,6 @@ export function ReviewStep({ values, selectedDevices }: ReviewStepProps) {
                   | AttributeValueType
                   | null
                   | undefined;
-                const currentFormatted =
-                  current === null || current === undefined
-                    ? null
-                    : formatValue(current, attr?.data_type as string);
                 return (
                   <TableRow key={d.id}>
                     <TableCell className="font-medium">
@@ -82,23 +79,23 @@ export function ReviewStep({ values, selectedDevices }: ReviewStepProps) {
                     </TableCell>
                     <TableCell>
                       <span className="inline-flex items-center gap-2 tabular-nums">
-                        {currentFormatted === null ? (
-                          <span className="text-muted-foreground">—</span>
-                        ) : (
-                          <span className="text-muted-foreground">
-                            <AttributeValue
-                              deviceType={deviceTypes}
-                              attributeName={(attr?.name as string) ?? ""}
-                              value={currentFormatted}
-                            />
-                          </span>
-                        )}
+                        <span className="text-muted-foreground">
+                          <AttributeValue
+                            deviceType={deviceTypes}
+                            attributeName={(attr?.name as string) ?? ""}
+                            value={current}
+                            dataType={attr?.data_type as string}
+                            valueLabels={valueLabels}
+                          />
+                        </span>
                         <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
                         <span className="font-semibold">
                           <AttributeValue
                             deviceType={deviceTypes}
                             attributeName={values.attribute ?? ""}
-                            value={newValueFormatted}
+                            value={values.value}
+                            dataType={values.attributeDataType}
+                            valueLabels={valueLabels}
                           />
                         </span>
                       </span>

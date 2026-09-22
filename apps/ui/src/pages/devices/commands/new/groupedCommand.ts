@@ -5,6 +5,7 @@ import type {
   Device,
   AttributeWritePayload,
   BatchDispatchResponse,
+  ValueLabel,
 } from "@gridone/sdk";
 import {
   deviceAttributes,
@@ -40,6 +41,8 @@ export type CommandDisplay = {
   scope: string;
   label: string;
   unit?: string | null;
+  /** Wording of a boolean's states, unanimous over the selection or absent. */
+  valueLabels?: ValueLabel[] | null;
 };
 
 /** JSON preserves false, zero and numeric-looking strings in shared URLs. */

@@ -10,7 +10,8 @@ import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Controller } from "react-hook-form";
 import type { AssetTreeNode } from "@/lib/assets";
-import type { DevicesFilter } from "@/lib/devices";
+import { isEmptyFilter, type DevicesFilter } from "@/lib/devices";
+import { useAttributeCoverage } from "@/components/forms/targetPicker";
 import { CommandStep } from "./CommandStep";
 import { ReviewStep } from "./ReviewStep";
 import { StepSection } from "./StepSection";
@@ -71,6 +72,15 @@ export function CommandWizard(props: CommandWizardProps) {
     toast.error(serverErrorMessage(commitError) ?? t("common:errors.default"));
   }, [commitError, t]);
 
+  // Same query as the command step (react-query dedupes): the attribute's
+  // wording for the collapsed summary and the review.
+  const { coverage } = useAttributeCoverage(coverageFilter, {
+    enabled: !isEmptyFilter(coverageFilter),
+  });
+  const valueLabels = coverage.find(
+    (row) => row.attribute === values.attribute,
+  )?.value_labels;
+
   const stateOf = (idx: number) =>
     idx < step ? "done" : idx === step ? "active" : "pending";
 
@@ -130,7 +140,7 @@ export function CommandWizard(props: CommandWizardProps) {
           number={isPredefined ? 1 : 2}
           title={t("commands.new.steps.command")}
           state={stateOf(1)}
-          summary={<CommandSummary values={values} />}
+          summary={<CommandSummary values={values} valueLabels={valueLabels} />}
         >
           <div className="space-y-5">
             <CommandStep
@@ -158,7 +168,11 @@ export function CommandWizard(props: CommandWizardProps) {
           state={stateOf(2)}
         >
           <div className="space-y-5">
-            <ReviewStep values={values} selectedDevices={selectedDevices} />
+            <ReviewStep
+              values={values}
+              selectedDevices={selectedDevices}
+              valueLabels={valueLabels}
+            />
 
             {saveSubmit && (
               <div className="space-y-3 rounded-md border bg-muted/20 p-4">

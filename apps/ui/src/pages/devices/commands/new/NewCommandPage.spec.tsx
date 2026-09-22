@@ -126,6 +126,8 @@ vi.mock("react-i18next", () =>
     "commands.grouped.nameRequired": "Enter a template name.",
     "commands.grouped.bounds.maximum": "Will be refused above {{bound}}.",
     "common:common.cancel": "Cancel",
+    "common.true": "True",
+    "common.false": "False",
   }),
 );
 
@@ -697,6 +699,61 @@ describe("grouped command page", () => {
       screen.queryByRole("button", { name: "Dispatch now" }),
     ).not.toBeInTheDocument();
     expect(mocks.listAttributes).not.toHaveBeenCalled();
+  });
+
+  describe("boolean attribute", () => {
+    const valueLabels = [
+      { value: false, label: { default: "Stopped" } },
+      { value: true, label: { default: "Running" } },
+    ];
+    function boolDevice(id: string) {
+      return device(id, 21, {
+        enabled: {
+          name: "enabled",
+          data_type: "bool",
+          read_write_modes: ["read", "write"],
+          current_value: false,
+          value_labels: valueLabels,
+        },
+      });
+    }
+    function mockBoolCoverage(value_labels: typeof valueLabels | null) {
+      mocks.listAttributes.mockResolvedValue({
+        total_devices: 2,
+        attributes: [
+          {
+            attribute: "enabled",
+            data_types: ["bool"],
+            device_count: 2,
+            writable_count: 2,
+            value_labels,
+          },
+        ],
+      });
+    }
+
+    it("labels the switch and the review with the unanimous value_labels", async () => {
+      mocks.devices = [boolDevice("1"), boolDevice("2")];
+      mockBoolCoverage(valueLabels);
+      mount("/devices/commands/new?attribute=enabled&value=true&ids=1,2");
+      expect(await screen.findByRole("switch")).toBeChecked();
+      // Switch side + each device's current value (false) in the review.
+      expect(screen.getAllByText("Stopped")).toHaveLength(3);
+      // Switch side + the chosen value on each device's review line.
+      expect(screen.getAllByText("Running")).toHaveLength(3);
+      expect(screen.queryByText(/^(ON|OFF|true|false)$/)).toBeNull();
+    });
+
+    it("falls back to False / True when the devices disagree on labels", async () => {
+      mocks.devices = [boolDevice("1"), boolDevice("2")];
+      mockBoolCoverage(null);
+      mount("/devices/commands/new?attribute=enabled&value=false&ids=1,2");
+      expect(await screen.findByRole("switch")).not.toBeChecked();
+      expect(screen.getByText("True")).toBeInTheDocument();
+      // Switch side + current and chosen value on each of the two review lines.
+      expect(screen.getAllByText("False")).toHaveLength(5);
+      expect(screen.queryByText("Stopped")).toBeNull();
+    });
   });
 
   it("requires a template name and keeps named saves separate from dispatch", async () => {

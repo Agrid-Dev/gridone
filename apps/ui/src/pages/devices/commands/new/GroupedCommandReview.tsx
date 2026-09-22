@@ -13,6 +13,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { useValueLabel } from "@/hooks/useValueLabel";
+import type { ValueLabel } from "@gridone/sdk";
 import { deviceAttributes } from "@/lib/devices";
 import { serverErrorMessage } from "@/lib/serverErrorMessage";
 import { constraintWarnings, type CommandDisplay } from "./groupedCommand";
@@ -31,6 +33,14 @@ type Props = {
   actions: GroupedCommandActions;
 };
 
+/** A value as the review words it: a boolean through the driver's labels,
+ *  anything else as sent. */
+function useValueText(valueLabels: ValueLabel[] | null | undefined) {
+  const labelFor = useValueLabel();
+  return (value: unknown) =>
+    typeof value === "boolean" ? labelFor(value, valueLabels) : String(value);
+}
+
 export function GroupedCommandReview({
   payload,
   devices,
@@ -41,6 +51,7 @@ export function GroupedCommandReview({
   actions,
 }: Props) {
   const { t } = useTranslation(["devices", "common"]);
+  const valueText = useValueText(display.valueLabels);
   const snapshot = actions.snapshot;
   const tracking = !!snapshot;
   const shown = snapshot ?? { payload, devices };
@@ -74,7 +85,7 @@ export function GroupedCommandReview({
             ? t("commands.grouped.pickAttribute")
             : t("commands.grouped.setting", {
                 attribute: display.label || "—",
-                value: write.value === "" ? "—" : write.value,
+                value: write.value === "" ? "—" : valueText(write.value),
                 unit: display.unit ?? "",
               })}
         </p>
@@ -140,7 +151,11 @@ export function GroupedCommandReview({
                           )}
                       </>
                     ) : (
-                      <PreviewLine device={device} write={write} />
+                      <PreviewLine
+                        device={device}
+                        write={write}
+                        valueLabels={display.valueLabels}
+                      />
                     )}
                   </li>
                 );
@@ -279,11 +294,14 @@ export function GroupedCommandReview({
 function PreviewLine({
   device,
   write,
+  valueLabels,
 }: {
   device: Device;
   write: CommandPayload["write"];
+  valueLabels: CommandDisplay["valueLabels"];
 }) {
   const { t } = useTranslation("devices");
+  const valueText = useValueText(valueLabels);
   const attr = deviceAttributes(device)[write.attribute];
   const { warnings, dynamic } = constraintWarnings(
     device,
@@ -295,11 +313,11 @@ function PreviewLine({
     <>
       <p className="flex items-center gap-2 text-sm tabular-nums">
         <span className="text-muted-foreground">
-          {String(attr?.current_value ?? "—")} {unit}
+          {valueText(attr?.current_value ?? "—")} {unit}
         </span>
         <ArrowRight className="h-3.5 w-3.5" />
         <span className="font-semibold text-primary">
-          {String(write.value === "" ? "—" : write.value)} {unit}
+          {write.value === "" ? "—" : valueText(write.value)} {unit}
         </span>
       </p>
       {warnings.map(({ kind, bound }) => (
