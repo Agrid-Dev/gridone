@@ -360,3 +360,15 @@ export type ResolvedOption = Schemas["ResolvedOption"];
 
 export type SingleCommandPreview = Schemas["SingleCommandPreview"];
 export type UIConfirmationContext = Schemas["UIConfirmationContext"];
+
+// Site operatingRules share the declarative language used by device write guards.
+export type OperatingRule = Schemas["OperatingRule"];
+export type OperatingRuleDefinition = Schemas["OperatingRuleDefinition"];
+export type OperatingRuleView = Schemas["OperatingRuleView"];
+export type OperatingRuleUpdate = Schemas["UpdateOperatingRule"];
+export type OperatingRuleRetire = Schemas["RetireOperatingRule"];
+export type OperatingRuleEnabled = Schemas["SetOperatingRuleEnabled"];
+export type OperatingRuleSchemas = Schemas["OperatingRuleSchemas"];
+export type DeviceAttributeRef = Schemas["DeviceAttributeRef"];
+export type WriteCondition = Schemas["Condition-Input"];
+export type WriteExpression = Schemas["Expression-Input"];

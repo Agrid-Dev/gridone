@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from devices_manager.core.conditions import (
+from models.conditions import (
     EvaluationBudget,
     EvaluationContext,
     EvaluationLimitError,
@@ -25,8 +25,8 @@ from .value_mapping import encode_mapping, project_mapping
 from .write_constraints import check_write_constraints, preview_write_constraints
 
 if TYPE_CHECKING:
-    from devices_manager.core.conditions import ValueResolver
     from devices_manager.core.driver.attribute_driver import AttributeDriver
+    from models.conditions import ValueResolver
     from models.types import AttributeValueType
 
 

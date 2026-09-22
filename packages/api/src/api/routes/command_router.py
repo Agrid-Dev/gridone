@@ -241,7 +241,9 @@ async def preview_single_command(
     # event loop like every other route, never in a worker thread.
     preview = dm.preview_device_write(device_id, body.attribute, body.value)
     token = None
-    if preview.eligible and preview.user_confirmation is not None:
+    if (
+        preview.eligible and preview.user_confirmation is not None
+    ) or preview.consent_required:
         prepared = coordinator.prepare(
             SelectionCommandPrepare(
                 target=DevicesFilterBody(ids=[device_id]),
@@ -276,7 +278,20 @@ async def dispatch_single_command(
         writable=False,
     )
     context = None
-    if body.ui_confirmation_token is not None:
+    consent = None
+    if body.acknowledge_unknown_operating_rules:
+        if body.ui_confirmation_token is None:
+            msg = "An operating rule warning preview must be confirmed first"
+            raise InvalidError(msg)
+        consent, context = coordinator.consume_unit_consent(
+            body.ui_confirmation_token,
+            user_id,
+            device_id,
+            body.attribute,
+            body.value,
+            body.confirmation_language or "en",
+        )
+    elif body.ui_confirmation_token is not None:
         context = coordinator.consume_unit_confirmation(
             body.ui_confirmation_token,
             user_id,
@@ -293,6 +308,7 @@ async def dispatch_single_command(
         user_id=user_id,
         confirm=body.confirm,
         ui_confirmation=context,
+        consent=consent,
     )
 
 

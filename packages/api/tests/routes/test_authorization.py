@@ -39,6 +39,12 @@ from api.routes.dashboards_router import router as dashboards_router
 from api.routes.devices_router import router as devices_router
 from api.routes.drivers_router import router as drivers_router
 from api.routes.notifications_router import router as notifications_router
+from api.routes.operating_rules_router import (
+    get_operating_rules_service,
+)
+from api.routes.operating_rules_router import (
+    router as operating_rules_router,
+)
 from api.routes.presentations_router import router as presentations_router
 from api.routes.synoptics_router import router as synoptics_router
 from api.routes.transports_router import ingress_router as transports_ingress_router
@@ -70,6 +76,7 @@ from devices_manager.dto.presentation_dto import UnavailablePresentationResponse
 from devices_manager.types import DataType
 from models.errors import NotFoundError
 from models.metadata import ResourceMetadata
+from models.operating_rules import OperatingRule
 from models.pagination import Page
 from models.targets import DevicesFilter, ResolvedTarget
 from models.types import Severity
@@ -78,6 +85,7 @@ from notifications import (
     NotificationDispatch,
     NotificationsServiceInterface,
 )
+from operating_rules import OperatingRulesService
 from synoptics import Synoptic, SynopticsServiceInterface
 from timeseries.domain import FetchPointsResult
 from users import Role, User
@@ -198,6 +206,81 @@ def _login(client: TestClient, username: str) -> str:
 
 def _auth_header(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.mark.parametrize("username", ["admin", "operator", "viewer", None])
+@pytest.mark.parametrize(
+    ("method", "endpoint", "write"),
+    [
+        ("GET", "/operating-rules/", False),
+        ("GET", "/operating-rules/schema", False),
+        ("GET", "/operating-rules/rule", False),
+        ("GET", "/operating-rules/rule/history", False),
+        ("POST", "/operating-rules/", True),
+        ("PUT", "/operating-rules/rule", True),
+        ("POST", "/operating-rules/rule/retire", True),
+        ("PATCH", "/operating-rules/rule/enabled", True),
+        ("DELETE", "/operating-rules/rule?revision=1", True),
+    ],
+)
+def test_operating_rules_access_control(app, username, method, endpoint, write):
+    now = datetime.now(UTC)
+    definition = {
+        "name": "Interlock",
+        "explanation": "Separate equipment",
+        "target": {"device_id": "a", "attribute": "command", "value": True},
+        "condition": {
+            "op": "eq",
+            "left": {"device_id": "b", "attribute": "running"},
+            "right": False,
+        },
+    }
+    rule = OperatingRule.model_validate(
+        {
+            **definition,
+            "id": "rule",
+            "attributes": [],
+            "created_at": now,
+            "updated_at": now,
+            "created_by": "admin",
+            "updated_by": "admin",
+        }
+    )
+    svc = AsyncMock(spec=OperatingRulesService)
+    svc.list_operating_rules.return_value = []
+    svc.get.return_value = rule
+    svc.diagnose.return_value = []
+    svc.history.return_value = [rule]
+    svc.create.return_value = svc.update.return_value = svc.retire.return_value = rule
+    svc.set_enabled.return_value = rule
+    app.dependency_overrides[get_operating_rules_service] = lambda: svc
+    app.include_router(
+        operating_rules_router,
+        prefix="/operating-rules",
+        dependencies=[Depends(get_current_user_id)],
+    )
+    body = (
+        {"revision": 1, "enabled": False}
+        if method == "PATCH"
+        else {"revision": 1, "reason": "Equipment removed"}
+        if endpoint.endswith("/retire")
+        else {**definition, **({"revision": 1} if method == "PUT" else {})}
+    )
+    with TestClient(app) as client:
+        headers = _auth_header(_login(client, username)) if username else {}
+        response = client.request(method, endpoint, headers=headers, json=body)
+    expected = (
+        401
+        if username is None
+        else 403
+        if write and username != "admin"
+        else 201
+        if method == "POST" and endpoint == "/operating-rules/"
+        else 204
+        if method == "DELETE"
+        else 200
+    )
+    assert response.status_code == expected, response.text
 
 
 # --- Admin can access user endpoints ---

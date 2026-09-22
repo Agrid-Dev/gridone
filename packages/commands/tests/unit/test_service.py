@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 import pytest_asyncio
@@ -16,7 +16,7 @@ from commands.models import (
     WriteResult,
 )
 from commands.service import CommandsService
-from models.command_confirmation import UIConfirmationContext
+from models.command_confirmation import UIConfirmationContext, WriteConsent
 from models.errors import (
     ConfirmationError,
     InvalidError,
@@ -35,6 +35,54 @@ pytestmark = pytest.mark.asyncio
 
 
 MODE_AUTO = AttributeWrite(attribute="mode", value="auto", data_type=DataType.STRING)
+
+
+async def test_guard_rejection_retains_acknowledgement_audit(
+    device_writer, result_handler, target_resolver
+):
+    consent = WriteConsent(
+        binding="binding",
+        requirement_ids=["rule"],
+        actor_id="operator",
+        confirmed_at=datetime.now(UTC),
+    )
+    validator = Mock(
+        return_value=WriteEvaluation(eligible=True, value="auto", consent=consent)
+    )
+    service = CommandsService(
+        None,
+        device_writer,
+        result_handler,
+        target_resolver,
+        command_validator=validator,
+    )
+    await service.start()
+    device_writer.side_effect = WriteRejectedError(
+        [WriteReason(code="operating_rule_blocked")]
+    )
+    try:
+        with pytest.raises(WriteRejectedError):
+            await service.dispatch_unit(
+                device_id="d1",
+                write=MODE_AUTO,
+                user_id="operator",
+                consent=consent,
+            )
+        record = (await service.get_commands()).items[0]
+        assert record.status == CommandStatus.ERROR
+        assert record.validation is not None
+        assert record.validation.consent == consent
+        assert record.validation.reasons[0].code == "operating_rule_blocked"
+        assert device_writer.call_args.kwargs["consent"] == consent
+        with pytest.raises(InvalidError):
+            await service.dispatch_unit(
+                device_id="d1",
+                write=MODE_AUTO,
+                user_id="another",
+                consent=consent,
+            )
+    finally:
+        await service.stop()
 
 
 @pytest.mark.parametrize(
@@ -236,7 +284,9 @@ class TestDispatchUnit:
         assert cmd.device_id == "d1"
         assert cmd.completed_at is not None
 
-        device_writer.assert_awaited_once_with("d1", "mode", "auto", confirm=True)
+        device_writer.assert_awaited_once_with(
+            "d1", "mode", "auto", confirm=True, consent=None
+        )
         result_handler.assert_awaited_once()
 
     async def test_writer_failure_raises_and_records_error_status(
@@ -300,7 +350,9 @@ class TestDispatchUnit:
             user_id="u1",
             confirm=False,
         )
-        device_writer.assert_awaited_once_with("d1", "mode", "auto", confirm=False)
+        device_writer.assert_awaited_once_with(
+            "d1", "mode", "auto", confirm=False, consent=None
+        )
 
 
 class TestGetCommands:
@@ -804,7 +856,9 @@ class TestTemplateCrud:
         )
         assert [command.device_id for command in dispatch.commands] == ["d1"]
         assert dispatch.commands[0].template_id == template.id
-        device_writer.assert_awaited_once_with("d1", "mode", "auto", confirm=True)
+        device_writer.assert_awaited_once_with(
+            "d1", "mode", "auto", confirm=True, consent=None
+        )
 
     async def test_dispatch_from_template_raises_on_unknown_id(
         self,
@@ -953,7 +1007,7 @@ class TestDeclarativeCommandValidation:
     async def test_preflight_refusal_is_stored_directly_as_error(
         self, service, device_writer, result_handler
     ):
-        service._command_validator = lambda *_: WriteEvaluation(  # noqa: SLF001
+        service._command_validator = lambda *_, **_kwargs: WriteEvaluation(  # noqa: SLF001
             eligible=False, reasons=[WriteReason(code="locked")]
         )
         with pytest.raises(WriteRejectedError):
@@ -981,7 +1035,7 @@ class TestDeclarativeCommandValidation:
     async def test_batch_only_executes_currently_eligible_members(
         self, service, device_writer
     ):
-        service._command_validator = lambda device_id, *_: WriteEvaluation(  # noqa: SLF001
+        service._command_validator = lambda device_id, *_, **_kwargs: WriteEvaluation(  # noqa: SLF001
             eligible=device_id == "d1",
             reasons=[] if device_id == "d1" else [WriteReason(code="locked")],
         )

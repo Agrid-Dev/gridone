@@ -33,6 +33,9 @@ class DeviceWritePreview(BaseModel):
     current_value_known: bool = False
     attribute_label: LocalizedText | None = None
     unit: str | None = None
+    policy_binding: str | None = None
+    unknown_requirement_ids: list[str] = Field(default_factory=list)
+    consent_required: bool = False
 
 
 def preview_write(
@@ -68,4 +71,7 @@ def preview_write(
         reasons=evaluation.reasons,
         warnings=evaluation.warnings,
         revision=device.write_state_revision,
+        policy_binding=evaluation.policy_binding,
+        unknown_requirement_ids=evaluation.unknown_requirement_ids,
+        consent_required=evaluation.consent_required,
     )

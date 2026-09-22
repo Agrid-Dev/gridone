@@ -4,21 +4,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from devices_manager.core.conditions import attribute_references, scalar_equal
+from models.conditions import attribute_references, scalar_equal
 from models.errors import InvalidError
+from models.expression_validation import validate_expression
 from models.expressions import (
     MAX_ATTRIBUTE_OPERATIONS,
     MAX_DEVICE_OPERATIONS,
-    MAX_EXPRESSION_DEPTH,
-    ArithmeticExpression,
     AttributeRef,
-    CandidateRef,
-    ChoiceExpression,
-    Comparison,
-    IsKnown,
-    Junction,
-    Membership,
-    Negation,
+    DeviceAttributeRef,
     expression_nodes,
     rename_references,
 )
@@ -60,79 +53,6 @@ def _invalid(path: str, message: str) -> None:
     raise InvalidError(diagnostic)
 
 
-def validate_expression(
-    root: object, types: dict[str, str], candidate_type: str | None, path: str
-) -> str:
-    """Infer scalar types and reject ill-typed conditions before runtime evaluation."""
-    nodes = list(expression_nodes(root))
-    if any(depth > MAX_EXPRESSION_DEPTH for _, _, depth in nodes):
-        _invalid(path, "expression depth budget exceeded")
-    return _infer(root, types, candidate_type, path)
-
-
-def _infer(
-    root: object, types: dict[str, str], candidate_type: str | None, path: str
-) -> str:
-    if isinstance(root, bool):
-        return "bool"
-    if isinstance(root, int | float):
-        return "number"
-    if isinstance(root, str):
-        return "str"
-    if isinstance(root, AttributeRef):
-        if root.attribute not in types:
-            _invalid(path, f"unknown attribute '{root.attribute}'")
-        return types[root.attribute]
-    if isinstance(root, CandidateRef):
-        if candidate_type is None:
-            _invalid(path, "candidate is not allowed in this expression")
-        return candidate_type or "unknown"
-    return _infer_composite(root, types, candidate_type, path)
-
-
-def _infer_composite(
-    root: object, types: dict[str, str], candidate_type: str | None, path: str
-) -> str:
-    if isinstance(root, ArithmeticExpression):
-        for i, value in enumerate(root.args):
-            if _infer(value, types, candidate_type, f"{path}.args[{i}]") != "number":
-                _invalid(path, "arithmetic requires numbers")
-        return "number"
-    if isinstance(root, ChoiceExpression):
-        _infer(root.condition, types, candidate_type, f"{path}.condition")
-        left = _infer(root.then, types, candidate_type, f"{path}.then")
-        right = _infer(root.otherwise, types, candidate_type, f"{path}.otherwise")
-        if left != right:
-            _invalid(path, "conditional branches must have the same type")
-        return left
-    return _infer_condition(root, types, candidate_type, path)
-
-
-def _infer_condition(
-    root: object, types: dict[str, str], candidate_type: str | None, path: str
-) -> str:
-    if isinstance(root, Comparison):
-        left = _infer(root.left, types, candidate_type, f"{path}.left")
-        right = _infer(root.right, types, candidate_type, f"{path}.right")
-        if left != right or (root.op != "eq" and left != "number"):
-            _invalid(path, "incompatible comparison operands")
-    elif isinstance(root, Membership):
-        value_type = _infer(root.value, types, candidate_type, f"{path}.value")
-        for value in root.values:
-            if _infer(value, types, candidate_type, path) != value_type:
-                _invalid(path, "membership options must have the operand's type")
-    elif isinstance(root, IsKnown):
-        _infer(root.value, types, candidate_type, f"{path}.value")
-    elif isinstance(root, Negation):
-        _infer(root.condition, types, candidate_type, f"{path}.condition")
-    elif isinstance(root, Junction):
-        for i, condition in enumerate(root.conditions):
-            _infer(condition, types, candidate_type, f"{path}.conditions[{i}]")
-    else:
-        _invalid(path, "unsupported expression")
-    return "bool"
-
-
 def validate_write_declarations(attributes: Iterable[AttributeDriver]) -> None:
     """Validate scalar references; only value-computation edges form a DAG.
 
@@ -140,7 +60,9 @@ def validate_write_declarations(attributes: Iterable[AttributeDriver]) -> None:
     are legal. Mappings that require one another to decode are rejected.
     """
     by_name = {attribute.name: attribute for attribute in attributes}
-    types = {name: _TYPE_NAMES[a.data_type] for name, a in by_name.items()}
+    types: dict[str | DeviceAttributeRef, str] = {
+        name: _TYPE_NAMES[a.data_type] for name, a in by_name.items()
+    }
     graph: dict[str, set[str]] = {}
     operations = 0
     for name, attribute in by_name.items():
@@ -169,7 +91,9 @@ def validate_write_declarations(attributes: Iterable[AttributeDriver]) -> None:
             del remaining[name]
 
 
-def _validate_attribute(attribute: AttributeDriver, types: dict[str, str]) -> None:
+def _validate_attribute(
+    attribute: AttributeDriver, types: dict[str | DeviceAttributeRef, str]
+) -> None:
     _validate_constraints(attribute, types)
     for i, rule in enumerate(attribute.write_rules):
         validate_expression(
@@ -195,7 +119,10 @@ def _validate_attribute(attribute: AttributeDriver, types: dict[str, str]) -> No
 
 
 def _validate_value(
-    attribute: AttributeDriver, value: object, types: dict[str, str], path: str
+    attribute: AttributeDriver,
+    value: object,
+    types: dict[str | DeviceAttributeRef, str],
+    path: str,
 ) -> None:
     full_path = f"{attribute.name}.{path}"
     if validate_expression(value, types, None, full_path) != types[attribute.name]:
@@ -208,7 +135,9 @@ def _validate_value(
         _invalid(full_path, "expected an integer")
 
 
-def _validate_constraints(attribute: AttributeDriver, types: dict[str, str]) -> None:
+def _validate_constraints(
+    attribute: AttributeDriver, types: dict[str | DeviceAttributeRef, str]
+) -> None:
     constraints = attribute.write_constraints
     if constraints is None:
         return
@@ -230,7 +159,7 @@ def _validate_constraints(attribute: AttributeDriver, types: dict[str, str]) -> 
 
 
 def _validate_bound_ref(
-    name: str, path: str, ref: AttributeRef, types: dict[str, str]
+    name: str, path: str, ref: AttributeRef, types: dict[str | DeviceAttributeRef, str]
 ) -> None:
     if ref.attribute == name:
         msg = f"{path} must not reference the attribute itself"
@@ -247,7 +176,9 @@ def _validate_bound_ref(
         raise InvalidError(msg)
 
 
-def _validate_options(attribute: AttributeDriver, types: dict[str, str]) -> None:
+def _validate_options(
+    attribute: AttributeDriver, types: dict[str | DeviceAttributeRef, str]
+) -> None:
     for i, option in enumerate(attribute.write_options or []):
         _validate_value(attribute, option.value, types, f"write_options[{i}].value")
         if any(
@@ -264,7 +195,9 @@ def _validate_options(attribute: AttributeDriver, types: dict[str, str]) -> None
             )
 
 
-def _validate_default(attribute: AttributeDriver, types: dict[str, str]) -> None:
+def _validate_default(
+    attribute: AttributeDriver, types: dict[str | DeviceAttributeRef, str]
+) -> None:
     value = attribute.default_value
     if value is None:
         return
@@ -292,7 +225,7 @@ def _validate_default(attribute: AttributeDriver, types: dict[str, str]) -> None
     if isinstance(constraints.maximum, int | float) and value > constraints.maximum:
         _invalid(attribute.name, "default_value is above maximum")
     if isinstance(constraints.step, int | float):
-        from devices_manager.core.conditions import on_step_grid  # noqa: PLC0415
+        from models.conditions import on_step_grid  # noqa: PLC0415
 
         if not on_step_grid(value, constraints.step):
             _invalid(attribute.name, "default_value is not on the step grid")

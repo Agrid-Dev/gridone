@@ -83,6 +83,7 @@ nav:
       - Monitor executions: guides/automations/executions.md
     - Commands:
       - Send a command: guides/commands/send-command.md
+      - Site operating rules: guides/commands/operating-rules.md
       - Create a command template: guides/commands/templates.md
     - Faults:
       - View active faults: guides/faults/active-faults.md

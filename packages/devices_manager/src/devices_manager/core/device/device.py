@@ -43,6 +43,8 @@ if TYPE_CHECKING:
         DeviceConfig,
         ReadWriteMode,
     )
+    from models.command_confirmation import WriteConsent
+    from models.write_policy import WritePolicy
 
     from .device_base import DeviceBase
 
@@ -172,6 +174,7 @@ class CoreDevice:
     on_write_state_update: Callable[[CoreDevice], None] | None = field(
         default=None, repr=False
     )
+    write_policy: WritePolicy | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         if self.driver.transport != self.transport.protocol:
@@ -815,17 +818,59 @@ class CoreDevice:
             self.on_write_state_update(self)
 
     def evaluate_attribute_write(
-        self, attribute_name: str, value: AttributeValueType
+        self,
+        attribute_name: str,
+        value: AttributeValueType,
+        *,
+        consent: WriteConsent | None = None,
     ) -> WriteEvaluation:
         self.get_attribute(attribute_name)
-        return self._guard.evaluate(attribute_name, value)
+        evaluation = self._guard.evaluate(attribute_name, value)
+        if self.write_policy is not None:
+            try:
+                return self.write_policy(self.id, attribute_name, evaluation, consent)
+            except Exception:
+                logger.exception("Failed to evaluate write policy")
+                return evaluation.model_copy(
+                    update={
+                        "eligible": False,
+                        "consent_required": False,
+                        "reasons": [
+                            *evaluation.reasons,
+                            WriteReason(code="write_policy_unavailable"),
+                        ],
+                    }
+                )
+        return evaluation
+
+    def known_attribute_value(self, attribute_name: str) -> AttributeValueType | None:
+        """An acquired, still-trusted observation; this never reads the transport."""
+        return self._guard.known(attribute_name)
+
+    def observed_attribute_value(
+        self, attribute_name: str, *, max_age_seconds: float | None = None
+    ) -> AttributeValueType | None:
+        """An acquired value with an optional observation age limit."""
+        return self._guard.observed_value(
+            attribute_name, max_age_seconds=max_age_seconds
+        )
 
     def validate_attribute_write(
-        self, attribute_name: str, value: AttributeValueType
+        self,
+        attribute_name: str,
+        value: AttributeValueType,
+        *,
+        consent: WriteConsent | None = None,
     ) -> AttributeValueType:
         """The universal, side-effect-free guard, also used by the direct CLI."""
-        self.get_attribute(attribute_name)
-        return self._guard.check(attribute_name, value)
+        evaluation = self.evaluate_attribute_write(
+            attribute_name,
+            value,
+            consent=consent,
+        )
+        if not evaluation.eligible or evaluation.value is None:
+            raise WriteRejectedError(evaluation.reasons)
+        return evaluation.value
 
     async def write_attribute_value(
         self,
@@ -834,6 +879,7 @@ class CoreDevice:
         *,
         confirm: bool = True,
         confirm_timeout: float = DEFAULT_CONFIRM_TIMEOUT,
+        consent: WriteConsent | None = None,
     ) -> Attribute:
         """Check, encode and send under the write lock; confirm after releasing it.
 
@@ -845,7 +891,11 @@ class CoreDevice:
         """
         attribute = self.get_attribute(attribute_name)
         async with self._write_lock:
-            validated = self._guard.check(attribute_name, value)
+            validated = self.validate_attribute_write(
+                attribute_name,
+                value,
+                consent=consent,
+            )
             spec = self.driver.attributes[attribute_name]
             if spec.write is None:
                 raise WriteRejectedError([WriteReason(code="not_writable")])

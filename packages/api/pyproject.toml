@@ -6,6 +6,7 @@ readme = "README.md"
 authors = []
 requires-python = ">=3.13"
 dependencies = [
+    "gridone-operating-rules",
     "gridone-models",
     "gridone-apps",
     "gridone-assets",

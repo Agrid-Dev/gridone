@@ -20,19 +20,20 @@ import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from devices_manager.core.conditions import (
+from devices_manager.core.driver.write_validation import write_references
+from devices_manager.core.utils.cast import cast
+from models.conditions import (
     EvaluationBudget,
     EvaluationContext,
     EvaluationLimitError,
     attribute_references,
 )
-from devices_manager.core.driver.write_validation import write_references
-from devices_manager.core.utils.cast import cast
 from models.errors import WriteRejectedError
 from models.expressions import MAX_DEVICE_OPERATIONS
 from models.types import DataType
 from models.write_rules import AttributeWriteState, WriteEvaluation, WriteReason
 
+from .freshness import observation_max_age
 from .trust_expiry import TrustExpiry
 from .value_mapping import decode_mapping, encode_mapping
 from .write_rules import evaluate_write, project_write_state
@@ -40,8 +41,8 @@ from .write_rules import evaluate_write, project_write_state
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from devices_manager.core.conditions import ValueResolver
     from devices_manager.core.driver import AttributeDriver, Driver
+    from models.conditions import ValueResolver
     from models.types import AttributeValueType
 
 
@@ -73,6 +74,7 @@ class WriteGuard:
         self._on_expired = on_expired
         self._expiry: TrustExpiry | None = None
         self._trusted: set[str] = set()
+        self._observed_at: dict[str, float] = {}
         self._resolved: set[str] = set()
         self._states: dict[str, AttributeWriteState] = {}
         self._decoded: dict[str, Decoded] = {}
@@ -108,6 +110,7 @@ class WriteGuard:
         if self._expiry is not None:
             self._expiry.record_observation()
         self._trusted.add(name)
+        self._observed_at[name] = time.monotonic()
         fresh: dict[str, AttributeValueType | None] = {}
 
         def resolve(ref: str) -> AttributeValueType | None:
@@ -140,12 +143,19 @@ class WriteGuard:
         return results
 
     def forget(self, name: str | None = None) -> None:
-        """Drop trust in one attribute, or in everything, without touching display.
+        """Invalidate an observation after a read failure, write or device stop.
 
-        A read failure, a write that was just sent, a stop or an expiry all
-        end here. Value-mapped attributes whose table references ``name``
-        lose their resolution too, until ``name`` is observed again.
+        Display history remains, but neither driver rules nor operating rules may
+        rely on it until a new observation arrives.
         """
+        if name is None:
+            self._observed_at.clear()
+        else:
+            self._observed_at.pop(name, None)
+        self._forget_trust(name)
+
+    def _forget_trust(self, name: str | None = None) -> None:
+        """Drop driver-rule trust without imposing its deadline on site rules."""
         if name is None:
             self._trusted.clear()
             self._resolved.clear()
@@ -161,7 +171,63 @@ class WriteGuard:
 
     def known(self, name: str) -> AttributeValueType | None:
         """The trusted value of an attribute; ``None`` when it must not be relied on."""
+        self.expire_if_due()
+        deadline = observation_max_age(self._driver, name)
+        observed_at = self._observed_at.get(name)
+        if (
+            deadline is not None
+            and observed_at is not None
+            and time.monotonic() - observed_at >= deadline
+        ):
+            self._forget_trust(name)
+        for dependency in self._mapping_refs.get(name, ()):
+            if self.known(dependency) is None:
+                self._resolved.discard(name)
         return self._values(name) if self._is_known(name) else None
+
+    def observed_value(
+        self, name: str, *, max_age_seconds: float | None = None
+    ) -> AttributeValueType | None:
+        """Resolve acquired observations using this operating rule's own age limit.
+
+        Driver expiry cannot erase reception times: another operating rule may allow
+        older data or disable expiry. Explicit invalidation still removes them.
+        Decode mapped values afresh so all mapping inputs obey the same limit,
+        regardless of the driver's cached resolution or another rule's deadline.
+        """
+        now = time.monotonic()
+        budget = EvaluationBudget(MAX_DEVICE_OPERATIONS)
+        cache: dict[str, AttributeValueType | None] = {}
+
+        def resolve(ref: str) -> AttributeValueType | None:
+            budget.spend()
+            if ref in cache:
+                return cache[ref]
+            spec = self._driver.attributes.get(ref)
+            observed_at = self._observed_at.get(ref)
+            if (
+                spec is None
+                or observed_at is None
+                or (
+                    max_age_seconds is not None and now - observed_at >= max_age_seconds
+                )
+            ):
+                cache[ref] = None
+            elif spec.value_mapping is None:
+                cache[ref] = self._values(ref)
+            else:
+                code = self._codes(ref)
+                cache[ref] = (
+                    self._decode(spec, code, resolve, budget).value
+                    if code is not None
+                    else None
+                )
+            return cache[ref]
+
+        try:
+            return resolve(name)
+        except EvaluationLimitError:
+            return None
 
     # --- eligibility ------------------------------------------------------
 
@@ -220,6 +286,8 @@ class WriteGuard:
         a write state, a raw code or a resolution error.
         """
         self.expire_if_due()
+        for name in tuple(self._trusted):
+            self.known(name)
         if not (self._dirty_all or self._dirty or self._published_changed):
             return {}
         names = list(self._driver.attributes) if self._dirty_all else list(self._dirty)
@@ -265,6 +333,11 @@ class WriteGuard:
         names = driver.attributes.keys()
         self._trusted &= names
         self._resolved &= names
+        self._observed_at = {
+            name: observed_at
+            for name, observed_at in self._observed_at.items()
+            if name in names
+        }
         for cache in (self._states, self._decoded):
             for stale in [name for name in cache if name not in names]:
                 del cache[stale]
@@ -280,6 +353,8 @@ class WriteGuard:
         for cache in (self._states, self._decoded):
             if old in cache:
                 cache[new] = cache.pop(old)  # type: ignore[assignment]
+        if old in self._observed_at:
+            self._observed_at[new] = self._observed_at.pop(old)
         self.rebind(self._driver)
 
     def watch(self, interval: float | None) -> None:
@@ -309,7 +384,7 @@ class WriteGuard:
     # --- internals --------------------------------------------------------
 
     def _expire(self) -> None:
-        self.forget()
+        self._forget_trust()
         if self._on_expired is not None:
             self._on_expired()
 

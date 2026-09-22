@@ -3,6 +3,7 @@
 import hashlib
 import json
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from time import monotonic
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -14,7 +15,10 @@ from devices_manager import DevicesServiceInterface
 from devices_manager.core.driver import LocalizedText
 from devices_manager.core.write_preview import DeviceWritePreview
 from models.attribute_metadata import LanguageTag
-from models.command_confirmation import UIConfirmationContext
+from models.command_confirmation import (
+    UIConfirmationContext,
+    WriteConsent,
+)
 from models.errors import InvalidError, NotFoundError
 from models.ids import gen_id
 from models.resource_conflict import ResourceConflictCode, ResourceConflictError
@@ -45,6 +49,7 @@ class SelectionCommandConfirm(BaseModel):
     token: str
     device_ids: list[str] = Field(min_length=1)
     confirmation_language: LanguageTag | None = None
+    acknowledge_unknown_operating_rules: bool = False
 
 
 @dataclass
@@ -179,11 +184,20 @@ class SelectionCommands:
                     ResourceConflictCode.COMMAND_PREVIEW_EXPIRED, []
                 )
             selected = list(dict.fromkeys(body.device_ids))
-            eligible = {row.device_id for row in item.preview.members if row.eligible}
+            eligible = {
+                row.device_id
+                for row in item.preview.members
+                if row.eligible
+                or (body.acknowledge_unknown_operating_rules and row.consent_required)
+            }
             if not set(selected) <= eligible:
                 msg = "Recipients must be selected from the eligible preview members"
                 raise InvalidError(msg)
-            self._validate_members(item, selected)
+            self._validate_members(
+                item,
+                selected,
+                acknowledge_unknown=body.acknowledge_unknown_operating_rules,
+            )
             resolved = await CompositeTargetResolver(self.dm).resolve(
                 AttributeTarget(
                     devices=DevicesFilter(ids=selected),
@@ -201,6 +215,9 @@ class SelectionCommands:
                 ),
                 user_id=user_id,
                 confirm=True,
+                consents=self._consents(item, selected, user_id)
+                if body.acknowledge_unknown_operating_rules
+                else None,
                 **(
                     {
                         "ui_confirmations": self._confirmation_contexts(
@@ -215,6 +232,23 @@ class SelectionCommands:
                 batch_id=dispatch.batch_id, commands=dispatch.commands
             )
             return item.response
+
+    @staticmethod
+    def _consents(
+        item: _Preparation, selected: list[str], user_id: str
+    ) -> dict[str, WriteConsent]:
+        return {
+            row.device_id: WriteConsent(
+                binding=row.policy_binding,
+                requirement_ids=row.unknown_requirement_ids,
+                actor_id=user_id,
+                confirmed_at=datetime.now(UTC),
+            )
+            for row in item.preview.members
+            if row.device_id in selected
+            and row.policy_binding is not None
+            and row.consent_required
+        }
 
     @staticmethod
     def _confirmation_contexts(
@@ -245,6 +279,51 @@ class SelectionCommands:
         This optional path never exempts a command from the service's live
         guards. Reusing an accepted token cannot enqueue another command.
         """
+        item = self._unit_preparation(token, user_id, device_id, attribute, value)
+        contexts = self._confirmation_contexts(item, [device_id], language)
+        if device_id not in contexts:
+            msg = "No UI confirmation was presented"
+            raise InvalidError(msg)
+        item.consumed = True
+        return contexts[device_id]
+
+    def consume_unit_consent(
+        self,
+        token: str,
+        user_id: str,
+        device_id: str,
+        attribute: str,
+        value: AttributeValueType,
+        language: str,
+    ) -> tuple[WriteConsent, UIConfirmationContext | None]:
+        """Consume explicit human consent, bound to the preview's unknown rules.
+
+        The actual write re-evaluates everything under its device lock. This
+        evidence cannot authorize a new rule, a changed rule or a known denial.
+        """
+        item = self._unit_preparation(
+            token, user_id, device_id, attribute, value, acknowledge_unknown=True
+        )
+        confirmations = self._consents(item, [device_id], user_id)
+        if device_id not in confirmations:
+            msg = "No unknown operating rule warning was presented"
+            raise InvalidError(msg)
+        item.consumed = True
+        return confirmations[device_id], self._confirmation_contexts(
+            item, [device_id], language
+        ).get(device_id)
+
+    def _unit_preparation(
+        self,
+        token: str,
+        user_id: str,
+        device_id: str,
+        attribute: str,
+        value: AttributeValueType,
+        *,
+        acknowledge_unknown: bool = False,
+    ) -> _Preparation:
+        """Validate the shared, single-use binding before consuming any consent."""
         item = self._preparations.get(token)
         if (
             item is None
@@ -266,15 +345,18 @@ class SelectionCommands:
             raise ResourceConflictError(
                 ResourceConflictCode.COMMAND_PREVIEW_CHANGED, []
             )
-        self._validate_members(item, [device_id])
-        contexts = self._confirmation_contexts(item, [device_id], language)
-        if device_id not in contexts:
-            msg = "No UI confirmation was presented"
-            raise InvalidError(msg)
-        item.consumed = True
-        return contexts[device_id]
+        self._validate_members(
+            item, [device_id], acknowledge_unknown=acknowledge_unknown
+        )
+        return item
 
-    def _validate_members(self, item: _Preparation, selected: list[str]) -> None:
+    def _validate_members(
+        self,
+        item: _Preparation,
+        selected: list[str],
+        *,
+        acknowledge_unknown: bool = False,
+    ) -> None:
         target = item.preview.target.to_devices_filter()
         members = {device.id for device in resolve_devices(self.dm, target)}
         for device_id in selected:
@@ -300,7 +382,17 @@ class SelectionCommands:
             )
             if (
                 (binding != item.bindings[device_id])
-                or not row.eligible
+                or not (
+                    row.eligible
+                    or (
+                        acknowledge_unknown
+                        and row.consent_required
+                        and previous.consent_required
+                    )
+                )
+                or row.policy_binding != previous.policy_binding
+                or not set(row.unknown_requirement_ids)
+                <= set(previous.unknown_requirement_ids)
                 or row.warnings != previous.warnings
                 or row.user_confirmation != previous.user_confirmation
             ):

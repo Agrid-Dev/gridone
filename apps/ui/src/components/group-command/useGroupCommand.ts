@@ -213,6 +213,12 @@ export function useGroupCommand(
             ...(item.preview!.members.some((row) => row.user_confirmation)
               ? { confirmation_language: i18n.language || "en" }
               : {}),
+            ...(item.preview!.members.some(
+              (row) =>
+                item.selected.includes(row.device_id) && row.consent_required,
+            )
+              ? { acknowledge_unknown_operating_rules: true }
+              : {}),
           });
           uncertainPreparations.current.delete(preparationKey(item.request));
           updatePreparation(item.write.attribute, {
@@ -325,7 +331,7 @@ export function useGroupCommand(
       if (!item || item.batch || item.uncertain) return;
       const eligible = new Set(
         item.preview?.members
-          .filter((row) => row.eligible)
+          .filter((row) => row.eligible || row.consent_required)
           .map((row) => row.device_id),
       );
       updatePreparation(item.write.attribute, {

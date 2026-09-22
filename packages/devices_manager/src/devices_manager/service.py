@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from functools import partial
 from typing import TYPE_CHECKING, Any
 
+from models.attribute_observation import AttributeDefinition, AttributeObservation
 from models.errors import (
     ConflictError,
     InvalidError,
@@ -24,6 +25,7 @@ from .core.device import (
     CoreDevice,
     FaultAttribute,
 )
+from .core.device.freshness import observation_max_age
 from .core.device_registry import DeviceRegistry
 from .core.discovery_manager import (
     DevicesDiscoveryManager,
@@ -80,7 +82,11 @@ from .storage.factory import build_storage
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Collection
 
+    from models.command_confirmation import WriteConsent
+    from models.expressions import DeviceAttributeRef
     from models.types import Severity
+    from models.write_policy import WritePolicy
+    from models.write_rules import WriteEvaluation
 
     from .core.device.connection_status import AttributeLogs
     from .core.driver import Driver
@@ -159,6 +165,7 @@ class DevicesService(Service):
         self._seed_transports = transports if transports is not None else {}
         self._seed_devices = devices if devices is not None else {}
         self._loaded: _LoadedState | None = None
+        self._write_policy: WritePolicy | None = None
         self._load_errors: list[LoadError] = []
         self._running = False
         self._attribute_update_handlers: dict[str, AttributeListener] = {}
@@ -236,6 +243,7 @@ class DevicesService(Service):
             on_attribute_update=self._on_attribute_update,
             on_write_state_update=self._on_write_state_update,
             storage=storage.devices,
+            write_policy=self._write_policy,
         )
         self._loaded = _LoadedState(
             storage=storage,
@@ -621,9 +629,14 @@ class DevicesService(Service):
         value: AttributeValueType,
         *,
         confirm: bool = True,
+        consent: WriteConsent | None = None,
     ) -> Attribute:
         return await self._device_registry.write_attribute(
-            device_id, attribute_name, value, confirm=confirm
+            device_id,
+            attribute_name,
+            value,
+            confirm=confirm,
+            consent=consent,
         )
 
     def get_attribute_logs(self, device_id: str, attribute_name: str) -> AttributeLogs:
@@ -634,6 +647,54 @@ class DevicesService(Service):
     ) -> DeviceWritePreview:
         return preview_write(
             self._device_registry.get(device_id), attribute_name, value
+        )
+
+    def set_write_policy(self, policy: WritePolicy) -> None:
+        """Attach a policy to the universal gate on existing and future devices."""
+        self._write_policy = policy
+        if self._loaded is not None:
+            self._device_registry.write_policy = policy
+            for device in self._device_registry.all.values():
+                device.write_policy = policy
+
+    def inspect_attribute(
+        self, reference: DeviceAttributeRef
+    ) -> AttributeDefinition | None:
+        device = self._device_registry.all.get(reference.device_id)
+        if device is None or reference.attribute not in device.attributes:
+            return None
+        spec = device.driver.attributes.get(reference.attribute)
+        if spec is None:
+            return None
+        return AttributeDefinition(
+            data_type=spec.data_type,
+            writable=spec.write is not None,
+            max_age_seconds=observation_max_age(device.driver, reference.attribute),
+        )
+
+    def resolve_attribute(
+        self, reference: DeviceAttributeRef, *, max_age_seconds: float | None = None
+    ) -> AttributeObservation:
+        definition = self.inspect_attribute(reference)
+        if definition is None:
+            return AttributeObservation(validity="invalid")
+        value = self._device_registry.get(reference.device_id).observed_attribute_value(
+            reference.attribute, max_age_seconds=max_age_seconds
+        )
+        return AttributeObservation(
+            value=value, validity="known" if value is not None else "unknown"
+        )
+
+    def evaluate_device_write(
+        self,
+        device_id: str,
+        attribute: str,
+        value: AttributeValueType,
+        *,
+        consent: WriteConsent | None = None,
+    ) -> WriteEvaluation:
+        return self._device_registry.get(device_id).evaluate_attribute_write(
+            attribute, value, consent=consent
         )
 
     # -- Faults --

@@ -15,6 +15,7 @@ from models.expressions import (
     ChoiceExpression,
     Comparison,
     Condition,
+    DeviceAttributeRef,
     Expression,
     IsKnown,
     Junction,
@@ -27,6 +28,7 @@ from models.types import AttributeValueType
 STEP_TOLERANCE = 1e-9
 
 type ValueResolver = Callable[[str], AttributeValueType | None]
+type DeviceAttributeResolver = Callable[[DeviceAttributeRef], AttributeValueType | None]
 
 
 class EvaluationLimitError(ValueError):
@@ -80,6 +82,7 @@ class EvaluationContext:
     candidate: AttributeValueType | None = None
     budget: EvaluationBudget = field(default_factory=EvaluationBudget)
     missing: set[str] = field(default_factory=set)
+    resolve_attribute: DeviceAttributeResolver | None = None
 
     def spend(self, depth: int) -> None:
         self.budget.spend()
@@ -87,11 +90,18 @@ class EvaluationContext:
             msg = "Expression depth exceeded"
             raise EvaluationLimitError(msg)
 
-    def value(
+    def value(  # noqa: PLR0911 -- expression AST dispatch
         self, expression: Expression, depth: int = 0
     ) -> AttributeValueType | None:
         """Evaluate only the selected branch; unknown tests never choose a default."""
         self.spend(depth)
+        if isinstance(expression, DeviceAttributeRef):
+            result = (
+                self.resolve_attribute(expression) if self.resolve_attribute else None
+            )
+            if result is None:
+                self.missing.add(f"{expression.device_id}/{expression.attribute}")
+            return result
         if isinstance(expression, AttributeRef):
             result = self.resolve(expression.attribute)
             if result is None:

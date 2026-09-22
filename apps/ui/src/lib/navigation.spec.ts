@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Location } from "react-router";
 import {
   RESOURCE_SECTIONS,
+  canonicalList,
   clearNavigation,
   flushNavigation,
   markResourceDeleted,
@@ -177,5 +178,19 @@ describe("resource sections", () => {
     expect(resourcePath("/devices/views/v1")).toBe("/devices/views/v1");
     expect(resourcePath("/devices/views/new")).toBeNull();
     expect(resourcePath("/users/a")).toBeNull();
+  });
+
+  it("keeps operating rule detail and edit navigation separate from its parent device", () => {
+    for (const suffix of ["", "/edit"]) {
+      const path = `/devices/a/config/operating-rules/rule${suffix}`;
+      expect(resourcePath(path)).toBe("/devices/a/config/operating-rules/rule");
+      expect(canonicalList(path)).toBe("/devices/a/config/operating-rules");
+    }
+    expect(resourcePath("/devices/a/config/operating-rules")).toBe(
+      "/devices/a",
+    );
+    expect(resourcePath("/devices/a/config/operating-rules/new")).toBe(
+      "/devices/a",
+    );
   });
 });

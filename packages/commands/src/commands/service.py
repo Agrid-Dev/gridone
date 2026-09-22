@@ -33,7 +33,10 @@ if TYPE_CHECKING:
         DeviceWriter,
     )
     from commands.storage.protocol import CommandsStorage
-    from models.command_confirmation import UIConfirmationContext
+    from models.command_confirmation import (
+        UIConfirmationContext,
+        WriteConsent,
+    )
     from models.targets import TargetResolver
 
 logger = logging.getLogger(__name__)
@@ -170,10 +173,20 @@ class CommandsService(Service):
     # Dispatch
     # ------------------------------------------------------------------
 
-    def _validate(self, device_id: str, write: AttributeWrite) -> WriteEvaluation:
+    def _validate(
+        self,
+        device_id: str,
+        write: AttributeWrite,
+        consent: WriteConsent | None = None,
+    ) -> WriteEvaluation:
         if self._command_validator is None:
             return WriteEvaluation(eligible=True, value=write.value)
-        return self._command_validator(device_id, write.attribute, write.value)
+        return self._command_validator(
+            device_id,
+            write.attribute,
+            write.value,
+            consent=consent,
+        )
 
     async def dispatch_unit(  # noqa: PLR0913
         self,
@@ -184,6 +197,7 @@ class CommandsService(Service):
         confirm: bool = True,
         batch_id: str | None = None,
         ui_confirmation: UIConfirmationContext | None = None,
+        consent: WriteConsent | None = None,
     ) -> UnitCommand:
         """Dispatch a command to a single device, awaiting the result before returning.
 
@@ -192,7 +206,10 @@ class CommandsService(Service):
         is re-raised — callers receive a typed exception rather than an ERROR
         record.
         """
-        evaluation = self._validate(device_id, write)
+        if consent is not None and consent.actor_id != user_id:
+            msg = "Write consent belongs to another user"
+            raise InvalidError(msg)
+        evaluation = self._validate(device_id, write, consent)
         command = await self._storage.save_command(
             UnitCommandCreate(
                 batch_id=batch_id,
@@ -217,7 +234,7 @@ class CommandsService(Service):
             raise WriteRejectedError(evaluation.reasons)
         return await self._execute_command(command, write=write, confirm=confirm)
 
-    async def dispatch_batch(
+    async def dispatch_batch(  # noqa: PLR0913 -- command dispatch contract
         self,
         *,
         target: DevicesFilter,
@@ -225,6 +242,7 @@ class CommandsService(Service):
         user_id: str,
         confirm: bool = True,
         ui_confirmations: dict[str, UIConfirmationContext] | None = None,
+        consents: dict[str, WriteConsent] | None = None,
     ) -> BatchCommandDispatch:
         """Fan-out a command to the devices matched by *target*.
 
@@ -242,6 +260,7 @@ class CommandsService(Service):
             user_id=user_id,
             confirm=confirm,
             ui_confirmations=ui_confirmations,
+            consents=consents,
         )
 
     async def dispatch_from_template(
@@ -265,6 +284,7 @@ class CommandsService(Service):
         user_id: str,
         confirm: bool = True,
         ui_confirmations: dict[str, UIConfirmationContext] | None = None,
+        consents: dict[str, WriteConsent] | None = None,
     ) -> BatchCommandDispatch:
         """Resolve the template's target, persist PENDING unit commands, and
         spawn the per-device writes in the background. Shared by
@@ -283,8 +303,15 @@ class CommandsService(Service):
             logger.warning("dispatch: template %r resolved to no devices", template.id)
             return BatchCommandDispatch(batch_id=batch_id, commands=[])
 
+        if any(context.actor_id != user_id for context in (consents or {}).values()):
+            msg = "Write consent belongs to another user"
+            raise InvalidError(msg)
         evaluations = {
-            device_id: self._validate(device_id, template.write)
+            device_id: self._validate(
+                device_id,
+                template.write,
+                (consents or {}).get(device_id),
+            )
             for device_id in device_ids
         }
         now = datetime.now(UTC)
@@ -394,7 +421,11 @@ class CommandsService(Service):
         """
         try:
             result = await self._device_writer(
-                command.device_id, write.attribute, write.value, confirm=confirm
+                command.device_id,
+                write.attribute,
+                write.value,
+                confirm=confirm,
+                consent=command.validation.consent if command.validation else None,
             )
         except Exception as exc:
             logger.warning(
@@ -409,7 +440,9 @@ class CommandsService(Service):
                     CommandStatus.ERROR,
                     status_details=command_failure(exc),
                     completed_at=datetime.now(UTC),
-                    validation=WriteEvaluation(eligible=False, reasons=exc.reasons)
+                    validation=(
+                        command.validation or WriteEvaluation(eligible=False)
+                    ).model_copy(update={"eligible": False, "reasons": exc.reasons})
                     if isinstance(exc, WriteRejectedError)
                     else None,
                 )

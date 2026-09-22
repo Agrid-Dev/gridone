@@ -8,6 +8,7 @@ from typing import Any
 
 from cli.config import get_storage_url
 from devices_manager import DevicesService
+from operating_rules import OperatingRuleGuard, OperatingRulesService
 
 
 @contextlib.asynccontextmanager
@@ -18,11 +19,19 @@ async def service() -> AsyncIterator[DevicesService]:
     CLI commands never start the full service or write to the DB on their own.
     """
     svc = DevicesService(get_storage_url())
-    await svc.load()
+    operating_rules = OperatingRulesService(get_storage_url(), svc.inspect_attribute)
+    await operating_rules.start()
+    svc.set_write_policy(
+        OperatingRuleGuard(
+            operating_rules, svc.inspect_attribute, svc.resolve_attribute
+        )
+    )
     try:
+        await svc.load()
         yield svc
     finally:
         await svc.stop()
+        await operating_rules.stop()
 
 
 def run_async[**P](fn: Callable[P, Coroutine[Any, Any, None]]) -> Callable[P, None]:

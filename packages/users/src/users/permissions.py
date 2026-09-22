@@ -26,3 +26,5 @@ class Permission(StrEnum):
     DASHBOARDS_WRITE = "dashboards:write"
     SYNOPTICS_READ = "synoptics:read"
     SYNOPTICS_WRITE = "synoptics:write"
+    OPERATING_RULES_READ = "operating_rules:read"
+    OPERATING_RULES_WRITE = "operating_rules:write"

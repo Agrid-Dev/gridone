@@ -26,16 +26,13 @@ async def test_command_composition_uses_the_guard_and_records_observations():
     from api.app import _start_commands_service
     from commands.models import AttributeWrite
     from devices_manager import Attribute, DevicesService
-    from devices_manager.core.write_preview import DeviceWritePreview
     from models.errors import WriteRejectedError
     from models.types import DataType
-    from models.write_rules import WriteReason
+    from models.write_rules import WriteEvaluation, WriteReason
     from timeseries import TimeSeriesService
 
     dm = MagicMock(spec=DevicesService)
-    dm.preview_device_write.return_value = DeviceWritePreview(
-        device_id="d", name="D", current_value=21, eligible=True, value=22
-    )
+    dm.evaluate_device_write.return_value = WriteEvaluation(eligible=True, value=22)
     dm.write_device_attribute = AsyncMock(
         return_value=Attribute.create(
             "setpoint", DataType.FLOAT, {"read", "write"}, value=22
@@ -58,10 +55,7 @@ async def test_command_composition_uses_the_guard_and_records_observations():
                 device_id="d", write=write, user_id="u", confirm=False
             )
             record.assert_not_awaited()
-            dm.preview_device_write.return_value = DeviceWritePreview(
-                device_id="d",
-                name="D",
-                current_value=22,
+            dm.evaluate_device_write.return_value = WriteEvaluation(
                 eligible=False,
                 reasons=[WriteReason(code="locked")],
             )

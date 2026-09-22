@@ -38,6 +38,7 @@ from api.routes import (
 from api.routes import websocket as websocket_routes
 from api.routes.apps import apps_registration_router, apps_router
 from api.routes.device_views_router import router as device_views_router
+from api.routes.operating_rules_router import router as operating_rules_router
 from api.routes.users import auth_router, roles_router, users_router
 from api.selection_commands import SelectionCommands
 from api.settings import load_settings
@@ -50,11 +51,15 @@ from assets.conversion.ifc import IfcSceneConverter
 from commands import CommandsService, WriteResult
 from device_views import DeviceViewsService
 from devices_manager import DevicesService
+from models.command_confirmation import (
+    WriteConsent,
+)
 from models.errors import ConfigurationError
 from models.service import Service
 from models.types import AttributeValueType, DataType
 from models.write_rules import WriteEvaluation
 from notifications import NotificationsService
+from operating_rules import OperatingRuleGuard, OperatingRulesService
 from synoptics import SynopticsService
 from timeseries import TimeSeriesService
 from users import UsersService
@@ -148,6 +153,12 @@ async def lifespan(
     app.state.websocket_manager = websocket_manager
 
     dm = DevicesService(settings.storage_url)
+    operating_rules = OperatingRulesService(settings.storage_url, dm.inspect_attribute)
+    await operating_rules.start()
+    dm.set_write_policy(
+        OperatingRuleGuard(operating_rules, dm.inspect_attribute, dm.resolve_attribute)
+    )
+    app.state.operating_rules_service = operating_rules
     ts_service = TimeSeriesService(
         settings.storage_url, default_timezone=settings.GRIDONE_TIMEZONE
     )
@@ -226,6 +237,7 @@ async def lifespan(
                 *assets_services,
                 *display_services,
                 synoptics_service,
+                operating_rules,
             ]
         )
         await websocket_manager.close_all()
@@ -236,6 +248,13 @@ def create_app(*, logging_dict_config: dict | None = None) -> FastAPI:
         logging.config.dictConfig(logging_dict_config)
     app = FastAPI(title="Gridone API", lifespan=lifespan)
     register_exception_handlers(app)
+
+    app.include_router(
+        operating_rules_router,
+        prefix="/operating-rules",
+        tags=["operating_rules"],
+        dependencies=[Depends(get_current_user_id)],
+    )
 
     # Public routes (no JWT required)
     app.include_router(health_router, prefix="/health", tags=["health"])
@@ -336,9 +355,14 @@ async def _start_commands_service(
         value: AttributeValueType,
         *,
         confirm: bool = True,
+        consent: WriteConsent | None = None,
     ) -> WriteResult:
         attr = await dm.write_device_attribute(
-            device_id, attribute_name, value, confirm=confirm
+            device_id,
+            attribute_name,
+            value,
+            confirm=confirm,
+            consent=consent,
         )
         return WriteResult(
             last_changed=attr.last_changed,
@@ -365,14 +389,17 @@ async def _start_commands_service(
         )
 
     def _validate_device_command(
-        device_id: str, attribute: str, value: AttributeValueType
+        device_id: str,
+        attribute: str,
+        value: AttributeValueType,
+        *,
+        consent: WriteConsent | None = None,
     ) -> WriteEvaluation:
-        preview = dm.preview_device_write(device_id, attribute, value)
-        return WriteEvaluation(
-            eligible=preview.eligible,
-            value=preview.value,
-            reasons=preview.reasons,
-            warnings=preview.warnings,
+        return dm.evaluate_device_write(
+            device_id,
+            attribute,
+            value,
+            consent=consent,
         )
 
     commands_service = CommandsService(

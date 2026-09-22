@@ -278,3 +278,92 @@ async def test_watch_bounds_trust_to_one_interval_and_close_drops_it():
     assert guard.known("lock") is None
     await asyncio.sleep(61)
     stores.expired.assert_called_once_with()
+
+
+def test_operating_rule_age_limits_do_not_inherit_driver_expiry(monkeypatch):
+    from types import SimpleNamespace
+
+    from devices_manager.core.device import write_guard
+
+    now = [0.0]
+    monkeypatch.setattr(
+        write_guard,
+        "time",
+        SimpleNamespace(monotonic=lambda: now[0], time_ns=lambda: 0),
+    )
+    driver = build_driver(spec("value"))
+    driver.update_strategy.polling_enabled = True
+    stores = Stores(driver, value=7)
+    guard = stores.guard
+    assert guard.observed_value("value") is None
+    assert guard.observed_value("missing") is None
+    stores.observe("value", 7)
+    now[0] = 30
+    assert guard.known("value") is None
+    assert guard.observed_value("value", max_age_seconds=30) is None
+    assert guard.observed_value("value", max_age_seconds=60) == 7
+    assert guard.observed_value("value") == 7
+    guard.close()
+    assert guard.observed_value("value") is None
+
+
+def test_mapped_operating_rule_observations_follow_the_same_age_limit(monkeypatch):
+    from types import SimpleNamespace
+
+    from devices_manager.core.device import write_guard
+
+    now = [0.0]
+    monkeypatch.setattr(
+        write_guard,
+        "time",
+        SimpleNamespace(monotonic=lambda: now[0], time_ns=lambda: 0),
+    )
+    driver = build_driver(
+        spec("source"),
+        spec(
+            "mapped",
+            value_mapping={
+                "entries": [
+                    {
+                        "code": 1,
+                        "value": {
+                            "op": "add",
+                            "args": [{"attribute": "source"}, {"attribute": "source"}],
+                        },
+                    }
+                ]
+            },
+        ),
+    )
+    driver.update_strategy.polling_enabled = True
+    stores = Stores(driver)
+    stores.observe("source", 4)
+    now[0] = 100
+    stores.observe("mapped", 1)
+    assert stores.guard.known("mapped") is None
+    assert stores.guard.observed_value("mapped", max_age_seconds=30) is None
+    assert stores.guard.observed_value("mapped", max_age_seconds=120) == 8
+    assert stores.guard.observed_value("mapped") == 8
+    stores.guard.forget("source")
+    assert stores.guard.observed_value("mapped") is None
+    stores.observe("source", 5)
+    assert stores.guard.observed_value("mapped") == 10
+    now[0] = 130
+    stores.observe("source", 5)
+    assert stores.guard.observed_value("mapped", max_age_seconds=30) is None
+    assert stores.guard.observed_value("mapped") == 10
+    monkeypatch.setattr(write_guard, "MAX_DEVICE_OPERATIONS", 0)
+    assert stores.guard.observed_value("mapped") is None
+
+
+@pytest.mark.asyncio
+@fake_time
+async def test_push_expiry_does_not_expire_unbounded_operating_rules():
+    stores = Stores(build_driver(spec("value")))
+    stores.guard.watch(1)
+    stores.observe("value", 7)
+    await asyncio.sleep(1.1)
+    assert stores.guard.known("value") is None
+    assert stores.guard.observed_value("value") == 7
+    stores.guard.close()
+    assert stores.guard.observed_value("value") is None

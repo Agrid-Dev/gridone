@@ -3,7 +3,7 @@ from itertools import product
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
-from devices_manager.core.conditions import (
+from models.conditions import (
     EvaluationBudget,
     EvaluationContext,
     EvaluationLimitError,

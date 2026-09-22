@@ -4,6 +4,111 @@
  */
 
 export interface paths {
+  "/operating-rules/schema": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Operating Rule Schemas */
+    get: operations["operating_rule_schemas_operating_rules_schema_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/operating-rules/": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Operating Rules */
+    get: operations["list_operating_rules_operating_rules__get"];
+    put?: never;
+    /** Create Operating Rule */
+    post: operations["create_operating_rule_operating_rules__post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/operating-rules/{operating_rule_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Operating Rule */
+    get: operations["get_operating_rule_operating_rules__operating_rule_id__get"];
+    /** Update Operating Rule */
+    put: operations["update_operating_rule_operating_rules__operating_rule_id__put"];
+    post?: never;
+    /** Delete Operating Rule */
+    delete: operations["delete_operating_rule_operating_rules__operating_rule_id__delete"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/operating-rules/{operating_rule_id}/history": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Operating Rule History */
+    get: operations["get_operating_rule_history_operating_rules__operating_rule_id__history_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/operating-rules/{operating_rule_id}/retire": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Retire Operating Rule */
+    post: operations["retire_operating_rule_operating_rules__operating_rule_id__retire_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/operating-rules/{operating_rule_id}/enabled": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Set Operating Rule Enabled */
+    patch: operations["set_operating_rule_enabled_operating_rules__operating_rule_id__enabled_patch"];
+    trace?: never;
+  };
   "/health": {
     parameters: {
       query?: never;
@@ -2363,6 +2468,14 @@ export interface components {
     Attribute: {
       [key: string]: unknown;
     };
+    /** AttributeContract */
+    AttributeContract: {
+      /** Device Id */
+      device_id: string;
+      /** Attribute */
+      attribute: string;
+      data_type: components["schemas"]["DataType"];
+    };
     /**
      * AttributeCoverage
      * @description How widely an attribute is exposed across a device set. Never persisted.
@@ -3664,6 +3777,16 @@ export interface components {
       write_state_revision?: number;
     };
     /**
+     * DeviceAttributeRef
+     * @description An observed attribute, e.g. ``{device_id: pump, attribute: running}``.
+     */
+    DeviceAttributeRef: {
+      /** Device Id */
+      device_id: string;
+      /** Attribute */
+      attribute: string;
+    };
+    /**
      * DeviceBatchCreate
      * @description Create many devices sharing one driver + transport, each with its own config.
      */
@@ -3848,6 +3971,15 @@ export interface components {
       attribute_label?: components["schemas"]["LocalizedText"] | null;
       /** Unit */
       unit?: string | null;
+      /** Policy Binding */
+      policy_binding?: string | null;
+      /** Unknown Requirement Ids */
+      unknown_requirement_ids?: string[];
+      /**
+       * Consent Required
+       * @default false
+       */
+      consent_required?: boolean;
     };
     /**
      * DevicesFilter
@@ -4114,6 +4246,7 @@ export interface components {
       | number
       | string
       | components["schemas"]["AttributeRef"]
+      | components["schemas"]["DeviceAttributeRef"]
       | components["schemas"]["CandidateRef"]
       | components["schemas"]["ArithmeticExpression-Input"]
       | components["schemas"]["ChoiceExpression-Input"];
@@ -4122,6 +4255,7 @@ export interface components {
       | number
       | string
       | components["schemas"]["AttributeRef"]
+      | components["schemas"]["DeviceAttributeRef"]
       | components["schemas"]["CandidateRef"]
       | components["schemas"]["ArithmeticExpression-Output"]
       | components["schemas"]["ChoiceExpression-Output"];
@@ -5418,6 +5552,103 @@ export interface components {
       protocol: "opcua";
       config: components["schemas"]["OpcuaTransportConfig"];
     };
+    /** OperatingRule */
+    OperatingRule: {
+      /** Name */
+      name: string;
+      target: components["schemas"]["OperatingRuleTarget"];
+      condition: components["schemas"]["Condition-Output"];
+      /** Explanation */
+      explanation: string;
+      /**
+       * Max Age Seconds
+       * @description Maximum age of each observed condition attribute in seconds. Null disables freshness checks; never-observed or invalidated values remain unknown.
+       */
+      max_age_seconds?: number | null;
+      /**
+       * Enabled
+       * @default true
+       */
+      enabled?: boolean;
+      /** Deleted At */
+      deleted_at?: string | null;
+      /** Id */
+      id: string;
+      /**
+       * Revision
+       * @default 1
+       */
+      revision?: number;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Created By */
+      created_by: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /** Updated By */
+      updated_by: string;
+      /** Attributes */
+      attributes: components["schemas"]["AttributeContract"][];
+      retirement?: components["schemas"]["OperatingRuleRetirement"] | null;
+    };
+    /** OperatingRuleDefinition */
+    OperatingRuleDefinition: {
+      /** Name */
+      name: string;
+      target: components["schemas"]["OperatingRuleTarget"];
+      condition: components["schemas"]["Condition-Input"];
+      /** Explanation */
+      explanation: string;
+      /**
+       * Max Age Seconds
+       * @description Maximum age of each observed condition attribute in seconds. Null disables freshness checks; never-observed or invalidated values remain unknown.
+       */
+      max_age_seconds?: number | null;
+    };
+    /** OperatingRuleRetirement */
+    OperatingRuleRetirement: {
+      /** Reason */
+      reason: string;
+      /** Actor Id */
+      actor_id: string;
+      /**
+       * Retired At
+       * Format: date-time
+       */
+      retired_at: string;
+    };
+    /** OperatingRuleSchemas */
+    OperatingRuleSchemas: {
+      /** Definition */
+      definition: {
+        [key: string]: components["schemas"]["JsonValue"];
+      };
+      /** Retirement */
+      retirement: {
+        [key: string]: components["schemas"]["JsonValue"];
+      };
+    };
+    /** OperatingRuleTarget */
+    OperatingRuleTarget: {
+      /** Device Id */
+      device_id: string;
+      /** Attribute */
+      attribute: string;
+      /** Value */
+      value: boolean | number | string;
+    };
+    /** OperatingRuleView */
+    OperatingRuleView: {
+      operating_rule: components["schemas"]["OperatingRule"];
+      /** Reasons */
+      reasons?: components["schemas"]["WriteReason"][];
+    };
     /** PackageDiagnostic */
     PackageDiagnostic: {
       /** Code */
@@ -5576,7 +5807,9 @@ export interface components {
       | "dashboards:read"
       | "dashboards:write"
       | "synoptics:read"
-      | "synoptics:write";
+      | "synoptics:write"
+      | "operating_rules:read"
+      | "operating_rules:write";
     /**
      * Pipe
      * @description A run between ports, cells and other pipes.
@@ -5942,6 +6175,13 @@ export interface components {
        */
       updated_at?: string;
     };
+    /** RetireOperatingRule */
+    RetireOperatingRule: {
+      /** Reason */
+      reason: string;
+      /** Revision */
+      revision: number;
+    };
     /**
      * Role
      * @description A named set of permissions users are assigned to, by id.
@@ -6039,6 +6279,11 @@ export interface components {
       device_ids: string[];
       /** Confirmation Language */
       confirmation_language?: string | null;
+      /**
+       * Acknowledge Unknown Operating Rules
+       * @default false
+       */
+      acknowledge_unknown_operating_rules?: boolean;
     };
     /** SelectionCommandPrepare */
     SelectionCommandPrepare: {
@@ -6066,6 +6311,13 @@ export interface components {
       unit?: string | null;
       /** Members */
       members: components["schemas"]["DeviceWritePreview"][];
+    };
+    /** SetOperatingRuleEnabled */
+    SetOperatingRuleEnabled: {
+      /** Enabled */
+      enabled: boolean;
+      /** Revision */
+      revision: number;
     };
     /** SetpointRow */
     SetpointRow: {
@@ -6147,6 +6399,15 @@ export interface components {
       attribute_label?: components["schemas"]["LocalizedText"] | null;
       /** Unit */
       unit?: string | null;
+      /** Policy Binding */
+      policy_binding?: string | null;
+      /** Unknown Requirement Ids */
+      unknown_requirement_ids?: string[];
+      /**
+       * Consent Required
+       * @default false
+       */
+      consent_required?: boolean;
       /** Confirmation Token */
       confirmation_token?: string | null;
     };
@@ -6168,6 +6429,11 @@ export interface components {
       ui_confirmation_token?: string | null;
       /** Confirmation Language */
       confirmation_language?: string | null;
+      /**
+       * Acknowledge Unknown Operating Rules
+       * @default false
+       */
+      acknowledge_unknown_operating_rules?: boolean;
     };
     /**
      * Size
@@ -6764,6 +7030,22 @@ export interface components {
       validation?: components["schemas"]["WriteEvaluation"] | null;
       ui_confirmation?: components["schemas"]["UIConfirmationContext"] | null;
     };
+    /** UpdateOperatingRule */
+    UpdateOperatingRule: {
+      /** Name */
+      name: string;
+      target: components["schemas"]["OperatingRuleTarget"];
+      condition: components["schemas"]["Condition-Input"];
+      /** Explanation */
+      explanation: string;
+      /**
+       * Max Age Seconds
+       * @description Maximum age of each observed condition attribute in seconds. Null disables freshness checks; never-observed or invalidated values remain unknown.
+       */
+      max_age_seconds?: number | null;
+      /** Revision */
+      revision: number;
+    };
     /** UpdateStrategy */
     UpdateStrategy: {
       /**
@@ -7130,6 +7412,23 @@ export interface components {
         | null;
     };
     /**
+     * WriteConsent
+     * @description Server-issued evidence of unknown policy requirements a human acknowledged.
+     */
+    WriteConsent: {
+      /** Binding */
+      binding: string;
+      /** Requirement Ids */
+      requirement_ids: string[];
+      /** Actor Id */
+      actor_id: string;
+      /**
+       * Confirmed At
+       * Format: date-time
+       */
+      confirmed_at: string;
+    };
+    /**
      * WriteConstraints
      * @description Declarative limits the service enforces on every write of a numeric attribute.
      *
@@ -7173,6 +7472,16 @@ export interface components {
       reasons?: components["schemas"]["WriteReason"][];
       /** Warnings */
       warnings?: components["schemas"]["WriteReason"][];
+      /** Policy Binding */
+      policy_binding?: string | null;
+      /** Unknown Requirement Ids */
+      unknown_requirement_ids?: string[];
+      consent?: components["schemas"]["WriteConsent"] | null;
+      /**
+       * Consent Required
+       * @default false
+       */
+      consent_required?: boolean;
     };
     /** WriteOption */
     "WriteOption-Input": {
@@ -7193,6 +7502,10 @@ export interface components {
       /** Code */
       code: string;
       message?: components["schemas"]["LocalizedText"] | null;
+      /** Operating Rule Id */
+      operating_rule_id?: string | null;
+      /** Operating Rule Explanation */
+      operating_rule_explanation?: string | null;
     };
     /**
      * WriteRule
@@ -7254,6 +7567,288 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  operating_rule_schemas_operating_rules_schema_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OperatingRuleSchemas"];
+        };
+      };
+    };
+  };
+  list_operating_rules_operating_rules__get: {
+    parameters: {
+      query?: {
+        device_id?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OperatingRuleView"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  create_operating_rule_operating_rules__post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["OperatingRuleDefinition"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OperatingRule"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_operating_rule_operating_rules__operating_rule_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        operating_rule_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OperatingRuleView"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  update_operating_rule_operating_rules__operating_rule_id__put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        operating_rule_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UpdateOperatingRule"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OperatingRule"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  delete_operating_rule_operating_rules__operating_rule_id__delete: {
+    parameters: {
+      query: {
+        revision: number;
+      };
+      header?: never;
+      path: {
+        operating_rule_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_operating_rule_history_operating_rules__operating_rule_id__history_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        operating_rule_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OperatingRule"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  retire_operating_rule_operating_rules__operating_rule_id__retire_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        operating_rule_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RetireOperatingRule"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OperatingRule"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  set_operating_rule_enabled_operating_rules__operating_rule_id__enabled_patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        operating_rule_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SetOperatingRuleEnabled"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OperatingRule"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   health_health_get: {
     parameters: {
       query?: never;

@@ -13,6 +13,7 @@ from rich.table import Table
 from cli.service import run_async, service
 from devices_manager import CoreDevice, DevicesService
 from devices_manager.types import AttributeValueType, DataType
+from models.errors import WriteRejectedError
 
 from .formatters import autoformat_value, device_to_table
 
@@ -128,7 +129,12 @@ async def write(
     float/int attributes, 0/1 or true/false for booleans, and plain text for
     string attributes (e.g. a thermostat ``mode`` such as ``cool``)."""
     async with service() as svc:
-        await _write_device_async(svc, device_id, attribute, value)
+        try:
+            await _write_device_async(svc, device_id, attribute, value)
+        except WriteRejectedError as exc:
+            for reason in exc.reasons:
+                console.print(f"Write refused: {reason.code}", markup=False)
+            raise typer.Exit(code=1) from exc
 
 
 async def _watch_device(dm: DevicesService, device_id: str) -> None:

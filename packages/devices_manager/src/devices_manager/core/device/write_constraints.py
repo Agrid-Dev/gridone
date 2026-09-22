@@ -9,7 +9,7 @@ from __future__ import annotations
 import math
 from typing import TYPE_CHECKING
 
-from devices_manager.core.conditions import (
+from models.conditions import (
     EvaluationContext,
     EvaluationLimitError,
     on_step_grid,

@@ -2,12 +2,12 @@
 
 import pytest
 
-from devices_manager.core.conditions import EvaluationContext
 from devices_manager.core.device.value_mapping import (
     decode_mapping,
     encode_mapping,
     project_mapping,
 )
+from models.conditions import EvaluationContext
 from models.errors import WriteRejectedError
 from models.write_rules import ValueMapping
 

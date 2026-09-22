@@ -322,6 +322,33 @@ describe("manual group confirmation", () => {
     expect(api.list).not.toHaveBeenCalled();
     expect(api.confirm).not.toHaveBeenCalled();
   });
+  it("leaves unknown operating rules unchecked and acknowledges only selected warnings", async () => {
+    api.preview.mockResolvedValue({
+      ...preview(),
+      members: [
+        {
+          ...member("unknown", false),
+          consent_required: true,
+          reasons: [{ code: "operating_rule_unknown" }],
+        },
+      ],
+    });
+    setup();
+    fireEvent.click(screen.getByText("Prepare"));
+    await screen.findByRole("dialog");
+    const checkbox = screen.getByRole("checkbox", { name: "unknown" });
+    expect(checkbox).toBeEnabled();
+    expect(checkbox).not.toBeChecked();
+    expect(screen.getByRole("button", { name: "Apply to 0" })).toBeDisabled();
+    fireEvent.click(checkbox);
+    fireEvent.click(screen.getByRole("button", { name: "Apply to 1" }));
+    await screen.findByText("sent");
+    expect(api.confirm).toHaveBeenCalledWith({
+      token: "token",
+      device_ids: ["unknown"],
+      acknowledge_unknown_operating_rules: true,
+    });
+  });
   it("cancels with no writes and refuses an empty selection", async () => {
     setup();
     fireEvent.click(screen.getByText("Prepare"));

@@ -218,6 +218,44 @@ it("keeps ordinary attributes on the existing immediate dispatch path", async ()
   });
 });
 
+it("requires explicit consent before a command with unknown operating rule state", async () => {
+  api.previewDeviceCommand.mockResolvedValue({
+    eligible: false,
+    consent_required: true,
+    confirmation_token: "unknown-preview",
+    reasons: [{ code: "operating_rule_unknown" }],
+  });
+  setup();
+  await increment();
+  await settle(600);
+  expect(screen.getByRole("dialog")).toBeVisible();
+  expect(screen.getByText("confirmation.unknownOperatingRule")).toBeVisible();
+  expect(api.sendCommand).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByText("confirmation.confirm"));
+  await settle();
+  expect(api.sendCommand).toHaveBeenCalledExactlyOnceWith("a", {
+    attribute: "setting",
+    value: 21,
+    confirm: true,
+    ui_confirmation_token: "unknown-preview",
+    confirmation_language: "en",
+    acknowledge_unknown_operating_rules: true,
+  });
+});
+
+it("does not offer consent for a known operating rule refusal", async () => {
+  api.previewDeviceCommand.mockResolvedValue({
+    eligible: false,
+    consent_required: false,
+    reasons: [{ code: "operating_rule_blocked" }],
+  });
+  setup();
+  await increment();
+  await settle(600);
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(api.sendCommand).not.toHaveBeenCalled();
+});
+
 it("keeps ordinary controls enabled and queues clicks during a slow preview", async () => {
   let resolvePreview!: (preview: { eligible: boolean }) => void;
   api.previewDeviceCommand

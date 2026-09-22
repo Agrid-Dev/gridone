@@ -105,4 +105,16 @@ describe("DeviceTabs", () => {
       "aria-current",
     );
   });
+
+  it("keeps Config active throughout the operating rule configuration flow", () => {
+    renderAt("/devices/d1/config/operating-rules/rule/edit", makeDevice());
+    expect(screen.getByRole("tab", { name: "Config" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.getAllByRole("tab")).toHaveLength(4);
+    expect(
+      screen.queryByRole("tab", { name: "Operating rules" }),
+    ).not.toBeInTheDocument();
+  });
 });
