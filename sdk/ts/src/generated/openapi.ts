@@ -5113,7 +5113,7 @@ export interface components {
       /** Must Change Password */
       must_change_password: boolean;
       /** Permissions */
-      permissions: string[];
+      permissions: components["schemas"]["Permission"][];
     };
     /** MeasurementItem */
     MeasurementItem: {

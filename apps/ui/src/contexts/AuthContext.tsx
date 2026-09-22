@@ -111,6 +111,6 @@ export function useAuth(): AuthContextValue {
 export function usePermissions(): (perm: string) => boolean {
   const { state } = useAuth();
   if (state.status !== "authenticated") return () => false;
-  const perms = new Set(state.user.permissions);
+  const perms = new Set<string>(state.user.permissions);
   return (perm: string) => perms.has(perm);
 }

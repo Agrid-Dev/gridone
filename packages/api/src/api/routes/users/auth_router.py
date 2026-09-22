@@ -9,6 +9,7 @@ from models.errors import NotFoundError
 from users import UsersService
 from users.auth import AuthService, InvalidTokenError
 from users.models import User
+from users.permissions import Permission
 from users.validation import PasswordField, get_auth_payload_schema
 
 router = APIRouter()
@@ -197,13 +198,13 @@ class MeResponse(BaseModel):
     email: str
     title: str
     must_change_password: bool
-    permissions: list[str]
+    permissions: list[Permission]
 
 
 async def _me_response(user: User, um: UsersService) -> MeResponse:
     return MeResponse(
         **user.model_dump(),
-        permissions=[str(p) for p in await um.get_role_permissions(user.role)],
+        permissions=await um.get_role_permissions(user.role),
     )
 
 
