@@ -706,13 +706,13 @@ describe("grouped command page", () => {
       { value: false, label: { default: "Stopped" } },
       { value: true, label: { default: "Running" } },
     ];
-    function boolDevice(id: string) {
+    function boolDevice(id: string, current = false) {
       return device(id, 21, {
         enabled: {
           name: "enabled",
           data_type: "bool",
           read_write_modes: ["read", "write"],
-          current_value: false,
+          current_value: current,
           value_labels: valueLabels,
         },
       });
@@ -753,6 +753,28 @@ describe("grouped command page", () => {
       // Switch side + current and chosen value on each of the two review lines.
       expect(screen.getAllByText("False")).toHaveLength(5);
       expect(screen.queryByText("Stopped")).toBeNull();
+    });
+
+    it("picks a state directly from its side label when nothing is chosen", async () => {
+      // Devices disagree on the current value, so nothing is prefilled.
+      mocks.devices = [boolDevice("1", true), boolDevice("2", false)];
+      mockBoolCoverage(null);
+      mount("/devices/commands/new?attribute=enabled&ids=1,2");
+      expect(await screen.findByRole("switch")).not.toBeChecked();
+      expect(
+        screen.getByRole("button", { name: "Dispatch now" }),
+      ).toBeDisabled();
+      // One click on the `False` side, no detour through `true`.
+      await userEvent.click(screen.getByRole("button", { name: "False" }));
+      expect(screen.getByRole("switch")).not.toBeChecked();
+      await waitFor(() =>
+        expect(
+          screen.getByRole("button", { name: "Dispatch now" }),
+        ).toBeEnabled(),
+      );
+      // Switch side + `False` current on device 2 + the chosen value on both lines.
+      expect(screen.getAllByText("False")).toHaveLength(4);
+      expect(screen.getAllByText("True")).toHaveLength(2);
     });
   });
 
