@@ -1,3 +1,9 @@
+## v0.259.0 (2026-09-22)
+
+### Feat
+
+- **synoptics**: production froid plate (#673)
+
 ## v0.258.0 (2026-09-22)
 
 ### Feat
