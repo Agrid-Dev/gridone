@@ -1,5 +1,7 @@
 import type { TFunction } from "i18next";
+import type { ValueLabel } from "@gridone/sdk";
 import { formatValue, type CellValue } from "./formatValue";
+import { localize } from "./localizedText";
 
 /**
  * Human labels for the enum values of standard device attributes.
@@ -75,6 +77,20 @@ export function attributeValueLabel(
   return key ? t(key, { defaultValue: String(value) }) : null;
 }
 
+/** Wording of one boolean state: the driver's `value_labels` entry in the
+ *  given language when it declares one, else the localized True / False.
+ *  Never On / Off: the driver alone knows what each state means. */
+export function valueLabelText(
+  value: boolean,
+  t: TFunction<"common">,
+  valueLabels?: ValueLabel[] | null,
+  language = "",
+): string {
+  const declared = valueLabels?.find((entry) => entry.value === value);
+  if (declared) return localize(declared.label, language);
+  return t(value ? "common.true" : "common.false");
+}
+
 /** What to show for an attribute value: its business label when this
  *  vocabulary covers it, the formatted wire value otherwise. */
 export function attributeValueText(
@@ -83,8 +99,7 @@ export function attributeValueText(
   t: TFunction<"common">,
   dataType?: string,
 ): string {
-  if (typeof value === "boolean")
-    return t(value ? "common.true" : "common.false");
+  if (typeof value === "boolean") return valueLabelText(value, t);
   return (
     attributeValueLabel(attributeName, value, t) ?? formatValue(value, dataType)
   );
