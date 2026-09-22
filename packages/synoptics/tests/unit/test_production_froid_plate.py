@@ -104,6 +104,10 @@ def test_the_three_circuits_are_plain(symbols, pipes, tags):
         assert pipes[f"{k}-retour"].to == PortEndpoint(
             symbol="collector-return", port=f"in_{port}"
         )
+        assert (pipes[f"{k}-depart"].fluid, pipes[f"{k}-retour"].fluid) == (
+            "chilled_supply",
+            "chilled_return",
+        )
         expected = NOT_IDENTIFIED if k in CHANGE_OVER else NOT_MEASURED
         assert symbols[f"v-{k}"].bindings == {"state": expected}
         assert tags[f"tt-{k}-depart"] == (f"{k}-depart", expected)
@@ -198,3 +202,37 @@ def test_the_fluids_are_keyed_by_circuit_role(pipes):
         "chilled_supply",
         "chilled_return",
     }
+
+
+def test_the_labels_are_the_drawing_s_words(plate, symbols):
+    """The view's own text or nothing; fifteen labels were renamed EC to EG
+    off the hot template by hand, so a leftover hot name is the copied
+    file's own error, and a label on a valve would hide the control valve's
+    M mark."""
+    assert [(label.role, label.text) for label in plate.labels] == [
+        ("title", "PRODUCTION FROID")
+    ]
+    assert symbols["ech-eg04"].label == "ECH EG04"
+    assert symbols["vec-04"].label == "VASE D'EXPANSION VEC 04"
+    assert symbols["separateur-air"].label == "SÉPARATEUR D'AIR"
+    assert symbols["pot-a-boue"].label == "POT À BOUE"
+    assert symbols["link-batiment-d"].label == "DEPUIS BÂTIMENT D"
+    assert symbols["link-production-ec"].label == "VERS PRODUCTION EC"
+    assert symbols["link-vcv-rdc"].label == "CIRCUIT CHANGE-OVER VCV RDC"
+    assert symbols["link-cta"].label == "CIRCUIT CTA / RADIATEUR / RAC"
+    assert symbols["link-vcv-chambres"].label == "CIRCUIT CHANGE-OVER VCV CHAMBRES"
+    assert symbols["cpt-eg-ech-04"].label == "CPT-EG-ECH-04"
+    assert [symbols[f"cpt-{k}"].label for k in CIRCUITS] == [
+        "CPT-EG-VCO",
+        "CPT-EG-CTA",
+        "CPT-EG-CHAMBRES",
+    ]
+    assert all(
+        s.label is None
+        for s in symbols.values()
+        if s.type in ("valve_isolation", "valve_control", "collector")
+    )
+    assert [symbols[f"pompe-peg-e2-{h}"].label for h in PUMP_HEADS] == [
+        "PEG-E2 A",
+        "PEG-E2 B",
+    ]
