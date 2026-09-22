@@ -15,7 +15,7 @@ from models.errors import (
 from users import User
 from users.auth import AuthService
 from users.permissions import Permission
-from users.roles import find_builtin_role
+from users.roles import Role, find_builtin_role
 from users.validation import (
     PASSWORD_MAX_LENGTH,
     PASSWORD_MIN_LENGTH,
@@ -96,6 +96,9 @@ class MockUsersService:
             return self._users[username]
         msg = f"User '{user_id}' not found"
         raise NotFoundError(msg)
+
+    async def find_role(self, role_id: str) -> Role | None:
+        return find_builtin_role(role_id)
 
     async def get_role_permissions(self, role_id: str) -> list[Permission]:
         role = find_builtin_role(role_id)

@@ -12,12 +12,13 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
+from api.access import ScopedDeviceReads
+from api.access.dependencies import get_device_reads, get_target_resolver
 from api.auth import get_current_user_id, require_permission
 from api.dependencies import (
     get_commands_service,
     get_device_manager,
     get_pagination_params,
-    get_target_resolver,
 )
 from api.schemas.command import (
     BatchDeviceCommand,
@@ -228,6 +229,7 @@ async def preview_single_command(
     device_id: str,
     body: SingleDeviceCommand,
     dm: DevicesServiceInterface = Depends(get_device_manager),
+    reads: ScopedDeviceReads = Depends(get_device_reads),
     coordinator: SelectionCommands = Depends(get_selection_commands),
     user_id: str = Depends(get_current_user_id),
 ) -> SingleCommandPreview:
@@ -239,6 +241,7 @@ async def preview_single_command(
     """
     # The preview reads and expires loop-owned device state: it must run on the
     # event loop like every other route, never in a worker thread.
+    reads.get_device(device_id)  # a device the caller cannot read is a 404
     preview = dm.preview_device_write(device_id, body.attribute, body.value)
     token = None
     if (
@@ -264,13 +267,13 @@ async def preview_single_command(
 async def dispatch_single_command(
     device_id: str,
     body: SingleDeviceCommand,
-    dm: DevicesServiceInterface = Depends(get_device_manager),
+    reads: ScopedDeviceReads = Depends(get_device_reads),
     resolver: TargetResolver = Depends(get_target_resolver),
     commands_svc: CommandsServiceInterface = Depends(get_commands_service),
     user_id: str = Depends(get_current_user_id),
     coordinator: SelectionCommands = Depends(get_selection_commands),
 ) -> UnitCommand:
-    dm.get_device(device_id)  # raises NotFoundError → 404 if unknown
+    reads.get_device(device_id)  # NotFoundError → 404 if unknown or hidden
     resolved = await resolver.resolve(
         AttributeTarget(
             devices=DevicesFilter(ids=[device_id]), attribute=body.attribute

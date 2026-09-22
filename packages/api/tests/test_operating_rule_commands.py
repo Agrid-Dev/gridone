@@ -13,6 +13,7 @@ from api.action_providers.commands import CommandsActionProvider
 from api.app import _start_commands_service
 from api.auth import (
     get_current_permissions,
+    get_current_role,
     get_current_token_payload,
     get_current_user_id,
 )
@@ -139,6 +140,7 @@ async def harness(admin_token_payload):
     app.state.selection_commands = SelectionCommands(dm, commands)
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
     app.dependency_overrides[get_current_permissions] = lambda: frozenset(Permission)
+    app.dependency_overrides[get_current_role] = lambda: None
     app.dependency_overrides[get_current_user_id] = lambda: admin_token_payload.sub
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"

@@ -4,7 +4,11 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from api.auth import get_current_permissions, get_current_token_payload
+from api.auth import (
+    get_current_permissions,
+    get_current_role,
+    get_current_token_payload,
+)
 from api.dependencies import get_device_manager
 from api.exception_handlers import register_exception_handlers
 from api.routes.devices_router import router
@@ -35,6 +39,7 @@ def client(dm, admin_token_payload):
     app.dependency_overrides[get_device_manager] = lambda: dm
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
     app.dependency_overrides[get_current_permissions] = lambda: frozenset(Permission)
+    app.dependency_overrides[get_current_role] = lambda: None
     with TestClient(app) as client:
         yield client
 

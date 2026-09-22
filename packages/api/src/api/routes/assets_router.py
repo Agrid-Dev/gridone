@@ -12,13 +12,14 @@ from fastapi import (
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
+from api.access import ScopedDeviceReads
+from api.access.dependencies import get_device_reads, get_target_resolver
 from api.auth import get_current_user_id, require_permission
 from api.dependencies import (
     get_assets_service,
     get_building_models_service,
     get_commands_service,
     get_device_manager,
-    get_target_resolver,
 )
 from api.schemas.command import AssetCommand, BatchDispatchResponse
 from assets import (
@@ -112,10 +113,10 @@ async def get_tree(
 )
 async def get_tree_with_devices(
     assets_svc: Annotated[AssetsService, Depends(get_assets_service)],
-    dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
+    reads: Annotated[ScopedDeviceReads, Depends(get_device_reads)],
 ) -> list[dict]:
     tree = await assets_svc.get_tree()
-    all_devices = dm.list_devices()
+    all_devices = reads.list_devices()
     name_map = {d.id: d.name for d in all_devices}
     links: dict[str, list[str]] = {}
     for device in all_devices:
@@ -237,10 +238,10 @@ async def reorder_children(
 async def list_asset_devices(
     asset_id: str,
     assets_svc: Annotated[AssetsService, Depends(get_assets_service)],
-    dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
+    reads: Annotated[ScopedDeviceReads, Depends(get_device_reads)],
 ) -> list[str]:
     await assets_svc.get_by_id(asset_id)
-    return [d.id for d in dm.list_devices(tags={"asset_id": [asset_id]})]
+    return [d.id for d in reads.list_devices(tags={"asset_id": [asset_id]})]
 
 
 @router.post(

@@ -2,10 +2,9 @@
 
 from automations import AutomationsServiceInterface
 from dashboards import DashboardsServiceInterface
-from fastapi import Depends, Query, Request
+from fastapi import Query, Request
 from starlette.requests import HTTPConnection
 
-from api.targets import CompositeTargetResolver
 from apps import AppsService
 from assets import AssetsService, BuildingModelsServiceInterface
 from commands import CommandsServiceInterface
@@ -20,12 +19,6 @@ from users.auth import AuthService
 
 def get_device_manager(request: Request) -> DevicesServiceInterface:
     return request.app.state.device_manager
-
-
-def get_target_resolver(
-    dm: DevicesServiceInterface = Depends(get_device_manager),
-) -> CompositeTargetResolver:
-    return CompositeTargetResolver(dm)
 
 
 def get_ts_service(request: Request) -> TimeSeriesService:

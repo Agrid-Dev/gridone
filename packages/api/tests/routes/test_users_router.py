@@ -12,7 +12,7 @@ from api.exception_handlers import register_exception_handlers
 from api.routes.users.auth_router import router as auth_router
 from api.routes.users.users_router import router as users_router
 from models.errors import BlockedUserError, NotFoundError
-from users import User, UserUpdate
+from users import Role, User, UserUpdate
 from users.auth import AuthService
 from users.permissions import Permission
 from users.roles import find_builtin_role
@@ -41,6 +41,12 @@ async def _role_permissions(role_id: str) -> list[Permission]:
     if role_id == "support":
         return SUPPORT_PERMISSIONS
     return _builtin_permissions(role_id)
+
+
+async def _find_role(role_id: str) -> Role | None:
+    if role_id == "support":
+        return Role(id="support", name="Support", permissions=SUPPORT_PERMISSIONS)
+    return find_builtin_role(role_id)
 
 
 async def _update_user(user_id: str, data: UserUpdate) -> User:
@@ -83,6 +89,7 @@ def users_manager() -> AsyncMock:
     um.get_by_id = AsyncMock(side_effect=_get_by_id)
     um.is_blocked = AsyncMock(side_effect=_is_blocked)
     um.get_role_permissions = AsyncMock(side_effect=_role_permissions)
+    um.find_role = AsyncMock(side_effect=_find_role)
     um.list_users = AsyncMock(return_value=[ADMIN, BOB])
     um.block_user = AsyncMock(
         side_effect=lambda uid: (

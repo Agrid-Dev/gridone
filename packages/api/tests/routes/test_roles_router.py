@@ -50,6 +50,7 @@ def um() -> AsyncMock:
     um.get_by_id = AsyncMock(return_value=ADMIN)
     um.is_blocked = AsyncMock(return_value=False)
     um.get_role_permissions = AsyncMock(side_effect=_builtin_permissions)
+    um.find_role = AsyncMock(side_effect=find_builtin_role)
     um.list_roles = AsyncMock(return_value=[VIEWER_ROLE])
 
     async def _get_role(role_id: str) -> Role:

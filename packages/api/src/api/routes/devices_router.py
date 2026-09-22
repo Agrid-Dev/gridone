@@ -5,6 +5,8 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
+from api.access import ScopedDeviceReads
+from api.access.dependencies import get_device_reads
 from api.auth import require_permission
 from api.dependencies import get_assets_service, get_device_manager, get_ts_service
 from api.devices_filter import ASSET_TAG, parse_tags_params, to_list_devices_kwargs
@@ -79,9 +81,11 @@ router.include_router(faults_router, prefix="/faults")
 )
 async def get_device_presentation(
     device_id: str,
+    reads: Annotated[ScopedDeviceReads, Depends(get_device_reads)],
     dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
     revision: str | None = Query(None),
 ) -> PresentationResponse:
+    reads.get_device(device_id)  # hidden device -> 404 before any presentation
     return await dm.get_device_presentation(device_id, revision=revision)
 
 
@@ -99,8 +103,10 @@ async def get_device_presentation_asset(
     device_id: str,
     asset_id: str,
     revision: Annotated[str, Query(min_length=1)],
+    reads: Annotated[ScopedDeviceReads, Depends(get_device_reads)],
     dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
 ) -> Response:
+    reads.get_device(device_id)
     resource = await dm.get_device_presentation_asset(device_id, revision, asset_id)
     return Response(
         content=resource.data,
@@ -147,20 +153,20 @@ def get_devices_query(
 
 @router.get("/", dependencies=[Depends(require_permission(Permission.DEVICES_READ))])
 def list_devices(
-    dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
+    reads: Annotated[ScopedDeviceReads, Depends(get_device_reads)],
     query: Annotated[dict[str, Any], Depends(get_devices_query)],
 ) -> list[Device]:
-    return dm.list_devices(**query)
+    return reads.list_devices(**query)
 
 
 @router.get(
     "/tags", dependencies=[Depends(require_permission(Permission.DEVICES_READ))]
 )
 def list_tags(
-    dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
+    reads: Annotated[ScopedDeviceReads, Depends(get_device_reads)],
     query: Annotated[dict[str, Any], Depends(get_devices_query)],
 ) -> list[TagFacet]:
-    return tag_facets(dm.list_devices(**query))
+    return tag_facets(reads.list_devices(**query))
 
 
 @router.post(
@@ -222,7 +228,7 @@ async def rename_tag(
     dependencies=[Depends(require_permission(Permission.DEVICES_READ))],
 )
 def list_device_attributes(
-    dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
+    reads: Annotated[ScopedDeviceReads, Depends(get_device_reads)],
     query: Annotated[dict[str, Any], Depends(get_devices_query)],
 ) -> AttributeCoverageResponse:
     """Report attribute coverage over the matched device set.
@@ -231,7 +237,7 @@ def list_device_attributes(
     device set, and the response annotates every exposed attribute with its
     data types and coverage counts.
     """
-    devices = dm.list_devices(**query)
+    devices = reads.list_devices(**query)
     return AttributeCoverageResponse(
         total_devices=len(devices),
         attributes=compute_attribute_coverage(devices),
@@ -243,7 +249,7 @@ def list_device_attributes(
     dependencies=[Depends(require_permission(Permission.DEVICES_READ))],
 )
 def list_device_tag_groups(
-    dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
+    reads: Annotated[ScopedDeviceReads, Depends(get_device_reads)],
     query: Annotated[dict[str, Any], Depends(get_devices_query)],
     tag_key: Tag = Query(...),
 ) -> TagGroupsResponse:
@@ -252,7 +258,7 @@ def list_device_tag_groups(
     Same filters as ``GET /devices``. Backs the group-by editor's free-text
     fallback, ahead of a proper tag vocabulary.
     """
-    devices = dm.list_devices(**query)
+    devices = reads.list_devices(**query)
     groups = group_device_ids_by_tag(devices, tag_key)
     return TagGroupsResponse(
         total_devices=len(devices),
@@ -281,8 +287,10 @@ def get_standard_types(
 def get_attribute_logs(
     device_id: str,
     attr_name: str,
+    reads: Annotated[ScopedDeviceReads, Depends(get_device_reads)],
     dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
 ) -> AttributeLogs:
+    reads.require_attribute(device_id, attr_name)
     return dm.get_attribute_logs(device_id, attr_name)
 
 
@@ -293,8 +301,10 @@ def get_attribute_logs(
 async def refresh_device_attribute(
     device_id: str,
     attr_name: str,
+    reads: Annotated[ScopedDeviceReads, Depends(get_device_reads)],
     dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
 ) -> Attribute:
+    reads.require_attribute(device_id, attr_name)
     return await dm.refresh_device_attribute(device_id, attr_name)
 
 
@@ -303,9 +313,9 @@ async def refresh_device_attribute(
 )
 def get_device(
     device_id: str,
-    dm: DevicesServiceInterface = Depends(get_device_manager),
+    reads: ScopedDeviceReads = Depends(get_device_reads),
 ) -> Device:
-    return dm.get_device(device_id)
+    return reads.get_device(device_id)
 
 
 @router.post(

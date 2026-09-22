@@ -17,12 +17,13 @@ from dashboards import (
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
+from api.access.dependencies import get_target_resolver
 from api.auth import (
     get_current_permissions,
     get_current_token_payload,
     get_current_user_id,
 )
-from api.dependencies import get_dashboards_service, get_target_resolver
+from api.dependencies import get_dashboards_service
 from api.exception_handlers import register_exception_handlers
 from api.routes.dashboards_router import router
 from api.schemas.dashboard import WidgetConfigBody
