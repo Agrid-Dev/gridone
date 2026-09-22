@@ -1,3 +1,9 @@
+## v0.261.0 (2026-09-22)
+
+### Feat
+
+- **models**: accept a bare string as LocalizedText default (#679)
+
 ## v0.260.0 (2026-09-22)
 
 ### Feat
