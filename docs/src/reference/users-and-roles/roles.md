@@ -34,6 +34,7 @@ Resources are the kinds of things Gridone manages. Reading never implies writing
 | `drivers` | [Drivers](glossary.md#driver) | `read`, `write` |
 | `timeseries` | Recorded device history | `read` only: history is written by Gridone itself |
 | `automations` | [Automations](glossary.md#automation) and their executions | `read`, `write` |
+| `operating_rules` | [Site operating rules](../guides/commands/operating-rules.md) guarding device writes | `read`, `write` |
 | `notifications` | Dispatching a [notification](glossary.md#notification) to other users | `write` only: reading and dismissing your own needs no permission |
 | `dashboards` | Dashboards | `read`, `write` |
 | `synoptics` | Synoptics | `read`, `write` |
@@ -90,6 +91,8 @@ Three roles are defined in code and exist on every instance.
 | `timeseries:read` | ✓ | ✓ | ✓ |
 | `automations:read` | ✓ | ✓ | ✓ |
 | `automations:write` | ✓ | | |
+| `operating_rules:read` | ✓ | ✓ | ✓ |
+| `operating_rules:write` | ✓ | | |
 | `notifications:write` | ✓ | | |
 | `dashboards:read` | ✓ | ✓ | ✓ |
 | `dashboards:write` | ✓ | ✓ | |
