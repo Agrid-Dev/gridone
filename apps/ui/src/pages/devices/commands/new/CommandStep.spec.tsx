@@ -290,9 +290,11 @@ describe("CommandStep value input", () => {
         ]}
       />,
     );
-    expect(screen.getByRole("switch")).toBeTruthy();
     expect(screen.getByText("Stopped")).toBeInTheDocument();
     expect(screen.getByText("Running")).toBeInTheDocument();
+    // The wizard keeps one `value` field across attributes, so a string left
+    // by the previous one reads as neither state, not as "on".
+    expect(screen.getByRole("switch")).not.toBeChecked();
   });
 
   it("falls back to False / True on the switch, never ON / OFF", () => {
@@ -311,7 +313,7 @@ describe("CommandStep value input", () => {
     expect(screen.queryByText(/^(ON|OFF)$/)).toBeNull();
   });
 
-  it("blocks only the unavailable state and keeps the other side reachable", () => {
+  it("moves to the two states as options when the projection constrains one", () => {
     mockCoverage([
       {
         ...coverageRow("onoff_state", "bool"),
@@ -338,13 +340,11 @@ describe("CommandStep value input", () => {
         ]}
       />,
     );
-    // Nothing chosen yet: the switch would toggle to the unavailable `true`,
-    // but `false` stays one click away on its own side.
-    expect(screen.getByRole("switch")).toBeDisabled();
-    expect(screen.getByRole("button", { name: "True" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "False" })).toBeEnabled();
-    expect(screen.getByText(/^True: Filter running$/)).toBeInTheDocument();
-    expect(screen.queryByRole("combobox", { name: "Value" })).toBeNull();
+    // A switch has one transition and cannot say which state is refused, so a
+    // constrained attribute reads as options carrying their reason.
+    expect(screen.queryByRole("switch")).toBeNull();
+    expect(screen.getAllByRole("combobox")).toHaveLength(2);
+    expect(screen.getByText("True: Filter running")).toBeInTheDocument();
   });
 
   it("renders an alert when the target has no writable attribute", () => {

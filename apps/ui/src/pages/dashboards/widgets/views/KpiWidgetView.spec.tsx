@@ -11,6 +11,7 @@ vi.mock("react-i18next", () =>
       "This device no longer exposes this attribute",
     "widgets.kpi.noHistory": "No history is recorded for this attribute",
     "widgets.kpi.error": "Could not load this value",
+    "common.true": "True",
     "widgets.kpi.noOperator": "Pick an aggregation operator",
     "widgets.kpi.unboundedPeriod": "Aggregation needs a bounded period",
     "widgets.kpi.noMatch": "The target matches no device",
@@ -126,7 +127,7 @@ describe("KpiWidgetView (live)", () => {
       />,
     );
 
-    expect(screen.getByText("true")).toBeInTheDocument();
+    expect(screen.getByText("True")).toBeInTheDocument();
   });
 
   it("explains a config with no target", () => {

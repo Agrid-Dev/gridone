@@ -14,18 +14,14 @@ import {
   useAttributeCoverage,
 } from "@/components/forms/targetPicker";
 import { AttributeValue } from "@/components/AttributeValue";
-import type {
-  AttributeCoverage,
-  Device,
-  ResolvedOption,
-  ValueLabel,
-} from "@gridone/sdk";
+import { SwitchController } from "@/components/forms/controllers/SwitchController";
+import type { AttributeCoverage, Device } from "@gridone/sdk";
 import {
   isEmptyFilter,
   type DevicesFilter,
   type DeviceType,
 } from "@/lib/devices";
-import { BoolInput } from "./BoolInput";
+import { useBooleanField } from "./booleanField";
 import { currentValueFor } from "./resolvers";
 import type { WizardFormValues } from "./types";
 
@@ -52,6 +48,7 @@ export function CommandStep({
   selectedCoverage,
 }: CommandStepProps) {
   const { t } = useTranslation("devices");
+  const booleanField = useBooleanField();
 
   // Same query key as the wizard's and AttributeCoverageSelect's hook —
   // react-query dedupes, so this costs no extra fetch.
@@ -141,6 +138,30 @@ export function CommandStep({
             );
           }
 
+          if (selectedDataType === "bool") {
+            const field = booleanField(
+              selectedCoverage?.value_labels,
+              projectedOptions,
+            );
+            return field.kind === "switch" ? (
+              <SwitchController
+                control={control}
+                name="value"
+                label={t("commands.value")}
+                description={hint || undefined}
+                sides={field.sides}
+              />
+            ) : (
+              <SelectController
+                control={control}
+                name="value"
+                label={t("commands.value")}
+                description={hint || undefined}
+                options={field.options}
+              />
+            );
+          }
+
           return (
             <Controller
               control={control}
@@ -155,8 +176,6 @@ export function CommandStep({
                     dataType={selectedDataType}
                     value={field.value}
                     onChange={field.onChange}
-                    valueLabels={selectedCoverage?.value_labels}
-                    options={projectedOptions}
                   />
                   {hint && <FieldDescription>{hint}</FieldDescription>}
                 </Field>
@@ -169,33 +188,14 @@ export function CommandStep({
 }
 
 type ValueInputProps = {
-  dataType: NonNullable<WizardFormValues["attributeDataType"]>;
+  /** Booleans are handled by the switch controller above, not here. */
+  dataType: Exclude<NonNullable<WizardFormValues["attributeDataType"]>, "bool">;
   value: WizardFormValues["value"];
   onChange: (v: WizardFormValues["value"]) => void;
-  valueLabels?: ValueLabel[] | null;
-  options?: ResolvedOption[] | null;
   id: string;
 };
 
-function ValueInput({
-  dataType,
-  value,
-  onChange,
-  valueLabels,
-  options,
-  id,
-}: ValueInputProps) {
-  if (dataType === "bool") {
-    return (
-      <BoolInput
-        id={id}
-        value={value}
-        onChange={onChange}
-        valueLabels={valueLabels}
-        options={options}
-      />
-    );
-  }
+function ValueInput({ dataType, value, onChange, id }: ValueInputProps) {
   if (dataType === "int" || dataType === "float") {
     return (
       <Input

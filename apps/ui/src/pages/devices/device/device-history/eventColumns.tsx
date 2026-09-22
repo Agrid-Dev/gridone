@@ -1,7 +1,7 @@
 import { TFunction } from "i18next";
 import { ColumnDef } from "@tanstack/react-table";
 import { Activity, ArrowLeftRight } from "lucide-react";
-import type { UnitCommand, User } from "@gridone/sdk";
+import type { UnitCommand, User, ValueLabel } from "@gridone/sdk";
 import { AttributeValue } from "@/components/AttributeValue";
 import type { DeviceType } from "@/lib/devices";
 import { formatValue } from "@/lib/formatValue";
@@ -13,6 +13,8 @@ type BuildEventColumnsOptions = {
   locale: string;
   labelFor: (attr: string) => string;
   dataTypes: Record<string, string>;
+  /** The wording each boolean attribute's driver declares for its states. */
+  valueLabels: Record<string, ValueLabel[] | null | undefined>;
   deviceType: DeviceType | undefined;
   commandsMap: Map<number, UnitCommand>;
   usersMap: Map<string, User>;
@@ -25,6 +27,7 @@ export function buildEventColumns({
   locale,
   labelFor,
   dataTypes,
+  valueLabels,
   deviceType,
   commandsMap,
   usersMap,
@@ -93,17 +96,6 @@ export function buildEventColumns({
       cell: ({ row }) => {
         const { metric, value, kind } = row.original;
         const dataType = dataTypes[metric];
-        if (kind === "state" && dataType === "bool") {
-          return (
-            <span className="font-mono text-sm tabular-nums">
-              {t(
-                value === true
-                  ? "common:common.hvacMode.on"
-                  : "common:common.hvacMode.off",
-              )}
-            </span>
-          );
-        }
         if (kind === "state") {
           return (
             <AttributeValue
@@ -111,6 +103,7 @@ export function buildEventColumns({
               attributeName={metric}
               deviceType={deviceType}
               dataType={dataType}
+              valueLabels={valueLabels[metric]}
               className="text-sm"
             />
           );

@@ -51,7 +51,10 @@ export function CommandSummary({
       <span className="font-medium">{toLabel(values.attribute)}</span>
       <span className="mx-2 text-muted-foreground">=</span>
       <span className="tabular-nums">
-        {valueText(values.value, valueLabels, values.attributeDataType)}
+        {valueText(values.attribute, values.value, {
+          valueLabels,
+          dataType: values.attributeDataType,
+        })}
       </span>
     </span>
   );

@@ -119,7 +119,9 @@ describe("attributeValueLabel", () => {
 describe("attributeValueText", () => {
   it("prefers the business label over the wire value", () => {
     expect(attributeValueText("mode", "heat", t)).toBe("Heating");
-    expect(attributeValueText("fan", "low", t, "str")).toBe("Low");
+    expect(attributeValueText("fan", "low", t, { dataType: "str" })).toBe(
+      "Low",
+    );
   });
 
   it("falls back to formatValue for an uncovered attribute", () => {
@@ -127,7 +129,9 @@ describe("attributeValueText", () => {
   });
 
   it("formats a float with its dataType", () => {
-    expect(attributeValueText("temperature", 21.5, t, "float")).toBe("21.50");
+    expect(
+      attributeValueText("temperature", 21.5, t, { dataType: "float" }),
+    ).toBe("21.50");
     expect(attributeValueText("temperature", 21.5, t)).toBe("21.5");
   });
 
@@ -136,9 +140,34 @@ describe("attributeValueText", () => {
     expect(attributeValueText("occupancy", false, t)).toBe("False");
   });
 
+  it("prefers the driver's wording for a boolean, in the given language", () => {
+    const valueLabels = [
+      {
+        value: false,
+        label: { default: "Stopped", translations: { fr: "Arrêt" } },
+      },
+      {
+        value: true,
+        label: { default: "Running", translations: { fr: "Marche" } },
+      },
+    ];
+    expect(
+      attributeValueText("onoff_state", true, t, {
+        valueLabels,
+        language: "fr",
+      }),
+    ).toBe("Marche");
+    // Without a language the declared default still wins over True / False.
+    expect(attributeValueText("onoff_state", false, t, { valueLabels })).toBe(
+      "Stopped",
+    );
+  });
+
   it("renders null as an em dash", () => {
     expect(attributeValueText("mode", null, t)).toBe("—");
-    expect(attributeValueText("temperature", undefined, t, "float")).toBe("—");
+    expect(
+      attributeValueText("temperature", undefined, t, { dataType: "float" }),
+    ).toBe("—");
   });
 });
 

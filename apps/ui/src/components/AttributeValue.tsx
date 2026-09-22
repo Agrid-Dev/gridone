@@ -18,10 +18,10 @@ import type { Severity } from "@/lib/severity";
 import { attributeValueLabel } from "@/lib/attributeValueLabel";
 import { formatValue, type CellValue } from "@/lib/formatValue";
 import {
+  faultLevel,
   lookupSemanticColor,
   SEMANTIC_BG_CLASS,
   SEMANTIC_TEXT_CLASS,
-  SEVERITY_LEVEL,
   type StatusLevel,
 } from "@/lib/semanticColors";
 import { cn } from "@/lib/utils";
@@ -105,10 +105,11 @@ function resolveSharedRenderer(
   return undefined;
 }
 
-/** LED-style dot for a boolean state. Faults carry a status tone; a
- *  standard boolean is neutral (filled when true, hollow when false) since
- *  the driver never says which state is good. Decorative: the text next to
- *  it always carries the state. */
+/** LED-style dot for a boolean state. Faults carry a status tone; a standard
+ *  boolean carries the accent, filled when true and hollow when false, since
+ *  the driver never says which state is good. Sized and nudged in `em` so it
+ *  stays centred on the label's x-height at any text size. Decorative: the
+ *  text next to it always carries the state. */
 function BooleanIndicator({
   tone,
   filled,
@@ -121,11 +122,11 @@ function BooleanIndicator({
       aria-hidden
       data-tone={tone}
       className={cn(
-        "size-2 shrink-0 rounded-full",
+        "relative top-[0.1em] size-[0.55em] shrink-0 rounded-full",
         tone !== "neutral"
           ? SEMANTIC_BG_CLASS[tone]
           : filled
-            ? "bg-muted-foreground"
+            ? "bg-primary"
             : "border border-muted-foreground",
       )}
     />
@@ -147,9 +148,6 @@ type AttributeValueProps = {
   unit?: string | null;
   /** The driver's wording of a boolean's two states, when it declares one. */
   valueLabels?: ValueLabel[] | null;
-  /** Render a boolean as its raw `true` / `false` text, without the
-   *  indicator: for surfaces not yet moved onto the driver's wording. */
-  rawBoolean?: boolean;
   className?: string;
 };
 
@@ -171,31 +169,24 @@ export function AttributeValue({
   fault,
   unit,
   valueLabels,
-  rawBoolean,
   className,
 }: AttributeValueProps) {
   const { t } = useTranslation();
   const labelFor = useValueLabel();
-  // An unknown severity still reads as a fault, never as a healthy or
-  // standard value.
-  const level = fault
-    ? fault.isFaulty
-      ? (SEVERITY_LEVEL[fault.severity] ?? "error")
-      : "ok"
-    : undefined;
+  const level = fault ? faultLevel(fault) : undefined;
   const faultClass = level && cn("font-medium", SEMANTIC_TEXT_CLASS[level]);
 
-  if (typeof value === "boolean" && !rawBoolean) {
+  if (typeof value === "boolean") {
     return (
       <span
         className={cn(
-          "inline-flex items-center gap-[0.4em]",
+          "inline-flex min-w-0 items-center gap-[0.4em]",
           faultClass,
           className,
         )}
       >
         <BooleanIndicator tone={level ?? "neutral"} filled={value} />
-        <span>{labelFor(value, valueLabels)}</span>
+        <span className="truncate">{labelFor(value, valueLabels)}</span>
       </span>
     );
   }

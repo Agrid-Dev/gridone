@@ -3,6 +3,7 @@ import type {
   TimeseriesExportParams,
   UnitCommand,
   User,
+  ValueLabel,
 } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { useCommandsByIds } from "@/hooks/useCommandsByIds";
@@ -75,6 +76,8 @@ function writeStoredMetric(deviceId: string, metric: string) {
 type DeviceHistoryContextValue = {
   series: TimeSeries[];
   dataTypes: Record<string, string>;
+  /** The wording each boolean attribute's driver declares for its states. */
+  valueLabels: Record<string, ValueLabel[] | null | undefined>;
   /** The device's standard type, when it has one — value renderers key on it. */
   deviceType: DeviceType | undefined;
   /** Every numeric (float/int) attribute, offered through the "More…" picker. */
@@ -122,6 +125,8 @@ type DeviceHistoryProviderProps = {
   deviceName: string;
   /** Attribute names in device declaration order. */
   attributeNames: string[];
+  /** The wording each boolean attribute's driver declares for its states. */
+  valueLabels: Record<string, ValueLabel[] | null | undefined>;
   standardAttributeNames: string[];
   deviceType: DeviceType | undefined;
   children: ReactNode;
@@ -162,6 +167,7 @@ export function DeviceHistoryProvider({
   deviceId,
   deviceName,
   attributeNames,
+  valueLabels,
   standardAttributeNames,
   deviceType,
   children,
@@ -480,6 +486,7 @@ export function DeviceHistoryProvider({
     () => ({
       series,
       dataTypes,
+      valueLabels,
       deviceType,
       numericAttributes,
       pillAttributes,
@@ -507,6 +514,7 @@ export function DeviceHistoryProvider({
     [
       series,
       dataTypes,
+      valueLabels,
       deviceType,
       numericAttributes,
       pillAttributes,

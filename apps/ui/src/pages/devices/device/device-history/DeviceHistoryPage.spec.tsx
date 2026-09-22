@@ -83,6 +83,8 @@ vi.mock("react-i18next", () =>
     "common:common.noData": "No data",
     "common:common.rowsRange": "{{from}}–{{to}} / {{total}}",
     "common.hvacMode.heat": "Chauffage",
+    "common.true": "Vrai",
+    "common.false": "Faux",
     "common.hvacMode.on": "Marche",
     "common.hvacMode.off": "Arrêt",
     "common.noData": "No data",
@@ -131,7 +133,7 @@ function attrName(i: number) {
 }
 
 function deviceOf(
-  entries: { name: string; dataType: string }[],
+  entries: { name: string; dataType: string; valueLabels?: unknown }[],
   type: string | null,
 ) {
   mockDevice.current = {
@@ -143,7 +145,7 @@ function deviceOf(
     transport_id: "tr",
     config: {},
     attributes: Object.fromEntries(
-      entries.map(({ name, dataType }) => [
+      entries.map(({ name, dataType, valueLabels }) => [
         name,
         {
           kind: "standard",
@@ -153,6 +155,7 @@ function deviceOf(
           current_value: null,
           last_updated: null,
           last_changed: null,
+          value_labels: valueLabels,
         },
       ]),
     ),
@@ -523,6 +526,40 @@ describe("DeviceHistoryPage events table", () => {
         ).size,
       ).toBeGreaterThanOrEqual(2),
     );
+  });
+
+  it("words a boolean change from the driver, never as On / Off", async () => {
+    deviceOf(
+      [
+        {
+          name: "onoff_state",
+          dataType: "bool",
+          valueLabels: [
+            { value: false, label: { default: "Arrêt" } },
+            { value: true, label: { default: "Marche technique" } },
+          ],
+        },
+        { name: "presence_tension", dataType: "bool" },
+      ],
+      null,
+    );
+    const t1 = new Date(Date.now() - 3600_000).toISOString();
+    servePoints({
+      onoff_state: [{ timestamp: t1, value: true }],
+      presence_tension: [{ timestamp: t1, value: true }],
+    });
+    renderPage();
+
+    const table = await screen.findByRole("table");
+    // The declared label for the attribute that has one, the localized True
+    // for the one that does not.
+    expect(within(table).getByText("Marche technique")).toBeInTheDocument();
+    expect(within(table).getByText("Vrai")).toBeInTheDocument();
+    // The state timeline above the table words the same change the same way.
+    expect(screen.getAllByText("Marche technique").length).toBeGreaterThan(1);
+    expect(screen.getAllByText("Vrai").length).toBeGreaterThan(1);
+    // "Marche" on its own is the On / Off wording the drivers never declared.
+    expect(screen.queryByText("Marche")).toBeNull();
   });
 
   it("renders readings and state changes with their sources", async () => {

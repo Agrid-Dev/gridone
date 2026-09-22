@@ -80,7 +80,10 @@ export function GroupedCommandReview({
                 value:
                   write.value === ""
                     ? "—"
-                    : valueText(write.value, display.valueLabels),
+                    : valueText(write.attribute, write.value, {
+                        valueLabels: display.valueLabels,
+                        dataType: display.dataType,
+                      }),
                 unit: display.unit ?? "",
               })}
         </p>
@@ -150,6 +153,7 @@ export function GroupedCommandReview({
                         device={device}
                         write={write}
                         valueLabels={display.valueLabels}
+                        dataType={display.dataType}
                       />
                     )}
                   </li>
@@ -290,10 +294,12 @@ function PreviewLine({
   device,
   write,
   valueLabels,
+  dataType,
 }: {
   device: Device;
   write: CommandPayload["write"];
   valueLabels: CommandDisplay["valueLabels"];
+  dataType: CommandDisplay["dataType"];
 }) {
   const { t } = useTranslation("devices");
   const valueText = useValueText();
@@ -308,11 +314,20 @@ function PreviewLine({
     <>
       <p className="flex items-center gap-2 text-sm tabular-nums">
         <span className="text-muted-foreground">
-          {valueText(attr?.current_value as CellValue, valueLabels)} {unit}
+          {valueText(write.attribute, attr?.current_value as CellValue, {
+            valueLabels,
+            dataType,
+          })}{" "}
+          {unit}
         </span>
         <ArrowRight className="h-3.5 w-3.5" />
         <span className="font-semibold text-primary">
-          {write.value === "" ? "—" : valueText(write.value, valueLabels)}{" "}
+          {write.value === ""
+            ? "—"
+            : valueText(write.attribute, write.value, {
+                valueLabels,
+                dataType,
+              })}{" "}
           {unit}
         </span>
       </p>

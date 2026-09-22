@@ -1,21 +1,28 @@
 import { useCallback } from "react";
-import type { ValueLabel } from "@gridone/sdk";
-import { useValueLabel } from "@/hooks/useValueLabel";
-import { formatValue, type CellValue } from "@/lib/formatValue";
+import { useTranslation } from "react-i18next";
+import {
+  attributeValueText,
+  type AttributeValueTextOptions,
+} from "@/lib/attributeValueLabel";
+import type { CellValue } from "@/lib/formatValue";
 
-/** A value as a form or a review words it: a boolean through the driver's
- *  labels, anything else through {@link formatValue}. */
+/** {@link attributeValueText} bound to the current language. */
 export function useValueText(): (
+  attributeName: string,
   value: CellValue,
-  valueLabels?: ValueLabel[] | null,
-  dataType?: string,
+  options?: Omit<AttributeValueTextOptions, "language">,
 ) => string {
-  const labelFor = useValueLabel();
+  const { t, i18n } = useTranslation("common");
   return useCallback(
-    (value: CellValue, valueLabels?: ValueLabel[] | null, dataType?: string) =>
-      typeof value === "boolean"
-        ? labelFor(value, valueLabels)
-        : formatValue(value, dataType),
-    [labelFor],
+    (
+      attributeName: string,
+      value: CellValue,
+      options?: Omit<AttributeValueTextOptions, "language">,
+    ) =>
+      attributeValueText(attributeName, value, t, {
+        ...options,
+        language: i18n.language,
+      }),
+    [t, i18n.language],
   );
 }

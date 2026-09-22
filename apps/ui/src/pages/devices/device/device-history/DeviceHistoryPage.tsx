@@ -12,7 +12,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorFallback } from "@/components/fallbacks/Error";
 import { useDeviceFromRoute } from "@/hooks/useDevice";
 import { useStandardTypes } from "@/hooks/useStandardTypes";
-import { standardAttributeNames } from "@/lib/devices";
+import { deviceAttributes, standardAttributeNames } from "@/lib/devices";
+import type { AttributeFields } from "@/lib/faults";
 import { OTHER_KEY, deviceTypeKey } from "@/lib/deviceTypes";
 import {
   DeviceHistoryProvider,
@@ -34,6 +35,19 @@ export default function DeviceHistoryPage() {
     [device],
   );
 
+  // What each boolean's driver calls its two states, for the events table and
+  // the state timelines.
+  const valueLabels = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(deviceAttributes(device)).map(([name, attribute]) => [
+          name,
+          (attribute as AttributeFields).value_labels,
+        ]),
+      ),
+    [device],
+  );
+
   // The device's standard-schema attributes drive the pill and timeline
   // defaults (see DeviceHistoryContext).
   const standardNames = useMemo(
@@ -48,6 +62,7 @@ export default function DeviceHistoryPage() {
       deviceId={device.id}
       deviceName={device.name || device.id}
       attributeNames={attributeNames}
+      valueLabels={valueLabels}
       standardAttributeNames={standardNames}
       deviceType={typeKey === OTHER_KEY ? undefined : typeKey}
     >

@@ -255,19 +255,32 @@ describe("AttributeValue — standard booleans", () => {
     );
     // Standard booleans never use the ok / fault colours.
     expect(screen.getByText("Vrai")).toBeInTheDocument();
-    expect(dot()).toHaveClass("bg-muted-foreground");
+    expect(dot()).toHaveClass("bg-primary");
     expect(dot()?.className).not.toMatch(/bg-status-/);
 
     rerender(<AttributeValue value={false} attributeName="presence_tension" />);
     expect(screen.getByText("Faux")).toBeInTheDocument();
     expect(dot()).toHaveClass("border-muted-foreground");
-    expect(dot()).not.toHaveClass("bg-muted-foreground");
+    expect(dot()).not.toHaveClass("bg-primary");
   });
 
-  it("keeps the raw text when a surface opts out of the indicator", () => {
-    render(<AttributeValue value={true} attributeName="power" rawBoolean />);
-    expect(screen.getByText("true")).toBeInTheDocument();
-    expect(dot()).toBeNull();
+  it("ellipsises a long declared label instead of overflowing its tile", () => {
+    render(
+      <AttributeValue
+        value={true}
+        attributeName="r5_synthese_defaut"
+        valueLabels={[
+          { value: false, label: { default: "Sain" } },
+          { value: true, label: { default: "Défaut synthèse filtre repris" } },
+        ]}
+      />,
+    );
+    // The dot keeps its size and the wording shrinks: on a KPI tile the text
+    // is clipped mid-word without this.
+    const text = screen.getByText("Défaut synthèse filtre repris");
+    expect(text).toHaveClass("truncate");
+    expect(text.parentElement).toHaveClass("min-w-0");
+    expect(dot()).toHaveClass("shrink-0");
   });
 
   it("uses the declared label in the current language", () => {

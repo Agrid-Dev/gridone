@@ -41,6 +41,8 @@ export type CommandDisplay = {
   scope: string;
   label: string;
   unit?: string | null;
+  /** Data type of the attribute over the selection, when they agree on one. */
+  dataType?: string;
   /** Wording of a boolean's states, unanimous over the selection or absent. */
   valueLabels?: ValueLabel[] | null;
 };
