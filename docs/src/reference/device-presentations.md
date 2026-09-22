@@ -51,7 +51,7 @@ presentation:
 - `requires` lists capabilities. Every capability of this page is `name/1`; a Gridone that lacks one falls back with an `unsupported_capability` diagnostic.
 - `assets` are files of the driver package, addressed by a relative path. Only PNG and WebP are accepted; images are re-encoded on import and served by Gridone under an authenticated route — the document can never point at an external URL.
 - `bindings` give local names to attributes of the current device. Every other reference (`controls`, `measurements`, face layers, conditions) uses a binding id, never an attribute name.
-- `controls` declare what may be written. `toggle` needs a boolean attribute, `number` and `slider` an `int`/`float` one, `select` an attribute that has `value_options`. The step and bounds of numeric controls come from the attribute's `write_constraints` (see [General Layout](driver-schema/general-layout.md)), never from the presentation; while a referenced step or bound is unknown, increments are unavailable. `slider` additionally requires `slider/1` and renders a horizontal range with its current value and unit.
+- `controls` declare what may be written. `toggle` needs a boolean attribute, `number` and `slider` an `int`/`float` one, `select` an attribute that has `value_options`. The step and bounds of numeric controls come from the attribute's `write_constraints` (see [Attributes](driver-schema/attributes.md)), never from the presentation; while a referenced step or bound is unknown, increments are unavailable. `slider` additionally requires `slider/1` and renders a horizontal range with its current value and unit.
 
 Texts are `LocalizedText` objects: `{ default: …, translations: { fr: …, en-GB: … } }`, resolved exact tag → base language → default.
 

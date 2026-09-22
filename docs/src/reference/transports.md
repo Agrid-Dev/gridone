@@ -219,7 +219,7 @@ curl -X POST "https://gridone.example.com/api/transports/<transport_id>/ingress/
 
 ### OPC-UA
 
-OPC-UA maintains a persistent session to a server. It is pull-based by default — reads go through the OPC-UA Read service with push available per attribute via subscriptions (`push: true` on the attribute, see [General Layout](driver-schema/general-layout.md)): the transport opens one `Subscription` for the session and adds a `MonitoredItem` per subscribed NodeId, delivering data-change notifications instead of polling.
+OPC-UA maintains a persistent session to a server. It is pull-based by default — reads go through the OPC-UA Read service with push available per attribute via subscriptions (`push: true` on the attribute, see [Attributes](driver-schema/attributes.md)): the transport opens one `Subscription` for the session and adds a `MonitoredItem` per subscribed NodeId, delivering data-change notifications instead of polling.
 
 **Read flow** — a single address read uses the OPC-UA Read service against that NodeId. Multiple addresses in the same sweep are batched into one Read service call instead of one request per address.
 
