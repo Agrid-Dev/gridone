@@ -6,7 +6,6 @@ from dataclasses import fields
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from models.command_confirmation import operating_rule_write_options
 from models.errors import ConflictError, InvalidError, NotFoundError
 
 from .device import (
@@ -21,11 +20,11 @@ if TYPE_CHECKING:
     from devices_manager.core.device.connection_status import AttributeLogs
     from devices_manager.core.driver.attribute_driver import AttributeDriver
     from devices_manager.types import AttributeValueType, DataType
-    from models.command_confirmation import OperatingRuleConfirmation
+    from models.command_confirmation import WriteConsent
+    from models.write_policy import WritePolicy
 
     from .device import DeviceStorage
     from .driver import Driver
-    from .operating_rules import OperatingRuleGuard
     from .transports import TransportClient
 
 logger = logging.getLogger(__name__)
@@ -52,7 +51,7 @@ class DeviceRegistry:
         storage: DeviceStorage | None = None,
         on_attribute_update: AttributeListener | None = None,
         on_write_state_update: Callable[[CoreDevice], None] | None = None,
-        operating_rule_guard: OperatingRuleGuard | None = None,
+        write_policy: WritePolicy | None = None,
     ) -> None:
         self._devices = devices if devices is not None else {}
         self._resolve_driver = resolve_driver
@@ -60,7 +59,7 @@ class DeviceRegistry:
         self._on_attribute_update = on_attribute_update
         self._on_write_state_update = on_write_state_update
         self._storage = storage
-        self.operating_rule_guard = operating_rule_guard
+        self.write_policy = write_policy
         for device in self._devices.values():
             self._attach_update_listener(device)
 
@@ -126,7 +125,7 @@ class DeviceRegistry:
         """
         device.on_update = self._on_attribute_update
         device.on_write_state_update = self._on_write_state_update
-        device.operating_rule_guard = self.operating_rule_guard
+        device.write_policy = self.write_policy
 
     async def register(self, device: CoreDevice) -> None:
         """Register device in memory and persist."""
@@ -322,14 +321,14 @@ class DeviceRegistry:
         value: AttributeValueType,
         *,
         confirm: bool = True,
-        operating_rule_confirmation: OperatingRuleConfirmation | None = None,
+        consent: WriteConsent | None = None,
     ) -> Attribute:
         device = self._get_or_raise(device_id)
         return await device.write_attribute_value(
             attribute_name,
             value,
             confirm=confirm,
-            **operating_rule_write_options(operating_rule_confirmation),
+            consent=consent,
         )
 
     async def restart_devices(

@@ -23,7 +23,7 @@ import {
   OperatingRuleDiagnostics,
   OperatingRuleError,
 } from "./OperatingRuleFeedback";
-import type { PointCatalog } from "./expressions";
+import type { AttributeCatalog } from "./expressions";
 import {
   isOperatingRuleEnabled,
   operatingRulePath,
@@ -34,7 +34,7 @@ import {
   useOperatingRuleActions,
 } from "./useOperatingRules";
 
-function History({ id, catalog }: { id: string; catalog: PointCatalog }) {
+function History({ id, catalog }: { id: string; catalog: AttributeCatalog }) {
   const { t, i18n } = useTranslation("operatingRules");
   const { data: history } = useOperatingRuleHistory(id);
   return (
@@ -57,7 +57,7 @@ function History({ id, catalog }: { id: string; catalog: PointCatalog }) {
             <div className="mt-4 space-y-4">
               <OperatingRuleSummary
                 rule={rule}
-                catalog={{ ...catalog, contracts: rule.points }}
+                catalog={{ ...catalog, contracts: rule.attributes }}
               />
               {rule.retirement && (
                 <p className="text-sm">
@@ -82,7 +82,7 @@ export default function OperatingRuleDetail() {
   const { data: devices } = useOperatingRuleDevices();
   const actions = useOperatingRuleActions(rule);
   const enabled = isOperatingRuleEnabled(rule);
-  const catalog = { devices, contracts: rule.points };
+  const catalog = { devices, contracts: rule.attributes };
   return (
     <section className="space-y-6">
       <Link

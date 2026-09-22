@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
 from models.attribute_metadata import LocalizedText  # noqa: TC001 -- schema runtime
 from models.command_confirmation import (
-    OperatingRuleConfirmation,  # noqa: TC001 -- pydantic schema
+    WriteConsent,  # noqa: TC001 -- pydantic schema
 )
 from models.expressions import MAX_LIST_ITEMS, Condition, Expression, Scalar
 
@@ -101,12 +101,19 @@ class WriteEvaluation(BaseModel):
     value: Scalar | None = None
     reasons: list[WriteReason] = Field(default_factory=list)
     warnings: list[WriteReason] = Field(default_factory=list)
-    operating_rule_binding: str | None = None
-    unknown_operating_rule_ids: list[str] = Field(default_factory=list)
-    operating_rule_confirmation: OperatingRuleConfirmation | None = None
+    policy_binding: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("policy_binding", "operating_rule_binding"),
+    )
+    unknown_requirement_ids: list[str] = Field(
+        default_factory=list,
+        validation_alias=AliasChoices(
+            "unknown_requirement_ids", "unknown_operating_rule_ids"
+        ),
+    )
+    consent: WriteConsent | None = Field(
+        default=None,
+        validation_alias=AliasChoices("consent", "operating_rule_confirmation"),
+    )
 
-    @property
-    def can_confirm_operating_rules(self) -> bool:
-        return bool(self.reasons) and all(
-            reason.code == "operating_rule_unknown" for reason in self.reasons
-        )
+    consent_required: bool = False

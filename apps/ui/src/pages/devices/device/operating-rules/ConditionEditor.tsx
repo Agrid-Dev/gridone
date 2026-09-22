@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SelectItem } from "@/components/ui/select";
 import { FieldShell } from "@/components/forms/controllers/FieldShell";
-import { EditorSelect } from "./PointPicker";
-import { PointSelect } from "./PointSelect";
+import { EditorSelect } from "./AttributePicker";
+import { AttributeSelect } from "./AttributeSelect";
 import {
   defaultScalar,
   expressionKind,
@@ -18,12 +18,12 @@ import {
   scalarType,
   type ConditionKind,
   type ExpressionKind,
-  type PointCatalog,
+  type AttributeCatalog,
   type Scalar,
 } from "./expressions";
 
 type Context = {
-  catalog: PointCatalog;
+  catalog: AttributeCatalog;
   candidateType?: DataType;
   depth?: number;
 };
@@ -40,7 +40,7 @@ const conditionKinds: ConditionKind[] = [
   "not",
 ];
 const expressionKinds: ExpressionKind[] = [
-  "point",
+  "attribute",
   "literal",
   "candidate",
   "add",
@@ -157,8 +157,8 @@ export function ExpressionEditor({
           />
         </>
       ) : "device_id" in value ? (
-        <PointSelect
-          label={t("observedPoint")}
+        <AttributeSelect
+          label={t("observedAttribute")}
           value={value}
           catalog={catalog}
           onChange={onChange}
@@ -229,7 +229,7 @@ export function ExpressionEditor({
           />
         </>
       ) : (
-        <p role="alert">{t("implicitPoint")}</p>
+        <p role="alert">{t("implicitAttribute")}</p>
       )}
     </fieldset>
   );

@@ -29,8 +29,11 @@ import { useDeviceFromRoute } from "@/hooks/useDevice";
 import { usePermissions } from "@/contexts/AuthContext";
 import { ConditionRows, ValueInput } from "./ConditionRows";
 import { RuleSentence } from "./RuleSentence";
-import { defaultScalar, pointAttribute, pointType } from "./expressions";
-import { OperatingRuleSummary, WithoutPointIds } from "./OperatingRuleSummary";
+import { defaultScalar, catalogAttribute, attributeType } from "./expressions";
+import {
+  OperatingRuleSummary,
+  WithoutAttributeIds,
+} from "./OperatingRuleSummary";
 import {
   OperatingRuleDiagnostics,
   OperatingRuleError,
@@ -92,10 +95,10 @@ export function OperatingRuleForm({
   const { data: devices } = useOperatingRuleDevices();
   const state = useOperatingRuleForm(device.id, schemas, initial);
   const { form, base, save, reload, latest } = state;
-  const catalog = { devices, contracts: base?.points };
+  const catalog = { devices, contracts: base?.attributes };
   const target = form.watch("target");
   const condition = form.watch("condition");
-  const type = pointType(catalog, target);
+  const type = attributeType(catalog, target);
   const writable = Object.entries(device.attributes ?? {}).filter(
     ([, attribute]) =>
       Array.isArray(attribute.read_write_modes) &&
@@ -137,7 +140,7 @@ export function OperatingRuleForm({
                       const next = { ...field.value, attribute };
                       field.onChange({
                         ...next,
-                        value: defaultScalar(pointType(catalog, next)),
+                        value: defaultScalar(attributeType(catalog, next)),
                       });
                     }}
                   >
@@ -175,7 +178,7 @@ export function OperatingRuleForm({
                     type={type}
                     unit={attributeUnit(
                       field.value.attribute,
-                      pointAttribute(catalog, field.value),
+                      catalogAttribute(catalog, field.value),
                     )}
                     onChange={(value) =>
                       field.onChange({ ...field.value, value })
@@ -341,12 +344,12 @@ export function OperatingRuleForm({
                   {t("latestVersion", { revision: latest.revision })}
                 </h3>
                 <p className="text-sm font-medium">{latest.name}</p>
-                <WithoutPointIds>
+                <WithoutAttributeIds>
                   <OperatingRuleSummary
                     rule={latest}
-                    catalog={{ devices, contracts: latest.points }}
+                    catalog={{ devices, contracts: latest.attributes }}
                   />
-                </WithoutPointIds>
+                </WithoutAttributeIds>
                 <p className="text-sm">
                   {t(latest.retirement ? "retiredHelp" : "reconcileHelp")}
                 </p>

@@ -1,9 +1,10 @@
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 from pydantic import ValidationError
 
+from models.attribute_observation import AttributeDefinition, AttributeObservation
 from models.errors import (
     ConflictError,
     InvalidError,
@@ -13,11 +14,13 @@ from models.errors import (
     WriteRejectedError,
 )
 from models.operating_rules import (
+    OperatingRule,
     OperatingRuleDefinition,
     OperatingRuleRetirement,
-    PointDefinition,
 )
 from models.types import DataType
+from models.write_rules import WriteEvaluation
+from operating_rules.guard import OperatingRuleGuard
 from operating_rules.service import OperatingRulesService
 
 pytestmark = pytest.mark.asyncio
@@ -27,7 +30,7 @@ async def test_create_update_and_retirement_are_audited(service, storage, defini
     rule = await service.create(definition, "admin")
     assert len(rule.id) == 16
     assert rule.created_by == rule.updated_by == "admin"
-    assert len(rule.points) == 2
+    assert len(rule.attributes) == 2
     assert service.for_target("a", "command") == [rule]
     assert service.for_target("b", "command") == []
     assert service.list_operating_rules()[0].reasons == []
@@ -74,13 +77,13 @@ async def test_stale_or_retired_rule_cannot_be_edited(service, definition):
     [
         (None, "operating_rule_reference_invalid"),
         (
-            PointDefinition(
+            AttributeDefinition(
                 data_type=DataType.BOOL, writable=False, max_age_seconds=30
             ),
             "not_writable",
         ),
         (
-            PointDefinition(
+            AttributeDefinition(
                 data_type=DataType.STRING, writable=True, max_age_seconds=30
             ),
             "invalid_value",
@@ -105,7 +108,7 @@ async def test_broken_references_remain_visible(
     inspector.return_value = (
         None
         if failure == "missing"
-        else PointDefinition(
+        else AttributeDefinition(
             data_type=DataType.INT if failure == "type" else DataType.BOOL,
             writable=failure != "writable",
             max_age_seconds=30,
@@ -140,8 +143,8 @@ async def test_two_directions_and_defensive_copies(service, definition):
     assert service.list_operating_rules("missing") == []
     assert service.for_target("a", "command")[0].id == first.id
     assert service.for_target("b", "command")[0].id == second.id
-    first.points.clear()
-    assert len(service.get(first.id).points) == 2
+    first.attributes.clear()
+    assert len(service.get(first.id).attributes) == 2
 
 
 async def test_rule_budget(service, definition, monkeypatch):
@@ -191,7 +194,7 @@ async def test_condition_types_and_integer_targets(service, definition):
 
 
 async def test_model_rejects_implicit_references_and_blank_retirement(definition):
-    with pytest.raises(ValidationError, match="explicit_device_point"):
+    with pytest.raises(ValidationError, match="explicit_device_attribute"):
         OperatingRuleDefinition.model_validate(
             {
                 **definition.model_dump(),
@@ -215,7 +218,7 @@ async def test_expression_depth_is_bounded(definition):
 
 
 async def test_fractional_integer_target_is_rejected(service, inspector, definition):
-    inspector.return_value = PointDefinition(
+    inspector.return_value = AttributeDefinition(
         data_type=DataType.INT, writable=True, max_age_seconds=30
     )
     payload = definition.model_dump()
@@ -234,7 +237,7 @@ async def test_start_is_idempotent(service, storage):
 async def test_freshness_is_independent_of_driver_cadence(
     service, inspector, definition, max_age
 ):
-    inspector.return_value = PointDefinition(
+    inspector.return_value = AttributeDefinition(
         data_type=DataType.BOOL, writable=True, max_age_seconds=None
     )
     payload = definition.model_copy(update={"max_age_seconds": max_age})
@@ -368,3 +371,61 @@ async def test_legacy_retired_rule_can_be_reactivated_or_deleted(
     else:
         await service.delete(rule.id, "admin", 2)
         assert service.list_operating_rules() == []
+
+
+@pytest.mark.parametrize("reference", ["target", "dependency"])
+@pytest.mark.parametrize("failure", ["missing", "type", "contract", "writable"])
+async def test_diagnostics_and_guard_share_reference_checks(
+    service, inspector, definition, reference, failure
+):
+    rule = await service.create(definition, "admin")
+    device_id = "a" if reference == "target" else "b"
+    valid = inspector.return_value
+    inspector.side_effect = lambda ref: (
+        (
+            None
+            if failure == "missing"
+            else valid.model_copy(
+                update={
+                    "data_type": DataType.STRING
+                    if failure == "type"
+                    else DataType.BOOL,
+                    "writable": failure != "writable",
+                }
+            )
+        )
+        if ref.device_id == device_id
+        else valid
+    )
+    if failure == "contract":
+        rule = rule.model_copy(
+            update={
+                "attributes": [a for a in rule.attributes if a.device_id != device_id]
+            }
+        )
+    # Use exactly the same saved revision for diagnostics and enforcement.
+    provider = Mock()
+    provider.for_target.return_value = [rule]
+    guard = OperatingRuleGuard(
+        provider,
+        inspector,
+        Mock(return_value=AttributeObservation(value=False, validity="known")),
+    )
+    result = guard("a", "command", WriteEvaluation(eligible=True, value=True))
+    assert result.reasons == service.diagnose(rule)
+    # Read-only dependencies are valid; only the target must remain writable.
+    assert result.eligible == (reference == "dependency" and failure == "writable")
+    assert not result.consent_required
+
+
+async def test_existing_point_contracts_load_but_serialize_as_attributes(
+    service, definition
+):
+    rule = await service.create(definition, "admin")
+    payload = rule.model_dump(mode="json")
+    payload["points"] = payload.pop("attributes")
+    restored = OperatingRule.model_validate(payload)
+    assert restored == rule
+    assert "points" not in restored.model_dump()
+    assert "attributes" in restored.model_dump()
+    assert "points" not in OperatingRule.model_json_schema()["properties"]

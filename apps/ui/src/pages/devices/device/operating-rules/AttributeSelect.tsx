@@ -1,7 +1,7 @@
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
 import { Check, Search } from "lucide-react";
-import type { DevicePointRef } from "@gridone/sdk";
+import type { DeviceAttributeRef } from "@gridone/sdk";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -17,11 +17,11 @@ import {
 } from "@/components/ui/command";
 import { useAttributeLabel } from "@/hooks/useAttributeLabel";
 import { cn } from "@/lib/utils";
-import { pointAttribute, type PointCatalog } from "./expressions";
-import { usePointSearch } from "./usePointSearch";
+import { catalogAttribute, type AttributeCatalog } from "./expressions";
+import { useAttributeSearch } from "./useAttributeSearch";
 
-/** Search every device point before limiting the rendered results for large fleets. */
-export function PointSelect({
+/** Search every device reference before limiting the rendered results for large fleets. */
+export function AttributeSelect({
   value,
   onChange,
   catalog,
@@ -29,17 +29,17 @@ export function PointSelect({
   writable = false,
   className,
 }: {
-  value: DevicePointRef;
-  onChange: (value: DevicePointRef) => void;
-  catalog: PointCatalog;
+  value: DeviceAttributeRef;
+  onChange: (value: DeviceAttributeRef) => void;
+  catalog: AttributeCatalog;
   label: string;
   writable?: boolean;
   className?: string;
 }) {
   const { t } = useTranslation("operatingRules");
   const attributeLabel = useAttributeLabel();
-  const search = usePointSearch(catalog, writable);
-  const selected = pointAttribute(catalog, value);
+  const search = useAttributeSearch(catalog, writable);
+  const selected = catalogAttribute(catalog, value);
   const device = catalog.devices.find(
     (device) => device.id === value.device_id,
   );
@@ -55,7 +55,7 @@ export function PointSelect({
     ? t("missing", { id: `${value.device_id}/${value.attribute}` })
     : selected
       ? `${device?.name} · ${attributeLabel(value.attribute, selected)}`
-      : t("choosePoint");
+      : t("chooseDeviceAttribute");
 
   return (
     <span className={cn("flex min-w-0 flex-col gap-1", className)}>
@@ -89,32 +89,32 @@ export function PointSelect({
           align="start"
           className="w-[var(--radix-popover-trigger-width)] min-w-72 max-w-[calc(100vw-2rem)] p-0"
         >
-          <Command shouldFilter={false} label={t("searchPoints")}>
+          <Command shouldFilter={false} label={t("searchAttributes")}>
             <CommandInput
-              aria-label={t("searchPoints")}
-              placeholder={t("searchPoints")}
+              aria-label={t("searchAttributes")}
+              placeholder={t("searchAttributes")}
               value={search.query}
               onValueChange={search.setQuery}
             />
             <CommandList label={label}>
-              <CommandEmpty>{t("noPoints")}</CommandEmpty>
-              {search.points.map((option) => (
+              <CommandEmpty>{t("noAttributes")}</CommandEmpty>
+              {search.attributes.map((option) => (
                 <CommandItem
                   key={option.key}
                   value={option.key}
                   onSelect={() => {
-                    onChange(option.point);
+                    onChange(option.reference);
                     search.setOpen(false);
                   }}
                 >
                   <span className="min-w-0 flex-1">
                     <span className="block truncate">{option.label}</span>
                     <span className="block truncate text-xs text-muted-foreground">
-                      {option.point.device_id}/{option.point.attribute}
+                      {option.reference.device_id}/{option.reference.attribute}
                     </span>
                   </span>
-                  {value.device_id === option.point.device_id &&
-                    value.attribute === option.point.attribute && (
+                  {value.device_id === option.reference.device_id &&
+                    value.attribute === option.reference.attribute && (
                       <Check aria-hidden="true" />
                     )}
                 </CommandItem>
@@ -125,7 +125,7 @@ export function PointSelect({
                 className="border-t px-3 py-2 text-xs text-muted-foreground"
                 role="status"
               >
-                {t("morePoints", { count: search.overflow })}
+                {t("moreAttributes", { count: search.overflow })}
               </p>
             )}
           </Command>
@@ -133,7 +133,7 @@ export function PointSelect({
       </Popover>
       {broken && (
         <span id={messageId} className="text-xs text-destructive">
-          {t("brokenPoint", {
+          {t("brokenAttribute", {
             device: value.device_id,
             attribute: value.attribute,
           })}

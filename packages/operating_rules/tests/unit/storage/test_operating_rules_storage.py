@@ -20,7 +20,7 @@ async def test_revision_roundtrip_and_restart(definition, tmp_path, persistent):
     rule = OperatingRule(
         **definition.model_dump(),
         id="rule",
-        points=[],
+        attributes=[],
         created_at=now,
         updated_at=now,
         created_by="admin",
@@ -29,7 +29,7 @@ async def test_revision_roundtrip_and_restart(definition, tmp_path, persistent):
     assert await storage.list_operating_rules() == []
     assert await storage.history("missing") == []
     saved = await storage.save(rule)
-    saved.points.clear()
+    saved.attributes.clear()
     second = rule.model_copy(
         update={"revision": 2, "name": "Changed", "max_age_seconds": 120}
     )
@@ -93,7 +93,7 @@ async def test_failed_file_replacement_preserves_previous_revision(
     rule = OperatingRule(
         **definition.model_dump(),
         id="rule",
-        points=[],
+        attributes=[],
         created_at=now,
         updated_at=now,
         created_by="admin",

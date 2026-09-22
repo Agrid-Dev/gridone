@@ -2468,6 +2468,14 @@ export interface components {
     Attribute: {
       [key: string]: unknown;
     };
+    /** AttributeContract */
+    AttributeContract: {
+      /** Device Id */
+      device_id: string;
+      /** Attribute */
+      attribute: string;
+      data_type: components["schemas"]["DataType"];
+    };
     /**
      * AttributeCoverage
      * @description How widely an attribute is exposed across a device set. Never persisted.
@@ -3769,6 +3777,16 @@ export interface components {
       write_state_revision?: number;
     };
     /**
+     * DeviceAttributeRef
+     * @description An observed attribute, e.g. ``{device_id: pump, attribute: running}``.
+     */
+    DeviceAttributeRef: {
+      /** Device Id */
+      device_id: string;
+      /** Attribute */
+      attribute: string;
+    };
+    /**
      * DeviceBatchCreate
      * @description Create many devices sharing one driver + transport, each with its own config.
      */
@@ -3876,16 +3894,6 @@ export interface components {
         | components["schemas"]["ButtonLayer"]
       )[];
     };
-    /**
-     * DevicePointRef
-     * @description An explicit observed point, e.g. ``{device_id: pump, attribute: running}``.
-     */
-    DevicePointRef: {
-      /** Device Id */
-      device_id: string;
-      /** Attribute */
-      attribute: string;
-    };
     /** DeviceUpdate */
     DeviceUpdate: {
       /** Name */
@@ -3963,15 +3971,15 @@ export interface components {
       attribute_label?: components["schemas"]["LocalizedText"] | null;
       /** Unit */
       unit?: string | null;
-      /** Operating Rule Binding */
-      operating_rule_binding?: string | null;
-      /** Unknown Operating Rule Ids */
-      unknown_operating_rule_ids?: string[];
+      /** Policy Binding */
+      policy_binding?: string | null;
+      /** Unknown Requirement Ids */
+      unknown_requirement_ids?: string[];
       /**
-       * Operating Rule Confirmation Required
+       * Consent Required
        * @default false
        */
-      operating_rule_confirmation_required?: boolean;
+      consent_required?: boolean;
     };
     /**
      * DevicesFilter
@@ -4238,7 +4246,7 @@ export interface components {
       | number
       | string
       | components["schemas"]["AttributeRef"]
-      | components["schemas"]["DevicePointRef"]
+      | components["schemas"]["DeviceAttributeRef"]
       | components["schemas"]["CandidateRef"]
       | components["schemas"]["ArithmeticExpression-Input"]
       | components["schemas"]["ChoiceExpression-Input"];
@@ -4247,7 +4255,7 @@ export interface components {
       | number
       | string
       | components["schemas"]["AttributeRef"]
-      | components["schemas"]["DevicePointRef"]
+      | components["schemas"]["DeviceAttributeRef"]
       | components["schemas"]["CandidateRef"]
       | components["schemas"]["ArithmeticExpression-Output"]
       | components["schemas"]["ChoiceExpression-Output"];
@@ -5554,7 +5562,7 @@ export interface components {
       explanation: string;
       /**
        * Max Age Seconds
-       * @description Maximum age of each observed condition point in seconds. Null disables freshness checks; never-observed or invalidated values remain unknown.
+       * @description Maximum age of each observed condition attribute in seconds. Null disables freshness checks; never-observed or invalidated values remain unknown.
        */
       max_age_seconds?: number | null;
       /**
@@ -5585,26 +5593,9 @@ export interface components {
       updated_at: string;
       /** Updated By */
       updated_by: string;
-      /** Points */
-      points: components["schemas"]["PointContract"][];
+      /** Attributes */
+      attributes: components["schemas"]["AttributeContract"][];
       retirement?: components["schemas"]["OperatingRuleRetirement"] | null;
-    };
-    /**
-     * OperatingRuleConfirmation
-     * @description Server-issued evidence of the unknown operating rules a human acknowledged.
-     */
-    OperatingRuleConfirmation: {
-      /** Binding */
-      binding: string;
-      /** Operating Rule Ids */
-      operating_rule_ids: string[];
-      /** Actor Id */
-      actor_id: string;
-      /**
-       * Confirmed At
-       * Format: date-time
-       */
-      confirmed_at: string;
     };
     /** OperatingRuleDefinition */
     OperatingRuleDefinition: {
@@ -5616,7 +5607,7 @@ export interface components {
       explanation: string;
       /**
        * Max Age Seconds
-       * @description Maximum age of each observed condition point in seconds. Null disables freshness checks; never-observed or invalidated values remain unknown.
+       * @description Maximum age of each observed condition attribute in seconds. Null disables freshness checks; never-observed or invalidated values remain unknown.
        */
       max_age_seconds?: number | null;
     };
@@ -5936,14 +5927,6 @@ export interface components {
        * @default 0
        */
       z?: number;
-    };
-    /** PointContract */
-    PointContract: {
-      /** Device Id */
-      device_id: string;
-      /** Attribute */
-      attribute: string;
-      data_type: components["schemas"]["DataType"];
     };
     /**
      * PortEndpoint
@@ -6416,15 +6399,15 @@ export interface components {
       attribute_label?: components["schemas"]["LocalizedText"] | null;
       /** Unit */
       unit?: string | null;
-      /** Operating Rule Binding */
-      operating_rule_binding?: string | null;
-      /** Unknown Operating Rule Ids */
-      unknown_operating_rule_ids?: string[];
+      /** Policy Binding */
+      policy_binding?: string | null;
+      /** Unknown Requirement Ids */
+      unknown_requirement_ids?: string[];
       /**
-       * Operating Rule Confirmation Required
+       * Consent Required
        * @default false
        */
-      operating_rule_confirmation_required?: boolean;
+      consent_required?: boolean;
       /** Confirmation Token */
       confirmation_token?: string | null;
     };
@@ -7057,7 +7040,7 @@ export interface components {
       explanation: string;
       /**
        * Max Age Seconds
-       * @description Maximum age of each observed condition point in seconds. Null disables freshness checks; never-observed or invalidated values remain unknown.
+       * @description Maximum age of each observed condition attribute in seconds. Null disables freshness checks; never-observed or invalidated values remain unknown.
        */
       max_age_seconds?: number | null;
       /** Revision */
@@ -7429,6 +7412,23 @@ export interface components {
         | null;
     };
     /**
+     * WriteConsent
+     * @description Server-issued evidence of unknown policy requirements a human acknowledged.
+     */
+    WriteConsent: {
+      /** Binding */
+      binding: string;
+      /** Requirement Ids */
+      requirement_ids: string[];
+      /** Actor Id */
+      actor_id: string;
+      /**
+       * Confirmed At
+       * Format: date-time
+       */
+      confirmed_at: string;
+    };
+    /**
      * WriteConstraints
      * @description Declarative limits the service enforces on every write of a numeric attribute.
      *
@@ -7472,13 +7472,16 @@ export interface components {
       reasons?: components["schemas"]["WriteReason"][];
       /** Warnings */
       warnings?: components["schemas"]["WriteReason"][];
-      /** Operating Rule Binding */
-      operating_rule_binding?: string | null;
-      /** Unknown Operating Rule Ids */
-      unknown_operating_rule_ids?: string[];
-      operating_rule_confirmation?:
-        | components["schemas"]["OperatingRuleConfirmation"]
-        | null;
+      /** Policy Binding */
+      policy_binding?: string | null;
+      /** Unknown Requirement Ids */
+      unknown_requirement_ids?: string[];
+      consent?: components["schemas"]["WriteConsent"] | null;
+      /**
+       * Consent Required
+       * @default false
+       */
+      consent_required?: boolean;
     };
     /** WriteOption */
     "WriteOption-Input": {

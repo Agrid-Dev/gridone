@@ -41,7 +41,7 @@ from models.operating_rules import OperatingRuleDefinition
 from models.targets import DevicesFilter
 from models.types import DataType
 from models.write_rules import WriteReason
-from operating_rules import OperatingRulesService
+from operating_rules import OperatingRuleGuard, OperatingRulesService
 from timeseries import TimeSeriesService
 
 pytestmark = pytest.mark.asyncio
@@ -102,9 +102,11 @@ async def harness(admin_token_payload):
         transports={transport.id: transport},
         devices=devices,
     )
-    operating_rules = OperatingRulesService(None, dm.inspect_point)
+    operating_rules = OperatingRulesService(None, dm.inspect_attribute)
     await operating_rules.start()
-    dm.set_operating_rule_provider(operating_rules)
+    dm.set_write_policy(
+        OperatingRuleGuard(operating_rules, dm.inspect_attribute, dm.resolve_attribute)
+    )
     await dm.load()
     definition = OperatingRuleDefinition.model_validate(
         {
@@ -213,7 +215,7 @@ async def test_human_unknown_confirmation_is_bound_single_use_and_audited(harnes
     preview = (
         await harness.client.post("/devices/a/commands/preview", json=body)
     ).json()
-    assert preview["operating_rule_confirmation_required"]
+    assert preview["consent_required"]
     assert not preview["eligible"]
     assert (
         await harness.client.post("/devices/a/commands", json=body)
@@ -225,8 +227,8 @@ async def test_human_unknown_confirmation_is_bound_single_use_and_audited(harnes
     }
     response = await harness.client.post("/devices/a/commands", json=confirmed)
     assert response.status_code == 200, response.text
-    evidence = response.json()["validation"]["operating_rule_confirmation"]
-    assert evidence["operating_rule_ids"] == [harness.rule_id]
+    evidence = response.json()["validation"]["consent"]
+    assert evidence["requirement_ids"] == [harness.rule_id]
     assert evidence["actor_id"] == response.json()["user_id"]
     assert (
         response.json()["validation"]["warnings"][0]["code"] == "operating_rule_unknown"
@@ -331,7 +333,7 @@ async def test_automatic_and_group_members_are_terminally_refused(harness):
     b = next(row for row in rows if row.device_id == "b")
     assert a.status == CommandStatus.ERROR
     assert a.validation.reasons[0].code == "operating_rule_unknown"
-    assert a.validation.operating_rule_confirmation is None
+    assert a.validation.consent is None
     assert b.status == CommandStatus.SUCCESS
     harness.transport.write.assert_awaited_once()
 
@@ -366,9 +368,7 @@ async def test_group_unknown_acknowledgement_is_recorded_per_member(harness):
         await harness.commands.get_commands(batch_id=response.json()["batch_id"])
     ).items[0]
     assert recorded.status == CommandStatus.SUCCESS
-    assert recorded.validation.operating_rule_confirmation.operating_rule_ids == [
-        harness.rule_id
-    ]
+    assert recorded.validation.consent.requirement_ids == [harness.rule_id]
 
 
 async def test_confirmation_cannot_be_replayed_for_another_write(harness):

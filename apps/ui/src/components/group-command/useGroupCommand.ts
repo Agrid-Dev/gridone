@@ -215,8 +215,7 @@ export function useGroupCommand(
               : {}),
             ...(item.preview!.members.some(
               (row) =>
-                item.selected.includes(row.device_id) &&
-                row.operating_rule_confirmation_required,
+                item.selected.includes(row.device_id) && row.consent_required,
             )
               ? { acknowledge_unknown_operating_rules: true }
               : {}),
@@ -332,9 +331,7 @@ export function useGroupCommand(
       if (!item || item.batch || item.uncertain) return;
       const eligible = new Set(
         item.preview?.members
-          .filter(
-            (row) => row.eligible || row.operating_rule_confirmation_required,
-          )
+          .filter((row) => row.eligible || row.consent_required)
           .map((row) => row.device_id),
       );
       updatePreparation(item.write.attribute, {

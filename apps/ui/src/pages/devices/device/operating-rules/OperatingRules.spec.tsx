@@ -88,7 +88,7 @@ function rule(overrides: Partial<OperatingRule> = {}): OperatingRule {
       right: false,
     },
     revision: 1,
-    points: [
+    attributes: [
       { device_id: "a", attribute: "command", data_type: "bool" },
       { device_id: "b", attribute: "running", data_type: "bool" },
     ],
@@ -163,7 +163,7 @@ function setup(suffix = "") {
 }
 
 describe("device operating rules", () => {
-  it("searches the whole fleet by device and point, then selects with the keyboard", async () => {
+  it("searches the whole fleet by device and attribute, then selects with the keyboard", async () => {
     const fleet = Array.from({ length: 100 }, (_, index) => ({
       ...device(`id-${index}`),
       name: `Thermostat ${index}`,
@@ -171,7 +171,7 @@ describe("device operating rules", () => {
     api.devices.mockResolvedValue([device("a"), ...fleet]);
     const { user } = setup("/new");
     await user.click(
-      await screen.findByRole("combobox", { name: "Observed point" }),
+      await screen.findByRole("combobox", { name: "Observed attribute" }),
     );
     expect(screen.getAllByRole("option").length).toBeLessThanOrEqual(40);
     const search = screen.getByRole("combobox", {
@@ -183,7 +183,9 @@ describe("device operating rules", () => {
     expect(screen.getByRole("option")).toHaveTextContent("id-99/running");
     await user.keyboard("{ArrowDown}{Enter}");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    const trigger = screen.getByRole("combobox", { name: "Observed point" });
+    const trigger = screen.getByRole("combobox", {
+      name: "Observed attribute",
+    });
     expect(trigger).toHaveTextContent("Thermostat 99 · Running");
     await waitFor(() => expect(trigger).toHaveFocus());
     await user.click(trigger);
@@ -203,7 +205,7 @@ describe("device operating rules", () => {
     api.devices.mockResolvedValue([device("a"), source]);
     const { user } = setup("/rule/edit");
     await user.click(
-      await screen.findByRole("combobox", { name: "Observed point" }),
+      await screen.findByRole("combobox", { name: "Observed attribute" }),
     );
     const search = screen.getByRole("combobox", {
       name: "Search devices, attributes or IDs…",
@@ -211,12 +213,12 @@ describe("device operating rules", () => {
     await user.type(search, "b arret");
     expect(screen.getAllByRole("option")).toHaveLength(1);
     await user.clear(search);
-    await user.type(search, "no such point");
-    expect(screen.getByText("No matching point.")).toBeInTheDocument();
+    await user.type(search, "no such attribute");
+    expect(screen.getByText("No matching attribute.")).toBeInTheDocument();
     expect(screen.queryByRole("option")).not.toBeInTheDocument();
     await user.keyboard("{Escape}");
     expect(
-      screen.getByRole("combobox", { name: "Observed point" }),
+      screen.getByRole("combobox", { name: "Observed attribute" }),
     ).toHaveTextContent("Pump B · Marche / arrêt");
     expect(api.update).not.toHaveBeenCalled();
   });
@@ -321,7 +323,9 @@ describe("device operating rules", () => {
     await user.click(screen.getByRole("option", { name: "On" }));
     // One row, one control per part of the sentence: no nested value-source
     // or value-type selects on the way to "pump B running is false".
-    await user.click(screen.getByRole("combobox", { name: "Observed point" }));
+    await user.click(
+      screen.getByRole("combobox", { name: "Observed attribute" }),
+    );
     await user.click(screen.getByRole("option", { name: /Pump B · Running/ }));
     await user.click(screen.getByRole("combobox", { name: "Comparison" }));
     await user.click(screen.getByRole("option", { name: "equals" }));
@@ -349,11 +353,13 @@ describe("device operating rules", () => {
     await screen.findByLabelText(/Why this operating rule exists/);
     await user.click(screen.getByRole("combobox", { name: "Attribute" }));
     await user.click(screen.getByRole("option", { name: "Command" }));
-    await user.click(screen.getByRole("combobox", { name: "Observed point" }));
+    await user.click(
+      screen.getByRole("combobox", { name: "Observed attribute" }),
+    );
     await user.click(screen.getByRole("option", { name: /Pump B · Pressure/ }));
     const preview = screen.getByText("In plain words").parentElement!;
-    // The preview names the write it refuses and the point it watches, and
-    // follows the point's type: a float point offers ordering comparisons.
+    // The preview names the write it refuses and the attribute it watches, and
+    // follows the attribute's type: a float attribute offers ordering comparisons.
     expect(preview).toHaveTextContent("Refuses");
     expect(preview).toHaveTextContent("Command");
     expect(preview).toHaveTextContent("Pump B · Pressure");
@@ -363,7 +369,7 @@ describe("device operating rules", () => {
     ).toBeInTheDocument();
   });
 
-  it("wraps a boolean row back to equality when it moves to a boolean point", async () => {
+  it("wraps a boolean row back to equality when it moves to a boolean attribute", async () => {
     api.get.mockResolvedValue({
       operating_rule: rule({
         condition: {
@@ -376,7 +382,9 @@ describe("device operating rules", () => {
     });
     const { user } = setup("/rule/edit");
     await screen.findByDisplayValue("Pump interlock");
-    await user.click(screen.getByRole("combobox", { name: "Observed point" }));
+    await user.click(
+      screen.getByRole("combobox", { name: "Observed attribute" }),
+    );
     await user.click(screen.getByRole("option", { name: /Pump B · Running/ }));
     await user.click(
       screen.getByRole("button", { name: "Save operating rule" }),
@@ -404,7 +412,7 @@ describe("device operating rules", () => {
     ).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Add condition" }));
     const added = screen.getAllByRole("combobox", {
-      name: "Observed point",
+      name: "Observed attribute",
     })[1];
     await user.click(added);
     await user.click(screen.getByRole("option", { name: /Pump B · Running/ }));
@@ -535,18 +543,18 @@ describe("device operating rules", () => {
       reasons: [{ code: "operating_rule_reference_invalid" }],
     });
     setup("/rule/edit");
-    await screen.findByText(/point b \/ running is missing/);
+    await screen.findByText(/attribute b \/ running is missing/);
     expect(
-      screen.getByRole("combobox", { name: "Observed point" }),
+      screen.getByRole("combobox", { name: "Observed attribute" }),
     ).toHaveAttribute("aria-invalid", "true");
     // The preview says the rule is broken rather than printing a dangling id.
-    expect(screen.getAllByText("Deleted point").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Deleted attribute").length).toBeGreaterThan(0);
     expect(
       screen.getByRole("button", { name: "Save operating rule" }),
     ).toBeEnabled();
   });
 
-  it("keeps membership values compatible when the observed point type changes", async () => {
+  it("keeps membership values compatible when the observed attribute type changes", async () => {
     api.get.mockResolvedValue({
       operating_rule: rule({
         condition: {
@@ -559,7 +567,9 @@ describe("device operating rules", () => {
     });
     const { user } = setup("/rule/edit");
     await screen.findByDisplayValue("Pump interlock");
-    await user.click(screen.getByRole("combobox", { name: "Observed point" }));
+    await user.click(
+      screen.getByRole("combobox", { name: "Observed attribute" }),
+    );
     await user.click(screen.getByRole("option", { name: /Pump B · Pressure/ }));
     fireEvent.change(
       screen.getByRole("spinbutton", { name: /Allowed value 1/ }),
@@ -583,7 +593,7 @@ describe("device operating rules", () => {
   });
 
   it("keeps a calculated comparison out of the row controls", async () => {
-    // A row cannot draw "pressure > (pressure + 2)". Rendering it as a point
+    // A row cannot draw "pressure > (pressure + 2)". Rendering it as a attribute
     // picker would show an empty control and destroy the calculation on the
     // first click, so the whole condition stays an expression.
     const condition: OperatingRule["condition"] = {
@@ -604,17 +614,17 @@ describe("device operating rules", () => {
       screen.getAllByRole("button", { name: "Edit as expression" }),
     ).toHaveLength(1);
     expect(
-      screen.queryByRole("combobox", { name: "Compared point" }),
+      screen.queryByRole("combobox", { name: "Compared attribute" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("combobox", { name: "Observed point" }),
+      screen.queryByRole("combobox", { name: "Observed attribute" }),
     ).not.toBeInTheDocument();
   });
 
   it("offers ordering comparisons only where they mean something", async () => {
     const { user } = setup("/rule/edit");
     await screen.findByDisplayValue("Pump interlock");
-    // The loaded row observes a boolean point.
+    // The loaded row observes a boolean attribute.
     await user.click(screen.getByRole("combobox", { name: "Comparison" }));
     expect(
       screen.queryByRole("option", { name: "is greater than" }),
@@ -680,7 +690,9 @@ describe("device operating rules", () => {
     });
     const { user } = setup("/rule/edit");
     await screen.findByDisplayValue("Pump interlock");
-    await user.click(screen.getByRole("combobox", { name: "Observed point" }));
+    await user.click(
+      screen.getByRole("combobox", { name: "Observed attribute" }),
+    );
     await user.click(screen.getByRole("option", { name: /Pump B · Running/ }));
     await user.click(
       screen.getByRole("button", { name: "Save operating rule" }),

@@ -52,15 +52,14 @@ from commands import CommandsService, WriteResult
 from device_views import DeviceViewsService
 from devices_manager import DevicesService
 from models.command_confirmation import (
-    OperatingRuleConfirmation,
-    operating_rule_write_options,
+    WriteConsent,
 )
 from models.errors import ConfigurationError
 from models.service import Service
 from models.types import AttributeValueType, DataType
 from models.write_rules import WriteEvaluation
 from notifications import NotificationsService
-from operating_rules import OperatingRulesService
+from operating_rules import OperatingRuleGuard, OperatingRulesService
 from synoptics import SynopticsService
 from timeseries import TimeSeriesService
 from users import UsersService
@@ -154,9 +153,11 @@ async def lifespan(
     app.state.websocket_manager = websocket_manager
 
     dm = DevicesService(settings.storage_url)
-    operating_rules = OperatingRulesService(settings.storage_url, dm.inspect_point)
+    operating_rules = OperatingRulesService(settings.storage_url, dm.inspect_attribute)
     await operating_rules.start()
-    dm.set_operating_rule_provider(operating_rules)
+    dm.set_write_policy(
+        OperatingRuleGuard(operating_rules, dm.inspect_attribute, dm.resolve_attribute)
+    )
     app.state.operating_rules_service = operating_rules
     ts_service = TimeSeriesService(
         settings.storage_url, default_timezone=settings.GRIDONE_TIMEZONE
@@ -354,14 +355,14 @@ async def _start_commands_service(
         value: AttributeValueType,
         *,
         confirm: bool = True,
-        operating_rule_confirmation: OperatingRuleConfirmation | None = None,
+        consent: WriteConsent | None = None,
     ) -> WriteResult:
         attr = await dm.write_device_attribute(
             device_id,
             attribute_name,
             value,
             confirm=confirm,
-            **operating_rule_write_options(operating_rule_confirmation),
+            consent=consent,
         )
         return WriteResult(
             last_changed=attr.last_changed,
@@ -392,13 +393,13 @@ async def _start_commands_service(
         attribute: str,
         value: AttributeValueType,
         *,
-        operating_rule_confirmation: OperatingRuleConfirmation | None = None,
+        consent: WriteConsent | None = None,
     ) -> WriteEvaluation:
         return dm.evaluate_device_write(
             device_id,
             attribute,
             value,
-            operating_rule_confirmation=operating_rule_confirmation,
+            consent=consent,
         )
 
     commands_service = CommandsService(

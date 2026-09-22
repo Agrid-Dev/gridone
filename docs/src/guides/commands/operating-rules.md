@@ -31,11 +31,11 @@ Use `POST /operating-rules/` to prevent starting A unless B is observed stopped:
 }
 ```
 
-A reciprocal interlock is a separate rule with device IDs reversed. Missing points
+A reciprocal interlock is a separate rule with device IDs reversed. Missing attributes
 and incompatible types are rejected.
 
 Freshness checking is optional and disabled by default. Set `max_age_seconds` to a
-positive duration to limit the age of each observed condition point; omit it or
+positive duration to limit the age of each observed condition attribute; omit it or
 set it to `null` to use the last acquired value regardless of age. The device
 configuration form exposes this as **Check data freshness**, with a duration in
 seconds. The setting is saved and audited with each operating rule revision.
@@ -56,7 +56,7 @@ nonblank `reason`. Retirement retains its author, reason and time.
 
 Preview commands before sending. Known prohibitions and broken references cannot
 be overridden. Unknown/stale observations refuse automatic commands. A manual
-preview may return `operating_rule_confirmation_required: true` and a
+preview may return `consent_required: true` and a
 `confirmation_token`. After checking the warning and equipment state, send the
 same command with `ui_confirmation_token` and
 `acknowledge_unknown_operating_rules: true`. The server records the acknowledgement.

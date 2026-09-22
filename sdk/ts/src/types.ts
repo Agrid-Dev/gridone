@@ -369,6 +369,6 @@ export type OperatingRuleUpdate = Schemas["UpdateOperatingRule"];
 export type OperatingRuleRetire = Schemas["RetireOperatingRule"];
 export type OperatingRuleEnabled = Schemas["SetOperatingRuleEnabled"];
 export type OperatingRuleSchemas = Schemas["OperatingRuleSchemas"];
-export type DevicePointRef = Schemas["DevicePointRef"];
+export type DeviceAttributeRef = Schemas["DeviceAttributeRef"];
 export type WriteCondition = Schemas["Condition-Input"];
 export type WriteExpression = Schemas["Expression-Input"];

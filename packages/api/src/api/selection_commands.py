@@ -16,9 +16,8 @@ from devices_manager.core.driver import LocalizedText
 from devices_manager.core.write_preview import DeviceWritePreview
 from models.attribute_metadata import LanguageTag
 from models.command_confirmation import (
-    OperatingRuleConfirmation,
     UIConfirmationContext,
-    operating_rule_batch_options,
+    WriteConsent,
 )
 from models.errors import InvalidError, NotFoundError
 from models.ids import gen_id
@@ -189,10 +188,7 @@ class SelectionCommands:
                 row.device_id
                 for row in item.preview.members
                 if row.eligible
-                or (
-                    body.acknowledge_unknown_operating_rules
-                    and row.operating_rule_confirmation_required
-                )
+                or (body.acknowledge_unknown_operating_rules and row.consent_required)
             }
             if not set(selected) <= eligible:
                 msg = "Recipients must be selected from the eligible preview members"
@@ -219,11 +215,9 @@ class SelectionCommands:
                 ),
                 user_id=user_id,
                 confirm=True,
-                **operating_rule_batch_options(
-                    self._operating_rule_confirmations(item, selected, user_id)
-                    if body.acknowledge_unknown_operating_rules
-                    else None
-                ),
+                consents=self._consents(item, selected, user_id)
+                if body.acknowledge_unknown_operating_rules
+                else None,
                 **(
                     {
                         "ui_confirmations": self._confirmation_contexts(
@@ -240,20 +234,20 @@ class SelectionCommands:
             return item.response
 
     @staticmethod
-    def _operating_rule_confirmations(
+    def _consents(
         item: _Preparation, selected: list[str], user_id: str
-    ) -> dict[str, OperatingRuleConfirmation]:
+    ) -> dict[str, WriteConsent]:
         return {
-            row.device_id: OperatingRuleConfirmation(
-                binding=row.operating_rule_binding,
-                operating_rule_ids=row.unknown_operating_rule_ids,
+            row.device_id: WriteConsent(
+                binding=row.policy_binding,
+                requirement_ids=row.unknown_requirement_ids,
                 actor_id=user_id,
                 confirmed_at=datetime.now(UTC),
             )
             for row in item.preview.members
             if row.device_id in selected
-            and row.operating_rule_binding is not None
-            and row.operating_rule_confirmation_required
+            and row.policy_binding is not None
+            and row.consent_required
         }
 
     @staticmethod
@@ -293,7 +287,7 @@ class SelectionCommands:
         item.consumed = True
         return contexts[device_id]
 
-    def consume_unit_operating_rule_confirmation(
+    def consume_unit_consent(
         self,
         token: str,
         user_id: str,
@@ -301,7 +295,7 @@ class SelectionCommands:
         attribute: str,
         value: AttributeValueType,
         language: str,
-    ) -> tuple[OperatingRuleConfirmation, UIConfirmationContext | None]:
+    ) -> tuple[WriteConsent, UIConfirmationContext | None]:
         """Consume explicit human consent, bound to the preview's unknown rules.
 
         The actual write re-evaluates everything under its device lock. This
@@ -310,7 +304,7 @@ class SelectionCommands:
         item = self._unit_preparation(
             token, user_id, device_id, attribute, value, acknowledge_unknown=True
         )
-        confirmations = self._operating_rule_confirmations(item, [device_id], user_id)
+        confirmations = self._consents(item, [device_id], user_id)
         if device_id not in confirmations:
             msg = "No unknown operating rule warning was presented"
             raise InvalidError(msg)
@@ -392,13 +386,13 @@ class SelectionCommands:
                     row.eligible
                     or (
                         acknowledge_unknown
-                        and row.operating_rule_confirmation_required
-                        and previous.operating_rule_confirmation_required
+                        and row.consent_required
+                        and previous.consent_required
                     )
                 )
-                or row.operating_rule_binding != previous.operating_rule_binding
-                or not set(row.unknown_operating_rule_ids)
-                <= set(previous.unknown_operating_rule_ids)
+                or row.policy_binding != previous.policy_binding
+                or not set(row.unknown_requirement_ids)
+                <= set(previous.unknown_requirement_ids)
                 or row.warnings != previous.warnings
                 or row.user_confirmation != previous.user_confirmation
             ):

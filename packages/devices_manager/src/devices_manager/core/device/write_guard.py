@@ -20,14 +20,14 @@ import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from devices_manager.core.conditions import (
+from devices_manager.core.driver.write_validation import write_references
+from devices_manager.core.utils.cast import cast
+from models.conditions import (
     EvaluationBudget,
     EvaluationContext,
     EvaluationLimitError,
     attribute_references,
 )
-from devices_manager.core.driver.write_validation import write_references
-from devices_manager.core.utils.cast import cast
 from models.errors import WriteRejectedError
 from models.expressions import MAX_DEVICE_OPERATIONS
 from models.types import DataType
@@ -41,8 +41,8 @@ from .write_rules import evaluate_write, project_write_state
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from devices_manager.core.conditions import ValueResolver
     from devices_manager.core.driver import AttributeDriver, Driver
+    from models.conditions import ValueResolver
     from models.types import AttributeValueType
 
 

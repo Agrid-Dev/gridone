@@ -102,7 +102,7 @@ const flowRule = {
       },
     ],
   },
-  points: [],
+  attributes: [],
 } as unknown as OperatingRule;
 const brokenRule = {
   ...base,
@@ -134,7 +134,7 @@ const brokenRule = {
       },
     ],
   },
-  points: [],
+  attributes: [],
 } as unknown as OperatingRule;
 const retiredRule = {
   ...base,
@@ -152,7 +152,7 @@ const retiredRule = {
     actor_id: "admin",
     retired_at: "2026-08-04T09:00:00Z",
   },
-  points: [],
+  attributes: [],
 } as unknown as OperatingRule;
 
 const rules: Record<string, OperatingRule> = {

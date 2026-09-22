@@ -6,7 +6,7 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from commands.models import WriteResult
-    from models.command_confirmation import OperatingRuleConfirmation
+    from models.command_confirmation import WriteConsent
     from models.types import AttributeValueType, DataType
     from models.write_rules import WriteEvaluation
 
@@ -19,7 +19,7 @@ class DeviceWriter(Protocol):
         value: Any,  # noqa: ANN401
         *,
         confirm: bool = True,
-        operating_rule_confirmation: OperatingRuleConfirmation | None = None,
+        consent: WriteConsent | None = None,
     ) -> WriteResult: ...
 
 
@@ -42,5 +42,5 @@ class CommandValidator(Protocol):
         attribute: str,
         value: AttributeValueType,
         *,
-        operating_rule_confirmation: OperatingRuleConfirmation | None = None,
+        consent: WriteConsent | None = None,
     ) -> WriteEvaluation: ...

@@ -1,46 +1,46 @@
 import { createContext, useContext, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type {
-  DevicePointRef,
+  DeviceAttributeRef,
   OperatingRuleDefinition,
   WriteCondition,
   WriteExpression,
 } from "@gridone/sdk";
 import { useAttributeLabel } from "@/hooks/useAttributeLabel";
-import { pointAttribute, type PointCatalog } from "./expressions";
+import { catalogAttribute, type AttributeCatalog } from "./expressions";
 
 /**
- * Whether a point prints its raw `device_id/attribute`. The detail page and the
+ * Whether a reference prints its raw `device_id/attribute`. The detail page and the
  * revision history keep them — they are what an operator quotes when repairing
- * a reference — while the editor names points the way the rest of the app does.
+ * a reference — while the editor names attributes the way the rest of the app does.
  */
-const PointIds = createContext(true);
+const AttributeIds = createContext(true);
 
-export const WithoutPointIds = ({ children }: { children: ReactNode }) => (
-  <PointIds.Provider value={false}>{children}</PointIds.Provider>
+export const WithoutAttributeIds = ({ children }: { children: ReactNode }) => (
+  <AttributeIds.Provider value={false}>{children}</AttributeIds.Provider>
 );
 
-export function PointName({
-  point,
+export function AttributeName({
+  reference,
   catalog,
 }: {
-  point: DevicePointRef;
-  catalog: PointCatalog;
+  reference: DeviceAttributeRef;
+  catalog: AttributeCatalog;
 }) {
   const { t } = useTranslation("operatingRules");
   const attributeLabel = useAttributeLabel();
-  const device = catalog.devices.find((d) => d.id === point.device_id);
-  const attribute = pointAttribute(catalog, point);
-  const withIds = useContext(PointIds);
+  const device = catalog.devices.find((d) => d.id === reference.device_id);
+  const attribute = catalogAttribute(catalog, reference);
+  const withIds = useContext(AttributeIds);
   return (
     <span className={!device || !attribute ? "text-destructive" : undefined}>
-      {device?.name ?? t("missing", { id: point.device_id })} /{" "}
+      {device?.name ?? t("missing", { id: reference.device_id })} /{" "}
       {attribute
-        ? attributeLabel(point.attribute, attribute)
-        : t("missing", { id: point.attribute })}
+        ? attributeLabel(reference.attribute, attribute)
+        : t("missing", { id: reference.attribute })}
       {withIds && (
         <span className="ml-1 text-xs text-muted-foreground">
-          ({point.device_id}/{point.attribute})
+          ({reference.device_id}/{reference.attribute})
         </span>
       )}
     </span>
@@ -52,7 +52,7 @@ function ExpressionSummary({
   catalog,
 }: {
   value: WriteExpression;
-  catalog: PointCatalog;
+  catalog: AttributeCatalog;
 }) {
   const { t } = useTranslation("operatingRules");
   if (typeof value !== "object")
@@ -64,7 +64,7 @@ function ExpressionSummary({
       </span>
     );
   if ("device_id" in value)
-    return <PointName point={value} catalog={catalog} />;
+    return <AttributeName reference={value} catalog={catalog} />;
   if ("candidate" in value) return <span>{t("expression.candidate")}</span>;
   if ("args" in value)
     return (
@@ -92,7 +92,7 @@ function ExpressionSummary({
     );
   return (
     <span>
-      {t("implicitPoint")}: {value.attribute}
+      {t("implicitAttribute")}: {value.attribute}
     </span>
   );
 }
@@ -102,7 +102,7 @@ export function ConditionSummary({
   catalog,
 }: {
   value: WriteCondition;
-  catalog: PointCatalog;
+  catalog: AttributeCatalog;
 }) {
   const { t } = useTranslation("operatingRules");
   if ("left" in value)
@@ -154,7 +154,7 @@ export function OperatingRuleSummary({
   catalog,
 }: {
   rule: OperatingRuleDefinition;
-  catalog: PointCatalog;
+  catalog: AttributeCatalog;
 }) {
   const { t } = useTranslation("operatingRules");
   return (
@@ -162,7 +162,7 @@ export function OperatingRuleSummary({
       <div>
         <dt className="mb-1 font-medium">{t("target")}</dt>
         <dd>
-          <PointName point={rule.target} catalog={catalog} /> →{" "}
+          <AttributeName reference={rule.target} catalog={catalog} /> →{" "}
           <ExpressionSummary value={rule.target.value} catalog={catalog} />
         </dd>
       </div>

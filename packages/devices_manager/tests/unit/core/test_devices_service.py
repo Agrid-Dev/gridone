@@ -1434,7 +1434,7 @@ class TestDevicesServiceDeviceDelegation:
         result = await dm.write_device_attribute("d1", "value", 42.0)
 
         mock_reg.write_attribute.assert_called_once_with(
-            "d1", "value", 42.0, confirm=True
+            "d1", "value", 42.0, confirm=True, consent=None
         )
         assert result is mock_attr
 

@@ -328,7 +328,7 @@ describe("manual group confirmation", () => {
       members: [
         {
           ...member("unknown", false),
-          operating_rule_confirmation_required: true,
+          consent_required: true,
           reasons: [{ code: "operating_rule_unknown" }],
         },
       ],

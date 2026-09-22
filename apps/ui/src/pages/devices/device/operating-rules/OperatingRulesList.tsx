@@ -16,7 +16,7 @@ import {
   operatingRulePath,
 } from "./useOperatingRules";
 import { RuleSentence } from "./RuleSentence";
-import type { PointCatalog } from "./expressions";
+import type { AttributeCatalog } from "./expressions";
 
 /** Disabled rules stay visible; active rules with broken references need repair. */
 function status(view: OperatingRuleView) {
@@ -31,7 +31,7 @@ function OperatingRuleRow({
   last,
 }: {
   view: OperatingRuleView;
-  catalog: PointCatalog;
+  catalog: AttributeCatalog;
   last: boolean;
 }) {
   const { t } = useTranslation("operatingRules");
@@ -71,7 +71,7 @@ function OperatingRuleRow({
         </div>
         <RuleSentence
           rule={rule}
-          catalog={{ ...catalog, contracts: rule.points }}
+          catalog={{ ...catalog, contracts: rule.attributes }}
           retired={inactive}
         />
         {state === "broken" ? (

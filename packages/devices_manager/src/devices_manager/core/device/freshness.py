@@ -1,4 +1,4 @@
-"""Observation lifetimes derived from the point's configured acquisition cadence."""
+"""Observation lifetimes derived from the attribute's configured acquisition cadence."""
 
 from __future__ import annotations
 

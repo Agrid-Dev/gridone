@@ -4,7 +4,8 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 import pytest_asyncio
 
-from models.operating_rules import OperatingRuleDefinition, PointDefinition
+from models.attribute_observation import AttributeDefinition
+from models.operating_rules import OperatingRuleDefinition
 from models.types import DataType
 from operating_rules.service import OperatingRulesService
 from operating_rules.storage.protocol import OperatingRulesStorage
@@ -29,7 +30,7 @@ def definition() -> OperatingRuleDefinition:
 @pytest.fixture
 def inspector() -> Mock:
     return Mock(
-        return_value=PointDefinition(
+        return_value=AttributeDefinition(
             data_type=DataType.BOOL, writable=True, max_age_seconds=30
         )
     )

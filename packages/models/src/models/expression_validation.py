@@ -10,7 +10,7 @@ from models.expressions import (
     CandidateRef,
     ChoiceExpression,
     Comparison,
-    DevicePointRef,
+    DeviceAttributeRef,
     IsKnown,
     Junction,
     Membership,
@@ -26,7 +26,7 @@ def _invalid(path: str, message: str) -> None:
 
 def validate_expression(
     root: object,
-    types: dict[str | DevicePointRef, str],
+    types: dict[str | DeviceAttributeRef, str],
     candidate_type: str | None,
     path: str,
 ) -> str:
@@ -39,7 +39,7 @@ def validate_expression(
 
 def _infer(  # noqa: PLR0911 -- expression AST dispatch
     root: object,
-    types: dict[str | DevicePointRef, str],
+    types: dict[str | DeviceAttributeRef, str],
     candidate_type: str | None,
     path: str,
 ) -> str:
@@ -49,7 +49,7 @@ def _infer(  # noqa: PLR0911 -- expression AST dispatch
         return "number"
     if isinstance(root, str):
         return "str"
-    if isinstance(root, DevicePointRef):
+    if isinstance(root, DeviceAttributeRef):
         if root not in types:
             _invalid(path, "external_device_reference")
         return types[root]
@@ -66,7 +66,7 @@ def _infer(  # noqa: PLR0911 -- expression AST dispatch
 
 def _infer_composite(
     root: object,
-    types: dict[str | DevicePointRef, str],
+    types: dict[str | DeviceAttributeRef, str],
     candidate_type: str | None,
     path: str,
 ) -> str:
@@ -87,7 +87,7 @@ def _infer_composite(
 
 def _infer_condition(
     root: object,
-    types: dict[str | DevicePointRef, str],
+    types: dict[str | DeviceAttributeRef, str],
     candidate_type: str | None,
     path: str,
 ) -> str:

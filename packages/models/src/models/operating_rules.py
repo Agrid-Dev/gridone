@@ -1,28 +1,35 @@
-"""Site operating rule contracts, independent of their owner and point source."""
+"""Site operating rule contracts, independent of their owner and reference source."""
 
 from __future__ import annotations
 
 from datetime import datetime  # noqa: TC003 -- pydantic schema
-from typing import Annotated, Literal, Protocol
+from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    model_validator,
+)
 
 from models.expressions import (
     MAX_ATTRIBUTE_OPERATIONS,
     MAX_EXPRESSION_DEPTH,
     AttributeRef,
     Condition,
-    DevicePointRef,
+    DeviceAttributeRef,
     Scalar,
     expression_nodes,
 )
-from models.types import AttributeValueType, DataType  # noqa: TC001 -- pydantic schema
+from models.types import DataType  # noqa: TC001 -- pydantic schema
 from models.write_rules import WriteReason  # noqa: TC001 -- pydantic schema
 
 NonBlank = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
 
-class OperatingRuleTarget(DevicePointRef):
+class OperatingRuleTarget(DeviceAttributeRef):
     value: Scalar
 
 
@@ -38,7 +45,7 @@ class OperatingRuleDefinition(BaseModel):
         gt=0,
         allow_inf_nan=False,
         description=(
-            "Maximum age of each observed condition point in seconds. "
+            "Maximum age of each observed condition attribute in seconds. "
             "Null disables freshness checks; never-observed or invalidated values "
             "remain unknown."
         ),
@@ -52,23 +59,12 @@ class OperatingRuleDefinition(BaseModel):
                 msg = "operating_rule_expression_limit"
                 raise ValueError(msg)
             if isinstance(node, AttributeRef):
-                msg = "operating_rule_requires_explicit_device_point"
+                msg = "operating_rule_requires_explicit_device_attribute"
                 raise ValueError(msg)  # noqa: TRY004 -- pydantic validation error
         return self
 
 
-class PointDefinition(BaseModel):
-    data_type: DataType
-    writable: bool
-    max_age_seconds: float | None
-
-
-class PointObservation(BaseModel):
-    value: AttributeValueType | None = None
-    validity: Literal["known", "unknown", "invalid"]
-
-
-class PointContract(DevicePointRef):
+class AttributeContract(DeviceAttributeRef):
     data_type: DataType
 
 
@@ -89,7 +85,9 @@ class OperatingRule(OperatingRuleDefinition):
     created_by: NonBlank
     updated_at: datetime
     updated_by: NonBlank
-    points: list[PointContract]
+    attributes: list[AttributeContract] = Field(
+        validation_alias=AliasChoices("attributes", "points")
+    )
     retirement: OperatingRuleRetirement | None = None
 
 
@@ -98,27 +96,15 @@ class OperatingRuleView(BaseModel):
     reasons: list[WriteReason] = Field(default_factory=list)
 
 
-class OperatingRuleProvider(Protocol):
-    def for_target(self, device_id: str, attribute: str) -> list[OperatingRule]: ...
-
-
-class PointInspector(Protocol):
-    def __call__(self, point: DevicePointRef) -> PointDefinition | None: ...
-
-
-class PointResolver(Protocol):
-    def __call__(
-        self, point: DevicePointRef, *, max_age_seconds: float | None = None
-    ) -> PointObservation: ...
-
-
-def operating_rule_points(definition: OperatingRuleDefinition) -> list[DevicePointRef]:
+def operating_rule_attributes(
+    definition: OperatingRuleDefinition,
+) -> list[DeviceAttributeRef]:
     """Unique dependencies in stable order, separate from the targeted write."""
     return sorted(
         {
             node
             for _, node, _ in expression_nodes(definition.condition)
-            if isinstance(node, DevicePointRef)
+            if isinstance(node, DeviceAttributeRef)
         },
-        key=lambda point: (point.device_id, point.attribute),
+        key=lambda reference: (reference.device_id, reference.attribute),
     )

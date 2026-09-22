@@ -1,7 +1,7 @@
-"""Bounded declarative expressions over observed device points.
+"""Bounded declarative expressions over observed device attributes.
 
 References deliberately retain the existing ``{attribute: name}`` spelling.
-Drivers accept only local references; site rules may use explicit device points.
+Drivers accept only local references; site rules may use explicit device attributes.
 There are no executable strings, paths or named helpers.
 """
 
@@ -53,8 +53,8 @@ class CandidateRef(ExpressionModel):
     candidate: Literal[True]
 
 
-class DevicePointRef(ExpressionModel):
-    """An explicit observed point, e.g. ``{device_id: pump, attribute: running}``."""
+class DeviceAttributeRef(ExpressionModel):
+    """An observed attribute, e.g. ``{device_id: pump, attribute: running}``."""
 
     device_id: Annotated[str, Field(min_length=1)]
     attribute: Annotated[str, Field(min_length=1)]
@@ -75,7 +75,7 @@ class ChoiceExpression(ExpressionModel):
 type Expression = (
     Scalar
     | AttributeRef
-    | DevicePointRef
+    | DeviceAttributeRef
     | CandidateRef
     | ArithmeticExpression
     | ChoiceExpression

@@ -1,7 +1,11 @@
 import { useId, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { MoreHorizontal, Plus, X } from "lucide-react";
-import type { DataType, DevicePointRef, WriteCondition } from "@gridone/sdk";
+import type {
+  DataType,
+  DeviceAttributeRef,
+  WriteCondition,
+} from "@gridone/sdk";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,15 +24,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { attributeUnit } from "@/lib/attributeUnits";
-import { PointSelect } from "./PointSelect";
+import { AttributeSelect } from "./AttributeSelect";
 import { ConditionEditor } from "./ConditionEditor";
-import { ConditionSummary, WithoutPointIds } from "./OperatingRuleSummary";
+import { ConditionSummary, WithoutAttributeIds } from "./OperatingRuleSummary";
 import {
   defaultScalar,
-  emptyPoint,
-  pointAttribute,
+  emptyAttribute,
+  catalogAttribute,
   scalarType,
-  type PointCatalog,
+  type AttributeCatalog,
   type Scalar,
 } from "./expressions";
 import {
@@ -37,12 +41,12 @@ import {
   isGroup,
   isRow,
   rightKind,
-  rowPoint,
+  rowAttribute,
   rowsOf,
   rowType,
   withComparison,
   withGroupOp,
-  withPoint,
+  withAttribute,
   withRightKind,
   withRows,
   type Comparison,
@@ -52,7 +56,7 @@ import {
 
 /** How deep the row editor goes before a condition becomes an expression. */
 const maxGroupDepth = 1;
-/** A typed value field: the type comes from the point, never from a select. */
+/** A typed value field: the type comes from the reference, never from a select. */
 export function ValueInput({
   value,
   onChange,
@@ -136,7 +140,7 @@ function IconButton({
 const rowShell =
   "flex flex-wrap items-center gap-2 rounded-lg border bg-background p-2";
 
-/** The one-line form of a condition: point, comparison, value. */
+/** The one-line form of a condition: reference, comparison, value. */
 function SimpleRow({
   value,
   onChange,
@@ -145,20 +149,23 @@ function SimpleRow({
 }: {
   value: RowCondition;
   onChange: (value: WriteCondition) => void;
-  catalog: PointCatalog;
+  catalog: AttributeCatalog;
   candidateType?: DataType;
 }) {
   const { t } = useTranslation("operatingRules");
-  const point = rowPoint(value);
+  const reference = rowAttribute(value);
   const type = rowType(catalog, value);
-  const unit = attributeUnit(point.attribute, pointAttribute(catalog, point));
+  const unit = attributeUnit(
+    reference.attribute,
+    catalogAttribute(catalog, reference),
+  );
   return (
     <>
-      <PointSelect
-        label={t("observedPoint")}
-        value={point}
+      <AttributeSelect
+        label={t("observedAttribute")}
+        value={reference}
         catalog={catalog}
-        onChange={(next) => onChange(withPoint(value, next, catalog))}
+        onChange={(next) => onChange(withAttribute(value, next, catalog))}
         className="min-w-0 flex-1 basis-56"
       />
       <Select
@@ -192,10 +199,10 @@ function SimpleRow({
           type={type}
           unit={unit}
         />
-      ) : rightKind(value.right) === "point" ? (
-        <PointSelect
-          label={t("comparedPoint")}
-          value={value.right as DevicePointRef}
+      ) : rightKind(value.right) === "attribute" ? (
+        <AttributeSelect
+          label={t("comparedAttribute")}
+          value={value.right as DeviceAttributeRef}
           catalog={catalog}
           onChange={(next) => onChange({ ...value, right: next })}
           className="w-56 shrink-0"
@@ -321,11 +328,11 @@ function RowMenu({
             {t("useFixedValue")}
           </DropdownMenuItem>
         )}
-        {comparing && kind !== "point" && (
+        {comparing && kind !== "attribute" && (
           <DropdownMenuItem
-            onSelect={() => onChange(withRightKind(value, "point", type))}
+            onSelect={() => onChange(withRightKind(value, "attribute", type))}
           >
-            {t("useOtherPoint")}
+            {t("useOtherAttribute")}
           </DropdownMenuItem>
         )}
         {comparing && kind !== "candidate" && candidateType && (
@@ -342,7 +349,7 @@ function RowMenu({
               op: "any",
               conditions: [
                 value,
-                { op: "eq", left: emptyPoint(), right: false },
+                { op: "eq", left: emptyAttribute(), right: false },
               ],
             })
           }
@@ -372,7 +379,7 @@ function AdvancedRow({
 }: {
   value: WriteCondition;
   onChange: (value: WriteCondition) => void;
-  catalog: PointCatalog;
+  catalog: AttributeCatalog;
   candidateType?: DataType;
 }) {
   const { t } = useTranslation("operatingRules");
@@ -382,9 +389,9 @@ function AdvancedRow({
     <div className="min-w-0 flex-1 space-y-2">
       <div className="flex flex-wrap items-center gap-2">
         <span className="min-w-0 flex-1 break-words text-sm">
-          <WithoutPointIds>
+          <WithoutAttributeIds>
             <ConditionSummary value={value} catalog={catalog} />
-          </WithoutPointIds>
+          </WithoutAttributeIds>
         </span>
         <Button
           type="button"
@@ -423,7 +430,7 @@ function ConditionItem({
   value: WriteCondition;
   onChange: (value: WriteCondition) => void;
   onRemove: () => void;
-  catalog: PointCatalog;
+  catalog: AttributeCatalog;
   candidateType?: DataType;
   depth: number;
   removable: boolean;
@@ -480,7 +487,7 @@ function ConditionGroup({
   value: WriteCondition;
   onChange: (value: WriteCondition) => void;
   onRemove?: () => void;
-  catalog: PointCatalog;
+  catalog: AttributeCatalog;
   candidateType?: DataType;
   depth: number;
 }) {
@@ -567,7 +574,7 @@ function ConditionGroup({
             onChange(
               withRows(value, [
                 ...rows,
-                { op: "eq", left: emptyPoint(), right: false },
+                { op: "eq", left: emptyAttribute(), right: false },
               ]),
             )
           }
@@ -586,7 +593,7 @@ function ConditionGroup({
                   {
                     op: "any",
                     conditions: [
-                      { op: "eq", left: emptyPoint(), right: false },
+                      { op: "eq", left: emptyAttribute(), right: false },
                     ],
                   },
                 ]),
@@ -609,7 +616,7 @@ export function ConditionRows({
 }: {
   value: WriteCondition;
   onChange: (value: WriteCondition) => void;
-  catalog: PointCatalog;
+  catalog: AttributeCatalog;
   candidateType?: DataType;
 }) {
   return (

@@ -47,7 +47,6 @@ from commands import (
     UnitCommand,
 )
 from devices_manager import DevicesServiceInterface
-from models.command_confirmation import operating_rule_write_options
 from models.errors import InvalidError
 from models.pagination import Page, PaginationParams
 from models.resource_conflict import ResourceConflictCode, ResourceConflictError
@@ -244,7 +243,7 @@ async def preview_single_command(
     token = None
     if (
         preview.eligible and preview.user_confirmation is not None
-    ) or preview.operating_rule_confirmation_required:
+    ) or preview.consent_required:
         prepared = coordinator.prepare(
             SelectionCommandPrepare(
                 target=DevicesFilterBody(ids=[device_id]),
@@ -279,20 +278,18 @@ async def dispatch_single_command(
         writable=False,
     )
     context = None
-    operating_rule_confirmation = None
+    consent = None
     if body.acknowledge_unknown_operating_rules:
         if body.ui_confirmation_token is None:
             msg = "An operating rule warning preview must be confirmed first"
             raise InvalidError(msg)
-        operating_rule_confirmation, context = (
-            coordinator.consume_unit_operating_rule_confirmation(
-                body.ui_confirmation_token,
-                user_id,
-                device_id,
-                body.attribute,
-                body.value,
-                body.confirmation_language or "en",
-            )
+        consent, context = coordinator.consume_unit_consent(
+            body.ui_confirmation_token,
+            user_id,
+            device_id,
+            body.attribute,
+            body.value,
+            body.confirmation_language or "en",
         )
     elif body.ui_confirmation_token is not None:
         context = coordinator.consume_unit_confirmation(
@@ -311,7 +308,7 @@ async def dispatch_single_command(
         user_id=user_id,
         confirm=body.confirm,
         ui_confirmation=context,
-        **operating_rule_write_options(operating_rule_confirmation),
+        consent=consent,
     )
 
 

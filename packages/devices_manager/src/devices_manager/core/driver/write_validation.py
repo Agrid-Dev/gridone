@@ -4,14 +4,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from devices_manager.core.conditions import attribute_references, scalar_equal
+from models.conditions import attribute_references, scalar_equal
 from models.errors import InvalidError
 from models.expression_validation import validate_expression
 from models.expressions import (
     MAX_ATTRIBUTE_OPERATIONS,
     MAX_DEVICE_OPERATIONS,
     AttributeRef,
-    DevicePointRef,
+    DeviceAttributeRef,
     expression_nodes,
     rename_references,
 )
@@ -60,7 +60,7 @@ def validate_write_declarations(attributes: Iterable[AttributeDriver]) -> None:
     are legal. Mappings that require one another to decode are rejected.
     """
     by_name = {attribute.name: attribute for attribute in attributes}
-    types: dict[str | DevicePointRef, str] = {
+    types: dict[str | DeviceAttributeRef, str] = {
         name: _TYPE_NAMES[a.data_type] for name, a in by_name.items()
     }
     graph: dict[str, set[str]] = {}
@@ -92,7 +92,7 @@ def validate_write_declarations(attributes: Iterable[AttributeDriver]) -> None:
 
 
 def _validate_attribute(
-    attribute: AttributeDriver, types: dict[str | DevicePointRef, str]
+    attribute: AttributeDriver, types: dict[str | DeviceAttributeRef, str]
 ) -> None:
     _validate_constraints(attribute, types)
     for i, rule in enumerate(attribute.write_rules):
@@ -121,7 +121,7 @@ def _validate_attribute(
 def _validate_value(
     attribute: AttributeDriver,
     value: object,
-    types: dict[str | DevicePointRef, str],
+    types: dict[str | DeviceAttributeRef, str],
     path: str,
 ) -> None:
     full_path = f"{attribute.name}.{path}"
@@ -136,7 +136,7 @@ def _validate_value(
 
 
 def _validate_constraints(
-    attribute: AttributeDriver, types: dict[str | DevicePointRef, str]
+    attribute: AttributeDriver, types: dict[str | DeviceAttributeRef, str]
 ) -> None:
     constraints = attribute.write_constraints
     if constraints is None:
@@ -159,7 +159,7 @@ def _validate_constraints(
 
 
 def _validate_bound_ref(
-    name: str, path: str, ref: AttributeRef, types: dict[str | DevicePointRef, str]
+    name: str, path: str, ref: AttributeRef, types: dict[str | DeviceAttributeRef, str]
 ) -> None:
     if ref.attribute == name:
         msg = f"{path} must not reference the attribute itself"
@@ -177,7 +177,7 @@ def _validate_bound_ref(
 
 
 def _validate_options(
-    attribute: AttributeDriver, types: dict[str | DevicePointRef, str]
+    attribute: AttributeDriver, types: dict[str | DeviceAttributeRef, str]
 ) -> None:
     for i, option in enumerate(attribute.write_options or []):
         _validate_value(attribute, option.value, types, f"write_options[{i}].value")
@@ -196,7 +196,7 @@ def _validate_options(
 
 
 def _validate_default(
-    attribute: AttributeDriver, types: dict[str | DevicePointRef, str]
+    attribute: AttributeDriver, types: dict[str | DeviceAttributeRef, str]
 ) -> None:
     value = attribute.default_value
     if value is None:
@@ -225,7 +225,7 @@ def _validate_default(
     if isinstance(constraints.maximum, int | float) and value > constraints.maximum:
         _invalid(attribute.name, "default_value is above maximum")
     if isinstance(constraints.step, int | float):
-        from devices_manager.core.conditions import on_step_grid  # noqa: PLC0415
+        from models.conditions import on_step_grid  # noqa: PLC0415
 
         if not on_step_grid(value, constraints.step):
             _invalid(attribute.name, "default_value is not on the step grid")

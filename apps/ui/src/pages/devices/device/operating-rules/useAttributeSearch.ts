@@ -1,19 +1,22 @@
 import { useMemo, useState } from "react";
 import { useAttributeLabel } from "@/hooks/useAttributeLabel";
-import type { PointCatalog } from "./expressions";
+import type { AttributeCatalog } from "./expressions";
 
-const POINT_SEARCH_LIMIT = 40;
+const ATTRIBUTE_SEARCH_LIMIT = 40;
 
 /** Fold accents so, for example, "arret" also matches "Arrêt". */
 function searchable(value: string) {
   return value.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
 }
 
-export function usePointSearch(catalog: PointCatalog, writable: boolean) {
+export function useAttributeSearch(
+  catalog: AttributeCatalog,
+  writable: boolean,
+) {
   const attributeLabel = useAttributeLabel();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
-  const points = useMemo(
+  const attributes = useMemo(
     () =>
       catalog.devices.flatMap((device) =>
         Object.entries(device.attributes ?? {})
@@ -26,7 +29,7 @@ export function usePointSearch(catalog: PointCatalog, writable: boolean) {
           .map(([attribute, metadata]) => {
             const label = `${device.name} · ${attributeLabel(attribute, metadata)}`;
             return {
-              point: { device_id: device.id, attribute },
+              reference: { device_id: device.id, attribute },
               key: JSON.stringify([device.id, attribute]),
               label,
               search: searchable(`${label} ${device.id} ${attribute}`),
@@ -37,10 +40,10 @@ export function usePointSearch(catalog: PointCatalog, writable: boolean) {
   );
   const matches = useMemo(() => {
     const tokens = searchable(query).trim().split(/\s+/).filter(Boolean);
-    return points.filter((point) =>
-      tokens.every((token) => point.search.includes(token)),
+    return attributes.filter((reference) =>
+      tokens.every((token) => reference.search.includes(token)),
     );
-  }, [points, query]);
+  }, [attributes, query]);
   return {
     open,
     setOpen: (next: boolean) => {
@@ -49,7 +52,7 @@ export function usePointSearch(catalog: PointCatalog, writable: boolean) {
     },
     query,
     setQuery,
-    points: matches.slice(0, POINT_SEARCH_LIMIT),
-    overflow: Math.max(0, matches.length - POINT_SEARCH_LIMIT),
+    attributes: matches.slice(0, ATTRIBUTE_SEARCH_LIMIT),
+    overflow: Math.max(0, matches.length - ATTRIBUTE_SEARCH_LIMIT),
   };
 }

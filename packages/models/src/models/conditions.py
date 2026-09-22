@@ -15,7 +15,7 @@ from models.expressions import (
     ChoiceExpression,
     Comparison,
     Condition,
-    DevicePointRef,
+    DeviceAttributeRef,
     Expression,
     IsKnown,
     Junction,
@@ -28,7 +28,7 @@ from models.types import AttributeValueType
 STEP_TOLERANCE = 1e-9
 
 type ValueResolver = Callable[[str], AttributeValueType | None]
-type DevicePointResolver = Callable[[DevicePointRef], AttributeValueType | None]
+type DeviceAttributeResolver = Callable[[DeviceAttributeRef], AttributeValueType | None]
 
 
 class EvaluationLimitError(ValueError):
@@ -82,7 +82,7 @@ class EvaluationContext:
     candidate: AttributeValueType | None = None
     budget: EvaluationBudget = field(default_factory=EvaluationBudget)
     missing: set[str] = field(default_factory=set)
-    resolve_point: DevicePointResolver | None = None
+    resolve_attribute: DeviceAttributeResolver | None = None
 
     def spend(self, depth: int) -> None:
         self.budget.spend()
@@ -95,8 +95,10 @@ class EvaluationContext:
     ) -> AttributeValueType | None:
         """Evaluate only the selected branch; unknown tests never choose a default."""
         self.spend(depth)
-        if isinstance(expression, DevicePointRef):
-            result = self.resolve_point(expression) if self.resolve_point else None
+        if isinstance(expression, DeviceAttributeRef):
+            result = (
+                self.resolve_attribute(expression) if self.resolve_attribute else None
+            )
             if result is None:
                 self.missing.add(f"{expression.device_id}/{expression.attribute}")
             return result

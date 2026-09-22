@@ -1,11 +1,10 @@
-"""Optional UI evidence attached to command history, never an authorization gate."""
+"""Server-issued write consent and optional UI evidence retained in command history."""
 
 from __future__ import annotations
 
 from datetime import datetime  # noqa: TC003 -- pydantic schema
-from typing import TypedDict
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from models.attribute_metadata import LanguageTag, Text  # noqa: TC001 -- pydantic
 from models.types import AttributeValueType  # noqa: TC001 -- pydantic
@@ -27,40 +26,14 @@ class UIConfirmationContext(BaseModel):
     previous_value_known: bool
 
 
-class OperatingRuleConfirmation(BaseModel):
-    """Server-issued evidence of the unknown operating rules a human acknowledged."""
+class WriteConsent(BaseModel):
+    """Server-issued evidence of unknown policy requirements a human acknowledged."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     binding: str
-    operating_rule_ids: list[str]
+    requirement_ids: list[str] = Field(
+        validation_alias=AliasChoices("requirement_ids", "operating_rule_ids")
+    )
     actor_id: str
     confirmed_at: datetime
-
-
-class OperatingRuleWriteOptions(TypedDict, total=False):
-    operating_rule_confirmation: OperatingRuleConfirmation
-
-
-def operating_rule_write_options(
-    confirmation: OperatingRuleConfirmation | None,
-) -> OperatingRuleWriteOptions:
-    return (
-        {"operating_rule_confirmation": confirmation}
-        if confirmation is not None
-        else {}
-    )
-
-
-class OperatingRuleBatchOptions(TypedDict, total=False):
-    operating_rule_confirmations: dict[str, OperatingRuleConfirmation]
-
-
-def operating_rule_batch_options(
-    confirmations: dict[str, OperatingRuleConfirmation] | None,
-) -> OperatingRuleBatchOptions:
-    return (
-        {"operating_rule_confirmations": confirmations}
-        if confirmations is not None
-        else {}
-    )

@@ -2,12 +2,12 @@
 
 import pytest
 
-from devices_manager.core.conditions import EvaluationBudget, EvaluationContext
 from devices_manager.core.device.write_rules import (
     evaluate_write,
     project_write_state,
 )
 from devices_manager.core.driver import AttributeDriver
+from models.conditions import EvaluationBudget, EvaluationContext
 
 
 def spec(**fields: object):

@@ -1,7 +1,7 @@
 import type {
   DataType,
   Device,
-  DevicePointRef,
+  DeviceAttributeRef,
   OperatingRule,
   OperatingRuleDefinition,
   WriteCondition,
@@ -9,12 +9,12 @@ import type {
 } from "@gridone/sdk";
 
 export type Scalar = OperatingRuleDefinition["target"]["value"];
-export type PointCatalog = {
+export type AttributeCatalog = {
   devices: Device[];
-  contracts?: OperatingRule["points"];
+  contracts?: OperatingRule["attributes"];
 };
 export type ExpressionKind =
-  | "point"
+  | "attribute"
   | "literal"
   | "candidate"
   | "add"
@@ -24,19 +24,19 @@ export type ExpressionKind =
   | "if";
 export type ConditionKind = WriteCondition["op"];
 
-export const emptyPoint = (): DevicePointRef => ({
+export const emptyAttribute = (): DeviceAttributeRef => ({
   device_id: "",
   attribute: "",
 });
 export const emptyCondition = (): WriteCondition => ({
   op: "eq",
-  left: emptyPoint(),
+  left: emptyAttribute(),
   right: false,
 });
 export const emptyDefinition = (): OperatingRuleDefinition => ({
   name: "",
   explanation: "",
-  target: { ...emptyPoint(), value: true },
+  target: { ...emptyAttribute(), value: true },
   condition: emptyCondition(),
   max_age_seconds: null,
 });
@@ -49,20 +49,24 @@ export function definitionOf(rule: OperatingRule): OperatingRuleDefinition {
     max_age_seconds: rule.max_age_seconds ?? null,
   };
 }
-export function pointAttribute(catalog: PointCatalog, point: DevicePointRef) {
-  return catalog.devices.find((d) => d.id === point.device_id)?.attributes?.[
-    point.attribute
-  ];
+export function catalogAttribute(
+  catalog: AttributeCatalog,
+  reference: DeviceAttributeRef,
+) {
+  return catalog.devices.find((d) => d.id === reference.device_id)
+    ?.attributes?.[reference.attribute];
 }
-export function pointType(
-  catalog: PointCatalog,
-  point: DevicePointRef,
+export function attributeType(
+  catalog: AttributeCatalog,
+  reference: DeviceAttributeRef,
 ): DataType | undefined {
-  const type = pointAttribute(catalog, point)?.data_type;
+  const type = catalogAttribute(catalog, reference)?.data_type;
   return (
     (typeof type === "string" ? (type as DataType) : undefined) ??
     catalog.contracts?.find(
-      (p) => p.device_id === point.device_id && p.attribute === point.attribute,
+      (p) =>
+        p.device_id === reference.device_id &&
+        p.attribute === reference.attribute,
     )?.data_type
   );
 }
@@ -82,15 +86,15 @@ export function isScalar(value: WriteExpression): value is Scalar {
 export function expressionKind(value: WriteExpression): ExpressionKind {
   if (isScalar(value)) return "literal";
   if ("op" in value) return value.op;
-  return "candidate" in value ? "candidate" : "point";
+  return "candidate" in value ? "candidate" : "attribute";
 }
 export function expressionType(
   value: WriteExpression,
-  catalog: PointCatalog,
+  catalog: AttributeCatalog,
   candidateType?: DataType,
 ): DataType | undefined {
   if (isScalar(value)) return scalarType(value);
-  if ("device_id" in value) return pointType(catalog, value);
+  if ("device_id" in value) return attributeType(catalog, value);
   if ("candidate" in value) return candidateType;
   if ("op" in value)
     return value.op === "if"
@@ -102,7 +106,7 @@ export function newExpression(
   kind: ExpressionKind,
   type?: DataType,
 ): WriteExpression {
-  if (kind === "point") return emptyPoint();
+  if (kind === "attribute") return emptyAttribute();
   if (kind === "literal") return defaultScalar(type);
   if (kind === "candidate") return { candidate: true };
   if (kind === "if")
@@ -118,9 +122,9 @@ export function newCondition(op: ConditionKind): WriteCondition {
   if (op === "all" || op === "any")
     return { op, conditions: [emptyCondition(), emptyCondition()] };
   if (op === "not") return { op, condition: emptyCondition() };
-  if (op === "is_known") return { op, value: emptyPoint() };
-  if (op === "in") return { op, value: emptyPoint(), values: [false] };
-  return { op, left: emptyPoint(), right: op === "eq" ? false : 0 };
+  if (op === "is_known") return { op, value: emptyAttribute() };
+  if (op === "in") return { op, value: emptyAttribute(), values: [false] };
+  return { op, left: emptyAttribute(), right: op === "eq" ? false : 0 };
 }
 export function sameScalarType(
   a: DataType | undefined,

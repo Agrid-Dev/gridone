@@ -221,7 +221,7 @@ it("keeps ordinary attributes on the existing immediate dispatch path", async ()
 it("requires explicit consent before a command with unknown operating rule state", async () => {
   api.previewDeviceCommand.mockResolvedValue({
     eligible: false,
-    operating_rule_confirmation_required: true,
+    consent_required: true,
     confirmation_token: "unknown-preview",
     reasons: [{ code: "operating_rule_unknown" }],
   });
@@ -246,7 +246,7 @@ it("requires explicit consent before a command with unknown operating rule state
 it("does not offer consent for a known operating rule refusal", async () => {
   api.previewDeviceCommand.mockResolvedValue({
     eligible: false,
-    operating_rule_confirmation_required: false,
+    consent_required: false,
     reasons: [{ code: "operating_rule_blocked" }],
   });
   setup();

@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from devices_manager.core.conditions import scalar_equal
+from models.conditions import scalar_equal
 from models.errors import WriteRejectedError
 from models.write_rules import ResolvedOption, WriteReason
 
 if TYPE_CHECKING:
-    from devices_manager.core.conditions import EvaluationContext
+    from models.conditions import EvaluationContext
     from models.types import AttributeValueType
     from models.write_rules import ValueMapping
 

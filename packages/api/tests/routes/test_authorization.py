@@ -239,7 +239,7 @@ def test_operating_rules_access_control(app, username, method, endpoint, write):
         {
             **definition,
             "id": "rule",
-            "points": [],
+            "attributes": [],
             "created_at": now,
             "updated_at": now,
             "created_by": "admin",

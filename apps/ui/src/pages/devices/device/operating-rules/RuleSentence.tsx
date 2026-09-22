@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type {
-  DevicePointRef,
+  DeviceAttributeRef,
   OperatingRuleDefinition,
   WriteCondition,
   WriteExpression,
@@ -9,8 +9,12 @@ import type {
 import { cn } from "@/lib/utils";
 import { attributeUnit } from "@/lib/attributeUnits";
 import { useAttributeLabel } from "@/hooks/useAttributeLabel";
-import { isScalar, pointAttribute, type PointCatalog } from "./expressions";
-import { isGroup, isRow, rowPoint, rowValue } from "./conditionShapes";
+import {
+  isScalar,
+  catalogAttribute,
+  type AttributeCatalog,
+} from "./expressions";
+import { isGroup, isRow, rowAttribute, rowValue } from "./conditionShapes";
 
 /** How many conditions a sentence spells out before it summarises the rest. */
 const shown = 2;
@@ -47,27 +51,30 @@ const Word = ({ children }: { children: ReactNode }) => (
   <span className="text-muted-foreground">{children}</span>
 );
 
-/** A point as "<device> · <attribute>", without the raw ids the detail page keeps. */
-export function PointChip({
-  point,
+/** A reference as "<device> · <attribute>", without the raw ids the detail page keeps. */
+export function AttributeChip({
+  reference,
   catalog,
 }: {
-  point: DevicePointRef;
-  catalog: PointCatalog;
+  reference: DeviceAttributeRef;
+  catalog: AttributeCatalog;
 }) {
   const { t } = useTranslation("operatingRules");
   const attributeLabel = useAttributeLabel();
-  const device = catalog.devices.find((d) => d.id === point.device_id);
-  const attribute = pointAttribute(catalog, point);
+  const device = catalog.devices.find((d) => d.id === reference.device_id);
+  const attribute = catalogAttribute(catalog, reference);
   if (!device || !attribute)
     return (
-      <Chip tone="broken" title={`${point.device_id}/${point.attribute}`}>
-        {t("deletedPoint")}
+      <Chip
+        tone="broken"
+        title={`${reference.device_id}/${reference.attribute}`}
+      >
+        {t("deletedAttribute")}
       </Chip>
     );
   return (
-    <Chip title={`${point.device_id}/${point.attribute}`}>
-      {device.name} · {attributeLabel(point.attribute, attribute)}
+    <Chip title={`${reference.device_id}/${reference.attribute}`}>
+      {device.name} · {attributeLabel(reference.attribute, attribute)}
     </Chip>
   );
 }
@@ -75,13 +82,13 @@ export function PointChip({
 /** A scalar as a reader sees it: on/off for booleans, a unit for known numbers. */
 export function ValueChip({
   value,
-  point,
+  reference,
   catalog,
   tone = "neutral",
 }: {
   value: WriteExpression;
-  point?: DevicePointRef;
-  catalog: PointCatalog;
+  reference?: DeviceAttributeRef;
+  catalog: AttributeCatalog;
   tone?: "neutral" | "target";
 }) {
   const { t } = useTranslation("operatingRules");
@@ -89,13 +96,13 @@ export function ValueChip({
     if ("candidate" in value)
       return <Chip tone={tone}>{t("expression.candidate")}</Chip>;
     if ("device_id" in value)
-      return <PointChip point={value} catalog={catalog} />;
+      return <AttributeChip reference={value} catalog={catalog} />;
     return <Chip tone={tone}>{t("computedValue")}</Chip>;
   }
   if (typeof value === "boolean")
     return <Chip tone={tone}>{t(value ? "on" : "off")}</Chip>;
-  const unit = point
-    ? attributeUnit(point.attribute, pointAttribute(catalog, point))
+  const unit = reference
+    ? attributeUnit(reference.attribute, catalogAttribute(catalog, reference))
     : null;
   return (
     <Chip tone={tone}>
@@ -111,7 +118,7 @@ function ConditionPhrase({
   depth = 0,
 }: {
   value: WriteCondition;
-  catalog: PointCatalog;
+  catalog: AttributeCatalog;
   depth?: number;
 }) {
   const { t } = useTranslation("operatingRules");
@@ -147,21 +154,21 @@ function ConditionPhrase({
     );
   }
   if (!isRow(value)) return <Chip>{t("advancedCondition")}</Chip>;
-  const point = rowPoint(value);
+  const reference = rowAttribute(value);
   const right = rowValue(value);
   return (
     <>
-      <PointChip point={point} catalog={catalog} />
+      <AttributeChip reference={reference} catalog={catalog} />
       <Word>{t(`comparison.${value.op}`)}</Word>
       {value.op === "in" ? (
         value.values.map((item, index) => (
           <span key={index} className="contents">
             {index > 0 && <Word>{t("joinOr")}</Word>}
-            <ValueChip value={item} point={point} catalog={catalog} />
+            <ValueChip value={item} reference={reference} catalog={catalog} />
           </span>
         ))
       ) : right === undefined ? null : (
-        <ValueChip value={right} point={point} catalog={catalog} />
+        <ValueChip value={right} reference={reference} catalog={catalog} />
       )}
     </>
   );
@@ -179,13 +186,13 @@ export function RuleSentence({
   className,
 }: {
   rule: Pick<OperatingRuleDefinition, "target" | "condition">;
-  catalog: PointCatalog;
+  catalog: AttributeCatalog;
   retired?: boolean;
   className?: string;
 }) {
   const { t } = useTranslation("operatingRules");
   const attributeLabel = useAttributeLabel();
-  const attribute = pointAttribute(catalog, rule.target);
+  const attribute = catalogAttribute(catalog, rule.target);
   const unit = attributeUnit(rule.target.attribute, attribute);
   const value = rule.target.value;
   const targetValue =
@@ -203,7 +210,7 @@ export function RuleSentence({
       <Chip tone="target">
         {attribute
           ? attributeLabel(rule.target.attribute, attribute)
-          : t("deletedPoint")}{" "}
+          : t("deletedAttribute")}{" "}
         → {targetValue}
       </Chip>
       <Word>{t("sentenceUnless")}</Word>

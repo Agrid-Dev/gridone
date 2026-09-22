@@ -17,7 +17,6 @@ from commands.models import (
     UnitCommandCreate,
 )
 from commands.storage import build_storage
-from models.command_confirmation import operating_rule_write_options
 from models.errors import InvalidError, NotFoundError, WriteRejectedError
 from models.ids import gen_id
 from models.pagination import Page, PaginationParams
@@ -35,8 +34,8 @@ if TYPE_CHECKING:
     )
     from commands.storage.protocol import CommandsStorage
     from models.command_confirmation import (
-        OperatingRuleConfirmation,
         UIConfirmationContext,
+        WriteConsent,
     )
     from models.targets import TargetResolver
 
@@ -178,7 +177,7 @@ class CommandsService(Service):
         self,
         device_id: str,
         write: AttributeWrite,
-        confirmation: OperatingRuleConfirmation | None = None,
+        consent: WriteConsent | None = None,
     ) -> WriteEvaluation:
         if self._command_validator is None:
             return WriteEvaluation(eligible=True, value=write.value)
@@ -186,7 +185,7 @@ class CommandsService(Service):
             device_id,
             write.attribute,
             write.value,
-            **operating_rule_write_options(confirmation),
+            consent=consent,
         )
 
     async def dispatch_unit(  # noqa: PLR0913
@@ -198,7 +197,7 @@ class CommandsService(Service):
         confirm: bool = True,
         batch_id: str | None = None,
         ui_confirmation: UIConfirmationContext | None = None,
-        operating_rule_confirmation: OperatingRuleConfirmation | None = None,
+        consent: WriteConsent | None = None,
     ) -> UnitCommand:
         """Dispatch a command to a single device, awaiting the result before returning.
 
@@ -207,13 +206,10 @@ class CommandsService(Service):
         is re-raised — callers receive a typed exception rather than an ERROR
         record.
         """
-        if (
-            operating_rule_confirmation is not None
-            and operating_rule_confirmation.actor_id != user_id
-        ):
-            msg = "OperatingRule confirmation belongs to another user"
+        if consent is not None and consent.actor_id != user_id:
+            msg = "Write consent belongs to another user"
             raise InvalidError(msg)
-        evaluation = self._validate(device_id, write, operating_rule_confirmation)
+        evaluation = self._validate(device_id, write, consent)
         command = await self._storage.save_command(
             UnitCommandCreate(
                 batch_id=batch_id,
@@ -246,8 +242,7 @@ class CommandsService(Service):
         user_id: str,
         confirm: bool = True,
         ui_confirmations: dict[str, UIConfirmationContext] | None = None,
-        operating_rule_confirmations: dict[str, OperatingRuleConfirmation]
-        | None = None,
+        consents: dict[str, WriteConsent] | None = None,
     ) -> BatchCommandDispatch:
         """Fan-out a command to the devices matched by *target*.
 
@@ -265,7 +260,7 @@ class CommandsService(Service):
             user_id=user_id,
             confirm=confirm,
             ui_confirmations=ui_confirmations,
-            operating_rule_confirmations=operating_rule_confirmations,
+            consents=consents,
         )
 
     async def dispatch_from_template(
@@ -289,8 +284,7 @@ class CommandsService(Service):
         user_id: str,
         confirm: bool = True,
         ui_confirmations: dict[str, UIConfirmationContext] | None = None,
-        operating_rule_confirmations: dict[str, OperatingRuleConfirmation]
-        | None = None,
+        consents: dict[str, WriteConsent] | None = None,
     ) -> BatchCommandDispatch:
         """Resolve the template's target, persist PENDING unit commands, and
         spawn the per-device writes in the background. Shared by
@@ -309,17 +303,14 @@ class CommandsService(Service):
             logger.warning("dispatch: template %r resolved to no devices", template.id)
             return BatchCommandDispatch(batch_id=batch_id, commands=[])
 
-        if any(
-            context.actor_id != user_id
-            for context in (operating_rule_confirmations or {}).values()
-        ):
-            msg = "OperatingRule confirmation belongs to another user"
+        if any(context.actor_id != user_id for context in (consents or {}).values()):
+            msg = "Write consent belongs to another user"
             raise InvalidError(msg)
         evaluations = {
             device_id: self._validate(
                 device_id,
                 template.write,
-                (operating_rule_confirmations or {}).get(device_id),
+                (consents or {}).get(device_id),
             )
             for device_id in device_ids
         }
@@ -434,11 +425,7 @@ class CommandsService(Service):
                 write.attribute,
                 write.value,
                 confirm=confirm,
-                **operating_rule_write_options(
-                    command.validation.operating_rule_confirmation
-                    if command.validation
-                    else None
-                ),
+                consent=command.validation.consent if command.validation else None,
             )
         except Exception as exc:
             logger.warning(

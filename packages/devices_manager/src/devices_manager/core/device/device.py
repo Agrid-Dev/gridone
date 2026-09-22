@@ -31,7 +31,6 @@ from .write_guard import WriteGuard
 if TYPE_CHECKING:
     from devices_manager.core.codecs import FnCodec
     from devices_manager.core.driver import AttributeDriver, Driver
-    from devices_manager.core.operating_rules import OperatingRuleGuard
     from devices_manager.core.transports import (
         ReadResult,
         TransportAddress,
@@ -44,7 +43,8 @@ if TYPE_CHECKING:
         DeviceConfig,
         ReadWriteMode,
     )
-    from models.command_confirmation import OperatingRuleConfirmation
+    from models.command_confirmation import WriteConsent
+    from models.write_policy import WritePolicy
 
     from .device_base import DeviceBase
 
@@ -174,7 +174,7 @@ class CoreDevice:
     on_write_state_update: Callable[[CoreDevice], None] | None = field(
         default=None, repr=False
     )
-    operating_rule_guard: OperatingRuleGuard | None = field(default=None, repr=False)
+    write_policy: WritePolicy | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         if self.driver.transport != self.transport.protocol:
@@ -822,14 +822,25 @@ class CoreDevice:
         attribute_name: str,
         value: AttributeValueType,
         *,
-        operating_rule_confirmation: OperatingRuleConfirmation | None = None,
+        consent: WriteConsent | None = None,
     ) -> WriteEvaluation:
         self.get_attribute(attribute_name)
         evaluation = self._guard.evaluate(attribute_name, value)
-        if self.operating_rule_guard is not None:
-            return self.operating_rule_guard.evaluate(
-                self.id, attribute_name, evaluation, operating_rule_confirmation
-            )
+        if self.write_policy is not None:
+            try:
+                return self.write_policy(self.id, attribute_name, evaluation, consent)
+            except Exception:
+                logger.exception("Failed to evaluate write policy")
+                return evaluation.model_copy(
+                    update={
+                        "eligible": False,
+                        "consent_required": False,
+                        "reasons": [
+                            *evaluation.reasons,
+                            WriteReason(code="write_policy_unavailable"),
+                        ],
+                    }
+                )
         return evaluation
 
     def known_attribute_value(self, attribute_name: str) -> AttributeValueType | None:
@@ -839,7 +850,7 @@ class CoreDevice:
     def observed_attribute_value(
         self, attribute_name: str, *, max_age_seconds: float | None = None
     ) -> AttributeValueType | None:
-        """An acquired value with the operating rule's optional freshness limit."""
+        """An acquired value with an optional observation age limit."""
         return self._guard.observed_value(
             attribute_name, max_age_seconds=max_age_seconds
         )
@@ -849,13 +860,13 @@ class CoreDevice:
         attribute_name: str,
         value: AttributeValueType,
         *,
-        operating_rule_confirmation: OperatingRuleConfirmation | None = None,
+        consent: WriteConsent | None = None,
     ) -> AttributeValueType:
         """The universal, side-effect-free guard, also used by the direct CLI."""
         evaluation = self.evaluate_attribute_write(
             attribute_name,
             value,
-            operating_rule_confirmation=operating_rule_confirmation,
+            consent=consent,
         )
         if not evaluation.eligible or evaluation.value is None:
             raise WriteRejectedError(evaluation.reasons)
@@ -868,7 +879,7 @@ class CoreDevice:
         *,
         confirm: bool = True,
         confirm_timeout: float = DEFAULT_CONFIRM_TIMEOUT,
-        operating_rule_confirmation: OperatingRuleConfirmation | None = None,
+        consent: WriteConsent | None = None,
     ) -> Attribute:
         """Check, encode and send under the write lock; confirm after releasing it.
 
@@ -883,7 +894,7 @@ class CoreDevice:
             validated = self.validate_attribute_write(
                 attribute_name,
                 value,
-                operating_rule_confirmation=operating_rule_confirmation,
+                consent=consent,
             )
             spec = self.driver.attributes[attribute_name]
             if spec.write is None:

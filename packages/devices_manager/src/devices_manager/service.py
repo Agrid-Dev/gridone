@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from functools import partial
 from typing import TYPE_CHECKING, Any
 
-from models.command_confirmation import operating_rule_write_options
+from models.attribute_observation import AttributeDefinition, AttributeObservation
 from models.errors import (
     ConflictError,
     InvalidError,
@@ -16,7 +16,6 @@ from models.errors import (
     StorageNotInitializedError,
 )
 from models.ids import gen_id
-from models.operating_rules import PointDefinition, PointObservation
 from models.service import Service
 from models.tags import normalize_tags
 from models.yaml_loader import BoundedYamlError
@@ -34,7 +33,6 @@ from .core.discovery_manager import (
 )
 from .core.driver import attributes_referencing
 from .core.driver_registry import DriverRegistry
-from .core.operating_rules import OperatingRuleGuard
 from .core.presentation.diagnostics import (
     AvailablePresentation,
     UnavailablePresentation,
@@ -84,10 +82,10 @@ from .storage.factory import build_storage
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Collection
 
-    from models.command_confirmation import OperatingRuleConfirmation
-    from models.expressions import DevicePointRef
-    from models.operating_rules import OperatingRuleProvider
+    from models.command_confirmation import WriteConsent
+    from models.expressions import DeviceAttributeRef
     from models.types import Severity
+    from models.write_policy import WritePolicy
     from models.write_rules import WriteEvaluation
 
     from .core.device.connection_status import AttributeLogs
@@ -167,7 +165,7 @@ class DevicesService(Service):
         self._seed_transports = transports if transports is not None else {}
         self._seed_devices = devices if devices is not None else {}
         self._loaded: _LoadedState | None = None
-        self._operating_rule_guard: OperatingRuleGuard | None = None
+        self._write_policy: WritePolicy | None = None
         self._load_errors: list[LoadError] = []
         self._running = False
         self._attribute_update_handlers: dict[str, AttributeListener] = {}
@@ -245,7 +243,7 @@ class DevicesService(Service):
             on_attribute_update=self._on_attribute_update,
             on_write_state_update=self._on_write_state_update,
             storage=storage.devices,
-            operating_rule_guard=self._operating_rule_guard,
+            write_policy=self._write_policy,
         )
         self._loaded = _LoadedState(
             storage=storage,
@@ -631,14 +629,14 @@ class DevicesService(Service):
         value: AttributeValueType,
         *,
         confirm: bool = True,
-        operating_rule_confirmation: OperatingRuleConfirmation | None = None,
+        consent: WriteConsent | None = None,
     ) -> Attribute:
         return await self._device_registry.write_attribute(
             device_id,
             attribute_name,
             value,
             confirm=confirm,
-            **operating_rule_write_options(operating_rule_confirmation),
+            consent=consent,
         )
 
     def get_attribute_logs(self, device_id: str, attribute_name: str) -> AttributeLogs:
@@ -651,46 +649,39 @@ class DevicesService(Service):
             self._device_registry.get(device_id), attribute_name, value
         )
 
-    def set_operating_rule_provider(self, provider: OperatingRuleProvider) -> None:
-        """Inject the site-rule owner into existing and future devices."""
-        self._operating_rule_guard = OperatingRuleGuard(
-            provider, self.inspect_point, self.resolve_point
-        )
+    def set_write_policy(self, policy: WritePolicy) -> None:
+        """Attach a policy to the universal gate on existing and future devices."""
+        self._write_policy = policy
         if self._loaded is not None:
-            self._device_registry.operating_rule_guard = self._operating_rule_guard
+            self._device_registry.write_policy = policy
             for device in self._device_registry.all.values():
-                device.operating_rule_guard = self._operating_rule_guard
+                device.write_policy = policy
 
-    def operating_rule_binding(self, device_id: str, attribute: str) -> str | None:
-        return (
-            self._operating_rule_guard.binding(device_id, attribute)
-            if self._operating_rule_guard
-            else None
-        )
-
-    def inspect_point(self, point: DevicePointRef) -> PointDefinition | None:
-        device = self._device_registry.all.get(point.device_id)
-        if device is None or point.attribute not in device.attributes:
+    def inspect_attribute(
+        self, reference: DeviceAttributeRef
+    ) -> AttributeDefinition | None:
+        device = self._device_registry.all.get(reference.device_id)
+        if device is None or reference.attribute not in device.attributes:
             return None
-        spec = device.driver.attributes.get(point.attribute)
+        spec = device.driver.attributes.get(reference.attribute)
         if spec is None:
             return None
-        return PointDefinition(
+        return AttributeDefinition(
             data_type=spec.data_type,
             writable=spec.write is not None,
-            max_age_seconds=observation_max_age(device.driver, point.attribute),
+            max_age_seconds=observation_max_age(device.driver, reference.attribute),
         )
 
-    def resolve_point(
-        self, point: DevicePointRef, *, max_age_seconds: float | None = None
-    ) -> PointObservation:
-        definition = self.inspect_point(point)
+    def resolve_attribute(
+        self, reference: DeviceAttributeRef, *, max_age_seconds: float | None = None
+    ) -> AttributeObservation:
+        definition = self.inspect_attribute(reference)
         if definition is None:
-            return PointObservation(validity="invalid")
-        value = self._device_registry.get(point.device_id).observed_attribute_value(
-            point.attribute, max_age_seconds=max_age_seconds
+            return AttributeObservation(validity="invalid")
+        value = self._device_registry.get(reference.device_id).observed_attribute_value(
+            reference.attribute, max_age_seconds=max_age_seconds
         )
-        return PointObservation(
+        return AttributeObservation(
             value=value, validity="known" if value is not None else "unknown"
         )
 
@@ -700,10 +691,10 @@ class DevicesService(Service):
         attribute: str,
         value: AttributeValueType,
         *,
-        operating_rule_confirmation: OperatingRuleConfirmation | None = None,
+        consent: WriteConsent | None = None,
     ) -> WriteEvaluation:
         return self._device_registry.get(device_id).evaluate_attribute_write(
-            attribute, value, operating_rule_confirmation=operating_rule_confirmation
+            attribute, value, consent=consent
         )
 
     # -- Faults --

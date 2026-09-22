@@ -238,8 +238,7 @@ function PreparedWrite({
                           aria-label={row.name}
                           checked={selected.includes(row.device_id)}
                           disabled={
-                            (!row.eligible &&
-                              !row.operating_rule_confirmation_required) ||
+                            (!row.eligible && !row.consent_required) ||
                             command.busy ||
                             item.needsRefresh ||
                             item.uncertain
@@ -301,7 +300,7 @@ function PreparedWrite({
                             {commandReasons(row.warnings)}
                           </p>
                         )}
-                        {row.operating_rule_confirmation_required && (
+                        {row.consent_required && (
                           <p className="mt-2 text-amber-700 font-normal">
                             {t("confirmation.unknownOperatingRule")}
                           </p>

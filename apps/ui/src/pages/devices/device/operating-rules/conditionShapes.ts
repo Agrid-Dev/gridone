@@ -1,24 +1,24 @@
 import type {
   DataType,
-  DevicePointRef,
+  DeviceAttributeRef,
   WriteCondition,
   WriteExpression,
 } from "@gridone/sdk";
 import {
   defaultScalar,
-  emptyPoint,
+  emptyAttribute,
   isScalar,
   newCondition,
   sameScalarType,
   scalarType,
-  pointType,
-  type PointCatalog,
+  attributeType,
+  type AttributeCatalog,
   type Scalar,
 } from "./expressions";
 
 /**
  * The comparisons a one-line row can express. They are the `WriteCondition`
- * operators that read as "<point> <comparison> <value>"; `all`, `any` and `not`
+ * operators that read as "<reference> <comparison> <value>"; `all`, `any` and `not`
  * are structure rather than comparison and never appear here.
  */
 export type Comparison = "eq" | "lt" | "lte" | "gt" | "gte" | "in" | "is_known";
@@ -34,7 +34,7 @@ export const comparisons: Comparison[] = [
 ];
 const ordered: Comparison[] = ["lt", "lte", "gt", "gte"];
 
-/** A comparison whose observed side is a plain device point. */
+/** A comparison whose observed side is a plain device reference. */
 export type RowCondition = Extract<WriteCondition, { op: Comparison }>;
 /** A group: `all` or `any` over a list of conditions. */
 export type GroupCondition = Extract<WriteCondition, { op: "all" | "any" }>;
@@ -44,7 +44,7 @@ export type MembershipRow = Extract<WriteCondition, { op: "in" }>;
 export const isGroup = (value: WriteCondition): value is GroupCondition =>
   value.op === "all" || value.op === "any";
 
-const isPoint = (value: WriteExpression): value is DevicePointRef =>
+const isAttribute = (value: WriteExpression): value is DeviceAttributeRef =>
   typeof value === "object" &&
   value !== null &&
   "device_id" in value &&
@@ -52,51 +52,53 @@ const isPoint = (value: WriteExpression): value is DevicePointRef =>
 
 /**
  * What a one-line row can show on its compared side: a fixed value, another
- * point, or the requested value. A calculation cannot be drawn on one line, and
+ * reference, or the requested value. A calculation cannot be drawn on one line, and
  * a picker that cannot draw it would destroy it on the first click.
  */
 function isSimpleRight(value: WriteExpression): boolean {
-  if (isScalar(value) || isPoint(value)) return true;
+  if (isScalar(value) || isAttribute(value)) return true;
   return typeof value === "object" && value !== null && "candidate" in value;
 }
 
 /**
  * Whether `value` fits a one-line row: a comparison whose observed side is a
- * device point and whose compared side the row can render. Anything else — a
- * calculation, a conditional value, an implicit point — keeps the expression
+ * device reference and whose compared side the row can render. Anything else — a
+ * calculation, a conditional value, an implicit reference — keeps the expression
  * editor, on either side of the comparison.
  */
 export function isRow(value: WriteCondition): value is RowCondition {
-  if (value.op === "is_known" || value.op === "in") return isPoint(value.value);
-  if ("left" in value) return isPoint(value.left) && isSimpleRight(value.right);
+  if (value.op === "is_known" || value.op === "in")
+    return isAttribute(value.value);
+  if ("left" in value)
+    return isAttribute(value.left) && isSimpleRight(value.right);
   return false;
 }
 
-/** The device point a row observes. */
-export function rowPoint(row: RowCondition): DevicePointRef {
+/** The device reference a row observes. */
+export function rowAttribute(row: RowCondition): DeviceAttributeRef {
   return (
     row.op === "is_known" || row.op === "in" ? row.value : row.left
-  ) as DevicePointRef;
+  ) as DeviceAttributeRef;
 }
 
-/** What a row compares its point against, or undefined when it needs no value. */
+/** What a row compares its reference against, or undefined when it needs no value. */
 export function rowValue(row: RowCondition): WriteExpression | undefined {
   return "right" in row ? row.right : undefined;
 }
 
-export type RightKind = "literal" | "point" | "candidate";
+export type RightKind = "literal" | "attribute" | "candidate";
 
 export function rightKind(value: WriteExpression): RightKind {
   if (isScalar(value)) return "literal";
-  return "candidate" in value ? "candidate" : "point";
+  return "candidate" in value ? "candidate" : "attribute";
 }
 
-/** A row's observed type, from its point's declared data type. */
+/** A row's observed type, from its reference's declared data type. */
 export function rowType(
-  catalog: PointCatalog,
+  catalog: AttributeCatalog,
   row: RowCondition,
 ): DataType | undefined {
-  return pointType(catalog, rowPoint(row));
+  return attributeType(catalog, rowAttribute(row));
 }
 
 const isNumeric = (type: DataType | undefined) =>
@@ -104,7 +106,7 @@ const isNumeric = (type: DataType | undefined) =>
 
 /**
  * The comparisons offered for `type`: ordering only makes sense on numbers, so
- * a boolean or text point offers equality and membership alone. The row's own
+ * a boolean or text reference offers equality and membership alone. The row's own
  * comparison always stays selectable so an existing rule never loses its shape.
  */
 export function comparisonsFor(
@@ -116,27 +118,27 @@ export function comparisonsFor(
   );
 }
 
-/** Retype a scalar when the observed point's type no longer matches it. */
+/** Retype a scalar when the observed reference's type no longer matches it. */
 const retype = (value: Scalar, type: DataType | undefined): Scalar =>
   type && !sameScalarType(scalarType(value), type)
     ? defaultScalar(type)
     : value;
 
-/** Replace a row's comparison, keeping its point and any compatible value. */
+/** Replace a row's comparison, keeping its reference and any compatible value. */
 export function withComparison(
   row: RowCondition,
   next: Comparison,
   type: DataType | undefined,
 ): RowCondition {
   if (next === row.op) return row;
-  const point = rowPoint(row);
-  if (next === "is_known") return { op: next, value: point };
+  const reference = rowAttribute(row);
+  if (next === "is_known") return { op: next, value: reference };
   if (next === "in")
-    return { op: next, value: point, values: [defaultScalar(type)] };
+    return { op: next, value: reference, values: [defaultScalar(type)] };
   const right = rowValue(row);
   return {
     op: next,
-    left: point,
+    left: reference,
     right:
       right === undefined
         ? defaultScalar(type)
@@ -147,27 +149,27 @@ export function withComparison(
 }
 
 /**
- * Point a row at `next`, coercing every literal it holds to the new point's
+ * Set a row’s attribute to `next`, coercing every literal it holds to the new reference's
  * type — a row switched from a boolean to a temperature must not keep `false`
  * as the value it compares against.
  */
-export function withPoint(
+export function withAttribute(
   row: RowCondition,
-  next: DevicePointRef,
-  catalog: PointCatalog,
+  next: DeviceAttributeRef,
+  catalog: AttributeCatalog,
 ): RowCondition {
-  const type = pointType(catalog, next);
+  const type = attributeType(catalog, next);
   if (row.op === "is_known") return { op: row.op, value: next };
   if (row.op === "in") {
     // Retyping collapses distinct values onto the new type's default, so
-    // `in [1, 2, 3]` moved to a boolean point must not become `[false, false,
+    // `in [1, 2, 3]` moved to a boolean reference must not become `[false, false,
     // false]` — three entries that all say the same thing.
     const values = row.values.map((value) => retype(value, type));
     return { op: row.op, value: next, values: [...new Set(values)] };
   }
   const ordering = ordered.includes(row.op);
   return {
-    // An ordering comparison is meaningless on a boolean or text point.
+    // An ordering comparison is meaningless on a boolean or text reference.
     op: ordering && !isNumeric(type) ? "eq" : row.op,
     left: next,
     right: isScalar(row.right) ? retype(row.right, type) : row.right,
@@ -182,7 +184,7 @@ export function withValue(
   return "right" in row ? { ...row, right: value } : row;
 }
 
-/** Swap a row's compared side between a fixed value, a point and the candidate. */
+/** Swap a row's compared side between a fixed value, a reference and the candidate. */
 export function withRightKind(
   row: RowCondition,
   kind: RightKind,
@@ -192,8 +194,8 @@ export function withRightKind(
   return {
     ...row,
     right:
-      kind === "point"
-        ? emptyPoint()
+      kind === "attribute"
+        ? emptyAttribute()
         : kind === "candidate"
           ? { candidate: true }
           : defaultScalar(type),
