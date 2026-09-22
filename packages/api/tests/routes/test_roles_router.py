@@ -16,7 +16,7 @@ from models.errors import ConflictError, NotFoundError
 from users import Role, RoleCreate, RoleUpdate, User
 from users.auth import AuthService
 from users.permissions import Permission
-from users.roles import get_permissions_for_role
+from users.roles import find_builtin_role
 
 ADMIN = User(id="admin-id", username="admin", role="admin")
 VIEWER_ROLE = Role(
@@ -38,13 +38,18 @@ CREATE_BODY = {
 }
 
 
+def _builtin_permissions(role_id: str) -> list[Permission]:
+    role = find_builtin_role(role_id)
+    return list(role.permissions) if role is not None else []
+
+
 @pytest.fixture
 def um() -> AsyncMock:
     um = AsyncMock()
     um.authenticate = AsyncMock(return_value=ADMIN)
     um.get_by_id = AsyncMock(return_value=ADMIN)
     um.is_blocked = AsyncMock(return_value=False)
-    um.get_role_permissions = AsyncMock(side_effect=get_permissions_for_role)
+    um.get_role_permissions = AsyncMock(side_effect=_builtin_permissions)
     um.list_roles = AsyncMock(return_value=[VIEWER_ROLE])
 
     async def _get_role(role_id: str) -> Role:
@@ -138,6 +143,10 @@ class TestCreate:
             pytest.param({**CREATE_BODY, "id": "Not-A-Slug"}, id="bad-id"),
             pytest.param(
                 {**CREATE_BODY, "permissions": ["devices:fly"]}, id="unknown-permission"
+            ),
+            pytest.param(
+                {**CREATE_BODY, "permissions": ["roles:write"]},
+                id="reserved-permission",
             ),
         ],
     )

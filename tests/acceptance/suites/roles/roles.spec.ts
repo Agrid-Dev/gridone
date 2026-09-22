@@ -88,6 +88,18 @@ describe("roles", () => {
     expect(await statusOf(admin.users.createRole(withScopes))).toBe(422);
   });
 
+  it("reserves roles:write for the built-in admin", async () => {
+    const status = await statusOf(
+      admin.users.createRole({
+        id: `acceptance_minter_${Date.now()}`,
+        name: "Minter",
+        permissions: ["roles:read", "roles:write"],
+      }),
+    );
+
+    expect(status).toBe(422);
+  });
+
   it("refuses role creation to an operator", async () => {
     const operator = await makeRoleClient("operator");
 
@@ -168,5 +180,56 @@ describe("a custom integration role", () => {
 
     expect(await statusOf(admin.users.deleteRole(roleId))).toBeNull();
     expect(await statusOf(admin.users.getRole(roleId))).toBe(404);
+  });
+});
+
+// users:write alone must not be a path to admin: a role can only be granted
+// by a caller who already holds every permission it carries.
+describe("a users:write role", () => {
+  const roleId = `support_${Date.now()}`;
+  let admin: GridoneClient;
+  let support: GridoneClient;
+  let supportUserId: string;
+  let bystanderId: string;
+
+  beforeAll(async () => {
+    admin = await makeAdminClient();
+    await admin.users.createRole({
+      id: roleId,
+      name: "Support",
+      permissions: ["users:read", "users:write", "roles:read"],
+    });
+    ({ client: support, userId: supportUserId } = await makeRoleUser(roleId));
+    ({ userId: bystanderId } = await makeRoleUser("viewer"));
+  });
+
+  afterAll(async () => {
+    await admin.users.delete(bystanderId).catch(() => undefined);
+    await admin.users.delete(supportUserId).catch(() => undefined);
+    await admin.users.deleteRole(roleId).catch(() => undefined);
+  });
+
+  it("cannot promote itself, another user, or a new user to admin", async () => {
+    expect(
+      await statusOf(support.users.update(supportUserId, { role: "admin" })),
+    ).toBe(403);
+    expect(
+      await statusOf(support.users.update(bystanderId, { role: "admin" })),
+    ).toBe(403);
+    expect(
+      await statusOf(
+        support.users.create({
+          username: `acceptance-escalated-${Date.now()}`,
+          password: "acceptance-pass",
+          role: "operator",
+        }),
+      ),
+    ).toBe(403);
+  });
+
+  it("can assign a role it fully covers", async () => {
+    const moved = await support.users.update(bystanderId, { role: roleId });
+
+    expect(moved.role).toBe(roleId);
   });
 });

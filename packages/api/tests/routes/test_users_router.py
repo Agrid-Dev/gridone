@@ -14,7 +14,8 @@ from api.routes.users.users_router import router as users_router
 from models.errors import BlockedUserError, NotFoundError
 from users import User, UserUpdate
 from users.auth import AuthService
-from users.roles import get_permissions_for_role
+from users.permissions import Permission
+from users.roles import find_builtin_role
 from users.validation import PASSWORD_MAX_LENGTH
 
 # Bytes vs. characters: bcrypt's 72-byte limit means a multi-byte password can
@@ -26,6 +27,20 @@ OVERSIZED_PASSWORDS = [
 
 ADMIN = User(id="admin-id", username="admin", role="admin", name="Admin User")
 BOB = User(id="bob-id", username="bob", role="operator", name="Bob User")
+# A custom role holding users:write and nothing else: the escalation case.
+SAM = User(id="sam-id", username="sam", role="support", name="Sam Support")
+SUPPORT_PERMISSIONS = [Permission.USERS_WRITE, Permission.USERS_READ]
+
+
+def _builtin_permissions(role_id: str) -> list[Permission]:
+    role = find_builtin_role(role_id)
+    return list(role.permissions) if role is not None else []
+
+
+async def _role_permissions(role_id: str) -> list[Permission]:
+    if role_id == "support":
+        return SUPPORT_PERMISSIONS
+    return _builtin_permissions(role_id)
 
 
 async def _update_user(user_id: str, data: UserUpdate) -> User:
@@ -40,8 +55,8 @@ def users_manager() -> AsyncMock:
     um = AsyncMock()
 
     async def _authenticate(username: str, password: str) -> User | None:
-        creds = {"admin": "admin", "bob": "bob"}
-        users = {"admin": ADMIN, "bob": BOB}
+        creds = {"admin": "admin", "bob": "bob", "sam": "sam"}
+        users = {"admin": ADMIN, "bob": BOB, "sam": SAM}
         if creds.get(username) != password:
             return None
         user = users[username]
@@ -51,14 +66,14 @@ def users_manager() -> AsyncMock:
         return user
 
     async def _get_by_id(user_id: str) -> User:
-        for user in (ADMIN, BOB):
+        for user in (ADMIN, BOB, SAM):
             if user.id == user_id:
                 return user
         msg = f"User '{user_id}' not found"
         raise NotFoundError(msg)
 
     async def _is_blocked(user_id: str) -> bool:
-        for user in (ADMIN, BOB):
+        for user in (ADMIN, BOB, SAM):
             if user.id == user_id:
                 return user.is_blocked
         return False
@@ -67,7 +82,7 @@ def users_manager() -> AsyncMock:
     um.update_user = AsyncMock(side_effect=_update_user)
     um.get_by_id = AsyncMock(side_effect=_get_by_id)
     um.is_blocked = AsyncMock(side_effect=_is_blocked)
-    um.get_role_permissions = AsyncMock(side_effect=get_permissions_for_role)
+    um.get_role_permissions = AsyncMock(side_effect=_role_permissions)
     um.list_users = AsyncMock(return_value=[ADMIN, BOB])
     um.block_user = AsyncMock(
         side_effect=lambda uid: (
@@ -323,3 +338,62 @@ def test_rejects_oversized_password(
 
     assert resp.status_code == 422
     getattr(users_manager, mock_name).assert_not_called()
+
+
+# --- Granting a role is bounded by what the caller holds ---
+
+
+def _login_as(client: TestClient, username: str) -> dict[str, str]:
+    resp = client.post(
+        "/auth/token",
+        data={"grant_type": "password", "username": username, "password": username},
+    )
+    assert resp.status_code == 200
+    return {"Authorization": f"Bearer {resp.json()['access_token']}"}
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "body"),
+    [
+        pytest.param(
+            "POST",
+            "/users/",
+            {"username": "newadmin", "password": "password12345", "role": "admin"},
+            id="create-admin",
+        ),
+        pytest.param("PATCH", "/users/bob-id", {"role": "admin"}, id="promote-other"),
+        pytest.param("PATCH", "/users/sam-id", {"role": "admin"}, id="promote-self"),
+        pytest.param("PATCH", "/users/bob-id", {"role": "operator"}, id="richer-role"),
+    ],
+)
+def test_users_write_cannot_grant_a_role_richer_than_its_own(
+    app: FastAPI, users_manager: AsyncMock, method: str, path: str, body: dict
+) -> None:
+    with TestClient(app) as client:
+        resp = client.request(method, path, json=body, headers=_login_as(client, "sam"))
+
+    assert resp.status_code == 403
+    users_manager.create_user.assert_not_awaited()
+    users_manager.update_user.assert_not_awaited()
+
+
+def test_users_write_can_grant_a_role_it_covers(
+    app: FastAPI, users_manager: AsyncMock
+) -> None:
+    with TestClient(app) as client:
+        resp = client.patch(
+            "/users/bob-id", json={"role": "support"}, headers=_login_as(client, "sam")
+        )
+
+    assert resp.status_code == 200
+    users_manager.update_user.assert_awaited_once()
+
+
+def test_admin_can_grant_admin(app: FastAPI, users_manager: AsyncMock) -> None:
+    with TestClient(app) as client:
+        resp = client.patch(
+            "/users/bob-id", json={"role": "admin"}, headers=_login_as(client, "admin")
+        )
+
+    assert resp.status_code == 200
+    users_manager.update_user.assert_awaited_once()

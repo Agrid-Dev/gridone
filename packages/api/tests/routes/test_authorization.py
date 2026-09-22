@@ -91,7 +91,7 @@ from timeseries.domain import FetchPointsResult
 from users import Role, RoleCreate, RoleUpdate, User
 from users.auth import AuthService
 from users.permissions import Permission
-from users.roles import BUILTIN_ROLES, get_permissions_for_role
+from users.roles import BUILTIN_ROLES, find_builtin_role
 
 INTEGRATION_ROLE = Role(
     id="integration",
@@ -161,7 +161,8 @@ class MockUsersService:
     async def get_role_permissions(self, role_id: str) -> list[Permission]:
         if role_id == INTEGRATION_ROLE.id:
             return list(INTEGRATION_ROLE.permissions)
-        return [Permission(p) for p in get_permissions_for_role(role_id)]
+        role = find_builtin_role(role_id)
+        return list(role.permissions) if role is not None else []
 
     # The write routes only need to exist here: what they do is the roles
     # router test's business, who may call them is this file's.
