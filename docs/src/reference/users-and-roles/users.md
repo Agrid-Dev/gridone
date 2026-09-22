@@ -15,7 +15,7 @@ A **user** is an account that signs in to Gridone, whether a person using the we
 | `name`, `email`, `title` | Profile fields, all optional |
 | `is_blocked` | Whether the account is currently refused. See [Blocking](#blocking-a-user). |
 
-Users are managed from the **Users** page of the web app or through the [API](../api-reference.md). Creating, updating, deleting, blocking and unblocking a user requires the `users:write` permission, which only `admin` holds among the built-in roles. An administrator can reset any user's password and change any user's role, but cannot delete or block their own account.
+Users are managed from the **Users** page of the web app or through the [API](../../api-reference.md). Creating, updating, deleting, blocking and unblocking a user requires the `users:write` permission, which only `admin` holds among the built-in roles. A user can only be given a role whose permissions the caller already holds, so a role with `users:write` but without the rest cannot promote anyone, itself included, to `admin`. An administrator cannot delete or block their own account.
 
 ### Blocking a user
 
@@ -40,7 +40,7 @@ After the first sign-in, change the password from your profile, and consider uns
 
 ## Authentication
 
-Gridone authenticates with **bearer tokens**. Signing in with a username and password returns an access token and a refresh token; the access token identifies the caller on every subsequent request, whether it is sent as a header by an API client or as a cookie by the web app. The [developer getting-started](../getting-started/developers.md#2-authenticate) shows the sign-in exchange.
+Gridone authenticates with **bearer tokens**. Signing in with a username and password returns an access token and a refresh token; the access token identifies the caller on every subsequent request, whether it is sent as a header by an API client or as a cookie by the web app. The [developer getting-started](../../getting-started/developers.md#2-authenticate) shows the sign-in exchange.
 
 | Token | Default lifetime | Setting |
 |---|---|---|
@@ -61,7 +61,7 @@ Any signed-in user can read their own profile, including the permissions their r
 |---|---|
 | Block a user | Immediately, on their next request |
 | Edit the permissions of a custom role | Immediately, on the next request of every user holding it |
-| Change a user's role | At their next token refresh, at most one access-token lifetime later |
+| Change a user's role | At their next token refresh, at most one access-token lifetime later. Until then the previous role is enforced, and the profile endpoint reports that role and its permissions. |
 | Change or reset a password | Sign-in only. Existing sessions stay valid; block the user to end them now. |
 | Delete a user | Token refresh is refused. An existing access token stays valid until it expires. |
 | Rotate `SECRET_KEY` | Every session ends at the next request |

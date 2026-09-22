@@ -29,13 +29,13 @@ Resources are the kinds of things Gridone manages. Reading never implies writing
 | `users` | User accounts, blocking, app registration | `read`, `write` |
 | `roles` | Built-in and custom roles | `read`, `write` |
 | `devices` | Devices, their live values, faults and presentations | `read`, `write`, plus [device specifics](#device-specifics) |
-| `assets` | [Zones](glossary.md#zone) and assets | `read`, `write` |
-| `transports` | [Networks](glossary.md#network) and discovery | `read`, `write` |
-| `drivers` | [Drivers](glossary.md#driver) | `read`, `write` |
+| `assets` | [Zones](../glossary.md#zone) and assets | `read`, `write` |
+| `transports` | [Networks](../glossary.md#network) and discovery | `read`, `write` |
+| `drivers` | [Drivers](../glossary.md#driver) | `read`, `write` |
 | `timeseries` | Recorded device history | `read` only: history is written by Gridone itself |
-| `automations` | [Automations](glossary.md#automation) and their executions | `read`, `write` |
-| `operating_rules` | [Site operating rules](../guides/commands/operating-rules.md) guarding device writes | `read`, `write` |
-| `notifications` | Dispatching a [notification](glossary.md#notification) to other users | `write` only: reading and dismissing your own needs no permission |
+| `automations` | [Automations](../glossary.md#automation) and their executions | `read`, `write` |
+| `operating_rules` | [Site operating rules](../../guides/commands/operating-rules.md) guarding device writes | `read`, `write` |
+| `notifications` | Dispatching a [notification](../glossary.md#notification) to other users | `write` only: reading and dismissing your own needs no permission |
 | `dashboards` | Dashboards | `read`, `write` |
 | `synoptics` | Synoptics | `read`, `write` |
 
@@ -46,7 +46,7 @@ Devices are the one resource where "write" is two different things: configuring 
 | Permission | Grants |
 |---|---|
 | `devices:write` | Configuring devices: creating, updating and deleting them, managing their tags and views |
-| `devices:command` | Operating devices: sending a [command](glossary.md#command) to writable attributes, alone, in batch or through a template |
+| `devices:command` | Operating devices: sending a [command](../glossary.md#command) to writable attributes, alone, in batch or through a template |
 | `devices:logs:read` | Reading the communication log of an attribute, for troubleshooting |
 
 `devices:command` does not include `devices:read`. A role that operates equipment normally holds both.
@@ -116,11 +116,11 @@ An administrator can define additional roles when the built-in ones do not fit. 
 | `description` | Free text, shown in the user form |
 | `permissions` | Any subset of the [permissions](#permissions) above |
 
-Custom roles are managed through the [API](../api-reference.md) and require the `roles:write` permission, which only `admin` holds. A role that can manage users can therefore never grant itself a permission it does not have.
+Custom roles are managed through the [API](../../api-reference.md) and require the `roles:write` permission. That permission is reserved for the built-in `admin` role: a custom role cannot hold it. Assigning a role to a user, in turn, requires holding every permission of that role. Together the two rules mean no role can hand out more than it has, whether by editing roles or by editing users.
 
 Rules:
 
-- A permission outside the vocabulary is rejected.
+- A permission outside the vocabulary is rejected, and so is `roles:write`.
 - An `id` that already exists is rejected.
 - A role assigned to at least one user cannot be deleted. Reassign the users first.
 - Changing a role's permissions takes effect on the next request of every user holding it. No re-login is needed.
@@ -149,7 +149,7 @@ Without `devices:write`, a user with this role cannot create, edit or delete a d
 
 A permission is all-or-nothing: `devices:command` lets a role write every writable attribute of every device. A **scope** narrows a device permission to a subset of devices and attributes.
 
-Scopes are keyed by the permission they narrow, and only `devices:read` and `devices:command` accept them. A scope selects devices by their [standard type](standard-devices.md) or driver, and optionally lists the attributes it covers. The thermostat operator above, narrowed to what its name says:
+Scopes are keyed by the permission they narrow, and only `devices:read` and `devices:command` accept them. A scope selects devices by their [standard type](../standard-devices.md) or driver, and optionally lists the attributes it covers. The thermostat operator above, narrowed to what its name says:
 
 ```json
 {
