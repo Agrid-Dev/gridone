@@ -4,11 +4,14 @@ Nothing here knows about users: a role is a named set of permissions, and
 the only link to a user is the ``role`` string a user carries.
 """
 
+import logging
 from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, StringConstraints, field_validator
 
 from users.permissions import Permission
+
+logger = logging.getLogger(__name__)
 
 # A role id is a snake_case slug: lowercase letters and digits, underscore
 # separated, e.g. ``thermostat_operator`` or ``level2_support``. It doubles
@@ -20,10 +23,40 @@ RoleIdField = Annotated[
     str, StringConstraints(pattern=ROLE_ID_PATTERN, max_length=ROLE_ID_MAX_LENGTH)
 ]
 
+# Held by the built-in admin only: a role that could mint roles could mint
+# one richer than itself.
+RESERVED_PERMISSIONS: frozenset[Permission] = frozenset({Permission.ROLES_WRITE})
+
 
 def _sort_permissions(permissions: list[Permission]) -> list[Permission]:
     """A role's permissions are a set: serve them in one canonical order."""
     return sorted(permissions)
+
+
+def _custom_role_permissions(permissions: list[Permission]) -> list[Permission]:
+    reserved = RESERVED_PERMISSIONS.intersection(permissions)
+    if reserved:
+        msg = f"Reserved for the built-in admin role: {', '.join(sorted(reserved))}"
+        raise ValueError(msg)
+    return _sort_permissions(permissions)
+
+
+def known_permissions(values: list[str], *, role_id: str) -> list[Permission]:
+    """Keep the permission strings the vocabulary still knows.
+
+    Stored roles outlive the vocabulary: a member retired in a later release
+    must not make the row, let alone every custom role, unreadable. The
+    dropped strings are logged so the deployment can clean the role up.
+    """
+    known: list[Permission] = []
+    for value in values:
+        try:
+            known.append(Permission(value))
+        except ValueError:
+            logger.warning(
+                "Role %r holds unknown permission %r; ignored", role_id, value
+            )
+    return known
 
 
 class Role(BaseModel):
@@ -53,7 +86,7 @@ class RoleCreate(BaseModel):
     description: str = ""
     permissions: list[Permission]
 
-    _sort = field_validator("permissions")(_sort_permissions)
+    _custom = field_validator("permissions")(_custom_role_permissions)
 
     def to_role(self) -> Role:
         return Role(**self.model_dump())
@@ -70,20 +103,22 @@ class RoleUpdate(BaseModel):
 
     @field_validator("permissions")
     @classmethod
-    def _sort_if_set(
+    def _custom_if_set(
         cls, permissions: list[Permission] | None
     ) -> list[Permission] | None:
-        return None if permissions is None else _sort_permissions(permissions)
+        return None if permissions is None else _custom_role_permissions(permissions)
 
     def apply_to(self, role: Role) -> Role:
         return role.model_copy(update=self.model_dump(exclude_none=True))
 
 
 __all__ = [
+    "RESERVED_PERMISSIONS",
     "ROLE_ID_MAX_LENGTH",
     "ROLE_ID_PATTERN",
     "Role",
     "RoleCreate",
     "RoleIdField",
     "RoleUpdate",
+    "known_permissions",
 ]

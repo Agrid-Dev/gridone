@@ -10,7 +10,14 @@ class RolesStorageBackend(Protocol):
 
     async def list_all(self) -> list[Role]: ...
 
-    async def save(self, role: Role) -> None: ...
+    async def insert(self, role: Role) -> None:
+        """Add a new role; ``ConflictError`` when the id is already taken.
+
+        An insert, not an upsert: two concurrent creations of the same id
+        must end with one winner and one refusal, which only the store can
+        decide. ``update`` owns the edit path.
+        """
+        ...
 
     async def update(self, role_id: str, update: RoleUpdate) -> Role | None:
         """Write only the fields set on ``update``; None when the role is gone."""

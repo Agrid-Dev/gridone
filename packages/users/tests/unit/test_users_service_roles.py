@@ -138,6 +138,13 @@ class TestUpdate:
         with pytest.raises(NotFoundError):
             await service.update_role("ghost", RoleUpdate(name="Ghost"))
 
+    async def test_an_empty_update_returns_the_role_unchanged(
+        self, service: UsersService
+    ):
+        created = await service.create_role(OPERATOR_LIKE)
+
+        assert await service.update_role("thermostat_operator", RoleUpdate()) == created
+
     @pytest.mark.parametrize("builtin_id", ["admin", "operator", "viewer"])
     async def test_builtin_is_immutable(self, service: UsersService, builtin_id: str):
         with pytest.raises(ConflictError):
@@ -236,3 +243,33 @@ class TestUsersReferenceRoles:
         )
 
         assert moved.role == "thermostat_operator"
+
+
+@pytest.mark.integration
+@pytest.mark.skipif(POSTGRES_URL is None, reason="POSTGRES_TEST_URL not set")
+class TestRetiredPermissionStrings:
+    """A stored role may name a permission a later release retired."""
+
+    async def test_unknown_strings_are_ignored_not_fatal(self):
+        assert POSTGRES_URL is not None
+        service = UsersService(POSTGRES_URL, admin_password="admin-password")
+        await service.start()
+        await _wipe(POSTGRES_URL)
+        conn = await asyncpg.connect(POSTGRES_URL)
+        try:
+            await conn.execute(
+                "INSERT INTO roles (id, name, permissions) VALUES ($1, $2, $3::jsonb)",
+                "legacy",
+                "Legacy",
+                '["devices:read", "devices:teleport"]',
+            )
+        finally:
+            await conn.close()
+
+        try:
+            assert await service.get_role_permissions("legacy") == [
+                Permission.DEVICES_READ
+            ]
+            assert "legacy" in [r.id for r in await service.list_roles()]
+        finally:
+            await service.stop()

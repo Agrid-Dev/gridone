@@ -1,13 +1,15 @@
 import asyncpg
 
-from users.roles import Role, RoleUpdate
+from models.errors import ConflictError
+from users.roles import Role, RoleUpdate, known_permissions
 
 
 class PostgresRolesStorage:
     """PostgreSQL-backed storage for custom roles: the ``roles`` table only.
 
     ``permissions`` is a JSONB column; the pool registers a jsonb codec so it
-    round-trips as a Python list.
+    round-trips as a Python list. Strings the vocabulary no longer knows are
+    dropped on read (see ``known_permissions``) rather than failing the row.
     """
 
     _pool: asyncpg.Pool
@@ -20,7 +22,7 @@ class PostgresRolesStorage:
             id=row["id"],
             name=row["name"],
             description=row["description"],
-            permissions=row["permissions"],
+            permissions=known_permissions(row["permissions"], role_id=row["id"]),
         )
 
     async def get(self, role_id: str) -> Role | None:
@@ -31,22 +33,21 @@ class PostgresRolesStorage:
         rows = await self._pool.fetch("SELECT * FROM roles ORDER BY id")
         return [self._row_to_model(r) for r in rows]
 
-    async def save(self, role: Role) -> None:
-        await self._pool.execute(
-            """
-            INSERT INTO roles (id, name, description, permissions)
-            VALUES ($1, $2, $3, $4)
-            ON CONFLICT (id) DO UPDATE SET
-                name = EXCLUDED.name,
-                description = EXCLUDED.description,
-                permissions = EXCLUDED.permissions,
-                updated_at = now()
-            """,
-            role.id,
-            role.name,
-            role.description,
-            [str(p) for p in role.permissions],
-        )
+    async def insert(self, role: Role) -> None:
+        try:
+            await self._pool.execute(
+                """
+                INSERT INTO roles (id, name, description, permissions)
+                VALUES ($1, $2, $3, $4)
+                """,
+                role.id,
+                role.name,
+                role.description,
+                [str(p) for p in role.permissions],
+            )
+        except asyncpg.UniqueViolationError as exc:
+            msg = f"Role '{role.id}' already exists"
+            raise ConflictError(msg) from exc
 
     async def update(self, role_id: str, update: RoleUpdate) -> Role | None:
         """Single UPDATE over the set columns only.

@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 
+from models.errors import ConflictError
 from users.roles import Role, RoleUpdate
 
 
@@ -13,7 +14,10 @@ class MemoryRolesStorage:
     async def list_all(self) -> list[Role]:
         return sorted(self._roles.values(), key=lambda role: role.id)
 
-    async def save(self, role: Role) -> None:
+    async def insert(self, role: Role) -> None:
+        if role.id in self._roles:
+            msg = f"Role '{role.id}' already exists"
+            raise ConflictError(msg)
         self._roles[role.id] = role
 
     async def update(self, role_id: str, update: RoleUpdate) -> Role | None:

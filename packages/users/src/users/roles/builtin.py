@@ -64,14 +64,4 @@ def find_builtin_role(role_id: str) -> Role | None:
     return _BUILTIN_BY_ID.get(role_id)
 
 
-def get_permissions_for_role(role_id: str) -> list[str]:
-    """Return the sorted permission strings of a built-in role; none otherwise.
-
-    Transitional: the API resolves permissions through ``UsersService`` once
-    custom roles exist, and this helper goes with it.
-    """
-    role = find_builtin_role(role_id)
-    return sorted(role.permissions) if role is not None else []
-
-
-__all__ = ["BUILTIN_ROLES", "find_builtin_role", "get_permissions_for_role"]
+__all__ = ["BUILTIN_ROLES", "find_builtin_role"]

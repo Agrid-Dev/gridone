@@ -8,7 +8,7 @@ from users.roles import (
     RoleCreate,
     RoleUpdate,
     find_builtin_role,
-    get_permissions_for_role,
+    known_permissions,
 )
 
 
@@ -17,12 +17,17 @@ def test_builtin_roles_are_admin_operator_viewer():
     assert all(role.builtin for role in BUILTIN_ROLES)
 
 
+def _builtin_permissions(role_id: str) -> list[Permission]:
+    role = find_builtin_role(role_id)
+    return list(role.permissions) if role is not None else []
+
+
 def test_admin_holds_every_permission():
-    assert get_permissions_for_role("admin") == sorted(Permission)
+    assert _builtin_permissions("admin") == sorted(Permission)
 
 
 def test_operator_permissions():
-    assert get_permissions_for_role("operator") == [
+    assert _builtin_permissions("operator") == [
         "assets:read",
         "assets:write",
         "automations:read",
@@ -44,7 +49,7 @@ def test_operator_permissions():
 
 
 def test_viewer_permissions():
-    assert get_permissions_for_role("viewer") == [
+    assert _builtin_permissions("viewer") == [
         "assets:read",
         "automations:read",
         "dashboards:read",
@@ -61,7 +66,7 @@ def test_viewer_permissions():
 
 def test_unknown_role_has_no_permission():
     assert find_builtin_role("ghost") is None
-    assert get_permissions_for_role("ghost") == []
+    assert _builtin_permissions("ghost") == []
 
 
 def test_role_serves_its_permissions_in_canonical_order():
@@ -75,7 +80,7 @@ def test_role_serves_its_permissions_in_canonical_order():
 
 def test_builtin_role_documents_match_the_granted_permissions():
     for role in BUILTIN_ROLES:
-        assert role.permissions == get_permissions_for_role(role.id)
+        assert role.permissions == _builtin_permissions(role.id)
 
 
 class TestRoleCreate:
@@ -98,6 +103,10 @@ class TestRoleCreate:
             RoleCreate.model_validate(
                 {"id": "x", "name": "n", "permissions": ["devices:fly"]}
             )
+
+    def test_rejects_the_permission_reserved_for_admin(self):
+        with pytest.raises(ValidationError, match="Reserved"):
+            RoleCreate(id="x", name="n", permissions=[Permission.ROLES_WRITE])
 
     def test_rejects_scopes_until_they_ship(self):
         with pytest.raises(ValidationError):
@@ -125,6 +134,10 @@ class TestRoleUpdate:
         with pytest.raises(ValidationError):
             RoleUpdate.model_validate({"scopes": {}})
 
+    def test_rejects_the_permission_reserved_for_admin(self):
+        with pytest.raises(ValidationError, match="Reserved"):
+            RoleUpdate(permissions=[Permission.DEVICES_READ, Permission.ROLES_WRITE])
+
     def test_apply_to_changes_only_the_set_fields(self):
         role = Role(
             id="x",
@@ -141,3 +154,14 @@ class TestRoleUpdate:
             [],
         )
         assert updated.id == "x"
+
+
+class TestKnownPermissions:
+    def test_drops_strings_the_vocabulary_no_longer_knows(self, caplog):
+        with caplog.at_level("WARNING"):
+            kept = known_permissions(
+                ["devices:read", "devices:teleport", "assets:read"], role_id="x"
+            )
+
+        assert kept == [Permission.DEVICES_READ, Permission.ASSETS_READ]
+        assert "devices:teleport" in caplog.text

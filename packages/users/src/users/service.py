@@ -244,11 +244,11 @@ class UsersService(Service):
         return list(role.permissions) if role is not None else []
 
     async def create_role(self, create_data: RoleCreate) -> Role:
-        if await self._find_role(create_data.id) is not None:
-            msg = f"Role '{create_data.id}' already exists"
-            raise ConflictError(msg)
+        # Built-ins are not rows, so they need a check of their own; a taken
+        # custom id is the store's call (its primary key), never a pre-read.
+        self._refuse_builtin(create_data.id)
         role = create_data.to_role()
-        await self._roles_backend.save(role)
+        await self._roles_backend.insert(role)
         self._forget_roles()
         return role
 
