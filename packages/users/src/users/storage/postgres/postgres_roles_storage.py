@@ -1,15 +1,16 @@
 import asyncpg
 
 from models.errors import ConflictError
-from users.roles import Role, RoleUpdate, known_permissions
+from users.roles import Role, RoleUpdate, known_permissions, known_scopes
 
 
 class PostgresRolesStorage:
     """PostgreSQL-backed storage for custom roles: the ``roles`` table only.
 
-    ``permissions`` is a JSONB column; the pool registers a jsonb codec so it
-    round-trips as a Python list. Strings the vocabulary no longer knows are
-    dropped on read (see ``known_permissions``) rather than failing the row.
+    ``permissions`` and ``scopes`` are JSONB columns; the pool registers a
+    jsonb codec so they round-trip as Python values. Members the vocabulary no
+    longer knows are dropped on read (``known_permissions``, ``known_scopes``)
+    rather than failing the row.
     """
 
     _pool: asyncpg.Pool
@@ -18,11 +19,15 @@ class PostgresRolesStorage:
         self._pool = pool
 
     def _row_to_model(self, row: asyncpg.Record) -> Role:
+        permissions = known_permissions(row["permissions"], role_id=row["id"])
         return Role(
             id=row["id"],
             name=row["name"],
             description=row["description"],
-            permissions=known_permissions(row["permissions"], role_id=row["id"]),
+            permissions=permissions,
+            scopes=known_scopes(
+                row["scopes"], permissions=permissions, role_id=row["id"]
+            ),
         )
 
     async def get(self, role_id: str) -> Role | None:
@@ -34,16 +39,18 @@ class PostgresRolesStorage:
         return [self._row_to_model(r) for r in rows]
 
     async def insert(self, role: Role) -> None:
+        document = role.model_dump(mode="json")
         try:
             await self._pool.execute(
                 """
-                INSERT INTO roles (id, name, description, permissions)
-                VALUES ($1, $2, $3, $4)
+                INSERT INTO roles (id, name, description, permissions, scopes)
+                VALUES ($1, $2, $3, $4, $5)
                 """,
                 role.id,
                 role.name,
                 role.description,
-                [str(p) for p in role.permissions],
+                document["permissions"],
+                document["scopes"],
             )
         except asyncpg.UniqueViolationError as exc:
             msg = f"Role '{role.id}' already exists"
@@ -53,13 +60,12 @@ class PostgresRolesStorage:
         """Single UPDATE over the set columns only.
 
         Column names come from the DTO's field names, never from the caller,
-        so interpolating them is safe. Values stay parameterised.
+        so interpolating them is safe. Values stay parameterised; JSON mode
+        turns the permission enums into the strings the jsonb columns hold.
         """
-        changes = update.model_dump(exclude_none=True)
+        changes = update.model_dump(mode="json", exclude_none=True)
         if not changes:
             return await self.get(role_id)
-        if "permissions" in changes:
-            changes["permissions"] = [str(p) for p in changes["permissions"]]
         assignments = ", ".join(
             f"{column} = ${i}" for i, column in enumerate(changes, start=2)
         )

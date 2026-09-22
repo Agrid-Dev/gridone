@@ -13,6 +13,8 @@ import pytest_asyncio
 
 from models.errors import ConflictError, InvalidError, NotFoundError
 from users import (
+    DeviceScope,
+    DeviceSelector,
     RoleCreate,
     RoleUpdate,
     User,
@@ -21,6 +23,7 @@ from users import (
     UserUpdate,
 )
 from users.permissions import Permission
+from users.roles import find_builtin_role
 
 POSTGRES_URL = os.environ.get("POSTGRES_TEST_URL")
 
@@ -49,6 +52,14 @@ OPERATOR_LIKE = RoleCreate(
         Permission.DEVICES_COMMAND,
         Permission.TIMESERIES_READ,
     ],
+)
+
+THERMOSTATS = DeviceScope(devices=DeviceSelector(types=["thermostat"]))
+THERMOSTAT_READER = RoleCreate(
+    id="thermostat_reader",
+    name="Thermostat reader",
+    permissions=[Permission.DEVICES_READ, Permission.TIMESERIES_READ],
+    scopes={Permission.DEVICES_READ: [THERMOSTATS]},
 )
 
 
@@ -222,6 +233,55 @@ class TestPermissionResolution:
         assert await service.get_role_permissions("thermostat_operator") == []
 
 
+class TestScopes:
+    async def test_scopes_round_trip(self, service: UsersService):
+        created = await service.create_role(THERMOSTAT_READER)
+
+        assert created.scopes == {Permission.DEVICES_READ: [THERMOSTATS]}
+        assert await service.get_role("thermostat_reader") == created
+        assert created in await service.list_roles()
+
+    async def test_an_edit_replaces_the_scopes(self, service: UsersService):
+        await service.create_role(THERMOSTAT_READER)
+        narrowed = DeviceScope(
+            devices=DeviceSelector(types=["thermostat"]),
+            attributes=["temperature"],
+        )
+
+        updated = await service.update_role(
+            "thermostat_reader",
+            RoleUpdate(scopes={Permission.DEVICES_READ: [narrowed]}),
+        )
+        cleared = await service.update_role("thermostat_reader", RoleUpdate(scopes={}))
+
+        assert updated.scopes == {Permission.DEVICES_READ: [narrowed]}
+        assert cleared.scopes == {}
+        assert await service.get_role("thermostat_reader") == cleared
+
+    async def test_dropping_a_scoped_permission_is_refused(self, service: UsersService):
+        await service.create_role(THERMOSTAT_READER)
+
+        with pytest.raises(InvalidError, match="does not hold"):
+            await service.update_role(
+                "thermostat_reader",
+                RoleUpdate(permissions=[Permission.TIMESERIES_READ]),
+            )
+
+        assert (await service.get_role("thermostat_reader")).permissions == [
+            Permission.DEVICES_READ,
+            Permission.TIMESERIES_READ,
+        ]
+
+
+class TestFindRole:
+    async def test_builtin_custom_and_gone(self, service: UsersService):
+        created = await service.create_role(THERMOSTAT_READER)
+
+        assert await service.find_role("admin") == find_builtin_role("admin")
+        assert await service.find_role("thermostat_reader") == created
+        assert await service.find_role("ghost") is None
+
+
 class TestUsersReferenceRoles:
     async def test_a_user_can_hold_a_custom_role(self, service: UsersService):
         await service.create_role(OPERATOR_LIKE)
@@ -271,5 +331,30 @@ class TestRetiredPermissionStrings:
                 Permission.DEVICES_READ
             ]
             assert "legacy" in [r.id for r in await service.list_roles()]
+        finally:
+            await service.stop()
+
+    async def test_unusable_scopes_are_ignored_not_fatal(self):
+        assert POSTGRES_URL is not None
+        service = UsersService(POSTGRES_URL, admin_password="admin-password")
+        await service.start()
+        await _wipe(POSTGRES_URL)
+        conn = await asyncpg.connect(POSTGRES_URL)
+        try:
+            await conn.execute(
+                "INSERT INTO roles (id, name, permissions, scopes)"
+                " VALUES ($1, $2, $3::jsonb, $4::jsonb)",
+                "legacy",
+                "Legacy",
+                '["devices:read"]',
+                '{"devices:read": [{"devices": {"types": ["thermostat"]}}],'
+                ' "devices:teleport": [{}]}',
+            )
+        finally:
+            await conn.close()
+
+        try:
+            role = await service.get_role("legacy")
+            assert role.scopes == {Permission.DEVICES_READ: [THERMOSTATS]}
         finally:
             await service.stop()
