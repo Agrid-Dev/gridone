@@ -1,0 +1,28 @@
+meta {
+  name: create role
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{BASE_URL}}/users/roles/
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "id": "maintenance",
+    "name": "Maintenance",
+    "description": "Reads and commands devices",
+    "permissions": ["devices:read", "devices:command", "timeseries:read"]
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+script:post-response {
+  bru.setVar("role_id", res.body.id);
+}
