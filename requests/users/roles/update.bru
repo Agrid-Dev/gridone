@@ -1,0 +1,21 @@
+meta {
+  name: update role
+  type: http
+  seq: 4
+}
+
+patch {
+  url: {{BASE_URL}}/users/roles/:role_id
+  body: json
+  auth: inherit
+}
+
+params:path {
+  role_id: {{role_id}}
+}
+
+body:json {
+  {
+    "permissions": ["devices:read", "timeseries:read"]
+  }
+}
