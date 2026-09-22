@@ -12,16 +12,20 @@ import {
   Sun,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import type { ValueLabel } from "@gridone/sdk";
 import { DeviceType } from "@/lib/devices";
 import type { Severity } from "@/lib/severity";
 import { attributeValueLabel } from "@/lib/attributeValueLabel";
 import { formatValue, type CellValue } from "@/lib/formatValue";
 import {
   lookupSemanticColor,
+  SEMANTIC_BG_CLASS,
   SEMANTIC_TEXT_CLASS,
   SEVERITY_LEVEL,
+  type StatusLevel,
 } from "@/lib/semanticColors";
 import { cn } from "@/lib/utils";
+import { useValueLabel } from "@/hooks/useValueLabel";
 
 type ValueRenderer = { Icon: LucideIcon; color: string; rotate?: boolean };
 
@@ -101,6 +105,33 @@ function resolveSharedRenderer(
   return undefined;
 }
 
+/** LED-style dot for a boolean state. Faults carry a status tone; a
+ *  standard boolean is neutral (filled when true, hollow when false) since
+ *  the driver never says which state is good. Decorative: the text next to
+ *  it always carries the state. */
+function BooleanIndicator({
+  tone,
+  filled,
+}: {
+  tone: StatusLevel | "neutral";
+  filled: boolean;
+}) {
+  return (
+    <span
+      aria-hidden
+      data-tone={tone}
+      className={cn(
+        "size-2 shrink-0 rounded-full",
+        tone !== "neutral"
+          ? SEMANTIC_BG_CLASS[tone]
+          : filled
+            ? "bg-muted-foreground"
+            : "border border-muted-foreground",
+      )}
+    />
+  );
+}
+
 type AttributeValueProps = {
   value: CellValue;
   attributeName: string;
@@ -114,11 +145,18 @@ type AttributeValueProps = {
   fault?: { severity: Severity; isFaulty: boolean };
   /** Unit symbol appended to a plain numeric value (never to icons or faults). */
   unit?: string | null;
+  /** The driver's wording of a boolean's two states, when it declares one. */
+  valueLabels?: ValueLabel[] | null;
+  /** Render a boolean as its raw `true` / `false` text, without the
+   *  indicator: for surfaces not yet moved onto the driver's wording. */
+  rawBoolean?: boolean;
   className?: string;
 };
 
 /**
  * The single renderer for a device attribute value:
+ *  - booleans show an indicator dot and their driver-declared label (or the
+ *    localized True / False): fault-toned by `is_faulty`, neutral otherwise;
  *  - fault attributes are coloured by severity (green when not faulty);
  *  - standard enum values (e.g. thermostat `mode`) show their icon + label,
  *    including across a mixed device-type selection;
@@ -132,15 +170,38 @@ export function AttributeValue({
   dataType,
   fault,
   unit,
+  valueLabels,
+  rawBoolean,
   className,
 }: AttributeValueProps) {
   const { t } = useTranslation();
-  if (fault) {
-    const level = fault.isFaulty ? SEVERITY_LEVEL[fault.severity] : "ok";
+  const labelFor = useValueLabel();
+  // An unknown severity still reads as a fault, never as a healthy or
+  // standard value.
+  const level = fault
+    ? fault.isFaulty
+      ? (SEVERITY_LEVEL[fault.severity] ?? "error")
+      : "ok"
+    : undefined;
+  const faultClass = level && cn("font-medium", SEMANTIC_TEXT_CLASS[level]);
+
+  if (typeof value === "boolean" && !rawBoolean) {
     return (
       <span
-        className={cn("font-medium", SEMANTIC_TEXT_CLASS[level], className)}
+        className={cn(
+          "inline-flex items-center gap-[0.4em]",
+          faultClass,
+          className,
+        )}
       >
+        <BooleanIndicator tone={level ?? "neutral"} filled={value} />
+        <span>{labelFor(value, valueLabels)}</span>
+      </span>
+    );
+  }
+  if (faultClass) {
+    return (
+      <span className={cn(faultClass, className)}>
         {formatValue(value, dataType)}
       </span>
     );

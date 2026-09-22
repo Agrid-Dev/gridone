@@ -9,6 +9,8 @@ vi.mock("react-i18next", () =>
     "common.hvacMode.fan": "Fan",
     "common.hvacMode.auto": "Auto",
     "common.hvacMode.idle": "Idle",
+    "common.true": "Vrai",
+    "common.false": "Faux",
   }),
 );
 
@@ -166,36 +168,126 @@ describe("AttributeValue — standard enum badge", () => {
   });
 });
 
-describe("AttributeValue — fault colouring", () => {
-  it("colours faulty values by severity and healthy ones green", () => {
+const dot = () => document.querySelector("[data-tone]");
+
+describe("AttributeValue — fault booleans", () => {
+  const labels = [
+    {
+      value: false,
+      label: { default: "Fault", translations: { fr: "Défaut" } },
+    },
+    {
+      value: true,
+      label: { default: "Healthy", translations: { fr: "Sain" } },
+    },
+  ];
+
+  it("shows the ok dot and the declared label when healthy", () => {
+    // healthy_values: [true] → value true is not faulty; the driver's label
+    // wins over the True / False fallback.
+    render(
+      <AttributeValue
+        value={true}
+        attributeName="r5_synthese_defaut"
+        fault={{ severity: "alert", isFaulty: false }}
+        valueLabels={labels}
+      />,
+    );
+    expect(screen.getByText("Sain").parentElement).toHaveClass(
+      "text-status-ok",
+    );
+    expect(dot()).toHaveClass("bg-status-ok");
+  });
+
+  it("colours the dot and text by severity when faulty", () => {
     const { rerender } = render(
       <AttributeValue
         value={true}
         attributeName="alarm"
-        dataType="bool"
         fault={{ severity: "alert", isFaulty: true }}
       />,
     );
-    expect(screen.getByText("true")).toHaveClass("text-status-error");
+    expect(screen.getByText("Vrai").parentElement).toHaveClass(
+      "text-status-error",
+    );
+    expect(dot()).toHaveClass("bg-status-error");
 
     rerender(
       <AttributeValue
         value={true}
         attributeName="alarm"
-        dataType="bool"
         fault={{ severity: "warning", isFaulty: true }}
       />,
     );
-    expect(screen.getByText("true")).toHaveClass("text-status-warning");
+    expect(dot()).toHaveClass("bg-status-warning");
+  });
 
-    rerender(
+  it("still reads as a fault when the severity is unknown", () => {
+    render(
       <AttributeValue
-        value={false}
+        value={true}
         attributeName="alarm"
-        dataType="bool"
-        fault={{ severity: "alert", isFaulty: false }}
+        fault={{ severity: "critical" as never, isFaulty: true }}
       />,
     );
-    expect(screen.getByText("false")).toHaveClass("text-status-ok");
+    // Mutant: a neutral dot, indistinguishable from a standard boolean.
+    expect(dot()).toHaveClass("bg-status-error");
+  });
+
+  it("keeps non-boolean faults as coloured text without a dot", () => {
+    render(
+      <AttributeValue
+        value={3}
+        attributeName="error_code"
+        dataType="int"
+        fault={{ severity: "alert", isFaulty: true }}
+      />,
+    );
+    expect(screen.getByText("3")).toHaveClass("text-status-error");
+    expect(dot()).toBeNull();
+  });
+});
+
+describe("AttributeValue — standard booleans", () => {
+  it("shows a neutral dot, filled when true, hollow when false", () => {
+    const { rerender } = render(
+      <AttributeValue value={true} attributeName="presence_tension" />,
+    );
+    // Standard booleans never use the ok / fault colours.
+    expect(screen.getByText("Vrai")).toBeInTheDocument();
+    expect(dot()).toHaveClass("bg-muted-foreground");
+    expect(dot()?.className).not.toMatch(/bg-status-/);
+
+    rerender(<AttributeValue value={false} attributeName="presence_tension" />);
+    expect(screen.getByText("Faux")).toBeInTheDocument();
+    expect(dot()).toHaveClass("border-muted-foreground");
+    expect(dot()).not.toHaveClass("bg-muted-foreground");
+  });
+
+  it("keeps the raw text when a surface opts out of the indicator", () => {
+    render(<AttributeValue value={true} attributeName="power" rawBoolean />);
+    expect(screen.getByText("true")).toBeInTheDocument();
+    expect(dot()).toBeNull();
+  });
+
+  it("uses the declared label in the current language", () => {
+    render(
+      <AttributeValue
+        value={true}
+        attributeName="onoff_state"
+        valueLabels={[
+          {
+            value: false,
+            label: { default: "Off", translations: { fr: "Arrêt" } },
+          },
+          {
+            value: true,
+            label: { default: "On", translations: { fr: "Marche" } },
+          },
+        ]}
+      />,
+    );
+    expect(screen.getByText("Marche")).toBeInTheDocument();
+    expect(dot()?.className).not.toMatch(/bg-status-/);
   });
 });

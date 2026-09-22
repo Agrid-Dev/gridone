@@ -50,6 +50,7 @@ const KpiValue: FC<{
           dataType={dataType}
           deviceType={deviceType}
           className={KPI_VALUE_CLASS}
+          rawBoolean
         />
       </div>
     );
