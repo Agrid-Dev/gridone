@@ -157,7 +157,8 @@ forbids an API command.
 ## Human confirmation in the UI
 
 An attribute can declare `user_confirmation` using the same `LocalizedText`
-contract as its label (a nonempty `default`, optional `translations`). The text
+contract as its label (a nonempty `default`, optional `translations`, or a bare
+string as the `default`). The text
 must describe the actual consequence of the change. It is plain text, never an
 expression or value-interpolated template. Nothing is inferred from a group,
 attribute name or manufacturer.

@@ -14,8 +14,7 @@ attributes:
     label:
       default: Setpoint
       translations: { fr: Consigne }
-    description:
-      default: Requested room temperature
+    description: Requested room temperature   # a bare string is the `default`
     group: setpoints
     unit: °C
 
@@ -67,7 +66,7 @@ Every attribute may carry optional presentation metadata. It is stored with the 
 
 | Field | Description |
 |---|---|
-| `label` | Display name. An object with a required `default` (1–200 characters) and optional `translations` keyed by language tag (`fr`, `en`, `fr-CA`; lowercase 2–3 letter language, optional subtags). Clients resolve the exact tag, then the base language, then `default` |
+| `label` | Display name. An object with a required `default` (1–200 characters) and optional `translations` keyed by language tag (`fr`, `en`, `fr-CA`; lowercase 2–3 letter language, optional subtags). A bare string is accepted as a shortcut for `{ default: <string> }`. Clients resolve the exact tag, then the base language, then `default` |
 | `description` | Longer help text, same shape as `label` |
 | `user_confirmation` | Consequence text shown before a write is sent, same shape as `label`. See [Human confirmation](command-validation.md#human-confirmation-in-the-ui) |
 | `group` | snake_case key (`^[a-z][a-z0-9_]*$`, 64 characters max) grouping related attributes together |

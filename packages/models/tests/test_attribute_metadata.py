@@ -22,6 +22,9 @@ class TestLocalizedText:
         [
             ({"default": "Setpoint"}, "Setpoint", {}),
             ({"default": "  Setpoint  "}, "Setpoint", {}),
+            # a bare string is the shortcut for {default: <string>}
+            ("Setpoint", "Setpoint", {}),
+            ("  Setpoint  ", "Setpoint", {}),
             (
                 {"default": "Setpoint", "translations": {"fr": "Consigne"}},
                 "Setpoint",
@@ -51,6 +54,10 @@ class TestLocalizedText:
             ({"default": ""}, "string_too_short"),
             ({"default": "   "}, "string_too_short"),
             ({"default": "x" * 201}, "string_too_long"),
+            # the string shortcut obeys the same rules as default
+            ("", "string_too_short"),
+            ("   ", "string_too_short"),
+            ("x" * 201, "string_too_long"),
             ({"default": "Setpoint", "translations": {"fr": ""}}, "string_too_short"),
             (
                 {"default": "Setpoint", "translations": {"FR": "x"}},
@@ -71,6 +78,14 @@ class TestLocalizedText:
         with pytest.raises(ValidationError) as excinfo:
             LocalizedText.model_validate(payload)
         assert error_type in {e["type"] for e in excinfo.value.errors()}
+
+    # a number or a list is neither a string nor an object
+    @pytest.mark.parametrize("payload", [123, True, ["a"], 1.5])
+    def test_rejects_non_text_payloads(self, payload):
+        with pytest.raises(
+            ValidationError, match="must be a string or an object with a default"
+        ):
+            LocalizedText.model_validate(payload)
 
     @pytest.mark.parametrize(
         ("language", "expected"),

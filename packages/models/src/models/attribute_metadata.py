@@ -7,7 +7,8 @@ they are projected verbatim so API clients see them on the device).
 
 from __future__ import annotations
 
-from typing import Annotated, Self
+from collections.abc import Mapping
+from typing import Annotated, Any, Self
 
 from pydantic import (
     AfterValidator,
@@ -60,6 +61,17 @@ class LocalizedText(BaseModel):
 
     default: Text
     translations: dict[LanguageTag, Text] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _string_as_default(cls, data: Any) -> Any:  # noqa: ANN401
+        """``label: Setpoint`` is the shortcut for ``label: {default: Setpoint}``."""
+        if isinstance(data, str):
+            return {"default": data}
+        if not isinstance(data, Mapping):
+            msg = "must be a string or an object with a default"
+            raise ValueError(msg)  # noqa: TRY004 -- pydantic validator
+        return data
 
     def resolve(self, language: str | None) -> str:
         """Best text for ``language``: exact tag, then base language, then default.
