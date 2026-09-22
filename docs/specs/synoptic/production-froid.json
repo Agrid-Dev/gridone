@@ -1,0 +1,720 @@
+{
+  "version": 1,
+  "name": "Production Froid",
+  "description": "Hydraulique, production froid : primaire depuis le bâtiment D sur l'échangeur ECH EG04 (vanne de régulation et compteur thermique au retour), secondaire par le séparateur d'air et la pompe double PEG-E2 sur le collecteur départ, trois circuits (change-over VCV RdC, CTA / radiateur / RAC, change-over VCV chambres) et retour par le pot à boue et le vase d'expansion VEC 04, avec la liaison vers la production EC. Compteurs et températures des circuits non mesurés ; états change-over non identifiés.",
+  "projection": "isometric",
+  "defaults": { "stale_after": 900 },
+  "symbols": [
+    {
+      "id": "link-batiment-d",
+      "type": "link",
+      "placement": {
+        "kind": "cell",
+        "cell": { "x": -1, "y": 0 },
+        "rotation": 2
+      },
+      "label": "DEPUIS BÂTIMENT D",
+      "device_id": null,
+      "props": { "synoptic_id": null, "caption": null },
+      "bindings": {}
+    },
+    {
+      "id": "ech-eg04",
+      "type": "plate_exchanger",
+      "placement": {
+        "kind": "cell",
+        "cell": { "x": 10, "y": 0 },
+        "rotation": 2
+      },
+      "label": "ECH EG04",
+      "device_id": null,
+      "props": {},
+      "bindings": {}
+    },
+    {
+      "id": "collector-supply",
+      "type": "collector",
+      "placement": {
+        "kind": "cell",
+        "cell": { "x": 30, "y": -3 },
+        "rotation": 0
+      },
+      "label": null,
+      "device_id": null,
+      "props": {
+        "axis": "x",
+        "ports": {
+          "in_1": { "side": "-x", "offset": 0 },
+          "out_1": { "side": "-y", "offset": 2 },
+          "out_2": { "side": "-y", "offset": 14 },
+          "out_3": { "side": "-y", "offset": 26 }
+        },
+        "length": 27
+      },
+      "bindings": {}
+    },
+    {
+      "id": "collector-return",
+      "type": "collector",
+      "placement": {
+        "kind": "cell",
+        "cell": { "x": 30, "y": 2 },
+        "rotation": 0
+      },
+      "label": null,
+      "device_id": null,
+      "props": {
+        "axis": "x",
+        "ports": {
+          "in_1": { "side": "-y", "offset": 4 },
+          "in_2": { "side": "-y", "offset": 16 },
+          "in_3": { "side": "-y", "offset": 28 },
+          "out_1": { "side": "-x", "offset": 0 }
+        },
+        "length": 29
+      },
+      "bindings": {}
+    },
+    {
+      "id": "vec-04",
+      "type": "expansion_vessel",
+      "placement": {
+        "kind": "cell",
+        "cell": { "x": 24, "y": 4 },
+        "rotation": 1
+      },
+      "label": "VASE D'EXPANSION VEC 04",
+      "device_id": null,
+      "props": {},
+      "bindings": {}
+    },
+    {
+      "id": "link-production-ec",
+      "type": "link",
+      "placement": {
+        "kind": "cell",
+        "cell": { "x": 19, "y": 4 },
+        "rotation": 2
+      },
+      "label": "VERS PRODUCTION EC",
+      "device_id": null,
+      "props": { "synoptic_id": null, "caption": null },
+      "bindings": {}
+    },
+    {
+      "id": "link-vcv-rdc",
+      "type": "link",
+      "placement": {
+        "kind": "cell",
+        "cell": { "x": 38, "y": -14 },
+        "rotation": 0
+      },
+      "label": "CIRCUIT CHANGE-OVER VCV RDC",
+      "device_id": null,
+      "props": { "synoptic_id": null, "caption": null },
+      "bindings": {}
+    },
+    {
+      "id": "link-cta",
+      "type": "link",
+      "placement": {
+        "kind": "cell",
+        "cell": { "x": 50, "y": -14 },
+        "rotation": 0
+      },
+      "label": "CIRCUIT CTA / RADIATEUR / RAC",
+      "device_id": null,
+      "props": { "synoptic_id": null, "caption": null },
+      "bindings": {}
+    },
+    {
+      "id": "link-vcv-chambres",
+      "type": "link",
+      "placement": {
+        "kind": "cell",
+        "cell": { "x": 62, "y": -14 },
+        "rotation": 0
+      },
+      "label": "CIRCUIT CHANGE-OVER VCV CHAMBRES",
+      "device_id": null,
+      "props": { "synoptic_id": null, "caption": null },
+      "bindings": {}
+    },
+    {
+      "id": "v-primaire",
+      "type": "valve_control",
+      "placement": {
+        "kind": "pipe",
+        "pipe": "prim-return",
+        "cell": { "x": 2, "y": 0 }
+      },
+      "label": null,
+      "device_id": null,
+      "props": {},
+      "bindings": {
+        "position": { "kind": "text", "text": "non mesurée" }
+      }
+    },
+    {
+      "id": "cpt-eg-ech-04",
+      "type": "energy_meter",
+      "placement": {
+        "kind": "pipe",
+        "pipe": "prim-return",
+        "cell": { "x": 4, "y": 0 }
+      },
+      "label": "CPT-EG-ECH-04",
+      "device_id": "0b747b02e8e84cea",
+      "props": {},
+      "bindings": {
+        "energy": {
+          "kind": "attribute",
+          "target": {
+            "devices": {
+              "ids": ["0b747b02e8e84cea"]
+            },
+            "attribute": "energie"
+          },
+          "unit": "Wh",
+          "decimals": 0
+        }
+      }
+    },
+    {
+      "id": "separateur-air",
+      "type": "air_separator",
+      "placement": {
+        "kind": "pipe",
+        "pipe": "sec-supply",
+        "cell": { "x": 14, "y": -3 }
+      },
+      "label": "SÉPARATEUR D'AIR",
+      "device_id": null,
+      "props": {},
+      "bindings": {}
+    },
+    {
+      "id": "pompe-peg-e2-a",
+      "type": "pump",
+      "placement": {
+        "kind": "pipe",
+        "pipe": "peg-e2-a-branch",
+        "cell": { "x": 22, "y": -11 }
+      },
+      "label": "PEG-E2 A",
+      "device_id": "72cc846bcccc41f5",
+      "props": {},
+      "bindings": {
+        "speed": {
+          "kind": "attribute",
+          "target": {
+            "devices": { "ids": ["72cc846bcccc41f5"] },
+            "attribute": "speed"
+          },
+          "unit": "tr/min",
+          "decimals": 0
+        },
+        "state": {
+          "kind": "attribute",
+          "target": {
+            "devices": { "ids": ["72cc846bcccc41f5"] },
+            "attribute": "onoff_state"
+          },
+          "labels": { "true": "MARCHE", "false": "ARRÊT" }
+        }
+      }
+    },
+    {
+      "id": "pompe-peg-e2-b",
+      "type": "pump",
+      "placement": {
+        "kind": "pipe",
+        "pipe": "peg-e2-b-branch",
+        "cell": { "x": 22, "y": -4 }
+      },
+      "label": "PEG-E2 B",
+      "device_id": "173e8e56d4d84473",
+      "props": {},
+      "bindings": {
+        "speed": {
+          "kind": "attribute",
+          "target": {
+            "devices": { "ids": ["173e8e56d4d84473"] },
+            "attribute": "speed"
+          },
+          "unit": "tr/min",
+          "decimals": 0
+        },
+        "state": {
+          "kind": "attribute",
+          "target": {
+            "devices": { "ids": ["173e8e56d4d84473"] },
+            "attribute": "onoff_state"
+          },
+          "labels": { "true": "MARCHE", "false": "ARRÊT" }
+        }
+      }
+    },
+    {
+      "id": "pot-a-boue",
+      "type": "dirt_separator",
+      "placement": {
+        "kind": "pipe",
+        "pipe": "sec-return",
+        "cell": { "x": 27, "y": 2 }
+      },
+      "label": "POT À BOUE",
+      "device_id": null,
+      "props": {},
+      "bindings": {
+        "fault": {
+          "kind": "attribute",
+          "target": {
+            "devices": { "ids": ["71c980107f9448e7"] },
+            "attribute": "eg04_defpotboue"
+          },
+          "labels": { "true": "DÉFAUT", "false": "NORMAL" }
+        }
+      }
+    },
+    {
+      "id": "v-vcv-rdc",
+      "type": "valve_isolation",
+      "placement": {
+        "kind": "pipe",
+        "pipe": "vcv-rdc-depart",
+        "cell": { "x": 32, "y": -5 }
+      },
+      "label": null,
+      "device_id": null,
+      "props": {},
+      "bindings": {
+        "state": { "kind": "text", "text": "non identifiée" }
+      }
+    },
+    {
+      "id": "cpt-vcv-rdc",
+      "type": "energy_meter",
+      "placement": {
+        "kind": "pipe",
+        "pipe": "vcv-rdc-retour",
+        "cell": { "x": 34, "y": -11 }
+      },
+      "label": "CPT-EG-VCO",
+      "device_id": null,
+      "props": {},
+      "bindings": {
+        "energy": { "kind": "text", "text": "non mesurée" }
+      }
+    },
+    {
+      "id": "v-cta",
+      "type": "valve_isolation",
+      "placement": {
+        "kind": "pipe",
+        "pipe": "cta-depart",
+        "cell": { "x": 44, "y": -5 }
+      },
+      "label": null,
+      "device_id": null,
+      "props": {},
+      "bindings": {
+        "state": { "kind": "text", "text": "non mesurée" }
+      }
+    },
+    {
+      "id": "cpt-cta",
+      "type": "energy_meter",
+      "placement": {
+        "kind": "pipe",
+        "pipe": "cta-retour",
+        "cell": { "x": 46, "y": -11 }
+      },
+      "label": "CPT-EG-CTA",
+      "device_id": null,
+      "props": {},
+      "bindings": {
+        "energy": { "kind": "text", "text": "non mesurée" }
+      }
+    },
+    {
+      "id": "v-vcv-chambres",
+      "type": "valve_isolation",
+      "placement": {
+        "kind": "pipe",
+        "pipe": "vcv-chambres-depart",
+        "cell": { "x": 56, "y": -5 }
+      },
+      "label": null,
+      "device_id": null,
+      "props": {},
+      "bindings": {
+        "state": { "kind": "text", "text": "non identifiée" }
+      }
+    },
+    {
+      "id": "cpt-vcv-chambres",
+      "type": "energy_meter",
+      "placement": {
+        "kind": "pipe",
+        "pipe": "vcv-chambres-retour",
+        "cell": { "x": 58, "y": -11 }
+      },
+      "label": "CPT-EG-CHAMBRES",
+      "device_id": null,
+      "props": {},
+      "bindings": {
+        "energy": { "kind": "text", "text": "non mesurée" }
+      }
+    }
+  ],
+  "pipes": [
+    {
+      "id": "prim-supply",
+      "fluid": "primary_supply",
+      "from": { "kind": "port", "symbol": "link-batiment-d", "port": "out" },
+      "to": { "kind": "port", "symbol": "ech-eg04", "port": "primary_in" },
+      "waypoints": [
+        { "x": 9, "y": -1 },
+        { "x": 9, "y": -1, "z": 1 },
+        { "x": 12, "y": -1, "z": 1 },
+        { "x": 12, "y": -1 },
+        { "x": 12, "y": 0 }
+      ],
+      "flow": null,
+      "tags": [
+        {
+          "id": "tt-primaire-depart",
+          "at": { "x": 4, "y": -1 },
+          "label": "DÉPART",
+          "value": {
+            "kind": "attribute",
+            "target": {
+              "devices": { "ids": ["0b747b02e8e84cea"] },
+              "attribute": "tmpdepart"
+            },
+            "unit": "°C",
+            "decimals": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "prim-return",
+      "fluid": "primary_return",
+      "from": { "kind": "port", "symbol": "ech-eg04", "port": "primary_out" },
+      "to": { "kind": "port", "symbol": "link-batiment-d", "port": "in" },
+      "waypoints": [],
+      "flow": null,
+      "tags": [
+        {
+          "id": "tt-primaire-retour",
+          "at": { "x": 6, "y": 0 },
+          "label": "RETOUR",
+          "value": {
+            "kind": "attribute",
+            "target": {
+              "devices": { "ids": ["0b747b02e8e84cea"] },
+              "attribute": "tmpretour"
+            },
+            "unit": "°C",
+            "decimals": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "sec-supply",
+      "fluid": "chilled_supply",
+      "from": { "kind": "port", "symbol": "ech-eg04", "port": "secondary_out" },
+      "to": {
+        "kind": "pipe",
+        "pipe": "peg-e2-a-branch",
+        "cell": { "x": 16, "y": -11 }
+      },
+      "waypoints": [
+        { "x": 10, "y": -3 },
+        { "x": 16, "y": -3 }
+      ],
+      "flow": null,
+      "tags": [
+        {
+          "id": "tt-secondaire-depart",
+          "at": { "x": 12, "y": -3 },
+          "label": "DÉPART",
+          "value": {
+            "kind": "attribute",
+            "target": {
+              "devices": { "ids": ["71c980107f9448e7"] },
+              "attribute": "echeg_tmpdepart"
+            },
+            "unit": "°C",
+            "decimals": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "sec-supply-out",
+      "fluid": "chilled_supply",
+      "from": {
+        "kind": "cell",
+        "cell": { "x": 28, "y": -11 }
+      },
+      "to": { "kind": "port", "symbol": "collector-supply", "port": "in_1" },
+      "waypoints": [{ "x": 28, "y": -3 }],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "peg-e2-a-branch",
+      "fluid": "chilled_supply",
+      "from": {
+        "kind": "cell",
+        "cell": { "x": 16, "y": -11 }
+      },
+      "to": {
+        "kind": "pipe",
+        "pipe": "sec-supply-out",
+        "cell": { "x": 28, "y": -11 }
+      },
+      "waypoints": [],
+      "flow": {
+        "kind": "attribute",
+        "target": {
+          "devices": { "ids": ["72cc846bcccc41f5"] },
+          "attribute": "onoff_state"
+        }
+      },
+      "tags": [
+        {
+          "id": "pression-peg-e2-a",
+          "at": { "x": 18, "y": -11 },
+          "label": "PRESSION",
+          "value": {
+            "kind": "attribute",
+            "target": {
+              "devices": { "ids": ["72cc846bcccc41f5"] },
+              "attribute": "head"
+            },
+            "unit": "bar",
+            "decimals": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "peg-e2-b-branch",
+      "fluid": "chilled_supply",
+      "from": {
+        "kind": "pipe",
+        "pipe": "sec-supply",
+        "cell": { "x": 16, "y": -4 }
+      },
+      "to": {
+        "kind": "pipe",
+        "pipe": "sec-supply-out",
+        "cell": { "x": 28, "y": -4 }
+      },
+      "waypoints": [],
+      "flow": {
+        "kind": "attribute",
+        "target": {
+          "devices": { "ids": ["173e8e56d4d84473"] },
+          "attribute": "onoff_state"
+        }
+      },
+      "tags": [
+        {
+          "id": "pression-peg-e2-b",
+          "at": { "x": 18, "y": -4 },
+          "label": "PRESSION",
+          "value": {
+            "kind": "attribute",
+            "target": {
+              "devices": { "ids": ["173e8e56d4d84473"] },
+              "attribute": "head"
+            },
+            "unit": "bar",
+            "decimals": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "sec-return",
+      "fluid": "chilled_return",
+      "from": { "kind": "port", "symbol": "collector-return", "port": "out_1" },
+      "to": { "kind": "port", "symbol": "ech-eg04", "port": "secondary_in" },
+      "waypoints": [{ "x": 10, "y": 2 }],
+      "flow": null,
+      "tags": [
+        {
+          "id": "tt-manque-eau",
+          "at": { "x": 14, "y": 2 },
+          "label": "MANQUE D'EAU",
+          "value": {
+            "kind": "attribute",
+            "target": {
+              "devices": { "ids": ["71c980107f9448e7"] },
+              "attribute": "eg04_defmanqueeau"
+            },
+            "labels": { "true": "DÉFAUT", "false": "NORMAL" }
+          }
+        }
+      ]
+    },
+    {
+      "id": "vase-connection",
+      "fluid": "chilled_return",
+      "from": {
+        "kind": "pipe",
+        "pipe": "sec-return",
+        "cell": { "x": 24, "y": 2 }
+      },
+      "to": { "kind": "port", "symbol": "vec-04", "port": "in" },
+      "waypoints": [],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "ec-balance",
+      "fluid": "chilled_return",
+      "from": {
+        "kind": "pipe",
+        "pipe": "vase-connection",
+        "cell": { "x": 24, "y": 3 }
+      },
+      "to": { "kind": "port", "symbol": "link-production-ec", "port": "in" },
+      "waypoints": [
+        { "x": 20, "y": 3 },
+        { "x": 20, "y": 4 }
+      ],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "vcv-rdc-depart",
+      "fluid": "chilled_supply",
+      "from": { "kind": "port", "symbol": "collector-supply", "port": "out_1" },
+      "to": { "kind": "port", "symbol": "link-vcv-rdc", "port": "in" },
+      "waypoints": [{ "x": 32, "y": -14 }],
+      "flow": null,
+      "tags": [
+        {
+          "id": "tt-vcv-rdc-depart",
+          "at": { "x": 35, "y": -14 },
+          "label": "DÉPART",
+          "value": { "kind": "text", "text": "non identifiée" }
+        }
+      ]
+    },
+    {
+      "id": "vcv-rdc-retour",
+      "fluid": "chilled_return",
+      "from": { "kind": "port", "symbol": "link-vcv-rdc", "port": "out" },
+      "to": { "kind": "port", "symbol": "collector-return", "port": "in_1" },
+      "waypoints": [
+        { "x": 34, "y": -13 },
+        { "x": 34, "y": -4 },
+        { "x": 34, "y": -4, "z": 1 },
+        { "x": 34, "y": -1, "z": 1 },
+        { "x": 34, "y": -1 }
+      ],
+      "flow": null,
+      "tags": [
+        {
+          "id": "tt-vcv-rdc-retour",
+          "at": { "x": 35, "y": -13 },
+          "label": "RETOUR",
+          "value": { "kind": "text", "text": "non mesurée" }
+        }
+      ]
+    },
+    {
+      "id": "cta-depart",
+      "fluid": "chilled_supply",
+      "from": { "kind": "port", "symbol": "collector-supply", "port": "out_2" },
+      "to": { "kind": "port", "symbol": "link-cta", "port": "in" },
+      "waypoints": [{ "x": 44, "y": -14 }],
+      "flow": null,
+      "tags": [
+        {
+          "id": "tt-cta-depart",
+          "at": { "x": 47, "y": -14 },
+          "label": "DÉPART",
+          "value": { "kind": "text", "text": "non mesurée" }
+        }
+      ]
+    },
+    {
+      "id": "cta-retour",
+      "fluid": "chilled_return",
+      "from": { "kind": "port", "symbol": "link-cta", "port": "out" },
+      "to": { "kind": "port", "symbol": "collector-return", "port": "in_2" },
+      "waypoints": [
+        { "x": 46, "y": -13 },
+        { "x": 46, "y": -4 },
+        { "x": 46, "y": -4, "z": 1 },
+        { "x": 46, "y": -1, "z": 1 },
+        { "x": 46, "y": -1 }
+      ],
+      "flow": null,
+      "tags": [
+        {
+          "id": "tt-cta-retour",
+          "at": { "x": 47, "y": -13 },
+          "label": "RETOUR",
+          "value": { "kind": "text", "text": "non mesurée" }
+        }
+      ]
+    },
+    {
+      "id": "vcv-chambres-depart",
+      "fluid": "chilled_supply",
+      "from": { "kind": "port", "symbol": "collector-supply", "port": "out_3" },
+      "to": { "kind": "port", "symbol": "link-vcv-chambres", "port": "in" },
+      "waypoints": [{ "x": 56, "y": -14 }],
+      "flow": null,
+      "tags": [
+        {
+          "id": "tt-vcv-chambres-depart",
+          "at": { "x": 59, "y": -14 },
+          "label": "DÉPART",
+          "value": { "kind": "text", "text": "non identifiée" }
+        }
+      ]
+    },
+    {
+      "id": "vcv-chambres-retour",
+      "fluid": "chilled_return",
+      "from": { "kind": "port", "symbol": "link-vcv-chambres", "port": "out" },
+      "to": { "kind": "port", "symbol": "collector-return", "port": "in_3" },
+      "waypoints": [
+        { "x": 58, "y": -13 },
+        { "x": 58, "y": -4 },
+        { "x": 58, "y": -4, "z": 1 },
+        { "x": 58, "y": -1, "z": 1 },
+        { "x": 58, "y": -1 }
+      ],
+      "flow": null,
+      "tags": [
+        {
+          "id": "tt-vcv-chambres-retour",
+          "at": { "x": 59, "y": -13 },
+          "label": "RETOUR",
+          "value": { "kind": "text", "text": "non mesurée" }
+        }
+      ]
+    }
+  ],
+  "labels": [
+    {
+      "id": "title",
+      "at": { "x": 0, "y": -5 },
+      "text": "PRODUCTION FROID",
+      "role": "title",
+      "value": null
+    }
+  ]
+}

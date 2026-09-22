@@ -39,6 +39,7 @@ EXPECTED = {
         (23, 24, 5), {"symbols": 4, "labels": 1, "flow": 2}
     ),
     "Production Chaud": Expected((38, 23, 1), {"symbols": 10, "pipes": 8, "flow": 4}),
+    "Production Froid": Expected((21, 15, 1), {"symbols": 6, "pipes": 6, "flow": 2}),
 }
 
 
@@ -101,9 +102,11 @@ def test_every_binding_names_a_real_device(plate):
 
 def test_no_link_names_a_plate(plate):
     """The old GTB's "Vue Production ..." buttons are navigation, not
-    off-page pipes, so no plate places a folio link to another: every link
-    is an inert boundary (a pipe leaving the drawing, to a plate that does
-    not exist yet) and the index is the way between the views."""
+    off-page pipes, so a link is always a pipe leaving a drawing, the plate's
+    own or its sibling's. The committed file never names the plate it leads
+    to: a synoptic id is the instance's, minted when a plate is pushed there,
+    so the two productions' links to each other are set on the instance after
+    both plates have an id, and the files stay portable."""
     links = [s for s in plate.symbols if s.type == "link"]
     assert links
     assert all(s.props.get("synoptic_id") is None for s in links)

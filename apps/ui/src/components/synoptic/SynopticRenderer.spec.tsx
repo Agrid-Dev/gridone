@@ -163,6 +163,7 @@ const PLATES: Record<string, { tees: number; panels: number; chips: number }> =
     "ecs-est": { ...ECS_BAY, tees: 1 },
     "ecs-ouest": { ...ECS_BAY, tees: 2 },
     "production-chaud": { tees: 14, panels: 4, chips: 35 },
+    "production-froid": { tees: 6, panels: 2, chips: 21 },
   };
 const PLATE_CASES = Object.entries(PLATES);
 
