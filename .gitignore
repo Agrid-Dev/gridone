@@ -22,8 +22,10 @@ bacnet.py
 # OS
 .DS_Store
 
-# Environment variables
+# Environment variables (and the per-machine Vite overrides)
 **/.env
+**/.env.local
+**/.env.*.local
 
 # Logs
 *.log
