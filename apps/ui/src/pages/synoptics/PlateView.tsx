@@ -87,7 +87,16 @@ export const PlateView: FC<PlateViewProps> = ({
   const [projection, setProjection] = useState<Projection>(
     doc.projection ?? DEFAULT_PROJECTION,
   );
-  const viewDoc = useMemo(() => ({ ...doc, projection }), [doc, projection]);
+  // The page header already names the plate: its drawn title would say it
+  // twice.
+  const viewDoc = useMemo(
+    () => ({
+      ...doc,
+      projection,
+      labels: doc.labels?.filter((label) => label.role !== "title"),
+    }),
+    [doc, projection],
+  );
   const [zoom, setZoom] = useState(1);
   const [viewTick, setViewTick] = useState(0);
   const [selected, setSelected] = useState<SymbolElement | null>(null);

@@ -490,6 +490,20 @@ describe("PlateView", () => {
     });
   });
 
+  it("leaves the plate's title to the page header and draws its other labels", () => {
+    renderView({
+      ...DOC,
+      labels: [
+        { id: "title", at: { x: 0, y: -2 }, text: "PRODUCTION", role: "title" },
+        { id: "note", at: { x: 0, y: 12 }, text: "non mesurée", role: "note" },
+      ],
+    });
+    expect(card().querySelector("[data-label='title']")).toBeNull();
+    expect(card().querySelector("[data-label='note']")).toHaveTextContent(
+      "non mesurée",
+    );
+  });
+
   it("lists in the legend the fluids the plate's pipes carry, in the vocabulary's order", () => {
     renderView();
     const legend = screen.getByLabelText("Légende");
