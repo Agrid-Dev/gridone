@@ -51,6 +51,13 @@ const Word = ({ children }: { children: ReactNode }) => (
   <span className="text-muted-foreground">{children}</span>
 );
 
+/** An automation event value (`{event: "value"}`), which only automations read. */
+function isEventValue(
+  value: WriteExpression,
+): value is Extract<WriteExpression, { event: string }> {
+  return typeof value === "object" && value !== null && "event" in value;
+}
+
 /** A reference as "<device> · <attribute>", without the raw ids the detail page keeps. */
 export function AttributeChip({
   reference,
@@ -112,7 +119,7 @@ export function ValueChip({
   );
 }
 
-function ConditionPhrase({
+export function ConditionPhrase({
   value,
   catalog,
   depth = 0,
@@ -121,7 +128,7 @@ function ConditionPhrase({
   catalog: AttributeCatalog;
   depth?: number;
 }) {
-  const { t } = useTranslation("operatingRules");
+  const { t } = useTranslation(["operatingRules", "automations"]);
   if (isGroup(value)) {
     const joiner = t(value.op === "all" ? "joinAnd" : "joinOr");
     if (!value.conditions.length)
@@ -153,6 +160,31 @@ function ConditionPhrase({
       </>
     );
   }
+  if (value.op === "not") {
+    const inner = value.condition;
+    if (isRow(inner) && inner.op === "is_known")
+      return (
+        <>
+          <AttributeChip reference={rowAttribute(inner)} catalog={catalog} />
+          <Word>{t("comparison.not_known")}</Word>
+        </>
+      );
+    return (
+      <>
+        <Word>{t("negation")} (</Word>
+        <ConditionPhrase value={inner} catalog={catalog} depth={depth + 1} />
+        <Word>)</Word>
+      </>
+    );
+  }
+  if ("left" in value && isEventValue(value.left) && isScalar(value.right))
+    return (
+      <>
+        <Chip>{t(`automations:event.${value.left.event}`)}</Chip>
+        <Word>{t(`comparison.${value.op}`)}</Word>
+        <ValueChip value={value.right} catalog={catalog} />
+      </>
+    );
   if (!isRow(value)) return <Chip>{t("advancedCondition")}</Chip>;
   const reference = rowAttribute(value);
   const right = rowValue(value);

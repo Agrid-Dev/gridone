@@ -1,6 +1,6 @@
 {
   "title": "Automatisations",
-  "caption": "Les règles qui drivernt le bâtiment sans intervention.",
+  "caption": "Les règles qui pilotent le bâtiment sans intervention.",
   "singular": "Automatisation",
   "comingSoon": "Bientôt disponible",
   "flow": {
@@ -21,38 +21,15 @@
   "card": {
     "lastExecuted": "Exécutée {{ago}}"
   },
-  "wizard": {
-    "untitled": "Nouvelle automatisation",
-    "steps": {
-      "metadata": "Informations",
-      "trigger": "Déclencheur",
-      "action": "Action"
-    }
-  },
   "editPage": {
     "breadcrumbLabel": "Fil d'Ariane",
     "lastExecution": "Dernière exécution {{ago}}.",
     "neverExecuted": "Jamais exécutée pour le moment.",
     "unsavedChanges": "Modifications non enregistrées",
     "saveChanges": "Enregistrer les modifications",
-    "deleteHint": "L'historique d'exécution est conservé.",
-    "identity": {
-      "title": "Identité",
-      "description": "Le nom apparaît dans l'historique d'exécution et les notifications."
-    },
-    "when": {
-      "title": "Quand",
-      "description": "Un seul déclencheur par automatisation."
-    },
-    "then": {
-      "title": "Alors",
-      "description": "Exécutée à chaque déclenchement."
-    }
+    "deleteHint": "L'historique d'exécution est conservé."
   },
   "metadata": {
-    "title": "Automatisation",
-    "edit": "Modifier l'automatisation",
-    "noDescription": "Aucune description",
     "createdAt": "Créée",
     "updatedAt": "Dernière modification",
     "createdBy": "Créée par"
@@ -132,9 +109,18 @@
     "status": {
       "success": "Réussie",
       "failed": "Échouée",
-      "no_match": "Aucune branche correspondante",
+      "no_match": "Aucun cas vrai",
       "initialized": "Initialisation sans action",
       "suspended": "Suspendu"
+    },
+    "outcome": {
+      "success": "Réussie",
+      "failed": "Échouée",
+      "no_match": "Aucun cas vrai",
+      "initialized": "Première observation",
+      "suspended": "Suspendue",
+      "rejected": "Refusée par une règle",
+      "unknown": "Arrêtée · donnée inconnue"
     },
     "triggeredAt": "Déclenchée à",
     "executedAt": "Exécutée à",
@@ -156,7 +142,7 @@
     "types": {
       "command_template": "Exécuter une commande",
       "notification": "Envoyer une notification",
-      "write_attribute": "Écrire un point"
+      "write_attribute": "Écrire un attribut"
     },
     "typeDescriptions": {
       "command_template": "Envoie une commande aux appareils ciblés.",
@@ -198,37 +184,150 @@
   "enabledBadge": "Activée",
   "disabledBadge": "Désactivée",
   "tree": {
-    "title": "Arbre de décision",
-    "firstMatch": "Évaluation de haut en bas. Seule la première branche correspondante est exécutée.",
-    "editBranch": "Modifier la branche",
+    "title": "Arbre de l’automatisation",
     "loading": "Chargement de l’éditeur…",
-    "branchName": "Nom de la branche",
-    "useCondition": "Seulement si une condition est remplie",
-    "always": "Toujours, si cette branche est atteinte",
-    "invalidCondition": "Complétez la condition avant d’appliquer cette branche.",
+    "invalidCondition": "Complétez la valeur demandée.",
     "cancel": "Annuler",
-    "applyBranch": "Appliquer la branche",
-    "otherwise": "Sinon, continuer",
-    "branch": "Branche {{number}}",
-    "then": "Alors",
-    "stopAfterMatch": "Fin de cette exécution",
-    "moveUp": "Monter la branche {{number}}",
-    "moveDown": "Descendre la branche {{number}}",
-    "removeBranch": "Supprimer la branche {{number}}",
-    "noMatch": "Aucune correspondance → inscription dans l’historique. Aucune action ni notification.",
-    "addBranch": "Ajouter une branche",
-    "expand": "Ajouter des conditions et des branches",
-    "branchCount_one": "{{count}} branche de décision",
-    "branchCount_other": "{{count}} branches de décision",
-    "unreachable": "Une branche précédente est inconditionnelle. Déplacez cette branche avant elle ou ajoutez une condition.",
-    "startTree": "Construire un arbre de décision",
-    "evaluation": "Branche {{number}} : {{result}}",
+    "when": "Quand",
+    "chooseTrigger": "Choisir un déclencheur",
+    "chooseTriggerHint": "Changement d’attribut ou horaire",
+    "decision": "Décision",
+    "decisionRule": "Le 1er cas vrai, de gauche à droite",
+    "if": "Si",
+    "elseIf": "Sinon, si",
+    "otherwise": "Sinon",
+    "otherwiseRule": "Aucun cas précédent n’est vrai",
+    "alwaysTrue": "Toujours vrai",
+    "alwaysTrueHint": "Ce cas n’a pas de condition : les cas suivants ne sont jamais testés. Ajoutez-lui une condition, ou supprimez-le.",
+    "unreachable": "Jamais testé",
+    "chooseCondition": "À compléter : choisissez ce qu’il faut comparer",
+    "nothing": "Ne rien faire",
+    "nothingHint": "L’exécution est consignée",
+    "chooseAction": "Choisir une action",
+    "chooseActionHint": "Commande, écriture ou notification",
+    "actionIncomplete": "À compléter",
+    "insertCondition": "Ajouter une condition",
+    "addCase": "Ajouter un cas",
+    "limitReached": "{{max}} cas au maximum par automatisation",
+    "caseCount_one": "{{count}} cas",
+    "caseCount_other": "{{count}} cas",
     "results": {
-      "matched": "correspondance",
-      "not_matched": "sans correspondance",
-      "unknown": "inconnu"
+      "matched": "Vrai",
+      "not_matched": "Faux",
+      "unknown": "Inconnu",
+      "skipped": "Non testé",
+      "taken": "Suivi"
+    },
+    "recipients_one": "{{count}} destinataire",
+    "recipients_other": "{{count}} destinataires",
+    "onEventDevice": "Sur l’appareil déclencheur",
+    "triggerChange": "{{attribute}} de {{device}} {{operator}} {{value}}",
+    "triggerChangeAny": "{{attribute}} de {{device}} change",
+    "commandTemplate": "Commande",
+    "zoom": {
+      "label": "Zoom",
+      "in": "Zoomer",
+      "out": "Dézoomer",
+      "fit": "Tout afficher"
     },
     "guardrails": "Jusqu’à {{max}} actions par période de {{seconds}} secondes ; suspension après {{failures}} échecs consécutifs. La réactivation est manuelle."
+  },
+  "panel": {
+    "label": "Élément sélectionné",
+    "tabs": "Vues du panneau",
+    "tab": {
+      "configure": "Configurer",
+      "executions": "Exécutions"
+    },
+    "collapse": "Replier le panneau",
+    "expand": "Déplier le panneau",
+    "gone": "Cet élément n’existe plus.",
+    "optional": "(facultatif)",
+    "plainWords": "En clair",
+    "automation": {
+      "kicker": "Automatisation"
+    },
+    "trigger": {
+      "title": "Déclencheur",
+      "help": "Un seul déclencheur par automatisation : ce qui lance une exécution."
+    },
+    "decision": {
+      "title": "Ordre des cas",
+      "help": "Les cas sont testés de gauche à droite ; le premier vrai décide du chemin. Si une valeur lue est inconnue ou périmée, l’automatisation s’arrête sans rien exécuter."
+    },
+    "case": {
+      "kicker": "Cas {{position}} sur {{total}}",
+      "untitled": "Cas {{position}}",
+      "name": "Nom du cas",
+      "namePlaceholder": "Ex. Salle vide",
+      "condition": "Condition",
+      "unreachable": "Un cas précédent n’a pas de condition : celui-ci n’est jamais testé.",
+      "incomplete": "Complétez la condition pour pouvoir enregistrer.",
+      "menu": "Actions du cas",
+      "earlier": "Tester plus tôt",
+      "later": "Tester plus tard",
+      "remove": "Supprimer le cas"
+    },
+    "order": {
+      "title": "Ordre de test",
+      "help": "Le premier cas vrai l’emporte. Glissez pour réordonner ; « Sinon » reste toujours en dernier.",
+      "drag": "Déplacer « {{name}} »",
+      "otherwiseAction": "Exécute une action",
+      "otherwiseNothing": "Ne fait rien"
+    },
+    "otherwise": {
+      "title": "Quand aucun cas n’est vrai",
+      "help": "« Sinon » vient après tous les cas. Par défaut, rien ne se passe ; l’exécution est quand même consignée.",
+      "choice": "Ce qui se passe sinon",
+      "nothingHint": "L’exécution est consignée « Aucun cas vrai ».",
+      "act": "Exécuter une action",
+      "actHint": "Par exemple, notifier l’astreinte.",
+      "nested": "Ce couloir mène à une autre décision : modifiez-la sur l’arbre."
+    },
+    "action": {
+      "kicker": "Action",
+      "addConditionBefore": "Ajouter une condition avant",
+      "remove": "Retirer l’action"
+    },
+    "executions": {
+      "kicker": "Historique",
+      "help": "Choisissez une exécution pour voir son chemin sur l’arbre.",
+      "removedCase": "Cas supprimé",
+      "stoppedAt": "Donnée inconnue dans « {{name}} »",
+      "detail": "Exécution sélectionnée",
+      "event": "Événement",
+      "path": "Chemin",
+      "result": "Résultat",
+      "missing": "Inconnue ou périmée : {{refs}}"
+    }
+  },
+  "plain": {
+    "colon": " :",
+    "nothing": "ne rien faire",
+    "noAction": "aucune action choisie pour l’instant",
+    "decision_one": "une nouvelle décision à {{count}} cas",
+    "decision_other": "une nouvelle décision à {{count}} cas",
+    "notify": "envoyer la notification « {{title}} »",
+    "command": "exécuter « {{name}} »",
+    "writePrefix": "écrire dans {{attribute}} de {{device}} :",
+    "eventDevice": "l’appareil déclencheur"
+  },
+  "editor": {
+    "untitled": "Nouvelle automatisation",
+    "namePlaceholder": "Ex. Chauffage salle 201",
+    "nameRequired": "Donnez un nom à l’automatisation.",
+    "enableOnCreate": "Activer dès l’enregistrement",
+    "create": "Créer l’automatisation",
+    "toComplete_one": "{{count}} élément à compléter",
+    "toComplete_other": "{{count}} éléments à compléter",
+    "show": "Voir",
+    "allSaved": "Tout est enregistré"
+  },
+  "replay": {
+    "title": "Relecture de l’exécution · {{moment}}",
+    "older": "Exécution précédente",
+    "newer": "Exécution suivante",
+    "quit": "Quitter la relecture"
   },
   "event": {
     "title": "Événement déclencheur",
@@ -242,7 +341,7 @@
   "write": {
     "eventDevice": "Écrire sur l’appareil déclencheur",
     "attribute": "Attribut à écrire",
-    "target": "Point cible",
+    "target": "Attribut cible",
     "value": "Valeur demandée",
     "protected": "Chaque écriture traverse les protections de l’équipement. Un refus est enregistré, sans nouvelle tentative automatique."
   },
@@ -261,7 +360,7 @@
     "overlapping_execution": "Une exécution était déjà en cours.",
     "execution_rate_exceeded": "Trop d’exécutions dans la fenêtre configurée.",
     "consecutive_failures": "Échecs répétés des exécutions.",
-    "direct_feedback": "L’action écrirait son propre point déclencheur.",
+    "direct_feedback": "L’action écrirait l’attribut qui déclenche cet automatisme.",
     "condition_unknown": "Une condition ne peut pas être évaluée.",
     "evaluation_limit": "Le budget d’évaluation est dépassé.",
     "no_matching_branch": "Aucune branche ne correspond.",
@@ -271,7 +370,7 @@
   "diagnostics": {
     "title": "Conflits potentiels",
     "potential_write_conflict": "Un autre automatisme actif peut écrire une valeur différente sur",
-    "direct_feedback": "Cette action écrit son propre point déclencheur :",
+    "direct_feedback": "Cette action écrit l’attribut qui déclenche cet automatisme :",
     "openOther": "Ouvrir l’automatisme",
     "unavailable": "La vérification des conflits est indisponible."
   }

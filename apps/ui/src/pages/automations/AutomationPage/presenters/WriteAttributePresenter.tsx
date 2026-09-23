@@ -4,7 +4,7 @@ import {
   AttributeName,
   ExpressionSummary,
 } from "@/pages/devices/device/operating-rules/OperatingRuleSummary";
-import { useAutomationCatalog } from "../hooks/useDecisionTree";
+import { useAutomationCatalog } from "../hooks/useAutomationCatalog";
 
 export function WriteAttributePresenter({ action }: { action: Action }) {
   const { t } = useTranslation("automations");

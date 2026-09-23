@@ -6,7 +6,7 @@ import { AttributeSelect } from "@/pages/devices/device/operating-rules/Attribut
 import { Switch } from "@/components/ui/switch";
 import { Field, FieldLabel } from "@/components/ui/field";
 import type { CustomActionFormProps } from "../../presenters/types";
-import { useAutomationCatalog } from "../../hooks/useDecisionTree";
+import { useAutomationCatalog } from "../../hooks/useAutomationCatalog";
 import { useWriteAttributeForm } from "./useWriteAttributeForm";
 
 export function WriteAttributeActionForm(props: CustomActionFormProps) {

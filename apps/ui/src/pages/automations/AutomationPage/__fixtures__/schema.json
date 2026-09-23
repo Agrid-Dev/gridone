@@ -76,10 +76,25 @@
           "default": null
         },
         "action": {
-          "$ref": "#/$defs/Action"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Action"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "branches": {
+          "items": {
+            "$ref": "#/$defs/AutomationBranch"
+          },
+          "maxItems": 64,
+          "title": "Branches",
+          "type": "array"
         }
       },
-      "required": ["action"],
       "title": "AutomationBranch",
       "type": "object"
     },

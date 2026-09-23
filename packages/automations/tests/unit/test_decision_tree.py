@@ -22,7 +22,7 @@ from automations.storage.backend import AutomationsStorageBackend
 from pydantic import BaseModel, ValidationError
 
 from models.attribute_observation import AttributeObservation
-from models.errors import InvalidError
+from models.errors import InvalidError, SchemaValidationError
 from models.expressions import (
     Comparison,
     DeviceAttributeRef,
@@ -412,3 +412,144 @@ async def test_reordering_updates_compatibility_action_and_diagnostics(engine):
     assert updated.branches == [second, first]
     assert updated.action == second.action
     assert await service.list_diagnostics(updated.id) == []
+
+
+async def test_nested_decisions_follow_one_path_and_log_each_level(engine):
+    service, action, storage, _ = engine
+    leaf = branch("selected", value=False)
+    parent = AutomationBranch(
+        name="parent", branches=[branch("skip", value=True), leaf]
+    )
+    created = await service.create(
+        AutomationCreate(
+            name="nested",
+            trigger=TRIGGER,
+            branches=[parent, AutomationBranch(action=ACTION)],
+        ),
+        created_by="user",
+    )
+    await fire(service, created)
+    action.execute.assert_awaited_once_with({}, EVENT)
+    execution = storage.log_execution.call_args.args[0]
+    assert execution.branch_id == leaf.id
+    assert [item.path for item in execution.branches] == [[1], [1, 1], [1, 2]]
+    assert [item.result for item in execution.branches] == [
+        "matched",
+        "not_matched",
+        "matched",
+    ]
+    assert created.action == leaf.action
+
+
+async def test_nonmatching_parent_skips_its_entire_subtree(engine):
+    service, action, storage, _ = engine
+    skipped = branch("parent", value=True)
+    parent = AutomationBranch(
+        condition=skipped.condition, branches=[AutomationBranch(action=ACTION)]
+    )
+    fallback = AutomationBranch(action=ACTION)
+    created = await service.create(
+        AutomationCreate(name="nested", trigger=TRIGGER, branches=[parent, fallback]),
+        created_by="user",
+    )
+    await fire(service, created)
+    action.execute.assert_awaited_once()
+    execution = storage.log_execution.call_args.args[0]
+    assert execution.branch_id == fallback.id
+    assert [item.path for item in execution.branches] == [[1], [2]]
+
+
+@pytest.mark.parametrize("unknown", [False, True])
+async def test_matched_subtree_never_falls_back_to_ancestor_siblings(engine, unknown):
+    service, action, storage, resolver = engine
+    child = branch("no match", value=True)
+    if unknown:
+        child = AutomationBranch(
+            action=ACTION,
+            condition=Comparison(
+                op="eq",
+                left=DeviceAttributeRef(device_id="b", attribute="fault"),
+                right=False,
+            ),
+        )
+        resolver.return_value = AttributeObservation(validity="unknown")
+    created = await service.create(
+        AutomationCreate(
+            name="nested",
+            trigger=TRIGGER,
+            branches=[
+                AutomationBranch(branches=[child]),
+                AutomationBranch(action=ACTION),
+            ],
+        ),
+        created_by="user",
+    )
+    await fire(service, created)
+    action.execute.assert_not_awaited()
+    execution = storage.log_execution.call_args.args[0]
+    assert execution.status == (
+        ExecutionStatus.FAILED if unknown else ExecutionStatus.NO_MATCH
+    )
+    assert [item.path for item in execution.branches] == [[1], [1, 1]]
+
+
+async def test_nested_action_validation_runs_before_persistence(engine):
+    service, _, storage, _ = engine
+    invalid = AutomationBranch(
+        branches=[AutomationBranch(action=Action(provider_id="missing"))]
+    )
+    with pytest.raises(SchemaValidationError):
+        await service.create(
+            AutomationCreate(name="invalid", trigger=TRIGGER, branches=[invalid]),
+            created_by="user",
+        )
+    storage.create.assert_not_awaited()
+
+
+@pytest.mark.parametrize("violation", ["depth", "total", "duplicate"])
+async def test_complete_tree_bounds_and_identifiers(violation):
+    branches = [AutomationBranch(action=ACTION)]
+    if violation == "depth":
+        for _ in range(16):
+            branches = [AutomationBranch(branches=branches)]
+    elif violation == "total":
+        branches = [
+            AutomationBranch(
+                branches=[AutomationBranch(action=ACTION) for _ in range(64)]
+            )
+        ]
+    else:
+        branches = [
+            AutomationBranch(id="duplicate", action=ACTION),
+            AutomationBranch(
+                branches=[AutomationBranch(id="duplicate", action=ACTION)]
+            ),
+        ]
+    for model, args in [
+        (AutomationCreate, {"name": "invalid", "trigger": TRIGGER}),
+        (AutomationUpdate, {}),
+    ]:
+        with pytest.raises(ValidationError):
+            model.model_validate({**args, "branches": branches})
+
+
+@pytest.mark.parametrize(
+    ("action", "children"), [(None, []), (ACTION, [AutomationBranch(action=ACTION)])]
+)
+async def test_branch_has_exactly_one_outcome(action, children):
+    with pytest.raises(ValidationError, match="action_or_subtree"):
+        AutomationBranch(action=action, branches=children)
+
+
+async def test_legacy_action_update_cannot_collapse_a_subtree(engine):
+    service, _, _, _ = engine
+    created = await service.create(
+        AutomationCreate(
+            name="nested",
+            trigger=TRIGGER,
+            branches=[AutomationBranch(branches=[AutomationBranch(action=ACTION)])],
+        ),
+        created_by="user",
+    )
+    with pytest.raises(InvalidError):
+        await service.update(created.id, AutomationUpdate(action=ACTION))

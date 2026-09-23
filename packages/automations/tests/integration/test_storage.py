@@ -9,7 +9,9 @@ import pytest_asyncio
 from automations.models import (
     Action,
     Automation,
+    AutomationBranch,
     AutomationExecution,
+    BranchEvaluation,
     ExecutionStatus,
     Trigger,
 )
@@ -68,6 +70,29 @@ async def storage():
 
 
 class TestCRUD:
+    async def test_nested_tree_and_execution_path_roundtrip(
+        self, storage: PostgresStorage
+    ):
+        leaf = AutomationBranch(action=_CMD_ACTION)
+        parent = AutomationBranch(branches=[leaf])
+        auto = _automation(branches=[parent])
+        await storage.create(auto)
+        restored = await storage.get(auto.id)
+        assert restored.branches == [parent]
+        assert restored.action == _CMD_ACTION
+        execution = _execution(
+            auto.id,
+            branch_id=leaf.id,
+            branches=[
+                BranchEvaluation(branch_id=parent.id, path=[1], result="matched"),
+                BranchEvaluation(branch_id=leaf.id, path=[1, 1], result="matched"),
+            ],
+        )
+        await storage.log_execution(execution)
+        assert (await storage.list_executions(auto.id))[
+            0
+        ].branches == execution.branches
+
     async def test_create_get_roundtrip(self, storage: PostgresStorage):
         auto = _automation(description="My Desc")
         await storage.create(auto)

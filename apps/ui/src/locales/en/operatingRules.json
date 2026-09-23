@@ -112,13 +112,16 @@
     "lt": "is less than",
     "lte": "is at most",
     "in": "is one of",
-    "is_known": "is known"
+    "is_known": "is known",
+    "not_known": "is not known"
   },
+  "negation": "it is not the case that",
   "noValueNeeded": "no value needed",
   "rowOptions": "More options for this condition",
   "useFixedValue": "Compare with a fixed value",
   "useOtherAttribute": "Compare with another attribute",
   "useRequestedValue": "Compare with the requested value",
+  "testEventValue": "Test a value of the event",
   "wrapInGroup": "Wrap in a group",
   "requireOpposite": "Require the opposite",
   "editAsExpression": "Edit as expression",

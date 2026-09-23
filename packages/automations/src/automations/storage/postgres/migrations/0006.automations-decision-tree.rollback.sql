@@ -2,7 +2,9 @@
 -- lossy rollback; operators must explicitly reduce them to one branch first.
 DO $$ BEGIN
     IF EXISTS (SELECT 1 FROM automations WHERE jsonb_array_length(branches) <> 1
-        OR branches->0->'condition' <> 'null'::jsonb OR suspension IS NOT NULL) THEN
+        OR branches->0->'condition' <> 'null'::jsonb
+        OR jsonb_array_length(COALESCE(branches->0->'branches', '[]'::jsonb)) > 0
+        OR suspension IS NOT NULL) THEN
         RAISE EXCEPTION 'Cannot roll back conditional or suspended automations';
     END IF;
 END $$;

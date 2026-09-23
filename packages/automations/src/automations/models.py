@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime  # noqa: TC003 - pydantic needs this at runtime
 from enum import StrEnum
-from typing import Annotated, Literal
+from typing import TYPE_CHECKING, Annotated, Literal
 
 from pydantic import BaseModel, Field, StringConstraints, model_validator
 
@@ -23,6 +23,10 @@ from models.metadata import ResourceMetadata
 from models.types import AttributeValueType  # noqa: TC001 -- pydantic schema
 
 NonBlank = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+MAX_DECISION_DEPTH = 16
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator, Sequence
 
 
 class ExecutionStatus(StrEnum):
@@ -70,11 +74,20 @@ class AutomationBranch(BaseModel):
     id: NonBlank = Field(default_factory=gen_id)
     name: str = ""
     condition: Condition | None = None
-    action: Action
+    action: Action | None = None
+    branches: list[AutomationBranch] = Field(default_factory=list, max_length=MAX_RULES)
+
+    @model_validator(mode="after")
+    def exclusive_outcome(self) -> AutomationBranch:
+        """A decision enters a subtree or executes a terminal action, never both."""
+        if (self.action is not None) == bool(self.branches):
+            msg = "automation_branch_requires_action_or_subtree"
+            raise ValueError(msg)
+        return self
 
     @model_validator(mode="after")
     def bounded_condition(self) -> AutomationBranch:
-        """Bound each branch and require explicit points or event references."""
+        """Bound each branch and require explicit attributes or event references."""
         for count, (_, node, depth) in enumerate(expression_nodes(self.condition), 1):
             if depth > MAX_EXPRESSION_DEPTH or count > MAX_ATTRIBUTE_OPERATIONS:
                 msg = "automation_expression_limit"
@@ -83,6 +96,45 @@ class AutomationBranch(BaseModel):
                 msg = "automation_requires_device_or_event_reference"
                 raise ValueError(msg)  # noqa: TRY004 -- pydantic validation error
         return self
+
+
+def walk_branches(
+    branches: Sequence[AutomationBranch],
+) -> Iterator[tuple[AutomationBranch, int]]:
+    """Visit all decisions in display order without recursing through Python frames."""
+    stack = [(branch, 1) for branch in reversed(branches)]
+    while stack:
+        branch, depth = stack.pop()
+        yield branch, depth
+        stack.extend((child, depth + 1) for child in reversed(branch.branches))
+
+
+def branch_actions(branches: Sequence[AutomationBranch]) -> Iterator[Action]:
+    for branch, _ in walk_branches(branches):
+        if branch.action is not None:
+            yield branch.action
+
+
+def first_action(branches: Sequence[AutomationBranch]) -> Action:
+    """Retain the legacy action mirror using the first terminal action in the tree."""
+    action = next(branch_actions(branches), None)
+    if action is None:
+        msg = "automation_requires_terminal_action"
+        raise ValueError(msg)
+    return action
+
+
+def validate_tree(branches: Sequence[AutomationBranch]) -> None:
+    """Bound the complete tree and require IDs to be unique across every level."""
+    identifiers: set[str] = set()
+    for branch, depth in walk_branches(branches):
+        if depth > MAX_DECISION_DEPTH or len(identifiers) >= MAX_RULES:
+            msg = "automation_tree_limit"
+            raise ValueError(msg)
+        if branch.id in identifiers:
+            msg = "automation_duplicate_branch_id"
+            raise ValueError(msg)
+        identifiers.add(branch.id)
 
 
 class AutomationSuspension(BaseModel):
@@ -120,13 +172,12 @@ class AutomationCreate(BaseModel):
                 msg = "automation_requires_branches"
                 raise ValueError(msg)
             self.branches = [AutomationBranch(action=self.action)]
-        if self.action is not None and self.action != self.branches[0].action:
+        validate_tree(self.branches)
+        legacy_action = first_action(self.branches)
+        if self.action is not None and self.action != legacy_action:
             msg = "automation_action_conflicts_with_branches"
             raise ValueError(msg)
-        if len({branch.id for branch in self.branches}) != len(self.branches):
-            msg = "automation_duplicate_branch_id"
-            raise ValueError(msg)
-        self.action = self.branches[0].action
+        self.action = legacy_action
         return self
 
 
@@ -142,6 +193,12 @@ class AutomationUpdate(BaseModel):
     guardrails: AutomationGuardrails | None = None
     max_age_seconds: float | None = Field(default=None, gt=0, allow_inf_nan=False)
 
+    @model_validator(mode="after")
+    def bounded_tree(self) -> AutomationUpdate:
+        if self.branches is not None:
+            validate_tree(self.branches)
+        return self
+
 
 class Automation(AutomationCreate, ResourceMetadata):
     action: Action
@@ -154,9 +211,9 @@ class Automation(AutomationCreate, ResourceMetadata):
             return self
         changes = {k: getattr(params, k) for k in params.model_fields_set}
         if "branches" in changes and params.branches:
-            changes["action"] = params.branches[0].action
+            changes["action"] = first_action(params.branches)
         elif params.action is not None:
-            if len(self.branches) != 1:
+            if len(self.branches) != 1 or self.branches[0].branches:
                 msg = "legacy_action_update_requires_single_branch"
                 raise ValueError(msg)
             changes["branches"] = [
@@ -168,6 +225,7 @@ class Automation(AutomationCreate, ResourceMetadata):
 
 class BranchEvaluation(BaseModel):
     branch_id: str
+    path: list[int] = Field(default_factory=list)
     result: Literal["matched", "not_matched", "unknown"]
     missing: list[str] = Field(default_factory=list)
 

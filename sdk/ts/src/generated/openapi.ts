@@ -2929,7 +2929,9 @@ export interface components {
        */
       name?: string;
       condition?: components["schemas"]["Condition-Input"] | null;
-      action: components["schemas"]["Action"];
+      action?: components["schemas"]["Action"] | null;
+      /** Branches */
+      branches?: components["schemas"]["AutomationBranch-Input"][];
     };
     /** AutomationBranch */
     "AutomationBranch-Output": {
@@ -2941,7 +2943,9 @@ export interface components {
        */
       name?: string;
       condition?: components["schemas"]["Condition-Output"] | null;
-      action: components["schemas"]["Action"];
+      action?: components["schemas"]["Action"] | null;
+      /** Branches */
+      branches?: components["schemas"]["AutomationBranch-Output"][];
     };
     /** AutomationCreate */
     AutomationCreate: {
@@ -3282,6 +3286,8 @@ export interface components {
     BranchEvaluation: {
       /** Branch Id */
       branch_id: string;
+      /** Path */
+      path?: number[];
       /**
        * Result
        * @enum {string}

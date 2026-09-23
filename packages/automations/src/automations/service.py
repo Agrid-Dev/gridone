@@ -20,6 +20,8 @@ from automations.models import (
     AutomationUpdate,
     ExecutionStatus,
     TriggerContext,
+    branch_actions,
+    first_action,
 )
 from automations.storage.factory import build_storage
 from models.action_failure import ActionExecutionError
@@ -88,15 +90,15 @@ class AutomationsService(Service):
 
     async def create(self, params: AutomationCreate, *, created_by: str) -> Automation:
         self._validate_trigger(params.trigger)
-        for branch in params.branches:
-            self._validate_action(branch.action)
+        for action in branch_actions(params.branches):
+            self._validate_action(action)
         now = datetime.now(UTC)
         automation = Automation(
             id=gen_id(),
             name=params.name,
             description=params.description,
             trigger=params.trigger,
-            action=params.branches[0].action,
+            action=first_action(params.branches),
             branches=params.branches,
             guardrails=params.guardrails,
             max_age_seconds=params.max_age_seconds,
@@ -168,8 +170,8 @@ class AutomationsService(Service):
         if params.action is not None:
             self._validate_action(params.action)
         if params.branches is not None:
-            for branch in params.branches:
-                self._validate_action(branch.action)
+            for action in branch_actions(params.branches):
+                self._validate_action(action)
 
     @staticmethod
     def _apply_update(existing: Automation, params: AutomationUpdate) -> Automation:
@@ -445,9 +447,10 @@ class AutomationsService(Service):
                 execution.reason = reason
                 await self._trip(automation.id, reason)
                 return
-            provider = self._action_providers[branch.action.provider_id]
+            action = first_action([branch])
+            provider = self._action_providers[action.provider_id]
             execution.executed_at = datetime.now(UTC)
-            execution.output_id = await provider.execute(branch.action.params, context)
+            execution.output_id = await provider.execute(action.params, context)
         except ActionExecutionError as exc:
             execution.status = ExecutionStatus.FAILED
             execution.error = "No commands sent to the target"

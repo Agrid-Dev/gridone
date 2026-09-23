@@ -6,33 +6,39 @@ services. The automations package has no knowledge of devices or command storage
 
 ## Decision trees and compatibility
 
-An automation has one trigger and between 1 and 64 ordered `branches`. Each branch
-has a stable ID, an optional name, a condition, and an action. A missing condition
-means unconditional. Evaluation stops at the first match; a failed action does not
-fall through to the next branch. If nothing matches, history records `no_match`
+An automation has one trigger and an ordered tree with 1 to 64 branches in total,
+up to 16 levels deep. Each branch has a stable ID, an optional name, a condition,
+and either a terminal `action` or nested `branches` (never both). A missing condition
+means unconditional. At each level, the first match selects an action or enters
+its subtree. A matched subtree owns the rest of the selection: no child match means
+no action, without returning to an ancestor fallback. An unknown condition also
+stops the entire selection. A failed action does not fall through. If nothing matches, history records `no_match`
 without sending a notification.
 
 Conditions use the shared expression language in `models.expressions`: Boolean
 groups, comparisons, arithmetic, `is_known`, explicit device/attribute references,
 and event references. Unknown conditions stop selection with `condition_unknown`;
-they never silently select a fallback. Invalid point references also stop selection,
+they never silently select a fallback. Invalid attribute references also stop selection,
 including references hidden behind a short-circuited operand. `max_age_seconds`
 optionally bounds the freshness of referenced observations. References are resolved
-from an in-memory snapshot, once per point per selection. Shared expression limits
+from an in-memory snapshot, once per attribute per selection. Shared expression limits
 bound depth, each branch, and the complete tree.
 
 The SQL migration converts every existing action to one unconditional branch and
 preserves its trigger, enabled state, and metadata. There is one execution path.
 Legacy create payloads containing `action` remain accepted, and responses retain
-`action` as a compatibility mirror of the first branch. A legacy action update can
-only modify a single-branch automation; it cannot overwrite a multi-branch tree.
+`action` as a compatibility mirror of the first terminal action. A legacy action update can
+only modify a single terminal branch; it cannot overwrite a multi-branch tree.
 New clients should submit `branches`. Branch order and IDs survive saves. Legacy
 trigger filters retain their existing comparison semantics; the new branch
 conditions use the shared, typed expression language.
 
 The UI keeps the existing single-action form and offers expansion into a tree.
-The tree displays conditions, actions, order, early termination, and unmatched
-events. Conditions and direct-write values use the shared expression editor.
+Use **Add a decision** on an action branch to insert another decision before the
+existing action; this preserves the parent condition and the action. Then use
+**Add a child branch** for alternatives at that level. Branch numbers such as 1.2
+show the path, which is also recorded in execution history. The tree displays
+conditions, actions, order, early termination, and unmatched events. Conditions and direct-write values use the shared expression editor.
 
 ## Events and writes
 
@@ -51,7 +57,7 @@ history and the automation execution log. A failed write does not try another
 branch. Equipment-specific conditions and recovery after a fault must be declared
 explicitly in automations.
 
-At startup, reconnect, or recovery after a point read error, the first observation
+At startup, reconnect, or recovery after an attribute read error, the first observation
 establishes a baseline without executing an action, even when a restored value
 differs. A changed initial observation appears as `initialized` in history. An
 unchanged first observation produces no change event. Subsequent changes trigger
@@ -62,7 +68,7 @@ The change-event provider owns one fleet subscription and indexes its listeners 
 `(device_id, attribute)`. Each update invokes only matching listeners, not all
 automations. The dispatch-count regression test registers 100 automations and
 verifies one upstream subscription and one matching listener invocation for one
-point update. Subscription lookup is O(1); dispatch work is O(matching automations).
+attribute update. Subscription lookup is O(1); dispatch work is O(matching automations).
 This measures callback fan-out, not an end-to-end latency guarantee.
 
 ## Suspension and execution safeguards
@@ -85,14 +91,14 @@ Defaults, configurable in `guardrails`, are:
 | Execution rate | At most 10 selected actions in a rolling 60 seconds; the next match suspends before dispatch. |
 | Consecutive failures | Suspend after 3 failed evaluations/actions. A nonfailed selection resets the failure count. |
 | Overlap | A new event during an execution suspends the automation and does not dispatch a second action. |
-| Direct feedback | A write to the event's own point suspends before dispatch. Explicit command-template device IDs are checked too. |
+| Direct feedback | A write to the event's own attribute suspends before dispatch. Explicit command-template device IDs are checked too. |
 
 No-match and initial observations do not consume the action-rate allowance. A
 suspension prevents future dispatches; it cannot recall a command already in flight.
 Counters are process-local; an already persisted suspension survives restart.
 
 `GET /automations/{id}/diagnostics` provides advisory warnings for direct feedback
-and opposing static writes to the same point by another enabled automation.
+and opposing static writes to the same attribute by another enabled automation.
 Providers expose `describe_writes(params, trigger)` for this analysis. Direct writes
 and explicit command-template IDs are supported. Conditions may be mutually
 exclusive, so a warning is not proof of a conflict.

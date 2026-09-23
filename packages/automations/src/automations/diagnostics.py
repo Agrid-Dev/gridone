@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from automations.models import AutomationDiagnostic
+from automations.models import AutomationDiagnostic, branch_actions
 from models.conditions import scalar_equal
 from models.expressions import DeviceAttributeRef
 
@@ -19,11 +19,11 @@ async def describe_writes(
     automation: Automation, providers: Mapping[str, ActionProvider]
 ) -> list[AutomationWrite]:
     result = []
-    for branch in automation.branches:
-        provider = providers.get(branch.action.provider_id)
+    for action in branch_actions(automation.branches):
+        provider = providers.get(action.provider_id)
         if provider is not None:
             result.extend(
-                await provider.describe_writes(branch.action.params, automation.trigger)
+                await provider.describe_writes(action.params, automation.trigger)
             )
     return result
 

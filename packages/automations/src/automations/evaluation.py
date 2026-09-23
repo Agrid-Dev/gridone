@@ -28,7 +28,10 @@ def select_branch(
     resolver: AttributeResolver | None,
     trace: list[BranchEvaluation],
 ) -> AutomationBranch | None:
-    """Stop at the first true or unknown branch; unknown must not select a fallback.
+    """Follow the first match at each level to a terminal action.
+
+    A matched subtree owns the rest of the selection: if none of its children
+    matches, no ancestor fallback is considered. Unknown stops the whole tree.
 
     All branches share one tree budget. Each branch gets the same local budget
     used by write rules. Resolution is synchronous, so one selection cannot
@@ -54,7 +57,12 @@ def select_branch(
             else None
         )
 
-    for branch in automation.branches:
+    pending = [
+        (branch, [index])
+        for index, branch in reversed(list(enumerate(automation.branches, 1)))
+    ]
+    while pending:
+        branch, path = pending.pop()
         context = EvaluationContext(
             lambda _: None,
             budget=EvaluationBudget(parent=parent),
@@ -74,6 +82,7 @@ def select_branch(
         trace.append(
             BranchEvaluation(
                 branch_id=branch.id,
+                path=path,
                 result="unknown"
                 if result is None
                 else "matched"
@@ -85,6 +94,12 @@ def select_branch(
         if result is None:
             return None
         if result:
+            if branch.branches:
+                pending = [
+                    (child, [*path, index])
+                    for index, child in reversed(list(enumerate(branch.branches, 1)))
+                ]
+                continue
             return branch
     return None
 

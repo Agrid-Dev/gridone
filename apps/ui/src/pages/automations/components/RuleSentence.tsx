@@ -1,7 +1,8 @@
-import { ArrowRight, GitBranch, Play, Zap } from "lucide-react";
+import { ArrowRight, Play, Split, Zap } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { Action, AutomationBranch, Trigger } from "@gridone/sdk";
 import { cn } from "@/lib/utils";
+import { countCases, isDecisionTree } from "../AutomationPage/tree/model";
 import { RuleChip } from "./RuleChip";
 import { TriggerChip } from "./TriggerChip";
 import { ActionChip } from "./ActionChip";
@@ -35,9 +36,9 @@ export function RuleSentence({
         aria-hidden
         className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50"
       />
-      {branches && (branches.length > 1 || branches[0]?.condition) ? (
-        <RuleChip icon={GitBranch}>
-          {t("tree.branchCount", { count: branches.length })}
+      {branches && isDecisionTree(branches) ? (
+        <RuleChip icon={Split}>
+          {t("tree.caseCount", { count: countCases(branches) })}
         </RuleChip>
       ) : action ? (
         <ActionChip action={action} />

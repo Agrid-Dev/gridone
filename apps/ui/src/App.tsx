@@ -21,6 +21,10 @@ import SettingsPage from "./pages/settings/SettingsPage";
 import Synoptics from "./pages/synoptics";
 import { NotFoundFallback } from "./components/fallbacks/NotFound";
 import { ShellNavigation } from "./components/layout/ShellNavigation";
+import {
+  PageContainer,
+  PageLayoutProvider,
+} from "./components/layout/PageLayout";
 import { Toaster } from "./components/ui/sonner";
 import { TooltipProvider } from "./components/ui/tooltip";
 import { useAuth } from "./contexts/AuthContext";
@@ -45,67 +49,69 @@ function ProtectedLayout() {
   }, [profile?.name]);
 
   return (
-    <div className="min-h-screen bg-background bg-grid">
-      <a
-        href="#main-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-2 focus:z-[60] focus:rounded focus:bg-background focus:p-3 focus:text-primary"
-      >
-        {t("navigation.skip")}
-      </a>
-      <ShellNavigation />
-      <div className="flex min-h-screen min-w-0 flex-col pt-16 lg:ml-64">
-        <main
-          id="main-content"
-          tabIndex={-1}
-          className="min-w-0 flex-1 scroll-mt-20"
+    <PageLayoutProvider>
+      <div className="min-h-screen bg-background bg-grid">
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-2 focus:z-[60] focus:rounded focus:bg-background focus:p-3 focus:text-primary"
         >
-          <div className="mx-auto flex max-w-7xl min-w-0 flex-col px-4 py-8 sm:px-6 lg:px-8">
-            <Routes>
-              <Route index element={<Home />} />
-              {dashboardsEnabled && (
-                <Route path="/dashboards/*" element={<Dashboards />} />
-              )}
-              {synopticsEnabled && (
-                <Route path="/synoptics/*" element={<Synoptics />} />
-              )}
-              <Route path="/assets/*" element={<Assets />} />
-              <Route path="/devices/*" element={<Devices />} />
-              <Route path="/drivers/*" element={<Drivers />} />
-              <Route path="/transports/*" element={<Transports />} />
-              <Route path="/apps/*" element={<Apps />} />
-              <Route path="/automations/*" element={<Automations />} />
-              <Route path="/faults" element={<FaultsPage />} />
-              <Route path="/notifications" element={<NotificationsPage />} />
-              <Route path="/users" element={<UsersPage />} />
-              <Route path="/profile/edit" element={<BuildingProfileEdit />} />
-              <Route path="/settings" element={<SettingsPage />} />
-              {sandboxEnabled && (
-                <Route
-                  path="/sandbox/synoptics"
-                  element={
-                    <Suspense>
-                      <SynopticsSandbox />
-                    </Suspense>
-                  }
-                />
-              )}
-              {sandboxEnabled && (
-                <Route
-                  path="/sandbox/device-presentation"
-                  element={
-                    <Suspense>
-                      <DevicePresentationSandbox />
-                    </Suspense>
-                  }
-                />
-              )}
-              <Route path="*" element={<NotFoundFallback />} />
-            </Routes>
-            <Toaster />
-          </div>
-        </main>
+          {t("navigation.skip")}
+        </a>
+        <ShellNavigation />
+        <div className="flex min-h-screen min-w-0 flex-col pt-16 lg:ml-64">
+          <main
+            id="main-content"
+            tabIndex={-1}
+            className="min-w-0 flex-1 scroll-mt-20"
+          >
+            <PageContainer>
+              <Routes>
+                <Route index element={<Home />} />
+                {dashboardsEnabled && (
+                  <Route path="/dashboards/*" element={<Dashboards />} />
+                )}
+                {synopticsEnabled && (
+                  <Route path="/synoptics/*" element={<Synoptics />} />
+                )}
+                <Route path="/assets/*" element={<Assets />} />
+                <Route path="/devices/*" element={<Devices />} />
+                <Route path="/drivers/*" element={<Drivers />} />
+                <Route path="/transports/*" element={<Transports />} />
+                <Route path="/apps/*" element={<Apps />} />
+                <Route path="/automations/*" element={<Automations />} />
+                <Route path="/faults" element={<FaultsPage />} />
+                <Route path="/notifications" element={<NotificationsPage />} />
+                <Route path="/users" element={<UsersPage />} />
+                <Route path="/profile/edit" element={<BuildingProfileEdit />} />
+                <Route path="/settings" element={<SettingsPage />} />
+                {sandboxEnabled && (
+                  <Route
+                    path="/sandbox/synoptics"
+                    element={
+                      <Suspense>
+                        <SynopticsSandbox />
+                      </Suspense>
+                    }
+                  />
+                )}
+                {sandboxEnabled && (
+                  <Route
+                    path="/sandbox/device-presentation"
+                    element={
+                      <Suspense>
+                        <DevicePresentationSandbox />
+                      </Suspense>
+                    }
+                  />
+                )}
+                <Route path="*" element={<NotFoundFallback />} />
+              </Routes>
+              <Toaster />
+            </PageContainer>
+          </main>
+        </div>
       </div>
-    </div>
+    </PageLayoutProvider>
   );
 }
 
