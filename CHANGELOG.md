@@ -1,3 +1,9 @@
+## v0.263.0 (2026-09-23)
+
+### Feat
+
+- **synoptics**: ISO plan symbols, point presentation and full legend (AGR-1391) (#687)
+
 ## v0.262.2 (2026-09-23)
 
 ### Fix
