@@ -14,12 +14,12 @@ import { textWidth } from "./text";
 import type { Pt } from "./types";
 import { readingState, type SlotReading } from "./values";
 
-export const PANEL_W = 164;
+export const PANEL_W = 144;
 /** Title band: the rule sits at its bottom, the rows start below it. */
-const HEADER_H = 30;
-const RULE_Y = 24;
-const ROW_H = 20;
-const PAD = 8;
+const HEADER_H = 26;
+const RULE_Y = 21;
+const ROW_H = 18;
+const PAD = 7;
 /** Space between a row's value and the stale disc before it. */
 const DISC_GAP = 8;
 
@@ -64,7 +64,7 @@ export function Panel({ at, title, rows, led, faulty = false }: PanelProps) {
       />
       <text
         x={x + PAD}
-        y={y + 16}
+        y={y + 15}
         fontSize={LABEL_SIZE}
         fontWeight={600}
         className="fill-foreground"
@@ -72,7 +72,7 @@ export function Panel({ at, title, rows, led, faulty = false }: PanelProps) {
         {title}
       </text>
       {led && (
-        <Led at={{ x: right - 4, y: y + 12 }} led={led} faulty={faulty} />
+        <Led at={{ x: right - 4, y: y + 11 }} led={led} faulty={faulty} />
       )}
       <line
         x1={x}
@@ -83,7 +83,7 @@ export function Panel({ at, title, rows, led, faulty = false }: PanelProps) {
         className="stroke-border"
       />
       {rows.map((row, i) => {
-        const rowY = y + HEADER_H + ROW_H * i + 13;
+        const rowY = y + HEADER_H + ROW_H * i + 12;
         const state = readingState(row.reading);
         const muted = state !== "live";
         const { unit } = row.reading;
@@ -113,7 +113,7 @@ export function Panel({ at, title, rows, led, faulty = false }: PanelProps) {
               className={
                 row.error && faulty && !muted
                   ? "fill-status-error tabular-nums"
-                  : valueClass(muted)
+                  : valueClass(state)
               }
             >
               {text}

@@ -4,13 +4,59 @@
   "resourceName": "synoptique",
   "emptyTitle": "Aucun synoptique pour le moment.",
   "emptyDescription": "Aucune vue enregistrée. Créez-en une avec l'éditeur.",
-  "panel": {
+  "popover": {
     "label": "Appareil sélectionné",
-    "close": "Fermer le panneau"
+    "close": "Fermer",
+    "open": "Ouvrir l'appareil",
+    "noPoints": "Aucun point lié sur ce symbole.",
+    "edit": "Modifier",
+    "apply": "Appliquer",
+    "cancel": "Annuler",
+    "writeFailed": "Écriture refusée",
+    "unconfirmed": "Écriture non confirmée par l'appareil"
+  },
+  "view": {
+    "projection": "Vue",
+    "plan": "Plan",
+    "isometric": "Isométrique",
+    "zoomIn": "Agrandir",
+    "zoomOut": "Réduire",
+    "zoom": "Zoom {{percent}} %",
+    "fit": "Ajuster",
+    "fullscreen": "Plein écran",
+    "exitFullscreen": "Quitter le plein écran"
+  },
+  "nav": {
+    "title": "Équipements",
+    "search": "Rechercher un équipement",
+    "empty": "Aucun équipement ne correspond.",
+    "toggle": "Afficher la liste des équipements",
+    "hide": "Masquer la liste des équipements"
+  },
+  "legend": {
+    "title": "Légende",
+    "live": "valeur en direct",
+    "fault": "Défaut",
+    "unmeasured": "Non instrumenté"
+  },
+  "fluids": {
+    "primary_supply": "Primaire départ",
+    "primary_return": "Primaire retour",
+    "dhw": "ECS",
+    "dhw_loop": "Bouclage",
+    "cold_water": "Eau froide",
+    "heating_supply": "Chauffage départ",
+    "heating_return": "Chauffage retour",
+    "chilled_supply": "Eau glacée départ",
+    "chilled_return": "Eau glacée retour",
+    "condenser_supply": "Condenseur départ",
+    "condenser_return": "Condenseur retour"
   },
   "faults": {
     "title": "Défauts sur cette vue",
-    "none": "Aucun défaut actif sur les appareils de cette vue."
+    "none": "Aucun défaut actif sur les appareils de cette vue.",
+    "count_one": "{{count}} défaut",
+    "count_other": "{{count}} défauts"
   },
   "editor": {
     "new": "Nouveau synoptique",

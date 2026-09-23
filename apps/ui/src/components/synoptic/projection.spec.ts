@@ -11,19 +11,19 @@ import {
 describe("project", () => {
   it("maps the isometric axes to the 2:1 dimetric vectors", () => {
     expect(project("isometric", 0, 0)).toEqual({ x: 0, y: 0 });
-    expect(project("isometric", 1, 0, 0)).toEqual({ x: 40, y: 20 });
-    expect(project("isometric", 0, 1, 0)).toEqual({ x: -40, y: 20 });
-    expect(project("isometric", 0, 0, 1)).toEqual({ x: 0, y: -40 });
-    expect(project("isometric", 2, 1, 1)).toEqual({ x: 40, y: 20 });
+    expect(project("isometric", 1, 0, 0)).toEqual({ x: 24, y: 12 });
+    expect(project("isometric", 0, 1, 0)).toEqual({ x: -24, y: 12 });
+    expect(project("isometric", 0, 0, 1)).toEqual({ x: 0, y: -24 });
+    expect(project("isometric", 2, 1, 1)).toEqual({ x: 24, y: 12 });
   });
 
-  it("maps flat cells to 48 px squares and ignores z", () => {
+  it("maps flat cells to 40 px squares and ignores z", () => {
     expect(project("flat", 0, 0)).toEqual({ x: 0, y: 0 });
-    expect(project("flat", 2, 1, 5)).toEqual({ x: 96, y: 48 });
+    expect(project("flat", 2, 1, 5)).toEqual({ x: 80, y: 40 });
   });
 
   it("projects fractional cell centres", () => {
-    expect(project("isometric", 0.5, 0.5)).toEqual({ x: 0, y: 20 });
+    expect(project("isometric", 0.5, 0.5)).toEqual({ x: 0, y: 12 });
   });
 });
 
@@ -48,7 +48,7 @@ describe("unproject", () => {
   });
 
   it("inverts flat cells and ignores z", () => {
-    expect(unproject("flat", { x: 96, y: 48 }, 3)).toEqual({ x: 2, y: 1 });
+    expect(unproject("flat", { x: 80, y: 40 }, 3)).toEqual({ x: 2, y: 1 });
   });
 });
 
@@ -106,10 +106,9 @@ describe("rotateSide", () => {
 
 describe("portPoint", () => {
   it("is the centre of the face on the pipe axis", () => {
-    expect(portPoint("isometric", { x: 0, y: 0 }, "+x")).toEqual({
-      x: 20,
-      y: 14,
-    });
-    expect(portPoint("flat", { x: 0, y: 0 }, "+y")).toEqual({ x: 24, y: 48 });
+    const p = portPoint("isometric", { x: 0, y: 0 }, "+x");
+    expect(p.x).toBeCloseTo(12);
+    expect(p.y).toBeCloseTo(8.4);
+    expect(portPoint("flat", { x: 0, y: 0 }, "+y")).toEqual({ x: 20, y: 40 });
   });
 });

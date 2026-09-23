@@ -2,13 +2,39 @@ import type { Cell, Projection, Side } from "@gridone/sdk";
 import type { Pt } from "./types";
 
 /** Isometric (2:1 dimetric) cell vectors in px: `x` right-and-down,
- *  `y` left-and-down, `z` up. A cell is an 80 x 40 diamond. */
-const ISO_X = { x: 40, y: 20 };
-const ISO_Y = { x: -40, y: 20 };
-const ISO_Z = 40;
+ *  `y` left-and-down, `z` up. A cell is a 48 x 24 diamond: small enough
+ *  for a whole bay to fit the page at a text size an operator can read,
+ *  since the text does not shrink with the cell. */
+const ISO_X = { x: 24, y: 12 };
+const ISO_Y = { x: -24, y: 12 };
+const ISO_Z = 24;
 
 /** Flat cell size in px: `x` screen-right, `y` screen-down. */
-const FLAT_CELL = 48;
+const FLAT_CELL = 40;
+
+/** The angle, in degrees, of the isometric `x` axis on screen; the `y`
+ *  axis is its mirror. Text laid along a run or a bar turns by it. */
+export const ISO_AXIS_DEG = (Math.atan2(ISO_X.y, ISO_X.x) * 180) / Math.PI;
+
+/** How screen text turns to lie along a plan direction in the isometric
+ *  view: `+x` and `-x` read left to right down the `x` axis, `+y` and `-y`
+ *  up the `y` axis. Flat text never turns. */
+export function axisAngle(projection: Projection, d: Pt): number {
+  if (projection === "flat" || (d.x === 0 && d.y === 0)) return 0;
+  return Math.abs(d.x) >= Math.abs(d.y) ? ISO_AXIS_DEG : -ISO_AXIS_DEG;
+}
+
+/** Screen height of `z` cells in the isometric view. */
+export const isoHeight = (z: number) => z * ISO_Z;
+
+/** The ellipse a plan circle of radius `r` cells becomes on the isometric
+ *  sheet: the circle's `(r cos t, r sin t)` projects to
+ *  `(24 r (cos t - sin t), 12 r (cos t + sin t))`, an ellipse of semi-axes
+ *  `24 r sqrt 2` and `12 r sqrt 2`. */
+export const isoEllipse = (r: number) => ({
+  rx: ISO_X.x * Math.SQRT2 * r,
+  ry: ISO_X.y * Math.SQRT2 * r,
+});
 
 /** Height of the pipe axis inside a cell, in cells. */
 export const PIPE_AXIS_Z = 0.4;

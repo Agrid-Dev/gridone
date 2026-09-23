@@ -1,11 +1,18 @@
 import { symbolSchemas, type Cell, type Projection } from "@gridone/sdk";
-import { project, rotateQuarter, type Plane } from "../projection";
+import { PIPE_AXIS_Z, project, rotateQuarter, type Plane } from "../projection";
 import type { Pt } from "../types";
 import type { SymbolState } from "./Label";
-import { DRAWINGS, INLINE_R, type SymbolDrawing } from "./drawings";
+import {
+  DRAWINGS,
+  INLINE_R,
+  outlineFor,
+  topOf,
+  type SymbolDrawing,
+} from "./drawings";
 import { Label, LABEL_SIZE } from "./Label";
 import { Body } from "./Body";
 import { circlePts, silhouette, square } from "./extrude";
+import type { VolumeContext } from "./kit";
 import { PlanPoly, pointsAttr, toPoints, type PlanClass } from "./plan";
 
 type SynopticSymbolProps = {
@@ -22,9 +29,21 @@ type SynopticSymbolProps = {
   faulty?: boolean;
   /** Run direction an inline type follows, in plan. */
   direction?: Pt;
+  /** False when the surface draws the name itself, placed clear of the
+   *  plate and painted over it. */
+  showLabel?: boolean;
 };
 
 const RIGHT = { x: 1, y: 0 };
+
+/** A label sits this far above the top of the volume it names. */
+const VOLUME_LABEL_LIFT = 10;
+/** A link's caption starts this far past the tip of its arrow. */
+const LINK_LABEL_GAP = 8;
+/** The link's plan outline: the tip its arrow points with, and the back
+ *  edge, in the symbol's own frame (a 1 x 2 footprint). */
+const LINK_TIP = { x: 0.05, y: 1 };
+const LINK_BACK = { x: 0.9, y: 1 };
 
 /** A plan point turned by the symbol's rotation and moved to its origin.
  *  The pivot is the centre of the origin cell, the same one `symbolPort`
@@ -48,11 +67,12 @@ function symbolPlane(
 }
 
 /**
- * A symbol of the hydronic set at its cell: the plan glyph on its plane,
- * extruded in the isometric view when the type has height, body-filled
- * under an inline glyph so it breaks the run. Fault wraps the whole body in
- * the error colour with a badge; a bound state lights an LED after the
- * label, except on an isolation valve, which shows it on the glyph.
+ * A symbol of the hydronic set at its cell. On the sheet, the plan glyph
+ * on its plane, body-filled under an inline glyph so it breaks the run.
+ * In the isometric view, the illustrated volume of the kit, which shows
+ * the run state on the machine itself (the fan, the motor's dot, the
+ * handwheel), so the label carries no LED there. Fault wraps the whole
+ * body in the error colour with a badge.
  */
 export function SynopticSymbol({
   type,
@@ -63,6 +83,7 @@ export function SynopticSymbol({
   state,
   faulty = false,
   direction = RIGHT,
+  showLabel = true,
 }: SynopticSymbolProps) {
   const schema = symbolSchemas[type];
   const drawing = DRAWINGS[type];
@@ -76,28 +97,33 @@ export function SynopticSymbol({
   const { w, d } = footprint;
   const centre = { x: w / 2, y: d / 2 };
   const iso = projection === "isometric";
-  const top = drawing.base + drawing.height;
-  const extruded = iso && drawing.height > 0 && drawing.outline;
-  const bodyOutline = (drawing.outline?.(centre) ?? square(0, 0, w, d)).map(
-    local,
-  );
+  const volume = iso ? drawing.iso : undefined;
+  const top = topOf(drawing, projection);
+  const extruded = iso && !volume && drawing.height > 0 && drawing.outline;
+  const outline = outlineFor(drawing, projection);
+  const bodyOutline = (outline?.(centre) ?? square(0, 0, w, d)).map(local);
   const base = (origin.z ?? 0) + drawing.base;
+  const floor = origin.z ?? 0;
   // In isometric an inline glyph sits on the run body-filled so it breaks
   // it, as the sheets draw it; on the sheet the same disc is a plate patch.
   // A glyph with no height gets a plate patch of its own outline in both
   // projections, so a run stops at the drawn edge and its stub reaches it;
   // a body with height occludes on its own. Nothing wider than the glyph
   // is ever painted, so a run never ends at a line nothing draws.
-  const face: { points: Pt[]; cls: PlanClass } | null = schema["x-inline"]
-    ? {
-        points: drawing.outline?.(centre) ?? circlePts(centre, INLINE_R),
-        cls: iso ? "face" : "plate",
-      }
-    : !extruded && drawing.outline
-      ? { points: drawing.outline(centre), cls: "plate" }
-      : null;
-  const anchor = labelAnchor(drawing, projection, planeAt(top), footprint);
-  const text = label ?? drawing.mark;
+  const face: { points: Pt[]; cls: PlanClass } | null = volume
+    ? null
+    : schema["x-inline"]
+      ? {
+          points: drawing.outline?.(centre) ?? circlePts(centre, INLINE_R),
+          cls: iso ? "face" : "plate",
+        }
+      : !extruded && drawing.outline
+        ? { points: drawing.outline(centre), cls: "plate" }
+        : null;
+  const spec = symbolLabelAnchor(type, projection, origin, rotation)!;
+  // The volume draws its own mark on the machine; the sheet glyph needs it.
+  const text = label ?? (volume ? undefined : drawing.mark);
+  const closed = state === undefined ? undefined : state === "off";
 
   return (
     <g>
@@ -107,31 +133,37 @@ export function SynopticSymbol({
       {face && (
         <PlanPoly plane={planeAt(top)} points={face.points} cls={face.cls} />
       )}
-      {drawing.plan(
-        planeAt(top),
-        centre,
-        direction,
-        state === undefined ? undefined : state === "off",
-      )}
-      {text && (
+      {volume
+        ? volume.volume(
+            volumeContext(
+              projection,
+              origin,
+              rotation,
+              footprint,
+              direction,
+              state,
+              faulty,
+              closed,
+            ),
+          )
+        : drawing.plan(planeAt(top), centre, direction, closed)}
+      {text && showLabel && (
         <Label
           text={text}
-          at={anchor.at}
-          onFace={drawing.labelOnFace}
-          faceOffsetX={iso ? 8 : 0}
-          lift={anchor.lift}
-          led={type === "valve_isolation" ? undefined : state}
+          at={spec.at}
+          onFace={spec.onFace}
+          lift={0}
+          anchor={spec.anchor}
+          led={type === "valve_isolation" || volume ? undefined : state}
           faulty={faulty}
         />
       )}
       {faulty && (
         <Fault
           outline={
-            extruded
-              ? silhouette(bodyOutline, base, base + drawing.height)
-              : bodyOutline.map((p) =>
-                  project(projection, p.x, p.y, base + drawing.height),
-                )
+            iso && (volume || extruded)
+              ? silhouette(bodyOutline, volume ? floor : base, floor + top)
+              : bodyOutline.map((p) => project(projection, p.x, p.y, base))
           }
           badge={planeAt(top)(w + 0.1, 0.2)}
         />
@@ -140,7 +172,45 @@ export function SynopticSymbol({
   );
 }
 
-/** Where the label sits: above the top face in isometric, above the
+/** What a volume draws from: world plan to screen, the symbol's own frame
+ *  to world plan, its turned footprint and centre, and the run direction. */
+function volumeContext(
+  projection: Projection,
+  origin: Cell,
+  rotation: number,
+  { w, d }: { w: number; d: number },
+  direction: Pt,
+  state: SymbolState | undefined,
+  faulty: boolean,
+  closed: boolean | undefined,
+): VolumeContext {
+  const z = origin.z ?? 0;
+  const L = (p: Pt) => symbolPoint(origin, rotation, p);
+  const corners = [
+    { x: 0, y: 0 },
+    { x: w, y: 0 },
+    { x: w, y: d },
+    { x: 0, y: d },
+  ].map(L);
+  const rect = {
+    x0: Math.min(...corners.map((p) => p.x)),
+    y0: Math.min(...corners.map((p) => p.y)),
+    x1: Math.max(...corners.map((p) => p.x)),
+    y1: Math.max(...corners.map((p) => p.y)),
+  };
+  return {
+    P: (x, y, dz) => project(projection, x, y, z + dz),
+    L,
+    rect,
+    c: { x: (rect.x0 + rect.x1) / 2, y: (rect.y0 + rect.y1) / 2 },
+    dir: direction,
+    state,
+    faulty,
+    closed,
+  };
+}
+
+/** Where the label sits: above the volume in isometric, above the
  *  footprint's highest edge on the sheet in flat, whichever way it turns. */
 function labelAnchor(
   drawing: SymbolDrawing,
@@ -150,12 +220,62 @@ function labelAnchor(
 ) {
   const at = top(w / 2, d / 2);
   if (projection === "isometric") {
-    return { at, lift: 26 + (drawing.height ? 14 : 0) };
+    return {
+      at,
+      lift: drawing.iso ? VOLUME_LABEL_LIFT : 16 + (drawing.height ? 8 : 0),
+    };
   }
   const edge = Math.min(
     ...square(0, 0, w, d).map((corner) => top(corner.x, corner.y).y),
   );
   return { at, lift: at.y - edge + 10 };
+}
+
+/** Where a symbol's label goes and how it is anchored: centred above the
+ *  body; on the face for a type that writes there on the sheet; beside
+ *  the tip of a link's arrow in the isometric view, where the face is too
+ *  small for a caption and the plate's edge has room. `at` is the text's
+ *  baseline point. Null for a type the kit cannot draw. */
+export function symbolLabelAnchor(
+  type: string,
+  projection: Projection,
+  origin: Cell,
+  rotation = 0,
+): { at: Pt; anchor: "start" | "middle" | "end"; onFace: boolean } | null {
+  const footprint = symbolSchemas[type]?.["x-footprint"];
+  const drawing = DRAWINGS[type];
+  if (!footprint || !drawing) return null;
+  if (drawing.labelOnFace && projection === "isometric") {
+    const z = (origin.z ?? 0) + PIPE_AXIS_Z;
+    const at = (p: Pt) => {
+      const q = symbolPoint(origin, rotation, p);
+      return project(projection, q.x, q.y, z);
+    };
+    const tip = at(LINK_TIP);
+    const back = at(LINK_BACK);
+    // The caption reads away from the arrow, whichever way it points.
+    const left = tip.x < back.x;
+    return {
+      at: {
+        x: tip.x + (left ? -LINK_LABEL_GAP : LINK_LABEL_GAP),
+        y: tip.y + 4,
+      },
+      anchor: left ? "end" : "start",
+      onFace: false,
+    };
+  }
+  const top = symbolPlane(
+    projection,
+    origin,
+    rotation,
+    topOf(drawing, projection),
+  );
+  const { at, lift } = labelAnchor(drawing, projection, top, footprint);
+  return {
+    at: drawing.labelOnFace ? at : { x: at.x, y: at.y - lift },
+    anchor: "middle",
+    onFace: !!drawing.labelOnFace,
+  };
 }
 
 /** Screen point the symbol's label sits at, where a readout hangs from.
@@ -166,17 +286,7 @@ export function symbolLabelPoint(
   origin: Cell,
   rotation = 0,
 ): Pt | null {
-  const footprint = symbolSchemas[type]?.["x-footprint"];
-  const drawing = DRAWINGS[type];
-  if (!footprint || !drawing) return null;
-  const top = symbolPlane(
-    projection,
-    origin,
-    rotation,
-    drawing.base + drawing.height,
-  );
-  const { at, lift } = labelAnchor(drawing, projection, top, footprint);
-  return { x: at.x, y: at.y - lift };
+  return symbolLabelAnchor(type, projection, origin, rotation)?.at ?? null;
 }
 
 function Fault({ outline, badge }: { outline: Pt[]; badge: Pt }) {

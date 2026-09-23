@@ -78,19 +78,23 @@ describe("Panel", () => {
     expect(rows[3].querySelector("circle")).toBeNull();
     expect(value(3).textContent).toBe(SILENT_TEXT);
     expect(rows[0].getAttribute("data-row")).toBe("live");
-    expect(value(0).classList.contains("fill-foreground")).toBe(true);
+    expect(value(0).classList.contains("fill-synoptic-reading")).toBe(true);
   });
 
   it("reddens the frame, the LED and the fault row only on a faulty device", () => {
     const healthy = draw({ led: "on" });
     expect(healthy.frame.classList.contains("stroke-border")).toBe(true);
-    expect(healthy.value(1).classList.contains("fill-foreground")).toBe(true);
+    expect(healthy.value(1).classList.contains("fill-synoptic-reading")).toBe(
+      true,
+    );
 
     const faulty = draw({ led: "on", faulty: true });
     expect(faulty.frame.classList.contains("stroke-status-error")).toBe(true);
     expect(faulty.frame.getAttribute("stroke-width")).toBe("1.5");
     expect(faulty.led?.classList.contains("fill-status-error")).toBe(true);
     expect(faulty.value(1).classList.contains("fill-status-error")).toBe(true);
-    expect(faulty.value(0).classList.contains("fill-foreground")).toBe(true);
+    expect(faulty.value(0).classList.contains("fill-synoptic-reading")).toBe(
+      true,
+    );
   });
 });

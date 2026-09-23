@@ -4,13 +4,59 @@
   "resourceName": "synoptic",
   "emptyTitle": "No synoptic yet.",
   "emptyDescription": "No plate stored yet. Create one with the editor.",
-  "panel": {
+  "popover": {
     "label": "Selected device",
-    "close": "Close panel"
+    "close": "Close",
+    "open": "Open device",
+    "noPoints": "No point bound on this symbol.",
+    "edit": "Edit",
+    "apply": "Apply",
+    "cancel": "Cancel",
+    "writeFailed": "Write refused",
+    "unconfirmed": "Write not confirmed by the device"
+  },
+  "view": {
+    "projection": "View",
+    "plan": "Plan",
+    "isometric": "Isometric",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "zoom": "Zoom {{percent}} %",
+    "fit": "Fit",
+    "fullscreen": "Full screen",
+    "exitFullscreen": "Exit full screen"
+  },
+  "nav": {
+    "title": "Equipment",
+    "search": "Find an equipment",
+    "empty": "No equipment matches.",
+    "toggle": "Show the equipment list",
+    "hide": "Hide the equipment list"
+  },
+  "legend": {
+    "title": "Legend",
+    "live": "live value",
+    "fault": "Fault",
+    "unmeasured": "Not instrumented"
+  },
+  "fluids": {
+    "primary_supply": "Primary supply",
+    "primary_return": "Primary return",
+    "dhw": "DHW",
+    "dhw_loop": "DHW loop",
+    "cold_water": "Cold water",
+    "heating_supply": "Heating supply",
+    "heating_return": "Heating return",
+    "chilled_supply": "Chilled supply",
+    "chilled_return": "Chilled return",
+    "condenser_supply": "Condenser supply",
+    "condenser_return": "Condenser return"
   },
   "faults": {
     "title": "Faults on this view",
-    "none": "No active fault on the devices of this view."
+    "none": "No active fault on the devices of this view.",
+    "count_one": "{{count}} fault",
+    "count_other": "{{count}} faults"
   },
   "editor": {
     "new": "New synoptic",

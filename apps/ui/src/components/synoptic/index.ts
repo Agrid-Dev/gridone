@@ -14,6 +14,7 @@ export { PidDiagram } from "./PidDiagram";
 export { DepthOrdered } from "./DepthOrdered";
 export type { DepthItem } from "./DepthOrdered";
 export {
+  axisAngle,
   project,
   planeAt,
   depthKey,
@@ -32,12 +33,15 @@ export {
   footprintCells,
   symbolBox,
 } from "./SynopticRenderer";
-export type { Box, PlateDocument } from "./SynopticRenderer";
+export type { Box, PlateDocument, PlateHandle } from "./SynopticRenderer";
+export type { View, ViewportController } from "./hooks/useViewport";
 export type { SynopticValues } from "./values";
 export type { SymbolState } from "./symbols/Label";
 export { Collector } from "./symbols/Collector";
 export { Body } from "./symbols/Body";
+export { KitDefs } from "./symbols/defs";
 export { square } from "./symbols/extrude";
+export { slabsOf } from "./slabs";
 export { symbolPort, portsOf, collectorPorts } from "./symbols/ports";
 export type { CollectorProps, PortAnchor } from "./symbols/ports";
 export { DRAWINGS } from "./symbols/drawings";

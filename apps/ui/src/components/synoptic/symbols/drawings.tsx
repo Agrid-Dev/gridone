@@ -1,7 +1,9 @@
 import type { ReactNode } from "react";
+import type { Projection } from "@gridone/sdk";
 import { PIPE_AXIS_Z, type Plane } from "../projection";
 import type { Pt } from "../types";
 import { capsulePts, circlePts, square } from "./extrude";
+import { TANK_R, VOLUMES, type Volume } from "./kit";
 import { PlanCircle, PlanLine, PlanPoly, rot } from "./plan";
 
 /** How a symbol type is drawn: one plan glyph, and the height the
@@ -24,7 +26,29 @@ export type SymbolDrawing = {
   /** The mark the ISA glyph carries when the instance has no label: the
    *  `M` of a motorised valve, the `kWh` of a meter. */
   mark?: string;
+  /** How the isometric view draws the type: the illustrated volume of the
+   *  kit, the plan silhouette a run stops at (the glyph's when absent),
+   *  and the height its top reaches, where the label sits. Without it the
+   *  isometric view extrudes the plan glyph. */
+  iso?: { volume: Volume; outline?: (c: Pt) => Pt[]; top: number };
 };
+
+/** The plan silhouette of a type in a projection: the volume's in the
+ *  isometric view, the glyph's on the sheet. */
+export const outlineFor = (
+  drawing: SymbolDrawing,
+  projection: Projection,
+): ((c: Pt) => Pt[]) | undefined =>
+  projection === "isometric"
+    ? (drawing.iso?.outline ?? drawing.outline)
+    : drawing.outline;
+
+/** The height the drawing reaches in a projection, in cells above its
+ *  floor: the volume's top in the isometric view, the extrusion's else. */
+export const topOf = (drawing: SymbolDrawing, projection: Projection) =>
+  projection === "isometric" && drawing.iso
+    ? drawing.iso.top
+    : drawing.base + drawing.height;
 
 const VALVE_R = 0.26;
 /** Radius of an inline glyph and of the disc that breaks the run under it. */
@@ -325,9 +349,7 @@ const loopHeater: SymbolDrawing = {
   height: 0,
 };
 
-/** The hydronic set, keyed by registry type. The collector is not a
- *  drawing: its shape is authored per instance. */
-export const DRAWINGS: Record<string, SymbolDrawing> = {
+const GLYPHS: Record<string, SymbolDrawing> = {
   heat_pump: heatPump,
   tank,
   mixing_valve: mixingValve,
@@ -344,3 +366,41 @@ export const DRAWINGS: Record<string, SymbolDrawing> = {
   energy_meter: energyMeter,
   loop_heater: loopHeater,
 };
+
+const box = (hx: number, hy: number) => (c: Pt) =>
+  square(c.x - hx, c.y - hy, 2 * hx, 2 * hy);
+const disc = (r: number) => (c: Pt) => circlePts(c, r);
+
+/** The plan silhouette of each volume, where a run meets the machine and
+ *  what a fault outline wraps, and the height its top reaches. Sized to
+ *  the volumes of `kit.tsx`. The link keeps the glyph's outline (none: a
+ *  run reaches its face) and writes its caption on the face. */
+const ISO: Record<string, { outline?: (c: Pt) => Pt[]; top: number }> = {
+  heat_pump: { outline: box(0.94, 0.94), top: 1.55 },
+  tank: { outline: disc(TANK_R), top: 2.38 },
+  mixing_valve: { outline: box(0.32, 0.32), top: 1.37 },
+  pump: { outline: disc(0.34), top: 1.17 },
+  valve_isolation: { outline: disc(0.28), top: 1.07 },
+  valve_check: { outline: disc(0.26), top: 0.56 },
+  valve_control: { outline: disc(0.28), top: 1.35 },
+  link: { top: PIPE_AXIS_Z },
+  plate_exchanger: { outline: box(0.4, 0.4), top: 1.3 },
+  air_separator: { outline: disc(0.28), top: 1.5 },
+  expansion_vessel: { outline: disc(0.42), top: 1.2 },
+  dirt_separator: { outline: disc(0.28), top: 0.95 },
+  pump_double: { outline: disc(0.3), top: 1.17 },
+  energy_meter: { outline: box(0.3, 0.26), top: 0.95 },
+  loop_heater: { outline: box(0.45, 0.28), top: 0.7 },
+};
+
+/** The hydronic set, keyed by registry type: the plan glyph of the sheet
+ *  and the illustrated volume of the isometric view. The collector is not
+ *  a drawing: its shape is authored per instance. */
+export const DRAWINGS: Record<string, SymbolDrawing> = Object.fromEntries(
+  Object.entries(GLYPHS).map(([type, glyph]) => [
+    type,
+    VOLUMES[type] && ISO[type]
+      ? { ...glyph, iso: { volume: VOLUMES[type], ...ISO[type] } }
+      : glyph,
+  ]),
+);

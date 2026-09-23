@@ -1,9 +1,11 @@
 import {
   useCallback,
   useEffect,
+  useImperativeHandle,
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
+  type RefObject,
 } from "react";
 import type { Pt } from "../types";
 import { clientToSvg, DRAG_THRESHOLD, useSvgDrag } from "./useSvgDrag";
@@ -19,8 +21,10 @@ const PAGE_PX = 40 * LINE_PX;
 /** The most one wheel event may move the zoom, in pixels of delta, so a
  *  page-mode notch or a flung trackpad stays one sensible step. */
 const MAX_WHEEL_PX = 200;
+/** What one press of a zoom button does. */
+export const ZOOM_STEP = 1.25;
 
-type View = { x: number; y: number; scale: number };
+export type View = { x: number; y: number; scale: number };
 
 const FIT: View = { x: 0, y: 0, scale: 1 };
 
@@ -34,19 +38,46 @@ const zoomAbout = (v: View, p: Pt, k: number): View => {
   return { scale, x: p.x - (p.x - v.x) * kk, y: p.y - (p.y - v.y) * kk };
 };
 
+/** What a toolbar or a navigation panel may do to the view. Points are
+ *  in the svg's viewBox units. */
+export type ViewportController = {
+  /** Scales by `k` about the centre of the canvas. */
+  zoomBy: (k: number) => void;
+  /** Back to the fitted view. */
+  fit: () => void;
+  /** Brings `p` to the centre of the canvas, at `scale` when given. */
+  centerOn: (p: Pt, scale?: number) => void;
+  /** The current scale, 1 being the fitted plate. */
+  scale: () => number;
+};
+
+type ViewportOptions = {
+  /** viewBox size, so the canvas knows its own centre. */
+  width: number;
+  height: number;
+  controller?: RefObject<ViewportController | null>;
+  onViewChange?: (view: View) => void;
+};
+
 /**
- * Pan and zoom for a diagram canvas: drag pans, ctrl or cmd with the wheel
- * zooms about the cursor (a trackpad pinch arrives that way), two fingers
- * pinch, a double click fits again. A plain wheel is left to the page, so
- * a plate embedded in a scrolling page does not trap the scroll. The
- * transform goes on a group inside the svg, never on the viewBox, so the
- * root's screen transform (and every `clientToSvg` reading, including the
- * drag deltas) stays fixed while the content moves. The pan starts only
- * after a short travel, so a click on a symbol is still a click. The wheel
- * listener is attached by hand because React registers `wheel` as passive,
- * which would let the page scroll under the zoom.
+ * Pan and zoom for a diagram canvas: drag pans, the wheel zooms about the
+ * cursor (a trackpad pinch arrives that way too), two fingers pinch, a
+ * double click fits again. The wheel is the canvas's whether or not a
+ * modifier is held: an operator reading a plate expects to zoom it, and
+ * the page scrolls from outside the plate. The transform goes on a group
+ * inside the svg, never on the viewBox, so the root's screen transform
+ * (and every `clientToSvg` reading, including the drag deltas) stays fixed
+ * while the content moves. The pan starts only after a short travel, so a
+ * click on a symbol is still a click. The wheel listener is attached by
+ * hand because React registers `wheel` as passive, which would let the
+ * page scroll under the zoom.
  */
-export function useViewport() {
+export function useViewport({
+  width,
+  height,
+  controller,
+  onViewChange,
+}: ViewportOptions) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [view, setView] = useState<View>(FIT);
   const drag = useSvgDrag({
@@ -59,12 +90,33 @@ export function useViewport() {
   /** Set once a pinch has taken the gesture over from the drag: the finger
    *  left down afterwards pans from here, since the drag is gone. */
   const pinched = useRef(false);
+  const viewRef = useRef(view);
+  viewRef.current = view;
+
+  useEffect(() => {
+    onViewChange?.(view);
+  }, [view, onViewChange]);
+
+  useImperativeHandle(
+    controller,
+    () => ({
+      zoomBy: (k) =>
+        setView((v) => zoomAbout(v, { x: width / 2, y: height / 2 }, k)),
+      fit: () => setView(FIT),
+      centerOn: (p, scale) =>
+        setView((v) => {
+          const s = clampScale(scale ?? v.scale);
+          return { scale: s, x: width / 2 - p.x * s, y: height / 2 - p.y * s };
+        }),
+      scale: () => viewRef.current.scale,
+    }),
+    [controller, width, height],
+  );
 
   useEffect(() => {
     const svg = svgRef.current;
     if (!svg) return;
     const onWheel = (e: WheelEvent) => {
-      if (!e.ctrlKey && !e.metaKey) return;
       e.preventDefault();
       const p = clientToSvg(svg, e.clientX, e.clientY);
       const px =

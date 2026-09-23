@@ -21,6 +21,8 @@ type LabelProps = {
   /** Lights a run-state LED after the text. */
   led?: SymbolState;
   faulty?: boolean;
+  /** Where `at.x` falls on the text: its middle, its start or its end. */
+  anchor?: "start" | "middle" | "end";
 };
 
 /** A symbol label, with the run-state LED the visual language puts after
@@ -33,16 +35,20 @@ export function Label({
   faceOffsetX = 0,
   led,
   faulty = false,
+  anchor = "middle",
 }: LabelProps) {
   const lines = onFace ? text.split(" ") : [text];
   const x = onFace ? at.x + faceOffsetX : at.x;
   const y = onFace ? at.y + 4 - 6 * (lines.length - 1) : at.y - lift;
+  const w = textWidth(text, LABEL_SIZE);
+  // The LED follows the text's end, wherever the anchor put it.
+  const end = anchor === "start" ? x + w : anchor === "end" ? x : x + w / 2;
   return (
     <>
       <text
         x={x}
         y={y}
-        textAnchor="middle"
+        textAnchor={anchor}
         fontSize={LABEL_SIZE}
         fontWeight={600}
         className="fill-foreground"
@@ -54,11 +60,7 @@ export function Label({
         ))}
       </text>
       {led && (
-        <Led
-          at={{ x: x + textWidth(text, LABEL_SIZE) / 2 + LED_GAP, y: y - 4 }}
-          led={led}
-          faulty={faulty}
-        />
+        <Led at={{ x: end + LED_GAP, y: y - 4 }} led={led} faulty={faulty} />
       )}
     </>
   );

@@ -33,21 +33,21 @@ describe("Pipe arrows", () => {
       startArrow: true,
       endArrow: true,
     });
-    expect(arrows).toEqual(["100,0 92,3 92,-3", "0,0 8,-3 8,3"]);
-    expect(paths).toEqual(["M 5 0 L 95 0"]);
+    expect(arrows).toEqual(["100,0 91,4.5 91,-4.5", "0,0 9,-4.5 9,4.5"]);
+    expect(paths).toEqual(["M 6 0 L 94 0"]);
   });
 
   it("keeps both heads outward on a run shorter than two pull-backs", () => {
     const { paths, arrows } = draw({
       points: [
         { x: 0, y: 0 },
-        { x: 8, y: 0 },
+        { x: 10, y: 0 },
       ],
       startArrow: true,
       endArrow: true,
     });
-    expect(arrows).toEqual(["8,0 0,3 0,-3", "0,0 8,-3 8,3"]);
-    expect(paths).toEqual(["M 4 0 L 4 0"]);
+    expect(arrows).toEqual(["10,0 1,4.5 1,-4.5", "0,0 9,-4.5 9,4.5"]);
+    expect(paths).toEqual(["M 5 0 L 5 0"]);
   });
 
   it("draws no head on a segment shorter than the head", () => {
@@ -65,19 +65,19 @@ describe("Pipe arrows", () => {
 });
 
 describe("Pipe stroke", () => {
-  it("is 3 px of fluid colour on a 7 px plate casing", () => {
+  it("is 6 px of fluid colour on a 10 px plate casing", () => {
     const { casing, pipe } = draw({ points: RUN });
-    expect(pipe.getAttribute("stroke-width")).toBe("3");
+    expect(pipe.getAttribute("stroke-width")).toBe("6");
     expect(pipe.getAttribute("class")).toBe("stroke-fluid-dhw");
-    expect(casing?.getAttribute("stroke-width")).toBe("7");
+    expect(casing?.getAttribute("stroke-width")).toBe("10");
     expect(casing?.getAttribute("class")).toBe("stroke-synoptic-plate");
     expect(casing?.getAttribute("d")).toBe(pipe.getAttribute("d"));
   });
 
   it("keeps the casing 4 px wider than a custom width", () => {
-    const { casing, pipe } = draw({ points: RUN, width: 6 });
-    expect(pipe.getAttribute("stroke-width")).toBe("6");
-    expect(casing?.getAttribute("stroke-width")).toBe("10");
+    const { casing, pipe } = draw({ points: RUN, width: 8 });
+    expect(pipe.getAttribute("stroke-width")).toBe("8");
+    expect(casing?.getAttribute("stroke-width")).toBe("12");
   });
 });
 
@@ -93,6 +93,6 @@ describe("Pipe flow state", () => {
 
   it("draws the flow dash on the capped path, not through the arrow", () => {
     const { paths } = draw({ points: RUN, endArrow: true, flowing: true });
-    expect(paths).toEqual(["M 0 0 L 95 0", "M 0 0 L 95 0"]);
+    expect(paths).toEqual(["M 0 0 L 94 0", "M 0 0 L 94 0"]);
   });
 });

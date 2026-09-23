@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   cleanup,
@@ -20,18 +19,19 @@ import {
 } from "@gridone/sdk";
 import { GridoneClientProvider } from "@/contexts/GridoneClientContext";
 import { EMPTY_VALUES } from "@/components/synoptic/values";
-import type { StandardControlProps } from "@/pages/devices/standard-devices/types";
 import { createI18nMock } from "@/test/i18nMock";
 
 vi.mock("react-i18next", () =>
   createI18nMock({
-    "panel.label": "Selected device",
-    "panel.close": "Close panel",
+    "popover.label": "Selected device",
+    "popover.close": "Close",
+    "popover.open": "Open device",
     "common.deviceNotFound": "This device no longer exists.",
     "common.deviceLoadError": "Could not load this device.",
     "faults:faults.unableToLoad": "Unable to load faults",
     "faults.title": "Faults on this view",
     "faults.none": "No active fault on this view",
+    "faults.count": "{{count}} faults",
     "faults.columns.device": "Device",
     "common:common.edit": "Edit",
   }),
@@ -59,27 +59,6 @@ const mockUseDeviceById = vi.fn();
 vi.mock("@/hooks/useDeviceById", () => ({
   useDeviceById: (id: string) => mockUseDeviceById(id),
 }));
-vi.mock("@/hooks/useDeviceDetails", () => ({
-  useDeviceDetails: () => ({
-    draft: {},
-    savingAttr: null,
-    feedback: null,
-    handleDraftChange: vi.fn(),
-    handleSave: vi.fn(),
-  }),
-}));
-// Stable component (a fresh one per call would remount on every render)
-// reporting the device it mounted with.
-vi.mock("@/pages/devices/standard-devices/registry", () => {
-  const Control = ({ device }: StandardControlProps) => {
-    const [mountedAs] = useState(device.id);
-    return <div data-testid="standard-control">{mountedAs}</div>;
-  };
-  return {
-    getStandardDeviceEntry: (type: string | null | undefined) =>
-      type === "awhp" ? { Control } : undefined,
-  };
-});
 
 import SynopticDetail from "./SynopticDetail";
 
@@ -185,8 +164,16 @@ const symbol = (id: string) => document.querySelector(`[data-symbol='${id}']`)!;
 /** A plain click on a symbol. The press-to-pan path needs a layout jsdom
  *  has not got and is covered by the canvas's own spec. */
 const clickSymbol = (id: string) => fireEvent.click(symbol(id));
+const popover = () => screen.queryByLabelText("Selected device");
+const faultBadge = () => document.querySelector("[data-fault-count]");
 
 beforeEach(() => {
+  // jsdom lays nothing out: the plate cannot place a popover's anchor, and
+  // says so with null, as a browser does before layout.
+  Object.defineProperty(SVGGElement.prototype, "getScreenCTM", {
+    configurable: true,
+    value: () => null,
+  });
   // CTRL-1 is read by B01 but is no symbol's device: its fault is not
   // this view's. Scope is what a symbol is, not what it reads.
   mockUseFaultsList.mockReturnValue({
@@ -203,19 +190,35 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  Reflect.deleteProperty(SVGGElement.prototype, "getScreenCTM");
   permissions.write = false;
   mockUseFaultsList.mockReset();
   mockUseDeviceById.mockReset();
 });
 
 describe("SynopticDetail", () => {
-  it("renders the plate with the faults of its own devices only", async () => {
+  it("renders the plate with the faults of its own devices only, counted in the header", async () => {
     renderDetail();
     await screen.findByText("ECS Est");
     const rows = screen.getAllByRole("row").slice(1);
     expect(rows.map((r) => r.textContent)).toEqual([
       expect.stringContaining("PAC-03"),
     ]);
+    expect(faultBadge()?.textContent).toBe("1 faults");
+  });
+
+  it("wears no fault badge when the plate's devices have none", async () => {
+    mockUseFaultsList.mockReturnValue({
+      faults: [fault("CTRL-1")],
+      loading: false,
+      error: null,
+    });
+    renderDetail();
+    await screen.findByText("ECS Est");
+    expect(faultBadge()).toBeNull();
+    expect(
+      screen.getByText("No active fault on this view"),
+    ).toBeInTheDocument();
   });
 
   it("links to the editor for those who may write, and hides it otherwise", async () => {
@@ -231,40 +234,41 @@ describe("SynopticDetail", () => {
     ).toBe("/synoptics/ecs/edit");
   });
 
-  it("opens the device's standard control beside the plate on click, and closes it", async () => {
+  it("opens the device's points over the plate on click, and closes them", async () => {
     renderDetail();
     await screen.findByText("ECS Est");
-    expect(screen.queryByLabelText("Selected device")).toBeNull();
+    expect(popover()).toBeNull();
 
     clickSymbol("pac");
 
-    const panel = screen.getByLabelText("Selected device");
+    const opened = popover()!;
+    expect(opened.getAttribute("data-device-popover")).toBe("pac");
     expect(mockUseDeviceById).toHaveBeenLastCalledWith("PAC-03");
-    expect(screen.getByTestId("standard-control").textContent).toBe("PAC-03");
-    expect(panel.querySelector("a")?.getAttribute("href")).toBe(
-      "/devices/PAC-03",
-    );
+    expect(
+      screen.getByRole("link", { name: "Open device" }).getAttribute("href"),
+    ).toBe("/devices/PAC-03");
 
-    await userEvent.click(screen.getByLabelText("Close panel"));
-    expect(screen.queryByLabelText("Selected device")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(popover()).toBeNull();
   });
 
-  it("remounts the control when the panel switches to another device", async () => {
+  it("shows the points of the last device clicked", async () => {
     renderDetail();
     await screen.findByText("ECS Est");
     clickSymbol("pac");
-    expect(screen.getByTestId("standard-control").textContent).toBe("PAC-03");
+    expect(popover()!.getAttribute("data-device-popover")).toBe("pac");
 
     clickSymbol("pac4");
 
-    expect(screen.getByTestId("standard-control").textContent).toBe("PAC-04");
+    expect(popover()!.getAttribute("data-device-popover")).toBe("pac4");
+    expect(mockUseDeviceById).toHaveBeenLastCalledWith("PAC-04");
   });
 
   it.each([
     [new GridoneError(404, "gone"), "This device no longer exists."],
     [new Error("boom"), "Could not load this device."],
   ])(
-    "tells a deleted device from a failed load in the panel",
+    "tells a deleted device from a failed load in the popover",
     async (error, message) => {
       mockUseDeviceById.mockReturnValue({
         data: undefined,
@@ -274,21 +278,22 @@ describe("SynopticDetail", () => {
       renderDetail();
       await screen.findByText("ECS Est");
       clickSymbol("pac");
-      const panel = screen.getByLabelText("Selected device");
-      expect(panel.textContent).toContain("PAC-03");
-      expect(panel.textContent).toContain(message);
+      const opened = popover()!;
+      expect(opened.textContent).toContain("PAC 03");
+      expect(opened.textContent).toContain(message);
     },
   );
 
-  it("shows the faults section loading, then failed, rather than empty", async () => {
+  it("shows the faults section loading, then failed, rather than empty, with no badge either way", async () => {
     mockUseFaultsList.mockReturnValue({
-      faults: [],
+      faults: [fault("PAC-03")],
       loading: true,
       error: null,
     });
     renderDetail();
     await screen.findByText("ECS Est");
     expect(screen.queryByText("No active fault on this view")).toBeNull();
+    expect(faultBadge()).toBeNull();
 
     cleanup();
     mockUseFaultsList.mockReturnValue({
@@ -300,23 +305,22 @@ describe("SynopticDetail", () => {
     await screen.findByText("ECS Est");
     expect(screen.getByText("Unable to load faults")).toBeInTheDocument();
     expect(screen.queryByText("No active fault on this view")).toBeNull();
+    expect(faultBadge()).toBeNull();
   });
 
-  it("navigates to the plate a link names with no panel open, and marks a link to no plate missing", async () => {
+  it("navigates to the plate a link names with no popover open, and marks a link to no plate missing", async () => {
     const client = renderDetail();
     await screen.findByText("ECS Est");
     expect(symbol("to-gone").hasAttribute("data-missing")).toBe(true);
     clickSymbol("pac");
-    expect(screen.getByLabelText("Selected device")).toBeInTheDocument();
+    expect(popover()).toBeInTheDocument();
 
     clickSymbol("to-west");
 
     await waitFor(() =>
       expect(client.synoptics.get).toHaveBeenLastCalledWith("west"),
     );
-    // The panel showed a device of the plate left behind.
-    await waitFor(() =>
-      expect(screen.queryByLabelText("Selected device")).toBeNull(),
-    );
+    // The popover showed a device of the plate left behind.
+    await waitFor(() => expect(popover()).toBeNull());
   });
 });

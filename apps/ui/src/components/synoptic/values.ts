@@ -23,6 +23,9 @@ export type SlotReading = {
   stale: boolean;
   /** `Device.is_faulty` of the device the slot reads. */
   faulty: boolean;
+  /** The slot is a text literal of the document, a fact no device reads:
+   *  drawn as a note, never as a live value. */
+  literal?: boolean;
 };
 
 export type SynopticValues = {
@@ -33,10 +36,27 @@ export type SynopticValues = {
 
 export const EMPTY_VALUES: SynopticValues = { slots: {}, faultyDevices: {} };
 
-/** How a reading renders: muted and dashed once old, a dash when nothing
- *  has arrived. */
-export const readingState = (reading: SlotReading) =>
-  reading.stale ? "stale" : reading.text === null ? "silent" : "live";
+/** A slot nothing has arrived for: silent, drawn as a dash. */
+export const SILENT_READING: SlotReading = {
+  text: null,
+  unit: null,
+  raw: null,
+  stale: false,
+  faulty: false,
+};
+
+/** How a reading renders: a note for a literal, muted and dashed once
+ *  old, a dash when nothing has arrived, the reading colour when live. */
+export type ReadingState = "live" | "stale" | "silent" | "note";
+
+export const readingState = (reading: SlotReading): ReadingState =>
+  reading.literal
+    ? "note"
+    : reading.stale
+      ? "stale"
+      : reading.text === null
+        ? "silent"
+        : "live";
 
 export const symbolSlotKey = (symbolId: string, slot: string) =>
   `symbol.${symbolId}.${slot}`;
