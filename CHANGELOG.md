@@ -1,3 +1,9 @@
+## v0.262.2 (2026-09-23)
+
+### Fix
+
+- **devices-manager**: fault attribute falls back to last_updated (#686)
+
 ## v0.262.1 (2026-09-23)
 
 ### Fix
