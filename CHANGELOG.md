@@ -1,3 +1,9 @@
+## v0.262.0 (2026-09-23)
+
+### Feat
+
+- **ui**: render boolean attributes from kind and value_labels (#677)
+
 ## v0.261.0 (2026-09-22)
 
 ### Feat
