@@ -7,7 +7,7 @@ Access to Gridone is described by four concepts.
 | **User** | An account that authenticates against Gridone: a person or an application. Every user holds exactly one role. See [Users and Authentication](users.md). |
 | **Role** | A named set of permissions, identified by a short id such as `operator`. Gridone ships three built-in roles and lets administrators define custom ones. |
 | **Permission** | The right to act on one kind of resource at one level, such as `devices:read`. Permissions are held by roles, never by users directly. |
-| **Scope** | An optional restriction that narrows a device permission down to specific devices and attributes. Scopes are planned, not yet available — see [Scopes](#scopes). |
+| **Scope** | An optional restriction that narrows a device permission down to specific devices and attributes. See [Scopes](#scopes). |
 
 Every operation requires one permission. On each request Gridone resolves the caller's role to its permissions and refuses the operation when the required one is missing. There is no per-user override: to change what a user can do, change their role or edit the role itself.
 
@@ -107,7 +107,7 @@ Built-in roles cannot be edited or deleted. Because `admin` always holds every p
 
 ## Custom roles
 
-An administrator can define additional roles when the built-in ones do not fit. A custom role is a document with four fields:
+An administrator can define additional roles when the built-in ones do not fit. A custom role is a document with five fields:
 
 | Field | Description |
 |---|---|
@@ -115,12 +115,14 @@ An administrator can define additional roles when the built-in ones do not fit. 
 | `name` | Display name |
 | `description` | Free text, shown in the user form |
 | `permissions` | Any subset of the [permissions](#permissions) above |
+| `scopes` | Optional. Narrows `devices:read` to specific devices and attributes, see [Scopes](#scopes) |
 
 Custom roles are managed through the [API](../../api-reference.md) and require the `roles:write` permission. That permission is reserved for the built-in `admin` role: a custom role cannot hold it. Assigning a role to a user, in turn, requires holding every permission of that role. Together the two rules mean no role can hand out more than it has, whether by editing roles or by editing users.
 
 Rules:
 
 - A permission outside the vocabulary is rejected, and so is `roles:write`.
+- A scope on a permission the role does not hold, on a permission that is not scopable, or with an empty list is rejected.
 - An `id` that already exists is rejected.
 - A role assigned to at least one user cannot be deleted. Reassign the users first.
 - Changing a role's permissions takes effect on the next request of every user holding it. No re-login is needed.
@@ -138,31 +140,40 @@ An occupant-facing role should read the building and adjust comfort settings, bu
 }
 ```
 
-Without `devices:write`, a user with this role cannot create, edit or delete a device. `devices:command` still reaches every writable attribute of every device, thermostat or not: narrowing it to thermostats is what [scopes](#scopes) are for.
+Without `devices:write`, a user with this role cannot create, edit or delete a device. It still sees every device and reaches every writable attribute, thermostat or not: narrowing that is what [scopes](#scopes) are for.
 
 ---
 
 ## Scopes
 
-!!! note "Planned"
-    Scopes are not available yet. A role document containing a `scopes` key is rejected. This section describes the concept so that roles can be designed with it in mind.
+A permission is all-or-nothing: `devices:read` shows a role every attribute of every device. A **scope** narrows a device permission to a subset of devices and attributes.
 
-A permission is all-or-nothing: `devices:command` lets a role write every writable attribute of every device. A **scope** narrows a device permission to a subset of devices and attributes.
+!!! note "Reading only, for now"
+    Only `devices:read` accepts a scope in this release. A scope on `devices:command` is rejected as "not scopable yet", so that no one believes a write restriction is in force before Gridone enforces one.
 
-Scopes are keyed by the permission they narrow, and only `devices:read` and `devices:command` accept them. A scope selects devices by their [standard type](../standard-devices.md) or driver, and optionally lists the attributes it covers. The thermostat operator above, narrowed to what its name says:
+Scopes are keyed by the permission they narrow. Each scope has two parts: which **devices** it reaches, selected by [standard type](../standard-devices.md) or by driver, and optionally which **attributes** of those devices. A part left out is no restriction. A role that reads thermostats, and only their comfort values:
 
 ```json
 {
-  "id": "thermostat_operator",
-  "name": "Thermostat operator",
-  "description": "Reads the building and adjusts comfort settings on thermostats.",
-  "permissions": ["devices:read", "devices:command", "timeseries:read", "dashboards:read"],
+  "id": "comfort_reader",
+  "name": "Comfort reader",
+  "description": "Sees the temperature and setpoint of every thermostat, nothing else.",
+  "permissions": ["devices:read", "timeseries:read", "dashboards:read"],
   "scopes": {
-    "devices:command": [
-      { "types": ["thermostat"], "attributes": ["temperature_setpoint", "hvac_mode", "fan_speed"] }
+    "devices:read": [
+      { "devices": { "types": ["thermostat"] }, "attributes": ["temperature", "temperature_setpoint"] }
     ]
   }
 }
 ```
 
-`devices:read` is left unscoped, so the role still sees every device. `devices:command` now reaches three attributes of thermostats and nothing else. A permission without a scope keeps its full reach, and a device that a role cannot read at all is simply absent from its view.
+How a scope is read:
+
+- **Inside a scope, parts intersect.** A device must match every part that is set: here it must be a thermostat, and only the two listed attributes are visible on it. `{}` is a scope with no restriction.
+- **Across scopes, matches union.** Listing two scopes under the same permission reaches what either of them reaches. There are no deny entries and no ordering.
+- **A scope never exceeds its permission.** The key must be one of the role's permissions. A permission without a scope keeps its full reach.
+- **Type or driver.** `types` matches devices whose driver declares a standard type; a device with an untyped driver is reachable through `driver_ids` only.
+
+What a scoped role is served follows one rule: what it cannot read does not exist for it. A hidden attribute is absent from the device, its history and the live feed. A device with no readable attribute is absent from lists, answers "not found" when addressed directly, and is left out of attribute coverage, faults and communication logs. Two pieces of metadata stay visible because Gridone computes them over the whole device: whether a device is faulty, and the fact that a device exists when a command targets it.
+
+Roles without scopes, built-in or custom, are unaffected: scopes only narrow, they never grant.

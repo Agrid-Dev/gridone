@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
+from api.auth import get_current_role
 from api.dependencies import get_device_manager
 from devices_manager import DevicesServiceInterface
 from devices_manager.core.presentation.models import PresentationV1
@@ -67,6 +68,7 @@ def test_http_document_omits_nullable_model_defaults(resource, prefix, method):
         for dependency in route.dependencies:
             app.dependency_overrides[dependency.dependency] = lambda: None
     app.dependency_overrides[get_device_manager] = lambda: dm
+    app.dependency_overrides[get_current_role] = lambda: None
     app.include_router(router, prefix=f"/{prefix}")
     with TestClient(app) as client:
         response = client.get(f"/{prefix}/example/presentation")

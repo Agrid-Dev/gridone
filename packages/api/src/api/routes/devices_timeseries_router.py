@@ -5,8 +5,10 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
 from pydantic import BaseModel, ValidationError
 
+from api.access import ScopedDeviceReads
+from api.access.dependencies import get_device_reads, get_target_resolver
 from api.auth import require_permission
-from api.dependencies import get_device_manager, get_target_resolver, get_ts_service
+from api.dependencies import get_ts_service
 from api.devices_filter import parse_tags_params
 from api.schemas.timeseries import (
     AggregatedPointResponse,
@@ -19,7 +21,6 @@ from api.schemas.timeseries import (
     TimeSeriesResponse,
 )
 from api.targets import CompositeTargetResolver, group_device_ids_by_tag
-from devices_manager import DevicesServiceInterface
 from models.errors import InvalidError, NotFoundError
 from models.targets import AttributeTarget, DevicesFilter
 from timeseries.domain import (
@@ -64,14 +65,31 @@ def get_export_query_params(
     )
 
 
+async def _require_readable_series(
+    reads: ScopedDeviceReads, ts: TimeSeriesService, series_ids: list[str]
+) -> None:
+    """Export ids are opaque: resolve each to its device and attribute first.
+
+    Only for a scoped caller; an unrestricted export keeps reaching series
+    whose device is gone, as it always has.
+    """
+    if reads.is_unrestricted:
+        return
+    for series_id in series_ids:
+        series = await ts.get_series(series_id)
+        reads.require_attribute(series.owner_id, series.metric)
+
+
 @router.get(
     "/timeseries/export/csv",
     dependencies=[Depends(require_permission(Permission.TIMESERIES_READ))],
 )
 async def export_timeseries_csv(
     params: ExportQueryParams = Depends(get_export_query_params),
+    reads: ScopedDeviceReads = Depends(get_device_reads),
     ts: TimeSeriesService = Depends(get_ts_service),
 ) -> Response:
+    await _require_readable_series(reads, ts, params.series_ids)
     csv_content = await ts.export_csv(
         params.series_ids,
         start=params.start,
@@ -92,8 +110,10 @@ async def export_timeseries_csv(
 )
 async def export_timeseries_png(
     params: ExportQueryParams = Depends(get_export_query_params),
+    reads: ScopedDeviceReads = Depends(get_device_reads),
     ts: TimeSeriesService = Depends(get_ts_service),
 ) -> Response:
+    await _require_readable_series(reads, ts, params.series_ids)
     png_content = await ts.export_png(**params.model_dump())
     return Response(
         content=png_content,
@@ -109,11 +129,13 @@ async def export_timeseries_png(
 async def list_device_timeseries(
     device_id: str,
     metric: str | None = Query(None),
-    dm: DevicesServiceInterface = Depends(get_device_manager),
+    reads: ScopedDeviceReads = Depends(get_device_reads),
     ts: TimeSeriesService = Depends(get_ts_service),
 ) -> list[TimeSeriesResponse]:
-    dm.get_device(device_id)
+    device = reads.get_device(device_id)
     results = await ts.list_series(owner_id=device_id, metric=metric)
+    if not reads.is_unrestricted:
+        results = [s for s in results if s.metric in device.attributes]
     return [TimeSeriesResponse(**s.__dict__) for s in results]
 
 
@@ -131,10 +153,10 @@ async def get_device_timeseries_points(
     carry_forward: bool = Query(default=False),
     timezone: str | None = Query(None),
     limit: int | None = Query(None),
-    dm: DevicesServiceInterface = Depends(get_device_manager),
+    reads: ScopedDeviceReads = Depends(get_device_reads),
     ts: TimeSeriesService = Depends(get_ts_service),
 ) -> FetchPointsResultResponse:
-    dm.get_device(device_id)
+    reads.require_attribute(device_id, attr)
     series = await ts.get_series_by_key(SeriesKey(owner_id=device_id, metric=attr))
     if series is None:
         msg = f"No timeseries found for device '{device_id}', attribute '{attr}'"
@@ -360,10 +382,10 @@ async def get_device_timeseries_aggregate(
     device_id: str,
     attr: str,
     query: AggregationQuery = Depends(get_aggregation_query),
-    dm: DevicesServiceInterface = Depends(get_device_manager),
+    reads: ScopedDeviceReads = Depends(get_device_reads),
     ts: TimeSeriesService = Depends(get_ts_service),
 ) -> AggregationResultResponse:
-    dm.get_device(device_id)
+    reads.require_attribute(device_id, attr)
     result = await ts.get_aggregate(SeriesKey(owner_id=device_id, metric=attr), query)
     tz = ZoneInfo(result.timezone)
     return AggregationResultResponse(

@@ -1,5 +1,6 @@
 """Tests that RBAC permissions are enforced on API endpoints."""
 
+import inspect
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
@@ -14,8 +15,11 @@ from dashboards import (
     WidgetLayout,
 )
 from fastapi import Depends, FastAPI
+from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
+from api.access.dependencies import get_device_reads, get_target_resolver
+from api.app import create_app
 from api.auth import get_current_user_id
 from api.dependencies import (
     get_apps_service,
@@ -27,17 +31,19 @@ from api.dependencies import (
     get_device_manager,
     get_notifications_service,
     get_synoptics_service,
-    get_target_resolver,
     get_ts_service,
     get_users_service,
 )
+from api.exception_handlers import register_exception_handlers
 from api.routes.apps import apps_registration_router, apps_router
 from api.routes.assets_router import router as assets_router
 from api.routes.automations_router import router as automations_router
 from api.routes.command_router import get_selection_commands
+from api.routes.command_router import router as command_router
 from api.routes.dashboards_router import router as dashboards_router
 from api.routes.devices_router import router as devices_router
 from api.routes.drivers_router import router as drivers_router
+from api.routes.faults_router import router as faults_router
 from api.routes.notifications_router import router as notifications_router
 from api.routes.operating_rules_router import (
     get_operating_rules_service,
@@ -68,10 +74,16 @@ from commands import (
     CommandTemplate,
     UnitCommand,
 )
-from devices_manager import DiscoveryManagerInterface, IngressResult
+from devices_manager import (
+    DevicesServiceInterface,
+    DiscoveryManagerInterface,
+    IngressResult,
+)
 from devices_manager.core.device import Attribute
 from devices_manager.core.device.connection_status import AttributeLogs
 from devices_manager.core.presentation.resources import StoredResource
+from devices_manager.dto import FaultView
+from devices_manager.dto.device_dto import Device
 from devices_manager.dto.presentation_dto import UnavailablePresentationResponse
 from devices_manager.types import DataType
 from models.errors import NotFoundError
@@ -88,7 +100,7 @@ from notifications import (
 from operating_rules import OperatingRulesService
 from synoptics import Synoptic, SynopticsServiceInterface
 from timeseries.domain import FetchPointsResult
-from users import Role, RoleCreate, RoleUpdate, User
+from users import DeviceScope, DeviceSelector, Role, RoleCreate, RoleUpdate, User
 from users.auth import AuthService
 from users.permissions import Permission
 from users.roles import BUILTIN_ROLES, find_builtin_role
@@ -105,6 +117,24 @@ INTEGRATION_ROLE = Role(
 )
 
 
+# Reads thermostats only: the scope scenarios at the end of this file.
+THERMOSTAT_READER_ROLE = Role(
+    id="thermostat_reader",
+    name="Thermostat reader",
+    permissions=[
+        Permission.DEVICES_READ,
+        Permission.DEVICES_LOGS_READ,
+        Permission.TIMESERIES_READ,
+    ],
+    scopes={
+        Permission.DEVICES_READ: [
+            DeviceScope(devices=DeviceSelector(types=["thermostat"]))
+        ]
+    },
+)
+CUSTOM_ROLES = {r.id: r for r in (INTEGRATION_ROLE, THERMOSTAT_READER_ROLE)}
+
+
 class MockUsersService:
     """Shared mock for auth + users routers."""
 
@@ -114,6 +144,7 @@ class MockUsersService:
             "operator": "operator",
             "viewer": "viewer",
             "integrator": "integrator",
+            "reader": "reader",
         }
         self._users = {
             "admin": User(
@@ -138,6 +169,12 @@ class MockUsersService:
                 role=INTEGRATION_ROLE.id,
                 name="Dana Integrator",
             ),
+            "reader": User(
+                id="reader-id",
+                username="reader",
+                role=THERMOSTAT_READER_ROLE.id,
+                name="Eve Reader",
+            ),
         }
 
     async def authenticate(self, username: str, password: str) -> User | None:
@@ -156,12 +193,13 @@ class MockUsersService:
         return list(self._users.values())
 
     async def list_roles(self) -> list[Role]:
-        return [*BUILTIN_ROLES, INTEGRATION_ROLE]
+        return [*BUILTIN_ROLES, *CUSTOM_ROLES.values()]
+
+    async def find_role(self, role_id: str) -> Role | None:
+        return CUSTOM_ROLES.get(role_id) or find_builtin_role(role_id)
 
     async def get_role_permissions(self, role_id: str) -> list[Permission]:
-        if role_id == INTEGRATION_ROLE.id:
-            return list(INTEGRATION_ROLE.permissions)
-        role = find_builtin_role(role_id)
+        role = await self.find_role(role_id)
         return list(role.permissions) if role is not None else []
 
     # The write routes only need to exist here: what they do is the roles
@@ -328,7 +366,7 @@ def test_admin_can_list_users(app: FastAPI) -> None:
         token = _login(client, "admin")
         resp = client.get("/users/", headers=_auth_header(token))
         assert resp.status_code == 200
-        assert len(resp.json()) == 4
+        assert len(resp.json()) == 5
 
 
 def test_admin_me_has_all_permissions(app: FastAPI) -> None:
@@ -375,7 +413,7 @@ def test_viewer_gets_basic_user_list(app: FastAPI) -> None:
         resp = client.get("/users/", headers=_auth_header(token))
         assert resp.status_code == 200
         data = resp.json()
-        assert len(data) == 4
+        assert len(data) == 5
         assert all(set(u.keys()) == {"id", "name"} for u in data)
         names = {u["name"] for u in data}
         assert "Alice A." in names
@@ -409,6 +447,7 @@ def test_every_role_can_list_roles(app: FastAPI, username: str) -> None:
             "operator",
             "viewer",
             "integration",
+            "thermostat_reader",
         ]
 
 
@@ -1993,3 +2032,237 @@ def test_tags_views_and_confirmation_permissions(username, method, path, body, s
         else success
     )
     assert response.status_code == expected
+
+
+# --- devices:read scopes: what a scoped role is served (AGR-1209) ---
+
+_THERMOSTAT = Device(
+    id="thermo",
+    name="Thermostat",
+    type="thermostat",
+    attributes={
+        "temperature": Attribute.create("temperature", DataType.FLOAT, {"read"}),
+        "mode": Attribute.create("mode", DataType.STRING, {"read", "write"}),
+    },
+    config={},
+    driver_id="thermocktat_http",
+    transport_id="http",
+)
+_ROOM = Device(
+    id="room",
+    name="Room",
+    attributes={
+        "humidity": Attribute.create("humidity", DataType.FLOAT, {"read"}),
+    },
+    config={},
+    driver_id="webhook_room",
+    transport_id="webhook",
+)
+
+
+def _fault(device: Device, attribute: str) -> FaultView:
+    return FaultView(
+        device_id=device.id,
+        device_name=device.name,
+        attribute_name=attribute,
+        data_type=DataType.BOOL,
+        severity=Severity.ALERT,
+        current_value=True,
+        last_updated=datetime(2026, 9, 22, tzinfo=UTC),
+        last_changed=datetime(2026, 9, 22, tzinfo=UTC),
+    )
+
+
+def _build_scoped_devices_app() -> FastAPI:
+    """The devices routes over a fake service on ``app.state``: the real
+    ``get_device_reads`` runs, so the projection is what is under test."""
+    app = FastAPI()
+    app.state.auth_service = AuthService(secret_key="test-secret")
+    app.state.cookie_secure = False
+    devices = {d.id: d for d in (_THERMOSTAT, _ROOM)}
+    dm = MagicMock(spec=DevicesServiceInterface)
+    dm.list_devices.side_effect = lambda **_: list(devices.values())
+
+    def _get_device(device_id: str) -> Device:
+        if device_id not in devices:
+            raise NotFoundError(device_id)
+        return devices[device_id]
+
+    dm.get_device.side_effect = _get_device
+    dm.list_active_faults.return_value = [
+        _fault(_THERMOSTAT, "mode"),
+        _fault(_ROOM, "humidity"),
+    ]
+    dm.get_attribute_logs.return_value = AttributeLogs(read=[], write=[], listen=[])
+    app.state.device_manager = dm
+    ts_mock = AsyncMock(default_timezone="UTC")
+    ts_mock.list_series.return_value = []
+    commands = AsyncMock(spec=CommandsServiceInterface)
+    commands.get_commands.return_value = Page(
+        items=[_command(1, _THERMOSTAT, "mode"), _command(2, _ROOM, "humidity")],
+        total=2,
+        page=1,
+        size=50,
+    )
+    app.dependency_overrides[get_users_service] = MockUsersService
+    app.dependency_overrides[get_ts_service] = lambda: ts_mock
+    app.dependency_overrides[get_commands_service] = lambda: commands
+    register_exception_handlers(app)
+    app.include_router(auth_router, prefix="/auth")
+    jwt_dep = [Depends(get_current_user_id)]
+    app.include_router(devices_router, prefix="/devices", dependencies=jwt_dep)
+    app.include_router(faults_router, prefix="/devices/faults", dependencies=jwt_dep)
+    app.include_router(command_router, prefix="/devices", dependencies=jwt_dep)
+    return app
+
+
+def _command(command_id: int, device: Device, attribute: str) -> UnitCommand:
+    now = datetime(2026, 9, 22, tzinfo=UTC)
+    return UnitCommand(
+        id=command_id,
+        batch_id=None,
+        template_id=None,
+        device_id=device.id,
+        attribute=attribute,
+        value=1,
+        data_type=DataType.FLOAT,
+        status=CommandStatus.SUCCESS,
+        status_details=None,
+        user_id="admin-id",
+        created_at=now,
+        executed_at=now,
+        completed_at=now,
+    )
+
+
+SCOPE_SCENARIOS = [
+    pytest.param(
+        "reader",
+        "/devices/",
+        200,
+        lambda b: [d["id"] for d in b] == ["thermo"],
+        id="list-hides-room",
+    ),
+    pytest.param(
+        "reader",
+        "/devices/thermo",
+        200,
+        lambda b: list(b["attributes"]) == ["temperature", "mode"],
+        id="thermostat-whole",
+    ),
+    pytest.param("reader", "/devices/room", 404, None, id="room-404"),
+    pytest.param(
+        "reader",
+        "/devices/attributes",
+        200,
+        lambda b: {a["attribute"] for a in b["attributes"]} == {"temperature", "mode"},
+        id="coverage-without-humidity",
+    ),
+    pytest.param(
+        "reader",
+        "/devices/faults/",
+        200,
+        lambda b: [f["device_id"] for f in b] == ["thermo"],
+        id="faults-without-room",
+    ),
+    pytest.param(
+        "reader", "/devices/room/humidity/logs", 404, None, id="logs-hidden-404"
+    ),
+    pytest.param("reader", "/devices/thermo/mode/logs", 200, None, id="logs-visible"),
+    pytest.param(
+        "reader", "/devices/room/timeseries", 404, None, id="timeseries-hidden-404"
+    ),
+    pytest.param(
+        "reader", "/devices/room/commands", 404, None, id="history-hidden-404"
+    ),
+    pytest.param(
+        "reader",
+        "/devices/commands",
+        200,
+        lambda b: [c["device_id"] for c in b["items"]] == ["thermo"],
+        id="history-filtered",
+    ),
+    pytest.param(
+        "admin",
+        "/devices/commands",
+        200,
+        lambda b: len(b["items"]) == 2,
+        id="admin-history",
+    ),
+    pytest.param(
+        "admin",
+        "/devices/",
+        200,
+        lambda b: [d["id"] for d in b] == ["thermo", "room"],
+        id="admin-sees-all",
+    ),
+    pytest.param("admin", "/devices/room", 200, None, id="admin-room"),
+    pytest.param(
+        "admin", "/devices/faults/", 200, lambda b: len(b) == 2, id="admin-faults"
+    ),
+]
+
+
+@pytest.mark.parametrize(("username", "path", "expected", "check"), SCOPE_SCENARIOS)
+def test_devices_read_scopes_project_every_read_path(username, path, expected, check):
+    with TestClient(_build_scoped_devices_app()) as client:
+        headers = _auth_header(_login(client, username))
+        resp = client.get(path, headers=headers)
+    assert resp.status_code == expected, resp.text
+    if check is not None:
+        assert check(resp.json()), resp.json()
+
+
+# A route serving device data must read through the caller's policy. Walk
+# the real app: every route gated by a device-reading permission resolves
+# the scoped reads (directly or through the target resolver), or is listed
+# here, consciously.
+_DEVICE_READ_PERMISSIONS = {
+    Permission.DEVICES_READ,
+    Permission.DEVICES_LOGS_READ,
+    Permission.TIMESERIES_READ,
+}
+_SCOPED_READS = {get_device_reads, get_target_resolver}
+_UNSCOPED_ALLOWED = {
+    # Vocabulary, not device data.
+    ("GET", "/devices/standard-types"),
+    ("GET", "/presentations/schema"),
+    ("GET", "/devices/timeseries/aggregate/options"),
+    # Documents naming devices by filter or by id, never their values:
+    # metadata a scoped role may see, like `excluded_device_ids` (ADR 0004 §5).
+    ("GET", "/devices/commands/templates/"),
+    ("GET", "/devices/commands/templates/{template_id}"),
+    ("GET", "/device-views"),
+    ("GET", "/device-views/{view_id}"),
+}
+
+
+def _dependency_calls(dependant) -> set:
+    calls = {dependant.call}
+    for sub in dependant.dependencies:
+        calls |= _dependency_calls(sub)
+    return calls
+
+
+def _route_permissions(route: APIRoute) -> set[Permission]:
+    perms = set()
+    for dep in route.dependant.dependencies:
+        if dep.call is None:
+            continue
+        perm = inspect.getclosurevars(dep.call).nonlocals.get("perm")
+        if isinstance(perm, Permission):
+            perms.add(perm)
+    return perms
+
+
+def test_every_device_reading_route_goes_through_the_scoped_reads() -> None:
+    offenders = set()
+    for route in create_app().routes:
+        if not isinstance(route, APIRoute):
+            continue
+        if not _route_permissions(route) & _DEVICE_READ_PERMISSIONS:
+            continue
+        if _dependency_calls(route.dependant) & _SCOPED_READS:
+            continue
+        offenders |= {(m, route.path) for m in route.methods}
+    assert offenders == _UNSCOPED_ALLOWED

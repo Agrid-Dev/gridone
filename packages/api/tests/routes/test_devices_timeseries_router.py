@@ -9,7 +9,11 @@ import pytest_asyncio
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from api.auth import get_current_permissions, get_current_token_payload
+from api.auth import (
+    get_current_permissions,
+    get_current_role,
+    get_current_token_payload,
+)
 from api.dependencies import get_device_manager, get_ts_service
 from api.exception_handlers import register_exception_handlers
 from api.routes.devices_router import router
@@ -69,6 +73,7 @@ def app(ts_service: TimeSeriesService, admin_token_payload) -> FastAPI:
     app.dependency_overrides[get_ts_service] = lambda: ts_service
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
     app.dependency_overrides[get_current_permissions] = lambda: frozenset(Permission)
+    app.dependency_overrides[get_current_role] = lambda: None
     app.dependency_overrides[get_device_manager] = _make_dm
     return app
 
@@ -525,6 +530,7 @@ class TestExportPng:
         app.dependency_overrides[get_current_permissions] = lambda: frozenset(
             Permission
         )
+        app.dependency_overrides[get_current_role] = lambda: None
         app.dependency_overrides[get_device_manager] = _make_dm
         return app
 
@@ -595,6 +601,7 @@ class TestOldPathsGone:
         app.dependency_overrides[get_current_permissions] = lambda: frozenset(
             Permission
         )
+        app.dependency_overrides[get_current_role] = lambda: None
         app.dependency_overrides[get_device_manager] = _make_dm
         return app
 
@@ -955,6 +962,7 @@ def paris_app(paris_ts_service: TimeSeriesService, admin_token_payload) -> FastA
     app.dependency_overrides[get_ts_service] = lambda: paris_ts_service
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
     app.dependency_overrides[get_current_permissions] = lambda: frozenset(Permission)
+    app.dependency_overrides[get_current_role] = lambda: None
     app.dependency_overrides[get_device_manager] = _make_dm
     return app
 
@@ -1542,3 +1550,116 @@ class TestLiveAggregate:
                 "/timeseries/live-aggregate", params=self._params(space_agg="delta")
             )
         assert response.status_code == 422
+
+
+# A caller whose devices:read is scoped to one attribute (AGR-1209): history
+# of a hidden attribute does not exist for them, on every timeseries path.
+
+
+class TestScopedReads:
+    @pytest.fixture
+    def scoped_client(
+        self, ts_service: TimeSeriesService, admin_token_payload
+    ) -> AsyncClient:
+        from devices_manager import Attribute, DevicesServiceInterface
+        from devices_manager.dto.device_dto import Device
+        from users.roles import DeviceScope, Role
+
+        device = Device(
+            id=DEVICE_ID,
+            name="Thermostat",
+            type="thermostat",
+            attributes={
+                "temperature": Attribute.create(
+                    "temperature", DataType.FLOAT, {"read"}
+                ),
+                "mode": Attribute.create("mode", DataType.STRING, {"read", "write"}),
+            },
+            config={},
+            driver_id="thermocktat_http",
+            transport_id="http",
+        )
+        dm = MagicMock(spec=DevicesServiceInterface)
+        dm.get_device.return_value = device
+        role = Role(
+            id="temperature_reader",
+            name="Temperature reader",
+            permissions=[Permission.DEVICES_READ, Permission.TIMESERIES_READ],
+            scopes={Permission.DEVICES_READ: [DeviceScope(attributes=["temperature"])]},
+        )
+        app = FastAPI()
+        register_exception_handlers(app)
+        app.include_router(router)
+        app.dependency_overrides[get_ts_service] = lambda: ts_service
+        app.dependency_overrides[get_current_token_payload] = lambda: (
+            admin_token_payload
+        )
+        app.dependency_overrides[get_current_permissions] = lambda: frozenset(
+            role.permissions
+        )
+        app.dependency_overrides[get_current_role] = lambda: role
+        app.dependency_overrides[get_device_manager] = lambda: dm
+        return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
+
+    async def _seed(self, ts_service: TimeSeriesService) -> dict[str, str]:
+        ids = {}
+        for metric in ("temperature", "mode"):
+            series = await ts_service.create_series(
+                data_type=DataType.FLOAT, owner_id=DEVICE_ID, metric=metric
+            )
+            ids[metric] = series.id
+        return ids
+
+    async def test_lists_only_the_readable_series(
+        self, scoped_client: AsyncClient, ts_service: TimeSeriesService
+    ):
+        await self._seed(ts_service)
+        async with scoped_client as ac:
+            response = await ac.get(f"/{DEVICE_ID}/timeseries")
+        assert response.status_code == 200
+        assert [s["metric"] for s in response.json()] == ["temperature"]
+
+    @pytest.mark.parametrize(
+        ("path", "params"),
+        [
+            pytest.param("", {}, id="points"),
+            pytest.param(
+                "/aggregate",
+                {
+                    "agg": "avg",
+                    "start": AGG_START.isoformat(),
+                    "end": AGG_END.isoformat(),
+                },
+                id="aggregate",
+            ),
+        ],
+    )
+    async def test_a_hidden_attribute_history_is_not_found(
+        self,
+        scoped_client: AsyncClient,
+        ts_service: TimeSeriesService,
+        path: str,
+        params: dict[str, str],
+    ):
+        await self._seed(ts_service)
+        async with scoped_client as ac:
+            hidden = await ac.get(f"/{DEVICE_ID}/timeseries/mode{path}", params=params)
+            visible = await ac.get(
+                f"/{DEVICE_ID}/timeseries/temperature{path}", params=params
+            )
+        assert hidden.status_code == 404
+        assert visible.status_code == 200
+
+    async def test_an_export_resolves_each_series_to_a_readable_attribute(
+        self, scoped_client: AsyncClient, ts_service: TimeSeriesService
+    ):
+        ids = await self._seed(ts_service)
+        async with scoped_client as ac:
+            hidden = await ac.get(
+                "/timeseries/export/csv", params={"series_ids": ids["mode"]}
+            )
+            visible = await ac.get(
+                "/timeseries/export/csv", params={"series_ids": ids["temperature"]}
+            )
+        assert hidden.status_code == 404
+        assert visible.status_code == 200

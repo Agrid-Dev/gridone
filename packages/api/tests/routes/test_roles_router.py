@@ -12,7 +12,7 @@ from api.exception_handlers import register_exception_handlers
 from api.routes.users.auth_router import router as auth_router
 from api.routes.users.roles_router import router as roles_router
 from api.routes.users.users_router import router as users_router
-from models.errors import ConflictError, NotFoundError
+from models.errors import ConflictError, InvalidError, NotFoundError
 from users import Role, RoleCreate, RoleUpdate, User
 from users.auth import AuthService
 from users.permissions import Permission
@@ -50,6 +50,7 @@ def um() -> AsyncMock:
     um.get_by_id = AsyncMock(return_value=ADMIN)
     um.is_blocked = AsyncMock(return_value=False)
     um.get_role_permissions = AsyncMock(side_effect=_builtin_permissions)
+    um.find_role = AsyncMock(side_effect=find_builtin_role)
     um.list_roles = AsyncMock(return_value=[VIEWER_ROLE])
 
     async def _get_role(role_id: str) -> Role:
@@ -139,7 +140,10 @@ class TestCreate:
     @pytest.mark.parametrize(
         "body",
         [
-            pytest.param({**CREATE_BODY, "scopes": {}}, id="scopes-key"),
+            pytest.param(
+                {**CREATE_BODY, "scopes": {"devices:read": [{"tags": {}}]}},
+                id="unknown-scope-field",
+            ),
             pytest.param({**CREATE_BODY, "id": "Not-A-Slug"}, id="bad-id"),
             pytest.param(
                 {**CREATE_BODY, "permissions": ["devices:fly"]}, id="unknown-permission"
@@ -157,6 +161,17 @@ class TestCreate:
             resp = client.post("/users/roles", json=body, headers=_auth(client))
         assert resp.status_code == 422
         um.create_role.assert_not_awaited()
+
+    def test_a_scope_rule_is_422_from_the_service(
+        self, app: FastAPI, um: AsyncMock
+    ) -> None:
+        # The rules need the whole document (scopes against permissions), so
+        # the service answers them; the router only maps InvalidError to 422.
+        um.create_role.side_effect = InvalidError("devices:command is not scopable yet")
+        body = {**CREATE_BODY, "scopes": {"devices:command": [{}]}}
+        with TestClient(app) as client:
+            resp = client.post("/users/roles", json=body, headers=_auth(client))
+        assert resp.status_code == 422
 
 
 class TestUpdate:
@@ -179,6 +194,7 @@ class TestUpdate:
         [
             pytest.param(ConflictError("built-in"), 409, id="builtin"),
             pytest.param(NotFoundError("ghost"), 404, id="unknown"),
+            pytest.param(InvalidError("scope rule"), 422, id="scope-rule"),
         ],
     )
     def test_service_errors_map_to_status(
@@ -190,14 +206,6 @@ class TestUpdate:
                 "/users/roles/x", json={"name": "y"}, headers=_auth(client)
             )
         assert resp.status_code == expected
-
-    def test_scopes_key_is_422(self, app: FastAPI, um: AsyncMock) -> None:
-        with TestClient(app) as client:
-            resp = client.patch(
-                "/users/roles/x", json={"scopes": {}}, headers=_auth(client)
-            )
-        assert resp.status_code == 422
-        um.update_role.assert_not_awaited()
 
 
 class TestDelete:

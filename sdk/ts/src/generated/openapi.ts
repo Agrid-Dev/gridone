@@ -3897,6 +3897,35 @@ export interface components {
         | components["schemas"]["ButtonLayer"]
       )[];
     };
+    /**
+     * DeviceScope
+     * @description One cell of the devices-by-attributes grid a permission is narrowed to.
+     *
+     *     Two levels, as in ``models.targets.AttributeTarget``: ``devices`` selects
+     *     the devices, ``attributes`` the attributes of those devices (``None`` is
+     *     every attribute). A scope with neither matches everything.
+     */
+    DeviceScope: {
+      devices?: components["schemas"]["DeviceSelector"];
+      /** Attributes */
+      attributes?: string[] | null;
+    };
+    /**
+     * DeviceSelector
+     * @description Which devices a scope reaches: by standard type, by driver, or both.
+     *
+     *     Fields intersect: every field that is set must match, and a field left
+     *     out is no constraint, so ``{}`` selects every device. ``types`` are the
+     *     standard device types a driver declares, so an untyped driver is reachable
+     *     through ``driver_ids`` only. Ids and tags are deliberately absent: ids do
+     *     not survive a device recreation and tags are operator-editable.
+     */
+    DeviceSelector: {
+      /** Types */
+      types?: string[] | null;
+      /** Driver Ids */
+      driver_ids?: string[] | null;
+    };
     /** DeviceUpdate */
     DeviceUpdate: {
       /** Name */
@@ -6189,6 +6218,10 @@ export interface components {
     /**
      * Role
      * @description A named set of permissions users are assigned to, by id.
+     *
+     *     ``scopes`` narrows a permission to devices and attributes; a permission
+     *     without a scope keeps its full reach. The document is shape-validated
+     *     here and evaluated by the API layer only.
      */
     Role: {
       /** Id */
@@ -6202,6 +6235,10 @@ export interface components {
       description?: string;
       /** Permissions */
       permissions: components["schemas"]["Permission"][];
+      /** Scopes */
+      scopes?: {
+        [key: string]: components["schemas"]["DeviceScope"][];
+      };
       /**
        * Builtin
        * @default false
@@ -6212,9 +6249,9 @@ export interface components {
      * RoleCreate
      * @description A custom role as submitted for creation.
      *
-     *     ``extra="forbid"`` is what rejects a ``scopes`` key until scopes ship:
-     *     accepting and ignoring it would let a role author believe a restriction
-     *     is in force.
+     *     ``extra="forbid"`` turns a misspelt key into a 422 rather than a silently
+     *     ignored one, so a role author never believes a restriction is in force.
+     *     The scope rules are the role's own: ``to_role`` applies them.
      */
     RoleCreate: {
       /** Id */
@@ -6228,10 +6265,17 @@ export interface components {
       description?: string;
       /** Permissions */
       permissions: components["schemas"]["Permission"][];
+      /** Scopes */
+      scopes?: {
+        [key: string]: components["schemas"]["DeviceScope"][];
+      };
     };
     /**
      * RoleUpdate
      * @description A partial edit of a custom role; unset fields are left untouched.
+     *
+     *     ``scopes`` replaces the whole map when set (``{}`` clears it). The scope
+     *     rules need the stored document, so ``apply_to`` re-validates it whole.
      */
     RoleUpdate: {
       /** Name */
@@ -6240,6 +6284,10 @@ export interface components {
       description?: string | null;
       /** Permissions */
       permissions?: components["schemas"]["Permission"][] | null;
+      /** Scopes */
+      scopes?: {
+        [key: string]: components["schemas"]["DeviceScope"][];
+      } | null;
     };
     /** SectionNode */
     SectionNode: {

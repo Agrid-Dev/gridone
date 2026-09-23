@@ -39,6 +39,9 @@ contracts in the root `pyproject.toml` enforce it:
   rows, so the reference is enforced by the service, in both directions.
 - The single crossing at storage level is `UsersStorageBackend.any_with_role`,
   the one fact the roles side needs and asks for through the users backend.
+- A role's `scopes` are stored as a shape-validated document and never
+  evaluated here: the API compiles them into a policy per request
+  (`api.access`). This package knows no device.
 
 When a change needs both sides, put it in the service. When it needs only
 one, it belongs on that side and the contracts will tell you if it leaked.

@@ -104,6 +104,12 @@ its write rules change what the driver accepts, so it must not share
 `thermocktat_http`. Drivers are create-or-409, never updated: editing those
 rules needs `stack:down` before they apply.
 
+`suites/roles/scopes.spec.ts` owns `thermocktat-scopes` (`9091`) on the shared
+`thermocktat_http` driver, plus a per-run webhook room device it pushes to
+itself: it flips `temperature_setpoint` and `mode` through the side-channel to
+show which updates a scoped role is served, and needs an untyped device next
+to a typed one.
+
 `connectionStatus.spec.ts` owns `thermocktat-connection-status` (`9087`) and
 stops and starts it via `lib/emulator.ts`. It is the one
 suite needing a local Docker socket: it fails, rather than skips, against a

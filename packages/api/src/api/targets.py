@@ -25,13 +25,14 @@ from models.write_rules import AttributeWriteState, ResolvedOption
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
+    from api.access import ScopedDeviceReads
     from devices_manager import DevicesServiceInterface
     from devices_manager.dto.device_dto import Device
     from models.targets import TargetResolver
 
 
 def resolve_devices(
-    dm: DevicesServiceInterface, devices: DevicesFilter
+    dm: DevicesServiceInterface | ScopedDeviceReads, devices: DevicesFilter
 ) -> list[Device]:
     """Resolve the persisted criteria directly against devices-manager."""
     return dm.list_devices(**devices.model_dump(exclude_none=True))
@@ -160,7 +161,9 @@ def group_device_ids_by_tag(
 class CompositeTargetResolver:
     """Resolve targets against the devices manager."""
 
-    def __init__(self, dm: DevicesServiceInterface) -> None:
+    def __init__(self, dm: DevicesServiceInterface | ScopedDeviceReads) -> None:
+        # The raw service at the composition root (synoptics, commands), the
+        # caller's scoped reads per request: both list devices the same way.
         self._dm = dm
 
     async def resolve(

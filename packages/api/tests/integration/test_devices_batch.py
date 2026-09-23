@@ -9,6 +9,7 @@ from httpx import ASGITransport, AsyncClient
 
 from api.auth import (
     get_current_permissions,
+    get_current_role,
     get_current_token_payload,
     get_current_user_id,
 )
@@ -68,6 +69,7 @@ async def integration_app(
     app.dependency_overrides[get_device_manager] = lambda: dm
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
     app.dependency_overrides[get_current_permissions] = lambda: frozenset(Permission)
+    app.dependency_overrides[get_current_role] = lambda: None
     app.dependency_overrides[get_current_user_id] = lambda: admin_token_payload.sub
     try:
         yield app

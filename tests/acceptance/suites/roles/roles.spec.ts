@@ -77,15 +77,37 @@ describe("roles", () => {
     expect(await statusOf(admin.users.deleteRole("viewer"))).toBe(409);
   });
 
-  it("rejects a role document carrying scopes, which are not supported yet", async () => {
-    const withScopes = {
+  // A scope narrows a permission the role holds; only devices:read accepts
+  // one for now (AGR-1209). What a scoped role is served is scopes.spec.ts.
+  it.each<{
+    case: string;
+    permissions: RoleCreate["permissions"];
+    scopes: RoleCreate["scopes"];
+  }>([
+    {
+      case: "a scope on devices:command, not scopable yet",
+      permissions: ["devices:read", "devices:command"],
+      scopes: { "devices:command": [{ devices: { types: ["thermostat"] } }] },
+    },
+    {
+      case: "an empty scope list",
+      permissions: ["devices:read"],
+      scopes: { "devices:read": [] },
+    },
+    {
+      case: "a scope on a permission the role does not hold",
+      permissions: ["timeseries:read"],
+      scopes: { "devices:read": [{ devices: { types: ["thermostat"] } }] },
+    },
+  ])("rejects $case", async ({ permissions, scopes }) => {
+    const role: RoleCreate = {
       id: `acceptance_scoped_${Date.now()}`,
       name: "Scoped",
-      permissions: ["devices:read"],
-      scopes: { "devices:read": [{ types: ["thermostat"] }] },
-    } as unknown as RoleCreate;
+      permissions,
+      scopes,
+    };
 
-    expect(await statusOf(admin.users.createRole(withScopes))).toBe(422);
+    expect(await statusOf(admin.users.createRole(role))).toBe(422);
   });
 
   it("reserves roles:write for the built-in admin", async () => {

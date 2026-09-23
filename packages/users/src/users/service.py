@@ -1,10 +1,16 @@
+from collections.abc import Callable
+
+from pydantic import ValidationError
+
 from models.errors import (
     BlockedUserError,
     ConfigurationError,
     ConflictError,
     InvalidError,
     NotFoundError,
+    SchemaValidationError,
     UnauthorizedError,
+    validation_error_items,
 )
 from models.ids import gen_id
 from models.service import Service
@@ -128,7 +134,7 @@ class UsersService(Service):
         return [self._to_public_user(u) for u in users]
 
     async def _ensure_role_exists(self, role_id: str) -> None:
-        if await self._find_role(role_id) is None:
+        if await self.find_role(role_id) is None:
             msg = f"Unknown role '{role_id}'"
             raise InvalidError(msg)
 
@@ -215,11 +221,20 @@ class UsersService(Service):
     def _forget_roles(self) -> None:
         self._roles_cache = None
 
-    async def _find_role(self, role_id: str) -> Role | None:
+    async def find_role(self, role_id: str) -> Role | None:
+        """The role document behind an id; ``None`` once the role is gone."""
         builtin = find_builtin_role(role_id)
         if builtin is not None:
             return builtin
         return (await self._custom_roles()).get(role_id)
+
+    @staticmethod
+    def _validated[T](build: Callable[[], T]) -> T:
+        """Run a role document build; its scope rules answer as a 422."""
+        try:
+            return build()
+        except ValidationError as exc:
+            raise SchemaValidationError(validation_error_items(exc)) from exc
 
     @staticmethod
     def _refuse_builtin(role_id: str) -> None:
@@ -232,7 +247,7 @@ class UsersService(Service):
         return [*BUILTIN_ROLES, *custom.values()]
 
     async def get_role(self, role_id: str) -> Role:
-        role = await self._find_role(role_id)
+        role = await self.find_role(role_id)
         if role is None:
             msg = f"Role '{role_id}' not found"
             raise NotFoundError(msg)
@@ -240,20 +255,24 @@ class UsersService(Service):
 
     async def get_role_permissions(self, role_id: str) -> list[Permission]:
         """The permissions a role grants; none for a role that no longer exists."""
-        role = await self._find_role(role_id)
+        role = await self.find_role(role_id)
         return list(role.permissions) if role is not None else []
 
     async def create_role(self, create_data: RoleCreate) -> Role:
         # Built-ins are not rows, so they need a check of their own; a taken
         # custom id is the store's call (its primary key), never a pre-read.
         self._refuse_builtin(create_data.id)
-        role = create_data.to_role()
+        role = self._validated(create_data.to_role)
         await self._roles_backend.insert(role)
         self._forget_roles()
         return role
 
     async def update_role(self, role_id: str, update_data: RoleUpdate) -> Role:
         self._refuse_builtin(role_id)
+        # A partial edit is only valid against the stored document: dropping
+        # a permission whose scope stays behind must fail before the write.
+        current = await self.get_role(role_id)
+        self._validated(lambda: update_data.apply_to(current))
         updated = await self._roles_backend.update(role_id, update_data)
         if updated is None:
             msg = f"Role '{role_id}' not found"

@@ -4,9 +4,9 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 
+from api.access import ScopedDeviceReads
+from api.access.dependencies import get_device_reads
 from api.auth import require_permission
-from api.dependencies import get_device_manager
-from devices_manager import DevicesServiceInterface
 from devices_manager.dto import FaultView
 from models.types import Severity
 from users.permissions import Permission
@@ -16,8 +16,8 @@ router = APIRouter()
 
 @router.get("/", dependencies=[Depends(require_permission(Permission.DEVICES_READ))])
 def list_faults(
-    dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
+    reads: Annotated[ScopedDeviceReads, Depends(get_device_reads)],
     severity: Severity | None = Query(None),
     device_id: str | None = Query(None),
 ) -> list[FaultView]:
-    return dm.list_active_faults(severity=severity, device_id=device_id)
+    return reads.list_faults(severity=severity, device_id=device_id)
