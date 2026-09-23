@@ -1,3 +1,9 @@
+## v0.262.1 (2026-09-23)
+
+### Fix
+
+- **ui**: align boolean and icon values on their label's baseline (#685)
+
 ## v0.262.0 (2026-09-23)
 
 ### Feat
