@@ -1,3 +1,9 @@
+## v0.265.0 (2026-09-23)
+
+### Feat
+
+- **api**: project the WebSocket feed per connection
+
 ## v0.264.0 (2026-09-23)
 
 ## v0.263.0 (2026-09-23)
