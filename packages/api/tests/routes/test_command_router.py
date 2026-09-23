@@ -5,7 +5,7 @@ already covered by ``test_devices_router.py``; this file focuses on the
 template surface the reviewer consolidated here."""
 
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi import FastAPI
@@ -20,7 +20,7 @@ from api.auth import (
 )
 from api.dependencies import get_commands_service
 from api.exception_handlers import register_exception_handlers
-from api.routes.command_router import router
+from api.routes.command_router import get_selection_commands, router
 from commands import (
     AttributeWrite,
     BatchCommandDispatch,
@@ -487,3 +487,73 @@ class TestDispatchTemplate:
         async with async_client as ac:
             response = await ac.post("/commands/templates/nope/dispatch")
         assert response.status_code == 404
+
+
+# A caller whose devices:read is scoped (AGR-1209): history and previews
+# follow the same rule as every read path, a hidden attribute is a 404.
+
+
+class TestScopedReads:
+    @pytest.fixture
+    def scoped_app(self, app: FastAPI, mock_commands_service) -> FastAPI:
+        from api.dependencies import get_device_manager
+        from devices_manager import Attribute, DevicesServiceInterface
+        from devices_manager.dto.device_dto import Device
+        from users.roles import DeviceScope, Role
+
+        thermostat = Device(
+            id="t1",
+            name="Thermostat",
+            type="thermostat",
+            attributes={
+                "temperature": Attribute.create(
+                    "temperature", DataType.FLOAT, {"read"}
+                ),
+                "mode": Attribute.create("mode", DataType.STRING, {"read", "write"}),
+            },
+            config={},
+            driver_id="vendor",
+            transport_id="t",
+        )
+        dm = MagicMock(spec=DevicesServiceInterface)
+        dm.get_device.return_value = thermostat
+        dm.list_devices.return_value = [thermostat]
+        mock_commands_service.get_commands.return_value = Page(
+            items=_batch("tpl", ["t1"]).commands + _batch("tpl", ["hidden"]).commands,
+            total=2,
+            page=1,
+            size=50,
+        )
+        role = Role(
+            id="temperature_reader",
+            name="Temperature reader",
+            permissions=[Permission.DEVICES_READ, Permission.DEVICES_COMMAND],
+            scopes={Permission.DEVICES_READ: [DeviceScope(attributes=["temperature"])]},
+        )
+        app.dependency_overrides[get_device_manager] = lambda: dm
+        app.dependency_overrides[get_current_role] = lambda: role
+        coordinator = MagicMock()
+        app.dependency_overrides[get_selection_commands] = lambda: coordinator
+        return app
+
+    @pytest.mark.asyncio
+    async def test_single_preview_of_a_hidden_attribute_is_not_found(
+        self, scoped_app: FastAPI
+    ):
+        async with AsyncClient(
+            transport=ASGITransport(app=scoped_app), base_url="http://test"
+        ) as ac:
+            response = await ac.post(
+                "/t1/commands/preview", json={"attribute": "mode", "value": "auto"}
+            )
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_history_keeps_the_readable_rows_only(self, scoped_app: FastAPI):
+        async with AsyncClient(
+            transport=ASGITransport(app=scoped_app), base_url="http://test"
+        ) as ac:
+            response = await ac.get("/commands")
+        assert response.status_code == 200
+        # Both rows are on ``mode``, which the caller cannot read.
+        assert response.json()["items"] == []

@@ -39,6 +39,7 @@ from api.routes.apps import apps_registration_router, apps_router
 from api.routes.assets_router import router as assets_router
 from api.routes.automations_router import router as automations_router
 from api.routes.command_router import get_selection_commands
+from api.routes.command_router import router as command_router
 from api.routes.dashboards_router import router as dashboards_router
 from api.routes.devices_router import router as devices_router
 from api.routes.drivers_router import router as drivers_router
@@ -2096,14 +2097,42 @@ def _build_scoped_devices_app() -> FastAPI:
     app.state.device_manager = dm
     ts_mock = AsyncMock(default_timezone="UTC")
     ts_mock.list_series.return_value = []
+    commands = AsyncMock(spec=CommandsServiceInterface)
+    commands.get_commands.return_value = Page(
+        items=[_command(1, _THERMOSTAT, "mode"), _command(2, _ROOM, "humidity")],
+        total=2,
+        page=1,
+        size=50,
+    )
     app.dependency_overrides[get_users_service] = MockUsersService
     app.dependency_overrides[get_ts_service] = lambda: ts_mock
+    app.dependency_overrides[get_commands_service] = lambda: commands
     register_exception_handlers(app)
     app.include_router(auth_router, prefix="/auth")
     jwt_dep = [Depends(get_current_user_id)]
     app.include_router(devices_router, prefix="/devices", dependencies=jwt_dep)
     app.include_router(faults_router, prefix="/devices/faults", dependencies=jwt_dep)
+    app.include_router(command_router, prefix="/devices", dependencies=jwt_dep)
     return app
+
+
+def _command(command_id: int, device: Device, attribute: str) -> UnitCommand:
+    now = datetime(2026, 9, 22, tzinfo=UTC)
+    return UnitCommand(
+        id=command_id,
+        batch_id=None,
+        template_id=None,
+        device_id=device.id,
+        attribute=attribute,
+        value=1,
+        data_type=DataType.FLOAT,
+        status=CommandStatus.SUCCESS,
+        status_details=None,
+        user_id="admin-id",
+        created_at=now,
+        executed_at=now,
+        completed_at=now,
+    )
 
 
 SCOPE_SCENARIOS = [
@@ -2144,6 +2173,23 @@ SCOPE_SCENARIOS = [
         "reader", "/devices/room/timeseries", 404, None, id="timeseries-hidden-404"
     ),
     pytest.param(
+        "reader", "/devices/room/commands", 404, None, id="history-hidden-404"
+    ),
+    pytest.param(
+        "reader",
+        "/devices/commands",
+        200,
+        lambda b: [c["device_id"] for c in b["items"]] == ["thermo"],
+        id="history-filtered",
+    ),
+    pytest.param(
+        "admin",
+        "/devices/commands",
+        200,
+        lambda b: len(b["items"]) == 2,
+        id="admin-history",
+    ),
+    pytest.param(
         "admin",
         "/devices/",
         200,
@@ -2168,29 +2214,33 @@ def test_devices_read_scopes_project_every_read_path(username, path, expected, c
 
 
 # A route serving device data must read through the caller's policy. Walk
-# the real app: any route gated by a device-reading permission that still
-# depends on the raw service must be listed here, consciously.
+# the real app: every route gated by a device-reading permission resolves
+# the scoped reads (directly or through the target resolver), or is listed
+# here, consciously.
 _DEVICE_READ_PERMISSIONS = {
     Permission.DEVICES_READ,
     Permission.DEVICES_LOGS_READ,
     Permission.TIMESERIES_READ,
 }
-_RAW_SERVICE_ALLOWED = {
-    ("GET", "/devices/standard-types"),  # schemas, not devices
-    ("GET", "/devices/{device_id}/presentation"),  # gated by reads first
-    ("GET", "/devices/{device_id}/presentation/assets/{asset_id}"),
-    ("GET", "/devices/{device_id}/{attr_name}/logs"),
-    ("POST", "/devices/{device_id}/attributes/{attr_name}/refresh"),
+_SCOPED_READS = {get_device_reads, get_target_resolver}
+_UNSCOPED_ALLOWED = {
+    # Vocabulary, not device data.
+    ("GET", "/devices/standard-types"),
+    ("GET", "/presentations/schema"),
+    ("GET", "/devices/timeseries/aggregate/options"),
+    # Documents naming devices by filter or by id, never their values:
+    # metadata a scoped role may see, like `excluded_device_ids` (ADR 0004 §5).
+    ("GET", "/devices/commands/templates/"),
+    ("GET", "/devices/commands/templates/{template_id}"),
+    ("GET", "/device-views"),
+    ("GET", "/device-views/{view_id}"),
 }
 
 
 def _dependency_calls(dependant) -> set:
-    """Every dependency a route resolves, not descending into the scoped
-    reads (which reach the raw service themselves, by design)."""
     calls = {dependant.call}
     for sub in dependant.dependencies:
-        if sub.call is not get_device_reads:
-            calls |= _dependency_calls(sub)
+        calls |= _dependency_calls(sub)
     return calls
 
 
@@ -2212,7 +2262,7 @@ def test_every_device_reading_route_goes_through_the_scoped_reads() -> None:
             continue
         if not _route_permissions(route) & _DEVICE_READ_PERMISSIONS:
             continue
-        if get_device_manager not in _dependency_calls(route.dependant):
+        if _dependency_calls(route.dependant) & _SCOPED_READS:
             continue
         offenders |= {(m, route.path) for m in route.methods}
-    assert offenders == _RAW_SERVICE_ALLOWED
+    assert offenders == _UNSCOPED_ALLOWED

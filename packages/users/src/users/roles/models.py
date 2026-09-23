@@ -128,29 +128,57 @@ def check_scopes(permissions: Collection[Permission], scopes: Scopes) -> None:
 def known_scopes(
     values: dict[str, list[dict[str, Any]]],
     *,
-    permissions: Collection[Permission],
+    permissions: list[Permission],
     role_id: str,
-) -> Scopes:
-    """Keep the stored scopes the role can still carry, like ``known_permissions``.
+) -> tuple[list[Permission], Scopes]:
+    """The permissions and scopes a stored role can still carry.
 
-    A key the vocabulary no longer knows, no longer scopable, or no longer
-    among the role's permissions is dropped and logged rather than failing
-    the row (and with it every custom role, since they load together).
+    Like ``known_permissions``, a stored document outlives the vocabulary;
+    unlike it, dropping a scope would *widen* the permission it narrows. So
+    this fails closed: an entry the shape no longer reads is dropped (a
+    union of entries can only narrow), and when nothing readable is left, or
+    the permission is no longer scopable, the permission goes with it. A key
+    the role does not hold narrows nothing and is simply ignored.
     """
-    known: Scopes = {}
+    kept_permissions = list(permissions)
+    scopes: Scopes = {}
     for key, entries in values.items():
         try:
-            # pydantic's ValidationError is a ValueError: one except covers
-            # an unknown key, an unknown scope field and a scope rule alike.
-            scopes = {Permission(key): [DeviceScope.model_validate(e) for e in entries]}
-            check_scopes(permissions, scopes)
-        except ValueError as exc:
+            permission = Permission(key)
+        except ValueError:
             logger.warning(
-                "Role %r holds an unusable scope on %r (%s); ignored", role_id, key, exc
+                "Role %r scopes unknown permission %r; ignored", role_id, key
             )
             continue
-        known.update(scopes)
-    return known
+        if permission not in permissions:
+            logger.warning(
+                "Role %r scopes %r, which it does not hold; ignored", role_id, key
+            )
+            continue
+        readable: list[DeviceScope] = []
+        for entry in entries:
+            try:
+                readable.append(DeviceScope.model_validate(entry))
+            except ValueError as exc:  # pydantic's ValidationError is one
+                logger.error(  # noqa: TRY400 -- the reason is the message, not a trace
+                    "Role %r: scope entry on %r unreadable, dropped (%s)",
+                    role_id,
+                    key,
+                    exc,
+                )
+        try:
+            check_scopes(permissions, {permission: readable})
+        except ValueError as exc:
+            logger.error(  # noqa: TRY400
+                "Role %r: scope on %r unusable, permission dropped (%s)",
+                role_id,
+                key,
+                exc,
+            )
+            kept_permissions.remove(permission)
+            continue
+        scopes[permission] = readable
+    return kept_permissions, scopes
 
 
 class Role(BaseModel):

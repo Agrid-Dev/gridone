@@ -273,15 +273,19 @@ class TestScopes:
         assert cleared.permissions == [Permission.DEVICES_READ]
 
 
+HELD = [Permission.DEVICES_READ, Permission.TIMESERIES_READ]
+
+
 class TestKnownScopes:
     def test_keeps_a_scope_the_role_can_still_carry(self):
-        kept = known_scopes(
+        permissions, scopes = known_scopes(
             {"devices:read": [{**THERMOSTATS, "attributes": ["temperature"]}]},
-            permissions=[Permission.DEVICES_READ],
+            permissions=HELD,
             role_id="x",
         )
 
-        assert kept == {
+        assert permissions == HELD
+        assert scopes == {
             Permission.DEVICES_READ: [
                 DeviceScope(
                     devices=DeviceSelector(types=["thermostat"]),
@@ -291,39 +295,68 @@ class TestKnownScopes:
         }
 
     @pytest.mark.parametrize(
-        ("stored", "permissions"),
+        "stored",
         [
-            pytest.param(
-                {"devices:teleport": [THERMOSTATS]},
-                [Permission.DEVICES_READ],
-                id="retired-permission",
-            ),
-            pytest.param(
-                {"devices:read": [THERMOSTATS]},
-                [Permission.TIMESERIES_READ],
-                id="permission-no-longer-held",
-            ),
-            pytest.param(
-                {"devices:read": []}, [Permission.DEVICES_READ], id="empty-list"
-            ),
+            pytest.param({"devices:teleport": [THERMOSTATS]}, id="retired-key"),
+            pytest.param({"assets:read": [THERMOSTATS]}, id="key-not-held"),
         ],
     )
-    def test_drops_a_scope_the_role_can_no_longer_carry(
-        self, stored: dict, permissions: list[Permission], caplog
-    ):
+    def test_ignores_a_key_that_narrows_nothing(self, stored: dict, caplog):
         with caplog.at_level("WARNING"):
-            kept = known_scopes(stored, permissions=permissions, role_id="x")
+            permissions, scopes = known_scopes(stored, permissions=HELD, role_id="x")
 
-        assert kept == {}
-        assert "unusable scope" in caplog.text
+        assert (permissions, scopes) == (HELD, {})
+        assert "ignored" in caplog.text
 
-    def test_drops_a_scope_with_a_field_the_shape_no_longer_knows(self, caplog):
-        with caplog.at_level("WARNING"):
-            kept = known_scopes(
-                {"devices:read": [{**THERMOSTATS, "floors": ["1"]}]},
-                permissions=[Permission.DEVICES_READ],
+    def test_drops_only_the_entry_it_cannot_read(self, caplog):
+        # A union of entries can only narrow: the readable one keeps the
+        # restriction in force rather than the role reading every device.
+        with caplog.at_level("ERROR"):
+            permissions, scopes = known_scopes(
+                {
+                    "devices:read": [
+                        {"devices": {"types": ["thermostat"], "tags": {"z": ["1"]}}},
+                        {"devices": {"driver_ids": ["vendor"]}},
+                    ]
+                },
+                permissions=HELD,
                 role_id="x",
             )
 
-        assert kept == {}
-        assert "unusable scope" in caplog.text
+        assert permissions == HELD
+        assert scopes == {
+            Permission.DEVICES_READ: [
+                DeviceScope(devices=DeviceSelector(driver_ids=["vendor"]))
+            ]
+        }
+        assert "dropped" in caplog.text
+
+    @pytest.mark.parametrize(
+        ("stored", "permissions"),
+        [
+            pytest.param(
+                {"devices:read": [{"devices": {"tags": {"z": ["1"]}}}]},
+                [Permission.DEVICES_READ, Permission.TIMESERIES_READ],
+                id="no-readable-entry",
+            ),
+            pytest.param(
+                {"devices:read": []},
+                [Permission.DEVICES_READ, Permission.TIMESERIES_READ],
+                id="empty-list",
+            ),
+            pytest.param(
+                {"devices:command": [THERMOSTATS]},
+                [Permission.DEVICES_COMMAND, Permission.TIMESERIES_READ],
+                id="held-but-not-scopable",
+            ),
+        ],
+    )
+    def test_fails_closed_by_dropping_the_permission_it_cannot_narrow(
+        self, stored: dict, permissions: list[Permission], caplog
+    ):
+        with caplog.at_level("ERROR"):
+            kept, scopes = known_scopes(stored, permissions=permissions, role_id="x")
+
+        assert kept == [Permission.TIMESERIES_READ]
+        assert scopes == {}
+        assert "permission dropped" in caplog.text

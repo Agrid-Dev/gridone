@@ -19,15 +19,17 @@ class PostgresRolesStorage:
         self._pool = pool
 
     def _row_to_model(self, row: asyncpg.Record) -> Role:
-        permissions = known_permissions(row["permissions"], role_id=row["id"])
+        permissions, scopes = known_scopes(
+            row["scopes"],
+            permissions=known_permissions(row["permissions"], role_id=row["id"]),
+            role_id=row["id"],
+        )
         return Role(
             id=row["id"],
             name=row["name"],
             description=row["description"],
             permissions=permissions,
-            scopes=known_scopes(
-                row["scopes"], permissions=permissions, role_id=row["id"]
-            ),
+            scopes=scopes,
         )
 
     async def get(self, role_id: str) -> Role | None:

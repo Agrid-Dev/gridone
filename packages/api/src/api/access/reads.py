@@ -13,6 +13,8 @@ from typing import TYPE_CHECKING, Any
 from models.errors import NotFoundError
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable
+
     from api.access.policy import AccessPolicy
     from devices_manager import DevicesServiceInterface
     from devices_manager.dto import FaultView
@@ -78,13 +80,32 @@ class ScopedDeviceReads:
         self, *, severity: Severity | None = None, device_id: str | None = None
     ) -> list[FaultView]:
         faults = self._dm.list_active_faults(severity=severity, device_id=device_id)
+        return self.filter_readable(
+            faults,
+            device_id=lambda f: f.device_id,
+            attribute=lambda f: f.attribute_name,
+        )
+
+    def filter_readable[T](
+        self,
+        items: Iterable[T],
+        *,
+        device_id: Callable[[T], str],
+        attribute: Callable[[T], str],
+    ) -> list[T]:
+        """Keep the rows about a device attribute the caller can read.
+
+        For rows the devices service did not produce (faults, command
+        history) and so were never projected.
+        """
         if self._policy.is_unrestricted:
-            return faults
+            return list(items)
         visible = {d.id: d.attributes for d in self.list_devices()}
         return [
-            f
-            for f in faults
-            if f.device_id in visible and f.attribute_name in visible[f.device_id]
+            item
+            for item in items
+            if device_id(item) in visible
+            and attribute(item) in visible[device_id(item)]
         ]
 
 

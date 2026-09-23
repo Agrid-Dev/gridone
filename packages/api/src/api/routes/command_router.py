@@ -8,6 +8,7 @@ the reusable (target, write) templates automations reference.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -111,6 +112,7 @@ async def list_commands(
     query: CommandsQuery = Depends(get_commands_query),
     pagination: PaginationParams = Depends(get_pagination_params),
     commands_svc: CommandsServiceInterface = Depends(get_commands_service),
+    reads: ScopedDeviceReads = Depends(get_device_reads),
 ) -> PaginatedResponse[UnitCommand]:
     page = await commands_svc.get_commands(
         ids=query.ids,
@@ -124,7 +126,24 @@ async def list_commands(
         sort=query.sort,
         pagination=pagination,
     )
-    return to_paginated_response(page, str(request.url))
+    return to_paginated_response(_readable_history(reads, page), str(request.url))
+
+
+def _readable_history(
+    reads: ScopedDeviceReads, page: Page[UnitCommand]
+) -> Page[UnitCommand]:
+    """A scoped caller sees the commands on attributes it can read.
+
+    The filter runs on the page, not in the query, so for a scoped caller
+    ``total`` counts every command and is an upper bound; unrestricted
+    callers are untouched.
+    """
+    if reads.is_unrestricted:
+        return page
+    items = reads.filter_readable(
+        page.items, device_id=lambda c: c.device_id, attribute=lambda c: c.attribute
+    )
+    return replace(page, items=items)
 
 
 @router.get(
@@ -137,7 +156,9 @@ async def list_device_commands(
     query: CommandsQuery = Depends(get_commands_query),
     pagination: PaginationParams = Depends(get_pagination_params),
     commands_svc: CommandsServiceInterface = Depends(get_commands_service),
+    reads: ScopedDeviceReads = Depends(get_device_reads),
 ) -> PaginatedResponse[UnitCommand]:
+    reads.get_device(device_id)  # NotFoundError → 404 if unknown or hidden
     # Path parameter always wins over a query-string device_id.
     page = await commands_svc.get_commands(
         ids=query.ids,
@@ -151,7 +172,7 @@ async def list_device_commands(
         sort=query.sort,
         pagination=pagination,
     )
-    return to_paginated_response(page, str(request.url))
+    return to_paginated_response(_readable_history(reads, page), str(request.url))
 
 
 def get_selection_commands(request: Request) -> SelectionCommands:
@@ -241,7 +262,9 @@ async def preview_single_command(
     """
     # The preview reads and expires loop-owned device state: it must run on the
     # event loop like every other route, never in a worker thread.
-    reads.get_device(device_id)  # a device the caller cannot read is a 404
+    # The preview carries the attribute's current value: an attribute the
+    # caller cannot read is a 404, as it is on every other read path.
+    reads.require_attribute(device_id, body.attribute)
     preview = dm.preview_device_write(device_id, body.attribute, body.value)
     token = None
     if (
