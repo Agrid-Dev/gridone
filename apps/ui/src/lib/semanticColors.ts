@@ -130,6 +130,22 @@ export const SEVERITY_LEVEL: Record<Severity, StatusLevel> = {
   info: "info",
 };
 
+/** Level a healthy fault attribute reads at. */
+const HEALTHY_LEVEL: StatusLevel = "ok";
+
+/** Level a fault of an unrecognised severity reads at: a severity the UI does
+ *  not know yet still has to read as a fault, never as healthy. */
+const UNKNOWN_SEVERITY_LEVEL: StatusLevel = "error";
+
+/** Level a fault attribute reads at, from its severity and current state. */
+export function faultLevel(fault: {
+  severity: Severity;
+  isFaulty: boolean;
+}): StatusLevel {
+  if (!fault.isFaulty) return HEALTHY_LEVEL;
+  return SEVERITY_LEVEL[fault.severity] ?? UNKNOWN_SEVERITY_LEVEL;
+}
+
 /**
  * Registry mapping a stored attribute (snake_case, as used for chart series
  * keys and `DeviceAttribute.name`) and one of its values to a semantic colour.

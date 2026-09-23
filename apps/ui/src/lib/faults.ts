@@ -4,6 +4,7 @@ import type {
   DataType,
   Device,
   Severity,
+  ValueLabel,
 } from "@gridone/sdk";
 import type { LocalizedText } from "@/lib/localizedText";
 import {
@@ -31,6 +32,7 @@ export type AttributeFields = {
   description?: LocalizedText | null;
   group?: string | null;
   unit?: string | null;
+  value_labels?: ValueLabel[] | null;
 };
 
 /** Typed view of a fault-kind attribute (severity + computed `is_faulty`). */

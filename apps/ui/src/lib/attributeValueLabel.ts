@@ -1,5 +1,7 @@
 import type { TFunction } from "i18next";
+import type { ValueLabel } from "@gridone/sdk";
 import { formatValue, type CellValue } from "./formatValue";
+import { localize } from "./localizedText";
 
 /**
  * Human labels for the enum values of standard device attributes.
@@ -75,16 +77,40 @@ export function attributeValueLabel(
   return key ? t(key, { defaultValue: String(value) }) : null;
 }
 
-/** What to show for an attribute value: its business label when this
- *  vocabulary covers it, the formatted wire value otherwise. */
+/** Wording of one boolean state: the driver's `value_labels` entry in the
+ *  given language when it declares one, else the localized True / False.
+ *  Never On / Off: the driver alone knows what each state means. */
+export function valueLabelText(
+  value: boolean,
+  t: TFunction<"common">,
+  valueLabels?: ValueLabel[] | null,
+  language = "",
+): string {
+  const declared = valueLabels?.find((entry) => entry.value === value);
+  if (declared) return localize(declared.label, language);
+  return t(value ? "common.true" : "common.false");
+}
+
+export type AttributeValueTextOptions = {
+  /** Data type used by the fallback formatter (floats to 2 decimals). */
+  dataType?: string;
+  /** The driver's wording of a boolean's two states, when it declares one. */
+  valueLabels?: ValueLabel[] | null;
+  /** Language the declared labels resolve in. */
+  language?: string;
+};
+
+/** What to show for an attribute value: the driver's wording for a boolean,
+ *  the business label when this vocabulary covers the value, the formatted
+ *  wire value otherwise. */
 export function attributeValueText(
   attributeName: string,
   value: CellValue,
   t: TFunction<"common">,
-  dataType?: string,
+  { dataType, valueLabels, language }: AttributeValueTextOptions = {},
 ): string {
   if (typeof value === "boolean")
-    return t(value ? "common.true" : "common.false");
+    return valueLabelText(value, t, valueLabels, language);
   return (
     attributeValueLabel(attributeName, value, t) ?? formatValue(value, dataType)
   );

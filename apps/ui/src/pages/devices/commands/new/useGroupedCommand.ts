@@ -1,10 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { z } from "zod";
 import type { Asset, AttributeCoverage, Device } from "@gridone/sdk";
 import type { AssetTreeNode } from "@/lib/assets";
-import type { AttributeValue } from "@/lib/devices";
 import { useAttributeCoverage } from "@/components/forms/targetPicker";
 import { currentValueFor } from "./resolvers";
 import {
@@ -47,7 +46,6 @@ export type GroupedCommand = {
   chooseScope: (scope: string) => void;
   chooseMode: (mode: CommandUrlState["mode"]) => void;
   chooseTypes: (types: string[] | undefined) => void;
-  changeValue: (value: AttributeValue | undefined) => void;
 };
 
 /** Compose the URL state, the device sets it resolves to, and the coverage of
@@ -82,6 +80,22 @@ export function useGroupedCommand({
     values: { value: url.value },
     mode: "onChange",
   });
+
+  // The URL holds the value the page shares and dispatches, so every control
+  // of the form mirrors into it here rather than one by one. Only a real edit
+  // writes back: `values:` re-hydrates the field one render after the URL
+  // changes, so mirroring the watched value instead would write the previous
+  // attribute's value over the new one. Continuous edit: replace, so a typed
+  // value costs one "back", not one per keystroke.
+  const write = useRef(update);
+  write.current = update;
+  useEffect(() => {
+    const subscription = form.watch((values, { name, type }) => {
+      if (name !== "value" || type !== "change") return;
+      write.current({ value: JSON.stringify(values.value) ?? "" }, true);
+    });
+    return () => subscription.unsubscribe();
+  }, [form]);
 
   // Restore contextual links without inferring a target from the attribute.
   // An explicit empty value means deliberately blank.
@@ -157,9 +171,5 @@ export function useGroupedCommand({
       }),
     chooseTypes: (next: string[] | undefined) =>
       update({ types: next?.join(",") }),
-    // Continuous edit: replace, so a typed value costs one "back", not one per
-    // keystroke — the URL stays shareable either way.
-    changeValue: (next: AttributeValue | undefined) =>
-      update({ value: JSON.stringify(next) ?? "" }, true),
   };
 }

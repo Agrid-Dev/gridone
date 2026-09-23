@@ -14,7 +14,10 @@ import {
   attributeValueChartColor,
   semanticChartColor,
 } from "@/lib/semanticColors";
+import type { ValueLabel } from "@gridone/sdk";
+import { valueLabelText } from "@/lib/attributeValueLabel";
 import type { MergedRow } from "@/lib/mergeTimeSeries";
+import { useDeviceHistoryContext } from "./DeviceHistoryContext";
 import {
   OTHER_VALUE,
   computeStateSegments,
@@ -28,14 +31,19 @@ const BOOL_OFF_COLOR = "hsl(var(--muted-foreground) / 0.35)";
 const NO_DATA_COLOR = "hsl(var(--muted))";
 
 /**
- * Display label for a state value. Booleans read as run states ("Marche" /
- * "Arrêt" — the dominant meaning of a recorded bool in a BMS); enum values go
- * through the shared HVAC-mode vocabulary and fall back to the raw value.
+ * Display label for a state value. Booleans read as the driver's wording for
+ * that state, or the localized True / False; enum values go through the
+ * shared HVAC-mode vocabulary and fall back to the raw value.
  */
-function valueLabel(t: TFunction<"common">, value: string): string {
-  const normalized =
-    value === "true" ? "on" : value === "false" ? "off" : value;
-  return t(`common.hvacMode.${normalized}` as "common.hvacMode.on", {
+function valueLabel(
+  t: TFunction<"common">,
+  value: string,
+  valueLabels: ValueLabel[] | null | undefined,
+  language: string,
+): string {
+  if (value === "true" || value === "false")
+    return valueLabelText(value === "true", t, valueLabels, language);
+  return t(`common.hvacMode.${value}` as "common.hvacMode.on", {
     defaultValue: value,
   });
 }
@@ -67,6 +75,9 @@ type StateTimelineProps = {
 export function StateTimeline({ attr, label, rows }: StateTimelineProps) {
   const { t, i18n } = useTranslation("common");
   const { t: tDevices } = useTranslation("devices");
+  const { valueLabels } = useDeviceHistoryContext();
+  const labelOf = (value: string) =>
+    valueLabel(t, value, valueLabels[attr], i18n.language);
 
   const { segments, shares } = useMemo(
     () => computeStateSegments(rows, attr),
@@ -105,7 +116,7 @@ export function StateTimeline({ attr, label, rows }: StateTimelineProps) {
   const shareLabel = (share: StateShare) =>
     share.value === OTHER_VALUE
       ? tDevices("history.otherValues")
-      : valueLabel(t, share.value);
+      : labelOf(share.value);
 
   return (
     <div>
@@ -147,7 +158,7 @@ export function StateTimeline({ attr, label, rows }: StateTimelineProps) {
               <p className="font-medium">
                 {segment.value === null
                   ? t("common.noData")
-                  : valueLabel(t, segment.value)}
+                  : labelOf(segment.value)}
               </p>
               <p className="text-xs text-muted-foreground">
                 {timeFormat.format(new Date(segment.startMs))} —{" "}

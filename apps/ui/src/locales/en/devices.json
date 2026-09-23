@@ -343,8 +343,7 @@
       "valueHint": {
         "int": "Integer value",
         "float": "Numeric value",
-        "str": "Text value",
-        "bool": "On / off"
+        "str": "Text value"
       },
       "currentValue": "Current value",
       "affectedDevices": "Devices ({{count}})",
@@ -353,8 +352,6 @@
       "dispatch": "Dispatch",
       "dispatching": "Dispatching…",
       "valueChange": "Value",
-      "on": "ON",
-      "off": "OFF",
       "summary": {
         "deviceCount_one": "{{count}} device",
         "deviceCount_other": "{{count}} devices",

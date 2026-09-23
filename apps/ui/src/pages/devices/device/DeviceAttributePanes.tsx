@@ -195,6 +195,7 @@ function AttributeRow({
                 ? { severity: fault.severity, isFaulty: fault.is_faulty }
                 : undefined
             }
+            valueLabels={attribute.value_labels}
           />
         )}
       </span>

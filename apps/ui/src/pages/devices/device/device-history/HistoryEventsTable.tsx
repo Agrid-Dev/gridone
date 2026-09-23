@@ -28,7 +28,7 @@ const PAGE_SIZE = 20;
  *  the state series, newest first, with URL-synced pagination. */
 export default function HistoryEventsTable() {
   const { t, i18n } = useTranslation(["devices", "common"]);
-  const { events, dataTypes, deviceType, commandsMap, usersMap } =
+  const { events, dataTypes, valueLabels, deviceType, commandsMap, usersMap } =
     useDeviceHistoryContext();
   const labelFor = useAttributeLabel();
 
@@ -39,11 +39,21 @@ export default function HistoryEventsTable() {
         locale: i18n.language,
         labelFor,
         dataTypes,
+        valueLabels,
         deviceType,
         commandsMap,
         usersMap,
       }),
-    [t, i18n.language, labelFor, dataTypes, deviceType, commandsMap, usersMap],
+    [
+      t,
+      i18n.language,
+      labelFor,
+      dataTypes,
+      valueLabels,
+      deviceType,
+      commandsMap,
+      usersMap,
+    ],
   );
 
   // URL-synced pagination (1-based in URL, 0-based internally)

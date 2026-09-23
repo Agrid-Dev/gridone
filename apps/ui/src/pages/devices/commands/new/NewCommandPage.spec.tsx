@@ -126,6 +126,8 @@ vi.mock("react-i18next", () =>
     "commands.grouped.nameRequired": "Enter a template name.",
     "commands.grouped.bounds.maximum": "Will be refused above {{bound}}.",
     "common:common.cancel": "Cancel",
+    "common.true": "True",
+    "common.false": "False",
   }),
 );
 
@@ -697,6 +699,106 @@ describe("grouped command page", () => {
       screen.queryByRole("button", { name: "Dispatch now" }),
     ).not.toBeInTheDocument();
     expect(mocks.listAttributes).not.toHaveBeenCalled();
+  });
+
+  it("reads a float with the attribute's precision, like the wizard review", async () => {
+    mount("/devices/commands/new?attribute=setpoint&value=23&ids=1,2");
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Dispatch now" }),
+      ).toBeEnabled(),
+    );
+    // A float reads with two decimals here and in the wizard review; the two
+    // screens of one flow must not disagree on the same value.
+    const lines = screen.getByRole("list");
+    expect(within(lines).getAllByText(/21\.00/)).toHaveLength(2);
+    expect(within(lines).getAllByText(/23\.00/)).toHaveLength(2);
+  });
+
+  describe("boolean attribute", () => {
+    const valueLabels = [
+      { value: false, label: { default: "Stopped" } },
+      { value: true, label: { default: "Running" } },
+    ];
+    function boolDevice(id: string, current = false) {
+      return device(id, 21, {
+        enabled: {
+          name: "enabled",
+          data_type: "bool",
+          read_write_modes: ["read", "write"],
+          current_value: current,
+          value_labels: valueLabels,
+        },
+      });
+    }
+    function mockBoolCoverage(value_labels: typeof valueLabels | null) {
+      mocks.listAttributes.mockResolvedValue({
+        total_devices: 2,
+        attributes: [
+          {
+            attribute: "enabled",
+            data_types: ["bool"],
+            device_count: 2,
+            writable_count: 2,
+            value_labels,
+          },
+        ],
+      });
+    }
+
+    /** The labelled switch: its two side buttons and the control itself. */
+    const control = () => screen.getByRole("switch").closest("div")!;
+    /** The review rail: one line per device that will receive the command. */
+    const reviewLines = () => screen.getByRole("list");
+
+    it("labels the switch and the review with the unanimous value_labels", async () => {
+      mocks.devices = [boolDevice("1"), boolDevice("2")];
+      mockBoolCoverage(valueLabels);
+      mount("/devices/commands/new?attribute=enabled&value=true&ids=1,2");
+      expect(await screen.findByRole("switch")).toBeChecked();
+      expect(within(control()).getByText("Stopped")).toBeInTheDocument();
+      expect(within(control()).getByText("Running")).toBeInTheDocument();
+      // Each device line reads `current → chosen` in the driver's wording.
+      expect(within(reviewLines()).getAllByText("Stopped")).toHaveLength(2);
+      expect(within(reviewLines()).getAllByText("Running")).toHaveLength(2);
+      expect(screen.queryByText(/^(ON|OFF|true|false)$/)).toBeNull();
+    });
+
+    it("falls back to False / True when the devices disagree on labels", async () => {
+      mocks.devices = [boolDevice("1"), boolDevice("2")];
+      mockBoolCoverage(null);
+      mount("/devices/commands/new?attribute=enabled&value=false&ids=1,2");
+      expect(await screen.findByRole("switch")).not.toBeChecked();
+      expect(within(control()).getByText("True")).toBeInTheDocument();
+      expect(within(control()).getByText("False")).toBeInTheDocument();
+      expect(within(reviewLines()).getAllByText("False")).toHaveLength(4);
+      expect(screen.queryByText("Stopped")).toBeNull();
+    });
+
+    it("reaches both states from an empty field", async () => {
+      // Devices disagree on the current value, so nothing is prefilled.
+      mocks.devices = [boolDevice("1", true), boolDevice("2", false)];
+      mockBoolCoverage(null);
+      mount("/devices/commands/new?attribute=enabled&ids=1,2");
+      const toggle = await screen.findByRole("switch");
+      expect(toggle).not.toBeChecked();
+      expect(
+        screen.getByRole("button", { name: "Dispatch now" }),
+      ).toBeDisabled();
+
+      await userEvent.click(toggle);
+      expect(screen.getByRole("switch")).toBeChecked();
+      await waitFor(() =>
+        expect(
+          screen.getByRole("button", { name: "Dispatch now" }),
+        ).toBeEnabled(),
+      );
+      // Back to the other state: both are reachable from an empty field.
+      await userEvent.click(screen.getByRole("switch"));
+      expect(screen.getByRole("switch")).not.toBeChecked();
+      expect(within(reviewLines()).getAllByText("False")).toHaveLength(3);
+      expect(within(reviewLines()).getAllByText("True")).toHaveLength(1);
+    });
   });
 
   it("requires a template name and keeps named saves separate from dispatch", async () => {

@@ -343,8 +343,7 @@
       "valueHint": {
         "int": "Valeur entière",
         "float": "Valeur numérique",
-        "str": "Valeur texte",
-        "bool": "Marche / arrêt"
+        "str": "Valeur texte"
       },
       "currentValue": "Valeur actuelle",
       "affectedDevices": "Appareils ({{count}})",
@@ -353,8 +352,6 @@
       "dispatch": "Envoyer",
       "dispatching": "Envoi…",
       "valueChange": "Valeur",
-      "on": "ON",
-      "off": "OFF",
       "summary": {
         "deviceCount_one": "{{count}} appareil",
         "deviceCount_other": "{{count}} appareils",

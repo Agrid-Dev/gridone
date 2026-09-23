@@ -16,8 +16,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SwitchController } from "@/components/forms/controllers/SwitchController";
 import { AttributeCoverageSelect } from "@/components/forms/targetPicker";
-import type { AttributeValue, DevicesFilter } from "@/lib/devices";
+import { useValueLabel } from "@/hooks/useValueLabel";
+import type { DevicesFilter } from "@/lib/devices";
+import { SelectController } from "@/components/forms/controllers/SelectController";
+import { useBooleanField } from "./booleanField";
 import {
   currentRange,
   currentValues,
@@ -41,7 +45,6 @@ type Props = {
   /** No coverage row for a chosen attribute: it is not on the selection. */
   unavailable: boolean;
   onAttributeChange: (attribute: string) => void;
-  onValueChange: (value: AttributeValue | undefined) => void;
 };
 
 export function GroupedCommandFields({
@@ -54,7 +57,6 @@ export function GroupedCommandFields({
   disabled,
   unavailable,
   onAttributeChange,
-  onValueChange,
 }: Props) {
   const { t } = useTranslation("devices");
   const bounds = inputBounds(coverage);
@@ -63,8 +65,16 @@ export function GroupedCommandFields({
   const options =
     projectedOptions?.map((option) => option.value) ?? coverage?.value_options;
   const unit = coverage?.unit;
-  const range = currentRange(eligible, attribute);
-  const mixed = currentValues(eligible, attribute).length > 1;
+  const labelFor = useValueLabel();
+  const booleanField = useBooleanField();
+  const values = currentValues(eligible, attribute);
+  const range =
+    dataType === "bool"
+      ? values
+          .map((value) => labelFor(value === true, coverage?.value_labels))
+          .join(", ")
+      : currentRange(eligible, attribute);
+  const mixed = values.length > 1;
   return (
     <div className="space-y-6">
       {!hasSelection && (
@@ -90,7 +100,29 @@ export function GroupedCommandFields({
           </FieldDescription>
         )}
       </Field>
-      {coverage && (
+      {coverage &&
+        dataType === "bool" &&
+        (() => {
+          const field = booleanField(coverage.value_labels, projectedOptions);
+          const shared = {
+            control: form.control,
+            name: "value" as const,
+            label: `${t("commands.value")}${unit ? ` (${unit})` : ""}`,
+            description: mixed
+              ? t("commands.grouped.currentRange", { range, unit: unit ?? "" })
+              : undefined,
+          };
+          return field.kind === "switch" ? (
+            <SwitchController {...shared} sides={field.sides} />
+          ) : (
+            <SelectController
+              {...shared}
+              options={field.options}
+              placeholder={t("commands.grouped.chooseValue")}
+            />
+          );
+        })()}
+      {coverage && dataType !== "bool" && (
         <Controller
           control={form.control}
           name="value"
@@ -100,15 +132,12 @@ export function GroupedCommandFields({
                 {t("commands.value")}
                 {unit ? ` (${unit})` : ""}
               </FieldLabel>
-              {dataType === "bool" || !!options?.length ? (
+              {options?.length ? (
                 <Select
                   value={
                     field.value === undefined ? "" : JSON.stringify(field.value)
                   }
-                  onValueChange={(value) => {
-                    field.onChange(JSON.parse(value));
-                    onValueChange(JSON.parse(value));
-                  }}
+                  onValueChange={(value) => field.onChange(JSON.parse(value))}
                 >
                   <SelectTrigger
                     id="command-value"
@@ -119,23 +148,19 @@ export function GroupedCommandFields({
                     />
                   </SelectTrigger>
                   <SelectContent>
-                    {(options?.length ? options : [false, true]).map(
-                      (value) => (
-                        <SelectItem
-                          key={JSON.stringify(value)}
-                          value={JSON.stringify(value)}
-                          disabled={
-                            projectedOptions?.find(
-                              (option) => option.value === value,
-                            )?.available === false
-                          }
-                        >
-                          {typeof value === "boolean"
-                            ? t(value ? "commands.new.on" : "commands.new.off")
-                            : String(value)}
-                        </SelectItem>
-                      ),
-                    )}
+                    {options.map((value) => (
+                      <SelectItem
+                        key={JSON.stringify(value)}
+                        value={JSON.stringify(value)}
+                        disabled={
+                          projectedOptions?.find(
+                            (option) => option.value === value,
+                          )?.available === false
+                        }
+                      >
+                        {String(value)}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               ) : (
@@ -159,7 +184,6 @@ export function GroupedCommandFields({
                           ? undefined
                           : event.currentTarget.valueAsNumber;
                     field.onChange(value);
-                    onValueChange(value);
                   }}
                 />
               )}

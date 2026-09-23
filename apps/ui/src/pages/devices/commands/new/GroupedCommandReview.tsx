@@ -13,7 +13,9 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { useValueText } from "@/hooks/useValueText";
 import { deviceAttributes } from "@/lib/devices";
+import type { CellValue } from "@/lib/formatValue";
 import { serverErrorMessage } from "@/lib/serverErrorMessage";
 import { constraintWarnings, type CommandDisplay } from "./groupedCommand";
 import type { CommandPayload } from "./groupedCommand";
@@ -41,6 +43,7 @@ export function GroupedCommandReview({
   actions,
 }: Props) {
   const { t } = useTranslation(["devices", "common"]);
+  const valueText = useValueText();
   const snapshot = actions.snapshot;
   const tracking = !!snapshot;
   const shown = snapshot ?? { payload, devices };
@@ -74,7 +77,13 @@ export function GroupedCommandReview({
             ? t("commands.grouped.pickAttribute")
             : t("commands.grouped.setting", {
                 attribute: display.label || "—",
-                value: write.value === "" ? "—" : write.value,
+                value:
+                  write.value === ""
+                    ? "—"
+                    : valueText(write.attribute, write.value, {
+                        valueLabels: display.valueLabels,
+                        dataType: display.dataType,
+                      }),
                 unit: display.unit ?? "",
               })}
         </p>
@@ -140,7 +149,12 @@ export function GroupedCommandReview({
                           )}
                       </>
                     ) : (
-                      <PreviewLine device={device} write={write} />
+                      <PreviewLine
+                        device={device}
+                        write={write}
+                        valueLabels={display.valueLabels}
+                        dataType={display.dataType}
+                      />
                     )}
                   </li>
                 );
@@ -279,11 +293,16 @@ export function GroupedCommandReview({
 function PreviewLine({
   device,
   write,
+  valueLabels,
+  dataType,
 }: {
   device: Device;
   write: CommandPayload["write"];
+  valueLabels: CommandDisplay["valueLabels"];
+  dataType: CommandDisplay["dataType"];
 }) {
   const { t } = useTranslation("devices");
+  const valueText = useValueText();
   const attr = deviceAttributes(device)[write.attribute];
   const { warnings, dynamic } = constraintWarnings(
     device,
@@ -295,11 +314,21 @@ function PreviewLine({
     <>
       <p className="flex items-center gap-2 text-sm tabular-nums">
         <span className="text-muted-foreground">
-          {String(attr?.current_value ?? "—")} {unit}
+          {valueText(write.attribute, attr?.current_value as CellValue, {
+            valueLabels,
+            dataType,
+          })}{" "}
+          {unit}
         </span>
         <ArrowRight className="h-3.5 w-3.5" />
         <span className="font-semibold text-primary">
-          {String(write.value === "" ? "—" : write.value)} {unit}
+          {write.value === ""
+            ? "—"
+            : valueText(write.attribute, write.value, {
+                valueLabels,
+                dataType,
+              })}{" "}
+          {unit}
         </span>
       </p>
       {warnings.map(({ kind, bound }) => (

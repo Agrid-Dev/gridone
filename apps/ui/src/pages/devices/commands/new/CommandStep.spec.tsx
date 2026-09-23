@@ -31,6 +31,8 @@ vi.mock("react-i18next", () =>
     "pickers.attribute.mixedTypes": "mixed data types",
     "commands.new.noCompatibleTitle": "No compatible attributes",
     "commands.new.noCompatibleDescription": "No attributes found",
+    "common.true": "True",
+    "common.false": "False",
   }),
 );
 
@@ -94,7 +96,10 @@ function coverageRow(
   };
 }
 
+let coverageRows: AttributeCoverage[] = [];
+
 function mockCoverage(rows: AttributeCoverage[]) {
+  coverageRows = rows;
   mockUseQuery.mockReturnValue({
     data: { total_devices: rows.length ? 1 : 0, attributes: rows },
     isLoading: false,
@@ -122,6 +127,9 @@ function Wrapper({
       selectedDevices={selectedDevices}
       selectedAttribute={selectedAttribute}
       selectedDataType={selectedDataType}
+      selectedCoverage={coverageRows.find(
+        (row) => row.attribute === selectedAttribute,
+      )}
     />
   );
 }
@@ -253,6 +261,90 @@ describe("CommandStep value input", () => {
     );
     // WeatherSensor has no mode renderer — no badge icon classes
     expect(document.querySelector(".lucide-sun, .lucide-snowflake")).toBeNull();
+  });
+
+  it("labels the boolean switch with the driver's value_labels", () => {
+    // The server always projects [false, true] as write options for a
+    // boolean; that must not turn the switch into a select.
+    mockCoverage([
+      {
+        ...coverageRow("onoff_state", "bool"),
+        value_labels: [
+          { value: false, label: { default: "Stopped" } },
+          { value: true, label: { default: "Running" } },
+        ],
+        write_state: {
+          options: [
+            { value: false, available: true },
+            { value: true, available: true },
+          ],
+        },
+      },
+    ]);
+    render(
+      <Wrapper
+        selectedAttribute="onoff_state"
+        selectedDataType="bool"
+        selectedDevices={[
+          device("d1", null, [attr("onoff_state", { dataType: "bool" })]),
+        ]}
+      />,
+    );
+    expect(screen.getByText("Stopped")).toBeInTheDocument();
+    expect(screen.getByText("Running")).toBeInTheDocument();
+    // The wizard keeps one `value` field across attributes, so a string left
+    // by the previous one reads as neither state, not as "on".
+    expect(screen.getByRole("switch")).not.toBeChecked();
+  });
+
+  it("falls back to False / True on the switch, never ON / OFF", () => {
+    mockCoverage([coverageRow("radar_enable", "bool")]);
+    render(
+      <Wrapper
+        selectedAttribute="radar_enable"
+        selectedDataType="bool"
+        selectedDevices={[
+          device("d1", null, [attr("radar_enable", { dataType: "bool" })]),
+        ]}
+      />,
+    );
+    expect(screen.getByText("False")).toBeInTheDocument();
+    expect(screen.getByText("True")).toBeInTheDocument();
+    expect(screen.queryByText(/^(ON|OFF)$/)).toBeNull();
+  });
+
+  it("moves to the two states as options when the projection constrains one", () => {
+    mockCoverage([
+      {
+        ...coverageRow("onoff_state", "bool"),
+        write_state: {
+          options: [
+            { value: false, available: true },
+            {
+              value: true,
+              available: false,
+              reasons: [
+                { code: "blocked", message: { default: "Filter running" } },
+              ],
+            },
+          ],
+        },
+      },
+    ]);
+    render(
+      <Wrapper
+        selectedAttribute="onoff_state"
+        selectedDataType="bool"
+        selectedDevices={[
+          device("d1", null, [attr("onoff_state", { dataType: "bool" })]),
+        ]}
+      />,
+    );
+    // A switch has one transition and cannot say which state is refused, so a
+    // constrained attribute reads as options carrying their reason.
+    expect(screen.queryByRole("switch")).toBeNull();
+    expect(screen.getAllByRole("combobox")).toHaveLength(2);
+    expect(screen.getByText("True: Filter running")).toBeInTheDocument();
   });
 
   it("renders an alert when the target has no writable attribute", () => {

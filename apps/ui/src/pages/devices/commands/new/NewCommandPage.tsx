@@ -71,6 +71,9 @@ export default function NewCommandPage() {
       ? localize(coverage.label, i18n.language)
       : toLabel(url.attribute),
     unit: coverage?.unit,
+    dataType:
+      coverage?.data_types.length === 1 ? coverage.data_types[0] : undefined,
+    valueLabels: coverage?.value_labels,
   };
 
   const scopeSelect = (
@@ -199,7 +202,6 @@ export default function NewCommandPage() {
                 }
                 unavailable={!command.isLoading && !coverage && !!url.attribute}
                 onAttributeChange={command.chooseAttribute}
-                onValueChange={command.changeValue}
               />
             </CardContent>
           </Card>
