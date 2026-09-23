@@ -120,7 +120,8 @@ def _build_attribute(
             read_write_modes=modes,
             current_value=current_value,
             last_updated=last_updated,
-            last_changed=last_changed,
+            # A standard attribute may never have changed since its first value.
+            last_changed=last_changed or last_updated,
             healthy_values=attribute_driver.healthy_values,
             severity=attribute_driver.severity,
             **_metadata_kwargs(attribute_driver),
