@@ -34,6 +34,14 @@ vi.mock("react-i18next", () =>
     "faults.count": "{{count}} faults",
     "faults.columns.device": "Device",
     "common:common.edit": "Edit",
+    "editor.new": "New synoptic",
+    "switcher.label": "Switch synoptic",
+    "switcher.search": "Search a synoptic",
+    "switcher.previous": "Previous synoptic",
+    "switcher.next": "Next synoptic",
+    "switcher.position": "{{position}} / {{total}}",
+    "switcher.pin": "Open Synoptics on this view",
+    "switcher.pinned": "Opens Synoptics",
   }),
 );
 
@@ -116,6 +124,15 @@ const SUMMARIES: SynopticSummary[] = [
   { id: "ecs", name: "ECS Est", projection: "isometric", metadata: {} },
   { id: "west", name: "ECS Ouest", projection: "isometric", metadata: {} },
 ];
+const WEST: Synoptic = {
+  id: "west",
+  name: "ECS Ouest",
+  metadata: {},
+  projection: "isometric",
+  symbols: [],
+  pipes: [],
+  labels: [],
+};
 const PAC: Device = {
   id: "PAC-03",
   name: "PAC 03",
@@ -136,14 +153,14 @@ const fault = (device_id: string): FaultView => ({
   last_changed: "2026-09-01T00:00:00Z",
 });
 
-function renderDetail() {
+function renderDetail(doc: Synoptic = DOC) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   const client = {
     synoptics: {
       list: vi.fn(async () => ({ items: SUMMARIES })),
-      get: vi.fn(async () => DOC),
+      get: vi.fn(async (id: string) => (id === "west" ? WEST : doc)),
     },
   } as unknown as GridoneClient;
   render(
@@ -168,6 +185,7 @@ const popover = () => screen.queryByLabelText("Selected device");
 const faultBadge = () => document.querySelector("[data-fault-count]");
 
 beforeEach(() => {
+  window.localStorage.clear();
   // jsdom lays nothing out: the plate cannot place a popover's anchor, and
   // says so with null, as a browser does before layout.
   Object.defineProperty(SVGGElement.prototype, "getScreenCTM", {
@@ -194,6 +212,7 @@ afterEach(() => {
   permissions.write = false;
   mockUseFaultsList.mockReset();
   mockUseDeviceById.mockReset();
+  window.localStorage.clear();
 });
 
 describe("SynopticDetail", () => {
@@ -322,5 +341,99 @@ describe("SynopticDetail", () => {
     );
     // The popover showed a device of the plate left behind.
     await waitFor(() => expect(popover()).toBeNull());
+  });
+});
+
+describe("SynopticDetail switching", () => {
+  const pin = () =>
+    screen.getByRole("button", { name: "Open Synoptics on this view" });
+  const position = () =>
+    document.querySelector("[data-synoptic-position]")?.textContent;
+
+  it("remembers the plate on screen as the last one seen", async () => {
+    renderDetail();
+    await screen.findByText("ECS Est");
+    await waitFor(() =>
+      expect(window.localStorage.getItem("gridone.synoptics.last")).toBe("ecs"),
+    );
+  });
+
+  it("shows the plate's description under its title", async () => {
+    renderDetail({ ...DOC, description: "Domestic hot water, east wing" });
+    expect(
+      await screen.findByText("Domestic hot water, east wing"),
+    ).toBeInTheDocument();
+  });
+
+  it("pins the plate on screen as the one Synoptics opens, and unpins it", async () => {
+    renderDetail();
+    await screen.findByText("ECS Est");
+    expect(pin().getAttribute("aria-pressed")).toBe("false");
+
+    await userEvent.click(pin());
+    expect(pin().getAttribute("aria-pressed")).toBe("true");
+    expect(window.localStorage.getItem("gridone.synoptics.default")).toBe(
+      "ecs",
+    );
+
+    await userEvent.click(pin());
+    expect(pin().getAttribute("aria-pressed")).toBe("false");
+    expect(window.localStorage.getItem("gridone.synoptics.default")).toBeNull();
+  });
+
+  it("shows the plate as pinned when it was pinned before", async () => {
+    window.localStorage.setItem("gridone.synoptics.default", "ecs");
+    renderDetail();
+    await screen.findByText("ECS Est");
+    expect(pin().getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("offers a new plate to those who may write, and to nobody else", async () => {
+    renderDetail();
+    await screen.findByText("ECS Est");
+    expect(screen.queryByRole("link", { name: "New synoptic" })).toBeNull();
+    cleanup();
+    permissions.write = true;
+    renderDetail();
+    await screen.findByText("ECS Est");
+    expect(
+      screen.getByRole("link", { name: "New synoptic" }).getAttribute("href"),
+    ).toBe("/synoptics/new");
+  });
+
+  it("steps to the next plate's route and remembers it", async () => {
+    const client = renderDetail();
+    await screen.findByText("ECS Est");
+    expect(position()).toBe("1 / 2");
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Next synoptic" }),
+    );
+
+    await screen.findByText("ECS Ouest");
+    expect(client.synoptics.get).toHaveBeenLastCalledWith("west");
+    expect(position()).toBe("2 / 2");
+    await waitFor(() =>
+      expect(window.localStorage.getItem("gridone.synoptics.last")).toBe(
+        "west",
+      ),
+    );
+  });
+
+  it("opens another plate from the title's menu", async () => {
+    const client = renderDetail();
+    await screen.findByText("ECS Est");
+
+    await userEvent.click(
+      document.querySelector<HTMLElement>("[data-synoptic-switcher]")!,
+    );
+    await userEvent.click(
+      document.querySelector<HTMLElement>("[data-synoptic-option='west']")!,
+    );
+
+    await waitFor(() =>
+      expect(client.synoptics.get).toHaveBeenLastCalledWith("west"),
+    );
+    expect(await screen.findByText("2 / 2")).toBeInTheDocument();
   });
 });

@@ -100,5 +100,16 @@
     },
     "mode": "Mode",
     "discard": "Abandonner les modifications non enregistrées ?"
+  },
+  "switcher": {
+    "label": "Changer de synoptique",
+    "search": "Rechercher un synoptique",
+    "empty": "Aucun synoptique ne correspond.",
+    "previous": "Synoptique précédent",
+    "next": "Synoptique suivant",
+    "position": "{{position}} / {{total}}",
+    "pin": "Ouvrir Synoptiques sur cette vue",
+    "pinned": "Vue d'ouverture",
+    "current": "Vue affichée"
   }
 }

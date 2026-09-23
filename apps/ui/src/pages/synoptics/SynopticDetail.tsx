@@ -1,4 +1,4 @@
-import { useCallback, useMemo, type FC } from "react";
+import { useCallback, useEffect, useMemo, useState, type FC } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import type { Synoptic } from "@gridone/sdk";
@@ -12,8 +12,14 @@ import { usePermissions } from "@/contexts/AuthContext";
 import { useSynopticValues } from "@/hooks/useSynopticValues";
 import { FaultsTable } from "@/pages/faults/components/FaultsTable";
 import { useFaultsPage, type FaultRow } from "@/pages/faults/useFaultsPage";
+import {
+  readDefaultSynoptic,
+  writeDefaultSynoptic,
+  writeLastSynoptic,
+} from "@/lib/synopticPreference";
 import { PlateView } from "./PlateView";
-import { useSynopticPage } from "./useSynoptics";
+import { SynopticStepper, SynopticSwitcher } from "./SynopticSwitcher";
+import { useSynopticPage, useSynoptics } from "./useSynoptics";
 
 /** The devices the plate's symbols are: what a click opens and what the
  *  fault list is scoped to. What a symbol reads is not what it is. */
@@ -53,34 +59,64 @@ const SynopticDetailContent: FC = () => {
   const navigate = useNavigate();
   const can = usePermissions();
   const { doc, knownSynoptics } = useSynopticPage();
+  const synoptics = useSynoptics();
+  const [pinned, setPinned] = useState(readDefaultSynoptic);
   const values = useSynopticValues(doc);
   const deviceIds = useMemo(() => symbolDeviceIds(doc), [doc]);
   const faults = useFaultsPage(deviceIds);
+
+  // What `/synoptics` reopens when nothing is pinned.
+  useEffect(() => writeLastSynoptic(doc.id), [doc.id]);
 
   const onNavigate = useCallback(
     (target: string) => navigate(`/synoptics/${encodeURIComponent(target)}`),
     [navigate],
   );
+  const onPin = useCallback((id: string | null) => {
+    writeDefaultSynoptic(id);
+    setPinned(id);
+  }, []);
 
   return (
     <div className="flex flex-col gap-6">
       <ResourceHeader
-        title={doc.name}
+        title={
+          <SynopticSwitcher
+            current={doc}
+            synoptics={synoptics}
+            pinned={pinned}
+            onNavigate={onNavigate}
+          />
+        }
+        caption={doc.description}
         status={
-          !faults.loading &&
-          faults.rows.length > 0 && (
-            <Badge variant="destructive" data-fault-count>
-              {t("faults.count", { count: faults.rows.length })}
-            </Badge>
-          )
+          <>
+            <SynopticStepper
+              current={doc}
+              synoptics={synoptics}
+              pinned={pinned}
+              onNavigate={onNavigate}
+              onPin={onPin}
+            />
+            {!faults.loading && faults.rows.length > 0 && (
+              <Badge variant="destructive" data-fault-count>
+                {t("faults.count", { count: faults.rows.length })}
+              </Badge>
+            )}
+          </>
         }
         actions={
           can("synoptics:write") && (
-            <Button asChild variant="outline">
-              <Link to={`/synoptics/${encodeURIComponent(doc.id)}/edit`}>
-                {t("common:common.edit")}
-              </Link>
-            </Button>
+            <>
+              <Button asChild variant="outline">
+                <Link to={`/synoptics/${encodeURIComponent(doc.id)}/edit`}>
+                  {t("common:common.edit")}
+                </Link>
+              </Button>
+              <Button asChild>
+                <Link to="/synoptics/new">{t("editor.new")}</Link>
+              </Button>
+            </>
           )
         }
       />
