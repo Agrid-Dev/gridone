@@ -21,6 +21,27 @@ export function square(x: number, y: number, w: number, d: number): Pt[] {
   ];
 }
 
+/** A vessel with dished ends standing along `y` (ISO 14617 symbol 2062):
+ *  a rectangle `2 * hw` wide and `2 * hh` tall whose top and bottom edges
+ *  bulge out by `bulge`, as a shallow arc of `n` points each. */
+export function dishedPts(
+  c: Pt,
+  hw: number,
+  hh: number,
+  bulge: number,
+  n = 12,
+): Pt[] {
+  const arc = (sign: number) =>
+    Array.from({ length: n + 1 }, (_, i) => {
+      const t = i / n;
+      const x = c.x - hw + 2 * hw * t;
+      // A half sine: flat at the corners, `bulge` out at the middle.
+      const y = c.y + sign * (hh + bulge * Math.sin(Math.PI * t));
+      return sign < 0 ? { x, y } : { x: c.x + hw - 2 * hw * t, y };
+    });
+  return [...arc(-1), ...arc(1)];
+}
+
 /** A stadium standing along `y`: two half-circles of radius `r` joined by
  *  straight sides `2 * dy` long. */
 export function capsulePts(c: Pt, r = 0.24, dy = 0.14): Pt[] {

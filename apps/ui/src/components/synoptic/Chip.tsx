@@ -1,10 +1,12 @@
+import type { Severity } from "@gridone/sdk";
+import { FAULT_STROKE_CLASS, faultLevel } from "./fault";
 import { LABEL_SIZE } from "./symbols/Label";
 import { textWidth } from "./text";
 import type { Pt } from "./types";
-import { readingState, type SlotReading } from "./values";
+import { readingState, type ReadingState, type SlotReading } from "./values";
 
-export const CHIP_H = 22;
-const CHIP_PAD = 8;
+export const CHIP_H = 20;
+const CHIP_PAD = 7;
 const VALUE_SIZE = 12;
 const UNIT_SIZE = 11;
 /** Space between a value and its unit. */
@@ -27,27 +29,43 @@ type ChipProps = {
   reading: SlotReading;
   /** Uppercase caption above the chip. */
   label?: string;
+  /** The native tooltip: what the reading is and when it was read. */
+  title?: string | null;
 };
 
 /** Width the unit takes after a value, gap included; 0 without one. */
 export const unitWidth = (unit: string | null) =>
   unit ? textWidth(unit, UNIT_SIZE) + UNIT_GAP : 0;
 
-export const chipWidth = (text: string, unit: string | null = null) =>
-  Math.max(36, textWidth(text, VALUE_SIZE) + unitWidth(unit) + 2 * CHIP_PAD);
+/** Width of a value on the plate: a framed chip, or a bare note for a
+ *  literal, which needs no padding. */
+export const chipWidth = (
+  text: string,
+  unit: string | null = null,
+  literal = false,
+) =>
+  literal
+    ? textWidth(text, UNIT_SIZE)
+    : Math.max(
+        36,
+        textWidth(text, VALUE_SIZE) + unitWidth(unit) + 2 * CHIP_PAD,
+      );
 
-/** Frame of a chip or panel: the error colour on a faulty device, muted
+/** Frame of a chip or panel: the fault's colour on a faulty device, muted
  *  for an old or missing value, the border otherwise. */
-export const frameClass = (faulty: boolean, muted: boolean) =>
-  faulty
-    ? "fill-card stroke-status-error"
+export const frameClass = (fault: Severity | null, muted: boolean) =>
+  fault
+    ? `fill-card ${FAULT_STROKE_CLASS[fault]}`
     : muted
       ? "fill-card stroke-muted-foreground"
       : "fill-card stroke-border";
 
-/** Text of a value: muted once it is old or missing. */
-export const valueClass = (muted: boolean) =>
-  muted ? "fill-muted-foreground tabular-nums" : "fill-foreground tabular-nums";
+/** Text of a value: the reading colour while live, muted once old,
+ *  missing or a mere note. */
+export const valueClass = (state: ReadingState) =>
+  state === "live"
+    ? "fill-synoptic-reading tabular-nums"
+    : "fill-muted-foreground tabular-nums";
 
 type CaptionProps = {
   at: Pt;
@@ -96,21 +114,57 @@ export function Unit({ at, unit, anchor = "start" }: UnitProps) {
 }
 
 /**
- * A value on the plate, never bare text. Stale is a dashed muted border
- * with muted text; silent is a dash; a faulty device's tag takes the error
- * border. The label above never changes with the value.
+ * A value on the plate, never bare text: a live reading in the reading
+ * colour on a card. Stale is a dashed muted border with muted text;
+ * silent is a dash; a faulty device's tag takes the error border. A
+ * literal of the document is a note, muted and unframed: it is a fact the
+ * drawing states, not a value a device sends. The label above never
+ * changes with the value.
  */
-export function Chip({ at, reading, label }: ChipProps) {
+export function Chip({ at, reading, label, title }: ChipProps) {
   const { text, unit, stale, faulty } = reading;
   const state = readingState(reading);
   const muted = state !== "live";
+  const fault = faultLevel(faulty, reading.severity);
   const shown = text ?? SILENT_TEXT;
-  const w = chipWidth(shown, unit);
+  const w = chipWidth(shown, unit, state === "note");
+  if (state === "note") {
+    return (
+      <g data-chip={state}>
+        {title && <title>{title}</title>}
+        {label && (
+          <Caption
+            at={{ x: at.x, y: at.y - CHIP_H / 2 - LABEL_GAP }}
+            text={label}
+          />
+        )}
+        <rect
+          x={at.x - w / 2}
+          y={at.y - CHIP_H / 2}
+          width={w}
+          height={CHIP_H}
+          fill="none"
+          stroke="none"
+        />
+        <text
+          x={at.x}
+          y={at.y + 4}
+          textAnchor="middle"
+          fontSize={UNIT_SIZE}
+          fontStyle="italic"
+          className="fill-muted-foreground"
+        >
+          {shown}
+        </text>
+      </g>
+    );
+  }
   // The value and unit centre together: the value shifts left by half the
   // unit's width and the unit starts right after it.
   const vx = at.x - unitWidth(unit) / 2;
   return (
     <g data-chip={state}>
+      {title && <title>{title}</title>}
       {label && (
         <Caption
           at={{ x: at.x, y: at.y - CHIP_H / 2 - LABEL_GAP }}
@@ -123,9 +177,9 @@ export function Chip({ at, reading, label }: ChipProps) {
         width={w}
         height={CHIP_H}
         rx={FRAME_RADIUS}
-        strokeWidth={faulty ? FAULT_STROKE : 1}
+        strokeWidth={fault ? FAULT_STROKE : 1}
         strokeDasharray={stale ? "3 2" : undefined}
-        className={frameClass(faulty, muted)}
+        className={frameClass(fault, muted)}
       />
       <text
         x={vx}
@@ -133,7 +187,7 @@ export function Chip({ at, reading, label }: ChipProps) {
         textAnchor="middle"
         fontSize={VALUE_SIZE}
         fontWeight={600}
-        className={valueClass(muted)}
+        className={valueClass(state)}
       >
         {shown}
       </text>

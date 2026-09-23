@@ -13,6 +13,7 @@ import {
   isStale,
   targetDeviceId,
   targetKey,
+  type DeviceFacts,
   type SlotReading,
   type SynopticValues,
 } from "@/components/synoptic/values";
@@ -21,7 +22,7 @@ import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { DEVICE_POLL_INTERVAL_MS } from "@/hooks/useDevice";
 import { useNow } from "@/hooks/useNow";
 import { deviceAttributes, devicesFilterToListParams } from "@/lib/devices";
-import type { AttributeFields } from "@/lib/faults";
+import { getHighestActiveSeverity, type AttributeFields } from "@/lib/faults";
 
 /** `at` is the time cursor a later version reads values at; v1 ignores
  *  it, so adding the cursor is an addition rather than a refactor. */
@@ -180,6 +181,13 @@ export const useSynopticValues: UseSynopticValues = (doc) => {
   });
 
   return useMemo(() => {
+    const facts: Record<string, DeviceFacts> = {};
+    for (const [id, device] of Object.entries(devices)) {
+      facts[id] = {
+        faulty: device.is_faulty === true,
+        severity: getHighestActiveSeverity(device),
+      };
+    }
     const readings: Record<string, SlotReading> = {};
     const defaultStaleAfter = doc.defaults?.stale_after;
     for (const { key, slot } of slots) {
@@ -191,7 +199,9 @@ export const useSynopticValues: UseSynopticValues = (doc) => {
             | AttributeFields
             | undefined)
         : undefined;
-      const faulty = device?.is_faulty === true;
+      const known = id ? facts[id] : undefined;
+      const faulty = known?.faulty ?? false;
+      const severity = known?.severity ?? null;
       if (!attr || attr.current_value == null || !attr.last_updated) {
         readings[key] = {
           text: null,
@@ -199,6 +209,8 @@ export const useSynopticValues: UseSynopticValues = (doc) => {
           raw: null,
           stale: false,
           faulty,
+          severity,
+          lastUpdated: null,
         };
         continue;
       }
@@ -211,12 +223,10 @@ export const useSynopticValues: UseSynopticValues = (doc) => {
           now,
         ),
         faulty,
+        severity,
+        lastUpdated: attr.last_updated,
       };
     }
-    const faultyDevices: Record<string, boolean> = {};
-    for (const [id, device] of Object.entries(devices)) {
-      faultyDevices[id] = device.is_faulty === true;
-    }
-    return { slots: readings, faultyDevices };
+    return { slots: readings, devices: facts };
   }, [doc, slots, resolved, devices, now]);
 };

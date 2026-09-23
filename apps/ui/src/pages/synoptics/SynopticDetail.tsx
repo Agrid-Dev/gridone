@@ -1,19 +1,25 @@
-import { useCallback, useMemo, useState, type FC } from "react";
+import { useCallback, useEffect, useMemo, useState, type FC } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
-import type { Synoptic, SymbolElement } from "@gridone/sdk";
+import type { Synoptic } from "@gridone/sdk";
 import { ErrorFallback } from "@/components/fallbacks/Error";
 import { ResourceBoundary } from "@/components/ResourceBoundary";
 import { ResourceHeader } from "@/components/ResourceHeader";
-import { SynopticRenderer } from "@/components/synoptic";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePermissions } from "@/contexts/AuthContext";
 import { useSynopticValues } from "@/hooks/useSynopticValues";
 import { FaultsTable } from "@/pages/faults/components/FaultsTable";
-import { useFaultsPage } from "@/pages/faults/useFaultsPage";
-import { DevicePanel } from "./DevicePanel";
-import { useSynopticPage } from "./useSynoptics";
+import { useFaultsPage, type FaultRow } from "@/pages/faults/useFaultsPage";
+import {
+  readDefaultSynoptic,
+  writeDefaultSynoptic,
+  writeLastSynoptic,
+} from "@/lib/synopticPreference";
+import { PlateView } from "./PlateView";
+import { SynopticStepper, SynopticSwitcher } from "./SynopticSwitcher";
+import { useSynopticPage, useSynoptics } from "./useSynoptics";
 
 /** The devices the plate's symbols are: what a click opens and what the
  *  fault list is scoped to. What a symbol reads is not what it is. */
@@ -24,9 +30,12 @@ const symbolDeviceIds = (doc: Synoptic): string[] => [
 ];
 
 /** The faults of the plate's own devices, under it. */
-const SynopticFaults: FC<{ deviceIds: string[] }> = ({ deviceIds }) => {
+const SynopticFaults: FC<{
+  rows: FaultRow[];
+  loading: boolean;
+  error: unknown;
+}> = ({ rows, loading, error }) => {
   const { t } = useTranslation(["synoptics", "faults"]);
-  const { rows, loading, error } = useFaultsPage(deviceIds);
   return (
     <section className="space-y-3">
       <h3 className="text-sm font-semibold text-foreground">
@@ -50,58 +59,84 @@ const SynopticDetailContent: FC = () => {
   const navigate = useNavigate();
   const can = usePermissions();
   const { doc, knownSynoptics } = useSynopticPage();
+  const synoptics = useSynoptics();
+  const [pinned, setPinned] = useState(readDefaultSynoptic);
   const values = useSynopticValues(doc);
-  const [deviceId, setDeviceId] = useState<string | null>(null);
   const deviceIds = useMemo(() => symbolDeviceIds(doc), [doc]);
+  const faults = useFaultsPage(deviceIds);
 
-  // The renderer only reports a device symbol or a link whose target exists.
-  const onSymbolClick = useCallback(
-    (symbol: SymbolElement) => {
-      if (symbol.type === "link") {
-        const target = String(symbol.props?.synoptic_id);
-        navigate(`/synoptics/${encodeURIComponent(target)}`);
-      } else if (symbol.device_id) {
-        setDeviceId(symbol.device_id);
-      }
-    },
+  // What `/synoptics` reopens when nothing is pinned.
+  useEffect(() => writeLastSynoptic(doc.id), [doc.id]);
+
+  const onNavigate = useCallback(
+    (target: string) => navigate(`/synoptics/${encodeURIComponent(target)}`),
     [navigate],
   );
+  const onPin = useCallback((id: string | null) => {
+    writeDefaultSynoptic(id);
+    setPinned(id);
+  }, []);
 
   return (
     <div className="flex flex-col gap-6">
       <ResourceHeader
-        title={doc.name}
+        title={
+          <SynopticSwitcher
+            current={doc}
+            synoptics={synoptics}
+            pinned={pinned}
+            onNavigate={onNavigate}
+          />
+        }
         caption={doc.description}
+        status={
+          <>
+            <SynopticStepper
+              current={doc}
+              synoptics={synoptics}
+              pinned={pinned}
+              onNavigate={onNavigate}
+              onPin={onPin}
+            />
+            {!faults.loading && faults.rows.length > 0 && (
+              <Badge variant="destructive" data-fault-count>
+                {t("faults.count", { count: faults.rows.length })}
+              </Badge>
+            )}
+          </>
+        }
         actions={
           can("synoptics:write") && (
-            <Button asChild variant="outline">
-              <Link to={`/synoptics/${encodeURIComponent(doc.id)}/edit`}>
-                {t("common:common.edit")}
-              </Link>
-            </Button>
+            <>
+              <Button asChild variant="outline">
+                <Link to={`/synoptics/${encodeURIComponent(doc.id)}/edit`}>
+                  {t("common:common.edit")}
+                </Link>
+              </Button>
+              <Button asChild>
+                <Link to="/synoptics/new">{t("editor.new")}</Link>
+              </Button>
+            </>
           )
         }
       />
-      <div className="flex h-[40rem] gap-4">
-        <div className="min-w-0 flex-1 overflow-hidden rounded-lg border">
-          <SynopticRenderer
-            doc={doc}
-            values={values}
-            knownSynoptics={knownSynoptics}
-            onSymbolClick={onSymbolClick}
-          />
-        </div>
-        {deviceId && (
-          <DevicePanel deviceId={deviceId} onClose={() => setDeviceId(null)} />
-        )}
-      </div>
-      <SynopticFaults deviceIds={deviceIds} />
+      <PlateView
+        doc={doc}
+        values={values}
+        knownSynoptics={knownSynoptics}
+        onNavigate={onNavigate}
+      />
+      <SynopticFaults
+        rows={faults.rows}
+        loading={faults.loading}
+        error={faults.error}
+      />
     </div>
   );
 };
 
-/** Keyed on the plate: a link to another plate lands with no panel open,
- *  since the device it showed belongs to the plate left behind. */
+/** Keyed on the plate: a link to another plate lands with no popover
+ *  open, since the device it showed belongs to the plate left behind. */
 const SynopticDetail: FC = () => {
   const { synopticId } = useParams<{ synopticId: string }>();
   return (

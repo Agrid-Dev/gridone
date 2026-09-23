@@ -34,27 +34,27 @@ describe("extrude", () => {
     const { faces, band, top } = extrude(unit, 0, 1);
     expect(faces.map((f) => f.axis)).toEqual(["y", "x"]);
     expect(faces[0].points).toEqual([
-      { x: -40, y: 20 },
-      { x: 0, y: 40 },
+      { x: -24, y: 12 },
+      { x: 0, y: 24 },
       { x: 0, y: 0 },
-      { x: -40, y: -20 },
+      { x: -24, y: -12 },
     ]);
     expect(faces[1].points).toEqual([
-      { x: 0, y: 40 },
-      { x: 40, y: 20 },
-      { x: 40, y: -20 },
+      { x: 0, y: 24 },
+      { x: 24, y: 12 },
+      { x: 24, y: -12 },
       { x: 0, y: 0 },
     ]);
     expect(band).toEqual([
-      { x: -40, y: 20 },
-      { x: 0, y: 40 },
-      { x: 40, y: 20 },
-      { x: 40, y: -20 },
+      { x: -24, y: 12 },
+      { x: 0, y: 24 },
+      { x: 24, y: 12 },
+      { x: 24, y: -12 },
       { x: 0, y: 0 },
-      { x: -40, y: -20 },
+      { x: -24, y: -12 },
     ]);
     expect(top).toHaveLength(4);
-    expect(top[0]).toEqual({ x: 0, y: -40 });
+    expect(top[0]).toEqual({ x: 0, y: -24 });
   });
 
   it("merges consecutive edges that face the same axis", () => {
@@ -75,12 +75,12 @@ describe("extrude", () => {
 describe("silhouette", () => {
   it("wraps the base front and the top back of a square", () => {
     expect(silhouette(unit, 0, 1)).toEqual([
-      { x: -40, y: 20 },
-      { x: 0, y: 40 },
-      { x: 40, y: 20 },
-      { x: 40, y: -20 },
-      { x: 0, y: -40 },
-      { x: -40, y: -20 },
+      { x: -24, y: 12 },
+      { x: 0, y: 24 },
+      { x: 24, y: 12 },
+      { x: 24, y: -12 },
+      { x: 0, y: -24 },
+      { x: -24, y: -12 },
     ]);
   });
 

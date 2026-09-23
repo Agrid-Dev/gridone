@@ -1,14 +1,16 @@
 import type {
   AttributeSlot,
   AttributeTarget,
+  Severity,
   SlotValue,
   Synoptic,
 } from "@gridone/sdk";
 import type { AttributeValue } from "@/lib/devices";
+import type { SymbolState } from "./symbols/Label";
 
 /** One device-bound slot of a document, addressed by its `key`. */
 export type BoundSlot = {
-  /** `symbol.<id>.<slot>`, `pipe.<id>.flow`, `tag.<id>`, `label.<id>`. */
+  /** `symbol.<id>.<slot>`, `tag.<id>`, `label.<id>`. */
   key: string;
   slot: AttributeSlot;
 };
@@ -23,30 +25,74 @@ export type SlotReading = {
   stale: boolean;
   /** `Device.is_faulty` of the device the slot reads. */
   faulty: boolean;
+  /** The worst severity among that device's active faults; null when it
+   *  is healthy or nothing is known. A faulty device with no severity
+   *  reads as an alert. */
+  severity?: Severity | null;
+  /** When the device last reported the value (ISO 8601); null or absent
+   *  when nothing has arrived. */
+  lastUpdated?: string | null;
+  /** The slot is a text literal of the document, a fact no device reads:
+   *  drawn as a note, never as a live value. */
+  literal?: boolean;
+};
+
+/** What the plate knows of a device it names: whether it is faulty, and
+ *  the worst severity among its active faults. */
+export type DeviceFacts = {
+  faulty: boolean;
+  severity: Severity | null;
 };
 
 export type SynopticValues = {
   slots: Record<string, SlotReading>;
-  /** `Device.is_faulty` per device id the document names. */
-  faultyDevices: Record<string, boolean>;
+  /** Per device id the document names. */
+  devices: Record<string, DeviceFacts>;
 };
 
-export const EMPTY_VALUES: SynopticValues = { slots: {}, faultyDevices: {} };
+export const EMPTY_VALUES: SynopticValues = { slots: {}, devices: {} };
 
-/** How a reading renders: muted and dashed once old, a dash when nothing
- *  has arrived. */
-export const readingState = (reading: SlotReading) =>
-  reading.stale ? "stale" : reading.text === null ? "silent" : "live";
+/** A slot nothing has arrived for: silent, drawn as a dash. */
+export const SILENT_READING: SlotReading = {
+  text: null,
+  unit: null,
+  raw: null,
+  stale: false,
+  faulty: false,
+};
+
+/** How a reading renders: a note for a literal, muted and dashed once
+ *  old, a dash when nothing has arrived, the reading colour when live. */
+export type ReadingState = "live" | "stale" | "silent" | "note";
+
+/** Every reading state, in the order a legend lists them. */
+export const READING_STATES = [
+  "live",
+  "stale",
+  "silent",
+  "note",
+] as const satisfies readonly ReadingState[];
+
+export const readingState = (reading: SlotReading): ReadingState =>
+  reading.literal
+    ? "note"
+    : reading.stale
+      ? "stale"
+      : reading.text === null
+        ? "silent"
+        : "live";
 
 export const symbolSlotKey = (symbolId: string, slot: string) =>
   `symbol.${symbolId}.${slot}`;
-export const flowSlotKey = (pipeId: string) => `pipe.${pipeId}.flow`;
 export const tagSlotKey = (tagId: string) => `tag.${tagId}`;
 export const labelSlotKey = (labelId: string) => `label.${labelId}`;
 
-/** Every attribute slot of a document, in the order the backend's
- *  `bound_slots` enumerates them: symbol bindings, pipe flow, tag values,
- *  label values. Literals need no device and are left out. */
+/** Every attribute slot the plate draws, in the order the backend's
+ *  `bound_slots` enumerates them: symbol bindings, tag values, label
+ *  values. A pipe's `flow` is not among them: a run is static whatever it
+ *  reads (Decision 8 of the visual language), so registering it would
+ *  only list and poll a device for a reading nothing draws. Literals need
+ *  no device and are left out. */
 export function boundSlots(doc: Synoptic): BoundSlot[] {
   const slots: BoundSlot[] = [];
   const add = (key: string, value: SlotValue | null | undefined) => {
@@ -58,7 +104,6 @@ export function boundSlots(doc: Synoptic): BoundSlot[] {
     }
   }
   for (const pipe of doc.pipes ?? []) {
-    add(flowSlotKey(pipe.id), pipe.flow);
     for (const tag of pipe.tags ?? []) add(tagSlotKey(tag.id), tag.value);
   }
   for (const label of doc.labels ?? [])
@@ -116,6 +161,17 @@ export function truthOf(raw: AttributeValue | null): boolean | undefined {
   }
   return undefined;
 }
+
+/** The run state a symbol shows for its `state` reading: none once the
+ *  reading is old, since a stale MARCHE is not a running machine, and
+ *  none for a value that is no state at all. */
+export const stateOf = (
+  reading: SlotReading | undefined,
+): SymbolState | undefined => {
+  if (!reading || reading.stale) return undefined;
+  const on = truthOf(reading.raw);
+  return on === undefined ? undefined : on ? "on" : "off";
+};
 
 /** A value is stale once older than its threshold: the binding's, else the
  *  document's. Without either it never goes stale. */

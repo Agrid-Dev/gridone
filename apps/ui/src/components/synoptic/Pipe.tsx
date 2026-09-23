@@ -10,30 +10,35 @@ type PipeProps = {
   width?: number;
   /** Corner rounding radius at bends. */
   radius?: number;
-  /** Draw a solid arrow head at the last point (flow direction). */
+  /** Draw the flow chevrons at the last point (flow direction). */
   endArrow?: boolean;
-  /** Draw a solid arrow head at the first point (reversed). */
+  /** Draw the flow chevrons at the first point (reversed). */
   startArrow?: boolean;
   /** Live flow: a moving dash in the plate colour when true. The dash
-   *  stands still under `prefers-reduced-motion`. Stop state is on the
-   *  symbol, never on the pipe, so false and omitted both draw it static. */
+   *  stands still under `prefers-reduced-motion`. The plates never set
+   *  it: run state is on the machine, never on the pipe, so a plate is
+   *  static and reads the same in a screenshot. */
   flowing?: boolean;
 };
 
-/** The arrow head the visual language draws at the `to` end. */
-const ARROW_LEN = 8;
-const ARROW_W = 6;
+/** The chevron the visual language draws at the `to` end: a filled head
+ *  outlined in the plate colour so it stands off the run. */
+const ARROW_LEN = 9;
+const ARROW_W = 9;
 /** Pipe colour and the plate-coloured casing around it, so a run crossing
  *  another at a higher `z` reads as in front. */
-export const PIPE_WIDTH = 3;
-const CASING_WIDTH = 7;
+export const PIPE_WIDTH = 6;
+const CASING_WIDTH = 10;
+/** A bend is barely rounded: a pipe corner is an elbow, not a curve. */
+const BEND_RADIUS = 4;
 
-/** A process pipe: rounded orthogonal polyline with optional flow arrows. */
+/** A process pipe: orthogonal polyline with sharp elbows, a casing and
+ *  optional flow chevrons. */
 export function Pipe({
   points,
   fluid,
   width = PIPE_WIDTH,
-  radius = 10,
+  radius = BEND_RADIUS,
   endArrow = false,
   startArrow = false,
   flowing,
@@ -43,7 +48,7 @@ export function Pipe({
   const last = points.length - 1;
   const arrows: string[] = [];
 
-  /** Arrow head at `tipIdx`, pulled back along the end segment so the
+  /** Chevron at `tipIdx`, pulled back along the end segment so the
    *  stroke does not poke past it. Directions come from the untouched
    *  waypoints so capping one end cannot move the point the other end is
    *  measured against. A segment shorter than the head gets no head: the
@@ -68,6 +73,7 @@ export function Pipe({
         d={d}
         fill="none"
         strokeWidth={width + CASING_WIDTH - PIPE_WIDTH}
+        strokeLinejoin="round"
         className="stroke-synoptic-plate"
         data-casing
       />
@@ -75,10 +81,17 @@ export function Pipe({
         d={d}
         fill="none"
         strokeWidth={width}
+        strokeLinejoin="round"
         className={fluidStrokeClass(fluid)}
       />
       {arrows.map((a, i) => (
-        <polygon key={i} points={a} className={fluidFillClass(fluid)} />
+        <polygon
+          key={i}
+          points={a}
+          strokeWidth={1.5}
+          strokeLinejoin="round"
+          className={`${fluidFillClass(fluid)} stroke-synoptic-plate`}
+        />
       ))}
       {flowing && (
         <path

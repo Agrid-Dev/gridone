@@ -77,6 +77,23 @@
     --synoptic-body-x: 212 14% 84%;
     --synoptic-body-y: 214 12% 76%;
     --synoptic-stroke: 220 12% 40%;
+    /* Kit A volumes: a 1 px edge, three metal tones the gradients run
+       through, brass for valves, red for the expansion vessel, a dark tone
+       for motors and actuators, the slab under a group, and the green of a
+       live reading. */
+    --synoptic-edge: 216 14% 60%;
+    --synoptic-metal-hi: 0 0% 100%;
+    --synoptic-metal: 214 14% 88%;
+    --synoptic-metal-lo: 214 12% 66%;
+    --synoptic-brass-hi: 44 76% 78%;
+    --synoptic-brass-lo: 41 48% 54%;
+    --synoptic-vessel-hi: 4 85% 84%;
+    --synoptic-vessel-lo: 0 68% 33%;
+    --synoptic-dark: 218 20% 29%;
+    --synoptic-slab-hi: 212 14% 87%;
+    --synoptic-slab-lo: 214 12% 79%;
+    --synoptic-slab-edge: 214 12% 70%;
+    --synoptic-reading: 145 68% 36%;
     --fluid-primary-supply: 340 55% 40%;
     --fluid-primary-return: 340 55% 22%;
     --fluid-heating-supply: 22 55% 50%;
@@ -152,6 +169,19 @@
     --synoptic-body-x: 218 14% 26%;
     --synoptic-body-y: 218 14% 21%;
     --synoptic-stroke: 220 10% 70%;
+    --synoptic-edge: 218 10% 45%;
+    --synoptic-metal-hi: 218 12% 62%;
+    --synoptic-metal: 218 12% 44%;
+    --synoptic-metal-lo: 218 12% 28%;
+    --synoptic-brass-hi: 44 50% 58%;
+    --synoptic-brass-lo: 41 40% 38%;
+    --synoptic-vessel-hi: 4 70% 64%;
+    --synoptic-vessel-lo: 0 60% 32%;
+    --synoptic-dark: 218 16% 16%;
+    --synoptic-slab-hi: 218 12% 24%;
+    --synoptic-slab-lo: 218 12% 19%;
+    --synoptic-slab-edge: 218 12% 13%;
+    --synoptic-reading: 145 55% 58%;
     --fluid-primary-supply: 340 55% 64%;
     --fluid-primary-return: 340 55% 82%;
     --fluid-heating-supply: 22 55% 64%;

@@ -4,13 +4,103 @@
   "resourceName": "synoptic",
   "emptyTitle": "No synoptic yet.",
   "emptyDescription": "No plate stored yet. Create one with the editor.",
-  "panel": {
+  "popover": {
     "label": "Selected device",
-    "close": "Close panel"
+    "close": "Close",
+    "open": "Open device",
+    "noPoints": "No point bound on this symbol.",
+    "edit": "Edit",
+    "apply": "Apply",
+    "cancel": "Cancel",
+    "writeFailed": "Write refused",
+    "unconfirmed": "Write not confirmed by the device",
+    "updatedAt": "Updated {{time}}",
+    "neverUpdated": "No value received yet"
+  },
+  "view": {
+    "projection": "View",
+    "plan": "Plan",
+    "isometric": "Isometric",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "zoom": "Zoom {{percent}} %",
+    "fit": "Fit",
+    "fullscreen": "Full screen",
+    "exitFullscreen": "Exit full screen"
+  },
+  "nav": {
+    "title": "Equipment",
+    "search": "Find an equipment",
+    "empty": "No equipment matches.",
+    "toggle": "Show the equipment list",
+    "hide": "Hide the equipment list"
+  },
+  "reading": {
+    "updated": "updated {{time}} ({{ago}})",
+    "silent": "no value received",
+    "stale": "stale value"
+  },
+  "legend": {
+    "title": "Legend",
+    "symbols": "Symbols",
+    "live": "live value",
+    "stale": "stale value",
+    "silent": "no value",
+    "note": "authored fact, not measured",
+    "fault": "Fault",
+    "led": {
+      "on": "running",
+      "off": "stopped",
+      "unknown": "state unknown"
+    },
+    "missingLink": "link to a missing view"
+  },
+  "fluids": {
+    "primary_supply": "Primary supply",
+    "primary_return": "Primary return",
+    "dhw": "DHW",
+    "dhw_loop": "DHW loop",
+    "cold_water": "Cold water",
+    "heating_supply": "Heating supply",
+    "heating_return": "Heating return",
+    "chilled_supply": "Chilled supply",
+    "chilled_return": "Chilled return",
+    "condenser_supply": "Condenser supply",
+    "condenser_return": "Condenser return"
+  },
+  "slots": {
+    "state": "State",
+    "fault": "Fault",
+    "supply_temp": "Supply temp.",
+    "power": "Power",
+    "temperature": "Temperature",
+    "speed": "Speed",
+    "position": "Position",
+    "energy": "Energy"
+  },
+  "types": {
+    "heat_pump": "heat pump",
+    "tank": "storage tank",
+    "collector": "header",
+    "mixing_valve": "mixing valve",
+    "pump": "pump",
+    "valve_isolation": "isolation valve",
+    "valve_check": "check valve",
+    "valve_control": "control valve",
+    "link": "link to another view",
+    "plate_exchanger": "plate heat exchanger",
+    "air_separator": "air separator",
+    "expansion_vessel": "expansion vessel",
+    "dirt_separator": "dirt separator",
+    "pump_double": "twin pump",
+    "energy_meter": "energy meter",
+    "loop_heater": "loop heater"
   },
   "faults": {
     "title": "Faults on this view",
-    "none": "No active fault on the devices of this view."
+    "none": "No active fault on the devices of this view.",
+    "count_one": "{{count}} fault",
+    "count_other": "{{count}} faults"
   },
   "editor": {
     "new": "New synoptic",
@@ -54,5 +144,16 @@
     },
     "mode": "Mode",
     "discard": "Discard the unsaved changes?"
+  },
+  "switcher": {
+    "label": "Switch synoptic",
+    "search": "Search a synoptic",
+    "empty": "No synoptic matches.",
+    "previous": "Previous synoptic",
+    "next": "Next synoptic",
+    "position": "{{position}} / {{total}}",
+    "pin": "Open Synoptics on this view",
+    "pinned": "Opens Synoptics",
+    "current": "Shown now"
   }
 }

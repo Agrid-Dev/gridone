@@ -1,5 +1,9 @@
-import type { ReactNode } from "react";
-import { useViewport } from "./hooks/useViewport";
+import type { ReactNode, RefObject } from "react";
+import {
+  useViewport,
+  type View,
+  type ViewportController,
+} from "./hooks/useViewport";
 
 /** Which touch gestures the browser keeps. `pan-y` leaves one-finger
  *  vertical swipes to the page, so a plate embedded in a scrolling page
@@ -13,6 +17,9 @@ type PidDiagramProps = {
   /** viewBox height in diagram units */
   height?: number;
   touchAction?: CanvasTouchAction;
+  /** Receives the controls a toolbar drives the view with. */
+  controller?: RefObject<ViewportController | null>;
+  onViewChange?: (view: View) => void;
   children: ReactNode;
 };
 
@@ -20,16 +27,24 @@ type PidDiagramProps = {
  * Root SVG canvas for a P&ID / SCADA screen.
  * All child symbols are positioned in the same fixed coordinate space;
  * the whole diagram scales to fit its container, then pans by drag and
- * zooms with a modifier wheel or a pinch. Text is not selectable, since a
- * press that becomes a pan would otherwise start a selection.
+ * zooms with the wheel, a pinch or the controller. Text is not
+ * selectable, since a press that becomes a pan would otherwise start a
+ * selection.
  */
 export function PidDiagram({
   width = 2000,
   height = 1080,
   touchAction = "pan-y",
+  controller,
+  onViewChange,
   children,
 }: PidDiagramProps) {
-  const { svgRef, handle, transform } = useViewport();
+  const { svgRef, handle, transform } = useViewport({
+    width,
+    height,
+    controller,
+    onViewChange,
+  });
   return (
     <svg
       ref={svgRef}

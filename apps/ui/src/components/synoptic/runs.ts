@@ -9,7 +9,7 @@ import {
 } from "@gridone/sdk";
 import { PIPE_AXIS_Z, project, rotateQuarter } from "./projection";
 import { COLLECTOR_INSET } from "./symbols/Collector";
-import { DRAWINGS } from "./symbols/drawings";
+import { DRAWINGS, outlineFor } from "./symbols/drawings";
 import { symbolPort, type CollectorProps } from "./symbols/ports";
 import type { Pt } from "./types";
 
@@ -77,14 +77,20 @@ function firstHit(a: Pt, b: Pt, polygon: Pt[]): number | null {
  * one, or a run dropping in from above ends at the face; the stub under
  * the body joins the two.
  */
-function portReach(symbol: SymbolElement, cell: Cell, arrival: Cell): number {
+function portReach(
+  projection: Projection,
+  symbol: SymbolElement,
+  cell: Cell,
+  arrival: Cell,
+): number {
   if (arrival.z) return 0;
   const props = symbol.props as Partial<CollectorProps> | undefined;
   if (symbol.type === "collector" && props?.axis) {
     const along = props.axis === "x" ? arrival.x !== 0 : arrival.y !== 0;
     return along ? 0 : COLLECTOR_INSET;
   }
-  const outline = DRAWINGS[symbol.type]?.outline;
+  const drawing = DRAWINGS[symbol.type];
+  const outline = drawing && outlineFor(drawing, projection);
   const footprint = symbolSchemas[symbol.type]?.["x-footprint"];
   if (!outline || !footprint) return 0;
   const { cell: origin, kind } = symbol.placement;
@@ -183,7 +189,7 @@ export function runPieces(
       y: Math.sign(b.y - a.y),
       z: Math.sign((b.z ?? 0) - (a.z ?? 0)),
     };
-    return portReach(symbols.get(endpoint.symbol)!, b, arrival);
+    return portReach(projection, symbols.get(endpoint.symbol)!, b, arrival);
   };
   const fromReach = reach(pipe.from, 0, 1);
   const toReach = reach(pipe.to, n - 1, n - 2);

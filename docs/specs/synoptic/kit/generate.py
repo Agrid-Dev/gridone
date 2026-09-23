@@ -29,10 +29,14 @@ FC = 48
 # Pipe axis height inside a cell, and the plane inline glyphs are drawn on.
 AXIS = 0.4
 
-# CIE76 floors: fluids against the two status colours a plate draws, and the
-# fluid set against itself. Eleven fluids in a 45-55 % band on six hues cannot
+# CIE76 floors: fluids against the three status colours a plate draws (an
+# alert, a warning and a running machine), and the fluid set against itself. Eleven fluids in a 45-55 % band on six hues cannot
 # all sit 25 apart in the dark theme; 18 is what the palette reaches there.
 STATUS_DELTA_E = 25
+# A warning is an outline and a badge on a machine, never a run, and its "!"
+# says it besides its colour: the amber may sit closer to a fluid than red or
+# green may (heating supply reaches 23.6 in the light theme).
+WARNING_DELTA_E = 20
 FLUID_DELTA_E = 18
 # Faces: lightness points between the plate and the top face and
 # between adjacent faces, and CIE76 between the detail stroke and any face.
@@ -52,6 +56,7 @@ TOKENS = [
     "card",
     "border",
     "status-error",
+    "status-warning",
     "status-ok",
     "hvac-fan",
     "fluid-primary-supply",
@@ -143,10 +148,11 @@ def check_palette(values: Palette, theme: str) -> None:
     """Refuse a palette where a fluid could be mistaken for a status or for another fluid."""
     failures = []
     for fluid in FLUIDS:
-        for status in ("status-error", "status-ok"):
+        for status in ("status-error", "status-warning", "status-ok"):
+            floor = WARNING_DELTA_E if status == "status-warning" else STATUS_DELTA_E
             d = delta_e(values[fluid], values[status])
-            if d < STATUS_DELTA_E:
-                failures.append(f"{fluid} vs {status}: {d:.1f} < {STATUS_DELTA_E}")
+            if d < floor:
+                failures.append(f"{fluid} vs {status}: {d:.1f} < {floor}")
     for a, b in itertools.combinations(FLUIDS, 2):
         d = delta_e(values[a], values[b])
         if d < FLUID_DELTA_E:

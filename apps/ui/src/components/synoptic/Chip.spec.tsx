@@ -38,7 +38,7 @@ describe("Chip", () => {
     expect(rect.classList.contains("stroke-border")).toBe(true);
     expect(texts).toHaveLength(1);
     expect(texts[0].textContent).toBe("52.4");
-    expect(texts[0].classList.contains("fill-foreground")).toBe(true);
+    expect(texts[0].classList.contains("fill-synoptic-reading")).toBe(true);
     expect(Number(texts[0].getAttribute("x"))).toBe(100);
   });
 
@@ -58,7 +58,27 @@ describe("Chip", () => {
       Number(rect.getAttribute("x")) + Number(rect.getAttribute("width")),
     );
     // The unit stays muted on a live value, and the value does not.
-    expect(value.classList.contains("fill-foreground")).toBe(true);
+    expect(value.classList.contains("fill-synoptic-reading")).toBe(true);
+  });
+
+  it("draws a literal as an unframed muted note, sized to its text", () => {
+    const { g, rect, texts } = draw(
+      { text: "non mesurée", literal: true },
+      "DÉPART",
+    );
+    expect(g.getAttribute("data-chip")).toBe("note");
+    // A note keeps a box the layout measures, but draws no frame.
+    expect(rect.getAttribute("stroke")).toBe("none");
+    expect(rect.getAttribute("fill")).toBe("none");
+    expect(rect.getAttribute("width")).toBe(
+      String(chipWidth("non mesurée", null, true)),
+    );
+    expect(chipWidth("non mesurée", null, true)).toBeLessThan(
+      chipWidth("non mesurée"),
+    );
+    expect(texts.map((t) => t.textContent)).toEqual(["DÉPART", "non mesurée"]);
+    expect(texts[1].classList.contains("fill-muted-foreground")).toBe(true);
+    expect(texts[1].getAttribute("font-style")).toBe("italic");
   });
 
   it("dashes the border and mutes the value when stale", () => {

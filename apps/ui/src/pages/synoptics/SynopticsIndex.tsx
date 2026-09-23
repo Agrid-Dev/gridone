@@ -1,4 +1,5 @@
 import type { FC } from "react";
+import { Navigate } from "react-router";
 import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
 import { ResourceBoundary } from "@/components/ResourceBoundary";
@@ -6,51 +7,30 @@ import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { Button } from "@/components/ui/button";
 import { usePermissions } from "@/contexts/AuthContext";
+import {
+  landingSynopticId,
+  readDefaultSynoptic,
+  readLastSynoptic,
+} from "@/lib/synopticPreference";
 import { useSynoptics } from "./useSynoptics";
 
-/** `/synoptics`: one card per stored plate. Creation is the editor's,
- *  offered in the header to those who may write. */
+/** `/synoptics` is not a page of its own once a plate exists: it opens one
+ *  (the pinned plate, else the last seen, else the first) and the plate's
+ *  title switches to the others. Only an empty site stays here, with the
+ *  editor offered to those who may write. */
 const SynopticsIndexContent: FC = () => {
   const { t } = useTranslation("synoptics");
+  const can = usePermissions();
   const synoptics = useSynoptics();
+  const target = landingSynopticId(
+    synoptics.map((s) => s.id),
+    { pinned: readDefaultSynoptic(), last: readLastSynoptic() },
+  );
 
-  if (synoptics.length === 0) {
-    return (
-      <ResourceEmpty
-        resourceName={t("resourceName")}
-        showCreate={false}
-        title={t("emptyTitle")}
-        description={t("emptyDescription")}
-      />
-    );
+  if (target) {
+    return <Navigate replace to={`/synoptics/${encodeURIComponent(target)}`} />;
   }
 
-  return (
-    <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {synoptics.map((synoptic) => (
-        <li key={synoptic.id}>
-          <Link
-            to={`/synoptics/${synoptic.id}`}
-            className="block h-full rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary"
-          >
-            <h3 className="text-sm font-semibold text-foreground">
-              {synoptic.name}
-            </h3>
-            {synoptic.description && (
-              <p className="mt-1 text-xs text-muted-foreground">
-                {synoptic.description}
-              </p>
-            )}
-          </Link>
-        </li>
-      ))}
-    </ul>
-  );
-};
-
-const SynopticsIndex: FC = () => {
-  const { t } = useTranslation("synoptics");
-  const can = usePermissions();
   return (
     <section className="space-y-6">
       <ResourceHeader
@@ -64,11 +44,20 @@ const SynopticsIndex: FC = () => {
           )
         }
       />
-      <ResourceBoundary resetKeys={[]}>
-        <SynopticsIndexContent />
-      </ResourceBoundary>
+      <ResourceEmpty
+        resourceName={t("resourceName")}
+        showCreate={false}
+        title={t("emptyTitle")}
+        description={t("emptyDescription")}
+      />
     </section>
   );
 };
+
+const SynopticsIndex: FC = () => (
+  <ResourceBoundary resetKeys={[]}>
+    <SynopticsIndexContent />
+  </ResourceBoundary>
+);
 
 export default SynopticsIndex;

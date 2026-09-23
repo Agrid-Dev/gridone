@@ -1,5 +1,7 @@
-import { cleanup, fireEvent, render } from "@testing-library/react";
+import { createRef } from "react";
+import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { ViewportController } from "./hooks/useViewport";
 import { PidDiagram } from "./PidDiagram";
 
 /** jsdom has no layout: two client px per viewBox unit. */
@@ -88,28 +90,18 @@ describe("PidDiagram", () => {
     expect(view()).toEqual({ x: 7, y: 10, scale: 1 });
   });
 
-  it("leaves a plain wheel to the page, so an embedded plate does not trap the scroll", () => {
-    const { svg, view } = setup();
-    const scrolled = fireEvent.wheel(svg, {
-      deltaY: -100,
-      clientX: 20,
-      clientY: 40,
-    });
-    expect(scrolled).toBe(true);
-    expect(view()).toEqual({ x: 0, y: 0, scale: 1 });
-  });
-
-  it("zooms about the cursor on ctrl or cmd with the wheel, and keeps the page from scrolling", () => {
+  it("zooms about the cursor on a plain wheel, and keeps the page from scrolling", () => {
     const { svg, view } = setup();
     const notScrolled = !fireEvent.wheel(svg, {
       deltaY: -100,
       clientX: 20,
       clientY: 40,
-      ctrlKey: true,
     });
     expect(notScrolled).toBe(true);
     const { x, y, scale } = view();
-    expect(scale).toBeCloseTo(Math.exp(0.2), 5);
+    // Literals, not the formula the hook uses: one 100 px notch is e^0.2,
+    // so a wrong sensitivity constant fails here.
+    expect(scale).toBeCloseTo(1.2214, 4);
     // The point under the cursor, (10, 20) in viewBox units, stays put.
     expect(x + 10 * scale).toBeCloseTo(10, 5);
     expect(y + 20 * scale).toBeCloseTo(20, 5);
@@ -128,6 +120,26 @@ describe("PidDiagram", () => {
     fireEvent.pointerUp(window, { pointerId: 1, clientX: 21, clientY: 41 });
     expect(view()).toEqual({ x: 0, y: 0, scale: 1 });
     expect(capture).not.toHaveBeenCalled();
+  });
+
+  it("zooms the same on ctrl or cmd with the wheel: a trackpad pinch arrives that way", () => {
+    const { svg, view } = setup();
+    fireEvent.wheel(svg, {
+      deltaY: -100,
+      clientX: 20,
+      clientY: 40,
+      ctrlKey: true,
+    });
+    expect(view().scale).toBeCloseTo(1.2214, 4);
+    cleanup();
+    const meta = setup();
+    fireEvent.wheel(meta.svg, {
+      deltaY: -100,
+      clientX: 20,
+      clientY: 40,
+      metaKey: true,
+    });
+    expect(meta.view().scale).toBeCloseTo(1.2214, 4);
   });
 
   it("fits again on double click", () => {
@@ -150,7 +162,7 @@ describe("PidDiagram", () => {
       deltaMode: WheelEvent.DOM_DELTA_LINE,
       ctrlKey: true,
     });
-    expect(line.view().scale).toBeCloseTo(Math.exp(0.032), 5);
+    expect(line.view().scale).toBeCloseTo(1.0325, 4);
     cleanup();
     const page = setup();
     fireEvent.wheel(page.svg, {
@@ -159,13 +171,13 @@ describe("PidDiagram", () => {
       ctrlKey: true,
     });
     // One page notch is capped to the same step a 200 px wheel makes.
-    expect(page.view().scale).toBeCloseTo(Math.exp(0.4), 5);
+    expect(page.view().scale).toBeCloseTo(1.4918, 4);
   });
 
   it("caps a single wheel event so a flung trackpad is one step, not a jump", () => {
     const { svg, view } = setup();
     fireEvent.wheel(svg, { deltaY: -5000, ctrlKey: true });
-    expect(view().scale).toBeCloseTo(Math.exp(0.4), 5);
+    expect(view().scale).toBeCloseTo(1.4918, 4);
   });
 
   it("clamps the zoom range", () => {
@@ -224,5 +236,56 @@ describe("PidDiagram", () => {
     });
     fireEvent.pointerMove(svg, { pointerId: 3, clientX: 30, clientY: 40 });
     expect(view().x).toBe(x + 15);
+  });
+});
+
+describe("PidDiagram controller", () => {
+  const drive = () => {
+    const controller = createRef<ViewportController | null>();
+    const onViewChange = vi.fn();
+    const { view } = setup({ controller, onViewChange });
+    return { c: controller.current!, view, onViewChange };
+  };
+
+  it("zooms about the canvas centre and fits again", () => {
+    const { c, view } = drive();
+    act(() => c.zoomBy(2));
+    // The centre of the 100 x 50 canvas, (50, 25), stays put: the content
+    // shifts back by half its own size.
+    expect(view()).toEqual({ x: -50, y: -25, scale: 2 });
+    act(() => c.zoomBy(0.5));
+    expect(view()).toEqual({ x: 0, y: 0, scale: 1 });
+    act(() => c.zoomBy(2));
+    act(() => c.fit());
+    expect(view()).toEqual({ x: 0, y: 0, scale: 1 });
+  });
+
+  it("clamps a zoom step to the range, still about the centre", () => {
+    const { c, view } = drive();
+    act(() => c.zoomBy(100));
+    expect(view()).toEqual({ x: -350, y: -175, scale: 8 });
+    act(() => c.zoomBy(0.001));
+    expect(view()).toEqual({ x: 37.5, y: 18.75, scale: 0.25 });
+  });
+
+  it("brings a point to the canvas centre at the scale asked, else at the current one", () => {
+    const { c, view } = drive();
+    act(() => c.centerOn({ x: 30, y: 10 }, 2));
+    // (30, 10) scaled by 2 and shifted by the view lands on (50, 25).
+    expect(view()).toEqual({ x: -10, y: 5, scale: 2 });
+    act(() => c.centerOn({ x: 0, y: 0 }));
+    expect(view()).toEqual({ x: 50, y: 25, scale: 2 });
+    act(() => c.centerOn({ x: 30, y: 10 }, 100));
+    expect(view()).toEqual({ x: 50 - 30 * 8, y: 25 - 10 * 8, scale: 8 });
+  });
+
+  it("reports every view and answers the current scale", () => {
+    const { c, view, onViewChange } = drive();
+    expect(onViewChange).toHaveBeenCalledWith({ x: 0, y: 0, scale: 1 });
+    expect(c.scale()).toBe(1);
+    act(() => c.zoomBy(2));
+    expect(onViewChange).toHaveBeenLastCalledWith({ x: -50, y: -25, scale: 2 });
+    expect(c.scale()).toBe(2);
+    expect(view().scale).toBe(2);
   });
 });

@@ -3,11 +3,15 @@ import { describe, expect, it } from "vitest";
 import {
   boundSlots,
   formatReading,
-  truthOf,
   isStale,
+  READING_STATES,
   readingState,
+  SILENT_READING,
+  type SlotReading,
+  stateOf,
   targetDeviceId,
   targetKey,
+  truthOf,
 } from "./values";
 
 const slot = (
@@ -69,11 +73,10 @@ const DOC: Synoptic = {
 };
 
 describe("boundSlots", () => {
-  it("enumerates symbol bindings, pipe flow, tag and label attribute slots in order", () => {
+  it("enumerates symbol bindings, tag and label attribute slots in order, and never a pipe's flow, which nothing draws", () => {
     expect(boundSlots(DOC).map((s) => s.key)).toEqual([
       "symbol.pac.state",
       "symbol.pac.power",
-      "pipe.run.flow",
       "tag.tt",
       "label.temp",
     ]);
@@ -183,5 +186,40 @@ describe("readingState", () => {
     expect(
       readingState({ text, unit: null, raw: null, stale, faulty: false }),
     ).toBe(expected);
+  });
+});
+
+describe("stateOf", () => {
+  const reading = (raw: SlotReading["raw"], stale = false): SlotReading => ({
+    text: "x",
+    unit: null,
+    raw,
+    stale,
+    faulty: false,
+  });
+
+  it("reads a run state off the raw value, none once stale, none when nothing is bound", () => {
+    expect(stateOf(reading(true))).toBe("on");
+    expect(stateOf(reading("off"))).toBe("off");
+    expect(stateOf(reading(1))).toBe("on");
+    // A stale MARCHE is not a running machine.
+    expect(stateOf(reading(true, true))).toBeUndefined();
+    expect(stateOf(reading("maybe"))).toBeUndefined();
+    expect(stateOf(undefined)).toBeUndefined();
+  });
+});
+
+describe("READING_STATES", () => {
+  it("lists every state a reading can be in, live first", () => {
+    expect(READING_STATES).toEqual(["live", "stale", "silent", "note"]);
+    const seen = new Set(
+      [
+        { ...SILENT_READING, text: "1" },
+        { ...SILENT_READING, text: "1", stale: true },
+        SILENT_READING,
+        { ...SILENT_READING, text: "n", literal: true },
+      ].map(readingState),
+    );
+    expect([...seen].sort()).toEqual([...READING_STATES].sort());
   });
 });

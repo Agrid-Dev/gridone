@@ -108,8 +108,16 @@ const DOC: Synoptic = {
       fluid: "primary_supply",
       from: { kind: "cell", cell: { x: 0, y: 0 } },
       to: { kind: "cell", cell: { x: 1, y: 0 } },
-      flow: slot({ types: ["awhp"] }, "onoff_state"),
-      tags: [],
+      // Nothing draws a run's flow: the device it names is never listed.
+      flow: slot({ ids: ["FLOW-1"] }, "onoff_state"),
+      tags: [
+        {
+          id: "flow",
+          at: { x: 0, y: 0 },
+          label: "FLOW",
+          value: slot({ types: ["awhp"] }, "onoff_state"),
+        },
+      ],
     },
   ],
   labels: [
@@ -166,8 +174,10 @@ describe("useSynopticValues", () => {
       raw: null,
       stale: false,
       faulty: false,
+      severity: null,
+      lastUpdated: null,
     });
-    expect(rendered.result.current.faultyDevices).toEqual({});
+    expect(rendered.result.current.devices).toEqual({});
   });
 
   it("reads, formats and ages each slot once its device is in", async () => {
@@ -177,7 +187,7 @@ describe("useSynopticValues", () => {
         "MARCHE",
       ),
     );
-    const { slots, faultyDevices } = rendered.result.current;
+    const { slots, devices } = rendered.result.current;
     // 10 s old against the document default of 5 s.
     expect(slots["symbol.pac.state"]).toEqual({
       text: "MARCHE",
@@ -185,6 +195,8 @@ describe("useSynopticValues", () => {
       raw: true,
       stale: true,
       faulty: true,
+      severity: null,
+      lastUpdated: ago(10),
     });
     // 120 s old against the binding's own 600 s.
     expect(slots["symbol.pac.supply_temp"]).toEqual({
@@ -193,21 +205,27 @@ describe("useSynopticValues", () => {
       raw: 52.37,
       stale: false,
       faulty: true,
+      severity: null,
+      lastUpdated: ago(120),
     });
     // A value with no timestamp, and an attribute the device lacks.
     expect(slots["symbol.pac.power"].text).toBeNull();
     expect(slots["symbol.pac.fault"].text).toBeNull();
     expect(slots["symbol.pac.fault"].faulty).toBe(true);
     expect(slots["label.rooms"]).toBeUndefined();
-    expect(faultyDevices).toEqual({ "PAC-03": true, "B-01": false });
+    expect(devices).toEqual({
+      "PAC-03": { faulty: true, severity: null },
+      "B-01": { faulty: false, severity: null },
+    });
   });
 
   it("lists the plate's devices once and resolves a filter target through the list", async () => {
     const { rendered } = setup();
     await waitFor(() =>
-      expect(rendered.result.current.slots["pipe.supply.flow"].raw).toBe(true),
+      expect(rendered.result.current.slots["tag.flow"].raw).toBe(true),
     );
     expect(mockList).toHaveBeenCalledWith({ type: ["awhp"] });
+    // The symbols' devices and the tag's resolved one; not the flow's.
     expect(mockList).toHaveBeenCalledWith({ ids: ["PAC-03", "B-01"] });
     expect(mockList).toHaveBeenCalledTimes(2);
     // Seeded from the list: no per-device request.
@@ -231,14 +249,14 @@ describe("useSynopticValues", () => {
     );
     const { rendered } = setup();
     await waitFor(() =>
-      expect(rendered.result.current.slots["pipe.supply.flow"].raw).toBe(true),
+      expect(rendered.result.current.slots["tag.flow"].raw).toBe(true),
     );
     // The filter query, then one plate list that already carries PUMP-1.
     expect(mockList).toHaveBeenCalledTimes(2);
     expect(mockList).toHaveBeenLastCalledWith({
       ids: ["PAC-03", "B-01", "PUMP-1"],
     });
-    expect(rendered.result.current.faultyDevices["PUMP-1"]).toBe(false);
+    expect(rendered.result.current.devices["PUMP-1"].faulty).toBe(false);
   });
 
   it("never fetches a device the list does not return", async () => {
@@ -249,7 +267,9 @@ describe("useSynopticValues", () => {
     await waitFor(() =>
       expect(rendered.result.current.slots["symbol.pac.state"].raw).toBe(true),
     );
-    expect(rendered.result.current.faultyDevices).toEqual({ "PAC-03": true });
+    expect(rendered.result.current.devices).toEqual({
+      "PAC-03": { faulty: true, severity: null },
+    });
     expect(mockGet).not.toHaveBeenCalled();
   });
 
@@ -264,7 +284,7 @@ describe("useSynopticValues", () => {
         expect.stringContaining("resolves to 2 devices"),
       ),
     );
-    expect(rendered.result.current.slots["pipe.supply.flow"].text).toBeNull();
+    expect(rendered.result.current.slots["tag.flow"].text).toBeNull();
     warn.mockRestore();
   });
 
@@ -291,9 +311,11 @@ describe("useSynopticValues", () => {
         raw: false,
         stale: false,
         faulty: false,
+        severity: null,
+        lastUpdated: ago(0),
       }),
     );
-    expect(rendered.result.current.faultyDevices["PAC-03"]).toBe(false);
+    expect(rendered.result.current.devices["PAC-03"].faulty).toBe(false);
     expect(mockGet).not.toHaveBeenCalled();
   });
 
