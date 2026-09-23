@@ -8,7 +8,7 @@ import { BrowserRouter } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Device, Synoptic } from "@gridone/sdk";
 import "@/index.css";
-import "@/i18n";
+import i18n from "@/i18n";
 import { SynopticRenderer } from "@/components/synoptic";
 import type { SynopticValues } from "@/components/synoptic/values";
 import { TooltipProvider } from "@/components/ui";
@@ -31,6 +31,8 @@ const params = new URLSearchParams(window.location.search);
 const name = params.get("plate") ?? "ecs-est";
 const projection = params.get("projection") as "flat" | "isometric" | null;
 if (params.get("dark")) document.documentElement.classList.add("dark");
+const lang = params.get("lang");
+if (lang) void i18n.changeLanguage(lang);
 
 const doc = {
   ...(PLATES[name] as Synoptic),
@@ -39,6 +41,8 @@ const doc = {
   ...(projection ? { projection } : {}),
 } as Synoptic;
 
+/** A reading as the hook builds it, read a few minutes ago. */
+const READ_AT = new Date(Date.now() - 4 * 60_000).toISOString();
 const live = (
   text: string,
   raw: string | number | boolean,
@@ -49,20 +53,38 @@ const live = (
   raw,
   stale: false,
   faulty: false,
+  severity: null,
+  lastUpdated: READ_AT,
 });
 
 const VALUES: SynopticValues = {
   slots: {
     "symbol.pac-03.state": live("MARCHE", true),
     "symbol.pac-03.fault": live("NORMAL", false),
-    "symbol.pac-04.state": { ...live("ARRÊT", false), faulty: true },
-    "symbol.pac-04.fault": { ...live("DÉFAUT", true), faulty: true },
+    "symbol.pac-04.state": {
+      ...live("ARRÊT", false),
+      faulty: true,
+      severity: "alert",
+    },
+    "symbol.pac-04.fault": {
+      ...live("DÉFAUT", true),
+      faulty: true,
+      severity: "alert",
+    },
     "label.cpt-ballon-est": live("1311988992", 1311988992, "Wh"),
     "pipe.pac-03-supply.flow": live("MARCHE", true),
     "symbol.pompe-pec-d2-a.state": live("MARCHE", true),
     "symbol.pompe-pec-d2-a.speed": live("5242", 5242, "tr/min"),
-    "symbol.pompe-pec-d2-b.state": live("ARRÊT", false),
-    "symbol.pompe-pec-d2-b.speed": live("0", 0, "tr/min"),
+    "symbol.pompe-pec-d2-b.state": {
+      ...live("ARRÊT", false),
+      faulty: true,
+      severity: "warning",
+    },
+    "symbol.pompe-pec-d2-b.speed": {
+      ...live("0", 0, "tr/min"),
+      faulty: true,
+      severity: "warning",
+    },
     "symbol.pompe-pec-d3-a.state": live("ARRÊT", false),
     "symbol.pompe-pec-d3-a.speed": live("0", 0, "tr/min"),
     "symbol.pompe-pec-d3-b.state": { ...live("MARCHE", true), stale: true },
@@ -80,7 +102,14 @@ const VALUES: SynopticValues = {
     "symbol.cpt-ec-ech-04.energy": live("238952", 238952, "Wh"),
     "symbol.pot-a-boue.fault": live("NORMAL", false),
   },
-  faultyDevices: { b290fa85376a42c5: true },
+  // PAC 04 in alert, pump PEC-D2 B in warning, the ECH-04 meter for info.
+  devices: {
+    b290fa85376a42c5: { faulty: true, severity: "alert" },
+    cd1eb8257cce468b: { faulty: true, severity: "warning" },
+    "248de4cb7fa34704": { faulty: true, severity: "info" },
+  },
+  link: "live",
+  refreshedAt: Date.now(),
 };
 
 /** A device as the API would return it, for the popover. */

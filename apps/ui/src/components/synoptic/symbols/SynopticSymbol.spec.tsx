@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
 import { cleanup, render } from "@testing-library/react";
-import { symbolSchemas, type Projection } from "@gridone/sdk";
+import { symbolSchemas, type Projection, type Severity } from "@gridone/sdk";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   ISO_AXIS_DEG,
@@ -125,9 +125,10 @@ describe("SynopticSymbol", () => {
       { x: 0, y: -1 },
     ]) {
       const reach = along(d);
-      // Two base corners behind the centre, one tip 0.21 cells past it.
+      // Two base corners behind the centre, the apex on the circle
+      // downstream (ISO 14617 2301): INLINE_R cells, 12 px, past it.
       expect(reach.filter((r) => r < 0)).toHaveLength(2);
-      expect(Math.max(...reach)).toBeCloseTo(8.4, 5);
+      expect(Math.max(...reach)).toBeCloseTo(12, 5);
     }
   });
 
@@ -147,8 +148,8 @@ describe("SynopticSymbol", () => {
     expect(bowtie()).toContain("fill-none stroke-muted-foreground");
   });
 
-  it("carries the ISA mark when the instance has no label", () => {
-    const text = (type: string, label?: string) =>
+  it("carries the mark when the instance has no label, and the actuator's M as glyph detail", () => {
+    const sheet = (type: string, label?: string) =>
       draw(
         <SynopticSymbol
           type={type}
@@ -156,11 +157,23 @@ describe("SynopticSymbol", () => {
           origin={{ x: 0, y: 0 }}
           label={label}
         />,
-      ).querySelector("text")?.textContent;
-    expect(text("mixing_valve")).toBe("M");
+      );
+    // The name or the mark: the operating text, never the glyph's own.
+    const text = (type: string, label?: string) =>
+      [...sheet(type, label).querySelectorAll("text")].find(
+        (t) => !t.hasAttribute("data-glyph-text"),
+      )?.textContent;
     expect(text("energy_meter")).toBe("kWh");
+    expect(text("mixing_valve")).toBeUndefined();
     expect(text("mixing_valve", "MITIGEUR")).toBe("MITIGEUR");
     expect(text("pump")).toBeUndefined();
+    // The motor actuator (ISO 14617 C0082) on the motorised valves only.
+    const motor = (type: string) =>
+      sheet(type).querySelector("[data-actuator] [data-glyph-text='M']");
+    expect(motor("mixing_valve")).not.toBeNull();
+    expect(motor("valve_control")).not.toBeNull();
+    expect(motor("valve_isolation")).toBeNull();
+    expect(motor("valve_check")).toBeNull();
   });
 
   it("occludes the run under a sheet glyph with a plate patch of its own outline, never wider", () => {
@@ -178,10 +191,11 @@ describe("SynopticSymbol", () => {
     expect(patch.className.baseVal).toBe("fill-synoptic-plate stroke-none");
     expect(patch.getAttribute("stroke-width")).toBe("0");
     expect(patch.getAttribute("points")!.split(" ")).toHaveLength(40);
-    // A tank on the sheet: the cylinder's circle, not the footprint square.
+    // A tank on the sheet: the vessel with dished ends (ISO 14617 2062),
+    // two arcs of 13 points, not the footprint square.
     const tank = first("tank");
     expect(tank.className.baseVal).toBe("fill-synoptic-plate stroke-none");
-    expect(tank.getAttribute("points")!.split(" ")).toHaveLength(40);
+    expect(tank.getAttribute("points")!.split(" ")).toHaveLength(26);
     expect(tank.getAttribute("points")).not.toBe("0,0 40,0 40,80 0,80");
     expect(first("pump").className.baseVal).toBe(
       "fill-synoptic-plate stroke-none",
@@ -205,7 +219,7 @@ describe("SynopticSymbol", () => {
           type="valve_isolation"
           projection="isometric"
           origin={{ x: 2, y: 1, z }}
-          faulty
+          fault="alert"
         />,
       )
         .querySelector("polygon.stroke-status-error")!
@@ -244,7 +258,7 @@ describe("SynopticSymbol", () => {
   });
 
   it("labels above the body, with a run-state LED on the sheet", () => {
-    const led = (state?: "on" | "off", faulty = false) =>
+    const led = (state?: "on" | "off", fault: Severity | null = null) =>
       draw(
         <SynopticSymbol
           type="pump"
@@ -252,7 +266,7 @@ describe("SynopticSymbol", () => {
           origin={{ x: 0, y: 0 }}
           label="P-01"
           state={state}
-          faulty={faulty}
+          fault={fault}
         />,
       );
     expect(led().querySelector("text")!.textContent).toBe("P-01");
@@ -264,12 +278,12 @@ describe("SynopticSymbol", () => {
       "fill-muted-foreground",
     );
     expect(
-      led("off", true).querySelector("circle.fill-status-error"),
+      led("off", "alert").querySelector("circle.fill-status-error"),
     ).not.toBeNull();
   });
 
   it("shows the run state on the machine in isometric, and no LED on the label", () => {
-    const dot = (state?: "on" | "off", faulty = false) =>
+    const dot = (state?: "on" | "off", fault: Severity | null = null) =>
       draw(
         <SynopticSymbol
           type="pump"
@@ -277,7 +291,7 @@ describe("SynopticSymbol", () => {
           origin={{ x: 0, y: 0 }}
           label="P-01"
           state={state}
-          faulty={faulty}
+          fault={fault}
         />,
       );
     // Nothing known: a dashed hollow dot, and no LED after the name.
@@ -293,7 +307,7 @@ describe("SynopticSymbol", () => {
     ).toContain("fill-muted-foreground");
     // Fault first, whatever the state says.
     expect(
-      dot("on", true).querySelector("[data-state-dot='fault']"),
+      dot("on", "alert").querySelector("[data-state-dot='fault']"),
     ).not.toBeNull();
     // The heat pump shows it on its fan, turning while it runs.
     const fan = (state?: "on" | "off") =>
@@ -344,7 +358,7 @@ describe("SynopticSymbol", () => {
         type="tank"
         projection="isometric"
         origin={{ x: 0, y: 0 }}
-        faulty
+        fault="alert"
       />,
     );
     expect(c.querySelector("polygon.stroke-status-error")).not.toBeNull();
@@ -497,12 +511,10 @@ describe("the illustrated kit", () => {
     expect(c.querySelectorAll("[data-volume='box']")).toHaveLength(1);
     // Four louvres on the +x side of the cabinet.
     expect(c.querySelectorAll("line.stroke-synoptic-edge")).toHaveLength(4);
-    const fan = (state?: SymbolState, faulty = false) =>
-      iso("heat_pump", { state, faulty }).querySelector("[data-fan]")!;
-    const blades = (state?: SymbolState, faulty = false) =>
-      fan(state, faulty)
-        .querySelector(":scope > g > g")!
-        .getAttribute("class")!;
+    const fan = (state?: SymbolState, fault: Severity | null = null) =>
+      iso("heat_pump", { state, fault }).querySelector("[data-fan]")!;
+    const blades = (state?: SymbolState, fault: Severity | null = null) =>
+      fan(state, fault).querySelector(":scope > g > g")!.getAttribute("class")!;
     expect(blades("on")).toContain("fill-status-ok");
     expect(blades("on")).toContain("animate-[spin_2.4s_linear_infinite]");
     expect(blades("off")).toContain("fill-muted-foreground");
@@ -512,9 +524,9 @@ describe("the illustrated kit", () => {
     expect(fan().getAttribute("data-fan")).toBe("unknown");
     expect(blades()).toContain("fill-muted-foreground");
     expect(blades()).not.toContain("animate-");
-    expect(fan("on", true).getAttribute("data-fan")).toBe("fault");
-    expect(blades("on", true)).toContain("fill-status-error");
-    expect(blades("on", true)).not.toContain("animate-");
+    expect(fan("on", "alert").getAttribute("data-fan")).toBe("fault");
+    expect(blades("on", "alert")).toContain("fill-status-error");
+    expect(blades("on", "alert")).not.toContain("animate-");
   });
 
   it("shows an isolation valve's handwheel solid when closed, hollow when open, dashed while unknown", () => {
@@ -577,8 +589,8 @@ describe("the illustrated kit", () => {
   });
 
   it("glows the loop heater's element while it heats, red on a fault, muted else", () => {
-    const element = (state?: SymbolState, faulty = false) =>
-      iso("loop_heater", { state, faulty }).querySelector("[data-element]")!;
+    const element = (state?: SymbolState, fault: Severity | null = null) =>
+      iso("loop_heater", { state, fault }).querySelector("[data-element]")!;
     expect(element("on").getAttribute("data-element")).toBe("on");
     expect(element("on").getAttribute("class")).toBe(
       "stroke-fluid-heating-supply",
@@ -587,7 +599,7 @@ describe("the illustrated kit", () => {
       "stroke-muted-foreground",
     );
     expect(element().getAttribute("class")).toBe("stroke-muted-foreground");
-    expect(element("on", true).getAttribute("class")).toBe(
+    expect(element("on", "alert").getAttribute("class")).toBe(
       "stroke-status-error",
     );
   });
@@ -620,11 +632,18 @@ describe("the illustrated kit", () => {
   });
 
   it("colours a machine's active part by its fault first, then its run state", () => {
-    expect(indication(undefined, false)).toBe("unknown");
-    expect(indication("on", false)).toBe("on");
-    expect(indication("off", false)).toBe("off");
-    expect(indication("on", true)).toBe("fault");
-    expect(indication(undefined, true)).toBe("fault");
+    expect(indication(undefined, null)).toBe("unknown");
+    expect(indication("on", null)).toBe("on");
+    expect(indication("off", null)).toBe("off");
+    expect(indication("on", "alert")).toBe("fault");
+    expect(indication(undefined, "alert")).toBe("fault");
+    // A warning is abnormal, not a breakdown: amber, whatever the state.
+    expect(indication("on", "warning")).toBe("warning");
+    expect(indication(undefined, "warning")).toBe("warning");
+    // An info fault changes nothing on the machine; the badge says it.
+    expect(indication("on", "info")).toBe("on");
+    expect(indication("off", "info")).toBe("off");
+    expect(indication(undefined, "info")).toBe("unknown");
   });
 });
 

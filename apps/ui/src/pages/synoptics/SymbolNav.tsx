@@ -1,8 +1,9 @@
 import { useMemo, useState, type FC } from "react";
 import { useTranslation } from "react-i18next";
 import { Search } from "lucide-react";
-import type { SymbolElement } from "@gridone/sdk";
+import type { Severity, SymbolElement } from "@gridone/sdk";
 import type { SymbolState } from "@/components/synoptic";
+import { FAULT_BG_CLASS } from "@/components/synoptic/fault";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
@@ -13,7 +14,8 @@ export type NavEntry = {
   /** The type, as the screen reads it. */
   type: string;
   state?: SymbolState;
-  faulty: boolean;
+  /** The device's fault level; null when healthy. */
+  fault: Severity | null;
   /** The symbol is a device: selecting it opens its points. */
   device: boolean;
 };
@@ -98,11 +100,12 @@ export const SymbolNav: FC<SymbolNavProps> = ({
             >
               <span
                 aria-hidden
-                data-state={entry.faulty ? "fault" : (entry.state ?? "unknown")}
+                data-state={entry.fault ? "fault" : (entry.state ?? "unknown")}
+                data-fault={entry.fault ?? undefined}
                 className={cn(
                   "h-2 w-2 shrink-0 rounded-full",
-                  entry.faulty
-                    ? "bg-status-error"
+                  entry.fault
+                    ? FAULT_BG_CLASS[entry.fault]
                     : entry.state === "on"
                       ? "bg-status-ok"
                       : entry.state === "off"

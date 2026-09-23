@@ -1,4 +1,10 @@
-import { symbolSchemas, type Cell, type Projection } from "@gridone/sdk";
+import {
+  symbolSchemas,
+  type Cell,
+  type Projection,
+  type Severity,
+} from "@gridone/sdk";
+import { FAULT_FILL_CLASS, FAULT_STROKE_CLASS } from "../fault";
 import { PIPE_AXIS_Z, project, rotateQuarter, type Plane } from "../projection";
 import type { Pt } from "../types";
 import type { SymbolState } from "./Label";
@@ -25,8 +31,9 @@ type SynopticSymbolProps = {
   rotation?: number;
   label?: string;
   state?: SymbolState;
-  /** `Device.is_faulty` of the bound device. */
-  faulty?: boolean;
+  /** The bound device's fault level, its worst active severity; null or
+   *  absent when it is healthy. */
+  fault?: Severity | null;
   /** Run direction an inline type follows, in plan. */
   direction?: Pt;
   /** False when the surface draws the name itself, placed clear of the
@@ -81,7 +88,7 @@ export function SynopticSymbol({
   rotation = 0,
   label,
   state,
-  faulty = false,
+  fault = null,
   direction = RIGHT,
   showLabel = true,
 }: SynopticSymbolProps) {
@@ -142,7 +149,7 @@ export function SynopticSymbol({
               footprint,
               direction,
               state,
-              faulty,
+              fault,
               closed,
             ),
           )
@@ -155,11 +162,12 @@ export function SynopticSymbol({
           lift={0}
           anchor={spec.anchor}
           led={type === "valve_isolation" || volume ? undefined : state}
-          faulty={faulty}
+          fault={fault}
         />
       )}
-      {faulty && (
-        <Fault
+      {fault && (
+        <FaultMark
+          level={fault}
           outline={
             iso && (volume || extruded)
               ? silhouette(bodyOutline, volume ? floor : base, floor + top)
@@ -181,7 +189,7 @@ function volumeContext(
   { w, d }: { w: number; d: number },
   direction: Pt,
   state: SymbolState | undefined,
-  faulty: boolean,
+  fault: Severity | null,
   closed: boolean | undefined,
 ): VolumeContext {
   const z = origin.z ?? 0;
@@ -205,7 +213,7 @@ function volumeContext(
     c: { x: (rect.x0 + rect.x1) / 2, y: (rect.y0 + rect.y1) / 2 },
     dir: direction,
     state,
-    faulty,
+    fault,
     closed,
   };
 }
@@ -289,16 +297,34 @@ export function symbolLabelPoint(
   return symbolLabelAnchor(type, projection, origin, rotation)?.at ?? null;
 }
 
-function Fault({ outline, badge }: { outline: Pt[]; badge: Pt }) {
+/** The fault mark of a symbol: its silhouette outlined in the fault's
+ *  colour, and a badge at the top right of its footprint. The legend
+ *  draws the badge alone. */
+export function FaultMark({
+  level,
+  outline,
+  badge,
+}: {
+  level: Severity;
+  outline?: Pt[];
+  badge: Pt;
+}) {
   return (
-    <>
-      <polygon
-        points={pointsAttr(outline)}
-        strokeWidth={2.5}
-        strokeLinejoin="round"
-        className="fill-none stroke-status-error"
+    <g data-fault={level}>
+      {outline && (
+        <polygon
+          points={pointsAttr(outline)}
+          strokeWidth={2.5}
+          strokeLinejoin="round"
+          className={`fill-none ${FAULT_STROKE_CLASS[level]}`}
+        />
+      )}
+      <circle
+        cx={badge.x}
+        cy={badge.y}
+        r={7}
+        className={FAULT_FILL_CLASS[level]}
       />
-      <circle cx={badge.x} cy={badge.y} r={7} className="fill-status-error" />
       <text
         x={badge.x}
         y={badge.y + 3.5}
@@ -309,7 +335,7 @@ function Fault({ outline, badge }: { outline: Pt[]; badge: Pt }) {
       >
         !
       </text>
-    </>
+    </g>
   );
 }
 

@@ -13,7 +13,9 @@
     "apply": "Appliquer",
     "cancel": "Annuler",
     "writeFailed": "Écriture refusée",
-    "unconfirmed": "Écriture non confirmée par l'appareil"
+    "unconfirmed": "Écriture non confirmée par l'appareil",
+    "updatedAt": "Mis à jour {{time}}",
+    "neverUpdated": "Aucune valeur reçue"
   },
   "view": {
     "projection": "Vue",
@@ -33,11 +35,25 @@
     "toggle": "Afficher la liste des équipements",
     "hide": "Masquer la liste des équipements"
   },
+  "reading": {
+    "updated": "mis à jour {{time}} ({{ago}})",
+    "silent": "aucune valeur reçue",
+    "stale": "valeur ancienne"
+  },
   "legend": {
     "title": "Légende",
+    "symbols": "Symboles",
     "live": "valeur en direct",
+    "stale": "valeur ancienne",
+    "silent": "aucune valeur",
+    "note": "donnée saisie, non mesurée",
     "fault": "Défaut",
-    "unmeasured": "Non instrumenté"
+    "led": {
+      "on": "en marche",
+      "off": "à l'arrêt",
+      "unknown": "état inconnu"
+    },
+    "missingLink": "renvoi vers une vue absente"
   },
   "fluids": {
     "primary_supply": "Primaire départ",
@@ -51,6 +67,34 @@
     "chilled_return": "Eau glacée retour",
     "condenser_supply": "Condenseur départ",
     "condenser_return": "Condenseur retour"
+  },
+  "slots": {
+    "state": "État",
+    "fault": "Défaut",
+    "supply_temp": "T° départ",
+    "power": "Puissance",
+    "temperature": "Température",
+    "speed": "Vitesse",
+    "position": "Position",
+    "energy": "Énergie"
+  },
+  "types": {
+    "heat_pump": "pompe à chaleur",
+    "tank": "ballon",
+    "collector": "nourrice",
+    "mixing_valve": "vanne mélangeuse",
+    "pump": "pompe",
+    "valve_isolation": "vanne d'isolement",
+    "valve_check": "clapet anti-retour",
+    "valve_control": "vanne de régulation",
+    "link": "renvoi vers une autre vue",
+    "plate_exchanger": "échangeur à plaques",
+    "air_separator": "séparateur d'air",
+    "expansion_vessel": "vase d'expansion",
+    "dirt_separator": "pot à boue",
+    "pump_double": "pompe double",
+    "energy_meter": "compteur d'énergie",
+    "loop_heater": "réchauffeur de boucle"
   },
   "faults": {
     "title": "Défauts sur cette vue",

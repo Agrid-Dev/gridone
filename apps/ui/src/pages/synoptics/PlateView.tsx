@@ -19,16 +19,15 @@ import {
 import type { Fluid, Projection, Synoptic, SymbolElement } from "@gridone/sdk";
 import {
   DEFAULT_PROJECTION,
-  humanize,
   SynopticRenderer,
   type PlateHandle,
-  type SymbolState,
 } from "@/components/synoptic";
 import type { View } from "@/components/synoptic/hooks/useViewport";
 import { ZOOM_STEP } from "@/components/synoptic/hooks/useViewport";
+import { faultLevel } from "@/components/synoptic/fault";
 import {
+  stateOf,
   symbolSlotKey,
-  truthOf,
   type SynopticValues,
 } from "@/components/synoptic/values";
 import { Button } from "@/components/ui/button";
@@ -41,6 +40,7 @@ import { cn } from "@/lib/utils";
 import { DevicePopover } from "./DevicePopover";
 import { PlateLegend } from "./PlateLegend";
 import { SymbolNav, type NavEntry } from "./SymbolNav";
+import { usePlateVocabulary } from "./usePlateVocabulary";
 
 type PlateViewProps = {
   doc: Synoptic;
@@ -56,17 +56,6 @@ type AnchorRect = { left: number; top: number; width: number; height: number };
 /** How far a symbol is zoomed in when the panel locates it. */
 const FOCUS_SCALE = 2;
 
-/** The run state a symbol shows: none once the reading is old. */
-const stateOf = (
-  values: SynopticValues,
-  symbol: SymbolElement,
-): SymbolState | undefined => {
-  const reading = values.slots[symbolSlotKey(symbol.id, "state")];
-  if (!reading || reading.stale) return undefined;
-  const on = truthOf(reading.raw);
-  return on === undefined ? undefined : on ? "on" : "off";
-};
-
 /**
  * A plate with its chrome: the toolbar (plan or isometric view, zoom, fit,
  * full screen), the navigation panel that locates an equipment, the
@@ -81,6 +70,7 @@ export const PlateView: FC<PlateViewProps> = ({
   onNavigate,
 }) => {
   const { t } = useTranslation("synoptics");
+  const vocabulary = usePlateVocabulary();
   const plate = useRef<PlateHandle | null>(null);
   const container = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLDivElement>(null);
@@ -109,21 +99,30 @@ export const PlateView: FC<PlateViewProps> = ({
     () => new Set<Fluid>((doc.pipes ?? []).map((pipe) => pipe.fluid)),
     [doc],
   );
+  // The types the legend's symbol key explains: those the plate draws.
+  const types = useMemo(
+    () => new Set<string>((doc.symbols ?? []).map((symbol) => symbol.type)),
+    [doc],
+  );
   const entries = useMemo<NavEntry[]>(
     () =>
       (doc.symbols ?? [])
         .filter((symbol) => symbol.label)
-        .map((symbol) => ({
-          symbol,
-          name: symbol.label!,
-          type: humanize(symbol.type),
-          state: stateOf(values, symbol),
-          faulty:
-            !!symbol.device_id && !!values.faultyDevices[symbol.device_id],
-          device: !!symbol.device_id,
-        }))
+        .map((symbol) => {
+          const facts = symbol.device_id
+            ? values.devices[symbol.device_id]
+            : null;
+          return {
+            symbol,
+            name: symbol.label!,
+            type: vocabulary.typeLabel(symbol.type),
+            state: stateOf(values.slots[symbolSlotKey(symbol.id, "state")]),
+            fault: faultLevel(!!facts?.faulty, facts?.severity),
+            device: !!symbol.device_id,
+          };
+        })
         .sort((a, b) => a.name.localeCompare(b.name)),
-    [doc, values],
+    [doc, values, vocabulary],
   );
 
   const onViewChange = useCallback((view: View) => {
@@ -306,6 +305,7 @@ export const PlateView: FC<PlateViewProps> = ({
             onSymbolClick={onSymbolClick}
             onSymbolHover={onSymbolHover}
             highlightId={highlight}
+            vocabulary={vocabulary}
             plateRef={plate}
             onViewChange={onViewChange}
             touchAction={fullscreen ? "none" : "pan-y"}
@@ -334,6 +334,7 @@ export const PlateView: FC<PlateViewProps> = ({
                   key={selected.id}
                   symbol={selected}
                   values={values}
+                  vocabulary={vocabulary}
                   onClose={() => setSelected(null)}
                 />
               )}
@@ -342,7 +343,7 @@ export const PlateView: FC<PlateViewProps> = ({
         </div>
       </div>
       <div className="border-t border-border px-3 py-1.5">
-        <PlateLegend fluids={fluids} />
+        <PlateLegend fluids={fluids} types={types} vocabulary={vocabulary} />
       </div>
     </div>
   );

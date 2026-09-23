@@ -127,7 +127,7 @@ const VALUES: SynopticValues = {
     "symbol.heater.state": { ...live("MARCHE", true), stale: true },
     "symbol.v03.state": live("OUVERTE", true),
   },
-  faultyDevices: { "V-3": true },
+  devices: { "V-3": { faulty: true, severity: null } },
 };
 
 /**
@@ -507,9 +507,15 @@ describe("PlateView", () => {
   it("lists in the legend the fluids the plate's pipes carry, in the vocabulary's order", () => {
     renderView();
     const legend = screen.getByLabelText("Légende");
-    const fluids = [...legend.querySelectorAll("svg rect")].map(
-      (rect) => rect.closest("dd")!.textContent,
+    const fluids = [...legend.querySelectorAll("[data-legend^='fluid-']")].map(
+      (dd) => dd.textContent,
     );
     expect(fluids).toEqual(["Primaire départ", "Bouclage"]);
+    // And the key names the types the plate draws, in the page's words.
+    expect(
+      [...screen.getByLabelText("legend.symbols").querySelectorAll("dd")].map(
+        (dd) => dd.getAttribute("data-legend-symbol"),
+      ),
+    ).not.toHaveLength(0);
   });
 });

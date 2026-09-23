@@ -72,6 +72,27 @@ export function PlanCircle({ plane, c, r, cls = "outline" }: CircleProps) {
   return <PlanPoly plane={plane} points={circlePts(c, r)} cls={cls} />;
 }
 
+type TextProps = { plane: Plane; at: Pt; text: string; size?: number };
+
+/** A letter or two inside a glyph (the `M` of an actuator): glyph detail,
+ *  not operating information, so it may sit under the 11 px floor. */
+export function PlanText({ plane, at, text, size = 8 }: TextProps) {
+  const p = plane(at.x, at.y);
+  return (
+    <text
+      x={p.x}
+      y={p.y + size * 0.36}
+      textAnchor="middle"
+      fontSize={size}
+      fontWeight={600}
+      className="fill-synoptic-stroke"
+      data-glyph-text={text}
+    >
+      {text}
+    </text>
+  );
+}
+
 /** Points authored for a run along `+x`, turned to follow direction `d`
  *  about `c`. */
 export function rot(points: Pt[], c: Pt, d: Pt): Pt[] {

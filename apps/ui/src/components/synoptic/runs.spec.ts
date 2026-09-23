@@ -178,14 +178,15 @@ describe("runPieces", () => {
       stub: true,
     });
     expect(pieces[1].points[0]).toEqual({ x: 80, y: 60 });
-    // primary_in enters (4, 0) through -x, at x = 160. The tank's cylinder
-    // never meets that line, so the visible run ends at the face and the
-    // stub carries on to the cell centre, where it grazes the cylinder.
-    expect(pieces[pieces.length - 2].points[2]).toEqual({ x: 160, y: 20 });
+    // primary_in enters (4, 0) through -x, at x = 160. The tank's vessel
+    // (ISO 14617 2062, 0.4 cells each side of the centre line at x = 180)
+    // meets that line at x = 164, so the visible run ends at the drawn
+    // edge and the stub carries on to the cell centre, under the glyph.
+    expect(pieces[pieces.length - 2].points[2]).toEqual({ x: 164, y: 20 });
     expect(pieces[pieces.length - 1]).toEqual({
       cell: { x: 4, y: 0, z: 0 },
       points: [
-        { x: 160, y: 20 },
+        { x: 164, y: 20 },
         { x: 180, y: 20 },
         { x: 180, y: 20 },
       ],
@@ -268,11 +269,13 @@ describe("runPieces", () => {
       ]),
       SYMBOLS,
     );
-    // Entering from +y, the line from that face runs through the cylinder
-    // and leaves it 0.05 cells short of the cell centre: y = 22.
+    // Entering from +y, the face sits on the vessel's midline (ISO 14617
+    // 2062 spans the whole 1 x 2 footprint), so the line from that face to
+    // the cell centre never leaves the silhouette: the visible run stops at
+    // the face, y = 40, and the stub carries on under the glyph's patch.
     const visible = pieces.filter((p) => !p.stub);
     expect(visible[visible.length - 1].cell).toEqual({ x: 4, y: 1, z: 0 });
-    expect(visible[visible.length - 1].points[2]).toEqual({ x: 180, y: 22 });
+    expect(visible[visible.length - 1].points[2]).toEqual({ x: 180, y: 40 });
     expect(pieces[pieces.length - 1].stub).toBe(true);
   });
 

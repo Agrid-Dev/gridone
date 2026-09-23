@@ -1,10 +1,12 @@
 import type {
   AttributeSlot,
   AttributeTarget,
+  Severity,
   SlotValue,
   Synoptic,
 } from "@gridone/sdk";
 import type { AttributeValue } from "@/lib/devices";
+import type { SymbolState } from "./symbols/Label";
 
 /** One device-bound slot of a document, addressed by its `key`. */
 export type BoundSlot = {
@@ -23,18 +25,41 @@ export type SlotReading = {
   stale: boolean;
   /** `Device.is_faulty` of the device the slot reads. */
   faulty: boolean;
+  /** The worst severity among that device's active faults; null when it
+   *  is healthy or nothing is known. A faulty device with no severity
+   *  reads as an alert. */
+  severity?: Severity | null;
+  /** When the device last reported the value (ISO 8601); null or absent
+   *  when nothing has arrived. */
+  lastUpdated?: string | null;
   /** The slot is a text literal of the document, a fact no device reads:
    *  drawn as a note, never as a live value. */
   literal?: boolean;
 };
 
-export type SynopticValues = {
-  slots: Record<string, SlotReading>;
-  /** `Device.is_faulty` per device id the document names. */
-  faultyDevices: Record<string, boolean>;
+/** What the plate knows of a device it names: whether it is faulty, and
+ *  the worst severity among its active faults. */
+export type DeviceFacts = {
+  faulty: boolean;
+  severity: Severity | null;
 };
 
-export const EMPTY_VALUES: SynopticValues = { slots: {}, faultyDevices: {} };
+/** How the plate is fed: pushed over the socket, polled while the socket
+ *  is down, or cut off when the list itself fails. */
+export type LinkState = "live" | "polling" | "offline";
+
+export type SynopticValues = {
+  slots: Record<string, SlotReading>;
+  /** Per device id the document names. */
+  devices: Record<string, DeviceFacts>;
+  /** How the values arrive; what the hook knows, a fixture need not. */
+  link?: LinkState;
+  /** When the plate last received values, in epoch milliseconds; null
+   *  before the first. */
+  refreshedAt?: number | null;
+};
+
+export const EMPTY_VALUES: SynopticValues = { slots: {}, devices: {} };
 
 /** A slot nothing has arrived for: silent, drawn as a dash. */
 export const SILENT_READING: SlotReading = {
@@ -48,6 +73,14 @@ export const SILENT_READING: SlotReading = {
 /** How a reading renders: a note for a literal, muted and dashed once
  *  old, a dash when nothing has arrived, the reading colour when live. */
 export type ReadingState = "live" | "stale" | "silent" | "note";
+
+/** Every reading state, in the order a legend lists them. */
+export const READING_STATES = [
+  "live",
+  "stale",
+  "silent",
+  "note",
+] as const satisfies readonly ReadingState[];
 
 export const readingState = (reading: SlotReading): ReadingState =>
   reading.literal
@@ -136,6 +169,17 @@ export function truthOf(raw: AttributeValue | null): boolean | undefined {
   }
   return undefined;
 }
+
+/** The run state a symbol shows for its `state` reading: none once the
+ *  reading is old, since a stale MARCHE is not a running machine, and
+ *  none for a value that is no state at all. */
+export const stateOf = (
+  reading: SlotReading | undefined,
+): SymbolState | undefined => {
+  if (!reading || reading.stale) return undefined;
+  const on = truthOf(reading.raw);
+  return on === undefined ? undefined : on ? "on" : "off";
+};
 
 /** A value is stale once older than its threshold: the binding's, else the
  *  document's. Without either it never goes stale. */

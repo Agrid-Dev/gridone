@@ -9,7 +9,6 @@ import {
   type SymbolElement,
 } from "@gridone/sdk";
 import { ResourceLink as Link } from "@/components/ResourceLink";
-import { humanize } from "@/components/synoptic";
 import {
   readingState,
   SILENT_READING,
@@ -18,7 +17,6 @@ import {
   type SynopticValues,
 } from "@/components/synoptic/values";
 import type { WriteOutcome } from "@/components/device-ui/runtime/controlRuntime";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -39,8 +37,10 @@ import {
   type AttributeValue,
 } from "@/lib/devices";
 import { valueLabelText } from "@/lib/attributeValueLabel";
-import type { AttributeFields } from "@/lib/faults";
+import { getHighestActiveSeverity, type AttributeFields } from "@/lib/faults";
 import { cn } from "@/lib/utils";
+import { SeverityLabel } from "@/pages/faults/components/SeverityLabel";
+import type { PageVocabulary } from "./usePlateVocabulary";
 
 /** One point of the symbol: a slot its type declares, bound in the
  *  document, and what it reads. `attribute` names the device attribute
@@ -74,6 +74,7 @@ function pointsOf(symbol: SymbolElement, values: SynopticValues): Point[] {
 type DevicePopoverProps = {
   symbol: SymbolElement;
   values: SynopticValues;
+  vocabulary: PageVocabulary;
   onClose: () => void;
 };
 
@@ -88,6 +89,7 @@ type DevicePopoverProps = {
 export const DevicePopover: FC<DevicePopoverProps> = ({
   symbol,
   values,
+  vocabulary,
   onClose,
 }) => {
   const { t } = useTranslation("synoptics");
@@ -111,12 +113,15 @@ export const DevicePopover: FC<DevicePopoverProps> = ({
           <div className="text-xs text-muted-foreground">
             {device?.name && device.name !== symbol.label
               ? device.name
-              : humanize(symbol.type)}
+              : vocabulary.typeLabel(symbol.type)}
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1">
           {device?.is_faulty && (
-            <Badge variant="destructive">{t("legend.fault")}</Badge>
+            <SeverityLabel
+              severity={getHighestActiveSeverity(device) ?? "alert"}
+              className="text-xs"
+            />
           )}
           <Button
             type="button"
@@ -139,7 +144,7 @@ export const DevicePopover: FC<DevicePopoverProps> = ({
             : tCommon("common.deviceLoadError")}
         </p>
       ) : (
-        <PointList device={device} points={points} />
+        <PointList device={device} points={points} vocabulary={vocabulary} />
       )}
       {deviceId && (
         <Link
@@ -154,11 +159,12 @@ export const DevicePopover: FC<DevicePopoverProps> = ({
   );
 };
 
-const PointList: FC<{ device: Device; points: Point[] }> = ({
-  device,
-  points,
-}) => {
-  const { t } = useTranslation("synoptics");
+const PointList: FC<{
+  device: Device;
+  points: Point[];
+  vocabulary: PageVocabulary;
+}> = ({ device, points, vocabulary }) => {
+  const { t, i18n } = useTranslation("synoptics");
   const labelFor = useAttributeLabel();
   const [editing, setEditing] = useState<string | null>(null);
   if (points.length === 0) {
@@ -184,7 +190,7 @@ const PointList: FC<{ device: Device; points: Point[] }> = ({
               <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 {point.attribute
                   ? labelFor(point.attribute, attribute)
-                  : humanize(point.slot)}
+                  : vocabulary.slotLabel(point.slot)}
               </dt>
               <dd className="flex items-center gap-2">
                 <span
@@ -204,6 +210,25 @@ const PointList: FC<{ device: Device; points: Point[] }> = ({
                     </span>
                   )}
                 </span>
+                {state !== "note" && (
+                  <span
+                    className="text-[11px] tabular-nums text-muted-foreground"
+                    data-updated={point.reading.lastUpdated ?? "never"}
+                    title={
+                      point.reading.lastUpdated
+                        ? t("popover.updatedAt", {
+                            time: new Date(
+                              point.reading.lastUpdated,
+                            ).toLocaleString(i18n.language),
+                          })
+                        : t("popover.neverUpdated")
+                    }
+                  >
+                    {point.reading.lastUpdated
+                      ? vocabulary.readingTime(point.reading.lastUpdated)
+                      : "–"}
+                  </span>
+                )}
                 {writable && editing !== point.slot && (
                   <Button
                     type="button"

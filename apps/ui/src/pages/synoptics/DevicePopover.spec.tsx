@@ -32,7 +32,7 @@ vi.mock("react-i18next", () =>
     "popover.cancel": "Annuler",
     "popover.writeFailed": "Écriture refusée",
     "popover.unconfirmed": "Écriture non confirmée par l'appareil",
-    "legend.fault": "Défaut",
+    "common.severity.alert": "alerte",
     "common.deviceNotFound": "Cet appareil n'existe plus.",
     "common.deviceLoadError": "Impossible de charger cet appareil.",
   }),
@@ -64,7 +64,9 @@ vi.mock("@/hooks/useAttributeCommandRuntime", () => ({
       mockWrite(deviceId, attribute, value),
 }));
 
+import { humanize } from "@/components/synoptic";
 import { DevicePopover } from "./DevicePopover";
+import type { PageVocabulary } from "./usePlateVocabulary";
 
 const attribute = (name: string, fields: Record<string, unknown>) => ({
   kind: "state",
@@ -185,14 +187,27 @@ const VALUES: SynopticValues = {
     "symbol.pac.state": live("MARCHE", true),
     "symbol.pac.supply_temp": live("52.4", 52.4, "°C"),
   },
-  faultyDevices: {},
+  devices: {},
+};
+
+/** The page's words, as the plate view hands them: the registry's own
+ *  names, and a fixed clock. */
+const vocabulary: PageVocabulary = {
+  slotLabel: humanize,
+  typeLabel: humanize,
+  readingTime: () => "12:00:00",
 };
 
 function renderPopover(symbol = PAC, values = VALUES) {
   const onClose = vi.fn();
   render(
     <MemoryRouter>
-      <DevicePopover symbol={symbol} values={values} onClose={onClose} />
+      <DevicePopover
+        symbol={symbol}
+        values={values}
+        vocabulary={vocabulary}
+        onClose={onClose}
+      />
     </MemoryRouter>,
   );
   return { onClose };
@@ -259,17 +274,48 @@ describe("DevicePopover", () => {
       expect(popover().textContent).toContain("heat pump");
     });
 
-    it("flags a faulty device, and not a healthy one", () => {
+    it("flags a faulty device at its worst severity, and not a healthy one", () => {
       renderPopover();
-      expect(screen.queryByText("Défaut")).toBeNull();
+      expect(document.querySelector("[data-severity]")).toBeNull();
       cleanup();
+      // Faulty with no fault attribute in sight: an alert, by default.
       mockUseDeviceById.mockReturnValue({
         data: { ...DEVICE, is_faulty: true },
         isLoading: false,
         error: null,
       });
       renderPopover();
-      expect(screen.getByText("Défaut")).toBeInTheDocument();
+      expect(screen.getByText("alerte")).toBeInTheDocument();
+      expect(
+        document
+          .querySelector("[data-severity]")!
+          .getAttribute("data-severity"),
+      ).toBe("alert");
+    });
+
+    it("dates each point by the device's last report, and dashes one it never reported", () => {
+      renderPopover(PAC, {
+        ...VALUES,
+        slots: {
+          "symbol.pac.state": {
+            ...live("MARCHE", true),
+            lastUpdated: "2026-09-23T10:00:00Z",
+          },
+          "symbol.pac.supply_temp": live("52.4", 52.4, "°C"),
+        },
+      });
+      expect(point("state").querySelector("[data-updated]")!.textContent).toBe(
+        "12:00:00",
+      );
+      expect(
+        point("state")
+          .querySelector("[data-updated]")!
+          .getAttribute("data-updated"),
+      ).toBe("2026-09-23T10:00:00Z");
+      expect(
+        point("supply_temp").querySelector("[data-updated='never']")!
+          .textContent,
+      ).toBe("–");
     });
 
     it("closes from its own button", () => {
@@ -369,7 +415,7 @@ describe("DevicePopover", () => {
           device_id: "PAC-03",
           bindings: { temperature: attr("outlet_temperature") },
         },
-        { slots, faultyDevices: {} },
+        { slots, devices: {} },
       );
       const temperature = reading("temperature");
       expect(temperature.getAttribute("data-reading")).toBe(state);

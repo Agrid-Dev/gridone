@@ -13,6 +13,8 @@ import {
   isStale,
   targetDeviceId,
   targetKey,
+  type DeviceFacts,
+  type LinkState,
   type SlotReading,
   type SynopticValues,
 } from "@/components/synoptic/values";
@@ -21,7 +23,7 @@ import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { DEVICE_POLL_INTERVAL_MS } from "@/hooks/useDevice";
 import { useNow } from "@/hooks/useNow";
 import { deviceAttributes, devicesFilterToListParams } from "@/lib/devices";
-import type { AttributeFields } from "@/lib/faults";
+import { getHighestActiveSeverity, type AttributeFields } from "@/lib/faults";
 
 /** `at` is the time cursor a later version reads values at; v1 ignores
  *  it, so adding the cursor is an addition rather than a refactor. */
@@ -159,7 +161,10 @@ export const useSynopticValues: UseSynopticValues = (doc) => {
     return seed.isError ? deviceIds : [];
   }, [seed.data, seed.isError, deviceIds]);
 
-  const devices = useQueries({
+  // `updatedAt` is the latest moment any device of the plate was written,
+  // by a fetch or by a socket patch: what the page shows as the plate's
+  // last refresh.
+  const { byId: devices, updatedAt } = useQueries({
     queries: seededIds.map((id) => ({
       queryKey: ["device", id],
       queryFn: () => client.devices.get(id),
@@ -170,16 +175,25 @@ export const useSynopticValues: UseSynopticValues = (doc) => {
     combine: useCallback(
       (results: UseQueryResult<Device>[]) => {
         const byId: Record<string, Device> = {};
+        let updatedAt = 0;
         results.forEach((result, i) => {
           if (result.data) byId[seededIds[i]] = result.data;
+          updatedAt = Math.max(updatedAt, result.dataUpdatedAt);
         });
-        return byId;
+        return { byId, updatedAt };
       },
       [seededIds],
     ),
   });
 
   return useMemo(() => {
+    const facts: Record<string, DeviceFacts> = {};
+    for (const [id, device] of Object.entries(devices)) {
+      facts[id] = {
+        faulty: device.is_faulty === true,
+        severity: getHighestActiveSeverity(device),
+      };
+    }
     const readings: Record<string, SlotReading> = {};
     const defaultStaleAfter = doc.defaults?.stale_after;
     for (const { key, slot } of slots) {
@@ -191,7 +205,9 @@ export const useSynopticValues: UseSynopticValues = (doc) => {
             | AttributeFields
             | undefined)
         : undefined;
-      const faulty = device?.is_faulty === true;
+      const known = id ? facts[id] : undefined;
+      const faulty = known?.faulty ?? false;
+      const severity = known?.severity ?? null;
       if (!attr || attr.current_value == null || !attr.last_updated) {
         readings[key] = {
           text: null,
@@ -199,6 +215,8 @@ export const useSynopticValues: UseSynopticValues = (doc) => {
           raw: null,
           stale: false,
           faulty,
+          severity,
+          lastUpdated: null,
         };
         continue;
       }
@@ -211,12 +229,28 @@ export const useSynopticValues: UseSynopticValues = (doc) => {
           now,
         ),
         faulty,
+        severity,
+        lastUpdated: attr.last_updated,
       };
     }
-    const faultyDevices: Record<string, boolean> = {};
-    for (const [id, device] of Object.entries(devices)) {
-      faultyDevices[id] = device.is_faulty === true;
-    }
-    return { slots: readings, faultyDevices };
-  }, [doc, slots, resolved, devices, now]);
+    // Pushed while the socket is up; polled at the device cadence while it
+    // is down; cut off once even the list fails.
+    const link: LinkState = isConnected
+      ? "live"
+      : seed.isError
+        ? "offline"
+        : "polling";
+    const refreshedAt = Math.max(updatedAt, seed.dataUpdatedAt) || null;
+    return { slots: readings, devices: facts, link, refreshedAt };
+  }, [
+    doc,
+    slots,
+    resolved,
+    devices,
+    now,
+    isConnected,
+    seed.isError,
+    seed.dataUpdatedAt,
+    updatedAt,
+  ]);
 };

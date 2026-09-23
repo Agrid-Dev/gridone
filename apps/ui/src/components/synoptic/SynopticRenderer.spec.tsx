@@ -141,7 +141,7 @@ const VALUES: SynopticValues = {
     "tag.tt-03": { ...live("51.9", 51.9, "°C"), faulty: true },
     "label.note": live("104", null),
   },
-  faultyDevices: { "PAC-03": true },
+  devices: { "PAC-03": { faulty: true, severity: null } },
 };
 
 /** The committed plates as the API would store them, read from the spec so
@@ -460,7 +460,7 @@ describe("SynopticRenderer", () => {
     // The running heat pump turns its fan instead.
     expect(q(draw(DOC, VALUES), "[data-fan='on']")).toHaveLength(0);
     expect(
-      q(draw(DOC, { ...VALUES, faultyDevices: {} }), "[data-fan='on']"),
+      q(draw(DOC, { ...VALUES, devices: {} }), "[data-fan='on']"),
     ).toHaveLength(1);
   });
 
@@ -469,7 +469,7 @@ describe("SynopticRenderer", () => {
       const c = draw(DOC, {
         ...VALUES,
         slots: { ...VALUES.slots, "symbol.pac.state": live("MARCHE", raw) },
-        faultyDevices: {},
+        devices: {},
       });
       // The panel's LED, and the fan of the machine itself.
       return [
@@ -506,7 +506,7 @@ describe("SynopticRenderer", () => {
           "symbol.a.temperature": live("55.0", 55, "°C"),
           "symbol.b.temperature": live("54.0", 54, "°C"),
         },
-        faultyDevices: {},
+        devices: {},
       },
     );
     const [a, b] = q(c, "[data-chip] rect").map((r) => ({
@@ -552,7 +552,7 @@ describe("SynopticRenderer", () => {
           ),
         ],
       },
-      { slots: { "tag.tt": live("52.4", 52.4, "°C") }, faultyDevices: {} },
+      { slots: { "tag.tt": live("52.4", 52.4, "°C") }, devices: {} },
     );
     const tag = c.querySelector("[data-tag='tt']")!;
     expect(tag.getAttribute("data-side")).toBe("below");
@@ -576,7 +576,7 @@ describe("SynopticRenderer", () => {
           ]),
         ],
       },
-      { slots: { "tag.tt": live("52.4", 52.4, "°C") }, faultyDevices: {} },
+      { slots: { "tag.tt": live("52.4", 52.4, "°C") }, devices: {} },
     );
     const chip = box(c.querySelector("[data-tag='tt'] rect")!);
     for (const seg of casingSegments(c))
@@ -607,7 +607,7 @@ describe("SynopticRenderer", () => {
           "tag.tt": live("52.4", 52.4, "°C"),
           "symbol.p.state": live("MARCHE", true),
         },
-        faultyDevices: {},
+        devices: {},
       },
     );
     const led = pumped.querySelector("[data-state-dot='on']")!;
@@ -629,7 +629,7 @@ describe("SynopticRenderer", () => {
         ...VALUES.slots,
         "symbol.pac.state": { ...live("MARCHE", true), stale: true },
       },
-      faultyDevices: {},
+      devices: {},
     });
     const panel = c.querySelector("[data-panel='PAC 03']")!;
     expect(panel.querySelector("circle:not([data-row] circle)")).toBeNull();
@@ -1354,7 +1354,7 @@ describe("SynopticRenderer, the illustrated kit on the plate", () => {
     ).not.toBeNull();
   });
 
-  it("names an unlabelled glyph by its ISA mark on the sheet only: the volume draws the mark itself", () => {
+  it("draws the actuator's M on the glyph in both views, and hangs no name over an unlabelled valve", () => {
     const unnamed = (projection: "flat" | "isometric") =>
       draw({
         ...DOC,
@@ -1369,16 +1369,14 @@ describe("SynopticRenderer, the illustrated kit on the plate", () => {
         pipes: [],
         labels: [],
       });
-    // On the sheet the `M` is the valve's only name.
-    expect(
-      unnamed("flat").querySelector("[data-symbol-label='mv'] text")
-        ?.textContent,
-    ).toBe("M");
-    // In the isometric view the actuator carries the `M`: no second one
-    // hangs above the machine.
-    const iso = unnamed("isometric");
-    expect(iso.querySelector("[data-symbol-label='mv']")).toBeNull();
-    expect(q(iso, "text").filter((t) => t.textContent === "M")).toHaveLength(1);
+    // The actuator (ISO 14617 C0082) carries the `M` on the glyph of the
+    // sheet as on the volume: no name is placed for an unlabelled valve,
+    // and no second `M` hangs above it, in either view.
+    for (const projection of ["flat", "isometric"] as const) {
+      const c = unnamed(projection);
+      expect(c.querySelector("[data-symbol-label='mv']")).toBeNull();
+      expect(q(c, "text").filter((t) => t.textContent === "M")).toHaveLength(1);
+    }
   });
 
   it("moves a name off a run through the kit's spot, and joins it to the body once it stands off it", () => {
@@ -1496,7 +1494,7 @@ describe("SynopticRenderer, the illustrated kit on the plate", () => {
             ]),
           ],
         },
-        { slots: { "tag.tt": live("52.4", 52.4, "°C") }, faultyDevices: {} },
+        { slots: { "tag.tt": live("52.4", 52.4, "°C") }, devices: {} },
       );
     const alone = tagged([]);
     expect(

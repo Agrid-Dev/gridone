@@ -88,7 +88,7 @@ describe("Panel", () => {
       true,
     );
 
-    const faulty = draw({ led: "on", faulty: true });
+    const faulty = draw({ led: "on", fault: "alert" });
     expect(faulty.frame.classList.contains("stroke-status-error")).toBe(true);
     expect(faulty.frame.getAttribute("stroke-width")).toBe("1.5");
     expect(faulty.led?.classList.contains("fill-status-error")).toBe(true);

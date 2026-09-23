@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import type { Severity } from "@gridone/sdk";
 import { ISO_AXIS_DEG, PIPE_AXIS_Z } from "../projection";
 import type { Pt } from "../types";
 import { fillUrl, KIT_GRADIENT } from "./defs";
@@ -34,19 +35,28 @@ export type VolumeContext = {
   /** World run direction of an inline type, unit length. */
   dir: Pt;
   state?: SymbolState;
-  faulty: boolean;
+  /** The device's fault level; null when healthy. */
+  fault: Severity | null;
   /** An isolation valve's reading: closed, open, or unknown. */
   closed?: boolean;
 };
 
 export type Volume = (ctx: VolumeContext) => ReactNode;
 
-/** The colour a machine's active part takes: fault first, then the run
- *  state, else nothing known. */
+/** The colour a machine's active part takes: an alert or a warning first,
+ *  then the run state, else nothing known. An info fault leaves the part
+ *  to its state. */
 export const indication = (
   state: SymbolState | undefined,
-  faulty: boolean,
-): Indication => (faulty ? "fault" : state === undefined ? "unknown" : state);
+  fault: Severity | null,
+): Indication =>
+  fault === "alert"
+    ? "fault"
+    : fault === "warning"
+      ? "warning"
+      : state === undefined
+        ? "unknown"
+        : state;
 
 const perp = (d: Pt): Pt => ({ x: -d.y, y: d.x });
 const along = (c: Pt, d: Pt, t: number): Pt => ({
@@ -62,7 +72,7 @@ const CABINET_H = 1.3;
 /** Radius of the round body of an inline machine on the run. */
 const INLINE_BODY_R = 0.28;
 
-const heatPump: Volume = ({ P, rect, c, state, faulty }) => {
+const heatPump: Volume = ({ P, rect, c, state, fault }) => {
   const inset = 0.06;
   const x1 = rect.x1 - inset;
   return (
@@ -102,7 +112,7 @@ const heatPump: Volume = ({ P, rect, c, state, faulty }) => {
         cy={c.y}
         z={CABINET_H}
         r={0.6}
-        state={indication(state, faulty)}
+        state={indication(state, fault)}
       />
     </>
   );
@@ -186,12 +196,12 @@ function pumpAt(
   );
 }
 
-const pump: Volume = ({ P, c, state, faulty }) =>
-  pumpAt(P, c, indication(state, faulty));
+const pump: Volume = ({ P, c, state, fault }) =>
+  pumpAt(P, c, indication(state, fault));
 
-const pumpDouble: Volume = ({ P, c, dir, state, faulty }) => {
+const pumpDouble: Volume = ({ P, c, dir, state, fault }) => {
   const n = perp(dir);
-  const ind = indication(state, faulty);
+  const ind = indication(state, fault);
   // The head further back paints first.
   const heads = [along(c, n, -0.26), along(c, n, 0.26)].sort(
     (a, b) => a.x + a.y - (b.x + b.y),
@@ -399,11 +409,11 @@ const energyMeter: Volume = ({ P, c }) => {
   );
 };
 
-const loopHeater: Volume = ({ P, c, state, faulty }) => {
+const loopHeater: Volume = ({ P, c, state, fault }) => {
   const hx = 0.45;
   const hy = 0.28;
   const at = P(c.x, c.y + hy, 0.4);
-  const ind = indication(state, faulty);
+  const ind = indication(state, fault);
   return (
     <>
       <IsoBox
@@ -427,7 +437,9 @@ const loopHeater: Volume = ({ P, c, state, faulty }) => {
             ? "stroke-fluid-heating-supply"
             : ind === "fault"
               ? "stroke-status-error"
-              : "stroke-muted-foreground"
+              : ind === "warning"
+                ? "stroke-status-warning"
+                : "stroke-muted-foreground"
         }
         transform={`translate(${at.x} ${at.y}) rotate(${ISO_AXIS_DEG})`}
       />

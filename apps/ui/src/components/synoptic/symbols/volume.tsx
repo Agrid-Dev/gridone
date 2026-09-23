@@ -303,14 +303,16 @@ export function Slab({
   );
 }
 
-/** What a coloured part of a machine says about its run: on, off,
- *  faulty, or nothing known. */
-export type Indication = "on" | "off" | "fault" | "unknown";
+/** What a coloured part of a machine says about its run: on, off, in
+ *  fault (an alert), abnormal (a warning), or nothing known. An `info`
+ *  fault changes nothing on the machine: its outline and badge say it. */
+export type Indication = "on" | "off" | "fault" | "warning" | "unknown";
 
 const INDICATION_CLASS: Record<Indication, string> = {
   on: "fill-status-ok",
   off: "fill-muted-foreground",
   fault: "fill-status-error",
+  warning: "fill-status-warning",
   unknown: "fill-card",
 };
 

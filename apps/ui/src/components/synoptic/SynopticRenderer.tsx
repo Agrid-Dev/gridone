@@ -21,6 +21,7 @@ import {
 import { fluidFillClass } from "@/lib/fluidColors";
 import { Caption, Chip, CHIP_H, chipWidth, DISC_R } from "./Chip";
 import { DepthOrdered, type DepthItem } from "./DepthOrdered";
+import { faultLevel } from "./fault";
 import type { View, ViewportController } from "./hooks/useViewport";
 import { Panel, PANEL_W, panelHeight, type PanelRow } from "./Panel";
 import { PidDiagram, type CanvasTouchAction } from "./PidDiagram";
@@ -62,7 +63,7 @@ import {
   symbolRotation,
   type PlanRect,
 } from "./symbols/footprint";
-import { Label, LABEL_SIZE, LED_GAP, type SymbolState } from "./symbols/Label";
+import { Label, LABEL_SIZE, LED_GAP } from "./symbols/Label";
 import { pointsAttr } from "./symbols/plan";
 import {
   SynopticSymbol,
@@ -71,18 +72,19 @@ import {
   symbolPoint,
 } from "./symbols/SynopticSymbol";
 import { Slab } from "./symbols/volume";
-import { humanize, textWidth } from "./text";
+import { textWidth } from "./text";
 import type { Pt } from "./types";
 import {
   EMPTY_VALUES,
   labelSlotKey,
   SILENT_READING,
+  stateOf,
   symbolSlotKey,
   tagSlotKey,
-  truthOf,
   type SlotReading,
   type SynopticValues,
 } from "./values";
+import { DEFAULT_VOCABULARY, type PlateVocabulary } from "./vocabulary";
 
 /** What the renderer draws: a plate with or without its envelope, so a
  *  document being authored renders before it is stored. */
@@ -115,6 +117,9 @@ type SynopticRendererProps = {
   onSymbolHover?: (symbol: SymbolElement | null) => void;
   /** A symbol to ring on the plate: the one a navigation panel points at. */
   highlightId?: string | null;
+  /** The words the plate writes, in the page's language; the registry's
+   *  own names without it. */
+  vocabulary?: PlateVocabulary;
   /** Receives the handle a toolbar or a navigation panel drives the plate
    *  with. */
   plateRef?: RefObject<PlateHandle | null>;
@@ -190,14 +195,6 @@ function readingOf(
   return values.slots[key] ?? SILENT;
 }
 
-/** The run state a symbol shows: none once the reading is old, since a
- *  stale MARCHE is not a running machine. */
-const stateOf = (reading: SlotReading | undefined): SymbolState | undefined => {
-  if (!reading || reading.stale) return undefined;
-  const on = truthOf(reading.raw);
-  return on === undefined ? undefined : on ? "on" : "off";
-};
-
 /**
  * Turns a stored document into the depth-ordered items of a plate. Symbols
  * and collectors sit at their cell; a run is cut per cell it crosses; tags,
@@ -211,6 +208,7 @@ export function SynopticRenderer({
   onSymbolClick,
   onSymbolHover,
   highlightId,
+  vocabulary = DEFAULT_VOCABULARY,
   plateRef,
   onViewChange,
   extent,
@@ -226,7 +224,13 @@ export function SynopticRenderer({
       buildPlate(
         geometry,
         values,
-        { knownSynoptics, onSymbolClick, onSymbolHover, highlightId },
+        {
+          knownSynoptics,
+          onSymbolClick,
+          onSymbolHover,
+          highlightId,
+          vocabulary,
+        },
         extent,
       ),
     [
@@ -236,6 +240,7 @@ export function SynopticRenderer({
       onSymbolClick,
       onSymbolHover,
       highlightId,
+      vocabulary,
       extent,
     ],
   );
@@ -387,7 +392,7 @@ const LABEL_RINGS = 8;
 type Interaction = Pick<
   SynopticRendererProps,
   "knownSynoptics" | "onSymbolClick" | "onSymbolHover" | "highlightId"
->;
+> & { vocabulary: PlateVocabulary };
 
 /** Everything the element builders share while a plate is assembled. */
 type Plate = Geometry &
@@ -772,6 +777,7 @@ function addRuns(plate: Plate) {
                 at={at}
                 reading={value}
                 label={below ? undefined : tag.label}
+                title={plate.vocabulary.readingTitle?.(value, tag.label)}
               />
             )}
             {(!value || below) && (
@@ -873,8 +879,8 @@ function addSymbols(plate: Plate) {
   for (const symbol of symbols.values()) {
     const placement = symbol.placement;
     const origin = placement.cell;
-    const faulty =
-      !!symbol.device_id && !!values.faultyDevices[symbol.device_id];
+    const facts = symbol.device_id ? values.devices[symbol.device_id] : null;
+    const fault = faultLevel(!!facts?.faulty, facts?.severity);
     // Bound slots in the order the type declares them: state and fault first.
     const readings = (symbolSchemas[symbol.type]?.["x-slots"] ?? []).flatMap(
       (slot) => {
@@ -1007,7 +1013,7 @@ function addSymbols(plate: Plate) {
           rotation={rotation}
           label={symbol.label ?? undefined}
           state={state}
-          faulty={faulty}
+          fault={fault}
           direction={direction}
           showLabel={false}
         />,
@@ -1042,7 +1048,7 @@ function addSymbols(plate: Plate) {
                   ? state
                   : undefined
               }
-              faulty={faulty}
+              fault={fault}
             />
           </g>
         ),
@@ -1054,8 +1060,9 @@ function addSymbols(plate: Plate) {
       placed?.at ?? symbolLabelPoint(symbol.type, projection, origin, rotation);
     if (!labelPoint) continue;
     if (readings.length === 0) continue;
+    const { vocabulary } = plate;
     if (readings.length === 1) {
-      const { reading: single } = readings[0];
+      const { slot, reading: single } = readings[0];
       const w = chipWidth(single.text ?? "", single.unit, single.literal);
       const { box, anchor, hanging } = placeReadout(
         plate,
@@ -1077,6 +1084,10 @@ function addSymbols(plate: Plate) {
             <Chip
               at={{ x: (box.x0 + box.x1) / 2, y: (box.y0 + box.y1) / 2 }}
               reading={single}
+              title={vocabulary.readingTitle?.(
+                single,
+                vocabulary.slotLabel(slot),
+              )}
             />
           </g>
         ),
@@ -1103,12 +1114,16 @@ function addSymbols(plate: Plate) {
             at={{ x: (box.x0 + box.x1) / 2, y: box.y1 }}
             title={symbol.label ?? symbol.id}
             rows={readings.map<PanelRow>(({ slot, reading }) => ({
-              label: humanize(slot),
+              label: vocabulary.slotLabel(slot),
               reading,
               error: slot === FAULT_SLOT,
+              title: vocabulary.readingTitle?.(
+                reading,
+                vocabulary.slotLabel(slot),
+              ),
             }))}
             led={state}
-            faulty={faulty}
+            fault={fault}
           />
         </g>
       ),
@@ -1207,7 +1222,13 @@ function addLabels(plate: Plate, labels: LabelElement[]) {
           ) : (
             <Caption at={at} text={label.text} anchor="start" />
           )}
-          {value && <Chip at={chipAt} reading={value} />}
+          {value && (
+            <Chip
+              at={chipAt}
+              reading={value}
+              title={plate.vocabulary.readingTitle?.(value, label.text)}
+            />
+          )}
         </g>
       ),
     });

@@ -1,3 +1,5 @@
+import type { Severity } from "@gridone/sdk";
+import { FAULT_STROKE_CLASS, faultLevel } from "./fault";
 import { LABEL_SIZE } from "./symbols/Label";
 import { textWidth } from "./text";
 import type { Pt } from "./types";
@@ -27,6 +29,8 @@ type ChipProps = {
   reading: SlotReading;
   /** Uppercase caption above the chip. */
   label?: string;
+  /** The native tooltip: what the reading is and when it was read. */
+  title?: string | null;
 };
 
 /** Width the unit takes after a value, gap included; 0 without one. */
@@ -47,11 +51,11 @@ export const chipWidth = (
         textWidth(text, VALUE_SIZE) + unitWidth(unit) + 2 * CHIP_PAD,
       );
 
-/** Frame of a chip or panel: the error colour on a faulty device, muted
+/** Frame of a chip or panel: the fault's colour on a faulty device, muted
  *  for an old or missing value, the border otherwise. */
-export const frameClass = (faulty: boolean, muted: boolean) =>
-  faulty
-    ? "fill-card stroke-status-error"
+export const frameClass = (fault: Severity | null, muted: boolean) =>
+  fault
+    ? `fill-card ${FAULT_STROKE_CLASS[fault]}`
     : muted
       ? "fill-card stroke-muted-foreground"
       : "fill-card stroke-border";
@@ -117,15 +121,17 @@ export function Unit({ at, unit, anchor = "start" }: UnitProps) {
  * drawing states, not a value a device sends. The label above never
  * changes with the value.
  */
-export function Chip({ at, reading, label }: ChipProps) {
+export function Chip({ at, reading, label, title }: ChipProps) {
   const { text, unit, stale, faulty } = reading;
   const state = readingState(reading);
   const muted = state !== "live";
+  const fault = faultLevel(faulty, reading.severity);
   const shown = text ?? SILENT_TEXT;
   const w = chipWidth(shown, unit, state === "note");
   if (state === "note") {
     return (
       <g data-chip={state}>
+        {title && <title>{title}</title>}
         {label && (
           <Caption
             at={{ x: at.x, y: at.y - CHIP_H / 2 - LABEL_GAP }}
@@ -158,6 +164,7 @@ export function Chip({ at, reading, label }: ChipProps) {
   const vx = at.x - unitWidth(unit) / 2;
   return (
     <g data-chip={state}>
+      {title && <title>{title}</title>}
       {label && (
         <Caption
           at={{ x: at.x, y: at.y - CHIP_H / 2 - LABEL_GAP }}
@@ -170,9 +177,9 @@ export function Chip({ at, reading, label }: ChipProps) {
         width={w}
         height={CHIP_H}
         rx={FRAME_RADIUS}
-        strokeWidth={faulty ? FAULT_STROKE : 1}
+        strokeWidth={fault ? FAULT_STROKE : 1}
         strokeDasharray={stale ? "3 2" : undefined}
-        className={frameClass(faulty, muted)}
+        className={frameClass(fault, muted)}
       />
       <text
         x={vx}

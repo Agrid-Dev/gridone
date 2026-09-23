@@ -30,7 +30,7 @@ const entry = (
   symbol: symbol(id, type.replace(/ /g, "_")),
   name,
   type,
-  faulty: false,
+  fault: null,
   device: false,
   ...rest,
 });
@@ -39,7 +39,7 @@ const ENTRIES: NavEntry[] = [
   entry("pac", "PAC 03", "heat pump", { state: "on", device: true }),
   entry("heater", "RÉCHAUFFEUR", "loop heater", {
     state: "on",
-    faulty: true,
+    fault: "alert",
     device: true,
   }),
   entry("b01", "B01", "tank"),
