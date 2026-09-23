@@ -186,7 +186,10 @@ export function AttributeValue({
         )}
       >
         <BooleanIndicator tone={level ?? "neutral"} filled={value} />
-        <span className="truncate">{labelFor(value, valueLabels)}</span>
+        {/* self-baseline: the row aligns on the text, not on the dot's bottom edge */}
+        <span className="self-baseline truncate">
+          {labelFor(value, valueLabels)}
+        </span>
       </span>
     );
   }
@@ -220,7 +223,7 @@ export function AttributeValue({
           className={cn("size-[1.15em] shrink-0", rotate && "rotate-90")}
           aria-hidden
         />
-        <span>{label ?? String(value)}</span>
+        <span className="self-baseline">{label ?? String(value)}</span>
       </span>
     );
   }
