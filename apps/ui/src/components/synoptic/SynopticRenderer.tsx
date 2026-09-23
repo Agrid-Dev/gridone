@@ -1,5 +1,6 @@
 import {
   useCallback,
+  useEffect,
   useImperativeHandle,
   useMemo,
   useRef,
@@ -45,6 +46,7 @@ import {
   PIPE_AXIS_Z,
   planeAt,
   project,
+  round,
 } from "./projection";
 import { pieceAt, runPieces, type RunPiece } from "./runs";
 import { slabsOf } from "./slabs";
@@ -164,6 +166,9 @@ const READOUT_ORDER: Direction[] = ["N", "E", "W", "S", "NE", "NW", "SE", "SW"];
 const TEE_R = 5;
 /** Slabs paint before every cell: the floor is under everything. */
 const SLAB_PASS = -1_000_000_000;
+/** How far a symbol is zoomed in when a page locates it: 200 % (Decision
+ *  21 of the visual language). The one definition of the focus zoom. */
+const FOCUS_SCALE = 2;
 /** The ring around a highlighted symbol stands this far off its body. */
 const HIGHLIGHT_PAD = 6;
 /** The slot a type binds its fault word to: red on a faulty device. */
@@ -219,18 +224,27 @@ export function SynopticRenderer({
   // The geometry (runs cut per cell, bodies, what they occupy) depends on
   // the document alone, so a value tick only binds readings to it.
   const geometry = useMemo(() => plateGeometry(doc), [doc]);
+  // A hover reaches the page through a ref, so a listener the page
+  // re-creates never rebuilds the plate; only whether there is one does,
+  // since a plate without a listener wraps nothing.
+  const hoverRef = useRef(onSymbolHover);
+  useEffect(() => {
+    hoverRef.current = onSymbolHover;
+  }, [onSymbolHover]);
+  const hasHover = !!onSymbolHover;
+  const hover = useMemo(
+    () =>
+      hasHover
+        ? (symbol: SymbolElement | null) => hoverRef.current?.(symbol)
+        : undefined,
+    [hasHover],
+  );
   const { items, box } = useMemo(
     () =>
       buildPlate(
         geometry,
         values,
-        {
-          knownSynoptics,
-          onSymbolClick,
-          onSymbolHover,
-          highlightId,
-          vocabulary,
-        },
+        { knownSynoptics, onSymbolClick, onSymbolHover: hover, vocabulary },
         extent,
       ),
     [
@@ -238,11 +252,16 @@ export function SynopticRenderer({
       values,
       knownSynoptics,
       onSymbolClick,
-      onSymbolHover,
-      highlightId,
+      hover,
       vocabulary,
       extent,
     ],
+  );
+  // The ring follows the pointer down a navigation list: drawn over the
+  // plate from the bodies alone, so a hover never lays the plate out again.
+  const highlight = useMemo(
+    () => highlightRing(geometry, highlightId),
+    [geometry, highlightId],
   );
   const controller = useRef<ViewportController | null>(null);
   const frame = useRef<SVGGElement | null>(null);
@@ -260,7 +279,7 @@ export function SynopticRenderer({
   useImperativeHandle(
     plateRef,
     () => ({
-      focusSymbol: (id, scale = 2) => {
+      focusSymbol: (id, scale = FOCUS_SCALE) => {
         const body = geometry.bodies.get(id);
         if (!body) return;
         controller.current?.centerOn(
@@ -301,6 +320,7 @@ export function SynopticRenderer({
       <KitDefs />
       <g ref={setFrame} transform={`translate(${offset.x} ${offset.y})`}>
         <DepthOrdered items={items} />
+        {highlight}
         {children}
       </g>
     </PidDiagram>
@@ -308,10 +328,6 @@ export function SynopticRenderer({
 }
 
 export type { Box } from "./placement";
-
-/** Screen values are kept to a hundredth of a pixel, so the float noise
- *  of a projected corner never reaches the DOM or a comparison. */
-const round = (v: number) => Math.round(v * 100) / 100;
 
 const bounds = (points: Pt[]): Box => {
   const b = rawBounds(points);
@@ -342,8 +358,9 @@ type Geometry = {
   runs: Segment[];
   /** Each symbol's name as the plate places it. */
   placedLabels: Map<string, PlacedLabel>;
-  /** The box each symbol's label takes, LED included, so a tag's chip
-   *  never covers a name or a run-state light. */
+  /** The box each symbol's label takes, LED included where the sheet
+   *  lights one, so a tag's chip never covers a name or a run-state
+   *  light. */
   labelBoxes: Map<string, Box>;
 };
 
@@ -391,7 +408,7 @@ const LABEL_RINGS = 8;
 /** What the surface hosting the plate lets the user do with a symbol. */
 type Interaction = Pick<
   SynopticRendererProps,
-  "knownSynoptics" | "onSymbolClick" | "onSymbolHover" | "highlightId"
+  "knownSynoptics" | "onSymbolClick" | "onSymbolHover"
 > & { vocabulary: PlateVocabulary };
 
 /** Everything the element builders share while a plate is assembled. */
@@ -475,15 +492,20 @@ function plateGeometry(doc: PlateDocument): Geometry {
   };
 }
 
-/** The box a level label takes from its baseline point, its LED allowance
- *  included, whether or not the LED is lit. */
-function labelBoxAt(at: Pt, anchor: PlacedLabel["anchor"], w: number): Box {
+/** The box a level label takes from its baseline point, `ledW` wide past
+ *  the text for the LED the sheet lights after it, lit or not. */
+function labelBoxAt(
+  at: Pt,
+  anchor: PlacedLabel["anchor"],
+  w: number,
+  ledW: number,
+): Box {
   const x0 =
     anchor === "start" ? at.x : anchor === "end" ? at.x - w : at.x - w / 2;
   return {
     x0,
     y0: at.y - LABEL_SIZE,
-    x1: x0 + w + LED_GAP + 2 * LED_R,
+    x1: x0 + w + ledW,
     y1: at.y,
   };
 }
@@ -543,7 +565,11 @@ function placeLabels(
       symbolRotation(symbol),
     );
     if (!spec) continue;
-    const preferred = labelBoxAt(spec.at, spec.anchor, w);
+    // Room after the text for the LED, only where the sheet lights one:
+    // in the isometric view the machine shows its state, and a name judged
+    // 14 px wider than it is drawn would be moved out for nothing.
+    const ledW = labelHasLed(projection, symbol.type) ? LED_GAP + 2 * LED_R : 0;
+    const preferred = labelBoxAt(spec.at, spec.anchor, w, ledW);
     const own = new Set<Obstacle>(bodyObstacles.get(symbol.id) ?? []);
     const others = [...allBodies.filter((b) => !own.has(b)), ...taken];
     let label: PlacedLabel = { text, ...spec, box: preferred, leader: null };
@@ -557,7 +583,7 @@ function placeLabels(
             : LABEL_ORDER;
       const spot = findSpot(
         body,
-        w + LED_GAP + 2 * LED_R,
+        w + ledW,
         LABEL_SIZE,
         [...others, ...own],
         order,
@@ -615,6 +641,13 @@ function rotatedTextBox(
 /** Radius of the run-state LED after a label. */
 const LED_R = 4;
 
+/** Whether a symbol's name carries the run-state LED: on the sheet, where
+ *  the glyph cannot show the state itself, and never after an isolation
+ *  valve, whose bowtie shows it. In the isometric view the machine shows
+ *  it (Decision 18), so the name takes no room for one. */
+const labelHasLed = (projection: Projection, type: string) =>
+  projection === "flat" && type !== "valve_isolation";
+
 const reading = (plate: Plate, key: string, value: SlotValue) =>
   readingOf(plate.values, key, value);
 
@@ -643,14 +676,15 @@ function buildPlate(
     ],
   };
   // The author's free labels stand where they were put: everything else
-  // keeps clear of them.
-  for (const label of geometry.labels) {
-    plate.obstacles.push(...freeLabelLayout(plate, label).boxes);
-  }
+  // keeps clear of them. Laid out once here, drawn from the same layout.
+  const freeLabels = geometry.labels.map(
+    (label) => [label, freeLabelLayout(plate, label)] as const,
+  );
+  for (const [, layout] of freeLabels) plate.obstacles.push(...layout.boxes);
   addSlabs(plate);
   addRuns(plate);
   addSymbols(plate);
-  addLabels(plate, geometry.labels);
+  addLabels(plate, freeLabels);
   const { items, extent } = plate;
   return {
     items,
@@ -925,26 +959,6 @@ function addSymbols(plate: Plate) {
         clickable
       );
     };
-    if (symbol.id === plate.highlightId) {
-      const body = plate.bodies.get(symbol.id)!;
-      items.push({
-        id: `${symbol.id}:highlight`,
-        depth: depthKey(bodyCell, "label"),
-        node: (
-          <rect
-            data-highlight={symbol.id}
-            x={body.x0 - HIGHLIGHT_PAD}
-            y={body.y0 - HIGHLIGHT_PAD}
-            width={body.x1 - body.x0 + 2 * HIGHLIGHT_PAD}
-            height={body.y1 - body.y0 + 2 * HIGHLIGHT_PAD}
-            rx={6}
-            strokeWidth={2}
-            pointerEvents="none"
-            className="fill-ring/10 stroke-ring"
-          />
-        ),
-      });
-    }
     if (shape) {
       // The bar is cut per cell like a run, so a run raised over it paints
       // over the cells it crosses and the bar's own port stubs stay under
@@ -1043,11 +1057,7 @@ function addSymbols(plate: Plate) {
               lift={0}
               anchor={placed.anchor}
               onFace={placed.onFace}
-              led={
-                projection === "flat" && symbol.type !== "valve_isolation"
-                  ? state
-                  : undefined
-              }
+              led={labelHasLed(projection, symbol.type) ? state : undefined}
               fault={fault}
             />
           </g>
@@ -1131,6 +1141,30 @@ function addSymbols(plate: Plate) {
   }
 }
 
+/** The ring around the symbol a navigation panel points at,
+ *  `HIGHLIGHT_PAD` off its body; a bar is ringed as a whole. Painted over
+ *  the plate and never hit, so it hides no hover target. */
+function highlightRing(
+  geometry: Geometry,
+  id: string | null | undefined,
+): ReactNode {
+  const body = id ? geometry.bodies.get(id) : undefined;
+  if (!body) return null;
+  return (
+    <rect
+      data-highlight={id}
+      x={body.x0 - HIGHLIGHT_PAD}
+      y={body.y0 - HIGHLIGHT_PAD}
+      width={body.x1 - body.x0 + 2 * HIGHLIGHT_PAD}
+      height={body.y1 - body.y0 + 2 * HIGHLIGHT_PAD}
+      rx={6}
+      strokeWidth={2}
+      pointerEvents="none"
+      className="fill-ring/10 stroke-ring"
+    />
+  );
+}
+
 /** The 1 px line from the readout's edge nearest the anchor to the anchor,
  *  a drawn corner of the body or the label point. */
 function Leader({
@@ -1192,12 +1226,17 @@ function freeLabelLayout(plate: Plate, label: LabelElement) {
   return { at, value, font, chipAt, boxes };
 }
 
-/** Free labels, each with the reading it may carry. */
-function addLabels(plate: Plate, labels: LabelElement[]) {
+type FreeLabelLayout = ReturnType<typeof freeLabelLayout>;
+
+/** Free labels, each with the reading it may carry, drawn from the layout
+ *  the obstacles were read off. */
+function addLabels(
+  plate: Plate,
+  labels: (readonly [LabelElement, FreeLabelLayout])[],
+) {
   const { items, extent } = plate;
 
-  for (const label of labels) {
-    const { at, value, font, chipAt, boxes } = freeLabelLayout(plate, label);
+  for (const [label, { at, value, font, chipAt, boxes }] of labels) {
     for (const box of boxes) {
       extent.push({ x: box.x0, y: box.y0 }, { x: box.x1, y: box.y1 });
     }

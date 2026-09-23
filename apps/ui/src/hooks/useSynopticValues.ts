@@ -14,7 +14,6 @@ import {
   targetDeviceId,
   targetKey,
   type DeviceFacts,
-  type LinkState,
   type SlotReading,
   type SynopticValues,
 } from "@/components/synoptic/values";
@@ -161,10 +160,7 @@ export const useSynopticValues: UseSynopticValues = (doc) => {
     return seed.isError ? deviceIds : [];
   }, [seed.data, seed.isError, deviceIds]);
 
-  // `updatedAt` is the latest moment any device of the plate was written,
-  // by a fetch or by a socket patch: what the page shows as the plate's
-  // last refresh.
-  const { byId: devices, updatedAt } = useQueries({
+  const devices = useQueries({
     queries: seededIds.map((id) => ({
       queryKey: ["device", id],
       queryFn: () => client.devices.get(id),
@@ -175,12 +171,10 @@ export const useSynopticValues: UseSynopticValues = (doc) => {
     combine: useCallback(
       (results: UseQueryResult<Device>[]) => {
         const byId: Record<string, Device> = {};
-        let updatedAt = 0;
         results.forEach((result, i) => {
           if (result.data) byId[seededIds[i]] = result.data;
-          updatedAt = Math.max(updatedAt, result.dataUpdatedAt);
         });
-        return { byId, updatedAt };
+        return byId;
       },
       [seededIds],
     ),
@@ -233,24 +227,6 @@ export const useSynopticValues: UseSynopticValues = (doc) => {
         lastUpdated: attr.last_updated,
       };
     }
-    // Pushed while the socket is up; polled at the device cadence while it
-    // is down; cut off once even the list fails.
-    const link: LinkState = isConnected
-      ? "live"
-      : seed.isError
-        ? "offline"
-        : "polling";
-    const refreshedAt = Math.max(updatedAt, seed.dataUpdatedAt) || null;
-    return { slots: readings, devices: facts, link, refreshedAt };
-  }, [
-    doc,
-    slots,
-    resolved,
-    devices,
-    now,
-    isConnected,
-    seed.isError,
-    seed.dataUpdatedAt,
-    updatedAt,
-  ]);
+    return { slots: readings, devices: facts };
+  }, [doc, slots, resolved, devices, now]);
 };

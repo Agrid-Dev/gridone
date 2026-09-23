@@ -158,3 +158,8 @@ export function portPoint(projection: Projection, cell: Cell, side: Side): Pt {
     (cell.z ?? 0) + PIPE_AXIS_Z + v.z / 2,
   );
 }
+
+/** Screen values are kept to a hundredth of a pixel, so the float noise
+ *  of a projected corner or a turned axis never reaches the DOM or a
+ *  comparison. The one rounding every drawn coordinate goes through. */
+export const round = (v: number) => Math.round(v * 100) / 100;

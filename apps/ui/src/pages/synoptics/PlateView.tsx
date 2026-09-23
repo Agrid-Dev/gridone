@@ -53,9 +53,6 @@ type PlateViewProps = {
 /** Where a popover's anchor sits over the plate, in the plate's own box. */
 type AnchorRect = { left: number; top: number; width: number; height: number };
 
-/** How far a symbol is zoomed in when the panel locates it. */
-const FOCUS_SCALE = 2;
-
 /**
  * A plate with its chrome: the toolbar (plan or isometric view, zoom, fit,
  * full screen), the navigation panel that locates an equipment, the
@@ -138,7 +135,12 @@ export const PlateView: FC<PlateViewProps> = ({
     }
     const rect = plate.current?.symbolClientRect(selected.id);
     const frame = canvas.current?.getBoundingClientRect();
-    if (!rect || !frame) return;
+    // No rectangle (the symbol left the document, or no layout yet): the
+    // last anchor would leave the popover floating where the symbol was.
+    if (!rect || !frame) {
+      setAnchor(null);
+      return;
+    }
     setAnchor({
       left: rect.left - frame.left,
       top: rect.top - frame.top,
@@ -163,7 +165,7 @@ export const PlateView: FC<PlateViewProps> = ({
     [],
   );
   const locate = useCallback((entry: NavEntry) => {
-    plate.current?.focusSymbol(entry.symbol.id, FOCUS_SCALE);
+    plate.current?.focusSymbol(entry.symbol.id);
     setHighlight(entry.symbol.id);
     if (entry.device) setSelected(entry.symbol);
   }, []);

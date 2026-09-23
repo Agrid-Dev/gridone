@@ -1,7 +1,9 @@
-// Throwaway verification harness (not committed): mounts the synoptic
-// renderer on the committed plates with fixture values, without the
-// authenticated app shell, so a browser can screenshot the kit.
-// `?plate=<name>&projection=flat|isometric&dark=1`.
+// Dev-only verification harness (committed on purpose): mounts the
+// synoptic renderer on the committed plates with fixture values, without
+// the authenticated app shell, so a browser can screenshot the kit. Vite
+// serves it in development at `/synoptics-harness.html`; the production
+// build never includes it, since `index.html` is the only build entry.
+// `?plate=<name>&projection=flat|isometric&dark=1&lang=en&page`.
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router";
@@ -72,7 +74,6 @@ const VALUES: SynopticValues = {
       severity: "alert",
     },
     "label.cpt-ballon-est": live("1311988992", 1311988992, "Wh"),
-    "pipe.pac-03-supply.flow": live("MARCHE", true),
     "symbol.pompe-pec-d2-a.state": live("MARCHE", true),
     "symbol.pompe-pec-d2-a.speed": live("5242", 5242, "tr/min"),
     "symbol.pompe-pec-d2-b.state": {
@@ -108,8 +109,6 @@ const VALUES: SynopticValues = {
     cd1eb8257cce468b: { faulty: true, severity: "warning" },
     "248de4cb7fa34704": { faulty: true, severity: "info" },
   },
-  link: "live",
-  refreshedAt: Date.now(),
 };
 
 /** A device as the API would return it, for the popover. */

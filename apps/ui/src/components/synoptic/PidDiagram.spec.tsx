@@ -99,7 +99,9 @@ describe("PidDiagram", () => {
     });
     expect(notScrolled).toBe(true);
     const { x, y, scale } = view();
-    expect(scale).toBeCloseTo(Math.exp(0.2), 5);
+    // Literals, not the formula the hook uses: one 100 px notch is e^0.2,
+    // so a wrong sensitivity constant fails here.
+    expect(scale).toBeCloseTo(1.2214, 4);
     // The point under the cursor, (10, 20) in viewBox units, stays put.
     expect(x + 10 * scale).toBeCloseTo(10, 5);
     expect(y + 20 * scale).toBeCloseTo(20, 5);
@@ -128,7 +130,7 @@ describe("PidDiagram", () => {
       clientY: 40,
       ctrlKey: true,
     });
-    expect(view().scale).toBeCloseTo(Math.exp(0.2), 5);
+    expect(view().scale).toBeCloseTo(1.2214, 4);
     cleanup();
     const meta = setup();
     fireEvent.wheel(meta.svg, {
@@ -137,7 +139,7 @@ describe("PidDiagram", () => {
       clientY: 40,
       metaKey: true,
     });
-    expect(meta.view().scale).toBeCloseTo(Math.exp(0.2), 5);
+    expect(meta.view().scale).toBeCloseTo(1.2214, 4);
   });
 
   it("fits again on double click", () => {
@@ -160,7 +162,7 @@ describe("PidDiagram", () => {
       deltaMode: WheelEvent.DOM_DELTA_LINE,
       ctrlKey: true,
     });
-    expect(line.view().scale).toBeCloseTo(Math.exp(0.032), 5);
+    expect(line.view().scale).toBeCloseTo(1.0325, 4);
     cleanup();
     const page = setup();
     fireEvent.wheel(page.svg, {
@@ -169,13 +171,13 @@ describe("PidDiagram", () => {
       ctrlKey: true,
     });
     // One page notch is capped to the same step a 200 px wheel makes.
-    expect(page.view().scale).toBeCloseTo(Math.exp(0.4), 5);
+    expect(page.view().scale).toBeCloseTo(1.4918, 4);
   });
 
   it("caps a single wheel event so a flung trackpad is one step, not a jump", () => {
     const { svg, view } = setup();
     fireEvent.wheel(svg, { deltaY: -5000, ctrlKey: true });
-    expect(view().scale).toBeCloseTo(Math.exp(0.4), 5);
+    expect(view().scale).toBeCloseTo(1.4918, 4);
   });
 
   it("clamps the zoom range", () => {

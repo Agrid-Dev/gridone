@@ -36,11 +36,14 @@ export const FAULT_TEXT_CLASS: Record<Severity, string> = {
 
 /** The level a device's fault is drawn at: its worst active severity, or
  *  an alert when the device is faulty and its severity is not known (a
- *  fault attribute with no severity, or a fixture that names none). Null
- *  for a healthy device. */
+ *  fault attribute with no severity, a fixture that names none, or a
+ *  severity this build has no colour for: the API is not validated at
+ *  runtime, and a fault must never lose its colour). Null for a healthy
+ *  device. */
 export function faultLevel(
   faulty: boolean,
   severity?: Severity | null,
 ): Severity | null {
-  return faulty ? (severity ?? "alert") : null;
+  if (!faulty) return null;
+  return severity && severity in FAULT_STROKE_CLASS ? severity : "alert";
 }

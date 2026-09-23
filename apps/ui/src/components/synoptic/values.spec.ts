@@ -73,11 +73,10 @@ const DOC: Synoptic = {
 };
 
 describe("boundSlots", () => {
-  it("enumerates symbol bindings, pipe flow, tag and label attribute slots in order", () => {
+  it("enumerates symbol bindings, tag and label attribute slots in order, and never a pipe's flow, which nothing draws", () => {
     expect(boundSlots(DOC).map((s) => s.key)).toEqual([
       "symbol.pac.state",
       "symbol.pac.power",
-      "pipe.run.flow",
       "tag.tt",
       "label.temp",
     ]);

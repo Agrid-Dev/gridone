@@ -9,6 +9,7 @@ import {
   type SymbolElement,
 } from "@gridone/sdk";
 import { ResourceLink as Link } from "@/components/ResourceLink";
+import { SILENT_TEXT } from "@/components/synoptic/Chip";
 import {
   readingState,
   SILENT_READING,
@@ -203,7 +204,7 @@ const PointList: FC<{
                   )}
                   data-reading={state}
                 >
-                  {point.reading.text ?? "–"}
+                  {point.reading.text ?? SILENT_TEXT}
                   {point.reading.unit && (
                     <span className="ml-1 font-normal text-muted-foreground">
                       {point.reading.unit}
@@ -226,7 +227,7 @@ const PointList: FC<{
                   >
                     {point.reading.lastUpdated
                       ? vocabulary.readingTime(point.reading.lastUpdated)
-                      : "–"}
+                      : SILENT_TEXT}
                   </span>
                 )}
                 {writable && editing !== point.slot && (

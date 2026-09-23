@@ -108,8 +108,16 @@ const DOC: Synoptic = {
       fluid: "primary_supply",
       from: { kind: "cell", cell: { x: 0, y: 0 } },
       to: { kind: "cell", cell: { x: 1, y: 0 } },
-      flow: slot({ types: ["awhp"] }, "onoff_state"),
-      tags: [],
+      // Nothing draws a run's flow: the device it names is never listed.
+      flow: slot({ ids: ["FLOW-1"] }, "onoff_state"),
+      tags: [
+        {
+          id: "flow",
+          at: { x: 0, y: 0 },
+          label: "FLOW",
+          value: slot({ types: ["awhp"] }, "onoff_state"),
+        },
+      ],
     },
   ],
   labels: [
@@ -214,9 +222,10 @@ describe("useSynopticValues", () => {
   it("lists the plate's devices once and resolves a filter target through the list", async () => {
     const { rendered } = setup();
     await waitFor(() =>
-      expect(rendered.result.current.slots["pipe.supply.flow"].raw).toBe(true),
+      expect(rendered.result.current.slots["tag.flow"].raw).toBe(true),
     );
     expect(mockList).toHaveBeenCalledWith({ type: ["awhp"] });
+    // The symbols' devices and the tag's resolved one; not the flow's.
     expect(mockList).toHaveBeenCalledWith({ ids: ["PAC-03", "B-01"] });
     expect(mockList).toHaveBeenCalledTimes(2);
     // Seeded from the list: no per-device request.
@@ -240,7 +249,7 @@ describe("useSynopticValues", () => {
     );
     const { rendered } = setup();
     await waitFor(() =>
-      expect(rendered.result.current.slots["pipe.supply.flow"].raw).toBe(true),
+      expect(rendered.result.current.slots["tag.flow"].raw).toBe(true),
     );
     // The filter query, then one plate list that already carries PUMP-1.
     expect(mockList).toHaveBeenCalledTimes(2);
@@ -275,7 +284,7 @@ describe("useSynopticValues", () => {
         expect.stringContaining("resolves to 2 devices"),
       ),
     );
-    expect(rendered.result.current.slots["pipe.supply.flow"].text).toBeNull();
+    expect(rendered.result.current.slots["tag.flow"].text).toBeNull();
     warn.mockRestore();
   });
 

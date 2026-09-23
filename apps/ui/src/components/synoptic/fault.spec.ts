@@ -1,3 +1,4 @@
+import type { Severity } from "@gridone/sdk";
 import { describe, expect, it } from "vitest";
 import { SEVERITIES } from "@/lib/severity";
 import {
@@ -28,11 +29,14 @@ describe("fault colours", () => {
     }
   });
 
-  it("levels a fault at its severity, an alert when the severity is unknown, nothing when healthy", () => {
+  it("levels a fault at its severity, an alert when the severity is unknown or has no colour, nothing when healthy", () => {
     expect(faultLevel(true, "warning")).toBe("warning");
     expect(faultLevel(true, "info")).toBe("info");
     expect(faultLevel(true, null)).toBe("alert");
     expect(faultLevel(true)).toBe("alert");
+    // A severity a newer server ships that no table names: red, never a
+    // device drawn with no fault colour at all.
+    expect(faultLevel(true, "critical" as Severity)).toBe("alert");
     expect(faultLevel(false, "alert")).toBeNull();
     expect(faultLevel(false)).toBeNull();
   });

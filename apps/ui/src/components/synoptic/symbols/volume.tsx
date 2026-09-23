@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { ISO_AXIS_DEG, isoEllipse, isoHeight } from "../projection";
+import { ISO_AXIS_DEG, isoEllipse, isoHeight, round } from "../projection";
 import type { Pt } from "../types";
 import { fillUrl, KIT_GRADIENT } from "./defs";
 import { pointsAttr } from "./plan";
@@ -21,8 +21,6 @@ const edgeProps = {
   strokeLinejoin: "round" as const,
   stroke: "hsl(var(--synoptic-edge))",
 };
-
-const round = (v: number) => Math.round(v * 100) / 100;
 
 type BoxProps = {
   P: Space;

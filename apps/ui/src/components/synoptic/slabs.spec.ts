@@ -147,6 +147,24 @@ describe("slabsOf", () => {
     expect(apart[0].y1).toBeLessThanOrEqual(apart[1].y0);
   });
 
+  it("merges a slab a later union grows into, however early the scan passed it", () => {
+    // `a` stands alone at (8,4), three cells from every other machine.
+    // The diagonal chain `b` spans (0,0)..(5,5) and `c` at (6,0) stands
+    // in the empty corner of its frame, so their padded slabs overlap and
+    // merge into (-0.7,-0.7)..(7.7,5.7), a frame that now reaches `a`'s
+    // slab at 7.3: passed once as overlapping nothing, `a` has to be
+    // scanned again, or a lip is drawn across it.
+    const slabs = slabsOf([
+      machine("a", "pump", { x: 8, y: 4 }),
+      machine("b1", "pump", { x: 0, y: 0 }),
+      machine("b2", "pump", { x: 2, y: 2 }),
+      machine("b3", "pump", { x: 4, y: 4 }),
+      machine("c", "pump", { x: 6, y: 0 }),
+    ]);
+    expect(slabs).toHaveLength(1);
+    near(slabs[0], rect(-0.7, -0.7, 9.7, 5.7));
+  });
+
   it("is empty for a plate with no machine", () => {
     expect(slabsOf([])).toEqual([]);
   });

@@ -86,8 +86,9 @@ function mergeOverlapping(rects: PlanRect[]): PlanRect[] {
       if (overlaps(merged[i], merged[j], 0)) {
         merged[i] = union(merged[i], merged[j]);
         merged.splice(j, 1);
-        // Start this rectangle over: the union may reach others.
-        j = i;
+        // The union may reach rectangles already passed: start the scan over.
+        i = -1;
+        break;
       }
     }
   }

@@ -6,6 +6,7 @@ import {
   PIPE_AXIS_Z,
   planeAt,
   project,
+  round,
 } from "../projection";
 import type { Pt } from "../types";
 import { square } from "./extrude";
@@ -182,7 +183,7 @@ export function CollectorLabel({
       fontWeight={600}
       letterSpacing={0.3}
       className="fill-muted-foreground"
-      transform={`rotate(${Math.round(angle * 100) / 100} ${at.x} ${at.y})`}
+      transform={`rotate(${round(angle)} ${at.x} ${at.y})`}
       data-axis-label
     >
       {label}
