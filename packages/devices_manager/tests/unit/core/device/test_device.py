@@ -844,6 +844,84 @@ class TestCoreDeviceAttributeFactory:
         assert alarm.last_updated == old
         assert alarm.last_changed == old
 
+    @pytest.mark.parametrize(
+        ("last_changed", "expected"),
+        [
+            (None, datetime(2020, 1, 1, tzinfo=UTC)),
+            (datetime(2019, 1, 1, tzinfo=UTC), datetime(2019, 1, 1, tzinfo=UTC)),
+        ],
+    )
+    def test_fault_attribute_without_last_changed_falls_back_to_last_updated(
+        self,
+        mock_transport_client: TransportClient,
+        fault_driver: Driver,
+        last_changed: datetime | None,
+        expected: datetime,
+    ):
+        """A value stored while the attribute was standard, never changed since,
+        loads as a fault with last_changed taken from last_updated; a real
+        last_changed is kept."""
+        old = datetime(2020, 1, 1, tzinfo=UTC)
+        device = CoreDevice.from_base(
+            DeviceBase(id="d", name="mixed", config={}),
+            driver=fault_driver,
+            transport=mock_transport_client,
+            restored_attributes={
+                "alarm": Attribute(
+                    name="alarm",
+                    data_type=DataType.BOOL,
+                    read_write_modes={"read"},
+                    current_value=True,
+                    last_updated=old,
+                    last_changed=last_changed,
+                )
+            },
+        )
+        alarm = device.attributes["alarm"]
+        assert isinstance(alarm, FaultAttribute)
+        assert alarm.current_value is True
+        assert alarm.last_updated == old
+        assert alarm.last_changed == expected
+
+    def test_rebuild_to_fault_without_last_changed_falls_back_to_last_updated(
+        self,
+        mock_transport_client: TransportClient,
+        fault_driver: Driver,
+    ):
+        old = datetime(2020, 1, 1, tzinfo=UTC)
+        temp = fault_driver.attributes["temperature"]
+        device = CoreDevice.from_base(
+            DeviceBase(id="d", name="mixed", config={}),
+            driver=fault_driver,
+            transport=mock_transport_client,
+            restored_attributes={
+                "temperature": Attribute(
+                    name="temperature",
+                    data_type=DataType.FLOAT,
+                    read_write_modes={"read"},
+                    current_value=21.0,
+                    last_updated=old,
+                    last_changed=None,
+                )
+            },
+        )
+        fault_driver.attributes["temperature"] = FaultAttributeDriver(
+            name=temp.name,
+            data_type=temp.data_type,
+            read=temp.read,
+            write=None,
+            codecs=temp.codecs,
+            healthy_values=[20.0],
+        )
+
+        device.rebuild_attribute("temperature")
+
+        rebuilt = device.attributes["temperature"]
+        assert isinstance(rebuilt, FaultAttribute)
+        assert rebuilt.is_faulty is True
+        assert rebuilt.last_updated == old
+        assert rebuilt.last_changed == old
+
 
 class TestCoreDeviceRebuildAttribute:
     """CoreDevice.rebuild_attribute preserves value and timestamps."""
