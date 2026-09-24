@@ -97,6 +97,102 @@ async def test_valid_invalid_valid_never_trusts_a_sentinel(
         await device.stop_sync()
 
 
+def record_events(device: CoreDevice) -> list[tuple[str, object, object, bool]]:
+    """Capture ``(name, previous value, value, initial)`` for each published change."""
+    events: list[tuple[str, object, object, bool]] = []
+
+    def on_update(_device, name, previous, attribute, *, initial) -> None:
+        previous_value = None if previous is None else previous.current_value
+        events.append((name, previous_value, attribute.current_value, initial))
+
+    device.on_update = on_update
+    return events
+
+
+@pytest.mark.parametrize("path", ["direct", "sweep", "push"])
+@pytest.mark.asyncio
+async def test_the_first_value_after_an_invalid_sample_is_a_baseline(
+    path, mock_transport_client, mock_push_transport_client, monkeypatch
+):
+    transport = mock_push_transport_client if path == "push" else mock_transport_client
+    read = {"topic": "/up"} if path == "push" else "GET /sensor"
+    device = make_device(
+        transport, spec("sensor", read=read, codecs=INVALID, write=None)
+    )
+    events = record_events(device)
+    if path == "push":
+        await device.init_listeners()
+
+    async def receive(raw) -> None:
+        if path == "push":
+            await transport.simulate_event("/up", raw)
+        else:
+            monkeypatch.setattr(transport, "_read", AsyncMock(return_value=raw))
+            if path == "direct":
+                await device.read_attribute_value("sensor")
+            else:
+                await device._read_group(["sensor"])
+
+    try:
+        for raw in (20000, -2147483648, 20000):
+            await receive(raw)
+        # Unknown breaks continuity: the recovery is a baseline, and `previous`
+        # still describes the last known state rather than the gap.
+        assert [event for event in events if event[0] == "sensor"] == [
+            ("sensor", None, 20.0, True),
+            ("sensor", 20.0, None, False),
+            ("sensor", 20.0, 20.0, True),
+        ]
+    finally:
+        await device.stop_sync()
+
+
+@pytest.mark.asyncio
+async def test_a_mapped_value_resolved_after_its_input_is_a_baseline(
+    mock_transport_client,
+):
+    device = make_device(
+        mock_transport_client,
+        spec("first", write=None),
+        spec(
+            "mode",
+            write=None,
+            value_mapping={"entries": [{"code": 1, "value": {"attribute": "first"}}]},
+        ),
+    )
+    events = record_events(device)
+    device._ingest_attribute("mode", 1)  # observed before its input: unresolved
+    device._ingest_attribute("first", 5)  # the reinterpretation resolves it
+    assert [event for event in events if event[0] == "mode"] == [
+        ("mode", None, 5.0, True)
+    ]
+
+
+@pytest.mark.asyncio
+async def test_the_state_before_a_gap_follows_rename_and_delete(
+    mock_transport_client,
+):
+    device = make_device(mock_transport_client, spec("sensor", write=None))
+    events = record_events(device)
+    device._ingest_attribute("sensor", 20.0)
+    device._ingest_attribute("sensor", None, invalid=True)
+    # The registry edits the shared driver in place, then tells the device.
+    attributes = device.driver.attributes
+    attributes["probe"] = spec("probe", write=None)
+    del attributes["sensor"]
+    device.rename_attribute("sensor", "probe")
+    device._ingest_attribute("probe", 21.0)
+    assert events[-1] == ("probe", 20.0, 21.0, True)
+
+    device._ingest_attribute("probe", None, invalid=True)
+    probe = attributes.pop("probe")
+    device.delete_attribute("probe")
+    attributes["probe"] = probe
+    device.rebuild_attribute("probe")
+    device._ingest_attribute("probe", 22.0)
+    assert events[-1] == ("probe", None, 22.0, True)  # nothing inherited
+
+
 @pytest.mark.asyncio
 async def test_support_acquired_first_and_unsupported_input_is_not_polled(
     mock_transport_client, monkeypatch

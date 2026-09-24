@@ -276,9 +276,12 @@ async def test_a_restored_previous_is_a_transition_only_after_the_baseline(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("reason", ["invalid_sample", "unknown_dependencies"])
-async def test_invalid_measurement_does_not_trigger_unconditional_automation(
+async def test_an_unknown_value_is_ignored_and_its_recovery_is_a_baseline(
     mock_dm, reason
 ):
+    """The device reports the first known value after an unknown one as
+    initial, with the state before the gap as ``previous``: the automation
+    receives a baseline, not a transition."""
     from models.write_rules import WriteReason
 
     provider = ChangeEventTriggerProvider(mock_dm)
@@ -288,5 +291,10 @@ async def test_invalid_measurement_does_not_trigger_unconditional_automation(
     invalid.resolution_error = WriteReason(code=reason)
     await _fire(mock_dm, "a", "temperature", invalid)
     listener.assert_not_called()
-    await _fire(mock_dm, "a", "temperature", _make_attr(-12))
-    listener.assert_awaited_once()
+    dispatch = mock_dm.add_device_attribute_listener.call_args[0][0]
+    await dispatch(
+        _make_device("a"), "temperature", _make_attr(20), _make_attr(20), initial=True
+    )
+    context = listener.call_args.args[0]
+    assert (context.is_initial, context.has_previous) == (True, False)
+    assert (context.previous_value, context.value) == (20, 20)

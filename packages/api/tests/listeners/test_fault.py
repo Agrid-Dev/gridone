@@ -4,8 +4,19 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from api.listeners.fault import on_fault_transition
-from devices_manager import Attribute, FaultAttribute
-from devices_manager.types import AttributeValueType, DataType
+from devices_manager import Attribute, CoreDevice, DeviceBase, Driver, FaultAttribute
+from devices_manager.core.codecs.factory import CodecSpec
+from devices_manager.core.driver import (
+    DriverMetadata,
+    FaultAttributeDriver,
+    UpdateStrategy,
+)
+from devices_manager.core.transports import TransportMetadata
+from devices_manager.core.transports.http_transport import (
+    HTTPTransportClient,
+    HttpTransportConfig,
+)
+from devices_manager.types import AttributeValueType, DataType, TransportProtocols
 from models.types import Severity
 from notifications.interface import NotificationsServiceInterface
 
@@ -40,7 +51,7 @@ def _make_standard_attr(value: AttributeValueType = 42) -> Attribute:
 
 def _make_fault_attr(
     *,
-    current_value: AttributeValueType,
+    current_value: AttributeValueType | None,
     healthy_values: list,
     severity: Severity = Severity.WARNING,
     name: str = "alarm",
@@ -212,3 +223,80 @@ class TestFaultTransitionListener:
         await listener(device, "alarm_2", None, faulty_2, initial=False)
 
         assert notifications.dispatch.call_count == 2
+
+
+def _sensor_device() -> CoreDevice:
+    """A fault attribute whose firmware reports 255 when it cannot tell."""
+    alarm = FaultAttributeDriver(
+        name="alarm",
+        data_type=DataType.INT,
+        read="GET /alarm",
+        write=None,
+        codecs=[CodecSpec(name="invalid_values", argument=[255])],
+        healthy_values=[0],
+        severity=Severity.WARNING,
+    )
+    driver = Driver(
+        metadata=DriverMetadata(id="alarm_driver"),
+        env={},
+        transport=TransportProtocols.HTTP,
+        device_config_required=[],
+        update_strategy=UpdateStrategy(polling_enabled=False),
+        attributes={"alarm": alarm},
+    )
+    transport = HTTPTransportClient(
+        TransportMetadata(id="http-alarm", name="Alarm HTTP"), HttpTransportConfig()
+    )
+    return CoreDevice.from_base(
+        DeviceBase(id="dev-1", name="Chiller", config={}),
+        driver=driver,
+        transport=transport,
+    )
+
+
+class TestUnknownFaultValues:
+    pytestmark = pytest.mark.asyncio
+
+    async def test_an_unknown_value_is_neither_a_fault_nor_a_resolution(self):
+        notifications = _make_notifications()
+        listener = on_fault_transition(notifications, _make_recipients())
+
+        faulty = _make_fault_attr(current_value=True, healthy_values=[False])
+        unknown = _make_fault_attr(current_value=None, healthy_values=[False])
+        await listener(_make_device(), "alarm", faulty, unknown, initial=False)
+
+        notifications.dispatch.assert_not_awaited()
+
+    @pytest.mark.parametrize(
+        ("recovered", "titles"),
+        [
+            (1, ["New fault on Chiller (alarm)"]),
+            (0, ["New fault on Chiller (alarm)", "Fault resolved on Chiller (alarm)"]),
+        ],
+    )
+    async def test_an_invalid_sample_between_two_readings(
+        self, monkeypatch, recovered, titles
+    ):
+        """A sentinel between two faulty readings is not a resolution followed
+        by a new fault; the recovery is compared with the last known state."""
+        device = _sensor_device()
+        events: list[tuple[Attribute | None, Attribute]] = []
+
+        def record(_device, _name, previous, attribute, *, initial) -> None:  # noqa: ARG001
+            events.append((previous, attribute.model_copy()))
+
+        device.on_update = record
+        monkeypatch.setattr(
+            device.transport, "_read", AsyncMock(side_effect=[1, 255, recovered])
+        )
+        for _ in range(3):
+            await device.read_attribute_value("alarm")
+
+        notifications = _make_notifications()
+        listener = on_fault_transition(notifications, _make_recipients())
+        for previous, attribute in events:
+            if attribute.name == "alarm":
+                await listener(device, "alarm", previous, attribute, initial=False)
+        assert [
+            call.kwargs["title"] for call in notifications.dispatch.call_args_list
+        ] == titles

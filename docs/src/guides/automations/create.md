@@ -30,7 +30,7 @@ Enter a cron expression — a short pattern (e.g. `0 8 * * *` for every day at 8
 
 **Attribute change**
 
-Select a device and one of its attributes. Optionally add a comparison: an operator and a threshold the new value must satisfy. The automation fires when the attribute's value changes. The first value observed after a start or a reconnection only initializes the automation: it never fires it, even when that value differs from the last one known.
+Select a device and one of its attributes. Optionally add a comparison: an operator and a threshold the new value must satisfy. The automation fires when the attribute's value changes. The first value observed after a start, a reconnection or an unavailable value (an invalid measurement) only initializes the automation: it never fires it, even when that value differs from the last one known.
 
 ### Add cases
 

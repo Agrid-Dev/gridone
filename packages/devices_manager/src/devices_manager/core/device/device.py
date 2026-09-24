@@ -61,16 +61,19 @@ DEFAULT_CONFIRM_TIMEOUT: float = 5.0
 class AttributeListener(Protocol):
     """``(device, attribute_name, previous, new, *, initial)``.
 
-    ``previous`` is ``None`` for the first event ever observed for this
-    attribute (its ``current_value`` was ``None`` before the mutation);
-    otherwise it is an immutable snapshot of the attribute's state before the
-    value changed. On the first post-restart event ``previous`` reflects the
-    persisted state, not ``None``, so listeners can compare ``previous`` and
-    ``new`` to detect transitions without per-listener state.
+    ``previous`` is ``None`` until the attribute has had a known value;
+    otherwise it is an immutable snapshot of its last known state. Across an
+    unknown gap (an invalid sample, an unresolved mapping: ``current_value``
+    was ``None``) it is the state before the gap, held in memory: a restart
+    or a rebuild of the device during the gap forgets it. On the first
+    post-restart event ``previous`` reflects the persisted state, not
+    ``None``, so listeners can compare ``previous`` and ``new`` to detect
+    transitions without per-listener state.
 
-    ``initial`` is True when this is the first observation of the attribute
-    since the device (re)connected: the value establishes a baseline rather
-    than reporting a transition, even when it differs from a restored one.
+    ``initial`` is True when the value establishes a baseline rather than
+    reporting a transition: the first observation of the attribute since the
+    device (re)connected, even when it differs from a restored one, and the
+    first known value after an unknown one.
     """
 
     def __call__(
@@ -184,6 +187,10 @@ class CoreDevice:
     connection_monitor: ConnectionMonitor = field(init=False, repr=False)
     _syncing: bool = field(init=False, default=False, repr=False)
     _observed_attributes: set[str] = field(init=False, default_factory=set, repr=False)
+    # The last known state of each attribute whose value is currently unknown.
+    _before_unknown: dict[str, Attribute] = field(
+        init=False, default_factory=dict, repr=False
+    )
     _waiters: list[tuple[str, Callable[[AttributeValueType], bool], asyncio.Event]] = (
         field(init=False, default_factory=list, repr=False)
     )
@@ -272,6 +279,7 @@ class CoreDevice:
     def delete_attribute(self, attribute_name: str) -> None:
         """Delete a runtime attribute that no longer exists on the driver."""
         self.attributes.pop(attribute_name, None)
+        self._before_unknown.pop(attribute_name, None)
         self._guard.rebind(self.driver)
         self._guard.forget(attribute_name)
         self.connection_monitor.forget(attribute_name)
@@ -282,6 +290,9 @@ class CoreDevice:
         existing = self.attributes.pop(old_name, None)
         if existing is not None:
             self.attributes[new_name] = existing.model_copy(update={"name": new_name})
+        known = self._before_unknown.pop(old_name, None)
+        if known is not None:
+            self._before_unknown[new_name] = known.model_copy(update={"name": new_name})
         self._guard.rename(old_name, new_name)
         self.connection_monitor.rename(old_name, new_name)
         self._notify_write_state()
@@ -655,11 +666,24 @@ class CoreDevice:
         A value-mapped attribute reinterpreted from its saved code after a
         sibling changed is displayed, but it is no evidence that a pending
         write reached the device, so waiters only see observations.
+
+        An unknown value breaks continuity: the first known value after it is
+        published as a baseline, with the state from before the gap as
+        ``previous``, so a recovery is never taken for a transition.
         """
         # Compared here so Attribute stays unaware of the listener contract.
         previous_value = attribute.current_value
-        previous = attribute.model_copy() if previous_value is not None else None
-        initial = attribute.name not in self._observed_attributes
+        if previous_value is not None:
+            previous: Attribute | None = attribute.model_copy()
+            if value is None:
+                self._before_unknown[attribute.name] = previous
+        elif value is not None:
+            previous = self._before_unknown.pop(attribute.name, None)
+        else:
+            previous = None  # unknown stays unknown: nothing is published
+        initial = (
+            previous_value is None or attribute.name not in self._observed_attributes
+        )
         if observation:
             self._observed_attributes.add(attribute.name)
         attribute.update_value(value)  # ty:ignore[invalid-argument-type]

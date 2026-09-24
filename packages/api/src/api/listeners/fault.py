@@ -19,7 +19,10 @@ def on_fault_transition(
         *,
         initial: bool,
     ) -> None:
-        if not isinstance(attribute, FaultAttribute):
+        # An unknown value (an invalid sample) is neither a fault nor a
+        # resolution; the device reports the last known state as `previous`
+        # once a value is known again.
+        if not isinstance(attribute, FaultAttribute) or attribute.current_value is None:
             return
 
         prev_is_faulty = isinstance(previous, FaultAttribute) and previous.is_faulty

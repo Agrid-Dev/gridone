@@ -119,7 +119,7 @@ The protocol-specific instruction in a [driver](#driver) that declares how to re
 
 ## Trigger
 
-The event that causes an [automation](#automation) to fire. Available trigger types: **Schedule** (a cron expression) and **Attribute change** (a device attribute value change, with an optional comparison condition). The first value observed after a start or a reconnection initializes the automation without firing it.
+The event that causes an [automation](#automation) to fire. Available trigger types: **Schedule** (a cron expression) and **Attribute change** (a device attribute value change, with an optional comparison condition). The first value observed after a start, a reconnection or an unavailable value initializes the automation without firing it.
 
 ---
 
