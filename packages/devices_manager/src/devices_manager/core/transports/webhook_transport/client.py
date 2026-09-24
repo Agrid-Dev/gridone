@@ -32,6 +32,7 @@ class WebhookTransportClient(PushTransportClient[WebhookAddress]):
     """
 
     _config_builder = WebhookTransportConfig
+    read_supported = False
     protocol = TransportProtocols.WEBHOOK
     address_builder = WebhookAddress
     config: WebhookTransportConfig

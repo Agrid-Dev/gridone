@@ -680,7 +680,11 @@ class DevicesService(Service):
         definition = self.inspect_attribute(reference)
         if definition is None:
             return AttributeObservation(validity="invalid")
-        value = self._device_registry.get(reference.device_id).observed_attribute_value(
+        device = self._device_registry.get(reference.device_id)
+        error = device.attributes[reference.attribute].resolution_error
+        if error is not None and error.code == "invalid_sample":
+            return AttributeObservation(validity="invalid")
+        value = device.observed_attribute_value(
             reference.attribute, max_age_seconds=max_age_seconds
         )
         return AttributeObservation(

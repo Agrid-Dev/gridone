@@ -196,7 +196,11 @@ class TestProjection:
         device = _make_device()
         device.write_state_revision = 1
         temperature, mode = _make_attribute(), _make_attribute()
-        temperature.write_state = AttributeWriteState(status="unknown")
+        temperature.write_state = AttributeWriteState(
+            status="unknown",
+            missing_dependencies=True,
+            missing_attributes=["temperature", "mode"],
+        )
         mode.write_state = AttributeWriteState(status="unknown")
         device.attributes = {"temperature": temperature, "mode": mode}
         manager = AsyncMock(spec=WebSocketManager)
@@ -208,5 +212,6 @@ class TestProjection:
         projected = visible(_temperature_only())
         assert projected is not None
         assert list(projected.attributes) == ["temperature"]
+        assert projected.attributes["temperature"].missing_attributes == ["temperature"]
         assert list(projected.resolutions) == ["temperature"]
         assert visible(UNRESTRICTED) is manager.broadcast.await_args.args[0]

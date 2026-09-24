@@ -1,3 +1,5 @@
+import { AttributeDependencies } from "@/components/AttributeDependencies";
+import { useAttributeLabel } from "@/hooks/useAttributeLabel";
 import { commandReasons } from "@/lib/commandReasons";
 import { useTranslation } from "react-i18next";
 import {
@@ -15,8 +17,13 @@ import {
 } from "@/components/forms/targetPicker";
 import { AttributeValue } from "@/components/AttributeValue";
 import { SwitchController } from "@/components/forms/controllers/SwitchController";
-import type { AttributeCoverage, Device } from "@gridone/sdk";
+import type {
+  AttributeCoverage,
+  AttributeWriteState,
+  Device,
+} from "@gridone/sdk";
 import {
+  deviceAttributes,
   isEmptyFilter,
   type DevicesFilter,
   type DeviceType,
@@ -49,6 +56,7 @@ export function CommandStep({
 }: CommandStepProps) {
   const { t } = useTranslation("devices");
   const booleanField = useBooleanField();
+  const labelFor = useAttributeLabel();
 
   // Same query key as the wizard's and AttributeCoverageSelect's hook —
   // react-query dedupes, so this costs no extra fetch.
@@ -70,6 +78,24 @@ export function CommandStep({
 
   return (
     <div className="space-y-6">
+      {selectedDevices.length === 1 &&
+        selectedAttribute &&
+        (() => {
+          const device = selectedDevices[0];
+          const attributes = deviceAttributes(device);
+          const state = attributes[selectedAttribute]?.write_state as
+            | AttributeWriteState
+            | undefined;
+          return state?.missing_dependencies ? (
+            <AttributeDependencies
+              deviceId={device.id}
+              attribute={selectedAttribute}
+              labels={(state.missing_attributes ?? []).map((name) =>
+                labelFor(name, attributes[name]),
+              )}
+            />
+          ) : null;
+        })()}
       <Controller
         control={control}
         name="attribute"

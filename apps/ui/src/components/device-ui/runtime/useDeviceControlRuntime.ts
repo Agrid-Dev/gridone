@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo } from "react";
 import type { Device, ResolvedOption, WriteReason } from "@gridone/sdk";
 import { useAttributeCommandRuntime } from "@/hooks/useAttributeCommandRuntime";
+import { useAttributeLabel } from "@/hooks/useAttributeLabel";
 import { deviceAttributes } from "@/lib/devices";
 import { judgeWith, type Scalar } from "../conditions";
 import type { FaceAction } from "../face";
@@ -38,6 +39,8 @@ export type BoundControlState = {
 };
 
 export type DeviceUiRuntime = {
+  deviceId?: string;
+  attributeLabel?(attribute: string): string;
   /** A group can require an explicit absolute target for mixed values. */
   chooseValue?(id: string): void;
   valueLabel?(attribute: string): string | undefined;
@@ -70,16 +73,17 @@ export function useDeviceControlRuntime(
   } = {},
 ): DeviceUiRuntime & { busy: boolean } {
   const runtime = useAttributeCommandRuntime(device.id, debounceMs);
+  const labelFor = useAttributeLabel();
 
   const attributes = deviceAttributes(device) as Record<string, AttributeLike>;
   useEffect(() => {
     for (const [name, attribute] of Object.entries(attributes)) {
-      runtime.setReported(name, attribute.current_value ?? null);
+      runtime.setReported(name, observedDisplayValue(attribute));
     }
   }, [runtime, attributes]);
 
   const reported = useCallback(
-    (attribute: string) => attributes[attribute]?.current_value ?? null,
+    (attribute: string) => observedDisplayValue(attributes[attribute]),
     [attributes],
   );
   const judge = useMemo(() => judgeWith(reported), [reported]);
@@ -168,9 +172,38 @@ export function useDeviceControlRuntime(
     [readControl, runtime],
   );
 
+  const attributeLabel = useCallback(
+    (name: string) => labelFor(name, attributes[name]),
+    [labelFor, attributes],
+  );
   const busy = runtime.busy;
   return useMemo(
-    () => ({ readControl, setValue, activate, reported, busy }),
-    [readControl, setValue, activate, reported, busy],
+    () => ({
+      deviceId: device.id,
+      attributeLabel,
+      readControl,
+      setValue,
+      activate,
+      reported,
+      busy,
+    }),
+    [
+      device.id,
+      attributeLabel,
+      readControl,
+      setValue,
+      activate,
+      reported,
+      busy,
+    ],
   );
+}
+
+function observedDisplayValue(
+  attribute: AttributeLike | undefined,
+): Scalar | null {
+  return attribute?.write_state?.support === "unsupported" ||
+    attribute?.write_state?.support === "unknown"
+    ? null
+    : (attribute?.current_value ?? null);
 }

@@ -196,6 +196,8 @@ function AttributeRow({
                 : undefined
             }
             valueLabels={attribute.value_labels}
+            resolutionError={attribute.resolution_error}
+            support={attribute.write_state?.support}
           />
         )}
       </span>

@@ -279,6 +279,10 @@ class _Report:
 
 def _check_bindings(scope: _Scope, report: _Report) -> None:
     for binding_id, binding in scope.document.bindings.items():
+        if binding.display_transform is not None:
+            _require_numeric_binding(
+                binding_id, f"/bindings/{binding_id}/display_transform", scope, report
+            )
         if binding.attribute not in scope.attributes:
             report.add(
                 DiagnosticCode.MISSING_ATTRIBUTE,
@@ -291,6 +295,13 @@ def _check_controls(scope: _Scope, report: _Report) -> None:
     for control_id, control in scope.document.controls.items():
         path = f"/controls/{control_id}"
         attribute = _require_binding(control.binding, f"{path}/binding", scope, report)
+        binding = scope.document.bindings.get(control.binding)
+        if binding is not None and binding.display_transform is not None:
+            report.add(
+                DiagnosticCode.INVALID_DOCUMENT,
+                f"{path}/binding",
+                "Controls must use a canonical binding without display_transform",
+            )
         if attribute is not None and not _control_accepts(control.kind, attribute):
             report.add(
                 DiagnosticCode.TYPE_MISMATCH,
@@ -532,11 +543,7 @@ def _check_operand(
 
 def _iter_conditions(document: PresentationV1) -> Iterator[tuple[Condition, str]]:
     """Every top-level condition of the document, with the path it sits at."""
-    for control_id, control in document.controls.items():
-        if control.visible_when:
-            yield control.visible_when, f"/controls/{control_id}/visible_when"
-        if control.blocked_when:
-            yield control.blocked_when, f"/controls/{control_id}/blocked_when"
+    yield from _binding_control_conditions(document)
     for node, path, _ in walk_page_nodes(document.page, "/page"):
         if node.visible_when:
             yield node.visible_when, f"{path}/visible_when"
@@ -546,6 +553,25 @@ def _iter_conditions(document: PresentationV1) -> Iterator[tuple[Condition, str]
         if isinstance(node, DeviceFaceNode):
             for index, layer in enumerate(node.layers):
                 yield from _layer_conditions(layer, f"{path}/layers/{index}")
+
+
+def _binding_control_conditions(
+    document: PresentationV1,
+) -> Iterator[tuple[Condition, str]]:
+    for binding_id, binding in document.bindings.items():
+        if (
+            binding.display_transform is not None
+            and binding.display_transform.when is not None
+        ):
+            yield (
+                binding.display_transform.when,
+                f"/bindings/{binding_id}/display_transform/when",
+            )
+    for control_id, control in document.controls.items():
+        if control.visible_when:
+            yield control.visible_when, f"/controls/{control_id}/visible_when"
+        if control.blocked_when:
+            yield control.blocked_when, f"/controls/{control_id}/blocked_when"
 
 
 def _layer_conditions(layer: FaceLayer, path: str) -> Iterator[tuple[Condition, str]]:
@@ -585,9 +611,21 @@ def _check_capabilities_declared(scope: _Scope, report: _Report) -> None:
         )
 
 
+def _binding_capabilities(document: PresentationV1) -> set[str]:
+    return (
+        {"display-transforms/1"}
+        if any(
+            binding.display_transform is not None
+            for binding in document.bindings.values()
+        )
+        else set()
+    )
+
+
 def _used_capabilities(document: PresentationV1) -> set[str]:
     nodes = [node for node, _, _ in walk_page_nodes(document.page, "/page")]
     used = {_NODE_CAPABILITIES[type(node)] for node in nodes}
+    used.update(_binding_capabilities(document))
     if document.controls:
         used.add("controls/1")
     if any(

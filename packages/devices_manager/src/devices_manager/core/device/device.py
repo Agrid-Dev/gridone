@@ -8,11 +8,14 @@ from datetime import UTC, datetime
 from functools import partial
 from typing import TYPE_CHECKING, Any, Protocol
 
+from devices_manager.core.codecs.invalid_sample import InvalidSampleError
 from devices_manager.core.driver import FaultAttributeDriver
+from devices_manager.core.driver.write_validation import write_references
 from devices_manager.core.transports import PushTransportClient, ReadError
 from devices_manager.core.utils.templating.render import render_struct
 from devices_manager.observability.metrics import attribute_read
 from devices_manager.types import ConnectionStatus
+from models.conditions import attribute_references
 from models.errors import (
     ConfirmationError,
     InvalidError,
@@ -25,11 +28,19 @@ from models.write_rules import WriteEvaluation, WriteReason
 from .attribute import Attribute, AttributeKind, FaultAttribute
 from .connection_status import ConnectionMonitor, EventType
 from .connection_status_attribute import CONNECTION_STATUS_ATTR, build_cs_attribute
+from .dependency_refresh import DependencyRefresh
 from .sweep_schedule import SweepSchedule, run_on_schedule
 from .write_guard import WriteGuard
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
+    from collections.abc import (
+        AsyncIterator,
+        Awaitable,
+        Callable,
+        Iterable,
+        Iterator,
+        Mapping,
+    )
 
     from devices_manager.core.codecs import FnCodec
     from devices_manager.core.driver import AttributeDriver, Driver
@@ -53,20 +64,29 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_CONFIRM_TIMEOUT: float = 5.0
 
+# Addresses a device is asked at once while acquiring dependencies. Those
+# reads are chosen by Gridone, not grouped by the driver's author, so they go
+# a few at a time: devices commonly queue only a handful of requests and may
+# drop the rest without an answer.
+ACQUISITION_BATCH = 4
+
 
 class AttributeListener(Protocol):
     """``(device, attribute_name, previous, new, *, initial)``.
 
-    ``previous`` is ``None`` for the first event ever observed for this
-    attribute (its ``current_value`` was ``None`` before the mutation);
-    otherwise it is an immutable snapshot of the attribute's state before the
-    value changed. On the first post-restart event ``previous`` reflects the
-    persisted state, not ``None``, so listeners can compare ``previous`` and
-    ``new`` to detect transitions without per-listener state.
+    ``previous`` is ``None`` until the attribute has had a known value;
+    otherwise it is an immutable snapshot of its last known state. Across an
+    unknown gap (an invalid sample, an unresolved mapping: ``current_value``
+    was ``None``) it is the state before the gap, held in memory: a restart
+    or a rebuild of the device during the gap forgets it. On the first
+    post-restart event ``previous`` reflects the persisted state, not
+    ``None``, so listeners can compare ``previous`` and ``new`` to detect
+    transitions without per-listener state.
 
-    ``initial`` is True when this is the first observation of the attribute
-    since the device (re)connected: the value establishes a baseline rather
-    than reporting a transition, even when it differs from a restored one.
+    ``initial`` is True when the value establishes a baseline rather than
+    reporting a transition: the first observation of the attribute since the
+    device (re)connected, even when it differs from a restored one, and the
+    first known value after an unknown one.
     """
 
     def __call__(
@@ -180,6 +200,10 @@ class CoreDevice:
     connection_monitor: ConnectionMonitor = field(init=False, repr=False)
     _syncing: bool = field(init=False, default=False, repr=False)
     _observed_attributes: set[str] = field(init=False, default_factory=set, repr=False)
+    # The last known state of each attribute whose value is currently unknown.
+    _before_unknown: dict[str, Attribute] = field(
+        init=False, default_factory=dict, repr=False
+    )
     _waiters: list[tuple[str, Callable[[AttributeValueType], bool], asyncio.Event]] = (
         field(init=False, default_factory=list, repr=False)
     )
@@ -187,7 +211,12 @@ class CoreDevice:
         init=False, default_factory=dict, repr=False
     )
     _guard: WriteGuard = field(init=False, repr=False)
+    _dependency_refresh: DependencyRefresh = field(init=False, repr=False)
     _write_lock: asyncio.Lock = field(
+        init=False, default_factory=asyncio.Lock, repr=False
+    )
+    # Held per acquisition batch, by background passes and explicit refreshes.
+    _acquisition_lock: asyncio.Lock = field(
         init=False, default_factory=asyncio.Lock, repr=False
     )
     on_write_state_update: Callable[[CoreDevice], None] | None = field(
@@ -212,6 +241,7 @@ class CoreDevice:
             self._raw_code,
             on_expired=self._notify_write_state,
         )
+        self._dependency_refresh = DependencyRefresh(self._acquire_missing)
 
     @property
     def syncing(self) -> bool:
@@ -266,6 +296,7 @@ class CoreDevice:
     def delete_attribute(self, attribute_name: str) -> None:
         """Delete a runtime attribute that no longer exists on the driver."""
         self.attributes.pop(attribute_name, None)
+        self._before_unknown.pop(attribute_name, None)
         self._guard.rebind(self.driver)
         self._guard.forget(attribute_name)
         self.connection_monitor.forget(attribute_name)
@@ -276,6 +307,9 @@ class CoreDevice:
         existing = self.attributes.pop(old_name, None)
         if existing is not None:
             self.attributes[new_name] = existing.model_copy(update={"name": new_name})
+        known = self._before_unknown.pop(old_name, None)
+        if known is not None:
+            self._before_unknown[new_name] = known.model_copy(update={"name": new_name})
         self._guard.rename(old_name, new_name)
         self.connection_monitor.rename(old_name, new_name)
         self._notify_write_state()
@@ -374,6 +408,9 @@ class CoreDevice:
             with self.connection_monitor.observe(EventType.LISTEN, attribute.name):
                 try:
                     decoded = codec.decode(v)
+                except InvalidSampleError:
+                    self._ingest_attribute(attribute.name, None, invalid=True)
+                    return
                 except Exception:  # noqa: BLE001 - best-effort: frame may not carry this attr
                     return
                 logger.debug(
@@ -413,9 +450,14 @@ class CoreDevice:
                     )
                 )
         self._syncing = True
+        self.transport.add_reconnect_listener(self._on_transport_reconnected)
+        self._request_dependencies()
 
     async def stop_sync(self) -> None:
         """Cancel polling, stop silence detection, and mark as not syncing."""
+        self._syncing = False
+        self.transport.remove_reconnect_listener(self._on_transport_reconnected)
+        await self._dependency_refresh.close()
         for task in self._poll_tasks.values():
             if not task.done():
                 task.cancel()
@@ -474,22 +516,29 @@ class CoreDevice:
 
     async def _read_group(self, attribute_names: list[str]) -> None:
         """One polling-group sweep: a single ``read_many`` call sharing one
-        ``sweep_id``, with each result applied as it streams in.
+        ``sweep_id``, with each result applied as it streams in."""
+        await self._read_addresses(self._address_groups(attribute_names))
 
-        Building one attribute's address must never abort the sweep for its
+    def _address_groups(
+        self, attribute_names: Iterable[str]
+    ) -> dict[str, tuple[TransportAddress, list[str]]]:
+        """The supported attributes among ``attribute_names``, grouped by the
+        address that serves them, in first-seen order.
+
+        Building one attribute's address must never abort the read for its
         siblings, so failures here are isolated per attribute — mirroring how
         ``read_many`` already isolates failures per network read.
         """
-        sweep_id = gen_id()
         context = {**self.driver.env, **self.config}
-        addresses: list[TransportAddress] = []
-        attr_names_by_address_id: dict[str, list[str]] = {}
+        groups: dict[str, tuple[TransportAddress, list[str]]] = {}
         for attr_name in attribute_names:
             # The group's attribute list is snapshotted at task-start; a driver
             # patch can rename/delete an attribute before the device restarts
             # to pick up the change, so a stale name is skipped, not fatal.
             attribute_driver = self.driver.attributes.get(attr_name)
             if attribute_driver is None:
+                continue
+            if self._guard.supported(attr_name) is not True:
                 continue
             try:
                 address = self.transport.build_address(
@@ -504,21 +553,40 @@ class CoreDevice:
                     e,
                 )
                 continue
-            addresses.append(address)
-            attr_names_by_address_id.setdefault(address.id, []).append(attr_name)
-        # read_many() dedupes addresses by .id internally; no need to do it here too.
-        async for result in self.transport.read_many(addresses, sweep_id):
-            for attr_name in attr_names_by_address_id.get(result.address_id, []):
-                self._apply_read_result(attr_name, result)
+            groups.setdefault(address.id, (address, []))[1].append(attr_name)
+        return groups
 
-    def _apply_read_result(self, attr_name: str, result: ReadResult) -> None:
+    async def _read_addresses(
+        self,
+        groups: Mapping[str, tuple[TransportAddress, list[str]]],
+        *,
+        monitored: bool = True,
+    ) -> bool:
+        """Read ``groups`` in one ``read_many`` sharing one ``sweep_id``,
+        applying each result as it streams in; True when a read answered."""
+        answered = False
+        addresses = [address for address, _ in groups.values()]
+        async for result in self.transport.read_many(addresses, gen_id()):
+            answered = answered or not isinstance(result, ReadError)
+            group = groups.get(result.address_id)
+            for attr_name in group[1] if group is not None else ():
+                self._apply_read_result(attr_name, result, monitored=monitored)
+        return answered
+
+    def _apply_read_result(
+        self, attr_name: str, result: ReadResult, *, monitored: bool = True
+    ) -> None:
         attribute = self.attributes.get(attr_name)
         attribute_driver = self.driver.attributes.get(attr_name)
         if attribute is None or attribute_driver is None:
             return
         try:
-            with self._observe_read(attr_name):
-                decoded_value = _decode_read_result(attribute_driver.codec, result)
+            with self._observe_read(attr_name, monitored=monitored):
+                try:
+                    decoded_value = _decode_read_result(attribute_driver.codec, result)
+                except InvalidSampleError:
+                    self._ingest_attribute(attr_name, None, invalid=True)
+                    return
         except Exception as e:  # noqa: BLE001
             failure = (
                 "poll read failed for"
@@ -546,12 +614,20 @@ class CoreDevice:
             )
 
     @contextlib.contextmanager
-    def _observe_read(self, attribute_name: str) -> Iterator[None]:
-        """Record the outcome of a read, decode included, in the connection
-        monitor and the ``device.attribute.read`` metric. Shared by single
-        reads and polling sweeps."""
+    def _observe_read(
+        self, attribute_name: str, *, monitored: bool = True
+    ) -> Iterator[None]:
+        """Record the outcome of a read, decode included, in the
+        ``device.attribute.read`` metric and, unless it only acquires a
+        dependency, in the connection monitor. Shared by single reads, polling
+        sweeps and acquisitions."""
+        outcome = (
+            self.connection_monitor.observe(EventType.READ, attribute_name)
+            if monitored
+            else contextlib.nullcontext()
+        )
         try:
-            with self.connection_monitor.observe(EventType.READ, attribute_name):
+            with outcome:
                 yield
         except Exception:
             self._guard.forget(attribute_name)
@@ -635,11 +711,24 @@ class CoreDevice:
         A value-mapped attribute reinterpreted from its saved code after a
         sibling changed is displayed, but it is no evidence that a pending
         write reached the device, so waiters only see observations.
+
+        An unknown value breaks continuity: the first known value after it is
+        published as a baseline, with the state from before the gap as
+        ``previous``, so a recovery is never taken for a transition.
         """
         # Compared here so Attribute stays unaware of the listener contract.
         previous_value = attribute.current_value
-        previous = attribute.model_copy() if previous_value is not None else None
-        initial = attribute.name not in self._observed_attributes
+        if previous_value is not None:
+            previous: Attribute | None = attribute.model_copy()
+            if value is None:
+                self._before_unknown[attribute.name] = previous
+        elif value is not None:
+            previous = self._before_unknown.pop(attribute.name, None)
+        else:
+            previous = None  # unknown stays unknown: nothing is published
+        initial = (
+            previous_value is None or attribute.name not in self._observed_attributes
+        )
         if observation:
             self._observed_attributes.add(attribute.name)
         attribute.update_value(value)  # ty:ignore[invalid-argument-type]
@@ -655,7 +744,7 @@ class CoreDevice:
         attribute_name: str,
         *,
         sweep_id: str | None = None,
-    ) -> AttributeValueType:
+    ) -> AttributeValueType | None:
         attribute = self.get_attribute(attribute_name)
         if attribute.kind == AttributeKind.INTERNAL:
             msg = f"Cannot read internal attribute '{attribute_name}' via transport"
@@ -665,13 +754,21 @@ class CoreDevice:
             **self.config,
         }
         attribute_driver = self.driver.attributes[attribute.name]
+        if self._guard.supported(attribute_name) is not True:
+            msg = "Attribute support is unavailable"
+            raise InvalidError(msg)
         address = self.transport.build_address(
             render_struct(attribute_driver.read, context), context
         )
         with self._observe_read(attribute.name):
             raw_value = await self.transport.read(address, sweep_id)
-            self._update_attribute(attribute, attribute_driver.codec.decode(raw_value))
-        return attribute.current_value  # ty:ignore[invalid-return-type]
+            try:
+                decoded = attribute_driver.codec.decode(raw_value)
+            except InvalidSampleError:
+                self._ingest_attribute(attribute.name, None, invalid=True)
+            else:
+                self._update_attribute(attribute, decoded)
+        return attribute.current_value
 
     def _new_connection_monitor(self) -> ConnectionMonitor:
         return ConnectionMonitor(
@@ -681,9 +778,99 @@ class CoreDevice:
         )
 
     def _publish_connection_status(self, status: ConnectionStatus) -> None:
+        previous = self.attributes[CONNECTION_STATUS_ATTR].current_value
         if status == ConnectionStatus.ERROR:
             self._observed_attributes.clear()
+            self._guard.forget()
         self._update_attribute(self.attributes[CONNECTION_STATUS_ATTR], status)
+        if (
+            self._syncing
+            and status == ConnectionStatus.OK
+            and previous != ConnectionStatus.OK
+        ):
+            self._request_dependencies()
+
+    def _on_transport_reconnected(self) -> None:
+        """Acquire what may be stale after a reconnection.
+
+        An observation with a deadline stays trusted until the deadline lapses;
+        one without a deadline is dropped, since pushes lost during the outage
+        would otherwise never be caught up.
+        """
+        if self._syncing:
+            if self._guard.forget_without_deadline():
+                self._notify_write_state()
+            self._request_dependencies()
+
+    def _dependencies(self, target: str | None = None) -> set[str]:
+        """Collect rule/mapping/capability inputs, traversing cycles safely."""
+        specs = self.driver.attributes
+        pending = [target] if target is not None else list(specs)
+        visited: set[str] = set()
+        dependencies: set[str] = set()
+        while pending:
+            name = pending.pop()
+            if name in visited or name not in specs:
+                continue
+            visited.add(name)
+            refs = write_references(specs[name])
+            dependencies.update(refs)
+            pending.extend(refs - visited)
+        return dependencies
+
+    def _missing_dependencies(self) -> set[str]:
+        return {
+            name for name in self._dependencies() if self._guard.known(name) is None
+        }
+
+    def _request_dependencies(self) -> None:
+        """Acquire in the background the inputs of rules, mappings and support
+        conditions that the device is not known to hold."""
+        if self.transport.read_supported and self._missing_dependencies():
+            self._dependency_refresh.request()
+
+    async def _acquire_missing(self) -> None:
+        """One background pass. It holds one of the transport's acquisition
+        slots and reads what is still missing once the slot is granted."""
+        async with self.transport.acquisitions:
+            try:
+                await self._read_dependencies(self._missing_dependencies())
+            except Exception:
+                logger.exception("[Device %s] dependency acquisition failed", self.id)
+
+    async def _read_dependencies(self, names: set[str]) -> None:
+        """Read each input once, capability identities first, a few at a time.
+
+        Each batch of ``ACQUISITION_BATCH`` addresses holds this device's
+        acquisition lock, which explicit refreshes share. A batch in which every
+        read fails ends the acquisition, so an absent device costs one batch:
+        one read timeout where reads go concurrently, one per address where the
+        transport reads one at a time. A read that answers ends nothing, even
+        when its value stays unknown (a sentinel, an unresolved mapping).
+        Unsupported attributes are skipped; unknown support is reconsidered
+        after identity reads. Failed or unsupported inputs stay unknown, with no
+        retry loop, and outcomes stay out of the connection monitor: an input
+        missing from a firmware would otherwise pin the device as degraded.
+        """
+        pending = names & self.driver.attributes.keys()
+        while pending:
+            ready = {
+                name
+                for name in pending
+                if not attribute_references(self.driver.attributes[name].supported_when)
+                & pending
+                and self._guard.supported(name) is True
+            }
+            if not ready:
+                break
+            groups = list(self._address_groups(sorted(ready)).items())
+            for start in range(0, len(groups), ACQUISITION_BATCH):
+                batch = dict(groups[start : start + ACQUISITION_BATCH])
+                async with self._acquisition_lock:
+                    answered = await self._read_addresses(batch, monitored=False)
+                if not answered:
+                    return
+            pending -= ready
 
     async def _read_all_attributes(
         self,
@@ -741,7 +928,12 @@ class CoreDevice:
         may be shared with other devices or polling groups still relying on
         it, and closing it here would disconnect them too.
         """
+        self.get_attribute(attribute_name)
         try:
+            names = self._dependencies(attribute_name) - {attribute_name}
+            if names:
+                # Someone is waiting: no transport slot, only the device bound.
+                await self._read_dependencies(names)
             await self.read_attribute_value(attribute_name)
         except Exception as e:
             logger.warning(
@@ -805,12 +997,14 @@ class CoreDevice:
     def write_state_revision(self) -> int:
         return self._guard.revision
 
-    def _ingest_attribute(self, name: str, sample: AttributeValueType | None) -> None:
+    def _ingest_attribute(
+        self, name: str, sample: AttributeValueType | None, *, invalid: bool = False
+    ) -> None:
         """Apply one acquired sample, then the mapped attributes it reinterprets."""
         spec = self.driver.attributes[name]
         if sample is not None and spec.value_mapping is None:
             sample = self.attributes[name].ensure_type(sample)
-        for key, decoded in self._guard.observed(name, sample).items():
+        for key, decoded in self._guard.observed(name, sample, invalid=invalid).items():
             attribute = self.attributes.get(key)
             if attribute is None:
                 continue

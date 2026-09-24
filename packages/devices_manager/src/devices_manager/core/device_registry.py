@@ -398,6 +398,8 @@ class DeviceRegistry:
     def activate_driver_devices(self, prepared: list[CoreDevice]) -> list[CoreDevice]:
         """Publish prepared devices without yielding, returning old sync owners."""
         previous = [self._devices[device.id] for device in prepared]
+        for device in prepared:
+            self._attach_update_listener(device)
         self._devices.update({device.id: device for device in prepared})
         return previous
 

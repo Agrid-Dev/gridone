@@ -28,7 +28,7 @@ from devices_manager.core.presentation import PresentationEnvelope
 from devices_manager.core.transports import RawTransportAddress
 from devices_manager.types import AttributeValueType, TransportProtocols
 from models.errors import InvalidError
-from models.expressions import MAX_LIST_ITEMS, MAX_RULES, Scalar
+from models.expressions import MAX_LIST_ITEMS, MAX_RULES, Condition, Scalar
 from models.metadata import ResourceMetadata
 from models.types import Severity
 from models.write_rules import ValueMapping, WriteOption, WriteRule
@@ -151,6 +151,7 @@ class AttributePatch(BaseModel):
         default=None, max_length=MAX_LIST_ITEMS
     )
     value_mapping: ValueMapping | None = None
+    supported_when: Condition | None = None
 
     @field_validator(
         "read", "codecs", "kind", "severity", "healthy_values", mode="before"

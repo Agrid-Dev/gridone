@@ -94,7 +94,7 @@ class WriteGuard:
     # --- trust ------------------------------------------------------------
 
     def observed(
-        self, name: str, sample: AttributeValueType | None
+        self, name: str, sample: AttributeValueType | None, *, invalid: bool = False
     ) -> dict[str, Decoded]:
         """One acquired sample: trust it, decode it, reinterpret what depends on it.
 
@@ -106,11 +106,11 @@ class WriteGuard:
         spec = self._driver.attributes[name]
         if sample is None:
             self.forget(name)
-            return {name: Decoded(None)}
-        if self._expiry is not None:
-            self._expiry.record_observation()
-        self._trusted.add(name)
-        self._observed_at[name] = time.monotonic()
+        else:
+            if self._expiry is not None:
+                self._expiry.record_observation()
+            self._trusted.add(name)
+            self._observed_at[name] = time.monotonic()
         fresh: dict[str, AttributeValueType | None] = {}
 
         def resolve(ref: str) -> AttributeValueType | None:
@@ -122,7 +122,9 @@ class WriteGuard:
 
         budget = EvaluationBudget(MAX_DEVICE_OPERATIONS)
         decoded = (
-            self._decode(spec, sample, resolve, budget)
+            Decoded(None, error=WriteReason(code="invalid_sample") if invalid else None)
+            if sample is None
+            else self._decode(spec, sample, resolve, budget)
             if spec.value_mapping is not None
             else Decoded(sample)
         )
@@ -170,8 +172,28 @@ class WriteGuard:
             self._touch(dependent)
 
     def known(self, name: str) -> AttributeValueType | None:
-        """The trusted value of an attribute; ``None`` when it must not be relied on."""
+        """Resolve trusted values with a shared capability budget and cache."""
         self.expire_if_due()
+        try:
+            return self._resolve_known(
+                name, EvaluationBudget(MAX_DEVICE_OPERATIONS), {}
+            )
+        except EvaluationLimitError:
+            return None
+
+    def _resolve_known(
+        self,
+        name: str,
+        budget: EvaluationBudget,
+        cache: dict[str, AttributeValueType | None],
+    ) -> AttributeValueType | None:
+        """Cache shared capability inputs within one bounded DAG traversal."""
+        budget.spend()
+        if name in cache:
+            return cache[name]
+        spec = self._driver.attributes.get(name)
+        if spec is None:
+            return None
         deadline = observation_max_age(self._driver, name)
         observed_at = self._observed_at.get(name)
         if (
@@ -181,9 +203,37 @@ class WriteGuard:
         ):
             self._forget_trust(name)
         for dependency in self._mapping_refs.get(name, ()):
-            if self.known(dependency) is None:
+            if self._resolve_known(dependency, budget, cache) is None:
                 self._resolved.discard(name)
-        return self._values(name) if self._is_known(name) else None
+        value = None
+        if self._is_known(name):
+            supported = (
+                spec.supported_when is None
+                or EvaluationContext(
+                    lambda ref: self._resolve_known(ref, budget, cache),
+                    budget=budget,
+                ).condition(spec.supported_when)
+                is True
+            )
+            if supported:
+                value = self._values(name)
+        cache[name] = value
+        return value
+
+    def supported(self, name: str) -> bool | None:
+        """Resolve a capability from trusted device observations, without I/O."""
+        condition = self._driver.attributes[name].supported_when
+        if condition is None:
+            return True
+        budget = EvaluationBudget(MAX_DEVICE_OPERATIONS)
+        cache: dict[str, AttributeValueType | None] = {}
+        try:
+            return EvaluationContext(
+                lambda ref: self._resolve_known(ref, budget, cache),
+                budget=budget,
+            ).condition(condition)
+        except EvaluationLimitError:
+            return None
 
     def observed_value(
         self, name: str, *, max_age_seconds: float | None = None
@@ -211,6 +261,12 @@ class WriteGuard:
                 or (
                     max_age_seconds is not None and now - observed_at >= max_age_seconds
                 )
+            ) or (
+                spec.supported_when is not None
+                and EvaluationContext(resolve, budget=budget).condition(
+                    spec.supported_when
+                )
+                is not True
             ):
                 cache[ref] = None
             elif spec.value_mapping is None:
@@ -369,6 +425,23 @@ class WriteGuard:
         )
         self._expiry.watch()
 
+    def forget_without_deadline(self) -> bool:
+        """Drop trust in the observations that no deadline would ever expire.
+
+        Pushes can be lost while a connection is down. Trust bounded by an
+        observation deadline (the expected push interval, or two poll
+        intervals) lapses on its own; trust without one would outlive any
+        outage, so a reconnection drops it. True when something was dropped.
+        """
+        undated = [
+            name
+            for name in self._trusted
+            if observation_max_age(self._driver, name) is None
+        ]
+        for name in undated:
+            self.forget(name)
+        return bool(undated)
+
     def close(self) -> None:
         """Stop bounding trust and drop it: a stopped device knows nothing."""
         if self._expiry is not None:
@@ -402,13 +475,18 @@ class WriteGuard:
             self._dirty.update(self._rule_dependents.get(name, ()))
 
     def _record(self, spec: AttributeDriver, decoded: Decoded) -> None:
-        if spec.value_mapping is None:
-            return
-        if decoded.error is None:
-            self._resolved.add(spec.name)
-        else:
-            self._resolved.discard(spec.name)
-        if self._decoded.get(spec.name) != decoded:
+        if spec.value_mapping is not None:
+            if decoded.error is None:
+                self._resolved.add(spec.name)
+            else:
+                self._resolved.discard(spec.name)
+        previous = self._decoded.get(spec.name)
+        changed = (
+            previous != decoded
+            if spec.value_mapping is not None
+            else previous is None or previous.error != decoded.error
+        )
+        if changed:
             self._published_changed = True
         self._decoded[spec.name] = decoded
 
@@ -452,6 +530,18 @@ class WriteGuard:
                 self._rule_dependents.setdefault(ref, set()).add(name)
             if spec.value_mapping is not None:
                 self._mapping_refs[name] = attribute_references(spec.value_mapping)
+        support_refs = {
+            name: attribute_references(spec.supported_when)
+            for name, spec in driver.attributes.items()
+        }
+        support_dependents = _transitive_dependents(
+            support_refs, _mapping_order(support_refs)
+        )
+        for ref, dependents in support_dependents.items():
+            affected = self._rule_dependents.setdefault(ref, set())
+            for dependent in dependents:
+                affected.add(dependent)
+                affected.update(self._rule_dependents.get(dependent, ()))
         self._mapping_dependents = _transitive_dependents(
             self._mapping_refs, _mapping_order(self._mapping_refs)
         )

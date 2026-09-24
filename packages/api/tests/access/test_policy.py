@@ -148,3 +148,28 @@ class TestProjectDevice:
         device = _device(temperature=TEMPERATURE)
 
         assert UNRESTRICTED.project_device(device) is device
+
+
+def test_missing_dependencies_do_not_disclose_restricted_attribute_names():
+    from models.write_rules import AttributeWriteState
+
+    state = AttributeWriteState(
+        status="unknown",
+        missing_dependencies=True,
+        missing_attributes=["temperature", "private_lock"],
+    )
+    device = _device(
+        temperature=TEMPERATURE, mode=MODE.model_copy(update={"write_state": state})
+    )
+    policy = AccessPolicy.from_role(_role([_scope(attributes=["temperature", "mode"])]))
+    projected = policy.project_device(device)
+    assert projected is not None
+    projected_state = projected.attributes["mode"].write_state
+    assert projected_state is not None
+    assert projected_state.missing_attributes == ["temperature"]
+    original_state = device.attributes["mode"].write_state
+    assert original_state is not None
+    assert original_state.missing_attributes == [
+        "temperature",
+        "private_lock",
+    ]

@@ -102,7 +102,13 @@ export type PresentationV1 = {
   requires: string[];
   assets: Record<string, { path: string }>;
   glyph_sets?: Record<string, GlyphSetDocument>;
-  bindings: Record<string, { attribute: string }>;
+  bindings: Record<
+    string,
+    {
+      attribute: string;
+      display_transform?: { scale?: number; offset?: number; when?: Condition };
+    }
+  >;
   controls: Record<string, ControlDocument>;
   page: PageNode;
 };

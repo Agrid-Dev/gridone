@@ -154,13 +154,22 @@ describe("webhook ingress", () => {
     );
     expect(response.status).toBe(200);
 
-    // The timeseries upsert is asynchronous (fire-and-forget listener).
+    // The timeseries upsert is asynchronous (fire-and-forget listener), and
+    // the first one also creates the series: until it lands, the series is
+    // unknown (404), which means "not yet", not a failure. On a loaded runner
+    // the push from the earlier test may still be in flight here.
     await pollUntil(
-      () =>
-        client.timeseries.getPoints(deviceId, "temperature", {
-          start: runStart,
-        }),
-      (result) => result.points.some((point) => point.value === 23.5),
+      async () => {
+        try {
+          return await client.timeseries.getPoints(deviceId, "temperature", {
+            start: runStart,
+          });
+        } catch (error) {
+          if (isGridoneError(error) && error.status === 404) return undefined;
+          throw error;
+        }
+      },
+      (result) => result?.points.some((point) => point.value === 23.5) ?? false,
       { description: "pushed temperature 23.5 to land in timeseries" },
     );
   });

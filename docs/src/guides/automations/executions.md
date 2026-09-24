@@ -14,7 +14,7 @@ Open an automation from the **Automations** list and switch the side panel to **
 | Failed | The action could not be dispatched, or a condition read an unknown or stale value; the entry says which. |
 | Refused by a rule | The write was refused by the device's rules or by an operating rule. The refusal is recorded under **History > Commands**. |
 | No case was true | Every case was false and *Otherwise* does nothing. |
-| First observation | The first value after a start or a reconnection: the automation initialized without acting. |
+| First observation | The first value after a start, a reconnection or an unavailable value: the automation initialized without acting. |
 | Circuit breaker tripped | The run tripped a guard and the automation was disabled; the banner on its page names the guard. |
 | Skipped | The event arrived while the previous run was still in progress. Nothing was dispatched and the automation stays enabled. |
 

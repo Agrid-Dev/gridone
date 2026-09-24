@@ -45,3 +45,15 @@ class TestHistoriseAttributeUpdate:
         key, points = ts_service.upsert_points.call_args.args
         assert key == SeriesKey(owner_id="dev-1", metric="temperature")
         assert points[0].value == 21.0
+
+
+async def test_invalid_measurement_is_not_historised_and_negative_recovery_is():
+    ts = AsyncMock(spec=TimeSeriesService)
+    listener = historise_attribute_update(ts)
+    attribute = _make_attribute().model_copy(update={"current_value": None})
+    await listener(_make_device(), "temperature", None, attribute, initial=False)
+    ts.upsert_points.assert_not_awaited()
+    await listener(
+        _make_device(), "temperature", attribute, _make_attribute(-12), initial=False
+    )
+    assert ts.upsert_points.call_args.args[1][0].value == -12

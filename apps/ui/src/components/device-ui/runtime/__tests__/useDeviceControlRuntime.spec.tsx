@@ -419,3 +419,18 @@ describe("useDeviceControlRuntime", () => {
     expect(rendered.result.current.readControl("target")?.pending).toBe(false);
   });
 });
+
+it.each(["unsupported", "unknown"])(
+  "does not expose cached %s observations as usable controls",
+  (support) => {
+    const { rendered } = setup(
+      makeDevice({
+        temperature_setpoint: { write_state: { status: "blocked", support } },
+      }),
+    );
+    expect(rendered.result.current.reported("temperature_setpoint")).toBeNull();
+    expect(rendered.result.current.readControl("target")?.canIncrement).toBe(
+      false,
+    );
+  },
+);

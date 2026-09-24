@@ -118,3 +118,49 @@ Silence detection for push devices is now configured under the [health check](he
     update_strategy:
       polling: disable
     ```
+
+
+## Acquiring command dependencies
+
+Write constraints, write rules, option conditions, value mappings and support
+conditions read other attributes. Gridone trusts only values observed since the
+device started syncing, so after a service restart, a driver change, a
+transport reconnection or a device coming back online, it reads the inputs that
+are not known instead of waiting for the next poll or push. Periodic polling
+groups and their cadence are unchanged.
+
+These reads are bounded, so that a trigger reaching a whole site never floods
+it:
+
+- per transport, 4 devices acquire at a time, and the others wait their turn;
+- per device, 4 reads at a time: these reads are chosen by Gridone rather than
+  grouped by the driver's author, and devices commonly queue only a handful of
+  requests;
+- inputs that share an address are read once.
+
+Capability identities are read before conditional attributes. Each input is
+read at most once per pass. A batch in which every read fails ends the pass, so
+an absent device costs one batch: a single read timeout on transports that read
+concurrently (MQTT, HTTP), one per address on those that read one at a time
+(Modbus, BACnet, KNX, M-Bus). A read that answers never ends the pass, even when
+its value stays unknown. Failures stay unknown: there is no automatic retry
+loop and no write on an assumed value. A request that arrives during a pass (a
+reconnection, say) adds exactly one more pass, which reads what is still missing
+then. These reads do not count towards the device's connection status: an input
+missing from a firmware version must not mark the device as degraded.
+
+A reconnection keeps the observations that have a deadline (the expected push
+interval, or two poll intervals plus the read timeout) until that deadline
+lapses, and reads only what is missing. Observations without any deadline are
+dropped and read again, since pushes lost during the outage would otherwise
+never be caught up.
+Push-only transports without an active read operation do not schedule these
+reads. Stopping synchronization cancels the acquisition worker.
+
+`POST /devices/{device_id}/attributes/{attr_name}/refresh` reads the attribute's
+transitive dependencies, known or not, then the attribute itself. Someone is
+waiting for it, so it does not queue behind the transport's other devices, but
+it shares the device's limit of 4 reads at a time. The contextual **Refresh
+data** action in the command controls calls this endpoint without sending a
+command. `write_state.missing_attributes` identifies unresolved inputs; read
+permissions filter these names in both REST and WebSocket responses.

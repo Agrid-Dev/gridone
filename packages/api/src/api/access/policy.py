@@ -13,6 +13,7 @@ from users.permissions import Permission
 
 if TYPE_CHECKING:
     from devices_manager.dto.device_dto import Device
+    from models.write_rules import AttributeWriteState
     from users.roles import DeviceScope, DeviceSelector, Role
 
 
@@ -66,7 +67,33 @@ class AccessPolicy:
         }
         if not readable:
             return None
+        readable_names = set(readable)
+        readable = {
+            name: attribute.model_copy(
+                update={
+                    "write_state": self.project_write_state(
+                        attribute.write_state, readable_names
+                    )
+                }
+            )
+            for name, attribute in readable.items()
+        }
         return device.model_copy(update={"attributes": readable})
+
+    @staticmethod
+    def project_write_state(
+        state: AttributeWriteState | None, readable: set[str]
+    ) -> AttributeWriteState | None:
+        """Preserve eligibility while hiding names the caller cannot read."""
+        if state is None:
+            return None
+        return state.model_copy(
+            update={
+                "missing_attributes": [
+                    name for name in state.missing_attributes if name in readable
+                ]
+            }
+        )
 
 
 UNRESTRICTED = AccessPolicy(None)

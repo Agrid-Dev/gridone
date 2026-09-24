@@ -86,13 +86,14 @@ class AttributeWriteState(BaseModel):
     """Server projection; clients never need to fetch or evaluate dependencies."""
 
     status: Literal["ready", "blocked", "unknown"] = "ready"
+    support: Literal["supported", "unsupported", "unknown"] = "supported"
     constraints: ResolvedConstraints | None = None
     options: list[ResolvedOption] | None = None
     reasons: list[WriteReason] = Field(default_factory=list)
     warnings: list[WriteReason] = Field(default_factory=list)
-    # Names are deliberately omitted from public results: internal inputs may
-    # be readable by the device but hidden from the person issuing the command.
     missing_dependencies: bool = False
+    # The API must filter names through the caller's attribute read scope.
+    missing_attributes: list[str] = Field(default_factory=list)
     candidate_required: bool = False
 
 

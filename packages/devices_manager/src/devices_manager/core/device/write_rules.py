@@ -36,6 +36,20 @@ def _options(spec: AttributeDriver) -> list[AttributeValueType] | None:
     return [False, True] if spec.data_type == DataType.BOOL else spec.value_options
 
 
+def support_reason(
+    spec: AttributeDriver, context: EvaluationContext
+) -> WriteReason | None:
+    """A missing capability observation is unknown, never proof of no support."""
+    if spec.supported_when is None:
+        return None
+    supported = context.condition(spec.supported_when)
+    if supported is True:
+        return None
+    return WriteReason(
+        code="support_unknown" if supported is None else "unsupported_attribute"
+    )
+
+
 def _check_options(
     spec: AttributeDriver,
     value: AttributeValueType,
@@ -91,6 +105,13 @@ def evaluate_write(
         )
     result = WriteEvaluation(eligible=False, value=value)
     context = context or EvaluationContext(resolve, candidate=value)
+    try:
+        reason = support_reason(spec, context)
+    except EvaluationLimitError:
+        reason = WriteReason(code="evaluation_limit")
+    if reason is not None:
+        result.reasons.append(reason)
+        return result
     if spec.write is None:
         result.reasons.append(WriteReason(code="not_writable"))
         return result
@@ -134,11 +155,23 @@ def project_write_state(
 ) -> AttributeWriteState:
     """Project options and limits from observations; free candidates use previews."""
     result = AttributeWriteState()
+    context = EvaluationContext(resolve, budget=EvaluationBudget(parent=budget))
+    try:
+        reason = support_reason(spec, context)
+    except EvaluationLimitError:
+        reason = WriteReason(code="evaluation_limit")
+    if reason is not None:
+        unknown = reason.code in {"support_unknown", "evaluation_limit"}
+        result.support = "unknown" if unknown else "unsupported"
+        result.status = "unknown" if unknown else "blocked"
+        result.missing_dependencies = unknown
+        result.reasons = [reason]
+        result.missing_attributes = sorted(context.missing)
+        return result
     if spec.write is None:
         result.status = "blocked"
         result.reasons = [WriteReason(code="not_writable")]
         return result
-    context = EvaluationContext(resolve, budget=EvaluationBudget(parent=budget))
     try:
         result.constraints = preview_write_constraints(spec, resolve, context=context)
         result.options = _project_options(spec, context)
@@ -168,6 +201,8 @@ def project_write_state(
     except EvaluationLimitError:
         result.status = "blocked"
         result.reasons = [WriteReason(code="evaluation_limit")]
+    result.missing_attributes = sorted(context.missing)
+    result.missing_dependencies |= bool(context.missing)
     return result
 
 
@@ -196,6 +231,7 @@ def _project_options(
             context=candidate,
             mapping_checked=mapped is not None,
         )
+        context.missing.update(candidate.missing)
         if mapped is not None:
             mapping_option = next(
                 (option for option in mapped if scalar_equal(option.value, value)), None

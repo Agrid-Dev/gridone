@@ -92,6 +92,8 @@ class ChangeEventListener:
     ) -> None:
         """Fire on a matching change; an initial observation always passes,
         flagged, so the service can baseline without evaluating the condition."""
+        if attr.current_value is None:
+            return
         if (
             not initial
             and self.trigger.condition is not None

@@ -26,6 +26,7 @@ SUPPORTED_CAPABILITIES: Final[frozenset[str]] = frozenset(
         "page-conditions/1",
         "control-conditions/1",
         "layout-variants/1",
+        "display-transforms/1",
     }
 )
 """The v1 vocabulary and opt-in extensions announced in a document's ``requires``."""

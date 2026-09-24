@@ -305,7 +305,10 @@ async def refresh_device_attribute(
     dm: Annotated[DevicesServiceInterface, Depends(get_device_manager)],
 ) -> Attribute:
     reads.require_attribute(device_id, attr_name)
-    return await dm.refresh_device_attribute(device_id, attr_name)
+    result = await dm.refresh_device_attribute(device_id, attr_name)
+    if reads.is_unrestricted:
+        return result
+    return reads.get_device(device_id).attributes[attr_name]
 
 
 @router.get(

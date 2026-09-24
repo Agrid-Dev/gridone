@@ -3,6 +3,7 @@ import json
 import logging
 import ssl
 import tempfile
+from contextlib import suppress
 from pathlib import Path
 
 import aiomqtt
@@ -12,6 +13,9 @@ from devices_manager.core.transports.connected import connected
 from devices_manager.core.transports.listener_registry import (
     ListenerCallback,
     ListenerRegistry,
+)
+from devices_manager.core.transports.transport_connection_state import (
+    TransportConnectionState,
 )
 from devices_manager.core.transports.transport_metadata import TransportMetadata
 from devices_manager.core.utils.templating.render import render_struct
@@ -50,12 +54,15 @@ def build_ssl_context(config: MqttTransportConfig) -> ssl.SSLContext:
 
 class MqttTransportClient(PushTransportClient[MqttAddress]):
     _client_instance: aiomqtt.Client | None = None
+    # The current client's receive loop, kept apart from the base class's
+    # background tasks: close() stops this task only, so a reconnect that
+    # closes the transport never cancels itself.
+    _message_task: asyncio.Task[None] | None = None
     _config_builder = MqttTransportConfig
     protocol = TransportProtocols.MQTT
     address_builder = MqttAddress
     config: MqttTransportConfig
     _handlers_registry: ListenerRegistry
-    _background_tasks: set
 
     _message_handlers: (
         TopicHandlerRegistry  # maps topics to handler ids from handlers_registry
@@ -65,7 +72,6 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
         self, metadata: TransportMetadata, config: MqttTransportConfig
     ) -> None:
         self._message_handlers = TopicHandlerRegistry()
-        self._background_tasks: set[asyncio.Task] = set()
         self._connection_lock = asyncio.Lock()
         self._handlers_registry = ListenerRegistry()
         super().__init__(metadata, config)
@@ -79,12 +85,14 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
                 # leaving the state "connected", so later reads/writes would hit
                 # a disconnected client ("client is not currently connected").
                 return
+            # A client the broker dropped is left, never reused.
+            await self._discard_client()
             tls_context = (
                 await asyncio.to_thread(build_ssl_context, self.config)
                 if self.config.tls
                 else None
             )
-            self._client_instance = aiomqtt.Client(
+            client = aiomqtt.Client(
                 self.config.host,
                 port=self.config.port,
                 username=self.config.username,
@@ -97,23 +105,72 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
                 self.config.port,
                 self.config.tls,
             )
-            await asyncio.wait_for(self._client_instance.__aenter__(), timeout=TIMEOUT)
+            await asyncio.wait_for(client.__aenter__(), timeout=TIMEOUT)
+            try:
+                await self._resubscribe(client)
+            except BaseException:
+                with suppress(aiomqtt.MqttError):
+                    await client.__aexit__(None, None, None)
+                raise
             logger.debug("MQTT connected to %s:%s", self.config.host, self.config.port)
-            self._background_tasks.add(
-                asyncio.create_task(self._handle_incoming_messages())
+            self._client_instance = client
+            self._message_task = asyncio.create_task(
+                self._handle_incoming_messages(client)
             )
             await super().connect()
 
     async def close(self) -> None:
-        """Disconnect from the MQTT broker."""
+        """Disconnect from the MQTT broker and stay disconnected."""
+        self._stop_reconnecting()
         async with self._connection_lock:
-            if self._client_instance:
-                await self._client_instance.__aexit__(None, None, None)
-                self._is_connected = False
-            for task in self._background_tasks:
-                task.cancel()
-            self._background_tasks.clear()
+            await self._discard_client()
             await super().close()
+
+    def _stop_reconnecting(self) -> None:
+        """End a reconnection scheduled earlier, so that a deleted transport or
+        a stopped service does not reconnect once the broker is back. The
+        reconnection that is itself closing the transport carries on."""
+        task = self._reconnect_task
+        if task is not None and task is not asyncio.current_task() and not task.done():
+            self._reconnect_pending = False
+            task.cancel()
+
+    async def _discard_client(self) -> None:
+        """Stop receiving, then leave the client.
+
+        Receiving stops first: aiomqtt ends its message iterator with an error
+        on any disconnection, and a deliberate one must not be taken for a
+        dropped session.
+        """
+        task, self._message_task = self._message_task, None
+        if task is not None and not task.done():
+            task.cancel()
+            # wait() rather than await: the caller's own cancellation must
+            # still reach it, only the loop's is expected here.
+            await asyncio.wait({task})
+        client, self._client_instance = self._client_instance, None
+        if client is not None:
+            with suppress(aiomqtt.MqttError):
+                await client.__aexit__(None, None, None)
+
+    async def _resubscribe(self, client: aiomqtt.Client) -> None:
+        """Subscribe a new client to every topic still listened to, in one
+        request: a broker forgets the subscriptions of a session it dropped."""
+        topics = self._message_handlers.list_topics()
+        if topics:
+            await client.subscribe([(topic, 0) for topic in topics], timeout=TIMEOUT)
+
+    def _on_connection_lost(self, error: aiomqtt.MqttError) -> None:
+        """The broker dropped the session: park the state and reconnect with
+        backoff, as OPC-UA does for a lost session."""
+        logger.warning(
+            "[Transport %s] MQTT session lost — %s: %s",
+            self.id,
+            type(error).__name__,
+            error,
+        )
+        self.connection_state = TransportConnectionState.connection_error(str(error))
+        self.schedule_reconnect()
 
     @property
     def _client(self) -> aiomqtt.Client:
@@ -155,23 +212,35 @@ class MqttTransportClient(PushTransportClient[MqttAddress]):
     async def _unsubscribe(self, topic: str) -> None:
         await self._client.unsubscribe(topic)
 
-    @connected
-    async def _handle_incoming_messages(self) -> None:
-        async for message in self._client.messages:
-            callback_ids = self._message_handlers.match_topic(message.topic)
-            logger.debug(
-                "Handling new message on topic %s %s callbacks found",
-                message.topic,
-                len(callback_ids),
-            )
-            if callback_ids:
-                decoded_payload = message.payload.decode()
-                for callback_id in callback_ids:
+    async def _handle_incoming_messages(self, client: aiomqtt.Client) -> None:
+        """Dispatch the client's messages until the broker drops the session."""
+        try:
+            async for message in client.messages:
+                callback_ids = self._message_handlers.match_topic(message.topic)
+                logger.debug(
+                    "Handling new message on topic %s %s callbacks found",
+                    message.topic,
+                    len(callback_ids),
+                )
+                if callback_ids:
                     try:
-                        handler = self._handlers_registry.get_by_id(callback_id)
-                        handler(decoded_payload)
-                    except Exception:  # noqa: BLE001, S110
-                        pass
+                        decoded_payload = message.payload.decode()
+                    except UnicodeDecodeError:
+                        # A binary frame must not end reception for every device.
+                        logger.warning(
+                            "[Transport %s] skipped a non-UTF-8 frame on %s",
+                            self.id,
+                            message.topic,
+                        )
+                        continue
+                    for callback_id in callback_ids:
+                        try:
+                            handler = self._handlers_registry.get_by_id(callback_id)
+                            handler(decoded_payload)
+                        except Exception:  # noqa: BLE001, S110
+                            pass
+        except aiomqtt.MqttError as e:
+            self._on_connection_lost(e)
 
     @connected
     async def _read(

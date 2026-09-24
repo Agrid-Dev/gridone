@@ -1,3 +1,4 @@
+import { AttributeDependencies } from "@/components/AttributeDependencies";
 import { moveRadioFocus } from "@/lib/radioNavigation";
 import { useTranslation } from "react-i18next";
 import { Check, Loader2, Minus, Plus } from "lucide-react";
@@ -93,19 +94,46 @@ export function ControlRow({
             </p>
           )}
         <WriteStateIndicator state={state.write} />
-        {state.reasons?.length ? (
-          <p role="status" className="text-xs text-muted-foreground">
-            {commandReasons(state.reasons, language)}
-          </p>
-        ) : null}
-        {state.attribute?.write_state?.warnings?.length ? (
-          <p className="text-xs text-amber-700">
-            {commandReasons(state.attribute.write_state.warnings, language)}
-          </p>
-        ) : null}
+        <ControlFeedback state={state} runtime={runtime} language={language} />
       </div>
       <ControlInput id={id} state={state} runtime={runtime} label={label} />
     </div>
+  );
+}
+
+/** Availability explanations shared by standalone controls and setpoint tables. */
+export function ControlFeedback({
+  state,
+  runtime,
+  language,
+}: {
+  state: BoundControlState;
+  runtime: DeviceUiRuntime;
+  language?: string;
+}) {
+  return (
+    <>
+      {state.reasons?.length ? (
+        <p role="status" className="text-xs text-muted-foreground">
+          {commandReasons(state.reasons, language)}
+        </p>
+      ) : null}
+      {state.attribute?.write_state?.missing_dependencies &&
+        runtime.deviceId && (
+          <AttributeDependencies
+            deviceId={runtime.deviceId}
+            attribute={state.spec.attribute}
+            labels={(state.attribute.write_state.missing_attributes ?? []).map(
+              (name) => runtime.attributeLabel?.(name) ?? name,
+            )}
+          />
+        )}
+      {state.attribute?.write_state?.warnings?.length ? (
+        <p className="text-xs text-amber-700">
+          {commandReasons(state.attribute.write_state.warnings, language)}
+        </p>
+      ) : null}
+    </>
   );
 }
 

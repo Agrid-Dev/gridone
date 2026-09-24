@@ -6,6 +6,8 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 from dataclasses import dataclass
 
+from .invalid_sample import InvalidSampleError
+
 InT = TypeVar("InT")
 OutT = TypeVar("OutT")
 MidT = TypeVar("MidT")
@@ -44,11 +46,14 @@ class FnCodec(Codec[InT, OutT]):
         def chained_encode(v: MidT) -> InT:
             return self.encode(other.encode(v))
 
-        self_opts = (
-            [other.decode(v) for v in self.value_options]
-            if self.value_options is not None
-            else None
-        )
+        self_opts = None
+        if self.value_options is not None:
+            self_opts = []
+            for value in self.value_options:
+                try:
+                    self_opts.append(other.decode(value))
+                except InvalidSampleError:
+                    continue
         other_opts = other.value_options
 
         if self_opts is None:

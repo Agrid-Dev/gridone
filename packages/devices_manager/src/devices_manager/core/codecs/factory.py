@@ -12,6 +12,7 @@ from .registry.bool_format_codec import bool_format_codec
 from .registry.byte_convert_codec import byte_convert_codec
 from .registry.byte_frame_codec import byte_frame_codec
 from .registry.identity_codec import identity_codec
+from .registry.invalid_values_codec import invalid_values_codec
 from .registry.json_path_codec import json_path_codec
 from .registry.json_pointer_codec import json_pointer_codec
 from .registry.knx_dpt_codec import knx_dpt_codec
@@ -33,6 +34,7 @@ class CodecEntry:
 
 codec_entries: dict[str, CodecEntry] = {
     "identity": CodecEntry(builder=identity_codec, arg_type=RawArgTypes),
+    "invalid_values": CodecEntry(builder=invalid_values_codec, arg_type=list),
     "scale": CodecEntry(builder=scale_codec, arg_type=(int, float)),
     "offset": CodecEntry(builder=offset_codec, arg_type=(int, float)),
     "json_pointer": CodecEntry(builder=json_pointer_codec, arg_type=str),

@@ -2600,6 +2600,7 @@ export interface components {
       /** Write Options */
       write_options?: components["schemas"]["WriteOption-Input"][] | null;
       value_mapping?: components["schemas"]["ValueMapping-Input"] | null;
+      supported_when?: components["schemas"]["Condition-Input"] | null;
     };
     /** AttributeDriver */
     "AttributeDriver-Output": {
@@ -2642,6 +2643,7 @@ export interface components {
       /** Write Options */
       write_options?: components["schemas"]["WriteOption-Output"][] | null;
       value_mapping?: components["schemas"]["ValueMapping-Output"] | null;
+      supported_when?: components["schemas"]["Condition-Output"] | null;
     };
     /** AttributeEventLog */
     AttributeEventLog: {
@@ -2713,6 +2715,7 @@ export interface components {
       /** Write Options */
       write_options?: components["schemas"]["WriteOption-Input"][] | null;
       value_mapping?: components["schemas"]["ValueMapping-Input"] | null;
+      supported_when?: components["schemas"]["Condition-Input"] | null;
     };
     /**
      * AttributeRef
@@ -2820,6 +2823,12 @@ export interface components {
        * @enum {string}
        */
       status?: "ready" | "blocked" | "unknown";
+      /**
+       * Support
+       * @default supported
+       * @enum {string}
+       */
+      support?: "supported" | "unsupported" | "unknown";
       constraints?: components["schemas"]["ResolvedConstraints"] | null;
       /** Options */
       options?: components["schemas"]["ResolvedOption"][] | null;
@@ -2832,6 +2841,8 @@ export interface components {
        * @default false
        */
       missing_dependencies?: boolean;
+      /** Missing Attributes */
+      missing_attributes?: string[];
       /**
        * Candidate Required
        * @default false
@@ -3195,6 +3206,7 @@ export interface components {
     BindingSpec: {
       /** Attribute */
       attribute: string;
+      display_transform?: components["schemas"]["DisplayTransform"] | null;
     };
     /** Body_oauth2_token_auth_token_post */
     Body_oauth2_token_auth_token_post: {
@@ -4283,6 +4295,33 @@ export interface components {
       correlation_id?: string | null;
     };
     /**
+     * DisplayTransform
+     * @description An affine display conversion; commands keep the canonical attribute unit.
+     */
+    DisplayTransform: {
+      /**
+       * Scale
+       * @default 1
+       */
+      scale?: number;
+      /**
+       * Offset
+       * @default 0
+       */
+      offset?: number;
+      /** When */
+      when?:
+        | (
+            | components["schemas"]["EqCondition"]
+            | components["schemas"]["InCondition"]
+            | components["schemas"]["IsKnownCondition"]
+            | components["schemas"]["NotCondition"]
+            | components["schemas"]["AllCondition"]
+            | components["schemas"]["AnyCondition"]
+          )
+        | null;
+    };
+    /**
      * DriverPatch
      * @description Mutable root-level driver fields; extra fields are rejected.
      */
@@ -4521,6 +4560,7 @@ export interface components {
       /** Write Options */
       write_options?: components["schemas"]["WriteOption-Input"][] | null;
       value_mapping?: components["schemas"]["ValueMapping-Input"] | null;
+      supported_when?: components["schemas"]["Condition-Input"] | null;
       /** @default warning */
       severity?: components["schemas"]["Severity"];
       /** Healthy Values */
@@ -4567,6 +4607,7 @@ export interface components {
       /** Write Options */
       write_options?: components["schemas"]["WriteOption-Output"][] | null;
       value_mapping?: components["schemas"]["ValueMapping-Output"] | null;
+      supported_when?: components["schemas"]["Condition-Output"] | null;
       /** @default warning */
       severity?: components["schemas"]["Severity"];
       /** Healthy Values */

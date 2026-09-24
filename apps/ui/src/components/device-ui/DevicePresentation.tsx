@@ -10,6 +10,7 @@ import {
 } from "./conditions";
 import type { PageNode, PresentationV1 } from "./document";
 import { bindCondition } from "./presentationControls";
+import { displayValue } from "./displayValue";
 import { DeviceFace, type LoadedGlyphSet } from "./face";
 import { cn } from "@/lib/utils";
 import type { AttributeLike, DeviceUiRuntime } from "./runtime";
@@ -111,10 +112,12 @@ export function DevicePresentation({
       if (name && !controlByAttribute.has(name))
         controlByAttribute.set(name, id);
     }
-    const reported = (binding: string): Scalar | null => {
+    const canonical = (binding: string): Scalar | null => {
       const name = attributeName(binding);
       return name ? runtime.reported(name) : null;
     };
+    const reported = (binding: string) =>
+      displayValue(binding, document, canonical(binding), canonical);
     const judge =
       subject.judge ?? judgeWith((name: string) => runtime.reported(name));
     return {
@@ -138,7 +141,12 @@ export function DevicePresentation({
         const name = attributeName(binding);
         const control = name ? controlByAttribute.get(name) : undefined;
         if (control) {
-          return runtime.readControl(control)?.displayed ?? reported(binding);
+          return displayValue(
+            binding,
+            document,
+            runtime.readControl(control)?.displayed ?? canonical(binding),
+            canonical,
+          );
         }
         return reported(binding);
       },

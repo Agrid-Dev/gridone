@@ -816,3 +816,69 @@ it("keeps an observed out-of-list value visible without making it selectable", (
     screen.queryByRole("radio", { name: /reserved/i }),
   ).not.toBeInTheDocument();
 });
+
+it("converts raw measurements and pending face values while controls stay canonical", () => {
+  const { runtime } = fakeRuntime({
+    target: { reported: 20, displayed: 20.5 },
+  });
+  runtime.reported = (name) => (name === "unit" ? "F" : 20);
+  const converted: PresentationV1 = {
+    ...document,
+    bindings: {
+      ...document.bindings,
+      unit: { attribute: "unit" },
+      face_target: {
+        attribute: "temperature_setpoint",
+        display_transform: {
+          scale: 1.8,
+          offset: 32,
+          when: { op: "eq", binding: "unit", value: "F" },
+        },
+      },
+      face_measured: {
+        attribute: "temperature",
+        display_transform: {
+          scale: 1.8,
+          offset: 32,
+          when: { op: "eq", binding: "unit", value: "F" },
+        },
+      },
+    },
+    page: {
+      kind: "stack",
+      children: [
+        {
+          kind: "measurements",
+          items: [
+            {
+              binding: "face_measured",
+              formatter: { decimals: 0, unit: "°F" },
+            },
+          ],
+        },
+        { kind: "control-panel", controls: ["target"] },
+        {
+          kind: "device-face",
+          view_box: { width: 100, height: 50 },
+          label: { default: "Face" },
+          layers: [
+            {
+              kind: "glyph-text",
+              glyph_set: "montserrat",
+              anchor: {
+                box: { x: 0, y: 0, width: 100, height: 50 },
+                align: "center",
+              },
+              text: [{ number: { binding: "face_target", decimals: 1 } }],
+              color: "#ffffff",
+            },
+          ],
+        },
+      ],
+    },
+  };
+  renderPresentation(runtime, { document: converted });
+  expect(screen.getByText("68 °F")).toBeInTheDocument();
+  expect(screen.getByRole("img", { name: "68.9" })).toBeInTheDocument();
+  expect(screen.getByText("20.5 °C")).toBeInTheDocument();
+});

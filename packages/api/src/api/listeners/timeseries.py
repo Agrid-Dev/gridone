@@ -10,12 +10,14 @@ async def record_attribute_point(
     ts_service: TimeSeriesService,
     device_id: str,
     attribute: str,
-    value: AttributeValueType,
+    value: AttributeValueType | None,
     data_type: DataType,
     last_changed: datetime | None,
     command_id: int | None = None,
 ) -> None:
     """Write a single attribute value as a timeseries point."""
+    if value is None:
+        return
     await ts_service.upsert_points(
         SeriesKey(owner_id=device_id, metric=attribute),
         [
@@ -45,7 +47,7 @@ def historise_attribute_update(ts_service: TimeSeriesService) -> AttributeListen
             ts_service,
             device.id,
             attribute_name,
-            attribute.current_value,  # ty: ignore[invalid-argument-type]
+            attribute.current_value,
             attribute.data_type,
             attribute.last_changed,
         )

@@ -129,7 +129,7 @@ async def test_connect_success(
     assert mqtt_client.connection_state.is_connected is True
     mock_aiomqtt_client.__aenter__.assert_awaited_once()
     # _handle_incoming_messages task
-    assert len(mqtt_client._background_tasks) == 1  # noqa: SLF001
+    assert mqtt_client._message_task is not None  # noqa: SLF001
 
 
 @pytest.mark.asyncio
@@ -236,10 +236,11 @@ async def test_connect_is_idempotent_when_already_connected(
     reads/writes failed with "client is not currently connected".
     """
     await mqtt_client.connect()
+    receiving = mqtt_client._message_task  # noqa: SLF001
     await mqtt_client.connect()
 
     mock_aiomqtt_client.__aenter__.assert_awaited_once()
-    assert len(mqtt_client._background_tasks) == 1  # noqa: SLF001
+    assert mqtt_client._message_task is receiving  # noqa: SLF001
     assert mqtt_client._client is mock_aiomqtt_client  # noqa: SLF001
 
 
@@ -249,7 +250,7 @@ async def test_close(mqtt_client: MqttTransportClient, mock_aiomqtt_client: Asyn
     await mqtt_client.close()
     mock_aiomqtt_client.__aexit__.assert_awaited_once()
     assert mqtt_client.connection_state.is_connected is False
-    assert len(mqtt_client._background_tasks) == 0  # noqa: SLF001
+    assert mqtt_client._message_task is None  # noqa: SLF001
 
 
 @pytest.mark.asyncio
@@ -328,9 +329,27 @@ async def test_handle_incoming_messages(
     await mqtt_client.register_listener(mqtt_read_address, callback)
 
     mock_aiomqtt_client.messages = AsyncIteratorMock([mock_message])
-    await mqtt_client._handle_incoming_messages()  # noqa: SLF001
+    await mqtt_client._handle_incoming_messages(mock_aiomqtt_client)  # noqa: SLF001
 
     callback.assert_called_once_with('{"value": 42}')
+
+
+@pytest.mark.asyncio
+async def test_a_binary_frame_does_not_end_reception(
+    mqtt_client, mock_aiomqtt_client, mqtt_listen_address
+):
+    callback = Mock()
+    await mqtt_client.register_listener(mqtt_listen_address, callback)
+    binary = AsyncMock()
+    binary.topic = Topic("test/topic")
+    binary.payload = b"\xff\xfe"
+
+    mock_aiomqtt_client.messages = AsyncIteratorMock(
+        [binary, _message("test/topic", "42")]
+    )
+    await mqtt_client._handle_incoming_messages(mock_aiomqtt_client)  # noqa: SLF001
+
+    callback.assert_called_once_with("42")
 
 
 class TestRead:
@@ -407,7 +426,7 @@ class TestListenerWithMatch:
                 _message("test/topic", '{"name":"wanted"}'),
             ]
         )
-        await mqtt_client._handle_incoming_messages()  # noqa: SLF001
+        await mqtt_client._handle_incoming_messages(mock_aiomqtt_client)  # noqa: SLF001
 
         callback.assert_called_once_with('{"name":"wanted"}')
 
@@ -425,7 +444,7 @@ class TestListenerWithMatch:
                 _message("test/topic", '{"name":"wanted"}'),
             ]
         )
-        await mqtt_client._handle_incoming_messages()  # noqa: SLF001
+        await mqtt_client._handle_incoming_messages(mock_aiomqtt_client)  # noqa: SLF001
 
         assert callback.call_count == 2
 

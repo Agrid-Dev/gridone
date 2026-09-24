@@ -103,7 +103,9 @@ def broadcast_write_state(websocket_manager: WebSocketManager) -> DeviceListener
             return message.model_copy(
                 update={
                     "attributes": {
-                        n: s for n, s in message.attributes.items() if n in readable
+                        n: policy.project_write_state(s, readable)
+                        for n, s in message.attributes.items()
+                        if n in readable
                     },
                     "resolutions": {
                         n: r for n, r in message.resolutions.items() if n in readable
