@@ -1,13 +1,12 @@
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
-import type { Action, WriteExpression } from "@gridone/sdk";
+import type { Action } from "@gridone/sdk";
 import { formatValue } from "@/lib/formatValue";
 import { useAttributeLabel } from "@/hooks/useAttributeLabel";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { ConditionPhrase } from "@/pages/devices/device/operating-rules/RuleSentence";
-import { ExpressionSummary } from "@/pages/devices/device/operating-rules/OperatingRuleSummary";
-import { isScalar } from "@/pages/devices/device/operating-rules/expressions";
+import { inlineWriteOf, isInlineWrite } from "../presenters/commandShape";
 import type { CaseView, DecisionView, OutcomeView } from "../tree/model";
 import { useTree } from "../tree/TreeContext";
 
@@ -71,7 +70,9 @@ function ActionWords({ action }: { action: Action }) {
   const { t } = useTranslation("automations");
   const params = action.params ?? {};
   if (action.provider_id === "command_template")
-    return (
+    return isInlineWrite(action) ? (
+      <WriteWords action={action} />
+    ) : (
       <TemplateWords
         templateId={
           typeof params.template_id === "string" ? params.template_id : ""
@@ -86,8 +87,6 @@ function ActionWords({ action }: { action: Action }) {
         })}
       </>
     );
-  if (action.provider_id === "write_attribute")
-    return <WriteWords params={params} />;
   return <>{action.provider_id}</>;
 }
 
@@ -108,36 +107,27 @@ function TemplateWords({ templateId }: { templateId: string }) {
   );
 }
 
-function WriteWords({ params }: { params: Record<string, unknown> }) {
+function WriteWords({ action }: { action: Action }) {
   const { t } = useTranslation("automations");
   const { catalog, trigger } = useTree();
   const attributeLabel = useAttributeLabel();
+  const write = inlineWriteOf(action);
   const deviceId =
-    typeof params.device_id === "string"
-      ? params.device_id
-      : typeof trigger?.params?.device_id === "string"
-        ? trigger.params.device_id
-        : "";
+    write?.device_id ??
+    (typeof trigger?.params?.device_id === "string"
+      ? trigger.params.device_id
+      : "");
   const device = catalog.devices.find((item) => item.id === deviceId);
-  const attribute =
-    typeof params.attribute === "string" ? params.attribute : "";
-  const value = params.value as WriteExpression | undefined;
+  const attribute = write?.attribute ?? "";
   return (
     <>
       {t("plain.writePrefix", {
         attribute: attributeLabel(attribute, device?.attributes?.[attribute]),
-        device:
-          typeof params.device_id === "string"
-            ? (device?.name ?? params.device_id)
-            : t("plain.eventDevice"),
+        device: write?.device_id
+          ? (device?.name ?? write.device_id)
+          : t("plain.eventDevice"),
       })}{" "}
-      {value === undefined ? (
-        "—"
-      ) : isScalar(value) ? (
-        formatValue(value)
-      ) : (
-        <ExpressionSummary value={value} catalog={catalog} />
-      )}
+      {write ? formatValue(write.value) : "—"}
     </>
   );
 }

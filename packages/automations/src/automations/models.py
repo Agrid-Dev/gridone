@@ -34,7 +34,8 @@ class ExecutionStatus(StrEnum):
     FAILED = "failed"
     NO_MATCH = "no_match"
     INITIALIZED = "initialized"
-    SUSPENDED = "suspended"
+    TRIPPED = "tripped"
+    SKIPPED = "skipped"
 
 
 class Trigger(BaseModel):
@@ -115,15 +116,6 @@ def branch_actions(branches: Sequence[AutomationBranch]) -> Iterator[Action]:
             yield branch.action
 
 
-def first_action(branches: Sequence[AutomationBranch]) -> Action:
-    """Retain the legacy action mirror using the first terminal action in the tree."""
-    action = next(branch_actions(branches), None)
-    if action is None:
-        msg = "automation_requires_terminal_action"
-        raise ValueError(msg)
-    return action
-
-
 def validate_tree(branches: Sequence[AutomationBranch]) -> None:
     """Bound the complete tree and require IDs to be unique across every level."""
     identifiers: set[str] = set()
@@ -137,15 +129,17 @@ def validate_tree(branches: Sequence[AutomationBranch]) -> None:
         identifiers.add(branch.id)
 
 
-class AutomationSuspension(BaseModel):
-    reason: NonBlank
+class Deactivation(BaseModel):
+    """Why an automation is disabled: an operator's reason, or a tripped guard."""
+
+    reason: NonBlank | None = None
     actor_id: NonBlank
-    suspended_at: datetime
+    at: datetime
     source: Literal["operator", "circuit_breaker"] = "operator"
 
 
-class SuspensionRequest(BaseModel):
-    reason: NonBlank
+class DeactivationRequest(BaseModel):
+    reason: NonBlank | None = None
 
 
 class AutomationGuardrails(BaseModel):
@@ -158,26 +152,14 @@ class AutomationCreate(BaseModel):
     name: str
     description: str = ""
     trigger: Trigger
-    action: Action | None = Field(default=None, json_schema_extra={"deprecated": True})
-    branches: list[AutomationBranch] = Field(default_factory=list, max_length=MAX_RULES)
+    branches: list[AutomationBranch] = Field(min_length=1, max_length=MAX_RULES)
     enabled: bool = True
     guardrails: AutomationGuardrails = Field(default_factory=AutomationGuardrails)
     max_age_seconds: float | None = Field(default=None, gt=0, allow_inf_nan=False)
 
     @model_validator(mode="after")
-    def normalize_branches(self) -> AutomationCreate:
-        """Legacy actions become one unconditional branch at the input boundary."""
-        if not self.branches:
-            if self.action is None or "branches" in self.model_fields_set:
-                msg = "automation_requires_branches"
-                raise ValueError(msg)
-            self.branches = [AutomationBranch(action=self.action)]
+    def bounded_tree(self) -> AutomationCreate:
         validate_tree(self.branches)
-        legacy_action = first_action(self.branches)
-        if self.action is not None and self.action != legacy_action:
-            msg = "automation_action_conflicts_with_branches"
-            raise ValueError(msg)
-        self.action = legacy_action
         return self
 
 
@@ -185,8 +167,6 @@ class AutomationUpdate(BaseModel):
     name: str | None = None
     description: str = ""
     trigger: Trigger | None = None
-    action: Action | None = None
-    enabled: bool | None = None
     branches: list[AutomationBranch] | None = Field(
         default=None, min_length=1, max_length=MAX_RULES
     )
@@ -201,24 +181,22 @@ class AutomationUpdate(BaseModel):
 
 
 class Automation(AutomationCreate, ResourceMetadata):
-    action: Action
     id: str = ""
     created_by: str = ""
-    suspension: AutomationSuspension | None = None
+    deactivation: Deactivation | None = None
+
+    @model_validator(mode="after")
+    def deactivation_only_when_disabled(self) -> Automation:
+        """The trace describes the current stop; an enabled automation has none."""
+        if self.enabled and self.deactivation is not None:
+            msg = "automation_enabled_with_deactivation"
+            raise ValueError(msg)
+        return self
 
     def apply_update(self, params: AutomationUpdate) -> Automation:
         if not params.model_fields_set:
             return self
         changes = {k: getattr(params, k) for k in params.model_fields_set}
-        if "branches" in changes and params.branches:
-            changes["action"] = first_action(params.branches)
-        elif params.action is not None:
-            if len(self.branches) != 1 or self.branches[0].branches:
-                msg = "legacy_action_update_requires_single_branch"
-                raise ValueError(msg)
-            changes["branches"] = [
-                self.branches[0].model_copy(update={"action": params.action})
-            ]
         updated = self.touch_updated_at(**changes)
         return Automation.model_validate(updated.model_dump())
 

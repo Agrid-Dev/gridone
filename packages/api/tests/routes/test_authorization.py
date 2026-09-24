@@ -1240,15 +1240,6 @@ AUTOMATIONS_ACCESS_CONTROL_SCENARIOS = [
     ),
     pytest.param("GET", "/automations/schema", "viewer", 200, id="schema-viewer"),
     pytest.param("GET", "/automations/schema", None, 401, id="schema-no-auth"),
-    pytest.param(
-        "POST", "/automations/any-id/suspend", "viewer", 403, id="suspend-viewer"
-    ),
-    pytest.param(
-        "POST", "/automations/any-id/suspend", "operator", 403, id="suspend-operator"
-    ),
-    pytest.param(
-        "POST", "/automations/any-id/suspend", None, 401, id="suspend-no-auth"
-    ),
     # Read endpoints — all authenticated roles can access
     pytest.param("GET", "/automations/", "viewer", 200, id="list-viewer"),
     pytest.param("GET", "/automations/", "operator", 200, id="list-operator"),

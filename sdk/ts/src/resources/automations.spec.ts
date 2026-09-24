@@ -18,7 +18,9 @@ const CREATE: AutomationCreate = {
   name: "Night setback",
   description: "",
   trigger: { provider_id: "cron", params: { schedule: "0 22 * * *" } },
-  action: { provider_id: "device_command", params: { value: 17 } },
+  branches: [
+    { action: { provider_id: "device_command", params: { value: 17 } } },
+  ],
   enabled: true,
 };
 const UPDATE: AutomationUpdate = {
@@ -35,11 +37,11 @@ type Case = [
 const CASES: Case[] = [
   ["schema", (a) => a.schema(), ["GET", "/automations/schema"]],
   [
-    "suspend",
-    (a) => a.suspend("auto/1", "Maintenance"),
+    "disable with a reason",
+    (a) => a.disable("auto/1", "Maintenance"),
     [
       "POST",
-      "/automations/auto%2F1/suspend",
+      "/automations/auto%2F1/disable",
       { body: { reason: "Maintenance" } },
     ],
   ],

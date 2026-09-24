@@ -9,7 +9,7 @@ from automations import (
     AutomationsServiceInterface,
     AutomationUpdate,
 )
-from automations.models import AutomationDiagnostic, SuspensionRequest
+from automations.models import AutomationDiagnostic, DeactivationRequest
 from fastapi import APIRouter, Depends, Query, status
 
 from api.auth import get_current_user_id, require_permission
@@ -131,8 +131,15 @@ async def enable_automation(
 async def disable_automation(
     automation_id: str,
     svc: Annotated[AutomationsServiceInterface, Depends(get_automations_service)],
+    body: DeactivationRequest | None = None,
+    current_user_id: str = Depends(get_current_user_id),
 ) -> Automation:
-    return await svc.disable(automation_id)
+    """Disable with an optional reason; the actor and time are always recorded."""
+    return await svc.disable(
+        automation_id,
+        reason=body.reason if body is not None else None,
+        actor_id=current_user_id,
+    )
 
 
 @router.get(
@@ -157,19 +164,3 @@ async def list_automation_diagnostics(
     svc: Annotated[AutomationsServiceInterface, Depends(get_automations_service)],
 ) -> list[AutomationDiagnostic]:
     return list(await svc.list_diagnostics(automation_id))
-
-
-@router.post(
-    "/{automation_id}/suspend",
-    response_model=Automation,
-    dependencies=[Depends(require_permission(Permission.AUTOMATIONS_WRITE))],
-)
-async def suspend_automation(
-    automation_id: str,
-    body: SuspensionRequest,
-    svc: Annotated[AutomationsServiceInterface, Depends(get_automations_service)],
-    current_user_id: str = Depends(get_current_user_id),
-) -> Automation:
-    return await svc.suspend(
-        automation_id, reason=body.reason, actor_id=current_user_id
-    )

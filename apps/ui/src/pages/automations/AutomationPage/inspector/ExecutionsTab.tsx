@@ -11,6 +11,7 @@ import { formatExecutionMoment } from "../../components/executionsSummary";
 import { caseAt, findBranch, levelOf, otherwiseIndex } from "../tree/model";
 import { RunChip } from "../tree/nodes";
 import { useTree } from "../tree/TreeContext";
+import { actionTypeKey } from "../presenters/commandShape";
 
 /**
  * How a branch is named in the history: its own name, else its place — or
@@ -59,7 +60,7 @@ function PathSummary({
   const end = unknown
     ? t("panel.executions.stoppedAt", { name: label(unknown.branch_id) ?? "" })
     : final
-      ? t(`actions.types.${final.provider_id}`, {
+      ? t(actionTypeKey(final), {
           defaultValue: final.provider_id,
         })
       : execution.status === "no_match"

@@ -1,7 +1,7 @@
 import { FC, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
-import { Terminal } from "lucide-react";
+import { PencilLine, Terminal } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
@@ -21,9 +21,11 @@ import { CommandWizard } from "@/pages/devices/commands/new/CommandWizard";
 import { useCommandWizard } from "@/pages/devices/commands/new/useCommandWizard";
 import type { WizardFormValues } from "@/pages/devices/commands/new/types";
 import { TitlePresenter } from "../../presenters/BasePresenter";
+import { inlineWriteOf } from "../../presenters/commandShape";
 import type { CustomActionFormProps } from "../../presenters/types";
+import { InlineWriteFields } from "./InlineWriteFields";
 
-type Mode = "pick" | "compose";
+type Mode = "pick" | "compose" | "write";
 
 function readInitialTemplateId(
   initialValue: CustomActionFormProps["initialValue"],
@@ -110,12 +112,15 @@ const InlineWizard: FC<InlineWizardProps> = ({
 };
 
 /** Unified body for the ``command_template`` action type. The user picks
- *  between two sources at the top of the form: ``Use a saved template``
+ *  between three sources at the top of the form: ``Use a saved template``
  *  shows the picker; ``Define a new command`` swaps in ``<CommandWizard>``
- *  inline so the user can author one without leaving the automation page.
- *  An automation that already references an *ephemeral* template auto-
- *  opens compose mode pre-populated, since the picker filters ephemerals
- *  out and the wizard is the only place to edit them. */
+ *  inline so the user can author one without leaving the automation page;
+ *  ``Write one attribute`` is the action's inline shape, a static write on
+ *  one device (or on the event's device) with no template at all. An
+ *  automation that already references an *ephemeral* template auto-opens
+ *  compose mode pre-populated, since the picker filters ephemerals out and
+ *  the wizard is the only place to edit them; one that carries an inline
+ *  write opens on it. */
 export const CommandActionForm: FC<CustomActionFormProps> = ({
   initialValue,
   onChange,
@@ -123,6 +128,7 @@ export const CommandActionForm: FC<CustomActionFormProps> = ({
   const { t } = useTranslation("automations");
   const client = useGridoneClient();
   const initialId = readInitialTemplateId(initialValue);
+  const initialWrite = initialValue ? inlineWriteOf(initialValue) : null;
 
   const [selectedTemplateId, setSelectedTemplateId] = useState<
     string | undefined
@@ -148,6 +154,10 @@ export const CommandActionForm: FC<CustomActionFormProps> = ({
   // user action (the Source select) so we don't trap the user.
   useEffect(() => {
     if (mode !== null) return;
+    if (initialWrite) {
+      setMode("write");
+      return;
+    }
     if (!initialId) {
       setMode("pick");
       return;
@@ -160,7 +170,7 @@ export const CommandActionForm: FC<CustomActionFormProps> = ({
         setMode("pick");
       }
     }
-  }, [initialId, selectedTemplate, mode]);
+  }, [initialId, initialWrite, selectedTemplate, mode]);
 
   const switchToPick = () => {
     setMode("pick");
@@ -172,6 +182,13 @@ export const CommandActionForm: FC<CustomActionFormProps> = ({
   const switchToCompose = () => {
     setMode("compose");
     setComposeFromTemplate(undefined);
+    onChange(null);
+  };
+
+  const switchToWrite = () => {
+    setMode("write");
+    setComposeFromTemplate(undefined);
+    setSelectedTemplateId(undefined);
     onChange(null);
   };
 
@@ -189,6 +206,7 @@ export const CommandActionForm: FC<CustomActionFormProps> = ({
           value={mode ?? "pick"}
           onValueChange={(v) => {
             if (v === "pick") switchToPick();
+            else if (v === "write") switchToWrite();
             else switchToCompose();
           }}
         >
@@ -208,11 +226,19 @@ export const CommandActionForm: FC<CustomActionFormProps> = ({
                 title={t("actions.commandActionForm.composeNew")}
               />
             </SelectItem>
+            <SelectItem value="write">
+              <TitlePresenter
+                icon={PencilLine}
+                title={t("actions.commandActionForm.inlineWrite")}
+              />
+            </SelectItem>
           </SelectContent>
         </Select>
       </FieldShell>
 
-      {mode === "pick" ? (
+      {mode === "write" ? (
+        <InlineWriteFields initialValue={initialValue} onChange={onChange} />
+      ) : mode === "pick" ? (
         <CommandTemplatePicker
           value={selectedTemplateId}
           onSelect={(template) => {

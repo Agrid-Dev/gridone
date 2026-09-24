@@ -4,7 +4,6 @@ from typing import Annotated, Any, Literal
 from pydantic import (
     BaseModel,
     Discriminator,
-    PrivateAttr,
     Tag,
     computed_field,
     model_serializer,
@@ -48,15 +47,6 @@ _OMITTED_WHEN_NONE = (
 
 
 class Attribute(BaseModel):
-    _initial_observation: bool = PrivateAttr(default=False)
-
-    @property
-    def is_initial_observation(self) -> bool:
-        return self._initial_observation
-
-    def mark_observation(self, *, initial: bool) -> None:
-        self._initial_observation = initial
-
     kind: Literal[AttributeKind.STANDARD, AttributeKind.INTERNAL] = (
         AttributeKind.STANDARD
     )

@@ -331,9 +331,9 @@ async def test_automatic_and_group_members_are_terminally_refused(harness):
         ),
         "admin",
     )
-    batch_id = await CommandsActionProvider(harness.commands).execute(
-        {"template_id": template.id}
-    )
+    batch_id = await CommandsActionProvider(
+        harness.commands, harness.dm.inspect_attribute
+    ).execute({"template_id": template.id})
     await harness.commands.stop()
     # Inspect the real command history before the service's memory backend is discarded.
     rows = (await harness.commands.get_commands(batch_id=batch_id)).items
@@ -459,19 +459,13 @@ async def test_decision_tree_event_write_refusal_is_in_command_history(harness):
     from automations import AutomationsService
     from automations.models import Action, AutomationBranch, AutomationCreate, Trigger
 
-    from api.action_providers.write_attribute import WriteAttributeActionProvider
+    from api.action_providers.commands import CommandsActionProvider
     from api.trigger_providers.change_event import ChangeEventTriggerProvider
 
     service = AutomationsService(
         None,
         [ChangeEventTriggerProvider(harness.dm)],
-        [
-            WriteAttributeActionProvider(
-                harness.commands,
-                harness.dm.inspect_attribute,
-                harness.dm.resolve_attribute,
-            )
-        ],
+        [CommandsActionProvider(harness.commands, harness.dm.inspect_attribute)],
         resolve_attribute=harness.dm.resolve_attribute,
     )
     await service.start()
@@ -486,7 +480,7 @@ async def test_decision_tree_event_write_refusal_is_in_command_history(harness):
                 branches=[
                     AutomationBranch(
                         action=Action(
-                            provider_id="write_attribute",
+                            provider_id="command_template",
                             params={
                                 "device_id": "a",
                                 "attribute": "command",
@@ -526,13 +520,15 @@ async def test_two_device_feedback_loop_opens_the_circuit_breaker(harness):
     from automations import AutomationsService
     from automations.models import (
         Action,
+        AutomationBranch,
         AutomationCreate,
         AutomationGuardrails,
         Trigger,
     )
 
-    from api.action_providers.write_attribute import WriteAttributeActionProvider
+    from api.action_providers.commands import CommandsActionProvider
     from api.trigger_providers.change_event import ChangeEventTriggerProvider
+    from models.expressions import Comparison, EventRef
 
     await harness.operating_rules.set_enabled(
         harness.rule_id, "admin", 1, enabled=False
@@ -540,32 +536,24 @@ async def test_two_device_feedback_loop_opens_the_circuit_breaker(harness):
     service = AutomationsService(
         None,
         [ChangeEventTriggerProvider(harness.dm)],
-        [
-            WriteAttributeActionProvider(
-                harness.commands,
-                harness.dm.inspect_attribute,
-                harness.dm.resolve_attribute,
-            )
-        ],
+        [CommandsActionProvider(harness.commands, harness.dm.inspect_attribute)],
     )
+
+    def write(target: str, *, value: bool) -> Action:
+        return Action(
+            provider_id="command_template",
+            params={"device_id": target, "attribute": "command", "value": value},
+        )
+
+    def on_value(*, value: bool) -> Comparison:
+        return Comparison(op="eq", left=EventRef(event="value"), right=value)
+
     await service.start()
     try:
         rules = []
         for source, target in [("a", "b"), ("b", "a")]:
-            value = (
-                {"event": "value"}
-                if source == "a"
-                else {
-                    "op": "if",
-                    "condition": {
-                        "op": "eq",
-                        "left": {"event": "value"},
-                        "right": True,
-                    },
-                    "then": False,
-                    "otherwise": True,
-                }
-            )
+            # a copies its value to b; b writes the opposite back to a: with
+            # static values, two conditional branches make the ping-pong.
             rules.append(
                 await service.create(
                     AutomationCreate(
@@ -574,14 +562,16 @@ async def test_two_device_feedback_loop_opens_the_circuit_breaker(harness):
                             provider_id="change_event",
                             params={"device_id": source, "attribute": "command"},
                         ),
-                        action=Action(
-                            provider_id="write_attribute",
-                            params={
-                                "device_id": target,
-                                "attribute": "command",
-                                "value": value,
-                            },
-                        ),
+                        branches=[
+                            AutomationBranch(
+                                condition=on_value(value=True),
+                                action=write(target, value=source == "a"),
+                            ),
+                            AutomationBranch(
+                                condition=on_value(value=False),
+                                action=write(target, value=source != "a"),
+                            ),
+                        ],
                         guardrails=AutomationGuardrails(max_executions=2),
                     ),
                     created_by="admin",
@@ -606,9 +596,9 @@ async def test_two_device_feedback_loop_opens_the_circuit_breaker(harness):
             await harness.dm.refresh_device_attribute(command.device_id, "command")
         assert processed == 4
         stopped = await service.get(rules[0].id)
-        assert stopped.suspension is not None
-        assert stopped.suspension.source == "circuit_breaker"
-        assert stopped.suspension.reason == "execution_rate_exceeded"
+        assert stopped.deactivation is not None
+        assert stopped.deactivation.source == "circuit_breaker"
+        assert stopped.deactivation.reason == "execution_rate_exceeded"
         assert len((await harness.commands.get_commands()).items) == 4
     finally:
         await service.stop()

@@ -54,7 +54,7 @@ const when = (attribute: string): WriteCondition => ({
   right: true,
 });
 const write = (value: number): Action => ({
-  provider_id: "write_attribute",
+  provider_id: "command_template",
   params: { device_id: null, attribute: "heating_setpoint", value },
 });
 function branch(

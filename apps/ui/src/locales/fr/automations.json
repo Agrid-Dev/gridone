@@ -111,14 +111,16 @@
       "failed": "Échouée",
       "no_match": "Aucun cas vrai",
       "initialized": "Initialisation sans action",
-      "suspended": "Suspendu"
+      "tripped": "Coupe-circuit déclenché",
+      "skipped": "Ignorée"
     },
     "outcome": {
       "success": "Réussie",
       "failed": "Échouée",
       "no_match": "Aucun cas vrai",
       "initialized": "Première observation",
-      "suspended": "Suspendue",
+      "tripped": "Coupe-circuit déclenché",
+      "skipped": "Ignorée · exécution en cours",
       "rejected": "Refusée par une règle",
       "unknown": "Arrêtée · donnée inconnue"
     },
@@ -142,18 +144,18 @@
     "types": {
       "command_template": "Exécuter une commande",
       "notification": "Envoyer une notification",
-      "write_attribute": "Écrire un attribut"
+      "inline_write": "Écrire un attribut"
     },
     "typeDescriptions": {
       "command_template": "Envoie une commande aux appareils ciblés.",
-      "notification": "Notifie les utilisateurs choisis.",
-      "write_attribute": "Choisir un appareil ou utiliser l’événement déclencheur."
+      "notification": "Notifie les utilisateurs choisis."
     },
     "commandActionForm": {
       "sourceLabel": "Source de la commande",
       "useTemplate": "Utiliser un modèle existant",
       "composeNew": "Définir une nouvelle commande",
-      "useCommand": "Utiliser cette commande"
+      "useCommand": "Utiliser cette commande",
+      "inlineWrite": "Écrire un attribut"
     },
     "notificationForm": {
       "title": "Titre",
@@ -230,7 +232,7 @@
       "out": "Dézoomer",
       "fit": "Tout afficher"
     },
-    "guardrails": "Jusqu’à {{max}} actions par période de {{seconds}} secondes ; suspension après {{failures}} échecs consécutifs. La réactivation est manuelle."
+    "guardrails": "Jusqu’à {{max}} actions par période de {{seconds}} secondes ; désactivation après {{failures}} échecs consécutifs. La réactivation est manuelle."
   },
   "panel": {
     "label": "Élément sélectionné",
@@ -343,17 +345,22 @@
     "attribute": "Attribut à écrire",
     "target": "Attribut cible",
     "value": "Valeur demandée",
+    "valueType": "Type de valeur",
+    "types": {
+      "bool": "Vrai / faux",
+      "float": "Nombre",
+      "str": "Texte"
+    },
     "protected": "Chaque écriture traverse les protections de l’équipement. Un refus est enregistré, sans nouvelle tentative automatique."
   },
-  "suspension": {
-    "title": "Suspendre {{name}}",
+  "deactivation": {
+    "title": "Désactiver {{name}}",
     "resumeTitle": "Réactiver {{name}}",
-    "help": "Suspendez cet automatisme entier jusqu’à sa réactivation explicite. Les protections restent actives.",
-    "resumeHelp": "La réactivation remet à l’écoute. Elle n’envoie aucune commande et ne rejoue pas les événements survenus pendant la suspension.",
-    "reason": "Motif de suspension",
-    "confirm": "Suspendre l’automatisme",
+    "help": "Désactivez cet automatisme entier jusqu’à sa réactivation. Les protections restent actives.",
+    "resumeHelp": "La réactivation remet à l’écoute. Elle n’envoie aucune commande et ne rejoue pas les événements survenus pendant l’arrêt.",
+    "reason": "Motif (facultatif)",
+    "confirm": "Désactiver l’automatisme",
     "resume": "Réactiver",
-    "badge": "Suspendu",
     "breaker": "Coupe-circuit ouvert"
   },
   "reasons": {

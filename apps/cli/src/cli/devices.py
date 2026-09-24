@@ -144,7 +144,7 @@ async def _watch_device(dm: DevicesService, device_id: str) -> None:
 
     updated = asyncio.Event()
 
-    def _on_update(device: CoreDevice, *_: object) -> None:
+    def _on_update(device: CoreDevice, *_: object, **__: object) -> None:
         if device.id == device_id:
             updated.set()
 

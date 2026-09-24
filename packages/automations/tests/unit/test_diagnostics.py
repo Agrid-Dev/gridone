@@ -21,7 +21,11 @@ def automation(identifier, value, *, enabled=True):
         trigger=Trigger(
             provider_id="change_event", params={"device_id": "a", "attribute": "fault"}
         ),
-        action=Action(provider_id="write", params={"value": value}),
+        branches=[
+            AutomationBranch(
+                action=Action(provider_id="write", params={"value": value})
+            )
+        ],
     )
 
 
@@ -37,7 +41,7 @@ def providers():
 
 async def test_opposing_static_writes_warn_once(providers):
     own, other = automation("own", value=True), automation("other", value=False)
-    own.branches.append(AutomationBranch(action=own.action))
+    own.branches.append(AutomationBranch(action=own.branches[0].action))
     result = await diagnose(own, [own, other], providers)
     assert len(result) == 1
     assert result[0].code == "potential_write_conflict"

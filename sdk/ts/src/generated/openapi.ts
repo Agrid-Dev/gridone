@@ -1747,7 +1747,10 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** Disable Automation */
+    /**
+     * Disable Automation
+     * @description Disable with an optional reason; the actor and time are always recorded.
+     */
     post: operations["disable_automation_automations__automation_id__disable_post"];
     delete?: never;
     options?: never;
@@ -1783,23 +1786,6 @@ export interface paths {
     get: operations["list_automation_diagnostics_automations__automation_id__diagnostics_get"];
     put?: never;
     post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/automations/{automation_id}/suspend": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Suspend Automation */
-    post: operations["suspend_automation_automations__automation_id__suspend_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -2896,9 +2882,8 @@ export interface components {
        */
       description?: string;
       trigger: components["schemas"]["Trigger"];
-      action: components["schemas"]["Action"];
       /** Branches */
-      branches?: components["schemas"]["AutomationBranch-Output"][];
+      branches: components["schemas"]["AutomationBranch-Output"][];
       /**
        * Enabled
        * @default true
@@ -2917,7 +2902,7 @@ export interface components {
        * @default
        */
       created_by?: string;
-      suspension?: components["schemas"]["AutomationSuspension"] | null;
+      deactivation?: components["schemas"]["Deactivation"] | null;
     };
     /** AutomationBranch */
     "AutomationBranch-Input": {
@@ -2957,10 +2942,8 @@ export interface components {
        */
       description?: string;
       trigger: components["schemas"]["Trigger"];
-      /** @deprecated */
-      action?: components["schemas"]["Action"] | null;
       /** Branches */
-      branches?: components["schemas"]["AutomationBranch-Input"][];
+      branches: components["schemas"]["AutomationBranch-Input"][];
       /**
        * Enabled
        * @default true
@@ -3026,24 +3009,6 @@ export interface components {
        */
       max_consecutive_failures?: number;
     };
-    /** AutomationSuspension */
-    AutomationSuspension: {
-      /** Reason */
-      reason: string;
-      /** Actor Id */
-      actor_id: string;
-      /**
-       * Suspended At
-       * Format: date-time
-       */
-      suspended_at: string;
-      /**
-       * Source
-       * @default operator
-       * @enum {string}
-       */
-      source?: "operator" | "circuit_breaker";
-    };
     /** AutomationUpdate */
     AutomationUpdate: {
       /** Name */
@@ -3054,9 +3019,6 @@ export interface components {
        */
       description?: string;
       trigger?: components["schemas"]["Trigger"] | null;
-      action?: components["schemas"]["Action"] | null;
-      /** Enabled */
-      enabled?: boolean | null;
       /** Branches */
       branches?: components["schemas"]["AutomationBranch-Input"][] | null;
       guardrails?: components["schemas"]["AutomationGuardrails"] | null;
@@ -3884,6 +3846,32 @@ export interface components {
      */
     DataType: "int" | "float" | "str" | "bool";
     /**
+     * Deactivation
+     * @description Why an automation is disabled: an operator's reason, or a tripped guard.
+     */
+    Deactivation: {
+      /** Reason */
+      reason?: string | null;
+      /** Actor Id */
+      actor_id: string;
+      /**
+       * At
+       * Format: date-time
+       */
+      at: string;
+      /**
+       * Source
+       * @default operator
+       * @enum {string}
+       */
+      source?: "operator" | "circuit_breaker";
+    };
+    /** DeactivationRequest */
+    DeactivationRequest: {
+      /** Reason */
+      reason?: string | null;
+    };
+    /**
      * Deviation
      * @description ``minuend - subtrahend``, classified against ``tolerance``.
      */
@@ -4458,7 +4446,8 @@ export interface components {
       | "failed"
       | "no_match"
       | "initialized"
-      | "suspended";
+      | "tripped"
+      | "skipped";
     "Expression-Input":
       | boolean
       | number
@@ -6801,11 +6790,6 @@ export interface components {
        * @default false
        */
       multiple?: boolean;
-    };
-    /** SuspensionRequest */
-    SuspensionRequest: {
-      /** Reason */
-      reason: string;
     };
     /**
      * Symbol
@@ -12236,7 +12220,11 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody?: {
+      content: {
+        "application/json": components["schemas"]["DeactivationRequest"] | null;
+      };
+    };
     responses: {
       /** @description Successful Response */
       200: {
@@ -12307,41 +12295,6 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["AutomationDiagnostic"][];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  suspend_automation_automations__automation_id__suspend_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        automation_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["SuspensionRequest"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Automation"];
         };
       };
       /** @description Validation Error */

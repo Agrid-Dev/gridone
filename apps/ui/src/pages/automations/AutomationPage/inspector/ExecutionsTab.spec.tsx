@@ -37,7 +37,7 @@ vi.mock("react-i18next", () =>
     "tree.results.matched": "Vrai",
     "tree.results.not_matched": "Faux",
     "tree.results.unknown": "Inconnu",
-    "actions.types.write_attribute": "Écrire un attribut",
+    "actions.types.inline_write": "Écrire un attribut",
     "actions.types.notification": "Envoyer une notification",
     "actions.types.command_template": "Exécuter une commande",
     "reasons.condition_unknown": "Une condition ne peut pas être évaluée.",
@@ -65,7 +65,7 @@ const when = (attribute: string): WriteCondition => ({
   right: true,
 });
 const write = (value: number): Action => ({
-  provider_id: "write_attribute",
+  provider_id: "command_template",
   params: { device_id: null, attribute: "heating_setpoint", value },
 });
 const notify = (title: string): Action => ({

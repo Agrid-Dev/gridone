@@ -32,10 +32,17 @@ def _make_attr(value: object, last_updated: datetime | None = _NOW) -> MagicMock
     return attr
 
 
-async def _fire(dm: MagicMock, device_id: str, attr_name: str, attr: object) -> None:
+async def _fire(
+    dm: MagicMock,
+    device_id: str,
+    attr_name: str,
+    attr: object,
+    *,
+    initial: bool = False,
+) -> None:
     """Call the callback captured by the DM mock."""
     captured = dm.add_device_attribute_listener.call_args[0][0]
-    await captured(_make_device(device_id), attr_name, None, attr)
+    await captured(_make_device(device_id), attr_name, None, attr, initial=initial)
 
 
 class TestConditionEvaluate:
@@ -216,9 +223,7 @@ async def test_initial_observation_passes_context_without_filtering(mock_dm):
         },
         callback,
     )
-    initial = _make_attr(value=False)
-    initial.is_initial_observation = True
-    await _fire(mock_dm, "a", "fault", initial)
+    await _fire(mock_dm, "a", "fault", _make_attr(value=False), initial=True)
     context = callback.call_args.args[0]
     assert context.is_initial
     assert not context.has_previous
@@ -242,3 +247,28 @@ async def test_shared_subscription_dispatches_only_matching_point(mock_dm):
     for handle in handles:
         await provider.unregister(handle)
     mock_dm.remove_device_attribute_listener.assert_called_once()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("initial", "has_previous"), [(True, False), (False, True)])
+async def test_a_restored_previous_is_a_transition_only_after_the_baseline(
+    mock_dm, initial, has_previous
+):
+    """On the first post-restart observation the device hands over the
+    persisted state as ``previous``: it is shown, but it is not a transition."""
+    callback = AsyncMock()
+    provider = ChangeEventTriggerProvider(mock_dm)
+    await provider.register({"device_id": "a", "attribute": "fault"}, callback)
+    dispatch = mock_dm.add_device_attribute_listener.call_args[0][0]
+    await dispatch(
+        _make_device("a"),
+        "fault",
+        _make_attr(value=False),
+        _make_attr(value=True),
+        initial=initial,
+    )
+    context = callback.call_args.args[0]
+    assert context.is_initial is initial
+    assert context.has_previous is has_previous
+    assert context.previous_value is False
+    assert context.value is True

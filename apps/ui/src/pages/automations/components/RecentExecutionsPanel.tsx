@@ -55,7 +55,8 @@ export function RecentExecutionsPanel({
                   execution.status === "success"
                     ? SEMANTIC_BG_CLASS.ok
                     : execution.status === "no_match" ||
-                        execution.status === "initialized"
+                        execution.status === "initialized" ||
+                        execution.status === "skipped"
                       ? "bg-muted-foreground"
                       : SEMANTIC_BG_CLASS.error,
                 )}

@@ -84,7 +84,7 @@ const SERVER_MAX_BRANCHES = 64;
 const SERVER_MAX_DEPTH = 16;
 
 const write = (value: number): Action => ({
-  provider_id: "write_attribute",
+  provider_id: "command_template",
   params: { device_id: null, attribute: "heating_setpoint", value },
 });
 
@@ -119,7 +119,6 @@ function automationWith(branches: AutomationBranch[]): Automation {
     description: "Évite de chauffer une salle vide",
     enabled: true,
     trigger: TRIGGER,
-    action: write(17),
     branches,
     created_by: "u1",
     created_at: "2026-09-20T08:00:00Z",
@@ -208,23 +207,6 @@ describe("useAutomationEditor — opening", () => {
     expect(result.current.blockers).toEqual([]);
     expect(result.current.hasChanges).toBe(false);
     expect(result.current.canSave).toBe(false);
-  });
-
-  it("reads a legacy automation without branches as its single action", () => {
-    const { result } = renderEditor({
-      kind: "edit",
-      automation: automationWith([]),
-    });
-
-    expect(result.current.draft.branches).toEqual([
-      {
-        id: expect.stringMatching(/^[0-9a-f]{16}$/),
-        name: "",
-        condition: null,
-        action: write(17),
-        branches: [],
-      },
-    ]);
   });
 });
 
@@ -587,7 +569,7 @@ describe("useAutomationEditor — tree edits", () => {
     // keys in another order.
     const same = (value: number): Action => ({
       params: { value, attribute: "heating_setpoint", device_id: null },
-      provider_id: "write_attribute",
+      provider_id: "command_template",
     });
 
     act(() => result.current.changeAction("empty", same(17)));

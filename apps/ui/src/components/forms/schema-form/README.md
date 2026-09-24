@@ -60,9 +60,10 @@ a matching widget, rather than weakening the guardrail before the UI can
 render the shape.
 
 Two first-party schemas use dedicated editors: `ChangeEventTrigger` renders its
-nested condition through `ChangeEventForm`, and `WriteAttributeAction` renders its
-recursive value expression through `WriteAttributeActionForm`. Neither enters the
-generic pipeline. New nested schemas are not exempt automatically.
+nested condition through `ChangeEventForm`, and `CommandAction` — a saved template
+or one inline write whose scalar `value` is a union — renders through
+`CommandActionForm`. Neither enters the generic pipeline. New nested schemas are not
+exempt automatically.
 
 ### Vendor markers
 

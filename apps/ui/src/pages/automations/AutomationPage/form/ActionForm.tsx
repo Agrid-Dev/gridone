@@ -1,7 +1,7 @@
 import { FC, FormEvent, useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui";
-import type { Action, WriteExpression } from "@gridone/sdk";
+import type { Action } from "@gridone/sdk";
 import type { Severity } from "@/lib/severity";
 import { TypePickerCards } from "../../components/TypePickerCards";
 import {
@@ -10,6 +10,7 @@ import {
   type ActionType,
 } from "../presenters/actionRegistry";
 import type { ActionFormResult } from "../presenters/types";
+import { inlineWriteOf } from "../presenters/commandShape";
 
 interface ActionFormProps {
   /** Existing action when editing an automation, raw off ``automation.action``.
@@ -34,28 +35,12 @@ interface ActionFormProps {
 function actionToResult(action: Action | undefined): ActionFormResult | null {
   if (!action) return null;
   const params = action.params ?? {};
-  if (
-    action.provider_id === "write_attribute" &&
-    typeof params.attribute === "string" &&
-    params.value != null
-  ) {
-    return {
-      provider_id: "write_attribute",
-      params: {
-        device_id:
-          typeof params.device_id === "string" ? params.device_id : null,
-        attribute: params.attribute,
-        value: params.value as WriteExpression,
-      },
-    };
-  }
   if (action.provider_id === "command_template") {
     const id = params.template_id;
-    if (typeof id !== "string") return null;
-    return {
-      provider_id: "command_template",
-      params: { template_id: id },
-    };
+    if (typeof id === "string")
+      return { provider_id: "command_template", params: { template_id: id } };
+    const write = inlineWriteOf(action);
+    return write ? { provider_id: "command_template", params: write } : null;
   }
   if (action.provider_id === "notification") {
     const { title, body, severity, user_ids: userIds } = params;

@@ -2,13 +2,13 @@
 
 ## Action
 
-The step Gridone performs when an [automation's](#automation) [trigger](#trigger) fires. Available action types: **Run a command** (dispatches a [command template](#template) to its target devices) and **Send a notification** (delivers an in-app message to selected users).
+The step an [automation](#automation) performs once one of its cases is chosen. Available action types: **Run a command** (a saved [command template](#template), a command defined inline, or one attribute written on a device) and **Send a notification** (delivers an in-app message to selected users).
 
 ---
 
 ## Automation
 
-A rule that pairs a [trigger](#trigger) with an [action](#action). When the trigger condition is met, Gridone fires the action automatically. Each run is recorded as an [execution](#execution). See [Create an automation](../guides/automations/create.md).
+A rule that reacts to a [trigger](#trigger) by choosing one [action](#action) in a decision tree: cases are tested in order and the first true one decides what runs. Each run is recorded as an [execution](#execution). See [Create an automation](../guides/automations/create.md).
 
 ---
 
@@ -65,7 +65,7 @@ A mechanism that automatically registers [devices](#device) on an MQTT [network]
 
 ## Execution
 
-A record of a single run of an [automation](#automation). Each execution captures the timestamp, the outcome (success or failure), any error details, and when the [action](#action) dispatched a batch command — a link to that batch. See [Execution history](../guides/automations/executions.md).
+A record of a single run of an [automation](#automation). Each execution captures the triggering event, the cases it tested and the path it followed, the outcome (succeeded, failed, refused by a rule, no case true, first observation, circuit breaker tripped or skipped), any error details, and the batch command the [action](#action) dispatched. See [Execution history](../guides/automations/executions.md).
 
 ---
 
@@ -119,7 +119,7 @@ The protocol-specific instruction in a [driver](#driver) that declares how to re
 
 ## Trigger
 
-The condition that causes an [automation](#automation) to fire. Available trigger types: **Schedule** (a cron expression) and **Attribute change** (a device attribute value change, with an optional comparison condition).
+The event that causes an [automation](#automation) to fire. Available trigger types: **Schedule** (a cron expression) and **Attribute change** (a device attribute value change, with an optional comparison condition). The first value observed after a start or a reconnection initializes the automation without firing it.
 
 ---
 

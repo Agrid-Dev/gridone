@@ -66,40 +66,36 @@ class ChangeEventTrigger(BaseModel):
 
 
 class ChangeEventListener:
+    """One automation's filter over the provider's fleet subscription.
+
+    The provider owns the single device-manager subscription and calls
+    ``handle`` only for the listener's ``(device_id, attribute)``; the listener
+    applies the trigger's condition and builds the event context.
+    """
+
     def __init__(
         self,
         trigger: ChangeEventTrigger,
         on_fire: Callable[[TriggerContext], Awaitable[None]],
-        devices_manager: DevicesServiceInterface,
     ) -> None:
-        self._trigger = trigger
+        self.trigger = trigger
         self._on_fire = on_fire
-        self._dm = devices_manager
-        self._listener_id: str | None = None
 
-    async def start(self) -> None:
-        self._listener_id = self._dm.add_device_attribute_listener(self._handle)
-
-    async def stop(self) -> None:
-        if self._listener_id is not None:
-            self._dm.remove_device_attribute_listener(self._listener_id)
-
-    async def _handle(
+    async def handle(
         self,
         device: CoreDevice,
         attr_name: str,
         previous: Attribute | None,
         attr: Attribute,
+        *,
+        initial: bool,
     ) -> None:
-        if device.id != self._trigger.device_id:
-            return
-        if attr_name != self._trigger.attribute:
-            return
-        initial = attr.is_initial_observation is True
+        """Fire on a matching change; an initial observation always passes,
+        flagged, so the service can baseline without evaluating the condition."""
         if (
             not initial
-            and self._trigger.condition is not None
-            and not self._trigger.condition.evaluate(attr.current_value)
+            and self.trigger.condition is not None
+            and not self.trigger.condition.evaluate(attr.current_value)
         ):
             return
         await self._on_fire(
@@ -131,11 +127,15 @@ class ChangeEventTriggerProvider:
         attr_name: str,
         previous: Attribute | None,
         attr: Attribute,
+        *,
+        initial: bool,
     ) -> None:
         """One fleet subscription, with constant-time lookup before evaluating rules."""
         for listener in tuple(self._by_point.get((device.id, attr_name), {}).values()):
             try:
-                await listener._handle(device, attr_name, previous, attr)  # noqa: SLF001 -- provider owns listeners
+                await listener.handle(
+                    device, attr_name, previous, attr, initial=initial
+                )
             except Exception:
                 logger.exception(
                     "Automation listener failed for %s/%s", device.id, attr_name
@@ -148,7 +148,7 @@ class ChangeEventTriggerProvider:
     ) -> str:
         handle_id = gen_id()
         trigger = ChangeEventTrigger(**params)
-        listener = ChangeEventListener(trigger, on_fire, self._dm)
+        listener = ChangeEventListener(trigger, on_fire)
         if self._listener_id is None:
             self._listener_id = self._dm.add_device_attribute_listener(self._dispatch)
         self._listeners[handle_id] = listener
@@ -160,7 +160,7 @@ class ChangeEventTriggerProvider:
     async def unregister(self, trigger_id: str) -> None:
         listener = self._listeners.pop(trigger_id, None)
         if listener is not None:
-            key = (listener._trigger.device_id, listener._trigger.attribute)  # noqa: SLF001 -- provider owns listeners
+            key = (listener.trigger.device_id, listener.trigger.attribute)
             bucket = self._by_point[key]
             bucket.pop(trigger_id)
             if not bucket:

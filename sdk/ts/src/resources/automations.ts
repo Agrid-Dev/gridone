@@ -56,19 +56,13 @@ export class AutomationsResource {
     );
   }
 
-  disable(automationId: string): Promise<Automation> {
-    return this.request(
-      "POST",
-      `/automations/${encodeURIComponent(automationId)}/disable`,
-    );
-  }
-
-  suspend(automationId: string, reason: string): Promise<Automation> {
-    return this.request(
-      "POST",
-      `/automations/${encodeURIComponent(automationId)}/suspend`,
-      { body: { reason } },
-    );
+  /** Disable the automation, optionally saying why; the server records who
+   *  did it and when as the automation's `deactivation`. */
+  disable(automationId: string, reason?: string): Promise<Automation> {
+    const path = `/automations/${encodeURIComponent(automationId)}/disable`;
+    return reason === undefined
+      ? this.request("POST", path)
+      : this.request("POST", path, { body: { reason } });
   }
 
   schema(): Promise<Record<string, unknown>> {

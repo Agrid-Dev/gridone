@@ -141,6 +141,13 @@ def test_conditional_mapping_and_options_validate_and_follow_renames():
     assert attributes_referencing([renamed], "lower") == [renamed]
 
 
+def test_event_references_are_refused_at_driver_import():
+    """An automation event is not a driver fact: the import names the reason."""
+    condition = {"op": "eq", "left": {"event": "value"}, "right": 1}
+    with pytest.raises(InvalidError, match="event_reference_not_available"):
+        validate_write_declarations([attribute(write_rules=[rule(condition)])])
+
+
 def test_expression_depth_is_checked_before_evaluation():
     expression = {"attribute": "floor"}
     for _ in range(17):

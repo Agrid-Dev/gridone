@@ -408,23 +408,12 @@
     "trigger": {
       "$ref": "#/$defs/Trigger"
     },
-    "action": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/Action"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "deprecated": true
-    },
     "branches": {
       "items": {
         "$ref": "#/$defs/AutomationBranch"
       },
       "maxItems": 64,
+      "minItems": 1,
       "title": "Branches",
       "type": "array"
     },
@@ -450,7 +439,7 @@
       "title": "Max Age Seconds"
     }
   },
-  "required": ["name", "trigger"],
+  "required": ["name", "trigger", "branches"],
   "title": "AutomationCreate",
   "type": "object"
 }

@@ -9,7 +9,13 @@ from automations import (
     AutomationExecution,
     AutomationsServiceInterface,
 )
-from automations.models import Action, AutomationUpdate, ExecutionStatus, Trigger
+from automations.models import (
+    Action,
+    AutomationBranch,
+    AutomationUpdate,
+    ExecutionStatus,
+    Trigger,
+)
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
@@ -33,7 +39,7 @@ _AUTO = Automation(
     name="Morning Reset",
     description="",
     trigger=_TRIGGER,
-    action=_ACTION,
+    branches=[AutomationBranch(action=_ACTION)],
     enabled=True,
     created_at=datetime(2024, 1, 1, tzinfo=UTC),
     updated_at=datetime(2024, 1, 1, tzinfo=UTC),
@@ -121,10 +127,14 @@ class TestCreateAutomation:
                         "provider_id": "schedule",
                         "params": {"cron": "0 * * * *"},
                     },
-                    "action": {
-                        "provider_id": "command_template",
-                        "params": {"template_id": "tmpl-01"},
-                    },
+                    "branches": [
+                        {
+                            "action": {
+                                "provider_id": "command_template",
+                                "params": {"template_id": "tmpl-01"},
+                            }
+                        }
+                    ],
                 },
             )
         assert resp.status_code == 201
@@ -143,10 +153,14 @@ class TestCreateAutomation:
                         "provider_id": "schedule",
                         "params": {"cron": "0 * * * *"},
                     },
-                    "action": {
-                        "provider_id": "command_template",
-                        "params": {"template_id": "tmpl-01"},
-                    },
+                    "branches": [
+                        {
+                            "action": {
+                                "provider_id": "command_template",
+                                "params": {"template_id": "tmpl-01"},
+                            }
+                        }
+                    ],
                 },
             )
         svc.create.assert_awaited_once()
@@ -154,18 +168,17 @@ class TestCreateAutomation:
         assert kwargs["created_by"] == admin_token_payload.sub
 
     async def test_notification_action_accepted(self, client, svc):
+        notification = Action(
+            provider_id="notification",
+            params={
+                "title": "Hot!",
+                "body": "Too hot",
+                "severity": "alert",
+                "user_ids": ["u1"],
+            },
+        )
         notif_auto = _AUTO.apply_update(
-            AutomationUpdate(
-                action=Action(
-                    provider_id="notification",
-                    params={
-                        "title": "Hot!",
-                        "body": "Too hot",
-                        "severity": "alert",
-                        "user_ids": ["u1"],
-                    },
-                )
-            )
+            AutomationUpdate(branches=[AutomationBranch(action=notification)])
         )
         svc.create.return_value = notif_auto
         async with client as c:
@@ -177,15 +190,19 @@ class TestCreateAutomation:
                         "provider_id": "change_event",
                         "params": {"device_id": "d1", "attribute": "temperature"},
                     },
-                    "action": {
-                        "provider_id": "notification",
-                        "params": {
-                            "title": "Hot!",
-                            "body": "Too hot",
-                            "severity": "alert",
-                            "user_ids": ["u1"],
-                        },
-                    },
+                    "branches": [
+                        {
+                            "action": {
+                                "provider_id": "notification",
+                                "params": {
+                                    "title": "Hot!",
+                                    "body": "Too hot",
+                                    "severity": "alert",
+                                    "user_ids": ["u1"],
+                                },
+                            }
+                        }
+                    ],
                 },
             )
         assert resp.status_code == 201
@@ -203,10 +220,14 @@ class TestCreateAutomation:
                         "provider_id": "change_event",
                         "params": {"device_id": "d1"},
                     },
-                    "action": {
-                        "provider_id": "command_template",
-                        "params": {"template_id": "tmpl-01"},
-                    },
+                    "branches": [
+                        {
+                            "action": {
+                                "provider_id": "command_template",
+                                "params": {"template_id": "tmpl-01"},
+                            }
+                        }
+                    ],
                 },
             )
         assert resp.status_code == 422
@@ -361,21 +382,35 @@ class TestListTriggerSchemas:
         svc.get.assert_not_called()
 
 
-async def test_suspension_records_authenticated_actor(client, svc, admin_token_payload):
-    svc.suspend.return_value = _AUTO.model_copy(update={"enabled": False})
+async def test_disable_records_reason_and_authenticated_actor(
+    client, svc, admin_token_payload
+):
+    svc.disable.return_value = _AUTO.model_copy(update={"enabled": False})
     async with client as c:
-        response = await c.post("/auto-01/suspend", json={"reason": " Maintenance "})
+        response = await c.post("/auto-01/disable", json={"reason": " Maintenance "})
     assert response.status_code == 200
-    svc.suspend.assert_awaited_once_with(
+    svc.disable.assert_awaited_once_with(
         "auto-01", reason="Maintenance", actor_id=admin_token_payload.sub
     )
 
 
-async def test_suspension_requires_reason(client, svc):
+async def test_disable_without_body_records_the_actor_alone(
+    client, svc, admin_token_payload
+):
+    svc.disable.return_value = _AUTO.model_copy(update={"enabled": False})
     async with client as c:
-        response = await c.post("/auto-01/suspend", json={"reason": " "})
+        response = await c.post("/auto-01/disable")
+    assert response.status_code == 200
+    svc.disable.assert_awaited_once_with(
+        "auto-01", reason=None, actor_id=admin_token_payload.sub
+    )
+
+
+async def test_blank_disable_reason_is_rejected(client, svc):
+    async with client as c:
+        response = await c.post("/auto-01/disable", json={"reason": " "})
     assert response.status_code == 422
-    svc.suspend.assert_not_awaited()
+    svc.disable.assert_not_awaited()
 
 
 async def test_tree_schema_is_not_shadowed_by_id_route(client, svc):

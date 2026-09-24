@@ -147,10 +147,14 @@ describe("Automations triggered on a schedule", () => {
         provider_id: "schedule",
         params: { cron: CRON_EVERY_5_SECONDS },
       },
-      action: {
-        provider_id: "command_template",
-        params: { template_id: template.id },
-      },
+      branches: [
+        {
+          action: {
+            provider_id: "command_template",
+            params: { template_id: template.id },
+          },
+        },
+      ],
     });
 
     // The wire schema leaves `id` optional; narrow it once here so the rest of
@@ -171,7 +175,7 @@ describe("Automations triggered on a schedule", () => {
         provider_id: "schedule",
         params: { cron: CRON_EVERY_5_SECONDS },
       },
-      action: { provider_id: "command_template" },
+      branches: [{ action: { provider_id: "command_template" } }],
     });
   });
 

@@ -24,21 +24,20 @@ optionally bounds the freshness of referenced observations. References are resol
 from an in-memory snapshot, once per attribute per selection. Shared expression limits
 bound depth, each branch, and the complete tree.
 
-The SQL migration converts every existing action to one unconditional branch and
-preserves its trigger, enabled state, and metadata. There is one execution path.
-Legacy create payloads containing `action` remain accepted, and responses retain
-`action` as a compatibility mirror of the first terminal action. A legacy action update can
-only modify a single terminal branch; it cannot overwrite a multi-branch tree.
-New clients should submit `branches`. Branch order and IDs survive saves. Legacy
-trigger filters retain their existing comparison semantics; the new branch
-conditions use the shared, typed expression language.
+The SQL migration converts every existing action to one unconditional branch, drops
+the `action` column, and preserves the trigger, enabled state, and metadata. There
+is one execution path and one API shape: `branches`, on create, update and in
+responses. Branch order and IDs survive saves. Legacy trigger filters retain their
+existing comparison semantics; branch conditions use the shared, typed expression
+language.
 
 The UI keeps the existing single-action form and offers expansion into a tree.
 Use **Add a decision** on an action branch to insert another decision before the
 existing action; this preserves the parent condition and the action. Then use
 **Add a child branch** for alternatives at that level. Branch numbers such as 1.2
 show the path, which is also recorded in execution history. The tree displays
-conditions, actions, order, early termination, and unmatched events. Conditions and direct-write values use the shared expression editor.
+conditions, actions, order, early termination, and unmatched events. Conditions use
+the shared expression editor; inline write values are static.
 
 ## Events and writes
 
@@ -49,20 +48,20 @@ observation is distinct from a real transition. Scheduled triggers have no devic
 context. All action providers now accept `execute(params, context)`; command
 templates and notifications retain their existing behavior.
 
-The `write_attribute` action accepts an explicit `device_id` (or `null` for the
-event's device), `attribute`, and a shared value expression. It resolves the target's
-declared data type and uses the command service without retries or consent bypass.
-Equipment protections remain authoritative. Refused writes are visible in command
-history and the automation execution log. A failed write does not try another
-branch. Equipment-specific conditions and recovery after a fault must be declared
-explicitly in automations.
+The command action has two shapes: a saved `template_id`, or one inline write with
+`attribute`, a static `value` and an optional `device_id` (the event's device when
+omitted). An inline write resolves the target's declared data type and uses the
+command service without retries or consent bypass. Equipment protections remain
+authoritative. Refused writes are visible in command history and the automation
+execution log. A failed write does not try another branch. Equipment-specific
+conditions and recovery after a fault must be declared explicitly in automations.
 
 At startup, reconnect, or recovery after an attribute read error, the first observation
 establishes a baseline without executing an action, even when a restored value
 differs. A changed initial observation appears as `initialized` in history. An
 unchanged first observation produces no change event. Subsequent changes trigger
-normally. Event payloads are copied before asynchronous listener delivery so a later
-reading cannot change an already queued event.
+normally. The device passes that fact to every attribute listener as an explicit
+`initial` argument, next to the live attribute and its `previous` snapshot.
 
 The change-event provider owns one fleet subscription and indexes its listeners by
 `(device_id, attribute)`. Each update invokes only matching listeners, not all
@@ -71,36 +70,38 @@ verifies one upstream subscription and one matching listener invocation for one
 attribute update. Subscription lookup is O(1); dispatch work is O(matching automations).
 This measures callback fan-out, not an end-to-end latency guarantee.
 
-## Suspension and execution safeguards
+## Deactivation and execution safeguards
 
-Suspension applies to the whole automation. `POST /automations/{id}/suspend` accepts
-a nonblank `reason`; the server records the authenticated actor, time, and source.
-It persists indefinitely, survives restart, and does not affect equipment
-protections. `POST /automations/{id}/enable` explicitly resumes listening, clears
-the active suspension and runtime counters, and does not issue a command or replay
-missed events. Patching `enabled` cannot resume a suspended automation. Legacy
-disable remains available; the UI uses reasoned suspension. The suspension fields
-describe the active suspension, not an audit journal of past operator changes.
+There is one state, `enabled`, and it applies to the whole automation.
+`POST /automations/{id}/disable` takes an optional `reason`; the server records it
+with the authenticated actor, the time and the source as the automation's
+`deactivation`, which persists, survives restart, and does not affect equipment
+protections. `POST /automations/{id}/enable` resumes listening, clears the trace and
+the runtime counters, and neither issues a command nor replays missed events.
+`PATCH` does not carry `enabled`: a state change is always one of these two routes,
+so it is always traced. The trace describes the current stop, not an audit journal
+of past operator changes.
 
-The circuit breaker also suspends the whole automation, with source
-`circuit_breaker`, the system actor, and a visible reason. Rearming is manual.
-Defaults, configurable in `guardrails`, are:
+The circuit breaker disables the automation the same way, with source
+`circuit_breaker`, the system actor and the guard's code as the reason; the execution
+that tripped it is recorded as `tripped`. Re-enabling is manual. Defaults,
+configurable in `guardrails`, are:
 
 | Guard | Default behavior |
 | --- | --- |
-| Execution rate | At most 10 selected actions in a rolling 60 seconds; the next match suspends before dispatch. |
-| Consecutive failures | Suspend after 3 failed evaluations/actions. A nonfailed selection resets the failure count. |
-| Overlap | A new event during an execution suspends the automation and does not dispatch a second action. |
-| Direct feedback | A write to the event's own attribute suspends before dispatch. Explicit command-template device IDs are checked too. |
+| Execution rate | At most 10 selected actions in a rolling 60 seconds; the next match trips the breaker before dispatch. |
+| Consecutive failures | Trip after 3 failed evaluations/actions. A nonfailed selection resets the failure count. |
+| Overlap | A second event during an execution is recorded as `skipped` (`overlapping_execution`) and not dispatched; the automation stays enabled. |
+| Direct feedback | A write to the event's own point trips the breaker before dispatch: the service checks every provider's `describe_writes` once, inline writes and templates with explicit device IDs alike. |
 
-No-match and initial observations do not consume the action-rate allowance. A
-suspension prevents future dispatches; it cannot recall a command already in flight.
-Counters are process-local; an already persisted suspension survives restart.
+No-match and initial observations do not consume the action-rate allowance. A trip
+prevents future dispatches; it cannot recall a command already in flight. Counters
+are process-local; a persisted deactivation survives restart.
 
 `GET /automations/{id}/diagnostics` provides advisory warnings for direct feedback
 and opposing static writes to the same attribute by another enabled automation.
-Providers expose `describe_writes(params, trigger)` for this analysis. Direct writes
-and explicit command-template IDs are supported. Conditions may be mutually
+Providers expose `describe_writes(params, trigger)` for this analysis and for the
+direct-feedback check. Inline writes and explicit command-template IDs are supported. Conditions may be mutually
 exclusive, so a warning is not proof of a conflict.
 
 Detection does **not** prove that a complete plant is free of feedback cycles.
@@ -118,12 +119,14 @@ Run one automation service process per database. Multiple workers would duplicat
 listeners and independently count executions; this implementation does not provide
 distributed coordination.
 
-Migration `0006` adds branches, suspension, guardrails, freshness, and execution
-context/trace columns while retaining legacy action data. Its rollback refuses
-trees or active suspensions that cannot be represented by the old schema. Before
-deploying an older binary, also remove actions/providers unsupported by that binary.
+Migration `0006` adds branches, deactivation, guardrails, freshness, and execution
+context/trace columns, and replaces the `action` column with the first branch. Its
+rollback refuses trees that cannot be represented by the old schema, rebuilds
+`action` from the single branch and drops deactivation traces (the disabled state is
+kept). Before deploying an older binary, also remove actions/providers unsupported
+by that binary.
 
 Validation covers legacy-row migration on PostgreSQL, ordered evaluation, unknown
-references, event initialization, suspension persistence, protected command refusal,
-and a real indirect feedback loop. UI tests cover order, editing, validation, and
-operator suspension controls.
+references, event initialization, deactivation persistence, protected command
+refusal, and a real indirect feedback loop. UI tests cover order, editing,
+validation, and the operator's enable/disable controls.

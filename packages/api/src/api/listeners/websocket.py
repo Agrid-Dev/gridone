@@ -55,6 +55,8 @@ def broadcast_attribute_update(
         attribute_name: str,
         _previous: Attribute | None,
         attribute: Attribute,
+        *,
+        initial: bool,
     ) -> None:
         message = DeviceUpdateMessage(
             device_id=device.id,

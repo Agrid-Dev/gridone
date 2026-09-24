@@ -31,16 +31,16 @@ export function AutomationControl({ automation }: { automation: Automation }) {
             <DialogTitle>
               {t(
                 automation.enabled
-                  ? "suspension.title"
-                  : "suspension.resumeTitle",
+                  ? "deactivation.title"
+                  : "deactivation.resumeTitle",
                 { name: automation.name },
               )}
             </DialogTitle>
             <DialogDescription>
               {t(
                 automation.enabled
-                  ? "suspension.help"
-                  : "suspension.resumeHelp",
+                  ? "deactivation.help"
+                  : "deactivation.resumeHelp",
               )}
             </DialogDescription>
           </DialogHeader>
@@ -49,8 +49,7 @@ export function AutomationControl({ automation }: { automation: Automation }) {
               <TextareaController
                 name="reason"
                 control={form.control}
-                label={t("suspension.reason")}
-                required
+                label={t("deactivation.reason")}
               />
             )}
             {mutation.isError && (
@@ -69,8 +68,8 @@ export function AutomationControl({ automation }: { automation: Automation }) {
               <Button type="submit" disabled={mutation.isPending}>
                 {t(
                   automation.enabled
-                    ? "suspension.confirm"
-                    : "suspension.resume",
+                    ? "deactivation.confirm"
+                    : "deactivation.resume",
                 )}
               </Button>
             </div>

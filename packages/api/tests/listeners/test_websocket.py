@@ -58,7 +58,9 @@ class TestBroadcastAttributeUpdate:
         listener = broadcast_attribute_update(websocket_manager)
 
         device = _make_device("dev-1")
-        await listener(device, "temperature", None, _make_attribute(21.0))
+        await listener(
+            device, "temperature", None, _make_attribute(21.0), initial=False
+        )
 
         websocket_manager.broadcast.assert_awaited_once()
         message = websocket_manager.broadcast.call_args.args[0]

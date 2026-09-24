@@ -37,15 +37,24 @@ _CMD_ACTION = Action(provider_id="command_template", params={"template_id": "tmp
 
 
 def _automation(**kwargs: object) -> Automation:
+    """One unconditional branch around ``action`` (``_CMD_ACTION`` by default)."""
+    action = kwargs.pop("action", _CMD_ACTION)
+    assert isinstance(action, Action)
     defaults: dict[str, object] = {
         "id": uuid4().hex[:16],
         "name": "test-auto",
         "description": "",
         "trigger": _SCHEDULE,
-        "action": _CMD_ACTION,
+        "branches": [AutomationBranch(action=action)],
         "enabled": True,
     }
     return Automation(**{**defaults, **kwargs})  # type: ignore[arg-type]
+
+
+def _single_action(automation: Automation) -> Action:
+    action = automation.branches[0].action
+    assert action is not None
+    return action
 
 
 def _execution(automation_id: str, **kwargs: object) -> AutomationExecution:
@@ -79,7 +88,7 @@ class TestCRUD:
         await storage.create(auto)
         restored = await storage.get(auto.id)
         assert restored.branches == [parent]
-        assert restored.action == _CMD_ACTION
+        assert restored.branches[0].branches[0].action == _CMD_ACTION
         execution = _execution(
             auto.id,
             branch_id=leaf.id,
@@ -100,7 +109,7 @@ class TestCRUD:
         assert fetched.id == auto.id
         assert fetched.name == auto.name
         assert fetched.description == "My Desc"
-        assert fetched.action.model_dump() == {
+        assert _single_action(fetched).model_dump() == {
             "provider_id": "command_template",
             "params": {"template_id": "tmpl-01"},
         }
@@ -131,7 +140,7 @@ class TestCRUD:
     async def test_update(self, storage: PostgresStorage):
         auto = _automation(name="original")
         await storage.create(auto)
-        updated = Automation(
+        updated = _automation(
             id=auto.id,
             name="renamed",
             description="Updated Desc",
@@ -151,7 +160,7 @@ class TestCRUD:
         fetched = await storage.get(auto.id)
         assert fetched.name == "renamed"
         assert fetched.description == "Updated Desc"
-        assert fetched.action.provider_id == "notification"
+        assert _single_action(fetched).provider_id == "notification"
         assert fetched.enabled is False
 
     async def test_update_description_only(self, storage: PostgresStorage):
@@ -188,7 +197,7 @@ class TestActionJSONB:
         )
         await storage.create(auto)
         fetched = await storage.get(auto.id)
-        assert fetched.action.model_dump() == {
+        assert _single_action(fetched).model_dump() == {
             "provider_id": "command_template",
             "params": {"template_id": "tmpl-42"},
         }
@@ -207,7 +216,7 @@ class TestActionJSONB:
         )
         await storage.create(auto)
         fetched = await storage.get(auto.id)
-        assert fetched.action.model_dump() == {
+        assert _single_action(fetched).model_dump() == {
             "provider_id": "notification",
             "params": {
                 "title": "Alert",

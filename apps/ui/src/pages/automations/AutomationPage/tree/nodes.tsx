@@ -16,12 +16,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import type {
-  Action,
-  AutomationExecution,
-  Trigger,
-  WriteExpression,
-} from "@gridone/sdk";
+import type { Action, AutomationExecution, Trigger } from "@gridone/sdk";
 import { cn } from "@/lib/utils";
 import { formatValue, type CellValue } from "@/lib/formatValue";
 import { useAttributeLabel } from "@/hooks/useAttributeLabel";
@@ -29,9 +24,14 @@ import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { SeverityChip } from "@/components/SeverityChip";
 import { SEVERITIES, type Severity } from "@/lib/severity";
 import { ConditionPhrase } from "@/pages/devices/device/operating-rules/RuleSentence";
-import { ExpressionSummary } from "@/pages/devices/device/operating-rules/OperatingRuleSummary";
-import { isScalar } from "@/pages/devices/device/operating-rules/expressions";
 import { getTriggerDescriptor } from "../presenters/triggerRegistry";
+import {
+  actionKind,
+  actionTypeKey,
+  inlineWriteOf,
+  isInlineWrite,
+  type ActionKind,
+} from "../presenters/commandShape";
 import { isCondition } from "../presenters/ChangeEventPresenter";
 import { describeCronExpression } from "../presenters/cronDescription";
 import {
@@ -205,7 +205,7 @@ export function RunChip({ execution }: { execution: AutomationExecution }) {
       ? "ok"
       : key === "failed"
         ? "error"
-        : key === "rejected" || key === "unknown" || key === "suspended"
+        : key === "rejected" || key === "unknown" || key === "tripped"
           ? "warning"
           : "neutral";
   const icon =
@@ -443,12 +443,12 @@ export function OtherwiseNode({ view }: { view: DecisionView }) {
 // --------------------------------------------------------------- outcomes
 
 const ACTION_LOOK: Record<
-  string,
+  ActionKind,
   { icon: LucideIcon; tone: keyof typeof TONES }
 > = {
-  command_template: { icon: SquareTerminal, tone: "command" },
-  write_attribute: { icon: PencilLine, tone: "write" },
-  notification: { icon: Bell, tone: "notify" },
+  command: { icon: SquareTerminal, tone: "command" },
+  write: { icon: PencilLine, tone: "write" },
+  notify: { icon: Bell, tone: "notify" },
 };
 
 const TONE_TEXT = {
@@ -465,7 +465,7 @@ export function ActionNode({
   const { t } = useTranslation("automations");
   const { replay, incompleteActions } = useTree();
   const { action, branch } = outcome;
-  const look = ACTION_LOOK[action.provider_id] ?? ACTION_LOOK.command_template;
+  const look = ACTION_LOOK[actionKind(action)];
   const executed = replay?.execution.branch_id === branch.id;
   const incomplete = incompleteActions.has(branch.id);
   return (
@@ -483,9 +483,7 @@ export function ActionNode({
             TONE_TEXT[look.tone as keyof typeof TONE_TEXT],
           )}
         >
-          {t(`actions.types.${action.provider_id}`, {
-            defaultValue: action.provider_id,
-          })}
+          {t(actionTypeKey(action), { defaultValue: action.provider_id })}
         </span>
       </span>
       <ActionSummary action={action} />
@@ -507,15 +505,15 @@ export function ActionNode({
 export function ActionSummary({ action }: { action: Action }) {
   const params = action.params ?? {};
   if (action.provider_id === "command_template")
-    return (
+    return isInlineWrite(action) ? (
+      <WriteTitle action={action} />
+    ) : (
       <CommandTemplateTitle
         templateId={
           typeof params.template_id === "string" ? params.template_id : ""
         }
       />
     );
-  if (action.provider_id === "write_attribute")
-    return <WriteTitle params={params} />;
   if (action.provider_id === "notification")
     return <NotificationTitle params={params} />;
   return <span className="font-semibold">{action.provider_id}</span>;
@@ -541,35 +539,27 @@ function CommandTemplateTitle({ templateId }: { templateId: string }) {
   );
 }
 
-function WriteTitle({ params }: { params: Record<string, unknown> }) {
+function WriteTitle({ action }: { action: Action }) {
   const { t } = useTranslation("automations");
   const { catalog, trigger } = useTree();
   const attributeLabel = useAttributeLabel();
+  const write = inlineWriteOf(action);
   const deviceId =
-    typeof params.device_id === "string"
-      ? params.device_id
-      : typeof trigger?.params?.device_id === "string"
-        ? trigger.params.device_id
-        : "";
+    write?.device_id ??
+    (typeof trigger?.params?.device_id === "string"
+      ? trigger.params.device_id
+      : "");
   const device = catalog.devices.find((item) => item.id === deviceId);
-  const attribute =
-    typeof params.attribute === "string" ? params.attribute : "";
-  const value = params.value as WriteExpression | undefined;
+  const attribute = write?.attribute ?? "";
   return (
     <>
       <span className="font-semibold leading-5 text-foreground">
         {attributeLabel(attribute, device?.attributes?.[attribute]) || "—"} →{" "}
-        {value === undefined ? (
-          "—"
-        ) : isScalar(value) ? (
-          formatValue(value)
-        ) : (
-          <ExpressionSummary value={value} catalog={catalog} />
-        )}
+        {write ? formatValue(write.value) : "—"}
       </span>
       <span className="text-[13px] leading-5 text-muted-foreground">
-        {typeof params.device_id === "string"
-          ? (device?.name ?? params.device_id)
+        {write?.device_id
+          ? (device?.name ?? write.device_id)
           : t("tree.onEventDevice")}
       </span>
     </>

@@ -111,14 +111,16 @@
       "failed": "Failed",
       "no_match": "No case was true",
       "initialized": "Initialized without action",
-      "suspended": "Suspended"
+      "tripped": "Circuit breaker tripped",
+      "skipped": "Skipped"
     },
     "outcome": {
       "success": "Succeeded",
       "failed": "Failed",
       "no_match": "No case was true",
       "initialized": "First observation",
-      "suspended": "Suspended",
+      "tripped": "Breaker tripped",
+      "skipped": "Skipped · run in progress",
       "rejected": "Refused by a rule",
       "unknown": "Stopped · unknown value"
     },
@@ -142,18 +144,18 @@
     "types": {
       "command_template": "Run a command",
       "notification": "Send a notification",
-      "write_attribute": "Write an attribute"
+      "inline_write": "Write an attribute"
     },
     "typeDescriptions": {
       "command_template": "Sends a command to the targeted devices.",
-      "notification": "Notifies the selected users.",
-      "write_attribute": "Choose a device or use the triggering event."
+      "notification": "Notifies the selected users."
     },
     "commandActionForm": {
       "sourceLabel": "Command source",
       "useTemplate": "Use a saved template",
       "composeNew": "Define a new command",
-      "useCommand": "Use this command"
+      "useCommand": "Use this command",
+      "inlineWrite": "Write one attribute"
     },
     "notificationForm": {
       "title": "Title",
@@ -230,7 +232,7 @@
       "out": "Zoom out",
       "fit": "Fit to view"
     },
-    "guardrails": "Up to {{max}} actions per {{seconds}} seconds; suspension after {{failures}} consecutive failures. Reactivation is manual."
+    "guardrails": "Up to {{max}} actions per {{seconds}} seconds; disabled after {{failures}} consecutive failures. Re-enabling is manual."
   },
   "panel": {
     "label": "Selected element",
@@ -343,17 +345,22 @@
     "attribute": "Attribute to write",
     "target": "Target attribute",
     "value": "Requested value",
+    "valueType": "Value type",
+    "types": {
+      "bool": "On / off",
+      "float": "Number",
+      "str": "Text"
+    },
     "protected": "Every write passes through the equipment protections. A refusal is recorded; no automatic retry."
   },
-  "suspension": {
-    "title": "Suspend {{name}}",
-    "resumeTitle": "Reactivate {{name}}",
-    "help": "Suspend this entire automation until you explicitly reactivate it. Equipment protections remain active.",
-    "resumeHelp": "Reactivation resumes listening. It does not send a command or replay events missed during suspension.",
-    "reason": "Reason for suspension",
-    "confirm": "Suspend automation",
-    "resume": "Reactivate",
-    "badge": "Suspended",
+  "deactivation": {
+    "title": "Disable {{name}}",
+    "resumeTitle": "Enable {{name}}",
+    "help": "Disable this entire automation until you enable it again. Equipment protections remain active.",
+    "resumeHelp": "Enabling resumes listening. It does not send a command or replay events missed while disabled.",
+    "reason": "Reason (optional)",
+    "confirm": "Disable automation",
+    "resume": "Enable",
     "breaker": "Circuit breaker open"
   },
   "reasons": {

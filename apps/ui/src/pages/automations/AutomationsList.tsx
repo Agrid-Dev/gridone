@@ -175,7 +175,6 @@ function AutomationCard({
               <RuleSentence
                 branches={automation.branches}
                 trigger={automation.trigger}
-                action={automation.action}
               />
               {lastExecution && (
                 <span className="flex shrink-0 items-center gap-1.5 text-xs tabular-nums text-muted-foreground">
@@ -220,14 +219,14 @@ function AutomationCard({
               </Button>
               <AutomationStatusBadge
                 enabled={enabled}
-                suspension={automation.suspension}
+                deactivation={automation.deactivation}
               />
               <AutomationControl automation={automation} />
             </div>
           ) : (
             <AutomationStatusBadge
               enabled={enabled}
-              suspension={automation.suspension}
+              deactivation={automation.deactivation}
             />
           )}
         </div>

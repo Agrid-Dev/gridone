@@ -1,22 +1,20 @@
 import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
-import type { AutomationSuspension } from "@gridone/sdk";
+import type { AutomationDeactivation } from "@gridone/sdk";
 
 export function AutomationStatusBadge({
   enabled,
-  suspension,
+  deactivation,
 }: {
   enabled: boolean;
-  suspension?: AutomationSuspension | null;
+  deactivation?: AutomationDeactivation | null;
 }) {
   const { t } = useTranslation("automations");
   return (
     <Badge variant={enabled ? "success" : "secondary"}>
       {t(
-        suspension
-          ? suspension.source === "circuit_breaker"
-            ? "suspension.breaker"
-            : "suspension.badge"
+        deactivation?.source === "circuit_breaker"
+          ? "deactivation.breaker"
           : enabled
             ? "enabledBadge"
             : "disabledBadge",

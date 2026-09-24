@@ -51,6 +51,17 @@ class ScheduleListener:
         self._task = asyncio.create_task(self._run())
 
     async def stop(self) -> None:
+        """Stop firing; safe to call from inside ``on_fire``.
+
+        When the automation service trips its circuit breaker it unregisters
+        the trigger from within this listener's own task (``on_fire`` →
+        service → ``unregister`` → ``stop``). Cancelling the current task
+        would deliver the cancellation at the next await, deep in the caller,
+        and leave the task marked as cancelling, which a later ``wait_for``
+        or ``timeout`` in that task would take for an external cancellation.
+        So from inside, only the slot is cleared, which makes ``_run`` return
+        once the current ``on_fire`` does.
+        """
         if self._task is not None:
             if self._task is not asyncio.current_task():
                 self._task.cancel()
@@ -60,6 +71,8 @@ class ScheduleListener:
 
     async def _run(self) -> None:
         it = croniter(self._cron, datetime.now(self._tz))
+        # The task slot doubles as the run flag: a ``stop`` issued from inside
+        # ``on_fire`` (see ``stop``) ends the loop after the current occurrence.
         while self._task is not None:
             next_dt: datetime = it.get_next(datetime)
             # Both operands are aware, so the subtraction is exact whatever

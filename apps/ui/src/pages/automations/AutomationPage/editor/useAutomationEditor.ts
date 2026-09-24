@@ -68,11 +68,7 @@ export function draftOf(automation: Automation | null): Draft {
     description: automation.description ?? "",
     enabled: automation.enabled ?? true,
     trigger: automation.trigger,
-    branches: normalizeTree(
-      automation.branches?.length
-        ? automation.branches
-        : [{ action: automation.action }],
-    ),
+    branches: normalizeTree(automation.branches),
   };
 }
 

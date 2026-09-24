@@ -12,7 +12,6 @@ from fastapi import Depends, FastAPI
 
 from api.action_providers.commands import CommandsActionProvider
 from api.action_providers.notifications import NotificationsActionProvider
-from api.action_providers.write_attribute import WriteAttributeActionProvider
 from api.auth import get_current_user_id
 from api.exception_handlers import register_exception_handlers
 from api.listeners.device import on_device_discovered
@@ -117,13 +116,8 @@ def _build_automations_service(
             ChangeEventTriggerProvider(devices_service),
         ],
         action_providers=[
-            CommandsActionProvider(commands_service),
+            CommandsActionProvider(commands_service, devices_service.inspect_attribute),
             NotificationsActionProvider(notifications_service),
-            WriteAttributeActionProvider(
-                commands_service,
-                devices_service.inspect_attribute,
-                devices_service.resolve_attribute,
-            ),
         ],
         resolve_attribute=devices_service.resolve_attribute,
     )

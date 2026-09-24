@@ -129,7 +129,7 @@ const presenceIs = (value: boolean): WriteCondition => ({
   right: value,
 });
 const write = (value: number): Action => ({
-  provider_id: "write_attribute",
+  provider_id: "command_template",
   params: { device_id: null, attribute: "heating_setpoint", value },
 });
 const notify = (title: string): Action => ({
@@ -271,7 +271,7 @@ describe("OtherwisePanel", () => {
     );
 
     expect(radio(/^Exécuter une action/)).toBeChecked();
-    expect(form()).toHaveTextContent("type=write_attribute");
+    expect(form()).toHaveTextContent("type=command_template");
 
     await user.click(radio(/^Ne rien faire/));
 
@@ -319,7 +319,7 @@ describe("OtherwisePanel", () => {
     expect(radio(/^Exécuter une action/)).toBeDisabled();
     expect(form()).not.toBeInTheDocument();
     expect(screen.getByTestId("action-presenter")).toHaveTextContent(
-      "write_attribute",
+      "command_template",
     );
   });
 
@@ -447,7 +447,7 @@ describe("OutcomePanel", () => {
       tree({ editable: false }),
     );
     expect(screen.getByTestId("action-presenter")).toHaveTextContent(
-      "write_attribute",
+      "command_template",
     );
     expect(form()).not.toBeInTheDocument();
     expect(

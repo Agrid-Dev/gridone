@@ -43,7 +43,7 @@ const { client, navigate } = vi.hoisted(() => ({
       update:
         vi.fn<(id: string, body: AutomationUpdate) => Promise<Automation>>(),
       delete: vi.fn<(id: string) => Promise<void>>(),
-      suspend: vi.fn<(id: string, reason: string) => Promise<Automation>>(),
+      disable: vi.fn<(id: string, reason?: string) => Promise<Automation>>(),
       enable: vi.fn<(id: string) => Promise<Automation>>(),
     },
     users: { get: vi.fn() },
@@ -98,12 +98,12 @@ vi.mock("react-i18next", () =>
     "actions.delete": "Supprimer",
     "actions.disable": "Désactiver",
     "actions.enable": "Activer",
-    "actions.types.write_attribute": "Écrire un attribut",
+    "actions.types.inline_write": "Écrire un attribut",
     "actions.types.notification": "Envoyer une notification",
     "deleteConfirm.details": "Supprimer « {{name}} » ?",
-    "suspension.title": "Suspendre {{name}}",
-    "suspension.reason": "Motif de suspension",
-    "suspension.confirm": "Suspendre l’automatisme",
+    "deactivation.title": "Désactiver {{name}}",
+    "deactivation.reason": "Motif (facultatif)",
+    "deactivation.confirm": "Désactiver l’automatisme",
     "executions.title": "Exécutions",
     "executions.empty": "Aucune exécution pour le moment",
     "executions.viewBatch": "Commande exécutée",
@@ -115,8 +115,7 @@ vi.mock("react-i18next", () =>
     "replay.quit": "Quitter la relecture",
     "replay.older": "Exécution précédente",
     "replay.newer": "Exécution suivante",
-    "suspension.badge": "Suspendue",
-    "suspension.breaker": "Coupe-circuit ouvert",
+    "deactivation.breaker": "Coupe-circuit ouvert",
     "reasons.consecutive_failures": "Échecs répétés des exécutions.",
     "tree.title": "Arbre de l’automatisation",
     "tree.cancel": "Annuler",
@@ -258,7 +257,7 @@ const presenceIs = (value: boolean): WriteCondition => ({
   right: value,
 });
 const write = (value: number): Action => ({
-  provider_id: "write_attribute",
+  provider_id: "command_template",
   params: { device_id: null, attribute: "heating_setpoint", value },
 });
 const notify = (title: string): Action => ({
@@ -286,7 +285,6 @@ const AUTOMATION = {
   description: "Évite de chauffer une salle vide",
   enabled: true,
   trigger: TRIGGER,
-  action: write(17),
   branches: [
     branch("empty", {
       name: "Salle vide",
@@ -428,7 +426,7 @@ beforeEach(() => {
     id: "new-automation",
   }));
   client.automations.delete.mockResolvedValue(undefined);
-  client.automations.suspend.mockImplementation(async () => stored);
+  client.automations.disable.mockImplementation(async () => stored);
   client.users.get.mockResolvedValue({ id: "u1", username: "alice" });
   client.devices.list.mockResolvedValue([]);
 });
@@ -449,8 +447,9 @@ describe("AutomationPage", () => {
     expect(
       screen.getByRole("link", { name: "Automatisations" }),
     ).toHaveAttribute("href", "/automations");
-    // Status badge next to the title, and the switch's own label.
-    expect(screen.getAllByText("Activée")).toHaveLength(2);
+    // The status is shown once, as the badge next to the title; the switch
+    // carries its own accessible name.
+    expect(screen.getByText("Activée")).toBeInTheDocument();
     expect(screen.getByRole("switch", { name: "Désactiver" })).toBeChecked();
     expect(screen.getByText("Tout est enregistré")).toBeInTheDocument();
     expect(saveButton()).toBeDisabled();
@@ -782,14 +781,14 @@ describe("AutomationPage", () => {
     ).toBeEnabled();
   });
 
-  it("says why a suspended automation is not running", async () => {
+  it("says why a tripped automation is not running", async () => {
     stored = {
       ...AUTOMATION,
       enabled: false,
-      suspension: {
+      deactivation: {
         reason: "consecutive_failures",
         actor_id: "system",
-        suspended_at: "2026-09-22T08:00:00Z",
+        at: "2026-09-22T08:00:00Z",
         source: "circuit_breaker",
       },
     };
@@ -838,33 +837,46 @@ describe("AutomationPage", () => {
     );
   });
 
-  it("asks for a reason before suspending", async () => {
+  it("disables with the reason the operator gives", async () => {
     const user = userEvent.setup();
     renderPage();
     await opened();
 
     await user.click(screen.getByRole("switch", { name: "Désactiver" }));
     const dialog = screen.getByRole("dialog", {
-      name: "Suspendre Chauffage salle 201",
+      name: "Désactiver Chauffage salle 201",
     });
-    await user.click(
-      within(dialog).getByRole("button", { name: "Suspendre l’automatisme" }),
-    );
-    expect(client.automations.suspend).not.toHaveBeenCalled();
-
     await user.type(
-      within(dialog).getByLabelText(/Motif de suspension/),
+      within(dialog).getByLabelText(/Motif \(facultatif\)/),
       "Maintenance",
     );
     await user.click(
-      within(dialog).getByRole("button", { name: "Suspendre l’automatisme" }),
+      within(dialog).getByRole("button", { name: "Désactiver l’automatisme" }),
     );
 
     await waitFor(() =>
-      expect(client.automations.suspend).toHaveBeenCalledWith(
+      expect(client.automations.disable).toHaveBeenCalledWith(
         "a1",
         "Maintenance",
       ),
+    );
+  });
+
+  it("disables without a reason when none is given", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await opened();
+
+    await user.click(screen.getByRole("switch", { name: "Désactiver" }));
+    const dialog = screen.getByRole("dialog", {
+      name: "Désactiver Chauffage salle 201",
+    });
+    await user.click(
+      within(dialog).getByRole("button", { name: "Désactiver l’automatisme" }),
+    );
+
+    await waitFor(() =>
+      expect(client.automations.disable).toHaveBeenCalledWith("a1", undefined),
     );
   });
 

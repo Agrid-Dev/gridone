@@ -11,6 +11,7 @@ from models.expressions import (
     ChoiceExpression,
     Comparison,
     DeviceAttributeRef,
+    EventRef,
     IsKnown,
     Junction,
     Membership,
@@ -37,7 +38,7 @@ def validate_expression(
     return _infer(root, types, candidate_type, path)
 
 
-def _infer(  # noqa: PLR0911 -- expression AST dispatch
+def _infer(  # noqa: C901, PLR0911 -- expression AST dispatch
     root: object,
     types: dict[str | DeviceAttributeRef, str],
     candidate_type: str | None,
@@ -53,6 +54,11 @@ def _infer(  # noqa: PLR0911 -- expression AST dispatch
         if root not in types:
             _invalid(path, "external_device_reference")
         return types[root]
+    if isinstance(root, EventRef):
+        # Only an automation has an event; drivers and operating rules are
+        # validated here without one, so the reference is refused by intent
+        # rather than by the generic fallthrough below.
+        _invalid(path, "event_reference_not_available")
     if isinstance(root, AttributeRef):
         if root.attribute not in types:
             _invalid(path, f"unknown attribute '{root.attribute}'")

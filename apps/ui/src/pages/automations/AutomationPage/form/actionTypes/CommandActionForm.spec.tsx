@@ -21,6 +21,12 @@ vi.mock("react-i18next", () =>
     "actions.commandActionForm.useTemplate": "Use a saved template",
     "actions.commandActionForm.composeNew": "Define a new command",
     "actions.commandActionForm.useCommand": "Use this command",
+    "actions.commandActionForm.inlineWrite": "Write one attribute",
+    "write.eventDevice": "Write to the triggering device",
+    "write.attribute": "Attribute to write",
+    "write.value": "Requested value",
+    "write.valueType": "Value type",
+    "write.protected": "Every write passes through the equipment protections.",
   }),
 );
 
@@ -66,6 +72,7 @@ const { mockedGetTemplate } = vi.hoisted(() => ({
 vi.mock("@/contexts/GridoneClientContext", () => ({
   useGridoneClient: () => ({
     devices: {
+      list: () => Promise.resolve([]),
       listAttributes: () =>
         Promise.resolve({ total_devices: 0, attributes: [] }),
       commandTemplates: {
@@ -136,7 +143,7 @@ beforeEach(() => mockedGetTemplate.mockReset());
 afterEach(() => cleanup());
 
 describe("CommandActionForm", () => {
-  it("renders the source Select with both options and shows the picker by default", () => {
+  it("renders the source Select with three options and shows the picker by default", () => {
     render(<CommandActionForm onChange={() => {}} />, { wrapper });
     expect(screen.getByTestId("picker")).toBeInTheDocument();
     expect(
@@ -145,7 +152,44 @@ describe("CommandActionForm", () => {
     expect(
       screen.getByRole("option", { name: "Define a new command" }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("option", { name: "Write one attribute" }),
+    ).toBeInTheDocument();
     expect(screen.queryByTestId("wizard")).not.toBeInTheDocument();
+  });
+
+  it("reports the inline write as the command action's own shape", async () => {
+    const onChange = vi.fn();
+    render(<CommandActionForm onChange={onChange} />, { wrapper });
+    fireEvent.change(screen.getByTestId("source-select"), {
+      target: { value: "write" },
+    });
+    expect(screen.queryByTestId("picker")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/Attribute to write/), {
+      target: { value: "mode" },
+    });
+    await waitFor(() =>
+      expect(onChange).toHaveBeenLastCalledWith({
+        provider_id: "command_template",
+        params: { device_id: null, attribute: "mode", value: false },
+      }),
+    );
+  });
+
+  it("opens on the inline write an action already carries", () => {
+    render(
+      <CommandActionForm
+        initialValue={{
+          provider_id: "command_template",
+          params: { device_id: null, attribute: "mode", value: "auto" },
+        }}
+        onChange={() => {}}
+      />,
+      { wrapper },
+    );
+    expect(screen.getByLabelText(/Attribute to write/)).toHaveValue("mode");
+    expect(screen.getByLabelText(/Requested value/)).toHaveValue("auto");
+    expect(screen.queryByTestId("picker")).not.toBeInTheDocument();
   });
 
   it("switches to the inline wizard when the user picks 'Define a new command'", () => {

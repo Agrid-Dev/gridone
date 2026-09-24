@@ -37,7 +37,9 @@ class TestHistoriseAttributeUpdate:
         listener = historise_attribute_update(ts_service)
 
         device = _make_device("dev-1")
-        await listener(device, "temperature", None, _make_attribute(21.0))
+        await listener(
+            device, "temperature", None, _make_attribute(21.0), initial=False
+        )
 
         ts_service.upsert_points.assert_awaited_once()
         key, points = ts_service.upsert_points.call_args.args

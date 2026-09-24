@@ -43,7 +43,7 @@ vi.mock("react-i18next", () =>
     "tree.results.unknown": "Inconnu",
     "tree.results.skipped": "Non testé",
     "tree.results.taken": "Suivi",
-    "actions.types.write_attribute": "Écrire un attribut",
+    "actions.types.inline_write": "Écrire un attribut",
     "actions.types.notification": "Envoyer une notification",
     "actions.types.command_template": "Exécuter une commande",
     "executions.outcome.success": "Réussie",
@@ -112,7 +112,7 @@ const notify = (title: string): Action => ({
   params: { title, body: "", severity: "info", user_ids: ["u1"] },
 });
 const write = (value: number): Action => ({
-  provider_id: "write_attribute",
+  provider_id: "command_template",
   params: { device_id: null, attribute: "heating_setpoint", value },
 });
 const command = (templateId: string): Action => ({

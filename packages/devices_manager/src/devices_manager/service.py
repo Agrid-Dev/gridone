@@ -364,6 +364,8 @@ class DevicesService(Service):
             _attribute_name: str,
             _previous: Attribute | None,
             attribute: Attribute,
+            *,
+            initial: bool,  # noqa: ARG001 -- listener contract
         ) -> None:
             await storage.save_attribute(device.id, attribute)
 
@@ -738,15 +740,16 @@ class DevicesService(Service):
         attribute_name: str,
         previous: Attribute | None,
         attribute: Attribute,
+        *,
+        initial: bool,
     ) -> None:
         """Dispatch attribute update to all registered handlers."""
-        # Callbacks may run after the next reading. Preserve this event's value
-        # and acquisition marker rather than handing them a live mutable object.
-        attribute = attribute.model_copy(deep=True)
         for handler in self._attribute_update_handlers.values():
             try:
                 self._schedule_if_coroutine(
-                    handler(device, attribute_name, previous, attribute)
+                    handler(
+                        device, attribute_name, previous, attribute, initial=initial
+                    )
                 )
             except Exception:
                 logger.exception(

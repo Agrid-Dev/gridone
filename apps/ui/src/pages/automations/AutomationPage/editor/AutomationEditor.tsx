@@ -120,8 +120,8 @@ export function AutomationEditor({
           editor={editor}
           lastExecution={last ? executionTime(last) : null}
         />
-        {mode.kind === "edit" && mode.automation.suspension && (
-          <SuspensionBanner editor={editor} />
+        {mode.kind === "edit" && mode.automation.deactivation && (
+          <DeactivationBanner editor={editor} />
         )}
         <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
           <div className="flex h-[65vh] min-h-0 min-w-0 flex-1 lg:h-auto">
@@ -210,7 +210,7 @@ function EditorHeader({
           {mode.kind === "edit" && (
             <AutomationStatusBadge
               enabled={mode.automation.enabled ?? true}
-              suspension={mode.automation.suspension}
+              deactivation={mode.automation.deactivation}
             />
           )}
           {mode.kind === "edit" && (
@@ -254,10 +254,7 @@ function EditorHeader({
           </Button>
         )}
         {canWrite && mode.kind === "edit" && (
-          <span className="ml-1 flex items-center gap-2 border-l pl-3">
-            <span className="text-sm font-medium">
-              {t(mode.automation.enabled ? "enabledBadge" : "disabledBadge")}
-            </span>
+          <span className="ml-1 flex items-center border-l pl-3">
             <AutomationControl automation={mode.automation} />
           </span>
         )}
@@ -296,26 +293,33 @@ function SaveState({ editor }: { editor: AutomationEditorState }) {
   return null;
 }
 
-function SuspensionBanner({ editor }: { editor: AutomationEditorState }) {
+/** Who stopped the automation, why and when: the operator, or a tripped guard. */
+function DeactivationBanner({ editor }: { editor: AutomationEditorState }) {
   const { t } = useTranslation("automations");
-  const suspension = editor.automation?.suspension;
-  if (!suspension) return null;
-  const breaker = suspension.source === "circuit_breaker";
+  const deactivation = editor.automation?.deactivation;
+  if (!deactivation) return null;
+  const breaker = deactivation.source === "circuit_breaker";
   return (
     <div
       role="status"
       className="border-b border-amber-500/40 bg-amber-500/10 px-6 py-2.5 text-sm"
     >
       <span className="font-semibold text-amber-800 dark:text-amber-200">
-        {t(breaker ? "suspension.breaker" : "suspension.badge")}
+        {t(breaker ? "deactivation.breaker" : "disabledBadge")}
       </span>{" "}
-      ·{" "}
-      {breaker
-        ? t(`reasons.${suspension.reason}`, { defaultValue: suspension.reason })
-        : suspension.reason}{" "}
+      {deactivation.reason && (
+        <>
+          ·{" "}
+          {breaker
+            ? t(`reasons.${deactivation.reason}`, {
+                defaultValue: deactivation.reason,
+              })
+            : deactivation.reason}{" "}
+        </>
+      )}
       <span className="text-muted-foreground">
-        · {suspension.actor_id} ·{" "}
-        {new Date(suspension.suspended_at).toLocaleString(undefined, {
+        · {deactivation.actor_id} ·{" "}
+        {new Date(deactivation.at).toLocaleString(undefined, {
           dateStyle: "medium",
           timeStyle: "short",
         })}

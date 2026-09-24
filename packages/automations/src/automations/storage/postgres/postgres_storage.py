@@ -6,7 +6,6 @@ import asyncpg
 from pydantic import TypeAdapter
 
 from automations.models import (
-    Action,
     Automation,
     AutomationExecution,
     ExecutionStatus,
@@ -16,7 +15,6 @@ from models.action_failure import ActionFailure
 from models.errors import NotFoundError
 
 _trigger_adapter: TypeAdapter[Trigger] = TypeAdapter(Trigger)
-_action_adapter: TypeAdapter[Action] = TypeAdapter(Action)
 
 
 class PostgresStorage:
@@ -32,15 +30,15 @@ class PostgresStorage:
     @staticmethod
     def _row_to_automation(row: asyncpg.Record) -> Automation:
         trigger = _trigger_adapter.validate_python(json.loads(row["trigger"]))
-        action = _action_adapter.validate_python(json.loads(row["action"]))
         return Automation(
             id=row["id"],
             name=row["name"],
             description=row["description"],
             trigger=trigger,
-            action=action,
             branches=json.loads(row["branches"]),
-            suspension=json.loads(row["suspension"]) if row["suspension"] else None,
+            deactivation=(
+                json.loads(row["deactivation"]) if row["deactivation"] else None
+            ),
             guardrails=json.loads(row["guardrails"]),
             max_age_seconds=row["max_age_seconds"],
             enabled=row["enabled"],
@@ -72,16 +70,15 @@ class PostgresStorage:
         await self._pool.execute(
             """
             INSERT INTO automations
-                (id, name, description, trigger, action, enabled,
-                 created_at, updated_at, created_by, branches, suspension,
+                (id, name, description, trigger, enabled,
+                 created_at, updated_at, created_by, branches, deactivation,
                  guardrails, max_age_seconds)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
             """,
             automation.id,
             automation.name,
             automation.description,
             _trigger_adapter.dump_json(automation.trigger).decode(),
-            _action_adapter.dump_json(automation.action).decode(),
             automation.enabled,
             automation.created_at,
             automation.updated_at,
@@ -89,7 +86,9 @@ class PostgresStorage:
             json.dumps(
                 [branch.model_dump(mode="json") for branch in automation.branches]
             ),
-            automation.suspension.model_dump_json() if automation.suspension else None,
+            automation.deactivation.model_dump_json()
+            if automation.deactivation
+            else None,
             automation.guardrails.model_dump_json(),
             automation.max_age_seconds,
         )
@@ -118,21 +117,23 @@ class PostgresStorage:
             """
             UPDATE automations
             SET name = $2, description = $3,
-                trigger = $4, action = $5, enabled = $6, updated_at = $7,
-                branches = $8, suspension = $9, guardrails = $10, max_age_seconds = $11
+                trigger = $4, enabled = $5, updated_at = $6,
+                branches = $7, deactivation = $8, guardrails = $9,
+                max_age_seconds = $10
             WHERE id = $1
             """,
             automation.id,
             automation.name,
             automation.description,
             _trigger_adapter.dump_json(automation.trigger).decode(),
-            _action_adapter.dump_json(automation.action).decode(),
             automation.enabled,
             automation.updated_at,
             json.dumps(
                 [branch.model_dump(mode="json") for branch in automation.branches]
             ),
-            automation.suspension.model_dump_json() if automation.suspension else None,
+            automation.deactivation.model_dump_json()
+            if automation.deactivation
+            else None,
             automation.guardrails.model_dump_json(),
             automation.max_age_seconds,
         )

@@ -26,6 +26,11 @@ import {
 import { cn } from "@/lib/utils";
 import type { AutomationEditorState } from "../editor/useAutomationEditor";
 import { getTriggerDescriptor } from "../presenters/triggerRegistry";
+import {
+  actionKind,
+  actionTypeKey,
+  type ActionKind,
+} from "../presenters/commandShape";
 import { caseAt, outcomeAt } from "../tree/model";
 import type { Selection } from "../tree/TreeContext";
 import { ExecutionsTab } from "./ExecutionsTab";
@@ -40,10 +45,10 @@ import {
   TriggerPanel,
 } from "./panels";
 
-const ACTION_ICONS: Record<string, LucideIcon> = {
-  command_template: SquareTerminal,
-  write_attribute: PencilLine,
-  notification: Bell,
+const ACTION_ICONS: Record<ActionKind, LucideIcon> = {
+  command: SquareTerminal,
+  write: PencilLine,
+  notify: Bell,
 };
 
 const TILE_TONES = {
@@ -54,10 +59,10 @@ const TILE_TONES = {
   notify: "bg-node-notify/10 text-node-notify",
 } as const;
 
-const ACTION_TONES: Record<string, keyof typeof TILE_TONES> = {
-  command_template: "command",
-  write_attribute: "write",
-  notification: "notify",
+const ACTION_TONES: Record<ActionKind, keyof typeof TILE_TONES> = {
+  command: "command",
+  write: "write",
+  notify: "notify",
 };
 
 function selectionKey(selection: Selection): string {
@@ -133,14 +138,14 @@ function useHeading(editor: AutomationEditorState): Heading {
       const outcome = selection.branchId
         ? outcomeAt(draft.branches, selection.branchId)
         : undefined;
-      const provider =
-        outcome?.kind === "action" ? outcome.action.provider_id : null;
+      const action = outcome?.kind === "action" ? outcome.action : null;
+      const kind = action ? actionKind(action) : null;
       return {
-        icon: provider ? (ACTION_ICONS[provider] ?? SquareTerminal) : Plus,
-        tone: provider ? (ACTION_TONES[provider] ?? "command") : "primary",
+        icon: kind ? ACTION_ICONS[kind] : Plus,
+        tone: kind ? ACTION_TONES[kind] : "primary",
         kicker: t("panel.action.kicker"),
-        title: provider
-          ? t(`actions.types.${provider}`, { defaultValue: provider })
+        title: action
+          ? t(actionTypeKey(action), { defaultValue: action.provider_id })
           : t("tree.chooseAction"),
       };
     }

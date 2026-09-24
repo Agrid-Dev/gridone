@@ -512,7 +512,7 @@ class TestDevicesListeners:
     ):
         """Regression AGR-534: callback must fire only when value changes."""
         calls: list[tuple[str, object]] = []
-        device.on_update = lambda _d, name, _prev, attr: calls.append(
+        device.on_update = lambda _d, name, _prev, attr, **_: calls.append(
             (name, attr.current_value)
         )
 
@@ -538,8 +538,8 @@ class TestDevicesListeners:
     ):
         """Regression AGR-534: push listener must fire callback only on changes."""
         calls: list[tuple[str, object]] = []
-        device_w_push_transport.on_update = lambda _d, name, _prev, attr: calls.append(
-            (name, attr.current_value)
+        device_w_push_transport.on_update = lambda _d, name, _prev, attr, **_: (
+            calls.append((name, attr.current_value))
         )
         await device_w_push_transport.init_listeners()
 
@@ -1467,12 +1467,14 @@ async def test_first_divergent_read_and_reconnection_are_initial(
 ):
     device.attributes["temperature"].update_value(10)
     observations = []
-    device.on_update = lambda _device, name, previous, attr: observations.append(
-        (
-            name,
-            previous.current_value if previous else None,
-            attr.current_value,
-            attr.is_initial_observation,
+    device.on_update = lambda _device, name, previous, attr, *, initial: (
+        observations.append(
+            (
+                name,
+                previous.current_value if previous else None,
+                attr.current_value,
+                initial,
+            )
         )
     )
     mock_transport_client.read = AsyncMock(return_value=25.5)
@@ -1501,8 +1503,8 @@ async def test_equal_initial_read_does_not_hide_the_next_transition(
 ):
     device.attributes["temperature"].update_value(25.5)
     observations = []
-    device.on_update = lambda _device, name, _previous, attr: observations.append(
-        (name, attr.is_initial_observation)
+    device.on_update = lambda _device, name, _previous, _attr, *, initial: (
+        observations.append((name, initial))
     )
     mock_transport_client.read = AsyncMock(return_value=25.5)
     await device.read_attribute_value("temperature")
@@ -1510,4 +1512,53 @@ async def test_equal_initial_read_does_not_hide_the_next_transition(
     await device.read_attribute_value("temperature")
     assert [row for row in observations if row[0] == "temperature"] == [
         ("temperature", False)
+    ]
+
+
+def _record_initial_flags(
+    device: CoreDevice, observations: list[tuple[str, bool]]
+) -> None:
+    device.on_update = lambda _device, name, _previous, _attr, *, initial: (
+        observations.append((name, initial))
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_value_published_without_observation_keeps_the_baseline_pending(
+    device, mock_transport_client
+):
+    """A reinterpreted display value (a value-mapped attribute after a sibling
+    changed) is no evidence from the device: the first real observation that
+    follows is still the baseline."""
+    observations: list[tuple[str, bool]] = []
+    _record_initial_flags(device, observations)
+    device._update_attribute(  # noqa: SLF001
+        device.attributes["temperature"], 19.0, observed=False
+    )
+    observations.clear()
+    mock_transport_client.read = AsyncMock(return_value=20.0)
+    await device.read_attribute_value("temperature")
+    assert [row for row in observations if row[0] == "temperature"] == [
+        ("temperature", True)
+    ]
+
+
+@pytest.mark.asyncio
+async def test_a_connection_error_makes_every_next_value_a_baseline_again(
+    device, mock_transport_client
+):
+    """The monitor reports ERROR without a failed read too (silence): whatever
+    was observed before the outage is a baseline once the device answers."""
+    mock_transport_client.read = AsyncMock(return_value=20.0)
+    await device.read_attribute_value("temperature")
+    await device.read_attribute_value("humidity")
+    observations: list[tuple[str, bool]] = []
+    _record_initial_flags(device, observations)
+    device._publish_connection_status(ConnectionStatus.ERROR)  # noqa: SLF001
+    mock_transport_client.read.return_value = 21.0
+    await device.read_attribute_value("temperature")
+    await device.read_attribute_value("humidity")
+    assert [row for row in observations if row[0] in {"temperature", "humidity"}] == [
+        ("temperature", True),
+        ("humidity", True),
     ]

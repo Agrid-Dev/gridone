@@ -16,6 +16,8 @@ def on_fault_transition(
         attribute_name: str,
         previous: Attribute | None,
         attribute: Attribute,
+        *,
+        initial: bool,
     ) -> None:
         if not isinstance(attribute, FaultAttribute):
             return

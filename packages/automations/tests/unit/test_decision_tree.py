@@ -1,11 +1,10 @@
 """Compatibility, ordered evaluation and fail-closed execution safeguards."""
 
 import asyncio
-from datetime import UTC, datetime
-from unittest.mock import AsyncMock, MagicMock
+from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from automations.errors import AutomationLoopError
 from automations.models import (
     Action,
     Automation,
@@ -13,16 +12,18 @@ from automations.models import (
     AutomationCreate,
     AutomationGuardrails,
     AutomationUpdate,
+    AutomationWrite,
     ExecutionStatus,
     Trigger,
     TriggerContext,
 )
 from automations.service import AutomationsService
 from automations.storage.backend import AutomationsStorageBackend
+from automations.trigger_providers.schedule import ScheduleTriggerProvider
 from pydantic import BaseModel, ValidationError
 
 from models.attribute_observation import AttributeObservation
-from models.errors import InvalidError, SchemaValidationError
+from models.errors import SchemaValidationError
 from models.expressions import (
     Comparison,
     DeviceAttributeRef,
@@ -77,22 +78,24 @@ async def fire(service, automation):
     await service._make_on_fire(automation.id)(EVENT)  # noqa: SLF001
 
 
-async def test_legacy_payload_roundtrip_and_update(engine):
+async def test_single_branch_roundtrip_and_update(engine):
     service, action, storage, _ = engine
     created = await service.create(
-        AutomationCreate(name="legacy", trigger=TRIGGER, action=ACTION),
+        AutomationCreate(
+            name="single", trigger=TRIGGER, branches=[AutomationBranch(action=ACTION)]
+        ),
         created_by="user",
     )
-    assert len(created.branches) == 1
     assert created.branches[0].condition is None
     restored = Automation.model_validate_json(created.model_dump_json())
     assert restored.branches == created.branches
     await fire(service, created)
     action.execute.assert_awaited_once_with({}, EVENT)
     assert storage.log_execution.call_args.args[0].context == EVENT
-    updated = await service.update(
-        created.id, AutomationUpdate(action=Action(provider_id="test", params={"x": 1}))
+    replaced = created.branches[0].model_copy(
+        update={"action": Action(provider_id="test", params={"x": 1})}
     )
+    updated = await service.update(created.id, AutomationUpdate(branches=[replaced]))
     assert updated.branches[0].id == created.branches[0].id
     assert updated.branches[0].action.params == {"x": 1}
 
@@ -178,7 +181,9 @@ async def test_no_match_is_logged_without_counting_as_an_execution(engine):
 async def test_initial_observation_never_dispatches(engine):
     service, action, storage, _ = engine
     created = await service.create(
-        AutomationCreate(name="initial", trigger=TRIGGER, action=ACTION),
+        AutomationCreate(
+            name="initial", trigger=TRIGGER, branches=[AutomationBranch(action=ACTION)]
+        ),
         created_by="user",
     )
     await service._make_on_fire(created.id)(  # noqa: SLF001
@@ -190,32 +195,51 @@ async def test_initial_observation_never_dispatches(engine):
     action.execute.assert_awaited_once()
 
 
-async def test_suspension_persists_and_resume_does_not_fire(engine):
+async def test_deactivation_is_traced_and_enable_does_not_fire(engine):
     service, action, storage, _ = engine
     created = await service.create(
-        AutomationCreate(name="suspend", trigger=TRIGGER, action=ACTION),
+        AutomationCreate(
+            name="disable", trigger=TRIGGER, branches=[AutomationBranch(action=ACTION)]
+        ),
         created_by="user",
     )
-    suspended = await service.suspend(
+    disabled = await service.disable(
         created.id, reason="Maintenance", actor_id="operator"
     )
-    assert suspended.suspension.actor_id == "operator"
-    assert not suspended.enabled
+    assert disabled.deactivation is not None
+    assert disabled.deactivation.actor_id == "operator"
+    assert disabled.deactivation.reason == "Maintenance"
+    assert disabled.deactivation.source == "operator"
+    assert not disabled.enabled
+    # A second request changes nothing: the trace describes the current stop.
     assert (
-        await service.suspend(created.id, reason="Second request", actor_id="other")
-        == suspended
+        await service.disable(created.id, reason="Second request", actor_id="other")
+        == disabled
     )
-    storage.update.assert_awaited_with(suspended)
+    storage.update.assert_awaited_with(disabled)
     await fire(service, created)
     action.execute.assert_not_awaited()
-    with pytest.raises(InvalidError, match="explicitly"):
-        await service.update(created.id, AutomationUpdate(enabled=True))
     resumed = await service.enable(created.id)
     assert resumed.enabled
-    assert resumed.suspension is None
+    assert resumed.deactivation is None
     action.execute.assert_not_awaited()
     await fire(service, resumed)
     action.execute.assert_awaited_once()
+
+
+async def test_disable_without_reason_still_records_actor_and_time(engine):
+    service, _, _, _ = engine
+    created = await service.create(
+        AutomationCreate(
+            name="disable", trigger=TRIGGER, branches=[AutomationBranch(action=ACTION)]
+        ),
+        created_by="user",
+    )
+    disabled = await service.disable(created.id, actor_id="operator")
+    assert disabled.deactivation is not None
+    assert disabled.deactivation.reason is None
+    assert disabled.deactivation.actor_id == "operator"
+    assert disabled.deactivation.at <= datetime.now(UTC)
 
 
 async def test_indirect_feedback_stops_at_configured_limit(engine):
@@ -224,7 +248,7 @@ async def test_indirect_feedback_stops_at_configured_limit(engine):
         AutomationCreate(
             name="loop",
             trigger=TRIGGER,
-            action=ACTION,
+            branches=[AutomationBranch(action=ACTION)],
             guardrails=AutomationGuardrails(max_executions=2),
         ),
         created_by="user",
@@ -233,16 +257,54 @@ async def test_indirect_feedback_stops_at_configured_limit(engine):
         await fire(service, created)
     assert action.execute.await_count == 2
     stopped = await service.get(created.id)
-    assert stopped.suspension.source == "circuit_breaker"
-    assert stopped.suspension.reason == "execution_rate_exceeded"
-    assert storage.log_execution.call_args.args[0].status == ExecutionStatus.SUSPENDED
+    assert stopped.deactivation.source == "circuit_breaker"
+    assert stopped.deactivation.reason == "execution_rate_exceeded"
+    assert storage.log_execution.call_args.args[0].status == ExecutionStatus.TRIPPED
     await service.enable(created.id)
     await fire(service, created)
     assert action.execute.await_count == 3
 
 
-async def test_concurrent_execution_suspends_instead_of_overlapping(engine):
-    service, action, _, _ = engine
+async def test_schedule_automation_tripping_its_breaker_stops_cleanly():
+    """The trip unregisters the schedule from inside the listener's own task."""
+    provider = ScheduleTriggerProvider()
+    action = MagicMock(id="test", params_model=EmptyParams)
+    action.execute = AsyncMock(return_value="command")
+    action.describe_writes = AsyncMock(return_value=[])
+    service = AutomationsService(None, [provider], [action])
+    service._storage = AsyncMock(spec=AutomationsStorageBackend)  # noqa: SLF001
+    soon_due = MagicMock()
+    soon_due.get_next.side_effect = lambda _: (
+        datetime.now(UTC) + timedelta(milliseconds=5)
+    )
+    with patch(
+        "automations.trigger_providers.schedule.croniter", return_value=soon_due
+    ):
+        created = await service.create(
+            AutomationCreate(
+                name="cron",
+                trigger=Trigger(provider_id="schedule", params={"cron": "* * * * *"}),
+                branches=[AutomationBranch(action=ACTION)],
+                guardrails=AutomationGuardrails(max_executions=1),
+            ),
+            created_by="user",
+        )
+        (listener,) = provider._listeners.values()  # noqa: SLF001
+        task = listener._task  # noqa: SLF001
+        assert task is not None
+        # The second occurrence exceeds the rate and trips the breaker, which
+        # stops the listener from within this very task.
+        await asyncio.wait_for(task, timeout=1)
+    assert not task.cancelled()
+    assert task.cancelling() == 0
+    assert not (await service.get(created.id)).enabled
+    assert provider._listeners == {}  # noqa: SLF001
+    assert action.execute.await_count == 1
+
+
+async def test_overlapping_event_is_skipped_and_keeps_the_automation_enabled(engine):
+    """A second event during a run is not a loop: dropped, recorded, no trip."""
+    service, action, storage, _ = engine
     started, finish = asyncio.Event(), asyncio.Event()
 
     async def execute(*_args: object) -> None:
@@ -251,20 +313,26 @@ async def test_concurrent_execution_suspends_instead_of_overlapping(engine):
 
     action.execute.side_effect = execute
     created = await service.create(
-        AutomationCreate(name="overlap", trigger=TRIGGER, action=ACTION),
+        AutomationCreate(
+            name="overlap", trigger=TRIGGER, branches=[AutomationBranch(action=ACTION)]
+        ),
         created_by="user",
     )
     task = asyncio.create_task(fire(service, created))
     await started.wait()
     try:
         await fire(service, created)
-        assert (
-            await service.get(created.id)
-        ).suspension.reason == "overlapping_execution"
+        skipped = storage.log_execution.call_args.args[0]
+        assert skipped.status == ExecutionStatus.SKIPPED
+        assert skipped.reason == "overlapping_execution"
+        assert (await service.get(created.id)).enabled
+        assert (await service.get(created.id)).deactivation is None
         action.execute.assert_awaited_once()
     finally:
         finish.set()
         await task
+    # The run that was in flight completes and is recorded as usual.
+    assert storage.log_execution.call_args.args[0].status == ExecutionStatus.SUCCESS
 
 
 async def test_failure_never_falls_through_and_eventually_suspends(engine):
@@ -281,7 +349,7 @@ async def test_failure_never_falls_through_and_eventually_suspends(engine):
     for _ in range(3):
         await fire(service, created)
     assert action.execute.await_count == 3
-    assert (await service.get(created.id)).suspension.reason == "consecutive_failures"
+    assert (await service.get(created.id)).deactivation.reason == "consecutive_failures"
     assert storage.log_execution.call_args.args[0].error == "Action execution failed"
 
 
@@ -300,7 +368,6 @@ async def test_absent_previous_value_is_testable():
     rule = Automation(
         name="initial",
         trigger=TRIGGER,
-        action=ACTION,
         branches=[
             AutomationBranch(
                 action=ACTION,
@@ -332,7 +399,7 @@ async def test_whole_tree_evaluation_budget_prevents_dispatch(engine, monkeypatc
     assert storage.log_execution.call_args.args[0].reason == "evaluation_limit"
 
 
-async def test_rate_window_expires_without_suspension(engine, monkeypatch):
+async def test_rate_window_expires_without_deactivation(engine, monkeypatch):
     service, action, _, _ = engine
     now = MagicMock(return_value=1)
     monkeypatch.setattr("automations.service.monotonic", now)
@@ -340,7 +407,7 @@ async def test_rate_window_expires_without_suspension(engine, monkeypatch):
         AutomationCreate(
             name="cadence",
             trigger=TRIGGER,
-            action=ACTION,
+            branches=[AutomationBranch(action=ACTION)],
             guardrails=AutomationGuardrails(max_executions=1, window_seconds=10),
         ),
         created_by="user",
@@ -352,54 +419,79 @@ async def test_rate_window_expires_without_suspension(engine, monkeypatch):
     assert (await service.get(created.id)).enabled
 
 
-async def test_failed_resume_retains_suspension(engine):
-    service, action, _, _ = engine
-    created = await service.create(
-        AutomationCreate(name="resume", trigger=TRIGGER, action=ACTION),
-        created_by="user",
-    )
-    suspended = await service.suspend(
-        created.id, reason="Maintenance", actor_id="operator"
-    )
-    service._providers["test"].register.side_effect = RuntimeError("unavailable")  # noqa: SLF001
-    with pytest.raises(RuntimeError, match="unavailable"):
-        await service.enable(created.id)
-    assert await service.get(created.id) == suspended
-    action.execute.assert_not_awaited()
-
-
-async def test_legacy_update_cannot_replace_multi_branch_tree(engine):
-    service, _, _, _ = engine
+async def test_failed_enable_retains_deactivation(engine):
+    service, action, storage, _ = engine
     created = await service.create(
         AutomationCreate(
-            name="tree",
-            trigger=TRIGGER,
-            branches=[branch("a", value=True), branch("b", value=False)],
+            name="resume", trigger=TRIGGER, branches=[AutomationBranch(action=ACTION)]
         ),
         created_by="user",
     )
-    with pytest.raises(InvalidError, match="Invalid automation update"):
-        await service.update(created.id, AutomationUpdate(action=ACTION))
-    assert (await service.get(created.id)).branches == created.branches
+    disabled = await service.disable(
+        created.id, reason="Maintenance", actor_id="operator"
+    )
+    storage.update.reset_mock()
+    service._providers["test"].register.side_effect = RuntimeError("unavailable")  # noqa: SLF001
+    with pytest.raises(RuntimeError, match="unavailable"):
+        await service.enable(created.id)
+    assert await service.get(created.id) == disabled
+    storage.update.assert_not_awaited()
+    action.execute.assert_not_awaited()
 
 
-async def test_direct_feedback_suspends_with_visible_cause(engine):
+async def test_direct_feedback_trips_before_dispatch_for_any_provider(engine):
+    """The service checks every provider's described writes against the event."""
     service, action, storage, _ = engine
-    action.execute.side_effect = AutomationLoopError("direct_feedback")
+    action.describe_writes.return_value = [
+        AutomationWrite(device_id="a", attribute="running", value=False)
+    ]
     created = await service.create(
-        AutomationCreate(name="feedback", trigger=TRIGGER, action=ACTION),
+        AutomationCreate(
+            name="feedback",
+            trigger=TRIGGER,
+            branches=[AutomationBranch(action=ACTION)],
+        ),
         created_by="user",
     )
     await fire(service, created)
-    suspended = await service.get(created.id)
-    assert suspended.suspension.source == "circuit_breaker"
-    assert suspended.suspension.reason == "direct_feedback"
-    assert storage.log_execution.call_args.args[0].status == ExecutionStatus.SUSPENDED
+    action.execute.assert_not_awaited()
+    tripped = await service.get(created.id)
+    assert tripped.deactivation.source == "circuit_breaker"
+    assert tripped.deactivation.reason == "direct_feedback"
+    assert storage.log_execution.call_args.args[0].status == ExecutionStatus.TRIPPED
     await fire(service, created)
-    action.execute.assert_awaited_once()
+    action.execute.assert_not_awaited()
 
 
-async def test_reordering_updates_compatibility_action_and_diagnostics(engine):
+@pytest.mark.parametrize(
+    ("event", "write"),
+    [
+        (EVENT, AutomationWrite(device_id="a", attribute="command", value=True)),
+        (EVENT, AutomationWrite(device_id="b", attribute="running", value=True)),
+        (
+            TriggerContext(timestamp=EVENT.timestamp),
+            AutomationWrite(device_id="a", attribute="running", value=True),
+        ),
+    ],
+)
+async def test_writes_elsewhere_are_dispatched(engine, event, write):
+    """Another point, another device, or no event device at all: no feedback."""
+    service, action, _, _ = engine
+    action.describe_writes.return_value = [write]
+    created = await service.create(
+        AutomationCreate(
+            name="elsewhere",
+            trigger=TRIGGER,
+            branches=[AutomationBranch(action=ACTION)],
+        ),
+        created_by="user",
+    )
+    await service._make_on_fire(created.id)(event)  # noqa: SLF001
+    action.execute.assert_awaited_once_with({}, event)
+    assert (await service.get(created.id)).enabled
+
+
+async def test_reordering_keeps_branches_and_diagnostics(engine):
     service, _, _, _ = engine
     first, second = branch("first", value=True), branch("second", value=False)
     created = await service.create(
@@ -410,7 +502,6 @@ async def test_reordering_updates_compatibility_action_and_diagnostics(engine):
         created.id, AutomationUpdate(branches=[second, first])
     )
     assert updated.branches == [second, first]
-    assert updated.action == second.action
     assert await service.list_diagnostics(updated.id) == []
 
 
@@ -438,7 +529,6 @@ async def test_nested_decisions_follow_one_path_and_log_each_level(engine):
         "not_matched",
         "matched",
     ]
-    assert created.action == leaf.action
 
 
 async def test_nonmatching_parent_skips_its_entire_subtree(engine):
@@ -541,15 +631,112 @@ async def test_branch_has_exactly_one_outcome(action, children):
         AutomationBranch(action=action, branches=children)
 
 
-async def test_legacy_action_update_cannot_collapse_a_subtree(engine):
-    service, _, _, _ = engine
+# The gates, counters and attribution a mutation review found unpinned.
+
+
+async def test_disable_stays_stopped_in_process_when_persistence_fails(engine):
+    """Fail closed: the listener is gone and the gate is shut even though the
+    deactivation could not be persisted."""
+    service, action, storage, _ = engine
+    trigger = service._providers["test"]  # noqa: SLF001
     created = await service.create(
         AutomationCreate(
-            name="nested",
-            trigger=TRIGGER,
-            branches=[AutomationBranch(branches=[AutomationBranch(action=ACTION)])],
+            name="disable", trigger=TRIGGER, branches=[AutomationBranch(action=ACTION)]
         ),
         created_by="user",
     )
-    with pytest.raises(InvalidError):
-        await service.update(created.id, AutomationUpdate(action=ACTION))
+    storage.update.side_effect = RuntimeError("db down")
+    with pytest.raises(RuntimeError, match="db down"):
+        await service.disable(created.id, reason="Maintenance", actor_id="operator")
+    stopped = await service.get(created.id)
+    assert not stopped.enabled
+    assert stopped.deactivation is not None
+    assert stopped.deactivation.reason == "Maintenance"
+    trigger.unregister.assert_awaited_once_with("listener")
+    await fire(service, created)
+    action.execute.assert_not_awaited()
+
+
+async def test_gate_is_shut_before_the_listener_is_unregistered(engine):
+    """An event still in flight while the listener is torn down finds the
+    automation already disabled."""
+    service, action, _, _ = engine
+    trigger = service._providers["test"]  # noqa: SLF001
+    created = await service.create(
+        AutomationCreate(
+            name="disable", trigger=TRIGGER, branches=[AutomationBranch(action=ACTION)]
+        ),
+        created_by="user",
+    )
+    seen: dict[str, bool] = {}
+
+    async def unregister(_handle: str) -> None:
+        seen["enabled"] = (await service.get(created.id)).enabled
+        await fire(service, created)
+
+    trigger.unregister.side_effect = unregister
+    await service.disable(created.id, reason="Maintenance", actor_id="operator")
+    assert seen["enabled"] is False
+    action.execute.assert_not_awaited()
+
+
+async def test_enable_restarts_the_consecutive_failure_count(engine):
+    """After a trip on failures, one failure following the resume is one
+    failure, not the third: the counter went with the deactivation."""
+    service, action, storage, _ = engine
+    action.execute.side_effect = RuntimeError("private backend error")
+    created = await service.create(
+        AutomationCreate(
+            name="failure",
+            trigger=TRIGGER,
+            branches=[AutomationBranch(action=ACTION)],
+            guardrails=AutomationGuardrails(max_consecutive_failures=2),
+        ),
+        created_by="user",
+    )
+    for _ in range(2):
+        await fire(service, created)
+    assert (await service.get(created.id)).deactivation.reason == (
+        "consecutive_failures"
+    )
+    await service.enable(created.id)
+    await fire(service, created)
+    resumed = await service.get(created.id)
+    assert resumed.enabled
+    assert resumed.deactivation is None
+    assert storage.log_execution.call_args.args[0].status == ExecutionStatus.FAILED
+
+
+async def test_breaker_trip_is_attributed_to_the_system(engine):
+    service, _, _, _ = engine
+    created = await service.create(
+        AutomationCreate(
+            name="rate",
+            trigger=TRIGGER,
+            branches=[AutomationBranch(action=ACTION)],
+            guardrails=AutomationGuardrails(max_executions=1),
+        ),
+        created_by="user",
+    )
+    await fire(service, created)
+    await fire(service, created)
+    tripped = (await service.get(created.id)).deactivation
+    assert tripped is not None
+    assert tripped.source == "circuit_breaker"
+    assert tripped.actor_id == "system"
+    assert tripped.reason == "execution_rate_exceeded"
+
+
+async def test_an_event_without_a_device_skips_the_feedback_check(engine):
+    """No event point, nothing to feed back into: the writes are not described."""
+    service, action, _, _ = engine
+    created = await service.create(
+        AutomationCreate(
+            name="schedule", trigger=TRIGGER, branches=[AutomationBranch(action=ACTION)]
+        ),
+        created_by="user",
+    )
+    event = TriggerContext(timestamp=EVENT.timestamp)
+    await service._make_on_fire(created.id)(event)  # noqa: SLF001
+    action.execute.assert_awaited_once_with({}, event)
+    action.describe_writes.assert_not_awaited()

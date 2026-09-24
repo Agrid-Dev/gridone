@@ -7,6 +7,7 @@ import pytest
 from automations.models import (
     Action,
     Automation,
+    AutomationBranch,
     AutomationExecution,
     ExecutionStatus,
     Trigger,
@@ -30,9 +31,14 @@ async def test_group_failure_survives_postgres_restart():
     automation = Automation(
         id=gen_id(),
         name="Comfort",
-        action=Action(
-            provider_id="command_template", params={"template_id": "template"}
-        ),
+        branches=[
+            AutomationBranch(
+                action=Action(
+                    provider_id="command_template",
+                    params={"template_id": "template"},
+                )
+            )
+        ],
         trigger=Trigger(provider_id="schedule", params={}),
     )
     await storage.create(automation)

@@ -6,7 +6,8 @@ UPDATE automations SET branches = jsonb_build_array(jsonb_build_object(
     'name', '', 'condition', NULL, 'action', action
 ));
 ALTER TABLE automations ALTER COLUMN branches SET NOT NULL;
-ALTER TABLE automations ADD COLUMN suspension JSONB;
+ALTER TABLE automations DROP COLUMN action;
+ALTER TABLE automations ADD COLUMN deactivation JSONB;
 ALTER TABLE automations ADD COLUMN guardrails JSONB NOT NULL DEFAULT '{}';
 ALTER TABLE automations ADD COLUMN max_age_seconds DOUBLE PRECISION;
 ALTER TABLE automation_executions ADD COLUMN context JSONB;

@@ -18,8 +18,9 @@ FORM_SCHEMA_DIALECT_EXEMPTIONS = (
     # A dedicated ChangeEventForm/ConditionEditor renders the nested Condition;
     # this schema never enters the generic form pipeline.
     "ChangeEventTrigger",
-    # Dedicated WriteAttributeActionForm renders the recursive expression AST.
-    "WriteAttributeAction",
+    # CommandActionForm renders the template picker, the inline command wizard
+    # and the inline write; its scalar `value` union is outside the dialect.
+    "CommandAction",
 )
 
 _SNAKE_CASE = re.compile(r"^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$")
@@ -402,7 +403,7 @@ def test_first_party_generic_form_schemas_stay_within_dialect(
 def test_form_schema_exemptions_have_dedicated_automation_editors() -> None:
     assert FORM_SCHEMA_DIALECT_EXEMPTIONS == (
         "ChangeEventTrigger",
-        "WriteAttributeAction",
+        "CommandAction",
     )
     assert {
         schema.get("title")

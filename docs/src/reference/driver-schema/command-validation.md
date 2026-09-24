@@ -5,9 +5,11 @@ server evaluates them for every write: HTTP, CLI, automation and grouped command
 A driver contains data only; expressions cannot execute code or read another device.
 
 The shared language also supports explicit `device_id` point references for
-[site operating rules](../../guides/commands/operating-rules.md). These remain forbidden in
-drivers (`external_device_reference` at import). Site rules survive driver updates;
-broken point references remain visible and block their targeted writes.
+[site operating rules](../../guides/commands/operating-rules.md) and `event`
+references for automation conditions. Both remain forbidden in drivers
+(`external_device_reference` and `event_reference_not_available` at import). Site
+rules survive driver updates; broken point references remain visible and block
+their targeted writes.
 
 ## Attribute contract
 
