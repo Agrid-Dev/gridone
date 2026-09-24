@@ -16,6 +16,7 @@ from api.dependencies import (
     get_building_models_service,
     get_commands_service,
     get_device_manager,
+    get_ts_service,
 )
 from api.exception_handlers import register_exception_handlers
 from api.routes.assets_router import router
@@ -211,6 +212,9 @@ def app(
     app.dependency_overrides[get_assets_service] = lambda: assets_service
     app.dependency_overrides[get_building_models_service] = lambda: models_service
     app.dependency_overrides[get_commands_service] = lambda: mock_commands_service
+    app.dependency_overrides[get_ts_service] = lambda: MagicMock(
+        default_timezone="Europe/Paris"
+    )
     app.dependency_overrides[get_current_token_payload] = lambda: admin_token_payload
     app.dependency_overrides[get_current_permissions] = lambda: frozenset(Permission)
     app.dependency_overrides[get_current_role] = lambda: None
@@ -560,6 +564,14 @@ class TestBuildingProfile:
         assert response.json()["floors"] == 3
 
     @pytest.mark.asyncio
+    async def test_get_includes_the_deployment_timezone(
+        self, async_client: AsyncClient
+    ):
+        async with async_client as ac:
+            response = await ac.get("/profile")
+        assert response.json()["timezone"] == "Europe/Paris"
+
+    @pytest.mark.asyncio
     async def test_put_upserts_and_returns_profile(
         self, async_client: AsyncClient, assets_service: MagicMock
     ):
@@ -567,7 +579,14 @@ class TestBuildingProfile:
             response = await ac.put("/profile", json={"name": "HQ", "latitude": 48.85})
         assert response.status_code == 200
         assert response.json()["name"] == "HQ"
+        assert response.json()["timezone"] == "Europe/Paris"
         assets_service.set_profile.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_put_ignores_a_timezone_in_the_body(self, async_client: AsyncClient):
+        async with async_client as ac:
+            response = await ac.put("/profile", json={"timezone": "Asia/Tokyo"})
+        assert response.json()["timezone"] == "Europe/Paris"
 
     @pytest.mark.asyncio
     async def test_put_invalid_value_is_rejected_and_changes_nothing(
@@ -584,6 +603,8 @@ class TestBuildingProfile:
             response = await ac.get("/profile/schema")
         assert response.status_code == 200
         assert "latitude" in response.json()["properties"]
+        # Deployment config, not an editable profile field.
+        assert "timezone" not in response.json()["properties"]
 
 
 class TestUploadBuildingModel:

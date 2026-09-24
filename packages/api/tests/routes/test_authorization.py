@@ -66,6 +66,7 @@ from apps import (
     RegistrationRequest,
     RegistrationRequestStatus,
 )
+from assets import BuildingProfile
 from commands import (
     AttributeWrite,
     BatchCommandDispatch,
@@ -990,6 +991,7 @@ def _build_commands_app() -> FastAPI:
     manager = MockUsersService()
     dm = MagicMock()
     assets_svc = AsyncMock()
+    assets_svc.get_profile.return_value = BuildingProfile()
     app.dependency_overrides[get_users_service] = lambda: manager
     app.dependency_overrides[get_device_manager] = lambda: dm
     app.dependency_overrides[get_target_resolver] = _build_target_resolver_mock
@@ -1086,6 +1088,12 @@ COMMANDS_ACCESS_CONTROL_SCENARIOS = [
     # PUT /assets/profile requires ASSETS_WRITE.
     pytest.param("PUT", "/assets/profile", "viewer", 403, {}, id="profile-put-viewer"),
     pytest.param("PUT", "/assets/profile", None, 401, {}, id="profile-put-no-auth"),
+    # GET /assets/profile needs a login but no permission (AGR-1397): the
+    # thermostat reader holds no ASSETS_READ.
+    pytest.param(
+        "GET", "/assets/profile", "reader", 200, None, id="profile-get-reader"
+    ),
+    pytest.param("GET", "/assets/profile", None, 401, None, id="profile-get-no-auth"),
     # PATCH /assets/usage (batch classification) requires ASSETS_WRITE.
     pytest.param(
         "PATCH",

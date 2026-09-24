@@ -68,6 +68,8 @@ export type RegistrationRequestResponse =
 
 // Building
 export type BuildingProfile = Schemas["BuildingProfile"];
+/** The profile as served: adds the read-only deployment `timezone`. */
+export type BuildingProfileRead = Schemas["BuildingProfileRead"];
 
 // Apps
 export type App = Schemas["App"];

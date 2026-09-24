@@ -34,8 +34,8 @@ const translations: Record<string, string> = {
   "triggers.schedule.preview": "Schedule",
   "triggers.schedule.customHelp":
     "Enter a cron expression directly. The API validates it when you save.",
-  "triggers.schedule.utcNotice":
-    "Schedules run in UTC. Enter all times in UTC.",
+  "triggers.schedule.timezoneNotice":
+    "Times are in the building's time zone ({{timezone}}).",
   "triggers.schedule.descriptionUnavailable": "Schedule unavailable",
   "common.cancel": "Cancel",
   "common.save": "Save",
@@ -43,9 +43,17 @@ const translations: Record<string, string> = {
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (key: string) => translations[key] ?? key,
+    t: (key: string, values?: Record<string, string>) =>
+      (translations[key] ?? key).replace(
+        /{{(\w+)}}/g,
+        (_, name: string) => values?.[name] ?? "",
+      ),
     i18n: { resolvedLanguage: "en" },
   }),
+}));
+
+vi.mock("@/hooks/useBuildingProfile", () => ({
+  useBuildingTimezone: () => "Europe/Paris",
 }));
 
 import { ScheduleForm } from ".";
@@ -87,7 +95,7 @@ describe("ScheduleForm", () => {
 
     expect(screen.getByText("At 09:00 AM, every day")).toBeInTheDocument();
     expect(
-      screen.getByText("Schedules run in UTC. Enter all times in UTC."),
+      screen.getByText("Times are in the building's time zone (Europe/Paris)."),
     ).toBeInTheDocument();
     expect(screen.queryByLabelText(/cron/i)).not.toBeInTheDocument();
 
