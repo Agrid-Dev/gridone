@@ -109,12 +109,19 @@ function booleanTooltipRows(
 ): TooltipRow[] {
   const { series, values } = entry as BooleanPanelEntry;
   const v = values[hoveredIdx];
+  const labels = series.booleanLabels ?? { true: "true", false: "false" };
   return [
     {
       label: series.label,
-      value: v === true ? "true" : v === false ? "false" : "\u2014",
+      value: v === true ? labels.true : v === false ? labels.false : "\u2014",
       active,
-      swatch: { color: BOOL_COLOR, variant: "area" as const },
+      // Filled while the state is on, outlined while it is off or unknown —
+      // the band's own look at the hovered instant.
+      swatch: {
+        color: BOOL_COLOR,
+        variant: "area" as const,
+        hollow: v !== true,
+      },
     },
   ];
 }

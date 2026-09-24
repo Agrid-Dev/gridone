@@ -19,6 +19,8 @@ import {
   manyStringSeries,
   manyStringValues,
 } from "./fixture";
+import type { Series } from "../types";
+import { BOOL_COLOR } from "../constants";
 
 afterEach(cleanup);
 
@@ -818,5 +820,58 @@ describe("FloatPanel — value axis units", () => {
     const ticks = leftAxisTicks(container);
     expect(ticks.length).toBeGreaterThan(0);
     expect(ticks.every((tick) => /^[\d.,-]+$/.test(tick))).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Boolean state labels (AGR-1420)
+// ---------------------------------------------------------------------------
+
+describe("BooleanPanel — state labels", () => {
+  const leak: Series = {
+    key: "leak",
+    label: "Room 215",
+    booleanLabels: { true: "Leak", false: "Dry" },
+  };
+
+  function renderLeak(value: boolean | null) {
+    return render(
+      <TimeSeriesChartInner
+        timestamps={timestamps}
+        booleanSeries={[leak]}
+        booleanValues={{ leak: timestamps.map(() => value) }}
+        width={WIDTH}
+      />,
+    );
+  }
+
+  /** Hover a chart holding `value` throughout; returns the tooltip. */
+  function hoverLeak(value: boolean | null): Element {
+    const { container } = renderLeak(value);
+    const wrapper = container.firstElementChild!;
+    wrapper.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, width: WIDTH, height: 600 }) as DOMRect;
+    fireEvent.pointerMove(wrapper, { clientX: 400, clientY: 50 });
+    return document.querySelector(".bg-popover")!;
+  }
+
+  it.each([
+    [true, "Leak"],
+    [false, "Dry"],
+  ])("words a hovered %s as %s in the tooltip", (value, label) => {
+    const tooltip = hoverLeak(value);
+    expect(tooltip.textContent).toContain(label);
+    expect(tooltip.textContent).not.toMatch(/true|false/);
+  });
+
+  // The swatch previews the band: filled while the state is on, an empty
+  // outline while it is off or unknown.
+  it.each([
+    [true, BOOL_COLOR],
+    [false, "transparent"],
+    [null, "transparent"],
+  ])("paints the tooltip swatch of a hovered %s as %s", (value, fill) => {
+    const swatch = hoverLeak(value).querySelector("span") as HTMLSpanElement;
+    expect(swatch.style.backgroundColor).toBe(fill);
   });
 });

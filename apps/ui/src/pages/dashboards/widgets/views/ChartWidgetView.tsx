@@ -20,7 +20,9 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAttributeLabel } from "@/hooks/useAttributeLabel";
 import { useMultiTimeSeries } from "@/hooks/useMultiTimeSeries";
-import { UNTAGGED_GROUP_LABEL } from "@/lib/devices";
+import { useValueLabel } from "@/hooks/useValueLabel";
+import { UNTAGGED_GROUP_LABEL, deviceAttributes } from "@/lib/devices";
+import type { AttributeFields } from "@/lib/faults";
 import { useDashboardPeriod } from "../../useDashboardPeriod";
 import {
   holdLastValueUntil,
@@ -360,6 +362,7 @@ const FanOutChartView: FC<{
   const { query, refetchInterval } = useDashboardPeriod();
   const attributeLabel = useAttributeLabel();
   const captions = useAggCaptions();
+  const valueLabel = useValueLabel();
 
   // Buckets are cut from a window, so there is nothing to cut when the period
   // is unbounded — the "all time" preset resolves to no start, end or last.
@@ -439,8 +442,19 @@ const FanOutChartView: FC<{
     return <Message>{t("widgets.chart.mixedTypes")}</Message>;
   const [dataType] = dataTypes;
 
-  const deviceName = (id: string) =>
-    devices.find((d) => d.id === id)?.name ?? id;
+  const deviceOf = (id: string) => devices.find((d) => d.id === id);
+  const deviceName = (id: string) => deviceOf(id)?.name ?? id;
+
+  // A boolean's states read as its driver words them everywhere else — each
+  // device's own, since devices of one set may run different drivers.
+  const booleanLabels = (id: string) => {
+    const device = deviceOf(id);
+    const labels = device
+      ? (deviceAttributes(device)[target.attribute] as AttributeFields)
+          ?.value_labels
+      : null;
+    return { true: valueLabel(true, labels), false: valueLabel(false, labels) };
+  };
 
   // A dashboard chart is read outside any device's page, so a lone series has
   // to name its device — the attribute alone doesn't say whose it is — and an
@@ -464,6 +478,9 @@ const FanOutChartView: FC<{
       key: s.deviceId,
       label: label(s.deviceId, s.interval),
       href: `/devices/${encodeURIComponent(s.deviceId)}/history?${new URLSearchParams({ metric: target.attribute, ...(query.last ? { last: query.last } : query.start ? { start: query.start, ...(query.end ? { end: query.end } : {}) } : { last: "all" }) })}`,
+      ...(dataType === "bool"
+        ? { booleanLabels: booleanLabels(s.deviceId) }
+        : {}),
       points: s.points,
     })),
     target.attribute,
