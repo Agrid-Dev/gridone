@@ -655,6 +655,27 @@ function* readings(doc: Synoptic, draws = 200) {
 const circulate = (doc: Synoptic, slots: Record<string, SlotReading>) =>
   circulatingRuns(doc.symbols ?? [], doc.pipes ?? [], vals(slots));
 
+/**
+ * `circulate` on one plate, computed once per distinct set of readings.
+ * The sweeps that compare two readings mostly land on one they already
+ * met (a flow turned on is another reading of the enumeration), and on the
+ * plate with the most knobs the plain calls add up to tens of thousands,
+ * past the default timeout on a CI runner. The key holds what the module
+ * reads of a reading: its raw value and whether it is stale.
+ */
+function circulator(doc: Synoptic) {
+  const known = new Map<string, Set<string>>();
+  return (slots: Record<string, SlotReading>) => {
+    const key = Object.keys(slots)
+      .sort()
+      .map((k) => `${k}=${JSON.stringify(slots[k].raw)}:${slots[k].stale}`)
+      .join("|");
+    let set = known.get(key);
+    if (!set) known.set(key, (set = circulate(doc, slots)));
+    return set;
+  };
+}
+
 describe("circulatingRuns on the committed plates", () => {
   it.each(PLATE_NAMES)(
     "%s: moves exactly the runs on a path of the fluid through a flowing run, never a stopped one",
@@ -693,11 +714,12 @@ describe("circulatingRuns on the committed plates", () => {
     "%s: a stale reading changes nothing an absent one would not",
     (name) => {
       const doc = plate(name);
+      const moving = circulator(doc);
       for (const slots of readings(doc, 100)) {
         const without = Object.fromEntries(
           Object.entries(slots).filter(([, r]) => !r.stale),
         );
-        expect(circulate(doc, slots)).toEqual(circulate(doc, without));
+        expect(moving(slots)).toEqual(moving(without));
       }
     },
   );
@@ -707,22 +729,38 @@ describe("circulatingRuns on the committed plates", () => {
     (name) => {
       const doc = plate(name);
       const { flows, gates } = knobs(doc);
+      const moving = circulator(doc);
+      // Every run a switch stilled, with the readings and the switch, so a
+      // failure names them; asserted once, as the sweep is long.
+      const stilled: { slots: string[]; turnedOn: string; runs: string[] }[] =
+        [];
+      const turnOn = (slots: Record<string, SlotReading>, key: string) => {
+        const after = moving({ ...slots, [key]: reading(true) });
+        const runs = [...moving(slots)].filter((run) => !after.has(run));
+        if (runs.length > 0)
+          stilled.push({
+            slots: Object.entries(slots).map(
+              ([k, r]) => `${k}=${String(r.raw)}${r.stale ? " (stale)" : ""}`,
+            ),
+            turnedOn: key,
+            runs,
+          });
+      };
+      let switches = 0;
       for (const slots of readings(doc, 100)) {
-        const before = circulate(doc, slots);
         for (const id of gates) {
           if (slots[state(id)]?.raw !== false || slots[state(id)]?.stale)
             continue;
-          const after = circulate(doc, {
-            ...slots,
-            [state(id)]: reading(true),
-          });
-          for (const run of before) expect(after.has(run)).toBe(true);
+          turnOn(slots, state(id));
+          switches += 1;
         }
         for (const id of flows) {
-          const after = circulate(doc, { ...slots, [flow(id)]: reading(true) });
-          for (const run of before) expect(after.has(run)).toBe(true);
+          turnOn(slots, flow(id));
+          switches += 1;
         }
       }
+      expect(stilled.slice(0, 3)).toEqual([]);
+      expect(switches).toBeGreaterThan(200);
     },
   );
 
