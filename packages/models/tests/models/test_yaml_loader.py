@@ -349,7 +349,8 @@ class TestBoundaries:
     @PARSERS
     def test_default_node_budget(self, c_parser):
         items = DEFAULT_YAML_LIMITS.max_nodes - 1  # plus the list itself
-        assert len(load_bounded_yaml(f"[{'x, ' * items}]", c_parser=c_parser)) == items
+        value = load_bounded_yaml(f"[{'x, ' * items}]", c_parser=c_parser)
+        assert value == ["x"] * items
         with pytest.raises(BoundedYamlError) as info:
             load_bounded_yaml(f"[{'x, ' * (items + 1)}]", c_parser=c_parser)
         assert info.value.code == YamlErrorCode.TOO_MANY_NODES
