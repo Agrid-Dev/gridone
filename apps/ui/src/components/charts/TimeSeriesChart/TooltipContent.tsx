@@ -24,7 +24,11 @@ export function TooltipContent({
           }
         >
           {r.swatch && (
-            <LegendSwatch color={r.swatch.color} variant={r.swatch.variant} />
+            <LegendSwatch
+              color={r.swatch.color}
+              variant={r.swatch.variant}
+              hollow={r.swatch.hollow}
+            />
           )}
           <span className={r.active ? undefined : "text-muted-foreground"}>
             {r.label}{" "}

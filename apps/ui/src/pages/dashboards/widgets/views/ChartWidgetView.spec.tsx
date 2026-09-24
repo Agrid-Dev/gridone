@@ -28,6 +28,8 @@ vi.mock("react-i18next", () =>
     // Deliberately unlike toLabel("onoff_state") ("Onoff State"), so a test
     // reading this proves the catalog was consulted, not the humanizer.
     "attributes.onoff_state": "On/off",
+    "common.true": "True",
+    "common.false": "False",
   }),
 );
 
@@ -65,21 +67,34 @@ vi.mock("@/components/charts/TimeSeriesChart", () => ({
     lineSeries?: { label: string }[];
     intSeries?: { label: string }[];
     stringSeries?: { label: string }[];
-    booleanSeries?: { label: string }[];
+    booleanSeries?: {
+      label: string;
+      booleanLabels?: { true: string; false: string };
+    }[];
     numericMark?: string;
   }) => {
-    const series =
+    const series: {
+      label: string;
+      booleanLabels?: { true: string; false: string };
+    }[] =
       props.lineSeries ??
       props.intSeries ??
       props.stringSeries ??
-      props.booleanSeries;
+      props.booleanSeries ??
+      [];
     return (
       <div
         data-testid="chart"
         data-points={props.timestamps?.length}
         data-mark={props.numericMark}
       >
-        {series?.map((s) => s.label).join(",")}
+        {series
+          .map((s) =>
+            s.booleanLabels
+              ? `${s.label}: ${s.booleanLabels.true}/${s.booleanLabels.false}`
+              : s.label,
+          )
+          .join(",")}
       </div>
     );
   },
@@ -161,6 +176,22 @@ describe("ChartWidgetView", () => {
   // The width is the widget's, the window is the dashboard's: a chart saved
   // to bucket by day keeps doing so whichever period is being viewed, so it
   // travels with the read rather than being resolved from the window.
+  // Devices come back in whatever order the target resolved them; a reader
+  // scans a stack of panels for a name, so they are listed alphabetically —
+  // numbers in a name by value, so "Ch 9" comes before "Ch 10".
+  it("lists the devices' series alphabetically", () => {
+    mockResolved(["Ch 10", "ch 2", "Ch 9"]);
+    mockSeries([
+      seriesResult("dev1"),
+      seriesResult("dev2"),
+      seriesResult("dev3"),
+    ]);
+
+    render(<ChartWidgetView config={CONFIG} />);
+
+    expect(screen.getByTestId("chart")).toHaveTextContent("ch 2,Ch 9,Ch 10");
+  });
+
   it("reads at the width the config pinned", () => {
     mockResolved(["Meter 1"]);
     mockSeries([seriesResult("dev1")]);
@@ -263,6 +294,55 @@ function mockSpaceResult(over: Record<string, unknown> = {}) {
     ...over,
   });
 }
+
+describe("ChartWidgetView with a boolean attribute", () => {
+  // A boolean reads the way the driver words it everywhere else: its declared
+  // labels, in the viewer's language, and the localized True / False when it
+  // declares none.
+  it("words each device's states as its driver does", () => {
+    useTargetDevices.mockReturnValue({
+      devices: [
+        {
+          id: "dev1",
+          name: "Room 215",
+          attributes: {
+            onoff_state: {
+              value_labels: [
+                {
+                  value: true,
+                  label: { default: "Leak", translations: { fr: "Fuite" } },
+                },
+                { value: false, label: { default: "Dry" } },
+              ],
+            },
+          },
+        },
+        { id: "dev2", name: "Room 216", attributes: { onoff_state: {} } },
+      ],
+      isLoading: false,
+      error: null,
+    });
+    const bool = {
+      series: { id: "s", data_type: "bool" },
+      dataType: "bool",
+      points: [{ timestamp: "2026-07-28T10:00:00Z", value: true }],
+    };
+    mockSeries([seriesResult("dev1", bool), seriesResult("dev2", bool)]);
+
+    render(
+      <ChartWidgetView
+        config={{
+          type: "chart",
+          target: { devices: { types: ["sensor"] }, attribute: "onoff_state" },
+        }}
+      />,
+    );
+
+    expect(screen.getByTestId("chart")).toHaveTextContent(
+      "Room 215: Fuite/Dry,Room 216: True/False",
+    );
+  });
+});
 
 describe("ChartWidgetView drawing bars", () => {
   // Empty buckets set every bar's width and leave the gaps, so bars keep them

@@ -1,5 +1,8 @@
 import type { DataPoint, DataType } from "@gridone/sdk";
-import type { TimeSeriesChartProps } from "@/components/charts/TimeSeriesChart";
+import type {
+  Series,
+  TimeSeriesChartProps,
+} from "@/components/charts/TimeSeriesChart";
 import { mergeTimeSeries } from "@/lib/mergeTimeSeries";
 
 /** How numeric series are drawn — the chart's own vocabulary, which the
@@ -7,11 +10,13 @@ import { mergeTimeSeries } from "@/lib/mergeTimeSeries";
 export type NumericMark = "line" | "bar";
 
 /** One series to plot: the device it belongs to (`key`), how the legend names
- *  it (`label`), and its points over the window. */
+ *  it (`label`) and, for a boolean, its two states (`booleanLabels`), and its
+ *  points over the window. */
 export type ChartSeriesInput = {
   key: string;
   label: string;
   href?: string;
+  booleanLabels?: Series["booleanLabels"];
   points: DataPoint[];
 };
 
@@ -55,12 +60,10 @@ export function singleSeriesChartProps(
   mark: NumericMark = "line",
   href?: string,
 ): TimeSeriesChartProps {
-  const timestamps = points.map((p) => new Date(p.timestamp));
-  return chartPropsFor(
+  return multiSeriesChartProps(
     dataType,
-    timestamps,
-    [{ key, label, semanticKey: attribute, ...(href ? { href } : {}) }],
-    { [key]: points.map((p) => p.value) },
+    [{ key, label, href, points }],
+    attribute,
     mark,
   );
 }
@@ -83,14 +86,12 @@ export function multiSeriesChartProps(
 ): TimeSeriesChartProps {
   if (series.length === 1) {
     const [s] = series;
-    return singleSeriesChartProps(
+    return chartPropsFor(
       dataType,
-      s.key,
-      s.label,
-      s.points,
-      attribute,
+      s.points.map((p) => new Date(p.timestamp)),
+      [toSeries(s, attribute)],
+      { [s.key]: s.points.map((p) => p.value) },
       mark,
-      s.href,
     );
   }
 
@@ -105,18 +106,26 @@ export function multiSeriesChartProps(
   return chartPropsFor(
     dataType,
     timestamps,
-    // Series are keyed per device, so each carries the attribute as its
-    // semantic key — value colours (hvac modes, statuses) resolve from the
-    // attribute, not the device.
-    series.map(({ key, label, href }) => ({
-      key,
-      label,
-      semanticKey: attribute,
-      ...(href ? { href } : {}),
-    })),
+    series.map((s) => toSeries(s, attribute)),
     values,
     mark,
   );
+}
+
+/** The chart's view of one input series. Series are keyed per device, so each
+ *  carries the attribute as its semantic key — value colours (hvac modes,
+ *  statuses) resolve from the attribute, not the device. */
+function toSeries(
+  { key, label, href, booleanLabels }: ChartSeriesInput,
+  attribute?: string,
+): Series {
+  return {
+    key,
+    label,
+    semanticKey: attribute,
+    ...(href ? { href } : {}),
+    ...(booleanLabels ? { booleanLabels } : {}),
+  };
 }
 
 /** Fill the prop pair the data type calls for (see `singleSeriesChartProps`).
@@ -129,7 +138,7 @@ export function multiSeriesChartProps(
 function chartPropsFor(
   dataType: DataType,
   timestamps: Date[],
-  series: { key: string; label: string; semanticKey?: string }[],
+  series: Series[],
   values: Record<string, (DataPoint["value"] | null)[]>,
   mark: NumericMark,
 ): TimeSeriesChartProps {

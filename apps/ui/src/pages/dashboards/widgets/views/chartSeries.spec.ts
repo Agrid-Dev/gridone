@@ -143,6 +143,29 @@ describe("singleSeriesChartProps", () => {
 });
 
 describe("multiSeriesChartProps", () => {
+  // The chart only prints what each state is called — resolving the wording
+  // is the caller's, so it rides along on the series untouched.
+  it.each([
+    ["a lone device", [{ key: "dev1", label: "Room 215", points: [] }]],
+    [
+      "several devices",
+      [
+        { key: "dev1", label: "Room 215", points: [] },
+        { key: "dev2", label: "Room 216", points: [] },
+      ],
+    ],
+  ])("carries each series' state labels for %s", (_, inputs) => {
+    const booleanLabels = { true: "Leak", false: "Dry" };
+    const props = multiSeriesChartProps(
+      "bool",
+      inputs.map((s) => ({ ...s, booleanLabels })),
+      "liquid_detected",
+    );
+    expect(props.booleanSeries?.map((s) => s.booleanLabels)).toEqual(
+      inputs.map(() => booleanLabels),
+    );
+  });
+
   // Devices record on their own clocks, and points mean "held until the next
   // one" — so the merged index carries each series' value forward over the
   // other's timestamps rather than punching holes in the lines.

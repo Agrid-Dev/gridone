@@ -13,6 +13,10 @@ export type Series = {
   /** Render the line (and its legend swatch) dashed — e.g. a setpoint drawn
    *  against its measured value. Line panels only. */
   dash?: boolean;
+  /** Wording of a boolean series' two states, already resolved by the caller
+   *  — the tooltip names the one hovered. Boolean panels only; raw true /
+   *  false without it. */
+  booleanLabels?: { true: string; false: string };
 };
 
 export type TimeSeriesChartProps = {
@@ -43,7 +47,7 @@ export type TooltipRow = {
   label: string;
   value: string;
   active?: boolean;
-  swatch?: { color: string; variant: "line" | "area" };
+  swatch?: { color: string; variant: "line" | "area"; hollow?: boolean };
 };
 
 // ---------------------------------------------------------------------------
