@@ -52,7 +52,7 @@ The ADR §8 example is superseded by this vocabulary where they differ (`glyph-n
 
 | Budget | Value |
 | --- | --- |
-| Manifest YAML | 1 MiB, depth 64, 50 000 expanded nodes, at most 2 000 aliases within those expansion/depth limits, keys `str` or `int` (ints canonicalised to decimal strings, duplicates checked after canonicalisation) |
+| Manifest YAML | 1 MiB, depth 64, 100 000 expanded nodes, at most 2 000 aliases within those expansion/depth limits, keys `str` or `int` (ints canonicalised to decimal strings, duplicates checked after canonicalisation) |
 | ZIP | 20 MiB compressed, 50 MiB decompressed, 128 entries, `driver.yaml` ≤ 1 MiB, image ≤ 10 MiB per entry, ASCII paths ≤ 128 chars and ≤ 4 segments, no directory data, no symlink, no encryption, deflate/stored only |
 | Images | PNG/WebP static only, 16 MP each, ≤ 64 images and ≤ 64 MP total per package, re-encoded to PNG with metadata stripped, normalised sequentially |
 | Document | 300 bindings, 300 controls, 600 nodes/layers, layout depth 8, condition depth 8, 1000 evaluations per render |
