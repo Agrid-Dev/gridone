@@ -1,3 +1,9 @@
+## v0.269.2 (2026-09-24)
+
+### Fix
+
+- **models**: raise the bounded YAML byte budget to 2 MiB (AGR-1425)
+
 ## v0.269.1 (2026-09-24)
 
 ### Fix
