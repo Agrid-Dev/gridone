@@ -1,3 +1,9 @@
+## v0.268.0 (2026-09-24)
+
+### Feat
+
+- **assets**: serve the deployment timezone with the building profile
+
 ## v0.267.0 (2026-09-24)
 
 ### Feat
