@@ -31,7 +31,9 @@ export const CHART_COLORS = Array.from(
 
 export const MAX_STRING_VALUES = 10;
 export const OTHER_COLOR = "hsl(var(--muted-foreground) / 0.4)";
-export const BOOL_COLOR = CHART_COLORS[CHART_COLORS.length - 1];
+/** A boolean band marks a state, not an alarm — the brand's own blue keeps it
+ *  neutral, where a palette hue (pink, red) would read as a warning. */
+export const BOOL_COLOR = "hsl(var(--primary))";
 export const lineChartTheme: typeof lightTheme = {
   ...lightTheme,
   colors: CHART_COLORS,
