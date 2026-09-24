@@ -1,3 +1,10 @@
+## v0.269.0 (2026-09-24)
+
+### Feat
+
+- **dashboards**: list a chart's device series alphabetically
+- **ui**: word boolean states in the chart tooltip (AGR-1420)
+
 ## v0.268.0 (2026-09-24)
 
 ### Feat
