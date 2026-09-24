@@ -26,7 +26,7 @@ import { readThermocktat, writeThermocktat } from "../../lib/thermocktat";
 // without firing it, and a sibling polling the same container would not
 // survive the outage.
 const SERVICE = "thermocktat-decision-tree";
-const EXTERNAL_URL = "http://localhost:9091";
+const EXTERNAL_URL = "http://localhost:9092";
 const DEVICE_NAME = "Thermocktat decision tree";
 
 const FIXTURE: FixtureSet = {

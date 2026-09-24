@@ -168,7 +168,7 @@ services:
       TMK_DEVICE_ID: TMK_decision_tree_0
       TMK_CONTROLLER: http
     ports:
-      - "9091:8080"
+      - "9092:8080"
 
   # Dedicated to suites/devices/commandValidation.spec.ts: its driver carries
   # write rules that read onoff_state, which the suite flips through the http

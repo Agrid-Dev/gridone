@@ -98,7 +98,7 @@ Two files may share one emulator as long as they drive _different attributes_:
 one writing `temperature_setpoint` and the other `onoff_state`, each with its
 own device and transport. That is what lets vitest run them in parallel.
 `decisionTree.spec.ts`, in the same directory, owns `thermocktat-decision-tree`
-(`9091`) instead: it powers the emulator down to prove that a reconnection
+(`9092`) instead: it powers the emulator down to prove that a reconnection
 initializes an automation without firing it, an outage no sibling polling the
 same container could tolerate.
 
