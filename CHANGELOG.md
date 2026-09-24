@@ -1,3 +1,15 @@
+## v0.267.0 (2026-09-24)
+
+### Feat
+
+- **devices**: add observation quality and dependency refresh
+
+### Fix
+
+- **devices**: bound dependency acquisition per transport and device
+- **devices**: reconnect MQTT transports after a broker drop
+- **devices**: treat the first value after an unknown one as a baseline
+
 ## v0.266.0 (2026-09-24)
 
 ### Feat
