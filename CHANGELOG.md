@@ -1,3 +1,9 @@
+## v0.269.1 (2026-09-24)
+
+### Fix
+
+- **models**: raise the bounded YAML node budget to 100k (AGR-1426)
+
 ## v0.269.0 (2026-09-24)
 
 ### Feat
