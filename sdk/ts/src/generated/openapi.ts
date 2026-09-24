@@ -3379,6 +3379,37 @@ export interface components {
       /** Icon */
       icon?: string | null;
     };
+    /**
+     * BuildingProfileRead
+     * @description The building profile as served, with the deployment's timezone.
+     *
+     *     ``timezone`` is read-only deployment config (``GRIDONE_TIMEZONE``), not a
+     *     stored profile field: the IANA zone schedules and time-series run in.
+     */
+    BuildingProfileRead: {
+      /** Name */
+      name?: string | null;
+      /** Address */
+      address?: string | null;
+      /** Surface */
+      surface?: number | null;
+      /** Floors */
+      floors?: number | null;
+      /** Year Built */
+      year_built?: number | null;
+      /** Operator */
+      operator?: string | null;
+      /** Latitude */
+      latitude?: number | null;
+      /** Longitude */
+      longitude?: number | null;
+      /** Cover Url */
+      cover_url?: string | null;
+      /** Icon */
+      icon?: string | null;
+      /** Timezone */
+      timezone: string;
+    };
     /** BulkTagRequest */
     BulkTagRequest: {
       target: components["schemas"]["DevicesFilterBody"];
@@ -11335,7 +11366,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["BuildingProfile"];
+          "application/json": components["schemas"]["BuildingProfileRead"];
         };
       };
     };
@@ -11359,7 +11390,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["BuildingProfile"];
+          "application/json": components["schemas"]["BuildingProfileRead"];
         };
       };
       /** @description Validation Error */

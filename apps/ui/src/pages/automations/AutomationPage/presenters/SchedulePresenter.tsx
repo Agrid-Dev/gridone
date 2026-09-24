@@ -1,12 +1,14 @@
 import { useTranslation } from "react-i18next";
 import { Clock } from "lucide-react";
 import type { Trigger } from "@gridone/sdk";
+import { useBuildingTimezone } from "@/hooks/useBuildingProfile";
 import type { TriggerDescriptor } from "./types";
 import { ScheduleForm } from "../form/ScheduleForm";
 import { describeCronExpression } from "./cronDescription";
 
 export const SchedulePresenter = ({ trigger }: { trigger: Trigger }) => {
   const { t, i18n } = useTranslation("automations");
+  const timezone = useBuildingTimezone();
   const cron =
     typeof trigger.params?.cron === "string" ? trigger.params.cron : "";
   const description = describeCronExpression(
@@ -18,10 +20,13 @@ export const SchedulePresenter = ({ trigger }: { trigger: Trigger }) => {
     <p className="text-sm font-medium">
       <span>
         {description ?? t("triggers.schedule.descriptionUnavailable")}
-      </span>{" "}
-      <span className="text-muted-foreground">
-        ({t("triggers.schedule.timezone")})
       </span>
+      {timezone && (
+        <>
+          {" "}
+          <span className="text-muted-foreground">({timezone})</span>
+        </>
+      )}
     </p>
   );
 };

@@ -6,6 +6,7 @@ import { FieldShell } from "@/components/forms/controllers/FieldShell";
 import { InputController } from "@/components/forms/controllers/InputController";
 import { SelectController } from "@/components/forms/controllers/SelectController";
 import { cn } from "@/lib/utils";
+import { useBuildingTimezone } from "@/hooks/useBuildingProfile";
 import { describeCronExpression } from "../../presenters/cronDescription";
 import type { ScheduleFormValues, ScheduleFrequency } from "./cronSchedule";
 
@@ -34,6 +35,7 @@ type CronPickerProps = {
 export function CronPicker({ control, frequency, cron }: CronPickerProps) {
   const { t, i18n } = useTranslation("automations");
   const language = i18n?.resolvedLanguage ?? i18n?.language;
+  const timezone = useBuildingTimezone();
   const description =
     describeCronExpression(cron, language) ??
     t("triggers.schedule.descriptionUnavailable");
@@ -214,10 +216,12 @@ export function CronPicker({ control, frequency, cron }: CronPickerProps) {
           </div>
         </div>
 
-        <div className="flex gap-3 text-xs text-muted-foreground">
-          <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-          <p>{t("triggers.schedule.utcNotice")}</p>
-        </div>
+        {timezone && (
+          <div className="flex gap-3 text-xs text-muted-foreground">
+            <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            <p>{t("triggers.schedule.timezoneNotice", { timezone })}</p>
+          </div>
+        )}
       </div>
     </div>
   );

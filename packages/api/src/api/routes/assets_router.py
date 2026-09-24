@@ -20,6 +20,7 @@ from api.dependencies import (
     get_building_models_service,
     get_commands_service,
     get_device_manager,
+    get_ts_service,
 )
 from api.schemas.command import AssetCommand, BatchDispatchResponse
 from assets import (
@@ -38,6 +39,7 @@ from assets import (
 from commands import AttributeWrite, CommandsServiceInterface
 from devices_manager import DevicesServiceInterface
 from models.targets import AttributeTarget, DevicesFilter, TargetResolver
+from timeseries import TimeSeriesService
 from users.permissions import Permission
 
 router = APIRouter()
@@ -58,6 +60,16 @@ class UsageBatchResponse(BaseModel):
     updated: int
 
 
+class BuildingProfileRead(BuildingProfile):
+    """The building profile as served, with the deployment's timezone.
+
+    ``timezone`` is read-only deployment config (``GRIDONE_TIMEZONE``), not a
+    stored profile field: the IANA zone schedules and time-series run in.
+    """
+
+    timezone: str
+
+
 class TreeImportResponse(BaseModel):
     floors_created: int
     rooms_created: int
@@ -72,13 +84,14 @@ async def get_schema() -> dict:
     return get_asset_create_schema()
 
 
-@router.get(
-    "/profile", dependencies=[Depends(require_permission(Permission.ASSETS_READ))]
-)
+# Login only, no permission: every role's home page shows the building (AGR-1397).
+@router.get("/profile")
 async def get_building_profile(
     assets_svc: Annotated[AssetsService, Depends(get_assets_service)],
-) -> BuildingProfile:
-    return await assets_svc.get_profile()
+    ts: Annotated[TimeSeriesService, Depends(get_ts_service)],
+) -> BuildingProfileRead:
+    profile = await assets_svc.get_profile()
+    return BuildingProfileRead(**profile.model_dump(), timezone=ts.default_timezone)
 
 
 @router.put(
@@ -87,8 +100,10 @@ async def get_building_profile(
 async def set_building_profile(
     body: BuildingProfile,
     assets_svc: Annotated[AssetsService, Depends(get_assets_service)],
-) -> BuildingProfile:
-    return await assets_svc.set_profile(body)
+    ts: Annotated[TimeSeriesService, Depends(get_ts_service)],
+) -> BuildingProfileRead:
+    profile = await assets_svc.set_profile(body)
+    return BuildingProfileRead(**profile.model_dump(), timezone=ts.default_timezone)
 
 
 @router.get(

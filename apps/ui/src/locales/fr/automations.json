@@ -84,8 +84,7 @@
       "monthDay": "Jour du mois",
       "preview": "Programmation",
       "customHelp": "Saisissez directement une expression cron. L'API la valide lors de l'enregistrement.",
-      "utcNotice": "Les programmations s'exécutent en UTC. Saisissez toutes les heures en UTC.",
-      "timezone": "UTC",
+      "timezoneNotice": "Les heures sont exprimées dans le fuseau horaire du bâtiment ({{timezone}}).",
       "descriptionUnavailable": "Programmation indisponible"
     },
     "device": "Appareil",

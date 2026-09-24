@@ -20,6 +20,7 @@ import type { Action, AutomationExecution, Trigger } from "@gridone/sdk";
 import { cn } from "@/lib/utils";
 import { formatValue, type CellValue } from "@/lib/formatValue";
 import { useAttributeLabel } from "@/hooks/useAttributeLabel";
+import { useBuildingTimezone } from "@/hooks/useBuildingProfile";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { SeverityChip } from "@/components/SeverityChip";
 import { SEVERITIES, type Severity } from "@/lib/severity";
@@ -289,6 +290,7 @@ export function TriggerTitle({ trigger }: { trigger: Trigger }) {
   const { t, i18n } = useTranslation("automations");
   const { catalog } = useTree();
   const attributeLabel = useAttributeLabel();
+  const timezone = useBuildingTimezone();
   const params = trigger.params ?? {};
   if (trigger.provider_id === "schedule") {
     const cron = typeof params.cron === "string" ? params.cron : "";
@@ -298,10 +300,15 @@ export function TriggerTitle({ trigger }: { trigger: Trigger }) {
     );
     return (
       <>
-        {description ?? t("triggers.schedule.descriptionUnavailable")}{" "}
-        <span className="font-normal text-muted-foreground">
-          ({t("triggers.schedule.timezone")})
-        </span>
+        {description ?? t("triggers.schedule.descriptionUnavailable")}
+        {timezone && (
+          <>
+            {" "}
+            <span className="font-normal text-muted-foreground">
+              ({timezone})
+            </span>
+          </>
+        )}
       </>
     );
   }

@@ -5,18 +5,24 @@ import {
   UseMutationResult,
   UseQueryResult,
 } from "@tanstack/react-query";
-import type { BuildingProfile } from "@gridone/sdk";
+import type { BuildingProfile, BuildingProfileRead } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 
 const PROFILE_KEY = ["building-profile"];
 
-export function useBuildingProfile(): UseQueryResult<BuildingProfile> {
+export function useBuildingProfile(): UseQueryResult<BuildingProfileRead> {
   const client = useGridoneClient();
   return useQuery({
     queryKey: PROFILE_KEY,
     queryFn: () => client.assets.getBuildingProfile(),
     staleTime: 5 * 60 * 1000,
   });
+}
+
+/** The deployment's IANA timezone — schedules and time-series run in it.
+ *  `undefined` until the profile has loaded. */
+export function useBuildingTimezone(): string | undefined {
+  return useBuildingProfile().data?.timezone;
 }
 
 /** A profile is "configured" once it carries a name — the primary identity. */
@@ -28,8 +34,8 @@ export function isProfileConfigured(
 
 type EditBuildingProfile = {
   schema: UseQueryResult<Record<string, unknown>>;
-  profile: UseQueryResult<BuildingProfile>;
-  save: UseMutationResult<BuildingProfile, Error, Record<string, unknown>>;
+  profile: UseQueryResult<BuildingProfileRead>;
+  save: UseMutationResult<BuildingProfileRead, Error, Record<string, unknown>>;
 };
 
 export function useEditBuildingProfile(): EditBuildingProfile {

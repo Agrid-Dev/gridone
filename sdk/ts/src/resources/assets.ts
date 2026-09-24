@@ -8,6 +8,7 @@ import type {
   BatchDispatchResponse,
   BuildingModel,
   BuildingProfile,
+  BuildingProfileRead,
   ModelSpace,
   ReorderRequest,
   TreeImportResponse,
@@ -180,11 +181,11 @@ export class AssetsResource {
     );
   }
 
-  getBuildingProfile(): Promise<BuildingProfile> {
+  getBuildingProfile(): Promise<BuildingProfileRead> {
     return this.request("GET", "/assets/profile");
   }
 
-  setBuildingProfile(params: BuildingProfile): Promise<BuildingProfile> {
+  setBuildingProfile(params: BuildingProfile): Promise<BuildingProfileRead> {
     return this.request("PUT", "/assets/profile", { body: params });
   }
 
