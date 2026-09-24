@@ -156,8 +156,8 @@ REFUSED: dict[str, tuple[str, YamlLimits, YamlErrorCode]] = {
     "nul_byte": ("id: a\x00b\n", DEFAULT_YAML_LIMITS, YamlErrorCode.SYNTAX),
     "control_char": ("id: a\x01b\n", DEFAULT_YAML_LIMITS, YamlErrorCode.SYNTAX),
     "lone_surrogate": ("id: \ud800\n", DEFAULT_YAML_LIMITS, YamlErrorCode.SYNTAX),
-    "too_large_1mib_plus_1": (
-        "k: " + "x" * (MIB - 3) + "\n",
+    "too_large_2mib_plus_1": (
+        "k: " + "x" * (2 * MIB - 3) + "\n",
         DEFAULT_YAML_LIMITS,
         YamlErrorCode.TOO_LARGE,
     ),
@@ -191,7 +191,7 @@ INSTANT = [
     "python_object_tag",
     "nan_float",
     "binary_key",
-    "too_large_1mib_plus_1",
+    "too_large_2mib_plus_1",
 ]
 
 # (document, expected value)
@@ -214,7 +214,10 @@ ACCEPTED: dict[str, tuple[str, Any]] = {
         "k: " + "x" * (MIB // 2) + "\n",
         {"k": "x" * (MIB // 2)},
     ),
-    "exactly_1mib": ("k: " + "x" * (MIB - 4) + "\n", {"k": "x" * (MIB - 4)}),
+    "exactly_2mib": (
+        "k: " + "x" * (2 * MIB - 4) + "\n",
+        {"k": "x" * (2 * MIB - 4)},
+    ),
     # YAML 1.1 resolution quirks are kept on purpose (same values as safe_load).
     "yaml_1_1_quirks": ("a: yes\nb: 1_000\nc: 1:30\n", {"a": True, "b": 1000, "c": 90}),
 }
@@ -270,9 +273,9 @@ class TestRefusals:
 
     def test_size_refusal_has_no_position(self):
         with pytest.raises(BoundedYamlError) as info:
-            load_bounded_yaml("x" * (MIB + 1))
+            load_bounded_yaml("x" * (2 * MIB + 1))
         assert (info.value.line, info.value.column) == (None, None)
-        assert str(info.value) == "too_large: document exceeds 1048576 bytes"
+        assert str(info.value) == "too_large: document exceeds 2097152 bytes"
 
     def test_is_a_value_error(self):
         with pytest.raises(ValueError, match="too_many_nodes"):
@@ -341,6 +344,15 @@ class TestBoundaries:
         )
         with pytest.raises(BoundedYamlError) as info:
             load_bounded_yaml("[a, b, c, d, e]", limits, c_parser=c_parser)
+        assert info.value.code == YamlErrorCode.TOO_MANY_NODES
+
+    @PARSERS
+    def test_default_node_budget(self, c_parser):
+        items = DEFAULT_YAML_LIMITS.max_nodes - 1  # plus the list itself
+        value = load_bounded_yaml(f"[{'x, ' * items}]", c_parser=c_parser)
+        assert value == ["x"] * items
+        with pytest.raises(BoundedYamlError) as info:
+            load_bounded_yaml(f"[{'x, ' * (items + 1)}]", c_parser=c_parser)
         assert info.value.code == YamlErrorCode.TOO_MANY_NODES
 
     @PARSERS

@@ -764,8 +764,8 @@ SAMPLES: tuple[Sample, ...] = (
         lambda: archive_of_exact_size(20 * MIB),
     ),
     Sample(
-        "ok_manifest_1mib",
-        "driver.yaml of exactly 1 MiB",
+        "ok_manifest_2mib",
+        "driver.yaml of exactly 2 MiB",
         None,
         None,
         lambda: build_zip(
@@ -774,7 +774,7 @@ SAMPLES: tuple[Sample, ...] = (
                     "driver.yaml",
                     MANIFEST_YAML_ONLY
                     + "#"
-                    + "x" * (MIB - len(MANIFEST_YAML_ONLY) - 1),
+                    + "x" * (2 * MIB - len(MANIFEST_YAML_ONLY) - 1),
                 )
             ]
         ),
@@ -1124,10 +1124,10 @@ SAMPLES: tuple[Sample, ...] = (
     ),
     Sample(
         "manifest_too_large",
-        "driver.yaml > 1 MiB",
+        "driver.yaml > 2 MiB",
         "entry_too_large",
         None,
-        lambda: build_zip([("driver.yaml", MANIFEST_YAML_ONLY + "# " + "x" * MIB)]),
+        lambda: build_zip([("driver.yaml", MANIFEST_YAML_ONLY + "# " + "x" * 2 * MIB)]),
     ),
     # --- container-format attacks ---
     Sample("not_a_zip", "random bytes", "not_a_zip", None, lambda: os.urandom(4096)),

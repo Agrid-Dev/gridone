@@ -213,8 +213,8 @@ class TestBoundaries:
         assert info.value.code == PackageErrorCode.ARCHIVE_TOO_LARGE
 
     def test_manifest_size(self, hostile_corpus):
-        files = read_package(hostile_corpus["ok_manifest_1mib"])
-        assert len(files.manifest.encode()) == MIB
+        files = read_package(hostile_corpus["ok_manifest_2mib"])
+        assert len(files.manifest.encode()) == 2 * MIB
         with pytest.raises(PackageError) as info:
             read_package(hostile_corpus["manifest_too_large"])
         assert info.value.code == PackageErrorCode.ENTRY_TOO_LARGE
@@ -295,10 +295,11 @@ class TestReadPayload:
 
     def test_bare_yaml_size_cap(self):
         with pytest.raises(PackageError) as info:
-            read_payload(b"#" * (MIB + 1), "application/yaml")
+            read_payload(b"#" * (2 * MIB + 1), "application/yaml")
         assert info.value.code == PackageErrorCode.ENTRY_TOO_LARGE
         assert info.value.path == MANIFEST_NAME
-        assert read_payload(b"#" * MIB, "application/yaml").manifest == "#" * MIB
+        payload = read_payload(b"#" * 2 * MIB, "application/yaml")
+        assert payload.manifest == "#" * 2 * MIB
 
     def test_bare_yaml_must_be_utf8(self):
         with pytest.raises(PackageError) as info:

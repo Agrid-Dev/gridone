@@ -218,7 +218,7 @@ The manifest is validated on import: unknown keys, wrong types, references to un
 
 | Budget | Limit |
 |---|---|
-| Manifest | 1 MiB, nesting ≤ 64, ≤ 2,000 aliases and ≤ 100,000 expanded nodes |
+| Manifest | 2 MiB, nesting ≤ 64, ≤ 2,000 aliases and ≤ 100,000 expanded nodes |
 | Package | ZIP ≤ 20 MiB compressed / 50 MiB decompressed, ≤ 128 entries, images ≤ 10 MiB and ≤ 16 megapixels each, ≤ 64 images and ≤ 64 megapixels in total |
 | Document | ≤ 300 bindings, ≤ 300 controls, ≤ 600 nodes and layers, layout depth ≤ 8, condition depth ≤ 8 |
 
@@ -266,7 +266,7 @@ inspection require `drivers:read`. The TypeScript SDK exposes
 `drivers.exportPackage(id)` (a Blob), and `drivers.getPresentation(id)`.
 
 Upload limits apply to bytes actually received: ZIP 20 MiB compressed, 50 MiB
-uncompressed, 128 entries, YAML 1 MiB, images 10 MiB each, 16 million pixels per
+uncompressed, 128 entries, YAML 2 MiB, images 10 MiB each, 16 million pixels per
 image and 64 million pixels/64 images per package. YAML depth is bounded at 64,
 expanded nodes at 100,000 and aliases at 2,000. Absolute paths, traversal, symbolic
 links, duplicate/colliding names, encrypted or nested archives, animation and
