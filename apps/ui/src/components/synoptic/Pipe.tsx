@@ -14,11 +14,16 @@ type PipeProps = {
   endArrow?: boolean;
   /** Draw the flow chevrons at the first point (reversed). */
   startArrow?: boolean;
-  /** Live flow: a moving dash in the plate colour when true. The dash
-   *  stands still under `prefers-reduced-motion`. The plates never set
-   *  it: run state is on the machine, never on the pipe, so a plate is
-   *  static and reads the same in a screenshot. */
+  /** The fluid is moving: a dash in the plate colour runs from the first
+   *  point to the last. It stands still under `prefers-reduced-motion`,
+   *  still marking the run. */
   flowing?: boolean;
+  /** How far along its run this piece starts, in px, so the dash of a run
+   *  cut per cell carries on from piece to piece instead of restarting. */
+  phase?: number;
+  /** The id of the run the piece belongs to, for whoever reads the plate
+   *  back (a test, a probe). */
+  run?: string;
 };
 
 /** The chevron the visual language draws at the `to` end: a filled head
@@ -31,6 +36,25 @@ export const PIPE_WIDTH = 6;
 const CASING_WIDTH = 10;
 /** A bend is barely rounded: a pipe corner is an elbow, not a curve. */
 const BEND_RADIUS = 4;
+/** The moving dash: 10 px on, 16 off, travelling `FLOW_TRAVEL` px every
+ *  `FLOW_SECONDS` (the `flow` keyframes of `tailwind.config.js`). */
+const FLOW_DASH = 10;
+const FLOW_GAP = 16;
+const FLOW_TRAVEL = 52;
+const FLOW_SECONDS = 1.2;
+
+/** Where a piece's dash pattern starts, `phase` px along its run: the
+ *  pattern repeats every dash + gap, so only the remainder counts. The
+ *  still dash (reduced motion) is offset by it. */
+export const flowShift = (phase: number) => {
+  const period = FLOW_DASH + FLOW_GAP;
+  return ((phase % period) + period) % period;
+};
+
+/** The animation delay that shifts a moving dash by the same amount, taken
+ *  below zero so the piece is mid-cycle from its first frame. */
+export const flowDelay = (phase: number) =>
+  ((flowShift(phase) - FLOW_DASH - FLOW_GAP) * FLOW_SECONDS) / FLOW_TRAVEL;
 
 /** A process pipe: orthogonal polyline with sharp elbows, a casing and
  *  optional flow chevrons. */
@@ -42,6 +66,8 @@ export function Pipe({
   endArrow = false,
   startArrow = false,
   flowing,
+  phase = 0,
+  run,
 }: PipeProps) {
   if (points.length < 2) return null;
   const pts = [...points];
@@ -68,7 +94,7 @@ export function Pipe({
 
   const d = roundedPath(pts, radius);
   return (
-    <g>
+    <g data-run={run}>
       <path
         d={d}
         fill="none"
@@ -98,9 +124,12 @@ export function Pipe({
           d={d}
           fill="none"
           strokeWidth={Math.max(2, width * 0.38)}
-          strokeDasharray="10 16"
+          strokeDasharray={`${FLOW_DASH} ${FLOW_GAP}`}
           strokeLinecap="round"
+          strokeDashoffset={flowShift(phase)}
+          style={{ animationDelay: `${flowDelay(phase)}s` }}
           className="animate-flow stroke-synoptic-plate motion-reduce:animate-none"
+          data-flow
         />
       )}
     </g>

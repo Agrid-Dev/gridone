@@ -22,6 +22,7 @@ vi.mock("react-i18next", () =>
     "legend.led.off": "à l'arrêt",
     "legend.led.unknown": "état inconnu",
     "legend.missingLink": "renvoi vers une vue absente",
+    "legend.circulating": "fluide en circulation",
     "common.severity.alert": "alerte",
     "common.severity.warning": "avertissement",
     "common.severity.info": "info",
@@ -163,6 +164,36 @@ describe("PlateLegend", () => {
     expect(thumb.getAttribute("viewBox")).toBe("-18 -18 116 116");
     expect(thumb.querySelectorAll("polygon").length).toBeGreaterThan(1);
     expect(Object.keys(DRAWINGS)).not.toContain("collector");
+  });
+
+  it("explains a moving run only for a plate that moves, drawn moving in the first fluid the plate carries, just after the fluids", () => {
+    render(
+      <PlateLegend
+        fluids={new Set<Fluid>(["condenser_return", "dhw"])}
+        circulating
+      />,
+    );
+    const legend = screen.getByLabelText("Légende");
+    const item = legend.querySelector("[data-legend='circulating']")!;
+    expect(item.textContent).toBe("fluide en circulation");
+    expect(item.querySelector("path.animate-flow")).not.toBeNull();
+    // The fluid's own stroke: `dhw` comes before `condenser_return`.
+    expect(item.querySelector("path.stroke-fluid-dhw")).not.toBeNull();
+    expect(entries("Légende").slice(0, 4)).toEqual([
+      "fluid-dhw",
+      "fluid-condenser_return",
+      "circulating",
+      "reading-live",
+    ]);
+
+    cleanup();
+    render(<PlateLegend fluids={new Set<Fluid>(["dhw"])} />);
+    expect(
+      screen
+        .getByLabelText("Légende")
+        .querySelector("[data-legend='circulating']"),
+    ).toBeNull();
+    expect(document.querySelector("path.animate-flow")).toBeNull();
   });
 
   it("shows no key without types or without a vocabulary", () => {

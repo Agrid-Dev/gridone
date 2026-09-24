@@ -1,7 +1,10 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import type { AttributeSlot, Synoptic } from "@gridone/sdk";
 import { describe, expect, it } from "vitest";
 import {
   boundSlots,
+  flowSlotKey,
   formatReading,
   isStale,
   READING_STATES,
@@ -73,10 +76,11 @@ const DOC: Synoptic = {
 };
 
 describe("boundSlots", () => {
-  it("enumerates symbol bindings, tag and label attribute slots in order, and never a pipe's flow, which nothing draws", () => {
+  it("enumerates symbol bindings, each pipe's flow then its tags, and label attribute slots, in the backend's order", () => {
     expect(boundSlots(DOC).map((s) => s.key)).toEqual([
       "symbol.pac.state",
       "symbol.pac.power",
+      "pipe.run.flow",
       "tag.tt",
       "label.temp",
     ]);
@@ -90,6 +94,87 @@ describe("boundSlots", () => {
 
   it("is empty for a bare envelope", () => {
     expect(boundSlots({ id: "e", name: "e", metadata: {} })).toEqual([]);
+  });
+
+  it("lists each pipe's flow before its own tags and after every symbol, pipe by pipe, and carries its slot", () => {
+    const flowA = slot("pump_a_on");
+    const doc: Synoptic = {
+      id: "p",
+      name: "plate",
+      metadata: {},
+      symbols: [
+        {
+          id: "late",
+          type: "pump",
+          placement: { kind: "pipe", pipe: "b", cell: { x: 1, y: 0 } },
+          bindings: { state: slot("on") },
+        },
+      ],
+      pipes: [
+        {
+          id: "a",
+          fluid: "dhw",
+          from: { kind: "cell", cell: { x: 0, y: 0 } },
+          to: { kind: "cell", cell: { x: 1, y: 0 } },
+          flow: flowA,
+          tags: [
+            { id: "ta", at: { x: 0, y: 0 }, label: "TA", value: slot("t") },
+          ],
+        },
+        {
+          id: "silent",
+          fluid: "dhw",
+          from: { kind: "cell", cell: { x: 0, y: 1 } },
+          to: { kind: "cell", cell: { x: 1, y: 1 } },
+          flow: null,
+          tags: [],
+        },
+        {
+          id: "b",
+          fluid: "dhw",
+          from: { kind: "cell", cell: { x: 0, y: 2 } },
+          to: { kind: "cell", cell: { x: 1, y: 2 } },
+          flow: slot("pump_b_on"),
+          tags: [
+            { id: "tb", at: { x: 0, y: 2 }, label: "TB", value: slot("t") },
+          ],
+        },
+      ],
+    };
+    const slots = boundSlots(doc);
+    expect(slots.map((s) => s.key)).toEqual([
+      "symbol.late.state",
+      "pipe.a.flow",
+      "tag.ta",
+      "pipe.b.flow",
+      "tag.tb",
+    ]);
+    expect(slots.find((s) => s.key === "pipe.a.flow")?.slot).toBe(flowA);
+  });
+
+  it("registers the flow of every run of the committed plates that binds one, keyed as the plate reads it", () => {
+    for (const name of [
+      "ecs-est",
+      "ecs-ouest",
+      "production-chaud",
+      "production-froid",
+    ]) {
+      const doc = JSON.parse(
+        readFileSync(
+          resolve(
+            import.meta.dirname,
+            `../../../../../docs/specs/synoptic/${name}.json`,
+          ),
+          "utf8",
+        ),
+      ) as Synoptic;
+      const keys = new Set(boundSlots(doc).map((s) => s.key));
+      const flowing = (doc.pipes ?? []).filter((p) => p.flow);
+      expect(flowing.length).toBeGreaterThan(0);
+      for (const pipe of flowing)
+        expect(keys.has(flowSlotKey(pipe.id))).toBe(true);
+      expect(flowSlotKey("pac-03-supply")).toBe("pipe.pac-03-supply.flow");
+    }
   });
 });
 

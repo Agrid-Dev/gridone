@@ -256,10 +256,15 @@ class Tag(BaseModel):
 class Pipe(BaseModel):
     """A run between ports, cells and other pipes.
 
-    The polyline is ``from``-cell, waypoints, ``to``-cell. ``flow`` animates the
-    run when it resolves to ``true``; a pipe without ``flow`` is static.
-    Animation is never inferred from an inline pump, which would animate the
-    return of a loop whose pump is on the supply.
+    The polyline is ``from``-cell, waypoints, ``to``-cell, the way the fluid
+    goes. ``flow`` says the run circulates when it resolves to ``true``, and a
+    circulating run carries its circuit: every run on a path of the fluid
+    through it moves too, a path walking the tees and the symbols' passages
+    (``SymbolType.passages``) from ``from`` to ``to``, never into a run whose
+    own ``flow`` reads ``false``, one a machine or valve that gates the flow
+    stops, or a dead end. Circulation is never inferred from an inline pump,
+    which would move the return of a loop whose pump is on the supply: a pump
+    can only stop it.
 
     ``flow`` takes the ``attribute`` arm only. A literal has nothing to resolve,
     so a ``text`` flow would reach production as a run that silently never

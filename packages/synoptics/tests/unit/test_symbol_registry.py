@@ -319,3 +319,99 @@ def test_collector_props_round_trip(registry):
     )
     assert isinstance(props, CollectorProps)
     assert props.ports["in_1"].side == "-x"
+
+
+def test_schemas_publish_the_passages_a_fluid_takes_through_a_symbol(registry):
+    """A renderer walks them to tell which runs circulate with a flowing one:
+    the heat pump's return reaches its supply, the tank keeps its primary and
+    its domestic side apart, a collector joins every port it authors, and an
+    expansion vessel's single port leads nowhere."""
+    schemas = registry.schemas()
+    assert schemas["heat_pump"]["x-passages"] == [["return", "supply"]]
+    assert schemas["tank"]["x-passages"] == [
+        ["primary_in", "primary_out"],
+        ["dhw_in", "dhw_out"],
+    ]
+    assert schemas["collector"]["x-passages"] == "all"
+    assert schemas["expansion_vessel"]["x-passages"] == []
+    assert schemas["pump"]["x-passages"] == []
+
+
+def test_every_declared_passage_names_ports_of_its_own_type(registry):
+    """The default registry passes its own check: every passage it publishes
+    names ports the type has, and no port sits in two passages."""
+    for name, schema in registry.schemas().items():
+        passages = schema["x-passages"]
+        if passages == "all":
+            assert schema["x-ports-authored"], name
+            continue
+        ports = [port for passage in passages for port in passage]
+        assert set(ports) <= set(schema["x-ports"]), name
+        assert len(ports) == len(set(ports)), name
+
+
+TWO_PORTS = {
+    "in": Port(offset=Cell(x=0, y=0), side="-x"),
+    "out": Port(offset=Cell(x=0, y=0), side="+x"),
+}
+
+
+@pytest.mark.parametrize(
+    ("passages", "match"),
+    [
+        ((("in",),), "fewer than two ports"),
+        ((("in", "outlet"),), "ports it lacks: outlet"),
+        ((("in", "out"), ("out", "in")), "two passages: in, out"),
+    ],
+)
+def test_a_passage_the_type_cannot_carry_is_refused(passages, match):
+    """Caught at registration, not by the first plate a renderer walks."""
+    registry = SymbolRegistry()
+    with pytest.raises(InvalidError, match=match):
+        registry.register(
+            SymbolType(
+                type="exchanger",
+                footprint=Footprint(w=1, d=1),
+                ports=TWO_PORTS,
+                passages=passages,
+            )
+        )
+
+
+def test_a_type_that_authors_its_ports_passes_through_all_or_none():
+    """Its ports are named per instance, so the type cannot list them."""
+    registry = SymbolRegistry()
+    with pytest.raises(InvalidError, match="its passages are 'all'"):
+        registry.register(
+            SymbolType(
+                type="manifold",
+                footprint=None,
+                props_model=CollectorProps,
+                ports_from_props=lambda _props: TWO_PORTS,
+                passages=(("in", "out"),),
+            )
+        )
+
+
+def test_only_what_stops_the_fluid_when_off_gates_the_flow(registry):
+    """A stopped pump or heat pump and a closed valve stop their circuit; a
+    loop heater that is off only stops heating, and the loop still runs."""
+    gating = {name for name, s in registry.schemas().items() if s["x-gates-flow"]}
+    assert gating == {"heat_pump", "pump", "pump_double", "valve_isolation"}
+    assert all("state" in registry.schemas()[name]["x-slots"] for name in gating), (
+        "a type gates the flow by its state reading"
+    )
+
+
+def test_a_type_that_gates_the_flow_without_a_state_is_refused():
+    """The gate is the state reading: with no slot to read, it never closes."""
+    registry = SymbolRegistry()
+    with pytest.raises(InvalidError, match="gates the flow with no state"):
+        registry.register(
+            SymbolType(
+                type="valve",
+                footprint=Footprint(w=1, d=1),
+                inline=True,
+                gates_flow=True,
+            )
+        )

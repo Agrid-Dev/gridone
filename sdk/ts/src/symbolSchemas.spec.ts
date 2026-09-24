@@ -22,12 +22,23 @@ describe("symbolSchemas", () => {
       expect(typeof schema["x-inline"]).toBe("boolean");
       expect(typeof schema["x-ports-authored"]).toBe("boolean");
       expect(typeof schema["x-rotation-locked"]).toBe("boolean");
+      expect(typeof schema["x-gates-flow"]).toBe("boolean");
       expect(Array.isArray(schema["x-slots"])).toBe(true);
       expect(Array.isArray(schema["x-required-slots"])).toBe(true);
       for (const port of Object.values(schema["x-ports"])) {
         expect(SIDES).toContain(port.side);
         expect(typeof port.offset.x).toBe("number");
         expect(typeof port.offset.y).toBe("number");
+      }
+      const passages = schema["x-passages"];
+      if (passages === "all") {
+        expect(schema["x-ports-authored"]).toBe(true);
+      } else {
+        for (const passage of passages) {
+          for (const port of passage) {
+            expect(Object.keys(schema["x-ports"])).toContain(port);
+          }
+        }
       }
     }
   });

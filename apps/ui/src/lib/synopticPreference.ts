@@ -11,6 +11,8 @@
 
 const LAST_KEY = "gridone.synoptics.last";
 const DEFAULT_KEY = "gridone.synoptics.default";
+const LEGEND_KEY = "gridone.synoptics.legend";
+const NAV_KEY = "gridone.synoptics.nav";
 
 function read(key: string): string | null {
   try {
@@ -35,6 +37,18 @@ export const readDefaultSynoptic = () => read(DEFAULT_KEY);
 /** `null` unpins: the page then opens on the last plate seen. */
 export const writeDefaultSynoptic = (id: string | null) =>
   write(DEFAULT_KEY, id);
+
+/** Whether the legend is unfolded over the plate: folded unless the user
+ *  unfolded it last, so the drawing keeps the room by default. */
+export const readLegendOpen = () => read(LEGEND_KEY) === "open";
+export const writeLegendOpen = (open: boolean) =>
+  write(LEGEND_KEY, open ? "open" : null);
+
+/** Whether the equipment list stands beside the plate: open unless the
+ *  user folded it last. */
+export const readNavOpen = () => read(NAV_KEY) !== "closed";
+export const writeNavOpen = (open: boolean) =>
+  write(NAV_KEY, open ? null : "closed");
 
 /** The plate to open among `ids` (the stored ones, in list order): the
  *  pinned one, else the last seen, else the first. `null` when none is

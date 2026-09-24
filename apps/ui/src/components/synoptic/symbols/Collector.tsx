@@ -1,3 +1,4 @@
+import { HALO, HALO_CLASS } from "../text";
 import type { ReactNode } from "react";
 import type { Cell, Projection } from "@gridone/sdk";
 import {
@@ -182,7 +183,8 @@ export function CollectorLabel({
       fontSize={LABEL_SIZE}
       fontWeight={600}
       letterSpacing={0.3}
-      className="fill-muted-foreground"
+      {...HALO}
+      className={`fill-muted-foreground ${HALO_CLASS}`}
       transform={`rotate(${round(angle)} ${at.x} ${at.y})`}
       data-axis-label
     >

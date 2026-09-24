@@ -26,7 +26,10 @@
     "zoom": "Zoom {{percent}} %",
     "fit": "Ajuster",
     "fullscreen": "Plein écran",
-    "exitFullscreen": "Quitter le plein écran"
+    "exitFullscreen": "Quitter le plein écran",
+    "legend": "Légende",
+    "exportPdf": "Exporter en PDF",
+    "pdf": "PDF"
   },
   "nav": {
     "title": "Équipements",
@@ -53,7 +56,8 @@
       "off": "à l'arrêt",
       "unknown": "état inconnu"
     },
-    "missingLink": "renvoi vers une vue absente"
+    "missingLink": "renvoi vers une vue absente",
+    "circulating": "fluide en circulation"
   },
   "fluids": {
     "primary_supply": "Primaire départ",
@@ -155,5 +159,11 @@
     "pin": "Ouvrir Synoptiques sur cette vue",
     "pinned": "Vue d'ouverture",
     "current": "Vue affichée"
+  },
+  "description": {
+    "title": "Description"
+  },
+  "print": {
+    "valuesAt": "Valeurs au {{date}}"
   }
 }

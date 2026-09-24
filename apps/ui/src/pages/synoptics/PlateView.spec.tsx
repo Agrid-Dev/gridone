@@ -17,11 +17,17 @@ vi.mock("react-i18next", () =>
     "view.fit": "Ajuster",
     "view.fullscreen": "Plein écran",
     "view.exitFullscreen": "Quitter le plein écran",
+    "view.legend": "Afficher la légende",
+    "view.exportPdf": "Exporter en PDF",
+    "view.pdf": "PDF",
     "nav.title": "Équipements",
     "nav.search": "Rechercher un équipement",
     "nav.toggle": "Afficher la liste des équipements",
     "nav.hide": "Masquer la liste des équipements",
     "legend.title": "Légende",
+    "faults.title": "Défauts sur cette vue",
+    "faults.none": "Aucun défaut actif.",
+    "print.valuesAt": "Valeurs au {{date}}",
     "fluids.primary_supply": "Primaire départ",
     "fluids.dhw_loop": "Bouclage",
     "popover.label": "Appareil sélectionné",
@@ -40,6 +46,7 @@ vi.mock("@/hooks/useAttributeCommandRuntime", () => ({
 vi.mock("sonner", () => ({ toast: { warning: vi.fn(), error: vi.fn() } }));
 
 import { PlateView } from "./PlateView";
+import { SynopticPage } from "./SynopticPage";
 
 const cell = (x: number, y: number) =>
   ({ kind: "cell", cell: { x, y } }) as const;
@@ -189,6 +196,26 @@ function renderView(doc: Synoptic = DOC) {
   return { container, onNavigate };
 }
 
+/** The page around the plate, for what the plate shares with it: the
+ *  equipment list under it and the ring they both drive. */
+function renderPage(doc: Synoptic = DOC) {
+  render(
+    <MemoryRouter>
+      <SynopticPage
+        doc={doc}
+        values={VALUES}
+        knownSynoptics={new Set(["ecs", "west"])}
+        synoptics={[]}
+        pinned={null}
+        onPin={vi.fn()}
+        onNavigate={vi.fn()}
+        faults={{ rows: [], loading: false, error: null }}
+        canWrite={false}
+      />
+    </MemoryRouter>,
+  );
+}
+
 const card = () => document.querySelector<HTMLElement>("[data-plate-view]")!;
 /** The canvas, not the toolbar's icons: the one svg painted as a plate. */
 const svg = () => card().querySelector<SVGSVGElement>("svg.bg-synoptic-plate")!;
@@ -204,11 +231,11 @@ const symbol = (id: string) => card().querySelector(`[data-symbol='${id}']`)!;
 const hoverWrap = (id: string) => card().querySelector(`[data-hover='${id}']`)!;
 const ring = (id: string) => card().querySelector(`[data-highlight='${id}']`);
 const navRows = () =>
-  [...card().querySelectorAll("[data-nav-symbol]")].map((row) =>
+  [...document.querySelectorAll("[data-nav-symbol]")].map((row) =>
     row.getAttribute("data-nav-symbol"),
   );
 const navRow = (id: string) =>
-  card().querySelector<HTMLButtonElement>(`[data-nav-symbol='${id}']`)!;
+  document.querySelector<HTMLButtonElement>(`[data-nav-symbol='${id}']`)!;
 const popover = () =>
   document.querySelector<HTMLElement>("[data-device-popover]");
 /** The invisible element the popover positions itself against. */
@@ -234,6 +261,8 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  window.localStorage.clear();
+  document.documentElement.classList.remove("dark");
   vi.unstubAllGlobals();
   Reflect.deleteProperty(SVGGElement.prototype, "getScreenCTM");
   Reflect.deleteProperty(document, "fullscreenElement");
@@ -297,26 +326,83 @@ describe("PlateView", () => {
       expect(readout().textContent).toBe("100 %");
     });
 
-    it("hides and shows the equipment list", () => {
+    it("keeps the equipment list beside the drawing, open until it is folded, and remembers it folded", () => {
       renderView();
-      expect(
-        screen.getByRole("navigation", { name: "Équipements" }),
-      ).toBeTruthy();
+      const nav = () =>
+        screen.queryByRole("navigation", { name: "Équipements" });
+      // Beside the drawing, in the card, not under the plate.
+      expect(nav()?.parentElement).toBe(svg().parentElement!.parentElement);
       const toggle = button("Masquer la liste des équipements");
       expect(toggle.getAttribute("aria-pressed")).toBe("true");
 
       fireEvent.click(toggle);
-      expect(screen.queryByRole("navigation")).toBeNull();
+      expect(nav()).toBeNull();
       expect(
         button("Afficher la liste des équipements").getAttribute(
           "aria-pressed",
         ),
       ).toBe("false");
+      expect(window.localStorage.getItem("gridone.synoptics.nav")).toBe(
+        "closed",
+      );
 
+      // The next plate opens with it folded, until it is unfolded again.
+      cleanup();
+      renderView();
+      expect(nav()).toBeNull();
       fireEvent.click(button("Afficher la liste des équipements"));
-      expect(
-        screen.getByRole("navigation", { name: "Équipements" }),
-      ).toBeTruthy();
+      expect(nav()).not.toBeNull();
+      expect(window.localStorage.getItem("gridone.synoptics.nav")).toBeNull();
+    });
+
+    it("folds the legend away until it is asked for, over the foot of the drawing, then remembers it", () => {
+      const { container } = renderView();
+      expect(card().querySelector("[data-plate-legend]")).toBeNull();
+      const toggle = button("Afficher la légende");
+      expect(toggle.getAttribute("aria-pressed")).toBe("false");
+
+      fireEvent.click(toggle);
+      expect(toggle.getAttribute("aria-pressed")).toBe("true");
+      // Over the foot of the drawing, not under it.
+      const legend = card().querySelector("[data-plate-legend]")!;
+      expect(legend.parentElement).toBe(svg().parentElement);
+      expect(screen.getByLabelText("Légende")).toBeTruthy();
+
+      // The next plate opens with it unfolded, until it is folded again.
+      container.remove();
+      cleanup();
+      renderView();
+      expect(card().querySelector("[data-plate-legend]")).not.toBeNull();
+      fireEvent.click(button("Afficher la légende"));
+      cleanup();
+      renderView();
+      expect(card().querySelector("[data-plate-legend]")).toBeNull();
+    });
+
+    it("exports a PDF through the browser's print, on a sheet of its own in the light theme", () => {
+      const print = vi.fn();
+      vi.stubGlobal("print", print);
+      document.documentElement.classList.add("dark");
+      renderView();
+      expect(document.querySelector("[data-print-sheet]")).toBeNull();
+
+      fireEvent.click(button("Exporter en PDF"));
+      expect(print).toHaveBeenCalledTimes(1);
+
+      // What the browser does around its print dialog.
+      fireEvent(window, new Event("beforeprint"));
+      const sheet = document.querySelector("[data-print-sheet]")!;
+      expect(sheet.parentElement).toBe(document.body);
+      expect(sheet.querySelector("h1")?.textContent).toBe("ECS Est");
+      expect(sheet.textContent).toContain("Valeurs au");
+      // Paper is white: the dark theme is lifted for the print.
+      expect(document.documentElement.classList.contains("dark")).toBe(false);
+      // On paper the fluid stands still.
+      expect(sheet.querySelector("path.animate-flow")).toBeNull();
+
+      fireEvent(window, new Event("afterprint"));
+      expect(document.querySelector("[data-print-sheet]")).toBeNull();
+      expect(document.documentElement.classList.contains("dark")).toBe(true);
     });
 
     it("gives every gesture to the canvas in full screen, and vertical swipes back to the page outside it", () => {
@@ -361,8 +447,9 @@ describe("PlateView", () => {
   });
 
   describe("equipment list", () => {
-    it("lists the named symbols by name with their type and state, and leaves unnamed ones out", () => {
+    it("lists the named symbols by name with their type and state beside the plate, and leaves unnamed ones out", () => {
       renderView();
+      expect(card().querySelector("[data-nav-symbol]")).not.toBeNull();
       expect(navRows()).toEqual([
         "b01",
         "to-west",
@@ -384,7 +471,7 @@ describe("PlateView", () => {
     });
 
     it("rings on the plate the row under the pointer, and lights the row of the symbol under the pointer", () => {
-      renderView();
+      renderPage();
       expect(ring("pac")).toBeNull();
 
       fireEvent.pointerEnter(hoverWrap("pac"));
@@ -504,12 +591,38 @@ describe("PlateView", () => {
     );
   });
 
+  it("explains the moving run only where the fluid can move: in the isometric view, on a plate whose runs say what sets them going", () => {
+    const circulating = () =>
+      screen
+        .getByLabelText("Légende")
+        .querySelector("[data-legend='circulating'] path.animate-flow");
+    // No run of this plate carries a flow: nothing on it ever moves.
+    renderView();
+    fireEvent.click(button("Afficher la légende"));
+    fireEvent.click(button("Isométrique"));
+    expect(circulating()).toBeNull();
+    cleanup();
+
+    renderView({
+      ...DOC,
+      pipes: DOC.pipes!.map((pipe) =>
+        pipe.id === "supply" ? { ...pipe, flow: attr("onoff_state") } : pipe,
+      ),
+    });
+    // The sheet stands still; the isometric view moves its circuits.
+    expect(circulating()).toBeNull();
+    fireEvent.click(button("Isométrique"));
+    expect(circulating()).not.toBeNull();
+  });
+
   it("lists in the legend the fluids the plate's pipes carry, in the vocabulary's order", () => {
     renderView();
-    const legend = screen.getByLabelText("Légende");
-    const fluids = [...legend.querySelectorAll("[data-legend^='fluid-']")].map(
-      (dd) => dd.textContent,
-    );
+    fireEvent.click(button("Afficher la légende"));
+    const fluids = [
+      ...screen
+        .getByLabelText("Légende")
+        .querySelectorAll("[data-legend^='fluid-']"),
+    ].map((dd) => dd.textContent);
     expect(fluids).toEqual(["Primaire départ", "Bouclage"]);
     // And the key names the types the plate draws, in the page's words.
     expect(
@@ -517,5 +630,196 @@ describe("PlateView", () => {
         (dd) => dd.getAttribute("data-legend-symbol"),
       ),
     ).not.toHaveLength(0);
+  });
+
+  describe("legend preference", () => {
+    const legendKey = () =>
+      window.localStorage.getItem("gridone.synoptics.legend");
+
+    it("opens unfolded when the operator left it unfolded", () => {
+      window.localStorage.setItem("gridone.synoptics.legend", "open");
+      renderView();
+      expect(card().querySelector("[data-plate-legend]")).not.toBeNull();
+      expect(button("Afficher la légende").getAttribute("aria-pressed")).toBe(
+        "true",
+      );
+    });
+
+    it("stores the unfolded legend as `open`, and folding it removes the key", () => {
+      renderView();
+      expect(legendKey()).toBeNull();
+      fireEvent.click(button("Afficher la légende"));
+      expect(legendKey()).toBe("open");
+      fireEvent.click(button("Afficher la légende"));
+      expect(legendKey()).toBeNull();
+      expect(card().querySelector("[data-plate-legend]")).toBeNull();
+    });
+  });
+
+  describe("print", () => {
+    it("marks on the sheet a link to a plate that is gone, as the screen does", () => {
+      renderView();
+      expect(symbol("to-gone").hasAttribute("data-missing")).toBe(true);
+      fireEvent(window, new Event("beforeprint"));
+      const sheet = document.querySelector("[data-print-sheet]")!;
+      expect(
+        sheet
+          .querySelector("[data-symbol='to-gone']")
+          ?.hasAttribute("data-missing"),
+      ).toBe(true);
+      // The link to a plate that exists is not marked.
+      expect(sheet.querySelectorAll("[data-missing]")).toHaveLength(1);
+      fireEvent(window, new Event("afterprint"));
+    });
+
+    /** The document's supply run, now reading its fluid moving. */
+    const MOVING: Synoptic = {
+      ...DOC,
+      projection: "isometric",
+      pipes: DOC.pipes!.map((pipe) =>
+        pipe.id === "supply" ? { ...pipe, flow: attr("onoff_state") } : pipe,
+      ),
+    };
+    const MOVING_VALUES: SynopticValues = {
+      ...VALUES,
+      slots: { ...VALUES.slots, "pipe.supply.flow": live("MARCHE", true) },
+    };
+    const renderMoving = () =>
+      render(
+        <MemoryRouter>
+          <PlateView
+            doc={MOVING}
+            values={MOVING_VALUES}
+            knownSynoptics={new Set(["ecs", "west"])}
+            onNavigate={vi.fn()}
+          />
+        </MemoryRouter>,
+      );
+    const sheet = () => document.querySelector("[data-print-sheet]");
+    const dark = () => document.documentElement.classList.contains("dark");
+    /** Text the canvas holds larger than drawn: grown about its anchor. */
+    const heldText = (root: Element) =>
+      [...root.querySelectorAll("g[transform]")].filter((g) =>
+        /scale\([\d.]+\) translate\(/.test(g.getAttribute("transform")!),
+      );
+
+    afterEach(() => {
+      Reflect.deleteProperty(SVGSVGElement.prototype, "getBoundingClientRect");
+    });
+
+    it("has the sheet on the page by the time the browser lays it out, when the PDF button starts the print", () => {
+      // What a browser does inside `print()`: `beforeprint`, the layout for
+      // paper, the dialog, `afterprint`, all before the call returns.
+      let laidOut: Element | null = null;
+      vi.stubGlobal("print", () => {
+        window.dispatchEvent(new Event("beforeprint"));
+        laidOut = document.querySelector("[data-print-sheet]");
+        window.dispatchEvent(new Event("afterprint"));
+      });
+      renderView();
+
+      fireEvent.click(button("Exporter en PDF"));
+
+      expect(laidOut).not.toBeNull();
+      expect(laidOut!.querySelector("h1")?.textContent).toBe("ECS Est");
+      expect(sheet()).toBeNull();
+    });
+
+    it("stands the fluid still on the sheet, where the isometric view on screen moves it, and leaves the moving run out of its legend", () => {
+      renderMoving();
+      fireEvent.click(button("Afficher la légende"));
+      // On screen the run moves, and the legend says what that means.
+      expect(card().querySelector("path.animate-flow")).not.toBeNull();
+      expect(
+        card().querySelector("[data-plate-legend] [data-legend='circulating']"),
+      ).not.toBeNull();
+
+      fireEvent(window, new Event("beforeprint"));
+
+      expect(sheet()!.querySelector("svg.bg-synoptic-plate")).not.toBeNull();
+      expect(sheet()!.querySelector("path.animate-flow")).toBeNull();
+      expect(sheet()!.querySelector("[data-legend='circulating']")).toBeNull();
+      expect(sheet()!.textContent).toContain("Isométrique");
+      fireEvent(window, new Event("afterprint"));
+    });
+
+    it("holds the text legible on screen and prints it at its drawn size", () => {
+      Object.defineProperty(SVGSVGElement.prototype, "getBoundingClientRect", {
+        configurable: true,
+        value: () => ({
+          x: 0,
+          y: 0,
+          left: 0,
+          top: 0,
+          right: 160,
+          bottom: 90,
+          width: 160,
+          height: 90,
+          toJSON: () => ({}),
+        }),
+      });
+      renderView();
+      expect(heldText(card()).length).toBeGreaterThan(0);
+
+      fireEvent(window, new Event("beforeprint"));
+      expect(heldText(sheet()!)).toEqual([]);
+      fireEvent(window, new Event("afterprint"));
+    });
+
+    it("prints the plate in the view on screen, headed by the sheet's own title rather than the drawn one", () => {
+      renderView({
+        ...DOC,
+        labels: [
+          {
+            id: "title",
+            at: { x: 0, y: -2 },
+            text: "PRODUCTION",
+            role: "title",
+          },
+          {
+            id: "note",
+            at: { x: 0, y: 12 },
+            text: "non mesurée",
+            role: "note",
+          },
+        ],
+      });
+      // Stored in plan, looked at in isometric.
+      fireEvent.click(button("Isométrique"));
+      fireEvent(window, new Event("beforeprint"));
+
+      expect(sheet()!.querySelector("[data-slab]")).not.toBeNull();
+      expect(sheet()!.textContent).toContain("Isométrique");
+      expect(sheet()!.querySelector("[data-label='title']")).toBeNull();
+      expect(sheet()!.querySelector("[data-label='note']")).not.toBeNull();
+      fireEvent(window, new Event("afterprint"));
+
+      fireEvent.click(button("Plan"));
+      fireEvent(window, new Event("beforeprint"));
+      expect(sheet()!.querySelector("[data-slab]")).toBeNull();
+      expect(sheet()!.textContent).toContain("Plan");
+      fireEvent(window, new Event("afterprint"));
+    });
+
+    it("never darkens a light page for a print", () => {
+      renderView();
+      fireEvent(window, new Event("beforeprint"));
+      expect(dark()).toBe(false);
+      fireEvent(window, new Event("afterprint"));
+      expect(dark()).toBe(false);
+    });
+
+    it("takes the sheet away and puts the dark theme back when the plate goes away in the middle of a print", () => {
+      document.documentElement.classList.add("dark");
+      renderView();
+      fireEvent(window, new Event("beforeprint"));
+      expect(sheet()).not.toBeNull();
+      expect(dark()).toBe(false);
+
+      cleanup();
+
+      expect(sheet()).toBeNull();
+      expect(dark()).toBe(true);
+    });
   });
 });

@@ -1,7 +1,7 @@
 import type { Severity } from "@gridone/sdk";
 import { FAULT_STROKE_CLASS, faultLevel } from "./fault";
 import { LABEL_SIZE } from "./symbols/Label";
-import { textWidth } from "./text";
+import { HALO, HALO_CLASS, textWidth } from "./text";
 import type { Pt } from "./types";
 import { readingState, type ReadingState, type SlotReading } from "./values";
 
@@ -83,7 +83,8 @@ export function Caption({ at, text, anchor = "middle" }: CaptionProps) {
       fontSize={LABEL_SIZE}
       fontWeight={600}
       letterSpacing={CAPTION_TRACKING}
-      className="fill-muted-foreground uppercase"
+      {...HALO}
+      className={`fill-muted-foreground uppercase ${HALO_CLASS}`}
     >
       {text}
     </text>
@@ -152,7 +153,8 @@ export function Chip({ at, reading, label, title }: ChipProps) {
           textAnchor="middle"
           fontSize={UNIT_SIZE}
           fontStyle="italic"
-          className="fill-muted-foreground"
+          {...HALO}
+          className={`fill-muted-foreground ${HALO_CLASS}`}
         >
           {shown}
         </text>

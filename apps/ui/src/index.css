@@ -361,3 +361,23 @@
 .dark ::-webkit-scrollbar-thumb:hover {
   background: hsl(230 16% 33%);
 }
+
+/* ── Print ──
+   A page that prints a sheet of its own (a synoptic's PDF) mounts it at the
+   end of the body only while printing; everything else, the app's shell and
+   any open overlay included, stays off the paper. */
+@media print {
+  body:has(> [data-print-sheet]) > :not([data-print-sheet]) {
+    display: none !important;
+  }
+}
+
+/* The synoptic's sheet prints on its own page, A3 landscape, whatever the
+   browser's default: a named page applies to that sheet alone. */
+@page synoptic-sheet {
+  size: A3 landscape;
+  margin: 10mm;
+}
+[data-print-sheet] {
+  page: synoptic-sheet;
+}

@@ -2,7 +2,7 @@
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel
 
@@ -47,6 +47,16 @@ class SymbolType:
     its ``footprint`` is ``None`` because its length comes from props).
     Such a type also sets ``rotation_locked``: its props already say which way
     it runs, and an instance rotation could only disagree with them.
+
+    ``passages`` are the groups of ports the fluid passes between inside the
+    symbol: a heat pump's return to its supply, a tank's primary and its
+    domestic side apart. A port in no passage is a dead end (an expansion
+    vessel's). ``"all"`` makes every port one passage, the only form a type
+    whose ports come from props can take (a collector joins all of its own).
+    A renderer walks them to tell which runs circulate with a flowing one.
+    ``gates_flow`` says a ``state`` reading off stops the fluid there: a
+    stopped pump or heat pump, a closed valve; a loop heater that is off
+    still lets the loop run.
     """
 
     type: str
@@ -62,3 +72,5 @@ class SymbolType:
     # Takes this type's own ``props_model``, which differs per type, so the
     # parameter cannot be narrowed here without splitting the dataclass.
     ports_from_props: Callable[[Any], Mapping[str, Port]] | None = None
+    passages: tuple[tuple[str, ...], ...] | Literal["all"] = ()
+    gates_flow: bool = False

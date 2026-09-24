@@ -3,8 +3,12 @@ import {
   landingSynopticId,
   readDefaultSynoptic,
   readLastSynoptic,
+  readLegendOpen,
+  readNavOpen,
   writeDefaultSynoptic,
   writeLastSynoptic,
+  writeLegendOpen,
+  writeNavOpen,
 } from "./synopticPreference";
 
 beforeEach(() => window.localStorage.clear());
@@ -87,5 +91,63 @@ describe("synoptic preference storage", () => {
     expect(() => writeLastSynoptic("west")).not.toThrow();
     expect(() => writeDefaultSynoptic("cta")).not.toThrow();
     expect(() => writeDefaultSynoptic(null)).not.toThrow();
+    expect(readLegendOpen()).toBe(false);
+    expect(() => writeLegendOpen(true)).not.toThrow();
+  });
+
+  it("keeps the legend folded until it is unfolded, and folds it back by removing the key", () => {
+    expect(readLegendOpen()).toBe(false);
+    writeLegendOpen(true);
+    expect(readLegendOpen()).toBe(true);
+    writeLegendOpen(false);
+    expect(window.localStorage.getItem("gridone.synoptics.legend")).toBeNull();
+    expect(readLegendOpen()).toBe(false);
+  });
+
+  it("stores the unfolded legend as the word `open`, under its own key", () => {
+    writeLegendOpen(true);
+    expect(window.localStorage.getItem("gridone.synoptics.legend")).toBe(
+      "open",
+    );
+    expect(readLastSynoptic()).toBeNull();
+    expect(readDefaultSynoptic()).toBeNull();
+  });
+
+  it.each(["", "closed", "true", "1", "OPEN"])(
+    "reads the legend folded for any stored value but `open`: %j",
+    (stored) => {
+      window.localStorage.setItem("gridone.synoptics.legend", stored);
+      expect(readLegendOpen()).toBe(false);
+    },
+  );
+
+  it("reads the legend unfolded when `open` is stored", () => {
+    window.localStorage.setItem("gridone.synoptics.legend", "open");
+    expect(readLegendOpen()).toBe(true);
+  });
+});
+
+describe("the equipment list", () => {
+  it("stands open until it is folded, stores the fold as `closed`, and unfolding removes the key", () => {
+    expect(readNavOpen()).toBe(true);
+    writeNavOpen(false);
+    expect(window.localStorage.getItem("gridone.synoptics.nav")).toBe("closed");
+    expect(readNavOpen()).toBe(false);
+    writeNavOpen(true);
+    expect(window.localStorage.getItem("gridone.synoptics.nav")).toBeNull();
+    expect(readNavOpen()).toBe(true);
+  });
+
+  it("reads anything but `closed` as open, and stays open when storage is unavailable", () => {
+    window.localStorage.setItem("gridone.synoptics.nav", "open");
+    expect(readNavOpen()).toBe(true);
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new DOMException("denied", "SecurityError");
+    });
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("denied", "SecurityError");
+    });
+    expect(readNavOpen()).toBe(true);
+    expect(() => writeNavOpen(false)).not.toThrow();
   });
 });

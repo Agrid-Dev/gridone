@@ -1,7 +1,8 @@
-import { createRef } from "react";
+import { createRef, useContext } from "react";
 import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ViewportController } from "./hooks/useViewport";
+import { TextScaleContext } from "./legibility";
 import { PidDiagram } from "./PidDiagram";
 
 /** jsdom has no layout: two client px per viewBox unit. */
@@ -287,5 +288,113 @@ describe("PidDiagram controller", () => {
     expect(onViewChange).toHaveBeenLastCalledWith({ x: -50, y: -25, scale: 2 });
     expect(c.scale()).toBe(2);
     expect(view().scale).toBe(2);
+  });
+});
+
+/** Reads the scale the canvas holds its text at. */
+function ScaleProbe() {
+  const k = useContext(TextScaleContext);
+  return <rect data-text-scale={k} />;
+}
+
+describe("PidDiagram text floor", () => {
+  let resize: (() => void) | null = null;
+  /** What the canvas asked to be told about when it resizes. */
+  let observed: Element[] = [];
+  const size = { w: 0, h: 0 };
+
+  /** A canvas laid out `w` × `h` screen px, whose observer the test fires. */
+  function layout(w: number, h: number) {
+    size.w = w;
+    size.h = h;
+    Object.defineProperty(SVGSVGElement.prototype, "getBoundingClientRect", {
+      configurable: true,
+      value: () => ({ width: size.w, height: size.h }),
+    });
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(cb: () => void) {
+          resize = cb;
+        }
+        observe(el: Element) {
+          observed.push(el);
+        }
+        disconnect() {}
+      },
+    );
+  }
+
+  afterEach(() => {
+    // Back to jsdom's own, inherited from Element.
+    delete (SVGSVGElement.prototype as { getBoundingClientRect?: unknown })
+      .getBoundingClientRect;
+    resize = null;
+    observed = [];
+  });
+
+  function drawProbe(props: Partial<Parameters<typeof PidDiagram>[0]> = {}) {
+    const controller = createRef<ViewportController | null>();
+    const { container } = render(
+      <PidDiagram width={100} height={50} controller={controller} {...props}>
+        <ScaleProbe />
+      </PidDiagram>,
+    );
+    const k = () =>
+      Number(
+        container
+          .querySelector("[data-text-scale]")!
+          .getAttribute("data-text-scale"),
+      );
+    return { k, c: controller };
+  }
+
+  it("holds the text at the floor once the fitted canvas shows it smaller", () => {
+    // 100 × 50 units on 50 × 25 px: half a pixel per unit, so 11-unit text
+    // shows 5.5 px and is held twice as large to show 11.
+    layout(50, 25);
+    const { k } = drawProbe({ minTextPx: 11, textSize: 11 });
+    expect(k()).toBe(2);
+  });
+
+  it("fits by the tighter side, as the viewBox meets the canvas", () => {
+    // Twice as tall as the plate's shape: the width decides, 0.5 px a unit.
+    layout(50, 100);
+    expect(drawProbe({ minTextPx: 11, textSize: 11 }).k()).toBe(2);
+  });
+
+  it("lets the text go as the view zooms in, and holds it again zoomed out", () => {
+    layout(50, 25);
+    const { k, c } = drawProbe({ minTextPx: 11, textSize: 11 });
+    act(() => c.current!.zoomBy(2));
+    expect(k()).toBe(1);
+    act(() => c.current!.zoomBy(0.5));
+    expect(k()).toBe(2);
+  });
+
+  it("follows the canvas when it is resized", () => {
+    layout(50, 25);
+    const { k } = drawProbe({ minTextPx: 11, textSize: 11 });
+    expect(k()).toBe(2);
+    // Only a canvas that is watched hears of its new size.
+    expect(observed.some((el) => el instanceof SVGSVGElement)).toBe(true);
+    size.w = 100;
+    size.h = 50;
+    act(() => resize!());
+    expect(k()).toBe(1);
+  });
+
+  it("is 1 with no floor, and before the canvas is laid out", () => {
+    layout(50, 25);
+    expect(drawProbe({ textSize: 11 }).k()).toBe(1);
+    cleanup();
+    layout(0, 0);
+    expect(drawProbe({ minTextPx: 11, textSize: 11 }).k()).toBe(1);
+  });
+
+  it("takes a text 1 unit high without a size", () => {
+    layout(50, 25);
+    // 2 px wanted of 1 unit at 0.5 px: four times.
+    expect(drawProbe({ minTextPx: 2 }).k()).toBe(4);
   });
 });

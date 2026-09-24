@@ -13,6 +13,7 @@ import type {
   Synoptic,
 } from "@gridone/sdk";
 import { CHIP_H, chipWidth, SILENT_TEXT } from "./Chip";
+import { circulatingRuns } from "./circulation";
 import { PANEL_W, panelHeight } from "./Panel";
 import {
   DEFAULT_PROJECTION,
@@ -445,18 +446,47 @@ describe("SynopticRenderer", () => {
     );
   });
 
-  it("never animates a run, whatever its flow reads: the machine shows the state", () => {
-    const flow = (reading: SlotReading) =>
-      q(
-        draw(DOC, {
-          ...VALUES,
-          slots: { ...VALUES.slots, "pipe.supply.flow": reading },
-        }),
-        "path.animate-flow",
+  it("moves the circuit a flowing run sets going, in the isometric view alone, and never past a closed valve", () => {
+    const moving = (
+      slots: Record<string, SlotReading>,
+      doc: Synoptic = DOC,
+      animated = true,
+    ) => {
+      const { container } = render(
+        <SynopticRenderer
+          doc={doc}
+          values={{ ...VALUES, slots: { ...VALUES.slots, ...slots } }}
+          animated={animated}
+        />,
       );
-    expect(flow(live("MARCHE", true))).toHaveLength(0);
-    expect(flow(live("ARRÊT", false))).toHaveLength(0);
+      return new Set(
+        q(container, "path.animate-flow").map((path) =>
+          path.closest("[data-run]")?.getAttribute("data-run"),
+        ),
+      );
+    };
+    // The branch carries the supply's fluid, so the tee joins them.
+    const teed: Synoptic = {
+      ...DOC,
+      pipes: DOC.pipes!.map((pipe) =>
+        pipe.id === "branch" ? { ...pipe, fluid: "primary_supply" } : pipe,
+      ),
+    };
+    // The branch's valve reads closed: the supply moves, the branch not.
+    expect(moving({}, teed)).toEqual(new Set(["supply"]));
+    // Opened, the tee carries the fluid into the branch.
+    expect(
+      moving({ "symbol.v-03.state": live("OUVERTE", true) }, teed),
+    ).toEqual(new Set(["supply", "branch"]));
+    // A branch of another fluid is a crossover: nothing carries it along.
+    expect(moving({ "symbol.v-03.state": live("OUVERTE", true) })).toEqual(
+      new Set(["supply"]),
+    );
+    expect(moving({ "pipe.supply.flow": live("ARRÊT", false) }).size).toBe(0);
     expect(q(draw(DOC), "path.animate-flow")).toHaveLength(0);
+    // The sheet and a still copy never move.
+    expect(moving({}, { ...DOC, projection: "flat" }).size).toBe(0);
+    expect(moving({}, DOC, false).size).toBe(0);
     // The running heat pump turns its fan instead.
     expect(q(draw(DOC, VALUES), "[data-fan='on']")).toHaveLength(0);
     expect(
@@ -1028,7 +1058,7 @@ describe("SynopticRenderer", () => {
         }
         // Every plate has names the runs push off the kit's spot.
         expect(leaders).toBeGreaterThan(0);
-        // No run ever moves: the machine shows the run state.
+        // Without a reading no circuit moves.
         expect(q(c, "path.animate-flow")).toHaveLength(0);
       });
     },
@@ -1639,4 +1669,500 @@ describe("SynopticRenderer, the illustrated kit on the plate", () => {
       expect(handle.symbolClientRect("pac")).toBeNull();
     });
   });
+});
+
+// ---------------------------------------------------------------------------
+// The text held legible, and the fluid set moving, on the committed plates.
+// ---------------------------------------------------------------------------
+
+/** Lays the canvas out at `fraction` of its viewBox, so one unit covers
+ *  `fraction` screen px: jsdom has no layout of its own. */
+function canvasAt(fraction: number) {
+  Object.defineProperty(SVGSVGElement.prototype, "getBoundingClientRect", {
+    configurable: true,
+    value(this: SVGSVGElement) {
+      const [, , w, h] = (this.getAttribute("viewBox") ?? "0 0 0 0")
+        .split(/\s+/)
+        .map(Number);
+      return { width: w * fraction, height: h * fraction };
+    },
+  });
+}
+const layoutGone = () => {
+  delete (SVGSVGElement.prototype as { getBoundingClientRect?: unknown })
+    .getBoundingClientRect;
+};
+
+const NUM = String.raw`(-?[\d.]+(?:e-?\d+)?)`;
+const HELD = new RegExp(
+  String.raw`^translate\(${NUM} ${NUM}\) scale\(${NUM}\) translate\(${NUM} ${NUM}\)$`,
+);
+/** The groups a text is held in: the anchor it grows about and its scale,
+ *  read off the transform. */
+function heldTexts(c: Element) {
+  return q(c, "g[transform]").flatMap((g) => {
+    const m = HELD.exec(g.getAttribute("transform")!);
+    if (!m) return [];
+    const [ax, ay, k, bx, by] = m.slice(1).map(Number);
+    // Grown about a point: the two translations undo each other.
+    expect(ax + bx).toBeCloseTo(0, 6);
+    expect(ay + by).toBeCloseTo(0, 6);
+    return [
+      {
+        g,
+        anchor: { x: ax, y: ay },
+        k,
+        hidden: g.getAttribute("display") === "none",
+      },
+    ];
+  });
+}
+type Held = ReturnType<typeof heldTexts>[number];
+const through = (h: Held, p: { x: number; y: number }) => ({
+  x: h.anchor.x + (p.x - h.anchor.x) * h.k,
+  y: h.anchor.y + (p.y - h.anchor.y) * h.k,
+});
+const boxThrough = (h: Held, b: TestBox): TestBox => {
+  const a = through(h, { x: b.x0, y: b.y0 });
+  const z = through(h, { x: b.x1, y: b.y1 });
+  return { x0: a.x, y0: a.y, x1: z.x, y1: z.y };
+};
+const num = (el: Element, name: string) => Number(el.getAttribute(name));
+
+/** What a held group draws, as boxes in its own coordinates: every frame
+ *  (a chip's, a panel's) and every line of text outside a frame, its width
+ *  estimated as the plate estimates it, letter spacing included; a text
+ *  turned along a bar is taken by the box of its turned corners. Leaders,
+ *  discs and LEDs are left out: they stand on the plate, not on text. */
+function drawnBoxes(group: Element): TestBox[] {
+  const boxes: TestBox[] = q(group, "rect").map(box);
+  for (const t of q(group, "text")) {
+    if (t.closest("[data-chip], [data-panel]")) continue;
+    const size = num(t, "font-size") || 11;
+    const spacing = num(t, "letter-spacing") || 0;
+    const anchor = t.getAttribute("text-anchor") ?? "start";
+    const lines = q(t, "tspan");
+    const rows = lines.length
+      ? lines.map((line, i) => ({
+          text: line.textContent ?? "",
+          y: num(t, "y") + i * (num(line, "dy") || 0),
+        }))
+      : [{ text: t.textContent ?? "", y: num(t, "y") }];
+    const x = num(t, "x");
+    for (const row of rows) {
+      const w = textWidth(row.text, size) + spacing * row.text.length;
+      const x0 = anchor === "middle" ? x - w / 2 : anchor === "end" ? x - w : x;
+      const corners = [
+        { x: x0, y: row.y - size },
+        { x: x0 + w, y: row.y - size },
+        { x: x0, y: row.y },
+        { x: x0 + w, y: row.y },
+      ];
+      const turn = /rotate\((\S+) (\S+) (\S+)\)/.exec(
+        t.getAttribute("transform") ?? "",
+      );
+      const pts = turn
+        ? corners.map((p) => {
+            const [deg, cx, cy] = turn.slice(1).map(Number);
+            const r = (deg * Math.PI) / 180;
+            return {
+              x: cx + (p.x - cx) * Math.cos(r) - (p.y - cy) * Math.sin(r),
+              y: cy + (p.x - cx) * Math.sin(r) + (p.y - cy) * Math.cos(r),
+            };
+          })
+        : corners;
+      boxes.push({
+        x0: Math.min(...pts.map((p) => p.x)),
+        y0: Math.min(...pts.map((p) => p.y)),
+        x1: Math.max(...pts.map((p) => p.x)),
+        y1: Math.max(...pts.map((p) => p.y)),
+      });
+    }
+  }
+  return boxes;
+}
+const strictlyOverlap = (a: TestBox, b: TestBox) =>
+  a.x0 < b.x1 - 0.01 &&
+  b.x0 < a.x1 - 0.01 &&
+  a.y0 < b.y1 - 0.01 &&
+  b.y0 < a.y1 - 0.01;
+
+/** The plate's frame in the items' coordinates: the viewBox, less the
+ *  offset the frame group moves the items by. */
+function frameOf(c: Element): TestBox {
+  const [, , w, h] = c
+    .querySelector("svg")!
+    .getAttribute("viewBox")!
+    .split(/\s+/)
+    .map(Number);
+  const offset = q(c, "svg g[transform]")
+    .map((g) => /^translate\((\S+) (\S+)\)$/.exec(g.getAttribute("transform")!))
+    .find((m) => m)!;
+  const [ox, oy] = [Number(offset[1]), Number(offset[2])];
+  return { x0: -ox, y0: -oy, x1: w - ox, y1: h - oy };
+}
+
+/** Every reading of a committed plate live, so every chip has a value, and
+ *  every flow and state reading true. */
+function liveValues(doc: Synoptic): SynopticValues {
+  const slots: Record<string, SlotReading> = {};
+  for (const s of doc.symbols ?? [])
+    for (const slotName of Object.keys(s.bindings ?? {}))
+      slots[`symbol.${s.id}.${slotName}`] = live("MARCHE", true);
+  for (const p of doc.pipes ?? []) {
+    if (p.flow) slots[`pipe.${p.id}.flow`] = live("MARCHE", true);
+    for (const t of p.tags ?? [])
+      slots[`tag.${t.id}`] = live("52.4", 52.4, "°C");
+  }
+  for (const l of doc.labels ?? [])
+    if (l.value) slots[`label.${l.id}`] = live("18.5", 18.5, "°C");
+  return { slots, devices: {} };
+}
+
+describe("SynopticRenderer text held legible", () => {
+  afterEach(layoutGone);
+
+  it("holds nothing without a floor, nor while the canvas shows the text at its own size", () => {
+    const doc = plate("ecs-est");
+    canvasAt(0.5);
+    expect(heldTexts(draw(doc)).filter((h) => h.k !== 1)).toHaveLength(0);
+    cleanup();
+    canvasAt(1);
+    const { container } = render(<SynopticRenderer doc={doc} minTextPx={11} />);
+    expect(heldTexts(container)).toHaveLength(0);
+    expect(q(container, "[data-text-hidden]")).toHaveLength(0);
+  });
+
+  it.each(PLATE_CASES)(
+    "%s: grows every text about the point it hangs from: a tag about its point on the run, a name about its leader's end, a hanging reading with its name",
+    (name) => {
+      const doc = plate(name);
+      canvasAt(0.5);
+      const { container } = render(
+        <SynopticRenderer doc={doc} values={liveValues(doc)} minTextPx={11} />,
+      );
+      const held = heldTexts(container);
+      const holding = (selector: string) =>
+        held.filter(
+          (h) => h.g.querySelector(selector) === h.g.firstElementChild,
+        );
+      expect(held.length).toBeGreaterThan(5);
+      for (const h of held) expect(h.k).toBe(2);
+      const near = (p: { x: number; y: number }, a: { x: number; y: number }) =>
+        Math.abs(p.x - a.x) < 1e-6 && Math.abs(p.y - a.y) < 1e-6;
+      // Tags: the disc on the run.
+      const tags = holding("[data-tag]");
+      for (const h of tags) {
+        const disc = h.g.querySelector("[data-tag] > circle")!;
+        expect(near({ x: num(disc, "cx"), y: num(disc, "cy") }, h.anchor)).toBe(
+          true,
+        );
+      }
+      // Every piece of text is held: none is left at its drawn size.
+      for (const selector of [
+        "[data-tag]",
+        "[data-symbol-label]",
+        "[data-readout]",
+        "[data-label]",
+        "text[data-axis-label]",
+      ]) {
+        for (const el of q(container, selector))
+          expect(held.some((h) => h.g.firstElementChild === el)).toBe(true);
+      }
+      // Names: the leader's end on the body, else the text's own point.
+      const names = new Map<string, Held>();
+      const namePoints = new Map<string, { x: number; y: number }>();
+      for (const h of holding("[data-symbol-label]")) {
+        const id = h.g
+          .querySelector("[data-symbol-label]")!
+          .getAttribute("data-symbol-label")!;
+        names.set(id, h);
+        const leader = h.g.querySelector("line[data-leader='label']");
+        const text = h.g.querySelector("[data-symbol-label] > text")!;
+        namePoints.set(id, { x: num(text, "x"), y: num(text, "y") });
+        const at = leader
+          ? { x: num(leader, "x2"), y: num(leader, "y2") }
+          : { x: num(text, "x"), y: num(text, "y") };
+        expect(near(at, h.anchor)).toBe(true);
+      }
+      // Readings: a chip with a leader about its end; one without hangs
+      // under its name and grows with it; a panel about its leader's end or,
+      // hanging, with its name.
+      let hangingSeen = 0;
+      for (const h of holding("[data-readout]")) {
+        const id = h.g
+          .querySelector("[data-readout]")!
+          .getAttribute("data-readout")!;
+        const leader = h.g.querySelector("line[data-leader]");
+        const end = leader && { x: num(leader, "x2"), y: num(leader, "y2") };
+        const name = names.get(id);
+        const withName = !!name && near(name.anchor, h.anchor);
+        if (leader?.getAttribute("data-leader") === "chip") {
+          expect(near(end!, h.anchor)).toBe(true);
+        } else if (!leader) {
+          if (name) expect(withName).toBe(true);
+          hangingSeen += 1;
+        } else {
+          // A panel whose leader ends on its own name, just over its text,
+          // hangs off that name and grows with it; any other about the end
+          // of its leader.
+          const point = namePoints.get(id);
+          const onName =
+            !!point &&
+            Math.abs(end!.x - point.x) < 1e-6 &&
+            end!.y < point.y &&
+            end!.y > point.y - 11;
+          if (onName) {
+            expect(withName).toBe(true);
+            hangingSeen += 1;
+          } else {
+            expect(near(end!, h.anchor)).toBe(true);
+          }
+        }
+      }
+      expect(tags.length + names.size).toBeGreaterThan(3);
+      // Collector names along their bar, and free labels, about their own
+      // point.
+      for (const h of held) {
+        const first = h.g.firstElementChild!;
+        const text = first.matches("text[data-axis-label]")
+          ? first
+          : first.matches("[data-label]")
+            ? first.querySelector("text")
+            : null;
+        if (text)
+          expect(near({ x: num(text, "x"), y: num(text, "y") }, h.anchor)).toBe(
+            true,
+          );
+      }
+      expect(hangingSeen + names.size).toBeGreaterThan(0);
+    },
+  );
+
+  it.each(
+    PLATE_CASES.flatMap(([name]) =>
+      (["isometric", "flat"] as const).flatMap((projection) =>
+        [0.5, 0.3].map((fraction) => [name, projection, fraction] as const),
+      ),
+    ),
+  )(
+    "%s (%s, %s px a unit): draws no two visible texts over each other, and none past the plate's frame",
+    (name, projection, fraction) => {
+      const doc = { ...plate(name), projection };
+      canvasAt(fraction);
+      const { container } = render(
+        <SynopticRenderer doc={doc} values={liveValues(doc)} minTextPx={11} />,
+      );
+      const held = heldTexts(container);
+      const visible = held.filter((h) => !h.hidden);
+      expect(visible.length).toBeGreaterThan(2);
+      expect(visible.length).toBeLessThan(held.length);
+      // Hidden and marked as such, the one with the other.
+      for (const h of held)
+        expect(h.g.hasAttribute("data-text-hidden")).toBe(h.hidden);
+      const frame = frameOf(container);
+      const drawn = visible.map((h) =>
+        drawnBoxes(h.g).map((b) => boxThrough(h, b)),
+      );
+      drawn.forEach((boxes, i) => {
+        for (const b of boxes) {
+          expect(b.x0).toBeGreaterThanOrEqual(frame.x0 - 0.01);
+          expect(b.y0).toBeGreaterThanOrEqual(frame.y0 - 0.01);
+          expect(b.x1).toBeLessThanOrEqual(frame.x1 + 0.01);
+          expect(b.y1).toBeLessThanOrEqual(frame.y1 + 0.01);
+        }
+        drawn.slice(i + 1).forEach((others, j) => {
+          for (const a of boxes)
+            for (const b of others) {
+              if (strictlyOverlap(a, b))
+                throw new Error(
+                  `${visible[i].g.firstElementChild!.outerHTML.slice(0, 80)} over ${visible[i + 1 + j].g.firstElementChild!.outerHTML.slice(0, 80)}`,
+                );
+            }
+        });
+      });
+    },
+  );
+
+  // A chip hung under its name has no leader: the name says whose it is.
+  it("a reading hung under its name with no leader gives way with the name", () => {
+    const orphans: string[] = [];
+    for (const [name] of PLATE_CASES) {
+      for (const projection of ["isometric", "flat"] as const) {
+        for (const fraction of [0.5, 0.3]) {
+          const doc = { ...plate(name), projection };
+          canvasAt(fraction);
+          const { container } = render(
+            <SynopticRenderer
+              doc={doc}
+              values={liveValues(doc)}
+              minTextPx={12}
+            />,
+          );
+          for (const readout of q(container, "[data-readout]")) {
+            if (readout.querySelector("line[data-leader]")) continue;
+            const id = readout.getAttribute("data-readout")!;
+            const label = container.querySelector(
+              `[data-symbol-label='${id}']`,
+            );
+            if (
+              label?.closest("[data-text-hidden]") &&
+              !readout.closest("[data-text-hidden]")
+            )
+              orphans.push(`${name} ${projection} ${fraction}: ${id}`);
+          }
+          cleanup();
+        }
+      }
+    }
+    expect(orphans).toEqual([]);
+  });
+
+  it("keeps the name of a device in fault where a healthy one gives way", () => {
+    const doc = plate("ecs-est");
+    canvasAt(0.5);
+    const hiddenNames = (values: SynopticValues) => {
+      const { container } = render(
+        <SynopticRenderer doc={doc} values={values} minTextPx={11} />,
+      );
+      const names = q(
+        container,
+        "[data-text-hidden] > [data-symbol-label]",
+      ).map((g) => g.getAttribute("data-symbol-label"));
+      cleanup();
+      return names;
+    };
+    const healthy = liveValues(doc);
+    expect(hiddenNames(healthy)).toContain("pac-04");
+    const device = doc.symbols!.find((s) => s.id === "pac-04")!.device_id!;
+    const faulty = {
+      ...healthy,
+      devices: { [device]: { faulty: true, severity: null } },
+    };
+    expect(hiddenNames(faulty)).not.toContain("pac-04");
+  });
+});
+
+describe("SynopticRenderer moving fluid on the committed plates", () => {
+  const flowingRuns = (c: Element) =>
+    new Set(
+      q(c, "path[data-flow]").map((p) =>
+        p.closest("[data-run]")!.getAttribute("data-run"),
+      ),
+    );
+
+  it.each(PLATE_CASES)(
+    "%s: animates in the isometric view exactly the runs that circulate, every piece of them",
+    (name) => {
+      const doc = plate(name);
+      const values = liveValues(doc);
+      const { container } = render(
+        <SynopticRenderer doc={doc} values={values} />,
+      );
+      const expected = circulatingRuns(
+        doc.symbols ?? [],
+        doc.pipes ?? [],
+        values,
+      );
+      expect(expected.size).toBeGreaterThan(2);
+      expect(flowingRuns(container)).toEqual(expected);
+      for (const pipe of doc.pipes ?? []) {
+        const pieces = q(container, `g[data-run='${pipe.id}']`);
+        expect(pieces.length).toBeGreaterThan(0);
+        const moving = pieces.filter((g) => g.querySelector("path[data-flow]"));
+        expect(moving.length).toBe(expected.has(pipe.id) ? pieces.length : 0);
+      }
+    },
+  );
+
+  it.each(PLATE_CASES)(
+    "%s: never moves on the sheet, nor on a still copy",
+    (name) => {
+      const doc = plate(name);
+      const values = liveValues(doc);
+      const flat = render(
+        <SynopticRenderer
+          doc={{ ...doc, projection: "flat" }}
+          values={values}
+        />,
+      ).container;
+      expect(q(flat, "path[data-flow], .animate-flow")).toHaveLength(0);
+      cleanup();
+      const still = render(
+        <SynopticRenderer doc={doc} values={values} animated={false} />,
+      ).container;
+      expect(q(still, "path[data-flow], .animate-flow")).toHaveLength(0);
+    },
+  );
+
+  it.each(PLATE_CASES)(
+    "%s: carries each run's dash on from piece to piece, in the still dash and in the moving one",
+    (name) => {
+      const doc = plate(name);
+      const { container } = render(
+        <SynopticRenderer doc={doc} values={liveValues(doc)} />,
+      );
+      /** A path's points in drawing order, a rounded corner's control
+       *  point included: the polyline through them is as long as the run's. */
+      const pointsOf = (d: string) =>
+        [...d.matchAll(/(-?[\d.]+(?:e-?\d+)?) (-?[\d.]+(?:e-?\d+)?)/g)].map(
+          (m) => ({ x: Number(m[1]), y: Number(m[2]) }),
+        );
+      const lengthOf = (pts: { x: number; y: number }[]) =>
+        pts
+          .slice(1)
+          .reduce(
+            (s, b, i) => s + Math.hypot(b.x - pts[i].x, b.y - pts[i].y),
+            0,
+          );
+      const mod = (v: number) => ((v % 26) + 26) % 26;
+      const close = (a: number, b: number) => {
+        const d = mod(a - b);
+        return Math.min(d, 26 - d) < 0.05;
+      };
+      // Seconds into the page at which the moving dash stands where the
+      // still one does: the delay puts the piece that far into its cycle.
+      const movingAt = (delay: number, t: number) =>
+        mod(-(52 / 1.2) * (((t - delay) % 1.2) + 1.2));
+      let joints = 0;
+      let shifted = 0;
+      const byRun = new Map<string, Element[]>();
+      for (const p of q(container, "path[data-flow]")) {
+        const run = p.closest("[data-run]")!.getAttribute("data-run")!;
+        byRun.set(run, [...(byRun.get(run) ?? []), p]);
+      }
+      expect(byRun.size).toBeGreaterThan(2);
+      for (const paths of byRun.values()) {
+        const pieces = paths.map((p) => {
+          const pts = pointsOf(p.getAttribute("d")!);
+          return {
+            start: pts[0],
+            end: pts[pts.length - 1],
+            length: lengthOf(pts),
+            offset: num(p, "stroke-dashoffset"),
+            delay: parseFloat((p as SVGPathElement).style.animationDelay),
+            capped: !!p.parentElement!.querySelector("polygon"),
+          };
+        });
+        for (const a of pieces) {
+          if (a.capped) continue;
+          for (const b of pieces) {
+            if (a === b) continue;
+            if (Math.hypot(a.end.x - b.start.x, a.end.y - b.start.y) > 0.01)
+              continue;
+            // The next piece starts its pattern where this one ends it.
+            expect(close(b.offset, a.offset + a.length)).toBe(true);
+            for (const t of [0, 0.4, 1.1])
+              expect(
+                close(movingAt(b.delay, t), movingAt(a.delay, t) + a.length),
+              ).toBe(true);
+            joints += 1;
+            if (!close(a.length, 0)) shifted += 1;
+          }
+        }
+      }
+      expect(joints).toBeGreaterThan(5);
+      expect(shifted).toBeGreaterThan(0);
+    },
+  );
 });

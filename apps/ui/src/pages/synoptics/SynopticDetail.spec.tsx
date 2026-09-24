@@ -358,11 +358,21 @@ describe("SynopticDetail switching", () => {
     );
   });
 
-  it("shows the plate's description under its title", async () => {
+  it("shows the plate's description once, at the foot of the page rather than under its title", async () => {
     renderDetail({ ...DOC, description: "Domestic hot water, east wing" });
+    const written = await screen.findAllByText("Domestic hot water, east wing");
+    expect(written).toHaveLength(1);
+    expect(written[0].hasAttribute("data-plate-description")).toBe(true);
+    // Under the equipment list, after the plate.
+    const plate = document.querySelector("[data-plate-view]")!;
     expect(
-      await screen.findByText("Domestic hot water, east wing"),
-    ).toBeInTheDocument();
+      plate.compareDocumentPosition(written[0]) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      document.querySelector("[data-page-title]")!.parentElement!.parentElement!
+        .parentElement!.textContent,
+    ).not.toContain("Domestic hot water, east wing");
   });
 
   it("pins the plate on screen as the one Synoptics opens, and unpins it", async () => {

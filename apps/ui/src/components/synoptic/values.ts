@@ -10,7 +10,7 @@ import type { SymbolState } from "./symbols/Label";
 
 /** One device-bound slot of a document, addressed by its `key`. */
 export type BoundSlot = {
-  /** `symbol.<id>.<slot>`, `tag.<id>`, `label.<id>`. */
+  /** `symbol.<id>.<slot>`, `pipe.<id>.flow`, `tag.<id>`, `label.<id>`. */
   key: string;
   slot: AttributeSlot;
 };
@@ -84,14 +84,14 @@ export const readingState = (reading: SlotReading): ReadingState =>
 
 export const symbolSlotKey = (symbolId: string, slot: string) =>
   `symbol.${symbolId}.${slot}`;
+export const flowSlotKey = (pipeId: string) => `pipe.${pipeId}.flow`;
 export const tagSlotKey = (tagId: string) => `tag.${tagId}`;
 export const labelSlotKey = (labelId: string) => `label.${labelId}`;
 
-/** Every attribute slot the plate draws, in the order the backend's
- *  `bound_slots` enumerates them: symbol bindings, tag values, label
- *  values. A pipe's `flow` is not among them: a run is static whatever it
- *  reads (Decision 8 of the visual language), so registering it would
- *  only list and poll a device for a reading nothing draws. Literals need
+/** Every attribute slot the plate reads, in the order the backend's
+ *  `bound_slots` enumerates them: symbol bindings, each pipe's `flow` then
+ *  its tag values, label values. A `flow` is what sets a circuit moving in
+ *  the isometric view (Decision 8 of the visual language). Literals need
  *  no device and are left out. */
 export function boundSlots(doc: Synoptic): BoundSlot[] {
   const slots: BoundSlot[] = [];
@@ -104,6 +104,7 @@ export function boundSlots(doc: Synoptic): BoundSlot[] {
     }
   }
   for (const pipe of doc.pipes ?? []) {
+    add(flowSlotKey(pipe.id), pipe.flow);
     for (const tag of pipe.tags ?? []) add(tagSlotKey(tag.id), tag.value);
   }
   for (const label of doc.labels ?? [])

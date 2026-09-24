@@ -26,7 +26,10 @@
     "zoom": "Zoom {{percent}} %",
     "fit": "Fit",
     "fullscreen": "Full screen",
-    "exitFullscreen": "Exit full screen"
+    "exitFullscreen": "Exit full screen",
+    "legend": "Legend",
+    "exportPdf": "Export to PDF",
+    "pdf": "PDF"
   },
   "nav": {
     "title": "Equipment",
@@ -53,7 +56,8 @@
       "off": "stopped",
       "unknown": "state unknown"
     },
-    "missingLink": "link to a missing view"
+    "missingLink": "link to a missing view",
+    "circulating": "fluid moving"
   },
   "fluids": {
     "primary_supply": "Primary supply",
@@ -155,5 +159,11 @@
     "pin": "Open Synoptics on this view",
     "pinned": "Opens Synoptics",
     "current": "Shown now"
+  },
+  "description": {
+    "title": "Description"
+  },
+  "print": {
+    "valuesAt": "Values as of {{date}}"
   }
 }

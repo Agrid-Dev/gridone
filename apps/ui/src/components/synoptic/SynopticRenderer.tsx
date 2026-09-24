@@ -21,8 +21,10 @@ import {
 } from "@gridone/sdk";
 import { fluidFillClass } from "@/lib/fluidColors";
 import { Caption, Chip, CHIP_H, chipWidth, DISC_R } from "./Chip";
+import { circulatingRuns } from "./circulation";
 import { DepthOrdered, type DepthItem } from "./DepthOrdered";
 import { faultLevel } from "./fault";
+import { TEXT_RANK } from "./legibility";
 import type { View, ViewportController } from "./hooks/useViewport";
 import { Panel, PANEL_W, panelHeight, type PanelRow } from "./Panel";
 import { PidDiagram, type CanvasTouchAction } from "./PidDiagram";
@@ -65,7 +67,7 @@ import {
   symbolRotation,
   type PlanRect,
 } from "./symbols/footprint";
-import { Label, LABEL_SIZE, LED_GAP } from "./symbols/Label";
+import { faceLabelBox, Label, LABEL_SIZE, LED_GAP } from "./symbols/Label";
 import { pointsAttr } from "./symbols/plan";
 import {
   SynopticSymbol,
@@ -74,7 +76,7 @@ import {
   symbolPoint,
 } from "./symbols/SynopticSymbol";
 import { Slab } from "./symbols/volume";
-import { textWidth } from "./text";
+import { HALO, HALO_CLASS, textWidth } from "./text";
 import type { Pt } from "./types";
 import {
   EMPTY_VALUES,
@@ -122,10 +124,19 @@ type SynopticRendererProps = {
   /** The words the plate writes, in the page's language; the registry's
    *  own names without it. */
   vocabulary?: PlateVocabulary;
+  /** Whether the fluid may move: in the isometric view, the runs of a
+   *  circuit its `flow` readings set going carry a moving dash. Off for a
+   *  still copy (a print), and never on the sheet. */
+  animated?: boolean;
   /** Receives the handle a toolbar or a navigation panel drives the plate
    *  with. */
   plateRef?: RefObject<PlateHandle | null>;
   onViewChange?: (view: View) => void;
+  /** The least the plate's text may show on screen, in px: zoomed out
+   *  below it, the text is held at that size and what no longer fits gives
+   *  way, notes first and names last. None lets the text shrink with the
+   *  plate (the editor, a print). */
+  minTextPx?: number;
   /** Screen points the plate must include besides what it draws: an
    *  editor's grid, so an empty plate still has room. */
   extent?: Pt[];
@@ -214,8 +225,10 @@ export function SynopticRenderer({
   onSymbolHover,
   highlightId,
   vocabulary = DEFAULT_VOCABULARY,
+  animated = true,
   plateRef,
   onViewChange,
+  minTextPx,
   extent,
   touchAction,
   frameRef,
@@ -244,7 +257,13 @@ export function SynopticRenderer({
       buildPlate(
         geometry,
         values,
-        { knownSynoptics, onSymbolClick, onSymbolHover: hover, vocabulary },
+        {
+          knownSynoptics,
+          onSymbolClick,
+          onSymbolHover: hover,
+          vocabulary,
+          animated,
+        },
         extent,
       ),
     [
@@ -254,6 +273,7 @@ export function SynopticRenderer({
       onSymbolClick,
       hover,
       vocabulary,
+      animated,
       extent,
     ],
   );
@@ -276,6 +296,16 @@ export function SynopticRenderer({
   );
   // The plate's frame sits `MARGIN` in from the extent's corner.
   const offset = { x: MARGIN - box.x0, y: MARGIN - box.y0 };
+  // The same frame in the items' own coordinates, for the text held legible.
+  const frameBox = useMemo(
+    () => ({
+      x0: box.x0 - MARGIN,
+      y0: box.y0 - MARGIN,
+      x1: box.x1 + MARGIN,
+      y1: box.y1 + MARGIN,
+    }),
+    [box],
+  );
   useImperativeHandle(
     plateRef,
     () => ({
@@ -316,10 +346,12 @@ export function SynopticRenderer({
       touchAction={touchAction}
       controller={controller}
       onViewChange={onViewChange}
+      minTextPx={minTextPx}
+      textSize={LABEL_SIZE}
     >
       <KitDefs />
       <g ref={setFrame} transform={`translate(${offset.x} ${offset.y})`}>
-        <DepthOrdered items={items} />
+        <DepthOrdered items={items} frame={frameBox} />
         {highlight}
         {children}
       </g>
@@ -409,7 +441,7 @@ const LABEL_RINGS = 8;
 type Interaction = Pick<
   SynopticRendererProps,
   "knownSynoptics" | "onSymbolClick" | "onSymbolHover"
-> & { vocabulary: PlateVocabulary };
+> & { vocabulary: PlateVocabulary; animated: boolean };
 
 /** Everything the element builders share while a plate is assembled. */
 type Plate = Geometry &
@@ -420,6 +452,8 @@ type Plate = Geometry &
     /** What a chip or panel must keep clear of: every body, bar, inline
      *  glyph and run, then each tag and readout as it is placed. */
     obstacles: Obstacle[];
+    /** The runs whose fluid is moving, drawn with a moving dash. */
+    circulating: ReadonlySet<string>;
   };
 
 /** Half the width a run occupies on screen, casing included. */
@@ -569,7 +603,10 @@ function placeLabels(
     // in the isometric view the machine shows its state, and a name judged
     // 14 px wider than it is drawn would be moved out for nothing.
     const ledW = labelHasLed(projection, symbol.type) ? LED_GAP + 2 * LED_R : 0;
-    const preferred = labelBoxAt(spec.at, spec.anchor, w, ledW);
+    // A face caption is written one word per line, centred on the face.
+    const preferred = spec.onFace
+      ? faceLabelBox(text, spec.at)
+      : labelBoxAt(spec.at, spec.anchor, w, ledW);
     const own = new Set<Obstacle>(bodyObstacles.get(symbol.id) ?? []);
     const others = [...allBodies.filter((b) => !own.has(b)), ...taken];
     let label: PlacedLabel = { text, ...spec, box: preferred, leader: null };
@@ -669,6 +706,11 @@ function buildPlate(
     values,
     items: [],
     extent: [...[...geometry.corners.values()].flat(), ...extra],
+    // The sheet is a still diagram: only the isometric view moves.
+    circulating:
+      interaction.animated && geometry.projection === "isometric"
+        ? circulatingRuns(geometry.symbols.values(), geometry.pipes, values)
+        : NO_RUNS,
     obstacles: [
       ...[...geometry.bodyObstacles.values()].flat(),
       ...geometry.runs,
@@ -713,15 +755,30 @@ function addSlabs(plate: Plate) {
   });
 }
 
-/** Each run cut per cell, with its chevrons, tee discs and tags. A run is
- *  static whatever its `flow` reads: the machine shows the run state. */
+/** No run moves. */
+const NO_RUNS: ReadonlySet<string> = new Set();
+
+/** The length of a polyline, in px. */
+const lengthOf = (points: Pt[]) =>
+  points
+    .slice(1)
+    .reduce(
+      (sum, b, i) => sum + Math.hypot(b.x - points[i].x, b.y - points[i].y),
+      0,
+    );
+
+/** Each run cut per cell, with its chevrons, tee discs and tags. A run of
+ *  a moving circuit carries the moving dash, each piece taking it up where
+ *  the piece before left it. */
 function addRuns(plate: Plate) {
   const { projection, pipes, items, extent, bodyCells, pieces } = plate;
 
   for (const pipe of pipes) {
     const run = pieces.get(pipe.id)!;
+    const flowing = plate.circulating.has(pipe.id);
     let arrowAt = run.length - 1;
     while (arrowAt > 0 && run[arrowAt].stub) arrowAt -= 1;
+    let travelled = 0;
     run.forEach((piece, i) => {
       extent.push(...piece.points);
       items.push({
@@ -732,9 +789,13 @@ function addRuns(plate: Plate) {
             points={piece.points}
             fluid={pipe.fluid}
             endArrow={i === arrowAt}
+            flowing={flowing}
+            phase={travelled}
+            run={pipe.id}
           />
         ),
       });
+      travelled += lengthOf(piece.points);
       // A tee's disc paints over both runs of its cell, in the trunk's colour.
       const tee = i === 0 ? pipe.from : i === run.length - 1 ? pipe.to : null;
       if (tee?.kind === "pipe") {
@@ -784,6 +845,8 @@ function addRuns(plate: Plate) {
       items.push({
         id: tag.id,
         depth: depthKey(tag.at, "label"),
+        // Grown about its point on the run, so its leader stays on it.
+        text: { anchor: on, box, rank: TEXT_RANK.tag },
         node: (
           <g data-tag={tag.id} data-side={below ? "below" : "above"}>
             <Leader
@@ -971,10 +1034,16 @@ function addSymbols(plate: Plate) {
           node,
         });
       }
+      const along = plate.placedLabels.get(symbol.id);
       if (symbol.label) {
         items.push({
           id: `${symbol.id}:label`,
           depth: depthKey(origin, "label"),
+          text: along && {
+            anchor: along.at,
+            box: along.box,
+            rank: fault ? TEXT_RANK.alarm : TEXT_RANK.name,
+          },
           node: (
             <CollectorLabel
               projection={projection}
@@ -1038,6 +1107,13 @@ function addSymbols(plate: Plate) {
     // sheet the run state lights an LED after it; in the isometric view
     // the machine shows it itself.
     const placed = plate.placedLabels.get(symbol.id);
+    // What the name grows about: where its leader meets the body, else its
+    // own point. A readout hanging under it grows about the same point, so
+    // the two stay together.
+    const nameAnchor =
+      placed?.leader ??
+      placed?.at ??
+      symbolLabelPoint(symbol.type, projection, origin, rotation);
     if (placed) {
       extent.push(
         { x: placed.box.x0, y: placed.box.y0 },
@@ -1046,6 +1122,11 @@ function addSymbols(plate: Plate) {
       items.push({
         id: `${symbol.id}:label`,
         depth: depthKey(origin, "label"),
+        text: {
+          anchor: nameAnchor!,
+          box: placed.box,
+          rank: fault ? TEXT_RANK.alarm : TEXT_RANK.name,
+        },
         node: (
           <g data-symbol-label={symbol.id}>
             {placed.leader && (
@@ -1088,6 +1169,13 @@ function addSymbols(plate: Plate) {
       items.push({
         id: `${symbol.id}:readout`,
         depth: depthKey(origin, "label"),
+        text: {
+          anchor: hanging ? (nameAnchor ?? anchor) : anchor,
+          box,
+          rank: TEXT_RANK.reading,
+          // Under its name with no leader, it says whose it is by the name.
+          with: hanging && placed ? `${symbol.id}:label` : undefined,
+        },
         node: (
           <g data-readout={symbol.id}>
             {!hanging && <Leader box={box} anchor={anchor} kind="chip" />}
@@ -1105,7 +1193,7 @@ function addSymbols(plate: Plate) {
       continue;
     }
     const h = panelHeight(readings.length);
-    const { box, anchor } = placeReadout(
+    const { box, anchor, hanging } = placeReadout(
       plate,
       symbol,
       labelPoint,
@@ -1117,6 +1205,11 @@ function addSymbols(plate: Plate) {
     items.push({
       id: `${symbol.id}:readout`,
       depth: depthKey(origin, "label"),
+      text: {
+        anchor: hanging ? (nameAnchor ?? anchor) : anchor,
+        box,
+        rank: TEXT_RANK.reading,
+      },
       node: (
         <g data-readout={symbol.id}>
           <Leader box={box} anchor={anchor} kind="panel" />
@@ -1246,6 +1339,16 @@ function addLabels(
         { x: Math.floor(label.at.x), y: Math.floor(label.at.y), z: label.at.z },
         "label",
       ),
+      text: {
+        anchor: at,
+        box: rawBounds(
+          boxes.flatMap((b) => [
+            { x: b.x0, y: b.y0 },
+            { x: b.x1, y: b.y1 },
+          ]),
+        ),
+        rank: label.role === "title" ? TEXT_RANK.name : TEXT_RANK.note,
+      },
       node: (
         <g data-label={label.role}>
           {font ? (
@@ -1254,7 +1357,8 @@ function addLabels(
               y={at.y}
               fontSize={font.size}
               fontWeight={font.weight}
-              className={font.cls}
+              {...HALO}
+              className={`${font.cls} ${HALO_CLASS}`}
             >
               {label.text}
             </text>

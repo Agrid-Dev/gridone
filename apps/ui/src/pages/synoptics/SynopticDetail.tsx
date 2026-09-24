@@ -1,24 +1,16 @@
 import { useCallback, useEffect, useMemo, useState, type FC } from "react";
-import { Link, useNavigate, useParams } from "react-router";
-import { useTranslation } from "react-i18next";
+import { useNavigate, useParams } from "react-router";
 import type { Synoptic } from "@gridone/sdk";
-import { ErrorFallback } from "@/components/fallbacks/Error";
 import { ResourceBoundary } from "@/components/ResourceBoundary";
-import { ResourceHeader } from "@/components/ResourceHeader";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { usePermissions } from "@/contexts/AuthContext";
 import { useSynopticValues } from "@/hooks/useSynopticValues";
-import { FaultsTable } from "@/pages/faults/components/FaultsTable";
-import { useFaultsPage, type FaultRow } from "@/pages/faults/useFaultsPage";
+import { useFaultsPage } from "@/pages/faults/useFaultsPage";
 import {
   readDefaultSynoptic,
   writeDefaultSynoptic,
   writeLastSynoptic,
 } from "@/lib/synopticPreference";
-import { PlateView } from "./PlateView";
-import { SynopticStepper, SynopticSwitcher } from "./SynopticSwitcher";
+import { SynopticPage } from "./SynopticPage";
 import { useSynopticPage, useSynoptics } from "./useSynoptics";
 
 /** The devices the plate's symbols are: what a click opens and what the
@@ -29,33 +21,9 @@ const symbolDeviceIds = (doc: Synoptic): string[] => [
   ),
 ];
 
-/** The faults of the plate's own devices, under it. */
-const SynopticFaults: FC<{
-  rows: FaultRow[];
-  loading: boolean;
-  error: unknown;
-}> = ({ rows, loading, error }) => {
-  const { t } = useTranslation(["synoptics", "faults"]);
-  return (
-    <section className="space-y-3">
-      <h3 className="text-sm font-semibold text-foreground">
-        {t("faults.title")}
-      </h3>
-      {loading ? (
-        <Skeleton className="h-24 w-full rounded-lg" />
-      ) : error ? (
-        <ErrorFallback title={t("faults:faults.unableToLoad")} />
-      ) : rows.length > 0 ? (
-        <FaultsTable rows={rows} />
-      ) : (
-        <p className="text-sm text-muted-foreground">{t("faults.none")}</p>
-      )}
-    </section>
-  );
-};
-
+/** The route's side of the page: the plate, the others, its live values
+ *  and faults, the pin; `SynopticPage` lays them out. */
 const SynopticDetailContent: FC = () => {
-  const { t } = useTranslation(["synoptics", "common"]);
   const navigate = useNavigate();
   const can = usePermissions();
   const { doc, knownSynoptics } = useSynopticPage();
@@ -78,60 +46,17 @@ const SynopticDetailContent: FC = () => {
   }, []);
 
   return (
-    <div className="flex flex-col gap-6">
-      <ResourceHeader
-        title={
-          <SynopticSwitcher
-            current={doc}
-            synoptics={synoptics}
-            pinned={pinned}
-            onNavigate={onNavigate}
-          />
-        }
-        caption={doc.description}
-        status={
-          <>
-            <SynopticStepper
-              current={doc}
-              synoptics={synoptics}
-              pinned={pinned}
-              onNavigate={onNavigate}
-              onPin={onPin}
-            />
-            {!faults.loading && faults.rows.length > 0 && (
-              <Badge variant="destructive" data-fault-count>
-                {t("faults.count", { count: faults.rows.length })}
-              </Badge>
-            )}
-          </>
-        }
-        actions={
-          can("synoptics:write") && (
-            <>
-              <Button asChild variant="outline">
-                <Link to={`/synoptics/${encodeURIComponent(doc.id)}/edit`}>
-                  {t("common:common.edit")}
-                </Link>
-              </Button>
-              <Button asChild>
-                <Link to="/synoptics/new">{t("editor.new")}</Link>
-              </Button>
-            </>
-          )
-        }
-      />
-      <PlateView
-        doc={doc}
-        values={values}
-        knownSynoptics={knownSynoptics}
-        onNavigate={onNavigate}
-      />
-      <SynopticFaults
-        rows={faults.rows}
-        loading={faults.loading}
-        error={faults.error}
-      />
-    </div>
+    <SynopticPage
+      doc={doc}
+      values={values}
+      knownSynoptics={knownSynoptics}
+      synoptics={synoptics}
+      pinned={pinned}
+      onPin={onPin}
+      onNavigate={onNavigate}
+      faults={faults}
+      canWrite={can("synoptics:write")}
+    />
   );
 };
 

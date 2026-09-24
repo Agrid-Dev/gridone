@@ -139,7 +139,13 @@ module.exports = {
           from: { opacity: 0, transform: "translateY(100%)" },
           to: { opacity: 1, transform: "translateY(0)" },
         },
-        flow: { to: { strokeDashoffset: "-52" } },
+        // Both ends pinned: a piece sets its own `stroke-dashoffset` to line
+        // its dash up with its run's when the motion is reduced, and the
+        // animation must not start from it (see `Pipe`'s `flowDelay`).
+        flow: {
+          from: { strokeDashoffset: "0" },
+          to: { strokeDashoffset: "-52" },
+        },
         blink: { "0%, 55%": { opacity: 1 }, "56%, 100%": { opacity: 0.3 } },
       },
       animation: {

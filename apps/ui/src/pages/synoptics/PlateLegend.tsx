@@ -4,6 +4,7 @@ import { symbolSchemas, type Fluid } from "@gridone/sdk";
 import { project } from "@/components/synoptic/projection";
 import { DRAWINGS } from "@/components/synoptic/symbols/drawings";
 import { Chip, CHIP_H, chipWidth } from "@/components/synoptic/Chip";
+import { Pipe } from "@/components/synoptic/Pipe";
 import { Led } from "@/components/synoptic/symbols/Label";
 import {
   FaultMark,
@@ -84,11 +85,15 @@ type PlateLegendProps = {
   /** The symbol types the plate draws, for the key; none hides it. */
   types?: ReadonlySet<string>;
   vocabulary?: PageVocabulary;
+  /** The plate moves its circuits (the isometric view on screen), which
+   *  the legend then explains; paper and the sheet stand still. */
+  circulating?: boolean;
 };
 
 /**
- * The legend under a plate. First row: one swatch per fluid the plate
- * carries, in the vocabulary's order, then every state the plate draws,
+ * The legend of a plate. First row: one swatch per fluid the plate
+ * carries, in the vocabulary's order, a moving run when the plate moves,
+ * then every state the plate draws,
  * each drawn by the component that draws it there: a reading live, stale,
  * silent or authored; a fault at each severity; the run-state LED of the
  * sheet, and the state nobody knows; a link to a view that does not
@@ -100,6 +105,7 @@ export const PlateLegend: FC<PlateLegendProps> = ({
   fluids,
   types,
   vocabulary,
+  circulating = false,
 }) => {
   const { t, i18n } = useTranslation("synoptics");
   const { t: tCommon } = useTranslation("common");
@@ -134,6 +140,21 @@ export const PlateLegend: FC<PlateLegendProps> = ({
             {t(FLUID_KEY[fluid])}
           </dd>
         ))}
+        {circulating && (
+          <dd data-legend="circulating" className={item}>
+            <svg width="28" height="10" aria-hidden className="shrink-0">
+              <Pipe
+                points={[
+                  { x: 2, y: 5 },
+                  { x: 26, y: 5 },
+                ]}
+                fluid={FLUIDS.find((fluid) => fluids.has(fluid)) ?? FLUIDS[0]}
+                flowing
+              />
+            </svg>
+            {t("legend.circulating")}
+          </dd>
+        )}
         {READING_STATES.map((state, i) => (
           <dd
             key={state}
