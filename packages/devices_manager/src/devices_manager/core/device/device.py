@@ -3,16 +3,16 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from functools import partial
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol
 
 from devices_manager.core.driver import FaultAttributeDriver
 from devices_manager.core.transports import PushTransportClient, ReadError
 from devices_manager.core.utils.templating.render import render_struct
 from devices_manager.observability.metrics import attribute_read
+from devices_manager.types import ConnectionStatus
 from models.errors import (
     ConfirmationError,
     InvalidError,
@@ -29,6 +29,8 @@ from .sweep_schedule import SweepSchedule, run_on_schedule
 from .write_guard import WriteGuard
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
+
     from devices_manager.core.codecs import FnCodec
     from devices_manager.core.driver import AttributeDriver, Driver
     from devices_manager.core.transports import (
@@ -38,7 +40,6 @@ if TYPE_CHECKING:
     )
     from devices_manager.types import (
         AttributeValueType,
-        ConnectionStatus,
         DataType,
         DeviceConfig,
         ReadWriteMode,
@@ -52,16 +53,32 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_CONFIRM_TIMEOUT: float = 5.0
 
-# (device, attribute_name, previous, new). `previous` is `None` for the first
-# event ever observed for this attribute (i.e. its `current_value` was `None`
-# before the mutation); otherwise it's an immutable snapshot of the attribute's
-# state before the value changed. On the first post-restart event `previous`
-# reflects the persisted state, not `None`. Listeners can compare `previous`
-# and `new` to detect transitions without maintaining per-listener state.
-AttributeListener = Callable[
-    ["CoreDevice", str, "Attribute | None", Attribute],
-    Awaitable[None] | None,
-]
+
+class AttributeListener(Protocol):
+    """``(device, attribute_name, previous, new, *, initial)``.
+
+    ``previous`` is ``None`` for the first event ever observed for this
+    attribute (its ``current_value`` was ``None`` before the mutation);
+    otherwise it is an immutable snapshot of the attribute's state before the
+    value changed. On the first post-restart event ``previous`` reflects the
+    persisted state, not ``None``, so listeners can compare ``previous`` and
+    ``new`` to detect transitions without per-listener state.
+
+    ``initial`` is True when this is the first observation of the attribute
+    since the device (re)connected: the value establishes a baseline rather
+    than reporting a transition, even when it differs from a restored one.
+    """
+
+    def __call__(
+        self,
+        device: CoreDevice,
+        attribute_name: str,
+        previous: Attribute | None,
+        attribute: Attribute,
+        /,
+        *,
+        initial: bool,
+    ) -> Awaitable[None] | None: ...
 
 
 def _metadata_kwargs(attribute_driver: AttributeDriver) -> dict[str, Any]:
@@ -162,6 +179,7 @@ class CoreDevice:
     on_update: AttributeListener | None = field(default=None, repr=False)
     connection_monitor: ConnectionMonitor = field(init=False, repr=False)
     _syncing: bool = field(init=False, default=False, repr=False)
+    _observed_attributes: set[str] = field(init=False, default_factory=set, repr=False)
     _waiters: list[tuple[str, Callable[[AttributeValueType], bool], asyncio.Event]] = (
         field(init=False, default_factory=list, repr=False)
     )
@@ -380,6 +398,7 @@ class CoreDevice:
         """
         self.connection_monitor.close()
         self.connection_monitor = self._new_connection_monitor()
+        self._observed_attributes.clear()
         self.connection_monitor.watch()
         self._guard.watch(self.expected_interval)
         await self.init_listeners()
@@ -536,6 +555,7 @@ class CoreDevice:
                 yield
         except Exception:
             self._guard.forget(attribute_name)
+            self._observed_attributes.discard(attribute_name)
             self._notify_write_state()
             attribute_read.add(
                 1, {"protocol": self.transport.protocol, "status": "error"}
@@ -619,13 +639,16 @@ class CoreDevice:
         # Compared here so Attribute stays unaware of the listener contract.
         previous_value = attribute.current_value
         previous = attribute.model_copy() if previous_value is not None else None
+        initial = attribute.name not in self._observed_attributes
+        if observation:
+            self._observed_attributes.add(attribute.name)
         attribute.update_value(value)  # ty:ignore[invalid-argument-type]
         if observation and value is not None:
             for wname, pred, event in self._waiters:
                 if wname == attribute.name and pred(value):
                     event.set()
         if self.on_update and attribute.current_value != previous_value:
-            self.on_update(self, attribute.name, previous, attribute)
+            self.on_update(self, attribute.name, previous, attribute, initial=initial)
 
     async def read_attribute_value(
         self,
@@ -658,6 +681,8 @@ class CoreDevice:
         )
 
     def _publish_connection_status(self, status: ConnectionStatus) -> None:
+        if status == ConnectionStatus.ERROR:
+            self._observed_attributes.clear()
         self._update_attribute(self.attributes[CONNECTION_STATUS_ATTR], status)
 
     async def _read_all_attributes(

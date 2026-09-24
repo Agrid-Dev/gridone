@@ -358,7 +358,9 @@ class TestDevicesServiceSync:
 class TestDevicesServiceListeners:
     @pytest.mark.asyncio
     async def test_add_device_attribute_listener_returns_id(self, devices_manager):
-        def callback(_device_obj, _attribute_name, _previous, _attribute) -> None:
+        def callback(
+            _device_obj, _attribute_name, _previous, _attribute, **_: object
+        ) -> None:
             pass
 
         listener_id = devices_manager.add_device_attribute_listener(callback)
@@ -370,7 +372,9 @@ class TestDevicesServiceListeners:
     async def test_add_device_attribute_listener_registers_handler(
         self, devices_manager
     ):
-        def callback(_device_obj, _attribute_name, _previous, _attribute) -> None:
+        def callback(
+            _device_obj, _attribute_name, _previous, _attribute, **_: object
+        ) -> None:
             pass
 
         devices_manager.add_device_attribute_listener(callback)
@@ -381,7 +385,9 @@ class TestDevicesServiceListeners:
     async def test_remove_device_attribute_listener_removes_handler(
         self, devices_manager
     ):
-        def callback(_device_obj, _attribute_name, _previous, _attribute) -> None:
+        def callback(
+            _device_obj, _attribute_name, _previous, _attribute, **_: object
+        ) -> None:
             pass
 
         listener_id = devices_manager.add_device_attribute_listener(callback)
@@ -398,7 +404,9 @@ class TestDevicesServiceListeners:
     async def test_handler_called_on_attribute_update(self, devices_manager, device):
         received: list[tuple[str, object]] = []
 
-        def handler(_device_obj, attribute_name, _previous, attribute) -> None:
+        def handler(
+            _device_obj, attribute_name, _previous, attribute, **_: object
+        ) -> None:
             received.append((attribute_name, attribute.current_value))
 
         devices_manager.add_device_attribute_listener(handler)
@@ -412,7 +420,7 @@ class TestDevicesServiceListeners:
     ):
         received: list[object] = []
 
-        def handler(_device_obj, _attr_name, _previous, attribute) -> None:
+        def handler(_device_obj, _attr_name, _previous, attribute, **_: object) -> None:
             received.append(attribute.current_value)
 
         listener_id = devices_manager.add_device_attribute_listener(handler)
@@ -425,7 +433,9 @@ class TestDevicesServiceListeners:
     async def test_sync_attribute_listener_exception_is_swallowed(
         self, devices_manager, device
     ):
-        def failing_handler(_device_obj, _attr_name, _previous, _attr) -> None:
+        def failing_handler(
+            _device_obj, _attr_name, _previous, _attr, **_: object
+        ) -> None:
             raise RuntimeError("boom")
 
         devices_manager.add_device_attribute_listener(failing_handler)
@@ -437,7 +447,7 @@ class TestDevicesServiceListeners:
         self, devices_manager, device
     ):
         async def failing_async_handler(
-            _device_obj, _attr_name, _previous, _attr
+            _device_obj, _attr_name, _previous, _attr, **_: object
         ) -> None:
             msg = "async boom"
             raise RuntimeError(msg)
@@ -455,7 +465,7 @@ class TestDevicesServiceListeners:
 
         received: list[object] = []
 
-        def handler(_device_obj, _attr_name, previous, _attribute) -> None:
+        def handler(_device_obj, _attr_name, previous, _attribute, **_: object) -> None:
             received.append(previous)
 
         devices_manager.add_device_attribute_listener(handler)
@@ -474,7 +484,7 @@ class TestDevicesServiceListeners:
         received_previous: list[Attribute | None] = []
 
         def handler(
-            _device_obj, _attr_name, previous: Attribute | None, _attribute
+            _device_obj, _attr_name, previous: Attribute | None, _attribute, **_: object
         ) -> None:
             received_previous.append(previous)
 
@@ -497,7 +507,7 @@ class TestDevicesServiceListeners:
         captured_previous = []
         captured_attr = []
 
-        def handler(_device_obj, _attr_name, previous, attribute) -> None:
+        def handler(_device_obj, _attr_name, previous, attribute, **_: object) -> None:
             captured_previous.append(previous)
             captured_attr.append(attribute)
 
@@ -518,7 +528,7 @@ class TestDevicesServiceListeners:
         attr = device.attributes["temperature_setpoint"]
         calls: list[tuple[object, object]] = []
 
-        def handler(_device_obj, _attr_name, previous, attribute) -> None:
+        def handler(_device_obj, _attr_name, previous, attribute, **_: object) -> None:
             calls.append(
                 (
                     previous.current_value if previous is not None else None,
@@ -597,7 +607,7 @@ class TestDevicesServiceDiscovery:
         """A discovered device must fan out its updates like any other."""
         calls: list[tuple[str, AttributeValueType]] = []
 
-        def handler(_device, attribute_name, _previous, attribute) -> None:
+        def handler(_device, attribute_name, _previous, attribute, **_: object) -> None:
             calls.append((attribute_name, attribute.current_value))
 
         running_dm_with_discovery.add_device_attribute_listener(handler)

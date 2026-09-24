@@ -92,6 +92,7 @@ class TestWebhookIngressPipeline:
             attribute_name: str,
             _previous: Attribute | None,
             _attribute: Attribute,
+            **_: object,
         ) -> None:
             # The internal connection_status attribute also updates on the
             # first successful listen; only driver attributes matter here.

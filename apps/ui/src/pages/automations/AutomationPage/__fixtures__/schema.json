@@ -1,0 +1,445 @@
+{
+  "$defs": {
+    "Action": {
+      "properties": {
+        "provider_id": {
+          "title": "Provider Id",
+          "type": "string"
+        },
+        "params": {
+          "additionalProperties": true,
+          "title": "Params",
+          "type": "object"
+        }
+      },
+      "required": ["provider_id"],
+      "title": "Action",
+      "type": "object"
+    },
+    "ArithmeticExpression": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "enum": ["add", "subtract", "min", "max"],
+          "title": "Op",
+          "type": "string"
+        },
+        "args": {
+          "items": {
+            "$ref": "#/$defs/Expression"
+          },
+          "maxItems": 256,
+          "minItems": 2,
+          "title": "Args",
+          "type": "array"
+        }
+      },
+      "required": ["op", "args"],
+      "title": "ArithmeticExpression",
+      "type": "object"
+    },
+    "AttributeRef": {
+      "additionalProperties": false,
+      "description": "Current observed value of a sibling attribute, e.g. ``{attribute: limit}``.",
+      "properties": {
+        "attribute": {
+          "minLength": 1,
+          "title": "Attribute",
+          "type": "string"
+        }
+      },
+      "required": ["attribute"],
+      "title": "AttributeRef",
+      "type": "object"
+    },
+    "AutomationBranch": {
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "default": "",
+          "title": "Name",
+          "type": "string"
+        },
+        "condition": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Condition"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "action": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Action"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "branches": {
+          "items": {
+            "$ref": "#/$defs/AutomationBranch"
+          },
+          "maxItems": 64,
+          "title": "Branches",
+          "type": "array"
+        }
+      },
+      "title": "AutomationBranch",
+      "type": "object"
+    },
+    "AutomationGuardrails": {
+      "properties": {
+        "max_executions": {
+          "default": 10,
+          "maximum": 1000,
+          "minimum": 1,
+          "title": "Max Executions",
+          "type": "integer"
+        },
+        "window_seconds": {
+          "default": 60,
+          "exclusiveMinimum": 0,
+          "maximum": 86400,
+          "title": "Window Seconds",
+          "type": "number"
+        },
+        "max_consecutive_failures": {
+          "default": 3,
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Max Consecutive Failures",
+          "type": "integer"
+        }
+      },
+      "title": "AutomationGuardrails",
+      "type": "object"
+    },
+    "CandidateRef": {
+      "additionalProperties": false,
+      "description": "The typed proposed value, without changing the observed device state.",
+      "properties": {
+        "candidate": {
+          "const": true,
+          "title": "Candidate",
+          "type": "boolean"
+        }
+      },
+      "required": ["candidate"],
+      "title": "CandidateRef",
+      "type": "object"
+    },
+    "ChoiceExpression": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "if",
+          "title": "Op",
+          "type": "string"
+        },
+        "condition": {
+          "$ref": "#/$defs/Condition"
+        },
+        "then": {
+          "$ref": "#/$defs/Expression"
+        },
+        "otherwise": {
+          "$ref": "#/$defs/Expression"
+        }
+      },
+      "required": ["op", "condition", "then", "otherwise"],
+      "title": "ChoiceExpression",
+      "type": "object"
+    },
+    "Comparison": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "enum": ["eq", "lt", "lte", "gt", "gte"],
+          "title": "Op",
+          "type": "string"
+        },
+        "left": {
+          "$ref": "#/$defs/Expression"
+        },
+        "right": {
+          "$ref": "#/$defs/Expression"
+        }
+      },
+      "required": ["op", "left", "right"],
+      "title": "Comparison",
+      "type": "object"
+    },
+    "Condition": {
+      "discriminator": {
+        "mapping": {
+          "all": "#/$defs/Junction",
+          "any": "#/$defs/Junction",
+          "eq": "#/$defs/Comparison",
+          "gt": "#/$defs/Comparison",
+          "gte": "#/$defs/Comparison",
+          "in": "#/$defs/Membership",
+          "is_known": "#/$defs/IsKnown",
+          "lt": "#/$defs/Comparison",
+          "lte": "#/$defs/Comparison",
+          "not": "#/$defs/Negation"
+        },
+        "propertyName": "op"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/Comparison"
+        },
+        {
+          "$ref": "#/$defs/Membership"
+        },
+        {
+          "$ref": "#/$defs/IsKnown"
+        },
+        {
+          "$ref": "#/$defs/Negation"
+        },
+        {
+          "$ref": "#/$defs/Junction"
+        }
+      ]
+    },
+    "DeviceAttributeRef": {
+      "additionalProperties": false,
+      "description": "An observed attribute, e.g. ``{device_id: pump, attribute: running}``.",
+      "properties": {
+        "device_id": {
+          "minLength": 1,
+          "title": "Device Id",
+          "type": "string"
+        },
+        "attribute": {
+          "minLength": 1,
+          "title": "Attribute",
+          "type": "string"
+        }
+      },
+      "required": ["device_id", "attribute"],
+      "title": "DeviceAttributeRef",
+      "type": "object"
+    },
+    "EventRef": {
+      "additionalProperties": false,
+      "description": "An automation event value; unavailable in driver and write-rule contexts.",
+      "properties": {
+        "event": {
+          "enum": [
+            "device_id",
+            "attribute",
+            "previous_value",
+            "value",
+            "has_previous",
+            "is_initial"
+          ],
+          "title": "Event",
+          "type": "string"
+        }
+      },
+      "required": ["event"],
+      "title": "EventRef",
+      "type": "object"
+    },
+    "Expression": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "integer"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "$ref": "#/$defs/AttributeRef"
+        },
+        {
+          "$ref": "#/$defs/DeviceAttributeRef"
+        },
+        {
+          "$ref": "#/$defs/EventRef"
+        },
+        {
+          "$ref": "#/$defs/CandidateRef"
+        },
+        {
+          "$ref": "#/$defs/ArithmeticExpression"
+        },
+        {
+          "$ref": "#/$defs/ChoiceExpression"
+        }
+      ]
+    },
+    "IsKnown": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "is_known",
+          "title": "Op",
+          "type": "string"
+        },
+        "value": {
+          "$ref": "#/$defs/Expression"
+        }
+      },
+      "required": ["op", "value"],
+      "title": "IsKnown",
+      "type": "object"
+    },
+    "Junction": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "enum": ["all", "any"],
+          "title": "Op",
+          "type": "string"
+        },
+        "conditions": {
+          "items": {
+            "$ref": "#/$defs/Condition"
+          },
+          "maxItems": 256,
+          "title": "Conditions",
+          "type": "array"
+        }
+      },
+      "required": ["op", "conditions"],
+      "title": "Junction",
+      "type": "object"
+    },
+    "Membership": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "in",
+          "title": "Op",
+          "type": "string"
+        },
+        "value": {
+          "$ref": "#/$defs/Expression"
+        },
+        "values": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "maxItems": 256,
+          "title": "Values",
+          "type": "array"
+        }
+      },
+      "required": ["op", "value", "values"],
+      "title": "Membership",
+      "type": "object"
+    },
+    "Negation": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "not",
+          "title": "Op",
+          "type": "string"
+        },
+        "condition": {
+          "$ref": "#/$defs/Condition"
+        }
+      },
+      "required": ["op", "condition"],
+      "title": "Negation",
+      "type": "object"
+    },
+    "Trigger": {
+      "properties": {
+        "provider_id": {
+          "title": "Provider Id",
+          "type": "string"
+        },
+        "params": {
+          "additionalProperties": true,
+          "title": "Params",
+          "type": "object"
+        }
+      },
+      "required": ["provider_id"],
+      "title": "Trigger",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "description": {
+      "default": "",
+      "title": "Description",
+      "type": "string"
+    },
+    "trigger": {
+      "$ref": "#/$defs/Trigger"
+    },
+    "branches": {
+      "items": {
+        "$ref": "#/$defs/AutomationBranch"
+      },
+      "maxItems": 64,
+      "minItems": 1,
+      "title": "Branches",
+      "type": "array"
+    },
+    "enabled": {
+      "default": true,
+      "title": "Enabled",
+      "type": "boolean"
+    },
+    "guardrails": {
+      "$ref": "#/$defs/AutomationGuardrails"
+    },
+    "max_age_seconds": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Max Age Seconds"
+    }
+  },
+  "required": ["name", "trigger", "branches"],
+  "title": "AutomationCreate",
+  "type": "object"
+}

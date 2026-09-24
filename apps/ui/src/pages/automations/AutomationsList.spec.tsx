@@ -93,10 +93,14 @@ function makeAutomation(
     name,
     description,
     enabled,
-    action: {
-      provider_id: "command_template",
-      params: { template_id: `tpl-${id}` },
-    },
+    branches: [
+      {
+        action: {
+          provider_id: "command_template",
+          params: { template_id: `tpl-${id}` },
+        },
+      },
+    ],
     trigger:
       triggerType === "change_event"
         ? {

@@ -156,15 +156,19 @@ describe("Automations triggered by an attribute change", () => {
           condition: { operator: "gt", threshold: SETPOINT_THRESHOLD },
         },
       },
-      action: {
-        provider_id: "notification",
-        params: {
-          title: NOTIFICATION_TITLE,
-          body: NOTIFICATION_BODY,
-          severity: NOTIFICATION_SEVERITY,
-          user_ids: [admin.id],
+      branches: [
+        {
+          action: {
+            provider_id: "notification",
+            params: {
+              title: NOTIFICATION_TITLE,
+              body: NOTIFICATION_BODY,
+              severity: NOTIFICATION_SEVERITY,
+              user_ids: [admin.id],
+            },
+          },
         },
-      },
+      ],
     });
     // The wire schema leaves `id` optional; narrow it once here so the rest of
     // the suite (and the teardown) can address the automation.
@@ -181,7 +185,7 @@ describe("Automations triggered by an attribute change", () => {
       id: automationId,
       enabled: true,
       trigger: { provider_id: "change_event" },
-      action: { provider_id: "notification" },
+      branches: [{ action: { provider_id: "notification" } }],
     });
   });
 

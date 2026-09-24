@@ -5,6 +5,7 @@ import type {
   AutomationCreate,
   AutomationExecution,
   AutomationUpdate,
+  AutomationDiagnostic,
 } from "../types";
 
 export type AutomationListParams = NonNullable<
@@ -55,10 +56,23 @@ export class AutomationsResource {
     );
   }
 
-  disable(automationId: string): Promise<Automation> {
+  /** Disable the automation, optionally saying why; the server records who
+   *  did it and when as the automation's `deactivation`. */
+  disable(automationId: string, reason?: string): Promise<Automation> {
+    const path = `/automations/${encodeURIComponent(automationId)}/disable`;
+    return reason === undefined
+      ? this.request("POST", path)
+      : this.request("POST", path, { body: { reason } });
+  }
+
+  schema(): Promise<Record<string, unknown>> {
+    return this.request("GET", "/automations/schema");
+  }
+
+  listDiagnostics(automationId: string): Promise<AutomationDiagnostic[]> {
     return this.request(
-      "POST",
-      `/automations/${encodeURIComponent(automationId)}/disable`,
+      "GET",
+      `/automations/${encodeURIComponent(automationId)}/diagnostics`,
     );
   }
 

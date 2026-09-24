@@ -27,7 +27,7 @@ export function AttributeName({
   reference: DeviceAttributeRef;
   catalog: AttributeCatalog;
 }) {
-  const { t } = useTranslation("operatingRules");
+  const { t } = useTranslation(["operatingRules", "automations"]);
   const attributeLabel = useAttributeLabel();
   const device = catalog.devices.find((d) => d.id === reference.device_id);
   const attribute = catalogAttribute(catalog, reference);
@@ -47,14 +47,14 @@ export function AttributeName({
   );
 }
 
-function ExpressionSummary({
+export function ExpressionSummary({
   value,
   catalog,
 }: {
   value: WriteExpression;
   catalog: AttributeCatalog;
 }) {
-  const { t } = useTranslation("operatingRules");
+  const { t } = useTranslation(["operatingRules", "automations"]);
   if (typeof value !== "object")
     return (
       <span className="font-mono">
@@ -66,6 +66,8 @@ function ExpressionSummary({
   if ("device_id" in value)
     return <AttributeName reference={value} catalog={catalog} />;
   if ("candidate" in value) return <span>{t("expression.candidate")}</span>;
+  if ("event" in value)
+    return <span>{t(`automations:event.${value.event}`)}</span>;
   if ("args" in value)
     return (
       <span>
@@ -104,7 +106,7 @@ export function ConditionSummary({
   value: WriteCondition;
   catalog: AttributeCatalog;
 }) {
-  const { t } = useTranslation("operatingRules");
+  const { t } = useTranslation(["operatingRules", "automations"]);
   if ("left" in value)
     return (
       <span>
@@ -156,7 +158,7 @@ export function OperatingRuleSummary({
   rule: OperatingRuleDefinition;
   catalog: AttributeCatalog;
 }) {
-  const { t } = useTranslation("operatingRules");
+  const { t } = useTranslation(["operatingRules", "automations"]);
   return (
     <dl className="space-y-4 text-sm break-words">
       <div>

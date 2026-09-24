@@ -65,7 +65,9 @@ class TestFaultTransitionListener:
         notifications = _make_notifications()
         listener = on_fault_transition(notifications, _make_recipients())
 
-        await listener(_make_device(), "temperature", None, _make_standard_attr())
+        await listener(
+            _make_device(), "temperature", None, _make_standard_attr(), initial=False
+        )
 
         notifications.dispatch.assert_not_called()
 
@@ -74,7 +76,7 @@ class TestFaultTransitionListener:
         listener = on_fault_transition(notifications, _make_recipients(["u1"]))
 
         faulty = _make_fault_attr(current_value=True, healthy_values=[False])
-        await listener(_make_device(), "alarm", None, faulty)
+        await listener(_make_device(), "alarm", None, faulty, initial=False)
 
         notifications.dispatch.assert_called_once()
         call = notifications.dispatch.call_args
@@ -86,7 +88,7 @@ class TestFaultTransitionListener:
         listener = on_fault_transition(notifications, _make_recipients())
 
         healthy = _make_fault_attr(current_value=False, healthy_values=[False])
-        await listener(_make_device(), "alarm", None, healthy)
+        await listener(_make_device(), "alarm", None, healthy, initial=False)
 
         notifications.dispatch.assert_not_called()
 
@@ -105,7 +107,7 @@ class TestFaultTransitionListener:
         faulty = _make_fault_attr(
             current_value=True, healthy_values=[False], severity=severity
         )
-        await listener(_make_device(), "alarm", healthy, faulty)
+        await listener(_make_device(), "alarm", healthy, faulty, initial=False)
 
         notifications.dispatch.assert_called_once()
         call = notifications.dispatch.call_args
@@ -119,7 +121,7 @@ class TestFaultTransitionListener:
 
         faulty = _make_fault_attr(current_value=True, healthy_values=[False])
         healthy = _make_fault_attr(current_value=False, healthy_values=[False])
-        await listener(_make_device(), "alarm", faulty, healthy)
+        await listener(_make_device(), "alarm", faulty, healthy, initial=False)
 
         notifications.dispatch.assert_called_once()
         call = notifications.dispatch.call_args
@@ -143,7 +145,9 @@ class TestFaultTransitionListener:
             data_type=DataType.INT,
             name="error_code",
         )
-        await listener(_make_device(), "error_code", faulty_v1, faulty_v2)
+        await listener(
+            _make_device(), "error_code", faulty_v1, faulty_v2, initial=False
+        )
 
         notifications.dispatch.assert_not_called()
 
@@ -153,7 +157,7 @@ class TestFaultTransitionListener:
         listener = on_fault_transition(notifications, _make_recipients())
 
         healthy = _make_fault_attr(current_value=False, healthy_values=[False])
-        await listener(_make_device(), "alarm", healthy, healthy)
+        await listener(_make_device(), "alarm", healthy, healthy, initial=False)
 
         notifications.dispatch.assert_not_called()
 
@@ -162,7 +166,9 @@ class TestFaultTransitionListener:
         listener = on_fault_transition(notifications, _make_recipients(["u1"]))
 
         faulty = _make_fault_attr(current_value=True, healthy_values=[False])
-        await listener(_make_device(), "high_pressure_alarm", None, faulty)
+        await listener(
+            _make_device(), "high_pressure_alarm", None, faulty, initial=False
+        )
 
         call = notifications.dispatch.call_args
         assert "high_pressure_alarm" in call.kwargs["title"]
@@ -172,7 +178,7 @@ class TestFaultTransitionListener:
         listener = on_fault_transition(notifications, _make_recipients(["u1"]))
 
         faulty = _make_fault_attr(current_value=True, healthy_values=[False])
-        await listener(_make_device(), "alarm", None, faulty)
+        await listener(_make_device(), "alarm", None, faulty, initial=False)
 
         call = notifications.dispatch.call_args
         assert "True" in call.kwargs["body"]
@@ -182,7 +188,7 @@ class TestFaultTransitionListener:
         listener = on_fault_transition(notifications, _make_recipients(["u1", "u3"]))
 
         faulty = _make_fault_attr(current_value=True, healthy_values=[False])
-        await listener(_make_device(), "alarm", None, faulty)
+        await listener(_make_device(), "alarm", None, faulty, initial=False)
 
         call = notifications.dispatch.call_args
         assert call.kwargs["user_ids"] == ["u1", "u3"]
@@ -202,7 +208,7 @@ class TestFaultTransitionListener:
             current_value=True, healthy_values=[False], name="alarm_2"
         )
 
-        await listener(device, "alarm_1", None, faulty_1)
-        await listener(device, "alarm_2", None, faulty_2)
+        await listener(device, "alarm_1", None, faulty_1, initial=False)
+        await listener(device, "alarm_2", None, faulty_2, initial=False)
 
         assert notifications.dispatch.call_count == 2

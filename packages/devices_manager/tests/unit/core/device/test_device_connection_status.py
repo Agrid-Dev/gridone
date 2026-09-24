@@ -113,7 +113,7 @@ class TestConnectionStatusRecompute:
         self, device: CoreDevice, mock_transport_client
     ) -> None:
         calls: list[str] = []
-        device.on_update = lambda _d, name, _prev, _attr: calls.append(name)
+        device.on_update = lambda _d, name, _prev, _attr, **_: calls.append(name)
 
         mock_transport_client.read = AsyncMock(return_value="25.5")
         await device.read_attribute_value("temperature")  # idle→ok: fires
@@ -126,7 +126,7 @@ class TestConnectionStatusRecompute:
     ) -> None:
         transitions: list[str] = []
 
-        def _capture(_d, name, _prev, attr) -> None:
+        def _capture(_d, name, _prev, attr, **_: object) -> None:
             if name == CONNECTION_STATUS_ATTR:
                 transitions.append(attr.current_value)
 
@@ -190,7 +190,7 @@ class TestConnectionStatusFailSafe:
     async def test_failing_status_listener_does_not_disrupt_reads(
         self, device: CoreDevice, mock_transport_client
     ) -> None:
-        def _fail_on_status(_d, name, _prev, _attr) -> None:
+        def _fail_on_status(_d, name, _prev, _attr, **_: object) -> None:
             if name == CONNECTION_STATUS_ATTR:
                 raise RuntimeError("boom")
 

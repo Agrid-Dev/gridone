@@ -58,7 +58,9 @@ class TestBroadcastAttributeUpdate:
         listener = broadcast_attribute_update(websocket_manager)
 
         device = _make_device("dev-1")
-        await listener(device, "temperature", None, _make_attribute(21.0))
+        await listener(
+            device, "temperature", None, _make_attribute(21.0), initial=False
+        )
 
         websocket_manager.broadcast.assert_awaited_once()
         message = websocket_manager.broadcast.call_args.args[0]
@@ -131,7 +133,7 @@ class TestProjection:
         manager = AsyncMock(spec=WebSocketManager)
         device = _make_device()
         await broadcast_attribute_update(manager)(
-            device, "mode", None, _make_attribute()
+            device, "mode", None, _make_attribute(), initial=False
         )
         visible = _projector(manager)
 
@@ -141,7 +143,7 @@ class TestProjection:
     async def test_attribute_update_reaches_a_role_that_can_read_it(self):
         manager = AsyncMock(spec=WebSocketManager)
         await broadcast_attribute_update(manager)(
-            _make_device(), "temperature", None, _make_attribute()
+            _make_device(), "temperature", None, _make_attribute(), initial=False
         )
 
         assert _projector(manager)(_temperature_only()) is not None

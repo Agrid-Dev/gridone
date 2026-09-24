@@ -38,6 +38,8 @@ def historise_attribute_update(ts_service: TimeSeriesService) -> AttributeListen
         attribute_name: str,
         _previous: Attribute | None,
         attribute: Attribute,
+        *,
+        initial: bool,
     ) -> None:
         await record_attribute_point(
             ts_service,

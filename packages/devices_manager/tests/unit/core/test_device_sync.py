@@ -465,7 +465,7 @@ class TestCoreDevicePollingGroups:
         """A raising on_update listener must be logged under its own message,
         not folded into the decode-failure log line, and the read/decode
         itself must still count as a successful outcome."""
-        grouped_device.on_update = lambda *args: (_ for _ in ()).throw(  # noqa: ARG005
+        grouped_device.on_update = lambda *args, **kwargs: (_ for _ in ()).throw(  # noqa: ARG005
             RuntimeError("listener boom")
         )
         mock_transport_client._read = AsyncMock(return_value="20.0")  # noqa: SLF001

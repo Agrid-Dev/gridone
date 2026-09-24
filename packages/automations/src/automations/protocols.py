@@ -10,8 +10,11 @@ if TYPE_CHECKING:
     from automations.models import (
         Automation,
         AutomationCreate,
+        AutomationDiagnostic,
         AutomationExecution,
         AutomationUpdate,
+        AutomationWrite,
+        Trigger,
         TriggerContext,
     )
 
@@ -48,8 +51,14 @@ class ActionProvider(Protocol):
     id: str
     params_model: type[BaseModel]
 
-    async def execute(self, params: dict) -> str | None:
+    async def execute(self, params: dict, context: TriggerContext) -> str | None:
         """Execute the action. Returns an opaque output_id, or None."""
+        ...
+
+    async def describe_writes(
+        self, params: dict, trigger: Trigger
+    ) -> Sequence[AutomationWrite]:
+        """Statically known writes for advisory conflict detection."""
         ...
 
 
@@ -64,7 +73,12 @@ class AutomationsServiceInterface(Protocol):
     ) -> Automation: ...
     async def delete(self, automation_id: str) -> None: ...
     async def enable(self, automation_id: str) -> Automation: ...
-    async def disable(self, automation_id: str) -> Automation: ...
+    async def disable(
+        self, automation_id: str, *, reason: str | None = None, actor_id: str
+    ) -> Automation: ...
+    async def list_diagnostics(
+        self, automation_id: str
+    ) -> Sequence[AutomationDiagnostic]: ...
     async def list_executions(
         self, automation_id: str
     ) -> Sequence[AutomationExecution]: ...

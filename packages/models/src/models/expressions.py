@@ -60,6 +60,19 @@ class DeviceAttributeRef(ExpressionModel):
     attribute: Annotated[str, Field(min_length=1)]
 
 
+class EventRef(ExpressionModel):
+    """An automation event value; unavailable in driver and write-rule contexts."""
+
+    event: Literal[
+        "device_id",
+        "attribute",
+        "previous_value",
+        "value",
+        "has_previous",
+        "is_initial",
+    ]
+
+
 class ArithmeticExpression(ExpressionModel):
     op: Literal["add", "subtract", "min", "max"]
     args: Annotated[list[Expression], Field(min_length=2, max_length=MAX_LIST_ITEMS)]
@@ -76,6 +89,7 @@ type Expression = (
     Scalar
     | AttributeRef
     | DeviceAttributeRef
+    | EventRef
     | CandidateRef
     | ArithmeticExpression
     | ChoiceExpression

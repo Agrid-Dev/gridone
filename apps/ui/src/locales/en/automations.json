@@ -21,38 +21,15 @@
   "card": {
     "lastExecuted": "Ran {{ago}}"
   },
-  "wizard": {
-    "untitled": "New automation",
-    "steps": {
-      "metadata": "Details",
-      "trigger": "Trigger",
-      "action": "Action"
-    }
-  },
   "editPage": {
     "breadcrumbLabel": "Breadcrumb",
     "lastExecution": "Last run {{ago}}.",
     "neverExecuted": "Never run yet.",
     "unsavedChanges": "Unsaved changes",
     "saveChanges": "Save changes",
-    "deleteHint": "The execution history is kept.",
-    "identity": {
-      "title": "Identity",
-      "description": "The name shows up in the execution history and in notifications."
-    },
-    "when": {
-      "title": "When",
-      "description": "One trigger per automation."
-    },
-    "then": {
-      "title": "Then",
-      "description": "Runs on every trigger."
-    }
+    "deleteHint": "The execution history is kept."
   },
   "metadata": {
-    "title": "Automation",
-    "edit": "Edit automation",
-    "noDescription": "No description",
     "createdAt": "Created",
     "updatedAt": "Last edited",
     "createdBy": "Created by"
@@ -131,7 +108,21 @@
     "title": "Executions",
     "status": {
       "success": "Succeeded",
-      "failed": "Failed"
+      "failed": "Failed",
+      "no_match": "No case was true",
+      "initialized": "Initialized without action",
+      "tripped": "Circuit breaker tripped",
+      "skipped": "Skipped"
+    },
+    "outcome": {
+      "success": "Succeeded",
+      "failed": "Failed",
+      "no_match": "No case was true",
+      "initialized": "First observation",
+      "tripped": "Breaker tripped",
+      "skipped": "Skipped · run in progress",
+      "rejected": "Refused by a rule",
+      "unknown": "Stopped · unknown value"
     },
     "triggeredAt": "Triggered at",
     "executedAt": "Executed at",
@@ -152,7 +143,8 @@
     "type": "Action type",
     "types": {
       "command_template": "Run a command",
-      "notification": "Send a notification"
+      "notification": "Send a notification",
+      "inline_write": "Write an attribute"
     },
     "typeDescriptions": {
       "command_template": "Sends a command to the targeted devices.",
@@ -162,7 +154,8 @@
       "sourceLabel": "Command source",
       "useTemplate": "Use a saved template",
       "composeNew": "Define a new command",
-      "useCommand": "Use this command"
+      "useCommand": "Use this command",
+      "inlineWrite": "Write one attribute"
     },
     "notificationForm": {
       "title": "Title",
@@ -191,5 +184,201 @@
     "details": "Delete \"{{name}}\"?"
   },
   "enabledBadge": "Enabled",
-  "disabledBadge": "Disabled"
+  "disabledBadge": "Disabled",
+  "tree": {
+    "title": "Automation tree",
+    "loading": "Loading editor…",
+    "invalidCondition": "Complete the requested value.",
+    "cancel": "Cancel",
+    "when": "When",
+    "chooseTrigger": "Choose a trigger",
+    "chooseTriggerHint": "An attribute change or a schedule",
+    "decision": "Decision",
+    "decisionRule": "First true case, left to right",
+    "if": "If",
+    "elseIf": "Else if",
+    "otherwise": "Otherwise",
+    "otherwiseRule": "No earlier case is true",
+    "alwaysTrue": "Always true",
+    "alwaysTrueHint": "This case has no condition: the cases after it are never tested. Add a condition, or delete it.",
+    "unreachable": "Never tested",
+    "chooseCondition": "To complete: choose what to compare",
+    "nothing": "Do nothing",
+    "nothingHint": "The run is still logged",
+    "chooseAction": "Choose an action",
+    "chooseActionHint": "A command, a write or a notification",
+    "actionIncomplete": "To complete",
+    "insertCondition": "Add a condition",
+    "addCase": "Add a case",
+    "limitReached": "At most {{max}} cases per automation",
+    "caseCount_one": "{{count}} case",
+    "caseCount_other": "{{count}} cases",
+    "results": {
+      "matched": "True",
+      "not_matched": "False",
+      "unknown": "Unknown",
+      "skipped": "Not tested",
+      "taken": "Followed"
+    },
+    "recipients_one": "{{count}} recipient",
+    "recipients_other": "{{count}} recipients",
+    "onEventDevice": "On the triggering device",
+    "triggerChange": "{{device}} {{attribute}} {{operator}} {{value}}",
+    "triggerChangeAny": "{{device}} {{attribute}} changes",
+    "commandTemplate": "Command",
+    "zoom": {
+      "label": "Zoom",
+      "in": "Zoom in",
+      "out": "Zoom out",
+      "fit": "Fit to view"
+    },
+    "guardrails": "Up to {{max}} actions per {{seconds}} seconds; disabled after {{failures}} consecutive failures. Re-enabling is manual."
+  },
+  "panel": {
+    "label": "Selected element",
+    "tabs": "Panel views",
+    "tab": {
+      "configure": "Configure",
+      "executions": "Runs"
+    },
+    "collapse": "Collapse the panel",
+    "expand": "Expand the panel",
+    "gone": "This element no longer exists.",
+    "optional": "(optional)",
+    "plainWords": "In plain words",
+    "automation": {
+      "kicker": "Automation"
+    },
+    "trigger": {
+      "title": "Trigger",
+      "help": "One trigger per automation: what starts a run."
+    },
+    "decision": {
+      "title": "Case order",
+      "help": "Cases are tested left to right; the first true one decides the path. If a value it reads is unknown or stale, the automation stops without doing anything."
+    },
+    "case": {
+      "kicker": "Case {{position}} of {{total}}",
+      "untitled": "Case {{position}}",
+      "name": "Case name",
+      "namePlaceholder": "e.g. Empty room",
+      "condition": "Condition",
+      "unreachable": "An earlier case has no condition: this one is never tested.",
+      "incomplete": "Complete the condition to save.",
+      "menu": "Case actions",
+      "earlier": "Test earlier",
+      "later": "Test later",
+      "remove": "Delete the case"
+    },
+    "order": {
+      "title": "Test order",
+      "help": "The first true case wins. Drag to reorder; “Otherwise” always stays last.",
+      "drag": "Move “{{name}}”",
+      "otherwiseAction": "Runs an action",
+      "otherwiseNothing": "Does nothing"
+    },
+    "otherwise": {
+      "title": "When no case is true",
+      "help": "“Otherwise” comes after every case. By default nothing happens; the run is still logged.",
+      "choice": "What happens otherwise",
+      "nothingHint": "The run is logged as “No case was true”.",
+      "act": "Run an action",
+      "actHint": "For instance, notify the on-call team.",
+      "nested": "This lane leads to another decision: edit it on the tree."
+    },
+    "action": {
+      "kicker": "Action",
+      "addConditionBefore": "Add a condition before",
+      "remove": "Remove the action"
+    },
+    "executions": {
+      "kicker": "History",
+      "help": "Pick a run to see its path on the tree.",
+      "removedCase": "Deleted case",
+      "stoppedAt": "Unknown value in “{{name}}”",
+      "detail": "Selected run",
+      "event": "Event",
+      "path": "Path",
+      "result": "Result",
+      "missing": "Unknown or stale: {{refs}}"
+    }
+  },
+  "plain": {
+    "colon": ":",
+    "nothing": "do nothing",
+    "noAction": "no action chosen yet",
+    "decision_one": "a new decision with {{count}} case",
+    "decision_other": "a new decision with {{count}} cases",
+    "notify": "send the notification “{{title}}”",
+    "command": "run “{{name}}”",
+    "writePrefix": "write into {{device}} {{attribute}}:",
+    "eventDevice": "the triggering device"
+  },
+  "editor": {
+    "untitled": "New automation",
+    "namePlaceholder": "e.g. Room 201 heating",
+    "nameRequired": "Give the automation a name.",
+    "enableOnCreate": "Enable as soon as it is saved",
+    "create": "Create the automation",
+    "toComplete_one": "{{count}} item to complete",
+    "toComplete_other": "{{count}} items to complete",
+    "show": "Show",
+    "allSaved": "All changes saved"
+  },
+  "replay": {
+    "title": "Replaying the run · {{moment}}",
+    "older": "Older run",
+    "newer": "Newer run",
+    "quit": "Leave replay"
+  },
+  "event": {
+    "title": "Triggering event",
+    "device_id": "Event device",
+    "attribute": "Event attribute",
+    "previous_value": "Previous value",
+    "value": "New value",
+    "has_previous": "Has a previous observation",
+    "is_initial": "First observation"
+  },
+  "write": {
+    "eventDevice": "Write to the triggering device",
+    "attribute": "Attribute to write",
+    "target": "Target attribute",
+    "value": "Requested value",
+    "valueType": "Value type",
+    "types": {
+      "bool": "On / off",
+      "float": "Number",
+      "str": "Text"
+    },
+    "protected": "Every write passes through the equipment protections. A refusal is recorded; no automatic retry."
+  },
+  "deactivation": {
+    "title": "Disable {{name}}",
+    "resumeTitle": "Enable {{name}}",
+    "help": "Disable this entire automation until you enable it again. Equipment protections remain active.",
+    "resumeHelp": "Enabling resumes listening. It does not send a command or replay events missed while disabled.",
+    "reason": "Reason (optional)",
+    "confirm": "Disable automation",
+    "resume": "Enable",
+    "breaker": "Circuit breaker open"
+  },
+  "reasons": {
+    "overlapping_execution": "Another execution was already running.",
+    "execution_rate_exceeded": "Too many executions in the configured time window.",
+    "consecutive_failures": "Repeated executions failed.",
+    "direct_feedback": "The action would write its own triggering attribute.",
+    "condition_unknown": "A condition could not be evaluated.",
+    "evaluation_limit": "The evaluation budget was exceeded.",
+    "no_matching_branch": "No branch matched.",
+    "first_observation": "Initial observation; no action was sent.",
+    "write_rejected": "The write was refused by a protection."
+  },
+  "diagnostics": {
+    "title": "Potential conflicts",
+    "potential_write_conflict": "Another active automation can write a different value to",
+    "direct_feedback": "This action writes its own triggering attribute:",
+    "openOther": "Open automation",
+    "unavailable": "Conflict checks are currently unavailable."
+  }
 }

@@ -8,6 +8,7 @@ import pytest
 from automations.models import (
     Action,
     Automation,
+    AutomationBranch,
     AutomationExecution,
     ExecutionStatus,
     Trigger,
@@ -29,9 +30,13 @@ def _automation(**kwargs: object) -> Automation:
         "name": "test-auto",
         "description": "",
         "trigger": _SCHEDULE,
-        "action": Action(
-            provider_id="command_template", params={"template_id": "tmpl-01"}
-        ),
+        "branches": [
+            AutomationBranch(
+                action=Action(
+                    provider_id="command_template", params={"template_id": "tmpl-01"}
+                )
+            )
+        ],
         "enabled": True,
     }
     return Automation(**{**defaults, **kwargs})  # type: ignore[arg-type]

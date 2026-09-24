@@ -9,6 +9,7 @@ from automations import (
     AutomationsServiceInterface,
     AutomationUpdate,
 )
+from automations.models import AutomationDiagnostic, DeactivationRequest
 from fastapi import APIRouter, Depends, Query, status
 
 from api.auth import get_current_user_id, require_permission
@@ -16,6 +17,14 @@ from api.dependencies import get_automations_service
 from users.permissions import Permission
 
 router = APIRouter()
+
+
+@router.get(
+    "/schema",
+    dependencies=[Depends(require_permission(Permission.AUTOMATIONS_READ))],
+)
+async def automation_schema() -> dict:
+    return AutomationCreate.model_json_schema()
 
 
 @router.get(
@@ -122,8 +131,15 @@ async def enable_automation(
 async def disable_automation(
     automation_id: str,
     svc: Annotated[AutomationsServiceInterface, Depends(get_automations_service)],
+    body: DeactivationRequest | None = None,
+    current_user_id: str = Depends(get_current_user_id),
 ) -> Automation:
-    return await svc.disable(automation_id)
+    """Disable with an optional reason; the actor and time are always recorded."""
+    return await svc.disable(
+        automation_id,
+        reason=body.reason if body is not None else None,
+        actor_id=current_user_id,
+    )
 
 
 @router.get(
@@ -136,3 +152,15 @@ async def list_executions(
     svc: Annotated[AutomationsServiceInterface, Depends(get_automations_service)],
 ) -> list[AutomationExecution]:
     return list(await svc.list_executions(automation_id))
+
+
+@router.get(
+    "/{automation_id}/diagnostics",
+    response_model=list[AutomationDiagnostic],
+    dependencies=[Depends(require_permission(Permission.AUTOMATIONS_READ))],
+)
+async def list_automation_diagnostics(
+    automation_id: str,
+    svc: Annotated[AutomationsServiceInterface, Depends(get_automations_service)],
+) -> list[AutomationDiagnostic]:
+    return list(await svc.list_diagnostics(automation_id))

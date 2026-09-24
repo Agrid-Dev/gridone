@@ -8,6 +8,7 @@ import pytest
 from automations.models import (
     Action,
     Automation,
+    AutomationBranch,
     AutomationCreate,
     AutomationUpdate,
     ExecutionStatus,
@@ -62,6 +63,7 @@ def _make_action_provider(action_type: str = "command_template") -> MagicMock:
     provider = MagicMock()
     provider.id = action_type
     provider.execute = AsyncMock(return_value="output-test")
+    provider.describe_writes = AsyncMock(return_value=[])
     return provider
 
 
@@ -91,7 +93,7 @@ def _create_params(**kwargs: object) -> AutomationCreate:
     defaults: dict[str, object] = {
         "name": "auto-1",
         "trigger": _SCHEDULE,
-        "action": _ACTION,
+        "branches": [AutomationBranch(action=_ACTION)],
     }
     return AutomationCreate(**{**defaults, **kwargs})  # type: ignore[arg-type]
 
@@ -135,7 +137,7 @@ class TestCRUD:
         svc = _make_service()
         created = await svc.create(_create_params(enabled=True), created_by="u1")
         original_updated_at = created.updated_at
-        disabled = await svc.disable(created.id)
+        disabled = await svc.disable(created.id, actor_id="u1")
         assert disabled.updated_at >= original_updated_at
 
     async def test_get_returns_cached(self):
@@ -207,7 +209,7 @@ class TestStart:
             id="abc123",
             name="a",
             trigger=_SCHEDULE,
-            action=_ACTION,
+            branches=[AutomationBranch(action=_ACTION)],
             enabled=True,
         )
         storage.list.return_value = [auto]
@@ -223,7 +225,7 @@ class TestStart:
             id="abc123",
             name="a",
             trigger=_SCHEDULE,
-            action=_ACTION,
+            branches=[AutomationBranch(action=_ACTION)],
             enabled=False,
         )
         storage.list.return_value = [auto]
@@ -240,14 +242,14 @@ class TestStart:
                 id="a1",
                 name="a1",
                 trigger=_SCHEDULE,
-                action=_ACTION,
+                branches=[AutomationBranch(action=_ACTION)],
                 enabled=True,
             ),
             Automation(
                 id="a2",
                 name="a2",
                 trigger=_SCHEDULE,
-                action=_ACTION,
+                branches=[AutomationBranch(action=_ACTION)],
                 enabled=True,
             ),
         ]
@@ -275,7 +277,7 @@ class TestStart:
                 id="a1",
                 name="a1",
                 trigger=_SCHEDULE,
-                action=_ACTION,
+                branches=[AutomationBranch(action=_ACTION)],
                 enabled=True,
             ),
         ]
@@ -337,7 +339,7 @@ class TestCache:
     async def test_cache_updated_after_disable(self):
         svc = _make_service()
         created = await svc.create(_create_params(enabled=True), created_by="u1")
-        await svc.disable(created.id)
+        await svc.disable(created.id, actor_id="u1")
         assert (await svc.get(created.id)).enabled is False
 
 
@@ -366,7 +368,7 @@ class TestTriggers:
         provider = _make_provider("schedule")
         svc = _make_service(providers=[provider])
         created = await svc.create(_create_params(enabled=True), created_by="u1")
-        await svc.disable(created.id)
+        await svc.disable(created.id, actor_id="u1")
         provider.unregister.assert_called_once_with("handle-01")
 
     async def test_unregistered_before_db_write_on_disable(self):
@@ -378,7 +380,7 @@ class TestTriggers:
         call_order: list[str] = []
         provider.unregister.side_effect = lambda _: call_order.append("stop")
         storage.update.side_effect = lambda *_: call_order.append("db_write")
-        await svc.disable(created.id)
+        await svc.disable(created.id, actor_id="u1")
         assert call_order == ["stop", "db_write"]
 
     async def test_unregistered_on_delete(self):
@@ -397,11 +399,11 @@ class TestTriggers:
         schedule_provider.unregister.assert_called_once()
         change_provider.register.assert_called_once()
 
-    async def test_only_unregistered_on_update_to_disabled(self):
+    async def test_only_unregistered_on_disable(self):
         provider = _make_provider("schedule")
         svc = _make_service(providers=[provider])
         created = await svc.create(_create_params(enabled=True), created_by="u1")
-        await svc.update(created.id, AutomationUpdate(enabled=False))
+        await svc.disable(created.id, actor_id="u1")
         provider.unregister.assert_called_once()
         assert provider.register.call_count == 1  # only the initial create
 
@@ -426,7 +428,7 @@ class TestTriggers:
         provider = _make_provider("schedule")
         svc = _make_service(providers=[provider])
         created = await svc.create(_create_params(enabled=False), created_by="u1")
-        result = await svc.disable(created.id)
+        result = await svc.disable(created.id, actor_id="u1")
         provider.unregister.assert_not_called()
         assert result.enabled is False
 
@@ -481,7 +483,7 @@ class TestRegistrationFailureRollback:
         assert schedule_provider.register.call_count == 2  # initial + restore
         assert (await svc.get(created.id)).trigger == _SCHEDULE
 
-    async def test_update_does_not_write_storage_when_new_registration_fails(self):
+    async def test_enable_does_not_write_storage_when_registration_fails(self):
         storage = _make_storage()
         provider = _make_provider("schedule")
         svc = _make_service(storage=storage, providers=[provider])
@@ -489,7 +491,7 @@ class TestRegistrationFailureRollback:
         storage.update.reset_mock()
         provider.register.side_effect = RuntimeError("boom")
         with pytest.raises(RuntimeError, match="boom"):
-            await svc.update(created.id, AutomationUpdate(enabled=True))
+            await svc.enable(created.id)
         storage.update.assert_not_called()
         assert (await svc.get(created.id)).enabled is False
 
@@ -578,17 +580,18 @@ class TestOnFire:
         provider = _make_action_provider(action.provider_id)
         svc = _make_service(action_providers=[provider])
         created = await svc.create(
-            _create_params(action=action, enabled=False), created_by="u1"
+            _create_params(branches=[AutomationBranch(action=action)], enabled=True),
+            created_by="u1",
         )
         await svc._make_on_fire(created.id)(_CTX)  # noqa: SLF001
-        provider.execute.assert_awaited_once_with(expected_params)
+        provider.execute.assert_awaited_once_with(expected_params, _CTX)
 
     async def test_logs_success_execution(self):
         storage = _make_storage()
         action_provider = _make_action_provider("command_template")
         action_provider.execute.return_value = "output-abc123"
         svc = _make_service(storage=storage, action_providers=[action_provider])
-        created = await svc.create(_create_params(enabled=False), created_by="u1")
+        created = await svc.create(_create_params(enabled=True), created_by="u1")
         await svc._make_on_fire(created.id)(_CTX)  # noqa: SLF001
         execution = storage.log_execution.call_args[0][0]
         assert execution.automation_id == created.id
@@ -601,7 +604,7 @@ class TestOnFire:
         action_provider = _make_action_provider("command_template")
         action_provider.execute.side_effect = RuntimeError("boom")
         svc = _make_service(storage=storage, action_providers=[action_provider])
-        created = await svc.create(_create_params(enabled=False), created_by="u1")
+        created = await svc.create(_create_params(enabled=True), created_by="u1")
         await svc._make_on_fire(created.id)(_CTX)  # noqa: SLF001
         execution = storage.log_execution.call_args[0][0]
         assert execution.status == ExecutionStatus.FAILED
@@ -612,7 +615,7 @@ class TestOnFire:
         action_provider = _make_action_provider("command_template")
         action_provider.execute.side_effect = RuntimeError("boom")
         svc = _make_service(action_providers=[action_provider])
-        created = await svc.create(_create_params(enabled=False), created_by="u1")
+        created = await svc.create(_create_params(enabled=True), created_by="u1")
         await svc._make_on_fire(created.id)(_CTX)  # must not raise  # noqa: SLF001
 
     async def test_raises_not_found_when_automation_missing(self):
@@ -627,7 +630,11 @@ class TestOnFire:
         storage = _make_storage()
         svc = _make_service(storage=storage, action_providers=[])
         automation = Automation(
-            id="auto-1", name="a", trigger=_SCHEDULE, action=_ACTION, enabled=False
+            id="auto-1",
+            name="a",
+            trigger=_SCHEDULE,
+            branches=[AutomationBranch(action=_ACTION)],
+            enabled=True,
         )
         svc._cache[automation.id] = automation  # noqa: SLF001
         await svc._make_on_fire(automation.id)(_CTX)  # noqa: SLF001
@@ -688,10 +695,13 @@ class _FakeTriggerProvider:
 
 
 class _FakeActionProvider:
+    async def describe_writes(self, params: dict, trigger: Trigger) -> list:  # noqa: ARG002
+        return []
+
     id = "fake_action"
     params_model = _FakeParams
 
-    async def execute(self, params: dict) -> str | None:  # noqa: ARG002
+    async def execute(self, params: dict, context: TriggerContext) -> str | None:  # noqa: ARG002
         return "output-test"
 
 
@@ -724,7 +734,7 @@ class TestParamsValidation:
         svc = _make_fake_provider_service(storage=storage)
         params = _create_params(
             trigger=bad_trigger or _GOOD_FAKE_TRIGGER,
-            action=bad_action or _GOOD_FAKE_ACTION,
+            branches=[AutomationBranch(action=bad_action or _GOOD_FAKE_ACTION)],
         )
         with pytest.raises(SchemaValidationError) as exc_info:
             await svc.create(params, created_by="u1")
@@ -762,14 +772,17 @@ class TestParamsValidation:
     ):
         svc = _make_fake_provider_service()
         created = await svc.create(
-            _create_params(trigger=_GOOD_FAKE_TRIGGER, action=_GOOD_FAKE_ACTION),
+            _create_params(
+                trigger=_GOOD_FAKE_TRIGGER,
+                branches=[AutomationBranch(action=_GOOD_FAKE_ACTION)],
+            ),
             created_by="u1",
         )
         update_kwargs = {}
         if bad_trigger is not None:
             update_kwargs["trigger"] = bad_trigger
         if bad_action is not None:
-            update_kwargs["action"] = bad_action
+            update_kwargs["branches"] = [AutomationBranch(action=bad_action)]
         with pytest.raises(SchemaValidationError) as exc_info:
             await svc.update(created.id, AutomationUpdate(**update_kwargs))
         assert exc_info.value.errors[0].loc[:2] == (section, "params")

@@ -56,10 +56,14 @@ describe("RuleSentence", () => {
     render(
       <RuleSentence
         trigger={{ provider_id: "schedule", params: { cron: "0 4 * * 0" } }}
-        action={{
-          provider_id: "notification",
-          params: { title: "Weekly purge" },
-        }}
+        branches={[
+          {
+            action: {
+              provider_id: "notification",
+              params: { title: "Weekly purge" },
+            },
+          },
+        ]}
       />,
     );
     expect(screen.getByText("At 04:00 AM, only on Sunday")).toBeInTheDocument();
@@ -77,10 +81,14 @@ describe("RuleSentence", () => {
             condition: { operator: "gte", threshold: 80 },
           },
         }}
-        action={{
-          provider_id: "command_template",
-          params: { template_id: "tpl-1" },
-        }}
+        branches={[
+          {
+            action: {
+              provider_id: "command_template",
+              params: { template_id: "tpl-1" },
+            },
+          },
+        ]}
       />,
     );
     expect(
@@ -94,7 +102,7 @@ describe("RuleSentence", () => {
     render(
       <RuleSentence
         trigger={{ provider_id: "schedule", params: { cron: "not a cron" } }}
-        action={{ provider_id: "command_template", params: {} }}
+        branches={[{ action: { provider_id: "command_template", params: {} } }]}
       />,
     );
     expect(screen.getByText("Schedule")).toBeInTheDocument();

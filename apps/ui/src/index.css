@@ -66,6 +66,13 @@
        (which means the unit is cooling) — near in hue, wrong in meaning. */
     --water: 206 88% 42%;
 
+    /* Automation tree nodes: one hue per role, never a status colour, so
+       green/amber/red stay free to mean "matched / unknown / failed". */
+    --node-decision: 248 51% 53%;
+    --node-command: 185 74% 23%;
+    --node-write: 15 79% 34%;
+    --node-notify: 214 77% 35%;
+
     /* Synoptic plates, see docs/specs/synoptic-visual-language.md.
        Fluids are keyed on the document's Fluid vocabulary and kept at 45-55 %
        saturation so --status-* stays the only saturated colour on a plate.
@@ -162,6 +169,11 @@
     --hvac-dry: 187 65% 55%;
     --hvac-auto: 48 90% 60%;
     --water: 206 84% 60%;
+
+    --node-decision: 248 75% 74%;
+    --node-command: 185 55% 58%;
+    --node-write: 20 80% 64%;
+    --node-notify: 214 80% 68%;
 
     --synoptic-plate: 220 22% 11%;
     --synoptic-grid: 220 12% 20%;

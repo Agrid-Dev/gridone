@@ -2,6 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import type { ComponentType } from "react";
 import type { Action, Trigger } from "@gridone/sdk";
 import type { Severity } from "@/lib/severity";
+import type { InlineWrite } from "./commandShape";
 
 export type CustomTriggerFormProps = {
   type: string;
@@ -33,7 +34,7 @@ export type TriggerDescriptor = {
 export type ActionFormResult =
   | {
       provider_id: "command_template";
-      params: { template_id: string };
+      params: { template_id: string } | InlineWrite;
     }
   | {
       provider_id: "notification";

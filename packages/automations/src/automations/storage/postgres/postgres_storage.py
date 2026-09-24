@@ -6,7 +6,6 @@ import asyncpg
 from pydantic import TypeAdapter
 
 from automations.models import (
-    Action,
     Automation,
     AutomationExecution,
     ExecutionStatus,
@@ -16,7 +15,6 @@ from models.action_failure import ActionFailure
 from models.errors import NotFoundError
 
 _trigger_adapter: TypeAdapter[Trigger] = TypeAdapter(Trigger)
-_action_adapter: TypeAdapter[Action] = TypeAdapter(Action)
 
 
 class PostgresStorage:
@@ -32,13 +30,17 @@ class PostgresStorage:
     @staticmethod
     def _row_to_automation(row: asyncpg.Record) -> Automation:
         trigger = _trigger_adapter.validate_python(json.loads(row["trigger"]))
-        action = _action_adapter.validate_python(json.loads(row["action"]))
         return Automation(
             id=row["id"],
             name=row["name"],
             description=row["description"],
             trigger=trigger,
-            action=action,
+            branches=json.loads(row["branches"]),
+            deactivation=(
+                json.loads(row["deactivation"]) if row["deactivation"] else None
+            ),
+            guardrails=json.loads(row["guardrails"]),
+            max_age_seconds=row["max_age_seconds"],
             enabled=row["enabled"],
             created_at=row["created_at"],
             updated_at=row["updated_at"],
@@ -58,25 +60,37 @@ class PostgresStorage:
             error_details=ActionFailure.model_validate_json(row["error_details"])
             if row.get("error_details")
             else None,
+            context=json.loads(row["context"]) if row["context"] else None,
+            branch_id=row["branch_id"],
+            branches=json.loads(row["branches"]),
+            reason=row["reason"],
         )
 
     async def create(self, automation: Automation) -> None:
         await self._pool.execute(
             """
             INSERT INTO automations
-                (id, name, description, trigger, action, enabled,
-                 created_at, updated_at, created_by)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                (id, name, description, trigger, enabled,
+                 created_at, updated_at, created_by, branches, deactivation,
+                 guardrails, max_age_seconds)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
             """,
             automation.id,
             automation.name,
             automation.description,
             _trigger_adapter.dump_json(automation.trigger).decode(),
-            _action_adapter.dump_json(automation.action).decode(),
             automation.enabled,
             automation.created_at,
             automation.updated_at,
             automation.created_by,
+            json.dumps(
+                [branch.model_dump(mode="json") for branch in automation.branches]
+            ),
+            automation.deactivation.model_dump_json()
+            if automation.deactivation
+            else None,
+            automation.guardrails.model_dump_json(),
+            automation.max_age_seconds,
         )
 
     async def get(self, automation_id: str) -> Automation:
@@ -103,16 +117,25 @@ class PostgresStorage:
             """
             UPDATE automations
             SET name = $2, description = $3,
-                trigger = $4, action = $5, enabled = $6, updated_at = $7
+                trigger = $4, enabled = $5, updated_at = $6,
+                branches = $7, deactivation = $8, guardrails = $9,
+                max_age_seconds = $10
             WHERE id = $1
             """,
             automation.id,
             automation.name,
             automation.description,
             _trigger_adapter.dump_json(automation.trigger).decode(),
-            _action_adapter.dump_json(automation.action).decode(),
             automation.enabled,
             automation.updated_at,
+            json.dumps(
+                [branch.model_dump(mode="json") for branch in automation.branches]
+            ),
+            automation.deactivation.model_dump_json()
+            if automation.deactivation
+            else None,
+            automation.guardrails.model_dump_json(),
+            automation.max_age_seconds,
         )
         if result == "UPDATE 0":
             msg = f"Automation {automation.id!r} not found"
@@ -132,8 +155,9 @@ class PostgresStorage:
             """
             INSERT INTO automation_executions
                 (id, automation_id, triggered_at, executed_at,
-                 status, error, output_id, error_details)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                 status, error, output_id, error_details, context, branch_id,
+                 branches, reason)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
             """,
             execution.id,
             execution.automation_id,
@@ -145,6 +169,12 @@ class PostgresStorage:
             execution.error_details.model_dump_json()
             if execution.error_details
             else None,
+            execution.context.model_dump_json() if execution.context else None,
+            execution.branch_id,
+            json.dumps(
+                [branch.model_dump(mode="json") for branch in execution.branches]
+            ),
+            execution.reason,
         )
 
     async def list_executions(self, automation_id: str) -> list[AutomationExecution]:  # type: ignore[invalid-type-form]

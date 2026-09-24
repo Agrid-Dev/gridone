@@ -13,7 +13,7 @@ function automation(id: string, name: string): Automation {
     id,
     name,
     trigger: { provider_id: "schedule", params: {} },
-    action: { provider_id: "command_template", params: {} },
+    branches: [{ action: { provider_id: "command_template", params: {} } }],
   };
 }
 

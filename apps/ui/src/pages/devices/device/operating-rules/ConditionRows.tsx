@@ -1,4 +1,10 @@
-import { useId, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useId,
+  useState,
+  type ReactNode,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { MoreHorizontal, Plus, X } from "lucide-react";
 import type {
@@ -31,10 +37,18 @@ import {
   defaultScalar,
   emptyAttribute,
   catalogAttribute,
+  isScalar,
   scalarType,
   type AttributeCatalog,
   type Scalar,
 } from "./expressions";
+
+/**
+ * Whether the conditions may read the automation event that is being
+ * evaluated (new value, previous value…). Only automations have one; operating
+ * rules and drivers never do.
+ */
+const EventContext = createContext(false);
 import {
   comparisonsFor,
   groupOp,
@@ -305,6 +319,7 @@ function RowMenu({
   candidateType?: DataType;
 }) {
   const { t } = useTranslation("operatingRules");
+  const eventContext = useContext(EventContext);
   const comparing = "right" in value;
   const kind = comparing ? rightKind(value.right) : undefined;
   return (
@@ -340,6 +355,19 @@ function RowMenu({
             onSelect={() => onChange(withRightKind(value, "candidate", type))}
           >
             {t("useRequestedValue")}
+          </DropdownMenuItem>
+        )}
+        {eventContext && (
+          <DropdownMenuItem
+            onSelect={() =>
+              onChange({
+                op: "eq",
+                left: { event: "value" },
+                right: comparing && isScalar(value.right) ? value.right : false,
+              })
+            }
+          >
+            {t("testEventValue")}
           </DropdownMenuItem>
         )}
         <DropdownMenuSeparator />
@@ -383,6 +411,7 @@ function AdvancedRow({
   candidateType?: DataType;
 }) {
   const { t } = useTranslation("operatingRules");
+  const eventContext = useContext(EventContext);
   const [open, setOpen] = useState(false);
   const id = useId();
   return (
@@ -411,6 +440,7 @@ function AdvancedRow({
             onChange={onChange}
             catalog={catalog}
             candidateType={candidateType}
+            eventContext={eventContext}
           />
         </div>
       )}
@@ -613,19 +643,23 @@ export function ConditionRows({
   onChange,
   catalog,
   candidateType,
+  eventContext = false,
 }: {
   value: WriteCondition;
   onChange: (value: WriteCondition) => void;
   catalog: AttributeCatalog;
   candidateType?: DataType;
+  eventContext?: boolean;
 }) {
   return (
-    <ConditionGroup
-      value={value}
-      onChange={onChange}
-      catalog={catalog}
-      candidateType={candidateType}
-      depth={0}
-    />
+    <EventContext.Provider value={eventContext}>
+      <ConditionGroup
+        value={value}
+        onChange={onChange}
+        catalog={catalog}
+        candidateType={candidateType}
+        depth={0}
+      />
+    </EventContext.Provider>
   );
 }

@@ -6,12 +6,15 @@ import pytest
 from automations.models import (
     Action,
     Automation,
+    AutomationBranch,
     AutomationCreate,
     AutomationExecution,
     AutomationUpdate,
+    Deactivation,
     ExecutionStatus,
     Trigger,
 )
+from pydantic import ValidationError
 
 _SCHEDULE = Trigger(provider_id="schedule", params={"cron": "0 11 * * *"})
 _CHANGE_TEMP = Trigger(
@@ -86,24 +89,35 @@ class TestAutomationUseCases:
         ],
     )
     def test_use_case(self, name: str, trigger: Trigger):
-        automation = AutomationCreate(name=name, trigger=trigger, action=_CMD_ACTION)
+        automation = AutomationCreate(
+            name=name, trigger=trigger, branches=[AutomationBranch(action=_CMD_ACTION)]
+        )
         assert automation.trigger == trigger
 
     def test_automation_id(self):
         a = Automation(
             name="test",
             trigger=_SCHEDULE,
-            action=_CMD_ACTION,
+            branches=[AutomationBranch(action=_CMD_ACTION)],
             id="abc123def456abcd",
         )
         assert a.id == "abc123def456abcd"
 
     def test_automation_with_notification_action(self):
-        a = AutomationCreate(name="notif", trigger=_SCHEDULE, action=_NOTIF_ACTION)
-        assert a.action.provider_id == "notification"
+        a = AutomationCreate(
+            name="notif",
+            trigger=_SCHEDULE,
+            branches=[AutomationBranch(action=_NOTIF_ACTION)],
+        )
+        assert a.branches[0].action is not None
+        assert a.branches[0].action.provider_id == "notification"
 
     def test_automation_metadata_defaults(self):
-        a = Automation(name="test", trigger=_SCHEDULE, action=_CMD_ACTION)
+        a = Automation(
+            name="test",
+            trigger=_SCHEDULE,
+            branches=[AutomationBranch(action=_CMD_ACTION)],
+        )
         assert a.created_by == ""
         assert a.created_at <= a.updated_at
 
@@ -112,7 +126,7 @@ class TestAutomationUseCases:
         a = Automation(
             name="test",
             trigger=_SCHEDULE,
-            action=_CMD_ACTION,
+            branches=[AutomationBranch(action=_CMD_ACTION)],
             created_at=before,
             updated_at=before,
         )
@@ -126,7 +140,7 @@ class TestAutomationUseCases:
         a = Automation(
             name="test",
             trigger=_SCHEDULE,
-            action=_CMD_ACTION,
+            branches=[AutomationBranch(action=_CMD_ACTION)],
             created_at=before,
             updated_at=before,
         )
@@ -136,7 +150,11 @@ class TestAutomationUseCases:
 
 class TestAutomationCreateDescription:
     def test_description_defaults_to_empty_string(self):
-        a = AutomationCreate(name="my-auto", trigger=_SCHEDULE, action=_CMD_ACTION)
+        a = AutomationCreate(
+            name="my-auto",
+            trigger=_SCHEDULE,
+            branches=[AutomationBranch(action=_CMD_ACTION)],
+        )
         assert a.description == ""
 
     def test_description_can_be_set(self):
@@ -144,7 +162,7 @@ class TestAutomationCreateDescription:
             name="my-auto",
             description="Some info",
             trigger=_SCHEDULE,
-            action=_CMD_ACTION,
+            branches=[AutomationBranch(action=_CMD_ACTION)],
         )
         assert a.description == "Some info"
 
@@ -155,8 +173,6 @@ class TestAutomationUpdate:
         assert u.name is None
         assert u.description == ""
         assert u.trigger is None
-        assert u.action is None
-        assert u.enabled is None
 
     def test_description_omitted_not_in_fields_set(self):
         u = AutomationUpdate()
@@ -180,16 +196,37 @@ class TestAutomationUpdate:
         assert u.trigger.provider_id == "schedule"
         assert u.name is None
 
-    def test_action_only(self):
-        u = AutomationUpdate(action=_CMD_ACTION)
-        assert u.action is not None
-        assert u.action.provider_id == "command_template"
-        assert u.name is None
+    def test_enabled_is_not_patchable(self):
+        """A state change goes through enable/disable, so it is always traced."""
+        assert "enabled" not in AutomationUpdate.model_fields
 
-    def test_enabled_only(self):
-        u = AutomationUpdate(enabled=False)
-        assert u.enabled is False
-        assert u.name is None
+
+class TestDeactivation:
+    def test_reason_is_optional_but_never_blank(self):
+        now = datetime.now(UTC)
+        assert Deactivation(actor_id="u1", at=now).reason is None
+        assert Deactivation(actor_id="u1", at=now).source == "operator"
+        with pytest.raises(ValidationError):
+            Deactivation(reason="  ", actor_id="u1", at=now)
+
+    def test_enabled_automation_cannot_carry_a_trace(self):
+        trace = Deactivation(actor_id="u1", at=datetime.now(UTC))
+        disabled = Automation(
+            name="x",
+            trigger=_SCHEDULE,
+            branches=[AutomationBranch(action=_CMD_ACTION)],
+            enabled=False,
+        ).model_copy(update={"deactivation": trace})
+        assert Automation.model_validate(disabled.model_dump()).deactivation == trace
+        with pytest.raises(
+            ValidationError, match="automation_enabled_with_deactivation"
+        ):
+            Automation(
+                name="x",
+                trigger=_SCHEDULE,
+                branches=[AutomationBranch(action=_CMD_ACTION)],
+                deactivation=trace,
+            )
 
 
 class TestAutomationExecution:

@@ -59,9 +59,11 @@ it through a dialect extension that introduces an `object` descriptor kind and
 a matching widget, rather than weakening the guardrail before the UI can
 render the shape.
 
-`ChangeEventTrigger` is the sole first-party exemption. Its nested `Condition`
-is rendered by the dedicated `ChangeEventForm` and `ConditionEditor`, never by
-the generic pipeline. New nested triggers are not exempt automatically.
+Two first-party schemas use dedicated editors: `ChangeEventTrigger` renders its
+nested condition through `ChangeEventForm`, and `CommandAction` — a saved template
+or one inline write whose scalar `value` is a union — renders through
+`CommandActionForm`. Neither enters the generic pipeline. New nested schemas are not
+exempt automatically.
 
 ### Vendor markers
 

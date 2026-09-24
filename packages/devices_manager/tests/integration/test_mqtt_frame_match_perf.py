@@ -93,7 +93,11 @@ async def _replay(driver: Driver, frames: list[str], namespace: str) -> Replay:
     applied: dict[str, asyncio.Event] = {}
 
     def on_update(
-        device: CoreDevice, name: str, _previous: Attribute | None, attribute: Attribute
+        device: CoreDevice,
+        name: str,
+        _previous: Attribute | None,
+        attribute: Attribute,
+        **_: object,
     ) -> None:
         if name == "timestamp_utc" and attribute.current_value == SENTINEL:
             applied[device.id].set()

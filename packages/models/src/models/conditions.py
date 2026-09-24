@@ -16,6 +16,7 @@ from models.expressions import (
     Comparison,
     Condition,
     DeviceAttributeRef,
+    EventRef,
     Expression,
     IsKnown,
     Junction,
@@ -83,6 +84,7 @@ class EvaluationContext:
     budget: EvaluationBudget = field(default_factory=EvaluationBudget)
     missing: set[str] = field(default_factory=set)
     resolve_attribute: DeviceAttributeResolver | None = None
+    resolve_event: ValueResolver | None = None
 
     def spend(self, depth: int) -> None:
         self.budget.spend()
@@ -95,6 +97,8 @@ class EvaluationContext:
     ) -> AttributeValueType | None:
         """Evaluate only the selected branch; unknown tests never choose a default."""
         self.spend(depth)
+        if isinstance(expression, EventRef):
+            return self.resolve_event(expression.event) if self.resolve_event else None
         if isinstance(expression, DeviceAttributeRef):
             result = (
                 self.resolve_attribute(expression) if self.resolve_attribute else None

@@ -56,7 +56,7 @@ async def test_automation_resolves_current_members_once():
             ),
             "operator",
         )
-        provider = CommandsActionProvider(commands)
+        provider = CommandsActionProvider(commands, MagicMock())
         first = await provider.execute({"template_id": template.id})
         devices["b"].tags = {"loop": ["east"]}
         second = await provider.execute({"template_id": template.id})

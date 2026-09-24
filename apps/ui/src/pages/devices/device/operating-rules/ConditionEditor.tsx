@@ -26,6 +26,7 @@ type Context = {
   catalog: AttributeCatalog;
   candidateType?: DataType;
   depth?: number;
+  eventContext?: boolean;
 };
 const conditionKinds: ConditionKind[] = [
   "eq",
@@ -43,6 +44,7 @@ const expressionKinds: ExpressionKind[] = [
   "attribute",
   "literal",
   "candidate",
+  "event",
   "add",
   "subtract",
   "min",
@@ -62,7 +64,7 @@ export function ScalarInput({
   dataType?: DataType;
   label: string;
 }) {
-  const { t } = useTranslation("operatingRules");
+  const { t } = useTranslation(["operatingRules", "automations"]);
   const id = useId();
   const type = dataType ?? scalarType(value);
   if (type === "bool")
@@ -102,15 +104,16 @@ export function ExpressionEditor({
   depth = 0,
   expectedType,
   label,
+  eventContext = false,
 }: Context & {
   value: WriteExpression;
   onChange: (value: WriteExpression) => void;
   expectedType?: DataType;
   label: string;
 }) {
-  const { t } = useTranslation("operatingRules");
+  const { t } = useTranslation(["operatingRules", "automations"]);
   const kind = expressionKind(value);
-  const context = { catalog, candidateType, depth: depth + 1 };
+  const context = { catalog, candidateType, depth: depth + 1, eventContext };
   return (
     <fieldset className="min-w-0 space-y-3 rounded-lg border bg-background p-3">
       <legend className="px-1 text-sm font-medium">{label}</legend>
@@ -124,13 +127,21 @@ export function ExpressionEditor({
         {expressionKinds
           .filter(
             (k) =>
+              k === kind ||
+              ((k !== "event" || eventContext) &&
+                (k !== "candidate" || !eventContext)),
+          )
+          .filter(
+            (k) =>
               depth < maxEditorDepth ||
               !["if", "add", "subtract", "min", "max"].includes(k) ||
               k === kind,
           )
           .map((k) => (
             <SelectItem key={k} value={k}>
-              {t(`expression.${k}`)}
+              {k === "event"
+                ? t("automations:event.title")
+                : t(`expression.${k}`)}
             </SelectItem>
           ))}
       </EditorSelect>
@@ -156,6 +167,27 @@ export function ExpressionEditor({
             onChange={onChange}
           />
         </>
+      ) : "event" in value ? (
+        <EditorSelect
+          label={t("automations:event.title")}
+          value={value.event}
+          onChange={(event) => onChange({ event: event as typeof value.event })}
+        >
+          {(
+            [
+              "device_id",
+              "attribute",
+              "previous_value",
+              "value",
+              "has_previous",
+              "is_initial",
+            ] as const
+          ).map((event) => (
+            <SelectItem key={event} value={event}>
+              {t(`automations:event.${event}`)}
+            </SelectItem>
+          ))}
+        </EditorSelect>
       ) : "device_id" in value ? (
         <AttributeSelect
           label={t("observedAttribute")}
@@ -241,12 +273,13 @@ export function ConditionEditor({
   catalog,
   candidateType,
   depth = 0,
+  eventContext = false,
 }: Context & {
   value: WriteCondition;
   onChange: (value: WriteCondition) => void;
 }) {
-  const { t } = useTranslation("operatingRules");
-  const context = { catalog, candidateType, depth: depth + 1 };
+  const { t } = useTranslation(["operatingRules", "automations"]);
+  const context = { catalog, candidateType, depth: depth + 1, eventContext };
   const type =
     "left" in value
       ? expressionType(value.left, catalog, candidateType)

@@ -17,6 +17,7 @@ export type ExpressionKind =
   | "attribute"
   | "literal"
   | "candidate"
+  | "event"
   | "add"
   | "subtract"
   | "min"
@@ -86,6 +87,7 @@ export function isScalar(value: WriteExpression): value is Scalar {
 export function expressionKind(value: WriteExpression): ExpressionKind {
   if (isScalar(value)) return "literal";
   if ("op" in value) return value.op;
+  if ("event" in value) return "event";
   return "candidate" in value ? "candidate" : "attribute";
 }
 export function expressionType(
@@ -109,6 +111,7 @@ export function newExpression(
   if (kind === "attribute") return emptyAttribute();
   if (kind === "literal") return defaultScalar(type);
   if (kind === "candidate") return { candidate: true };
+  if (kind === "event") return { event: "value" };
   if (kind === "if")
     return {
       op: "if",

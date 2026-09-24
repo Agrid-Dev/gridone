@@ -1,4 +1,4 @@
-import { FC, FormEvent, useState } from "react";
+import { FC, FormEvent, useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui";
 import type { Action } from "@gridone/sdk";
@@ -10,6 +10,7 @@ import {
   type ActionType,
 } from "../presenters/actionRegistry";
 import type { ActionFormResult } from "../presenters/types";
+import { inlineWriteOf } from "../presenters/commandShape";
 
 interface ActionFormProps {
   /** Existing action when editing an automation, raw off ``automation.action``.
@@ -36,11 +37,10 @@ function actionToResult(action: Action | undefined): ActionFormResult | null {
   const params = action.params ?? {};
   if (action.provider_id === "command_template") {
     const id = params.template_id;
-    if (typeof id !== "string") return null;
-    return {
-      provider_id: "command_template",
-      params: { template_id: id },
-    };
+    if (typeof id === "string")
+      return { provider_id: "command_template", params: { template_id: id } };
+    const write = inlineWriteOf(action);
+    return write ? { provider_id: "command_template", params: write } : null;
   }
   if (action.provider_id === "notification") {
     const { title, body, severity, user_ids: userIds } = params;
@@ -80,10 +80,13 @@ const ActionForm: FC<ActionFormProps> = ({
     actionToResult(initialValue),
   );
 
-  const updateResult = (next: ActionFormResult | null) => {
-    setResult(next);
-    onChange?.(next);
-  };
+  const updateResult = useCallback(
+    (next: ActionFormResult | null) => {
+      setResult(next);
+      onChange?.(next);
+    },
+    [onChange],
+  );
 
   const handleTypeChange = (next: string) => {
     setType(next as ActionType);

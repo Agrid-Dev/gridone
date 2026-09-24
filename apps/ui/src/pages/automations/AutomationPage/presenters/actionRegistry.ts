@@ -1,4 +1,4 @@
-import { Bell, Terminal } from "lucide-react";
+import { Bell, SquareTerminal } from "lucide-react";
 import { CommandActionForm } from "../form/actionTypes/CommandActionForm";
 import { NotificationActionForm } from "../form/actionTypes/NotificationActionForm";
 import { CommandActionPresenter } from "./CommandActionPresenter";
@@ -13,7 +13,7 @@ import type { ActionDescriptor } from "./types";
  *  that emits an ``ActionFormResult``, and a Presenter. */
 export const ACTION_PROVIDER_DESCRIPTORS: Record<string, ActionDescriptor> = {
   command_template: {
-    icon: Terminal,
+    icon: SquareTerminal,
     CustomFormRenderer: CommandActionForm,
     Presenter: CommandActionPresenter,
   },

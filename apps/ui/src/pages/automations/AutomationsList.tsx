@@ -1,13 +1,12 @@
 import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Pencil, Play, Plus } from "lucide-react";
-import { toast } from "sonner";
 import type { Automation, AutomationExecution } from "@gridone/sdk";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
+import { AutomationControl } from "./components/AutomationControl";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
 import { usePermissions } from "@/contexts/AuthContext";
@@ -25,7 +24,6 @@ import { executionTime } from "./components/executionsSummary";
 export default function AutomationsList() {
   const { t } = useTranslation(["automations", "common"]);
   const can = usePermissions();
-  const queryClient = useQueryClient();
   const client = useGridoneClient();
 
   const { data: automations = [], isLoading } = useQuery({
@@ -35,25 +33,6 @@ export default function AutomationsList() {
 
   const executions = useAutomationsExecutions(automations);
 
-  const enableMutation = useMutation({
-    mutationFn: (id: string) => client.automations.enable(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["automations"] });
-      toast.success(t("toasts.enabled"));
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-
-  const disableMutation = useMutation({
-    mutationFn: (id: string) => client.automations.disable(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["automations"] });
-      toast.success(t("toasts.disabled"));
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-
-  const isMutating = enableMutation.isPending || disableMutation.isPending;
   const canWrite = can("automations:write");
   const activeCount = automations.filter((a) => a.enabled ?? true).length;
   const pausedCount = automations.length - activeCount;
@@ -135,12 +114,6 @@ export default function AutomationsList() {
                   : undefined
               }
               canWrite={canWrite}
-              isMutating={isMutating}
-              onToggle={() =>
-                automation.enabled
-                  ? disableMutation.mutate(automation.id!)
-                  : enableMutation.mutate(automation.id!)
-              }
             />
           ))}
         </ul>
@@ -157,14 +130,10 @@ function AutomationCard({
   automation,
   lastExecution,
   canWrite,
-  isMutating,
-  onToggle,
 }: {
   automation: Automation;
   lastExecution?: AutomationExecution;
   canWrite: boolean;
-  isMutating: boolean;
-  onToggle: () => void;
 }) {
   const { t } = useTranslation(["automations", "common"]);
   const { t: tCommon } = useTranslation("common");
@@ -204,8 +173,8 @@ function AutomationCard({
             </div>
             <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
               <RuleSentence
+                branches={automation.branches}
                 trigger={automation.trigger}
-                action={automation.action}
               />
               {lastExecution && (
                 <span className="flex shrink-0 items-center gap-1.5 text-xs tabular-nums text-muted-foreground">
@@ -248,18 +217,17 @@ function AutomationCard({
                   <Pencil />
                 </Link>
               </Button>
-              <AutomationStatusBadge enabled={enabled} />
-              <Switch
-                checked={enabled}
-                onCheckedChange={onToggle}
-                disabled={isMutating}
-                // Running/paused is a status, not a brand action — green when on.
-                className={enabled ? "bg-success" : undefined}
-                aria-label={t(enabled ? "actions.disable" : "actions.enable")}
+              <AutomationStatusBadge
+                enabled={enabled}
+                deactivation={automation.deactivation}
               />
+              <AutomationControl automation={automation} />
             </div>
           ) : (
-            <AutomationStatusBadge enabled={enabled} />
+            <AutomationStatusBadge
+              enabled={enabled}
+              deactivation={automation.deactivation}
+            />
           )}
         </div>
       </Card>

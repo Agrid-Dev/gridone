@@ -158,6 +158,18 @@ services:
     ports:
       - "9089:8080"
 
+  # Dedicated to suites/automations/decisionTree.spec.ts: that journey powers
+  # the emulator down and up to prove that the first observation after a
+  # reconnection never fires an automation, an outage the two siblings
+  # sharing thermocktat-automations could not tolerate.
+  thermocktat-decision-tree:
+    image: ghcr.io/agrid-dev/thermocktat:v0.10.0
+    environment:
+      TMK_DEVICE_ID: TMK_decision_tree_0
+      TMK_CONTROLLER: http
+    ports:
+      - "9092:8080"
+
   # Dedicated to suites/devices/commandValidation.spec.ts: its driver carries
   # write rules that read onoff_state, which the suite flips through the http
   # side-channel while also writing temperature_setpoint.

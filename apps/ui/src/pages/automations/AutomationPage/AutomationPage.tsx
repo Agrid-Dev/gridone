@@ -2,7 +2,7 @@ import { useParams } from "react-router";
 import { type FC } from "react";
 import { ResourceBoundary } from "@/components/ResourceBoundary";
 import { useAutomation } from "./hooks/useAutomationPage";
-import AutomationWorkspace from "./AutomationWorkspace";
+import { AutomationEditor } from "./editor/AutomationEditor";
 
 const AutomationPageContent: FC = () => {
   const { automationId } = useParams<{ automationId: string }>();
@@ -12,9 +12,9 @@ const AutomationPageContent: FC = () => {
   const { automation, remove, isDeleting } = useAutomation(automationId);
 
   return (
-    <AutomationWorkspace
-      automationId={automationId}
-      automation={automation}
+    <AutomationEditor
+      key={automationId}
+      mode={{ kind: "edit", automation }}
       onDelete={remove}
       isDeleting={isDeleting}
     />

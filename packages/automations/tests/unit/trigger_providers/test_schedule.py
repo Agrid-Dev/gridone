@@ -46,6 +46,33 @@ class TestScheduleListener:
             await listener.stop()
         assert fired.is_set()
 
+    async def test_stop_from_inside_on_fire_ends_the_loop_without_cancelling(self):
+        """The breaker unregisters a schedule from within its own on_fire: the
+        task must not cancel itself (a self-cancellation is swallowed but leaves
+        the task marked as cancelling), and the loop must end instead of firing
+        the next occurrence, due 5 ms later."""
+        fired = 0
+
+        async def on_fire(_ctx: object) -> None:
+            nonlocal fired
+            fired += 1
+            await listener.stop()
+
+        listener = ScheduleListener("* * * * *", on_fire)
+        soon_due = MagicMock()
+        soon_due.get_next.side_effect = lambda _: (
+            datetime.now(UTC) + timedelta(milliseconds=5)
+        )
+        with patch(CRONITER_TARGET, return_value=soon_due):
+            await listener.start()
+            task = listener._task  # noqa: SLF001
+            assert task is not None
+            await asyncio.wait_for(task, timeout=0.5)
+        assert fired == 1
+        assert not task.cancelled()
+        assert task.cancelling() == 0
+        assert listener._task is None  # noqa: SLF001
+
 
 class TestScheduleListenerTimezone:
     """A schedule means a wall-clock time at the building, not on the server."""

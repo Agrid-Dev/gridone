@@ -331,9 +331,9 @@ async def test_automatic_and_group_members_are_terminally_refused(harness):
         ),
         "admin",
     )
-    batch_id = await CommandsActionProvider(harness.commands).execute(
-        {"template_id": template.id}
-    )
+    batch_id = await CommandsActionProvider(
+        harness.commands, harness.dm.inspect_attribute
+    ).execute({"template_id": template.id})
     await harness.commands.stop()
     # Inspect the real command history before the service's memory backend is discarded.
     rows = (await harness.commands.get_commands(batch_id=batch_id)).items
@@ -451,3 +451,154 @@ async def test_http_rejects_invalid_freshness_duration(harness, max_age_seconds)
     )
     assert response.status_code == 422
     assert len(harness.operating_rules.list_operating_rules()) == 1
+
+
+async def test_decision_tree_event_write_refusal_is_in_command_history(harness):
+    import asyncio
+
+    from automations import AutomationsService
+    from automations.models import Action, AutomationBranch, AutomationCreate, Trigger
+
+    from api.action_providers.commands import CommandsActionProvider
+    from api.trigger_providers.change_event import ChangeEventTriggerProvider
+
+    service = AutomationsService(
+        None,
+        [ChangeEventTriggerProvider(harness.dm)],
+        [CommandsActionProvider(harness.commands, harness.dm.inspect_attribute)],
+        resolve_attribute=harness.dm.resolve_attribute,
+    )
+    await service.start()
+    try:
+        automation = await service.create(
+            AutomationCreate(
+                name="Start A after a change on B",
+                trigger=Trigger(
+                    provider_id="change_event",
+                    params={"device_id": "b", "attribute": "running"},
+                ),
+                branches=[
+                    AutomationBranch(
+                        action=Action(
+                            provider_id="command_template",
+                            params={
+                                "device_id": "a",
+                                "attribute": "command",
+                                "value": True,
+                            },
+                        )
+                    )
+                ],
+            ),
+            created_by="operator",
+        )
+        await observe(harness, value=False)
+        for _ in range(20):
+            await asyncio.sleep(0)
+        assert not (await harness.commands.get_commands()).items
+        initial = await service.list_executions(automation.id)
+        assert initial[0].status == "initialized"
+        await observe(harness, value=True)
+        for _ in range(20):
+            await asyncio.sleep(0)
+        executions = await service.list_executions(automation.id)
+        assert executions[0].reason == "write_rejected"
+        assert executions[0].context is not None
+        assert executions[0].context.previous_value is False
+        assert executions[0].context.value is True
+        command = (await harness.commands.get_commands()).items[0]
+        assert command.status == CommandStatus.ERROR
+        assert command.validation.reasons[0].code == "operating_rule_blocked"
+        harness.transport.write.assert_not_called()
+    finally:
+        await service.stop()
+
+
+async def test_two_device_feedback_loop_opens_the_circuit_breaker(harness):
+    import asyncio
+
+    from automations import AutomationsService
+    from automations.models import (
+        Action,
+        AutomationBranch,
+        AutomationCreate,
+        AutomationGuardrails,
+        Trigger,
+    )
+
+    from api.action_providers.commands import CommandsActionProvider
+    from api.trigger_providers.change_event import ChangeEventTriggerProvider
+    from models.expressions import Comparison, EventRef
+
+    await harness.operating_rules.set_enabled(
+        harness.rule_id, "admin", 1, enabled=False
+    )
+    service = AutomationsService(
+        None,
+        [ChangeEventTriggerProvider(harness.dm)],
+        [CommandsActionProvider(harness.commands, harness.dm.inspect_attribute)],
+    )
+
+    def write(target: str, *, value: bool) -> Action:
+        return Action(
+            provider_id="command_template",
+            params={"device_id": target, "attribute": "command", "value": value},
+        )
+
+    def on_value(*, value: bool) -> Comparison:
+        return Comparison(op="eq", left=EventRef(event="value"), right=value)
+
+    await service.start()
+    try:
+        rules = []
+        for source, target in [("a", "b"), ("b", "a")]:
+            # a copies its value to b; b writes the opposite back to a: with
+            # static values, two conditional branches make the ping-pong.
+            rules.append(
+                await service.create(
+                    AutomationCreate(
+                        name=source,
+                        trigger=Trigger(
+                            provider_id="change_event",
+                            params={"device_id": source, "attribute": "command"},
+                        ),
+                        branches=[
+                            AutomationBranch(
+                                condition=on_value(value=True),
+                                action=write(target, value=source == "a"),
+                            ),
+                            AutomationBranch(
+                                condition=on_value(value=False),
+                                action=write(target, value=source != "a"),
+                            ),
+                        ],
+                        guardrails=AutomationGuardrails(max_executions=2),
+                    ),
+                    created_by="admin",
+                )
+            )
+            harness.transport.read.return_value = False
+            await harness.dm.refresh_device_attribute(source, "command")
+        for _ in range(20):
+            await asyncio.sleep(0)
+        harness.transport.read.return_value = True
+        await harness.dm.refresh_device_attribute("a", "command")
+        processed = 0
+        for _ in range(10):
+            for _ in range(20):
+                await asyncio.sleep(0)
+            commands = (await harness.commands.get_commands()).items
+            if len(commands) == processed:
+                break
+            command = commands[-1]
+            processed = len(commands)
+            harness.transport.read.return_value = command.value
+            await harness.dm.refresh_device_attribute(command.device_id, "command")
+        assert processed == 4
+        stopped = await service.get(rules[0].id)
+        assert stopped.deactivation is not None
+        assert stopped.deactivation.source == "circuit_breaker"
+        assert stopped.deactivation.reason == "execution_rate_exceeded"
+        assert len((await harness.commands.get_commands()).items) == 4
+    finally:
+        await service.stop()
