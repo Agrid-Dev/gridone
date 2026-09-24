@@ -82,7 +82,7 @@ class YamlErrorCode(StrEnum):
 
 @dataclass(frozen=True)
 class YamlLimits:
-    max_bytes: int = 1 * MIB
+    max_bytes: int = 2 * MIB
     max_depth: int = 64
     max_nodes: int = 100_000
     """Counted on the expanded document: an alias is charged the size of the

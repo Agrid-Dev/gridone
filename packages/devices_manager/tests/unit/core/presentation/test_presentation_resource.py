@@ -54,7 +54,7 @@ WITH_IMAGES = [
     name
     for name in SAMPLE_NAMES
     if SAMPLES_BY_NAME[name].reader_code is None
-    and name not in {"ok_yaml_only", "ok_manifest_1mib"}
+    and name not in {"ok_yaml_only", "ok_manifest_2mib"}
 ]
 
 
