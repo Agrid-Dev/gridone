@@ -425,6 +425,23 @@ class WriteGuard:
         )
         self._expiry.watch()
 
+    def forget_without_deadline(self) -> bool:
+        """Drop trust in the observations that no deadline would ever expire.
+
+        Pushes can be lost while a connection is down. Trust bounded by an
+        observation deadline (the expected push interval, or two poll
+        intervals) lapses on its own; trust without one would outlive any
+        outage, so a reconnection drops it. True when something was dropped.
+        """
+        undated = [
+            name
+            for name in self._trusted
+            if observation_max_age(self._driver, name) is None
+        ]
+        for name in undated:
+            self.forget(name)
+        return bool(undated)
+
     def close(self) -> None:
         """Stop bounding trust and drop it: a stopped device knows nothing."""
         if self._expiry is not None:

@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-from asyncio import Event, Lock, Task, create_task, wait_for
+from asyncio import Event, Lock, Semaphore, Task, create_task, wait_for
 from collections.abc import AsyncGenerator, Callable
 from contextlib import AbstractAsyncContextManager, nullcontext, suppress
 from contextvars import ContextVar
@@ -60,6 +60,12 @@ class TransportClient[T_TransportAddress: TransportAddress](ABC):
     _reconnect_base_delay: ClassVar[float] = 1.0
     _reconnect_backoff_multiplier: ClassVar[float] = 2.0
     _reconnect_max_delay: ClassVar[float] = 60.0
+    # Dependency acquisitions run outside the polling schedule, after a
+    # restart, a driver change or a reconnection. Each device holds one of
+    # these slots for its whole acquisition, so a trigger that reaches the
+    # whole fleet reads a few devices at a time.
+    _max_concurrent_acquisitions: ClassVar[int] = 4
+    acquisitions: Semaphore
     config: BaseTransportConfig
     metadata: TransportMetadata
     connection_state: TransportConnectionState
@@ -102,6 +108,7 @@ class TransportClient[T_TransportAddress: TransportAddress](ABC):
         self._sweep_memo = SweepMemo(self.id, self.protocol)
         self._has_connected = False
         self._reconnect_listeners: set[Callable[[], None]] = set()
+        self.acquisitions = Semaphore(self._max_concurrent_acquisitions)
 
     @property
     def id(self) -> str:

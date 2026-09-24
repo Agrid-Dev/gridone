@@ -14,6 +14,7 @@ from devices_manager.core.driver import (
     AttributeDriver,
     Driver,
     DriverMetadata,
+    HealthCheck,
     UpdateStrategy,
 )
 from devices_manager.types import ConnectionStatus
@@ -32,7 +33,9 @@ def spec(name, **fields: object):
     )
 
 
-def make_device(transport, *attributes: AttributeDriver):
+def make_device(
+    transport, *attributes: AttributeDriver, healthcheck: HealthCheck | None = None
+):
     driver = Driver(
         metadata=DriverMetadata(id="observations"),
         env={},
@@ -40,6 +43,7 @@ def make_device(transport, *attributes: AttributeDriver):
         transport=transport.protocol,
         update_strategy=UpdateStrategy(polling_enabled=False),
         attributes={a.name: a for a in attributes},
+        healthcheck=healthcheck or HealthCheck(),
     )
     return CoreDevice.from_base(
         DeviceBase(id="obs", name="Observations", config={}),
@@ -232,6 +236,12 @@ async def test_support_acquired_first_and_unsupported_input_is_not_polled(
     assert device._guard.state("target").missing_attributes == ["limit"]
 
 
+async def acquired(device: CoreDevice) -> None:
+    """Wait for the device's background acquisition, if one was scheduled."""
+    if device._dependency_refresh._task is not None:
+        await device._dependency_refresh._task
+
+
 @pytest.mark.asyncio
 async def test_start_restart_reconnect_acquire_dependencies_without_writes(
     mock_transport_client, monkeypatch
@@ -247,14 +257,14 @@ async def test_start_restart_reconnect_acquire_dependencies_without_writes(
     monkeypatch.setattr(mock_transport_client, "write", writer)
     for _ in range(2):
         await device.start_sync(sweep_now=False)
-        await device._dependency_refresh.request(set())
+        await acquired(device)
         assert device._guard.state("target").constraints.step == 0.5
         await device.stop_sync()
     await device.start_sync(sweep_now=False)
-    await device._dependency_refresh.request(set())
+    await acquired(device)
     device._publish_connection_status(ConnectionStatus.ERROR)
     device._publish_connection_status(ConnectionStatus.OK)
-    await device._dependency_refresh.request(set())
+    await acquired(device)
     assert reader.await_count == 4
     writer.assert_not_called()
     await device.stop_sync()
@@ -271,37 +281,29 @@ async def test_failed_dependency_read_does_not_retry_or_unlock(
     )
     reader = AsyncMock(side_effect=TimeoutError)
     monkeypatch.setattr(mock_transport_client, "_read", reader)
-    await device._dependency_refresh.request(device._dependencies())
+    await device._dependency_refresh.request()
     assert reader.await_count == 1
     assert not device._guard.evaluate("target", 20).eligible
     await device.stop_sync()
 
 
 @pytest.mark.asyncio
-async def test_coalesces_concurrent_dependencies_and_cancels_on_stop():
-    started, release = asyncio.Event(), asyncio.Event()
-    batches = []
+async def test_stopping_cancels_a_running_pass():
+    started = asyncio.Event()
 
-    async def read(names) -> None:
-        batches.append(names)
+    async def acquire() -> None:
         started.set()
-        await release.wait()
+        await asyncio.Event().wait()
 
-    refresh = DependencyRefresh(read)
-    first = refresh.request({"a", "b"})
+    refresh = DependencyRefresh(acquire)
+    task = refresh.request()
     await started.wait()
-    second = refresh.request({"b", "c"})
-    assert first is second
-    release.set()
-    await first
-    assert batches == [{"a", "b"}, {"c"}]
-    task = refresh.request({"a"}, delay=10)
     await refresh.close()
     assert task.cancelled()
 
 
 @pytest.mark.asyncio
-async def test_transport_reconnect_acquires_without_waiting_for_a_device_push(
+async def test_transport_reconnect_acquires_what_expired_without_waiting_for_a_push(
     mock_transport_client, monkeypatch
 ):
     from devices_manager.core.transports.base import TransportClient
@@ -310,19 +312,24 @@ async def test_transport_reconnect_acquires_without_waiting_for_a_device_push(
         mock_transport_client,
         spec("precision"),
         spec("target", write_constraints={"step": {"attribute": "precision"}}),
+        healthcheck=HealthCheck(expected_push_interval=3600),
     )
     reader = AsyncMock(return_value=0.5)
     monkeypatch.setattr(mock_transport_client, "_read", reader)
     await TransportClient.connect(mock_transport_client)
     await device.start_sync(sweep_now=False)
-    await device._dependency_refresh.request(set())
+    await acquired(device)
     assert reader.await_count == 1
     await TransportClient.connect(mock_transport_client)  # still connected
+    await TransportClient.close(mock_transport_client)
+    await TransportClient.connect(mock_transport_client)  # nothing expired
+    await acquired(device)
     assert reader.await_count == 1
+    assert device._guard.known("precision") == 0.5
+    device._guard.forget("precision")  # expired during the outage
     await TransportClient.close(mock_transport_client)
     await TransportClient.connect(mock_transport_client)
-    assert device._guard.known("precision") is None
-    await device._dependency_refresh.request(set())
+    await acquired(device)
     assert reader.await_count == 2
     await device.stop_sync()
     await TransportClient.close(mock_transport_client)
@@ -343,28 +350,41 @@ async def test_push_only_transport_does_not_schedule_acquisition(
     reader = AsyncMock()
     monkeypatch.setattr(mock_transport_client, "_read", reader)
     await device.start_sync(sweep_now=False)
-    await device._dependency_refresh.request(set())
+    assert device._dependency_refresh._task is None
     reader.assert_not_called()
     assert not device._guard.evaluate("target", 20).eligible
     await device.stop_sync()
 
 
 @pytest.mark.asyncio
-async def test_reconnect_during_acquisition_schedules_one_fresh_pass():
-    started, release = asyncio.Event(), asyncio.Event()
-    batches = []
+async def test_a_reconnection_during_a_pass_reads_again_what_it_missed(
+    mock_transport_client, monkeypatch
+):
+    """The connection drops while a pass reads: the reconnection it causes buys
+    one more pass, which reads what the dropped one could not."""
+    device = make_device(
+        mock_transport_client,
+        spec("precision"),
+        spec("target", write_constraints={"step": {"attribute": "precision"}}),
+    )
+    reading, release = asyncio.Event(), asyncio.Event()
+    answers: list[object] = [ConnectionError("dropped"), 0.5]
 
-    async def read(names) -> None:
-        batches.append(set(names))
-        started.set()
+    async def read(_address) -> object:
+        reading.set()
         await release.wait()
+        answer = answers.pop(0)
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
 
-    refresh = DependencyRefresh(read)
-    task = refresh.request({"a"})
-    await started.wait()
-    refresh.request({"a"}, repeat_active=True)
-    refresh.request({"a"}, repeat_active=True)
+    monkeypatch.setattr(mock_transport_client, "_read", read)
+    await device.start_sync(sweep_now=False)
+    await reading.wait()
+    device._on_transport_reconnected()
     release.set()
-    await task
-    assert batches == [{"a"}, {"a"}]
-    await refresh.close()
+    await acquired(device)
+
+    assert answers == []
+    assert device._guard.known("precision") == 0.5
+    await device.stop_sync()

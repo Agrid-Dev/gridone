@@ -1,4 +1,4 @@
-"""Coalesce bounded dependency acquisitions without changing periodic polling."""
+"""Run a device's background dependency acquisitions one pass at a time."""
 
 from __future__ import annotations
 
@@ -11,38 +11,34 @@ if TYPE_CHECKING:
 
 
 class DependencyRefresh:
-    """One acquisition worker per device; concurrent requests share its work."""
+    """One acquisition worker per device.
 
-    def __init__(self, read: Callable[[set[str]], Awaitable[None]]) -> None:
-        self._read = read
-        self._pending: set[str] = set()
-        self._active: set[str] = set()
+    Each pass decides what to read when it starts. A request made while a pass
+    runs buys exactly one more pass, whatever the number of requests: that
+    pass reads what is still missing then, including what the running pass
+    could not read because the connection dropped under it.
+    """
+
+    def __init__(self, acquire: Callable[[], Awaitable[None]]) -> None:
+        self._acquire = acquire
+        self._again = False
         self._task: asyncio.Task[None] | None = None
 
-    def request(
-        self, names: set[str], *, delay: float = 0, repeat_active: bool = False
-    ) -> asyncio.Task[None]:
-        self._pending.update(names if repeat_active else names - self._active)
+    def request(self) -> asyncio.Task[None]:
+        self._again = True
         if self._task is None or self._task.done():
-            self._task = asyncio.create_task(self._run(delay))
+            self._task = asyncio.create_task(self._run())
         return self._task
 
-    async def _run(self, delay: float) -> None:
-        try:
-            if delay:
-                await asyncio.sleep(delay)
-            while self._pending:
-                names, self._pending = self._pending, set()
-                self._active = set(names)
-                await self._read(names)
-                self._active.clear()
-        finally:
-            self._active.clear()
+    async def _run(self) -> None:
+        while self._again:
+            self._again = False
+            await self._acquire()
 
     async def close(self) -> None:
+        self._again = False
         if self._task is not None:
             self._task.cancel()
             with suppress(asyncio.CancelledError):
                 await self._task
         self._task = None
-        self._pending.clear()

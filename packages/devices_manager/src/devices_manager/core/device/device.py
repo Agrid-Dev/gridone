@@ -33,7 +33,14 @@ from .sweep_schedule import SweepSchedule, run_on_schedule
 from .write_guard import WriteGuard
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
+    from collections.abc import (
+        AsyncIterator,
+        Awaitable,
+        Callable,
+        Iterable,
+        Iterator,
+        Mapping,
+    )
 
     from devices_manager.core.codecs import FnCodec
     from devices_manager.core.driver import AttributeDriver, Driver
@@ -56,6 +63,12 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 DEFAULT_CONFIRM_TIMEOUT: float = 5.0
+
+# Addresses a device is asked at once while acquiring dependencies. Those
+# reads are chosen by Gridone, not grouped by the driver's author, so they go
+# a few at a time: devices commonly queue only a handful of requests and may
+# drop the rest without an answer.
+ACQUISITION_BATCH = 4
 
 
 class AttributeListener(Protocol):
@@ -202,6 +215,10 @@ class CoreDevice:
     _write_lock: asyncio.Lock = field(
         init=False, default_factory=asyncio.Lock, repr=False
     )
+    # Held per acquisition batch, by background passes and explicit refreshes.
+    _acquisition_lock: asyncio.Lock = field(
+        init=False, default_factory=asyncio.Lock, repr=False
+    )
     on_write_state_update: Callable[[CoreDevice], None] | None = field(
         default=None, repr=False
     )
@@ -224,7 +241,7 @@ class CoreDevice:
             self._raw_code,
             on_expired=self._notify_write_state,
         )
-        self._dependency_refresh = DependencyRefresh(self._read_dependencies)
+        self._dependency_refresh = DependencyRefresh(self._acquire_missing)
 
     @property
     def syncing(self) -> bool:
@@ -499,16 +516,21 @@ class CoreDevice:
 
     async def _read_group(self, attribute_names: list[str]) -> None:
         """One polling-group sweep: a single ``read_many`` call sharing one
-        ``sweep_id``, with each result applied as it streams in.
+        ``sweep_id``, with each result applied as it streams in."""
+        await self._read_addresses(self._address_groups(attribute_names))
 
-        Building one attribute's address must never abort the sweep for its
+    def _address_groups(
+        self, attribute_names: Iterable[str]
+    ) -> dict[str, tuple[TransportAddress, list[str]]]:
+        """The supported attributes among ``attribute_names``, grouped by the
+        address that serves them, in first-seen order.
+
+        Building one attribute's address must never abort the read for its
         siblings, so failures here are isolated per attribute — mirroring how
         ``read_many`` already isolates failures per network read.
         """
-        sweep_id = gen_id()
         context = {**self.driver.env, **self.config}
-        addresses: list[TransportAddress] = []
-        attr_names_by_address_id: dict[str, list[str]] = {}
+        groups: dict[str, tuple[TransportAddress, list[str]]] = {}
         for attr_name in attribute_names:
             # The group's attribute list is snapshotted at task-start; a driver
             # patch can rename/delete an attribute before the device restarts
@@ -531,20 +553,35 @@ class CoreDevice:
                     e,
                 )
                 continue
-            addresses.append(address)
-            attr_names_by_address_id.setdefault(address.id, []).append(attr_name)
-        # read_many() dedupes addresses by .id internally; no need to do it here too.
-        async for result in self.transport.read_many(addresses, sweep_id):
-            for attr_name in attr_names_by_address_id.get(result.address_id, []):
-                self._apply_read_result(attr_name, result)
+            groups.setdefault(address.id, (address, []))[1].append(attr_name)
+        return groups
 
-    def _apply_read_result(self, attr_name: str, result: ReadResult) -> None:
+    async def _read_addresses(
+        self,
+        groups: Mapping[str, tuple[TransportAddress, list[str]]],
+        *,
+        monitored: bool = True,
+    ) -> bool:
+        """Read ``groups`` in one ``read_many`` sharing one ``sweep_id``,
+        applying each result as it streams in; True when a read answered."""
+        answered = False
+        addresses = [address for address, _ in groups.values()]
+        async for result in self.transport.read_many(addresses, gen_id()):
+            answered = answered or not isinstance(result, ReadError)
+            group = groups.get(result.address_id)
+            for attr_name in group[1] if group is not None else ():
+                self._apply_read_result(attr_name, result, monitored=monitored)
+        return answered
+
+    def _apply_read_result(
+        self, attr_name: str, result: ReadResult, *, monitored: bool = True
+    ) -> None:
         attribute = self.attributes.get(attr_name)
         attribute_driver = self.driver.attributes.get(attr_name)
         if attribute is None or attribute_driver is None:
             return
         try:
-            with self._observe_read(attr_name):
+            with self._observe_read(attr_name, monitored=monitored):
                 try:
                     decoded_value = _decode_read_result(attribute_driver.codec, result)
                 except InvalidSampleError:
@@ -577,12 +614,20 @@ class CoreDevice:
             )
 
     @contextlib.contextmanager
-    def _observe_read(self, attribute_name: str) -> Iterator[None]:
-        """Record the outcome of a read, decode included, in the connection
-        monitor and the ``device.attribute.read`` metric. Shared by single
-        reads and polling sweeps."""
+    def _observe_read(
+        self, attribute_name: str, *, monitored: bool = True
+    ) -> Iterator[None]:
+        """Record the outcome of a read, decode included, in the
+        ``device.attribute.read`` metric and, unless it only acquires a
+        dependency, in the connection monitor. Shared by single reads, polling
+        sweeps and acquisitions."""
+        outcome = (
+            self.connection_monitor.observe(EventType.READ, attribute_name)
+            if monitored
+            else contextlib.nullcontext()
+        )
         try:
-            with self.connection_monitor.observe(EventType.READ, attribute_name):
+            with outcome:
                 yield
         except Exception:
             self._guard.forget(attribute_name)
@@ -746,10 +791,16 @@ class CoreDevice:
             self._request_dependencies()
 
     def _on_transport_reconnected(self) -> None:
-        """A broker reconnect is not proof that cached device inputs are current."""
+        """Acquire what may be stale after a reconnection.
+
+        An observation with a deadline stays trusted until the deadline lapses;
+        one without a deadline is dropped, since pushes lost during the outage
+        would otherwise never be caught up.
+        """
         if self._syncing:
-            self._guard.forget()
-            self._request_dependencies(repeat_active=True)
+            if self._guard.forget_without_deadline():
+                self._notify_write_state()
+            self._request_dependencies()
 
     def _dependencies(self, target: str | None = None) -> set[str]:
         """Collect rule/mapping/capability inputs, traversing cycles safely."""
@@ -767,25 +818,39 @@ class CoreDevice:
             pending.extend(refs - visited)
         return dependencies
 
-    def _request_dependencies(self, *, repeat_active: bool = False) -> None:
-        if not self.transport.read_supported:
-            return
-        missing = {
+    def _missing_dependencies(self) -> set[str]:
+        return {
             name for name in self._dependencies() if self._guard.known(name) is None
         }
-        if missing:
-            # A short stable phase spreads fleet restarts, independent of slow polling.
-            delay = SweepSchedule.for_group(self.id, "dependencies", 2).phase
-            self._dependency_refresh.request(
-                missing, delay=delay, repeat_active=repeat_active
-            )
+
+    def _request_dependencies(self) -> None:
+        """Acquire in the background the inputs of rules, mappings and support
+        conditions that the device is not known to hold."""
+        if self.transport.read_supported and self._missing_dependencies():
+            self._dependency_refresh.request()
+
+    async def _acquire_missing(self) -> None:
+        """One background pass. It holds one of the transport's acquisition
+        slots and reads what is still missing once the slot is granted."""
+        async with self.transport.acquisitions:
+            try:
+                await self._read_dependencies(self._missing_dependencies())
+            except Exception:
+                logger.exception("[Device %s] dependency acquisition failed", self.id)
 
     async def _read_dependencies(self, names: set[str]) -> None:
-        """Read each requested input at most once, capability identities first.
+        """Read each input once, capability identities first, a few at a time.
 
-        Reads share the transport's bounded/deduplicated read_many path. Unsupported
-        attributes are skipped; unknown support is reconsidered after identity reads.
-        Failed or unsupported inputs are left unknown, with no retry loop.
+        Each batch of ``ACQUISITION_BATCH`` addresses holds this device's
+        acquisition lock, which explicit refreshes share. A batch in which every
+        read fails ends the acquisition, so an absent device costs one batch:
+        one read timeout where reads go concurrently, one per address where the
+        transport reads one at a time. A read that answers ends nothing, even
+        when its value stays unknown (a sentinel, an unresolved mapping).
+        Unsupported attributes are skipped; unknown support is reconsidered
+        after identity reads. Failed or unsupported inputs stay unknown, with no
+        retry loop, and outcomes stay out of the connection monitor: an input
+        missing from a firmware would otherwise pin the device as degraded.
         """
         pending = names & self.driver.attributes.keys()
         while pending:
@@ -798,7 +863,13 @@ class CoreDevice:
             }
             if not ready:
                 break
-            await self._sweep(sorted(ready))
+            groups = list(self._address_groups(sorted(ready)).items())
+            for start in range(0, len(groups), ACQUISITION_BATCH):
+                batch = dict(groups[start : start + ACQUISITION_BATCH])
+                async with self._acquisition_lock:
+                    answered = await self._read_addresses(batch, monitored=False)
+                if not answered:
+                    return
             pending -= ready
 
     async def _read_all_attributes(
@@ -861,7 +932,8 @@ class CoreDevice:
         try:
             names = self._dependencies(attribute_name) - {attribute_name}
             if names:
-                await asyncio.shield(self._dependency_refresh.request(names))
+                # Someone is waiting: no transport slot, only the device bound.
+                await self._read_dependencies(names)
             await self.read_attribute_value(attribute_name)
         except Exception as e:
             logger.warning(
