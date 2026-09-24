@@ -1,3 +1,15 @@
+## v0.266.0 (2026-09-24)
+
+### Feat
+
+- **automations**: edit automations as a visual tree
+- **automations**: add decision trees and execution safeguards
+
+### Fix
+
+- **automations**: reconcile decision trees with websocket scopes
+- **automations**: address review on decision trees and the tree editor
+
 ## v0.265.0 (2026-09-23)
 
 ### Feat
