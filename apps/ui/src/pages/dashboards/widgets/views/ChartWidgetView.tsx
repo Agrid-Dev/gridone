@@ -474,15 +474,24 @@ const FanOutChartView: FC<{
   // in — so the panel follows what came back, not what was recorded.
   const chartProps = multiSeriesChartProps(
     dataType,
-    plotted.map((s) => ({
-      key: s.deviceId,
-      label: label(s.deviceId, s.interval),
-      href: `/devices/${encodeURIComponent(s.deviceId)}/history?${new URLSearchParams({ metric: target.attribute, ...(query.last ? { last: query.last } : query.start ? { start: query.start, ...(query.end ? { end: query.end } : {}) } : { last: "all" }) })}`,
-      ...(dataType === "bool"
-        ? { booleanLabels: booleanLabels(s.deviceId) }
-        : {}),
-      points: s.points,
-    })),
+    plotted
+      .map((s) => ({
+        key: s.deviceId,
+        label: label(s.deviceId, s.interval),
+        href: `/devices/${encodeURIComponent(s.deviceId)}/history?${new URLSearchParams({ metric: target.attribute, ...(query.last ? { last: query.last } : query.start ? { start: query.start, ...(query.end ? { end: query.end } : {}) } : { last: "all" }) })}`,
+        ...(dataType === "bool"
+          ? { booleanLabels: booleanLabels(s.deviceId) }
+          : {}),
+        points: s.points,
+      }))
+      // Devices come back in resolution order; a reader scans the stack for a
+      // name, so it reads alphabetically — numbers by value ("Ch 9" < "Ch 10").
+      .sort((a, b) =>
+        a.label.localeCompare(b.label, undefined, {
+          numeric: true,
+          sensitivity: "base",
+        }),
+      ),
     target.attribute,
     mark,
   );

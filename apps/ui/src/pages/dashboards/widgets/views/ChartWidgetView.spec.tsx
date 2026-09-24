@@ -176,6 +176,22 @@ describe("ChartWidgetView", () => {
   // The width is the widget's, the window is the dashboard's: a chart saved
   // to bucket by day keeps doing so whichever period is being viewed, so it
   // travels with the read rather than being resolved from the window.
+  // Devices come back in whatever order the target resolved them; a reader
+  // scans a stack of panels for a name, so they are listed alphabetically —
+  // numbers in a name by value, so "Ch 9" comes before "Ch 10".
+  it("lists the devices' series alphabetically", () => {
+    mockResolved(["Ch 10", "ch 2", "Ch 9"]);
+    mockSeries([
+      seriesResult("dev1"),
+      seriesResult("dev2"),
+      seriesResult("dev3"),
+    ]);
+
+    render(<ChartWidgetView config={CONFIG} />);
+
+    expect(screen.getByTestId("chart")).toHaveTextContent("ch 2,Ch 9,Ch 10");
+  });
+
   it("reads at the width the config pinned", () => {
     mockResolved(["Meter 1"]);
     mockSeries([seriesResult("dev1")]);
