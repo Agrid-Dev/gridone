@@ -638,3 +638,44 @@ class TestStructuralErrors:
         status = resolve(thermostat_document, thermostat_attributes)
         assert isinstance(status, UnavailablePresentation)
         assert [d.code for d in status.diagnostics] == [DiagnosticCode.INVALID_DOCUMENT]
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        lambda doc: doc["bindings"]["converted"]["display_transform"].update(
+            when={"op": "eq", "binding": "missing", "value": True}
+        ),
+        lambda doc: doc["bindings"]["converted"].update(attribute="onoff_state"),
+        lambda doc: doc["controls"]["target"].update(binding="converted"),
+        lambda doc: doc["requires"].remove("display-transforms/1"),
+    ],
+)
+def test_display_conversions_validate_references_types_controls_and_capability(
+    thermostat_document, thermostat_attributes, mutation
+):
+    thermostat_document["requires"].append("display-transforms/1")
+    thermostat_document["bindings"]["converted"] = {
+        "attribute": "temperature_setpoint",
+        "display_transform": {
+            "scale": 1.8,
+            "offset": 32,
+            "when": {"op": "eq", "binding": "power", "value": True},
+        },
+    }
+    assert isinstance(
+        resolve(thermostat_document, thermostat_attributes), AvailablePresentation
+    )
+    mutation(thermostat_document)
+    assert isinstance(
+        resolve(thermostat_document, thermostat_attributes), UnavailablePresentation
+    )
+
+
+def test_display_transform_rejects_nonfinite_scale():
+    from pydantic import ValidationError
+
+    from devices_manager.core.presentation.models import DisplayTransform
+
+    with pytest.raises(ValidationError):
+        DisplayTransform(scale=float("inf"))

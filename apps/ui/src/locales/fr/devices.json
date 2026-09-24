@@ -793,7 +793,10 @@
     "operating_rule_reference_invalid": "Une règle de fonctionnement référence un attribut absent ou incompatible.",
     "operating_rule_cadence_missing": "Un attribut référencé doit avoir un intervalle de relève ou de réception déclaré.",
     "write_policy_unavailable": "La politique d’écriture n’a pas pu être évaluée.",
-    "operating_rule_unavailable": "Les règles de fonctionnement du site n’ont pas pu être évaluées."
+    "operating_rule_unavailable": "Les règles de fonctionnement du site n’ont pas pu être évaluées.",
+    "invalid_sample": "Mesure indisponible",
+    "unsupported_attribute": "Non supporté par cet appareil",
+    "support_unknown": "Compatibilité en attente de données"
   },
   "confirmation": {
     "title": "Confirmer cette modification ?",
@@ -804,5 +807,10 @@
     "noResponse": "Une absence de réponse ne signifie pas que l’appareil n’a pas été modifié.",
     "unknownOperatingRule": "Confirmez uniquement après avoir vérifié l’état des équipements. Cette confirmation sera enregistrée."
   },
-  "deleted": "Appareil supprimé"
+  "deleted": "Appareil supprimé",
+  "dependencies": {
+    "missing": "Données manquantes : {{names}}",
+    "refresh": "Rafraîchir les données",
+    "failed": "La lecture a échoué. Les commandes restent soumises aux données disponibles."
+  }
 }

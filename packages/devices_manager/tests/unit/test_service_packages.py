@@ -3,6 +3,7 @@
 import asyncio
 from copy import deepcopy
 from io import BytesIO
+from typing import Any, cast
 from unittest.mock import AsyncMock, patch
 from zipfile import ZIP_DEFLATED, ZipFile
 
@@ -294,3 +295,71 @@ def test_revision_changes_with_contract_but_not_metadata():
     changed = deepcopy(driver)
     changed.attributes["temperature"].unit = "K"
     assert get_presentation_revision(changed) != revision
+
+
+@pytest.mark.asyncio
+async def test_replacing_package_acquires_new_dependency_without_waiting_for_poll(
+    loaded,
+):
+    from devices_manager.core.transports.http_transport.client import (
+        HTTPTransportClient,
+    )
+
+    service, storage = loaded
+    data: dict[str, Any] = {
+        "id": "dependency_demo",
+        "transport": "http",
+        "device_config": [],
+        "update_strategy": {"polling_enabled": False},
+        "attributes": [
+            {
+                "name": "target",
+                "data_type": "float",
+                "read": "GET http://example.test/target",
+                "write": "PUT http://example.test/target",
+            }
+        ],
+    }
+    await service.install_driver_package(
+        "dependency_demo", yaml.safe_dump(data).encode(), "application/yaml"
+    )
+    transport = await service.add_transport(
+        HttpTransportCreate.model_validate(
+            {"name": "HTTP", "protocol": "http", "config": {}}
+        )
+    )
+    device = await service.add_device(
+        DeviceCreate(config={}, driver_id="dependency_demo", transport_id=transport.id)
+    )
+    observed = asyncio.Event()
+
+    def on_observation(_device, name, _previous, _attribute, *, initial) -> None:  # noqa: ARG001
+        if name == "precision":
+            observed.set()
+
+    service.add_device_attribute_listener(on_observation)
+    with (
+        patch.object(HTTPTransportClient, "_read", AsyncMock(return_value=0.5)) as read,
+        patch("devices_manager.service.build_storage", AsyncMock(return_value=storage)),
+    ):
+        await service.start()
+        target = cast("dict[str, Any]", data["attributes"][0])
+        target["write_constraints"] = {"step": {"attribute": "precision"}}
+        data["attributes"].append(
+            {
+                "name": "precision",
+                "data_type": "float",
+                "read": "GET http://example.test/precision",
+            }
+        )
+        await service.install_driver_package(
+            "dependency_demo", yaml.safe_dump(data).encode(), "application/yaml"
+        )
+        await asyncio.wait_for(observed.wait(), timeout=5)
+        updated = service.get_device(device.id)
+        assert updated.attributes["precision"].current_value == 0.5
+        state = updated.attributes["target"].write_state
+        assert state is not None
+        assert state.constraints is not None
+        assert state.constraints.step == 0.5
+        read.assert_awaited_once()

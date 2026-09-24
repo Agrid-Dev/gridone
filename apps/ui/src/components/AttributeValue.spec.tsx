@@ -11,6 +11,9 @@ vi.mock("react-i18next", () =>
     "common.hvacMode.idle": "Idle",
     "common.true": "Vrai",
     "common.false": "Faux",
+    "commandReasons.invalid_sample": "Unavailable measurement",
+    "commandReasons.unsupported_attribute": "Not supported",
+    "commandReasons.support_unknown": "Waiting for compatibility data",
   }),
 );
 
@@ -303,4 +306,21 @@ describe("AttributeValue — standard booleans", () => {
     expect(screen.getByText("Marche")).toBeInTheDocument();
     expect(dot()?.className).not.toMatch(/bg-status-/);
   });
+});
+
+it.each([
+  [{ support: "unsupported" as const }, "Not supported"],
+  [{ support: "unknown" as const }, "Waiting for compatibility data"],
+  [{ resolutionError: { code: "invalid_sample" } }, "Unavailable measurement"],
+])("replaces unusable values with their quality reason", (props, expected) => {
+  render(
+    <AttributeValue
+      value={-2147483.65}
+      attributeName="temperature"
+      dataType="float"
+      {...props}
+    />,
+  );
+  expect(screen.getByText(expected)).toBeInTheDocument();
+  expect(screen.queryByText("-2147483.65")).not.toBeInTheDocument();
 });

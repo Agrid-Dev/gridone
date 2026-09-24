@@ -131,6 +131,17 @@ export class DevicesResource {
     return this.request("GET", `/devices/${encodeURIComponent(deviceId)}`);
   }
 
+  /** Acquires the attribute and its declared dependencies; never sends a command. */
+  refreshAttribute(
+    deviceId: string,
+    attribute: string,
+  ): Promise<NonNullable<Device["attributes"]>[string]> {
+    return this.request(
+      "POST",
+      `/devices/${encodeURIComponent(deviceId)}/attributes/${encodeURIComponent(attribute)}/refresh`,
+    );
+  }
+
   create(params: DeviceCreate): Promise<Device> {
     return this.request("POST", "/devices/", { body: params });
   }

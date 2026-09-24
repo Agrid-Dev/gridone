@@ -17,7 +17,7 @@ from models.attribute_metadata import (  # noqa: TC001
     WriteConstraints,
 )
 from models.errors import InvalidError
-from models.expressions import MAX_LIST_ITEMS, MAX_RULES, Scalar
+from models.expressions import MAX_LIST_ITEMS, MAX_RULES, Condition, Scalar
 from models.types import Severity
 from models.write_rules import (  # noqa: TC001 -- schema runtime
     ValueMapping,
@@ -64,6 +64,8 @@ class AttributeDriver(BaseModel):
         default=None, max_length=MAX_LIST_ITEMS
     )
     value_mapping: ValueMapping | None = None
+    # A hardware/firmware capability, distinct from a temporary write guard.
+    supported_when: Condition | None = None
 
     @cached_property
     def codec(self) -> FnCodec:

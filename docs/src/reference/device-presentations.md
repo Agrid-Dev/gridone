@@ -70,7 +70,7 @@ Texts are `LocalizedText` objects: `{ default: …, translations: { fr: …, en-
 
 A `formatter` is `{ decimals?, unit?, relative_time?, unavailable? }`: a fixed number of decimals, a unit symbol (defaults to the attribute's `unit`), the elapsed time since a timestamp value, and the text shown while the value is unknown (defaults to "Unavailable").
 
-In a `setpoint-table` row, `demanded` is `{ control: id }` (an editable stepper) or `{ binding: id }`; `regulated` and `measured` are bindings; `deviation: { minuend, subtrahend, tolerance }` is the only arithmetic of the dialect — the difference of two numeric bindings, shown signed and classified against the tolerance.
+In a `setpoint-table` row, `demanded` is `{ control: id }` (an editable stepper) or `{ binding: id }`; `regulated` and `measured` are bindings; `deviation: { minuend, subtrahend, tolerance }` computes — the difference of two numeric bindings, shown signed and classified against the tolerance.
 
 ### Layout options (`layout-options/1`)
 
@@ -278,3 +278,41 @@ concurrent replacement is checked against the durable driver snapshot. The
 current and previous resource revisions are retained, and older revisions are
 pruned after successful activation. Resource URLs require normal authentication;
 no authentication token belongs in a URL.
+
+
+## Display conversions (`display-transforms/1`)
+
+A numeric binding can declare an affine display conversion:
+`display = canonical * scale + offset` (defaults: scale 1, offset 0). The optional
+`when` is a regular presentation condition evaluated on **canonical reported**
+values. When false, display stays canonical; when unknown, the converted binding
+is unavailable. Non-numeric bindings, non-finite coefficients and unknown
+condition references are rejected on import.
+
+```yaml
+requires: [layout/1, controls/1, device-face/1, conditions/1, display-transforms/1]
+bindings:
+  target: { attribute: temperature_setpoint }
+  unit: { attribute: temperature_unit }
+  screen_target:
+    attribute: temperature_setpoint
+    display_transform:
+      scale: 1.8
+      offset: 32
+      when: { op: eq, binding: unit, value: F }
+controls:
+  target: { kind: number, binding: target, label: Setpoint }
+# Face number/digit layers use screen_target. Their unit glyph follows unit.
+# A separate binding with the same conversion can display the measured temperature.
+```
+
+Here 20 °C displays as 68 °F in the face. A pending canonical intention of 20.5
+shows 68.9 there, while the control, step, bounds, command and recorded observation
+remain in °C. A control cannot bind directly to a converted binding: this feature
+does not implement an editable Fahrenheit field or inverse conversion. Face
+buttons still act on the canonical control. Page conditions use canonical values.
+
+A conversion only changes numbers. Match its unit text in the face, or explicitly
+set the formatter unit in a measurement layout selected by the unit condition.
+Do not let a converted measurement inherit a Celsius attribute's unit label.
+Group contexts with an unknown/mixed unit also leave the converted value unknown.

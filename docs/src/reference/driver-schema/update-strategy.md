@@ -118,3 +118,25 @@ Silence detection for push devices is now configured under the [health check](he
     update_strategy:
       polling: disable
     ```
+
+
+## Acquiring command dependencies
+
+At device synchronization start (including after driver replacement or service
+restart), and when connectivity recovers, Gridone explicitly reads unknown inputs
+referenced by write constraints, write rules, option conditions, value mappings
+and support conditions. A stable delay of at most two seconds spreads fleet
+startup. Reads use the transport's existing bounded batch path; concurrent requests
+are coalesced per device. Periodic polling groups and their cadence are unchanged.
+
+Capability identities are read before conditional attributes. Each requested
+input is attempted at most once per acquisition pass. Failures stay unknown:
+there is no automatic retry loop or write using an assumed value. An unsupported
+input is skipped. Push-only transports without an active read operation do not
+schedule these reads. Stopping synchronization cancels the acquisition worker.
+
+`POST /devices/{device_id}/attributes/{attr_name}/refresh` also acquires the
+attribute's transitive dependencies before refreshing it. The contextual
+**Refresh data** action in the command controls calls this endpoint without
+sending a command. `write_state.missing_attributes` identifies unresolved inputs;
+read permissions filter these names in both REST and WebSocket responses.

@@ -645,10 +645,19 @@ class GlyphSet(StrictModel):
     kerning: dict[CharPair, StrictInt] = Field(default_factory=dict)
 
 
+class DisplayTransform(StrictModel):
+    """An affine display conversion; commands keep the canonical attribute unit."""
+
+    scale: Annotated[float, Field(allow_inf_nan=False)] = 1
+    offset: Annotated[float, Field(allow_inf_nan=False)] = 0
+    when: Condition | None = None
+
+
 class BindingSpec(StrictModel):
     """A local name for an attribute of the device the page is rendered for."""
 
     attribute: Annotated[str, Field(min_length=1)]
+    display_transform: DisplayTransform | None = None
 
 
 class ControlKind(StrEnum):

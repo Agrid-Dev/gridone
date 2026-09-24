@@ -272,3 +272,21 @@ async def test_a_restored_previous_is_a_transition_only_after_the_baseline(
     assert context.has_previous is has_previous
     assert context.previous_value is False
     assert context.value is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("reason", ["invalid_sample", "unknown_dependencies"])
+async def test_invalid_measurement_does_not_trigger_unconditional_automation(
+    mock_dm, reason
+):
+    from models.write_rules import WriteReason
+
+    provider = ChangeEventTriggerProvider(mock_dm)
+    listener = AsyncMock()
+    await provider.register({"device_id": "a", "attribute": "temperature"}, listener)
+    invalid = _make_attr(None)
+    invalid.resolution_error = WriteReason(code=reason)
+    await _fire(mock_dm, "a", "temperature", invalid)
+    listener.assert_not_called()
+    await _fire(mock_dm, "a", "temperature", _make_attr(-12))
+    listener.assert_awaited_once()

@@ -26,6 +26,7 @@ export type AttributeFields = {
   last_changed: string | null;
   value_options?: AttributeValue[];
   write_state?: AttributeWriteState | null;
+  resolution_error?: import("@gridone/sdk").WriteReason | null;
   default_value?: AttributeValue | null;
   // Optional presentation metadata a driver may declare on the attribute.
   label?: LocalizedText | null;

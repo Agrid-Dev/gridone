@@ -22,7 +22,13 @@ if TYPE_CHECKING:
 
     from .attribute_driver import AttributeDriver
 
-WRITE_FIELDS = ("write_constraints", "write_rules", "write_options", "value_mapping")
+WRITE_FIELDS = (
+    "write_constraints",
+    "write_rules",
+    "write_options",
+    "value_mapping",
+    "supported_when",
+)
 _TYPE_NAMES = {
     DataType.INT: "number",
     DataType.FLOAT: "number",
@@ -74,7 +80,9 @@ def validate_write_declarations(attributes: Iterable[AttributeDriver]) -> None:
         if cost > MAX_ATTRIBUTE_OPERATIONS or operations > MAX_DEVICE_OPERATIONS:
             _invalid(name, "declaration operation budget exceeded")
         _validate_attribute(attribute, types)
-        graph[name] = attribute_references(attribute.value_mapping)
+        graph[name] = attribute_references(
+            attribute.value_mapping
+        ) | attribute_references(attribute.supported_when)
     remaining = dict(graph)
     while remaining:
         leaves = {
@@ -84,7 +92,7 @@ def validate_write_declarations(attributes: Iterable[AttributeDriver]) -> None:
         }
         if not leaves:
             _invalid(
-                "value_mapping",
+                "value_mapping/supported_when",
                 f"calculation cycle involving {', '.join(sorted(remaining))}",
             )
         for name in leaves:
@@ -95,6 +103,10 @@ def _validate_attribute(
     attribute: AttributeDriver, types: dict[str | DeviceAttributeRef, str]
 ) -> None:
     _validate_constraints(attribute, types)
+    if attribute.supported_when is not None:
+        validate_expression(
+            attribute.supported_when, types, None, f"{attribute.name}.supported_when"
+        )
     for i, rule in enumerate(attribute.write_rules):
         validate_expression(
             rule.condition,

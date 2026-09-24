@@ -367,3 +367,111 @@ async def test_push_expiry_does_not_expire_unbounded_operating_rules():
     assert stores.guard.observed_value("value") == 7
     stores.guard.close()
     assert stores.guard.observed_value("value") is None
+
+
+@pytest.mark.parametrize("mapped", [False, True])
+def test_support_changes_invalidate_observations_and_dependent_projections(mapped):
+    condition = {"op": "eq", "left": {"attribute": "revision"}, "right": "supported"}
+    stores = Stores(
+        build_driver(
+            spec("revision", data_type="str", write=None),
+            spec(
+                "limit",
+                supported_when=condition,
+                **(
+                    {"value_mapping": {"entries": [{"code": 1, "value": 30}]}}
+                    if mapped
+                    else {}
+                ),
+            ),
+            spec("target", write_constraints={"maximum": {"attribute": "limit"}}),
+        )
+    )
+    stores.observe("limit", 1 if mapped else 30)
+    state = stores.guard.state("limit")
+    assert state is not None
+    assert state.support == "unknown"
+    stores.observe("revision", "supported")
+    assert stores.guard.known("limit") == 30
+    assert stores.guard.observed_value("limit") == 30
+    state = stores.guard.state("target")
+    assert state is not None
+    assert state.status == "ready"
+    stores.observe("revision", "old")
+    state = stores.guard.state("limit")
+    assert state is not None
+    assert state.support == "unsupported"
+    state = stores.guard.state("target")
+    assert state is not None
+    assert state.status == "unknown"
+    assert stores.guard.observed_value("limit") is None
+    assert not stores.guard.evaluate("limit", 30).eligible
+    stores.guard.forget("revision")
+    state = stores.guard.state("limit")
+    assert state is not None
+    assert state.support == "unknown"
+
+
+def test_support_dependencies_must_be_acyclic_and_cannot_use_candidates():
+    from models.errors import InvalidError
+
+    condition = {"op": "eq", "left": {"attribute": "b"}, "right": 1}
+    with pytest.raises(InvalidError, match="cycle"):
+        build_driver(
+            spec("a", supported_when=condition),
+            spec(
+                "b", supported_when={"op": "eq", "left": {"attribute": "a"}, "right": 1}
+            ),
+        )
+    with pytest.raises(InvalidError, match="candidate"):
+        build_driver(
+            spec(
+                "a",
+                supported_when={"op": "eq", "left": {"candidate": True}, "right": 1},
+            )
+        )
+
+
+def test_invalid_observation_clears_mapped_display_and_quality_revision():
+    stores = Stores(
+        build_driver(
+            spec("source"),
+            spec(
+                "mapped",
+                value_mapping={
+                    "entries": [{"code": 1, "value": {"attribute": "source"}}]
+                },
+            ),
+        )
+    )
+    stores.observe("source", 5)
+    stores.observe("mapped", 1)
+    stores.guard.project()
+    revision = stores.guard.revision
+    decoded = stores.guard.observed("source", None, invalid=True)
+    assert decoded["source"].error is not None
+    assert decoded["source"].error.code == "invalid_sample"
+    assert decoded["mapped"].value is None
+    stores.guard.project()
+    assert stores.guard.revision > revision
+    assert stores.guard.observed_value("mapped") is None
+
+
+def test_shared_capability_inputs_are_resolved_once_per_traversal():
+    attributes = [spec("root")]
+    for index in range(16):
+        ref = "root" if index == 0 else f"level_{index - 1}"
+        condition = {"op": "eq", "left": {"attribute": ref}, "right": 1}
+        attributes.append(
+            spec(
+                f"level_{index}",
+                supported_when={"op": "all", "conditions": [condition, condition]},
+            )
+        )
+    stores = Stores(build_driver(*attributes))
+    for attribute in attributes:
+        stores.observe(attribute.name, 1)
+    resolver = Mock(wraps=stores._value)  # noqa: SLF001
+    stores.guard._values = resolver  # noqa: SLF001
+    assert stores.guard.known("level_15") == 1
+    assert resolver.call_count == len(attributes)

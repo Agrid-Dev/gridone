@@ -4,7 +4,11 @@ import type { Scalar } from "../conditions";
 import type { SetpointRow } from "../document";
 import { localize } from "../face";
 import type { AttributeLike, DeviceUiRuntime } from "../runtime";
-import { NumberStepper, WriteStateIndicator } from "./ControlPanel";
+import {
+  ControlFeedback,
+  NumberStepper,
+  WriteStateIndicator,
+} from "./ControlPanel";
 import { DescriptionHint, describedAttributes } from "./DescriptionHint";
 import { NumberSlider } from "./NumberSlider";
 import { formatDeviation, formatMeasurement } from "./formatters";
@@ -249,6 +253,7 @@ function DemandedControl({
         </span>
       )}
       <WriteStateIndicator state={state.write} />
+      <ControlFeedback state={state} runtime={runtime} />
     </div>
   );
 }

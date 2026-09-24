@@ -12,7 +12,11 @@ import {
   Sun,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { ValueLabel } from "@gridone/sdk";
+import type {
+  AttributeWriteState,
+  WriteReason,
+  ValueLabel,
+} from "@gridone/sdk";
 import { DeviceType } from "@/lib/devices";
 import type { Severity } from "@/lib/severity";
 import { attributeValueLabel } from "@/lib/attributeValueLabel";
@@ -149,6 +153,8 @@ type AttributeValueProps = {
   /** The driver's wording of a boolean's two states, when it declares one. */
   valueLabels?: ValueLabel[] | null;
   className?: string;
+  resolutionError?: WriteReason | null;
+  support?: AttributeWriteState["support"];
 };
 
 /**
@@ -170,12 +176,32 @@ export function AttributeValue({
   unit,
   valueLabels,
   className,
+  resolutionError,
+  support,
 }: AttributeValueProps) {
   const { t } = useTranslation();
+  const { t: td } = useTranslation("devices");
   const labelFor = useValueLabel();
   const level = fault ? faultLevel(fault) : undefined;
   const faultClass = level && cn("font-medium", SEMANTIC_TEXT_CLASS[level]);
 
+  if (
+    support === "unsupported" ||
+    support === "unknown" ||
+    resolutionError?.code === "invalid_sample"
+  ) {
+    const code =
+      support === "unsupported"
+        ? "unsupported_attribute"
+        : support === "unknown"
+          ? "support_unknown"
+          : "invalid_sample";
+    return (
+      <span className={cn("text-muted-foreground", className)}>
+        {td(`commandReasons.${code}`)}
+      </span>
+    );
+  }
   if (typeof value === "boolean") {
     return (
       <span

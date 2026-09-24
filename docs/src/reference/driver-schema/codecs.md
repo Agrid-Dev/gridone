@@ -436,3 +436,34 @@ codecs:
 |---|---|---|
 | Decode (read) | JSON → base64 str → bytes → 4-byte slice → float | full pipeline |
 | Encode (write) | not applicable | `json_pointer` and `slice` are non-reversible — declare as read-only |
+
+
+## Invalid observations (`invalid_values`)
+
+Declare device-specific invalid values as a nonempty list of finite scalars. Place
+this codec after extracting the field and before scaling when the sentinel is a
+wire value:
+
+```yaml
+codecs:
+  - json_pointer: /temperature
+  - invalid_values: [-2147483648]
+  - scale: 0.001
+```
+
+A matching sample produces `current_value: null` and
+`resolution_error: {code: invalid_sample}`. It clears the previous observation's
+trust and any mapped value that depends on it. Driver constraints and operating
+rules cannot use it as a measurement. It is not recorded as a timeseries point
+and does not fire an attribute-change automation. The next valid observation
+clears the error. Reception remains successful for connectivity monitoring.
+
+A string sentinel can be declared too, for example `invalid_values: [UNKNOWN]`.
+Comparisons distinguish booleans from numbers; numeric `1` does not invalidate
+`true`. Real negative temperatures and other undeclared sentinels remain intact.
+The codec does not modify encoding; command sentinel rules remain independent.
+Malformed or unrelated push frames still follow the transport's existing error
+handling: a missing JSON field is not an explicit invalid observation.
+
+This is not a historical cleanup: points recorded before the declaration remain
+in storage. Existing drivers are unchanged until they declare this codec.

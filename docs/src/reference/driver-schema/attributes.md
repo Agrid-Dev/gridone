@@ -118,3 +118,42 @@ Constraints are validated when the driver is loaded or edited: a constraint on a
 ## Command validation
 
 `default_value`, `write_rules`, `write_options` and `value_mapping` declare what a write may do beyond numeric bounds: conditions on sibling attributes, a finite list of choices, and mappings between user-facing and device values. See [declarative command validation](command-validation.md).
+
+
+## Firmware and hardware support
+
+`supported_when` is an optional condition over observed attributes of this device,
+using the [command condition language](command-validation.md). It applies to reads
+and writes, including read-only attributes. For example, a driver may name the
+exact verified builds that implement a field:
+
+```yaml
+- name: revision
+  data_type: str
+  read: GET /revision
+
+- name: optional_limit
+  data_type: float
+  read_write: GET /limit
+  supported_when:
+    op: in
+    value: { attribute: revision }
+    values: [verified-build-a, verified-build-b]
+```
+
+Use verified identities/capabilities, not a guessed ordering of hashes or version
+strings. Conditions may combine firmware, hardware and variant observations. All
+references must exist in the driver; capability/mapping cycles and candidate
+references are rejected when loading it. Renames preserve these references.
+
+The public `write_state.support` is `supported`, `unsupported` or `unknown`.
+A false condition means **not supported**; a missing or stale identity observation
+means **support not yet known**. Both refuse writes and active reads of the
+conditional field; neither permits rules to use a cached value for it. Acquisition
+reads the identity dependencies first and then reads supported dependencies. A
+missing response alone never proves a capability is absent. A driver without
+`supported_when` keeps its previous behavior.
+
+Supported status is not proof that the attribute has been read. Its current value
+can still be unavailable, invalid or stale. The attribute panes and command
+reasons distinguish unsupported capability from missing compatibility data.

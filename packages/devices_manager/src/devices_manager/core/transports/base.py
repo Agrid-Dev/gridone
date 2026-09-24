@@ -1,7 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
 from asyncio import Event, Lock, Task, create_task, wait_for
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Callable
 from contextlib import AbstractAsyncContextManager, nullcontext, suppress
 from contextvars import ContextVar
 from typing import ClassVar
@@ -49,6 +49,7 @@ def dedupe_addresses[T: TransportAddress](addresses: list[T]) -> dict[str, T]:
 
 
 class TransportClient[T_TransportAddress: TransportAddress](ABC):
+    read_supported: ClassVar[bool] = True
     protocol: ClassVar[TransportProtocols]
     transport_type: ClassVar[TransportType]
     _config_builder: ClassVar[type[BaseTransportConfig]]
@@ -99,6 +100,8 @@ class TransportClient[T_TransportAddress: TransportAddress](ABC):
         self._terminal_error = None
         self._config_generation = 0
         self._sweep_memo = SweepMemo(self.id, self.protocol)
+        self._has_connected = False
+        self._reconnect_listeners: set[Callable[[], None]] = set()
 
     @property
     def id(self) -> str:
@@ -109,10 +112,25 @@ class TransportClient[T_TransportAddress: TransportAddress](ABC):
     ) -> T_TransportAddress:
         return self.address_builder.from_raw(raw_address, extra_context=context)
 
+    def add_reconnect_listener(self, callback: Callable[[], None]) -> None:
+        """Notify active devices when this shared transport reconnects."""
+        self._reconnect_listeners.add(callback)
+
+    def remove_reconnect_listener(self, callback: Callable[[], None]) -> None:
+        self._reconnect_listeners.discard(callback)
+
     @abstractmethod
     async def connect(self) -> None:
         """Establish a connection to the transport."""
+        reconnected = self._has_connected and not self.connection_state.is_connected
+        self._has_connected = True
         self.connection_state = TransportConnectionState.connected()
+        if reconnected:
+            for callback in tuple(self._reconnect_listeners):
+                try:
+                    callback()
+                except Exception:
+                    logger.exception("Transport reconnect listener failed")
         logger.info(
             "Transport client %s (%s) connected", self.metadata.id, self.protocol
         )

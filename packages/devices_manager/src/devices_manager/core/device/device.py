@@ -8,11 +8,14 @@ from datetime import UTC, datetime
 from functools import partial
 from typing import TYPE_CHECKING, Any, Protocol
 
+from devices_manager.core.codecs.invalid_sample import InvalidSampleError
 from devices_manager.core.driver import FaultAttributeDriver
+from devices_manager.core.driver.write_validation import write_references
 from devices_manager.core.transports import PushTransportClient, ReadError
 from devices_manager.core.utils.templating.render import render_struct
 from devices_manager.observability.metrics import attribute_read
 from devices_manager.types import ConnectionStatus
+from models.conditions import attribute_references
 from models.errors import (
     ConfirmationError,
     InvalidError,
@@ -25,6 +28,7 @@ from models.write_rules import WriteEvaluation, WriteReason
 from .attribute import Attribute, AttributeKind, FaultAttribute
 from .connection_status import ConnectionMonitor, EventType
 from .connection_status_attribute import CONNECTION_STATUS_ATTR, build_cs_attribute
+from .dependency_refresh import DependencyRefresh
 from .sweep_schedule import SweepSchedule, run_on_schedule
 from .write_guard import WriteGuard
 
@@ -187,6 +191,7 @@ class CoreDevice:
         init=False, default_factory=dict, repr=False
     )
     _guard: WriteGuard = field(init=False, repr=False)
+    _dependency_refresh: DependencyRefresh = field(init=False, repr=False)
     _write_lock: asyncio.Lock = field(
         init=False, default_factory=asyncio.Lock, repr=False
     )
@@ -212,6 +217,7 @@ class CoreDevice:
             self._raw_code,
             on_expired=self._notify_write_state,
         )
+        self._dependency_refresh = DependencyRefresh(self._read_dependencies)
 
     @property
     def syncing(self) -> bool:
@@ -374,6 +380,9 @@ class CoreDevice:
             with self.connection_monitor.observe(EventType.LISTEN, attribute.name):
                 try:
                     decoded = codec.decode(v)
+                except InvalidSampleError:
+                    self._ingest_attribute(attribute.name, None, invalid=True)
+                    return
                 except Exception:  # noqa: BLE001 - best-effort: frame may not carry this attr
                     return
                 logger.debug(
@@ -413,9 +422,14 @@ class CoreDevice:
                     )
                 )
         self._syncing = True
+        self.transport.add_reconnect_listener(self._on_transport_reconnected)
+        self._request_dependencies()
 
     async def stop_sync(self) -> None:
         """Cancel polling, stop silence detection, and mark as not syncing."""
+        self._syncing = False
+        self.transport.remove_reconnect_listener(self._on_transport_reconnected)
+        await self._dependency_refresh.close()
         for task in self._poll_tasks.values():
             if not task.done():
                 task.cancel()
@@ -491,6 +505,8 @@ class CoreDevice:
             attribute_driver = self.driver.attributes.get(attr_name)
             if attribute_driver is None:
                 continue
+            if self._guard.supported(attr_name) is not True:
+                continue
             try:
                 address = self.transport.build_address(
                     render_struct(attribute_driver.read, context), context
@@ -518,7 +534,11 @@ class CoreDevice:
             return
         try:
             with self._observe_read(attr_name):
-                decoded_value = _decode_read_result(attribute_driver.codec, result)
+                try:
+                    decoded_value = _decode_read_result(attribute_driver.codec, result)
+                except InvalidSampleError:
+                    self._ingest_attribute(attr_name, None, invalid=True)
+                    return
         except Exception as e:  # noqa: BLE001
             failure = (
                 "poll read failed for"
@@ -655,7 +675,7 @@ class CoreDevice:
         attribute_name: str,
         *,
         sweep_id: str | None = None,
-    ) -> AttributeValueType:
+    ) -> AttributeValueType | None:
         attribute = self.get_attribute(attribute_name)
         if attribute.kind == AttributeKind.INTERNAL:
             msg = f"Cannot read internal attribute '{attribute_name}' via transport"
@@ -665,13 +685,21 @@ class CoreDevice:
             **self.config,
         }
         attribute_driver = self.driver.attributes[attribute.name]
+        if self._guard.supported(attribute_name) is not True:
+            msg = "Attribute support is unavailable"
+            raise InvalidError(msg)
         address = self.transport.build_address(
             render_struct(attribute_driver.read, context), context
         )
         with self._observe_read(attribute.name):
             raw_value = await self.transport.read(address, sweep_id)
-            self._update_attribute(attribute, attribute_driver.codec.decode(raw_value))
-        return attribute.current_value  # ty:ignore[invalid-return-type]
+            try:
+                decoded = attribute_driver.codec.decode(raw_value)
+            except InvalidSampleError:
+                self._ingest_attribute(attribute.name, None, invalid=True)
+            else:
+                self._update_attribute(attribute, decoded)
+        return attribute.current_value
 
     def _new_connection_monitor(self) -> ConnectionMonitor:
         return ConnectionMonitor(
@@ -681,9 +709,73 @@ class CoreDevice:
         )
 
     def _publish_connection_status(self, status: ConnectionStatus) -> None:
+        previous = self.attributes[CONNECTION_STATUS_ATTR].current_value
         if status == ConnectionStatus.ERROR:
             self._observed_attributes.clear()
+            self._guard.forget()
         self._update_attribute(self.attributes[CONNECTION_STATUS_ATTR], status)
+        if (
+            self._syncing
+            and status == ConnectionStatus.OK
+            and previous != ConnectionStatus.OK
+        ):
+            self._request_dependencies()
+
+    def _on_transport_reconnected(self) -> None:
+        """A broker reconnect is not proof that cached device inputs are current."""
+        if self._syncing:
+            self._guard.forget()
+            self._request_dependencies(repeat_active=True)
+
+    def _dependencies(self, target: str | None = None) -> set[str]:
+        """Collect rule/mapping/capability inputs, traversing cycles safely."""
+        specs = self.driver.attributes
+        pending = [target] if target is not None else list(specs)
+        visited: set[str] = set()
+        dependencies: set[str] = set()
+        while pending:
+            name = pending.pop()
+            if name in visited or name not in specs:
+                continue
+            visited.add(name)
+            refs = write_references(specs[name])
+            dependencies.update(refs)
+            pending.extend(refs - visited)
+        return dependencies
+
+    def _request_dependencies(self, *, repeat_active: bool = False) -> None:
+        if not self.transport.read_supported:
+            return
+        missing = {
+            name for name in self._dependencies() if self._guard.known(name) is None
+        }
+        if missing:
+            # A short stable phase spreads fleet restarts, independent of slow polling.
+            delay = SweepSchedule.for_group(self.id, "dependencies", 2).phase
+            self._dependency_refresh.request(
+                missing, delay=delay, repeat_active=repeat_active
+            )
+
+    async def _read_dependencies(self, names: set[str]) -> None:
+        """Read each requested input at most once, capability identities first.
+
+        Reads share the transport's bounded/deduplicated read_many path. Unsupported
+        attributes are skipped; unknown support is reconsidered after identity reads.
+        Failed or unsupported inputs are left unknown, with no retry loop.
+        """
+        pending = names & self.driver.attributes.keys()
+        while pending:
+            ready = {
+                name
+                for name in pending
+                if not attribute_references(self.driver.attributes[name].supported_when)
+                & pending
+                and self._guard.supported(name) is True
+            }
+            if not ready:
+                break
+            await self._sweep(sorted(ready))
+            pending -= ready
 
     async def _read_all_attributes(
         self,
@@ -741,7 +833,11 @@ class CoreDevice:
         may be shared with other devices or polling groups still relying on
         it, and closing it here would disconnect them too.
         """
+        self.get_attribute(attribute_name)
         try:
+            names = self._dependencies(attribute_name) - {attribute_name}
+            if names:
+                await asyncio.shield(self._dependency_refresh.request(names))
             await self.read_attribute_value(attribute_name)
         except Exception as e:
             logger.warning(
@@ -805,12 +901,14 @@ class CoreDevice:
     def write_state_revision(self) -> int:
         return self._guard.revision
 
-    def _ingest_attribute(self, name: str, sample: AttributeValueType | None) -> None:
+    def _ingest_attribute(
+        self, name: str, sample: AttributeValueType | None, *, invalid: bool = False
+    ) -> None:
         """Apply one acquired sample, then the mapped attributes it reinterprets."""
         spec = self.driver.attributes[name]
         if sample is not None and spec.value_mapping is None:
             sample = self.attributes[name].ensure_type(sample)
-        for key, decoded in self._guard.observed(name, sample).items():
+        for key, decoded in self._guard.observed(name, sample, invalid=invalid).items():
             attribute = self.attributes.get(key)
             if attribute is None:
                 continue
