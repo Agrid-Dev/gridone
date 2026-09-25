@@ -1,3 +1,9 @@
+## v0.272.2 (2026-09-25)
+
+### Fix
+
+- **devices_manager**: re-read the target when a write fails (#699)
+
 ## v0.272.1 (2026-09-25)
 
 ### Fix
