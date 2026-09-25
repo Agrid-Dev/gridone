@@ -244,8 +244,12 @@ class CoreDevice:
             self._raw_code,
             on_expired=self._notify_write_state,
         )
-        self._dependency_refresh = DependencyRefresh(self._acquire_missing)
-        self._target_refresh = DependencyRefresh(self._acquire_unconfirmed)
+        self._dependency_refresh = DependencyRefresh(
+            partial(self._acquire, self._missing_dependencies, "dependency")
+        )
+        self._target_refresh = DependencyRefresh(
+            partial(self._acquire, self._take_unconfirmed, "target")
+        )
 
     @property
     def syncing(self) -> bool:
@@ -834,26 +838,20 @@ class CoreDevice:
         if self.transport.read_supported and self._missing_dependencies():
             self._dependency_refresh.request()
 
-    async def _acquire_missing(self) -> None:
-        """One background pass. It holds one of the transport's acquisition
-        slots and reads what is still missing once the slot is granted."""
-        async with self.transport.acquisitions:
-            try:
-                await self._read_dependencies(self._missing_dependencies())
-            except Exception:
-                logger.exception("[Device %s] dependency acquisition failed", self.id)
-
-    async def _acquire_unconfirmed(self) -> None:
-        """Read the written targets still unknown, and nothing else: inputs the
+    def _take_unconfirmed(self) -> set[str]:
+        """The written targets still unknown, and nothing else: inputs the
         firmware never answers are not retried on every failed write."""
         names, self._unconfirmed = self._unconfirmed, set()
+        return {name for name in names if self._guard.known(name) is None}
+
+    async def _acquire(self, names: Callable[[], set[str]], what: str) -> None:
+        """One background pass. It holds one of the transport's acquisition
+        slots and reads ``names()``, decided once the slot is granted."""
         async with self.transport.acquisitions:
             try:
-                await self._read_dependencies(
-                    {name for name in names if self._guard.known(name) is None}
-                )
+                await self._read_dependencies(names())
             except Exception:
-                logger.exception("[Device %s] target acquisition failed", self.id)
+                logger.exception("[Device %s] %s acquisition failed", self.id, what)
 
     async def _read_dependencies(self, names: set[str]) -> None:
         """Read each input once, capability identities first, a few at a time.

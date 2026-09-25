@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 
 
 class DependencyRefresh:
-    """One acquisition worker per device.
+    """One acquisition worker per kind of acquisition on a device.
 
     Each pass decides what to read when it starts. A request made while a pass
     runs buys exactly one more pass, whatever the number of requests: that
