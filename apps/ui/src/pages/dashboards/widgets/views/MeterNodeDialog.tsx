@@ -152,7 +152,7 @@ const DailyConsumptionChart: FC<{
   );
 
   if (unbounded) return <Message>{t("widgets.chart.unboundedPeriod")}</Message>;
-  if (isLoading) return <Skeleton style={{ height: BAR_CHART_HEIGHT }} />;
+  if (isLoading) return <Skeleton className="h-full" />;
   if (error) return <Message>{t("widgets.chart.error")}</Message>;
   if (!points?.some((point) => point.value !== null))
     return <Message>{t("widgets.chart.noData")}</Message>;
@@ -230,12 +230,20 @@ const MeterNodeDetails: FC<{ node: MeterTreeNode }> = ({ node }) => {
           <h3 className="text-sm font-medium">
             {t("widgets.meterTree.dailyConsumption")}
           </h3>
-          <DailyConsumptionChart
-            deviceId={deviceId}
-            attribute={datum.attribute}
-            scale={node.scale ?? 1}
-            label={label}
-          />
+          {/* Held at the drawn chart's height whatever it shows: the chart
+              renders nothing until it has measured its width, so without this
+              the area collapses for a frame between skeleton and bars. */}
+          <div
+            className="flex flex-col justify-center"
+            style={{ height: BAR_CHART_HEIGHT }}
+          >
+            <DailyConsumptionChart
+              deviceId={deviceId}
+              attribute={datum.attribute}
+              scale={node.scale ?? 1}
+              label={label}
+            />
+          </div>
         </section>
       )}
       {/* Decided from the config, not the readings: a folded node's children
