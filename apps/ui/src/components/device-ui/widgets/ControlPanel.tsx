@@ -18,8 +18,12 @@ import { toLabel } from "@/lib/textFormat";
 import { cn } from "@/lib/utils";
 import type { Scalar } from "../conditions";
 import { localize } from "../face";
-import type { BoundControlState, DeviceUiRuntime } from "../runtime";
-import type { WriteState } from "../runtime";
+import {
+  useAwaitedWrite,
+  type BoundControlState,
+  type DeviceUiRuntime,
+  type WriteState,
+} from "../runtime";
 import { decimalsOf } from "../runtime/controls";
 import { formatNumber } from "./formatters";
 import { NumberSlider } from "./NumberSlider";
@@ -110,8 +114,8 @@ export function ControlRow({
 
 /**
  * Write status and availability explanations shared by standalone controls
- * and setpoint tables. While every missing dependency is one this page is
- * writing, the explanations from before the write stay on screen: the gap is
+ * and setpoint tables. While a write this page sent makes dependencies
+ * unknown, the explanations from before the write stay on screen: that gap is
  * ours, and the page must not move for it.
  */
 export function ControlFeedback({
@@ -124,23 +128,16 @@ export function ControlFeedback({
   language?: string;
 }) {
   const writeState = state.attribute?.write_state;
-  const awaiting = state.awaiting ?? [];
+  const {
+    awaiting,
+    shown: { reasons, warnings },
+  } = useAwaitedWrite(state, {
+    reasons: commandReasons(state.reasons, language),
+    warnings: commandReasons(writeState?.warnings, language),
+  });
   const missing = (writeState?.missing_attributes ?? []).filter(
     (name) => !awaiting.includes(name),
   );
-  const onlyAwaiting = awaiting.length > 0 && missing.length === 0;
-  const current = {
-    reasons: commandReasons(state.reasons, language),
-    warnings: commandReasons(writeState?.warnings, language),
-  };
-  const [settled, setSettled] = useState(current);
-  if (
-    !onlyAwaiting &&
-    (settled.reasons !== current.reasons ||
-      settled.warnings !== current.warnings)
-  )
-    setSettled(current);
-  const { reasons, warnings } = onlyAwaiting ? settled : current;
   const label = (name: string) => runtime.attributeLabel?.(name) ?? name;
   return (
     <>
@@ -151,7 +148,7 @@ export function ControlFeedback({
         </p>
       )}
       {writeState?.missing_dependencies &&
-        !onlyAwaiting &&
+        (!awaiting.length || missing.length > 0) &&
         runtime.deviceId && (
           <AttributeDependencies
             deviceId={runtime.deviceId}
@@ -253,15 +250,10 @@ export function NumberStepper({
   const { minimum, maximum } = state.constraints;
   const known =
     minimum !== null && maximum !== null ? { minimum, maximum } : null;
-  // While the bounds are unknown the last known ones stay, greyed, in place.
-  const [lastKnown, setLastKnown] = useState(known);
-  if (
-    known &&
-    (known.minimum !== lastKnown?.minimum ||
-      known.maximum !== lastKnown?.maximum)
-  )
-    setLastKnown(known);
-  const range = known ?? lastKnown;
+  // While a write this page sent leaves the bounds unknown, the last known
+  // ones stay, greyed, in place.
+  const { shown: held } = useAwaitedWrite(state, known);
+  const range = known ?? held;
   return (
     <div className="flex items-center gap-2" role="group" aria-label={label}>
       <Button
