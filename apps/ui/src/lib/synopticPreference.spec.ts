@@ -5,10 +5,12 @@ import {
   readLastSynoptic,
   readLegendOpen,
   readNavOpen,
+  readPreviewOpen,
   writeDefaultSynoptic,
   writeLastSynoptic,
   writeLegendOpen,
   writeNavOpen,
+  writePreviewOpen,
 } from "./synopticPreference";
 
 beforeEach(() => window.localStorage.clear());
@@ -149,5 +151,20 @@ describe("the equipment list", () => {
     });
     expect(readNavOpen()).toBe(true);
     expect(() => writeNavOpen(false)).not.toThrow();
+  });
+});
+
+describe("the editor's 3D preview", () => {
+  it("stands open until it is closed, and opening again removes the key", () => {
+    expect(readPreviewOpen()).toBe(true);
+    writePreviewOpen(false);
+    expect(
+      window.localStorage.getItem("gridone.synoptics.editor.preview"),
+    ).toBe("closed");
+    expect(readPreviewOpen()).toBe(false);
+    writePreviewOpen(true);
+    expect(
+      window.localStorage.getItem("gridone.synoptics.editor.preview"),
+    ).toBeNull();
   });
 });

@@ -20,7 +20,7 @@ import UsersPage from "./pages/users/UsersPage";
 import SettingsPage from "./pages/settings/SettingsPage";
 import Synoptics from "./pages/synoptics";
 import { NotFoundFallback } from "./components/fallbacks/NotFound";
-import { ShellNavigation } from "./components/layout/ShellNavigation";
+import { ShellFrame } from "./components/layout/ShellFrame";
 import {
   PageContainer,
   PageLayoutProvider,
@@ -57,8 +57,7 @@ function ProtectedLayout() {
         >
           {t("navigation.skip")}
         </a>
-        <ShellNavigation />
-        <div className="flex min-h-screen min-w-0 flex-col pt-16 lg:ml-64">
+        <ShellFrame>
           <main
             id="main-content"
             tabIndex={-1}
@@ -109,7 +108,7 @@ function ProtectedLayout() {
               <Toaster />
             </PageContainer>
           </main>
-        </div>
+        </ShellFrame>
       </div>
     </PageLayoutProvider>
   );

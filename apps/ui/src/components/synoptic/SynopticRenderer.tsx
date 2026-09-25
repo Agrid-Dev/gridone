@@ -140,6 +140,12 @@ type SynopticRendererProps = {
   /** Screen points the plate must include besides what it draws: an
    *  editor's grid, so an empty plate still has room. */
   extent?: Pt[];
+  /** The plate is fitted to `extent` alone, whatever it draws: an editor
+   *  keeps its frame still while bodies come and go, where a viewer fits
+   *  the drawing. Nothing is clipped; what lies outside is a pan away. */
+  boxed?: boolean;
+  /** Whether a double click fits the plate again; on by default. */
+  fitOnDoubleClick?: boolean;
   touchAction?: CanvasTouchAction;
   /** Painted over the plate, in its frame; `frameRef` receives that frame
    *  so a pointer can be read in plate coordinates. */
@@ -230,6 +236,8 @@ export function SynopticRenderer({
   onViewChange,
   minTextPx,
   extent,
+  boxed = false,
+  fitOnDoubleClick,
   touchAction,
   frameRef,
   children,
@@ -252,7 +260,7 @@ export function SynopticRenderer({
         : undefined,
     [hasHover],
   );
-  const { items, box } = useMemo(
+  const { items, box: drawn } = useMemo(
     () =>
       buildPlate(
         geometry,
@@ -276,6 +284,10 @@ export function SynopticRenderer({
       animated,
       extent,
     ],
+  );
+  const box = useMemo(
+    () => (boxed && extent?.length ? bounds(extent) : drawn),
+    [boxed, extent, drawn],
   );
   // The ring follows the pointer down a navigation list: drawn over the
   // plate from the bodies alone, so a hover never lays the plate out again.
@@ -348,6 +360,7 @@ export function SynopticRenderer({
       onViewChange={onViewChange}
       minTextPx={minTextPx}
       textSize={LABEL_SIZE}
+      fitOnDoubleClick={fitOnDoubleClick}
     >
       <KitDefs />
       <g ref={setFrame} transform={`translate(${offset.x} ${offset.y})`}>

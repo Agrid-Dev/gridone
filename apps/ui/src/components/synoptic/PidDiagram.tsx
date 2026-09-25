@@ -27,6 +27,8 @@ type PidDiagramProps = {
   minTextPx?: number;
   /** The drawn size of the plate's smallest text, in viewBox units. */
   textSize?: number;
+  /** Whether a double click fits the plate again; on by default. */
+  fitOnDoubleClick?: boolean;
   children: ReactNode;
 };
 
@@ -46,6 +48,7 @@ export function PidDiagram({
   onViewChange,
   minTextPx,
   textSize = 1,
+  fitOnDoubleClick,
   children,
 }: PidDiagramProps) {
   const { svgRef, handle, transform, pxPerUnit } = useViewport({
@@ -53,6 +56,7 @@ export function PidDiagram({
     height,
     controller,
     onViewChange,
+    fitOnDoubleClick,
   });
   return (
     <svg

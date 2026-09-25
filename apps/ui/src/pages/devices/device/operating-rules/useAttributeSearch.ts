@@ -1,13 +1,11 @@
 import { useMemo, useState } from "react";
 import { useAttributeLabel } from "@/hooks/useAttributeLabel";
+import { foldText } from "@/lib/textFormat";
 import type { AttributeCatalog } from "./expressions";
 
 const ATTRIBUTE_SEARCH_LIMIT = 40;
 
-/** Fold accents so, for example, "arret" also matches "Arrêt". */
-function searchable(value: string) {
-  return value.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
-}
+const searchable = foldText;
 
 export function useAttributeSearch(
   catalog: AttributeCatalog,

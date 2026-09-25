@@ -110,44 +110,270 @@
     "new": "New synoptic",
     "untitled": "Untitled plate",
     "name": "Name",
-    "level": "Level",
     "fluid": "Fluid",
     "flow": "Flow",
-    "palette": "Symbols",
-    "noSelection": "Select a symbol or a pipe to edit it.",
-    "pipe": "pipe",
+    "noSelection": "Click a symbol or a pipe to edit it.",
     "label": "Label",
     "rotation": "Rotation",
-    "device": "Device",
-    "linkTarget": "Target synoptic",
+    "discard": "Discard the unsaved changes?",
+    "unsaved": "Unsaved changes",
+    "undo": "Undo (⌘Z)",
+    "redo": "Redo (⇧⌘Z)",
+    "refused": {
+      "overlap": "Another symbol already stands there.",
+      "unroutable": "The pipes attached cannot follow this change.",
+      "noRoom": "No free room beside it for the copy.",
+      "brokenRun": "This change would break a pipe.",
+      "portTaken": "Another port is already there."
+    },
+    "tools": {
+      "label": "Tools",
+      "select": "Select",
+      "pipe": "Pipe",
+      "preview": "3D preview"
+    },
+    "keys": {
+      "click": "Click",
+      "enter": "Enter",
+      "escape": "Esc",
+      "delete": "Del"
+    },
+    "hints": {
+      "pan": "Drag the background to pan · Wheel to zoom",
+      "place": "Click on the plan to place the symbol",
+      "placeOnPipe": "This symbol goes on a pipe: click or drop on a highlighted pipe",
+      "portOrBend": "a port, a pipe or a point to pass by",
+      "finish": "finish here",
+      "undoPoint": "take the last point back",
+      "cancel": "cancel"
+    },
+    "shortcuts": {
+      "select": "Select",
+      "pipe": "Draw a pipe",
+      "rotate": "Rotate",
+      "duplicate": "Duplicate",
+      "undo": "Undo",
+      "delete": "Delete"
+    },
+    "library": {
+      "title": "Symbols",
+      "hint": "drag onto the plan",
+      "search": "Search a symbol",
+      "empty": "No symbol matches.",
+      "onPipe": "goes on a pipe",
+      "groups": {
+        "production": "Production",
+        "storage": "Storage and expansion",
+        "distribution": "Distribution",
+        "onPipe": "On a pipe",
+        "navigation": "Navigation",
+        "other": "Others"
+      }
+    },
+    "canvas": {
+      "dropOn": "Place on {{run}}"
+    },
+    "circuits": {
+      "primary": "Primary",
+      "heating": "Heating",
+      "dhw": "Domestic hot water",
+      "coldWater": "Cold water",
+      "chilled": "Chilled water",
+      "condenser": "Condenser"
+    },
+    "fluidRoles": {
+      "supply": "Supply",
+      "return": "Return"
+    },
+    "sides": {
+      "up": "Top",
+      "down": "Bottom",
+      "left": "Left",
+      "right": "Right",
+      "above": "Above (3D view)",
+      "below": "Below (3D view)"
+    },
+    "device": {
+      "label": "Device",
+      "none": "No device",
+      "search": "Search a device",
+      "empty": "No device matches."
+    },
     "slot": {
-      "none": "None",
+      "none": "No reading",
       "attribute": "Attribute",
-      "text": "Text",
+      "text": "Fixed text",
+      "other": "Another device…",
+      "textLabel": "Text shown for {{slot}}",
+      "format": "Unit and format",
       "unit": "Unit",
       "decimals": "Decimals",
+      "decimalsAuto": "auto",
       "label": {
         "true": "Reads when true",
         "false": "Reads when false"
       }
     },
+    "inspector": {
+      "label": "Properties",
+      "onFloor": "{{type}} · on the floor",
+      "onPipe": "{{type}} · on a pipe",
+      "duplicate": "Duplicate (⌘D)",
+      "delete": "Delete (Del)",
+      "device": "Device",
+      "readings": "Readings shown",
+      "readingsHint": "Pick the device first: its attributes will show here.",
+      "placement": "Placement",
+      "show": "Show",
+      "slideHint": "Drag the symbol along the pipe to move it.",
+      "moveHint": "Drag the symbol on the plan to move it: its pipes follow.",
+      "shape": "Shape and ports"
+    },
+    "props": {
+      "capacity": "Capacity",
+      "caption": "Caption"
+    },
+    "link": {
+      "target": "Target view",
+      "search": "Search a view",
+      "none": "No view",
+      "open": "Open"
+    },
     "collector": {
-      "axis": "Axis",
+      "axis": "Direction",
+      "horizontal": "Horizontal",
+      "vertical": "Vertical",
       "length": "Length",
+      "shorter": "Shorten",
+      "longer": "Lengthen",
       "ports": "Ports",
+      "addHint": "a + adds a port",
+      "addAt": "Add a port ({{side}}, cell {{position}})",
+      "kinds": {
+        "in": "inlet",
+        "out": "outlet"
+      },
+      "side": "Face of port {{port}}",
+      "offset": "Cell of port {{port}}",
       "removePort": "Remove",
       "portAttached": "A run is attached to this port; delete the run first",
-      "add": {
-        "in": "Add inlet",
-        "out": "Add outlet"
+      "noPorts": "No port yet: add one on the drawing."
+    },
+    "pipeTool": {
+      "title": "Draw a pipe",
+      "fluidHint": "a branch takes its pipe's",
+      "level": "Points to pass by",
+      "floor": "On the floor",
+      "overhead": "Overhead",
+      "levelHint": "Overhead, the pipe passes above the others in the 3D view.",
+      "progress": "In progress",
+      "pickStart": "Click a port, a pipe (a branch) or a cell to start.",
+      "from": "From · {{start}}",
+      "bends_one": "{{count}} point to pass by",
+      "bends_other": "{{count}} points to pass by",
+      "pickEnd": "End on a free port or a pipe, or here with Enter.",
+      "finish": "Finish here",
+      "cancel": "Cancel"
+    },
+    "pipeInspector": {
+      "subtitle_one": "Pipe · {{count}} bend",
+      "subtitle_other": "Pipe · {{count}} bends",
+      "route": "Route",
+      "teeOn": "Branch off {{run}}",
+      "freeEnd": "Open end",
+      "raised": "Passes overhead in the 3D view.",
+      "riders": "On this pipe",
+      "flowHint": "A bool telling whether the fluid flows: it animates this circuit in the 3D view.",
+      "flowAttribute": "Flow reading",
+      "flowPick": "Pick a bool"
+    },
+    "checks": {
+      "title_one": "{{count}} thing to check",
+      "title_other": "{{count}} things to check",
+      "none": "Nothing to check",
+      "note": "None of them stops a save.",
+      "plate": "The view",
+      "show": "Show",
+      "bind": "Bind",
+      "unbound": "No device: its readings will not show.",
+      "rules": {
+        "unknown_symbol": "Attached to a symbol the view does not have.",
+        "unknown_port": "Attached to a port the symbol does not have.",
+        "zero_length_segment": "Two points of the route in the same place.",
+        "diagonal_segment": "A segment is not straight: draw the pipe again.",
+        "port_side_mismatch": "The pipe does not leave through the port's face.",
+        "off_polyline": "A branch, a tag or a symbol is no longer on its pipe.",
+        "self_reference": "The pipe branches off itself.",
+        "unknown_pipe": "Placed on a pipe the view does not have.",
+        "unusable_pipe": "Placed on a pipe that needs fixing itself.",
+        "not_inline_capable": "This symbol does not go on a pipe.",
+        "inline_on_endpoint": "Placed at the end of the pipe: slide it inwards.",
+        "flat_depth": "Raised although the view opens as a plan."
       }
     },
-    "modes": {
-      "select": "Select",
-      "draw": "Draw pipe"
+    "guide": {
+      "title": "Nothing selected",
+      "empty": "Empty view",
+      "steps": "Building the view",
+      "shortcuts": "Shortcuts",
+      "place": {
+        "title": "Place the equipment",
+        "hint": "Tank, exchanger, header… from the library."
+      },
+      "connect": {
+        "title": "Connect them with pipes",
+        "hint": "Pipe tool (P): from one port to another, the route is worked out."
+      },
+      "onPipe": {
+        "title": "Place valves and pumps",
+        "hint": "They go on a pipe, not on the floor."
+      },
+      "bind": {
+        "title": "Bind the devices",
+        "hint": "Each symbol shows its device's readings.",
+        "left_one": "{{count}} symbol without a device.",
+        "left_other": "{{count}} symbols without a device."
+      }
     },
-    "mode": "Mode",
-    "discard": "Discard the unsaved changes?"
+    "preview": {
+      "title": "3D preview",
+      "expand": "Enlarge the preview",
+      "close": "Hide the preview",
+      "caption": "What operators will see",
+      "open": "Preview",
+      "dialogTitle": "Preview of the view",
+      "dialogDescription": "The view as operators will open it, without readings."
+    },
+    "settings": {
+      "title": "View settings",
+      "view": "Opens as",
+      "viewHint": "Operators can always switch between the two.",
+      "raised": "Something is raised: the plan cannot be the view it opens as."
+    },
+    "create": {
+      "title": "New synoptic",
+      "description": "A view of an installation: equipment, pipes and the devices behind them.",
+      "name": "Name",
+      "namePlaceholder": "E.g. DHW production — East",
+      "nameRequired": "Give the view a name.",
+      "view": "View operators open",
+      "viewHint": "You always draw on the plan; both views stay available.",
+      "views": {
+        "isometric": "In volume, worked out from the plan",
+        "flat": "The diagram, as drawn"
+      },
+      "start": "Start from",
+      "blank": "Blank view",
+      "blankHint": "An empty plan",
+      "duplicate": "Copy a view of the site",
+      "duplicateHint": "Takes its equipment, pipes and devices",
+      "source": "View to copy",
+      "sourceRequired": "Pick the view to copy.",
+      "submit": "Create the view",
+      "loading": "Loading…",
+      "failed": "The view to copy could not be read.",
+      "raised": "The copied view has raised elements: it will open isometric."
+    }
   },
   "switcher": {
     "label": "Switch synoptic",

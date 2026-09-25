@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { toLabel } from "./textFormat";
+import { foldText, toLabel } from "./textFormat";
 
 describe("text to Label format", () => {
   it("Empty string untouched", () => {
@@ -28,5 +28,12 @@ describe("text to Label format", () => {
 
   it("Keeps consecutive upper case", () => {
     expect(toLabel("systemHVAC")).toBe("System HVAC");
+  });
+});
+
+describe("foldText", () => {
+  it("drops accents and case", () => {
+    expect(foldText("RÉCHAUFFEUR de boucle")).toBe("rechauffeur de boucle");
+    expect(foldText("Arrêt")).toBe("arret");
   });
 });

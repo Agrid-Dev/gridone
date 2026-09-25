@@ -345,6 +345,18 @@ The measurement the issue asked for (AGR-1166), 2026-09-18 and 19, agent time: p
 - **A descent in place was once routed as a loop** through the neighbouring column, on a draw whose first point was a stray cell left from an interrupted draw; the same points from the port produced the third plate's waypoints exactly. Not reproduced; to watch.
 - **The one shared pipe was first drawn arriving on both plates.** The editor draws a link's `out` as readily as its `in`; the review caught that the balance line entered both returns. A link that leads to another plate is a pipe with one direction across the two.
 
+## Authoring in 2D (AGR-1437)
+
+The editor was rebuilt after the first plates were authored in it; what it now does, as far as the format is concerned:
+
+- **Always on the plan.** The editor draws the flat projection whatever the document says; `projection` stays the view operators open the plate on, chosen when the plate is created and in its settings. A flat plate refuses every depth (`flat_depth`), so the editor offers no height there and keeps "plan" off the settings while anything is raised.
+- **Height is a run's, not a symbol's.** The pipe tool draws the points a run passes by on the floor or overhead (z = 1); the router adds the risers. No committed plate raises a symbol, so no field does; a symbol keeps the z it has.
+- **Runs follow their symbols.** An edit that moves a port (a move, a turn, a collector's direction, cell or face) re-routes the runs attached to that port and no other. A run keeps its far part from a **pin**: the first cell another run tees onto, counted from the moved end, else its second bend when it has three or more, else it is routed whole. The new part reaches the pin in line with what is kept; inline symbols and tags that fell off it go back onto the new part, in order. When that breaks a run rule, the old run is kept whole and stretched from the old port cell; when that breaks one too, the edit is refused, as is any edit that puts a body on another. The rules are the backend's run rules, mirrored in the UI (`runRules.ts`), and held to `validate_document` on 1137 documents with the same verdicts. On the four plates, every symbol with a run moved by up to three cells each way or turned: 2792 edits taken, 6 of them by stretching, 85 refused as overlapping.
+- **Inline types ride a run only**, on a cell strictly inside it and not at the foot or head of a riser; dropped from the library, one snaps to the nearest such cell.
+- **Device first.** A symbol takes its `device_id`, then each slot an attribute of that device, written `ids: [<device>]` as every plate does; picking another device moves those bindings to it. A reading from another device, or a literal, stays possible.
+- **Checks before saving**, never in its way: what the last save refused, runs the rules would refuse, and symbols with slots but no device and no binding.
+- **Still by hand**: creating tags, free labels and the title label, readable ids (the editor still numbers `pump-2`), and turning a run's bare-cell end into a tee (AGR-1368).
+
 ## Appendix — symbol types of the hydronic kit
 
 Input for the registry (AGR-1160) and the kit (AGR-1156, AGR-1159); the plates place all of them but `valve_check` and `pump_double`. The double pump keeps `state` alone while the single pump has a `speed`: one speed for two heads would be a number for neither, and the plate that first places a double pump decides its per-head shape. Footprints are `w × d` at rotation 0; port offsets are relative to the origin cell.

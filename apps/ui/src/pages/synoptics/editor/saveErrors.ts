@@ -12,7 +12,8 @@ export type ElementError = { path: (string | number)[]; msg: string };
  *  editor cannot select (a label, carried through untouched). */
 export type SaveErrors = {
   byElement: Map<string, ElementError[]>;
-  document: string[];
+  /** Violations of the plate itself, their path from its root. */
+  document: ElementError[];
 };
 
 export const NO_SAVE_ERRORS: SaveErrors = {
@@ -43,7 +44,7 @@ export function mapSaveErrors(
         ? doc[list]?.[index]
         : undefined;
     if (!element) {
-      out.document.push(path.length ? `${path.join(".")}: ${msg}` : msg);
+      out.document.push({ path, msg });
       continue;
     }
     out.byElement.set(element.id, [
@@ -61,6 +62,16 @@ export function forgetElement(errors: SaveErrors, id: string): SaveErrors {
   const byElement = new Map(errors.byElement);
   byElement.delete(id);
   return { ...errors, byElement };
+}
+
+/** The plate's own violations with those of `field` gone, once the
+ *  author edits it: a name typed again says nothing of the polyline
+ *  budget. */
+export function forgetField(errors: SaveErrors, field: string): SaveErrors {
+  const document = errors.document.filter((e) => e.path[0] !== field);
+  return document.length === errors.document.length
+    ? errors
+    : { ...errors, document };
 }
 
 /** How a violation reads under the field it names: the path left after
