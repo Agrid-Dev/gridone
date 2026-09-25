@@ -1,9 +1,11 @@
 import { useTranslation } from "react-i18next";
 import { Zap } from "lucide-react";
 import {
+  deviceAttributes,
   isElectricityMeter,
   readElectricityMeterAttributes,
 } from "@/lib/devices";
+import { attributeUnit } from "@/lib/attributeUnits";
 import { ControlPanel } from "../ControlPanel";
 import type { StandardControlProps } from "../types";
 
@@ -17,6 +19,9 @@ export function ElectricityMeterControl({ device }: StandardControlProps) {
 
   if (!isElectricityMeter(device)) return null;
   const a = readElectricityMeterAttributes(device);
+  const attributes = deviceAttributes(device);
+  // Meters report in W or kW, Wh or kWh: only the driver knows which.
+  const unit = (name: string) => attributeUnit(name, attributes[name]);
 
   return (
     <ControlPanel
@@ -36,27 +41,28 @@ export function ElectricityMeterControl({ device }: StandardControlProps) {
             defaultValue: "Active power",
           })}
           value={fmt(a.activePower, 0)}
-          unit="W"
+          unit={unit("active_power")}
         />
         <Metric
           label={t("controls.electricityMeter.reactivePower", {
             defaultValue: "Reactive power",
           })}
           value={fmt(a.reactivePower, 0)}
-          unit="var"
+          unit={unit("reactive_power")}
         />
         <Metric
           label={t("controls.electricityMeter.energy", {
             defaultValue: "Energy",
           })}
           value={fmt(a.energy)}
-          unit="kWh"
+          unit={unit("energy")}
         />
         <Metric
           label={t("controls.electricityMeter.index", {
             defaultValue: "Index",
           })}
           value={fmt(a.index)}
+          unit={unit("index")}
         />
       </dl>
     </ControlPanel>
@@ -70,7 +76,7 @@ function Metric({
 }: {
   label: string;
   value: string;
-  unit?: string;
+  unit?: string | null;
 }) {
   return (
     <div className="rounded-2xl border border-transparent bg-primary/[0.04] p-4">

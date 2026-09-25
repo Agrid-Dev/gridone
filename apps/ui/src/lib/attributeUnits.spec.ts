@@ -12,16 +12,14 @@ describe("attributeUnit", () => {
     expect(attributeUnit(name)).toBe("°");
   });
 
-  it.each([
-    ["humidity", "%"],
-    ["active_power", "W"],
-  ])("knows %s exactly", (name, expected) => {
-    expect(attributeUnit(name)).toBe(expected);
+  it("knows humidity exactly", () => {
+    expect(attributeUnit("humidity")).toBe("%");
   });
 
   it.each([
     ["pressure", "the scale is driver-defined"],
     ["energy", "Wh or kWh is not knowable"],
+    ["active_power", "W or kW is not knowable"],
     ["fan_speed", "a percentage on one device, an enum on another"],
     ["temperatures_count", "not a temperature reading"],
   ])("leaves %s unitless (%s)", (name) => {

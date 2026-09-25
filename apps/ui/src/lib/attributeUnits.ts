@@ -3,9 +3,9 @@
  *
  * Devices do not declare units on the wire, so the app only claims the ones
  * its own conventions already assume (see `formatValue.ts`): a scale-agnostic
- * `°` for temperatures, `%` for ratios, `W` for electrical power. Anything
- * else stays unitless rather than guessing — a driver-defined `pressure`
- * could be bar, Pa or PSI, and a wrong unit is worse than none.
+ * `°` for temperatures, `%` for humidity. Anything else stays unitless
+ * rather than guessing — a driver-defined `pressure` could be bar, Pa or PSI,
+ * `active_power` W or kW, and a wrong unit is worse than none.
  *
  * Symbols only: whether a space belongs between value and unit depends on the
  * surface (a chart tick cannot hold one — see `FloatPanel`), so spacing is the
@@ -25,7 +25,6 @@ const TEMPERATURE_ATTRIBUTE = /(^|_)temperature(_|$)/;
 /** Attributes whose unit is known exactly, by name. */
 const EXACT_UNITS: Record<string, string> = {
   humidity: "%",
-  active_power: "W",
 };
 
 /**
