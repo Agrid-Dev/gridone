@@ -1,8 +1,17 @@
+import { useEffect, useState } from "react";
+import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { AttributeDependencies } from "@/components/AttributeDependencies";
 import { moveRadioFocus } from "@/lib/radioNavigation";
 import { useTranslation } from "react-i18next";
 import { Check, Loader2, Minus, Plus } from "lucide-react";
-import { Button, Switch } from "@/components/ui";
+import {
+  Button,
+  Switch,
+  Tooltip,
+  TooltipArrow,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui";
 import { attributeValueLabel } from "@/lib/attributeValueLabel";
 import { commandReasons } from "@/lib/commandReasons";
 import { toLabel } from "@/lib/textFormat";
@@ -68,40 +77,43 @@ export function ControlRow({
   const { t } = useTranslation();
   const label = localize(state.spec.label, language);
   return (
-    <div
-      className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
-      data-control={id}
-    >
-      <div className="min-w-0">
-        <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
-          {label}
-          <DescriptionHint
-            name={label}
-            entries={describedAttributes(
-              [{ caption: label, attribute: state.attribute }],
-              language,
-            )}
-          />
-        </p>
-        {state.valueLabel && (
-          <p className="text-xs text-muted-foreground">{state.valueLabel}</p>
-        )}
-        {state.spec.kind === "select" &&
-          state.reported !== null &&
-          !state.options.includes(state.reported) && (
-            <p className="text-xs text-muted-foreground">
-              {t("common.currentValue")}: {String(state.reported)}
-            </p>
+    <div className="px-4 py-3" data-control={id}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+            {label}
+            <DescriptionHint
+              name={label}
+              entries={describedAttributes(
+                [{ caption: label, attribute: state.attribute }],
+                language,
+              )}
+            />
+          </p>
+          {state.valueLabel && (
+            <p className="text-xs text-muted-foreground">{state.valueLabel}</p>
           )}
-        <WriteStateIndicator state={state.write} />
-        <ControlFeedback state={state} runtime={runtime} language={language} />
+          {state.spec.kind === "select" &&
+            state.reported !== null &&
+            !state.options.includes(state.reported) && (
+              <p className="text-xs text-muted-foreground">
+                {t("common.currentValue")}: {String(state.reported)}
+              </p>
+            )}
+        </div>
+        <ControlInput id={id} state={state} runtime={runtime} label={label} />
       </div>
-      <ControlInput id={id} state={state} runtime={runtime} label={label} />
+      <ControlFeedback state={state} runtime={runtime} language={language} />
     </div>
   );
 }
 
-/** Availability explanations shared by standalone controls and setpoint tables. */
+/**
+ * Write status and availability explanations shared by standalone controls
+ * and setpoint tables. While every missing dependency is one this page is
+ * writing, the explanations from before the write stay on screen: the gap is
+ * ours, and the page must not move for it.
+ */
 export function ControlFeedback({
   state,
   runtime,
@@ -111,28 +123,41 @@ export function ControlFeedback({
   runtime: DeviceUiRuntime;
   language?: string;
 }) {
+  const writeState = state.attribute?.write_state;
+  const awaiting = state.awaiting ?? [];
+  const missing = (writeState?.missing_attributes ?? []).filter(
+    (name) => !awaiting.includes(name),
+  );
+  const onlyAwaiting = awaiting.length > 0 && missing.length === 0;
+  const current = {
+    reasons: commandReasons(state.reasons, language),
+    warnings: commandReasons(writeState?.warnings, language),
+  };
+  const [settled, setSettled] = useState(current);
+  if (
+    !onlyAwaiting &&
+    (settled.reasons !== current.reasons ||
+      settled.warnings !== current.warnings)
+  )
+    setSettled(current);
+  const { reasons, warnings } = onlyAwaiting ? settled : current;
+  const label = (name: string) => runtime.attributeLabel?.(name) ?? name;
   return (
     <>
-      {state.reasons?.length ? (
+      <ControlStatus state={state.write} awaiting={awaiting.map(label)} />
+      {reasons && (
         <p role="status" className="text-xs text-muted-foreground">
-          {commandReasons(state.reasons, language)}
+          {reasons}
         </p>
-      ) : null}
-      {state.attribute?.write_state?.missing_dependencies &&
-        runtime.deviceId && (
-          <AttributeDependencies
-            deviceId={runtime.deviceId}
-            attribute={state.spec.attribute}
-            labels={(state.attribute.write_state.missing_attributes ?? []).map(
-              (name) => runtime.attributeLabel?.(name) ?? name,
-            )}
-          />
-        )}
-      {state.attribute?.write_state?.warnings?.length ? (
-        <p className="text-xs text-amber-700">
-          {commandReasons(state.attribute.write_state.warnings, language)}
-        </p>
-      ) : null}
+      )}
+      {writeState?.missing_dependencies && !onlyAwaiting && runtime.deviceId && (
+        <AttributeDependencies
+          deviceId={runtime.deviceId}
+          attribute={state.spec.attribute}
+          labels={missing.map(label)}
+        />
+      )}
+      {warnings && <p className="text-xs text-amber-700">{warnings}</p>}
     </>
   );
 }
@@ -224,6 +249,17 @@ export function NumberStepper({
       : (state.valueLabel ?? t("presentation.unavailable"));
   const unit = state.attribute?.unit;
   const { minimum, maximum } = state.constraints;
+  const known =
+    minimum !== null && maximum !== null ? { minimum, maximum } : null;
+  // While the bounds are unknown the last known ones stay, greyed, in place.
+  const [lastKnown, setLastKnown] = useState(known);
+  if (
+    known &&
+    (known.minimum !== lastKnown?.minimum ||
+      known.maximum !== lastKnown?.maximum)
+  )
+    setLastKnown(known);
+  const range = known ?? lastKnown;
   return (
     <div className="flex items-center gap-2" role="group" aria-label={label}>
       <Button
@@ -251,11 +287,17 @@ export function NumberStepper({
             }
           />
         </span>
-        {minimum !== null && maximum !== null && (
-          <p className="text-[11px] text-muted-foreground">
+        {range && (
+          <p
+            data-stale={!known || undefined}
+            className={cn(
+              "text-[11px] text-muted-foreground",
+              !known && "opacity-50",
+            )}
+          >
             {t("presentation.range", {
-              min: formatNumber(minimum, decimals, i18n.language),
-              max: formatNumber(maximum, decimals, i18n.language),
+              min: formatNumber(range.minimum, decimals, i18n.language),
+              max: formatNumber(range.maximum, decimals, i18n.language),
             })}
           </p>
         )}
@@ -304,37 +346,16 @@ function SelectControl({
           (item) => item.value === option,
         );
         const unavailable = !state.writable || resolved?.available === false;
-        const reason = commandReasons(resolved?.reasons, i18n.language);
-        const reasonId = `${id}-option-${index}-reason`;
         return (
-          <div key={`${typeof option}:${String(option)}`}>
-            <button
-              type="button"
-              role="radio"
-              aria-checked={active}
-              aria-disabled={unavailable}
-              aria-describedby={reason ? reasonId : undefined}
-              onClick={() => {
-                if (!unavailable) runtime.setValue(id, option);
-              }}
-              onKeyDown={moveRadioFocus}
-              className={cn(
-                "rounded-full px-3 py-1.5 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring",
-                unavailable && "opacity-50",
-                active && "bg-background shadow-sm",
-              )}
-            >
-              {optionLabel(option)}
-            </button>
-            {reason && (
-              <p
-                id={reasonId}
-                className="max-w-48 px-2 text-xs text-muted-foreground"
-              >
-                {reason}
-              </p>
-            )}
-          </div>
+          <OptionButton
+            key={`${typeof option}:${String(option)}`}
+            label={optionLabel(option)}
+            active={active}
+            unavailable={unavailable}
+            reason={commandReasons(resolved?.reasons, i18n.language)}
+            reasonId={`${id}-option-${index}-reason`}
+            onSelect={() => runtime.setValue(id, option)}
+          />
         );
       })}
     </div>
@@ -342,33 +363,131 @@ function SelectControl({
 }
 
 /**
- * The outcome of the last write, announced politely: sending, confirmed,
- * or the real failure. Measurements are never announced here.
+ * An option's reason is a tooltip, so reasons coming and going never resize
+ * the group. Hover and focus open it; a tap on an unavailable option opens it
+ * too, since touch has neither.
  */
-export function WriteStateIndicator({ state }: { state: WriteState }) {
+function OptionButton({
+  label,
+  active,
+  unavailable,
+  reason,
+  reasonId,
+  onSelect,
+}: {
+  label: string;
+  active: boolean;
+  unavailable: boolean;
+  reason: string;
+  reasonId: string;
+  onSelect: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  // The trigger stays mounted when a reason comes or goes, so focus is kept.
+  return (
+    <>
+      <Tooltip
+        open={open && !!reason}
+        onOpenChange={setOpen}
+        delayDuration={0}
+      >
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={active}
+            aria-disabled={unavailable}
+            aria-describedby={reason ? reasonId : undefined}
+            onClick={(event) => {
+              if (!unavailable) onSelect();
+              else if (reason) {
+                // Keeps the tooltip trigger from closing what the tap opens.
+                event.preventDefault();
+                setOpen(true);
+              }
+            }}
+            onKeyDown={moveRadioFocus}
+            className={cn(
+              "rounded-full px-3 py-1.5 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring",
+              unavailable && "opacity-50",
+              active && "bg-background shadow-sm",
+            )}
+          >
+            {label}
+          </button>
+        </TooltipTrigger>
+        <TooltipPrimitive.Portal>
+          <TooltipContent side="top" className="max-w-72 text-xs">
+            {reason}
+            <TooltipArrow className="fill-popover" />
+          </TooltipContent>
+        </TooltipPrimitive.Portal>
+      </Tooltip>
+      {reason && (
+        <span id={reasonId} className="sr-only">
+          {reason}
+        </span>
+      )}
+    </>
+  );
+}
+
+export const CONFIRMED_VISIBLE_MS = 2000;
+
+/**
+ * The outcome of the last write, announced politely: sending, confirmed,
+ * or the real failure, else the dependencies whose write is awaited.
+ * Measurements are never announced here. The line always keeps one line of
+ * height and never widens its container; a long message is cut, in full in
+ * its title. "Applied" fades out without giving its line back.
+ */
+function ControlStatus({
+  state,
+  awaiting,
+}: {
+  state: WriteState;
+  awaiting: string[];
+}) {
   const { t } = useTranslation("devices");
-  if (state.kind === "idle") return null;
+  const [faded, setFaded] = useState<WriteState | null>(null);
+  useEffect(() => {
+    if (state.kind !== "confirmed") return;
+    const timer = setTimeout(() => setFaded(state), CONFIRMED_VISIBLE_MS);
+    return () => clearTimeout(timer);
+  }, [state]);
   const failed = state.kind === "error" || state.kind === "unconfirmed";
+  const waiting =
+    !failed && state.kind !== "sending" && awaiting.length > 0;
+  const text = waiting
+    ? t("presentation.awaiting", { names: awaiting.join(", ") })
+    : state.kind === "sending"
+      ? t("presentation.sending")
+      : state.kind === "confirmed"
+        ? t("presentation.confirmed")
+        : state.kind === "error"
+          ? t("presentation.error", { message: state.message })
+          : state.kind === "unconfirmed"
+            ? t("presentation.unconfirmed", { message: state.message })
+            : "";
   return (
     <p
       role="status"
       aria-live="polite"
       data-write-state={state.kind}
+      title={text || undefined}
       className={cn(
-        "flex items-center gap-1 text-xs",
+        "h-4 w-0 min-w-full truncate text-xs leading-4 transition-opacity duration-500",
         failed ? "text-destructive" : "text-muted-foreground",
+        !waiting && faded === state && "opacity-0",
       )}
     >
-      {state.kind === "sending" && (
-        <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+      {(waiting || state.kind === "sending") && (
+        <Loader2 className="mr-1 inline h-3 w-3 animate-spin" aria-hidden />
       )}
-      {state.kind === "confirmed" && <Check className="h-3 w-3" aria-hidden />}
-      {state.kind === "sending" && t("presentation.sending")}
-      {state.kind === "confirmed" && t("presentation.confirmed")}
-      {state.kind === "error" &&
-        t("presentation.error", { message: state.message })}
-      {state.kind === "unconfirmed" &&
-        t("presentation.unconfirmed", { message: state.message })}
+      {!waiting && state.kind === "confirmed" && (
+        <Check className="mr-1 inline h-3 w-3" aria-hidden />
+      )}
+      {text}
     </p>
   );
 }
