@@ -1,3 +1,9 @@
+## v0.272.0 (2026-09-25)
+
+### Feat
+
+- **ui**: meter tree node details dialog (AGR-1417) (#697)
+
 ## v0.271.0 (2026-09-25)
 
 ### Feat
