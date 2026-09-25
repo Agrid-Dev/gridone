@@ -406,6 +406,43 @@ describe("useDeviceControlRuntime", () => {
     expect(rendered.result.current.reported("temperature_setpoint")).toBe(19);
   });
 
+  it("marks as awaited only the missing dependencies whose write is in flight", async () => {
+    let finish!: (value: unknown) => void;
+    mockSendCommand.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    const { rendered } = setup(
+      makeDevice({
+        temperature_setpoint: {
+          write_state: {
+            status: "unknown",
+            missing_dependencies: true,
+            missing_attributes: ["onoff_state", "precision"],
+          },
+        },
+      }),
+    );
+    expect(rendered.result.current.readControl("target")?.awaiting).toEqual(
+      [],
+    );
+    act(() => rendered.result.current.setValue("power", false));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(rendered.result.current.readControl("target")?.awaiting).toEqual([
+      "onoff_state",
+    ]);
+    await act(async () => {
+      finish({ id: "cmd" });
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(rendered.result.current.readControl("target")?.awaiting).toEqual(
+      [],
+    );
+  });
+
   it("drops pending intentions when the device changes", async () => {
     const { rendered } = setup();
     act(() =>
