@@ -213,7 +213,7 @@ def test_evaluate_and_check_read_the_contract_and_trusted_values():
     assert guard.evaluate("sensor", 1).reasons[0].code == "not_writable"
     assert guard.evaluate("count", 2.5).reasons[0].code == "invalid_value"
     assert guard.evaluate("target", "abc").reasons[0].code == "invalid_value"
-    assert guard.evaluate("target", 22).reasons[0].code == "locked"
+    assert guard.evaluate("target", 22).reasons[0].code == "unknown_dependencies"
     stores.observe("lock", 0)
     assert guard.check("target", "22") == 22.0
     stores.observe("lock", 1)

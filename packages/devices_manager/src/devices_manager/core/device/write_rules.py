@@ -65,16 +65,11 @@ def _check_options(
             raise WriteRejectedError([WriteReason(code="invalid_option")])
         if option.allowed_when:
             allowed = context.condition(option.allowed_when)
-            if allowed is not True:
+            if allowed is None:
+                raise WriteRejectedError([WriteReason(code="unknown_dependencies")])
+            if allowed is False:
                 raise WriteRejectedError(
-                    [
-                        option.reason
-                        or WriteReason(
-                            code="unknown_dependencies"
-                            if allowed is None
-                            else "option_unavailable"
-                        )
-                    ]
+                    [option.reason or WriteReason(code="option_unavailable")]
                 )
     elif not spec.value_mapping and spec.value_options is not None:
         if not any(scalar_equal(value, option) for option in spec.value_options):
@@ -141,10 +136,10 @@ def _evaluate_rules(
         if rule.effect == "warn":
             if outcome is not False:
                 result.warnings.append(rule.reason)
-        elif outcome is not True:
+        elif outcome is None:
+            result.reasons.append(WriteReason(code="unknown_dependencies"))
+        elif outcome is False:
             result.reasons.append(rule.reason)
-            if outcome is None:
-                result.reasons.append(WriteReason(code="unknown_dependencies"))
 
 
 def project_write_state(

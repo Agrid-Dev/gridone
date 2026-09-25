@@ -33,15 +33,24 @@ def rule(condition, effect="require"):
     }
 
 
-@pytest.mark.parametrize(("locked", "eligible"), [(0, True), (1, False), (None, False)])
-def test_candidate_guard_is_conservative(locked, eligible):
+@pytest.mark.parametrize(
+    ("locked", "reasons", "status"),
+    [
+        (0, [], "ready"),
+        (1, ["locked"], "blocked"),
+        (None, ["unknown_dependencies"], "unknown"),
+    ],
+)
+def test_candidate_guard_is_conservative(locked, reasons, status):
     contract = spec(
         write_rules=[rule({"op": "eq", "left": {"attribute": "lock"}, "right": 0})]
     )
     result = evaluate_write(contract, 22, {"lock": locked}.get)
-    assert result.eligible is eligible
+    assert [r.code for r in result.reasons] == reasons
+    assert result.eligible is (not reasons)
     assert result.value == 22
-    if not eligible:
+    assert project_write_state(contract, {"lock": locked}.get).status == status
+    if reasons == ["locked"]:
         assert result.reasons[0].message is not None
         assert result.reasons[0].message.translations["fr"] == "Verrouillé"
 
@@ -86,9 +95,17 @@ def test_full_size_table_projects_without_quadratic_evaluation():
 
 
 @pytest.mark.parametrize(
-    ("locked", "reason"), [(True, "option_unavailable"), (None, "unknown_dependencies")]
+    ("authored", "locked", "reason", "status"),
+    [
+        (None, True, "option_unavailable", "blocked"),
+        (None, None, "unknown_dependencies", "unknown"),
+        ({"code": "incompatible"}, True, "incompatible", "blocked"),
+        ({"code": "incompatible"}, None, "unknown_dependencies", "unknown"),
+    ],
 )
-def test_conditional_options_are_projected_and_enforced(locked, reason):
+def test_conditional_options_are_projected_and_enforced(
+    authored, locked, reason, status
+):
     contract = spec(
         write_options=[
             {
@@ -98,16 +115,18 @@ def test_conditional_options_are_projected_and_enforced(locked, reason):
                     "left": {"attribute": "locked"},
                     "right": False,
                 },
+                "reason": authored,
             }
         ]
     )
     result = evaluate_write(contract, 22, {"locked": locked}.get)
     assert not result.eligible
-    assert result.reasons[0].code == reason
+    assert [r.code for r in result.reasons] == [reason]
     state = project_write_state(contract, {"locked": locked}.get)
     assert state.options is not None
     assert not state.options[0].available
     assert state.options[0].reasons == result.reasons
+    assert state.status == status
     assert not evaluate_write(contract, 23, {"locked": False}.get).eligible
 
 
