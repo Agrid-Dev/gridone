@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -11,6 +12,7 @@ import type { Device } from "@gridone/sdk";
 import { createI18nMock } from "@/test/i18nMock";
 import { TooltipProvider } from "@/components/ui";
 import { DevicePresentation } from "../DevicePresentation";
+import { CONFIRMED_VISIBLE_MS } from "../widgets/ControlPanel";
 import type { PresentationV1, SetpointRow } from "../document";
 import type { Scalar } from "../conditions";
 import type {
@@ -25,6 +27,7 @@ vi.mock("react-i18next", () =>
     {
       "presentation.sending": "Sending…",
       "presentation.confirmed": "Applied",
+      "presentation.awaiting": "Waiting for {{names}}",
       "presentation.error": "Failed: {{message}}",
       "presentation.unconfirmed": "Not confirmed: {{message}}",
       "presentation.unavailable": "Unavailable",
@@ -50,6 +53,13 @@ vi.mock("react-i18next", () =>
     { language: "en" },
   ),
 );
+
+// The real block needs the API client; these tests only check which names it gets.
+vi.mock("@/components/AttributeDependencies", () => ({
+  AttributeDependencies: ({ labels }: { labels: string[] }) => (
+    <p data-testid="missing-dependencies">{labels.join(", ")}</p>
+  ),
+}));
 
 afterEach(cleanup);
 
@@ -249,11 +259,11 @@ function fakeRuntime(
   return { runtime, activate, setValue };
 }
 
-function renderPresentation(
+function presentation(
   runtime: DeviceUiRuntime,
   extra: Partial<Parameters<typeof DevicePresentation>[0]> = {},
 ) {
-  return render(
+  return (
     <TooltipProvider>
       <DevicePresentation
         document={document}
@@ -265,8 +275,15 @@ function renderPresentation(
         renderAttributes={({ group }) => <p>attributes of {group}</p>}
         {...extra}
       />
-    </TooltipProvider>,
+    </TooltipProvider>
   );
+}
+
+function renderPresentation(
+  runtime: DeviceUiRuntime,
+  extra: Partial<Parameters<typeof DevicePresentation>[0]> = {},
+) {
+  return render(presentation(runtime, extra));
 }
 
 describe("DevicePresentation", () => {
@@ -881,4 +898,145 @@ it("converts raw measurements and pending face values while controls stay canoni
   expect(screen.getByText("68 °F")).toBeInTheDocument();
   expect(screen.getByRole("img", { name: "68.9" })).toBeInTheDocument();
   expect(screen.getByText("20.5 °C")).toBeInTheDocument();
+});
+
+describe("no layout shift during a command", () => {
+  const fanRow = () =>
+    screen
+      .getByRole("radiogroup", { name: "Fan" })
+      .closest<HTMLElement>("[data-control]")!;
+  const missingMode = (
+    reasons: { code: string; message: { default: string } }[],
+    missing = ["mode"],
+  ): Partial<BoundControlState> => ({
+    attribute: {
+      ...attributes.fan_speed,
+      write_state: {
+        status: "unknown",
+        missing_dependencies: true,
+        missing_attributes: missing,
+      },
+    } as AttributeLike,
+    reasons,
+  });
+  const labelled = (runtime: DeviceUiRuntime): DeviceUiRuntime => ({
+    ...runtime,
+    deviceId: "dev-1",
+    attributeLabel: (name) => name.charAt(0).toUpperCase() + name.slice(1),
+  });
+
+  it("keeps an empty status line on an idle control", () => {
+    const { runtime } = fakeRuntime();
+    renderPresentation(runtime);
+    const status = within(fanRow()).getByRole("status");
+    expect(status).toHaveAttribute("data-write-state", "idle");
+    expect(status).toHaveTextContent(/^$/);
+  });
+
+  it("fades Applied out after its delay without removing its line", () => {
+    vi.useFakeTimers();
+    try {
+      const { runtime } = fakeRuntime({
+        fan: { write: { kind: "confirmed", requested: "high" } },
+      });
+      renderPresentation(runtime);
+      const status = within(fanRow()).getByRole("status");
+      expect(status).toHaveTextContent("Applied");
+      expect(status).not.toHaveClass("opacity-0");
+      act(() => vi.advanceTimersByTime(CONFIRMED_VISIBLE_MS));
+      expect(within(fanRow()).getByRole("status")).toHaveClass("opacity-0");
+      expect(within(fanRow()).getByRole("status")).toHaveTextContent("Applied");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("says which write it awaits instead of reporting missing data", () => {
+    const { runtime } = fakeRuntime({
+      fan: { ...missingMode([]), awaiting: ["mode"] },
+    });
+    renderPresentation(labelled(runtime));
+    expect(within(fanRow()).getByRole("status")).toHaveTextContent(
+      "Waiting for Mode",
+    );
+    expect(screen.queryByTestId("missing-dependencies")).toBeNull();
+  });
+
+  it("still reports the dependencies nobody is writing", () => {
+    const { runtime } = fakeRuntime({
+      fan: {
+        ...missingMode([], ["maintenance", "mode"]),
+        awaiting: ["mode"],
+      },
+    });
+    renderPresentation(labelled(runtime));
+    expect(within(fanRow()).getByRole("status")).toHaveTextContent(
+      "Waiting for Mode",
+    );
+    expect(screen.getByTestId("missing-dependencies")).toHaveTextContent(
+      /^Maintenance$/,
+    );
+  });
+
+  it("keeps the settled explanations while the awaited write is in flight", () => {
+    const settled = {
+      code: "locked",
+      message: { default: "Locked by maintenance" },
+    };
+    const provisional = {
+      code: "fan_mode",
+      message: { default: "Not in fan mode" },
+    };
+    const { runtime: before } = fakeRuntime({ fan: { reasons: [settled] } });
+    const { rerender } = renderPresentation(labelled(before));
+    const { runtime: during } = fakeRuntime({
+      fan: { ...missingMode([settled, provisional]), awaiting: ["mode"] },
+    });
+    rerender(presentation(labelled(during)));
+    expect(within(fanRow()).getByText("Locked by maintenance")).toBeVisible();
+    expect(within(fanRow()).queryByText(/Not in fan mode/)).toBeNull();
+  });
+
+  it("keeps the last known range, greyed, while the bounds are unknown", () => {
+    const { runtime: known } = fakeRuntime();
+    const { rerender } = renderPresentation(known);
+    const { runtime: unknown } = fakeRuntime({
+      target: {
+        constraints: { step: 0.5, minimum: null, maximum: null, unknown: true },
+      },
+    });
+    rerender(presentation(unknown));
+    const row = screen.getByRole("row", { name: /Temperature/ });
+    expect(within(row).getByText("16.0 – 30.0")).toHaveAttribute(
+      "data-stale",
+      "true",
+    );
+  });
+
+  it("shows an option's reason in a tooltip, opened by a tap too", async () => {
+    const { runtime } = fakeRuntime({
+      fan: {
+        options: ["low", "middle"],
+        optionStates: [
+          { value: "low", available: true },
+          {
+            value: "middle",
+            available: false,
+            reasons: [
+              { code: "locked", message: { default: "Middle speed is locked" } },
+            ],
+          },
+        ],
+      },
+    });
+    renderPresentation(runtime);
+    const disabled = screen.getByRole("radio", { name: /middle/i });
+    expect(disabled).toHaveAccessibleDescription("Middle speed is locked");
+    expect(screen.getByText("Middle speed is locked")).toHaveClass("sr-only");
+    // A tap is a click with no hover before it.
+    fireEvent.click(disabled);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(
+      "Middle speed is locked",
+    );
+  });
 });
