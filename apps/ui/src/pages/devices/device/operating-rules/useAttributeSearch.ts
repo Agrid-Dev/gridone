@@ -5,8 +5,6 @@ import type { AttributeCatalog } from "./expressions";
 
 const ATTRIBUTE_SEARCH_LIMIT = 40;
 
-const searchable = foldText;
-
 export function useAttributeSearch(
   catalog: AttributeCatalog,
   writable: boolean,
@@ -30,14 +28,14 @@ export function useAttributeSearch(
               reference: { device_id: device.id, attribute },
               key: JSON.stringify([device.id, attribute]),
               label,
-              search: searchable(`${label} ${device.id} ${attribute}`),
+              search: foldText(`${label} ${device.id} ${attribute}`),
             };
           }),
       ),
     [catalog.devices, writable, attributeLabel],
   );
   const matches = useMemo(() => {
-    const tokens = searchable(query).trim().split(/\s+/).filter(Boolean);
+    const tokens = foldText(query).trim().split(/\s+/).filter(Boolean);
     return attributes.filter((reference) =>
       tokens.every((token) => reference.search.includes(token)),
     );

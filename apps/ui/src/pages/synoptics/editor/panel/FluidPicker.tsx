@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import type { Fluid } from "@gridone/sdk";
 import { fluidFillClass } from "@/lib/fluidColors";
 import { cn } from "@/lib/utils";
+import { usePlateVocabulary } from "../../usePlateVocabulary";
 import { FLUID_CIRCUITS } from "../fluidCircuits";
 
 /** A fluid's colour, as the plate draws its runs. */
@@ -36,6 +37,7 @@ export function FluidPicker({
   onChange: (fluid: Fluid) => void;
 }) {
   const { t } = useTranslation("synoptics");
+  const { fluidLabel } = usePlateVocabulary();
   return (
     <div
       role="group"
@@ -54,7 +56,7 @@ export function FluidPicker({
                 key={fluid}
                 type="button"
                 aria-pressed={on}
-                aria-label={t(`fluids.${fluid}`)}
+                aria-label={fluidLabel(fluid)}
                 data-fluid={fluid}
                 onClick={() => onChange(fluid)}
                 className={cn(
@@ -67,7 +69,7 @@ export function FluidPicker({
               >
                 <FluidSwatch fluid={fluid} />
                 <span className="truncate">
-                  {role ? t(`editor.fluidRoles.${role}`) : t(`fluids.${fluid}`)}
+                  {role ? t(`editor.fluidRoles.${role}`) : fluidLabel(fluid)}
                 </span>
               </button>
             );

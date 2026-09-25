@@ -11,7 +11,7 @@ import {
   type RefObject,
 } from "react";
 import { useTranslation } from "react-i18next";
-import type { Cell, Fluid, SymbolElement } from "@gridone/sdk";
+import type { Cell, SymbolElement } from "@gridone/sdk";
 import type { View } from "@/components/synoptic/hooks/useViewport";
 import {
   clientToSvg,
@@ -53,6 +53,7 @@ import {
 } from "./document";
 import { isInline, SYMBOL_DRAG_TYPE } from "./library";
 import { pipeName } from "./names";
+import { usePlateVocabulary } from "../usePlateVocabulary";
 import { cellKey } from "./runRules";
 import { nearestRide, rides, type Ride } from "./snap";
 import type { SynopticEditorState } from "./useSynopticEditor";
@@ -451,7 +452,7 @@ export function EditorCanvas({
       pointerEvents="none"
     />
   );
-  const fluidLabel = (fluid: Fluid) => t(`fluids.${fluid}`);
+  const { fluidLabel } = usePlateVocabulary();
   const start = draw.points[0];
   const hoverCell = hover?.kind === "cell" ? square(hover.cell) : null;
   const rideRun =
@@ -655,7 +656,9 @@ export function EditorCanvas({
                       offset: { x: at.x - origin.x, y: at.y - origin.y },
                       along:
                         placement.kind === "pipe"
-                          ? rides(doc).filter((r) => r.pipe === placement.pipe)
+                          ? rides(doc, symbol.id).filter(
+                              (r) => r.pipe === placement.pipe,
+                            )
                           : undefined,
                     };
                   }}

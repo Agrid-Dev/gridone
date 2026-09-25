@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { freshOverlaps, pipeOverlaps } from "./occupancy";
 import type { Cell, PipeElement, SymbolElement } from "@gridone/sdk";
 import type { PlateDocument } from "@/components/synoptic/SynopticRenderer";
 import { runCells } from "@/components/synoptic/runs";
@@ -122,19 +123,19 @@ function snagsOf(doc: PlateDocument, id: string): Set<string> {
  *  those refused for putting a body on another or for leaving a run no
  *  clean way to follow (a body landed on it, a port facing a body). */
 const TALLIES: Record<(typeof PLATES)[number], Record<string, number>> = {
-  "ecs-est": { accepted: 691, extended: 0, overlap: 37, unroutable: 79 },
-  "ecs-ouest": { accepted: 759, extended: 0, overlap: 48, unroutable: 102 },
+  "ecs-est": { accepted: 542, extended: 0, overlap: 37, unroutable: 228 },
+  "ecs-ouest": { accepted: 562, extended: 4, overlap: 48, unroutable: 299 },
   "production-chaud": {
-    accepted: 678,
-    extended: 0,
+    accepted: 551,
+    extended: 16,
     overlap: 0,
-    unroutable: 30,
+    unroutable: 157,
   },
   "production-froid": {
-    accepted: 427,
-    extended: 0,
+    accepted: 276,
+    extended: 20,
     overlap: 0,
-    unroutable: 26,
+    unroutable: 177,
   },
 };
 
@@ -145,15 +146,27 @@ describe("rerouteChanged on the committed plates", () => {
     "%s: leaves every edit it takes free of new run violations and snags, and touches only the runs on the moved symbol",
     (name) => {
       const before = load(name);
+      const snapshot = JSON.stringify(before);
+      const overlaps = pipeOverlaps(before);
       const failures: string[] = [];
       const tally = { accepted: 0, extended: 0, overlap: 0, unroutable: 0 };
       for (const { symbol, label, after } of cases(new Map([[name, before]]))) {
+        const proposed = JSON.stringify(after);
         const result = rerouteChanged(before, after);
+        if (
+          JSON.stringify(before) !== snapshot ||
+          JSON.stringify(after) !== proposed
+        ) {
+          failures.push(`${label}: mutated an input document`);
+        }
         if (!result.ok) {
           tally[result.reason] += 1;
           continue;
         }
         tally.accepted += 1;
+        if (freshOverlaps(pipeOverlaps(result.doc), overlaps).length) {
+          failures.push(`${label}: introduced overlapping cells`);
+        }
         if (result.extended.length) tally.extended += 1;
         const pipes = result.doc.pipes ?? [];
         const changed = new Set(
@@ -228,6 +241,57 @@ const cellsOfPipe = (doc: PlateDocument, id: string) => {
 };
 
 describe("rerouteChanged", () => {
+  it.each(["flat", "isometric"] as const)(
+    "routes around stationary pipes in %s",
+    (projection) => {
+      const obstacle: PipeElement = {
+        id: "obstacle",
+        fluid: "cold_water",
+        from: { kind: "cell", cell: at(1, 1) },
+        to: { kind: "cell", cell: at(4, 1) },
+      };
+      const before = { ...plate({ pipes: [obstacle] }), projection };
+      const result = rerouteChanged(before, moveSymbol(before, "t", at(0, 3)));
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(pipeOverlaps(result.doc)).toEqual([]);
+      expect(pipeOf(result.doc, obstacle.id)).toBe(obstacle);
+      expect(runViolations(result.doc)).toEqual([]);
+    },
+  );
+
+  it("reserves earlier paths when several connected pipes move together", () => {
+    const second: PipeElement = {
+      id: "second",
+      fluid: "dhw_loop",
+      from: { kind: "port", symbol: "t", port: "dhw_in" },
+      to: { kind: "cell", cell: at(5, 1) },
+    };
+    const before = plate({ pipes: [second] });
+    const result = rerouteChanged(before, moveSymbol(before, "t", at(0, 3)));
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(pipeOverlaps(result.doc)).toEqual([]);
+    expect(runViolations(result.doc)).toEqual([]);
+    expect(pipeOf(result.doc, "feed")).not.toBe(feed);
+    expect(pipeOf(result.doc, "second")).not.toBe(second);
+  });
+
+  it("allows pre-existing overlaps to remain without adding shared cells", () => {
+    const crossing: PipeElement = {
+      id: "crossing",
+      fluid: "cold_water",
+      from: { kind: "cell", cell: at(4, -2) },
+      to: { kind: "cell", cell: at(4, 2) },
+    };
+    const before = plate({ pipes: [crossing] });
+    const overlaps = pipeOverlaps(before);
+    expect(overlaps).toHaveLength(1);
+    const result = rerouteChanged(before, moveSymbol(before, "t", at(-1, 0)));
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(pipeOverlaps(result.doc)).toEqual(overlaps);
+  });
   it("returns the edited plate itself when no port moved", () => {
     const before = plate();
     const after = { ...before, name: "renamed" };
@@ -606,12 +670,16 @@ describe("further cases, each pinned by a mutation", () => {
       );
       expect(runViolations(doc)).toEqual([]);
       // Up to (2,0), across to (3,1), down and back into dhw_in. Mutant: no
-      // tee cells on the way strands both branches.
+      // tee cells on the way strands both branches. Keep clear of each
+      // branch beyond the one cell where it joins the trunk.
+      expect(pipeOverlaps(doc)).toEqual([]);
       expect(pipeOf(doc, "feed").waypoints).toEqual([
-        at(1, 5),
-        at(1, 0),
+        at(2, 5),
+        at(2, 0),
         at(3, 0),
-        at(3, 6),
+        at(3, 1),
+        at(4, 1),
+        at(4, 6),
       ]);
     });
   });

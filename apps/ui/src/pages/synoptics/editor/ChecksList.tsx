@@ -24,30 +24,42 @@ export function ChecksList({
   const vocabulary = usePlateVocabulary();
   const { doc, checks } = editor;
 
-  const target = (check: Check) => {
-    if (!check.element) return null;
-    const symbol = doc.symbols?.find((s) => s.id === check.element);
+  const target = (id: string | null) => {
+    if (!id) return null;
+    const symbol = doc.symbols?.find((s) => s.id === id);
     if (symbol) {
       return {
         name: symbolName(symbol, vocabulary.typeLabel),
         selection: { kind: "symbol" as const, id: symbol.id },
       };
     }
-    const pipe = doc.pipes?.find((p) => p.id === check.element);
+    const pipe = doc.pipes?.find((p) => p.id === id);
     if (pipe) {
       return {
-        name: pipeName(pipe, (f) => t(`fluids.${f}`)),
+        name: pipeName(pipe, vocabulary.fluidLabel),
         selection: { kind: "pipe" as const, id: pipe.id },
       };
     }
-    return { name: check.element, selection: null };
+    return { name: id, selection: null };
   };
   const message = (check: Check) =>
     check.kind === "saved"
       ? check.message
       : check.kind === "rule"
         ? t(`editor.checks.rules.${check.rule}`)
-        : t("editor.checks.unbound");
+        : check.kind === "overlap"
+          ? t("editor.checks.overlap", { count: check.count })
+          : check.kind === "binding"
+            ? t("editor.checks.binding", {
+                slot: vocabulary.slotLabel(check.slot),
+              })
+            : t("editor.checks.unbound");
+
+  const pick = (selection: SynopticEditorState["selection"]) => {
+    editor.setTool("select");
+    editor.select(selection);
+    onPick?.();
+  };
 
   return (
     <div className="space-y-3" data-checks>
@@ -61,7 +73,8 @@ export function ChecksList({
       </div>
       <ul className="max-h-80 divide-y overflow-y-auto">
         {checks.map((check, i) => {
-          const about = target(check);
+          const about = target(check.element);
+          const other = check.kind === "overlap" ? target(check.other) : null;
           const Icon = check.severity === "error" ? CircleAlert : AlertTriangle;
           return (
             <li
@@ -81,29 +94,51 @@ export function ChecksList({
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">
                   {about?.name ?? t("editor.checks.plate")}
+                  {other && ` / ${other.name}`}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {message(check)}
                 </p>
               </div>
-              {about?.selection && (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="h-8 shrink-0"
-                  onClick={() => {
-                    editor.setTool("select");
-                    editor.select(about.selection);
-                    onPick?.();
-                  }}
-                >
-                  {t(
-                    check.kind === "unbound"
-                      ? "editor.checks.bind"
-                      : "editor.checks.show",
+              {check.kind === "overlap" ? (
+                <div className="flex max-w-40 flex-col gap-1">
+                  {[about, other].map(
+                    (pipe) =>
+                      pipe?.selection && (
+                        <Button
+                          key={pipe.selection.id}
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-8"
+                          aria-label={t("editor.checks.showElement", {
+                            name: pipe.name,
+                          })}
+                          onClick={() => pick(pipe.selection)}
+                        >
+                          <span className="truncate">{pipe.name}</span>
+                        </Button>
+                      ),
                   )}
-                </Button>
+                </div>
+              ) : (
+                about?.selection && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-8 shrink-0"
+                    onClick={() => {
+                      pick(about.selection);
+                    }}
+                  >
+                    {t(
+                      check.kind === "unbound"
+                        ? "editor.checks.bind"
+                        : "editor.checks.show",
+                    )}
+                  </Button>
+                )
               )}
             </li>
           );

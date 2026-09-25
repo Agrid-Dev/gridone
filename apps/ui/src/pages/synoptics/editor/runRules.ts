@@ -53,6 +53,9 @@ export type RunViolation = { element: string; rule: RunRule };
 export type RunCells = { cells: Set<string>; interior: Set<string> };
 
 export const cellKey = (c: Cell): string => `${c.x},${c.y},${c.z ?? 0}`;
+export const planKey = (c: Cell): string => `${c.x},${c.y}`;
+export const sameCell = (a: Cell, b: Cell): boolean =>
+  cellKey(a) === cellKey(b);
 
 const SIDES: Record<string, Side> = {
   "1,0,0": "+x",

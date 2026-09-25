@@ -82,6 +82,9 @@ vi.mock("react-i18next", () =>
     "editor.checks.show": "Show",
     "editor.checks.bind": "Bind",
     "editor.checks.unbound": "No device: its readings will not show.",
+    "editor.checks.overlap":
+      "These pipes share {{count}} cells without a connection.",
+    "editor.checks.showElement": "Show {{name}}",
     "editor.checks.rules.diagonal_segment": "A segment is not straight.",
     "editor.settings.title": "View settings",
     "editor.settings.view": "Opens as",
@@ -380,6 +383,32 @@ describe("EditorToolbar", () => {
 });
 
 describe("EditorStatusBar", () => {
+  it("names both overlapping pipes and navigates to either one", async () => {
+    const a: PipeElement = {
+      id: "upper",
+      fluid: "dhw",
+      from: { kind: "cell", cell: { x: 0, y: 8 } },
+      to: { kind: "cell", cell: { x: 5, y: 8 } },
+    };
+    renderEditor("/synoptics/ouest/edit", {
+      ...BOUND,
+      pipes: [a, { ...a, id: "lower" }],
+    });
+    await opened();
+    for (const id of ["upper", "lower"]) {
+      fireEvent.click(screen.getByRole("button", { name: /1 to check/ }));
+      const entry = (
+        await screen.findByText(
+          "These pipes share 6 cells without a connection.",
+        )
+      ).closest("li")!;
+      expect(within(entry).getByText("upper / lower")).toBeInTheDocument();
+      fireEvent.click(
+        within(entry).getByRole("button", { name: `Show ${id}` }),
+      );
+      expect(screen.getByRole("heading", { name: id })).toBeInTheDocument();
+    }
+  });
   it("tells the keys that apply to what is in hand", async () => {
     renderEditor("/synoptics/ouest/edit");
     await opened();

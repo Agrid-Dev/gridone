@@ -126,6 +126,30 @@ afterEach(() => {
 });
 
 describe("useSynopticEditor: placing", () => {
+  it("refuses direct inline placement, slide and edits onto occupied cells", () => {
+    const second: SymbolElement = {
+      ...valve,
+      id: "v2",
+      placement: { kind: "pipe", pipe: lane.id, cell: at(5, 6) },
+    };
+    const { result } = editorOn(plate([valve, second], [lane]));
+    const before = result.current.doc;
+    act(() => {
+      expect(result.current.place("valve_check", valve.placement)).toBe(false);
+    });
+    act(() => result.current.drag.slide("v2", at(3, 6)));
+    act(() => result.current.drag.end("v2"));
+    act(() => {
+      expect(
+        result.current.changeSymbol("v2", (s) => ({
+          ...s,
+          placement: valve.placement,
+        })),
+      ).toBe(false);
+    });
+    expect(result.current.doc).toBe(before);
+    expect(result.current.history.canUndo).toBe(false);
+  });
   it("selects what it placed and puts the library row down", () => {
     const { result } = editorOn(plate());
     act(() => result.current.arm("plate_exchanger"));
@@ -283,6 +307,58 @@ describe("useSynopticEditor: tools", () => {
 });
 
 describe("useSynopticEditor: drawing", () => {
+  it.each([false, true])(
+    "inherits a tee's fluid when ending on it (different starting trunk=%s)",
+    (twoTrunks) => {
+      const start: PipeElement = {
+        ...lane,
+        id: "start",
+        fluid: "cold_water",
+        from: { kind: "cell", cell: at(0, 10) },
+        to: { kind: "cell", cell: at(8, 10) },
+      };
+      const { result } = editorOn(
+        plate([], twoTrunks ? [lane, start] : [lane]),
+      );
+      act(() => result.current.draw.setFluid("heating_supply"));
+      act(() =>
+        result.current.draw.addPoint(
+          twoTrunks
+            ? {
+                cell: at(4, 10),
+                endpoint: { kind: "pipe", pipe: start.id, cell: at(4, 10) },
+              }
+            : cellPoint(at(4, 10)),
+        ),
+      );
+      act(() => result.current.draw.setFluid("heating_supply"));
+      act(() =>
+        result.current.draw.addPoint({
+          cell: at(4, 6),
+          endpoint: { kind: "pipe", pipe: lane.id, cell: at(4, 6) },
+        }),
+      );
+      expect(result.current.doc.pipes!.at(-1)!.fluid).toBe(
+        twoTrunks ? "cold_water" : "dhw",
+      );
+      expect(result.current.draw.fluid).toBe(twoTrunks ? "cold_water" : "dhw");
+      expect(result.current.draw.points).toEqual([]);
+    },
+  );
+
+  it("lets a manually drawn overlap remain saveable with a warning", async () => {
+    const { result, api } = editorOn(plate([], [lane]));
+    act(() => result.current.draw.addPoint(cellPoint(at(4, 4))));
+    act(() => result.current.draw.addPoint(cellPoint(at(4, 8))));
+    act(() => result.current.draw.finish());
+    expect(result.current.checks).toContainEqual(
+      expect.objectContaining({ kind: "overlap", severity: "warning" }),
+    );
+    await act(async () => {
+      await result.current.save();
+    });
+    expect(api.create).toHaveBeenCalledOnce();
+  });
   it("ends a run on a port, not on a cell, and ignores the same point twice", () => {
     const { result } = editorOn(plate());
     act(() => result.current.setTool("pipe"));
@@ -319,6 +395,7 @@ describe("useSynopticEditor: drawing", () => {
     expect(added.fluid).toBe("dhw");
     expect(added.id).toBe("dhw-2");
     expect(added.from).toEqual(onLane.endpoint);
+    expect(result.current.draw.fluid).toBe("dhw");
   });
 
   it("keeps a rejected route so its last point can be corrected and retried", () => {
@@ -375,6 +452,126 @@ describe("useSynopticEditor: drawing", () => {
 });
 
 describe("useSynopticEditor: dragging", () => {
+  it.each(["same", "refused", "cancel", "return"])(
+    "preserves save errors after a %s drag",
+    async (gesture) => {
+      const doc = plate();
+      const { result, api } = editorOn(doc, stored(doc));
+      api.replace.mockRejectedValueOnce(
+        new GridoneError(422, [
+          {
+            loc: ["symbols", 1, "props"],
+            msg: "bad tank",
+            type: "invalid_props",
+          },
+          {
+            loc: ["symbols", 0, "props"],
+            msg: "bad pump",
+            type: "invalid_props",
+          },
+        ]),
+      );
+      await act(async () => {
+        await result.current.save();
+      });
+      const errors = result.current.errors;
+      act(() =>
+        result.current.drag.to(
+          "b",
+          gesture === "same"
+            ? at(10, 0)
+            : gesture === "refused"
+              ? at(1, 1)
+              : at(12, 4),
+        ),
+      );
+      if (gesture === "return")
+        act(() => result.current.drag.to("b", at(10, 0)));
+      act(() =>
+        gesture === "cancel"
+          ? result.current.drag.cancel()
+          : result.current.drag.end("b"),
+      );
+      expect(result.current.errors).toBe(errors);
+      expect(result.current.dirty).toBe(false);
+      expect(result.current.history.canUndo).toBe(false);
+    },
+  );
+
+  it.each(["rotate", "binding"])(
+    "clears only the edited element's save errors after a committed %s",
+    async (edit) => {
+      const doc = plate();
+      const { result, api } = editorOn(doc, stored(doc));
+      api.replace.mockRejectedValueOnce(
+        new GridoneError(422, [
+          {
+            loc: ["symbols", 1, "props"],
+            msg: "bad tank",
+            type: "invalid_props",
+          },
+          {
+            loc: ["symbols", 0, "props"],
+            msg: "bad pump",
+            type: "invalid_props",
+          },
+        ]),
+      );
+      await act(async () => {
+        await result.current.save();
+      });
+      const other = result.current.errors.byElement.get("pac");
+      act(() =>
+        edit === "rotate"
+          ? result.current.rotate("b")
+          : result.current.changeSymbol("b", (s) => ({
+              ...s,
+              bindings: { temperature: { kind: "text", text: "55" } },
+            })),
+      );
+      expect([...result.current.errorIds]).toEqual(["pac"]);
+      expect(result.current.errors.byElement.get("pac")).toBe(other);
+      expect(result.current.history.canUndo).toBe(true);
+    },
+  );
+
+  it("preserves slide errors on refusal and return, then clears only a changed rider's errors", async () => {
+    const other: SymbolElement = {
+      ...valve,
+      id: "v2",
+      placement: { kind: "pipe", pipe: lane.id, cell: at(5, 6) },
+    };
+    const doc = plate([valve, other], [lane]);
+    const { result, api } = editorOn(doc, stored(doc));
+    api.replace.mockRejectedValueOnce(
+      new GridoneError(422, [
+        {
+          loc: ["symbols", 0, "bindings"],
+          msg: "bad",
+          type: "unresolved_target",
+        },
+        {
+          loc: ["symbols", 1, "bindings"],
+          msg: "bad",
+          type: "unresolved_target",
+        },
+      ]),
+    );
+    await act(async () => {
+      await result.current.save();
+    });
+    const errors = result.current.errors;
+    act(() => result.current.drag.slide("v", at(5, 6)));
+    act(() => result.current.drag.end("v"));
+    expect(result.current.errors).toBe(errors);
+    act(() => result.current.drag.slide("v", at(4, 6)));
+    act(() => result.current.drag.slide("v", at(3, 6)));
+    act(() => result.current.drag.end("v"));
+    expect(result.current.errors).toBe(errors);
+    act(() => result.current.drag.slide("v", at(4, 6)));
+    act(() => result.current.drag.end("v"));
+    expect([...result.current.errorIds]).toEqual(["v2"]);
+  });
   it("makes a drag one step, its runs following, and one ended where it began none", () => {
     const feed: PipeElement = {
       ...lane,

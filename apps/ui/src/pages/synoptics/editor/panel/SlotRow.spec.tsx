@@ -21,6 +21,7 @@ vi.mock("react-i18next", () =>
     "editor.slot.format": "Unit and format",
     "editor.slot.unit": "Unit",
     "editor.slot.decimals": "Decimals",
+    "editor.slot.pending": "Choose an attribute first",
     "editor.slot.label.true": "Reads when true",
     "editor.slot.label.false": "Reads when false",
     "common:common.currentValue": "Current value",
@@ -40,6 +41,12 @@ vi.mock("@/components/forms/targetPicker", async (importOriginal) => ({
     onChange: (target: unknown) => void;
   }) => (
     <div data-testid="target-picker" data-value={JSON.stringify(value)}>
+      <button
+        type="button"
+        onClick={() => onChange({ devices: { ids: ["sensor"] } })}
+      >
+        pick device only
+      </button>
       <button
         type="button"
         onClick={() =>
@@ -128,6 +135,16 @@ const openFormat = () =>
   fireEvent.click(screen.getByRole("button", { name: "Unit and format" }));
 
 describe("SlotRow", () => {
+  it("offers completion and no formatting for an incomplete stored binding", () => {
+    renderRow({ value: own("") });
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Choose an attribute first",
+    );
+    expect(screen.getByTestId("target-picker")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Unit and format" }),
+    ).toBeNull();
+  });
   it("offers its device's readings by name, the connection status aside", async () => {
     const user = userEvent.setup();
     renderRow();
@@ -182,10 +199,41 @@ describe("SlotRow", () => {
     await choose(user, "No reading");
     expect(onChange).toHaveBeenLastCalledWith(undefined);
     await choose(user, "Another device…");
+    expect(onChange).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Choose an attribute first",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "pick in the picker" }));
     expect(onChange).toHaveBeenLastCalledWith({
       kind: "attribute",
-      target: { devices: {}, attribute: "" },
+      target: { devices: { ids: ["sensor"] }, attribute: "flow" },
     });
+  });
+
+  it("keeps partial selections local, hides formatting, and clears the draft when switching sources", async () => {
+    const user = userEvent.setup();
+    const { onChange, onType } = renderRow({
+      value: own("power", { unit: "W" }),
+    });
+    await choose(user, "Another device…");
+    fireEvent.click(screen.getByRole("button", { name: "pick device only" }));
+    expect(onChange).not.toHaveBeenCalled();
+    expect(onType).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole("button", { name: "Unit and format" }),
+    ).toBeNull();
+    expect(screen.getByTestId("target-picker")).toHaveAttribute(
+      "data-value",
+      JSON.stringify({ devices: { ids: ["sensor"] } }),
+    );
+    await choose(user, "Fixed text");
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.queryByTestId("target-picker")).toBeNull();
+    await choose(user, "Another device…");
+    expect(screen.getByTestId("target-picker")).toHaveAttribute(
+      "data-value",
+      JSON.stringify({ devices: {} }),
+    );
   });
 
   it("shows the reading's current value as the plate prints it, in the slot's own unit and words", () => {

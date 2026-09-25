@@ -212,7 +212,8 @@
       "label": {
         "true": "Affiché si vrai",
         "false": "Affiché si faux"
-      }
+      },
+      "pending": "Choisissez un attribut pour appliquer cette liaison. La donnée actuelle est conservée en attendant."
     },
     "inspector": {
       "label": "Propriétés",
@@ -309,7 +310,11 @@
         "not_inline_capable": "Ce symbole ne se pose pas sur un tuyau.",
         "inline_on_endpoint": "Posé au bout du tuyau : glissez-le vers l'intérieur.",
         "flat_depth": "En hauteur alors que la vue s'ouvre en plan."
-      }
+      },
+      "overlap_one": "Ces tuyaux partagent {{count}} cellule sans raccordement.",
+      "overlap_other": "Ces tuyaux partagent {{count}} cellules sans raccordement.",
+      "binding": "Aucun attribut sélectionné pour {{slot}}.",
+      "showElement": "Afficher {{name}}"
     },
     "guide": {
       "title": "Rien de sélectionné",

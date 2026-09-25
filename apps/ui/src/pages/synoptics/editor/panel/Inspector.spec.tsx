@@ -13,6 +13,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router";
 import type {
   GridoneClient,
+  AttributeTarget,
   PipeElement,
   SymbolElement,
   Synoptic,
@@ -48,6 +49,9 @@ vi.mock("react-i18next", () =>
   createI18nMock({
     title: "Synoptics",
     "editor.label": "Label",
+    "editor.slot.other": "Another device…",
+    "editor.slot.pending": "Choose an attribute first",
+    "slots.temperature": "Temperature",
     "editor.rotation": "Rotation",
     "editor.flow": "Flow",
     "editor.fluid": "Fluid",
@@ -102,6 +106,18 @@ vi.mock("@/hooks/useCanSeeConnectionStatus", () => ({
 vi.mock("sonner", () => ({ toast }));
 vi.mock("../PreviewCard", () => ({ PreviewCard: () => null }));
 vi.mock("../PreviewDialog", () => ({ PreviewDialog: () => null }));
+vi.mock("@/components/forms/targetPicker", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/components/forms/targetPicker")>()),
+  AttributeTargetPicker: ({
+    onChange,
+  }: {
+    onChange: (target: Partial<AttributeTarget>) => void;
+  }) => (
+    <button onClick={() => onChange({ devices: { ids: ["other"] } })}>
+      Select device only
+    </button>
+  ),
+}));
 
 const UPDATED_AT = "2026-09-17T12:00:00+00:00";
 const PLATE: Synoptic = {
@@ -255,6 +271,49 @@ afterEach(() => {
 });
 
 describe("EditorGuide", () => {
+  it("discards a binding draft on symbol change and never saves an incomplete replacement", async () => {
+    const user = userEvent.setup();
+    const boundTank: SymbolElement = {
+      ...stored("b01"),
+      device_id: DEVICE.id,
+      bindings: {
+        temperature: {
+          kind: "attribute",
+          target: { devices: { ids: [DEVICE.id] }, attribute: "temperature" },
+        },
+      },
+    };
+    const api = renderEditor({
+      ...SMALL,
+      symbols: [stored("pac-01"), boundTank],
+    });
+    await opened();
+    const chooseOther = async () => {
+      fireEvent.click(hit("b01"));
+      await user.click(
+        within(panel()).getByRole("combobox", { name: "Temperature" }),
+      );
+      await user.click(screen.getByRole("option", { name: "Another device…" }));
+      fireEvent.click(
+        screen.getByRole("button", { name: "Select device only" }),
+      );
+    };
+    await chooseOther();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Choose an attribute first",
+    );
+    fireEvent.click(hit("pac-01"));
+    fireEvent.click(hit("b01"));
+    expect(screen.queryByRole("status")).toBeNull();
+    await chooseOther();
+    fireEvent.change(within(panel()).getByRole("textbox", { name: "Label" }), {
+      target: { value: "Updated label" },
+    });
+    await save();
+    const body = api.replace.mock.calls[0][1];
+    expect(symbolOf(body, "b01").bindings).toEqual(boundTank.bindings);
+    expect(symbolOf(body, "b01").label).toBe("Updated label");
+  });
   it("ticks the steps a plate has reached, and counts what is left to bind", async () => {
     renderEditor(SMALL);
     await opened();

@@ -36,6 +36,49 @@ const diagonal = {
 } satisfies PipeElement;
 
 describe("plateChecks", () => {
+  it.each([false, true])(
+    "warns about incomplete bindings even with device=%s and a valid slot",
+    (device) => {
+      const doc = plate([
+        symbol("p", "pump", {
+          device_id: device ? "dev" : null,
+          bindings: {
+            state: { kind: "text", text: "ON" },
+            temperature: {
+              kind: "attribute",
+              target: { devices: {}, attribute: "  " },
+            },
+          },
+        }),
+      ]);
+      expect(plateChecks(doc, NO_SAVE_ERRORS)).toEqual([
+        {
+          kind: "binding",
+          severity: "warning",
+          element: "p",
+          slot: "temperature",
+        },
+      ]);
+    },
+  );
+
+  it("reports manual overlaps as warnings naming both pipes", () => {
+    const a: PipeElement = {
+      ...diagonal,
+      id: "a",
+      to: { kind: "cell", cell: { x: 4, y: 5 } },
+    };
+    const b: PipeElement = { ...a, id: "b" };
+    expect(plateChecks(plate([], [a, b]), NO_SAVE_ERRORS)).toEqual([
+      {
+        kind: "overlap",
+        severity: "warning",
+        element: "a",
+        other: "b",
+        count: 5,
+      },
+    ]);
+  });
   it("warns about a symbol that could show readings and shows none", () => {
     expect(plateChecks(plate([symbol("p", "pump")]), NO_SAVE_ERRORS)).toEqual([
       { kind: "unbound", severity: "warning", element: "p" },

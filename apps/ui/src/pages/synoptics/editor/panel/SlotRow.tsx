@@ -23,6 +23,7 @@ import { deviceAttributes, type AttributeValue } from "@/lib/devices";
 import type { AttributeFields } from "@/lib/faults";
 import { boundDevice } from "../document";
 import { NumberField } from "./NumberField";
+import { useSlotDraft } from "./useSlotDraft";
 
 /** The select's values beside the attributes: nothing, a literal, a
  *  reading from another device than the symbol's. */
@@ -74,15 +75,21 @@ export function SlotRow({
   const attributeLabel = useAttributeLabel();
   const id = useId();
   const [formatOpen, setFormatOpen] = useState(false);
+  const draft = useSlotDraft(value, device?.id, onChange);
+  const incomplete =
+    !!draft.target ||
+    (value?.kind === "attribute" && !value.target.attribute.trim());
   const attributes = device ? deviceAttributes(device) : {};
   const own = boundDevice(value);
-  const mode = !value
-    ? NONE
-    : value.kind === "text"
-      ? TEXT
-      : device && own === device.id
-        ? attrValue(value.target.attribute)
-        : OTHER;
+  const mode = incomplete
+    ? OTHER
+    : !value
+      ? NONE
+      : value.kind === "text"
+        ? TEXT
+        : device && own === device.id
+          ? attrValue(value.target.attribute)
+          : OTHER;
   // Attributes arrive as an untyped bag; this is the view of one the rest
   // of the UI reads them through.
   const attribute =
@@ -93,10 +100,11 @@ export function SlotRow({
     typeof attribute?.data_type === "string" ? attribute.data_type : undefined;
 
   const choose = (next: string) => {
+    draft.cancel();
     if (next === NONE) onChange(undefined);
     else if (next === TEXT) onChange({ kind: "text", text: "" });
     else if (next === OTHER) {
-      onChange({ kind: "attribute", target: { devices: {}, attribute: "" } });
+      draft.start();
     } else if (device) {
       const name = next.slice("attr:".length);
       const kind = attributes[name]?.data_type;
@@ -181,7 +189,7 @@ export function SlotRow({
           <span className="font-medium text-synoptic-reading">{current}</span>
         </p>
       )}
-      {value?.kind === "text" && (
+      {!draft.target && value?.kind === "text" && (
         <Input
           aria-label={t("editor.slot.textLabel", { slot: label })}
           value={value.text}
@@ -191,19 +199,24 @@ export function SlotRow({
           onBlur={onSettle}
         />
       )}
-      {value?.kind === "attribute" && mode === OTHER && (
+      {mode === OTHER && (
         <AttributeTargetPicker
-          value={toPickerTarget(value.target)}
-          onChange={(target) =>
-            onChange({
-              ...value,
-              target: { ...target, attribute: target.attribute ?? "" },
-            })
+          value={
+            draft.target ??
+            toPickerTarget(
+              value?.kind === "attribute" ? value.target : undefined,
+            )
           }
+          onChange={draft.pick}
           devices={devices}
         />
       )}
-      {value?.kind === "attribute" && (numeric || bool) && (
+      {incomplete && (
+        <p className="text-xs text-muted-foreground" role="status">
+          {t("editor.slot.pending")}
+        </p>
+      )}
+      {!incomplete && value?.kind === "attribute" && (numeric || bool) && (
         <div className="pl-[6rem]">
           <button
             type="button"

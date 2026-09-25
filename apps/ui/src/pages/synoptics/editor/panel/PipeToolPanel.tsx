@@ -31,7 +31,7 @@ export function PipeToolPanel({ editor }: { editor: SynopticEditorState }) {
     if (e.kind === "pipe") {
       const trunk = doc.pipes?.find((p) => p.id === e.pipe);
       return t("editor.pipeInspector.teeOn", {
-        run: trunk ? pipeName(trunk, (f) => t(`fluids.${f}`)) : e.pipe,
+        run: trunk ? pipeName(trunk, vocabulary.fluidLabel) : e.pipe,
       });
     }
     return t("editor.pipeInspector.freeEnd");

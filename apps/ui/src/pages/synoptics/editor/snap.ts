@@ -1,8 +1,8 @@
 import type { Cell } from "@gridone/sdk";
 import type { PlateDocument } from "@/components/synoptic/SynopticRenderer";
-import { axisCentre, runCells } from "@/components/synoptic/runs";
+import { axisCentre } from "@/components/synoptic/runs";
 import type { Pt } from "@/components/synoptic/types";
-import { runCorners, segmentRule } from "./runRules";
+import { occupancyOf, riderCellTaken } from "./occupancy";
 
 /** A cell an inline symbol can ride, with where it sits on the flat plan
  *  and the way the run goes through it, for the ghost to follow. */
@@ -20,24 +20,17 @@ const moves = (d: Pt) => d.x !== 0 || d.y !== 0;
  * foot or head of a riser, where the run climbs in place and a symbol
  * would hide under the flat plan's single line.
  */
-export function rides(doc: PlateDocument): Ride[] {
-  const symbols = new Map((doc.symbols ?? []).map((s) => [s.id, s]));
+export function rides(doc: PlateDocument, except?: string): Ride[] {
+  const occupancy = occupancyOf(doc);
   const found: Ride[] = [];
-  for (const pipe of doc.pipes ?? []) {
-    const corners = runCorners(pipe, symbols);
-    if (
-      !corners ||
-      corners.slice(1).some((b, i) => segmentRule(corners[i], b))
-    ) {
-      continue;
-    }
-    const cells = runCells(corners);
+  for (const [pipe, cells] of occupancy.runs) {
     const z = (i: number) => cells[i].z ?? 0;
     for (let i = 1; i < cells.length - 1; i++) {
       if (z(i) !== z(i - 1) || z(i) !== z(i + 1)) continue;
+      if (riderCellTaken(occupancy, cells[i], except)) continue;
       const out = planStep(cells[i], cells[i + 1]);
       found.push({
-        pipe: pipe.id,
+        pipe,
         cell: cells[i],
         centre: axisCentre("flat", cells[i]),
         direction: moves(out) ? out : planStep(cells[i - 1], cells[i]),

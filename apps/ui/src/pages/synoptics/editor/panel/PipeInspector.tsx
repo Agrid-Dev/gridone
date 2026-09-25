@@ -153,7 +153,6 @@ export function PipeInspector({
   const { t } = useTranslation("synoptics");
   const vocabulary = usePlateVocabulary();
   const { doc } = editor;
-  const fluidLabel = (fluid: PipeElement["fluid"]) => t(`fluids.${fluid}`);
   const symbols = useMemo(
     () => new Map((doc.symbols ?? []).map((s) => [s.id, s])),
     [doc.symbols],
@@ -192,7 +191,7 @@ export function PipeInspector({
       const trunk = doc.pipes?.find((p) => p.id === e.pipe);
       return {
         text: t("editor.pipeInspector.teeOn", {
-          run: trunk ? pipeName(trunk, fluidLabel) : e.pipe,
+          run: trunk ? pipeName(trunk, vocabulary.fluidLabel) : e.pipe,
         }),
         target: trunk ? { kind: "pipe", id: trunk.id } : null,
       };
@@ -220,7 +219,7 @@ export function PipeInspector({
     <div className="space-y-6">
       <InspectorHeader
         icon={<Spline aria-hidden className="size-5" />}
-        name={pipeName(pipe, fluidLabel)}
+        name={pipeName(pipe, vocabulary.fluidLabel)}
         subtitle={t("editor.pipeInspector.subtitle", {
           count: pipe.waypoints?.length ?? 0,
         })}

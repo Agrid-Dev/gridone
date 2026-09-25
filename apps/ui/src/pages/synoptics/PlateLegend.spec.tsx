@@ -38,6 +38,7 @@ afterEach(cleanup);
 const vocabulary: PageVocabulary = {
   slotLabel: (slot) => slot,
   typeLabel: (type) => `T:${type}`,
+  fluidLabel: (fluid) => fluid,
   readingTime: () => "12:00:00",
 };
 

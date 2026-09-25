@@ -242,7 +242,7 @@ export function SymbolInspector({
             <div className="flex items-center gap-2 rounded-md border bg-muted/40 px-3 py-2">
               <FluidSwatch fluid={ride.fluid} />
               <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                {pipeName(ride, (f) => t(`fluids.${f}`))}
+                {pipeName(ride, vocabulary.fluidLabel)}
               </span>
               <Button
                 type="button"

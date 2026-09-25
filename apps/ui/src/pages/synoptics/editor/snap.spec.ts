@@ -28,6 +28,25 @@ const keys = (list: { cell: Cell }[]) =>
   list.map(({ cell }) => `${cell.x},${cell.y},${cell.z ?? 0}`);
 
 describe("rides", () => {
+  it("excludes other riders at the same height, retaining the moving rider's cell", () => {
+    const doc = plate([
+      run("a", at(0, 0), at(4, 0)),
+      run("high", at(0, 0, 1), at(4, 0, 1)),
+    ]);
+    doc.symbols = [1, 2].map((x) => ({
+      id: `v${x}`,
+      type: "valve_check",
+      placement: { kind: "pipe", pipe: "a", cell: at(x, 0) },
+    }));
+    expect(keys(rides(doc))).toEqual(["3,0,0", "1,0,1", "2,0,1", "3,0,1"]);
+    expect(keys(rides(doc, "v1"))).toEqual([
+      "1,0,0",
+      "3,0,0",
+      "1,0,1",
+      "2,0,1",
+      "3,0,1",
+    ]);
+  });
   it("offers the cells strictly inside a run, never its ends", () => {
     expect(keys(rides(plate([run("a", at(0, 0), at(3, 0))])))).toEqual([
       "1,0,0",

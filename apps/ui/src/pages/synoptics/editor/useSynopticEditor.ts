@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -108,6 +108,7 @@ export function useSynopticEditor(
   const [fluid, setFluid] = useState<Fluid>(FLUIDS[0]);
   const [level, setLevel] = useState<BendLevel>(0);
   const [dragging, setDragging] = useState(false);
+  const dragBase = useRef<PlateDocument | null>(null);
   const [errors, setErrors] = useState<SaveErrors>(NO_SAVE_ERRORS);
   const [message, setMessage] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(readPreviewOpen);
@@ -235,12 +236,12 @@ export function useSynopticEditor(
   const finishDraw = useCallback(
     (route: RoutePoint[] = points) => {
       if (route.length < 2) return;
-      // A tee carries its trunk's fluid, whatever the picker holds.
-      const first = route[0].endpoint;
-      const trunk =
-        first.kind === "pipe"
-          ? doc.pipes?.find((p) => p.id === first.pipe)
+      // Either end can join a trunk. The starting trunk wins on a crossover.
+      const trunkOf = ({ endpoint }: RoutePoint) =>
+        endpoint.kind === "pipe"
+          ? doc.pipes?.find((p) => p.id === endpoint.pipe)
           : undefined;
+      const trunk = trunkOf(route[0]) ?? trunkOf(route[route.length - 1]);
       const runFluid = trunk?.fluid ?? fluid;
       const id = nextId(doc, runFluid);
       const added = commit((d) =>
@@ -256,7 +257,10 @@ export function useSynopticEditor(
       );
       // Keep the start and bends after a refusal so the author can correct
       // the route or choose another endpoint without drawing it again.
-      if (added) setPoints([]);
+      if (added) {
+        setFluid(runFluid);
+        setPoints([]);
+      }
     },
     [points, doc, fluid, commit],
   );
@@ -321,6 +325,7 @@ export function useSynopticEditor(
   // Moving a symbol by hand: one merged step, reverted on cancel.
   const dragTo = useCallback(
     (id: string, cell: Cell) => {
+      dragBase.current ??= doc;
       setDragging(true);
       apply(
         withRuns((d) => moveSymbol(d, id, cell)),
@@ -329,35 +334,39 @@ export function useSynopticEditor(
         },
       );
     },
-    [apply],
+    [apply, doc],
   );
   /** A symbol riding a run, slid to another of its cells. */
   const slideTo = useCallback(
     (id: string, cell: Cell) => {
+      dragBase.current ??= doc;
       setDragging(true);
       apply(
-        (d) =>
+        withRuns((d) =>
           updateSymbol(d, id, (s) =>
             s.placement.kind === "pipe"
               ? { ...s, placement: { ...s.placement, cell } }
               : s,
           ),
+        ),
         { merge: `drag:${id}` },
       );
     },
-    [apply],
+    [apply, doc],
   );
   const dragEnd = useCallback(
     (id: string) => {
       setDragging(false);
       seal();
-      forget(id);
+      if (dragBase.current && !samePlate(doc, dragBase.current)) forget(id);
+      dragBase.current = null;
     },
-    [seal, forget],
+    [seal, forget, doc],
   );
   const dragCancel = useCallback(() => {
     setDragging(false);
     discardOpen();
+    dragBase.current = null;
   }, [discardOpen]);
 
   // Edits on the selection.
@@ -459,6 +468,7 @@ export function useSynopticEditor(
    *  nothing to save until the author changes something. */
   const start = useCallback(
     (next: PlateDocument) => {
+      dragBase.current = null;
       reset(next);
       setBaseline(next);
       setSelection(null);

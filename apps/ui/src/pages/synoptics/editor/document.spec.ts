@@ -434,6 +434,38 @@ describe("duplicateSymbol", () => {
     expect(duplicateSymbol(doc, inline.id)).toBeNull();
     expect(duplicateSymbol(doc, "nope")).toBeNull();
   });
+
+  it.each([0, 1])(
+    "skips a pipe at height %i anywhere in the copied footprint",
+    (z) => {
+      const doc = base();
+      doc.pipes = [
+        {
+          id: "p",
+          fluid: "dhw",
+          from: { kind: "cell", cell: { x: 2, y: -1, z } },
+          to: { kind: "cell", cell: { x: 2, y: 1, z } },
+        },
+      ];
+      const result = duplicateSymbol(doc, "tank-1")!;
+      expect(
+        result.doc.symbols!.find((s) => s.id === result.id)!.placement.cell,
+      ).toEqual({ x: 6, y: 0 });
+    },
+  );
+
+  it("skips an inline symbol even when its run is missing", () => {
+    const doc = base();
+    doc.symbols!.push({
+      id: "v",
+      type: "valve_check",
+      placement: { kind: "pipe", pipe: "missing", cell: { x: 2, y: 0 } },
+    });
+    const result = duplicateSymbol(doc, "tank-1")!;
+    expect(
+      result.doc.symbols!.find((s) => s.id === result.id)!.placement.cell,
+    ).toEqual({ x: 6, y: 0 });
+  });
 });
 
 describe("setCollectorAxis", () => {

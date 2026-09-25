@@ -212,7 +212,8 @@
       "label": {
         "true": "Reads when true",
         "false": "Reads when false"
-      }
+      },
+      "pending": "Choose an attribute to apply this binding. The current reading is kept until then."
     },
     "inspector": {
       "label": "Properties",
@@ -309,7 +310,11 @@
         "not_inline_capable": "This symbol does not go on a pipe.",
         "inline_on_endpoint": "Placed at the end of the pipe: slide it inwards.",
         "flat_depth": "Raised although the view opens as a plan."
-      }
+      },
+      "overlap_one": "These pipes share {{count}} cell without a connection.",
+      "overlap_other": "These pipes share {{count}} cells without a connection.",
+      "binding": "{{slot}} has no attribute selected.",
+      "showElement": "Show {{name}}"
     },
     "guide": {
       "title": "Nothing selected",

@@ -2,6 +2,7 @@ import { symbolSchemas } from "@gridone/sdk";
 import type { PlateDocument } from "@/components/synoptic/SynopticRenderer";
 import { runViolations, type RunRule } from "./runRules";
 import { describeError, type SaveErrors } from "./saveErrors";
+import { pipeOverlaps } from "./occupancy";
 
 /**
  * One thing worth looking at before a save, and never a reason not to
@@ -21,6 +22,14 @@ export type Check =
       message: string;
     }
   | { kind: "rule"; severity: "error"; element: string; rule: RunRule }
+  | {
+      kind: "overlap";
+      severity: "warning";
+      element: string;
+      other: string;
+      count: number;
+    }
+  | { kind: "binding"; severity: "warning"; element: string; slot: string }
   | { kind: "unbound"; severity: "warning"; element: string };
 
 /** The checks of a plate, errors first, one per element: the first thing
@@ -47,10 +56,38 @@ export function plateChecks(doc: PlateDocument, errors: SaveErrors): Check[] {
     named.add(element);
     checks.push({ kind: "rule", severity: "error", element, rule });
   }
+  for (const {
+    pipes: [element, other],
+    cells,
+  } of pipeOverlaps(doc)) {
+    checks.push({
+      kind: "overlap",
+      severity: "warning",
+      element,
+      other,
+      count: cells.size,
+    });
+  }
   for (const symbol of doc.symbols ?? []) {
+    const bindings = Object.entries(symbol.bindings ?? {});
+    for (const [slot, binding] of bindings) {
+      if (binding.kind === "attribute" && !binding.target.attribute.trim()) {
+        checks.push({
+          kind: "binding",
+          severity: "warning",
+          element: symbol.id,
+          slot,
+        });
+      }
+    }
     const slots = symbolSchemas[symbol.type]?.["x-slots"] ?? [];
     if (!slots.length || symbol.device_id) continue;
-    if (Object.keys(symbol.bindings ?? {}).length) continue;
+    if (
+      bindings.some(
+        ([, slot]) => slot.kind === "text" || slot.target.attribute.trim(),
+      )
+    )
+      continue;
     checks.push({ kind: "unbound", severity: "warning", element: symbol.id });
   }
   return checks;

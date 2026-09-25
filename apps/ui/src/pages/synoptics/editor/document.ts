@@ -17,7 +17,8 @@ import {
   footprintRect,
 } from "@/components/synoptic/symbols/footprint";
 import type { CollectorProps } from "@/components/synoptic/symbols/ports";
-import { depthsOf } from "./runRules";
+import { depthsOf, planKey, sameCell } from "./runRules";
+import { occupancyOf } from "./occupancy";
 
 export type Selection = { kind: "symbol" | "pipe"; id: string } | null;
 
@@ -61,9 +62,6 @@ const canonical = (doc: PlateDocument) =>
  */
 export const samePlate = (a: PlateDocument, b: PlateDocument): boolean =>
   a === b || canonical(a) === canonical(b);
-
-const sameCell = (a: Cell, b: Cell) =>
-  a.x === b.x && a.y === b.y && (a.z ?? 0) === (b.z ?? 0);
 
 /** Every id on the plate: symbols, pipes, tags and labels share one namespace. */
 function usedIds(doc: PlateDocument): Set<string> {
@@ -405,13 +403,16 @@ export const moveSymbol = (
       : s,
   );
 
-/** The cells of the plan the free symbols stand on. */
+/** Plan cells already held by bodies, pipes or inline symbols. A duplicate
+ *  gets a clear position in the authoring view even beside an overhead run. */
 function occupied(doc: PlateDocument): Set<string> {
+  const { bodies, runs, riders } = occupancyOf(doc);
   return new Set(
-    (doc.symbols ?? [])
-      .filter((s) => s.placement.kind === "cell")
-      .flatMap(footprintCells)
-      .map((c) => `${c.x},${c.y}`),
+    [
+      ...[...bodies.values()].flat(),
+      ...[...runs.values()].flat(),
+      ...riders.values(),
+    ].map(planKey),
   );
 }
 
@@ -424,7 +425,8 @@ const DUPLICATE_TRIES = 8;
  * but no device and no binding, since a copy is another machine of the
  * same kind, not the same one twice. It goes one cell right of the
  * original's turned footprint, then further right, one footprint at a
- * time, until it stands clear of every body. Null for a symbol riding a
+ * time, until it stands clear of every body, pipe and inline symbol on
+ * the plan. Null for a symbol riding a
  * run, or when nothing clear is found.
  */
 export function duplicateSymbol(
@@ -450,7 +452,7 @@ export function duplicateSymbol(
         cell: { ...cell, x: cell.x + n * step },
       },
     };
-    if (footprintCells(copy).some((c) => taken.has(`${c.x},${c.y}`))) continue;
+    if (footprintCells(copy).some((c) => taken.has(planKey(c)))) continue;
     return { doc: addSymbol(doc, copy), id: copyId };
   }
   return null;

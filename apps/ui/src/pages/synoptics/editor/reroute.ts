@@ -9,9 +9,20 @@ import type { PlateDocument } from "@/components/synoptic/SynopticRenderer";
 import { runCells } from "@/components/synoptic/runs";
 import { footprintCells } from "@/components/synoptic/symbols/footprint";
 import type { RoutePoint } from "./document";
+import {
+  freshOverlaps,
+  occupancyOf,
+  pipeMeetings,
+  pipeOverlaps,
+  pipePairKey,
+  riderCellTaken,
+  type Occupancy,
+} from "./occupancy";
 import { routeAround } from "./routeAround";
 import {
   cellKey,
+  planKey,
+  sameCell,
   cellsOf,
   direction,
   portAnchorOf,
@@ -41,8 +52,6 @@ const OPPOSITE: Record<Side, Side> = {
 
 const symbolsOf = (doc: PlateDocument): Symbols =>
   new Map((doc.symbols ?? []).map((s) => [s.id, s]));
-
-const sameCell = (a: Cell, b: Cell) => cellKey(a) === cellKey(b);
 
 /** A port end's cell and face as one comparable key: an edit moved the
  *  end when the key differs between the two plates. */
@@ -374,8 +383,6 @@ function withPath(
   };
 }
 
-const planKey = (c: Cell) => `${c.x},${c.y}`;
-
 /** Symbols the edit made overlap another body on the plan, when they did
  *  not overlap it before: two bodies on one cell put their ports on one
  *  cell, which no run can join, and read as one machine. */
@@ -415,12 +422,22 @@ function newOverlaps(before: Symbols, after: Symbols): string[] {
 }
 
 /** Every cell a free symbol's body stands on, with the symbol. */
-const bodyCells = (symbols: Symbols): Map<string, string> =>
+const bodyCells = (occupancy: Occupancy): Map<string, string> =>
   new Map(
-    [...symbols.values()]
-      .filter((s) => s.placement.kind === "cell")
-      .flatMap((s) => footprintCells(s).map((c) => [cellKey(c), s.id])),
+    [...occupancy.bodies].flatMap(([id, cells]) =>
+      cells.map((c) => [cellKey(c), id]),
+    ),
   );
+
+/** Inline riders that newly share another symbol's cell in this edit. */
+function newStacks(before: Occupancy, after: Occupancy): string[] {
+  return [...after.riders].flatMap(([id, cell]) => {
+    const old = before.riders.get(id);
+    return riderCellTaken(after, cell, id) && (!old || !sameCell(old, cell))
+      ? [id]
+      : [];
+  });
+}
 
 /**
  * What a run's path runs into on its way: the bodies it goes through, at
@@ -471,6 +488,11 @@ export function rerouteChanged(
   if (overlaps.length) {
     return { ok: false, reason: "overlap", elements: overlaps };
   }
+  const beforeOccupancy = occupancyOf(before);
+  const afterOccupancy = occupancyOf(after);
+  const stacked = newStacks(beforeOccupancy, afterOccupancy);
+  if (stacked.length)
+    return { ok: false, reason: "overlap", elements: stacked };
   const moved = (end: Endpoint) =>
     end.kind === "port" && anchorKey(end, was) !== anchorKey(end, now);
   const changed = (after.pipes ?? []).filter(
@@ -508,21 +530,43 @@ export function rerouteChanged(
     return replaceRiders(placed, next, path.corners, path.head, oldCells);
   };
 
-  const bodiesBefore = bodyCells(was);
-  const bodiesAfter = bodyCells(now);
-  /** Where a re-routed run may go: off every body and the symbols riding
-   *  the other runs, overhead unless the plate is flat. */
-  const roomFor = (pipe: PipeElement): Room => ({
-    blocked: new Set([
-      ...bodiesAfter.keys(),
-      ...(after.symbols ?? []).flatMap((s) =>
-        s.placement.kind === "pipe" && s.placement.pipe !== pipe.id
-          ? [cellKey(s.placement.cell)]
-          : [],
-      ),
-    ]),
-    high: after.projection !== "flat",
-  });
+  const bodiesBefore = bodyCells(beforeOccupancy);
+  const bodiesAfter = bodyCells(afterOccupancy);
+  const moving = new Set(changed.map((p) => p.id));
+  const pending = new Set(moving);
+  const meetings = pipeMeetings(after);
+  const hadOverlaps = pipeOverlaps(before, moving);
+  const sharedBefore = new Map(
+    hadOverlaps.map((o) => [pipePairKey(...o.pipes), o.cells]),
+  );
+  /** Reserve stationary pipes and the paths already routed in this edit.
+   *  Exceptions belong to a pair, so a third pipe at a tee remains blocked.
+   *  Pre-existing overlaps may stay, but must never grow. */
+  const roomFor = (
+    pipe: PipeElement,
+    current: PlateDocument,
+    skip: ReadonlySet<string>,
+  ): Room => {
+    const blocked = new Set(bodiesAfter.keys());
+    for (const [other, cells] of occupancyOf(current).runs) {
+      if (other === pipe.id || skip.has(other)) continue;
+      const pair = pipePairKey(pipe.id, other);
+      for (const cell of cells) {
+        const key = cellKey(cell);
+        if (!meetings.get(pair)?.has(key) && !sharedBefore.get(pair)?.has(key))
+          blocked.add(key);
+      }
+    }
+    for (const symbol of current.symbols ?? []) {
+      if (
+        symbol.placement.kind === "pipe" &&
+        symbol.placement.pipe !== pipe.id
+      ) {
+        blocked.add(cellKey(symbol.placement.cell));
+      }
+    }
+    return { blocked, high: after.projection !== "flat" };
+  };
 
   // A run without a path keeps its old one here, and the check below finds
   // it broken.
@@ -530,13 +574,14 @@ export function rerouteChanged(
   for (const pipe of changed) {
     const both = moved(pipe.from) && moved(pipe.to);
     const pins = tees.get(pipe.id) ?? new Set<string>();
-    const room = roomFor(pipe);
+    const room = roomFor(pipe, doc, pending);
     doc =
       follow(doc, pipe, (p) =>
         both
           ? followBoth(p, was, now, pins, room)
           : followHead(p, was, now, pins, room),
       ) ?? doc;
+    pending.delete(pipe.id);
   }
 
   const pipeIn = (d: PlateDocument, id: string) =>
@@ -550,11 +595,13 @@ export function rerouteChanged(
     const holds = (d: PlateDocument | null): d is PlateDocument =>
       !!d &&
       !fresh(runViolations(d, scope), baseline).length &&
+      !freshOverlaps(pipeOverlaps(d, scope), hadOverlaps).length &&
+      !newStacks(beforeOccupancy, occupancyOf(d)).length &&
       [...snags(pipeIn(d, pipe.id), now, bodiesAfter)].every((s) => had.has(s));
     if (holds(doc)) continue;
     const both = moved(pipe.from) && moved(pipe.to);
     if (!both) {
-      const room = roomFor(pipe);
+      const room = roomFor(pipe, doc, pending);
       const retry = follow(doc, pipe, (p) => extendHead(p, was, now, room));
       if (holds(retry)) {
         doc = retry;
@@ -566,5 +613,15 @@ export function rerouteChanged(
   }
   if (broken.length)
     return { ok: false, reason: "unroutable", elements: broken };
+  // A later fallback may affect a pipe checked earlier. Accept the edit
+  // only when its final paths still satisfy the shared-cell invariant.
+  const collisions = freshOverlaps(pipeOverlaps(doc, moving), hadOverlaps);
+  if (collisions.length) {
+    return {
+      ok: false,
+      reason: "unroutable",
+      elements: [...new Set(collisions.flatMap((o) => o.pipes))],
+    };
+  }
   return { ok: true, doc, extended };
 }
