@@ -38,7 +38,7 @@ export function useMeterTreeValues(
   root: MeterTreeNode | undefined,
   { start, end, last, refetchInterval = false }: Options,
   collapsed?: CollapsedNodes,
-): { values: MeterValues; loading: boolean } {
+): { values: MeterValues; loading: boolean; pending: boolean } {
   const client = useGridoneClient();
   const keys = root ? visibleMeterKeys(root, collapsed) : [];
 
@@ -70,12 +70,14 @@ export function useMeterTreeValues(
     values.set(key, typeof value === "number" ? value : null);
   });
 
-  // Every query, not some: opening a branch adds queries to a tree that is
-  // already drawn, and treating that as "loading" would replace the whole
-  // widget with a skeleton on each click. Only a tree with nothing to show yet
-  // is loading.
+  // `loading` waits on every query, not some: opening a branch adds queries to
+  // a tree that is already drawn, and treating that as "loading" would replace
+  // the whole widget with a skeleton on each click. Only a tree with nothing to
+  // show yet is loading. `pending` is the finer signal — some reading still in
+  // flight — for a view that holds a place for just the part it affects.
   return {
     values,
     loading: results.length > 0 && results.every((r) => r.isLoading),
+    pending: results.some((r) => r.isLoading),
   };
 }

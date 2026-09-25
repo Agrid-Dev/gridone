@@ -205,7 +205,7 @@ const MeterNodeDetails: FC<{ node: MeterTreeNode }> = ({ node }) => {
   // not change how this node splits among them.
   const folded = defaultCollapsed(node, 1);
   const attributes = useMeterTreeAttributes(node, folded);
-  const { values } = useMeterTreeValues(
+  const { values, pending } = useMeterTreeValues(
     node,
     { ...period.query, refetchInterval: period.refetchInterval },
     folded,
@@ -238,15 +238,28 @@ const MeterNodeDetails: FC<{ node: MeterTreeNode }> = ({ node }) => {
           />
         </section>
       )}
-      {slices.length > 0 && (
+      {/* Decided from the config, not the readings: a folded node's children
+          are fetched only now, and the section must not pop in when they land. */}
+      {(node.children ?? []).length > 0 && (
         <section className="space-y-2">
           <h3 className="text-sm font-medium">
             {t("widgets.meterTree.breakdown")}
           </h3>
-          <SharesPie
-            slices={toSlices(slices, labelOf, t("widgets.meterTree.other"))}
-            unit={datum.unit}
-          />
+          {pending ? (
+            <Skeleton style={{ height: PIE_SIZE }} />
+          ) : slices.length > 0 ? (
+            <SharesPie
+              slices={toSlices(slices, labelOf, t("widgets.meterTree.other"))}
+              unit={datum.unit}
+            />
+          ) : (
+            <div
+              className="flex items-center justify-center"
+              style={{ height: PIE_SIZE }}
+            >
+              <Message>{t("widgets.chart.noData")}</Message>
+            </div>
+          )}
         </section>
       )}
       {deviceId && (

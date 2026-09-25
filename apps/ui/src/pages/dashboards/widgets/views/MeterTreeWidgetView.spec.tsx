@@ -51,7 +51,11 @@ const meter = (id: string, attribute: string) => ({
 const MAIN = meter("main", "active_energy");
 const HVAC = meter("hvac", "hvac_energy");
 
-function renderTree(root: MeterTreeNode, attributes: MeterAttributes) {
+function renderTree(
+  root: MeterTreeNode,
+  attributes: MeterAttributes,
+  { pending = false } = {},
+) {
   useMeterTreeAttributes.mockReturnValue(attributes);
   useMeterTreeValues.mockReturnValue({
     values: new Map([
@@ -59,6 +63,7 @@ function renderTree(root: MeterTreeNode, attributes: MeterAttributes) {
       [meterKey(HVAC) as string, 40],
     ]),
     loading: false,
+    pending,
   });
   return render(
     <MemoryRouter>
@@ -137,6 +142,16 @@ describe("MeterTreeWidgetView node details", () => {
     // HVAC 40 of 100, and the 60 its children leave unmetered.
     expect(dialog.textContent).toContain("40.0%");
     expect(dialog.textContent).toContain("60.0%");
+  });
+
+  it("holds the breakdown's place while its children's readings load", () => {
+    renderTree(tree, new Map(), { pending: true });
+
+    fireEvent.click(screen.getByRole("button", { name: "Building" }));
+
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.textContent).toContain("Breakdown");
+    expect(dialog.textContent).not.toContain("40.0%");
   });
 
   it("has no breakdown for a node without children", () => {
