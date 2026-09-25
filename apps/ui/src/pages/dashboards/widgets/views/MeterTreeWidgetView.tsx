@@ -1,4 +1,3 @@
-import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useCallback, useState, type FC } from "react";
 import { useTranslation } from "react-i18next";
 import { Group } from "@visx/group";
@@ -8,14 +7,16 @@ import { ParentSize } from "@visx/responsive";
 import type { MeterTreeWidgetConfig } from "@gridone/sdk";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fmt } from "@/lib/formatValue";
-import { useAttributeLabel } from "@/hooks/useAttributeLabel";
 import { useDashboardPeriod } from "../../useDashboardPeriod";
 import {
   buildMeterTreeHierarchy,
   defaultCollapsed,
+  nodeAtKey,
   type CollapsedNodes,
   type MeterTreeDatum,
 } from "./meterTree";
+import { MeterNodeDialog } from "./MeterNodeDialog";
+import { useMeterNodeLabel } from "./useMeterNodeLabel";
 import { useMeterTreeAttributes } from "./useMeterTreeAttributes";
 import { useMeterTreeValues } from "./useMeterTreeValues";
 
@@ -99,7 +100,8 @@ const NodeBox: FC<{
   noReading: string;
   incompleteMark: string;
   onToggle: (key: string) => void;
-}> = ({ node, label, noReading, incompleteMark, onToggle }) => {
+  onSelect: (key: string) => void;
+}> = ({ node, label, noReading, incompleteMark, onToggle, onSelect }) => {
   const datum = node.data;
   const residual = datum.kind === "residual";
   const faulty = isFaulty(datum);
@@ -135,13 +137,17 @@ const NodeBox: FC<{
       />
       {datum.deviceId ? (
         <foreignObject x={10} y={2} width={NODE_W - 20} height={18}>
-          <Link
-            to={`/devices/${encodeURIComponent(datum.deviceId)}`}
-            onClick={(event) => event.stopPropagation()}
-            className="block truncate text-[11px] font-medium text-primary hover:underline focus-visible:underline"
+          <button
+            type="button"
+            onClick={(event) => {
+              // The box itself folds; the name opens the node's details.
+              event.stopPropagation();
+              onSelect(datum.key);
+            }}
+            className="block w-full truncate text-left text-[11px] font-medium text-primary hover:underline focus-visible:underline"
           >
             {label}
-          </Link>
+          </button>
         </foreignObject>
       ) : (
         <text
@@ -215,16 +221,11 @@ const TreeCanvas: FC<{
   root: MeterTreeDatum;
   width: number;
   onToggle: (key: string) => void;
-}> = ({ root, width, onToggle }) => {
+  onSelect: (key: string) => void;
+}> = ({ root, width, onToggle, onSelect }) => {
   const { t } = useTranslation("dashboards");
-  const attributeLabel = useAttributeLabel();
+  const labelOf = useMeterNodeLabel();
   const data = hierarchy<MeterTreeDatum>(root);
-  // A node's own label wins; an unlabelled one is named after its attribute.
-  const labelOf = (datum: MeterTreeDatum) =>
-    datum.kind === "residual"
-      ? t("widgets.meterTree.unmetered")
-      : (datum.label ??
-        attributeLabel(datum.attribute ?? "", { label: datum.attributeLabel }));
 
   // One row per node, in reading order, rather than the layout's default of
   // centring each parent over its children: centring buries the root halfway
@@ -272,6 +273,7 @@ const TreeCanvas: FC<{
                     noReading={t("widgets.meterTree.noReading")}
                     incompleteMark={t("widgets.meterTree.incomplete")}
                     onToggle={onToggle}
+                    onSelect={onSelect}
                   />
                 ))}
               </Group>
@@ -308,6 +310,7 @@ export const MeterTreeWidgetView: FC<{ config: unknown }> = ({ config }) => {
       return next;
     });
   }, []);
+  const [selected, setSelected] = useState<string | null>(null);
   const attributes = useMeterTreeAttributes(root, collapsed);
   const { values, loading } = useMeterTreeValues(
     root,
@@ -343,10 +346,19 @@ export const MeterTreeWidgetView: FC<{ config: unknown }> = ({ config }) => {
       <div className="min-h-0 flex-1 overflow-auto">
         <ParentSize>
           {({ width }) => (
-            <TreeCanvas root={annotated} width={width} onToggle={toggle} />
+            <TreeCanvas
+              root={annotated}
+              width={width}
+              onToggle={toggle}
+              onSelect={setSelected}
+            />
           )}
         </ParentSize>
       </div>
+      <MeterNodeDialog
+        node={selected === null ? undefined : nodeAtKey(root, selected)}
+        onClose={() => setSelected(null)}
+      />
     </div>
   );
 };

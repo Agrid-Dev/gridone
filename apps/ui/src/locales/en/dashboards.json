@@ -178,7 +178,11 @@
       "incomplete": "At most this much is unmetered — a counter below is not reporting, so the remainder is overstated.",
       "noReading": "—",
       "empty": "No tree configured.",
-      "apiOnly": "This widget is created through the API for now — its hierarchy is a nested tree, which this form cannot yet edit."
+      "apiOnly": "This widget is created through the API for now — its hierarchy is a nested tree, which this form cannot yet edit.",
+      "dailyConsumption": "Consumption per day",
+      "breakdown": "Breakdown",
+      "other": "Other",
+      "openDevice": "Open device"
     },
     "untitled": "Untitled widget"
   },
