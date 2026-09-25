@@ -251,6 +251,7 @@ function fakeRuntime(
     };
   };
   const runtime: DeviceUiRuntime = {
+    reportsWrites: true,
     readControl: (id) => (document.controls[id] ? base(id) : undefined),
     setValue,
     activate,
@@ -951,22 +952,53 @@ describe("no layout shift during a command", () => {
     expect(status).toHaveTextContent(/^$/);
   });
 
-  it("fades Applied out after its delay without removing its line", () => {
+  it("reserves no status line where no write can report on it", () => {
+    const { runtime } = fakeRuntime();
+    renderPresentation({ ...runtime, reportsWrites: undefined });
+    expect(within(fanRow()).queryByRole("status")).toBeNull();
+  });
+
+  it("fades Applied out, then empties its line without removing it", () => {
     vi.useFakeTimers();
     try {
-      const { runtime } = fakeRuntime({
-        fan: { write: { kind: "confirmed", requested: "high" } },
-      });
-      renderPresentation(runtime);
-      const status = within(fanRow()).getByRole("status");
-      expect(status).toHaveTextContent("Applied");
-      expect(status).not.toHaveClass("opacity-0");
+      const write = { kind: "confirmed", requested: "high" } as const;
+      const { runtime } = fakeRuntime({ fan: { write } });
+      const { rerender } = renderPresentation(labelled(runtime));
+      const status = () => within(fanRow()).getByRole("status");
+      expect(status()).toHaveTextContent("Applied");
+      expect(status()).not.toHaveClass("opacity-0");
       act(() => vi.advanceTimersByTime(CONFIRMED_VISIBLE_MS));
-      expect(within(fanRow()).getByRole("status")).toHaveClass("opacity-0");
-      expect(within(fanRow()).getByRole("status")).toHaveTextContent("Applied");
+      expect(status()).toHaveClass("opacity-0");
+      expect(status()).toHaveTextContent("Applied");
+      act(() => vi.advanceTimersByTime(500));
+      expect(status()).toHaveTextContent(/^$/);
+      expect(status()).not.toHaveAttribute("title");
+      // A later awaited write ending must not bring the old "Applied" back.
+      rerender(
+        presentation(
+          labelled(
+            fakeRuntime({
+              fan: { write, ...missingFan(["mode"]), inFlight: ["mode"] },
+            }).runtime,
+          ),
+        ),
+      );
+      expect(status()).toHaveTextContent("Waiting for Mode");
+      rerender(presentation(labelled(runtime)));
+      expect(status()).toHaveTextContent(/^$/);
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("lets a failure wrap so it can be read in full", () => {
+    const { runtime } = fakeRuntime({
+      fan: { write: { kind: "error", requested: "high", message: "refused" } },
+    });
+    renderPresentation(runtime);
+    const status = within(fanRow()).getByRole("status");
+    expect(status).toHaveTextContent("Failed: refused");
+    expect(status).not.toHaveClass("truncate");
   });
 
   it("says which write it awaits instead of reporting missing data", () => {

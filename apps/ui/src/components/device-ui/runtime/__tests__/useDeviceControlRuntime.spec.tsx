@@ -221,6 +221,9 @@ describe("useDeviceControlRuntime", () => {
   it("rejects direct actions and writes when the user lacks device write permission", () => {
     const { rendered } = setup(makeDevice(), false);
     expect(rendered.result.current.readControl("power")?.writable).toBe(false);
+    // No write can be sent, so no control reserves a status line for one.
+    expect(rendered.result.current.reportsWrites).toBe(false);
+    expect(setup().rendered.result.current.reportsWrites).toBe(true);
     act(() => {
       rendered.result.current.setValue("power", false);
       rendered.result.current.activate({ control: "power", op: "toggle" });

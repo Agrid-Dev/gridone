@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { AttributeDependencies } from "@/components/AttributeDependencies";
 import { moveRadioFocus } from "@/lib/radioNavigation";
@@ -141,7 +141,9 @@ export function ControlFeedback({
   const label = (name: string) => runtime.attributeLabel?.(name) ?? name;
   return (
     <>
-      <ControlStatus state={state.write} awaiting={awaiting.map(label)} />
+      {runtime.reportsWrites && (
+        <ControlStatus state={state.write} awaiting={awaiting.map(label)} />
+      )}
       {reasons && (
         <p role="status" className="text-xs text-muted-foreground">
           {reasons}
@@ -426,13 +428,43 @@ function OptionButton({
 }
 
 export const CONFIRMED_VISIBLE_MS = 2000;
+const FADE_MS = 500;
+
+type StatusLine = {
+  text?:
+    | "presentation.awaiting"
+    | "presentation.sending"
+    | "presentation.confirmed"
+    | "presentation.error"
+    | "presentation.unconfirmed";
+  icon?: ReactNode;
+  failed?: boolean;
+};
+const SPINNER = (
+  <Loader2 className="mr-1 inline h-3 w-3 animate-spin" aria-hidden />
+);
+const AWAITING_LINE: StatusLine = {
+  text: "presentation.awaiting",
+  icon: SPINNER,
+};
+const STATUS_LINES: Record<WriteState["kind"], StatusLine> = {
+  idle: {},
+  sending: { text: "presentation.sending", icon: SPINNER },
+  confirmed: {
+    text: "presentation.confirmed",
+    icon: <Check className="mr-1 inline h-3 w-3" aria-hidden />,
+  },
+  error: { text: "presentation.error", failed: true },
+  unconfirmed: { text: "presentation.unconfirmed", failed: true },
+};
 
 /**
  * The outcome of the last write, announced politely: sending, confirmed,
  * or the real failure, else the dependencies whose write is awaited.
- * Measurements are never announced here. The line always keeps one line of
- * height and never widens its container; a long message is cut, in full in
- * its title. "Applied" fades out without giving its line back.
+ * Measurements are never announced here. The line keeps one line of height
+ * and never widens its container; a long progress message is cut, in full in
+ * its title, while a failure wraps so it can be read in full. "Applied" fades
+ * out, then leaves an empty line.
  */
 function ControlStatus({
   state,
@@ -442,43 +474,49 @@ function ControlStatus({
   awaiting: string[];
 }) {
   const { t } = useTranslation("devices");
-  const [faded, setFaded] = useState<WriteState | null>(null);
+  const [faded, setFaded] = useState<{ state: WriteState; gone: boolean }>();
   useEffect(() => {
     if (state.kind !== "confirmed") return;
-    const timer = setTimeout(() => setFaded(state), CONFIRMED_VISIBLE_MS);
-    return () => clearTimeout(timer);
+    const timers = [
+      setTimeout(() => setFaded({ state, gone: false }), CONFIRMED_VISIBLE_MS),
+      setTimeout(
+        () => setFaded({ state, gone: true }),
+        CONFIRMED_VISIBLE_MS + FADE_MS,
+      ),
+    ];
+    return () => timers.forEach(clearTimeout);
   }, [state]);
-  const failed = state.kind === "error" || state.kind === "unconfirmed";
-  const waiting = !failed && state.kind !== "sending" && awaiting.length > 0;
-  const text = waiting
-    ? t("presentation.awaiting", { names: awaiting.join(", ") })
-    : state.kind === "sending"
-      ? t("presentation.sending")
-      : state.kind === "confirmed"
-        ? t("presentation.confirmed")
-        : state.kind === "error"
-          ? t("presentation.error", { message: state.message })
-          : state.kind === "unconfirmed"
-            ? t("presentation.unconfirmed", { message: state.message })
-            : "";
+  const own = STATUS_LINES[state.kind];
+  const waiting =
+    !own.failed && state.kind !== "sending" && awaiting.length > 0;
+  const fading = !waiting && faded?.state === state;
+  const line = waiting
+    ? AWAITING_LINE
+    : fading && faded.gone
+      ? STATUS_LINES.idle
+      : own;
+  const text = line.text
+    ? t(line.text, {
+        names: awaiting.join(", "),
+        message: "message" in state ? state.message : "",
+      })
+    : "";
   return (
     <p
       role="status"
       aria-live="polite"
       data-write-state={state.kind}
       title={text || undefined}
+      style={{ transitionDuration: `${FADE_MS}ms` }}
       className={cn(
-        "h-4 w-0 min-w-full truncate text-xs leading-4 transition-opacity duration-500",
-        failed ? "text-destructive" : "text-muted-foreground",
-        !waiting && faded === state && "opacity-0",
+        "min-h-4 w-0 min-w-full text-xs leading-4 transition-opacity",
+        line.failed
+          ? "break-words text-destructive"
+          : "truncate text-muted-foreground",
+        fading && "opacity-0",
       )}
     >
-      {(waiting || state.kind === "sending") && (
-        <Loader2 className="mr-1 inline h-3 w-3 animate-spin" aria-hidden />
-      )}
-      {!waiting && state.kind === "confirmed" && (
-        <Check className="mr-1 inline h-3 w-3" aria-hidden />
-      )}
+      {line.icon}
       {text}
     </p>
   );

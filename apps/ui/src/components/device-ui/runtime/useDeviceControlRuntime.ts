@@ -42,6 +42,8 @@ export type BoundControlState = {
 
 export type DeviceUiRuntime = {
   deviceId?: string;
+  /** Writes sent through this runtime report their progress on each control. */
+  reportsWrites?: boolean;
   attributeLabel?(attribute: string): string;
   /** A group can require an explicit absolute target for mixed values. */
   chooseValue?(id: string): void;
@@ -186,6 +188,7 @@ export function useDeviceControlRuntime(
   return useMemo(
     () => ({
       deviceId: device.id,
+      reportsWrites: canWrite,
       attributeLabel,
       readControl,
       setValue,
@@ -195,6 +198,7 @@ export function useDeviceControlRuntime(
     }),
     [
       device.id,
+      canWrite,
       attributeLabel,
       readControl,
       setValue,
