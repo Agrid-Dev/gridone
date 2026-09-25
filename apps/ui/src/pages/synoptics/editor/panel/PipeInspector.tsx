@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ArrowRight, Spline, Trash2 } from "lucide-react";
 import type {
@@ -54,7 +54,12 @@ function FlowField({
   const bound = boundDevice(value);
   /** A device picked, its reading not yet. */
   const [pending, setPending] = useState<string | null>(null);
-  const deviceId = pending ?? bound;
+  // Undo can restore a complete flow while a device choice is unfinished.
+  // The restored binding wins, and redo must not revive the stale choice.
+  useEffect(() => {
+    if (value) setPending(null);
+  }, [value]);
+  const deviceId = value ? bound : pending;
   const { data: device } = useDeviceById(deviceId ?? undefined);
   if (value && !bound) {
     return (
@@ -73,7 +78,7 @@ function FlowField({
   const isBool = (of: Device | undefined, name: string) =>
     !!of && deviceAttributes(of)[name]?.data_type === "bool";
   const bools = Object.keys(attributes).filter((name) => isBool(device, name));
-  const attribute = pending ? "" : (value?.target.attribute ?? "");
+  const attribute = value?.target.attribute ?? "";
   const flowOf = (id: string, name: string): AttributeSlot => ({
     kind: "attribute",
     target: { devices: { ids: [id] }, attribute: name },

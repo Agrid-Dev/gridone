@@ -321,6 +321,39 @@ describe("useSynopticEditor: drawing", () => {
     expect(added.from).toEqual(onLane.endpoint);
   });
 
+  it("keeps a rejected route so its last point can be corrected and retried", () => {
+    const { result } = editorOn(plate());
+    const points = [
+      cellPoint(at(0, 8)),
+      cellPoint(at(3, 8)),
+      cellPoint(at(0, 8)),
+    ];
+    act(() => result.current.setTool("pipe"));
+    for (const point of points) {
+      act(() => result.current.draw.addPoint(point));
+    }
+    act(() => result.current.draw.finish());
+    expect(toast.error).toHaveBeenCalledWith("editor.refused.brokenRun");
+    expect(result.current.doc.pipes).toEqual([]);
+    expect(result.current.history.canUndo).toBe(false);
+    expect(result.current.draw.points).toEqual(points);
+
+    act(() => result.current.draw.undoPoint());
+    act(() => result.current.draw.finish());
+    expect(result.current.draw.points).toEqual([]);
+    expect(result.current.doc.pipes).toHaveLength(1);
+    expect(runViolations(result.current.doc)).toEqual([]);
+  });
+
+  it("keeps the starting point when finish is called before a route is ready", () => {
+    const { result } = editorOn(plate());
+    const start = cellPoint(at(0, 8));
+    act(() => result.current.draw.addPoint(start));
+    act(() => result.current.draw.finish());
+    expect(result.current.draw.points).toEqual([start]);
+    expect(result.current.history.canUndo).toBe(false);
+  });
+
   it("drops the run in progress when an undo takes away the run it tees from", () => {
     const { result } = editorOn(plate());
     act(() => result.current.setTool("pipe"));
@@ -567,6 +600,11 @@ describe("useSynopticEditor: what it never lets through", () => {
     act(() => result.current.draw.addPoint(astray));
     expect(result.current.doc.pipes ?? []).toEqual([]);
     expect(toast.error).toHaveBeenCalledWith("editor.refused.brokenRun");
+    expect(result.current.draw.points).toEqual([portPoint(pac, "supply")]);
+    act(() => result.current.draw.addPoint(portPoint(tank, "primary_in")));
+    expect(result.current.draw.points).toEqual([]);
+    expect(result.current.doc.pipes).toHaveLength(1);
+    expect(runViolations(result.current.doc)).toEqual([]);
   });
 
   it("brings the bends of a run in progress down when the plate turns flat", () => {

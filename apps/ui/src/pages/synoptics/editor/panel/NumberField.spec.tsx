@@ -101,6 +101,64 @@ describe("NumberField", () => {
     expect(field()).toHaveValue(5);
   });
 
+  it("does not clear an optional number when an empty draft is cancelled", () => {
+    const onClear = vi.fn();
+    const onCommit = vi.fn();
+    render(
+      <NumberField
+        aria-label="Cell"
+        value={5}
+        onCommit={onCommit}
+        onClear={onClear}
+      />,
+    );
+    type("");
+    fireEvent.keyDown(field(), { key: "Escape" });
+    fireEvent.blur(field());
+    expect(field()).toHaveValue(5);
+    expect(onClear).not.toHaveBeenCalled();
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  it("does not clear an optional number for an incomplete numeric entry", () => {
+    const onClear = vi.fn();
+    const onCommit = vi.fn();
+    render(
+      <NumberField
+        aria-label="Cell"
+        value={5}
+        onCommit={onCommit}
+        onClear={onClear}
+      />,
+    );
+    type("");
+    // Native number inputs expose e.g. "1e" as "" with badInput set.
+    Object.defineProperty(field(), "validity", { value: { badInput: true } });
+    fireEvent.blur(field());
+    expect(field()).toHaveValue(5);
+    expect(onClear).not.toHaveBeenCalled();
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  it("does not clear an optional number that is already unset", () => {
+    const onClear = vi.fn();
+    const onCommit = vi.fn();
+    render(
+      <NumberField
+        aria-label="Cell"
+        value={null}
+        onCommit={onCommit}
+        onClear={onClear}
+      />,
+    );
+    type("2");
+    type("");
+    fireEvent.blur(field());
+    expect(field()).toHaveValue(null);
+    expect(onClear).not.toHaveBeenCalled();
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
   it("commits nothing when the number kept is the one stored", () => {
     const onCommit = vi.fn();
     render(<Stored initial={5} max={5} onCommit={onCommit} />);

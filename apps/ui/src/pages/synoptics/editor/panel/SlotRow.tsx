@@ -253,6 +253,7 @@ export function SlotRow({
                     placeholder={t("editor.slot.decimalsAuto")}
                     value={value.decimals ?? null}
                     onCommit={(decimals) => onChange({ ...value, decimals })}
+                    onClear={() => onChange({ ...value, decimals: null })}
                   />
                 </div>
               )}

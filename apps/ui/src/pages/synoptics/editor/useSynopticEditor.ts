@@ -234,7 +234,6 @@ export function useSynopticEditor(
 
   const finishDraw = useCallback(
     (route: RoutePoint[] = points) => {
-      setPoints([]);
       if (route.length < 2) return;
       // A tee carries its trunk's fluid, whatever the picker holds.
       const first = route[0].endpoint;
@@ -244,7 +243,7 @@ export function useSynopticEditor(
           : undefined;
       const runFluid = trunk?.fluid ?? fluid;
       const id = nextId(doc, runFluid);
-      commit((d) =>
+      const added = commit((d) =>
         addPipe(d, {
           id,
           fluid: runFluid,
@@ -255,6 +254,9 @@ export function useSynopticEditor(
           tags: [],
         }),
       );
+      // Keep the start and bends after a refusal so the author can correct
+      // the route or choose another endpoint without drawing it again.
+      if (added) setPoints([]);
     },
     [points, doc, fluid, commit],
   );

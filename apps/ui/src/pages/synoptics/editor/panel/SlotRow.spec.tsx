@@ -353,6 +353,25 @@ describe("SlotRow", () => {
     expect(onType).not.toHaveBeenCalled();
   });
 
+  it.each(["blur", "Enter"])(
+    "restores automatic decimals when cleared with %s",
+    (commit) => {
+      const value = own("temperature", { decimals: 2, unit: "°C" });
+      const { onChange, onType } = renderRow({ value });
+      openFormat();
+      const decimals = screen.getByLabelText("Decimals");
+      fireEvent.change(decimals, { target: { value: "" } });
+      expect(onChange).not.toHaveBeenCalled();
+      if (commit === "Enter") fireEvent.keyDown(decimals, { key: "Enter" });
+      fireEvent.blur(decimals);
+      expect(onChange).toHaveBeenCalledExactlyOnceWith({
+        ...value,
+        decimals: null,
+      });
+      expect(onType).not.toHaveBeenCalled();
+    },
+  );
+
   it("lists the errors the last save left on the slot", () => {
     renderRow({ value: own("power"), errors: ["no device exposes power"] });
     expect(screen.getByText("no device exposes power")).toBeInTheDocument();

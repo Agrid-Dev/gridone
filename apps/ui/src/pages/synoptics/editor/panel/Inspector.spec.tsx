@@ -369,6 +369,35 @@ describe("PipeToolPanel", () => {
 });
 
 describe("PipeInspector", () => {
+  it("restores the bound flow device after undoing an unfinished device change", async () => {
+    const user = userEvent.setup();
+    const flow = {
+      kind: "attribute" as const,
+      target: { devices: { ids: ["dev-old"] }, attribute: "running" },
+    };
+    const api = renderEditor({ ...RIDDEN, pipes: [{ ...FEED, flow }] });
+    await opened();
+    fireEvent.click(runCell("5,1,0"));
+    const device = () =>
+      within(panel()).getByRole("combobox", { name: "Device" });
+    const reading = () =>
+      within(panel()).getByRole("combobox", { name: "Flow reading" });
+    expect(device()).toHaveTextContent("dev-old");
+    await user.click(device());
+    await user.click(await screen.findByRole("option", { name: /PAC 01 new/ }));
+    expect(device()).toHaveTextContent("PAC 01 new");
+    expect(reading()).not.toHaveTextContent("running");
+
+    fireEvent.click(screen.getByRole("button", { name: "editor.undo" }));
+    expect(device()).toHaveTextContent("dev-old");
+    expect(reading()).toHaveTextContent("running");
+    fireEvent.click(screen.getByRole("button", { name: "editor.redo" }));
+    expect(device()).toHaveTextContent("No device");
+    fireEvent.click(screen.getByRole("button", { name: "editor.undo" }));
+    await save();
+    expect(api.replace.mock.calls[0][1].pipes[0].flow).toEqual(flow);
+  });
+
   const riders = () =>
     within(within(panel()).getByRole("list", { name: "On this pipe" }))
       .getAllByRole("button")
