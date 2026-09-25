@@ -1,3 +1,9 @@
+## v0.272.1 (2026-09-25)
+
+### Fix
+
+- **devices-manager**: report unknown option and rule conditions as missing data (#698)
+
 ## v0.272.0 (2026-09-25)
 
 ### Feat
