@@ -21,7 +21,7 @@ export function useValueTickFormat(
   return useMemo(() => {
     const unit = commonAttributeUnit(series.map((s) => s.semanticKey ?? s.key));
     // A tick label must hold no whitespace: `@visx/text` wraps on it, so
-    // "10 000 W" renders stacked over three lines. Hence no group separator
+    // "10 000 %" renders stacked over three lines. Hence no group separator
     // (a narrow no-break space in several locales) and no space before the
     // unit. Intl still rounds away d3's binary tick noise (0.30000000000004)
     // and keeps the locale's decimal separator.

@@ -777,19 +777,19 @@ describe("FloatPanel — value axis units", () => {
   });
 
   it("keeps tick labels free of whitespace", () => {
-    // `@visx/text` wraps a label on whitespace, so "10 000 W" would render
+    // `@visx/text` wraps a label on whitespace, so "10 000 %" would render
     // stacked over three lines instead of on the tick.
     const { container } = render(
       <TimeSeriesChartInner
         timestamps={timestamps}
-        lineSeries={[{ key: "active_power", label: "Power" }]}
-        lineValues={{ active_power: timestamps.map((_, i) => 10000 + i * 500) }}
+        lineSeries={[{ key: "humidity", label: "Humidity" }]}
+        lineValues={{ humidity: timestamps.map((_, i) => 10000 + i * 500) }}
         width={WIDTH}
       />,
     );
     const ticks = leftAxisTicks(container);
     expect(ticks.length).toBeGreaterThan(0);
-    expect(ticks.every((tick) => tick.endsWith("W"))).toBe(true);
+    expect(ticks.every((tick) => tick.endsWith("%"))).toBe(true);
     expect(ticks.some((tick) => /\s/.test(tick))).toBe(false);
   });
 
