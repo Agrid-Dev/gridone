@@ -212,6 +212,9 @@ class CoreDevice:
     )
     _guard: WriteGuard = field(init=False, repr=False)
     _dependency_refresh: DependencyRefresh = field(init=False, repr=False)
+    # Written targets a failed write left unknown, read again in the background.
+    _unconfirmed: set[str] = field(init=False, default_factory=set, repr=False)
+    _target_refresh: DependencyRefresh = field(init=False, repr=False)
     _write_lock: asyncio.Lock = field(
         init=False, default_factory=asyncio.Lock, repr=False
     )
@@ -241,7 +244,12 @@ class CoreDevice:
             self._raw_code,
             on_expired=self._notify_write_state,
         )
-        self._dependency_refresh = DependencyRefresh(self._acquire_missing)
+        self._dependency_refresh = DependencyRefresh(
+            partial(self._acquire, self._missing_dependencies, "dependency")
+        )
+        self._target_refresh = DependencyRefresh(
+            partial(self._acquire, self._take_unconfirmed, "target")
+        )
 
     @property
     def syncing(self) -> bool:
@@ -458,6 +466,7 @@ class CoreDevice:
         self._syncing = False
         self.transport.remove_reconnect_listener(self._on_transport_reconnected)
         await self._dependency_refresh.close()
+        await self._target_refresh.close()
         for task in self._poll_tasks.values():
             if not task.done():
                 task.cancel()
@@ -829,14 +838,20 @@ class CoreDevice:
         if self.transport.read_supported and self._missing_dependencies():
             self._dependency_refresh.request()
 
-    async def _acquire_missing(self) -> None:
+    def _take_unconfirmed(self) -> set[str]:
+        """The written targets still unknown, and nothing else: inputs the
+        firmware never answers are not retried on every failed write."""
+        names, self._unconfirmed = self._unconfirmed, set()
+        return {name for name in names if self._guard.known(name) is None}
+
+    async def _acquire(self, names: Callable[[], set[str]], what: str) -> None:
         """One background pass. It holds one of the transport's acquisition
-        slots and reads what is still missing once the slot is granted."""
+        slots and reads ``names()``, decided once the slot is granted."""
         async with self.transport.acquisitions:
             try:
-                await self._read_dependencies(self._missing_dependencies())
+                await self._read_dependencies(names())
             except Exception:
-                logger.exception("[Device %s] dependency acquisition failed", self.id)
+                logger.exception("[Device %s] %s acquisition failed", self.id, what)
 
     async def _read_dependencies(self, names: set[str]) -> None:
         """Read each input once, capability identities first, a few at a time.
@@ -1130,7 +1145,8 @@ class CoreDevice:
                 # observed again.
                 self._guard.forget(attribute_name)
                 self._notify_write_state()
-                await self.transport.write(address, encoded)
+                with self._reacquire_on_failure(attribute_name):
+                    await self.transport.write(address, encoded)
         logger.info(
             "Wrote attribute '%s' with value '%s' to device '%s'",
             attribute_name,
@@ -1138,12 +1154,32 @@ class CoreDevice:
             self.id,
         )
         if confirm:
-            await self._confirm_attribute_value(
-                attribute_name, validated, confirm_timeout
-            )
+            with self._reacquire_on_failure(attribute_name):
+                await self._confirm_attribute_value(
+                    attribute_name, validated, confirm_timeout
+                )
             if context != self._guard.mapping_context(attribute_name):
                 raise WriteRejectedError([WriteReason(code="mapping_changed")])
         return attribute
+
+    @contextlib.contextmanager
+    def _reacquire_on_failure(self, attribute_name: str) -> Iterator[None]:
+        """A write that fails after its target was forgotten reads the target
+        again in the background, when something depends on it, rather than
+        leaving it unknown until the next push. A transport that is down is
+        left to the reconnection, which acquires what is missing."""
+        try:
+            yield
+        except BaseException:
+            if (
+                self._syncing
+                and self.transport.read_supported
+                and self.transport.connection_state.is_connected
+                and attribute_name in self._dependencies()
+            ):
+                self._unconfirmed.add(attribute_name)
+                self._target_refresh.request()
+            raise
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, CoreDevice):

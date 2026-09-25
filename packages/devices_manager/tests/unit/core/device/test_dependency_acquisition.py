@@ -11,6 +11,7 @@ constants it pins could not fail when they change.
 
 import asyncio
 from collections import Counter
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -27,6 +28,10 @@ from devices_manager.core.driver import (
     UpdateStrategy,
 )
 from devices_manager.core.transports.base import TransportClient
+from devices_manager.core.transports.transport_connection_state import (
+    TransportConnectionState,
+)
+from models.errors import ConfirmationError
 
 INPUTS = [f"input_{index}" for index in range(10)]
 
@@ -118,7 +123,12 @@ class Wire:
 async def acquired(*devices: CoreDevice) -> None:
     """Wait for the background acquisition of each device to finish."""
     await asyncio.gather(
-        *(d._dependency_refresh._task for d in devices if d._dependency_refresh._task)
+        *(
+            refresh._task
+            for d in devices
+            for refresh in (d._dependency_refresh, d._target_refresh)
+            if refresh._task
+        )
     )
 
 
@@ -325,3 +335,194 @@ async def test_an_explicit_refresh_shares_the_device_bound(
     # refreshed attribute itself is read like any poll.
     assert wire.max_per_device <= 4
     assert "GET /d0/bounded" in wire.reads
+
+
+# `limit` is written and bounds `target_0`. The absent inputs never answer and
+# sort before it, so a pass over everything missing would stop on them first.
+# `free` is written too but bounds nothing.
+ABSENT = [f"absent_{index}" for index in range(4)]
+WRITTEN = [
+    spec("limit", write="POST /limit"),
+    spec("free", write="POST /free"),
+    *(spec(name) for name in ABSENT),
+    *targets(["limit", *ABSENT]),
+]
+
+
+async def written(transport, monkeypatch, wire: Wire) -> CoreDevice:
+    """A syncing device, already reported OK, whose absent inputs never answer."""
+
+    async def read(address) -> object:
+        if "/absent_" in address.id:
+            wire.reads.append(address.id)
+            msg = "no reply"
+            raise TimeoutError(msg)
+        return await wire.read(address)
+
+    monkeypatch.setattr(transport, "_read", read)
+    await TransportClient.connect(transport)
+    (device,) = fleet(transport, 1, WRITTEN)
+    await device.start_sync()
+    await device.read_attribute_value("limit")
+    await acquired(device)
+    wire.reads.clear()
+    return device
+
+
+async def hold(transport) -> int:
+    """Take every acquisition slot, as a busy fleet would; returns how many."""
+    held = 0
+    while not transport.acquisitions.locked():
+        await transport.acquisitions.acquire()
+        held += 1
+    return held
+
+
+async def unconfirmed(device: CoreDevice, _transport, _monkeypatch) -> None:
+    with pytest.raises(ConfirmationError):
+        await device.write_attribute_value("limit", 5.0, confirm_timeout=0.1)
+
+
+async def unsent(device: CoreDevice, transport, monkeypatch) -> None:
+    monkeypatch.setattr(
+        transport, "write", AsyncMock(side_effect=ConnectionError("refused"))
+    )
+    with pytest.raises(ConnectionError):
+        await device.write_attribute_value("limit", 5.0)
+
+
+async def abandoned(device: CoreDevice, _transport, _monkeypatch) -> None:
+    forgotten = asyncio.Event()
+    device.on_write_state_update = lambda _device: forgotten.set()
+    write = asyncio.create_task(device.write_attribute_value("limit", 5.0))
+    await forgotten.wait()  # the target is forgotten: being sent
+    await asyncio.sleep(0)  # let the confirmation start waiting
+    write.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await write
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("fail", [unconfirmed, unsent, abandoned])
+async def test_a_failed_write_reads_its_target_again_and_only_it(
+    mock_transport_client, monkeypatch, fail
+):
+    """After a firmware refusal or a timeout, the target is read again and what
+    it bounds is known again, without waiting for the next push. Inputs that
+    never answer are neither retried nor able to stop that read."""
+    wire = Wire()
+    device = await written(mock_transport_client, monkeypatch, wire)
+
+    await fail(device, mock_transport_client, monkeypatch)
+    await acquired(device)
+
+    assert wire.reads == ["GET /d0/limit"]
+    assert device.known_attribute_value("limit") == 1.0
+    assert device.evaluate_attribute_write("target_0", 2.0).eligible
+    await device.stop_sync()
+
+
+def independent(_transport, _monkeypatch) -> str:
+    return "free"
+
+
+def disconnected(transport, _monkeypatch) -> str:
+    """The reconnection acquires what is missing once the link is back."""
+    transport.connection_state = TransportConnectionState.connection_error("down")
+    return "limit"
+
+
+def ingress_only(transport, monkeypatch) -> str:
+    monkeypatch.setattr(transport, "read_supported", False)
+    return "limit"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case", [independent, disconnected, ingress_only])
+async def test_a_failed_write_that_nothing_can_read_back_starts_no_pass(
+    mock_transport_client, monkeypatch, case
+):
+    wire = Wire()
+    device = await written(mock_transport_client, monkeypatch, wire)
+    name = case(mock_transport_client, monkeypatch)
+
+    with pytest.raises(ConfirmationError):
+        await device.write_attribute_value(name, 5.0, confirm_timeout=0.1)
+
+    assert device._target_refresh._task is None
+    assert wire.reads == []
+    await device.stop_sync()
+
+
+@pytest.mark.asyncio
+async def test_a_target_observed_before_its_pass_is_not_read_again(
+    mock_transport_client, monkeypatch
+):
+    wire = Wire()
+    device = await written(mock_transport_client, monkeypatch, wire)
+    held = await hold(mock_transport_client)
+
+    await unconfirmed(device, mock_transport_client, monkeypatch)
+    await device.read_attribute_value("limit")  # a poll lands first
+    for _ in range(held):
+        mock_transport_client.acquisitions.release()
+    await acquired(device)
+
+    assert wire.reads == ["GET /d0/limit"]
+    await device.stop_sync()
+
+
+@pytest.mark.asyncio
+async def test_stopping_a_device_cancels_its_pending_target_read(
+    mock_transport_client, monkeypatch
+):
+    """A read queued by a failed write never outlives the device."""
+    wire = Wire()
+    device = await written(mock_transport_client, monkeypatch, wire)
+    held = await hold(mock_transport_client)
+
+    await unconfirmed(device, mock_transport_client, monkeypatch)
+    pending = device._target_refresh._task
+    await device.stop_sync()
+    for _ in range(held):
+        mock_transport_client.acquisitions.release()
+
+    assert pending is not None
+    assert pending.cancelled()
+    assert wire.reads == []
+
+
+@pytest.mark.asyncio
+async def test_a_failed_write_on_a_device_not_syncing_starts_nothing(
+    mock_transport_client, monkeypatch
+):
+    """A stopped device has closed its worker: a pass started now would outlive
+    it."""
+    monkeypatch.setattr(mock_transport_client, "_read", Wire().read)
+    await TransportClient.connect(mock_transport_client)
+    (device,) = fleet(mock_transport_client, 1, WRITTEN)
+
+    await unconfirmed(device, mock_transport_client, monkeypatch)
+
+    assert device._target_refresh._task is None
+
+
+@pytest.mark.asyncio
+async def test_a_pass_that_fails_is_logged_and_ends_quietly(
+    mock_transport_client, monkeypatch, caplog
+):
+    """A background pass has no caller to raise to: its failure is logged and
+    the worker stays usable."""
+    wire = Wire()
+    device = await written(mock_transport_client, monkeypatch, wire)
+    monkeypatch.setattr(
+        device, "_read_dependencies", AsyncMock(side_effect=RuntimeError("boom"))
+    )
+
+    device._request_dependencies()  # the absent inputs are always missing
+    await unconfirmed(device, mock_transport_client, monkeypatch)
+    await acquired(device)
+
+    assert "dependency acquisition failed" in caplog.text
+    assert "target acquisition failed" in caplog.text
+    await device.stop_sync()
