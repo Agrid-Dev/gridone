@@ -55,6 +55,21 @@ def test_candidate_guard_is_conservative(locked, reasons, status):
         assert result.reasons[0].message.translations["fr"] == "Verrouillé"
 
 
+def test_known_refusal_blocks_despite_an_unknown_rule():
+    contract = spec(
+        write_rules=[
+            rule({"op": "eq", "left": {"attribute": "lock"}, "right": 0}),
+            rule({"op": "eq", "left": {"attribute": "mode"}, "right": 1}),
+        ]
+    )
+    resolve = {"lock": 1, "mode": None}.get
+    reasons = [r.code for r in evaluate_write(contract, 22, resolve).reasons]
+    assert reasons == ["locked", "unknown_dependencies"]
+    state = project_write_state(contract, resolve)
+    assert state.status == "blocked"
+    assert state.missing_dependencies
+
+
 def test_arithmetic_candidate_guard_and_warning():
     condition = {
         "op": "lte",

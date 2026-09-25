@@ -172,6 +172,7 @@ def project_write_state(
         result.options = _project_options(spec, context)
         evaluation = WriteEvaluation(eligible=True)
         _evaluate_rules(spec, context, evaluation, projecting=True)
+        refused = any(r.code != "unknown_dependencies" for r in evaluation.reasons)
         result.reasons = evaluation.reasons
         result.warnings = evaluation.warnings
         result.candidate_required = any(
@@ -192,7 +193,9 @@ def project_write_state(
             + [r for option in result.options or [] for r in option.reasons]
         )
         if result.reasons:
-            result.status = "unknown" if result.missing_dependencies else "blocked"
+            result.status = (
+                "unknown" if result.missing_dependencies and not refused else "blocked"
+            )
     except EvaluationLimitError:
         result.status = "blocked"
         result.reasons = [WriteReason(code="evaluation_limit")]
