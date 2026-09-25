@@ -424,9 +424,7 @@ describe("useDeviceControlRuntime", () => {
         },
       }),
     );
-    expect(rendered.result.current.readControl("target")?.awaiting).toEqual(
-      [],
-    );
+    expect(rendered.result.current.readControl("target")?.awaiting).toEqual([]);
     act(() => rendered.result.current.setValue("power", false));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
@@ -438,9 +436,7 @@ describe("useDeviceControlRuntime", () => {
       finish({ id: "cmd" });
       await vi.advanceTimersByTimeAsync(0);
     });
-    expect(rendered.result.current.readControl("target")?.awaiting).toEqual(
-      [],
-    );
+    expect(rendered.result.current.readControl("target")?.awaiting).toEqual([]);
   });
 
   it("drops pending intentions when the device changes", async () => {
