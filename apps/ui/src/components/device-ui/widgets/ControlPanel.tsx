@@ -150,13 +150,15 @@ export function ControlFeedback({
           {reasons}
         </p>
       )}
-      {writeState?.missing_dependencies && !onlyAwaiting && runtime.deviceId && (
-        <AttributeDependencies
-          deviceId={runtime.deviceId}
-          attribute={state.spec.attribute}
-          labels={missing.map(label)}
-        />
-      )}
+      {writeState?.missing_dependencies &&
+        !onlyAwaiting &&
+        runtime.deviceId && (
+          <AttributeDependencies
+            deviceId={runtime.deviceId}
+            attribute={state.spec.attribute}
+            labels={missing.map(label)}
+          />
+        )}
       {warnings && <p className="text-xs text-amber-700">{warnings}</p>}
     </>
   );
@@ -386,11 +388,7 @@ function OptionButton({
   // The trigger stays mounted when a reason comes or goes, so focus is kept.
   return (
     <>
-      <Tooltip
-        open={open && !!reason}
-        onOpenChange={setOpen}
-        delayDuration={0}
-      >
+      <Tooltip open={open && !!reason} onOpenChange={setOpen} delayDuration={0}>
         <TooltipTrigger asChild>
           <button
             type="button"
@@ -456,8 +454,7 @@ function ControlStatus({
     return () => clearTimeout(timer);
   }, [state]);
   const failed = state.kind === "error" || state.kind === "unconfirmed";
-  const waiting =
-    !failed && state.kind !== "sending" && awaiting.length > 0;
+  const waiting = !failed && state.kind !== "sending" && awaiting.length > 0;
   const text = waiting
     ? t("presentation.awaiting", { names: awaiting.join(", ") })
     : state.kind === "sending"

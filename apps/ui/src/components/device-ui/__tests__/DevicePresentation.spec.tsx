@@ -1023,7 +1023,10 @@ describe("no layout shift during a command", () => {
             value: "middle",
             available: false,
             reasons: [
-              { code: "locked", message: { default: "Middle speed is locked" } },
+              {
+                code: "locked",
+                message: { default: "Middle speed is locked" },
+              },
             ],
           },
         ],
