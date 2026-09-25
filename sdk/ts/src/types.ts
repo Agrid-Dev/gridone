@@ -144,6 +144,13 @@ export type SymbolSchema = {
   "x-footprint": SymbolFootprint | null;
   "x-ports": Record<string, SymbolPort>;
   "x-ports-authored": boolean;
+  /** The groups of ports the fluid passes between inside the symbol; a
+   *  port in none is a dead end, and `"all"` joins every port the instance
+   *  has (the collector, whose ports are authored). */
+  "x-passages": string[][] | "all";
+  /** A `state` reading off stops the fluid there: a stopped pump, a
+   *  closed valve. */
+  "x-gates-flow": boolean;
   "x-slots": string[];
   "x-required-slots": string[];
   "x-inline": boolean;

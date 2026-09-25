@@ -1,4 +1,5 @@
 import type { ReactNode, RefObject } from "react";
+import { TextScaleContext, textScale } from "./legibility";
 import {
   useViewport,
   type View,
@@ -20,6 +21,12 @@ type PidDiagramProps = {
   /** Receives the controls a toolbar drives the view with. */
   controller?: RefObject<ViewportController | null>;
   onViewChange?: (view: View) => void;
+  /** The least a text `textSize` units high may show on screen, in px:
+   *  below it the text is held at that size and what no longer fits gives
+   *  way. None lets the text shrink with the zoom. */
+  minTextPx?: number;
+  /** The drawn size of the plate's smallest text, in viewBox units. */
+  textSize?: number;
   children: ReactNode;
 };
 
@@ -37,9 +44,11 @@ export function PidDiagram({
   touchAction = "pan-y",
   controller,
   onViewChange,
+  minTextPx,
+  textSize = 1,
   children,
 }: PidDiagramProps) {
-  const { svgRef, handle, transform } = useViewport({
+  const { svgRef, handle, transform, pxPerUnit } = useViewport({
     width,
     height,
     controller,
@@ -54,7 +63,11 @@ export function PidDiagram({
       style={{ touchAction }}
       {...handle}
     >
-      <g transform={transform}>{children}</g>
+      <TextScaleContext.Provider
+        value={textScale(minTextPx, textSize, pxPerUnit)}
+      >
+        <g transform={transform}>{children}</g>
+      </TextScaleContext.Provider>
     </svg>
   );
 }

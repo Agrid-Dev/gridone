@@ -92,6 +92,21 @@ export function useViewport({
   const pinched = useRef(false);
   const viewRef = useRef(view);
   viewRef.current = view;
+  // The screen pixels one viewBox unit covers once fitted (`meet`): what the
+  // view's scale multiplies. Zero until the canvas is laid out.
+  const [fitPx, setFitPx] = useState(0);
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const measure = () => {
+      const { width: w, height: h } = svg.getBoundingClientRect();
+      setFitPx(w > 0 && h > 0 ? Math.min(w / width, h / height) : 0);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(svg);
+    return () => observer.disconnect();
+  }, [width, height]);
 
   useEffect(() => {
     onViewChange?.(view);
@@ -207,5 +222,7 @@ export function useViewport({
       onDoubleClick: () => setView(FIT),
     },
     transform: `translate(${view.x} ${view.y}) scale(${view.scale})`,
+    /** Screen pixels per viewBox unit at the current zoom; 0 before layout. */
+    pxPerUnit: fitPx * view.scale,
   };
 }

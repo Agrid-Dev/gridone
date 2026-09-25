@@ -17,6 +17,9 @@ from synoptics.models import Cell, Symbol
 from synoptics.symbols.props import CollectorProps, LinkProps, NoProps, TankProps
 from synoptics.symbols.types import Footprint, Port, SymbolType
 
+# A passage joins ports: one alone is a dead end, which is no passage at all.
+MIN_PASSAGE_PORTS = 2
+
 
 class SymbolRegistry:
     """Validates a symbol against its type and publishes the type's schema."""
@@ -39,7 +42,44 @@ class SymbolRegistry:
                 f"declare: {names}"
             )
             raise InvalidError(msg)
+        self._check_passages(symbol_type)
+        # The gate reads the ``state`` slot: without it the type can never
+        # stop a circuit, whatever it says.
+        if symbol_type.gates_flow and "state" not in symbol_type.slots:
+            msg = f"Symbol type {symbol_type.type!r} gates the flow with no state"
+            raise InvalidError(msg)
         self._types[symbol_type.type] = symbol_type
+
+    @staticmethod
+    def _check_passages(symbol_type: SymbolType) -> None:
+        """A passage joins at least two of the type's own ports, and a port
+        belongs to one passage at most: otherwise a circuit walked through the
+        symbol would leave by a port it does not have, or merge two sides the
+        type keeps apart. A type whose ports come from props cannot name them,
+        so it takes ``"all"`` or nothing."""
+        passages = symbol_type.passages
+        if passages == "all":
+            return
+        name = symbol_type.type
+        if passages and symbol_type.ports_from_props is not None:
+            msg = f"Symbol type {name!r} authors its ports: its passages are 'all'"
+            raise InvalidError(msg)
+        seen: set[str] = set()
+        for passage in passages:
+            if len(passage) < MIN_PASSAGE_PORTS:
+                msg = f"Symbol type {name!r} has a passage of fewer than two ports"
+                raise InvalidError(msg)
+            unknown = set(passage) - set(symbol_type.ports)
+            if unknown:
+                names = ", ".join(sorted(unknown))
+                msg = f"Symbol type {name!r} passes through ports it lacks: {names}"
+                raise InvalidError(msg)
+            shared = seen & set(passage)
+            if shared:
+                names = ", ".join(sorted(shared))
+                msg = f"Symbol type {name!r} puts ports in two passages: {names}"
+                raise InvalidError(msg)
+            seen |= set(passage)
 
     def get(self, type_: str) -> SymbolType:
         """Look up a registered symbol type. Raises :class:`NotFoundError` when
@@ -115,6 +155,12 @@ class SymbolRegistry:
                 # editor must read them off the instance instead of concluding
                 # the symbol has no attachment points.
                 "x-ports-authored": t.ports_from_props is not None,
+                "x-passages": (
+                    t.passages
+                    if t.passages == "all"
+                    else [list(passage) for passage in t.passages]
+                ),
+                "x-gates-flow": t.gates_flow,
                 "x-slots": list(t.slots),
                 "x-required-slots": sorted(t.required_slots),
                 "x-inline": t.inline,
@@ -155,6 +201,8 @@ def build_default_registry() -> SymbolRegistry:
                 "supply": Port(offset=Cell(x=1, y=1), side="+x"),
                 "return": Port(offset=Cell(x=0, y=1), side="-x"),
             },
+            passages=(("return", "supply"),),
+            gates_flow=True,
             slots=("state", "fault", "supply_temp", "power"),
         )
     )
@@ -168,6 +216,7 @@ def build_default_registry() -> SymbolRegistry:
                 "dhw_out": Port(offset=Cell(x=0, y=0), side="+x"),
                 "dhw_in": Port(offset=Cell(x=0, y=1), side="+x"),
             },
+            passages=(("primary_in", "primary_out"), ("dhw_in", "dhw_out")),
             slots=("temperature",),
             props_model=TankProps,
         )
@@ -179,6 +228,7 @@ def build_default_registry() -> SymbolRegistry:
             rotation_locked=True,
             props_model=CollectorProps,
             ports_from_props=collector_ports,
+            passages="all",
         )
     )
     registry.register(
@@ -190,6 +240,7 @@ def build_default_registry() -> SymbolRegistry:
                 "cold_in": Port(offset=Cell(x=0, y=0), side="+y"),
                 "out": Port(offset=Cell(x=0, y=0), side="+x"),
             },
+            passages=(("hot_in", "cold_in", "out"),),
             slots=("supply_temp",),
         )
     )
@@ -199,6 +250,7 @@ def build_default_registry() -> SymbolRegistry:
             footprint=Footprint(w=1, d=1),
             slots=("state", "speed"),
             inline=True,
+            gates_flow=True,
         )
     )
     registry.register(
@@ -207,6 +259,7 @@ def build_default_registry() -> SymbolRegistry:
             footprint=Footprint(w=1, d=1),
             slots=("state",),
             inline=True,
+            gates_flow=True,
         )
     )
     registry.register(
@@ -232,6 +285,7 @@ def build_default_registry() -> SymbolRegistry:
                 "in": Port(offset=Cell(x=0, y=0), side="-x"),
                 "out": Port(offset=Cell(x=0, y=1), side="-x"),
             },
+            passages=(("in", "out"),),
             props_model=LinkProps,
         )
     )
@@ -245,6 +299,10 @@ def build_default_registry() -> SymbolRegistry:
                 "secondary_in": Port(offset=Cell(x=0, y=0), side="-y"),
                 "secondary_out": Port(offset=Cell(x=0, y=0), side="+y"),
             },
+            passages=(
+                ("primary_in", "primary_out"),
+                ("secondary_in", "secondary_out"),
+            ),
         )
     )
     registry.register(
@@ -271,6 +329,7 @@ def build_default_registry() -> SymbolRegistry:
             footprint=Footprint(w=1, d=1),
             slots=("state",),
             inline=True,
+            gates_flow=True,
         )
     )
     registry.register(

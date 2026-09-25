@@ -108,7 +108,8 @@ const DOC: Synoptic = {
       fluid: "primary_supply",
       from: { kind: "cell", cell: { x: 0, y: 0 } },
       to: { kind: "cell", cell: { x: 1, y: 0 } },
-      // Nothing draws a run's flow: the device it names is never listed.
+      // A run's flow sets its circuit moving (isometric view): the device
+      // it names is read with the rest of the plate.
       flow: slot({ ids: ["FLOW-1"] }, "onoff_state"),
       tags: [
         {
@@ -213,9 +214,12 @@ describe("useSynopticValues", () => {
     expect(slots["symbol.pac.fault"].text).toBeNull();
     expect(slots["symbol.pac.fault"].faulty).toBe(true);
     expect(slots["label.rooms"]).toBeUndefined();
+    // The flow's device lacks the attribute: its slot is there, silent.
+    expect(slots["pipe.supply.flow"].raw).toBeNull();
     expect(devices).toEqual({
       "PAC-03": { faulty: true, severity: null },
       "B-01": { faulty: false, severity: null },
+      "FLOW-1": { faulty: false, severity: null },
     });
   });
 
@@ -225,8 +229,10 @@ describe("useSynopticValues", () => {
       expect(rendered.result.current.slots["tag.flow"].raw).toBe(true),
     );
     expect(mockList).toHaveBeenCalledWith({ type: ["awhp"] });
-    // The symbols' devices and the tag's resolved one; not the flow's.
-    expect(mockList).toHaveBeenCalledWith({ ids: ["PAC-03", "B-01"] });
+    // The symbols' devices, the flow's, and the tag's resolved one.
+    expect(mockList).toHaveBeenCalledWith({
+      ids: ["PAC-03", "B-01", "FLOW-1"],
+    });
     expect(mockList).toHaveBeenCalledTimes(2);
     // Seeded from the list: no per-device request.
     expect(mockGet).not.toHaveBeenCalled();
@@ -254,7 +260,7 @@ describe("useSynopticValues", () => {
     // The filter query, then one plate list that already carries PUMP-1.
     expect(mockList).toHaveBeenCalledTimes(2);
     expect(mockList).toHaveBeenLastCalledWith({
-      ids: ["PAC-03", "B-01", "PUMP-1"],
+      ids: ["PAC-03", "B-01", "FLOW-1", "PUMP-1"],
     });
     expect(rendered.result.current.devices["PUMP-1"].faulty).toBe(false);
   });
@@ -335,7 +341,9 @@ describe("useSynopticValues", () => {
     await waitFor(() =>
       expect(mockList.mock.calls.length).toBeGreaterThan(listed),
     );
-    expect(mockList).toHaveBeenLastCalledWith({ ids: ["PAC-03", "B-01"] });
+    expect(mockList).toHaveBeenLastCalledWith({
+      ids: ["PAC-03", "B-01", "FLOW-1"],
+    });
 
     socket.isConnected = false;
     const offline = setup();

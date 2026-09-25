@@ -3,12 +3,15 @@
 // the authenticated app shell, so a browser can screenshot the kit. Vite
 // serves it in development at `/synoptics-harness.html`; the production
 // build never includes it, since `index.html` is the only build entry.
-// `?plate=<name>&projection=flat|isometric&dark=1&lang=en&page`.
+// `?plate=<name>&projection=flat|isometric&dark=1&lang=en&page`, where
+// `page` is the plate's card alone and `page=detail` the whole page in a
+// stand-in of the app's shell (1440 × 900 measures the drawing's share);
+// `print=1` then lays the page out for paper, as `beforeprint` does.
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { Device, Synoptic } from "@gridone/sdk";
+import type { Device, Synoptic, SynopticSummary } from "@gridone/sdk";
 import "@/index.css";
 import i18n from "@/i18n";
 import { SynopticRenderer } from "@/components/synoptic";
@@ -16,7 +19,9 @@ import type { SynopticValues } from "@/components/synoptic/values";
 import { TooltipProvider } from "@/components/ui";
 import { AttributeConfirmationProvider } from "@/contexts/AttributeConfirmationContext";
 import { GridoneClientProvider } from "@/contexts/GridoneClientContext";
+import { PageContainer } from "@/components/layout/PageLayout";
 import { PlateView } from "@/pages/synoptics/PlateView";
+import { SynopticPage } from "@/pages/synoptics/SynopticPage";
 import ecsEst from "../../../../docs/specs/synoptic/ecs-est.json";
 import ecsOuest from "../../../../docs/specs/synoptic/ecs-ouest.json";
 import chaud from "../../../../docs/specs/synoptic/production-chaud.json";
@@ -102,6 +107,18 @@ const VALUES: SynopticValues = {
     "tag.tt-manque-eau": live("NORMAL", false),
     "symbol.cpt-ec-ech-04.energy": live("238952", 238952, "Wh"),
     "symbol.pot-a-boue.fault": live("NORMAL", false),
+    // What sets the circuits moving in the isometric view: the running
+    // heat pumps and pumps, the stopped ones still, one pump's reading old.
+    "pipe.pac-03-supply.flow": live("MARCHE", true),
+    "pipe.pac-04-supply.flow": live("ARRÊT", false),
+    "pipe.pac-01-supply.flow": live("MARCHE", true),
+    "pipe.pac-02-supply.flow": live("ARRÊT", false),
+    "pipe.pec-d2-a-branch.flow": live("MARCHE", true),
+    "pipe.pec-d2-b-branch.flow": live("ARRÊT", false),
+    "pipe.pec-d3-a-branch.flow": live("ARRÊT", false),
+    "pipe.pec-d3-b-branch.flow": { ...live("MARCHE", true), stale: true },
+    "pipe.peg-e2-a-branch.flow": live("MARCHE", true),
+    "pipe.peg-e2-b-branch.flow": live("ARRÊT", false),
   },
   // PAC 04 in alert, pump PEC-D2 B in warning, the ECH-04 meter for info.
   devices: {
@@ -159,7 +176,41 @@ const client = {
   },
 };
 const queryClient = new QueryClient();
-const page = params.get("page") !== null;
+const page = params.get("page");
+
+const SUMMARIES: SynopticSummary[] = Object.entries(PLATES).map(
+  ([id, plate]) => ({
+    id,
+    name: (plate as Synoptic).name,
+    description: (plate as Synoptic).description,
+    projection: (plate as Synoptic).projection ?? "isometric",
+    metadata: {},
+  }),
+);
+
+/** Another plate, as the page's switcher opens it. */
+const openPlate = (id: string) => {
+  params.set("plate", id);
+  window.location.search = params.toString();
+};
+
+// Lay the page out for paper once it has rendered, for a headless print.
+if (params.get("print")) {
+  window.setTimeout(() => window.dispatchEvent(new Event("beforeprint")), 800);
+}
+
+/** The app's top bar and sidebar, as boxes of their size, around a page. */
+const Shell = ({ children }: { children: React.ReactNode }) => (
+  <div className="min-h-screen bg-background">
+    <div className="fixed left-0 right-0 top-0 z-40 h-16 border-b border-border bg-sidebar lg:left-64" />
+    <div className="fixed left-0 top-0 z-40 hidden h-screen w-64 border-r border-border bg-sidebar lg:block" />
+    <div className="flex min-h-screen min-w-0 flex-col pt-16 lg:ml-64">
+      <main className="min-w-0 flex-1">
+        <PageContainer>{children}</PageContainer>
+      </main>
+    </div>
+  </div>
+);
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
@@ -168,9 +219,24 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <BrowserRouter>
           <TooltipProvider>
             <AttributeConfirmationProvider>
-              {page ? (
+              {page === "detail" ? (
+                <Shell>
+                  <SynopticPage
+                    doc={doc}
+                    values={VALUES}
+                    knownSynoptics={new Set(Object.keys(PLATES))}
+                    synoptics={SUMMARIES}
+                    pinned={null}
+                    onPin={() => undefined}
+                    onNavigate={openPlate}
+                    faults={{ rows: [], loading: false, error: null }}
+                    canWrite
+                  />
+                </Shell>
+              ) : page !== null ? (
                 <div className="min-h-screen bg-background p-6">
                   <PlateView
+                    className="h-[40rem]"
                     doc={doc}
                     values={VALUES}
                     knownSynoptics={new Set(Object.keys(PLATES))}
