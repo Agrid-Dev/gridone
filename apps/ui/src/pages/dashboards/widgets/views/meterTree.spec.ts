@@ -4,10 +4,13 @@ import {
   buildMeterTreeRows,
   collectMeterKeys,
   defaultCollapsed,
+  buildMeterTreeHierarchy,
   meterKey,
   parseMeterKey,
   visibleMeterKeys,
   type MeterTreeRow,
+  type MeterAttributes,
+  type MeterTreeDatum,
   type MeterValues,
 } from "./meterTree";
 
@@ -394,5 +397,142 @@ describe("collapsing", () => {
     // Depth 0 and 1 stay open; "A1" is deep enough and has children; "A1a" and
     // "B" are leaves, and folding a leaf would draw a twisty that does nothing.
     expect([...defaultCollapsed(deep)]).toEqual(["0.0.0"]);
+  });
+});
+
+describe("units", () => {
+  /** Declared units keyed the way the module keys them. */
+  const units = (entries: Record<string, string | null>): MeterAttributes =>
+    new Map(
+      Object.entries(entries).map(([id, unit]) => [
+        meterKey(meter(id)) as string,
+        { unit },
+      ]),
+    );
+
+  const unitOf = (datum: MeterTreeDatum, path: number[]) =>
+    path.reduce((d, index) => d.children[index], datum).unit;
+
+  const values = readings({ main: 100, a: 40, b: 30 });
+
+  it("gives a meter the unit its attribute declares", () => {
+    const tree = node("Building", meter("main"), [node("HVAC", meter("a"))]);
+    const built = buildMeterTreeHierarchy(
+      tree,
+      values,
+      new Set(),
+      units({ main: "kWh", a: "Wh" }),
+    );
+
+    expect(unitOf(built, [])).toBe("kWh");
+    expect(unitOf(built, [0])).toBe("Wh");
+  });
+
+  it("leaves a meter bare when its unit is undeclared or not known yet", () => {
+    const tree = node("Building", meter("main"), [node("HVAC", meter("a"))]);
+    const built = buildMeterTreeHierarchy(
+      tree,
+      values,
+      new Set(),
+      units({ a: null }),
+    );
+
+    expect(unitOf(built, [])).toBeNull();
+    expect(unitOf(built, [0])).toBeNull();
+  });
+
+  it("leaves a scaled meter bare, since its scale converts the declared unit", () => {
+    const tree: MeterTreeNode = {
+      label: "Lighting",
+      meter: meter("b"),
+      scale: 0.001,
+      children: [],
+    };
+    const built = buildMeterTreeHierarchy(
+      tree,
+      values,
+      new Set(),
+      units({ b: "Wh" }),
+    );
+
+    expect(built.unit).toBeNull();
+  });
+
+  it("measures a residual in its parent's unit", () => {
+    const tree = node("Building", meter("main"), [node("HVAC", meter("a"))]);
+    const built = buildMeterTreeHierarchy(
+      tree,
+      values,
+      new Set(),
+      units({ main: "kWh", a: "kWh" }),
+    );
+
+    expect(built.children[1].kind).toBe("residual");
+    expect(unitOf(built, [1])).toBe("kWh");
+  });
+
+  it("measures a group in the unit its children share", () => {
+    const tree = node("Riser", undefined, [
+      node("HVAC", meter("a")),
+      node("Lighting", meter("b")),
+    ]);
+
+    expect(
+      buildMeterTreeHierarchy(
+        tree,
+        values,
+        new Set(),
+        units({ a: "kWh", b: "kWh" }),
+      ).unit,
+    ).toBe("kWh");
+    expect(
+      buildMeterTreeHierarchy(
+        tree,
+        values,
+        new Set(),
+        units({ a: "kWh", b: "Wh" }),
+      ).unit,
+    ).toBeNull();
+  });
+
+  it("carries units onto the flat rows", () => {
+    const tree = node("Building", meter("main"), [node("HVAC", meter("a"))]);
+    const rows = buildMeterTreeRows(
+      tree,
+      values,
+      new Set(),
+      units({ main: "kWh", a: "kWh" }),
+    );
+
+    expect(rows.map((row) => row.unit)).toEqual(["kWh", "kWh", "kWh"]);
+  });
+});
+
+describe("labels", () => {
+  it("keeps a node's own label, and leaves an unlabelled one to its attribute", () => {
+    const tree = node("Building", meter("main"), [
+      { meter: meter("a", "hvac_energy"), children: [] },
+    ]);
+    const built = buildMeterTreeHierarchy(tree, readings({}));
+
+    expect(built.label).toBe("Building");
+    expect(built.children[0].label).toBeNull();
+    expect(built.children[0].attribute).toBe("hvac_energy");
+  });
+
+  it("carries the label the attribute's driver declares", () => {
+    const tree: MeterTreeNode = {
+      meter: meter("a", "hvac_energy"),
+      children: [],
+    };
+    const label = { default: "HVAC", translations: { fr: "CVC" } };
+    const built = buildMeterTreeHierarchy(
+      tree,
+      readings({}),
+      new Set(),
+      new Map([[meterKey(tree.meter) as string, { label }]]),
+    );
+
+    expect(built.attributeLabel).toEqual(label);
   });
 });

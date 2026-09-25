@@ -8,6 +8,7 @@ import { ParentSize } from "@visx/responsive";
 import type { MeterTreeWidgetConfig } from "@gridone/sdk";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fmt } from "@/lib/formatValue";
+import { useAttributeLabel } from "@/hooks/useAttributeLabel";
 import { useDashboardPeriod } from "../../useDashboardPeriod";
 import {
   buildMeterTreeHierarchy,
@@ -15,6 +16,7 @@ import {
   type CollapsedNodes,
   type MeterTreeDatum,
 } from "./meterTree";
+import { useMeterTreeAttributes } from "./useMeterTreeAttributes";
 import { useMeterTreeValues } from "./useMeterTreeValues";
 
 /** Box drawn per node: wide enough for a circuit name plus its figures. */
@@ -165,9 +167,18 @@ const NodeBox: FC<{
             : "fill-foreground text-[12px] tabular-nums"
         }
       >
-        {datum.total === null
-          ? noReading
-          : `${bounded ? "≤ " : ""}${fmt(datum.total, 0)}`}
+        {datum.total === null ? (
+          noReading
+        ) : (
+          <>
+            {`${bounded ? "≤ " : ""}${fmt(datum.total, 0)}`}
+            {datum.unit && (
+              <tspan className="fill-muted-foreground text-[11px]">
+                {` ${datum.unit}`}
+              </tspan>
+            )}
+          </>
+        )}
       </text>
       <text
         x={NODE_W - 10}
@@ -206,7 +217,14 @@ const TreeCanvas: FC<{
   onToggle: (key: string) => void;
 }> = ({ root, width, onToggle }) => {
   const { t } = useTranslation("dashboards");
+  const attributeLabel = useAttributeLabel();
   const data = hierarchy<MeterTreeDatum>(root);
+  // A node's own label wins; an unlabelled one is named after its attribute.
+  const labelOf = (datum: MeterTreeDatum) =>
+    datum.kind === "residual"
+      ? t("widgets.meterTree.unmetered")
+      : (datum.label ??
+        attributeLabel(datum.attribute ?? "", { label: datum.attributeLabel }));
 
   // One row per node, in reading order, rather than the layout's default of
   // centring each parent over its children: centring buries the root halfway
@@ -250,11 +268,7 @@ const TreeCanvas: FC<{
                   <NodeBox
                     key={node.data.key}
                     node={node}
-                    label={
-                      node.data.kind === "residual"
-                        ? t("widgets.meterTree.unmetered")
-                        : node.data.label
-                    }
+                    label={labelOf(node.data)}
                     noReading={t("widgets.meterTree.noReading")}
                     incompleteMark={t("widgets.meterTree.incomplete")}
                     onToggle={onToggle}
@@ -294,6 +308,7 @@ export const MeterTreeWidgetView: FC<{ config: unknown }> = ({ config }) => {
       return next;
     });
   }, []);
+  const attributes = useMeterTreeAttributes(root, collapsed);
   const { values, loading } = useMeterTreeValues(
     root,
     { ...period.query, refetchInterval: period.refetchInterval },
@@ -317,7 +332,12 @@ export const MeterTreeWidgetView: FC<{ config: unknown }> = ({ config }) => {
     );
   }
 
-  const annotated = buildMeterTreeHierarchy(root, values, collapsed);
+  const annotated = buildMeterTreeHierarchy(
+    root,
+    values,
+    collapsed,
+    attributes,
+  );
   return (
     <div className="flex h-full w-full flex-col">
       <div className="min-h-0 flex-1 overflow-auto">
