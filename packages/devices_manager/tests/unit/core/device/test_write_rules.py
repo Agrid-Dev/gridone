@@ -145,6 +145,65 @@ def test_conditional_options_are_projected_and_enforced(
     assert not evaluate_write(contract, 23, {"locked": False}.get).eligible
 
 
+@pytest.mark.parametrize(
+    ("values", "reasons"),
+    [
+        (
+            {"slot_0": "fan", "lock": 0},
+            {
+                "fan": [],
+                "heat": ["unknown_dependencies"],
+                "cool": ["unknown_dependencies"],
+            },
+        ),
+        (
+            {"slot_0": "fan", "lock": 0, "mode_ok": False},
+            {"fan": [], "heat": ["unknown_dependencies"], "cool": ["incompatible"]},
+        ),
+        (
+            {"slot_0": "fan", "lock": 1, "mode_ok": True},
+            {
+                "fan": ["locked"],
+                "heat": ["unknown_dependencies"],
+                "cool": ["unknown_dependencies"],
+            },
+        ),
+    ],
+)
+def test_projected_options_give_the_reasons_a_write_gives(values, reasons):
+    contract = spec(
+        data_type="str",
+        write_options=[
+            {"value": "fan"},
+            {"value": "heat"},
+            {
+                "value": "cool",
+                "allowed_when": {
+                    "op": "eq",
+                    "left": {"attribute": "mode_ok"},
+                    "right": True,
+                },
+                "reason": {"code": "incompatible"},
+            },
+        ],
+        value_mapping={
+            "entries": [
+                {"code": i, "value": {"attribute": f"slot_{i}"}} for i in range(3)
+            ],
+            "duplicates": "first",
+            "stop_value": "error",
+        },
+        write_rules=[rule({"op": "eq", "left": {"attribute": "lock"}, "right": 0})],
+    )
+    state = project_write_state(contract, values.get)
+    assert state.options is not None
+    assert {o.value: [r.code for r in o.reasons] for o in state.options} == reasons
+    for option in state.options:
+        assert evaluate_write(contract, option.value, values.get).reasons == (
+            option.reasons
+        )
+
+
 def test_authored_option_reason_and_candidate_are_preserved():
     contract = spec(
         write_options=[
