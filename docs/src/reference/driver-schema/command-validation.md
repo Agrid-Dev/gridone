@@ -72,7 +72,9 @@ replace the observed value of the target attribute.
 | Choice | `{op: if, condition: condition, then: expression, otherwise: expression}` |
 
 A missing dependency produces **unknown**. `all(false, unknown)` is false and
-`any(true, unknown)` is true. A conditional evaluates only its selected branch;
+`any(true, unknown)` is true. The authored `reason` of an option or a required
+rule is reported only when its condition is false; an unknown condition reports
+`unknown_dependencies` instead. A conditional evaluates only its selected branch;
 unknown never chooses a fallback branch. Booleans are distinct from numbers.
 Import validates operand types, local references and mapping calculation cycles.
 Renaming a referenced attribute rewrites these declarations; deleting one is blocked.
