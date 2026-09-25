@@ -638,6 +638,7 @@
     "confirmed": "Applied",
     "error": "Failed: {{message}}",
     "unconfirmed": "Not confirmed by the device: {{message}}",
+    "awaiting": "Waiting for confirmation of {{names}}",
     "unavailable": "Unavailable",
     "increase": "Increase {{name}}",
     "decrease": "Decrease {{name}}",

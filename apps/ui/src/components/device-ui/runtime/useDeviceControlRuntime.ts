@@ -27,6 +27,8 @@ export type BoundControlState = {
   visible?: boolean;
   reasons?: WriteReason[];
   optionStates?: ResolvedOption[];
+  /** Missing dependencies that are missing only because a write of them is in flight. */
+  awaiting?: string[];
   write: WriteState;
   pending: boolean;
   constraints: ResolvedConstraints;
@@ -117,6 +119,10 @@ export function useDeviceControlRuntime(
         visible,
         reasons: attribute?.write_state?.reasons,
         optionStates: optionStates(attribute),
+        // The server forgets a target from the moment its write is sent.
+        awaiting: (attribute?.write_state?.missing_attributes ?? []).filter(
+          (name) => runtime.snapshot(name).write.kind === "sending",
+        ),
         write: snapshot.write,
         pending: snapshot.pending,
         constraints,
