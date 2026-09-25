@@ -1271,6 +1271,13 @@ describe("no layout shift during a command", () => {
     } as AttributeLike,
     reasons,
   });
+  // The driver asks for option reasons in a tooltip.
+  const tooltipFan: BoundControlState["spec"] = {
+    kind: "select",
+    attribute: "fan_speed",
+    label: { default: "Fan" },
+    optionReasonDisplay: "tooltip",
+  };
   const labelled = (runtime: DeviceUiRuntime): DeviceUiRuntime => ({
     ...runtime,
     deviceId: "dev-1",
@@ -1368,12 +1375,7 @@ describe("no layout shift during a command", () => {
   it("opens a tooltip reason on a tap too, since touch has no hover", async () => {
     const { runtime } = fakeRuntime({
       fan: {
-        spec: {
-          kind: "select",
-          attribute: "fan_speed",
-          label: { default: "Fan" },
-          optionReasonDisplay: "tooltip",
-        },
+        spec: tooltipFan,
         options: ["low", "middle"],
         optionStates: [
           { value: "low", available: true },
@@ -1398,5 +1400,31 @@ describe("no layout shift during a command", () => {
     expect(await screen.findByRole("tooltip")).toHaveTextContent(
       "Middle speed is locked",
     );
+  });
+
+  it("does not open a reason that arrives after a hover without one", async () => {
+    const user = userEvent.setup();
+    const { runtime } = fakeRuntime({ fan: { spec: tooltipFan } });
+    const { rerender } = renderPresentation(runtime);
+    await user.hover(screen.getByRole("radio", { name: "High" }));
+    await user.unhover(screen.getByRole("radio", { name: "High" }));
+    const { runtime: locked } = fakeRuntime({
+      fan: {
+        spec: tooltipFan,
+        optionStates: [
+          { value: "low", available: true },
+          {
+            value: "high",
+            available: false,
+            reasons: [
+              { code: "locked", message: { default: "High speed is locked" } },
+            ],
+          },
+        ],
+      },
+    });
+    rerender(presentation(locked));
+    await act(async () => {});
+    expect(screen.queryByRole("tooltip")).toBeNull();
   });
 });
