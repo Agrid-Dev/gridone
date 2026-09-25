@@ -1,4 +1,6 @@
 import type { MeterTreeNode } from "@gridone/sdk";
+import { attributeUnit } from "@/lib/attributeUnits";
+import type { LocalizedText } from "@/lib/localizedText";
 
 /** A node's meter reference, taken straight off the node so the SDK need
  *  not export the target type separately. */
@@ -12,6 +14,18 @@ type MeterTarget = MeterTreeNode["meter"];
  * single reading (and, upstream, a single request).
  */
 export type MeterValues = ReadonlyMap<string, number | null>;
+
+/** What the driver declares about the attribute a meter reads. */
+export type MeterAttribute = {
+  label?: LocalizedText | null;
+  unit?: string | null;
+};
+
+/**
+ * Driver metadata per meter, keyed by {@link meterKey} like {@link MeterValues}.
+ * A meter missing from the map is one whose device has not loaded (yet).
+ */
+export type MeterAttributes = ReadonlyMap<string, MeterAttribute>;
 
 /** Why a meter row shows the total it shows. */
 export type MeterRowState =
@@ -33,11 +47,16 @@ export type MeterTreeRow =
       kind: "meter";
       /** Stable identity for React, from the node's position in the tree. */
       key: string;
-      label: string;
+      /** The node's own label; `null` defers to its attribute's. */
+      label: string | null;
+      /** The attribute the node reads, to be named after when unlabelled. */
+      attribute?: string;
       /** 0 for the root; drives indentation. */
       depth: number;
       /** What this node contributes to its parent. */
       total: number | null;
+      /** What `total` is measured in, when that is known. */
+      unit: string | null;
       /** `total` over the parent's `total`; `null` when that cannot be divided by. */
       ratioOfParent: number | null;
       state: MeterRowState;
@@ -53,6 +72,8 @@ export type MeterTreeRow =
       depth: number;
       /** Parent's reading minus the sum of its children. */
       total: number;
+      /** The parent's unit: a residual is part of what its meter measured. */
+      unit: string | null;
       ratioOfParent: number | null;
       /**
        * Children sum to more than the parent metered. Physically impossible, so
@@ -199,6 +220,12 @@ function ratio(part: number | null, whole: number | null): number | null {
 
 type Resolved = {
   total: number | null;
+  /**
+   * What `total` is measured in. A meter's declared unit, unless the node
+   * scales it — a scale exists to convert, so the declared unit no longer
+   * describes the product. A group's is the one its children share.
+   */
+  unit: string | null;
   state: MeterRowState;
   ownReading: number | null;
   childrenTotal: number | null;
@@ -227,6 +254,7 @@ type Resolved = {
 function resolveAll(
   root: MeterTreeNode,
   values: MeterValues,
+  attributes: MeterAttributes,
 ): Map<MeterTreeNode, Resolved> {
   const resolved = new Map<MeterTreeNode, Resolved>();
 
@@ -241,10 +269,12 @@ function resolveAll(
 
     let childrenTotal: number | null = null;
     let childrenExact = true;
+    const childUnits = new Set<string | null>();
     if (children.length > 0) {
       let sum = 0;
       for (const child of children) {
         const childResolved = visit(child);
+        childUnits.add(childResolved.unit);
         if (childResolved.total === null || !childResolved.totalIsExact) {
           childrenExact = false;
         }
@@ -258,6 +288,7 @@ function resolveAll(
         ? {
             // Unmetered: it exists to group, so it stands in for what it groups.
             total: childrenTotal,
+            unit: childUnits.size === 1 ? [...childUnits][0] : null,
             state: "unmetered",
             ownReading: null,
             childrenTotal,
@@ -265,6 +296,10 @@ function resolveAll(
           }
         : {
             total: ownReading,
+            unit:
+              (node.scale ?? 1) === 1
+                ? meterUnit(key, attributes.get(key))
+                : null,
             state:
               ownReading === null ? "unknown" : ownReading < 0 ? "reset" : "ok",
             ownReading,
@@ -277,6 +312,20 @@ function resolveAll(
 
   visit(root);
   return resolved;
+}
+
+/**
+ * The declared unit of a node's meter, or `null` while its device is unknown.
+ *
+ * Through {@link attributeUnit}, so the tree agrees with every other surface
+ * on what an attribute is measured in.
+ */
+function meterUnit(
+  key: string,
+  attribute: MeterAttribute | undefined,
+): string | null {
+  if (attribute === undefined) return null;
+  return attributeUnit(parseMeterKey(key).attribute, attribute);
 }
 
 /** Whether every child contributes an exact figure to the sum below *node*. */
@@ -292,6 +341,16 @@ function childrenAreExact(
   });
 }
 
+/** The attribute label a node's driver declares, spread onto its datum. */
+function declaredLabel(
+  node: MeterTreeNode,
+  attributes: MeterAttributes,
+): { attributeLabel?: LocalizedText } {
+  const key = meterKey(node.meter);
+  const label = key ? attributes.get(key)?.label : null;
+  return label ? { attributeLabel: label } : {};
+}
+
 /**
  * A node as the view consumes it: the config's hierarchy annotated with what
  * each node consumed, plus a synthetic residual child where one applies.
@@ -302,11 +361,18 @@ function childrenAreExact(
  */
 export type MeterTreeDatum = {
   key: string;
-  label: string;
+  /** The node's own label; `null` defers to its attribute's. */
+  label: string | null;
   deviceId?: string;
+  /** The attribute the node reads, to be named after when unlabelled. */
+  attribute?: string;
+  /** The label the attribute's driver declares, when it declares one. */
+  attributeLabel?: LocalizedText;
   kind: "meter" | "residual";
   /** What this node contributes to its parent. */
   total: number | null;
+  /** What `total` is measured in, when that is known. */
+  unit: string | null;
   /** `total` over the parent's `total`; `null` when that cannot be divided by. */
   ratioOfParent: number | null;
   /**
@@ -343,11 +409,12 @@ export function buildMeterTreeHierarchy(
   root: MeterTreeNode,
   values: MeterValues,
   collapsed: CollapsedNodes = new Set(),
+  attributes: MeterAttributes = new Map(),
 ): MeterTreeDatum {
   // Resolved over the whole tree, then pruned — so folding changes only what is
   // drawn, never what a drawn node reports. Totals, shares and residuals come
   // out identical to the fully-open tree.
-  const resolvedNodes = resolveAll(root, values);
+  const resolvedNodes = resolveAll(root, values, attributes);
 
   const rootTotal = resolvedNodes.get(root)?.total ?? null;
 
@@ -372,9 +439,10 @@ export function buildMeterTreeHierarchy(
       const amount = resolved.ownReading - resolved.childrenTotal;
       children.push({
         key: `${key}.residual`,
-        label: "",
+        label: null,
         kind: "residual",
         total: amount,
+        unit: resolved.unit,
         ratioOfParent: ratio(amount, resolved.ownReading),
         shareOfTotal: ratio(amount, rootTotal),
         negative: amount < 0,
@@ -385,12 +453,15 @@ export function buildMeterTreeHierarchy(
 
     return {
       key,
-      label: node.label,
+      label: node.label ?? null,
       ...(node.meter?.devices?.ids?.[0]
         ? { deviceId: node.meter.devices.ids[0] }
         : {}),
+      ...(node.meter ? { attribute: node.meter.attribute } : {}),
+      ...declaredLabel(node, attributes),
       kind: "meter",
       total: resolved.total,
+      unit: resolved.unit,
       ratioOfParent: ratio(resolved.total, parentTotal),
       shareOfTotal: ratio(resolved.total, rootTotal),
       state: resolved.state,
@@ -412,6 +483,7 @@ export function buildMeterTreeRows(
   root: MeterTreeNode,
   values: MeterValues,
   collapsed: CollapsedNodes = new Set(),
+  attributes: MeterAttributes = new Map(),
 ): MeterTreeRow[] {
   const rows: MeterTreeRow[] = [];
 
@@ -422,6 +494,7 @@ export function buildMeterTreeRows(
         key: datum.key,
         depth,
         total: datum.total as number,
+        unit: datum.unit,
         ratioOfParent: datum.ratioOfParent,
         negative: datum.negative ?? false,
         incomplete: datum.incomplete ?? false,
@@ -432,8 +505,10 @@ export function buildMeterTreeRows(
       kind: "meter",
       key: datum.key,
       label: datum.label,
+      ...(datum.attribute ? { attribute: datum.attribute } : {}),
       depth,
       total: datum.total,
+      unit: datum.unit,
       ratioOfParent: datum.ratioOfParent,
       state: datum.state ?? "unknown",
       // The residual is synthetic, so it must not make a leaf look like a parent.
@@ -447,6 +522,6 @@ export function buildMeterTreeRows(
     datum.children.forEach((child) => visit(child, depth + 1));
   };
 
-  visit(buildMeterTreeHierarchy(root, values, collapsed), 0);
+  visit(buildMeterTreeHierarchy(root, values, collapsed, attributes), 0);
   return rows;
 }
