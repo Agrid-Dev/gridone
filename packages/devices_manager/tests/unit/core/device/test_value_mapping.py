@@ -7,7 +7,7 @@ from devices_manager.core.device.value_mapping import (
     encode_mapping,
     project_mapping,
 )
-from models.conditions import EvaluationContext
+from models.conditions import EvaluationContext, scalar_key
 from models.errors import WriteRejectedError
 from models.write_rules import ValueMapping
 
@@ -38,17 +38,73 @@ def table(**fields: object):
 )
 def test_projected_mapping_agrees_with_inverse(values, policy, available):
     mapping = table(duplicates=policy)
-    projected = next(
-        option
-        for option in project_mapping(mapping, EvaluationContext(values.get))
-        if option.value == 5
-    )
+    projected = project_mapping(mapping, EvaluationContext(values.get))[scalar_key(5)]
     assert projected.available is available
     if available:
         assert encode_mapping(mapping, 5, EvaluationContext(values.get)) == 1
     else:
         with pytest.raises(WriteRejectedError):
             encode_mapping(mapping, 5, EvaluationContext(values.get))
+
+
+def slots(**fields: object):
+    return ValueMapping.model_validate(
+        {
+            "entries": [
+                {"code": i, "value": {"attribute": f"slot_{i}"}} for i in range(3)
+            ],
+            "stop_value": "error",
+            **fields,
+        }
+    )
+
+
+def encoded(mapping, value, values) -> list[str]:
+    try:
+        encode_mapping(mapping, value, EvaluationContext(values.get))
+    except WriteRejectedError as exc:
+        return [reason.code for reason in exc.reasons]
+    return []
+
+
+@pytest.mark.parametrize(
+    ("values", "policy", "value", "reasons"),
+    [
+        ({}, "first", "cool", ["unknown_dependencies"]),
+        (
+            {"slot_0": "fan", "slot_2": "error"},
+            "first",
+            "cool",
+            ["unknown_dependencies"],
+        ),
+        (
+            {"slot_0": "fan", "slot_2": "error"},
+            "reject",
+            "cool",
+            ["unknown_dependencies"],
+        ),
+        (
+            {"slot_0": "fan", "slot_1": "error"},
+            "first",
+            "cool",
+            ["unavailable_mapping"],
+        ),
+        (
+            {"slot_0": "fan", "slot_1": "heat"},
+            "first",
+            "cool",
+            ["unknown_dependencies"],
+        ),
+        ({"slot_0": "fan", "slot_1": "heat"}, "first", "fan", []),
+    ],
+)
+def test_projection_gives_the_reason_encoding_raises(values, policy, value, reasons):
+    mapping = slots(duplicates=policy)
+    context = EvaluationContext(values.get)
+    projected = project_mapping(mapping, context, [value])[scalar_key(value)]
+    assert [reason.code for reason in projected.reasons] == reasons
+    assert encoded(mapping, value, values) == reasons
+    assert projected.available is (not reasons)
 
 
 def test_reserved_and_terminated_entries_remain_readable():
