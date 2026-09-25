@@ -6,7 +6,9 @@ import {
   defaultCollapsed,
   buildMeterTreeHierarchy,
   meterKey,
+  nodeAtKey,
   parseMeterKey,
+  pieSlices,
   visibleMeterKeys,
   type MeterTreeRow,
   type MeterAttributes,
@@ -534,5 +536,64 @@ describe("labels", () => {
     );
 
     expect(built.attributeLabel).toEqual(label);
+  });
+});
+
+describe("nodeAtKey", () => {
+  const tree = node("Building", meter("main"), [
+    node("HVAC", meter("a"), [node("AHU", meter("c"))]),
+    node("Lighting", meter("b")),
+  ]);
+
+  it("finds a node by the key its row carries", () => {
+    expect(nodeAtKey(tree, "0")?.label).toBe("Building");
+    expect(nodeAtKey(tree, "0.1")?.label).toBe("Lighting");
+    expect(nodeAtKey(tree, "0.0.0")?.label).toBe("AHU");
+  });
+
+  it("is undefined for a key that is not in the tree", () => {
+    expect(nodeAtKey(tree, "0.5")).toBeUndefined();
+    expect(nodeAtKey(tree, "0.0.residual")).toBeUndefined();
+  });
+});
+
+describe("defaultCollapsed depth", () => {
+  it("can fold every branch right below the root", () => {
+    const tree = node("Building", meter("main"), [
+      node("HVAC", meter("a"), [node("AHU", meter("c"))]),
+      node("Lighting", meter("b")),
+    ]);
+
+    expect(defaultCollapsed(tree, 1)).toEqual(new Set(["0.0"]));
+  });
+});
+
+describe("pieSlices", () => {
+  it("shares a node out among its children and what they leave unmetered", () => {
+    const tree = node("Building", meter("main"), [
+      node("HVAC", meter("a")),
+      node("Lighting", meter("b")),
+    ]);
+    const built = buildMeterTreeHierarchy(
+      tree,
+      readings({ main: 100, a: 40, b: 30 }),
+    );
+
+    expect(pieSlices(built).map((slice) => slice.total)).toEqual([40, 30, 30]);
+  });
+
+  it("leaves out what a pie cannot draw: no reading, nothing, or less than nothing", () => {
+    const tree = node("Building", meter("main"), [
+      node("HVAC", meter("a")),
+      node("Lighting", meter("b")),
+      node("Dead", meter("c")),
+    ]);
+    const built = buildMeterTreeHierarchy(
+      tree,
+      readings({ main: 50, a: 60, b: 0, c: null }),
+    );
+
+    // The residual is 50 - 60 = -10: surfaced in the tree, not in the pie.
+    expect(pieSlices(built).map((slice) => slice.total)).toEqual([60]);
   });
 });

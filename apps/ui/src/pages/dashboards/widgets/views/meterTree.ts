@@ -117,18 +117,33 @@ const childKey = (parent: string, index: number) => `${parent}.${index}`;
  * Leaves are never included: a twisty on a node with nothing under it is a
  * control that does nothing.
  */
-export function defaultCollapsed(root: MeterTreeNode): Set<string> {
+export function defaultCollapsed(
+  root: MeterTreeNode,
+  depth: number = DEFAULT_COLLAPSE_DEPTH,
+): Set<string> {
   const collapsed = new Set<string>();
-  const visit = (node: MeterTreeNode, key: string, depth: number) => {
+  const visit = (node: MeterTreeNode, key: string, level: number) => {
     const children = node.children ?? [];
     if (children.length === 0) return;
-    if (depth >= DEFAULT_COLLAPSE_DEPTH) collapsed.add(key);
+    if (level >= depth) collapsed.add(key);
     children.forEach((child, index) =>
-      visit(child, childKey(key, index), depth + 1),
+      visit(child, childKey(key, index), level + 1),
     );
   };
   visit(root, "0", 0);
   return collapsed;
+}
+
+/** The node a row's `key` names, or `undefined` when it names none. */
+export function nodeAtKey(
+  root: MeterTreeNode,
+  key: string,
+): MeterTreeNode | undefined {
+  const [first, ...path] = key.split(".");
+  if (first !== "0") return undefined;
+  let node: MeterTreeNode | undefined = root;
+  for (const index of path) node = node?.children?.[Number(index)];
+  return node;
 }
 
 /**
@@ -524,4 +539,17 @@ export function buildMeterTreeRows(
 
   visit(buildMeterTreeHierarchy(root, values, collapsed, attributes), 0);
   return rows;
+}
+
+/**
+ * The children a pie can share a node's total out among, residual included.
+ *
+ * A pie only draws parts of a whole, so a child with no reading, a zero, or a
+ * negative figure (a reset, or children out-measuring their parent) has no
+ * slice — the tree is where those are surfaced.
+ */
+export function pieSlices(datum: MeterTreeDatum): MeterTreeDatum[] {
+  return datum.children.filter(
+    (child) => child.total !== null && child.total > 0,
+  );
 }
