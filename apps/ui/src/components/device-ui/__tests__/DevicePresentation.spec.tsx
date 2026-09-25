@@ -905,15 +905,23 @@ describe("no layout shift during a command", () => {
     screen
       .getByRole("radiogroup", { name: "Fan" })
       .closest<HTMLElement>("[data-control]")!;
-  const missingMode = (
-    reasons: { code: string; message: { default: string } }[],
-    missing = ["mode"],
+  const settled = {
+    code: "locked",
+    message: { default: "Locked by maintenance" },
+  };
+  const provisional = {
+    code: "fan_mode",
+    message: { default: "Not in fan mode" },
+  };
+  const missingFan = (
+    missing: string[],
+    reasons: { code: string; message: { default: string } }[] = [],
   ): Partial<BoundControlState> => ({
     attribute: {
       ...attributes.fan_speed,
       write_state: {
         status: "unknown",
-        missing_dependencies: true,
+        missing_dependencies: missing.length > 0,
         missing_attributes: missing,
       },
     } as AttributeLike,
@@ -924,6 +932,16 @@ describe("no layout shift during a command", () => {
     deviceId: "dev-1",
     attributeLabel: (name) => name.charAt(0).toUpperCase() + name.slice(1),
   });
+  /** Renders the fan control, then the same control once a write is in flight. */
+  const writeInFlight = (
+    before: Partial<BoundControlState>,
+    during: Partial<BoundControlState>,
+  ) => {
+    const { rerender } = renderPresentation(
+      labelled(fakeRuntime({ fan: before }).runtime),
+    );
+    rerender(presentation(labelled(fakeRuntime({ fan: during }).runtime)));
+  };
 
   it("keeps an empty status line on an idle control", () => {
     const { runtime } = fakeRuntime();
@@ -952,65 +970,90 @@ describe("no layout shift during a command", () => {
   });
 
   it("says which write it awaits instead of reporting missing data", () => {
-    const { runtime } = fakeRuntime({
-      fan: { ...missingMode([]), awaiting: ["mode"] },
+    writeInFlight(missingFan([]), {
+      ...missingFan(["mode"]),
+      inFlight: ["mode"],
     });
-    renderPresentation(labelled(runtime));
     expect(within(fanRow()).getByRole("status")).toHaveTextContent(
       "Waiting for Mode",
     );
     expect(screen.queryByTestId("missing-dependencies")).toBeNull();
   });
 
-  it("still reports the dependencies nobody is writing", () => {
-    const { runtime } = fakeRuntime({
-      fan: {
-        ...missingMode([], ["maintenance", "mode"]),
-        awaiting: ["mode"],
-      },
+  it("keeps reporting a dependency that was missing before its write", () => {
+    writeInFlight(missingFan(["mode"]), {
+      ...missingFan(["mode"]),
+      inFlight: ["mode"],
     });
-    renderPresentation(labelled(runtime));
-    expect(within(fanRow()).getByRole("status")).toHaveTextContent(
-      "Waiting for Mode",
+    expect(within(fanRow()).getByRole("status")).toHaveTextContent(/^$/);
+    expect(screen.getByTestId("missing-dependencies")).toHaveTextContent(
+      /^Mode$/,
+    );
+  });
+
+  it("still reports the dependencies nobody is writing, with the settled explanations", () => {
+    writeInFlight(missingFan(["maintenance"], [settled]), {
+      ...missingFan(["maintenance", "mode"], [settled, provisional]),
+      inFlight: ["mode"],
+    });
+    expect(within(fanRow()).getByText("Waiting for Mode")).toHaveAttribute(
+      "data-write-state",
+      "idle",
     );
     expect(screen.getByTestId("missing-dependencies")).toHaveTextContent(
       /^Maintenance$/,
     );
-  });
-
-  it("keeps the settled explanations while the awaited write is in flight", () => {
-    const settled = {
-      code: "locked",
-      message: { default: "Locked by maintenance" },
-    };
-    const provisional = {
-      code: "fan_mode",
-      message: { default: "Not in fan mode" },
-    };
-    const { runtime: before } = fakeRuntime({ fan: { reasons: [settled] } });
-    const { rerender } = renderPresentation(labelled(before));
-    const { runtime: during } = fakeRuntime({
-      fan: { ...missingMode([settled, provisional]), awaiting: ["mode"] },
-    });
-    rerender(presentation(labelled(during)));
     expect(within(fanRow()).getByText("Locked by maintenance")).toBeVisible();
     expect(within(fanRow()).queryByText(/Not in fan mode/)).toBeNull();
   });
 
-  it("keeps the last known range, greyed, while the bounds are unknown", () => {
-    const { runtime: known } = fakeRuntime();
-    const { rerender } = renderPresentation(known);
-    const { runtime: unknown } = fakeRuntime({
-      target: {
-        constraints: { step: 0.5, minimum: null, maximum: null, unknown: true },
-      },
+  it("keeps the settled explanations while the awaited write is in flight", () => {
+    writeInFlight(missingFan([], [settled]), {
+      ...missingFan(["mode"], [settled, provisional]),
+      inFlight: ["mode"],
     });
-    rerender(presentation(unknown));
-    const row = screen.getByRole("row", { name: /Temperature/ });
-    expect(within(row).getByText("16.0 – 30.0")).toHaveAttribute(
-      "data-stale",
-      "true",
-    );
+    expect(within(fanRow()).getByText("Locked by maintenance")).toBeVisible();
+    expect(within(fanRow()).queryByText(/Not in fan mode/)).toBeNull();
+  });
+
+  describe("range of a setpoint whose bounds turn unknown", () => {
+    const unknownBounds = {
+      step: 0.5,
+      minimum: null,
+      maximum: null,
+      unknown: true,
+    };
+    const range = () =>
+      within(screen.getByRole("row", { name: /Temperature/ })).queryByText(
+        "16.0 – 30.0",
+      );
+
+    it("keeps the last known one, greyed, while a write of ours is in flight", () => {
+      const { runtime: known } = fakeRuntime();
+      const { rerender } = renderPresentation(known);
+      const { runtime: unknown } = fakeRuntime({
+        target: {
+          constraints: unknownBounds,
+          attribute: {
+            ...attributes.temperature_setpoint,
+            write_state: { status: "unknown", missing_attributes: ["mode"] },
+          } as AttributeLike,
+          inFlight: ["mode"],
+        },
+      });
+      rerender(presentation(unknown));
+      expect(range()).toHaveAttribute("data-stale", "true");
+    });
+
+    it("drops it when no write of ours explains the gap", () => {
+      const { runtime: known } = fakeRuntime();
+      const { rerender } = renderPresentation(known);
+      const { runtime: unknown } = fakeRuntime({
+        target: { constraints: unknownBounds },
+      });
+      rerender(presentation(unknown));
+      expect(range()).toBeNull();
+    });
   });
 
   it("shows an option's reason in a tooltip, opened by a tap too", async () => {

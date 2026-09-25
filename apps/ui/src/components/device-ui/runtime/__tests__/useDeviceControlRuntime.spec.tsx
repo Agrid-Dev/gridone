@@ -406,7 +406,7 @@ describe("useDeviceControlRuntime", () => {
     expect(rendered.result.current.reported("temperature_setpoint")).toBe(19);
   });
 
-  it("marks as awaited only the missing dependencies whose write is in flight", async () => {
+  it("lists only the missing dependencies whose write is in flight", async () => {
     let finish!: (value: unknown) => void;
     mockSendCommand.mockReturnValueOnce(
       new Promise((resolve) => {
@@ -424,19 +424,19 @@ describe("useDeviceControlRuntime", () => {
         },
       }),
     );
-    expect(rendered.result.current.readControl("target")?.awaiting).toEqual([]);
+    expect(rendered.result.current.readControl("target")?.inFlight).toEqual([]);
     act(() => rendered.result.current.setValue("power", false));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
     });
-    expect(rendered.result.current.readControl("target")?.awaiting).toEqual([
+    expect(rendered.result.current.readControl("target")?.inFlight).toEqual([
       "onoff_state",
     ]);
     await act(async () => {
       finish({ id: "cmd" });
       await vi.advanceTimersByTimeAsync(0);
     });
-    expect(rendered.result.current.readControl("target")?.awaiting).toEqual([]);
+    expect(rendered.result.current.readControl("target")?.inFlight).toEqual([]);
   });
 
   it("drops pending intentions when the device changes", async () => {
