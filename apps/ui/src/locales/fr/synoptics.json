@@ -110,44 +110,275 @@
     "new": "Nouveau synoptique",
     "untitled": "Vue sans titre",
     "name": "Nom",
-    "level": "Niveau",
     "fluid": "Fluide",
     "flow": "Débit",
-    "palette": "Symboles",
-    "noSelection": "Sélectionnez un symbole ou un tuyau pour le modifier.",
-    "pipe": "tuyau",
+    "noSelection": "Cliquez un symbole ou un tuyau pour le modifier.",
     "label": "Libellé",
     "rotation": "Rotation",
-    "device": "Appareil",
-    "linkTarget": "Synoptique cible",
+    "discard": "Abandonner les modifications non enregistrées ?",
+    "unsaved": "Modifications non enregistrées",
+    "undo": "Annuler la dernière action (⌘Z)",
+    "redo": "Rétablir (⇧⌘Z)",
+    "refused": {
+      "overlap": "Un symbole occupe déjà cet emplacement.",
+      "unroutable": "Les tuyaux raccordés ne peuvent pas suivre ce changement.",
+      "noRoom": "Pas de place libre à côté pour la copie.",
+      "brokenRun": "Ce changement casserait un tuyau.",
+      "portTaken": "Un autre port est déjà à cet endroit."
+    },
+    "tools": {
+      "label": "Outils",
+      "select": "Sélection",
+      "pipe": "Tuyau",
+      "preview": "Aperçu 3D"
+    },
+    "keys": {
+      "click": "Clic",
+      "enter": "Entrée",
+      "escape": "Échap",
+      "delete": "Suppr"
+    },
+    "hints": {
+      "pan": "Glisser le fond : déplacer la vue · Molette : zoom",
+      "place": "Cliquez sur le plan pour poser le symbole",
+      "placeOnPipe": "Ce symbole se pose sur un tuyau : cliquez ou relâchez sur un tuyau en surbrillance",
+      "portOrBend": "un port, un tuyau ou un point de passage",
+      "finish": "terminer ici",
+      "undoPoint": "retirer le dernier point",
+      "cancel": "annuler"
+    },
+    "shortcuts": {
+      "select": "Sélection",
+      "pipe": "Tracer un tuyau",
+      "rotate": "Pivoter",
+      "duplicate": "Dupliquer",
+      "undo": "Annuler",
+      "delete": "Supprimer"
+    },
+    "library": {
+      "title": "Symboles",
+      "hint": "glisser sur le plan",
+      "search": "Rechercher un symbole",
+      "empty": "Aucun symbole ne correspond.",
+      "onPipe": "se pose sur un tuyau",
+      "groups": {
+        "production": "Production",
+        "storage": "Stockage et expansion",
+        "distribution": "Distribution",
+        "onPipe": "Sur un tuyau",
+        "navigation": "Navigation",
+        "other": "Autres"
+      }
+    },
+    "canvas": {
+      "dropOn": "Poser sur {{run}}"
+    },
+    "circuits": {
+      "primary": "Primaire",
+      "heating": "Chauffage",
+      "dhw": "Eau chaude sanitaire",
+      "coldWater": "Eau froide",
+      "chilled": "Eau glacée",
+      "condenser": "Condenseur"
+    },
+    "fluidRoles": {
+      "supply": "Départ",
+      "return": "Retour"
+    },
+    "sides": {
+      "up": "En haut",
+      "down": "En bas",
+      "left": "À gauche",
+      "right": "À droite",
+      "above": "Dessus (vue 3D)",
+      "below": "Dessous (vue 3D)"
+    },
+    "device": {
+      "label": "Appareil",
+      "none": "Aucun appareil",
+      "search": "Rechercher un appareil",
+      "empty": "Aucun appareil ne correspond."
+    },
     "slot": {
-      "none": "Aucun",
+      "none": "Aucune donnée",
       "attribute": "Attribut",
-      "text": "Texte",
+      "text": "Texte fixe",
+      "other": "Autre appareil…",
+      "textLabel": "Texte affiché pour {{slot}}",
+      "format": "Unité et format",
       "unit": "Unité",
       "decimals": "Décimales",
+      "decimalsAuto": "auto",
       "label": {
         "true": "Affiché si vrai",
         "false": "Affiché si faux"
-      }
+      },
+      "pending": "Choisissez un attribut pour appliquer cette liaison. La donnée actuelle est conservée en attendant."
+    },
+    "inspector": {
+      "label": "Propriétés",
+      "onFloor": "{{type}} · au sol",
+      "onPipe": "{{type}} · posé sur un tuyau",
+      "duplicate": "Dupliquer (⌘D)",
+      "delete": "Supprimer (Suppr)",
+      "device": "Appareil",
+      "readings": "Données affichées",
+      "readingsHint": "Choisissez d'abord l'appareil : ses attributs apparaîtront ici.",
+      "placement": "Emplacement",
+      "show": "Voir",
+      "slideHint": "Glissez le symbole le long du tuyau pour le déplacer.",
+      "moveHint": "Glissez le symbole sur le plan pour le déplacer : ses tuyaux suivent.",
+      "shape": "Forme et ports"
+    },
+    "props": {
+      "capacity": "Capacité",
+      "caption": "Légende"
+    },
+    "link": {
+      "target": "Vue cible",
+      "search": "Rechercher une vue",
+      "none": "Aucune vue",
+      "open": "Ouvrir"
     },
     "collector": {
-      "axis": "Axe",
+      "axis": "Orientation",
+      "horizontal": "Horizontal",
+      "vertical": "Vertical",
       "length": "Longueur",
+      "shorter": "Raccourcir",
+      "longer": "Allonger",
       "ports": "Ports",
+      "addHint": "un + ajoute un port",
+      "addAt": "Ajouter un port ({{side}}, case {{position}})",
+      "kinds": {
+        "in": "entrée",
+        "out": "sortie"
+      },
+      "side": "Face du port {{port}}",
+      "offset": "Case du port {{port}}",
       "removePort": "Retirer",
       "portAttached": "Un tuyau est raccordé à ce port ; supprimez-le d'abord",
-      "add": {
-        "in": "Ajouter une entrée",
-        "out": "Ajouter une sortie"
+      "noPorts": "Aucun port : ajoutez-en un sur le schéma."
+    },
+    "pipeTool": {
+      "title": "Tracer un tuyau",
+      "fluidHint": "un piquage prend celui du tuyau",
+      "level": "Points de passage",
+      "floor": "Au sol",
+      "overhead": "En hauteur",
+      "levelHint": "En hauteur, le tuyau passe au-dessus des autres dans la vue 3D.",
+      "progress": "En cours",
+      "pickStart": "Cliquez un port, un tuyau (piquage) ou une case pour commencer.",
+      "from": "Départ · {{start}}",
+      "bends_one": "{{count}} point de passage",
+      "bends_other": "{{count}} points de passage",
+      "pickEnd": "Finir sur un port libre ou un tuyau, ou ici avec Entrée.",
+      "finish": "Terminer ici",
+      "cancel": "Annuler"
+    },
+    "pipeInspector": {
+      "subtitle_one": "Tuyau · {{count}} coude",
+      "subtitle_other": "Tuyau · {{count}} coudes",
+      "route": "Parcours",
+      "teeOn": "Piquage sur {{run}}",
+      "freeEnd": "Extrémité libre",
+      "raised": "Passe en hauteur dans la vue 3D.",
+      "riders": "Posés sur ce tuyau",
+      "flowHint": "Un booléen qui dit si le fluide circule : il anime ce circuit dans la vue 3D.",
+      "flowAttribute": "Donnée de débit",
+      "flowPick": "Choisir un booléen"
+    },
+    "checks": {
+      "title_one": "{{count}} point à vérifier",
+      "title_other": "{{count}} points à vérifier",
+      "none": "Rien à vérifier",
+      "note": "Ils n'empêchent pas l'enregistrement.",
+      "plate": "La vue",
+      "show": "Voir",
+      "bind": "Associer",
+      "unbound": "Aucun appareil : ses données ne s'afficheront pas.",
+      "rules": {
+        "unknown_symbol": "Relié à un symbole absent de la vue.",
+        "unknown_port": "Relié à un port que le symbole n'a pas.",
+        "zero_length_segment": "Deux points de passage au même endroit.",
+        "diagonal_segment": "Un segment n'est pas droit : retracez le tuyau.",
+        "port_side_mismatch": "Le tuyau ne sort pas par la face du port.",
+        "off_polyline": "Un piquage, une étiquette ou un symbole n'est plus sur son tuyau.",
+        "self_reference": "Le tuyau se pique sur lui-même.",
+        "unknown_pipe": "Posé sur un tuyau absent de la vue.",
+        "unusable_pipe": "Posé sur un tuyau lui-même à corriger.",
+        "not_inline_capable": "Ce symbole ne se pose pas sur un tuyau.",
+        "inline_on_endpoint": "Posé au bout du tuyau : glissez-le vers l'intérieur.",
+        "flat_depth": "En hauteur alors que la vue s'ouvre en plan."
+      },
+      "overlap_one": "Ces tuyaux partagent {{count}} cellule sans raccordement.",
+      "overlap_other": "Ces tuyaux partagent {{count}} cellules sans raccordement.",
+      "binding": "Aucun attribut sélectionné pour {{slot}}.",
+      "showElement": "Afficher {{name}}"
+    },
+    "guide": {
+      "title": "Rien de sélectionné",
+      "empty": "Vue vide",
+      "steps": "Construire la vue",
+      "shortcuts": "Raccourcis",
+      "place": {
+        "title": "Poser les équipements",
+        "hint": "Ballon, échangeur, nourrice… depuis la bibliothèque."
+      },
+      "connect": {
+        "title": "Relier par des tuyaux",
+        "hint": "Outil Tuyau (P) : d'un port à un autre, le tracé se calcule."
+      },
+      "onPipe": {
+        "title": "Poser vannes et pompes",
+        "hint": "Elles se posent sur un tuyau, pas au sol."
+      },
+      "bind": {
+        "title": "Associer les appareils",
+        "hint": "Chaque symbole montre les données de son appareil.",
+        "left_one": "{{count}} symbole sans appareil.",
+        "left_other": "{{count}} symboles sans appareil."
       }
     },
-    "modes": {
-      "select": "Sélection",
-      "draw": "Tracer un tuyau"
+    "preview": {
+      "title": "Aperçu 3D",
+      "expand": "Agrandir l'aperçu",
+      "close": "Masquer l'aperçu",
+      "caption": "Ce que verront les exploitants",
+      "open": "Aperçu",
+      "dialogTitle": "Aperçu de la vue",
+      "dialogDescription": "La vue telle que les exploitants l'ouvriront, sans valeurs."
     },
-    "mode": "Mode",
-    "discard": "Abandonner les modifications non enregistrées ?"
+    "settings": {
+      "title": "Réglages de la vue",
+      "view": "Vue à l'ouverture",
+      "viewHint": "Les exploitants peuvent toujours passer de l'une à l'autre.",
+      "raised": "Des éléments sont en hauteur : la vue plan ne peut pas être la vue d'ouverture."
+    },
+    "create": {
+      "title": "Nouveau synoptique",
+      "description": "Une vue d'installation : équipements, tuyaux et appareils associés.",
+      "name": "Nom",
+      "namePlaceholder": "Ex. Production ECS — Est",
+      "nameRequired": "Donnez un nom à la vue.",
+      "view": "Vue affichée aux exploitants",
+      "viewHint": "Vous dessinez toujours en plan ; les deux vues restent disponibles.",
+      "views": {
+        "isometric": "En volume, calculée depuis le plan",
+        "flat": "Schéma de principe, comme dessiné"
+      },
+      "start": "Point de départ",
+      "blank": "Vue vierge",
+      "blankHint": "Un plan vide",
+      "duplicate": "Dupliquer une vue du site",
+      "duplicateHint": "Reprend ses équipements, tuyaux et appareils",
+      "source": "Vue à dupliquer",
+      "sourceRequired": "Choisissez la vue à dupliquer.",
+      "submit": "Créer la vue",
+      "loading": "Chargement…",
+      "failed": "La vue à dupliquer n'a pas pu être lue.",
+      "raised": "La vue copiée a des éléments en hauteur : elle s'ouvrira en isométrique."
+    }
   },
   "switcher": {
     "label": "Changer de synoptique",

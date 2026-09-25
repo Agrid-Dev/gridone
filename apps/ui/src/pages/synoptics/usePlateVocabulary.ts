@@ -4,11 +4,13 @@ import { humanize } from "@/components/synoptic";
 import { readingState, type SlotReading } from "@/components/synoptic/values";
 import type { PlateVocabulary } from "@/components/synoptic/vocabulary";
 import { formatTimeAgo } from "@/lib/utils";
+import type { Fluid } from "@gridone/sdk";
 
 /** What the page adds to the renderer's vocabulary: the type names of the
  *  navigation panel and the legend, and how a time stamp is written. */
 export type PageVocabulary = PlateVocabulary & {
   typeLabel: (type: string) => string;
+  fluidLabel: (fluid: Fluid) => string;
   /** A reading's time of day, `HH:MM:SS` in the operator's locale. */
   readingTime: (iso: string) => string;
 };
@@ -33,6 +35,7 @@ export function usePlateVocabulary(): PageVocabulary {
       t(`slots.${slot}`, { defaultValue: humanize(slot) });
     const typeLabel = (type: string) =>
       t(`types.${type}`, { defaultValue: humanize(type) });
+    const fluidLabel = (fluid: Fluid) => t(`fluids.${fluid}`);
     const readingTime = (iso: string) => clock.format(new Date(iso));
     const readingTitle = (reading: SlotReading, label?: string) => {
       const state = readingState(reading);
@@ -52,6 +55,6 @@ export function usePlateVocabulary(): PageVocabulary {
       const old = state === "stale" ? ` · ${t("reading.stale")}` : "";
       return `${head}${value} · ${when}${old}`;
     };
-    return { slotLabel, typeLabel, readingTitle, readingTime };
+    return { slotLabel, typeLabel, fluidLabel, readingTitle, readingTime };
   }, [t, tCommon, i18n.language]);
 }

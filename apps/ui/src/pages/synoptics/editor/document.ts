@@ -3,15 +3,22 @@ import {
   type Cell,
   type Endpoint,
   type PipeElement,
+  type Projection,
   type Side,
+  type SlotValue,
   type SymbolElement,
   type Synoptic,
 } from "@gridone/sdk";
+import { sideVector, rotateSide } from "@/components/synoptic/projection";
+import { endpointCell } from "@/components/synoptic/runs";
+import type { PlateDocument } from "@/components/synoptic/SynopticRenderer";
 import {
-  endpointCell,
-  sideVector,
-  type PlateDocument,
-} from "@/components/synoptic";
+  footprintCells,
+  footprintRect,
+} from "@/components/synoptic/symbols/footprint";
+import type { CollectorProps } from "@/components/synoptic/symbols/ports";
+import { depthsOf, planKey, sameCell } from "./runRules";
+import { occupancyOf } from "./occupancy";
 
 export type Selection = { kind: "symbol" | "pipe"; id: string } | null;
 
@@ -19,11 +26,14 @@ export type Selection = { kind: "symbol" | "pipe"; id: string } | null;
  *  and the face it must leave or enter through when it is a port. */
 export type RoutePoint = { endpoint: Endpoint; cell: Cell; side?: Side };
 
-export const emptyDocument = (name: string): PlateDocument => ({
+export const emptyDocument = (
+  name: string,
+  projection: Projection = "isometric",
+): PlateDocument => ({
   version: 1,
   name,
   description: null,
-  projection: "isometric",
+  projection,
   symbols: [],
   pipes: [],
   labels: [],
@@ -37,8 +47,21 @@ export function toDocument(synoptic: Synoptic): PlateDocument {
   return doc;
 }
 
-const sameCell = (a: Cell, b: Cell) =>
-  a.x === b.x && a.y === b.y && (a.z ?? 0) === (b.z ?? 0);
+/** A plate as the backend reads it: a null and a missing field alike, and
+ *  a cell's height of 0 as no height at all, both being its defaults. */
+const canonical = (doc: PlateDocument) =>
+  JSON.stringify(doc, (key, value: unknown) =>
+    value === null || (key === "z" && value === 0) ? undefined : value,
+  );
+
+/**
+ * Whether two plates say the same thing. A plate stored without heights,
+ * moved and put back, comes back with `z: 0` on its cells, and a label
+ * typed then cleared comes back `null` where it was missing: neither is a
+ * change, and neither may leave an undo step or an unsaved mark behind.
+ */
+export const samePlate = (a: PlateDocument, b: PlateDocument): boolean =>
+  a === b || canonical(a) === canonical(b);
 
 /** Every id on the plate: symbols, pipes, tags and labels share one namespace. */
 function usedIds(doc: PlateDocument): Set<string> {
@@ -71,7 +94,8 @@ export function nextId(doc: PlateDocument, prefix: string): string {
   );
 }
 
-const step = (from: Cell, side: Side): Cell => {
+/** The cell next to `from` through its `side` face. */
+export const step = (from: Cell, side: Side): Cell => {
   const v = sideVector(side);
   return { x: from.x + v.x, y: from.y + v.y, z: (from.z ?? 0) + v.z };
 };
@@ -205,6 +229,14 @@ export function routeWaypoints(points: RoutePoint[]): Cell[] {
     }
     cells.push(p.cell);
   });
+  return waypointsOf(cells);
+}
+
+/** The waypoints of a path given as the cells it turns or passes at, its
+ *  two ends left out: a cell repeated back to back is one, a step out and
+ *  straight back is dropped, and a cell a straight line runs through is no
+ *  corner. */
+export function waypointsOf(cells: Cell[]): Cell[] {
   // A cell repeated back to back is one cell; a run that steps out and
   // straight back drops the spike.
   let path = cells;
@@ -370,3 +402,150 @@ export const moveSymbol = (
       ? { ...s, placement: { ...s.placement, cell } }
       : s,
   );
+
+/** Plan cells already held by bodies, pipes or inline symbols. A duplicate
+ *  gets a clear position in the authoring view even beside an overhead run. */
+function occupied(doc: PlateDocument): Set<string> {
+  const { bodies, runs, riders } = occupancyOf(doc);
+  return new Set(
+    [
+      ...[...bodies.values()].flat(),
+      ...[...runs.values()].flat(),
+      ...riders.values(),
+    ].map(planKey),
+  );
+}
+
+/** How far along the plan a copy may be pushed before giving up: past
+ *  this, the author places one from the library. */
+const DUPLICATE_TRIES = 8;
+
+/**
+ * A copy of a free symbol beside it: the same type, props and rotation,
+ * but no device and no binding, since a copy is another machine of the
+ * same kind, not the same one twice. It goes one cell right of the
+ * original's turned footprint, then further right, one footprint at a
+ * time, until it stands clear of every body, pipe and inline symbol on
+ * the plan. Null for a symbol riding a
+ * run, or when nothing clear is found.
+ */
+export function duplicateSymbol(
+  doc: PlateDocument,
+  id: string,
+): { doc: PlateDocument; id: string } | null {
+  const symbol = doc.symbols?.find((s) => s.id === id);
+  if (!symbol || symbol.placement.kind !== "cell") return null;
+  const { cell } = symbol.placement;
+  const rect = footprintRect(symbol);
+  const step = rect.x1 - rect.x0 + 1;
+  const taken = occupied(doc);
+  const copyId = nextId(doc, symbol.type);
+  for (let n = 1; n <= DUPLICATE_TRIES; n++) {
+    const copy: SymbolElement = {
+      ...symbol,
+      id: copyId,
+      label: null,
+      device_id: null,
+      bindings: {},
+      placement: {
+        ...symbol.placement,
+        cell: { ...cell, x: cell.x + n * step },
+      },
+    };
+    if (footprintCells(copy).some((c) => taken.has(planKey(c)))) continue;
+    return { doc: addSymbol(doc, copy), id: copyId };
+  }
+  return null;
+}
+
+/**
+ * A collector turned to run along `axis`, its ports turned with it: a
+ * quarter turn one way from x to y and back the other way from y to x,
+ * so switching twice gives the collector back as it was. Offsets stay:
+ * a port three cells along the bar is still three cells along it.
+ */
+export function setCollectorAxis(
+  doc: PlateDocument,
+  id: string,
+  axis: CollectorProps["axis"],
+): PlateDocument {
+  return updateSymbol(doc, id, (s) => {
+    const props = s.props as CollectorProps | undefined;
+    if (!props || props.axis === axis) return s;
+    const turns = axis === "y" ? 1 : -1;
+    return {
+      ...s,
+      props: {
+        ...props,
+        axis,
+        ports: Object.fromEntries(
+          Object.entries(props.ports ?? {}).map(([name, port]) => [
+            name,
+            { ...port, side: rotateSide(port.side, turns) },
+          ]),
+        ),
+      },
+    };
+  });
+}
+
+/**
+ * Whether anything on the plate stands above or below the floor: every
+ * depth the backend refuses on a flat plate, and a collector port facing
+ * up or down, which only a raised run can reach. A plate with any of it
+ * cannot be shown flat by default.
+ */
+export function hasRaisedElements(doc: PlateDocument): boolean {
+  if (depthsOf(doc).some((d) => d.z !== 0)) return true;
+  return (doc.symbols ?? []).some((s) =>
+    Object.values(
+      (s.props as Partial<CollectorProps> | undefined)?.ports ?? {},
+    ).some((port) => port.side === "+z" || port.side === "-z"),
+  );
+}
+
+/** The one device a binding reads when it names it by id alone (`ids:
+ *  [id]`, the form the editor writes and every committed plate uses), or
+ *  null for a literal, a filter, or no binding. */
+export function boundDevice(
+  value: SlotValue | null | undefined,
+): string | null {
+  if (value?.kind !== "attribute") return null;
+  const { ids, types, tags, driver_id } = value.target.devices ?? {};
+  const byIdOnly =
+    ids?.length === 1 &&
+    !types?.length &&
+    !Object.keys(tags ?? {}).length &&
+    !driver_id;
+  return byIdOnly ? ids[0] : null;
+}
+
+/**
+ * A symbol made to stand for another device. The bindings that read the
+ * device it stood for by id alone follow to the new one, since an author
+ * picking the device first means "these readings, from that machine". A
+ * binding reading another device (a sensor on a controller) stays as it
+ * was. Clearing the device keeps every binding: they still read what they
+ * read.
+ */
+export function withDevice(
+  symbol: SymbolElement,
+  deviceId: string | null,
+): SymbolElement {
+  const old = symbol.device_id ?? null;
+  if (!deviceId || !old || old === deviceId) {
+    return { ...symbol, device_id: deviceId };
+  }
+  const bindings = Object.fromEntries(
+    Object.entries(symbol.bindings ?? {}).map(([slot, value]) => [
+      slot,
+      value.kind === "attribute" && boundDevice(value) === old
+        ? {
+            ...value,
+            target: { ...value.target, devices: { ids: [deviceId] } },
+          }
+        : value,
+    ]),
+  );
+  return { ...symbol, device_id: deviceId, bindings };
+}

@@ -1,21 +1,33 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import type { Cell, PipeElement, Side, Synoptic } from "@gridone/sdk";
+import type {
+  Cell,
+  PipeElement,
+  Side,
+  SymbolElement,
+  Synoptic,
+  SlotValue,
+} from "@gridone/sdk";
 import {
   attachedPorts,
+  boundDevice,
   defaultProps,
+  duplicateSymbol,
   emptyDocument,
+  hasRaisedElements,
   moveSymbol,
   nextId,
   removePipe,
   removeSymbol,
   rotateSymbol,
   routeWaypoints,
+  setCollectorAxis,
   toDocument,
+  withDevice,
   type RoutePoint,
 } from "./document";
-import type { PlateDocument } from "@/components/synoptic";
+import type { PlateDocument } from "@/components/synoptic/SynopticRenderer";
 
 const PLATE: Synoptic = {
   ...JSON.parse(
@@ -353,5 +365,518 @@ describe("rotateSymbol", () => {
     const collector = before.symbols!.find((s) => s.type === "collector")!;
     // Mutant: rotating the collector is refused at save as rotation_locked.
     expect(rotateSymbol(before, collector.id)).toEqual(before);
+  });
+});
+
+describe("emptyDocument", () => {
+  it("opens on the view the author chose, isometric unless told", () => {
+    expect(emptyDocument("p").projection).toBe("isometric");
+    expect(emptyDocument("p", "flat").projection).toBe("flat");
+  });
+});
+
+describe("duplicateSymbol", () => {
+  const base = (): PlateDocument => ({
+    ...emptyDocument("p"),
+    symbols: [
+      {
+        id: "tank-1",
+        type: "tank",
+        label: "B1",
+        device_id: "dev-1",
+        placement: { kind: "cell", cell: { x: 0, y: 0 }, rotation: 1 },
+        props: { capacity: "500 L" },
+        bindings: { temperature: { kind: "text", text: "55" } },
+      },
+    ],
+  });
+
+  it("copies the type, props and rotation, not the device, label or bindings", () => {
+    const result = duplicateSymbol(base(), "tank-1")!;
+    const copy = result.doc.symbols!.find((s) => s.id === result.id)!;
+    expect(result.id).toBe("tank-2");
+    expect(copy).toMatchObject({
+      type: "tank",
+      props: { capacity: "500 L" },
+      label: null,
+      device_id: null,
+      bindings: {},
+    });
+    expect(copy.placement).toMatchObject({ kind: "cell", rotation: 1 });
+  });
+
+  it("stands the copy clear of its original's turned footprint", () => {
+    // A tank turned a quarter spans x -1..0, two cells wide: the copy's
+    // origin goes three cells right, so it spans x 2..3 and x 1 stays
+    // empty between the two.
+    const result = duplicateSymbol(base(), "tank-1")!;
+    const copy = result.doc.symbols!.find((s) => s.id === result.id)!;
+    expect(copy.placement.cell).toEqual({ x: 3, y: 0 });
+  });
+
+  it("pushes the copy further right when a body stands there", () => {
+    const doc = base();
+    doc.symbols!.push({
+      id: "e",
+      type: "plate_exchanger",
+      placement: { kind: "cell", cell: { x: 2, y: 0 }, rotation: 0 },
+      props: {},
+      bindings: {},
+    });
+    const result = duplicateSymbol(doc, "tank-1")!;
+    const copy = result.doc.symbols!.find((s) => s.id === result.id)!;
+    expect(copy.placement.cell).toEqual({ x: 6, y: 0 });
+  });
+
+  it("does not copy a symbol riding a run", () => {
+    const doc = toDocument(PLATE);
+    const inline = doc.symbols!.find((s) => s.placement.kind === "pipe")!;
+    expect(duplicateSymbol(doc, inline.id)).toBeNull();
+    expect(duplicateSymbol(doc, "nope")).toBeNull();
+  });
+
+  it.each([0, 1])(
+    "skips a pipe at height %i anywhere in the copied footprint",
+    (z) => {
+      const doc = base();
+      doc.pipes = [
+        {
+          id: "p",
+          fluid: "dhw",
+          from: { kind: "cell", cell: { x: 2, y: -1, z } },
+          to: { kind: "cell", cell: { x: 2, y: 1, z } },
+        },
+      ];
+      const result = duplicateSymbol(doc, "tank-1")!;
+      expect(
+        result.doc.symbols!.find((s) => s.id === result.id)!.placement.cell,
+      ).toEqual({ x: 6, y: 0 });
+    },
+  );
+
+  it("skips an inline symbol even when its run is missing", () => {
+    const doc = base();
+    doc.symbols!.push({
+      id: "v",
+      type: "valve_check",
+      placement: { kind: "pipe", pipe: "missing", cell: { x: 2, y: 0 } },
+    });
+    const result = duplicateSymbol(doc, "tank-1")!;
+    expect(
+      result.doc.symbols!.find((s) => s.id === result.id)!.placement.cell,
+    ).toEqual({ x: 6, y: 0 });
+  });
+});
+
+describe("setCollectorAxis", () => {
+  const collector = (axis: "x" | "y"): PlateDocument => ({
+    ...emptyDocument("p"),
+    symbols: [
+      {
+        id: "c",
+        type: "collector",
+        placement: { kind: "cell", cell: { x: 0, y: 0 }, rotation: 0 },
+        props: {
+          axis,
+          length: 4,
+          ports: {
+            in_1: { offset: 0, side: "-x" },
+            out_1: { offset: 2, side: "-y" },
+            out_2: { offset: 3, side: "+z" },
+          },
+        },
+        bindings: {},
+      },
+    ],
+  });
+  const props = (doc: PlateDocument) => doc.symbols![0].props;
+
+  it("turns the ports with the bar and keeps their offsets", () => {
+    expect(props(setCollectorAxis(collector("x"), "c", "y"))).toEqual({
+      axis: "y",
+      length: 4,
+      ports: {
+        in_1: { offset: 0, side: "-y" },
+        out_1: { offset: 2, side: "+x" },
+        out_2: { offset: 3, side: "+z" },
+      },
+    });
+  });
+
+  it("gives the collector back as it was when switched twice", () => {
+    const before = collector("x");
+    const twice = setCollectorAxis(
+      setCollectorAxis(before, "c", "y"),
+      "c",
+      "x",
+    );
+    // Mutant: turning the same way both times points every port backwards.
+    expect(props(twice)).toEqual(props(before));
+  });
+
+  it("leaves a collector already on that axis alone", () => {
+    const before = collector("y");
+    expect(setCollectorAxis(before, "c", "y")).toEqual(before);
+  });
+});
+
+describe("hasRaisedElements", () => {
+  it("is false for a plate at the floor", () => {
+    expect(hasRaisedElements(emptyDocument("p"))).toBe(false);
+  });
+
+  it("sees a raised waypoint, as on the committed plates", () => {
+    expect(hasRaisedElements(toDocument(PLATE))).toBe(true);
+  });
+
+  it("sees a collector port facing up, which only a raised run reaches", () => {
+    const doc: PlateDocument = {
+      ...emptyDocument("p"),
+      symbols: [
+        {
+          id: "c",
+          type: "collector",
+          placement: { kind: "cell", cell: { x: 0, y: 0 } },
+          props: {
+            axis: "x",
+            length: 2,
+            ports: { in_1: { offset: 0, side: "+z" } },
+          },
+          bindings: {},
+        },
+      ],
+    };
+    expect(hasRaisedElements(doc)).toBe(true);
+  });
+});
+
+describe("boundDevice", () => {
+  const reading = (devices: Record<string, unknown>) => ({
+    kind: "attribute" as const,
+    target: { devices, attribute: "speed" },
+  });
+
+  it("names the device a binding reads by id alone", () => {
+    expect(boundDevice(reading({ ids: ["d1"] }))).toBe("d1");
+  });
+
+  it("names none for a filter, several ids, a literal or nothing", () => {
+    expect(boundDevice(reading({ ids: ["d1", "d2"] }))).toBeNull();
+    expect(boundDevice(reading({ ids: ["d1"], types: ["pump"] }))).toBeNull();
+    expect(
+      boundDevice(reading({ ids: ["d1"], tags: { site: ["a"] } })),
+    ).toBeNull();
+    expect(boundDevice(reading({ types: ["pump"] }))).toBeNull();
+    expect(boundDevice({ kind: "text", text: "55" })).toBeNull();
+    expect(boundDevice(undefined)).toBeNull();
+  });
+});
+
+describe("withDevice", () => {
+  const pump: SymbolElement = {
+    id: "pump-1",
+    type: "pump",
+    placement: { kind: "cell", cell: { x: 0, y: 0 } },
+    device_id: "old",
+    bindings: {
+      state: {
+        kind: "attribute",
+        target: { devices: { ids: ["old"] }, attribute: "running" },
+        labels: { true: "MARCHE" },
+      },
+      speed: {
+        kind: "attribute",
+        target: { devices: { ids: ["controller"] }, attribute: "speed" },
+      },
+    },
+  };
+
+  it("moves the bindings that read the old device to the new one, and those only", () => {
+    const next = withDevice(pump, "new");
+    expect(next.device_id).toBe("new");
+    expect(next.bindings!.state).toEqual({
+      kind: "attribute",
+      target: { devices: { ids: ["new"] }, attribute: "running" },
+      labels: { true: "MARCHE" },
+    });
+    // A reading from another device is the author's own choice: kept.
+    expect(next.bindings!.speed).toBe(pump.bindings!.speed);
+  });
+
+  it("keeps every binding when the device is cleared or first set", () => {
+    expect(withDevice(pump, null)).toEqual({ ...pump, device_id: null });
+    const fresh = { ...pump, device_id: null };
+    expect(withDevice(fresh, "d").bindings).toBe(fresh.bindings);
+  });
+});
+
+describe("further cases, each pinned by a mutation", () => {
+  const at = (x: number, y: number, z = 0): Cell => ({ x, y, z });
+  const body = (
+    id: string,
+    type: string,
+    cell: Cell,
+    rotation = 0,
+    props: Record<string, unknown> = {},
+  ): SymbolElement => ({
+    id,
+    type,
+    placement: { kind: "cell", cell, rotation },
+    props,
+    bindings: {},
+  });
+  const withSymbols = (symbols: SymbolElement[]): PlateDocument => ({
+    ...emptyDocument("p"),
+    symbols,
+  });
+  const copyOf = (result: { doc: PlateDocument; id: string }) =>
+    result.doc.symbols!.find((s) => s.id === result.id)!;
+
+  describe("duplicateSymbol", () => {
+    // A 1 x 1 exchanger at the origin: each try moves the copy two cells
+    // right, x = 2, 4, 6, ...
+    const original = body("e", "plate_exchanger", at(0, 0));
+    const blockers = (count: number) =>
+      Array.from({ length: count }, (_, i) =>
+        body(`b${i}`, "plate_exchanger", at(2 * (i + 1), 0)),
+      );
+
+    it("tries eight places along the plan, the last one included", () => {
+      // Seven places taken: the copy lands on the eighth, x = 16. Mutant:
+      // one try fewer gives up here.
+      const result = duplicateSymbol(
+        withSymbols([original, ...blockers(7)]),
+        "e",
+      )!;
+      expect(copyOf(result).placement.cell).toEqual(at(16, 0));
+    });
+
+    it("gives up when all eight are taken", () => {
+      expect(
+        duplicateSymbol(withSymbols([original, ...blockers(8)]), "e"),
+      ).toBe(null);
+    });
+
+    it("stands the copy clear of a body that would cover only part of it", () => {
+      // A 2 x 2 heat pump's first try is x 3..4; a 1 x 1 on (4,1) takes its
+      // lower right cell, so the copy goes one try further, x 6..7.
+      const pac = body("pac", "heat_pump", at(0, 0));
+      const result = duplicateSymbol(
+        withSymbols([pac, body("x", "plate_exchanger", at(4, 1))]),
+        "pac",
+      )!;
+      expect(copyOf(result).placement.cell).toEqual(at(6, 0));
+    });
+
+    it("steps a collector by its bar, and keeps height and rotation", () => {
+      const collector = body("c", "collector", at(0, 0, 2), 0, {
+        axis: "x",
+        length: 5,
+        ports: { in_1: { offset: 0, side: "-x" } },
+      });
+      const result = duplicateSymbol(withSymbols([collector]), "c")!;
+      expect(copyOf(result).placement).toEqual({
+        kind: "cell",
+        cell: at(6, 0, 2),
+        rotation: 0,
+      });
+      expect(copyOf(result).props).toEqual(collector.props);
+    });
+
+    it("takes an id no pipe, tag or label uses, and leaves the plate it read alone", () => {
+      const doc: PlateDocument = {
+        ...withSymbols([original]),
+        pipes: [
+          {
+            id: "plate_exchanger-1",
+            fluid: "dhw",
+            from: { kind: "cell", cell: at(0, 5) },
+            to: { kind: "cell", cell: at(3, 5) },
+            tags: [{ id: "plate_exchanger-2", at: at(1, 5), label: "T" }],
+          },
+        ],
+        labels: [
+          {
+            id: "plate_exchanger-3",
+            at: { x: 0, y: 8 },
+            text: "",
+            role: "note",
+          },
+        ],
+      };
+      const snapshot = JSON.stringify(doc);
+      const result = duplicateSymbol(doc, "e")!;
+      expect(result.id).toBe("plate_exchanger-4");
+      expect(JSON.stringify(doc)).toBe(snapshot);
+      expect(result.doc.symbols).toHaveLength(2);
+    });
+  });
+
+  describe("setCollectorAxis", () => {
+    it("leaves a symbol without props alone", () => {
+      const bare: SymbolElement = {
+        id: "c",
+        type: "collector",
+        placement: { kind: "cell", cell: at(0, 0) },
+      };
+      const doc = withSymbols([bare]);
+      expect(setCollectorAxis(doc, "c", "y").symbols![0]).toBe(bare);
+    });
+
+    it("turns every in-plane face the same way and keeps the vertical ones", () => {
+      const collector = body("c", "collector", at(0, 0), 0, {
+        axis: "y",
+        length: 4,
+        ports: {
+          a: { offset: 0, side: "+x" },
+          b: { offset: 1, side: "+y" },
+          c: { offset: 2, side: "-x" },
+          d: { offset: 3, side: "-y" },
+          e: { offset: 3, side: "-z" },
+        },
+      });
+      const turned = setCollectorAxis(withSymbols([collector]), "c", "x");
+      // From y back to x: a quarter turn clockwise, +x -> -y.
+      expect(turned.symbols![0].props).toEqual({
+        axis: "x",
+        length: 4,
+        ports: {
+          a: { offset: 0, side: "-y" },
+          b: { offset: 1, side: "+x" },
+          c: { offset: 2, side: "+y" },
+          d: { offset: 3, side: "-x" },
+          e: { offset: 3, side: "-z" },
+        },
+      });
+    });
+  });
+
+  describe("hasRaisedElements", () => {
+    const run = {
+      id: "r",
+      fluid: "dhw" as const,
+      from: { kind: "cell" as const, cell: at(0, 0) },
+      to: { kind: "cell" as const, cell: at(3, 0) },
+      waypoints: [],
+      tags: [],
+    };
+    const doc = (extra: Partial<PlateDocument>): PlateDocument => ({
+      ...emptyDocument("p"),
+      ...extra,
+    });
+
+    it.each([
+      ["a raised symbol", doc({ symbols: [body("s", "tank", at(0, 0, 1))] })],
+      [
+        "a raised free end",
+        doc({ pipes: [{ ...run, to: { kind: "cell", cell: at(3, 0, 1) } }] }),
+      ],
+      [
+        "a raised tag",
+        doc({
+          pipes: [{ ...run, tags: [{ id: "t", at: at(1, 0, 1), label: "" }] }],
+        }),
+      ],
+      [
+        "a raised label",
+        doc({
+          labels: [
+            { id: "l", at: { x: 0, y: 0, z: 0.5 }, text: "", role: "note" },
+          ],
+        }),
+      ],
+      [
+        "a collector port facing down",
+        doc({
+          symbols: [
+            body("c", "collector", at(0, 0), 0, {
+              axis: "x",
+              length: 2,
+              ports: { out_1: { offset: 1, side: "-z" } },
+            }),
+          ],
+        }),
+      ],
+    ])("sees %s", (_, plate) => {
+      expect(hasRaisedElements(plate)).toBe(true);
+    });
+
+    it("reads a run's port end as having no height of its own", () => {
+      // A port end carries no cell: its height is its symbol's, read above.
+      const pac = body("pac", "heat_pump", at(0, 0));
+      expect(
+        hasRaisedElements(
+          doc({
+            symbols: [pac],
+            pipes: [
+              {
+                ...run,
+                from: { kind: "port", symbol: "pac", port: "supply" },
+                to: { kind: "cell", cell: at(5, 1) },
+              },
+            ],
+          }),
+        ),
+      ).toBe(false);
+    });
+  });
+
+  describe("boundDevice", () => {
+    const reading = (devices: Record<string, unknown> | undefined): SlotValue =>
+      ({
+        kind: "attribute",
+        target: { devices, attribute: "speed" },
+      }) as SlotValue;
+
+    it("names none for a binding narrowed to a driver", () => {
+      // Mutant: ignoring the driver would move a binding the author pinned to
+      // one driver along with the device.
+      expect(
+        boundDevice(reading({ ids: ["d1"], driver_id: "drv" })),
+      ).toBeNull();
+    });
+
+    it("reads an empty tag filter as no filter", () => {
+      expect(boundDevice(reading({ ids: ["d1"], tags: {} }))).toBe("d1");
+      expect(boundDevice(reading({ ids: ["d1"], types: [] }))).toBe("d1");
+    });
+
+    it("names none without devices or with no id", () => {
+      expect(boundDevice(reading(undefined))).toBeNull();
+      expect(boundDevice(reading({ ids: [] }))).toBeNull();
+      expect(boundDevice(null)).toBeNull();
+    });
+  });
+
+  describe("withDevice", () => {
+    const pump: SymbolElement = {
+      id: "p",
+      type: "pump",
+      placement: { kind: "cell", cell: at(0, 0) },
+      device_id: "old",
+      bindings: {
+        filtered: {
+          kind: "attribute",
+          target: {
+            devices: { ids: ["old"], types: ["pump"] },
+            attribute: "x",
+          },
+        },
+        literal: { kind: "text", text: "MARCHE" },
+      },
+    };
+
+    it("keeps a binding that reads the old device through a filter, and a literal", () => {
+      const next = withDevice(pump, "new");
+      expect(next.device_id).toBe("new");
+      expect(next.bindings!.filtered).toBe(pump.bindings!.filtered);
+      expect(next.bindings!.literal).toBe(pump.bindings!.literal);
+    });
+
+    it("changes nothing but the device when it is the same one", () => {
+      const next = withDevice(pump, "old");
+      expect(next).toEqual(pump);
+      expect(next.bindings).toBe(pump.bindings);
+    });
   });
 });

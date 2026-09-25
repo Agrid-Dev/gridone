@@ -69,6 +69,7 @@ const VALUES: SynopticValues = {
 const VOCABULARY: PageVocabulary = {
   slotLabel: (slot) => slot,
   typeLabel: (type) => `T:${type}`,
+  fluidLabel: (fluid) => fluid,
   readingTime: () => "10:30:00",
 };
 

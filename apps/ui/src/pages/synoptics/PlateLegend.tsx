@@ -1,15 +1,12 @@
 import type { FC } from "react";
 import { useTranslation } from "react-i18next";
 import { symbolSchemas, type Fluid } from "@gridone/sdk";
-import { project } from "@/components/synoptic/projection";
 import { DRAWINGS } from "@/components/synoptic/symbols/drawings";
 import { Chip, CHIP_H, chipWidth } from "@/components/synoptic/Chip";
 import { Pipe } from "@/components/synoptic/Pipe";
 import { Led } from "@/components/synoptic/symbols/Label";
-import {
-  FaultMark,
-  SynopticSymbol,
-} from "@/components/synoptic/symbols/SynopticSymbol";
+import { FaultMark } from "@/components/synoptic/symbols/SynopticSymbol";
+import { SymbolThumb } from "@/components/synoptic/symbols/SymbolThumb";
 import {
   READING_STATES,
   type ReadingState,
@@ -43,39 +40,6 @@ const ChipSample: FC<{ reading: SlotReading }> = ({ reading }) => {
   return (
     <svg width={w} height={CHIP_H + 2} aria-hidden className="shrink-0">
       <Chip at={{ x: w / 2, y: CHIP_H / 2 + 1 }} reading={reading} />
-    </svg>
-  );
-};
-
-/** Height of a symbol's thumbnail in the key. */
-const THUMB_H = 26;
-/** Room around the footprint, in cells, for what a glyph draws past it
- *  (an actuator's stem, a vent). */
-const THUMB_MARGIN = 0.45;
-
-/** A type's plan glyph, as the sheet draws it, fitted to the key's row. */
-const SymbolThumb: FC<{ type: string }> = ({ type }) => {
-  const footprint = symbolSchemas[type]?.["x-footprint"];
-  if (!footprint) return null;
-  const { w, d } = footprint;
-  const a = project("flat", -THUMB_MARGIN, -THUMB_MARGIN, 0);
-  const b = project("flat", w + THUMB_MARGIN, d + THUMB_MARGIN, 0);
-  const vw = b.x - a.x;
-  const vh = b.y - a.y;
-  return (
-    <svg
-      aria-hidden
-      viewBox={`${a.x} ${a.y} ${vw} ${vh}`}
-      height={THUMB_H}
-      width={Math.round((THUMB_H * vw) / vh)}
-      className="shrink-0 rounded bg-synoptic-plate"
-    >
-      <SynopticSymbol
-        type={type}
-        projection="flat"
-        origin={{ x: 0, y: 0 }}
-        showLabel={false}
-      />
     </svg>
   );
 };
