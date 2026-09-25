@@ -392,8 +392,11 @@ async def unsent(device: CoreDevice, transport, monkeypatch) -> None:
 
 
 async def abandoned(device: CoreDevice, _transport, _monkeypatch) -> None:
+    forgotten = asyncio.Event()
+    device.on_write_state_update = lambda _device: forgotten.set()
     write = asyncio.create_task(device.write_attribute_value("limit", 5.0))
-    await asyncio.sleep(0.05)  # sent, confirmation waiting
+    await forgotten.wait()  # the target is forgotten: being sent
+    await asyncio.sleep(0)  # let the confirmation start waiting
     write.cancel()
     with pytest.raises(asyncio.CancelledError):
         await write
@@ -502,3 +505,24 @@ async def test_a_failed_write_on_a_device_not_syncing_starts_nothing(
     await unconfirmed(device, mock_transport_client, monkeypatch)
 
     assert device._target_refresh._task is None
+
+
+@pytest.mark.asyncio
+async def test_a_pass_that_fails_is_logged_and_ends_quietly(
+    mock_transport_client, monkeypatch, caplog
+):
+    """A background pass has no caller to raise to: its failure is logged and
+    the worker stays usable."""
+    wire = Wire()
+    device = await written(mock_transport_client, monkeypatch, wire)
+    monkeypatch.setattr(
+        device, "_read_dependencies", AsyncMock(side_effect=RuntimeError("boom"))
+    )
+
+    device._request_dependencies()  # the absent inputs are always missing
+    await unconfirmed(device, mock_transport_client, monkeypatch)
+    await acquired(device)
+
+    assert "dependency acquisition failed" in caplog.text
+    assert "target acquisition failed" in caplog.text
+    await device.stop_sync()
