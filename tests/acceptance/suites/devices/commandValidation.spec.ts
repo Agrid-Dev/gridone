@@ -183,7 +183,9 @@ describe("Driver-authored command rules gate previews and writes", () => {
 
   it("refuses an option whose condition no longer holds", async () => {
     // With the thermostat off, `high` is listed but unavailable, and the
-    // submission is refused with the option's own reason.
+    // submission is refused with the option's own reason. The reason needs the
+    // sibling observed off: while it is unread, the refusal is missing data.
+    await expect.poll(readOnoff, UNTIL_POLLED).toBe(false);
     const fan = await client.devices.previewDeviceCommand(deviceId, {
       attribute: "fan_speed",
       value: "high",
