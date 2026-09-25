@@ -1,3 +1,9 @@
+## v0.271.0 (2026-09-25)
+
+### Feat
+
+- meter tree nodes named after their attribute, with units (AGR-1419) (#696)
+
 ## v0.270.1 (2026-09-25)
 
 ## v0.270.0 (2026-09-25)
