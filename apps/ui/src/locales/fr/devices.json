@@ -601,6 +601,7 @@
     "confirmed": "Appliqué",
     "error": "Échec : {{message}}",
     "unconfirmed": "Non confirmé par l'appareil : {{message}}",
+    "awaiting": "En attente de confirmation de {{names}}",
     "unavailable": "Indisponible",
     "increase": "Augmenter {{name}}",
     "decrease": "Diminuer {{name}}",

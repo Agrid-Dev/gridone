@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -11,6 +12,7 @@ import type { Device } from "@gridone/sdk";
 import { createI18nMock } from "@/test/i18nMock";
 import { TooltipProvider } from "@/components/ui";
 import { DevicePresentation } from "../DevicePresentation";
+import { CONFIRMED_VISIBLE_MS } from "../widgets/ControlPanel";
 import type { PresentationV1, SetpointRow } from "../document";
 import type { Scalar } from "../conditions";
 import type {
@@ -25,6 +27,7 @@ vi.mock("react-i18next", () =>
     {
       "presentation.sending": "Sending…",
       "presentation.confirmed": "Applied",
+      "presentation.awaiting": "Waiting for {{names}}",
       "presentation.error": "Failed: {{message}}",
       "presentation.unconfirmed": "Not confirmed: {{message}}",
       "presentation.unavailable": "Unavailable",
@@ -50,6 +53,13 @@ vi.mock("react-i18next", () =>
     { language: "en" },
   ),
 );
+
+// The real block needs the API client; these tests only check which names it gets.
+vi.mock("@/components/AttributeDependencies", () => ({
+  AttributeDependencies: ({ labels }: { labels: string[] }) => (
+    <p data-testid="missing-dependencies">{labels.join(", ")}</p>
+  ),
+}));
 
 afterEach(cleanup);
 
@@ -241,6 +251,7 @@ function fakeRuntime(
     };
   };
   const runtime: DeviceUiRuntime = {
+    reportsWrites: true,
     readControl: (id) => (document.controls[id] ? base(id) : undefined),
     setValue,
     activate,
@@ -249,11 +260,11 @@ function fakeRuntime(
   return { runtime, activate, setValue };
 }
 
-function renderPresentation(
+function presentation(
   runtime: DeviceUiRuntime,
   extra: Partial<Parameters<typeof DevicePresentation>[0]> = {},
 ) {
-  return render(
+  return (
     <TooltipProvider>
       <DevicePresentation
         document={document}
@@ -265,8 +276,15 @@ function renderPresentation(
         renderAttributes={({ group }) => <p>attributes of {group}</p>}
         {...extra}
       />
-    </TooltipProvider>,
+    </TooltipProvider>
   );
+}
+
+function renderPresentation(
+  runtime: DeviceUiRuntime,
+  extra: Partial<Parameters<typeof DevicePresentation>[0]> = {},
+) {
+  return render(presentation(runtime, extra));
 }
 
 describe("DevicePresentation", () => {
@@ -881,4 +899,247 @@ it("converts raw measurements and pending face values while controls stay canoni
   expect(screen.getByText("68 °F")).toBeInTheDocument();
   expect(screen.getByRole("img", { name: "68.9" })).toBeInTheDocument();
   expect(screen.getByText("20.5 °C")).toBeInTheDocument();
+});
+
+describe("no layout shift during a command", () => {
+  const fanRow = () =>
+    screen
+      .getByRole("radiogroup", { name: "Fan" })
+      .closest<HTMLElement>("[data-control]")!;
+  const settled = {
+    code: "locked",
+    message: { default: "Locked by maintenance" },
+  };
+  const provisional = {
+    code: "fan_mode",
+    message: { default: "Not in fan mode" },
+  };
+  const missingFan = (
+    missing: string[],
+    reasons: { code: string; message: { default: string } }[] = [],
+  ): Partial<BoundControlState> => ({
+    attribute: {
+      ...attributes.fan_speed,
+      write_state: {
+        status: "unknown",
+        missing_dependencies: missing.length > 0,
+        missing_attributes: missing,
+      },
+    } as AttributeLike,
+    reasons,
+  });
+  const labelled = (runtime: DeviceUiRuntime): DeviceUiRuntime => ({
+    ...runtime,
+    deviceId: "dev-1",
+    attributeLabel: (name) => name.charAt(0).toUpperCase() + name.slice(1),
+  });
+  /** Renders the fan control, then the same control once a write is in flight. */
+  const writeInFlight = (
+    before: Partial<BoundControlState>,
+    during: Partial<BoundControlState>,
+  ) => {
+    const { rerender } = renderPresentation(
+      labelled(fakeRuntime({ fan: before }).runtime),
+    );
+    rerender(presentation(labelled(fakeRuntime({ fan: during }).runtime)));
+  };
+
+  it("keeps an empty status line on an idle control", () => {
+    const { runtime } = fakeRuntime();
+    renderPresentation(runtime);
+    const status = within(fanRow()).getByRole("status");
+    expect(status).toHaveAttribute("data-write-state", "idle");
+    expect(status).toHaveTextContent(/^$/);
+  });
+
+  it("reserves no status line where no write can report on it", () => {
+    const { runtime } = fakeRuntime();
+    renderPresentation({ ...runtime, reportsWrites: undefined });
+    expect(within(fanRow()).queryByRole("status")).toBeNull();
+  });
+
+  it("fades Applied out, then empties its line without removing it", () => {
+    vi.useFakeTimers();
+    try {
+      const write = { kind: "confirmed", requested: "high" } as const;
+      const { runtime } = fakeRuntime({ fan: { write } });
+      const { rerender } = renderPresentation(labelled(runtime));
+      const status = () => within(fanRow()).getByRole("status");
+      expect(status()).toHaveTextContent("Applied");
+      expect(status()).not.toHaveClass("opacity-0");
+      act(() => vi.advanceTimersByTime(CONFIRMED_VISIBLE_MS));
+      expect(status()).toHaveClass("opacity-0");
+      expect(status()).toHaveTextContent("Applied");
+      act(() => vi.advanceTimersByTime(500));
+      expect(status()).toHaveTextContent(/^$/);
+      expect(status()).not.toHaveAttribute("title");
+      // A later awaited write ending must not bring the old "Applied" back.
+      rerender(
+        presentation(
+          labelled(
+            fakeRuntime({
+              fan: { write, ...missingFan(["mode"]), inFlight: ["mode"] },
+            }).runtime,
+          ),
+        ),
+      );
+      expect(status()).toHaveTextContent("Waiting for Mode");
+      rerender(presentation(labelled(runtime)));
+      expect(status()).toHaveTextContent(/^$/);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("lets a failure wrap so it can be read in full", () => {
+    const { runtime } = fakeRuntime({
+      fan: { write: { kind: "error", requested: "high", message: "refused" } },
+    });
+    renderPresentation(runtime);
+    const status = within(fanRow()).getByRole("status");
+    expect(status).toHaveTextContent("Failed: refused");
+    expect(status).not.toHaveClass("truncate");
+  });
+
+  it("says which write it awaits instead of reporting missing data", () => {
+    writeInFlight(missingFan([]), {
+      ...missingFan(["mode"]),
+      inFlight: ["mode"],
+    });
+    expect(within(fanRow()).getByRole("status")).toHaveTextContent(
+      "Waiting for Mode",
+    );
+    expect(screen.queryByTestId("missing-dependencies")).toBeNull();
+  });
+
+  it("keeps reporting a dependency that was missing before its write", () => {
+    writeInFlight(missingFan(["mode"]), {
+      ...missingFan(["mode"]),
+      inFlight: ["mode"],
+    });
+    expect(within(fanRow()).getByRole("status")).toHaveTextContent(/^$/);
+    expect(screen.getByTestId("missing-dependencies")).toHaveTextContent(
+      /^Mode$/,
+    );
+  });
+
+  it("still reports the dependencies nobody is writing, with the settled explanations", () => {
+    writeInFlight(missingFan(["maintenance"], [settled]), {
+      ...missingFan(["maintenance", "mode"], [settled, provisional]),
+      inFlight: ["mode"],
+    });
+    expect(within(fanRow()).getByText("Waiting for Mode")).toHaveAttribute(
+      "data-write-state",
+      "idle",
+    );
+    expect(screen.getByTestId("missing-dependencies")).toHaveTextContent(
+      /^Maintenance$/,
+    );
+    expect(within(fanRow()).getByText("Locked by maintenance")).toBeVisible();
+    expect(within(fanRow()).queryByText(/Not in fan mode/)).toBeNull();
+  });
+
+  it("keeps the settled explanations while the awaited write is in flight", () => {
+    writeInFlight(missingFan([], [settled]), {
+      ...missingFan(["mode"], [settled, provisional]),
+      inFlight: ["mode"],
+    });
+    expect(within(fanRow()).getByText("Locked by maintenance")).toBeVisible();
+    expect(within(fanRow()).queryByText(/Not in fan mode/)).toBeNull();
+  });
+
+  describe("range of a setpoint whose bounds turn unknown", () => {
+    const unknownBounds = {
+      step: 0.5,
+      minimum: null,
+      maximum: null,
+      unknown: true,
+    };
+    const range = () =>
+      within(screen.getByRole("row", { name: /Temperature/ })).queryByText(
+        "16.0 – 30.0",
+      );
+
+    it("keeps the last known one, greyed, while a write of ours is in flight", () => {
+      const { runtime: known } = fakeRuntime();
+      const { rerender } = renderPresentation(known);
+      const { runtime: unknown } = fakeRuntime({
+        target: {
+          constraints: unknownBounds,
+          attribute: {
+            ...attributes.temperature_setpoint,
+            write_state: { status: "unknown", missing_attributes: ["mode"] },
+          } as AttributeLike,
+          inFlight: ["mode"],
+        },
+      });
+      rerender(presentation(unknown));
+      expect(range()).toHaveAttribute("data-stale", "true");
+    });
+
+    it("drops it when no write of ours explains the gap", () => {
+      const { runtime: known } = fakeRuntime();
+      const { rerender } = renderPresentation(known);
+      const { runtime: unknown } = fakeRuntime({
+        target: { constraints: unknownBounds },
+      });
+      rerender(presentation(unknown));
+      expect(range()).toBeNull();
+    });
+  });
+
+  it("shows an option's reason in a tooltip, opened by a tap too", async () => {
+    const { runtime } = fakeRuntime({
+      fan: {
+        options: ["low", "middle"],
+        optionStates: [
+          { value: "low", available: true },
+          {
+            value: "middle",
+            available: false,
+            reasons: [
+              {
+                code: "locked",
+                message: { default: "Middle speed is locked" },
+              },
+            ],
+          },
+        ],
+      },
+    });
+    renderPresentation(runtime);
+    const disabled = screen.getByRole("radio", { name: /middle/i });
+    expect(disabled).toHaveAccessibleDescription("Middle speed is locked");
+    expect(screen.getByText("Middle speed is locked")).toHaveClass("sr-only");
+    // A tap is a click with no hover before it.
+    fireEvent.click(disabled);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(
+      "Middle speed is locked",
+    );
+  });
+
+  it("does not open a reason that arrives after a hover without one", async () => {
+    const user = userEvent.setup();
+    const { runtime } = fakeRuntime();
+    const { rerender } = renderPresentation(runtime);
+    await user.hover(screen.getByRole("radio", { name: "High" }));
+    await user.unhover(screen.getByRole("radio", { name: "High" }));
+    const { runtime: locked } = fakeRuntime({
+      fan: {
+        optionStates: [
+          { value: "low", available: true },
+          {
+            value: "high",
+            available: false,
+            reasons: [
+              { code: "locked", message: { default: "High speed is locked" } },
+            ],
+          },
+        ],
+      },
+    });
+    rerender(presentation(locked));
+    await act(async () => {});
+    expect(screen.queryByRole("tooltip")).toBeNull();
+  });
 });

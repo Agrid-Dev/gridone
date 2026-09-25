@@ -221,6 +221,9 @@ describe("useDeviceControlRuntime", () => {
   it("rejects direct actions and writes when the user lacks device write permission", () => {
     const { rendered } = setup(makeDevice(), false);
     expect(rendered.result.current.readControl("power")?.writable).toBe(false);
+    // No write can be sent, so no control reserves a status line for one.
+    expect(rendered.result.current.reportsWrites).toBe(false);
+    expect(setup().rendered.result.current.reportsWrites).toBe(true);
     act(() => {
       rendered.result.current.setValue("power", false);
       rendered.result.current.activate({ control: "power", op: "toggle" });
@@ -404,6 +407,39 @@ describe("useDeviceControlRuntime", () => {
       displayed: 21.5,
     });
     expect(rendered.result.current.reported("temperature_setpoint")).toBe(19);
+  });
+
+  it("lists only the missing dependencies whose write is in flight", async () => {
+    let finish!: (value: unknown) => void;
+    mockSendCommand.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    const { rendered } = setup(
+      makeDevice({
+        temperature_setpoint: {
+          write_state: {
+            status: "unknown",
+            missing_dependencies: true,
+            missing_attributes: ["onoff_state", "precision"],
+          },
+        },
+      }),
+    );
+    expect(rendered.result.current.readControl("target")?.inFlight).toEqual([]);
+    act(() => rendered.result.current.setValue("power", false));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(rendered.result.current.readControl("target")?.inFlight).toEqual([
+      "onoff_state",
+    ]);
+    await act(async () => {
+      finish({ id: "cmd" });
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(rendered.result.current.readControl("target")?.inFlight).toEqual([]);
   });
 
   it("drops pending intentions when the device changes", async () => {

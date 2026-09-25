@@ -1,16 +1,29 @@
+import { useEffect, useState, type ReactNode } from "react";
+import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { AttributeDependencies } from "@/components/AttributeDependencies";
 import { moveRadioFocus } from "@/lib/radioNavigation";
 import { useTranslation } from "react-i18next";
 import { Check, Loader2, Minus, Plus } from "lucide-react";
-import { Button, Switch } from "@/components/ui";
+import {
+  Button,
+  Switch,
+  Tooltip,
+  TooltipArrow,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui";
 import { attributeValueLabel } from "@/lib/attributeValueLabel";
 import { commandReasons } from "@/lib/commandReasons";
 import { toLabel } from "@/lib/textFormat";
 import { cn } from "@/lib/utils";
 import type { Scalar } from "../conditions";
 import { localize } from "../face";
-import type { BoundControlState, DeviceUiRuntime } from "../runtime";
-import type { WriteState } from "../runtime";
+import {
+  useAwaitedWrite,
+  type BoundControlState,
+  type DeviceUiRuntime,
+  type WriteState,
+} from "../runtime";
 import { decimalsOf } from "../runtime/controls";
 import { formatNumber } from "./formatters";
 import { NumberSlider } from "./NumberSlider";
@@ -68,40 +81,43 @@ export function ControlRow({
   const { t } = useTranslation();
   const label = localize(state.spec.label, language);
   return (
-    <div
-      className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
-      data-control={id}
-    >
-      <div className="min-w-0">
-        <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
-          {label}
-          <DescriptionHint
-            name={label}
-            entries={describedAttributes(
-              [{ caption: label, attribute: state.attribute }],
-              language,
-            )}
-          />
-        </p>
-        {state.valueLabel && (
-          <p className="text-xs text-muted-foreground">{state.valueLabel}</p>
-        )}
-        {state.spec.kind === "select" &&
-          state.reported !== null &&
-          !state.options.includes(state.reported) && (
-            <p className="text-xs text-muted-foreground">
-              {t("common.currentValue")}: {String(state.reported)}
-            </p>
+    <div className="px-4 py-3" data-control={id}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+            {label}
+            <DescriptionHint
+              name={label}
+              entries={describedAttributes(
+                [{ caption: label, attribute: state.attribute }],
+                language,
+              )}
+            />
+          </p>
+          {state.valueLabel && (
+            <p className="text-xs text-muted-foreground">{state.valueLabel}</p>
           )}
-        <WriteStateIndicator state={state.write} />
-        <ControlFeedback state={state} runtime={runtime} language={language} />
+          {state.spec.kind === "select" &&
+            state.reported !== null &&
+            !state.options.includes(state.reported) && (
+              <p className="text-xs text-muted-foreground">
+                {t("common.currentValue")}: {String(state.reported)}
+              </p>
+            )}
+        </div>
+        <ControlInput id={id} state={state} runtime={runtime} label={label} />
       </div>
-      <ControlInput id={id} state={state} runtime={runtime} label={label} />
+      <ControlFeedback state={state} runtime={runtime} language={language} />
     </div>
   );
 }
 
-/** Availability explanations shared by standalone controls and setpoint tables. */
+/**
+ * Write status and availability explanations shared by standalone controls
+ * and setpoint tables. While a write this page sent makes dependencies
+ * unknown, the explanations from before the write stay on screen: that gap is
+ * ours, and the page must not move for it.
+ */
 export function ControlFeedback({
   state,
   runtime,
@@ -111,28 +127,38 @@ export function ControlFeedback({
   runtime: DeviceUiRuntime;
   language?: string;
 }) {
+  const writeState = state.attribute?.write_state;
+  const {
+    awaiting,
+    shown: { reasons, warnings },
+  } = useAwaitedWrite(state, {
+    reasons: commandReasons(state.reasons, language),
+    warnings: commandReasons(writeState?.warnings, language),
+  });
+  const missing = (writeState?.missing_attributes ?? []).filter(
+    (name) => !awaiting.includes(name),
+  );
+  const label = (name: string) => runtime.attributeLabel?.(name) ?? name;
   return (
     <>
-      {state.reasons?.length ? (
+      {runtime.reportsWrites && (
+        <ControlStatus state={state.write} awaiting={awaiting.map(label)} />
+      )}
+      {reasons && (
         <p role="status" className="text-xs text-muted-foreground">
-          {commandReasons(state.reasons, language)}
+          {reasons}
         </p>
-      ) : null}
-      {state.attribute?.write_state?.missing_dependencies &&
+      )}
+      {writeState?.missing_dependencies &&
+        (!awaiting.length || missing.length > 0) &&
         runtime.deviceId && (
           <AttributeDependencies
             deviceId={runtime.deviceId}
             attribute={state.spec.attribute}
-            labels={(state.attribute.write_state.missing_attributes ?? []).map(
-              (name) => runtime.attributeLabel?.(name) ?? name,
-            )}
+            labels={missing.map(label)}
           />
         )}
-      {state.attribute?.write_state?.warnings?.length ? (
-        <p className="text-xs text-amber-700">
-          {commandReasons(state.attribute.write_state.warnings, language)}
-        </p>
-      ) : null}
+      {warnings && <p className="text-xs text-amber-700">{warnings}</p>}
     </>
   );
 }
@@ -224,6 +250,12 @@ export function NumberStepper({
       : (state.valueLabel ?? t("presentation.unavailable"));
   const unit = state.attribute?.unit;
   const { minimum, maximum } = state.constraints;
+  const known =
+    minimum !== null && maximum !== null ? { minimum, maximum } : null;
+  // While a write this page sent leaves the bounds unknown, the last known
+  // ones stay, greyed, in place.
+  const { shown: held } = useAwaitedWrite(state, known);
+  const range = known ?? held;
   return (
     <div className="flex items-center gap-2" role="group" aria-label={label}>
       <Button
@@ -251,11 +283,17 @@ export function NumberStepper({
             }
           />
         </span>
-        {minimum !== null && maximum !== null && (
-          <p className="text-[11px] text-muted-foreground">
+        {range && (
+          <p
+            data-stale={!known || undefined}
+            className={cn(
+              "text-[11px] text-muted-foreground",
+              !known && "opacity-50",
+            )}
+          >
             {t("presentation.range", {
-              min: formatNumber(minimum, decimals, i18n.language),
-              max: formatNumber(maximum, decimals, i18n.language),
+              min: formatNumber(range.minimum, decimals, i18n.language),
+              max: formatNumber(range.maximum, decimals, i18n.language),
             })}
           </p>
         )}
@@ -304,37 +342,16 @@ function SelectControl({
           (item) => item.value === option,
         );
         const unavailable = !state.writable || resolved?.available === false;
-        const reason = commandReasons(resolved?.reasons, i18n.language);
-        const reasonId = `${id}-option-${index}-reason`;
         return (
-          <div key={`${typeof option}:${String(option)}`}>
-            <button
-              type="button"
-              role="radio"
-              aria-checked={active}
-              aria-disabled={unavailable}
-              aria-describedby={reason ? reasonId : undefined}
-              onClick={() => {
-                if (!unavailable) runtime.setValue(id, option);
-              }}
-              onKeyDown={moveRadioFocus}
-              className={cn(
-                "rounded-full px-3 py-1.5 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring",
-                unavailable && "opacity-50",
-                active && "bg-background shadow-sm",
-              )}
-            >
-              {optionLabel(option)}
-            </button>
-            {reason && (
-              <p
-                id={reasonId}
-                className="max-w-48 px-2 text-xs text-muted-foreground"
-              >
-                {reason}
-              </p>
-            )}
-          </div>
+          <OptionButton
+            key={`${typeof option}:${String(option)}`}
+            label={optionLabel(option)}
+            active={active}
+            unavailable={unavailable}
+            reason={commandReasons(resolved?.reasons, i18n.language)}
+            reasonId={`${id}-option-${index}-reason`}
+            onSelect={() => runtime.setValue(id, option)}
+          />
         );
       })}
     </div>
@@ -342,33 +359,165 @@ function SelectControl({
 }
 
 /**
- * The outcome of the last write, announced politely: sending, confirmed,
- * or the real failure. Measurements are never announced here.
+ * An option's reason is a tooltip, so reasons coming and going never resize
+ * the group. Hover and focus open it; a tap on an unavailable option opens it
+ * too, since touch has neither.
  */
-export function WriteStateIndicator({ state }: { state: WriteState }) {
+function OptionButton({
+  label,
+  active,
+  unavailable,
+  reason,
+  reasonId,
+  onSelect,
+}: {
+  label: string;
+  active: boolean;
+  unavailable: boolean;
+  reason: string;
+  reasonId: string;
+  onSelect: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  // Radix only reports a change away from `open`, so a state left true while
+  // there is no reason would open the tooltip unprompted once one arrives.
+  if (open && !reason) setOpen(false);
+  // The trigger stays mounted when a reason comes or goes, so focus is kept.
+  return (
+    <>
+      <Tooltip open={open} onOpenChange={setOpen} delayDuration={0}>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={active}
+            aria-disabled={unavailable}
+            aria-describedby={reason ? reasonId : undefined}
+            onClick={(event) => {
+              if (!unavailable) onSelect();
+              else if (reason) {
+                // Keeps the tooltip trigger from closing what the tap opens.
+                event.preventDefault();
+                setOpen(true);
+              }
+            }}
+            onKeyDown={moveRadioFocus}
+            className={cn(
+              "rounded-full px-3 py-1.5 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring",
+              unavailable && "opacity-50",
+              active && "bg-background shadow-sm",
+            )}
+          >
+            {label}
+          </button>
+        </TooltipTrigger>
+        <TooltipPrimitive.Portal>
+          <TooltipContent side="top" className="max-w-72 text-xs">
+            {reason}
+            <TooltipArrow className="fill-popover" />
+          </TooltipContent>
+        </TooltipPrimitive.Portal>
+      </Tooltip>
+      {reason && (
+        <span id={reasonId} className="sr-only">
+          {reason}
+        </span>
+      )}
+    </>
+  );
+}
+
+export const CONFIRMED_VISIBLE_MS = 2000;
+const FADE_MS = 500;
+
+type StatusLine = {
+  text?:
+    | "presentation.awaiting"
+    | "presentation.sending"
+    | "presentation.confirmed"
+    | "presentation.error"
+    | "presentation.unconfirmed";
+  icon?: ReactNode;
+  failed?: boolean;
+};
+const SPINNER = (
+  <Loader2 className="mr-1 inline h-3 w-3 animate-spin" aria-hidden />
+);
+const AWAITING_LINE: StatusLine = {
+  text: "presentation.awaiting",
+  icon: SPINNER,
+};
+const STATUS_LINES: Record<WriteState["kind"], StatusLine> = {
+  idle: {},
+  sending: { text: "presentation.sending", icon: SPINNER },
+  confirmed: {
+    text: "presentation.confirmed",
+    icon: <Check className="mr-1 inline h-3 w-3" aria-hidden />,
+  },
+  error: { text: "presentation.error", failed: true },
+  unconfirmed: { text: "presentation.unconfirmed", failed: true },
+};
+
+/**
+ * The outcome of the last write, announced politely: sending, confirmed,
+ * or the real failure, else the dependencies whose write is awaited.
+ * Measurements are never announced here. The line keeps one line of height
+ * and never widens its container; a long progress message is cut, in full in
+ * its title, while a failure wraps so it can be read in full. "Applied" fades
+ * out, then leaves an empty line.
+ */
+function ControlStatus({
+  state,
+  awaiting,
+}: {
+  state: WriteState;
+  awaiting: string[];
+}) {
   const { t } = useTranslation("devices");
-  if (state.kind === "idle") return null;
-  const failed = state.kind === "error" || state.kind === "unconfirmed";
+  const [faded, setFaded] = useState<{ state: WriteState; gone: boolean }>();
+  useEffect(() => {
+    if (state.kind !== "confirmed") return;
+    const timers = [
+      setTimeout(() => setFaded({ state, gone: false }), CONFIRMED_VISIBLE_MS),
+      setTimeout(
+        () => setFaded({ state, gone: true }),
+        CONFIRMED_VISIBLE_MS + FADE_MS,
+      ),
+    ];
+    return () => timers.forEach(clearTimeout);
+  }, [state]);
+  const own = STATUS_LINES[state.kind];
+  const waiting =
+    !own.failed && state.kind !== "sending" && awaiting.length > 0;
+  const fading = !waiting && faded?.state === state;
+  const line = waiting
+    ? AWAITING_LINE
+    : fading && faded.gone
+      ? STATUS_LINES.idle
+      : own;
+  const text = line.text
+    ? t(line.text, {
+        names: awaiting.join(", "),
+        message: "message" in state ? state.message : "",
+      })
+    : "";
   return (
     <p
       role="status"
       aria-live="polite"
       data-write-state={state.kind}
+      title={text || undefined}
+      style={{ transitionDuration: `${FADE_MS}ms` }}
       className={cn(
-        "flex items-center gap-1 text-xs",
-        failed ? "text-destructive" : "text-muted-foreground",
+        "min-h-4 w-0 min-w-full text-xs leading-4 transition-opacity",
+        line.failed
+          ? "break-words text-destructive"
+          : "truncate text-muted-foreground",
+        fading && "opacity-0",
       )}
     >
-      {state.kind === "sending" && (
-        <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
-      )}
-      {state.kind === "confirmed" && <Check className="h-3 w-3" aria-hidden />}
-      {state.kind === "sending" && t("presentation.sending")}
-      {state.kind === "confirmed" && t("presentation.confirmed")}
-      {state.kind === "error" &&
-        t("presentation.error", { message: state.message })}
-      {state.kind === "unconfirmed" &&
-        t("presentation.unconfirmed", { message: state.message })}
+      {line.icon}
+      {text}
     </p>
   );
 }
