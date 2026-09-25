@@ -1,3 +1,9 @@
+## v0.270.0 (2026-09-25)
+
+### Feat
+
+- **synoptics**: declare fluid passages and gates in the registry
+
 ## v0.269.2 (2026-09-24)
 
 ### Fix
