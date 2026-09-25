@@ -385,10 +385,13 @@ function OptionButton({
   onSelect: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  // Radix only reports a change away from `open`, so a state left true while
+  // there is no reason would open the tooltip unprompted once one arrives.
+  if (open && !reason) setOpen(false);
   // The trigger stays mounted when a reason comes or goes, so focus is kept.
   return (
     <>
-      <Tooltip open={open && !!reason} onOpenChange={setOpen} delayDuration={0}>
+      <Tooltip open={open} onOpenChange={setOpen} delayDuration={0}>
         <TooltipTrigger asChild>
           <button
             type="button"

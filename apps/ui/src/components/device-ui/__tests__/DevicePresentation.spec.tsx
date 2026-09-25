@@ -1042,4 +1042,29 @@ describe("no layout shift during a command", () => {
       "Middle speed is locked",
     );
   });
+
+  it("does not open a reason that arrives after a hover without one", async () => {
+    const user = userEvent.setup();
+    const { runtime } = fakeRuntime();
+    const { rerender } = renderPresentation(runtime);
+    await user.hover(screen.getByRole("radio", { name: "High" }));
+    await user.unhover(screen.getByRole("radio", { name: "High" }));
+    const { runtime: locked } = fakeRuntime({
+      fan: {
+        optionStates: [
+          { value: "low", available: true },
+          {
+            value: "high",
+            available: false,
+            reasons: [
+              { code: "locked", message: { default: "High speed is locked" } },
+            ],
+          },
+        ],
+      },
+    });
+    rerender(presentation(locked));
+    await act(async () => {});
+    expect(screen.queryByRole("tooltip")).toBeNull();
+  });
 });
