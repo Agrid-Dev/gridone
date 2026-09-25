@@ -41,6 +41,11 @@ def scalar_equal(left: object, right: object) -> bool:
     return left == right and isinstance(left, bool) == isinstance(right, bool)
 
 
+def scalar_key[T](value: T) -> tuple[bool, T]:
+    """Hashable form of `scalar_equal`: two keys match exactly when it holds."""
+    return (isinstance(value, bool), value)
+
+
 def is_number(value: object) -> bool:
     return (
         not isinstance(value, bool)

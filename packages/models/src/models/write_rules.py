@@ -10,6 +10,7 @@ from models.attribute_metadata import LocalizedText  # noqa: TC001 -- schema run
 from models.command_confirmation import (
     WriteConsent,  # noqa: TC001 -- pydantic schema
 )
+from models.conditions import scalar_key
 from models.expressions import MAX_LIST_ITEMS, Condition, Expression, Scalar
 
 
@@ -61,7 +62,7 @@ class ValueMapping(BaseModel):
 
     @model_validator(mode="after")
     def unique_codes(self) -> ValueMapping:
-        keys = [(isinstance(entry.code, bool), entry.code) for entry in self.entries]
+        keys = [scalar_key(entry.code) for entry in self.entries]
         if len(set(keys)) != len(keys):
             msg = "mapping codes must be unique"
             raise ValueError(msg)

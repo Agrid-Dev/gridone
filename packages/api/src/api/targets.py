@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from models.conditions import scalar_key
 from models.errors import InvalidError
 from models.targets import (
     AttributeCoverage,
@@ -100,7 +101,7 @@ def _aggregate_write_states(
     options: dict[tuple[bool, object], ResolvedOption] = {}
     for state in known:
         for option in state.options or []:
-            key = (isinstance(option.value, bool), option.value)
+            key = scalar_key(option.value)
             if key not in options or option.available:
                 options[key] = option
     return AttributeWriteState(
