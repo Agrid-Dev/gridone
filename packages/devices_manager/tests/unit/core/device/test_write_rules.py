@@ -146,7 +146,7 @@ def test_conditional_options_are_projected_and_enforced(
 
 
 @pytest.mark.parametrize(
-    ("values", "reasons"),
+    ("values", "reasons", "status"),
     [
         (
             {"slot_0": "fan", "lock": 0},
@@ -155,10 +155,12 @@ def test_conditional_options_are_projected_and_enforced(
                 "heat": ["unknown_dependencies"],
                 "cool": ["unknown_dependencies"],
             },
+            "ready",
         ),
         (
             {"slot_0": "fan", "lock": 0, "mode_ok": False},
             {"fan": [], "heat": ["unknown_dependencies"], "cool": ["incompatible"]},
+            "ready",
         ),
         (
             {"slot_0": "fan", "lock": 1, "mode_ok": True},
@@ -167,10 +169,20 @@ def test_conditional_options_are_projected_and_enforced(
                 "heat": ["unknown_dependencies"],
                 "cool": ["unknown_dependencies"],
             },
+            "blocked",
+        ),
+        (
+            {"lock": 0, "mode_ok": True},
+            {
+                "fan": ["unknown_dependencies"],
+                "heat": ["unknown_dependencies"],
+                "cool": ["unknown_dependencies"],
+            },
+            "unknown",
         ),
     ],
 )
-def test_projected_options_give_the_reasons_a_write_gives(values, reasons):
+def test_projected_options_give_the_reasons_a_write_gives(values, reasons, status):
     contract = spec(
         data_type="str",
         write_options=[
@@ -198,6 +210,7 @@ def test_projected_options_give_the_reasons_a_write_gives(values, reasons):
     state = project_write_state(contract, values.get)
     assert state.options is not None
     assert {o.value: [r.code for r in o.reasons] for o in state.options} == reasons
+    assert state.status == status
     for option in state.options:
         assert evaluate_write(contract, option.value, values.get).reasons == (
             option.reasons
