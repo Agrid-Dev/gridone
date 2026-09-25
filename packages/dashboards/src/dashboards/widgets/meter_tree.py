@@ -44,7 +44,7 @@ budget would mean two mechanisms for one job, with neither holding on its own.""
 
 
 class MeterTreeNode(BaseModel):
-    """One meter in the hierarchy: a label, optionally a meter, and children.
+    """One meter in the hierarchy: optionally a label and a meter, and children.
 
     ``meter`` is optional because a node may exist purely to group others — a
     riser feeding several floors is often unmetered itself. Such a node totals
@@ -53,7 +53,14 @@ class MeterTreeNode(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    label: Annotated[str, Field(min_length=1)]
+    label: Annotated[str, Field(min_length=1)] | None = None
+    """Overrides the name the node is shown under.
+
+    Optional on a metered node, which is shown under its attribute's label —
+    the driver already names what the meter measures, and restating it here
+    would drift from it. Required on a group, which has no attribute to borrow
+    a name from.
+    """
     meter: AttributeTarget | None = None
     """The cumulative index this node reads, reduced with ``delta`` over the
     dashboard period.
@@ -99,7 +106,15 @@ class MeterTreeNode(BaseModel):
     def _require_meter_or_children(self) -> MeterTreeNode:
         """A node with neither a meter nor children carries no information."""
         if self.meter is None and not self.children:
-            msg = f"Node {self.label!r} must have a meter or children"
+            msg = f"Node {self.name!r} must have a meter or children"
+            raise ValueError(msg)
+        return self
+
+    @model_validator(mode="after")
+    def _require_label_on_a_group(self) -> MeterTreeNode:
+        """A group has no attribute to be named after, so it must be labelled."""
+        if self.meter is None and self.label is None:
+            msg = "A node without a meter needs a label"
             raise ValueError(msg)
         return self
 
@@ -107,7 +122,7 @@ class MeterTreeNode(BaseModel):
     def _scale_needs_a_meter(self) -> MeterTreeNode:
         """A scale with no reading to apply it to is a mistake, not a no-op."""
         if self.meter is None and self.scale != 1.0:
-            msg = f"Node {self.label!r} has a scale but no meter to apply it to"
+            msg = f"Node {self.name!r} has a scale but no meter to apply it to"
             raise ValueError(msg)
         return self
 
@@ -118,9 +133,16 @@ class MeterTreeNode(BaseModel):
         devices = self.meter.devices
         single_id = devices.ids is not None and len(devices.ids) == 1
         if not single_id or devices.types or devices.tags:
-            msg = f"Node {self.label!r} meter must be exactly one explicit device id"
+            msg = f"Node {self.name!r} meter must be exactly one explicit device id"
             raise ValueError(msg)
         return self
+
+    @property
+    def name(self) -> str | None:
+        """What error messages call the node: its label, else its attribute."""
+        if self.label is not None:
+            return self.label
+        return self.meter.attribute if self.meter is not None else None
 
     def walk(self) -> Iterator[MeterTreeNode]:
         """Yield this node then every descendant, depth-first, parents first.
@@ -173,15 +195,15 @@ class MeterTreeWidgetConfig(WidgetConfig):
         """Every declared meter must resolve to exactly one device.
 
         Meters arrive in :meth:`MeterTreeNode.walk` order, filtered to the
-        nodes that declared one, so they can be zipped back onto their labels to
+        nodes that declared one, so they can be zipped back onto their nodes to
         say *which* node is at fault — a tree can hold dozens of meters and
         "one meter resolved to 0 devices" would not be actionable.
         """
-        labelled = [node for node in self.root.walk() if node.meter is not None]
-        for node, resolved_meter in zip(labelled, resolved, strict=True):
+        metered = [node for node in self.root.walk() if node.meter is not None]
+        for node, resolved_meter in zip(metered, resolved, strict=True):
             if len(resolved_meter.device_ids) != 1:
                 msg = (
-                    f"Node {node.label!r} must resolve to exactly one device, "
+                    f"Node {node.name!r} must resolve to exactly one device, "
                     f"got {len(resolved_meter.device_ids)}"
                 )
                 raise InvalidError(msg)

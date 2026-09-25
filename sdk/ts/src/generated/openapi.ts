@@ -5472,7 +5472,7 @@ export interface components {
     };
     /**
      * MeterTreeNode
-     * @description One meter in the hierarchy: a label, optionally a meter, and children.
+     * @description One meter in the hierarchy: optionally a label and a meter, and children.
      *
      *     ``meter`` is optional because a node may exist purely to group others — a
      *     riser feeding several floors is often unmetered itself. Such a node totals
@@ -5480,7 +5480,7 @@ export interface components {
      */
     MeterTreeNode: {
       /** Label */
-      label: string;
+      label?: string | null;
       meter?: components["schemas"]["AttributeTarget"] | null;
       /**
        * Scale

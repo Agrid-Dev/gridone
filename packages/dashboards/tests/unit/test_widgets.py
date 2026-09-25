@@ -778,6 +778,40 @@ def test_meter_tree_node_rejects_an_empty_node():
     assert "must have a meter or children" in str(exc.value)
 
 
+def test_meter_tree_node_may_omit_its_label_when_it_has_a_meter():
+    # The meter's attribute already names what the node measures; the view
+    # borrows the attribute's label rather than making every node restate it.
+    node = MeterTreeNode.model_validate({"meter": _meter("m1")})
+
+    assert node.label is None
+
+
+def test_meter_tree_group_requires_a_label():
+    # An unmetered group has no attribute to borrow a name from.
+    with pytest.raises(ValidationError) as exc:
+        MeterTreeNode.model_validate({"children": [{"meter": _meter("m1")}]})
+
+    assert "needs a label" in str(exc.value)
+
+
+def test_meter_tree_names_an_unlabelled_node_by_its_attribute():
+    config = MeterTreeWidgetConfig.model_validate(
+        {"type": "meter_tree", "root": {"meter": _meter("gone", "lighting_energy")}}
+    )
+
+    with pytest.raises(InvalidError, match="'lighting_energy'"):
+        config.validate_resolved(
+            [
+                ResolvedTarget(
+                    attribute="lighting_energy",
+                    device_ids=[],
+                    data_type=DataType.FLOAT,
+                    excluded_device_ids=[],
+                )
+            ]
+        )
+
+
 def test_meter_tree_reports_the_full_path_of_a_deep_error():
     # The editor pins each message to a field, so a fault three levels down
     # must not surface as a complaint about the root.
