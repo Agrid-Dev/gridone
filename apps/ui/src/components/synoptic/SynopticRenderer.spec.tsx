@@ -741,6 +741,29 @@ describe("SynopticRenderer", () => {
     );
   });
 
+  it("frames the given extent alone when boxed, whatever the plate draws", () => {
+    const extent = [
+      { x: -40, y: -40 },
+      { x: 360, y: 200 },
+    ];
+    const framed = (doc: typeof DOC) =>
+      render(<SynopticRenderer doc={doc} extent={extent} boxed />)
+        .container.querySelector("svg")!
+        .getAttribute("viewBox");
+    // 400 x 240 of extent and 60 px of margin each side, for a full plate
+    // and an empty one alike: an editor's frame holds still while bodies
+    // come and go.
+    expect(framed(DOC)).toBe("0 0 520 360");
+    expect(framed({ ...DOC, symbols: [], pipes: [], labels: [] })).toBe(
+      "0 0 520 360",
+    );
+    // Mutant: without `boxed` the extent only widens what is drawn.
+    const loose = render(<SynopticRenderer doc={DOC} extent={extent} />)
+      .container.querySelector("svg")!
+      .getAttribute("viewBox");
+    expect(loose).not.toBe("0 0 520 360");
+  });
+
   it("frames a rotated body where it is drawn", () => {
     const pump = (rotation: 0 | 1 | 2 | 3) =>
       draw({

@@ -1,13 +1,9 @@
 import { useMemo, useState } from "react";
 import { useAttributeLabel } from "@/hooks/useAttributeLabel";
+import { foldText } from "@/lib/textFormat";
 import type { AttributeCatalog } from "./expressions";
 
 const ATTRIBUTE_SEARCH_LIMIT = 40;
-
-/** Fold accents so, for example, "arret" also matches "Arrêt". */
-function searchable(value: string) {
-  return value.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
-}
 
 export function useAttributeSearch(
   catalog: AttributeCatalog,
@@ -32,14 +28,14 @@ export function useAttributeSearch(
               reference: { device_id: device.id, attribute },
               key: JSON.stringify([device.id, attribute]),
               label,
-              search: searchable(`${label} ${device.id} ${attribute}`),
+              search: foldText(`${label} ${device.id} ${attribute}`),
             };
           }),
       ),
     [catalog.devices, writable, attributeLabel],
   );
   const matches = useMemo(() => {
-    const tokens = searchable(query).trim().split(/\s+/).filter(Boolean);
+    const tokens = foldText(query).trim().split(/\s+/).filter(Boolean);
     return attributes.filter((reference) =>
       tokens.every((token) => reference.search.includes(token)),
     );

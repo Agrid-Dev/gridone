@@ -6,6 +6,7 @@ import type { SymbolState } from "@/components/synoptic";
 import { FAULT_BG_CLASS } from "@/components/synoptic/fault";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { foldText } from "@/lib/textFormat";
 
 /** A named symbol of the plate, as the navigation panel lists it. */
 export type NavEntry = {
@@ -27,13 +28,6 @@ type SymbolNavProps = {
   onSelect: (entry: NavEntry) => void;
 };
 
-/** Accent- and case-insensitive, so "rechauffeur" finds "RÉCHAUFFEUR". */
-const fold = (s: string) =>
-  s
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-
 /**
  * The list beside the plate that locates an equipment: a search over the
  * named symbols, each row lit by its run state and its fault. Hovering a
@@ -50,10 +44,11 @@ export const SymbolNav: FC<SymbolNavProps> = ({
   const { t } = useTranslation("synoptics");
   const [query, setQuery] = useState("");
   const shown = useMemo(() => {
-    const needle = fold(query.trim());
+    const needle = foldText(query.trim());
     if (!needle) return entries;
     return entries.filter(
-      (e) => fold(e.name).includes(needle) || fold(e.type).includes(needle),
+      (e) =>
+        foldText(e.name).includes(needle) || foldText(e.type).includes(needle),
     );
   }, [entries, query]);
 

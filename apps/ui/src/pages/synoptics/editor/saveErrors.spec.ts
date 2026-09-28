@@ -123,7 +123,7 @@ describe("mapSaveErrors", () => {
       DOC,
     );
     expect(byElement.size).toBe(0);
-    expect(document).toEqual([
+    expect(document.map((e) => describeError(e))).toEqual([
       "pipes: too many cells",
       "symbols.7.id: dup",
       "nul",

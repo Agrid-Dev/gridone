@@ -13,6 +13,7 @@ const LAST_KEY = "gridone.synoptics.last";
 const DEFAULT_KEY = "gridone.synoptics.default";
 const LEGEND_KEY = "gridone.synoptics.legend";
 const NAV_KEY = "gridone.synoptics.nav";
+const PREVIEW_KEY = "gridone.synoptics.editor.preview";
 
 function read(key: string): string | null {
   try {
@@ -49,6 +50,12 @@ export const writeLegendOpen = (open: boolean) =>
 export const readNavOpen = () => read(NAV_KEY) !== "closed";
 export const writeNavOpen = (open: boolean) =>
   write(NAV_KEY, open ? null : "closed");
+
+/** Whether the editor shows its live 3D preview: open unless the author
+ *  closed it last. */
+export const readPreviewOpen = () => read(PREVIEW_KEY) !== "closed";
+export const writePreviewOpen = (open: boolean) =>
+  write(PREVIEW_KEY, open ? null : "closed");
 
 /** The plate to open among `ids` (the stored ones, in list order): the
  *  pinned one, else the last seen, else the first. `null` when none is

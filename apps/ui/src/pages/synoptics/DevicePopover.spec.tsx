@@ -195,6 +195,7 @@ const VALUES: SynopticValues = {
 const vocabulary: PageVocabulary = {
   slotLabel: humanize,
   typeLabel: humanize,
+  fluidLabel: (fluid) => fluid,
   readingTime: () => "12:00:00",
 };
 

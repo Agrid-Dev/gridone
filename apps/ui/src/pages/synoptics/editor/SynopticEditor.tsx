@@ -1,64 +1,30 @@
-import { useCallback, useMemo, useState, type FC } from "react";
+import { useCallback, useMemo, useRef, useState, type FC } from "react";
 import { useNavigate, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
-import {
-  normalizeError,
-  type Cell,
-  type Fluid,
-  type Synoptic,
-  type SymbolElement,
-} from "@gridone/sdk";
+import type { Synoptic } from "@gridone/sdk";
+import { useFocusedPage } from "@/components/layout/PageLayout";
 import { ResourceBoundary } from "@/components/ResourceBoundary";
-import type { PlateDocument } from "@/components/synoptic";
-import { ResourceHeader } from "@/components/ResourceHeader";
-import { humanize } from "@/components/synoptic";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { ZOOM_STEP, type View } from "@/components/synoptic/hooks/useViewport";
+import type {
+  PlateDocument,
+  PlateHandle,
+} from "@/components/synoptic/SynopticRenderer";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useDevicesList } from "@/hooks/useDevicesList";
-import { useUnsavedChangesWarning } from "@/hooks/useUnsavedChangesWarning";
-import {
-  useSaveSynoptic,
-  useSynopticPage,
-  useSynoptics,
-  type SaveTarget,
-} from "../useSynoptics";
-import {
-  addPipe,
-  addSymbol,
-  attachedPorts,
-  defaultProps,
-  emptyDocument,
-  moveSymbol,
-  nextId,
-  removePipe,
-  removeSymbol,
-  rotateSymbol,
-  routeWaypoints,
-  toDocument,
-  updatePipe,
-  updateSymbol,
-  type RoutePoint,
-  type Selection,
-} from "./document";
-import { EditorCanvas, type EditorMode } from "./EditorCanvas";
-import { FLUIDS } from "@/lib/fluidColors";
-import { Inspector } from "./Inspector";
-import { Palette } from "./Palette";
-import {
-  forgetElement,
-  mapSaveErrors,
-  NO_SAVE_ERRORS,
-  type SaveErrors,
-} from "./saveErrors";
-
-const LEVELS = [0, 1];
+import { useSynopticPage, useSynoptics } from "../useSynoptics";
+import { emptyDocument, toDocument } from "./document";
+import { EditorCanvas } from "./EditorCanvas";
+import { EditorStatusBar } from "./EditorStatusBar";
+import { EditorToolbar } from "./EditorToolbar";
+import { EditorTopBar } from "./EditorTopBar";
+import { NewSynopticDialog } from "./NewSynopticDialog";
+import { Inspector } from "./panel/Inspector";
+import { PreviewCard } from "./PreviewCard";
+import { PreviewDialog } from "./PreviewDialog";
+import { describeError } from "./saveErrors";
+import { SymbolLibrary } from "./SymbolLibrary";
+import { useEditorShortcuts } from "./useEditorShortcuts";
+import { useSynopticEditor } from "./useSynopticEditor";
 
 type EditorProps = {
   initial: PlateDocument;
@@ -66,311 +32,145 @@ type EditorProps = {
   stored: Synoptic | null;
 };
 
+/**
+ * The editor, taking the whole window: its bar on top, the symbol library
+ * on the left, the plan in the middle with its tools, its status and the
+ * 3D preview, and the panel on the right. Authoring is always on the plan;
+ * the plate's own view is only what its operators open it on. A new plate
+ * starts with the New dialog over an empty plan.
+ */
 const Editor: FC<EditorProps> = ({ initial, stored }) => {
-  const { t } = useTranslation(["synoptics", "common"]);
+  useFocusedPage();
   const navigate = useNavigate();
-  const [doc, setDoc] = useState<PlateDocument>(initial);
-  const [selection, setSelection] = useState<Selection>(null);
-  const [mode, setMode] = useState<EditorMode>("select");
-  const [level, setLevel] = useState(0);
-  const [fluid, setFluid] = useState<Fluid>(FLUIDS[0]);
-  const [placing, setPlacing] = useState<string | null>(null);
-  const [errors, setErrors] = useState<SaveErrors>(NO_SAVE_ERRORS);
-  const [message, setMessage] = useState<string | null>(null);
+  const editor = useSynopticEditor(initial, stored);
   const { devices } = useDevicesList();
   const synoptics = useSynoptics();
-  // The stamp the author read, captured with the draft: a refetch of the
-  // plate must not move it under an edit in progress, or the 409 guard
-  // would pass a save that overwrites another author's work.
-  const [target] = useState<SaveTarget>(() =>
-    stored
-      ? { id: stored.id, updatedAt: stored.metadata.updated_at ?? "" }
-      : null,
-  );
-  const save = useSaveSynoptic(target);
-
-  const symbol = useMemo(
-    () =>
-      selection?.kind === "symbol"
-        ? doc.symbols?.find((s) => s.id === selection.id)
-        : undefined,
-    [doc.symbols, selection],
-  );
-  const pipe = useMemo(
-    () =>
-      selection?.kind === "pipe"
-        ? doc.pipes?.find((p) => p.id === selection.id)
-        : undefined,
-    [doc.pipes, selection],
-  );
-  const attached = useMemo(
-    () => (symbol ? attachedPorts(doc, symbol.id) : new Set<string>()),
-    [doc, symbol],
-  );
-
-  /** Applies a change to one element; the errors the last save left on
-   *  it are forgotten, since the author has touched what they named. */
-  const edit = useCallback(
-    (id: string, change: (d: PlateDocument) => PlateDocument) => {
-      setDoc(change);
-      setErrors((e) => forgetElement(e, id));
-    },
-    [],
-  );
-
-  const onPlace = useCallback(
-    (type: string, placement: SymbolElement["placement"]) => {
-      const id = nextId(doc, type);
-      setDoc((d) =>
-        addSymbol(d, {
-          id,
-          type,
-          placement,
-          props: defaultProps(type),
-          bindings: {},
-        }),
-      );
-      setSelection({ kind: "symbol", id });
-      setPlacing(null);
-    },
-    [doc],
-  );
-  const onDraw = useCallback(
-    (points: RoutePoint[]) => {
-      const id = nextId(doc, fluid);
-      setDoc((d) =>
-        addPipe(d, {
-          id,
-          fluid,
-          from: points[0].endpoint,
-          to: points[points.length - 1].endpoint,
-          waypoints: routeWaypoints(points),
-          flow: null,
-          tags: [],
-        }),
-      );
-      setSelection({ kind: "pipe", id });
-    },
-    [doc, fluid],
-  );
-  const onMove = useCallback(
-    (id: string, cell: Cell) => edit(id, (d) => moveSymbol(d, id, cell)),
-    [edit],
-  );
-  const onDelete = useCallback(
-    (which: Selection) => {
-      if (!which) return;
-      edit(which.id, (d) =>
-        which.kind === "symbol"
-          ? removeSymbol(d, which.id)
-          : removePipe(d, which.id),
-      );
-      setSelection(null);
-    },
-    [edit],
-  );
-  const onRotate = useCallback(
-    (id: string) => edit(id, (d) => rotateSymbol(d, id)),
-    [edit],
-  );
-  const onCancel = useCallback(() => {
-    setPlacing(null);
-    setSelection(null);
-  }, []);
-
-  const onSave = async () => {
-    setMessage(null);
-    try {
-      const saved = await save.mutateAsync(doc);
-      navigate(`/synoptics/${encodeURIComponent(saved.id)}`);
-    } catch (error) {
-      const failure = normalizeError(error);
-      if (failure.kind === "fieldErrors") {
-        setErrors(mapSaveErrors(failure.errors, doc));
-      } else {
-        setErrors(NO_SAVE_ERRORS);
-        setMessage(
-          failure.kind === "message"
-            ? failure.message
-            : t("common:errors.default"),
-        );
-      }
-    }
-  };
-
-  const errorIds = useMemo(() => new Set(errors.byElement.keys()), [errors]);
-
-  // Unsaved work is held in this page alone: a reload or a close warns,
-  // as the dashboard layout editor does, and Cancel asks first. A sidebar
-  // link does not: the app runs on BrowserRouter, which has no blocker.
-  const dirty = doc !== initial;
-  useUnsavedChangesWarning(dirty);
-  const onCancelPage = () => {
-    if (dirty && !window.confirm(t("editor.discard"))) return;
-    navigate(
-      target ? `/synoptics/${encodeURIComponent(target.id)}` : "/synoptics",
-    );
-  };
+  const known = useMemo(() => new Set(synoptics.map((s) => s.id)), [synoptics]);
+  const searchRef = useRef<HTMLInputElement>(null);
+  useEditorShortcuts(editor, () => searchRef.current?.focus());
+  const plateRef = useRef<PlateHandle | null>(null);
+  const [scale, setScale] = useState(1);
+  const onViewChange = useCallback((view: View) => setScale(view.scale), []);
+  const [previewing, setPreviewing] = useState(false);
+  const [starting, setStarting] = useState(!stored);
 
   return (
-    <div className="flex flex-col gap-4">
-      <ResourceHeader
-        title={
-          <Input
-            aria-label={t("editor.name")}
-            className="w-80 text-lg font-semibold"
-            value={doc.name}
-            onChange={(e) => {
-              setDoc((d) => ({ ...d, name: e.target.value }));
-              // A document-level violation (an empty name) is being fixed.
-              setErrors((err) => ({ ...err, document: [] }));
-            }}
-          />
-        }
-        actions={
-          <div className="flex gap-2">
-            <Button type="button" variant="outline" onClick={onCancelPage}>
-              {t("common:common.cancel")}
-            </Button>
-            <Button type="button" onClick={onSave} disabled={save.isPending}>
-              {save.isPending
-                ? t("common:common.saving")
-                : t("common:common.save")}
-            </Button>
-          </div>
-        }
-      />
-      {message && (
-        <p role="alert" className="text-sm text-destructive">
-          {message}
-        </p>
-      )}
-      {errors.document.map((error, i) => (
-        <p key={i} role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
-      ))}
-      <div className="flex flex-wrap items-center gap-2">
-        <div role="group" aria-label={t("editor.mode")} className="flex gap-1">
-          {(["select", "draw"] as const).map((m) => (
-            <Button
-              key={m}
-              type="button"
-              size="sm"
-              variant={mode === m ? "default" : "outline"}
-              aria-pressed={mode === m}
-              onClick={() => {
-                setMode(m);
-                setPlacing(null);
-              }}
-            >
-              {t(`editor.modes.${m}`)}
-            </Button>
-          ))}
-        </div>
-        <Select value={fluid} onValueChange={(v) => setFluid(v as Fluid)}>
-          <SelectTrigger aria-label={t("editor.fluid")} className="w-44">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {FLUIDS.map((f) => (
-              <SelectItem key={f} value={f}>
-                {humanize(f)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {doc.projection !== "flat" && (
-          <div
-            role="group"
-            aria-label={t("editor.level")}
-            className="flex gap-1"
+    <div className="flex h-dvh flex-col bg-background">
+      <EditorTopBar editor={editor} onPreview={() => setPreviewing(true)} />
+      {[editor.message, ...editor.errors.document.map((e) => describeError(e))]
+        .filter((text): text is string => !!text)
+        .map((text) => (
+          <p
+            key={text}
+            role="alert"
+            className="border-b bg-destructive/10 px-4 py-2 text-sm text-destructive"
           >
-            {LEVELS.map((z) => (
-              <Button
-                key={z}
-                type="button"
-                size="sm"
-                variant={level === z ? "default" : "outline"}
-                aria-pressed={level === z}
-                onClick={() => setLevel(z)}
-              >
-                z {z}
-              </Button>
-            ))}
+            {text}
+          </p>
+        ))}
+      <div className="flex min-h-0 flex-1">
+        <SymbolLibrary editor={editor} searchRef={searchRef} />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="relative min-h-0 flex-1 bg-synoptic-plate">
+            <EditorCanvas
+              editor={editor}
+              plateRef={plateRef}
+              onViewChange={onViewChange}
+            />
+            <EditorToolbar editor={editor} />
+            {editor.preview.open && (
+              <PreviewCard
+                doc={editor.doc}
+                onExpand={() => setPreviewing(true)}
+                onClose={editor.preview.toggle}
+              />
+            )}
           </div>
-        )}
-        <Palette
-          placing={placing}
-          onPick={(type) => {
-            setPlacing(type);
-            if (type) setMode("select");
-          }}
-        />
-      </div>
-      <div className="flex h-[40rem] gap-4">
-        <div className="min-w-0 flex-1 overflow-hidden rounded-lg border">
-          <EditorCanvas
-            doc={doc}
-            mode={mode}
-            level={level}
-            fluid={fluid}
-            placing={placing}
-            selection={selection}
-            errorIds={errorIds}
-            onSelect={setSelection}
-            onPlace={onPlace}
-            onDraw={onDraw}
-            onMove={onMove}
-            onDelete={onDelete}
-            onRotate={onRotate}
-            onCancel={onCancel}
+          <EditorStatusBar
+            editor={editor}
+            scale={scale}
+            onZoomIn={() => plateRef.current?.zoomBy(ZOOM_STEP)}
+            onZoomOut={() => plateRef.current?.zoomBy(1 / ZOOM_STEP)}
+            onFit={() => plateRef.current?.fit()}
           />
         </div>
-        <aside className="w-96 shrink-0 overflow-y-auto rounded-lg border p-4">
-          <Inspector
-            selection={selection}
-            symbol={symbol}
-            pipe={pipe}
-            devices={devices}
-            synoptics={synoptics}
-            attached={attached}
-            errors={selection ? (errors.byElement.get(selection.id) ?? []) : []}
-            onSymbolChange={(patch) =>
-              symbol &&
-              edit(symbol.id, (d) => updateSymbol(d, symbol.id, patch))
-            }
-            onPipeChange={(patch) =>
-              pipe && edit(pipe.id, (d) => updatePipe(d, pipe.id, patch))
-            }
-            onDelete={() => onDelete(selection)}
-          />
-        </aside>
+        <Inspector editor={editor} devices={devices} synoptics={synoptics} />
       </div>
+      <PreviewDialog
+        open={previewing}
+        onOpenChange={setPreviewing}
+        doc={editor.doc}
+        id={stored?.id ?? null}
+        knownSynoptics={known}
+      />
+      {!stored && (
+        <NewSynopticDialog
+          open={starting}
+          synoptics={synoptics}
+          onStart={(doc) => {
+            editor.start(doc);
+            setStarting(false);
+          }}
+          onCancel={() => navigate("/synoptics")}
+        />
+      )}
     </div>
   );
 };
 
-/** `/synoptics/new`: an empty plate. */
+/**
+ * The editor's frame while what it needs loads, already taking the whole
+ * window: the shell does not show for a moment and vanish under the
+ * author. An error that follows gets the window back, and its page keeps
+ * the navigation as the way out.
+ */
+function EditorSkeleton() {
+  useFocusedPage();
+  return (
+    <div className="flex h-dvh flex-col bg-background" aria-busy>
+      <div className="flex h-14 shrink-0 items-center gap-3 border-b bg-card px-3">
+        <Skeleton className="h-8 w-28" />
+        <Skeleton className="h-8 w-72" />
+      </div>
+      <div className="flex min-h-0 flex-1">
+        <div className="w-64 shrink-0 space-y-3 border-r bg-card p-4">
+          <Skeleton className="h-9" />
+          <Skeleton className="h-40" />
+        </div>
+        <div className="flex-1 bg-synoptic-plate" />
+        <div className="w-[22rem] shrink-0 space-y-3 border-l bg-card p-5">
+          <Skeleton className="h-6 w-40" />
+          <Skeleton className="h-32" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** `/synoptics/new`: an empty plan, under the New dialog. */
 export const SynopticCreate: FC = () => {
   const { t } = useTranslation("synoptics");
+  const [initial] = useState(() => emptyDocument(t("editor.untitled")));
   return (
-    <ResourceBoundary resetKeys={[]}>
-      <Editor initial={emptyDocument(t("editor.untitled"))} stored={null} />
+    <ResourceBoundary resetKeys={[]} fallback={<EditorSkeleton />}>
+      <Editor initial={initial} stored={null} />
     </ResourceBoundary>
   );
 };
 
 const EditStored: FC = () => {
   const { doc } = useSynopticPage();
-  return <Editor initial={toDocument(doc)} stored={doc} />;
+  // The draft starts from the plate as first read: a refetch must not
+  // replace the author's work, and the save carries the stamp read then.
+  const [initial] = useState(() => toDocument(doc));
+  return <Editor initial={initial} stored={doc} />;
 };
 
 /** `/synoptics/:synopticId/edit`: the stored plate, saved whole. */
 export const SynopticEdit: FC = () => {
   const { synopticId } = useParams<{ synopticId: string }>();
   return (
-    <ResourceBoundary resetKeys={[synopticId]}>
+    <ResourceBoundary resetKeys={[synopticId]} fallback={<EditorSkeleton />}>
       <EditStored key={synopticId} />
     </ResourceBoundary>
   );

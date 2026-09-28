@@ -156,6 +156,15 @@ describe("PidDiagram", () => {
     expect(view()).toEqual({ x: 0, y: 0, scale: 1 });
   });
 
+  it("keeps its view on double click when told to, as an editor does", () => {
+    const { svg, view } = setup({ fitOnDoubleClick: false });
+    fireEvent.wheel(svg, { deltaY: -100, clientX: 20, clientY: 40 });
+    const zoomed = view();
+    expect(zoomed.scale).not.toBe(1);
+    fireEvent.doubleClick(svg);
+    expect(view()).toEqual(zoomed);
+  });
+
   it("scales a line-mode wheel by the line height and a page-mode one by the page", () => {
     const line = setup();
     fireEvent.wheel(line.svg, {

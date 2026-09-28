@@ -1,299 +1,375 @@
 import {
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
+  type DragEvent,
   type MouseEvent,
   type PointerEvent as ReactPointerEvent,
+  type RefObject,
 } from "react";
+import { useTranslation } from "react-i18next";
+import type { Cell, SymbolElement } from "@gridone/sdk";
+import type { View } from "@/components/synoptic/hooks/useViewport";
 import {
-  symbolSchemas,
-  type Cell,
-  type Fluid,
-  type Projection,
-  type SymbolElement,
-} from "@gridone/sdk";
+  clientToSvg,
+  DRAG_THRESHOLD,
+  useSvgDrag,
+} from "@/components/synoptic/hooks/useSvgDrag";
+import { Pipe } from "@/components/synoptic/Pipe";
+import {
+  portPoint,
+  project,
+  unproject,
+} from "@/components/synoptic/projection";
 import {
   axisCentre,
-  clientToSvg,
-  DEFAULT_PROJECTION,
-  DRAG_THRESHOLD,
-  footprintCells,
   endpointCell,
-  Pipe,
-  Port,
-  portPoint,
-  portsOf,
-  project,
   runPieces,
+} from "@/components/synoptic/runs";
+import {
   symbolBox,
-  symbolPort,
   SynopticRenderer,
-  SynopticSymbol,
-  unproject,
-  useSvgDrag,
   type Box,
-  type CollectorProps,
   type PlateDocument,
-  type Pt,
-} from "@/components/synoptic";
-import { routeWaypoints, type RoutePoint, type Selection } from "./document";
+  type PlateHandle,
+} from "@/components/synoptic/SynopticRenderer";
+import { Collector } from "@/components/synoptic/symbols/Collector";
+import { footprintCells } from "@/components/synoptic/symbols/footprint";
+import {
+  portsOf,
+  symbolPort,
+  type CollectorProps,
+} from "@/components/synoptic/symbols/ports";
+import { SynopticSymbol } from "@/components/synoptic/symbols/SynopticSymbol";
+import type { Pt } from "@/components/synoptic/types";
+import {
+  attachedPorts,
+  defaultProps,
+  routeWaypoints,
+  type RoutePoint,
+} from "./document";
+import { isInline, SYMBOL_DRAG_TYPE } from "./library";
+import { pipeName } from "./names";
+import { usePlateVocabulary } from "../usePlateVocabulary";
+import { cellKey } from "./runRules";
+import { nearestRide, rides, type Ride } from "./snap";
+import type { SynopticEditorState } from "./useSynopticEditor";
 
-export type EditorMode = "select" | "draw";
+/** The editor always draws the plan: authoring is 2D, whatever view the
+ *  plate opens on for its operators. */
+const PLAN = "flat" as const;
 
-type EditorCanvasProps = {
-  doc: PlateDocument;
-  mode: EditorMode;
-  /** Height, in cells, the next click lands at. */
-  level: number;
-  fluid: Fluid;
-  /** A symbol type armed from the palette: the next click places it. */
-  placing: string | null;
-  selection: Selection;
-  /** Ids of the elements the last save refused. */
-  errorIds: ReadonlySet<string>;
-  onSelect: (selection: Selection) => void;
-  onPlace: (type: string, placement: SymbolElement["placement"]) => void;
-  onDraw: (points: RoutePoint[]) => void;
-  onMove: (id: string, cell: Cell) => void;
-  onDelete: (selection: Selection) => void;
-  onRotate: (id: string) => void;
-  onCancel: () => void;
-};
-
-/** Cells of grid shown around the plate. */
-const GRID_PAD = 2;
-/** The grid an empty plate offers. */
-const EMPTY_SPAN = 8;
+/** Cells of room around the plate the first time it is framed, and the
+ *  least frame an empty plate gets. */
+const FRAME_PAD = 8;
+const FRAME_MIN = { w: 24, h: 16 };
+/** The frame grows this much at a time, when something lands within
+ *  `FRAME_EDGE` cells of it. */
+const FRAME_CHUNK = 8;
+const FRAME_EDGE = 3;
+/** Screen px within which a dragged valve snaps onto a run. */
+const SNAP_PX = 28;
 /** Width of the transparent stroke that makes a run clickable. */
 const RUN_HIT_WIDTH = 14;
 const HALO = 6;
 
-const cellKey = (c: Cell) => `${c.x},${c.y},${c.z ?? 0}`;
+type Range = { x0: number; y0: number; x1: number; y1: number };
 
-/** The cells the plate uses, so the grid is drawn around them. */
-function plateCells(doc: PlateDocument): Cell[] {
+/** The cells the plate uses: every body and every corner of every run. */
+function contentRange(doc: PlateDocument): Range | null {
   const symbols = new Map((doc.symbols ?? []).map((s) => [s.id, s]));
-  return [
-    ...(doc.symbols ?? []).flatMap(footprintCells),
+  const cells: Cell[] = [
+    ...(doc.symbols ?? [])
+      .filter((s) => s.placement.kind === "cell")
+      .flatMap(footprintCells),
     ...(doc.pipes ?? []).flatMap((p) => [
       endpointCell(p.from, symbols),
       endpointCell(p.to, symbols),
       ...(p.waypoints ?? []),
     ]),
   ];
-}
-
-type Range = { x0: number; y0: number; x1: number; y1: number };
-
-function gridRange(cells: Cell[]): Range {
-  if (cells.length === 0)
-    return { x0: 0, y0: 0, x1: EMPTY_SPAN, y1: EMPTY_SPAN };
+  if (!cells.length) return null;
   const xs = cells.map((c) => c.x);
   const ys = cells.map((c) => c.y);
   return {
-    x0: Math.min(...xs) - GRID_PAD,
-    y0: Math.min(...ys) - GRID_PAD,
-    x1: Math.max(...xs) + 1 + GRID_PAD,
-    y1: Math.max(...ys) + 1 + GRID_PAD,
+    x0: Math.min(...xs),
+    y0: Math.min(...ys),
+    x1: Math.max(...xs) + 1,
+    y1: Math.max(...ys) + 1,
   };
 }
 
+/** The first frame of a plate: its content with room around it, at least
+ *  the least frame, centred on the content. */
+function firstFrame(content: Range | null): Range {
+  const c = content ?? { x0: 0, y0: 0, x1: 0, y1: 0 };
+  const w = Math.max(c.x1 - c.x0 + 2 * FRAME_PAD, FRAME_MIN.w);
+  const h = Math.max(c.y1 - c.y0 + 2 * FRAME_PAD, FRAME_MIN.h);
+  const x0 = Math.floor((c.x0 + c.x1 - w) / 2);
+  const y0 = Math.floor((c.y0 + c.y1 - h) / 2);
+  return { x0, y0, x1: x0 + w, y1: y0 + h };
+}
+
+/** The frame grown past content that came near an edge; the same object
+ *  when nothing did, so the plate does not re-fit for nothing. */
+function grownFrame(frame: Range, content: Range | null): Range {
+  if (!content) return frame;
+  const next = {
+    x0:
+      content.x0 - FRAME_EDGE < frame.x0 ? content.x0 - FRAME_CHUNK : frame.x0,
+    y0:
+      content.y0 - FRAME_EDGE < frame.y0 ? content.y0 - FRAME_CHUNK : frame.y0,
+    x1:
+      content.x1 + FRAME_EDGE > frame.x1 ? content.x1 + FRAME_CHUNK : frame.x1,
+    y1:
+      content.y1 + FRAME_EDGE > frame.y1 ? content.y1 + FRAME_CHUNK : frame.y1,
+  };
+  const same =
+    next.x0 === frame.x0 &&
+    next.y0 === frame.y0 &&
+    next.x1 === frame.x1 &&
+    next.y1 === frame.y1;
+  return same ? frame : next;
+}
+
 /** The ports a placed symbol offers, with where each meets a run. */
-function symbolPorts(projection: Projection, symbol: SymbolElement) {
+function symbolPorts(symbol: SymbolElement) {
   if (symbol.placement.kind !== "cell") return [];
   const props = symbol.props as CollectorProps | undefined;
   const { cell, rotation } = symbol.placement;
   return Object.keys(portsOf(symbol.type, props)).flatMap((name) => {
     const anchor = symbolPort(symbol.type, cell, rotation ?? 0, name, props);
     return anchor
-      ? [{ name, anchor, at: portPoint(projection, anchor.cell, anchor.side) }]
+      ? [{ name, anchor, at: portPoint(PLAN, anchor.cell, anchor.side) }]
       : [];
   });
 }
 
-const diamond = (projection: Projection, c: Cell): string =>
-  [
-    [c.x, c.y],
-    [c.x + 1, c.y],
-    [c.x + 1, c.y + 1],
-    [c.x, c.y + 1],
-  ]
-    .map(([x, y]) => {
-      const p = project(projection, x, y, c.z ?? 0);
-      return `${p.x},${p.y}`;
-    })
-    .join(" ");
+const square = (c: Cell): Box => {
+  const a = project(PLAN, c.x, c.y);
+  const b = project(PLAN, c.x + 1, c.y + 1);
+  return { x0: a.x, y0: a.y, x1: b.x, y1: b.y };
+};
 
-const pressedIn = (e: KeyboardEvent, selector: string) =>
-  e.target instanceof Element && !!e.target.closest(selector);
-/** Keys pressed while the author works a field, a dropdown or the
- *  inspector belong to that control, not to the plate. */
-const inControl = (e: KeyboardEvent) =>
-  pressedIn(
-    e,
-    "aside, input, textarea, select, [role=listbox], [role=combobox], [contenteditable=true]",
+type Hover = { kind: "cell"; cell: Cell } | { kind: "ride"; ride: Ride } | null;
+
+type EditorCanvasProps = {
+  editor: SynopticEditorState;
+  plateRef: RefObject<PlateHandle | null>;
+  onViewChange: (view: View) => void;
+};
+
+/** The words under a valve about to be dropped: the run it would ride. */
+function DropLabel({ at, text }: { at: Pt; text: string }) {
+  const w = 16 + text.length * 7;
+  const x = at.x - w / 2;
+  const y = at.y + 18;
+  return (
+    <g data-editor-drop-label>
+      <rect
+        x={x}
+        y={y}
+        width={w}
+        height={22}
+        rx={6}
+        strokeWidth={1.5}
+        className="fill-background stroke-primary"
+      />
+      <text
+        x={at.x}
+        y={y + 15}
+        textAnchor="middle"
+        fontSize={12}
+        fontWeight={600}
+        className="fill-foreground"
+      >
+        {text}
+      </text>
+    </g>
   );
-const onButton = (e: KeyboardEvent) => pressedIn(e, "button");
+}
 
 /**
- * The plate drawn by the renderer, with the authoring surface over it: a
- * grid, the ports a run can attach to, transparent hit areas on bodies
- * and runs, the ghost of a symbol being placed and the run being drawn.
- * Every pointer reading goes through the plate's own frame, so it survives
- * the canvas pan and zoom and the renderer's margin.
+ * The plate drawn as a plan, with the authoring surface over it: a dotted
+ * grid, a surface a click lands on a cell of, hit strokes on the runs,
+ * hit boxes on the bodies (dragged to move them, their runs following),
+ * the ports a run starts and ends on, what is being placed or drawn, and
+ * where a symbol dragged from the library would land. Every pointer
+ * reading goes through the plate's own frame, so it survives the
+ * canvas's pan and zoom.
  */
 export function EditorCanvas({
-  doc,
-  mode,
-  level,
-  fluid,
-  placing,
-  selection,
-  errorIds,
-  onSelect,
-  onPlace,
-  onDraw,
-  onMove,
-  onDelete,
-  onRotate,
-  onCancel,
+  editor,
+  plateRef,
+  onViewChange,
 }: EditorCanvasProps) {
-  const projection = doc.projection ?? DEFAULT_PROJECTION;
+  const { t } = useTranslation("synoptics");
+  const { doc, tool, placing, dragType, draw, drag, selection, errorIds } =
+    editor;
   const frameRef = useRef<SVGGElement>(null);
-  const [hover, setHover] = useState<Cell | null>(null);
-  const [points, setPoints] = useState<RoutePoint[]>([]);
-  const drawing = mode === "draw";
+  const gridId = useId();
+  const [hover, setHover] = useState<Hover>(null);
+  const drawing = tool === "pipe";
+  /** What is in hand: a type armed from the library, or dragged from it. */
+  const holding = dragType ?? placing;
+  const holdingInline = !!holding && isInline(holding);
 
+  const viewDoc = useMemo<PlateDocument>(
+    () => ({ ...doc, projection: PLAN }),
+    [doc],
+  );
   const symbols = useMemo(
     () => new Map((doc.symbols ?? []).map((s) => [s.id, s])),
     [doc.symbols],
   );
-  const symbolList = useMemo(() => [...symbols.values()], [symbols]);
-  // Offered while a run is drawn; a hover tick must not recompute them.
-  const ports = useMemo(
-    () =>
-      drawing
-        ? new Map(symbolList.map((s) => [s.id, symbolPorts(projection, s)]))
-        : null,
-    [drawing, symbolList, projection],
+
+  // The frame holds still while a gesture is in flight, and grows only
+  // once it lands near an edge: a re-fit mid-drag would move the plate
+  // under the pointer.
+  const [frame, setFrame] = useState<Range>(() =>
+    firstFrame(contentRange(doc)),
   );
-  const range = useMemo(() => gridRange(plateCells(doc)), [doc]);
+  const busy = drag.active || draw.points.length > 0;
+  useEffect(() => {
+    if (!busy) setFrame((f) => grownFrame(f, contentRange(doc)));
+  }, [doc, busy]);
   const extent = useMemo(
-    () =>
-      [
-        [range.x0, range.y0],
-        [range.x1, range.y0],
-        [range.x0, range.y1],
-        [range.x1, range.y1],
-      ].map(([x, y]) => project(projection, x, y)),
-    [projection, range],
+    () => [
+      project(PLAN, frame.x0, frame.y0),
+      project(PLAN, frame.x1, frame.y1),
+    ],
+    [frame],
   );
+  const [topLeft, bottomRight] = extent;
+
   const runs = useMemo(
     () =>
       (doc.pipes ?? []).map((pipe) => ({
         pipe,
-        pieces: runPieces(projection, pipe, symbols),
-        // An inline symbol sits strictly inside a run: its end cells refuse it.
-        ends: [
-          endpointCell(pipe.from, symbols),
-          endpointCell(pipe.to, symbols),
-        ],
+        pieces: runPieces(PLAN, pipe, symbols),
       })),
-    [doc.pipes, projection, symbols],
+    [doc.pipes, symbols],
+  );
+  const rideCells = useMemo(
+    () => (holdingInline ? rides(doc) : []),
+    [holdingInline, doc],
+  );
+  const ridePipes = useMemo(
+    () => new Set(rideCells.map((r) => r.pipe)),
+    [rideCells],
+  );
+  const rideAt = useMemo(
+    () => new Map(rideCells.map((r) => [cellKey(r.cell), r])),
+    [rideCells],
+  );
+  const used = useMemo(
+    () =>
+      new Map([...symbols.keys()].map((id) => [id, attachedPorts(doc, id)])),
+    [doc, symbols],
   );
 
+  /** Plate px under a client point, and the screen px one plate px spans. */
+  const toPlate = useCallback((clientX: number, clientY: number) => {
+    const frameEl = frameRef.current;
+    if (!frameEl) return { point: { x: 0, y: 0 }, scale: 1 };
+    const scale = frameEl.getScreenCTM?.()?.a || 1;
+    return { point: clientToSvg(frameEl, clientX, clientY), scale };
+  }, []);
   const toCell = useCallback(
     (clientX: number, clientY: number, z: number): Cell => {
-      const frame = frameRef.current;
-      if (!frame) return { x: 0, y: 0, z };
-      const u = unproject(projection, clientToSvg(frame, clientX, clientY), z);
+      const u = unproject(PLAN, toPlate(clientX, clientY).point);
       return { x: Math.floor(u.x), y: Math.floor(u.y), z };
     },
-    [projection],
+    [toPlate],
+  );
+  /** Where a held type would land under the pointer: a cell for a
+   *  free-standing type, a cell inside a run for an inline one. */
+  const landing = useCallback(
+    (clientX: number, clientY: number): Hover => {
+      if (holdingInline) {
+        const { point, scale } = toPlate(clientX, clientY);
+        const ride = nearestRide(rideCells, point, SNAP_PX / scale);
+        return ride ? { kind: "ride", ride } : null;
+      }
+      return { kind: "cell", cell: toCell(clientX, clientY, 0) };
+    },
+    [holdingInline, toPlate, rideCells, toCell],
   );
 
-  useEffect(() => {
-    setPoints([]);
-  }, [mode]);
-
-  // The run being drawn names symbols and runs by id. Delete, from the
-  // keyboard or the inspector, removes one through the document, so the
-  // run in progress goes with it rather than ending up naming a symbol
-  // or a tee that is no longer there.
-  useEffect(() => {
-    const pipeIds = new Set((doc.pipes ?? []).map((p) => p.id));
-    const gone = (p: RoutePoint) =>
-      (p.endpoint.kind === "port" && !symbols.has(p.endpoint.symbol)) ||
-      (p.endpoint.kind === "pipe" && !pipeIds.has(p.endpoint.pipe));
-    setPoints((ps) => (ps.some(gone) ? [] : ps));
-  }, [symbols, doc.pipes]);
-
-  /** Adds a point to the run being drawn; a port or a tee after the first
-   *  point ends it. */
-  const addPoint = useCallback(
-    (point: RoutePoint) => {
-      const last = points[points.length - 1];
-      if (
-        last &&
-        JSON.stringify(last.endpoint) === JSON.stringify(point.endpoint)
-      ) {
-        return;
-      }
-      const next = [...points, point];
-      const ends = next.length > 1 && point.endpoint.kind !== "cell";
-      if (ends) {
-        onDraw(next);
-        setPoints([]);
-      } else {
-        setPoints(next);
+  const place = useCallback(
+    (type: string, at: Hover) => {
+      if (!at) return;
+      if (at.kind === "ride") {
+        editor.place(type, {
+          kind: "pipe",
+          pipe: at.ride.pipe,
+          cell: at.ride.cell,
+        });
+      } else if (!isInline(type)) {
+        editor.place(type, { kind: "cell", cell: at.cell, rotation: 0 });
       }
     },
-    [points, onDraw],
+    [editor],
   );
 
-  const finish = useCallback(() => {
-    if (points.length > 1) onDraw(points);
-    setPoints([]);
-  }, [points, onDraw]);
+  // Dragging a type from the library: one listener on the whole canvas,
+  // so no child covers a dead zone, resolving the cell by geometry.
+  const onDragOver = (e: DragEvent<HTMLDivElement>) => {
+    if (!dragType) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+    setHover(landing(e.clientX, e.clientY));
+  };
+  const onDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+      setHover(null);
+    }
+  };
+  const onDrop = (e: DragEvent<HTMLDivElement>) => {
+    const type = e.dataTransfer.getData(SYMBOL_DRAG_TYPE) || dragType;
+    if (!type) return;
+    e.preventDefault();
+    place(type, landing(e.clientX, e.clientY));
+    editor.setDragType(null);
+    setHover(null);
+  };
 
+  const onSurfaceMove = (e: ReactPointerEvent<SVGRectElement>) => {
+    if (placing) setHover(landing(e.clientX, e.clientY));
+    else if (drawing) {
+      setHover({
+        kind: "cell",
+        cell: toCell(e.clientX, e.clientY, draw.level),
+      });
+    }
+  };
+  const onSurfaceClick = (e: MouseEvent<SVGRectElement>) => {
+    if (placing) {
+      place(placing, landing(e.clientX, e.clientY));
+    } else if (drawing) {
+      const cell = toCell(e.clientX, e.clientY, draw.level);
+      draw.addPoint({ endpoint: { kind: "cell", cell }, cell });
+    } else {
+      editor.select(null);
+    }
+  };
+  // Leaving the tool or the armed type clears what the pointer showed.
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (inControl(e)) return;
-      if (e.key === "Escape") {
-        setPoints([]);
-        onCancel();
-      } else if (e.key === "Enter" && points.length > 1 && !onButton(e)) {
-        finish();
-      } else if ((e.key === "Delete" || e.key === "Backspace") && selection) {
-        e.preventDefault();
-        onDelete(selection);
-      } else if (
-        e.key.toLowerCase() === "r" &&
-        !e.metaKey &&
-        !e.ctrlKey &&
-        !e.altKey &&
-        selection?.kind === "symbol"
-      ) {
-        // A bare R only: Cmd+R and Ctrl+R are the browser's reload.
-        onRotate(selection.id);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [points.length, selection, finish, onCancel, onDelete, onRotate]);
+    if (!placing && !drawing && !dragType) setHover(null);
+  }, [placing, drawing, dragType]);
 
-  // One drag for whichever symbol is grabbed; the grab keeps the offset
-  // between the pointer's cell and the origin so the body does not jump,
-  // and the origin itself so a cancelled gesture puts the body back.
+  // One drag for whichever body is grabbed. A free body keeps the offset
+  // between the pointer's cell and its origin so it does not jump; a
+  // symbol riding a run slides along it, to the ride nearest the pointer.
   const grab = useRef<{
     id: string;
-    origin: Cell;
-    /** The cell last committed, so a pointer sample inside it is free. */
-    at: Cell;
+    at: string;
     offset: Pt;
     z: number;
+    along?: Ride[];
   } | null>(null);
   const move = useSvgDrag({
     threshold: DRAG_THRESHOLD,
@@ -301,52 +377,66 @@ export function EditorCanvas({
     onMove: (p) => {
       const g = grab.current;
       if (!g) return;
-      const u = unproject(projection, p, g.z);
+      if (g.along) {
+        const ride = nearestRide(g.along, p, Number.POSITIVE_INFINITY);
+        if (!ride || cellKey(ride.cell) === g.at) return;
+        g.at = cellKey(ride.cell);
+        drag.slide(g.id, ride.cell);
+        return;
+      }
+      const u = unproject(PLAN, p);
       const cell = {
         x: Math.floor(u.x) - g.offset.x,
         y: Math.floor(u.y) - g.offset.y,
         z: g.z,
       };
-      if (cellKey(cell) === cellKey(g.at)) return;
-      g.at = cell;
-      onMove(g.id, cell);
+      if (cellKey(cell) === g.at) return;
+      g.at = cellKey(cell);
+      drag.to(g.id, cell);
     },
     onEnd: () => {
+      const g = grab.current;
       grab.current = null;
+      if (!g) return;
+      drag.end(g.id);
+      // What was just moved is what the author works on next.
+      editor.select({ kind: "symbol", id: g.id });
     },
     onCancel: () => {
-      const g = grab.current;
-      if (g) onMove(g.id, g.origin);
       grab.current = null;
+      drag.cancel();
     },
   });
-
-  const onGridMove = (e: ReactPointerEvent<SVGPolygonElement>) => {
-    if (placing || drawing) setHover(toCell(e.clientX, e.clientY, level));
-  };
-  const onGridClick = (e: MouseEvent<SVGPolygonElement>) => {
-    const cell = toCell(e.clientX, e.clientY, level);
-    if (placing) {
-      // An inline type rides a run: on the floor it would have no port.
-      if (symbolSchemas[placing]?.["x-inline"]) return;
-      onPlace(placing, { kind: "cell", cell, rotation: 0 });
-    } else if (drawing) {
-      addPoint({ endpoint: { kind: "cell", cell }, cell });
-    } else {
-      onSelect(null);
-    }
-  };
+  // Escape takes a move back while the pointer is still down: the body
+  // returns where it stood and no step is left. The keyboard shortcuts
+  // stand aside while a drag lasts, so this is Escape's only meaning then.
+  const cancelMove = move.cancel;
+  useEffect(() => {
+    if (!drag.active) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      cancelMove();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [drag.active, cancelMove]);
 
   const preview = useMemo(() => {
-    if (points.length === 0 || !hover) return null;
+    if (!drawing || draw.points.length === 0 || hover?.kind !== "cell") {
+      return null;
+    }
     const tail: RoutePoint = {
-      endpoint: { kind: "cell", cell: hover },
-      cell: hover,
+      endpoint: { kind: "cell", cell: hover.cell },
+      cell: hover.cell,
     };
-    const all = [...points, tail];
-    const cells = [points[0].cell, ...routeWaypoints(all), hover];
-    return cells.map((c) => axisCentre(projection, c));
-  }, [points, hover, projection]);
+    const cells = [
+      draw.points[0].cell,
+      ...routeWaypoints([...draw.points, tail]),
+      hover.cell,
+    ];
+    return cells.map((c) => axisCentre(PLAN, c));
+  }, [drawing, draw.points, hover]);
 
   const halo = (box: Box, error: boolean) => (
     <rect
@@ -362,214 +452,336 @@ export function EditorCanvas({
       pointerEvents="none"
     />
   );
-
-  const { gridLines, surface } = useMemo(() => {
-    const lines: Pt[][] = [];
-    for (let x = range.x0; x <= range.x1; x++) {
-      lines.push([
-        project(projection, x, range.y0),
-        project(projection, x, range.y1),
-      ]);
-    }
-    for (let y = range.y0; y <= range.y1; y++) {
-      lines.push([
-        project(projection, range.x0, y),
-        project(projection, range.x1, y),
-      ]);
-    }
-    const floor = [
-      [range.x0, range.y0],
-      [range.x1, range.y0],
-      [range.x1, range.y1],
-      [range.x0, range.y1],
-    ]
-      .map(([x, y]) => project(projection, x, y))
-      .map((p) => `${p.x},${p.y}`)
-      .join(" ");
-    return { gridLines: lines, surface: floor };
-  }, [range, projection]);
+  const { fluidLabel } = usePlateVocabulary();
+  const start = draw.points[0];
+  const hoverCell = hover?.kind === "cell" ? square(hover.cell) : null;
+  const rideRun =
+    hover?.kind === "ride"
+      ? doc.pipes?.find((p) => p.id === hover.ride.pipe)
+      : undefined;
 
   return (
-    <SynopticRenderer
-      doc={doc}
-      extent={extent}
-      touchAction="none"
-      frameRef={frameRef}
+    <div
+      className="h-full w-full"
+      data-editor-canvas
+      onDragEnter={onDragOver}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
     >
-      <g data-editor-grid pointerEvents="none">
-        {gridLines.map((line, i) => (
-          <line
-            key={i}
-            x1={line[0].x}
-            y1={line[0].y}
-            x2={line[1].x}
-            y2={line[1].y}
-            strokeWidth={0.5}
-            className="stroke-border"
-          />
-        ))}
-      </g>
-      {/* The plate's floor: a click here lands on a cell. */}
-      <polygon
-        data-editor-surface
-        points={surface}
-        fill="transparent"
-        onPointerMove={onGridMove}
-        onClick={onGridClick}
-        style={{ cursor: placing || drawing ? "crosshair" : "default" }}
-      />
-      {/* Runs: a transparent stroke per piece, so a click names its cell. */}
-      {runs.map(({ pipe, pieces, ends }) => {
-        const selected = selection?.kind === "pipe" && selection.id === pipe.id;
-        const error = errorIds.has(pipe.id);
-        return (
-          <g key={pipe.id} data-editor-pipe={pipe.id}>
-            {(selected || error) &&
-              pieces.map((piece, i) => (
+      <SynopticRenderer
+        doc={viewDoc}
+        extent={extent}
+        boxed
+        fitOnDoubleClick={false}
+        animated={false}
+        touchAction="none"
+        frameRef={frameRef}
+        plateRef={plateRef}
+        onViewChange={onViewChange}
+      >
+        <defs>
+          <pattern
+            id={`${gridId}-dot`}
+            x={-20}
+            y={-20}
+            width={40}
+            height={40}
+            patternUnits="userSpaceOnUse"
+          >
+            <circle cx={20} cy={20} r={1.2} className="fill-border" />
+          </pattern>
+          <pattern
+            id={`${gridId}-major`}
+            x={-100}
+            y={-100}
+            width={200}
+            height={200}
+            patternUnits="userSpaceOnUse"
+          >
+            <circle
+              cx={100}
+              cy={100}
+              r={2}
+              className="fill-muted-foreground/40"
+            />
+          </pattern>
+        </defs>
+        <g data-editor-grid pointerEvents="none">
+          {[`${gridId}-dot`, `${gridId}-major`].map((id) => (
+            <rect
+              key={id}
+              x={topLeft.x}
+              y={topLeft.y}
+              width={bottomRight.x - topLeft.x}
+              height={bottomRight.y - topLeft.y}
+              fill={`url(#${id})`}
+            />
+          ))}
+        </g>
+        {/* The plate's floor: a click here lands on a cell. */}
+        <rect
+          data-editor-surface
+          x={topLeft.x}
+          y={topLeft.y}
+          width={bottomRight.x - topLeft.x}
+          height={bottomRight.y - topLeft.y}
+          fill="transparent"
+          onPointerMove={onSurfaceMove}
+          onDoubleClick={(e) => e.stopPropagation()}
+          onClick={onSurfaceClick}
+          style={{ cursor: placing || drawing ? "crosshair" : "default" }}
+        />
+        {/* Runs: a transparent stroke per piece, so a click names its cell. */}
+        {runs.map(({ pipe, pieces }) => {
+          const selected =
+            selection?.kind === "pipe" && selection.id === pipe.id;
+          const error = errorIds.has(pipe.id);
+          const target = ridePipes.has(pipe.id);
+          const line = (points: Pt[]) =>
+            points.map((p) => `${p.x},${p.y}`).join(" ");
+          return (
+            <g key={pipe.id} data-editor-pipe={pipe.id}>
+              {(selected || error || target) &&
+                pieces.map((piece, i) => (
+                  <polyline
+                    key={i}
+                    points={line(piece.points)}
+                    fill="none"
+                    strokeWidth={target && !selected ? 18 : RUN_HIT_WIDTH}
+                    strokeLinecap="round"
+                    data-editor-target={target || undefined}
+                    className={
+                      error
+                        ? "stroke-destructive/30"
+                        : target && !selected
+                          ? "stroke-primary/20"
+                          : "stroke-ring/30"
+                    }
+                    pointerEvents="none"
+                  />
+                ))}
+              {pieces
+                .filter((piece) => (piece.cell.z ?? 0) > 0)
+                .map((piece, i) => (
+                  <polyline
+                    key={`raised-${i}`}
+                    data-editor-raised
+                    points={line(piece.points)}
+                    fill="none"
+                    strokeWidth={1.5}
+                    strokeDasharray="3 3"
+                    className="stroke-background"
+                    pointerEvents="none"
+                  />
+                ))}
+              {pieces.map((piece, i) => (
                 <polyline
                   key={i}
-                  points={piece.points.map((p) => `${p.x},${p.y}`).join(" ")}
+                  data-run-cell={cellKey(piece.cell)}
+                  points={line(piece.points)}
                   fill="none"
+                  stroke="transparent"
                   strokeWidth={RUN_HIT_WIDTH}
                   strokeLinecap="round"
-                  className={error ? "stroke-destructive/30" : "stroke-ring/30"}
-                  pointerEvents="none"
-                />
-              ))}
-            {pieces.map((piece, i) => (
-              <polyline
-                key={i}
-                data-run-cell={cellKey(piece.cell)}
-                points={piece.points.map((p) => `${p.x},${p.y}`).join(" ")}
-                fill="none"
-                stroke="transparent"
-                strokeWidth={RUN_HIT_WIDTH}
-                strokeLinecap="round"
-                style={{ cursor: "pointer" }}
-                onDoubleClick={(e) => e.stopPropagation()}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (placing) {
-                    const inline = symbolSchemas[placing]?.["x-inline"];
-                    const onEnd = ends.some(
-                      (c) => cellKey(c) === cellKey(piece.cell),
-                    );
-                    if (inline && onEnd) return;
-                    onPlace(
-                      placing,
-                      inline
-                        ? { kind: "pipe", pipe: pipe.id, cell: piece.cell }
-                        : { kind: "cell", cell: piece.cell, rotation: 0 },
-                    );
-                  } else if (drawing) {
-                    addPoint({
-                      endpoint: {
-                        kind: "pipe",
-                        pipe: pipe.id,
-                        cell: piece.cell,
-                      },
-                      cell: piece.cell,
-                    });
-                  } else {
-                    onSelect({ kind: "pipe", id: pipe.id });
-                  }
-                }}
-              />
-            ))}
-          </g>
-        );
-      })}
-      {/* Bodies: a hit box each, dragged in select mode; ports on top,
-          offered while a run is drawn. */}
-      {symbolList.map((symbol) => {
-        const box = symbolBox(projection, symbol);
-        const selected =
-          selection?.kind === "symbol" && selection.id === symbol.id;
-        const error = errorIds.has(symbol.id);
-        const free = symbol.placement.kind === "cell";
-        return (
-          <g key={symbol.id} data-editor-symbol={symbol.id}>
-            {(selected || error) && halo(box, error && !selected)}
-            {!placing && !drawing && (
-              <rect
-                x={box.x0}
-                y={box.y0}
-                width={box.x1 - box.x0}
-                height={box.y1 - box.y0}
-                fill="transparent"
-                style={{ cursor: free ? "move" : "pointer", ...move.style }}
-                onDoubleClick={(e) => e.stopPropagation()}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSelect({ kind: "symbol", id: symbol.id });
-                }}
-                onPointerDown={(e) => {
-                  // The hook first: a press it refuses leaves the drag in
-                  // flight alone, and one it takes has already cancelled
-                  // that drag, reverting the symbol it was moving.
-                  if (!free || !move.onPointerDown(e)) return;
-                  const origin = symbol.placement.cell;
-                  const z = origin.z ?? 0;
-                  const at = toCell(e.clientX, e.clientY, z);
-                  grab.current = {
-                    id: symbol.id,
-                    origin: { x: origin.x, y: origin.y, z },
-                    at: { x: origin.x, y: origin.y, z },
-                    z,
-                    offset: { x: at.x - origin.x, y: at.y - origin.y },
-                  };
-                }}
-              />
-            )}
-            {ports &&
-              (ports.get(symbol.id) ?? []).map(({ name, anchor, at }) => (
-                <g
-                  key={name}
-                  data-editor-port={`${symbol.id}.${name}`}
-                  style={{ cursor: "crosshair" }}
+                  style={{ cursor: "pointer" }}
                   onDoubleClick={(e) => e.stopPropagation()}
                   onClick={(e) => {
                     e.stopPropagation();
-                    addPoint({
-                      endpoint: { kind: "port", symbol: symbol.id, port: name },
-                      cell: anchor.cell,
-                      side: anchor.side,
-                    });
+                    if (placing) {
+                      const ride = rideAt.get(cellKey(piece.cell));
+                      if (holdingInline && ride?.pipe === pipe.id) {
+                        place(placing, { kind: "ride", ride });
+                      } else if (!holdingInline) {
+                        place(placing, {
+                          kind: "cell",
+                          cell: { ...piece.cell, z: 0 },
+                        });
+                      }
+                    } else if (drawing) {
+                      draw.addPoint({
+                        endpoint: {
+                          kind: "pipe",
+                          pipe: pipe.id,
+                          cell: piece.cell,
+                        },
+                        cell: piece.cell,
+                      });
+                    } else {
+                      editor.select({ kind: "pipe", id: pipe.id });
+                    }
                   }}
-                >
-                  <Port x={at.x} y={at.y} />
-                  <title>{`${symbol.id}.${name}`}</title>
-                </g>
+                />
               ))}
-          </g>
-        );
-      })}
-      {/* The cell under the pointer at the chosen level, and what a click
-          would put there. */}
-      {hover && (placing || drawing) && (
-        <g pointerEvents="none" data-editor-hover={cellKey(hover)}>
-          <polygon
-            points={diamond(projection, hover)}
-            fill="none"
-            strokeWidth={1}
-            className="stroke-ring"
-          />
-          {placing && (
-            <g opacity={0.5}>
-              <SynopticSymbol
-                type={placing}
-                projection={projection}
-                origin={hover}
-              />
             </g>
-          )}
-        </g>
-      )}
-      {preview && (
-        <g pointerEvents="none" opacity={0.6} data-editor-preview>
-          <Pipe points={preview} fluid={fluid} />
-        </g>
-      )}
-    </SynopticRenderer>
+          );
+        })}
+        {/* Bodies: a hit box each, dragged in the select tool; ports on
+            top, offered while a run is drawn. */}
+        {[...symbols.values()].map((symbol) => {
+          const box = symbolBox(PLAN, symbol);
+          const selected =
+            selection?.kind === "symbol" && selection.id === symbol.id;
+          const error = errorIds.has(symbol.id);
+          const free = symbol.placement.kind === "cell";
+          const attached = used.get(symbol.id) ?? new Set<string>();
+          return (
+            <g key={symbol.id} data-editor-symbol={symbol.id}>
+              {(selected || error) && halo(box, error && !selected)}
+              {!placing && !drawing && (
+                <rect
+                  x={box.x0}
+                  y={box.y0}
+                  width={box.x1 - box.x0}
+                  height={box.y1 - box.y0}
+                  fill="transparent"
+                  style={{ cursor: free ? "move" : "ew-resize", ...move.style }}
+                  onDoubleClick={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    editor.select({ kind: "symbol", id: symbol.id });
+                  }}
+                  onPointerDown={(e) => {
+                    // The hook first: a press it refuses leaves the drag in
+                    // flight alone.
+                    if (!move.onPointerDown(e)) return;
+                    const { placement } = symbol;
+                    const origin = placement.cell;
+                    const z = origin.z ?? 0;
+                    const at = toCell(e.clientX, e.clientY, z);
+                    grab.current = {
+                      id: symbol.id,
+                      at: cellKey({ ...origin, z }),
+                      z,
+                      offset: { x: at.x - origin.x, y: at.y - origin.y },
+                      along:
+                        placement.kind === "pipe"
+                          ? rides(doc, symbol.id).filter(
+                              (r) => r.pipe === placement.pipe,
+                            )
+                          : undefined,
+                    };
+                  }}
+                />
+              )}
+              {drawing &&
+                symbolPorts(symbol).map(({ name, anchor, at }) => {
+                  const isStart =
+                    start?.endpoint.kind === "port" &&
+                    start.endpoint.symbol === symbol.id &&
+                    start.endpoint.port === name;
+                  const state = isStart
+                    ? "start"
+                    : attached.has(name)
+                      ? "used"
+                      : "free";
+                  return (
+                    <g
+                      key={name}
+                      data-editor-port={`${symbol.id}.${name}`}
+                      data-port-state={state}
+                      style={{ cursor: "crosshair" }}
+                      onDoubleClick={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        draw.addPoint({
+                          endpoint: {
+                            kind: "port",
+                            symbol: symbol.id,
+                            port: name,
+                          },
+                          cell: anchor.cell,
+                          side: anchor.side,
+                        });
+                      }}
+                    >
+                      <circle cx={at.x} cy={at.y} r={10} fill="transparent" />
+                      <circle
+                        cx={at.x}
+                        cy={at.y}
+                        r={state === "used" ? 3.5 : 5}
+                        strokeWidth={state === "used" ? 1 : 2}
+                        className={
+                          state === "start"
+                            ? "fill-primary stroke-background"
+                            : state === "used"
+                              ? "fill-muted-foreground stroke-background"
+                              : "fill-background stroke-status-ok"
+                        }
+                      />
+                      <title>{`${symbol.label || symbol.id} · ${name}`}</title>
+                    </g>
+                  );
+                })}
+            </g>
+          );
+        })}
+        {/* What the pointer holds: the cell a click lands on, the ghost of
+            what it would place, or the run a valve would ride. */}
+        {hover && (holding || drawing) && (
+          <g pointerEvents="none" data-editor-hover>
+            {hover.kind === "cell" && hoverCell && (
+              <>
+                <rect
+                  x={hoverCell.x0}
+                  y={hoverCell.y0}
+                  width={hoverCell.x1 - hoverCell.x0}
+                  height={hoverCell.y1 - hoverCell.y0}
+                  fill="none"
+                  strokeWidth={1}
+                  className="stroke-ring"
+                />
+                {holding && !holdingInline && (
+                  <g opacity={0.5} data-editor-ghost={holding}>
+                    {holding === "collector" ? (
+                      <Collector
+                        projection={PLAN}
+                        origin={hover.cell}
+                        shape={defaultProps("collector") as CollectorProps}
+                      />
+                    ) : (
+                      <SynopticSymbol
+                        type={holding}
+                        projection={PLAN}
+                        origin={hover.cell}
+                        showLabel={false}
+                      />
+                    )}
+                  </g>
+                )}
+              </>
+            )}
+            {hover.kind === "ride" && holding && (
+              <g
+                data-editor-ride={`${hover.ride.pipe}:${cellKey(hover.ride.cell)}`}
+              >
+                <g opacity={0.7}>
+                  <SynopticSymbol
+                    type={holding}
+                    projection={PLAN}
+                    origin={hover.ride.cell}
+                    direction={hover.ride.direction}
+                    showLabel={false}
+                  />
+                </g>
+                {rideRun && (
+                  <DropLabel
+                    at={hover.ride.centre}
+                    text={t("editor.canvas.dropOn", {
+                      run: pipeName(rideRun, fluidLabel),
+                    })}
+                  />
+                )}
+              </g>
+            )}
+          </g>
+        )}
+        {preview && (
+          <g pointerEvents="none" opacity={0.6} data-editor-preview>
+            <Pipe points={preview} fluid={draw.fluid} />
+          </g>
+        )}
+      </SynopticRenderer>
+    </div>
   );
 }

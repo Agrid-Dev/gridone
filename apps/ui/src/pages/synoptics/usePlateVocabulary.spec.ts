@@ -10,6 +10,7 @@ vi.mock("react-i18next", () =>
   createI18nMock({
     "slots.state": "ÉTAT",
     "types.heat_pump": "pompe à chaleur",
+    "fluids.dhw": "eau chaude sanitaire",
     "reading.updated": "mis à jour {{time}} ({{ago}})",
     "reading.silent": "aucune valeur reçue",
     "reading.stale": "valeur ancienne",
@@ -33,6 +34,7 @@ describe("usePlateVocabulary", () => {
     expect(result.current.slotLabel("supply_temp")).toBe("supply temp");
     expect(result.current.typeLabel("heat_pump")).toBe("pompe à chaleur");
     expect(result.current.typeLabel("dirt_separator")).toBe("dirt separator");
+    expect(result.current.fluidLabel("dhw")).toBe("eau chaude sanitaire");
   });
 
   it("titles a reading with its caption, value, unit and the time the device reported it", () => {

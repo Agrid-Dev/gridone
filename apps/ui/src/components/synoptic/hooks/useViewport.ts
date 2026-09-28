@@ -57,6 +57,9 @@ type ViewportOptions = {
   height: number;
   controller?: RefObject<ViewportController | null>;
   onViewChange?: (view: View) => void;
+  /** Whether a double click fits the plate again. An editor turns it off:
+   *  there a double click is two clicks placing something. */
+  fitOnDoubleClick?: boolean;
 };
 
 /**
@@ -77,6 +80,7 @@ export function useViewport({
   height,
   controller,
   onViewChange,
+  fitOnDoubleClick = true,
 }: ViewportOptions) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [view, setView] = useState<View>(FIT);
@@ -219,7 +223,7 @@ export function useViewport({
       onPointerMove,
       onPointerUp,
       onPointerCancel: onPointerUp,
-      onDoubleClick: () => setView(FIT),
+      onDoubleClick: fitOnDoubleClick ? () => setView(FIT) : undefined,
     },
     transform: `translate(${view.x} ${view.y}) scale(${view.scale})`,
     /** Screen pixels per viewBox unit at the current zoom; 0 before layout. */
