@@ -166,6 +166,9 @@ describe("DevicesList — health filter wiring", () => {
     renderAt();
     expect(lastListFilter()).toBeUndefined();
     expect(
+      screen.queryByRole("tablist", { name: "Health" }),
+    ).not.toBeInTheDocument();
+    expect(
       screen.queryByRole("group", { name: "Filter by type" }),
     ).not.toBeInTheDocument();
   });
@@ -188,16 +191,34 @@ describe("DevicesList — health filter wiring", () => {
     });
   });
 
-  it("updates the filter when a health tab is clicked", async () => {
-    renderAt();
+  it("keeps fleet health choices when the filtered results are healthy", async () => {
+    const healthy = makeDevice("d1", "Alpha");
+    const faulty = { ...makeDevice("d2", "Bravo"), is_faulty: true };
+    mockUseDevicesList.mockImplementation((...args: unknown[]) => ({
+      devices: args.length === 0 ? [healthy, faulty] : [healthy],
+      loading: false,
+      error: null,
+    }));
+    renderAt(["/devices?search=Alpha"]);
     await userEvent.click(screen.getByRole("tab", { name: "Faulty" }));
-    expect(lastListFilter()).toEqual({ is_faulty: true });
+    expect(lastListFilter()).toEqual({ search: "Alpha", is_faulty: true });
+    await userEvent.click(screen.getByRole("tab", { name: "Healthy" }));
+    expect(lastListFilter()).toEqual({ search: "Alpha", is_faulty: false });
+    await userEvent.click(screen.getByRole("tab", { name: "All" }));
+    expect(lastListFilter()).toEqual({ search: "Alpha" });
+    expect(screen.getByRole("tab", { name: "Faulty" })).toBeInTheDocument();
   });
 
-  it("clears the filter when returning to 'All'", async () => {
-    renderAt(["/devices?health=faulty"]);
+  it("lets users clear bookmarked health filters when the fleet is healthy", async () => {
+    renderAt(["/devices?health=faulty&type=thermostat&search=Alpha"]);
     await userEvent.click(screen.getByRole("tab", { name: "All" }));
-    expect(lastListFilter()).toBeUndefined();
+    expect(lastListFilter()).toEqual({
+      types: ["thermostat"],
+      search: "Alpha",
+    });
+    expect(
+      screen.queryByRole("tablist", { name: "Health" }),
+    ).not.toBeInTheDocument();
   });
 
   it("still honors ?search deep links server-side", () => {

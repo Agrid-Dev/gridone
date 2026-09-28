@@ -25,6 +25,7 @@ type DevicesPage = {
   /** Unfiltered per-type counts for the filter chips. */
   typeCounts: Map<DeviceTypeKey, number>;
   showTypeFilter: boolean;
+  showHealthFilter: boolean;
   /** Unfiltered fleet size. */
   total: number;
   /** Unfiltered connection tally for the header summary. */
@@ -95,6 +96,9 @@ export function useDevicesPage(): DevicesPage {
     typeCounts,
     // Keep active filters reachable so bookmarked URLs can be cleared.
     showTypeFilter: typeCounts.size > 1 || !!filter?.types?.length,
+    showHealthFilter:
+      allDevices.some((device) => device.is_faulty) ||
+      filter?.is_faulty !== undefined,
     total: allDevices.length,
     connectionCounts,
     summaryLoading,

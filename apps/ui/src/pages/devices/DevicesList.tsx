@@ -23,6 +23,7 @@ export default function DevicesList() {
     groups,
     typeCounts,
     showTypeFilter,
+    showHealthFilter,
     total,
     connectionCounts,
     summaryLoading,
@@ -90,9 +91,11 @@ export default function DevicesList() {
         {showTypeFilter && (
           <DeviceTypeChips counts={typeCounts} total={total} />
         )}
-        <div className="ml-auto flex items-center gap-2">
-          <HealthFilter />
-        </div>
+        {showHealthFilter && (
+          <div className="ml-auto flex items-center gap-2">
+            <HealthFilter />
+          </div>
+        )}
       </div>
 
       {error && (
