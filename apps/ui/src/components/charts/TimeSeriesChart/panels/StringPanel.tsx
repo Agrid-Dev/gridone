@@ -25,8 +25,8 @@ import { computeTopStringValues } from "../topStringValues";
 import { attributeValueChartColor } from "@/lib/semanticColors";
 
 type RenderItem = {
-  /** The value itself — the series it belongs to is named once, by the legend
-   *  heading, rather than repeated on every swatch. */
+  /** The value's wording — the series it belongs to is named once, by the
+   *  legend heading, rather than repeated on every swatch. */
   value: string;
   color: string;
   dataKey: string;
@@ -60,7 +60,7 @@ export function StringPanel({
         });
       }
       items.push({
-        value: val,
+        value: series.stringLabels?.[val] ?? val,
         color:
           attributeValueChartColor(series.semanticKey ?? series.key, val) ??
           CHART_COLORS[vi % CHART_COLORS.length],
