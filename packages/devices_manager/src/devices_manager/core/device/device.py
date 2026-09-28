@@ -212,9 +212,13 @@ class CoreDevice:
     )
     _guard: WriteGuard = field(init=False, repr=False)
     _dependency_refresh: DependencyRefresh = field(init=False, repr=False)
-    # Written targets a failed write left unknown, read again in the background.
-    _unconfirmed: set[str] = field(init=False, default_factory=set, repr=False)
+    # Written targets a write left unknown, read again in the background.
+    _reacquiring: set[str] = field(init=False, default_factory=set, repr=False)
     _target_refresh: DependencyRefresh = field(init=False, repr=False)
+    # Confirmations of writes sent without one, run for their dependents.
+    _confirmations: set[asyncio.Task[None]] = field(
+        init=False, default_factory=set, repr=False
+    )
     _write_lock: asyncio.Lock = field(
         init=False, default_factory=asyncio.Lock, repr=False
     )
@@ -248,7 +252,7 @@ class CoreDevice:
             partial(self._acquire, self._missing_dependencies, "dependency")
         )
         self._target_refresh = DependencyRefresh(
-            partial(self._acquire, self._take_unconfirmed, "target")
+            partial(self._acquire, self._take_reacquiring, "target")
         )
 
     @property
@@ -465,6 +469,10 @@ class CoreDevice:
         """Cancel polling, stop silence detection, and mark as not syncing."""
         self._syncing = False
         self.transport.remove_reconnect_listener(self._on_transport_reconnected)
+        confirmations = tuple(self._confirmations)
+        for task in confirmations:
+            task.cancel()
+        await asyncio.gather(*confirmations, return_exceptions=True)
         await self._dependency_refresh.close()
         await self._target_refresh.close()
         for task in self._poll_tasks.values():
@@ -648,13 +656,15 @@ class CoreDevice:
             raise
         attribute_read.add(1, {"protocol": self.transport.protocol, "status": "ok"})
 
-    async def _poll_attribute(self, attribute_name: str) -> None:
+    async def _poll_attribute(
+        self, attribute_name: str, *, monitored: bool = True
+    ) -> None:
         """Poll attribute_name with exponential backoff until cancelled."""
         delay = 0.25
         while True:
             await asyncio.sleep(delay)
             try:
-                await self.read_attribute_value(attribute_name)
+                await self.read_attribute_value(attribute_name, monitored=monitored)
             except Exception as e:  # noqa: BLE001
                 logger.warning(
                     "[Device %s] poll read failed for %s — %s: %s",
@@ -753,6 +763,7 @@ class CoreDevice:
         attribute_name: str,
         *,
         sweep_id: str | None = None,
+        monitored: bool = True,
     ) -> AttributeValueType | None:
         attribute = self.get_attribute(attribute_name)
         if attribute.kind == AttributeKind.INTERNAL:
@@ -769,7 +780,7 @@ class CoreDevice:
         address = self.transport.build_address(
             render_struct(attribute_driver.read, context), context
         )
-        with self._observe_read(attribute.name):
+        with self._observe_read(attribute.name, monitored=monitored):
             raw_value = await self.transport.read(address, sweep_id)
             try:
                 decoded = attribute_driver.codec.decode(raw_value)
@@ -838,10 +849,10 @@ class CoreDevice:
         if self.transport.read_supported and self._missing_dependencies():
             self._dependency_refresh.request()
 
-    def _take_unconfirmed(self) -> set[str]:
-        """The written targets still unknown, and nothing else: inputs the
-        firmware never answers are not retried on every failed write."""
-        names, self._unconfirmed = self._unconfirmed, set()
+    def _take_reacquiring(self) -> set[str]:
+        """The queued write targets still unknown, and nothing else: inputs
+        the firmware never answers are not retried after every write."""
+        names, self._reacquiring = self._reacquiring, set()
         return {name for name in names if self._guard.known(name) is None}
 
     async def _acquire(self, names: Callable[[], set[str]], what: str) -> None:
@@ -979,6 +990,8 @@ class CoreDevice:
         attribute_name: str,
         expected_value: AttributeValueType,
         confirm_timeout: float,
+        *,
+        monitored: bool = True,
     ) -> None:
         """Confirm a write landed by racing push confirmation against active reads.
 
@@ -993,7 +1006,9 @@ class CoreDevice:
             if self._guard.known(attribute_name) == expected_value:
                 return
 
-            poll_task = asyncio.create_task(self._poll_attribute(attribute_name))
+            poll_task = asyncio.create_task(
+                self._poll_attribute(attribute_name, monitored=monitored)
+            )
             try:
                 await asyncio.wait_for(confirmed.wait(), confirm_timeout)
             except TimeoutError as e:
@@ -1122,7 +1137,8 @@ class CoreDevice:
         check and the send. A context that moves while a confirmation waits
         is caught by the mapping comparison afterwards. A rejection is not a
         transport failure and leaves no write log; the requested value is
-        never published as an observation.
+        never published as an observation. Without ``confirm``, the write is
+        still confirmed in the background when something depends on it.
         """
         attribute = self.get_attribute(attribute_name)
         async with self._write_lock:
@@ -1145,41 +1161,85 @@ class CoreDevice:
                 # observed again.
                 self._guard.forget(attribute_name)
                 self._notify_write_state()
-                with self._reacquire_on_failure(attribute_name):
+                try:
                     await self.transport.write(address, encoded)
+                except BaseException:
+                    self._reacquire(attribute_name)
+                    raise
         logger.info(
             "Wrote attribute '%s' with value '%s' to device '%s'",
             attribute_name,
             validated,
             self.id,
         )
-        if confirm:
-            with self._reacquire_on_failure(attribute_name):
-                await self._confirm_attribute_value(
-                    attribute_name, validated, confirm_timeout
-                )
-            if context != self._guard.mapping_context(attribute_name):
-                raise WriteRejectedError([WriteReason(code="mapping_changed")])
+        if not confirm:
+            self._confirm_in_background(attribute_name, validated, confirm_timeout)
+            return attribute
+        await self._settle(attribute_name, validated, confirm_timeout)
+        if context != self._guard.mapping_context(attribute_name):
+            raise WriteRejectedError([WriteReason(code="mapping_changed")])
         return attribute
 
-    @contextlib.contextmanager
-    def _reacquire_on_failure(self, attribute_name: str) -> Iterator[None]:
-        """A write that fails after its target was forgotten reads the target
-        again in the background, when something depends on it, rather than
-        leaving it unknown until the next push. A transport that is down is
-        left to the reconnection, which acquires what is missing."""
+    async def _settle(
+        self,
+        attribute_name: str,
+        expected_value: AttributeValueType,
+        confirm_timeout: float,
+        *,
+        monitored: bool = True,
+    ) -> None:
+        """Confirm a sent write; a target still unknown afterwards, however the
+        confirmation ended, is read again."""
         try:
-            yield
-        except BaseException:
-            if (
-                self._syncing
-                and self.transport.read_supported
-                and self.transport.connection_state.is_connected
-                and attribute_name in self._dependencies()
-            ):
-                self._unconfirmed.add(attribute_name)
-                self._target_refresh.request()
-            raise
+            await self._confirm_attribute_value(
+                attribute_name, expected_value, confirm_timeout, monitored=monitored
+            )
+        finally:
+            self._reacquire(attribute_name)
+
+    def _confirm_in_background(
+        self,
+        attribute_name: str,
+        expected_value: AttributeValueType,
+        confirm_timeout: float,
+    ) -> None:
+        """Settle a write whose caller does not wait, so that only the applied
+        value is trusted. Only when a read-back is worth it: otherwise the
+        confirmation would cost reads that nothing needs. Its polls stay out of
+        the connection status: nobody asked for them."""
+        if not self._reads_back(attribute_name):
+            return
+
+        async def settle() -> None:
+            with contextlib.suppress(ConfirmationError):
+                await self._settle(
+                    attribute_name, expected_value, confirm_timeout, monitored=False
+                )
+
+        task = asyncio.create_task(settle())
+        self._confirmations.add(task)
+        task.add_done_callback(self._confirmations.discard)
+
+    def _reads_back(self, attribute_name: str) -> bool:
+        """Whether a written target is worth reading back: something depends
+        on it and the device can be read now. A transport that is down is left
+        to the reconnection, which acquires what is missing."""
+        return (
+            self._syncing
+            and self.transport.read_supported
+            and self.transport.connection_state.is_connected
+            and attribute_name in self._dependencies()
+        )
+
+    def _reacquire(self, attribute_name: str) -> None:
+        """Read a written target still unknown again in the background, rather
+        than leaving it unknown until the next push."""
+        if (
+            self._reads_back(attribute_name)
+            and self._guard.known(attribute_name) is None
+        ):
+            self._reacquiring.add(attribute_name)
+            self._target_refresh.request()
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, CoreDevice):
