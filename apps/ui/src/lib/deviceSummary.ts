@@ -44,6 +44,8 @@ export type DeviceReading = {
   value: number | null;
   digits: number;
   suffix: string;
+  /** The current operating mode does not use this reading. */
+  notApplicable?: boolean;
 };
 
 const temperature = (metric: string, value: number | null): DeviceReading => ({
@@ -127,11 +129,16 @@ function primaryMeasure(device: Device): DeviceReading | null {
 }
 
 function primarySetpoint(device: Device): DeviceReading | null {
-  if (isThermostat(device))
-    return temperature(
-      "temperature_setpoint",
-      readThermostatAttributes(device).temperatureSetpoint,
-    );
+  if (isThermostat(device)) {
+    const { mode, temperatureSetpoint } = readThermostatAttributes(device);
+    // Fan mode does not regulate temperature, even if a setpoint is reported.
+    if (mode === "fan")
+      return {
+        ...temperature("temperature_setpoint", null),
+        notApplicable: true,
+      };
+    return temperature("temperature_setpoint", temperatureSetpoint);
+  }
   if (isAwhp(device))
     return temperature(
       "setpoint_temperature",
@@ -151,11 +158,12 @@ function primarySetpoint(device: Device): DeviceReading | null {
 }
 
 /** Reading rendered for the given locale ("20,5°", "1 250 W"); em dash when
- *  the reading is absent or its value is not reported. */
+ *  the reading is absent or its value is not reported, N/A when inapplicable. */
 export function formatReading(
   reading: DeviceReading | null,
   locale: string,
 ): string {
+  if (reading?.notApplicable) return "N/A";
   if (!reading || reading.value == null) return DASH;
   const number = new Intl.NumberFormat(locale, {
     minimumFractionDigits: reading.digits,

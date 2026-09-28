@@ -84,6 +84,25 @@ describe("DeviceFleetCard", () => {
     expect(screen.getByText("Floor 2")).toBeInTheDocument();
   });
 
+  it.each([true, false])(
+    "shows N/A for a fan-mode setpoint when power is %s",
+    (on) => {
+      renderCard(
+        thermostat({
+          temperature: attr(21.5),
+          temperature_setpoint: attr(0),
+          mode: attr("fan"),
+          onoff_state: attr(on),
+        }),
+      );
+      expect(screen.getByText("N/A")).toBeInTheDocument();
+      expect(screen.getByText("setpoint")).toBeInTheDocument();
+      expect(screen.queryByText("0,0°")).not.toBeInTheDocument();
+      expect(screen.getByText("21,5°")).toBeInTheDocument();
+      expect(screen.getByText("measured")).toBeInTheDocument();
+    },
+  );
+
   it("falls back to the measure when the device has no setpoint", () => {
     renderCard(thermostat({ temperature: attr(21.4) }));
     expect(screen.getByText("21,4°")).toBeInTheDocument();
