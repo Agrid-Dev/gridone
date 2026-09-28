@@ -224,6 +224,7 @@
       "noDevices": "No devices available"
     },
     "attribute": {
+      "search": "Search attributes...",
       "label": "Attribute",
       "placeholder": "Select an attribute",
       "pickDeviceFirst": "Pick a device first",

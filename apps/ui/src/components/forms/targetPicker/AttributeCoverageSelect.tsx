@@ -1,12 +1,22 @@
+import { useState } from "react";
+import { Check, ChevronsUpDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { DataType } from "@gridone/sdk";
+import { Button } from "@/components/ui/button";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import { isEmptyFilter, type DevicesFilter } from "@/lib/devices";
 import { toLabel } from "@/lib/textFormat";
 import { localize } from "@/lib/localizedText";
@@ -23,7 +33,7 @@ type AttributeCoverageSelectProps = {
   id?: string;
 };
 
-/** Controlled select of an attribute over a device set. Options are the
+/** Searchable controlled selector of an attribute over a device set. Options are the
  *  UNION of the set's attributes annotated with coverage ("8/12"); devices
  *  not exposing the chosen attribute are excluded server-side at dispatch.
  *  Attributes with mixed data types across the set cannot be targeted and
@@ -36,6 +46,7 @@ export function AttributeCoverageSelect({
   disabled,
   id,
 }: AttributeCoverageSelectProps) {
+  const [open, setOpen] = useState(false);
   const { t, i18n } = useTranslation("common");
   const { coverage, totalDevices } = useAttributeCoverage(filter, {
     enabled: !disabled && !isEmptyFilter(filter),
@@ -45,47 +56,83 @@ export function AttributeCoverageSelect({
     ? coverage.filter((c) => c.writable_count > 0)
     : coverage;
 
+  const selectedRow = rows.find((row) => row.attribute === value);
+  const selectedLabel = selectedRow?.label
+    ? localize(selectedRow.label, i18n.language)
+    : value
+      ? toLabel(value)
+      : t("pickers.attribute.placeholder");
+
   return (
-    <Select
-      value={value ?? ""}
-      onValueChange={(attribute) => {
-        const row = rows.find((c) => c.attribute === attribute);
-        if (!row || row.data_types.length !== 1) return;
-        onChange(attribute, row.data_types[0]);
-      }}
-      disabled={disabled}
-    >
-      <SelectTrigger id={id}>
-        <SelectValue placeholder={t("pickers.attribute.placeholder")} />
-      </SelectTrigger>
-      <SelectContent>
-        {rows.map((row) => {
-          const mixed = row.data_types.length > 1;
-          return (
-            <SelectItem
-              key={row.attribute}
-              value={row.attribute}
-              disabled={mixed}
-            >
-              <span>
-                {row.label
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          id={id}
+          type="button"
+          variant="outline"
+          role="combobox"
+          aria-label={selectedLabel}
+          aria-expanded={open}
+          disabled={disabled}
+          className="w-full justify-between font-normal"
+        >
+          <span className={cn("truncate", !value && "text-muted-foreground")}>
+            {selectedLabel}
+          </span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        className="w-[--radix-popover-trigger-width] p-0"
+      >
+        <Command label={t("pickers.attribute.search")}>
+          <CommandInput placeholder={t("pickers.attribute.search")} />
+          <CommandList className="max-h-[min(300px,calc(var(--radix-popover-content-available-height)-3rem))]">
+            <CommandEmpty>{t("pickers.attribute.noMatching")}</CommandEmpty>
+            <CommandGroup>
+              {rows.map((row) => {
+                const mixed = row.data_types.length > 1;
+                const label = row.label
                   ? localize(row.label, i18n.language)
-                  : toLabel(row.attribute)}
-              </span>
-              <span className="ml-2 text-xs text-muted-foreground">
-                {mixed
-                  ? t("pickers.attribute.mixedTypes")
-                  : `(${row.data_types[0]})`}{" "}
-                {t("pickers.attribute.coverage", {
-                  count: writableOnly ? row.writable_count : row.device_count,
-                  total: totalDevices,
-                })}
-                {row.unit && ` · ${row.unit}`}
-              </span>
-            </SelectItem>
-          );
-        })}
-      </SelectContent>
-    </Select>
+                  : toLabel(row.attribute);
+                return (
+                  <CommandItem
+                    key={row.attribute}
+                    value={row.attribute}
+                    keywords={[label]}
+                    disabled={mixed}
+                    onSelect={() => {
+                      if (row.data_types.length !== 1) return;
+                      onChange(row.attribute, row.data_types[0]);
+                      setOpen(false);
+                    }}
+                  >
+                    <Check
+                      className={cn(value !== row.attribute && "opacity-0")}
+                    />
+                    <span className="min-w-0 whitespace-normal break-words">
+                      {label}
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        {mixed
+                          ? t("pickers.attribute.mixedTypes")
+                          : `(${row.data_types[0]})`}{" "}
+                        {t("pickers.attribute.coverage", {
+                          count: writableOnly
+                            ? row.writable_count
+                            : row.device_count,
+                          total: totalDevices,
+                        })}
+                        {row.unit && ` · ${row.unit}`}
+                      </span>
+                    </span>
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }
