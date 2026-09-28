@@ -1,3 +1,9 @@
+## v0.279.1 (2026-09-28)
+
+### Fix
+
+- **ui**: gate device commands on devices:command
+
 ## v0.279.0 (2026-09-28)
 
 ### Feat
