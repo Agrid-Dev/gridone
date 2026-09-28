@@ -151,6 +151,17 @@ describe("DeviceFleetCard", () => {
     expect(screen.getByText("2 fault(s)")).toBeInTheDocument();
   });
 
+  it("leads with a dash for a device of no registered type", () => {
+    renderCard({ ...thermostat(), type: "custom_vendor" } as Device);
+    expect(screen.getByText("—")).toBeInTheDocument();
+  });
+
+  it("leaves the mode out when the device reports none", () => {
+    renderCard(pmsMonitor({ reservation_status: attr("booked") }));
+    expect(screen.queryByText("—")).not.toBeInTheDocument();
+    expect(screen.getByText("No fault")).toBeInTheDocument();
+  });
+
   it("links the whole card to the device detail", () => {
     renderCard(thermostat());
     expect(screen.getByRole("link")).toHaveAttribute("href", "/devices/d1");

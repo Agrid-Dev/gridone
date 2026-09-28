@@ -2,13 +2,12 @@ import { useTranslation } from "react-i18next";
 import { Power, PowerOff } from "lucide-react";
 import type { Device } from "@gridone/sdk";
 import { AttributeValue } from "@/components/AttributeValue";
-import { EmptyValue } from "@/components/EmptyValue";
 import { deviceMode } from "@/lib/deviceSummary";
 import { type DeviceType } from "@/lib/devices";
 import { cn } from "@/lib/utils";
 
-/** A device's operating mode as icon + label ("Heating", "Off"), shared by
- *  the fleet table and cards. Enum modes go through {@link AttributeValue} so
+/** A device's operating mode as icon + label ("Heating", "Off") for the
+ *  fleet card; nothing when the device reports none. Enum modes go through {@link AttributeValue} so
  *  they carry the same icon and semantic colour as everywhere else; on/off is
  *  composed here because it is not a wire mode value. */
 export function DeviceModeValue({
@@ -20,7 +19,7 @@ export function DeviceModeValue({
 }) {
   const { t } = useTranslation();
   const mode = deviceMode(device);
-  if (!mode) return <EmptyValue />;
+  if (!mode) return null;
 
   if (mode.kind === "onoff") {
     const Icon = mode.value === "on" ? Power : PowerOff;
