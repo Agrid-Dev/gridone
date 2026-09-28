@@ -52,7 +52,10 @@ export const DeviceControlWidgetView: FC<{ config: unknown }> = ({
           <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
             {canSeeConnectionStatus && (
               <>
-                <ConnectionStatusDot status={getConnectionStatus(device)} />
+                <ConnectionStatusDot
+                  status={getConnectionStatus(device)}
+                  decorative
+                />
                 <ConnectionStatusValue status={getConnectionStatus(device)} />
               </>
             )}

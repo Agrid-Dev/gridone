@@ -13,6 +13,7 @@ vi.mock("react-i18next", () =>
     "deviceDetails.activeFaults.badge": "{{count}} fault(s)",
     "devices.card.measured": "{{value}} measured",
     "devices.card.noFault": "No fault",
+    "deviceDetails.connectionStatus.ok": "Connected",
     "devices.card.trendLabel": "24 h trend",
     "devices.card.pms.status.booked": "Booked",
     "devices.card.pms.status.checkedIn": "Occupied",
@@ -149,6 +150,16 @@ describe("DeviceFleetCard", () => {
       }),
     );
     expect(screen.getByText("2 fault(s)")).toBeInTheDocument();
+  });
+
+  it("names the connection status on its corner dot", () => {
+    renderCard(thermostat({ connection_status: attr("ok") }));
+    expect(screen.getByRole("img", { name: "Connected" })).toBeInTheDocument();
+  });
+
+  it("drops the zone line when the device has no placement", () => {
+    renderCard(thermostat({ temperature: attr(21.4) }), null);
+    expect(screen.queryByText("—")).not.toBeInTheDocument();
   });
 
   it("leads with a dash for a device of no registered type", () => {

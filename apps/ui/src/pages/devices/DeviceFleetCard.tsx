@@ -3,8 +3,7 @@ import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
 import type { Device } from "@gridone/sdk";
 import { Card } from "@/components/ui";
-import { ConnectionStatusValue } from "@/components/ConnectionStatusBadge";
-import { EmptyValue } from "@/components/EmptyValue";
+import { ConnectionStatusDot } from "@/components/ConnectionStatusBadge";
 import { useCanSeeConnectionStatus } from "@/hooks/useCanSeeConnectionStatus";
 import { getConnectionStatus } from "@/lib/devices";
 import { activeFaultSummary } from "@/lib/faults";
@@ -48,7 +47,7 @@ export function DeviceFleetCard({
       >
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
-            <h3 className="truncate font-display text-sm font-semibold text-card-foreground">
+            <h3 className="line-clamp-2 break-words font-display text-sm font-semibold text-card-foreground">
               {/* Stretched link: its overlay makes the whole card one real
                   link (keyboard, new tab, copy link) with no click handler. */}
               <Link
@@ -58,14 +57,15 @@ export function DeviceFleetCard({
                 {device.name || device.id}
               </Link>
             </h3>
-            <p className="truncate text-xs text-muted-foreground">
-              {zonePath ?? <EmptyValue />}
-            </p>
+            {zonePath && (
+              <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                {zonePath}
+              </p>
+            )}
           </div>
+          {/* Centred on the title's first line (text-sm: 20px leading). */}
           {canSeeConnectionStatus && (
-            <span className="text-xs">
-              <ConnectionStatusValue status={status} />
-            </span>
+            <ConnectionStatusDot status={status} className="mt-1.5 shrink-0" />
           )}
         </div>
 

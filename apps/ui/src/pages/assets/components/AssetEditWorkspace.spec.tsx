@@ -213,7 +213,7 @@ describe("AssetEditWorkspace", () => {
       "/assets/bar",
     );
     expect(
-      screen.getByRole("link", { name: "Lobby thermostat Thermostat" }),
+      screen.getByRole("link", { name: /^Lobby thermostat Thermostat/ }),
     ).toHaveAttribute("href", "/devices/thermostat");
   });
 
@@ -289,7 +289,7 @@ describe("AssetEditWorkspace", () => {
     renderWorkspace({ canWriteDevices: false });
 
     expect(
-      screen.getByRole("link", { name: "Lobby thermostat Thermostat" }),
+      screen.getByRole("link", { name: /^Lobby thermostat Thermostat/ }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Unlink" }),
