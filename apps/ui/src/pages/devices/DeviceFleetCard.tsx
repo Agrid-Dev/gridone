@@ -1,4 +1,3 @@
-import { useResourceNavigation } from "@/hooks/useResourceNavigation";
 import { DeviceFaultBadge } from "@/components/DeviceFaultBadge";
 import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
@@ -34,7 +33,6 @@ export function DeviceFleetCard({
 }) {
   const { t } = useTranslation(["devices", "common"]);
 
-  const { open } = useResourceNavigation();
   const status = getConnectionStatus(device);
   const canSeeConnectionStatus = useCanSeeConnectionStatus();
   const faults = activeFaultSummary(device);
@@ -43,19 +41,20 @@ export function DeviceFleetCard({
   return (
     <div className="group block h-full">
       <Card
-        onClick={(event) => {
-          if (!(event.target as HTMLElement).closest("a,button,input"))
-            open(`/devices/${device.id}`);
-        }}
         className={cn(
-          "flex h-full flex-col gap-3 p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md",
+          "relative flex h-full flex-col gap-3 p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md",
           faults && CARD_SEVERITY_CLASS[faults.severity],
         )}
       >
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
             <h3 className="truncate font-display text-sm font-semibold text-card-foreground">
-              <Link to={`/devices/${device.id}`}>
+              {/* Stretched link: its overlay makes the whole card one real
+                  link (keyboard, new tab, copy link) with no click handler. */}
+              <Link
+                to={`/devices/${device.id}`}
+                className="after:absolute after:inset-0 after:rounded-lg focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring"
+              >
                 {device.name || device.id}
               </Link>
             </h3>
@@ -76,7 +75,10 @@ export function DeviceFleetCard({
           <DeviceModeValue device={device} />
           <span className="ml-auto truncate">
             {faults ? (
-              <DeviceFaultBadge device={device} />
+              // Above the stretched link, so the badge keeps its own target.
+              <span className="relative z-10">
+                <DeviceFaultBadge device={device} />
+              </span>
             ) : (
               <span className="text-muted-foreground">
                 {t("devices.card.noFault")}

@@ -167,6 +167,28 @@ describe("DeviceFleetCard", () => {
     expect(screen.getByRole("link")).toHaveAttribute("href", "/devices/d1");
   });
 
+  it("keeps the fault badge as its own link to the active faults", () => {
+    renderCard(
+      thermostat({
+        comm_fault: {
+          kind: "fault",
+          name: "comm_fault",
+          severity: "alert",
+          is_faulty: true,
+          current_value: true,
+        },
+      }),
+    );
+    expect(screen.getByRole("link", { name: "Ch. 201" })).toHaveAttribute(
+      "href",
+      "/devices/d1",
+    );
+    expect(screen.getByRole("link", { name: /fault/ })).toHaveAttribute(
+      "href",
+      "/devices/d1#active-faults",
+    );
+  });
+
   describe("PMS monitor summary", () => {
     it("shows the reservation status and current guest count", () => {
       renderCard(
