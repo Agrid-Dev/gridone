@@ -1,3 +1,10 @@
+## v0.277.0 (2026-09-28)
+
+### Feat
+
+- **ui**: word the chart's time axis in the user's locale (#726)
+- **ui**: word the chart's time axis in the user's locale
+
 ## v0.276.0 (2026-09-28)
 
 ### Feat
