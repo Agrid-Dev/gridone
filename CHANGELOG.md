@@ -1,3 +1,9 @@
+## v0.278.0 (2026-09-28)
+
+### Feat
+
+- **users**: drop users:read:basic; list users as id + name to anyone signed in
+
 ## v0.277.0 (2026-09-28)
 
 ### Feat
