@@ -1,10 +1,10 @@
-import { useCallback, useState, type FC } from "react";
+import { memo, useCallback, useMemo, useState, type FC } from "react";
 import { useTranslation } from "react-i18next";
+import { Droplet, Zap, type LucideIcon } from "lucide-react";
 import { Group } from "@visx/group";
-import { Tree, hierarchy } from "@visx/hierarchy";
-import type { HierarchyPointNode } from "@visx/hierarchy/lib/types";
 import { ParentSize } from "@visx/responsive";
-import type { MeterTreeWidgetConfig } from "@gridone/sdk";
+import { hierarchy, tree, type HierarchyPointNode } from "d3-hierarchy";
+import type { MeterMedium, MeterTreeWidgetConfig } from "@gridone/sdk";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fmt } from "@/lib/formatValue";
 import { useDashboardPeriod } from "../../useDashboardPeriod";
@@ -33,6 +33,39 @@ const MAX_LABEL = 20;
 const EDGE_MIN = 1;
 /** Thickest, reserved for the trunk. */
 const EDGE_MAX = 11;
+/** Medium edges rest this soft, so the focused path can be drawn stronger. */
+const EDGE_SOFT = 0.6;
+/** The focused path on a tree without a medium, whose edges are already faint. */
+const NEUTRAL_FOCUS = "stroke-muted-foreground";
+/** Space between a box and its focus ring, so a fault's red border stays visible. */
+const FOCUS_GAP = 2.5;
+/** Width of the accent bar on the left of a meter's box. */
+const ACCENT_W = 3;
+const ICON_SIZE = 14;
+
+type MediumPalette = {
+  stroke: string;
+  fill: string;
+  /** The root's background, so the figure everything is a share of stands out. */
+  tint: string;
+  icon: LucideIcon;
+};
+
+/** What each medium is drawn with. Literal classes so Tailwind keeps them. */
+const MEDIUM_PALETTE: Record<MeterMedium, MediumPalette> = {
+  electricity: {
+    stroke: "stroke-meter-electricity",
+    fill: "fill-meter-electricity",
+    tint: "fill-meter-electricity/10",
+    icon: Zap,
+  },
+  water: {
+    stroke: "stroke-meter-water",
+    fill: "fill-meter-water",
+    tint: "fill-meter-water/10",
+    icon: Droplet,
+  },
+};
 
 /** A share reads better as a percentage than a fraction. */
 const asPercent = (ratio: number | null) =>
@@ -75,6 +108,79 @@ function elbow(
   return `M${source.y + NODE_W},${source.x} H${midX} V${target.x} H${target.y}`;
 }
 
+/**
+ * The palette for a tree's medium, or `null` for the neutral look: a tree
+ * without a medium, or with one this bundle predates, keeps the plain drawing.
+ */
+function mediumPalette(medium: MeterMedium | null | undefined) {
+  if (!medium) return null;
+  const palette = MEDIUM_PALETTE[medium];
+  if (!palette && import.meta.env.DEV) {
+    console.warn(`Unknown meter medium "${medium}", drawn neutral`);
+  }
+  return palette ?? null;
+}
+
+type TreeEdge = {
+  /** The node the edge feeds: one edge per node, so it also keys the edge. */
+  target: string;
+  d: string;
+  width: number;
+  residual: boolean;
+};
+
+/**
+ * Where every node and edge sits. Computed once per tree, so focusing a path
+ * redraws the path, not the layout.
+ *
+ * One row per node, in reading order, rather than the layout's default of
+ * centring each parent over its children: centring buries the root halfway
+ * down a canvas taller than the tile, and the root is the figure everything
+ * else is a share of. Sized from the tree, not the tile — a board has as many
+ * rows as it has circuits — so the container scrolls instead of shrinking
+ * every label past legibility.
+ */
+function layoutTree(root: MeterTreeDatum) {
+  const data = hierarchy<MeterTreeDatum>(root);
+  const innerH = data.descendants().length * ROW;
+  const innerW = (data.height + 1) * (NODE_W + GAP_X);
+  const laid = tree<MeterTreeDatum>().size([innerH, innerW - NODE_W])(data);
+  // `eachBefore` is depth-first, parents before children — the order the rows
+  // are read in. Reassigning `x` keeps the layout responsible for the
+  // horizontal placement and the link topology.
+  let row = 0;
+  laid.eachBefore((node) => {
+    node.x = row * ROW + NODE_H / 2;
+    row += 1;
+  });
+  const edges: TreeEdge[] = laid.links().map((link) => ({
+    target: link.target.data.key,
+    d: elbow(link.source, link.target),
+    width: edgeWidth(link.target.data.shareOfTotal),
+    residual: link.target.data.kind === "residual",
+  }));
+  const nodes = laid.descendants();
+  const byKey = new Map(nodes.map((node) => [node.data.key, node]));
+  return { nodes, byKey, edges, innerW, innerH };
+}
+
+function edgePath(edge: TreeEdge, stroke: string, dotResidual: boolean) {
+  const dotted = dotResidual && edge.residual;
+  return (
+    <path
+      key={edge.target}
+      d={edge.d}
+      className={stroke}
+      strokeWidth={edge.width}
+      // Dotted: what is left over is computed, not metered.
+      strokeDasharray={dotted ? `1 ${edge.width + 3}` : undefined}
+      strokeLinecap={dotted ? "round" : undefined}
+      strokeLinejoin="round"
+      fill="none"
+    />
+  );
+}
+
 /** Whether a node's number is a fault rather than just a small figure. */
 function isFaulty(datum: MeterTreeDatum): boolean {
   return datum.kind === "residual"
@@ -94,16 +200,34 @@ function isBounded(datum: MeterTreeDatum): boolean {
   return datum.kind === "residual" && (datum.incomplete ?? false);
 }
 
-const NodeBox: FC<{
+type NodeBoxProps = {
   node: HierarchyPointNode<MeterTreeDatum>;
+  palette: MediumPalette | null;
   label: string;
   noReading: string;
   incompleteMark: string;
   onToggle: (key: string) => void;
   onSelect: (key: string) => void;
-}> = ({ node, label, noReading, incompleteMark, onToggle, onSelect }) => {
+  onHover: (key: string) => void;
+  onKeyboardFocus: (key: string | null) => void;
+};
+
+/** Memoised: none of its props change while a path is focused, so hovering
+ *  across a large board redraws the path and rings, not every box. */
+const NodeBox = memo(function NodeBox({
+  node,
+  palette,
+  label,
+  noReading,
+  incompleteMark,
+  onToggle,
+  onSelect,
+  onHover,
+  onKeyboardFocus,
+}: NodeBoxProps) {
   const datum = node.data;
   const residual = datum.kind === "residual";
+  const root = node.depth === 0;
   const faulty = isFaulty(datum);
   const bounded = isBounded(datum);
   // A folded node keeps its children in the config but not in the layout, so
@@ -116,6 +240,20 @@ const NodeBox: FC<{
       left={node.y}
       style={foldable ? { cursor: "pointer" } : undefined}
       onClick={foldable ? () => onToggle(datum.key) : undefined}
+      // Mouse only: a tap would leave the path focused with nothing to clear
+      // it. Leaving a box does not clear it either; leaving the tree does, so
+      // crossing the gap to the next row does not blink.
+      onPointerEnter={(event) => {
+        if (event.pointerType === "mouse") onHover(datum.key);
+      }}
+      // A node's name is a button, so tabbing to it traces its path too; nodes
+      // without a device have no name to tab to. Focus a tap or a closing
+      // dialog puts back is not the keyboard's, and would stay lit.
+      onFocus={(event) => {
+        if (event.target.matches(":focus-visible")) onKeyboardFocus(datum.key);
+      }}
+      onBlur={() => onKeyboardFocus(null)}
+      data-node={datum.key}
     >
       <rect
         width={NODE_W}
@@ -132,9 +270,30 @@ const NodeBox: FC<{
               ? "fill-muted stroke-muted-foreground"
               : residual
                 ? "fill-muted stroke-border"
-                : "fill-card stroke-border"
+                : root && palette
+                  ? `${palette.tint} stroke-border`
+                  : "fill-card stroke-border"
         }
       />
+      {palette && !residual ? (
+        <rect
+          x={1}
+          y={6}
+          width={ACCENT_W}
+          height={NODE_H - 12}
+          rx={ACCENT_W / 2}
+          className={palette.fill}
+          data-accent
+        />
+      ) : null}
+      {palette && root ? (
+        <palette.icon
+          x={NODE_W - ICON_SIZE - 8}
+          y={NODE_H - ICON_SIZE - 6}
+          size={ICON_SIZE}
+          className={palette.stroke}
+        />
+      ) : null}
       {datum.deviceId ? (
         <foreignObject x={10} y={2} width={NODE_W - 20} height={18}>
           <button
@@ -170,7 +329,9 @@ const NodeBox: FC<{
         className={
           faulty
             ? "fill-destructive text-[12px] font-semibold tabular-nums"
-            : "fill-foreground text-[12px] tabular-nums"
+            : root && palette
+              ? "fill-foreground text-[12px] font-semibold tabular-nums"
+              : "fill-foreground text-[12px] tabular-nums"
         }
       >
         {datum.total === null ? (
@@ -203,7 +364,12 @@ const NodeBox: FC<{
           transform={`translate(${NODE_W + 12}, ${NODE_H / 2})`}
           className="fill-muted stroke-border"
         >
-          <circle r={7} strokeWidth={1} />
+          <circle
+            r={7}
+            strokeWidth={1}
+            // On the run out to the children, so it takes their colour.
+            className={palette?.stroke}
+          />
           <path
             d={datum.collapsed ? "M-3,0 H3 M0,-3 V3" : "M-3,0 H3"}
             className="stroke-muted-foreground"
@@ -215,71 +381,94 @@ const NodeBox: FC<{
       {bounded && <title>{incompleteMark}</title>}
     </Group>
   );
-};
+});
 
 const TreeCanvas: FC<{
   root: MeterTreeDatum;
+  medium: MeterMedium | null | undefined;
   width: number;
   onToggle: (key: string) => void;
   onSelect: (key: string) => void;
-}> = ({ root, width, onToggle, onSelect }) => {
+}> = ({ root, medium, width, onToggle, onSelect }) => {
   const { t } = useTranslation("dashboards");
   const labelOf = useMeterNodeLabel();
-  const data = hierarchy<MeterTreeDatum>(root);
-
-  // One row per node, in reading order, rather than the layout's default of
-  // centring each parent over its children: centring buries the root halfway
-  // down a canvas taller than the tile, and the root is the figure everything
-  // else is a share of. Sized from the tree, not the tile — a board has as many
-  // rows as it has circuits — so the container scrolls instead of shrinking
-  // every label past legibility.
-  const rows = data.descendants().length;
-  const innerH = rows * ROW;
-  const innerW = (data.height + 1) * (NODE_W + GAP_X);
+  const palette = mediumPalette(medium);
+  const focusStroke = palette?.stroke ?? NEUTRAL_FOCUS;
+  const layout = useMemo(() => layoutTree(root), [root]);
+  // Kept apart so neither clears the other; the mouse wins while on the tree.
+  const [hovered, setHovered] = useState<string | null>(null);
+  const [focused, setFocused] = useState<string | null>(null);
+  const active = hovered ?? focused;
+  const path = new Set(
+    (active === null ? undefined : layout.byKey.get(active))
+      ?.ancestors()
+      .map((node) => node.data.key),
+  );
+  const dotResidual = palette !== null;
+  const noReading = t("widgets.meterTree.noReading");
+  const incompleteMark = t("widgets.meterTree.incomplete");
+  // One group, softened once: siblings overlap on their parent's run, and
+  // translucent edges drawn over each other would stack back to full strength.
+  const resting = useMemo(
+    () => (
+      <g opacity={palette ? EDGE_SOFT : undefined}>
+        {layout.edges.map((edge) =>
+          edgePath(edge, palette?.stroke ?? "stroke-border", dotResidual),
+        )}
+      </g>
+    ),
+    [layout, palette, dotResidual],
+  );
 
   return (
     <svg
-      width={Math.max(innerW + PADDING * 2, width)}
-      height={innerH + PADDING * 2}
+      width={Math.max(layout.innerW + PADDING * 2, width)}
+      height={layout.innerH + PADDING * 2}
+      onPointerLeave={(event) => {
+        if (event.pointerType === "mouse") setHovered(null);
+      }}
     >
       <Group top={PADDING} left={PADDING}>
-        <Tree<MeterTreeDatum> root={data} size={[innerH, innerW - NODE_W]}>
-          {(tree) => {
-            // `eachBefore` is depth-first, parents before children — the order
-            // the rows are read in. Reassigning `x` here keeps visx responsible
-            // for the horizontal layout and the link topology.
-            let row = 0;
-            tree.eachBefore((node) => {
-              node.x = row * ROW + NODE_H / 2;
-              row += 1;
-            });
-            return (
-              <Group>
-                {tree.links().map((link) => (
-                  <path
-                    key={`${link.source.data.key}->${link.target.data.key}`}
-                    d={elbow(link.source, link.target)}
-                    className="stroke-border"
-                    strokeWidth={edgeWidth(link.target.data.shareOfTotal)}
-                    strokeLinejoin="round"
-                    fill="none"
-                  />
-                ))}
-                {tree.descendants().map((node) => (
-                  <NodeBox
-                    key={node.data.key}
-                    node={node}
-                    label={labelOf(node.data)}
-                    noReading={t("widgets.meterTree.noReading")}
-                    incompleteMark={t("widgets.meterTree.incomplete")}
-                    onToggle={onToggle}
-                    onSelect={onSelect}
-                  />
-                ))}
-              </Group>
-            );
-          }}
-        </Tree>
+        {resting}
+        {/* The focused path again, over the rest at full strength: nothing
+            else changes, so focusing does not make the tree blink. Under the
+            boxes, so it does not cover their fold buttons. */}
+        <g data-focus-path>
+          {layout.edges
+            .filter((edge) => path.has(edge.target))
+            .map((edge) => edgePath(edge, focusStroke, dotResidual))}
+        </g>
+        {layout.nodes.map((node) => (
+          <NodeBox
+            key={node.data.key}
+            node={node}
+            palette={palette}
+            label={labelOf(node.data)}
+            noReading={noReading}
+            incompleteMark={incompleteMark}
+            onToggle={onToggle}
+            onSelect={onSelect}
+            onHover={setHovered}
+            onKeyboardFocus={setFocused}
+          />
+        ))}
+        {layout.nodes
+          .filter((node) => path.has(node.data.key))
+          .map((node) => (
+            <rect
+              key={node.data.key}
+              x={node.y - FOCUS_GAP}
+              y={node.x - NODE_H / 2 - FOCUS_GAP}
+              width={NODE_W + FOCUS_GAP * 2}
+              height={NODE_H + FOCUS_GAP * 2}
+              rx={6 + FOCUS_GAP}
+              fill="none"
+              strokeWidth={1.5}
+              className={focusStroke}
+              pointerEvents="none"
+              data-focus-ring={node.data.key}
+            />
+          ))}
       </Group>
     </svg>
   );
@@ -296,7 +485,7 @@ const TreeCanvas: FC<{
  */
 export const MeterTreeWidgetView: FC<{ config: unknown }> = ({ config }) => {
   const { t } = useTranslation("dashboards");
-  const { root } = config as MeterTreeWidgetConfig;
+  const { root, medium } = config as MeterTreeWidgetConfig;
   const period = useDashboardPeriod();
   // Per-viewer, and deliberately not in the widget config: which branches
   // someone has open while reading a tree is not a property of the tree.
@@ -348,6 +537,7 @@ export const MeterTreeWidgetView: FC<{ config: unknown }> = ({ config }) => {
           {({ width }) => (
             <TreeCanvas
               root={annotated}
+              medium={medium}
               width={width}
               onToggle={toggle}
               onSelect={setSelected}
