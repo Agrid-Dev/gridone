@@ -118,10 +118,14 @@ export function Sidebar({
     >
       <div className="flex h-full flex-col">
         {/* The building owns the header slot: from the operator's chair the
-         *  site is the product. The Gridone brand lives in the footer. On
-         *  mobile the drawer's close button sits in the top-right corner, so
-         *  the block keeps clear of it. */}
-        <div className={`shrink-0 px-3 pb-2 pt-4 ${mobile ? "pr-14" : ""}`}>
+         *  site is the product. The Gridone brand lives in the footer. The
+         *  slot is the topbar's height with the same bottom border, so the
+         *  divider runs unbroken across the whole chrome. On mobile the
+         *  drawer's close button sits in the top-right corner, so the block
+         *  keeps clear of it. */}
+        <div
+          className={`flex h-16 shrink-0 items-stretch border-b border-border ${mobile ? "pr-14" : ""}`}
+        >
           <BuildingSwitcher />
         </div>
 
