@@ -1,5 +1,5 @@
 /**
- * One-line summaries of a device's live state for fleet cards: primary measure, setpoint and operating mode per standard type,
+ * One-line summaries of a device's live state for fleet cards: primary measure and setpoint per standard type,
  * plus fleet-wide connection-status counts.
  *
  * A measure is exposed as a *reading* — the numeric value plus how to render
@@ -7,8 +7,9 @@
  * source of truth can be formatted, subtracted (measure vs setpoint) and
  * charted (the metric names the recorded series).
  *
- * Formatting follows the app convention (no assumed physical units): a
- * scale-agnostic `°` for temperatures, raw `W` for power, `%` for ratios.
+ * Units are the driver-declared ones when an attribute carries one; else the
+ * app convention (no assumed physical units): a scale-agnostic `°` for
+ * temperatures, raw `W` for power, `%` for ratios.
  */
 import type { Device } from "@gridone/sdk";
 import {
@@ -29,6 +30,8 @@ import {
   readThermostatAttributes,
   readWeatherSensorAttributes,
 } from "@/lib/devices";
+import { attributeUnit } from "@/lib/attributeUnits";
+
 const DASH = "—";
 
 /**
@@ -50,9 +53,37 @@ const temperature = (metric: string, value: number | null): DeviceReading => ({
   suffix: "°",
 });
 
+/** Separator + symbol after a number: a bare `°` hugs it ("21,5°"), any
+ *  other unit takes a space ("14,2 °C", "240 kW", "55 %"). */
+const unitSuffix = (unit: string) => (unit === "°" ? unit : ` ${unit}`);
+
+/** `reading` with its driver-declared unit, when the attribute carries one;
+ *  otherwise the convention it was built with. */
+function withDeclaredUnit(
+  device: Device,
+  reading: DeviceReading | null,
+): DeviceReading | null {
+  if (!reading) return null;
+  const unit = attributeUnit(
+    reading.metric,
+    device.attributes?.[reading.metric],
+  );
+  return unit ? { ...reading, suffix: unitSuffix(unit) } : reading;
+}
+
 /** The primary live measure of a device (the one a fleet view leads with);
  *  null when the type has no primary measure. */
 export function deviceMeasureReading(device: Device): DeviceReading | null {
+  return withDeclaredUnit(device, primaryMeasure(device));
+}
+
+/** The setpoint matching {@link deviceMeasureReading}; null when the type has
+ *  none (meters, sensors, extractors). */
+export function deviceSetpointReading(device: Device): DeviceReading | null {
+  return withDeclaredUnit(device, primarySetpoint(device));
+}
+
+function primaryMeasure(device: Device): DeviceReading | null {
   if (isThermostat(device))
     return temperature(
       "temperature",
@@ -95,9 +126,7 @@ export function deviceMeasureReading(device: Device): DeviceReading | null {
   return null;
 }
 
-/** The setpoint matching {@link deviceMeasureReading}; null when the type has
- *  none (meters, sensors, extractors). */
-export function deviceSetpointReading(device: Device): DeviceReading | null {
+function primarySetpoint(device: Device): DeviceReading | null {
   if (isThermostat(device))
     return temperature(
       "temperature_setpoint",
@@ -150,48 +179,6 @@ export function formatReadingDelta(
     signDisplay: "always",
   }).format(delta);
   return `${number}${measure.suffix}`;
-}
-
-/** Operating mode of a device for display. "Off" is not a wire mode value:
- *  it is composed from `onoff_state === false`, which wins over the mode
- *  attribute (a stopped unit's configured mode is inert). */
-export type DeviceMode =
-  | { kind: "onoff"; value: "on" | "off" }
-  | { kind: "mode"; attribute: "mode" | "hvac_mode"; value: string };
-
-export function deviceMode(device: Device): DeviceMode | null {
-  if (isThermostat(device)) {
-    const a = readThermostatAttributes(device);
-    return composeMode(a.onoffState, a.mode, "mode");
-  }
-  if (isAwhp(device)) {
-    const a = readAwhpAttributes(device);
-    return composeMode(a.onoffState, a.mode, "mode");
-  }
-  if (isAhuDoubleFlux(device)) {
-    const a = readAhuDoubleFluxAttributes(device);
-    return composeMode(a.onoffState, a.hvacMode, "hvac_mode");
-  }
-  if (isAhuSingleFlux(device)) {
-    const a = readAhuSingleFluxAttributes(device);
-    return composeMode(a.onoffState, a.hvacMode, "hvac_mode");
-  }
-  if (isAirExtractor(device)) {
-    const { onoffState } = readAirExtractorAttributes(device);
-    if (onoffState == null) return null;
-    return { kind: "onoff", value: onoffState ? "on" : "off" };
-  }
-  return null;
-}
-
-function composeMode(
-  onoffState: boolean | null,
-  mode: string | null,
-  attribute: "mode" | "hvac_mode",
-): DeviceMode | null {
-  if (onoffState === false) return { kind: "onoff", value: "off" };
-  if (mode == null) return null;
-  return { kind: "mode", attribute, value: mode };
 }
 
 export type ConnectionCounts = Record<ConnectionStatus, number>;

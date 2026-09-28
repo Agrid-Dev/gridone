@@ -90,17 +90,28 @@ export function ConnectionStatusBadge({
   );
 }
 
-/** Connection status as a small solid dot — for tight chrome (widget headers)
- *  where a badge would crowd the row. Neutral when the status is unknown. */
+/** Connection status as a small solid dot — for tight chrome (card corners,
+ *  widget headers, pickers) where a badge would crowd the row. Neutral when the
+ *  status is unknown. Named by its status (tooltip + accessible label) unless
+ *  `decorative`, for when the label is already written beside it. */
 export function ConnectionStatusDot({
   status,
   className,
+  decorative = false,
 }: {
   status: ConnectionStatus | null;
   className?: string;
+  decorative?: boolean;
 }) {
+  const { t } = useTranslation("devices");
+  const label = status
+    ? t(STATUS_CONFIG[status].labelKey)
+    : t("deviceDetails.connectionStatus.unknown");
   return (
     <span
+      {...(decorative
+        ? { "aria-hidden": true }
+        : { role: "img", "aria-label": label, title: label })}
       className={cn(
         "h-2 w-2 rounded-full",
         status

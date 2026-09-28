@@ -25,9 +25,8 @@ vi.mock("react-i18next", () =>
     "devices.summary.error": "{{count}} disconnected",
     "devices.summary.idle": "{{count}} idle",
     "deviceDetails.activeFaults.badge": "{{count}} fault(s)",
-    "devices.card.measured": "{{value}} measured",
-    "devices.card.noFault": "No fault",
-    "devices.card.trendLabel": "24 h trend",
+    "devices.card.lead.setpoint": "setpoint",
+    "devices.card.lead.measured": "measured",
     "common.view.label": "View",
     "common:common.severityCount.alert": "{{count}} alert(s)",
     "common:common.severityCount.warning": "{{count}} warning(s)",
@@ -38,8 +37,6 @@ vi.mock("react-i18next", () =>
     "commands.subtitle": "Command history",
     "commands.newCommand": "New command",
     "commands.newGroupedCommand": "New grouped command",
-    "common.hvacMode.heat": "Heating",
-    "common.hvacMode.off": "Off",
     "common.severityCount.alert": "{{count}} alert(s)",
     "common.severityCount.warning": "{{count}} warning(s)",
     "common:common.device": "Device",
@@ -339,7 +336,7 @@ describe("DevicesList — cards", () => {
     );
   });
 
-  it("shows Off when the unit is stopped, even with a configured mode", () => {
+  it("draws a stopped unit as off, even with a configured mode", () => {
     mockUseDevicesList.mockReturnValue({
       devices: [
         makeDevice("d1", "Chambre 102", {
@@ -353,9 +350,10 @@ describe("DevicesList — cards", () => {
     renderAt();
     const card = screen
       .getByRole("link", { name: "Chambre 102" })
-      .closest(".group");
-    expect(card).toHaveTextContent("Off");
-    expect(card).not.toHaveTextContent("Heating");
+      .closest(".group") as HTMLElement;
+    expect(
+      within(card).getByRole("img", { name: "Thermostat" }),
+    ).toHaveAttribute("data-state", "stopped");
   });
 
   it("summarizes a thermostat: location, setpoint, measured reading, mode", () => {
@@ -382,9 +380,11 @@ describe("DevicesList — cards", () => {
     expect(link).toHaveAttribute("href", "/devices/d1");
     expect(card).toHaveTextContent("Floor 2 · Floor 1");
     expect(card).toHaveTextContent("21,0°");
-    expect(card).toHaveTextContent("21,4° measured");
-    expect(card).toHaveTextContent("Heating");
-    expect(card).toHaveTextContent("No fault");
+    expect(card).toHaveTextContent(/21,0°\s*setpoint/);
+    expect(card).toHaveTextContent(/21,4°\s*measured/);
+    expect(
+      within(card as HTMLElement).getByRole("img", { name: "Thermostat" }),
+    ).toHaveAttribute("data-state", "running:heat");
   });
 
   it("shows the highest active severity instead of the healthy label", () => {

@@ -1,3 +1,4 @@
+import type { RunState } from "../glyph-kit";
 import type { AirExtractorValues } from "./types";
 
 /** Whether the extractor fan is physically turning.
@@ -17,6 +18,21 @@ export function fanIsSpinning(
   values: Pick<AirExtractorValues, "onoffState" | "flowSwitch">,
 ): boolean {
   return values.flowSwitch ?? values.onoffState === true;
+}
+
+/** Run state for the fleet card: whether the fan turns, by the best evidence
+ *  the unit exposes — proven airflow, else the on/off command, else a
+ *  reported speed (> 0 %) for units that expose neither. Unknown when it
+ *  reports none of the three. */
+export function extractorRunState(
+  values: Pick<AirExtractorValues, "onoffState" | "flowSwitch" | "fanSpeed">,
+): RunState {
+  const turning =
+    values.flowSwitch ??
+    values.onoffState ??
+    (values.fanSpeed != null ? values.fanSpeed > 0 : null);
+  if (turning == null) return "unknown";
+  return turning ? "running" : "stopped";
 }
 
 export type FanStatusTone = "ok" | "warning" | "muted";

@@ -1,16 +1,11 @@
 import type { LucideIcon } from "lucide-react";
 import {
   ArrowUpNarrowWide,
-  Droplets,
-  Fan,
-  Moon,
-  RefreshCcwDot,
   SignalHigh,
   SignalLow,
   SignalMedium,
-  Snowflake,
-  Sun,
 } from "lucide-react";
+import { HVAC_MODE_ICONS } from "@/lib/hvacModeIcons";
 import { useTranslation } from "react-i18next";
 import type {
   AttributeWriteState,
@@ -33,17 +28,8 @@ import { useValueLabel } from "@/hooks/useValueLabel";
 
 type ValueRenderer = { Icon: LucideIcon; color: string; rotate?: boolean };
 
-/** HVAC mode icons; the colour comes from the shared semantic registry so a
- *  mode is tinted the same here and in its history chart panel. */
-const HVAC_MODE_ICONS: Record<string, LucideIcon> = {
-  heat: Sun,
-  cool: Snowflake,
-  fan: Fan,
-  dry: Droplets,
-  auto: RefreshCcwDot,
-  idle: Moon,
-};
-
+/** HVAC mode renderers; the colour comes from the shared semantic registry so
+ *  a mode is tinted the same here and in its history chart panel. */
 const HVAC_MODE_RENDERERS: Record<string, ValueRenderer> = Object.fromEntries(
   Object.entries(HVAC_MODE_ICONS).map(([value, Icon]) => {
     const color = lookupSemanticColor("mode", value);

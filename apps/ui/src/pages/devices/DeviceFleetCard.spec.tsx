@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import type { Device } from "@gridone/sdk";
@@ -11,9 +11,11 @@ vi.mock("@/contexts/AuthContext", () => ({
 vi.mock("react-i18next", () =>
   createI18nMock({
     "deviceDetails.activeFaults.badge": "{{count}} fault(s)",
-    "devices.card.measured": "{{value}} measured",
-    "devices.card.noFault": "No fault",
-    "devices.card.trendLabel": "24 h trend",
+    "devices.card.lead.setpoint": "setpoint",
+    "devices.card.lead.measured": "measured",
+    "thermostat.name": "Thermostat",
+    "other.name": "Other",
+    "deviceDetails.connectionStatus.ok": "Connected",
     "devices.card.pms.status.booked": "Booked",
     "devices.card.pms.status.checkedIn": "Occupied",
     "devices.card.pms.status.checkedOut": "Available",
@@ -27,14 +29,6 @@ vi.mock("react-i18next", () =>
     "common:common.severityCount.alert": "{{count}} alert(s)",
   }),
 );
-
-/** The history fetch is the thing being gated; a marker keeps this spec off
- *  the time-series stack while still proving whether it mounted. */
-vi.mock("./DeviceSparkline", () => ({
-  DeviceSparkline: ({ metric }: { metric: string }) => (
-    <div data-testid="sparkline">{metric}</div>
-  ),
-}));
 
 import { DeviceFleetCard } from "./DeviceFleetCard";
 
@@ -71,39 +65,10 @@ function renderCard(device: Device, zonePath: string | null = "Floor 2") {
   );
 }
 
-/** Replaces the inert global stub with one that reports the observed element
- *  as visible on the next tick, the way a real scroll into view would. */
-function observeAsVisible() {
-  type ObserverCallback = ConstructorParameters<typeof IntersectionObserver>[0];
-  class FiringObserver {
-    constructor(private callback: ObserverCallback) {}
-    observe(element: Element) {
-      this.callback(
-        [
-          {
-            isIntersecting: true,
-            target: element,
-          } as IntersectionObserverEntry,
-        ],
-        this as unknown as IntersectionObserver,
-      );
-    }
-    unobserve() {}
-    disconnect() {}
-    takeRecords() {
-      return [];
-    }
-  }
-  vi.stubGlobal("IntersectionObserver", FiringObserver);
-}
-
-afterEach(() => {
-  cleanup();
-  vi.unstubAllGlobals();
-});
+afterEach(cleanup);
 
 describe("DeviceFleetCard", () => {
-  it("leads with the setpoint and shows the measured reading beside it", () => {
+  it("leads with the setpoint, the measured reading under it", () => {
     renderCard(
       thermostat({
         temperature: attr(21.4),
@@ -113,20 +78,22 @@ describe("DeviceFleetCard", () => {
       }),
     );
     expect(screen.getByText("21,0°")).toBeInTheDocument();
-    expect(screen.getByText("21,4° measured")).toBeInTheDocument();
-    expect(screen.getByText("Heating")).toBeInTheDocument();
+    expect(screen.getByText("setpoint")).toBeInTheDocument();
+    expect(screen.getByText("21,4°")).toBeInTheDocument();
+    expect(screen.getByText("measured")).toBeInTheDocument();
     expect(screen.getByText("Floor 2")).toBeInTheDocument();
   });
 
   it("falls back to the measure when the device has no setpoint", () => {
     renderCard(thermostat({ temperature: attr(21.4) }));
     expect(screen.getByText("21,4°")).toBeInTheDocument();
-    expect(screen.queryByText(/measured/)).not.toBeInTheDocument();
+    expect(screen.getByText("measured")).toBeInTheDocument();
+    expect(screen.queryByText("setpoint")).not.toBeInTheDocument();
   });
 
-  it("reports the device as healthy when no fault is active", () => {
+  it("says nothing about faults while none is active", () => {
     renderCard(thermostat({ temperature: attr(21.4) }));
-    expect(screen.getByText("No fault")).toBeInTheDocument();
+    expect(screen.queryByText(/fault/)).not.toBeInTheDocument();
   });
 
   it("counts the faults at the highest active severity", () => {
@@ -151,15 +118,29 @@ describe("DeviceFleetCard", () => {
     expect(screen.getByText("2 fault(s)")).toBeInTheDocument();
   });
 
+  it("names the connection status on its corner dot", () => {
+    renderCard(thermostat({ connection_status: attr("ok") }));
+    expect(screen.getByRole("img", { name: "Connected" })).toBeInTheDocument();
+  });
+
+  it("drops the zone line when the device has no placement", () => {
+    renderCard(thermostat({ temperature: attr(21.4) }), null);
+    expect(screen.queryByText("—")).not.toBeInTheDocument();
+  });
+
+  it("shows the type glyph in front of the reading", () => {
+    renderCard(thermostat({ temperature: attr(21.4) }));
+    expect(screen.getByRole("img", { name: "Thermostat" })).toBeInTheDocument();
+  });
+
+  it("gives a device of no registered type the neutral glyph", () => {
+    renderCard({ ...thermostat(), type: null } as Device);
+    expect(screen.getByRole("img", { name: "Other" })).toBeInTheDocument();
+  });
+
   it("leads with a dash for a device of no registered type", () => {
     renderCard({ ...thermostat(), type: "custom_vendor" } as Device);
     expect(screen.getByText("—")).toBeInTheDocument();
-  });
-
-  it("leaves the mode out when the device reports none", () => {
-    renderCard(pmsMonitor({ reservation_status: attr("booked") }));
-    expect(screen.queryByText("—")).not.toBeInTheDocument();
-    expect(screen.getByText("No fault")).toBeInTheDocument();
   });
 
   it("links the whole card to the device detail", () => {
@@ -231,29 +212,6 @@ describe("DeviceFleetCard", () => {
 
       expect(screen.getByText("Status unavailable")).toBeInTheDocument();
       expect(screen.getByText("No upcoming arrival")).toBeInTheDocument();
-    });
-  });
-
-  describe("history gate", () => {
-    beforeEach(() => {
-      vi.unstubAllGlobals();
-    });
-
-    it("does not read history while the card is off-screen", () => {
-      renderCard(thermostat({ temperature: attr(21.4) }));
-      expect(screen.queryByTestId("sparkline")).not.toBeInTheDocument();
-    });
-
-    it("reads the primary metric once the card becomes visible", () => {
-      observeAsVisible();
-      renderCard(thermostat({ temperature: attr(21.4) }));
-      expect(screen.getByTestId("sparkline")).toHaveTextContent("temperature");
-    });
-
-    it("stays quiet for a type with no primary measure", () => {
-      observeAsVisible();
-      renderCard({ ...thermostat(), type: "custom_vendor" } as Device);
-      expect(screen.queryByTestId("sparkline")).not.toBeInTheDocument();
     });
   });
 });

@@ -70,9 +70,21 @@
       "idle_other": "{{count}} inactifs"
     },
     "card": {
-      "measured": "{{value}} mesurée",
-      "noFault": "Aucun défaut",
-      "trendLabel": "Tendance sur 24 h",
+      "lead": {
+        "setpoint": "consigne",
+        "measured": "mesurée",
+        "supplyAir": "soufflage",
+        "outlet": "départ",
+        "power": "puissance",
+        "energy": "énergie",
+        "index": "index",
+        "speed": "vitesse",
+        "runState": {
+          "running": "En marche",
+          "stopped": "À l'arrêt",
+          "unknown": "Non relevé"
+        }
+      },
       "pms": {
         "status": {
           "booked": "Réservée",

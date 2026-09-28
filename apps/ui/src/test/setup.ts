@@ -35,26 +35,6 @@ window.ResizeObserver ??=
   ResizeObserverStub as unknown as typeof ResizeObserver;
 
 // ---------------------------------------------------------------------------
-// IntersectionObserver stub — jsdom does not implement it, and the fleet grid
-// gates its per-card history fetch on visibility (useInViewOnce).
-//
-// It observes without ever reporting an intersection, so nothing off-screen
-// fetches by accident. A spec that needs the visible path installs its own
-// firing stub with `vi.stubGlobal`.
-// ---------------------------------------------------------------------------
-class IntersectionObserverStub {
-  observe() {}
-  unobserve() {}
-  disconnect() {}
-  takeRecords() {
-    return [];
-  }
-}
-
-window.IntersectionObserver ??=
-  IntersectionObserverStub as unknown as typeof IntersectionObserver;
-
-// ---------------------------------------------------------------------------
 // Pointer capture stubs — jsdom implements no pointer capture at all, so any
 // drag interaction (thermostat dial, Radix pointer-based primitives) throws on
 // the first pointerdown.
