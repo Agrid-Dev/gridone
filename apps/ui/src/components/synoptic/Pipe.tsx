@@ -1,6 +1,6 @@
 import type { Fluid } from "@gridone/sdk";
 import { fluidFillClass, fluidStrokeClass } from "@/lib/fluidColors";
-import { arrowHead, roundedPath, unit } from "./geometry";
+import { arrowHead, BEND_RADIUS, roundedPath, unit } from "./geometry";
 import type { Pt } from "./types";
 
 type PipeProps = {
@@ -34,8 +34,6 @@ const ARROW_W = 9;
  *  another at a higher `z` reads as in front. */
 export const PIPE_WIDTH = 6;
 const CASING_WIDTH = 10;
-/** A bend is barely rounded: a pipe corner is an elbow, not a curve. */
-const BEND_RADIUS = 4;
 /** The moving dash: 10 px on, 16 off, travelling `FLOW_TRAVEL` px every
  *  `FLOW_SECONDS` (the `flow` keyframes of `tailwind.config.js`). */
 const FLOW_DASH = 10;

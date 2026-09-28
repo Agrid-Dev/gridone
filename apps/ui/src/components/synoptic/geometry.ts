@@ -1,5 +1,8 @@
 import type { Pt } from "./types";
 
+/** A bend is barely rounded: a pipe corner is an elbow, not a curve. */
+export const BEND_RADIUS = 4;
+
 /** SVG path through waypoints with rounded corners (radius clamped to half of each segment). */
 export function roundedPath(pts: Pt[], r: number): string {
   if (pts.length < 2) return "";
