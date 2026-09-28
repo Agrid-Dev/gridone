@@ -159,10 +159,12 @@ export function Sidebar({
             {t("app.assets")}
           </NavLink>
 
-          <NavLink to="/automations" className={navLinkClass}>
-            <Zap className="h-4 w-4" />
-            {t("app.automations")}
-          </NavLink>
+          {can("automations:read") && (
+            <NavLink to="/automations" className={navLinkClass}>
+              <Zap className="h-4 w-4" />
+              {t("app.automations")}
+            </NavLink>
+          )}
 
           <NavLink to="/faults" className={navLinkClass}>
             <TriangleAlert className="h-4 w-4" />

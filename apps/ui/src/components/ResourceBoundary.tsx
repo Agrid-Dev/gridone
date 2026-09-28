@@ -1,4 +1,6 @@
 import { ReactNode, Suspense } from "react";
+import { isGridoneError } from "@gridone/sdk";
+import { ForbiddenFallback } from "@/components/fallbacks/Forbidden";
 import { ErrorBoundary, FallbackProps } from "react-error-boundary";
 import { ErrorFallback } from "@/components/fallbacks/Error";
 import { NotFoundFallback } from "@/components/fallbacks/NotFound";
@@ -7,10 +9,13 @@ import { isResourceNotFound } from "@/lib/errors";
 
 /**
  * Maps a thrown error to the matching fallback page: a not-found error (missing
- * route param or `ApiError(404)`) renders `NotFoundFallback`, anything else
+ * route param or `GridoneError(404)`) renders `NotFoundFallback`, a 403 renders
+ * `ForbiddenFallback`, and anything else
  * renders the generic `ErrorFallback`.
  */
 function ResourceErrorFallback({ error }: FallbackProps) {
+  if (isGridoneError(error) && error.status === 403)
+    return <ForbiddenFallback />;
   return isResourceNotFound(error) ? <NotFoundFallback /> : <ErrorFallback />;
 }
 

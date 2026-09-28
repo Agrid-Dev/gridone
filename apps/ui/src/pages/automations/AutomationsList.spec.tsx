@@ -73,8 +73,10 @@ vi.mock("react-i18next", () =>
   ),
 );
 
+let canWrite = true;
 vi.mock("@/contexts/AuthContext", () => ({
-  usePermissions: () => () => true,
+  usePermissions: () => (permission: string) =>
+    permission !== "automations:write" || canWrite,
 }));
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -153,6 +155,7 @@ function getCard(name: string | RegExp) {
 }
 
 beforeEach(() => {
+  canWrite = true;
   automations = [];
   executionsByAutomation = {};
   mockUseQuery.mockImplementation(({ queryKey }: { queryKey: unknown[] }) => {
@@ -183,6 +186,23 @@ afterEach(() => {
 });
 
 describe("AutomationsList", () => {
+  it("keeps cards and execution history readable without mutation controls", () => {
+    canWrite = false;
+    automations = [makeAutomation("a1", "Morning warmup", "schedule", true)];
+    renderList();
+    expect(
+      screen.getByRole("link", { name: "Morning warmup" }),
+    ).toHaveAttribute("href", "/automations/a1");
+    expect(screen.getByText("Recent executions")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "New automation" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Edit" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("switch")).not.toBeInTheDocument();
+  });
+
   it("renders ResourceEmpty when no automations exist", () => {
     renderList();
     expect(screen.getByText(/No automation yet/i)).toBeInTheDocument();

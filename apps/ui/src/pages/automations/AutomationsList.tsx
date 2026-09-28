@@ -29,6 +29,7 @@ export default function AutomationsList() {
   const { data: automations = [], isLoading } = useQuery({
     queryKey: ["automations"],
     queryFn: () => client.automations.list(),
+    throwOnError: true,
   });
 
   const executions = useAutomationsExecutions(automations);

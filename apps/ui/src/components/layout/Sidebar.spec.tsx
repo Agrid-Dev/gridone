@@ -63,10 +63,10 @@ vi.mock("./BuildingSwitcher", () => ({
 
 import { Sidebar } from "./Sidebar";
 
-function renderSidebar() {
+function renderSidebar(mobile = false) {
   return render(
     <MemoryRouter initialEntries={["/devices"]}>
-      <Sidebar />
+      <Sidebar mobile={mobile} />
     </MemoryRouter>,
   );
 }
@@ -98,6 +98,26 @@ describe("Sidebar", () => {
     expect(
       screen.queryByRole("link", { name: "Users" }),
     ).not.toBeInTheDocument();
+  });
+
+  it.each([false, true])(
+    "hides Automations without read permission (mobile: %s)",
+    (mobile) => {
+      permissions.can = (permission) => permission !== "automations:read";
+      renderSidebar(mobile);
+      expect(
+        screen.queryByRole("link", { name: "Automations" }),
+      ).not.toBeInTheDocument();
+    },
+  );
+
+  it("keeps Automations visible to a read-only user", () => {
+    permissions.can = (permission) => permission === "automations:read";
+    renderSidebar();
+    expect(screen.getByRole("link", { name: "Automations" })).toHaveAttribute(
+      "href",
+      "/automations",
+    );
   });
 
   it("puts Apps first under Configuration, above Drivers", () => {
