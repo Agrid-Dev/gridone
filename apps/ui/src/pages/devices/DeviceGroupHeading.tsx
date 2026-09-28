@@ -5,9 +5,7 @@ import {
   type DeviceTypeKey,
 } from "@/lib/deviceTypes";
 
-/** The label of one type bucket ("Thermostats 42"), shared by both fleet
- *  views so a bucket reads identically as a table row and as a grid section
- *  heading. The chrome around it (row, rule) belongs to the caller. */
+/** The label and count of one fleet type bucket ("Thermostats 42"). */
 export function DeviceGroupHeading({
   typeKey,
   count,

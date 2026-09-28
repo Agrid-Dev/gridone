@@ -69,15 +69,6 @@
       "idle_one": "{{count}} idle",
       "idle_other": "{{count}} idle"
     },
-    "table": {
-      "device": "Device",
-      "zone": "Zone",
-      "measure": "Measure",
-      "setpoint": "Setpoint",
-      "mode": "Mode",
-      "connection": "Connection",
-      "faults": "Faults"
-    },
     "card": {
       "measured": "{{value}} measured",
       "noFault": "No fault",

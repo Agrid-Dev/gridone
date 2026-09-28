@@ -1,6 +1,6 @@
 /**
- * Device-type presentation helpers shared by the fleet views (devices table
- * and filter chips, home tiles, type chips): icons, catalog labels and
+ * Device-type presentation helpers shared by the fleet UI (device cards,
+ * filter chips, home tiles, type chips): icons, catalog labels and
  * per-type bucketing. Devices with no type or an unknown one fall under the
  * `other` bucket.
  */
@@ -148,7 +148,7 @@ export function deviceTypeName(
   return KNOWN_DEVICE_TYPES.has(type) ? t(`${type as DeviceType}.name`) : type;
 }
 
-/** Bucket display name for filter chips and table group headers — always the
+/** Bucket display name for filter chips and fleet group headings — always the
  *  plural catalog form: it names the category, not a quantity, and sits next
  *  to a separate count ("Thermostats · 1"). */
 export function deviceTypeBucketLabel(

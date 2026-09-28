@@ -1,4 +1,3 @@
-import { useEntryState } from "@/hooks/useEntryState";
 import { DeviceSearchField } from "./DeviceSearchField";
 import { useSearchParams } from "react-router";
 import { ResourceLink as Link } from "@/components/ResourceLink";
@@ -9,50 +8,28 @@ import { ResourceHeader } from "@/components/ResourceHeader";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePermissions } from "@/contexts/AuthContext";
 import { HealthFilter } from "@/components/HealthFilter";
-import { ViewToggle } from "@/components/ViewToggle";
 import { History, Plus, Terminal, Upload } from "lucide-react";
-import {
-  readStoredView,
-  writeStoredView,
-  type ResourceView,
-} from "@/lib/viewPreference";
 import { DevicesSummary } from "./DevicesSummary";
 import { DeviceTypeChips } from "./DeviceTypeChips";
 import { DevicesGrid } from "./DevicesGrid";
-import { DevicesTable } from "./DevicesTable";
 import { DevicesTabs } from "./views/DevicesTabs";
 import { useDevicesPage } from "./useDevicesPage";
-
-/** Cards first: the fleet is read at a glance far more often than compared
- *  column by column. The table stays one click away, and the choice sticks. */
-const VIEW_STORAGE_KEY = "devices.view";
-const DEFAULT_VIEW: ResourceView = "grid";
 
 export default function DevicesList() {
   const { t } = useTranslation(["devices", "common"]);
   const [, setSearchParams] = useSearchParams();
   const can = usePermissions();
-  const [view, setView] = useEntryState<ResourceView>(
-    "devices.view",
-    () => readStoredView(VIEW_STORAGE_KEY) ?? DEFAULT_VIEW,
-  );
   const {
     groups,
     typeCounts,
     total,
     connectionCounts,
     summaryLoading,
-    assetNameOf,
     zonePathOf,
     loading,
     error,
     hasFilters,
   } = useDevicesPage();
-
-  const changeView = (next: ResourceView) => {
-    setView(next);
-    writeStoredView(VIEW_STORAGE_KEY, next);
-  };
 
   return (
     <section className="space-y-6">
@@ -112,7 +89,6 @@ export default function DevicesList() {
         <DeviceTypeChips counts={typeCounts} total={total} />
         <div className="ml-auto flex items-center gap-2">
           <HealthFilter />
-          <ViewToggle value={view} onChange={changeView} />
         </div>
       </div>
 
@@ -148,10 +124,8 @@ export default function DevicesList() {
           createTo="/devices/new"
           createLabel={t("devices.actions.add")}
         />
-      ) : view === "grid" ? (
-        <DevicesGrid groups={groups} zonePathOf={zonePathOf} />
       ) : (
-        <DevicesTable groups={groups} assetNameOf={assetNameOf} />
+        <DevicesGrid groups={groups} zonePathOf={zonePathOf} />
       )}
     </section>
   );

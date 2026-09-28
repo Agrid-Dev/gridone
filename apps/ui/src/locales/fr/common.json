@@ -190,11 +190,6 @@
     "faults": {
       "activeSince": "Actif depuis {{ago}}",
       "ok": "OK"
-    },
-    "view": {
-      "label": "Affichage",
-      "table": "Tableau",
-      "grid": "Cartes"
     }
   },
   "errors": {

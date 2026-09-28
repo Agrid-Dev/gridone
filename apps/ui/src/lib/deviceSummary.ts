@@ -1,6 +1,5 @@
 /**
- * One-line summaries of a device's live state for fleet views (devices table
- * and cards): primary measure, setpoint and operating mode per standard type,
+ * One-line summaries of a device's live state for fleet cards: primary measure, setpoint and operating mode per standard type,
  * plus fleet-wide connection-status counts.
  *
  * A measure is exposed as a *reading* — the numeric value plus how to render

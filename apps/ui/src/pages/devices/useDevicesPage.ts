@@ -20,7 +20,7 @@ import {
 } from "@/lib/deviceSummary";
 
 type DevicesPage = {
-  /** Type buckets of the filtered table, in display order. */
+  /** Type buckets of the filtered devices, in display order. */
   groups: DeviceTypeGroup[];
   /** Unfiltered per-type counts for the filter chips. */
   typeCounts: Map<DeviceTypeKey, number>;
@@ -29,8 +29,6 @@ type DevicesPage = {
   /** Unfiltered connection tally for the header summary. */
   connectionCounts: ConnectionCounts;
   summaryLoading: boolean;
-  /** Name of the asset a device is attached to — the table's Zone column. */
-  assetNameOf: (device: Device) => string | null;
   /** Full placement of a device ("Floor 2 · Room 201") — the card subtitle,
    *  which has the room to carry the whole chain. */
   zonePathOf: (device: Device) => string | null;
@@ -39,7 +37,7 @@ type DevicesPage = {
   hasFilters: boolean;
 };
 
-/** Data layer of the devices list page. The table keeps server-side
+/** Data layer of the devices list page. The list keeps server-side
  *  filtering (URL params → `GET /devices`); chip counts and the header
  *  summary come from a second, unfiltered fetch that shares the
  *  `["devices", undefined]` cache the sidebar keeps warm. */
@@ -63,10 +61,10 @@ export function useDevicesPage(): DevicesPage {
   const { assetsById } = useAssetTree();
 
   const groups = useMemo(() => {
-    const tableDevices = otherSelected
+    const filteredDevices = otherSelected
       ? fetched.filter((device) => deviceTypeKey(device) === OTHER_KEY)
       : fetched;
-    return groupDevicesByType(tableDevices);
+    return groupDevicesByType(filteredDevices);
   }, [fetched, otherSelected]);
 
   const typeCounts = useMemo(
@@ -83,9 +81,6 @@ export function useDevicesPage(): DevicesPage {
     return assetId ? (assetsById[assetId] ?? null) : null;
   };
 
-  const assetNameOf = (device: Device): string | null =>
-    assetOf(device)?.name ?? null;
-
   const zonePathOf = (device: Device): string | null => {
     const asset = assetOf(device);
     if (!asset) return null;
@@ -100,7 +95,6 @@ export function useDevicesPage(): DevicesPage {
     total: allDevices.length,
     connectionCounts,
     summaryLoading,
-    assetNameOf,
     zonePathOf,
     loading,
     error,

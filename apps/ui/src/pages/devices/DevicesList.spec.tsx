@@ -24,20 +24,11 @@ vi.mock("react-i18next", () =>
     "devices.summary.degraded": "{{count}} degraded",
     "devices.summary.error": "{{count}} disconnected",
     "devices.summary.idle": "{{count}} idle",
-    "devices.table.device": "Device",
-    "devices.table.zone": "Zone",
-    "devices.table.measure": "Measure",
-    "devices.table.setpoint": "Setpoint",
-    "devices.table.mode": "Mode",
-    "devices.table.connection": "Connection",
-    "devices.table.faults": "Faults",
     "deviceDetails.activeFaults.badge": "{{count}} fault(s)",
     "devices.card.measured": "{{value}} measured",
     "devices.card.noFault": "No fault",
     "devices.card.trendLabel": "24 h trend",
     "common.view.label": "View",
-    "common.view.table": "Table",
-    "common.view.grid": "Cards",
     "common:common.severityCount.alert": "{{count}} alert(s)",
     "common:common.severityCount.warning": "{{count}} warning(s)",
     "deviceDetails.connectionStatus.ok": "Connected",
@@ -88,16 +79,6 @@ vi.mock("@/hooks/useAssetTree", () => ({
   }),
 }));
 
-/** The stored view preference, controlled per test. `null` exercises the
- *  page default. Mocked rather than written to `localStorage` so the specs
- *  neither leak state between tests nor depend on a working store. */
-let storedView: "table" | "grid" | null = "table";
-vi.mock("@/lib/viewPreference", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/viewPreference")>()),
-  readStoredView: () => storedView,
-  writeStoredView: vi.fn(),
-}));
-
 /** Admins hold every permission; other users hold none of theirs. */
 let isAdmin = true;
 vi.mock("@/contexts/AuthContext", () => ({
@@ -144,17 +125,17 @@ function renderAt(initialEntries: string[] = ["/devices"]) {
   );
 }
 
-/** The page calls the hook twice: with the table filter (one argument, maybe
+/** The page calls the hook twice: with the list filter (one argument, maybe
  *  undefined) and with no argument for the unfiltered counts. Only the
  *  one-argument calls carry the wiring under test. */
-function lastTableFilter(): DevicesFilter | undefined {
+function lastListFilter(): DevicesFilter | undefined {
   const calls = mockUseDevicesList.mock.calls.filter((c) => c.length === 1);
   return calls.at(-1)?.[0] as DevicesFilter | undefined;
 }
 
 beforeEach(() => {
   clearNavigation();
-  storedView = "table";
+  localStorage.removeItem("devices.view");
   isAdmin = true;
   mockUseDevicesList.mockReturnValue({
     devices: [makeDevice("d1", "Alpha")],
@@ -165,6 +146,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  localStorage.removeItem("devices.view");
   mockUseDevicesList.mockReset();
 });
 
@@ -182,22 +164,22 @@ describe("DevicesList — health filter wiring", () => {
 
   it("calls useDevicesList with undefined when no filters are set", () => {
     renderAt();
-    expect(lastTableFilter()).toBeUndefined();
+    expect(lastListFilter()).toBeUndefined();
   });
 
   it("passes isFaulty=true when ?health=faulty", () => {
     renderAt(["/devices?health=faulty"]);
-    expect(lastTableFilter()).toEqual({ is_faulty: true });
+    expect(lastListFilter()).toEqual({ is_faulty: true });
   });
 
   it("passes isFaulty=false when ?health=healthy", () => {
     renderAt(["/devices?health=healthy"]);
-    expect(lastTableFilter()).toEqual({ is_faulty: false });
+    expect(lastListFilter()).toEqual({ is_faulty: false });
   });
 
   it("combines type and health filters", () => {
     renderAt(["/devices?type=thermostat&health=faulty"]);
-    expect(lastTableFilter()).toEqual({
+    expect(lastListFilter()).toEqual({
       types: ["thermostat"],
       is_faulty: true,
     });
@@ -206,18 +188,18 @@ describe("DevicesList — health filter wiring", () => {
   it("updates the filter when a health tab is clicked", async () => {
     renderAt();
     await userEvent.click(screen.getByRole("tab", { name: "Faulty" }));
-    expect(lastTableFilter()).toEqual({ is_faulty: true });
+    expect(lastListFilter()).toEqual({ is_faulty: true });
   });
 
   it("clears the filter when returning to 'All'", async () => {
     renderAt(["/devices?health=faulty"]);
     await userEvent.click(screen.getByRole("tab", { name: "All" }));
-    expect(lastTableFilter()).toBeUndefined();
+    expect(lastListFilter()).toBeUndefined();
   });
 
   it("still honors ?search deep links server-side", () => {
     renderAt(["/devices?search=chambre%2012"]);
-    expect(lastTableFilter()).toEqual({ search: "chambre 12" });
+    expect(lastListFilter()).toEqual({ search: "chambre 12" });
   });
 });
 
@@ -251,23 +233,23 @@ describe("DevicesList — type chips", () => {
   it("sets ?type when a chip is clicked", async () => {
     renderAt();
     await userEvent.click(screen.getByRole("button", { name: /Thermostats/ }));
-    expect(lastTableFilter()).toEqual({ types: ["thermostat"] });
+    expect(lastListFilter()).toEqual({ types: ["thermostat"] });
   });
 
   it("clears ?type via the All chip", async () => {
     renderAt(["/devices?type=thermostat"]);
     await userEvent.click(screen.getByRole("button", { name: /All types/ }));
-    expect(lastTableFilter()).toBeUndefined();
+    expect(lastListFilter()).toBeUndefined();
   });
 
   it("never sends the other bucket to the server", () => {
     renderAt(["/devices?type=other"]);
-    expect(lastTableFilter()).toBeUndefined();
+    expect(lastListFilter()).toBeUndefined();
   });
 
   it("keeps the health criterion server-side when filtering on other", () => {
     renderAt(["/devices?type=other&health=faulty"]);
-    expect(lastTableFilter()).toEqual({ is_faulty: true });
+    expect(lastListFilter()).toEqual({ is_faulty: true });
   });
 
   it("shows only unknown-type devices when ?type=other", () => {
@@ -278,28 +260,18 @@ describe("DevicesList — type chips", () => {
   });
 });
 
-describe("DevicesList — table", () => {
-  it("groups devices under canonical type headers with counts", () => {
-    mockUseDevicesList.mockReturnValue({
-      devices: [
-        makeDevice("d3", "M1", { type: "electricity_meter" }),
-        makeDevice("d1", "T1", { type: "thermostat" }),
-        makeDevice("d4", "X1", { type: "custom_vendor" }),
-      ],
-      loading: false,
-      error: null,
-    });
+describe("DevicesList — cards", () => {
+  it("shows cards even when the old table view was saved", () => {
+    localStorage.setItem("devices.view", "table");
     renderAt();
-    const rows = screen.getAllByRole("row").map((r) => r.textContent ?? "");
-    const headerIndex = (label: string) =>
-      rows.findIndex((text) => text.includes(label));
-    expect(headerIndex("Thermostats")).toBeGreaterThan(-1);
-    expect(headerIndex("Thermostats")).toBeLessThan(
-      headerIndex("Electricity meters"),
+    expect(screen.getByRole("link", { name: "Alpha" })).toHaveAttribute(
+      "href",
+      "/devices/d1",
     );
-    expect(headerIndex("Electricity meters")).toBeLessThan(
-      headerIndex("Others"),
-    );
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("tablist", { name: "View" }),
+    ).not.toBeInTheDocument();
   });
 
   it("sorts devices by name within a group", () => {
@@ -329,35 +301,6 @@ describe("DevicesList — table", () => {
     );
   });
 
-  it("renders the full state of a thermostat row", () => {
-    mockUseDevicesList.mockReturnValue({
-      devices: [
-        makeDevice("d1", "Chambre 101", {
-          type: "thermostat",
-          tags: { asset_id: ["a1"] },
-          attributes: {
-            temperature: attr(20.5),
-            temperature_setpoint: attr(21),
-            onoff_state: attr(true),
-            mode: attr("heat"),
-            connection_status: attr("ok"),
-          },
-        }),
-      ],
-      loading: false,
-      error: null,
-    });
-    renderAt();
-    const row = screen.getByRole("link", { name: "Chambre 101" }).closest("tr");
-    expect(row).not.toBeNull();
-    expect(row).toHaveTextContent("Floor 1");
-    // The i18n mock speaks French: measures follow the active locale.
-    expect(row).toHaveTextContent("20,5°");
-    expect(row).toHaveTextContent("21,0°");
-    expect(row).toHaveTextContent("Heating");
-    expect(row).toHaveTextContent("Connected");
-  });
-
   it("shows Off when the unit is stopped, even with a configured mode", () => {
     mockUseDevicesList.mockReturnValue({
       devices: [
@@ -370,107 +313,11 @@ describe("DevicesList — table", () => {
       error: null,
     });
     renderAt();
-    const row = screen.getByRole("link", { name: "Chambre 102" }).closest("tr");
-    expect(row).toHaveTextContent("Off");
-    expect(row).not.toHaveTextContent("Heating");
-  });
-
-  it("summarizes active faults at the highest severity", () => {
-    mockUseDevicesList.mockReturnValue({
-      devices: [
-        makeDevice("d1", "CTA Restaurant", {
-          type: "thermostat",
-          attributes: {
-            filter_fault: {
-              kind: "fault",
-              name: "filter_fault",
-              severity: "alert",
-              is_faulty: true,
-              current_value: true,
-            },
-            minor_fault: {
-              kind: "fault",
-              name: "minor_fault",
-              severity: "warning",
-              is_faulty: true,
-              current_value: true,
-            },
-          },
-        }),
-      ],
-      loading: false,
-      error: null,
-    });
-    renderAt();
-    const row = screen
-      .getByRole("link", { name: "CTA Restaurant" })
-      .closest("tr");
-    expect(row).toHaveTextContent("2 fault(s)");
-  });
-
-  it("dashes out unavailable cells", () => {
-    renderAt();
-    const row = screen.getByRole("link", { name: "Alpha" }).closest("tr");
-    // Zone, measure, setpoint, mode, connection, faults are all unknown.
-    expect(row?.textContent).toContain("—");
-  });
-});
-
-describe("DevicesList — view toggle", () => {
-  const thermostat = makeDevice("d1", "Ch. 201", {
-    type: "thermostat",
-    tags: { asset_id: ["a1"] },
-    attributes: {
-      temperature: attr(21.4),
-      temperature_setpoint: attr(21),
-      mode: attr("heat"),
-      onoff_state: attr(true),
-      connection_status: attr("ok"),
-    },
-  });
-
-  beforeEach(() => {
-    mockUseDevicesList.mockReturnValue({
-      devices: [thermostat],
-      loading: false,
-      error: null,
-    });
-  });
-
-  it("shows cards when no view has been stored yet", () => {
-    storedView = null;
-    renderAt();
-    expect(screen.queryByRole("table")).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Ch\. 201/ })).toBeInTheDocument();
-  });
-
-  it("restores the stored view", () => {
-    storedView = "table";
-    renderAt();
-    expect(screen.getByRole("table")).toBeInTheDocument();
-  });
-
-  it("switches between table and cards", async () => {
-    storedView = "table";
-    renderAt();
-    await userEvent.click(screen.getByRole("tab", { name: "Cards" }));
-    expect(screen.queryByRole("table")).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole("tab", { name: "Table" }));
-    expect(screen.getByRole("table")).toBeInTheDocument();
-  });
-
-  it("remembers the view that was picked", async () => {
-    const { writeStoredView } = await import("@/lib/viewPreference");
-    storedView = "table";
-    renderAt();
-    await userEvent.click(screen.getByRole("tab", { name: "Cards" }));
-    expect(writeStoredView).toHaveBeenCalledWith("devices.view", "grid");
-  });
-});
-
-describe("DevicesList — cards", () => {
-  beforeEach(() => {
-    storedView = "grid";
+    const card = screen
+      .getByRole("link", { name: "Chambre 102" })
+      .closest(".group");
+    expect(card).toHaveTextContent("Off");
+    expect(card).not.toHaveTextContent("Heating");
   });
 
   it("summarizes a thermostat: location, setpoint, measured reading, mode", () => {
@@ -529,24 +376,27 @@ describe("DevicesList — cards", () => {
     expect(card).not.toHaveTextContent("No fault");
   });
 
-  it("groups cards under the same type headings as the table", () => {
+  it("groups cards under canonical type headings with counts", () => {
     mockUseDevicesList.mockReturnValue({
       devices: [
         makeDevice("d3", "M1", { type: "electricity_meter" }),
         makeDevice("d1", "T1", { type: "thermostat" }),
+        makeDevice("d4", "X1", { type: "custom_vendor" }),
       ],
       loading: false,
       error: null,
     });
     renderAt();
     const sections = screen.getAllByRole("region");
-    expect(sections).toHaveLength(2);
-    expect(screen.getByRole("region", { name: /Thermostats/ })).toBe(
+    expect(sections).toHaveLength(3);
+    expect(screen.getByRole("region", { name: "Thermostats1" })).toBe(
       sections[0],
     );
-    expect(screen.getByRole("region", { name: /Electricity meters/ })).toBe(
+    expect(screen.getByRole("region", { name: "Electricity meters1" })).toBe(
       sections[1],
     );
+    expect(screen.getByRole("region", { name: "Others1" })).toBe(sections[2]);
+    expect(within(sections[2]).getByText("X1")).toBeInTheDocument();
     expect(within(sections[0]).getByText("T1")).toBeInTheDocument();
     expect(within(sections[1]).getByText("M1")).toBeInTheDocument();
   });
@@ -612,9 +462,6 @@ describe("DevicesList — summary", () => {
     renderAt();
     expect(screen.getByText("1 devices")).toBeInTheDocument();
     expect(screen.queryByText("1 disconnected")).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("columnheader", { name: "Connection" }),
-    ).not.toBeInTheDocument();
     expect(screen.queryByText("Disconnected")).not.toBeInTheDocument();
   });
 });

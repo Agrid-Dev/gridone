@@ -33,9 +33,7 @@ const CARD_SEVERITY_CLASS = {
 /**
  * One device of the fleet grid: identity and location, the setpoint (or the
  * primary measure when there is no setpoint) with the live reading beside it
- * and last-day trend, then operating mode and fault state. The grid
- * counterpart of {@link DeviceRow} — same summary helpers, laid out for
- * scanning rather than for comparing columns.
+ * and last-day trend, then operating mode and fault state.
  */
 export function DeviceFleetCard({
   device,
