@@ -28,8 +28,14 @@ function valuesOf<T>(rows: MergedRow[], names: string[]) {
 export function HistoryChartCard() {
   const { t } = useTranslation("devices");
   const { t: tCommon } = useTranslation("common");
-  const { selectedAttributes, dataTypes, attributes, chartRows } =
-    useDeviceHistoryContext();
+  const {
+    selectedAttributes,
+    dataTypes,
+    attributes,
+    chartRows,
+    panelOrder,
+    setPanelOrder,
+  } = useDeviceHistoryContext();
   const labelFor = useAttributeLabel();
   const booleanLabel = useValueLabel();
 
@@ -145,6 +151,9 @@ export function HistoryChartCard() {
           stringSeries={stringSeries}
           stringValues={stringValues}
           lineHeight={unitPanels > 1 ? STACKED_LINE_HEIGHT : undefined}
+          panelOrder={panelOrder}
+          onPanelOrderChange={setPanelOrder}
+          dragHandleLabel={(panel) => t("history.movePanel", { panel })}
         />
       )}
     </div>

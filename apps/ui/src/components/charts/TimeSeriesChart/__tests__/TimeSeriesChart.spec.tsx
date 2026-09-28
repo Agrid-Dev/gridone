@@ -1,8 +1,32 @@
 import { afterEach, describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent, cleanup } from "@testing-library/react";
+import {
+  act,
+  render,
+  screen,
+  fireEvent,
+  cleanup,
+} from "@testing-library/react";
+import type { ComponentProps } from "react";
 
 // Mock react-spring before any visx imports — prevents jsdom crashes
 vi.mock("@react-spring/web", () => import("@/test/react-spring-mock"));
+
+/** The drag-and-drop context, kept real, with its handlers in reach. */
+const dnd = vi.hoisted(() => ({
+  props: undefined as
+    | { onDragStart?: (e: never) => void; onDragEnd?: (e: never) => void }
+    | undefined,
+}));
+vi.mock("@dnd-kit/core", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@dnd-kit/core")>();
+  return {
+    ...actual,
+    DndContext: (props: ComponentProps<typeof actual.DndContext>) => {
+      dnd.props = props as typeof dnd.props;
+      return <actual.DndContext {...props} />;
+    },
+  };
+});
 
 import { TimeSeriesChartInner } from "../TimeSeriesChartInner";
 import {
@@ -563,6 +587,167 @@ describe("TimeSeriesChart — time axis", () => {
       [...timestamps, new Date(last + 60_000)].map(timeTickFormat()),
     );
     expect(ticks.every((tick) => worded.has(tick))).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Panel order and reordering (AGR-1403)
+// ---------------------------------------------------------------------------
+
+describe("TimeSeriesChart — panel order", () => {
+  /** Panel legends' first labels, in document order. */
+  const before = (a: string, b: string) =>
+    Boolean(
+      screen.getByText(a).compareDocumentPosition(screen.getByText(b)) &
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+  const handles = () =>
+    screen
+      .queryAllByRole("button", { name: /^Move / })
+      .map((h) => h.getAttribute("aria-label"));
+  const drop = (active: string, over: string | null) =>
+    (dnd.props!.onDragEnd as (e: unknown) => void)({
+      active: { id: active },
+      over: over === null ? null : { id: over },
+    });
+
+  it("stacks the panels as ordered, the time axis on the new last one", () => {
+    const { container } = render(
+      <TimeSeriesChartInner
+        timestamps={timestamps}
+        lineSeries={floatSeries}
+        lineValues={floatValues}
+        booleanSeries={booleanSeries}
+        booleanValues={booleanValues}
+        stringSeries={stringSeries}
+        stringValues={stringValues}
+        panelOrder={["mode", "heater_on", "float:%", "float:°"]}
+        width={WIDTH}
+      />,
+    );
+    expect(before("Mode", "Heater On")).toBe(true);
+    expect(before("Heater On", "Humidity")).toBe(true);
+    expect(before("Humidity", "Temperature")).toBe(true);
+    // The time axis follows the stack: it sits on the temperature panel now
+    // (the bottom axis is the one visx axis not named as the value axis).
+    const TIME_AXIS = "g.visx-axis:not(.visx-axis-value)";
+    const svgs = container.querySelectorAll(XYCHART_SVG);
+    expect(svgs[svgs.length - 1].querySelector(TIME_AXIS)).not.toBeNull();
+    expect(svgs[0].querySelector(TIME_AXIS)).toBeNull();
+  });
+
+  it("skips keys it has no panel for and appends the panels left unnamed", () => {
+    renderFull();
+    cleanup();
+    render(
+      <TimeSeriesChartInner
+        timestamps={timestamps}
+        lineSeries={floatSeries}
+        lineValues={floatValues}
+        booleanSeries={booleanSeries}
+        booleanValues={booleanValues}
+        stringSeries={stringSeries}
+        stringValues={stringValues}
+        panelOrder={["bogus", "heater_on"]}
+        width={WIDTH}
+      />,
+    );
+    expect(before("Heater On", "Temperature")).toBe(true);
+    expect(before("Temperature", "Humidity")).toBe(true);
+    expect(before("Humidity", "Mode")).toBe(true);
+  });
+
+  it("offers a handle per panel only when reordering is on", () => {
+    renderFull();
+    expect(handles()).toEqual([]);
+    cleanup();
+
+    render(
+      <TimeSeriesChartInner
+        timestamps={timestamps}
+        lineSeries={floatSeries}
+        lineValues={floatValues}
+        booleanSeries={booleanSeries}
+        booleanValues={booleanValues}
+        stringSeries={stringSeries}
+        stringValues={stringValues}
+        onPanelOrderChange={() => {}}
+        dragHandleLabel={(panel) => `Move ${panel}`}
+        width={WIDTH}
+      />,
+    );
+    expect(handles()).toEqual([
+      "Move Temperature",
+      "Move Humidity",
+      "Move Heater On",
+      "Move Mode",
+    ]);
+  });
+
+  it("offers no handle for a lone panel", () => {
+    render(
+      <TimeSeriesChartInner
+        timestamps={timestamps}
+        booleanSeries={booleanSeries}
+        booleanValues={booleanValues}
+        onPanelOrderChange={() => {}}
+        dragHandleLabel={(panel) => `Move ${panel}`}
+        width={WIDTH}
+      />,
+    );
+    expect(handles()).toEqual([]);
+  });
+
+  it("reports the whole new order when a panel is dropped on another", () => {
+    const onPanelOrderChange = vi.fn();
+    render(
+      <TimeSeriesChartInner
+        timestamps={timestamps}
+        lineSeries={floatSeries}
+        lineValues={floatValues}
+        booleanSeries={booleanSeries}
+        booleanValues={booleanValues}
+        stringSeries={stringSeries}
+        stringValues={stringValues}
+        onPanelOrderChange={onPanelOrderChange}
+        width={WIDTH}
+      />,
+    );
+    drop("mode", "float:°");
+    expect(onPanelOrderChange).toHaveBeenCalledWith([
+      "mode",
+      "float:°",
+      "float:%",
+      "heater_on",
+    ]);
+
+    onPanelOrderChange.mockClear();
+    drop("mode", null);
+    drop("mode", "mode");
+    expect(onPanelOrderChange).not.toHaveBeenCalled();
+  });
+
+  it("holds the cursor off while a panel is on the move", () => {
+    const { container } = render(
+      <TimeSeriesChartInner
+        timestamps={timestamps}
+        lineSeries={floatSeries}
+        lineValues={floatValues}
+        onPanelOrderChange={() => {}}
+        width={WIDTH}
+      />,
+    );
+    const wrapper = container.firstElementChild!;
+    wrapper.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, width: WIDTH, height: 600 }) as DOMRect;
+
+    act(() => (dnd.props!.onDragStart as () => void)());
+    fireEvent.pointerMove(wrapper, { clientX: 400, clientY: 100 });
+    expect(wrapper.querySelector(".bg-popover")).toBeNull();
+
+    act(() => drop("float:°", null));
+    fireEvent.pointerMove(wrapper, { clientX: 400, clientY: 100 });
+    expect(wrapper.querySelector(".bg-popover")).not.toBeNull();
   });
 });
 
