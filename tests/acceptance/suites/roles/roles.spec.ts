@@ -122,6 +122,32 @@ describe("roles", () => {
     expect(status).toBe(422);
   });
 
+  // Every signed-in user resolves user ids to names (command history,
+  // notification recipients); only users:read sees the full profiles.
+  it("lists users to an operator as id and display name only", async () => {
+    const operator = await makeRoleClient("operator");
+
+    const users = await operator.users.list();
+
+    expect(users.length).toBeGreaterThan(0);
+    for (const user of users) {
+      expect(Object.keys(user).sort()).toEqual(["id", "name"]);
+    }
+  });
+
+  it("refuses to create a role holding the retired users:read:basic", async () => {
+    const status = await statusOf(
+      admin.users.createRole({
+        id: `acceptance_basic_${Date.now()}`,
+        name: "Basic",
+        // Retired by AGR-1364: no longer in the vocabulary.
+        permissions: ["users:read:basic" as RoleCreate["permissions"][number]],
+      }),
+    );
+
+    expect(status).toBe(422);
+  });
+
   it("refuses role creation to an operator", async () => {
     const operator = await makeRoleClient("operator");
 
@@ -177,7 +203,15 @@ describe("a custom integration role", () => {
   });
 
   it("gates requests by the role's permissions", async () => {
-    expect(await statusOf(integration.users.list())).toBe(403);
+    expect(
+      await statusOf(
+        integration.users.create({
+          username: `acceptance-denied-${Date.now()}`,
+          password: "acceptance-pass",
+          role: "viewer",
+        }),
+      ),
+    ).toBe(403);
     expect(await statusOf(integration.devices.list())).toBeNull();
   });
 

@@ -15,7 +15,7 @@ import type {
 export class UsersResource {
   constructor(private readonly request: RequestFn) {}
 
-  /** Admins receive full `User` objects; other roles receive `UserBasic`. */
+  /** `users:read` holders receive full `User` objects; anyone else signed in receives `UserBasic`. */
   list(): Promise<User[] | UserBasic[]> {
     return this.request("GET", "/users/");
   }

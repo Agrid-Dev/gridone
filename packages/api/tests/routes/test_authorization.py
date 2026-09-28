@@ -362,14 +362,6 @@ def test_operating_rules_access_control(app, username, method, endpoint, write):
 # --- Admin can access user endpoints ---
 
 
-def test_admin_can_list_users(app: FastAPI) -> None:
-    with TestClient(app) as client:
-        token = _login(client, "admin")
-        resp = client.get("/users/", headers=_auth_header(token))
-        assert resp.status_code == 200
-        assert len(resp.json()) == 5
-
-
 def test_admin_me_has_all_permissions(app: FastAPI) -> None:
     with TestClient(app) as client:
         token = _login(client, "admin")
@@ -384,13 +376,6 @@ def test_admin_me_has_all_permissions(app: FastAPI) -> None:
 
 
 # --- Operator cannot access user endpoints ---
-
-
-def test_operator_cannot_list_users(app: FastAPI) -> None:
-    with TestClient(app) as client:
-        token = _login(client, "operator")
-        resp = client.get("/users/", headers=_auth_header(token))
-        assert resp.status_code == 403
 
 
 def test_operator_me_has_no_user_permissions(app: FastAPI) -> None:
@@ -408,9 +393,25 @@ def test_operator_me_has_no_user_permissions(app: FastAPI) -> None:
 # --- Viewer cannot access write endpoints ---
 
 
-def test_viewer_gets_basic_user_list(app: FastAPI) -> None:
+# --- The user listing: full profiles with users:read, id + name otherwise ---
+
+
+def test_admin_lists_full_user_profiles(app: FastAPI) -> None:
     with TestClient(app) as client:
-        token = _login(client, "viewer")
+        token = _login(client, "admin")
+        resp = client.get("/users/", headers=_auth_header(token))
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data) == 5
+        assert all("username" in u and "role" in u for u in data)
+
+
+@pytest.mark.parametrize("username", ["operator", "viewer", "integrator"])
+def test_any_signed_in_user_lists_users_as_id_and_display_name(
+    app: FastAPI, username: str
+) -> None:
+    with TestClient(app) as client:
+        token = _login(client, username)
         resp = client.get("/users/", headers=_auth_header(token))
         assert resp.status_code == 200
         data = resp.json()
@@ -499,7 +500,6 @@ def test_roles_write_requires_roles_write(
 def test_custom_role_permissions_gate_requests(app: FastAPI) -> None:
     with TestClient(app) as client:
         token = _login(client, "integrator")
-        assert client.get("/users/", headers=_auth_header(token)).status_code == 403
         assert (
             client.get("/users/roles/", headers=_auth_header(token)).status_code == 200
         )

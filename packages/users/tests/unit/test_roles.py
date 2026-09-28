@@ -65,7 +65,6 @@ def test_viewer_permissions():
         "synoptics:read",
         "timeseries:read",
         "transports:read",
-        "users:read:basic",
     ]
 
 
@@ -78,9 +77,9 @@ def test_role_serves_its_permissions_in_canonical_order():
     role = Role(
         id="custom",
         name="Custom",
-        permissions=[Permission.USERS_READ_BASIC, Permission.ASSETS_READ],
+        permissions=[Permission.USERS_READ, Permission.ASSETS_READ],
     )
-    assert role.permissions == [Permission.ASSETS_READ, Permission.USERS_READ_BASIC]
+    assert role.permissions == [Permission.ASSETS_READ, Permission.USERS_READ]
 
 
 def test_builtin_role_documents_match_the_granted_permissions():
@@ -113,6 +112,12 @@ class TestRoleCreate:
         with pytest.raises(ValidationError, match="Reserved"):
             RoleCreate(id="x", name="n", permissions=[Permission.ROLES_WRITE])
 
+    def test_rejects_the_retired_basic_user_listing_permission(self):
+        with pytest.raises(ValidationError):
+            RoleCreate.model_validate(
+                {"id": "x", "name": "n", "permissions": ["users:read:basic"]}
+            )
+
     def test_rejects_an_unknown_field(self):
         with pytest.raises(ValidationError):
             RoleCreate.model_validate(
@@ -123,10 +128,10 @@ class TestRoleCreate:
         role = RoleCreate(
             id="x",
             name="n",
-            permissions=[Permission.USERS_READ_BASIC, Permission.ASSETS_READ],
+            permissions=[Permission.USERS_READ, Permission.ASSETS_READ],
         ).to_role()
         assert role.builtin is False
-        assert role.permissions == [Permission.ASSETS_READ, Permission.USERS_READ_BASIC]
+        assert role.permissions == [Permission.ASSETS_READ, Permission.USERS_READ]
 
 
 class TestRoleUpdate:
