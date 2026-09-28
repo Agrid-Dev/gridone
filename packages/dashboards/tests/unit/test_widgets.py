@@ -14,7 +14,7 @@ from dashboards.widgets import (
     WidgetType,
     build_default_registry,
 )
-from dashboards.widgets.meter_tree import MAX_DEPTH, MAX_NODES
+from dashboards.widgets.meter_tree import MAX_DEPTH, MAX_NODES, MeterMedium
 from dashboards.widgets.registry import WidgetRegistry
 from pydantic import ValidationError
 
@@ -935,3 +935,28 @@ def test_meter_tree_node_defaults_to_no_calibration():
 def test_meter_tree_node_rejects_a_meaningless_scale(raw: dict):
     with pytest.raises(ValidationError):
         MeterTreeNode.model_validate(raw)
+
+
+@pytest.mark.parametrize("medium", list(MeterMedium))
+def test_meter_tree_accepts_a_medium(medium: MeterMedium):
+    config = MeterTreeWidgetConfig.model_validate(
+        {"root": {"label": "N", "meter": _meter("d1")}, "medium": medium.value}
+    )
+
+    assert config.medium is medium
+
+
+def test_meter_tree_stored_without_a_medium_has_none():
+    # Trees saved before the field existed carry no medium and keep their look.
+    config = MeterTreeWidgetConfig.model_validate(
+        {"type": "meter_tree", "root": {"label": "N", "meter": _meter("d1")}}
+    )
+
+    assert config.medium is None
+
+
+def test_meter_tree_rejects_an_unknown_medium():
+    with pytest.raises(ValidationError, match="medium"):
+        MeterTreeWidgetConfig.model_validate(
+            {"root": {"label": "N", "meter": _meter("d1")}, "medium": "gas"}
+        )
