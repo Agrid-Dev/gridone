@@ -948,6 +948,65 @@ describe("FloatPanel — value axis units", () => {
 });
 
 // ---------------------------------------------------------------------------
+// String value labels (AGR-1403)
+// ---------------------------------------------------------------------------
+
+describe("StringPanel — value labels", () => {
+  const mode: Series = {
+    key: "mode",
+    label: "Mode",
+    stringLabels: { heat: "Chauffage", cool: "Refroidissement" },
+  };
+  const values = { mode: timestamps.map((_, i) => (i < 5 ? "heat" : "cool")) };
+
+  it("words the legend values as the caller labels them", () => {
+    render(
+      <TimeSeriesChartInner
+        timestamps={timestamps}
+        stringSeries={[mode]}
+        stringValues={values}
+        width={WIDTH}
+      />,
+    );
+    expect(screen.getByText("Chauffage")).toBeInTheDocument();
+    expect(screen.getByText("Refroidissement")).toBeInTheDocument();
+    expect(screen.queryByText("heat")).not.toBeInTheDocument();
+  });
+
+  it("keeps the semantic colour of the wire value", () => {
+    render(
+      <TimeSeriesChartInner
+        timestamps={timestamps}
+        stringSeries={[mode]}
+        stringValues={values}
+        width={WIDTH}
+      />,
+    );
+    expect(swatchFor("Chauffage").style.backgroundColor).toBe(
+      "hsl(var(--hvac-heat))",
+    );
+  });
+
+  it("words the hovered value in the tooltip", () => {
+    const { container } = render(
+      <TimeSeriesChartInner
+        timestamps={timestamps}
+        stringSeries={[mode]}
+        stringValues={values}
+        width={WIDTH}
+      />,
+    );
+    const wrapper = container.firstElementChild!;
+    wrapper.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, width: WIDTH, height: 600 }) as DOMRect;
+    fireEvent.pointerMove(wrapper, { clientX: 100, clientY: 50 });
+    const tooltip = document.querySelector(".bg-popover")!;
+    expect(tooltip.textContent).toContain("Chauffage");
+    expect(tooltip.textContent).not.toContain("heat");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Boolean state labels (AGR-1420)
 // ---------------------------------------------------------------------------
 

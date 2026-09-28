@@ -17,6 +17,11 @@ export type Series = {
    *  — the tooltip names the one hovered. Boolean panels only; raw true /
    *  false without it. */
   booleanLabels?: { true: string; false: string };
+  /** Wording of a string series' values, already resolved by the caller
+   *  (an HVAC mode reads "Chauffage" rather than "heat") — the legend and
+   *  the tooltip name a value by it, colours still follow the wire value.
+   *  String panels only; raw values without it. */
+  stringLabels?: Record<string, string>;
   /** Unit symbol of a numeric series, as its driver declares it. Numeric
    *  series are panelled by unit, each panel's axis carrying the unit its
    *  series share. Without it the name convention decides (`temperature`

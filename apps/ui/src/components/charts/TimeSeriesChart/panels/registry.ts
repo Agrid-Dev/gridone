@@ -141,7 +141,7 @@ function stringTooltipRows(
   return [
     {
       label: series.label,
-      value: v ?? "\u2014",
+      value: v ? (series.stringLabels?.[v] ?? v) : "\u2014",
       active,
       swatch: color ? { color, variant: "area" as const } : undefined,
     },
