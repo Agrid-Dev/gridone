@@ -112,6 +112,8 @@
     --fluid-chilled-return: 198 55% 22%;
     --fluid-condenser-supply: 275 45% 44%;
     --fluid-condenser-return: 275 45% 26%;
+    --meter-electricity: 330 65% 45%;
+    --meter-water: 214 50% 38%;
   }
 
   .dark {
@@ -205,6 +207,8 @@
     --fluid-chilled-return: 198 55% 76%;
     --fluid-condenser-supply: 275 45% 62%;
     --fluid-condenser-return: 275 45% 80%;
+    --meter-electricity: 330 65% 65%;
+    --meter-water: 214 50% 56%;
   }
 }
 
