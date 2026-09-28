@@ -5471,12 +5471,6 @@ export interface components {
       updated_at?: string;
     };
     /**
-     * MeterMedium
-     * @description What a tree's meters count, which sets the colour its branches are drawn in.
-     * @enum {string}
-     */
-    MeterMedium: "electricity" | "water";
-    /**
      * MeterTreeNode
      * @description One meter in the hierarchy: optionally a label and a meter, and children.
      *
@@ -5497,6 +5491,12 @@ export interface components {
       children?: components["schemas"]["MeterTreeNode"][];
     };
     /**
+     * MeterTreeVariant
+     * @description How a tree is drawn: after the diagrams of what it meters, or plain.
+     * @enum {string}
+     */
+    MeterTreeVariant: "default" | "electricity" | "water";
+    /**
      * MeterTreeWidgetConfig
      * @description Sub-metering tree: consumption per node over the dashboard period.
      *
@@ -5516,7 +5516,8 @@ export interface components {
        */
       type: "meter_tree";
       root: components["schemas"]["MeterTreeNode"];
-      medium?: components["schemas"]["MeterMedium"] | null;
+      /** @default default */
+      variant?: components["schemas"]["MeterTreeVariant"];
     };
     /** ModbusTCPTransportConfig */
     ModbusTCPTransportConfig: {

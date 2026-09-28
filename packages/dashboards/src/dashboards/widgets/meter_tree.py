@@ -44,9 +44,10 @@ tree wide at its first level folds nothing. Treating that default as a second
 budget would mean two mechanisms for one job, with neither holding on its own."""
 
 
-class MeterMedium(StrEnum):
-    """What a tree's meters count, which sets the colour its branches are drawn in."""
+class MeterTreeVariant(StrEnum):
+    """How a tree is drawn: after the diagrams of what it meters, or plain."""
 
+    DEFAULT = "default"
     ELECTRICITY = "electricity"
     WATER = "water"
 
@@ -183,7 +184,7 @@ class MeterTreeWidgetConfig(WidgetConfig):
 
     type: Literal["meter_tree"] = "meter_tree"
     root: MeterTreeNode
-    medium: MeterMedium | None = None
+    variant: MeterTreeVariant = MeterTreeVariant.DEFAULT
 
     @model_validator(mode="after")
     def _enforce_size_limits(self) -> MeterTreeWidgetConfig:
