@@ -1,3 +1,19 @@
+## v0.273.1 (2026-09-28)
+
+### Fix
+
+- **ui**: hide health filter when no devices are faulty
+- **ui**: hide redundant device type filter
+- **ui**: hide inaccessible device presentation fields
+- **ui**: gate driver and network pages by permissions
+- **ui**: gate zone pages by permissions
+- **ui**: gate automation pages by permissions
+- **ui**: support commands without assets read permission
+
+### Refactor
+
+- **ui**: remove device table view
+
 ## v0.273.0 (2026-09-28)
 
 ### Feat
