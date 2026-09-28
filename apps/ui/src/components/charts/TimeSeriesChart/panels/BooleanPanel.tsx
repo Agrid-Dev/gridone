@@ -17,6 +17,7 @@ import {
   legendItemStyle,
   legendLabelStyle,
 } from "../constants";
+import { formatTimeTick } from "../timeTickFormat";
 import { LegendSwatch } from "../LegendSwatch";
 
 export function BooleanPanel({
@@ -58,7 +59,16 @@ export function BooleanPanel({
         }}
         yScale={{ type: "linear", domain: [0, 1] }}
       >
-        {isLast && <Axis orientation="bottom" numTicks={5} />}
+        {isLast && (
+          <Axis
+            orientation="bottom"
+            numTicks={5}
+            tickFormat={formatTimeTick}
+            // Named apart from the value axis, as that one is (visx tags
+            // both with the same class).
+            axisClassName="visx-axis-time"
+          />
+        )}
         <AreaSeries
           dataKey={series.key}
           data={data}

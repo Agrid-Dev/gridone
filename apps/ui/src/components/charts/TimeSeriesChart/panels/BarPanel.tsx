@@ -8,6 +8,7 @@ import {
   lineChartTheme,
   floatAccessors,
 } from "../constants";
+import { formatTimeTick } from "../timeTickFormat";
 import { PanelLegend } from "../PanelLegend";
 import { bucketStep } from "../bucketStep";
 import { useValueTickFormat } from "../useValueTickFormat";
@@ -75,7 +76,16 @@ export function BarPanel({
         yScale={{ type: "linear", zero: true }}
         theme={lineChartTheme}
       >
-        {isLast && <Axis orientation="bottom" numTicks={5} />}
+        {isLast && (
+          <Axis
+            orientation="bottom"
+            numTicks={5}
+            tickFormat={formatTimeTick}
+            // Named apart from the value axis, as that one is (visx tags
+            // both with the same class).
+            axisClassName="visx-axis-time"
+          />
+        )}
         <Axis
           orientation="left"
           numTicks={4}
