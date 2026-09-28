@@ -70,9 +70,21 @@
       "idle_other": "{{count}} idle"
     },
     "card": {
-      "measured": "{{value}} measured",
-      "noFault": "No fault",
-      "trendLabel": "24 h trend",
+      "lead": {
+        "setpoint": "setpoint",
+        "measured": "measured",
+        "supplyAir": "supply air",
+        "outlet": "outlet",
+        "power": "power",
+        "energy": "energy",
+        "index": "index",
+        "speed": "speed",
+        "runState": {
+          "running": "Running",
+          "stopped": "Idle",
+          "unknown": "Not reported"
+        }
+      },
       "pms": {
         "status": {
           "booked": "Booked",

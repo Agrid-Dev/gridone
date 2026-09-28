@@ -35,6 +35,9 @@ const SynopticsSandbox = lazy(() => import("./pages/sandbox/SynopticsSandbox"));
 const DevicePresentationSandbox = lazy(
   () => import("./pages/sandbox/DevicePresentationSandbox"),
 );
+const DeviceGlyphsSandbox = lazy(
+  () => import("./pages/sandbox/DeviceGlyphsSandbox"),
+);
 
 function ProtectedLayout() {
   const { t } = useTranslation();
@@ -99,6 +102,16 @@ function ProtectedLayout() {
                     element={
                       <Suspense>
                         <DevicePresentationSandbox />
+                      </Suspense>
+                    }
+                  />
+                )}
+                {sandboxEnabled && (
+                  <Route
+                    path="/sandbox/device-glyphs"
+                    element={
+                      <Suspense>
+                        <DeviceGlyphsSandbox />
                       </Suspense>
                     }
                   />

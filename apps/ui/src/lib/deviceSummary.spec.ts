@@ -3,7 +3,6 @@ import type { Device } from "@gridone/sdk";
 import {
   countByConnectionStatus,
   deviceMeasureReading,
-  deviceMode,
   deviceSetpointReading,
   formatReading,
   formatReadingDelta,
@@ -43,6 +42,37 @@ describe("deviceMeasureReading", () => {
     ["air_extractor", { fan_speed: attr(82) }, "82 %"],
   ])("%s → %s", (type, attributes, expected) => {
     expect(measure(type, attributes)).toBe(expected);
+  });
+
+  it.each([
+    [
+      "weather_sensor",
+      { temperature: { current_value: 14.2, unit: "°C" } },
+      "14.2 °C",
+    ],
+    [
+      "electricity_meter",
+      { active_power: { current_value: 2.4, unit: "kW" } },
+      "2 kW",
+    ],
+    [
+      "thermostat",
+      { temperature: { current_value: 70.1, unit: "°F" } },
+      "70.1 °F",
+    ],
+  ])(
+    "%s uses the unit its driver declares → %s",
+    (type, attributes, expected) => {
+      expect(measure(type, attributes)).toBe(expected);
+    },
+  );
+
+  it("puts the setpoint in its declared unit too", () => {
+    expect(
+      setpoint("thermostat", {
+        temperature_setpoint: { current_value: 21, unit: "°C" },
+      }),
+    ).toBe("21.0 °C");
   });
 
   it("names the recorded metric the value comes from", () => {
@@ -131,69 +161,6 @@ describe("formatReadingDelta", () => {
         "en",
       ),
     ).toBeNull();
-  });
-});
-
-describe("deviceMode", () => {
-  it("returns the mode value when the unit is on", () => {
-    const d = device("thermostat", {
-      onoff_state: attr(true),
-      mode: attr("heat"),
-    });
-    expect(deviceMode(d)).toEqual({
-      kind: "mode",
-      attribute: "mode",
-      value: "heat",
-    });
-  });
-
-  it("composes off from onoff_state=false, winning over the mode", () => {
-    const d = device("thermostat", {
-      onoff_state: attr(false),
-      mode: attr("heat"),
-    });
-    expect(deviceMode(d)).toEqual({ kind: "onoff", value: "off" });
-  });
-
-  it("keeps the mode when onoff_state is unknown", () => {
-    const d = device("awhp", { mode: attr("cool") });
-    expect(deviceMode(d)).toEqual({
-      kind: "mode",
-      attribute: "mode",
-      value: "cool",
-    });
-  });
-
-  it("reads hvac_mode on air handling units", () => {
-    const d = device("ahu_single_flux", { hvac_mode: attr("fan") });
-    expect(deviceMode(d)).toEqual({
-      kind: "mode",
-      attribute: "hvac_mode",
-      value: "fan",
-    });
-  });
-
-  it("maps the air extractor's onoff to on/off", () => {
-    expect(
-      deviceMode(device("air_extractor", { onoff_state: attr(true) })),
-    ).toEqual({ kind: "onoff", value: "on" });
-    expect(
-      deviceMode(device("air_extractor", { onoff_state: attr(false) })),
-    ).toEqual({ kind: "onoff", value: "off" });
-    expect(deviceMode(device("air_extractor"))).toBeNull();
-  });
-
-  it.each([
-    ["thermostat", {}],
-    ["electricity_meter", { active_power: attr(100) }],
-    ["weather_sensor", {}],
-    [null, {}],
-  ])("%s without mode data → null", (type, attributes) => {
-    expect(deviceMode(device(type, attributes))).toBeNull();
-  });
-
-  it("pump → null: its fleet summary already carries the run state", () => {
-    expect(deviceMode(device("pump", { onoff_state: attr(true) }))).toBeNull();
   });
 });
 

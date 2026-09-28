@@ -1,25 +1,59 @@
 import type { ComponentType } from "react";
 import { DeviceType } from "@/lib/devices";
-import { ThermostatControl, ThermostatSupervision } from "./thermostat";
-import { AwhpControl, AwhpSupervision } from "./awhp";
+import {
+  ThermostatControl,
+  ThermostatFleetGlyph,
+  ThermostatSupervision,
+  thermostatFleetLead,
+} from "./thermostat";
+import {
+  AwhpControl,
+  AwhpFleetGlyph,
+  AwhpSupervision,
+  awhpFleetLead,
+} from "./awhp";
 import {
   WeatherSensorControl,
+  WeatherSensorFleetGlyph,
   WeatherSensorSupervision,
+  weatherSensorFleetLead,
 } from "./weather-sensor";
-import { ElectricityMeterControl } from "./electricity-meter";
-import { AhuDoubleFluxControl } from "./ahu-double-flux";
-import { AhuSingleFluxControl } from "./ahu-single-flux";
-import { AirExtractorControl } from "./air-extractor";
+import {
+  ElectricityMeterControl,
+  ElectricityMeterFleetGlyph,
+  electricityMeterFleetLead,
+} from "./electricity-meter";
+import {
+  AhuDoubleFluxControl,
+  AhuDoubleFluxFleetGlyph,
+  ahuDoubleFluxFleetLead,
+} from "./ahu-double-flux";
+import {
+  AhuSingleFluxControl,
+  AhuSingleFluxFleetGlyph,
+  ahuSingleFluxFleetLead,
+} from "./ahu-single-flux";
+import {
+  AirExtractorControl,
+  AirExtractorFleetGlyph,
+  airExtractorFleetLead,
+} from "./air-extractor";
 import {
   LiquidDetectorControl,
-  LiquidDetectorFleetSummary,
+  LiquidDetectorFleetGlyph,
+  liquidDetectorFleetLead,
 } from "./liquid-detector";
-import { PumpControl, PumpFleetSummary } from "./pump";
-import { PmsMonitorFleetSummary } from "./pms-monitor";
-import { ReadingFleetSummary } from "./ReadingFleetSummary";
-import type { StandardFleetSummaryProps, StandardControlProps } from "./types";
+import { PumpControl, PumpFleetGlyph, pumpFleetLead } from "./pump";
+import { PmsMonitorFleetGlyph, pmsMonitorFleetLead } from "./pms-monitor";
+import { OtherFleetGlyph } from "./OtherFleetGlyph";
+import { measureLead } from "./fleet-lead";
+import type {
+  FleetLeadOf,
+  StandardControlProps,
+  StandardFleetGlyphProps,
+} from "./types";
 
-export type { StandardFleetSummaryProps, StandardControlProps } from "./types";
+export type { StandardFleetGlyphProps, StandardControlProps } from "./types";
 
 export type StandardDeviceEntry = {
   /** The type's standard control; null for a read-only type, which the device
@@ -28,53 +62,67 @@ export type StandardDeviceEntry = {
   /** Full supervision-tab layout (control + companion cards). Types without
    *  one render their bare Control (see DeviceLiveControl). */
   Supervision?: ComponentType<StandardControlProps>;
-  /** Lead slot on the fleet card (see DeviceFleetCard). */
-  FleetSummary: ComponentType<StandardFleetSummaryProps>;
+  /** The type's glyph in front of the fleet card lead: a silhouette of the
+   *  machine carrying its one state (see glyph-kit). */
+  FleetGlyph: ComponentType<StandardFleetGlyphProps>;
+  /** The fleet card lead's lines for a device of the type (see fleet-lead,
+   *  rendered by FleetLeadView). */
+  fleetLead: FleetLeadOf;
 };
 
 const registry: Partial<Record<DeviceType, StandardDeviceEntry>> = {
   [DeviceType.Thermostat]: {
     Control: ThermostatControl,
     Supervision: ThermostatSupervision,
-    FleetSummary: ReadingFleetSummary,
+    FleetGlyph: ThermostatFleetGlyph,
+    fleetLead: thermostatFleetLead,
   },
   [DeviceType.Awhp]: {
     Control: AwhpControl,
     Supervision: AwhpSupervision,
-    FleetSummary: ReadingFleetSummary,
+    FleetGlyph: AwhpFleetGlyph,
+    fleetLead: awhpFleetLead,
   },
   [DeviceType.WeatherSensor]: {
     Control: WeatherSensorControl,
     Supervision: WeatherSensorSupervision,
-    FleetSummary: ReadingFleetSummary,
+    FleetGlyph: WeatherSensorFleetGlyph,
+    fleetLead: weatherSensorFleetLead,
   },
   [DeviceType.ElectricityMeter]: {
     Control: ElectricityMeterControl,
-    FleetSummary: ReadingFleetSummary,
+    FleetGlyph: ElectricityMeterFleetGlyph,
+    fleetLead: electricityMeterFleetLead,
   },
   [DeviceType.AhuDoubleFlux]: {
     Control: AhuDoubleFluxControl,
-    FleetSummary: ReadingFleetSummary,
+    FleetGlyph: AhuDoubleFluxFleetGlyph,
+    fleetLead: ahuDoubleFluxFleetLead,
   },
   [DeviceType.AhuSingleFlux]: {
     Control: AhuSingleFluxControl,
-    FleetSummary: ReadingFleetSummary,
+    FleetGlyph: AhuSingleFluxFleetGlyph,
+    fleetLead: ahuSingleFluxFleetLead,
   },
   [DeviceType.AirExtractor]: {
     Control: AirExtractorControl,
-    FleetSummary: ReadingFleetSummary,
+    FleetGlyph: AirExtractorFleetGlyph,
+    fleetLead: airExtractorFleetLead,
   },
   [DeviceType.PmsMonitor]: {
     Control: null,
-    FleetSummary: PmsMonitorFleetSummary,
+    FleetGlyph: PmsMonitorFleetGlyph,
+    fleetLead: pmsMonitorFleetLead,
   },
   [DeviceType.LiquidDetector]: {
     Control: LiquidDetectorControl,
-    FleetSummary: LiquidDetectorFleetSummary,
+    FleetGlyph: LiquidDetectorFleetGlyph,
+    fleetLead: liquidDetectorFleetLead,
   },
   [DeviceType.Pump]: {
     Control: PumpControl,
-    FleetSummary: PumpFleetSummary,
+    FleetGlyph: PumpFleetGlyph,
+    fleetLead: pumpFleetLead,
   },
 };
 
@@ -94,10 +142,16 @@ export function getStandardDeviceEntry(
   return registry[type as DeviceType];
 }
 
-/** The fleet card lead slot for `type`: its registered summary, or the numeric
- *  reading for a device of no registered type. */
-export function getFleetSummary(
+/** The fleet card lead for `type`: its registered one, or the primary
+ *  measure (an em dash) for a device of no registered type. */
+export function getFleetLead(type: string | null | undefined): FleetLeadOf {
+  return getStandardDeviceEntry(type)?.fleetLead ?? measureLead;
+}
+
+/** The fleet card glyph for `type`: its registered glyph, or the neutral chip
+ *  for a device of no registered type. */
+export function getFleetGlyph(
   type: string | null | undefined,
-): ComponentType<StandardFleetSummaryProps> {
-  return getStandardDeviceEntry(type)?.FleetSummary ?? ReadingFleetSummary;
+): ComponentType<StandardFleetGlyphProps> {
+  return getStandardDeviceEntry(type)?.FleetGlyph ?? OtherFleetGlyph;
 }

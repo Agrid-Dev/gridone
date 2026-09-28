@@ -1,6 +1,5 @@
 import { DeviceFaultBadge } from "@/components/DeviceFaultBadge";
 import { ResourceLink as Link } from "@/components/ResourceLink";
-import { useTranslation } from "react-i18next";
 import type { Device } from "@gridone/sdk";
 import { Card } from "@/components/ui";
 import { ConnectionStatusDot } from "@/components/ConnectionStatusBadge";
@@ -8,8 +7,9 @@ import { useCanSeeConnectionStatus } from "@/hooks/useCanSeeConnectionStatus";
 import { getConnectionStatus } from "@/lib/devices";
 import { activeFaultSummary } from "@/lib/faults";
 import { cn } from "@/lib/utils";
-import { DeviceModeValue } from "./DeviceModeValue";
-import { getFleetSummary } from "./standard-devices/registry";
+import { useTranslation } from "react-i18next";
+import { FleetLeadView } from "./standard-devices/FleetLeadView";
+import { getFleetGlyph, getFleetLead } from "./standard-devices/registry";
 
 /** Border tint per active severity — the card outline is the first thing
  *  scanned in a grid of dozens, so a faulty device reads before its label. */
@@ -20,8 +20,9 @@ const CARD_SEVERITY_CLASS = {
 } as const;
 
 /**
- * One device of the fleet grid: identity and location, the type's summary
- * from the standard-device registry, then operating mode and fault state.
+ * One device of the fleet grid: identity and location, then the type's glyph
+ * and summary from the standard-device registry — which carry its state — and
+ * the fault badge when a fault is active.
  */
 export function DeviceFleetCard({
   device,
@@ -30,12 +31,12 @@ export function DeviceFleetCard({
   device: Device;
   zonePath: string | null;
 }) {
-  const { t } = useTranslation(["devices", "common"]);
-
   const status = getConnectionStatus(device);
   const canSeeConnectionStatus = useCanSeeConnectionStatus();
   const faults = activeFaultSummary(device);
-  const FleetSummary = getFleetSummary(device.type);
+  const { t, i18n } = useTranslation(["devices", "standardDevices"]);
+  const lead = getFleetLead(device.type)(device, { t, locale: i18n.language });
+  const FleetGlyph = getFleetGlyph(device.type);
 
   return (
     <div className="group block h-full">
@@ -47,7 +48,7 @@ export function DeviceFleetCard({
       >
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
-            <h3 className="line-clamp-2 break-words font-display text-sm font-semibold text-card-foreground">
+            <h3 className="line-clamp-2 break-words font-display text-sm font-medium text-card-foreground">
               {/* Stretched link: its overlay makes the whole card one real
                   link (keyboard, new tab, copy link) with no click handler. */}
               <Link
@@ -69,23 +70,21 @@ export function DeviceFleetCard({
           )}
         </div>
 
-        <FleetSummary device={device} />
-
-        <div className="mt-auto flex items-center gap-2 border-t pt-2.5 text-xs">
-          <DeviceModeValue device={device} />
-          <span className="ml-auto truncate">
-            {faults ? (
-              // Above the stretched link, so the badge keeps its own target.
-              <span className="relative z-10">
-                <DeviceFaultBadge device={device} />
-              </span>
-            ) : (
-              <span className="text-muted-foreground">
-                {t("devices.card.noFault")}
-              </span>
-            )}
-          </span>
+        <div className="flex items-center gap-3">
+          <FleetGlyph device={device} />
+          <div className="min-w-0 flex-1">
+            <FleetLeadView lead={lead} />
+          </div>
         </div>
+
+        {faults && (
+          <div className="mt-auto flex justify-end text-xs">
+            {/* Above the stretched link, so the badge keeps its own target. */}
+            <span className="relative z-10">
+              <DeviceFaultBadge device={device} />
+            </span>
+          </div>
+        )}
       </Card>
     </div>
   );

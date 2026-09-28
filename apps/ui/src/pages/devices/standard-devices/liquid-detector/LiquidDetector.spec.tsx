@@ -3,7 +3,6 @@ import { cleanup, render, screen } from "@testing-library/react";
 import type { Device } from "@gridone/sdk";
 import { createI18nMock } from "@/test/i18nMock";
 import { DeviceType } from "@/lib/devices";
-import { LiquidDetectorFleetSummary } from "./LiquidDetectorFleetSummary";
 import { LiquidDetectorControl } from "./LiquidDetectorControl";
 
 vi.mock("react-i18next", () =>
@@ -54,24 +53,6 @@ const CONTROL_PROPS = {
 };
 
 afterEach(cleanup);
-
-describe("LiquidDetectorFleetSummary", () => {
-  it.each([
-    [true, "Liquide détecté", "text-water"],
-    [false, "Sec", "text-muted-foreground"],
-  ])("renders %s as %s in its own tone", (value, label, tone) => {
-    render(<LiquidDetectorFleetSummary device={detector(value)} />);
-
-    expect(screen.getByText(label)).toHaveClass(tone);
-  });
-
-  it("shows a placeholder when the detector has not reported", () => {
-    render(<LiquidDetectorFleetSummary device={detector(null)} />);
-
-    expect(screen.getByText("—")).toBeInTheDocument();
-    expect(screen.queryByText("Sec")).not.toBeInTheDocument();
-  });
-});
 
 describe("LiquidDetectorControl", () => {
   it("colours a wet probe with the water token, never the alarm red", () => {
