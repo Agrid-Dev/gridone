@@ -955,6 +955,15 @@ def test_meter_tree_stored_without_a_variant_is_the_default():
     assert config.variant is MeterTreeVariant.DEFAULT
 
 
+def test_meter_tree_null_variant_is_the_default():
+    # A client clearing the variant sends null: that is the default look.
+    config = MeterTreeWidgetConfig.model_validate(
+        {"root": {"label": "N", "meter": _meter("d1")}, "variant": None}
+    )
+
+    assert config.variant is MeterTreeVariant.DEFAULT
+
+
 def test_meter_tree_rejects_an_unknown_variant():
     with pytest.raises(ValidationError, match="variant"):
         MeterTreeWidgetConfig.model_validate(

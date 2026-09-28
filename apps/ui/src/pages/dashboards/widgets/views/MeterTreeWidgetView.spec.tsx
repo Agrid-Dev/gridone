@@ -213,12 +213,10 @@ describe("MeterTreeWidgetView node details", () => {
 });
 
 describe("MeterTreeWidgetView variant", () => {
-  /** Every elbow of an edge as "L x y Q cx cy": a right angle when the curve
-   *  starts at its own control point, a bend when it does not. */
-  const bends = (edge: SVGPathElement) =>
-    [...edge.getAttribute("d")!.matchAll(/L (\S+) (\S+) Q (\S+) (\S+)/g)].map(
-      ([, lx, ly, qx, qy]) => lx !== qx || ly !== qy,
-    );
+  /** Whether an edge bends: a right angle is straight segments only, a pipe
+   *  bend a curve. */
+  const hasBend = (edge: SVGPathElement) =>
+    edge.getAttribute("d")!.includes("Q");
 
   it.each([
     // A single-line diagram turns at right angles; a pipe bends.
@@ -235,9 +233,7 @@ describe("MeterTreeWidgetView variant", () => {
         stroke,
         stroke,
       ]);
-      const turns = all.flatMap(bends);
-      expect(turns.length).toBeGreaterThan(0);
-      expect(turns).not.toContain(!bent);
+      expect(all.map(hasBend)).toEqual([bent, bent, bent]);
     },
   );
 
@@ -250,7 +246,7 @@ describe("MeterTreeWidgetView variant", () => {
         expect(edge.getAttribute("class")).toBe("stroke-border");
         expect(edge.getAttribute("stroke-dasharray")).toBeNull();
         expect(edge.parentElement!.getAttribute("opacity")).toBeNull();
-        expect(bends(edge).every((bent) => !bent)).toBe(true);
+        expect(hasBend(edge)).toBe(false);
       }
       expect(container.querySelector("rect[data-accent]")).toBeNull();
       expect(container.querySelector("svg[data-variant-icon]")).toBeNull();

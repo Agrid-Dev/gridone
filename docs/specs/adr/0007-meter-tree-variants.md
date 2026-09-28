@@ -1,4 +1,6 @@
-# Meter tree variants
+# ADR 0007: Meter tree variants
+
+Status: accepted.
 
 A meter tree's `variant` (`default`, `electricity`, `water`) tells at a glance what the tree meters, following each domain's own diagram conventions.
 

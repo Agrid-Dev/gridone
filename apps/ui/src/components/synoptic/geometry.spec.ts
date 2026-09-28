@@ -43,6 +43,18 @@ describe("roundedPath", () => {
     expect(d).toBe("M 0 0 L 5 0 Q 10 0 10 5 L 10 100");
   });
 
+  it("turns at a plain vertex when the radius is zero", () => {
+    const d = roundedPath(
+      [
+        { x: 0, y: 0 },
+        { x: 100, y: 0 },
+        { x: 100, y: 100 },
+      ],
+      0,
+    );
+    expect(d).toBe("M 0 0 L 100 0 L 100 100");
+  });
+
   it("skips a corner sitting on a zero-length segment", () => {
     const d = roundedPath(
       [

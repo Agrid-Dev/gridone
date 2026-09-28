@@ -3,7 +3,8 @@ import type { Pt } from "./types";
 /** A bend is barely rounded: a pipe corner is an elbow, not a curve. */
 export const BEND_RADIUS = 4;
 
-/** SVG path through waypoints with rounded corners (radius clamped to half of each segment). */
+/** SVG path through waypoints with rounded corners (radius clamped to half of
+ *  each segment). A corner left with no radius is a plain vertex. */
 export function roundedPath(pts: Pt[], r: number): string {
   if (pts.length < 2) return "";
   let d = `M ${pts[0].x} ${pts[0].y}`;
@@ -15,6 +16,10 @@ export function roundedPath(pts: Pt[], r: number): string {
     const outLen = Math.hypot(n.x - c.x, n.y - c.y);
     if (inLen === 0 || outLen === 0) continue;
     const rr = Math.min(r, inLen / 2, outLen / 2);
+    if (rr <= 0) {
+      d += ` L ${c.x} ${c.y}`;
+      continue;
+    }
     const inU = { x: (c.x - p.x) / inLen, y: (c.y - p.y) / inLen };
     const outU = { x: (n.x - c.x) / outLen, y: (n.y - c.y) / outLen };
     d += ` L ${c.x - inU.x * rr} ${c.y - inU.y * rr} Q ${c.x} ${c.y} ${c.x + outU.x * rr} ${c.y + outU.y * rr}`;
