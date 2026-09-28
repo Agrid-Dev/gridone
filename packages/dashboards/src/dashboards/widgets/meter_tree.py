@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from enum import StrEnum
 from typing import TYPE_CHECKING, Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -41,6 +42,13 @@ by default, which cuts a first paint of that tree from 254 queries to 22, but it
 folds by depth and depth is a proxy for breadth rather than a bound on it: a
 tree wide at its first level folds nothing. Treating that default as a second
 budget would mean two mechanisms for one job, with neither holding on its own."""
+
+
+class MeterMedium(StrEnum):
+    """What a tree's meters count, which sets the colour its branches are drawn in."""
+
+    ELECTRICITY = "electricity"
+    WATER = "water"
 
 
 class MeterTreeNode(BaseModel):
@@ -175,6 +183,7 @@ class MeterTreeWidgetConfig(WidgetConfig):
 
     type: Literal["meter_tree"] = "meter_tree"
     root: MeterTreeNode
+    medium: MeterMedium | None = None
 
     @model_validator(mode="after")
     def _enforce_size_limits(self) -> MeterTreeWidgetConfig:

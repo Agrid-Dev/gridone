@@ -336,6 +336,7 @@ export type KpiWidgetConfig = Schemas["KpiWidgetConfig"];
 export type KpiAttribute = Schemas["KpiAttribute"];
 export type MeterTreeWidgetConfig = Schemas["MeterTreeWidgetConfig"];
 export type MeterTreeNode = Schemas["MeterTreeNode"];
+export type MeterMedium = Schemas["MeterMedium"];
 export type TimeAggregation = Schemas["TimeAggregation"];
 export type WidgetLayout = Schemas["WidgetLayout"];
 export type LayoutItem = Schemas["LayoutItem"];

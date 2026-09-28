@@ -104,6 +104,8 @@ module.exports = {
         "fluid-chilled-return": "hsl(var(--fluid-chilled-return))",
         "fluid-condenser-supply": "hsl(var(--fluid-condenser-supply))",
         "fluid-condenser-return": "hsl(var(--fluid-condenser-return))",
+        "meter-electricity": "hsl(var(--meter-electricity))",
+        "meter-water": "hsl(var(--meter-water))",
       },
       borderRadius: {
         "2xl": "calc(var(--radius) + 8px)",
