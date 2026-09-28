@@ -1,3 +1,4 @@
+import { isGridoneError } from "@gridone/sdk";
 import { type FC, type ReactNode, useMemo } from "react";
 import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
@@ -56,6 +57,12 @@ const TransportsList: FC = () => {
   const transportsLoading =
     transportsListQuery.isLoading ||
     (!transportsListQuery.isFetched && transportsListQuery.isFetching);
+
+  if (
+    isGridoneError(transportsListQuery.error) &&
+    transportsListQuery.error.status === 403
+  )
+    throw transportsListQuery.error;
 
   if (transportsLoading || devicesLoading) {
     return (

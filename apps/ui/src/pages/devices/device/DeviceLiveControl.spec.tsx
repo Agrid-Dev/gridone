@@ -177,6 +177,7 @@ function device(revision?: string): Device {
     attributes: {
       power: {
         name: "power",
+        group: "sensors",
         data_type: "bool",
         current_value: true,
         read_write_modes: ["read", "write"],
@@ -324,6 +325,52 @@ describe("DeviceLiveControl presentation integration", () => {
       screen.getByRole("button", { name: "Supervision" }),
     ).toBeInTheDocument();
   });
+  it("hides scoped-out controls with the real runtime and updates when access changes", async () => {
+    state.client.devices.getPresentation.mockResolvedValue(
+      available({
+        bindings: {
+          power: { attribute: "power" },
+          target: { attribute: "setpoint" },
+        },
+        controls: {
+          ...document.controls,
+          target: {
+            kind: "number",
+            binding: "target",
+            label: { default: "Target" },
+          },
+        },
+        page: {
+          kind: "section",
+          title: { default: "Settings" },
+          children: [{ kind: "control-panel", controls: ["power", "target"] }],
+        },
+      }),
+    );
+    const { rerender } = setup();
+    expect(await screen.findByRole("switch", { name: "Power" })).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "Increase Target" }),
+    ).toBeEnabled();
+    state.device = {
+      ...state.device,
+      attributes: { setpoint: state.device.attributes!.setpoint },
+    };
+    rerender();
+    expect(
+      screen.queryByRole("switch", { name: "Power" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Increase Target" }),
+    ).toBeEnabled();
+    expect(screen.queryByText("Unavailable")).not.toBeInTheDocument();
+    state.device = { ...state.device, attributes: {} };
+    rerender();
+    expect(screen.queryByText("Settings")).not.toBeInTheDocument();
+    expect(screen.queryByText("Unavailable")).not.toBeInTheDocument();
+    expect(state.client.devices.sendCommand).not.toHaveBeenCalled();
+  });
+
   it("keeps writable driver attributes read-only for viewers", async () => {
     state.canWrite = false;
     setup();

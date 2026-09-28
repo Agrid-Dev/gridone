@@ -190,14 +190,11 @@
     "faults": {
       "activeSince": "Active for {{ago}}",
       "ok": "OK"
-    },
-    "view": {
-      "label": "View",
-      "table": "Table",
-      "grid": "Cards"
     }
   },
   "errors": {
+    "forbidden": "Access denied",
+    "forbiddenDescription": "You do not have permission to access this page.",
     "notFound": "Not found",
     "loadError": "An error occurred loading this resource.",
     "default": "Error"

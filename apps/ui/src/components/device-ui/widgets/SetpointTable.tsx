@@ -189,15 +189,22 @@ function SetpointTableRow({
       </td>
       {hasRegulated && (
         <td className="py-2 pr-4">
-          <Value
-            text={cell(row.regulated?.binding)}
-            unavailable={unavailable}
-          />
+          {row.regulated && (
+            <Value
+              text={cell(row.regulated.binding)}
+              unavailable={unavailable}
+            />
+          )}
         </td>
       )}
       {hasMeasured && (
         <td className="py-2 pr-4">
-          <Value text={cell(row.measured?.binding)} unavailable={unavailable} />
+          {row.measured && (
+            <Value
+              text={cell(row.measured.binding)}
+              unavailable={unavailable}
+            />
+          )}
         </td>
       )}
       {hasDeviation && (

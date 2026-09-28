@@ -190,14 +190,11 @@
     "faults": {
       "activeSince": "Actif depuis {{ago}}",
       "ok": "OK"
-    },
-    "view": {
-      "label": "Affichage",
-      "table": "Tableau",
-      "grid": "Cartes"
     }
   },
   "errors": {
+    "forbidden": "Accès refusé",
+    "forbiddenDescription": "Vous n’avez pas les droits nécessaires pour accéder à cette page.",
     "notFound": "Cette ressource n'existe pas",
     "loadError": "Une erreur s'est produite lors du chargement de cette ressource.",
     "default": "Une erreur s'est produite"

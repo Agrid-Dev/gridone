@@ -15,6 +15,7 @@ import { createI18nMock } from "@/test/i18nMock";
 
 vi.mock("react-i18next", () =>
   createI18nMock({
+    "errors.forbidden": "Access denied",
     "errors.notFound": "Not found",
     "errors.default": "Something went wrong",
     "common.back": "Back",
@@ -59,6 +60,14 @@ describe("ResourceBoundary", () => {
   it("maps a GridoneError(404) to the not-found fallback", () => {
     renderWithBoundary(<Throw error={new GridoneError(404, "Not Found")} />);
     expect(screen.getByText("Not found")).toBeInTheDocument();
+  });
+
+  it("maps a GridoneError(403) to access denied without showing server details", () => {
+    renderWithBoundary(
+      <Throw error={new GridoneError(403, "Internal detail")} />,
+    );
+    expect(screen.getByText("Access denied")).toBeInTheDocument();
+    expect(screen.queryByText(/Internal detail/)).not.toBeInTheDocument();
   });
 
   it("maps a non-404 GridoneError to the generic error fallback", () => {

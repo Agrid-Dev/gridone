@@ -15,11 +15,14 @@ import {
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, Outlet, RouterProvider } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { AssetTreeNode } from "@/lib/assets";
 import { type Device } from "@gridone/sdk";
 import NewCommandPage from "./NewCommandPage";
 
 const mocks = vi.hoisted(() => ({
   devices: [] as Device[],
+  canReadAssets: true,
+  getTreeWithDevices: vi.fn(),
   assetsError: null as Error | null,
   listAttributes: vi.fn(),
   create: vi.fn(),
@@ -28,9 +31,13 @@ const mocks = vi.hoisted(() => ({
   preview: vi.fn(),
   confirm: vi.fn(),
 }));
-vi.mock("@/contexts/AuthContext", () => ({ usePermissions: () => () => true }));
+vi.mock("@/contexts/AuthContext", () => ({
+  usePermissions: () => (permission: string) =>
+    permission !== "assets:read" || mocks.canReadAssets,
+}));
 vi.mock("@/contexts/GridoneClientContext", () => ({
   useGridoneClient: () => ({
+    assets: { getTreeWithDevices: mocks.getTreeWithDevices },
     devices: {
       listAttributes: mocks.listAttributes,
       listCommands: mocks.listCommands,
@@ -43,28 +50,17 @@ vi.mock("@/contexts/GridoneClientContext", () => ({
 vi.mock("@/hooks/useDevicesList", () => ({
   useDevicesList: () => ({ devices: mocks.devices, loading: false }),
 }));
-vi.mock("@/hooks/useAssetTree", () => ({
-  useAssetTree: () => ({
-    assetsList: [
-      { id: "building", name: "Building", type: "building" },
-      { id: "room", name: "Room", type: "room" },
-      { id: "empty-room", name: "Empty room", type: "room" },
+const assetTree: AssetTreeNode[] = [
+  {
+    id: "building",
+    name: "Building",
+    type: "building",
+    children: [
+      { id: "room", name: "Room", type: "room", children: [] },
+      { id: "empty-room", name: "Empty room", type: "room", children: [] },
     ],
-    assetTree: [
-      {
-        id: "building",
-        name: "Building",
-        type: "building",
-        children: [
-          { id: "room", name: "Room", type: "room", children: [] },
-          { id: "empty-room", name: "Empty room", type: "room", children: [] },
-        ],
-      },
-    ],
-    isLoading: false,
-    error: mocks.assetsError,
-  }),
-}));
+  },
+];
 vi.mock("@/components/forms/targetPicker/AttributeCoverageSelect", () => ({
   AttributeCoverageSelect: ({
     id,
@@ -193,7 +189,10 @@ function NavigationFrame() {
     </main>
   );
 }
-function mount(url: string | string[] = "/devices/commands/new") {
+function mount(
+  url: string | string[] = "/devices/commands/new",
+  cachedAssets = mocks.canReadAssets && !mocks.assetsError,
+) {
   const entries = Array.isArray(url) ? url : [url];
   const router = createMemoryRouter(
     [
@@ -224,6 +223,8 @@ function mount(url: string | string[] = "/devices/commands/new") {
       mutations: { retry: false },
     },
   });
+  if (cachedAssets)
+    queryClient.setQueryData(["assets", "tree-with-devices"], assetTree);
   render(
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
@@ -243,6 +244,11 @@ beforeEach(() => {
   vi.spyOn(window, "scrollTo").mockImplementation(() => {});
   vi.clearAllMocks();
   mocks.assetsError = null;
+  mocks.canReadAssets = true;
+  mocks.getTreeWithDevices.mockImplementation(async () => {
+    if (mocks.assetsError) throw mocks.assetsError;
+    return assetTree;
+  });
   mocks.devices = [device("1"), device("2")];
   mocks.listAttributes.mockResolvedValue({
     total_devices: 2,
@@ -289,6 +295,89 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+});
+
+describe("commands without assets:read", () => {
+  beforeEach(() => {
+    mocks.canReadAssets = false;
+    mocks.getTreeWithDevices.mockRejectedValue(new Error("Forbidden"));
+  });
+
+  it.each([
+    ["/devices/commands/new?ids=1,2", ["1", "2"]],
+    ["/devices/1/commands/new", ["1"]],
+    ["/devices/1/commands/new?scope=room", ["1"]],
+  ])("dispatches an explicit device selection from %s", async (path, ids) => {
+    mount(
+      `${path}${path.includes("?") ? "&" : "?"}attribute=setpoint&value=23`,
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Dispatch now" }),
+      ).toBeEnabled(),
+    );
+    expect(screen.queryByLabelText("Scope")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Dispatch now" }));
+    await confirmReview();
+    expect(mocks.preview).toHaveBeenCalledWith(
+      expect.objectContaining({
+        target: { ids },
+        attribute: "setpoint",
+        value: 23,
+      }),
+    );
+    expect(mocks.confirm).toHaveBeenCalledWith({
+      token: "token",
+      device_ids: ids,
+    });
+    expect(mocks.getTreeWithDevices).not.toHaveBeenCalled();
+  });
+
+  it("supports a live type filter without an asset filter", async () => {
+    mount(
+      "/devices/commands/new?mode=filters&types=thermostat&attribute=setpoint&value=23",
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Dispatch now" }),
+      ).toBeEnabled(),
+    );
+    expect(screen.queryByLabelText("Scope")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Dispatch now" }));
+    await confirmReview();
+    expect(mocks.preview).toHaveBeenCalledWith(
+      expect.objectContaining({
+        target: { ids: ["1", "2"], types: ["thermostat"] },
+      }),
+    );
+    expect(mocks.getTreeWithDevices).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "/assets/building/commands/new?attribute=setpoint&value=23",
+    "/devices/commands/new?scope=building&mode=filters&attribute=setpoint&value=23",
+    "/devices/commands/new?scope=building&ids=1,2&attribute=setpoint&value=23",
+  ])(
+    "does not broaden an inaccessible asset target in %s, even with cached assets",
+    async (path) => {
+      mount(path, true);
+      expect(
+        screen.getByRole("button", { name: "Dispatch now" }),
+      ).toBeDisabled();
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "commands.grouped.scopeMissing",
+      );
+      expect(screen.queryByLabelText("Scope")).not.toBeInTheDocument();
+      expect(screen.queryByText("Building")).not.toBeInTheDocument();
+      await userEvent.click(
+        screen.getByRole("button", { name: "Dispatch now" }),
+      );
+      expect(mocks.getTreeWithDevices).not.toHaveBeenCalled();
+      expect(mocks.listAttributes).not.toHaveBeenCalled();
+      expect(mocks.preview).not.toHaveBeenCalled();
+      expect(mocks.confirm).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe("grouped command page", () => {
@@ -698,6 +787,7 @@ describe("grouped command page", () => {
     expect(
       screen.queryByRole("button", { name: "Dispatch now" }),
     ).not.toBeInTheDocument();
+    expect(await screen.findByText("common:errors.default")).toBeVisible();
     expect(mocks.listAttributes).not.toHaveBeenCalled();
   });
 

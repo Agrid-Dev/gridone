@@ -23,6 +23,7 @@ export default function AssetsList() {
 
   const { data: tree = [], isLoading } = useQuery<AssetTreeNode[]>({
     queryKey: ["assets", "tree-with-devices"],
+    throwOnError: true,
     queryFn: () =>
       client.assets.getTreeWithDevices() as Promise<AssetTreeNode[]>,
   });

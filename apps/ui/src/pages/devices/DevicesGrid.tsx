@@ -9,8 +9,7 @@ type DevicesGridProps = {
 };
 
 /** The fleet grid: one section per type bucket, each a heading followed by a
- *  {@link DeviceFleetCard} per device. Same buckets and order as
- *  {@link DevicesTable} — only the density differs. */
+ *  {@link DeviceFleetCard} per device. */
 export function DevicesGrid({ groups, zonePathOf }: DevicesGridProps) {
   return (
     <div className="space-y-8">

@@ -65,6 +65,8 @@ export function useDriversPage(): DriversPage {
     driversListQuery.isLoading ||
     (!driversListQuery.isFetched && driversListQuery.isFetching);
 
+  if (driversListQuery.error) throw driversListQuery.error;
+
   return {
     drivers,
     typeCounts,

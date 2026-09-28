@@ -9,6 +9,8 @@ import {
   type AssetTreeNode,
 } from "@/lib/assets";
 
+const EMPTY_TREE: AssetTreeNode[] = [];
+
 /** Single source of truth for the asset tree + its derived shapes. Wraps
  *  the ``getTreeWithDevices`` query (with its canonical query key) and
  *  the two flatten helpers so callers can reach for the shape they need
@@ -18,7 +20,7 @@ import {
  *  (for asset selectors), the id-keyed map (for asset-name lookups in
  *  presenters), and the device-keyed map (for labelling a device with the
  *  asset it sits in). All four views share the same query cache. */
-export function useAssetTree(): {
+export function useAssetTree({ enabled = true }: { enabled?: boolean } = {}): {
   assetTree: AssetTreeNode[];
   assetsList: Asset[];
   assetsById: Record<string, Asset>;
@@ -27,15 +29,15 @@ export function useAssetTree(): {
   error: Error | null;
 } {
   const client = useGridoneClient();
-  const {
-    data: assetTree = [],
-    isLoading,
-    error,
-  } = useQuery<AssetTreeNode[]>({
+  const { data, isLoading, error } = useQuery<AssetTreeNode[]>({
     queryKey: ["assets", "tree-with-devices"],
+    enabled,
     queryFn: () =>
       client.assets.getTreeWithDevices() as Promise<AssetTreeNode[]>,
   });
+
+  // Disabled queries can still hold cached data from a previously allowed view.
+  const assetTree = enabled ? (data ?? EMPTY_TREE) : EMPTY_TREE;
 
   const assetsList = useMemo(() => flattenAssetTree(assetTree), [assetTree]);
   const assetsById = useMemo(
@@ -52,7 +54,7 @@ export function useAssetTree(): {
     assetsList,
     assetsById,
     assetByDeviceId,
-    isLoading,
-    error,
+    isLoading: enabled && isLoading,
+    error: enabled ? error : null,
   };
 }

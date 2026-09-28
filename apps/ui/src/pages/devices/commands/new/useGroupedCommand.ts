@@ -22,6 +22,7 @@ type Args = {
   devices: Device[];
   assetTree: AssetTreeNode[];
   assetsList: Asset[];
+  canReadAssets: boolean;
   deviceId?: string;
   assetId?: string;
   loading: boolean;
@@ -54,6 +55,7 @@ export function useGroupedCommand({
   devices,
   assetTree,
   assetsList,
+  canReadAssets,
   deviceId,
   assetId,
   loading,
@@ -61,6 +63,7 @@ export function useGroupedCommand({
   const url = useCommandUrlState({
     devices,
     assetsList,
+    canReadAssets,
     deviceId,
     assetId,
     loading,

@@ -63,10 +63,10 @@ vi.mock("./BuildingSwitcher", () => ({
 
 import { Sidebar } from "./Sidebar";
 
-function renderSidebar() {
+function renderSidebar(mobile = false) {
   return render(
     <MemoryRouter initialEntries={["/devices"]}>
-      <Sidebar />
+      <Sidebar mobile={mobile} />
     </MemoryRouter>,
   );
 }
@@ -99,6 +99,81 @@ describe("Sidebar", () => {
       screen.queryByRole("link", { name: "Users" }),
     ).not.toBeInTheDocument();
   });
+
+  it.each([false, true])(
+    "hides Automations without read permission (mobile: %s)",
+    (mobile) => {
+      permissions.can = (permission) => permission !== "automations:read";
+      renderSidebar(mobile);
+      expect(
+        screen.queryByRole("link", { name: "Automations" }),
+      ).not.toBeInTheDocument();
+    },
+  );
+
+  it("keeps Automations visible to a read-only user", () => {
+    permissions.can = (permission) => permission === "automations:read";
+    renderSidebar();
+    expect(screen.getByRole("link", { name: "Automations" })).toHaveAttribute(
+      "href",
+      "/automations",
+    );
+  });
+
+  it.each([false, true])(
+    "hides Zones without assets:read (mobile: %s)",
+    (mobile) => {
+      permissions.can = (permission) => permission !== "assets:read";
+      renderSidebar(mobile);
+      expect(
+        screen.queryByRole("link", { name: "Zones" }),
+      ).not.toBeInTheDocument();
+    },
+  );
+
+  it("keeps Zones visible to an asset reader", () => {
+    permissions.can = (permission) => permission === "assets:read";
+    renderSidebar();
+    expect(screen.getByRole("link", { name: "Zones" })).toHaveAttribute(
+      "href",
+      "/assets",
+    );
+  });
+
+  it.each([false, true])(
+    "hides unavailable configuration links and the empty heading (mobile: %s)",
+    (mobile) => {
+      permissions.can = (permission) =>
+        ["devices:read", "drivers:write", "transports:write"].includes(
+          permission,
+        );
+      renderSidebar(mobile);
+      for (const name of ["Drivers", "Networks", "Apps", "Users"])
+        expect(screen.queryByRole("link", { name })).not.toBeInTheDocument();
+      expect(screen.queryByText("Configuration")).not.toBeInTheDocument();
+    },
+  );
+
+  it.each([
+    ["drivers:read", "Drivers", "/drivers"],
+    ["transports:read", "Networks", "/transports"],
+    ["users:read", "Users", "/users"],
+    ["users:write", "Apps", "/apps"],
+  ])(
+    "keeps Configuration when only %s is granted",
+    (permission, name, href) => {
+      permissions.can = (value) => value === permission;
+      renderSidebar();
+      expect(screen.getByText("Configuration")).toBeInTheDocument();
+      expect(screen.getByRole("link", { name })).toHaveAttribute("href", href);
+      for (const other of ["Drivers", "Networks", "Apps", "Users"].filter(
+        (value) => value !== name,
+      ))
+        expect(
+          screen.queryByRole("link", { name: other }),
+        ).not.toBeInTheDocument();
+    },
+  );
 
   it("puts Apps first under Configuration, above Drivers", () => {
     renderSidebar();

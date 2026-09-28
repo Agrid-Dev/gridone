@@ -92,6 +92,7 @@ const attributes: Record<string, AttributeLike> = {
   },
   onoff_state: {
     name: "onoff_state",
+    group: "diagnostic",
     data_type: "bool",
     read_write_modes: ["read", "write"],
     current_value: true,
@@ -580,9 +581,11 @@ describe("DevicePresentation", () => {
         rows.forEach((tableRow, index) => {
           const cells = within(tableRow).getAllByRole("cell");
           expect(cells).toHaveLength(4);
-          expect(cells[1]).toHaveTextContent(
-            index === 0 || value === null ? "Unavailable" : "17.0 °C",
-          );
+          if (index === 0) expect(cells[1]).toBeEmptyDOMElement();
+          else
+            expect(cells[1]).toHaveTextContent(
+              value === null ? "Unavailable" : "17.0 °C",
+            );
           expect(cells[2]).toHaveTextContent("21.4 °C");
           expect(cells[3]).toHaveTextContent("+0.4 °C");
         });
@@ -770,7 +773,7 @@ const variants: PresentationV1 = {
         content: {
           kind: "section",
           title: { default: "Off layout" },
-          children: [],
+          children: [{ kind: "control-panel", controls: ["power"] }],
         },
       },
       {
@@ -778,7 +781,7 @@ const variants: PresentationV1 = {
         content: {
           kind: "section",
           title: { default: "On layout" },
-          children: [],
+          children: [{ kind: "control-panel", controls: ["power"] }],
         },
       },
     ],
@@ -877,8 +880,357 @@ it("converts raw measurements and pending face values while controls stay canoni
       ],
     },
   };
-  renderPresentation(runtime, { document: converted });
+  renderPresentation(runtime, {
+    document: converted,
+    subject: {
+      ...device,
+      attributes: {
+        ...attributes,
+        unit: {
+          name: "unit",
+          data_type: "string",
+          read_write_modes: ["read"],
+          current_value: "F",
+        },
+      },
+    },
+  });
   expect(screen.getByText("68 °F")).toBeInTheDocument();
   expect(screen.getByRole("img", { name: "68.9" })).toBeInTheDocument();
   expect(screen.getByText("20.5 °C")).toBeInTheDocument();
+});
+
+describe("presentation attribute access", () => {
+  it.each([
+    ["number", "target", "temperature_setpoint"],
+    ["slider", "target", "temperature_setpoint"],
+    ["toggle", "power", "onoff_state"],
+    ["select", "fan", "fan_speed"],
+  ] as const)(
+    "hides an inaccessible %s control and its empty section",
+    (kind, id, name) => {
+      const { runtime } = fakeRuntime();
+      const projected = { ...attributes };
+      delete projected[name];
+      const restricted: PresentationV1 = {
+        ...document,
+        controls: {
+          ...document.controls,
+          [id]: { ...document.controls[id], kind },
+        },
+        page: {
+          kind: "section",
+          title: { default: "Restricted settings" },
+          show_count: true,
+          children: [{ kind: "control-panel", controls: [id] }],
+        },
+      };
+      const { container } = renderPresentation(runtime, {
+        document: restricted,
+        subject: { id: device.id, attributes: projected },
+      });
+      // The runtime still has old values; the projected subject wins.
+      expect(container.querySelector("[data-control]")).toBeNull();
+      expect(screen.queryByText("Restricted settings")).not.toBeInTheDocument();
+      expect(screen.queryByText("Unavailable")).not.toBeInTheDocument();
+    },
+  );
+
+  it("keeps readable unknown measurements and read-only controls, while pruning restricted columns and nested sections", () => {
+    const { runtime } = fakeRuntime({
+      target: { writable: false, canIncrement: false, canDecrement: false },
+    });
+    const page: PresentationV1 = {
+      ...document,
+      page: {
+        kind: "section",
+        title: { default: "Settings" },
+        show_count: true,
+        children: [
+          {
+            kind: "columns",
+            items: [
+              {
+                weight: 2,
+                content: {
+                  kind: "section",
+                  title: { default: "Visible" },
+                  children: [
+                    { kind: "control-panel", controls: ["target", "power"] },
+                    {
+                      kind: "measurements",
+                      items: [{ binding: "humidity" }, { binding: "power" }],
+                    },
+                  ],
+                },
+              },
+              {
+                weight: 1,
+                content: {
+                  kind: "section",
+                  title: { default: "Private" },
+                  children: [
+                    {
+                      kind: "stack",
+                      children: [
+                        {
+                          kind: "measurements",
+                          items: [{ binding: "regulated" }],
+                        },
+                      ],
+                    },
+                    { kind: "attributes", group: "diagnostic" },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+      },
+    };
+    const { container } = renderPresentation(runtime, {
+      document: page,
+      subject: {
+        id: device.id,
+        attributes: {
+          temperature_setpoint: attributes.temperature_setpoint,
+          humidity: attributes.humidity,
+        },
+      },
+    });
+    expect(screen.getByText("2 items")).toBeInTheDocument();
+    expect(screen.getByText("Unavailable")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Increase Setpoint" }),
+    ).toBeDisabled();
+    expect(screen.queryByText("Power")).not.toBeInTheDocument();
+    expect(screen.queryByText("Private")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("attributes of diagnostic"),
+    ).not.toBeInTheDocument();
+    expect(container.querySelector('[data-node="columns"]')).toHaveStyle({
+      "--columns": "minmax(0, 2fr)",
+    });
+  });
+
+  it("prunes inaccessible setpoint rows, optional readings and deviations without removing readable values", () => {
+    const { runtime } = fakeRuntime();
+    renderPresentation(runtime, {
+      subject: {
+        id: device.id,
+        attributes: {
+          temperature_setpoint: attributes.temperature_setpoint,
+          temperature: attributes.temperature,
+        },
+      },
+      document: {
+        ...document,
+        page: {
+          kind: "section",
+          title: { default: "Setpoints" },
+          show_count: true,
+          children: [
+            {
+              kind: "setpoint-table",
+              rows: [
+                {
+                  label: { default: "Allowed target" },
+                  demanded: { control: "target" },
+                  regulated: { binding: "regulated" },
+                  measured: { binding: "measured" },
+                  deviation: {
+                    minuend: "regulated",
+                    subtrahend: "target",
+                    tolerance: 0.5,
+                  },
+                },
+                {
+                  label: { default: "Private target" },
+                  demanded: { control: "power" },
+                },
+                {
+                  label: { default: "Private reading" },
+                  demanded: { binding: "regulated" },
+                },
+              ],
+            },
+          ],
+        },
+      },
+    });
+    expect(screen.getAllByRole("row")).toHaveLength(2);
+    expect(screen.getByText("2 items")).toBeInTheDocument();
+    expect(screen.getByText("21.4 °C")).toBeInTheDocument();
+    expect(screen.queryByText("Private target")).not.toBeInTheDocument();
+    expect(screen.queryByText("Private reading")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("columnheader", { name: /Regulated|Deviation/ }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Unavailable")).not.toBeInTheDocument();
+  });
+
+  it("removes a section when all its setpoint rows are inaccessible", () => {
+    const { runtime } = fakeRuntime();
+    renderPresentation(runtime, {
+      subject: { id: device.id, attributes: {} },
+      document: {
+        ...document,
+        page: {
+          kind: "section",
+          title: { default: "Private table" },
+          children: [
+            {
+              kind: "setpoint-table",
+              rows: [
+                {
+                  label: { default: "Target" },
+                  demanded: { control: "target" },
+                },
+              ],
+            },
+          ],
+        },
+      },
+    });
+    expect(screen.queryByText("Private table")).not.toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
+
+  it("counts only visible controls and the selected variant", () => {
+    const { runtime } = fakeRuntime({ power: { visible: false } });
+    renderPresentation(runtime, {
+      document: {
+        ...document,
+        page: {
+          kind: "section",
+          title: { default: "Settings" },
+          show_count: true,
+          children: [
+            { kind: "control-panel", controls: ["power", "target"] },
+            {
+              kind: "variant",
+              variants: [
+                {
+                  when: { op: "eq", binding: "power", value: true },
+                  content: {
+                    kind: "measurements",
+                    items: [{ binding: "measured" }],
+                  },
+                },
+                {
+                  when: { op: "eq", binding: "power", value: false },
+                  content: {
+                    kind: "measurements",
+                    items: [{ binding: "humidity" }],
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      },
+    });
+    expect(screen.getByText("2 items")).toBeInTheDocument();
+    expect(screen.queryByText("Power")).not.toBeInTheDocument();
+    expect(screen.queryByText("sensor not connected")).not.toBeInTheDocument();
+  });
+
+  it("does not select a later variant when the first matching variant is inaccessible", () => {
+    const { runtime } = fakeRuntime();
+    renderPresentation(runtime, {
+      subject: {
+        id: device.id,
+        attributes: { onoff_state: attributes.onoff_state },
+      },
+      document: {
+        ...document,
+        page: {
+          kind: "variant",
+          variants: [
+            {
+              when: { op: "eq", binding: "power", value: true },
+              content: { kind: "control-panel", controls: ["target"] },
+            },
+            {
+              when: { op: "eq", binding: "power", value: true },
+              content: { kind: "control-panel", controls: ["power"] },
+            },
+          ],
+        },
+      },
+    });
+    expect(screen.queryByRole("switch")).not.toBeInTheDocument();
+    expect(screen.queryByText("Unavailable")).not.toBeInTheDocument();
+  });
+
+  it("prunes sections hidden by conditions instead of leaving empty parent headings", () => {
+    const { runtime } = fakeRuntime();
+    renderPresentation(runtime, {
+      document: {
+        ...document,
+        page: {
+          kind: "section",
+          title: { default: "Hidden settings" },
+          children: [
+            {
+              kind: "control-panel",
+              controls: ["target"],
+              visible_when: { op: "eq", binding: "power", value: false },
+            },
+          ],
+        },
+      },
+    });
+    expect(screen.queryByText("Hidden settings")).not.toBeInTheDocument();
+  });
+
+  it("updates access on the same device without mutating the document or transferring a sibling's collapsed state", async () => {
+    const { runtime } = fakeRuntime();
+    const original: PresentationV1 = {
+      ...document,
+      page: {
+        kind: "stack",
+        children: [
+          {
+            kind: "section",
+            title: { default: "Private" },
+            collapsible: true,
+            children: [{ kind: "control-panel", controls: ["power"] }],
+          },
+          {
+            kind: "section",
+            title: { default: "Allowed" },
+            collapsible: true,
+            children: [{ kind: "control-panel", controls: ["target"] }],
+          },
+        ],
+      },
+    };
+    const before = JSON.stringify(original);
+    const { rerender } = renderPresentation(runtime, { document: original });
+    const allowed = screen.getByText("Allowed").closest("details")!;
+    await userEvent.click(screen.getByText("Allowed"));
+    expect(allowed).not.toHaveAttribute("open");
+    const renderProjected = (projected: Record<string, AttributeLike>) =>
+      rerender(
+        <TooltipProvider>
+          <DevicePresentation
+            document={original}
+            subject={{ id: device.id, attributes: projected }}
+            runtime={runtime}
+            assetUrl={() => undefined}
+            glyphSet={() => undefined}
+            fallback={null}
+          />
+        </TooltipProvider>,
+      );
+    renderProjected({ temperature_setpoint: attributes.temperature_setpoint });
+    expect(screen.queryByText("Private")).not.toBeInTheDocument();
+    expect(screen.getByText("Allowed").closest("details")).toBe(allowed);
+    expect(allowed).not.toHaveAttribute("open");
+    renderProjected(attributes);
+    expect(screen.getByText("Private")).toBeInTheDocument();
+    expect(allowed).not.toHaveAttribute("open");
+    expect(JSON.stringify(original)).toBe(before);
+  });
 });

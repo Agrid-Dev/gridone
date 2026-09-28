@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
   GridoneError,
+  isGridoneError,
   normalizeError,
   type ValidationErrorItem,
   type Transport,
@@ -95,6 +96,7 @@ export const useTransportConfigSchemas = () => {
     queryFn: async () =>
       (await client.transports.getSchemas()) as TransportSchemas,
     staleTime: 60000,
+    throwOnError: (error) => isGridoneError(error) && error.status === 403,
   });
   return {
     isLoading: query.isLoading,
