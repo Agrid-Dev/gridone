@@ -227,6 +227,7 @@
     "truncatedWarning": "Données tronquées pour {{attributes}}, réduisez la période",
     "noAttributesSelected": "Sélectionnez des attributs à tracer",
     "noMetricData": "Aucune donnée sur la période",
+    "movePanel": "Déplacer {{panel}}",
     "export": "Exporter",
     "today": "aujourd'hui",
     "yesterday": "hier"

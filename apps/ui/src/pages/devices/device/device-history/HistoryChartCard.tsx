@@ -35,6 +35,8 @@ export function HistoryChartCard() {
     attributes,
     chartRows,
     truncatedAttributes,
+    panelOrder,
+    setPanelOrder,
   } = useDeviceHistoryContext();
   const labelFor = useAttributeLabel();
   const booleanLabel = useValueLabel();
@@ -161,6 +163,9 @@ export function HistoryChartCard() {
           stringSeries={stringSeries}
           stringValues={stringValues}
           lineHeight={unitPanels > 1 ? STACKED_LINE_HEIGHT : undefined}
+          panelOrder={panelOrder}
+          onPanelOrderChange={setPanelOrder}
+          dragHandleLabel={(panel) => t("history.movePanel", { panel })}
         />
       )}
     </div>

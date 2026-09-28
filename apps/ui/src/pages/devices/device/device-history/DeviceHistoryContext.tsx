@@ -22,6 +22,7 @@ import {
   mergeTimeSeries,
   type MergedRow,
 } from "@/lib/mergeTimeSeries";
+import { readStoredPanelOrder, writeStoredPanelOrder } from "./panelOrder";
 import {
   SELECTION_PARAM,
   canonicalSelection,
@@ -80,6 +81,10 @@ type DeviceHistoryContextValue = {
   tableRows: MergedRow[];
   /** Selected attributes whose points the API cut short over the window. */
   truncatedAttributes: string[];
+  /** The order the viewer arranged the chart's panels in, by panel key;
+   *  remembered per device. */
+  panelOrder: string[];
+  setPanelOrder: (keys: string[]) => void;
   commandsMap: Map<number, UnitCommand>;
   usersMap: Map<string, User>;
   isLoading: boolean;
@@ -324,6 +329,17 @@ export function DeviceHistoryProvider({
   const { commandsMap } = useCommandsByIds(commandIds);
   const { usersMap } = useUsers();
 
+  const [panelOrder, setPanelOrderState] = useState<string[]>(
+    () => readStoredPanelOrder(deviceId) ?? [],
+  );
+  const setPanelOrder = useCallback(
+    (keys: string[]) => {
+      setPanelOrderState(keys);
+      writeStoredPanelOrder(deviceId, keys);
+    },
+    [deviceId],
+  );
+
   const [isDownloading, setIsDownloading] = useState(false);
 
   const handleDownload = useCallback(
@@ -381,6 +397,8 @@ export function DeviceHistoryProvider({
       chartRows,
       tableRows,
       truncatedAttributes: truncatedMetrics,
+      panelOrder,
+      setPanelOrder,
       commandsMap,
       usersMap,
       isLoading,
@@ -403,6 +421,8 @@ export function DeviceHistoryProvider({
       chartRows,
       tableRows,
       truncatedMetrics,
+      panelOrder,
+      setPanelOrder,
       commandsMap,
       usersMap,
       isLoading,

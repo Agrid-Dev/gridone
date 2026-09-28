@@ -48,6 +48,17 @@ export type TimeSeriesChartProps = {
    *  the buckets they report. Bars only make sense for aggregated series;
    *  the caller decides, this only draws it. Defaults to lines. */
   numericMark?: "line" | "bar";
+  /** The order to stack the panels in, by panel key (`float:<unit>` for a
+   *  unit's line panel, the series key for a boolean or string band). Keys
+   *  the chart has no panel for are ignored; panels the order does not
+   *  name follow in their default order. */
+  panelOrder?: string[];
+  /** Offered when set: every panel gets a drag handle and a drop reports
+   *  the full new order. */
+  onPanelOrderChange?: (panelKeys: string[]) => void;
+  /** Wording of a panel's drag handle, given the panel's label. Defaults
+   *  to the label itself. */
+  dragHandleLabel?: (panelLabel: string) => string;
   /** Height of each float line panel */
   lineHeight?: number;
   /** Height of each boolean / string categorical panel */

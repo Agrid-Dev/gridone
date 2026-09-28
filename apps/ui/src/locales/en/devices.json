@@ -227,6 +227,7 @@
     "truncatedWarning": "Data truncated for {{attributes}}, narrow the period",
     "noAttributesSelected": "Select attributes to chart",
     "noMetricData": "No data for this period",
+    "movePanel": "Move {{panel}}",
     "export": "Export",
     "today": "today",
     "yesterday": "yesterday"

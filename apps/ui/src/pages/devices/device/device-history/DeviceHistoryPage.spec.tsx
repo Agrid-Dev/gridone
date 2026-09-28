@@ -1,6 +1,7 @@
 import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -17,6 +18,21 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 
 // Mock react-spring before any visx imports — prevents jsdom crashes
 vi.mock("@react-spring/web", () => import("@/test/react-spring-mock"));
+
+/** The chart's drag-and-drop context, kept real, with its drop handler in reach. */
+const dnd = vi.hoisted(() => ({
+  onDragEnd: undefined as ((e: unknown) => void) | undefined,
+}));
+vi.mock("@dnd-kit/core", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@dnd-kit/core")>();
+  return {
+    ...actual,
+    DndContext: (props: React.ComponentProps<typeof actual.DndContext>) => {
+      dnd.onDragEnd = props.onDragEnd as typeof dnd.onDragEnd;
+      return <actual.DndContext {...props} />;
+    },
+  };
+});
 
 // jsdom lays nothing out, so the chart's own measurement yields a width of 0
 // and it renders nothing; give it a width so the panels exist.
@@ -78,6 +94,7 @@ vi.mock("react-i18next", () =>
       "Données tronquées pour {{attributes}}, réduisez la période",
     "history.noAttributesSelected": "Sélectionnez des attributs à tracer",
     "history.noMetricData": "Aucune donnée sur la période",
+    "history.movePanel": "Déplacer {{panel}}",
     "history.export": "Exporter",
     "devices:history.today": "aujourd'hui",
     "devices:history.yesterday": "hier",
@@ -303,7 +320,7 @@ function selector() {
 function hoverChart(container: HTMLElement): Element {
   const wrapper = container
     .querySelector('svg[aria-label="XYChart"]')!
-    .closest<HTMLElement>('div[style*="position: relative"]')!;
+    .closest<HTMLElement>('div[style*="width"][style*="position: relative"]')!;
   wrapper.getBoundingClientRect = () =>
     ({ left: 0, top: 0, width: 800, height: 600 }) as DOMRect;
   fireEvent.pointerMove(wrapper, { clientX: 400, clientY: 100 });
@@ -585,6 +602,51 @@ describe("DeviceHistoryPage chart", () => {
     expect(tooltip.textContent).toContain("Marche technique");
     expect(tooltip.textContent).toContain("Chauffage");
     expect(tooltip.textContent).not.toMatch(/true|heat/);
+  });
+
+  it("keeps the panels in the order the viewer arranged them, across visits", async () => {
+    deviceOf(
+      [
+        { name: "temperature", dataType: "float" },
+        { name: "mode", dataType: "str" },
+      ],
+      null,
+    );
+    const t1 = anHourAgo();
+    servePoints({
+      temperature: [{ timestamp: t1, value: 20.5 }],
+      mode: [{ timestamp: t1, value: "heat" }],
+    });
+    const chartLegendsInOrder = () =>
+      screen
+        .getAllByRole("button", { name: /^Déplacer/ })
+        .map((handle) => handle.getAttribute("aria-label"));
+
+    const first = renderPage();
+    await waitFor(() =>
+      expect(chartLegendsInOrder()).toEqual([
+        "Déplacer Température",
+        "Déplacer Mode",
+      ]),
+    );
+    act(() =>
+      dnd.onDragEnd!({ active: { id: "mode" }, over: { id: "float:°" } }),
+    );
+    await waitFor(() =>
+      expect(chartLegendsInOrder()).toEqual([
+        "Déplacer Mode",
+        "Déplacer Température",
+      ]),
+    );
+    first.unmount();
+
+    renderPage();
+    await waitFor(() =>
+      expect(chartLegendsInOrder()).toEqual([
+        "Déplacer Mode",
+        "Déplacer Température",
+      ]),
+    );
   });
 
   it("says when nothing is selected", async () => {

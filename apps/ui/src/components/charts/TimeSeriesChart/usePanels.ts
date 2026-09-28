@@ -14,9 +14,27 @@ type UsePanelsArgs = {
   stringSeries: Series[];
   stringValues: Record<string, (string | null)[]>;
   numericMark?: "line" | "bar";
+  panelOrder?: string[];
   lineHeight?: number;
   categoricalHeight?: number;
 };
+
+/** `panels` in the order `order` names them, the unnamed ones following in
+ *  their given order; a key without a panel is skipped. */
+export function orderPanels(
+  panels: PanelEntry[],
+  order: readonly string[] | undefined,
+): PanelEntry[] {
+  if (!order || order.length === 0) return panels;
+  const byKey = new Map(panels.map((p) => [p.key, p]));
+  const named = order.flatMap((key) => {
+    const panel = byKey.get(key);
+    if (!panel) return [];
+    byKey.delete(key);
+    return [panel];
+  });
+  return [...named, ...panels.filter((p) => byKey.has(p.key))];
+}
 
 /** Builds the ordered flat list of PanelEntry descriptors from chart props. */
 export function usePanels({
@@ -29,6 +47,7 @@ export function usePanels({
   stringSeries,
   stringValues,
   numericMark = "line",
+  panelOrder,
   lineHeight = DEFAULT_LINE_HEIGHT,
   categoricalHeight = DEFAULT_CATEGORICAL_HEIGHT,
 }: UsePanelsArgs): PanelEntry[] {
@@ -96,7 +115,7 @@ export function usePanels({
       });
     }
 
-    return panels;
+    return orderPanels(panels, panelOrder);
   }, [
     lineSeries,
     lineValues,
@@ -107,6 +126,8 @@ export function usePanels({
     stringSeries,
     stringValues,
     numericMark,
+    // Depended on by contents: a caller may hand a fresh array each render.
+    panelOrder?.join("\u0000"),
     lineHeight,
     categoricalHeight,
   ]);
