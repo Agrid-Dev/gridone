@@ -2,14 +2,10 @@ import { useMemo, type ReactNode } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { useTranslation } from "react-i18next";
 import { useAttributeLabel } from "@/hooks/useAttributeLabel";
-import {
-  judgeWith,
-  type Condition,
-  type ConditionJudge,
-  type Scalar,
-} from "./conditions";
+import { judgeWith, type ConditionJudge, type Scalar } from "./conditions";
 import type { PageNode, PresentationV1 } from "./document";
 import { bindCondition } from "./presentationControls";
+import { visiblePage } from "./visiblePage";
 import { displayValue } from "./displayValue";
 import { DeviceFace, type LoadedGlyphSet } from "./face";
 import { cn } from "@/lib/utils";
@@ -114,12 +110,15 @@ export function DevicePresentation({
     }
     const canonical = (binding: string): Scalar | null => {
       const name = attributeName(binding);
-      return name ? runtime.reported(name) : null;
+      return name && attributes[name] ? runtime.reported(name) : null;
     };
     const reported = (binding: string) =>
       displayValue(binding, document, canonical(binding), canonical);
     const judge =
-      subject.judge ?? judgeWith((name: string) => runtime.reported(name));
+      subject.judge ??
+      judgeWith((name: string) =>
+        attributes[name] ? runtime.reported(name) : null,
+      );
     return {
       document,
       subject,
@@ -139,7 +138,8 @@ export function DevicePresentation({
       reported,
       displayed: (binding) => {
         const name = attributeName(binding);
-        const control = name ? controlByAttribute.get(name) : undefined;
+        if (!name || !attributes[name]) return null;
+        const control = controlByAttribute.get(name);
         if (control) {
           return displayValue(
             binding,
@@ -174,50 +174,64 @@ export function DevicePresentation({
       resetKeys={[document, subject.id]}
     >
       <div key={subject.id} data-testid="device-presentation">
-        <PageNodeView node={document.page} context={context} />
+        <PresentationPage context={context} />
       </div>
     </ErrorBoundary>
   );
 }
 
+function PresentationPage({ context }: { context: PageContext }) {
+  const { page, paths } = visiblePage(context.document.page, {
+    hasBinding: (binding) => context.attributeOf(binding) !== null,
+    hasControl: (id) => {
+      const control = context.document.controls[id];
+      if (!control || !context.attributeOf(control.binding)) return false;
+      const state = context.runtime.readControl(id);
+      return !!state && state.visible !== false;
+    },
+    hasAttributes: (group) =>
+      !!context.renderAttributes &&
+      Object.values(context.subject.attributes ?? {}).some(
+        (attribute) =>
+          !!attribute &&
+          (!group || (attribute as AttributeLike).group === group),
+      ),
+    holds: (condition) =>
+      !condition ||
+      context.judge(bindCondition(condition, context.attributeName), "true"),
+  });
+  return page ? (
+    <PageNodeView
+      key={paths.get(page)}
+      node={page}
+      context={context}
+      paths={paths}
+    />
+  ) : null;
+}
+
 function PageNodeView({
   node,
   context,
-  path = "/page",
+  paths,
 }: {
-  path?: string;
   node: PageNode;
   context: PageContext;
+  paths: Map<PageNode, string>;
 }) {
-  const holds = (
-    condition: Condition | undefined,
-    expected: "true" | "false",
-  ) =>
-    !condition ||
-    context.judge(bindCondition(condition, context.attributeName), expected);
-  if (!holds(node.visible_when, "true")) return null;
   switch (node.kind) {
-    case "variant": {
-      const index = node.variants.findIndex((variant) =>
-        holds(variant.when, "true"),
-      );
-      return index < 0 ? null : (
-        <PageNodeView
-          node={node.variants[index].content}
-          context={context}
-          path={`${path}/variants/${index}/content`}
-        />
-      );
-    }
+    // Variants are resolved before rendering and counting sections.
+    case "variant":
+      return null;
     case "stack":
       return (
         <div className="space-y-6" data-node="stack">
-          {node.children.map((child, index) => (
+          {node.children.map((child) => (
             <PageNodeView
-              key={index}
+              key={paths.get(child)}
               node={child}
               context={context}
-              path={`${path}/children/${index}`}
+              paths={paths}
             />
           ))}
         </div>
@@ -233,8 +247,8 @@ function PageNodeView({
           }}
           data-node="columns"
         >
-          {node.items.map((item, index) => (
-            <div key={index} className="min-w-0">
+          {node.items.map((item) => (
+            <div key={paths.get(item.content)} className="min-w-0">
               <div
                 data-sticky={item.sticky || undefined}
                 className={cn(
@@ -245,7 +259,7 @@ function PageNodeView({
                 <PageNodeView
                   node={item.content}
                   context={context}
-                  path={`${path}/items/${index}/content`}
+                  paths={paths}
                 />
               </div>
             </div>
@@ -256,12 +270,12 @@ function PageNodeView({
       return (
         <PresentationSection node={node} language={context.language}>
           <div className="space-y-6">
-            {node.children.map((child, index) => (
+            {node.children.map((child) => (
               <PageNodeView
-                key={index}
+                key={paths.get(child)}
                 node={child}
                 context={context}
-                path={`${path}/children/${index}`}
+                paths={paths}
               />
             ))}
           </div>
@@ -322,6 +336,8 @@ function PageNodeView({
           glyphSet={context.glyphSet}
           onAction={context.runtime.activate}
           canActivate={(action) => {
+            const control = context.document.controls[action.control];
+            if (!control || !context.attributeOf(control.binding)) return false;
             const state = context.runtime.readControl(action.control);
             if (!state?.writable) return false;
             switch (action.op) {
