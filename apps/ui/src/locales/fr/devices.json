@@ -218,40 +218,21 @@
     "wind_speed": "Vitesse du vent"
   },
   "history": {
-    "metricsLabel": "Métriques",
-    "more": "Plus…",
+    "chart": "Graphique",
+    "table": "Tableau",
     "range24h": "24 h",
     "range7d": "7 j",
     "range30d": "30 j",
     "rangeCustom": "Personnalisé",
-    "chartTitle24h": "{{metric}} — dernières 24 h",
-    "chartTitle7d": "{{metric}} — 7 derniers jours",
-    "chartTitle30d": "{{metric}} — 30 derniers jours",
-    "chartTitleRange": "{{metric}} — {{range}}",
-    "truncatedWarning": "Données tronquées, réduisez la période",
-    "averagedNotice": "Moyenné par {{interval}}",
-    "statesTitle": "États",
-    "otherValues": "Autres",
+    "chartTitle24h": "Dernières 24 h",
+    "chartTitle7d": "7 derniers jours",
+    "chartTitle30d": "30 derniers jours",
+    "truncatedWarning": "Données tronquées pour {{attributes}}, réduisez la période",
+    "noAttributesSelected": "Sélectionnez des attributs à tracer",
     "noMetricData": "Aucune donnée sur la période",
     "export": "Exporter",
-    "refresh": {
-      "now": "Rafraîchir maintenant",
-      "auto": "Rafraîchissement automatique",
-      "off": "Auto désactivé",
-      "10s": "10 s",
-      "1m": "1 min",
-      "5m": "5 min"
-    },
-    "events": {
-      "event": "Événement",
-      "value": "Valeur",
-      "source": "Source",
-      "reading": "Relevé — {{metric}}",
-      "change": "Changement — {{metric}}",
-      "gateway": "Passerelle",
-      "today": "aujourd'hui",
-      "yesterday": "hier"
-    }
+    "today": "aujourd'hui",
+    "yesterday": "hier"
   },
   "commands": {
     "title": "Commandes",

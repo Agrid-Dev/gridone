@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { Outlet } from "react-router";
 import { History } from "lucide-react";
 import {
   Empty,
@@ -19,37 +20,27 @@ import {
   DeviceHistoryProvider,
   useDeviceHistoryContext,
 } from "./DeviceHistoryContext";
+import { AttributeSelector } from "./AttributeSelector";
 import { ExportMenu } from "./ExportMenu";
-import { HistoryChartCard } from "./HistoryChartCard";
 import { HistoryRangeControl } from "./HistoryRangeControl";
-import { RefreshControl } from "./RefreshControl";
-import { MetricPillBar } from "./MetricPillBar";
-import HistoryEventsTable from "./HistoryEventsTable";
+import { ViewToggle } from "./ViewToggle";
 
+/**
+ * The device history layout: one attribute selection and one period feeding
+ * two views — the chart and the table — switched by the routed toggle and
+ * rendered through the outlet.
+ */
 export default function DeviceHistoryPage() {
   const device = useDeviceFromRoute();
   const standardTypes = useStandardTypes();
 
-  const attributeNames = useMemo(
-    () => Object.keys(device.attributes ?? {}),
+  const attributes = useMemo(
+    () => deviceAttributes(device) as Record<string, AttributeFields>,
     [device],
   );
 
-  // What each boolean's driver calls its two states, for the events table and
-  // the state timelines.
-  const valueLabels = useMemo(
-    () =>
-      Object.fromEntries(
-        Object.entries(deviceAttributes(device)).map(([name, attribute]) => [
-          name,
-          (attribute as AttributeFields).value_labels,
-        ]),
-      ),
-    [device],
-  );
-
-  // The device's standard-schema attributes drive the pill and timeline
-  // defaults (see DeviceHistoryContext).
+  // The device's standard-schema attributes are the first-visit selection
+  // (see DeviceHistoryContext).
   const standardNames = useMemo(
     () => standardAttributeNames(device, standardTypes),
     [device, standardTypes],
@@ -61,8 +52,7 @@ export default function DeviceHistoryPage() {
     <DeviceHistoryProvider
       deviceId={device.id}
       deviceName={device.name || device.id}
-      attributeNames={attributeNames}
-      valueLabels={valueLabels}
+      attributes={attributes}
       standardAttributeNames={standardNames}
       deviceType={typeKey === OTHER_KEY ? undefined : typeKey}
     >
@@ -107,15 +97,14 @@ function HistoryContent() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <MetricPillBar />
-        <div className="flex items-center gap-3">
+        <ViewToggle />
+        <div className="flex flex-wrap items-center gap-3">
+          <AttributeSelector />
           <HistoryRangeControl />
-          <RefreshControl />
           <ExportMenu />
         </div>
       </div>
-      <HistoryChartCard />
-      <HistoryEventsTable />
+      <Outlet />
     </div>
   );
 }
@@ -124,11 +113,10 @@ function HistorySkeleton() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <Skeleton className="h-9 w-72" />
-        <Skeleton className="h-9 w-56" />
+        <Skeleton className="h-9 w-48" />
+        <Skeleton className="h-9 w-80" />
       </div>
       <Skeleton className="h-72 w-full rounded-lg" />
-      <Skeleton className="h-64 w-full rounded-lg" />
     </div>
   );
 }

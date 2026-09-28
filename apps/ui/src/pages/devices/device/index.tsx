@@ -2,8 +2,7 @@ import { Routes, Route } from "react-router";
 import { FC, Suspense, lazy } from "react";
 import DeviceLayout from "./DeviceLayout";
 import DeviceLiveControl from "./DeviceLiveControl";
-import DeviceHistoryPage from "./device-history/DeviceHistoryPage";
-import { RedirectToHistory } from "./device-history/RedirectToHistory";
+import { deviceHistoryRoutes } from "./device-history/routes";
 import DeviceCreate from "./DeviceCreate";
 import DeviceEdit from "./DeviceEdit";
 import DeviceConfigView from "./DeviceConfigView";
@@ -18,9 +17,7 @@ const Device: FC = () => (
     <Route path="new" element={<DeviceCreate />} />
     <Route path=":deviceId" element={<DeviceLayout />}>
       <Route index element={<DeviceLiveControl />} />
-      <Route path="history" element={<DeviceHistoryPage />} />
-      <Route path="history/chart" element={<RedirectToHistory />} />
-      <Route path="history/table" element={<RedirectToHistory />} />
+      {deviceHistoryRoutes}
       <Route path="commands" element={<DeviceCommandsPage />} />
       <Route
         path="commands/new"

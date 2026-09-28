@@ -2,6 +2,7 @@ import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   cleanup,
+  fireEvent,
   render,
   screen,
   waitFor,
@@ -14,30 +15,43 @@ import { createI18nMock } from "@/test/i18nMock";
 import type { DataPoint, Device, TimeSeries, UnitCommand } from "@gridone/sdk";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
+// Mock react-spring before any visx imports — prevents jsdom crashes
+vi.mock("@react-spring/web", () => import("@/test/react-spring-mock"));
+
+// jsdom lays nothing out, so the chart's own measurement yields a width of 0
+// and it renders nothing; give it a width so the panels exist.
+vi.mock("@visx/responsive", () => ({
+  ParentSize: ({
+    children,
+  }: {
+    children: (size: { width: number; height: number }) => React.ReactNode;
+  }) => <>{children({ width: 800, height: 400 })}</>,
+}));
+
 const {
   mockListSeries,
   mockGetSeriesPoints,
   mockGetStandardTypes,
-  mockAggregate,
   mockExportCsv,
+  mockExportPng,
   mockToastError,
 } = vi.hoisted(() => ({
   mockListSeries: vi.fn(),
   mockGetSeriesPoints: vi.fn(),
   mockGetStandardTypes: vi.fn(),
-  mockAggregate: vi.fn(),
   mockExportCsv: vi.fn(),
+  mockExportPng: vi.fn(),
   mockToastError: vi.fn(),
 }));
 
+// No `aggregate` on purpose: the page never averages anything on its own.
 vi.mock("@/contexts/GridoneClientContext", () => ({
   useGridoneClient: () => ({
     timeseries: {
       list: (...args: unknown[]) => mockListSeries(...args),
       getPoints: (...args: unknown[]) => mockGetSeriesPoints(...args),
-      aggregate: (...args: unknown[]) => mockAggregate(...args),
       exportCsv: (...args: unknown[]) => mockExportCsv(...args),
-      exportPng: vi.fn(),
+      exportPng: (...args: unknown[]) => mockExportPng(...args),
     },
     devices: {
       getStandardTypes: (...args: unknown[]) => mockGetStandardTypes(...args),
@@ -52,44 +66,44 @@ vi.mock("sonner", () => ({
 vi.mock("react-i18next", () =>
   createI18nMock({
     "attributes.temperature": "Température",
+    "attributes.humidity": "Humidité",
     "attributes.mode": "Mode",
-    "history.metricsLabel": "Métriques",
-    "history.more": "Plus…",
+    "history.chart": "Graphique",
+    "history.table": "Tableau",
     "history.range24h": "24 h",
     "history.range7d": "7 j",
     "history.range30d": "30 j",
     "history.rangeCustom": "Personnalisé",
-    "history.chartTitle24h": "{{metric}} — dernières 24 h",
-    "history.chartTitleRange": "{{metric}} — {{range}}",
-    "history.truncatedWarning": "Données tronquées, réduisez la période",
-    "history.averagedNotice": "Moyenné par {{interval}}",
-    "history.statesTitle": "États",
+    "history.chartTitle24h": "Dernières 24 h",
+    "history.truncatedWarning":
+      "Données tronquées pour {{attributes}}, réduisez la période",
+    "history.noAttributesSelected": "Sélectionnez des attributs à tracer",
     "history.noMetricData": "Aucune donnée sur la période",
     "history.export": "Exporter",
+    "devices:history.today": "aujourd'hui",
+    "devices:history.yesterday": "hier",
     "deviceDetails.downloadCsv": "Télécharger en CSV",
     "deviceDetails.downloadPng": "Télécharger en PNG",
     "deviceDetails.downloadCsvError": "Échec de l'export CSV",
-    "devices:history.events.event": "Événement",
-    "devices:history.events.value": "Valeur",
-    "devices:history.events.source": "Source",
-    "devices:history.events.reading": "Relevé — {{metric}}",
-    "devices:history.events.change": "Changement — {{metric}}",
-    "devices:history.events.gateway": "Passerelle",
-    "devices:history.events.today": "aujourd'hui",
-    "devices:history.events.yesterday": "hier",
+    "deviceDetails.downloadPngError": "Échec de l'export PNG",
+    "deviceDetails.noHistoryDescription": "No time-series recorded yet.",
+    "commands.status": "Statut",
+    "common:common.columns": "Attributs",
+    "common:common.searchAttributes": "Rechercher un attribut…",
+    "common:common.selectAll": "Tout sélectionner",
+    "common:common.unselectAll": "Tout désélectionner",
+    "common:common.selectAllDisabledHint": "Trop d'attributs",
     "common:common.timestamp": "Horodatage",
-    "common:common.searchAttributes": "Search attributes…",
     "common:common.noResults": "No results",
     "common:common.noData": "No data",
     "common:common.rowsRange": "{{from}}–{{to}} / {{total}}",
     "common.hvacMode.heat": "Chauffage",
+    "common.hvacMode.cool": "Refroidissement",
     "common.true": "Vrai",
     "common.false": "Faux",
     "common.hvacMode.on": "Marche",
     "common.hvacMode.off": "Arrêt",
-    "common.noData": "No data",
     "timeRange.rangeLastHours": "{{count}} dernières heures",
-    "deviceDetails.noHistoryDescription": "No time-series recorded yet.",
   }),
 );
 
@@ -124,17 +138,27 @@ vi.mock("@/hooks/useUsers", () => ({
   useUsers: () => ({ usersMap: mockUsers.current }),
 }));
 
-import DeviceHistoryPage from "./DeviceHistoryPage";
+import { deviceHistoryRoutes } from "./routes";
 import { exportFilename } from "./DeviceHistoryContext";
-import { RedirectToHistory } from "./RedirectToHistory";
 
 function attrName(i: number) {
   return `attr_${String(i + 1).padStart(2, "0")}`;
 }
 
+type Entry = {
+  name: string;
+  dataType: string;
+  valueLabels?: unknown;
+  unit?: string;
+};
+
+/** A device exposing `entries`, each with a recorded series. `hiddenSeries`
+ *  are recorded too but absent from the device the user sees — what an
+ *  attribute the user's role hides looks like. */
 function deviceOf(
-  entries: { name: string; dataType: string; valueLabels?: unknown }[],
+  entries: Entry[],
   type: string | null,
+  { hiddenSeries = [] as string[] } = {},
 ) {
   mockDevice.current = {
     id: "d1",
@@ -145,7 +169,7 @@ function deviceOf(
     transport_id: "tr",
     config: {},
     attributes: Object.fromEntries(
-      entries.map(({ name, dataType, valueLabels }) => [
+      entries.map(({ name, dataType, valueLabels, unit }) => [
         name,
         {
           kind: "standard",
@@ -156,13 +180,17 @@ function deviceOf(
           last_updated: null,
           last_changed: null,
           value_labels: valueLabels,
+          unit,
         },
       ]),
     ),
     is_faulty: false,
   } satisfies Device;
 
-  const series: TimeSeries[] = entries.map(({ name, dataType }) => ({
+  const series: TimeSeries[] = [
+    ...entries.map(({ name, dataType }) => ({ name, dataType })),
+    ...hiddenSeries.map((name) => ({ name, dataType: "float" })),
+  ].map(({ name, dataType }) => ({
     id: `s-${name}`,
     data_type: dataType as TimeSeries["data_type"],
     owner_id: "d1",
@@ -215,6 +243,9 @@ function servePoints(
   );
 }
 
+const anHourAgo = () => new Date(Date.now() - 3600_000).toISOString();
+const tenMinutesAgo = () => new Date(Date.now() - 600_000).toISOString();
+
 function LocationProbe() {
   const location = useLocation();
   return (
@@ -232,20 +263,9 @@ function renderPage(initialEntry = "/devices/d1/history") {
         <MemoryRouter initialEntries={[initialEntry]}>
           <React.Suspense fallback={null}>
             <Routes>
-              <Route
-                path="/devices/:deviceId/history"
-                element={
-                  <>
-                    <DeviceHistoryPage />
-                    <LocationProbe />
-                  </>
-                }
-              />
-              <Route
-                path="/devices/:deviceId/history/:view"
-                element={<RedirectToHistory />}
-              />
+              <Route path="/devices/:deviceId">{deviceHistoryRoutes}</Route>
             </Routes>
+            <LocationProbe />
           </React.Suspense>
         </MemoryRouter>
       </TooltipProvider>
@@ -257,6 +277,26 @@ function fetchedMetrics() {
   return mockGetSeriesPoints.mock.calls.map((c) => c[1] as string);
 }
 
+/** The attribute selector's list. */
+function selector() {
+  return within(screen.getByRole("listbox"));
+}
+
+/** Hover the middle of the chart; returns the unified tooltip. */
+function hoverChart(container: HTMLElement): Element {
+  const wrapper = container
+    .querySelector('svg[aria-label="XYChart"]')!
+    .closest<HTMLElement>('div[style*="position: relative"]')!;
+  wrapper.getBoundingClientRect = () =>
+    ({ left: 0, top: 0, width: 800, height: 600 }) as DOMRect;
+  fireEvent.pointerMove(wrapper, { clientX: 400, clientY: 100 });
+  return wrapper.querySelector(".bg-popover")!;
+}
+
+function valueAxes(container: HTMLElement) {
+  return container.querySelectorAll("g.visx-axis-value");
+}
+
 beforeEach(() => {
   try {
     localStorage.clear();
@@ -265,17 +305,11 @@ beforeEach(() => {
     // every access, so specs must not die on cleanup either.
   }
   window.HTMLElement.prototype.scrollIntoView = vi.fn();
+  window.URL.createObjectURL ??= vi.fn(() => "blob:history");
+  window.URL.revokeObjectURL ??= vi.fn();
   servePoints({});
-  // Unusable stand-in ("whole" collapses the window): tests exercising the
-  // averaged fallback override this with a real bucketed result.
-  mockAggregate.mockResolvedValue({
-    interval: "whole",
-    agg: "tw_avg",
-    data_type: "float",
-    timezone: "UTC",
-    points: [],
-    truncated: false,
-  });
+  mockExportCsv.mockResolvedValue("timestamp,value\r\n");
+  mockExportPng.mockResolvedValue(new Blob());
   mockCommands.current = new Map();
   mockUsers.current = new Map();
   mockGetStandardTypes.mockResolvedValue([
@@ -296,236 +330,292 @@ afterEach(() => {
   mockListSeries.mockReset();
   mockGetSeriesPoints.mockReset();
   mockGetStandardTypes.mockReset();
-  mockAggregate.mockReset();
+  mockExportCsv.mockReset();
+  mockExportPng.mockReset();
+  mockToastError.mockReset();
 });
 
-describe("DeviceHistoryPage metric pills", () => {
-  it("defaults to the first standard numeric attribute and fetches it with the state series", async () => {
+describe("DeviceHistoryPage selection", () => {
+  it("selects the device's standard attributes on first visit and fetches only them", async () => {
     setupThermostat();
     renderPage();
 
-    const pill = await screen.findByRole("button", { name: "Température" });
-    expect(pill).toHaveAttribute("aria-pressed", "true");
-
-    await waitFor(() => expect(mockGetSeriesPoints).toHaveBeenCalledTimes(4));
+    await screen.findByText("5 / 15");
+    await waitFor(() => expect(mockGetSeriesPoints).toHaveBeenCalledTimes(5));
     expect([...fetchedMetrics()].sort()).toEqual([
       "fan_speed",
       "mode",
       "onoff_state",
       "temperature",
+      "temperature_setpoint",
     ]);
+    // The default selection leaves the URL bare.
+    expect(screen.getByTestId("location")).not.toHaveTextContent("attrs=");
   });
 
-  it("switching pills fetches only the missing series", async () => {
-    setupThermostat();
-    renderPage();
-    await screen.findByRole("button", { name: "Température" });
-    await waitFor(() => expect(mockGetSeriesPoints).toHaveBeenCalledTimes(4));
-    mockGetSeriesPoints.mockClear();
-
-    const user = userEvent.setup();
-    await user.click(
-      screen.getByRole("button", { name: "Temperature Setpoint" }),
-    );
-
-    await waitFor(() => expect(mockGetSeriesPoints).toHaveBeenCalledTimes(1));
-    expect(fetchedMetrics()).toEqual(["temperature_setpoint"]);
-    expect(screen.getByTestId("location")).toHaveTextContent(
-      "metric=temperature_setpoint",
-    );
-  });
-
-  it("promotes a metric picked in the More… list to a temporary active pill", async () => {
-    setupThermostat();
-    renderPage();
-    await screen.findByRole("button", { name: "Température" });
-
-    const user = userEvent.setup();
-    await user.click(screen.getByText("Filler 3"));
-
-    const pill = await screen.findByRole("button", { name: "Filler 3" });
-    expect(pill).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByTestId("location")).toHaveTextContent("metric=filler_3");
-    await waitFor(() => expect(fetchedMetrics()).toContain("filler_3"));
-  });
-
-  it("falls back to the default when ?metric= is unknown", async () => {
-    setupThermostat();
-    renderPage("/devices/d1/history?metric=bogus");
-
-    const pill = await screen.findByRole("button", { name: "Température" });
-    expect(pill).toHaveAttribute("aria-pressed", "true");
-    await waitFor(() => expect(fetchedMetrics()).toContain("temperature"));
-    expect(fetchedMetrics()).not.toContain("bogus");
-  });
-
-  it("hides the pills and keeps the state timelines on a state-only device", async () => {
-    deviceOf([{ name: "mode", dataType: "str" }], null);
-    servePoints({
-      mode: [
-        {
-          timestamp: new Date(Date.now() - 3600_000).toISOString(),
-          value: "heat",
-        },
-        {
-          timestamp: new Date(Date.now() - 600_000).toISOString(),
-          value: "auto",
-        },
-      ],
-    });
-    renderPage();
-
-    await screen.findByText("Chauffage");
-    expect(
-      screen.queryByRole("group", { name: "Métriques" }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("falls back to the first numeric attributes on an untyped device", async () => {
+  it("falls back to the first recorded attributes on an untyped device", async () => {
     setupDevice(12);
     renderPage();
 
-    const pill = await screen.findByRole("button", { name: "Attr 01" });
-    expect(pill).toHaveAttribute("aria-pressed", "true");
-    await waitFor(() => expect(mockGetSeriesPoints).toHaveBeenCalledTimes(1));
-    expect(fetchedMetrics()).toEqual([attrName(0)]);
+    await screen.findByText("8 / 12");
+    await waitFor(() => expect(mockGetSeriesPoints).toHaveBeenCalledTimes(8));
+    expect(fetchedMetrics()).toEqual(
+      Array.from({ length: 8 }, (_, i) => attrName(i)),
+    );
   });
-});
 
-describe("DeviceHistoryPage range control", () => {
-  it("writes ?last and resets the page param when a segment is picked", async () => {
+  it("adds an attribute without dropping the others, fetching only the new one", async () => {
     setupThermostat();
-    renderPage("/devices/d1/history?page=3");
-    await screen.findByRole("button", { name: "Température" });
+    renderPage();
+    await screen.findByText("5 / 15");
+    await waitFor(() => expect(mockGetSeriesPoints).toHaveBeenCalledTimes(5));
+    mockGetSeriesPoints.mockClear();
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: "7 j" }));
+    await user.click(selector().getByText("Filler 3"));
 
-    const location = screen.getByTestId("location");
-    expect(location).toHaveTextContent("last=7d");
-    expect(location).not.toHaveTextContent("page=");
+    await screen.findByText("6 / 15");
+    await waitFor(() => expect(mockGetSeriesPoints).toHaveBeenCalledTimes(1));
+    expect(fetchedMetrics()).toEqual(["filler_3"]);
+    // The URL carries the whole selection, in device order.
+    expect(screen.getByTestId("location")).toHaveTextContent(
+      "attrs=filler_3%2Ctemperature%2Ctemperature_setpoint%2Conoff_state%2Cmode%2Cfan_speed",
+    );
   });
 
-  it("lights the custom segment for an off-ladder preset", async () => {
+  it("removes only the attribute deselected", async () => {
     setupThermostat();
-    renderPage("/devices/d1/history?last=3h");
+    renderPage();
+    await screen.findByText("5 / 15");
+    await waitFor(() => expect(mockGetSeriesPoints).toHaveBeenCalledTimes(5));
+    mockGetSeriesPoints.mockClear();
 
-    const custom = await screen.findByRole("button", {
-      name: "3 dernières heures",
+    const user = userEvent.setup();
+    await user.click(selector().getByText("Température"));
+
+    await screen.findByText("4 / 15");
+    expect(screen.getByTestId("location")).toHaveTextContent(
+      "attrs=temperature_setpoint%2Conoff_state%2Cmode%2Cfan_speed",
+    );
+    expect(mockGetSeriesPoints).not.toHaveBeenCalled();
+  });
+
+  it("reproduces the selection a link carries", async () => {
+    setupThermostat();
+    renderPage("/devices/d1/history/chart?attrs=filler_1,mode");
+
+    await screen.findByText("2 / 15");
+    await waitFor(() => expect(mockGetSeriesPoints).toHaveBeenCalledTimes(2));
+    expect(fetchedMetrics()).toEqual(["filler_1", "mode"]);
+  });
+
+  it("drops names the device does not expose, hidden by a role or unknown", async () => {
+    setupThermostat();
+    deviceOf([...THERMOSTAT_STANDARD], "thermostat", {
+      hiddenSeries: ["secret"],
     });
-    expect(custom).toHaveAttribute("aria-pressed", "true");
+    renderPage("/devices/d1/history/chart?attrs=secret,bogus,temperature");
+
+    await screen.findByText("1 / 5");
+    await waitFor(() => expect(fetchedMetrics()).toEqual(["temperature"]));
+    expect(selector().queryByText("Secret")).toBeNull();
+    expect(selector().queryByText("Bogus")).toBeNull();
+    expect(selector().getAllByRole("option")).toHaveLength(5);
+  });
+
+  it("offers every recorded attribute, text and booleans included", async () => {
+    setupThermostat();
+    renderPage();
+    await screen.findByText("5 / 15");
+
+    const options = selector()
+      .getAllByRole("option")
+      .map((option) => option.textContent);
+    expect(options).toHaveLength(15);
+    expect(options).toEqual(
+      expect.arrayContaining(["Onoff State", "Mode", "Fan Speed"]),
+    );
+  });
+
+  it("disables select-all past the threshold but keeps every attribute selectable", async () => {
+    setupDevice(25);
+    renderPage();
+    await screen.findByText("8 / 25");
+
+    expect(
+      screen.getByRole("button", { name: "Tout sélectionner" }),
+    ).toBeDisabled();
+    expect(screen.getByText("Trop d'attributs")).toBeInTheDocument();
+    expect(selector().getAllByRole("option")).toHaveLength(25);
+
+    const user = userEvent.setup();
+    await user.click(selector().getByText("Attr 25"));
+    await screen.findByText("9 / 25");
+  });
+
+  it("filters the attribute list with the search input", async () => {
+    setupDevice(12);
+    renderPage();
+    await screen.findByText("8 / 12");
+
+    const user = userEvent.setup();
+    await user.type(
+      screen.getByPlaceholderText("Rechercher un attribut…"),
+      "06",
+    );
+
+    expect(selector().getByText("Attr 06")).toBeInTheDocument();
+    expect(selector().queryByText("Attr 01")).toBeNull();
+  });
+
+  it("remembers the selection for the next visit", async () => {
+    setupThermostat();
+    const first = renderPage();
+    await screen.findByText("5 / 15");
+    const user = userEvent.setup();
+    await user.click(selector().getByText("Filler 3"));
+    await screen.findByText("6 / 15");
+    first.unmount();
+
+    renderPage();
+    await screen.findByText("6 / 15");
+    expect(screen.getByTestId("location")).toHaveTextContent(
+      "attrs=filler_3%2C",
+    );
   });
 });
 
-describe("DeviceHistoryPage truncation", () => {
-  it("shows a warning when the API truncated a series", async () => {
+describe("DeviceHistoryPage views", () => {
+  it("opens on the chart and keeps the query when switching to the table", async () => {
     setupThermostat();
-    servePoints({}, { truncated: true });
-    renderPage();
+    renderPage("/devices/d1/history?last=7d");
 
-    await screen.findByText("Données tronquées, réduisez la période");
-  });
-
-  it("charts auto-bucketed averages when the metric is truncated", async () => {
-    setupDevice(1);
-    const t1 = new Date(Date.now() - 3600_000).toISOString();
-    servePoints(
-      { [attrName(0)]: [{ timestamp: t1, value: 21 }] },
-      { truncated: true },
-    );
-    mockAggregate.mockResolvedValue({
-      interval: "1h",
-      agg: "tw_avg",
-      data_type: "float",
-      timezone: "UTC",
-      truncated: false,
-      points: [{ interval_start: t1, value: 21.4, count: 360 }],
-    });
-    renderPage();
-
-    await screen.findByText("Moyenné par 1h");
-    // The averaged stand-in absorbs the truncation: no warning left.
-    expect(
-      screen.queryByText("Données tronquées, réduisez la période"),
-    ).not.toBeInTheDocument();
     await waitFor(() =>
-      expect(mockAggregate).toHaveBeenCalledWith(
-        "d1",
-        attrName(0),
-        expect.objectContaining({ agg: "tw_avg", interval: "auto" }),
+      expect(screen.getByTestId("location")).toHaveTextContent(
+        "/devices/d1/history/chart?last=7d",
       ),
     );
-  });
-
-  it("keeps raw points and requests no aggregate when nothing truncates", async () => {
-    setupDevice(1);
-    const t1 = new Date(Date.now() - 3600_000).toISOString();
-    servePoints({ [attrName(0)]: [{ timestamp: t1, value: 21 }] });
-    renderPage();
-
-    await screen.findByRole("button", { name: "Attr 01" });
-    await waitFor(() => expect(fetchedMetrics()).toContain(attrName(0)));
-    expect(mockAggregate).not.toHaveBeenCalled();
-    expect(screen.queryByText(/Moyenné par/)).not.toBeInTheDocument();
-  });
-});
-
-describe("DeviceHistoryPage export", () => {
-  it("names files after the device and window", () => {
-    expect(exportFilename("Ch. Étage 2", { last: "1d" })).toBe(
-      "ch-etage-2-history-1d",
-    );
-    expect(
-      exportFilename("Chiller 0", {
-        start: "2026-08-01T00:00:00Z",
-        end: "2026-08-11T00:00:00Z",
-      }),
-    ).toBe("chiller-0-history-2026-08-01_2026-08-11");
-    expect(exportFilename("†††", {})).toBe("device-history-all");
-  });
-
-  it("toasts when the CSV export fails", async () => {
-    setupThermostat();
-    mockExportCsv.mockRejectedValue(new Error("boom"));
-    renderPage();
-    await screen.findByRole("button", { name: "Température" });
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: "Exporter" }));
-    await user.click(
-      await screen.findByRole("menuitem", { name: "Télécharger en CSV" }),
+    await user.click(await screen.findByRole("link", { name: "Tableau" }));
+    expect(screen.getByTestId("location")).toHaveTextContent(
+      "/devices/d1/history/table?last=7d",
     );
-
-    await waitFor(() =>
-      expect(mockToastError).toHaveBeenCalledWith("Échec de l'export CSV"),
-    );
+    expect(await screen.findByRole("table")).toBeInTheDocument();
   });
 });
 
-describe("DeviceHistoryPage events table", () => {
-  it("stamps events with seconds so same-minute rows stay distinct", async () => {
+describe("DeviceHistoryPage chart", () => {
+  it("charts every selected numeric attribute at once, one panel per unit", async () => {
+    deviceOf(
+      [
+        { name: "temperature", dataType: "float" },
+        { name: "humidity", dataType: "float" },
+      ],
+      null,
+    );
+    const t1 = anHourAgo();
+    servePoints({
+      temperature: [{ timestamp: t1, value: 20.5 }],
+      humidity: [{ timestamp: t1, value: 45 }],
+    });
+    const { container } = renderPage();
+
+    await waitFor(() => expect(valueAxes(container)).toHaveLength(2));
+    const tooltip = hoverChart(container);
+    expect(tooltip.textContent).toContain("Température 20.50 °");
+    expect(tooltip.textContent).toContain("Humidité 45.00 %");
+  });
+
+  it("labels the axis with the unit the driver declares", async () => {
+    deviceOf([{ name: "pressure", dataType: "float", unit: "bar" }], null);
+    servePoints({ pressure: [{ timestamp: anHourAgo(), value: 1.5 }] });
+    const { container } = renderPage();
+
+    await waitFor(() => expect(valueAxes(container)).toHaveLength(1));
+    const ticks = Array.from(valueAxes(container)[0].querySelectorAll("text"));
+    expect(ticks.length).toBeGreaterThan(0);
+    expect(ticks.every((tick) => tick.textContent?.endsWith("bar"))).toBe(true);
+  });
+
+  it("reads numeric, boolean and text states at the same instant, worded from the driver", async () => {
+    deviceOf(
+      [
+        { name: "temperature", dataType: "float" },
+        {
+          name: "onoff_state",
+          dataType: "bool",
+          valueLabels: [
+            { value: false, label: { default: "Arrêt technique" } },
+            { value: true, label: { default: "Marche technique" } },
+          ],
+        },
+        { name: "mode", dataType: "str" },
+      ],
+      null,
+    );
+    const t1 = anHourAgo();
+    servePoints({
+      temperature: [{ timestamp: t1, value: 20.5 }],
+      onoff_state: [{ timestamp: t1, value: true }],
+      mode: [{ timestamp: t1, value: "heat" }],
+    });
+    const { container } = renderPage();
+
+    await waitFor(() => expect(valueAxes(container)).toHaveLength(1));
+    const tooltip = hoverChart(container);
+    expect(tooltip.textContent).toContain("Température 20.50 °");
+    expect(tooltip.textContent).toContain("Marche technique");
+    expect(tooltip.textContent).toContain("Chauffage");
+    expect(tooltip.textContent).not.toMatch(/true|heat/);
+  });
+
+  it("says when nothing is selected", async () => {
     setupThermostat();
-    const base = Date.now() - 3600_000;
+    renderPage("/devices/d1/history/chart?attrs=");
+
+    await screen.findByText("Sélectionnez des attributs à tracer");
+    await screen.findByText("0 / 15");
+    expect(mockGetSeriesPoints).not.toHaveBeenCalled();
+  });
+
+  it("warns which attributes were truncated, and never averages instead", async () => {
+    setupThermostat();
+    servePoints({}, { truncated: true });
+    renderPage("/devices/d1/history/chart?attrs=temperature,mode");
+
+    await screen.findByText(
+      "Données tronquées pour Température, Mode, réduisez la période",
+    );
+    await screen.findByText("Aucune donnée sur la période");
+  });
+});
+
+describe("DeviceHistoryPage table", () => {
+  it("compares the selected attributes side by side at each instant", async () => {
+    setupThermostat();
+    const t1 = anHourAgo();
+    const t2 = tenMinutesAgo();
     servePoints({
       temperature: [
-        { timestamp: new Date(base).toISOString(), value: 20.5 },
-        { timestamp: new Date(base + 10_000).toISOString(), value: 20.7 },
+        { timestamp: t1, value: 20.5 },
+        { timestamp: t2, value: 22.6 },
       ],
+      mode: [{ timestamp: t1, value: "heat" }],
     });
-    renderPage();
+    renderPage("/devices/d1/history/table?attrs=temperature,mode");
 
     const table = await screen.findByRole("table");
-    await waitFor(() =>
-      // Two readings 10 s apart within the same minute must render two
-      // distinct HH:MM:SS stamps.
-      expect(
-        new Set(
-          within(table)
-            .getAllByText(/\d{1,2}:\d{2}:\d{2}/)
-            .map((cell) => cell.textContent),
-        ).size,
-      ).toBeGreaterThanOrEqual(2),
-    );
+    const headers = within(table)
+      .getAllByRole("columnheader")
+      .map((th) => th.textContent);
+    expect(headers).toEqual(["Horodatage", "Température", "Mode"]);
+    // Two instants, both listing every column: the mode in force at t2 is
+    // the one set at t1, carried over.
+    expect(within(table).getAllByRole("row")).toHaveLength(3);
+    expect(within(table).getByText("22.60 °")).toBeInTheDocument();
+    expect(within(table).getByText("20.50 °")).toBeInTheDocument();
+    expect(within(table).getAllByText("Chauffage")).toHaveLength(2);
   });
 
   it("words a boolean change from the driver, never as On / Off", async () => {
@@ -543,35 +633,31 @@ describe("DeviceHistoryPage events table", () => {
       ],
       null,
     );
-    const t1 = new Date(Date.now() - 3600_000).toISOString();
+    const t1 = anHourAgo();
     servePoints({
       onoff_state: [{ timestamp: t1, value: true }],
       presence_tension: [{ timestamp: t1, value: true }],
     });
-    renderPage();
+    renderPage("/devices/d1/history/table");
 
     const table = await screen.findByRole("table");
     // The declared label for the attribute that has one, the localized True
     // for the one that does not.
     expect(within(table).getByText("Marche technique")).toBeInTheDocument();
     expect(within(table).getByText("Vrai")).toBeInTheDocument();
-    // The state timeline above the table words the same change the same way.
-    expect(screen.getAllByText("Marche technique").length).toBeGreaterThan(1);
-    expect(screen.getAllByText("Vrai").length).toBeGreaterThan(1);
     // "Marche" on its own is the On / Off wording the drivers never declared.
     expect(screen.queryByText("Marche")).toBeNull();
   });
 
-  it("renders readings and state changes with their sources", async () => {
+  it("marks a value written by a command with its author, values and status", async () => {
     setupThermostat();
-    const t1 = new Date(Date.now() - 3600_000).toISOString();
-    const t2 = new Date(Date.now() - 600_000).toISOString();
+    const t1 = anHourAgo();
+    const t2 = tenMinutesAgo();
     servePoints({
       temperature: [
         { timestamp: t1, value: 20.5 },
         { timestamp: t2, value: 22.6, command_id: 7 },
       ],
-      mode: [{ timestamp: t1, value: "heat" }],
     });
     mockCommands.current = new Map([
       [
@@ -589,18 +675,44 @@ describe("DeviceHistoryPage events table", () => {
       ],
     ]);
     mockUsers.current = new Map([["u1", { id: "u1", name: "Alice Doe" }]]);
-    renderPage();
+    renderPage("/devices/d1/history/table?attrs=temperature");
 
-    expect((await screen.findAllByText("Relevé — Température")).length).toBe(2);
-    expect(screen.getByText("Changement — Mode")).toBeInTheDocument();
-    // Also matches the command popover's old→new line (mocked always-open).
-    expect(screen.getAllByText("20.50").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Passerelle").length).toBe(2);
-    // Name shows in the source cell and again in the command popover.
-    expect(screen.getAllByText("Alice Doe").length).toBeGreaterThan(0);
+    const table = await screen.findByRole("table");
+    // The indicator sits in the cell of the written value; its popover
+    // (mocked always-open) names the author, the change and the outcome.
+    expect(
+      within(table).getByRole("button", { name: "Alice Doe" }),
+    ).toHaveTextContent("AD");
+    expect(within(table).getByText("Alice Doe")).toBeInTheDocument();
+    expect(within(table).getAllByText("20.50 °").length).toBe(2);
+    expect(within(table).getAllByText("22.60 °").length).toBe(2);
+    expect(within(table).getByText("success")).toBeInTheDocument();
   });
 
-  it("paginates past twenty events", async () => {
+  it("stamps rows with seconds so same-minute changes stay distinct", async () => {
+    setupThermostat();
+    const base = Date.now() - 3600_000;
+    servePoints({
+      temperature: [
+        { timestamp: new Date(base).toISOString(), value: 20.5 },
+        { timestamp: new Date(base + 10_000).toISOString(), value: 20.7 },
+      ],
+    });
+    renderPage("/devices/d1/history/table?attrs=temperature");
+
+    const table = await screen.findByRole("table");
+    await waitFor(() =>
+      expect(
+        new Set(
+          within(table)
+            .getAllByText(/\d{1,2}:\d{2}:\d{2}/)
+            .map((cell) => cell.textContent),
+        ).size,
+      ).toBe(2),
+    );
+  });
+
+  it("paginates past twenty rows", async () => {
     setupThermostat();
     const base = Date.now() - 3600_000;
     servePoints({
@@ -609,10 +721,92 @@ describe("DeviceHistoryPage events table", () => {
         value: 20 + i,
       })),
     });
-    renderPage();
+    renderPage("/devices/d1/history/table?attrs=temperature");
 
     await screen.findByText("1 / 2");
     expect(screen.getByText("1–20 / 25")).toBeInTheDocument();
+  });
+});
+
+describe("DeviceHistoryPage range control", () => {
+  it("writes ?last and resets the page param when a segment is picked", async () => {
+    setupThermostat();
+    renderPage("/devices/d1/history/table?page=3");
+    await screen.findByText("5 / 15");
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "7 j" }));
+
+    const location = screen.getByTestId("location");
+    expect(location).toHaveTextContent("last=7d");
+    expect(location).not.toHaveTextContent("page=");
+  });
+
+  it("lights the custom segment for an off-ladder preset", async () => {
+    setupThermostat();
+    renderPage("/devices/d1/history/chart?last=3h");
+
+    const custom = await screen.findByRole("button", {
+      name: "3 dernières heures",
+    });
+    expect(custom).toHaveAttribute("aria-pressed", "true");
+  });
+});
+
+describe("DeviceHistoryPage export", () => {
+  it("names files after the device and window", () => {
+    expect(exportFilename("Ch. Étage 2", { last: "1d" })).toBe(
+      "ch-etage-2-history-1d",
+    );
+    expect(
+      exportFilename("Chiller 0", {
+        start: "2026-08-01T00:00:00Z",
+        end: "2026-08-11T00:00:00Z",
+      }),
+    ).toBe("chiller-0-history-2026-08-01_2026-08-11");
+    expect(exportFilename("†††", {})).toBe("device-history-all");
+  });
+
+  it.each([
+    ["CSV", mockExportCsv],
+    ["PNG", mockExportPng],
+  ])("exports the whole selection as %s", async (format, exporter) => {
+    setupThermostat();
+    renderPage("/devices/d1/history/chart?attrs=temperature,mode&last=7d");
+    await screen.findByText("2 / 15");
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Exporter" }));
+    await user.click(
+      await screen.findByRole("menuitem", { name: `Télécharger en ${format}` }),
+    );
+
+    await waitFor(() =>
+      expect(exporter).toHaveBeenCalledWith(
+        expect.objectContaining({
+          series_ids: ["s-temperature", "s-mode"],
+          last: "7d",
+        }),
+      ),
+    );
+  });
+
+  it.each([
+    ["CSV", mockExportCsv, "Échec de l'export CSV"],
+    ["PNG", mockExportPng, "Échec de l'export PNG"],
+  ])("toasts when the %s export fails", async (format, exporter, message) => {
+    setupThermostat();
+    exporter.mockRejectedValue(new Error("boom"));
+    renderPage();
+    await screen.findByText("5 / 15");
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Exporter" }));
+    await user.click(
+      await screen.findByRole("menuitem", { name: `Télécharger en ${format}` }),
+    );
+
+    await waitFor(() => expect(mockToastError).toHaveBeenCalledWith(message));
   });
 });
 
@@ -624,20 +818,4 @@ describe("DeviceHistoryPage empty state", () => {
 
     await screen.findByText("No time-series recorded yet.");
   });
-});
-
-describe("history sub-route redirects", () => {
-  it.each(["chart", "table"])(
-    "redirects /history/%s to /history with the query preserved",
-    async (view) => {
-      setupThermostat();
-      renderPage(`/devices/d1/history/${view}?last=7d&metric=temperature`);
-
-      await waitFor(() =>
-        expect(screen.getByTestId("location")).toHaveTextContent(
-          "/devices/d1/history?last=7d&metric=temperature",
-        ),
-      );
-    },
-  );
 });
