@@ -7,6 +7,7 @@ import { parseCommandValue } from "./groupedCommand";
 type Args = {
   devices: Device[];
   assetsList: Asset[];
+  canReadAssets: boolean;
   deviceId?: string;
   assetId?: string;
   loading: boolean;
@@ -47,15 +48,22 @@ export type CommandUrlState = {
 export function useCommandUrlState({
   devices,
   assetsList,
+  canReadAssets,
   deviceId,
   assetId,
   loading,
 }: Args): CommandUrlState {
   const [params, setParams] = useSearchParams();
   const device = devices.find((item) => item.id === deviceId);
+  // A device route pins its target by id; its asset is only display context.
+  // Explicit asset scopes below still require the tree and never fall back to all.
   const scope =
     assetId ??
-    (deviceId ? (device?.tags?.asset_id?.[0] ?? "all") : undefined) ??
+    (deviceId
+      ? canReadAssets
+        ? (device?.tags?.asset_id?.[0] ?? "all")
+        : "all"
+      : undefined) ??
     params.get("scope") ??
     "all";
   const scopeExists =

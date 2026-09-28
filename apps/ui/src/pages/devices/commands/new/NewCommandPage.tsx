@@ -29,6 +29,7 @@ import { useGroupedCommandActions } from "./useGroupedCommandActions";
 export default function NewCommandPage() {
   const { t, i18n } = useTranslation(["devices", "common"]);
   const can = usePermissions();
+  const canReadAssets = can("assets:read");
   const navigate = useNavigate();
   const { deviceId, assetId } = useParams<{
     deviceId?: string;
@@ -40,11 +41,12 @@ export default function NewCommandPage() {
     assetsList,
     isLoading,
     error: assetsError,
-  } = useAssetTree();
+  } = useAssetTree({ enabled: canReadAssets });
   const command = useGroupedCommand({
     devices,
     assetTree,
     assetsList,
+    canReadAssets,
     deviceId,
     assetId,
     loading: loading || isLoading || !!assetsError,
@@ -63,7 +65,7 @@ export default function NewCommandPage() {
   // Display strings stay here: nothing that goes on the wire depends on i18n.
   const display: CommandDisplay = {
     scope:
-      (url.mode === "devices" && !url.locked
+      (url.mode === "devices" && (!url.locked || !canReadAssets)
         ? t("commands.grouped.selectedDevices")
         : assetsList.find((asset) => asset.id === url.scope)?.name) ??
       (url.scope === "all" ? t("commands.new.allAssets") : url.scope),
@@ -76,7 +78,7 @@ export default function NewCommandPage() {
     valueLabels: coverage?.value_labels,
   };
 
-  const scopeSelect = (
+  const scopeSelect = canReadAssets && (
     <Field className="max-w-sm">
       <FieldLabel htmlFor="command-scope">
         {t("commands.grouped.scope")}
