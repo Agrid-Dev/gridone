@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Link, NavLink } from "react-router";
+import { NavLink } from "react-router";
 import { useTranslation } from "react-i18next";
 import {
   Blocks,
@@ -19,6 +19,8 @@ import { useFaultsList } from "@/hooks/useFaultsList";
 import { usePendingAppRequests } from "@/hooks/usePendingAppRequests";
 import { useFeatureEnabled } from "@/utils/featureFlags";
 import { BuildingSwitcher } from "./BuildingSwitcher";
+
+const DOCS_URL = "https://docs.gridone.a-grid.com/";
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   `group flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
@@ -115,16 +117,11 @@ export function Sidebar({
       }
     >
       <div className="flex h-full flex-col">
-        <div className="shrink-0 px-4 py-4">
-          <Link
-            to="/"
-            className="font-display text-lg font-semibold tracking-wide text-foreground"
-          >
-            {t("app.title")}
-          </Link>
-        </div>
-
-        <div className="shrink-0 px-3 pb-2">
+        {/* The building owns the header slot: from the operator's chair the
+         *  site is the product. The Gridone brand lives in the footer. On
+         *  mobile the drawer's close button sits in the top-right corner, so
+         *  the block keeps clear of it. */}
+        <div className={`shrink-0 px-3 pb-2 pt-4 ${mobile ? "pr-14" : ""}`}>
           <BuildingSwitcher />
         </div>
 
@@ -231,9 +228,19 @@ export function Sidebar({
           )}
         </nav>
 
-        {/* Footer: version only — the product name is the brand at the top. */}
-        {version && versionLabel && (
-          <div className="shrink-0 border-t border-border px-4 py-3 text-right">
+        {/* Footer: the "powered by" line. The wordmark echoes the login
+         *  page's tracked small caps and opens the product docs; the version
+         *  sits on the same row so the two read as one about-line. */}
+        <div className="flex shrink-0 items-center justify-between gap-3 border-t border-border px-4 py-3">
+          <a
+            href={DOCS_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="font-display text-[11px] font-semibold uppercase tracking-[0.3em] text-muted-foreground transition-colors hover:text-foreground"
+          >
+            {t("app.title")}
+          </a>
+          {version && versionLabel && (
             <span
               aria-label={versionLabel}
               className="text-xs font-medium text-muted-foreground"
@@ -241,8 +248,8 @@ export function Sidebar({
             >
               v{version}
             </span>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </aside>
   );

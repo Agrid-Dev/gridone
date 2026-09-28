@@ -35,8 +35,10 @@ let faults: FaultView[] = [];
 let devices: Device[] = [];
 let pendingAppRequests = 0;
 
+const health: { version?: string } = { version: "0.3.0" };
+
 vi.mock("@/contexts/AuthContext", () => ({
-  useAuth: () => ({ health: { version: "0.3.0" } }),
+  useAuth: () => ({ health }),
   usePermissions: () => (permission: string) => permissions.can(permission),
 }));
 
@@ -72,6 +74,7 @@ function renderSidebar(mobile = false) {
 }
 
 beforeEach(() => {
+  health.version = "0.3.0";
   permissions.can = () => true;
   flags.dashboards = true;
   flags.synoptics = true;
@@ -260,13 +263,37 @@ describe("Sidebar", () => {
     expect(screen.queryByLabelText(/devices/)).not.toBeInTheDocument();
   });
 
-  it("shows the Gridone brand linking home, and the version in the footer", () => {
+  it("keeps the Gridone brand in the footer, opening the docs, next to the version", () => {
     renderSidebar();
-    expect(screen.getByRole("link", { name: "Gridone" })).toHaveAttribute(
-      "href",
-      "/",
-    );
-    expect(screen.getByLabelText("Version 0.3.0")).toHaveTextContent("v0.3.0");
+    const brand = screen.getByRole("link", { name: "Gridone" });
+    expect(brand).toHaveAttribute("href", "https://docs.gridone.a-grid.com/");
+    expect(brand).toHaveAttribute("target", "_blank");
+    expect(brand).toHaveAttribute("rel", "noreferrer");
+    const version = screen.getByLabelText("Version 0.3.0");
+    expect(version).toHaveTextContent("v0.3.0");
+    // One about-line: brand and version share the footer row.
+    expect(brand.parentElement).toBe(version.parentElement);
+  });
+
+  it("gives the building block the header slot, above the navigation", () => {
+    renderSidebar();
+    const building = screen.getByTestId("building-switcher");
+    const nav = screen.getByRole("navigation", { name: "Main navigation" });
+    expect(
+      building.compareDocumentPosition(nav) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    // No brand link competes with the building for the home route.
+    const homeLinks = screen
+      .getAllByRole("link")
+      .filter((link) => link.getAttribute("href") === "/");
+    expect(homeLinks).toHaveLength(0);
+  });
+
+  it("keeps the footer without a version when the API reports none", () => {
+    health.version = undefined;
+    renderSidebar();
+    expect(screen.getByRole("link", { name: "Gridone" })).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Version/)).not.toBeInTheDocument();
   });
 
   it("labels the navigation landmark without swallowing the building block", () => {
