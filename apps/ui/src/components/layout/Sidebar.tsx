@@ -154,10 +154,12 @@ export function Sidebar({
             )}
           </NavLink>
 
-          <NavLink to="/assets" className={navLinkClass}>
-            <LayoutGrid className="h-4 w-4" />
-            {t("app.assets")}
-          </NavLink>
+          {can("assets:read") && (
+            <NavLink to="/assets" className={navLinkClass}>
+              <LayoutGrid className="h-4 w-4" />
+              {t("app.assets")}
+            </NavLink>
+          )}
 
           {can("automations:read") && (
             <NavLink to="/automations" className={navLinkClass}>

@@ -23,23 +23,27 @@ export default function AssetDetail() {
 
   const { data: asset, isLoading } = useQuery<Asset>({
     queryKey: ["assets", assetId],
+    throwOnError: true,
     queryFn: () => client.assets.get(assetId!),
     enabled: !!assetId,
   });
 
   const { data: allAssets = [] } = useQuery<Asset[]>({
     queryKey: ["assets"],
+    throwOnError: true,
     queryFn: () => client.assets.list(),
   });
 
   const { data: children = [] } = useQuery<Asset[]>({
     queryKey: ["assets", "children", assetId],
+    throwOnError: true,
     queryFn: () => client.assets.list({ parent_id: assetId! }),
     enabled: !!assetId,
   });
 
   const { data: deviceIds = [] } = useQuery<string[]>({
     queryKey: ["assets", assetId, "devices"],
+    throwOnError: true,
     queryFn: () => client.assets.listDevices(assetId!),
     enabled: !!assetId,
   });

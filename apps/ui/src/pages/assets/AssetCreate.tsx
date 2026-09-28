@@ -28,6 +28,7 @@ export default function AssetCreate() {
   // Fetch all assets so we can find the root when no parentId is provided
   const { data: allAssets = [] } = useQuery<Asset[]>({
     queryKey: ["assets"],
+    throwOnError: true,
     queryFn: () => client.assets.list(),
   });
 

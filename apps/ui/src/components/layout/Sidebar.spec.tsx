@@ -120,6 +120,26 @@ describe("Sidebar", () => {
     );
   });
 
+  it.each([false, true])(
+    "hides Zones without assets:read (mobile: %s)",
+    (mobile) => {
+      permissions.can = (permission) => permission !== "assets:read";
+      renderSidebar(mobile);
+      expect(
+        screen.queryByRole("link", { name: "Zones" }),
+      ).not.toBeInTheDocument();
+    },
+  );
+
+  it("keeps Zones visible to an asset reader", () => {
+    permissions.can = (permission) => permission === "assets:read";
+    renderSidebar();
+    expect(screen.getByRole("link", { name: "Zones" })).toHaveAttribute(
+      "href",
+      "/assets",
+    );
+  });
+
   it("puts Apps first under Configuration, above Drivers", () => {
     renderSidebar();
     const appsLink = screen.getByRole("link", { name: /Apps/ });
