@@ -66,7 +66,7 @@ export function useGroupDetails(
           ),
     [presentation.document, layoutsAgreed, attributes],
   );
-  const canWrite = can("devices:write");
+  const canWrite = can("devices:command");
   const target = useGroupTarget(
     filter,
     attributes,

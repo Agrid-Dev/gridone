@@ -55,7 +55,7 @@ export default function TemplatesListPage() {
     <ResourceHeader
       title={t("commands.templates.title")}
       actions={
-        can("devices:write") && (
+        can("devices:command") && (
           <Button asChild size="sm">
             <Link to="/devices/commands/new">
               <Plus />
@@ -102,7 +102,7 @@ export default function TemplatesListPage() {
               {t("commands.templates.empty.hint")}
             </EmptyDescription>
           </EmptyHeader>
-          {can("devices:write") && (
+          {can("devices:command") && (
             <EmptyContent className="flex-row justify-center gap-2">
               <Button asChild>
                 <Link to="/devices/commands/new">

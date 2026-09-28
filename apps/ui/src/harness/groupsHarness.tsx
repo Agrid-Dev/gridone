@@ -176,7 +176,7 @@ const client = {
   me: async () => ({
     id: "u",
     email: "harness@example.com",
-    permissions: ["devices:write", "devices:read"],
+    permissions: ["devices:write", "devices:command", "devices:read"],
   }),
   health: async () => ({ status: "ok" }),
   logout: async () => {},

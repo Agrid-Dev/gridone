@@ -42,7 +42,7 @@ export const TemplateDetailContent: FC = () => {
       <ResourceHeader
         title={template.name ?? t("commands.templates.untitled")}
         actions={
-          can("devices:write") && (
+          can("devices:command") && (
             <>
               <Button
                 size="sm"

@@ -28,7 +28,7 @@ export default function CommandsPage({
     : "/devices/commands/new";
 
   const newCommandButton =
-    !embedded && can("devices:write") ? (
+    !embedded && can("devices:command") ? (
       <Button asChild size="sm">
         <Link to={newCommandHref}>
           <Terminal />

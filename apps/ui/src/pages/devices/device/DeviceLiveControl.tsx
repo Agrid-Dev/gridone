@@ -88,7 +88,7 @@ function DeviceControl({
     filter,
     attributes,
     controls,
-    !!target && can("devices:write"),
+    !!target && can("devices:command"),
   );
   const { command } = group;
   const fallback = (diagnostics: PresentationDiagnostic[]) => (

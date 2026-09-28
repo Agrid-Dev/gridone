@@ -84,8 +84,8 @@ describe("CommandsPage", () => {
     );
   });
 
-  it("hides the New command action without devices:write", () => {
-    permissions.can = (permission) => permission !== "devices:write";
+  it("hides the New command action without devices:command", () => {
+    permissions.can = (permission) => permission !== "devices:command";
     renderPage();
 
     expect(
