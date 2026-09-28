@@ -37,7 +37,7 @@ export function TimeSeriesChartInner({
   const {
     containerRef,
     tooltipRef,
-    floatScaleCtx,
+    floatScales,
     handlePointerMove,
     handlePointerLeave,
     cursorX,
@@ -52,7 +52,7 @@ export function TimeSeriesChartInner({
   if (width <= 0) return null;
 
   return (
-    <FloatScaleContext.Provider value={floatScaleCtx}>
+    <FloatScaleContext.Provider value={floatScales}>
       <div
         ref={containerRef}
         style={{ width, position: "relative" }}

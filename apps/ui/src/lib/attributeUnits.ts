@@ -1,10 +1,11 @@
 /**
- * Display unit for a device attribute, derived from its name.
+ * Display unit for a device attribute: the one its driver declares, else the
+ * one its name implies.
  *
- * Devices do not declare units on the wire, so the app only claims the ones
- * its own conventions already assume (see `formatValue.ts`): a scale-agnostic
- * `°` for temperatures, `%` for humidity. Anything else stays unitless
- * rather than guessing — a driver-defined `pressure` could be bar, Pa or PSI,
+ * Not every driver declares units, so the app also claims the ones its own
+ * conventions already assume (see `formatValue.ts`): a scale-agnostic `°`
+ * for temperatures, `%` for humidity. Anything else stays unitless rather
+ * than guessing — a driver-defined `pressure` could be bar, Pa or PSI,
  * `active_power` W or kW, and a wrong unit is worse than none.
  *
  * Symbols only: whether a space belongs between value and unit depends on the
@@ -38,20 +39,4 @@ export function attributeUnit(
   if (attribute?.unit) return attribute.unit;
   if (TEMPERATURE_ATTRIBUTE.test(attributeName)) return "°";
   return EXACT_UNITS[attributeName] ?? null;
-}
-
-/**
- * The unit shared by every one of `attributeNames`, or null when they
- * disagree or any of them is unitless.
- *
- * What a common axis can be labelled with: temperature plotted against its
- * setpoint is degrees throughout, but temperature plotted against humidity
- * has no single unit and must stay bare.
- */
-export function commonAttributeUnit(
-  attributeNames: readonly string[],
-): string | null {
-  if (attributeNames.length === 0) return null;
-  const [first, ...rest] = attributeNames.map((name) => attributeUnit(name));
-  return first != null && rest.every((unit) => unit === first) ? first : null;
 }

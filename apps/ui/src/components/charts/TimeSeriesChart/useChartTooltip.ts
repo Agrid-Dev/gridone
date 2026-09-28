@@ -1,4 +1,5 @@
 import React, {
+  createRef,
   useCallback,
   useLayoutEffect,
   useMemo,
@@ -12,7 +13,10 @@ import type {
   StringPanelEntry,
   TooltipRow,
 } from "./types";
-import type { FloatScaleContextType } from "./FloatScaleContext";
+import type {
+  FloatScaleContextType,
+  FloatScaleRefs,
+} from "./FloatScaleContext";
 import {
   MARGIN,
   AXIS_EXTRA,
@@ -40,8 +44,20 @@ export function useChartTooltip({
 }: UseChartTooltipArgs) {
   const containerRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
-  const floatPanelRef = useRef<HTMLDivElement>(null);
-  const floatYScaleRef = useRef<((v: number) => number) | null>(null);
+  // One pair of refs per float panel, created on first request and kept for
+  // the chart's lifetime: the panels register themselves by key on render.
+  const floatScaleRefs = useRef(new Map<string, FloatScaleRefs>());
+  const scalesFor = useCallback((panelKey: string): FloatScaleRefs => {
+    let refs = floatScaleRefs.current.get(panelKey);
+    if (!refs) {
+      refs = {
+        panelRef: createRef<HTMLDivElement>(),
+        yScaleRef: { current: null },
+      };
+      floatScaleRefs.current.set(panelKey, refs);
+    }
+    return refs;
+  }, []);
   const [cursorX, setCursorX] = useState<number | null>(null);
   const [cursorY, setCursorY] = useState<number | null>(null);
 
@@ -105,8 +121,10 @@ export function useChartTooltip({
       for (let i = 0; i < displayValues.length; i++) {
         colorMap.set(
           displayValues[i],
-          attributeValueChartColor(sp.series.key, displayValues[i]) ??
-            CHART_COLORS[i % CHART_COLORS.length],
+          attributeValueChartColor(
+            sp.series.semanticKey ?? sp.series.key,
+            displayValues[i],
+          ) ?? CHART_COLORS[i % CHART_COLORS.length],
         );
       }
       // Any value not in topSet gets OTHER_COLOR (looked up on demand)
@@ -119,15 +137,6 @@ export function useChartTooltip({
     }
     return maps;
   }, [panels, timestamps]);
-
-  // Check whether any float data exists (for nearestFloatKey guard)
-  const hasFloatData = useMemo(() => {
-    const fp = panels.find((p) => p.type === "float") as
-      | FloatPanelEntry
-      | undefined;
-    if (!fp) return false;
-    return fp.series.some((s) => fp.values[s.key]?.some((v) => v !== null));
-  }, [panels]);
 
   // Detect which panel the cursor is hovering over
   const hoveredSection = useMemo(() => {
@@ -143,27 +152,34 @@ export function useChartTooltip({
     return null;
   }, [cursorY, panels]);
 
-  // When hovering the float panel, find the nearest-by-Y series (within 32px)
+  // The float panel under the cursor, if any — each unit panel has a scale of
+  // its own, so proximity is only meaningful against the hovered one.
+  const hoveredFloatPanel = useMemo(
+    () =>
+      panels.find(
+        (p): p is FloatPanelEntry =>
+          p.type === "float" && p.key === hoveredSection,
+      ) ?? null,
+    [panels, hoveredSection],
+  );
+
+  // When hovering a float panel, find the nearest-by-Y series (within 32px)
   const nearestFloatKey = useMemo(() => {
-    if (
-      hoveredSection !== "float" ||
-      hoveredIdx === null ||
-      cursorY === null ||
-      !hasFloatData
-    )
+    if (!hoveredFloatPanel || hoveredIdx === null || cursorY === null)
       return null;
-    const yScale = floatYScaleRef.current;
-    const panelEl = floatPanelRef.current;
+    const fp = hoveredFloatPanel;
+    const hasData = fp.series.some((s) =>
+      fp.values[s.key]?.some((v) => v !== null),
+    );
+    if (!hasData) return null;
+    const { panelRef, yScaleRef } = scalesFor(fp.key);
+    const yScale = yScaleRef.current;
+    const panelEl = panelRef.current;
     const containerEl = containerRef.current;
     if (!yScale || !panelEl || !containerEl) return null;
     const panelTop =
       panelEl.getBoundingClientRect().top -
       containerEl.getBoundingClientRect().top;
-
-    const fp = panels.find((p) => p.type === "float") as
-      | FloatPanelEntry
-      | undefined;
-    if (!fp) return null;
 
     let nearestKey: string | null = null;
     let nearestDist = Infinity;
@@ -178,7 +194,7 @@ export function useChartTooltip({
       }
     }
     return nearestDist <= 32 ? nearestKey : null;
-  }, [hoveredSection, hoveredIdx, cursorY, hasFloatData, panels]);
+  }, [hoveredFloatPanel, hoveredIdx, cursorY, scalesFor]);
 
   // Build tooltip rows by iterating over panels
   const tooltipRows = useMemo(() => {
@@ -193,10 +209,9 @@ export function useChartTooltip({
       const panelRows = getTooltipRows(panel, hoveredIdx, isActive, options);
 
       // Refine float active state based on Y proximity
-      if (panel.type === "float" && hoveredSection === "float") {
-        const fp = panel as FloatPanelEntry;
+      if (panel.type === "float" && hoveredSection === panel.key) {
         for (let i = 0; i < panelRows.length; i++) {
-          panelRows[i].active = nearestFloatKey === fp.series[i].key;
+          panelRows[i].active = nearestFloatKey === panel.series[i].key;
         }
       }
 
@@ -227,15 +242,15 @@ export function useChartTooltip({
   const tooltipTop =
     cursorY !== null ? placeTooltip(cursorY, tooltipSize.h, containerH) : 0;
 
-  const floatScaleCtx: FloatScaleContextType = {
-    panelRef: floatPanelRef,
-    yScaleRef: floatYScaleRef,
-  };
+  const floatScales = useMemo<FloatScaleContextType>(
+    () => ({ scalesFor }),
+    [scalesFor],
+  );
 
   return {
     containerRef,
     tooltipRef,
-    floatScaleCtx,
+    floatScales,
     handlePointerMove,
     handlePointerLeave,
     cursorX,
