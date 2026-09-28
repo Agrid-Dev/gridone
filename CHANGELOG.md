@@ -1,3 +1,14 @@
+## v0.273.0 (2026-09-28)
+
+### Feat
+
+- **ui**: redesign the synoptic editor around a 2D plan (AGR-1437)
+
+### Fix
+
+- **ui**: address synoptic editor routing and state review
+- **ui**: preserve synoptic drafts and restore field state
+
 ## v0.272.2 (2026-09-25)
 
 ### Fix
