@@ -110,19 +110,21 @@ function SortablePanel({
       ref={setNodeRef}
       style={{
         position: "relative",
-        transform: CSS.Transform.toString(transform),
+        // Translate only: panels differ in height, and a full transform
+        // would scale a panel to the slot it lands in as it settles.
+        transform: CSS.Translate.toString(transform),
         transition,
         zIndex: isDragging ? 10 : undefined,
         opacity: isDragging ? 0.85 : undefined,
       }}
     >
       {sortable && (
-        // In the value axis' gutter, level with the legend band: the one
-        // strip of every panel that holds nothing else.
+        // At the right end of the legend band, clear of the legend itself,
+        // which starts at the left.
         <button
           type="button"
           aria-label={label}
-          className="absolute left-3 top-1.5 z-10 flex size-6 cursor-grab touch-none items-center justify-center rounded-md text-muted-foreground/60 hover:bg-muted hover:text-foreground active:cursor-grabbing"
+          className="absolute right-2 top-1.5 z-10 flex size-6 cursor-grab touch-none items-center justify-center rounded-md text-muted-foreground/60 hover:bg-muted hover:text-foreground active:cursor-grabbing"
           {...attributes}
           {...listeners}
         >
