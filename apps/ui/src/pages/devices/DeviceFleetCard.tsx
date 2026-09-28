@@ -2,7 +2,6 @@ import { useResourceNavigation } from "@/hooks/useResourceNavigation";
 import { DeviceFaultBadge } from "@/components/DeviceFaultBadge";
 import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
-import { ChevronRight } from "lucide-react";
 import type { Device } from "@gridone/sdk";
 import { Card } from "@/components/ui";
 import { ConnectionStatusValue } from "@/components/ConnectionStatusBadge";
@@ -56,12 +55,8 @@ export function DeviceFleetCard({
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
             <h3 className="truncate font-display text-sm font-semibold text-card-foreground">
-              <Link
-                to={`/devices/${device.id}`}
-                className="inline-flex items-center gap-1"
-              >
+              <Link to={`/devices/${device.id}`}>
                 {device.name || device.id}
-                <ChevronRight className="h-3.5 w-3.5 shrink-0" />
               </Link>
             </h3>
             <p className="truncate text-xs text-muted-foreground">
