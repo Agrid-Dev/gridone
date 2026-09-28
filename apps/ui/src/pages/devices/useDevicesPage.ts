@@ -1,5 +1,4 @@
 import { useMemo } from "react";
-import { useSearchParams } from "react-router";
 import type { Device } from "@gridone/sdk";
 import { useDevicesList } from "@/hooks/useDevicesList";
 import { useFilterParams } from "@/hooks/useFilterParams";
@@ -21,12 +20,14 @@ import {
 type DevicesPage = {
   /** Type buckets of the filtered devices, in display order. */
   groups: DeviceTypeGroup[];
-  /** Unfiltered per-type counts for the filter chips. */
+  /** Unfiltered per-type counts for the type filter. */
   typeCounts: Map<DeviceTypeKey, number>;
-  showTypeFilter: boolean;
-  showHealthFilter: boolean;
   /** Unfiltered fleet size. */
   total: number;
+  /** Unfiltered count of devices with an active fault. */
+  faultyCount: number;
+  /** Devices left once filters apply. */
+  shown: number;
   /** Unfiltered connection tally for the header summary. */
   connectionCounts: ConnectionCounts;
   summaryLoading: boolean;
@@ -39,17 +40,18 @@ type DevicesPage = {
 };
 
 /** Data layer of the devices list page. The list keeps server-side
- *  filtering (URL params → `GET /devices`); chip counts and the header
+ *  filtering (URL params → `GET /devices`); filter counts and the fleet
  *  summary come from a second, unfiltered fetch that shares the
  *  `["devices", undefined]` cache the sidebar keeps warm. */
 export function useDevicesPage(): DevicesPage {
   const filter = useFilterParams();
-  const [searchParams] = useSearchParams();
-  const otherSelected = searchParams.get("type") === OTHER_KEY;
+  const selectedTypes = useMemo(() => filter?.types ?? [], [filter]);
+  const otherSelected = selectedTypes.includes(OTHER_KEY);
 
   // `other` is a UI bucket, not a wire type: the server cannot express
-  // "type outside the standard enum", so the type criterion is dropped
-  // from the server filter and re-applied client-side below.
+  // "type outside the standard enum", so when it is selected the type
+  // criterion is dropped from the server filter and re-applied client-side
+  // below, over every selected bucket.
   const serverFilter = useMemo(() => {
     if (!otherSelected || !filter) return filter;
     const rest: DevicesFilter = { ...filter };
@@ -63,10 +65,12 @@ export function useDevicesPage(): DevicesPage {
 
   const groups = useMemo(() => {
     const filteredDevices = otherSelected
-      ? fetched.filter((device) => deviceTypeKey(device) === OTHER_KEY)
+      ? fetched.filter((device) =>
+          selectedTypes.includes(deviceTypeKey(device)),
+        )
       : fetched;
     return groupDevicesByType(filteredDevices);
-  }, [fetched, otherSelected]);
+  }, [fetched, otherSelected, selectedTypes]);
 
   const typeCounts = useMemo(
     () => countDevicesByType(allDevices),
@@ -80,12 +84,9 @@ export function useDevicesPage(): DevicesPage {
   return {
     groups,
     typeCounts,
-    // Keep active filters reachable so bookmarked URLs can be cleared.
-    showTypeFilter: typeCounts.size > 1 || !!filter?.types?.length,
-    showHealthFilter:
-      allDevices.some((device) => device.is_faulty) ||
-      filter?.is_faulty !== undefined,
     total: allDevices.length,
+    faultyCount: allDevices.filter((device) => device.is_faulty).length,
+    shown: groups.reduce((sum, group) => sum + group.devices.length, 0),
     connectionCounts,
     summaryLoading,
     zonePathOf,

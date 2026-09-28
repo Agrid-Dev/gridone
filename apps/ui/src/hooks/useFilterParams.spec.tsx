@@ -26,6 +26,15 @@ describe("useFilterParams", () => {
     expect(result.current).toEqual({ types: ["thermostat"] });
   });
 
+  it("maps repeated ?type params to every selected type", () => {
+    const { result } = renderHook(() => useFilterParams(), {
+      wrapper: wrapperFor(["/?type=thermostat&type=electricity_meter"]),
+    });
+    expect(result.current).toEqual({
+      types: ["thermostat", "electricity_meter"],
+    });
+  });
+
   it("maps ?health=faulty to { is_faulty: true }", () => {
     const { result } = renderHook(() => useFilterParams(), {
       wrapper: wrapperFor(["/?health=faulty"]),

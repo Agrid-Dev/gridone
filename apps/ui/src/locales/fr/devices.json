@@ -1,7 +1,6 @@
 {
   "devices": {
     "title": "Appareils",
-    "caption": "Supervisez les appareils du bâtiment, leurs mesures et leur état de connexion.",
     "unableToLoad": "Impossible de charger les appareils",
     "create": {
       "title": "Ajouter un appareil",
@@ -32,7 +31,8 @@
       "update": "Mettre à jour",
       "deleteDialogTitle": "Confirmer la suppression",
       "deleteDialogContent": "Supprimer l'appareil {{name}} ?",
-      "edit": "Modifier"
+      "edit": "Modifier",
+      "more": "Plus d'actions"
     },
     "feedback": {
       "deleted": "Appareil supprimé",
@@ -48,14 +48,16 @@
     },
     "saving": "Enregistrement...",
     "health": {
-      "label": "Santé",
-      "all": "Tous",
-      "healthy": "Sains",
+      "healthy": "Sans défaut",
       "faulty": "En défaut"
     },
     "filters": {
-      "label": "Filtrer par type",
-      "all": "Tous"
+      "type": "Type",
+      "health": "Défauts",
+      "search": "Filtrer…",
+      "empty": "Aucun résultat",
+      "clear": "Effacer la sélection",
+      "reset": "Réinitialiser"
     },
     "summary": {
       "deviceCount_one": "{{count}} appareil",
@@ -67,7 +69,8 @@
       "error_one": "{{count}} déconnecté",
       "error_other": "{{count}} déconnectés",
       "idle_one": "{{count}} inactif",
-      "idle_other": "{{count}} inactifs"
+      "idle_other": "{{count}} inactifs",
+      "filteredCount": "{{shown}} sur {{count}} appareils"
     },
     "card": {
       "lead": {
