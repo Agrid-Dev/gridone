@@ -1,25 +1,17 @@
 import { useMemo } from "react";
 
-import type { Series } from "./types";
-import { commonAttributeUnit } from "@/lib/attributeUnits";
-
 /**
- * Formats the value axis' ticks for a panel of numeric series.
- *
- * Ticks carry the unit when every series on the shared axis has the same one.
- * `semanticKey` names the attribute when the series is keyed by something else
- * (a dashboard chart keys per device), same as the string panel's colour
- * lookup.
+ * Formats the value axis' ticks for a panel of numeric series, suffixed with
+ * the unit the panel's series share (nothing when it has none).
  *
  * Kept on the runtime locale rather than the app's: this subtree takes all its
  * text from props, and pulling i18n in for a decimal separator would make
  * every chart consumer wire up a translation provider.
  */
 export function useValueTickFormat(
-  series: Series[],
+  unit: string | null,
 ): (value: number) => string {
   return useMemo(() => {
-    const unit = commonAttributeUnit(series.map((s) => s.semanticKey ?? s.key));
     // A tick label must hold no whitespace: `@visx/text` wraps on it, so
     // "10 000 %" renders stacked over three lines. Hence no group separator
     // (a narrow no-break space in several locales) and no space before the
@@ -30,5 +22,5 @@ export function useValueTickFormat(
       useGrouping: false,
     });
     return (value: number) => `${number.format(value)}${unit ?? ""}`;
-  }, [series]);
+  }, [unit]);
 }
