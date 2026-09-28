@@ -4,6 +4,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { getCoreRowModel, useReactTable } from "@tanstack/react-table";
 import type { Page, UnitCommand } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
+import { useAttributeLabel } from "@/hooks/useAttributeLabel";
 import { useDevicesList } from "@/hooks/useDevicesList";
 import { useUsers } from "@/hooks/useUsers";
 import { buildCommandColumns } from "@/pages/devices/commands/columns";
@@ -20,6 +21,7 @@ export function TemplateExecutions({ templateId }: { templateId: string }) {
   const client = useGridoneClient();
   const { devices } = useDevicesList();
   const { users } = useUsers();
+  const labelFor = useAttributeLabel();
 
   const { data, isLoading, isPlaceholderData, error } = useQuery<
     Page<UnitCommand>
@@ -35,6 +37,10 @@ export function TemplateExecutions({ templateId }: { templateId: string }) {
     staleTime: 5000,
   });
 
+  const devicesById = useMemo(
+    () => Object.fromEntries(devices.map((d) => [d.id, d])),
+    [devices],
+  );
   const deviceNames = useMemo(
     () =>
       Object.fromEntries(
@@ -50,12 +56,14 @@ export function TemplateExecutions({ templateId }: { templateId: string }) {
   const columns = useMemo(
     () =>
       buildCommandColumns(t, {
+        devices: devicesById,
+        labelFor,
         deviceNames,
         userNames,
         templateNames: {},
         showTemplate: false,
       }),
-    [t, deviceNames, userNames],
+    [t, devicesById, labelFor, deviceNames, userNames],
   );
 
   const table = useReactTable({

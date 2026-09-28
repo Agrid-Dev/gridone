@@ -11,9 +11,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { toLabel } from "@/lib/textFormat";
-import { formatValue } from "@/lib/formatValue";
-import type { CommandStatus, UnitCommand } from "@gridone/sdk";
+import { AttributeValue } from "@/components/AttributeValue";
+import { deviceAttributes } from "@/lib/devices";
+import { OTHER_KEY, deviceTypeKey } from "@/lib/deviceTypes";
+import type { AttributeFields } from "@/lib/faults";
+import type { CommandStatus, Device, UnitCommand } from "@gridone/sdk";
 
 const STATUS_STYLES: Record<CommandStatus, string> = {
   pending: "border-amber-200 text-amber-700",
@@ -28,6 +30,10 @@ const STATUS_ICONS: Record<CommandStatus, ReactNode> = {
 };
 
 type Lookups = {
+  /** Commanded devices by id, for driver-declared labels and value wording. */
+  devices: Record<string, Device>;
+  /** Display label of an attribute (see `useAttributeLabel`). */
+  labelFor: (name: string, attribute?: AttributeFields | null) => string;
   deviceNames: Record<string, string>;
   userNames: Record<string, string>;
   templateNames: Record<string, string>;
@@ -40,6 +46,14 @@ export function buildCommandColumns(
   lookups: Lookups,
 ): ColumnDef<UnitCommand>[] {
   const { showDevice = true, showTemplate = true } = lookups;
+  const attributeOf = (command: UnitCommand) => {
+    const device = lookups.devices[command.device_id];
+    return device
+      ? (deviceAttributes(device)[command.attribute] as
+          | AttributeFields
+          | undefined)
+      : undefined;
+  };
 
   return [
     {
@@ -96,17 +110,25 @@ export function buildCommandColumns(
     {
       accessorKey: "attribute",
       header: () => t("commands.attribute"),
-      cell: ({ row }) => toLabel(row.getValue<string>("attribute")),
+      cell: ({ row }) =>
+        lookups.labelFor(row.original.attribute, attributeOf(row.original)),
     },
     {
       accessorKey: "value",
       header: () => t("commands.value"),
       cell: ({ row }) => {
-        const value = row.original.value;
-        const dataType = row.original.data_type;
+        const { value, attribute, data_type: dataType } = row.original;
+        const device = lookups.devices[row.original.device_id];
+        const typeKey = device ? deviceTypeKey(device) : OTHER_KEY;
         return (
           <span className="inline-flex items-center gap-2 tabular-nums">
-            {formatValue(value, dataType)}
+            <AttributeValue
+              value={value}
+              attributeName={attribute}
+              deviceType={typeKey === OTHER_KEY ? undefined : typeKey}
+              dataType={dataType}
+              valueLabels={attributeOf(row.original)?.value_labels}
+            />
             <CommandConfirmationBadge command={row.original} />
           </span>
         );
