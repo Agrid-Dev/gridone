@@ -20,6 +20,7 @@ import {
   legendLabelStyle,
   legendSeriesLabelStyle,
 } from "../constants";
+import { formatTimeTick } from "../timeTickFormat";
 import { LegendSwatch } from "../LegendSwatch";
 import { computeTopStringValues } from "../topStringValues";
 import { attributeValueChartColor } from "@/lib/semanticColors";
@@ -118,7 +119,16 @@ export function StringPanel({
         }}
         yScale={{ type: "linear", domain: [0, 1] }}
       >
-        {isLast && <Axis orientation="bottom" numTicks={5} />}
+        {isLast && (
+          <Axis
+            orientation="bottom"
+            numTicks={5}
+            tickFormat={formatTimeTick}
+            // Named apart from the value axis, as that one is (visx tags
+            // both with the same class).
+            axisClassName="visx-axis-time"
+          />
+        )}
         {renderItems.map((item) => (
           <AreaSeries
             key={item.dataKey}

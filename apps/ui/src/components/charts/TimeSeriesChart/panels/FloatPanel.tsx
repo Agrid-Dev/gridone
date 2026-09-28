@@ -14,6 +14,7 @@ import {
   lineChartTheme,
   floatAccessors,
 } from "../constants";
+import { formatTimeTick } from "../timeTickFormat";
 import { PanelLegend } from "../PanelLegend";
 import { ScaleCapture } from "../ScaleCapture";
 import { FloatScaleContext } from "../FloatScaleContext";
@@ -51,7 +52,16 @@ export function FloatPanel({
         theme={lineChartTheme}
       >
         {ctx?.yScaleRef && <ScaleCapture yScaleRef={ctx.yScaleRef} />}
-        {isLast && <Axis orientation="bottom" numTicks={5} />}
+        {isLast && (
+          <Axis
+            orientation="bottom"
+            numTicks={5}
+            tickFormat={formatTimeTick}
+            // Named apart from the value axis, as that one is (visx tags
+            // both with the same class).
+            axisClassName="visx-axis-time"
+          />
+        )}
         {/* A tick-count hint: d3 rounds to nice steps, so ~4-6 gridlines
             instead of the dense default ladder. */}
         <Axis

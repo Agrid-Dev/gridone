@@ -21,6 +21,7 @@ import {
 } from "./fixture";
 import type { Series } from "../types";
 import { BOOL_COLOR } from "../constants";
+import { timeTickFormat } from "../timeTickFormat";
 
 afterEach(cleanup);
 
@@ -468,6 +469,43 @@ describe("TimeSeriesChart — bottom axis", () => {
     });
     // At most 1 bottom axis (only on last panel)
     expect(bottomAxisCount).toBeLessThanOrEqual(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Time axis wording
+// ---------------------------------------------------------------------------
+
+describe("TimeSeriesChart — time axis", () => {
+  it.each([
+    ["float", { lineSeries: floatSeries, lineValues: floatValues }],
+    ["boolean", { booleanSeries, booleanValues }],
+    ["string", { stringSeries, stringValues }],
+    [
+      "bar",
+      {
+        lineSeries: floatSeries,
+        lineValues: floatValues,
+        numericMark: "bar" as const,
+      },
+    ],
+  ])("words the %s panel's ticks in the runtime locale", (_, props) => {
+    const { container } = render(
+      <TimeSeriesChartInner timestamps={timestamps} width={WIDTH} {...props} />,
+    );
+    const ticks = Array.from(
+      container.querySelectorAll("g.visx-axis-time text"),
+    ).map((node) => node.textContent ?? "");
+    expect(ticks.length).toBeGreaterThan(0);
+    // The fixture is a minute apart, so every tick lands on one of its
+    // instants (bars run one bucket past the last) and reads as Intl words
+    // that instant here — never as d3's English default would ("12:02 AM"
+    // whatever the locale).
+    const last = timestamps[timestamps.length - 1].getTime();
+    const worded = new Set(
+      [...timestamps, new Date(last + 60_000)].map(timeTickFormat()),
+    );
+    expect(ticks.every((tick) => worded.has(tick))).toBe(true);
   });
 });
 
