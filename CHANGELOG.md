@@ -1,3 +1,14 @@
+## v0.274.1 (2026-09-28)
+
+### Fix
+
+- **ui**: drop the chevron after the device name on the fleet card
+
+### Refactor
+
+- **ui**: make the fleet card a stretched link
+- **ui**: drive the fleet card lead slot from the device registry
+
 ## v0.274.0 (2026-09-28)
 
 ### Feat
