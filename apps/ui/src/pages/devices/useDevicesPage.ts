@@ -1,10 +1,9 @@
 import { useMemo } from "react";
 import { useSearchParams } from "react-router";
-import type { Asset, Device } from "@gridone/sdk";
+import type { Device } from "@gridone/sdk";
 import { useDevicesList } from "@/hooks/useDevicesList";
 import { useFilterParams } from "@/hooks/useFilterParams";
-import { useAssetTree } from "@/hooks/useAssetTree";
-import { zonePathOf as assetZonePath } from "@/lib/assets";
+import { useDeviceZonePath } from "@/hooks/useDeviceZonePath";
 import type { DevicesFilter } from "@/lib/devices";
 import {
   countDevicesByType,
@@ -60,7 +59,7 @@ export function useDevicesPage(): DevicesPage {
 
   const { devices: fetched, loading, error } = useDevicesList(serverFilter);
   const { devices: allDevices, loading: summaryLoading } = useDevicesList();
-  const { assetsById } = useAssetTree();
+  const zonePathOf = useDeviceZonePath();
 
   const groups = useMemo(() => {
     const filteredDevices = otherSelected
@@ -77,19 +76,6 @@ export function useDevicesPage(): DevicesPage {
     () => countByConnectionStatus(allDevices),
     [allDevices],
   );
-
-  const assetOf = (device: Device): Asset | null => {
-    const assetId = device.tags?.["asset_id"]?.[0];
-    return assetId ? (assetsById[assetId] ?? null) : null;
-  };
-
-  const zonePathOf = (device: Device): string | null => {
-    const asset = assetOf(device);
-    if (!asset) return null;
-    // An asset outside the floor/room/zone chain (a device tagged straight to
-    // the building) still deserves a label: fall back to its own name.
-    return assetZonePath(asset, assetsById) || asset.name;
-  };
 
   return {
     groups,

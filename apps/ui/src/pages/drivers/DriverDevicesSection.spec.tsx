@@ -17,11 +17,25 @@ vi.mock("@/hooks/useDevicesList", () => ({
   useDevicesList: (...args: unknown[]) => mockUseDevicesList(...args),
 }));
 
-// Render DeviceCard as a thin link so this spec covers the section, not
-// DeviceCard's internals (which have their own tests).
-vi.mock("@/pages/devices/DeviceCard", () => ({
-  DeviceCard: ({ device }: { device: Device }) => (
-    <a href={`/devices/${device.id}`}>{device.name}</a>
+vi.mock("@/hooks/useDeviceZonePath", () => ({
+  useDeviceZonePath: () => (device: Device) =>
+    device.id === "d1" ? "Floor 1 · Room 101" : null,
+}));
+
+// Render DeviceFleetCard as a thin link so this spec covers the section, not
+// the card's internals (which have their own tests).
+vi.mock("@/pages/devices/DeviceFleetCard", () => ({
+  DeviceFleetCard: ({
+    device,
+    zonePath,
+  }: {
+    device: Device;
+    zonePath: string | null;
+  }) => (
+    <article aria-label={device.name}>
+      <a href={`/devices/${device.id}`}>{device.name}</a>
+      {zonePath && <p>{zonePath}</p>}
+    </article>
   ),
 }));
 
@@ -72,6 +86,9 @@ describe("DriverDevicesSection", () => {
     expect(screen.getByRole("link", { name: "Alpha" })).toHaveAttribute(
       "href",
       "/devices/d1",
+    );
+    expect(screen.getByRole("article", { name: "Alpha" })).toHaveTextContent(
+      "Floor 1 · Room 101",
     );
     expect(
       screen.getByText("Devices using this driver (2)"),
