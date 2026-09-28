@@ -1,3 +1,14 @@
+## v0.274.0 (2026-09-28)
+
+### Feat
+
+- **ui**: unify device preview cards (AGR-1446) (#712)
+- **ui**: use the fleet card on the driver devices section
+
+### Refactor
+
+- **ui**: remove the legacy device card and per-type previews
+
 ## v0.273.1 (2026-09-28)
 
 ### Fix
