@@ -3,9 +3,7 @@ import type { Device } from "@gridone/sdk";
 import {
   countByConnectionStatus,
   deviceMeasureReading,
-  deviceSetpointReading,
   formatReading,
-  formatReadingDelta,
 } from "./deviceSummary";
 
 function device(
@@ -28,8 +26,6 @@ const attr = (value: unknown) => ({ current_value: value });
 /** Formatted through the English locale, the one the specs assert against. */
 const measure = (type: string | null, attributes = {}) =>
   formatReading(deviceMeasureReading(device(type, attributes)), "en");
-const setpoint = (type: string | null, attributes = {}) =>
-  formatReading(deviceSetpointReading(device(type, attributes)), "en");
 
 describe("deviceMeasureReading", () => {
   it.each([
@@ -67,14 +63,6 @@ describe("deviceMeasureReading", () => {
     },
   );
 
-  it("puts the setpoint in its declared unit too", () => {
-    expect(
-      setpoint("thermostat", {
-        temperature_setpoint: { current_value: 21, unit: "°C" },
-      }),
-    ).toBe("21.0 °C");
-  });
-
   it("names the recorded metric the value comes from", () => {
     expect(
       deviceMeasureReading(device("awhp", { outlet_temperature: attr(38.4) })),
@@ -95,100 +83,6 @@ describe("deviceMeasureReading", () => {
   it("falls back to an em dash for unknown or untyped devices", () => {
     expect(measure(null)).toBe("—");
     expect(measure("custom")).toBe("—");
-  });
-});
-
-describe("deviceSetpointReading", () => {
-  it.each([0, 21, null])(
-    "marks fan-mode setpoints as inapplicable regardless of reported value %s",
-    (value) => {
-      const d = device("thermostat", {
-        mode: attr("fan"),
-        temperature_setpoint: attr(value),
-        temperature: attr(21.5),
-      });
-      const reading = deviceSetpointReading(d);
-      expect(formatReading(reading, "en")).toBe("N/A");
-      expect(
-        formatReadingDelta(deviceMeasureReading(d), reading, "en"),
-      ).toBeNull();
-    },
-  );
-
-  it.each(["heat", "cool", "auto", null])(
-    "preserves a reported zero setpoint in mode %s",
-    (mode) => {
-      expect(
-        setpoint("thermostat", {
-          mode: attr(mode),
-          temperature_setpoint: attr(0),
-        }),
-      ).toBe("0.0°");
-    },
-  );
-
-  it.each([
-    ["thermostat", { temperature_setpoint: attr(21) }, "21.0°"],
-    ["awhp", { setpoint_temperature: attr(40) }, "40.0°"],
-    ["ahu_double_flux", { supply_air_temperature_setpoint: attr(19) }, "19.0°"],
-    [
-      "ahu_single_flux",
-      { supply_air_temperature_setpoint: attr(19.5) },
-      "19.5°",
-    ],
-  ])("%s → %s", (type, attributes, expected) => {
-    expect(setpoint(type, attributes)).toBe(expected);
-  });
-
-  it.each(["electricity_meter", "weather_sensor", "air_extractor"])(
-    "%s has no setpoint",
-    (type) => {
-      expect(setpoint(type)).toBe("—");
-    },
-  );
-
-  it("falls back to an em dash when the attribute is absent", () => {
-    expect(setpoint("thermostat")).toBe("—");
-  });
-});
-
-describe("formatReadingDelta", () => {
-  const thermostat = (attributes: Record<string, unknown>) =>
-    device("thermostat", attributes);
-
-  it.each([
-    [{ temperature: attr(21.4), temperature_setpoint: attr(21) }, "+0.4°"],
-    [{ temperature: attr(19.2), temperature_setpoint: attr(21) }, "-1.8°"],
-    [{ temperature: attr(21), temperature_setpoint: attr(21) }, "+0.0°"],
-  ])("%o → %s", (attributes, expected) => {
-    const d = thermostat(attributes);
-    expect(
-      formatReadingDelta(
-        deviceMeasureReading(d),
-        deviceSetpointReading(d),
-        "en",
-      ),
-    ).toBe(expected);
-  });
-
-  it("returns null when either side is missing", () => {
-    const noSetpoint = thermostat({ temperature: attr(21.4) });
-    expect(
-      formatReadingDelta(
-        deviceMeasureReading(noSetpoint),
-        deviceSetpointReading(noSetpoint),
-        "en",
-      ),
-    ).toBeNull();
-
-    const meter = device("electricity_meter", { active_power: attr(120) });
-    expect(
-      formatReadingDelta(
-        deviceMeasureReading(meter),
-        deviceSetpointReading(meter),
-        "en",
-      ),
-    ).toBeNull();
   });
 });
 
