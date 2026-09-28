@@ -1,8 +1,8 @@
 import type { Device } from "@gridone/sdk";
 import type { Feedback } from "@/hooks/useDeviceDetails";
 
-/** Props passed to every standard device preview (card content slot). */
-export type StandardPreviewProps = {
+/** Props passed to a standard type's fleet-card summary slot. */
+export type StandardFleetSummaryProps = {
   device: Device;
 };
 
