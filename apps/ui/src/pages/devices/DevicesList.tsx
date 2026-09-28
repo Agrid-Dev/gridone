@@ -22,6 +22,7 @@ export default function DevicesList() {
   const {
     groups,
     typeCounts,
+    showTypeFilter,
     total,
     connectionCounts,
     summaryLoading,
@@ -86,7 +87,9 @@ export default function DevicesList() {
 
       <div className="flex flex-wrap items-center gap-3">
         <DeviceSearchField />
-        <DeviceTypeChips counts={typeCounts} total={total} />
+        {showTypeFilter && (
+          <DeviceTypeChips counts={typeCounts} total={total} />
+        )}
         <div className="ml-auto flex items-center gap-2">
           <HealthFilter />
         </div>

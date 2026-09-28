@@ -165,6 +165,9 @@ describe("DevicesList — health filter wiring", () => {
   it("calls useDevicesList with undefined when no filters are set", () => {
     renderAt();
     expect(lastListFilter()).toBeUndefined();
+    expect(
+      screen.queryByRole("group", { name: "Filter by type" }),
+    ).not.toBeInTheDocument();
   });
 
   it("passes isFaulty=true when ?health=faulty", () => {
@@ -217,8 +220,14 @@ describe("DevicesList — type chips", () => {
     });
   });
 
-  it("renders a chip per type present, with counts and other last", () => {
-    renderAt();
+  it("keeps fleet type choices when search results contain only one type", () => {
+    const fleet = mockUseDevicesList().devices as Device[];
+    mockUseDevicesList.mockImplementation((...args: unknown[]) => ({
+      devices: args.length === 0 ? fleet : [fleet[0]],
+      loading: false,
+      error: null,
+    }));
+    renderAt(["/devices?search=T1"]);
     const chips = within(
       screen.getByRole("group", { name: "Filter by type" }),
     ).getAllByRole("button");
@@ -236,10 +245,18 @@ describe("DevicesList — type chips", () => {
     expect(lastListFilter()).toEqual({ types: ["thermostat"] });
   });
 
-  it("clears ?type via the All chip", async () => {
-    renderAt(["/devices?type=thermostat"]);
+  it("lets users clear a bookmarked type even when the fleet has one type", async () => {
+    mockUseDevicesList.mockReturnValue({
+      devices: [makeDevice("d1", "T1", { type: "thermostat" })],
+      loading: false,
+      error: null,
+    });
+    renderAt(["/devices?type=electricity_meter&search=T1&health=healthy"]);
     await userEvent.click(screen.getByRole("button", { name: /All types/ }));
-    expect(lastListFilter()).toBeUndefined();
+    expect(lastListFilter()).toEqual({ search: "T1", is_faulty: false });
+    expect(
+      screen.queryByRole("group", { name: "Filter by type" }),
+    ).not.toBeInTheDocument();
   });
 
   it("never sends the other bucket to the server", () => {
