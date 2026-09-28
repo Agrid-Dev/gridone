@@ -1,3 +1,9 @@
+## v0.275.0 (2026-09-28)
+
+### Feat
+
+- **ui**: fleet card redesign — type glyphs, two-line lead (AGR-1446) (#715)
+
 ## v0.274.1 (2026-09-28)
 
 ### Fix
