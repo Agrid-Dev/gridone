@@ -177,6 +177,7 @@
       "unmetered": "Non compté",
       "incomplete": "Au plus ce montant n'est pas compté : un compteur en dessous ne remonte rien, donc le reste est surestimé.",
       "noReading": "—",
+      "unknownVariant": "Variante inconnue : {{variant}}. Affichée avec l'apparence par défaut.",
       "empty": "Aucune arborescence configurée.",
       "apiOnly": "Ce widget se crée pour l'instant via l'API : sa hiérarchie est une arborescence imbriquée, que ce formulaire ne sait pas encore éditer.",
       "dailyConsumption": "Consommation par jour",

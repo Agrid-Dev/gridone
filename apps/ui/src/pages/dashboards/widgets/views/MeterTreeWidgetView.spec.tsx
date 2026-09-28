@@ -7,7 +7,7 @@ import {
   screen,
 } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
-import type { MeterMedium, MeterTreeNode } from "@gridone/sdk";
+import type { MeterTreeNode, MeterTreeWidgetConfig } from "@gridone/sdk";
 import { createI18nMock } from "@/test/i18nMock";
 import { meterKey, type MeterAttributes } from "./meterTree";
 
@@ -17,6 +17,7 @@ vi.mock("react-i18next", () =>
     "widgets.meterTree.dailyConsumption": "Consumption per day",
     "widgets.meterTree.breakdown": "Breakdown",
     "widgets.meterTree.openDevice": "Open device",
+    "widgets.meterTree.unknownVariant": "Unknown variant",
   }),
 );
 
@@ -57,14 +58,20 @@ const meter = (id: string, attribute: string) => ({
 const MAIN = meter("main", "active_energy");
 const HVAC = meter("hvac", "hvac_energy");
 const LIGHTS = meter("lights", "lights_energy");
+/** Reads below zero: a counter reset, drawn as a fault. */
+const RESET = meter("reset", "reset_energy");
 
 function renderTree(
   root: MeterTreeNode,
   attributes: MeterAttributes,
   {
     pending = false,
-    medium,
-  }: { pending?: boolean; medium?: MeterMedium | null } = {},
+    variant,
+  }: {
+    pending?: boolean;
+    // Any string: a tree may carry a variant this bundle predates.
+    variant?: string;
+  } = {},
 ) {
   useMeterTreeAttributes.mockReturnValue(attributes);
   useMeterTreeValues.mockReturnValue({
@@ -72,13 +79,16 @@ function renderTree(
       [meterKey(MAIN) as string, 100],
       [meterKey(HVAC) as string, 40],
       [meterKey(LIGHTS) as string, 0],
+      [meterKey(RESET) as string, -5],
     ]),
     loading: false,
     pending,
   });
   return render(
     <MemoryRouter>
-      <MeterTreeWidgetView config={{ type: "meter_tree", root, medium }} />
+      <MeterTreeWidgetView
+        config={{ type: "meter_tree", root, variant } as MeterTreeWidgetConfig}
+      />
     </MemoryRouter>,
   );
 }
@@ -91,6 +101,16 @@ const board: MeterTreeNode = {
     { label: "HVAC", meter: HVAC },
     { label: "Lights", meter: LIGHTS },
   ],
+};
+
+const node = (container: HTMLElement, key: string) =>
+  container.querySelector(`g[data-node="${key}"]`)!;
+
+/** Building over an unmetered Riser grouping HVAC. */
+const riser: MeterTreeNode = {
+  label: "Building",
+  meter: MAIN,
+  children: [{ label: "Riser", children: [{ label: "HVAC", meter: HVAC }] }],
 };
 
 /** The tree's resting edges, not the focused path drawn over them. */
@@ -192,51 +212,104 @@ describe("MeterTreeWidgetView node details", () => {
   });
 });
 
-describe("MeterTreeWidgetView medium", () => {
-  it.each([
-    ["electricity", "stroke-meter-electricity"],
-    ["water", "stroke-meter-water"],
-  ] as const)("draws a %s tree's edges in its colour", (medium, cls) => {
-    const { container } = renderTree(board, new Map(), { medium });
-
-    const classes = edges(container).map((edge) => edge.getAttribute("class"));
-    expect(classes).toEqual([cls, cls, cls]);
-  });
-
-  it("keeps today's drawing for a tree without a medium", () => {
-    const { container } = renderTree(board, new Map(), { medium: null });
-
-    for (const edge of edges(container)) {
-      expect(edge.getAttribute("class")).toBe("stroke-border");
-      expect(edge.getAttribute("stroke-dasharray")).toBeNull();
-      expect(edge.parentElement!.getAttribute("opacity")).toBeNull();
-    }
-    expect(container.querySelector("rect[data-accent]")).toBeNull();
-    expect(container.querySelector("svg svg")).toBeNull();
-    expect(container.querySelector("circle")!.getAttribute("class")).toBeNull();
-    expect(container.querySelector("rect")!.getAttribute("class")).toBe(
-      "fill-card stroke-border",
+describe("MeterTreeWidgetView variant", () => {
+  /** Every elbow of an edge as "L x y Q cx cy": a right angle when the curve
+   *  starts at its own control point, a bend when it does not. */
+  const bends = (edge: SVGPathElement) =>
+    [...edge.getAttribute("d")!.matchAll(/L (\S+) (\S+) Q (\S+) (\S+)/g)].map(
+      ([, lx, ly, qx, qy]) => lx !== qx || ly !== qy,
     );
+
+  it.each([
+    // A single-line diagram turns at right angles; a pipe bends.
+    { variant: "electricity", stroke: "stroke-electricity", bent: false },
+    { variant: "water", stroke: "stroke-fluid-cold-water", bent: true },
+  ])(
+    "draws a $variant tree after its diagrams",
+    ({ variant, stroke, bent }) => {
+      const { container } = renderTree(board, new Map(), { variant });
+
+      const all = edges(container);
+      expect(all.map((edge) => edge.getAttribute("class"))).toEqual([
+        stroke,
+        stroke,
+        stroke,
+      ]);
+      const turns = all.flatMap(bends);
+      expect(turns.length).toBeGreaterThan(0);
+      expect(turns).not.toContain(!bent);
+    },
+  );
+
+  it.each([["default"], [undefined]])(
+    "keeps today's drawing for a %s variant",
+    (variant) => {
+      const { container } = renderTree(board, new Map(), { variant });
+
+      for (const edge of edges(container)) {
+        expect(edge.getAttribute("class")).toBe("stroke-border");
+        expect(edge.getAttribute("stroke-dasharray")).toBeNull();
+        expect(edge.parentElement!.getAttribute("opacity")).toBeNull();
+        expect(bends(edge).every((bent) => !bent)).toBe(true);
+      }
+      expect(container.querySelector("rect[data-accent]")).toBeNull();
+      expect(container.querySelector("svg[data-variant-icon]")).toBeNull();
+      expect(
+        container.querySelector("circle")!.getAttribute("class"),
+      ).toBeNull();
+      expect(container.querySelector("rect")!.getAttribute("class")).toBe(
+        "fill-card stroke-border",
+      );
+      expect(screen.queryByText("Unknown variant")).toBeNull();
+    },
+  );
+
+  it.each([["gas"], ["constructor"]])(
+    "says so when the variant is %s, one this bundle does not know",
+    (variant) => {
+      const { container } = renderTree(board, new Map(), { variant });
+
+      expect(screen.getByText("Unknown variant")).toBeTruthy();
+      for (const edge of edges(container)) {
+        expect(edge.getAttribute("class")).toBe("stroke-border");
+      }
+    },
+  );
+
+  it("lets a fault read alone: no tint or accent over its red", () => {
+    const { container } = renderTree(
+      {
+        label: "Building",
+        meter: RESET,
+        children: [{ label: "HVAC", meter: HVAC }],
+      },
+      new Map(),
+      { variant: "electricity" },
+    );
+
+    const root = node(container, "0").querySelector("rect")!;
+    expect(root.getAttribute("class")).toBe(
+      "fill-destructive/10 stroke-destructive",
+    );
+    expect(root.getAttribute("fill-opacity")).toBeNull();
+    expect(node(container, "0").querySelector("rect[data-accent]")).toBeNull();
+    expect(container.querySelector("svg[data-variant-icon]")).toBeNull();
+    // HVAC reads fine, so it keeps its accent.
+    expect(
+      node(container, "0.0").querySelector("rect[data-accent]"),
+    ).not.toBeNull();
   });
 
   it("does not animate: the tree shows a period, not live values", () => {
-    const { container } = renderTree(board, new Map(), { medium: "water" });
+    const { container } = renderTree(board, new Map(), { variant: "water" });
 
     expect(container.querySelector("[class*='animate']")).toBeNull();
   });
 
   it("draws every level at the same strength", () => {
-    const { container } = renderTree(
-      {
-        label: "Building",
-        meter: MAIN,
-        children: [
-          { label: "Riser", children: [{ label: "HVAC", meter: HVAC }] },
-        ],
-      },
-      new Map(),
-      { medium: "electricity" },
-    );
+    const { container } = renderTree(riser, new Map(), {
+      variant: "electricity",
+    });
 
     // Riser and the unmetered remainder hang off the root; HVAC one level down.
     const all = edges(container);
@@ -248,7 +321,7 @@ describe("MeterTreeWidgetView medium", () => {
   });
 
   it("dots only the edge into what the children leave unmetered", () => {
-    const { container } = renderTree(board, new Map(), { medium: "water" });
+    const { container } = renderTree(board, new Map(), { variant: "water" });
 
     const dotted = edges(container).filter((edge) =>
       edge.hasAttribute("stroke-dasharray"),
@@ -257,44 +330,52 @@ describe("MeterTreeWidgetView medium", () => {
     expect(dotted[0]).toBe(edges(container).at(-1));
   });
 
-  it("marks every meter's box, but not the unmetered remainder", () => {
-    const { container } = renderTree(board, new Map(), { medium: "water" });
+  it("marks only the boxes that have a meter", () => {
+    const { container } = renderTree(riser, new Map(), { variant: "water" });
 
-    const accents = container.querySelectorAll("rect[data-accent]");
-    // Building, HVAC and Lights, all at one strength.
-    expect(accents).toHaveLength(3);
-    for (const accent of accents) {
-      expect(accent.getAttribute("class")).toBe("fill-meter-water");
-      expect(accent.getAttribute("opacity")).toBeNull();
-    }
+    // Building and HVAC; not the Riser grouping them, nor the remainder.
+    const marked = [...container.querySelectorAll("rect[data-accent]")].map(
+      (accent) => accent.closest("g[data-node]")!.getAttribute("data-node"),
+    );
+    expect(marked).toEqual(["0", "0.0.0"]);
+    expect(
+      container.querySelector("rect[data-accent]")!.getAttribute("class"),
+    ).toBe("fill-fluid-cold-water");
   });
 
-  it("tints the root and marks it with the medium's icon", () => {
+  it("tints the root and marks it with the variant's icon, below its name", () => {
     const { container } = renderTree(board, new Map(), {
-      medium: "electricity",
+      variant: "electricity",
     });
 
     const boxes = [...container.querySelectorAll("rect:not([data-accent])")];
     expect(boxes[0].getAttribute("class")).toBe(
-      "fill-meter-electricity/10 stroke-border",
+      "fill-electricity stroke-border",
     );
+    expect(boxes[0].getAttribute("fill-opacity")).toBe("0.1");
     expect(boxes[1].getAttribute("class")).toBe("fill-card stroke-border");
-    expect(container.querySelectorAll("svg svg")).toHaveLength(1);
-    expect(container.querySelector("svg svg.lucide-zap")).not.toBeNull();
+    const icons = container.querySelectorAll("svg[data-variant-icon]");
+    expect(icons).toHaveLength(1);
+    expect(icons[0].classList.contains("lucide-zap")).toBe(true);
+    // The name never runs under the icon, however long it is.
+    const name = node(container, "0").querySelector("foreignObject")!;
+    const nameBottom =
+      Number(name.getAttribute("y")) + Number(name.getAttribute("height"));
+    expect(Number(icons[0].getAttribute("y"))).toBeGreaterThanOrEqual(
+      nameBottom,
+    );
   });
 
   it("draws the fold button in the colour of the run it sits on", () => {
-    const { container } = renderTree(board, new Map(), { medium: "water" });
+    const { container } = renderTree(board, new Map(), { variant: "water" });
 
     const circle = container.querySelector("circle")!;
-    expect(circle.getAttribute("class")).toBe("stroke-meter-water");
+    expect(circle.getAttribute("class")).toBe("stroke-fluid-cold-water");
     expect(circle.getAttribute("stroke-opacity")).toBeNull();
   });
 });
 
 describe("MeterTreeWidgetView focus", () => {
-  const node = (container: HTMLElement, key: string) =>
-    container.querySelector(`g[data-node="${key}"]`)!;
   const hover = (container: HTMLElement, key: string) =>
     fireEvent.pointerEnter(node(container, key), { pointerType: "mouse" });
   const leaveTree = (container: HTMLElement) =>
@@ -318,7 +399,7 @@ describe("MeterTreeWidgetView focus", () => {
   };
 
   it("draws the path to the hovered node stronger, leaving the rest as it was", () => {
-    const { container } = renderTree(board, new Map(), { medium: "water" });
+    const { container } = renderTree(board, new Map(), { variant: "water" });
     const before = edges(container).map((edge) => edge.outerHTML);
     const boxes = () =>
       [...container.querySelectorAll("g[data-node]")].map((g) => g.outerHTML);
@@ -330,7 +411,7 @@ describe("MeterTreeWidgetView focus", () => {
     expect(ringed(container)).toEqual(["0", "0.0"]);
     expect(pathEdges(container)).toHaveLength(1);
     expect(pathEdges(container)[0].getAttribute("class")).toBe(
-      "stroke-meter-water",
+      "stroke-fluid-cold-water",
     );
     expect(
       pathEdges(container)[0].parentElement!.getAttribute("opacity"),
@@ -353,7 +434,7 @@ describe("MeterTreeWidgetView focus", () => {
   });
 
   it("keeps the path while the mouse crosses the gap to the next row", () => {
-    const { container } = renderTree(board, new Map(), { medium: "water" });
+    const { container } = renderTree(board, new Map(), { variant: "water" });
 
     hover(container, "0.0");
     // Out of the box into the gap: still on the tree's own canvas.
@@ -367,8 +448,8 @@ describe("MeterTreeWidgetView focus", () => {
     expect(ringed(container)).toEqual(["0", "0.1"]);
   });
 
-  it("draws the path of a tree without a medium darker than its faint edges", () => {
-    const { container } = renderTree(board, new Map(), { medium: null });
+  it("draws the path of a default tree darker than its faint edges", () => {
+    const { container } = renderTree(board, new Map(), { variant: "default" });
 
     hover(container, "0.1");
 
@@ -388,7 +469,7 @@ describe("MeterTreeWidgetView focus", () => {
         meter: HVAC,
       })),
     };
-    const { container } = renderTree(wide, new Map(), { medium: "water" });
+    const { container } = renderTree(wide, new Map(), { variant: "water" });
 
     hover(container, "0.10");
 
@@ -396,7 +477,7 @@ describe("MeterTreeWidgetView focus", () => {
   });
 
   it("ignores a touch, which would leave the path focused", () => {
-    const { container } = renderTree(board, new Map(), { medium: "water" });
+    const { container } = renderTree(board, new Map(), { variant: "water" });
 
     fireEvent.pointerEnter(node(container, "0.0"), { pointerType: "touch" });
 
@@ -404,7 +485,7 @@ describe("MeterTreeWidgetView focus", () => {
   });
 
   it("traces the path of the node whose name has keyboard focus", () => {
-    const { container } = renderTree(board, new Map(), { medium: "water" });
+    const { container } = renderTree(board, new Map(), { variant: "water" });
     const name = screen.getByRole("button", { name: "HVAC" });
 
     focusName(name, true);
@@ -415,15 +496,24 @@ describe("MeterTreeWidgetView focus", () => {
   });
 
   it("ignores focus a tap or a closing dialog puts back on a name", () => {
-    const { container } = renderTree(board, new Map(), { medium: "water" });
+    const { container } = renderTree(board, new Map(), { variant: "water" });
 
     focusName(screen.getByRole("button", { name: "HVAC" }), false);
 
     expect(ringed(container)).toEqual([]);
   });
 
+  it("follows the keyboard over a mouse left resting on the tree", () => {
+    const { container } = renderTree(board, new Map(), { variant: "water" });
+
+    hover(container, "0.1");
+    focusName(screen.getByRole("button", { name: "HVAC" }), true);
+
+    expect(ringed(container)).toEqual(["0", "0.0"]);
+  });
+
   it("returns to the keyboard's path when the mouse leaves the tree", () => {
-    const { container } = renderTree(board, new Map(), { medium: "water" });
+    const { container } = renderTree(board, new Map(), { variant: "water" });
     focusName(screen.getByRole("button", { name: "HVAC" }), true);
 
     hover(container, "0.1");
