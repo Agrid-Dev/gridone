@@ -93,7 +93,9 @@ command invalidates knowledge of its target until a new observation arrives. The
 requested value is never published as telemetry, including when `confirm: false`
 is used: automations send unconfirmed writes, so their command rows record the
 request and the device keeps its last observation until it is polled or pushes
-again.
+again. When a rule, mapping or capability depends on the target, an unconfirmed
+write is still confirmed in the background, so only the value the device applied
+is trusted, and a target that never confirms is read once more.
 
 ## Instance-specific value mappings
 
