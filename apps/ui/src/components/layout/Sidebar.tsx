@@ -79,6 +79,12 @@ export function Sidebar({
   const { devices } = useDevicesList();
   const { pendingCount: pendingAppRequests } = usePendingAppRequests();
 
+  const hasConfiguration =
+    can("users:write") ||
+    can("drivers:read") ||
+    can("transports:read") ||
+    can("users:read");
+
   const version = health.version?.trim() || null;
   const versionLabel = version ? t("app.version", { version }) : null;
   const faultCount = faults.length;
@@ -179,7 +185,9 @@ export function Sidebar({
             )}
           </NavLink>
 
-          <SectionLabel>{t("nav.configuration")}</SectionLabel>
+          {hasConfiguration && (
+            <SectionLabel>{t("nav.configuration")}</SectionLabel>
+          )}
 
           {/* Above Drivers: an app is the product-level integration, drivers
            *  and networks are the plumbing underneath it. Admin-only, because
@@ -201,15 +209,19 @@ export function Sidebar({
             </NavLink>
           )}
 
-          <NavLink to="/drivers" className={navLinkClass}>
-            <Puzzle className="h-4 w-4" />
-            {t("app.drivers")}
-          </NavLink>
+          {can("drivers:read") && (
+            <NavLink to="/drivers" className={navLinkClass}>
+              <Puzzle className="h-4 w-4" />
+              {t("app.drivers")}
+            </NavLink>
+          )}
 
-          <NavLink to="/transports" className={navLinkClass}>
-            <Network className="h-4 w-4" />
-            {t("app.networks")}
-          </NavLink>
+          {can("transports:read") && (
+            <NavLink to="/transports" className={navLinkClass}>
+              <Network className="h-4 w-4" />
+              {t("app.networks")}
+            </NavLink>
+          )}
 
           {can("users:read") && (
             <NavLink to="/users" className={navLinkClass}>

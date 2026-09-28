@@ -140,6 +140,41 @@ describe("Sidebar", () => {
     );
   });
 
+  it.each([false, true])(
+    "hides unavailable configuration links and the empty heading (mobile: %s)",
+    (mobile) => {
+      permissions.can = (permission) =>
+        ["devices:read", "drivers:write", "transports:write"].includes(
+          permission,
+        );
+      renderSidebar(mobile);
+      for (const name of ["Drivers", "Networks", "Apps", "Users"])
+        expect(screen.queryByRole("link", { name })).not.toBeInTheDocument();
+      expect(screen.queryByText("Configuration")).not.toBeInTheDocument();
+    },
+  );
+
+  it.each([
+    ["drivers:read", "Drivers", "/drivers"],
+    ["transports:read", "Networks", "/transports"],
+    ["users:read", "Users", "/users"],
+    ["users:write", "Apps", "/apps"],
+  ])(
+    "keeps Configuration when only %s is granted",
+    (permission, name, href) => {
+      permissions.can = (value) => value === permission;
+      renderSidebar();
+      expect(screen.getByText("Configuration")).toBeInTheDocument();
+      expect(screen.getByRole("link", { name })).toHaveAttribute("href", href);
+      for (const other of ["Drivers", "Networks", "Apps", "Users"].filter(
+        (value) => value !== name,
+      ))
+        expect(
+          screen.queryByRole("link", { name: other }),
+        ).not.toBeInTheDocument();
+    },
+  );
+
   it("puts Apps first under Configuration, above Drivers", () => {
     renderSidebar();
     const appsLink = screen.getByRole("link", { name: /Apps/ });

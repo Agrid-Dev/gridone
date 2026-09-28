@@ -59,12 +59,14 @@ export const useDriverFromRoute = (): Driver => {
     }
     return undefined;
   };
-  const { data } = useSuspenseQuery<Driver>({
+  const { data, error } = useSuspenseQuery<Driver>({
     queryKey: ["driver", driverId],
     queryFn: () => client.drivers.get(driverId),
     initialData: () => cachedFromList()?.driver,
     initialDataUpdatedAt: () => cachedFromList()?.updatedAt,
   });
+  // Suspense queries only throw automatically when no cached data exists.
+  if (error) throw error;
   return data;
 };
 

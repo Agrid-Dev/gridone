@@ -18,6 +18,7 @@ export function useDriverPresentation(driverId: string) {
     // Keep the revision the author reviewed until they explicitly reload it.
     staleTime: Infinity,
     retry: false,
+    throwOnError: (error) => isGridoneError(error) && error.status === 403,
     refetchOnWindowFocus: false,
   });
 }

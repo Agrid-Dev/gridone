@@ -118,11 +118,13 @@ export const useTransportFromRoute = (): Transport => {
     }
     return undefined;
   };
-  const { data } = useSuspenseQuery<Transport>({
+  const { data, error } = useSuspenseQuery<Transport>({
     queryKey: ["transport", transportId],
     queryFn: () => client.transports.get(transportId),
     initialData: () => cachedFromList()?.transport,
     initialDataUpdatedAt: () => cachedFromList()?.updatedAt,
   });
+  // Suspense queries only throw automatically when no cached data exists.
+  if (error) throw error;
   return data;
 };
