@@ -70,6 +70,7 @@ module.exports = {
         "hvac-dry": "hsl(var(--hvac-dry))",
         "hvac-auto": "hsl(var(--hvac-auto))",
         water: "hsl(var(--water))",
+        electricity: "hsl(var(--electricity))",
         "node-decision": "hsl(var(--node-decision))",
         "node-command": "hsl(var(--node-command))",
         "node-write": "hsl(var(--node-write))",
@@ -104,8 +105,6 @@ module.exports = {
         "fluid-chilled-return": "hsl(var(--fluid-chilled-return))",
         "fluid-condenser-supply": "hsl(var(--fluid-condenser-supply))",
         "fluid-condenser-return": "hsl(var(--fluid-condenser-return))",
-        "meter-electricity": "hsl(var(--meter-electricity))",
-        "meter-water": "hsl(var(--meter-water))",
       },
       borderRadius: {
         "2xl": "calc(var(--radius) + 8px)",

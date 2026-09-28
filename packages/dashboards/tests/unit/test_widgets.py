@@ -14,7 +14,7 @@ from dashboards.widgets import (
     WidgetType,
     build_default_registry,
 )
-from dashboards.widgets.meter_tree import MAX_DEPTH, MAX_NODES, MeterMedium
+from dashboards.widgets.meter_tree import MAX_DEPTH, MAX_NODES, MeterTreeVariant
 from dashboards.widgets.registry import WidgetRegistry
 from pydantic import ValidationError
 
@@ -937,26 +937,35 @@ def test_meter_tree_node_rejects_a_meaningless_scale(raw: dict):
         MeterTreeNode.model_validate(raw)
 
 
-@pytest.mark.parametrize("medium", list(MeterMedium))
-def test_meter_tree_accepts_a_medium(medium: MeterMedium):
+@pytest.mark.parametrize("variant", list(MeterTreeVariant))
+def test_meter_tree_accepts_a_variant(variant: MeterTreeVariant):
     config = MeterTreeWidgetConfig.model_validate(
-        {"root": {"label": "N", "meter": _meter("d1")}, "medium": medium.value}
+        {"root": {"label": "N", "meter": _meter("d1")}, "variant": variant.value}
     )
 
-    assert config.medium is medium
+    assert config.variant is variant
 
 
-def test_meter_tree_stored_without_a_medium_has_none():
-    # Trees saved before the field existed carry no medium and keep their look.
+def test_meter_tree_stored_without_a_variant_is_the_default():
+    # Trees saved before the field existed carry no variant and keep their look.
     config = MeterTreeWidgetConfig.model_validate(
         {"type": "meter_tree", "root": {"label": "N", "meter": _meter("d1")}}
     )
 
-    assert config.medium is None
+    assert config.variant is MeterTreeVariant.DEFAULT
 
 
-def test_meter_tree_rejects_an_unknown_medium():
-    with pytest.raises(ValidationError, match="medium"):
+def test_meter_tree_null_variant_is_the_default():
+    # A client clearing the variant sends null: that is the default look.
+    config = MeterTreeWidgetConfig.model_validate(
+        {"root": {"label": "N", "meter": _meter("d1")}, "variant": None}
+    )
+
+    assert config.variant is MeterTreeVariant.DEFAULT
+
+
+def test_meter_tree_rejects_an_unknown_variant():
+    with pytest.raises(ValidationError, match="variant"):
         MeterTreeWidgetConfig.model_validate(
-            {"root": {"label": "N", "meter": _meter("d1")}, "medium": "gas"}
+            {"root": {"label": "N", "meter": _meter("d1")}, "variant": "gas"}
         )

@@ -1,10 +1,10 @@
 import { memo, useCallback, useMemo, useState, type FC } from "react";
 import { useTranslation } from "react-i18next";
-import { Droplet, Zap, type LucideIcon } from "lucide-react";
 import { Group } from "@visx/group";
 import { ParentSize } from "@visx/responsive";
 import { hierarchy, tree, type HierarchyPointNode } from "d3-hierarchy";
-import type { MeterMedium, MeterTreeWidgetConfig } from "@gridone/sdk";
+import type { MeterTreeWidgetConfig } from "@gridone/sdk";
+import { roundedPath } from "@/components/synoptic/geometry";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fmt } from "@/lib/formatValue";
 import { useDashboardPeriod } from "../../useDashboardPeriod";
@@ -19,6 +19,7 @@ import { MeterNodeDialog } from "./MeterNodeDialog";
 import { useMeterNodeLabel } from "./useMeterNodeLabel";
 import { useMeterTreeAttributes } from "./useMeterTreeAttributes";
 import { useMeterTreeValues } from "./useMeterTreeValues";
+import { resolveVariant, type VariantStyle } from "./meterTreeVariant";
 
 /** Box drawn per node: wide enough for a circuit name plus its figures. */
 const NODE_W = 156;
@@ -33,39 +34,21 @@ const MAX_LABEL = 20;
 const EDGE_MIN = 1;
 /** Thickest, reserved for the trunk. */
 const EDGE_MAX = 11;
-/** Medium edges rest this soft, so the focused path can be drawn stronger. */
+/** Variant edges rest this soft, so the focused path can be drawn stronger. */
 const EDGE_SOFT = 0.6;
-/** The focused path on a tree without a medium, whose edges are already faint. */
+/** The focused path on a default tree, whose edges are already faint. */
 const NEUTRAL_FOCUS = "stroke-muted-foreground";
 /** Space between a box and its focus ring, so a fault's red border stays visible. */
 const FOCUS_GAP = 2.5;
 /** Width of the accent bar on the left of a meter's box. */
 const ACCENT_W = 3;
 const ICON_SIZE = 14;
-
-type MediumPalette = {
-  stroke: string;
-  fill: string;
-  /** The root's background, so the figure everything is a share of stands out. */
-  tint: string;
-  icon: LucideIcon;
-};
-
-/** What each medium is drawn with. Literal classes so Tailwind keeps them. */
-const MEDIUM_PALETTE: Record<MeterMedium, MediumPalette> = {
-  electricity: {
-    stroke: "stroke-meter-electricity",
-    fill: "fill-meter-electricity",
-    tint: "fill-meter-electricity/10",
-    icon: Zap,
-  },
-  water: {
-    stroke: "stroke-meter-water",
-    fill: "fill-meter-water",
-    tint: "fill-meter-water/10",
-    icon: Droplet,
-  },
-};
+/** How strongly the root is tinted, so the figure everything is a share of
+ *  stands out. */
+const ROOT_TINT = 0.1;
+/** Where a node's name sits: the root's icon goes below it, never over it. */
+const NAME_Y = 2;
+const NAME_H = 18;
 
 /** A share reads better as a percentage than a fraction. */
 const asPercent = (ratio: number | null) =>
@@ -91,34 +74,27 @@ function edgeWidth(share: number | null): number {
 }
 
 /**
- * Elbow link: out of the parent's right edge, across, into the child's left.
+ * Elbow link: out of the parent's right edge, across, into the child's left,
+ * turning at right angles like a single-line diagram, or at `bend` like a pipe.
  *
- * Drawn by hand rather than pulled from `@visx/shape` — one path expression is
- * cheaper than another dependency, and a right angle suits a distribution board
- * better than a curve: it reads like the single-line diagram it describes.
- *
- * The tree is laid out left-to-right, so visx's `x` is vertical here and its
- * `y` horizontal.
+ * The tree is laid out left-to-right, so the layout's `x` is vertical here and
+ * its `y` horizontal.
  */
 function elbow(
   source: HierarchyPointNode<MeterTreeDatum>,
   target: HierarchyPointNode<MeterTreeDatum>,
+  bend: number,
 ): string {
   const midX = (source.y + NODE_W + target.y) / 2;
-  return `M${source.y + NODE_W},${source.x} H${midX} V${target.x} H${target.y}`;
-}
-
-/**
- * The palette for a tree's medium, or `null` for the neutral look: a tree
- * without a medium, or with one this bundle predates, keeps the plain drawing.
- */
-function mediumPalette(medium: MeterMedium | null | undefined) {
-  if (!medium) return null;
-  const palette = MEDIUM_PALETTE[medium];
-  if (!palette && import.meta.env.DEV) {
-    console.warn(`Unknown meter medium "${medium}", drawn neutral`);
-  }
-  return palette ?? null;
+  return roundedPath(
+    [
+      { x: source.y + NODE_W, y: source.x },
+      { x: midX, y: source.x },
+      { x: midX, y: target.x },
+      { x: target.y, y: target.x },
+    ],
+    bend,
+  );
 }
 
 type TreeEdge = {
@@ -140,7 +116,7 @@ type TreeEdge = {
  * rows as it has circuits — so the container scrolls instead of shrinking
  * every label past legibility.
  */
-function layoutTree(root: MeterTreeDatum) {
+function layoutTree(root: MeterTreeDatum, bend: number) {
   const data = hierarchy<MeterTreeDatum>(root);
   const innerH = data.descendants().length * ROW;
   const innerW = (data.height + 1) * (NODE_W + GAP_X);
@@ -155,7 +131,7 @@ function layoutTree(root: MeterTreeDatum) {
   });
   const edges: TreeEdge[] = laid.links().map((link) => ({
     target: link.target.data.key,
-    d: elbow(link.source, link.target),
+    d: elbow(link.source, link.target, bend),
     width: edgeWidth(link.target.data.shareOfTotal),
     residual: link.target.data.kind === "residual",
   }));
@@ -202,7 +178,7 @@ function isBounded(datum: MeterTreeDatum): boolean {
 
 type NodeBoxProps = {
   node: HierarchyPointNode<MeterTreeDatum>;
-  palette: MediumPalette | null;
+  style: VariantStyle | null;
   label: string;
   noReading: string;
   incompleteMark: string;
@@ -216,7 +192,7 @@ type NodeBoxProps = {
  *  across a large board redraws the path and rings, not every box. */
 const NodeBox = memo(function NodeBox({
   node,
-  palette,
+  style,
   label,
   noReading,
   incompleteMark,
@@ -229,6 +205,9 @@ const NodeBox = memo(function NodeBox({
   const residual = datum.kind === "residual";
   const root = node.depth === 0;
   const faulty = isFaulty(datum);
+  // The root carries the variant, unless it is at fault: a fault reads alone,
+  // with no variant tint, accent or icon over its red.
+  const featured = root && style !== null && !faulty;
   const bounded = isBounded(datum);
   // A folded node keeps its children in the config but not in the layout, so
   // `node.children` cannot answer this — the datum's own flag can.
@@ -263,6 +242,7 @@ const NodeBox = memo(function NodeBox({
         // Dashed reads as provisional, and composes with the fault colour: a
         // residual can be both overstated and negative, and both facts matter.
         strokeDasharray={bounded ? "4 3" : undefined}
+        fillOpacity={featured ? ROOT_TINT : undefined}
         className={
           faulty
             ? "fill-destructive/10 stroke-destructive"
@@ -270,32 +250,33 @@ const NodeBox = memo(function NodeBox({
               ? "fill-muted stroke-muted-foreground"
               : residual
                 ? "fill-muted stroke-border"
-                : root && palette
-                  ? `${palette.tint} stroke-border`
+                : featured
+                  ? `${style.fill} stroke-border`
                   : "fill-card stroke-border"
         }
       />
-      {palette && !residual ? (
+      {style && datum.deviceId && !faulty ? (
         <rect
           x={1}
           y={6}
           width={ACCENT_W}
           height={NODE_H - 12}
           rx={ACCENT_W / 2}
-          className={palette.fill}
+          className={style.fill}
           data-accent
         />
       ) : null}
-      {palette && root ? (
-        <palette.icon
+      {featured ? (
+        <style.icon
           x={NODE_W - ICON_SIZE - 8}
-          y={NODE_H - ICON_SIZE - 6}
+          y={NAME_Y + NAME_H}
           size={ICON_SIZE}
-          className={palette.stroke}
+          className={style.stroke}
+          data-variant-icon
         />
       ) : null}
       {datum.deviceId ? (
-        <foreignObject x={10} y={2} width={NODE_W - 20} height={18}>
+        <foreignObject x={10} y={NAME_Y} width={NODE_W - 20} height={NAME_H}>
           <button
             type="button"
             onClick={(event) => {
@@ -329,7 +310,7 @@ const NodeBox = memo(function NodeBox({
         className={
           faulty
             ? "fill-destructive text-[12px] font-semibold tabular-nums"
-            : root && palette
+            : featured
               ? "fill-foreground text-[12px] font-semibold tabular-nums"
               : "fill-foreground text-[12px] tabular-nums"
         }
@@ -368,7 +349,7 @@ const NodeBox = memo(function NodeBox({
             r={7}
             strokeWidth={1}
             // On the run out to the children, so it takes their colour.
-            className={palette?.stroke}
+            className={style?.stroke}
           />
           <path
             d={datum.collapsed ? "M-3,0 H3 M0,-3 V3" : "M-3,0 H3"}
@@ -385,39 +366,45 @@ const NodeBox = memo(function NodeBox({
 
 const TreeCanvas: FC<{
   root: MeterTreeDatum;
-  medium: MeterMedium | null | undefined;
+  style: VariantStyle | null;
   width: number;
   onToggle: (key: string) => void;
   onSelect: (key: string) => void;
-}> = ({ root, medium, width, onToggle, onSelect }) => {
+}> = ({ root, style, width, onToggle, onSelect }) => {
   const { t } = useTranslation("dashboards");
   const labelOf = useMeterNodeLabel();
-  const palette = mediumPalette(medium);
-  const focusStroke = palette?.stroke ?? NEUTRAL_FOCUS;
-  const layout = useMemo(() => layoutTree(root), [root]);
-  // Kept apart so neither clears the other; the mouse wins while on the tree.
+  const focusStroke = style?.stroke ?? NEUTRAL_FOCUS;
+  const bend = style?.bend ?? 0;
+  const layout = useMemo(() => layoutTree(root, bend), [root, bend]);
+  // Mouse and keyboard tracked apart: the mouse wins while on the tree, and
+  // leaving it gives the path back to the keyboard.
   const [hovered, setHovered] = useState<string | null>(null);
   const [focused, setFocused] = useState<string | null>(null);
+  // Tabbing is the latest intent: it takes over from a mouse left resting on
+  // the tree, which would otherwise keep its path over the keyboard's.
+  const focusFromKeyboard = useCallback((key: string | null) => {
+    setFocused(key);
+    if (key !== null) setHovered(null);
+  }, []);
   const active = hovered ?? focused;
   const path = new Set(
     (active === null ? undefined : layout.byKey.get(active))
       ?.ancestors()
       .map((node) => node.data.key),
   );
-  const dotResidual = palette !== null;
   const noReading = t("widgets.meterTree.noReading");
   const incompleteMark = t("widgets.meterTree.incomplete");
   // One group, softened once: siblings overlap on their parent's run, and
   // translucent edges drawn over each other would stack back to full strength.
   const resting = useMemo(
     () => (
-      <g opacity={palette ? EDGE_SOFT : undefined}>
+      <g opacity={style ? EDGE_SOFT : undefined}>
         {layout.edges.map((edge) =>
-          edgePath(edge, palette?.stroke ?? "stroke-border", dotResidual),
+          edgePath(edge, style?.stroke ?? "stroke-border", style !== null),
         )}
       </g>
     ),
-    [layout, palette, dotResidual],
+    [layout, style],
   );
 
   return (
@@ -436,20 +423,20 @@ const TreeCanvas: FC<{
         <g data-focus-path>
           {layout.edges
             .filter((edge) => path.has(edge.target))
-            .map((edge) => edgePath(edge, focusStroke, dotResidual))}
+            .map((edge) => edgePath(edge, focusStroke, style !== null))}
         </g>
         {layout.nodes.map((node) => (
           <NodeBox
             key={node.data.key}
             node={node}
-            palette={palette}
+            style={style}
             label={labelOf(node.data)}
             noReading={noReading}
             incompleteMark={incompleteMark}
             onToggle={onToggle}
             onSelect={onSelect}
             onHover={setHovered}
-            onKeyboardFocus={setFocused}
+            onKeyboardFocus={focusFromKeyboard}
           />
         ))}
         {layout.nodes
@@ -485,7 +472,8 @@ const TreeCanvas: FC<{
  */
 export const MeterTreeWidgetView: FC<{ config: unknown }> = ({ config }) => {
   const { t } = useTranslation("dashboards");
-  const { root, medium } = config as MeterTreeWidgetConfig;
+  const { root, variant } = config as MeterTreeWidgetConfig;
+  const { style, unknown } = resolveVariant(variant);
   const period = useDashboardPeriod();
   // Per-viewer, and deliberately not in the widget config: which branches
   // someone has open while reading a tree is not a property of the tree.
@@ -532,12 +520,17 @@ export const MeterTreeWidgetView: FC<{ config: unknown }> = ({ config }) => {
   );
   return (
     <div className="flex h-full w-full flex-col">
+      {unknown ? (
+        <p className="px-3 pt-2 text-xs text-muted-foreground">
+          {t("widgets.meterTree.unknownVariant", { variant })}
+        </p>
+      ) : null}
       <div className="min-h-0 flex-1 overflow-auto">
         <ParentSize>
           {({ width }) => (
             <TreeCanvas
               root={annotated}
-              medium={medium}
+              style={style}
               width={width}
               onToggle={toggle}
               onSelect={setSelected}

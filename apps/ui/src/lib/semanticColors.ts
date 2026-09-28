@@ -17,7 +17,8 @@ export type SemanticColor =
   | "hvacFan"
   | "hvacDry"
   | "hvacAuto"
-  | "water";
+  | "water"
+  | "electricity";
 
 /** The status slice of {@link SemanticColor} — used for severities and status. */
 export type StatusLevel = Extract<
@@ -37,6 +38,7 @@ const CSS_VAR: Record<SemanticColor, string> = {
   hvacDry: "--hvac-dry",
   hvacAuto: "--hvac-auto",
   water: "--water",
+  electricity: "--electricity",
 };
 
 /** Raw colour value for SVG / chart fills. */
@@ -56,6 +58,7 @@ export const SEMANTIC_TEXT_CLASS: Record<SemanticColor, string> = {
   hvacDry: "text-hvac-dry",
   hvacAuto: "text-hvac-auto",
   water: "text-water",
+  electricity: "text-electricity",
 };
 
 /** Group-hover text-colour utility per token (literal classes for Tailwind). */
@@ -70,6 +73,7 @@ export const SEMANTIC_HOVER_TEXT_CLASS: Record<SemanticColor, string> = {
   hvacDry: "group-hover:text-hvac-dry",
   hvacAuto: "group-hover:text-hvac-auto",
   water: "group-hover:text-water",
+  electricity: "group-hover:text-electricity",
 };
 
 /** Solid fill utility per token (dots, indicators). */
@@ -84,6 +88,7 @@ export const SEMANTIC_BG_CLASS: Record<SemanticColor, string> = {
   hvacDry: "bg-hvac-dry",
   hvacAuto: "bg-hvac-auto",
   water: "bg-water",
+  electricity: "bg-electricity",
 };
 
 /** SVG fill utility per token (literal classes for Tailwind). */
@@ -98,6 +103,7 @@ export const SEMANTIC_FILL_CLASS: Record<SemanticColor, string> = {
   hvacDry: "fill-hvac-dry",
   hvacAuto: "fill-hvac-auto",
   water: "fill-water",
+  electricity: "fill-electricity",
 };
 
 /** SVG stroke utility per token (literal classes for Tailwind). */
@@ -112,6 +118,7 @@ export const SEMANTIC_STROKE_CLASS: Record<SemanticColor, string> = {
   hvacDry: "stroke-hvac-dry",
   hvacAuto: "stroke-hvac-auto",
   water: "stroke-water",
+  electricity: "stroke-electricity",
 };
 
 /** SVG fill for text painted on a status fill, the `--status-*-foreground`

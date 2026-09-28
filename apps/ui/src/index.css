@@ -65,6 +65,10 @@
        a borrowed --status-info (which means info severity) or --hvac-cool
        (which means the unit is cooling) — near in hue, wrong in meaning. */
     --water: 206 88% 42%;
+    /* Electrical gold, the energy-dashboard convention. Darker than the warning
+       tokens in both themes so it never reads as an alert; never red, which
+       means fault. */
+    --electricity: 50 90% 36%;
 
     /* Automation tree nodes: one hue per role, never a status colour, so
        green/amber/red stay free to mean "matched / unknown / failed". */
@@ -112,8 +116,6 @@
     --fluid-chilled-return: 198 55% 22%;
     --fluid-condenser-supply: 275 45% 44%;
     --fluid-condenser-return: 275 45% 26%;
-    --meter-electricity: 330 65% 45%;
-    --meter-water: 214 50% 38%;
   }
 
   .dark {
@@ -171,6 +173,7 @@
     --hvac-dry: 187 65% 55%;
     --hvac-auto: 48 90% 60%;
     --water: 206 84% 60%;
+    --electricity: 55 60% 42%;
 
     --node-decision: 248 75% 74%;
     --node-command: 185 55% 58%;
@@ -207,8 +210,6 @@
     --fluid-chilled-return: 198 55% 76%;
     --fluid-condenser-supply: 275 45% 62%;
     --fluid-condenser-return: 275 45% 80%;
-    --meter-electricity: 330 65% 65%;
-    --meter-water: 214 50% 56%;
   }
 }
 
