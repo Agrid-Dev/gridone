@@ -7,7 +7,7 @@ export function useUsers() {
   const client = useGridoneClient();
   const query = useQuery<User[]>({
     queryKey: ["users"],
-    // Non-admin callers receive `UserBasic` objects (id + name only); the
+    // Callers without `users:read` receive `UserBasic` objects (id + name); the
     // consumers here only rely on fields present in both shapes.
     queryFn: () => client.users.list() as Promise<User[]>,
     staleTime: 30_000,

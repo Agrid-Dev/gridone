@@ -310,7 +310,15 @@ class TestUsersReferenceRoles:
 class TestRetiredPermissionStrings:
     """A stored role may name a permission a later release retired."""
 
-    async def test_unknown_strings_are_ignored_not_fatal(self):
+    @pytest.mark.parametrize(
+        "retired",
+        [
+            pytest.param("devices:teleport", id="unknown"),
+            # Dropped by AGR-1364: the basic listing is always allowed now.
+            pytest.param("users:read:basic", id="users-read-basic"),
+        ],
+    )
+    async def test_unknown_strings_are_ignored_not_fatal(self, retired: str):
         assert POSTGRES_URL is not None
         service = UsersService(POSTGRES_URL, admin_password="admin-password")
         await service.start()
@@ -321,7 +329,7 @@ class TestRetiredPermissionStrings:
                 "INSERT INTO roles (id, name, permissions) VALUES ($1, $2, $3::jsonb)",
                 "legacy",
                 "Legacy",
-                '["devices:read", "devices:teleport"]',
+                f'["devices:read", "{retired}"]',
             )
         finally:
             await conn.close()

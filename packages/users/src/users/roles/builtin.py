@@ -41,7 +41,6 @@ BUILTIN_ROLES: tuple[Role, ...] = (
         name="Viewer",
         description="Read-only access.",
         permissions=[
-            Permission.USERS_READ_BASIC,
             Permission.ROLES_READ,
             Permission.DEVICES_READ,
             Permission.ASSETS_READ,

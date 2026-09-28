@@ -391,7 +391,13 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** List Users */
+    /**
+     * List Users
+     * @description Full profiles with `users:read`; id + display name to anyone signed in.
+     *
+     *     The basic listing needs no permission: every role that shows who sent a
+     *     command or picks a recipient has to resolve user ids to names.
+     */
     get: operations["list_users_users__get"];
     put?: never;
     /** Create User */
@@ -6076,7 +6082,6 @@ export interface components {
      */
     Permission:
       | "users:read"
-      | "users:read:basic"
       | "users:write"
       | "roles:read"
       | "roles:write"

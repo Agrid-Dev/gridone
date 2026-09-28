@@ -51,13 +51,9 @@ Devices are the one resource where "write" is two different things: configuring 
 
 `devices:command` does not include `devices:read`. A role that operates equipment normally holds both.
 
-### Users specifics
-
-`users:read:basic` lists users as an id and a display name only, without profile or role. It exists so that a role can show who sent a command or pick notification recipients without seeing account details.
-
 ### Always allowed
 
-Some actions need no permission beyond being signed in: reading your own profile, changing your own password, and reading or dismissing your own notifications.
+Some actions need no permission beyond being signed in: reading your own profile, changing your own password, reading or dismissing your own notifications, and listing users as an id and a display name. That basic listing is what lets any role show who sent a command or pick notification recipients; the full profiles, with username and role, still need `users:read`.
 
 ---
 
@@ -74,7 +70,6 @@ Three roles are defined in code and exist on every instance.
 | Permission | `admin` | `operator` | `viewer` |
 |---|:-:|:-:|:-:|
 | `users:read` | ✓ | | |
-| `users:read:basic` | ✓ | | ✓ |
 | `users:write` | ✓ | | |
 | `roles:read` | ✓ | ✓ | ✓ |
 | `roles:write` | ✓ | | |

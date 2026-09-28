@@ -57,15 +57,15 @@ async def list_users(
     perms: Annotated[frozenset[Permission], Depends(get_current_permissions)],
     um: Annotated[UsersService, Depends(get_users_service)],
 ) -> list[User] | list[UserBasic]:
+    """Full profiles with `users:read`; id + display name to anyone signed in.
+
+    The basic listing needs no permission: every role that shows who sent a
+    command or picks a recipient has to resolve user ids to names.
+    """
+    users = await um.list_users()
     if Permission.USERS_READ in perms:
-        return await um.list_users()
-    if Permission.USERS_READ_BASIC in perms:
-        users = await um.list_users()
-        return [UserBasic(id=u.id, name=_make_display_name(u.name)) for u in users]
-    raise HTTPException(
-        status_code=status.HTTP_403_FORBIDDEN,
-        detail=f"Permission denied: requires {Permission.USERS_READ}",
-    )
+        return users
+    return [UserBasic(id=u.id, name=_make_display_name(u.name)) for u in users]
 
 
 async def _ensure_grantable(

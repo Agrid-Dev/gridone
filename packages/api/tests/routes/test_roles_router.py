@@ -152,6 +152,10 @@ class TestCreate:
                 {**CREATE_BODY, "permissions": ["roles:write"]},
                 id="reserved-permission",
             ),
+            pytest.param(
+                {**CREATE_BODY, "permissions": ["users:read:basic"]},
+                id="retired-permission",
+            ),
         ],
     )
     def test_invalid_document_is_422_before_the_service(
