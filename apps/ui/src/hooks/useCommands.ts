@@ -13,6 +13,7 @@ import type {
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { deviceAttributes } from "@/lib/devices";
 import { toSearchString } from "@/lib/pagination";
+import { useAttributeLabel } from "@/hooks/useAttributeLabel";
 import { useDevicesList } from "@/hooks/useDevicesList";
 import { useUsers } from "@/hooks/useUsers";
 import { buildCommandColumns } from "@/pages/devices/commands/columns";
@@ -119,6 +120,7 @@ export function useCommands({
   const { devices } = useDevicesList();
   const { users } = useUsers();
   const attributeOptions = useAttributeOptions(devices, deviceId);
+  const labelFor = useAttributeLabel();
 
   // Templates list — used for both the filter dropdown and the table column
   // name lookup. Low cardinality (user-saved only), so one cached fetch is
@@ -181,6 +183,11 @@ export function useCommands({
   }, [data, isPlaceholderData, searchParams, setSearchParams]);
 
   // Lookups for display names
+  const devicesById = useMemo(
+    () => Object.fromEntries(devices.map((d) => [d.id, d])),
+    [devices],
+  );
+
   const deviceNames = useMemo(
     () =>
       Object.fromEntries(
@@ -205,12 +212,22 @@ export function useCommands({
   const columns = useMemo(
     () =>
       buildCommandColumns(t, {
+        devices: devicesById,
+        labelFor,
         deviceNames,
         userNames,
         templateNames,
         showDevice: !fixedDeviceId,
       }),
-    [t, deviceNames, userNames, templateNames, fixedDeviceId],
+    [
+      t,
+      devicesById,
+      labelFor,
+      deviceNames,
+      userNames,
+      templateNames,
+      fixedDeviceId,
+    ],
   );
 
   const table = useReactTable({
