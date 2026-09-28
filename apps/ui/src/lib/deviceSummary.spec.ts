@@ -191,6 +191,10 @@ describe("deviceMode", () => {
   ])("%s without mode data → null", (type, attributes) => {
     expect(deviceMode(device(type, attributes))).toBeNull();
   });
+
+  it("pump → null: its fleet summary already carries the run state", () => {
+    expect(deviceMode(device("pump", { onoff_state: attr(true) }))).toBeNull();
+  });
 });
 
 describe("countByConnectionStatus", () => {

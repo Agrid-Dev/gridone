@@ -22,13 +22,13 @@ export const StandardDeviceControl: FC<{ device: Device }> = ({ device }) => {
   const { draft, savingAttr, feedback, handleDraftChange, handleSave } =
     useDeviceDetails(device);
 
-  const entry = getStandardDeviceEntry(device.type);
-  if (!entry) {
+  const Control = getStandardDeviceEntry(device.type)?.Control;
+  if (!Control) {
     return <ControlMessage>{t("common.noStandardControl")}</ControlMessage>;
   }
 
   return (
-    <entry.Control
+    <Control
       device={device}
       draft={draft}
       savingAttr={savingAttr}

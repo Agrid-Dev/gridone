@@ -19,7 +19,6 @@ import {
   isAirExtractor,
   isAwhp,
   isElectricityMeter,
-  isPump,
   isThermostat,
   isWeatherSensor,
   readAhuDoubleFluxAttributes,
@@ -27,7 +26,6 @@ import {
   readAirExtractorAttributes,
   readAwhpAttributes,
   readElectricityMeterAttributes,
-  readPumpAttributes,
   readThermostatAttributes,
   readWeatherSensorAttributes,
 } from "@/lib/devices";
@@ -180,11 +178,6 @@ export function deviceMode(device: Device): DeviceMode | null {
   }
   if (isAirExtractor(device)) {
     const { onoffState } = readAirExtractorAttributes(device);
-    if (onoffState == null) return null;
-    return { kind: "onoff", value: onoffState ? "on" : "off" };
-  }
-  if (isPump(device)) {
-    const { onoffState } = readPumpAttributes(device);
     if (onoffState == null) return null;
     return { kind: "onoff", value: onoffState ? "on" : "off" };
   }

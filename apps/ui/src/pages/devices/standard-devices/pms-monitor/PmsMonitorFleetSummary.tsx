@@ -2,15 +2,15 @@ import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { BedDouble, CalendarClock, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { readPmsMonitorAttributes, type PmsMonitorDevice } from "@/lib/devices";
+import { isPmsMonitor, readPmsMonitorAttributes } from "@/lib/devices";
+import type { StandardFleetSummaryProps } from "../types";
 
-/** Compact reservation summary used instead of an irrelevant numeric measure. */
-export function PmsMonitorFleetSummary({
-  device,
-}: {
-  device: PmsMonitorDevice;
-}) {
+/** The fleet card's lead slot for a PMS monitor: a compact reservation
+ *  summary instead of an irrelevant numeric measure. */
+export function PmsMonitorFleetSummary({ device }: StandardFleetSummaryProps) {
   const { t, i18n } = useTranslation("devices");
+  if (!isPmsMonitor(device)) return null;
+
   const { reservationStatus, guestCount, nextArrivalAt } =
     readPmsMonitorAttributes(device);
   const { DetailIcon, detail } = reservationDetail(

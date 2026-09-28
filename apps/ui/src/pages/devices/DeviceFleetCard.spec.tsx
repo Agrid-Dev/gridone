@@ -151,9 +151,42 @@ describe("DeviceFleetCard", () => {
     expect(screen.getByText("2 fault(s)")).toBeInTheDocument();
   });
 
+  it("leads with a dash for a device of no registered type", () => {
+    renderCard({ ...thermostat(), type: "custom_vendor" } as Device);
+    expect(screen.getByText("—")).toBeInTheDocument();
+  });
+
+  it("leaves the mode out when the device reports none", () => {
+    renderCard(pmsMonitor({ reservation_status: attr("booked") }));
+    expect(screen.queryByText("—")).not.toBeInTheDocument();
+    expect(screen.getByText("No fault")).toBeInTheDocument();
+  });
+
   it("links the whole card to the device detail", () => {
     renderCard(thermostat());
     expect(screen.getByRole("link")).toHaveAttribute("href", "/devices/d1");
+  });
+
+  it("keeps the fault badge as its own link to the active faults", () => {
+    renderCard(
+      thermostat({
+        comm_fault: {
+          kind: "fault",
+          name: "comm_fault",
+          severity: "alert",
+          is_faulty: true,
+          current_value: true,
+        },
+      }),
+    );
+    expect(screen.getByRole("link", { name: "Ch. 201" })).toHaveAttribute(
+      "href",
+      "/devices/d1",
+    );
+    expect(screen.getByRole("link", { name: /fault/ })).toHaveAttribute(
+      "href",
+      "/devices/d1#active-faults",
+    );
   });
 
   describe("PMS monitor summary", () => {
