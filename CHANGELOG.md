@@ -1,3 +1,9 @@
+## v0.279.0 (2026-09-28)
+
+### Feat
+
+- **ui**: label attributes and render values in the command history (AGR-1454)
+
 ## v0.278.0 (2026-09-28)
 
 ### Feat
