@@ -1,3 +1,10 @@
+## v0.276.0 (2026-09-28)
+
+### Feat
+
+- **ui**: theme meter trees by variant (#717)
+- **ui**: meter tree focus highlight without motion (#716)
+
 ## v0.275.0 (2026-09-28)
 
 ### Feat
