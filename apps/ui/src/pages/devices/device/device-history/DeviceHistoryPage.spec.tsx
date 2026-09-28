@@ -149,6 +149,10 @@ type Entry = {
   dataType: string;
   valueLabels?: unknown;
   unit?: string;
+  label?: { default: string };
+  kind?: "standard" | "fault";
+  severity?: string;
+  healthyValues?: unknown[];
 };
 
 /** A device exposing `entries`, each with a recorded series. `hiddenSeries`
@@ -168,20 +172,34 @@ function deviceOf(
     transport_id: "tr",
     config: {},
     attributes: Object.fromEntries(
-      entries.map(({ name, dataType, valueLabels, unit }) => [
-        name,
-        {
-          kind: "standard",
+      entries.map(
+        ({
           name,
-          data_type: dataType,
-          read_write_modes: ["read"],
-          current_value: null,
-          last_updated: null,
-          last_changed: null,
-          value_labels: valueLabels,
+          dataType,
+          valueLabels,
           unit,
-        },
-      ]),
+          label,
+          kind = "standard",
+          severity,
+          healthyValues,
+        }) => [
+          name,
+          {
+            kind,
+            name,
+            data_type: dataType,
+            read_write_modes: ["read"],
+            current_value: null,
+            last_updated: null,
+            last_changed: null,
+            value_labels: valueLabels,
+            unit,
+            label,
+            severity,
+            healthy_values: healthyValues,
+          },
+        ],
+      ),
     ),
     is_faulty: false,
   } satisfies Device;
@@ -615,6 +633,66 @@ describe("DeviceHistoryPage table", () => {
     expect(within(table).getByText("22.60 °")).toBeInTheDocument();
     expect(within(table).getByText("20.50 °")).toBeInTheDocument();
     expect(within(table).getAllByText("Chauffage")).toHaveLength(2);
+    // The mode reads as on the supervision pages: its HVAC icon beside it.
+    const modeCell = within(table).getAllByText("Chauffage")[0].parentElement!;
+    expect(modeCell.querySelector("svg")).not.toBeNull();
+  });
+
+  it("tones a fault attribute's past values by severity, as the supervision pages do", async () => {
+    deviceOf(
+      [
+        {
+          name: "filter_alarm",
+          dataType: "bool",
+          kind: "fault",
+          severity: "warning",
+          healthyValues: [false],
+          valueLabels: [
+            { value: true, label: { default: "Filtre encrassé" } },
+            { value: false, label: { default: "Filtre sain" } },
+          ],
+        },
+      ],
+      null,
+    );
+    servePoints({
+      filter_alarm: [
+        { timestamp: anHourAgo(), value: true },
+        { timestamp: tenMinutesAgo(), value: false },
+      ],
+    });
+    renderPage("/devices/d1/history/table");
+
+    const table = await screen.findByRole("table");
+    const toneOf = (label: string) =>
+      within(table)
+        .getByText(label)
+        .parentElement!.querySelector("[data-tone]")!
+        .getAttribute("data-tone");
+    expect(toneOf("Filtre encrassé")).toBe("warning");
+    expect(toneOf("Filtre sain")).toBe("ok");
+  });
+
+  it("names attributes as their driver labels them", async () => {
+    deviceOf(
+      [
+        {
+          name: "t_corridor",
+          dataType: "float",
+          label: { default: "Sonde couloir" },
+        },
+      ],
+      null,
+    );
+    servePoints({ t_corridor: [{ timestamp: anHourAgo(), value: 19.5 }] });
+    renderPage("/devices/d1/history/table");
+
+    const table = await screen.findByRole("table");
+    expect(
+      within(table).getByRole("columnheader", { name: "Sonde couloir" }),
+    ).toBeInTheDocument();
+    expect(selector().getByText("Sonde couloir")).toBeInTheDocument();
+    expect(screen.queryByText("T Corridor")).toBeNull();
   });
 
   it("words a boolean change from the driver, never as On / Off", async () => {

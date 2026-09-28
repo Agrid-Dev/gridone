@@ -4,8 +4,8 @@ import type { UnitCommand, User } from "@gridone/sdk";
 import { AttributeValue } from "@/components/AttributeValue";
 import { attributeUnit } from "@/lib/attributeUnits";
 import type { DeviceType } from "@/lib/devices";
-import type { AttributeFields } from "@/lib/faults";
-import type { MergedRow } from "@/lib/mergeTimeSeries";
+import { type AttributeFields, isFaultAttribute } from "@/lib/faults";
+import type { CellValue, MergedRow } from "@/lib/mergeTimeSeries";
 import { cn } from "@/lib/utils";
 import { CommandIndicator } from "./CommandIndicator";
 import { dayKind } from "./dayKind";
@@ -76,6 +76,16 @@ export function buildHistoryColumns({
       const attribute = attributes[name];
       const dataType = dataTypes[name];
       const unit = attributeUnit(name, attribute);
+      // A fault attribute's past value is judged as its current one is:
+      // faulty unless among the values the driver declares healthy.
+      const faultOf =
+        attribute && isFaultAttribute(attribute) && attribute.healthy_values
+          ? (value: CellValue) => ({
+              severity: attribute.severity,
+              isFaulty:
+                value !== null && !attribute.healthy_values!.includes(value),
+            })
+          : undefined;
       return {
         id: name,
         header: () => labelFor(name, attribute),
@@ -99,6 +109,7 @@ export function buildHistoryColumns({
                 attributeName={name}
                 deviceType={deviceType}
                 dataType={dataType}
+                fault={faultOf?.(value)}
                 unit={unit}
                 valueLabels={attribute?.value_labels}
                 className="text-sm"

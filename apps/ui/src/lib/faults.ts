@@ -41,6 +41,10 @@ export type FaultAttribute = AttributeFields & {
   kind: "fault";
   severity: Severity;
   is_faulty: boolean;
+  /** The values the driver declares healthy; any other value is a fault.
+   *  What `is_faulty` was computed from, so a past value can be judged
+   *  the same way. */
+  healthy_values?: AttributeValue[] | null;
 };
 
 const SEVERITY_RANK: Record<Severity, number> = {
