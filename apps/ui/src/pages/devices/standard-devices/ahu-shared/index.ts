@@ -9,7 +9,6 @@ export {
   ValueChip,
 } from "@/components/synoptic/glyphs";
 export { useAhuSynopticLabel, type AhuSynopticLabelKey } from "./labels";
-export { AhuPreviewBody } from "./AhuPreviewBody";
 export {
   AhuSetpointsSection,
   type AhuSetpointSpec,

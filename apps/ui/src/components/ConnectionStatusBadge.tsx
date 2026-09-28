@@ -16,7 +16,6 @@ const STATUS_CONFIG: Record<
   {
     variant: BadgeProps["variant"];
     Icon: ComponentType<{ className?: string }>;
-    iconClass: string;
     labelKey:
       | "deviceDetails.connectionStatus.idle"
       | "deviceDetails.connectionStatus.ok"
@@ -27,25 +26,21 @@ const STATUS_CONFIG: Record<
   [ConnectionStatus.Idle]: {
     variant: "outline",
     Icon: Clock,
-    iconClass: "text-muted-foreground",
     labelKey: "deviceDetails.connectionStatus.idle",
   },
   [ConnectionStatus.Ok]: {
     variant: "success",
     Icon: Wifi,
-    iconClass: "text-green-500",
     labelKey: "deviceDetails.connectionStatus.ok",
   },
   [ConnectionStatus.Degraded]: {
     variant: "warning",
     Icon: Activity,
-    iconClass: "text-yellow-500",
     labelKey: "deviceDetails.connectionStatus.degraded",
   },
   [ConnectionStatus.Error]: {
     variant: "destructive",
     Icon: WifiOff,
-    iconClass: "text-destructive",
     labelKey: "deviceDetails.connectionStatus.error",
   },
 };
@@ -115,14 +110,4 @@ export function ConnectionStatusDot({
       )}
     />
   );
-}
-
-export function ConnectionStatusIcon({
-  status,
-}: {
-  status: ConnectionStatus | null;
-}) {
-  if (!status) return null;
-  const { Icon, iconClass } = STATUS_CONFIG[status];
-  return <Icon className={cn("h-3.5 w-3.5", iconClass)} />;
 }

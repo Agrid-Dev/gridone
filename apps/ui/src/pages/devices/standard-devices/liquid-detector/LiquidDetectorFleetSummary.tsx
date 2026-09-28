@@ -3,12 +3,14 @@ import { isLiquidDetector, readLiquidDetectorAttributes } from "@/lib/devices";
 import { cn } from "@/lib/utils";
 import { LiquidDrop } from "./LiquidDrop";
 import { LIQUID_VERDICT_TEXT_CLASS, liquidVerdict } from "./verdict";
-import type { StandardPreviewProps } from "../types";
+import type { StandardFleetSummaryProps } from "../types";
 
 /** The fleet card's lead slot for a detector: a verdict, not a number. Used
  *  instead of the numeric measure + sparkline, which a boolean has neither
  *  of. */
-export function LiquidDetectorFleetSummary({ device }: StandardPreviewProps) {
+export function LiquidDetectorFleetSummary({
+  device,
+}: StandardFleetSummaryProps) {
   const { t } = useTranslation("standardDevices");
   if (!isLiquidDetector(device)) return null;
 

@@ -1,35 +1,25 @@
 import type { ComponentType } from "react";
 import { DeviceType } from "@/lib/devices";
+import { ThermostatControl, ThermostatSupervision } from "./thermostat";
+import { AwhpControl, AwhpSupervision } from "./awhp";
 import {
-  ThermostatPreview,
-  ThermostatControl,
-  ThermostatSupervision,
-} from "./thermostat";
-import { AwhpPreview, AwhpControl, AwhpSupervision } from "./awhp";
-import {
-  WeatherSensorPreview,
   WeatherSensorControl,
   WeatherSensorSupervision,
 } from "./weather-sensor";
+import { ElectricityMeterControl } from "./electricity-meter";
+import { AhuDoubleFluxControl } from "./ahu-double-flux";
+import { AhuSingleFluxControl } from "./ahu-single-flux";
+import { AirExtractorControl } from "./air-extractor";
 import {
-  ElectricityMeterPreview,
-  ElectricityMeterControl,
-} from "./electricity-meter";
-import { AhuDoubleFluxPreview, AhuDoubleFluxControl } from "./ahu-double-flux";
-import { AhuSingleFluxPreview, AhuSingleFluxControl } from "./ahu-single-flux";
-import { AirExtractorPreview, AirExtractorControl } from "./air-extractor";
-import {
-  LiquidDetectorPreview,
   LiquidDetectorControl,
   LiquidDetectorFleetSummary,
 } from "./liquid-detector";
-import { PumpPreview, PumpControl, PumpFleetSummary } from "./pump";
-import type { StandardPreviewProps, StandardControlProps } from "./types";
+import { PumpControl, PumpFleetSummary } from "./pump";
+import type { StandardFleetSummaryProps, StandardControlProps } from "./types";
 
-export type { StandardPreviewProps, StandardControlProps } from "./types";
+export type { StandardFleetSummaryProps, StandardControlProps } from "./types";
 
 export type StandardDeviceEntry = {
-  Preview: ComponentType<StandardPreviewProps>;
   Control: ComponentType<StandardControlProps>;
   /** Full supervision-tab layout (control + companion cards). Types without
    *  one render their bare Control (see DeviceLiveControl). */
@@ -37,48 +27,39 @@ export type StandardDeviceEntry = {
   /** Lead slot on the fleet card, for types whose state is not a number and
    *  so have neither a measure nor a sparkline to show. Types without one get
    *  the numeric measure + trend (see DeviceFleetCard). */
-  FleetSummary?: ComponentType<StandardPreviewProps>;
+  FleetSummary?: ComponentType<StandardFleetSummaryProps>;
 };
 
 const registry: Partial<Record<DeviceType, StandardDeviceEntry>> = {
   [DeviceType.Thermostat]: {
-    Preview: ThermostatPreview,
     Control: ThermostatControl,
     Supervision: ThermostatSupervision,
   },
   [DeviceType.Awhp]: {
-    Preview: AwhpPreview,
     Control: AwhpControl,
     Supervision: AwhpSupervision,
   },
   [DeviceType.WeatherSensor]: {
-    Preview: WeatherSensorPreview,
     Control: WeatherSensorControl,
     Supervision: WeatherSensorSupervision,
   },
   [DeviceType.ElectricityMeter]: {
-    Preview: ElectricityMeterPreview,
     Control: ElectricityMeterControl,
   },
   [DeviceType.AhuDoubleFlux]: {
-    Preview: AhuDoubleFluxPreview,
     Control: AhuDoubleFluxControl,
   },
   [DeviceType.AhuSingleFlux]: {
-    Preview: AhuSingleFluxPreview,
     Control: AhuSingleFluxControl,
   },
   [DeviceType.AirExtractor]: {
-    Preview: AirExtractorPreview,
     Control: AirExtractorControl,
   },
   [DeviceType.LiquidDetector]: {
-    Preview: LiquidDetectorPreview,
     Control: LiquidDetectorControl,
     FleetSummary: LiquidDetectorFleetSummary,
   },
   [DeviceType.Pump]: {
-    Preview: PumpPreview,
     Control: PumpControl,
     FleetSummary: PumpFleetSummary,
   },
