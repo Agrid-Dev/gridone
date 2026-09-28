@@ -551,6 +551,33 @@ describe("TimeSeriesChart — panel order", () => {
     expect(svgs[0].querySelector(TIME_AXIS)).toBeNull();
   });
 
+  it("keeps every panel its own height whatever the order", () => {
+    const { container } = render(
+      <TimeSeriesChartInner
+        timestamps={timestamps}
+        lineSeries={[{ key: "temperature", label: "Temperature" }]}
+        lineValues={{ temperature: floatValues.temperature }}
+        booleanSeries={booleanSeries}
+        booleanValues={booleanValues}
+        panelOrder={["heater_on", "float:°"]}
+        onPanelOrderChange={() => {}}
+        width={WIDTH}
+      />,
+    );
+    const heights = Array.from(container.querySelectorAll(XYCHART_SVG)).map(
+      (svg) => Number(svg.getAttribute("height")),
+    );
+    // The band keeps its 60px on top; the line panel, now last, carries the
+    // time axis (350 + 28). Nothing is scaled to the slot it took.
+    expect(heights).toEqual([60, 378]);
+    const wrappers = Array.from(
+      container.querySelectorAll<HTMLElement>(
+        "div[style*='position: relative']",
+      ),
+    );
+    expect(wrappers.some((el) => /scale/.test(el.style.transform))).toBe(false);
+  });
+
   it("skips keys it has no panel for and appends the panels left unnamed", () => {
     renderFull();
     cleanup();
