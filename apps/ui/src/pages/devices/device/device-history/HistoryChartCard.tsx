@@ -5,26 +5,11 @@ import TimeSeriesChart, {
   type Series,
 } from "@/components/charts/TimeSeriesChart";
 import { seriesUnit } from "@/components/charts/TimeSeriesChart/seriesUnit";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAttributeLabel } from "@/hooks/useAttributeLabel";
 import { useValueLabel } from "@/hooks/useValueLabel";
 import { attributeValueLabel } from "@/lib/attributeValueLabel";
 import { type MergedRow } from "@/lib/mergeTimeSeries";
-import { type TimeRange, rangeLabel } from "@/lib/timeRange";
 import { useDeviceHistoryContext } from "./DeviceHistoryContext";
-
-/** Chart title per period: dedicated phrasings for the three segments, the
- *  generic range label otherwise ("3 dernières heures"). */
-function useChartTitle(timeRange: TimeRange): string {
-  const { t } = useTranslation("devices");
-  const { t: tCommon } = useTranslation("common");
-  if (timeRange.kind === "preset") {
-    if (timeRange.preset === "1d") return t("history.chartTitle24h");
-    if (timeRange.preset === "7d") return t("history.chartTitle7d");
-    if (timeRange.preset === "1mo") return t("history.chartTitle30d");
-  }
-  return rangeLabel(timeRange, tCommon);
-}
 
 /** One panel's height when several unit panels stack; a lone one gets the
  *  chart's own default. */
@@ -49,13 +34,10 @@ export function HistoryChartCard() {
     dataTypes,
     attributes,
     chartRows,
-    timeRange,
     truncatedAttributes,
   } = useDeviceHistoryContext();
   const labelFor = useAttributeLabel();
   const booleanLabel = useValueLabel();
-
-  const title = useChartTitle(timeRange);
 
   const timestamps = useMemo(
     () => chartRows.map((r) => new Date(r.timestamp)),
@@ -146,44 +128,41 @@ export function HistoryChartCard() {
   );
 
   return (
-    <Card>
-      <CardHeader className="flex-row items-center justify-between space-y-0">
-        <CardTitle>{title}</CardTitle>
-        {truncatedAttributes.length > 0 && (
-          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-status-warning">
-            <TriangleAlert className="h-3.5 w-3.5" aria-hidden />
-            {t("history.truncatedWarning", {
-              attributes: truncatedAttributes
-                .map((name) => labelFor(name, attributes[name]))
-                .join(", "),
-            })}
-          </span>
-        )}
-      </CardHeader>
-      <CardContent>
-        {selectedAttributes.length === 0 ? (
-          <p className="flex h-60 items-center justify-center text-sm text-muted-foreground">
-            {t("history.noAttributesSelected")}
-          </p>
-        ) : !hasData ? (
-          <p className="flex h-60 items-center justify-center text-sm text-muted-foreground">
-            {t("history.noMetricData")}
-          </p>
-        ) : (
-          <TimeSeriesChart
-            timestamps={timestamps}
-            lineSeries={lineSeries}
-            lineValues={lineValues}
-            intSeries={intSeries}
-            intValues={intValues}
-            booleanSeries={booleanSeries}
-            booleanValues={booleanValues}
-            stringSeries={stringSeries}
-            stringValues={stringValues}
-            lineHeight={unitPanels > 1 ? STACKED_LINE_HEIGHT : undefined}
-          />
-        )}
-      </CardContent>
-    </Card>
+    // The same flat frame as the table view, so the toggle switches views
+    // over one surface; the period is named by the range control, not here.
+    <div className="rounded-lg border p-4">
+      {truncatedAttributes.length > 0 && (
+        <p className="mb-3 inline-flex items-center gap-1.5 text-xs font-medium text-status-warning">
+          <TriangleAlert className="h-3.5 w-3.5" aria-hidden />
+          {t("history.truncatedWarning", {
+            attributes: truncatedAttributes
+              .map((name) => labelFor(name, attributes[name]))
+              .join(", "),
+          })}
+        </p>
+      )}
+      {selectedAttributes.length === 0 ? (
+        <p className="flex h-60 items-center justify-center text-sm text-muted-foreground">
+          {t("history.noAttributesSelected")}
+        </p>
+      ) : !hasData ? (
+        <p className="flex h-60 items-center justify-center text-sm text-muted-foreground">
+          {t("history.noMetricData")}
+        </p>
+      ) : (
+        <TimeSeriesChart
+          timestamps={timestamps}
+          lineSeries={lineSeries}
+          lineValues={lineValues}
+          intSeries={intSeries}
+          intValues={intValues}
+          booleanSeries={booleanSeries}
+          booleanValues={booleanValues}
+          stringSeries={stringSeries}
+          stringValues={stringValues}
+          lineHeight={unitPanels > 1 ? STACKED_LINE_HEIGHT : undefined}
+        />
+      )}
+    </div>
   );
 }

@@ -74,7 +74,6 @@ vi.mock("react-i18next", () =>
     "history.range7d": "7 j",
     "history.range30d": "30 j",
     "history.rangeCustom": "Personnalisé",
-    "history.chartTitle24h": "Dernières 24 h",
     "history.truncatedWarning":
       "Données tronquées pour {{attributes}}, réduisez la période",
     "history.noAttributesSelected": "Sélectionnez des attributs à tracer",
