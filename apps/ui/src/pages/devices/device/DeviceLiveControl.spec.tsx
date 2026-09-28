@@ -16,7 +16,7 @@ import { GridoneError, type Device } from "@gridone/sdk";
 import { createI18nMock } from "@/test/i18nMock";
 const state = vi.hoisted(() => ({
   device: {} as Device,
-  canWrite: true,
+  permissions: ["devices:read", "devices:command"],
   view: "supervision",
   broken: false,
   client: {
@@ -43,7 +43,8 @@ vi.mock("@/contexts/GridoneClientContext", () => ({
   useGridoneClient: () => state.client,
 }));
 vi.mock("@/contexts/AuthContext", () => ({
-  usePermissions: () => () => state.canWrite,
+  usePermissions: () => (permission: string) =>
+    state.permissions.includes(permission),
 }));
 vi.mock("@/hooks/useDeviceDetails", () => ({
   useDeviceDetails: () => ({ draft: {}, feedback: {} }),
@@ -228,7 +229,7 @@ function setup({ seedViews }: { seedViews?: unknown[] } = {}) {
 }
 beforeEach(() => {
   state.device = device("v1");
-  state.canWrite = true;
+  state.permissions = ["devices:read", "devices:command"];
   state.view = "supervision";
   state.broken = false;
   state.client.devices.getPresentation.mockResolvedValue(available());
@@ -371,8 +372,31 @@ describe("DeviceLiveControl presentation integration", () => {
     expect(state.client.devices.sendCommand).not.toHaveBeenCalled();
   });
 
+  it("commands with devices:command, not with devices:write", async () => {
+    state.permissions = ["devices:read", "devices:write"];
+    setup();
+    const power = await screen.findByRole("switch", { name: "Power" });
+    expect(power).toBeDisabled();
+    act(() => power.click());
+    expect(state.client.devices.sendCommand).not.toHaveBeenCalled();
+    cleanup();
+
+    state.permissions = ["devices:read", "devices:command"];
+    setup();
+    const enabled = await screen.findByRole("switch", { name: "Power" });
+    expect(enabled).toBeEnabled();
+    act(() => enabled.click());
+    await waitFor(() =>
+      expect(state.client.devices.sendCommand).toHaveBeenCalledWith("device", {
+        attribute: "power",
+        value: false,
+        confirm: true,
+      }),
+    );
+  });
+
   it("keeps writable driver attributes read-only for viewers", async () => {
-    state.canWrite = false;
+    state.permissions = ["devices:read"];
     setup();
     const power = await screen.findByRole("switch", { name: "Power" });
     expect(power).toBeDisabled();

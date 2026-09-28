@@ -57,7 +57,7 @@ export default function NewCommandPage() {
       ? { payload: command.payload, devices: selection.eligible }
       : undefined,
   );
-  if (!can("devices:write") || error || assetsError)
+  if (!can("devices:command") || error || assetsError)
     return <ErrorFallback title={t("common:errors.default")} />;
   if (loading || isLoading)
     return <Skeleton className="h-96 w-full rounded-lg" />;
