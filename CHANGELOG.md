@@ -1,3 +1,9 @@
+## v0.281.1 (2026-09-29)
+
+### Fix
+
+- **ui**: show user display names in command history (#737)
+
 ## v0.281.0 (2026-09-29)
 
 ### Feat
