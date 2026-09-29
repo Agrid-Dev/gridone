@@ -62,6 +62,12 @@ class CommandsActionProvider:
     async def describe_writes(
         self, params: dict, trigger: Trigger
     ) -> list[AutomationWrite]:
+        """Describe what executing the action would write right now.
+
+        A template is resolved exactly as its dispatch would be, so group
+        membership is current and a target that cannot be dispatched (missing
+        template, incompatible tags) writes nothing.
+        """
         action = CommandAction(**params)
         if action.template_id is None:
             device_id = action.device_id or trigger.params.get("device_id")
@@ -74,7 +80,8 @@ class CommandsActionProvider:
             ]
         try:
             template = await self._commands_service.get_template(action.template_id)
-        except NotFoundError:
+            device_ids = await self._commands_service.resolve_template_devices(template)
+        except (NotFoundError, InvalidError):
             return []
         return [
             AutomationWrite(
@@ -82,7 +89,7 @@ class CommandsActionProvider:
                 attribute=template.write.attribute,
                 value=template.write.value,
             )
-            for device_id in template.target.ids or []
+            for device_id in device_ids
         ]
 
     async def execute(

@@ -826,3 +826,29 @@ async def test_structured_group_execution_failure_is_recorded():
     assert execution.status == ExecutionStatus.FAILED
     assert execution.error_details == details
     assert execution.output_id is None
+
+
+@pytest.mark.parametrize("enabled", [None, True, False])
+async def test_list_device_filter_composes_with_enabled(enabled):
+    svc = _make_service()
+    active = await svc.create(_create_params(trigger=_CHANGE), created_by="user")
+    disabled = await svc.create(
+        _create_params(trigger=_CHANGE, enabled=False), created_by="user"
+    )
+    await svc.create(_create_params(), created_by="user")
+    expected = [
+        a for a in [active, disabled] if enabled is None or a.enabled == enabled
+    ]
+    assert list(await svc.list(device_id="src-01", enabled=enabled)) == expected
+    assert await svc.list(device_id="unrelated") == []
+
+
+async def test_device_listing_follows_updates_and_deletes():
+    svc = _make_service()
+    automation = await svc.create(_create_params(trigger=_CHANGE), created_by="user")
+    await svc.update(automation.id, AutomationUpdate(trigger=_SCHEDULE))
+    assert await svc.list(device_id="src-01") == []
+    await svc.update(automation.id, AutomationUpdate(trigger=_CHANGE))
+    assert len(await svc.list(device_id="src-01")) == 1
+    await svc.delete(automation.id)
+    assert await svc.list(device_id="src-01") == []

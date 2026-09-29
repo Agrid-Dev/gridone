@@ -175,7 +175,15 @@
     "configurationTabs": {
       "label": "Device configuration sections",
       "general": "General",
-      "operatingRules": "Operating rules"
+      "operatingRules": "Operating rules",
+      "automations": "Automations"
+    },
+    "automations": {
+      "title": "Automations",
+      "intro": "Automations that observe or control {{device}}. Open an automation to view its triggers, conditions and actions.",
+      "emptyTitle": "No automations for this device",
+      "emptyDescription": "No automation currently references this device in its trigger, conditions or actions.",
+      "browse": "View all automations"
     }
   },
   "attributes": {

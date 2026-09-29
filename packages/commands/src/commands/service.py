@@ -42,6 +42,32 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+@dataclasses.dataclass(frozen=True)
+class _Recipients:
+    """The devices a template writes to, and why others are left out."""
+
+    device_ids: list[str]
+    excluded_device_ids: list[str] = dataclasses.field(default_factory=list)
+    unresolvable: str | None = None
+
+
+def _log_unreached(template: CommandTemplate, recipients: _Recipients) -> None:
+    """Let operators notice a dispatch whose stored target has gone stale."""
+    if recipients.unresolvable is not None:
+        logger.warning(
+            "dispatch: template %r unresolvable: %s",
+            template.id,
+            recipients.unresolvable,
+        )
+    if recipients.excluded_device_ids:
+        logger.warning(
+            "dispatch: template %r excluded devices %s (attribute %r not writable)",
+            template.id,
+            recipients.excluded_device_ids,
+            template.write.attribute,
+        )
+
+
 class CommandsService(Service):
     _storage: CommandsStorage
 
@@ -298,7 +324,9 @@ class CommandsService(Service):
         is queued.
         """
         batch_id = gen_id()
-        device_ids = await self._resolve_template_devices(template)
+        recipients = await self._template_recipients(template)
+        _log_unreached(template, recipients)
+        device_ids = recipients.device_ids
         if not device_ids:
             logger.warning("dispatch: template %r resolved to no devices", template.id)
             return BatchCommandDispatch(batch_id=batch_id, commands=[])
@@ -349,13 +377,22 @@ class CommandsService(Service):
 
         return BatchCommandDispatch(batch_id=batch_id, commands=commands)
 
-    async def _resolve_template_devices(self, template: CommandTemplate) -> list[str]:
+    async def resolve_template_devices(self, template: CommandTemplate) -> list[str]:
+        """Return the devices a dispatch of *template* would write to now.
+
+        Nothing is dispatched or logged, so readers (automation listings,
+        diagnostics) can ask as often as they need; only a dispatch reports
+        the devices it leaves out.
+        """
+        return (await self._template_recipients(template)).device_ids
+
+    async def _template_recipients(self, template: CommandTemplate) -> _Recipients:
         """Resolve the template's stored target to writable device ids.
 
         Empty filters return no recipients. Incompatible tag/driver targets
         raise InvalidError so automations report invalid_target separately.
         Legacy non-tag targets retain their empty-batch fallback. Devices that
-        do not expose the attribute as writable are reported and excluded.
+        do not expose the attribute as writable are excluded.
         """
         try:
             resolved = await self._target_resolver.resolve(
@@ -366,23 +403,18 @@ class CommandsService(Service):
                 writable=True,
             )
         except EmptyTargetError:
-            return []
+            return _Recipients(device_ids=[])
         except InvalidError as e:
             if template.target.tags or template.target.driver_id:
                 raise
-            logger.warning("dispatch: template %r unresolvable: %s", template.id, e)
-            return []
+            return _Recipients(device_ids=[], unresolvable=str(e))
         if resolved.data_type != template.write.data_type:
             msg = "Target attribute type changed since the command was saved"
             raise InvalidError(msg)
-        if resolved.excluded_device_ids:
-            logger.warning(
-                "dispatch: template %r excluded devices %s (attribute %r not writable)",
-                template.id,
-                resolved.excluded_device_ids,
-                template.write.attribute,
-            )
-        return resolved.device_ids
+        return _Recipients(
+            device_ids=resolved.device_ids,
+            excluded_device_ids=resolved.excluded_device_ids,
+        )
 
     async def _execute_all(
         self,

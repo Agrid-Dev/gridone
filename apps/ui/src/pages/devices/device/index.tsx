@@ -10,6 +10,7 @@ import DeviceConfigLayout from "./DeviceConfigLayout";
 import DeviceCommandsPage from "./DeviceCommandsPage";
 
 const NewCommandPage = lazy(() => import("../commands/new/NewCommandPage"));
+const DeviceAutomations = lazy(() => import("./automations/DeviceAutomations"));
 const DeviceOperatingRules = lazy(() => import("./operating-rules"));
 
 const Device: FC = () => (
@@ -30,6 +31,14 @@ const Device: FC = () => (
       <Route path="config" element={<DeviceConfigLayout />}>
         <Route index element={<DeviceConfigView />} />
         <Route path="edit" element={<DeviceEdit />} />
+        <Route
+          path="automations"
+          element={
+            <Suspense>
+              <DeviceAutomations />
+            </Suspense>
+          }
+        />
         <Route
           path="operating-rules/*"
           element={

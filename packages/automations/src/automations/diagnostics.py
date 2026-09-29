@@ -1,4 +1,4 @@
-"""Conservative diagnostics for statically known write targets."""
+"""Conservative diagnostics for the writes an automation would make."""
 
 from __future__ import annotations
 
@@ -36,7 +36,9 @@ async def diagnose(
     """Warn about direct feedback and opposing writes; conditions may be exclusive.
 
     These are potential conflicts, never proof that two rules will both run.
-    Computed values and dynamically resolved targets are deliberately omitted.
+    Targets are resolved when the diagnosis runs, so a group-targeted write
+    conflicts with the group's current members: the result follows membership.
+    Computed values are deliberately omitted.
     """
     own = await describe_writes(automation, providers)
     diagnostics = []

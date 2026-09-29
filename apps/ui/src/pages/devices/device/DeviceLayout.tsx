@@ -5,15 +5,14 @@ import { ActiveFaultsSection } from "@/components/ActiveFaultsSection";
 import { ResourceBoundary } from "@/components/ResourceBoundary";
 import { DeviceHeader } from "./DeviceHeader";
 import { DeviceTabs } from "./DeviceTabs";
+import { deviceSection, isConfigSection } from "./deviceSections";
 
 const DeviceLayoutContent: FC = () => {
   const device = useDeviceFromRoute();
   const { pathname } = useLocation();
   // Config is a settings destination, not a supervision surface: live faults
   // belong to the sections that show the device at work.
-  const inConfig = pathname.startsWith(
-    `/devices/${encodeURIComponent(device.id)}/config`,
-  );
+  const inConfig = isConfigSection(deviceSection(pathname, device.id));
   return (
     <section className="space-y-6">
       {/* Header + tabs form one frame block: the tab bar owns the single

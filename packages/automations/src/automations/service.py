@@ -22,6 +22,7 @@ from automations.models import (
     TriggerContext,
     branch_actions,
 )
+from automations.references import references_device
 from automations.storage.factory import build_storage
 from models.action_failure import ActionExecutionError
 from models.conditions import EvaluationLimitError
@@ -131,11 +132,21 @@ class AutomationsService(Service):
             raise NotFoundError(msg)
         return automation
 
-    async def list(self, *, enabled: bool | None = None) -> Sequence[Automation]:
-        automations = list(self._cache.values())
-        if enabled is None:
+    async def list(
+        self, *, enabled: bool | None = None, device_id: str | None = None
+    ) -> Sequence[Automation]:
+        automations = [
+            automation
+            for automation in self._cache.values()
+            if enabled is None or automation.enabled == enabled
+        ]
+        if device_id is None:
             return automations
-        return [a for a in automations if a.enabled == enabled]
+        return [
+            automation
+            for automation in automations
+            if await references_device(automation, device_id, self._action_providers)
+        ]
 
     async def update(self, automation_id: str, params: AutomationUpdate) -> Automation:
         existing = await self.get(automation_id)

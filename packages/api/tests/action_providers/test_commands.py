@@ -27,6 +27,7 @@ def _commands_service(batch_id: str = "batch-abc") -> AsyncMock:
         created_at=datetime.now(UTC),
         created_by="operator",
     )
+    svc.resolve_template_devices.return_value = ["device"]
     svc.dispatch_template = AsyncMock(return_value=dispatch)
     return svc
 
@@ -121,17 +122,34 @@ class TestTemplateCommand:
         )
         assert error.value.details.target.tags == {"loop": ["east"]}
 
-    async def test_template_describes_only_known_targets(self):
+    async def test_template_describes_the_devices_its_dispatch_would_write(self):
         svc = _commands_service()
         provider = _provider(svc)
         trigger = Trigger(provider_id="schedule")
         writes = await provider.describe_writes({"template_id": "tmpl-01"}, trigger)
-        assert writes[0].device_id == "device"
-        assert writes[0].value == "auto"
-        svc.get_template.return_value.target = DevicesFilter(tags={"loop": ["east"]})
-        assert await provider.describe_writes({"template_id": "tmpl-01"}, trigger) == []
-        svc.get_template.side_effect = NotFoundError("missing")
-        assert await provider.describe_writes({"template_id": "tmpl-01"}, trigger) == []
+        assert [(w.device_id, w.attribute, w.value) for w in writes] == [
+            ("device", "mode", "auto")
+        ]
+        svc.resolve_template_devices.assert_awaited_once_with(
+            svc.get_template.return_value
+        )
+        svc.resolve_template_devices.return_value = ["member", "other"]
+        writes = await provider.describe_writes({"template_id": "tmpl-01"}, trigger)
+        assert [w.device_id for w in writes] == ["member", "other"]
+        svc.dispatch_template.assert_not_awaited()
+
+    @pytest.mark.parametrize("failing", ["get_template", "resolve_template_devices"])
+    @pytest.mark.parametrize(
+        "failure", [NotFoundError("missing"), InvalidError("incompatible")]
+    )
+    async def test_undispatchable_template_describes_no_write(self, failing, failure):
+        svc = _commands_service()
+        getattr(svc, failing).side_effect = failure
+        trigger = Trigger(provider_id="schedule")
+        assert (
+            await _provider(svc).describe_writes({"template_id": "tmpl-01"}, trigger)
+            == []
+        )
 
 
 class TestInlineWrite:
