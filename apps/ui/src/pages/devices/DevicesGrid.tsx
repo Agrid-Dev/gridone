@@ -9,24 +9,30 @@ type DevicesGridProps = {
 };
 
 /** The fleet grid: one section per type bucket, each a heading followed by a
- *  {@link DeviceFleetCard} per device. */
+ *  {@link DeviceFleetCard} per device. A lone bucket drops its heading: the
+ *  toolbar's count already says what it would. */
 export function DevicesGrid({ groups, zonePathOf }: DevicesGridProps) {
+  const showHeadings = groups.length > 1;
   return (
     <div className="space-y-8">
       {groups.map((group) => (
         <section
           key={group.key}
           className="space-y-3"
-          aria-labelledby={`device-group-${group.key}`}
+          aria-labelledby={
+            showHeadings ? `device-group-${group.key}` : undefined
+          }
         >
-          <div className="flex items-center gap-3">
-            <DeviceGroupHeading
-              id={`device-group-${group.key}`}
-              typeKey={group.key}
-              count={group.devices.length}
-            />
-            <span className="h-px flex-1 bg-border" aria-hidden />
-          </div>
+          {showHeadings && (
+            <div className="flex items-center gap-3">
+              <DeviceGroupHeading
+                id={`device-group-${group.key}`}
+                typeKey={group.key}
+                count={group.devices.length}
+              />
+              <span className="h-px flex-1 bg-border" aria-hidden />
+            </div>
+          )}
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {group.devices.map((device) => (
               <DeviceFleetCard

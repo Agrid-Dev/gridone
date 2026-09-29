@@ -1,7 +1,6 @@
 {
   "devices": {
     "title": "Devices",
-    "caption": "Monitor building devices, readings, and connection health.",
     "unableToLoad": "Unable to load devices",
     "create": {
       "title": "Create Device",
@@ -32,7 +31,8 @@
       "update": "Update",
       "deleteDialogTitle": "Confirm deletion",
       "deleteDialogContent": "Delete device {{name}} ?",
-      "edit": "Edit"
+      "edit": "Edit",
+      "more": "More actions"
     },
     "feedback": {
       "deleted": "Device deleted",
@@ -48,14 +48,16 @@
     },
     "saving": "Saving...",
     "health": {
-      "label": "Health",
-      "all": "All",
-      "healthy": "Healthy",
+      "healthy": "No fault",
       "faulty": "Faulty"
     },
     "filters": {
-      "label": "Filter by type",
-      "all": "All"
+      "type": "Type",
+      "health": "Faults",
+      "search": "Filter…",
+      "empty": "No results",
+      "clear": "Clear selection",
+      "reset": "Reset"
     },
     "summary": {
       "deviceCount_one": "{{count}} device",
@@ -67,7 +69,8 @@
       "error_one": "{{count}} disconnected",
       "error_other": "{{count}} disconnected",
       "idle_one": "{{count}} idle",
-      "idle_other": "{{count}} idle"
+      "idle_other": "{{count}} idle",
+      "filteredCount": "{{shown}} of {{count}} devices"
     },
     "card": {
       "lead": {

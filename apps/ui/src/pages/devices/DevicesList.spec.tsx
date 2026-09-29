@@ -11,15 +11,18 @@ import { createI18nMock } from "@/test/i18nMock";
 vi.mock("react-i18next", () =>
   createI18nMock({
     "devices.title": "Devices",
-    "devices.caption": "Monitor the building fleet.",
     "devices.actions.add": "Add",
-    "devices.health.label": "Health",
-    "devices.health.all": "All",
-    "devices.health.healthy": "Healthy",
+    "devices.actions.more": "More actions",
+    "devices.health.healthy": "No fault",
     "devices.health.faulty": "Faulty",
-    "devices.filters.label": "Filter by type",
-    "devices.filters.all": "All types",
+    "devices.filters.type": "Type",
+    "devices.filters.health": "Faults",
+    "devices.filters.search": "Filter…",
+    "devices.filters.empty": "No results",
+    "devices.filters.clear": "Clear selection",
+    "devices.filters.reset": "Reset",
     "devices.summary.deviceCount": "{{count}} devices",
+    "devices.summary.filteredCount": "{{shown}} of {{count}} devices",
     "devices.summary.ok": "{{count}} connected",
     "devices.summary.degraded": "{{count}} degraded",
     "devices.summary.error": "{{count}} disconnected",
@@ -78,8 +81,11 @@ vi.mock("@/hooks/useAssetTree", () => ({
 
 /** Admins hold every permission; other users hold none of theirs. */
 let isAdmin = true;
+/** When set, exactly these permissions are held, overriding `isAdmin`. */
+let granted: string[] | null = null;
 vi.mock("@/contexts/AuthContext", () => ({
-  usePermissions: () => () => isAdmin,
+  usePermissions: () => (permission: string) =>
+    granted ? granted.includes(permission) : isAdmin,
 }));
 
 import DevicesList from "./DevicesList";
@@ -134,6 +140,7 @@ beforeEach(() => {
   clearNavigation();
   localStorage.removeItem("devices.view");
   isAdmin = true;
+  granted = null;
   mockUseDevicesList.mockReturnValue({
     devices: [makeDevice("d1", "Alpha")],
     loading: false,
@@ -147,7 +154,7 @@ afterEach(() => {
   mockUseDevicesList.mockReset();
 });
 
-describe("DevicesList — health filter wiring", () => {
+describe("DevicesList — filters", () => {
   it("renders whatever useDevicesList returns", () => {
     mockUseDevicesList.mockReturnValue({
       devices: [makeDevice("d1", "Alpha"), makeDevice("d2", "Bravo")],
@@ -159,77 +166,95 @@ describe("DevicesList — health filter wiring", () => {
     expect(screen.getByText("Bravo")).toBeInTheDocument();
   });
 
-  it("calls useDevicesList with undefined when no filters are set", () => {
+  it("always offers type and fault filters, even for a single-type healthy fleet", () => {
+    mockUseDevicesList.mockReturnValue({
+      devices: [makeDevice("d1", "T1", { type: "thermostat" })],
+      loading: false,
+      error: null,
+    });
     renderAt();
     expect(lastListFilter()).toBeUndefined();
-    expect(
-      screen.queryByRole("tablist", { name: "Health" }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("group", { name: "Filter by type" }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Type/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Faults/ })).toBeInTheDocument();
   });
 
-  it("passes isFaulty=true when ?health=faulty", () => {
-    renderAt(["/devices?health=faulty"]);
-    expect(lastListFilter()).toEqual({ is_faulty: true });
-  });
-
-  it("passes isFaulty=false when ?health=healthy", () => {
-    renderAt(["/devices?health=healthy"]);
-    expect(lastListFilter()).toEqual({ is_faulty: false });
-  });
-
-  it("combines type and health filters", () => {
-    renderAt(["/devices?type=thermostat&health=faulty"]);
+  it("sends every selected type to the server", async () => {
+    mockUseDevicesList.mockReturnValue({
+      devices: [
+        makeDevice("d1", "T1", { type: "thermostat" }),
+        makeDevice("d2", "M1", { type: "electricity_meter" }),
+      ],
+      loading: false,
+      error: null,
+    });
+    renderAt(["/devices?search=1"]);
+    await userEvent.click(screen.getByRole("button", { name: /^Type/ }));
+    await userEvent.click(screen.getByRole("option", { name: /Thermostats/ }));
+    await userEvent.click(
+      screen.getByRole("option", { name: /Electricity meters/ }),
+    );
     expect(lastListFilter()).toEqual({
-      types: ["thermostat"],
-      is_faulty: true,
+      search: "1",
+      types: ["thermostat", "electricity_meter"],
     });
   });
 
-  it("keeps fleet health choices when the filtered results are healthy", async () => {
-    const healthy = makeDevice("d1", "Alpha");
-    const faulty = { ...makeDevice("d2", "Bravo"), is_faulty: true };
+  it("filters on one fault state at a time: a pick replaces the other", async () => {
+    renderAt();
+    await userEvent.click(screen.getByRole("button", { name: /^Faults/ }));
+    await userEvent.click(screen.getByRole("option", { name: /Faulty/ }));
+    expect(lastListFilter()).toEqual({ is_faulty: true });
+    await userEvent.click(screen.getByRole("option", { name: /No fault/ }));
+    expect(lastListFilter()).toEqual({ is_faulty: false });
+    expect(screen.getByRole("option", { name: /No fault/ })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+    expect(screen.getByRole("option", { name: /Faulty/ })).toHaveAttribute(
+      "aria-checked",
+      "false",
+    );
+  });
+
+  it("ignores unknown or empty types from the URL", () => {
+    renderAt(["/devices?type=&type=not_a_type"]);
+    expect(lastListFilter()).toBeUndefined();
+    expect(
+      screen.queryByRole("button", { name: "Reset" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows the fleet total, not an empty match count, while the filtered list loads", () => {
+    const fleet = [makeDevice("d1", "Alpha"), makeDevice("d2", "Bravo")];
+    mockUseDevicesList.mockImplementation((...args: unknown[]) =>
+      args.length === 0
+        ? { devices: fleet, loading: false, error: null }
+        : { devices: [], loading: true, error: null },
+    );
+    renderAt(["/devices?health=faulty"]);
+    expect(screen.getByText("2 devices")).toBeInTheDocument();
+    expect(screen.queryByText(/0 of 2/)).not.toBeInTheDocument();
+  });
+
+  it("counts matches against the fleet and resets every filter at once", async () => {
+    const fleet = [makeDevice("d1", "Alpha"), makeDevice("d2", "Bravo")];
     mockUseDevicesList.mockImplementation((...args: unknown[]) => ({
-      devices: args.length === 0 ? [healthy, faulty] : [healthy],
+      devices: args.length === 0 ? fleet : [fleet[0]],
       loading: false,
       error: null,
     }));
-    renderAt(["/devices?search=Alpha"]);
-    await userEvent.click(screen.getByRole("tab", { name: "Faulty" }));
-    expect(lastListFilter()).toEqual({ search: "Alpha", is_faulty: true });
-    await userEvent.click(screen.getByRole("tab", { name: "Healthy" }));
-    expect(lastListFilter()).toEqual({ search: "Alpha", is_faulty: false });
-    await userEvent.click(screen.getByRole("tab", { name: "All" }));
-    expect(lastListFilter()).toEqual({ search: "Alpha" });
-    expect(screen.getByRole("tab", { name: "Faulty" })).toBeInTheDocument();
-  });
-
-  it("lets users clear bookmarked health filters when the fleet is healthy", async () => {
-    renderAt(["/devices?health=faulty&type=thermostat&search=Alpha"]);
-    await userEvent.click(screen.getByRole("tab", { name: "All" }));
-    expect(lastListFilter()).toEqual({
-      types: ["thermostat"],
-      search: "Alpha",
-    });
-    expect(
-      screen.queryByRole("tablist", { name: "Health" }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("still honors ?search deep links server-side", () => {
-    renderAt(["/devices?search=chambre%2012"]);
-    expect(lastListFilter()).toEqual({ search: "chambre 12" });
+    renderAt(["/devices?search=Alpha&type=thermostat&health=faulty"]);
+    expect(screen.getByText("1 of 2 devices")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Reset" }));
+    expect(lastListFilter()).toBeUndefined();
   });
 });
 
-describe("DevicesList — type chips", () => {
+describe("DevicesList — other type bucket", () => {
   beforeEach(() => {
     mockUseDevicesList.mockReturnValue({
       devices: [
         makeDevice("d1", "T1", { type: "thermostat" }),
-        makeDevice("d2", "T2", { type: "thermostat" }),
         makeDevice("d3", "M1", { type: "electricity_meter" }),
         makeDevice("d4", "X1", { type: "custom_vendor" }),
       ],
@@ -238,61 +263,58 @@ describe("DevicesList — type chips", () => {
     });
   });
 
-  it("keeps fleet type choices when search results contain only one type", () => {
-    const fleet = mockUseDevicesList().devices as Device[];
-    mockUseDevicesList.mockImplementation((...args: unknown[]) => ({
-      devices: args.length === 0 ? fleet : [fleet[0]],
-      loading: false,
-      error: null,
-    }));
-    renderAt(["/devices?search=T1"]);
-    const chips = within(
-      screen.getByRole("group", { name: "Filter by type" }),
-    ).getAllByRole("button");
-    expect(chips.map((c) => c.textContent)).toEqual([
-      "All types4",
-      "Thermostats2",
-      "Electricity meters1",
-      "Others1",
-    ]);
-  });
-
-  it("sets ?type when a chip is clicked", async () => {
-    renderAt();
-    await userEvent.click(screen.getByRole("button", { name: /Thermostats/ }));
-    expect(lastListFilter()).toEqual({ types: ["thermostat"] });
-  });
-
-  it("lets users clear a bookmarked type even when the fleet has one type", async () => {
-    mockUseDevicesList.mockReturnValue({
-      devices: [makeDevice("d1", "T1", { type: "thermostat" })],
-      loading: false,
-      error: null,
-    });
-    renderAt(["/devices?type=electricity_meter&search=T1&health=healthy"]);
-    await userEvent.click(screen.getByRole("button", { name: /All types/ }));
-    expect(lastListFilter()).toEqual({ search: "T1", is_faulty: false });
-    expect(
-      screen.queryByRole("group", { name: "Filter by type" }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("never sends the other bucket to the server", () => {
-    renderAt(["/devices?type=other"]);
-    expect(lastListFilter()).toBeUndefined();
-  });
-
-  it("keeps the health criterion server-side when filtering on other", () => {
-    renderAt(["/devices?type=other&health=faulty"]);
+  it("never sends the other bucket to the server, keeping other criteria", () => {
+    renderAt(["/devices?type=other&type=thermostat&health=faulty"]);
     expect(lastListFilter()).toEqual({ is_faulty: true });
   });
 
-  it("shows only unknown-type devices when ?type=other", () => {
-    renderAt(["/devices?type=other"]);
+  it("narrows client-side to the selected buckets", () => {
+    renderAt(["/devices?type=other&type=thermostat"]);
     expect(screen.getByText("X1")).toBeInTheDocument();
-    expect(screen.queryByText("T1")).not.toBeInTheDocument();
+    expect(screen.getByText("T1")).toBeInTheDocument();
     expect(screen.queryByText("M1")).not.toBeInTheDocument();
   });
+});
+
+describe("DevicesList — header actions", () => {
+  it("keeps secondary actions in a menu for writers", async () => {
+    renderAt();
+    expect(
+      screen.queryByRole("link", { name: "Command history" }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "More actions" }));
+    expect(
+      screen.getByRole("menuitem", { name: "Command history" }),
+    ).toBeInTheDocument();
+  });
+
+  it.each([
+    {
+      permissions: ["devices:read"],
+      shown: ["Command history"],
+      hidden: ["Add", "New grouped command"],
+    },
+    {
+      permissions: ["devices:read", "devices:command"],
+      shown: ["Command history", "New grouped command"],
+      hidden: ["Add"],
+    },
+    {
+      permissions: ["devices:read", "devices:write"],
+      shown: ["Add"],
+      hidden: ["New grouped command"],
+    },
+  ])(
+    "gates each action on its own permission: $permissions",
+    ({ permissions, shown, hidden }) => {
+      granted = permissions;
+      renderAt();
+      for (const name of shown)
+        expect(screen.getByRole("link", { name })).toBeInTheDocument();
+      for (const name of hidden)
+        expect(screen.queryByRole("link", { name })).not.toBeInTheDocument();
+    },
+  );
 });
 
 describe("DevicesList — cards", () => {

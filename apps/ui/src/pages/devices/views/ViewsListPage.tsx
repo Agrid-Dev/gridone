@@ -19,8 +19,9 @@ export default function ViewsListPage() {
   const views = useDeviceViews();
   const members = useDevicesList();
   return (
-    <section className="space-y-6">
+    <section className="space-y-4">
       <ResourceHeader
+        flush
         title={t("groups.title")}
         caption={t("groups.caption")}
         actions={

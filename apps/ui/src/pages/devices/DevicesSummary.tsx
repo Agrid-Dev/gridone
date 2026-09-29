@@ -21,12 +21,17 @@ const SUMMARY_KEYS = {
 } as const;
 
 /** "49 appareils · 47 connectés · 1 dégradé · 1 déconnecté" — connection
- *  buckets at zero are omitted, each colored by its semantic status level. */
+ *  buckets at zero are omitted, each colored by its semantic status level.
+ *  When filters narrow the list, the lead reads "12 sur 49 appareils"; the
+ *  connection buckets always describe the whole fleet. */
 export function DevicesSummary({
   total,
+  shown = total,
   counts,
 }: {
   total: number;
+  /** Devices left once filters apply; defaults to the whole fleet. */
+  shown?: number;
   counts: ConnectionCounts;
 }) {
   const { t } = useTranslation("devices");
@@ -38,7 +43,9 @@ export function DevicesSummary({
   return (
     <span>
       <span className="font-medium text-foreground">
-        {t("devices.summary.deviceCount", { count: total })}
+        {shown === total
+          ? t("devices.summary.deviceCount", { count: total })
+          : t("devices.summary.filteredCount", { shown, count: total })}
       </span>
       {shownStatuses.map((status) => (
         <span key={status}>

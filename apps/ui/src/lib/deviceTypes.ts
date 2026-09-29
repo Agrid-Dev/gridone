@@ -45,6 +45,11 @@ export type DeviceTypeKey = DeviceType | typeof OTHER_KEY;
 
 const KNOWN_DEVICE_TYPES = new Set<string>(Object.values(DeviceType));
 
+/** Whether a raw value (e.g. a `?type=` param) names a bucket. */
+export function isDeviceTypeKey(value: string): value is DeviceTypeKey {
+  return value === OTHER_KEY || KNOWN_DEVICE_TYPES.has(value);
+}
+
 /** Bucket key for a device: its standard type, or `other`. */
 export function deviceTypeKey(device: Device): DeviceTypeKey {
   return device.type && KNOWN_DEVICE_TYPES.has(device.type)
