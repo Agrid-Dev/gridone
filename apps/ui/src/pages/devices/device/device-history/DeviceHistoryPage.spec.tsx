@@ -517,8 +517,12 @@ describe("DeviceHistoryPage selection", () => {
 
     renderPage();
     await screen.findByText("6 / 15");
-    expect(screen.getByTestId("location")).toHaveTextContent(
-      "attrs=filler_3%2C",
+    // The remembered selection is seeded into the URL by an effect that
+    // lands a render after the badge.
+    await waitFor(() =>
+      expect(screen.getByTestId("location")).toHaveTextContent(
+        "attrs=filler_3%2C",
+      ),
     );
   });
 });
