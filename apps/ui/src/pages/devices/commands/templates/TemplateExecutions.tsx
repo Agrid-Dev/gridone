@@ -7,6 +7,7 @@ import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { useAttributeLabel } from "@/hooks/useAttributeLabel";
 import { useDevicesList } from "@/hooks/useDevicesList";
 import { useUsers } from "@/hooks/useUsers";
+import { userDisplayName } from "@/lib/users";
 import { buildCommandColumns } from "@/pages/devices/commands/columns";
 import { CommandsTable } from "@/pages/devices/commands/CommandsTable";
 
@@ -49,7 +50,7 @@ export function TemplateExecutions({ templateId }: { templateId: string }) {
     [devices],
   );
   const userNames = useMemo(
-    () => Object.fromEntries(users.map((u) => [u.id, u.username])),
+    () => Object.fromEntries(users.map((u) => [u.id, userDisplayName(u)])),
     [users],
   );
 

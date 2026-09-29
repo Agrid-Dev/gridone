@@ -58,9 +58,13 @@ describe("BuildingSwitcher", () => {
 
   it("links straight to the building page instead of opening a menu", () => {
     renderSwitcher();
-    expect(
-      screen.getByRole("link", { name: /Hôtel Bellevue/ }),
-    ).toHaveAttribute("href", "/");
+    const link = screen.getByRole("link", { name: /Hôtel Bellevue/ });
+    expect(link).toHaveAttribute("href", "/");
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    // A header, not a control: nothing announces a popup and no icon
+    // beyond the avatar hints at one.
+    expect(link).not.toHaveAttribute("aria-haspopup");
+    expect(link).not.toHaveAttribute("aria-expanded");
+    expect(link.querySelectorAll("svg")).toHaveLength(1);
   });
 });

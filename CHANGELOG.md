@@ -1,3 +1,30 @@
+## v0.281.1 (2026-09-29)
+
+### Fix
+
+- **ui**: show user display names in command history (#737)
+
+## v0.281.0 (2026-09-29)
+
+### Feat
+
+- **ui**: one filter row for the devices list (AGR-1455) (#732)
+
+## v0.280.0 (2026-09-29)
+
+### Feat
+
+- **ui**: reorder the history chart's panels by drag and drop (AGR-1403) (#728)
+- **ui**: improve device history (AGR-1403) (#725)
+- **ui**: panel numeric chart series by unit (AGR-1403) (#724)
+
+## v0.279.5 (2026-09-29)
+
+### Refactor
+
+- **ui**: draw the building block as a header, not a button
+- **ui**: move the Gridone brand to the sidebar footer
+
 ## v0.279.4 (2026-09-29)
 
 ### Refactor

@@ -13,14 +13,14 @@ export function DeviceSearchField() {
   const { t } = useTranslation("devices");
   const { value, change, commit, clear } = useDeviceSearchParam();
   return (
-    <div className="relative w-full max-w-full sm:w-72">
+    <div className="relative w-full max-w-full sm:w-80">
       <Search
         aria-hidden
-        className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground"
+        className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground"
       />
       <Input
         type="search"
-        className="h-11 pl-9 pr-12"
+        className="h-9 pl-9 pr-10"
         aria-label={t("devices.search.label")}
         placeholder={t("devices.search.placeholder")}
         value={value}
@@ -40,7 +40,7 @@ export function DeviceSearchField() {
               type="button"
               variant="ghost"
               size="icon"
-              className="absolute right-0 top-0 h-11 w-11"
+              className="absolute right-0 top-0 h-9 w-9"
               aria-label={t("devices.search.clear")}
               title={t("devices.search.clear")}
               onClick={clear}

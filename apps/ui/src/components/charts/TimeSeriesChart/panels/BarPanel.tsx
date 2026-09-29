@@ -12,6 +12,7 @@ import { formatTimeTick } from "../timeTickFormat";
 import { PanelLegend } from "../PanelLegend";
 import { bucketStep } from "../bucketStep";
 import { useValueTickFormat } from "../useValueTickFormat";
+import { commonSeriesUnit } from "../seriesUnit";
 
 /** Share of a bucket the bars in it fill, leaving the rest as the gutter that
  *  separates one bucket from the next. */
@@ -47,7 +48,7 @@ export function BarPanel({
   isLast,
 }: PanelComponentProps) {
   const { series, values, height } = entry as BarPanelEntry;
-  const formatTick = useValueTickFormat(series);
+  const formatTick = useValueTickFormat(commonSeriesUnit(series));
   const step = bucketStep(timestamps);
 
   // Bars fill their slot of a bucket; visx sizes them as

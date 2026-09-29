@@ -10,25 +10,31 @@ type DevicesGridProps = {
 
 /** The fleet grid: one section per type bucket, each a heading — with the
  *  states of its cards beside it — followed by a {@link DeviceFleetCard} per
- *  device. */
+ *  device. A lone bucket drops its heading: the toolbar's count already says
+ *  what it would. */
 export function DevicesGrid({ groups, zonePathOf }: DevicesGridProps) {
+  const showHeadings = groups.length > 1;
   return (
     <div className="space-y-8">
       {groups.map((group) => (
         <section
           key={group.key}
           className="space-y-3"
-          aria-labelledby={`device-group-${group.key}`}
+          aria-labelledby={
+            showHeadings ? `device-group-${group.key}` : undefined
+          }
         >
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <DeviceGroupHeading
-              id={`device-group-${group.key}`}
-              typeKey={group.key}
-              count={group.devices.length}
-            />
-            <DeviceGroupSummary devices={group.devices} />
-            <span className="h-px min-w-6 flex-1 bg-border" aria-hidden />
-          </div>
+          {showHeadings && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <DeviceGroupHeading
+                id={`device-group-${group.key}`}
+                typeKey={group.key}
+                count={group.devices.length}
+              />
+              <DeviceGroupSummary devices={group.devices} />
+              <span className="h-px min-w-6 flex-1 bg-border" aria-hidden />
+            </div>
+          )}
           {/* An explicit single column below `sm`: an implicit one is sized
               to the cards' content, so a long type and location would push
               the card past the screen instead of truncating. */}

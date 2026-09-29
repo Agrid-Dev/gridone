@@ -7,16 +7,22 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { formatValue } from "@/lib/formatValue";
-import type { UnitCommand, User } from "@gridone/sdk";
+import { attributeValueText } from "@/lib/attributeValueLabel";
+import { userDisplayName } from "@/lib/users";
+import type { UnitCommand, User, ValueLabel } from "@gridone/sdk";
 import type { CellValue } from "@/lib/mergeTimeSeries";
 
 type CommandIndicatorProps = {
   command: UnitCommand;
   user?: User;
+  attributeName: string;
   previousValue?: CellValue;
   newValue?: CellValue;
   dataType?: string;
+  /** Unit symbol appended to a numeric value. */
+  unit?: string | null;
+  /** The driver's wording of a boolean's two states, when it declares one. */
+  valueLabels?: ValueLabel[] | null;
 };
 
 function getInitials(name: string): string {
@@ -26,21 +32,40 @@ function getInitials(name: string): string {
   return parts[0]?.[0]?.toUpperCase() ?? "";
 }
 
+/**
+ * Marks a value a command wrote: the author's initials inline, and on
+ * demand who, when, the value before and after — worded as the supervision
+ * pages word them — the outcome and its confirmation details.
+ */
 export function CommandIndicator({
   command,
   user,
+  attributeName,
   previousValue,
   newValue,
   dataType,
+  unit,
+  valueLabels,
 }: CommandIndicatorProps) {
   const { t } = useTranslation("devices");
+  const { t: tCommon, i18n } = useTranslation("common");
   const initials = user?.name ? getInitials(user.name) : null;
+
+  const wording = (value: CellValue) => {
+    const text = attributeValueText(attributeName, value, tCommon, {
+      dataType,
+      valueLabels,
+      language: i18n.language,
+    });
+    return typeof value === "number" && unit ? `${text} ${unit}` : text;
+  };
 
   return (
     <Popover>
       <PopoverTrigger asChild>
         <button
           type="button"
+          aria-label={user ? userDisplayName(user) : command.user_id}
           className={cn(
             "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full",
             "text-[10px] font-medium leading-none",
@@ -60,7 +85,7 @@ export function CommandIndicator({
       >
         <div>
           <p className="font-medium">
-            {user?.name || user?.username || command.user_id}
+            {user ? userDisplayName(user) : command.user_id}
           </p>
           {user?.title && <p className="text-muted-foreground">{user.title}</p>}
           {command.executed_at && (
@@ -72,11 +97,11 @@ export function CommandIndicator({
         {previousValue !== undefined && newValue !== undefined && (
           <div className="flex items-center gap-1.5 text-xs">
             <span className="text-muted-foreground">
-              {formatValue(previousValue, dataType)}
+              {wording(previousValue)}
             </span>
             <ArrowRight className="h-3 w-3 shrink-0 text-muted-foreground/50" />
             <span className="font-semibold text-foreground">
-              {formatValue(newValue, dataType)}
+              {wording(newValue)}
             </span>
           </div>
         )}
