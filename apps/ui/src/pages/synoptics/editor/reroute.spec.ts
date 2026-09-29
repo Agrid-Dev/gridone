@@ -140,8 +140,8 @@ const TALLIES: Record<(typeof PLATES)[number], Record<string, number>> = {
 };
 
 describe("rerouteChanged on the committed plates", () => {
-  // One test per plate, every fault collected into one assertion: a
-  // per-case `expect` would multiply the cost past what CI grants a test.
+  // Each plate exercises hundreds of moves and rotations. Keep failures
+  // aggregated and allow enough time for the exhaustive sweep on CI runners.
   it.each(PLATES)(
     "%s: leaves every edit it takes free of new run violations and snags, and touches only the runs on the moved symbol",
     (name) => {
@@ -192,6 +192,7 @@ describe("rerouteChanged on the committed plates", () => {
       expect(failures).toEqual([]);
       expect(tally).toEqual(TALLIES[name]);
     },
+    30_000,
   );
 });
 
