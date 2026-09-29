@@ -40,6 +40,7 @@ EXPECTED = {
     ),
     "Production Chaud": Expected((38, 23, 1), {"symbols": 10, "pipes": 8, "flow": 4}),
     "Production Froid": Expected((21, 15, 1), {"symbols": 6, "pipes": 6, "flow": 2}),
+    "Production ECS Club / Restaurant": Expected((19, 18, 4), {}),
 }
 
 

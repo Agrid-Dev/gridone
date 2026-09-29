@@ -24,11 +24,17 @@ def read(name: str) -> dict:
     return json.loads((PLATES_DIR / f"{name}.json").read_text(encoding="utf-8"))
 
 
-ECS_PLATES = tuple(
-    name for name in PLATE_NAMES if read(name)["name"].startswith("Production ECS")
-)
+def _is_bay(document: dict) -> bool:
+    return document["name"].startswith("Production ECS") and any(
+        s["type"] == "heat_pump" for s in document["symbols"]
+    )
+
+
+ECS_PLATES = tuple(name for name in PLATE_NAMES if _is_bay(read(name)))
 """The hot-water bays, the same template each time: read off the plates, so a
-third bay is held to the template's probes the moment it lands."""
+third bay is held to the template's probes the moment it lands. A hot-water
+production without heat pumps (the restaurant's, fed by an exchanger) is not
+a bay and has its own file."""
 
 
 def bound_device_ids(document: SynopticDocument) -> set[str]:

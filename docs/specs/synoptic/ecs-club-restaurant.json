@@ -1,0 +1,965 @@
+{
+  "version": 1,
+  "name": "Production ECS Club / Restaurant",
+  "description": "Hydraulique, production ECS Club / Restaurant : échangeur ECS alimenté par la production chaud (vanne de régulation, compteur d'énergie et clapet sur l'aller, vanne trois voies avec bypass sur le retour), boucle de charge par la pompe vers quatre ballons de 1000 L en parallèle, départ ECS vers la distribution par le mitigeur (eau froide adoucie), retour de bouclage par la pompe de bouclage et arrivée d'eau froide adoucie sur le collecteur bas. Températures départ / retour mitigeur non mesurées ; sondes de l'échangeur, vanne trois voies et pompes lues par des automates non encore rattachés à ce schéma.",
+  "projection": "isometric",
+  "defaults": {
+    "stale_after": 900
+  },
+  "symbols": [
+    {
+      "id": "b01",
+      "type": "tank",
+      "placement": {
+        "kind": "cell",
+        "cell": {
+          "x": 8,
+          "y": 0
+        },
+        "rotation": 0
+      },
+      "label": null,
+      "device_id": null,
+      "props": {
+        "capacity": "1000 L"
+      },
+      "bindings": {}
+    },
+    {
+      "id": "b02",
+      "type": "tank",
+      "placement": {
+        "kind": "cell",
+        "cell": {
+          "x": 12,
+          "y": 0
+        },
+        "rotation": 0
+      },
+      "label": null,
+      "device_id": null,
+      "props": {
+        "capacity": "1000 L"
+      },
+      "bindings": {}
+    },
+    {
+      "id": "b03",
+      "type": "tank",
+      "placement": {
+        "kind": "cell",
+        "cell": {
+          "x": 16,
+          "y": 0
+        },
+        "rotation": 0
+      },
+      "label": null,
+      "device_id": null,
+      "props": {
+        "capacity": "1000 L"
+      },
+      "bindings": {}
+    },
+    {
+      "id": "b04",
+      "type": "tank",
+      "placement": {
+        "kind": "cell",
+        "cell": {
+          "x": 20,
+          "y": 0
+        },
+        "rotation": 0
+      },
+      "label": null,
+      "device_id": null,
+      "props": {
+        "capacity": "1000 L"
+      },
+      "bindings": {}
+    },
+    {
+      "id": "collector-charge",
+      "type": "collector",
+      "placement": {
+        "kind": "cell",
+        "cell": {
+          "x": 6,
+          "y": -2
+        },
+        "rotation": 0
+      },
+      "label": null,
+      "device_id": null,
+      "props": {
+        "axis": "x",
+        "length": 17,
+        "ports": {
+          "out_1": {
+            "offset": 1,
+            "side": "+y"
+          },
+          "out_2": {
+            "offset": 5,
+            "side": "+y"
+          },
+          "out_3": {
+            "offset": 9,
+            "side": "+y"
+          },
+          "out_4": {
+            "offset": 13,
+            "side": "+y"
+          },
+          "out_5": {
+            "offset": 0,
+            "side": "-x"
+          },
+          "in_1": {
+            "offset": 16,
+            "side": "+x"
+          }
+        }
+      },
+      "bindings": {}
+    },
+    {
+      "id": "collector-return",
+      "type": "collector",
+      "placement": {
+        "kind": "cell",
+        "cell": {
+          "x": 6,
+          "y": 4
+        },
+        "rotation": 0
+      },
+      "label": null,
+      "device_id": null,
+      "props": {
+        "axis": "x",
+        "length": 19,
+        "ports": {
+          "in_1": {
+            "offset": 1,
+            "side": "-y"
+          },
+          "in_2": {
+            "offset": 5,
+            "side": "-y"
+          },
+          "in_3": {
+            "offset": 9,
+            "side": "-y"
+          },
+          "in_4": {
+            "offset": 13,
+            "side": "-y"
+          },
+          "in_5": {
+            "offset": 16,
+            "side": "+y"
+          },
+          "in_6": {
+            "offset": 17,
+            "side": "+y"
+          },
+          "out_1": {
+            "offset": 18,
+            "side": "+x"
+          }
+        }
+      },
+      "bindings": {}
+    },
+    {
+      "id": "echangeur",
+      "type": "plate_exchanger",
+      "placement": {
+        "kind": "cell",
+        "cell": {
+          "x": 32,
+          "y": 1
+        },
+        "rotation": 3
+      },
+      "label": "ÉCHANGEUR ECS",
+      "device_id": null,
+      "props": {},
+      "bindings": {}
+    },
+    {
+      "id": "pompe-charge",
+      "type": "pump",
+      "placement": {
+        "kind": "pipe",
+        "pipe": "charge",
+        "cell": {
+          "x": 26,
+          "y": 4
+        }
+      },
+      "label": null,
+      "device_id": null,
+      "props": {},
+      "bindings": {
+        "state": {
+          "kind": "text",
+          "text": "non identifiée"
+        }
+      }
+    },
+    {
+      "id": "clapet-charge",
+      "type": "valve_check",
+      "placement": {
+        "kind": "pipe",
+        "pipe": "charge",
+        "cell": {
+          "x": 28,
+          "y": 4
+        }
+      },
+      "label": null,
+      "device_id": null,
+      "props": {},
+      "bindings": {}
+    },
+    {
+      "id": "link-production-chaud",
+      "type": "link",
+      "placement": {
+        "kind": "cell",
+        "cell": {
+          "x": 40,
+          "y": 2
+        },
+        "rotation": 0
+      },
+      "label": "PRODUCTION CHAUD",
+      "device_id": null,
+      "props": {
+        "synoptic_id": null,
+        "caption": null
+      },
+      "bindings": {}
+    },
+    {
+      "id": "v-regulation",
+      "type": "valve_control",
+      "placement": {
+        "kind": "pipe",
+        "pipe": "primaire-depart",
+        "cell": {
+          "x": 38,
+          "y": 3
+        }
+      },
+      "label": null,
+      "device_id": null,
+      "props": {},
+      "bindings": {
+        "position": {
+          "kind": "text",
+          "text": "non mesurée"
+        }
+      }
+    },
+    {
+      "id": "cpt-primaire",
+      "type": "energy_meter",
+      "placement": {
+        "kind": "pipe",
+        "pipe": "primaire-depart",
+        "cell": {
+          "x": 35,
+          "y": 3
+        }
+      },
+      "label": null,
+      "device_id": null,
+      "props": {},
+      "bindings": {
+        "energy": {
+          "kind": "text",
+          "text": "non mesurée"
+        }
+      }
+    },
+    {
+      "id": "clapet-primaire",
+      "type": "valve_check",
+      "placement": {
+        "kind": "pipe",
+        "pipe": "primaire-depart",
+        "cell": {
+          "x": 33,
+          "y": 3
+        }
+      },
+      "label": null,
+      "device_id": null,
+      "props": {},
+      "bindings": {}
+    },
+    {
+      "id": "v3v-primaire",
+      "type": "valve_control",
+      "placement": {
+        "kind": "pipe",
+        "pipe": "primaire-retour",
+        "cell": {
+          "x": 35,
+          "y": -4
+        }
+      },
+      "label": null,
+      "device_id": null,
+      "props": {},
+      "bindings": {
+        "position": {
+          "kind": "text",
+          "text": "non identifiée"
+        }
+      }
+    },
+    {
+      "id": "mitigeur",
+      "type": "mixing_valve",
+      "placement": {
+        "kind": "cell",
+        "cell": {
+          "x": 1,
+          "y": -2
+        },
+        "rotation": 2
+      },
+      "label": "MITIGEUR",
+      "device_id": null,
+      "props": {},
+      "bindings": {}
+    },
+    {
+      "id": "link-efa",
+      "type": "link",
+      "placement": {
+        "kind": "cell",
+        "cell": {
+          "x": 1,
+          "y": -6
+        },
+        "rotation": 3
+      },
+      "label": "EAU FROIDE ADOUCIE",
+      "device_id": null,
+      "props": {
+        "synoptic_id": null,
+        "caption": null
+      },
+      "bindings": {}
+    },
+    {
+      "id": "link-distribution",
+      "type": "link",
+      "placement": {
+        "kind": "cell",
+        "cell": {
+          "x": -3,
+          "y": -2
+        },
+        "rotation": 2
+      },
+      "label": "DISTRIBUTION ECS",
+      "device_id": null,
+      "props": {
+        "synoptic_id": null,
+        "caption": null
+      },
+      "bindings": {}
+    },
+    {
+      "id": "pompe-bouclage",
+      "type": "pump",
+      "placement": {
+        "kind": "pipe",
+        "pipe": "dhw-loop-return",
+        "cell": {
+          "x": 6,
+          "y": 6
+        }
+      },
+      "label": "POMPE DE BOUCLAGE",
+      "device_id": null,
+      "props": {},
+      "bindings": {
+        "state": {
+          "kind": "text",
+          "text": "non identifiée"
+        }
+      }
+    },
+    {
+      "id": "link-efa-appoint",
+      "type": "link",
+      "placement": {
+        "kind": "cell",
+        "cell": {
+          "x": -3,
+          "y": 9
+        },
+        "rotation": 2
+      },
+      "label": "EAU FROIDE ADOUCIE",
+      "device_id": null,
+      "props": {
+        "synoptic_id": null,
+        "caption": null
+      },
+      "bindings": {}
+    }
+  ],
+  "pipes": [
+    {
+      "id": "charge",
+      "fluid": "primary_return",
+      "from": {
+        "kind": "port",
+        "symbol": "collector-return",
+        "port": "out_1"
+      },
+      "to": {
+        "kind": "port",
+        "symbol": "echangeur",
+        "port": "secondary_in"
+      },
+      "waypoints": [
+        {
+          "x": 31,
+          "y": 4
+        },
+        {
+          "x": 31,
+          "y": 1
+        }
+      ],
+      "flow": null,
+      "tags": [
+        {
+          "id": "tt-secondaire-entree",
+          "at": {
+            "x": 29,
+            "y": 4
+          },
+          "label": "ENTRÉE ÉCHANGEUR",
+          "value": {
+            "kind": "text",
+            "text": "non identifiée"
+          }
+        }
+      ]
+    },
+    {
+      "id": "secondaire-sortie",
+      "fluid": "primary_supply",
+      "from": {
+        "kind": "port",
+        "symbol": "echangeur",
+        "port": "secondary_out"
+      },
+      "to": {
+        "kind": "port",
+        "symbol": "collector-charge",
+        "port": "in_1"
+      },
+      "waypoints": [
+        {
+          "x": 33,
+          "y": 1
+        },
+        {
+          "x": 33,
+          "y": -2
+        }
+      ],
+      "flow": null,
+      "tags": [
+        {
+          "id": "tt-secondaire-sortie",
+          "at": {
+            "x": 28,
+            "y": -2
+          },
+          "label": "SORTIE ÉCHANGEUR",
+          "value": {
+            "kind": "text",
+            "text": "non identifiée"
+          }
+        }
+      ]
+    },
+    {
+      "id": "feed-b01",
+      "fluid": "primary_supply",
+      "from": {
+        "kind": "port",
+        "symbol": "collector-charge",
+        "port": "out_1"
+      },
+      "to": {
+        "kind": "port",
+        "symbol": "b01",
+        "port": "primary_in"
+      },
+      "waypoints": [
+        {
+          "x": 7,
+          "y": 0
+        }
+      ],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "feed-b02",
+      "fluid": "primary_supply",
+      "from": {
+        "kind": "port",
+        "symbol": "collector-charge",
+        "port": "out_2"
+      },
+      "to": {
+        "kind": "port",
+        "symbol": "b02",
+        "port": "primary_in"
+      },
+      "waypoints": [
+        {
+          "x": 11,
+          "y": 0
+        }
+      ],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "feed-b03",
+      "fluid": "primary_supply",
+      "from": {
+        "kind": "port",
+        "symbol": "collector-charge",
+        "port": "out_3"
+      },
+      "to": {
+        "kind": "port",
+        "symbol": "b03",
+        "port": "primary_in"
+      },
+      "waypoints": [
+        {
+          "x": 15,
+          "y": 0
+        }
+      ],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "feed-b04",
+      "fluid": "primary_supply",
+      "from": {
+        "kind": "port",
+        "symbol": "collector-charge",
+        "port": "out_4"
+      },
+      "to": {
+        "kind": "port",
+        "symbol": "b04",
+        "port": "primary_in"
+      },
+      "waypoints": [
+        {
+          "x": 19,
+          "y": 0
+        }
+      ],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "drain-b01",
+      "fluid": "primary_return",
+      "from": {
+        "kind": "port",
+        "symbol": "b01",
+        "port": "primary_out"
+      },
+      "to": {
+        "kind": "port",
+        "symbol": "collector-return",
+        "port": "in_1"
+      },
+      "waypoints": [
+        {
+          "x": 7,
+          "y": 1
+        }
+      ],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "drain-b02",
+      "fluid": "primary_return",
+      "from": {
+        "kind": "port",
+        "symbol": "b02",
+        "port": "primary_out"
+      },
+      "to": {
+        "kind": "port",
+        "symbol": "collector-return",
+        "port": "in_2"
+      },
+      "waypoints": [
+        {
+          "x": 11,
+          "y": 1
+        }
+      ],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "drain-b03",
+      "fluid": "primary_return",
+      "from": {
+        "kind": "port",
+        "symbol": "b03",
+        "port": "primary_out"
+      },
+      "to": {
+        "kind": "port",
+        "symbol": "collector-return",
+        "port": "in_3"
+      },
+      "waypoints": [
+        {
+          "x": 15,
+          "y": 1
+        }
+      ],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "drain-b04",
+      "fluid": "primary_return",
+      "from": {
+        "kind": "port",
+        "symbol": "b04",
+        "port": "primary_out"
+      },
+      "to": {
+        "kind": "port",
+        "symbol": "collector-return",
+        "port": "in_4"
+      },
+      "waypoints": [
+        {
+          "x": 19,
+          "y": 1
+        }
+      ],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "primaire-depart",
+      "fluid": "heating_supply",
+      "from": {
+        "kind": "port",
+        "symbol": "link-production-chaud",
+        "port": "out"
+      },
+      "to": {
+        "kind": "port",
+        "symbol": "echangeur",
+        "port": "primary_in"
+      },
+      "waypoints": [
+        {
+          "x": 32,
+          "y": 3
+        }
+      ],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "primaire-retour",
+      "fluid": "heating_return",
+      "from": {
+        "kind": "port",
+        "symbol": "echangeur",
+        "port": "primary_out"
+      },
+      "to": {
+        "kind": "port",
+        "symbol": "link-production-chaud",
+        "port": "in"
+      },
+      "waypoints": [
+        {
+          "x": 32,
+          "y": -1
+        },
+        {
+          "x": 32,
+          "y": -1,
+          "z": 1
+        },
+        {
+          "x": 32,
+          "y": -3,
+          "z": 1
+        },
+        {
+          "x": 32,
+          "y": -3
+        },
+        {
+          "x": 32,
+          "y": -4
+        },
+        {
+          "x": 39,
+          "y": -4
+        },
+        {
+          "x": 39,
+          "y": 2
+        }
+      ],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "bypass-v3v",
+      "fluid": "heating_supply",
+      "from": {
+        "kind": "pipe",
+        "pipe": "primaire-depart",
+        "cell": {
+          "x": 36,
+          "y": 3
+        }
+      },
+      "to": {
+        "kind": "pipe",
+        "pipe": "primaire-retour",
+        "cell": {
+          "x": 36,
+          "y": -4
+        }
+      },
+      "waypoints": [],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "dhw-departure",
+      "fluid": "dhw",
+      "from": {
+        "kind": "port",
+        "symbol": "collector-charge",
+        "port": "out_5"
+      },
+      "to": {
+        "kind": "port",
+        "symbol": "mitigeur",
+        "port": "hot_in"
+      },
+      "waypoints": [],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "dhw-supply",
+      "fluid": "dhw",
+      "from": {
+        "kind": "port",
+        "symbol": "mitigeur",
+        "port": "out"
+      },
+      "to": {
+        "kind": "port",
+        "symbol": "link-distribution",
+        "port": "in"
+      },
+      "waypoints": [],
+      "flow": null,
+      "tags": [
+        {
+          "id": "tt-depart",
+          "at": {
+            "x": -1,
+            "y": -2
+          },
+          "label": "DÉPART",
+          "value": {
+            "kind": "text",
+            "text": "non mesurée"
+          }
+        }
+      ]
+    },
+    {
+      "id": "efa-mitigeur",
+      "fluid": "cold_water",
+      "from": {
+        "kind": "port",
+        "symbol": "link-efa",
+        "port": "out"
+      },
+      "to": {
+        "kind": "port",
+        "symbol": "mitigeur",
+        "port": "cold_in"
+      },
+      "waypoints": [
+        {
+          "x": 2,
+          "y": -4
+        },
+        {
+          "x": 1,
+          "y": -4
+        }
+      ],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "dhw-loop-return",
+      "fluid": "dhw_loop",
+      "from": {
+        "kind": "port",
+        "symbol": "link-distribution",
+        "port": "out"
+      },
+      "to": {
+        "kind": "port",
+        "symbol": "collector-return",
+        "port": "in_5"
+      },
+      "waypoints": [
+        {
+          "x": -1,
+          "y": -3
+        },
+        {
+          "x": -1,
+          "y": -3,
+          "z": 1
+        },
+        {
+          "x": -1,
+          "y": -1,
+          "z": 1
+        },
+        {
+          "x": -1,
+          "y": -1
+        },
+        {
+          "x": -1,
+          "y": 6
+        },
+        {
+          "x": 22,
+          "y": 6
+        }
+      ],
+      "flow": null,
+      "tags": [
+        {
+          "id": "tt-retour",
+          "at": {
+            "x": 2,
+            "y": 6
+          },
+          "label": "RETOUR",
+          "value": {
+            "kind": "text",
+            "text": "non mesurée"
+          }
+        }
+      ]
+    },
+    {
+      "id": "efa-appoint",
+      "fluid": "cold_water",
+      "from": {
+        "kind": "port",
+        "symbol": "link-efa-appoint",
+        "port": "out"
+      },
+      "to": {
+        "kind": "port",
+        "symbol": "collector-return",
+        "port": "in_6"
+      },
+      "waypoints": [
+        {
+          "x": 23,
+          "y": 8
+        }
+      ],
+      "flow": null,
+      "tags": []
+    }
+  ],
+  "labels": [
+    {
+      "id": "title",
+      "at": {
+        "x": -3,
+        "y": -9
+      },
+      "text": "PRODUCTION ECS CLUB / RESTAURANT",
+      "role": "title",
+      "value": null
+    },
+    {
+      "id": "zone-distribution",
+      "at": {
+        "x": -3,
+        "y": -7.5
+      },
+      "text": "DISTRIBUTION",
+      "role": "caption",
+      "value": null
+    },
+    {
+      "id": "zone-storage",
+      "at": {
+        "x": 10,
+        "y": 10.5
+      },
+      "text": "STOCKAGE · 4 × 1000 L",
+      "role": "caption",
+      "value": null
+    },
+    {
+      "id": "zone-production",
+      "at": {
+        "x": 31,
+        "y": -7.5
+      },
+      "text": "PRODUCTION",
+      "role": "caption",
+      "value": null
+    }
+  ]
+}
