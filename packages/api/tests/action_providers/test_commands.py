@@ -204,3 +204,19 @@ class TestInlineWrite:
             )
             == []
         )
+
+
+@pytest.mark.asyncio
+async def test_template_describes_current_group_members_and_retains_missing_ids():
+    svc = _commands_service()
+    resolve = MagicMock(return_value=["member", "device"])
+    provider = CommandsActionProvider(svc, _inspector(), resolve)
+    trigger = Trigger(provider_id="schedule")
+    writes = await provider.describe_writes({"template_id": "tmpl-01"}, trigger)
+    assert [write.device_id for write in writes] == ["device", "member"]
+    resolve.assert_called_once_with(svc.get_template.return_value.target)
+    svc.get_template.return_value.target = DevicesFilter(tags={"loop": ["east"]})
+    resolve.return_value = ["new-member"]
+    writes = await provider.describe_writes({"template_id": "tmpl-01"}, trigger)
+    assert [write.device_id for write in writes] == ["new-member"]
+    svc.dispatch_template.assert_not_awaited()

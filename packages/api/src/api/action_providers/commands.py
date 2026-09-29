@@ -15,10 +15,13 @@ from models.expressions import DeviceAttributeRef, Scalar
 from models.ids import gen_id
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Sequence
+
     from automations.models import Trigger, TriggerContext
 
     from commands.interface import CommandsServiceInterface
     from models.attribute_observation import AttributeInspector
+    from models.targets import DevicesFilter
 
 
 class CommandAction(BaseModel):
@@ -55,9 +58,11 @@ class CommandsActionProvider:
         self,
         commands_service: CommandsServiceInterface,
         inspect_attribute: AttributeInspector,
+        resolve_device_ids: Callable[[DevicesFilter], Sequence[str]] | None = None,
     ) -> None:
         self._commands_service = commands_service
         self._inspect = inspect_attribute
+        self._resolve_device_ids = resolve_device_ids
 
     async def describe_writes(
         self, params: dict, trigger: Trigger
@@ -76,13 +81,16 @@ class CommandsActionProvider:
             template = await self._commands_service.get_template(action.template_id)
         except NotFoundError:
             return []
+        device_ids = set(template.target.ids or [])
+        if self._resolve_device_ids is not None:
+            device_ids.update(self._resolve_device_ids(template.target))
         return [
             AutomationWrite(
                 device_id=device_id,
                 attribute=template.write.attribute,
                 value=template.write.value,
             )
-            for device_id in template.target.ids or []
+            for device_id in sorted(device_ids)
         ]
 
     async def execute(

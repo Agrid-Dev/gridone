@@ -116,7 +116,16 @@ def _build_automations_service(
             ChangeEventTriggerProvider(devices_service),
         ],
         action_providers=[
-            CommandsActionProvider(commands_service, devices_service.inspect_attribute),
+            CommandsActionProvider(
+                commands_service,
+                devices_service.inspect_attribute,
+                lambda target: [
+                    device.id
+                    for device in devices_service.list_devices(
+                        **target.model_dump(exclude_none=True)
+                    )
+                ],
+            ),
             NotificationsActionProvider(notifications_service),
         ],
         resolve_attribute=devices_service.resolve_attribute,

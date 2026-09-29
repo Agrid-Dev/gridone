@@ -12110,6 +12110,7 @@ export interface operations {
     parameters: {
       query?: {
         enabled?: boolean | null;
+        device_id?: string | null;
       };
       header?: never;
       path?: never;

@@ -106,13 +106,33 @@ class TestListAutomations:
         async with client as c:
             resp = await c.get("/?enabled=true")
         assert resp.status_code == 200
-        svc.list.assert_awaited_once_with(enabled=True)
+        svc.list.assert_awaited_once_with(enabled=True, device_id=None)
 
     async def test_no_filter_passes_none(self, client, svc):
         svc.list.return_value = []
         async with client as c:
             await c.get("/")
-        svc.list.assert_awaited_once_with(enabled=None)
+        svc.list.assert_awaited_once_with(enabled=None, device_id=None)
+
+
+@pytest.mark.parametrize("enabled", [None, True, False])
+async def test_list_filters_by_device(client, svc, enabled):
+    svc.list.return_value = [_AUTO]
+    params = {"device_id": "device-01"}
+    if enabled is not None:
+        params["enabled"] = str(enabled).lower()
+    async with client as c:
+        response = await c.get("/", params=params)
+    assert response.status_code == 200
+    assert response.json()[0]["id"] == _AUTO.id
+    svc.list.assert_awaited_once_with(enabled=enabled, device_id="device-01")
+
+
+async def test_list_rejects_empty_device_filter(client, svc):
+    async with client as c:
+        response = await c.get("/", params={"device_id": ""})
+    assert response.status_code == 422
+    svc.list.assert_not_awaited()
 
 
 class TestCreateAutomation:

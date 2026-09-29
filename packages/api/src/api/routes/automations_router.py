@@ -56,8 +56,9 @@ async def list_automations(
     svc: Annotated[AutomationsServiceInterface, Depends(get_automations_service)],
     *,
     enabled: bool | None = Query(None),
+    device_id: str | None = Query(None, min_length=1),
 ) -> list[Automation]:
-    return list(await svc.list(enabled=enabled))
+    return list(await svc.list(enabled=enabled, device_id=device_id))
 
 
 @router.post(

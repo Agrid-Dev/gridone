@@ -9,6 +9,7 @@ vi.mock("react-i18next", () =>
   createI18nMock({
     "deviceDetails.configurationTabs.label": "Device configuration sections",
     "deviceDetails.configurationTabs.general": "General",
+    "deviceDetails.configurationTabs.automations": "Automations",
     "deviceDetails.configurationTabs.operatingRules": "Operating rules",
   }),
 );
@@ -27,6 +28,7 @@ function setup(suffix = "") {
           element={<DeviceConfigLayout />}
         >
           <Route index element={<h2>General configuration</h2>} />
+          <Route path="automations" element={<h2>Device automations</h2>} />
           <Route path="edit" element={<h2>Edit configuration</h2>} />
           <Route
             path="operating-rules/*"
@@ -78,6 +80,20 @@ describe("device configuration navigation", () => {
       );
     },
   );
+
+  it("opens automations as a separate third configuration tab", async () => {
+    const user = setup("/operating-rules");
+    const tab = screen.getByRole("tab", { name: "Automations" });
+    expect(tab).toHaveAttribute("href", "/devices/a/config/automations");
+    await user.click(tab);
+    expect(
+      await screen.findByRole("heading", { name: "Device automations" }),
+    ).toBeInTheDocument();
+    expect(tab).toHaveAttribute("aria-selected", "true");
+    expect(
+      screen.getByRole("tab", { name: "Operating rules" }),
+    ).toHaveAttribute("aria-selected", "false");
+  });
 
   it("keeps the existing general edit page within configuration", () => {
     setup("/edit");

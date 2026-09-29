@@ -164,7 +164,15 @@
     "configurationTabs": {
       "label": "Sections de configuration de l’appareil",
       "general": "Général",
-      "operatingRules": "Règles de fonctionnement"
+      "operatingRules": "Règles de fonctionnement",
+      "automations": "Automatisations"
+    },
+    "automations": {
+      "title": "Automatisations",
+      "intro": "Automatisations qui observent ou commandent {{device}}. Ouvrez une automatisation pour consulter ses déclencheurs, conditions et actions.",
+      "emptyTitle": "Aucune automatisation pour cet appareil",
+      "emptyDescription": "Aucune automatisation ne référence actuellement cet appareil dans ses déclencheurs, conditions ou actions.",
+      "browse": "Voir toutes les automatisations"
     }
   },
   "attributes": {

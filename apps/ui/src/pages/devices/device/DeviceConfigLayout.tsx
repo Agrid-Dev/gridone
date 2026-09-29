@@ -1,6 +1,6 @@
 import { Outlet, useLocation } from "react-router";
 import { useTranslation } from "react-i18next";
-import { Settings2, ShieldCheck } from "lucide-react";
+import { Settings2, ShieldCheck, Zap } from "lucide-react";
 import { ResourceNavLink as NavLink } from "@/components/ResourceLink";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDeviceFromRoute } from "@/hooks/useDevice";
@@ -14,7 +14,9 @@ export default function DeviceConfigLayout() {
   const operatingRules = operatingRulesPath(device.id);
   const active = pathname.startsWith(operatingRules)
     ? "operatingRules"
-    : "general";
+    : pathname === `${base}/automations`
+      ? "automations"
+      : "general";
 
   return (
     <section className="space-y-6">
@@ -30,6 +32,12 @@ export default function DeviceConfigLayout() {
             <NavLink to={operatingRules}>
               <ShieldCheck className="h-4 w-4" />
               {t("deviceDetails.configurationTabs.operatingRules")}
+            </NavLink>
+          </TabsTrigger>
+          <TabsTrigger value="automations" className="gap-2" asChild>
+            <NavLink to={`${base}/automations`}>
+              <Zap className="h-4 w-4" />
+              {t("deviceDetails.configurationTabs.automations")}
             </NavLink>
           </TabsTrigger>
         </TabsList>

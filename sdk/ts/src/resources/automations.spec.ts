@@ -55,6 +55,11 @@ const CASES: Case[] = [
     (a) => a.list({ enabled: true }),
     ["GET", "/automations/", { searchParams: { enabled: true } }],
   ],
+  [
+    "list by device including disabled automations",
+    (a) => a.list({ device_id: "device/1" }),
+    ["GET", "/automations/", { searchParams: { device_id: "device/1" } }],
+  ],
   ["get", (a) => a.get("auto1"), ["GET", "/automations/auto1"]],
   [
     "create",
