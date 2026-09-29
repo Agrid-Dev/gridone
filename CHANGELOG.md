@@ -1,3 +1,9 @@
+## v0.281.0 (2026-09-29)
+
+### Feat
+
+- **ui**: one filter row for the devices list (AGR-1455) (#732)
+
 ## v0.280.0 (2026-09-29)
 
 ### Feat
