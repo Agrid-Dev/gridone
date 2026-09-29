@@ -156,8 +156,7 @@ type Entry = {
 };
 
 /** A device exposing `entries`, each with a recorded series. `hiddenSeries`
- *  are recorded too but absent from the device the user sees — what an
- *  attribute the user's role hides looks like. */
+ *  are recorded too but absent from the device's declared attributes. */
 function deviceOf(
   entries: Entry[],
   type: string | null,
@@ -246,15 +245,18 @@ function setupThermostat() {
   deviceOf([...fillers, ...THERMOSTAT_STANDARD], "thermostat");
 }
 
-/** Points served per metric; anything absent resolves empty. */
+/** Points served per metric; anything absent resolves empty. `truncated`
+ *  flags every metric, or only the ones named. */
 function servePoints(
   byMetric: Record<string, DataPoint[]>,
-  { truncated = false } = {},
+  { truncated = false as boolean | string[] } = {},
 ) {
   mockGetSeriesPoints.mockImplementation((_owner: string, metric: string) =>
     Promise.resolve({
       points: byMetric[metric] ?? [],
-      truncated,
+      truncated: Array.isArray(truncated)
+        ? truncated.includes(metric)
+        : truncated,
       next_start: null,
     }),
   );
@@ -426,18 +428,37 @@ describe("DeviceHistoryPage selection", () => {
     expect(fetchedMetrics()).toEqual(["filler_1", "mode"]);
   });
 
-  it("drops names the device does not expose, hidden by a role or unknown", async () => {
+  it("drops names the device never recorded", async () => {
     setupThermostat();
-    deviceOf([...THERMOSTAT_STANDARD], "thermostat", {
-      hiddenSeries: ["secret"],
-    });
-    renderPage("/devices/d1/history/chart?attrs=secret,bogus,temperature");
+    renderPage("/devices/d1/history/chart?attrs=bogus,temperature");
 
-    await screen.findByText("1 / 5");
+    await screen.findByText("1 / 15");
     await waitFor(() => expect(fetchedMetrics()).toEqual(["temperature"]));
-    expect(selector().queryByText("Secret")).toBeNull();
     expect(selector().queryByText("Bogus")).toBeNull();
-    expect(selector().getAllByRole("option")).toHaveLength(5);
+  });
+
+  it("offers a recorded series the device no longer declares, after the declared ones", async () => {
+    // The series list is what the API exposes to this user (role scoping
+    // applies there); a removed or renamed driver attribute keeps its history.
+    deviceOf([...THERMOSTAT_STANDARD], "thermostat", {
+      hiddenSeries: ["legacy_attr"],
+    });
+    renderPage("/devices/d1/history/chart?attrs=legacy_attr");
+
+    await screen.findByText("1 / 6");
+    await waitFor(() => expect(fetchedMetrics()).toEqual(["legacy_attr"]));
+    const options = selector()
+      .getAllByRole("option")
+      .map((option) => option.textContent);
+    expect(options[options.length - 1]).toBe("Legacy Attr");
+  });
+
+  it("opens on the attribute an older ?metric= link names", async () => {
+    setupThermostat();
+    renderPage("/devices/d1/history?metric=filler_3&last=7d");
+
+    await screen.findByText("1 / 15");
+    await waitFor(() => expect(fetchedMetrics()).toEqual(["filler_3"]));
   });
 
   it("offers every recorded attribute, text and booleans included", async () => {
@@ -595,16 +616,44 @@ describe("DeviceHistoryPage chart", () => {
     await screen.findByText("0 / 15");
     expect(mockGetSeriesPoints).not.toHaveBeenCalled();
   });
+});
 
-  it("warns which attributes were truncated, and never averages instead", async () => {
+describe("DeviceHistoryPage truncation", () => {
+  it.each(["chart", "table"])(
+    "warns on the %s view which attributes were truncated, and never averages",
+    async (view) => {
+      setupThermostat();
+      servePoints({}, { truncated: true });
+      renderPage(`/devices/d1/history/${view}?attrs=temperature,mode`);
+
+      expect(await screen.findByRole("status")).toHaveTextContent(
+        "Données tronquées pour Température, Mode, réduisez la période",
+      );
+    },
+  );
+
+  it("stops a truncated attribute at its last fetched point instead of carrying it on", async () => {
     setupThermostat();
-    servePoints({}, { truncated: true });
-    renderPage("/devices/d1/history/chart?attrs=temperature,mode");
-
-    await screen.findByText(
-      "Données tronquées pour Température, Mode, réduisez la période",
+    const t1 = anHourAgo();
+    const t2 = tenMinutesAgo();
+    servePoints(
+      {
+        temperature: [{ timestamp: t1, value: 20.5 }],
+        mode: [
+          { timestamp: t1, value: "heat" },
+          { timestamp: t2, value: "auto" },
+        ],
+      },
+      { truncated: ["temperature"] },
     );
-    await screen.findByText("Aucune donnée sur la période");
+    renderPage("/devices/d1/history/table?attrs=temperature,mode");
+
+    const table = await screen.findByRole("table");
+    const rows = within(table).getAllByRole("row").slice(1);
+    // Newest first: at t2 the temperature is unknown, not "still 20.5".
+    expect(rows[0]).toHaveTextContent("—");
+    expect(rows[0]).not.toHaveTextContent("20.50 °");
+    expect(rows[1]).toHaveTextContent("20.50 °");
   });
 });
 

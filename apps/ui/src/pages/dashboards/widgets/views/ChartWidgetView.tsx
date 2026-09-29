@@ -478,7 +478,7 @@ const FanOutChartView: FC<{
       .map((s) => ({
         key: s.deviceId,
         label: label(s.deviceId, s.interval),
-        href: `/devices/${encodeURIComponent(s.deviceId)}/history?${new URLSearchParams({ metric: target.attribute, ...(query.last ? { last: query.last } : query.start ? { start: query.start, ...(query.end ? { end: query.end } : {}) } : { last: "all" }) })}`,
+        href: `/devices/${encodeURIComponent(s.deviceId)}/history/chart?${new URLSearchParams({ attrs: target.attribute, ...(query.last ? { last: query.last } : query.start ? { start: query.start, ...(query.end ? { end: query.end } : {}) } : { last: "all" }) })}`,
         ...(dataType === "bool"
           ? { booleanLabels: booleanLabels(s.deviceId) }
           : {}),

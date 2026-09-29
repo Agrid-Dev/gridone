@@ -1,6 +1,5 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { TriangleAlert } from "lucide-react";
 import TimeSeriesChart, {
   type Series,
 } from "@/components/charts/TimeSeriesChart";
@@ -29,13 +28,8 @@ function valuesOf<T>(rows: MergedRow[], names: string[]) {
 export function HistoryChartCard() {
   const { t } = useTranslation("devices");
   const { t: tCommon } = useTranslation("common");
-  const {
-    selectedAttributes,
-    dataTypes,
-    attributes,
-    chartRows,
-    truncatedAttributes,
-  } = useDeviceHistoryContext();
+  const { selectedAttributes, dataTypes, attributes, chartRows } =
+    useDeviceHistoryContext();
   const labelFor = useAttributeLabel();
   const booleanLabel = useValueLabel();
 
@@ -131,16 +125,6 @@ export function HistoryChartCard() {
     // The same flat frame as the table view, so the toggle switches views
     // over one surface; the period is named by the range control, not here.
     <div className="rounded-lg border p-4">
-      {truncatedAttributes.length > 0 && (
-        <p className="mb-3 inline-flex items-center gap-1.5 text-xs font-medium text-status-warning">
-          <TriangleAlert className="h-3.5 w-3.5" aria-hidden />
-          {t("history.truncatedWarning", {
-            attributes: truncatedAttributes
-              .map((name) => labelFor(name, attributes[name]))
-              .join(", "),
-          })}
-        </p>
-      )}
       {selectedAttributes.length === 0 ? (
         <p className="flex h-60 items-center justify-center text-sm text-muted-foreground">
           {t("history.noAttributesSelected")}

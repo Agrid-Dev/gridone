@@ -23,6 +23,7 @@ import {
 import { AttributeSelector } from "./AttributeSelector";
 import { ExportMenu } from "./ExportMenu";
 import { HistoryRangeControl } from "./HistoryRangeControl";
+import { TruncationWarning } from "./TruncationWarning";
 import { ViewToggle } from "./ViewToggle";
 
 /**
@@ -104,6 +105,7 @@ function HistoryContent() {
           <ExportMenu />
         </div>
       </div>
+      <TruncationWarning />
       <Outlet />
     </div>
   );

@@ -6,6 +6,9 @@
  */
 
 export const SELECTION_PARAM = "attrs";
+/** The former page's single-metric parameter, read as a one-attribute
+ *  selection so links made to it still open on their attribute. */
+export const LEGACY_METRIC_PARAM = "metric";
 
 /**
  * The selection a URL carries, kept to `available` in that order — a name

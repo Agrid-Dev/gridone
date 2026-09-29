@@ -23,6 +23,7 @@ import {
   type MergedRow,
 } from "@/lib/mergeTimeSeries";
 import {
+  LEGACY_METRIC_PARAM,
   SELECTION_PARAM,
   canonicalSelection,
   parseSelectionParam,
@@ -31,6 +32,7 @@ import {
   serializeSelection,
   writeStoredSelection,
 } from "./selection";
+import { cutAfterLastPoint } from "./truncatedRows";
 import {
   ReactNode,
   createContext,
@@ -115,7 +117,7 @@ export function exportFilename(
   const slug =
     deviceName
       .normalize("NFKD")
-      .replace(/[̀-ͯ]/g, "")
+      .replace(/[\u0300-\u036f]/g, "")
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "") || "device";
@@ -158,13 +160,20 @@ export function DeviceHistoryProvider({
     [series],
   );
 
-  // Recorded attributes in device declaration order. Only attributes the
-  // device exposes count: a series the API still lists for an attribute the
-  // device no longer declares — or that the user's role hides — is not
-  // offered, so it can appear in no view and no export.
+  // Recorded attributes in device declaration order, then any series the
+  // device no longer declares (a removed or renamed driver attribute keeps
+  // its history). The series list is what the API exposes to this user —
+  // role scoping is applied there — so it is trusted as is.
   const availableAttributes = useMemo(() => {
     const recorded = new Set(series.map((s) => s.metric));
-    return Object.keys(attributes).filter((name) => recorded.has(name));
+    const declared = Object.keys(attributes).filter((name) =>
+      recorded.has(name),
+    );
+    const declaredSet = new Set(declared);
+    return [
+      ...declared,
+      ...series.map((s) => s.metric).filter((name) => !declaredSet.has(name)),
+    ];
   }, [series, attributes]);
 
   // In declaration order like every selection, so the URL can tell the
@@ -182,9 +191,12 @@ export function DeviceHistoryProvider({
     [availableAttributes, standardAttributeNames],
   );
 
-  // Selection: URL-first (?attrs=), falling back to the remembered pick, then
-  // the standard-schema default. Names the device does not expose fall out.
-  const urlSelection = searchParams.get(SELECTION_PARAM);
+  // Selection: URL-first (?attrs=, or the former page's ?metric= as a
+  // one-attribute alias so older links still open on their attribute),
+  // falling back to the remembered pick, then the standard-schema default.
+  // Names the device does not expose fall out.
+  const urlSelection =
+    searchParams.get(SELECTION_PARAM) ?? searchParams.get(LEGACY_METRIC_PARAM);
   const selectedAttributes = useMemo(() => {
     const fromUrl = parseSelectionParam(urlSelection, availableAttributes);
     if (fromUrl) return fromUrl;
@@ -206,6 +218,7 @@ export function DeviceHistoryProvider({
           if (sameSelection(next, defaultSelection))
             params.delete(SELECTION_PARAM);
           else params.set(SELECTION_PARAM, serializeSelection(next));
+          params.delete(LEGACY_METRIC_PARAM);
           // The table changes with the selection; restart its pagination.
           params.delete("page");
           return params;
@@ -280,9 +293,17 @@ export function DeviceHistoryProvider({
 
   const error = seriesError ?? pointsError;
 
+  // A truncated series was cut short by the API: nothing is known of it
+  // past its last fetched point, so it stops there rather than being
+  // carried flat to the window's end as if the device had held it.
   const allRows = useMemo(
-    () => mergeTimeSeries(pointsByMetric, selectedAttributes),
-    [pointsByMetric, selectedAttributes],
+    () =>
+      cutAfterLastPoint(
+        mergeTimeSeries(pointsByMetric, selectedAttributes),
+        pointsByMetric,
+        truncatedMetrics,
+      ),
+    [pointsByMetric, selectedAttributes, truncatedMetrics],
   );
 
   // The chart draws the last values held to the window end. Memoized against
