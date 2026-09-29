@@ -1,3 +1,10 @@
+## v0.282.0 (2026-09-29)
+
+### Feat
+
+- **ui**: show run state and device type on fleet cards
+- **ui**: redesign fleet cards with line type pictograms (AGR-1459)
+
 ## v0.281.1 (2026-09-29)
 
 ### Fix
