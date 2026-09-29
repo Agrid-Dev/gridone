@@ -1,4 +1,4 @@
 export { WeatherSensorControl } from "./WeatherSensorControl";
 export { WeatherSensorSupervision } from "./WeatherSensorSupervision";
-export { WeatherSensorFleetGlyph } from "./WeatherSensorFleetGlyph";
+export { weatherSensorFleetStatus } from "./fleetStatus";
 export { weatherSensorFleetLead } from "./fleetLead";

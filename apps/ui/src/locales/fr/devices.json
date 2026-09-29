@@ -1,7 +1,6 @@
 {
   "devices": {
     "title": "Appareils",
-    "caption": "Supervisez les appareils du bâtiment, leurs mesures et leur état de connexion.",
     "unableToLoad": "Impossible de charger les appareils",
     "create": {
       "title": "Ajouter un appareil",
@@ -32,7 +31,8 @@
       "update": "Mettre à jour",
       "deleteDialogTitle": "Confirmer la suppression",
       "deleteDialogContent": "Supprimer l'appareil {{name}} ?",
-      "edit": "Modifier"
+      "edit": "Modifier",
+      "more": "Plus d'actions"
     },
     "feedback": {
       "deleted": "Appareil supprimé",
@@ -48,14 +48,16 @@
     },
     "saving": "Enregistrement...",
     "health": {
-      "label": "Santé",
-      "all": "Tous",
-      "healthy": "Sains",
+      "healthy": "Sans défaut",
       "faulty": "En défaut"
     },
     "filters": {
-      "label": "Filtrer par type",
-      "all": "Tous"
+      "type": "Type",
+      "health": "Défauts",
+      "search": "Filtrer…",
+      "empty": "Aucun résultat",
+      "clear": "Effacer la sélection",
+      "reset": "Réinitialiser"
     },
     "summary": {
       "deviceCount_one": "{{count}} appareil",
@@ -67,7 +69,16 @@
       "error_one": "{{count}} déconnecté",
       "error_other": "{{count}} déconnectés",
       "idle_one": "{{count}} inactif",
-      "idle_other": "{{count}} inactifs"
+      "idle_other": "{{count}} inactifs",
+      "filteredCount": "{{shown}} sur {{count}} appareils"
+    },
+    "group": {
+      "running_one": "{{count}} en marche",
+      "running_other": "{{count}} en marche",
+      "stopped_one": "{{count}} à l'arrêt",
+      "stopped_other": "{{count}} à l'arrêt",
+      "faulty_one": "{{count}} en défaut",
+      "faulty_other": "{{count}} en défaut"
     },
     "card": {
       "lead": {
@@ -226,40 +237,27 @@
     "wind_speed": "Vitesse du vent"
   },
   "history": {
-    "metricsLabel": "Métriques",
-    "more": "Plus…",
+    "chart": "Graphique",
+    "table": "Tableau",
     "range24h": "24 h",
     "range7d": "7 j",
     "range30d": "30 j",
     "rangeCustom": "Personnalisé",
-    "chartTitle24h": "{{metric}} — dernières 24 h",
-    "chartTitle7d": "{{metric}} — 7 derniers jours",
-    "chartTitle30d": "{{metric}} — 30 derniers jours",
-    "chartTitleRange": "{{metric}} — {{range}}",
-    "truncatedWarning": "Données tronquées, réduisez la période",
-    "averagedNotice": "Moyenné par {{interval}}",
-    "statesTitle": "États",
-    "otherValues": "Autres",
+    "truncatedWarning": "Données tronquées pour {{attributes}}, réduisez la période",
+    "noAttributesSelected": "Sélectionnez des attributs à tracer",
     "noMetricData": "Aucune donnée sur la période",
-    "export": "Exporter",
-    "refresh": {
-      "now": "Rafraîchir maintenant",
-      "auto": "Rafraîchissement automatique",
-      "off": "Auto désactivé",
-      "10s": "10 s",
-      "1m": "1 min",
-      "5m": "5 min"
+    "movePanel": "Déplacer {{panel}}",
+    "reorder": {
+      "instructions": "Espace pour saisir le panneau, flèches pour le déplacer, espace pour le déposer, échap pour annuler.",
+      "pickedUp": "{{panel}} saisi",
+      "movedOver": "{{panel}} déplacé sur {{over}}",
+      "dropped": "{{panel}} déposé sur {{over}}",
+      "released": "{{panel}} relâché",
+      "cancelled": "Déplacement de {{panel}} annulé"
     },
-    "events": {
-      "event": "Événement",
-      "value": "Valeur",
-      "source": "Source",
-      "reading": "Relevé — {{metric}}",
-      "change": "Changement — {{metric}}",
-      "gateway": "Passerelle",
-      "today": "aujourd'hui",
-      "yesterday": "hier"
-    }
+    "export": "Exporter",
+    "today": "aujourd'hui",
+    "yesterday": "hier"
   },
   "commands": {
     "title": "Commandes",

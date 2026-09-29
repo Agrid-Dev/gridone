@@ -32,3 +32,14 @@ def test_the_bay_is_the_drawing_s(plate):
     assert not any(
         p.from_ == PortEndpoint(symbol="b09", port="dhw_out") for p in plate.pipes
     )
+
+
+def test_the_counter_reads_the_driver_s_unit(plate):
+    """The counter label reads the meter raw, in the unit the meter driver
+    declares: kWh since the Schneider counters were rescaled at the driver.
+    A "Wh" here would mislabel the driver's kilowatt-hours by a factor of
+    1000."""
+    labels = {label.id: label for label in plate.labels}
+    counter = labels["cpt-ballon-est"].value
+    assert counter.target.attribute == "energy"
+    assert (counter.unit, counter.decimals) == ("kWh", 0)

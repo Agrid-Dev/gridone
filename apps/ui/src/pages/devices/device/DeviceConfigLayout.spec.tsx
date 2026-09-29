@@ -46,10 +46,7 @@ vi.mock("./DeviceLiveControl", () => ({ default: () => null }));
 vi.mock("./DeviceCreate", () => ({ default: () => null }));
 vi.mock("./DeviceEdit", () => ({ default: () => null }));
 vi.mock("./DeviceCommandsPage", () => ({ default: () => null }));
-vi.mock("./device-history/DeviceHistoryPage", () => ({ default: () => null }));
-vi.mock("./device-history/RedirectToHistory", () => ({
-  RedirectToHistory: () => null,
-}));
+vi.mock("./device-history/routes", () => ({ deviceHistoryRoutes: null }));
 
 import Device from "./index";
 

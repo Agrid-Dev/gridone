@@ -1,5 +1,5 @@
 export { PumpControl } from "./PumpControl";
 export { PumpSynoptic } from "./PumpSynoptic";
 export type { PumpValues } from "./types";
-export { PumpFleetGlyph } from "./PumpFleetGlyph";
+export { pumpFleetStatus } from "./fleetStatus";
 export { pumpFleetLead } from "./fleetLead";

@@ -3,6 +3,9 @@ import type { FloatDatum, BoolDatum } from "./types";
 
 export const DEFAULT_LINE_HEIGHT = 350;
 export const DEFAULT_CATEGORICAL_HEIGHT = 60;
+/** A line panel whose series hold no value in the window: a strip under
+ *  its legend rather than a full-height blank. */
+export const EMPTY_LINE_HEIGHT = 48;
 export const MARGIN = { top: 8, right: 16, bottom: 32, left: 48 };
 export const MARGIN_NO_BOTTOM = { ...MARGIN, bottom: 4 };
 export const AXIS_EXTRA = MARGIN.bottom - MARGIN_NO_BOTTOM.bottom;

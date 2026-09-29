@@ -2,11 +2,6 @@ import type { TFunction } from "i18next";
 import type { Device } from "@gridone/sdk";
 import type { Feedback } from "@/hooks/useDeviceDetails";
 
-/** Props passed to a standard type's fleet-card glyph. */
-export type StandardFleetGlyphProps = {
-  device: Device;
-};
-
 /** One line of the fleet card lead: a value, the muted label saying what a
  *  bare number is ("consigne", "mesurée"), and an optional tone for a worded
  *  state ("Liquide détecté" in the water tone). */

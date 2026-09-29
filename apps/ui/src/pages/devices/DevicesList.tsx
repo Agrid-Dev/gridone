@@ -1,30 +1,35 @@
-import { DeviceSearchField } from "./DeviceSearchField";
-import { useSearchParams } from "react-router";
 import { ResourceLink as Link } from "@/components/ResourceLink";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePermissions } from "@/contexts/AuthContext";
-import { HealthFilter } from "@/components/HealthFilter";
-import { History, Plus, Terminal, Upload } from "lucide-react";
-import { DevicesSummary } from "./DevicesSummary";
-import { DeviceTypeChips } from "./DeviceTypeChips";
+import { useSetFilterParams } from "@/hooks/useFilterParams";
+import { Ellipsis, History, Plus, Terminal, Upload } from "lucide-react";
 import { DevicesGrid } from "./DevicesGrid";
+import { DevicesToolbar } from "./DevicesToolbar";
 import { DevicesTabs } from "./views/DevicesTabs";
 import { useDevicesPage } from "./useDevicesPage";
 
 export default function DevicesList() {
   const { t } = useTranslation(["devices", "common"]);
-  const [, setSearchParams] = useSearchParams();
   const can = usePermissions();
+  const { clearAll } = useSetFilterParams();
   const {
     groups,
     typeCounts,
-    showTypeFilter,
-    showHealthFilter,
     total,
+    faultyCount,
+    shown,
+    selectedTypes,
+    health,
     connectionCounts,
     summaryLoading,
     zonePathOf,
@@ -34,69 +39,31 @@ export default function DevicesList() {
   } = useDevicesPage();
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-4">
       <ResourceHeader
+        flush
         title={t("devices.title")}
-        caption={t("devices.caption")}
         actions={
-          <>
-            <Button asChild variant="outline" size="sm">
-              <Link to="/devices/commands">
-                <History />
-                {t("commands.subtitle")}
-              </Link>
-            </Button>
-            {can("devices:write") && (
-              <Button asChild variant="outline" size="sm">
-                <Link to="/devices/zone-mapping/import">
-                  <Upload />
-                  {t("zoneImport.action")}
-                </Link>
-              </Button>
-            )}
-            {can("devices:write") && (
-              <Button asChild variant="outline" size="sm">
-                <Link to="/devices/new">
-                  <Plus />
-                  {t("devices.actions.add")}
-                </Link>
-              </Button>
-            )}
-            {can("devices:write") && (
-              <Button asChild size="sm">
-                <Link to="/devices/commands/new">
-                  <Terminal />
-                  {t("commands.newGroupedCommand")}
-                </Link>
-              </Button>
-            )}
-          </>
+          <DevicesActions
+            canWrite={can("devices:write")}
+            canCommand={can("devices:command")}
+          />
         }
       />
 
       <DevicesTabs />
-      {/* {can("devices:write") && (
-        <Button asChild variant="outline">
-          <Link to="/devices/tags/edit">{t("views.editTags")}</Link>
-        </Button>
-      )} */}
-      {!summaryLoading && (
-        <div className="text-sm text-muted-foreground">
-          <DevicesSummary total={total} counts={connectionCounts} />
-        </div>
-      )}
 
-      <div className="flex flex-wrap items-center gap-3">
-        <DeviceSearchField />
-        {showTypeFilter && (
-          <DeviceTypeChips counts={typeCounts} total={total} />
-        )}
-        {showHealthFilter && (
-          <div className="ml-auto flex items-center gap-2">
-            <HealthFilter />
-          </div>
-        )}
-      </div>
+      <DevicesToolbar
+        typeCounts={typeCounts}
+        total={total}
+        faultyCount={faultyCount}
+        shown={shown}
+        selectedTypes={selectedTypes}
+        health={health}
+        connectionCounts={connectionCounts}
+        summaryLoading={summaryLoading}
+        hasFilters={hasFilters}
+      />
 
       {error && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
@@ -115,17 +82,7 @@ export default function DevicesList() {
           resourceName={t("common:common.device").toLowerCase()}
           filtered={hasFilters}
           title={hasFilters ? t("devices.search.empty") : undefined}
-          onClearFilters={() =>
-            setSearchParams(
-              (prev) => {
-                const next = new URLSearchParams(prev);
-                for (const key of ["search", "type", "health"])
-                  next.delete(key);
-                return next;
-              },
-              { replace: true },
-            )
-          }
+          onClearFilters={clearAll}
           showCreate={can("devices:write")}
           createTo="/devices/new"
           createLabel={t("devices.actions.add")}
@@ -134,5 +91,75 @@ export default function DevicesList() {
         <DevicesGrid groups={groups} zonePathOf={zonePathOf} />
       )}
     </section>
+  );
+}
+
+/** At most two visible buttons, each gated on its own permission: Add on
+ *  `devices:write`, New grouped command on `devices:command`. Command
+ *  history sits behind an overflow menu with zone import for writers, and
+ *  stays a plain button for everyone else. */
+function DevicesActions({
+  canWrite,
+  canCommand,
+}: {
+  canWrite: boolean;
+  canCommand: boolean;
+}) {
+  const { t } = useTranslation("devices");
+
+  return (
+    <>
+      {canWrite ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-9 w-9"
+              aria-label={t("devices.actions.more")}
+            >
+              <Ellipsis />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem asChild>
+              <Link to="/devices/commands">
+                <History />
+                {t("commands.subtitle")}
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link to="/devices/zone-mapping/import">
+                <Upload />
+                {t("zoneImport.action")}
+              </Link>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : (
+        <Button asChild variant="outline" size="sm">
+          <Link to="/devices/commands">
+            <History />
+            {t("commands.subtitle")}
+          </Link>
+        </Button>
+      )}
+      {canWrite && (
+        <Button asChild variant="outline" size="sm">
+          <Link to="/devices/new">
+            <Plus />
+            {t("devices.actions.add")}
+          </Link>
+        </Button>
+      )}
+      {canCommand && (
+        <Button asChild size="sm">
+          <Link to="/devices/commands/new">
+            <Terminal />
+            {t("commands.newGroupedCommand")}
+          </Link>
+        </Button>
+      )}
+    </>
   );
 }

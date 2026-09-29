@@ -1,7 +1,12 @@
 import { useMemo } from "react";
 
 import type { PanelEntry, Series } from "./types";
-import { DEFAULT_LINE_HEIGHT, DEFAULT_CATEGORICAL_HEIGHT } from "./constants";
+import {
+  DEFAULT_LINE_HEIGHT,
+  DEFAULT_CATEGORICAL_HEIGHT,
+  EMPTY_LINE_HEIGHT,
+} from "./constants";
+import { groupSeriesByUnit } from "./seriesUnit";
 
 type UsePanelsArgs = {
   lineSeries: Series[];
@@ -13,9 +18,27 @@ type UsePanelsArgs = {
   stringSeries: Series[];
   stringValues: Record<string, (string | null)[]>;
   numericMark?: "line" | "bar";
+  panelOrder?: string[];
   lineHeight?: number;
   categoricalHeight?: number;
 };
+
+/** `panels` in the order `order` names them, the unnamed ones following in
+ *  their given order; a key without a panel is skipped. */
+export function orderPanels(
+  panels: PanelEntry[],
+  order: readonly string[] | undefined,
+): PanelEntry[] {
+  if (!order || order.length === 0) return panels;
+  const byKey = new Map(panels.map((p) => [p.key, p]));
+  const named = order.flatMap((key) => {
+    const panel = byKey.get(key);
+    if (!panel) return [];
+    byKey.delete(key);
+    return [panel];
+  });
+  return [...named, ...panels.filter((p) => byKey.has(p.key))];
+}
 
 /** Builds the ordered flat list of PanelEntry descriptors from chart props. */
 export function usePanels({
@@ -28,37 +51,52 @@ export function usePanels({
   stringSeries,
   stringValues,
   numericMark = "line",
+  panelOrder,
   lineHeight = DEFAULT_LINE_HEIGHT,
   categoricalHeight = DEFAULT_CATEGORICAL_HEIGHT,
 }: UsePanelsArgs): PanelEntry[] {
   return useMemo(() => {
     const panels: PanelEntry[] = [];
 
-    // Float and integer series share a single panel and y-axis — as lines,
-    // integer ones flagged via stepKeys so they step rather than interpolate,
-    // or as bars, where that distinction has nothing to say: a bar spans its
-    // bucket whatever the numbers in it were.
+    // Float and integer series are drawn as lines, integer ones flagged via
+    // stepKeys so they step rather than interpolate, one panel per unit so a
+    // temperature and a percentage never share a scale; or as bars, where
+    // neither distinction has anything to say: a bar spans its bucket
+    // whatever the numbers in it were, and bars only ever plot one attribute.
     if (lineSeries.length > 0 || intSeries.length > 0) {
       const numericSeries = [...lineSeries, ...intSeries];
       const numericValues = { ...lineValues, ...intValues };
-      panels.push(
-        numericMark === "bar"
-          ? {
-              type: "bar",
-              key: "bar",
-              series: numericSeries,
-              values: numericValues,
-              height: lineHeight,
-            }
-          : {
-              type: "float",
-              key: "float",
-              series: numericSeries,
-              values: numericValues,
-              stepKeys: intSeries.map((s) => s.key),
-              height: lineHeight,
-            },
-      );
+      if (numericMark === "bar") {
+        panels.push({
+          type: "bar",
+          key: "bar",
+          series: numericSeries,
+          values: numericValues,
+          height: lineHeight,
+        });
+      } else {
+        const stepKeySet = new Set(intSeries.map((s) => s.key));
+        let colorOffset = 0;
+        for (const [unit, series] of groupSeriesByUnit(numericSeries)) {
+          // A unit with nothing to plot in the window keeps its legend, so
+          // the series still reads as selected, over a strip rather than a
+          // full-height blank.
+          const hasData = series.some((s) =>
+            numericValues[s.key]?.some((v) => v !== null),
+          );
+          panels.push({
+            type: "float",
+            key: `float:${unit ?? ""}`,
+            unit,
+            series,
+            values: numericValues,
+            stepKeys: series.map((s) => s.key).filter((k) => stepKeySet.has(k)),
+            height: hasData ? lineHeight : EMPTY_LINE_HEIGHT,
+            colorOffset,
+          });
+          colorOffset += series.length;
+        }
+      }
     }
 
     for (const s of booleanSeries) {
@@ -81,7 +119,7 @@ export function usePanels({
       });
     }
 
-    return panels;
+    return orderPanels(panels, panelOrder);
   }, [
     lineSeries,
     lineValues,
@@ -92,6 +130,8 @@ export function usePanels({
     stringSeries,
     stringValues,
     numericMark,
+    // Depended on by contents: a caller may hand a fresh array each render.
+    panelOrder?.join("\u0000"),
     lineHeight,
     categoricalHeight,
   ]);

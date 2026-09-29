@@ -1,7 +1,6 @@
 {
   "devices": {
     "title": "Devices",
-    "caption": "Monitor building devices, readings, and connection health.",
     "unableToLoad": "Unable to load devices",
     "create": {
       "title": "Create Device",
@@ -32,7 +31,8 @@
       "update": "Update",
       "deleteDialogTitle": "Confirm deletion",
       "deleteDialogContent": "Delete device {{name}} ?",
-      "edit": "Edit"
+      "edit": "Edit",
+      "more": "More actions"
     },
     "feedback": {
       "deleted": "Device deleted",
@@ -48,14 +48,16 @@
     },
     "saving": "Saving...",
     "health": {
-      "label": "Health",
-      "all": "All",
-      "healthy": "Healthy",
+      "healthy": "No fault",
       "faulty": "Faulty"
     },
     "filters": {
-      "label": "Filter by type",
-      "all": "All"
+      "type": "Type",
+      "health": "Faults",
+      "search": "Filter…",
+      "empty": "No results",
+      "clear": "Clear selection",
+      "reset": "Reset"
     },
     "summary": {
       "deviceCount_one": "{{count}} device",
@@ -67,7 +69,16 @@
       "error_one": "{{count}} disconnected",
       "error_other": "{{count}} disconnected",
       "idle_one": "{{count}} idle",
-      "idle_other": "{{count}} idle"
+      "idle_other": "{{count}} idle",
+      "filteredCount": "{{shown}} of {{count}} devices"
+    },
+    "group": {
+      "running_one": "{{count}} running",
+      "running_other": "{{count}} running",
+      "stopped_one": "{{count}} stopped",
+      "stopped_other": "{{count}} stopped",
+      "faulty_one": "{{count}} faulty",
+      "faulty_other": "{{count}} faulty"
     },
     "card": {
       "lead": {
@@ -81,7 +92,7 @@
         "speed": "speed",
         "runState": {
           "running": "Running",
-          "stopped": "Idle",
+          "stopped": "Stopped",
           "unknown": "Not reported"
         }
       },
@@ -226,40 +237,27 @@
     "wind_speed": "Wind speed"
   },
   "history": {
-    "metricsLabel": "Metrics",
-    "more": "More…",
+    "chart": "Chart",
+    "table": "Table",
     "range24h": "24 h",
     "range7d": "7 d",
     "range30d": "30 d",
     "rangeCustom": "Custom",
-    "chartTitle24h": "{{metric}} — last 24 h",
-    "chartTitle7d": "{{metric}} — last 7 days",
-    "chartTitle30d": "{{metric}} — last 30 days",
-    "chartTitleRange": "{{metric}} — {{range}}",
-    "truncatedWarning": "Data truncated, narrow the period",
-    "averagedNotice": "Averaged per {{interval}}",
-    "statesTitle": "States",
-    "otherValues": "Other",
+    "truncatedWarning": "Data truncated for {{attributes}}, narrow the period",
+    "noAttributesSelected": "Select attributes to chart",
     "noMetricData": "No data for this period",
-    "export": "Export",
-    "refresh": {
-      "now": "Refresh now",
-      "auto": "Auto-refresh",
-      "off": "Auto off",
-      "10s": "10 s",
-      "1m": "1 min",
-      "5m": "5 min"
+    "movePanel": "Move {{panel}}",
+    "reorder": {
+      "instructions": "Press space to pick up the panel, arrow keys to move it, space to drop it, escape to cancel.",
+      "pickedUp": "{{panel}} picked up",
+      "movedOver": "{{panel}} moved over {{over}}",
+      "dropped": "{{panel}} dropped over {{over}}",
+      "released": "{{panel}} released",
+      "cancelled": "Move of {{panel}} cancelled"
     },
-    "events": {
-      "event": "Event",
-      "value": "Value",
-      "source": "Source",
-      "reading": "Reading — {{metric}}",
-      "change": "Change — {{metric}}",
-      "gateway": "Gateway",
-      "today": "today",
-      "yesterday": "yesterday"
-    }
+    "export": "Export",
+    "today": "today",
+    "yesterday": "yesterday"
   },
   "commands": {
     "title": "Commands",

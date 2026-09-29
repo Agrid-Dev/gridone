@@ -3,7 +3,6 @@ import type {
   TimeseriesExportParams,
   UnitCommand,
   User,
-  ValueLabel,
 } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { useCommandsByIds } from "@/hooks/useCommandsByIds";
@@ -12,6 +11,7 @@ import { useTimeRangeUrlState } from "@/hooks/useTimeRangeUrlState";
 import { useUsers } from "@/hooks/useUsers";
 import { type DeviceType, defaultVisibleAttributes } from "@/lib/devices";
 import { downloadBlob } from "@/lib/download";
+import type { AttributeFields } from "@/lib/faults";
 import {
   type TimeRange,
   type TimeRangePreset,
@@ -22,12 +22,22 @@ import {
   mergeTimeSeries,
   type MergedRow,
 } from "@/lib/mergeTimeSeries";
-import { buildHistoryEvents, type HistoryEvent } from "./historyEvents";
 import {
-  type RefreshInterval,
-  readStoredRefreshInterval,
-  writeStoredRefreshInterval,
-} from "./refreshPreference";
+  mergePanelOrder,
+  readStoredPanelOrder,
+  writeStoredPanelOrder,
+} from "./panelOrder";
+import {
+  LEGACY_METRIC_PARAM,
+  SELECTION_PARAM,
+  canonicalSelection,
+  parseSelectionParam,
+  readStoredSelection,
+  sameSelection,
+  serializeSelection,
+  writeStoredSelection,
+} from "./selection";
+import { cutAfterLastPoint } from "./truncatedRows";
 import {
   ReactNode,
   createContext,
@@ -38,81 +48,55 @@ import {
   useRef,
   useState,
 } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router";
 import { toast } from "sonner";
 
-/** Numeric pills shown before the "More…" picker takes over. */
-export const MAX_PILL_ATTRIBUTES = 8;
-
-/** State timelines shown under the chart. */
-export const MAX_STATE_ATTRIBUTES = 5;
+/** How many attributes a first visit selects on a device with no standard
+ *  schema to go by: the first recorded ones, capped so a driver exposing
+ *  hundreds does not open on a wall of series. A standard device selects
+ *  its schema attributes, however many. */
+export const MAX_DEFAULT_ATTRIBUTES = 8;
 
 /** The history page reads live equipment but charts a whole day by default,
  *  matching its "what happened" framing (vs the 3h live-control default). */
 export const HISTORY_DEFAULT_PRESET: TimeRangePreset = "1d";
 
-function metricStorageKey(deviceId: string) {
-  return `device-history-metric:${deviceId}`;
-}
-
-function readStoredMetric(deviceId: string): string | null {
-  try {
-    return localStorage.getItem(metricStorageKey(deviceId));
-  } catch {
-    return null;
-  }
-}
-
-function writeStoredMetric(deviceId: string, metric: string) {
-  try {
-    localStorage.setItem(metricStorageKey(deviceId), metric);
-  } catch {
-    // Preference is a convenience; a full or disabled store is not an error.
-  }
-}
-
 type DeviceHistoryContextValue = {
   series: TimeSeries[];
   dataTypes: Record<string, string>;
-  /** The wording each boolean attribute's driver declares for its states. */
-  valueLabels: Record<string, ValueLabel[] | null | undefined>;
+  /** What each attribute's driver declares about it — label, unit, wording
+   *  of boolean states — keyed by attribute name. */
+  attributes: Record<string, AttributeFields | undefined>;
   /** The device's standard type, when it has one — value renderers key on it. */
   deviceType: DeviceType | undefined;
-  /** Every numeric (float/int) attribute, offered through the "More…" picker. */
-  numericAttributes: string[];
-  /** The numeric attributes rendered as pills (standard schema, capped). */
-  pillAttributes: string[];
-  /** The str/bool attributes rendered as state timelines (capped). */
-  stateAttributes: string[];
-  activeMetric: string | null;
-  setActiveMetric: (metric: string) => void;
+  /** Every recorded attribute the device exposes to this user, in device
+   *  declaration order. The one list both views select from. */
+  availableAttributes: string[];
+  /** The attributes both views show, in declaration order. */
+  selectedAttributes: string[];
+  setSelectedAttributes: (names: string[]) => void;
+  toggleAttribute: (name: string) => void;
   timeRange: TimeRange;
   applyRange: (range: TimeRange) => void;
   applyPreset: (preset: TimeRangePreset) => void;
-  /** Rows held to the window end — chart and state timelines. */
+  /** Merged rows held to the window end — what the chart draws. */
   chartRows: MergedRow[];
-  /** Value changes of the active metric + state attributes, newest first. */
-  events: HistoryEvent[];
-  /** True when a fetched series is truncated with no aggregate stand-in. */
-  hasTruncatedData: boolean;
-  /** Bucket width of the averaged chart line when raw data was truncated
-   *  and the auto-bucketed aggregate replaces it (e.g. "1h"); null when the
-   *  chart draws raw points. */
-  chartAveragedInterval: string | null;
+  /** Merged rows where at least one selected attribute changed, newest
+   *  first — what the table lists. */
+  tableRows: MergedRow[];
+  /** Selected attributes whose points the API cut short over the window. */
+  truncatedAttributes: string[];
+  /** The order the viewer arranged the chart's panels in, by panel key;
+   *  remembered per device. */
+  panelOrder: string[];
+  setPanelOrder: (keys: string[]) => void;
   commandsMap: Map<number, UnitCommand>;
   usersMap: Map<string, User>;
   isLoading: boolean;
   error: Error | null;
   isDownloading: boolean;
   handleDownload: (format: "csv" | "png") => Promise<void>;
-  /** Auto-refresh cadence in ms; 0 = off. */
-  refreshInterval: RefreshInterval;
-  setRefreshInterval: (interval: RefreshInterval) => void;
-  refreshNow: () => void;
-  /** True while any points query is (re)fetching — spins the refresh icon. */
-  isRefreshing: boolean;
 };
 
 const DeviceHistoryContext = createContext<DeviceHistoryContextValue | null>(
@@ -123,10 +107,9 @@ type DeviceHistoryProviderProps = {
   deviceId: string;
   /** Display name used for export filenames; falls back to the id upstream. */
   deviceName: string;
-  /** Attribute names in device declaration order. */
-  attributeNames: string[];
-  /** The wording each boolean attribute's driver declares for its states. */
-  valueLabels: Record<string, ValueLabel[] | null | undefined>;
+  /** The device's attributes as the API exposes them to this user, in
+   *  declaration order. Anything the user's role hides is already absent. */
+  attributes: Record<string, AttributeFields>;
   standardAttributeNames: string[];
   deviceType: DeviceType | undefined;
   children: ReactNode;
@@ -155,19 +138,10 @@ export function exportFilename(
   return `${slug}-history-${range}`;
 }
 
-function isNumericType(dataType: string | undefined) {
-  return dataType === "float" || dataType === "int";
-}
-
-function isStateType(dataType: string | undefined) {
-  return dataType === "str" || dataType === "bool";
-}
-
 export function DeviceHistoryProvider({
   deviceId,
   deviceName,
-  attributeNames,
-  valueLabels,
+  attributes,
   standardAttributeNames,
   deviceType,
   children,
@@ -195,133 +169,132 @@ export function DeviceHistoryProvider({
     [series],
   );
 
-  // Recorded attributes in device declaration order (declared first, then any
-  // series the device no longer declares).
-  const orderedAttributes = useMemo(() => {
-    const available = new Set(series.map((s) => s.metric));
-    const declared = attributeNames.filter((n) => available.has(n));
-    const declaredSet = new Set(declared);
-    const rest = series.map((s) => s.metric).filter((n) => !declaredSet.has(n));
-    return [...declared, ...rest];
-  }, [series, attributeNames]);
-
-  const numericAttributes = useMemo(
-    () => orderedAttributes.filter((a) => isNumericType(dataTypes[a])),
-    [orderedAttributes, dataTypes],
-  );
-
-  const stateCandidates = useMemo(
-    () => orderedAttributes.filter((a) => isStateType(dataTypes[a])),
-    [orderedAttributes, dataTypes],
-  );
-
-  const pillAttributes = useMemo(
-    () =>
-      defaultVisibleAttributes(
-        numericAttributes,
-        standardAttributeNames,
-        MAX_PILL_ATTRIBUTES,
-      ),
-    [numericAttributes, standardAttributeNames],
-  );
-
-  const stateAttributes = useMemo(
-    () =>
-      defaultVisibleAttributes(
-        stateCandidates,
-        standardAttributeNames,
-        MAX_STATE_ATTRIBUTES,
-      ),
-    [stateCandidates, standardAttributeNames],
-  );
-
-  const defaultMetric = pillAttributes[0] ?? null;
-
-  // Active metric: URL-first (?metric=), falling back to the remembered pick,
-  // then the first pill. Invalid values fall through rather than erroring.
-  const urlMetric = searchParams.get("metric");
-  const activeMetric = useMemo(() => {
-    if (numericAttributes.length === 0) return null;
-    if (urlMetric)
-      return numericAttributes.includes(urlMetric) ? urlMetric : defaultMetric;
-    const stored = readStoredMetric(deviceId);
-    if (stored && numericAttributes.includes(stored)) return stored;
-    return defaultMetric;
-  }, [numericAttributes, urlMetric, deviceId, defaultMetric]);
-
-  // Seed a bare URL from the remembered metric so a copied link reproduces
-  // the view (same contract as the remembered period).
-  useEffect(() => {
-    if (urlMetric || numericAttributes.length === 0) return;
-    const stored = readStoredMetric(deviceId);
-    if (!stored || stored === defaultMetric) return;
-    if (!numericAttributes.includes(stored)) return;
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        next.set("metric", stored);
-        return next;
-      },
-      { replace: true },
+  // Recorded attributes in device declaration order, then any series the
+  // device no longer declares (a removed or renamed driver attribute keeps
+  // its history). The series list is what the API exposes to this user —
+  // role scoping is applied there — so it is trusted as is.
+  const availableAttributes = useMemo(() => {
+    const recorded = new Set(series.map((s) => s.metric));
+    const declared = Object.keys(attributes).filter((name) =>
+      recorded.has(name),
     );
-  }, [urlMetric, numericAttributes, deviceId, defaultMetric, setSearchParams]);
+    const declaredSet = new Set(declared);
+    return [
+      ...declared,
+      ...series.map((s) => s.metric).filter((name) => !declaredSet.has(name)),
+    ];
+  }, [series, attributes]);
 
-  const setActiveMetric = useCallback(
-    (metric: string) => {
+  // In declaration order like every selection, so the URL can tell the
+  // default apart from a pick and leave it unwritten.
+  const defaultSelection = useMemo(
+    () =>
+      canonicalSelection(
+        defaultVisibleAttributes(
+          availableAttributes,
+          standardAttributeNames,
+          MAX_DEFAULT_ATTRIBUTES,
+        ),
+        availableAttributes,
+      ),
+    [availableAttributes, standardAttributeNames],
+  );
+
+  // Selection: URL-first (?attrs=, or the former page's ?metric= as a
+  // one-attribute alias so older links still open on their attribute),
+  // falling back to the remembered pick, then the standard-schema default.
+  // Names the device does not expose fall out.
+  const urlSelection =
+    searchParams.get(SELECTION_PARAM) ?? searchParams.get(LEGACY_METRIC_PARAM);
+  const selectedAttributes = useMemo(() => {
+    const fromUrl = parseSelectionParam(urlSelection, availableAttributes);
+    if (fromUrl) return fromUrl;
+    const stored = readStoredSelection(deviceId);
+    if (stored) {
+      const kept = canonicalSelection(stored, availableAttributes);
+      if (kept.length > 0) return kept;
+    }
+    return defaultSelection;
+  }, [urlSelection, availableAttributes, deviceId, defaultSelection]);
+
+  const setSelectedAttributes = useCallback(
+    (names: string[]) => {
+      const next = canonicalSelection(names, availableAttributes);
       setSearchParams(
         (prev) => {
-          const next = new URLSearchParams(prev);
-          // The default metric produces no param, to keep URLs clean.
-          if (metric === defaultMetric) next.delete("metric");
-          else next.set("metric", metric);
-          // The events table changes with the metric; restart its pagination.
-          next.delete("page");
-          return next;
+          const params = new URLSearchParams(prev);
+          // The default selection produces no param, to keep URLs clean.
+          if (sameSelection(next, defaultSelection))
+            params.delete(SELECTION_PARAM);
+          else params.set(SELECTION_PARAM, serializeSelection(next));
+          params.delete(LEGACY_METRIC_PARAM);
+          // The table changes with the selection; restart its pagination.
+          params.delete("page");
+          return params;
         },
         { replace: true },
       );
-      writeStoredMetric(deviceId, metric);
+      writeStoredSelection(deviceId, next);
     },
-    [setSearchParams, defaultMetric, deviceId],
+    [setSearchParams, availableAttributes, defaultSelection, deviceId],
   );
 
-  // Fetch only the displayed series: the active metric plus the state
-  // timelines. Everything else stays out of the request set entirely.
-  const fetchedAttributes = useMemo(
-    () => [...(activeMetric ? [activeMetric] : []), ...stateAttributes],
-    [activeMetric, stateAttributes],
+  // Seed a bare URL from the remembered selection so a copied link reproduces
+  // the view (same contract as the remembered period).
+  useEffect(() => {
+    if (urlSelection !== null || availableAttributes.length === 0) return;
+    const stored = readStoredSelection(deviceId);
+    if (!stored) return;
+    const kept = canonicalSelection(stored, availableAttributes);
+    if (kept.length === 0 || sameSelection(kept, defaultSelection)) return;
+    setSearchParams(
+      (prev) => {
+        const params = new URLSearchParams(prev);
+        params.set(SELECTION_PARAM, serializeSelection(kept));
+        return params;
+      },
+      { replace: true },
+    );
+  }, [
+    urlSelection,
+    availableAttributes,
+    deviceId,
+    defaultSelection,
+    setSearchParams,
+  ]);
+
+  const toggleAttribute = useCallback(
+    (name: string) => {
+      setSelectedAttributes(
+        selectedAttributes.includes(name)
+          ? selectedAttributes.filter((n) => n !== name)
+          : [...selectedAttributes, name],
+      );
+    },
+    [selectedAttributes, setSelectedAttributes],
   );
 
+  // Fetch only the selected series. A deselected one stays in the query
+  // cache, so growing the selection back fetches nothing again.
   const selectedSeries = useMemo(
-    () => series.filter((s) => fetchedAttributes.includes(s.metric)),
-    [series, fetchedAttributes],
+    () => series.filter((s) => selectedAttributes.includes(s.metric)),
+    [series, selectedAttributes],
   );
-
-  const [refreshInterval, setRefreshIntervalState] = useState<RefreshInterval>(
-    readStoredRefreshInterval,
-  );
-
-  const setRefreshInterval = useCallback((interval: RefreshInterval) => {
-    setRefreshIntervalState(interval);
-    writeStoredRefreshInterval(interval);
-  }, []);
 
   const {
     pointsByMetric,
     truncatedMetrics,
     isLoading: pointsLoading,
-    isFetching: pointsFetching,
     error: pointsError,
   } = useSeriesPoints(
     selectedSeries,
     resolved.start,
     resolved.end,
     resolved.last,
-    { refetchInterval: refreshInterval > 0 ? refreshInterval : false },
   );
 
-  // Only the initial load blanks the page; fetches triggered by pill or range
-  // changes keep the current UI mounted.
+  // Only the initial load blanks the page; fetches triggered by selection or
+  // range changes keep the current UI mounted.
   const initialLoadDone = useRef(false);
   const isLoading =
     !initialLoadDone.current && (seriesLoading || pointsLoading);
@@ -329,116 +302,72 @@ export function DeviceHistoryProvider({
 
   const error = seriesError ?? pointsError;
 
+  // A truncated series was cut short by the API: nothing is known of it
+  // past its last fetched point, so it stops there rather than being
+  // carried flat to the window's end as if the device had held it.
   const allRows = useMemo(
-    () => mergeTimeSeries(pointsByMetric, fetchedAttributes),
-    [pointsByMetric, fetchedAttributes],
+    () =>
+      cutAfterLastPoint(
+        mergeTimeSeries(pointsByMetric, selectedAttributes),
+        pointsByMetric,
+        truncatedMetrics,
+      ),
+    [pointsByMetric, selectedAttributes, truncatedMetrics],
   );
 
-  // A truncated raw fetch covers only the start of the window. For the active
-  // metric the chart falls back to auto-bucketed time-weighted averages, which
-  // span the whole range at a readable density; events and state timelines
-  // keep the raw rows.
-  const metricTruncated =
-    activeMetric != null && truncatedMetrics.includes(activeMetric);
-
-  const aggregateQuery = useQuery({
-    queryKey: [
-      "timeseries",
-      "aggregate-fallback",
-      deviceId,
-      activeMetric,
-      resolved.start,
-      resolved.end,
-      resolved.last,
-    ],
-    queryFn: () =>
-      client.timeseries.aggregate(deviceId, activeMetric!, {
-        agg: "tw_avg",
-        interval: "auto",
-        start: resolved.start,
-        end: resolved.end,
-        last: resolved.last,
-      }),
-    enabled: metricTruncated,
-    refetchInterval: refreshInterval > 0 ? refreshInterval : false,
-  });
-
-  // "raw" applies no bucketing (same truncation) and "whole" collapses the
-  // window into one point — neither can stand in for the chart line.
-  const aggregateData =
-    metricTruncated &&
-    aggregateQuery.data &&
-    !aggregateQuery.data.truncated &&
-    aggregateQuery.data.interval !== "raw" &&
-    aggregateQuery.data.interval !== "whole"
-      ? aggregateQuery.data
-      : null;
-
-  const chartSourceRows = useMemo(() => {
-    if (!aggregateData || !activeMetric) return allRows;
-    // Empty buckets carry a null value; the chart would filter them anyway.
-    const averaged = aggregateData.points.flatMap((point) =>
-      point.value == null
-        ? []
-        : [{ timestamp: point.interval_start, value: point.value }],
-    );
-    return mergeTimeSeries(
-      { ...pointsByMetric, [activeMetric]: averaged },
-      fetchedAttributes,
-    );
-  }, [aggregateData, activeMetric, allRows, pointsByMetric, fetchedAttributes]);
-
-  // The chart draws the last values held to the window end; events keep
-  // recorded rows only. Memoized against `chartSourceRows` so "now" is re-read
-  // when a fetch lands rather than on every render — the trailing timestamp
-  // has to hold still or the bands re-animate continuously.
+  // The chart draws the last values held to the window end. Memoized against
+  // `allRows` so "now" is re-read when a fetch lands rather than on every
+  // render — the trailing timestamp has to hold still or the bands
+  // re-animate continuously.
   const chartRows = useMemo(
     () =>
       holdLastRowUntil(
-        chartSourceRows,
+        allRows,
         resolved.end ? new Date(resolved.end) : new Date(),
       ),
-    [chartSourceRows, resolved.end],
+    [allRows, resolved.end],
   );
 
-  const events = useMemo(
-    () => buildHistoryEvents(allRows, activeMetric, stateAttributes),
-    [allRows, activeMetric, stateAttributes],
-  );
-
-  const chartAveragedInterval = aggregateData?.interval ?? null;
-
-  // The averaged stand-in absorbs the active metric's truncation; anything
-  // else truncated (state timelines, a pending or unusable aggregate) still
-  // warrants the warning.
-  const hasTruncatedData = truncatedMetrics.some(
-    (metric) => metric !== activeMetric || chartAveragedInterval === null,
+  // The table lists an instant when something changed at it; forward-filled
+  // cells on such a row read as the values in force then.
+  const tableRows = useMemo(
+    () =>
+      allRows
+        .filter((row) => selectedAttributes.some((name) => row.isNew[name]))
+        .reverse(),
+    [allRows, selectedAttributes],
   );
 
   const commandIds = useMemo(
     () => [
       ...new Set(
-        events.map((e) => e.commandId).filter((id): id is number => id != null),
+        tableRows.flatMap((row) =>
+          Object.values(row.commandIds).filter(
+            (id): id is number => id != null,
+          ),
+        ),
       ),
     ],
-    [events],
+    [tableRows],
   );
 
   const { commandsMap } = useCommandsByIds(commandIds);
   const { usersMap } = useUsers();
 
-  const fetchedSeriesIds = useMemo(
-    () => selectedSeries.map((s) => s.id),
-    [selectedSeries],
+  const [panelOrder, setPanelOrderState] = useState<string[]>(
+    () => readStoredPanelOrder(deviceId) ?? [],
   );
-
-  const queryClient = useQueryClient();
-
-  // Invalidation (rather than per-query refetch) keeps the trigger stable and
-  // also refreshes the series list, so newly recorded attributes appear.
-  const refreshNow = useCallback(
-    () => queryClient.invalidateQueries({ queryKey: ["timeseries"] }),
-    [queryClient],
+  // A drop reports the order of the panels on screen; panels of deselected
+  // attributes keep their remembered place around them.
+  const setPanelOrder = useCallback(
+    (keys: string[]) => {
+      setPanelOrderState((remembered) => {
+        const next = mergePanelOrder(remembered, keys);
+        writeStoredPanelOrder(deviceId, next);
+        return next;
+      });
+    },
+    [deviceId],
   );
 
   const [isDownloading, setIsDownloading] = useState(false);
@@ -447,7 +376,7 @@ export function DeviceHistoryProvider({
     async (format: "csv" | "png") => {
       setIsDownloading(true);
       const params: TimeseriesExportParams = {
-        series_ids: fetchedSeriesIds,
+        series_ids: selectedSeries.map((s) => s.id),
         start: resolved.start,
         end: resolved.end,
         last: resolved.last,
@@ -479,66 +408,57 @@ export function DeviceHistoryProvider({
         setIsDownloading(false);
       }
     },
-    [client, deviceName, fetchedSeriesIds, resolved, t],
+    [client, deviceName, selectedSeries, resolved, t],
   );
 
   const value = useMemo<DeviceHistoryContextValue>(
     () => ({
       series,
       dataTypes,
-      valueLabels,
+      attributes,
       deviceType,
-      numericAttributes,
-      pillAttributes,
-      stateAttributes,
-      activeMetric,
-      setActiveMetric,
+      availableAttributes,
+      selectedAttributes,
+      setSelectedAttributes,
+      toggleAttribute,
       timeRange,
       applyRange,
       applyPreset,
       chartRows,
-      events,
-      hasTruncatedData,
-      chartAveragedInterval,
+      tableRows,
+      truncatedAttributes: truncatedMetrics,
+      panelOrder,
+      setPanelOrder,
       commandsMap,
       usersMap,
       isLoading,
       error,
       isDownloading,
       handleDownload,
-      refreshInterval,
-      setRefreshInterval,
-      refreshNow,
-      isRefreshing: pointsFetching || aggregateQuery.isFetching,
     }),
     [
       series,
       dataTypes,
-      valueLabels,
+      attributes,
       deviceType,
-      numericAttributes,
-      pillAttributes,
-      stateAttributes,
-      activeMetric,
-      setActiveMetric,
+      availableAttributes,
+      selectedAttributes,
+      setSelectedAttributes,
+      toggleAttribute,
       timeRange,
       applyRange,
       applyPreset,
       chartRows,
-      events,
-      hasTruncatedData,
-      chartAveragedInterval,
+      tableRows,
+      truncatedMetrics,
+      panelOrder,
+      setPanelOrder,
       commandsMap,
       usersMap,
       isLoading,
       error,
       isDownloading,
       handleDownload,
-      refreshInterval,
-      setRefreshInterval,
-      refreshNow,
-      pointsFetching,
-      aggregateQuery.isFetching,
     ],
   );
 

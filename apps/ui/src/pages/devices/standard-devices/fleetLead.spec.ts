@@ -150,10 +150,10 @@ describe("fleet leads", () => {
       },
     ],
     [
-      "pump: the state in words, and no reading",
+      "pump: the state in words, in the foreground, and no reading",
       DeviceType.Pump,
       { onoff_state: true, head: 4.2 },
-      { primary: { value: `${L}.runState.running`, tone: "text-water" } },
+      { primary: { value: `${L}.runState.running`, tone: "text-foreground" } },
     ],
     [
       "leak detector: the verdict in its tone",

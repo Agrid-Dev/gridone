@@ -51,22 +51,25 @@ function floatTooltipRows(
   active: boolean,
   options: TooltipRowOptions,
 ): TooltipRow[] {
-  const { series, values, stepKeys } = entry as FloatPanelEntry;
+  const { series, values, stepKeys, unit, colorOffset } =
+    entry as FloatPanelEntry;
   const stepKeySet = new Set(stepKeys);
   return series.map((s, i) => {
     const v = values[s.key]?.[hoveredIdx];
-    const formatted =
-      v !== null && v !== undefined
-        ? stepKeySet.has(s.key)
+    const number =
+      v === null || v === undefined
+        ? null
+        : stepKeySet.has(s.key)
           ? String(v)
-          : v.toFixed(options.floatPrecision)
-        : "\u2014";
+          : v.toFixed(options.floatPrecision);
     return {
       label: s.label,
-      value: formatted,
+      // The panel's unit follows the number, spaced as `AttributeValue`
+      // spaces it on the supervision pages.
+      value: number === null ? "\u2014" : unit ? `${number} ${unit}` : number,
       active,
       swatch: {
-        color: CHART_COLORS[i % CHART_COLORS.length],
+        color: CHART_COLORS[(colorOffset + i) % CHART_COLORS.length],
         variant: "line" as const,
       },
     };
@@ -138,7 +141,7 @@ function stringTooltipRows(
   return [
     {
       label: series.label,
-      value: v ?? "\u2014",
+      value: v ? (series.stringLabels?.[v] ?? v) : "\u2014",
       active,
       swatch: color ? { color, variant: "area" as const } : undefined,
     },

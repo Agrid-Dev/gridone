@@ -146,12 +146,14 @@ export function internalUrl(value: unknown): string | null {
 export const RESOURCE_SECTIONS: Record<string, readonly string[]> = {
   devices: [
     "automations",
+    "chart",
     "commands",
     "config",
     "edit",
     "history",
     "new",
     "operating-rules",
+    "table",
     "tags",
     "templates",
     "views",

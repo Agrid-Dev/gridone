@@ -1,147 +1,178 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { Sigma, TriangleAlert } from "lucide-react";
-import TimeSeriesChart from "@/components/charts/TimeSeriesChart";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
+import TimeSeriesChart, {
+  type PanelDragWording,
+  type Series,
+} from "@/components/charts/TimeSeriesChart";
+import { seriesUnit } from "@/components/charts/TimeSeriesChart/seriesUnit";
 import { useAttributeLabel } from "@/hooks/useAttributeLabel";
-import { type TimeRange, rangeLabel } from "@/lib/timeRange";
-import { cn } from "@/lib/utils";
+import { useValueLabel } from "@/hooks/useValueLabel";
+import { attributeValueLabel } from "@/lib/attributeValueLabel";
+import { type MergedRow } from "@/lib/mergeTimeSeries";
 import { useDeviceHistoryContext } from "./DeviceHistoryContext";
-import { StateTimeline } from "./StateTimeline";
 
-/** Chart title per period: dedicated phrasings for the three segments, the
- *  generic range label otherwise ("Température — 3 dernières heures"). */
-function useChartTitle(metricLabel: string, timeRange: TimeRange): string {
-  const { t } = useTranslation("devices");
-  const { t: tCommon } = useTranslation("common");
-  if (timeRange.kind === "preset") {
-    if (timeRange.preset === "1d")
-      return t("history.chartTitle24h", { metric: metricLabel });
-    if (timeRange.preset === "7d")
-      return t("history.chartTitle7d", { metric: metricLabel });
-    if (timeRange.preset === "1mo")
-      return t("history.chartTitle30d", { metric: metricLabel });
-  }
-  return t("history.chartTitleRange", {
-    metric: metricLabel,
-    range: rangeLabel(timeRange, tCommon).toLocaleLowerCase(),
-  });
+/** One panel's height when several unit panels stack; a lone one gets the
+ *  chart's own default. */
+const STACKED_LINE_HEIGHT = 220;
+
+function valuesOf<T>(rows: MergedRow[], names: string[]) {
+  return Object.fromEntries(
+    names.map((name) => [name, rows.map((r) => r.values[name] as T | null)]),
+  );
 }
 
 /**
- * The history card: the active metric as a line chart, with the device's
- * state timelines beneath it. States render regardless of the active pill;
- * a device recording no numeric series gets the timelines alone.
+ * The chart view: every selected attribute drawn through the shared chart
+ * panels — numeric series panelled by unit, booleans and text as state bands
+ * — under one cursor that reads all of them at the same instant.
  */
 export function HistoryChartCard() {
   const { t } = useTranslation("devices");
+  const { t: tCommon } = useTranslation("common");
   const {
-    activeMetric,
+    selectedAttributes,
     dataTypes,
+    attributes,
     chartRows,
-    stateAttributes,
-    timeRange,
-    hasTruncatedData,
-    chartAveragedInterval,
-    isLoading,
+    panelOrder,
+    setPanelOrder,
   } = useDeviceHistoryContext();
   const labelFor = useAttributeLabel();
+  const booleanLabel = useValueLabel();
 
   const timestamps = useMemo(
     () => chartRows.map((r) => new Date(r.timestamp)),
     [chartRows],
   );
 
-  const metricValues = useMemo(
+  const byType = useMemo(() => {
+    const of = (type: string) =>
+      selectedAttributes.filter((name) => dataTypes[name] === type);
+    return {
+      float: of("float"),
+      int: of("int"),
+      bool: of("bool"),
+      str: of("str"),
+    };
+  }, [selectedAttributes, dataTypes]);
+
+  const seriesOf = useMemo(
     () =>
-      activeMetric
-        ? chartRows.map((r) => r.values[activeMetric] as number | null)
-        : [],
-    [chartRows, activeMetric],
+      (name: string): Series => ({
+        key: name,
+        label: labelFor(name, attributes[name]),
+        semanticKey: name,
+        unit: attributes[name]?.unit,
+      }),
+    [labelFor, attributes],
   );
 
-  const metricSeries = useMemo(
+  const lineSeries = useMemo(
+    () => byType.float.map(seriesOf),
+    [byType, seriesOf],
+  );
+  const intSeries = useMemo(() => byType.int.map(seriesOf), [byType, seriesOf]);
+
+  const booleanSeries = useMemo(
     () =>
-      activeMetric
-        ? [{ key: activeMetric, label: labelFor(activeMetric) }]
-        : [],
-    [activeMetric, labelFor],
+      byType.bool.map((name) => ({
+        ...seriesOf(name),
+        booleanLabels: {
+          true: booleanLabel(true, attributes[name]?.value_labels),
+          false: booleanLabel(false, attributes[name]?.value_labels),
+        },
+      })),
+    [byType, seriesOf, booleanLabel, attributes],
   );
 
-  const metricLabel = activeMetric
-    ? labelFor(activeMetric)
-    : t("history.statesTitle");
-  const title = useChartTitle(metricLabel, timeRange);
+  // A text state reads as the supervision pages word it (an HVAC mode
+  // "Chauffage" rather than "heat"), for every value the window holds.
+  const stringSeries = useMemo(
+    () =>
+      byType.str.map((name) => {
+        const stringLabels: Record<string, string> = {};
+        for (const row of chartRows) {
+          const value = row.values[name];
+          if (typeof value !== "string" || value in stringLabels) continue;
+          const label = attributeValueLabel(name, value, tCommon);
+          if (label) stringLabels[value] = label;
+        }
+        return { ...seriesOf(name), stringLabels };
+      }),
+    [byType, seriesOf, chartRows, tCommon],
+  );
 
-  const hasMetricData = metricValues.some((v) => v != null);
-  const isIntMetric = activeMetric ? dataTypes[activeMetric] === "int" : false;
+  const lineValues = useMemo(
+    () => valuesOf<number>(chartRows, byType.float),
+    [chartRows, byType],
+  );
+  const intValues = useMemo(
+    () => valuesOf<number>(chartRows, byType.int),
+    [chartRows, byType],
+  );
+  const booleanValues = useMemo(
+    () => valuesOf<boolean>(chartRows, byType.bool),
+    [chartRows, byType],
+  );
+  const stringValues = useMemo(
+    () => valuesOf<string>(chartRows, byType.str),
+    [chartRows, byType],
+  );
+
+  const unitPanels = useMemo(
+    () => new Set([...lineSeries, ...intSeries].map(seriesUnit)).size,
+    [lineSeries, intSeries],
+  );
+
+  const dragWording = useMemo<PanelDragWording>(
+    () => ({
+      instructions: t("history.reorder.instructions"),
+      pickedUp: (panel) => t("history.reorder.pickedUp", { panel }),
+      movedOver: (panel, over) =>
+        t("history.reorder.movedOver", { panel, over }),
+      dropped: (panel, over) =>
+        over
+          ? t("history.reorder.dropped", { panel, over })
+          : t("history.reorder.released", { panel }),
+      cancelled: (panel) => t("history.reorder.cancelled", { panel }),
+    }),
+    [t],
+  );
+
+  const hasData = chartRows.some((row) =>
+    selectedAttributes.some((name) => row.values[name] != null),
+  );
 
   return (
-    <Card>
-      <CardHeader className="flex-row items-center justify-between space-y-0">
-        <CardTitle>{title}</CardTitle>
-        <span className="inline-flex items-center gap-3">
-          {chartAveragedInterval && (
-            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-              <Sigma className="h-3.5 w-3.5" aria-hidden />
-              {t("history.averagedNotice", {
-                interval: chartAveragedInterval,
-              })}
-            </span>
-          )}
-          {hasTruncatedData && (
-            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-status-warning">
-              <TriangleAlert className="h-3.5 w-3.5" aria-hidden />
-              {t("history.truncatedWarning")}
-            </span>
-          )}
-        </span>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <Skeleton className="h-60 w-full" />
-        ) : (
-          <>
-            {activeMetric &&
-              (hasMetricData ? (
-                <TimeSeriesChart
-                  timestamps={timestamps}
-                  lineSeries={isIntMetric ? [] : metricSeries}
-                  lineValues={
-                    isIntMetric ? {} : { [activeMetric]: metricValues }
-                  }
-                  intSeries={isIntMetric ? metricSeries : []}
-                  intValues={
-                    isIntMetric ? { [activeMetric]: metricValues } : {}
-                  }
-                />
-              ) : (
-                <p className="flex h-60 items-center justify-center text-sm text-muted-foreground">
-                  {t("history.noMetricData")}
-                </p>
-              ))}
-
-            {stateAttributes.length > 0 && (
-              <div
-                className={cn(
-                  "space-y-4",
-                  activeMetric && "mt-6 border-t pl-12 pr-4 pt-5",
-                )}
-              >
-                {stateAttributes.map((attr) => (
-                  <StateTimeline
-                    key={attr}
-                    attr={attr}
-                    label={labelFor(attr)}
-                    rows={chartRows}
-                  />
-                ))}
-              </div>
-            )}
-          </>
-        )}
-      </CardContent>
-    </Card>
+    // The same flat frame as the table view, so the toggle switches views
+    // over one surface; the period is named by the range control, not here.
+    <div className="rounded-lg border p-4">
+      {selectedAttributes.length === 0 ? (
+        <p className="flex h-60 items-center justify-center text-sm text-muted-foreground">
+          {t("history.noAttributesSelected")}
+        </p>
+      ) : !hasData ? (
+        <p className="flex h-60 items-center justify-center text-sm text-muted-foreground">
+          {t("history.noMetricData")}
+        </p>
+      ) : (
+        <TimeSeriesChart
+          timestamps={timestamps}
+          lineSeries={lineSeries}
+          lineValues={lineValues}
+          intSeries={intSeries}
+          intValues={intValues}
+          booleanSeries={booleanSeries}
+          booleanValues={booleanValues}
+          stringSeries={stringSeries}
+          stringValues={stringValues}
+          lineHeight={unitPanels > 1 ? STACKED_LINE_HEIGHT : undefined}
+          panelOrder={panelOrder}
+          onPanelOrderChange={setPanelOrder}
+          dragHandleLabel={(panel) => t("history.movePanel", { panel })}
+          dragWording={dragWording}
+        />
+      )}
+    </div>
   );
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BedDouble } from "lucide-react";
+import { CircleHelp } from "lucide-react";
 import type { TFunction } from "i18next";
 import type { Device } from "@gridone/sdk";
 import { DeviceType } from "@/lib/devices";
@@ -14,6 +14,7 @@ import {
   groupDevicesByType,
   OTHER_KEY,
 } from "./deviceTypes";
+import { PmsMonitorIcon } from "./deviceTypeIcons";
 
 function device(id: string, name: string, type: string | null): Device {
   return {
@@ -98,13 +99,21 @@ describe("deviceTypeKeyIcon", () => {
   });
 
   it("gives other its own icon, distinct from the unknown-type fallback", () => {
-    expect(deviceTypeKeyIcon(OTHER_KEY)).not.toBe(
-      deviceTypeKeyIcon(DeviceType.Thermostat),
-    );
+    expect(deviceTypeKeyIcon(OTHER_KEY)).not.toBe(deviceTypeIcon("vendor_box"));
   });
 
   it("uses a bed for PMS monitors", () => {
-    expect(deviceTypeIcon(DeviceType.PmsMonitor)).toBe(BedDouble);
+    expect(deviceTypeIcon(DeviceType.PmsMonitor)).toBe(PmsMonitorIcon);
+  });
+
+  it("gives each standard type its own pictogram — both air handlers included", () => {
+    const types = Object.values(DeviceType);
+    const icons = new Set(types.map((type) => deviceTypeIcon(type)));
+    expect(icons.size).toBe(types.length);
+  });
+
+  it("falls back to a question mark for a type the UI does not know", () => {
+    expect(deviceTypeIcon("vendor_box")).toBe(CircleHelp);
   });
 });
 

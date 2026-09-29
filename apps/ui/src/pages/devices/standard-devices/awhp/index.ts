@@ -1,4 +1,4 @@
 export { AwhpControl } from "./AwhpControl";
 export { AwhpSupervision } from "./AwhpSupervision";
-export { AwhpFleetGlyph } from "./AwhpFleetGlyph";
+export { awhpFleetStatus } from "./fleetStatus";
 export { awhpFleetLead } from "./fleetLead";

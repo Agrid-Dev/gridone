@@ -1,3 +1,3 @@
 export { ElectricityMeterControl } from "./ElectricityMeterControl";
-export { ElectricityMeterFleetGlyph } from "./ElectricityMeterFleetGlyph";
+export { electricityMeterFleetStatus } from "./fleetStatus";
 export { electricityMeterFleetLead } from "./fleetLead";
