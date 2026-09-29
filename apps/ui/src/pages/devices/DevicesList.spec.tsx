@@ -353,9 +353,10 @@ describe("DevicesList — cards", () => {
     const card = screen
       .getByRole("link", { name: "Chambre 102" })
       .closest(".group") as HTMLElement;
-    expect(
-      within(card).getByRole("img", { name: "Thermostat" }),
-    ).toHaveAttribute("data-activity", "idle");
+    expect(card.querySelector("[data-activity]")).toHaveAttribute(
+      "data-activity",
+      "idle",
+    );
     expect(card).toHaveTextContent("Stopped");
     expect(card).not.toHaveTextContent("Heating");
   });
@@ -386,9 +387,10 @@ describe("DevicesList — cards", () => {
     expect(card).toHaveTextContent("21,0°");
     expect(card).toHaveTextContent(/21,0°\s*setpoint/);
     expect(card).toHaveTextContent(/21,4°\s*measured/);
-    expect(
-      within(card as HTMLElement).getByRole("img", { name: "Thermostat" }),
-    ).toHaveAttribute("data-activity", "active");
+    expect(card?.querySelector("[data-activity]")).toHaveAttribute(
+      "data-activity",
+      "running",
+    );
     expect(card).toHaveTextContent("Heating");
   });
 
@@ -483,10 +485,11 @@ describe("DevicesList — summary", () => {
       error: null,
     });
     renderAt();
-    expect(screen.getByText("4 devices")).toBeInTheDocument();
-    expect(screen.getByText("2 connected")).toBeInTheDocument();
-    expect(screen.getByText("1 degraded")).toBeInTheDocument();
-    expect(screen.getByText("1 disconnected")).toBeInTheDocument();
+    // The fleet line, not the group's: its disconnected count says it too.
+    const summary = screen.getByText("4 devices").parentElement as HTMLElement;
+    expect(within(summary).getByText("2 connected")).toBeInTheDocument();
+    expect(within(summary).getByText("1 degraded")).toBeInTheDocument();
+    expect(within(summary).getByText("1 disconnected")).toBeInTheDocument();
     expect(screen.queryByText(/idle/)).not.toBeInTheDocument();
   });
 

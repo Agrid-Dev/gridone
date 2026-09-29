@@ -45,19 +45,22 @@ function Line({
  * display face so the two numbers read as a pair, each followed by its muted
  * text-xs label; the secondary wraps under the primary when the card is too
  * narrow. `muted` greys the primary value — the reading of a unit standing
- * idle, whose setpoint is not being pursued.
+ * idle, whose setpoint is not being pursued. `stale` greys both — the last
+ * values of a device that no longer reports.
  */
 export function FleetLeadView({
   lead,
   muted = false,
+  stale = false,
 }: {
   lead: FleetLead;
   muted?: boolean;
+  stale?: boolean;
 }) {
   return (
     <div className="flex min-w-0 flex-wrap items-baseline gap-x-[18px] gap-y-1">
-      <Line line={lead.primary} rank="primary" muted={muted} />
-      <Line line={lead.secondary} rank="secondary" />
+      <Line line={lead.primary} rank="primary" muted={muted || stale} />
+      <Line line={lead.secondary} rank="secondary" muted={stale} />
     </div>
   );
 }

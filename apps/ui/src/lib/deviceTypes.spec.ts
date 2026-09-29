@@ -99,9 +99,7 @@ describe("deviceTypeKeyIcon", () => {
   });
 
   it("gives other its own icon, distinct from the unknown-type fallback", () => {
-    expect(deviceTypeKeyIcon(OTHER_KEY)).not.toBe(
-      deviceTypeKeyIcon(DeviceType.Thermostat),
-    );
+    expect(deviceTypeKeyIcon(OTHER_KEY)).not.toBe(deviceTypeIcon("vendor_box"));
   });
 
   it("uses a bed for PMS monitors", () => {

@@ -6,11 +6,12 @@ import {
   DEVICE_TYPE_ORDER,
   deviceTypeBucketLabel,
   deviceTypeKeyIcon,
+  groupDevicesByType,
   OTHER_KEY,
   type DeviceTypeKey,
 } from "@/lib/deviceTypes";
 import { cn } from "@/lib/utils";
-import { DeviceFleetCard } from "../devices/DeviceFleetCard";
+import { DevicesGrid } from "../devices/DevicesGrid";
 import type { FleetActivity } from "../devices/standard-devices/fleet-status";
 import { FleetTypeTile } from "../devices/standard-devices/FleetTypeTile";
 
@@ -111,10 +112,47 @@ const CARDS: CardFixture[] = [
     },
   },
   {
+    name: "Ch 12",
+    zone: "Rez-de-chaussée · Ch 12",
+    type: DeviceType.Thermostat,
+    attributes: {
+      connection_status: "degraded",
+      onoff_state: true,
+      mode: "cool",
+      temperature_setpoint: 22,
+      temperature: 22.8,
+    },
+  },
+  {
+    name: "Ch 14",
+    zone: "Rez-de-chaussée · Ch 14",
+    type: DeviceType.Thermostat,
+    attributes: {
+      ...ok,
+      onoff_state: true,
+      mode: "heat",
+      temperature_setpoint: 21,
+      temperature: 19.2,
+      window_fault: fault("window_fault", "warning"),
+    },
+  },
+  {
     name: "Ch 101",
     zone: "R+1 · Ch 101",
     type: DeviceType.Thermostat,
     attributes: {},
+  },
+  {
+    name: "Ch 105",
+    zone: "R+1 · Ch 105",
+    type: DeviceType.Thermostat,
+    attributes: {
+      connection_status: "error",
+      onoff_state: true,
+      mode: "heat",
+      temperature_setpoint: 20,
+      temperature: 19.8,
+    },
   },
   {
     name: "Ch 204",
@@ -215,7 +253,8 @@ const CARDS: CardFixture[] = [
   },
 ];
 
-const ACTIVITIES: FleetActivity[] = ["active", "idle", "unknown"];
+/** `reporting` draws as `running`: one column stands for both. */
+const ACTIVITIES: FleetActivity[] = ["running", "idle", "unknown"];
 
 /** Every type's pictogram: at the group-heading size, on the card's tile in
  *  each activity, and at the icon's full 24 px. */
@@ -262,17 +301,19 @@ function PictogramMatrix() {
   );
 }
 
+const DEVICES = CARDS.map(({ name, type, attributes }) =>
+  fixture(type, attributes, name),
+);
+const ZONES = new Map(CARDS.map(({ name, zone }) => [name, zone]));
+
+/** The fixtures as the fleet page lays them out: one group per type, its
+ *  heading and the states of its cards, then the cards. */
 function CardGrid() {
   return (
-    <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-      {CARDS.map(({ name, zone, type, attributes }) => (
-        <DeviceFleetCard
-          key={name}
-          device={fixture(type, attributes, name)}
-          zonePath={zone}
-        />
-      ))}
-    </div>
+    <DevicesGrid
+      groups={groupDevicesByType(DEVICES)}
+      zonePathOf={(device) => ZONES.get(device.name) ?? null}
+    />
   );
 }
 

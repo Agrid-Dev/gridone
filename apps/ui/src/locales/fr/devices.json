@@ -69,6 +69,14 @@
       "idle_one": "{{count}} inactif",
       "idle_other": "{{count}} inactifs"
     },
+    "group": {
+      "running_one": "{{count}} en marche",
+      "running_other": "{{count}} en marche",
+      "stopped_one": "{{count}} à l'arrêt",
+      "stopped_other": "{{count}} à l'arrêt",
+      "faulty_one": "{{count}} en défaut",
+      "faulty_other": "{{count}} en défaut"
+    },
     "card": {
       "lead": {
         "setpoint": "consigne",

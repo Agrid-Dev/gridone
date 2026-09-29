@@ -3,18 +3,21 @@ import type { Device } from "@gridone/sdk";
 /**
  * What the fleet card says a device is doing, beside its numbers (the lead):
  *
- * - the **activity** tints the type tile — drawn plainly while the device is
- *   active, muted when it stands idle, dashed when it reports nothing to
- *   judge by;
+ * - the **activity** tints the type tile — drawn plainly while a unit runs
+ *   or a sensor reports, muted when a unit stands idle, dashed when there is
+ *   nothing to judge by — and outlines the card in green while a unit runs;
  * - the **run status** fills the status line of an HVAC unit — the mode it
  *   runs in (in the mode's colour), or its run state in words. Types whose
  *   lead already words their state (a pump's "En marche") leave it out.
  *
- * Data only: `FleetTypeTile` and `FleetRunStatus` own the rendering, so every
- * type reads the same.
+ * Data only: `FleetTypeTile`, `FleetRunStatusLine` and the card own the
+ * rendering, so every type reads the same.
  */
 
-export type FleetActivity = "active" | "idle" | "unknown";
+/** `running`: a unit that runs (green outline); `reporting`: a sensor with a
+ *  reading — nothing to run, so no outline; `idle`: a unit that stands
+ *  stopped; `unknown`: nothing to judge by. */
+export type FleetActivity = "running" | "reporting" | "idle" | "unknown";
 
 export type RunState = "running" | "stopped" | "unknown";
 
@@ -33,9 +36,9 @@ export type FleetStatus = {
 /** A type's fleet status from its device state. */
 export type FleetStatusOf = (device: Device) => FleetStatus;
 
-/** A running unit is active; a stopped one idle. */
+/** A unit's activity from its run state. */
 export const RUN_ACTIVITY: Record<RunState, FleetActivity> = {
-  running: "active",
+  running: "running",
   stopped: "idle",
   unknown: "unknown",
 };
@@ -51,13 +54,14 @@ export const UNKNOWN_STATUS: FleetStatus = {
 export const unknownFleetStatus: FleetStatusOf = () => UNKNOWN_STATUS;
 
 /** Run state from the standard on/off and mode attributes: stopped when
- *  `onoff_state` is false, unknown when neither is reported, else running (a
+ *  `onoff_state` is false or the mode is `off` (an air handler may report
+ *  only its `hvac_mode`), unknown when neither is reported, else running (a
  *  unit reporting a mode but no on/off switch is taken as running). */
 export function runState(
   onoffState: boolean | null,
   mode: string | null = null,
 ): RunState {
-  if (onoffState === false) return "stopped";
+  if (onoffState === false || mode === "off") return "stopped";
   if (onoffState == null && mode == null) return "unknown";
   return "running";
 }
@@ -77,8 +81,8 @@ export function coilMode(
   return hvacMode;
 }
 
-/** The status of an HVAC unit: active while it runs, and its run status for
- *  the status line. */
+/** The status of an HVAC unit: running or idle by its run state, and its run
+ *  status for the status line. */
 export function hvacStatus(run: RunState, mode: string | null): FleetStatus {
   return { activity: RUN_ACTIVITY[run], runStatus: { run, mode } };
 }
@@ -88,7 +92,8 @@ export function runOnlyStatus(run: RunState): FleetStatus {
   return { activity: RUN_ACTIVITY[run], runStatus: null };
 }
 
-/** The status of a sensor: active while it reports its reading. */
+/** The status of a sensor: reporting while it has its reading — never
+ *  running, since it has nothing to run. */
 export function readingStatus(reporting: boolean): FleetStatus {
-  return { activity: reporting ? "active" : "unknown", runStatus: null };
+  return { activity: reporting ? "reporting" : "unknown", runStatus: null };
 }

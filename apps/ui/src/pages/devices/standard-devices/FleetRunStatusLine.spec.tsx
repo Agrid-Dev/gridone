@@ -42,4 +42,33 @@ describe("FleetRunStatusLine", () => {
     const marker = renderLine({ run: "stopped", mode: "heat" });
     expect(marker).not.toHaveClass("bg-hvac-heat");
   });
+
+  it.each<[FleetRunStatus, string, boolean]>([
+    [{ run: "running", mode: "heat" }, "Heating", true],
+    [{ run: "running", mode: "cool" }, "Cooling", true],
+    // An air handler reporting an open valve but no on/off switch: its
+    // coil's mode is known, whether it runs is not.
+    [{ run: "unknown", mode: "heat" }, "Not reported", false],
+    [{ run: "stopped", mode: "cool" }, "Stopped", false],
+  ])(
+    "words %j as %s — the mode, in its colour, only while running: %s",
+    (status, label, running) => {
+      const marker = renderLine(status);
+      expect(screen.getByText(label)).toBeInTheDocument();
+      expect(screen.queryByText(/^(Heating|Cooling)$/) !== null).toBe(running);
+      expect(marker.className.includes("bg-hvac-")).toBe(running);
+    },
+  );
+
+  it.each<[FleetRunStatus, boolean]>([
+    [{ run: "running", mode: null }, true],
+    [{ run: "stopped", mode: null }, false],
+    [{ run: "unknown", mode: null }, false],
+  ])(
+    "fills the marker of %j: %s — hollow when stopped, dashed when unknown",
+    (status, solid) => {
+      const marker = renderLine(status);
+      expect(/(^|\s)bg-/.test(marker.className)).toBe(solid);
+    },
+  );
 });

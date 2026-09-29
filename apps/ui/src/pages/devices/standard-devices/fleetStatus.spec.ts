@@ -27,7 +27,7 @@ const status = (type: string | null, attributes: Record<string, unknown>) =>
   getFleetStatus(type)(device(type, attributes));
 
 const running = (mode: string | null): FleetStatus => ({
-  activity: "active",
+  activity: "running",
   runStatus: { run: "running", mode },
 });
 
@@ -118,13 +118,128 @@ describe("fleet status", () => {
       { onoff_state: true, mode: "heat" },
       running("heat"),
     ],
+    // A mode of `off` stops the unit, with or without an on/off switch —
+    // an air handler may report only its hvac_mode.
+    [
+      "single-flux AHU reporting only hvac_mode off, batteries shut",
+      DeviceType.AhuSingleFlux,
+      { hvac_mode: "off", heating_valve: 0, cooling_valve: 0 },
+      { activity: "idle", runStatus: { run: "stopped", mode: null } },
+    ],
+    [
+      "double-flux AHU reporting only hvac_mode off",
+      DeviceType.AhuDoubleFlux,
+      { hvac_mode: "off" },
+      { activity: "idle", runStatus: { run: "stopped", mode: "off" } },
+    ],
+    [
+      "thermostat switched on but in mode off",
+      DeviceType.Thermostat,
+      { onoff_state: true, mode: "off" },
+      { activity: "idle", runStatus: { run: "stopped", mode: "off" } },
+    ],
+  ])("%s", (_, type, attributes, expected) => {
+    expect(status(type, attributes)).toEqual(expected);
+  });
+
+  it.each<[string, string, Record<string, unknown>, FleetStatus]>([
+    // A mode with no on/off switch runs in that mode — every HVAC type reads
+    // its own mode attribute into the run state, not only the thermostat.
+    [
+      "heat pump reporting a mode but no on/off switch",
+      DeviceType.Awhp,
+      { mode: "cool" },
+      running("cool"),
+    ],
+    [
+      "single-flux AHU reporting its hvac_mode but no on/off switch",
+      DeviceType.AhuSingleFlux,
+      { hvac_mode: "cool" },
+      running("cool"),
+    ],
+    [
+      "double-flux AHU reporting its hvac_mode but no on/off switch",
+      DeviceType.AhuDoubleFlux,
+      { hvac_mode: "heat" },
+      running("heat"),
+    ],
+    // A unit that reports a valve is judged by its valves: its one battery
+    // shut means it only ventilates, whatever hvac_mode it is set to.
+    [
+      "single-flux AHU whose only battery (heating) is shut",
+      DeviceType.AhuSingleFlux,
+      { onoff_state: true, hvac_mode: "heat", heating_valve: 0 },
+      running(null),
+    ],
+    [
+      "double-flux AHU whose only battery (cooling) is shut",
+      DeviceType.AhuDoubleFlux,
+      { onoff_state: true, hvac_mode: "cool", cooling_valve: 0 },
+      running(null),
+    ],
+    // Both batteries open (reheat after dehumidifying): the heating one names
+    // the mode even while the cooling valve is the wider open — coilMode
+    // checks heating first.
+    [
+      "double-flux AHU with both batteries open",
+      DeviceType.AhuDoubleFlux,
+      { onoff_state: true, heating_valve: 15, cooling_valve: 80 },
+      running("heat"),
+    ],
   ])("%s", (_, type, attributes, expected) => {
     expect(status(type, attributes)).toEqual(expected);
   });
 
   it.each<[string, FleetStatus["activity"], string, Record<string, unknown>]>([
+    // Zero is a reading, not a missing one: 0 W, a clear sky (WMO code 0)
+    // and 0 °C are all reported.
+    [
+      "meter reporting zero power",
+      "reporting",
+      DeviceType.ElectricityMeter,
+      { active_power: 0 },
+    ],
+    // The tile follows the reading the lead shows: a power the lead cannot
+    // read (a string) leaves both empty.
+    [
+      "meter reporting its power as text",
+      "unknown",
+      DeviceType.ElectricityMeter,
+      { active_power: "240" },
+    ],
+    [
+      "weather sensor reporting a clear sky (code 0)",
+      "reporting",
+      DeviceType.WeatherSensor,
+      { weather_code: 0 },
+    ],
+    [
+      "weather sensor reporting 0 °C",
+      "reporting",
+      DeviceType.WeatherSensor,
+      { temperature: 0 },
+    ],
+    // An extractor exposing neither flow switch nor on/off: its speed says
+    // whether the fan turns.
+    [
+      "extractor exposing only its speed, turning",
+      "running",
+      DeviceType.AirExtractor,
+      { fan_speed: 45 },
+    ],
+    [
+      "extractor exposing only its speed, at rest",
+      "idle",
+      DeviceType.AirExtractor,
+      { fan_speed: 0 },
+    ],
+  ])("%s: %s, no status line", (_, activity, type, attributes) => {
+    expect(status(type, attributes)).toEqual({ activity, runStatus: null });
+  });
+
+  it.each<[string, FleetStatus["activity"], string, Record<string, unknown>]>([
     // Run-state types: their lead words the state, so no status line.
-    ["extractor on", "active", DeviceType.AirExtractor, { onoff_state: true }],
+    ["extractor on", "running", DeviceType.AirExtractor, { onoff_state: true }],
     [
       "extractor commanded on but moving no air",
       "idle",
@@ -132,13 +247,13 @@ describe("fleet status", () => {
       { onoff_state: true, flow_switch: false },
     ],
     ["extractor reporting nothing", "unknown", DeviceType.AirExtractor, {}],
-    ["pump running", "active", DeviceType.Pump, { onoff_state: true }],
+    ["pump running", "running", DeviceType.Pump, { onoff_state: true }],
     ["pump stopped", "idle", DeviceType.Pump, { onoff_state: false }],
     ["pump reporting nothing", "unknown", DeviceType.Pump, {}],
-    // Sensors: active while they report what they lead with.
+    // Sensors: reporting — never running — while they have what they lead with.
     [
       "meter reporting its power",
-      "active",
+      "reporting",
       DeviceType.ElectricityMeter,
       { active_power: 240 },
     ],
@@ -150,13 +265,13 @@ describe("fleet status", () => {
     ],
     [
       "weather sensor reporting the sky",
-      "active",
+      "reporting",
       DeviceType.WeatherSensor,
       { weather_code: 63 },
     ],
     [
       "weather sensor reporting only its temperature",
-      "active",
+      "reporting",
       DeviceType.WeatherSensor,
       { temperature: 12.4 },
     ],
@@ -168,20 +283,20 @@ describe("fleet status", () => {
     ],
     [
       "leak detector wet",
-      "active",
+      "reporting",
       DeviceType.LiquidDetector,
       { liquid_detected: true },
     ],
     [
       "leak detector dry",
-      "active",
+      "reporting",
       DeviceType.LiquidDetector,
       { liquid_detected: false },
     ],
     ["leak detector not reported", "unknown", DeviceType.LiquidDetector, {}],
     [
       "PMS monitor with a booking",
-      "active",
+      "reporting",
       DeviceType.PmsMonitor,
       { reservation_status: "booked" },
     ],

@@ -69,6 +69,14 @@
       "idle_one": "{{count}} idle",
       "idle_other": "{{count}} idle"
     },
+    "group": {
+      "running_one": "{{count}} running",
+      "running_other": "{{count}} running",
+      "stopped_one": "{{count}} stopped",
+      "stopped_other": "{{count}} stopped",
+      "faulty_one": "{{count}} faulty",
+      "faulty_other": "{{count}} faulty"
+    },
     "card": {
       "lead": {
         "setpoint": "setpoint",
@@ -81,7 +89,7 @@
         "speed": "speed",
         "runState": {
           "running": "Running",
-          "stopped": "Idle",
+          "stopped": "Stopped",
           "unknown": "Not reported"
         }
       },
