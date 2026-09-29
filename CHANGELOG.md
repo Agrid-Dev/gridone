@@ -1,3 +1,9 @@
+## v0.279.4 (2026-09-29)
+
+### Refactor
+
+- **ui**: keep device-type logic in the standard-device registry
+
 ## v0.279.3 (2026-09-29)
 
 ### Fix
