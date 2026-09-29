@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { createI18nMock } from "@/test/i18nMock";
 import type { Device } from "@gridone/sdk";
@@ -12,6 +13,10 @@ vi.mock("react-i18next", () =>
     "deviceDetails.tabs.history": "History",
     "deviceDetails.tabs.commands": "Commands",
     "deviceDetails.tabs.config": "Config",
+    "deviceDetails.configurationTabs.label": "Device configuration sections",
+    "deviceDetails.configurationTabs.general": "General",
+    "deviceDetails.configurationTabs.operatingRules": "Operating rules",
+    "deviceDetails.configurationTabs.automations": "Automations",
   }),
 );
 
@@ -41,80 +46,171 @@ function makeDevice({
   };
 }
 
-function renderAt(path: string, device: Device) {
-  return render(
+function renderAt(path: string, device: Device = makeDevice()) {
+  render(
     <MemoryRouter initialEntries={[path]}>
       <DeviceTabs device={device} />
     </MemoryRouter>,
   );
+  return userEvent.setup();
 }
 
 afterEach(cleanup);
 
 describe("DeviceTabs", () => {
-  it("shows Overview, History, Commands and Config with correct routes", () => {
-    renderAt("/devices/d1", makeDevice());
+  describe("supervision", () => {
+    it("shows Overview, History and Commands with correct routes", () => {
+      renderAt("/devices/d1");
 
-    expect(screen.getByRole("tab", { name: "Overview" })).toHaveAttribute(
-      "href",
-      "/devices/d1",
-    );
-    expect(screen.getByRole("tab", { name: "History" })).toHaveAttribute(
-      "href",
-      "/devices/d1/history",
-    );
-    expect(screen.getByRole("tab", { name: "Commands" })).toHaveAttribute(
-      "href",
-      "/devices/d1/commands",
-    );
-    expect(screen.getByRole("tab", { name: "Config" })).toHaveAttribute(
-      "href",
-      "/devices/d1/config",
-    );
+      const tabs = screen.getByRole("tablist", { name: "Device sections" });
+      expect(within(tabs).getAllByRole("tab")).toHaveLength(3);
+      expect(screen.getByRole("tab", { name: "Overview" })).toHaveAttribute(
+        "href",
+        "/devices/d1",
+      );
+      expect(screen.getByRole("tab", { name: "History" })).toHaveAttribute(
+        "href",
+        "/devices/d1/history",
+      );
+      expect(screen.getByRole("tab", { name: "Commands" })).toHaveAttribute(
+        "href",
+        "/devices/d1/commands",
+      );
+    });
+
+    it("offers configuration as a button beside the tabs, not as a tab", () => {
+      renderAt("/devices/d1");
+
+      expect(
+        screen.queryByRole("tab", { name: "Config" }),
+      ).not.toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Config" })).toHaveAttribute(
+        "href",
+        "/devices/d1/config",
+      );
+    });
+
+    it("keeps Commands as a normal tab for a read-only device (panel handles the empty state)", () => {
+      renderAt("/devices/d1", makeDevice({ readWriteModes: ["read"] }));
+
+      expect(screen.getByRole("tab", { name: "Commands" })).toHaveAttribute(
+        "href",
+        "/devices/d1/commands",
+      );
+    });
+
+    it("marks Overview active only on the index route", () => {
+      renderAt("/devices/d1");
+
+      expect(screen.getByRole("tab", { name: "Overview" })).toHaveAttribute(
+        "aria-current",
+        "page",
+      );
+      expect(screen.getByRole("tab", { name: "History" })).not.toHaveAttribute(
+        "aria-current",
+      );
+    });
+
+    it("marks History active on a history sub-route", () => {
+      renderAt("/devices/d1/history/chart");
+
+      expect(screen.getByRole("tab", { name: "History" })).toHaveAttribute(
+        "aria-current",
+        "page",
+      );
+      expect(screen.getByRole("tab", { name: "Overview" })).not.toHaveAttribute(
+        "aria-current",
+      );
+    });
   });
 
-  it("keeps Commands as a normal tab for a read-only device (panel handles the empty state)", () => {
-    renderAt("/devices/d1", makeDevice({ readWriteModes: ["read"] }));
+  describe("configuration", () => {
+    it("replaces the supervision tabs with the configuration sections", () => {
+      renderAt("/devices/d1/config");
 
-    expect(screen.getByRole("tab", { name: "Commands" })).toHaveAttribute(
-      "href",
-      "/devices/d1/commands",
-    );
+      const tabs = screen.getByRole("tablist", {
+        name: "Device configuration sections",
+      });
+      expect(within(tabs).getAllByRole("tab")).toHaveLength(3);
+      expect(
+        within(tabs).getByRole("tab", { name: "General" }),
+      ).toHaveAttribute("href", "/devices/d1/config");
+      expect(
+        within(tabs).getByRole("tab", { name: "Operating rules" }),
+      ).toHaveAttribute("href", "/devices/d1/config/operating-rules");
+      expect(
+        within(tabs).getByRole("tab", { name: "Automations" }),
+      ).toHaveAttribute("href", "/devices/d1/config/automations");
+      expect(
+        screen.queryByRole("tablist", { name: "Device sections" }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("tab", { name: "History" }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("leads back to supervision from the button beside the tabs", () => {
+      renderAt("/devices/d1/config/operating-rules");
+
+      const back = screen.getByRole("link", { name: "Overview" });
+      expect(back).toHaveAttribute("href", "/devices/d1");
+      expect(back).not.toHaveAttribute("aria-current");
+      expect(
+        screen.queryByRole("link", { name: "Config" }),
+      ).not.toBeInTheDocument();
+    });
+
+    it.each([
+      ["/config", "General"],
+      ["/config/edit", "General"],
+      ["/config/operating-rules", "Operating rules"],
+      ["/config/operating-rules/new", "Operating rules"],
+      ["/config/operating-rules/rule/edit", "Operating rules"],
+      ["/config/automations", "Automations"],
+    ])("selects the right section on %s", (suffix, selected) => {
+      renderAt(`/devices/d1${suffix}`);
+
+      expect(screen.getByRole("tab", { name: selected })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      );
+      const others = screen
+        .getAllByRole("tab")
+        .filter((tab) => tab.textContent !== selected);
+      expect(others).toHaveLength(2);
+      for (const tab of others) {
+        expect(tab).toHaveAttribute("aria-selected", "false");
+        // General's path prefixes its siblings': without `end` its link
+        // would also claim to be the current page.
+        expect(tab).not.toHaveAttribute("aria-current");
+      }
+    });
   });
 
-  it("marks Overview active only on the index route", () => {
-    renderAt("/devices/d1", makeDevice());
+  it("switches the row between the two modes", async () => {
+    const user = renderAt("/devices/d1/history");
 
-    expect(screen.getByRole("tab", { name: "Overview" })).toHaveAttribute(
-      "aria-current",
-      "page",
+    await user.click(screen.getByRole("link", { name: "Config" }));
+    expect(screen.getByRole("tab", { name: "General" })).toHaveAttribute(
+      "aria-selected",
+      "true",
     );
-    expect(screen.getByRole("tab", { name: "History" })).not.toHaveAttribute(
-      "aria-current",
-    );
-  });
 
-  it("marks History active on a history sub-route", () => {
-    renderAt("/devices/d1/history/chart", makeDevice());
-
-    expect(screen.getByRole("tab", { name: "History" })).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
-    expect(screen.getByRole("tab", { name: "Overview" })).not.toHaveAttribute(
-      "aria-current",
-    );
-  });
-
-  it("keeps Config active throughout the operating rule configuration flow", () => {
-    renderAt("/devices/d1/config/operating-rules/rule/edit", makeDevice());
-    expect(screen.getByRole("tab", { name: "Config" })).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
-    expect(screen.getAllByRole("tab")).toHaveLength(4);
+    await user.click(screen.getByRole("tab", { name: "Operating rules" }));
     expect(
-      screen.queryByRole("tab", { name: "Operating rules" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("tab", { name: "Operating rules" }),
+    ).toHaveAttribute("aria-selected", "true");
+
+    await user.click(screen.getByRole("tab", { name: "Automations" }));
+    expect(screen.getByRole("tab", { name: "Automations" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+
+    await user.click(screen.getByRole("link", { name: "Overview" }));
+    expect(screen.getByRole("tab", { name: "Overview" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
   });
 });
