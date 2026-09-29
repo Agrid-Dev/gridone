@@ -16,6 +16,7 @@ import { toSearchString } from "@/lib/pagination";
 import { useAttributeLabel } from "@/hooks/useAttributeLabel";
 import { useDevicesList } from "@/hooks/useDevicesList";
 import { useUsers } from "@/hooks/useUsers";
+import { userDisplayName } from "@/lib/users";
 import { buildCommandColumns } from "@/pages/devices/commands/columns";
 import { parseRangeParams, resolveTimeRange } from "@/lib/timeRange";
 const DEFAULT_SORT = "desc";
@@ -197,7 +198,7 @@ export function useCommands({
   );
 
   const userNames = useMemo(
-    () => Object.fromEntries(users.map((u) => [u.id, u.username])),
+    () => Object.fromEntries(users.map((u) => [u.id, userDisplayName(u)])),
     [users],
   );
 

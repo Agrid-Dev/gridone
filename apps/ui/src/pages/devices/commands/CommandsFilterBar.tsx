@@ -11,6 +11,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { TimeRangeSelect } from "@/components/TimeRangeSelect";
 import { toLabel } from "@/lib/textFormat";
+import { userDisplayName } from "@/lib/users";
 import type { CommandTemplateResponse, Device, User } from "@gridone/sdk";
 
 const ALL = "__all__";
@@ -128,7 +129,7 @@ export function CommandsFilterBar({
             <SelectItem value={ALL}>{t("commands.allUsers")}</SelectItem>
             {users?.map((u) => (
               <SelectItem key={u.id} value={u.id}>
-                {u.username}
+                {userDisplayName(u)}
               </SelectItem>
             ))}
           </SelectContent>

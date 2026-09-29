@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { attributeValueText } from "@/lib/attributeValueLabel";
+import { userDisplayName } from "@/lib/users";
 import type { UnitCommand, User, ValueLabel } from "@gridone/sdk";
 import type { CellValue } from "@/lib/mergeTimeSeries";
 
@@ -64,7 +65,7 @@ export function CommandIndicator({
       <PopoverTrigger asChild>
         <button
           type="button"
-          aria-label={user?.name || user?.username || command.user_id}
+          aria-label={user ? userDisplayName(user) : command.user_id}
           className={cn(
             "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full",
             "text-[10px] font-medium leading-none",
@@ -84,7 +85,7 @@ export function CommandIndicator({
       >
         <div>
           <p className="font-medium">
-            {user?.name || user?.username || command.user_id}
+            {user ? userDisplayName(user) : command.user_id}
           </p>
           {user?.title && <p className="text-muted-foreground">{user.title}</p>}
           {command.executed_at && (
