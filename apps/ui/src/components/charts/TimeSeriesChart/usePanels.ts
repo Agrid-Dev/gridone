@@ -1,8 +1,12 @@
 import { useMemo } from "react";
 
 import type { PanelEntry, Series } from "./types";
-import { DEFAULT_LINE_HEIGHT, DEFAULT_CATEGORICAL_HEIGHT } from "./constants";
-import { seriesUnit } from "./seriesUnit";
+import {
+  DEFAULT_LINE_HEIGHT,
+  DEFAULT_CATEGORICAL_HEIGHT,
+  EMPTY_LINE_HEIGHT,
+} from "./constants";
+import { groupSeriesByUnit } from "./seriesUnit";
 
 type UsePanelsArgs = {
   lineSeries: Series[];
@@ -53,14 +57,14 @@ export function usePanels({
         });
       } else {
         const stepKeySet = new Set(intSeries.map((s) => s.key));
-        // Insertion order: panels follow the order the units first appear in.
-        const byUnit = new Map<string | null, Series[]>();
-        for (const s of numericSeries) {
-          const unit = seriesUnit(s);
-          byUnit.set(unit, [...(byUnit.get(unit) ?? []), s]);
-        }
         let colorOffset = 0;
-        for (const [unit, series] of byUnit) {
+        for (const [unit, series] of groupSeriesByUnit(numericSeries)) {
+          // A unit with nothing to plot in the window keeps its legend, so
+          // the series still reads as selected, over a strip rather than a
+          // full-height blank.
+          const hasData = series.some((s) =>
+            numericValues[s.key]?.some((v) => v !== null),
+          );
           panels.push({
             type: "float",
             key: `float:${unit ?? ""}`,
@@ -68,7 +72,7 @@ export function usePanels({
             series,
             values: numericValues,
             stepKeys: series.map((s) => s.key).filter((k) => stepKeySet.has(k)),
-            height: lineHeight,
+            height: hasData ? lineHeight : EMPTY_LINE_HEIGHT,
             colorOffset,
           });
           colorOffset += series.length;

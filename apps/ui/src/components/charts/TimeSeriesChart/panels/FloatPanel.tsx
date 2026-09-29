@@ -49,66 +49,70 @@ export function FloatPanel({
   );
 
   return (
-    <div ref={scales?.panelRef}>
+    <div>
       <PanelLegend series={series} variant="line" colorOffset={colorOffset} />
-      <XYChart
-        height={height + (isLast ? AXIS_EXTRA : 0)}
-        width={width}
-        margin={isLast ? MARGIN : MARGIN_NO_BOTTOM}
-        xScale={{
-          type: "time",
-          domain:
-            timestamps.length >= 2
-              ? [timestamps[0], timestamps[timestamps.length - 1]]
-              : undefined,
-        }}
-        // visx defaults linear scales to `zero: true`, which pins the y-axis
-        // to 0 and squashes series that hover far from it (AGR-883).
-        yScale={{ type: "linear", zero: false }}
-        theme={theme}
-      >
-        {scales && <ScaleCapture yScaleRef={scales.yScaleRef} />}
-        {isLast && (
-          <Axis
-            orientation="bottom"
-            numTicks={5}
-            tickFormat={formatTimeTick}
-            // Named apart from the value axis, as that one is (visx tags
-            // both with the same class).
-            axisClassName="visx-axis-time"
-          />
-        )}
-        {/* A tick-count hint: d3 rounds to nice steps, so ~4-6 gridlines
-            instead of the dense default ladder. */}
-        <Axis
-          orientation="left"
-          numTicks={4}
-          tickFormat={formatTick}
-          // visx tags both axes with the same class; naming the value axis
-          // tells it apart from the time axis in the DOM.
-          axisClassName="visx-axis-value"
-        />
-        <Grid columns={false} numTicks={4} />
-        {series.map((s) => {
-          const data = timestamps
-            .map((t, i) => ({
-              timestamp: t,
-              value: values[s.key]?.[i],
-            }))
-            .filter((d): d is FloatDatum => d.value !== null);
-          return (
-            <LineSeries
-              key={s.key}
-              dataKey={s.key}
-              data={data}
-              // Integer series step between values; floats interpolate linearly.
-              curve={stepKeySet.has(s.key) ? curveStepAfter : undefined}
-              strokeDasharray={s.dash ? "6 4" : undefined}
-              {...floatAccessors}
+      {/* The ref wraps the plot alone: the tooltip measures series positions
+          from this box, and the legend above would offset them. */}
+      <div ref={scales?.panelRef}>
+        <XYChart
+          height={height + (isLast ? AXIS_EXTRA : 0)}
+          width={width}
+          margin={isLast ? MARGIN : MARGIN_NO_BOTTOM}
+          xScale={{
+            type: "time",
+            domain:
+              timestamps.length >= 2
+                ? [timestamps[0], timestamps[timestamps.length - 1]]
+                : undefined,
+          }}
+          // visx defaults linear scales to `zero: true`, which pins the y-axis
+          // to 0 and squashes series that hover far from it (AGR-883).
+          yScale={{ type: "linear", zero: false }}
+          theme={theme}
+        >
+          {scales && <ScaleCapture yScaleRef={scales.yScaleRef} />}
+          {isLast && (
+            <Axis
+              orientation="bottom"
+              numTicks={5}
+              tickFormat={formatTimeTick}
+              // Named apart from the value axis, as that one is (visx tags
+              // both with the same class).
+              axisClassName="visx-axis-time"
             />
-          );
-        })}
-      </XYChart>
+          )}
+          {/* A tick-count hint: d3 rounds to nice steps, so ~4-6 gridlines
+            instead of the dense default ladder. */}
+          <Axis
+            orientation="left"
+            numTicks={4}
+            tickFormat={formatTick}
+            // visx tags both axes with the same class; naming the value axis
+            // tells it apart from the time axis in the DOM.
+            axisClassName="visx-axis-value"
+          />
+          <Grid columns={false} numTicks={4} />
+          {series.map((s) => {
+            const data = timestamps
+              .map((t, i) => ({
+                timestamp: t,
+                value: values[s.key]?.[i],
+              }))
+              .filter((d): d is FloatDatum => d.value !== null);
+            return (
+              <LineSeries
+                key={s.key}
+                dataKey={s.key}
+                data={data}
+                // Integer series step between values; floats interpolate linearly.
+                curve={stepKeySet.has(s.key) ? curveStepAfter : undefined}
+                strokeDasharray={s.dash ? "6 4" : undefined}
+                {...floatAccessors}
+              />
+            );
+          })}
+        </XYChart>
+      </div>
     </div>
   );
 }

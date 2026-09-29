@@ -463,6 +463,53 @@ describe("TimeSeriesChart — tooltip", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Nearest series under the cursor
+// ---------------------------------------------------------------------------
+
+describe("TimeSeriesChart — nearest series", () => {
+  // Two flat lines in one panel: `low` runs along the plot's bottom edge,
+  // `high` along its top. The tooltip lights the one under the cursor.
+  it("lights the series under the cursor, measured from the plot, not the legend", () => {
+    const { container } = render(
+      <TimeSeriesChartInner
+        timestamps={timestamps}
+        lineSeries={[
+          { key: "low", label: "Low", unit: "u" },
+          { key: "high", label: "High", unit: "u" },
+        ]}
+        lineValues={{
+          low: timestamps.map(() => 20),
+          high: timestamps.map(() => 21),
+        }}
+        width={WIDTH}
+      />,
+    );
+    const wrapper = container.firstElementChild as HTMLElement;
+    wrapper.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, width: WIDTH, height: 600 }) as DOMRect;
+    // The plot sits under the 30px legend band.
+    const plot = container.querySelector(XYCHART_SVG)!
+      .parentElement as HTMLElement;
+    plot.getBoundingClientRect = () =>
+      ({ left: 0, top: 30, width: WIDTH, height: 378 }) as DOMRect;
+
+    // 20px under the plot's top margin: on the high line, far from the low.
+    fireEvent.pointerMove(wrapper, { clientX: 400, clientY: 30 + 8 + 20 });
+
+    const rows = Array.from(
+      wrapper.querySelectorAll(".bg-popover > div > div"),
+    );
+    const muted = (label: string) =>
+      rows
+        .find((row) => row.textContent?.startsWith(label))!
+        .querySelector("span:nth-of-type(2)")!
+        .classList.contains("text-muted-foreground");
+    expect(muted("High")).toBe(false);
+    expect(muted("Low")).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Bottom axis placement
 // ---------------------------------------------------------------------------
 
@@ -930,6 +977,79 @@ describe("FloatPanel — value axis units", () => {
     expect(swatchFor("Temperature").style.backgroundColor).not.toBe(
       swatchFor("Humidity").style.backgroundColor,
     );
+  });
+
+  it("strokes each line in its own swatch's colour, panel after panel", () => {
+    const { container } = render(
+      <TimeSeriesChartInner
+        timestamps={timestamps}
+        lineSeries={[
+          ...floatSeries,
+          { key: "co2", label: "CO2" },
+          { key: "temperature_setpoint", label: "Setpoint" },
+        ]}
+        lineValues={{
+          ...floatValues,
+          co2: intValues.co2,
+          temperature_setpoint: floatValues.temperature,
+        }}
+        width={WIDTH}
+      />,
+    );
+    // Series lines are the paths stroked from the palette; axes and grids
+    // are not.
+    const strokes = Array.from(
+      container.querySelectorAll('path[stroke^="hsl(var(--chart-"]'),
+    ).map((path) => path.getAttribute("stroke"));
+    expect(strokes).toEqual([
+      swatchFor("Temperature").style.backgroundColor,
+      swatchFor("Setpoint").style.backgroundColor,
+      swatchFor("Humidity").style.backgroundColor,
+      swatchFor("CO2").style.backgroundColor,
+    ]);
+    expect(new Set(strokes).size).toBe(4);
+  });
+
+  it("puts a bare series on the panel of the unit its family declares", () => {
+    const { container } = render(
+      <TimeSeriesChartInner
+        timestamps={timestamps}
+        lineSeries={[
+          { key: "temperature", label: "Temperature", unit: "°C" },
+          { key: "temperature_setpoint", label: "Setpoint" },
+        ]}
+        lineValues={{
+          temperature: floatValues.temperature,
+          temperature_setpoint: floatValues.temperature.map(() => 21),
+        }}
+        width={WIDTH}
+      />,
+    );
+    const axes = valueAxes(container);
+    expect(axes.length).toBe(1);
+    expect(axes[0].every((tick) => tick.endsWith("°C"))).toBe(true);
+  });
+
+  it("gives a unit with nothing to plot a strip, not a full-height blank", () => {
+    const { container } = render(
+      <TimeSeriesChartInner
+        timestamps={timestamps}
+        lineSeries={floatSeries}
+        lineValues={{
+          temperature: floatValues.temperature,
+          humidity: timestamps.map(() => null),
+        }}
+        width={WIDTH}
+      />,
+    );
+    const heights = Array.from(container.querySelectorAll(XYCHART_SVG)).map(
+      (svg) => Number(svg.getAttribute("height")),
+    );
+    // Temperature keeps its panel; humidity, last, keeps only its legend
+    // over a strip plus the time axis.
+    expect(heights[0]).toBe(350);
+    expect(heights[1]).toBeLessThan(100);
+    expect(screen.getByText("Humidity")).toBeInTheDocument();
   });
 
   it("leaves the axis bare for an attribute with no knowable unit", () => {
