@@ -102,7 +102,7 @@ export function FacetFilter({
           {options.length > SEARCH_THRESHOLD && (
             <CommandInput placeholder={searchPlaceholder} />
           )}
-          <CommandList>
+          <CommandList className="max-h-[420px]">
             <CommandEmpty>{emptyMessage}</CommandEmpty>
             <CommandGroup>
               {options.map((option) => (
