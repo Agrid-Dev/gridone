@@ -99,6 +99,34 @@ describe("deviceMeasureReading", () => {
 });
 
 describe("deviceSetpointReading", () => {
+  it.each([0, 21, null])(
+    "marks fan-mode setpoints as inapplicable regardless of reported value %s",
+    (value) => {
+      const d = device("thermostat", {
+        mode: attr("fan"),
+        temperature_setpoint: attr(value),
+        temperature: attr(21.5),
+      });
+      const reading = deviceSetpointReading(d);
+      expect(formatReading(reading, "en")).toBe("N/A");
+      expect(
+        formatReadingDelta(deviceMeasureReading(d), reading, "en"),
+      ).toBeNull();
+    },
+  );
+
+  it.each(["heat", "cool", "auto", null])(
+    "preserves a reported zero setpoint in mode %s",
+    (mode) => {
+      expect(
+        setpoint("thermostat", {
+          mode: attr(mode),
+          temperature_setpoint: attr(0),
+        }),
+      ).toBe("0.0°");
+    },
+  );
+
   it.each([
     ["thermostat", { temperature_setpoint: attr(21) }, "21.0°"],
     ["awhp", { setpoint_temperature: attr(40) }, "40.0°"],

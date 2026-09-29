@@ -12,7 +12,8 @@ import type { FleetLead, FleetLeadContext, FleetLeadLine } from "./types";
 export const EMPTY_LEAD: FleetLead = { primary: { value: "—" } };
 
 /** Setpoint first ("21,0 °C consigne"), what the unit measures under it
- *  ("19,6 °C mesurée"). Without a setpoint the measure leads alone. */
+ *  ("19,6 °C mesurée"). Without a setpoint the measure leads alone; a setpoint
+ *  the mode does not use reads N/A. */
 export function setpointLead(
   device: Device,
   { t, locale }: FleetLeadContext,
@@ -24,8 +25,10 @@ export function setpointLead(
     measure?.value != null
       ? { value: formatReading(measure, locale), label: measureLabel }
       : null;
-  if (setpoint?.value == null)
-    return measured ? { primary: measured } : EMPTY_LEAD;
+  // A setpoint the current mode does not use (thermostat in fan mode) still
+  // leads, as N/A, rather than leaving the measure to pass for one.
+  const showSetpoint = setpoint?.notApplicable || setpoint?.value != null;
+  if (!showSetpoint) return measured ? { primary: measured } : EMPTY_LEAD;
   return {
     primary: {
       value: formatReading(setpoint, locale),

@@ -60,6 +60,15 @@ describe("fleet leads", () => {
       },
     ],
     [
+      "thermostat in fan mode: the setpoint reads N/A, whatever it reports",
+      DeviceType.Thermostat,
+      { mode: "fan", temperature_setpoint: 0, temperature: 21.5 },
+      {
+        primary: { value: "N/A", label: `${L}.setpoint` },
+        secondary: { value: "21.5°", label: `${L}.measured` },
+      },
+    ],
+    [
       "thermostat without setpoint: the measure leads alone",
       DeviceType.Thermostat,
       { temperature: 19.6 },
