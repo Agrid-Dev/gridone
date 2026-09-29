@@ -1,37 +1,45 @@
 import type { Device } from "@gridone/sdk";
 import { attributeUnit } from "@/lib/attributeUnits";
 import {
+  attributeReading,
   deviceMeasureReading,
-  deviceSetpointReading,
   formatReading,
+  type ReadingSpec,
 } from "@/lib/deviceSummary";
 import type { RunState } from "./glyph-kit";
 import type { FleetLead, FleetLeadContext, FleetLeadLine } from "./types";
+
+/** A value the device's current mode does not use. */
+const NOT_APPLICABLE = "N/A";
 
 /** The primary line of a device that reports nothing to lead with. */
 export const EMPTY_LEAD: FleetLead = { primary: { value: "—" } };
 
 /** Setpoint first ("21,0 °C consigne"), what the unit measures under it
- *  ("19,6 °C mesurée"). Without a setpoint the measure leads alone; a setpoint
- *  the mode does not use reads N/A. */
+ *  ("19,6 °C mesurée"). The type names its setpoint attribute (`setpoint`);
+ *  the measure is its primary one. Without a reported setpoint the measure
+ *  leads alone. A setpoint the current mode does not use (`inapplicable`)
+ *  still leads, as N/A, rather than leaving the measure to pass for one. */
 export function setpointLead(
   device: Device,
   { t, locale }: FleetLeadContext,
-  measureLabel: string,
+  {
+    setpoint: spec,
+    measureLabel,
+    inapplicable = false,
+  }: { setpoint: ReadingSpec; measureLabel: string; inapplicable?: boolean },
 ): FleetLead {
-  const setpoint = deviceSetpointReading(device);
+  const setpoint = attributeReading(device, spec);
   const measure = deviceMeasureReading(device);
   const measured: FleetLeadLine | null =
     measure?.value != null
       ? { value: formatReading(measure, locale), label: measureLabel }
       : null;
-  // A setpoint the current mode does not use (thermostat in fan mode) still
-  // leads, as N/A, rather than leaving the measure to pass for one.
-  const showSetpoint = setpoint?.notApplicable || setpoint?.value != null;
-  if (!showSetpoint) return measured ? { primary: measured } : EMPTY_LEAD;
+  if (!inapplicable && setpoint.value == null)
+    return measured ? { primary: measured } : EMPTY_LEAD;
   return {
     primary: {
-      value: formatReading(setpoint, locale),
+      value: inapplicable ? NOT_APPLICABLE : formatReading(setpoint, locale),
       label: t("devices.card.lead.setpoint"),
     },
     secondary: measured,

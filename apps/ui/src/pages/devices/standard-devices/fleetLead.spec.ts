@@ -196,6 +196,43 @@ describe("fleet leads", () => {
     expect(lead(type, attributes).primary.value).toBe("—");
   });
 
+  it.each([0, 21, null])(
+    "thermostat in fan mode reads its setpoint N/A whatever it reports (%s)",
+    (setpoint) => {
+      expect(
+        lead(DeviceType.Thermostat, {
+          mode: "fan",
+          temperature_setpoint: setpoint,
+          temperature: 21.5,
+        }),
+      ).toEqual({
+        primary: { value: "N/A", label: `${L}.setpoint` },
+        secondary: { value: "21.5°", label: `${L}.measured` },
+      });
+    },
+  );
+
+  it.each(["heat", "cool", "auto", null])(
+    "thermostat keeps a reported zero setpoint in mode %s",
+    (mode) => {
+      expect(
+        lead(DeviceType.Thermostat, { mode, temperature_setpoint: 0 }).primary,
+      ).toEqual({ value: "0.0°", label: `${L}.setpoint` });
+    },
+  );
+
+  it("takes the unit the driver declares for a setpoint and its measure", () => {
+    expect(
+      lead(DeviceType.Awhp, {
+        setpoint_temperature: { value: 45, unit: "°C" },
+        outlet_temperature: { value: 38.2, unit: "°C" },
+      }),
+    ).toMatchObject({
+      primary: { value: "45.0 °C" },
+      secondary: { value: "38.2 °C" },
+    });
+  });
+
   it("takes the unit the driver declares", () => {
     expect(
       lead(DeviceType.Thermostat, {
