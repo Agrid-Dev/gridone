@@ -30,3 +30,31 @@ export function writeStoredPanelOrder(deviceId: string, order: string[]) {
     // Preference is a convenience; a full or disabled store is not an error.
   }
 }
+
+/**
+ * A remembered order updated by a drop over the panels currently shown.
+ *
+ * `visible` is the new order of the panels on screen; a key remembered
+ * from a panel not shown right now (its attribute deselected) keeps its
+ * place, next to the shown neighbour it followed, so reselecting it lands
+ * it where it was rather than last.
+ */
+export function mergePanelOrder(
+  remembered: readonly string[],
+  visible: readonly string[],
+): string[] {
+  const shown = new Set(visible);
+  const result = [...visible];
+  let after: string | null = null;
+  for (const key of remembered) {
+    if (shown.has(key)) {
+      after = key;
+      continue;
+    }
+    if (result.includes(key)) continue;
+    const at = after === null ? 0 : result.indexOf(after) + 1;
+    result.splice(at, 0, key);
+    after = key;
+  }
+  return result;
+}

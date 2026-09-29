@@ -22,7 +22,11 @@ import {
   mergeTimeSeries,
   type MergedRow,
 } from "@/lib/mergeTimeSeries";
-import { readStoredPanelOrder, writeStoredPanelOrder } from "./panelOrder";
+import {
+  mergePanelOrder,
+  readStoredPanelOrder,
+  writeStoredPanelOrder,
+} from "./panelOrder";
 import {
   LEGACY_METRIC_PARAM,
   SELECTION_PARAM,
@@ -353,10 +357,15 @@ export function DeviceHistoryProvider({
   const [panelOrder, setPanelOrderState] = useState<string[]>(
     () => readStoredPanelOrder(deviceId) ?? [],
   );
+  // A drop reports the order of the panels on screen; panels of deselected
+  // attributes keep their remembered place around them.
   const setPanelOrder = useCallback(
     (keys: string[]) => {
-      setPanelOrderState(keys);
-      writeStoredPanelOrder(deviceId, keys);
+      setPanelOrderState((remembered) => {
+        const next = mergePanelOrder(remembered, keys);
+        writeStoredPanelOrder(deviceId, next);
+        return next;
+      });
     },
     [deviceId],
   );

@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { PanelEntry, TimeSeriesChartProps } from "./types";
 import { FloatScaleContext } from "./FloatScaleContext";
 import { SortablePanels } from "./SortablePanels";
+import { LegendGutterContext } from "./LegendGutterContext";
 import { TooltipContent } from "./TooltipContent";
 import { panelRegistry } from "./panels/registry";
 import { usePanels } from "./usePanels";
@@ -21,6 +22,7 @@ export function TimeSeriesChartInner({
   panelOrder,
   onPanelOrderChange,
   dragHandleLabel = (label) => label,
+  dragWording,
   lineHeight,
   categoricalHeight,
   width,
@@ -84,14 +86,17 @@ export function TimeSeriesChartInner({
         onPointerLeave={handlePointerLeave}
       >
         {onPanelOrderChange ? (
-          <SortablePanels
-            panels={panels}
-            onReorder={onPanelOrderChange}
-            onDraggingChange={setDragging}
-            handleLabel={dragHandleLabel}
-          >
-            {renderPanel}
-          </SortablePanels>
+          <LegendGutterContext.Provider value={panels.length > 1}>
+            <SortablePanels
+              panels={panels}
+              onReorder={onPanelOrderChange}
+              onDraggingChange={setDragging}
+              handleLabel={dragHandleLabel}
+              wording={dragWording}
+            >
+              {renderPanel}
+            </SortablePanels>
+          </LegendGutterContext.Provider>
         ) : (
           panels.map(renderPanel)
         )}

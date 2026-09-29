@@ -228,6 +228,14 @@
     "noAttributesSelected": "Sélectionnez des attributs à tracer",
     "noMetricData": "Aucune donnée sur la période",
     "movePanel": "Déplacer {{panel}}",
+    "reorder": {
+      "instructions": "Espace pour saisir le panneau, flèches pour le déplacer, espace pour le déposer, échap pour annuler.",
+      "pickedUp": "{{panel}} saisi",
+      "movedOver": "{{panel}} déplacé sur {{over}}",
+      "dropped": "{{panel}} déposé sur {{over}}",
+      "released": "{{panel}} relâché",
+      "cancelled": "Déplacement de {{panel}} annulé"
+    },
     "export": "Exporter",
     "today": "aujourd'hui",
     "yesterday": "hier"

@@ -18,7 +18,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
 
-import type { PanelEntry } from "./types";
+import type { PanelDragWording, PanelEntry } from "./types";
 
 /** What a panel is called when its handle is named: its series, or the one
  *  series it draws. */
@@ -39,15 +39,43 @@ export function SortablePanels({
   onReorder,
   onDraggingChange,
   handleLabel,
+  wording,
   children,
 }: {
   panels: PanelEntry[];
   onReorder: (keys: string[]) => void;
   onDraggingChange: (dragging: boolean) => void;
   handleLabel: (panelLabel: string) => string;
+  wording?: PanelDragWording;
   children: (panel: PanelEntry, index: number) => ReactNode;
 }) {
   const keys = panels.map((p) => p.key);
+  const labels = new Map(panels.map((p) => [p.key, panelLabel(p)]));
+  const labelOf = (id: unknown) => labels.get(String(id)) ?? String(id);
+  const accessibility = wording && {
+    screenReaderInstructions: { draggable: wording.instructions },
+    announcements: {
+      onDragStart: ({ active }: { active: { id: unknown } }) =>
+        wording.pickedUp(labelOf(active.id)),
+      onDragOver: ({
+        active,
+        over,
+      }: {
+        active: { id: unknown };
+        over: { id: unknown } | null;
+      }) =>
+        over ? wording.movedOver(labelOf(active.id), labelOf(over.id)) : "",
+      onDragEnd: ({
+        active,
+        over,
+      }: {
+        active: { id: unknown };
+        over: { id: unknown } | null;
+      }) => wording.dropped(labelOf(active.id), over ? labelOf(over.id) : null),
+      onDragCancel: ({ active }: { active: { id: unknown } }) =>
+        wording.cancelled(labelOf(active.id)),
+    },
+  };
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, {
@@ -66,6 +94,7 @@ export function SortablePanels({
     <DndContext
       sensors={sensors}
       collisionDetection={closestCenter}
+      accessibility={accessibility}
       onDragStart={() => onDraggingChange(true)}
       onDragCancel={() => onDraggingChange(false)}
       onDragEnd={onDragEnd}
@@ -119,8 +148,8 @@ function SortablePanel({
       }}
     >
       {sortable && (
-        // At the right end of the legend band, clear of the legend itself,
-        // which starts at the left.
+        // At the right end of the legend band, in the gutter every legend
+        // keeps clear while handles show (LegendGutterContext).
         <button
           type="button"
           aria-label={label}

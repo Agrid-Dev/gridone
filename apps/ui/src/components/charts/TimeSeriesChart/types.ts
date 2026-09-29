@@ -59,10 +59,24 @@ export type TimeSeriesChartProps = {
   /** Wording of a panel's drag handle, given the panel's label. Defaults
    *  to the label itself. */
   dragHandleLabel?: (panelLabel: string) => string;
+  /** What a screen reader hears while a panel is reordered by keyboard,
+   *  worded by the caller in its language; dnd-kit's English defaults
+   *  otherwise. */
+  dragWording?: PanelDragWording;
   /** Height of each float line panel */
   lineHeight?: number;
   /** Height of each boolean / string categorical panel */
   categoricalHeight?: number;
+};
+
+/** Screen-reader wording of a panel drag, each given the panels' labels. */
+export type PanelDragWording = {
+  /** How to operate a handle, read once when one takes focus. */
+  instructions: string;
+  pickedUp: (panel: string) => string;
+  movedOver: (panel: string, over: string) => string;
+  dropped: (panel: string, over: string | null) => string;
+  cancelled: (panel: string) => string;
 };
 
 export type TooltipRow = {

@@ -711,6 +711,32 @@ describe("TimeSeriesChart — panel order", () => {
     ]);
   });
 
+  it("keeps the legend band clear of the handle while handles show", () => {
+    const bandStyle = (container: HTMLElement) =>
+      Array.from(container.querySelectorAll<HTMLElement>("div")).find(
+        (div) => div.style.height === "30px",
+      )!.style;
+
+    const plain = renderFull();
+    expect(bandStyle(plain.container).paddingRight).toBe("");
+    cleanup();
+
+    const { container } = render(
+      <TimeSeriesChartInner
+        timestamps={timestamps}
+        lineSeries={floatSeries}
+        lineValues={floatValues}
+        onPanelOrderChange={() => {}}
+        width={WIDTH}
+      />,
+    );
+    // Wide enough for the 24px handle and its margins: a legend row that
+    // fills the band wraps before running under it.
+    expect(parseInt(bandStyle(container).paddingRight)).toBeGreaterThanOrEqual(
+      36,
+    );
+  });
+
   it("offers no handle for a lone panel", () => {
     render(
       <TimeSeriesChartInner
