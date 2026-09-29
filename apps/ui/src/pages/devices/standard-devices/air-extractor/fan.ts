@@ -1,4 +1,4 @@
-import type { RunState } from "../glyph-kit";
+import type { RunState } from "../fleet-status";
 import type { AirExtractorValues } from "./types";
 
 /** Whether the extractor fan is physically turning.

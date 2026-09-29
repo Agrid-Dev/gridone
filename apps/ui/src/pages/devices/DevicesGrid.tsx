@@ -1,16 +1,17 @@
 import type { Device } from "@gridone/sdk";
 import { type DeviceTypeGroup } from "@/lib/deviceTypes";
 import { DeviceFleetCard } from "./DeviceFleetCard";
-import { DeviceGroupHeading } from "./DeviceGroupHeading";
+import { DeviceGroupHeading, DeviceGroupSummary } from "./DeviceGroupHeading";
 
 type DevicesGridProps = {
   groups: DeviceTypeGroup[];
   zonePathOf: (device: Device) => string | null;
 };
 
-/** The fleet grid: one section per type bucket, each a heading followed by a
- *  {@link DeviceFleetCard} per device. A lone bucket drops its heading: the
- *  toolbar's count already says what it would. */
+/** The fleet grid: one section per type bucket, each a heading — with the
+ *  states of its cards beside it — followed by a {@link DeviceFleetCard} per
+ *  device. A lone bucket drops its heading: the toolbar's count already says
+ *  what it would. */
 export function DevicesGrid({ groups, zonePathOf }: DevicesGridProps) {
   const showHeadings = groups.length > 1;
   return (
@@ -24,16 +25,20 @@ export function DevicesGrid({ groups, zonePathOf }: DevicesGridProps) {
           }
         >
           {showHeadings && (
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
               <DeviceGroupHeading
                 id={`device-group-${group.key}`}
                 typeKey={group.key}
                 count={group.devices.length}
               />
-              <span className="h-px flex-1 bg-border" aria-hidden />
+              <DeviceGroupSummary devices={group.devices} />
+              <span className="h-px min-w-6 flex-1 bg-border" aria-hidden />
             </div>
           )}
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {/* An explicit single column below `sm`: an implicit one is sized
+              to the cards' content, so a long type and location would push
+              the card past the screen instead of truncating. */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {group.devices.map((device) => (
               <DeviceFleetCard
                 key={device.id}

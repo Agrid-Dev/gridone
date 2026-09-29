@@ -6,7 +6,7 @@ import {
   formatReading,
   type ReadingSpec,
 } from "@/lib/deviceSummary";
-import type { RunState } from "./glyph-kit";
+import type { RunState } from "./fleet-status";
 import type { FleetLead, FleetLeadContext, FleetLeadLine } from "./types";
 
 /** A value the device's current mode does not use. */
@@ -80,14 +80,14 @@ export function attributeLine(
   };
 }
 
-/** A machine's run state in words ("En marche"), toned while running. */
+/** A machine's run state in words ("En marche"), in the foreground while
+ *  running — no colour of its own: the card's green outline says it. */
 export function runStateLine(
   state: RunState,
   { t }: FleetLeadContext,
-  runningTone = "text-foreground",
 ): FleetLeadLine {
   return {
     value: t(`devices.card.lead.runState.${state}`),
-    tone: state === "running" ? runningTone : "text-muted-foreground",
+    tone: state === "running" ? "text-foreground" : "text-muted-foreground",
   };
 }

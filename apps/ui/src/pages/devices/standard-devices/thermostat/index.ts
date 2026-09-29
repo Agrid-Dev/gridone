@@ -1,4 +1,4 @@
 export { ThermostatControl } from "./ThermostatControl";
 export { ThermostatSupervision } from "./ThermostatSupervision";
-export { ThermostatFleetGlyph } from "./ThermostatFleetGlyph";
+export { thermostatFleetStatus } from "./fleetStatus";
 export { thermostatFleetLead } from "./fleetLead";

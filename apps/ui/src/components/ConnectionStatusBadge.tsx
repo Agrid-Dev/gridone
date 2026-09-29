@@ -57,17 +57,34 @@ export const STATUS_LEVEL: Record<ConnectionStatus, StatusLevel> = {
  *  used where the value sits inline in a list, like the attribute panes. */
 export function ConnectionStatusValue({
   status,
+  withIcon = false,
+  className,
 }: {
   status: ConnectionStatus | null;
+  /** Leads the label with the status icon — where the label stands alone
+   *  rather than in a list of values (the fleet card). */
+  withIcon?: boolean;
+  className?: string;
 }) {
   const { t } = useTranslation("devices");
   if (!status)
-    return <span>{t("deviceDetails.connectionStatus.unknown")}</span>;
+    return (
+      <span className={className}>
+        {t("deviceDetails.connectionStatus.unknown")}
+      </span>
+    );
+  const { Icon, labelKey } = STATUS_CONFIG[status];
   return (
     <span
-      className={cn("font-medium", SEMANTIC_TEXT_CLASS[STATUS_LEVEL[status]])}
+      className={cn(
+        "font-medium",
+        withIcon && "inline-flex items-center gap-1.5",
+        SEMANTIC_TEXT_CLASS[STATUS_LEVEL[status]],
+        className,
+      )}
     >
-      {t(STATUS_CONFIG[status].labelKey)}
+      {withIcon && <Icon className="size-3.5 shrink-0" />}
+      {t(labelKey)}
     </span>
   );
 }

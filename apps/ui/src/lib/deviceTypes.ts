@@ -4,38 +4,37 @@
  * per-type bucketing. Devices with no type or an unknown one fall under the
  * `other` bucket.
  */
-import type { ComponentType } from "react";
-import {
-  AirVent,
-  BedDouble,
-  CircleHelp,
-  CloudSun,
-  Cpu,
-  Droplet,
-  Waves,
-  Fan,
-  Thermometer,
-  Wind,
-  Zap,
-} from "lucide-react";
+import { CircleHelp, Cpu, type LucideIcon } from "lucide-react";
 import type { TFunction } from "i18next";
 import type { Device } from "@gridone/sdk";
 import { DeviceType } from "@/lib/devices";
+import {
+  AirExtractorIcon,
+  AirHandlerDoubleFlowIcon,
+  AirHandlerSingleFlowIcon,
+  ElectricityMeterIcon,
+  HeatPumpIcon,
+  LiquidDetectorIcon,
+  PmsMonitorIcon,
+  PumpIcon,
+  ThermostatIcon,
+  WeatherSensorIcon,
+} from "@/lib/deviceTypeIcons";
 import { sortedByName } from "@/lib/sortByName";
 
-export type DeviceTypeIcon = ComponentType<{ className?: string }>;
+export type DeviceTypeIcon = LucideIcon;
 
 export const DEVICE_TYPE_ICONS: Record<DeviceType, DeviceTypeIcon> = {
-  [DeviceType.Thermostat]: Thermometer,
-  [DeviceType.Awhp]: Fan,
-  [DeviceType.WeatherSensor]: CloudSun,
-  [DeviceType.ElectricityMeter]: Zap,
-  [DeviceType.AhuDoubleFlux]: AirVent,
-  [DeviceType.AhuSingleFlux]: AirVent,
-  [DeviceType.AirExtractor]: Wind,
-  [DeviceType.PmsMonitor]: BedDouble,
-  [DeviceType.LiquidDetector]: Droplet,
-  [DeviceType.Pump]: Waves,
+  [DeviceType.Thermostat]: ThermostatIcon,
+  [DeviceType.Awhp]: HeatPumpIcon,
+  [DeviceType.WeatherSensor]: WeatherSensorIcon,
+  [DeviceType.ElectricityMeter]: ElectricityMeterIcon,
+  [DeviceType.AhuDoubleFlux]: AirHandlerDoubleFlowIcon,
+  [DeviceType.AhuSingleFlux]: AirHandlerSingleFlowIcon,
+  [DeviceType.AirExtractor]: AirExtractorIcon,
+  [DeviceType.PmsMonitor]: PmsMonitorIcon,
+  [DeviceType.LiquidDetector]: LiquidDetectorIcon,
+  [DeviceType.Pump]: PumpIcon,
 };
 
 export const OTHER_KEY = "other";

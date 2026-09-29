@@ -1,2 +1,2 @@
-export { PmsMonitorFleetGlyph } from "./PmsMonitorFleetGlyph";
+export { pmsMonitorFleetStatus } from "./fleetStatus";
 export { pmsMonitorFleetLead } from "./fleetLead";

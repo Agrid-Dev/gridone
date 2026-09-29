@@ -30,6 +30,8 @@ vi.mock("react-i18next", () =>
     "deviceDetails.activeFaults.badge": "{{count}} fault(s)",
     "devices.card.lead.setpoint": "setpoint",
     "devices.card.lead.measured": "measured",
+    "devices.card.lead.runState.stopped": "Stopped",
+    "common.hvacMode.heat": "Heating",
     "common.view.label": "View",
     "common:common.severityCount.alert": "{{count}} alert(s)",
     "common:common.severityCount.warning": "{{count}} warning(s)",
@@ -358,7 +360,7 @@ describe("DevicesList — cards", () => {
     );
   });
 
-  it("draws a stopped unit as off, even with a configured mode", () => {
+  it("shows a stopped unit as idle, even with a configured mode", () => {
     mockUseDevicesList.mockReturnValue({
       devices: [
         makeDevice("d1", "Chambre 102", {
@@ -373,9 +375,12 @@ describe("DevicesList — cards", () => {
     const card = screen
       .getByRole("link", { name: "Chambre 102" })
       .closest(".group") as HTMLElement;
-    expect(
-      within(card).getByRole("img", { name: "Thermostat" }),
-    ).toHaveAttribute("data-state", "stopped");
+    expect(card.querySelector("[data-activity]")).toHaveAttribute(
+      "data-activity",
+      "idle",
+    );
+    expect(card).toHaveTextContent("Stopped");
+    expect(card).not.toHaveTextContent("Heating");
   });
 
   it("summarizes a thermostat: location, setpoint, measured reading, mode", () => {
@@ -404,9 +409,11 @@ describe("DevicesList — cards", () => {
     expect(card).toHaveTextContent("21,0°");
     expect(card).toHaveTextContent(/21,0°\s*setpoint/);
     expect(card).toHaveTextContent(/21,4°\s*measured/);
-    expect(
-      within(card as HTMLElement).getByRole("img", { name: "Thermostat" }),
-    ).toHaveAttribute("data-state", "running:heat");
+    expect(card?.querySelector("[data-activity]")).toHaveAttribute(
+      "data-activity",
+      "running",
+    );
+    expect(card).toHaveTextContent("Heating");
   });
 
   it("shows the highest active severity instead of the healthy label", () => {
@@ -500,10 +507,11 @@ describe("DevicesList — summary", () => {
       error: null,
     });
     renderAt();
-    expect(screen.getByText("4 devices")).toBeInTheDocument();
-    expect(screen.getByText("2 connected")).toBeInTheDocument();
-    expect(screen.getByText("1 degraded")).toBeInTheDocument();
-    expect(screen.getByText("1 disconnected")).toBeInTheDocument();
+    // The fleet line, not the group's: its disconnected count says it too.
+    const summary = screen.getByText("4 devices").parentElement as HTMLElement;
+    expect(within(summary).getByText("2 connected")).toBeInTheDocument();
+    expect(within(summary).getByText("1 degraded")).toBeInTheDocument();
+    expect(within(summary).getByText("1 disconnected")).toBeInTheDocument();
     expect(screen.queryByText(/idle/)).not.toBeInTheDocument();
   });
 
