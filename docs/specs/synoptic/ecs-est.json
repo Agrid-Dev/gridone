@@ -628,7 +628,7 @@
           "devices": { "ids": ["87c6dfe5bdcf4d87"] },
           "attribute": "energy"
         },
-        "unit": "Wh",
+        "unit": "kWh",
         "decimals": 0
       }
     },
