@@ -1,12 +1,11 @@
 import { useTranslation } from "react-i18next";
-import { useSearchParams } from "react-router";
 import { TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui";
 import { FacetFilter } from "@/components/FacetFilter";
 import {
   FILTER_PARAMS,
-  readHealthParam,
   useSetFilterParams,
+  type Health,
 } from "@/hooks/useFilterParams";
 import type { ConnectionCounts } from "@/lib/deviceSummary";
 import {
@@ -24,8 +23,10 @@ type DevicesToolbarProps = {
   total: number;
   /** Unfiltered faulty-device count. */
   faultyCount: number;
-  /** Devices matching the current filters. */
-  shown: number;
+  /** Devices matching the current filters; null while unknown. */
+  shown: number | null;
+  selectedTypes: DeviceTypeKey[];
+  health: Health;
   connectionCounts: ConnectionCounts;
   summaryLoading: boolean;
   hasFilters: boolean;
@@ -39,6 +40,8 @@ export function DevicesToolbar({
   total,
   faultyCount,
   shown,
+  selectedTypes,
+  health,
   connectionCounts,
   summaryLoading,
   hasFilters,
@@ -49,8 +52,12 @@ export function DevicesToolbar({
   return (
     <div className="flex flex-wrap items-center gap-2">
       <DeviceSearchField />
-      <DeviceTypeFacet counts={typeCounts} />
-      <DeviceHealthFacet total={total} faultyCount={faultyCount} />
+      <DeviceTypeFacet counts={typeCounts} selected={selectedTypes} />
+      <DeviceHealthFacet
+        total={total}
+        faultyCount={faultyCount}
+        selected={health}
+      />
       {hasFilters && (
         <Button type="button" variant="ghost" size="sm" onClick={clearAll}>
           {t("devices.filters.reset")}
@@ -60,7 +67,7 @@ export function DevicesToolbar({
         <div className="ml-auto text-sm text-muted-foreground">
           <DevicesSummary
             total={total}
-            shown={shown}
+            shown={shown ?? total}
             counts={connectionCounts}
           />
         </div>
@@ -80,13 +87,17 @@ function useFacetLabels() {
 
 /** Type buckets present in the fleet, plus any bookmarked one that is not,
  *  so it stays visible and clearable. */
-function DeviceTypeFacet({ counts }: { counts: Map<DeviceTypeKey, number> }) {
+function DeviceTypeFacet({
+  counts,
+  selected,
+}: {
+  counts: Map<DeviceTypeKey, number>;
+  selected: DeviceTypeKey[];
+}) {
   const { t } = useTranslation("devices");
   const { t: tTypes } = useTranslation("standardDevices");
-  const [searchParams] = useSearchParams();
   const { setValues } = useSetFilterParams();
   const labels = useFacetLabels();
-  const selected = searchParams.getAll(FILTER_PARAMS.type);
 
   const options = DEVICE_TYPE_ORDER.filter(
     (key) => (counts.get(key) ?? 0) > 0 || selected.includes(key),
@@ -109,19 +120,19 @@ function DeviceTypeFacet({ counts }: { counts: Map<DeviceTypeKey, number> }) {
 
 const HEALTH_OPTIONS = ["faulty", "healthy"] as const;
 
-/** Faulty / fault-free. Both or neither selected means no filter. */
+/** Faulty or fault-free: one choice at most, so a pick replaces the other. */
 function DeviceHealthFacet({
   total,
   faultyCount,
+  selected,
 }: {
   total: number;
   faultyCount: number;
+  selected: Health;
 }) {
   const { t } = useTranslation("devices");
-  const [searchParams] = useSearchParams();
   const { setValues } = useSetFilterParams();
   const labels = useFacetLabels();
-  const health = readHealthParam(searchParams);
   const counts = { faulty: faultyCount, healthy: total - faultyCount };
 
   return (
@@ -132,10 +143,9 @@ function DeviceHealthFacet({
         label: t(`devices.health.${value}`),
         count: counts[value],
       }))}
-      selected={health === "all" ? [] : [health]}
-      onChange={(next) =>
-        setValues(FILTER_PARAMS.health, next.length === 1 ? next : [])
-      }
+      selected={selected === "all" ? [] : [selected]}
+      onChange={(next) => setValues(FILTER_PARAMS.health, next)}
+      selection="single"
       summary={
         faultyCount > 0 && (
           <span className="inline-flex items-center gap-1 text-xs font-semibold tabular-nums text-destructive">

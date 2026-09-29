@@ -1,6 +1,7 @@
 import { useSearchParams } from "react-router";
 import { useCallback, useMemo } from "react";
 import type { DevicesFilter } from "@/lib/devices";
+import { isDeviceTypeKey } from "@/lib/deviceTypes";
 
 export type Health = "all" | "healthy" | "faulty";
 
@@ -18,7 +19,7 @@ function isHealth(value: string | null): value is Health {
   return value === "all" || value === "healthy" || value === "faulty";
 }
 
-export function readHealthParam(searchParams: URLSearchParams): Health {
+function readHealthParam(searchParams: URLSearchParams): Health {
   const raw = searchParams.get(FILTER_PARAMS.health);
   return isHealth(raw) ? raw : "all";
 }
@@ -26,12 +27,16 @@ export function readHealthParam(searchParams: URLSearchParams): Health {
 /** Read the filter query params (`type`, `health`, `search`) as a
  *  ``DevicesFilter`` so the devices list reuses the same shape as the
  *  batch-command target and the backend applies the filter server-side.
+ *  Types outside the known buckets (a stale bookmark, an empty value) are
+ *  dropped, so the filter only holds what the type facet can show.
  *  Returns ``undefined`` when no filter keys are present. */
 export function useFilterParams(): DevicesFilter | undefined {
   const [searchParams] = useSearchParams();
 
   return useMemo(() => {
-    const types = searchParams.getAll(FILTER_PARAMS.type).filter(Boolean);
+    const types = searchParams
+      .getAll(FILTER_PARAMS.type)
+      .filter(isDeviceTypeKey);
     const health = readHealthParam(searchParams);
     const search = searchParams.get(FILTER_PARAMS.search)?.trim();
 

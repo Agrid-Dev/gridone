@@ -81,8 +81,11 @@ vi.mock("@/hooks/useAssetTree", () => ({
 
 /** Admins hold every permission; other users hold none of theirs. */
 let isAdmin = true;
+/** When set, exactly these permissions are held, overriding `isAdmin`. */
+let granted: string[] | null = null;
 vi.mock("@/contexts/AuthContext", () => ({
-  usePermissions: () => () => isAdmin,
+  usePermissions: () => (permission: string) =>
+    granted ? granted.includes(permission) : isAdmin,
 }));
 
 import DevicesList from "./DevicesList";
@@ -137,6 +140,7 @@ beforeEach(() => {
   clearNavigation();
   localStorage.removeItem("devices.view");
   isAdmin = true;
+  granted = null;
   mockUseDevicesList.mockReturnValue({
     devices: [makeDevice("d1", "Alpha")],
     loading: false,
@@ -195,13 +199,41 @@ describe("DevicesList — filters", () => {
     });
   });
 
-  it("filters on faults, and drops the criterion when both options are picked", async () => {
+  it("filters on one fault state at a time: a pick replaces the other", async () => {
     renderAt();
     await userEvent.click(screen.getByRole("button", { name: /^Faults/ }));
     await userEvent.click(screen.getByRole("option", { name: /Faulty/ }));
     expect(lastListFilter()).toEqual({ is_faulty: true });
     await userEvent.click(screen.getByRole("option", { name: /No fault/ }));
+    expect(lastListFilter()).toEqual({ is_faulty: false });
+    expect(screen.getByRole("option", { name: /No fault/ })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+    expect(screen.getByRole("option", { name: /Faulty/ })).toHaveAttribute(
+      "aria-checked",
+      "false",
+    );
+  });
+
+  it("ignores unknown or empty types from the URL", () => {
+    renderAt(["/devices?type=&type=not_a_type"]);
     expect(lastListFilter()).toBeUndefined();
+    expect(
+      screen.queryByRole("button", { name: "Reset" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows the fleet total, not an empty match count, while the filtered list loads", () => {
+    const fleet = [makeDevice("d1", "Alpha"), makeDevice("d2", "Bravo")];
+    mockUseDevicesList.mockImplementation((...args: unknown[]) =>
+      args.length === 0
+        ? { devices: fleet, loading: false, error: null }
+        : { devices: [], loading: true, error: null },
+    );
+    renderAt(["/devices?health=faulty"]);
+    expect(screen.getByText("2 devices")).toBeInTheDocument();
+    expect(screen.queryByText(/0 of 2/)).not.toBeInTheDocument();
   });
 
   it("counts matches against the fleet and resets every filter at once", async () => {
@@ -256,16 +288,33 @@ describe("DevicesList — header actions", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows command history as the readers' only action", () => {
-    isAdmin = false;
-    renderAt();
-    expect(
-      screen.getByRole("link", { name: "Command history" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "More actions" }),
-    ).not.toBeInTheDocument();
-  });
+  it.each([
+    {
+      permissions: ["devices:read"],
+      shown: ["Command history"],
+      hidden: ["Add", "New grouped command"],
+    },
+    {
+      permissions: ["devices:read", "devices:command"],
+      shown: ["Command history", "New grouped command"],
+      hidden: ["Add"],
+    },
+    {
+      permissions: ["devices:read", "devices:write"],
+      shown: ["Add"],
+      hidden: ["New grouped command"],
+    },
+  ])(
+    "gates each action on its own permission: $permissions",
+    ({ permissions, shown, hidden }) => {
+      granted = permissions;
+      renderAt();
+      for (const name of shown)
+        expect(screen.getByRole("link", { name })).toBeInTheDocument();
+      for (const name of hidden)
+        expect(screen.queryByRole("link", { name })).not.toBeInTheDocument();
+    },
+  );
 });
 
 describe("DevicesList — cards", () => {

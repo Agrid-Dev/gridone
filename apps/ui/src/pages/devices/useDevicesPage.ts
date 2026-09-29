@@ -1,13 +1,14 @@
 import { useMemo } from "react";
 import type { Device } from "@gridone/sdk";
 import { useDevicesList } from "@/hooks/useDevicesList";
-import { useFilterParams } from "@/hooks/useFilterParams";
+import { useFilterParams, type Health } from "@/hooks/useFilterParams";
 import { useDeviceZonePath } from "@/hooks/useDeviceZonePath";
 import type { DevicesFilter } from "@/lib/devices";
 import {
   countDevicesByType,
   deviceTypeKey,
   groupDevicesByType,
+  isDeviceTypeKey,
   OTHER_KEY,
   type DeviceTypeGroup,
   type DeviceTypeKey,
@@ -26,8 +27,13 @@ type DevicesPage = {
   total: number;
   /** Unfiltered count of devices with an active fault. */
   faultyCount: number;
-  /** Devices left once filters apply. */
-  shown: number;
+  /** Devices left once filters apply; null while the filtered list is
+   *  loading or failed, so no count passes for an empty result. */
+  shown: number | null;
+  /** Type buckets selected by the filter, as parsed from the URL. */
+  selectedTypes: DeviceTypeKey[];
+  /** Fault criterion selected by the filter. */
+  health: Health;
   /** Unfiltered connection tally for the header summary. */
   connectionCounts: ConnectionCounts;
   summaryLoading: boolean;
@@ -45,7 +51,10 @@ type DevicesPage = {
  *  `["devices", undefined]` cache the sidebar keeps warm. */
 export function useDevicesPage(): DevicesPage {
   const filter = useFilterParams();
-  const selectedTypes = useMemo(() => filter?.types ?? [], [filter]);
+  const selectedTypes = useMemo(
+    () => (filter?.types ?? []).filter(isDeviceTypeKey),
+    [filter],
+  );
   const otherSelected = selectedTypes.includes(OTHER_KEY);
 
   // `other` is a UI bucket, not a wire type: the server cannot express
@@ -86,7 +95,12 @@ export function useDevicesPage(): DevicesPage {
     typeCounts,
     total: allDevices.length,
     faultyCount: allDevices.filter((device) => device.is_faulty).length,
-    shown: groups.reduce((sum, group) => sum + group.devices.length, 0),
+    shown:
+      loading || error
+        ? null
+        : groups.reduce((sum, group) => sum + group.devices.length, 0),
+    selectedTypes,
+    health: healthOf(filter),
     connectionCounts,
     summaryLoading,
     zonePathOf,
@@ -94,4 +108,9 @@ export function useDevicesPage(): DevicesPage {
     error,
     hasFilters: !!filter,
   };
+}
+
+function healthOf(filter: DevicesFilter | undefined): Health {
+  if (filter?.is_faulty == null) return "all";
+  return filter.is_faulty ? "faulty" : "healthy";
 }

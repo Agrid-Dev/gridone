@@ -28,6 +28,8 @@ export default function DevicesList() {
     total,
     faultyCount,
     shown,
+    selectedTypes,
+    health,
     connectionCounts,
     summaryLoading,
     zonePathOf,
@@ -41,7 +43,12 @@ export default function DevicesList() {
       <ResourceHeader
         flush
         title={t("devices.title")}
-        actions={<DevicesActions canWrite={can("devices:write")} />}
+        actions={
+          <DevicesActions
+            canWrite={can("devices:write")}
+            canCommand={can("devices:command")}
+          />
+        }
       />
 
       <DevicesTabs />
@@ -51,6 +58,8 @@ export default function DevicesList() {
         total={total}
         faultyCount={faultyCount}
         shown={shown}
+        selectedTypes={selectedTypes}
+        health={health}
         connectionCounts={connectionCounts}
         summaryLoading={summaryLoading}
         hasFilters={hasFilters}
@@ -85,62 +94,72 @@ export default function DevicesList() {
   );
 }
 
-/** At most two visible buttons: writers get the create actions up front and
- *  the rest behind an overflow menu; readers keep their only action
- *  (command history) as a plain button. */
-function DevicesActions({ canWrite }: { canWrite: boolean }) {
+/** At most two visible buttons, each gated on its own permission: Add on
+ *  `devices:write`, New grouped command on `devices:command`. Command
+ *  history sits behind an overflow menu with zone import for writers, and
+ *  stays a plain button for everyone else. */
+function DevicesActions({
+  canWrite,
+  canCommand,
+}: {
+  canWrite: boolean;
+  canCommand: boolean;
+}) {
   const { t } = useTranslation("devices");
-
-  if (!canWrite)
-    return (
-      <Button asChild variant="outline" size="sm">
-        <Link to="/devices/commands">
-          <History />
-          {t("commands.subtitle")}
-        </Link>
-      </Button>
-    );
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-9 w-9"
-            aria-label={t("devices.actions.more")}
-          >
-            <Ellipsis />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem asChild>
-            <Link to="/devices/commands">
-              <History />
-              {t("commands.subtitle")}
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link to="/devices/zone-mapping/import">
-              <Upload />
-              {t("zoneImport.action")}
-            </Link>
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <Button asChild variant="outline" size="sm">
-        <Link to="/devices/new">
-          <Plus />
-          {t("devices.actions.add")}
-        </Link>
-      </Button>
-      <Button asChild size="sm">
-        <Link to="/devices/commands/new">
-          <Terminal />
-          {t("commands.newGroupedCommand")}
-        </Link>
-      </Button>
+      {canWrite ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-9 w-9"
+              aria-label={t("devices.actions.more")}
+            >
+              <Ellipsis />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem asChild>
+              <Link to="/devices/commands">
+                <History />
+                {t("commands.subtitle")}
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link to="/devices/zone-mapping/import">
+                <Upload />
+                {t("zoneImport.action")}
+              </Link>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : (
+        <Button asChild variant="outline" size="sm">
+          <Link to="/devices/commands">
+            <History />
+            {t("commands.subtitle")}
+          </Link>
+        </Button>
+      )}
+      {canWrite && (
+        <Button asChild variant="outline" size="sm">
+          <Link to="/devices/new">
+            <Plus />
+            {t("devices.actions.add")}
+          </Link>
+        </Button>
+      )}
+      {canCommand && (
+        <Button asChild size="sm">
+          <Link to="/devices/commands/new">
+            <Terminal />
+            {t("commands.newGroupedCommand")}
+          </Link>
+        </Button>
+      )}
     </>
   );
 }

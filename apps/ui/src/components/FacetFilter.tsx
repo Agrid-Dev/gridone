@@ -33,6 +33,9 @@ type FacetFilterProps = {
   onChange: (next: string[]) => void;
   /** Shown in the trigger while nothing is selected (e.g. a fault count). */
   summary?: ReactNode;
+  /** `single` makes the options radio-like: picking one replaces the
+   *  selection, picking the selected one clears it. */
+  selection?: "multiple" | "single";
   searchPlaceholder: string;
   emptyMessage: string;
   clearLabel: string;
@@ -49,6 +52,7 @@ export function FacetFilter({
   selected,
   onChange,
   summary,
+  selection = "multiple",
   searchPlaceholder,
   emptyMessage,
   clearLabel,
@@ -58,7 +62,9 @@ export function FacetFilter({
     onChange(
       isSelected(value)
         ? selected.filter((current) => current !== value)
-        : [...selected, value],
+        : selection === "single"
+          ? [value]
+          : [...selected, value],
     );
   const firstSelected = options.find((option) => isSelected(option.value));
 
@@ -110,7 +116,8 @@ export function FacetFilter({
                   <span
                     aria-hidden
                     className={cn(
-                      "flex h-4 w-4 items-center justify-center rounded-sm border",
+                      "flex h-4 w-4 items-center justify-center border",
+                      selection === "single" ? "rounded-full" : "rounded-sm",
                       isSelected(option.value)
                         ? "border-primary bg-primary text-primary-foreground"
                         : "border-muted-foreground/50",

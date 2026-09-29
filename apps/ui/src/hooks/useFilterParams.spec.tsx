@@ -35,6 +35,13 @@ describe("useFilterParams", () => {
     });
   });
 
+  it("drops empty and unknown types", () => {
+    const { result } = renderHook(() => useFilterParams(), {
+      wrapper: wrapperFor(["/?type=&type=not_a_type&type=other"]),
+    });
+    expect(result.current).toEqual({ types: ["other"] });
+  });
+
   it("maps ?health=faulty to { is_faulty: true }", () => {
     const { result } = renderHook(() => useFilterParams(), {
       wrapper: wrapperFor(["/?health=faulty"]),
