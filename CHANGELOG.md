@@ -1,3 +1,11 @@
+## v0.280.0 (2026-09-29)
+
+### Feat
+
+- **ui**: reorder the history chart's panels by drag and drop (AGR-1403) (#728)
+- **ui**: improve device history (AGR-1403) (#725)
+- **ui**: panel numeric chart series by unit (AGR-1403) (#724)
+
 ## v0.279.5 (2026-09-29)
 
 ### Refactor
