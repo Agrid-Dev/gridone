@@ -3,7 +3,7 @@
 - **Status**: Draft
 - **Milestone**: M1 — Use cases, data and specs (Synoptique project)
 - **Issues**: AGR-1184 (this spec), AGR-1160 (model and service), AGR-1161 (router and binding resolution), AGR-1162 (renderer), AGR-1164 (first plate, production-correct)
-- **Plates**: [`synoptic/ecs-est.json`](synoptic/ecs-est.json), the ECS Est plate written by hand in this format, [`synoptic/ecs-ouest.json`](synoptic/ecs-ouest.json), the Ouest bay of the same installation, [`synoptic/production-chaud.json`](synoptic/production-chaud.json), the hot production that feeds the building's heating circuits, and [`synoptic/production-froid.json`](synoptic/production-froid.json), the cold production, the first plate authored in the editor. They are the documents AGR-1160 stores, AGR-1161 serves and AGR-1162 renders; none is a throwaway fixture.
+- **Plates**: [`synoptic/ecs-est.json`](synoptic/ecs-est.json), the ECS Est plate written by hand in this format, [`synoptic/ecs-ouest.json`](synoptic/ecs-ouest.json), the Ouest bay of the same installation, [`synoptic/production-chaud.json`](synoptic/production-chaud.json), the hot production that feeds the building's heating circuits, [`synoptic/production-froid.json`](synoptic/production-froid.json), the cold production, the first plate authored in the editor, and [`synoptic/ecs-club-restaurant.json`](synoptic/ecs-club-restaurant.json), the restaurant's hot water, the first plate drawn from the plant's own sheets rather than an old GTB view. They are the documents AGR-1160 stores, AGR-1161 serves and AGR-1162 renders; none is a throwaway fixture.
 - **Out of scope**: the visual language (AGR-1156), the projection and depth ordering (AGR-1158), the editor (AGR-1165), anything the renderer decides from the document alone.
 
 The document describes a plate; it never describes a drawing. Everything that is a rendering choice — screen coordinates, colours, stroke styles, fonts, arrow weights, what a stale value looks like — is derived by the renderer from the document plus the symbol kit, and is deliberately unexpressible here (see *What the format cannot express*).
@@ -345,6 +345,50 @@ The measurement the issue asked for (AGR-1166), 2026-09-18 and 19, agent time: p
 - **A descent in place was once routed as a loop** through the neighbouring column, on a draw whose first point was a stray cell left from an interrupted draw; the same points from the port produced the third plate's waypoints exactly. Not reproduced; to watch.
 - **The one shared pipe was first drawn arriving on both plates.** The editor draws a link's `out` as readily as its `in`; the review caught that the balance line entered both returns. A link that leads to another plate is a pipe with one direction across the two.
 
+## The fifth plate: `synoptic/ecs-club-restaurant.json`
+
+The old GTB has no view of the restaurant's hot water: its DOE synoptic booklet lists ECS views for the two room bays only, and its PLOMBERIE view gives the station three rows (Etat Mitigeur, Température Aller, Température Retour, the last two at 0 °C on the capture). The plate is drawn from the plant's own sheets instead: the installer's "Schéma de production ECS Club Restaurant" (a plate exchanger fed by the hot production, four 1000 L ballons in parallel between a top and a bottom manifold, a double pump on the charge run, the départ off the top manifold, the bouclage return through its pump pair and the eau froide adoucie arriving on the bottom manifold) and the panoplie P&ID "Départ EC Restaurant" (mitigeur with eau froide adoucie, départ and retour probes, pompe de bouclage drawn as one symbol, no réchauffeur de boucle and no pompe de surpression: its nomenclature stops before them). The sheet's orientation is kept, the départ to the west and the production to the east, so the distribution corner is the bays' mirrored. Plan view of the grid, `z` up:
+
+```
+ y=-9  PRODUCTION ECS CLUB / RESTAURANT (title)
+ y=-6  [EFA 1, rot 3] -> cold_in                        secondaire sortie <- SORTIE ÉCHANGEUR 28 <- (33,-2)
+ y=-4                                                    V3V 35 -- bypass tee 36 -- (39,-4)  primary return
+ y=-2  [DIST -3] <- DÉPART -1 <- [MIT 1, rot 2] <- [top manifold x=6..22] <-------------------- x=33
+ y= 0             b01 (8)   b02 (12)   b03 (16)   b04 (20)      [ECH 32, rot 3]   [PROD. CHAUD 40]
+ y= 3                                                    (32,3) <- clapet 33 <- CPT 35 <- tee 36 <- VANNE 38 <- (39,3)
+ y= 4          [bottom manifold x=6..24] -> POMPE 26 -> clapet 28 -> ENTRÉE ÉCHANGEUR 29 -> (31,4) up to (32,1)
+ y= 6  bouclage from [DIST].out over the départ at z=1, along y=6: RETOUR 2, POMPE DE BOUCLAGE 6, up at x=22
+ y= 8  [EFA -3, rot 2] -> along y=8, up at x=23 into the bottom manifold
+ y=10  STOCKAGE · 4 × 1000 L (caption)
+```
+
+Circuit roles: the hot production's water `heating_supply` / `heating_return` (the third plate's circuit fluids; its "CIRCUIT ECS (CUISINE)" link is the other end of this plate's primary), the charge loop between the exchanger and the tanks `primary_supply` / `primary_return` (the production loop, as the PAC loop is on the bays), the départ `dhw`, the bouclage `dhw_loop`, eau froide adoucie `cold_water` at both entries. The exchanger sits at rotation 3: the charge run enters its secondary from the west and leaves east, the primary enters from the south and leaves north, crossing the secondary outlet overhead. The three-way valve the sheet draws on the primary return with a bypass to the supply is a `valve_control` with the bypass teed onto the return one cell from it: a deliberate simplification, as the bays' inline réchauffeur is. The tanks are drawn as the sheet has them, each fed once from the top manifold and drained once into the bottom one, no chaining; as on the bays they carry no name (the sheet writes "Ballon ECS 1000 litres" on each) and the STOCKAGE caption names the bay with the count and capacity, no total.
+
+### Bindings inventory
+
+No slot is bound. Every reading the drawings show is either dead at source, read by a controller whose attachment to this plant is not a site fact yet, or read by a pump couple that is not identified; each rides the plate as a marker, and this table says what it would bind to.
+
+| Element | Slot / tag | Device | Why not bound | Format |
+|---|---|---|---|---|
+| `tt-depart`, `tt-retour` | value | none | the PLOMBERIE view's Température Aller / Retour: `wago_ss1_ecs.ecs_restaurant_temp_depart` / `_temp_recyclage` have read 0 since creation (`last_changed` never set), the same 0 °C the capture shows | `text`, "non mesurée" |
+| `tt-secondaire-entree`, `tt-secondaire-sortie` | value | not yet | the sheet draws a thermometer at the exchanger's secondary inlet and outlet; the Charot gateway (`charot_packcontrol`) reads `sp_temperature` (51.0 °C on 2026-09-29) and `s1_temperature` (53.0 °C), configured as "Entrée EF échangeur" and "Sortie ECS échangeur" in its case 3 (semi-instantané, schema 304), but nothing on site has confirmed that this gateway is this plant's controller | `text`, "non identifiée" |
+| `v3v-primaire` | `position` | not yet | the gateway's `v3v_position` (100 %, its "V3V PRIMAIRE"), same reason | `text`, "non identifiée" |
+| `pompe-charge` | `state` | not yet | the gateway drives a double primary pump (`pp1_state` / `pp2_state`, one head running, alternating) and a simple charge pump (`pc1_state`); the sheet draws one double pump and nothing says which it is | `text`, "non identifiée" |
+| `pompe-bouclage` | `state` | not yet | the loop's pump is a couple of two heads, duty and standby (the production sheet draws the pair, the cabinet reads POMPES 1&2 / 3&4 / 5&6, `isma_mix38_chaufferie` reads six heads); one `pump` symbol stands for the couple, as on the bays, because which of the three couples serves this loop is unknown. The day the site names it, the three hot-water plates draw two heads on parallel branches, each bound to its own head, as the hot production draws its twins | `text`, "non identifiée" |
+| `cpt-primaire` | `energy` | none | the sheet's compteur d'énergie on the primary supply; no device reads it, and the GTB's CPT-EC-ECS CUISINE (0.0 kWh on the capture), most likely this meter seen from the production, rides the third plate as `cpt-cuisine` with the same marker | `text`, "non mesurée" |
+| `v-regulation` | `position` | none | the sheet's "energy valve" set on the primary supply; the four Belimo energy valves on the instance are the air handlers' | `text`, "non mesurée" |
+
+No symbol carries a `device_id`: the tanks are not the iSMA module that reads their cabinet, the exchanger is not the gateway, so the view's fault list is empty, as the hot production's is for its controller devices. Dropped, and listed so nobody re-adds them without a drawing: the PLOMBERIE view's Etat Mitigeur (`ecs_restaurant_mitigeur`, reads 0), as on the bays; the iSMA ballons module's `ballon_1..4_marche` and `_defaut` (a run and a fault contact per ballon, all False today; the issue names them as this station's four tanks, no drawing shows a tank state, and no plate binds a tank; the day one does, `tank` gains `state` and `fault` and the left-to-right order is confirmed on site), its `_auto` / `_commande` contacts and the pump and heater auto returns; the chaufferie module's `pompe_x_y_commande` / `_defaut` and both réchauffeurs (this station has none, so the two heaters belong to the bays); the gateway's homogenisation pump (`ph2_state`, not drawn), its unwired probes, flow meters, ballon outputs and second valves; the sheet's instrumentation with no device (thermomètres, manomètres, soupapes, purgeurs, the vent group on the secondary outlet, the water meter on the eau froide adoucie, the manchette témoin); the third plate's cuisine circuit temperatures, which belong there.
+
+### What the fifth plate answered
+
+- **A plate can be drawn from the plant's sheets alone.** The DOE synoptic booklet confirmed the old GTB never had this view; the installer's production sheet and the panoplie P&ID gave every element, and the PLOMBERIE panel the three readings. The bays' rules held without a new one: labels are the sheets' words, markers where a reading has no confirmed source, the corner drawn as the panoplie has it.
+- **The bay template is the heat pumps', not the fluid's.** `test_ecs_bays.py` holds every plate named "Production ECS ..." to two PAC supply runs, a surpression pump and a loop heater; this station has an exchanger and neither pump nor heater, so `ECS_PLATES` now reads the bays off the plates that place a `heat_pump`, and this plate has its own file.
+- **A controller's configuration is a reading, not a fact.** The Charot gateway's stored case (semi-instantané, four ballon outputs, a double primary pump, a primary three-way valve) matches this plant and no other on site, and names where its two live probes sit. The plate marks the three readings rather than bind them, and the confirmation is on the site checklist; binding is one edit.
+- **Two plates draw one pipe.** The hot production's "CIRCUIT ECS (CUISINE)" link and this plate's "PRODUCTION CHAUD" link are the two ends of the primary; both files name no target, and the two are pointed at each other on the instance after the push, as the productions' balance line is.
+- **`valve_check` is placed for the first time**, twice, on the two runs the sheet draws a clapet anti-retour; `pump_double` stays unplaced, since the drawn double pump is one plain `pump` as the bays' bouclage pump is.
+- **What authoring cost**, agent time on 2026-09-29: preflight 2 h 30 (no GTB view to start from: the DOE booklet, the two sheets, the gateway's configuration dumps and the live instance had to be read whole); plate, tests and this section 1 h, with one respacing round after the first offline render (the primary's meter, energy valve and link spread by two cells); the renderer's spec took the plate on its first run once its plate list knew the name and its moving-fluid probes learnt that a plate may bind no flow.
+
 ## Authoring in 2D (AGR-1437)
 
 The editor was rebuilt after the first plates were authored in it; what it now does, as far as the format is concerned:
@@ -359,7 +403,7 @@ The editor was rebuilt after the first plates were authored in it; what it now d
 
 ## Appendix — symbol types of the hydronic kit
 
-Input for the registry (AGR-1160) and the kit (AGR-1156, AGR-1159); the plates place all of them but `valve_check` and `pump_double`. The double pump keeps `state` alone while the single pump has a `speed`: one speed for two heads would be a number for neither, and the plate that first places a double pump decides its per-head shape. Footprints are `w × d` at rotation 0; port offsets are relative to the origin cell.
+Input for the registry (AGR-1160) and the kit (AGR-1156, AGR-1159); the plates place all of them but `pump_double`. The double pump keeps `state` alone while the single pump has a `speed`: one speed for two heads would be a number for neither, and the plate that first places a double pump decides its per-head shape. Footprints are `w × d` at rotation 0; port offsets are relative to the origin cell.
 
 | Type | Footprint | Inline | Ports (offset, side) | Slots | Props |
 |---|---|---|---|---|---|
