@@ -1,3 +1,9 @@
+## v0.279.3 (2026-09-29)
+
+### Fix
+
+- **ui**: show N/A for thermostat setpoints in fan mode
+
 ## v0.279.2 (2026-09-29)
 
 ### Fix
