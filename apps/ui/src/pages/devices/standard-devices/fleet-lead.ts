@@ -6,7 +6,7 @@ import {
   formatReading,
   type ReadingSpec,
 } from "@/lib/deviceSummary";
-import type { RunState } from "./glyph-kit";
+import type { RunState } from "./fleet-status";
 import type { FleetLead, FleetLeadContext, FleetLeadLine } from "./types";
 
 /** A value the device's current mode does not use. */

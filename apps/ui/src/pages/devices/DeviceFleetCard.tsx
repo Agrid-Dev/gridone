@@ -9,7 +9,9 @@ import { activeFaultSummary } from "@/lib/faults";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import { FleetLeadView } from "./standard-devices/FleetLeadView";
-import { getFleetGlyph, getFleetLead } from "./standard-devices/registry";
+import { FleetRunStatusLine } from "./standard-devices/FleetRunStatusLine";
+import { FleetTypeTile } from "./standard-devices/FleetTypeTile";
+import { getFleetLead, getFleetStatus } from "./standard-devices/registry";
 
 /** Border tint per active severity — the card outline is the first thing
  *  scanned in a grid of dozens, so a faulty device reads before its label. */
@@ -20,9 +22,9 @@ const CARD_SEVERITY_CLASS = {
 } as const;
 
 /**
- * One device of the fleet grid: identity and location, then the type's glyph
- * and summary from the standard-device registry — which carry its state — and
- * the fault badge when a fault is active.
+ * One device of the fleet grid: its type tile, name and location, then the
+ * lead from the standard-device registry, and a status line with the unit's
+ * mode or run state and the fault badge when either applies.
  */
 export function DeviceFleetCard({
   device,
@@ -31,24 +33,25 @@ export function DeviceFleetCard({
   device: Device;
   zonePath: string | null;
 }) {
-  const status = getConnectionStatus(device);
+  const connection = getConnectionStatus(device);
   const canSeeConnectionStatus = useCanSeeConnectionStatus();
   const faults = activeFaultSummary(device);
   const { t, i18n } = useTranslation(["devices", "standardDevices"]);
   const lead = getFleetLead(device.type)(device, { t, locale: i18n.language });
-  const FleetGlyph = getFleetGlyph(device.type);
+  const { activity, runStatus } = getFleetStatus(device.type)(device);
 
   return (
     <div className="group block h-full">
       <Card
         className={cn(
-          "relative flex h-full flex-col gap-3 p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md",
+          "relative flex h-full flex-col gap-3.5 p-4 shadow-none transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md",
           faults && CARD_SEVERITY_CLASS[faults.severity],
         )}
       >
-        <div className="flex items-start gap-2">
+        <div className="flex items-start gap-3">
+          <FleetTypeTile device={device} activity={activity} />
           <div className="min-w-0 flex-1">
-            <h3 className="line-clamp-2 break-words font-display text-sm font-medium text-card-foreground">
+            <h3 className="line-clamp-2 break-words font-display text-sm font-semibold text-card-foreground">
               {/* Stretched link: its overlay makes the whole card one real
                   link (keyboard, new tab, copy link) with no click handler. */}
               <Link
@@ -66,23 +69,24 @@ export function DeviceFleetCard({
           </div>
           {/* Centred on the title's first line (text-sm: 20px leading). */}
           {canSeeConnectionStatus && (
-            <ConnectionStatusDot status={status} className="mt-1.5 shrink-0" />
+            <ConnectionStatusDot
+              status={connection}
+              className="mt-1.5 shrink-0"
+            />
           )}
         </div>
 
-        <div className="flex items-center gap-3">
-          <FleetGlyph device={device} />
-          <div className="min-w-0 flex-1">
-            <FleetLeadView lead={lead} />
-          </div>
-        </div>
+        <FleetLeadView lead={lead} muted={activity === "idle"} />
 
-        {faults && (
-          <div className="mt-auto flex justify-end text-xs">
-            {/* Above the stretched link, so the badge keeps its own target. */}
-            <span className="relative z-10">
-              <DeviceFaultBadge device={device} />
-            </span>
+        {(runStatus || faults) && (
+          <div className="mt-auto flex items-center gap-3 border-t border-muted pt-3">
+            {runStatus && <FleetRunStatusLine status={runStatus} />}
+            {faults && (
+              // Above the stretched link, so the badge keeps its own target.
+              <span className="relative z-10 ml-auto shrink-0">
+                <DeviceFaultBadge device={device} />
+              </span>
+            )}
           </div>
         )}
       </Card>

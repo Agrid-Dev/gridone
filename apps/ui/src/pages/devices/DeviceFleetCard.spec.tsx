@@ -27,6 +27,10 @@ vi.mock("react-i18next", () =>
     "common.hvacMode.heat": "Heating",
     "common.hvacMode.off": "Off",
     "common:common.severityCount.alert": "{{count}} alert(s)",
+    "devices.card.lead.runState.running": "Running",
+    "devices.card.lead.runState.stopped": "Stopped",
+    "devices.card.lead.runState.unknown": "Not reported",
+    "pump.name": "Pump",
   }),
 );
 
@@ -147,14 +151,102 @@ describe("DeviceFleetCard", () => {
     expect(screen.queryByText("—")).not.toBeInTheDocument();
   });
 
-  it("shows the type glyph in front of the reading", () => {
+  it("heads the card with its type tile, named after the type", () => {
     renderCard(thermostat({ temperature: attr(21.4) }));
     expect(screen.getByRole("img", { name: "Thermostat" })).toBeInTheDocument();
   });
 
-  it("gives a device of no registered type the neutral glyph", () => {
+  it("gives a device of no registered type a dashed tile — nothing to judge by", () => {
     renderCard({ ...thermostat(), type: null } as Device);
-    expect(screen.getByRole("img", { name: "Other" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Other" })).toHaveAttribute(
+      "data-activity",
+      "unknown",
+    );
+  });
+
+  describe("status line", () => {
+    const heating = {
+      temperature: attr(21.4),
+      temperature_setpoint: attr(21),
+      mode: attr("heat"),
+      onoff_state: attr(true),
+    };
+
+    it("words a running unit's mode, its marker in the mode's colour", () => {
+      const { container } = renderCard(thermostat(heating));
+      expect(screen.getByText("Heating")).toBeInTheDocument();
+      expect(screen.getByRole("img", { name: "Thermostat" })).toHaveAttribute(
+        "data-activity",
+        "active",
+      );
+      const marker = container.querySelector('[data-run="running"] > span');
+      expect(marker).toHaveClass("bg-hvac-heat");
+    });
+
+    it("says a stopped unit is stopped, not the mode it is set to", () => {
+      renderCard(thermostat({ ...heating, onoff_state: attr(false) }));
+      expect(screen.getByText("Stopped")).toBeInTheDocument();
+      expect(screen.queryByText("Heating")).not.toBeInTheDocument();
+      expect(screen.getByRole("img", { name: "Thermostat" })).toHaveAttribute(
+        "data-activity",
+        "idle",
+      );
+    });
+
+    it("greys the setpoint of a stopped unit, not the measure", () => {
+      renderCard(thermostat({ ...heating, onoff_state: attr(false) }));
+      expect(screen.getByText("21,0°")).toHaveClass("text-muted-foreground");
+      expect(screen.getByText("21,4°")).not.toHaveClass(
+        "text-muted-foreground",
+      );
+    });
+
+    it("keeps the setpoint of a running unit in the foreground", () => {
+      renderCard(thermostat(heating));
+      expect(screen.getByText("21,0°")).not.toHaveClass(
+        "text-muted-foreground",
+      );
+    });
+
+    it("says a unit that reports no run state is not reported", () => {
+      renderCard(thermostat({ temperature: attr(21.4) }));
+      expect(screen.getByText("Not reported")).toBeInTheDocument();
+      expect(screen.getByRole("img", { name: "Thermostat" })).toHaveAttribute(
+        "data-activity",
+        "unknown",
+      );
+    });
+
+    it("is left out when the lead already words the state and no fault is active", () => {
+      const { container } = renderCard({
+        ...thermostat({ onoff_state: attr(true) }),
+        type: "pump",
+      } as Device);
+      expect(screen.getByRole("img", { name: "Pump" })).toHaveAttribute(
+        "data-activity",
+        "active",
+      );
+      expect(container.querySelector("[data-run]")).toBeNull();
+      expect(container.querySelector(".border-t")).toBeNull();
+    });
+
+    it("carries the fault badge beside the mode", () => {
+      const { container } = renderCard(
+        thermostat({
+          ...heating,
+          comm_fault: {
+            kind: "fault",
+            name: "comm_fault",
+            severity: "alert",
+            is_faulty: true,
+            current_value: true,
+          },
+        }),
+      );
+      const line = container.querySelector(".border-t") as HTMLElement;
+      expect(line).toHaveTextContent("Heating");
+      expect(line).toHaveTextContent("1 fault(s)");
+    });
   });
 
   it("leads with a dash for a device of no registered type", () => {

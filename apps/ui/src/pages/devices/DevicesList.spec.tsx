@@ -27,6 +27,8 @@ vi.mock("react-i18next", () =>
     "deviceDetails.activeFaults.badge": "{{count}} fault(s)",
     "devices.card.lead.setpoint": "setpoint",
     "devices.card.lead.measured": "measured",
+    "devices.card.lead.runState.stopped": "Stopped",
+    "common.hvacMode.heat": "Heating",
     "common.view.label": "View",
     "common:common.severityCount.alert": "{{count}} alert(s)",
     "common:common.severityCount.warning": "{{count}} warning(s)",
@@ -336,7 +338,7 @@ describe("DevicesList — cards", () => {
     );
   });
 
-  it("draws a stopped unit as off, even with a configured mode", () => {
+  it("shows a stopped unit as idle, even with a configured mode", () => {
     mockUseDevicesList.mockReturnValue({
       devices: [
         makeDevice("d1", "Chambre 102", {
@@ -353,7 +355,9 @@ describe("DevicesList — cards", () => {
       .closest(".group") as HTMLElement;
     expect(
       within(card).getByRole("img", { name: "Thermostat" }),
-    ).toHaveAttribute("data-state", "stopped");
+    ).toHaveAttribute("data-activity", "idle");
+    expect(card).toHaveTextContent("Stopped");
+    expect(card).not.toHaveTextContent("Heating");
   });
 
   it("summarizes a thermostat: location, setpoint, measured reading, mode", () => {
@@ -384,7 +388,8 @@ describe("DevicesList — cards", () => {
     expect(card).toHaveTextContent(/21,4°\s*measured/);
     expect(
       within(card as HTMLElement).getByRole("img", { name: "Thermostat" }),
-    ).toHaveAttribute("data-state", "running:heat");
+    ).toHaveAttribute("data-activity", "active");
+    expect(card).toHaveTextContent("Heating");
   });
 
   it("shows the highest active severity instead of the healthy label", () => {

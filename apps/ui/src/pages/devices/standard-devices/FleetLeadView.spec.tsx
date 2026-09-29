@@ -21,7 +21,7 @@ describe("FleetLeadView", () => {
   });
 
   it.each([undefined, null])(
-    "renders nothing for an absent secondary line (%s), so a lone line centres on the glyph",
+    "renders nothing for an absent secondary line (%s)",
     (secondary) => {
       const { container } = render(
         <FleetLeadView lead={{ primary: { value: "En marche" }, secondary }} />,
@@ -29,4 +29,32 @@ describe("FleetLeadView", () => {
       expect(container.querySelectorAll("p")).toHaveLength(1);
     },
   );
+
+  it("greys the primary value when muted, and only it", () => {
+    render(
+      <FleetLeadView
+        muted
+        lead={{
+          primary: { value: "16,0 °C", label: "consigne" },
+          secondary: { value: "20,0 °C", label: "mesurée" },
+        }}
+      />,
+    );
+    expect(screen.getByText("16,0 °C")).toHaveClass("text-muted-foreground");
+    expect(screen.getByText("20,0 °C")).not.toHaveClass(
+      "text-muted-foreground",
+    );
+  });
+
+  it("keeps a line's own tone over the muting", () => {
+    render(
+      <FleetLeadView
+        muted
+        lead={{ primary: { value: "Liquide détecté", tone: "text-water" } }}
+      />,
+    );
+    const value = screen.getByText("Liquide détecté");
+    expect(value).toHaveClass("text-water");
+    expect(value).not.toHaveClass("text-muted-foreground");
+  });
 });
