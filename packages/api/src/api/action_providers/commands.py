@@ -15,13 +15,10 @@ from models.expressions import DeviceAttributeRef, Scalar
 from models.ids import gen_id
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
-
     from automations.models import Trigger, TriggerContext
 
     from commands.interface import CommandsServiceInterface
     from models.attribute_observation import AttributeInspector
-    from models.targets import DevicesFilter
 
 
 class CommandAction(BaseModel):
@@ -58,15 +55,19 @@ class CommandsActionProvider:
         self,
         commands_service: CommandsServiceInterface,
         inspect_attribute: AttributeInspector,
-        resolve_device_ids: Callable[[DevicesFilter], Sequence[str]] | None = None,
     ) -> None:
         self._commands_service = commands_service
         self._inspect = inspect_attribute
-        self._resolve_device_ids = resolve_device_ids
 
     async def describe_writes(
         self, params: dict, trigger: Trigger
     ) -> list[AutomationWrite]:
+        """Describe what executing the action would write right now.
+
+        A template is resolved exactly as its dispatch would be, so group
+        membership is current and a target that cannot be dispatched (missing
+        template, incompatible tags) writes nothing.
+        """
         action = CommandAction(**params)
         if action.template_id is None:
             device_id = action.device_id or trigger.params.get("device_id")
@@ -79,18 +80,16 @@ class CommandsActionProvider:
             ]
         try:
             template = await self._commands_service.get_template(action.template_id)
-        except NotFoundError:
+            device_ids = await self._commands_service.resolve_template_devices(template)
+        except (NotFoundError, InvalidError):
             return []
-        device_ids = set(template.target.ids or [])
-        if self._resolve_device_ids is not None:
-            device_ids.update(self._resolve_device_ids(template.target))
         return [
             AutomationWrite(
                 device_id=device_id,
                 attribute=template.write.attribute,
                 value=template.write.value,
             )
-            for device_id in sorted(device_ids)
+            for device_id in device_ids
         ]
 
     async def execute(

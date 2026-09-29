@@ -58,7 +58,12 @@ class ActionProvider(Protocol):
     async def describe_writes(
         self, params: dict, trigger: Trigger
     ) -> Sequence[AutomationWrite]:
-        """Statically known writes for advisory conflict detection."""
+        """Writes the action would make if it ran now, without executing it.
+
+        Used to detect conflicts and direct feedback, and to find the
+        automations that reference a device; dynamic targets resolve to their
+        current members.
+        """
         ...
 
 

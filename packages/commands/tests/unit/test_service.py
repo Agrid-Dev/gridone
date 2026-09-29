@@ -27,7 +27,12 @@ from models.errors import (
 )
 from models.pagination import PaginationParams
 from models.service import Service
-from models.targets import AttributeTarget, DevicesFilter, ResolvedTarget
+from models.targets import (
+    AttributeTarget,
+    DevicesFilter,
+    EmptyTargetError,
+    ResolvedTarget,
+)
 from models.types import DataType
 from models.write_rules import WriteEvaluation, WriteReason
 
@@ -903,6 +908,126 @@ class TestTemplateCrud:
         fetched = await service.get_template(ephemeral.id)
         assert fetched.id == ephemeral.id
         assert fetched.name is None
+
+
+class TestResolveTemplateDevices:
+    async def test_resolves_writable_devices_without_dispatching_or_logging(
+        self,
+        service: CommandsService,
+        target_resolver: AsyncMock,
+        device_writer: AsyncMock,
+        caplog: pytest.LogCaptureFixture,
+    ):
+        template = await service.save_template(
+            CommandTemplateCreate(
+                target=DevicesFilter(tags={"loop": ["east"]}),
+                write=MODE_AUTO,
+                name="Loop",
+            ),
+            user_id="u1",
+        )
+        target_resolver.resolve.side_effect = None
+        target_resolver.resolve.return_value = _resolved(
+            ["t1"], attribute="mode", excluded=["meter"]
+        )
+
+        with caplog.at_level(logging.WARNING, logger="commands.service"):
+            device_ids = await service.resolve_template_devices(template)
+
+        assert device_ids == ["t1"]
+        target_resolver.resolve.assert_awaited_once_with(
+            AttributeTarget(devices=template.target, attribute="mode"),
+            writable=True,
+        )
+        assert (await service.get_commands()).items == []
+        device_writer.assert_not_awaited()
+        assert caplog.records == []
+
+    @pytest.mark.parametrize(
+        ("target", "failure"),
+        [
+            (DevicesFilter(tags={"loop": ["east"]}), EmptyTargetError("none")),
+            (DevicesFilter(ids=["d1"]), InvalidError("not writable")),
+        ],
+    )
+    async def test_empty_and_legacy_targets_resolve_to_no_devices(
+        self,
+        service: CommandsService,
+        target_resolver: AsyncMock,
+        caplog: pytest.LogCaptureFixture,
+        target: DevicesFilter,
+        failure: Exception,
+    ):
+        template = await service.save_template(
+            CommandTemplateCreate(target=target, write=MODE_AUTO, name="Saved"),
+            user_id="u1",
+        )
+        target_resolver.resolve.side_effect = failure
+
+        with caplog.at_level(logging.WARNING, logger="commands.service"):
+            assert await service.resolve_template_devices(template) == []
+        assert caplog.records == []
+
+    @pytest.mark.parametrize(
+        "target",
+        [DevicesFilter(tags={"loop": ["east"]}), DevicesFilter(driver_id="drv")],
+    )
+    async def test_incompatible_dynamic_targets_raise(
+        self,
+        service: CommandsService,
+        target_resolver: AsyncMock,
+        target: DevicesFilter,
+    ):
+        template = await service.save_template(
+            CommandTemplateCreate(target=target, write=MODE_AUTO, name="Saved"),
+            user_id="u1",
+        )
+        target_resolver.resolve.side_effect = InvalidError("mixed data types")
+        with pytest.raises(InvalidError):
+            await service.resolve_template_devices(template)
+
+    async def test_rejects_a_target_whose_attribute_changed_type(
+        self, service: CommandsService, target_resolver: AsyncMock
+    ):
+        template = await service.save_template(
+            CommandTemplateCreate(
+                target=DevicesFilter(ids=["d1"]), write=MODE_AUTO, name="Saved"
+            ),
+            user_id="u1",
+        )
+        target_resolver.resolve.side_effect = None
+        target_resolver.resolve.return_value = ResolvedTarget(
+            attribute="mode",
+            device_ids=["d1"],
+            data_type=DataType.FLOAT,
+            excluded_device_ids=[],
+        )
+        with pytest.raises(InvalidError):
+            await service.resolve_template_devices(template)
+
+    async def test_dispatch_still_reports_the_devices_it_leaves_out(
+        self,
+        service: CommandsService,
+        target_resolver: AsyncMock,
+        caplog: pytest.LogCaptureFixture,
+    ):
+        target_resolver.resolve.side_effect = None
+        target_resolver.resolve.return_value = _resolved(
+            ["t1"], attribute="mode", excluded=["meter"]
+        )
+        with caplog.at_level(logging.WARNING, logger="commands.service"):
+            dispatch = await service.dispatch_batch(
+                target=DevicesFilter(tags={"loop": ["east"]}),
+                write=MODE_AUTO,
+                user_id="u1",
+            )
+        await service._await_pending()  # noqa: SLF001
+
+        assert [command.device_id for command in dispatch.commands] == ["t1"]
+        assert any(
+            "excluded devices" in record.getMessage() and "meter" in record.getMessage()
+            for record in caplog.records
+        )
 
 
 class TestUpdateTemplate:

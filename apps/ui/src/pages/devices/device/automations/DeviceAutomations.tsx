@@ -6,12 +6,12 @@ import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
 import { Button } from "@/components/ui/button";
 import { useDeviceFromRoute } from "@/hooks/useDevice";
 import { AutomationStatusBadge } from "@/pages/automations/components/AutomationStatusBadge";
+import { DeactivationReason } from "@/pages/automations/components/DeactivationReason";
 import { RuleSentence } from "@/pages/automations/components/RuleSentence";
 import { useDeviceAutomations } from "./useDeviceAutomations";
 
 export default function DeviceAutomations() {
   const { t } = useTranslation("devices");
-  const { t: tAutomations } = useTranslation("automations");
   const device = useDeviceFromRoute();
   const { data: automations } = useDeviceAutomations(device.id);
 
@@ -64,14 +64,9 @@ export default function DeviceAutomations() {
                   />
                   {automation.deactivation?.reason && (
                     <p className="text-sm text-muted-foreground">
-                      {automation.deactivation.source === "circuit_breaker"
-                        ? tAutomations(
-                            `reasons.${automation.deactivation.reason}`,
-                            {
-                              defaultValue: automation.deactivation.reason,
-                            },
-                          )
-                        : automation.deactivation.reason}
+                      <DeactivationReason
+                        deactivation={automation.deactivation}
+                      />
                     </p>
                   )}
                 </div>

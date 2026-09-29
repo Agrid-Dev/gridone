@@ -15,6 +15,7 @@ import { useFullBleedPage } from "@/components/layout/PageLayout";
 import { formatTimeAgo } from "@/lib/utils";
 import { AutomationControl } from "../../components/AutomationControl";
 import { AutomationStatusBadge } from "../../components/AutomationStatusBadge";
+import { DeactivationReason } from "../../components/DeactivationReason";
 import {
   executionTime,
   formatExecutionMoment,
@@ -309,12 +310,7 @@ function DeactivationBanner({ editor }: { editor: AutomationEditorState }) {
       </span>{" "}
       {deactivation.reason && (
         <>
-          ·{" "}
-          {breaker
-            ? t(`reasons.${deactivation.reason}`, {
-                defaultValue: deactivation.reason,
-              })
-            : deactivation.reason}{" "}
+          · <DeactivationReason deactivation={deactivation} />{" "}
         </>
       )}
       <span className="text-muted-foreground">

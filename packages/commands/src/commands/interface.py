@@ -65,6 +65,10 @@ class CommandsServiceInterface(Protocol):
         confirm: bool = True,
     ) -> BatchCommandDispatch: ...
 
+    async def resolve_template_devices(
+        self, template: CommandTemplate
+    ) -> list[str]: ...
+
     async def get_commands(  # noqa: PLR0913
         self,
         *,
