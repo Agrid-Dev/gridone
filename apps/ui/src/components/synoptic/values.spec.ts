@@ -153,6 +153,7 @@ describe("boundSlots", () => {
   });
 
   it("registers the flow of every run of the committed plates that binds one, keyed as the plate reads it", () => {
+    // The restaurant plate binds no flow, so it is left out here.
     for (const name of [
       "ecs-est",
       "ecs-ouest",

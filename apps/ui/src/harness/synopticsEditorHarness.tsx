@@ -30,6 +30,7 @@ import ecsEst from "../../../../docs/specs/synoptic/ecs-est.json";
 import ecsOuest from "../../../../docs/specs/synoptic/ecs-ouest.json";
 import chaud from "../../../../docs/specs/synoptic/production-chaud.json";
 import froid from "../../../../docs/specs/synoptic/production-froid.json";
+import restaurant from "../../../../docs/specs/synoptic/ecs-club-restaurant.json";
 
 const PLATES: Record<string, Synoptic> = Object.fromEntries(
   Object.entries({
@@ -37,6 +38,7 @@ const PLATES: Record<string, Synoptic> = Object.fromEntries(
     "ecs-ouest": ecsOuest,
     "production-chaud": chaud,
     "production-froid": froid,
+    "ecs-club-restaurant": restaurant,
   }).map(([id, plate]) => [
     id,
     {

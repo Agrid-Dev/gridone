@@ -451,6 +451,8 @@ const plate = (name: string): Synoptic => ({
   id: name,
   metadata: {},
 });
+// The committed plates that bind a flow; the restaurant plate binds none, so
+// nothing on it circulates and it has no place in these probes.
 const PLATE_NAMES = [
   "ecs-est",
   "ecs-ouest",

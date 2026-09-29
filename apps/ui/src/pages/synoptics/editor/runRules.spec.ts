@@ -97,7 +97,13 @@ describe("direction and segmentRule", () => {
 });
 
 describe("runViolations", () => {
-  it.each(["ecs-est", "ecs-ouest", "production-chaud", "production-froid"])(
+  it.each([
+    "ecs-est",
+    "ecs-ouest",
+    "production-chaud",
+    "production-froid",
+    "ecs-club-restaurant",
+  ])(
     "finds nothing on the committed plate %s, which the backend takes",
     (name) => {
       expect(runViolations(load(name))).toEqual([]);

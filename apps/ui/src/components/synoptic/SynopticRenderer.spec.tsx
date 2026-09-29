@@ -172,8 +172,19 @@ const PLATES: Record<string, { tees: number; panels: number; chips: number }> =
     "ecs-ouest": { ...ECS_BAY, tees: 2 },
     "production-chaud": { tees: 14, panels: 4, chips: 35 },
     "production-froid": { tees: 6, panels: 2, chips: 21 },
+    // The restaurant production: the primary bypass tees off the supply and
+    // onto the return; five marked inline symbols and four marked tags, no
+    // symbol with two slots.
+    "ecs-club-restaurant": { tees: 2, panels: 0, chips: 9 },
   };
 const PLATE_CASES = Object.entries(PLATES);
+/** The plates whose runs can circulate: a `flow` binding on at least one
+ *  run. The restaurant plate binds none (every reading on it is a marker),
+ *  so nothing on it may move. */
+const flows = ([name]: (typeof PLATE_CASES)[number]) =>
+  (plate(name).pipes ?? []).some((p) => p.flow);
+const FLOWING_CASES = PLATE_CASES.filter(flows);
+const STILL_CASES = PLATE_CASES.filter((c) => !flows(c));
 
 function draw(doc = DOC, values?: SynopticValues) {
   const { container } = render(<SynopticRenderer doc={doc} values={values} />);
@@ -2008,9 +2019,10 @@ describe("SynopticRenderer text held legible", () => {
   );
 
   // A chip hung under its name has no leader: the name says whose it is.
-  it("a reading hung under its name with no leader gives way with the name", () => {
-    const orphans: string[] = [];
-    for (const [name] of PLATE_CASES) {
+  it.each(PLATE_CASES)(
+    "%s: a reading hung under its name with no leader gives way with the name",
+    (name) => {
+      const orphans: string[] = [];
       for (const projection of ["isometric", "flat"] as const) {
         for (const fraction of [0.5, 0.3]) {
           const doc = { ...plate(name), projection };
@@ -2037,9 +2049,9 @@ describe("SynopticRenderer text held legible", () => {
           cleanup();
         }
       }
-    }
-    expect(orphans).toEqual([]);
-  });
+      expect(orphans).toEqual([]);
+    },
+  );
 
   it("keeps the name of a device in fault where a healthy one gives way", () => {
     const doc = plate("ecs-est");
@@ -2074,7 +2086,20 @@ describe("SynopticRenderer moving fluid on the committed plates", () => {
       ),
     );
 
-  it.each(PLATE_CASES)(
+  it.each(STILL_CASES)("%s: moves nothing, since it binds no flow", (name) => {
+    const doc = plate(name);
+    const { container } = render(
+      <SynopticRenderer doc={doc} values={liveValues(doc)} />,
+    );
+    expect(q(container, "path[data-flow], .animate-flow")).toHaveLength(0);
+    // Still is not absent: every run of the plate is drawn.
+    for (const pipe of doc.pipes ?? [])
+      expect(q(container, `g[data-run='${pipe.id}']`).length).toBeGreaterThan(
+        0,
+      );
+  });
+
+  it.each(FLOWING_CASES)(
     "%s: animates in the isometric view exactly the runs that circulate, every piece of them",
     (name) => {
       const doc = plate(name);
@@ -2118,7 +2143,7 @@ describe("SynopticRenderer moving fluid on the committed plates", () => {
     },
   );
 
-  it.each(PLATE_CASES)(
+  it.each(FLOWING_CASES)(
     "%s: carries each run's dash on from piece to piece, in the still dash and in the moving one",
     (name) => {
       const doc = plate(name);
