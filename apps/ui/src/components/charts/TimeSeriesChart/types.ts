@@ -17,14 +17,25 @@ export type Series = {
    *  — the tooltip names the one hovered. Boolean panels only; raw true /
    *  false without it. */
   booleanLabels?: { true: string; false: string };
+  /** Wording of a string series' values, already resolved by the caller
+   *  (an HVAC mode reads "Chauffage" rather than "heat") — the legend and
+   *  the tooltip name a value by it, colours still follow the wire value.
+   *  String panels only; raw values without it. */
+  stringLabels?: Record<string, string>;
+  /** Unit symbol of a numeric series, as its driver declares it. Numeric
+   *  series are panelled by unit, each panel's axis carrying the unit its
+   *  series share. Without it the name convention decides (`temperature`
+   *  is degrees), and a series with neither keeps an unlabelled axis rather
+   *  than a guessed unit. */
+  unit?: string | null;
 };
 
 export type TimeSeriesChartProps = {
   timestamps: Date[];
-  /** Float series — rendered as lines, sharing a single y-axis (top panel) */
+  /** Float series — rendered as lines, one panel and y-axis per unit (top panels) */
   lineSeries?: Series[];
   lineValues?: Record<string, (number | null)[]>;
-  /** Integer series — rendered as step lines in the float panel, sharing its y-axis */
+  /** Integer series — rendered as step lines in the float panel of their unit, sharing its y-axis */
   intSeries?: Series[];
   intValues?: Record<string, (number | null)[]>;
   /** Boolean series — each rendered as a step-area in its own panel below */
@@ -37,7 +48,7 @@ export type TimeSeriesChartProps = {
    *  the buckets they report. Bars only make sense for aggregated series;
    *  the caller decides, this only draws it. Defaults to lines. */
   numericMark?: "line" | "bar";
-  /** Height of the float line panel */
+  /** Height of each float line panel */
   lineHeight?: number;
   /** Height of each boolean / string categorical panel */
   categoricalHeight?: number;
@@ -56,12 +67,18 @@ export type TooltipRow = {
 
 export type FloatPanelEntry = {
   type: "float";
-  key: "float";
+  /** `float:<unit>` — one float panel per unit, the unitless one `float:`. */
+  key: string;
+  /** The unit every series on the panel shares; null for the bare panel. */
+  unit: string | null;
   series: Series[];
   values: Record<string, (number | null)[]>;
   /** Keys of series rendered as step lines (integer series) rather than interpolated lines. */
   stepKeys: string[];
   height: number;
+  /** Position of the panel's first series in the chart's palette, so colours
+   *  stay distinct across the unit panels instead of restarting in each. */
+  colorOffset: number;
 };
 
 export type BarPanelEntry = {

@@ -13,9 +13,9 @@ export function TooltipContent({
       <div className="mb-1 text-xs font-normal">
         {timestamp.toLocaleString()}
       </div>
-      {rows.map((r) => (
+      {rows.map((r, i) => (
         <div
-          key={r.label}
+          key={`${i}-${r.label}`}
           className="flex items-center gap-1.5 rounded px-1 -mx-1 text-xs font-normal"
           style={
             r.active && r.swatch

@@ -191,9 +191,9 @@ describe("TimeSeriesChart — series rendering", () => {
 
   it("renders all panel types together", () => {
     const { container } = renderFull();
-    // 1 float SVG + 1 boolean SVG + 1 string SVG = 3
+    // 2 float SVGs (° and %) + 1 boolean SVG + 1 string SVG = 4
     const svgs = container.querySelectorAll(XYCHART_SVG);
-    expect(svgs.length).toBe(3);
+    expect(svgs.length).toBe(4);
   });
 
   // Bars are the mark for aggregated series, where a point stands for the
@@ -265,13 +265,14 @@ describe("TimeSeriesChart — series rendering", () => {
   });
 
   it("scales the float y-axis to the data extent, not down to 0 (AGR-883)", () => {
-    // All fixture values sit in [20.1, 48.5]; with visx's default
-    // `zero: true` the axis would start at 0.
+    // All fixture values sit in [20.1, 21.5]; with visx's default
+    // `zero: true` the axis would start at 0. A unitless series keeps the
+    // ticks numeric.
     const { container } = render(
       <TimeSeriesChartInner
         timestamps={timestamps}
-        lineSeries={floatSeries}
-        lineValues={floatValues}
+        lineSeries={[{ key: "pressure", label: "Pressure" }]}
+        lineValues={{ pressure: floatValues.temperature }}
         width={WIDTH}
       />,
     );
@@ -295,7 +296,7 @@ describe("TimeSeriesChart — empty states", () => {
     expect(container.innerHTML).toBe("");
   });
 
-  it("renders only float panel when no bool/string data", () => {
+  it("renders only float panels when no bool/string data", () => {
     const { container } = render(
       <TimeSeriesChartInner
         timestamps={timestamps}
@@ -304,8 +305,9 @@ describe("TimeSeriesChart — empty states", () => {
         width={WIDTH}
       />,
     );
+    // One panel per unit: the fixture plots a temperature and a humidity.
     const svgs = container.querySelectorAll(XYCHART_SVG);
-    expect(svgs.length).toBe(1);
+    expect(svgs.length).toBe(2);
     expect(screen.getByText("Temperature")).toBeInTheDocument();
     expect(screen.queryByText("Heater On")).not.toBeInTheDocument();
   });
@@ -435,11 +437,19 @@ describe("TimeSeriesChart — tooltip", () => {
     hoverChart();
     const tooltip = document.querySelector(".bg-popover");
     const text = tooltip!.textContent!;
-    // All series labels should be present in one tooltip
+    // All series labels should be present in one tooltip, across every
+    // panel: both unit panels, the boolean band and the string band.
     expect(text).toContain("Temperature");
     expect(text).toContain("Humidity");
     expect(text).toContain("Heater On");
     expect(text).toContain("Mode");
+  });
+
+  it("suffixes numeric values with their panel's unit", () => {
+    hoverChart();
+    const text = document.querySelector(".bg-popover")!.textContent!;
+    expect(text).toMatch(/Temperature \d+\.\d{2} °/);
+    expect(text).toMatch(/Humidity \d+\.\d{2} %/);
   });
 
   it("hides the tooltip on pointer leave", () => {
@@ -449,6 +459,53 @@ describe("TimeSeriesChart — tooltip", () => {
 
     const tooltip = container.querySelector(".bg-popover");
     expect(tooltip).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Nearest series under the cursor
+// ---------------------------------------------------------------------------
+
+describe("TimeSeriesChart — nearest series", () => {
+  // Two flat lines in one panel: `low` runs along the plot's bottom edge,
+  // `high` along its top. The tooltip lights the one under the cursor.
+  it("lights the series under the cursor, measured from the plot, not the legend", () => {
+    const { container } = render(
+      <TimeSeriesChartInner
+        timestamps={timestamps}
+        lineSeries={[
+          { key: "low", label: "Low", unit: "u" },
+          { key: "high", label: "High", unit: "u" },
+        ]}
+        lineValues={{
+          low: timestamps.map(() => 20),
+          high: timestamps.map(() => 21),
+        }}
+        width={WIDTH}
+      />,
+    );
+    const wrapper = container.firstElementChild as HTMLElement;
+    wrapper.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, width: WIDTH, height: 600 }) as DOMRect;
+    // The plot sits under the 30px legend band.
+    const plot = container.querySelector(XYCHART_SVG)!
+      .parentElement as HTMLElement;
+    plot.getBoundingClientRect = () =>
+      ({ left: 0, top: 30, width: WIDTH, height: 378 }) as DOMRect;
+
+    // 20px under the plot's top margin: on the high line, far from the low.
+    fireEvent.pointerMove(wrapper, { clientX: 400, clientY: 30 + 8 + 20 });
+
+    const rows = Array.from(
+      wrapper.querySelectorAll(".bg-popover > div > div"),
+    );
+    const muted = (label: string) =>
+      rows
+        .find((row) => row.textContent?.startsWith(label))!
+        .querySelector("span:nth-of-type(2)")!
+        .classList.contains("text-muted-foreground");
+    expect(muted("High")).toBe(false);
+    expect(muted("Low")).toBe(true);
   });
 });
 
@@ -518,8 +575,8 @@ describe("TimeSeriesChart — panel heights", () => {
     const { container } = render(
       <TimeSeriesChartInner
         timestamps={timestamps}
-        lineSeries={floatSeries}
-        lineValues={floatValues}
+        lineSeries={[{ key: "temperature", label: "Temperature" }]}
+        lineValues={{ temperature: floatValues.temperature }}
         width={WIDTH}
         lineHeight={500}
       />,
@@ -620,21 +677,21 @@ describe("TimeSeriesChart — dashed series", () => {
 // ---------------------------------------------------------------------------
 
 describe("TimeSeriesChart — integer series", () => {
-  it("renders int series in the shared float panel (single SVG)", () => {
+  it("renders int series in the float panel of their unit (single SVG)", () => {
     const { container } = render(
       <TimeSeriesChartInner
         timestamps={timestamps}
-        lineSeries={floatSeries}
-        lineValues={floatValues}
-        intSeries={intSeries}
-        intValues={intValues}
+        lineSeries={[{ key: "temperature", label: "Temperature" }]}
+        lineValues={{ temperature: floatValues.temperature }}
+        intSeries={[{ key: "temperature_setpoint", label: "Setpoint" }]}
+        intValues={{ temperature_setpoint: intValues.co2 }}
         width={WIDTH}
       />,
     );
-    // Float + int share one panel → exactly one XYChart SVG
+    // Float + int of the same unit share one panel → exactly one XYChart SVG
     const svgs = container.querySelectorAll(XYCHART_SVG);
     expect(svgs.length).toBe(1);
-    expect(screen.getByText("CO2")).toBeInTheDocument();
+    expect(screen.getByText("Setpoint")).toBeInTheDocument();
     expect(screen.getByText("Temperature")).toBeInTheDocument();
   });
 
@@ -831,8 +888,19 @@ describe("FloatPanel — value axis units", () => {
     expect(ticks.some((tick) => /\s/.test(tick))).toBe(false);
   });
 
-  it("leaves the axis bare when the series disagree on their unit", () => {
-    // The shared fixture plots a temperature against a humidity.
+  /** Tick labels of every value axis, one list per float panel in order. */
+  function valueAxes(container: HTMLElement): string[][] {
+    return Array.from(container.querySelectorAll("g.visx-axis-value")).map(
+      (axis) =>
+        Array.from(axis.querySelectorAll("text")).map(
+          (node) => node.textContent ?? "",
+        ),
+    );
+  }
+
+  // A temperature and a percentage no longer share a scale: each unit gets a
+  // panel of its own, carrying the unit its series share (AGR-1403).
+  it("splits series of different units into one panel per unit", () => {
     const { container } = render(
       <TimeSeriesChartInner
         timestamps={timestamps}
@@ -841,9 +909,147 @@ describe("FloatPanel — value axis units", () => {
         width={WIDTH}
       />,
     );
-    const ticks = leftAxisTicks(container);
-    expect(ticks.length).toBeGreaterThan(0);
-    expect(ticks.some((tick) => tick.includes("°"))).toBe(false);
+    const axes = valueAxes(container);
+    expect(axes.length).toBe(2);
+    expect(axes[0].every((tick) => tick.endsWith("°"))).toBe(true);
+    expect(axes[1].every((tick) => tick.endsWith("%"))).toBe(true);
+  });
+
+  it("labels the axis with the unit the series declare", () => {
+    const { container } = render(
+      <TimeSeriesChartInner
+        timestamps={timestamps}
+        lineSeries={[
+          { key: "inlet_pressure", label: "Inlet", unit: "bar" },
+          { key: "outlet_pressure", label: "Outlet", unit: "bar" },
+        ]}
+        lineValues={{
+          inlet_pressure: floatValues.temperature,
+          outlet_pressure: floatValues.humidity,
+        }}
+        width={WIDTH}
+      />,
+    );
+    const axes = valueAxes(container);
+    expect(axes.length).toBe(1);
+    expect(axes[0].every((tick) => tick.endsWith("bar"))).toBe(true);
+  });
+
+  it("prefers the declared unit over the name convention", () => {
+    const { container } = render(
+      <TimeSeriesChartInner
+        timestamps={timestamps}
+        lineSeries={[{ key: "temperature", label: "Temperature", unit: "°F" }]}
+        lineValues={{ temperature: floatValues.temperature }}
+        width={WIDTH}
+      />,
+    );
+    const [ticks] = valueAxes(container);
+    expect(ticks.every((tick) => tick.endsWith("°F"))).toBe(true);
+  });
+
+  it("keeps an unlabelled panel for series with no knowable unit", () => {
+    const { container } = render(
+      <TimeSeriesChartInner
+        timestamps={timestamps}
+        lineSeries={[
+          { key: "temperature", label: "Temperature" },
+          { key: "pressure", label: "Pressure" },
+          { key: "energy", label: "Energy" },
+        ]}
+        lineValues={{
+          temperature: floatValues.temperature,
+          pressure: floatValues.humidity,
+          energy: floatValues.humidity,
+        }}
+        width={WIDTH}
+      />,
+    );
+    // Unitless series share one bare panel rather than each guessing a unit.
+    const axes = valueAxes(container);
+    expect(axes.length).toBe(2);
+    expect(axes[0].every((tick) => tick.endsWith("°"))).toBe(true);
+    expect(axes[1].every((tick) => /^[\d.,-]+$/.test(tick))).toBe(true);
+  });
+
+  it("keeps series colours distinct across the unit panels", () => {
+    renderFull();
+    expect(swatchFor("Temperature").style.backgroundColor).not.toBe(
+      swatchFor("Humidity").style.backgroundColor,
+    );
+  });
+
+  it("strokes each line in its own swatch's colour, panel after panel", () => {
+    const { container } = render(
+      <TimeSeriesChartInner
+        timestamps={timestamps}
+        lineSeries={[
+          ...floatSeries,
+          { key: "co2", label: "CO2" },
+          { key: "temperature_setpoint", label: "Setpoint" },
+        ]}
+        lineValues={{
+          ...floatValues,
+          co2: intValues.co2,
+          temperature_setpoint: floatValues.temperature,
+        }}
+        width={WIDTH}
+      />,
+    );
+    // Series lines are the paths stroked from the palette; axes and grids
+    // are not.
+    const strokes = Array.from(
+      container.querySelectorAll('path[stroke^="hsl(var(--chart-"]'),
+    ).map((path) => path.getAttribute("stroke"));
+    expect(strokes).toEqual([
+      swatchFor("Temperature").style.backgroundColor,
+      swatchFor("Setpoint").style.backgroundColor,
+      swatchFor("Humidity").style.backgroundColor,
+      swatchFor("CO2").style.backgroundColor,
+    ]);
+    expect(new Set(strokes).size).toBe(4);
+  });
+
+  it("puts a bare series on the panel of the unit its family declares", () => {
+    const { container } = render(
+      <TimeSeriesChartInner
+        timestamps={timestamps}
+        lineSeries={[
+          { key: "temperature", label: "Temperature", unit: "°C" },
+          { key: "temperature_setpoint", label: "Setpoint" },
+        ]}
+        lineValues={{
+          temperature: floatValues.temperature,
+          temperature_setpoint: floatValues.temperature.map(() => 21),
+        }}
+        width={WIDTH}
+      />,
+    );
+    const axes = valueAxes(container);
+    expect(axes.length).toBe(1);
+    expect(axes[0].every((tick) => tick.endsWith("°C"))).toBe(true);
+  });
+
+  it("gives a unit with nothing to plot a strip, not a full-height blank", () => {
+    const { container } = render(
+      <TimeSeriesChartInner
+        timestamps={timestamps}
+        lineSeries={floatSeries}
+        lineValues={{
+          temperature: floatValues.temperature,
+          humidity: timestamps.map(() => null),
+        }}
+        width={WIDTH}
+      />,
+    );
+    const heights = Array.from(container.querySelectorAll(XYCHART_SVG)).map(
+      (svg) => Number(svg.getAttribute("height")),
+    );
+    // Temperature keeps its panel; humidity, last, keeps only its legend
+    // over a strip plus the time axis.
+    expect(heights[0]).toBe(350);
+    expect(heights[1]).toBeLessThan(100);
+    expect(screen.getByText("Humidity")).toBeInTheDocument();
   });
 
   it("leaves the axis bare for an attribute with no knowable unit", () => {
@@ -858,6 +1064,65 @@ describe("FloatPanel — value axis units", () => {
     const ticks = leftAxisTicks(container);
     expect(ticks.length).toBeGreaterThan(0);
     expect(ticks.every((tick) => /^[\d.,-]+$/.test(tick))).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// String value labels (AGR-1403)
+// ---------------------------------------------------------------------------
+
+describe("StringPanel — value labels", () => {
+  const mode: Series = {
+    key: "mode",
+    label: "Mode",
+    stringLabels: { heat: "Chauffage", cool: "Refroidissement" },
+  };
+  const values = { mode: timestamps.map((_, i) => (i < 5 ? "heat" : "cool")) };
+
+  it("words the legend values as the caller labels them", () => {
+    render(
+      <TimeSeriesChartInner
+        timestamps={timestamps}
+        stringSeries={[mode]}
+        stringValues={values}
+        width={WIDTH}
+      />,
+    );
+    expect(screen.getByText("Chauffage")).toBeInTheDocument();
+    expect(screen.getByText("Refroidissement")).toBeInTheDocument();
+    expect(screen.queryByText("heat")).not.toBeInTheDocument();
+  });
+
+  it("keeps the semantic colour of the wire value", () => {
+    render(
+      <TimeSeriesChartInner
+        timestamps={timestamps}
+        stringSeries={[mode]}
+        stringValues={values}
+        width={WIDTH}
+      />,
+    );
+    expect(swatchFor("Chauffage").style.backgroundColor).toBe(
+      "hsl(var(--hvac-heat))",
+    );
+  });
+
+  it("words the hovered value in the tooltip", () => {
+    const { container } = render(
+      <TimeSeriesChartInner
+        timestamps={timestamps}
+        stringSeries={[mode]}
+        stringValues={values}
+        width={WIDTH}
+      />,
+    );
+    const wrapper = container.firstElementChild!;
+    wrapper.getBoundingClientRect = () =>
+      ({ left: 0, top: 0, width: WIDTH, height: 600 }) as DOMRect;
+    fireEvent.pointerMove(wrapper, { clientX: 100, clientY: 50 });
+    const tooltip = document.querySelector(".bg-popover")!;
+    expect(tooltip.textContent).toContain("Chauffage");
+    expect(tooltip.textContent).not.toContain("heat");
   });
 });
 
