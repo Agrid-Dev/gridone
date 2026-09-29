@@ -1,7 +1,6 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import type { AttributeSlot, Synoptic } from "@gridone/sdk";
 import { describe, expect, it } from "vitest";
+import { committedPlate, FLOWING_PLATES } from "@/test/committedPlates";
 import {
   boundSlots,
   flowSlotKey,
@@ -153,22 +152,8 @@ describe("boundSlots", () => {
   });
 
   it("registers the flow of every run of the committed plates that binds one, keyed as the plate reads it", () => {
-    // The restaurant plate binds no flow, so it is left out here.
-    for (const name of [
-      "ecs-est",
-      "ecs-ouest",
-      "production-chaud",
-      "production-froid",
-    ]) {
-      const doc = JSON.parse(
-        readFileSync(
-          resolve(
-            import.meta.dirname,
-            `../../../../../docs/specs/synoptic/${name}.json`,
-          ),
-          "utf8",
-        ),
-      ) as Synoptic;
+    for (const name of FLOWING_PLATES) {
+      const doc = committedPlate(name);
       const keys = new Set(boundSlots(doc).map((s) => s.key));
       const flowing = (doc.pipes ?? []).filter((p) => p.flow);
       expect(flowing.length).toBeGreaterThan(0);

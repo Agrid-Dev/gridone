@@ -1,6 +1,8 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import {
+  committedPlate as plate,
+  FLOWING_PLATES,
+} from "@/test/committedPlates";
 import {
   symbolSchemas,
   type AttributeSlot,
@@ -442,24 +444,6 @@ describe("circulatingRuns", () => {
 // The committed plates, over every combination of what their flows read.
 // ---------------------------------------------------------------------------
 
-const PLATES_DIR = resolve(
-  import.meta.dirname,
-  "../../../../../docs/specs/synoptic",
-);
-const plate = (name: string): Synoptic => ({
-  ...JSON.parse(readFileSync(resolve(PLATES_DIR, `${name}.json`), "utf8")),
-  id: name,
-  metadata: {},
-});
-// The committed plates that bind a flow; the restaurant plate binds none, so
-// nothing on it circulates and it has no place in these probes.
-const PLATE_NAMES = [
-  "ecs-est",
-  "ecs-ouest",
-  "production-chaud",
-  "production-froid",
-] as const;
-
 /**
  * The rule the documentation states, written from it and not from the
  * module (a closure of who reaches whom, rather than walks). Runs are
@@ -679,7 +663,7 @@ function circulator(doc: Synoptic) {
 }
 
 describe("circulatingRuns on the committed plates", () => {
-  it.each(PLATE_NAMES)(
+  it.each(FLOWING_PLATES)(
     "%s: moves exactly the runs on a path of the fluid through a flowing run, never a stopped one",
     (name) => {
       const doc = plate(name);
@@ -712,7 +696,7 @@ describe("circulatingRuns on the committed plates", () => {
     },
   );
 
-  it.each(PLATE_NAMES)(
+  it.each(FLOWING_PLATES)(
     "%s: a stale reading changes nothing an absent one would not",
     (name) => {
       const doc = plate(name);
@@ -726,7 +710,7 @@ describe("circulatingRuns on the committed plates", () => {
     },
   );
 
-  it.each(PLATE_NAMES)(
+  it.each(FLOWING_PLATES)(
     "%s: a gate opening or a flow starting never stills a run that moved",
     (name) => {
       const doc = plate(name);

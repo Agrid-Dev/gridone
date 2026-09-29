@@ -1,8 +1,7 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { Cell, PipeElement, SymbolElement } from "@gridone/sdk";
 import type { PlateDocument } from "@/components/synoptic/SynopticRenderer";
+import { COMMITTED_PLATES, committedPlate } from "@/test/committedPlates";
 import {
   depthsOf,
   direction,
@@ -11,17 +10,6 @@ import {
   type RunViolation,
   cellsOf,
 } from "./runRules";
-
-const load = (name: string): PlateDocument =>
-  JSON.parse(
-    readFileSync(
-      resolve(
-        import.meta.dirname,
-        `../../../../../../docs/specs/synoptic/${name}.json`,
-      ),
-      "utf8",
-    ),
-  );
 
 const at = (x: number, y: number, z = 0): Cell => ({ x, y, z });
 
@@ -97,16 +85,10 @@ describe("direction and segmentRule", () => {
 });
 
 describe("runViolations", () => {
-  it.each([
-    "ecs-est",
-    "ecs-ouest",
-    "production-chaud",
-    "production-froid",
-    "ecs-club-restaurant",
-  ])(
+  it.each(COMMITTED_PLATES)(
     "finds nothing on the committed plate %s, which the backend takes",
     (name) => {
-      expect(runViolations(load(name))).toEqual([]);
+      expect(runViolations(committedPlate(name))).toEqual([]);
     },
   );
 

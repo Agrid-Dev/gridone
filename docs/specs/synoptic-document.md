@@ -353,11 +353,11 @@ The old GTB has no view of the restaurant's hot water: its DOE synoptic booklet 
  y=-9  PRODUCTION ECS CLUB / RESTAURANT (title)
  y=-6  [EFA 1, rot 3] -> cold_in                        secondaire sortie <- SORTIE ÉCHANGEUR 28 <- (33,-2)
  y=-4                                                    V3V 35 -- bypass tee 36 -- (39,-4)  primary return
- y=-2  [DIST -3] <- DÉPART -1 <- [MIT 1, rot 2] <- [top manifold x=6..22] <-------------------- x=33
+ y=-2  [DIST -3] <- DÉPART 0 <- [MIT 1, rot 2] <- [top manifold x=6..22] <-------------------- x=33
  y= 0             b01 (8)   b02 (12)   b03 (16)   b04 (20)      [ECH 32, rot 3]   [PROD. CHAUD 40]
  y= 3                                                    (32,3) <- clapet 33 <- CPT 35 <- tee 36 <- VANNE 38 <- (39,3)
  y= 4          [bottom manifold x=6..24] -> POMPE 26 -> clapet 28 -> ENTRÉE ÉCHANGEUR 29 -> (31,4) up to (32,1)
- y= 6  bouclage from [DIST].out over the départ at z=1, along y=6: RETOUR 2, POMPE DE BOUCLAGE 6, up at x=22
+ y= 6  bouclage from [DIST].out over the départ at z=1, along y=6: RETOUR 0, POMPE DE BOUCLAGE 6, up at x=22
  y= 8  [EFA -3, rot 2] -> along y=8, up at x=23 into the bottom manifold
  y=10  STOCKAGE · 4 × 1000 L (caption)
 ```

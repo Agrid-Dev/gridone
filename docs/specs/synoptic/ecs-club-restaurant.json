@@ -803,7 +803,7 @@
         {
           "id": "tt-depart",
           "at": {
-            "x": -1,
+            "x": 0,
             "y": -2
           },
           "label": "DÉPART",
@@ -886,7 +886,7 @@
         {
           "id": "tt-retour",
           "at": {
-            "x": 2,
+            "x": 0,
             "y": 6
           },
           "label": "RETOUR",

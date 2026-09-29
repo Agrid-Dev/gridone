@@ -10,7 +10,7 @@ plant. The probes every committed plate shares are in ``test_plates.py``.
 """
 
 import pytest
-from plates import NOT_IDENTIFIED, NOT_MEASURED, read, shares_no_device_with_the_bays
+from plates import NOT_IDENTIFIED, NOT_MEASURED, read
 
 from synoptics.models import PipeEndpoint, PortEndpoint, SynopticDocument
 from synoptics.validation import bound_slots
@@ -26,12 +26,10 @@ def plate() -> SynopticDocument:
 def test_the_plate_binds_nothing_yet(plate):
     """The WAGO words for this station read 0 since creation, the gateway that
     reads the exchanger is not confirmed as this plant's, and the pump couple is
-    not identified: no slot, tag or run names a device, so no device id from
-    another plate can hide here either."""
+    not identified: no slot, tag or run names a device."""
     assert bound_slots(plate) == []
     assert all(s.device_id is None for s in plate.symbols)
     assert all(p.flow is None for p in plate.pipes)
-    assert shares_no_device_with_the_bays(plate)
 
 
 def test_the_production_is_an_exchanger_not_heat_pumps(plate, symbols):

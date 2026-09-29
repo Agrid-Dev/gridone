@@ -1,9 +1,12 @@
-import { readdirSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { createRef } from "react";
 import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  COMMITTED_PLATES,
+  committedPlate as plate,
+  FLOWING_PLATES,
+} from "@/test/committedPlates";
 import type {
   AttributeSlot,
   LabelElement,
@@ -145,19 +148,6 @@ const VALUES: SynopticValues = {
   devices: { "PAC-03": { faulty: true, severity: null } },
 };
 
-/** The committed plates as the API would store them, read from the spec so
- *  the customer-bound documents live in docs/ and on the instance, never in
- *  the bundle. Resolved from this file, so the runner's working directory
- *  is moot. */
-const PLATES_DIR = resolve(
-  import.meta.dirname,
-  "../../../../../docs/specs/synoptic",
-);
-const plate = (name: string): Synoptic => ({
-  ...JSON.parse(readFileSync(resolve(PLATES_DIR, `${name}.json`), "utf8")),
-  id: name,
-  metadata: {},
-});
 /** What the renderer decides on each committed plate: tees (a disc at every
  *  branch point), panels (a symbol with several bound slots) and chips
  *  (every single reading, on a tag, a symbol or a caption). What the
@@ -178,13 +168,8 @@ const PLATES: Record<string, { tees: number; panels: number; chips: number }> =
     "ecs-club-restaurant": { tees: 2, panels: 0, chips: 9 },
   };
 const PLATE_CASES = Object.entries(PLATES);
-/** The plates whose runs can circulate: a `flow` binding on at least one
- *  run. The restaurant plate binds none (every reading on it is a marker),
- *  so nothing on it may move. */
-const flows = ([name]: (typeof PLATE_CASES)[number]) =>
-  (plate(name).pipes ?? []).some((p) => p.flow);
-const FLOWING_CASES = PLATE_CASES.filter(flows);
-const STILL_CASES = PLATE_CASES.filter((c) => !flows(c));
+const FLOWING_CASES = PLATE_CASES.filter(([n]) => FLOWING_PLATES.includes(n));
+const STILL_CASES = PLATE_CASES.filter(([n]) => !FLOWING_PLATES.includes(n));
 
 function draw(doc = DOC, values?: SynopticValues) {
   const { container } = render(<SynopticRenderer doc={doc} values={values} />);
@@ -870,10 +855,7 @@ describe("SynopticRenderer", () => {
   });
 
   it("draws every plate committed under docs/specs/synoptic", () => {
-    const committed = readdirSync(PLATES_DIR)
-      .filter((f) => f.endsWith(".json"))
-      .map((f) => f.replace(/\.json$/, ""));
-    expect(committed.sort()).toEqual(Object.keys(PLATES).sort());
+    expect(COMMITTED_PLATES).toEqual(Object.keys(PLATES).sort());
   });
 
   // One static render per plate serves its probes: the renderer is pure, and
