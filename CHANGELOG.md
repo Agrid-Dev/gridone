@@ -1,3 +1,9 @@
+## v0.279.2 (2026-09-29)
+
+### Fix
+
+- **ui**: make command attribute selector searchable
+
 ## v0.279.1 (2026-09-28)
 
 ### Fix
