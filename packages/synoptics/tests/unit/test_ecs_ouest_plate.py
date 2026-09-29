@@ -68,10 +68,11 @@ def test_the_captions_are_the_drawing_s_words(plate):
     """The bay caption carries the drawn count and no litre total: the station
     the GTB names for this bay is "4000L" and nine drawn ballons make 4 500 L,
     so a total would assert what no source confirms. The counter label reads
-    the meter raw, in the unit the site's meter pages use."""
+    the meter raw, in the unit the meter driver declares (kWh since the
+    Schneider counters were rescaled at the driver)."""
     labels = {label.id: label for label in plate.labels}
     assert labels["title"].text == "PRODUCTION ECS OUEST"
     assert labels["zone-storage"].text == "STOCKAGE · 9 × 500 L"  # noqa: RUF001
     counter = labels["cpt-ballon-ouest"].value
     assert counter.target.attribute == "energy"
-    assert (counter.unit, counter.decimals) == ("Wh", 0)
+    assert (counter.unit, counter.decimals) == ("kWh", 0)
