@@ -227,6 +227,15 @@
     "truncatedWarning": "Data truncated for {{attributes}}, narrow the period",
     "noAttributesSelected": "Select attributes to chart",
     "noMetricData": "No data for this period",
+    "movePanel": "Move {{panel}}",
+    "reorder": {
+      "instructions": "Press space to pick up the panel, arrow keys to move it, space to drop it, escape to cancel.",
+      "pickedUp": "{{panel}} picked up",
+      "movedOver": "{{panel}} moved over {{over}}",
+      "dropped": "{{panel}} dropped over {{over}}",
+      "released": "{{panel}} released",
+      "cancelled": "Move of {{panel}} cancelled"
+    },
     "export": "Export",
     "today": "today",
     "yesterday": "yesterday"

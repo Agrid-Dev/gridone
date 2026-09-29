@@ -13,12 +13,12 @@ import {
   AXIS_EXTRA,
   BOOL_COLOR,
   boolAccessors,
-  legendStyle,
   legendItemStyle,
   legendLabelStyle,
 } from "../constants";
 import { formatTimeTick } from "../timeTickFormat";
 import { LegendSwatch } from "../LegendSwatch";
+import { useLegendStyle } from "../LegendGutterContext";
 
 export function BooleanPanel({
   entry,
@@ -35,6 +35,8 @@ export function BooleanPanel({
       return { timestamp: t, value: raw ? 1 : 0 };
     })
     .filter((d): d is BoolDatum => d !== null);
+
+  const legendStyle = useLegendStyle();
 
   return (
     <div>

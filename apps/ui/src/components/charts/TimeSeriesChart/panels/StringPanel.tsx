@@ -15,13 +15,13 @@ import {
   CHART_COLORS,
   OTHER_COLOR,
   boolAccessors,
-  legendStyle,
   legendItemStyle,
   legendLabelStyle,
   legendSeriesLabelStyle,
 } from "../constants";
 import { formatTimeTick } from "../timeTickFormat";
 import { LegendSwatch } from "../LegendSwatch";
+import { useLegendStyle } from "../LegendGutterContext";
 import { computeTopStringValues } from "../topStringValues";
 import { attributeValueChartColor } from "@/lib/semanticColors";
 
@@ -89,6 +89,8 @@ export function StringPanel({
 
     return items;
   }, [displayValues, hasOther, topSet, timestamps, values, series]);
+
+  const legendStyle = useLegendStyle();
 
   return (
     <>

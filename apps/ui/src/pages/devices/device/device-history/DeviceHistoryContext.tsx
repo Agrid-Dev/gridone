@@ -23,6 +23,11 @@ import {
   type MergedRow,
 } from "@/lib/mergeTimeSeries";
 import {
+  mergePanelOrder,
+  readStoredPanelOrder,
+  writeStoredPanelOrder,
+} from "./panelOrder";
+import {
   LEGACY_METRIC_PARAM,
   SELECTION_PARAM,
   canonicalSelection,
@@ -82,6 +87,10 @@ type DeviceHistoryContextValue = {
   tableRows: MergedRow[];
   /** Selected attributes whose points the API cut short over the window. */
   truncatedAttributes: string[];
+  /** The order the viewer arranged the chart's panels in, by panel key;
+   *  remembered per device. */
+  panelOrder: string[];
+  setPanelOrder: (keys: string[]) => void;
   commandsMap: Map<number, UnitCommand>;
   usersMap: Map<string, User>;
   isLoading: boolean;
@@ -345,6 +354,22 @@ export function DeviceHistoryProvider({
   const { commandsMap } = useCommandsByIds(commandIds);
   const { usersMap } = useUsers();
 
+  const [panelOrder, setPanelOrderState] = useState<string[]>(
+    () => readStoredPanelOrder(deviceId) ?? [],
+  );
+  // A drop reports the order of the panels on screen; panels of deselected
+  // attributes keep their remembered place around them.
+  const setPanelOrder = useCallback(
+    (keys: string[]) => {
+      setPanelOrderState((remembered) => {
+        const next = mergePanelOrder(remembered, keys);
+        writeStoredPanelOrder(deviceId, next);
+        return next;
+      });
+    },
+    [deviceId],
+  );
+
   const [isDownloading, setIsDownloading] = useState(false);
 
   const handleDownload = useCallback(
@@ -402,6 +427,8 @@ export function DeviceHistoryProvider({
       chartRows,
       tableRows,
       truncatedAttributes: truncatedMetrics,
+      panelOrder,
+      setPanelOrder,
       commandsMap,
       usersMap,
       isLoading,
@@ -424,6 +451,8 @@ export function DeviceHistoryProvider({
       chartRows,
       tableRows,
       truncatedMetrics,
+      panelOrder,
+      setPanelOrder,
       commandsMap,
       usersMap,
       isLoading,

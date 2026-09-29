@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import TimeSeriesChart, {
+  type PanelDragWording,
   type Series,
 } from "@/components/charts/TimeSeriesChart";
 import { seriesUnit } from "@/components/charts/TimeSeriesChart/seriesUnit";
@@ -28,8 +29,14 @@ function valuesOf<T>(rows: MergedRow[], names: string[]) {
 export function HistoryChartCard() {
   const { t } = useTranslation("devices");
   const { t: tCommon } = useTranslation("common");
-  const { selectedAttributes, dataTypes, attributes, chartRows } =
-    useDeviceHistoryContext();
+  const {
+    selectedAttributes,
+    dataTypes,
+    attributes,
+    chartRows,
+    panelOrder,
+    setPanelOrder,
+  } = useDeviceHistoryContext();
   const labelFor = useAttributeLabel();
   const booleanLabel = useValueLabel();
 
@@ -117,6 +124,21 @@ export function HistoryChartCard() {
     [lineSeries, intSeries],
   );
 
+  const dragWording = useMemo<PanelDragWording>(
+    () => ({
+      instructions: t("history.reorder.instructions"),
+      pickedUp: (panel) => t("history.reorder.pickedUp", { panel }),
+      movedOver: (panel, over) =>
+        t("history.reorder.movedOver", { panel, over }),
+      dropped: (panel, over) =>
+        over
+          ? t("history.reorder.dropped", { panel, over })
+          : t("history.reorder.released", { panel }),
+      cancelled: (panel) => t("history.reorder.cancelled", { panel }),
+    }),
+    [t],
+  );
+
   const hasData = chartRows.some((row) =>
     selectedAttributes.some((name) => row.values[name] != null),
   );
@@ -145,6 +167,10 @@ export function HistoryChartCard() {
           stringSeries={stringSeries}
           stringValues={stringValues}
           lineHeight={unitPanels > 1 ? STACKED_LINE_HEIGHT : undefined}
+          panelOrder={panelOrder}
+          onPanelOrderChange={setPanelOrder}
+          dragHandleLabel={(panel) => t("history.movePanel", { panel })}
+          dragWording={dragWording}
         />
       )}
     </div>

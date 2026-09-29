@@ -1,5 +1,8 @@
-import type { TimeSeriesChartProps } from "./types";
+import { useState } from "react";
+import type { PanelEntry, TimeSeriesChartProps } from "./types";
 import { FloatScaleContext } from "./FloatScaleContext";
+import { SortablePanels } from "./SortablePanels";
+import { LegendGutterContext } from "./LegendGutterContext";
 import { TooltipContent } from "./TooltipContent";
 import { panelRegistry } from "./panels/registry";
 import { usePanels } from "./usePanels";
@@ -16,10 +19,17 @@ export function TimeSeriesChartInner({
   stringSeries = [],
   stringValues = {},
   numericMark,
+  panelOrder,
+  onPanelOrderChange,
+  dragHandleLabel = (label) => label,
+  dragWording,
   lineHeight,
   categoricalHeight,
   width,
 }: TimeSeriesChartProps & { width: number }) {
+  // A panel on the move is not being read: the crosshair and tooltip hold
+  // off until it is dropped.
+  const [dragging, setDragging] = useState(false);
   const panels = usePanels({
     lineSeries,
     lineValues,
@@ -30,6 +40,7 @@ export function TimeSeriesChartInner({
     stringSeries,
     stringValues,
     numericMark,
+    panelOrder,
     lineHeight,
     categoricalHeight,
   });
@@ -51,6 +62,21 @@ export function TimeSeriesChartInner({
 
   if (width <= 0) return null;
 
+  const renderPanel = (entry: PanelEntry, idx: number) => {
+    const Component = panelRegistry[entry.type];
+    return (
+      <Component
+        key={entry.key}
+        entry={entry}
+        timestamps={timestamps}
+        width={width}
+        isLast={idx === panels.length - 1}
+      />
+    );
+  };
+
+  const showCursor = cursorX !== null && !dragging;
+
   return (
     <FloatScaleContext.Provider value={floatScales}>
       <div
@@ -59,22 +85,24 @@ export function TimeSeriesChartInner({
         onPointerMove={handlePointerMove}
         onPointerLeave={handlePointerLeave}
       >
-        {/* Panel registry map */}
-        {panels.map((entry, idx) => {
-          const Component = panelRegistry[entry.type];
-          return (
-            <Component
-              key={entry.key}
-              entry={entry}
-              timestamps={timestamps}
-              width={width}
-              isLast={idx === panels.length - 1}
-            />
-          );
-        })}
+        {onPanelOrderChange ? (
+          <LegendGutterContext.Provider value={panels.length > 1}>
+            <SortablePanels
+              panels={panels}
+              onReorder={onPanelOrderChange}
+              onDraggingChange={setDragging}
+              handleLabel={dragHandleLabel}
+              wording={dragWording}
+            >
+              {renderPanel}
+            </SortablePanels>
+          </LegendGutterContext.Provider>
+        ) : (
+          panels.map(renderPanel)
+        )}
 
         {/* Shared vertical crosshair */}
-        {cursorX !== null && (
+        {showCursor && (
           <div
             style={{
               position: "absolute",
@@ -89,7 +117,7 @@ export function TimeSeriesChartInner({
         )}
 
         {/* Unified tooltip */}
-        {cursorX !== null &&
+        {showCursor &&
           cursorY !== null &&
           hoveredIdx !== null &&
           hoveredTime !== null &&
