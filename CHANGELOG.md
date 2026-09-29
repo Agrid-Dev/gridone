@@ -1,3 +1,14 @@
+## v0.283.0 (2026-09-29)
+
+### Feat
+
+- **ui**: switch device tabs between supervision and configuration
+- **ui**: list related automations in device configuration
+
+### Fix
+
+- resolve template writes like a dispatch and contain config errors
+
 ## v0.282.1 (2026-09-29)
 
 ### Fix
