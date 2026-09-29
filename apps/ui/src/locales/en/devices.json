@@ -218,40 +218,18 @@
     "wind_speed": "Wind speed"
   },
   "history": {
-    "metricsLabel": "Metrics",
-    "more": "More…",
+    "chart": "Chart",
+    "table": "Table",
     "range24h": "24 h",
     "range7d": "7 d",
     "range30d": "30 d",
     "rangeCustom": "Custom",
-    "chartTitle24h": "{{metric}} — last 24 h",
-    "chartTitle7d": "{{metric}} — last 7 days",
-    "chartTitle30d": "{{metric}} — last 30 days",
-    "chartTitleRange": "{{metric}} — {{range}}",
-    "truncatedWarning": "Data truncated, narrow the period",
-    "averagedNotice": "Averaged per {{interval}}",
-    "statesTitle": "States",
-    "otherValues": "Other",
+    "truncatedWarning": "Data truncated for {{attributes}}, narrow the period",
+    "noAttributesSelected": "Select attributes to chart",
     "noMetricData": "No data for this period",
     "export": "Export",
-    "refresh": {
-      "now": "Refresh now",
-      "auto": "Auto-refresh",
-      "off": "Auto off",
-      "10s": "10 s",
-      "1m": "1 min",
-      "5m": "5 min"
-    },
-    "events": {
-      "event": "Event",
-      "value": "Value",
-      "source": "Source",
-      "reading": "Reading — {{metric}}",
-      "change": "Change — {{metric}}",
-      "gateway": "Gateway",
-      "today": "today",
-      "yesterday": "yesterday"
-    }
+    "today": "today",
+    "yesterday": "yesterday"
   },
   "commands": {
     "title": "Commands",

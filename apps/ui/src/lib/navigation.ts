@@ -145,12 +145,14 @@ export function internalUrl(value: unknown): string | null {
  *  `navigation.spec.ts` turns red when a section routes a segment missing here. */
 export const RESOURCE_SECTIONS: Record<string, readonly string[]> = {
   devices: [
+    "chart",
     "commands",
     "config",
     "edit",
     "history",
     "new",
     "operating-rules",
+    "table",
     "tags",
     "templates",
     "views",

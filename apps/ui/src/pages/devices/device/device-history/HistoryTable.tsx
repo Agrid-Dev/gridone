@@ -19,27 +19,36 @@ import {
   Th,
 } from "@/components/ui";
 import { useAttributeLabel } from "@/hooks/useAttributeLabel";
-import { buildEventColumns } from "./eventColumns";
+import { buildHistoryColumns } from "./historyColumns";
 import { useDeviceHistoryContext } from "./DeviceHistoryContext";
 
 const PAGE_SIZE = 20;
 
-/** The events log: one row per recorded value change of the active metric and
- *  the state series, newest first, with URL-synced pagination. */
-export default function HistoryEventsTable() {
+/** The table view: one row per instant at which a selected attribute
+ *  changed, one column per selected attribute, newest first, with URL-synced
+ *  pagination. */
+export default function HistoryTable() {
   const { t, i18n } = useTranslation(["devices", "common"]);
-  const { events, dataTypes, valueLabels, deviceType, commandsMap, usersMap } =
-    useDeviceHistoryContext();
+  const {
+    tableRows,
+    selectedAttributes,
+    attributes,
+    dataTypes,
+    deviceType,
+    commandsMap,
+    usersMap,
+  } = useDeviceHistoryContext();
   const labelFor = useAttributeLabel();
 
   const columns = useMemo(
     () =>
-      buildEventColumns({
+      buildHistoryColumns({
         t,
         locale: i18n.language,
+        selectedAttributes,
         labelFor,
+        attributes,
         dataTypes,
-        valueLabels,
         deviceType,
         commandsMap,
         usersMap,
@@ -47,9 +56,10 @@ export default function HistoryEventsTable() {
     [
       t,
       i18n.language,
+      selectedAttributes,
       labelFor,
+      attributes,
       dataTypes,
-      valueLabels,
       deviceType,
       commandsMap,
       usersMap,
@@ -88,9 +98,9 @@ export default function HistoryEventsTable() {
   );
 
   // Clamp to last page when current page exceeds page count
-  const maxPage = Math.max(0, Math.ceil(events.length / PAGE_SIZE) - 1);
+  const maxPage = Math.max(0, Math.ceil(tableRows.length / PAGE_SIZE) - 1);
   useEffect(() => {
-    if (events.length > 0 && pageIndex > maxPage) {
+    if (tableRows.length > 0 && pageIndex > maxPage) {
       setSearchParams(
         (prev) => {
           const params = new URLSearchParams(prev);
@@ -104,10 +114,10 @@ export default function HistoryEventsTable() {
         { replace: true },
       );
     }
-  }, [events.length, pageIndex, maxPage, setSearchParams]);
+  }, [tableRows.length, pageIndex, maxPage, setSearchParams]);
 
   const table = useReactTable({
-    data: events,
+    data: tableRows,
     columns,
     state: {
       pagination: { pageIndex, pageSize: PAGE_SIZE },
@@ -119,12 +129,12 @@ export default function HistoryEventsTable() {
   });
 
   const { pageIndex: currentPage, pageSize } = table.getState().pagination;
-  const totalRows = events.length;
+  const totalRows = tableRows.length;
   const pageCount = table.getPageCount();
 
   return (
     <div className="space-y-4">
-      <div className="overflow-hidden rounded-lg border">
+      <div className="overflow-x-auto rounded-lg border">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((hg) => (

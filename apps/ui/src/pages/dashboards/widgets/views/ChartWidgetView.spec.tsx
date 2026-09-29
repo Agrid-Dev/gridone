@@ -64,7 +64,7 @@ vi.mock("../../useDashboardPeriod", () => ({
 vi.mock("@/components/charts/TimeSeriesChart", () => ({
   default: (props: {
     timestamps?: Date[];
-    lineSeries?: { label: string }[];
+    lineSeries?: { label: string; href?: string }[];
     intSeries?: { label: string }[];
     stringSeries?: { label: string }[];
     booleanSeries?: {
@@ -75,6 +75,7 @@ vi.mock("@/components/charts/TimeSeriesChart", () => ({
   }) => {
     const series: {
       label: string;
+      href?: string;
       booleanLabels?: { true: string; false: string };
     }[] =
       props.lineSeries ??
@@ -87,6 +88,7 @@ vi.mock("@/components/charts/TimeSeriesChart", () => ({
         data-testid="chart"
         data-points={props.timestamps?.length}
         data-mark={props.numericMark}
+        data-hrefs={series.map((s) => s.href ?? "").join(" ")}
       >
         {series
           .map((s) =>
@@ -179,6 +181,21 @@ describe("ChartWidgetView", () => {
   // Devices come back in whatever order the target resolved them; a reader
   // scans a stack of panels for a name, so they are listed alphabetically —
   // numbers in a name by value, so "Ch 9" comes before "Ch 10".
+  it("links each device's series to its history chart, opened on the attribute", () => {
+    mockSeries([seriesResult("dev1")]);
+    render(
+      <ChartWidgetView
+        config={{ ...CONFIG, query: { last: "7d" } } as typeof CONFIG}
+      />,
+    );
+    // The history page reads its selection from `attrs`, never from the
+    // former page's `metric`.
+    expect(screen.getByTestId("chart")).toHaveAttribute(
+      "data-hrefs",
+      "/devices/dev1/history/chart?attrs=temperature&last=7d",
+    );
+  });
+
   it("lists the devices' series alphabetically", () => {
     mockResolved(["Ch 10", "ch 2", "Ch 9"]);
     mockSeries([
