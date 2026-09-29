@@ -1,3 +1,10 @@
+## v0.279.5 (2026-09-29)
+
+### Refactor
+
+- **ui**: draw the building block as a header, not a button
+- **ui**: move the Gridone brand to the sidebar footer
+
 ## v0.279.4 (2026-09-29)
 
 ### Refactor
