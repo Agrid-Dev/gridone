@@ -65,6 +65,16 @@ _KPI_ATTRIBUTE = {
     "precision": None,
 }
 _KPI_CONFIG = {"type": "kpi", "devices": _KPI_DEVICES, "attributes": [_KPI_ATTRIBUTE]}
+_CONTROL_PANEL_CONFIG = {
+    "type": "control_panel",
+    "sections": [
+        {
+            "title": "Pump 1",
+            "active_when": {"device_id": "plc", "attribute": "auto_mode"},
+            "attributes": [{"device_id": "dev1", "attribute": "running"}],
+        }
+    ],
+}
 
 
 @pytest.fixture
@@ -374,6 +384,32 @@ class TestWidgets:
         )
         async with client as c:
             resp = await c.post("/d1/widgets", json={"config": _KPI_CONFIG})
+        assert resp.status_code == 422
+        svc.add_widget.assert_not_awaited()
+
+    async def test_add_control_panel_widget_reaches_the_service(
+        self, client, svc, mock_target_resolver
+    ):
+        mock_target_resolver.resolve.return_value = ResolvedTarget(
+            attribute="running",
+            device_ids=["dev1"],
+            data_type=DataType.BOOL,
+            excluded_device_ids=[],
+        )
+        svc.add_widget.return_value = _WIDGET
+        async with client as c:
+            resp = await c.post("/d1/widgets", json={"config": _CONTROL_PANEL_CONFIG})
+        assert resp.status_code == 201
+        # The condition and the row are both resolved at save time.
+        assert mock_target_resolver.resolve.await_count == 2
+        svc.add_widget.assert_awaited_once()
+
+    async def test_add_control_panel_widget_with_non_boolean_returns_422(
+        self, client, svc
+    ):
+        # The default resolver fixture answers float: booleans only for now.
+        async with client as c:
+            resp = await c.post("/d1/widgets", json={"config": _CONTROL_PANEL_CONFIG})
         assert resp.status_code == 422
         svc.add_widget.assert_not_awaited()
 

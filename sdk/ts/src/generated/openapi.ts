@@ -2149,6 +2149,26 @@ export interface components {
      * @enum {string}
      */
     ActionOp: "toggle" | "increment" | "decrement" | "cycle";
+    /**
+     * ActiveCondition
+     * @description Makes a section active only while an attribute reports ``value``.
+     *
+     *     The attribute is freely picked — typically on another device than the
+     *     section's rows (a selector switch enabling one of two pump groups).
+     */
+    ActiveCondition: {
+      /** Device Id */
+      device_id: string;
+      /** Attribute */
+      attribute: string;
+      /**
+       * Value
+       * @default true
+       */
+      value?: boolean;
+      /** Inactive Reason */
+      inactive_reason?: string | null;
+    };
     /** AggregateOptionsResponse */
     AggregateOptionsResponse: {
       /** Intervals */
@@ -3793,6 +3813,21 @@ export interface components {
      * @enum {string}
      */
     ControlKind: "toggle" | "number" | "slider" | "select";
+    /**
+     * ControlPanelAttribute
+     * @description One row of a section: a boolean attribute, shown with its current value.
+     *
+     *     How the row is drawn is not stored: whether it is a fault, a command or a
+     *     plain state is the attribute's own contract, read at render time.
+     */
+    ControlPanelAttribute: {
+      /** Device Id */
+      device_id: string;
+      /** Attribute */
+      attribute: string;
+      /** Label */
+      label?: string | null;
+    };
     /** ControlPanelNode */
     ControlPanelNode: {
       /** Visible When */
@@ -3813,6 +3848,42 @@ export interface components {
       kind: "control-panel";
       /** Controls */
       controls: string[];
+    };
+    /**
+     * ControlPanelSection
+     * @description A titled group of rows, optionally gated by an :class:`ActiveCondition`.
+     */
+    ControlPanelSection: {
+      /** Title */
+      title?: string | null;
+      active_when?: components["schemas"]["ActiveCondition"] | null;
+      /** Attributes */
+      attributes: components["schemas"]["ControlPanelAttribute"][];
+    };
+    /**
+     * ControlPanelWidgetConfig
+     * @description Boolean attributes picked across devices, grouped into sections.
+     *
+     *     Live-only, like ``device_control``: rows show current values, so the
+     *     dashboard period does not apply and nothing about time is stored.
+     *
+     *     Booleans only for now. The data type is checked against the resolved
+     *     attributes at save time rather than declared here, so widening to other
+     *     types later is additive.
+     *
+     *     A section's ``active_when`` is a display rule of this widget, not a
+     *     safeguard: it disables the section's controls in the view and nothing
+     *     else. A write refused whatever surface it comes from is an operating
+     *     rule's job.
+     */
+    ControlPanelWidgetConfig: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      type: "control_panel";
+      /** Sections */
+      sections: components["schemas"]["ControlPanelSection"][];
     };
     /** ControlRef */
     ControlRef: {
@@ -5981,7 +6052,7 @@ export interface components {
       max_entries?: number;
       /**
        * Max Manifest Bytes
-       * @default 1048576
+       * @default 2097152
        */
       max_manifest_bytes?: number;
       /**
@@ -6109,10 +6180,15 @@ export interface components {
      * Pipe
      * @description A run between ports, cells and other pipes.
      *
-     *     The polyline is ``from``-cell, waypoints, ``to``-cell. ``flow`` animates the
-     *     run when it resolves to ``true``; a pipe without ``flow`` is static.
-     *     Animation is never inferred from an inline pump, which would animate the
-     *     return of a loop whose pump is on the supply.
+     *     The polyline is ``from``-cell, waypoints, ``to``-cell, the way the fluid
+     *     goes. ``flow`` says the run circulates when it resolves to ``true``, and a
+     *     circulating run carries its circuit: every run on a path of the fluid
+     *     through it moves too, a path walking the tees and the symbols' passages
+     *     (``SymbolType.passages``) from ``from`` to ``to``, never into a run whose
+     *     own ``flow`` reads ``false``, one a machine or valve that gates the flow
+     *     stops, or a dead end. Circulation is never inferred from an inline pump,
+     *     which would move the return of a loop whose pump is on the supply: a pump
+     *     can only stop it.
      *
      *     ``flow`` takes the ``attribute`` arm only. A literal has nothing to resolve,
      *     so a ``text`` flow would reach production as a run that silently never
@@ -6143,10 +6219,15 @@ export interface components {
      * Pipe
      * @description A run between ports, cells and other pipes.
      *
-     *     The polyline is ``from``-cell, waypoints, ``to``-cell. ``flow`` animates the
-     *     run when it resolves to ``true``; a pipe without ``flow`` is static.
-     *     Animation is never inferred from an inline pump, which would animate the
-     *     return of a loop whose pump is on the supply.
+     *     The polyline is ``from``-cell, waypoints, ``to``-cell, the way the fluid
+     *     goes. ``flow`` says the run circulates when it resolves to ``true``, and a
+     *     circulating run carries its circuit: every run on a path of the fluid
+     *     through it moves too, a path walking the tees and the symbols' passages
+     *     (``SymbolType.passages``) from ``from`` to ``to``, never into a run whose
+     *     own ``flow`` reads ``false``, one a machine or valve that gates the flow
+     *     stops, or a dead end. Circulation is never inferred from an inline pump,
+     *     which would move the return of a loop whose pump is on the supply: a pump
+     *     can only stop it.
      *
      *     ``flow`` takes the ``attribute`` arm only. A literal has nothing to resolve,
      *     so a ``text`` flow would reach production as a run that silently never
@@ -7734,7 +7815,8 @@ export interface components {
         | components["schemas"]["ChartWidgetConfig"]
         | components["schemas"]["DeviceControlWidgetConfig"]
         | components["schemas"]["KpiWidgetConfig"]
-        | components["schemas"]["MeterTreeWidgetConfig"];
+        | components["schemas"]["MeterTreeWidgetConfig"]
+        | components["schemas"]["ControlPanelWidgetConfig"];
       /** Title */
       title?: string | null;
       /** Description */
@@ -7781,6 +7863,7 @@ export interface components {
             | components["schemas"]["DeviceControlWidgetConfig"]
             | components["schemas"]["KpiWidgetConfig"]
             | components["schemas"]["MeterTreeWidgetConfig"]
+            | components["schemas"]["ControlPanelWidgetConfig"]
           )
         | null;
     };
@@ -7912,7 +7995,7 @@ export interface components {
     YamlLimits: {
       /**
        * Max Bytes
-       * @default 1048576
+       * @default 2097152
        */
       max_bytes?: number;
       /**
@@ -7922,7 +8005,7 @@ export interface components {
       max_depth?: number;
       /**
        * Max Nodes
-       * @default 50000
+       * @default 100000
        */
       max_nodes?: number;
       /**
