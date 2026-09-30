@@ -303,7 +303,7 @@
     },
     {
       "id": "pompe-bouclage",
-      "type": "pump",
+      "type": "pump_double",
       "placement": {
         "kind": "pipe",
         "pipe": "dhw-loop-return",
@@ -312,7 +312,10 @@
       "label": "POMPE DE BOUCLAGE",
       "device_id": null,
       "props": {},
-      "bindings": { "state": { "kind": "text", "text": "non identifiée" } }
+      "bindings": {
+        "state_a": { "kind": "text", "text": "non identifiée" },
+        "state_b": { "kind": "text", "text": "non identifiée" }
+      }
     },
     {
       "id": "rechauffeur-boucle",

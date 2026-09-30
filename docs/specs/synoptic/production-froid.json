@@ -194,49 +194,48 @@
       "bindings": {}
     },
     {
-      "id": "pompe-peg-e2-a",
-      "type": "pump",
+      "id": "pompe-peg-e2",
+      "type": "pump_double",
       "placement": {
         "kind": "pipe",
-        "pipe": "peg-e2-a-branch",
-        "cell": { "x": 22, "y": -11 }
+        "pipe": "peg-e2-branch",
+        "cell": { "x": 20, "y": -11 }
       },
-      "label": "PEG-E2 A",
-      "device_id": "72cc846bcccc41f5",
-      "props": {},
-      "bindings": {
-        "speed": {
-          "kind": "attribute",
-          "target": {
-            "devices": { "ids": ["72cc846bcccc41f5"] },
-            "attribute": "speed"
-          },
-          "unit": "tr/min",
-          "decimals": 0
-        },
-        "state": {
-          "kind": "attribute",
-          "target": {
-            "devices": { "ids": ["72cc846bcccc41f5"] },
-            "attribute": "onoff_state"
-          },
-          "labels": { "true": "MARCHE", "false": "ARRÊT" }
+      "label": "PEG-E2",
+      "device_id": null,
+      "props": {
+        "heads": {
+          "a": { "device_id": "72cc846bcccc41f5" },
+          "b": { "device_id": "173e8e56d4d84473" }
         }
-      }
-    },
-    {
-      "id": "pompe-peg-e2-b",
-      "type": "pump",
-      "placement": {
-        "kind": "pipe",
-        "pipe": "peg-e2-b-branch",
-        "cell": { "x": 22, "y": -4 }
       },
-      "label": "PEG-E2 B",
-      "device_id": "173e8e56d4d84473",
-      "props": {},
       "bindings": {
-        "speed": {
+        "state_a": {
+          "kind": "attribute",
+          "target": {
+            "devices": { "ids": ["72cc846bcccc41f5"] },
+            "attribute": "onoff_state"
+          },
+          "labels": { "true": "MARCHE", "false": "ARRÊT" }
+        },
+        "speed_a": {
+          "kind": "attribute",
+          "target": {
+            "devices": { "ids": ["72cc846bcccc41f5"] },
+            "attribute": "speed"
+          },
+          "unit": "tr/min",
+          "decimals": 0
+        },
+        "state_b": {
+          "kind": "attribute",
+          "target": {
+            "devices": { "ids": ["173e8e56d4d84473"] },
+            "attribute": "onoff_state"
+          },
+          "labels": { "true": "MARCHE", "false": "ARRÊT" }
+        },
+        "speed_b": {
           "kind": "attribute",
           "target": {
             "devices": { "ids": ["173e8e56d4d84473"] },
@@ -244,14 +243,6 @@
           },
           "unit": "tr/min",
           "decimals": 0
-        },
-        "state": {
-          "kind": "attribute",
-          "target": {
-            "devices": { "ids": ["173e8e56d4d84473"] },
-            "attribute": "onoff_state"
-          },
-          "labels": { "true": "MARCHE", "false": "ARRÊT" }
         }
       }
     },
@@ -429,7 +420,7 @@
       "from": { "kind": "port", "symbol": "ech-eg04", "port": "secondary_out" },
       "to": {
         "kind": "pipe",
-        "pipe": "peg-e2-a-branch",
+        "pipe": "peg-e2-branch",
         "cell": { "x": 16, "y": -11 }
       },
       "waypoints": [
@@ -459,15 +450,15 @@
       "fluid": "chilled_supply",
       "from": {
         "kind": "cell",
-        "cell": { "x": 28, "y": -11 }
+        "cell": { "x": 24, "y": -11 }
       },
       "to": { "kind": "port", "symbol": "collector-supply", "port": "in_1" },
-      "waypoints": [{ "x": 28, "y": -3 }],
+      "waypoints": [{ "x": 24, "y": -3 }],
       "flow": null,
       "tags": []
     },
     {
-      "id": "peg-e2-a-branch",
+      "id": "peg-e2-branch",
       "fluid": "chilled_supply",
       "from": {
         "kind": "cell",
@@ -476,21 +467,15 @@
       "to": {
         "kind": "pipe",
         "pipe": "sec-supply-out",
-        "cell": { "x": 28, "y": -11 }
+        "cell": { "x": 24, "y": -11 }
       },
       "waypoints": [],
-      "flow": {
-        "kind": "attribute",
-        "target": {
-          "devices": { "ids": ["72cc846bcccc41f5"] },
-          "attribute": "onoff_state"
-        }
-      },
+      "flow": null,
       "tags": [
         {
           "id": "pression-peg-e2-a",
           "at": { "x": 18, "y": -11 },
-          "label": "PRESSION",
+          "label": "PRESSION A",
           "value": {
             "kind": "attribute",
             "target": {
@@ -500,35 +485,11 @@
             "unit": "bar",
             "decimals": 1
           }
-        }
-      ]
-    },
-    {
-      "id": "peg-e2-b-branch",
-      "fluid": "chilled_supply",
-      "from": {
-        "kind": "pipe",
-        "pipe": "sec-supply",
-        "cell": { "x": 16, "y": -4 }
-      },
-      "to": {
-        "kind": "pipe",
-        "pipe": "sec-supply-out",
-        "cell": { "x": 28, "y": -4 }
-      },
-      "waypoints": [],
-      "flow": {
-        "kind": "attribute",
-        "target": {
-          "devices": { "ids": ["173e8e56d4d84473"] },
-          "attribute": "onoff_state"
-        }
-      },
-      "tags": [
+        },
         {
           "id": "pression-peg-e2-b",
-          "at": { "x": 18, "y": -4 },
-          "label": "PRESSION",
+          "at": { "x": 22, "y": -11 },
+          "label": "PRESSION B",
           "value": {
             "kind": "attribute",
             "target": {

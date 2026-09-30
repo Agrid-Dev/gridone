@@ -47,37 +47,35 @@ def test_the_plate_shares_only_the_controller_with_the_hot_plate(plate):
     assert shares_no_device_with_the_bays(plate)
 
 
-def test_the_twin_pump_is_two_heads_on_two_branches(symbols, pipes):
-    """One twin pump on the view, two devices on the instance: head A above
-    head B as the view stacks them, each on its own branch off the trunk,
-    animated by its own state, and the view's two pressure dials read each
-    head's differential head, the stopped head's sentinel included (a
-    displayed number is raw)."""
+def test_the_twin_pump_is_one_symbol_on_one_branch(symbols, pipes):
+    """One twin pump on the view and on the plant diagram, two devices on
+    the instance: head A and head B each bound to its own device, and the
+    view's two pressure dials read each head's differential head, the
+    stopped head's sentinel included (a displayed number is raw). The branch
+    has no flow of its own: the twin sets it going while either head runs."""
+    twin = symbols["pompe-peg-e2"]
+    branch = pipes["peg-e2-branch"]
+    assert (twin.type, twin.device_id) == ("pump_double", None)
+    assert twin.placement.pipe == branch.id
+    assert set(twin.bindings) == {"state_a", "speed_a", "state_b", "speed_b"}
     for head, device_id in PUMP_HEADS.items():
-        pump = symbols[f"pompe-peg-e2-{head}"]
-        branch = pipes[f"peg-e2-{head}-branch"]
-        assert pump.device_id == device_id
-        assert pump.placement.pipe == branch.id
-        assert device_of(pump.bindings["state"]) == device_id
-        assert pump.bindings["state"].labels == {"true": "MARCHE", "false": "ARRÊT"}
-        assert device_of(pump.bindings["speed"]) == device_id
-        assert pump.bindings["speed"].unit == "tr/min"
-        assert device_of(branch.flow) == device_id
+        assert twin.props["heads"][head] == {"device_id": device_id}
+        state, speed = twin.bindings[f"state_{head}"], twin.bindings[f"speed_{head}"]
+        assert device_of(state) == device_of(speed) == device_id
+        assert state.labels == {"true": "MARCHE", "false": "ARRÊT"}
+        assert speed.unit == "tr/min"
         pression = next(t for t in branch.tags if t.id == f"pression-peg-e2-{head}")
+        assert pression.label == f"PRESSION {head.upper()}"
         assert device_of(pression.value) == device_id
         assert (pression.value.target.attribute, pression.value.unit) == (
             "head",
             "bar",
         )
-    rows = [symbols[f"pompe-peg-e2-{h}"].placement.cell.y for h in PUMP_HEADS]
-    assert rows == sorted(rows)
-    # The trunk ends in a tee onto the top branch, as the hot plate's does:
-    # two runs ending on one bare cell would read as a junction at grade.
+    assert branch.flow is None
+    # The trunk ends in a tee onto the branch, as the hot plate's does: two
+    # runs ending on one bare cell would read as a junction at grade.
     assert pipes["sec-supply"].to == PipeEndpoint(
-        pipe="peg-e2-a-branch", cell=Cell(x=16, y=-11)
-    )
-    assert pipes["peg-e2-b-branch"].from_ == PipeEndpoint(
-        pipe="sec-supply", cell=Cell(x=16, y=-4)
+        pipe="peg-e2-branch", cell=Cell(x=16, y=-11)
     )
 
 
@@ -90,8 +88,7 @@ def test_the_three_circuits_are_plain(symbols, pipes, tags):
         "prim-return",
         "sec-supply",
         "sec-supply-out",
-        "peg-e2-a-branch",
-        "peg-e2-b-branch",
+        "peg-e2-branch",
         "sec-return",
         "vase-connection",
         "ec-balance",
@@ -190,7 +187,7 @@ def test_the_fluids_are_keyed_by_circuit_role(pipes):
     """A run keyed as the hot template's fluid would take the heating palette
     on a chilled plate and still validate."""
     fluid = {p.id: p.fluid for p in pipes.values()}
-    supply = ("sec-supply", "sec-supply-out", "peg-e2-a-branch", "peg-e2-b-branch")
+    supply = ("sec-supply", "sec-supply-out", "peg-e2-branch")
     ret = ("sec-return", "vase-connection", "ec-balance")
     assert fluid["prim-supply"] == "primary_supply"
     assert fluid["prim-return"] == "primary_return"
@@ -232,7 +229,4 @@ def test_the_labels_are_the_drawing_s_words(plate, symbols):
         for s in symbols.values()
         if s.type in ("valve_isolation", "valve_control", "collector")
     )
-    assert [symbols[f"pompe-peg-e2-{h}"].label for h in PUMP_HEADS] == [
-        "PEG-E2 A",
-        "PEG-E2 B",
-    ]
+    assert symbols["pompe-peg-e2"].label == "PEG-E2"

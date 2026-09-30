@@ -93,33 +93,51 @@
       "bindings": {}
     },
     {
-      "id": "pompe-pec-e2a",
-      "type": "pump",
+      "id": "pompe-pec-e2",
+      "type": "pump_double",
       "placement": {
         "kind": "pipe",
-        "pipe": "pec-e2a-branch",
-        "cell": { "x": 22, "y": -25 }
+        "pipe": "pec-e2-branch",
+        "cell": { "x": 20, "y": -18 }
       },
-      "label": "PEC E2A",
-      "device_id": "52ed0f86ef794a28",
-      "props": {},
+      "label": "PEC E2",
+      "device_id": null,
+      "props": {
+        "heads": {
+          "a": { "device_id": "52ed0f86ef794a28" },
+          "b": { "device_id": "cd1eb8257cce468b" }
+        }
+      },
       "bindings": {
-        "state": {
+        "state_a": {
           "kind": "attribute",
           "target": {
-            "devices": {
-              "ids": ["52ed0f86ef794a28"]
-            },
+            "devices": { "ids": ["52ed0f86ef794a28"] },
             "attribute": "onoff_state"
           },
           "labels": { "true": "MARCHE", "false": "ARRÊT" }
         },
-        "speed": {
+        "speed_a": {
           "kind": "attribute",
           "target": {
-            "devices": {
-              "ids": ["52ed0f86ef794a28"]
-            },
+            "devices": { "ids": ["52ed0f86ef794a28"] },
+            "attribute": "speed"
+          },
+          "unit": "tr/min",
+          "decimals": 0
+        },
+        "state_b": {
+          "kind": "attribute",
+          "target": {
+            "devices": { "ids": ["cd1eb8257cce468b"] },
+            "attribute": "onoff_state"
+          },
+          "labels": { "true": "MARCHE", "false": "ARRÊT" }
+        },
+        "speed_b": {
+          "kind": "attribute",
+          "target": {
+            "devices": { "ids": ["cd1eb8257cce468b"] },
             "attribute": "speed"
           },
           "unit": "tr/min",
@@ -128,103 +146,51 @@
       }
     },
     {
-      "id": "pompe-pec-e2b",
-      "type": "pump",
+      "id": "pompe-pec-e3",
+      "type": "pump_double",
       "placement": {
         "kind": "pipe",
-        "pipe": "pec-e2b-branch",
-        "cell": { "x": 22, "y": -18 }
+        "pipe": "pec-e3-branch",
+        "cell": { "x": 20, "y": -11 }
       },
-      "label": "PEC E2B",
-      "device_id": "cd1eb8257cce468b",
-      "props": {},
+      "label": "PEC E3",
+      "device_id": null,
+      "props": {
+        "heads": {
+          "a": { "device_id": "da726c2051f04915" },
+          "b": { "device_id": "44b799a6fd4f4023" }
+        }
+      },
       "bindings": {
-        "state": {
+        "state_a": {
           "kind": "attribute",
           "target": {
-            "devices": {
-              "ids": ["cd1eb8257cce468b"]
-            },
+            "devices": { "ids": ["da726c2051f04915"] },
             "attribute": "onoff_state"
           },
           "labels": { "true": "MARCHE", "false": "ARRÊT" }
         },
-        "speed": {
+        "speed_a": {
           "kind": "attribute",
           "target": {
-            "devices": {
-              "ids": ["cd1eb8257cce468b"]
-            },
+            "devices": { "ids": ["da726c2051f04915"] },
             "attribute": "speed"
           },
           "unit": "tr/min",
           "decimals": 0
-        }
-      }
-    },
-    {
-      "id": "pompe-pec-e3a",
-      "type": "pump",
-      "placement": {
-        "kind": "pipe",
-        "pipe": "pec-e3a-branch",
-        "cell": { "x": 22, "y": -11 }
-      },
-      "label": "PEC E3A",
-      "device_id": "da726c2051f04915",
-      "props": {},
-      "bindings": {
-        "state": {
+        },
+        "state_b": {
           "kind": "attribute",
           "target": {
-            "devices": {
-              "ids": ["da726c2051f04915"]
-            },
+            "devices": { "ids": ["44b799a6fd4f4023"] },
             "attribute": "onoff_state"
           },
           "labels": { "true": "MARCHE", "false": "ARRÊT" }
         },
-        "speed": {
+        "speed_b": {
           "kind": "attribute",
           "target": {
-            "devices": {
-              "ids": ["da726c2051f04915"]
-            },
-            "attribute": "speed"
-          },
-          "unit": "tr/min",
-          "decimals": 0
-        }
-      }
-    },
-    {
-      "id": "pompe-pec-e3b",
-      "type": "pump",
-      "placement": {
-        "kind": "pipe",
-        "pipe": "pec-e3b-branch",
-        "cell": { "x": 22, "y": -4 }
-      },
-      "label": "PEC E3B",
-      "device_id": "44b799a6fd4f4023",
-      "props": {},
-      "bindings": {
-        "state": {
-          "kind": "attribute",
-          "target": {
-            "devices": {
-              "ids": ["44b799a6fd4f4023"]
-            },
-            "attribute": "onoff_state"
-          },
-          "labels": { "true": "MARCHE", "false": "ARRÊT" }
-        },
-        "speed": {
-          "kind": "attribute",
-          "target": {
-            "devices": {
-              "ids": ["44b799a6fd4f4023"]
-            },
+            "devices": { "ids": ["44b799a6fd4f4023"] },
             "attribute": "speed"
           },
           "unit": "tr/min",
@@ -855,15 +821,11 @@
     {
       "id": "sec-supply",
       "fluid": "heating_supply",
-      "from": {
-        "kind": "port",
-        "symbol": "ech-ec04",
-        "port": "secondary_out"
-      },
+      "from": { "kind": "port", "symbol": "ech-ec04", "port": "secondary_out" },
       "to": {
         "kind": "pipe",
-        "pipe": "pec-e2a-branch",
-        "cell": { "x": 16, "y": -25 }
+        "pipe": "pec-e2-branch",
+        "cell": { "x": 16, "y": -18 }
       },
       "waypoints": [
         { "x": 10, "y": -3 },
@@ -878,9 +840,7 @@
           "value": {
             "kind": "attribute",
             "target": {
-              "devices": {
-                "ids": ["71c980107f9448e7"]
-              },
+              "devices": { "ids": ["71c980107f9448e7"] },
               "attribute": "echec_tmpdepart"
             },
             "unit": "°C",
@@ -890,33 +850,24 @@
       ]
     },
     {
-      "id": "pec-e2a-branch",
+      "id": "pec-e2-branch",
       "fluid": "heating_supply",
       "from": {
         "kind": "cell",
-        "cell": { "x": 16, "y": -25 }
+        "cell": { "x": 16, "y": -18 }
       },
       "to": {
         "kind": "pipe",
         "pipe": "sec-supply-out",
-        "cell": { "x": 28, "y": -25 }
+        "cell": { "x": 24, "y": -18 }
       },
       "waypoints": [],
-      "flow": {
-        "kind": "attribute",
-        "target": {
-          "devices": {
-            "ids": ["52ed0f86ef794a28"]
-          },
-          "attribute": "onoff_state"
-        },
-        "labels": { "true": "MARCHE", "false": "ARRÊT" }
-      },
+      "flow": null,
       "tags": [
         {
           "id": "pression-pec-e2a",
-          "at": { "x": 18, "y": -25 },
-          "label": "PRESSION",
+          "at": { "x": 18, "y": -18 },
+          "label": "PRESSION A",
           "value": {
             "kind": "attribute",
             "target": {
@@ -926,38 +877,11 @@
             "unit": "bar",
             "decimals": 1
           }
-        }
-      ]
-    },
-    {
-      "id": "pec-e2b-branch",
-      "fluid": "heating_supply",
-      "from": {
-        "kind": "pipe",
-        "pipe": "sec-supply",
-        "cell": { "x": 16, "y": -18 }
-      },
-      "to": {
-        "kind": "pipe",
-        "pipe": "sec-supply-out",
-        "cell": { "x": 28, "y": -18 }
-      },
-      "waypoints": [],
-      "flow": {
-        "kind": "attribute",
-        "target": {
-          "devices": {
-            "ids": ["cd1eb8257cce468b"]
-          },
-          "attribute": "onoff_state"
         },
-        "labels": { "true": "MARCHE", "false": "ARRÊT" }
-      },
-      "tags": [
         {
           "id": "pression-pec-e2b",
-          "at": { "x": 18, "y": -18 },
-          "label": "PRESSION",
+          "at": { "x": 22, "y": -18 },
+          "label": "PRESSION B",
           "value": {
             "kind": "attribute",
             "target": {
@@ -971,7 +895,7 @@
       ]
     },
     {
-      "id": "pec-e3a-branch",
+      "id": "pec-e3-branch",
       "fluid": "heating_supply",
       "from": {
         "kind": "pipe",
@@ -981,24 +905,15 @@
       "to": {
         "kind": "pipe",
         "pipe": "sec-supply-out",
-        "cell": { "x": 28, "y": -11 }
+        "cell": { "x": 24, "y": -11 }
       },
       "waypoints": [],
-      "flow": {
-        "kind": "attribute",
-        "target": {
-          "devices": {
-            "ids": ["da726c2051f04915"]
-          },
-          "attribute": "onoff_state"
-        },
-        "labels": { "true": "MARCHE", "false": "ARRÊT" }
-      },
+      "flow": null,
       "tags": [
         {
           "id": "pression-pec-e3a",
           "at": { "x": 18, "y": -11 },
-          "label": "PRESSION",
+          "label": "PRESSION A",
           "value": {
             "kind": "attribute",
             "target": {
@@ -1008,38 +923,11 @@
             "unit": "bar",
             "decimals": 1
           }
-        }
-      ]
-    },
-    {
-      "id": "pec-e3b-branch",
-      "fluid": "heating_supply",
-      "from": {
-        "kind": "pipe",
-        "pipe": "sec-supply",
-        "cell": { "x": 16, "y": -4 }
-      },
-      "to": {
-        "kind": "pipe",
-        "pipe": "sec-supply-out",
-        "cell": { "x": 28, "y": -4 }
-      },
-      "waypoints": [],
-      "flow": {
-        "kind": "attribute",
-        "target": {
-          "devices": {
-            "ids": ["44b799a6fd4f4023"]
-          },
-          "attribute": "onoff_state"
         },
-        "labels": { "true": "MARCHE", "false": "ARRÊT" }
-      },
-      "tags": [
         {
           "id": "pression-pec-e3b",
-          "at": { "x": 18, "y": -4 },
-          "label": "PRESSION",
+          "at": { "x": 22, "y": -11 },
+          "label": "PRESSION B",
           "value": {
             "kind": "attribute",
             "target": {
@@ -1057,10 +945,10 @@
       "fluid": "heating_supply",
       "from": {
         "kind": "cell",
-        "cell": { "x": 28, "y": -25 }
+        "cell": { "x": 24, "y": -18 }
       },
       "to": { "kind": "port", "symbol": "collector-supply", "port": "in_1" },
-      "waypoints": [{ "x": 28, "y": -3 }],
+      "waypoints": [{ "x": 24, "y": -3 }],
       "flow": null,
       "tags": []
     },

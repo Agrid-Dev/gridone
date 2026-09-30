@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import type { AttributeSlot, Synoptic } from "@gridone/sdk";
+import { symbolSchemas, type AttributeSlot, type Synoptic } from "@gridone/sdk";
 import { describe, expect, it } from "vitest";
 import {
   boundSlots,
@@ -13,6 +13,7 @@ import {
   SILENT_READING,
   type SlotReading,
   stateOf,
+  symbolSlotKey,
   targetDeviceId,
   targetKey,
   truthOf,
@@ -153,7 +154,10 @@ describe("boundSlots", () => {
     expect(slots.find((s) => s.key === "pipe.a.flow")?.slot).toBe(flowA);
   });
 
-  it("registers the flow of every run of the committed plates that binds one, keyed as the plate reads it", () => {
+  it("registers the flow of every run of the committed plates that binds one, and every twin head's state, keyed as the plate reads it", () => {
+    // The production plates bind no flow: their twin pumps' heads set
+    // their branches going, so those states must be read too.
+    let flows = 0;
     for (const name of [
       "ecs-est",
       "ecs-ouest",
@@ -171,11 +175,20 @@ describe("boundSlots", () => {
       ) as Synoptic;
       const keys = new Set(boundSlots(doc).map((s) => s.key));
       const flowing = (doc.pipes ?? []).filter((p) => p.flow);
-      expect(flowing.length).toBeGreaterThan(0);
+      flows += flowing.length;
       for (const pipe of flowing)
         expect(keys.has(flowSlotKey(pipe.id))).toBe(true);
+      for (const symbol of doc.symbols ?? []) {
+        for (const roles of Object.values(
+          symbolSchemas[symbol.type]?.["x-heads"] ?? {},
+        )) {
+          if (symbol.bindings?.[roles.state]?.kind !== "attribute") continue;
+          expect(keys.has(symbolSlotKey(symbol.id, roles.state))).toBe(true);
+        }
+      }
       expect(flowSlotKey("pac-03-supply")).toBe("pipe.pac-03-supply.flow");
     }
+    expect(flows).toBeGreaterThan(0);
   });
 });
 
