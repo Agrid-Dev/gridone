@@ -1,4 +1,8 @@
-import type { ActiveCondition } from "@gridone/sdk";
+import type {
+  ActiveCondition,
+  ResolvedOption,
+  WriteReason,
+} from "@gridone/sdk";
 
 /** Whether a section's condition holds, or cannot be told. */
 export type SectionActivity = "active" | "inactive" | "unknown";
@@ -18,4 +22,23 @@ export function sectionActivity(
   if (!condition) return "active";
   if (typeof reading !== "boolean") return "unknown";
   return reading === (condition.value ?? true) ? "active" : "inactive";
+}
+
+/**
+ * Why a boolean cannot be toggled from the value it shows, per the driver's
+ * write rules — or `null` when nothing stops it.
+ *
+ * The server resolves those rules for each value an attribute can take and
+ * ships the outcome as the attribute's write options, so nothing is evaluated
+ * here: the toggle's target is the opposite of the displayed value, and its
+ * option says whether it is available and why not. A rule only ever blocks
+ * one direction this way — a pump refused its start can still be stopped.
+ */
+export function blockedToggleReasons(
+  options: readonly ResolvedOption[] | null | undefined,
+  displayed: unknown,
+): WriteReason[] | null {
+  if (typeof displayed !== "boolean") return null;
+  const target = options?.find((option) => option.value === !displayed);
+  return target?.available === false ? (target.reasons ?? []) : null;
 }
