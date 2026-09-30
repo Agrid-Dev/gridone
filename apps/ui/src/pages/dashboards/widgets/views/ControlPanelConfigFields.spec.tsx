@@ -42,6 +42,7 @@ vi.mock("@/components/forms/resourcePickers/DeviceAttributePicker", () => ({
 
 // Imported after the mocks are registered.
 import {
+  BLANK_CONDITION,
   BLANK_SECTION,
   ControlPanelConfigFields,
 } from "./ControlPanelConfigFields";
@@ -114,6 +115,35 @@ describe("ControlPanelConfigFields", () => {
     fireEvent.click(screen.getByRole("button", { name: "Remove condition" }));
 
     expect(values().sections[0].active_when).toBeNull();
+  });
+
+  it("keeps each section's condition its own", () => {
+    render(<Harness sections={[BLANK_SECTION, BLANK_SECTION]} />);
+
+    const add = () =>
+      fireEvent.click(
+        screen.getAllByRole("button", {
+          name: "Make active on a condition",
+        })[0],
+      );
+    add();
+    fireEvent.change(screen.getByLabelText("Reason"), {
+      target: { value: "Selector is on auto" },
+    });
+    add();
+
+    // The second condition starts blank rather than as a copy of the first…
+    expect(values().sections[1].active_when).toEqual(BLANK_CONDITION);
+    fireEvent.change(screen.getAllByLabelText("Reason")[1], {
+      target: { value: "Other reason" },
+    });
+
+    // …and editing it leaves the first one alone.
+    expect(values().sections[0].active_when).toMatchObject({
+      inactive_reason: "Selector is on auto",
+    });
+    // Nor does any of it leak into the next form through the shared default.
+    expect(BLANK_CONDITION.inactive_reason).toBeNull();
   });
 
   it("stores an emptied optional text as null, not as a blank string", () => {
