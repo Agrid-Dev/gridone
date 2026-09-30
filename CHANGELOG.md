@@ -1,3 +1,9 @@
+## v0.286.0 (2026-09-30)
+
+### Feat
+
+- **synoptics**: live readings on the hot production plate (#747)
+
 ## v0.285.1 (2026-09-30)
 
 ### Fix
