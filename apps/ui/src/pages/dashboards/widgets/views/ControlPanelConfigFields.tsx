@@ -9,6 +9,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { Plus, Trash2 } from "lucide-react";
 import { InputController } from "@/components/forms/controllers/InputController";
+import { SelectController } from "@/components/forms/controllers/SelectController";
 import { SwitchController } from "@/components/forms/controllers/SwitchController";
 import DeviceAttributePicker from "@/components/forms/resourcePickers/DeviceAttributePicker";
 import { Button } from "@/components/ui";
@@ -32,6 +33,10 @@ export const BLANK_CONDITION = {
   value: true,
   inactive_reason: null,
 };
+
+/** What names a row left without a label: its attribute or its device. */
+const LABEL_BY = ["attribute", "device"] as const;
+type LabelBy = (typeof LABEL_BY)[number];
 
 /** The panel takes booleans only, so nothing else is offered. */
 const isBoolean = (attribute: DeviceAttribute) =>
@@ -62,6 +67,15 @@ export const ControlPanelConfigFields: FC<{
 
   return (
     <>
+      <SelectController<FieldValues, "config.label_by", string>
+        name="config.label_by"
+        control={control}
+        label={t("widgets.controlPanel.editor.labelBy")}
+        options={LABEL_BY.map((value) => ({
+          value,
+          label: t(`widgets.controlPanel.editor.labelByOptions.${value}`),
+        }))}
+      />
       {fields.map((field, index) => (
         <fieldset key={field.id} className="space-y-4 rounded-md border p-4">
           <div className="flex items-center justify-between gap-2">
@@ -103,6 +117,7 @@ const SectionFields: FC<{ control: Control<FieldValues>; name: string }> = ({
     control,
     name: `${name}.attributes`,
   });
+  const labelBy = useWatch({ control, name: "config.label_by" }) as LabelBy;
   return (
     <>
       <InputController
@@ -126,7 +141,7 @@ const SectionFields: FC<{ control: Control<FieldValues>; name: string }> = ({
                 label={t("widgets.controlPanel.editor.label")}
                 inputProps={{
                   placeholder: t(
-                    "widgets.controlPanel.editor.labelPlaceholder",
+                    `widgets.controlPanel.editor.labelPlaceholder.${labelBy}`,
                   ),
                 }}
                 emptyAsNull

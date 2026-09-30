@@ -198,8 +198,16 @@
         "addSection": "Ajouter une section",
         "removeSection": "Supprimer la section",
         "title": "Titre",
+        "labelBy": "Libeller les lignes par",
+        "labelByOptions": {
+          "attribute": "Nom de l'attribut",
+          "device": "Nom de l'appareil"
+        },
         "label": "Libellé",
-        "labelPlaceholder": "Par défaut, le nom de l'attribut",
+        "labelPlaceholder": {
+          "attribute": "Par défaut, le nom de l'attribut",
+          "device": "Par défaut, le nom de l'appareil"
+        },
         "addAttribute": "Ajouter un attribut",
         "removeAttribute": "Supprimer l'attribut",
         "addCondition": "Activer sous condition",

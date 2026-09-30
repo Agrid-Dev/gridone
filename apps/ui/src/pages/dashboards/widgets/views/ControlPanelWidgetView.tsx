@@ -46,6 +46,9 @@ const Message: FC<{ children: string }> = ({ children }) => (
  *  inactive, or a write rule of the driver refuses the move. */
 type SectionLock = { reason: string };
 
+/** What names a row that declares no label of its own. */
+type LabelBy = NonNullable<ControlPanelWidgetConfig["label_by"]>;
+
 /**
  * Boolean attributes picked across devices, grouped into sections. A fault
  * reads as a fault, a writable attribute as a switch, anything else as a
@@ -58,13 +61,14 @@ type SectionLock = { reason: string };
  */
 export const ControlPanelWidgetView: FC<{ config: unknown }> = ({ config }) => {
   const { t } = useTranslation("dashboards");
-  const { sections } = config as Partial<ControlPanelWidgetConfig>;
+  const { sections, label_by: labelBy = "attribute" } =
+    config as Partial<ControlPanelWidgetConfig>;
   if (!sections?.length)
     return <Message>{t("widgets.controlPanel.empty")}</Message>;
   return (
     <div className="h-full divide-y divide-border overflow-y-auto">
       {sections.map((section, index) => (
-        <Section key={index} section={section} />
+        <Section key={index} section={section} labelBy={labelBy} />
       ))}
     </div>
   );
@@ -90,7 +94,10 @@ function useSectionLock(
   };
 }
 
-const Section: FC<{ section: ControlPanelSection }> = ({ section }) => {
+const Section: FC<{ section: ControlPanelSection; labelBy: LabelBy }> = ({
+  section,
+  labelBy,
+}) => {
   const { t } = useTranslation("dashboards");
   const lock = useSectionLock(section.active_when);
   return (
@@ -120,7 +127,7 @@ const Section: FC<{ section: ControlPanelSection }> = ({ section }) => {
       )}
       <ul>
         {(section.attributes ?? []).map((item, index) => (
-          <Row key={index} item={item} lock={lock} />
+          <Row key={index} item={item} labelBy={labelBy} lock={lock} />
         ))}
       </ul>
     </section>
@@ -153,10 +160,11 @@ const RowShell: FC<{
   </li>
 );
 
-const Row: FC<{ item: ControlPanelAttribute; lock: SectionLock | null }> = ({
-  item,
-  lock,
-}) => {
+const Row: FC<{
+  item: ControlPanelAttribute;
+  labelBy: LabelBy;
+  lock: SectionLock | null;
+}> = ({ item, labelBy, lock }) => {
   const { t } = useTranslation("dashboards");
   const can = usePermissions();
   const labelFor = useAttributeLabel();
@@ -168,7 +176,11 @@ const Row: FC<{ item: ControlPanelAttribute; lock: SectionLock | null }> = ({
   const attribute = device
     ? (deviceAttributes(device)[item.attribute] as AttributeFields | undefined)
     : undefined;
-  const label = item.label ?? labelFor(item.attribute, attribute);
+  const label =
+    item.label ??
+    (labelBy === "device"
+      ? device?.name || item.device_id
+      : labelFor(item.attribute, attribute));
 
   if (isLoading)
     return (
