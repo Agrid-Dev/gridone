@@ -1,3 +1,9 @@
+## v0.292.0 (2026-09-30)
+
+### Feat
+
+- **dashboards**: control panel row label can link to its device page (AGR-1535)
+
 ## v0.291.0 (2026-09-30)
 
 ### Feat
