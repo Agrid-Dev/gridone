@@ -1,3 +1,9 @@
+## v0.284.0 (2026-09-30)
+
+### Feat
+
+- **dashboards**: control panel widget config (AGR-1524) (#739)
+
 ## v0.283.0 (2026-09-29)
 
 ### Feat
