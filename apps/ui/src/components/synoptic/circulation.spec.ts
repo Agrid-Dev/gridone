@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   symbolSchemas,
@@ -8,6 +6,11 @@ import {
   type SymbolElement,
   type Synoptic,
 } from "@gridone/sdk";
+import {
+  EXAMPLE_PLATES,
+  type ExamplePlate,
+  readPlate,
+} from "@/test/examplePlates";
 import { circulatingRuns } from "./circulation";
 import {
   stateOf,
@@ -512,24 +515,14 @@ describe("circulatingRuns", () => {
 });
 
 // ---------------------------------------------------------------------------
-// The committed plates, over every combination of what their flows read.
+// The example plates, over every combination of what their flows read.
 // ---------------------------------------------------------------------------
 
-const PLATES_DIR = resolve(
-  import.meta.dirname,
-  "../../../../../docs/specs/synoptic",
-);
-const plate = (name: string): Synoptic => ({
-  ...JSON.parse(readFileSync(resolve(PLATES_DIR, `${name}.json`), "utf8")),
+const plate = (name: ExamplePlate): Synoptic => ({
+  ...(readPlate(name) as Synoptic),
   id: name,
   metadata: {},
 });
-const PLATE_NAMES = [
-  "ecs-est",
-  "ecs-ouest",
-  "production-chaud",
-  "production-froid",
-] as const;
 
 /**
  * The rule the documentation states, written from it and not from the
@@ -767,8 +760,8 @@ function circulator(doc: Synoptic) {
   };
 }
 
-describe("circulatingRuns on the committed plates", () => {
-  it.each(PLATE_NAMES)(
+describe("circulatingRuns on the example plates", () => {
+  it.each(EXAMPLE_PLATES)(
     "%s: moves exactly the runs on a path of the fluid through a flowing run, never a stopped one",
     (name) => {
       const doc = plate(name);
@@ -801,7 +794,7 @@ describe("circulatingRuns on the committed plates", () => {
     },
   );
 
-  it.each(PLATE_NAMES)(
+  it.each(EXAMPLE_PLATES)(
     "%s: a stale reading changes nothing an absent one would not",
     (name) => {
       const doc = plate(name);
@@ -815,7 +808,7 @@ describe("circulatingRuns on the committed plates", () => {
     },
   );
 
-  it.each(PLATE_NAMES)(
+  it.each(EXAMPLE_PLATES)(
     "%s: a gate opening or a flow starting never stills a run that moved",
     (name) => {
       const doc = plate(name);
@@ -854,7 +847,7 @@ describe("circulatingRuns on the committed plates", () => {
     },
   );
 
-  it.each(["ecs-est", "ecs-ouest"])(
+  it.each(["example-dhw"] as const)(
     "%s: the domestic side and the cold-water make-up never move with the primary loop",
     (name) => {
       const doc = plate(name);
@@ -875,67 +868,69 @@ describe("circulatingRuns on the committed plates", () => {
     },
   );
 
-  it("ecs-est: both heat pumps running carry the whole primary loop, and nothing else", () => {
-    const doc = plate("ecs-est");
+  it("example-dhw: both heat pumps running carry the whole primary loop, and nothing else", () => {
+    const doc = plate("example-dhw");
     const set = circulate(doc, {
-      [flow("pac-03-supply")]: reading(true),
-      [flow("pac-04-supply")]: reading(true),
-      [state("pac-03")]: reading(true),
-      [state("pac-04")]: reading(true),
+      [flow("pac-01-supply")]: reading(true),
+      [flow("pac-02-supply")]: reading(true),
+      [state("pac-01")]: reading(true),
+      [state("pac-02")]: reading(true),
     });
     expect([...set].sort()).toEqual(
       [
-        "pac-03-supply",
-        "pac-04-supply",
+        "pac-01-supply",
+        "pac-02-supply",
         "feed-col-1",
         "feed-col-2",
+        "feed-col-3",
         "b01-b04",
         "b04-b07",
         "b02-b05",
         "b05-b08",
-        "b08-b09",
+        "b03-b06",
+        "b06-b09",
         "col-1-return",
         "col-2-return",
         "col-3-return",
         "return-loop",
-        "return-pac-04",
+        "return-pac-02",
       ].sort(),
     );
   });
 
-  it("ecs-est: a heat pump reading off stills its own supply; the return loop still carries the other's water to it", () => {
-    const doc = plate("ecs-est");
+  it("example-dhw: a heat pump reading off stills its own supply; the return loop still carries the other's water to it", () => {
+    const doc = plate("example-dhw");
     const set = circulate(doc, {
-      [flow("pac-03-supply")]: reading(false),
-      [flow("pac-04-supply")]: reading(true),
-      [state("pac-03")]: reading(false),
-      [state("pac-04")]: reading(true),
+      [flow("pac-01-supply")]: reading(false),
+      [flow("pac-02-supply")]: reading(true),
+      [state("pac-01")]: reading(false),
+      [state("pac-02")]: reading(true),
     });
-    expect(set.has("pac-03-supply")).toBe(false);
-    // Up to its tee to PAC 04, the return loop carries PAC 04's water.
+    expect(set.has("pac-01-supply")).toBe(false);
+    // Up to its tee to PAC 02, the return loop carries PAC 02's water.
     expect(set.has("return-loop")).toBe(true);
-    expect(set.has("pac-04-supply")).toBe(true);
-    expect(set.has("return-pac-04")).toBe(true);
+    expect(set.has("pac-02-supply")).toBe(true);
+    expect(set.has("return-pac-02")).toBe(true);
     expect(set.has("col-1-return")).toBe(true);
   });
 
   // With its hot supply valve closed and no reading on its cold legs,
   // nothing feeds the VC branch: the departure stops at the valve, and the
   // return collector drains the return, it never feeds it.
-  it("production-chaud: closing a branch's supply valve stills its return too", () => {
-    const doc = plate("production-chaud");
+  it("example-heating: closing a branch's supply valve stills its return too", () => {
+    const doc = plate("example-heating");
     const set = circulate(doc, {
-      ["symbol.pompe-pec-e2.state_a"]: reading(true),
+      ["symbol.pompe-1.state_a"]: reading(true),
       [state("v-vc-ec-aller")]: reading(false),
     });
     expect(set.has("vc-depart")).toBe(false);
     expect(set.has("vc-retour")).toBe(false);
   });
 
-  it("production-chaud: the secondary moves from a running pump head, the primary never, and a closed valve stills its branch", () => {
-    const doc = plate("production-chaud");
+  it("example-heating: the secondary moves from a running pump head, the primary never, and a closed valve stills its branch", () => {
+    const doc = plate("example-heating");
     const set = circulate(doc, {
-      ["symbol.pompe-pec-e2.state_a"]: reading(true),
+      ["symbol.pompe-1.state_a"]: reading(true),
     });
     for (const id of [
       "sec-supply",
@@ -953,7 +948,7 @@ describe("circulatingRuns on the committed plates", () => {
     ])
       expect(set.has(id)).toBe(false);
     const closed = circulate(doc, {
-      ["symbol.pompe-pec-e2.state_a"]: reading(true),
+      ["symbol.pompe-1.state_a"]: reading(true),
       [state("v-vc-ec-aller")]: reading(false),
     });
     expect(closed.has("vc-depart")).toBe(false);

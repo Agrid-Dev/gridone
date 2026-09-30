@@ -1,7 +1,6 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { symbolSchemas, type AttributeSlot, type Synoptic } from "@gridone/sdk";
 import { describe, expect, it } from "vitest";
+import { EXAMPLE_PLATES, readPlate } from "@/test/examplePlates";
 import {
   boundSlots,
   flowSlotKey,
@@ -154,25 +153,12 @@ describe("boundSlots", () => {
     expect(slots.find((s) => s.key === "pipe.a.flow")?.slot).toBe(flowA);
   });
 
-  it("registers the flow of every run of the committed plates that binds one, and every twin head's state, keyed as the plate reads it", () => {
-    // The production plates bind no flow: their twin pumps' heads set
-    // their branches going, so those states must be read too.
+  it("registers the flow of every run of the example plates that binds one, and every twin head's state, keyed as the plate reads it", () => {
+    // The heating plate binds no flow: its twin pumps' heads set their
+    // branches going, so those states must be read too.
     let flows = 0;
-    for (const name of [
-      "ecs-est",
-      "ecs-ouest",
-      "production-chaud",
-      "production-froid",
-    ]) {
-      const doc = JSON.parse(
-        readFileSync(
-          resolve(
-            import.meta.dirname,
-            `../../../../../docs/specs/synoptic/${name}.json`,
-          ),
-          "utf8",
-        ),
-      ) as Synoptic;
+    for (const name of EXAMPLE_PLATES) {
+      const doc = readPlate(name) as Synoptic;
       const keys = new Set(boundSlots(doc).map((s) => s.key));
       const flowing = (doc.pipes ?? []).filter((p) => p.flow);
       flows += flowing.length;

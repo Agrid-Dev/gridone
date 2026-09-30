@@ -1,5 +1,4 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { readPlate } from "@/test/examplePlates";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   cleanup,
@@ -122,15 +121,7 @@ vi.mock("@/components/forms/targetPicker", async (importOriginal) => ({
 
 const UPDATED_AT = "2026-09-17T12:00:00+00:00";
 const PLATE: Synoptic = {
-  ...JSON.parse(
-    readFileSync(
-      resolve(
-        import.meta.dirname,
-        "../../../../../../../docs/specs/synoptic/ecs-ouest.json",
-      ),
-      "utf8",
-    ),
-  ),
+  ...(readPlate("example-dhw") as Synoptic),
   id: "ouest",
   metadata: { created_at: UPDATED_AT, updated_at: UPDATED_AT },
 };

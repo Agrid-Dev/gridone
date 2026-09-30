@@ -1,5 +1,5 @@
 // Dev-only verification harness (committed on purpose): mounts the
-// synoptic renderer on the committed plates with fixture values, without
+// synoptic renderer on the example plates with fixture values, without
 // the authenticated app shell, so a browser can screenshot the kit. Vite
 // serves it in development at `/synoptics-harness.html`; the production
 // build never includes it, since `index.html` is the only build entry.
@@ -25,20 +25,16 @@ import { GridoneClientProvider } from "@/contexts/GridoneClientContext";
 import { PageContainer } from "@/components/layout/PageLayout";
 import { PlateView } from "@/pages/synoptics/PlateView";
 import { SynopticPage } from "@/pages/synoptics/SynopticPage";
-import ecsEst from "../../../../docs/specs/synoptic/ecs-est.json";
-import ecsOuest from "../../../../docs/specs/synoptic/ecs-ouest.json";
-import chaud from "../../../../docs/specs/synoptic/production-chaud.json";
-import froid from "../../../../docs/specs/synoptic/production-froid.json";
+import dhw from "../../../../docs/specs/synoptic/example-dhw.json";
+import heating from "../../../../docs/specs/synoptic/example-heating.json";
 
 const PLATES: Record<string, unknown> = {
-  "ecs-est": ecsEst,
-  "ecs-ouest": ecsOuest,
-  "production-chaud": chaud,
-  "production-froid": froid,
+  "example-dhw": dhw,
+  "example-heating": heating,
 };
 
 const params = new URLSearchParams(window.location.search);
-const name = params.get("plate") ?? "ecs-est";
+const name = params.get("plate") ?? "example-dhw";
 const projection = params.get("projection") as "flat" | "isometric" | null;
 if (params.get("dark")) document.documentElement.classList.add("dark");
 const lang = params.get("lang");
@@ -80,46 +76,46 @@ const sample = (raw: number, unit: string, decimals = 0) =>
 
 const VALUES: SynopticValues = {
   slots: {
-    "symbol.pac-03.state": live("MARCHE", true),
-    "symbol.pac-03.fault": live("NORMAL", false),
-    "symbol.pac-04.state": {
+    "symbol.pac-01.state": live("MARCHE", true),
+    "symbol.pac-01.fault": live("NORMAL", false),
+    "symbol.pac-02.state": {
       ...live("ARRÊT", false),
       faulty: true,
       severity: "alert",
     },
-    "symbol.pac-04.fault": {
+    "symbol.pac-02.fault": {
       ...live("DÉFAUT", true),
       faulty: true,
       severity: "alert",
     },
-    "label.cpt-ballon-est": sample(1311989, "kWh"),
-    "symbol.pompe-pec-e2.state_a": live("MARCHE", true),
-    "symbol.pompe-pec-e2.speed_a": live("5242", 5242, "tr/min"),
-    "symbol.pompe-pec-e2.state_b": {
+    "label.cpt-ballons": sample(1311989, "kWh"),
+    "symbol.pompe-1.state_a": live("MARCHE", true),
+    "symbol.pompe-1.speed_a": live("5242", 5242, "tr/min"),
+    "symbol.pompe-1.state_b": {
       ...live("ARRÊT", false),
       faulty: true,
       severity: "warning",
     },
-    "symbol.pompe-pec-e2.speed_b": {
+    "symbol.pompe-1.speed_b": {
       ...live("0", 0, "tr/min"),
       faulty: true,
       severity: "warning",
     },
-    "symbol.pompe-pec-e3.state_a": live("ARRÊT", false),
-    "symbol.pompe-pec-e3.speed_a": live("0", 0, "tr/min"),
-    "symbol.pompe-pec-e3.state_b": { ...live("MARCHE", true), stale: true },
-    "symbol.pompe-pec-e3.speed_b": {
+    "symbol.pompe-2.state_a": live("ARRÊT", false),
+    "symbol.pompe-2.speed_a": live("0", 0, "tr/min"),
+    "symbol.pompe-2.state_b": { ...live("MARCHE", true), stale: true },
+    "symbol.pompe-2.speed_b": {
       ...live("4800", 4800, "tr/min"),
       stale: true,
     },
-    "tag.pression-pec-e2a": live("2.1", 2.1, "bar"),
-    "tag.pression-pec-e2b": live("0.0", 0, "bar"),
-    "tag.pression-pec-e3a": live("0.0", 0, "bar"),
+    "tag.pression-1a": live("2.1", 2.1, "bar"),
+    "tag.pression-1b": live("0.0", 0, "bar"),
+    "tag.pression-2a": live("0.0", 0, "bar"),
     "tag.tt-primaire-depart": live("71.3", 71.3, "°C"),
     "tag.tt-primaire-retour": live("54.8", 54.8, "°C"),
     "tag.tt-secondaire-depart": live("63.1", 63.1, "°C"),
     "tag.tt-manque-eau": live("NORMAL", false),
-    "symbol.cpt-ec-ech-04.energy": sample(1311989, "kWh"),
+    "symbol.cpt-primaire.energy": sample(1311989, "kWh"),
     "symbol.pot-a-boue.fault": live("NORMAL", false),
     // The hot production's circuits, as in summer: the change-over circuits
     // on chilled water, their hot valves closed.
@@ -150,18 +146,14 @@ const VALUES: SynopticValues = {
     // What sets the circuits moving in the isometric view: the running
     // heat pumps, and the twin pumps whose head runs (their branches read
     // no flow of their own), the stopped ones still.
-    "pipe.pac-03-supply.flow": live("MARCHE", true),
-    "pipe.pac-04-supply.flow": live("ARRÊT", false),
     "pipe.pac-01-supply.flow": live("MARCHE", true),
     "pipe.pac-02-supply.flow": live("ARRÊT", false),
-    "symbol.pompe-peg-e2.state_a": live("MARCHE", true),
-    "symbol.pompe-peg-e2.state_b": live("ARRÊT", false),
   },
-  // PAC 04 in alert, pump PEC E2B in warning, the ECH-04 meter for info.
+  // PAC 02 in alert, pump 1's head B in warning, the primary meter for info.
   devices: {
-    b290fa85376a42c5: { faulty: true, severity: "alert" },
-    cd1eb8257cce468b: { faulty: true, severity: "warning" },
-    "248de4cb7fa34704": { faulty: true, severity: "info" },
+    a000000000000002: { faulty: true, severity: "alert" },
+    b000000000000004: { faulty: true, severity: "warning" },
+    b000000000000002: { faulty: true, severity: "info" },
   },
 };
 
@@ -171,7 +163,7 @@ const fakeDevice = (id: string): Device =>
     id,
     name: `Appareil ${id.slice(0, 4)}`,
     type: "pump",
-    is_faulty: id === "b290fa85376a42c5",
+    is_faulty: id === "a000000000000002",
     attributes: {
       onoff_state: {
         kind: "standard",
