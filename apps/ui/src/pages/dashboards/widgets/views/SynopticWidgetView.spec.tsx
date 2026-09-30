@@ -77,8 +77,9 @@ afterEach(cleanup);
 describe("SynopticWidgetView", () => {
   it("renders live readings with viewing controls only, even on device symbols", async () => {
     const { container, rerender, view } = renderView();
-    expect(await screen.findByText("Heating plant")).toBeInTheDocument();
-    expect(screen.getByText("21.5")).toBeInTheDocument();
+    expect(await screen.findByText("21.5")).toBeInTheDocument();
+    // The widget's own title names the plate: the document's is not repeated.
+    expect(screen.queryByText("Heating plant")).not.toBeInTheDocument();
     expect(api.get).toHaveBeenCalledWith("plate1");
     expect(
       screen.getAllByRole("button").map((b) => b.getAttribute("aria-label")),
@@ -96,12 +97,16 @@ describe("SynopticWidgetView", () => {
 
   it("loads the new document when the configured reference changes", async () => {
     const { rerender, view } = renderView();
-    await screen.findByText("Heating plant");
-    api.get.mockResolvedValue({ ...DOC, id: "plate2", name: "Cooling plant" });
+    await screen.findByText("Tank");
+    api.get.mockResolvedValue({
+      ...DOC,
+      id: "plate2",
+      symbols: [{ ...DOC.symbols![0], label: "Chiller" }],
+    });
     rerender(view("plate2"));
-    expect(await screen.findByText("Cooling plant")).toBeInTheDocument();
+    expect(await screen.findByText("Chiller")).toBeInTheDocument();
     expect(api.get).toHaveBeenCalledWith("plate2");
-    expect(screen.queryByText("Heating plant")).not.toBeInTheDocument();
+    expect(screen.queryByText("Tank")).not.toBeInTheDocument();
   });
 
   it.each([

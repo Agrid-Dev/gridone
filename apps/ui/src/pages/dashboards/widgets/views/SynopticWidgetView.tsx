@@ -42,8 +42,8 @@ function SynopticCanvas({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-1.5">
-        <span className="truncate text-sm font-medium">{doc.name}</span>
+      {/* The widget's own title names the plate; the bar holds the gestures only. */}
+      <div className="flex items-center justify-end gap-2 border-b border-border px-3 py-1.5">
         <div className="flex shrink-0 gap-1">
           <Button
             type="button"
