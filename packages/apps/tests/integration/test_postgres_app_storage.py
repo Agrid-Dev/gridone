@@ -1,11 +1,11 @@
 """Integration tests for ``PostgresAppStorage``.
 
 Exercises the real asyncpg round-trip — the ``config`` jsonb encode/decode
-(asyncpg has no codec registered here, so the storage does it explicitly)
-and the targeted ``update_status`` / ``update_push_status`` writes that keep
-a status change from carrying a stale config. Opt-in via
-``POSTGRES_TEST_URL``; skipped when unset so the default suite stays
-hermetic.
+(asyncpg has no codec registered here, so the storage does it explicitly),
+the targeted ``update_status`` / ``update_push_status`` writes that keep
+a status change from carrying a stale config, and the upsert that leaves
+the stored ``status`` and ``status_message`` alone. Opt-in via
+``POSTGRES_TEST_URL``; skipped when unset so the default suite stays hermetic.
 """
 
 from __future__ import annotations
@@ -29,11 +29,12 @@ pytestmark = [
 ]
 
 
-def _make_app(
+def _make_app(  # noqa: PLR0913 — one keyword per stored column under test
     app_id: str = "app-1",
     *,
     user_id: str = "user-1",
     status: AppStatus = AppStatus.REGISTERED,
+    status_message: str | None = None,
     config: dict | None = None,
     push_status: PushStatus | None = None,
 ) -> App:
@@ -45,6 +46,7 @@ def _make_app(
         api_url="https://myapp.example.com",
         icon="https://myapp.example.com/icon.png",
         status=status,
+        status_message=status_message,
         manifest="name: Test App\n",
         created_at=datetime(2026, 7, 30, 12, 0, tzinfo=UTC),
         config=config,
@@ -91,6 +93,46 @@ class TestRoundTrip:
         assert fetched is not None
         assert fetched.config is None
         assert fetched.push_status is None
+        assert fetched.status_message is None
+
+    async def test_new_app_takes_the_models_status_and_message(
+        self, storage: PostgresAppStorage
+    ) -> None:
+        await storage.save(
+            _make_app(status=AppStatus.HEALTHY, status_message="Starting")
+        )
+
+        fetched = await storage.get_by_id("app-1")
+
+        assert fetched is not None
+        assert (fetched.status, fetched.status_message) == (
+            AppStatus.HEALTHY,
+            "Starting",
+        )
+
+    async def test_upsert_keeps_the_stored_status_and_message(
+        self, storage: PostgresAppStorage
+    ) -> None:
+        """Only `update_status` writes the pair: a saved model may predate
+        the last health probe, and must not revert what it recorded."""
+        await storage.save(_make_app())
+        await storage.update_status("app-1", AppStatus.HEALTHY, "Sent to 3 of 14")
+
+        await storage.save(
+            _make_app(
+                status=AppStatus.UNHEALTHY,
+                status_message="Stale",
+                config={"lat": 1.0},
+            )
+        )
+
+        fetched = await storage.get_by_id("app-1")
+        assert fetched is not None
+        assert (fetched.status, fetched.status_message) == (
+            AppStatus.HEALTHY,
+            "Sent to 3 of 14",
+        )
+        assert fetched.config == {"lat": 1.0}
 
     async def test_save_upserts_config(self, storage: PostgresAppStorage) -> None:
         await storage.save(_make_app(config={"lat": 1.0}))
@@ -117,22 +159,32 @@ class TestRoundTrip:
 
 
 class TestUpdateStatus:
-    async def test_leaves_config_and_push_status_intact(
+    async def test_writes_status_and_message_only(
         self, storage: PostgresAppStorage
     ) -> None:
         config = {"lat": 48.8566, "lng": 2.3522}
         await storage.save(_make_app(config=config, push_status=PushStatus.OK))
 
-        await storage.update_status("app-1", AppStatus.UNHEALTHY)
+        await storage.update_status("app-1", AppStatus.UNHEALTHY, "Upstream down")
 
         fetched = await storage.get_by_id("app-1")
         assert fetched is not None
         assert fetched.status == AppStatus.UNHEALTHY
+        assert fetched.status_message == "Upstream down"
         assert fetched.config == config
         assert fetched.push_status == PushStatus.OK
 
+    async def test_none_clears_the_message(self, storage: PostgresAppStorage) -> None:
+        await storage.save(_make_app(status_message="Sent to 3 of 14"))
+
+        await storage.update_status("app-1", AppStatus.HEALTHY, None)
+
+        fetched = await storage.get_by_id("app-1")
+        assert fetched is not None
+        assert fetched.status_message is None
+
     async def test_unknown_id_is_a_no_op(self, storage: PostgresAppStorage) -> None:
-        await storage.update_status("nonexistent", AppStatus.HEALTHY)
+        await storage.update_status("nonexistent", AppStatus.HEALTHY, "Hello")
 
         assert await storage.get_by_id("nonexistent") is None
 
@@ -143,7 +195,12 @@ class TestUpdatePushStatus:
     ) -> None:
         config = {"lat": 48.8566, "lng": 2.3522}
         await storage.save(
-            _make_app(status=AppStatus.HEALTHY, config=config, push_status=None)
+            _make_app(
+                status=AppStatus.HEALTHY,
+                status_message="Sent to 3 of 14",
+                config=config,
+                push_status=None,
+            )
         )
 
         await storage.update_push_status("app-1", PushStatus.REJECTED)
@@ -152,6 +209,7 @@ class TestUpdatePushStatus:
         assert fetched is not None
         assert fetched.push_status == PushStatus.REJECTED
         assert fetched.status == AppStatus.HEALTHY
+        assert fetched.status_message == "Sent to 3 of 14"
         assert fetched.config == config
 
     async def test_unknown_id_is_a_no_op(self, storage: PostgresAppStorage) -> None:

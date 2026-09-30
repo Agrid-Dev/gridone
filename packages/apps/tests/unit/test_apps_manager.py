@@ -364,10 +364,9 @@ class TestUpdateConfig:
     ):
         """A health flip landing during the push must survive the final write.
 
-        The flip is injected during the *push*, not the schema fetch: the
-        post-push write touches `push_status` only, whereas the pre-push
-        write is deliberately still a full-row save of the config the
-        client just supplied.
+        The flip is injected during the *push*, after the pre-push save: the
+        post-push write touches `push_status` only. A flip before that save
+        is covered in `test_apps_manager_status_pair.py`.
         """
         await app_storage.save(make_app(status=AppStatus.HEALTHY))
 
@@ -375,7 +374,9 @@ class TestUpdateConfig:
             if url.endswith("/config/schema"):
                 return schema_response()
             # The push is in flight — a health flip commits right now.
-            await app_storage.update_status("app-1", AppStatus.UNHEALTHY)
+            await app_storage.update_status(
+                "app-1", AppStatus.UNHEALTHY, "Upstream unreachable"
+            )
             return MagicMock()
 
         http_client.request.side_effect = request
@@ -385,8 +386,38 @@ class TestUpdateConfig:
         stored = await app_storage.get_by_id("app-1")
         assert stored is not None
         assert stored.status == AppStatus.UNHEALTHY
+        assert stored.status_message == "Upstream unreachable"
         assert stored.config == {"lat": 40.7, "lng": -74.0}
         assert stored.push_status == PushStatus.OK
+
+    async def test_config_save_keeps_a_concurrently_written_status_message(
+        self, apps_manager, app_storage, http_client
+    ):
+        """The pre-push full-row save must not revert the health message.
+
+        `update_config` saves a snapshot read before the schema fetch; a
+        health tick recording a message in between must survive that save,
+        which is why `save` never writes `status_message` on an existing row.
+        """
+        await app_storage.save(make_app(status=AppStatus.HEALTHY))
+
+        async def request(_method: str, url: str, **_kwargs: object) -> MagicMock:
+            if url.endswith("/config/schema"):
+                # The snapshot is taken; a health tick commits right now.
+                await app_storage.update_status(
+                    "app-1", AppStatus.HEALTHY, "Sent to 3 of 14 thermostats"
+                )
+                return schema_response()
+            return MagicMock()
+
+        http_client.request.side_effect = request
+
+        await apps_manager.update_config("app-1", {"lat": 40.7, "lng": -74.0})
+
+        stored = await app_storage.get_by_id("app-1")
+        assert stored is not None
+        assert stored.status_message == "Sent to 3 of 14 thermostats"
+        assert stored.config == {"lat": 40.7, "lng": -74.0}
 
     async def test_push_status_write_is_targeted(self, users_manager, http_client):
         """The post-push write must not carry the whole row a second time."""
@@ -421,6 +452,24 @@ class TestEnableApp:
             timeout=10.0,
         )
         users_manager.unblock_user.assert_called_once_with("user-1")
+
+    async def test_enable_unblocks_the_account_before_telling_the_app(
+        self, apps_manager, app_storage, http_client, users_manager
+    ):
+        """An app told it is enabled resumes at once: its first API call must
+        not meet a still-blocked account (403)."""
+        await app_storage.save(make_app())
+        unblocked_when_told: list[bool] = []
+
+        async def tell_app(*_args: object, **_kwargs: object) -> AsyncMock:
+            unblocked_when_told.append(users_manager.unblock_user.await_count == 1)
+            return AsyncMock()
+
+        http_client.post.side_effect = tell_app
+
+        await apps_manager.enable_app("app-1")
+
+        assert unblocked_when_told == [True]
 
     async def test_enable_http_failure_still_unblocks(
         self, apps_manager, app_storage, http_client, users_manager
@@ -568,7 +617,7 @@ class TestHealthCheck:
 
         await manager._check_all_apps_health()  # noqa: SLF001
 
-        storage.update_status.assert_awaited_once_with("app-1", AppStatus.HEALTHY)
+        storage.update_status.assert_awaited_once_with("app-1", AppStatus.HEALTHY, None)
         storage.save.assert_not_awaited()
 
     async def test_status_change_preserves_concurrently_written_config(
@@ -620,6 +669,7 @@ class TestHealthCheck:
         assert storage.update_status.await_args_list[1].args == (
             "app-2",
             AppStatus.HEALTHY,
+            None,
         )
 
     async def test_health_check_loop_survives_a_failing_tick(self, apps_manager):
@@ -677,6 +727,220 @@ class TestHealthCheck:
 
         # The loop body ran once before being cancelled
         http_client.get.assert_called_once()
+
+
+class TestHealthMessage:
+    """`GET /health` may carry a `message`, recorded next to the status.
+
+    Apps start with a stale message stored, so a case expecting `None` proves
+    the message was cleared rather than never written.
+    """
+
+    @pytest.mark.parametrize(
+        ("response", "expected"),
+        [
+            pytest.param(
+                health_response(
+                    body={"status": "ok", "message": "Sent to 12 of 14 thermostats"}
+                ),
+                (AppStatus.HEALTHY, "Sent to 12 of 14 thermostats"),
+                id="captured",
+            ),
+            pytest.param(
+                health_response(
+                    body={"status": "error", "message": "Upstream unreachable"}
+                ),
+                (AppStatus.UNHEALTHY, "Upstream unreachable"),
+                id="kept-with-an-error-status",
+            ),
+            pytest.param(
+                health_response(body={"message": "Starting"}),
+                (AppStatus.HEALTHY, "Starting"),
+                id="kept-without-a-status",
+            ),
+            pytest.param(
+                health_response(body={"status": "ok", "message": " \t Sent \n"}),
+                (AppStatus.HEALTHY, "Sent"),
+                id="stripped",
+            ),
+            pytest.param(
+                health_response(body={"status": "ok", "message": " \t\n "}),
+                (AppStatus.HEALTHY, None),
+                id="blank-is-none",
+            ),
+            pytest.param(
+                health_response(body={"status": "ok", "message": ""}),
+                (AppStatus.HEALTHY, None),
+                id="empty-is-none",
+            ),
+            pytest.param(
+                health_response(body={"status": "ok", "message": None}),
+                (AppStatus.HEALTHY, None),
+                id="null",
+            ),
+            pytest.param(
+                health_response(body={"status": "ok"}),
+                (AppStatus.HEALTHY, None),
+                id="absent",
+            ),
+            pytest.param(
+                health_response(body={"status": "ok", "message": 42}),
+                (AppStatus.HEALTHY, None),
+                id="number",
+            ),
+            pytest.param(
+                health_response(body={"status": "ok", "message": ["Sent"]}),
+                (AppStatus.HEALTHY, None),
+                id="list",
+            ),
+            pytest.param(
+                health_response(body=["ok", "Sent"]),
+                (AppStatus.HEALTHY, None),
+                id="json-not-an-object",
+            ),
+            pytest.param(
+                httpx.Response(200, text="Sent"),
+                (AppStatus.HEALTHY, None),
+                id="not-json",
+            ),
+            pytest.param(
+                health_response(503, body={"status": "ok", "message": "Sent"}),
+                (AppStatus.UNHEALTHY, None),
+                id="non-2xx",
+            ),
+        ],
+    )
+    async def test_reported_message(
+        self, response, expected, apps_manager, app_storage, http_client
+    ):
+        await app_storage.save(make_app(status_message="Stale message"))
+        http_client.get.return_value = response
+
+        await apps_manager._check_all_apps_health()  # noqa: SLF001
+
+        updated = await app_storage.get_by_id("app-1")
+        assert updated is not None
+        assert (updated.status, updated.status_message) == expected
+
+    async def test_unreachable_app_has_no_message(
+        self, apps_manager, app_storage, http_client
+    ):
+        await app_storage.save(
+            make_app(status=AppStatus.HEALTHY, status_message="Sent to 3 of 14")
+        )
+        http_client.get.side_effect = httpx.ConnectError("unreachable")
+
+        await apps_manager._check_all_apps_health()  # noqa: SLF001
+
+        updated = await app_storage.get_by_id("app-1")
+        assert updated is not None
+        assert updated.status == AppStatus.UNHEALTHY
+        assert updated.status_message is None
+
+    async def test_long_message_is_stripped_then_cut_to_200_characters(
+        self, apps_manager, app_storage, http_client
+    ):
+        # Stripped first: the leading blanks must not eat into the 200.
+        http_client.get.return_value = health_response(
+            body={"status": "ok", "message": "  " + "x" * 250}
+        )
+        await app_storage.save(make_app())
+
+        await apps_manager._check_all_apps_health()  # noqa: SLF001
+
+        updated = await app_storage.get_by_id("app-1")
+        assert updated is not None
+        assert updated.status_message == "x" * 200
+
+    async def test_no_write_while_the_pair_is_unchanged(
+        self, users_manager, http_client
+    ):
+        """Compared after normalization: padding alone is no change."""
+        storage = AsyncMock(spec=AppStorageBackend)
+        storage.list_all.return_value = [
+            make_app(status=AppStatus.HEALTHY, status_message="Sent to 3 of 14")
+        ]
+        http_client.get.return_value = health_response(
+            body={"status": "ok", "message": "  Sent to 3 of 14 "}
+        )
+        manager = AppsManager(storage, users_manager, http_client)
+
+        await manager._check_all_apps_health()  # noqa: SLF001
+
+        storage.update_status.assert_not_awaited()
+        storage.save.assert_not_awaited()
+
+    @pytest.mark.parametrize(
+        ("reported", "expected_status", "expected_message"),
+        [
+            pytest.param(
+                {"status": "ok", "message": "Sent to 4 of 14"},
+                AppStatus.HEALTHY,
+                "Sent to 4 of 14",
+                id="message-changed",
+            ),
+            pytest.param(
+                {"status": "ok"},
+                AppStatus.HEALTHY,
+                None,
+                id="message-cleared",
+            ),
+            pytest.param(
+                {"status": "error", "message": "Sent to 3 of 14"},
+                AppStatus.UNHEALTHY,
+                "Sent to 3 of 14",
+                id="status-changed",
+            ),
+        ],
+    )
+    async def test_a_changed_pair_is_one_targeted_write(
+        self, reported, expected_status, expected_message, users_manager, http_client
+    ):
+        storage = AsyncMock(spec=AppStorageBackend)
+        storage.list_all.return_value = [
+            make_app(status=AppStatus.HEALTHY, status_message="Sent to 3 of 14")
+        ]
+        http_client.get.return_value = health_response(body=reported)
+        manager = AppsManager(storage, users_manager, http_client)
+
+        await manager._check_all_apps_health()  # noqa: SLF001
+
+        storage.update_status.assert_awaited_once_with(
+            "app-1", expected_status, expected_message
+        )
+        storage.save.assert_not_awaited()
+
+    async def test_message_write_preserves_concurrently_written_config(
+        self, apps_manager, app_storage, http_client
+    ):
+        """A message-only change is written like a status change: targeted.
+
+        A config PATCH committing while the probe is in flight must survive,
+        exactly as it does for a status change.
+        """
+        await app_storage.save(
+            make_app(status=AppStatus.HEALTHY, status_message="Sent to 3 of 14")
+        )
+
+        async def request(_method: str, url: str, **_kwargs: object) -> MagicMock:
+            return schema_response() if url.endswith("/config/schema") else MagicMock()
+
+        http_client.request.side_effect = request
+
+        async def probe(*_args: object, **_kwargs: object) -> httpx.Response:
+            await apps_manager.update_config("app-1", {"lat": 1.0, "lng": 2.0})
+            return health_response(body={"status": "ok", "message": "Sent to 4 of 14"})
+
+        http_client.get.side_effect = probe
+
+        await apps_manager._check_all_apps_health()  # noqa: SLF001
+
+        stored = await app_storage.get_by_id("app-1")
+        assert stored is not None
+        assert stored.config == {"lat": 1.0, "lng": 2.0}
+        assert stored.push_status == PushStatus.OK
+        assert stored.status == AppStatus.HEALTHY
+        assert stored.status_message == "Sent to 4 of 14"
 
 
 class TestConfigRedelivery:

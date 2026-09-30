@@ -27,6 +27,8 @@ def make_app(
     app_id: str = "app-1",
     user_id: str = "user-1",
     status: AppStatus = AppStatus.REGISTERED,
+    *,
+    status_message: str | None = None,
 ) -> App:
     return App(
         id=app_id,
@@ -36,6 +38,7 @@ def make_app(
         api_url="https://myapp.example.com",
         icon="https://myapp.example.com/icon.png",
         status=status,
+        status_message=status_message,
         manifest=VALID_CONFIG,
     )
 

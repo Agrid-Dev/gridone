@@ -2,12 +2,15 @@
  * Domain helpers over the JSON Schema an app serves on `GET /config/schema`.
  *
  * Gridone knows no app field names: the config form is generated from this
- * schema alone. Two extensions on top of standard JSON Schema (both ignored by
- * validators, hence handled here) drive the rendering:
+ * schema alone. Three extensions on top of standard JSON Schema (all ignored
+ * by validators, hence handled here) drive the rendering:
  *
  *  - a root `i18n` catalog — `title`/`description` hold *keys* resolved through
  *    `i18n[locale][key]`, falling back to the literal value;
- *  - custom `format` values (`asset-id`, `password`) that pick a widget.
+ *  - custom `format` values (`asset-id`, `device-id`, `password`) that pick a
+ *    widget;
+ *  - the content annotations `contentMediaType: image/*` + `contentEncoding:
+ *    base64` on a string, which make it an image upload (`isImageField`).
  *
  * `oneOf` branches are flattened against the selected discriminant rather than
  * converted as a union: the canonical branch shape carries no `type: object`,
@@ -15,12 +18,13 @@
  * matches, and its "exactly one" oneOf semantics rejects even a valid payload.
  * Flattening also keeps validation errors attached to their field.
  *
- * These extensions (`i18n`, `asset-id`, `password`, discriminated `oneOf`) are
- * part of the form-schema dialect, not app-specific: AGR-923 documents and
- * CI-guards the dialect. Since AGR-920 the zod conversion goes through the
- * `schema-form` builder (`components/forms/schema-form`); the helpers here
- * only prepare the app-served schema for it (flattening, localization) and
- * keep the app-contract behaviours the builder does not own.
+ * These extensions (`i18n`, `asset-id`, `device-id`, `password`, image fields,
+ * discriminated `oneOf`) are part of the form-schema dialect, not
+ * app-specific: AGR-923 documents and CI-guards the dialect. Since AGR-920 the
+ * zod conversion goes through the `schema-form` builder
+ * (`components/forms/schema-form`); the helpers here only prepare the
+ * app-served schema for it (flattening, localization) and keep the
+ * app-contract behaviours the builder does not own.
  */
 import * as z from "zod";
 import {
@@ -41,6 +45,10 @@ export interface AppSchemaNode {
   title?: string;
   description?: string;
   format?: string;
+  /** With `contentEncoding`, marks an image upload — see `isImageField`. */
+  contentMediaType?: string;
+  contentEncoding?: string;
+  maxLength?: number;
   enum?: unknown[];
   const?: unknown;
   default?: unknown;
@@ -57,6 +65,36 @@ export interface AppSchemaNode {
 export const ASSET_ID_FORMAT = "asset-id";
 export const DEVICE_ID_FORMAT = "device-id";
 export const PASSWORD_FORMAT = "password";
+
+/**
+ * An image upload: a string whose content annotations declare an `image/*`
+ * media type, encoded in base64 — e.g. `{type: string, contentMediaType:
+ * image/png, contentEncoding: base64, maxLength: 699052}`. Its value is the
+ * raw base64 of the file, with no `data:` prefix; `maxLength` caps it.
+ */
+export function isImageField(node: AppSchemaNode): boolean {
+  return (
+    node.type === "string" &&
+    typeof node.contentMediaType === "string" &&
+    node.contentMediaType.startsWith("image/") &&
+    node.contentEncoding === "base64"
+  );
+}
+
+/**
+ * Largest file, in bytes, whose base64 fits in the field's `maxLength`.
+ *
+ * Base64 spends 4 characters per started group of 3 bytes, so a file of `n`
+ * bytes encodes to `4 * ceil(n / 3)` characters, which stays within
+ * `maxLength` exactly when `n <= 3 * floor(maxLength / 4)`. E.g. 699052
+ * characters hold 524289 bytes (512 KiB and one byte). `undefined` when the
+ * field declares no cap.
+ */
+export function maxImageBytes(node: AppSchemaNode): number | undefined {
+  return typeof node.maxLength === "number"
+    ? 3 * Math.floor(node.maxLength / 4)
+    : undefined;
+}
 
 /** One `oneOf` branch, keyed by the value its discriminant is pinned to. */
 export interface SchemaBranch {
@@ -216,14 +254,18 @@ export function defaultsFor(schema: AppSchemaNode): Record<string, unknown> {
 
 /** Drops the values that no longer belong to the schema — switching `oneOf`
  *  branches must not submit the abandoned branch's fields (its secrets least
- *  of all), which react-hook-form still holds. */
+ *  of all), which react-hook-form still holds. A removed image (held as `""`)
+ *  is dropped too: no image is an absent key, not an empty file. */
 export function pickSchemaKeys(
   values: Record<string, unknown>,
   schema: AppSchemaNode,
 ): Record<string, unknown> {
   const picked: Record<string, unknown> = {};
-  for (const name of Object.keys(schema.properties ?? {})) {
-    if (values[name] !== undefined) picked[name] = values[name];
+  for (const [name, node] of Object.entries(schema.properties ?? {})) {
+    const value = values[name];
+    if (value === undefined) continue;
+    if (value === "" && isImageField(node)) continue;
+    picked[name] = value;
   }
   return picked;
 }
@@ -242,8 +284,9 @@ export function pickSchemaKeys(
  */
 export function toZodSchema(schema: AppSchemaNode): z.ZodObject {
   try {
-    // Custom formats (`asset-id`, `password`) need no zod counterpart: they
-    // select the widget, not the validation.
+    // Custom formats (`asset-id`, `device-id`, `password`) and an image's
+    // content annotations need no zod counterpart: they select the widget,
+    // not the validation (an image's `maxLength` still applies).
     return buildZodSchema(normalizeSchema(schema as JsonSchemaObject));
   } catch {
     return z.looseObject({});

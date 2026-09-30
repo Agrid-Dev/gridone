@@ -199,6 +199,55 @@ class TestSecretRedaction:
         assert item.msg == "'hi' is too short"
 
 
+class TestEncodedContentRedaction:
+    """A `contentEncoding` node (e.g. a base64 image) is redacted like a
+    secret: an oversized upload must not come back whole in the 422 body, nor
+    in the `str(exc)` log summary."""
+
+    SCHEMA: ClassVar[dict] = {
+        "type": "object",
+        "properties": {
+            "logo": {
+                "type": "string",
+                "contentMediaType": "image/png",
+                "contentEncoding": "base64",
+                "maxLength": 8,
+            },
+            # The media type alone does not redact: without an encoding the
+            # value is plain text, reported like any other string.
+            "caption": {
+                "type": "string",
+                "contentMediaType": "text/plain",
+                "maxLength": 4,
+            },
+        },
+    }
+    BLOB = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB"
+
+    def _single_error(self, payload) -> tuple[ValidationErrorItem, str]:
+        with pytest.raises(ConfigValidationError) as exc_info:
+            validate_config(payload, self.SCHEMA)
+        assert len(exc_info.value.errors) == 1
+        return exc_info.value.errors[0], str(exc_info.value)
+
+    def test_too_long_base64_is_redacted(self):
+        item, summary = self._single_error({"logo": self.BLOB})
+        assert self.BLOB not in item.msg
+        assert self.BLOB not in summary
+        assert item.msg == "must be at most 8 characters"
+        assert item.loc == ("logo",)
+        assert item.type == "maxLength"
+
+    def test_wrong_type_on_an_encoded_node_is_redacted(self):
+        item, _ = self._single_error({"logo": 1234567890})
+        assert "1234567890" not in item.msg
+        assert item.msg == "is not of type 'string'"
+
+    def test_media_type_without_an_encoding_keeps_the_message(self):
+        item, _ = self._single_error({"caption": "hello"})
+        assert item.msg == "'hello' is too long"
+
+
 class TestValidateSchema:
     def test_valid_schema_passes(self):
         validate_schema(SCHEMA)

@@ -115,6 +115,24 @@ def test_list_apps(app: FastAPI):
         assert data[0]["health_url"] == "https://example.com/health"
 
 
+def test_list_apps_serializes_the_status_message(app: FastAPI, apps_service: AsyncMock):
+    """The UI reads an app's own words off the list (tooltip on the badge)."""
+    apps_service.list_apps = AsyncMock(
+        return_value=[
+            DUMMY_APP.model_copy(update={"status_message": "Sent to 12 of 14"}),
+            DUMMY_APP.model_copy(update={"id": "app-2"}),
+        ]
+    )
+    with TestClient(app) as client:
+        resp = client.get("/apps/")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data[0]["status_message"] == "Sent to 12 of 14"
+        # Present, as null, when the app has said nothing.
+        assert "status_message" in data[1]
+        assert data[1]["status_message"] is None
+
+
 def test_list_apps_serializes_enabled(app: FastAPI, apps_service: AsyncMock):
     """The UI reads the toggle state off the app itself, not off `GET /users`."""
     apps_service.list_apps = AsyncMock(
@@ -145,8 +163,22 @@ def test_get_app(app: FastAPI):
         assert data["id"] == "app-1"
         assert data["name"] == "My App"
         assert data["status"] == "registered"
+        assert data["status_message"] is None
         assert data["enabled"] is True
         assert data["capabilities"] == EXPECTED_CAPABILITIES
+
+
+def test_get_app_serializes_the_status_message(app: FastAPI, apps_service: AsyncMock):
+    apps_service.get_app = AsyncMock(
+        return_value=DUMMY_APP.model_copy(
+            update={"status": AppStatus.HEALTHY, "status_message": "Sent to 3 of 14"}
+        )
+    )
+    with TestClient(app) as client:
+        resp = client.get("/apps/app-1")
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "healthy"
+        assert resp.json()["status_message"] == "Sent to 3 of 14"
 
 
 def test_get_app_disabled(app: FastAPI, apps_service: AsyncMock):

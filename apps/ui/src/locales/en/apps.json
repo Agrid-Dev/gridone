@@ -17,6 +17,7 @@
     "unhealthy": "Unhealthy",
     "registered": "Registered"
   },
+  "statusMessage": "Message from the app:",
   "capabilities": {
     "title": "Declared usage",
     "produces": "Creates devices",
@@ -52,6 +53,15 @@
       "ok": "The application is running on this configuration.",
       "pending": "Saved, but not taken by the application yet — delivery is retried automatically.",
       "rejected": "The application refused this configuration. Correct it and save again."
+    },
+    "image": {
+      "choose": "Choose an image",
+      "replace": "Change the image",
+      "remove": "Remove the image",
+      "preview": "Preview of the chosen image",
+      "tooLarge": "This image is too large: {{size}} KB at most.",
+      "wrongType": "This file is not in {{format}} format.",
+      "unreadable": "This file cannot be read as an image."
     }
   },
   "requests": {

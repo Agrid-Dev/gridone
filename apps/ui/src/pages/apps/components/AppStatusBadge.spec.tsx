@@ -42,6 +42,25 @@ describe("AppStatusBadge", () => {
       healthy.firstElementChild?.className,
     );
   });
+
+  it("carries the app's status message as its tooltip", () => {
+    render(
+      <AppStatusBadge
+        status="healthy"
+        message="Logo sent to 12 of 14 thermostats"
+      />,
+    );
+
+    expect(
+      screen.getByTitle("Logo sent to 12 of 14 thermostats"),
+    ).toHaveTextContent("Healthy");
+  });
+
+  it.each([undefined, null])("has no tooltip without a message (%s)", (msg) => {
+    render(<AppStatusBadge status="healthy" message={msg} />);
+
+    expect(screen.getByText("Healthy")).not.toHaveAttribute("title");
+  });
 });
 
 describe("AppPushStatusBadge", () => {

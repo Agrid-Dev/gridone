@@ -28,6 +28,7 @@ class PostgresAppStorage:
             api_url=row["api_url"],
             icon=row["icon"],
             status=AppStatus(row["status"]),
+            status_message=row["status_message"],
             manifest=row["manifest"],
             created_at=created_at,
             config=json.loads(config_raw) if config_raw is not None else None,
@@ -48,20 +49,23 @@ class PostgresAppStorage:
             created_at = created_at.replace(tzinfo=None)
         # asyncpg has no JSONB codec configured here, so encode/decode explicitly.
         config_raw = json.dumps(app.config) if app.config is not None else None
+        # `status` and `status_message` are inserted but left out of the update
+        # clause: only `update_status` writes them, the model saved here may
+        # predate the last health probe.
         await self._pool.execute(
             """
             INSERT INTO apps (
                 id, user_id, name, description, api_url,
-                icon, status, manifest, created_at, config, push_status
+                icon, status, manifest, created_at, config, push_status,
+                status_message
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $12)
             ON CONFLICT (id) DO UPDATE SET
                 user_id = EXCLUDED.user_id,
                 name = EXCLUDED.name,
                 description = EXCLUDED.description,
                 api_url = EXCLUDED.api_url,
                 icon = EXCLUDED.icon,
-                status = EXCLUDED.status,
                 manifest = EXCLUDED.manifest,
                 created_at = EXCLUDED.created_at,
                 config = EXCLUDED.config,
@@ -78,12 +82,18 @@ class PostgresAppStorage:
             created_at,
             config_raw,
             app.push_status,
+            app.status_message,
         )
 
-    async def update_status(self, app_id: str, status: AppStatus) -> None:
+    async def update_status(
+        self, app_id: str, status: AppStatus, message: str | None
+    ) -> None:
         # No RETURNING: a vanished row is a no-op, per the protocol.
         await self._pool.execute(
-            "UPDATE apps SET status = $2 WHERE id = $1", app_id, status
+            "UPDATE apps SET status = $2, status_message = $3 WHERE id = $1",
+            app_id,
+            status,
+            message,
         )
 
     async def update_push_status(self, app_id: str, push_status: PushStatus) -> None:
