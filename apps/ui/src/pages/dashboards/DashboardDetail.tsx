@@ -10,11 +10,16 @@ import { ResourceHeader } from "@/components/ResourceHeader";
 import { TimeRangeSelect } from "@/components/TimeRangeSelect";
 import { Button } from "@/components/ui/button";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   DASHBOARD_DEFAULT_PRESET,
   DASHBOARD_PRESET_OPTIONS,
 } from "@/lib/timeRange";
 import { DashboardGrid } from "./DashboardGrid";
-import { DashboardTabs } from "./DashboardTabs";
+import { DashboardSwitcher } from "./DashboardSwitcher";
 import { DashboardToolbox } from "./DashboardToolbox";
 import { DASHBOARD_PERIOD_STORAGE_KEY } from "./useDashboardPeriod";
 import { useDashboardFromRoute, useDashboards } from "./useDashboards";
@@ -36,102 +41,105 @@ const DashboardDetailContent: FC = () => {
       className="flex min-w-0 flex-col gap-6"
       data-navigation-title={dashboard.name || dashboard.id}
     >
-      {/* Constant section title (the active dashboard's name is its tab, not a
-          second header) with the switcher row below it. The period sits in the
-          header actions: it applies to the whole page, above the tabs, so it
-          reads as a property of the view rather than of one dashboard. */}
       <ResourceHeader
-        title={t("title")}
-        actions={
-          <TimeRangeSelect
-            presets={DASHBOARD_PRESET_OPTIONS}
-            defaultPreset={DASHBOARD_DEFAULT_PRESET}
-            storageKey={DASHBOARD_PERIOD_STORAGE_KEY}
-          />
-        }
-      />
-      <div className="flex flex-col gap-2">
-        {/* Navigation row: tabs on the left; a toolbox toggle on the right (or
-            the layout Save/Cancel controls while editing). Edition actions live
-            in the opt-in toolbox row below, kept out of navigation. */}
-        <div className="flex flex-wrap items-center gap-2">
-          <DashboardTabs
+        title={
+          <DashboardSwitcher
+            current={dashboard}
             summaries={summaries}
-            activeId={dashboard.id}
             disabled={editing}
           />
-          {/* The toggle is hidden while editing — the toolbox row is locked to
-              the layout Save/Cancel controls until you exit. */}
-          {!editing && can("dashboards:write") && (
-            <Button
-              variant={toolboxOpen ? "secondary" : "ghost"}
-              className="ml-auto min-h-11"
-              aria-expanded={toolboxOpen}
-              aria-controls="dashboard-toolbox"
-              aria-label={toolboxOpen ? t("toolbox.hide") : t("toolbox.show")}
-              onClick={() => setToolboxOpen((open) => !open)}
-            >
-              {toolboxOpen ? (
-                <X className="h-4 w-4" />
-              ) : (
-                <Settings2 className="h-4 w-4" />
-              )}
-              {toolboxOpen ? t("toolbox.hide") : t("toolbox.show")}
-            </Button>
+        }
+        actions={
+          <>
+            <TimeRangeSelect
+              presets={DASHBOARD_PRESET_OPTIONS}
+              defaultPreset={DASHBOARD_DEFAULT_PRESET}
+              storageKey={DASHBOARD_PERIOD_STORAGE_KEY}
+            />
+            {can("dashboards:write") && (
+              <AddWidgetButton dashboardId={dashboard.id} disabled={editing} />
+            )}
+            {!editing && can("dashboards:write") && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant={toolboxOpen ? "secondary" : "ghost"}
+                    size="icon"
+                    aria-expanded={toolboxOpen}
+                    aria-controls="dashboard-toolbox"
+                    aria-label={
+                      toolboxOpen ? t("toolbox.hide") : t("toolbox.show")
+                    }
+                    onClick={() => setToolboxOpen((open) => !open)}
+                  >
+                    {toolboxOpen ? (
+                      <X aria-hidden className="h-4 w-4" />
+                    ) : (
+                      <Settings2 aria-hidden className="h-4 w-4" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {toolboxOpen ? t("toolbox.hide") : t("toolbox.show")}
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </>
+        }
+      />
+      {(editing || toolboxOpen || dashboard.description) && (
+        <div className="flex flex-col gap-2">
+          {editing ? (
+            // Same toolbox container, content switched to the layout edit form.
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/40 p-2">
+              <span className="text-sm text-muted-foreground">
+                {dirty ? t("layout.unsaved") : t("layout.editing")}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="ml-auto min-h-11"
+                onClick={cancel}
+              >
+                {t("layout.cancel")}
+              </Button>
+              <Button size="sm" onClick={() => void save()} disabled={!dirty}>
+                {t("layout.save")}
+              </Button>
+            </div>
+          ) : (
+            toolboxOpen &&
+            can("dashboards:write") && (
+              <div id="dashboard-toolbox">
+                <DashboardToolbox
+                  dashboard={dashboard}
+                  summaries={summaries}
+                  hasWidgets={hasWidgets}
+                  onEditLayout={enter}
+                />
+              </div>
+            )
+          )}
+          {dashboard.description && (
+            <div className="flex items-start gap-2 border-l-2 border-primary/40 pl-3 text-sm text-muted-foreground">
+              <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary/60" />
+              <p>{dashboard.description}</p>
+            </div>
           )}
         </div>
-        {editing ? (
-          // Same toolbox container, content switched to the layout edit form.
-          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/40 p-2">
-            <span className="text-sm text-muted-foreground">
-              {dirty ? t("layout.unsaved") : t("layout.editing")}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              className="ml-auto min-h-11"
-              onClick={cancel}
-            >
-              {t("layout.cancel")}
-            </Button>
-            <Button size="sm" onClick={() => void save()} disabled={!dirty}>
-              {t("layout.save")}
-            </Button>
-          </div>
-        ) : (
-          toolboxOpen &&
-          can("dashboards:write") && (
-            <div id="dashboard-toolbox">
-              <DashboardToolbox
-                dashboard={dashboard}
-                summaries={summaries}
-                hasWidgets={hasWidgets}
-                onEditLayout={enter}
-              />
-            </div>
-          )
-        )}
-        {dashboard.description && (
-          <div className="flex items-start gap-2 border-l-2 border-primary/40 pl-3 text-sm text-muted-foreground">
-            <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary/60" />
-            <p>{dashboard.description}</p>
-          </div>
-        )}
-      </div>
+      )}
 
       {hasWidgets ? (
         <DashboardGrid
           dashboard={dashboard}
           layout={layout}
           editing={editing}
+          showWidgetActions={toolboxOpen}
           onLayoutChange={onLayoutChange}
         />
       ) : (
         <div className="rounded-lg border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
-          <p className="mb-4">{t("widgets.empty")}</p>
-          {can("dashboards:write") && (
-            <AddWidgetButton dashboardId={dashboard.id} />
-          )}
+          <p>{t("widgets.empty")}</p>
         </div>
       )}
     </div>

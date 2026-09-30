@@ -1,8 +1,11 @@
 {
   "title": "Dashboards",
   "resourceName": "dashboard",
-  "tabs": {
-    "label": "Dashboards",
+  "switcher": {
+    "label": "Switch dashboard",
+    "search": "Search dashboards…",
+    "empty": "No dashboard matches.",
+    "current": "Current view",
     "new": "New dashboard"
   },
   "toolbox": {

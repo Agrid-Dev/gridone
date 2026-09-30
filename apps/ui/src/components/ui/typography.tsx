@@ -12,12 +12,16 @@ export function TypographyH1({ children }: { children: React.ReactNode }) {
 // Section/page subtitles like "Transports" subtitle
 export function TypographyH2({
   children,
+  className,
   ...props
 }: React.HTMLAttributes<HTMLHeadingElement>) {
   return (
     <h2
       {...props}
-      className="scroll-m-20 font-display text-xl font-semibold text-inherit"
+      className={cn(
+        "scroll-m-20 font-display text-xl font-semibold text-inherit",
+        className,
+      )}
     >
       {children}
     </h2>
