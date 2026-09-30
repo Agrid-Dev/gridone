@@ -157,7 +157,7 @@ describe("ControlPanelWidgetView", () => {
     await userEvent.click(screen.getByRole("switch", { name: "Start" }));
 
     expect(setValue).toHaveBeenCalledWith("pump1", "command", true);
-    expect(screen.queryByText("Inactive")).toBeNull();
+    expect(screen.queryByLabelText("Inactive")).toBeNull();
   });
 
   it("disables an inactive section's controls and says why on hover", async () => {
@@ -167,7 +167,7 @@ describe("ControlPanelWidgetView", () => {
 
     const toggle = screen.getByRole("switch", { name: "Start" });
     expect(toggle).toBeDisabled();
-    expect(screen.getByText("Inactive")).toBeInTheDocument();
+    expect(screen.getByLabelText("Inactive")).toBeInTheDocument();
     await userEvent.hover(toggle.parentElement!);
     expect(await screen.findByRole("tooltip")).toHaveTextContent(
       "Selector is on auto",

@@ -1,5 +1,6 @@
 import { useMemo, type FC, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { Lock } from "lucide-react";
 import {
   isNotFound,
   type ActiveCondition,
@@ -10,7 +11,6 @@ import {
 } from "@gridone/sdk";
 import { AttributeValue } from "@/components/AttributeValue";
 import { SeverityChip } from "@/components/SeverityChip";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -26,7 +26,6 @@ import {
 import { usePermissions } from "@/contexts/AuthContext";
 import { useAttributeLabel } from "@/hooks/useAttributeLabel";
 import { useDevice } from "@/hooks/useDevice";
-import { useValueLabel } from "@/hooks/useValueLabel";
 import { deviceAttributes } from "@/lib/devices";
 import { isFaultAttribute, type AttributeFields } from "@/lib/faults";
 import { cn } from "@/lib/utils";
@@ -106,13 +105,13 @@ const Section: FC<{ section: ControlPanelSection }> = ({ section }) => {
           </h3>
           {lock && (
             <LockHint lock={lock}>
-              <span tabIndex={0} className="shrink-0 rounded-full">
-                <Badge
-                  variant="outline"
-                  className="font-medium text-muted-foreground"
-                >
-                  {t("widgets.controlPanel.inactive")}
-                </Badge>
+              <span
+                tabIndex={0}
+                role="img"
+                aria-label={t("widgets.controlPanel.inactive")}
+                className="shrink-0 rounded-sm text-muted-foreground"
+              >
+                <Lock className="h-3.5 w-3.5" aria-hidden />
               </span>
             </LockHint>
           )}
@@ -242,7 +241,6 @@ const ToggleRow: FC<{
   lock: SectionLock | null;
 }> = ({ device, attribute, label, lock }) => {
   const { i18n } = useTranslation();
-  const valueLabel = useValueLabel();
   const name = attribute.name;
   const controls = useMemo(
     () => ({
@@ -282,12 +280,16 @@ const ToggleRow: FC<{
         </>
       }
     >
+      {/* The intention while a write is pending, else the reported value —
+          worded and drawn as on the device page. */}
       {typeof state.displayed === "boolean" && (
-        <span
-          className={cn("text-xs text-muted-foreground", lock && "opacity-60")}
-        >
-          {valueLabel(state.displayed, attribute.value_labels)}
-        </span>
+        <AttributeValue
+          value={state.displayed}
+          attributeName={name}
+          dataType={attribute.data_type}
+          valueLabels={attribute.value_labels}
+          className={cn("font-medium", lock && "opacity-60")}
+        />
       )}
       {lock ? (
         // A disabled button fires no pointer events, so the hint hangs on a
