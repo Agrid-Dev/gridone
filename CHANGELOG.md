@@ -1,3 +1,11 @@
+## v0.285.0 (2026-09-30)
+
+### Feat
+
+- **ui**: control panel confirms a write with a success mark that clears itself (AGR-1524)
+- **ui**: lock icon on inactive sections, device-page value rendering (AGR-1524)
+- **ui**: render the control panel dashboard widget (AGR-1524)
+
 ## v0.284.1 (2026-09-30)
 
 ### Fix
