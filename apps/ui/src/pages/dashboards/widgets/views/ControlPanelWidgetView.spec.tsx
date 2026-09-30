@@ -45,6 +45,9 @@ vi.mock("@/components/device-ui/runtime", () => ({
     readControl: (attribute: string) => ({
       displayed: device.attributes?.[attribute]?.current_value ?? null,
       canToggle: canWrite,
+      optionStates: (
+        device.attributes?.[attribute] as { write_state?: { options?: [] } }
+      )?.write_state?.options,
       write,
     }),
   }),
@@ -193,5 +196,37 @@ describe("ControlPanelWidgetView", () => {
       vi.advanceTimersByTime(CONFIRMATION_MS);
     });
     expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("disables a toggle a driver write rule refuses and shows the rule's message", async () => {
+    setDevices({ autoMode: false });
+    // The driver refuses a start while the twin pump runs; stopping is free.
+    Object.assign(devices.pump1.attributes!.command, {
+      write_state: {
+        options: [
+          { value: false, available: true, reasons: [] },
+          {
+            value: true,
+            available: false,
+            reasons: [
+              {
+                code: "pump_pair_exclusive",
+                message: { default: "The paired pump is running" },
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    renderView();
+
+    const toggle = screen.getByRole("switch", { name: "Start" });
+    expect(toggle).toBeDisabled();
+    expect(row("Start")).toHaveTextContent("The paired pump is running");
+    await userEvent.hover(toggle.parentElement!);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(
+      "The paired pump is running",
+    );
   });
 });
