@@ -53,7 +53,7 @@ async def test_get_returns_isolated_copy():
     assert reread.name == "Ops"
 
 
-async def test_list_summaries_orders_by_created_at():
+async def test_list_summaries_keeps_insertion_order_not_created_at():
     storage = MemoryStorage()
     older = _dashboard("old")
     older.metadata.created_at = datetime(2026, 1, 1, tzinfo=UTC)
@@ -64,4 +64,4 @@ async def test_list_summaries_orders_by_created_at():
 
     summaries = await storage.list_summaries()
 
-    assert [s.id for s in summaries] == ["old", "new"]
+    assert [s.id for s in summaries] == ["new", "old"]

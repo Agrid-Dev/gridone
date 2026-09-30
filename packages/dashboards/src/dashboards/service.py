@@ -116,6 +116,11 @@ class DashboardsService(DashboardsServiceInterface, Service):
     async def delete(self, dashboard_id: str) -> None:
         await self._storage.delete(dashboard_id)
 
+    async def reorder(self, ordered_ids: Sequence[str]) -> None:
+        current_ids = {s.id for s in await self._storage.list_summaries()}
+        self._validate_order_bijection(ordered_ids, current_ids)
+        await self._storage.reorder(ordered_ids)
+
     # ------------------------------------------------------------------
     # Widgets
     # ------------------------------------------------------------------
@@ -261,6 +266,17 @@ class DashboardsService(DashboardsServiceInterface, Service):
                 return widget
         msg = f"Widget {widget_id!r} not found on dashboard {dashboard.id!r}"
         raise NotFoundError(msg)
+
+    @staticmethod
+    def _validate_order_bijection(
+        ordered_ids: Sequence[str], current_ids: set[str]
+    ) -> None:
+        if len(ordered_ids) != len(set(ordered_ids)):
+            msg = "Order has duplicate dashboard ids"
+            raise InvalidError(msg)
+        if set(ordered_ids) != current_ids:
+            msg = "Order must list every dashboard exactly once"
+            raise InvalidError(msg)
 
     @staticmethod
     def _validate_layout_bijection(

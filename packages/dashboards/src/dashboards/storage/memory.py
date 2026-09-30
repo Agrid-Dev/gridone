@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from dashboards.models import Dashboard, DashboardSummary
 from models.errors import NotFoundError
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 
 @dataclass
@@ -14,6 +18,10 @@ class MemoryStorage:
     callers can mutate what they get without touching persisted state — the
     same isolation a real database gives. Deep copies preserve each widget's
     concrete config subclass, so no registry is needed to reconstruct configs.
+
+    The dict's insertion order is the display order: ``create`` appends,
+    ``update`` reassigns an existing key (order kept) and ``reorder`` rebuilds
+    the dict.
     """
 
     _dashboards: dict[str, Dashboard] = field(default_factory=dict)
@@ -29,9 +37,7 @@ class MemoryStorage:
     async def list_summaries(
         self, *, limit: int | None = None, offset: int | None = None
     ) -> list[DashboardSummary]:
-        dashboards = sorted(
-            self._dashboards.values(), key=lambda d: d.metadata.created_at
-        )
+        dashboards = list(self._dashboards.values())
         if offset is not None:
             dashboards = dashboards[offset:]
         if limit is not None:
@@ -48,6 +54,9 @@ class MemoryStorage:
 
     async def count(self) -> int:
         return len(self._dashboards)
+
+    async def reorder(self, ordered_ids: Sequence[str]) -> None:
+        self._dashboards = {i: self._dashboards[i] for i in ordered_ids}
 
     async def update(self, dashboard: Dashboard) -> Dashboard:
         if dashboard.id not in self._dashboards:

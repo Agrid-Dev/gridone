@@ -182,6 +182,92 @@ async def test_delete_missing_raises_not_found(service: DashboardsService):
 
 
 # ---------------------------------------------------------------------------
+# Order
+# ---------------------------------------------------------------------------
+
+
+async def _listed_ids(service: DashboardsService) -> list[str]:
+    return [s.id for s in (await service.list()).items]
+
+
+async def _create_many(service: DashboardsService, count: int) -> list[str]:
+    return [
+        (await service.create(DashboardCreate(name=f"d{i}"))).id for i in range(count)
+    ]
+
+
+async def test_list_defaults_to_creation_order(service: DashboardsService):
+    ids = await _create_many(service, 3)
+
+    assert await _listed_ids(service) == ids
+
+
+async def test_reorder_sets_list_order(service: DashboardsService):
+    a, b, c = await _create_many(service, 3)
+
+    await service.reorder([c, a, b])
+
+    assert await _listed_ids(service) == [c, a, b]
+
+
+async def test_reorder_applies_to_paginated_list(service: DashboardsService):
+    a, b, c = await _create_many(service, 3)
+    await service.reorder([c, a, b])
+
+    page = await service.list(pagination=PaginationParams(page=1, size=2))
+
+    assert [s.id for s in page.items] == [c, a]
+
+
+async def test_created_dashboard_goes_last(service: DashboardsService):
+    a, b = await _create_many(service, 2)
+    await service.reorder([b, a])
+
+    c = (await service.create(DashboardCreate(name="c"))).id
+
+    assert await _listed_ids(service) == [b, a, c]
+
+
+async def test_delete_keeps_remaining_order(service: DashboardsService):
+    a, b, c = await _create_many(service, 3)
+    await service.reorder([c, a, b])
+
+    await service.delete(a)
+
+    assert await _listed_ids(service) == [c, b]
+
+
+async def test_update_keeps_order(service: DashboardsService):
+    a, b = await _create_many(service, 2)
+    await service.reorder([b, a])
+
+    await service.update(b, DashboardPatch(name="renamed"))
+
+    assert await _listed_ids(service) == [b, a]
+
+
+@pytest.mark.parametrize(
+    "order",
+    [
+        pytest.param(["a", "a", "b"], id="duplicate"),
+        pytest.param(["a"], id="missing"),
+        pytest.param(["a", "b", "unknown"], id="unknown"),
+        pytest.param([], id="empty"),
+    ],
+)
+async def test_reorder_rejects_non_permutation(
+    service: DashboardsService, order: list[str]
+):
+    a, b = await _create_many(service, 2)
+    ids = {"a": a, "b": b}
+
+    with pytest.raises(InvalidError):
+        await service.reorder([ids.get(key, key) for key in order])
+
+    assert await _listed_ids(service) == [a, b]
+
+
+# ---------------------------------------------------------------------------
 # Widgets
 # ---------------------------------------------------------------------------
 

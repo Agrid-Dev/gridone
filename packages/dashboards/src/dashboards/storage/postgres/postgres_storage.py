@@ -13,6 +13,8 @@ from dashboards.models import (
 from models.errors import NotFoundError
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     import asyncpg
 
     from dashboards.widgets.registry import WidgetRegistry
@@ -80,8 +82,9 @@ class PostgresDashboardsStorage:
         row = await self._pool.fetchrow(
             """
             INSERT INTO dashboards
-                (id, name, description, widgets, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, $6)
+                (id, name, description, widgets, created_at, updated_at, position)
+            VALUES ($1, $2, $3, $4, $5, $6,
+                    (SELECT COALESCE(MAX(position), -1) + 1 FROM dashboards))
             RETURNING *
             """,
             dashboard.id,
@@ -106,7 +109,7 @@ class PostgresDashboardsStorage:
     ) -> list[DashboardSummary]:
         query = (
             "SELECT id, name, description, created_at, updated_at "
-            "FROM dashboards ORDER BY created_at"
+            "FROM dashboards ORDER BY position, created_at, id"
         )
         params: list[object] = []
         idx = 1
@@ -122,6 +125,13 @@ class PostgresDashboardsStorage:
 
     async def count(self) -> int:
         return await self._pool.fetchval("SELECT COUNT(*) FROM dashboards")
+
+    async def reorder(self, ordered_ids: Sequence[str]) -> None:
+        async with self._pool.acquire() as conn, conn.transaction():
+            await conn.executemany(
+                "UPDATE dashboards SET position = $1 WHERE id = $2",
+                list(enumerate(ordered_ids)),
+            )
 
     async def update(self, dashboard: Dashboard) -> Dashboard:
         row = await self._pool.fetchrow(
