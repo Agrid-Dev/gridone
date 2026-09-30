@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { FC } from "react";
 import { useParams } from "react-router";
 import { useTranslation } from "react-i18next";
-import { Info, Settings2, X } from "lucide-react";
+import { Info, Settings2, Wand2, X } from "lucide-react";
 import { ResourceBoundary } from "@/components/ResourceBoundary";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { TimeRangeSelect } from "@/components/TimeRangeSelect";
@@ -19,15 +19,13 @@ import {
   DASHBOARD_PRESET_OPTIONS,
 } from "@/lib/timeRange";
 import { DashboardGrid } from "./DashboardGrid";
-import { DashboardToolbox } from "./DashboardToolbox";
 import { DASHBOARD_PERIOD_STORAGE_KEY } from "./useDashboardPeriod";
-import { useDashboardFromRoute, useDashboards } from "./useDashboards";
+import { useDashboardFromRoute } from "./useDashboards";
 import { useLayoutEditor } from "./useLayoutEditor";
 
 const DashboardDetailContent: FC = () => {
   const { t } = useTranslation("dashboards");
   const can = usePermissions();
-  const summaries = useDashboards();
   const dashboard = useDashboardFromRoute();
   const { editing, layout, dirty, enter, save, cancel, onLayoutChange } =
     useLayoutEditor(dashboard);
@@ -101,15 +99,24 @@ const DashboardDetailContent: FC = () => {
               </Button>
             </div>
           ) : (
+            // The list-level actions (create, rename, delete, reorder) live in
+            // Configuration › Dashboards; here only the layout is edited.
             toolboxOpen &&
-            can("dashboards:write") && (
-              <div id="dashboard-toolbox">
-                <DashboardToolbox
-                  dashboard={dashboard}
-                  summaries={summaries}
-                  hasWidgets={hasWidgets}
-                  onEditLayout={enter}
-                />
+            can("dashboards:write") &&
+            hasWidgets && (
+              <div
+                id="dashboard-toolbox"
+                className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/40 p-2"
+              >
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="min-h-11"
+                  onClick={enter}
+                >
+                  <Wand2 className="h-4 w-4" />
+                  {t("layout.edit")}
+                </Button>
               </div>
             )
           )}

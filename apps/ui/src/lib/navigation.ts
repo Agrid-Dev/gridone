@@ -163,7 +163,7 @@ export const RESOURCE_SECTIONS: Record<string, readonly string[]> = {
   transports: ["new"],
   drivers: ["new"],
   automations: ["new"],
-  dashboards: ["new"],
+  dashboards: ["manage", "new"],
 };
 
 /** Identify one resource across its tabs/edit route, e.g. /devices/a/history → /devices/a. */

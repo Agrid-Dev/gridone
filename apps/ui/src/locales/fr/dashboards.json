@@ -4,6 +4,12 @@
   "switcher": {
     "new": "Nouveau tableau de bord"
   },
+  "manage": {
+    "caption": "Les entrées de supervision, dans l'ordre où elles sont listées. Créez, renommez, décrivez, supprimez et réordonnez-les ici ; leurs widgets se modifient sur le tableau de bord lui-même.",
+    "actions": "Actions pour {{name}}",
+    "drag": "Déplacer {{name}}",
+    "orderHelp": "Faites glisser une poignée, ou sélectionnez-la et utilisez les flèches, pour changer l'ordre."
+  },
   "toolbox": {
     "show": "Modifier le tableau de bord",
     "hide": "Fermer les outils d’édition"

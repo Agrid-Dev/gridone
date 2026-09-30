@@ -25,7 +25,7 @@ const DashboardCreate: FC = () => {
             /* handled by the mutation's onError */
           }
         }}
-        onCancel={() => navigate("..")}
+        onCancel={() => navigate("/dashboards/manage")}
       />
     </section>
   );

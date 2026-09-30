@@ -81,12 +81,14 @@ export function Sidebar({
   // Under Configuration: the entry is for authoring plates. A reader meets
   // them through the dashboards' synoptic widgets instead.
   const showSynoptics = synopticsEnabled && can("synoptics:write");
+  const showDashboardsConfig = dashboardsEnabled && can("dashboards:write");
   const { faults } = useFaultsList();
   const { devices } = useDevicesList();
   const { dashboards } = useDashboardEntries();
   const { pendingCount: pendingAppRequests } = usePendingAppRequests();
 
   const hasConfiguration =
+    showDashboardsConfig ||
     showSynoptics ||
     can("users:write") ||
     can("drivers:read") ||
@@ -196,6 +198,15 @@ export function Sidebar({
 
           {hasConfiguration && (
             <SectionLabel>{t("nav.configuration")}</SectionLabel>
+          )}
+
+          {/* Managing the list of dashboards (the Supervision entries above)
+           *  is integrator work: create, rename, delete, reorder. */}
+          {showDashboardsConfig && (
+            <NavLink to="/dashboards/manage" className={navLinkClass}>
+              <LayoutDashboard className="h-4 w-4" />
+              {t("app.dashboards")}
+            </NavLink>
           )}
 
           {showSynoptics && (

@@ -173,6 +173,45 @@ export function useDeleteDashboard() {
   return { deleteDashboard };
 }
 
+/** Set the display order shared by every user (PUT /dashboards/order).
+ *  Optimistic: the summaries — and the store the sidebar opens on — take the
+ *  new order at once and fall back to the previous one if the server refuses. */
+export function useReorderDashboards() {
+  const client = useGridoneClient();
+  const queryClient = useQueryClient();
+  const onApiError = useApiErrorToast();
+
+  const mutation = useMutation({
+    mutationFn: (orderedIds: string[]) =>
+      client.dashboards.reorder({ ordered_ids: orderedIds }),
+    onMutate: async (orderedIds) => {
+      await queryClient.cancelQueries({ queryKey: DASHBOARDS_KEY });
+      const previous =
+        queryClient.getQueryData<DashboardSummary[]>(DASHBOARDS_KEY);
+      if (previous) {
+        const byId = new Map(previous.map((summary) => [summary.id, summary]));
+        const reordered = orderedIds.flatMap((id) => byId.get(id) ?? []);
+        queryClient.setQueryData(DASHBOARDS_KEY, reordered);
+        writeStoredDashboards(reordered);
+      }
+      return { previous };
+    },
+    onError: (error: Error, _ids, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(DASHBOARDS_KEY, context.previous);
+        writeStoredDashboards(context.previous);
+      }
+      onApiError(error);
+    },
+    onSettled: () =>
+      queryClient.invalidateQueries({ queryKey: DASHBOARDS_KEY }),
+  });
+
+  return {
+    reorderDashboards: (orderedIds: string[]) => mutation.mutate(orderedIds),
+  };
+}
+
 /** Replace a dashboard's grid layout (PUT /dashboards/{id}/layout). Invalidates
  *  the dashboard document so the grid re-renders from the persisted layout. */
 export function useUpdateLayout(dashboardId: string) {
