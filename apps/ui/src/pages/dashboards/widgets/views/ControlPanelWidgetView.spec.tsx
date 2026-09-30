@@ -75,6 +75,7 @@ function setDevices({ autoMode }: { autoMode: boolean }) {
   } as unknown as Device;
   devices.pump1 = {
     id: "pump1",
+    name: "Pump 1",
     attributes: {
       running: bool("running", true),
       command: bool("command", false, { read_write_modes: ["read", "write"] }),
@@ -114,10 +115,10 @@ const CONFIG = {
   ],
 };
 
-const renderView = () =>
+const renderView = (config: object = CONFIG) =>
   render(
     <TooltipProvider>
-      <ControlPanelWidgetView config={CONFIG} />
+      <ControlPanelWidgetView config={config} />
     </TooltipProvider>,
   );
 
@@ -146,6 +147,24 @@ describe("ControlPanelWidgetView", () => {
     ).toHaveTextContent("False");
     // A row whose attribute has since disappeared says so, in place.
     expect(row("Gone")).toHaveTextContent("Attribute no longer exposed");
+  });
+
+  it("names unlabelled rows by device when the panel says so", () => {
+    setDevices({ autoMode: false });
+    const unlabelled = { device_id: "pump1", attribute: "running" };
+
+    renderView({
+      label_by: "device",
+      sections: [
+        {
+          attributes: [unlabelled, { ...unlabelled, label: "Running" }],
+        },
+      ],
+    });
+
+    // The device name is the default; a row's own label still wins.
+    expect(screen.getByText("Pump 1")).toBeInTheDocument();
+    expect(screen.getByText("Running")).toBeInTheDocument();
   });
 
   it("renders a fault as a fault", () => {

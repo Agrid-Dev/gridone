@@ -3882,6 +3882,12 @@ export interface components {
        * @enum {string}
        */
       type: "control_panel";
+      /**
+       * Label By
+       * @default attribute
+       * @enum {string}
+       */
+      label_by?: "attribute" | "device";
       /** Sections */
       sections: components["schemas"]["ControlPanelSection"][];
     };

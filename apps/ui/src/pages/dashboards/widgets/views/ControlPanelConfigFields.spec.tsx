@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { useForm, type Control, type FieldValues } from "react-hook-form";
 import { createI18nMock } from "@/test/i18nMock";
 
@@ -9,6 +10,12 @@ vi.mock("react-i18next", () =>
     "widgets.controlPanel.editor.addSection": "Add section",
     "widgets.controlPanel.editor.title": "Title",
     "widgets.controlPanel.editor.label": "Label",
+    "widgets.controlPanel.editor.labelBy": "Label rows by",
+    "widgets.controlPanel.editor.labelByOptions.device": "Device name",
+    "widgets.controlPanel.editor.labelPlaceholder.attribute":
+      "Defaults to the attribute's name",
+    "widgets.controlPanel.editor.labelPlaceholder.device":
+      "Defaults to the device's name",
     "widgets.controlPanel.editor.addAttribute": "Add attribute",
     "widgets.controlPanel.editor.addCondition": "Make active on a condition",
     "widgets.controlPanel.editor.removeCondition": "Remove condition",
@@ -47,14 +54,19 @@ import {
   ControlPanelConfigFields,
 } from "./ControlPanelConfigFields";
 
-let values: () => { sections: Record<string, unknown>[] };
+let values: () => { label_by: string; sections: Record<string, unknown>[] };
 
 function Harness({ sections }: { sections: unknown[] }) {
   const form = useForm({
-    defaultValues: { config: { type: "control_panel", sections } },
+    defaultValues: {
+      config: { type: "control_panel", label_by: "attribute", sections },
+    },
   });
   values = () =>
-    form.getValues().config as { sections: Record<string, unknown>[] };
+    form.getValues().config as {
+      label_by: string;
+      sections: Record<string, unknown>[];
+    };
   return (
     <ControlPanelConfigFields
       control={form.control as unknown as Control<FieldValues>}
@@ -144,6 +156,24 @@ describe("ControlPanelConfigFields", () => {
     });
     // Nor does any of it leak into the next form through the shared default.
     expect(BLANK_CONDITION.inactive_reason).toBeNull();
+  });
+
+  it("switches what names an unlabelled row, and says so on the label", async () => {
+    const user = userEvent.setup();
+    render(<Harness sections={[BLANK_SECTION]} />);
+
+    expect(screen.getByLabelText("Label")).toHaveAttribute(
+      "placeholder",
+      "Defaults to the attribute's name",
+    );
+    await user.click(screen.getByRole("combobox", { name: "Label rows by" }));
+    await user.click(screen.getByRole("option", { name: "Device name" }));
+
+    expect(values().label_by).toBe("device");
+    expect(screen.getByLabelText("Label")).toHaveAttribute(
+      "placeholder",
+      "Defaults to the device's name",
+    );
   });
 
   it("stores an emptied optional text as null, not as a blank string", () => {

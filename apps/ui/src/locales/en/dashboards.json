@@ -213,8 +213,16 @@
         "addSection": "Add section",
         "removeSection": "Remove section",
         "title": "Title",
+        "labelBy": "Label rows by",
+        "labelByOptions": {
+          "attribute": "Attribute name",
+          "device": "Device name"
+        },
         "label": "Label",
-        "labelPlaceholder": "Defaults to the attribute's name",
+        "labelPlaceholder": {
+          "attribute": "Defaults to the attribute's name",
+          "device": "Defaults to the device's name"
+        },
         "addAttribute": "Add attribute",
         "removeAttribute": "Remove attribute",
         "addCondition": "Make active on a condition",

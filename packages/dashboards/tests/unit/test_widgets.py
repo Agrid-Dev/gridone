@@ -1074,6 +1074,20 @@ def test_validate_config_returns_control_panel_model():
     assert second.active_when is None
 
 
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [({}, "attribute"), ({"label_by": "device"}, "device")],
+)
+def test_control_panel_labels_rows_by_attribute_unless_told_otherwise(
+    raw: dict, expected: str
+):
+    config = ControlPanelWidgetConfig.model_validate(
+        {**raw, "sections": [{"attributes": [_PUMP_RUNNING]}]}
+    )
+
+    assert config.label_by == expected
+
+
 def test_control_panel_condition_defaults_to_active_when_true():
     config = ControlPanelWidgetConfig.model_validate(
         {
@@ -1107,6 +1121,7 @@ def test_control_panel_condition_defaults_to_active_when_true():
         {"sections": [{"attributes": [{"device_id": "", "attribute": "running"}]}]},
         {"sections": [{"attributes": [{"device_id": "d1", "attribute": ""}]}]},
         {"sections": [{"attributes": [{**_PUMP_RUNNING, "label": ""}]}]},
+        {"label_by": "section", "sections": [{"attributes": [_PUMP_RUNNING]}]},
         {  # the condition compares against a boolean, nothing else
             "sections": [
                 {

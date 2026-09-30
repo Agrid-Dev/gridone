@@ -27,6 +27,14 @@ handful of sections of a few rows each.
 
 _Label = Annotated[str, Field(min_length=1)]
 
+LabelBy = Literal["attribute", "device"]
+"""What names a row that declares no label of its own.
+
+A panel is as often many attributes of one device (an automaton's points) as
+one attribute across many devices (every leak detector): the first reads by
+attribute name, the second by device name.
+"""
+
 
 class AttributeReference(BaseModel):
     """One attribute of one device, by explicit id.
@@ -58,7 +66,7 @@ class ControlPanelAttribute(AttributeReference):
 
     label: _Label | None = None
     """Overrides the name the row is shown under; ``None`` borrows the
-    attribute's own label, which the driver already declares."""
+    attribute's own label or the device's name, per the panel's ``label_by``."""
 
 
 class ActiveCondition(AttributeReference):
@@ -106,6 +114,7 @@ class ControlPanelWidgetConfig(WidgetConfig):
     """
 
     type: Literal["control_panel"] = "control_panel"
+    label_by: LabelBy = "attribute"
     sections: list[ControlPanelSection] = Field(min_length=1, max_length=MAX_SECTIONS)
 
     def _references(self) -> Iterator[tuple[str, AttributeReference]]:
