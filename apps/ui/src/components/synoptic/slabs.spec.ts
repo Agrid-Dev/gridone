@@ -189,16 +189,17 @@ describe("slabsOf", () => {
     // two cells apart on one slab; on Ouest the loop pump joins them and
     // the loop heater's own slab merges into theirs, on Est both stand
     // alone. On the
-    // production plates the distribution circuits are lone inline
-    // machines four to six cells from anything, each on its own slab;
-    // only the primary's control valve and meter, the expansion vessel
-    // and the dirt separator, and the change-over valve trios share.
+    // production plates the machines stand four to six cells from
+    // anything, each on its own slab, but for the groups closer than the gap:
+    // the primary's control valve and meter, the expansion vessel and the
+    // dirt separator, and on the hot plate each circuit's meter and
+    // control valve, with the two hot valves of a change-over circuit.
     it.each([
       ["ecs-est", 7, rect(-0.7, -0.7, 4.7, 6.7)],
       // Ouest: the loop heater's slab overlapped the mixer group's frame,
       // so the two are one distribution slab.
       ["ecs-ouest", 5, rect(21.3, -3.7, 29.7, 2.7)],
-      ["production-chaud", 20, rect(43.3, -7.7, 47.7, -3.3)],
+      ["production-chaud", 16, rect(43.3, -9.7, 47.7, -3.3)],
       ["production-froid", 12, rect(23.3, 1.3, 28.7, 5.7)],
     ])("groups %s into %i slabs", (name, count, sample) => {
       const doc = plate(name);

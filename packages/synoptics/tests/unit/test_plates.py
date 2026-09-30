@@ -38,7 +38,7 @@ EXPECTED = {
     "Production ECS Ouest": Expected(
         (23, 24, 5), {"symbols": 4, "labels": 1, "flow": 2}
     ),
-    "Production Chaud": Expected((38, 23, 1), {"symbols": 10, "pipes": 8, "flow": 4}),
+    "Production Chaud": Expected((38, 24, 1), {"symbols": 10, "pipes": 8, "flow": 4}),
     "Production Froid": Expected((21, 15, 1), {"symbols": 6, "pipes": 6, "flow": 2}),
 }
 
