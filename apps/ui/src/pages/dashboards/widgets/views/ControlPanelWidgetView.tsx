@@ -101,12 +101,7 @@ const Section: FC<{ section: ControlPanelSection }> = ({ section }) => {
     >
       {(section.title || lock) && (
         <header className="flex items-center justify-between gap-2 px-3 py-1">
-          <h3
-            className={cn(
-              "min-w-0 truncate text-xs font-semibold uppercase tracking-wide",
-              lock ? "text-muted-foreground" : "text-foreground",
-            )}
-          >
+          <h3 className="min-w-0 truncate text-xs font-semibold uppercase tracking-wide text-foreground">
             {section.title}
           </h3>
           {lock && (
@@ -146,16 +141,10 @@ const LockHint: FC<{ lock: SectionLock; children: ReactNode }> = ({
 /** One row's frame: label (and whatever is said under it) left, value right. */
 const RowShell: FC<{
   label: string;
-  dimmed?: boolean;
   status?: ReactNode;
   children: ReactNode;
-}> = ({ label, dimmed = false, status, children }) => (
-  <li
-    className={cn(
-      "flex min-h-9 items-center justify-between gap-3 px-3 py-1 text-sm",
-      dimmed && "opacity-60",
-    )}
-  >
+}> = ({ label, status, children }) => (
+  <li className="flex min-h-9 items-center justify-between gap-3 px-3 py-1 text-sm">
     <div className="min-w-0">
       <p className="truncate text-foreground">{label}</p>
       {status}
@@ -217,9 +206,10 @@ const Row: FC<{ item: ControlPanelAttribute; lock: SectionLock | null }> = ({
       />
     );
 
-  // A fault on an inactive section is still a fault: it keeps its full colour.
+  // A lock only disables the controls: every label and value stays a live
+  // reading, shown in full on an inactive section too.
   return (
-    <RowShell label={label} dimmed={lock !== null && !fault?.is_faulty}>
+    <RowShell label={label}>
       {fault?.is_faulty && <SeverityChip severity={fault.severity} />}
       <AttributeValue
         value={attribute.current_value}
@@ -343,7 +333,7 @@ const ToggleRow: FC<{
           attributeName={name}
           dataType={attribute.data_type}
           valueLabels={attribute.value_labels}
-          className={cn("font-medium", lock && "opacity-60")}
+          className="font-medium"
         />
       )}
       {hint ? (

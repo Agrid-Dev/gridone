@@ -184,6 +184,17 @@ describe("ControlPanelWidgetView", () => {
     );
   });
 
+  it("dims nothing but the control on an inactive section", () => {
+    setDevices({ autoMode: true });
+
+    renderView();
+
+    expect(screen.getByRole("switch", { name: "Start" })).toBeDisabled();
+    const section = screen.getByRole("region", { name: "Pump 1" });
+    expect(section.querySelector(".opacity-60")).toBeNull();
+    expect(screen.getByText("Pump 1")).toHaveClass("text-foreground");
+  });
+
   it("acknowledges a confirmed write, then clears the acknowledgement", () => {
     vi.useFakeTimers();
     setDevices({ autoMode: false });
