@@ -1,8 +1,9 @@
-import { useRef, type ReactNode } from "react";
+import { useMemo, useRef, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Scan, ZoomIn, ZoomOut } from "lucide-react";
 import type { Synoptic, SynopticWidgetConfig } from "@gridone/sdk";
 import { SynopticRenderer, type PlateHandle } from "@/components/synoptic";
+import { DEFAULT_PROJECTION } from "@/components/synoptic/projection";
 import { ZOOM_STEP } from "@/components/synoptic/hooks/useViewport";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -21,9 +22,21 @@ function SynopticMessage({ children }: { children: ReactNode }) {
 }
 
 /** Only viewing gestures are wired: symbols cannot navigate or open controls. */
-function SynopticCanvas({ doc }: { doc: Synoptic }) {
+function SynopticCanvas({
+  doc,
+  projection,
+}: {
+  doc: Synoptic;
+  projection: SynopticWidgetConfig["projection"];
+}) {
   const { t } = useTranslation("synoptics");
   const values = useSynopticValues(doc);
+  // The widget draws the plate the way its author chose, plan or isometric:
+  // a view of the document, never a change to it.
+  const viewDoc = useMemo(
+    () => ({ ...doc, projection: projection ?? DEFAULT_PROJECTION }),
+    [doc, projection],
+  );
   const vocabulary = usePlateVocabulary();
   const plate = useRef<PlateHandle | null>(null);
 
@@ -66,7 +79,7 @@ function SynopticCanvas({ doc }: { doc: Synoptic }) {
       </div>
       <div className="relative min-h-0 flex-1 overflow-hidden">
         <SynopticRenderer
-          doc={doc}
+          doc={viewDoc}
           values={values}
           vocabulary={vocabulary}
           plateRef={plate}
@@ -81,7 +94,7 @@ function SynopticCanvas({ doc }: { doc: Synoptic }) {
 /** The document shares the editor's cache; readings use the live device cache.
  *  The dashboard period does not apply to this live view. */
 export function SynopticWidgetView({ config }: { config: unknown }) {
-  const { synoptic_id: id } = config as SynopticWidgetConfig;
+  const { synoptic_id: id, projection } = config as SynopticWidgetConfig;
   const { t } = useTranslation("dashboards");
   const enabled = useFeatureEnabled("synoptics");
   const { data, error, isPending } = useSynopticById(
@@ -103,5 +116,5 @@ export function SynopticWidgetView({ config }: { config: unknown }) {
       </SynopticMessage>
     );
   if (isPending || !data) return <Skeleton className="h-full w-full" />;
-  return <SynopticCanvas key={id} doc={data} />;
+  return <SynopticCanvas key={id} doc={data} projection={projection} />;
 }

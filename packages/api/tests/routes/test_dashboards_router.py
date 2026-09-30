@@ -324,7 +324,10 @@ class TestWidgets:
             resp = await c.post("/d1/widgets", json={"config": config})
         assert resp.status_code == 201
         svc.add_widget.assert_awaited_once_with(
-            "d1", config=config, title=None, description=None
+            "d1",
+            config={**config, "projection": "isometric"},
+            title=None,
+            description=None,
         )
         mock_target_resolver.resolve.assert_not_awaited()
 

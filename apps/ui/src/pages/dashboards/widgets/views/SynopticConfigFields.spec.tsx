@@ -26,6 +26,11 @@ const SCHEMA = {
   properties: {
     type: { type: "string", const: "synoptic", default: "synoptic" },
     synoptic_id: { type: "string", minLength: 1 },
+    projection: {
+      type: "string",
+      enum: ["isometric", "flat"],
+      default: "isometric",
+    },
   },
   required: ["synoptic_id"],
 };
@@ -60,27 +65,52 @@ describe("SynopticConfigFields", () => {
     const { onSubmit, submit } = renderForm();
     submit();
     await waitFor(() =>
-      expect(screen.getByRole("combobox")).toHaveAttribute(
-        "aria-invalid",
-        "true",
-      ),
+      expect(
+        screen.getByRole("combobox", { name: /synoptic\.label/ }),
+      ).toHaveAttribute("aria-invalid", "true"),
     );
     expect(onSubmit).not.toHaveBeenCalled();
 
-    await user.click(screen.getByRole("combobox"));
+    await user.click(screen.getByRole("combobox", { name: /synoptic\.label/ }));
     await user.click(screen.getByRole("option", { name: "Heating plant" }));
     submit();
     await waitFor(() =>
       expect(onSubmit).toHaveBeenCalledWith({
         title: "",
-        config: { type: "synoptic", synoptic_id: "plate1" },
+        config: {
+          type: "synoptic",
+          synoptic_id: "plate1",
+          projection: "isometric",
+        },
+      }),
+    );
+  });
+
+  it("offers the plan, worded as on the plate, and submits it", async () => {
+    const user = userEvent.setup();
+    const { onSubmit, submit } = renderForm("plate1");
+    const projection = screen.getByRole("combobox", {
+      name: /projection\.label/,
+    });
+    // Saved before the choice existed: reads as the isometric default.
+    expect(projection).toHaveTextContent("view.isometric");
+
+    await user.click(projection);
+    await user.click(screen.getByRole("option", { name: "view.plan" }));
+    submit();
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith({
+        title: "",
+        config: { type: "synoptic", synoptic_id: "plate1", projection: "flat" },
       }),
     );
   });
 
   it("restores the selected document when editing", () => {
     renderForm("plate1");
-    expect(screen.getByRole("combobox")).toHaveTextContent("Heating plant");
+    expect(
+      screen.getByRole("combobox", { name: /synoptic\.label/ }),
+    ).toHaveTextContent("Heating plant");
   });
 
   it("explains where to create a document when the list is empty", () => {
@@ -95,7 +125,7 @@ describe("SynopticConfigFields", () => {
     enabled = false;
     const { onSubmit, submit } = renderForm("plate1");
     expect(screen.getByText("widgets.synoptic.disabled")).toBeInTheDocument();
-    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    expect(screen.queryAllByRole("combobox")).toHaveLength(0);
     submit();
     await waitFor(() =>
       expect(onSubmit).toHaveBeenCalledWith({

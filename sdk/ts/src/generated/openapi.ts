@@ -7173,6 +7173,12 @@ export interface components {
       type: "synoptic";
       /** Synoptic Id */
       synoptic_id: string;
+      /**
+       * Projection
+       * @default isometric
+       * @enum {string}
+       */
+      projection?: "isometric" | "flat";
     };
     /**
      * Tag

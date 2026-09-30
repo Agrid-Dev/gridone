@@ -28,6 +28,28 @@ function SynopticPicker({ control }: { control: Control<FieldValues> }) {
   );
 }
 
+/** Plan or isometric, worded as on the plate's own toolbar. A widget saved
+ *  before the choice existed has no value and reads as the isometric default
+ *  the backend fills in. */
+function ProjectionPicker({ control }: { control: Control<FieldValues> }) {
+  const { t } = useTranslation("dashboards");
+  const { t: ts } = useTranslation("synoptics");
+
+  return (
+    <SelectController<FieldValues, "config.projection", string>
+      name="config.projection"
+      control={control}
+      label={t("widgets.synoptic.projection.label")}
+      description={t("widgets.synoptic.projection.description")}
+      placeholder={ts("view.isometric")}
+      options={[
+        { value: "isometric", label: ts("view.isometric") },
+        { value: "flat", label: ts("view.plan") },
+      ]}
+    />
+  );
+}
+
 export function SynopticConfigFields({
   control,
 }: {
@@ -41,5 +63,10 @@ export function SynopticConfigFields({
         {t("widgets.synoptic.disabled")}
       </p>
     );
-  return <SynopticPicker control={control} />;
+  return (
+    <>
+      <SynopticPicker control={control} />
+      <ProjectionPicker control={control} />
+    </>
+  );
 }

@@ -53,14 +53,14 @@ const DOC: Synoptic = {
   ],
 };
 
-function renderView(id = "plate1") {
+function renderView(id = "plate1", projection?: "isometric" | "flat") {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   });
   const view = (synopticId: string) => (
     <QueryClientProvider client={client}>
       <SynopticWidgetView
-        config={{ type: "synoptic", synoptic_id: synopticId }}
+        config={{ type: "synoptic", synoptic_id: synopticId, projection }}
       />
     </QueryClientProvider>
   );
@@ -114,6 +114,20 @@ describe("SynopticWidgetView", () => {
       renderView();
       expect(await screen.findByText(message)).toBeInTheDocument();
       expect(screen.queryByText("internal details")).not.toBeInTheDocument();
+    },
+  );
+
+  it.each([
+    // The isometric view stands the plate on a slab; the plan does not.
+    ["isometric by default", undefined, true],
+    ["flat when configured", "flat" as const, false],
+  ])(
+    "draws the plate %s, whatever the document says",
+    async (_, projection, slab) => {
+      api.get.mockResolvedValue({ ...DOC, projection: "flat" });
+      const { container } = renderView("plate1", projection);
+      await screen.findByText("Tank");
+      expect(container.querySelector("[data-slab]") !== null).toBe(slab);
     },
   );
 

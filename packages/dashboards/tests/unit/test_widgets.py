@@ -126,6 +126,7 @@ def test_validate_config_returns_concrete_model():
         {"type": "synoptic"},
         {"type": "synoptic", "synoptic_id": ""},
         {"type": "synoptic", "synoptic_id": "s1", "read_only": False},
+        {"type": "synoptic", "synoptic_id": "s1", "projection": "3d"},
         {  # live-only widget: no period mode/operator to store
             "type": "device_control",
             "device_id": "d1",
@@ -262,6 +263,22 @@ def test_synoptic_config_keeps_an_opaque_document_reference():
     assert isinstance(config, SynopticWidgetConfig)
     assert config.synoptic_id == "plate1"
     assert config.targets() == []
+
+
+@pytest.mark.parametrize(
+    ("given", "expected"),
+    [({}, "isometric"), ({"projection": "flat"}, "flat")],
+    ids=["default", "flat"],
+)
+def test_synoptic_config_projection(given: dict, expected: str):
+    """The widget draws the plate in its own projection, isometric unless the
+    author asks for the plan: the choice never touches the stored document."""
+    config = build_default_registry().validate_config(
+        {"type": "synoptic", "synoptic_id": "plate1", **given}
+    )
+
+    assert isinstance(config, SynopticWidgetConfig)
+    assert config.projection == expected
 
 
 def test_empty_registry_has_no_types():
