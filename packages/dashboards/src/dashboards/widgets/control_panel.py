@@ -68,6 +68,9 @@ class ControlPanelAttribute(AttributeReference):
     """Overrides the name the row is shown under; ``None`` borrows the
     attribute's own label or the device's name, per the panel's ``label_by``."""
 
+    link: StrictBool = False
+    """Makes the row's name a link to its device's page."""
+
 
 class ActiveCondition(AttributeReference):
     """Makes a section active only while an attribute reports ``value``.

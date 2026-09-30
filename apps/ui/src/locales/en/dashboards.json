@@ -225,6 +225,7 @@
         },
         "addAttribute": "Add attribute",
         "removeAttribute": "Remove attribute",
+        "link": "Link to the device page",
         "addCondition": "Make active on a condition",
         "removeCondition": "Remove condition",
         "condition": "Active only when",
