@@ -180,11 +180,12 @@ const live = (
   text: string,
   raw: SlotReading["raw"],
   unit: string | null = null,
-): SlotReading => ({ text, unit, raw, stale: false, faulty: false });
+  word = false,
+): SlotReading => ({ text, unit, raw, stale: false, faulty: false, word });
 
 const VALUES: SynopticValues = {
   slots: {
-    "symbol.pac.state": live("MARCHE", true),
+    "symbol.pac.state": live("MARCHE", true, null, true),
     "symbol.pac.supply_temp": live("52.4", 52.4, "°C"),
   },
   devices: {},
@@ -378,16 +379,24 @@ describe("DevicePopover", () => {
       expect(points()).toEqual([]);
     });
 
-    it("draws a live reading in the reading colour with its unit after it, and a literal as a note", () => {
+    it("draws a live number in the reading colour, a state word neutral, and a literal as a note", () => {
       renderPopover();
+      // A state word takes the neutral ink: green on MARCHE would double
+      // the LED's verdict, and the reading colour only means freshness.
       const state = reading("state");
       expect(state.getAttribute("data-reading")).toBe("live");
       expect(state.textContent).toBe("MARCHE");
-      expect(state.className).toContain("text-synoptic-reading");
+      expect(state.className).toContain("text-foreground");
+      expect(state.className).not.toContain("text-synoptic-reading");
+      expect(state.className).not.toContain("text-muted-foreground");
+      // A word carries no tabular figures, on this surface as on the plate.
+      expect(state.className).not.toContain("tabular-nums");
 
       const temp = reading("supply_temp");
       expect(temp.getAttribute("data-reading")).toBe("live");
       expect(temp.textContent).toBe("52.4°C");
+      expect(temp.className).toContain("text-synoptic-reading");
+      expect(temp.className).toContain("tabular-nums");
       expect(temp.querySelector("span")?.textContent).toBe("°C");
 
       const power = reading("power");

@@ -193,6 +193,7 @@ describe("useSynopticValues", () => {
     expect(slots["symbol.pac.state"]).toEqual({
       text: "MARCHE",
       unit: null,
+      word: true,
       raw: true,
       stale: true,
       faulty: true,

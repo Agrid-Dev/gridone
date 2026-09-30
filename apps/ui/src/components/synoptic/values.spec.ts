@@ -8,6 +8,7 @@ import {
   formatReading,
   isStale,
   READING_STATES,
+  readingInk,
   readingState,
   SILENT_READING,
   type SlotReading,
@@ -201,23 +202,40 @@ describe("targetDeviceId", () => {
 });
 
 describe("formatReading", () => {
+  // A mapped label or a plain string is a state word (`word: true`), drawn
+  // in the neutral ink; only a number is a reading in the reading colour.
   it.each([
-    [slot("s", { labels: { true: "MARCHE" } }), true, "MARCHE", null],
+    [slot("s", { labels: { true: "MARCHE" } }), true, "MARCHE", null, true],
     // A boolean the labels do not name is silent, not the word `false`.
-    [slot("s", { labels: { true: "MARCHE" } }), false, null, null],
-    [slot("s"), true, null, null],
-    [slot("t", { unit: "°C", decimals: 1 }), 52.37, "52.4", "°C"],
-    [slot("t", { unit: "°C", decimals: 0 }), 52.37, "52", "°C"],
-    [slot("t", { decimals: 2 }), 7, "7.00", null],
-    [slot("t", { unit: "kW" }), 3.14159, "3.14159", "kW"],
+    [slot("s", { labels: { true: "MARCHE" } }), false, null, null, undefined],
+    [slot("s"), true, null, null, undefined],
+    [slot("t", { unit: "°C", decimals: 1 }), 52.37, "52.4", "°C", undefined],
+    [slot("t", { unit: "°C", decimals: 0 }), 52.37, "52", "°C", undefined],
+    [slot("t", { decimals: 2 }), 7, "7.00", null, undefined],
+    [slot("t", { unit: "kW" }), 3.14159, "3.14159", "kW", undefined],
     // A scaled register without decimals keeps six significant digits.
-    [slot("t", { unit: "°C" }), 52.900000000000006, "52.9", "°C"],
-    [slot("t"), 1234567.891, "1234570", null],
-    [slot("t"), 42, "42", null],
-    [slot("m"), "auto", "auto", null],
-    [slot("n", { labels: { "2": "ECO" }, unit: "x" }), 2, "ECO", null],
-  ])("formats %j with %j as %s %s", (s, raw, text, unit) => {
-    expect(formatReading(s, raw)).toEqual({ text, unit });
+    [slot("t", { unit: "°C" }), 52.900000000000006, "52.9", "°C", undefined],
+    [slot("t"), 1234567.891, "1234570", null, undefined],
+    [slot("t"), 42, "42", null, undefined],
+    [slot("m"), "auto", "auto", null, true],
+    [slot("n", { labels: { "2": "ECO" }, unit: "x" }), 2, "ECO", null, true],
+  ])("formats %j with %j as %s %s", (s, raw, text, unit, word) => {
+    expect(formatReading(s, raw)).toEqual({ text, unit, word });
+  });
+});
+
+describe("readingInk", () => {
+  // "State words render in the neutral foreground ink; the reading colour
+  // stays on numeric readings only"; anything not live is muted.
+  it.each([
+    ["live", false, "reading"],
+    ["live", true, "foreground"],
+    ["stale", false, "muted"],
+    ["stale", true, "muted"],
+    ["silent", false, "muted"],
+    ["note", false, "muted"],
+  ] as const)("inks %s (word: %s) as %s", (state, word, ink) => {
+    expect(readingInk(state, word)).toBe(ink);
   });
 });
 

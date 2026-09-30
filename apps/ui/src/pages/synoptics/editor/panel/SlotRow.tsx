@@ -6,7 +6,11 @@ import {
   AttributeTargetPicker,
   toPickerTarget,
 } from "@/components/forms/targetPicker";
-import { formatReading } from "@/components/synoptic/values";
+import {
+  formatReading,
+  READING_INK_TEXT,
+  readingInk,
+} from "@/components/synoptic/values";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -127,18 +131,21 @@ export function SlotRow({
     if (!attribute || value?.kind !== "attribute") return null;
     const raw = attribute.current_value as AttributeValue | undefined;
     if (raw === undefined || raw === null) return null;
-    // As the plate will print it, so the two never disagree. A bool with
-    // no words of its own shows on the plate as a state, not as text: here
-    // it reads as the device page would say it.
-    const { text, unit } = formatReading(value, raw);
+    // As the plate will print it, ink included, so the two never disagree.
+    // A bool with no words of its own shows on the plate as a state, not
+    // as text: here it reads as the device page would say it, as a word.
+    const { text, unit, word } = formatReading(value, raw);
     if (text === null) {
-      return attributeValueText(value.target.attribute, raw, tCommon, {
-        dataType,
-        valueLabels: attribute.value_labels,
-        language: i18n.language,
-      });
+      return {
+        text: attributeValueText(value.target.attribute, raw, tCommon, {
+          dataType,
+          valueLabels: attribute.value_labels,
+          language: i18n.language,
+        }),
+        word: true,
+      };
     }
-    return unit ? `${text} ${unit}` : text;
+    return { text: unit ? `${text} ${unit}` : text, word: !!word };
   })();
 
   const attributeNames = Object.keys(attributes)
@@ -186,7 +193,11 @@ export function SlotRow({
       {current !== null && (
         <p className="pl-[6rem] text-xs text-muted-foreground">
           {t("common:common.currentValue")} :{" "}
-          <span className="font-medium text-synoptic-reading">{current}</span>
+          <span
+            className={`font-medium ${READING_INK_TEXT[readingInk("live", current.word)]}`}
+          >
+            {current.text}
+          </span>
         </p>
       )}
       {!draft.target && value?.kind === "text" && (

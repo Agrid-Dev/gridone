@@ -118,8 +118,8 @@ export function Panel({ at, title, rows, led, fault = null }: PanelProps) {
               fontWeight={600}
               className={
                 row.error && fault && !muted
-                  ? `${FAULT_FILL_CLASS[fault]} tabular-nums`
-                  : valueClass(state)
+                  ? `${FAULT_FILL_CLASS[fault]}${row.reading.word ? "" : " tabular-nums"}`
+                  : valueClass(state, row.reading.word)
               }
             >
               {text}

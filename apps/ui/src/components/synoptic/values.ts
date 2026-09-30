@@ -35,6 +35,10 @@ export type SlotReading = {
   /** The slot is a text literal of the document, a fact no device reads:
    *  drawn as a note, never as a live value. */
   literal?: boolean;
+  /** The text is a state word (a mapped label or a plain string), not a
+   *  number: drawn in the neutral ink, since the reading green on a word
+   *  reads as a verdict where it only means freshness. */
+  word?: boolean;
 };
 
 /** What the plate knows of a device it names: whether it is faulty, and
@@ -82,6 +86,24 @@ export const readingState = (reading: SlotReading): ReadingState =>
         ? "silent"
         : "live";
 
+/** The ink of a reading's text, decided once for every surface that
+ *  prints one: the reading colour is freshness on a number, so a live
+ *  word takes the neutral ink instead (a green ARRÊT would read as a
+ *  verdict, and run and health stay on the LED and the fault colours);
+ *  anything not live is muted. */
+export type ReadingInk = "reading" | "foreground" | "muted";
+
+export const readingInk = (state: ReadingState, word = false): ReadingInk =>
+  state !== "live" ? "muted" : word ? "foreground" : "reading";
+
+/** The ink as an HTML text colour class; SVG surfaces keep their own
+ *  `fill-*` map beside the drawing code. */
+export const READING_INK_TEXT: Record<ReadingInk, string> = {
+  reading: "text-synoptic-reading",
+  foreground: "text-foreground",
+  muted: "text-muted-foreground",
+};
+
 export const symbolSlotKey = (symbolId: string, slot: string) =>
   `symbol.${symbolId}.${slot}`;
 export const flowSlotKey = (pipeId: string) => `pipe.${pipeId}.flow`;
@@ -128,23 +150,23 @@ export const targetKey = (target: AttributeTarget) =>
 const DEFAULT_PRECISION = 6;
 
 /** Display text of a raw value and the unit to draw after it: a mapped
- *  label stands alone; a number takes its decimals, or a bounded precision
- *  without them, and its unit; a boolean with no label for its value is
- *  silent, since `true` is not a word an operator reads; anything else
- *  reads as written. */
+ *  label stands alone, as a word; a number takes its decimals, or a
+ *  bounded precision without them, and its unit; a boolean with no label
+ *  for its value is silent, since `true` is not a word an operator reads;
+ *  anything else reads as written, as a word. */
 export function formatReading(
   slot: AttributeSlot,
   raw: AttributeValue,
-): Pick<SlotReading, "text" | "unit"> {
+): Pick<SlotReading, "text" | "unit" | "word"> {
   const label = slot.labels?.[String(raw)];
-  if (label !== undefined) return { text: label, unit: null };
+  if (label !== undefined) return { text: label, unit: null, word: true };
   if (typeof raw === "boolean") return { text: null, unit: null };
+  if (typeof raw !== "number")
+    return { text: String(raw), unit: slot.unit ?? null, word: true };
   const text =
-    typeof raw !== "number"
-      ? String(raw)
-      : slot.decimals != null
-        ? raw.toFixed(slot.decimals)
-        : String(Number(raw.toPrecision(DEFAULT_PRECISION)));
+    slot.decimals != null
+      ? raw.toFixed(slot.decimals)
+      : String(Number(raw.toPrecision(DEFAULT_PRECISION)));
   return { text, unit: slot.unit ?? null };
 }
 

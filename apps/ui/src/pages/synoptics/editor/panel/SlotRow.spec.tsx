@@ -254,11 +254,23 @@ describe("SlotRow", () => {
     renderRow({ value: own("temperature", { decimals: 2, unit: "°C" }) });
     expect(screen.getByText("52.40 °C")).toBeInTheDocument();
     cleanup();
+    // Ink included: a state word is neutral, a number keeps the reading
+    // colour, as the plate prints them.
     renderRow({ value: own("onoff_state", { labels: { true: "MARCHE" } }) });
     expect(screen.getByText("MARCHE")).toBeInTheDocument();
+    expect(screen.getByText("MARCHE").className).toContain("text-foreground");
+    expect(screen.getByText("MARCHE").className).not.toContain(
+      "text-synoptic-reading",
+    );
+    cleanup();
+    renderRow({ value: own("temperature") });
+    expect(screen.getByText("52.4").className).toContain(
+      "text-synoptic-reading",
+    );
     cleanup();
     renderRow({ value: own("onoff_state") });
     expect(screen.getByText("True")).toBeInTheDocument();
+    expect(screen.getByText("True").className).toContain("text-foreground");
   });
 
   it.each([

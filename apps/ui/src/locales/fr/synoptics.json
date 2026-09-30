@@ -47,6 +47,7 @@
     "title": "Légende",
     "symbols": "Symboles",
     "live": "valeur en direct",
+    "word": "mot d'état",
     "stale": "valeur ancienne",
     "silent": "aucune valeur",
     "note": "donnée saisie, non mesurée",

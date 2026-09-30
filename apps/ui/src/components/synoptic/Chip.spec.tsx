@@ -42,6 +42,30 @@ describe("Chip", () => {
     expect(Number(texts[0].getAttribute("x"))).toBe(100);
   });
 
+  it("writes a live state word in the neutral ink, not the reading green", () => {
+    // "State words render in the neutral foreground ink; the reading
+    // colour stays on numeric readings only": a green ARRÊT would read as
+    // a verdict, and run/health belong to the LED and the fault colours.
+    const { texts } = draw({ text: "ARRÊT", raw: false, word: true });
+    expect(texts[0].classList.contains("fill-foreground")).toBe(true);
+    expect(texts[0].classList.contains("fill-synoptic-reading")).toBe(false);
+    expect(texts[0].classList.contains("fill-muted-foreground")).toBe(false);
+    // Tabular figures are for digits; a word never carries them, so the
+    // same word is set the same way on every surface.
+    expect(texts[0].classList.contains("tabular-nums")).toBe(false);
+    expect(draw({}).texts[0].classList.contains("tabular-nums")).toBe(true);
+  });
+
+  it("keeps a stale word muted like any old value", () => {
+    const { texts } = draw({
+      text: "MARCHE",
+      raw: true,
+      word: true,
+      stale: true,
+    });
+    expect(texts[0].classList.contains("fill-muted-foreground")).toBe(true);
+  });
+
   it("draws the unit after the value, 11 px muted, both centred together", () => {
     const { rect, texts } = draw({ unit: "°C" });
     expect(texts.map((t) => t.textContent)).toEqual(["52.4", "°C"]);

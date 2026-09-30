@@ -14,6 +14,7 @@ vi.mock("react-i18next", () =>
     "legend.title": "Légende",
     "legend.symbols": "Symboles",
     "legend.live": "valeur en direct",
+    "legend.word": "mot d'état",
     "legend.stale": "valeur ancienne",
     "legend.silent": "aucune valeur",
     "legend.note": "donnée saisie, non mesurée",
@@ -89,7 +90,12 @@ describe("PlateLegend", () => {
     expect(legend.querySelector("dt")?.textContent).toBe("Légende");
     expect(swatches()).toEqual([]);
     expect(entries("Légende")).toEqual([
-      ...READING_STATES.map((state) => `reading-${state}`),
+      // The live word sample follows the live number: two inks, one state.
+      ...READING_STATES.flatMap((state) =>
+        state === "live"
+          ? ["reading-live", "reading-word"]
+          : [`reading-${state}`],
+      ),
       ...[...SEVERITIES].reverse().map((severity) => `fault-${severity}`),
       "led-on",
       "led-off",
@@ -98,6 +104,7 @@ describe("PlateLegend", () => {
     ]);
     // Worded, not keyed.
     expect(legend.textContent).toContain("valeur en direct");
+    expect(legend.textContent).toContain("mot d'état");
     expect(legend.textContent).toContain("Défaut · alerte");
     expect(legend.textContent).toContain("Défaut · info");
     expect(legend.textContent).toContain("renvoi vers une vue absente");
@@ -108,10 +115,15 @@ describe("PlateLegend", () => {
     const legend = screen.getByLabelText("Légende");
     const chip = (state: string) =>
       legend.querySelector(`[data-legend='reading-${state}'] [data-chip]`)!;
-    // The sample reading wears the colour a live reading has on the plate.
+    // The sample reading wears the colour a live reading has on the plate:
+    // the reading green on a number, the neutral ink on a state word.
     expect(
       chip("live").querySelector(".fill-synoptic-reading")?.textContent,
     ).toBe("52,4");
+    expect(chip("word").querySelector(".fill-foreground")?.textContent).toBe(
+      "en marche",
+    );
+    expect(chip("word").querySelector(".fill-synoptic-reading")).toBeNull();
     expect(
       chip("stale").querySelector("rect")!.getAttribute("stroke-dasharray"),
     ).toBe("3 2");

@@ -11,6 +11,8 @@ import {
 import { ResourceLink as Link } from "@/components/ResourceLink";
 import { SILENT_TEXT } from "@/components/synoptic/Chip";
 import {
+  READING_INK_TEXT,
+  readingInk,
   readingState,
   SILENT_READING,
   symbolSlotKey,
@@ -196,10 +198,9 @@ const PointList: FC<{
               <dd className="flex items-center gap-2">
                 <span
                   className={cn(
-                    "font-semibold tabular-nums",
-                    state === "live"
-                      ? "text-synoptic-reading"
-                      : "text-muted-foreground",
+                    "font-semibold",
+                    !point.reading.word && "tabular-nums",
+                    READING_INK_TEXT[readingInk(state, point.reading.word)],
                     state === "note" && "font-normal italic",
                   )}
                   data-reading={state}

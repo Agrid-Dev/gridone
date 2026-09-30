@@ -47,6 +47,7 @@
     "title": "Legend",
     "symbols": "Symbols",
     "live": "live value",
+    "word": "state word",
     "stale": "stale value",
     "silent": "no value",
     "note": "authored fact, not measured",

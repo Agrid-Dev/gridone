@@ -3,7 +3,13 @@ import { FAULT_STROKE_CLASS, faultLevel } from "./fault";
 import { LABEL_SIZE } from "./symbols/Label";
 import { HALO, HALO_CLASS, textWidth } from "./text";
 import type { Pt } from "./types";
-import { readingState, type ReadingState, type SlotReading } from "./values";
+import {
+  readingInk,
+  readingState,
+  type ReadingInk,
+  type ReadingState,
+  type SlotReading,
+} from "./values";
 
 export const CHIP_H = 20;
 const CHIP_PAD = 7;
@@ -60,12 +66,17 @@ export const frameClass = (fault: Severity | null, muted: boolean) =>
       ? "fill-card stroke-muted-foreground"
       : "fill-card stroke-border";
 
-/** Text of a value: the reading colour while live, muted once old,
- *  missing or a mere note. */
-export const valueClass = (state: ReadingState) =>
-  state === "live"
-    ? "fill-synoptic-reading tabular-nums"
-    : "fill-muted-foreground tabular-nums";
+/** The reading ink as an SVG fill class; `readingInk` owns the decision. */
+const READING_INK_FILL: Record<ReadingInk, string> = {
+  reading: "fill-synoptic-reading",
+  foreground: "fill-foreground",
+  muted: "fill-muted-foreground",
+};
+
+/** Text of a value: the ink `readingInk` picks, with tabular figures on
+ *  anything that can hold digits — a word never does. */
+export const valueClass = (state: ReadingState, word = false) =>
+  `${READING_INK_FILL[readingInk(state, word)]}${word ? "" : " tabular-nums"}`;
 
 type CaptionProps = {
   at: Pt;
@@ -115,8 +126,8 @@ export function Unit({ at, unit, anchor = "start" }: UnitProps) {
 }
 
 /**
- * A value on the plate, never bare text: a live reading in the reading
- * colour on a card. Stale is a dashed muted border with muted text;
+ * A value on the plate, never bare text: a live number in the reading
+ * colour, a live word in the neutral ink, on a card. Stale is a dashed muted border with muted text;
  * silent is a dash; a faulty device's tag takes the error border. A
  * literal of the document is a note, muted and unframed: it is a fact the
  * drawing states, not a value a device sends. The label above never
@@ -189,7 +200,7 @@ export function Chip({ at, reading, label, title }: ChipProps) {
         textAnchor="middle"
         fontSize={VALUE_SIZE}
         fontWeight={600}
-        className={valueClass(state)}
+        className={valueClass(state, reading.word)}
       >
         {shown}
       </text>

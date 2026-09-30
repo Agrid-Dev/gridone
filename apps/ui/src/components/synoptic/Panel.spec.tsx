@@ -10,19 +10,26 @@ const reading = (
   text: string | null,
   stale = false,
   unit: string | null = null,
+  word = false,
 ): SlotReading => ({
   text,
   unit,
   raw: text,
   stale,
   faulty: false,
+  word,
 });
 
 const ROWS: PanelRow[] = [
-  { label: "state", reading: reading("MARCHE") },
-  { label: "fault", reading: reading("NORMAL"), error: true },
+  { label: "state", reading: reading("MARCHE", false, null, true) },
+  {
+    label: "fault",
+    reading: reading("NORMAL", false, null, true),
+    error: true,
+  },
   { label: "supply temp", reading: reading("52.4", true, "°C") },
   { label: "power", reading: reading(null) },
+  { label: "return temp", reading: reading("47.1", false, "°C") },
 ];
 
 const draw = (props: Partial<Parameters<typeof Panel>[0]>) => {
@@ -43,10 +50,10 @@ const draw = (props: Partial<Parameters<typeof Panel>[0]>) => {
 describe("Panel", () => {
   it("stands on its anchor, one row per slot", () => {
     const { frame, rows } = draw({});
-    expect(rows).toHaveLength(4);
+    expect(rows).toHaveLength(5);
     expect(frame.getAttribute("width")).toBe(String(PANEL_W));
-    expect(frame.getAttribute("height")).toBe(String(panelHeight(4)));
-    expect(Number(frame.getAttribute("y")) + panelHeight(4)).toBe(300);
+    expect(frame.getAttribute("height")).toBe(String(panelHeight(5)));
+    expect(Number(frame.getAttribute("y")) + panelHeight(5)).toBe(300);
     expect(Number(frame.getAttribute("x")) + PANEL_W / 2).toBe(200);
     expect(panelHeight(0)).toBeLessThan(panelHeight(1));
   });
@@ -78,23 +85,27 @@ describe("Panel", () => {
     expect(rows[3].querySelector("circle")).toBeNull();
     expect(value(3).textContent).toBe(SILENT_TEXT);
     expect(rows[0].getAttribute("data-row")).toBe("live");
-    expect(value(0).classList.contains("fill-synoptic-reading")).toBe(true);
+    // A live number takes the reading colour; a live state word takes the
+    // neutral ink, since a green ARRÊT would read as a verdict.
+    expect(value(4).classList.contains("fill-synoptic-reading")).toBe(true);
+    expect(value(0).classList.contains("fill-foreground")).toBe(true);
+    expect(value(0).classList.contains("fill-synoptic-reading")).toBe(false);
   });
 
   it("reddens the frame, the LED and the fault row only on a faulty device", () => {
     const healthy = draw({ led: "on" });
     expect(healthy.frame.classList.contains("stroke-border")).toBe(true);
-    expect(healthy.value(1).classList.contains("fill-synoptic-reading")).toBe(
-      true,
-    );
+    expect(healthy.value(1).classList.contains("fill-foreground")).toBe(true);
 
     const faulty = draw({ led: "on", fault: "alert" });
     expect(faulty.frame.classList.contains("stroke-status-error")).toBe(true);
     expect(faulty.frame.getAttribute("stroke-width")).toBe("1.5");
     expect(faulty.led?.classList.contains("fill-status-error")).toBe(true);
     expect(faulty.value(1).classList.contains("fill-status-error")).toBe(true);
-    expect(faulty.value(0).classList.contains("fill-synoptic-reading")).toBe(
-      true,
-    );
+    // The fault word is a word too: coloured, but never in tabular figures.
+    expect(faulty.value(1).classList.contains("tabular-nums")).toBe(false);
+    // The state word stays neutral even on a faulty device: the fault
+    // colour belongs to the fault row, the frame and the LED.
+    expect(faulty.value(0).classList.contains("fill-foreground")).toBe(true);
   });
 });
