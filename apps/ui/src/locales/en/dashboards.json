@@ -185,6 +185,15 @@
       "other": "Other",
       "openDevice": "Open device"
     },
+    "controlPanel": {
+      "empty": "No section configured.",
+      "inactive": "Inactive",
+      "inactiveReason": "This section is inactive.",
+      "conditionUnavailable": "This section's condition cannot be read.",
+      "deviceMissing": "Device no longer exists",
+      "attributeMissing": "Attribute no longer exposed",
+      "error": "Could not load"
+    },
     "untitled": "Untitled widget"
   },
   "fields": {

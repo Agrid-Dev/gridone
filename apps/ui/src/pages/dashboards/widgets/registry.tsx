@@ -3,6 +3,7 @@ import type { Control, FieldValues } from "react-hook-form";
 import type * as z from "zod";
 import { ChartConfigFields, chartConfigCheck } from "./views/ChartConfigFields";
 import { ChartWidgetView } from "./views/ChartWidgetView";
+import { ControlPanelWidgetView } from "./views/ControlPanelWidgetView";
 import { DeviceControlConfigFields } from "./views/DeviceControlConfigFields";
 import { DeviceControlWidgetView } from "./views/DeviceControlWidgetView";
 import {
@@ -37,6 +38,7 @@ export const widgetViews: Record<string, WidgetViewComponent> = {
   device_control: DeviceControlWidgetView,
   kpi: KpiWidgetView,
   meter_tree: MeterTreeWidgetView,
+  control_panel: ControlPanelWidgetView,
 };
 
 /**
