@@ -1,3 +1,9 @@
+## v0.289.0 (2026-09-30)
+
+### Feat
+
+- **synoptics**: draw the plates' pump pairs as twin pumps (#751)
+
 ## v0.288.0 (2026-09-30)
 
 ### Feat
