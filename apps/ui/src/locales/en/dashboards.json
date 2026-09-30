@@ -192,7 +192,23 @@
       "conditionUnavailable": "This section's condition cannot be read.",
       "deviceMissing": "Device no longer exists",
       "attributeMissing": "Attribute no longer exposed",
-      "error": "Could not load"
+      "error": "Could not load",
+      "editor": {
+        "section": "Section {{index}}",
+        "addSection": "Add section",
+        "removeSection": "Remove section",
+        "title": "Title",
+        "label": "Label",
+        "labelPlaceholder": "Defaults to the attribute's name",
+        "addAttribute": "Add attribute",
+        "removeAttribute": "Remove attribute",
+        "addCondition": "Make active on a condition",
+        "removeCondition": "Remove condition",
+        "condition": "Active only when",
+        "conditionValue": "reads",
+        "inactiveReason": "Reason shown when inactive",
+        "inactiveReasonHint": "Shown when hovering a disabled control of this section."
+      }
     },
     "untitled": "Untitled widget"
   },
