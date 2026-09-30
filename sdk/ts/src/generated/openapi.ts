@@ -3827,6 +3827,11 @@ export interface components {
       attribute: string;
       /** Label */
       label?: string | null;
+      /**
+       * Link
+       * @default false
+       */
+      link?: boolean;
     };
     /** ControlPanelNode */
     ControlPanelNode: {

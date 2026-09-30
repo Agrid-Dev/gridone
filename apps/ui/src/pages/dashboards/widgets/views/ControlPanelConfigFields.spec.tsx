@@ -20,6 +20,7 @@ vi.mock("react-i18next", () =>
     "widgets.controlPanel.editor.addCondition": "Make active on a condition",
     "widgets.controlPanel.editor.removeCondition": "Remove condition",
     "widgets.controlPanel.editor.conditionValue": "reads",
+    "widgets.controlPanel.editor.link": "Link to the device page",
     "widgets.controlPanel.editor.inactiveReason": "Reason",
   }),
 );
@@ -91,13 +92,16 @@ describe("ControlPanelConfigFields", () => {
     expect(picker).toHaveAttribute("data-offers-bool", "true");
     expect(picker).toHaveAttribute("data-offers-float", "false");
     fireEvent.click(picker);
+    fireEvent.click(
+      screen.getByRole("switch", { name: "Link to the device page" }),
+    );
     fireEvent.click(screen.getByRole("button", { name: "Add attribute" }));
     fireEvent.click(screen.getByRole("button", { name: "Add section" }));
 
     const [first, second] = values().sections;
     expect(first.attributes).toEqual([
-      { device_id: "pump1", attribute: "running", label: null },
-      { device_id: "", attribute: "", label: null },
+      { device_id: "pump1", attribute: "running", label: null, link: true },
+      { device_id: "", attribute: "", label: null, link: false },
     ]);
     expect(second).toEqual(BLANK_SECTION);
   });
@@ -112,7 +116,7 @@ describe("ControlPanelConfigFields", () => {
     fireEvent.click(
       screen.getAllByRole("button", { name: /pick attribute/ })[0],
     );
-    fireEvent.click(screen.getByRole("switch"));
+    fireEvent.click(screen.getByRole("switch", { name: "reads" }));
     fireEvent.change(screen.getByLabelText("Reason"), {
       target: { value: "Selector is on auto" },
     });

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router";
 import type { Device } from "@gridone/sdk";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { createI18nMock } from "@/test/i18nMock";
@@ -117,9 +118,11 @@ const CONFIG = {
 
 const renderView = (config: object = CONFIG) =>
   render(
-    <TooltipProvider>
-      <ControlPanelWidgetView config={config} />
-    </TooltipProvider>,
+    <MemoryRouter>
+      <TooltipProvider>
+        <ControlPanelWidgetView config={config} />
+      </TooltipProvider>
+    </MemoryRouter>,
   );
 
 const row = (label: string) => screen.getByText(label).closest("li")!;
@@ -165,6 +168,28 @@ describe("ControlPanelWidgetView", () => {
     // The device name is the default; a row's own label still wins.
     expect(screen.getByText("Pump 1")).toBeInTheDocument();
     expect(screen.getByText("Running")).toBeInTheDocument();
+  });
+
+  it("links a row's label to its device page only when asked", () => {
+    setDevices({ autoMode: false });
+    const running = { device_id: "pump1", attribute: "running" };
+
+    renderView({
+      sections: [
+        {
+          attributes: [
+            { ...running, label: "Linked", link: true },
+            { ...running, label: "Plain" },
+          ],
+        },
+      ],
+    });
+
+    expect(screen.getByRole("link", { name: "Linked" })).toHaveAttribute(
+      "href",
+      "/devices/pump1",
+    );
+    expect(screen.queryByRole("link", { name: "Plain" })).toBeNull();
   });
 
   it("renders a fault as a fault", () => {

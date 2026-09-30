@@ -225,6 +225,7 @@
         },
         "addAttribute": "Ajouter un attribut",
         "removeAttribute": "Supprimer l'attribut",
+        "link": "Lien vers la page de l'appareil",
         "addCondition": "Activer sous condition",
         "removeCondition": "Supprimer la condition",
         "condition": "Active uniquement quand",

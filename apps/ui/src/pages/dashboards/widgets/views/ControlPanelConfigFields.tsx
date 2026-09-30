@@ -17,7 +17,12 @@ import { useValueLabel } from "@/hooks/useValueLabel";
 import type { DeviceAttribute } from "@/lib/devices";
 
 /** What a freshly-added row starts from. */
-export const BLANK_ATTRIBUTE = { device_id: "", attribute: "", label: null };
+export const BLANK_ATTRIBUTE = {
+  device_id: "",
+  attribute: "",
+  label: null,
+  link: false,
+};
 
 /** What a freshly-added section starts from: one row to fill in. */
 export const BLANK_SECTION = {
@@ -158,6 +163,11 @@ const SectionFields: FC<{ control: Control<FieldValues>; name: string }> = ({
               <Trash2 className="h-4 w-4" />
             </Button>
           </div>
+          <SwitchController
+            name={`${name}.attributes.${index}.link`}
+            control={control}
+            label={t("widgets.controlPanel.editor.link")}
+          />
         </div>
       ))}
       <Button

@@ -10,6 +10,7 @@ import {
   type Device,
 } from "@gridone/sdk";
 import { AttributeValue } from "@/components/AttributeValue";
+import { ResourceLink } from "@/components/ResourceLink";
 import { SeverityChip } from "@/components/SeverityChip";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
@@ -145,15 +146,27 @@ const LockHint: FC<{ lock: SectionLock; children: ReactNode }> = ({
   </Tooltip>
 );
 
-/** One row's frame: label (and whatever is said under it) left, value right. */
+/** One row's frame: label (and whatever is said under it) left, value right.
+ *  With `href`, the label is a link drawn as plain text: the panel is read at
+ *  a glance, so it underlines on hover and takes no link colour. */
 const RowShell: FC<{
   label: string;
+  href?: string;
   status?: ReactNode;
   children: ReactNode;
-}> = ({ label, status, children }) => (
+}> = ({ label, href, status, children }) => (
   <li className="flex min-h-9 items-center justify-between gap-3 px-3 py-1 text-sm">
     <div className="min-w-0">
-      <p className="truncate text-foreground">{label}</p>
+      {href ? (
+        <ResourceLink
+          to={href}
+          className="block truncate text-foreground hover:underline focus-visible:underline"
+        >
+          {label}
+        </ResourceLink>
+      ) : (
+        <p className="truncate text-foreground">{label}</p>
+      )}
       {status}
     </div>
     <div className="flex shrink-0 items-center gap-2">{children}</div>
@@ -181,10 +194,11 @@ const Row: FC<{
     (labelBy === "device"
       ? device?.name || item.device_id
       : labelFor(item.attribute, attribute));
+  const href = item.link ? `/devices/${item.device_id}` : undefined;
 
   if (isLoading)
     return (
-      <RowShell label={label}>
+      <RowShell label={label} href={href}>
         <Skeleton className="h-5 w-16" />
       </RowShell>
     );
@@ -195,7 +209,7 @@ const Row: FC<{
         ? "error"
         : "attributeMissing";
     return (
-      <RowShell label={label}>
+      <RowShell label={label} href={href}>
         <span className="text-xs text-muted-foreground">
           {t(`widgets.controlPanel.${reason}`)}
         </span>
@@ -214,6 +228,7 @@ const Row: FC<{
         device={device}
         attribute={attribute}
         label={label}
+        href={href}
         lock={lock}
       />
     );
@@ -221,7 +236,7 @@ const Row: FC<{
   // A lock only disables the controls: every label and value stays a live
   // reading, shown in full on an inactive section too.
   return (
-    <RowShell label={label}>
+    <RowShell label={label} href={href}>
       {fault?.is_faulty && <SeverityChip severity={fault.severity} />}
       <AttributeValue
         value={attribute.current_value}
@@ -281,8 +296,9 @@ const ToggleRow: FC<{
   device: Device;
   attribute: AttributeFields;
   label: string;
+  href?: string;
   lock: SectionLock | null;
-}> = ({ device, attribute, label, lock }) => {
+}> = ({ device, attribute, label, href, lock }) => {
   const { i18n } = useTranslation();
   const name = attribute.name;
   const controls = useMemo(
@@ -321,6 +337,7 @@ const ToggleRow: FC<{
   return (
     <RowShell
       label={label}
+      href={href}
       status={
         <>
           <WriteFeedback state={state.write} />
