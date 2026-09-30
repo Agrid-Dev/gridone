@@ -3,9 +3,12 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useTranslation } from "react-i18next";
+import type { DashboardIcon } from "@gridone/sdk";
+import { IconGridController } from "@/components/forms/controllers/IconGridController";
 import { InputController } from "@/components/forms/controllers/InputController";
 import { TextareaController } from "@/components/forms/controllers/TextAreaController";
 import { Button } from "@/components/ui/button";
+import { DASHBOARD_ICON_KEYS, DASHBOARD_ICONS } from "@/lib/dashboardIcons";
 
 /** Values handed to the caller's submit handler. `description` is the trimmed
  *  string (possibly empty); the caller decides whether an empty string means
@@ -13,10 +16,15 @@ import { Button } from "@/components/ui/button";
 export interface DashboardFormValues {
   name: string;
   description: string;
+  icon: DashboardIcon | null;
 }
 
 interface DashboardFormProps {
-  defaultValues?: { name?: string; description?: string };
+  defaultValues?: {
+    name?: string;
+    description?: string;
+    icon?: DashboardIcon | null;
+  };
   submitLabel: string;
   onSubmit: (values: DashboardFormValues) => Promise<void>;
   onCancel: () => void;
@@ -25,8 +33,9 @@ interface DashboardFormProps {
   formId?: string;
 }
 
-/** Shared create/rename form: a required name and an optional description,
- *  validated with zod. The caller owns the mutation via `onSubmit`. */
+/** Shared create/rename form: a required name, an optional description and
+ *  an optional icon, validated with zod. The caller owns the mutation via
+ *  `onSubmit`. */
 export function DashboardForm({
   defaultValues,
   submitLabel,
@@ -41,6 +50,7 @@ export function DashboardForm({
       z.object({
         name: z.string().trim().min(1, t("validation.nameRequired")),
         description: z.string(),
+        icon: z.enum(DASHBOARD_ICON_KEYS).nullable(),
       }),
     [t],
   );
@@ -51,6 +61,7 @@ export function DashboardForm({
     defaultValues: {
       name: defaultValues?.name ?? "",
       description: defaultValues?.description ?? "",
+      icon: defaultValues?.icon ?? null,
     },
   });
 
@@ -58,6 +69,7 @@ export function DashboardForm({
     await onSubmit({
       name: values.name.trim(),
       description: values.description.trim(),
+      icon: values.icon,
     });
   });
 
@@ -73,6 +85,13 @@ export function DashboardForm({
         name="description"
         control={form.control}
         label={t("fields.description")}
+      />
+      <IconGridController
+        name="icon"
+        control={form.control}
+        icons={DASHBOARD_ICONS}
+        label={t("fields.icon")}
+        noneLabel={t("icon.none")}
       />
       <div className="flex justify-end gap-2">
         <Button variant="outline" type="button" onClick={onCancel}>

@@ -40,6 +40,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { DashboardIconGlyph } from "@/lib/dashboardIcons";
 import { cn } from "@/lib/utils";
 import { DashboardForm, type DashboardFormValues } from "./DashboardForm";
 import {
@@ -84,6 +85,7 @@ const DashboardsManageContent: FC = () => {
       await updateDashboard(renaming.id, {
         name: values.name,
         description: values.description,
+        icon: values.icon,
       });
       setRenaming(null);
     } catch {
@@ -155,6 +157,7 @@ const DashboardsManageContent: FC = () => {
               defaultValues={{
                 name: renaming.name,
                 description: renaming.description ?? "",
+                icon: renaming.icon ?? null,
               }}
               submitLabel={t("rename.submit")}
               onSubmit={handleRename}
@@ -227,7 +230,13 @@ const DashboardRow: FC<{
         to={`/dashboards/${encodeURIComponent(dashboard.id)}`}
         className="flex min-w-0 flex-1 flex-col rounded-md py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <span className="truncate text-sm font-semibold">{name}</span>
+        <span className="flex items-center gap-2 truncate text-sm font-semibold">
+          <DashboardIconGlyph
+            icon={dashboard.icon}
+            className="h-4 w-4 shrink-0 text-muted-foreground"
+          />
+          {name}
+        </span>
         {dashboard.description && (
           <span className="truncate text-xs text-muted-foreground">
             {dashboard.description}

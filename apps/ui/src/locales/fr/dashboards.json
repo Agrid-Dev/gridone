@@ -244,7 +244,11 @@
   },
   "fields": {
     "name": "Nom",
-    "description": "Description"
+    "description": "Description",
+    "icon": "Icône"
+  },
+  "icon": {
+    "none": "Aucune icône"
   },
   "validation": {
     "nameRequired": "Le nom est requis"

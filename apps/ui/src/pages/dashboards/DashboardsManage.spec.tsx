@@ -14,6 +14,7 @@ import type { DragEndEvent } from "@dnd-kit/core";
 import type { DashboardSummary, GridoneClient } from "@gridone/sdk";
 import { GridoneClientProvider } from "@/contexts/GridoneClientContext";
 import { createI18nMock } from "@/test/i18nMock";
+import { DASHBOARD_ICONS } from "@/lib/dashboardIcons";
 
 vi.mock("react-i18next", () =>
   createI18nMock({
@@ -27,6 +28,8 @@ vi.mock("react-i18next", () =>
     "rename.submit": "Save changes",
     "fields.name": "Name",
     "fields.description": "Description",
+    "fields.icon": "Icon",
+    "icon.none": "No icon",
     "common:empty.create.dashboards": "Create a dashboard",
     "common:common.cancel": "Cancel",
     "common.cancel": "Cancel",
@@ -60,10 +63,14 @@ vi.mock("@dnd-kit/core", async (importOriginal) => {
 
 import DashboardsManage from "./DashboardsManage";
 
-const summary = (id: string, name: string, description?: string) =>
-  ({ id, name, description, metadata: {} }) as DashboardSummary;
+const summary = (
+  id: string,
+  name: string,
+  description?: string,
+  icon: DashboardSummary["icon"] = null,
+) => ({ id, name, description, icon, metadata: {} }) as DashboardSummary;
 const DASHBOARDS = [
-  summary("d1", "ECS Ouest", "Hot water, west wing"),
+  summary("d1", "ECS Ouest", "Hot water, west wing", "droplets"),
   summary("d2", "CTA"),
   summary("d3", "Comptage"),
 ];
@@ -168,10 +175,59 @@ describe("DashboardsManage", () => {
       expect(client.dashboards.update).toHaveBeenCalledWith("d2", {
         name: "CTA Nord",
         description: "Roof units",
+        icon: null,
       }),
     );
     await waitFor(() =>
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+  });
+
+  it("restores the picked icon on edit, offers every icon plus none, and saves the change", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() => expect(rows()).toHaveLength(3));
+
+    await user.click(
+      screen.getByRole("button", { name: "Actions for ECS Ouest" }),
+    );
+    await user.click(screen.getByRole("menuitem", { name: "Rename" }));
+    const grid = within(screen.getByRole("group", { name: "Icon" }));
+    expect(grid.getByRole("button", { name: "droplets" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(grid.getAllByRole("button")).toHaveLength(
+      Object.keys(DASHBOARD_ICONS).length + 1,
+    );
+
+    await user.click(grid.getByRole("button", { name: "fan" }));
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() =>
+      expect(client.dashboards.update).toHaveBeenCalledWith(
+        "d1",
+        expect.objectContaining({ icon: "fan" }),
+      ),
+    );
+  });
+
+  it("clears the icon through the none cell", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() => expect(rows()).toHaveLength(3));
+
+    await user.click(
+      screen.getByRole("button", { name: "Actions for ECS Ouest" }),
+    );
+    await user.click(screen.getByRole("menuitem", { name: "Rename" }));
+    await user.click(screen.getByRole("button", { name: "No icon" }));
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() =>
+      expect(client.dashboards.update).toHaveBeenCalledWith(
+        "d1",
+        expect.objectContaining({ icon: null }),
+      ),
     );
   });
 
