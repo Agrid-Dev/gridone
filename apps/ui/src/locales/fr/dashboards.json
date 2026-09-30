@@ -260,11 +260,11 @@
   },
   "actions": {
     "label": "Actions du tableau de bord",
-    "rename": "Renommer",
+    "edit": "Éditer les informations",
     "delete": "Supprimer"
   },
-  "rename": {
-    "title": "Renommer le tableau de bord",
+  "edit": {
+    "title": "Éditer les informations du tableau de bord",
     "submit": "Enregistrer",
     "success": "Tableau de bord « {{name}} » mis à jour"
   },

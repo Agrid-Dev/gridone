@@ -59,7 +59,7 @@ const DashboardsManageContent: FC = () => {
   const { reorderDashboards } = useReorderDashboards();
   const { updateDashboard } = useUpdateDashboard();
   const { deleteDashboard } = useDeleteDashboard();
-  const [renaming, setRenaming] = useState<DashboardSummary | null>(null);
+  const [editing, setEditing] = useState<DashboardSummary | null>(null);
   const [deleting, setDeleting] = useState<DashboardSummary | null>(null);
   const ids = dashboards.map((dashboard) => dashboard.id);
   const sensors = useSensors(
@@ -77,17 +77,17 @@ const DashboardsManageContent: FC = () => {
     reorderDashboards(arrayMove(ids, from, to));
   };
 
-  const handleRename = async (values: DashboardFormValues) => {
-    if (!renaming) return;
+  const handleEdit = async (values: DashboardFormValues) => {
+    if (!editing) return;
     // Awaited so the form's submit stays disabled while in flight; a rejection
     // is swallowed here (the mutation's onError already toasts it).
     try {
-      await updateDashboard(renaming.id, {
+      await updateDashboard(editing.id, {
         name: values.name,
         description: values.description,
         icon: values.icon,
       });
-      setRenaming(null);
+      setEditing(null);
     } catch {
       /* handled by the mutation's onError */
     }
@@ -128,7 +128,7 @@ const DashboardsManageContent: FC = () => {
                     key={dashboard.id}
                     dashboard={dashboard}
                     sortable={ids.length > 1}
-                    onRename={() => setRenaming(dashboard)}
+                    onEdit={() => setEditing(dashboard)}
                     onDelete={() => setDeleting(dashboard)}
                   />
                 ))}
@@ -144,24 +144,24 @@ const DashboardsManageContent: FC = () => {
       )}
 
       <Dialog
-        open={renaming !== null}
-        onOpenChange={(open) => !open && setRenaming(null)}
+        open={editing !== null}
+        onOpenChange={(open) => !open && setEditing(null)}
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t("rename.title")}</DialogTitle>
+            <DialogTitle>{t("edit.title")}</DialogTitle>
           </DialogHeader>
-          {renaming && (
+          {editing && (
             <DashboardForm
               formId="dashboard-rename-form"
               defaultValues={{
-                name: renaming.name,
-                description: renaming.description ?? "",
-                icon: renaming.icon ?? null,
+                name: editing.name,
+                description: editing.description ?? "",
+                icon: editing.icon ?? null,
               }}
-              submitLabel={t("rename.submit")}
-              onSubmit={handleRename}
-              onCancel={() => setRenaming(null)}
+              submitLabel={t("edit.submit")}
+              onSubmit={handleEdit}
+              onCancel={() => setEditing(null)}
             />
           )}
         </DialogContent>
@@ -190,9 +190,9 @@ const DashboardsManageContent: FC = () => {
 const DashboardRow: FC<{
   dashboard: DashboardSummary;
   sortable: boolean;
-  onRename: () => void;
+  onEdit: () => void;
   onDelete: () => void;
-}> = ({ dashboard, sortable, onRename, onDelete }) => {
+}> = ({ dashboard, sortable, onEdit, onDelete }) => {
   const { t } = useTranslation("dashboards");
   const {
     attributes,
@@ -255,9 +255,9 @@ const DashboardRow: FC<{
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">
-          <DropdownMenuItem onSelect={onRename}>
+          <DropdownMenuItem onSelect={onEdit}>
             <PencilLine />
-            {t("actions.rename")}
+            {t("actions.edit")}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem

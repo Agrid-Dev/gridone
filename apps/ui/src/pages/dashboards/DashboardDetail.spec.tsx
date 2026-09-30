@@ -156,7 +156,7 @@ it("shows direct widget actions only while configuration is open, without duplic
   expect(screen.getAllByRole("link", { name: "Add widget" })).toHaveLength(1);
   // The list-level actions moved to Configuration: only the layout is edited here.
   expect(screen.getByRole("button", { name: "Edit layout" })).toBeEnabled();
-  for (const name of ["New dashboard", "Rename", "Delete"]) {
+  for (const name of ["New dashboard", "Edit details", "Delete"]) {
     expect(screen.queryByRole("link", { name })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name })).not.toBeInTheDocument();
   }

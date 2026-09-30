@@ -260,11 +260,11 @@
   },
   "actions": {
     "label": "Dashboard actions",
-    "rename": "Rename",
+    "edit": "Edit details",
     "delete": "Delete"
   },
-  "rename": {
-    "title": "Rename dashboard",
+  "edit": {
+    "title": "Edit dashboard details",
     "submit": "Save changes",
     "success": "Dashboard \"{{name}}\" updated"
   },

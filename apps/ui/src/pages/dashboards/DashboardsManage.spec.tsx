@@ -22,10 +22,10 @@ vi.mock("react-i18next", () =>
     "switcher.new": "New dashboard",
     "manage.drag": "Move {{name}}",
     "manage.actions": "Actions for {{name}}",
-    "actions.rename": "Rename",
+    "actions.edit": "Edit details",
     "actions.delete": "Delete",
-    "rename.title": "Rename dashboard",
-    "rename.submit": "Save changes",
+    "edit.title": "Edit dashboard details",
+    "edit.submit": "Save changes",
     "fields.name": "Name",
     "fields.description": "Description",
     "fields.icon": "Icon",
@@ -160,8 +160,10 @@ describe("DashboardsManage", () => {
     await waitFor(() => expect(rows()).toHaveLength(3));
 
     await user.click(screen.getByRole("button", { name: "Actions for CTA" }));
-    await user.click(screen.getByRole("menuitem", { name: "Rename" }));
-    const dialog = screen.getByRole("dialog", { name: "Rename dashboard" });
+    await user.click(screen.getByRole("menuitem", { name: "Edit details" }));
+    const dialog = screen.getByRole("dialog", {
+      name: "Edit dashboard details",
+    });
     const name = within(dialog).getByLabelText(/Name/);
     expect(name).toHaveValue("CTA");
     await user.clear(name);
@@ -191,7 +193,7 @@ describe("DashboardsManage", () => {
     await user.click(
       screen.getByRole("button", { name: "Actions for ECS Ouest" }),
     );
-    await user.click(screen.getByRole("menuitem", { name: "Rename" }));
+    await user.click(screen.getByRole("menuitem", { name: "Edit details" }));
     const grid = within(screen.getByRole("group", { name: "Icon" }));
     expect(grid.getByRole("button", { name: "droplets" })).toHaveAttribute(
       "aria-pressed",
@@ -219,7 +221,7 @@ describe("DashboardsManage", () => {
     await user.click(
       screen.getByRole("button", { name: "Actions for ECS Ouest" }),
     );
-    await user.click(screen.getByRole("menuitem", { name: "Rename" }));
+    await user.click(screen.getByRole("menuitem", { name: "Edit details" }));
     await user.click(screen.getByRole("button", { name: "No icon" }));
     await user.click(screen.getByRole("button", { name: "Save changes" }));
 

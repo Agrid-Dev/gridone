@@ -139,7 +139,7 @@ export function useUpdateDashboard() {
         queryClient.invalidateQueries({ queryKey: DASHBOARDS_KEY }),
         queryClient.invalidateQueries({ queryKey: dashboardKey(updated.id) }),
       ]);
-      toast.success(t("rename.success", { name: updated.name }));
+      toast.success(t("edit.success", { name: updated.name }));
     },
     onError: onApiError,
   });
