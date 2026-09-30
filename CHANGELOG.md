@@ -1,3 +1,9 @@
+## v0.287.0 (2026-09-30)
+
+### Feat
+
+- **synoptics**: twin pump symbol with per-head bindings and clicks (#749)
+
 ## v0.286.0 (2026-09-30)
 
 ### Feat
