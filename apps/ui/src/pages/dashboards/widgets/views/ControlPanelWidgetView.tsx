@@ -1,6 +1,6 @@
-import { useMemo, type FC, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type FC, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Lock } from "lucide-react";
+import { CircleCheck, Lock } from "lucide-react";
 import {
   isNotFound,
   type ActiveCondition,
@@ -18,7 +18,10 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useDeviceControlRuntime } from "@/components/device-ui/runtime";
+import {
+  useDeviceControlRuntime,
+  type WriteState,
+} from "@/components/device-ui/runtime";
 import {
   ControlFeedback,
   WriteStateIndicator,
@@ -28,6 +31,7 @@ import { useAttributeLabel } from "@/hooks/useAttributeLabel";
 import { useDevice } from "@/hooks/useDevice";
 import { deviceAttributes } from "@/lib/devices";
 import { isFaultAttribute, type AttributeFields } from "@/lib/faults";
+import { SEMANTIC_TEXT_CLASS } from "@/lib/semanticColors";
 import { cn } from "@/lib/utils";
 import { sectionActivity } from "./controlPanelSection";
 
@@ -233,6 +237,41 @@ const Row: FC<{ item: ControlPanelAttribute; lock: SectionLock | null }> = ({
   );
 };
 
+/** How long a confirmed write stays acknowledged under its row. */
+export const CONFIRMATION_MS = 5000;
+
+/**
+ * The outcome of a row's last write. A confirmation is a passing
+ * acknowledgement on a panel that stays on screen all day, so it carries a
+ * success mark and clears itself; a write still going or one that failed is
+ * the shared indicator's to show, and stays until the next write.
+ */
+const WriteFeedback: FC<{ state: WriteState }> = ({ state }) => {
+  const { t } = useTranslation("devices");
+  // The write this row has finished acknowledging, by identity: a later
+  // confirmation is a new state object and is shown afresh.
+  const [acknowledged, setAcknowledged] = useState<WriteState | null>(null);
+  useEffect(() => {
+    if (state.kind !== "confirmed") return;
+    const timer = setTimeout(() => setAcknowledged(state), CONFIRMATION_MS);
+    return () => clearTimeout(timer);
+  }, [state]);
+
+  if (state.kind !== "confirmed") return <WriteStateIndicator state={state} />;
+  if (acknowledged === state) return null;
+  return (
+    <p
+      role="status"
+      aria-live="polite"
+      data-write-state="confirmed"
+      className={cn("flex items-center gap-1 text-xs", SEMANTIC_TEXT_CLASS.ok)}
+    >
+      <CircleCheck className="h-3.5 w-3.5" aria-hidden />
+      {t("presentation.confirmed")}
+    </p>
+  );
+};
+
 /** A writable row: its state in words and the switch that commands it. */
 const ToggleRow: FC<{
   device: Device;
@@ -271,7 +310,7 @@ const ToggleRow: FC<{
       label={label}
       status={
         <>
-          <WriteStateIndicator state={state.write} />
+          <WriteFeedback state={state.write} />
           <ControlFeedback
             state={state}
             runtime={runtime}

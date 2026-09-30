@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { act, cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Device } from "@gridone/sdk";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -14,6 +14,7 @@ vi.mock("react-i18next", () =>
     "widgets.controlPanel.inactive": "Inactive",
     "widgets.controlPanel.inactiveReason": "This section is inactive.",
     "widgets.controlPanel.attributeMissing": "Attribute no longer exposed",
+    "presentation.confirmed": "Applied",
     "common.true": "True",
     "common.false": "False",
   }),
@@ -31,6 +32,7 @@ vi.mock("@/hooks/useDevice", () => ({
 // The write path is the device page's own runtime; the widget's job is to
 // wire a switch to it and to lock it, so that wiring is what is asserted.
 const setValue = vi.fn();
+let write: { kind: string; requested?: boolean } = { kind: "idle" };
 vi.mock("@/components/device-ui/runtime", () => ({
   useDeviceControlRuntime: (
     device: Device,
@@ -43,13 +45,16 @@ vi.mock("@/components/device-ui/runtime", () => ({
     readControl: (attribute: string) => ({
       displayed: device.attributes?.[attribute]?.current_value ?? null,
       canToggle: canWrite,
-      write: { kind: "idle" },
+      write,
     }),
   }),
 }));
 
 // Imported after the mocks are registered.
-import { ControlPanelWidgetView } from "./ControlPanelWidgetView";
+import {
+  CONFIRMATION_MS,
+  ControlPanelWidgetView,
+} from "./ControlPanelWidgetView";
 
 const bool = (name: string, value: boolean, extra: object = {}) => ({
   name,
@@ -118,6 +123,8 @@ const row = (label: string) => screen.getByText(label).closest("li")!;
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  vi.useRealTimers();
+  write = { kind: "idle" };
 });
 
 describe("ControlPanelWidgetView", () => {
@@ -172,5 +179,19 @@ describe("ControlPanelWidgetView", () => {
     expect(await screen.findByRole("tooltip")).toHaveTextContent(
       "Selector is on auto",
     );
+  });
+
+  it("acknowledges a confirmed write, then clears the acknowledgement", () => {
+    vi.useFakeTimers();
+    setDevices({ autoMode: false });
+    write = { kind: "confirmed", requested: true };
+
+    renderView();
+
+    expect(screen.getByRole("status")).toHaveTextContent("Applied");
+    act(() => {
+      vi.advanceTimersByTime(CONFIRMATION_MS);
+    });
+    expect(screen.queryByRole("status")).toBeNull();
   });
 });
