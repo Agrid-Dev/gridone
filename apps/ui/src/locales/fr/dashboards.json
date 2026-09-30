@@ -192,7 +192,23 @@
       "conditionUnavailable": "La condition de cette section est illisible.",
       "deviceMissing": "L'appareil n'existe plus",
       "attributeMissing": "L'attribut n'est plus exposé",
-      "error": "Chargement impossible"
+      "error": "Chargement impossible",
+      "editor": {
+        "section": "Section {{index}}",
+        "addSection": "Ajouter une section",
+        "removeSection": "Supprimer la section",
+        "title": "Titre",
+        "label": "Libellé",
+        "labelPlaceholder": "Par défaut, le nom de l'attribut",
+        "addAttribute": "Ajouter un attribut",
+        "removeAttribute": "Supprimer l'attribut",
+        "addCondition": "Activer sous condition",
+        "removeCondition": "Supprimer la condition",
+        "condition": "Active uniquement quand",
+        "conditionValue": "vaut",
+        "inactiveReason": "Raison affichée quand la section est inactive",
+        "inactiveReasonHint": "Affichée au survol d'une commande désactivée de cette section."
+      }
     },
     "untitled": "Widget sans titre"
   },
