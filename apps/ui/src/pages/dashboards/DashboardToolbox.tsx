@@ -13,12 +13,9 @@ import {
 } from "@/components/ui/dialog";
 import { ConfirmationDialog } from "@/components/ConfirmationDialog";
 import { DashboardForm, type DashboardFormValues } from "./DashboardForm";
-import { AddWidgetButton } from "./widgets/AddWidgetButton";
 import { useDeleteDashboard, useUpdateDashboard } from "./useDashboards";
 
-/** Opt-in toolbox row: every edition action for the active dashboard in one
- *  place (rename, add widget, edit layout, delete), kept out of the navigation
- *  row so the two concerns don't mix and the grid only shifts when it's open. */
+/** Dashboard configuration: rename, edit layout and delete. */
 export const DashboardToolbox: FC<{
   dashboard: Dashboard;
   summaries: DashboardSummary[];
@@ -92,8 +89,6 @@ export const DashboardToolbox: FC<{
           {t("layout.edit")}
         </Button>
       )}
-      {/* Add widget is the primary action — kept rightmost of the first three. */}
-      <AddWidgetButton dashboardId={dashboard.id} />
       <Button
         variant="outline"
         size="sm"

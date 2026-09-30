@@ -1,8 +1,11 @@
 {
   "title": "Dashboards",
   "resourceName": "dashboard",
-  "tabs": {
-    "label": "Dashboards",
+  "switcher": {
+    "label": "Switch dashboard",
+    "search": "Search dashboards…",
+    "empty": "No dashboard matches.",
+    "current": "Current view",
     "new": "New dashboard"
   },
   "toolbox": {
@@ -17,6 +20,22 @@
     "unsaved": "Unsaved changes"
   },
   "widgets": {
+    "types": {
+      "synoptic": "Synoptic"
+    },
+    "synoptic": {
+      "label": "Synoptic",
+      "empty": "Choose a synoptic.",
+      "description": "Shows the live synoptic in read-only mode.",
+      "noSynoptics": "Create a synoptic in Configuration → Synoptics first.",
+      "notFound": "This synoptic no longer exists.",
+      "error": "Could not load this synoptic.",
+      "disabled": "Synoptics are not enabled.",
+      "projection": {
+        "label": "View",
+        "description": "How the plate is drawn in this widget: in volume, or as the plan."
+      }
+    },
     "empty": "This dashboard has no widgets yet.",
     "renderError": "This widget failed to render.",
     "chart": {

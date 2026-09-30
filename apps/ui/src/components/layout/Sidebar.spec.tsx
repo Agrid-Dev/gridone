@@ -162,6 +162,7 @@ describe("Sidebar", () => {
     ["transports:read", "Networks", "/transports"],
     ["users:read", "Users", "/users"],
     ["users:write", "Apps", "/apps"],
+    ["synoptics:write", "Synoptics", "/synoptics"],
   ])(
     "keeps Configuration when only %s is granted",
     (permission, name, href) => {
@@ -169,9 +170,13 @@ describe("Sidebar", () => {
       renderSidebar();
       expect(screen.getByText("Configuration")).toBeInTheDocument();
       expect(screen.getByRole("link", { name })).toHaveAttribute("href", href);
-      for (const other of ["Drivers", "Networks", "Apps", "Users"].filter(
-        (value) => value !== name,
-      ))
+      for (const other of [
+        "Drivers",
+        "Networks",
+        "Apps",
+        "Users",
+        "Synoptics",
+      ].filter((value) => value !== name))
         expect(
           screen.queryByRole("link", { name: other }),
         ).not.toBeInTheDocument();
@@ -224,6 +229,15 @@ describe("Sidebar", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("hides Synoptics from a reader: the entry is for authoring plates", () => {
+    permissions.can = (value) => value === "synoptics:read";
+    renderSidebar();
+    expect(
+      screen.queryByRole("link", { name: "Synoptics" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Configuration")).not.toBeInTheDocument();
+  });
+
   it("hides Synoptics when the feature flag is off", () => {
     flags.synoptics = false;
     renderSidebar();
@@ -231,6 +245,17 @@ describe("Sidebar", () => {
       screen.queryByRole("link", { name: "Synoptics" }),
     ).not.toBeInTheDocument();
   });
+
+  it.each([false, true])(
+    "places Synoptics under Configuration (mobile: %s)",
+    (mobile) => {
+      renderSidebar(mobile);
+      const configuration = screen.getByText("Configuration");
+      const synoptics = screen.getByRole("link", { name: "Synoptics" });
+      expect(configuration.nextElementSibling).toBe(synoptics);
+      expect(synoptics).toHaveAttribute("href", "/synoptics");
+    },
+  );
 
   it("badges the Faults link with the active fault count", () => {
     faults = [{}, {}, {}] as FaultView[];

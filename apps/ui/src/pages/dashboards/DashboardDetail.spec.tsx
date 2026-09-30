@@ -1,0 +1,189 @@
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import type { TextWidgetConfig, Widget } from "@gridone/sdk";
+import { MemoryRouter } from "react-router";
+import { createI18nMock } from "@/test/i18nMock";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import DashboardDetail from "./DashboardDetail";
+
+vi.mock("react-i18next", () =>
+  createI18nMock({
+    "switcher.new": "New dashboard",
+    "widgets.add": "Add widget",
+    "widgets.actions.edit": "Edit widget",
+    "widgets.actions.delete": "Delete widget",
+    "widgets.actions.label": "Actions",
+    "toolbox.show": "Edit dashboard",
+    "toolbox.hide": "Close configuration",
+    "layout.cancel": "Cancel",
+    "layout.save": "Save",
+    "common.cancel": "Cancel",
+    "common.delete": "Delete",
+  }),
+);
+
+let canWrite = true;
+let editing = false;
+let widgets: Widget[] = [];
+const removeWidget = vi.fn().mockResolvedValue(undefined);
+const WIDGET: Widget = {
+  id: "w1",
+  type: "text",
+  title: "Consumption",
+  config: { type: "text", text: "Hello", color: "#ffffff" } as TextWidgetConfig,
+  layout: { x: 0, y: 0, w: 6, h: 4 },
+  metadata: {},
+};
+vi.mock("@/contexts/AuthContext", () => ({
+  usePermissions: () => () => canWrite,
+}));
+vi.mock("./useDashboards", () => ({
+  useDashboards: () => [{ id: "d1", name: "Energy", metadata: {} }],
+  useDashboardFromRoute: () => ({
+    id: "d1",
+    name: "Energy",
+    widgets,
+    metadata: {},
+  }),
+  useUpdateDashboard: () => ({ updateDashboard: vi.fn() }),
+  useDeleteDashboard: () => ({ deleteDashboard: vi.fn() }),
+}));
+vi.mock("./useWidgets", () => ({
+  useRemoveWidget: () => ({ removeWidget }),
+}));
+vi.mock("./useLayoutEditor", () => ({
+  useLayoutEditor: () => ({
+    editing,
+    layout: [],
+    dirty: false,
+    onLayoutChange: vi.fn(),
+  }),
+}));
+vi.mock("@/components/TimeRangeSelect", () => ({
+  TimeRangeSelect: () => <span>Period</span>,
+}));
+
+beforeEach(() => {
+  canWrite = true;
+  editing = false;
+  widgets = [];
+  removeWidget.mockClear();
+});
+afterEach(cleanup);
+
+function renderPage() {
+  render(
+    <MemoryRouter initialEntries={["/dashboards/d1"]}>
+      <TooltipProvider>
+        <DashboardDetail />
+      </TooltipProvider>
+    </MemoryRouter>,
+  );
+}
+
+it("uses the active dashboard as the title menu with one add-widget action", () => {
+  renderPage();
+  expect(
+    within(screen.getByRole("heading", { level: 2 })).getByRole("button", {
+      name: "Energy",
+    }),
+  ).toBeInTheDocument();
+  expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+  expect(screen.getAllByRole("link", { name: "Add widget" })).toHaveLength(1);
+  expect(screen.getByRole("link", { name: "Add widget" })).toHaveAttribute(
+    "href",
+    "/dashboards/d1/widgets/new",
+  );
+  expect(
+    screen.getByRole("button", { name: "Edit dashboard" }),
+  ).toBeInTheDocument();
+});
+
+it("keeps navigation but hides creation and editing for a viewer", () => {
+  canWrite = false;
+  renderPage();
+  expect(screen.getByRole("button", { name: "Energy" })).toBeEnabled();
+  expect(
+    screen.queryByRole("link", { name: "Add widget" }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Edit dashboard" }),
+  ).not.toBeInTheDocument();
+});
+
+it("disables switching and adding widgets while the layout is being edited", () => {
+  editing = true;
+  renderPage();
+  expect(screen.getByRole("button", { name: "Energy" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Add widget" })).toBeDisabled();
+  expect(
+    screen.queryByRole("link", { name: "Add widget" }),
+  ).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Cancel" })).toBeEnabled();
+});
+
+it("shows direct widget actions only while configuration is open, without duplicating add", async () => {
+  const user = userEvent.setup();
+  widgets = [WIDGET];
+  renderPage();
+  expect(
+    screen.queryByRole("link", { name: "Edit widget" }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Delete widget" }),
+  ).not.toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: "Edit dashboard" }));
+  expect(screen.getAllByRole("link", { name: "Add widget" })).toHaveLength(1);
+  expect(screen.getByRole("link", { name: "Edit widget" })).toHaveAttribute(
+    "href",
+    "/dashboards/d1/widgets/w1/edit",
+  );
+  expect(screen.getByRole("button", { name: "Delete widget" })).toBeEnabled();
+  expect(
+    screen.queryByRole("button", { name: "Actions" }),
+  ).not.toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: "Close configuration" }));
+  expect(
+    screen.queryByRole("link", { name: "Edit widget" }),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Delete widget" }),
+  ).not.toBeInTheDocument();
+});
+
+it("requires confirmation from the delete icon and restores focus on cancellation", async () => {
+  const user = userEvent.setup();
+  widgets = [WIDGET];
+  renderPage();
+  await user.click(screen.getByRole("button", { name: "Edit dashboard" }));
+  const deleteButton = screen.getByRole("button", { name: "Delete widget" });
+  await user.click(deleteButton);
+  expect(removeWidget).not.toHaveBeenCalled();
+  await user.click(
+    within(screen.getByRole("alertdialog")).getByRole("button", {
+      name: "Cancel",
+    }),
+  );
+  expect(removeWidget).not.toHaveBeenCalled();
+  await waitFor(() => expect(deleteButton).toHaveFocus());
+
+  await user.click(deleteButton);
+  await user.click(
+    within(screen.getByRole("alertdialog")).getByRole("button", {
+      name: "Delete",
+    }),
+  );
+  expect(removeWidget).toHaveBeenCalledExactlyOnceWith("w1");
+  await waitFor(() =>
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument(),
+  );
+});

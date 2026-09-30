@@ -315,6 +315,35 @@ class TestWidgets:
         # Target-free widget: nothing to resolve at save time.
         mock_target_resolver.resolve.assert_not_awaited()
 
+    async def test_add_synoptic_widget_reaches_the_service(
+        self, client, svc, mock_target_resolver
+    ):
+        config = {"type": "synoptic", "synoptic_id": "plate1"}
+        svc.add_widget.return_value = _WIDGET
+        async with client as c:
+            resp = await c.post("/d1/widgets", json={"config": config})
+        assert resp.status_code == 201
+        svc.add_widget.assert_awaited_once_with(
+            "d1",
+            config={**config, "projection": "isometric"},
+            title=None,
+            description=None,
+        )
+        mock_target_resolver.resolve.assert_not_awaited()
+
+    @pytest.mark.parametrize("synoptic_id", [None, ""])
+    async def test_synoptic_widget_requires_a_document_reference(
+        self, client, svc, synoptic_id
+    ):
+        config = {"type": "synoptic"}
+        if synoptic_id is not None:
+            config["synoptic_id"] = synoptic_id
+        async with client as c:
+            resp = await c.post("/d1/widgets", json={"config": config})
+        assert resp.status_code == 422
+        assert any("synoptic_id" in d["loc"] for d in resp.json()["detail"])
+        svc.add_widget.assert_not_awaited()
+
     async def test_add_device_control_widget_missing_device_returns_422_field_path(
         self, client, svc
     ):

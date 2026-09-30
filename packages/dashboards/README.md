@@ -69,7 +69,9 @@ This makes two invariants free instead of enforced-on-every-write:
 
 The backend is the source of truth for widget config — `config` is a discriminated union on `type`, and `type` is **immutable** after creation (changing type = remove + add).
 
-Today one type is registered: **`text`** — `{type: "text", text: str, color: str}` where `color` is a hex color (`#RRGGBB`, pattern-validated so the constraint flows into the JSON Schema). It is a deliberately trivial placeholder for the first layout UI demo.
+Built-in types are `text`, `chart`, `device_control`, `kpi`, `meter_tree`, and `synoptic`.
+
+The **`synoptic`** widget stores `{type: "synoptic", synoptic_id: str}` and starts at 6×6 grid cells. The UI selects a stored synoptic by name and displays its live readings in read-only mode, with pan, zoom and fit controls. The dashboard period does not apply. The document reference stays opaque to the dashboards service; an unavailable document is reported within its widget. Synoptics are managed under **Configuration → Synoptics**.
 
 ## Public API
 

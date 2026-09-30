@@ -12,20 +12,29 @@ import {
 } from "@gridone/sdk";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { serverErrorMessage } from "@/lib/serverErrorMessage";
+import { useFeatureEnabled } from "@/utils/featureFlags";
 import { dashboardKey } from "./useDashboards";
 
 /** JSON Schemas of the registered widget types (backend is the source of
  *  truth). Drives the widget config form; cached indefinitely — the registry
  *  is static for a running server. Suspends until loaded so the editor pages
  *  render pure happy-path JSX under a `ResourceBoundary`. */
-export function useWidgetSchemas(): WidgetSchemas {
+export function useWidgetSchemas({ enabledOnly = false } = {}): WidgetSchemas {
   const client = useGridoneClient();
+  const synopticsEnabled = useFeatureEnabled("synoptics");
   const { data } = useSuspenseQuery<WidgetSchemas>({
     queryKey: ["dashboards", "widget-schemas"],
     queryFn: () => client.dashboards.getWidgetSchemas(),
     staleTime: Infinity,
   });
-  return data;
+  // Creation hides disabled features; editing keeps the stored type's schema
+  // so an existing widget can still be renamed after its feature is disabled.
+  if (!enabledOnly) return data;
+  return Object.fromEntries(
+    Object.entries(data).filter(
+      ([type]) => type !== "synoptic" || synopticsEnabled,
+    ),
+  );
 }
 
 function useWidgetErrorToast() {

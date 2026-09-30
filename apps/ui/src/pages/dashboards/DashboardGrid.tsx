@@ -30,6 +30,7 @@ interface DashboardGridProps {
    *  edit mode. */
   layout: GridLayoutItem[];
   editing: boolean;
+  showWidgetActions: boolean;
   onLayoutChange: (layout: GridLayoutItem[]) => void;
 }
 
@@ -40,6 +41,7 @@ export const DashboardGrid: FC<DashboardGridProps> = ({
   dashboard,
   layout,
   editing,
+  showWidgetActions,
   onLayoutChange,
 }) => {
   const widgets = dashboard.widgets ?? [];
@@ -63,6 +65,7 @@ export const DashboardGrid: FC<DashboardGridProps> = ({
             dashboardId={dashboard.id}
             widget={widget}
             editing={editing}
+            showActions={showWidgetActions}
           />
         </div>
       ))}

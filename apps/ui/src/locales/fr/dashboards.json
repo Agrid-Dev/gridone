@@ -1,8 +1,11 @@
 {
   "title": "Tableaux de bord",
   "resourceName": "tableau de bord",
-  "tabs": {
-    "label": "Tableaux de bord",
+  "switcher": {
+    "label": "Changer de tableau de bord",
+    "search": "Rechercher un tableau de bord…",
+    "empty": "Aucun tableau de bord ne correspond.",
+    "current": "Vue actuelle",
     "new": "Nouveau tableau de bord"
   },
   "toolbox": {
@@ -17,6 +20,22 @@
     "unsaved": "Modifications non enregistrées"
   },
   "widgets": {
+    "types": {
+      "synoptic": "Synoptique"
+    },
+    "synoptic": {
+      "label": "Synoptique",
+      "empty": "Choisissez un synoptique.",
+      "description": "Affiche le synoptique en direct, en lecture seule.",
+      "noSynoptics": "Créez d'abord un synoptique dans Configuration → Synoptiques.",
+      "notFound": "Ce synoptique n'existe plus.",
+      "error": "Impossible de charger ce synoptique.",
+      "disabled": "Les synoptiques ne sont pas activés.",
+      "projection": {
+        "label": "Vue",
+        "description": "Comment le synoptique est dessiné dans ce widget : en volume, ou en plan."
+      }
+    },
     "empty": "Ce tableau de bord n'a pas encore de widget.",
     "renderError": "Échec de l'affichage de ce widget.",
     "chart": {

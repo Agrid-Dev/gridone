@@ -10,6 +10,7 @@ from dashboards.widgets import (
     KpiWidgetConfig,
     MeterTreeNode,
     MeterTreeWidgetConfig,
+    SynopticWidgetConfig,
     TextWidgetConfig,
     WidgetSize,
     WidgetType,
@@ -38,6 +39,7 @@ def test_default_registry_registers_built_in_types():
         "kpi",
         "meter_tree",
         "control_panel",
+        "synoptic",
     }
     assert registry.default_size("text") == WidgetSize(w=4, h=2)
     assert registry.default_size("chart") == WidgetSize(w=6, h=5)
@@ -45,6 +47,7 @@ def test_default_registry_registers_built_in_types():
     assert registry.default_size("kpi") == WidgetSize(w=2, h=1)
     assert registry.default_size("meter_tree") == WidgetSize(w=6, h=8)
     assert registry.default_size("control_panel") == WidgetSize(w=4, h=6)
+    assert registry.default_size("synoptic") == WidgetSize(w=6, h=6)
 
 
 def test_validate_config_returns_concrete_model():
@@ -120,6 +123,10 @@ def test_validate_config_returns_concrete_model():
         },
         {"type": "device_control"},  # missing device_id
         {"type": "device_control", "device_id": ""},  # empty device_id
+        {"type": "synoptic"},
+        {"type": "synoptic", "synoptic_id": ""},
+        {"type": "synoptic", "synoptic_id": "s1", "read_only": False},
+        {"type": "synoptic", "synoptic_id": "s1", "projection": "3d"},
         {  # live-only widget: no period mode/operator to store
             "type": "device_control",
             "device_id": "d1",
@@ -214,6 +221,7 @@ def test_schemas_returns_json_schema_per_type():
         "kpi",
         "meter_tree",
         "control_panel",
+        "synoptic",
     }
     props = schemas["text"]["properties"]
     assert props["color"]["pattern"] == r"^#[0-9a-fA-F]{6}$"
@@ -241,6 +249,36 @@ def test_schemas_returns_json_schema_per_type():
     control_panel = schemas["control_panel"]
     assert set(control_panel["required"]) == {"sections"}
     assert control_panel["x-default-size"] == {"w": 4, "h": 6}
+    synoptic = schemas["synoptic"]
+    assert set(synoptic["required"]) == {"synoptic_id"}
+    assert synoptic["properties"]["synoptic_id"]["minLength"] == 1
+    assert synoptic["x-default-size"] == {"w": 6, "h": 6}
+
+
+def test_synoptic_config_keeps_an_opaque_document_reference():
+    config = build_default_registry().validate_config(
+        {"type": "synoptic", "synoptic_id": "plate1"}
+    )
+
+    assert isinstance(config, SynopticWidgetConfig)
+    assert config.synoptic_id == "plate1"
+    assert config.targets() == []
+
+
+@pytest.mark.parametrize(
+    ("given", "expected"),
+    [({}, "isometric"), ({"projection": "flat"}, "flat")],
+    ids=["default", "flat"],
+)
+def test_synoptic_config_projection(given: dict, expected: str):
+    """The widget draws the plate in its own projection, isometric unless the
+    author asks for the plan: the choice never touches the stored document."""
+    config = build_default_registry().validate_config(
+        {"type": "synoptic", "synoptic_id": "plate1", **given}
+    )
+
+    assert isinstance(config, SynopticWidgetConfig)
+    assert config.projection == expected
 
 
 def test_empty_registry_has_no_types():

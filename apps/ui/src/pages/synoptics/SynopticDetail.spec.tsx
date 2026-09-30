@@ -435,10 +435,10 @@ describe("SynopticDetail switching", () => {
     await screen.findByText("ECS Est");
 
     await userEvent.click(
-      document.querySelector<HTMLElement>("[data-synoptic-switcher]")!,
+      document.querySelector<HTMLElement>("[data-resource-switcher]")!,
     );
     await userEvent.click(
-      document.querySelector<HTMLElement>("[data-synoptic-option='west']")!,
+      document.querySelector<HTMLElement>("[data-resource-option='west']")!,
     );
 
     await waitFor(() =>

@@ -16,14 +16,14 @@ import {
 import { serverErrorMessage } from "@/lib/serverErrorMessage";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 
-/** Query key for the dashboard summaries list (feeds the tab bar). */
+/** Query key for the dashboard summaries list (feeds the view selector). */
 export const DASHBOARDS_KEY = ["dashboards"] as const;
 
 /** Query key for a single full dashboard document. */
 export const dashboardKey = (id: string) => ["dashboard", id] as const;
 
 /**
- * Summaries of every dashboard (id, name, description) — the tab bar and the
+ * Summaries of every dashboard (id, name, description) — the view selector and the
  * redirect-to-first landing. Suspends until loaded so callers render pure
  * happy-path JSX under a `ResourceBoundary`.
  */
@@ -59,8 +59,8 @@ export function useDashboardFromRoute(): Dashboard {
 }
 
 /**
- * Create a dashboard. On success the summaries list is invalidated (so the tab
- * bar picks up the new dashboard) and the created document is returned so the
+ * Create a dashboard. On success the summaries list is invalidated (so the view
+ * selector picks up the new dashboard) and the created document is returned so the
  * caller can navigate to it. Errors surface as a toast.
  */
 export function useCreateDashboard() {
@@ -97,7 +97,7 @@ function useApiErrorToast() {
 }
 
 /** Rename / re-describe a dashboard (PUT name/description). Invalidates the
- *  summaries (tab labels) and the dashboard document. */
+ *  summaries (selector labels) and the dashboard document. */
 export function useUpdateDashboard() {
   const { t } = useTranslation("dashboards");
   const client = useGridoneClient();

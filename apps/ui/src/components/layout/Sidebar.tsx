@@ -77,11 +77,15 @@ export function Sidebar({
   const { health } = useAuth();
   const dashboardsEnabled = useFeatureEnabled("dashboards");
   const synopticsEnabled = useFeatureEnabled("synoptics");
+  // Under Configuration: the entry is for authoring plates. A reader meets
+  // them through the dashboards' synoptic widgets instead.
+  const showSynoptics = synopticsEnabled && can("synoptics:write");
   const { faults } = useFaultsList();
   const { devices } = useDevicesList();
   const { pendingCount: pendingAppRequests } = usePendingAppRequests();
 
   const hasConfiguration =
+    showSynoptics ||
     can("users:write") ||
     can("drivers:read") ||
     can("transports:read") ||
@@ -142,13 +146,6 @@ export function Sidebar({
             </NavLink>
           )}
 
-          {synopticsEnabled && (
-            <NavLink to="/synoptics" className={navLinkClass}>
-              <Waypoints className="h-4 w-4" />
-              {t("app.synoptics")}
-            </NavLink>
-          )}
-
           <NavLink to="/devices" className={navLinkClass}>
             <Cpu className="h-4 w-4" />
             {t("app.devices")}
@@ -188,6 +185,13 @@ export function Sidebar({
 
           {hasConfiguration && (
             <SectionLabel>{t("nav.configuration")}</SectionLabel>
+          )}
+
+          {showSynoptics && (
+            <NavLink to="/synoptics" className={navLinkClass}>
+              <Waypoints className="h-4 w-4" />
+              {t("app.synoptics")}
+            </NavLink>
           )}
 
           {/* Above Drivers: an app is the product-level integration, drivers

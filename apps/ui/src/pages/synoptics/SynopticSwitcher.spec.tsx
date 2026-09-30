@@ -79,27 +79,27 @@ function renderStepper(
 }
 
 const trigger = () =>
-  document.querySelector<HTMLButtonElement>("[data-synoptic-switcher]")!;
+  document.querySelector<HTMLButtonElement>("[data-resource-switcher]")!;
 const options = () =>
-  [...document.querySelectorAll("[data-synoptic-option]")].map((o) =>
-    o.getAttribute("data-synoptic-option"),
+  [...document.querySelectorAll("[data-resource-option]")].map((o) =>
+    o.getAttribute("data-resource-option"),
   );
 const option = (id: string) =>
-  document.querySelector<HTMLElement>(`[data-synoptic-option='${id}']`)!;
+  document.querySelector<HTMLElement>(`[data-resource-option='${id}']`)!;
 /** Checked for the eye and named for a screen reader: both, or neither. */
 const checked = () =>
-  [...document.querySelectorAll("[data-synoptic-option]")]
+  [...document.querySelectorAll("[data-resource-option]")]
     .filter((o) => {
       const seen = !!o.querySelector("svg.opacity-100");
       const said = (o.textContent ?? "").includes("Shown now");
       expect(said).toBe(seen);
       return seen;
     })
-    .map((o) => o.getAttribute("data-synoptic-option"));
+    .map((o) => o.getAttribute("data-resource-option"));
 const cursor = () =>
   document
-    .querySelector("[data-synoptic-option][data-selected='true']")
-    ?.getAttribute("data-synoptic-option");
+    .querySelector("[data-resource-option][data-selected='true']")
+    ?.getAttribute("data-resource-option");
 const position = () =>
   document.querySelector("[data-synoptic-position]")?.textContent ?? null;
 const pin = () =>

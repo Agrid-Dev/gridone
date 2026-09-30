@@ -16,6 +16,8 @@ import { KpiWidgetView } from "./views/KpiWidgetView";
 import { MeterTreeConfigPlaceholder } from "./views/MeterTreeConfigPlaceholder";
 import { MeterTreeWidgetView } from "./views/MeterTreeWidgetView";
 import { TextWidgetView } from "./views/TextWidgetView";
+import { SynopticConfigFields } from "./views/SynopticConfigFields";
+import { SynopticWidgetView } from "./views/SynopticWidgetView";
 
 /** A widget type's renderer. The config is untyped at the registry boundary;
  *  each view narrows it to its own config model. */
@@ -40,6 +42,7 @@ export const widgetViews: Record<string, WidgetViewComponent> = {
   kpi: KpiWidgetView,
   meter_tree: MeterTreeWidgetView,
   control_panel: ControlPanelWidgetView,
+  synoptic: SynopticWidgetView,
 };
 
 /**
@@ -56,6 +59,7 @@ export const widgetConfigFields: Record<string, WidgetConfigFieldsComponent> = {
   kpi: KpiConfigFields,
   meter_tree: MeterTreeConfigPlaceholder,
   control_panel: ControlPanelConfigFields,
+  synoptic: SynopticConfigFields,
 };
 
 /**
