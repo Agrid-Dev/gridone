@@ -97,7 +97,7 @@ Asked for by the issue and registered with the footprints and ports below (AGR-1
 | `air_separator` | inline | none | circle with a chevron mesh / cylinder with the vent sphere on top | none |
 | `expansion_vessel` | 1 × 1 | `in −x` | capsule with diaphragm line / red sphere on a stem | none |
 | `dirt_separator` | inline | none | circle with a settling cone / cylinder with the drain and a dark cone underneath | `fault` |
-| `pump_double` | inline | none | two pumps side by side across the run, in both views, the far head painted first | `state` |
+| `pump_double` | inline | none | two pumps side by side across the run, head `a` then `b`, in both views, the far head painted first; each head shows its own run state (its motor's dot, or on the sheet its own LED after the name, A then B, hollow and dashed while nothing is known), is outlined alone when its own fault contact (`fault_a`, `fault_b`) trips, or while that contact is unbound or stale when its own device is faulty, since one controller behind both heads is faulty whichever head tripped; its panel lights one LED per head in its title, as its name does on the sheet; and is its own click, taken on the half of the pair on its side of the run so a head is not a target the size of its small body, whose popover lists that head's points only; the equipment list names each head, its name then the letter | `state`, `fault`, `speed` per head |
 | `energy_meter` | inline | none | square housing with register window, `kWh` above / box on the run with a dark window and `kWh` in the reading colour | `energy` |
 | `loop_heater` | inline | none | square housing with the heating element's zigzag / box on the run with the element on its face, glowing while it heats | `state`, `fault` |
 | `valve_control` | inline | none | the isolation bowtie with an `M` above / brass body with the dark actuator; its slot is a position, never open or closed, so the sheet's bowtie always takes the no-reading stroke of Decision 18 | `position` |
@@ -158,7 +158,7 @@ Every piece of text a plate places (names, tags, readouts) goes through `placeme
 ## Open points
 
 - The fluid floor of 18 is what six hues reach in the dark theme; if a twelfth fluid comes, the check says whether the band has room.
-- `energy_meter` is placed inline five times on the hot-production plate, which confirms it; `pump_double` is still placed by no plate, since each twin's heads are two devices on the instance and a symbol carries one `device_id`.
+- `energy_meter` is placed inline five times on the hot-production plate, which confirms it; `pump_double` now binds and opens each head on its own, and is still placed by no plate: the hot and cold productions draw their pairs as single pumps, the ECS stations their bouclage pair as one, until their plates regroup them.
 - Whether the 12 px floor (Decision 25) holds on a wall screen at distance is the first thing to revisit after the first real view; full screen (Decision 21) is the interim answer.
 - A tee or a collector carries one fluid (Decision 8): a make-up line or a changeover crossover of another fluid never moves with the loop it meets, even while it fills or changes over, since the plate has no reading for it.
 - A run moves as a whole: a return loop that carries one heat pump's water up to its tee, past the other stopped heat pump's branch, moves to its end. On ECS Est, `b08-b09` is drawn from `b08`'s domestic outlet into `b09`'s primary, so the fluid enters `b09`'s column there rather than from `b08`'s primary; the editor is where to redraw it.
