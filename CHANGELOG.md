@@ -1,3 +1,9 @@
+## v0.291.0 (2026-09-30)
+
+### Feat
+
+- **dashboards**: control panel rows labelled by attribute or by device (AGR-1534)
+
 ## v0.290.0 (2026-09-30)
 
 ### Feat
