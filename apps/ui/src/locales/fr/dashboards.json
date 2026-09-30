@@ -185,6 +185,15 @@
       "other": "Autres",
       "openDevice": "Voir l'appareil"
     },
+    "controlPanel": {
+      "empty": "Aucune section configurée.",
+      "inactive": "Inactive",
+      "inactiveReason": "Cette section est inactive.",
+      "conditionUnavailable": "La condition de cette section est illisible.",
+      "deviceMissing": "L'appareil n'existe plus",
+      "attributeMissing": "L'attribut n'est plus exposé",
+      "error": "Chargement impossible"
+    },
     "untitled": "Widget sans titre"
   },
   "fields": {
