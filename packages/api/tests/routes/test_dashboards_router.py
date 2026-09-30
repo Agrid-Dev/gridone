@@ -47,7 +47,9 @@ _WIDGET = Widget(
 _DASHBOARD = Dashboard(
     id="d1", name="Ops", description="d", widgets=[_WIDGET], metadata=_META
 )
-_SUMMARY = DashboardSummary(id="d1", name="Ops", description="d", metadata=_META)
+_SUMMARY = DashboardSummary(
+    id="d1", name="Ops", description="d", icon="gauge", metadata=_META
+)
 
 _TEXT_CONFIG = {"type": "text", "text": "hi", "color": "#1a2b3c"}
 _CHART_TARGET = {
@@ -122,6 +124,8 @@ class TestDashboardCrud:
         assert resp.status_code == 200
         body = resp.json()
         assert body[0]["id"] == "d1"
+        # The sidebar draws the icon from the summary, without loading each.
+        assert body[0]["icon"] == "gauge"
         # Summaries carry no widgets/layout.
         assert "widgets" not in body[0]
         assert "layout" not in body[0]
@@ -137,6 +141,26 @@ class TestDashboardCrud:
         async with client as c:
             resp = await c.post("/", json={"name": "Ops", "bogus": 1})
         assert resp.status_code == 422
+
+    async def test_create_passes_the_icon_through(self, client, svc):
+        svc.create.return_value = _DASHBOARD
+        async with client as c:
+            resp = await c.post("/", json={"name": "Ops", "icon": "droplets"})
+        assert resp.status_code == 201
+        assert svc.create.await_args.args[0].icon == "droplets"
+
+    @pytest.mark.parametrize(
+        ("method", "path"), [("POST", "/"), ("PUT", "/d1")], ids=["create", "update"]
+    )
+    async def test_unknown_icon_is_a_422_at_the_field(self, client, svc, method, path):
+        async with client as c:
+            resp = await c.request(
+                method, path, json={"name": "Ops", "icon": "unicorn"}
+            )
+        assert resp.status_code == 422
+        assert [e["loc"] for e in resp.json()["detail"]] == [["body", "icon"]]
+        svc.create.assert_not_awaited()
+        svc.update.assert_not_awaited()
 
     async def test_get_returns_full_document(self, client, svc):
         svc.get.return_value = _DASHBOARD

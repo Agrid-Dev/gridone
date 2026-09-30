@@ -330,6 +330,8 @@ export type Dashboard = Schemas["Dashboard"];
 export type DashboardSummary = Schemas["DashboardSummary"];
 export type DashboardCreate = Schemas["DashboardCreate"];
 export type DashboardPatch = Schemas["DashboardPatch"];
+/** The closed icon vocabulary a dashboard may name (the UI draws each key). */
+export type DashboardIcon = NonNullable<Schemas["DashboardSummary"]["icon"]>;
 export type DashboardsOrderBody = Schemas["DashboardsOrderBody"];
 export type DashboardMetadata = Schemas["Metadata"];
 export type Widget = Schemas["Widget"];
