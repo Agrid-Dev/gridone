@@ -17,6 +17,7 @@ import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { useDevicesList } from "@/hooks/useDevicesList";
 import { useFaultsList } from "@/hooks/useFaultsList";
 import { usePendingAppRequests } from "@/hooks/usePendingAppRequests";
+import { useDashboardEntries } from "@/pages/dashboards/useDashboards";
 import { useFeatureEnabled } from "@/utils/featureFlags";
 import { BuildingSwitcher } from "./BuildingSwitcher";
 
@@ -82,6 +83,7 @@ export function Sidebar({
   const showSynoptics = synopticsEnabled && can("synoptics:write");
   const { faults } = useFaultsList();
   const { devices } = useDevicesList();
+  const { dashboards } = useDashboardEntries();
   const { pendingCount: pendingAppRequests } = usePendingAppRequests();
 
   const hasConfiguration =
@@ -139,12 +141,21 @@ export function Sidebar({
         >
           <SectionLabel>{t("nav.supervision")}</SectionLabel>
 
-          {dashboardsEnabled && (
-            <NavLink to="/dashboards" className={navLinkClass}>
-              <LayoutDashboard className="h-4 w-4" />
-              {t("app.dashboards")}
-            </NavLink>
-          )}
+          {/* Each dashboard is a view of the building, listed the way a BMS
+           *  lists its views: first-level, no parent, in the API's order.
+           *  Active on its own route only, not while authoring a widget. */}
+          {dashboardsEnabled &&
+            dashboards.map((dashboard) => (
+              <NavLink
+                key={dashboard.id}
+                to={`/dashboards/${encodeURIComponent(dashboard.id)}`}
+                end
+                className={navLinkClass}
+              >
+                <LayoutDashboard className="h-4 w-4 shrink-0" />
+                <span className="min-w-0 truncate">{dashboard.name}</span>
+              </NavLink>
+            ))}
 
           <NavLink to="/devices" className={navLinkClass}>
             <Cpu className="h-4 w-4" />

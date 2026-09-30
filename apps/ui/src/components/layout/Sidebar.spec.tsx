@@ -8,7 +8,6 @@ vi.mock("react-i18next", () =>
   createI18nMock({
     "app.title": "Gridone",
     "app.version": "Version {{version}}",
-    "app.dashboards": "Dashboards",
     "app.synoptics": "Synoptics",
     "app.devices": "Devices",
     "app.assets": "Zones",
@@ -58,6 +57,11 @@ vi.mock("@/hooks/usePendingAppRequests", () => ({
   usePendingAppRequests: () => ({ pendingCount: pendingAppRequests }),
 }));
 
+let dashboards: { id: string; name: string }[] = [];
+vi.mock("@/pages/dashboards/useDashboards", () => ({
+  useDashboardEntries: () => ({ dashboards, ready: true }),
+}));
+
 // The building block has its own spec; stub it so this one stays about nav.
 vi.mock("./BuildingSwitcher", () => ({
   BuildingSwitcher: () => <div data-testid="building-switcher" />,
@@ -65,9 +69,9 @@ vi.mock("./BuildingSwitcher", () => ({
 
 import { Sidebar } from "./Sidebar";
 
-function renderSidebar(mobile = false) {
+function renderSidebar(mobile = false, path = "/devices") {
   return render(
-    <MemoryRouter initialEntries={["/devices"]}>
+    <MemoryRouter initialEntries={[path]}>
       <Sidebar mobile={mobile} />
     </MemoryRouter>,
   );
@@ -78,6 +82,7 @@ beforeEach(() => {
   permissions.can = () => true;
   flags.dashboards = true;
   flags.synoptics = true;
+  dashboards = [];
   faults = [];
   devices = [];
   pendingAppRequests = 0;
@@ -221,12 +226,53 @@ describe("Sidebar", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("hides Dashboards when the feature flag is off", () => {
+  it.each([false, true])(
+    "lists each dashboard first under Supervision, in order, active on its own route only (mobile: %s)",
+    (mobile) => {
+      dashboards = [
+        { id: "d1", name: "ECS Ouest" },
+        { id: "d2", name: "CTA" },
+      ];
+      renderSidebar(mobile, "/dashboards/d2/widgets/new");
+      const first = screen.getAllByRole("link").slice(0, 2);
+      expect(first.map((link) => link.textContent)).toEqual([
+        "ECS Ouest",
+        "CTA",
+      ]);
+      expect(screen.getByRole("link", { name: "CTA" })).toHaveAttribute(
+        "href",
+        "/dashboards/d2",
+      );
+      expect(screen.queryByText("Dashboards")).not.toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "CTA" })).not.toHaveAttribute(
+        "aria-current",
+      );
+      cleanup();
+
+      renderSidebar(mobile, "/dashboards/d2");
+      expect(screen.getByRole("link", { name: "CTA" })).toHaveAttribute(
+        "aria-current",
+        "page",
+      );
+      expect(
+        screen.getByRole("link", { name: "ECS Ouest" }),
+      ).not.toHaveAttribute("aria-current");
+    },
+  );
+
+  it("starts Supervision at Devices without a dashboard, or with the flag off", () => {
+    dashboards = [{ id: "d1", name: "ECS Ouest" }];
     flags.dashboards = false;
     renderSidebar();
     expect(
-      screen.queryByRole("link", { name: "Dashboards" }),
+      screen.queryByRole("link", { name: "ECS Ouest" }),
     ).not.toBeInTheDocument();
+    cleanup();
+
+    flags.dashboards = true;
+    dashboards = [];
+    renderSidebar();
+    expect(screen.getAllByRole("link")[0]).toHaveTextContent("Devices");
   });
 
   it("hides Synoptics from a reader: the entry is for authoring plates", () => {
