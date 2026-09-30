@@ -69,8 +69,11 @@ function reach(
  * unknown `flow` starts nothing, a stale or unknown state stops nothing.
  * Nothing is inferred from an inline pump that runs, which would move the
  * return of a loop whose pump is on the supply: a pump can only stop the
- * fluid. A run whose own `flow` reads true moves whatever stands around it,
- * since its own signal says so.
+ * fluid. The one exception is a twin pump on a run with no `flow` of its
+ * own: the pair has no point saying it runs and either head may be the one
+ * running, so the run flows while a head reads on. A run whose own `flow`
+ * reads true moves whatever stands around it, since its own signal says
+ * so.
  */
 export function circulatingRuns(
   symbols: Iterable<SymbolElement>,
@@ -112,8 +115,22 @@ export function circulatingRuns(
     const index = passages.findIndex((passage) => passage.includes(port));
     return index < 0 ? null : junction(symbolId, index);
   };
+  const headRuns = (symbolId: string) => {
+    const heads = symbolHeads(byId.get(symbolId)!);
+    return (
+      heads[0].key !== null &&
+      heads.some(
+        ({ state }) =>
+          !!state &&
+          stateOf(values.slots[symbolSlotKey(symbolId, state)]) === "on",
+      )
+    );
+  };
   const flowOf = (pipe: PipeElement) => {
-    const reading = pipe.flow ? values.slots[flowSlotKey(pipe.id)] : undefined;
+    if (!pipe.flow) {
+      return (inline.get(pipe.id) ?? []).some(headRuns) ? true : undefined;
+    }
+    const reading = values.slots[flowSlotKey(pipe.id)];
     return !reading || reading.stale ? undefined : truthOf(reading.raw);
   };
 

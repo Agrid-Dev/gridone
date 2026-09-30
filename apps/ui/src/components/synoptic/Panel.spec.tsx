@@ -1,7 +1,14 @@
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { SILENT_TEXT } from "./Chip";
-import { Panel, panelHeight, PANEL_W, type PanelRow } from "./Panel";
+import {
+  Panel,
+  panelHeight,
+  PANEL_W,
+  panelWidth,
+  type PanelRow,
+} from "./Panel";
+import { textWidth } from "./text";
 import type { SlotReading } from "./values";
 
 afterEach(cleanup);
@@ -157,5 +164,32 @@ describe("Panel of a twin pump", () => {
     expect(Number(leds[0].getAttribute("cx"))).toBeLessThan(
       Number(leds[1].getAttribute("cx")),
     );
+  });
+});
+
+describe("Panel width", () => {
+  it("grows past its usual width only to keep a long title clear of its LEDs", () => {
+    const title = "POMPE DE BOUCLAGE";
+    const { container } = render(
+      <svg>
+        <Panel
+          at={{ x: 200, y: 300 }}
+          title={title}
+          rows={ROWS}
+          heads={[
+            { state: undefined, fault: null },
+            { state: undefined, fault: null },
+          ]}
+        />
+      </svg>,
+    );
+    const frame = container.querySelector("rect")!;
+    const x = Number(frame.getAttribute("x"));
+    expect(Number(frame.getAttribute("width"))).toBe(panelWidth(title, 2));
+    expect(panelWidth(title, 2)).toBeGreaterThan(PANEL_W);
+    const titleEnd = x + 7 + textWidth(title, 11);
+    const firstLed = container.querySelector("[data-led]")!;
+    expect(Number(firstLed.getAttribute("cx")) - 4).toBeGreaterThan(titleEnd);
+    expect(panelWidth("PAC 03", 1)).toBe(PANEL_W);
   });
 });

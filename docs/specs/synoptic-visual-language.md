@@ -159,7 +159,7 @@ Every piece of text a plate places (names, tags, readouts) goes through `placeme
 ## Open points
 
 - The fluid floor of 18 is what six hues reach in the dark theme; if a twelfth fluid comes, the check says whether the band has room.
-- `energy_meter` is placed inline five times on the hot-production plate, which confirms it; `pump_double` now binds and opens each head on its own, and is still placed by no plate: the hot and cold productions draw their pairs as single pumps, the ECS stations their bouclage pair as one, until their plates regroup them.
+- `energy_meter` is placed inline five times on the hot-production plate, which confirms it; `pump_double` binds and opens each head on its own, and every plate draws its pairs with it: the hot production's two, the cold production's one, the ECS stations' bouclage pumps.
 - Whether the 12 px floor (Decision 25) holds on a wall screen at distance is the first thing to revisit after the first real view; full screen (Decision 21) is the interim answer.
 - A tee or a collector carries one fluid (Decision 8): a make-up line or a changeover crossover of another fluid never moves with the loop it meets, even while it fills or changes over, since the plate has no reading for it.
 - A run moves as a whole: a return loop that carries one heat pump's water up to its tee, past the other stopped heat pump's branch, moves to its end. On ECS Est, `b08-b09` is drawn from `b08`'s domestic outlet into `b09`'s primary, so the fluid enters `b09`'s column there rather than from `b08`'s primary; the editor is where to redraw it.

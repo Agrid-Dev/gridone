@@ -99,8 +99,9 @@ def test_the_panoplie_is_the_p_and_id_s(ecs_plate):
     def on(s: Symbol) -> tuple[str, str | None]:
         return (s.placement.kind, getattr(s.placement, "pipe", None))
 
+    # The P&ID draws the loop pump as a twin, the surpression pump single.
     assert (symbols["pompe-bouclage"].type, on(symbols["pompe-bouclage"])) == (
-        "pump",
+        "pump_double",
         ("pipe", "dhw-loop-return"),
     )
     assert (symbols["rechauffeur-boucle"].type, on(symbols["rechauffeur-boucle"])) == (
@@ -127,7 +128,10 @@ def test_the_panoplie_is_the_p_and_id_s(ecs_plate):
     ]
     assert order == sorted(order)
     not_identified = TextSlot(text="non identifiée")
-    assert symbols["pompe-bouclage"].bindings == {"state": not_identified}
+    assert symbols["pompe-bouclage"].bindings == {
+        "state_a": not_identified,
+        "state_b": not_identified,
+    }
     assert symbols["rechauffeur-boucle"].bindings == {
         "state": not_identified,
         "fault": not_identified,

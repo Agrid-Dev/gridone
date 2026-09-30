@@ -27,7 +27,7 @@ import { DepthOrdered, type DepthItem } from "./DepthOrdered";
 import { headName, headOf, headSlot, machineFault, symbolHeads } from "./heads";
 import { TEXT_RANK } from "./legibility";
 import type { View, ViewportController } from "./hooks/useViewport";
-import { Panel, PANEL_W, panelHeight, type PanelRow } from "./Panel";
+import { Panel, panelHeight, panelWidth, type PanelRow } from "./Panel";
 import { PidDiagram, type CanvasTouchAction } from "./PidDiagram";
 import { Pipe } from "./Pipe";
 import {
@@ -1300,11 +1300,12 @@ function addSymbols(plate: Plate) {
       continue;
     }
     const h = panelHeight(readings.length);
+    const title = symbol.label ?? symbol.id;
     const { box, anchor, hanging } = placeReadout(
       plate,
       symbol,
       labelPoint,
-      PANEL_W,
+      panelWidth(title, state ? 1 : (heads?.length ?? 0)),
       h,
       "panel",
     );
@@ -1322,7 +1323,7 @@ function addSymbols(plate: Plate) {
           <Leader box={box} anchor={anchor} kind="panel" />
           <Panel
             at={{ x: (box.x0 + box.x1) / 2, y: box.y1 }}
-            title={symbol.label ?? symbol.id}
+            title={title}
             rows={readings.map<PanelRow>(({ slot, reading }) => ({
               label: vocabulary.slotLabel(slot),
               reading,

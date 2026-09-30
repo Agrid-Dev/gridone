@@ -93,22 +93,22 @@ const VALUES: SynopticValues = {
       severity: "alert",
     },
     "label.cpt-ballon-est": sample(1311989, "kWh"),
-    "symbol.pompe-pec-e2a.state": live("MARCHE", true),
-    "symbol.pompe-pec-e2a.speed": live("5242", 5242, "tr/min"),
-    "symbol.pompe-pec-e2b.state": {
+    "symbol.pompe-pec-e2.state_a": live("MARCHE", true),
+    "symbol.pompe-pec-e2.speed_a": live("5242", 5242, "tr/min"),
+    "symbol.pompe-pec-e2.state_b": {
       ...live("ARRÊT", false),
       faulty: true,
       severity: "warning",
     },
-    "symbol.pompe-pec-e2b.speed": {
+    "symbol.pompe-pec-e2.speed_b": {
       ...live("0", 0, "tr/min"),
       faulty: true,
       severity: "warning",
     },
-    "symbol.pompe-pec-e3a.state": live("ARRÊT", false),
-    "symbol.pompe-pec-e3a.speed": live("0", 0, "tr/min"),
-    "symbol.pompe-pec-e3b.state": { ...live("MARCHE", true), stale: true },
-    "symbol.pompe-pec-e3b.speed": {
+    "symbol.pompe-pec-e3.state_a": live("ARRÊT", false),
+    "symbol.pompe-pec-e3.speed_a": live("0", 0, "tr/min"),
+    "symbol.pompe-pec-e3.state_b": { ...live("MARCHE", true), stale: true },
+    "symbol.pompe-pec-e3.speed_b": {
       ...live("4800", 4800, "tr/min"),
       stale: true,
     },
@@ -148,17 +148,14 @@ const VALUES: SynopticValues = {
       ),
     ),
     // What sets the circuits moving in the isometric view: the running
-    // heat pumps and pumps, the stopped ones still, one pump's reading old.
+    // heat pumps, and the twin pumps whose head runs (their branches read
+    // no flow of their own), the stopped ones still.
     "pipe.pac-03-supply.flow": live("MARCHE", true),
     "pipe.pac-04-supply.flow": live("ARRÊT", false),
     "pipe.pac-01-supply.flow": live("MARCHE", true),
     "pipe.pac-02-supply.flow": live("ARRÊT", false),
-    "pipe.pec-e2a-branch.flow": live("MARCHE", true),
-    "pipe.pec-e2b-branch.flow": live("ARRÊT", false),
-    "pipe.pec-e3a-branch.flow": live("ARRÊT", false),
-    "pipe.pec-e3b-branch.flow": { ...live("MARCHE", true), stale: true },
-    "pipe.peg-e2-a-branch.flow": live("MARCHE", true),
-    "pipe.peg-e2-b-branch.flow": live("ARRÊT", false),
+    "symbol.pompe-peg-e2.state_a": live("MARCHE", true),
+    "symbol.pompe-peg-e2.state_b": live("ARRÊT", false),
   },
   // PAC 04 in alert, pump PEC E2B in warning, the ECH-04 meter for info.
   devices: {

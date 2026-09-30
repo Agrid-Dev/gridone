@@ -90,6 +90,14 @@ const reading = (raw: SlotReading["raw"], stale = false): SlotReading => ({
 });
 const flow = (pipe: string) => `pipe.${pipe}.flow`;
 const state = (symbol: string) => `symbol.${symbol}.state`;
+/** The slots a symbol's run state is read from: its own, or each head's of
+ *  a twin pump. */
+const stateSlots = (s: SymbolElement) => {
+  const heads = Object.values(symbolSchemas[s.type]?.["x-heads"] ?? {});
+  return heads.length
+    ? heads.map((roles) => `symbol.${s.id}.${roles.state}`)
+    : [state(s.id)];
+};
 const vals = (slots: Record<string, SlotReading> = {}): SynopticValues => ({
   slots,
   devices: {},
@@ -249,6 +257,49 @@ describe("circulatingRuns", () => {
         }),
       ).toEqual(new Set(["sup", "ret"]));
     }
+  });
+
+  it("sets a run with no flow of its own going while a head of its twin pump runs", () => {
+    // The pair has no point saying it runs and either head may be the one
+    // running; a single pump still never starts a run.
+    const sup = run(
+      "sup",
+      "primary_supply",
+      port("hp", "supply"),
+      port("tank", "primary_in"),
+    );
+    const ret = run(
+      "ret",
+      "primary_return",
+      port("tank", "primary_out"),
+      port("hp", "return"),
+    );
+    const twin = [...LOOP_SYMBOLS, onRun("g", "pump_double", "sup")];
+    const head = (key: string) => `symbol.g.state_${key}`;
+    expect(moving(twin, [sup, ret], { [head("b")]: reading(true) })).toEqual(
+      new Set(["sup", "ret"]),
+    );
+    expect(
+      moving(twin, [sup, ret], {
+        [head("a")]: reading(false),
+        [head("b")]: reading(false),
+      }).size,
+    ).toBe(0);
+    // A stale head starts nothing.
+    expect(
+      moving(twin, [sup, ret], { [head("a")]: reading(true, true) }).size,
+    ).toBe(0);
+    const single = [...LOOP_SYMBOLS, onRun("g", "pump", "sup")];
+    expect(
+      moving(single, [sup, ret], { [state("g")]: reading(true) }).size,
+    ).toBe(0);
+    // A run's own flow still decides: read off, no head can start it.
+    expect(
+      moving(twin, LOOP, {
+        [flow("sup")]: reading(false),
+        [head("a")]: reading(true),
+      }).has("sup"),
+    ).toBe(false);
   });
 
   it("stops a twin pump's run only once both heads read off", () => {
@@ -501,14 +552,29 @@ function rules(doc: Synoptic, values: SynopticValues) {
   const byId = new Map(pipes.map((p) => [p.id, p]));
   const known = (r: SlotReading | undefined) =>
     r && !r.stale ? truthOf(r.raw) : undefined;
+  const inlineOn = (id: string) =>
+    [...symbols.values()].filter(
+      (s) => s.placement.kind === "pipe" && s.placement.pipe === id,
+    );
+  // A twin pump on a run with no flow of its own sets it going while a
+  // head reads on; a single pump never does.
+  const twinRuns = (s: SymbolElement) =>
+    Object.keys(symbolSchemas[s.type]?.["x-heads"] ?? {}).length > 0 &&
+    stateSlots(s).some((key) => stateOf(values.slots[key]) === "on");
   const ownFlow = (p: PipeElement) =>
-    p.flow ? known(values.slots[flow(p.id)]) : undefined;
+    p.flow
+      ? known(values.slots[flow(p.id)])
+      : inlineOn(p.id).some(twinRuns)
+        ? true
+        : undefined;
+  // A gate stops the fluid once every state it reads is off: a twin's two
+  // heads, else its own.
   const gatesOff = (id: string) => {
     const s = symbols.get(id);
     return (
       !!s &&
       symbolSchemas[s.type]?.["x-gates-flow"] === true &&
-      stateOf(values.slots[state(id)]) === "off"
+      stateSlots(s).every((key) => stateOf(values.slots[key]) === "off")
     );
   };
   const passage = (end: End, fluid: string): string | null => {
@@ -526,10 +592,6 @@ function rules(doc: Synoptic, values: SynopticValues) {
     const i = passages.findIndex((group) => group.includes(end.port));
     return i < 0 ? null : `${s.id}|${i}`;
   };
-  const inlineOn = (id: string) =>
-    [...symbols.values()].filter(
-      (s) => s.placement.kind === "pipe" && s.placement.pipe === id,
-    );
   const seeds = new Set(
     pipes.filter((p) => ownFlow(p) === true).map((p) => p.id),
   );
@@ -607,9 +669,16 @@ function rules(doc: Synoptic, values: SynopticValues) {
  *  the gating symbols it binds. */
 function knobs(doc: Synoptic) {
   const flows = (doc.pipes ?? []).filter((p) => p.flow).map((p) => p.id);
+  // The state slots of the gating symbols a device reads: a literal ("non
+  // identifiée") never reads on or off.
   const gates = (doc.symbols ?? [])
-    .filter((s) => symbolSchemas[s.type]?.["x-gates-flow"] && s.bindings?.state)
-    .map((s) => s.id);
+    .filter((s) => symbolSchemas[s.type]?.["x-gates-flow"])
+    .flatMap((s) =>
+      stateSlots(s).filter((key) => {
+        const slot = key.slice(`symbol.${s.id}.`.length);
+        return s.bindings?.[slot]?.kind === "attribute";
+      }),
+    );
   return { flows, gates };
 }
 
@@ -644,7 +713,7 @@ function* readings(doc: Synoptic, draws = 200) {
   ) => {
     const slots: Record<string, SlotReading> = {};
     flows.forEach((id, i) => f[i] && (slots[flow(id)] = f[i]!));
-    gates.forEach((id, i) => g[i] && (slots[state(id)] = g[i]!));
+    gates.forEach((key, i) => g[i] && (slots[key] = g[i]!));
     return slots;
   };
   const gateSets = [
@@ -769,11 +838,10 @@ describe("circulatingRuns on the committed plates", () => {
           });
       };
       let switches = 0;
-      for (const slots of readings(doc, 100)) {
-        for (const id of gates) {
-          if (slots[state(id)]?.raw !== false || slots[state(id)]?.stale)
-            continue;
-          turnOn(slots, state(id));
+      for (const slots of readings(doc, 400)) {
+        for (const key of gates) {
+          if (slots[key]?.raw !== false || slots[key]?.stale) continue;
+          turnOn(slots, key);
           switches += 1;
         }
         for (const id of flows) {
@@ -857,17 +925,17 @@ describe("circulatingRuns on the committed plates", () => {
   it("production-chaud: closing a branch's supply valve stills its return too", () => {
     const doc = plate("production-chaud");
     const set = circulate(doc, {
-      [flow("pec-e2a-branch")]: reading(true),
+      ["symbol.pompe-pec-e2.state_a"]: reading(true),
       [state("v-vc-ec-aller")]: reading(false),
     });
     expect(set.has("vc-depart")).toBe(false);
     expect(set.has("vc-retour")).toBe(false);
   });
 
-  it("production-chaud: the secondary moves from its pump branches, the primary never, and a closed valve stills its branch", () => {
+  it("production-chaud: the secondary moves from a running pump head, the primary never, and a closed valve stills its branch", () => {
     const doc = plate("production-chaud");
     const set = circulate(doc, {
-      [flow("pec-e2a-branch")]: reading(true),
+      ["symbol.pompe-pec-e2.state_a"]: reading(true),
     });
     for (const id of [
       "sec-supply",
@@ -885,7 +953,7 @@ describe("circulatingRuns on the committed plates", () => {
     ])
       expect(set.has(id)).toBe(false);
     const closed = circulate(doc, {
-      [flow("pec-e2a-branch")]: reading(true),
+      ["symbol.pompe-pec-e2.state_a"]: reading(true),
       [state("v-vc-ec-aller")]: reading(false),
     });
     expect(closed.has("vc-depart")).toBe(false);

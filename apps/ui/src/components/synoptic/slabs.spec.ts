@@ -199,8 +199,8 @@ describe("slabsOf", () => {
       // Ouest: the loop heater's slab overlapped the mixer group's frame,
       // so the two are one distribution slab.
       ["ecs-ouest", 5, rect(21.3, -3.7, 29.7, 2.7)],
-      ["production-chaud", 16, rect(43.3, -9.7, 47.7, -3.3)],
-      ["production-froid", 12, rect(23.3, 1.3, 28.7, 5.7)],
+      ["production-chaud", 14, rect(43.3, -9.7, 47.7, -3.3)],
+      ["production-froid", 11, rect(23.3, 1.3, 28.7, 5.7)],
     ])("groups %s into %i slabs", (name, count, sample) => {
       const doc = plate(name);
       const slabs = slabsOf(doc.symbols ?? []);

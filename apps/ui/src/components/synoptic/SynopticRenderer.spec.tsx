@@ -160,20 +160,24 @@ const plate = (name: string): Synoptic => ({
   metadata: {},
 });
 /** What the renderer decides on each committed plate: tees (a disc at every
- *  branch point), panels (a symbol with several bound slots) and chips
- *  (every single reading, on a tag, a symbol or a caption). What the
+ *  branch point), panels (a symbol with several bound slots), chips (every
+ *  single reading, on a tag, a symbol or a caption) and, among them, the
+ *  chips of symbols (none on a bay since its loop pump became a twin, whose
+ *  two heads read in a panel). What the
  *  document says (tags and their literals, fluids, labels) is read from the
  *  plate under test. The bays share the template and differ in their tees:
  *  the second PAC's return off the return loop on both, the column-3 feed on
  *  Ouest. */
-const ECS_BAY = { panels: 3, chips: 4 };
-const PLATES: Record<string, { tees: number; panels: number; chips: number }> =
-  {
-    "ecs-est": { ...ECS_BAY, tees: 1 },
-    "ecs-ouest": { ...ECS_BAY, tees: 2 },
-    "production-chaud": { tees: 16, panels: 4, chips: 35 },
-    "production-froid": { tees: 6, panels: 2, chips: 21 },
-  };
+const ECS_BAY = { panels: 4, chips: 3, symbolChips: 0 };
+const PLATES: Record<
+  string,
+  { tees: number; panels: number; chips: number; symbolChips: number }
+> = {
+  "ecs-est": { ...ECS_BAY, tees: 1 },
+  "ecs-ouest": { ...ECS_BAY, tees: 2 },
+  "production-chaud": { tees: 12, panels: 2, chips: 35, symbolChips: 19 },
+  "production-froid": { tees: 4, panels: 1, chips: 21, symbolChips: 9 },
+};
 const PLATE_CASES = Object.entries(PLATES);
 
 function draw(doc = DOC, values?: SynopticValues) {
@@ -870,7 +874,7 @@ describe("SynopticRenderer", () => {
   // the values fixture binds nothing on a committed plate.
   describe.each(PLATE_CASES)(
     "the %s plate",
-    (name, { tees, panels, chips }) => {
+    (name, { tees, panels, chips, symbolChips }) => {
       const doc = plate(name);
       const c = document.createElement("div");
       c.innerHTML = renderToStaticMarkup(<SynopticRenderer doc={doc} />);
@@ -925,7 +929,7 @@ describe("SynopticRenderer", () => {
         const readouts = q(c, "[data-readout]").filter((g) =>
           g.querySelector("[data-chip]"),
         );
-        expect(readouts.length).toBeGreaterThan(0);
+        expect(readouts).toHaveLength(symbolChips);
         for (const readout of readouts) {
           const id = readout.getAttribute("data-readout")!;
           const cell = cells.get(id)!;

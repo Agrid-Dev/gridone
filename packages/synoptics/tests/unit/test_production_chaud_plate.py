@@ -1,5 +1,5 @@
 """What the hot-production drawing decides on its own: a district primary
-on a plate exchanger, four pump heads on a manifold, two collectors serving
+on a plate exchanger, two twin pumps on a manifold, two collectors serving
 four circuits, two of them able to change over to the cold production.
 
 ``docs/specs/synoptic/production-chaud.json`` is the first plate off the
@@ -24,7 +24,11 @@ from synoptics.models import (
     TextSlot,
 )
 
-PUMP_HEADS = ("e2a", "e2b", "e3a", "e3b")
+PUMP_PAIRS = {
+    "e2": ("52ed0f86ef794a28", "cd1eb8257cce468b"),
+    "e3": ("da726c2051f04915", "44b799a6fd4f4023"),
+}
+"""Each twin pump and the devices of its heads, the panel's A then B."""
 CIRCUITS = ("cuisine", "vc", "cta", "vcv-chambres")
 CONTROLLER = "71c980107f9448e7"
 CIRCUIT_VALVE = {
@@ -99,42 +103,49 @@ def test_the_three_temperatures_read_the_meter_and_the_controller(tags):
         assert (reading.unit, reading.decimals) == ("°C", 1)
 
 
-def test_the_manifold_gives_every_head_its_own_branch(symbols, pipes):
-    """Four heads, four branches, four devices; the trunk and the merge carry
-    no flow (four heads feed one run, no single attribute says it runs)."""
-    heads = {h: symbols[f"pompe-pec-{h}"] for h in PUMP_HEADS}
-    assert {h.type for h in heads.values()} == {"pump"}
-    devices = {h.device_id for h in heads.values()}
-    assert len(devices) == 4
-    for name, head in heads.items():
-        branch = pipes[f"pec-{name}-branch"]
-        assert head.placement.kind == "pipe"
-        assert head.placement.pipe == branch.id
-        assert set(head.bindings) == {"state", "speed"}
-        assert {device_of(v) for v in head.bindings.values()} == {head.device_id}
-        assert head.bindings["speed"].unit == "tr/min"
-        assert device_of(branch.flow) == head.device_id
-        # The view's pressure dials are the heads' own differential head
-        # registers (the cold view's 65.5 bar is a stopped head's sentinel),
-        # so each branch carries its head's reading, raw.
-        pression = next(t for t in branch.tags if t.id == f"pression-pec-{name}")
-        assert device_of(pression.value) == head.device_id
-        assert (pression.value.target.attribute, pression.value.unit) == (
-            "head",
-            "bar",
-        )
-        assert branch.flow.target.attribute == "onoff_state"
+def test_each_pair_is_one_twin_on_its_own_branch(symbols, pipes):
+    """Two twin pumps on two branches, as the plant diagram and the
+    controller panel draw them; each head is its own device and carries its
+    own pressure. No run carries a flow of its own: the twin sets its branch
+    going while either head runs, since no attribute says the pair runs."""
+    for pair, devices in PUMP_PAIRS.items():
+        twin = symbols[f"pompe-pec-{pair}"]
+        branch = pipes[f"pec-{pair}-branch"]
+        assert (twin.type, twin.device_id) == ("pump_double", None)
+        assert twin.placement.kind == "pipe"
+        assert twin.placement.pipe == branch.id
+        assert set(twin.bindings) == {"state_a", "speed_a", "state_b", "speed_b"}
+        for head, device in zip("ab", devices, strict=True):
+            assert twin.props["heads"][head] == {"device_id": device}
+            state, speed = (
+                twin.bindings[f"state_{head}"],
+                twin.bindings[f"speed_{head}"],
+            )
+            assert device_of(state) == device_of(speed) == device
+            assert state.target.attribute == "onoff_state"
+            assert speed.unit == "tr/min"
+            # The view's pressure dials are the heads' own differential head
+            # registers, one per head, raw.
+            pression = next(
+                t for t in branch.tags if t.id == f"pression-pec-{pair}{head}"
+            )
+            assert pression.label == f"PRESSION {head.upper()}"
+            assert device_of(pression.value) == device
+            assert (pression.value.target.attribute, pression.value.unit) == (
+                "head",
+                "bar",
+            )
+        assert branch.flow is None
         assert joins(branch.to, "sec-supply-out")
     assert pipes["sec-supply"].flow is None
     assert pipes["sec-supply-out"].flow is None
-    # E2 above E3 and A above B, as the view stacks them: rows ascend in y.
-    rows = [heads[h].placement.cell.y for h in PUMP_HEADS]
+    # E2 above E3, as the view stacks them: rows ascend in y.
+    rows = [symbols[f"pompe-pec-{p}"].placement.cell.y for p in PUMP_PAIRS]
     assert rows == sorted(rows)
-    # The trunk ends where the top branch starts; the other three tee off it.
-    assert joins(pipes["sec-supply"].to, "pec-e2a-branch")
-    assert pipes["sec-supply"].to.cell == pipes["pec-e2a-branch"].from_.cell
-    for name in PUMP_HEADS[1:]:
-        assert joins(pipes[f"pec-{name}-branch"].from_, "sec-supply")
+    # The trunk ends where the top branch starts; the other tees off it.
+    assert joins(pipes["sec-supply"].to, "pec-e2-branch")
+    assert pipes["sec-supply"].to.cell == pipes["pec-e2-branch"].from_.cell
+    assert joins(pipes["pec-e3-branch"].from_, "sec-supply")
 
 
 def test_every_circuit_reads_its_own_energy_valve(plate, symbols, tags):
@@ -296,7 +307,7 @@ def test_the_fluids_are_keyed_by_circuit_role(pipes):
     assert fluid["prim-supply"] == "primary_supply"
     assert fluid["prim-return"] == "primary_return"
     assert {fluid[p] for p in ("sec-supply", "sec-supply-out")} == {"heating_supply"}
-    assert {fluid[f"pec-{h}-branch"] for h in PUMP_HEADS} == {"heating_supply"}
+    assert {fluid[f"pec-{p}-branch"] for p in PUMP_PAIRS} == {"heating_supply"}
     assert {fluid[p] for p in ("sec-return", "vase-connection", "pot-a-boue-loop")} == {
         "heating_return"
     }
@@ -330,9 +341,7 @@ def test_the_labels_are_the_drawing_s_words(plate, symbols):
         for s in symbols.values()
         if s.type in ("valve_isolation", "valve_control")
     )
-    assert [symbols[f"pompe-pec-{h}"].label for h in PUMP_HEADS] == [
-        "PEC E2A",
-        "PEC E2B",
-        "PEC E3A",
-        "PEC E3B",
+    assert [symbols[f"pompe-pec-{p}"].label for p in PUMP_PAIRS] == [
+        "PEC E2",
+        "PEC E3",
     ]
