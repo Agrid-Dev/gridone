@@ -112,7 +112,10 @@ def test_a_loop_heater_is_inline_with_a_state_and_a_fault(registry):
     ("type_", "slots"),
     [
         ("pump", ("state", "speed")),
-        ("pump_double", ("state",)),
+        (
+            "pump_double",
+            ("state_a", "fault_a", "speed_a", "state_b", "fault_b", "speed_b"),
+        ),
         ("energy_meter", ("energy",)),
         ("dirt_separator", ("fault",)),
         ("valve_control", ("position",)),
@@ -398,9 +401,13 @@ def test_only_what_stops_the_fluid_when_off_gates_the_flow(registry):
     loop heater that is off only stops heating, and the loop still runs."""
     gating = {name for name, s in registry.schemas().items() if s["x-gates-flow"]}
     assert gating == {"heat_pump", "pump", "pump_double", "valve_isolation"}
-    assert all("state" in registry.schemas()[name]["x-slots"] for name in gating), (
-        "a type gates the flow by its state reading"
-    )
+    for name in gating:
+        schema = registry.schemas()[name]
+        heads = schema["x-heads"].values()
+        states = [r["state"] for r in heads] if heads else ["state"]
+        assert set(states) <= set(schema["x-slots"]), (
+            "a type gates the flow by its state reading, or each head's"
+        )
 
 
 def test_a_type_that_gates_the_flow_without_a_state_is_refused():
@@ -413,5 +420,85 @@ def test_a_type_that_gates_the_flow_without_a_state_is_refused():
                 footprint=Footprint(w=1, d=1),
                 inline=True,
                 gates_flow=True,
+            )
+        )
+
+
+def test_a_twin_pump_publishes_one_set_of_readings_per_head(registry):
+    """Each head is read and controlled on its own: the pair names, per
+    head, the slot that carries its state, fault and speed."""
+    schema = registry.schemas()["pump_double"]
+    assert schema["x-heads"] == {
+        "a": {"state": "state_a", "fault": "fault_a", "speed": "speed_a"},
+        "b": {"state": "state_b", "fault": "fault_b", "speed": "speed_b"},
+    }
+    assert registry.schemas()["pump"]["x-heads"] == {}
+
+
+def test_a_twin_pump_names_a_device_per_head(registry):
+    """The two heads may be two devices, or two sets of points on one."""
+    props = registry.validate_props(
+        "pump_double",
+        {"heads": {"a": {"device_id": "dev-a"}, "b": {"device_id": "dev-a"}}},
+    )
+    assert props.heads["a"].device_id == "dev-a"
+    assert props.heads["b"].device_id == "dev-a"
+    assert registry.validate_props("pump_double", {}).heads == {}
+
+
+@pytest.mark.parametrize(
+    "props",
+    [
+        {"heads": {"c": {"device_id": "dev-c"}}},
+        {"heads": {"a": {"device": "dev-a"}}},
+        {"device_id": "dev-a"},
+    ],
+    ids=["unknown-head", "unknown-head-key", "pair-device"],
+)
+def test_a_twin_pump_refuses_heads_it_does_not_have(registry, props):
+    with pytest.raises(InvalidError, match="Invalid props"):
+        registry.validate_props("pump_double", props)
+
+
+def test_a_head_on_an_undeclared_slot_is_refused():
+    registry = SymbolRegistry()
+    with pytest.raises(InvalidError, match="heads on slots it does not declare"):
+        registry.register(
+            SymbolType(
+                type="twin",
+                footprint=Footprint(w=1, d=1),
+                slots=("state_a",),
+                heads={"a": {"state": "state_a"}, "b": {"state": "state_b"}},
+            )
+        )
+
+
+def test_two_heads_on_one_slot_are_refused():
+    """A binding would feed a head it was not authored for."""
+    registry = SymbolRegistry()
+    with pytest.raises(InvalidError, match="shares head slots: state"):
+        registry.register(
+            SymbolType(
+                type="twin",
+                footprint=Footprint(w=1, d=1),
+                slots=("state",),
+                heads={"a": {"state": "state"}, "b": {"state": "state"}},
+            )
+        )
+
+
+def test_a_gating_type_with_a_head_that_has_no_state_is_refused():
+    """The pair stops only when every head reads off: a head with no state
+    reading can never be read off, so the gate would never close."""
+    registry = SymbolRegistry()
+    with pytest.raises(InvalidError, match="gates the flow with no state"):
+        registry.register(
+            SymbolType(
+                type="twin",
+                footprint=Footprint(w=1, d=1),
+                slots=("state_a", "speed_b"),
+                inline=True,
+                gates_flow=True,
+                heads={"a": {"state": "state_a"}, "b": {"speed": "speed_b"}},
             )
         )

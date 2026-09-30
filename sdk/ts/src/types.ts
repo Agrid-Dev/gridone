@@ -151,6 +151,10 @@ export type SymbolSchema = {
   /** A `state` reading off stops the fluid there: a stopped pump, a
    *  closed valve. */
   "x-gates-flow": boolean;
+  /** The machines of a type drawn as one unit (a twin pump's heads): per
+   *  head, the slot each role (`state`, `fault`, `speed`) is read from.
+   *  Empty for a type that is one machine. */
+  "x-heads": Record<string, Record<string, string>>;
   "x-slots": string[];
   "x-required-slots": string[];
   "x-inline": boolean;

@@ -68,6 +68,7 @@ class Violation(StrEnum):
     UNKNOWN_SYMBOL_TYPE = "unknown_symbol_type"
     INVALID_PROPS = "invalid_props"
     UNKNOWN_SLOT = "unknown_slot"
+    DEVICE_PER_HEAD = "device_per_head"
     MISSING_SLOT = "missing_slot"
     ROTATION_LOCKED = "rotation_locked"
     PORT_OFF_GRID = "port_off_grid"
@@ -374,6 +375,12 @@ def _check_symbols(
         _check_bindings(
             symbol, symbol_type.slots, symbol_type.required_slots, loc, errors
         )
+        if symbol_type.heads and symbol.device_id is not None:
+            errors.add(
+                (*loc, "device_id"),
+                f"Symbol type {symbol.type!r} names its devices per head",
+                Violation.DEVICE_PER_HEAD,
+            )
         if (
             symbol_type.rotation_locked
             and isinstance(symbol.placement, CellPlacement)

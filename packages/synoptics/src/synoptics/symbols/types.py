@@ -57,6 +57,12 @@ class SymbolType:
     ``gates_flow`` says a ``state`` reading off stops the fluid there: a
     stopped pump or heat pump, a closed valve; a loop heater that is off
     still lets the loop run.
+
+    ``heads`` are the machines of a symbol drawn as one unit, a twin pump's
+    duty and standby heads: each maps the role a slot plays (``state``,
+    ``speed``, ``fault``) to the slot that carries it for that head. Such a
+    type names its devices per head in its props, never on the symbol, and
+    stops the flow only when every head reads off.
     """
 
     type: str
@@ -74,3 +80,4 @@ class SymbolType:
     ports_from_props: Callable[[Any], Mapping[str, Port]] | None = None
     passages: tuple[tuple[str, ...], ...] | Literal["all"] = ()
     gates_flow: bool = False
+    heads: Mapping[str, Mapping[str, str]] = field(default_factory=dict)

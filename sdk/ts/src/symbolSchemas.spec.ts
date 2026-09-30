@@ -25,6 +25,11 @@ describe("symbolSchemas", () => {
       expect(typeof schema["x-gates-flow"]).toBe("boolean");
       expect(Array.isArray(schema["x-slots"])).toBe(true);
       expect(Array.isArray(schema["x-required-slots"])).toBe(true);
+      for (const roles of Object.values(schema["x-heads"])) {
+        for (const slot of Object.values(roles)) {
+          expect(schema["x-slots"]).toContain(slot);
+        }
+      }
       for (const port of Object.values(schema["x-ports"])) {
         expect(SIDES).toContain(port.side);
         expect(typeof port.offset.x).toBe("number");

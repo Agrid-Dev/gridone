@@ -3,6 +3,8 @@ from synoptics.symbols.props import (
     CollectorProps,
     LinkProps,
     NoProps,
+    PumpDoubleProps,
+    PumpHead,
     SymbolProps,
     TankProps,
 )
@@ -16,6 +18,8 @@ __all__ = [
     "LinkProps",
     "NoProps",
     "Port",
+    "PumpDoubleProps",
+    "PumpHead",
     "SymbolProps",
     "SymbolRegistry",
     "SymbolType",
