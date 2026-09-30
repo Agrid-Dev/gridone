@@ -162,7 +162,7 @@ describe("Sidebar", () => {
     ["transports:read", "Networks", "/transports"],
     ["users:read", "Users", "/users"],
     ["users:write", "Apps", "/apps"],
-    ["synoptics:read", "Synoptics", "/synoptics"],
+    ["synoptics:write", "Synoptics", "/synoptics"],
   ])(
     "keeps Configuration when only %s is granted",
     (permission, name, href) => {
@@ -227,6 +227,15 @@ describe("Sidebar", () => {
     expect(
       screen.queryByRole("link", { name: "Dashboards" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("hides Synoptics from a reader: the entry is for authoring plates", () => {
+    permissions.can = (value) => value === "synoptics:read";
+    renderSidebar();
+    expect(
+      screen.queryByRole("link", { name: "Synoptics" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Configuration")).not.toBeInTheDocument();
   });
 
   it("hides Synoptics when the feature flag is off", () => {

@@ -77,7 +77,9 @@ export function Sidebar({
   const { health } = useAuth();
   const dashboardsEnabled = useFeatureEnabled("dashboards");
   const synopticsEnabled = useFeatureEnabled("synoptics");
-  const showSynoptics = synopticsEnabled && can("synoptics:read");
+  // Under Configuration: the entry is for authoring plates. A reader meets
+  // them through the dashboards' synoptic widgets instead.
+  const showSynoptics = synopticsEnabled && can("synoptics:write");
   const { faults } = useFaultsList();
   const { devices } = useDevicesList();
   const { pendingCount: pendingAppRequests } = usePendingAppRequests();
