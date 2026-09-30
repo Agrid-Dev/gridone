@@ -1850,6 +1850,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/dashboards/order": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Reorder Dashboards */
+    put: operations["reorder_dashboards_dashboards_order_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/dashboards/": {
     parameters: {
       query?: never;
@@ -3958,6 +3975,15 @@ export interface components {
       /** Description */
       description?: string | null;
       metadata: components["schemas"]["Metadata"];
+    };
+    /**
+     * DashboardsOrderBody
+     * @description Request body for ``PUT /dashboards/order``: every dashboard id, once,
+     *     in display order.
+     */
+    DashboardsOrderBody: {
+      /** Ordered Ids */
+      ordered_ids: string[];
     };
     /** DataPointResponse */
     DataPointResponse: {
@@ -6199,7 +6225,9 @@ export interface components {
      *     own ``flow`` reads ``false``, one a machine or valve that gates the flow
      *     stops, or a dead end. Circulation is never inferred from an inline pump,
      *     which would move the return of a loop whose pump is on the supply: a pump
-     *     can only stop it.
+     *     can only stop it. A twin pump on a run with no ``flow`` of its own is the
+     *     exception: the pair has no point saying it runs, so the run flows while
+     *     either head reads on.
      *
      *     ``flow`` takes the ``attribute`` arm only. A literal has nothing to resolve,
      *     so a ``text`` flow would reach production as a run that silently never
@@ -6238,7 +6266,9 @@ export interface components {
      *     own ``flow`` reads ``false``, one a machine or valve that gates the flow
      *     stops, or a dead end. Circulation is never inferred from an inline pump,
      *     which would move the return of a loop whose pump is on the supply: a pump
-     *     can only stop it.
+     *     can only stop it. A twin pump on a run with no ``flow`` of its own is the
+     *     exception: the pair has no point saying it runs, so the run flows while
+     *     either head reads on.
      *
      *     ``flow`` takes the ``attribute`` arm only. A literal has nothing to resolve,
      *     so a ``text`` flow would reach production as a run that silently never
@@ -12630,6 +12660,37 @@ export interface operations {
               [key: string]: unknown;
             };
           };
+        };
+      };
+    };
+  };
+  reorder_dashboards_dashboards_order_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DashboardsOrderBody"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };

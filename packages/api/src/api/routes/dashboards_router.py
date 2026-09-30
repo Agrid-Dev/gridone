@@ -16,7 +16,11 @@ from fastapi import APIRouter, Depends, status
 from api.access.dependencies import get_target_resolver
 from api.auth import require_permission
 from api.dependencies import get_dashboards_service
-from api.schemas.dashboard import WidgetCreateBody, WidgetUpdateBody
+from api.schemas.dashboard import (
+    DashboardsOrderBody,
+    WidgetCreateBody,
+    WidgetUpdateBody,
+)
 from api.targets import validate_targets
 from models.targets import TargetResolver
 from users.permissions import Permission
@@ -27,14 +31,23 @@ _ServiceDep = Annotated[DashboardsServiceInterface, Depends(get_dashboards_servi
 _ResolverDep = Annotated[TargetResolver, Depends(get_target_resolver)]
 
 
-# ``/widget-schemas`` is declared before ``/{dashboard_id}`` so the literal path
-# isn't captured by the id path parameter.
+# ``/widget-schemas`` and ``/order`` are declared before ``/{dashboard_id}`` so
+# the literal paths aren't captured by the id path parameter.
 @router.get(
     "/widget-schemas",
     dependencies=[Depends(require_permission(Permission.DASHBOARDS_READ))],
 )
 def get_widget_schemas(svc: _ServiceDep) -> dict[str, dict[str, Any]]:
     return svc.widget_schemas()
+
+
+@router.put(
+    "/order",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_permission(Permission.DASHBOARDS_WRITE))],
+)
+async def reorder_dashboards(body: DashboardsOrderBody, svc: _ServiceDep) -> None:
+    await svc.reorder(body.ordered_ids)
 
 
 @router.get(

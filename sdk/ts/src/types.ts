@@ -330,6 +330,7 @@ export type Dashboard = Schemas["Dashboard"];
 export type DashboardSummary = Schemas["DashboardSummary"];
 export type DashboardCreate = Schemas["DashboardCreate"];
 export type DashboardPatch = Schemas["DashboardPatch"];
+export type DashboardsOrderBody = Schemas["DashboardsOrderBody"];
 export type DashboardMetadata = Schemas["Metadata"];
 export type Widget = Schemas["Widget"];
 export type WidgetConfig = Schemas["WidgetConfig"];

@@ -493,6 +493,31 @@ class TestLayout:
         assert resp.status_code == 422
 
 
+class TestOrder:
+    async def test_reorder_returns_204(self, client, svc):
+        async with client as c:
+            resp = await c.put("/order", json={"ordered_ids": ["d2", "d1"]})
+        assert resp.status_code == 204
+        svc.reorder.assert_awaited_once_with(["d2", "d1"])
+
+    async def test_reorder_is_not_captured_by_the_id_route(self, client, svc):
+        async with client as c:
+            await c.put("/order", json={"ordered_ids": ["d1"]})
+        svc.update.assert_not_awaited()
+
+    async def test_reorder_non_permutation_returns_422(self, client, svc):
+        svc.reorder.side_effect = InvalidError("Order has duplicate dashboard ids")
+        async with client as c:
+            resp = await c.put("/order", json={"ordered_ids": ["d1", "d1"]})
+        assert resp.status_code == 422
+
+    async def test_reorder_rejects_malformed_body(self, client, svc):
+        async with client as c:
+            resp = await c.put("/order", json={"ids": ["d1"]})
+        assert resp.status_code == 422
+        svc.reorder.assert_not_awaited()
+
+
 class TestWidgetSchemas:
     async def test_returns_schema_map(self, client):
         async with client as c:

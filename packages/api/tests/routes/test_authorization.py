@@ -1724,6 +1724,7 @@ def dashboards_app() -> FastAPI:
 _CREATE_BODY = {"name": "Ops"}
 _WIDGET_BODY = {"config": {"type": "text", "text": "hi", "color": "#1a2b3c"}}
 _LAYOUT_BODY = [{"i": "w1", "x": 0, "y": 0, "w": 4, "h": 2}]
+_ORDER_BODY = {"ordered_ids": ["d1"]}
 
 DASHBOARDS_ACCESS_CONTROL_SCENARIOS = [
     # Reads — every authenticated role can read; no-auth is 401.
@@ -1836,6 +1837,15 @@ DASHBOARDS_ACCESS_CONTROL_SCENARIOS = [
     ),
     pytest.param(
         "PUT", "/dashboards/any-id/layout", None, 401, _LAYOUT_BODY, id="layout-no-auth"
+    ),
+    pytest.param(
+        "PUT", "/dashboards/order", "operator", 204, _ORDER_BODY, id="order-op"
+    ),
+    pytest.param(
+        "PUT", "/dashboards/order", "viewer", 403, _ORDER_BODY, id="order-viewer"
+    ),
+    pytest.param(
+        "PUT", "/dashboards/order", None, 401, _ORDER_BODY, id="order-no-auth"
     ),
 ]
 

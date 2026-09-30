@@ -4,6 +4,7 @@ import type { RequestFn } from "../http/httpClient";
 import type {
   DashboardCreate,
   DashboardPatch,
+  DashboardsOrderBody,
   LayoutItem,
   WidgetCreateBody,
   WidgetUpdateBody,
@@ -22,6 +23,7 @@ function makeResource() {
 
 const CREATE: DashboardCreate = { name: "Ops", description: "Overview" };
 const PATCH: DashboardPatch = { name: "Ops v2" };
+const ORDER: DashboardsOrderBody = { ordered_ids: ["d2", "d1"] };
 const WIDGET: WidgetCreateBody = {
   config: { type: "text", text: "hi", color: "#1a2b3c" },
   title: "Note",
@@ -68,6 +70,11 @@ const CASES: Case[] = [
     "updateLayout",
     (d) => d.updateLayout("d1", LAYOUT),
     ["PUT", "/dashboards/d1/layout", { body: LAYOUT }],
+  ],
+  [
+    "reorder",
+    (d) => d.reorder(ORDER),
+    ["PUT", "/dashboards/order", { body: ORDER }],
   ],
   [
     "getWidgetSchemas",
