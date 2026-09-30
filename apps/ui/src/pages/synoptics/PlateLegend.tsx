@@ -1,4 +1,4 @@
-import type { FC } from "react";
+import { Fragment, type FC } from "react";
 import { useTranslation } from "react-i18next";
 import { symbolSchemas, type Fluid } from "@gridone/sdk";
 import { DRAWINGS } from "@/components/synoptic/symbols/drawings";
@@ -58,7 +58,8 @@ type PlateLegendProps = {
  * The legend of a plate. First row: one swatch per fluid the plate
  * carries, in the vocabulary's order, a moving run when the plate moves,
  * then every state the plate draws,
- * each drawn by the component that draws it there: a reading live, stale,
+ * each drawn by the component that draws it there: a reading live (as a
+ * number and as a state word, which takes the neutral ink), stale,
  * silent or authored; a fault at each severity; the run-state LED of the
  * sheet, and the state nobody knows; a link to a view that does not
  * exist. Second row, the key: the plan glyph and the name of every symbol
@@ -120,16 +121,34 @@ export const PlateLegend: FC<PlateLegendProps> = ({
           </dd>
         )}
         {READING_STATES.map((state, i) => (
-          <dd
-            key={state}
-            data-legend={`reading-${state}`}
-            className={`${item} ${i === 0 ? "border-l border-border pl-4" : ""}`}
-          >
-            <ChipSample
-              reading={sample(state, state === "note" ? "7 × 500 L" : value)}
-            />
-            {t(`legend.${state}`)}
-          </dd>
+          <Fragment key={state}>
+            <dd
+              data-legend={`reading-${state}`}
+              className={`${item} ${i === 0 ? "border-l border-border pl-4" : ""}`}
+            >
+              <ChipSample
+                reading={sample(state, state === "note" ? "7 × 500 L" : value)}
+              />
+              {t(`legend.${state}`)}
+            </dd>
+            {state === "live" && (
+              // A live state word is its own rendering: the neutral ink,
+              // never the reading green (the visual-language state rule).
+              <dd data-legend="reading-word" className={item}>
+                <ChipSample
+                  reading={{
+                    text: t("legend.led.on"),
+                    unit: null,
+                    raw: true,
+                    stale: false,
+                    faulty: false,
+                    word: true,
+                  }}
+                />
+                {t("legend.word")}
+              </dd>
+            )}
+          </Fragment>
         ))}
         {WORST_FIRST.map((severity, i) => (
           <dd
