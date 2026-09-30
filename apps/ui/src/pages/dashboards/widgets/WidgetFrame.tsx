@@ -34,7 +34,7 @@ export const WidgetFrame: FC<{
     )}
   >
     {(title || overlay) && (
-      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-1.5 text-xs font-medium text-foreground">
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-2 text-sm font-semibold text-foreground">
         <span className="min-w-0 truncate">{title}</span>
         {overlay}
       </div>
