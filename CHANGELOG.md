@@ -1,3 +1,9 @@
+## v0.284.1 (2026-09-30)
+
+### Fix
+
+- **synoptics**: draw state words in the neutral ink, not the reading green (#742)
+
 ## v0.284.0 (2026-09-30)
 
 ### Feat
