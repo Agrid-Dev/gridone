@@ -11,7 +11,13 @@ import {
   valueClass,
 } from "./Chip";
 import { FAULT_FILL_CLASS } from "./fault";
-import { LABEL_SIZE, Led, LED_PITCH, type SymbolState } from "./symbols/Label";
+import {
+  LABEL_SIZE,
+  Led,
+  LED_PITCH,
+  ledRoom,
+  type SymbolState,
+} from "./symbols/Label";
 import { textWidth } from "./text";
 import type { Pt } from "./types";
 import { readingState, type SlotReading } from "./values";
@@ -53,6 +59,11 @@ type PanelProps = {
 
 export const panelHeight = (rows: number) => HEADER_H + rows * ROW_H + PAD;
 
+/** A panel is `PANEL_W` wide, wider only when its title and the LEDs after
+ *  it would not fit: a twin's two LEDs after a long name. */
+export const panelWidth = (title: string, leds: number) =>
+  Math.max(PANEL_W, 2 * PAD + textWidth(title, LABEL_SIZE) + ledRoom(leds));
+
 /**
  * The equipment panel: title and run-state LED, a rule, one row per bound
  * slot. A faulty device takes its fault's colour on the border and the
@@ -68,15 +79,16 @@ export function Panel({
   fault = null,
 }: PanelProps) {
   const h = panelHeight(rows.length);
-  const x = at.x - PANEL_W / 2;
+  const w = panelWidth(title, led ? 1 : (heads?.length ?? 0));
+  const x = at.x - w / 2;
   const y = at.y - h;
-  const right = x + PANEL_W - PAD;
+  const right = x + w - PAD;
   return (
     <g data-panel={title}>
       <rect
         x={x}
         y={y}
-        width={PANEL_W}
+        width={w}
         height={h}
         rx={FRAME_RADIUS}
         strokeWidth={fault ? FAULT_STROKE : 1}
@@ -103,7 +115,7 @@ export function Panel({
       <line
         x1={x}
         y1={y + RULE_Y}
-        x2={x + PANEL_W}
+        x2={x + w}
         y2={y + RULE_Y}
         strokeWidth={1}
         className="stroke-border"

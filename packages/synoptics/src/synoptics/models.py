@@ -264,7 +264,9 @@ class Pipe(BaseModel):
     own ``flow`` reads ``false``, one a machine or valve that gates the flow
     stops, or a dead end. Circulation is never inferred from an inline pump,
     which would move the return of a loop whose pump is on the supply: a pump
-    can only stop it.
+    can only stop it. A twin pump on a run with no ``flow`` of its own is the
+    exception: the pair has no point saying it runs, so the run flows while
+    either head reads on.
 
     ``flow`` takes the ``attribute`` arm only. A literal has nothing to resolve,
     so a ``text`` flow would reach production as a run that silently never
