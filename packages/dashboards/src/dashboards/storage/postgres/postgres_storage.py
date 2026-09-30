@@ -66,6 +66,7 @@ class PostgresDashboardsStorage:
             id=row["id"],
             name=row["name"],
             description=row["description"],
+            icon=row["icon"],
             widgets=[self._widget_from_jsonb(w) for w in row["widgets"]],
             metadata=self._row_to_metadata(row),
         )
@@ -75,6 +76,7 @@ class PostgresDashboardsStorage:
             id=row["id"],
             name=row["name"],
             description=row["description"],
+            icon=row["icon"],
             metadata=self._row_to_metadata(row),
         )
 
@@ -82,14 +84,16 @@ class PostgresDashboardsStorage:
         row = await self._pool.fetchrow(
             """
             INSERT INTO dashboards
-                (id, name, description, widgets, created_at, updated_at, position)
-            VALUES ($1, $2, $3, $4, $5, $6,
+                (id, name, description, icon, widgets, created_at, updated_at,
+                 position)
+            VALUES ($1, $2, $3, $4, $5, $6, $7,
                     (SELECT COALESCE(MAX(position), -1) + 1 FROM dashboards))
             RETURNING *
             """,
             dashboard.id,
             dashboard.name,
             dashboard.description,
+            dashboard.icon,
             [_widget_to_jsonb(w) for w in dashboard.widgets],
             dashboard.metadata.created_at,
             dashboard.metadata.updated_at,
@@ -108,7 +112,7 @@ class PostgresDashboardsStorage:
         self, *, limit: int | None = None, offset: int | None = None
     ) -> list[DashboardSummary]:
         query = (
-            "SELECT id, name, description, created_at, updated_at "
+            "SELECT id, name, description, icon, created_at, updated_at "
             "FROM dashboards ORDER BY position, created_at, id"
         )
         params: list[object] = []
@@ -137,13 +141,15 @@ class PostgresDashboardsStorage:
         row = await self._pool.fetchrow(
             """
             UPDATE dashboards
-            SET name = $2, description = $3, widgets = $4, updated_at = $5
+            SET name = $2, description = $3, icon = $4, widgets = $5,
+                updated_at = $6
             WHERE id = $1
             RETURNING *
             """,
             dashboard.id,
             dashboard.name,
             dashboard.description,
+            dashboard.icon,
             [_widget_to_jsonb(w) for w in dashboard.widgets],
             dashboard.metadata.updated_at,
         )

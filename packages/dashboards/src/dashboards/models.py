@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal, get_args
 
 from pydantic import BaseModel, ConfigDict, Field, SerializeAsAny, computed_field
 
@@ -23,6 +23,70 @@ class Metadata(BaseModel):
 
     created_at: datetime = Field(default_factory=_utcnow)
     updated_at: datetime = Field(default_factory=_utcnow)
+
+
+# The icons a dashboard may carry, by what they show. A closed vocabulary so a
+# stored dashboard never names an icon the UI cannot draw: the UI keeps one
+# drawing per key and pins the bijection in its tests.
+DashboardIcon = Literal[
+    "thermometer",
+    "thermometer-sun",
+    "thermometer-snowflake",
+    "snowflake",
+    "flame",
+    "heater",
+    "sun",
+    "sun-dim",
+    "droplet",
+    "droplets",
+    "droplet-off",
+    "waves",
+    "bath",
+    "shower-head",
+    "wind",
+    "fan",
+    "air-vent",
+    "gauge",
+    "circle-gauge",
+    "zap",
+    "plug",
+    "plug-zap",
+    "utility-pole",
+    "battery-charging",
+    "lightbulb",
+    "power",
+    "activity",
+    "chart-line",
+    "chart-column",
+    "pie-chart",
+    "cpu",
+    "server",
+    "radio",
+    "wifi",
+    "siren",
+    "bell-ring",
+    "shield-alert",
+    "triangle-alert",
+    "door-open",
+    "lock",
+    "key-round",
+    "camera",
+    "car",
+    "parking-circle",
+    "house",
+    "building-2",
+    "warehouse",
+    "factory",
+    "leaf",
+    "trees",
+    "cloud-sun",
+    "cloud-rain",
+    "layers",
+    "map-pin",
+    "wrench",
+    "settings",
+]
+DASHBOARD_ICONS: tuple[str, ...] = get_args(DashboardIcon)
 
 
 class WidgetLayout(BaseModel):
@@ -88,6 +152,7 @@ class Dashboard(BaseModel):
     id: str
     name: str
     description: str | None = None
+    icon: DashboardIcon | None = None
     widgets: list[Widget] = Field(default_factory=list)
     metadata: Metadata
 
@@ -107,6 +172,7 @@ class DashboardSummary(BaseModel):
     id: str
     name: str
     description: str | None = None
+    icon: DashboardIcon | None = None
     metadata: Metadata
 
 
@@ -117,6 +183,7 @@ class DashboardCreate(BaseModel):
 
     name: str
     description: str | None = None
+    icon: DashboardIcon | None = None
 
 
 class DashboardPatch(BaseModel):
@@ -131,6 +198,7 @@ class DashboardPatch(BaseModel):
 
     name: str | None = None
     description: str | None = None
+    icon: DashboardIcon | None = None
 
 
 class WidgetPatch(BaseModel):
