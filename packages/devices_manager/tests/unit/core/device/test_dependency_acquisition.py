@@ -10,6 +10,7 @@ constants it pins could not fail when they change.
 # Acquisition passes, bounds and the worker are the behaviour under test.
 
 import asyncio
+import contextlib
 from collections import Counter
 from unittest.mock import AsyncMock
 
@@ -121,7 +122,9 @@ class Wire:
 
 
 async def acquired(*devices: CoreDevice) -> None:
-    """Wait for the background acquisition of each device to finish."""
+    """Wait for the background confirmations, then the acquisitions they may
+    queue, of each device to finish."""
+    await asyncio.gather(*(t for d in devices for t in tuple(d._confirmations)))
     await asyncio.gather(
         *(
             refresh._task
@@ -378,9 +381,8 @@ async def hold(transport) -> int:
     return held
 
 
-async def unconfirmed(device: CoreDevice, _transport, _monkeypatch) -> None:
-    with pytest.raises(ConfirmationError):
-        await device.write_attribute_value("limit", 5.0, confirm_timeout=0.1)
+async def refused_confirmation(device: CoreDevice, _transport, _monkeypatch) -> None:
+    await refused(device, "limit")
 
 
 async def unsent(device: CoreDevice, transport, monkeypatch) -> None:
@@ -403,7 +405,7 @@ async def abandoned(device: CoreDevice, _transport, _monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("fail", [unconfirmed, unsent, abandoned])
+@pytest.mark.parametrize("fail", [refused_confirmation, unsent, abandoned])
 async def test_a_failed_write_reads_its_target_again_and_only_it(
     mock_transport_client, monkeypatch, fail
 ):
@@ -422,6 +424,80 @@ async def test_a_failed_write_reads_its_target_again_and_only_it(
     await device.stop_sync()
 
 
+@pytest.mark.asyncio
+async def test_a_write_sent_without_confirmation_trusts_only_the_applied_value(
+    mock_transport_client, monkeypatch
+):
+    """After an automation write, the target is read back without user action.
+    A device that applies it late first answers the old value: only the new one
+    ends up trusted, and what it bounds is checked against it."""
+    wire = Wire()
+    device = await written(mock_transport_client, monkeypatch, wire)
+    answers = iter([1.0])  # the first read after the write, not applied yet
+    answer = wire.read
+
+    async def applying(address) -> object:
+        await answer(address)
+        return next(answers, 5.0)
+
+    monkeypatch.setattr(wire, "read", applying)
+
+    await device.write_attribute_value("limit", 5.0, confirm=False)
+    await acquired(device)
+
+    assert device.known_attribute_value("limit") == 5.0
+    assert not device.evaluate_attribute_write("target_0", 2.0).eligible
+    assert device.evaluate_attribute_write("target_0", 6.0).eligible
+    assert device._target_refresh._task is None
+    await device.stop_sync()
+
+
+@pytest.mark.asyncio
+async def test_a_write_sent_without_confirmation_that_never_lands_is_read_back(
+    mock_transport_client, monkeypatch
+):
+    wire = Wire()
+    device = await written(mock_transport_client, monkeypatch, wire)
+
+    await device.write_attribute_value("limit", 5.0, confirm=False, confirm_timeout=0.1)
+    await acquired(device)
+
+    assert wire.reads == ["GET /d0/limit"]
+    assert device.known_attribute_value("limit") == 1.0
+    assert device.evaluate_attribute_write("target_0", 2.0).eligible
+    await device.stop_sync()
+
+
+@pytest.mark.asyncio
+async def test_a_confirmed_write_queues_no_read(mock_transport_client, monkeypatch):
+    """A confirmed write reads nothing more."""
+    wire = Wire()
+    device = await written(mock_transport_client, monkeypatch, wire)
+    wire.answer = 5.0
+
+    await device.write_attribute_value("limit", 5.0)
+
+    assert device._target_refresh._task is None
+    await device.stop_sync()
+
+
+@pytest.mark.asyncio
+async def test_stopping_a_device_cancels_its_background_confirmation(
+    mock_transport_client, monkeypatch
+):
+    """A confirmation nobody waits for never outlives the device, nor queues a
+    read on its way out."""
+    wire = Wire()
+    device = await written(mock_transport_client, monkeypatch, wire)
+
+    await device.write_attribute_value("limit", 5.0, confirm=False)
+    (pending,) = device._confirmations
+    await device.stop_sync()
+
+    assert pending.cancelled()
+    assert device._target_refresh._task is None
+
+
 def independent(_transport, _monkeypatch) -> str:
     return "free"
 
@@ -437,18 +513,30 @@ def ingress_only(transport, monkeypatch) -> str:
     return "limit"
 
 
+async def refused(device: CoreDevice, name: str) -> None:
+    with pytest.raises(ConfirmationError):
+        await device.write_attribute_value(name, 5.0, confirm_timeout=0.1)
+
+
+async def sent_unconfirmed(device: CoreDevice, name: str) -> None:
+    await device.write_attribute_value(name, 5.0, confirm=False)
+
+
 @pytest.mark.asyncio
+@pytest.mark.parametrize("write", [refused, sent_unconfirmed])
 @pytest.mark.parametrize("case", [independent, disconnected, ingress_only])
-async def test_a_failed_write_that_nothing_can_read_back_starts_no_pass(
-    mock_transport_client, monkeypatch, case
+async def test_a_write_that_nothing_can_read_back_starts_no_pass(
+    mock_transport_client, monkeypatch, case, write
 ):
+    """An unconfirmed write queues a read only under the same conditions as a
+    failed one."""
     wire = Wire()
     device = await written(mock_transport_client, monkeypatch, wire)
     name = case(mock_transport_client, monkeypatch)
 
-    with pytest.raises(ConfirmationError):
-        await device.write_attribute_value(name, 5.0, confirm_timeout=0.1)
+    await write(device, name)
 
+    assert not device._confirmations
     assert device._target_refresh._task is None
     assert wire.reads == []
     await device.stop_sync()
@@ -462,7 +550,7 @@ async def test_a_target_observed_before_its_pass_is_not_read_again(
     device = await written(mock_transport_client, monkeypatch, wire)
     held = await hold(mock_transport_client)
 
-    await unconfirmed(device, mock_transport_client, monkeypatch)
+    await refused(device, "limit")
     await device.read_attribute_value("limit")  # a poll lands first
     for _ in range(held):
         mock_transport_client.acquisitions.release()
@@ -481,7 +569,7 @@ async def test_stopping_a_device_cancels_its_pending_target_read(
     device = await written(mock_transport_client, monkeypatch, wire)
     held = await hold(mock_transport_client)
 
-    await unconfirmed(device, mock_transport_client, monkeypatch)
+    await refused(device, "limit")
     pending = device._target_refresh._task
     await device.stop_sync()
     for _ in range(held):
@@ -502,7 +590,7 @@ async def test_a_failed_write_on_a_device_not_syncing_starts_nothing(
     await TransportClient.connect(mock_transport_client)
     (device,) = fleet(mock_transport_client, 1, WRITTEN)
 
-    await unconfirmed(device, mock_transport_client, monkeypatch)
+    await refused(device, "limit")
 
     assert device._target_refresh._task is None
 
@@ -520,9 +608,32 @@ async def test_a_pass_that_fails_is_logged_and_ends_quietly(
     )
 
     device._request_dependencies()  # the absent inputs are always missing
-    await unconfirmed(device, mock_transport_client, monkeypatch)
+    await refused(device, "limit")
     await acquired(device)
 
     assert "dependency acquisition failed" in caplog.text
     assert "target acquisition failed" in caplog.text
+    await device.stop_sync()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("confirm", "counted"), [(True, True), (False, False)])
+async def test_only_a_confirmation_someone_waits_for_counts_in_the_connection_status(
+    mock_transport_client, monkeypatch, confirm, counted
+):
+    """Reads a background confirmation makes on its own stay out of the
+    connection status, like acquisitions: an automation burst never degrades a
+    device. A caller waiting on its write still has them counted."""
+    wire = Wire()
+    device = await written(mock_transport_client, monkeypatch, wire)
+    before = len(device.connection_monitor.logs("limit").read)
+    wire.answer = ConnectionError("refused")
+
+    with contextlib.suppress(ConfirmationError):
+        await device.write_attribute_value(
+            "limit", 5.0, confirm=confirm, confirm_timeout=0.5
+        )
+    await acquired(device)
+
+    assert (len(device.connection_monitor.logs("limit").read) > before) is counted
     await device.stop_sync()
