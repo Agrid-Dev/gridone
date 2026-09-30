@@ -17,6 +17,18 @@
     "unsaved": "Modifications non enregistrées"
   },
   "widgets": {
+    "types": {
+      "synoptic": "Synoptique"
+    },
+    "synoptic": {
+      "label": "Synoptique",
+      "empty": "Choisissez un synoptique.",
+      "description": "Affiche le synoptique en direct, en lecture seule.",
+      "noSynoptics": "Créez d'abord un synoptique dans Configuration → Synoptiques.",
+      "notFound": "Ce synoptique n'existe plus.",
+      "error": "Impossible de charger ce synoptique.",
+      "disabled": "Les synoptiques ne sont pas activés."
+    },
     "empty": "Ce tableau de bord n'a pas encore de widget.",
     "renderError": "Échec de l'affichage de ce widget.",
     "chart": {

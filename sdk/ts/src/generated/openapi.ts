@@ -7159,6 +7159,22 @@ export interface components {
       metadata: components["schemas"]["ResourceMetadata"];
     };
     /**
+     * SynopticWidgetConfig
+     * @description Read-only live view of a stored synoptic.
+     *
+     *     The reference stays opaque to dashboards; the UI loads the document and
+     *     its readings through the synoptics and devices APIs.
+     */
+    SynopticWidgetConfig: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      type: "synoptic";
+      /** Synoptic Id */
+      synoptic_id: string;
+    };
+    /**
      * Tag
      * @description A reading riding on a pipe at a cell of its run.
      *
@@ -7816,7 +7832,8 @@ export interface components {
         | components["schemas"]["DeviceControlWidgetConfig"]
         | components["schemas"]["KpiWidgetConfig"]
         | components["schemas"]["MeterTreeWidgetConfig"]
-        | components["schemas"]["ControlPanelWidgetConfig"];
+        | components["schemas"]["ControlPanelWidgetConfig"]
+        | components["schemas"]["SynopticWidgetConfig"];
       /** Title */
       title?: string | null;
       /** Description */
@@ -7864,6 +7881,7 @@ export interface components {
             | components["schemas"]["KpiWidgetConfig"]
             | components["schemas"]["MeterTreeWidgetConfig"]
             | components["schemas"]["ControlPanelWidgetConfig"]
+            | components["schemas"]["SynopticWidgetConfig"]
           )
         | null;
     };

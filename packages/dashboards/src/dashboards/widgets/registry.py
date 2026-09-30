@@ -11,6 +11,7 @@ from dashboards.widgets.control_panel import ControlPanelWidgetConfig
 from dashboards.widgets.device_control import DeviceControlWidgetConfig
 from dashboards.widgets.kpi import KpiWidgetConfig
 from dashboards.widgets.meter_tree import MeterTreeWidgetConfig
+from dashboards.widgets.synoptic import SynopticWidgetConfig
 from dashboards.widgets.text import TextWidgetConfig
 from models.errors import InvalidError, NotFoundError
 
@@ -161,6 +162,13 @@ def build_default_registry() -> WidgetRegistry:
             type="control_panel",
             config_model=ControlPanelWidgetConfig,
             default_size=WidgetSize(w=4, h=6),
+        )
+    )
+    registry.register(
+        WidgetType(
+            type="synoptic",
+            config_model=SynopticWidgetConfig,
+            default_size=WidgetSize(w=6, h=6),
         )
     )
     return registry

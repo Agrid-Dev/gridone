@@ -17,6 +17,7 @@ from dashboards import (
     DeviceControlWidgetConfig,
     KpiWidgetConfig,
     MeterTreeWidgetConfig,
+    SynopticWidgetConfig,
     TextWidgetConfig,
     WidgetPatch,
 )
@@ -33,7 +34,8 @@ WidgetConfigBody = Annotated[
     | DeviceControlWidgetConfig
     | KpiWidgetConfig
     | MeterTreeWidgetConfig
-    | ControlPanelWidgetConfig,
+    | ControlPanelWidgetConfig
+    | SynopticWidgetConfig,
     Field(discriminator="type"),
 ]
 

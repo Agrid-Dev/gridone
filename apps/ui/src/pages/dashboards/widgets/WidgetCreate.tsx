@@ -11,7 +11,7 @@ const WidgetCreateContent: FC = () => {
   const { t } = useTranslation("dashboards");
   const navigate = useNavigate();
   const dashboard = useDashboardFromRoute();
-  const schemas = useWidgetSchemas();
+  const schemas = useWidgetSchemas({ enabledOnly: true });
   const { addWidget } = useAddWidget(dashboard.id);
 
   return (

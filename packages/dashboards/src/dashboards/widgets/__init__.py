@@ -15,6 +15,7 @@ from dashboards.widgets.registry import (
     WidgetType,
     build_default_registry,
 )
+from dashboards.widgets.synoptic import SynopticWidgetConfig
 from dashboards.widgets.text import TextWidgetConfig
 
 __all__ = [
@@ -28,6 +29,7 @@ __all__ = [
     "KpiWidgetConfig",
     "MeterTreeNode",
     "MeterTreeWidgetConfig",
+    "SynopticWidgetConfig",
     "TextWidgetConfig",
     "TimeAggregation",
     "WidgetConfig",

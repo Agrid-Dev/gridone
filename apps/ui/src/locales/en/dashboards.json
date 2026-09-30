@@ -17,6 +17,18 @@
     "unsaved": "Unsaved changes"
   },
   "widgets": {
+    "types": {
+      "synoptic": "Synoptic"
+    },
+    "synoptic": {
+      "label": "Synoptic",
+      "empty": "Choose a synoptic.",
+      "description": "Shows the live synoptic in read-only mode.",
+      "noSynoptics": "Create a synoptic in Configuration → Synoptics first.",
+      "notFound": "This synoptic no longer exists.",
+      "error": "Could not load this synoptic.",
+      "disabled": "Synoptics are not enabled."
+    },
     "empty": "This dashboard has no widgets yet.",
     "renderError": "This widget failed to render.",
     "chart": {

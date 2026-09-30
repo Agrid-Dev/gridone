@@ -36,7 +36,7 @@ export const WidgetTypeBand: FC<{
           id="widget-type"
           className="rounded-md border border-border bg-muted px-2.5 py-1 text-sm font-medium"
         >
-          {toLabel(value)}
+          {t(`widgets.types.${value}`, { defaultValue: toLabel(value) })}
         </span>
       ) : (
         <Select value={value} onValueChange={onChange}>
@@ -46,7 +46,7 @@ export const WidgetTypeBand: FC<{
           <SelectContent>
             {types.map((type) => (
               <SelectItem key={type} value={type}>
-                {toLabel(type)}
+                {t(`widgets.types.${type}`, { defaultValue: toLabel(type) })}
               </SelectItem>
             ))}
           </SelectContent>

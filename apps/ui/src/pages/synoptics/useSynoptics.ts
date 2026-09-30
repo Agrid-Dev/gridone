@@ -1,5 +1,6 @@
 import {
   useMutation,
+  useQuery,
   useQueryClient,
   useSuspenseQueries,
   useSuspenseQuery,
@@ -11,6 +12,16 @@ import { useGridoneClient } from "@/contexts/GridoneClientContext";
 export const SYNOPTICS_KEY = ["synoptics"] as const;
 
 export const synopticKey = (id: string) => ["synoptic", id] as const;
+
+/** A stored plate outside the synoptic routes, with local loading/error states. */
+export function useSynopticById(id: string | undefined) {
+  const client = useGridoneClient();
+  return useQuery({
+    queryKey: synopticKey(id ?? ""),
+    queryFn: () => client.synoptics.get(id!),
+    enabled: !!id,
+  });
+}
 
 /** Every plate's envelope: the index. Suspends until loaded, for pages
  *  under a `ResourceBoundary`. */

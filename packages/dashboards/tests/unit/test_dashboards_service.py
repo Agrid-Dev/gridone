@@ -484,6 +484,7 @@ async def test_widget_schemas_carry_hex_pattern(service: DashboardsService):
         "kpi",
         "meter_tree",
         "control_panel",
+        "synoptic",
     }
     color = schemas["text"]["properties"]["color"]
     assert color["pattern"] == r"^#[0-9a-fA-F]{6}$"
