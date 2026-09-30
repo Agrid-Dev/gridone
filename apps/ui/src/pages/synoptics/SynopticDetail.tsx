@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FC } from "react";
 import { useNavigate, useParams } from "react-router";
 import type { Synoptic } from "@gridone/sdk";
+import { symbolDeviceIds as deviceIdsOf } from "@/components/synoptic/heads";
 import { ResourceBoundary } from "@/components/ResourceBoundary";
 import { usePermissions } from "@/contexts/AuthContext";
 import { useSynopticValues } from "@/hooks/useSynopticValues";
@@ -16,9 +17,7 @@ import { useSynopticPage, useSynoptics } from "./useSynoptics";
 /** The devices the plate's symbols are: what a click opens and what the
  *  fault list is scoped to. What a symbol reads is not what it is. */
 const symbolDeviceIds = (doc: Synoptic): string[] => [
-  ...new Set(
-    (doc.symbols ?? []).flatMap((s) => (s.device_id ? [s.device_id] : [])),
-  ),
+  ...new Set((doc.symbols ?? []).flatMap(deviceIdsOf)),
 ];
 
 /** The route's side of the page: the plate, the others, its live values

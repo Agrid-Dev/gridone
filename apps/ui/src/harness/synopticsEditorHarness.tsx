@@ -19,6 +19,7 @@ import "@/index.css";
 import i18n from "@/i18n";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui";
+import { symbolDeviceIds } from "@/components/synoptic/heads";
 import { AttributeConfirmationProvider } from "@/contexts/AttributeConfirmationContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { GridoneClientProvider } from "@/contexts/GridoneClientContext";
@@ -78,7 +79,7 @@ const attribute = (
 const DEVICES: Device[] = [
   ...new Set(
     Object.values(PLATES).flatMap((p) =>
-      (p.symbols ?? []).flatMap((s) => (s.device_id ? [s.device_id] : [])),
+      (p.symbols ?? []).flatMap(symbolDeviceIds),
     ),
   ),
   "spare-pump",

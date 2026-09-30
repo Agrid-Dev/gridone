@@ -10,6 +10,11 @@ import {
   type SynopticSummary,
 } from "@gridone/sdk";
 import { ConnectionStatusValue } from "@/components/ConnectionStatusBadge";
+import {
+  headName,
+  symbolHeads,
+  type SymbolHead,
+} from "@/components/synoptic/heads";
 import { humanize } from "@/components/synoptic/text";
 import type { CollectorProps } from "@/components/synoptic/symbols/ports";
 import { SymbolThumb } from "@/components/synoptic/symbols/SymbolThumb";
@@ -58,6 +63,115 @@ type SymbolInspectorProps = {
 };
 
 /**
+ * The device a machine of the symbol stands for and the readings it
+ * shows: the symbol's own, or one head's of a twin pump, each head
+ * picking its device and binding its slots on its own.
+ */
+function MachineSections({
+  editor,
+  symbol,
+  head,
+  devices,
+  slotErrors,
+  onSlot,
+}: {
+  editor: SynopticEditorState;
+  symbol: SymbolElement;
+  head: SymbolHead;
+  devices: Device[];
+  slotErrors: Map<string, string[]>;
+  onSlot: (slot: string, value: SlotValue | undefined) => void;
+}) {
+  const { t } = useTranslation("synoptics");
+  const canSeeStatus = useCanSeeConnectionStatus();
+  const { data: device } = useDeviceById(head.deviceId ?? undefined);
+  const titled = (title: string) =>
+    head.key ? `${title} ${headName(head.key)}` : title;
+  return (
+    <>
+      <Section title={titled(t("editor.inspector.device"))}>
+        <DeviceCombobox
+          id={head.key ? `symbol-device-${head.key}` : "symbol-device"}
+          label={head.key ? titled(t("editor.device.label")) : undefined}
+          value={head.deviceId}
+          devices={devices}
+          onChange={(deviceId) =>
+            editor.setDevice(symbol.id, deviceId, head.key)
+          }
+        />
+        {device && canSeeStatus && (
+          <p className="text-xs text-muted-foreground">
+            <ConnectionStatusValue status={getConnectionStatus(device)} />
+          </p>
+        )}
+      </Section>
+      {head.slots.length > 0 && (
+        <Section title={titled(t("editor.inspector.readings"))}>
+          {!head.deviceId && (
+            <p className="text-xs text-muted-foreground">
+              {t("editor.inspector.readingsHint")}
+            </p>
+          )}
+          <SlotRows
+            editor={editor}
+            symbol={symbol}
+            slots={head.slots}
+            device={device}
+            devices={devices}
+            slotErrors={slotErrors}
+            onSlot={onSlot}
+          />
+        </Section>
+      )}
+    </>
+  );
+}
+
+/** One row per slot: what it reads, and the errors the last save left
+ *  on it. */
+function SlotRows({
+  editor,
+  symbol,
+  slots,
+  device,
+  devices,
+  slotErrors,
+  onSlot,
+}: {
+  editor: SynopticEditorState;
+  symbol: SymbolElement;
+  slots: string[];
+  device: Device | undefined;
+  devices: Device[];
+  slotErrors: Map<string, string[]>;
+  onSlot: (slot: string, value: SlotValue | undefined) => void;
+}) {
+  const vocabulary = usePlateVocabulary();
+  return (
+    <div className="space-y-3">
+      {slots.map((slot) => (
+        <SlotRow
+          key={slot}
+          label={vocabulary.slotLabel(slot)}
+          value={symbol.bindings?.[slot]}
+          device={device}
+          devices={devices}
+          errors={slotErrors.get(slot) ?? []}
+          onChange={(value) => onSlot(slot, value)}
+          onType={(value, field) =>
+            editor.typeSymbol(`slot:${slot}:${field}`, symbol.id, (s) => ({
+              ...s,
+              bindings: { ...s.bindings, [slot]: value },
+            }))
+          }
+          onSettle={editor.history.settle}
+        />
+      ))}
+    </div>
+  );
+}
+
+/**
  * A selected symbol: its name, the device it stands for and the readings
  * it shows first, since binding is most of the work on a plate; then where
  * it stands, its own settings, and a collector's ports. The errors the
@@ -71,10 +185,7 @@ export function SymbolInspector({
 }: SymbolInspectorProps) {
   const { t } = useTranslation("synoptics");
   const vocabulary = usePlateVocabulary();
-  const canSeeStatus = useCanSeeConnectionStatus();
-  const { data: device } = useDeviceById(symbol.device_id ?? undefined);
   const schema = symbolSchemas[symbol.type];
-  const slots = schema?.["x-slots"] ?? [];
   const { doc } = editor;
   const inline = symbol.placement.kind === "pipe";
   const typeLabel = capitalize(vocabulary.typeLabel(symbol.type));
@@ -126,6 +237,13 @@ export function SymbolInspector({
     placement.kind === "pipe"
       ? doc.pipes?.find((p) => p.id === placement.pipe)
       : undefined;
+  // A reading stored on a slot the type no longer declares (a twin pump's
+  // single `state` from before its heads): the save refuses it, so it
+  // stays in reach until the author clears it.
+  const declared = new Set(schema?.["x-slots"] ?? []);
+  const undeclared = Object.keys(symbol.bindings ?? {}).filter(
+    (slot) => !declared.has(slot),
+  );
   const setSlot = (slot: string, value: SlotValue | undefined) =>
     editor.changeSymbol(symbol.id, (s) => {
       const bindings = { ...s.bindings };
@@ -188,52 +306,29 @@ export function SymbolInspector({
           {error}
         </p>
       ))}
-      {symbol.type !== "link" && (
-        <Section title={t("editor.inspector.device")}>
-          <DeviceCombobox
-            id="symbol-device"
-            value={symbol.device_id ?? null}
+      {symbol.type !== "link" &&
+        symbolHeads(symbol).map((head) => (
+          <MachineSections
+            key={head.key ?? ""}
+            editor={editor}
+            symbol={symbol}
+            head={head}
             devices={devices}
-            onChange={(deviceId) => editor.setDevice(symbol.id, deviceId)}
+            slotErrors={errors.bySlot}
+            onSlot={setSlot}
           />
-          {device && canSeeStatus && (
-            <p className="text-xs text-muted-foreground">
-              <ConnectionStatusValue status={getConnectionStatus(device)} />
-            </p>
-          )}
-        </Section>
-      )}
-      {slots.length > 0 && (
-        <Section title={t("editor.inspector.readings")}>
-          {!symbol.device_id && (
-            <p className="text-xs text-muted-foreground">
-              {t("editor.inspector.readingsHint")}
-            </p>
-          )}
-          <div className="space-y-3">
-            {slots.map((slot) => (
-              <SlotRow
-                key={slot}
-                label={vocabulary.slotLabel(slot)}
-                value={symbol.bindings?.[slot]}
-                device={device}
-                devices={devices}
-                errors={errors.bySlot.get(slot) ?? []}
-                onChange={(value) => setSlot(slot, value)}
-                onType={(value, field) =>
-                  editor.typeSymbol(
-                    `slot:${slot}:${field}`,
-                    symbol.id,
-                    (s) => ({
-                      ...s,
-                      bindings: { ...s.bindings, [slot]: value },
-                    }),
-                  )
-                }
-                onSettle={editor.history.settle}
-              />
-            ))}
-          </div>
+        ))}
+      {undeclared.length > 0 && (
+        <Section title={t("editor.inspector.undeclared")}>
+          <SlotRows
+            editor={editor}
+            symbol={symbol}
+            slots={undeclared}
+            device={undefined}
+            devices={devices}
+            slotErrors={errors.bySlot}
+            onSlot={setSlot}
+          />
         </Section>
       )}
       <Section title={t("editor.inspector.placement")}>

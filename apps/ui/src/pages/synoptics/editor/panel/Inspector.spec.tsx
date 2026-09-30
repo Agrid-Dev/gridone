@@ -62,6 +62,7 @@ vi.mock("react-i18next", () =>
     "editor.inspector.delete": "Delete",
     "editor.inspector.show": "Show",
     "editor.inspector.readingsHint": "Pick the device first.",
+    "editor.inspector.undeclared": "No longer shown by this type",
     "editor.inspector.moveHint": "Drag the symbol on the plan to move it.",
     "editor.device.label": "Device",
     "editor.device.none": "No device",
@@ -543,6 +544,60 @@ describe("SymbolInspector", () => {
     );
     // The twin above finds the button with this query.
     expect(duplicate()).toBeNull();
+  });
+
+  it("names a twin pump's device per head, and moves only that head", async () => {
+    const user = userEvent.setup();
+    const api = renderEditor({
+      ...SMALL,
+      symbols: [...SMALL.symbols!, rider("pec", "pump_double", 5, "PEC")],
+      pipes: [FEED],
+    });
+    await opened();
+    fireEvent.click(hit("pec"));
+    expect(
+      within(panel()).queryByRole("combobox", { name: "Device" }),
+    ).toBeNull();
+    await user.click(
+      within(panel()).getByRole("combobox", { name: "Device B" }),
+    );
+    await user.click(await screen.findByRole("option", { name: /PAC 01 new/ }));
+    await save();
+    const pec = symbolOf(api.replace.mock.calls[0][1], "pec");
+    expect(pec.device_id).toBeNull();
+    expect(pec.props).toEqual({ heads: { b: { device_id: "dev-new" } } });
+  });
+
+  it("opens a twin pump stored before its heads so it can be saved again", async () => {
+    // Its device sat on the pair and it read one `state`: both refused now.
+    const api = renderEditor({
+      ...SMALL,
+      symbols: [
+        ...SMALL.symbols!,
+        {
+          ...rider("pec", "pump_double", 5, "PEC"),
+          device_id: "dev-new",
+          bindings: { state: { kind: "text", text: "non identifiée" } },
+        },
+      ],
+      pipes: [FEED],
+    });
+    await opened();
+    fireEvent.click(hit("pec"));
+    for (const head of ["Device A", "Device B"]) {
+      expect(
+        within(panel()).getByRole("combobox", { name: head }),
+      ).toHaveTextContent("PAC 01 new");
+    }
+    expect(
+      within(panel()).getByText("No longer shown by this type"),
+    ).toBeInTheDocument();
+    await save();
+    const pec = symbolOf(api.replace.mock.calls[0][1], "pec");
+    expect(pec.device_id).toBeNull();
+    expect(pec.props).toEqual({
+      heads: { a: { device_id: "dev-new" }, b: { device_id: "dev-new" } },
+    });
   });
 
   it("asks for the device first while the symbol has none", async () => {

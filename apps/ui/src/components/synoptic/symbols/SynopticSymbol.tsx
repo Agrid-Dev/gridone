@@ -18,7 +18,7 @@ import {
 import { Label, LABEL_SIZE } from "./Label";
 import { Body } from "./Body";
 import { circlePts, silhouette, square } from "./extrude";
-import type { VolumeContext } from "./kit";
+import type { HeadIndication, VolumeContext } from "./kit";
 import { PlanPoly, pointsAttr, toPoints, type PlanClass } from "./plan";
 
 type SynopticSymbolProps = {
@@ -39,6 +39,19 @@ type SynopticSymbolProps = {
   /** False when the surface draws the name itself, placed clear of the
    *  plate and painted over it. */
   showLabel?: boolean;
+  /** Each head's state and fault, and where its fault is marked, for a
+   *  type drawn as several machines; `state` and `fault` then say
+   *  nothing. */
+  heads?: (HeadIndication & Pick<HeadShape, "outline" | "badge">)[];
+};
+
+/** One head of a type drawn as several machines, on screen: see
+ *  `headShapes`. */
+export type HeadShape = {
+  outline: Pt[];
+  hit: Pt[][];
+  badge: Pt;
+  depth: number;
 };
 
 const RIGHT = { x: 1, y: 0 };
@@ -91,6 +104,7 @@ export function SynopticSymbol({
   fault = null,
   direction = RIGHT,
   showLabel = true,
+  heads,
 }: SynopticSymbolProps) {
   const schema = symbolSchemas[type];
   const drawing = DRAWINGS[type];
@@ -151,6 +165,7 @@ export function SynopticSymbol({
               state,
               fault,
               closed,
+              heads,
             ),
           )
         : drawing.plan(planeAt(top), centre, direction, closed)}
@@ -176,8 +191,84 @@ export function SynopticSymbol({
           badge={planeAt(top)(w + 0.1, 0.2)}
         />
       )}
+      {heads?.map(({ key, fault: level, outline, badge }) =>
+        level ? (
+          <FaultMark key={key} level={level} outline={outline} badge={badge} />
+        ) : null,
+      )}
     </g>
   );
+}
+
+/** Each head of a type drawn as several machines, in the order the
+ *  registry lists its heads: its drawn silhouette on screen, which a fault
+ *  outlines; what a click takes, the half of the footprint on its side of
+ *  the run, flat on its plane, and its drawn silhouette, so a head is a
+ *  target as wide as the pair allows and not only its small drawn body,
+ *  while in the isometric view a body in front keeps the click where it
+ *  hides the one behind; where its fault badge sits; and its depth, lower
+ *  being further back. Empty for a type with no heads. */
+export function headShapes(
+  type: string,
+  projection: Projection,
+  origin: Cell,
+  rotation = 0,
+  direction: Pt = RIGHT,
+): HeadShape[] {
+  const footprint = symbolSchemas[type]?.["x-footprint"];
+  const drawing = DRAWINGS[type];
+  if (!footprint || !drawing?.heads) return [];
+  const iso = projection === "isometric";
+  const floor = origin.z ?? 0;
+  const base = floor + drawing.base;
+  const top = topOf(drawing, projection);
+  const local = (p: Pt) => symbolPoint(origin, rotation, p);
+  const plane = symbolPlane(projection, origin, rotation, top);
+  const centre = { x: footprint.w / 2, y: footprint.d / 2 };
+  const screen = (world: Pt[]) =>
+    iso && drawing.iso
+      ? silhouette(world, floor, floor + top)
+      : world.map((p) => project(projection, p.x, p.y, base));
+  // The run's axis splits the footprint: `n` points across it.
+  const d = direction;
+  const n = { x: -d.y, y: d.x };
+  const along = (Math.abs(d.x) * footprint.w + Math.abs(d.y) * footprint.d) / 2;
+  const across =
+    (Math.abs(n.x) * footprint.w + Math.abs(n.y) * footprint.d) / 2;
+  const at = (t: number, u: number) => ({
+    x: centre.x + d.x * t + n.x * u,
+    y: centre.y + d.y * t + n.y * u,
+  });
+  return drawing.heads(centre, direction, projection).map((points) => {
+    const mid = {
+      x: points.reduce((sum, p) => sum + p.x, 0) / points.length,
+      y: points.reduce((sum, p) => sum + p.y, 0) / points.length,
+    };
+    const side =
+      (mid.x - centre.x) * n.x + (mid.y - centre.y) * n.y < 0 ? -1 : 1;
+    const half = [
+      at(-along, 0),
+      at(along, 0),
+      at(along, side * across),
+      at(-along, side * across),
+    ];
+    const world = local(mid);
+    const outline = screen(points.map(local));
+    const flat = half
+      .map(local)
+      .map((p) => project(projection, p.x, p.y, base));
+    return {
+      outline,
+      hit: iso && drawing.iso ? [flat, outline] : [flat],
+      // The top right of the head's own disc, as a symbol's badge sits at
+      // the top right of its footprint.
+      badge: plane(
+        Math.max(...points.map((p) => p.x)),
+        Math.min(...points.map((p) => p.y)),
+      ),
+      depth: world.x + world.y,
+    };
+  });
 }
 
 /** What a volume draws from: world plan to screen, the symbol's own frame
@@ -191,6 +282,7 @@ function volumeContext(
   state: SymbolState | undefined,
   fault: Severity | null,
   closed: boolean | undefined,
+  heads: HeadIndication[] | undefined,
 ): VolumeContext {
   const z = origin.z ?? 0;
   const L = (p: Pt) => symbolPoint(origin, rotation, p);
@@ -211,10 +303,13 @@ function volumeContext(
     L,
     rect,
     c: { x: (rect.x0 + rect.x1) / 2, y: (rect.y0 + rect.y1) / 2 },
-    dir: direction,
+    // The run direction is the symbol's own, turned with it as its
+    // footprint is, so the volume stands where its plan glyph does.
+    dir: rotateQuarter(direction, rotation),
     state,
     fault,
     closed,
+    heads,
   };
 }
 

@@ -11,7 +11,7 @@ import {
   valueClass,
 } from "./Chip";
 import { FAULT_FILL_CLASS } from "./fault";
-import { LABEL_SIZE, Led, type SymbolState } from "./symbols/Label";
+import { LABEL_SIZE, Led, LED_PITCH, type SymbolState } from "./symbols/Label";
 import { textWidth } from "./text";
 import type { Pt } from "./types";
 import { readingState, type SlotReading } from "./values";
@@ -31,6 +31,9 @@ export type PanelRow = {
   /** The row is the device's fault word, coloured when the device is
    *  faulty. */
   error?: boolean;
+  /** The fault of the head this row's word belongs to, on a symbol of
+   *  several machines; the panel's own fault colours it otherwise. */
+  fault?: Severity | null;
   /** The native tooltip of the row. */
   title?: string | null;
 };
@@ -41,6 +44,9 @@ type PanelProps = {
   title: string;
   rows: PanelRow[];
   led?: SymbolState;
+  /** One light per head instead, in head order, as the name's on the
+   *  sheet. */
+  heads?: { state?: SymbolState; fault: Severity | null }[];
   /** The device's fault level; null when healthy. */
   fault?: Severity | null;
 };
@@ -53,7 +59,14 @@ export const panelHeight = (rows: number) => HEADER_H + rows * ROW_H + PAD;
  * LED; a stale row goes muted with a disc before its value; a silent row
  * shows a dash.
  */
-export function Panel({ at, title, rows, led, fault = null }: PanelProps) {
+export function Panel({
+  at,
+  title,
+  rows,
+  led,
+  heads,
+  fault = null,
+}: PanelProps) {
   const h = panelHeight(rows.length);
   const x = at.x - PANEL_W / 2;
   const y = at.y - h;
@@ -79,6 +92,14 @@ export function Panel({ at, title, rows, led, fault = null }: PanelProps) {
         {title}
       </text>
       {led && <Led at={{ x: right - 4, y: y + 11 }} led={led} fault={fault} />}
+      {heads?.map((head, i) => (
+        <Led
+          key={i}
+          at={{ x: right - 4 - (heads.length - 1 - i) * LED_PITCH, y: y + 11 }}
+          led={head.state}
+          fault={head.fault}
+        />
+      ))}
       <line
         x1={x}
         y1={y + RULE_Y}
@@ -94,6 +115,11 @@ export function Panel({ at, title, rows, led, fault = null }: PanelProps) {
         const { unit } = row.reading;
         const text = row.reading.text ?? SILENT_TEXT;
         const valueEnd = right - unitWidth(unit);
+        const error = row.error
+          ? row.fault === undefined
+            ? fault
+            : row.fault
+          : null;
         return (
           <g key={row.label} data-row={state}>
             {row.title && <title>{row.title}</title>}
@@ -117,8 +143,8 @@ export function Panel({ at, title, rows, led, fault = null }: PanelProps) {
               fontSize={LABEL_SIZE}
               fontWeight={600}
               className={
-                row.error && fault && !muted
-                  ? `${FAULT_FILL_CLASS[fault]}${row.reading.word ? "" : " tabular-nums"}`
+                error && !muted
+                  ? `${FAULT_FILL_CLASS[error]}${row.reading.word ? "" : " tabular-nums"}`
                   : valueClass(state, row.reading.word)
               }
             >

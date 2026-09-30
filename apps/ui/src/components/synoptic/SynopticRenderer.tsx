@@ -20,10 +20,11 @@ import {
   type Synoptic,
 } from "@gridone/sdk";
 import { fluidFillClass } from "@/lib/fluidColors";
+import { mostSevere } from "@/lib/severity";
 import { Caption, Chip, CHIP_H, chipWidth, DISC_R } from "./Chip";
 import { circulatingRuns } from "./circulation";
 import { DepthOrdered, type DepthItem } from "./DepthOrdered";
-import { faultLevel } from "./fault";
+import { headName, headOf, headSlot, machineFault, symbolHeads } from "./heads";
 import { TEXT_RANK } from "./legibility";
 import type { View, ViewportController } from "./hooks/useViewport";
 import { Panel, PANEL_W, panelHeight, type PanelRow } from "./Panel";
@@ -67,10 +68,12 @@ import {
   symbolRotation,
   type PlanRect,
 } from "./symbols/footprint";
-import { faceLabelBox, Label, LABEL_SIZE, LED_GAP } from "./symbols/Label";
+import { faceLabelBox, Label, LABEL_SIZE, ledRoom } from "./symbols/Label";
 import { pointsAttr } from "./symbols/plan";
 import {
+  headShapes,
   SynopticSymbol,
+  type HeadShape,
   symbolLabelAnchor,
   symbolLabelPoint,
   symbolPoint,
@@ -103,9 +106,10 @@ export type PlateHandle = {
   focusSymbol: (id: string, scale?: number) => void;
   zoomBy: (k: number) => void;
   fit: () => void;
-  /** The screen rectangle of a symbol's body, in client coordinates;
-   *  null before layout or for an id the plate does not draw. */
-  symbolClientRect: (id: string) => DOMRect | null;
+  /** The screen rectangle of a symbol's body, or of one of its heads, in
+   *  client coordinates; null before layout or for an id the plate does
+   *  not draw. */
+  symbolClientRect: (id: string, head?: string) => DOMRect | null;
 };
 
 type SynopticRendererProps = {
@@ -115,8 +119,9 @@ type SynopticRendererProps = {
    *  naming another reads missing. Without the set every link is inert. */
   knownSynoptics?: ReadonlySet<string>;
   /** A symbol the user activated: one that is a device, or a link whose
-   *  target exists. Nothing else is clickable. */
-  onSymbolClick?: (symbol: SymbolElement) => void;
+   *  target exists; on a symbol of several machines, the head that is a
+   *  device. Nothing else is clickable. */
+  onSymbolClick?: (symbol: SymbolElement, head?: string) => void;
   /** The pointer entered (or left) a drawn symbol. */
   onSymbolHover?: (symbol: SymbolElement | null) => void;
   /** A symbol to ring on the plate: the one a navigation panel points at. */
@@ -334,8 +339,9 @@ export function SynopticRenderer({
       },
       zoomBy: (k) => controller.current?.zoomBy(k),
       fit: () => controller.current?.fit(),
-      symbolClientRect: (id) => {
-        const body = geometry.bodies.get(id);
+      symbolClientRect: (id, head) => {
+        const shape = head ? geometry.heads.get(id)?.get(head) : undefined;
+        const body = shape ? bounds(shape.hit.flat()) : geometry.bodies.get(id);
         // No CTM before layout, or in an environment without one (jsdom).
         const ctm = frame.current?.getScreenCTM?.();
         if (!body || !ctm) return null;
@@ -399,6 +405,9 @@ type Geometry = {
   /** What each symbol keeps readouts off: its body's box, or one box per
    *  cell for a collector (a long bar's box is mostly empty plate). */
   bodyObstacles: Map<string, Box[]>;
+  /** Each head, by head, of a symbol of several machines: the area a
+   *  click on it takes and a popover anchors on, and its depth. */
+  heads: Map<string, Map<string, HeadShape>>;
   /** Every run piece as the line it draws, casing included. */
   runs: Segment[];
   /** Each symbol's name as the plate places it. */
@@ -491,6 +500,23 @@ function plateGeometry(doc: PlateDocument): Geometry {
       barCellBoxes(projection, s) ?? [bodies.get(s.id)!],
     ]),
   );
+  const heads = new Map(
+    [...symbols.values()].flatMap((symbol) => {
+      const keys = symbolHeads(symbol).flatMap((h) => (h.key ? [h.key] : []));
+      if (keys.length === 0) return [];
+      const shapes = headShapes(
+        symbol.type,
+        projection,
+        symbol.placement.cell,
+        symbolRotation(symbol),
+        runDirection(symbol, pieces),
+      );
+      const byHead = keys.flatMap((key, i) =>
+        shapes[i] ? [[key, shapes[i]] as const] : [],
+      );
+      return [[symbol.id, new Map(byHead)] as const];
+    }),
+  );
   const bodyCells = new Set<string>();
   for (const symbol of symbols.values()) {
     const drawing = DRAWINGS[symbol.type];
@@ -532,12 +558,24 @@ function plateGeometry(doc: PlateDocument): Geometry {
     corners,
     bodies,
     bodyObstacles,
+    heads,
     bodyCells,
     runs,
     placedLabels,
     labelBoxes,
   };
 }
+
+/** The way the run an inline symbol sits on flows at its cell; undefined
+ *  for a free-standing one. */
+const runDirection = (
+  symbol: SymbolElement,
+  pieces: Map<string, RunPiece[]>,
+): Pt | undefined =>
+  symbol.placement.kind === "pipe"
+    ? pieceAt(pieces.get(symbol.placement.pipe) ?? [], symbol.placement.cell)
+        ?.direction
+    : undefined;
 
 /** The box a level label takes from its baseline point, `ledW` wide past
  *  the text for the LED the sheet lights after it, lit or not. */
@@ -615,7 +653,9 @@ function placeLabels(
     // Room after the text for the LED, only where the sheet lights one:
     // in the isometric view the machine shows its state, and a name judged
     // 14 px wider than it is drawn would be moved out for nothing.
-    const ledW = labelHasLed(projection, symbol.type) ? LED_GAP + 2 * LED_R : 0;
+    const ledW = ledRoom(
+      labelHasLed(projection, symbol.type) ? symbolHeads(symbol).length : 0,
+    );
     // A face caption is written one word per line, centred on the face.
     const preferred = spec.onFace
       ? faceLabelBox(text, spec.at)
@@ -687,9 +727,6 @@ function rotatedTextBox(
   }));
   return bounds(corners);
 }
-
-/** Radius of the run-state LED after a label. */
-const LED_R = 4;
 
 /** Whether a symbol's name carries the run-state LED: on the sheet, where
  *  the glyph cannot show the state itself, and never after an isolation
@@ -920,7 +957,9 @@ function symbolAffordance(
     if (!knownSynoptics.has(target)) return "missing";
     return onSymbolClick ? "link" : null;
   }
-  return symbol.device_id && onSymbolClick ? "device" : null;
+  // A twin's heads are devices, never the pair: it takes its clicks per
+  // head, whatever an older document says of it.
+  return headOf(symbol, null)?.deviceId && onSymbolClick ? "device" : null;
 }
 
 /** The clickable wrapper of a symbol. A missing link is drawn faded and
@@ -931,13 +970,16 @@ function symbolAffordance(
  *  just opened. */
 function Affordance({
   symbol,
+  head,
   kind,
   onClick,
   children,
 }: {
   symbol: SymbolElement;
+  /** The head this target opens, on a symbol of several machines. */
+  head?: string;
   kind: AffordanceKind;
-  onClick: ((symbol: SymbolElement) => void) | undefined;
+  onClick: ((symbol: SymbolElement, head?: string) => void) | undefined;
   children: ReactNode;
 }) {
   if (kind === "missing") {
@@ -953,7 +995,8 @@ function Affordance({
       </g>
     );
   }
-  const activate = () => onClick?.(symbol);
+  const activate = () => onClick?.(symbol, head);
+  const name = symbol.label ?? symbol.id;
   // A double click's second click is not a second activation.
   const onClickOnce = (e: MouseEvent<SVGGElement>) => {
     if (e.detail <= 1) activate();
@@ -967,10 +1010,11 @@ function Affordance({
   return (
     <g
       data-symbol={symbol.id}
+      data-head={head}
       data-affordance={kind}
       role="button"
       tabIndex={0}
-      aria-label={symbol.label ?? symbol.id}
+      aria-label={head ? `${name} ${headName(head)}` : name}
       className="cursor-pointer outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       onClick={onClickOnce}
       onDoubleClick={(e) => e.stopPropagation()}
@@ -989,8 +1033,6 @@ function addSymbols(plate: Plate) {
   for (const symbol of symbols.values()) {
     const placement = symbol.placement;
     const origin = placement.cell;
-    const facts = symbol.device_id ? values.devices[symbol.device_id] : null;
-    const fault = faultLevel(!!facts?.faulty, facts?.severity);
     // Bound slots in the order the type declares them: state and fault first.
     const readings = (symbolSchemas[symbol.type]?.["x-slots"] ?? []).flatMap(
       (slot) => {
@@ -1005,36 +1047,55 @@ function addSymbols(plate: Plate) {
           : [];
       },
     );
-    const state = stateOf(readings.find((r) => r.slot === "state")?.reading);
+    // Each machine the symbol is, with its own run state and fault: the
+    // symbol itself, or each head of a twin, which read on their own.
+    const shapes = plate.heads.get(symbol.id);
+    const machines = symbolHeads(symbol).map((head) => {
+      const key = head.key ?? "";
+      return {
+        key,
+        head,
+        state: stateOf(readings.find((r) => r.slot === head.state)?.reading),
+        fault: machineFault(symbol.id, head, values),
+        shape: shapes?.get(key),
+      };
+    });
+    const heads = machines[0].head.key === null ? undefined : machines;
+    const state = heads ? undefined : machines[0].state;
+    const fault = heads
+      ? mostSevere(heads.flatMap((m) => (m.fault ? [m.fault] : [])))
+      : machines[0].fault;
 
     const shape = collectorShape(symbol);
     const bodyCell = nearestCell(symbol);
     const affordance = symbolAffordance(symbol, plate);
     const hover = plate.onSymbolHover;
-    const wrap = (node: ReactNode) => {
-      const clickable = affordance ? (
-        <Affordance
-          symbol={symbol}
-          kind={affordance}
-          onClick={plate.onSymbolClick}
-        >
-          {node}
-        </Affordance>
-      ) : (
-        node
-      );
-      return hover ? (
+    const hovered = (node: ReactNode) =>
+      hover ? (
         <g
           data-hover={symbol.id}
           onPointerEnter={() => hover(symbol)}
           onPointerLeave={() => hover(null)}
         >
-          {clickable}
+          {node}
         </g>
       ) : (
-        clickable
+        node
       );
-    };
+    const wrap = (node: ReactNode) =>
+      hovered(
+        affordance ? (
+          <Affordance
+            symbol={symbol}
+            kind={affordance}
+            onClick={plate.onSymbolClick}
+          >
+            {node}
+          </Affordance>
+        ) : (
+          node
+        ),
+      );
     if (shape) {
       // The bar is cut per cell like a run, so a run raised over it paints
       // over the cells it crosses and the bar's own port stubs stay under
@@ -1093,10 +1154,7 @@ function addSymbols(plate: Plate) {
       }
       continue;
     }
-    const direction =
-      placement.kind === "pipe"
-        ? pieceAt(pieces.get(placement.pipe) ?? [], placement.cell)?.direction
-        : undefined;
+    const direction = runDirection(symbol, pieces);
     const rotation = placement.kind === "cell" ? placement.rotation : 0;
     items.push({
       id: symbol.id,
@@ -1109,12 +1167,47 @@ function addSymbols(plate: Plate) {
           rotation={rotation}
           label={symbol.label ?? undefined}
           state={state}
-          fault={fault}
+          fault={heads ? null : fault}
+          heads={heads?.flatMap(({ key, state, fault, shape }) =>
+            shape ? [{ key, state, fault, ...shape }] : [],
+          )}
           direction={direction}
           showLabel={false}
         />,
       ),
     });
+    // Each head that is a device takes its own click, just over the pump
+    // and under whatever stands in front of it, the head further back
+    // first: where the two areas meet on screen, the head drawn in front
+    // takes the click, as it hides the other.
+    const backToFront = [...(heads ?? [])].sort(
+      (a, b) => (a.shape?.depth ?? 0) - (b.shape?.depth ?? 0),
+    );
+    for (const machine of backToFront) {
+      const hit = machine.shape?.hit;
+      if (!hit || !machine.head.deviceId || !plate.onSymbolClick) continue;
+      items.push({
+        id: `${symbol.id}:head:${machine.key}`,
+        depth: depthKey(bodyCell, "symbol"),
+        node: hovered(
+          <Affordance
+            symbol={symbol}
+            head={machine.key}
+            kind="device"
+            onClick={plate.onSymbolClick}
+          >
+            {hit.map((points, i) => (
+              <polygon
+                key={i}
+                points={pointsAttr(points)}
+                fill="transparent"
+                data-head-hit={machine.key}
+              />
+            ))}
+          </Affordance>,
+        ),
+      });
+    }
 
     // The name, placed clear of the plate and painted over it. On the
     // sheet the run state lights an LED after it; in the isometric view
@@ -1152,6 +1245,7 @@ function addSymbols(plate: Plate) {
               anchor={placed.anchor}
               onFace={placed.onFace}
               led={labelHasLed(projection, symbol.type) ? state : undefined}
+              heads={labelHasLed(projection, symbol.type) ? heads : undefined}
               fault={fault}
             />
           </g>
@@ -1232,13 +1326,15 @@ function addSymbols(plate: Plate) {
             rows={readings.map<PanelRow>(({ slot, reading }) => ({
               label: vocabulary.slotLabel(slot),
               reading,
-              error: slot === FAULT_SLOT,
+              error: (headSlot(slot)?.role ?? slot) === FAULT_SLOT,
+              fault: heads?.find((m) => m.head.slots.includes(slot))?.fault,
               title: vocabulary.readingTitle?.(
                 reading,
                 vocabulary.slotLabel(slot),
               ),
             }))}
             led={state}
+            heads={heads}
             fault={fault}
           />
         </g>

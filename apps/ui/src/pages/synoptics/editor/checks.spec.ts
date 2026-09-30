@@ -97,6 +97,20 @@ describe("plateChecks", () => {
     expect(plateChecks(doc, NO_SAVE_ERRORS)).toEqual([]);
   });
 
+  it("takes a twin pump with a device on one head as bound", () => {
+    const twin = (props: SymbolElement["props"]) =>
+      symbol("t", "pump_double", { props });
+    expect(plateChecks(plate([twin({})]), NO_SAVE_ERRORS)).toEqual([
+      { kind: "unbound", severity: "warning", element: "t" },
+    ]);
+    expect(
+      plateChecks(
+        plate([twin({ heads: { b: { device_id: "dev" } } })]),
+        NO_SAVE_ERRORS,
+      ),
+    ).toEqual([]);
+  });
+
   it("finds a run the backend would refuse before it is asked", () => {
     expect(plateChecks(plate([], [diagonal]), NO_SAVE_ERRORS)).toEqual([
       {

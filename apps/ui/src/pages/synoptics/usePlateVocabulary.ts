@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { humanize } from "@/components/synoptic";
+import { headName, headSlot } from "@/components/synoptic/heads";
 import { readingState, type SlotReading } from "@/components/synoptic/values";
 import type { PlateVocabulary } from "@/components/synoptic/vocabulary";
 import { formatTimeAgo } from "@/lib/utils";
@@ -17,7 +18,7 @@ export type PageVocabulary = PlateVocabulary & {
 
 /**
  * The plate's words in the operator's language: slot captions (`ÉTAT`,
- * `DÉFAUT`), type names, and the tooltip of a reading, which says what it
+ * `DÉFAUT`, a twin pump's `ÉTAT A`), type names, and the tooltip of a reading, which says what it
  * is, what it reads and when the device last reported it. A slot or a
  * type the catalogue does not name falls back to the registry's own name,
  * humanised, so an unknown key never reads as a key.
@@ -31,8 +32,15 @@ export function usePlateVocabulary(): PageVocabulary {
       minute: "2-digit",
       second: "2-digit",
     });
-    const slotLabel = (slot: string) =>
+    const caption = (slot: string) =>
       t(`slots.${slot}`, { defaultValue: humanize(slot) });
+    // A head's slot reads its role's word and the head's letter: `ÉTAT A`.
+    const slotLabel = (slot: string) => {
+      const head = headSlot(slot);
+      return head
+        ? `${caption(head.role)} ${headName(head.head)}`
+        : caption(slot);
+    };
     const typeLabel = (type: string) =>
       t(`types.${type}`, { defaultValue: humanize(type) });
     const fluidLabel = (fluid: Fluid) => t(`fluids.${fluid}`);

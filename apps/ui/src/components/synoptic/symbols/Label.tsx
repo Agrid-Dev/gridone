@@ -10,6 +10,14 @@ export type SymbolState = "on" | "off";
 export const LABEL_SIZE = 11;
 /** Space between a label's end and its LED. */
 export const LED_GAP = 8;
+/** Radius of the run-state LED. */
+export const LED_R = 4;
+/** Centre to centre of two LEDs in a row, one per head: 3 px apart. */
+export const LED_PITCH = 2 * LED_R + 3;
+
+/** The room the LEDs after a name take, `count` of them. */
+export const ledRoom = (count: number) =>
+  count ? LED_GAP + 2 * LED_R + (count - 1) * LED_PITCH : 0;
 
 type LabelProps = {
   text: string;
@@ -22,6 +30,9 @@ type LabelProps = {
   faceOffsetX?: number;
   /** Lights a run-state LED after the text. */
   led?: SymbolState;
+  /** One LED per head instead, in head order, each with its own fault; a
+   *  head whose state nobody knows keeps its place, dashed. */
+  heads?: { state?: SymbolState; fault: Severity | null }[];
   /** The device's fault level; null when healthy. */
   fault?: Severity | null;
   /** Where `at.x` falls on the text: its middle, its start or its end. */
@@ -63,6 +74,7 @@ export function Label({
   onFace = false,
   faceOffsetX = 0,
   led,
+  heads,
   fault = null,
   anchor = "middle",
 }: LabelProps) {
@@ -92,33 +104,50 @@ export function Label({
       {led && (
         <Led at={{ x: end + LED_GAP, y: y - 4 }} led={led} fault={fault} />
       )}
+      {heads?.map((head, i) => (
+        <Led
+          key={i}
+          at={{
+            x: end + LED_GAP + i * LED_PITCH,
+            y: y - 4,
+          }}
+          led={head.state}
+          fault={head.fault}
+        />
+      ))}
     </>
   );
 }
 
 /** The 4 px run-state LED: ok when on, muted when off, the fault's
- *  colour first when the device is faulty. */
+ *  colour first when the device is faulty, hollow and dashed while nothing
+ *  is known. */
 export function Led({
   at,
   led,
   fault,
 }: {
   at: Pt;
-  led: SymbolState;
+  led: SymbolState | undefined;
   fault: Severity | null;
 }) {
+  const unknown = !fault && led === undefined;
   return (
     <circle
       cx={at.x}
       cy={at.y}
-      r={4}
-      data-led={fault ? `fault-${fault}` : led}
+      r={LED_R}
+      data-led={fault ? `fault-${fault}` : (led ?? "unknown")}
+      strokeWidth={unknown ? 1 : undefined}
+      strokeDasharray={unknown ? "2 1.5" : undefined}
       className={
         fault
           ? FAULT_FILL_CLASS[fault]
-          : led === "on"
-            ? "fill-status-ok"
-            : "fill-muted-foreground"
+          : unknown
+            ? "fill-none stroke-muted-foreground"
+            : led === "on"
+              ? "fill-status-ok"
+              : "fill-muted-foreground"
       }
     />
   );

@@ -25,6 +25,7 @@ import {
   setCollectorAxis,
   toDocument,
   withDevice,
+  withDevicesPerHead,
   type RoutePoint,
 } from "./document";
 import type { PlateDocument } from "@/components/synoptic/SynopticRenderer";
@@ -603,6 +604,28 @@ describe("withDevice", () => {
     expect(next.bindings!.speed).toBe(pump.bindings!.speed);
   });
 
+  it("moves a twin pump head's own bindings only, and names the device on the head", () => {
+    const read = (device: string, attribute: string) => ({
+      kind: "attribute" as const,
+      target: { devices: { ids: [device] }, attribute },
+    });
+    // One controller reads both heads: moving head a must not take b's.
+    const twin: SymbolElement = {
+      id: "pec",
+      type: "pump_double",
+      placement: { kind: "cell", cell: { x: 0, y: 0 } },
+      props: { heads: { a: { device_id: "ctl" }, b: { device_id: "ctl" } } },
+      bindings: { state_a: read("ctl", "p1"), state_b: read("ctl", "p2") },
+    };
+    const next = withDevice(twin, "pump-a", "a");
+    expect(next.device_id).toBeUndefined();
+    expect(next.props).toEqual({
+      heads: { a: { device_id: "pump-a" }, b: { device_id: "ctl" } },
+    });
+    expect(next.bindings!.state_a).toEqual(read("pump-a", "p1"));
+    expect(next.bindings!.state_b).toBe(twin.bindings!.state_b);
+  });
+
   it("keeps every binding when the device is cleared or first set", () => {
     expect(withDevice(pump, null)).toEqual({ ...pump, device_id: null });
     const fresh = { ...pump, device_id: null };
@@ -878,5 +901,36 @@ describe("further cases, each pinned by a mutation", () => {
       expect(next).toEqual(pump);
       expect(next.bindings).toBe(pump.bindings);
     });
+  });
+});
+
+describe("withDevicesPerHead", () => {
+  it("moves an old twin pump's pair device onto the heads that name none", () => {
+    const twin = (extra: Partial<SymbolElement>): SymbolElement => ({
+      id: "pec",
+      type: "pump_double",
+      placement: { kind: "cell", cell: { x: 0, y: 0 } },
+      bindings: { state: { kind: "text", text: "non identifiée" } },
+      ...extra,
+    });
+    const doc = {
+      ...emptyDocument("p"),
+      symbols: [
+        twin({
+          device_id: "ctl",
+          props: { heads: { b: { device_id: "pb" } } },
+        }),
+        { ...twin({ id: "p1", device_id: "p1" }), type: "pump" },
+      ],
+    };
+    const [pec, pump] = withDevicesPerHead(doc).symbols!;
+    expect(pec.device_id).toBeNull();
+    expect(pec.props).toEqual({
+      heads: { a: { device_id: "ctl" }, b: { device_id: "pb" } },
+    });
+    // Its old reading stays for the author to move or clear.
+    expect(pec.bindings).toEqual(doc.symbols[0].bindings);
+    // A symbol of one machine keeps its device.
+    expect(pump).toBe(doc.symbols[1]);
   });
 });

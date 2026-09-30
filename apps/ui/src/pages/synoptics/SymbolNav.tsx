@@ -11,6 +11,8 @@ import { foldText } from "@/lib/textFormat";
 /** A named symbol of the plate, as the navigation panel lists it. */
 export type NavEntry = {
   symbol: SymbolElement;
+  /** The head the entry names, on a symbol of several machines. */
+  head: string | null;
   name: string;
   /** The type, as the screen reads it. */
   type: string;
@@ -78,7 +80,7 @@ export const SymbolNav: FC<SymbolNavProps> = ({
           </li>
         )}
         {shown.map((entry) => (
-          <li key={entry.symbol.id}>
+          <li key={`${entry.symbol.id}:${entry.head ?? ""}`}>
             <button
               type="button"
               data-nav-symbol={entry.symbol.id}

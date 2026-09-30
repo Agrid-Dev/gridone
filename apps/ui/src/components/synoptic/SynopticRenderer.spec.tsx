@@ -26,7 +26,8 @@ import {
   symbolBox,
   type PlateHandle,
 } from "./SynopticRenderer";
-import { SynopticSymbol } from "./symbols/SynopticSymbol";
+import { pointsAttr } from "./symbols/plan";
+import { headShapes, SynopticSymbol } from "./symbols/SynopticSymbol";
 import { textWidth } from "./text";
 import type { SlotReading, SynopticValues } from "./values";
 
@@ -2188,4 +2189,204 @@ describe("SynopticRenderer moving fluid on the committed plates", () => {
       expect(shifted).toBeGreaterThan(0);
     },
   );
+});
+
+describe("a twin pump", () => {
+  // Inline on the supply, which runs +x there. Head a is a device; head b
+  // is marked as nobody has identified it yet, as the plates mark a pair
+  // whose station is unknown.
+  const TWIN_AT = { x: 3, y: 1 };
+  const twin = (heads: Record<string, { device_id: string }>): Synoptic => ({
+    ...DOC,
+    symbols: [
+      ...(DOC.symbols ?? []),
+      {
+        id: "pec",
+        type: "pump_double",
+        placement: { kind: "pipe", pipe: "supply", cell: TWIN_AT },
+        label: "PEC",
+        props: { heads },
+        bindings: {
+          state_a: {
+            kind: "attribute",
+            target: { devices: { ids: ["PEC-A"] }, attribute: "onoff_state" },
+          },
+          state_b: { kind: "text", text: "non identifiée" },
+        },
+      },
+    ],
+  });
+  const HEAD_A = { a: { device_id: "PEC-A" } };
+  const BOTH = { a: { device_id: "PEC-A" }, b: { device_id: "PEC-B" } };
+  const values = (devices: SynopticValues["devices"] = {}): SynopticValues => ({
+    slots: { ...VALUES.slots, "symbol.pec.state_a": live("MARCHE", true) },
+    devices,
+  });
+  const clickable = (doc: Synoptic) => {
+    const onSymbolClick = vi.fn();
+    const { container } = render(
+      <SynopticRenderer
+        doc={doc}
+        values={values()}
+        onSymbolClick={onSymbolClick}
+      />,
+    );
+    const heads = q(container, "[data-symbol='pec'][role='button']").map((g) =>
+      g.getAttribute("data-head"),
+    );
+    return { container, heads, onSymbolClick };
+  };
+
+  it("makes each head that is a device its own button, reporting the head", () => {
+    // "each head clickable to its own controls"
+    const { container, heads, onSymbolClick } = clickable(twin(BOTH));
+    expect(heads).toEqual(["a", "b"]);
+    fireEvent.click(
+      container.querySelector("[data-symbol='pec'][data-head='b']")!,
+    );
+    expect(onSymbolClick).toHaveBeenCalledTimes(1);
+    expect(onSymbolClick.mock.calls[0][0].id).toBe("pec");
+    expect(onSymbolClick.mock.calls[0][1]).toBe("b");
+  });
+
+  it("takes a head's click on its half of the pair, the head further back first", () => {
+    // On the branch the run goes +y, so head b is the one further back:
+    // listed in head order, a's area would cover b's where they meet.
+    const at = { x: 5, y: 2 };
+    const doc = twin(BOTH);
+    const onBranch = {
+      ...doc,
+      symbols: doc.symbols!.flatMap((s) =>
+        s.id === "v-03"
+          ? []
+          : s.id === "pec"
+            ? [
+                {
+                  ...s,
+                  placement: {
+                    kind: "pipe" as const,
+                    pipe: "branch",
+                    cell: at,
+                  },
+                },
+              ]
+            : [s],
+      ),
+    };
+    const { container } = clickable(onBranch);
+    const shapes = headShapes("pump_double", "isometric", at, 0, {
+      x: 0,
+      y: 1,
+    });
+    expect(shapes[1].depth).toBeLessThan(shapes[0].depth);
+    expect(
+      q(container, "[data-head-hit]").map((p) => ({
+        head: p.getAttribute("data-head-hit"),
+        points: p.getAttribute("points"),
+      })),
+    ).toEqual(
+      [
+        ["b", shapes[1]],
+        ["a", shapes[0]],
+      ].flatMap(([head, shape]) =>
+        (shape as (typeof shapes)[number]).hit.map((points) => ({
+          head,
+          points: pointsAttr(points),
+        })),
+      ),
+    );
+  });
+
+  it("keeps the head that is a device clickable when the other is none", () => {
+    // "A head with no binding ... without hiding the other head"
+    expect(clickable(twin(HEAD_A)).heads).toEqual(["a"]);
+  });
+
+  it("draws each head's own state, the unidentified head dashed", () => {
+    const c = draw(twin(HEAD_A), values());
+    const dot = (head: string) =>
+      c
+        .querySelector(`[data-head='${head}'] [data-state-dot]`)
+        ?.getAttribute("data-state-dot");
+    expect(dot("a")).toBe("on");
+    expect(dot("b")).toBe("unknown");
+  });
+
+  it("outlines the faulty head alone, where that head is drawn", () => {
+    const healthy = { faulty: false, severity: null };
+    const c = draw(
+      twin(BOTH),
+      values({
+        "PEC-A": healthy,
+        "PEC-B": { faulty: true, severity: "alert" },
+      }),
+    );
+    const [, b] = headShapes("pump_double", "isometric", TWIN_AT, 0, {
+      x: 1,
+      y: 0,
+    });
+    expect(
+      q(c, "[data-fault] polygon").map((p) => p.getAttribute("points")),
+    ).toEqual([pointsAttr(b.outline)]);
+  });
+
+  it("paints each head's click area under what stands nearer the viewer", () => {
+    // V-03 stands at (5, 2), nearer than the twin at (3, 1): its drawing
+    // hides the pump there, so it must be painted over the pump's click
+    // areas. In the text layer they would take its clicks.
+    const { container } = clickable(twin(BOTH));
+    const hit = container.querySelector("[data-head-hit]")!;
+    const valve = container.querySelector("[data-handwheel]")!;
+    expect(
+      hit.compareDocumentPosition(valve) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("outlines only the head whose own contact tripped when one controller reads both", () => {
+    const ctl = { a: { device_id: "CTL" }, b: { device_id: "CTL" } };
+    const doc = twin(ctl);
+    const pec = doc.symbols!.find((s) => s.id === "pec")!;
+    pec.bindings = {
+      fault_a: {
+        kind: "attribute",
+        target: { devices: { ids: ["CTL"] }, attribute: "defaut_1" },
+      },
+      fault_b: {
+        kind: "attribute",
+        target: { devices: { ids: ["CTL"] }, attribute: "defaut_2" },
+      },
+    };
+    const c = draw(doc, {
+      slots: {
+        "symbol.pec.fault_a": live("DÉFAUT", true),
+        "symbol.pec.fault_b": live("NORMAL", false),
+      },
+      devices: { CTL: { faulty: true, severity: null } },
+    });
+    const [a] = headShapes("pump_double", "isometric", TWIN_AT, 0, {
+      x: 1,
+      y: 0,
+    });
+    expect(
+      q(c, "[data-fault] polygon").map((p) => p.getAttribute("points")),
+    ).toEqual([pointsAttr(a.outline)]);
+  });
+
+  it("makes no button of the pair when an older document names a device on it", () => {
+    const doc = twin({});
+    doc.symbols!.find((s) => s.id === "pec")!.device_id = "PEC-A";
+    const { container } = clickable(doc);
+    expect(
+      container.querySelector("[data-symbol='pec'][role='button']"),
+    ).toBeNull();
+  });
+
+  it("lights one LED per head after its name on the sheet, A then B", () => {
+    const c = draw({ ...twin(HEAD_A), projection: "flat" }, values());
+    expect(
+      q(c, "[data-symbol-label='pec'] [data-led]").map((l) =>
+        l.getAttribute("data-led"),
+      ),
+    ).toEqual(["on", "unknown"]);
+  });
 });

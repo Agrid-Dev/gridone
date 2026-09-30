@@ -34,11 +34,14 @@ const NONE = "__none__";
  */
 export function DeviceCombobox({
   id,
+  label,
   value,
   devices,
   onChange,
 }: {
   id?: string;
+  /** The name it reads by, when a symbol has one per head. */
+  label?: string;
   value: string | null;
   devices: Device[];
   onChange: (deviceId: string | null) => void;
@@ -61,7 +64,7 @@ export function DeviceCombobox({
           id={id}
           type="button"
           role="combobox"
-          aria-label={t("editor.device.label")}
+          aria-label={label ?? t("editor.device.label")}
           aria-expanded={open}
           className="flex h-10 w-full items-center gap-2 rounded-md border bg-background px-3 text-left text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >

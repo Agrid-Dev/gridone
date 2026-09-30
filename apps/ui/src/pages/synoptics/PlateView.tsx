@@ -24,6 +24,7 @@ import {
   SynopticRenderer,
   type PlateHandle,
 } from "@/components/synoptic";
+import { headOf } from "@/components/synoptic/heads";
 import type { View } from "@/components/synoptic/hooks/useViewport";
 import { ZOOM_STEP } from "@/components/synoptic/hooks/useViewport";
 import type { SynopticValues } from "@/components/synoptic/values";
@@ -104,14 +105,21 @@ export const PlateView: FC<PlateViewProps> = ({
   );
   const [zoom, setZoom] = useState(1);
   const [viewTick, setViewTick] = useState(0);
-  const [selected, setSelected] = useState<SymbolElement | null>(null);
+  // The machine whose points are open: a symbol, or one head of a twin.
+  const [selected, setSelected] = useState<{
+    symbol: SymbolElement;
+    head: string | null;
+  } | null>(null);
   // The popover has no trigger to hand focus back to: it returns to what
   // held it when the points opened (a symbol, a row of the list).
   const returnFocus = useRef<Element | null>(null);
-  const open = useCallback((symbol: SymbolElement) => {
-    returnFocus.current = document.activeElement;
-    setSelected(symbol);
-  }, []);
+  const open = useCallback(
+    (symbol: SymbolElement, head: string | null = null) => {
+      returnFocus.current = document.activeElement;
+      setSelected({ symbol, head });
+    },
+    [],
+  );
   const [anchor, setAnchor] = useState<AnchorRect | null>(null);
   const [legendOpen, setLegendOpen] = useState(readLegendOpen);
   const [navOpen, setNavOpen] = useState(readNavOpen);
@@ -149,7 +157,10 @@ export const PlateView: FC<PlateViewProps> = ({
       setAnchor(null);
       return;
     }
-    const rect = plate.current?.symbolClientRect(selected.id);
+    const rect = plate.current?.symbolClientRect(
+      selected.symbol.id,
+      selected.head ?? undefined,
+    );
     const frame = canvas.current?.getBoundingClientRect();
     // No rectangle (the symbol left the document, or no layout yet): the
     // last anchor would leave the popover floating where the symbol was.
@@ -167,11 +178,11 @@ export const PlateView: FC<PlateViewProps> = ({
 
   // The renderer only reports a device symbol or a link whose target exists.
   const onSymbolClick = useCallback(
-    (symbol: SymbolElement) => {
+    (symbol: SymbolElement, head?: string) => {
       if (symbol.type === "link") {
         onNavigate(String(symbol.props?.synoptic_id));
-      } else if (symbol.device_id) {
-        open(symbol);
+      } else if (headOf(symbol, head ?? null)?.deviceId) {
+        open(symbol, head);
       }
     },
     [onNavigate, open],
@@ -184,7 +195,7 @@ export const PlateView: FC<PlateViewProps> = ({
     (entry: NavEntry) => {
       plate.current?.focusSymbol(entry.symbol.id);
       setLocated(entry.symbol.id);
-      if (entry.device) open(entry.symbol);
+      if (entry.device) open(entry.symbol, entry.head);
     },
     [open],
   );
@@ -395,8 +406,9 @@ export const PlateView: FC<PlateViewProps> = ({
             >
               {selected && (
                 <DevicePopover
-                  key={selected.id}
-                  symbol={selected}
+                  key={`${selected.symbol.id}:${selected.head ?? ""}`}
+                  symbol={selected.symbol}
+                  head={selected.head}
                   values={values}
                   vocabulary={vocabulary}
                   onClose={() => setSelected(null)}

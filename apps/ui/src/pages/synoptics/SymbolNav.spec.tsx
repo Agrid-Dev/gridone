@@ -28,6 +28,7 @@ const entry = (
   rest: Partial<NavEntry> = {},
 ): NavEntry => ({
   symbol: symbol(id, type.replace(/ /g, "_")),
+  head: null,
   name,
   type,
   fault: null,

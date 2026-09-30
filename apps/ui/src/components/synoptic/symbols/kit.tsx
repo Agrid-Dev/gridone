@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { Severity } from "@gridone/sdk";
+import type { Projection, Severity } from "@gridone/sdk";
 import { ISO_AXIS_DEG, PIPE_AXIS_Z } from "../projection";
 import type { Pt } from "../types";
 import { fillUrl, KIT_GRADIENT } from "./defs";
@@ -39,6 +39,16 @@ export type VolumeContext = {
   fault: Severity | null;
   /** An isolation valve's reading: closed, open, or unknown. */
   closed?: boolean;
+  /** Each head's own state and fault, for a type drawn as several
+   *  machines; absent where only the type is drawn (a thumbnail). */
+  heads?: HeadIndication[];
+};
+
+/** What one head of a symbol shows: its run state and its device's fault. */
+export type HeadIndication = {
+  key: string;
+  state?: SymbolState;
+  fault: Severity | null;
 };
 
 export type Volume = (ctx: VolumeContext) => ReactNode;
@@ -63,6 +73,21 @@ const along = (c: Pt, d: Pt, t: number): Pt => ({
   x: c.x + d.x * t,
   y: c.y + d.y * t,
 });
+
+/** Where a twin pump's heads sit, either side of its run, in each view:
+ *  how far off the run and how wide, in cells. The volume, the plan glyph,
+ *  a head's fault outline and its click all read this one placement. */
+export const TWIN_HEAD: Record<Projection, { offset: number; r: number }> = {
+  isometric: { offset: 0.26, r: 0.26 },
+  flat: { offset: 0.24, r: 0.22 },
+};
+
+/** A twin pump's head centres, head `a` then head `b`, across the run
+ *  `dir` from the centre `c`. */
+export const twinHeadCentres = (c: Pt, dir: Pt, offset: number): Pt[] => [
+  along(c, perp(dir), -offset),
+  along(c, perp(dir), offset),
+];
 
 /** Radius of the tank's cylinder: wider than its one-cell footprint so a
  *  run meets the drum, as the kit draws it. */
@@ -199,17 +224,25 @@ function pumpAt(
 const pump: Volume = ({ P, c, state, fault }) =>
   pumpAt(P, c, indication(state, fault));
 
-const pumpDouble: Volume = ({ P, c, dir, state, fault }) => {
-  const n = perp(dir);
-  const ind = indication(state, fault);
+const pumpDouble: Volume = ({ P, c, dir, state, fault, heads }) => {
+  const { offset, r } = TWIN_HEAD.isometric;
+  const drawn = twinHeadCentres(c, dir, offset).map((at, i) => {
+    const head = heads?.[i];
+    // Drawn per head once the heads are known; a head with nothing known
+    // shows so, whatever the other one reads.
+    const ind = heads
+      ? indication(head?.state, head?.fault ?? null)
+      : indication(state, fault);
+    return { at, ind, key: head?.key };
+  });
   // The head further back paints first.
-  const heads = [along(c, n, -0.26), along(c, n, 0.26)].sort(
-    (a, b) => a.x + a.y - (b.x + b.y),
-  );
+  drawn.sort((a, b) => a.at.x + a.at.y - (b.at.x + b.at.y));
   return (
     <>
-      {heads.map((h, i) => (
-        <g key={i}>{pumpAt(P, h, ind, 0.26)}</g>
+      {drawn.map(({ at, ind, key }, i) => (
+        <g key={i} data-head={key}>
+          {pumpAt(P, at, ind, r)}
+        </g>
       ))}
     </>
   );
