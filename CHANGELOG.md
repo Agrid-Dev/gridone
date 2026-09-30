@@ -1,3 +1,9 @@
+## v0.285.1 (2026-09-30)
+
+### Fix
+
+- **synoptics**: hot plate follows the controller and plant diagram (#746)
+
 ## v0.285.0 (2026-09-30)
 
 ### Feat
