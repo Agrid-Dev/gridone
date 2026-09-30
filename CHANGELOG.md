@@ -1,3 +1,9 @@
+## v0.290.0 (2026-09-30)
+
+### Feat
+
+- **dashboards**: synoptic widget (AGR-1383) (#744)
+
 ## v0.289.0 (2026-09-30)
 
 ### Feat
