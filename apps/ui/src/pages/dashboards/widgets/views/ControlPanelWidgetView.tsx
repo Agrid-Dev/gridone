@@ -31,9 +31,10 @@ import { useAttributeLabel } from "@/hooks/useAttributeLabel";
 import { useDevice } from "@/hooks/useDevice";
 import { deviceAttributes } from "@/lib/devices";
 import { isFaultAttribute, type AttributeFields } from "@/lib/faults";
+import { commandReasons } from "@/lib/commandReasons";
 import { SEMANTIC_TEXT_CLASS } from "@/lib/semanticColors";
 import { cn } from "@/lib/utils";
-import { sectionActivity } from "./controlPanelSection";
+import { blockedToggleReasons, sectionActivity } from "./controlPanelSection";
 
 const Message: FC<{ children: string }> = ({ children }) => (
   <div className="flex h-full items-center justify-center p-4 text-center text-sm text-muted-foreground">
@@ -41,7 +42,8 @@ const Message: FC<{ children: string }> = ({ children }) => (
   </div>
 );
 
-/** Why a section's controls are disabled, in words for the operator. */
+/** Why a control is disabled, in words for the operator: its section is
+ *  inactive, or a write rule of the driver refuses the move. */
 type SectionLock = { reason: string };
 
 /**
@@ -297,11 +299,20 @@ const ToggleRow: FC<{
   const state = runtime.readControl(name);
   if (!state) return null;
 
+  // A write rule of the driver refusing the move locks the switch like an
+  // inactive section does, with the rule's own message as the reason. The
+  // section's lock comes first: it already says why nothing here moves.
+  const blocked = lock
+    ? null
+    : blockedToggleReasons(state.optionStates, state.displayed);
+  const ruleMessage = blocked ? commandReasons(blocked, i18n.language) : "";
+  const hint = lock ?? (ruleMessage ? { reason: ruleMessage } : null);
+
   const toggle = (
     <Switch
       aria-label={label}
       checked={state.displayed === true}
-      disabled={!state.canToggle}
+      disabled={!state.canToggle || blocked !== null}
       onCheckedChange={(checked) => runtime.setValue(name, checked)}
     />
   );
@@ -311,6 +322,11 @@ const ToggleRow: FC<{
       status={
         <>
           <WriteFeedback state={state.write} />
+          {ruleMessage && (
+            <p role="status" className="text-xs text-muted-foreground">
+              {ruleMessage}
+            </p>
+          )}
           <ControlFeedback
             state={state}
             runtime={runtime}
@@ -330,10 +346,10 @@ const ToggleRow: FC<{
           className={cn("font-medium", lock && "opacity-60")}
         />
       )}
-      {lock ? (
+      {hint ? (
         // A disabled button fires no pointer events, so the hint hangs on a
         // focusable wrapper instead.
-        <LockHint lock={lock}>
+        <LockHint lock={hint}>
           <span tabIndex={0} className="inline-flex rounded-full">
             {toggle}
           </span>

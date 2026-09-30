@@ -18,6 +18,9 @@ type InputControllerProps<
   description?: React.ReactNode;
   required?: boolean;
   type?: React.HTMLInputTypeAttribute;
+  /** Store `null` instead of `""` once a text input is emptied, for an
+   *  optional field whose schema allows null but refuses a blank string. */
+  emptyAsNull?: boolean;
   orientation?: React.ComponentProps<typeof FieldShell>["orientation"];
   inputProps?: Omit<
     React.ComponentProps<typeof Input>,
@@ -42,6 +45,7 @@ export function InputController<
   description,
   type = "text",
   required,
+  emptyAsNull = false,
   orientation,
   inputProps,
   ...controllerProps
@@ -74,7 +78,11 @@ export function InputController<
         {...inputProps}
         value={inputValue}
         onChange={(e) => {
-          if (parsedType !== "number") return field.onChange(e);
+          if (parsedType !== "number") {
+            if (emptyAsNull && e.currentTarget.value === "")
+              return field.onChange(null);
+            return field.onChange(e);
+          }
 
           const raw = e.currentTarget.value;
           if (raw === "") return field.onChange(undefined); // or null
