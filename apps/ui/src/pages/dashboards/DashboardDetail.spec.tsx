@@ -88,14 +88,13 @@ function renderPage() {
   );
 }
 
-it("uses the active dashboard as the title menu with one add-widget action", () => {
+it("titles the page with the dashboard, no view switcher, with one add-widget action", () => {
   renderPage();
-  expect(
-    within(screen.getByRole("heading", { level: 2 })).getByRole("button", {
-      name: "Energy",
-    }),
-  ).toBeInTheDocument();
+  const heading = screen.getByRole("heading", { level: 2 });
+  expect(heading).toHaveTextContent("Energy");
+  expect(within(heading).queryByRole("button")).not.toBeInTheDocument();
   expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+  expect(screen.getByText("Period")).toBeInTheDocument();
   expect(screen.getAllByRole("link", { name: "Add widget" })).toHaveLength(1);
   expect(screen.getByRole("link", { name: "Add widget" })).toHaveAttribute(
     "href",
@@ -106,10 +105,10 @@ it("uses the active dashboard as the title menu with one add-widget action", () 
   ).toBeInTheDocument();
 });
 
-it("keeps navigation but hides creation and editing for a viewer", () => {
+it("hides creation and editing for a viewer", () => {
   canWrite = false;
   renderPage();
-  expect(screen.getByRole("button", { name: "Energy" })).toBeEnabled();
+  expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent("Energy");
   expect(
     screen.queryByRole("link", { name: "Add widget" }),
   ).not.toBeInTheDocument();
@@ -118,10 +117,9 @@ it("keeps navigation but hides creation and editing for a viewer", () => {
   ).not.toBeInTheDocument();
 });
 
-it("disables switching and adding widgets while the layout is being edited", () => {
+it("disables adding widgets while the layout is being edited", () => {
   editing = true;
   renderPage();
-  expect(screen.getByRole("button", { name: "Energy" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "Add widget" })).toBeDisabled();
   expect(
     screen.queryByRole("link", { name: "Add widget" }),

@@ -10,7 +10,7 @@ import Automations from "./pages/automations";
 import Dashboards from "./pages/dashboards";
 import Devices from "./pages/devices";
 import FaultsPage from "./pages/faults/FaultsPage";
-import Home from "./pages/home";
+import RootLanding from "./pages/RootLanding";
 import NotificationsPage from "./pages/notifications";
 import Drivers from "./pages/drivers";
 import Transports from "./pages/transports";
@@ -68,7 +68,7 @@ function ProtectedLayout() {
           >
             <PageContainer>
               <Routes>
-                <Route index element={<Home />} />
+                <Route index element={<RootLanding />} />
                 {dashboardsEnabled && (
                   <Route path="/dashboards/*" element={<Dashboards />} />
                 )}

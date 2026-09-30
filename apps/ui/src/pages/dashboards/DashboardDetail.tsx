@@ -19,7 +19,6 @@ import {
   DASHBOARD_PRESET_OPTIONS,
 } from "@/lib/timeRange";
 import { DashboardGrid } from "./DashboardGrid";
-import { DashboardSwitcher } from "./DashboardSwitcher";
 import { DashboardToolbox } from "./DashboardToolbox";
 import { DASHBOARD_PERIOD_STORAGE_KEY } from "./useDashboardPeriod";
 import { useDashboardFromRoute, useDashboards } from "./useDashboards";
@@ -42,13 +41,7 @@ const DashboardDetailContent: FC = () => {
       data-navigation-title={dashboard.name || dashboard.id}
     >
       <ResourceHeader
-        title={
-          <DashboardSwitcher
-            current={dashboard}
-            summaries={summaries}
-            disabled={editing}
-          />
-        }
+        title={dashboard.name}
         actions={
           <>
             <TimeRangeSelect

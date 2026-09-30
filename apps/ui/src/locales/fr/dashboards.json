@@ -2,10 +2,6 @@
   "title": "Tableaux de bord",
   "resourceName": "tableau de bord",
   "switcher": {
-    "label": "Changer de tableau de bord",
-    "search": "Rechercher un tableau de bord…",
-    "empty": "Aucun tableau de bord ne correspond.",
-    "current": "Vue actuelle",
     "new": "Nouveau tableau de bord"
   },
   "toolbox": {

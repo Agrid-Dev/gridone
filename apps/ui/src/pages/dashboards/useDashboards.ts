@@ -1,5 +1,6 @@
 import {
   useMutation,
+  useQuery,
   useQueryClient,
   useSuspenseQuery,
 } from "@tanstack/react-query";
@@ -15,6 +16,7 @@ import {
 } from "@gridone/sdk";
 import { serverErrorMessage } from "@/lib/serverErrorMessage";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
+import { readStoredDashboards, writeStoredDashboards } from "./dashboardsCache";
 
 /** Query key for the dashboard summaries list (feeds the view selector). */
 export const DASHBOARDS_KEY = ["dashboards"] as const;
@@ -22,18 +24,43 @@ export const DASHBOARDS_KEY = ["dashboards"] as const;
 /** Query key for a single full dashboard document. */
 export const dashboardKey = (id: string) => ["dashboard", id] as const;
 
+/** The one query behind both summary hooks: every fetch refreshes the store
+ *  the sidebar opens on. Seeded from that store, dated as ancient, so the
+ *  first render has entries to draw and the request goes out regardless. */
+function dashboardsQuery(client: ReturnType<typeof useGridoneClient>) {
+  return {
+    queryKey: DASHBOARDS_KEY,
+    queryFn: async () => {
+      const summaries = await client.dashboards.list();
+      writeStoredDashboards(summaries);
+      return summaries;
+    },
+    initialData: readStoredDashboards,
+    initialDataUpdatedAt: 0,
+  };
+}
+
 /**
- * Summaries of every dashboard (id, name, description) — the view selector and the
- * redirect-to-first landing. Suspends until loaded so callers render pure
+ * Summaries of every dashboard (id, name, description) — the redirect-to-first
+ * landing and the toolbox. Suspends until loaded so callers render pure
  * happy-path JSX under a `ResourceBoundary`.
  */
 export function useDashboards(): DashboardSummary[] {
   const client = useGridoneClient();
-  const { data } = useSuspenseQuery<DashboardSummary[]>({
-    queryKey: DASHBOARDS_KEY,
-    queryFn: () => client.dashboards.list(),
-  });
+  const { data } = useSuspenseQuery(dashboardsQuery(client));
   return data;
+}
+
+/** The same summaries for the shell, which must never suspend or fail:
+ *  what was stored last time until the list arrives, nothing before the
+ *  first visit. `ready` is false only then, and on a failed first fetch. */
+export function useDashboardEntries(): {
+  dashboards: DashboardSummary[];
+  ready: boolean;
+} {
+  const client = useGridoneClient();
+  const { data } = useQuery(dashboardsQuery(client));
+  return { dashboards: data ?? [], ready: data !== undefined };
 }
 
 /**

@@ -2,10 +2,6 @@
   "title": "Dashboards",
   "resourceName": "dashboard",
   "switcher": {
-    "label": "Switch dashboard",
-    "search": "Search dashboards…",
-    "empty": "No dashboard matches.",
-    "current": "Current view",
     "new": "New dashboard"
   },
   "toolbox": {

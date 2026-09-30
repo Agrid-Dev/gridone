@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import type { FC } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
-import { PencilLine, Trash2, Wand2 } from "lucide-react";
+import { PencilLine, Plus, Trash2, Wand2 } from "lucide-react";
 import type { Dashboard, DashboardSummary } from "@gridone/sdk";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ConfirmationDialog } from "@/components/ConfirmationDialog";
+import { ResourceLink } from "@/components/ResourceLink";
 import { DashboardForm, type DashboardFormValues } from "./DashboardForm";
 import { useDeleteDashboard, useUpdateDashboard } from "./useDashboards";
 
@@ -89,6 +90,12 @@ export const DashboardToolbox: FC<{
           {t("layout.edit")}
         </Button>
       )}
+      <Button variant="outline" size="sm" className="min-h-11" asChild>
+        <ResourceLink to="/dashboards/new">
+          <Plus className="h-4 w-4" />
+          {t("switcher.new")}
+        </ResourceLink>
+      </Button>
       <Button
         variant="outline"
         size="sm"
