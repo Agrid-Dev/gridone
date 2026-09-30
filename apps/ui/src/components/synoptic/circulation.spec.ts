@@ -228,7 +228,7 @@ describe("circulatingRuns", () => {
   });
 
   it("stops a run on which a gating symbol sits inline and reads off, and only then", () => {
-    for (const type of ["pump", "pump_double", "valve_isolation"]) {
+    for (const type of ["pump", "valve_isolation"]) {
       const symbols = [...LOOP_SYMBOLS, onRun("g", type, "ret")];
       expect(
         moving(symbols, LOOP, {
@@ -248,6 +248,28 @@ describe("circulatingRuns", () => {
           [state("g")]: reading(false, true),
         }),
       ).toEqual(new Set(["sup", "ret"]));
+    }
+  });
+
+  it("stops a twin pump's run only once both heads read off", () => {
+    // The standby head takes over when the duty one stops: one head off
+    // alone is the pair running on the other.
+    const symbols = [...LOOP_SYMBOLS, onRun("g", "pump_double", "ret")];
+    const head = (key: string) => `symbol.g.state_${key}`;
+    const run = (a: SlotReading, b?: SlotReading) =>
+      moving(symbols, LOOP, {
+        [flow("sup")]: reading(true),
+        [head("a")]: a,
+        ...(b ? { [head("b")]: b } : {}),
+      });
+    expect(run(reading(false), reading(false))).toEqual(new Set(["sup"]));
+    for (const [a, b] of [
+      [reading(false), reading(true)],
+      [reading(true), reading(false)],
+      [reading(false), reading(false, true)],
+      [reading(false), undefined],
+    ] as const) {
+      expect(run(a, b)).toEqual(new Set(["sup", "ret"]));
     }
   });
 

@@ -3,6 +3,7 @@ import {
   type PipeElement,
   type SymbolElement,
 } from "@gridone/sdk";
+import { symbolHeads } from "./heads";
 import { portsOf, type CollectorProps } from "./symbols/ports";
 import {
   flowSlotKey,
@@ -79,12 +80,18 @@ export function circulatingRuns(
   const byId = new Map([...symbols].map((symbol) => [symbol.id, symbol]));
   const runs = new Map(pipes.map((pipe) => [pipe.id, pipe]));
 
+  // A twin pump stops the fluid only once both heads read off: the
+  // standby head takes over when the duty one stops.
   const shut = (symbolId: string) => {
     const symbol = byId.get(symbolId);
     return (
       !!symbol &&
       !!symbolSchemas[symbol.type]?.["x-gates-flow"] &&
-      stateOf(values.slots[symbolSlotKey(symbolId, "state")]) === "off"
+      symbolHeads(symbol).every(
+        ({ state }) =>
+          !!state &&
+          stateOf(values.slots[symbolSlotKey(symbolId, state)]) === "off",
+      )
     );
   };
   // The passage a port opens on for a run of `fluid`, or null for a dead

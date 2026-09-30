@@ -2,14 +2,10 @@ import { useState, type FC } from "react";
 import { useTranslation } from "react-i18next";
 import { ArrowUpRight, Pencil, X } from "lucide-react";
 import { toast } from "sonner";
-import {
-  isNotFound,
-  symbolSchemas,
-  type Device,
-  type SymbolElement,
-} from "@gridone/sdk";
+import { isNotFound, type Device, type SymbolElement } from "@gridone/sdk";
 import { ResourceLink as Link } from "@/components/ResourceLink";
 import { SILENT_TEXT } from "@/components/synoptic/Chip";
+import { headName, headOf } from "@/components/synoptic/heads";
 import {
   READING_INK_TEXT,
   readingInk,
@@ -54,9 +50,14 @@ type Point = {
   reading: SlotReading;
 };
 
-/** The symbol's bound slots, in the order its type declares them. */
-function pointsOf(symbol: SymbolElement, values: SynopticValues): Point[] {
-  return (symbolSchemas[symbol.type]?.["x-slots"] ?? []).flatMap((slot) => {
+/** The bound slots among `slots`, the ones the opened machine reads, in
+ *  the order its type declares them. */
+function pointsOf(
+  symbol: SymbolElement,
+  slots: string[],
+  values: SynopticValues,
+): Point[] {
+  return slots.flatMap((slot) => {
     const binding = symbol.bindings?.[slot];
     if (!binding) return [];
     const reading =
@@ -76,6 +77,9 @@ function pointsOf(symbol: SymbolElement, values: SynopticValues): Point[] {
 
 type DevicePopoverProps = {
   symbol: SymbolElement;
+  /** The head opened, on a symbol of several machines; its device and its
+   *  points alone. */
+  head?: string | null;
   values: SynopticValues;
   vocabulary: PageVocabulary;
   onClose: () => void;
@@ -91,27 +95,31 @@ type DevicePopoverProps = {
  */
 export const DevicePopover: FC<DevicePopoverProps> = ({
   symbol,
+  head = null,
   values,
   vocabulary,
   onClose,
 }) => {
   const { t } = useTranslation("synoptics");
   const { t: tCommon } = useTranslation();
-  const deviceId = symbol.device_id ?? undefined;
+  const machine = headOf(symbol, head);
+  const deviceId = machine?.deviceId ?? undefined;
   const result = useDeviceById(deviceId);
   const device = result.data;
-  const points = pointsOf(symbol, values);
+  const points = pointsOf(symbol, machine?.slots ?? [], values);
+  const name = symbol.label ?? device?.name ?? deviceId;
 
   return (
     <div
       aria-label={t("popover.label")}
       className="flex w-72 flex-col gap-3 text-sm"
       data-device-popover={symbol.id}
+      data-head={head ?? undefined}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="truncate font-semibold text-foreground">
-            {symbol.label ?? device?.name ?? deviceId}
+            {head ? `${name} · ${headName(head)}` : name}
           </div>
           <div className="text-xs text-muted-foreground">
             {device?.name && device.name !== symbol.label

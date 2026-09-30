@@ -30,6 +30,7 @@
     "x-ports-authored": false,
     "x-passages": [["return", "supply"]],
     "x-gates-flow": true,
+    "x-heads": {},
     "x-slots": ["state", "fault", "supply_temp", "power"],
     "x-required-slots": [],
     "x-inline": false,
@@ -90,6 +91,7 @@
       ["dhw_in", "dhw_out"]
     ],
     "x-gates-flow": false,
+    "x-heads": {},
     "x-slots": ["temperature"],
     "x-required-slots": [],
     "x-inline": false,
@@ -150,6 +152,7 @@
     "x-ports-authored": true,
     "x-passages": "all",
     "x-gates-flow": false,
+    "x-heads": {},
     "x-slots": [],
     "x-required-slots": [],
     "x-inline": false,
@@ -194,6 +197,7 @@
     "x-ports-authored": false,
     "x-passages": [["hot_in", "cold_in", "out"]],
     "x-gates-flow": false,
+    "x-heads": {},
     "x-slots": ["supply_temp"],
     "x-required-slots": [],
     "x-inline": false,
@@ -213,6 +217,7 @@
     "x-ports-authored": false,
     "x-passages": [],
     "x-gates-flow": true,
+    "x-heads": {},
     "x-slots": ["state", "speed"],
     "x-required-slots": [],
     "x-inline": true,
@@ -232,6 +237,7 @@
     "x-ports-authored": false,
     "x-passages": [],
     "x-gates-flow": true,
+    "x-heads": {},
     "x-slots": ["state"],
     "x-required-slots": [],
     "x-inline": true,
@@ -251,6 +257,7 @@
     "x-ports-authored": false,
     "x-passages": [],
     "x-gates-flow": false,
+    "x-heads": {},
     "x-slots": [],
     "x-required-slots": [],
     "x-inline": true,
@@ -270,6 +277,7 @@
     "x-ports-authored": false,
     "x-passages": [],
     "x-gates-flow": false,
+    "x-heads": {},
     "x-slots": ["position"],
     "x-required-slots": [],
     "x-inline": true,
@@ -331,6 +339,7 @@
     "x-ports-authored": false,
     "x-passages": [["in", "out"]],
     "x-gates-flow": false,
+    "x-heads": {},
     "x-slots": [],
     "x-required-slots": [],
     "x-inline": false,
@@ -386,6 +395,7 @@
       ["secondary_in", "secondary_out"]
     ],
     "x-gates-flow": false,
+    "x-heads": {},
     "x-slots": [],
     "x-required-slots": [],
     "x-inline": false,
@@ -414,6 +424,7 @@
     "x-ports-authored": false,
     "x-passages": [],
     "x-gates-flow": false,
+    "x-heads": {},
     "x-slots": [],
     "x-required-slots": [],
     "x-inline": false,
@@ -433,6 +444,7 @@
     "x-ports-authored": false,
     "x-passages": [],
     "x-gates-flow": false,
+    "x-heads": {},
     "x-slots": [],
     "x-required-slots": [],
     "x-inline": true,
@@ -452,15 +464,48 @@
     "x-ports-authored": false,
     "x-passages": [],
     "x-gates-flow": false,
+    "x-heads": {},
     "x-slots": ["fault"],
     "x-required-slots": [],
     "x-inline": true,
     "x-rotation-locked": false
   },
   "pump_double": {
+    "$defs": {
+      "PumpHead": {
+        "additionalProperties": false,
+        "description": "One head of a twin pump: the device it is, for its click and its fault.\n\nThe same field as a symbol's ``device_id``, one level down: a pair may be\ntwo devices, or two sets of points on one controller.",
+        "properties": {
+          "device_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Device Id"
+          }
+        },
+        "title": "PumpHead",
+        "type": "object"
+      }
+    },
     "additionalProperties": false,
-    "description": "For types that declare none.",
-    "properties": {},
+    "properties": {
+      "heads": {
+        "additionalProperties": {
+          "$ref": "#/$defs/PumpHead"
+        },
+        "propertyNames": {
+          "enum": ["a", "b"]
+        },
+        "title": "Heads",
+        "type": "object"
+      }
+    },
     "title": "pump_double",
     "type": "object",
     "x-footprint": {
@@ -471,7 +516,26 @@
     "x-ports-authored": false,
     "x-passages": [],
     "x-gates-flow": true,
-    "x-slots": ["state"],
+    "x-heads": {
+      "a": {
+        "state": "state_a",
+        "fault": "fault_a",
+        "speed": "speed_a"
+      },
+      "b": {
+        "state": "state_b",
+        "fault": "fault_b",
+        "speed": "speed_b"
+      }
+    },
+    "x-slots": [
+      "state_a",
+      "fault_a",
+      "speed_a",
+      "state_b",
+      "fault_b",
+      "speed_b"
+    ],
     "x-required-slots": [],
     "x-inline": true,
     "x-rotation-locked": false
@@ -490,6 +554,7 @@
     "x-ports-authored": false,
     "x-passages": [],
     "x-gates-flow": false,
+    "x-heads": {},
     "x-slots": ["energy"],
     "x-required-slots": [],
     "x-inline": true,
@@ -509,6 +574,7 @@
     "x-ports-authored": false,
     "x-passages": [],
     "x-gates-flow": false,
+    "x-heads": {},
     "x-slots": ["state", "fault"],
     "x-required-slots": [],
     "x-inline": true,

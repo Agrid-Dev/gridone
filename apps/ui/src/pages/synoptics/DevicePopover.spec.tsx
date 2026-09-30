@@ -200,12 +200,17 @@ const vocabulary: PageVocabulary = {
   readingTime: () => "12:00:00",
 };
 
-function renderPopover(symbol = PAC, values = VALUES) {
+function renderPopover(
+  symbol = PAC,
+  values = VALUES,
+  head: string | null = null,
+) {
   const onClose = vi.fn();
   render(
     <MemoryRouter>
       <DevicePopover
         symbol={symbol}
+        head={head}
         values={values}
         vocabulary={vocabulary}
         onClose={onClose}
@@ -252,6 +257,34 @@ afterEach(() => {
 });
 
 describe("DevicePopover", () => {
+  describe("a twin pump's head", () => {
+    // Head a is the plant's other device; head b the one this popover's
+    // device fixture is.
+    const TWIN: SymbolElement = {
+      id: "pec",
+      type: "pump_double",
+      placement: CELL,
+      label: "PEC",
+      props: {
+        heads: { a: { device_id: "PEC-A" }, b: { device_id: "PAC-03" } },
+      },
+      bindings: {
+        state_a: attr("onoff_state"),
+        speed_a: attr("speed"),
+        state_b: attr("onoff_state"),
+        speed_b: attr("speed"),
+      },
+    };
+
+    it("opens that head's device, titled by the head, with its points only", () => {
+      renderPopover(TWIN, VALUES, "b");
+      expect(mockUseDeviceById).toHaveBeenLastCalledWith("PAC-03");
+      expect(popover().getAttribute("data-head")).toBe("b");
+      expect(popover().textContent).toContain("PEC · B");
+      expect(points()).toEqual(["state_b", "speed_b"]);
+    });
+  });
+
   describe("header", () => {
     it("names the symbol, then the device when its name differs, and links to its page", () => {
       renderPopover();

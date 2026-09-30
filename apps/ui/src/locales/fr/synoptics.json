@@ -225,6 +225,7 @@
       "device": "Appareil",
       "readings": "Données affichées",
       "readingsHint": "Choisissez d'abord l'appareil : ses attributs apparaîtront ici.",
+      "undeclared": "Plus affichées par ce type",
       "placement": "Emplacement",
       "show": "Voir",
       "slideHint": "Glissez le symbole le long du tuyau pour le déplacer.",

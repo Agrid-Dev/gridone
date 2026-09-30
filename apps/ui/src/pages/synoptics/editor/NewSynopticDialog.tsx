@@ -19,7 +19,12 @@ import {
 } from "@/components/ui/dialog";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
 import { cn } from "@/lib/utils";
-import { emptyDocument, hasRaisedElements, toDocument } from "./document";
+import {
+  emptyDocument,
+  hasRaisedElements,
+  toDocument,
+  withDevicesPerHead,
+} from "./document";
 import { LinkTargetList } from "./panel/LinkTargetList";
 
 type Values = {
@@ -133,7 +138,9 @@ export function NewSynopticDialog({
     setLoading(true);
     setFailed(false);
     try {
-      const copied = toDocument(await client.synoptics.get(values.source));
+      const copied = withDevicesPerHead(
+        toDocument(await client.synoptics.get(values.source)),
+      );
       // A plate with anything raised cannot open flat: it keeps its view.
       const raised = values.projection === "flat" && hasRaisedElements(copied);
       if (raised) toast.info(t("editor.create.raised"));

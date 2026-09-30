@@ -8,17 +8,35 @@ somewhere in the service.
 from collections.abc import Mapping
 from dataclasses import asdict
 from types import MappingProxyType
-from typing import Any
+from typing import Any, get_args
 
 from pydantic import BaseModel, ValidationError
 
 from models.errors import InvalidError, NotFoundError
 from synoptics.models import Cell, Symbol
-from synoptics.symbols.props import CollectorProps, LinkProps, NoProps, TankProps
+from synoptics.symbols.props import (
+    CollectorProps,
+    LinkProps,
+    NoProps,
+    PumpDoubleProps,
+    PumpHeadName,
+    TankProps,
+)
 from synoptics.symbols.types import Footprint, Port, SymbolType
 
 # A passage joins ports: one alone is a dead end, which is no passage at all.
 MIN_PASSAGE_PORTS = 2
+
+PUMP_HEAD_ROLES = ("state", "fault", "speed")
+"""What each head of a twin pump reads, in the order its readout lists them."""
+
+PUMP_DOUBLE_HEADS = {
+    head: {role: f"{role}_{head}" for role in PUMP_HEAD_ROLES}
+    for head in get_args(PumpHeadName)
+}
+"""Per head, the slot each role reads: ``state_a``, ``fault_a``, ``speed_a``,
+then head ``b``. A head's readings stay together, so each head reads on its
+own."""
 
 
 class SymbolRegistry:
@@ -43,12 +61,41 @@ class SymbolRegistry:
             )
             raise InvalidError(msg)
         self._check_passages(symbol_type)
-        # The gate reads the ``state`` slot: without it the type can never
-        # stop a circuit, whatever it says.
-        if symbol_type.gates_flow and "state" not in symbol_type.slots:
+        self._check_heads(symbol_type)
+        # The gate reads the ``state`` slot, or every head's: without it the
+        # type can never stop a circuit, whatever it says.
+        states = (
+            all("state" in roles for roles in symbol_type.heads.values())
+            if symbol_type.heads
+            else "state" in symbol_type.slots
+        )
+        if symbol_type.gates_flow and not states:
             msg = f"Symbol type {symbol_type.type!r} gates the flow with no state"
             raise InvalidError(msg)
         self._types[symbol_type.type] = symbol_type
+
+    @staticmethod
+    def _check_heads(symbol_type: SymbolType) -> None:
+        """A head's slot is one of the type's slots, and belongs to no other
+        head: otherwise a binding would feed a head it was not authored for,
+        or be refused as unknown while the head still names it."""
+        seen: set[str] = set()
+        for roles in symbol_type.heads.values():
+            slots = set(roles.values())
+            unknown = slots - set(symbol_type.slots)
+            if unknown:
+                names = ", ".join(sorted(unknown))
+                msg = (
+                    f"Symbol type {symbol_type.type!r} has heads on slots it "
+                    f"does not declare: {names}"
+                )
+                raise InvalidError(msg)
+            shared = seen & slots
+            if shared:
+                names = ", ".join(sorted(shared))
+                msg = f"Symbol type {symbol_type.type!r} shares head slots: {names}"
+                raise InvalidError(msg)
+            seen |= slots
 
     @staticmethod
     def _check_passages(symbol_type: SymbolType) -> None:
@@ -161,6 +208,7 @@ class SymbolRegistry:
                     else [list(passage) for passage in t.passages]
                 ),
                 "x-gates-flow": t.gates_flow,
+                "x-heads": {head: dict(roles) for head, roles in t.heads.items()},
                 "x-slots": list(t.slots),
                 "x-required-slots": sorted(t.required_slots),
                 "x-inline": t.inline,
@@ -327,9 +375,13 @@ def build_default_registry() -> SymbolRegistry:
         SymbolType(
             type="pump_double",
             footprint=Footprint(w=1, d=1),
-            slots=("state",),
+            slots=tuple(
+                slot for roles in PUMP_DOUBLE_HEADS.values() for slot in roles.values()
+            ),
             inline=True,
             gates_flow=True,
+            props_model=PumpDoubleProps,
+            heads=PUMP_DOUBLE_HEADS,
         )
     )
     registry.register(
@@ -355,6 +407,7 @@ __all__ = [
     "CollectorProps",
     "LinkProps",
     "NoProps",
+    "PumpDoubleProps",
     "SymbolRegistry",
     "TankProps",
     "build_default_registry",

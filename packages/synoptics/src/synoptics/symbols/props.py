@@ -51,6 +51,24 @@ class LinkProps(SymbolProps):
     caption: str | None = None
 
 
+class PumpHead(SymbolProps):
+    """One head of a twin pump: the device it is, for its click and its fault.
+
+    The same field as a symbol's ``device_id``, one level down: a pair may be
+    two devices, or two sets of points on one controller.
+    """
+
+    device_id: str | None = None
+
+
+PumpHeadName = Literal["a", "b"]
+"""The duty and standby heads, lettered as a plant room marks them."""
+
+
+class PumpDoubleProps(SymbolProps):
+    heads: dict[PumpHeadName, PumpHead] = Field(default_factory=dict)
+
+
 class CollectorPort(SymbolProps):
     """A port authored on a collector: how far along the bar, and which face.
 

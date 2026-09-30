@@ -414,8 +414,8 @@ export function useSynopticEditor(
     [commit],
   );
   const setDevice = useCallback(
-    (id: string, deviceId: string | null) =>
-      changeSymbol(id, (s) => withDevice(s, deviceId)),
+    (id: string, deviceId: string | null, head: string | null = null) =>
+      changeSymbol(id, (s) => withDevice(s, deviceId, head)),
     [changeSymbol],
   );
   const setAxis = useCallback(

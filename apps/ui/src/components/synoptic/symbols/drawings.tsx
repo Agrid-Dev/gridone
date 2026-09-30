@@ -3,7 +3,13 @@ import type { Projection } from "@gridone/sdk";
 import { PIPE_AXIS_Z, type Plane } from "../projection";
 import type { Pt } from "../types";
 import { capsulePts, circlePts, dishedPts, square } from "./extrude";
-import { TANK_R, VOLUMES, type Volume } from "./kit";
+import {
+  TANK_R,
+  TWIN_HEAD,
+  twinHeadCentres,
+  VOLUMES,
+  type Volume,
+} from "./kit";
 import { PlanCircle, PlanLine, PlanPoly, PlanText, rot } from "./plan";
 
 /** Where a plan glyph comes from: the graphical symbol of ISO 14617 or
@@ -35,6 +41,10 @@ export type SymbolDrawing = {
   /** The mark the glyph carries when the instance has no label: the
    *  `kWh` of a meter. */
   mark?: string;
+  /** The plan outline of each head of a type drawn as several machines,
+   *  in the order the registry lists its heads: what a head's fault
+   *  outline wraps and a click on it takes. */
+  heads?: (c: Pt, d: Pt, projection: Projection) => Pt[][];
   /** How the isometric view draws the type: the illustrated volume of the
    *  kit, the plan silhouette a run stops at (the glyph's when absent),
    *  and the height its top reaches, where the label sits. Without it the
@@ -392,15 +402,23 @@ const dirtSeparator: SymbolDrawing = {
   height: 0,
 };
 
-/** Two pumps side by side across the run. */
+/** Two pumps side by side across the run, head `a` then head `b`. */
 const pumpDouble: SymbolDrawing = {
   standard: { ref: "ISO 14617 2301", note: "twice, across the run" },
-  plan: (p, c, d) => (
-    <>
-      {pump(p, rot([{ x: 0, y: -0.24 }], c, d)[0], d, 0.22)}
-      {pump(p, rot([{ x: 0, y: 0.24 }], c, d)[0], d, 0.22)}
-    </>
-  ),
+  plan: (p, c, d) => {
+    const { offset, r } = TWIN_HEAD.flat;
+    return (
+      <>
+        {twinHeadCentres(c, d, offset).map((h, i) => (
+          <g key={i}>{pump(p, h, d, r)}</g>
+        ))}
+      </>
+    );
+  },
+  heads: (c, d, projection) => {
+    const { offset, r } = TWIN_HEAD[projection];
+    return twinHeadCentres(c, d, offset).map((h) => circlePts(h, r));
+  },
   base: PIPE_AXIS_Z,
   height: 0,
 };

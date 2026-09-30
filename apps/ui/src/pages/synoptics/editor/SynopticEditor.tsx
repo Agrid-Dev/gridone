@@ -12,7 +12,7 @@ import type {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDevicesList } from "@/hooks/useDevicesList";
 import { useSynopticPage, useSynoptics } from "../useSynoptics";
-import { emptyDocument, toDocument } from "./document";
+import { emptyDocument, toDocument, withDevicesPerHead } from "./document";
 import { EditorCanvas } from "./EditorCanvas";
 import { EditorStatusBar } from "./EditorStatusBar";
 import { EditorToolbar } from "./EditorToolbar";
@@ -162,7 +162,7 @@ const EditStored: FC = () => {
   const { doc } = useSynopticPage();
   // The draft starts from the plate as first read: a refetch must not
   // replace the author's work, and the save carries the stamp read then.
-  const [initial] = useState(() => toDocument(doc));
+  const [initial] = useState(() => withDevicesPerHead(toDocument(doc)));
   return <Editor initial={initial} stored={doc} />;
 };
 

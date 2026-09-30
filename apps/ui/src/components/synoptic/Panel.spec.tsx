@@ -109,3 +109,53 @@ describe("Panel", () => {
     expect(faulty.value(0).classList.contains("fill-foreground")).toBe(true);
   });
 });
+
+describe("Panel rows of a twin pump", () => {
+  it("colours a head's fault word by that head's device, not the panel's", () => {
+    const word = reading("NORMAL", false, null, true);
+    const { container } = render(
+      <svg>
+        <Panel
+          at={{ x: 200, y: 300 }}
+          title="PEC"
+          fault="alert"
+          rows={[
+            { label: "fault a", reading: word, error: true, fault: null },
+            { label: "fault b", reading: word, error: true, fault: "alert" },
+          ]}
+        />
+      </svg>,
+    );
+    const values = [...container.querySelectorAll("[data-row]")].map(
+      (row) => row.querySelectorAll("text")[1],
+    );
+    expect(values[0].classList.contains("fill-status-error")).toBe(false);
+    expect(values[1].classList.contains("fill-status-error")).toBe(true);
+  });
+});
+
+describe("Panel of a twin pump", () => {
+  it("lights one LED per head in its title, A then B", () => {
+    const { container } = render(
+      <svg>
+        <Panel
+          at={{ x: 200, y: 300 }}
+          title="PEC"
+          rows={ROWS}
+          heads={[
+            { state: "on", fault: null },
+            { state: undefined, fault: null },
+          ]}
+        />
+      </svg>,
+    );
+    const leds = [...container.querySelectorAll("[data-led]")];
+    expect(leds.map((l) => l.getAttribute("data-led"))).toEqual([
+      "on",
+      "unknown",
+    ]);
+    expect(Number(leds[0].getAttribute("cx"))).toBeLessThan(
+      Number(leds[1].getAttribute("cx")),
+    );
+  });
+});

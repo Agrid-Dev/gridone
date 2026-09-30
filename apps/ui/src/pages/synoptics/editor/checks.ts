@@ -1,4 +1,5 @@
 import { symbolSchemas } from "@gridone/sdk";
+import { symbolDeviceIds } from "@/components/synoptic/heads";
 import type { PlateDocument } from "@/components/synoptic/SynopticRenderer";
 import { runViolations, type RunRule } from "./runRules";
 import { describeError, type SaveErrors } from "./saveErrors";
@@ -81,7 +82,7 @@ export function plateChecks(doc: PlateDocument, errors: SaveErrors): Check[] {
       }
     }
     const slots = symbolSchemas[symbol.type]?.["x-slots"] ?? [];
-    if (!slots.length || symbol.device_id) continue;
+    if (!slots.length || symbolDeviceIds(symbol).length) continue;
     if (
       bindings.some(
         ([, slot]) => slot.kind === "text" || slot.target.attribute.trim(),

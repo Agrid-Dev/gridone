@@ -130,6 +130,64 @@ def test_a_binding_names_a_slot_the_type_declares(document, registry):
     assert check(document, registry) == ["unknown_slot"]
 
 
+def _twin_pump(**fields: object) -> dict[str, object]:
+    """A twin pump inline on the base plate's supply run."""
+    return {
+        "id": "pec-01",
+        "type": "pump_double",
+        "placement": {"kind": "pipe", "pipe": "supply", "cell": {"x": 4, "y": 1}},
+        **fields,
+    }
+
+
+def _attribute(device: str, attribute: str) -> dict[str, object]:
+    return {
+        "kind": "attribute",
+        "target": {"devices": {"ids": [device]}, "attribute": attribute},
+    }
+
+
+@pytest.mark.parametrize(
+    "heads",
+    [
+        {"a": {"device_id": "dev-a"}, "b": {"device_id": "dev-b"}},
+        {"a": {"device_id": "ctl"}, "b": {"device_id": "ctl"}},
+    ],
+    ids=["two-devices", "one-controller"],
+)
+def test_a_twin_pump_binds_each_head(document, registry, heads):
+    """Two devices, or two sets of points on one controller: both bind."""
+    a, b = heads["a"]["device_id"], heads["b"]["device_id"]
+    document["symbols"].append(
+        _twin_pump(
+            props={"heads": heads},
+            bindings={
+                "state_a": _attribute(a, "pompe_a"),
+                "speed_a": _attribute(a, "speed"),
+                "state_b": _attribute(b, "pompe_b"),
+                "fault_b": _attribute(b, "defaut_b"),
+            },
+        )
+    )
+    assert check(document, registry) == []
+
+
+def test_a_twin_pump_names_no_device_of_its_own(document, registry):
+    """Its devices are per head: a pair device would be a second answer to
+    which device a click on a head opens."""
+    document["symbols"].append(_twin_pump(device_id="dev-a"))
+    assert check(document, registry) == ["device_per_head"]
+
+
+def test_a_twin_pump_stored_with_one_state_is_refused_on_save(document, registry):
+    """The shape the pair had before its heads: a single ``state`` binding
+    is no longer a slot of the type, so the author rebinds it per head."""
+    document["symbols"].append(
+        _twin_pump(bindings={"state": {"kind": "text", "text": "non identifiée"}})
+    )
+    assert check(document, registry) == ["unknown_slot"]
+
+
 def test_a_required_slot_must_be_bound(document, registry):
     """No shipped type requires a slot in v1, so the rule is pinned against a
     type registered here rather than a real one."""

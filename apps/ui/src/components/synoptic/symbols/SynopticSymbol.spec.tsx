@@ -7,6 +7,7 @@ import {
   isoEllipse,
   PIPE_AXIS_Z,
   project,
+  rotateQuarter,
   unproject,
 } from "../projection";
 import type { Pt } from "../types";
@@ -14,7 +15,11 @@ import { Collector, collectorLabelAnchor } from "./Collector";
 import { DRAWINGS } from "./drawings";
 import { indication, TANK_R } from "./kit";
 import type { SymbolState } from "./Label";
-import { SynopticSymbol, symbolLabelAnchor } from "./SynopticSymbol";
+import {
+  headShapes,
+  SynopticSymbol,
+  symbolLabelAnchor,
+} from "./SynopticSymbol";
 
 afterEach(cleanup);
 
@@ -761,5 +766,78 @@ describe("collectorLabelAnchor", () => {
         />,
       ).querySelectorAll("[data-collector-cell] ellipse"),
     ).toHaveLength(1);
+  });
+});
+
+describe("headShapes", () => {
+  const box = (pts: Pt[]) => ({
+    x0: Math.min(...pts.map((p) => p.x)),
+    y0: Math.min(...pts.map((p) => p.y)),
+    x1: Math.max(...pts.map((p) => p.x)),
+    y1: Math.max(...pts.map((p) => p.y)),
+  });
+  const inside = (p: Pt, b: ReturnType<typeof box>) =>
+    p.x >= b.x0 - 1e-6 &&
+    p.x <= b.x1 + 1e-6 &&
+    p.y >= b.y0 - 1e-6 &&
+    p.y <= b.y1 + 1e-6;
+
+  it("gives each head of a twin pump the half of its cell on its side of the run", () => {
+    // A head is a click target as wide as the pair allows, not only its
+    // small drawn body: the two halves tile the cell, split along the run.
+    for (const direction of [
+      { x: 1, y: 0 },
+      { x: 0, y: -1 },
+    ]) {
+      const [a, b] = headShapes(
+        "pump_double",
+        "flat",
+        { x: 3, y: 1 },
+        0,
+        direction,
+      );
+      const cell = box([...a.hit.flat(), ...b.hit.flat()]);
+      const [p0, p1] = [project("flat", 3, 1, 0), project("flat", 4, 2, 0)];
+      expect(cell.x1 - cell.x0).toBeCloseTo(Math.abs(p1.x - p0.x));
+      expect(cell.y1 - cell.y0).toBeCloseTo(Math.abs(p1.y - p0.y));
+      for (const head of [a, b]) {
+        const hit = box(head.hit.flat());
+        const area = (hit.x1 - hit.x0) * (hit.y1 - hit.y0);
+        const cellArea = (cell.x1 - cell.x0) * (cell.y1 - cell.y0);
+        expect(area).toBeCloseTo(cellArea / 2);
+        // Its own drawn head is inside it, the other head is not.
+        for (const p of head.outline) expect(inside(p, hit)).toBe(true);
+      }
+      expect(a.outline.every((p) => inside(p, box(b.hit.flat())))).toBe(false);
+    }
+  });
+
+  it("adds the head's drawn body to its flat half in the isometric view", () => {
+    // The flat halves never overlap; the drawn bodies overlap only where
+    // one hides the other, and the one in front is painted last.
+    const [a] = headShapes("pump_double", "isometric", { x: 3, y: 1 });
+    expect(a.hit).toHaveLength(2);
+    expect(a.hit[1]).toEqual(a.outline);
+  });
+});
+
+describe("an inline volume placed on a cell", () => {
+  it("turns with the symbol in the isometric view, as its plan glyph does", () => {
+    // A twin on a cell turned a quarter stands across the turned run, so
+    // its heads sit where their outlines and clicks are.
+    const markup = (extra: { rotation?: number; direction?: Pt }) =>
+      draw(
+        <SynopticSymbol
+          type="pump_double"
+          projection="isometric"
+          origin={{ x: 0, y: 0 }}
+          {...extra}
+        />,
+      ).innerHTML;
+    const turned = markup({ rotation: 1 });
+    expect(turned).toBe(
+      markup({ direction: rotateQuarter({ x: 1, y: 0 }, 1) }),
+    );
+    expect(turned).not.toBe(markup({}));
   });
 });

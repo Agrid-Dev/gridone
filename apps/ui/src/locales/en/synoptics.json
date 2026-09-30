@@ -225,6 +225,7 @@
       "device": "Device",
       "readings": "Readings shown",
       "readingsHint": "Pick the device first: its attributes will show here.",
+      "undeclared": "No longer shown by this type",
       "placement": "Placement",
       "show": "Show",
       "slideHint": "Drag the symbol along the pipe to move it.",

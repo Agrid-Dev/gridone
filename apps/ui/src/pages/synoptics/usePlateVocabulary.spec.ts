@@ -3,6 +3,7 @@ import { renderHook } from "@testing-library/react";
 import { symbolSchemas } from "@gridone/sdk";
 import en from "@/locales/en/synoptics.json";
 import { createI18nMock } from "@/test/i18nMock";
+import { headSlot } from "@/components/synoptic/heads";
 import type { SlotReading } from "@/components/synoptic/values";
 import { usePlateVocabulary } from "./usePlateVocabulary";
 
@@ -35,6 +36,12 @@ describe("usePlateVocabulary", () => {
     expect(result.current.typeLabel("heat_pump")).toBe("pompe à chaleur");
     expect(result.current.typeLabel("dirt_separator")).toBe("dirt separator");
     expect(result.current.fluidLabel("dhw")).toBe("eau chaude sanitaire");
+  });
+
+  it("words a twin pump's head slot by its role and the head's letter", () => {
+    const { result } = renderHook(() => usePlateVocabulary());
+    expect(result.current.slotLabel("state_a")).toBe("ÉTAT A");
+    expect(result.current.slotLabel("state_b")).toBe("ÉTAT B");
   });
 
   it("titles a reading with its caption, value, unit and the time the device reported it", () => {
@@ -73,7 +80,9 @@ describe("usePlateVocabulary", () => {
     for (const [type, schema] of Object.entries(symbolSchemas)) {
       expect(types, `types.${type}`).toContain(type);
       for (const slot of schema["x-slots"] ?? []) {
-        expect(slots, `slots.${slot}`).toContain(slot);
+        // A head's slot reads its role's word: `state_a` is `state`.
+        const key = headSlot(slot)?.role ?? slot;
+        expect(slots, `slots.${key}`).toContain(key);
       }
     }
   });

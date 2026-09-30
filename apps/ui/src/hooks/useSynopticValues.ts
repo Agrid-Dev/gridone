@@ -7,6 +7,7 @@ import {
   type UseQueryResult,
 } from "@tanstack/react-query";
 import type { AttributeTarget, Device, Synoptic } from "@gridone/sdk";
+import { symbolDeviceIds } from "@/components/synoptic/heads";
 import {
   boundSlots,
   formatReading,
@@ -116,7 +117,7 @@ export const useSynopticValues: UseSynopticValues = (doc) => {
   const deviceIds = useMemo(() => {
     const ids = new Set<string>();
     for (const symbol of doc.symbols ?? []) {
-      if (symbol.device_id) ids.add(symbol.device_id);
+      for (const id of symbolDeviceIds(symbol)) ids.add(id);
     }
     for (const { slot } of slots) {
       const id =

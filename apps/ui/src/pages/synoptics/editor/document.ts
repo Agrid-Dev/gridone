@@ -9,6 +9,7 @@ import {
   type SymbolElement,
   type Synoptic,
 } from "@gridone/sdk";
+import { headOf } from "@/components/synoptic/heads";
 import { sideVector, rotateSide } from "@/components/synoptic/projection";
 import { endpointCell } from "@/components/synoptic/runs";
 import type { PlateDocument } from "@/components/synoptic/SynopticRenderer";
@@ -45,6 +46,37 @@ export function toDocument(synoptic: Synoptic): PlateDocument {
   delete doc.id;
   delete doc.metadata;
   return doc;
+}
+
+/**
+ * A plate as the editor opens it: a twin pump stored before its heads,
+ * whose device sat on the pair, has that device named on each head that
+ * names none, and none on the pair, which the save now refuses. Its old
+ * readings stay as they were, for the author to move or remove.
+ */
+export function withDevicesPerHead(doc: PlateDocument): PlateDocument {
+  const symbols = doc.symbols?.map((symbol) => {
+    const heads = Object.keys(symbolSchemas[symbol.type]?.["x-heads"] ?? {});
+    if (!heads.length || !symbol.device_id) return symbol;
+    const named = (symbol.props?.heads ?? {}) as Record<
+      string,
+      { device_id?: string | null } | undefined
+    >;
+    return {
+      ...symbol,
+      device_id: null,
+      props: {
+        ...symbol.props,
+        heads: Object.fromEntries(
+          heads.map((key) => [
+            key,
+            { device_id: named[key]?.device_id ?? symbol.device_id },
+          ]),
+        ),
+      },
+    };
+  });
+  return symbols ? { ...doc, symbols } : doc;
 }
 
 /** A plate as the backend reads it: a null and a missing field alike, and
@@ -521,25 +553,41 @@ export function boundDevice(
 }
 
 /**
- * A symbol made to stand for another device. The bindings that read the
- * device it stood for by id alone follow to the new one, since an author
- * picking the device first means "these readings, from that machine". A
- * binding reading another device (a sensor on a controller) stays as it
- * was. Clearing the device keeps every binding: they still read what they
- * read.
+ * A symbol made to stand for another device, or one head of a twin pump
+ * when `head` names it. The bindings that read the device it stood for by
+ * id alone follow to the new one, since an author picking the device first
+ * means "these readings, from that machine"; a head moves its own slots
+ * only. A binding reading another device (a sensor on a controller) stays
+ * as it was. Clearing the device keeps every binding: they still read what
+ * they read.
  */
 export function withDevice(
   symbol: SymbolElement,
   deviceId: string | null,
+  head: string | null = null,
 ): SymbolElement {
-  const old = symbol.device_id ?? null;
-  if (!deviceId || !old || old === deviceId) {
-    return { ...symbol, device_id: deviceId };
-  }
+  const old = headOf(symbol, head)?.deviceId ?? null;
+  const own = head === null ? null : new Set(headOf(symbol, head)?.slots);
+  const placed: SymbolElement =
+    head === null
+      ? { ...symbol, device_id: deviceId }
+      : {
+          ...symbol,
+          props: {
+            ...symbol.props,
+            heads: {
+              ...(symbol.props?.heads as object | undefined),
+              [head]: { device_id: deviceId },
+            },
+          },
+        };
+  if (!deviceId || !old || old === deviceId) return placed;
   const bindings = Object.fromEntries(
     Object.entries(symbol.bindings ?? {}).map(([slot, value]) => [
       slot,
-      value.kind === "attribute" && boundDevice(value) === old
+      (!own || own.has(slot)) &&
+      value.kind === "attribute" &&
+      boundDevice(value) === old
         ? {
             ...value,
             target: { ...value.target, devices: { ids: [deviceId] } },
@@ -547,5 +595,5 @@ export function withDevice(
         : value,
     ]),
   );
-  return { ...symbol, device_id: deviceId, bindings };
+  return { ...placed, bindings };
 }
