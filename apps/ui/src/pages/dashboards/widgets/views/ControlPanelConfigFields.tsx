@@ -204,7 +204,9 @@ const ConditionFields: FC<{ control: Control<FieldValues>; name: string }> = ({
         type="button"
         variant="outline"
         size="sm"
-        onClick={() => field.onChange(BLANK_CONDITION)}
+        // A copy: unlike a field array's `append`, `onChange` stores the
+        // object it is given and the fields below then write into it.
+        onClick={() => field.onChange({ ...BLANK_CONDITION })}
       >
         <Plus className="mr-1 h-4 w-4" />
         {t("widgets.controlPanel.editor.addCondition")}
