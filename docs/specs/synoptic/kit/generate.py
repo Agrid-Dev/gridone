@@ -1361,21 +1361,21 @@ def density_sheet(palettes: tuple[Palette, Palette]) -> str:
     return sheet(width, height, "\n".join(out), palettes)
 
 
-# ── plate: the ECS Est plate drawn from its document ─────────────────────────
+# ── plate: the hot-water example drawn from its document ─────────────────────
 
-DOCUMENT = OUT.parent / "ecs-est.json"
+DOCUMENT = OUT.parent / "example-dhw.json"
 BY_TYPE = {sym.type: sym for sym in SYMBOLS}
 # App content area on a 1440 x 900 laptop at 100 %: 256 px sidebar, 64 px top bar.
 FRAME_W, FRAME_H = 1184, 836
 ROLE_CLASS = {"title": "title t", "caption": "caption tm", "note": "note tm"}
 # What the plate's bindings would read on the sheet.
 LIVE_SLOTS: dict[str, dict[str, str]] = {
-    "pac-03": {"state": "ARRÊT", "fault": "DÉFAUT"},
-    "pac-04": {"state": "MARCHE", "fault": "NORMAL"},
+    "pac-01": {"state": "ARRÊT", "fault": "DÉFAUT"},
+    "pac-02": {"state": "MARCHE", "fault": "NORMAL"},
 }
-LIVE_READINGS = {"cpt-ballon-est": "237 680 000"}
-FAULTY = {"pac-03"}
-FLOWING = {"pac-04-supply"}
+LIVE_READINGS = {"cpt-ballons": "237 680 000"}
+FAULTY = {"pac-01"}
+FLOWING = {"pac-02-supply"}
 
 Doc = dict[str, Any]
 
@@ -1831,17 +1831,17 @@ def frame(ox: float, oy: float, drawing: str, box: Box, view: View) -> str:
 
 
 def plate_sheet(palettes: tuple[Palette, Palette]) -> str:
-    """The ECS Est plate drawn whole in the kit: the reference for what run
-    state, readings, panels and fault look like on a real plate."""
+    """The hot-water example drawn whole in the kit: the reference for what
+    run state, readings, panels and fault look like on a whole plate."""
     doc = json.loads(DOCUMENT.read_text())
     box = plate_bounds(doc, ISO_VIEW)
     ox, oy = 28, 90
     out = [
-        text(ox, 36, "Plate · Production ECS Est in the kit", "title t"),
+        text(ox, 36, "Plate · Exemple ECS in the kit", "title t"),
         text(
             ox,
             56,
-            "Plate: synoptic/ecs-est.json, whole, at the kit's cell size. The dashed rectangle is the app content area on a 1440 × 900 laptop at 100 % "
+            "Plate: synoptic/example-dhw.json, whole, at the kit's cell size. The dashed rectangle is the app content area on a 1440 × 900 laptop at 100 % "
             "(256 px sidebar, 64 px top bar): what an operator sees before panning.",
             "note tm",
         ),
