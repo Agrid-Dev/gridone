@@ -1,3 +1,13 @@
+## v0.288.0 (2026-09-30)
+
+### Feat
+
+- **ui**: control panel widget editor (AGR-1524) (#741)
+
+### Fix
+
+- **ui**: a locked control panel section only disables its controls (AGR-1524) (#750)
+
 ## v0.287.0 (2026-09-30)
 
 ### Feat
