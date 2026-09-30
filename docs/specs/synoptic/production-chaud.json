@@ -1,7 +1,7 @@
 {
   "version": 1,
   "name": "Production Chaud",
-  "description": "Hydraulique, production chaud : primaire depuis le bâtiment D sur l'échangeur ECH EC04 (vanne de régulation et compteur thermique au retour), secondaire par le séparateur d'air et les deux pompes doubles PEC E2 / PEC E3 sur le collecteur départ, quatre circuits (ECS cuisine, change-over VC (ventilo-convecteurs), CTA / radiateur / RAC, change-over VCV chambres) et retour avec le pot à boue en dérivation, le vase d'expansion VEC 04 et l'appoint d'eau de ville depuis la production EG. Pressions, compteurs et températures des circuits non mesurés ; états change-over non identifiés.",
+  "description": "Hydraulique, production chaud : primaire depuis le bâtiment D sur l'échangeur ECH EC04 (vanne de régulation et compteur thermique au retour), secondaire par le séparateur d'air et les deux pompes doubles PEC E2 / PEC E3 sur le collecteur départ, quatre circuits (ECS cuisine, change-over VC (ventilo-convecteurs), CTA / radiateur / RAC, change-over VCV chambres) et retour avec le pot à boue en dérivation, le vase d'expansion VEC 04 et l'appoint d'eau de ville depuis la production EG.",
   "projection": "isometric",
   "defaults": { "stale_after": 900 },
   "symbols": [
@@ -43,7 +43,15 @@
       "device_id": null,
       "props": {},
       "bindings": {
-        "position": { "kind": "text", "text": "non mesurée" }
+        "position": {
+          "kind": "attribute",
+          "target": {
+            "devices": { "ids": ["71c980107f9448e7"] },
+            "attribute": "ec04_sigv3v"
+          },
+          "unit": "%",
+          "decimals": 0
+        }
       }
     },
     {
@@ -66,7 +74,7 @@
             },
             "attribute": "energie"
           },
-          "unit": "Wh",
+          "unit": "kWh",
           "decimals": 0
         }
       }
@@ -345,7 +353,15 @@
       "device_id": null,
       "props": {},
       "bindings": {
-        "position": { "kind": "text", "text": "non mesurée" }
+        "position": {
+          "kind": "attribute",
+          "target": {
+            "devices": { "ids": ["1c1724ce0ba54ef0"] },
+            "attribute": "relposition"
+          },
+          "unit": "%",
+          "decimals": 0
+        }
       }
     },
     {
@@ -357,10 +373,18 @@
         "cell": { "x": 34, "y": -7 }
       },
       "label": "CPT-EC-ECS CUISINE",
-      "device_id": null,
+      "device_id": "1c1724ce0ba54ef0",
       "props": {},
       "bindings": {
-        "energy": { "kind": "text", "text": "non mesurée" }
+        "energy": {
+          "kind": "attribute",
+          "target": {
+            "devices": { "ids": ["1c1724ce0ba54ef0"] },
+            "attribute": "energyheating1"
+          },
+          "unit": "kWh",
+          "decimals": 0
+        }
       }
     },
     {
@@ -388,7 +412,15 @@
       "device_id": null,
       "props": {},
       "bindings": {
-        "position": { "kind": "text", "text": "non mesurée" }
+        "position": {
+          "kind": "attribute",
+          "target": {
+            "devices": { "ids": ["c38fbfc58e1d40e7"] },
+            "attribute": "relposition"
+          },
+          "unit": "%",
+          "decimals": 0
+        }
       }
     },
     {
@@ -400,10 +432,18 @@
         "cell": { "x": 46, "y": -7 }
       },
       "label": "CPT-EC-VCO",
-      "device_id": null,
+      "device_id": "c38fbfc58e1d40e7",
       "props": {},
       "bindings": {
-        "energy": { "kind": "text", "text": "non mesurée" }
+        "energy": {
+          "kind": "attribute",
+          "target": {
+            "devices": { "ids": ["c38fbfc58e1d40e7"] },
+            "attribute": "energyheating1"
+          },
+          "unit": "kWh",
+          "decimals": 0
+        }
       }
     },
     {
@@ -418,7 +458,14 @@
       "device_id": null,
       "props": {},
       "bindings": {
-        "state": { "kind": "text", "text": "non identifiée" }
+        "state": {
+          "kind": "attribute",
+          "target": {
+            "devices": { "ids": ["5ab638091bd2483d"] },
+            "attribute": "vcec_choverfdcouv"
+          },
+          "labels": { "true": "OUVERTE", "false": "FERMÉE" }
+        }
       }
     },
     {
@@ -433,7 +480,14 @@
       "device_id": null,
       "props": {},
       "bindings": {
-        "state": { "kind": "text", "text": "non identifiée" }
+        "state": {
+          "kind": "attribute",
+          "target": {
+            "devices": { "ids": ["5ab638091bd2483d"] },
+            "attribute": "vcec_choverfdcouv"
+          },
+          "labels": { "true": "OUVERTE", "false": "FERMÉE" }
+        }
       }
     },
     {
@@ -474,7 +528,14 @@
       "device_id": null,
       "props": {},
       "bindings": {
-        "state": { "kind": "text", "text": "non identifiée" }
+        "state": {
+          "kind": "attribute",
+          "target": {
+            "devices": { "ids": ["5ab638091bd2483d"] },
+            "attribute": "vceg_choverfdcouv"
+          },
+          "labels": { "true": "OUVERTE", "false": "FERMÉE" }
+        }
       }
     },
     {
@@ -489,7 +550,14 @@
       "device_id": null,
       "props": {},
       "bindings": {
-        "state": { "kind": "text", "text": "non identifiée" }
+        "state": {
+          "kind": "attribute",
+          "target": {
+            "devices": { "ids": ["5ab638091bd2483d"] },
+            "attribute": "vceg_choverfdcouv"
+          },
+          "labels": { "true": "OUVERTE", "false": "FERMÉE" }
+        }
       }
     },
     {
@@ -517,7 +585,15 @@
       "device_id": null,
       "props": {},
       "bindings": {
-        "position": { "kind": "text", "text": "non mesurée" }
+        "position": {
+          "kind": "attribute",
+          "target": {
+            "devices": { "ids": ["f38f762306b94da2"] },
+            "attribute": "relposition"
+          },
+          "unit": "%",
+          "decimals": 0
+        }
       }
     },
     {
@@ -529,10 +605,18 @@
         "cell": { "x": 58, "y": -7 }
       },
       "label": "CPT-EC-CTA",
-      "device_id": null,
+      "device_id": "f38f762306b94da2",
       "props": {},
       "bindings": {
-        "energy": { "kind": "text", "text": "non mesurée" }
+        "energy": {
+          "kind": "attribute",
+          "target": {
+            "devices": { "ids": ["f38f762306b94da2"] },
+            "attribute": "energyheating1"
+          },
+          "unit": "kWh",
+          "decimals": 0
+        }
       }
     },
     {
@@ -560,7 +644,15 @@
       "device_id": null,
       "props": {},
       "bindings": {
-        "position": { "kind": "text", "text": "non mesurée" }
+        "position": {
+          "kind": "attribute",
+          "target": {
+            "devices": { "ids": ["710facd4aa5946ca"] },
+            "attribute": "relposition"
+          },
+          "unit": "%",
+          "decimals": 0
+        }
       }
     },
     {
@@ -572,10 +664,18 @@
         "cell": { "x": 70, "y": -7 }
       },
       "label": "CPT-EC-CHAMBRES",
-      "device_id": null,
+      "device_id": "710facd4aa5946ca",
       "props": {},
       "bindings": {
-        "energy": { "kind": "text", "text": "non mesurée" }
+        "energy": {
+          "kind": "attribute",
+          "target": {
+            "devices": { "ids": ["710facd4aa5946ca"] },
+            "attribute": "energyheating1"
+          },
+          "unit": "kWh",
+          "decimals": 0
+        }
       }
     },
     {
@@ -590,7 +690,14 @@
       "device_id": null,
       "props": {},
       "bindings": {
-        "state": { "kind": "text", "text": "non identifiée" }
+        "state": {
+          "kind": "attribute",
+          "target": {
+            "devices": { "ids": ["5ab638091bd2483d"] },
+            "attribute": "vcvec_choverfdcouv"
+          },
+          "labels": { "true": "OUVERTE", "false": "FERMÉE" }
+        }
       }
     },
     {
@@ -605,7 +712,14 @@
       "device_id": null,
       "props": {},
       "bindings": {
-        "state": { "kind": "text", "text": "non identifiée" }
+        "state": {
+          "kind": "attribute",
+          "target": {
+            "devices": { "ids": ["5ab638091bd2483d"] },
+            "attribute": "vcvec_choverfdcouv"
+          },
+          "labels": { "true": "OUVERTE", "false": "FERMÉE" }
+        }
       }
     },
     {
@@ -646,7 +760,14 @@
       "device_id": null,
       "props": {},
       "bindings": {
-        "state": { "kind": "text", "text": "non identifiée" }
+        "state": {
+          "kind": "attribute",
+          "target": {
+            "devices": { "ids": ["5ab638091bd2483d"] },
+            "attribute": "vcveg_choverfdcouv"
+          },
+          "labels": { "true": "OUVERTE", "false": "FERMÉE" }
+        }
       }
     },
     {
@@ -661,7 +782,14 @@
       "device_id": null,
       "props": {},
       "bindings": {
-        "state": { "kind": "text", "text": "non identifiée" }
+        "state": {
+          "kind": "attribute",
+          "target": {
+            "devices": { "ids": ["5ab638091bd2483d"] },
+            "attribute": "vcveg_choverfdcouv"
+          },
+          "labels": { "true": "OUVERTE", "false": "FERMÉE" }
+        }
       }
     }
   ],
@@ -1031,7 +1159,15 @@
           "id": "tt-cuisine-depart",
           "at": { "x": 35, "y": -14 },
           "label": "DÉPART",
-          "value": { "kind": "text", "text": "non mesurée" }
+          "value": {
+            "kind": "attribute",
+            "target": {
+              "devices": { "ids": ["1c1724ce0ba54ef0"] },
+              "attribute": "temp1c"
+            },
+            "unit": "°C",
+            "decimals": 1
+          }
         }
       ]
     },
@@ -1053,7 +1189,15 @@
           "id": "tt-cuisine-retour",
           "at": { "x": 35, "y": -13 },
           "label": "RETOUR",
-          "value": { "kind": "text", "text": "non mesurée" }
+          "value": {
+            "kind": "attribute",
+            "target": {
+              "devices": { "ids": ["1c1724ce0ba54ef0"] },
+              "attribute": "temp2c"
+            },
+            "unit": "°C",
+            "decimals": 1
+          }
         }
       ]
     },
@@ -1073,7 +1217,15 @@
           "id": "tt-vc-depart",
           "at": { "x": 47, "y": -14 },
           "label": "DÉPART",
-          "value": { "kind": "text", "text": "non identifiée" }
+          "value": {
+            "kind": "attribute",
+            "target": {
+              "devices": { "ids": ["5ab638091bd2483d"] },
+              "attribute": "vc_tmpdepart"
+            },
+            "unit": "°C",
+            "decimals": 1
+          }
         }
       ]
     },
@@ -1095,7 +1247,15 @@
           "id": "tt-vc-retour",
           "at": { "x": 46, "y": 0 },
           "label": "RETOUR",
-          "value": { "kind": "text", "text": "non mesurée" }
+          "value": {
+            "kind": "attribute",
+            "target": {
+              "devices": { "ids": ["c38fbfc58e1d40e7"] },
+              "attribute": "temp2c"
+            },
+            "unit": "°C",
+            "decimals": 1
+          }
         }
       ]
     },
@@ -1149,7 +1309,15 @@
           "id": "tt-cta-depart",
           "at": { "x": 59, "y": -14 },
           "label": "DÉPART",
-          "value": { "kind": "text", "text": "non mesurée" }
+          "value": {
+            "kind": "attribute",
+            "target": {
+              "devices": { "ids": ["f38f762306b94da2"] },
+              "attribute": "temp1c"
+            },
+            "unit": "°C",
+            "decimals": 1
+          }
         }
       ]
     },
@@ -1171,7 +1339,15 @@
           "id": "tt-cta-retour",
           "at": { "x": 59, "y": -13 },
           "label": "RETOUR",
-          "value": { "kind": "text", "text": "non mesurée" }
+          "value": {
+            "kind": "attribute",
+            "target": {
+              "devices": { "ids": ["f38f762306b94da2"] },
+              "attribute": "temp2c"
+            },
+            "unit": "°C",
+            "decimals": 1
+          }
         }
       ]
     },
@@ -1191,7 +1367,15 @@
           "id": "tt-vcv-chambres-depart",
           "at": { "x": 71, "y": -14 },
           "label": "DÉPART",
-          "value": { "kind": "text", "text": "non identifiée" }
+          "value": {
+            "kind": "attribute",
+            "target": {
+              "devices": { "ids": ["5ab638091bd2483d"] },
+              "attribute": "vcv_tmpdepart"
+            },
+            "unit": "°C",
+            "decimals": 1
+          }
         }
       ]
     },
@@ -1213,7 +1397,15 @@
           "id": "tt-vcv-chambres-retour",
           "at": { "x": 70, "y": 0 },
           "label": "RETOUR",
-          "value": { "kind": "text", "text": "non mesurée" }
+          "value": {
+            "kind": "attribute",
+            "target": {
+              "devices": { "ids": ["710facd4aa5946ca"] },
+              "attribute": "temp2c"
+            },
+            "unit": "°C",
+            "decimals": 1
+          }
         }
       ]
     },

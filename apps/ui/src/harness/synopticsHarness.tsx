@@ -15,7 +15,10 @@ import type { Device, Synoptic, SynopticSummary } from "@gridone/sdk";
 import "@/index.css";
 import i18n from "@/i18n";
 import { SynopticRenderer } from "@/components/synoptic";
-import type { SynopticValues } from "@/components/synoptic/values";
+import {
+  formatReading,
+  type SynopticValues,
+} from "@/components/synoptic/values";
 import { TooltipProvider } from "@/components/ui";
 import { AttributeConfirmationProvider } from "@/contexts/AttributeConfirmationContext";
 import { GridoneClientProvider } from "@/contexts/GridoneClientContext";
@@ -64,6 +67,17 @@ const live = (
   lastUpdated: READ_AT,
 });
 
+/** A numeric sample, written as the renderer writes a reading. */
+const sample = (raw: number, unit: string, decimals = 0) =>
+  live(
+    formatReading(
+      { kind: "attribute", target: { devices: {}, attribute: "" }, decimals },
+      raw,
+    ).text ?? "",
+    raw,
+    unit,
+  );
+
 const VALUES: SynopticValues = {
   slots: {
     "symbol.pac-03.state": live("MARCHE", true),
@@ -78,7 +92,7 @@ const VALUES: SynopticValues = {
       faulty: true,
       severity: "alert",
     },
-    "label.cpt-ballon-est": live("1311988992", 1311988992, "Wh"),
+    "label.cpt-ballon-est": sample(1311989, "kWh"),
     "symbol.pompe-pec-e2a.state": live("MARCHE", true),
     "symbol.pompe-pec-e2a.speed": live("5242", 5242, "tr/min"),
     "symbol.pompe-pec-e2b.state": {
@@ -105,8 +119,34 @@ const VALUES: SynopticValues = {
     "tag.tt-primaire-retour": live("54.8", 54.8, "°C"),
     "tag.tt-secondaire-depart": live("63.1", 63.1, "°C"),
     "tag.tt-manque-eau": live("NORMAL", false),
-    "symbol.cpt-ec-ech-04.energy": live("238952", 238952, "Wh"),
+    "symbol.cpt-ec-ech-04.energy": sample(1311989, "kWh"),
     "symbol.pot-a-boue.fault": live("NORMAL", false),
+    // The hot production's circuits, as in summer: the change-over circuits
+    // on chilled water, their hot valves closed.
+    "symbol.v-primaire.position": sample(38, "%"),
+    ...Object.fromEntries(
+      (
+        [
+          ["cuisine", 0, 56.2, 54.4],
+          ["vc", 3541, 7.0, 15.0],
+          ["cta", 7722, 47.6, 34.0],
+          ["vcv-chambres", 317, 7.0, 15.1],
+        ] as const
+      ).flatMap(([circuit, energy, depart, retour]) => [
+        [`symbol.cpt-${circuit}.energy`, sample(energy, "kWh")],
+        [`symbol.v-${circuit}.position`, sample(100, "%")],
+        [`tag.tt-${circuit}-depart`, sample(depart, "°C", 1)],
+        [`tag.tt-${circuit}-retour`, sample(retour, "°C", 1)],
+      ]),
+    ),
+    ...Object.fromEntries(
+      ["vc", "vcv-chambres"].flatMap((circuit) =>
+        ["aller", "retour"].flatMap((end) => [
+          [`symbol.v-${circuit}-ec-${end}.state`, live("FERMÉE", false)],
+          [`symbol.v-${circuit}-eg-${end}.state`, live("OUVERTE", true)],
+        ]),
+      ),
+    ),
     // What sets the circuits moving in the isometric view: the running
     // heat pumps and pumps, the stopped ones still, one pump's reading old.
     "pipe.pac-03-supply.flow": live("MARCHE", true),

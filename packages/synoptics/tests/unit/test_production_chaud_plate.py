@@ -11,19 +11,32 @@ from collections import Counter
 
 import pytest
 from plates import (
-    NOT_IDENTIFIED,
-    NOT_MEASURED,
     device_of,
     joins,
     read,
     shares_no_device_with_the_bays,
 )
 
-from synoptics.models import AttributeSlot, PortEndpoint, SynopticDocument
+from synoptics.models import (
+    AttributeSlot,
+    PortEndpoint,
+    SynopticDocument,
+    TextSlot,
+)
 
 PUMP_HEADS = ("e2a", "e2b", "e3a", "e3b")
 CIRCUITS = ("cuisine", "vc", "cta", "vcv-chambres")
-CHANGE_OVER = ("vc", "vcv-chambres")
+CONTROLLER = "71c980107f9448e7"
+CIRCUIT_VALVE = {
+    "cuisine": "1c1724ce0ba54ef0",
+    "vc": "c38fbfc58e1d40e7",
+    "cta": "f38f762306b94da2",
+    "vcv-chambres": "710facd4aa5946ca",
+}
+"""Each circuit's energy valve: its meter, its control valve and two probes."""
+CHANGE_OVER_DEVICE = "5ab638091bd2483d"
+CHANGE_OVER = {"vc": "vc", "vcv-chambres": "vcv"}
+"""A change-over circuit, and the prefix its readings carry on the controller."""
 
 
 @pytest.fixture
@@ -57,11 +70,16 @@ def test_the_primary_is_the_district_side_of_the_exchanger(symbols, pipes):
     assert tag.at.x > on_return["v-primaire"] > on_return["cpt-ec-ech-04"]
     assert symbols["cpt-ec-ech-04"].type == "energy_meter"
     assert symbols["v-primaire"].type == "valve_control"
-    assert symbols["v-primaire"].bindings == {"position": NOT_MEASURED}
+    position = symbols["v-primaire"].bindings["position"]
+    assert (device_of(position), position.target.attribute) == (
+        CONTROLLER,
+        "ec04_sigv3v",
+    )
+    assert (position.unit, position.decimals) == ("%", 0)
     energy = symbols["cpt-ec-ech-04"].bindings["energy"]
     assert isinstance(energy, AttributeSlot)
     assert energy.target.attribute == "energie"
-    assert (energy.unit, energy.decimals) == ("Wh", 0)
+    assert (energy.unit, energy.decimals) == ("kWh", 0)
     assert symbols["cpt-ec-ech-04"].device_id == device_of(energy)
 
 
@@ -119,44 +137,73 @@ def test_the_manifold_gives_every_head_its_own_branch(symbols, pipes):
         assert joins(pipes[f"pec-{name}-branch"].from_, "sec-supply")
 
 
-def test_the_markers_sit_where_the_view_draws_the_sensor(symbols, tags):
-    """Fifteen drawn readings have no device and say "non mesurée" where
-    the drawings put their sensor; the change-over circuits' say "non
-    identifiée", read by a device and not bound yet. Each circuit's meter
-    and control valve sit on its return, the meter first in the flow."""
-    for k in CIRCUITS:
-        expected = NOT_IDENTIFIED if k in CHANGE_OVER else NOT_MEASURED
-        assert tags[f"tt-{k}-depart"] == (f"{k}-depart", expected)
-        assert tags[f"tt-{k}-retour"] == (f"{k}-retour", NOT_MEASURED)
+def test_every_circuit_reads_its_own_energy_valve(plate, symbols, tags):
+    """A circuit's meter, control valve and return temperature are one device,
+    on its return, the meter first in the flow; its departure is that device's
+    other probe, or the common leg's on a change-over circuit. No reading on
+    the plate is a placeholder."""
+    assert list(CIRCUIT_VALVE) == list(CIRCUITS)
+    assert len(set(CIRCUIT_VALVE.values())) == len(CIRCUITS)
+    for k, device in CIRCUIT_VALVE.items():
         meter, valve = symbols[f"cpt-{k}"], symbols[f"v-{k}"]
         assert (meter.type, meter.placement.pipe) == ("energy_meter", f"{k}-retour")
-        assert meter.bindings == {"energy": NOT_MEASURED}
         assert (valve.type, valve.placement.pipe) == ("valve_control", f"{k}-retour")
-        assert valve.bindings == {"position": NOT_MEASURED}
         # The return runs south to its collector: y grows with the flow.
         assert valve.placement.cell.y > meter.placement.cell.y
-    live = {i: v for i, (_, v) in tags.items() if isinstance(v, AttributeSlot)}
-    assert set(live) == {
-        "tt-primaire-depart",
-        "tt-primaire-retour",
-        "tt-secondaire-depart",
-        "tt-manque-eau",
-        *(f"pression-pec-{head}" for head in PUMP_HEADS),
-    }
+        energy, position = meter.bindings["energy"], valve.bindings["position"]
+        assert meter.device_id == device_of(energy) == device_of(position) == device
+        assert (energy.target.attribute, energy.unit, energy.decimals) == (
+            "energyheating1",
+            "kWh",
+            0,
+        )
+        assert (position.target.attribute, position.unit, position.decimals) == (
+            "relposition",
+            "%",
+            0,
+        )
+        pipe, retour = tags[f"tt-{k}-retour"]
+        assert (pipe, device_of(retour), retour.target.attribute) == (
+            f"{k}-retour",
+            device,
+            "temp2c",
+        )
+        pipe, depart = tags[f"tt-{k}-depart"]
+        assert pipe == f"{k}-depart"
+        prefix = CHANGE_OVER.get(k)
+        assert (device_of(depart), depart.target.attribute) == (
+            (CHANGE_OVER_DEVICE, f"{prefix}_tmpdepart")
+            if prefix
+            else (device, "temp1c")
+        )
+        for reading in (depart, retour):
+            assert (reading.unit, reading.decimals) == ("°C", 1)
+    values = [v for s in plate.symbols for v in s.bindings.values()]
+    values += [t.value for p in plate.pipes for t in p.tags]
+    assert not any(isinstance(v, TextSlot) for v in values)
 
 
 def test_the_change_over_blocks_are_the_view_s(symbols, pipes):
     """Four valve states per change-over circuit (hot supply, hot return,
     one per cold leg), a link per cold leg, and the circuit's meter and
-    return temperature on the hot-only leg, past the tee and its valve."""
-    for k in CHANGE_OVER:
+    return temperature on the hot-only leg, past the tee and its valve. The
+    controller has one open end switch per side: the two hot valves read it
+    together, and so do the two cold ones."""
+    for k, prefix in CHANGE_OVER.items():
         valves = [
             s
             for s in symbols.values()
             if s.type == "valve_isolation" and s.id.startswith(f"v-{k}-")
         ]
         assert len(valves) == 4
-        assert all(v.bindings == {"state": NOT_IDENTIFIED} for v in valves)
+        for valve in valves:
+            side = "ec" if "-ec-" in valve.id else "eg"
+            state = valve.bindings["state"]
+            assert (device_of(state), state.target.attribute) == (
+                CHANGE_OVER_DEVICE,
+                f"{prefix}{side}_choverfdcouv",
+            )
+            assert state.labels == {"true": "OUVERTE", "false": "FERMÉE"}
         on = Counter(v.placement.pipe for v in valves)
         assert on == {
             f"{k}-depart": 1,
