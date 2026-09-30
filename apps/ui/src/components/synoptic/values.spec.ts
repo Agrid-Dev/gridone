@@ -215,8 +215,36 @@ describe("formatReading", () => {
     [slot("t", { unit: "kW" }), 3.14159, "3.14159", "kW", undefined],
     // A scaled register without decimals keeps six significant digits.
     [slot("t", { unit: "°C" }), 52.900000000000006, "52.9", "°C", undefined],
-    [slot("t"), 1234567.891, "1234570", null, undefined],
+    [slot("t"), 1234567.891, "1\u202F234\u202F570", null, undefined],
     [slot("t"), 42, "42", null, undefined],
+    // Five digits and more are grouped by three; four are left whole.
+    [
+      slot("e", { unit: "Wh", decimals: 0 }),
+      1311988992,
+      "1\u202F311\u202F988\u202F992",
+      "Wh",
+      undefined,
+    ],
+    [slot("e", { decimals: 0 }), 12345, "12\u202F345", null, undefined],
+    [slot("e", { decimals: 0 }), 5242, "5242", null, undefined],
+    // The rounding decides the digit count, and only the integer part groups.
+    [slot("e", { decimals: 0 }), 9999.5, "10\u202F000", null, undefined],
+    [
+      slot("e", { decimals: 3 }),
+      12345.6789,
+      "12\u202F345.679",
+      null,
+      undefined,
+    ],
+    [slot("e", { decimals: 0 }), -85874, "-85\u202F874", null, undefined],
+    // A reading rounded to zero carries no sign.
+    [slot("p", { unit: "%", decimals: 0 }), -0.2, "0", "%", undefined],
+    [slot("p", { decimals: 1 }), -0.04, "0.0", null, undefined],
+    [slot("p", { decimals: 1 }), -0.06, "-0.1", null, undefined],
+    // An exponent is left as the number writes it.
+    [slot("e"), 1.5e25, "1.5e+25", null, undefined],
+    // A word that happens to be digits reads as written.
+    [slot("m"), "1234567", "1234567", null, true],
     [slot("m"), "auto", "auto", null, true],
     [slot("n", { labels: { "2": "ECO" }, unit: "x" }), 2, "ECO", null, true],
   ])("formats %j with %j as %s %s", (s, raw, text, unit, word) => {

@@ -851,43 +851,44 @@ describe("circulatingRuns on the committed plates", () => {
     expect(set.has("col-1-return")).toBe(true);
   });
 
-  // The kitchen branch is one series path, supply then return through the
-  // off-plate link; closing its supply valve stops the water in both: the
+  // With its hot supply valve closed and no reading on its cold legs,
+  // nothing feeds the VC branch: the departure stops at the valve, and the
   // return collector drains the return, it never feeds it.
   it("production-chaud: closing a branch's supply valve stills its return too", () => {
     const doc = plate("production-chaud");
     const set = circulate(doc, {
-      [flow("pec-d2-a-branch")]: reading(true),
-      [state("v-cuisine")]: reading(false),
+      [flow("pec-e2a-branch")]: reading(true),
+      [state("v-vc-ec-aller")]: reading(false),
     });
-    expect(set.has("cuisine-depart")).toBe(false);
-    expect(set.has("cuisine-retour")).toBe(false);
+    expect(set.has("vc-depart")).toBe(false);
+    expect(set.has("vc-retour")).toBe(false);
   });
 
   it("production-chaud: the secondary moves from its pump branches, the primary never, and a closed valve stills its branch", () => {
     const doc = plate("production-chaud");
     const set = circulate(doc, {
-      [flow("pec-d2-a-branch")]: reading(true),
+      [flow("pec-e2a-branch")]: reading(true),
     });
     for (const id of [
       "sec-supply",
       "sec-supply-out",
       "cuisine-depart",
       "sec-return",
+      "pot-a-boue-loop",
     ])
       expect(set.has(id)).toBe(true);
     for (const id of [
       "prim-supply",
       "prim-return",
       "vase-connection",
-      "eg-balance",
+      "eau-ville",
     ])
       expect(set.has(id)).toBe(false);
     const closed = circulate(doc, {
-      [flow("pec-d2-a-branch")]: reading(true),
-      [state("v-cuisine")]: reading(false),
+      [flow("pec-e2a-branch")]: reading(true),
+      [state("v-vc-ec-aller")]: reading(false),
     });
-    expect(closed.has("cuisine-depart")).toBe(false);
-    expect(closed.has("vcv-rdc-depart")).toBe(true);
+    expect(closed.has("vc-depart")).toBe(false);
+    expect(closed.has("cuisine-depart")).toBe(true);
   });
 });

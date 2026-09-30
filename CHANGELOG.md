@@ -1,3 +1,23 @@
+## v0.286.0 (2026-09-30)
+
+### Feat
+
+- **synoptics**: live readings on the hot production plate (#747)
+
+## v0.285.1 (2026-09-30)
+
+### Fix
+
+- **synoptics**: hot plate follows the controller and plant diagram (#746)
+
+## v0.285.0 (2026-09-30)
+
+### Feat
+
+- **ui**: control panel confirms a write with a success mark that clears itself (AGR-1524)
+- **ui**: lock icon on inactive sections, device-page value rendering (AGR-1524)
+- **ui**: render the control panel dashboard widget (AGR-1524)
+
 ## v0.284.1 (2026-09-30)
 
 ### Fix

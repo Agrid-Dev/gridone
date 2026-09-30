@@ -126,10 +126,10 @@ const TALLIES: Record<(typeof PLATES)[number], Record<string, number>> = {
   "ecs-est": { accepted: 542, extended: 0, overlap: 37, unroutable: 228 },
   "ecs-ouest": { accepted: 562, extended: 4, overlap: 48, unroutable: 299 },
   "production-chaud": {
-    accepted: 551,
-    extended: 16,
-    overlap: 0,
-    unroutable: 157,
+    accepted: 488,
+    extended: 1,
+    overlap: 8,
+    unroutable: 212,
   },
   "production-froid": {
     accepted: 276,

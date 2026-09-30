@@ -149,11 +149,34 @@ export const targetKey = (target: AttributeTarget) =>
  *  so a scaled register never prints as a wall of digits. */
 const DEFAULT_PRECISION = 6;
 
+/** The gap between groups of three digits: a narrow no-break space. */
+const DIGIT_GROUP_GAP = "\u202F";
+/** Integer digits from which a number is grouped: four are left whole. */
+const MIN_GROUPED_DIGITS = 5;
+
+/** A written number with its integer digits grouped by three, as the SI
+ *  writes long numbers: `1311988992` reads `1 311 988 992`, `-85874.5`
+ *  reads `-85 874.5`, `5242` stays whole. The pattern takes the sign, the
+ *  integer digits and whatever follows them (decimals, an exponent). */
+function groupDigits(written: string): string {
+  const parts = /^(-?)(\d+)(.*)$/.exec(written);
+  if (!parts || parts[2].length < MIN_GROUPED_DIGITS) return written;
+  const [, sign, integer, rest] = parts;
+  // A gap at every position followed by a whole number of digit triples.
+  return sign + integer.replace(/\B(?=(\d{3})+$)/g, DIGIT_GROUP_GAP) + rest;
+}
+
+/** A written zero without its sign: `-0` reads `0` and `-0.0` reads `0.0`,
+ *  since a reading rounded to zero is not a negative one. The pattern is a
+ *  minus, a zero and, optionally, decimals that are all zeros. */
+const unsignedZero = (written: string) =>
+  /^-0(\.0+)?$/.test(written) ? written.slice(1) : written;
+
 /** Display text of a raw value and the unit to draw after it: a mapped
  *  label stands alone, as a word; a number takes its decimals, or a
- *  bounded precision without them, and its unit; a boolean with no label
- *  for its value is silent, since `true` is not a word an operator reads;
- *  anything else reads as written, as a word. */
+ *  bounded precision without them, its digits grouped, and its unit; a
+ *  boolean with no label for its value is silent, since `true` is not a
+ *  word an operator reads; anything else reads as written, as a word. */
 export function formatReading(
   slot: AttributeSlot,
   raw: AttributeValue,
@@ -163,10 +186,13 @@ export function formatReading(
   if (typeof raw === "boolean") return { text: null, unit: null };
   if (typeof raw !== "number")
     return { text: String(raw), unit: slot.unit ?? null, word: true };
-  const text =
-    slot.decimals != null
-      ? raw.toFixed(slot.decimals)
-      : String(Number(raw.toPrecision(DEFAULT_PRECISION)));
+  const text = groupDigits(
+    unsignedZero(
+      slot.decimals != null
+        ? raw.toFixed(slot.decimals)
+        : String(Number(raw.toPrecision(DEFAULT_PRECISION))),
+    ),
+  );
   return { text, unit: slot.unit ?? null };
 }
 
