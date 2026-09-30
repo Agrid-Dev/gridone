@@ -7,6 +7,7 @@ from pydantic import ValidationError
 
 from dashboards.widgets.chart import ChartWidgetConfig
 from dashboards.widgets.config import WidgetSize
+from dashboards.widgets.control_panel import ControlPanelWidgetConfig
 from dashboards.widgets.device_control import DeviceControlWidgetConfig
 from dashboards.widgets.kpi import KpiWidgetConfig
 from dashboards.widgets.meter_tree import MeterTreeWidgetConfig
@@ -116,6 +117,8 @@ def build_default_registry() -> WidgetRegistry:
     matching the portrait footprint of the standard control surface plus
     attribute panes on the device page. ``kpi`` is a sixth of the grid
     wide and a single row tall — it shows one number, not a plot.
+    ``control_panel`` shares the ``device_control`` footprint: a column of
+    labelled rows, scrolling past that.
     """
     registry = WidgetRegistry()
     registry.register(
@@ -151,6 +154,13 @@ def build_default_registry() -> WidgetRegistry:
             type="meter_tree",
             config_model=MeterTreeWidgetConfig,
             default_size=WidgetSize(w=6, h=8),
+        )
+    )
+    registry.register(
+        WidgetType(
+            type="control_panel",
+            config_model=ControlPanelWidgetConfig,
+            default_size=WidgetSize(w=4, h=6),
         )
     )
     return registry

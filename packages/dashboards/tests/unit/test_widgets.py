@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 from dashboards.widgets import (
     ChartWidgetConfig,
+    ControlPanelWidgetConfig,
     DeviceControlWidgetConfig,
     KpiWidgetConfig,
     MeterTreeNode,
@@ -13,6 +14,10 @@ from dashboards.widgets import (
     WidgetSize,
     WidgetType,
     build_default_registry,
+)
+from dashboards.widgets.control_panel import (
+    MAX_ATTRIBUTES_PER_SECTION,
+    MAX_SECTIONS,
 )
 from dashboards.widgets.meter_tree import MAX_DEPTH, MAX_NODES, MeterTreeVariant
 from dashboards.widgets.registry import WidgetRegistry
@@ -32,12 +37,14 @@ def test_default_registry_registers_built_in_types():
         "device_control",
         "kpi",
         "meter_tree",
+        "control_panel",
     }
     assert registry.default_size("text") == WidgetSize(w=4, h=2)
     assert registry.default_size("chart") == WidgetSize(w=6, h=5)
     assert registry.default_size("device_control") == WidgetSize(w=4, h=6)
     assert registry.default_size("kpi") == WidgetSize(w=2, h=1)
     assert registry.default_size("meter_tree") == WidgetSize(w=6, h=8)
+    assert registry.default_size("control_panel") == WidgetSize(w=4, h=6)
 
 
 def test_validate_config_returns_concrete_model():
@@ -200,7 +207,14 @@ def test_schemas_returns_json_schema_per_type():
 
     schemas = registry.schemas()
 
-    assert set(schemas) == {"text", "chart", "device_control", "kpi", "meter_tree"}
+    assert set(schemas) == {
+        "text",
+        "chart",
+        "device_control",
+        "kpi",
+        "meter_tree",
+        "control_panel",
+    }
     props = schemas["text"]["properties"]
     assert props["color"]["pattern"] == r"^#[0-9a-fA-F]{6}$"
     assert props["type"]["const"] == "text"
@@ -224,6 +238,9 @@ def test_schemas_returns_json_schema_per_type():
     meter_tree = schemas["meter_tree"]
     assert set(meter_tree["required"]) == {"root"}
     assert meter_tree["x-default-size"] == {"w": 6, "h": 8}
+    control_panel = schemas["control_panel"]
+    assert set(control_panel["required"]) == {"sections"}
+    assert control_panel["x-default-size"] == {"w": 4, "h": 6}
 
 
 def test_empty_registry_has_no_types():
@@ -969,3 +986,179 @@ def test_meter_tree_rejects_an_unknown_variant():
         MeterTreeWidgetConfig.model_validate(
             {"root": {"label": "N", "meter": _meter("d1")}, "variant": "gas"}
         )
+
+
+_PUMP_RUNNING = {"device_id": "pump1", "attribute": "running"}
+_PUMP_FAULT = {"device_id": "pump1", "attribute": "fault", "label": "Pump fault"}
+_SELECTOR = {
+    "device_id": "plc",
+    "attribute": "auto_mode",
+    "value": False,
+    "inactive_reason": "Selector is on auto",
+}
+
+
+def _bool_target(attribute: str = "running") -> ResolvedTarget:
+    return ResolvedTarget(
+        attribute=attribute,
+        device_ids=["pump1"],
+        data_type=DataType.BOOL,
+        excluded_device_ids=[],
+    )
+
+
+def test_validate_config_returns_control_panel_model():
+    registry = build_default_registry()
+
+    config = registry.validate_config(
+        {
+            "type": "control_panel",
+            "sections": [
+                {
+                    "title": "Pump 1",
+                    "active_when": _SELECTOR,
+                    "attributes": [_PUMP_RUNNING, _PUMP_FAULT],
+                },
+                {"attributes": [{"device_id": "pump2", "attribute": "running"}]},
+            ],
+        }
+    )
+
+    assert isinstance(config, ControlPanelWidgetConfig)
+    first, second = config.sections
+    assert first.title == "Pump 1"
+    assert first.active_when is not None
+    assert first.active_when.value is False
+    assert first.active_when.inactive_reason == "Selector is on auto"
+    assert [a.label for a in first.attributes] == [None, "Pump fault"]
+    # Title and condition are both optional: a bare list of rows is a section.
+    assert second.title is None
+    assert second.active_when is None
+
+
+def test_control_panel_condition_defaults_to_active_when_true():
+    config = ControlPanelWidgetConfig.model_validate(
+        {
+            "sections": [
+                {
+                    "active_when": {"device_id": "plc", "attribute": "enabled"},
+                    "attributes": [_PUMP_RUNNING],
+                }
+            ]
+        }
+    )
+
+    condition = config.sections[0].active_when
+    assert condition is not None
+    assert condition.value is True
+    assert condition.inactive_reason is None
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        {},  # missing sections
+        {"sections": []},  # a panel with nothing on it
+        {"sections": [{"title": "Empty", "attributes": []}]},  # empty section
+        {"sections": [{"title": "", "attributes": [_PUMP_RUNNING]}]},  # blank title
+        {  # a row is one explicit device, never a device set
+            "sections": [
+                {"attributes": [{"devices": {"ids": ["d1"]}, "attribute": "running"}]}
+            ]
+        },
+        {"sections": [{"attributes": [{"device_id": "", "attribute": "running"}]}]},
+        {"sections": [{"attributes": [{"device_id": "d1", "attribute": ""}]}]},
+        {"sections": [{"attributes": [{**_PUMP_RUNNING, "label": ""}]}]},
+        {  # the condition compares against a boolean, nothing else
+            "sections": [
+                {
+                    "active_when": {**_SELECTOR, "value": "on"},
+                    "attributes": [_PUMP_RUNNING],
+                }
+            ]
+        },
+        {  # blank reason
+            "sections": [
+                {
+                    "active_when": {**_SELECTOR, "inactive_reason": ""},
+                    "attributes": [_PUMP_RUNNING],
+                }
+            ]
+        },
+        {"sections": [{"attributes": [_PUMP_RUNNING]}] * (MAX_SECTIONS + 1)},
+        {
+            "sections": [
+                {"attributes": [_PUMP_RUNNING] * (MAX_ATTRIBUTES_PER_SECTION + 1)}
+            ]
+        },
+    ],
+)
+def test_control_panel_config_rejects_invalid(raw: dict):
+    with pytest.raises(ValidationError):
+        ControlPanelWidgetConfig.model_validate(raw)
+
+
+def test_control_panel_targets_cover_conditions_and_rows_across_devices():
+    config = ControlPanelWidgetConfig.model_validate(
+        {
+            "sections": [
+                {
+                    "title": "Pump 1",
+                    "active_when": _SELECTOR,
+                    "attributes": [_PUMP_RUNNING, _PUMP_FAULT],
+                },
+                {"attributes": [{"device_id": "pump2", "attribute": "running"}]},
+            ]
+        }
+    )
+
+    assert [(t.devices.ids, t.attribute) for t in config.targets()] == [
+        (["plc"], "auto_mode"),
+        (["pump1"], "running"),
+        (["pump1"], "fault"),
+        (["pump2"], "running"),
+    ]
+
+
+def test_control_panel_accepts_boolean_resolved_targets():
+    config = ControlPanelWidgetConfig.model_validate(
+        {"sections": [{"active_when": _SELECTOR, "attributes": [_PUMP_RUNNING]}]}
+    )
+
+    config.validate_resolved([_bool_target("auto_mode"), _bool_target()])
+
+
+@pytest.mark.parametrize(
+    ("section", "non_bool_index", "named"),
+    [
+        (
+            {"title": "Pump 1", "attributes": [_PUMP_RUNNING, _PUMP_FAULT]},
+            1,
+            "Section 'Pump 1' attribute 'Pump fault'",
+        ),
+        # An untitled section is named by position, an unlabelled row by its
+        # attribute.
+        ({"attributes": [_PUMP_RUNNING]}, 0, "Section 1 attribute 'running'"),
+        (
+            {"title": "Pump 1", "active_when": _SELECTOR, "attributes": [_PUMP_FAULT]},
+            0,
+            "Section 'Pump 1' condition",
+        ),
+    ],
+)
+def test_control_panel_names_the_reference_that_is_not_a_boolean(
+    section: dict, non_bool_index: int, named: str
+):
+    config = ControlPanelWidgetConfig.model_validate({"sections": [section]})
+    resolved = [_bool_target() for _ in config.targets()]
+    resolved[non_bool_index] = ResolvedTarget(
+        attribute="x",
+        device_ids=["pump1"],
+        data_type=DataType.FLOAT,
+        excluded_device_ids=[],
+    )
+
+    with pytest.raises(InvalidError) as excinfo:
+        config.validate_resolved(resolved)
+
+    assert str(excinfo.value) == f"{named} must be a boolean, got float"

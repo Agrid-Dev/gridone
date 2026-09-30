@@ -13,6 +13,7 @@ from typing import Annotated, Any
 
 from dashboards import (
     ChartWidgetConfig,
+    ControlPanelWidgetConfig,
     DeviceControlWidgetConfig,
     KpiWidgetConfig,
     MeterTreeWidgetConfig,
@@ -31,7 +32,8 @@ WidgetConfigBody = Annotated[
     | ChartWidgetConfig
     | DeviceControlWidgetConfig
     | KpiWidgetConfig
-    | MeterTreeWidgetConfig,
+    | MeterTreeWidgetConfig
+    | ControlPanelWidgetConfig,
     Field(discriminator="type"),
 ]
 

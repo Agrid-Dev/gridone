@@ -477,6 +477,13 @@ async def test_update_layout_rejects_duplicate_item(service: DashboardsService):
 async def test_widget_schemas_carry_hex_pattern(service: DashboardsService):
     schemas = service.widget_schemas()
 
-    assert set(schemas) == {"text", "chart", "device_control", "kpi", "meter_tree"}
+    assert set(schemas) == {
+        "text",
+        "chart",
+        "device_control",
+        "kpi",
+        "meter_tree",
+        "control_panel",
+    }
     color = schemas["text"]["properties"]["color"]
     assert color["pattern"] == r"^#[0-9a-fA-F]{6}$"

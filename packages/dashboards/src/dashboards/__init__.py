@@ -13,6 +13,7 @@ from dashboards.models import (
 from dashboards.service import DashboardsService
 from dashboards.widgets import (
     ChartWidgetConfig,
+    ControlPanelWidgetConfig,
     DeviceControlWidgetConfig,
     KpiWidgetConfig,
     MeterTreeNode,
@@ -28,6 +29,7 @@ from dashboards.widgets import (
 
 __all__ = [
     "ChartWidgetConfig",
+    "ControlPanelWidgetConfig",
     "Dashboard",
     "DashboardCreate",
     "DashboardPatch",
