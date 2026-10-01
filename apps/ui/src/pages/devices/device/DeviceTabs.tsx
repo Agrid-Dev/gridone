@@ -104,7 +104,10 @@ export function DeviceTabs({ device }: { device: Device }) {
               ? t("deviceDetails.configurationTabs.label")
               : t("deviceDetails.tabs.label")
           }
-          className="border-b-0"
+          // h-auto: the fixed list height is 2px short of a trigger's padding
+          // + underline, which turned the list's overflow-x into a vertical
+          // scrollbox around the tabs.
+          className="h-auto border-b-0"
         >
           {tabs.map(({ section, to, end, Icon, label }) => (
             <TabsTrigger
