@@ -6,6 +6,7 @@ export type AirExtractorLabelKey =
   | "extractAir"
   | "exhaustAir"
   | "fan"
+  | "flowSwitch"
   | "on"
   | "off"
   | "commandedNoFlow"

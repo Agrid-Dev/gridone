@@ -16,13 +16,22 @@ vi.mock("react-i18next", () =>
     "ahu_single_flux.name": "Single-flux AHU",
     "ahu.synoptic.freshAir": "Fresh air",
     "ahu.synoptic.supplyAir": "Supply air",
+    "ahu.synoptic.extractAir": "Extract air",
+    "ahu.synoptic.exhaustAir": "Exhaust air",
     "ahu.synoptic.filter": "Filter",
     "ahu.synoptic.heatingCoil": "Heating coil",
     "ahu.synoptic.coolingCoil": "Cooling coil",
+    "ahu.synoptic.heating": "Heating",
+    "ahu.synoptic.cooling": "Cooling",
     "ahu.synoptic.supplyFan": "Supply fan",
+    "ahu.synoptic.extractFan": "Extract fan",
+    "ahu.synoptic.supplyFanShort": "Supply fan",
+    "ahu.synoptic.extractFanShort": "Extract fan",
+    "ahu.synoptic.temperature": "Temperature",
+    "ahu.synoptic.pressure": "Pressure",
+    "ahu.synoptic.setpoint": "Setpoint",
     "ahu.synoptic.on": "Running",
     "ahu.synoptic.off": "Stopped",
-    "ahu.synoptic.setpoints": "Setpoints",
     "ahu.synoptic.supplyAirTemperatureSetpoint": "Supply temperature",
     "ahu.synoptic.supplyAirPressureSetpoint": "Supply pressure",
     "ahu.synoptic.editSetpoint": "Edit setpoint",
@@ -31,7 +40,6 @@ vi.mock("react-i18next", () =>
     "common.edit": "Edit",
     "common.save": "Save",
     "common.cancel": "Cancel",
-    "common.readOnly": "Read only",
   }),
 );
 
@@ -49,21 +57,53 @@ const VALUES: AhuSingleFluxValues = {
 afterEach(cleanup);
 
 describe("AhuSingleFluxSynoptic", () => {
-  it("renders air measurements, fan speed and valve position", () => {
+  it("reads the streams, fan speed and valve opening of the supply run", () => {
     render(<AhuSingleFluxSynoptic values={VALUES} />);
 
-    expect(screen.getByText("14.8°")).toBeInTheDocument();
-    expect(screen.getByText("15.9° · 2")).toBeInTheDocument();
+    expect(screen.getByText("14,8°")).toBeInTheDocument();
+    expect(screen.getByText("15,9°")).toBeInTheDocument();
+    expect(screen.getByText("2")).toBeInTheDocument();
     expect(screen.getByText("45 %")).toBeInTheDocument();
     expect(screen.getByText("30 %")).toBeInTheDocument();
+    expect(screen.getByText("Running")).toBeInTheDocument();
+    // Supply only: no extract run.
+    expect(
+      screen.queryByText("Extract fan", { selector: "title" }),
+    ).not.toBeInTheDocument();
   });
 
-  it("renders missing values as placeholders without setpoint chips", () => {
+  it("adds the extract run when the unit reports its extract side", () => {
+    render(
+      <AhuSingleFluxSynoptic
+        values={{ ...VALUES, extractAirTemperature: 21.2, extractFanSpeed: 40 }}
+      />,
+    );
+
+    expect(
+      screen.getByText("Extract fan", { selector: "title" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("21,2°")).toBeInTheDocument();
+    expect(screen.getByText("40 %")).toBeInTheDocument();
+    // No exchanger, so the exhaust is the extract air: named, not measured.
+    expect(screen.getByText("Exhaust air")).toBeInTheDocument();
+  });
+
+  it("reads a small negative pressure as zero, not minus zero", () => {
+    render(
+      <AhuSingleFluxSynoptic values={{ ...VALUES, supplyAirPressure: -0.4 }} />,
+    );
+
+    expect(screen.getByText("0")).toBeInTheDocument();
+    expect(screen.queryByText("-0")).not.toBeInTheDocument();
+  });
+
+  it("renders missing values as placeholders without setpoints", () => {
     render(<AhuSingleFluxSynoptic values={{}} />);
 
-    // 2 air tags + fan chip; no coils, no setpoint chips.
-    expect(screen.getAllByText(/—/).length).toBeGreaterThanOrEqual(3);
-    expect(screen.queryByText("Supply temperature")).not.toBeInTheDocument();
+    // The required supply temperature and the fan speed.
+    expect(screen.getAllByText("—")).toHaveLength(2);
+    expect(screen.getByText("Fresh air")).toBeInTheDocument();
+    expect(screen.queryByText("Setpoint")).not.toBeInTheDocument();
   });
 
   it("renders coils only for the valve attributes the device exposes", () => {
@@ -77,7 +117,7 @@ describe("AhuSingleFluxSynoptic", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("edits a writable setpoint through the modal", async () => {
+  it("edits a writable setpoint in place, through the modal", async () => {
     const user = userEvent.setup();
     const onSetpointSave = vi.fn();
     render(

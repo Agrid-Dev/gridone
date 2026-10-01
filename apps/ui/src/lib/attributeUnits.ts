@@ -23,6 +23,14 @@
  */
 const TEMPERATURE_ATTRIBUTE = /(^|_)temperature(_|$)/;
 
+/**
+ * Attribute names that carry a ratio in percent, by their last token:
+ * `heating_valve`, `supply_fan_speed`, `exchanger_utilization`. Not a bare
+ * `fan_speed`, which is an enum on thermostats and a percentage on
+ * extractors — the caller that knows which one it holds says so.
+ */
+const RATIO_ATTRIBUTE = /_(valve|fan_speed|utilization)$/;
+
 /** Attributes whose unit is known exactly, by name. */
 const EXACT_UNITS: Record<string, string> = {
   humidity: "%",
@@ -38,5 +46,11 @@ export function attributeUnit(
 ): string | null {
   if (attribute?.unit) return attribute.unit;
   if (TEMPERATURE_ATTRIBUTE.test(attributeName)) return "°";
+  if (RATIO_ATTRIBUTE.test(attributeName)) return "%";
   return EXACT_UNITS[attributeName] ?? null;
 }
+
+/** Separator + symbol after a number: a bare `°` hugs it ("21,5°"), any
+ *  other unit takes a space ("14,2 °C", "240 kW", "55 %"). */
+export const unitSuffix = (unit: string | null | undefined): string =>
+  unit ? (unit === "°" ? unit : ` ${unit}`) : "";

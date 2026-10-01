@@ -22,11 +22,17 @@ vi.mock("react-i18next", () =>
     "ahu.synoptic.filter": "Filter",
     "ahu.synoptic.heatingCoil": "Heating coil",
     "ahu.synoptic.coolingCoil": "Cooling coil",
+    "ahu.synoptic.heating": "Heating",
+    "ahu.synoptic.cooling": "Cooling",
     "ahu.synoptic.supplyFan": "Supply fan",
     "ahu.synoptic.extractFan": "Extract fan",
+    "ahu.synoptic.supplyFanShort": "Supply fan",
+    "ahu.synoptic.extractFanShort": "Extract fan",
+    "ahu.synoptic.temperature": "Temperature",
+    "ahu.synoptic.pressure": "Pressure",
+    "ahu.synoptic.setpoint": "Setpoint",
     "ahu.synoptic.on": "Running",
     "ahu.synoptic.off": "Stopped",
-    "ahu.synoptic.setpoints": "Setpoints",
     "ahu.synoptic.supplyAirTemperatureSetpoint": "Supply temperature",
     "ahu.synoptic.supplyAirPressureSetpoint": "Supply pressure",
     "ahu.synoptic.extractAirPressureSetpoint": "Extract pressure",
@@ -36,7 +42,6 @@ vi.mock("react-i18next", () =>
     "common.edit": "Edit",
     "common.save": "Save",
     "common.cancel": "Cancel",
-    "common.readOnly": "Read only",
   }),
 );
 
@@ -58,26 +63,57 @@ const VALUES: AhuDoubleFluxValues = {
 afterEach(cleanup);
 
 describe("AhuDoubleFluxSynoptic", () => {
-  it("renders air measurements and fan speeds", () => {
+  it("reads every stream, fan and the exchanger in the current locale", () => {
     render(<AhuDoubleFluxSynoptic values={VALUES} />);
 
-    expect(screen.getByText("17.8° · 79")).toBeInTheDocument();
-    expect(screen.getByText("22.3° · 82")).toBeInTheDocument();
-    expect(screen.getByText("15.7°")).toBeInTheDocument();
-    expect(screen.getByText("16.4°")).toBeInTheDocument();
+    // Temperatures to one decimal (fr: comma), pressures to none.
+    for (const text of ["17,8°", "22,3°", "15,7°", "16,4°", "79", "82"]) {
+      expect(screen.getByText(text)).toBeInTheDocument();
+    }
     expect(screen.getByText("55 %")).toBeInTheDocument();
     expect(screen.getByText("70 %")).toBeInTheDocument();
+    expect(screen.getByText("64 %")).toBeInTheDocument();
   });
 
-  it("renders missing values as placeholders", () => {
-    render(<AhuDoubleFluxSynoptic values={{}} />);
+  it("appends the driver's unit to a reading when it declares one", () => {
+    render(
+      <AhuDoubleFluxSynoptic
+        values={VALUES}
+        units={{ supplyAirPressure: "Pa", supplyAirTemperature: "°C" }}
+      />,
+    );
 
-    // 4 air tags + 2 fan chips + exchanger chip, no setpoint chips.
-    expect(screen.getAllByText(/—/).length).toBeGreaterThanOrEqual(7);
-    expect(screen.queryByText("Supply temperature")).not.toBeInTheDocument();
+    expect(screen.getByText("79 Pa")).toBeInTheDocument();
+    expect(screen.getByText("17,8 °C")).toBeInTheDocument();
   });
 
-  it("edits a writable setpoint through the modal", async () => {
+  it("spins each fan with its stream: supply clockwise, extract counter-clockwise", () => {
+    const { container } = render(<AhuDoubleFluxSynoptic values={VALUES} />);
+
+    const fans = container.querySelectorAll("[data-spinning='true']");
+    expect(fans).toHaveLength(2);
+    expect(
+      container.querySelector("[data-spin='ccw']")?.querySelector("title")
+        ?.textContent,
+    ).toBe("Extract fan");
+  });
+
+  it("names a stream the unit does not measure and dashes a required one it does not report", () => {
+    render(
+      <AhuDoubleFluxSynoptic
+        values={{ supplyFanSpeed: 0, extractFanSpeed: 0 }}
+      />,
+    );
+
+    // Optional streams fall back to a caption, no dash.
+    expect(screen.getByText("Fresh air")).toBeInTheDocument();
+    expect(screen.getByText("Exhaust air")).toBeInTheDocument();
+    // Supply and extract temperatures are required: dashed, not hidden.
+    expect(screen.getAllByText("—")).toHaveLength(3); // 2 streams + exchanger
+    expect(screen.queryByText("Setpoint")).not.toBeInTheDocument();
+  });
+
+  it("edits a writable setpoint in place, through the modal", async () => {
     const user = userEvent.setup();
     const onSetpointSave = vi.fn();
     render(
@@ -109,6 +145,19 @@ describe("AhuDoubleFluxSynoptic", () => {
     );
   });
 
+  it("offers the editor for a writable setpoint the unit does not read back", () => {
+    render(
+      <AhuDoubleFluxSynoptic
+        values={{ ...VALUES, supplyAirPressureSetpoint: undefined }}
+        writableSetpoints={["supplyAirPressureSetpoint"]}
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Edit Supply pressure" }),
+    ).toBeInTheDocument();
+  });
+
   it("renders coils only for the valve attributes the device exposes", () => {
     render(<AhuDoubleFluxSynoptic values={{ ...VALUES, coolingValve: 65 }} />);
 
@@ -121,12 +170,13 @@ describe("AhuDoubleFluxSynoptic", () => {
     expect(screen.getByText("65 %")).toBeInTheDocument();
   });
 
-  it("renders non-writable setpoints read-only", () => {
+  it("renders non-writable setpoints read-only, next to their measure", () => {
     render(<AhuDoubleFluxSynoptic values={VALUES} />);
 
-    expect(screen.getByText("Extract pressure")).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Edit Extract pressure" }),
-    ).not.toBeInTheDocument();
+    // The supply temperature and extract pressure setpoints, no buttons.
+    expect(screen.getAllByText("Setpoint")).toHaveLength(2);
+    expect(screen.getByText("18,0°")).toBeInTheDocument();
+    expect(screen.getByText("80")).toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 });

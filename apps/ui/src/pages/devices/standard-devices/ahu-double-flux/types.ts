@@ -1,3 +1,5 @@
+import type { AhuSetpointKey as SharedSetpointKey } from "../ahu-shared";
+
 /** Camel-cased view of the `ahu_double_flux` standard attribute schema
  *  (packages/devices_manager .../standard_schemas/registry/ahu_double_flux.py). */
 export type AhuDoubleFluxValues = {
@@ -21,7 +23,4 @@ export type AhuDoubleFluxValues = {
 
 /** The writable targets of the AHU; editability is decided per device from
  *  the attribute's `readWriteModes`. */
-export type AhuSetpointKey =
-  | "supplyAirTemperatureSetpoint"
-  | "supplyAirPressureSetpoint"
-  | "extractAirPressureSetpoint";
+export type AhuSetpointKey = SharedSetpointKey;
