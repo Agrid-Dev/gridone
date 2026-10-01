@@ -3,6 +3,7 @@ import type {
   Dashboard,
   DashboardCreate,
   DashboardPatch,
+  DashboardsOrderBody,
   DashboardSummary,
   LayoutItem,
   Widget,
@@ -47,6 +48,11 @@ export class DashboardsResource {
       "DELETE",
       `/dashboards/${encodeURIComponent(dashboardId)}`,
     );
+  }
+
+  /** Set the display order shared by every user: every dashboard id, once. */
+  reorder(params: DashboardsOrderBody): Promise<void> {
+    return this.request("PUT", "/dashboards/order", { body: params });
   }
 
   addWidget(dashboardId: string, params: WidgetCreateBody): Promise<Widget> {
