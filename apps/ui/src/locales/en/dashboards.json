@@ -4,6 +4,12 @@
   "switcher": {
     "new": "New dashboard"
   },
+  "manage": {
+    "caption": "The supervision entries, in the order they are listed. Create, rename, describe, delete and reorder them here; their widgets are edited on the dashboard itself.",
+    "actions": "Actions for {{name}}",
+    "drag": "Move {{name}}",
+    "orderHelp": "Drag a handle, or focus it and use the arrow keys, to change the order."
+  },
   "toolbox": {
     "show": "Edit dashboard",
     "hide": "Close editing tools"

@@ -15,7 +15,7 @@ import DashboardDetail from "./DashboardDetail";
 
 vi.mock("react-i18next", () =>
   createI18nMock({
-    "switcher.new": "New dashboard",
+    "layout.edit": "Edit layout",
     "widgets.add": "Add widget",
     "widgets.actions.edit": "Edit widget",
     "widgets.actions.delete": "Delete widget",
@@ -45,15 +45,12 @@ vi.mock("@/contexts/AuthContext", () => ({
   usePermissions: () => () => canWrite,
 }));
 vi.mock("./useDashboards", () => ({
-  useDashboards: () => [{ id: "d1", name: "Energy", metadata: {} }],
   useDashboardFromRoute: () => ({
     id: "d1",
     name: "Energy",
     widgets,
     metadata: {},
   }),
-  useUpdateDashboard: () => ({ updateDashboard: vi.fn() }),
-  useDeleteDashboard: () => ({ deleteDashboard: vi.fn() }),
 }));
 vi.mock("./useWidgets", () => ({
   useRemoveWidget: () => ({ removeWidget }),
@@ -140,6 +137,12 @@ it("shows direct widget actions only while configuration is open, without duplic
 
   await user.click(screen.getByRole("button", { name: "Edit dashboard" }));
   expect(screen.getAllByRole("link", { name: "Add widget" })).toHaveLength(1);
+  // The list-level actions moved to Configuration: only the layout is edited here.
+  expect(screen.getByRole("button", { name: "Edit layout" })).toBeEnabled();
+  for (const name of ["New dashboard", "Rename", "Delete"]) {
+    expect(screen.queryByRole("link", { name })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name })).not.toBeInTheDocument();
+  }
   expect(screen.getByRole("link", { name: "Edit widget" })).toHaveAttribute(
     "href",
     "/dashboards/d1/widgets/w1/edit",

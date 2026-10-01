@@ -8,6 +8,7 @@ vi.mock("react-i18next", () =>
   createI18nMock({
     "app.title": "Gridone",
     "app.version": "Version {{version}}",
+    "app.dashboards": "Dashboards",
     "app.synoptics": "Synoptics",
     "app.devices": "Devices",
     "app.assets": "Zones",
@@ -156,7 +157,7 @@ describe("Sidebar", () => {
           permission,
         );
       renderSidebar(mobile);
-      for (const name of ["Drivers", "Networks", "Apps", "Users"])
+      for (const name of ["Drivers", "Networks", "Apps", "Users", "Dashboards"])
         expect(screen.queryByRole("link", { name })).not.toBeInTheDocument();
       expect(screen.queryByText("Configuration")).not.toBeInTheDocument();
     },
@@ -168,6 +169,7 @@ describe("Sidebar", () => {
     ["users:read", "Users", "/users"],
     ["users:write", "Apps", "/apps"],
     ["synoptics:write", "Synoptics", "/synoptics"],
+    ["dashboards:write", "Dashboards", "/dashboards/manage"],
   ])(
     "keeps Configuration when only %s is granted",
     (permission, name, href) => {
@@ -181,6 +183,7 @@ describe("Sidebar", () => {
         "Apps",
         "Users",
         "Synoptics",
+        "Dashboards",
       ].filter((value) => value !== name))
         expect(
           screen.queryByRole("link", { name: other }),
@@ -243,7 +246,10 @@ describe("Sidebar", () => {
         "href",
         "/dashboards/d2",
       );
-      expect(screen.queryByText("Dashboards")).not.toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Dashboards" })).toHaveAttribute(
+        "href",
+        "/dashboards/manage",
+      );
       expect(screen.getByRole("link", { name: "CTA" })).not.toHaveAttribute(
         "aria-current",
       );
@@ -293,15 +299,34 @@ describe("Sidebar", () => {
   });
 
   it.each([false, true])(
-    "places Synoptics under Configuration (mobile: %s)",
+    "opens Configuration with Dashboards, then Synoptics (mobile: %s)",
     (mobile) => {
       renderSidebar(mobile);
       const configuration = screen.getByText("Configuration");
+      const dashboards = screen.getByRole("link", { name: "Dashboards" });
       const synoptics = screen.getByRole("link", { name: "Synoptics" });
-      expect(configuration.nextElementSibling).toBe(synoptics);
+      expect(configuration.nextElementSibling).toBe(dashboards);
+      expect(dashboards.nextElementSibling).toBe(synoptics);
       expect(synoptics).toHaveAttribute("href", "/synoptics");
     },
   );
+
+  it("hides the Dashboards entry from a reader, and with the flag off", () => {
+    permissions.can = (value) => value === "dashboards:read";
+    renderSidebar();
+    expect(
+      screen.queryByRole("link", { name: "Dashboards" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Configuration")).not.toBeInTheDocument();
+    cleanup();
+
+    permissions.can = () => true;
+    flags.dashboards = false;
+    renderSidebar();
+    expect(
+      screen.queryByRole("link", { name: "Dashboards" }),
+    ).not.toBeInTheDocument();
+  });
 
   it("badges the Faults link with the active fault count", () => {
     faults = [{}, {}, {}] as FaultView[];
