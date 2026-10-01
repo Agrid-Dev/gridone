@@ -40,6 +40,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { DashboardIconGlyph } from "@/lib/dashboardIcons";
 import { cn } from "@/lib/utils";
 import { DashboardForm, type DashboardFormValues } from "./DashboardForm";
 import {
@@ -58,7 +59,7 @@ const DashboardsManageContent: FC = () => {
   const { reorderDashboards } = useReorderDashboards();
   const { updateDashboard } = useUpdateDashboard();
   const { deleteDashboard } = useDeleteDashboard();
-  const [renaming, setRenaming] = useState<DashboardSummary | null>(null);
+  const [editing, setEditing] = useState<DashboardSummary | null>(null);
   const [deleting, setDeleting] = useState<DashboardSummary | null>(null);
   const ids = dashboards.map((dashboard) => dashboard.id);
   const sensors = useSensors(
@@ -76,16 +77,17 @@ const DashboardsManageContent: FC = () => {
     reorderDashboards(arrayMove(ids, from, to));
   };
 
-  const handleRename = async (values: DashboardFormValues) => {
-    if (!renaming) return;
+  const handleEdit = async (values: DashboardFormValues) => {
+    if (!editing) return;
     // Awaited so the form's submit stays disabled while in flight; a rejection
     // is swallowed here (the mutation's onError already toasts it).
     try {
-      await updateDashboard(renaming.id, {
+      await updateDashboard(editing.id, {
         name: values.name,
         description: values.description,
+        icon: values.icon,
       });
-      setRenaming(null);
+      setEditing(null);
     } catch {
       /* handled by the mutation's onError */
     }
@@ -126,7 +128,7 @@ const DashboardsManageContent: FC = () => {
                     key={dashboard.id}
                     dashboard={dashboard}
                     sortable={ids.length > 1}
-                    onRename={() => setRenaming(dashboard)}
+                    onEdit={() => setEditing(dashboard)}
                     onDelete={() => setDeleting(dashboard)}
                   />
                 ))}
@@ -142,23 +144,24 @@ const DashboardsManageContent: FC = () => {
       )}
 
       <Dialog
-        open={renaming !== null}
-        onOpenChange={(open) => !open && setRenaming(null)}
+        open={editing !== null}
+        onOpenChange={(open) => !open && setEditing(null)}
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t("rename.title")}</DialogTitle>
+            <DialogTitle>{t("edit.title")}</DialogTitle>
           </DialogHeader>
-          {renaming && (
+          {editing && (
             <DashboardForm
               formId="dashboard-rename-form"
               defaultValues={{
-                name: renaming.name,
-                description: renaming.description ?? "",
+                name: editing.name,
+                description: editing.description ?? "",
+                icon: editing.icon ?? null,
               }}
-              submitLabel={t("rename.submit")}
-              onSubmit={handleRename}
-              onCancel={() => setRenaming(null)}
+              submitLabel={t("edit.submit")}
+              onSubmit={handleEdit}
+              onCancel={() => setEditing(null)}
             />
           )}
         </DialogContent>
@@ -187,9 +190,9 @@ const DashboardsManageContent: FC = () => {
 const DashboardRow: FC<{
   dashboard: DashboardSummary;
   sortable: boolean;
-  onRename: () => void;
+  onEdit: () => void;
   onDelete: () => void;
-}> = ({ dashboard, sortable, onRename, onDelete }) => {
+}> = ({ dashboard, sortable, onEdit, onDelete }) => {
   const { t } = useTranslation("dashboards");
   const {
     attributes,
@@ -227,7 +230,13 @@ const DashboardRow: FC<{
         to={`/dashboards/${encodeURIComponent(dashboard.id)}`}
         className="flex min-w-0 flex-1 flex-col rounded-md py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <span className="truncate text-sm font-semibold">{name}</span>
+        <span className="flex items-center gap-2 truncate text-sm font-semibold">
+          <DashboardIconGlyph
+            icon={dashboard.icon}
+            className="h-4 w-4 shrink-0 text-muted-foreground"
+          />
+          {name}
+        </span>
         {dashboard.description && (
           <span className="truncate text-xs text-muted-foreground">
             {dashboard.description}
@@ -246,9 +255,9 @@ const DashboardRow: FC<{
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">
-          <DropdownMenuItem onSelect={onRename}>
+          <DropdownMenuItem onSelect={onEdit}>
             <PencilLine />
-            {t("actions.rename")}
+            {t("actions.edit")}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem

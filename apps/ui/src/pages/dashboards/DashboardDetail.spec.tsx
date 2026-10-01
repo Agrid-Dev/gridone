@@ -31,6 +31,7 @@ vi.mock("react-i18next", () =>
 
 let canWrite = true;
 let editing = false;
+let icon: string | null = null;
 let widgets: Widget[] = [];
 const removeWidget = vi.fn().mockResolvedValue(undefined);
 const WIDGET: Widget = {
@@ -48,6 +49,7 @@ vi.mock("./useDashboards", () => ({
   useDashboardFromRoute: () => ({
     id: "d1",
     name: "Energy",
+    icon,
     widgets,
     metadata: {},
   }),
@@ -70,6 +72,7 @@ vi.mock("@/components/TimeRangeSelect", () => ({
 beforeEach(() => {
   canWrite = true;
   editing = false;
+  icon = null;
   widgets = [];
   removeWidget.mockClear();
 });
@@ -100,6 +103,20 @@ it("titles the page with the dashboard, no view switcher, with one add-widget ac
   expect(
     screen.getByRole("button", { name: "Edit dashboard" }),
   ).toBeInTheDocument();
+});
+
+it("carries the dashboard's icon in the title, and no glyph without one", () => {
+  renderPage();
+  expect(
+    screen.getByRole("heading", { level: 2 }).querySelector("svg"),
+  ).toBeNull();
+  cleanup();
+
+  icon = "fan";
+  renderPage();
+  expect(
+    screen.getByRole("heading", { level: 2 }).querySelector("svg"),
+  ).toHaveClass("lucide-fan");
 });
 
 it("hides creation and editing for a viewer", () => {
@@ -139,7 +156,7 @@ it("shows direct widget actions only while configuration is open, without duplic
   expect(screen.getAllByRole("link", { name: "Add widget" })).toHaveLength(1);
   // The list-level actions moved to Configuration: only the layout is edited here.
   expect(screen.getByRole("button", { name: "Edit layout" })).toBeEnabled();
-  for (const name of ["New dashboard", "Rename", "Delete"]) {
+  for (const name of ["New dashboard", "Edit details", "Delete"]) {
     expect(screen.queryByRole("link", { name })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name })).not.toBeInTheDocument();
   }

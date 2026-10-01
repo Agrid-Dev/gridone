@@ -14,6 +14,7 @@ import {
   type OrgIconKey,
 } from "@/components/OrgAvatar";
 import { cn } from "@/lib/utils";
+import { IconGrid } from "./IconGrid";
 
 const MAX_RAW_LENGTH = 30;
 
@@ -61,29 +62,15 @@ export const IconPicker: FC<IconPickerProps> = ({ value, onChange, name }) => {
           </TabsList>
 
           <TabsContent value="icon" className="mt-3">
-            <div className="grid grid-cols-6 gap-2">
-              {ORG_ICON_KEYS.map((key) => {
-                const Icon = ORG_ICONS[key as OrgIconKey];
-                const selected = value === key;
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    aria-label={key}
-                    aria-pressed={selected}
-                    onClick={() => onChange(key)}
-                    className={cn(
-                      "flex h-10 w-10 items-center justify-center rounded-md border transition-colors",
-                      selected
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-border text-muted-foreground hover:bg-accent hover:text-foreground",
-                    )}
-                  >
-                    <Icon className="h-5 w-5" />
-                  </button>
-                );
-              })}
-            </div>
+            <IconGrid
+              icons={ORG_ICONS}
+              value={
+                value && ORG_ICON_KEYS.includes(value)
+                  ? (value as OrgIconKey)
+                  : null
+              }
+              onChange={(key) => key && onChange(key)}
+            />
           </TabsContent>
 
           <TabsContent value="custom" className="mt-3 space-y-3">

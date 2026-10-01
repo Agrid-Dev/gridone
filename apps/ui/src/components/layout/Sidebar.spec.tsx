@@ -58,7 +58,7 @@ vi.mock("@/hooks/usePendingAppRequests", () => ({
   usePendingAppRequests: () => ({ pendingCount: pendingAppRequests }),
 }));
 
-let dashboards: { id: string; name: string }[] = [];
+let dashboards: { id: string; name: string; icon?: string | null }[] = [];
 vi.mock("@/pages/dashboards/useDashboards", () => ({
   useDashboardEntries: () => ({ dashboards, ready: true }),
 }));
@@ -265,6 +265,20 @@ describe("Sidebar", () => {
       ).not.toHaveAttribute("aria-current");
     },
   );
+
+  it("draws an entry's icon, and nothing for an entry without one", () => {
+    dashboards = [
+      { id: "d1", name: "ECS Ouest", icon: "droplets" },
+      { id: "d2", name: "CTA", icon: null },
+    ];
+    renderSidebar();
+    expect(
+      screen.getByRole("link", { name: "ECS Ouest" }).querySelector("svg"),
+    ).toHaveClass("lucide-droplets");
+    expect(
+      screen.getByRole("link", { name: "CTA" }).querySelector("svg"),
+    ).toBeNull();
+  });
 
   it("starts Supervision at Devices without a dashboard, or with the flag off", () => {
     dashboards = [{ id: "d1", name: "ECS Ouest" }];

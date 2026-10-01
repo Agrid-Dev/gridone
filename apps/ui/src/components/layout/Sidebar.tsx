@@ -17,6 +17,7 @@ import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { useDevicesList } from "@/hooks/useDevicesList";
 import { useFaultsList } from "@/hooks/useFaultsList";
 import { usePendingAppRequests } from "@/hooks/usePendingAppRequests";
+import { DashboardIconGlyph } from "@/lib/dashboardIcons";
 import { useDashboardEntries } from "@/pages/dashboards/useDashboards";
 import { useFeatureEnabled } from "@/utils/featureFlags";
 import { BuildingSwitcher } from "./BuildingSwitcher";
@@ -154,7 +155,10 @@ export function Sidebar({
                 end
                 className={navLinkClass}
               >
-                <LayoutDashboard className="h-4 w-4 shrink-0" />
+                <DashboardIconGlyph
+                  icon={dashboard.icon}
+                  className="h-4 w-4 shrink-0"
+                />
                 <span className="min-w-0 truncate">{dashboard.name}</span>
               </NavLink>
             ))}

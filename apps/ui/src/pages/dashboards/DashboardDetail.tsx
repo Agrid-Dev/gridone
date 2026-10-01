@@ -18,6 +18,7 @@ import {
   DASHBOARD_DEFAULT_PRESET,
   DASHBOARD_PRESET_OPTIONS,
 } from "@/lib/timeRange";
+import { DashboardIconGlyph } from "@/lib/dashboardIcons";
 import { DashboardGrid } from "./DashboardGrid";
 import { DASHBOARD_PERIOD_STORAGE_KEY } from "./useDashboardPeriod";
 import { useDashboardFromRoute } from "./useDashboards";
@@ -39,7 +40,12 @@ const DashboardDetailContent: FC = () => {
       data-navigation-title={dashboard.name || dashboard.id}
     >
       <ResourceHeader
-        title={dashboard.name}
+        title={
+          <span className="flex items-center gap-2">
+            <DashboardIconGlyph icon={dashboard.icon} className="h-6 w-6" />
+            {dashboard.name}
+          </span>
+        }
         actions={
           <>
             <TimeRangeSelect
