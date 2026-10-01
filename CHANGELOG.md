@@ -1,3 +1,9 @@
+## v0.293.1 (2026-10-01)
+
+### Fix
+
+- **ui**: synoptic widget no longer zooms or captures the page scroll (#763)
+
 ## v0.293.0 (2026-10-01)
 
 ### Feat
