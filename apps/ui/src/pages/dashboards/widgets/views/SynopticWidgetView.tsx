@@ -1,11 +1,8 @@
-import { useMemo, useRef, type ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Scan, ZoomIn, ZoomOut } from "lucide-react";
 import type { Synoptic, SynopticWidgetConfig } from "@gridone/sdk";
-import { SynopticRenderer, type PlateHandle } from "@/components/synoptic";
+import { SynopticRenderer } from "@/components/synoptic";
 import { DEFAULT_PROJECTION } from "@/components/synoptic/projection";
-import { ZOOM_STEP } from "@/components/synoptic/hooks/useViewport";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSynopticValues } from "@/hooks/useSynopticValues";
 import { isResourceNotFound } from "@/lib/errors";
@@ -21,7 +18,8 @@ function SynopticMessage({ children }: { children: ReactNode }) {
   );
 }
 
-/** Only viewing gestures are wired: symbols cannot navigate or open controls. */
+/** A still, fitted view: the page keeps the wheel and touch scroll, and
+ *  symbols cannot navigate or open controls. */
 function SynopticCanvas({
   doc,
   projection,
@@ -29,7 +27,6 @@ function SynopticCanvas({
   doc: Synoptic;
   projection: SynopticWidgetConfig["projection"];
 }) {
-  const { t } = useTranslation("synoptics");
   const values = useSynopticValues(doc);
   // The widget draws the plate the way its author chose, plan or isometric:
   // a view of the document, never a change to it.
@@ -38,55 +35,16 @@ function SynopticCanvas({
     [doc, projection],
   );
   const vocabulary = usePlateVocabulary();
-  const plate = useRef<PlateHandle | null>(null);
 
   return (
-    <div className="flex h-full flex-col">
-      {/* The widget's own title names the plate; the bar holds the gestures only. */}
-      <div className="flex items-center justify-end gap-2 border-b border-border px-3 py-1.5">
-        <div className="flex shrink-0 gap-1">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            aria-label={t("view.zoomOut")}
-            onClick={() => plate.current?.zoomBy(1 / ZOOM_STEP)}
-          >
-            <ZoomOut className="h-4 w-4" />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            aria-label={t("view.zoomIn")}
-            onClick={() => plate.current?.zoomBy(ZOOM_STEP)}
-          >
-            <ZoomIn className="h-4 w-4" />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            aria-label={t("view.fit")}
-            onClick={() => plate.current?.fit()}
-          >
-            <Scan className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-      <div className="relative min-h-0 flex-1 overflow-hidden">
-        <SynopticRenderer
-          doc={viewDoc}
-          values={values}
-          vocabulary={vocabulary}
-          plateRef={plate}
-          minTextPx={12}
-          touchAction="pan-y"
-        />
-      </div>
+    <div className="relative h-full overflow-hidden">
+      <SynopticRenderer
+        doc={viewDoc}
+        values={values}
+        vocabulary={vocabulary}
+        minTextPx={12}
+        fixed
+      />
     </div>
   );
 }

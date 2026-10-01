@@ -29,6 +29,10 @@ type PidDiagramProps = {
   textSize?: number;
   /** Whether a double click fits the plate again; on by default. */
   fitOnDoubleClick?: boolean;
+  /** Whether the canvas takes no gesture, leaving the wheel and every touch
+   *  gesture to the page; `touchAction` and `fitOnDoubleClick` do not apply
+   *  then. */
+  fixed?: boolean;
   children: ReactNode;
 };
 
@@ -36,7 +40,8 @@ type PidDiagramProps = {
  * Root SVG canvas for a P&ID / SCADA screen.
  * All child symbols are positioned in the same fixed coordinate space;
  * the whole diagram scales to fit its container, then pans by drag and
- * zooms with the wheel, a pinch or the controller. Text is not
+ * zooms with the wheel, a pinch or the controller; a `fixed` one moves
+ * by the controller alone. Text is not
  * selectable, since a press that becomes a pan would otherwise start a
  * selection.
  */
@@ -49,6 +54,7 @@ export function PidDiagram({
   minTextPx,
   textSize = 1,
   fitOnDoubleClick,
+  fixed,
   children,
 }: PidDiagramProps) {
   const { svgRef, handle, transform, pxPerUnit } = useViewport({
@@ -57,6 +63,7 @@ export function PidDiagram({
     controller,
     onViewChange,
     fitOnDoubleClick,
+    fixed,
   });
   return (
     <svg
@@ -64,7 +71,7 @@ export function PidDiagram({
       viewBox={`0 0 ${width} ${height}`}
       preserveAspectRatio="xMidYMid meet"
       className="block h-full w-full select-none bg-synoptic-plate"
-      style={{ touchAction }}
+      style={{ touchAction: fixed ? "auto" : touchAction }}
       {...handle}
     >
       <TextScaleContext.Provider

@@ -152,6 +152,9 @@ type SynopticRendererProps = {
   /** Whether a double click fits the plate again; on by default. */
   fitOnDoubleClick?: boolean;
   touchAction?: CanvasTouchAction;
+  /** Whether the plate takes no gesture, leaving the wheel and every touch
+   *  gesture to the page: a dashboard widget among other content. */
+  fixed?: boolean;
   /** Painted over the plate, in its frame; `frameRef` receives that frame
    *  so a pointer can be read in plate coordinates. */
   frameRef?: RefObject<SVGGElement>;
@@ -244,6 +247,7 @@ export function SynopticRenderer({
   boxed = false,
   fitOnDoubleClick,
   touchAction,
+  fixed,
   frameRef,
   children,
 }: SynopticRendererProps) {
@@ -367,6 +371,7 @@ export function SynopticRenderer({
       minTextPx={minTextPx}
       textSize={LABEL_SIZE}
       fitOnDoubleClick={fitOnDoubleClick}
+      fixed={fixed}
     >
       <KitDefs />
       <g ref={setFrame} transform={`translate(${offset.x} ${offset.y})`}>

@@ -60,6 +60,10 @@ type ViewportOptions = {
   /** Whether a double click fits the plate again. An editor turns it off:
    *  there a double click is two clicks placing something. */
   fitOnDoubleClick?: boolean;
+  /** Whether the canvas takes no gesture at all, leaving the wheel and the
+   *  pointer to the page: a plate among other content, where the wheel
+   *  must scroll the page. The controller still moves the view. */
+  fixed?: boolean;
 };
 
 /**
@@ -67,8 +71,9 @@ type ViewportOptions = {
  * cursor (a trackpad pinch arrives that way too), two fingers pinch, a
  * double click fits again. The wheel is the canvas's whether or not a
  * modifier is held: an operator reading a plate expects to zoom it, and
- * the page scrolls from outside the plate. The transform goes on a group
- * inside the svg, never on the viewBox, so the root's screen transform
+ * the page scrolls from outside the plate. A `fixed` canvas takes none of
+ * these, for a plate embedded among other content. The transform goes on
+ * a group inside the svg, never on the viewBox, so the root's screen transform
  * (and every `clientToSvg` reading, including the drag deltas) stays fixed
  * while the content moves. The pan starts only after a short travel, so a
  * click on a symbol is still a click. The wheel listener is attached by
@@ -81,6 +86,7 @@ export function useViewport({
   controller,
   onViewChange,
   fitOnDoubleClick = true,
+  fixed = false,
 }: ViewportOptions) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [view, setView] = useState<View>(FIT);
@@ -134,7 +140,7 @@ export function useViewport({
 
   useEffect(() => {
     const svg = svgRef.current;
-    if (!svg) return;
+    if (!svg || fixed) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const p = clientToSvg(svg, e.clientX, e.clientY);
@@ -152,7 +158,7 @@ export function useViewport({
     };
     svg.addEventListener("wheel", onWheel, { passive: false });
     return () => svg.removeEventListener("wheel", onWheel);
-  }, []);
+  }, [fixed]);
 
   const follow = useCallback((e: ReactPointerEvent<SVGSVGElement>) => {
     const svg = e.currentTarget;
@@ -218,13 +224,15 @@ export function useViewport({
 
   return {
     svgRef,
-    handle: {
-      onPointerDown,
-      onPointerMove,
-      onPointerUp,
-      onPointerCancel: onPointerUp,
-      onDoubleClick: fitOnDoubleClick ? () => setView(FIT) : undefined,
-    },
+    handle: fixed
+      ? {}
+      : {
+          onPointerDown,
+          onPointerMove,
+          onPointerUp,
+          onPointerCancel: onPointerUp,
+          onDoubleClick: fitOnDoubleClick ? () => setView(FIT) : undefined,
+        },
     transform: `translate(${view.x} ${view.y}) scale(${view.scale})`,
     /** Screen pixels per viewBox unit at the current zoom; 0 before layout. */
     pxPerUnit: fitPx * view.scale,
