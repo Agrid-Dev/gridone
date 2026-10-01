@@ -46,7 +46,9 @@ async def service():
 async def test_golden_path_round_trips_through_postgres(service):
     svc, created = service
 
-    dashboard = await svc.create(DashboardCreate(name="Ops", description="d"))
+    dashboard = await svc.create(
+        DashboardCreate(name="Ops", description="d", icon="gauge")
+    )
     created.append(dashboard.id)
 
     widget = await svc.add_widget(dashboard.id, config=TEXT_CONFIG, title="Note")
@@ -62,9 +64,10 @@ async def test_golden_path_round_trips_through_postgres(service):
     assert reloaded.title == "Note"
     assert (reloaded.layout.x, reloaded.layout.y, reloaded.layout.w) == (2, 3, 6)
 
-    # Summary listing excludes widgets.
+    # Summary listing excludes widgets and carries the icon.
     summaries = await svc.list()
-    assert any(s.id == dashboard.id for s in summaries.items)
+    assert next(s for s in summaries.items if s.id == dashboard.id).icon == "gauge"
+    assert fetched.icon == "gauge"
 
     # Envelope update persists.
     await svc.update_widget(dashboard.id, widget.id, WidgetPatch(description="desc"))

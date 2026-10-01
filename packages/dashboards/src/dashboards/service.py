@@ -74,6 +74,7 @@ class DashboardsService(DashboardsServiceInterface, Service):
             id=gen_id(),
             name=params.name,
             description=params.description,
+            icon=params.icon,
             widgets=[],
             metadata=Metadata(),
         )
@@ -110,6 +111,8 @@ class DashboardsService(DashboardsServiceInterface, Service):
             dashboard.name = patch.name
         if "description" in fields:
             dashboard.description = patch.description
+        if "icon" in fields:
+            dashboard.icon = patch.icon
         dashboard.metadata.updated_at = _now()
         return await self._storage.update(dashboard)
 

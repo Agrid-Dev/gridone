@@ -47,6 +47,7 @@ class MemoryStorage:
                 id=d.id,
                 name=d.name,
                 description=d.description,
+                icon=d.icon,
                 metadata=d.metadata.model_copy(deep=True),
             )
             for d in dashboards

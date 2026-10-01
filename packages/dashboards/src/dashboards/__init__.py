@@ -1,7 +1,9 @@
 from dashboards.interface import DashboardsServiceInterface
 from dashboards.models import (
+    DASHBOARD_ICONS,
     Dashboard,
     DashboardCreate,
+    DashboardIcon,
     DashboardPatch,
     DashboardSummary,
     LayoutItem,
@@ -29,10 +31,12 @@ from dashboards.widgets import (
 )
 
 __all__ = [
+    "DASHBOARD_ICONS",
     "ChartWidgetConfig",
     "ControlPanelWidgetConfig",
     "Dashboard",
     "DashboardCreate",
+    "DashboardIcon",
     "DashboardPatch",
     "DashboardSummary",
     "DashboardsService",

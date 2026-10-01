@@ -82,7 +82,16 @@ async def test_create_stamps_id_and_timestamps(service: DashboardsService):
     assert dashboard.name == "Ops"
     assert dashboard.description == "d"
     assert dashboard.widgets == []
+    assert dashboard.icon is None
     assert dashboard.metadata.updated_at >= dashboard.metadata.created_at
+
+
+async def test_create_keeps_the_icon_and_lists_it(service: DashboardsService):
+    dashboard = await service.create(DashboardCreate(name="ECS", icon="droplets"))
+
+    assert dashboard.icon == "droplets"
+    assert (await service.get(dashboard.id)).icon == "droplets"
+    assert (await service.list()).items[0].icon == "droplets"
 
 
 async def test_get_returns_full_document(service: DashboardsService):
@@ -112,7 +121,9 @@ async def test_list_returns_summaries_without_widgets_or_layout(
     summary = page.items[0]
     assert not hasattr(summary, "widgets")
     assert not hasattr(summary, "layout")
-    assert {"id", "name", "description", "metadata"} == set(summary.model_dump())
+    assert {"id", "name", "description", "icon", "metadata"} == set(
+        summary.model_dump()
+    )
 
 
 async def test_list_paginates(service: DashboardsService):
@@ -153,6 +164,19 @@ async def test_update_omitted_fields_are_untouched(service: DashboardsService):
     updated = await service.update(dashboard.id, DashboardPatch(name="Renamed"))
 
     assert updated.description == "keep"
+
+
+async def test_update_sets_and_clears_the_icon(service: DashboardsService):
+    dashboard = await service.create(DashboardCreate(name="Ops"))
+
+    updated = await service.update(dashboard.id, DashboardPatch(icon="fan"))
+    assert updated.icon == "fan"
+
+    untouched = await service.update(dashboard.id, DashboardPatch(name="Ops 2"))
+    assert untouched.icon == "fan"
+
+    cleared = await service.update(dashboard.id, DashboardPatch(icon=None))
+    assert cleared.icon is None
 
 
 async def test_update_rejects_null_name(service: DashboardsService):

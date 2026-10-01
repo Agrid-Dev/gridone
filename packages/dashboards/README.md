@@ -97,7 +97,9 @@ schemas = service.widget_schemas()                           # {type: JSON Schem
 await service.stop()
 ```
 
-`list()` returns `DashboardSummary` (id, name, description, metadata) — no widgets or layout; those are only on `get(id)`.
+`list()` returns `DashboardSummary` (id, name, description, icon, metadata) — no widgets or layout; those are only on `get(id)`.
+
+A dashboard may carry an `icon`: one key of `DASHBOARD_ICONS` (a closed vocabulary named by what the icon shows — `thermometer`, `droplets`, `fan`, ...), or `None`. The models reject any other key at the field, so a stored dashboard never names an icon the UI cannot draw; the UI owns the drawing.
 
 Dashboards have one **display order**, shared by every user: `list()` returns it, `reorder(ids)` replaces it (every id exactly once, else `InvalidError`), a new dashboard goes last and deleting one leaves the rest in place. The order is owned by the storage, not a field of the aggregate.
 
