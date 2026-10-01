@@ -1,3 +1,12 @@
+## v0.293.0 (2026-10-01)
+
+### Feat
+
+- **dashboards**: a dashboard has an icon the author picks, or none (AGR-1533) (#761)
+- **ui**: dashboard management moves to Configuration (AGR-1532) (#760)
+- **api**: reorder endpoint sets the shared dashboard order (AGR-1531) (#756)
+- **dashboards**: dashboards have an explicit order (AGR-1531) (#755)
+
 ## v0.292.0 (2026-09-30)
 
 ### Feat
