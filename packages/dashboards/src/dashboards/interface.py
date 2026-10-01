@@ -39,6 +39,11 @@ class DashboardsServiceInterface(Protocol):
 
     async def delete(self, dashboard_id: str) -> None: ...
 
+    async def reorder(self, ordered_ids: Sequence[str]) -> None:
+        """Set the display order shared by every user. ``ordered_ids`` must
+        list every dashboard exactly once; raises ``InvalidError`` otherwise."""
+        ...
+
     # -- widgets --
 
     async def add_widget(

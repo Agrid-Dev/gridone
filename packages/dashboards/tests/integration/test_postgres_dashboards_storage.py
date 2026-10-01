@@ -76,3 +76,18 @@ async def test_delete_missing_raises_not_found(service):
 
     with pytest.raises(NotFoundError):
         await svc.delete("does-not-exist")
+
+
+async def test_order_persists_and_new_dashboards_go_last(service):
+    svc, created = service
+    a, b, c = [(await svc.create(DashboardCreate(name=n))).id for n in "abc"]
+    created.extend([a, b, c])
+    # The database is shared: every other dashboard stays first, in place.
+    others = [s.id for s in (await svc.list()).items if s.id not in {a, b, c}]
+
+    await svc.reorder([*others, c, a, b])
+    d = (await svc.create(DashboardCreate(name="d"))).id
+    created.append(d)
+
+    ids = [s.id for s in (await svc.list()).items]
+    assert ids == [*others, c, a, b, d]

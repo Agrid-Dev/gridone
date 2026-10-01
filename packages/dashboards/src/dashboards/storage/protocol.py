@@ -3,6 +3,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from dashboards.models import Dashboard, DashboardSummary
 
 
@@ -14,19 +16,31 @@ class DashboardsStorage(Protocol):
     reasons about widget mutation — that logic lives in the service, which
     reads a dashboard, mutates the aggregate, and writes it back via
     :meth:`update`.
+
+    Dashboards have a display order owned by the storage: :meth:`create`
+    appends last, :meth:`reorder` rewrites the whole order, and
+    :meth:`list_summaries` returns it. The order is not a field of the
+    aggregate.
     """
 
-    async def create(self, dashboard: Dashboard) -> Dashboard: ...
+    async def create(self, dashboard: Dashboard) -> Dashboard:
+        """Persist a new dashboard, last in display order."""
+        ...
 
     async def get(self, dashboard_id: str) -> Dashboard | None: ...
 
     async def list_summaries(
         self, *, limit: int | None = None, offset: int | None = None
     ) -> list[DashboardSummary]:
-        """Return dashboard summaries (no widgets/layout) in stable order."""
+        """Return dashboard summaries (no widgets/layout) in display order."""
         ...
 
     async def count(self) -> int: ...
+
+    async def reorder(self, ordered_ids: Sequence[str]) -> None:
+        """Set the display order to ``ordered_ids``. Callers pass the
+        complete id set in the wanted order; the storage does not validate it."""
+        ...
 
     async def update(self, dashboard: Dashboard) -> Dashboard:
         """Persist a full replacement of a dashboard. Raises

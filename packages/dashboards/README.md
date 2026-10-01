@@ -85,6 +85,7 @@ d   = await service.get(d.id)
 page = await service.list()                                  # summaries only
 d   = await service.update(d.id, DashboardPatch(name="Ops 2"))
 await service.delete(d.id)
+await service.reorder(ids)                                   # display order, every id once
 
 # widgets (config carries `type`)
 w = await service.add_widget(d.id, config={"type": "text", "text": "hi", "color": "#1a2b3c"})
@@ -97,6 +98,8 @@ await service.stop()
 ```
 
 `list()` returns `DashboardSummary` (id, name, description, metadata) — no widgets or layout; those are only on `get(id)`.
+
+Dashboards have one **display order**, shared by every user: `list()` returns it, `reorder(ids)` replaces it (every id exactly once, else `InvalidError`), a new dashboard goes last and deleting one leaves the rest in place. The order is owned by the storage, not a field of the aggregate.
 
 ## Storage
 
