@@ -249,6 +249,59 @@ describe("PidDiagram", () => {
   });
 });
 
+describe("PidDiagram fixed", () => {
+  it("leaves the wheel to the page and keeps the fitted view", () => {
+    const { svg, view } = setup({ fixed: true });
+    const scrolled = fireEvent.wheel(svg, {
+      deltaY: -100,
+      clientX: 20,
+      clientY: 40,
+    });
+    expect(scrolled).toBe(true);
+    expect(view()).toEqual({ x: 0, y: 0, scale: 1 });
+  });
+
+  it("neither pans on a drag nor captures pointers for a pinch", () => {
+    // The pinch test above spies on the same method: start from no calls.
+    const capture = vi
+      .spyOn(Element.prototype, "setPointerCapture")
+      .mockClear();
+    const { svg, view } = setup({ fixed: true });
+    fireEvent.pointerDown(svg, {
+      button: 0,
+      pointerId: 1,
+      clientX: 20,
+      clientY: 40,
+    });
+    fireEvent.pointerMove(window, { pointerId: 1, clientX: 40, clientY: 60 });
+    fireEvent.pointerDown(svg, {
+      button: 0,
+      pointerId: 2,
+      clientX: 60,
+      clientY: 40,
+    });
+    fireEvent.pointerMove(svg, { pointerId: 2, clientX: 80, clientY: 40 });
+    expect(view()).toEqual({ x: 0, y: 0, scale: 1 });
+    expect(capture).not.toHaveBeenCalled();
+  });
+
+  it("keeps a controller's view on double click", () => {
+    const controller = createRef<ViewportController>();
+    const { svg, view } = setup({ fixed: true, controller });
+    act(() => controller.current!.zoomBy(2));
+    const zoomed = view();
+    expect(zoomed.scale).toBe(2);
+    fireEvent.doubleClick(svg);
+    expect(view()).toEqual(zoomed);
+  });
+
+  it("gives every touch gesture to the page, whatever touchAction says", () => {
+    expect(
+      setup({ fixed: true, touchAction: "none" }).svg.style.touchAction,
+    ).toBe("auto");
+  });
+});
+
 describe("PidDiagram controller", () => {
   const drive = () => {
     const controller = createRef<ViewportController | null>();

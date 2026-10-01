@@ -75,15 +75,14 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("SynopticWidgetView", () => {
-  it("renders live readings with viewing controls only, even on device symbols", async () => {
+  it("renders live readings with no controls, even on device symbols", async () => {
     const { container, rerender, view } = renderView();
     expect(await screen.findByText("21.5")).toBeInTheDocument();
     // The widget's own title names the plate: the document's is not repeated.
     expect(screen.queryByText("Heating plant")).not.toBeInTheDocument();
     expect(api.get).toHaveBeenCalledWith("plate1");
-    expect(
-      screen.getAllByRole("button").map((b) => b.getAttribute("aria-label")),
-    ).toEqual(["view.zoomOut", "view.zoomIn", "view.fit"]);
+    // "No zoom buttons on the widget."
+    expect(screen.queryAllByRole("button")).toEqual([]);
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
     expect(
       container.querySelector("svg [role=button]"),
@@ -93,6 +92,15 @@ describe("SynopticWidgetView", () => {
     temperature = "23.0";
     rerender(view("plate1"));
     expect(screen.getByText("23.0")).toBeInTheDocument();
+  });
+
+  it("leaves the wheel and touch scroll to the page", async () => {
+    const { container } = renderView();
+    await screen.findByText("Tank");
+    const svg = container.querySelector("svg")!;
+    // "The wheel over the plate scrolls the page, like over any other widget."
+    expect(fireEvent.wheel(svg, { deltaY: 100 })).toBe(true);
+    expect(svg.style.touchAction).toBe("auto");
   });
 
   it("loads the new document when the configured reference changes", async () => {
