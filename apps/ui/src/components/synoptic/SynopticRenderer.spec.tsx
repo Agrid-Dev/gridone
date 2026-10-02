@@ -1111,11 +1111,14 @@ describe("SynopticRenderer", () => {
       ],
     };
     const known = new Set(["west"]);
-    const drawLinked = (knownSynoptics: Set<string> | undefined = known) => {
+    const drawLinked = (
+      knownSynoptics: Set<string> | undefined = known,
+      doc: Synoptic = LINKED,
+    ) => {
       const onSymbolClick = vi.fn();
       const { container } = render(
         <SynopticRenderer
-          doc={LINKED}
+          doc={doc}
           knownSynoptics={knownSynoptics}
           onSymbolClick={onSymbolClick}
         />,
@@ -1181,6 +1184,115 @@ describe("SynopticRenderer", () => {
       expect(onCanvasDoubleClick).not.toHaveBeenCalled();
       fireEvent.doubleClick(c.querySelector("svg")!);
       expect(onCanvasDoubleClick).toHaveBeenCalledTimes(1);
+    });
+
+    describe("a link's click", () => {
+      // A tank in front of the link: in the plate's depth order, its body
+      // and its name would paint over the link's.
+      const FRONT: Synoptic = {
+        ...LINKED,
+        symbols: [
+          ...(LINKED.symbols ?? []),
+          {
+            id: "front",
+            type: "tank",
+            placement: { kind: "cell", cell: { x: 10, y: 10 } },
+            label: "FRONT",
+          },
+        ],
+      };
+      const painted = (c: Element) =>
+        q(c, "[data-symbol], [data-symbol-label], [data-link-hit]").map(
+          (e) =>
+            e.getAttribute("data-symbol") ??
+            (e.hasAttribute("data-link-hit")
+              ? "hit"
+              : `label:${e.getAttribute("data-symbol-label")}`),
+        );
+
+      it("paints the link's button and its name after everything else", () => {
+        // "Nothing else on the plate (names, pipes, other shapes, readings)
+        // takes a click meant for a link."
+        const { c } = drawLinked(known, FRONT);
+        // Between themselves either may come first: both open the link.
+        expect(painted(c).slice(-3).sort()).toEqual([
+          "hit",
+          "label:to-west",
+          "to-west",
+        ]);
+      });
+
+      it("takes the link's click on its slanted outline, not on its screen box", () => {
+        // A box around a slanted arrow reaches over its neighbours.
+        const { c } = drawLinked(known, FRONT);
+        const points = c
+          .querySelector("[data-link-hit]")!
+          .getAttribute("points")!
+          .trim()
+          .split(/\s+/)
+          .map((p) => p.split(",").map(Number));
+        const slanted = points.some(([x, y], i) => {
+          const [nx, ny] = points[(i + 1) % points.length];
+          return x !== nx && y !== ny;
+        });
+        expect(slanted).toBe(true);
+      });
+
+      it("opens the target on a click on the name, which is no second tab stop", () => {
+        // "A click anywhere on a link's arrow or on its name opens the
+        // target plate." / "Tab reaches the link".
+        const { c, onSymbolClick } = drawLinked(known, FRONT);
+        fireEvent.click(
+          c.querySelector("[data-symbol-label='to-west'] text")!,
+          { detail: 1 },
+        );
+        expect(onSymbolClick).toHaveBeenCalledTimes(1);
+        expect(onSymbolClick.mock.calls[0][0].id).toBe("to-west");
+        const name = c.querySelector(
+          "[data-symbol-label='to-west']",
+        )!.parentElement!;
+        expect(name.getAttribute("aria-hidden")).toBe("true");
+        // The name takes the click only: with a hover listener, the arrow
+        // reports a hover and the name does not.
+        const { container: hover } = render(
+          <SynopticRenderer
+            doc={FRONT}
+            knownSynoptics={known}
+            onSymbolClick={vi.fn()}
+            onSymbolHover={vi.fn()}
+          />,
+        );
+        expect(
+          hover.querySelector("[data-link-hit]")!.closest("[data-hover]"),
+        ).not.toBeNull();
+        expect(
+          hover
+            .querySelector("[data-symbol-label='to-west']")!
+            .closest("[data-hover]"),
+        ).toBeNull();
+        expect(name.hasAttribute("tabindex")).toBe(false);
+        expect(buttons(c).sort()).toEqual(["col-dev", "pac", "to-west"]);
+      });
+
+      it("keeps a missing link and a surface with no click handler in their place", () => {
+        // "A link to a deleted plate stays faded, dashed and not clickable",
+        // and "the dashboard widget, the editor and print are unchanged".
+        const { c } = drawLinked(known, FRONT);
+        expect(painted(c).filter((e) => e === "hit")).toEqual(["hit"]);
+        const order = painted(c);
+        expect(order.indexOf("label:to-gone")).toBeLessThan(
+          order.indexOf("label:front"),
+        );
+        expect(
+          c
+            .querySelector("[data-symbol-label='to-gone']")!
+            .closest("[data-affordance]"),
+        ).toBeNull();
+        const { container: still } = render(
+          <SynopticRenderer doc={FRONT} knownSynoptics={known} />,
+        );
+        expect(painted(still).at(-1)).toBe("label:front");
+      });
     });
 
     it("leaves every link inert when no plate list is given", () => {
