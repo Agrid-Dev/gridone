@@ -9,7 +9,7 @@ import { useDeviceSearch } from "@/hooks/useDeviceSearch";
 import { useFaultsList } from "@/hooks/useFaultsList";
 import { ancestorPathOf } from "@/lib/assets";
 import { deviceTypeIcon } from "@/lib/deviceTypes";
-import { faultLabel } from "@/lib/faultLabel";
+import { useFaultLabel } from "@/hooks/useFaultLabel";
 import { filterGlobalSearch } from "@/lib/deviceSearch";
 import { serializeResourceReference } from "@/lib/resourceReference";
 import { FaultSeverityIcon } from "@/components/FaultSeverityIcon";
@@ -47,6 +47,7 @@ export function GlobalSearchDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const { t } = useTranslation("common");
+  const labelOf = useFaultLabel();
   const { open: navigate } = useResourceNavigation();
   const { assetsList, assetsById, isLoading: assetsLoading } = useAssetTree();
   const { devices, loading: devicesLoading } = useDevicesList();
@@ -185,11 +186,7 @@ export function GlobalSearchDialog({
         <CommandSeparator />
         <CommandGroup heading={t("topbar.search.groups.faults")}>
           {faults.map((fault) => {
-            const label = faultLabel({
-              name: fault.attribute_name,
-              data_type: fault.data_type,
-              current_value: fault.current_value,
-            });
+            const label = labelOf(fault);
             return (
               <CommandItem
                 key={`${fault.device_id}:${fault.attribute_name}`}

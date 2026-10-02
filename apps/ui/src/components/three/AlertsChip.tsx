@@ -11,6 +11,7 @@ import {
 import { useFaultsList } from "@/hooks/useFaultsList";
 import { SEVERITY_TEXT_CLASS } from "@/lib/severity";
 import { cn } from "@/lib/utils";
+import { useFaultLabel } from "@/hooks/useFaultLabel";
 import type { LevelSummary } from "./levelSummaries";
 import type { RoomState } from "./roomStates";
 import {
@@ -42,9 +43,10 @@ export const AlertsChip: FC<{
   const [open, setOpen] = useState(false);
   const [frozen, setFrozen] = useState<ViewerAlerts | null>(null);
 
+  const labelOf = useFaultLabel();
   const live = useMemo(
-    () => buildViewerAlerts({ faults, devices, roomStates, levels }),
-    [faults, devices, roomStates, levels],
+    () => buildViewerAlerts({ faults, devices, roomStates, levels, labelOf }),
+    [faults, devices, roomStates, levels, labelOf],
   );
   const shown = frozen ?? live;
 

@@ -53,6 +53,7 @@ from devices_manager.types import (
     DeviceConfig,
     TransportProtocols,
 )
+from models.attribute_metadata import LocalizedText
 from models.errors import (
     ConfirmationError,
     ConflictError,
@@ -2055,6 +2056,7 @@ class TestDevicesServiceListActiveFaults:
         severity: Severity,
         last_updated: datetime,
         last_changed: datetime | None = None,
+        label: LocalizedText | None = None,
     ) -> FaultAttribute:
         return FaultAttribute(
             name=name,
@@ -2065,6 +2067,7 @@ class TestDevicesServiceListActiveFaults:
             last_changed=last_changed or last_updated,
             severity=severity,
             healthy_values=healthy_values,
+            label=label,
         )
 
     def _make_devices(
@@ -2080,6 +2083,10 @@ class TestDevicesServiceListActiveFaults:
                     healthy_values=["ok"],
                     severity=Severity.ALERT,
                     last_updated=datetime(2026, 4, 20, 12, 0, tzinfo=UTC),
+                    label=LocalizedText(
+                        default="Compressor alarm",
+                        translations={"fr": "Alarme compresseur"},
+                    ),
                 ),
             },
             driver=driver,
@@ -2211,6 +2218,16 @@ class TestDevicesServiceListActiveFaults:
         assert view.current_value == "critical"
         assert view.last_updated is not None
         assert view.last_changed is not None
+
+    @pytest.mark.asyncio
+    async def test_fault_view_carries_the_drivers_label(self, dm: DevicesService):
+        """A fault list names a fault the way the device page does, so the
+        driver's wording rides along; an unlabelled attribute carries none."""
+        by_device = {f.device_id: f for f in dm.list_active_faults()}
+        assert by_device["chiller"].label == LocalizedText(
+            default="Compressor alarm", translations={"fr": "Alarme compresseur"}
+        )
+        assert by_device["boiler"].label is None
 
 
 class SlowStartDevice(CoreDevice):
