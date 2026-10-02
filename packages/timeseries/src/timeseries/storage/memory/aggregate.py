@@ -199,17 +199,17 @@ def _empty_value(
 ) -> Any:
     """Return the value for an empty bucket (no data points in range).
 
-    SUM of zero observations is 0. DELTA has no value at all — nothing was read, and
-    the consumption since the last reading lands on the next bucket that has one.
+    SUM of zero observations is 0. DELTA is 0 once a previous value is known — the
+    carried index did not move — and has no value before the first reading.
     All other operators carry LOCF forward; AVG and TW_AVG coerce LOCF to float
     because AggregationResult validates float for those ops.
     """
     if op == AggregationOperator.SUM:
         return 0.0 if data_type == DataType.FLOAT else 0
-    if op == AggregationOperator.DELTA:
-        return None
     if locf is None:
         return None
+    if op == AggregationOperator.DELTA:
+        return 0.0 if data_type == DataType.FLOAT else 0
     if op in {AggregationOperator.AVG, AggregationOperator.TW_AVG}:
         return float(locf)
     return locf

@@ -187,6 +187,30 @@ class TestGetAggregateMany:
         assert len(result.points) == 1
         assert result.points[0].value == 350.0
 
+    async def test_idle_counter_contributes_zero_consumption(
+        self, ts_service: TimeSeriesService
+    ) -> None:
+        """An unchanged counter is a 0 in the fold, not an absent series: the
+        total is untouched, the average and the contributor count are not."""
+        keys = [
+            await _seed(
+                ts_service,
+                "m1",
+                DataType.FLOAT,
+                [(_at(0, 10), 100.0), (_at(1, 10), 130.0), (_at(2, 10), 150.0)],
+            ),
+            await _seed(ts_service, "m2", DataType.FLOAT, [(_at(0, 10), 500.0)]),
+        ]
+        total = await ts_service.get_aggregate_many(
+            keys, _query(AggregationOperator.DELTA), AggregationOperator.SUM
+        )
+        mean = await ts_service.get_aggregate_many(
+            keys, _query(AggregationOperator.DELTA), AggregationOperator.AVG
+        )
+        assert [p.value for p in total.points] == [0.0, 30.0, 20.0]
+        assert [p.value for p in mean.points] == [0.0, 15.0, 10.0]
+        assert [p.count for p in mean.points] == [2, 2, 2]
+
     async def test_keys_without_series_are_skipped(
         self, ts_service: TimeSeriesService
     ) -> None:

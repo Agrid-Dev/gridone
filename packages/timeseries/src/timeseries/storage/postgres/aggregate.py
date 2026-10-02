@@ -424,7 +424,9 @@ def _delta_query(ctx: _QueryCtx) -> tuple[str, _Params]:
     ``carry`` is the bucket's last value with LOCF applied, so it survives empty
     buckets; ``LAG(carry)`` then gives the previous reading for the next bucket.
     The first bucket has no LAG, so it falls back to the anchor ($6) and, failing
-    that, to the bucket's own first value. Empty buckets have no value at all.
+    that, to the bucket's own first value. An empty bucket's ``carry`` is the
+    previous one, so it reads 0 — or NULL before the first reading, where there
+    is nothing to carry.
     """
     vc = ctx.value_col
     cast = _delta_cast(ctx.data_type)
@@ -454,9 +456,7 @@ def _delta_query(ctx: _QueryCtx) -> tuple[str, _Params]:
         f"{_GAPFILL_GROUP_BY}"
         ")\n"
         "SELECT bucket,\n"
-        "    CASE WHEN cnt = 0 THEN NULL\n"
-        f"         ELSE (last_val - {prev_expr})::{cast}\n"
-        "    END AS value,\n"
+        f"    (carry - {prev_expr})::{cast} AS value,\n"
         "    cnt AS count\n"
         "FROM gapfilled\n"
         "ORDER BY bucket"
@@ -549,16 +549,17 @@ def _whole_simple_query(op: AggregationOperator, ctx: _WholeCtx) -> tuple[str, _
 
 
 def _whole_delta_query(ctx: _WholeCtx) -> tuple[str, _Params]:
-    """Counter consumption over the whole range: ``last - anchor`` (or - first)."""
+    """Counter consumption over the whole range: ``last - anchor`` (or - first).
+
+    With no point in range the anchor stands for both ends: 0, or NULL without one.
+    """
     vc = ctx.value_col
     cast = _delta_cast(ctx.data_type)
     sql = (
         "SELECT\n"
         "    $1::timestamptz AS bucket,\n"
-        "    CASE WHEN COUNT(timestamp) = 0 THEN NULL\n"
-        f"         ELSE (last({vc}, timestamp)"
-        f" - COALESCE($4, first({vc}, timestamp)))::{cast}\n"
-        "    END AS value,\n"
+        f"    (COALESCE(last({vc}, timestamp), $4)"
+        f" - COALESCE($4, first({vc}, timestamp)))::{cast} AS value,\n"
         "    COALESCE(COUNT(timestamp), 0)::int AS count\n"
         "FROM ts_data_points\n"
         "WHERE series_id = $3\n"
