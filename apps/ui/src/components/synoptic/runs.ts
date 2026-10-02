@@ -258,13 +258,28 @@ export function runPieces(
   return pieces;
 }
 
+export const sameCell = (a: Cell, b: Cell): boolean =>
+  a.x === b.x && a.y === b.y && (a.z ?? 0) === (b.z ?? 0);
+
 /** The piece of `pieces` that holds `cell`, for a symbol or tag riding on
  *  the run. */
 export function pieceAt(pieces: RunPiece[], cell: Cell): RunPiece | undefined {
-  return pieces.find(
-    (p) =>
-      p.cell.x === cell.x &&
-      p.cell.y === cell.y &&
-      (p.cell.z ?? 0) === (cell.z ?? 0),
-  );
+  return pieces.find((p) => sameCell(p.cell, cell));
+}
+
+/** The runs that carry another on, each keyed to the run it carries on: a
+ *  run starting by a tee on the bare cell another run ends on is one pipe
+ *  cut in two, where its fluid changes over. The cut is no way out of the
+ *  plate, and draws neither the first piece's arrow nor a tee disc. */
+export function carriedOn(pipes: readonly PipeElement[]): Map<string, string> {
+  const ends = new Map(pipes.map((pipe) => [pipe.id, pipe.to]));
+  const carried = new Map<string, string>();
+  for (const { id, from } of pipes) {
+    if (from.kind !== "pipe") continue;
+    const end = ends.get(from.pipe);
+    if (end?.kind === "cell" && sameCell(end.cell, from.cell)) {
+      carried.set(id, from.pipe);
+    }
+  }
+  return carried;
 }

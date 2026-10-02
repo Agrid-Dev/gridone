@@ -30,6 +30,7 @@ vi.mock("react-i18next", () =>
     "print.valuesAt": "Valeurs au {{date}}",
     "fluids.primary_supply": "Primaire départ",
     "fluids.dhw_loop": "Bouclage",
+    "fluids.chilled_supply": "Eau glacée départ",
     "popover.label": "Appareil sélectionné",
     "popover.close": "Fermer",
     "popover.open": "Ouvrir l'appareil",
@@ -630,6 +631,34 @@ describe("PlateView", () => {
         (dd) => dd.getAttribute("data-legend-symbol"),
       ),
     ).not.toHaveLength(0);
+  });
+
+  it("lists a run's second fluid in the legend whichever fluid it shows now", () => {
+    renderView({
+      ...DOC,
+      pipes: DOC.pipes!.map((pipe) =>
+        pipe.id === "supply"
+          ? {
+              ...pipe,
+              changeover: {
+                fluid: "chilled_supply",
+                when: attr("cold_open"),
+              },
+            }
+          : pipe,
+      ),
+    });
+    fireEvent.click(button("Afficher la légende"));
+    const fluids = [
+      ...screen
+        .getByLabelText("Légende")
+        .querySelectorAll("[data-legend^='fluid-']"),
+    ].map((dd) => dd.textContent);
+    expect(fluids).toEqual([
+      "Primaire départ",
+      "Bouclage",
+      "Eau glacée départ",
+    ]);
   });
 
   describe("legend preference", () => {

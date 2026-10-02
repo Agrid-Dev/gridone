@@ -13,6 +13,7 @@ import {
 } from "@/test/examplePlates";
 import { circulatingRuns } from "./circulation";
 import {
+  asShown,
   stateOf,
   truthOf,
   type SlotReading,
@@ -92,6 +93,10 @@ const reading = (raw: SlotReading["raw"], stale = false): SlotReading => ({
   faulty: false,
 });
 const flow = (pipe: string) => `pipe.${pipe}.flow`;
+const changeoverSlot = (pipe: string) => `pipe.${pipe}.changeover`;
+/** The run, switching to `fluid` while its changeover reads on. */
+const changeover = (pipe: PipeElement, fluid: string): PipeElement =>
+  ({ ...pipe, changeover: { fluid, when: SLOT } }) as PipeElement;
 const state = (symbol: string) => `symbol.${symbol}.state`;
 /** The slots a symbol's run state is read from: its own, or each head's of
  *  a twin pump. */
@@ -106,11 +111,12 @@ const vals = (slots: Record<string, SlotReading> = {}): SynopticValues => ({
   devices: {},
 });
 
+/** What moves, the runs given as the plate shows them. */
 const moving = (
   symbols: SymbolElement[],
   pipes: PipeElement[],
   slots: Record<string, SlotReading> = {},
-) => circulatingRuns(symbols, pipes, vals(slots));
+) => circulatingRuns(symbols, asShown(pipes, vals(slots)), vals(slots));
 
 // ---------------------------------------------------------------------------
 // A heat pump charging a tank: the primary loop, and the tank's domestic
@@ -445,6 +451,102 @@ describe("circulatingRuns", () => {
     );
   });
 
+  it("joins runs on the fluid they show: a change-over riser moves with the chilled leg while it reads cold, and stops carrying its heating branch", () => {
+    const riser = changeover(
+      run("riser", "heating_supply", free(0, 3), free(9, 3), true),
+      "chilled_supply",
+    );
+    const pipes = [
+      riser,
+      run("cold", "chilled_supply", free(), tee("riser"), true),
+      run("branch", "heating_supply", tee("riser"), free(0, 6)),
+    ];
+    const cold = { [flow("cold")]: reading(true) };
+    expect(moving([], pipes, cold)).toEqual(new Set(["cold"]));
+    expect(
+      moving([], pipes, { ...cold, [flow("riser")]: reading(true) }),
+    ).toEqual(new Set(["cold", "riser", "branch"]));
+    expect(
+      moving([], pipes, {
+        ...cold,
+        [flow("riser")]: reading(true),
+        [changeoverSlot("riser")]: reading(true),
+      }),
+    ).toEqual(new Set(["cold", "riser"]));
+    // Stale, it no longer says which way the valves stand.
+    expect(
+      moving([], pipes, {
+        ...cold,
+        [changeoverSlot("riser")]: reading(true, true),
+      }),
+    ).toEqual(new Set(["cold"]));
+  });
+
+  it("parts a change-over branch from its heating trunk while the branch reads cold", () => {
+    const pipes = [
+      run("hot", "heating_supply", free(), free(9, 0), true),
+      changeover(
+        run("up", "heating_supply", tee("hot"), free(0, 6)),
+        "chilled_supply",
+      ),
+    ];
+    const hot = { [flow("hot")]: reading(true) };
+    expect(moving([], pipes, hot)).toEqual(new Set(["hot", "up"]));
+    expect(
+      moving([], pipes, { ...hot, [changeoverSlot("up")]: reading(true) }),
+    ).toEqual(new Set(["hot"]));
+  });
+
+  it("moves a run cut in two as the one run it was: the cut is no way out of the plate", () => {
+    const symbols = [collector("col", ["in", "out"])];
+    const feed = run(
+      "feed",
+      "heating_supply",
+      free(5, 5),
+      port("col", "in"),
+      true,
+    );
+    const whole = [
+      feed,
+      run("dep", "heating_supply", port("col", "out"), free(9, 3)),
+    ];
+    // The first piece ends on a bare cell and the second tees off it there.
+    const cut = [
+      feed,
+      run("dep-ec", "heating_supply", port("col", "out"), free()),
+      run("dep", "heating_supply", tee("dep-ec"), free(9, 3)),
+    ];
+    const closed = {
+      [flow("feed")]: reading(true),
+      [state("g")]: reading(false),
+    };
+    const withValve = [...symbols, onRun("g", "valve_isolation", "dep")];
+    expect(moving(withValve, whole, closed)).toEqual(new Set(["feed"]));
+    expect(moving(withValve, cut, closed)).toEqual(new Set(["feed"]));
+    expect(
+      moving(withValve, cut, { ...closed, [state("g")]: reading(true) }),
+    ).toEqual(new Set(["feed", "dep-ec", "dep"]));
+  });
+
+  it("joins a collector's ports on the fluid each run shows", () => {
+    const symbols = [collector("col", ["in", "out"])];
+    const pipes = [
+      changeover(
+        run("in", "heating_return", free(), port("col", "in"), true),
+        "chilled_return",
+      ),
+      run("out", "chilled_return", port("col", "out"), free(0, 4)),
+    ];
+    const on = { [flow("in")]: reading(true) };
+    expect(moving(symbols, pipes, on)).toEqual(new Set(["in"]));
+    expect(
+      moving(symbols, pipes, {
+        ...on,
+        [changeoverSlot("in")]: reading(true),
+      }),
+    ).toEqual(new Set(["in", "out"]));
+  });
+
   it("joins every port of a collector for runs of one fluid, and leaves a feed of another fluid out", () => {
     const symbols = [collector("col", ["r1", "r2", "r3", "feed"])];
     const pipes = [
@@ -606,9 +708,21 @@ function rules(doc: Synoptic, values: SynopticValues) {
   const shut = new Set<string>();
   const entries = new Set<string>();
   const exits = new Set<string>();
+  // A bare end another run tees off at that very cell is a cut in one
+  // pipe, not where the fluid leaves.
+  const carriedOn = (p: PipeElement) =>
+    pipes.some(
+      (q) =>
+        q.from.kind === "pipe" &&
+        q.from.pipe === p.id &&
+        p.to.kind === "cell" &&
+        q.from.cell.x === p.to.cell.x &&
+        q.from.cell.y === p.to.cell.y &&
+        (q.from.cell.z ?? 0) === (p.to.cell.z ?? 0),
+    );
   for (const p of pipes) {
     if (p.from.kind === "cell") entries.add(p.id);
-    if (p.to.kind === "cell") exits.add(p.id);
+    if (p.to.kind === "cell" && !carriedOn(p)) exits.add(p.id);
     const fromHost = p.from.kind === "pipe" ? byId.get(p.from.pipe) : null;
     if (fromHost?.fluid === p.fluid) edges.get(fromHost.id)!.add(p.id);
     const toHost = p.to.kind === "pipe" ? byId.get(p.to.pipe) : null;

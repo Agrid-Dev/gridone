@@ -1,6 +1,8 @@
 import type {
   AttributeSlot,
   AttributeTarget,
+  Fluid,
+  PipeElement,
   Severity,
   SlotValue,
   Synoptic,
@@ -10,7 +12,8 @@ import type { SymbolState } from "./symbols/Label";
 
 /** One device-bound slot of a document, addressed by its `key`. */
 export type BoundSlot = {
-  /** `symbol.<id>.<slot>`, `pipe.<id>.flow`, `tag.<id>`, `label.<id>`. */
+  /** `symbol.<id>.<slot>`, `pipe.<id>.flow`, `pipe.<id>.changeover`,
+   *  `tag.<id>`, `label.<id>`. */
   key: string;
   slot: AttributeSlot;
 };
@@ -107,14 +110,16 @@ export const READING_INK_TEXT: Record<ReadingInk, string> = {
 export const symbolSlotKey = (symbolId: string, slot: string) =>
   `symbol.${symbolId}.${slot}`;
 export const flowSlotKey = (pipeId: string) => `pipe.${pipeId}.flow`;
+export const changeoverSlotKey = (pipeId: string) =>
+  `pipe.${pipeId}.changeover`;
 export const tagSlotKey = (tagId: string) => `tag.${tagId}`;
 export const labelSlotKey = (labelId: string) => `label.${labelId}`;
 
 /** Every attribute slot the plate reads, in the order the backend's
- *  `bound_slots` enumerates them: symbol bindings, each pipe's `flow` then
- *  its tag values, label values. A `flow` is what sets a circuit moving in
- *  the isometric view (Decision 8 of the visual language). Literals need
- *  no device and are left out. */
+ *  `bound_slots` enumerates them: symbol bindings, each pipe's `flow`, its
+ *  `changeover` then its tag values, label values. A `flow` is what sets a
+ *  circuit moving in the isometric view (Decision 8 of the visual
+ *  language). Literals need no device and are left out. */
 export function boundSlots(doc: Synoptic): BoundSlot[] {
   const slots: BoundSlot[] = [];
   const add = (key: string, value: SlotValue | null | undefined) => {
@@ -127,6 +132,7 @@ export function boundSlots(doc: Synoptic): BoundSlot[] {
   }
   for (const pipe of doc.pipes ?? []) {
     add(flowSlotKey(pipe.id), pipe.flow);
+    add(changeoverSlotKey(pipe.id), pipe.changeover?.when);
     for (const tag of pipe.tags ?? []) add(tagSlotKey(tag.id), tag.value);
   }
   for (const label of doc.labels ?? [])
@@ -221,6 +227,25 @@ export const stateOf = (
   const on = truthOf(reading.raw);
   return on === undefined ? undefined : on ? "on" : "off";
 };
+
+/** The fluid a run shows: its `changeover` fluid while that reading is on,
+ *  its own otherwise. A stale, silent or unknown reading keeps its own, as
+ *  the format asks: a run leaves its drawn fluid only on a fresh reading
+ *  that says so. */
+export const shownFluid = (pipe: PipeElement, values: SynopticValues): Fluid =>
+  pipe.changeover && stateOf(values.slots[changeoverSlotKey(pipe.id)]) === "on"
+    ? pipe.changeover.fluid
+    : pipe.fluid;
+
+/** The runs as the plate shows them, each in the fluid it shows, so
+ *  everything drawn or walked from them reads `fluid` alone. */
+export const asShown = (
+  pipes: readonly PipeElement[],
+  values: SynopticValues,
+): PipeElement[] =>
+  pipes.map((pipe) =>
+    pipe.changeover ? { ...pipe, fluid: shownFluid(pipe, values) } : pipe,
+  );
 
 /** A value is stale once older than its threshold: the binding's, else the
  *  document's. Without either it never goes stale. */

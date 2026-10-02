@@ -131,8 +131,15 @@ export const PlateView: FC<PlateViewProps> = ({
   const ringed = highlight ?? located;
   const [fullscreen, setFullscreen] = useState(false);
 
+  // A run's second fluid is listed whichever it shows now, so the legend
+  // does not change under the operator when a valve switches.
   const fluids = useMemo(
-    () => new Set<Fluid>((doc.pipes ?? []).map((pipe) => pipe.fluid)),
+    () =>
+      new Set<Fluid>(
+        (doc.pipes ?? []).flatMap((pipe) =>
+          pipe.changeover ? [pipe.fluid, pipe.changeover.fluid] : [pipe.fluid],
+        ),
+      ),
     [doc],
   );
   // The fluid only ever moves on a plate that says what sets it going.

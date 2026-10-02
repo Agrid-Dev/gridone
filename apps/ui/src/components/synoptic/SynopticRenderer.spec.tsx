@@ -282,6 +282,85 @@ describe("SynopticRenderer", () => {
     expect(c.querySelector("text[font-size='18']")?.textContent).toBe("PLATE");
   });
 
+  describe.each(["isometric", "flat"] as const)(
+    "a run with a changeover, %s",
+    (projection) => {
+      const doc: Synoptic = {
+        ...DOC,
+        projection,
+        pipes: [
+          {
+            ...DOC.pipes![0],
+            changeover: { fluid: "chilled_supply", when: slot("cold_open") },
+          },
+          DOC.pipes![1],
+        ],
+      };
+      const withChangeover = (reading: SlotReading) =>
+        draw(doc, {
+          ...VALUES,
+          slots: { ...VALUES.slots, "pipe.supply.changeover": reading },
+        });
+
+      it("draws its second fluid on the run, its arrow, the tee disc on it and its tag discs while the reading is on", () => {
+        const c = withChangeover(live("FROID", true));
+        expect(q(c, "path.stroke-fluid-chilled-supply")).toHaveLength(7);
+        expect(q(c, "path.stroke-fluid-primary-supply")).toHaveLength(0);
+        expect(q(c, "polygon.fill-fluid-chilled-supply")).toHaveLength(1);
+        // The tee disc takes the trunk's shown colour, not the branch's.
+        expect(q(c, "circle[data-tee].fill-fluid-chilled-supply")).toHaveLength(
+          1,
+        );
+        expect(
+          q(c, "[data-tag] circle.fill-fluid-chilled-supply"),
+        ).toHaveLength(2);
+        // The branch keeps its own fluid.
+        expect(q(c, "path.stroke-fluid-dhw")).toHaveLength(3);
+      });
+
+      it.each([
+        ["off", live("CHAUD", false)],
+        ["stale", { ...live("FROID", true), stale: true }],
+        ["silent", { ...live("", null), text: null }],
+      ])("keeps its own fluid while the reading is %s", (_, reading) => {
+        const c = withChangeover(reading);
+        expect(q(c, "path.stroke-fluid-primary-supply")).toHaveLength(7);
+        expect(q(c, "path.stroke-fluid-chilled-supply")).toHaveLength(0);
+        expect(q(c, "circle[data-tee].fill-fluid-primary-supply")).toHaveLength(
+          1,
+        );
+      });
+    },
+  );
+
+  it("moves a run with the circuit it joins in the fluid it shows: a branch that changes over leaves the moving supply", () => {
+    const doc: Synoptic = {
+      ...DOC,
+      pipes: [
+        DOC.pipes![0],
+        {
+          ...DOC.pipes![1],
+          fluid: "primary_supply",
+          changeover: { fluid: "dhw", when: slot("dhw_open") },
+        },
+      ],
+    };
+    const branchMoves = (on: boolean) =>
+      q(
+        draw(doc, {
+          ...VALUES,
+          slots: {
+            ...VALUES.slots,
+            "symbol.v-03.state": live("OUVERTE", true),
+            "pipe.branch.changeover": live("ECS", on),
+          },
+        }),
+        "[data-run='branch'] path[data-flow]",
+      ).length > 0;
+    expect(branchMoves(false)).toBe(true);
+    expect(branchMoves(true)).toBe(false);
+  });
+
   it("is silent everywhere without values", () => {
     const c = draw();
     expect(q(c, "[data-chip='silent']")).toHaveLength(3);
