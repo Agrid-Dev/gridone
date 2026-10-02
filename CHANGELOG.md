@@ -1,3 +1,10 @@
+## v0.296.1 (2026-10-02)
+
+### Fix
+
+- **ui**: healthy boolean faults read OK instead of True / False
+- **ui**: spin the air extractor fan from its speed when it exposes nothing else
+
 ## v0.296.0 (2026-10-02)
 
 ### Feat
