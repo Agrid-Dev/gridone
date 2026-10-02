@@ -84,6 +84,14 @@ describe("depthKey", () => {
     expect(chip).toBeGreaterThan(depthKey({ x: 40, y: 40, z: 3 }, "symbol"));
     expect(chip).toBeLessThan(depthKey({ x: 3, y: 2 }, "label"));
   });
+
+  it("paints every click target after every label, in cell order among them", () => {
+    // "Nothing else on the plate (names, pipes, other shapes, readings)
+    // takes a click meant for a link."
+    const hit = depthKey({ x: 0, y: 0 }, "hit");
+    expect(hit).toBeGreaterThan(depthKey({ x: 40, y: 40, z: 3 }, "label"));
+    expect(hit).toBeLessThan(depthKey({ x: 1, y: 0 }, "hit"));
+  });
 });
 
 describe("rotateQuarter", () => {

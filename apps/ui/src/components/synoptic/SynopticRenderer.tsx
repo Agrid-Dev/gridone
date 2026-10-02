@@ -80,6 +80,7 @@ import {
 } from "./symbols/SynopticSymbol";
 import { Slab } from "./symbols/volume";
 import { HALO, HALO_CLASS, textWidth } from "./text";
+import { convexHull } from "./geometry";
 import type { Pt } from "./types";
 import {
   EMPTY_VALUES,
@@ -967,6 +968,15 @@ function symbolAffordance(
   return headOf(symbol, null)?.deviceId && onSymbolClick ? "device" : null;
 }
 
+/** A transparent shape over a drawn body that takes its click and hover
+ *  where the drawing has no fill to catch them. */
+function HitArea({
+  points,
+  ...data
+}: { points: Pt[] } & { [attr: `data-${string}`]: string | boolean }) {
+  return <polygon points={pointsAttr(points)} fill="transparent" {...data} />;
+}
+
 /** The clickable wrapper of a symbol. A missing link is drawn faded and
  *  dashed, and is not a button. A press that becomes a pan never reaches
  *  the click: the canvas captures the pointer once it travels, so the
@@ -978,6 +988,7 @@ function Affordance({
   head,
   kind,
   onClick,
+  tabStop = true,
   children,
 }: {
   symbol: SymbolElement;
@@ -985,6 +996,9 @@ function Affordance({
   head?: string;
   kind: AffordanceKind;
   onClick: ((symbol: SymbolElement, head?: string) => void) | undefined;
+  /** False on a second target of the same symbol (a link's name): it takes
+   *  the click, the first keeps the keyboard and the accessible name. */
+  tabStop?: boolean;
   children: ReactNode;
 }) {
   if (kind === "missing") {
@@ -1014,16 +1028,19 @@ function Affordance({
   };
   return (
     <g
-      data-symbol={symbol.id}
+      data-symbol={tabStop ? symbol.id : undefined}
       data-head={head}
       data-affordance={kind}
-      role="button"
-      tabIndex={0}
-      aria-label={head ? `${name} ${headName(head)}` : name}
+      role={tabStop ? "button" : undefined}
+      tabIndex={tabStop ? 0 : undefined}
+      aria-label={
+        tabStop ? (head ? `${name} ${headName(head)}` : name) : undefined
+      }
+      aria-hidden={tabStop ? undefined : true}
       className="cursor-pointer outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       onClick={onClickOnce}
       onDoubleClick={(e) => e.stopPropagation()}
-      onKeyDown={onKeyDown}
+      onKeyDown={tabStop ? onKeyDown : undefined}
     >
       {children}
     </g>
@@ -1144,14 +1161,13 @@ function addSymbols(plate: Plate) {
           id: `${symbol.id}:hit`,
           depth: depthKey(bodyCell, "label"),
           node: wrap(
-            <polygon
-              points={pointsAttr([
+            <HitArea
+              points={[
                 { x: bar.x0, y: bar.y0 },
                 { x: bar.x1, y: bar.y0 },
                 { x: bar.x1, y: bar.y1 },
                 { x: bar.x0, y: bar.y1 },
-              ])}
-              fill="transparent"
+              ]}
               data-collector-hit
             />,
           ),
@@ -1161,10 +1177,14 @@ function addSymbols(plate: Plate) {
     }
     const direction = runDirection(symbol, pieces);
     const rotation = placement.kind === "cell" ? placement.rotation : 0;
+    // A link is drawn where its cell puts it but takes its click on a
+    // transparent copy of its outline, and on its name, painted after
+    // everything else: a run or a name in front would otherwise take it.
+    const link = affordance === "link";
     items.push({
       id: symbol.id,
       depth: depthKey(bodyCell, "symbol"),
-      node: wrap(
+      node: (link ? hovered : wrap)(
         <SynopticSymbol
           type={symbol.type}
           projection={projection}
@@ -1181,6 +1201,18 @@ function addSymbols(plate: Plate) {
         />,
       ),
     });
+    if (link) {
+      items.push({
+        id: `${symbol.id}:hit`,
+        depth: depthKey(bodyCell, "hit"),
+        node: wrap(
+          <HitArea
+            points={convexHull(plate.corners.get(symbol.id)!)}
+            data-link-hit
+          />,
+        ),
+      });
+    }
     // Each head that is a device takes its own click, just over the pump
     // and under whatever stands in front of it, the head further back
     // first: where the two areas meet on screen, the head drawn in front
@@ -1202,12 +1234,7 @@ function addSymbols(plate: Plate) {
             onClick={plate.onSymbolClick}
           >
             {hit.map((points, i) => (
-              <polygon
-                key={i}
-                points={pointsAttr(points)}
-                fill="transparent"
-                data-head-hit={machine.key}
-              />
+              <HitArea key={i} points={points} data-head-hit={machine.key} />
             ))}
           </Affordance>,
         ),
@@ -1230,30 +1257,42 @@ function addSymbols(plate: Plate) {
         { x: placed.box.x0, y: placed.box.y0 },
         { x: placed.box.x1, y: placed.box.y1 },
       );
+      const name = (
+        <g data-symbol-label={symbol.id}>
+          {placed.leader && (
+            <Leader box={placed.box} anchor={placed.leader} kind="label" />
+          )}
+          <Label
+            text={placed.text}
+            at={placed.at}
+            lift={0}
+            anchor={placed.anchor}
+            onFace={placed.onFace}
+            led={labelHasLed(projection, symbol.type) ? state : undefined}
+            heads={labelHasLed(projection, symbol.type) ? heads : undefined}
+            fault={fault}
+          />
+        </g>
+      );
       items.push({
         id: `${symbol.id}:label`,
-        depth: depthKey(origin, "label"),
+        depth: depthKey(origin, link ? "hit" : "label"),
         text: {
           anchor: nameAnchor!,
           box: placed.box,
           rank: fault ? TEXT_RANK.alarm : TEXT_RANK.name,
         },
-        node: (
-          <g data-symbol-label={symbol.id}>
-            {placed.leader && (
-              <Leader box={placed.box} anchor={placed.leader} kind="label" />
-            )}
-            <Label
-              text={placed.text}
-              at={placed.at}
-              lift={0}
-              anchor={placed.anchor}
-              onFace={placed.onFace}
-              led={labelHasLed(projection, symbol.type) ? state : undefined}
-              heads={labelHasLed(projection, symbol.type) ? heads : undefined}
-              fault={fault}
-            />
-          </g>
+        node: link ? (
+          <Affordance
+            symbol={symbol}
+            kind="link"
+            onClick={plate.onSymbolClick}
+            tabStop={false}
+          >
+            {name}
+          </Affordance>
+        ) : (
+          name
         ),
       });
     }

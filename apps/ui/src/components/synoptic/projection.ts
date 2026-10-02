@@ -67,10 +67,10 @@ export function unproject(projection: Projection, p: Pt, z = 0): Pt {
 }
 
 /** What an element is, for the draw order within one cell. */
-export type Layer = "pipe" | "symbol" | "label";
+export type Layer = "pipe" | "symbol" | "label" | "hit";
 
 /** Within a cell a pipe paints under the symbol riding it. */
-const LAYER_RANK: Record<Exclude<Layer, "label">, number> = {
+const LAYER_RANK: Record<Exclude<Layer, "label" | "hit">, number> = {
   pipe: 0,
   symbol: 1,
 };
@@ -79,6 +79,9 @@ const LAYER_COUNT = Object.keys(LAYER_RANK).length;
  *  the cell it belongs to, so a rank inside the cell sum would let a
  *  nearer body cover it. No plate reaches a cell sum this large. */
 const LABEL_PASS = 1_000_000;
+/** A click target that must win over the drawing paints last of all:
+ *  nothing on the plate may take a click meant for it. */
+const HIT_PASS = 2 * LABEL_PASS;
 
 /**
  * Painter's order of an element at `cell`: draw ascending.
@@ -89,11 +92,12 @@ const LABEL_PASS = 1_000_000;
  * hold for a run that passes behind one body and in front of the next.
  * Within a cell the layer decides: a pipe under the symbol riding it.
  * Labels, chips and panels come after every cell, ordered by their own
- * cell among themselves.
+ * cell among themselves; click targets after them.
  */
 export function depthKey(cell: Cell, layer: Layer): number {
   const sum = cell.x + cell.y + (cell.z ?? 0);
   if (layer === "label") return LABEL_PASS + sum;
+  if (layer === "hit") return HIT_PASS + sum;
   return sum * LAYER_COUNT + LAYER_RANK[layer];
 }
 

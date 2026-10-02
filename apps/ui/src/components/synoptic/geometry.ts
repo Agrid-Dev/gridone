@@ -87,3 +87,28 @@ export function arcPath(
   const largeArcFlag = endDeg - startDeg > 180 ? 1 : 0;
   return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArcFlag} 1 ${end.x} ${end.y}`;
 }
+
+/** The convex hull of `points` (Andrew's monotone chain): the outline a
+ *  cloud of corners encloses, such as a body's corners at its base and at
+ *  its top. Points are sorted by x then y, and each half keeps only left
+ *  turns; repeated and collinear points drop out. */
+export function convexHull(points: Pt[]): Pt[] {
+  const sorted = [...points].sort((a, b) => a.x - b.x || a.y - b.y);
+  if (sorted.length < 3) return sorted;
+  const cross = (o: Pt, a: Pt, b: Pt) =>
+    (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+  const half = (pts: Pt[]) => {
+    const kept: Pt[] = [];
+    for (const p of pts) {
+      while (
+        kept.length >= 2 &&
+        cross(kept[kept.length - 2], kept[kept.length - 1], p) <= 0
+      )
+        kept.pop();
+      kept.push(p);
+    }
+    kept.pop();
+    return kept;
+  };
+  return [...half(sorted), ...half([...sorted].reverse())];
+}
