@@ -1,3 +1,9 @@
+## v0.297.0 (2026-10-02)
+
+### Feat
+
+- **synoptics**: a pipe's fluid can follow a live reading (#770)
+
 ## v0.296.1 (2026-10-02)
 
 ### Fix
