@@ -1,3 +1,13 @@
+## v0.296.0 (2026-10-02)
+
+### Feat
+
+- **devices**: a fault list row carries the attribute's label (AGR-1555)
+
+### Fix
+
+- **ui**: fault labels, config switch gating, Configuration at the sidebar foot (AGR-1555)
+
 ## v0.295.0 (2026-10-02)
 
 ### Feat
