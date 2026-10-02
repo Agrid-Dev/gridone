@@ -1,3 +1,13 @@
+## v0.294.0 (2026-10-02)
+
+### Feat
+
+- **ui**: redraw the AHU synoptics as instrumented faceplates (AGR-1546)
+
+### Fix
+
+- **ui**: device tabs no longer render inside a scrollbox
+
 ## v0.293.2 (2026-10-02)
 
 ### Fix
