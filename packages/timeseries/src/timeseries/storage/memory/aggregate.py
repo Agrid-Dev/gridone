@@ -196,20 +196,24 @@ def _empty_value(
     op: AggregationOperator,
     locf: Any,
     data_type: DataType,
+    bin_start: datetime,
 ) -> Any:
     """Return the value for an empty bucket (no data points in range).
 
-    SUM of zero observations is 0. DELTA has no value at all — nothing was read, and
-    the consumption since the last reading lands on the next bucket that has one.
+    SUM of zero observations is 0. DELTA is 0 once a previous value is known — the
+    carried index did not move — and has no value before the first reading, nor
+    for a bucket that has not started yet: that one was not observed.
     All other operators carry LOCF forward; AVG and TW_AVG coerce LOCF to float
     because AggregationResult validates float for those ops.
     """
     if op == AggregationOperator.SUM:
         return 0.0 if data_type == DataType.FLOAT else 0
-    if op == AggregationOperator.DELTA:
-        return None
     if locf is None:
         return None
+    if op == AggregationOperator.DELTA:
+        if bin_start >= datetime.now(UTC):
+            return None
+        return 0.0 if data_type == DataType.FLOAT else 0
     if op in {AggregationOperator.AVG, AggregationOperator.TW_AVG}:
         return float(locf)
     return locf
@@ -272,7 +276,7 @@ def _apply_op(
     if op == AggregationOperator.COUNT:
         return len(bucket_df)
     if len(bucket_df) == 0:
-        return _empty_value(op, locf, data_type)
+        return _empty_value(op, locf, data_type, bin_start)
     return _filled_value(
         op, bucket_df["value"], bucket_pts, bin_start, bin_end, locf, data_type
     )

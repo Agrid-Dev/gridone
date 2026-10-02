@@ -144,10 +144,19 @@ class TestDelta:
         )
         assert self._apply(pts, None) == 30.0
 
-    def test_empty_bucket_has_no_value(self) -> None:
-        # not 0: nothing was read, so no consumption can be attributed here
-        assert self._apply([], 90.0) is None
+    def test_empty_bucket_after_a_reading_is_zero(self) -> None:
+        # history is stored on change: no point means the counter did not move
+        assert self._apply([], 90.0) == 0.0
+
+    def test_empty_bucket_before_any_reading_has_no_value(self) -> None:
         assert self._apply([], None) is None
+
+    def test_empty_bucket_zero_keeps_the_series_type(self) -> None:
+        val, _ = compute.apply(
+            "delta", [], _dt(self._BIN_START), _dt(self._BIN_END), 100, "int"
+        )
+        assert val == 0
+        assert isinstance(val, int)
 
     def test_counter_reset_passes_through_as_negative(self) -> None:
         # meter replaced: index restarts near 0 while the carry is still high
@@ -164,7 +173,7 @@ class TestDelta:
         assert agg_dt == "int"
 
     def test_buckets_tile_across_an_empty_one(self) -> None:
-        # the gap bucket has no value; the next one still bills the whole increase
+        # the gap bucket reads 0; the next one still bills the whole increase
         points = [
             (datetime(2025, 1, 1, 0, 30, tzinfo=UTC), 100.0),
             (datetime(2025, 1, 1, 2, 15, tzinfo=UTC), 160.0),
@@ -178,7 +187,7 @@ class TestDelta:
             "UTC",
             "delta",
         )
-        assert [e["value"] for e in expected] == [0.0, None, 60.0]
+        assert [e["value"] for e in expected] == [0.0, 0.0, 60.0]
 
     def test_deltas_sum_to_the_total_increase(self) -> None:
         points = [

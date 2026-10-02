@@ -366,11 +366,16 @@ def apply(
     if operator == "count":
         return len(values), agg_dt
     if not values:
-        # empty bucket: sum of zero observations = 0; delta has nothing to
-        # measure so it has no value; all others carry LOCF
+        # empty bucket: sum of zero observations = 0; delta is 0 once a reading
+        # exists (the carried index did not move) unless the bucket has not
+        # started yet; all others carry LOCF
         if operator == "sum":
             return 0, agg_dt
-        return (None if operator == "delta" else locf), agg_dt
+        if operator == "delta":
+            if locf is None or bin_start >= datetime.now(UTC):
+                return None, agg_dt
+            return locf - locf, agg_dt
+        return locf, agg_dt
     if operator == "delta":
         # consumption since the last reading before the bucket, so buckets tile
         return values[-1] - (values[0] if locf is None else locf), agg_dt

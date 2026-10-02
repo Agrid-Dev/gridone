@@ -1142,9 +1142,10 @@ class TestDeltaOperator:
         # first bucket has no prior reading → in-bucket delta of a lone point is 0
         assert values == [0.0, 10.0, 10.0, 10.0]
 
-    async def test_empty_bucket_has_no_value(
+    async def test_empty_bucket_after_a_reading_is_zero(
         self, ts_service: TimeSeriesService
     ) -> None:
+        """History is stored on change: no point means the counter did not move."""
         start = datetime(2026, 2, 1, tzinfo=UTC)
         key = await self._counter(
             ts_service,
@@ -1164,9 +1165,122 @@ class TestDeltaOperator:
             ),
         )
         values = [p.value for p in result.points]
-        # the gap bucket has no value (not 0); the next bucket bills the whole rise
-        assert values == [0.0, None, 60.0]
+        # the gap bucket reads 0; the next bucket bills the whole rise
+        assert values == [0.0, 0.0, 60.0]
         assert [p.count for p in result.points] == [1, 0, 1]
+
+    async def test_unchanged_counter_reads_zero_from_the_anchor(
+        self, ts_service: TimeSeriesService
+    ) -> None:
+        """A counter whose only point predates the range is 0 everywhere (AGR-1561)."""
+        start = datetime(2026, 2, 10, tzinfo=UTC)
+        end = start + timedelta(hours=3)
+        key = await self._counter(
+            ts_service, "idle_index", [(start - timedelta(days=30), 100.0)]
+        )
+        bucketed = await ts_service.get_aggregate(
+            key,
+            AggregationQuery(
+                agg=AggregationOperator.DELTA,
+                interval=Interval.model_validate("1h"),
+                start=start,
+                end=end,
+            ),
+        )
+        whole = await ts_service.get_aggregate(
+            key,
+            AggregationQuery(
+                agg=AggregationOperator.DELTA, interval="whole", start=start, end=end
+            ),
+        )
+        assert [p.value for p in bucketed.points] == [0.0, 0.0, 0.0]
+        assert [p.value for p in whole.points] == [0.0]
+
+    async def test_no_value_before_the_first_reading(
+        self, ts_service: TimeSeriesService
+    ) -> None:
+        start = datetime(2026, 2, 20, tzinfo=UTC)
+        end = start + timedelta(hours=3)
+        key = await self._counter(
+            ts_service,
+            "late_index",
+            [(start + timedelta(hours=2, minutes=15), 100.0)],
+        )
+        bucketed = await ts_service.get_aggregate(
+            key,
+            AggregationQuery(
+                agg=AggregationOperator.DELTA,
+                interval=Interval.model_validate("1h"),
+                start=start,
+                end=end,
+            ),
+        )
+        whole = await ts_service.get_aggregate(
+            key,
+            AggregationQuery(
+                agg=AggregationOperator.DELTA,
+                interval="whole",
+                start=start,
+                end=start + timedelta(hours=2),
+            ),
+        )
+        assert [p.value for p in bucketed.points] == [None, None, 0.0]
+        assert [p.value for p in whole.points] == [None]
+
+    async def test_no_value_for_buckets_in_the_future(
+        self, ts_service: TimeSeriesService
+    ) -> None:
+        """A bucket that has not started was not observed; the running one was."""
+        running = datetime.now(UTC).replace(minute=0, second=0, microsecond=0)
+        start = running - timedelta(hours=1)
+        key = await self._counter(
+            ts_service, "running_index", [(start + timedelta(minutes=30), 100.0)]
+        )
+        result = await ts_service.get_aggregate(
+            key,
+            AggregationQuery(
+                agg=AggregationOperator.DELTA,
+                interval=Interval.model_validate("1h"),
+                start=start,
+                end=start + timedelta(hours=5),
+            ),
+        )
+        whole = await ts_service.get_aggregate(
+            key,
+            AggregationQuery(
+                agg=AggregationOperator.DELTA,
+                interval="whole",
+                start=running + timedelta(hours=2),
+                end=running + timedelta(hours=3),
+            ),
+        )
+        values = [p.value for p in result.points]
+        # the bucket in between may start while the test runs, so it is not pinned
+        assert values[:2] == [0.0, 0.0]
+        assert values[3:] == [None, None]
+        assert [p.value for p in whole.points] == [None]
+
+    async def test_empty_bucket_zero_keeps_the_series_type(
+        self, ts_service: TimeSeriesService
+    ) -> None:
+        start = datetime(2026, 2, 27, tzinfo=UTC)
+        key = await self._counter(
+            ts_service,
+            "idle_int_index",
+            [(start - timedelta(hours=1), 100)],
+            data_type=DataType.INT,
+        )
+        result = await ts_service.get_aggregate(
+            key,
+            AggregationQuery(
+                agg=AggregationOperator.DELTA,
+                interval=Interval.model_validate("1h"),
+                start=start,
+                end=start + timedelta(hours=1),
+            ),
+        )
+        assert result.points[0].value == 0
+        assert isinstance(result.points[0].value, int)
 
     async def test_anchor_before_range_is_used(
         self, ts_service: TimeSeriesService

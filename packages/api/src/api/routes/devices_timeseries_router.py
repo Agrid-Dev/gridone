@@ -219,8 +219,10 @@ def get_aggregation_query(
             "'delta' is the consumption of a cumulative counter (energy/water "
             "index) per bucket: the bucket's last value minus the last value "
             "before it, so consecutive buckets lose nothing in between. "
-            "Buckets with no points have no value, and counter resets show up "
-            "as negative deltas."
+            "A bucket with no points reads 0 once the series has a previous "
+            "value (the counter did not move); it has no value before the "
+            "first reading or when it has not started yet. Counter resets "
+            "show up as negative deltas."
         ),
     ),
     start: datetime | None = Query(None),
