@@ -22,6 +22,18 @@ describe("fanIsSpinning", () => {
       { onoffState: false },
       false,
     ],
+    ["speed only, above zero → spinning", { fanSpeed: 100 }, true],
+    ["speed only, at zero → static", { fanSpeed: 0 }, false],
+    [
+      "the command outranks the speed",
+      { onoffState: false, fanSpeed: 100 },
+      false,
+    ],
+    [
+      "the flow switch outranks the speed",
+      { flowSwitch: false, fanSpeed: 100 },
+      false,
+    ],
     ["nothing known", {}, false],
   ])("%s", (_desc, values, expected) => {
     expect(fanIsSpinning(values)).toBe(expected);
