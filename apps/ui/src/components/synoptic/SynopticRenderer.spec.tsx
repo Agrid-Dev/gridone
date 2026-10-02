@@ -159,7 +159,9 @@ const plate = (name: string): Synoptic => ({
  *  that reads in a panel). What the document says (tags and their literals,
  *  fluids, labels) is read from the plate under test. The hot-water plate's
  *  tees: the second heat pump's return off the return loop, the column-3
- *  feed off an overhead run. */
+ *  feed off an overhead run. The heating plate's change-over risers are
+ *  cut past their hot valves, so the part that switches to chilled water
+ *  is a run of its own; a cut is drawn as the riser it was, with no tee. */
 const PLATES: Record<
   ExamplePlate,
   { tees: number; panels: number; chips: number; symbolChips: number }
@@ -359,6 +361,46 @@ describe("SynopticRenderer", () => {
       ).length > 0;
     expect(branchMoves(false)).toBe(true);
     expect(branchMoves(true)).toBe(false);
+  });
+
+  it("draws the example's change-over circuit on chilled water while its cold valves are open, its hot-only legs on heating water", () => {
+    const doc = plate("example-heating");
+    const runs = (on: boolean) => {
+      const c = draw(doc, {
+        slots: {
+          "pipe.vc-depart.changeover": live("OUVERTE", on),
+          "pipe.vc-retour.changeover": live("OUVERTE", on),
+        },
+        devices: {},
+      });
+      const fluidOf = (run: string) =>
+        q(c, `[data-run='${run}'] path[class*='stroke-fluid-']`)[0]
+          .getAttribute("class")!
+          .match(/stroke-fluid-[a-z-]+/)![0];
+      return Object.fromEntries(
+        ["vc-depart", "vc-retour", "vc-depart-ec", "vc-retour-ec"].map(
+          (run) => [run, fluidOf(run)],
+        ),
+      );
+    };
+    expect(runs(true)).toEqual({
+      "vc-depart": "stroke-fluid-chilled-supply",
+      "vc-retour": "stroke-fluid-chilled-return",
+      "vc-depart-ec": "stroke-fluid-heating-supply",
+      "vc-retour-ec": "stroke-fluid-heating-return",
+    });
+    // The riser reads as one pipe across each cut: the piece before it
+    // carries no arrow, and the piece after it no tee disc.
+    const c = draw(doc);
+    for (const run of ["vc-depart-ec", "vc-retour", "vcv-chambres-depart-ec"])
+      expect(q(c, `[data-run='${run}'] polygon`)).toHaveLength(0);
+    expect(q(c, "[data-run='vc-depart'] polygon")).toHaveLength(1);
+    expect(runs(false)).toEqual({
+      "vc-depart": "stroke-fluid-heating-supply",
+      "vc-retour": "stroke-fluid-heating-return",
+      "vc-depart-ec": "stroke-fluid-heating-supply",
+      "vc-retour-ec": "stroke-fluid-heating-return",
+    });
   });
 
   it("is silent everywhere without values", () => {

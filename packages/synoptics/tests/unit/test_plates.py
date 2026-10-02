@@ -27,12 +27,15 @@ class Expected:
     counts: tuple[int, int, int]
     """Symbols, pipes, labels."""
     bindings: dict[str, int]
-    """Live values by kind: symbol slots, label readings, animated runs."""
+    """Live values by kind: symbol slots, label readings, animated runs, runs
+    that switch fluid."""
 
 
 EXPECTED = {
     "Exemple ECS": Expected((23, 24, 5), {"symbols": 4, "labels": 1, "flow": 2}),
-    "Exemple production chaud": Expected((36, 22, 1), {"symbols": 27, "pipes": 16}),
+    "Exemple production chaud": Expected(
+        (36, 26, 1), {"symbols": 27, "pipes": 16, "changeover": 4}
+    ),
 }
 
 
@@ -73,7 +76,8 @@ def test_the_plate_binds_exactly_the_live_inventory(plate, expected):
     counter, the two supply runs on the hot-water plate; the four pump heads
     of two twin pumps, five meters, five control valves, eight change-over
     valves, the sludge pot and sixteen readings on the heating plate, whose
-    branches the twins set going."""
+    branches the twins set going, and whose change-over runs switch to
+    chilled water on their cold valves."""
     kinds = Counter(s.role or s.loc[0] for s in bound_slots(plate))
     assert kinds == expected.bindings
 

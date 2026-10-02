@@ -30,9 +30,9 @@ def dhw_raw() -> dict:
     return read("example-dhw")
 
 
-BOOL_SUFFIXES = ("_state", "fault")
-"""Attribute names the plate binds as bool (run states, fault flags); everything
-else reads as a float."""
+BOOL_SUFFIXES = ("_state", "fault", "_open")
+"""Attribute names the plate binds as bool (run states, fault flags, valves
+open or closed); everything else reads as a float."""
 
 
 class AcceptingResolver:

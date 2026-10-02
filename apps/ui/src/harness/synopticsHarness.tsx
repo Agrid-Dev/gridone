@@ -63,6 +63,10 @@ const live = (
   lastUpdated: READ_AT,
 });
 
+/** An open or closed valve, as its labels read it. */
+const valve = (open: boolean) =>
+  open ? live("OUVERTE", true) : live("FERMÉE", false);
+
 /** A numeric sample, written as the renderer writes a reading. */
 const sample = (raw: number, unit: string, decimals = 0) =>
   live(
@@ -117,8 +121,10 @@ const VALUES: SynopticValues = {
     "tag.tt-manque-eau": live("NORMAL", false),
     "symbol.cpt-primaire.energy": sample(1311989, "kWh"),
     "symbol.pot-a-boue.fault": live("NORMAL", false),
-    // The hot production's circuits, as in summer: the change-over circuits
-    // on chilled water, their hot valves closed.
+    // The hot production's circuits. The two change-over circuits stand
+    // either way, so the plate shows both colours of one circuit: VC on
+    // chilled water, its hot valves closed, its runs past them drawn
+    // chilled; VCV chambres on heating water, its cold valves closed.
     "symbol.v-primaire.position": sample(38, "%"),
     ...Object.fromEntries(
       (
@@ -126,7 +132,7 @@ const VALUES: SynopticValues = {
           ["cuisine", 0, 56.2, 54.4],
           ["vc", 3541, 7.0, 15.0],
           ["cta", 7722, 47.6, 34.0],
-          ["vcv-chambres", 317, 7.0, 15.1],
+          ["vcv-chambres", 317, 45.3, 38.1],
         ] as const
       ).flatMap(([circuit, energy, depart, retour]) => [
         [`symbol.cpt-${circuit}.energy`, sample(energy, "kWh")],
@@ -136,12 +142,21 @@ const VALUES: SynopticValues = {
       ]),
     ),
     ...Object.fromEntries(
-      ["vc", "vcv-chambres"].flatMap((circuit) =>
-        ["aller", "retour"].flatMap((end) => [
-          [`symbol.v-${circuit}-ec-${end}.state`, live("FERMÉE", false)],
-          [`symbol.v-${circuit}-eg-${end}.state`, live("OUVERTE", true)],
+      (
+        [
+          ["vc", true],
+          ["vcv-chambres", false],
+        ] as const
+      ).flatMap(([circuit, cold]) => [
+        ...["aller", "retour"].flatMap((end) => [
+          [`symbol.v-${circuit}-ec-${end}.state`, valve(!cold)],
+          [`symbol.v-${circuit}-eg-${end}.state`, valve(cold)],
         ]),
-      ),
+        ...["depart", "retour"].map((run) => [
+          `pipe.${circuit}-${run}.changeover`,
+          valve(cold),
+        ]),
+      ]),
     ),
     // What sets the circuits moving in the isometric view: the running
     // heat pumps, and the twin pumps whose head runs (their branches read
