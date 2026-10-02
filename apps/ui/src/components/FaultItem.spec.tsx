@@ -68,6 +68,25 @@ describe("FaultItem — active mode", () => {
   });
 });
 
+describe("FaultItem — attribute naming", () => {
+  it("names the fault by the driver's label when it declares one", () => {
+    render(
+      <FaultItem
+        attribute={{
+          ...baseActive,
+          label: {
+            default: "Supply filter clogged",
+            translations: { fr: "Filtre soufflage encrassé" },
+          },
+        }}
+      />,
+    );
+    // The i18n mock resolves labels in French.
+    expect(screen.getByText("Filtre soufflage encrassé")).toBeInTheDocument();
+    expect(screen.queryByText("Filter Alarm")).not.toBeInTheDocument();
+  });
+});
+
 describe("FaultItem — healthy mode", () => {
   const healthy: FaultAttribute = {
     ...baseActive,

@@ -9,7 +9,7 @@ import {
   TableRow,
   Th,
 } from "@/components/ui/table";
-import { faultLabel } from "@/lib/faultLabel";
+import { useFaultLabel } from "@/hooks/useFaultLabel";
 import type { Severity } from "@/lib/severity";
 import { cn, formatDurationSince } from "@/lib/utils";
 import { SeverityLabel } from "./SeverityLabel";
@@ -58,11 +58,7 @@ export function FaultsTable({ rows }: { rows: FaultRow[] }) {
 
 function FaultTableRow({ row }: { row: FaultRow }) {
   const { t } = useTranslation();
-  const label = faultLabel({
-    name: row.attribute_name,
-    data_type: row.data_type,
-    current_value: row.current_value,
-  });
+  const label = useFaultLabel()(row);
   const activeSince = formatDurationSince(Date.parse(row.last_changed), t);
 
   return (

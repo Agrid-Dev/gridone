@@ -5,7 +5,7 @@ import type { FaultView, Severity } from "@gridone/sdk";
 import { useAssetTree } from "@/hooks/useAssetTree";
 import { useFaultsList } from "@/hooks/useFaultsList";
 import { downloadCsv } from "@/lib/csv";
-import { faultLabel } from "@/lib/faultLabel";
+import { useFaultLabel } from "@/hooks/useFaultLabel";
 import { SEVERITIES } from "@/lib/severity";
 import { formatDurationSince } from "@/lib/utils";
 
@@ -92,6 +92,7 @@ export function useFaultsPage(deviceIds?: string[]) {
     [allRows, severity],
   );
 
+  const labelOf = useFaultLabel();
   const exportCsv = useCallback(() => {
     const header = [
       t("faults.columns.device"),
@@ -106,18 +107,14 @@ export function useFaultsPage(deviceIds?: string[]) {
     const body = rows.map((row) => [
       row.device_name,
       row.zone ?? "",
-      faultLabel({
-        name: row.attribute_name,
-        data_type: row.data_type,
-        current_value: row.current_value,
-      }),
+      labelOf(row),
       tCommon(`common.severity.${row.severity}`),
       formatDurationSince(Date.parse(row.last_changed), tCommon),
       row.last_changed,
     ]);
     const day = new Date().toISOString().slice(0, 10);
     downloadCsv(header, body, `${t("faults.exportFilenameStem")}-${day}.csv`);
-  }, [rows, t, tCommon]);
+  }, [rows, t, tCommon, labelOf]);
 
   return {
     rows,

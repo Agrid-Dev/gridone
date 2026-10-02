@@ -101,6 +101,16 @@ describe("Sidebar", () => {
     );
   });
 
+  it("pushes the Configuration group to the bottom of the navigation", () => {
+    renderSidebar();
+    const nav = screen.getByRole("navigation", { name: "Main navigation" });
+    const groups = Array.from(nav.children);
+    expect(groups).toHaveLength(2);
+    expect(groups[0]).toHaveTextContent("Supervision");
+    expect(groups[1]).toHaveTextContent("Configuration");
+    expect(groups[1]).toHaveClass("mt-auto");
+  });
+
   it("hides Users without the users:read permission", () => {
     permissions.can = (permission) => permission !== "users:read";
     renderSidebar();

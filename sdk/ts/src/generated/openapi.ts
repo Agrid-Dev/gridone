@@ -5024,6 +5024,7 @@ export interface components {
        * Format: date-time
        */
       last_changed: string;
+      label?: components["schemas"]["LocalizedText"] | null;
     };
     /** FetchPointsResultResponse */
     FetchPointsResultResponse: {

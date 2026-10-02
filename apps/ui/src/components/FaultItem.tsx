@@ -3,7 +3,7 @@ import { CircleCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { SeverityChip } from "./SeverityChip";
 import type { FaultAttribute } from "@/lib/faults";
-import { faultLabel } from "@/lib/faultLabel";
+import { useFaultLabel } from "@/hooks/useFaultLabel";
 import { cn, relativeLastChanged } from "@/lib/utils";
 
 type FaultItemProps = {
@@ -13,7 +13,7 @@ type FaultItemProps = {
 
 export function FaultItem({ attribute, onClick }: FaultItemProps) {
   const { t } = useTranslation();
-  const label = faultLabel(attribute);
+  const label = useFaultLabel()(attribute);
   const interactive = Boolean(onClick);
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {

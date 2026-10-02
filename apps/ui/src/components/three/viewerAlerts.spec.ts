@@ -136,6 +136,16 @@ describe("buildViewerAlerts", () => {
     ]);
   });
 
+  it("names the worst fault through the given labeller", () => {
+    const alerts = run(
+      [fault("d1", "Thermostat 101", "battery_low", "alert")],
+      {
+        labelOf: (f: FaultView) => `label of ${f.attribute_name}`,
+      },
+    );
+    expect(alerts.alerts[0].devices[0].label).toBe("label of battery_low");
+  });
+
   it("groups devices of the same room together", () => {
     const alerts = run([
       fault("d2", "Vanne 101", "stuck", "alert"),

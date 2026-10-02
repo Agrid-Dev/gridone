@@ -112,6 +112,10 @@ beforeEach(() => {
         device_name: "Charlie",
         attribute_name: "filter_notice",
         severity: "info",
+        label: {
+          default: "Filter due",
+          translations: { fr: "Filtre à changer" },
+        },
       }),
     ],
     loading: false,
@@ -140,6 +144,13 @@ describe("FaultsPage", () => {
     expect(screen.getByText("Compressor Fault")).toBeInTheDocument();
     expect(screen.getByText("Low Pressure")).toBeInTheDocument();
     expect(bodyRows()).toHaveLength(3);
+  });
+
+  it("names a fault by the driver's label when the row carries one", () => {
+    renderPage();
+    // The i18n mock resolves labels in French.
+    expect(screen.getByText("Filtre à changer")).toBeInTheDocument();
+    expect(screen.queryByText("Filter Notice")).not.toBeInTheDocument();
   });
 
   it("links the device cell to /devices/:id", () => {
@@ -260,6 +271,8 @@ describe("FaultsPage", () => {
     ]);
     // Device with no asset exports an empty zone rather than the dash glyph.
     expect(body[1][1]).toBe("");
+    // The driver's label travels into the file like it shows in the table.
+    expect(body[2][2]).toBe("Filtre à changer");
     expect(filename).toMatch(/^active-faults-\d{4}-\d{2}-\d{2}\.csv$/);
   });
 

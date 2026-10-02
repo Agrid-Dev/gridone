@@ -9,6 +9,7 @@
  * contradict the faults page.
  */
 import type { Device, FaultView } from "@gridone/sdk";
+import type { FaultLabeller } from "@/hooks/useFaultLabel";
 import { faultLabel } from "@/lib/faultLabel";
 import type { Severity } from "@/lib/severity";
 import { indexRoomsByAsset, type LevelSummary } from "./levelSummaries";
@@ -66,16 +67,27 @@ function isShown(severity: Severity): boolean {
   return SHOWN.includes(severity);
 }
 
+/** The attribute's prettified name, for a caller with no labeller. */
+const plainLabel: FaultLabeller = (fault) =>
+  faultLabel({
+    name: "attribute_name" in fault ? fault.attribute_name : fault.name,
+    data_type: fault.data_type,
+    current_value: fault.current_value,
+  });
+
 export function buildViewerAlerts({
   faults,
   devices,
   roomStates,
   levels,
+  labelOf = plainLabel,
 }: {
   faults: FaultView[];
   devices: Device[];
   roomStates: Map<string, RoomState>;
   levels: LevelSummary[];
+  /** How a fault is named; `useFaultLabel` where a component builds this. */
+  labelOf?: FaultLabeller;
 }): ViewerAlerts {
   const deviceById = new Map(devices.map((device) => [device.id, device]));
   const rooms = indexRoomsByAsset(roomStates, levels);
@@ -116,11 +128,7 @@ export function buildViewerAlerts({
       deviceName: worst.device_name || deviceId,
       severity,
       faultCount: deviceFaults.length,
-      label: faultLabel({
-        name: worst.attribute_name,
-        data_type: worst.data_type,
-        current_value: worst.current_value,
-      }),
+      label: labelOf(worst),
     };
     const group = groups.get(room.globalId);
     if (group) {
