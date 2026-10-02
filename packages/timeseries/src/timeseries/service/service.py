@@ -140,24 +140,6 @@ def _resolve_interval(
     return query.interval
 
 
-def _blank_future_deltas(result: AggregationResult, now: datetime) -> AggregationResult:
-    """Drop the zero ``delta`` reports for empty buckets that have not started.
-
-    A backend reads an empty bucket as "the counter did not move" whatever its
-    date; a bucket starting at or after *now* was not observed at all, so it has
-    no value. The running bucket keeps its value: it has been observed so far.
-    """
-    if result.agg != AggregationOperator.DELTA:
-        return result
-    points = [
-        p.model_copy(update={"value": None})
-        if p.count == 0 and p.interval_start >= now
-        else p
-        for p in result.points
-    ]
-    return result.model_copy(update={"points": points})
-
-
 class TimeSeriesService(Service):
     _storage: TimeSeriesStorage | None
 
@@ -359,8 +341,7 @@ class TimeSeriesService(Service):
             return await self._get_aggregate_raw(key, query, series.data_type)
         # The backends require a resolved interval — "auto" must never reach them.
         query = query.model_copy(update={"interval": interval})
-        result = await self._backend.aggregate(key, query)
-        return _blank_future_deltas(result, cutoff)
+        return await self._backend.aggregate(key, query)
 
     async def _time_aggregate_series(
         self,
@@ -421,8 +402,7 @@ class TimeSeriesService(Service):
 
         async def _aggregate(s: TimeSeries) -> AggregationResult:
             async with semaphore:
-                result = await self._backend.aggregate(s.key, query)
-                return _blank_future_deltas(result, cutoff)
+                return await self._backend.aggregate(s.key, query)
 
         results = await asyncio.gather(*(_aggregate(s) for s in series))
         return series, list(results), data_type, interval, resolved_tz

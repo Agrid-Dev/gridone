@@ -57,13 +57,7 @@ def assert_aggregation_equal(actual: AggregationResult, expected_key: str) -> No
 async def test_aggregate(
     ts_service: TimeSeriesService,
     case_name: str,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    # The golden cases are clock-free; some ranges (DST 2026) may still lie ahead
-    # of the wall clock, where `delta` blanks empty buckets.
-    monkeypatch.setattr(
-        "timeseries.service.service._utcnow", lambda: datetime(2100, 1, 1, tzinfo=UTC)
-    )
     scenario = _SCENARIOS[case_name]
     inp = _load_input(scenario["input_ref"])
     key = SeriesKey(owner_id="test", metric=case_name)
@@ -1234,14 +1228,11 @@ class TestDeltaOperator:
         assert [p.value for p in whole.points] == [None]
 
     async def test_no_value_for_buckets_in_the_future(
-        self, ts_service: TimeSeriesService, monkeypatch: pytest.MonkeyPatch
+        self, ts_service: TimeSeriesService
     ) -> None:
         """A bucket that has not started was not observed; the running one was."""
-        start = datetime(2026, 2, 25, tzinfo=UTC)
-        monkeypatch.setattr(
-            "timeseries.service.service._utcnow",
-            lambda: start + timedelta(hours=1, minutes=30),
-        )
+        running = datetime.now(UTC).replace(minute=0, second=0, microsecond=0)
+        start = running - timedelta(hours=1)
         key = await self._counter(
             ts_service, "running_index", [(start + timedelta(minutes=30), 100.0)]
         )
@@ -1251,10 +1242,23 @@ class TestDeltaOperator:
                 agg=AggregationOperator.DELTA,
                 interval=Interval.model_validate("1h"),
                 start=start,
-                end=start + timedelta(hours=4),
+                end=start + timedelta(hours=5),
             ),
         )
-        assert [p.value for p in result.points] == [0.0, 0.0, None, None]
+        whole = await ts_service.get_aggregate(
+            key,
+            AggregationQuery(
+                agg=AggregationOperator.DELTA,
+                interval="whole",
+                start=running + timedelta(hours=2),
+                end=running + timedelta(hours=3),
+            ),
+        )
+        values = [p.value for p in result.points]
+        # the bucket in between may start while the test runs, so it is not pinned
+        assert values[:2] == [0.0, 0.0]
+        assert values[3:] == [None, None]
+        assert [p.value for p in whole.points] == [None]
 
     async def test_empty_bucket_zero_keeps_the_series_type(
         self, ts_service: TimeSeriesService

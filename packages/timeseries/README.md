@@ -61,8 +61,7 @@ would report 0 everywhere.
   point means no consumption, not no reading. Before the first point of the
   series there is nothing to carry, and the bucket has no value.
 - A bucket starting at or after the current time has no value either — it was
-  not observed. The service applies this (it owns the clock); the backends stay
-  time-free. The bucket in progress is observed so far and keeps its value.
+  not observed. The bucket in progress is observed so far and keeps its value.
 - `delta` cannot tell "unchanged" from "not read". Consumption during an outage
   shows as zeros followed by a spike on the next bucket with a point, and a
   meter reporting once a day charted hourly shows 23 zeros and one spike. The

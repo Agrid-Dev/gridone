@@ -367,10 +367,13 @@ def apply(
         return len(values), agg_dt
     if not values:
         # empty bucket: sum of zero observations = 0; delta is 0 once a reading
-        # exists (the carried index did not move); all others carry LOCF
+        # exists (the carried index did not move) unless the bucket has not
+        # started yet; all others carry LOCF
         if operator == "sum":
             return 0, agg_dt
-        if operator == "delta" and locf is not None:
+        if operator == "delta":
+            if locf is None or bin_start >= datetime.now(UTC):
+                return None, agg_dt
             return locf - locf, agg_dt
         return locf, agg_dt
     if operator == "delta":
