@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { arrowHead, fraction, roundedPath, unit } from "./geometry";
+import { arrowHead, convexHull, fraction, roundedPath, unit } from "./geometry";
 
 describe("roundedPath", () => {
   it("is empty below two points", () => {
@@ -99,5 +99,41 @@ describe("fraction", () => {
   it("is zero on an empty or reversed range", () => {
     expect(fraction(3, 3, 3)).toBe(0);
     expect(fraction(3, 10, 0)).toBe(0);
+  });
+});
+
+describe("convexHull", () => {
+  const sorted = (pts: { x: number; y: number }[]) =>
+    pts.map((p) => `${p.x},${p.y}`).sort();
+
+  it("keeps the outer corners of a cloud, dropping inner, repeated and collinear points", () => {
+    // A body's corners at its base and at its top: a slanted box whose
+    // screen box would be a rectangle twice its area.
+    const hull = convexHull([
+      { x: 0, y: 0 },
+      { x: 2, y: 1 },
+      { x: 2, y: 3 },
+      { x: 0, y: 2 },
+      { x: 1, y: 1.5 },
+      { x: 0, y: 0 },
+      { x: 0, y: 1 },
+    ]);
+    expect(sorted(hull)).toEqual(["0,0", "0,2", "2,1", "2,3"]);
+  });
+
+  it("returns what it is given below three points, and one point for a cloud of one", () => {
+    expect(convexHull([])).toEqual([]);
+    expect(convexHull([{ x: 1, y: 1 }])).toEqual([{ x: 1, y: 1 }]);
+    expect(
+      sorted(
+        convexHull([
+          { x: 2, y: 0 },
+          { x: 0, y: 0 },
+        ]),
+      ),
+    ).toEqual(["0,0", "2,0"]);
+    expect(new Set(sorted(convexHull(Array(4).fill({ x: 3, y: 3 }))))).toEqual(
+      new Set(["3,3"]),
+    );
   });
 });
