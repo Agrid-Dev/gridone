@@ -1,3 +1,9 @@
+## v0.297.1 (2026-10-02)
+
+### Fix
+
+- **ui**: the root route lands on the home page again (AGR-1381)
+
 ## v0.297.0 (2026-10-02)
 
 ### Feat
