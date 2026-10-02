@@ -6,6 +6,13 @@ import { createI18nMock } from "@/test/i18nMock";
 import type { Device } from "@gridone/sdk";
 import { DeviceTabs } from "./DeviceTabs";
 
+const permissions = { list: ["devices:read", "devices:write"] };
+
+vi.mock("@/contexts/AuthContext", () => ({
+  usePermissions: () => (permission: string) =>
+    permissions.list.includes(permission),
+}));
+
 vi.mock("react-i18next", () =>
   createI18nMock({
     "deviceDetails.tabs.label": "Device sections",
@@ -55,7 +62,10 @@ function renderAt(path: string, device: Device = makeDevice()) {
   return userEvent.setup();
 }
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  permissions.list = ["devices:read", "devices:write"];
+});
 
 describe("DeviceTabs", () => {
   describe("supervision", () => {
@@ -88,6 +98,16 @@ describe("DeviceTabs", () => {
         "href",
         "/devices/d1/config",
       );
+    });
+
+    it("does not offer configuration to a reader without devices:write", () => {
+      permissions.list = ["devices:read"];
+      renderAt("/devices/d1");
+
+      expect(
+        screen.queryByRole("link", { name: "Config" }),
+      ).not.toBeInTheDocument();
+      expect(screen.getByRole("tab", { name: "Overview" })).toBeInTheDocument();
     });
 
     it("keeps Commands as a normal tab for a read-only device (panel handles the empty state)", () => {

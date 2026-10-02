@@ -138,127 +138,135 @@ export function Sidebar({
           <BuildingSwitcher />
         </div>
 
+        {/* Two groups: Supervision at the top, Configuration pushed to the
+         *  bottom so the operator's views stay in reach and the integrator's
+         *  tools sit by the footer. When the nav overflows, the groups stack
+         *  and scroll together. */}
         <nav
           aria-label={t("nav.main")}
-          className="flex-1 space-y-0.5 overflow-y-auto p-3"
+          className="flex flex-1 flex-col overflow-y-auto p-3"
         >
-          <SectionLabel>{t("nav.supervision")}</SectionLabel>
+          <div className="space-y-0.5">
+            <SectionLabel>{t("nav.supervision")}</SectionLabel>
 
-          {/* Each dashboard is a view of the building, listed the way a BMS
-           *  lists its views: first-level, no parent, in the API's order.
-           *  Active on its own route only, not while authoring a widget. */}
-          {dashboardsEnabled &&
-            dashboards.map((dashboard) => (
-              <NavLink
-                key={dashboard.id}
-                to={`/dashboards/${encodeURIComponent(dashboard.id)}`}
-                end
-                className={navLinkClass}
-              >
-                <DashboardIconGlyph
-                  icon={dashboard.icon}
-                  className="h-4 w-4 shrink-0"
-                />
-                <span className="min-w-0 truncate">{dashboard.name}</span>
-              </NavLink>
-            ))}
+            {/* Each dashboard is a view of the building, listed the way a BMS
+             *  lists its views: first-level, no parent, in the API's order.
+             *  Active on its own route only, not while authoring a widget. */}
+            {dashboardsEnabled &&
+              dashboards.map((dashboard) => (
+                <NavLink
+                  key={dashboard.id}
+                  to={`/dashboards/${encodeURIComponent(dashboard.id)}`}
+                  end
+                  className={navLinkClass}
+                >
+                  <DashboardIconGlyph
+                    icon={dashboard.icon}
+                    className="h-4 w-4 shrink-0"
+                  />
+                  <span className="min-w-0 truncate">{dashboard.name}</span>
+                </NavLink>
+              ))}
 
-          <NavLink to="/devices" className={navLinkClass}>
-            <Cpu className="h-4 w-4" />
-            {t("app.devices")}
-            {deviceCount > 0 && (
-              <NavBadge
-                variant="neutral"
-                count={deviceCount}
-                label={t("sidebar.devicesBadge", { count: deviceCount })}
-              />
-            )}
-          </NavLink>
-
-          {can("assets:read") && (
-            <NavLink to="/assets" className={navLinkClass}>
-              <LayoutGrid className="h-4 w-4" />
-              {t("app.assets")}
-            </NavLink>
-          )}
-
-          {can("automations:read") && (
-            <NavLink to="/automations" className={navLinkClass}>
-              <Zap className="h-4 w-4" />
-              {t("app.automations")}
-            </NavLink>
-          )}
-
-          <NavLink to="/faults" className={navLinkClass}>
-            <TriangleAlert className="h-4 w-4" />
-            {t("app.faults")}
-            {faultCount > 0 && (
-              <NavBadge
-                count={faultCount}
-                label={t("sidebar.faultsBadge", { count: faultCount })}
-              />
-            )}
-          </NavLink>
-
-          {hasConfiguration && (
-            <SectionLabel>{t("nav.configuration")}</SectionLabel>
-          )}
-
-          {/* Managing the list of dashboards (the Supervision entries above)
-           *  is integrator work: create, rename, delete, reorder. */}
-          {showDashboardsConfig && (
-            <NavLink to="/dashboards/manage" className={navLinkClass}>
-              <LayoutDashboard className="h-4 w-4" />
-              {t("app.dashboards")}
-            </NavLink>
-          )}
-
-          {showSynoptics && (
-            <NavLink to="/synoptics" className={navLinkClass}>
-              <Waypoints className="h-4 w-4" />
-              {t("app.synoptics")}
-            </NavLink>
-          )}
-
-          {/* Above Drivers: an app is the product-level integration, drivers
-           *  and networks are the plumbing underneath it. Admin-only, because
-           *  configuring, enabling and accepting apps is all `users:write` —
-           *  the route itself stays open, `GET /apps` being readable by any
-           *  authenticated user. */}
-          {can("users:write") && (
-            <NavLink to="/apps" className={navLinkClass}>
-              <Blocks className="h-4 w-4" />
-              {t("app.apps")}
-              {pendingAppRequests > 0 && (
+            <NavLink to="/devices" className={navLinkClass}>
+              <Cpu className="h-4 w-4" />
+              {t("app.devices")}
+              {deviceCount > 0 && (
                 <NavBadge
-                  count={pendingAppRequests}
-                  label={t("sidebar.appRequestsBadge", {
-                    count: pendingAppRequests,
-                  })}
+                  variant="neutral"
+                  count={deviceCount}
+                  label={t("sidebar.devicesBadge", { count: deviceCount })}
                 />
               )}
             </NavLink>
-          )}
 
-          {can("drivers:read") && (
-            <NavLink to="/drivers" className={navLinkClass}>
-              <Puzzle className="h-4 w-4" />
-              {t("app.drivers")}
-            </NavLink>
-          )}
+            {can("assets:read") && (
+              <NavLink to="/assets" className={navLinkClass}>
+                <LayoutGrid className="h-4 w-4" />
+                {t("app.assets")}
+              </NavLink>
+            )}
 
-          {can("transports:read") && (
-            <NavLink to="/transports" className={navLinkClass}>
-              <Network className="h-4 w-4" />
-              {t("app.networks")}
-            </NavLink>
-          )}
+            {can("automations:read") && (
+              <NavLink to="/automations" className={navLinkClass}>
+                <Zap className="h-4 w-4" />
+                {t("app.automations")}
+              </NavLink>
+            )}
 
-          {can("users:read") && (
-            <NavLink to="/users" className={navLinkClass}>
-              <Users className="h-4 w-4" />
-              {t("app.users")}
+            <NavLink to="/faults" className={navLinkClass}>
+              <TriangleAlert className="h-4 w-4" />
+              {t("app.faults")}
+              {faultCount > 0 && (
+                <NavBadge
+                  count={faultCount}
+                  label={t("sidebar.faultsBadge", { count: faultCount })}
+                />
+              )}
             </NavLink>
+          </div>
+
+          {hasConfiguration && (
+            <div className="mt-auto space-y-0.5 pt-4">
+              <SectionLabel>{t("nav.configuration")}</SectionLabel>
+
+              {/* Managing the list of dashboards (the Supervision entries above)
+               *  is integrator work: create, rename, delete, reorder. */}
+              {showDashboardsConfig && (
+                <NavLink to="/dashboards/manage" className={navLinkClass}>
+                  <LayoutDashboard className="h-4 w-4" />
+                  {t("app.dashboards")}
+                </NavLink>
+              )}
+
+              {showSynoptics && (
+                <NavLink to="/synoptics" className={navLinkClass}>
+                  <Waypoints className="h-4 w-4" />
+                  {t("app.synoptics")}
+                </NavLink>
+              )}
+
+              {/* Above Drivers: an app is the product-level integration, drivers
+               *  and networks are the plumbing underneath it. Admin-only, because
+               *  configuring, enabling and accepting apps is all `users:write` —
+               *  the route itself stays open, `GET /apps` being readable by any
+               *  authenticated user. */}
+              {can("users:write") && (
+                <NavLink to="/apps" className={navLinkClass}>
+                  <Blocks className="h-4 w-4" />
+                  {t("app.apps")}
+                  {pendingAppRequests > 0 && (
+                    <NavBadge
+                      count={pendingAppRequests}
+                      label={t("sidebar.appRequestsBadge", {
+                        count: pendingAppRequests,
+                      })}
+                    />
+                  )}
+                </NavLink>
+              )}
+
+              {can("drivers:read") && (
+                <NavLink to="/drivers" className={navLinkClass}>
+                  <Puzzle className="h-4 w-4" />
+                  {t("app.drivers")}
+                </NavLink>
+              )}
+
+              {can("transports:read") && (
+                <NavLink to="/transports" className={navLinkClass}>
+                  <Network className="h-4 w-4" />
+                  {t("app.networks")}
+                </NavLink>
+              )}
+
+              {can("users:read") && (
+                <NavLink to="/users" className={navLinkClass}>
+                  <Users className="h-4 w-4" />
+                  {t("app.users")}
+                </NavLink>
+              )}
+            </div>
           )}
         </nav>
 

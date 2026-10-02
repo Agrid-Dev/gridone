@@ -14,6 +14,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { usePermissions } from "@/contexts/AuthContext";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Device } from "@gridone/sdk";
 import { operatingRulesPath } from "./operating-rules/useOperatingRules";
@@ -50,6 +51,10 @@ export function DeviceTabs({ device }: { device: Device }) {
   const base = devicePath(device.id);
   const config = deviceConfigPath(device.id);
   const configuring = isConfigSection(active);
+  const can = usePermissions();
+  // Configuration is editing work: a reader is not offered the way in. The
+  // way back stays, so a deep link into configuration is never a dead end.
+  const showModeSwitch = configuring || can("devices:write");
 
   const tabs: TabLink[] = configuring
     ? [
@@ -126,24 +131,26 @@ export function DeviceTabs({ device }: { device: Device }) {
       </Tabs>
       {/* mb-1.5 lifts the button onto the labels' centre line: each trigger
           carries its padding and underline below the text. */}
-      <Button
-        asChild
-        variant="outline"
-        size="sm"
-        className="mb-1.5 ml-auto h-8"
-      >
-        {configuring ? (
-          <Link to={base}>
-            <Gauge />
-            {t("deviceDetails.tabs.overview")}
-          </Link>
-        ) : (
-          <Link to={config}>
-            <Settings2 />
-            {t("deviceDetails.tabs.config")}
-          </Link>
-        )}
-      </Button>
+      {showModeSwitch && (
+        <Button
+          asChild
+          variant="outline"
+          size="sm"
+          className="mb-1.5 ml-auto h-8"
+        >
+          {configuring ? (
+            <Link to={base}>
+              <Gauge />
+              {t("deviceDetails.tabs.overview")}
+            </Link>
+          ) : (
+            <Link to={config}>
+              <Settings2 />
+              {t("deviceDetails.tabs.config")}
+            </Link>
+          )}
+        </Button>
+      )}
     </div>
   );
 }

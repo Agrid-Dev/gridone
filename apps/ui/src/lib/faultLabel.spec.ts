@@ -51,4 +51,20 @@ describe("faultLabel", () => {
   it.each(cases)("$title", ({ input, expected }) => {
     expect(faultLabel(input)).toBe(expected);
   });
+
+  it.each([
+    ["bool", true, "Filtre encrassé"],
+    ["int", 7, "Filtre encrassé: 7"],
+    ["str", null, "Filtre encrassé"],
+  ] as const)(
+    "names a %s fault by the given attribute label",
+    (data_type, current_value, expected) => {
+      expect(
+        faultLabel(
+          { name: "filter_alarm", data_type, current_value },
+          "Filtre encrassé",
+        ),
+      ).toBe(expected);
+    },
+  );
 });
