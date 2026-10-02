@@ -1,3 +1,9 @@
+## v0.295.0 (2026-10-02)
+
+### Feat
+
+- **ui**: a control panel section title links to its device (#766)
+
 ## v0.294.0 (2026-10-02)
 
 ### Feat
