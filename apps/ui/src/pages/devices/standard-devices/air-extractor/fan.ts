@@ -1,7 +1,13 @@
 import type { RunState } from "../fleet-status";
 import type { AirExtractorValues } from "./types";
 
-/** Whether the extractor fan is physically turning.
+type FanEvidence = Pick<
+  AirExtractorValues,
+  "onoffState" | "flowSwitch" | "fanSpeed"
+>;
+
+/** Whether the fan turns, by the best evidence the unit exposes. `null` when
+ *  it reports nothing to tell from.
  *
  *  Proven airflow (`flow_switch`) is the source of truth — not the on/off
  *  command — so the two discordance faults render correctly:
@@ -13,24 +19,25 @@ import type { AirExtractorValues } from "./types";
  *  | false       | true        | yes         | reverse discordance            |
  *  | false       | false       | no          | stopped, normal                |
  *
- *  When no flow switch is exposed, fall back to the command. */
-export function fanIsSpinning(
-  values: Pick<AirExtractorValues, "onoffState" | "flowSwitch">,
-): boolean {
-  return values.flowSwitch ?? values.onoffState === true;
-}
-
-/** Run state for the fleet card: whether the fan turns, by the best evidence
- *  the unit exposes — proven airflow, else the on/off command, else a
- *  reported speed (> 0 %) for units that expose neither. Unknown when it
- *  reports none of the three. */
-export function extractorRunState(
-  values: Pick<AirExtractorValues, "onoffState" | "flowSwitch" | "fanSpeed">,
-): RunState {
-  const turning =
+ *  When no flow switch is exposed, fall back to the command; when neither
+ *  is, to a reported speed (> 0). */
+function fanTurning(values: FanEvidence): boolean | null {
+  return (
     values.flowSwitch ??
     values.onoffState ??
-    (values.fanSpeed != null ? values.fanSpeed > 0 : null);
+    (values.fanSpeed != null ? values.fanSpeed > 0 : null)
+  );
+}
+
+/** Whether the synoptic animates the fan: only on positive evidence. */
+export function fanIsSpinning(values: FanEvidence): boolean {
+  return fanTurning(values) === true;
+}
+
+/** Run state for the fleet card, from the same evidence as the synoptic's
+ *  fan animation. Unknown when the unit reports none of it. */
+export function extractorRunState(values: FanEvidence): RunState {
+  const turning = fanTurning(values);
   if (turning == null) return "unknown";
   return turning ? "running" : "stopped";
 }

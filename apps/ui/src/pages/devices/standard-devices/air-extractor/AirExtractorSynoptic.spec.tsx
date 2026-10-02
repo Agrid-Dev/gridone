@@ -82,6 +82,15 @@ describe("AirExtractorSynoptic", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("spins the fan from a reported speed when the unit exposes nothing else", () => {
+    const { container } = render(
+      <AirExtractorSynoptic values={{ fanSpeed: 100 }} />,
+    );
+    expect(
+      container.querySelector("[data-spinning='true']"),
+    ).toBeInTheDocument();
+  });
+
   it("omits the status badge and the readouts when values are absent", () => {
     render(<AirExtractorSynoptic values={{}} />);
 
