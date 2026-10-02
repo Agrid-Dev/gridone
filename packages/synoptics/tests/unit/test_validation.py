@@ -742,16 +742,22 @@ def attribute_slot(attribute: str = "temp", **extra: int) -> dict:
     }
 
 
+def changeover() -> dict:
+    return {"fluid": "chilled_supply", "when": attribute_slot("cold_open")}
+
+
 def test_bound_slots_walk_every_element_that_carries_a_binding(document):
     document["pipes"][0]["flow"] = attribute_slot("running")
+    document["pipes"][0]["changeover"] = changeover()
     document["pipes"][0]["tags"][0]["value"] = attribute_slot()
     document["labels"][0]["value"] = attribute_slot()
     slots = bound_slots(SynopticDocument.model_validate(document))
-    assert [(s.loc, s.is_flow) for s in slots] == [
-        (("symbols", 0, "bindings", "state"), False),
-        (("pipes", 0, "flow"), True),
-        (("pipes", 0, "tags", 0, "value"), False),
-        (("labels", 0, "value"), False),
+    assert [(s.loc, s.role) for s in slots] == [
+        (("symbols", 0, "bindings", "state"), None),
+        (("pipes", 0, "flow"), "flow"),
+        (("pipes", 0, "changeover", "when"), "changeover"),
+        (("pipes", 0, "tags", 0, "value"), None),
+        (("labels", 0, "value"), None),
     ]
 
 
@@ -798,6 +804,25 @@ async def test_flow_must_resolve_to_a_bool(document, registry):
     assert await check_bindings(document, registry, *outcomes) == [
         (("pipes", 0, "flow"), "flow_not_bool")
     ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("data_type", "expected"),
+    [
+        (DataType.BOOL, []),
+        *(
+            (data_type, [(("pipes", 0, "changeover", "when"), "changeover_not_bool")])
+            for data_type in (DataType.FLOAT, DataType.INT, DataType.STRING)
+        ),
+    ],
+)
+async def test_a_changeover_must_resolve_to_a_bool(
+    document, registry, data_type, expected
+):
+    document["pipes"][0]["changeover"] = changeover()
+    outcomes = (resolved("dev-1"), resolved("dev-1", data_type=data_type))
+    assert await check_bindings(document, registry, *outcomes) == expected
 
 
 @pytest.mark.asyncio

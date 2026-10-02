@@ -3,12 +3,14 @@ import { describe, expect, it } from "vitest";
 import { EXAMPLE_PLATES, readPlate } from "@/test/examplePlates";
 import {
   boundSlots,
+  changeoverSlotKey,
   flowSlotKey,
   formatReading,
   isStale,
   READING_STATES,
   readingInk,
   readingState,
+  shownFluid,
   SILENT_READING,
   type SlotReading,
   stateOf,
@@ -51,6 +53,7 @@ const DOC: Synoptic = {
       from: { kind: "cell", cell: { x: 0, y: 0 } },
       to: { kind: "cell", cell: { x: 1, y: 0 } },
       flow: slot("onoff_state"),
+      changeover: { fluid: "dhw_loop", when: slot("loop_open") },
       tags: [
         { id: "tt", at: { x: 0, y: 0 }, label: "TT", value: slot("temp") },
         { id: "code", at: { x: 1, y: 0 }, label: "LPS" },
@@ -77,11 +80,12 @@ const DOC: Synoptic = {
 };
 
 describe("boundSlots", () => {
-  it("enumerates symbol bindings, each pipe's flow then its tags, and label attribute slots, in the backend's order", () => {
+  it("enumerates symbol bindings, each pipe's flow, changeover then its tags, and label attribute slots, in the backend's order", () => {
     expect(boundSlots(DOC).map((s) => s.key)).toEqual([
       "symbol.pac.state",
       "symbol.pac.power",
       "pipe.run.flow",
+      "pipe.run.changeover",
       "tag.tt",
       "label.temp",
     ]);
@@ -336,6 +340,37 @@ describe("stateOf", () => {
     expect(stateOf(reading(true, true))).toBeUndefined();
     expect(stateOf(reading("maybe"))).toBeUndefined();
     expect(stateOf(undefined)).toBeUndefined();
+  });
+});
+
+describe("shownFluid", () => {
+  const pipe = DOC.pipes![0];
+  const values = (raw: SlotReading["raw"], stale = false) => ({
+    slots: {
+      [changeoverSlotKey("run")]: { ...SILENT_READING, text: "x", raw, stale },
+    },
+    devices: {},
+  });
+
+  it.each([
+    [true, false, "dhw_loop"],
+    [1, false, "dhw_loop"],
+    ["on", false, "dhw_loop"],
+    [false, false, "dhw"],
+    [0, false, "dhw"],
+    // A stale reading no longer says which way the valve stands.
+    [true, true, "dhw"],
+    // A value that is no state at all switches nothing.
+    [2, false, "dhw"],
+    ["summer", false, "dhw"],
+    [null, false, "dhw"],
+  ] as const)("reads %j (stale: %s) as %s", (raw, stale, fluid) => {
+    expect(shownFluid(pipe, values(raw, stale))).toBe(fluid);
+  });
+
+  it("keeps the fixed fluid while nothing has arrived, and on a run with no changeover", () => {
+    expect(shownFluid(pipe, { slots: {}, devices: {} })).toBe("dhw");
+    expect(shownFluid({ ...pipe, changeover: null }, values(true))).toBe("dhw");
   });
 });
 

@@ -367,7 +367,7 @@
       "type": "valve_control",
       "placement": {
         "kind": "pipe",
-        "pipe": "vc-retour",
+        "pipe": "vc-retour-ec",
         "cell": { "x": 46, "y": -5 }
       },
       "label": null,
@@ -390,7 +390,7 @@
       "type": "energy_meter",
       "placement": {
         "kind": "pipe",
-        "pipe": "vc-retour",
+        "pipe": "vc-retour-ec",
         "cell": { "x": 46, "y": -7 }
       },
       "label": "CPT VC",
@@ -413,7 +413,7 @@
       "type": "valve_isolation",
       "placement": {
         "kind": "pipe",
-        "pipe": "vc-depart",
+        "pipe": "vc-depart-ec",
         "cell": { "x": 44, "y": -9 }
       },
       "label": null,
@@ -435,7 +435,7 @@
       "type": "valve_isolation",
       "placement": {
         "kind": "pipe",
-        "pipe": "vc-retour",
+        "pipe": "vc-retour-ec",
         "cell": { "x": 46, "y": -9 }
       },
       "label": null,
@@ -599,7 +599,7 @@
       "type": "valve_control",
       "placement": {
         "kind": "pipe",
-        "pipe": "vcv-chambres-retour",
+        "pipe": "vcv-chambres-retour-ec",
         "cell": { "x": 70, "y": -5 }
       },
       "label": null,
@@ -622,7 +622,7 @@
       "type": "energy_meter",
       "placement": {
         "kind": "pipe",
-        "pipe": "vcv-chambres-retour",
+        "pipe": "vcv-chambres-retour-ec",
         "cell": { "x": 70, "y": -7 }
       },
       "label": "CPT CHAMBRES",
@@ -645,7 +645,7 @@
       "type": "valve_isolation",
       "placement": {
         "kind": "pipe",
-        "pipe": "vcv-chambres-depart",
+        "pipe": "vcv-chambres-depart-ec",
         "cell": { "x": 68, "y": -9 }
       },
       "label": null,
@@ -667,7 +667,7 @@
       "type": "valve_isolation",
       "placement": {
         "kind": "pipe",
-        "pipe": "vcv-chambres-retour",
+        "pipe": "vcv-chambres-retour-ec",
         "cell": { "x": 70, "y": -9 }
       },
       "label": null,
@@ -1066,9 +1066,22 @@
       ]
     },
     {
-      "id": "vc-depart",
+      "id": "vc-depart-ec",
       "fluid": "heating_supply",
       "from": { "kind": "port", "symbol": "collector-supply", "port": "out_2" },
+      "to": { "kind": "cell", "cell": { "x": 44, "y": -10 } },
+      "waypoints": [],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "vc-depart",
+      "fluid": "heating_supply",
+      "from": {
+        "kind": "pipe",
+        "pipe": "vc-depart-ec",
+        "cell": { "x": 44, "y": -10 }
+      },
       "to": { "kind": "port", "symbol": "link-vc", "port": "in" },
       "waypoints": [{ "x": 44, "y": -14 }],
       "flow": null,
@@ -1087,15 +1100,47 @@
             "decimals": 1
           }
         }
-      ]
+      ],
+      "changeover": {
+        "fluid": "chilled_supply",
+        "when": {
+          "kind": "attribute",
+          "target": {
+            "devices": { "ids": ["b000000000000009"] },
+            "attribute": "vc_cooling_open"
+          }
+        }
+      }
     },
     {
       "id": "vc-retour",
       "fluid": "heating_return",
       "from": { "kind": "port", "symbol": "link-vc", "port": "out" },
+      "to": { "kind": "cell", "cell": { "x": 46, "y": -10 } },
+      "waypoints": [{ "x": 46, "y": -13 }],
+      "flow": null,
+      "tags": [],
+      "changeover": {
+        "fluid": "chilled_return",
+        "when": {
+          "kind": "attribute",
+          "target": {
+            "devices": { "ids": ["b000000000000009"] },
+            "attribute": "vc_cooling_open"
+          }
+        }
+      }
+    },
+    {
+      "id": "vc-retour-ec",
+      "fluid": "heating_return",
+      "from": {
+        "kind": "pipe",
+        "pipe": "vc-retour",
+        "cell": { "x": 46, "y": -10 }
+      },
       "to": { "kind": "port", "symbol": "collector-return", "port": "in_2" },
       "waypoints": [
-        { "x": 46, "y": -13 },
         { "x": 46, "y": -4 },
         { "x": 46, "y": -4, "z": 1 },
         { "x": 46, "y": -1, "z": 1 },
@@ -1200,9 +1245,22 @@
       ]
     },
     {
-      "id": "vcv-chambres-depart",
+      "id": "vcv-chambres-depart-ec",
       "fluid": "heating_supply",
       "from": { "kind": "port", "symbol": "collector-supply", "port": "out_4" },
+      "to": { "kind": "cell", "cell": { "x": 68, "y": -10 } },
+      "waypoints": [],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "vcv-chambres-depart",
+      "fluid": "heating_supply",
+      "from": {
+        "kind": "pipe",
+        "pipe": "vcv-chambres-depart-ec",
+        "cell": { "x": 68, "y": -10 }
+      },
       "to": { "kind": "port", "symbol": "link-vcv-chambres", "port": "in" },
       "waypoints": [{ "x": 68, "y": -14 }],
       "flow": null,
@@ -1221,15 +1279,47 @@
             "decimals": 1
           }
         }
-      ]
+      ],
+      "changeover": {
+        "fluid": "chilled_supply",
+        "when": {
+          "kind": "attribute",
+          "target": {
+            "devices": { "ids": ["b000000000000009"] },
+            "attribute": "vcv_cooling_open"
+          }
+        }
+      }
     },
     {
       "id": "vcv-chambres-retour",
       "fluid": "heating_return",
       "from": { "kind": "port", "symbol": "link-vcv-chambres", "port": "out" },
+      "to": { "kind": "cell", "cell": { "x": 70, "y": -10 } },
+      "waypoints": [{ "x": 70, "y": -13 }],
+      "flow": null,
+      "tags": [],
+      "changeover": {
+        "fluid": "chilled_return",
+        "when": {
+          "kind": "attribute",
+          "target": {
+            "devices": { "ids": ["b000000000000009"] },
+            "attribute": "vcv_cooling_open"
+          }
+        }
+      }
+    },
+    {
+      "id": "vcv-chambres-retour-ec",
+      "fluid": "heating_return",
+      "from": {
+        "kind": "pipe",
+        "pipe": "vcv-chambres-retour",
+        "cell": { "x": 70, "y": -10 }
+      },
       "to": { "kind": "port", "symbol": "collector-return", "port": "in_4" },
       "waypoints": [
-        { "x": 70, "y": -13 },
         { "x": 70, "y": -4 },
         { "x": 70, "y": -4, "z": 1 },
         { "x": 70, "y": -1, "z": 1 },

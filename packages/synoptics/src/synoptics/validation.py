@@ -20,6 +20,7 @@ from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from itertools import combinations, pairwise
+from typing import Literal
 
 from pydantic import BaseModel, ValidationError
 
@@ -91,6 +92,7 @@ class Violation(StrEnum):
     UNRESOLVED_TARGET = "unresolved_target"
     AMBIGUOUS_TARGET = "ambiguous_target"
     FLOW_NOT_BOOL = "flow_not_bool"
+    CHANGEOVER_NOT_BOOL = "changeover_not_bool"
     DECIMALS_NOT_NUMERIC = "decimals_not_numeric"
 
 
@@ -200,35 +202,47 @@ def overlaps(
 # ----------------------------------------------------------------------
 
 
+BoolRole = Literal["flow", "changeover"]
+"""A pipe reading that must resolve to a bool: what sets the run going, and
+what switches it to its second fluid."""
+
+_NOT_BOOL: dict[BoolRole, Violation] = {
+    "flow": Violation.FLOW_NOT_BOOL,
+    "changeover": Violation.CHANGEOVER_NOT_BOOL,
+}
+
+
 @dataclass(frozen=True)
 class BoundSlot:
     """One ``attribute`` slot of a document and where it sits."""
 
     loc: tuple[str | int, ...]
     slot: AttributeSlot
-    is_flow: bool = False
+    role: BoolRole | None = None
 
 
 def bound_slots(document: SynopticDocument) -> list[BoundSlot]:
     """Every ``attribute`` slot on the plate, in document order.
 
-    Symbol bindings, pipe ``flow``, tag values and label values, so a consumer
-    (resolution, live subscription, fault list, binding picker) never has to
-    know which elements carry a binding.
+    Symbol bindings, pipe ``flow`` and ``changeover``, tag values and label
+    values, so a consumer (resolution, live subscription, fault list, binding
+    picker) never has to know which elements carry a binding.
     """
     found: list[BoundSlot] = []
 
     def add(
-        loc: tuple[str | int, ...], value: object, *, is_flow: bool = False
+        loc: tuple[str | int, ...], value: object, role: BoolRole | None = None
     ) -> None:
         if isinstance(value, AttributeSlot):
-            found.append(BoundSlot(loc, value, is_flow))
+            found.append(BoundSlot(loc, value, role))
 
     for i, symbol in enumerate(document.symbols):
         for slot, value in symbol.bindings.items():
             add(("symbols", i, "bindings", slot), value)
     for i, pipe in enumerate(document.pipes):
-        add(("pipes", i, "flow"), pipe.flow, is_flow=True)
+        add(("pipes", i, "flow"), pipe.flow, "flow")
+        if pipe.changeover is not None:
+            add(("pipes", i, "changeover", "when"), pipe.changeover.when, "changeover")
         for j, tag in enumerate(pipe.tags):
             add(("pipes", i, "tags", j, "value"), tag.value)
     for i, label in enumerate(document.labels):
@@ -240,9 +254,10 @@ async def _collect_bindings(
     document: SynopticDocument, resolver: TargetResolver, errors: _Errors
 ) -> None:
     """Resolve every bound slot and record each one that does not name exactly
-    one device, carry a bool behind ``flow``, or keep ``decimals`` to a numeric
-    attribute. A slot the resolver refuses is recorded at its ``loc`` like the
-    others, so an author fixing thirty bindings sees them all at once.
+    one device, carry a bool behind ``flow`` and ``changeover``, or keep
+    ``decimals`` to a numeric attribute. A slot the resolver refuses is
+    recorded at its ``loc`` like the others, so an author fixing thirty
+    bindings sees them all at once.
 
     Resolution costs a fleet walk per target, so the slot count is checked
     against :data:`MAX_BOUND_SLOTS` before anything is resolved, and each
@@ -282,11 +297,11 @@ def _check_resolved(bound: BoundSlot, target: ResolvedTarget, errors: _Errors) -
             f"Target resolves to {len(target.device_ids)} devices, expected 1",
             Violation.AMBIGUOUS_TARGET,
         )
-    if bound.is_flow and target.data_type != DataType.BOOL:
+    if bound.role is not None and target.data_type != DataType.BOOL:
         errors.add(
             bound.loc,
-            f"Flow attribute is {target.data_type}, expected bool",
-            Violation.FLOW_NOT_BOOL,
+            f"{bound.role.capitalize()} attribute is {target.data_type}, expected bool",
+            _NOT_BOOL[bound.role],
         )
     numeric = target.data_type in (DataType.INT, DataType.FLOAT)
     if bound.slot.decimals is not None and not numeric:

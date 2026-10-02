@@ -3572,6 +3572,32 @@ export interface components {
       rotation?: number;
     };
     /**
+     * Changeover
+     * @description A second fluid the run carries while ``when`` reads true.
+     *
+     *     A change-over circuit carries heating water in winter and chilled water in
+     *     summer: the pipe keeps its ``fluid`` and switches to this one on a live
+     *     bool, like ``flow``, so a cold reading never sits on a heating run. ``when``
+     *     takes the ``attribute`` arm only, for the reason ``flow`` does.
+     */
+    "Changeover-Input": {
+      fluid: components["schemas"]["Fluid"];
+      when: components["schemas"]["AttributeSlot-Input"];
+    };
+    /**
+     * Changeover
+     * @description A second fluid the run carries while ``when`` reads true.
+     *
+     *     A change-over circuit carries heating water in winter and chilled water in
+     *     summer: the pipe keeps its ``fluid`` and switches to this one on a live
+     *     bool, like ``flow``, so a cold reading never sits on a heating run. ``when``
+     *     takes the ``attribute`` arm only, for the reason ``flow`` does.
+     */
+    "Changeover-Output": {
+      fluid: components["schemas"]["Fluid"];
+      when: components["schemas"]["AttributeSlot-Output"];
+    };
+    /**
      * ChartWidgetConfig
      * @description Time-series chart over one attribute of a device set.
      *
@@ -6496,6 +6522,7 @@ export interface components {
       /** Waypoints */
       waypoints?: components["schemas"]["Cell"][];
       flow?: components["schemas"]["AttributeSlot-Input"] | null;
+      changeover?: components["schemas"]["Changeover-Input"] | null;
       /** Tags */
       tags?: components["schemas"]["Tag-Input"][];
     };
@@ -6537,6 +6564,7 @@ export interface components {
       /** Waypoints */
       waypoints?: components["schemas"]["Cell"][];
       flow?: components["schemas"]["AttributeSlot-Output"] | null;
+      changeover?: components["schemas"]["Changeover-Output"] | null;
       /** Tags */
       tags?: components["schemas"]["Tag-Output"][];
     };

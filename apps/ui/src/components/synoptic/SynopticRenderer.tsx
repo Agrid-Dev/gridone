@@ -51,7 +51,7 @@ import {
   project,
   round,
 } from "./projection";
-import { pieceAt, runPieces, type RunPiece } from "./runs";
+import { carriedOn, pieceAt, runPieces, type RunPiece } from "./runs";
 import { slabsOf } from "./slabs";
 import {
   CollectorLabel,
@@ -85,6 +85,7 @@ import type { Pt } from "./types";
 import {
   EMPTY_VALUES,
   labelSlotKey,
+  asShown,
   SILENT_READING,
   stateOf,
   symbolSlotKey,
@@ -756,16 +757,19 @@ function buildPlate(
   interaction: Interaction,
   extra: Pt[] = [],
 ) {
+  // Runs that change over are drawn and walked in the fluid they show.
+  const pipes = asShown(geometry.pipes, values);
   const plate: Plate = {
     ...geometry,
     ...interaction,
+    pipes,
     values,
     items: [],
     extent: [...[...geometry.corners.values()].flat(), ...extra],
     // The sheet is a still diagram: only the isometric view moves.
     circulating:
       interaction.animated && geometry.projection === "isometric"
-        ? circulatingRuns(geometry.symbols.values(), geometry.pipes, values)
+        ? circulatingRuns(geometry.symbols.values(), pipes, values)
         : NO_RUNS,
     obstacles: [
       ...[...geometry.bodyObstacles.values()].flat(),
@@ -825,14 +829,18 @@ const lengthOf = (points: Pt[]) =>
 
 /** Each run cut per cell, with its chevrons, tee discs and tags. A run of
  *  a moving circuit carries the moving dash, each piece taking it up where
- *  the piece before left it. */
+ *  the piece before left it. A pipe cut in two where its fluid changes
+ *  over reads as one: no arrow at the cut, no tee disc where it carries
+ *  on. */
 function addRuns(plate: Plate) {
   const { projection, pipes, items, extent, bodyCells, pieces } = plate;
+  const carried = carriedOn(pipes);
+  const cut = new Set(carried.values());
 
   for (const pipe of pipes) {
     const run = pieces.get(pipe.id)!;
     const flowing = plate.circulating.has(pipe.id);
-    let arrowAt = run.length - 1;
+    let arrowAt = cut.has(pipe.id) ? -1 : run.length - 1;
     while (arrowAt > 0 && run[arrowAt].stub) arrowAt -= 1;
     let travelled = 0;
     run.forEach((piece, i) => {
@@ -854,7 +862,7 @@ function addRuns(plate: Plate) {
       travelled += lengthOf(piece.points);
       // A tee's disc paints over both runs of its cell, in the trunk's colour.
       const tee = i === 0 ? pipe.from : i === run.length - 1 ? pipe.to : null;
-      if (tee?.kind === "pipe") {
+      if (tee?.kind === "pipe" && !(i === 0 && carried.has(pipe.id))) {
         items.push({
           id: `${pipe.id}:${i}:tee`,
           depth: depthKey(piece.cell, "symbol"),

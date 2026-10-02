@@ -7,7 +7,7 @@ import {
   type SymbolElement,
 } from "@gridone/sdk";
 import type { PlateDocument } from "@/components/synoptic/SynopticRenderer";
-import { runCells } from "@/components/synoptic/runs";
+import { runCells, sameCell } from "@/components/synoptic/runs";
 import { symbolRotation } from "@/components/synoptic/symbols/footprint";
 import {
   portsOf,
@@ -54,8 +54,7 @@ export type RunCells = { cells: Set<string>; interior: Set<string> };
 
 export const cellKey = (c: Cell): string => `${c.x},${c.y},${c.z ?? 0}`;
 export const planKey = (c: Cell): string => `${c.x},${c.y}`;
-export const sameCell = (a: Cell, b: Cell): boolean =>
-  cellKey(a) === cellKey(b);
+export { sameCell };
 
 const SIDES: Record<string, Side> = {
   "1,0,0": "+x",

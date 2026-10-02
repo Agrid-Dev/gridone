@@ -4,6 +4,7 @@ import {
   type SymbolElement,
 } from "@gridone/sdk";
 import { symbolHeads } from "./heads";
+import { carriedOn } from "./runs";
 import { portsOf, type CollectorProps } from "./symbols/ports";
 import {
   flowSlotKey,
@@ -47,17 +48,20 @@ function reach(
  * its domestic side apart; every port of a collector). The fluid enters the
  * plate where a run starts in the open or on a passage nothing arrives at
  * on the plate, and leaves it where a run ends in the open or on a passage
- * nothing leaves by: the plate does not draw the rest. A run moves when a
- * path from where the fluid enters to where it leaves passes through it and
- * through a flowing run. So a loop moves whole from one flowing run; the
- * inlets of a mixing valve move with its flowing outlet; and a branch whose
- * supply is stopped does not move by its return, which the collector it
- * drains into cannot feed back.
+ * nothing leaves by: the plate does not draw the rest. A run cut in two
+ * where its fluid changes over is still one pipe: the cut is no way out.
+ * A run moves when a path from where the fluid enters to where it leaves
+ * passes through it and through a flowing run. So a loop moves whole from
+ * one flowing run; the inlets of a mixing valve move with its flowing
+ * outlet; and a branch whose supply is stopped does not move by its return,
+ * which the collector it drains into cannot feed back.
  *
  * Where runs simply join (a tee, a collector) they carry one fluid: a run
  * of another fluid meeting them is a feed or a changeover crossover (a
  * make-up line on a return collector, chilled water teed into a heating
- * line), which does not move with the circuit. Through a machine the fluid
+ * line), which does not move with the circuit. The runs come in the fluid
+ * they show (`asShown`): a change-over run reading cold joins the chilled
+ * legs, and leaves the heating runs it meets. Through a machine the fluid
  * changes name as it should (a heat pump's return leaves as its supply).
  *
  * A run is stopped, and no path enters it, when its own `flow` reads false,
@@ -154,6 +158,7 @@ export function circulatingRuns(
   const stopped = new Set<string>();
   const openStart = new Set<string>();
   const openEnd = new Set<string>();
+  const cut = new Set(carriedOn(pipes).values());
   for (const pipe of pipes) {
     if (flowOf(pipe) === false || (inline.get(pipe.id) ?? []).some(shut)) {
       stopped.add(pipe.id);
@@ -163,6 +168,7 @@ export function circulatingRuns(
       [pipe.to, arriving, openEnd],
     ] as const) {
       if (end.kind === "cell") {
+        if (end === pipe.to && cut.has(pipe.id)) continue;
         open.add(pipe.id);
       } else if (end.kind === "pipe") {
         const host = runs.get(end.pipe);
