@@ -1,11 +1,14 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { freshOverlaps, pipeOverlaps } from "./occupancy";
 import type { Cell, PipeElement, SymbolElement } from "@gridone/sdk";
 import type { PlateDocument } from "@/components/synoptic/SynopticRenderer";
 import { runCells } from "@/components/synoptic/runs";
 import { footprintCells } from "@/components/synoptic/symbols/footprint";
+import {
+  EXAMPLE_PLATES as PLATES,
+  type ExamplePlate,
+  readPlate,
+} from "@/test/examplePlates";
 import { canRotate, moveSymbol, rotateSymbol, updateSymbol } from "./document";
 import { rerouteChanged, type Reroute } from "./reroute";
 import {
@@ -16,23 +19,8 @@ import {
   direction,
 } from "./runRules";
 
-const PLATES = [
-  "ecs-est",
-  "ecs-ouest",
-  "production-chaud",
-  "production-froid",
-] as const;
-
-const load = (name: string): PlateDocument =>
-  JSON.parse(
-    readFileSync(
-      resolve(
-        import.meta.dirname,
-        `../../../../../../docs/specs/synoptic/${name}.json`,
-      ),
-      "utf8",
-    ),
-  );
+const load = (name: ExamplePlate): PlateDocument =>
+  readPlate(name) as PlateDocument;
 
 const onSymbol = (pipe: PipeElement, id: string) =>
   [pipe.from, pipe.to].some((e) => e.kind === "port" && e.symbol === id);
@@ -122,24 +110,17 @@ function snagsOf(doc: PlateDocument, id: string): Set<string> {
  *  seen: the edits taken, those taken by stretching the old path, and
  *  those refused for putting a body on another or for leaving a run no
  *  clean way to follow (a body landed on it, a port facing a body). */
-const TALLIES: Record<(typeof PLATES)[number], Record<string, number>> = {
-  "ecs-est": { accepted: 542, extended: 0, overlap: 37, unroutable: 228 },
-  "ecs-ouest": { accepted: 562, extended: 4, overlap: 48, unroutable: 299 },
-  "production-chaud": {
+const TALLIES: Record<ExamplePlate, Record<string, number>> = {
+  "example-dhw": { accepted: 562, extended: 4, overlap: 48, unroutable: 299 },
+  "example-heating": {
     accepted: 499,
     extended: 1,
     overlap: 8,
     unroutable: 201,
   },
-  "production-froid": {
-    accepted: 287,
-    extended: 20,
-    overlap: 0,
-    unroutable: 166,
-  },
 };
 
-describe("rerouteChanged on the committed plates", () => {
+describe("rerouteChanged on the example plates", () => {
   // Each plate exercises hundreds of moves and rotations. Keep failures
   // aggregated and allow enough time for the exhaustive sweep on CI runners.
   it.each(PLATES)(

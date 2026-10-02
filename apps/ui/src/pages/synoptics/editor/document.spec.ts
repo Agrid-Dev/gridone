@@ -1,5 +1,4 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { readPlate } from "@/test/examplePlates";
 import { describe, expect, it } from "vitest";
 import type {
   Cell,
@@ -31,15 +30,7 @@ import {
 import type { PlateDocument } from "@/components/synoptic/SynopticRenderer";
 
 const PLATE: Synoptic = {
-  ...JSON.parse(
-    readFileSync(
-      resolve(
-        import.meta.dirname,
-        "../../../../../../docs/specs/synoptic/ecs-ouest.json",
-      ),
-      "utf8",
-    ),
-  ),
+  ...(readPlate("example-dhw") as Synoptic),
   id: "ouest",
   metadata: {
     created_at: "2026-09-17T12:00:00+00:00",
@@ -526,7 +517,7 @@ describe("hasRaisedElements", () => {
     expect(hasRaisedElements(emptyDocument("p"))).toBe(false);
   });
 
-  it("sees a raised waypoint, as on the committed plates", () => {
+  it("sees a raised waypoint, as on the example plates", () => {
     expect(hasRaisedElements(toDocument(PLATE))).toBe(true);
   });
 

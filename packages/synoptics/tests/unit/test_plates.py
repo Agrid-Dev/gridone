@@ -1,11 +1,8 @@
-"""The committed plates are the acceptance cases for this package.
+"""The example plates are the acceptance cases for this package.
 
 Every plate in ``docs/specs/synoptic/`` is held to the same probes here: it
-parses, validates, binds only what its drawing shows, names the instance's
-own devices, and stores without loss. What the hot-water bays' shared
-template decides is in ``test_ecs_bays.py``; what one plate's drawing
-decides on its own (its bay, its captions, its manifold) lives in that
-plate's file next to this one.
+parses, validates, binds what it declares, names devices by id, and stores
+without loss.
 """
 
 from collections import Counter
@@ -34,12 +31,8 @@ class Expected:
 
 
 EXPECTED = {
-    "Production ECS Est": Expected((21, 21, 5), {"symbols": 4, "labels": 1, "flow": 2}),
-    "Production ECS Ouest": Expected(
-        (23, 24, 5), {"symbols": 4, "labels": 1, "flow": 2}
-    ),
-    "Production Chaud": Expected((36, 22, 1), {"symbols": 27, "pipes": 16}),
-    "Production Froid": Expected((20, 14, 1), {"symbols": 6, "pipes": 6}),
+    "Exemple ECS": Expected((23, 24, 5), {"symbols": 4, "labels": 1, "flow": 2}),
+    "Exemple production chaud": Expected((36, 22, 1), {"symbols": 27, "pipes": 16}),
 }
 
 
@@ -61,7 +54,7 @@ async def service(resolver):
     await svc.stop()
 
 
-def test_every_committed_plate_is_expected_here():
+def test_every_example_plate_is_expected_here():
     """A plate dropped into the folder without a row above would run the
     probes against nothing in particular."""
     assert {read(name)["name"] for name in PLATE_NAMES} == set(EXPECTED)
@@ -76,20 +69,18 @@ def test_the_plate_validates(plate, registry):
 
 
 def test_the_plate_binds_exactly_the_live_inventory(plate, expected):
-    """Only what the source drawing shows and a device exposes is bound: PAC
-    state and fault, the energy counter, the two supply runs on a bay; the
-    four pump heads of two twin pumps, five meters, five control valves,
-    eight change-over valves, the sludge pot and sixteen readings on the hot
-    production, whose branches the twins set going. A tank temperature or a mitigeur
-    ``supply_temp`` would be a value the drawing does not show."""
+    """Every live value by kind: heat pump state and fault, the energy
+    counter, the two supply runs on the hot-water plate; the four pump heads
+    of two twin pumps, five meters, five control valves, eight change-over
+    valves, the sludge pot and sixteen readings on the heating plate, whose
+    branches the twins set going."""
     kinds = Counter("flow" if s.is_flow else s.loc[0] for s in bound_slots(plate))
     assert kinds == expected.bindings
 
 
 def test_every_binding_names_a_real_device(plate):
-    """Placeholder tokens (``PAC-03``, ``ECS-EST-CTRL``) were the spec's; a
-    live plate names the instance's own device ids, one per slot, and selects
-    by nothing else."""
+    """A binding names one device by its id, and selects by nothing else;
+    a placeholder token such as ``PAC-01`` is not an id."""
     for slot in bound_slots(plate):
         devices = slot.slot.target.devices
         ids = devices.ids or []
@@ -102,12 +93,10 @@ def test_every_binding_names_a_real_device(plate):
 
 
 def test_no_link_names_a_plate(plate):
-    """The old GTB's "Vue Production ..." buttons are navigation, not
-    off-page pipes, so a link is always a pipe leaving a drawing, the plate's
-    own or its sibling's. The committed file never names the plate it leads
-    to: a synoptic id is the instance's, minted when a plate is pushed there,
-    so the two productions' links to each other are set on the instance after
-    both plates have an id, and the files stay portable."""
+    """A file never names the plate a link leads to: a synoptic id is the
+    instance's, minted when a plate is pushed there, so links between plates
+    are set on the instance after both have an id, and the files stay
+    portable."""
     links = [s for s in plate.symbols if s.type == "link"]
     assert links
     assert all(s.props.get("synoptic_id") is None for s in links)
@@ -168,7 +157,7 @@ async def test_the_plate_round_trips_through_the_service(service, plate, plate_r
 
 @pytest.mark.asyncio
 async def test_the_plates_share_the_index(service):
-    """The index is how an operator moves between the bays."""
+    """The index is how an operator moves between plates."""
     stored = [
         await service.create(SynopticDocument.model_validate(read(name)))
         for name in PLATE_NAMES

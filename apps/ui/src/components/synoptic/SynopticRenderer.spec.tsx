@@ -1,5 +1,4 @@
-import { readdirSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { readdirSync } from "node:fs";
 import { createRef } from "react";
 import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -12,6 +11,7 @@ import type {
   SymbolElement,
   Synoptic,
 } from "@gridone/sdk";
+import { type ExamplePlate, PLATES_DIR, readPlate } from "@/test/examplePlates";
 import { CHIP_H, chipWidth, SILENT_TEXT } from "./Chip";
 import { circulatingRuns } from "./circulation";
 import { PANEL_W, panelHeight } from "./Panel";
@@ -146,37 +146,26 @@ const VALUES: SynopticValues = {
   devices: { "PAC-03": { faulty: true, severity: null } },
 };
 
-/** The committed plates as the API would store them, read from the spec so
- *  the customer-bound documents live in docs/ and on the instance, never in
- *  the bundle. Resolved from this file, so the runner's working directory
- *  is moot. */
-const PLATES_DIR = resolve(
-  import.meta.dirname,
-  "../../../../../docs/specs/synoptic",
-);
+/** An example plate as the API would store them. */
 const plate = (name: string): Synoptic => ({
-  ...JSON.parse(readFileSync(resolve(PLATES_DIR, `${name}.json`), "utf8")),
+  ...(readPlate(name as ExamplePlate) as Synoptic),
   id: name,
   metadata: {},
 });
-/** What the renderer decides on each committed plate: tees (a disc at every
+/** What the renderer decides on each example plate: tees (a disc at every
  *  branch point), panels (a symbol with several bound slots), chips (every
  *  single reading, on a tag, a symbol or a caption) and, among them, the
- *  chips of symbols (none on a bay since its loop pump became a twin, whose
- *  two heads read in a panel). What the
- *  document says (tags and their literals, fluids, labels) is read from the
- *  plate under test. The bays share the template and differ in their tees:
- *  the second PAC's return off the return loop on both, the column-3 feed on
- *  Ouest. */
-const ECS_BAY = { panels: 4, chips: 3, symbolChips: 0 };
+ *  chips of symbols (none on the hot-water plate, whose loop pump is a twin
+ *  that reads in a panel). What the document says (tags and their literals,
+ *  fluids, labels) is read from the plate under test. The hot-water plate's
+ *  tees: the second heat pump's return off the return loop, the column-3
+ *  feed off an overhead run. */
 const PLATES: Record<
-  string,
+  ExamplePlate,
   { tees: number; panels: number; chips: number; symbolChips: number }
 > = {
-  "ecs-est": { ...ECS_BAY, tees: 1 },
-  "ecs-ouest": { ...ECS_BAY, tees: 2 },
-  "production-chaud": { tees: 12, panels: 2, chips: 35, symbolChips: 19 },
-  "production-froid": { tees: 4, panels: 1, chips: 21, symbolChips: 9 },
+  "example-dhw": { tees: 2, panels: 4, chips: 3, symbolChips: 0 },
+  "example-heating": { tees: 12, panels: 2, chips: 35, symbolChips: 19 },
 };
 const PLATE_CASES = Object.entries(PLATES);
 
@@ -863,15 +852,15 @@ describe("SynopticRenderer", () => {
     expect(q(c, "[data-unknown-symbol='collector']")).toHaveLength(1);
   });
 
-  it("draws every plate committed under docs/specs/synoptic", () => {
-    const committed = readdirSync(PLATES_DIR)
+  it("draws every example plate under docs/specs/synoptic", () => {
+    const examples = readdirSync(PLATES_DIR)
       .filter((f) => f.endsWith(".json"))
       .map((f) => f.replace(/\.json$/, ""));
-    expect(committed.sort()).toEqual(Object.keys(PLATES).sort());
+    expect(examples.sort()).toEqual(Object.keys(PLATES).sort());
   });
 
   // One static render per plate serves its probes: the renderer is pure, and
-  // the values fixture binds nothing on a committed plate.
+  // the values fixture binds nothing on an example plate.
   describe.each(PLATE_CASES)(
     "the %s plate",
     (name, { tees, panels, chips, symbolChips }) => {
@@ -879,9 +868,9 @@ describe("SynopticRenderer", () => {
       const c = document.createElement("div");
       c.innerHTML = renderToStaticMarkup(<SynopticRenderer doc={doc} />);
 
-      // The Est plate's panels hang off bodies with height; the Ouest plate
-      // adds a panel on an inline glyph (the loop heater), whose drawn outline
-      // is smaller than its cell.
+      // Panels hang off bodies with height, and on the hot-water plate off
+      // an inline glyph (the loop heater), whose drawn outline is smaller
+      // than its cell.
       it("ends every readout leader on its symbol", () => {
         const projection = doc.projection ?? DEFAULT_PROJECTION;
         const symbols = new Map((doc.symbols ?? []).map((s) => [s.id, s]));
@@ -914,8 +903,8 @@ describe("SynopticRenderer", () => {
           if (inside) onBody += 1;
           expect(inside || near(labels, end), readout.outerHTML).toBe(true);
         }
-        // PAC 04 takes a spot beside its body on the reference plate: its
-        // leader is one that must land on the body.
+        // A readout the search sends beside its body is one whose leader
+        // must land on the body.
         expect(onBody).toBeGreaterThan(0);
       });
 
@@ -1812,7 +1801,7 @@ describe("SynopticRenderer, the illustrated kit on the plate", () => {
 });
 
 // ---------------------------------------------------------------------------
-// The text held legible, and the fluid set moving, on the committed plates.
+// The text held legible, and the fluid set moving, on the example plates.
 // ---------------------------------------------------------------------------
 
 /** Lays the canvas out at `fraction` of its viewBox, so one unit covers
@@ -1942,7 +1931,7 @@ function frameOf(c: Element): TestBox {
   return { x0: -ox, y0: -oy, x1: w - ox, y1: h - oy };
 }
 
-/** Every reading of a committed plate live, so every chip has a value, and
+/** Every reading of an example plate live, so every chip has a value, and
  *  every flow and state reading true. */
 function liveValues(doc: Synoptic): SynopticValues {
   const slots: Record<string, SlotReading> = {};
@@ -1963,7 +1952,7 @@ describe("SynopticRenderer text held legible", () => {
   afterEach(layoutGone);
 
   it("holds nothing without a floor, nor while the canvas shows the text at its own size", () => {
-    const doc = plate("ecs-est");
+    const doc = plate("example-dhw");
     canvasAt(0.5);
     expect(heldTexts(draw(doc)).filter((h) => h.k !== 1)).toHaveLength(0);
     cleanup();
@@ -2159,7 +2148,7 @@ describe("SynopticRenderer text held legible", () => {
   });
 
   it("keeps the name of a device in fault where a healthy one gives way", () => {
-    const doc = plate("ecs-est");
+    const doc = plate("example-dhw");
     canvasAt(0.5);
     const hiddenNames = (values: SynopticValues) => {
       const { container } = render(
@@ -2173,17 +2162,17 @@ describe("SynopticRenderer text held legible", () => {
       return names;
     };
     const healthy = liveValues(doc);
-    expect(hiddenNames(healthy)).toContain("pac-04");
-    const device = doc.symbols!.find((s) => s.id === "pac-04")!.device_id!;
+    expect(hiddenNames(healthy)).toContain("pac-02");
+    const device = doc.symbols!.find((s) => s.id === "pac-02")!.device_id!;
     const faulty = {
       ...healthy,
       devices: { [device]: { faulty: true, severity: null } },
     };
-    expect(hiddenNames(faulty)).not.toContain("pac-04");
+    expect(hiddenNames(faulty)).not.toContain("pac-02");
   });
 });
 
-describe("SynopticRenderer moving fluid on the committed plates", () => {
+describe("SynopticRenderer moving fluid on the example plates", () => {
   const flowingRuns = (c: Element) =>
     new Set(
       q(c, "path[data-flow]").map((p) =>

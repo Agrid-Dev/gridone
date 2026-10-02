@@ -1,26 +1,26 @@
 {
   "version": 1,
-  "name": "Production ECS Est",
-  "description": "Hydraulique, production ECS Est : 2 PAC, collecteur départ, 7 ballons 500 L en 3 colonnes, départ ECS vers la distribution par la pompe de surpression et le mitigeur (eau froide adoucie), retour de bouclage vers le stockage par la pompe de bouclage et le réchauffeur de boucle, retour vers les PAC avec appoint eau froide. Températures départ / retour mitigeur non mesurées.",
+  "name": "Exemple ECS",
+  "description": "Exemple fictif, production ECS : 2 PAC, collecteur départ, 9 ballons 500 L en 3 colonnes, départ ECS vers la distribution par la pompe de surpression et le mitigeur (eau froide adoucie), retour de bouclage vers le stockage par la pompe de bouclage et le réchauffeur de boucle, retour vers les PAC avec appoint eau froide. Températures départ / retour mitigeur non mesurées.",
   "projection": "isometric",
   "defaults": { "stale_after": 900 },
   "symbols": [
     {
-      "id": "pac-03",
+      "id": "pac-01",
       "type": "heat_pump",
       "placement": {
         "kind": "cell",
         "cell": { "x": 0, "y": 0 },
         "rotation": 0
       },
-      "label": "PAC 03",
-      "device_id": "ea565103b80b4f10",
+      "label": "PAC 01",
+      "device_id": "a000000000000001",
       "props": {},
       "bindings": {
         "state": {
           "kind": "attribute",
           "target": {
-            "devices": { "ids": ["ea565103b80b4f10"] },
+            "devices": { "ids": ["a000000000000001"] },
             "attribute": "onoff_state"
           },
           "labels": { "true": "MARCHE", "false": "ARRÊT" }
@@ -28,7 +28,7 @@
         "fault": {
           "kind": "attribute",
           "target": {
-            "devices": { "ids": ["ea565103b80b4f10"] },
+            "devices": { "ids": ["a000000000000001"] },
             "attribute": "fault"
           },
           "labels": { "true": "DÉFAUT", "false": "NORMAL" }
@@ -36,21 +36,21 @@
       }
     },
     {
-      "id": "pac-04",
+      "id": "pac-02",
       "type": "heat_pump",
       "placement": {
         "kind": "cell",
         "cell": { "x": 0, "y": 4 },
         "rotation": 0
       },
-      "label": "PAC 04",
-      "device_id": "b290fa85376a42c5",
+      "label": "PAC 02",
+      "device_id": "a000000000000002",
       "props": {},
       "bindings": {
         "state": {
           "kind": "attribute",
           "target": {
-            "devices": { "ids": ["b290fa85376a42c5"] },
+            "devices": { "ids": ["a000000000000002"] },
             "attribute": "onoff_state"
           },
           "labels": { "true": "MARCHE", "false": "ARRÊT" }
@@ -58,7 +58,7 @@
         "fault": {
           "kind": "attribute",
           "target": {
-            "devices": { "ids": ["b290fa85376a42c5"] },
+            "devices": { "ids": ["a000000000000002"] },
             "attribute": "fault"
           },
           "labels": { "true": "DÉFAUT", "false": "NORMAL" }
@@ -66,27 +66,27 @@
       }
     },
     {
-      "id": "v-03",
+      "id": "v-01",
       "type": "valve_isolation",
       "placement": {
         "kind": "pipe",
-        "pipe": "pac-03-supply",
+        "pipe": "pac-01-supply",
         "cell": { "x": 3, "y": 1 }
       },
-      "label": "V-03",
+      "label": "V-01",
       "device_id": null,
       "props": {},
       "bindings": {}
     },
     {
-      "id": "v-04",
+      "id": "v-02",
       "type": "valve_isolation",
       "placement": {
         "kind": "pipe",
-        "pipe": "pac-04-supply",
+        "pipe": "pac-02-supply",
         "cell": { "x": 3, "y": 5 }
       },
-      "label": "V-04",
+      "label": "V-02",
       "device_id": null,
       "props": {},
       "bindings": {}
@@ -152,6 +152,7 @@
         "ports": {
           "in_1": { "offset": 0, "side": "+y" },
           "in_2": { "offset": 4, "side": "+y" },
+          "in_3": { "offset": 8, "side": "+y" },
           "out_1": { "offset": 10, "side": "+x" }
         }
       },
@@ -184,6 +185,19 @@
       "bindings": {}
     },
     {
+      "id": "b03",
+      "type": "tank",
+      "placement": {
+        "kind": "cell",
+        "cell": { "x": 18, "y": 0 },
+        "rotation": 0
+      },
+      "label": null,
+      "device_id": null,
+      "props": { "capacity": "500 L" },
+      "bindings": {}
+    },
+    {
       "id": "b04",
       "type": "tank",
       "placement": {
@@ -202,6 +216,19 @@
       "placement": {
         "kind": "cell",
         "cell": { "x": 14, "y": 4 },
+        "rotation": 0
+      },
+      "label": null,
+      "device_id": null,
+      "props": { "capacity": "500 L" },
+      "bindings": {}
+    },
+    {
+      "id": "b06",
+      "type": "tank",
+      "placement": {
+        "kind": "cell",
+        "cell": { "x": 18, "y": 4 },
         "rotation": 0
       },
       "label": null,
@@ -280,7 +307,7 @@
       "placement": {
         "kind": "pipe",
         "pipe": "dhw-loop-return",
-        "cell": { "x": 28, "y": 4 }
+        "cell": { "x": 28, "y": 0 }
       },
       "label": "POMPE DE BOUCLAGE",
       "device_id": null,
@@ -296,7 +323,7 @@
       "placement": {
         "kind": "pipe",
         "pipe": "dhw-loop-return",
-        "cell": { "x": 24, "y": 5 }
+        "cell": { "x": 22, "y": 1 }
       },
       "label": "RÉCHAUFFEUR DE BOUCLE",
       "device_id": null,
@@ -348,30 +375,30 @@
   ],
   "pipes": [
     {
-      "id": "pac-03-supply",
+      "id": "pac-01-supply",
       "fluid": "primary_supply",
-      "from": { "kind": "port", "symbol": "pac-03", "port": "supply" },
+      "from": { "kind": "port", "symbol": "pac-01", "port": "supply" },
       "to": { "kind": "port", "symbol": "collector-supply", "port": "in_1" },
       "waypoints": [],
       "flow": {
         "kind": "attribute",
         "target": {
-          "devices": { "ids": ["ea565103b80b4f10"] },
+          "devices": { "ids": ["a000000000000001"] },
           "attribute": "onoff_state"
         }
       },
       "tags": []
     },
     {
-      "id": "pac-04-supply",
+      "id": "pac-02-supply",
       "fluid": "primary_supply",
-      "from": { "kind": "port", "symbol": "pac-04", "port": "supply" },
+      "from": { "kind": "port", "symbol": "pac-02", "port": "supply" },
       "to": { "kind": "port", "symbol": "collector-supply", "port": "in_2" },
       "waypoints": [],
       "flow": {
         "kind": "attribute",
         "target": {
-          "devices": { "ids": ["b290fa85376a42c5"] },
+          "devices": { "ids": ["a000000000000002"] },
           "attribute": "onoff_state"
         }
       },
@@ -397,6 +424,23 @@
         { "x": 13, "y": -1, "z": 1 },
         { "x": 13, "y": -1 },
         { "x": 13, "y": 0 }
+      ],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "feed-col-3",
+      "fluid": "primary_supply",
+      "from": {
+        "kind": "pipe",
+        "pipe": "feed-col-2",
+        "cell": { "x": 13, "y": -1, "z": 1 }
+      },
+      "to": { "kind": "port", "symbol": "b03", "port": "primary_in" },
+      "waypoints": [
+        { "x": 17, "y": -1, "z": 1 },
+        { "x": 17, "y": -1 },
+        { "x": 17, "y": 0 }
       ],
       "flow": null,
       "tags": []
@@ -438,15 +482,6 @@
       "tags": []
     },
     {
-      "id": "b08-b09",
-      "fluid": "primary_supply",
-      "from": { "kind": "port", "symbol": "b08", "port": "dhw_out" },
-      "to": { "kind": "port", "symbol": "b09", "port": "primary_in" },
-      "waypoints": [],
-      "flow": null,
-      "tags": []
-    },
-    {
       "id": "b05-b08",
       "fluid": "primary_supply",
       "from": { "kind": "port", "symbol": "b05", "port": "primary_out" },
@@ -454,6 +489,30 @@
       "waypoints": [
         { "x": 13, "y": 5 },
         { "x": 13, "y": 8 }
+      ],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "b03-b06",
+      "fluid": "primary_supply",
+      "from": { "kind": "port", "symbol": "b03", "port": "primary_out" },
+      "to": { "kind": "port", "symbol": "b06", "port": "primary_in" },
+      "waypoints": [
+        { "x": 17, "y": 1 },
+        { "x": 17, "y": 4 }
+      ],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "b06-b09",
+      "fluid": "primary_supply",
+      "from": { "kind": "port", "symbol": "b06", "port": "primary_out" },
+      "to": { "kind": "port", "symbol": "b09", "port": "primary_in" },
+      "waypoints": [
+        { "x": 17, "y": 5 },
+        { "x": 17, "y": 8 }
       ],
       "flow": null,
       "tags": []
@@ -489,7 +548,7 @@
       "id": "return-loop",
       "fluid": "primary_return",
       "from": { "kind": "port", "symbol": "collector-return", "port": "out_1" },
-      "to": { "kind": "port", "symbol": "pac-03", "port": "return" },
+      "to": { "kind": "port", "symbol": "pac-01", "port": "return" },
       "waypoints": [
         { "x": -1, "y": 13 },
         { "x": -1, "y": 1 }
@@ -498,14 +557,14 @@
       "tags": []
     },
     {
-      "id": "return-pac-04",
+      "id": "return-pac-02",
       "fluid": "primary_return",
       "from": {
         "kind": "pipe",
         "pipe": "return-loop",
         "cell": { "x": -1, "y": 5 }
       },
-      "to": { "kind": "port", "symbol": "pac-04", "port": "return" },
+      "to": { "kind": "port", "symbol": "pac-02", "port": "return" },
       "waypoints": [],
       "flow": null,
       "tags": []
@@ -525,6 +584,15 @@
       "from": { "kind": "port", "symbol": "b02", "port": "dhw_out" },
       "to": { "kind": "port", "symbol": "collector-dhw", "port": "in_2" },
       "waypoints": [{ "x": 15, "y": 0 }],
+      "flow": null,
+      "tags": []
+    },
+    {
+      "id": "col-3-dhw-out",
+      "fluid": "dhw",
+      "from": { "kind": "port", "symbol": "b03", "port": "dhw_out" },
+      "to": { "kind": "port", "symbol": "collector-dhw", "port": "in_3" },
+      "waypoints": [{ "x": 19, "y": 0 }],
       "flow": null,
       "tags": []
     },
@@ -557,11 +625,11 @@
       "id": "dhw-loop-return",
       "fluid": "dhw_loop",
       "from": { "kind": "port", "symbol": "link-distribution", "port": "out" },
-      "to": { "kind": "port", "symbol": "b05", "port": "dhw_in" },
+      "to": { "kind": "port", "symbol": "b03", "port": "dhw_in" },
       "waypoints": [
         { "x": 28, "y": -2 },
-        { "x": 28, "y": 5 },
-        { "x": 15, "y": 5 }
+        { "x": 28, "y": 1 },
+        { "x": 19, "y": 1 }
       ],
       "flow": null,
       "tags": [
@@ -602,7 +670,7 @@
     {
       "id": "title",
       "at": { "x": -1, "y": -6 },
-      "text": "PRODUCTION ECS EST",
+      "text": "PRODUCTION ECS",
       "role": "title",
       "value": null
     },
@@ -616,19 +684,19 @@
     {
       "id": "zone-storage",
       "at": { "x": 20, "y": 10.5 },
-      "text": "STOCKAGE · 7 × 500 L · 3 500 L",
+      "text": "STOCKAGE · 9 × 500 L",
       "role": "caption",
       "value": null
     },
     {
-      "id": "cpt-ballon-est",
+      "id": "cpt-ballons",
       "at": { "x": 20, "y": 11.5 },
-      "text": "COMPTEUR ÉLEC. BALLON EST",
+      "text": "COMPTEUR ÉLEC. BALLONS",
       "role": "caption",
       "value": {
         "kind": "attribute",
         "target": {
-          "devices": { "ids": ["87c6dfe5bdcf4d87"] },
+          "devices": { "ids": ["a000000000000003"] },
           "attribute": "energy"
         },
         "unit": "kWh",

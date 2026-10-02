@@ -41,12 +41,12 @@ async def service(resolver):
 
 
 @pytest.fixture
-def plate(ecs_est_raw):
-    return SynopticDocument.model_validate(ecs_est_raw)
+def plate(dhw_raw):
+    return SynopticDocument.model_validate(dhw_raw)
 
 
 async def test_every_plate_round_trips_through_postgres(service, plate_raw):
-    """The milestone's exit: each hand-written plate is stored in Postgres and
+    """The milestone's exit: each example plate is stored in Postgres and
     served back unchanged."""
     svc, created = service
     document = SynopticDocument.model_validate(plate_raw)
@@ -68,18 +68,18 @@ async def test_the_index_reads_the_envelope_out_of_the_document(service, plate):
 
     summaries = (await svc.list()).items
     summary = next(s for s in summaries if s.id == stored.id)
-    assert (summary.name, summary.projection) == ("Production ECS Est", "isometric")
+    assert (summary.name, summary.projection) == ("Exemple ECS", "isometric")
 
 
-async def test_replace_and_delete(service, plate, ecs_est_raw):
+async def test_replace_and_delete(service, plate, dhw_raw):
     svc, created = service
     stored = await svc.create(plate)
     created.append(stored.id)
 
-    renamed = dict(ecs_est_raw, name="Production ECS Est (rev B)")
+    renamed = dict(dhw_raw, name="Exemple ECS (rev B)")
     replaced = await svc.replace(stored.id, SynopticDocument.model_validate(renamed))
-    assert replaced.name == "Production ECS Est (rev B)"
-    assert (await svc.get(stored.id)).name == "Production ECS Est (rev B)"
+    assert replaced.name == "Exemple ECS (rev B)"
+    assert (await svc.get(stored.id)).name == "Exemple ECS (rev B)"
 
     await svc.delete(stored.id)
     with pytest.raises(NotFoundError):

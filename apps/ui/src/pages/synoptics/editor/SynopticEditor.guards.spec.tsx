@@ -2,8 +2,7 @@
 // number the editor refused left standing in its field, a step that
 // changes nothing, a raised run on a plate that opens flat, a flow without
 // its reading.
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { readPlate } from "@/test/examplePlates";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   cleanup,
@@ -86,15 +85,7 @@ vi.mock("./PreviewDialog", () => ({ PreviewDialog: () => null }));
 
 const UPDATED_AT = "2026-09-17T12:00:00+00:00";
 const PLATE: Synoptic = {
-  ...JSON.parse(
-    readFileSync(
-      resolve(
-        import.meta.dirname,
-        "../../../../../../docs/specs/synoptic/ecs-ouest.json",
-      ),
-      "utf8",
-    ),
-  ),
+  ...(readPlate("example-dhw") as Synoptic),
   id: "ouest",
   metadata: { created_at: UPDATED_AT, updated_at: UPDATED_AT },
 };

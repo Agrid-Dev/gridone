@@ -4,7 +4,7 @@
 
 The package draws nothing. It validates and persists the description; the renderer derives a drawing from it.
 
-The format is specified in [`docs/specs/synoptic-document.md`](../../docs/specs/synoptic-document.md), and [`docs/specs/synoptic/ecs-est.json`](../../docs/specs/synoptic/ecs-est.json) is a complete plate written in it.
+The format is specified in [`docs/specs/synoptic-document.md`](../../docs/specs/synoptic-document.md), and [`docs/specs/synoptic/example-dhw.json`](../../docs/specs/synoptic/example-dhw.json) is a complete plate written in it.
 
 ## The store holds the description, never a rendering
 

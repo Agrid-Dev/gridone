@@ -1,32 +1,32 @@
 {
   "version": 1,
-  "name": "Production Chaud",
-  "description": "Hydraulique, production chaud : primaire depuis le bâtiment D sur l'échangeur ECH EC04 (vanne de régulation et compteur thermique au retour), secondaire par le séparateur d'air et les deux pompes doubles PEC E2 / PEC E3 sur le collecteur départ, quatre circuits (ECS cuisine, change-over VC (ventilo-convecteurs), CTA / radiateur / RAC, change-over VCV chambres) et retour avec le pot à boue en dérivation, le vase d'expansion VEC 04 et l'appoint d'eau de ville depuis la production EG.",
+  "name": "Exemple production chaud",
+  "description": "Exemple fictif, production chaud : primaire depuis la sous-station sur l'échangeur (vanne de régulation et compteur thermique au retour), secondaire par le séparateur d'air et deux pompes doubles sur le collecteur départ, quatre circuits (ECS cuisine, change-over VC, CTA / radiateurs, change-over VCV chambres) et retour avec le pot à boue en dérivation, le vase d'expansion et l'appoint d'eau de ville depuis la production EG.",
   "projection": "isometric",
   "defaults": { "stale_after": 900 },
   "symbols": [
     {
-      "id": "link-batiment-d",
+      "id": "link-primaire",
       "type": "link",
       "placement": {
         "kind": "cell",
         "cell": { "x": -1, "y": 0 },
         "rotation": 2
       },
-      "label": "DEPUIS BÂTIMENT D",
+      "label": "DEPUIS SOUS-STATION",
       "device_id": null,
       "props": { "synoptic_id": null, "caption": null },
       "bindings": {}
     },
     {
-      "id": "ech-ec04",
+      "id": "echangeur",
       "type": "plate_exchanger",
       "placement": {
         "kind": "cell",
         "cell": { "x": 10, "y": 0 },
         "rotation": 2
       },
-      "label": "ECH EC04",
+      "label": "ÉCHANGEUR",
       "device_id": null,
       "props": {},
       "bindings": {}
@@ -46,8 +46,8 @@
         "position": {
           "kind": "attribute",
           "target": {
-            "devices": { "ids": ["71c980107f9448e7"] },
-            "attribute": "ec04_sigv3v"
+            "devices": { "ids": ["b000000000000001"] },
+            "attribute": "valve_position"
           },
           "unit": "%",
           "decimals": 0
@@ -55,24 +55,22 @@
       }
     },
     {
-      "id": "cpt-ec-ech-04",
+      "id": "cpt-primaire",
       "type": "energy_meter",
       "placement": {
         "kind": "pipe",
         "pipe": "prim-return",
         "cell": { "x": 2, "y": 0 }
       },
-      "label": "CPT-EC-ECH-04",
-      "device_id": "248de4cb7fa34704",
+      "label": "CPT PRIMAIRE",
+      "device_id": "b000000000000002",
       "props": {},
       "bindings": {
         "energy": {
           "kind": "attribute",
           "target": {
-            "devices": {
-              "ids": ["248de4cb7fa34704"]
-            },
-            "attribute": "energie"
+            "devices": { "ids": ["b000000000000002"] },
+            "attribute": "energy"
           },
           "unit": "kWh",
           "decimals": 0
@@ -93,26 +91,26 @@
       "bindings": {}
     },
     {
-      "id": "pompe-pec-e2",
+      "id": "pompe-1",
       "type": "pump_double",
       "placement": {
         "kind": "pipe",
-        "pipe": "pec-e2-branch",
+        "pipe": "pompe-1-branch",
         "cell": { "x": 20, "y": -18 }
       },
-      "label": "PEC E2",
+      "label": "POMPE 1",
       "device_id": null,
       "props": {
         "heads": {
-          "a": { "device_id": "52ed0f86ef794a28" },
-          "b": { "device_id": "cd1eb8257cce468b" }
+          "a": { "device_id": "b000000000000003" },
+          "b": { "device_id": "b000000000000004" }
         }
       },
       "bindings": {
         "state_a": {
           "kind": "attribute",
           "target": {
-            "devices": { "ids": ["52ed0f86ef794a28"] },
+            "devices": { "ids": ["b000000000000003"] },
             "attribute": "onoff_state"
           },
           "labels": { "true": "MARCHE", "false": "ARRÊT" }
@@ -120,7 +118,7 @@
         "speed_a": {
           "kind": "attribute",
           "target": {
-            "devices": { "ids": ["52ed0f86ef794a28"] },
+            "devices": { "ids": ["b000000000000003"] },
             "attribute": "speed"
           },
           "unit": "tr/min",
@@ -129,7 +127,7 @@
         "state_b": {
           "kind": "attribute",
           "target": {
-            "devices": { "ids": ["cd1eb8257cce468b"] },
+            "devices": { "ids": ["b000000000000004"] },
             "attribute": "onoff_state"
           },
           "labels": { "true": "MARCHE", "false": "ARRÊT" }
@@ -137,7 +135,7 @@
         "speed_b": {
           "kind": "attribute",
           "target": {
-            "devices": { "ids": ["cd1eb8257cce468b"] },
+            "devices": { "ids": ["b000000000000004"] },
             "attribute": "speed"
           },
           "unit": "tr/min",
@@ -146,26 +144,26 @@
       }
     },
     {
-      "id": "pompe-pec-e3",
+      "id": "pompe-2",
       "type": "pump_double",
       "placement": {
         "kind": "pipe",
-        "pipe": "pec-e3-branch",
+        "pipe": "pompe-2-branch",
         "cell": { "x": 20, "y": -11 }
       },
-      "label": "PEC E3",
+      "label": "POMPE 2",
       "device_id": null,
       "props": {
         "heads": {
-          "a": { "device_id": "da726c2051f04915" },
-          "b": { "device_id": "44b799a6fd4f4023" }
+          "a": { "device_id": "b000000000000005" },
+          "b": { "device_id": "b000000000000006" }
         }
       },
       "bindings": {
         "state_a": {
           "kind": "attribute",
           "target": {
-            "devices": { "ids": ["da726c2051f04915"] },
+            "devices": { "ids": ["b000000000000005"] },
             "attribute": "onoff_state"
           },
           "labels": { "true": "MARCHE", "false": "ARRÊT" }
@@ -173,7 +171,7 @@
         "speed_a": {
           "kind": "attribute",
           "target": {
-            "devices": { "ids": ["da726c2051f04915"] },
+            "devices": { "ids": ["b000000000000005"] },
             "attribute": "speed"
           },
           "unit": "tr/min",
@@ -182,7 +180,7 @@
         "state_b": {
           "kind": "attribute",
           "target": {
-            "devices": { "ids": ["44b799a6fd4f4023"] },
+            "devices": { "ids": ["b000000000000006"] },
             "attribute": "onoff_state"
           },
           "labels": { "true": "MARCHE", "false": "ARRÊT" }
@@ -190,7 +188,7 @@
         "speed_b": {
           "kind": "attribute",
           "target": {
-            "devices": { "ids": ["44b799a6fd4f4023"] },
+            "devices": { "ids": ["b000000000000006"] },
             "attribute": "speed"
           },
           "unit": "tr/min",
@@ -259,30 +257,28 @@
         "fault": {
           "kind": "attribute",
           "target": {
-            "devices": {
-              "ids": ["71c980107f9448e7"]
-            },
-            "attribute": "ec04_defpotboue"
+            "devices": { "ids": ["b000000000000001"] },
+            "attribute": "dirt_fault"
           },
           "labels": { "true": "DÉFAUT", "false": "NORMAL" }
         }
       }
     },
     {
-      "id": "vec-04",
+      "id": "vase-expansion",
       "type": "expansion_vessel",
       "placement": {
         "kind": "cell",
         "cell": { "x": 24, "y": 4 },
         "rotation": 1
       },
-      "label": "VASE D'EXPANSION VEC 04",
+      "label": "VASE D'EXPANSION",
       "device_id": null,
       "props": {},
       "bindings": {}
     },
     {
-      "id": "link-production-eg",
+      "id": "link-appoint",
       "type": "link",
       "placement": {
         "kind": "cell",
@@ -322,8 +318,8 @@
         "position": {
           "kind": "attribute",
           "target": {
-            "devices": { "ids": ["1c1724ce0ba54ef0"] },
-            "attribute": "relposition"
+            "devices": { "ids": ["b000000000000007"] },
+            "attribute": "valve_position"
           },
           "unit": "%",
           "decimals": 0
@@ -338,15 +334,15 @@
         "pipe": "cuisine-retour",
         "cell": { "x": 34, "y": -7 }
       },
-      "label": "CPT-EC-ECS CUISINE",
-      "device_id": "1c1724ce0ba54ef0",
+      "label": "CPT CUISINE",
+      "device_id": "b000000000000007",
       "props": {},
       "bindings": {
         "energy": {
           "kind": "attribute",
           "target": {
-            "devices": { "ids": ["1c1724ce0ba54ef0"] },
-            "attribute": "energyheating1"
+            "devices": { "ids": ["b000000000000007"] },
+            "attribute": "energy"
           },
           "unit": "kWh",
           "decimals": 0
@@ -381,8 +377,8 @@
         "position": {
           "kind": "attribute",
           "target": {
-            "devices": { "ids": ["c38fbfc58e1d40e7"] },
-            "attribute": "relposition"
+            "devices": { "ids": ["b000000000000008"] },
+            "attribute": "valve_position"
           },
           "unit": "%",
           "decimals": 0
@@ -397,15 +393,15 @@
         "pipe": "vc-retour",
         "cell": { "x": 46, "y": -7 }
       },
-      "label": "CPT-EC-VCO",
-      "device_id": "c38fbfc58e1d40e7",
+      "label": "CPT VC",
+      "device_id": "b000000000000008",
       "props": {},
       "bindings": {
         "energy": {
           "kind": "attribute",
           "target": {
-            "devices": { "ids": ["c38fbfc58e1d40e7"] },
-            "attribute": "energyheating1"
+            "devices": { "ids": ["b000000000000008"] },
+            "attribute": "energy"
           },
           "unit": "kWh",
           "decimals": 0
@@ -427,8 +423,8 @@
         "state": {
           "kind": "attribute",
           "target": {
-            "devices": { "ids": ["5ab638091bd2483d"] },
-            "attribute": "vcec_choverfdcouv"
+            "devices": { "ids": ["b000000000000009"] },
+            "attribute": "vc_heating_open"
           },
           "labels": { "true": "OUVERTE", "false": "FERMÉE" }
         }
@@ -449,8 +445,8 @@
         "state": {
           "kind": "attribute",
           "target": {
-            "devices": { "ids": ["5ab638091bd2483d"] },
-            "attribute": "vcec_choverfdcouv"
+            "devices": { "ids": ["b000000000000009"] },
+            "attribute": "vc_heating_open"
           },
           "labels": { "true": "OUVERTE", "false": "FERMÉE" }
         }
@@ -497,8 +493,8 @@
         "state": {
           "kind": "attribute",
           "target": {
-            "devices": { "ids": ["5ab638091bd2483d"] },
-            "attribute": "vceg_choverfdcouv"
+            "devices": { "ids": ["b000000000000009"] },
+            "attribute": "vc_cooling_open"
           },
           "labels": { "true": "OUVERTE", "false": "FERMÉE" }
         }
@@ -519,8 +515,8 @@
         "state": {
           "kind": "attribute",
           "target": {
-            "devices": { "ids": ["5ab638091bd2483d"] },
-            "attribute": "vceg_choverfdcouv"
+            "devices": { "ids": ["b000000000000009"] },
+            "attribute": "vc_cooling_open"
           },
           "labels": { "true": "OUVERTE", "false": "FERMÉE" }
         }
@@ -534,7 +530,7 @@
         "cell": { "x": 62, "y": -14 },
         "rotation": 0
       },
-      "label": "CIRCUIT CTA / RADIATEUR / RAC",
+      "label": "CIRCUIT CTA / RADIATEURS",
       "device_id": null,
       "props": { "synoptic_id": null, "caption": null },
       "bindings": {}
@@ -554,8 +550,8 @@
         "position": {
           "kind": "attribute",
           "target": {
-            "devices": { "ids": ["f38f762306b94da2"] },
-            "attribute": "relposition"
+            "devices": { "ids": ["b00000000000000a"] },
+            "attribute": "valve_position"
           },
           "unit": "%",
           "decimals": 0
@@ -570,15 +566,15 @@
         "pipe": "cta-retour",
         "cell": { "x": 58, "y": -7 }
       },
-      "label": "CPT-EC-CTA",
-      "device_id": "f38f762306b94da2",
+      "label": "CPT CTA",
+      "device_id": "b00000000000000a",
       "props": {},
       "bindings": {
         "energy": {
           "kind": "attribute",
           "target": {
-            "devices": { "ids": ["f38f762306b94da2"] },
-            "attribute": "energyheating1"
+            "devices": { "ids": ["b00000000000000a"] },
+            "attribute": "energy"
           },
           "unit": "kWh",
           "decimals": 0
@@ -613,8 +609,8 @@
         "position": {
           "kind": "attribute",
           "target": {
-            "devices": { "ids": ["710facd4aa5946ca"] },
-            "attribute": "relposition"
+            "devices": { "ids": ["b00000000000000b"] },
+            "attribute": "valve_position"
           },
           "unit": "%",
           "decimals": 0
@@ -629,15 +625,15 @@
         "pipe": "vcv-chambres-retour",
         "cell": { "x": 70, "y": -7 }
       },
-      "label": "CPT-EC-CHAMBRES",
-      "device_id": "710facd4aa5946ca",
+      "label": "CPT CHAMBRES",
+      "device_id": "b00000000000000b",
       "props": {},
       "bindings": {
         "energy": {
           "kind": "attribute",
           "target": {
-            "devices": { "ids": ["710facd4aa5946ca"] },
-            "attribute": "energyheating1"
+            "devices": { "ids": ["b00000000000000b"] },
+            "attribute": "energy"
           },
           "unit": "kWh",
           "decimals": 0
@@ -659,8 +655,8 @@
         "state": {
           "kind": "attribute",
           "target": {
-            "devices": { "ids": ["5ab638091bd2483d"] },
-            "attribute": "vcvec_choverfdcouv"
+            "devices": { "ids": ["b000000000000009"] },
+            "attribute": "vcv_heating_open"
           },
           "labels": { "true": "OUVERTE", "false": "FERMÉE" }
         }
@@ -681,8 +677,8 @@
         "state": {
           "kind": "attribute",
           "target": {
-            "devices": { "ids": ["5ab638091bd2483d"] },
-            "attribute": "vcvec_choverfdcouv"
+            "devices": { "ids": ["b000000000000009"] },
+            "attribute": "vcv_heating_open"
           },
           "labels": { "true": "OUVERTE", "false": "FERMÉE" }
         }
@@ -729,8 +725,8 @@
         "state": {
           "kind": "attribute",
           "target": {
-            "devices": { "ids": ["5ab638091bd2483d"] },
-            "attribute": "vcveg_choverfdcouv"
+            "devices": { "ids": ["b000000000000009"] },
+            "attribute": "vcv_cooling_open"
           },
           "labels": { "true": "OUVERTE", "false": "FERMÉE" }
         }
@@ -751,8 +747,8 @@
         "state": {
           "kind": "attribute",
           "target": {
-            "devices": { "ids": ["5ab638091bd2483d"] },
-            "attribute": "vcveg_choverfdcouv"
+            "devices": { "ids": ["b000000000000009"] },
+            "attribute": "vcv_cooling_open"
           },
           "labels": { "true": "OUVERTE", "false": "FERMÉE" }
         }
@@ -763,8 +759,8 @@
     {
       "id": "prim-supply",
       "fluid": "primary_supply",
-      "from": { "kind": "port", "symbol": "link-batiment-d", "port": "out" },
-      "to": { "kind": "port", "symbol": "ech-ec04", "port": "primary_in" },
+      "from": { "kind": "port", "symbol": "link-primaire", "port": "out" },
+      "to": { "kind": "port", "symbol": "echangeur", "port": "primary_in" },
       "waypoints": [
         { "x": 9, "y": -1 },
         { "x": 9, "y": -1, "z": 1 },
@@ -781,10 +777,8 @@
           "value": {
             "kind": "attribute",
             "target": {
-              "devices": {
-                "ids": ["248de4cb7fa34704"]
-              },
-              "attribute": "tmpdepart"
+              "devices": { "ids": ["b000000000000002"] },
+              "attribute": "supply_temp"
             },
             "unit": "°C",
             "decimals": 1
@@ -795,8 +789,8 @@
     {
       "id": "prim-return",
       "fluid": "primary_return",
-      "from": { "kind": "port", "symbol": "ech-ec04", "port": "primary_out" },
-      "to": { "kind": "port", "symbol": "link-batiment-d", "port": "in" },
+      "from": { "kind": "port", "symbol": "echangeur", "port": "primary_out" },
+      "to": { "kind": "port", "symbol": "link-primaire", "port": "in" },
       "waypoints": [],
       "flow": null,
       "tags": [
@@ -807,10 +801,8 @@
           "value": {
             "kind": "attribute",
             "target": {
-              "devices": {
-                "ids": ["248de4cb7fa34704"]
-              },
-              "attribute": "tmpretour"
+              "devices": { "ids": ["b000000000000002"] },
+              "attribute": "return_temp"
             },
             "unit": "°C",
             "decimals": 1
@@ -821,10 +813,14 @@
     {
       "id": "sec-supply",
       "fluid": "heating_supply",
-      "from": { "kind": "port", "symbol": "ech-ec04", "port": "secondary_out" },
+      "from": {
+        "kind": "port",
+        "symbol": "echangeur",
+        "port": "secondary_out"
+      },
       "to": {
         "kind": "pipe",
-        "pipe": "pec-e2-branch",
+        "pipe": "pompe-1-branch",
         "cell": { "x": 16, "y": -18 }
       },
       "waypoints": [
@@ -840,8 +836,8 @@
           "value": {
             "kind": "attribute",
             "target": {
-              "devices": { "ids": ["71c980107f9448e7"] },
-              "attribute": "echec_tmpdepart"
+              "devices": { "ids": ["b000000000000001"] },
+              "attribute": "supply_temp"
             },
             "unit": "°C",
             "decimals": 1
@@ -850,12 +846,9 @@
       ]
     },
     {
-      "id": "pec-e2-branch",
+      "id": "pompe-1-branch",
       "fluid": "heating_supply",
-      "from": {
-        "kind": "cell",
-        "cell": { "x": 16, "y": -18 }
-      },
+      "from": { "kind": "cell", "cell": { "x": 16, "y": -18 } },
       "to": {
         "kind": "pipe",
         "pipe": "sec-supply-out",
@@ -865,13 +858,13 @@
       "flow": null,
       "tags": [
         {
-          "id": "pression-pec-e2a",
+          "id": "pression-1a",
           "at": { "x": 18, "y": -18 },
           "label": "PRESSION A",
           "value": {
             "kind": "attribute",
             "target": {
-              "devices": { "ids": ["52ed0f86ef794a28"] },
+              "devices": { "ids": ["b000000000000003"] },
               "attribute": "head"
             },
             "unit": "bar",
@@ -879,13 +872,13 @@
           }
         },
         {
-          "id": "pression-pec-e2b",
+          "id": "pression-1b",
           "at": { "x": 22, "y": -18 },
           "label": "PRESSION B",
           "value": {
             "kind": "attribute",
             "target": {
-              "devices": { "ids": ["cd1eb8257cce468b"] },
+              "devices": { "ids": ["b000000000000004"] },
               "attribute": "head"
             },
             "unit": "bar",
@@ -895,7 +888,7 @@
       ]
     },
     {
-      "id": "pec-e3-branch",
+      "id": "pompe-2-branch",
       "fluid": "heating_supply",
       "from": {
         "kind": "pipe",
@@ -911,13 +904,13 @@
       "flow": null,
       "tags": [
         {
-          "id": "pression-pec-e3a",
+          "id": "pression-2a",
           "at": { "x": 18, "y": -11 },
           "label": "PRESSION A",
           "value": {
             "kind": "attribute",
             "target": {
-              "devices": { "ids": ["da726c2051f04915"] },
+              "devices": { "ids": ["b000000000000005"] },
               "attribute": "head"
             },
             "unit": "bar",
@@ -925,13 +918,13 @@
           }
         },
         {
-          "id": "pression-pec-e3b",
+          "id": "pression-2b",
           "at": { "x": 22, "y": -11 },
           "label": "PRESSION B",
           "value": {
             "kind": "attribute",
             "target": {
-              "devices": { "ids": ["44b799a6fd4f4023"] },
+              "devices": { "ids": ["b000000000000006"] },
               "attribute": "head"
             },
             "unit": "bar",
@@ -943,10 +936,7 @@
     {
       "id": "sec-supply-out",
       "fluid": "heating_supply",
-      "from": {
-        "kind": "cell",
-        "cell": { "x": 24, "y": -18 }
-      },
+      "from": { "kind": "cell", "cell": { "x": 24, "y": -18 } },
       "to": { "kind": "port", "symbol": "collector-supply", "port": "in_1" },
       "waypoints": [{ "x": 24, "y": -3 }],
       "flow": null,
@@ -955,12 +945,8 @@
     {
       "id": "sec-return",
       "fluid": "heating_return",
-      "from": {
-        "kind": "port",
-        "symbol": "collector-return",
-        "port": "out_1"
-      },
-      "to": { "kind": "port", "symbol": "ech-ec04", "port": "secondary_in" },
+      "from": { "kind": "port", "symbol": "collector-return", "port": "out_1" },
+      "to": { "kind": "port", "symbol": "echangeur", "port": "secondary_in" },
       "waypoints": [{ "x": 10, "y": 2 }],
       "flow": null,
       "tags": [
@@ -971,10 +957,8 @@
           "value": {
             "kind": "attribute",
             "target": {
-              "devices": {
-                "ids": ["71c980107f9448e7"]
-              },
-              "attribute": "ec04_defmanqueeau"
+              "devices": { "ids": ["b000000000000001"] },
+              "attribute": "low_water_fault"
             },
             "labels": { "true": "DÉFAUT", "false": "NORMAL" }
           }
@@ -1009,7 +993,7 @@
         "pipe": "sec-return",
         "cell": { "x": 24, "y": 2 }
       },
-      "to": { "kind": "port", "symbol": "vec-04", "port": "in" },
+      "to": { "kind": "port", "symbol": "vase-expansion", "port": "in" },
       "waypoints": [],
       "flow": null,
       "tags": []
@@ -1017,11 +1001,7 @@
     {
       "id": "eau-ville",
       "fluid": "cold_water",
-      "from": {
-        "kind": "port",
-        "symbol": "link-production-eg",
-        "port": "out"
-      },
+      "from": { "kind": "port", "symbol": "link-appoint", "port": "out" },
       "to": {
         "kind": "pipe",
         "pipe": "vase-connection",
@@ -1034,11 +1014,7 @@
     {
       "id": "cuisine-depart",
       "fluid": "heating_supply",
-      "from": {
-        "kind": "port",
-        "symbol": "collector-supply",
-        "port": "out_1"
-      },
+      "from": { "kind": "port", "symbol": "collector-supply", "port": "out_1" },
       "to": { "kind": "port", "symbol": "link-cuisine", "port": "in" },
       "waypoints": [{ "x": 32, "y": -14 }],
       "flow": null,
@@ -1050,8 +1026,8 @@
           "value": {
             "kind": "attribute",
             "target": {
-              "devices": { "ids": ["1c1724ce0ba54ef0"] },
-              "attribute": "temp1c"
+              "devices": { "ids": ["b000000000000007"] },
+              "attribute": "supply_temp"
             },
             "unit": "°C",
             "decimals": 1
@@ -1080,8 +1056,8 @@
           "value": {
             "kind": "attribute",
             "target": {
-              "devices": { "ids": ["1c1724ce0ba54ef0"] },
-              "attribute": "temp2c"
+              "devices": { "ids": ["b000000000000007"] },
+              "attribute": "return_temp"
             },
             "unit": "°C",
             "decimals": 1
@@ -1092,11 +1068,7 @@
     {
       "id": "vc-depart",
       "fluid": "heating_supply",
-      "from": {
-        "kind": "port",
-        "symbol": "collector-supply",
-        "port": "out_2"
-      },
+      "from": { "kind": "port", "symbol": "collector-supply", "port": "out_2" },
       "to": { "kind": "port", "symbol": "link-vc", "port": "in" },
       "waypoints": [{ "x": 44, "y": -14 }],
       "flow": null,
@@ -1108,8 +1080,8 @@
           "value": {
             "kind": "attribute",
             "target": {
-              "devices": { "ids": ["5ab638091bd2483d"] },
-              "attribute": "vc_tmpdepart"
+              "devices": { "ids": ["b000000000000009"] },
+              "attribute": "vc_supply_temp"
             },
             "unit": "°C",
             "decimals": 1
@@ -1138,8 +1110,8 @@
           "value": {
             "kind": "attribute",
             "target": {
-              "devices": { "ids": ["c38fbfc58e1d40e7"] },
-              "attribute": "temp2c"
+              "devices": { "ids": ["b000000000000008"] },
+              "attribute": "return_temp"
             },
             "unit": "°C",
             "decimals": 1
@@ -1150,11 +1122,7 @@
     {
       "id": "eg-vc-aller",
       "fluid": "chilled_supply",
-      "from": {
-        "kind": "port",
-        "symbol": "link-eg-vc-aller",
-        "port": "out"
-      },
+      "from": { "kind": "port", "symbol": "link-eg-vc-aller", "port": "out" },
       "to": {
         "kind": "pipe",
         "pipe": "vc-depart",
@@ -1172,11 +1140,7 @@
         "pipe": "vc-retour",
         "cell": { "x": 46, "y": -11 }
       },
-      "to": {
-        "kind": "port",
-        "symbol": "link-eg-vc-retour",
-        "port": "in"
-      },
+      "to": { "kind": "port", "symbol": "link-eg-vc-retour", "port": "in" },
       "waypoints": [],
       "flow": null,
       "tags": []
@@ -1184,11 +1148,7 @@
     {
       "id": "cta-depart",
       "fluid": "heating_supply",
-      "from": {
-        "kind": "port",
-        "symbol": "collector-supply",
-        "port": "out_3"
-      },
+      "from": { "kind": "port", "symbol": "collector-supply", "port": "out_3" },
       "to": { "kind": "port", "symbol": "link-cta", "port": "in" },
       "waypoints": [{ "x": 56, "y": -14 }],
       "flow": null,
@@ -1200,8 +1160,8 @@
           "value": {
             "kind": "attribute",
             "target": {
-              "devices": { "ids": ["f38f762306b94da2"] },
-              "attribute": "temp1c"
+              "devices": { "ids": ["b00000000000000a"] },
+              "attribute": "supply_temp"
             },
             "unit": "°C",
             "decimals": 1
@@ -1230,8 +1190,8 @@
           "value": {
             "kind": "attribute",
             "target": {
-              "devices": { "ids": ["f38f762306b94da2"] },
-              "attribute": "temp2c"
+              "devices": { "ids": ["b00000000000000a"] },
+              "attribute": "return_temp"
             },
             "unit": "°C",
             "decimals": 1
@@ -1242,11 +1202,7 @@
     {
       "id": "vcv-chambres-depart",
       "fluid": "heating_supply",
-      "from": {
-        "kind": "port",
-        "symbol": "collector-supply",
-        "port": "out_4"
-      },
+      "from": { "kind": "port", "symbol": "collector-supply", "port": "out_4" },
       "to": { "kind": "port", "symbol": "link-vcv-chambres", "port": "in" },
       "waypoints": [{ "x": 68, "y": -14 }],
       "flow": null,
@@ -1258,8 +1214,8 @@
           "value": {
             "kind": "attribute",
             "target": {
-              "devices": { "ids": ["5ab638091bd2483d"] },
-              "attribute": "vcv_tmpdepart"
+              "devices": { "ids": ["b000000000000009"] },
+              "attribute": "vcv_supply_temp"
             },
             "unit": "°C",
             "decimals": 1
@@ -1288,8 +1244,8 @@
           "value": {
             "kind": "attribute",
             "target": {
-              "devices": { "ids": ["710facd4aa5946ca"] },
-              "attribute": "temp2c"
+              "devices": { "ids": ["b00000000000000b"] },
+              "attribute": "return_temp"
             },
             "unit": "°C",
             "decimals": 1

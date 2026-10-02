@@ -1,5 +1,5 @@
 // Dev-only verification harness (committed on purpose): mounts the synoptic
-// editor on the committed plates, with a client that answers from memory and
+// editor on the example plates, with a client that answers from memory and
 // fake devices, so a browser can drive and screenshot it without a backend
 // or a login. Vite serves it in development at
 // `/synoptics-editor-harness.html`; the production build never includes it,
@@ -27,17 +27,13 @@ import {
   SynopticCreate,
   SynopticEdit,
 } from "@/pages/synoptics/editor/SynopticEditor";
-import ecsEst from "../../../../docs/specs/synoptic/ecs-est.json";
-import ecsOuest from "../../../../docs/specs/synoptic/ecs-ouest.json";
-import chaud from "../../../../docs/specs/synoptic/production-chaud.json";
-import froid from "../../../../docs/specs/synoptic/production-froid.json";
+import dhw from "../../../../docs/specs/synoptic/example-dhw.json";
+import heating from "../../../../docs/specs/synoptic/example-heating.json";
 
 const PLATES: Record<string, Synoptic> = Object.fromEntries(
   Object.entries({
-    "ecs-est": ecsEst,
-    "ecs-ouest": ecsOuest,
-    "production-chaud": chaud,
-    "production-froid": froid,
+    "example-dhw": dhw,
+    "example-heating": heating,
   }).map(([id, plate]) => [
     id,
     {
@@ -52,7 +48,7 @@ const PLATES: Record<string, Synoptic> = Object.fromEntries(
 );
 
 const params = new URLSearchParams(window.location.search);
-const plate = params.get("plate") ?? "ecs-est";
+const plate = params.get("plate") ?? "example-dhw";
 if (params.get("dark")) document.documentElement.classList.add("dark");
 const lang = params.get("lang");
 if (lang) void i18n.changeLanguage(lang);
@@ -74,7 +70,7 @@ const attribute = (
   last_changed: now(),
 });
 
-/** Every device a committed plate names, with the attributes its slots
+/** Every device an example plate names, with the attributes its slots
  *  read, and a spare one to bind a new symbol to. */
 const DEVICES: Device[] = [
   ...new Set(

@@ -1,7 +1,6 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import type { Cell, SymbolElement, Synoptic } from "@gridone/sdk";
 import { describe, expect, it } from "vitest";
+import { type ExamplePlate, readPlate } from "@/test/examplePlates";
 import { SLAB_GAP, SLAB_PAD, slabsOf } from "./slabs";
 import type { PlanRect } from "./symbols/footprint";
 
@@ -169,39 +168,30 @@ describe("slabsOf", () => {
     expect(slabsOf([])).toEqual([]);
   });
 
-  describe("the committed plates", () => {
-    const PLATES_DIR = resolve(
-      import.meta.dirname,
-      "../../../../../docs/specs/synoptic",
-    );
-    const plate = (name: string): Synoptic => ({
-      ...JSON.parse(readFileSync(resolve(PLATES_DIR, `${name}.json`), "utf8")),
+  describe("the example plates", () => {
+    const plate = (name: ExamplePlate): Synoptic => ({
+      ...(readPlate(name) as Synoptic),
       id: name,
       metadata: {},
     });
 
-    // What the gap rule makes of each plate. On the ECS bays the two heat
-    // pumps stand two rows apart with their isolation valves one cell to
-    // the side: one slab for the four. The tanks stand in columns four
+    // What the gap rule makes of each plate. On the hot-water plate the two
+    // heat pumps stand two rows apart with their isolation valves one cell
+    // to the side: one slab for the four. The tanks stand in columns four
     // cells apart (x 10, 14, 18): three empty cells between columns is
     // the gap itself, so each column is its own slab, and a column's
-    // tanks, two rows apart, share it. The mixer and the booster pump are
-    // two cells apart on one slab; on Ouest the loop pump joins them and
-    // the loop heater's own slab merges into theirs, on Est both stand
-    // alone. On the
-    // production plates the machines stand four to six cells from
-    // anything, each on its own slab, but for the groups closer than the gap:
-    // the primary's control valve and meter, the expansion vessel and the
-    // dirt separator, and on the hot plate each circuit's meter and
-    // control valve, with the two hot valves of a change-over circuit.
+    // tanks, two rows apart, share it. The mixer, the booster pump and the
+    // loop pump share a slab, and the loop heater's own slab overlapped
+    // their frame, so the two are one distribution slab. On the heating
+    // plate the machines stand four to six cells from anything, each on its
+    // own slab, but for the groups closer than the gap: the primary's
+    // control valve and meter, the expansion vessel and the dirt separator,
+    // and each circuit's meter and control valve, with the two hot valves
+    // of a change-over circuit.
     it.each([
-      ["ecs-est", 7, rect(-0.7, -0.7, 4.7, 6.7)],
-      // Ouest: the loop heater's slab overlapped the mixer group's frame,
-      // so the two are one distribution slab.
-      ["ecs-ouest", 5, rect(21.3, -3.7, 29.7, 2.7)],
-      ["production-chaud", 14, rect(43.3, -9.7, 47.7, -3.3)],
-      ["production-froid", 11, rect(23.3, 1.3, 28.7, 5.7)],
-    ])("groups %s into %i slabs", (name, count, sample) => {
+      ["example-dhw", 5, rect(21.3, -3.7, 29.7, 2.7)],
+      ["example-heating", 14, rect(43.3, -9.7, 47.7, -3.3)],
+    ] as const)("groups %s into %i slabs", (name, count, sample) => {
       const doc = plate(name);
       const slabs = slabsOf(doc.symbols ?? []);
       expect(slabs).toHaveLength(count);
