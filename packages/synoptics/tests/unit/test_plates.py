@@ -74,7 +74,7 @@ def test_the_plate_binds_exactly_the_live_inventory(plate, expected):
     of two twin pumps, five meters, five control valves, eight change-over
     valves, the sludge pot and sixteen readings on the heating plate, whose
     branches the twins set going."""
-    kinds = Counter("flow" if s.is_flow else s.loc[0] for s in bound_slots(plate))
+    kinds = Counter(s.role or s.loc[0] for s in bound_slots(plate))
     assert kinds == expected.bindings
 
 

@@ -10,6 +10,7 @@ from synoptics.models import (
     Cell,
     CellEndpoint,
     CellPlacement,
+    Fluid,
     Pipe,
     PipeEndpoint,
     PipePlacement,
@@ -174,6 +175,56 @@ def test_flow_accepts_a_live_value():
     )
     assert pipe.flow is not None
     assert pipe.flow.target.attribute == "pump_running"
+
+
+def _changeover_pipe(changeover: object) -> dict[str, object]:
+    return {
+        "id": "p",
+        "fluid": "heating_supply",
+        "from": {"kind": "cell", "cell": {"x": 0, "y": 0}},
+        "to": {"kind": "cell", "cell": {"x": 4, "y": 0}},
+        "changeover": changeover,
+    }
+
+
+def test_a_pipe_stored_without_a_changeover_reads_as_none():
+    """Every plate stored before the field existed has no key for it."""
+    raw = _changeover_pipe(None)
+    assert Pipe.model_validate(raw).changeover is None
+    del raw["changeover"]
+    assert Pipe.model_validate(raw).changeover is None
+
+
+def test_a_changeover_names_a_second_fluid_and_its_reading():
+    pipe = Pipe.model_validate(
+        _changeover_pipe(
+            {
+                "fluid": "chilled_supply",
+                "when": {
+                    "kind": "attribute",
+                    "target": {"devices": {"ids": ["d"]}, "attribute": "cold_open"},
+                },
+            }
+        )
+    )
+    assert pipe.changeover is not None
+    assert pipe.changeover.fluid == Fluid.CHILLED_SUPPLY
+    assert pipe.changeover.when.target.attribute == "cold_open"
+
+
+@pytest.mark.parametrize(
+    "changeover",
+    [
+        # A literal has nothing to resolve: the run would never switch.
+        {"fluid": "chilled_supply", "when": {"kind": "text", "text": "été"}},
+        # A fluid without its reading, or a reading without its fluid.
+        {"fluid": "chilled_supply"},
+        {"when": {"kind": "attribute", "target": {"devices": {}, "attribute": "a"}}},
+    ],
+)
+def test_a_changeover_is_refused_when_it_cannot_switch(changeover):
+    with pytest.raises(ValidationError):
+        Pipe.model_validate(_changeover_pipe(changeover))
 
 
 def test_a_tag_still_takes_either_arm():

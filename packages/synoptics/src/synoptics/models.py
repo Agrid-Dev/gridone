@@ -253,6 +253,21 @@ class Tag(BaseModel):
     value: SlotValue | None = None
 
 
+class Changeover(BaseModel):
+    """A second fluid the run carries while ``when`` reads true.
+
+    A change-over circuit carries heating water in winter and chilled water in
+    summer: the pipe keeps its ``fluid`` and switches to this one on a live
+    bool, like ``flow``, so a cold reading never sits on a heating run. ``when``
+    takes the ``attribute`` arm only, for the reason ``flow`` does.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    fluid: Fluid
+    when: AttributeSlot
+
+
 class Pipe(BaseModel):
     """A run between ports, cells and other pipes.
 
@@ -282,6 +297,7 @@ class Pipe(BaseModel):
     to: Endpoint
     waypoints: list[Cell] = Field(default_factory=list, max_length=MAX_WAYPOINTS)
     flow: AttributeSlot | None = None
+    changeover: Changeover | None = None
     tags: list[Tag] = Field(default_factory=list)
 
 
