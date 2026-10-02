@@ -31,11 +31,16 @@ import { usePermissions } from "@/contexts/AuthContext";
 import { useAttributeLabel } from "@/hooks/useAttributeLabel";
 import { useDevice } from "@/hooks/useDevice";
 import { deviceAttributes } from "@/lib/devices";
+import { navigationStore } from "@/lib/navigation";
 import { isFaultAttribute, type AttributeFields } from "@/lib/faults";
 import { commandReasons } from "@/lib/commandReasons";
 import { SEMANTIC_TEXT_CLASS } from "@/lib/semanticColors";
 import { cn } from "@/lib/utils";
-import { blockedToggleReasons, sectionActivity } from "./controlPanelSection";
+import {
+  blockedToggleReasons,
+  sectionActivity,
+  sectionDevice,
+} from "./controlPanelSection";
 
 const Message: FC<{ children: string }> = ({ children }) => (
   <div className="flex h-full items-center justify-center p-4 text-center text-sm text-muted-foreground">
@@ -101,6 +106,11 @@ const Section: FC<{ section: ControlPanelSection; labelBy: LabelBy }> = ({
 }) => {
   const { t } = useTranslation("dashboards");
   const lock = useSectionLock(section.active_when);
+  const deviceId = sectionDevice(section);
+  const titleHref = deviceId && `/devices/${deviceId}`;
+  // A deleted device would replace the title itself: keep the name, drop the link.
+  const titleLinked =
+    titleHref && section.title && !navigationStore.deleted.includes(titleHref);
   return (
     <section
       aria-label={section.title ?? undefined}
@@ -110,7 +120,16 @@ const Section: FC<{ section: ControlPanelSection; labelBy: LabelBy }> = ({
       {(section.title || lock) && (
         <header className="flex items-center justify-between gap-2 px-3 py-1">
           <h3 className="min-w-0 truncate text-xs font-semibold uppercase tracking-wide text-foreground">
-            {section.title}
+            {titleLinked ? (
+              <ResourceLink
+                to={titleHref}
+                className="hover:underline focus-visible:underline"
+              >
+                {section.title}
+              </ResourceLink>
+            ) : (
+              section.title
+            )}
           </h3>
           {lock && (
             <LockHint lock={lock}>

@@ -69,7 +69,8 @@ class ControlPanelAttribute(AttributeReference):
     attribute's own label or the device's name, per the panel's ``label_by``."""
 
     link: StrictBool = False
-    """Makes the row's name a link to its device's page."""
+    """Makes the row's name a link to its device's page. When every row of a
+    section links to one device, the section's title links there too."""
 
 
 class ActiveCondition(AttributeReference):

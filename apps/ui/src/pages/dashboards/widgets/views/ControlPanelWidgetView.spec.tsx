@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import type { Device } from "@gridone/sdk";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { navigationStore } from "@/lib/navigation";
 import { createI18nMock } from "@/test/i18nMock";
 
 vi.mock("@/contexts/AuthContext", () => ({
@@ -190,6 +191,93 @@ describe("ControlPanelWidgetView", () => {
       "/devices/pump1",
     );
     expect(screen.queryByRole("link", { name: "Plain" })).toBeNull();
+  });
+
+  it("links a section's title when all its rows link to one device", () => {
+    setDevices({ autoMode: false });
+    const running = { device_id: "pump1", attribute: "running" };
+
+    renderView({
+      sections: [
+        {
+          title: "Pump one",
+          attributes: [
+            { ...running, label: "A", link: true },
+            { ...running, label: "B", link: true },
+          ],
+        },
+        {
+          title: "Partly linked",
+          attributes: [
+            { ...running, label: "C", link: true },
+            { ...running, label: "D" },
+          ],
+        },
+      ],
+    });
+
+    expect(screen.getByRole("link", { name: "Pump one" })).toHaveAttribute(
+      "href",
+      "/devices/pump1",
+    );
+    expect(screen.getByText("Partly linked")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Partly linked" })).toBeNull();
+  });
+
+  it("adds no title link to a locked section without a title", () => {
+    setDevices({ autoMode: true });
+
+    renderView({
+      sections: [
+        {
+          active_when: {
+            device_id: "plc",
+            attribute: "auto_mode",
+            value: false,
+          },
+          attributes: [
+            {
+              device_id: "pump1",
+              attribute: "running",
+              label: "A",
+              link: true,
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(screen.getByRole("img", { name: "Inactive" })).toBeInTheDocument();
+    expect(screen.getAllByRole("link").map((link) => link.textContent)).toEqual(
+      ["A"],
+    );
+  });
+
+  it("keeps a section's title when its device was deleted", () => {
+    setDevices({ autoMode: false });
+    navigationStore.deleted = ["/devices/pump1"];
+    try {
+      renderView({
+        sections: [
+          {
+            title: "Pump one",
+            attributes: [
+              {
+                device_id: "pump1",
+                attribute: "running",
+                label: "A",
+                link: true,
+              },
+            ],
+          },
+        ],
+      });
+
+      expect(screen.getByText("Pump one")).toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "Pump one" })).toBeNull();
+    } finally {
+      navigationStore.deleted = [];
+    }
   });
 
   it("renders a fault as a fault", () => {

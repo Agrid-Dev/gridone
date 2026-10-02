@@ -1,5 +1,6 @@
 import type {
   ActiveCondition,
+  ControlPanelSection,
   ResolvedOption,
   WriteReason,
 } from "@gridone/sdk";
@@ -41,4 +42,14 @@ export function blockedToggleReasons(
   if (typeof displayed !== "boolean") return null;
   const target = options?.find((option) => option.value === !displayed);
   return target?.available === false ? (target.reasons ?? []) : null;
+}
+
+/** The device every row of a section links to, or `null` when the rows do not
+ *  all link to one device: its title then links there too. */
+export function sectionDevice(section: ControlPanelSection): string | null {
+  const ids = new Set(
+    (section.attributes ?? []).map((item) => (item.link ? item.device_id : "")),
+  );
+  const [id] = ids;
+  return ids.size === 1 && id ? id : null;
 }

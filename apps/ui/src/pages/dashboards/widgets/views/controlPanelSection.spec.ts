@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { blockedToggleReasons, sectionActivity } from "./controlPanelSection";
+import {
+  blockedToggleReasons,
+  sectionActivity,
+  sectionDevice,
+} from "./controlPanelSection";
 
 const CONDITION = { device_id: "plc", attribute: "auto_mode", value: false };
 
@@ -38,5 +42,37 @@ describe("blockedToggleReasons", () => {
     ["an attribute with no resolved options", undefined, false, null],
   ] as const)("judges %s", (_name, options, displayed, expected) => {
     expect(blockedToggleReasons(options, displayed)).toEqual(expected);
+  });
+});
+
+const linked = (device_id: string, attribute = "running") => ({
+  device_id,
+  attribute,
+  link: true,
+});
+
+describe("sectionDevice", () => {
+  it.each([
+    [
+      "every row linked to one device",
+      [linked("pump1"), linked("pump1", "fault")],
+      "pump1",
+    ],
+    ["a single linked row", [linked("pump1")], "pump1"],
+    ["rows linked to two devices", [linked("pump1"), linked("pump2")], null],
+    [
+      "one row not linked",
+      [linked("pump1"), { device_id: "pump1", attribute: "fault" }],
+      null,
+    ],
+    [
+      "one row explicitly not linked",
+      [linked("pump1"), { ...linked("pump1", "fault"), link: false }],
+      null,
+    ],
+    ["a row with no device picked yet", [linked(""), linked("")], null],
+    ["no rows", [], null],
+  ] as const)("is judged on %s", (_name, attributes, expected) => {
+    expect(sectionDevice({ attributes: [...attributes] })).toBe(expected);
   });
 });
