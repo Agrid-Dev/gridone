@@ -146,7 +146,8 @@ type AttributeValueProps = {
 /**
  * The single renderer for a device attribute value:
  *  - booleans show an indicator dot and their driver-declared label (or the
- *    localized True / False): fault-toned by `is_faulty`, neutral otherwise;
+ *    localized True / False): fault-toned by `is_faulty`, neutral otherwise.
+ *    A healthy fault with no declared label reads "OK";
  *  - fault attributes are coloured by severity (green when not faulty);
  *  - standard enum values (e.g. thermostat `mode`) show their icon + label,
  *    including across a mixed device-type selection;
@@ -189,6 +190,12 @@ export function AttributeValue({
     );
   }
   if (typeof value === "boolean") {
+    // A healthy fault reads "OK": True / False says nothing about health. The
+    // driver's own wording still wins when it declares one.
+    const readsOk =
+      fault !== undefined &&
+      !fault.isFaulty &&
+      !valueLabels?.some((entry) => entry.value === value);
     return (
       <span
         className={cn(
@@ -200,7 +207,7 @@ export function AttributeValue({
         <BooleanIndicator tone={level ?? "neutral"} filled={value} />
         {/* self-baseline: the row aligns on the text, not on the dot's bottom edge */}
         <span className="self-baseline truncate">
-          {labelFor(value, valueLabels)}
+          {readsOk ? t("common.faults.ok") : labelFor(value, valueLabels)}
         </span>
       </span>
     );

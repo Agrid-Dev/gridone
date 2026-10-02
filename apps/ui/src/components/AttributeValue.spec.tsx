@@ -11,6 +11,7 @@ vi.mock("react-i18next", () =>
     "common.hvacMode.idle": "Idle",
     "common.true": "Vrai",
     "common.false": "Faux",
+    "common.faults.ok": "OK",
     "commandReasons.invalid_sample": "Unavailable measurement",
     "commandReasons.unsupported_attribute": "Not supported",
     "commandReasons.support_unknown": "Waiting for compatibility data",
@@ -200,6 +201,18 @@ describe("AttributeValue — fault booleans", () => {
       "text-status-ok",
     );
     expect(dot()).toHaveClass("bg-status-ok");
+  });
+
+  it("reads OK when healthy and the driver declares no label", () => {
+    render(
+      <AttributeValue
+        value={false}
+        attributeName="alarm"
+        fault={{ severity: "alert", isFaulty: false }}
+      />,
+    );
+    expect(screen.getByText("OK").parentElement).toHaveClass("text-status-ok");
+    expect(screen.queryByText("Faux")).not.toBeInTheDocument();
   });
 
   it("colours the dot and text by severity when faulty", () => {
