@@ -1,3 +1,9 @@
+## v0.293.2 (2026-10-02)
+
+### Fix
+
+- **ui**: a plate link opens on a click on its arrow or its name (#765)
+
 ## v0.293.1 (2026-10-01)
 
 ### Fix
