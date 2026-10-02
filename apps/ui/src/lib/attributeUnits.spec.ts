@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { attributeUnit } from "./attributeUnits";
+import { attributeUnit, unitSuffix } from "./attributeUnits";
 
 describe("attributeUnit", () => {
   it.each([
@@ -15,6 +15,13 @@ describe("attributeUnit", () => {
   it("knows humidity exactly", () => {
     expect(attributeUnit("humidity")).toBe("%");
   });
+
+  it.each(["heating_valve", "supply_fan_speed", "exchanger_utilization"])(
+    "reads %s as a ratio in percent",
+    (name) => {
+      expect(attributeUnit(name)).toBe("%");
+    },
+  );
 
   it.each([
     ["pressure", "the scale is driver-defined"],
@@ -36,5 +43,17 @@ describe("attributeUnit with driver metadata", () => {
   it("keeps the convention when no unit is declared", () => {
     expect(attributeUnit("temperature", { unit: null })).toBe("°");
     expect(attributeUnit("temperature", undefined)).toBe("°");
+  });
+});
+
+describe("unitSuffix", () => {
+  it.each([
+    ["°", "°"],
+    ["°C", " °C"],
+    ["%", " %"],
+    [null, ""],
+    [undefined, ""],
+  ])("spaces %s as %j", (unit, suffix) => {
+    expect(unitSuffix(unit)).toBe(suffix);
   });
 });

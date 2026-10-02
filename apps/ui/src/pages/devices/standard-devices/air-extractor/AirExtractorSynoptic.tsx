@@ -1,122 +1,120 @@
 import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { FanGlyph, FlowChevron, ValueChip } from "@/components/synoptic/glyphs";
-import { fmt } from "@/lib/formatValue";
+import { FanGlyph } from "@/components/synoptic/glyphs";
+import {
+  Duct,
+  DUCT_HEIGHT,
+  DuctCaption,
+  Readout,
+  SynopticCard,
+} from "@/components/synoptic/duct";
+import { useReadingFormat } from "../ahu-shared";
 import { FAN_STATUS_DOT_CLASS, fanIsSpinning, fanStatus } from "./fan";
 import { useAirExtractorLabel } from "./labels";
 import type { AirExtractorValues } from "./types";
 
 type AirExtractorSynopticProps = {
   values: AirExtractorValues;
+  /** Display unit of the fan speed (driver-declared or app convention). */
+  fanSpeedUnit?: string | null;
   className?: string;
 };
 
-const DUCT_TOP = 64;
-const DUCT_CY = 92;
+const VIEW_WIDTH = 1100;
+const DUCT_X = 150;
+const DUCT_WIDTH = 800;
+const DUCT_Y = 24;
+const DUCT_CY = DUCT_Y + DUCT_HEIGHT / 2;
+const FAN_CX = 550;
+const FLOW_SWITCH_CX = 300;
+const READOUT_Y = DUCT_Y + DUCT_HEIGHT + 24;
+/** Height with the readout line under the duct, and without it. */
+const VIEW_HEIGHT = READOUT_Y + 30;
+const VIEW_HEIGHT_BARE = DUCT_Y + DUCT_HEIGHT + 24;
 
 /** Flat 2D synoptic of an air extractor: a single duct pulling room air
- *  (extract) through a fan and out (exhaust). No coils or sensors — the
- *  schema only exposes running state, fan speed and a flow switch. */
+ *  (extract) through a fan and out (exhaust). What the unit reports reads
+ *  under the duct: the flow switch upstream of the fan, the fan speed
+ *  under the fan. */
 export function AirExtractorSynoptic({
   values,
+  fanSpeedUnit = "%",
   className,
 }: AirExtractorSynopticProps) {
   const { t } = useTranslation("standardDevices");
   const label = useAirExtractorLabel();
+  const format = useReadingFormat();
 
   const status = fanStatus(values);
+  const spinning = fanIsSpinning(values);
+  // A fan proven turning without a reported speed still moves the air.
+  const flowSpeed = values.fanSpeed ?? (spinning ? 100 : 0);
+  const hasReadouts = values.fanSpeed != null || values.flowSwitch != null;
 
   return (
-    <div className={cn("rounded-xl border bg-card p-4", className)}>
-      {status && (
-        <div className="mb-3 flex items-center gap-2">
-          <Badge variant="outline" className="gap-1.5">
-            <span
-              className={cn(
-                "h-1.5 w-1.5 rounded-full",
-                FAN_STATUS_DOT_CLASS[status.tone],
-              )}
-            />
-            {label(status.key)}
-          </Badge>
-        </div>
-      )}
-
+    <SynopticCard
+      className={className}
+      rail={
+        status && (
+          <div className="mb-3 flex items-center gap-2">
+            <Badge variant="outline" className="gap-1.5">
+              <span
+                className={cn(
+                  "h-1.5 w-1.5 rounded-full",
+                  FAN_STATUS_DOT_CLASS[status.tone],
+                )}
+              />
+              {label(status.key)}
+            </Badge>
+          </div>
+        )
+      }
+    >
       <svg
-        viewBox="0 0 920 172"
+        viewBox={`0 0 ${VIEW_WIDTH} ${hasReadouts ? VIEW_HEIGHT : VIEW_HEIGHT_BARE}`}
         role="img"
         aria-label={t("air_extractor.name")}
         className="w-full"
       >
-        {/* Duct (flow left→right). Only the walls are stroked — the ends
-            stay open. */}
-        <rect
-          x="40"
-          y={DUCT_TOP}
-          width="840"
-          height="56"
-          className="fill-muted"
+        <Duct
+          x={DUCT_X}
+          y={DUCT_Y}
+          width={DUCT_WIDTH}
+          dir="right"
+          speed={flowSpeed}
         />
-        {[DUCT_TOP, DUCT_TOP + 56].map((y) => (
-          <line
-            key={y}
-            x1="40"
-            y1={y}
-            x2="880"
-            y2={y}
-            strokeWidth="1.5"
-            className="stroke-border"
-          />
-        ))}
-
-        {/* Flow direction */}
-        {[210, 320, 600, 710].map((x) => (
-          <FlowChevron key={x} x={x} cy={DUCT_CY} dir="right" />
-        ))}
-
-        {/* Extract fan */}
         <FanGlyph
-          cx={460}
+          cx={FAN_CX}
           cy={DUCT_CY}
-          spinning={fanIsSpinning(values)}
+          spinning={spinning}
           title={label("fan")}
         />
-        <ValueChip
-          cx={460}
-          cy={DUCT_TOP + 84}
-          title={label("fan")}
-          value={fmt(values.fanSpeed, 0, " %")}
-        />
-
-        {/* Duct-end flow labels */}
-        <DuctLabel cx={120} text={label("extractAir")} />
-        <DuctLabel cx={800} text={label("exhaustAir")} />
+        {values.fanSpeed != null && (
+          <Readout
+            cx={FAN_CX}
+            y={READOUT_Y}
+            label={label("fan")}
+            value={format(values.fanSpeed, 0, fanSpeedUnit)}
+          />
+        )}
+        {values.flowSwitch != null && (
+          <Readout
+            cx={FLOW_SWITCH_CX}
+            y={READOUT_Y}
+            label={label("flowSwitch")}
+            value={
+              values.flowSwitch ? label("flowProven") : label("flowMissing")
+            }
+            valueClass={
+              values.flowSwitch ? "fill-foreground" : "fill-muted-foreground"
+            }
+            textual
+          />
+        )}
+        <DuctCaption x={24} cy={DUCT_CY} text={label("extractAir")} />
+        <DuctCaption x={968} cy={DUCT_CY} text={label("exhaustAir")} />
       </svg>
-    </div>
-  );
-}
-
-/** A small uppercase label above a duct end, with a tick down to the duct. */
-function DuctLabel({ cx, text }: { cx: number; text: string }) {
-  return (
-    <g>
-      <line
-        x1={cx}
-        y1={46}
-        x2={cx}
-        y2={DUCT_TOP}
-        strokeWidth="1.5"
-        className="stroke-border"
-      />
-      <text
-        x={cx}
-        y={38}
-        textAnchor="middle"
-        className="fill-muted-foreground text-[11px] font-medium uppercase tracking-wider"
-      >
-        {text}
-      </text>
-    </g>
+    </SynopticCard>
   );
 }

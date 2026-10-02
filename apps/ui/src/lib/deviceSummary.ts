@@ -21,7 +21,7 @@ import {
   DeviceType,
   getConnectionStatus,
 } from "@/lib/devices";
-import { attributeUnit } from "@/lib/attributeUnits";
+import { attributeUnit, unitSuffix } from "@/lib/attributeUnits";
 
 const DASH = "—";
 
@@ -71,10 +71,6 @@ const PRIMARY_MEASURES: Partial<Record<DeviceType, ReadingSpec>> = {
   },
 };
 
-/** Separator + symbol after a number: a bare `°` hugs it ("21,5°"), any
- *  other unit takes a space ("14,2 °C", "240 kW", "55 %"). */
-const unitSuffix = (unit: string) => (unit === "°" ? unit : ` ${unit}`);
-
 /** The attribute `spec` names as a reading: its numeric value (null when not
  *  reported), in the unit the driver declares, else the name's convention,
  *  else the spec's fallback. */
@@ -89,7 +85,7 @@ export function attributeReading(
     metric,
     value: typeof raw === "number" ? raw : null,
     digits,
-    suffix: unit ? unitSuffix(unit) : "",
+    suffix: unitSuffix(unit),
   };
 }
 

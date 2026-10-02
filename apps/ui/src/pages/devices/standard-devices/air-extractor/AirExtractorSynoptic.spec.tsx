@@ -10,6 +10,7 @@ vi.mock("react-i18next", () =>
     "air_extractor.synoptic.extractAir": "Extract air",
     "air_extractor.synoptic.exhaustAir": "Exhaust air",
     "air_extractor.synoptic.fan": "Extract fan",
+    "air_extractor.synoptic.flowSwitch": "Flow switch",
     "air_extractor.synoptic.on": "Running",
     "air_extractor.synoptic.off": "Stopped",
     "air_extractor.synoptic.commandedNoFlow": "Commanded, no flow",
@@ -28,14 +29,22 @@ const RUNNING: AirExtractorValues = {
 afterEach(cleanup);
 
 describe("AirExtractorSynoptic", () => {
-  it("renders a single running status with fan speed when flow is proven", () => {
+  it("renders a single running status, the fan speed and the flow switch", () => {
     render(<AirExtractorSynoptic values={RUNNING} />);
 
     expect(screen.getByText("Running")).toBeInTheDocument();
-    expect(screen.queryByText("Flow proven")).not.toBeInTheDocument();
     expect(screen.getByText("45 %")).toBeInTheDocument();
+    // The flow switch reads as its own instrument, next to the status.
+    expect(screen.getByText("Flow switch")).toBeInTheDocument();
+    expect(screen.getByText("Flow proven")).toBeInTheDocument();
     expect(screen.getByText("Extract air")).toBeInTheDocument();
     expect(screen.getByText("Exhaust air")).toBeInTheDocument();
+  });
+
+  it("appends the driver's unit to the fan speed when it declares one", () => {
+    render(<AirExtractorSynoptic values={RUNNING} fanSpeedUnit="Hz" />);
+
+    expect(screen.getByText("45 Hz")).toBeInTheDocument();
   });
 
   it("renders a single stopped status (fan proven off)", () => {
@@ -46,7 +55,7 @@ describe("AirExtractorSynoptic", () => {
     );
 
     expect(screen.getByText("Stopped")).toBeInTheDocument();
-    expect(screen.queryByText("No flow")).not.toBeInTheDocument();
+    expect(screen.getByText("No flow")).toBeInTheDocument();
     expect(screen.getByText("0 %")).toBeInTheDocument();
   });
 
@@ -57,7 +66,9 @@ describe("AirExtractorSynoptic", () => {
     );
     expect(screen.getByText("Flow without command")).toBeInTheDocument();
     expect(screen.queryByText("Stopped")).not.toBeInTheDocument();
-    expect(container.querySelector(".fill-hvac-fan")).toBeInTheDocument();
+    expect(
+      container.querySelector("[data-spinning='true']"),
+    ).toBeInTheDocument();
   });
 
   it("labels the fan failure and keeps the fan static when commanded on without flow", () => {
@@ -66,15 +77,21 @@ describe("AirExtractorSynoptic", () => {
     );
     expect(screen.getByText("Commanded, no flow")).toBeInTheDocument();
     expect(screen.queryByText("Running")).not.toBeInTheDocument();
-    expect(container.querySelector(".fill-hvac-fan")).not.toBeInTheDocument();
+    expect(
+      container.querySelector("[data-spinning='true']"),
+    ).not.toBeInTheDocument();
   });
 
-  it("omits the status badge and shows a placeholder speed when values are absent", () => {
+  it("omits the status badge and the readouts when values are absent", () => {
     render(<AirExtractorSynoptic values={{}} />);
 
     expect(screen.queryByText("Running")).not.toBeInTheDocument();
     expect(screen.queryByText("Stopped")).not.toBeInTheDocument();
-    // The fan-speed chip renders the bare placeholder (no suffix) when absent.
-    expect(screen.getByText("—")).toBeInTheDocument();
+    // Nothing reported: no readout line, just the named streams.
+    expect(screen.queryByText("—")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Extract fan", { selector: "text" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("Extract air")).toBeInTheDocument();
   });
 });

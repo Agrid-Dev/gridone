@@ -1,4 +1,4 @@
-import { cn } from "@/lib/utils";
+import { useId } from "react";
 
 /** Generic SVG building blocks for HVAC duct synoptics (AHUs, extractors,
  *  …): duct internals, value chips and air measurement tags. All
@@ -27,32 +27,41 @@ export function FlowChevron({
   );
 }
 
+/** Which way the impeller turns. Blades are drawn for a clockwise fan and
+ *  mirrored for a counter-clockwise one, so the curve always trails the
+ *  rotation. */
+export type FanSpin = "cw" | "ccw";
+
 export function FanGlyph({
   cx,
   cy,
   spinning,
+  spin = "cw",
   title,
 }: {
   cx: number;
   cy: number;
   spinning: boolean;
+  spin?: FanSpin;
   title: string;
 }) {
+  const sign = spin === "cw" ? 1 : -1;
   return (
-    <g>
+    <g data-spinning={spinning} data-spin={spin}>
       <title>{title}</title>
       <circle
         cx={cx}
         cy={cy}
         r="24"
         strokeWidth="1.5"
-        className="fill-background stroke-border"
+        className="fill-card stroke-border"
       />
       {/* Blades are drawn around the local origin; the SMIL rotation is
           additive so it composes with the translate and spins in place. */}
       <g
-        transform={`translate(${cx} ${cy})`}
-        className={spinning ? "fill-hvac-fan" : "fill-muted-foreground"}
+        transform={`translate(${cx} ${cy}) scale(${sign} 1)`}
+        className="fill-muted-foreground"
+        fillOpacity={spinning ? 1 : 0.45}
       >
         {[0, 120, 240].map((angle) => (
           <path
@@ -100,7 +109,7 @@ export function FilterGlyph({
         width="26"
         height="52"
         rx="3"
-        className="fill-background stroke-border"
+        className="fill-card stroke-border"
       />
       <polyline
         points={zigzag}
@@ -112,54 +121,92 @@ export function FilterGlyph({
   );
 }
 
-/** Heating or cooling battery in the supply duct, with its valve position
- *  tagged below the duct. */
+/** Heating or cooling battery in the duct: a grey skeleton that fills with
+ *  its colour from the bottom as the valve opens, so a closed coil reads as
+ *  inert and a fully open one as fully coloured. The percentage readout is
+ *  the caller's, placed with the other readouts below the duct. */
 export function CoilGlyph({
   cx,
   ductY,
   colorClass,
+  fillClass,
   title,
-  valve,
+  opening,
 }: {
   cx: number;
   ductY: number;
+  /** Stroke colour of the filled tubes (`stroke-hvac-heat` / `-cool`). */
   colorClass: string;
+  /** Fill colour of the filled region (`fill-hvac-heat` / `fill-hvac-cool`). */
+  fillClass: string;
   title: string;
-  valve: string;
+  /** Valve position in percent; null draws the bare skeleton. */
+  opening: number | null | undefined;
 }) {
+  const clipId = useId();
+  const x = cx - 14;
   const y = ductY + 4;
+  const width = 28;
+  const height = 48;
+  const open = Math.min(Math.max(opening ?? 0, 0), 100) / 100;
+  const fillHeight = height * open;
+  const tubes = [-7, 0, 7].map((dx) => (
+    <line
+      key={dx}
+      x1={cx + dx}
+      y1={y + 5}
+      x2={cx + dx}
+      y2={y + height - 5}
+      strokeWidth="1.5"
+    />
+  ));
   return (
-    <g>
+    <g data-opening={open}>
       <title>{title}</title>
+      <clipPath id={clipId}>
+        <rect
+          x={x}
+          y={y + height - fillHeight}
+          width={width}
+          height={fillHeight}
+        />
+      </clipPath>
       <rect
-        x={cx - 14}
+        x={x}
         y={y}
-        width="28"
-        height="48"
+        width={width}
+        height={height}
         rx="2"
         strokeWidth="1.5"
-        className={cn("fill-background", colorClass)}
+        className="fill-card stroke-border"
       />
-      {[-7, 0, 7].map((dx) => (
-        <line
-          key={dx}
-          x1={cx + dx}
-          y1={y + 5}
-          x2={cx + dx}
-          y2={y + 43}
-          strokeWidth="1.5"
-          className={colorClass}
-        />
-      ))}
-      <line
-        x1={cx}
-        y1={ductY + 56}
-        x2={cx}
-        y2={ductY + 73}
-        strokeWidth="1.5"
-        className="stroke-border"
-      />
-      <ValueChip cx={cx} cy={ductY + 84} w={46} title={title} value={valve} />
+      <g className="stroke-muted-foreground" strokeOpacity={0.5}>
+        {tubes}
+      </g>
+      {open > 0 && (
+        <g clipPath={`url(#${clipId})`}>
+          <rect
+            x={x}
+            y={y}
+            width={width}
+            height={height}
+            rx="2"
+            fillOpacity={0.18}
+            className={fillClass}
+          />
+          <g className={colorClass}>{tubes}</g>
+          <rect
+            x={x}
+            y={y}
+            width={width}
+            height={height}
+            rx="2"
+            fill="none"
+            strokeWidth="1.5"
+            className={colorClass}
+          />
+        </g>
+      )}
     </g>
   );
 }
