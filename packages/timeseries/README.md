@@ -31,7 +31,9 @@ the 422 for invalid combinations and the `operators_by_data_type` payload of
 | `tw_mode` | float | int   | bool  | str | Longest-held value                           |
 
 Except for `count`, `sum` and `delta`, an empty bucket carries the previous value
-forward (LOCF), seeded from the last point before the requested range.
+forward (LOCF), seeded from the last point before the requested range. `delta`
+follows the same rule one step further: the carried index did not move, so the
+bucket reads 0.
 
 ### `delta`
 
@@ -46,14 +48,24 @@ between a bucket's last point and the next bucket's first one. It also keeps a
 meter that reports once per bucket meaningful, where an in-bucket `last - first`
 would report 0 everywhere.
 
-| Bucket state                     | Value          |
-| -------------------------------- | -------------- |
-| No points                        | `null`         |
-| Points, previous value known     | `last - prev`  |
-| Points, no previous value at all | `last - first` |
+| Bucket state                        | Value          |
+| ----------------------------------- | -------------- |
+| No points, previous value known     | `0`            |
+| No points, no previous value at all | `null`         |
+| No points, bucket not started yet   | `null`         |
+| Points, previous value known        | `last - prev`  |
+| Points, no previous value at all    | `last - first` |
 
-- An empty bucket has **no value**, never 0 — nothing was read, and the
-  consumption since the last reading lands on the next bucket that has one.
+- An empty bucket reads **0** once a previous value is known. History is stored
+  on change, so a counter that was polled and did not move writes no point: no
+  point means no consumption, not no reading. Before the first point of the
+  series there is nothing to carry, and the bucket has no value.
+- A bucket starting at or after the current time has no value either — it was
+  not observed. The bucket in progress is observed so far and keeps its value.
+- `delta` cannot tell "unchanged" from "not read". Consumption during an outage
+  shows as zeros followed by a spike on the next bucket with a point, and a
+  meter reporting once a day charted hourly shows 23 zeros and one spike. The
+  buckets still sum to the counter's increase over the range.
 - Counter resets (meter replacement, rollover) are **passed through** as negative
   deltas rather than clamped or split. The caller decides what to do with them.
 
@@ -86,7 +98,9 @@ contributed — not a sample count. A series with no data in a bucket (e.g. a
 device added mid-window: gap-filled `None`, no LOCF anchor) simply does not
 contribute there, which is how sets with different history bounds stay
 aggregable. LOCF still applies within each series' own history, so a device
-that last reported an hour ago still holds its value in the fold. `mode`
+that last reported an hour ago still holds its value in the fold — and an idle
+counter under `delta` contributes its 0, which leaves a `sum` untouched but
+enters an `avg` and the bucket's `count`. `mode`
 breaks ties on the smallest value, matching the time-side SQL convention.
 `interval=raw` is refused: without shared buckets there is nothing to fold.
 
