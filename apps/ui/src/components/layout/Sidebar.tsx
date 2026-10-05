@@ -91,6 +91,7 @@ export function Sidebar({
   const hasConfiguration =
     showDashboardsConfig ||
     showSynoptics ||
+    can("automations:read") ||
     can("users:write") ||
     can("drivers:read") ||
     can("transports:read") ||
@@ -187,13 +188,6 @@ export function Sidebar({
               </NavLink>
             )}
 
-            {can("automations:read") && (
-              <NavLink to="/automations" className={navLinkClass}>
-                <Zap className="h-4 w-4" />
-                {t("app.automations")}
-              </NavLink>
-            )}
-
             <NavLink to="/faults" className={navLinkClass}>
               <TriangleAlert className="h-4 w-4" />
               {t("app.faults")}
@@ -223,6 +217,15 @@ export function Sidebar({
                 <NavLink to="/synoptics" className={navLinkClass}>
                   <Waypoints className="h-4 w-4" />
                   {t("app.synoptics")}
+                </NavLink>
+              )}
+
+              {/* Automations are integration work (rules wired by the
+               *  integrator), not a view the operator supervises. */}
+              {can("automations:read") && (
+                <NavLink to="/automations" className={navLinkClass}>
+                  <Zap className="h-4 w-4" />
+                  {t("app.automations")}
                 </NavLink>
               )}
 
