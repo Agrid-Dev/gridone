@@ -1,3 +1,9 @@
+## v0.297.3 (2026-10-05)
+
+### Fix
+
+- **ui**: move Automations from Supervision to Configuration (AGR-1580)
+
 ## v0.297.2 (2026-10-05)
 
 ### Fix
