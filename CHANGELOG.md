@@ -1,3 +1,13 @@
+## v0.297.2 (2026-10-05)
+
+### Fix
+
+- **timeseries**: delta reads 0 for an empty bucket with a known previous value (AGR-1561)
+
+### Refactor
+
+- **timeseries**: the storage backends blank future delta buckets (AGR-1561)
+
 ## v0.297.1 (2026-10-02)
 
 ### Fix
