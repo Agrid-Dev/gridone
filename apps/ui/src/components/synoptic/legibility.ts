@@ -4,9 +4,9 @@ import type { Pt } from "./types";
 
 /**
  * What a piece of text on the plate takes, for the floor that keeps it
- * legible: the box it covers at its own size, the point it hangs from
- * (where its leader meets the plate, or its own spot when it has none),
- * and its rank, lower being kept first when the text no longer fits.
+ * legible: the box it covers at its own size, the point it grows about
+ * (where its leader meets it, or its own spot when it has none), and its
+ * rank, lower being kept first when the text no longer fits.
  */
 export type TextFootprint = {
   anchor: Pt;
