@@ -1,3 +1,9 @@
+## v0.297.4 (2026-10-06)
+
+### Fix
+
+- **ui**: synoptic readings stay next to their line and their name (#774)
+
 ## v0.297.3 (2026-10-05)
 
 ### Fix
