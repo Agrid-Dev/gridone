@@ -12,7 +12,7 @@ import type {
   Synoptic,
 } from "@gridone/sdk";
 import { type ExamplePlate, PLATES_DIR, readPlate } from "@/test/examplePlates";
-import { CHIP_H, chipWidth, SILENT_TEXT } from "./Chip";
+import { Chip, CHIP_H, CHIP_LABEL_GAP, chipWidth, SILENT_TEXT } from "./Chip";
 import { circulatingRuns } from "./circulation";
 import { PANEL_W, panelHeight } from "./Panel";
 import {
@@ -22,10 +22,12 @@ import {
   project,
 } from "./projection";
 import {
+  READOUT_GAP,
   SynopticRenderer,
   symbolBox,
   type PlateHandle,
 } from "./SynopticRenderer";
+import { LABEL_SIZE, ledRoom } from "./symbols/Label";
 import { pointsAttr } from "./symbols/plan";
 import { headShapes, SynopticSymbol } from "./symbols/SynopticSymbol";
 import { textWidth } from "./text";
@@ -469,6 +471,34 @@ describe("SynopticRenderer", () => {
     expect(leader.classList.contains("stroke-muted-foreground")).toBe(true);
   });
 
+  // A note under the name takes the centred spot; flush with either end of
+  // the name, beside it or over it, the chip must still keep off the tank.
+  it("keeps a reading hung off its name, off the centre, clear of its own body", () => {
+    const tank = {
+      ...DOC.symbols![1],
+      placement: { kind: "cell" as const, cell: { x: 2, y: 2 } },
+    };
+    const c = draw(
+      {
+        ...DOC,
+        projection: "flat",
+        symbols: [tank],
+        pipes: [],
+        labels: [
+          {
+            id: "block",
+            at: { x: 0, y: 2 },
+            text: "XXXXXXXXXXXX",
+            role: "note",
+          },
+        ],
+      },
+      VALUES,
+    );
+    const rect = box(c.querySelector("[data-readout='b01'] rect")!);
+    expect(apart(rect, symbolBox("flat", tank))).toBe(true);
+  });
+
   it("places a panel clear of bodies and other panels, above first", () => {
     const twin = (id: string, x: number, y: number) => ({
       ...DOC.symbols![0],
@@ -527,11 +557,20 @@ describe("SynopticRenderer", () => {
     const on = project("isometric", 2.5, 1.5, 0.4);
     const rect = tt.querySelector("rect")!;
     expect(Number(rect.getAttribute("y"))).toBeGreaterThan(on.y);
-    // Its caption sits under the chip, and the leader reaches the chip's top.
+    // Its caption sits under the chip as near as a chip's own label sits
+    // over it, and the leader reaches the chip's top.
     const caption = q(tt, "text").find((t) => t.textContent === "TT-03")!;
-    expect(Number(caption.getAttribute("y"))).toBeGreaterThan(
-      Number(rect.getAttribute("y")) + CHIP_H,
-    );
+    const over = render(
+      <svg>
+        <Chip at={{ x: 0, y: 0 }} reading={live("1", 1)} label="TT" />
+      </svg>,
+    ).container.querySelector("text")!;
+    const labelGap = -CHIP_H / 2 - Number(over.getAttribute("y"));
+    expect(
+      Number(caption.getAttribute("y")) -
+        LABEL_SIZE -
+        (Number(rect.getAttribute("y")) + CHIP_H),
+    ).toBe(labelGap);
     const leader = tt.querySelector("line")!;
     expect(Number(leader.getAttribute("y1"))).toBe(
       Number(rect.getAttribute("y")),
@@ -1029,8 +1068,9 @@ describe("SynopticRenderer", () => {
         expect(onBody).toBeGreaterThan(0);
       });
 
-      // A chip under its label (centred on the symbol's cell) needs no
-      // leader; one the search sent elsewhere is joined to its symbol.
+      // A chip hanging off its name (under it, centred or flush with an
+      // end, beside it or over it) needs no leader; one the search sent
+      // elsewhere is joined to its symbol.
       it("joins every displaced chip to its symbol", () => {
         const projection = doc.projection ?? DEFAULT_PROJECTION;
         const cells = new Map(
@@ -1050,7 +1090,18 @@ describe("SynopticRenderer", () => {
             ? Number(name.getAttribute("x"))
             : project(projection, cell.x + 0.5, cell.y + 0.5, 0).x;
           const rect = box(readout.querySelector("rect")!);
-          const hanging = Math.abs((rect.x0 + rect.x1) / 2 - centre) < 0.5;
+          const close = (a: number, b: number) => Math.abs(a - b) < 0.5;
+          const off = name ? labelBox(name) : null;
+          const baseline = off?.y1;
+          const hanging = off
+            ? // Under the name, over it, or beside it on its line, within
+              // the name's reach along it (its LED room included).
+              (close(rect.y0, baseline! + READOUT_GAP - CHIP_H / 2) ||
+                close(rect.y1, baseline! - LABEL_SIZE - CHIP_LABEL_GAP) ||
+                close((rect.y0 + rect.y1) / 2, baseline! - LABEL_SIZE / 2)) &&
+              rect.x1 >= off.x0 - CHIP_LABEL_GAP - 0.5 &&
+              rect.x0 <= off.x1 + ledRoom(1) + CHIP_LABEL_GAP + 0.5
+            : close((rect.x0 + rect.x1) / 2, centre);
           const leader = readout.querySelector("[data-leader='chip']");
           expect(hanging || leader !== null, readout.outerHTML).toBe(true);
         }
@@ -2084,7 +2135,7 @@ describe("SynopticRenderer text held legible", () => {
   });
 
   it.each(PLATE_CASES)(
-    "%s: grows every text about the point it hangs from: a tag about its point on the run, a name about its leader's end, a hanging reading with its name",
+    "%s: grows every text about where its leader meets it: a tag, a name, a reading; a hanging reading with its name; a text with no leader about its own point",
     (name) => {
       const doc = plate(name);
       canvasAt(0.5);
@@ -2100,13 +2151,15 @@ describe("SynopticRenderer text held legible", () => {
       for (const h of held) expect(h.k).toBe(2);
       const near = (p: { x: number; y: number }, a: { x: number; y: number }) =>
         Math.abs(p.x - a.x) < 1e-6 && Math.abs(p.y - a.y) < 1e-6;
-      // Tags: the disc on the run.
+      const start = (leader: Element) => ({
+        x: num(leader, "x1"),
+        y: num(leader, "y1"),
+      });
+      // Tags: the leader's end on the chip.
       const tags = holding("[data-tag]");
       for (const h of tags) {
-        const disc = h.g.querySelector("[data-tag] > circle")!;
-        expect(near({ x: num(disc, "cx"), y: num(disc, "cy") }, h.anchor)).toBe(
-          true,
-        );
+        const leader = h.g.querySelector("[data-tag] > line[data-leader]")!;
+        expect(near(start(leader), h.anchor)).toBe(true);
       }
       // Every piece of text is held: none is left at its drawn size.
       for (const selector of [
@@ -2119,7 +2172,7 @@ describe("SynopticRenderer text held legible", () => {
         for (const el of q(container, selector))
           expect(held.some((h) => h.g.firstElementChild === el)).toBe(true);
       }
-      // Names: the leader's end on the body, else the text's own point.
+      // Names: the leader's end on the name, else the text's own point.
       const names = new Map<string, Held>();
       const namePoints = new Map<string, { x: number; y: number }>();
       for (const h of holding("[data-symbol-label]")) {
@@ -2131,13 +2184,13 @@ describe("SynopticRenderer text held legible", () => {
         const text = h.g.querySelector("[data-symbol-label] > text")!;
         namePoints.set(id, { x: num(text, "x"), y: num(text, "y") });
         const at = leader
-          ? { x: num(leader, "x2"), y: num(leader, "y2") }
+          ? start(leader)
           : { x: num(text, "x"), y: num(text, "y") };
         expect(near(at, h.anchor)).toBe(true);
       }
-      // Readings: a chip with a leader about its end; one without hangs
-      // under its name and grows with it; a panel about its leader's end or,
-      // hanging, with its name.
+      // Readings: a chip with a leader about the leader's end on it; one
+      // without hangs under its name and grows with it; a panel about the
+      // leader's end on it or, hanging, with its name.
       let hangingSeen = 0;
       for (const h of holding("[data-readout]")) {
         const id = h.g
@@ -2148,14 +2201,14 @@ describe("SynopticRenderer text held legible", () => {
         const name = names.get(id);
         const withName = !!name && near(name.anchor, h.anchor);
         if (leader?.getAttribute("data-leader") === "chip") {
-          expect(near(end!, h.anchor)).toBe(true);
+          expect(near(start(leader), h.anchor)).toBe(true);
         } else if (!leader) {
           if (name) expect(withName).toBe(true);
           hangingSeen += 1;
         } else {
           // A panel whose leader ends on its own name, just over its text,
-          // hangs off that name and grows with it; any other about the end
-          // of its leader.
+          // hangs off that name and grows with it; any other about the
+          // leader's end on the panel.
           const point = namePoints.get(id);
           const onName =
             !!point &&
@@ -2166,7 +2219,7 @@ describe("SynopticRenderer text held legible", () => {
             expect(withName).toBe(true);
             hangingSeen += 1;
           } else {
-            expect(near(end!, h.anchor)).toBe(true);
+            expect(near(start(leader), h.anchor)).toBe(true);
           }
         }
       }
@@ -2186,6 +2239,60 @@ describe("SynopticRenderer text held legible", () => {
           );
       }
       expect(hangingSeen + names.size).toBeGreaterThan(0);
+    },
+  );
+
+  it.each(PLATE_CASES)(
+    "%s: held larger, a text keeps its drawn distance: each leader meets its point at its drawn length, a tag's disc stays on its run",
+    (name) => {
+      const doc = plate(name);
+      const values = liveValues(doc);
+      canvasAt(0.5);
+      const owner = (el: Element) =>
+        ["data-tag", "data-symbol-label", "data-readout"]
+          .map((a) => el.closest(`[${a}]`)?.getAttribute(a) ?? "")
+          .join("|");
+      const ends = (l: Element) => ({
+        from: { x: num(l, "x1"), y: num(l, "y1") },
+        to: { x: num(l, "x2"), y: num(l, "y2") },
+      });
+      const drawn = new Map(
+        q(draw(doc, values), "line[data-leader]").map((l) => [
+          owner(l),
+          ends(l),
+        ]),
+      );
+      cleanup();
+      const { container } = render(
+        <SynopticRenderer doc={doc} values={values} minTextPx={11} />,
+      );
+      const held = heldTexts(container);
+      const holder = (el: Element) => held.find((h) => h.g.contains(el))!;
+      const close = (
+        p: { x: number; y: number },
+        a: { x: number; y: number },
+      ) => Math.abs(p.x - a.x) < 1e-6 && Math.abs(p.y - a.y) < 1e-6;
+      let pinned = 0;
+      for (const l of q(container, "line[data-leader]")) {
+        const h = holder(l);
+        expect(h.k).toBe(2);
+        // A panel hanging off its name grows with the name, leader and all.
+        const id = l.closest("[data-readout]")?.getAttribute("data-readout");
+        const name =
+          id && container.querySelector(`[data-symbol-label='${id}']`);
+        if (name && close(holder(name).anchor, h.anchor)) continue;
+        const was = drawn.get(owner(l))!;
+        const now = ends(l);
+        expect(close(through(h, now.from), was.from)).toBe(true);
+        expect(close(through(h, now.to), was.to)).toBe(true);
+        pinned += 1;
+      }
+      for (const disc of q(container, "[data-tag] > circle")) {
+        const was = drawn.get(owner(disc))!;
+        const at = { x: num(disc, "cx"), y: num(disc, "cy") };
+        expect(close(through(holder(disc), at), was.to)).toBe(true);
+      }
+      expect(pinned).toBeGreaterThan(3);
     },
   );
 

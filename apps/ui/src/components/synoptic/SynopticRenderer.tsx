@@ -1,5 +1,6 @@
 import {
   useCallback,
+  useContext,
   useEffect,
   useImperativeHandle,
   useMemo,
@@ -21,11 +22,18 @@ import {
 } from "@gridone/sdk";
 import { fluidFillClass } from "@/lib/fluidColors";
 import { mostSevere } from "@/lib/severity";
-import { Caption, Chip, CHIP_H, chipWidth, DISC_R } from "./Chip";
+import {
+  Caption,
+  Chip,
+  CHIP_H,
+  CHIP_LABEL_GAP,
+  chipWidth,
+  DISC_R,
+} from "./Chip";
 import { circulatingRuns } from "./circulation";
 import { DepthOrdered, type DepthItem } from "./DepthOrdered";
 import { headName, headOf, headSlot, machineFault, symbolHeads } from "./heads";
-import { TEXT_RANK } from "./legibility";
+import { TEXT_RANK, TextScaleContext } from "./legibility";
 import type { View, ViewportController } from "./hooks/useViewport";
 import { Panel, panelHeight, panelWidth, type PanelRow } from "./Panel";
 import { PidDiagram, type CanvasTouchAction } from "./PidDiagram";
@@ -169,11 +177,8 @@ const MARGIN = 60;
  *  it, or below it when a body stands on the cells the chip would rise
  *  over. */
 const TAG_LIFT = 26;
-/** A caption sits this far above the chip it names, or below one hung
- *  under its run. */
-const TAG_CAPTION_GAP = 14;
 /** A single reading hangs this far under the symbol's label. */
-const READOUT_GAP = 12;
+export const READOUT_GAP = 12;
 /** A panel clears the label above it, or the body beside or under it. */
 const PANEL_LABEL_GAP = 6;
 const PANEL_BODY_GAP = 10;
@@ -902,35 +907,31 @@ function addRuns(plate: Plate) {
         on,
         w,
         // A line code with no reading is its caption alone.
-        value ? CHIP_H + TAG_CAPTION_GAP + LABEL_SIZE : LABEL_SIZE,
+        value ? CHIP_H + CHIP_LABEL_GAP + LABEL_SIZE : LABEL_SIZE,
         bodyBehind ? "below" : "above",
       );
       place(plate, box);
+      const tied = value
+        ? {
+            x0: at.x - w / 2,
+            y0: at.y - CHIP_H / 2,
+            x1: at.x + w / 2,
+            y1: at.y + CHIP_H / 2,
+          }
+        : box;
+      // Grown away from its leader's end, so it stays as near its run as
+      // drawn.
+      const grows = edgePoint(tied, on);
       items.push({
         id: tag.id,
         depth: depthKey(tag.at, "label"),
-        // Grown about its point on the run, so its leader stays on it.
-        text: { anchor: on, box, rank: TEXT_RANK.tag },
+        text: { anchor: grows, box, rank: TEXT_RANK.tag },
         node: (
           <g data-tag={tag.id} data-side={below ? "below" : "above"}>
-            <Leader
-              box={
-                value
-                  ? {
-                      x0: at.x - w / 2,
-                      y0: at.y - CHIP_H / 2,
-                      x1: at.x + w / 2,
-                      y1: at.y + CHIP_H / 2,
-                    }
-                  : box
-              }
-              anchor={on}
-              kind="tag"
-            />
-            <circle
-              cx={on.x}
-              cy={on.y}
-              r={DISC_R}
+            <Leader box={tied} anchor={on} kind="tag" grows={grows} />
+            <RunDisc
+              on={on}
+              grows={grows}
               className={fluidFillClass(pipe.fluid)}
             />
             {value && (
@@ -1253,13 +1254,13 @@ function addSymbols(plate: Plate) {
     // sheet the run state lights an LED after it; in the isometric view
     // the machine shows it itself.
     const placed = plate.placedLabels.get(symbol.id);
-    // What the name grows about: where its leader meets the body, else its
-    // own point. A readout hanging under it grows about the same point, so
-    // the two stay together.
-    const nameAnchor =
-      placed?.leader ??
-      placed?.at ??
-      symbolLabelPoint(symbol.type, projection, origin, rotation);
+    // What the name grows about: where its leader meets it, else its own
+    // point. A readout hanging under it grows about the same point, so the
+    // two stay together.
+    const nameAnchor = placed?.leader
+      ? edgePoint(placed.box, placed.leader)
+      : (placed?.at ??
+        symbolLabelPoint(symbol.type, projection, origin, rotation));
     if (placed) {
       extent.push(
         { x: placed.box.x0, y: placed.box.y0 },
@@ -1268,7 +1269,12 @@ function addSymbols(plate: Plate) {
       const name = (
         <g data-symbol-label={symbol.id}>
           {placed.leader && (
-            <Leader box={placed.box} anchor={placed.leader} kind="label" />
+            <Leader
+              box={placed.box}
+              anchor={placed.leader}
+              kind="label"
+              grows={nameAnchor}
+            />
           )}
           <Label
             text={placed.text}
@@ -1323,13 +1329,14 @@ function addSymbols(plate: Plate) {
         "chip",
       );
       place(plate, box);
+      const grows = hanging ? (nameAnchor ?? anchor) : edgePoint(box, anchor);
       // A chip sent anywhere but under its label is joined to its symbol
       // as a panel is, or it floats with no owner.
       items.push({
         id: `${symbol.id}:readout`,
         depth: depthKey(origin, "label"),
         text: {
-          anchor: hanging ? (nameAnchor ?? anchor) : anchor,
+          anchor: grows,
           box,
           rank: TEXT_RANK.reading,
           // Under its name with no leader, it says whose it is by the name.
@@ -1337,7 +1344,9 @@ function addSymbols(plate: Plate) {
         },
         node: (
           <g data-readout={symbol.id}>
-            {!hanging && <Leader box={box} anchor={anchor} kind="chip" />}
+            {!hanging && (
+              <Leader box={box} anchor={anchor} kind="chip" grows={grows} />
+            )}
             <Chip
               at={{ x: (box.x0 + box.x1) / 2, y: (box.y0 + box.y1) / 2 }}
               reading={single}
@@ -1362,17 +1371,19 @@ function addSymbols(plate: Plate) {
       "panel",
     );
     place(plate, box);
+    const grows = hanging ? (nameAnchor ?? anchor) : edgePoint(box, anchor);
     items.push({
       id: `${symbol.id}:readout`,
       depth: depthKey(origin, "label"),
-      text: {
-        anchor: hanging ? (nameAnchor ?? anchor) : anchor,
-        box,
-        rank: TEXT_RANK.reading,
-      },
+      text: { anchor: grows, box, rank: TEXT_RANK.reading },
       node: (
         <g data-readout={symbol.id}>
-          <Leader box={box} anchor={anchor} kind="panel" />
+          <Leader
+            box={box}
+            anchor={anchor}
+            kind="panel"
+            grows={hanging ? null : grows}
+          />
           <Panel
             at={{ x: (box.x0 + box.x1) / 2, y: box.y1 }}
             title={title}
@@ -1420,29 +1431,58 @@ function highlightRing(
   );
 }
 
+/** Where a point on the plate is drawn inside a text held `k` times larger
+ *  about `grows`, so the scale brings it back onto the point. */
+const pinned = (grows: Pt, point: Pt, k: number): Pt => ({
+  x: grows.x + (point.x - grows.x) / k,
+  y: grows.y + (point.y - grows.y) / k,
+});
+
 /** The 1 px line from the readout's edge nearest the anchor to the anchor,
- *  a drawn corner of the body or the label point. */
+ *  a drawn corner of the body or the label point. Its end stays on the
+ *  anchor while its text grows about `grows`, the point the text's
+ *  footprint names; null for a panel hanging off its name, which grows
+ *  with the name, its leader whole. */
 function Leader({
   box,
   anchor,
   kind,
+  grows,
 }: {
   box: Box;
   anchor: Pt;
   kind: "chip" | "panel" | "tag" | "label";
+  grows: Pt | null;
 }) {
+  const k = useContext(TextScaleContext);
   const from = edgePoint(box, anchor);
+  const to = grows ? pinned(grows, anchor, k) : anchor;
   return (
     <line
       x1={from.x}
       y1={from.y}
-      x2={anchor.x}
-      y2={anchor.y}
+      x2={to.x}
+      y2={to.y}
       strokeWidth={1}
       className="stroke-muted-foreground"
       data-leader={kind}
     />
   );
+}
+
+/** A tag's disc on its run, held there while its text grows about
+ *  `grows`. */
+function RunDisc({
+  on,
+  grows,
+  className,
+}: {
+  on: Pt;
+  grows: Pt;
+  className: string;
+}) {
+  const at = pinned(grows, on, useContext(TextScaleContext));
+  return <circle cx={at.x} cy={at.y} r={DISC_R} className={className} />;
 }
 
 /** Where a free label and the reading it may carry go: the text at its
@@ -1668,7 +1708,8 @@ function placeTag(
 
 /**
  * Where a symbol's readout goes: hanging off the label first (a chip
- * under it, a panel above it), else the first spot clear of every
+ * under it, a panel above it, centred, else flush with either end of the
+ * name; a chip else beside it or over it), else the first spot clear of every
  * obstacle but the symbol's own body and label, walking the rings around
  * them: above, beside, below, then the corners, each ring a step further
  * out. When every ring is taken the spot at the label is the last resort.
@@ -1685,34 +1726,62 @@ function placeReadout(
 ): { box: Box; anchor: Pt; hanging: boolean } {
   const body = plate.bodies.get(symbol.id)!;
   const ownLabel = plate.labelBoxes.get(symbol.id);
-  const own = new Set<Obstacle | undefined>([
-    ...plate.bodyObstacles.get(symbol.id)!,
-    ownLabel,
-  ]);
+  const ownBody = plate.bodyObstacles.get(symbol.id)!;
+  const own = new Set<Obstacle | undefined>([...ownBody, ownLabel]);
   const others = plate.obstacles.filter((o) => !own.has(o));
-  const hanging =
+  // Hanging off the name: centred on it, else flush with its start or its
+  // end, else (a chip) beside it or over it, before any spot away from it.
+  const hang = (x0: number): Box =>
     kind === "panel"
       ? {
-          box: {
-            x0: labelPoint.x - w / 2,
-            y0: labelPoint.y - LABEL_SIZE - PANEL_LABEL_GAP - h,
-            x1: labelPoint.x + w / 2,
-            y1: labelPoint.y - LABEL_SIZE - PANEL_LABEL_GAP,
-          },
-          anchor: { x: labelPoint.x, y: labelPoint.y - CLEARANCE },
+          x0,
+          y0: labelPoint.y - LABEL_SIZE - PANEL_LABEL_GAP - h,
+          x1: x0 + w,
+          y1: labelPoint.y - LABEL_SIZE - PANEL_LABEL_GAP,
         }
       : {
-          box: {
-            x0: labelPoint.x - w / 2,
-            y0: labelPoint.y + READOUT_GAP - h / 2,
-            x1: labelPoint.x + w / 2,
-            y1: labelPoint.y + READOUT_GAP + h / 2,
-          },
-          anchor: labelPoint,
+          x0,
+          y0: labelPoint.y + READOUT_GAP - h / 2,
+          x1: x0 + w,
+          y1: labelPoint.y + READOUT_GAP + h / 2,
         };
-  if (!others.some((o) => overlaps(hanging.box, o))) {
-    return { ...hanging, hanging: true };
-  }
+  const beside = (x0: number): Box => ({
+    x0,
+    y0: labelPoint.y - LABEL_SIZE / 2 - h / 2,
+    x1: x0 + w,
+    y1: labelPoint.y - LABEL_SIZE / 2 + h / 2,
+  });
+  const over = (x0: number): Box => ({
+    x0,
+    y0: labelPoint.y - LABEL_SIZE - CHIP_LABEL_GAP - h,
+    x1: x0 + w,
+    y1: labelPoint.y - LABEL_SIZE - CHIP_LABEL_GAP,
+  });
+  const centred = hang(labelPoint.x - w / 2);
+  const shifted = ownLabel
+    ? [
+        hang(ownLabel.x0),
+        hang(ownLabel.x1 - w),
+        ...(kind === "chip"
+          ? [
+              beside(ownLabel.x1 + CHIP_LABEL_GAP),
+              beside(ownLabel.x0 - CHIP_LABEL_GAP - w),
+              over(labelPoint.x - w / 2),
+            ]
+          : []),
+      ]
+    : [];
+  const atName =
+    kind === "panel"
+      ? { x: labelPoint.x, y: labelPoint.y - CLEARANCE }
+      : labelPoint;
+  // Off the centre, a spot keeps clear of the symbol's own body too.
+  const free = [centred, ...shifted].find(
+    (box, i) =>
+      !others.some((o) => overlaps(box, o)) &&
+      (i === 0 || !ownBody.some((o) => overlaps(box, o))),
+  );
+  if (free) return { box: free, anchor: atName, hanging: true };
   // Around the body and its label together, so no spot lands on the name.
   const around = ownLabel ? rawBounds(cornersOf(body, ownLabel)) : body;
   const spot = findSpot(
@@ -1725,7 +1794,7 @@ function placeReadout(
     RING_STEP,
     PLACEMENT_RINGS,
   );
-  if (!spot) return { ...hanging, hanging: false };
+  if (!spot) return { box: centred, anchor: atName, hanging: false };
   const centre = {
     x: (body.x0 + body.x1) / 2,
     y: (body.y0 + body.y1) / 2,

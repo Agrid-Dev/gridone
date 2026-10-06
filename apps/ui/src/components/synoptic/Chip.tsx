@@ -17,7 +17,8 @@ const VALUE_SIZE = 12;
 const UNIT_SIZE = 11;
 /** Space between a value and its unit. */
 const UNIT_GAP = 3;
-const LABEL_GAP = 4;
+/** A label sits this far over its chip; a tag's caption as far under one. */
+export const CHIP_LABEL_GAP = 4;
 /** Border width a faulty device's chip or panel takes. */
 export const FAULT_STROKE = 1.5;
 /** Corner radius of a chip or panel. */
@@ -146,7 +147,7 @@ export function Chip({ at, reading, label, title }: ChipProps) {
         {title && <title>{title}</title>}
         {label && (
           <Caption
-            at={{ x: at.x, y: at.y - CHIP_H / 2 - LABEL_GAP }}
+            at={{ x: at.x, y: at.y - CHIP_H / 2 - CHIP_LABEL_GAP }}
             text={label}
           />
         )}
@@ -180,7 +181,7 @@ export function Chip({ at, reading, label, title }: ChipProps) {
       {title && <title>{title}</title>}
       {label && (
         <Caption
-          at={{ x: at.x, y: at.y - CHIP_H / 2 - LABEL_GAP }}
+          at={{ x: at.x, y: at.y - CHIP_H / 2 - CHIP_LABEL_GAP }}
           text={label}
         />
       )}
