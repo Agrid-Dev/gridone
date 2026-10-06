@@ -1,3 +1,9 @@
+## v0.299.0 (2026-10-06)
+
+### Feat
+
+- **dashboards**: chart widget plots several targets (AGR-1563)
+
 ## v0.298.0 (2026-10-06)
 
 ### Feat
