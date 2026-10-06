@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import { usePermissions } from "@/contexts/AuthContext";
 import { useAttributeWriter } from "@/hooks/useAttributeCommandRuntime";
 import { useAttributeLabel } from "@/hooks/useAttributeLabel";
 import { useDeviceById } from "@/hooks/useDeviceById";
@@ -89,8 +90,8 @@ type DevicePopoverProps = {
  * What a click on a device symbol opens, on the plate: the device's name
  * and a link to its page, and the symbol's own points (the slots the
  * document binds) with their live readings. A point whose attribute the
- * device lets one write is edited here, through the same preflight and
- * consent as the device page. Nothing else of the device is shown: the
+ * device lets one write is edited here, by a user allowed to command
+ * devices, through the same preflight and consent as the device page. Nothing else of the device is shown: the
  * plate names what matters, the device page has the rest.
  */
 export const DevicePopover: FC<DevicePopoverProps> = ({
@@ -177,6 +178,7 @@ const PointList: FC<{
 }> = ({ device, points, vocabulary }) => {
   const { t, i18n } = useTranslation("synoptics");
   const labelFor = useAttributeLabel();
+  const can = usePermissions();
   const [editing, setEditing] = useState<string | null>(null);
   if (points.length === 0) {
     return <p className="text-muted-foreground">{t("popover.noPoints")}</p>;
@@ -189,7 +191,9 @@ const PointList: FC<{
           ? (attributes[point.attribute] as AttributeFields | undefined)
           : undefined;
         const writable =
-          !!point.attribute && isAttributeWritable(device, point.attribute);
+          !!point.attribute &&
+          isAttributeWritable(device, point.attribute) &&
+          can("devices:command");
         const state = readingState(point.reading);
         return (
           <div
