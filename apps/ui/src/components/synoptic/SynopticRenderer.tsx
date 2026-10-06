@@ -34,7 +34,11 @@ import { circulatingRuns } from "./circulation";
 import { DepthOrdered, type DepthItem } from "./DepthOrdered";
 import { headName, headOf, headSlot, machineFault, symbolHeads } from "./heads";
 import { TEXT_RANK, TextScaleContext } from "./legibility";
-import type { View, ViewportController } from "./hooks/useViewport";
+import type {
+  CanvasWheel,
+  View,
+  ViewportController,
+} from "./hooks/useViewport";
 import { Panel, panelHeight, panelWidth, type PanelRow } from "./Panel";
 import { PidDiagram, type CanvasTouchAction } from "./PidDiagram";
 import { Pipe } from "./Pipe";
@@ -162,9 +166,9 @@ type SynopticRendererProps = {
   /** Whether a double click fits the plate again; on by default. */
   fitOnDoubleClick?: boolean;
   touchAction?: CanvasTouchAction;
-  /** Whether the plate takes no gesture, leaving the wheel and every touch
-   *  gesture to the page: a dashboard widget among other content. */
-  fixed?: boolean;
+  /** What the wheel does: `pinch` leaves the plain wheel to the page, for a
+   *  plate among other content (a dashboard widget). */
+  wheel?: CanvasWheel;
   /** Painted over the plate, in its frame; `frameRef` receives that frame
    *  so a pointer can be read in plate coordinates. */
   frameRef?: RefObject<SVGGElement>;
@@ -254,7 +258,7 @@ export function SynopticRenderer({
   boxed = false,
   fitOnDoubleClick,
   touchAction,
-  fixed,
+  wheel,
   frameRef,
   children,
 }: SynopticRendererProps) {
@@ -378,7 +382,7 @@ export function SynopticRenderer({
       minTextPx={minTextPx}
       textSize={LABEL_SIZE}
       fitOnDoubleClick={fitOnDoubleClick}
-      fixed={fixed}
+      wheel={wheel}
     >
       <KitDefs />
       <g ref={setFrame} transform={`translate(${offset.x} ${offset.y})`}>

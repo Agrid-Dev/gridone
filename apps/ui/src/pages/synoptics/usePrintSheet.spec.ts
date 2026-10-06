@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { usePrintSheet } from "./usePrintSheet";
 
@@ -17,6 +17,7 @@ type ActGlobal = { IS_REACT_ACT_ENVIRONMENT?: boolean };
 
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
   document.documentElement.classList.remove("dark");
 });
 
@@ -33,19 +34,19 @@ describe("usePrintSheet", () => {
 
   it("reads false until the browser starts printing, true while it prints, and false once it is done", () => {
     const { result } = renderHook(() => usePrintSheet());
-    expect(result.current).toBe(false);
+    expect(result.current.printing).toBe(false);
 
     beforeprint();
-    expect(result.current).toBe(true);
+    expect(result.current.printing).toBe(true);
 
     afterprint();
-    expect(result.current).toBe(false);
+    expect(result.current.printing).toBe(false);
 
     // A second print goes through the same way.
     beforeprint();
-    expect(result.current).toBe(true);
+    expect(result.current.printing).toBe(true);
     afterprint();
-    expect(result.current).toBe(false);
+    expect(result.current.printing).toBe(false);
   });
 
   it("lifts the dark theme for the print and puts it back afterwards", () => {
@@ -116,10 +117,52 @@ describe("usePrintSheet", () => {
     scope.IS_REACT_ACT_ENVIRONMENT = false;
     try {
       window.dispatchEvent(new Event("beforeprint"));
-      expect(result.current).toBe(true);
+      expect(result.current.printing).toBe(true);
     } finally {
       scope.IS_REACT_ACT_ENVIRONMENT = previous;
       afterprint();
     }
+  });
+});
+
+describe("usePrintSheet on a page with other content", () => {
+  it("leaves the browser's own print to the page: no sheet, the theme untouched", () => {
+    document.documentElement.classList.add("dark");
+    const { result } = renderHook(() => usePrintSheet(false));
+    beforeprint();
+    expect(result.current.printing).toBe(false);
+    expect(dark()).toBe(true);
+    afterprint();
+  });
+
+  it("prints its sheet when its own button asks, and only that once", () => {
+    const seen: boolean[] = [];
+    const { result } = renderHook(() => usePrintSheet(false));
+    vi.stubGlobal("print", () => {
+      window.dispatchEvent(new Event("beforeprint"));
+      seen.push(result.current.printing);
+      window.dispatchEvent(new Event("afterprint"));
+    });
+    act(() => result.current.print());
+    expect(seen).toEqual([true]);
+    expect(result.current.printing).toBe(false);
+
+    // The browser's own print afterwards is the page's again.
+    beforeprint();
+    expect(result.current.printing).toBe(false);
+    afterprint();
+  });
+
+  it("prints only the plate whose button was pressed when two share the page", () => {
+    const one = renderHook(() => usePrintSheet(false));
+    const two = renderHook(() => usePrintSheet(false));
+    const seen: boolean[][] = [];
+    vi.stubGlobal("print", () => {
+      window.dispatchEvent(new Event("beforeprint"));
+      seen.push([one.result.current.printing, two.result.current.printing]);
+      window.dispatchEvent(new Event("afterprint"));
+    });
+    act(() => two.result.current.print());
+    expect(seen).toEqual([[false, true]]);
   });
 });

@@ -52,7 +52,6 @@ export function PreviewDialog({
             doc={draft}
             values={EMPTY_VALUES}
             knownSynoptics={knownSynoptics}
-            onNavigate={() => {}}
             className="min-h-0 flex-1"
           />
         )}

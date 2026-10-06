@@ -1,3 +1,4 @@
+import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
@@ -185,7 +186,10 @@ function stubScreenCtm() {
   );
 }
 
-function renderView(doc: Synoptic = DOC) {
+function renderView(
+  doc: Synoptic = DOC,
+  props: Partial<ComponentProps<typeof PlateView>> = {},
+) {
   const onNavigate = vi.fn();
   const { container } = render(
     <MemoryRouter>
@@ -194,6 +198,7 @@ function renderView(doc: Synoptic = DOC) {
         values={VALUES}
         knownSynoptics={new Set(["ecs", "west"])}
         onNavigate={onNavigate}
+        {...props}
       />
     </MemoryRouter>,
   );
@@ -269,6 +274,7 @@ afterEach(() => {
   document.documentElement.classList.remove("dark");
   vi.unstubAllGlobals();
   Reflect.deleteProperty(SVGGElement.prototype, "getScreenCTM");
+  Reflect.deleteProperty(SVGSVGElement.prototype, "getScreenCTM");
   Reflect.deleteProperty(document, "fullscreenElement");
   Reflect.deleteProperty(document, "exitFullscreen");
   mockUseDeviceById.mockReset();
@@ -852,6 +858,117 @@ describe("PlateView", () => {
 
       expect(sheet()).toBeNull();
       expect(dark()).toBe(true);
+    });
+  });
+
+  describe("embedded among other content", () => {
+    const EMBEDDED = {
+      embedded: true,
+      knownSynoptics: undefined,
+      onNavigate: undefined,
+    };
+    /** A wheel over the canvas; true when the page may scroll. */
+    const wheel = (init: { ctrlKey?: boolean } = {}) =>
+      fireEvent.wheel(svg(), { deltaY: -100, ...init });
+
+    it("opens on the view it is given, whatever the document says, and still switches", () => {
+      renderView(DOC, { ...EMBEDDED, defaultProjection: "isometric" });
+      expect(card().querySelector("[data-slab]")).not.toBeNull();
+      fireEvent.click(button("Plan"));
+      expect(card().querySelector("[data-slab]")).toBeNull();
+    });
+
+    it("leaves the plain wheel to the page and zooms on a pinch, and takes every wheel in full screen", () => {
+      Object.defineProperty(SVGSVGElement.prototype, "getScreenCTM", {
+        configurable: true,
+        value: () => ({ inverse: () => ({ a: 1, d: 1, e: 0, f: 0 }) }),
+      });
+      let fullscreenElement: Element | null = null;
+      Object.defineProperty(document, "fullscreenElement", {
+        configurable: true,
+        get: () => fullscreenElement,
+      });
+      renderView(DOC, EMBEDDED);
+
+      expect(wheel()).toBe(true);
+      expect(view().scale).toBe(1);
+
+      expect(wheel({ ctrlKey: true })).toBe(false);
+      const pinched = view().scale;
+      expect(pinched).toBeGreaterThan(1);
+
+      // Full screen leaves no page to scroll.
+      fullscreenElement = card();
+      fireEvent(document, new Event("fullscreenchange"));
+      expect(wheel()).toBe(false);
+      expect(view().scale).toBeGreaterThan(pinched);
+    });
+
+    it("opens a device's points inside the plate in full screen, where nothing outside it shows", () => {
+      let fullscreenElement: Element | null = null;
+      Object.defineProperty(document, "fullscreenElement", {
+        configurable: true,
+        get: () => fullscreenElement,
+      });
+      renderView(DOC, EMBEDDED);
+      fullscreenElement = card();
+      fireEvent(document, new Event("fullscreenchange"));
+      fireEvent.click(symbol("pac"));
+      expect(card().contains(popover())).toBe(true);
+    });
+
+    it("keeps the plate's drawn title on screen, and leaves it to the sheet's own on paper", () => {
+      renderView(
+        {
+          ...DOC,
+          labels: [
+            {
+              id: "title",
+              at: { x: 0, y: -2 },
+              text: "ECS EST",
+              role: "title",
+            },
+          ],
+        },
+        EMBEDDED,
+      );
+      expect(card().querySelector("[data-label='title']")).toHaveTextContent(
+        "ECS EST",
+      );
+      let printed: Element | null = null;
+      vi.stubGlobal("print", () => {
+        fireEvent(window, new Event("beforeprint"));
+        printed = document
+          .querySelector("[data-print-sheet]")!
+          .querySelector("[data-label='title']");
+        fireEvent(window, new Event("afterprint"));
+      });
+      fireEvent.click(button("Exporter en PDF"));
+      expect(printed).toBeNull();
+    });
+
+    it("leaves every link inert, neither followed nor drawn missing", () => {
+      renderView(DOC, EMBEDDED);
+      expect(screen.getByText("ECS OUEST")).toBeInTheDocument();
+      expect(symbol("to-west")).toBeNull();
+      expect(symbol("to-gone")).toBeNull();
+      expect(card().querySelector("[data-missing]")).toBeNull();
+    });
+
+    it("prints its sheet from its PDF button only, leaving the browser's own print to the page", () => {
+      renderView(DOC, EMBEDDED);
+      fireEvent(window, new Event("beforeprint"));
+      expect(document.querySelector("[data-print-sheet]")).toBeNull();
+      fireEvent(window, new Event("afterprint"));
+
+      let sheet: Element | null = null;
+      vi.stubGlobal("print", () => {
+        fireEvent(window, new Event("beforeprint"));
+        sheet = document.querySelector("[data-print-sheet]");
+        fireEvent(window, new Event("afterprint"));
+      });
+      fireEvent.click(button("Exporter en PDF"));
+      expect(sheet).not.toBeNull();
     });
   });
 });

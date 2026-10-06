@@ -1,13 +1,12 @@
-import { useMemo, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { Synoptic, SynopticWidgetConfig } from "@gridone/sdk";
-import { SynopticRenderer } from "@/components/synoptic";
 import { DEFAULT_PROJECTION } from "@/components/synoptic/projection";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSynopticValues } from "@/hooks/useSynopticValues";
 import { isResourceNotFound } from "@/lib/errors";
+import { PlateView } from "@/pages/synoptics/PlateView";
 import { useSynopticById } from "@/pages/synoptics/useSynoptics";
-import { usePlateVocabulary } from "@/pages/synoptics/usePlateVocabulary";
 import { useFeatureEnabled } from "@/utils/featureFlags";
 
 function SynopticMessage({ children }: { children: ReactNode }) {
@@ -18,8 +17,8 @@ function SynopticMessage({ children }: { children: ReactNode }) {
   );
 }
 
-/** A still, fitted view: the page keeps the wheel and touch scroll, and
- *  symbols cannot navigate or open controls. */
+/** The plate with its toolbar and device popover, opening on the view the
+ *  dashboard author chose; the page keeps the plain wheel. */
 function SynopticCanvas({
   doc,
   projection,
@@ -28,24 +27,14 @@ function SynopticCanvas({
   projection: SynopticWidgetConfig["projection"];
 }) {
   const values = useSynopticValues(doc);
-  // The widget draws the plate the way its author chose, plan or isometric:
-  // a view of the document, never a change to it.
-  const viewDoc = useMemo(
-    () => ({ ...doc, projection: projection ?? DEFAULT_PROJECTION }),
-    [doc, projection],
-  );
-  const vocabulary = usePlateVocabulary();
-
   return (
-    <div className="relative h-full overflow-hidden">
-      <SynopticRenderer
-        doc={viewDoc}
-        values={values}
-        vocabulary={vocabulary}
-        minTextPx={12}
-        fixed
-      />
-    </div>
+    <PlateView
+      className="h-full rounded-none border-0"
+      doc={doc}
+      values={values}
+      defaultProjection={projection ?? DEFAULT_PROJECTION}
+      embedded
+    />
   );
 }
 
@@ -74,5 +63,12 @@ export function SynopticWidgetView({ config }: { config: unknown }) {
       </SynopticMessage>
     );
   if (isPending || !data) return <Skeleton className="h-full w-full" />;
-  return <SynopticCanvas key={id} doc={data} projection={projection} />;
+  // A new default view (the editor's preview) opens the plate on it.
+  return (
+    <SynopticCanvas
+      key={`${id}:${projection}`}
+      doc={data}
+      projection={projection}
+    />
+  );
 }

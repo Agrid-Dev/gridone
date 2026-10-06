@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter } from "react-router";
 import { GridoneError, type Synoptic } from "@gridone/sdk";
 import { createI18nMock } from "@/test/i18nMock";
 import { symbolSlotKey } from "@/components/synoptic/values";
@@ -15,6 +16,19 @@ vi.mock("@/contexts/GridoneClientContext", () => ({
 let enabled = true;
 vi.mock("@/utils/featureFlags", () => ({
   useFeatureEnabled: () => enabled,
+}));
+vi.mock("@/hooks/useDeviceById", () => ({
+  useDeviceById: (id: string | undefined) => ({
+    data: { id, name: id, type: "tank", attributes: {} },
+    isLoading: false,
+    error: null,
+  }),
+}));
+vi.mock("@/hooks/useAttributeCommandRuntime", () => ({
+  useAttributeWriter: () => vi.fn(),
+}));
+vi.mock("@/contexts/AuthContext", () => ({
+  usePermissions: () => () => true,
 }));
 let temperature = "21.5";
 vi.mock("@/hooks/useSynopticValues", () => ({
@@ -59,9 +73,11 @@ function renderView(id = "plate1", projection?: "isometric" | "flat") {
   });
   const view = (synopticId: string) => (
     <QueryClientProvider client={client}>
-      <SynopticWidgetView
-        config={{ type: "synoptic", synoptic_id: synopticId, projection }}
-      />
+      <MemoryRouter>
+        <SynopticWidgetView
+          config={{ type: "synoptic", synoptic_id: synopticId, projection }}
+        />
+      </MemoryRouter>
     </QueryClientProvider>
   );
   return { ...render(view(id)), view };
@@ -75,46 +91,69 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("SynopticWidgetView", () => {
-  it("renders live readings with no controls, even on device symbols", async () => {
-    const { container, rerender, view } = renderView();
+  it("renders live readings with the plate's toolbar", async () => {
+    const { rerender, view } = renderView();
     expect(await screen.findByText("21.5")).toBeInTheDocument();
     // The widget's own title names the plate: the document's is not repeated.
     expect(screen.queryByText("Heating plant")).not.toBeInTheDocument();
     expect(api.get).toHaveBeenCalledWith("plate1");
-    // "No zoom buttons on the widget."
-    expect(screen.queryAllByRole("button")).toEqual([]);
-    expect(screen.queryByRole("link")).not.toBeInTheDocument();
-    expect(
-      container.querySelector("svg [role=button]"),
-    ).not.toBeInTheDocument();
-    fireEvent.click(screen.getByText("Tank"));
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    // "All controls from the synoptics toolbar are present."
+    for (const name of [
+      "nav.hide",
+      "view.plan",
+      "view.isometric",
+      "view.zoomOut",
+      "view.zoomIn",
+      "view.fit",
+      "view.legend",
+      "view.exportPdf",
+      "view.fullscreen",
+    ]) {
+      expect(screen.getByRole("button", { name })).toBeInTheDocument();
+    }
     temperature = "23.0";
     rerender(view("plate1"));
     expect(screen.getByText("23.0")).toBeInTheDocument();
   });
 
-  it("leaves the wheel and touch scroll to the page", async () => {
+  it("opens a device's points from its symbol, with the way to its page", async () => {
     const { container } = renderView();
-    await screen.findByText("Tank");
-    const svg = container.querySelector("svg")!;
-    // "The wheel over the plate scrolls the page, like over any other widget."
+    await screen.findByText("21.5");
+    // "Control a device from synoptics and link to device."
+    fireEvent.click(container.querySelector("[data-symbol='tank']")!);
+    expect(
+      document.querySelector("[data-device-popover='tank']"),
+    ).toBeInTheDocument();
+    expect(
+      document.querySelector("a[href='/devices/device1']"),
+    ).toBeInTheDocument();
+  });
+
+  it("leaves the plain wheel and vertical swipes to the page", async () => {
+    const { container } = renderView();
+    await screen.findByText("21.5");
+    const svg = container.querySelector<SVGSVGElement>(
+      "svg.bg-synoptic-plate",
+    )!;
+    // "No conflict with scroll: zoom with control buttons and trackpad
+    // pinch, but not with scroll control."
     expect(fireEvent.wheel(svg, { deltaY: 100 })).toBe(true);
-    expect(svg.style.touchAction).toBe("auto");
+    expect(svg.style.touchAction).toBe("pan-y");
   });
 
   it("loads the new document when the configured reference changes", async () => {
     const { rerender, view } = renderView();
-    await screen.findByText("Tank");
+    await screen.findByText("21.5");
     api.get.mockResolvedValue({
       ...DOC,
       id: "plate2",
       symbols: [{ ...DOC.symbols![0], label: "Chiller" }],
     });
     rerender(view("plate2"));
-    expect(await screen.findByText("Chiller")).toBeInTheDocument();
+    // Drawn on the plate and listed beside it.
+    expect(await screen.findAllByText("Chiller")).toHaveLength(2);
     expect(api.get).toHaveBeenCalledWith("plate2");
-    expect(screen.queryByText("Tank")).not.toBeInTheDocument();
+    expect(screen.queryAllByText("Tank")).toEqual([]);
   });
 
   it.each([
@@ -139,10 +178,22 @@ describe("SynopticWidgetView", () => {
     async (_, projection, slab) => {
       api.get.mockResolvedValue({ ...DOC, projection: "flat" });
       const { container } = renderView("plate1", projection);
-      await screen.findByText("Tank");
+      await screen.findByText("21.5");
       expect(container.querySelector("[data-slab]") !== null).toBe(slab);
     },
   );
+
+  it("opens on the configured view and lets the operator switch it", async () => {
+    // "The view mode of the widget config becomes the default view but the
+    // user can toggle."
+    const { container } = renderView("plate1", "flat");
+    await screen.findByText("21.5");
+    const plan = screen.getByRole("button", { name: "view.plan" });
+    expect(plan.getAttribute("aria-pressed")).toBe("true");
+    expect(container.querySelector("[data-slab]")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "view.isometric" }));
+    expect(container.querySelector("[data-slab]")).not.toBeNull();
+  });
 
   it("does not request a document for an empty preview", () => {
     renderView("");

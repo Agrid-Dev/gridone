@@ -28,14 +28,14 @@
     "synoptic": {
       "label": "Synoptique",
       "empty": "Choisissez un synoptique.",
-      "description": "Affiche le synoptique en direct, en lecture seule.",
+      "description": "Affiche le synoptique en direct, avec sa barre d'outils et le pilotage des équipements.",
       "noSynoptics": "Créez d'abord un synoptique dans Configuration → Synoptiques.",
       "notFound": "Ce synoptique n'existe plus.",
       "error": "Impossible de charger ce synoptique.",
       "disabled": "Les synoptiques ne sont pas activés.",
       "projection": {
         "label": "Vue",
-        "description": "Comment le synoptique est dessiné dans ce widget : en volume, ou en plan."
+        "description": "La vue à l'ouverture du widget : en volume, ou en plan. L'opérateur peut en changer."
       }
     },
     "empty": "Ce tableau de bord n'a pas encore de widget.",

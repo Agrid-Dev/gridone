@@ -249,9 +249,9 @@ describe("PidDiagram", () => {
   });
 });
 
-describe("PidDiagram fixed", () => {
-  it("leaves the wheel to the page and keeps the fitted view", () => {
-    const { svg, view } = setup({ fixed: true });
+describe("PidDiagram pinch wheel", () => {
+  it("leaves a plain wheel to the page and keeps its view", () => {
+    const { svg, view } = setup({ wheel: "pinch" });
     const scrolled = fireEvent.wheel(svg, {
       deltaY: -100,
       clientX: 20,
@@ -261,44 +261,32 @@ describe("PidDiagram fixed", () => {
     expect(view()).toEqual({ x: 0, y: 0, scale: 1 });
   });
 
-  it("neither pans on a drag nor captures pointers for a pinch", () => {
-    // The pinch test above spies on the same method: start from no calls.
-    const capture = vi
-      .spyOn(Element.prototype, "setPointerCapture")
-      .mockClear();
-    const { svg, view } = setup({ fixed: true });
+  it("zooms on a pinch, ctrl or cmd with the wheel, and keeps the page from zooming", () => {
+    for (const key of ["ctrlKey", "metaKey"]) {
+      const { svg, view } = setup({ wheel: "pinch" });
+      const notZoomed = !fireEvent.wheel(svg, {
+        deltaY: -100,
+        clientX: 20,
+        clientY: 40,
+        [key]: true,
+      });
+      expect(notZoomed).toBe(true);
+      expect(view().scale).toBeCloseTo(1.2214, 4);
+      cleanup();
+    }
+  });
+
+  it("still pans on a drag", () => {
+    const { svg, view } = setup({ wheel: "pinch" });
     fireEvent.pointerDown(svg, {
       button: 0,
       pointerId: 1,
       clientX: 20,
       clientY: 40,
     });
-    fireEvent.pointerMove(window, { pointerId: 1, clientX: 40, clientY: 60 });
-    fireEvent.pointerDown(svg, {
-      button: 0,
-      pointerId: 2,
-      clientX: 60,
-      clientY: 40,
-    });
-    fireEvent.pointerMove(svg, { pointerId: 2, clientX: 80, clientY: 40 });
-    expect(view()).toEqual({ x: 0, y: 0, scale: 1 });
-    expect(capture).not.toHaveBeenCalled();
-  });
-
-  it("keeps a controller's view on double click", () => {
-    const controller = createRef<ViewportController>();
-    const { svg, view } = setup({ fixed: true, controller });
-    act(() => controller.current!.zoomBy(2));
-    const zoomed = view();
-    expect(zoomed.scale).toBe(2);
-    fireEvent.doubleClick(svg);
-    expect(view()).toEqual(zoomed);
-  });
-
-  it("gives every touch gesture to the page, whatever touchAction says", () => {
-    expect(
-      setup({ fixed: true, touchAction: "none" }).svg.style.touchAction,
-    ).toBe("auto");
+    fireEvent.pointerMove(window, { pointerId: 1, clientX: 34, clientY: 60 });
+    fireEvent.pointerUp(window, { pointerId: 1, clientX: 34, clientY: 60 });
+    expect(view()).toEqual({ x: 7, y: 10, scale: 1 });
   });
 });
 
