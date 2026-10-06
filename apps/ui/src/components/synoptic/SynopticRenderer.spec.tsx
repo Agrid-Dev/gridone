@@ -12,7 +12,7 @@ import type {
   Synoptic,
 } from "@gridone/sdk";
 import { type ExamplePlate, PLATES_DIR, readPlate } from "@/test/examplePlates";
-import { Chip, CHIP_H, chipWidth, SILENT_TEXT } from "./Chip";
+import { Chip, CHIP_H, CHIP_LABEL_GAP, chipWidth, SILENT_TEXT } from "./Chip";
 import { circulatingRuns } from "./circulation";
 import { PANEL_W, panelHeight } from "./Panel";
 import {
@@ -22,11 +22,12 @@ import {
   project,
 } from "./projection";
 import {
+  READOUT_GAP,
   SynopticRenderer,
   symbolBox,
   type PlateHandle,
 } from "./SynopticRenderer";
-import { LABEL_SIZE } from "./symbols/Label";
+import { LABEL_SIZE, ledRoom } from "./symbols/Label";
 import { pointsAttr } from "./symbols/plan";
 import { headShapes, SynopticSymbol } from "./symbols/SynopticSymbol";
 import { textWidth } from "./text";
@@ -468,6 +469,34 @@ describe("SynopticRenderer", () => {
     const leader = c.querySelector("[data-leader='panel']")!;
     expect(leader.getAttribute("stroke-width")).toBe("1");
     expect(leader.classList.contains("stroke-muted-foreground")).toBe(true);
+  });
+
+  // A note under the name takes the centred spot; flush with either end of
+  // the name, beside it or over it, the chip must still keep off the tank.
+  it("keeps a reading hung off its name, off the centre, clear of its own body", () => {
+    const tank = {
+      ...DOC.symbols![1],
+      placement: { kind: "cell" as const, cell: { x: 2, y: 2 } },
+    };
+    const c = draw(
+      {
+        ...DOC,
+        projection: "flat",
+        symbols: [tank],
+        pipes: [],
+        labels: [
+          {
+            id: "block",
+            at: { x: 0, y: 2 },
+            text: "XXXXXXXXXXXX",
+            role: "note",
+          },
+        ],
+      },
+      VALUES,
+    );
+    const rect = box(c.querySelector("[data-readout='b01'] rect")!);
+    expect(apart(rect, symbolBox("flat", tank))).toBe(true);
   });
 
   it("places a panel clear of bodies and other panels, above first", () => {
@@ -1039,8 +1068,9 @@ describe("SynopticRenderer", () => {
         expect(onBody).toBeGreaterThan(0);
       });
 
-      // A chip under its label (centred on the symbol's cell) needs no
-      // leader; one the search sent elsewhere is joined to its symbol.
+      // A chip hanging off its name (under it, centred or flush with an
+      // end, beside it or over it) needs no leader; one the search sent
+      // elsewhere is joined to its symbol.
       it("joins every displaced chip to its symbol", () => {
         const projection = doc.projection ?? DEFAULT_PROJECTION;
         const cells = new Map(
@@ -1060,7 +1090,18 @@ describe("SynopticRenderer", () => {
             ? Number(name.getAttribute("x"))
             : project(projection, cell.x + 0.5, cell.y + 0.5, 0).x;
           const rect = box(readout.querySelector("rect")!);
-          const hanging = Math.abs((rect.x0 + rect.x1) / 2 - centre) < 0.5;
+          const close = (a: number, b: number) => Math.abs(a - b) < 0.5;
+          const off = name ? labelBox(name) : null;
+          const baseline = off?.y1;
+          const hanging = off
+            ? // Under the name, over it, or beside it on its line, within
+              // the name's reach along it (its LED room included).
+              (close(rect.y0, baseline! + READOUT_GAP - CHIP_H / 2) ||
+                close(rect.y1, baseline! - LABEL_SIZE - CHIP_LABEL_GAP) ||
+                close((rect.y0 + rect.y1) / 2, baseline! - LABEL_SIZE / 2)) &&
+              rect.x1 >= off.x0 - CHIP_LABEL_GAP - 0.5 &&
+              rect.x0 <= off.x1 + ledRoom(1) + CHIP_LABEL_GAP + 0.5
+            : close((rect.x0 + rect.x1) / 2, centre);
           const leader = readout.querySelector("[data-leader='chip']");
           expect(hanging || leader !== null, readout.outerHTML).toBe(true);
         }

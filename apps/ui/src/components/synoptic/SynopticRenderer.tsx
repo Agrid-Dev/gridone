@@ -178,7 +178,7 @@ const MARGIN = 60;
  *  over. */
 const TAG_LIFT = 26;
 /** A single reading hangs this far under the symbol's label. */
-const READOUT_GAP = 12;
+export const READOUT_GAP = 12;
 /** A panel clears the label above it, or the body beside or under it. */
 const PANEL_LABEL_GAP = 6;
 const PANEL_BODY_GAP = 10;
@@ -1708,7 +1708,8 @@ function placeTag(
 
 /**
  * Where a symbol's readout goes: hanging off the label first (a chip
- * under it, a panel above it), else the first spot clear of every
+ * under it, a panel above it, centred, else flush with either end of the
+ * name; a chip else beside it or over it), else the first spot clear of every
  * obstacle but the symbol's own body and label, walking the rings around
  * them: above, beside, below, then the corners, each ring a step further
  * out. When every ring is taken the spot at the label is the last resort.
@@ -1725,34 +1726,62 @@ function placeReadout(
 ): { box: Box; anchor: Pt; hanging: boolean } {
   const body = plate.bodies.get(symbol.id)!;
   const ownLabel = plate.labelBoxes.get(symbol.id);
-  const own = new Set<Obstacle | undefined>([
-    ...plate.bodyObstacles.get(symbol.id)!,
-    ownLabel,
-  ]);
+  const ownBody = plate.bodyObstacles.get(symbol.id)!;
+  const own = new Set<Obstacle | undefined>([...ownBody, ownLabel]);
   const others = plate.obstacles.filter((o) => !own.has(o));
-  const hanging =
+  // Hanging off the name: centred on it, else flush with its start or its
+  // end, else (a chip) beside it or over it, before any spot away from it.
+  const hang = (x0: number): Box =>
     kind === "panel"
       ? {
-          box: {
-            x0: labelPoint.x - w / 2,
-            y0: labelPoint.y - LABEL_SIZE - PANEL_LABEL_GAP - h,
-            x1: labelPoint.x + w / 2,
-            y1: labelPoint.y - LABEL_SIZE - PANEL_LABEL_GAP,
-          },
-          anchor: { x: labelPoint.x, y: labelPoint.y - CLEARANCE },
+          x0,
+          y0: labelPoint.y - LABEL_SIZE - PANEL_LABEL_GAP - h,
+          x1: x0 + w,
+          y1: labelPoint.y - LABEL_SIZE - PANEL_LABEL_GAP,
         }
       : {
-          box: {
-            x0: labelPoint.x - w / 2,
-            y0: labelPoint.y + READOUT_GAP - h / 2,
-            x1: labelPoint.x + w / 2,
-            y1: labelPoint.y + READOUT_GAP + h / 2,
-          },
-          anchor: labelPoint,
+          x0,
+          y0: labelPoint.y + READOUT_GAP - h / 2,
+          x1: x0 + w,
+          y1: labelPoint.y + READOUT_GAP + h / 2,
         };
-  if (!others.some((o) => overlaps(hanging.box, o))) {
-    return { ...hanging, hanging: true };
-  }
+  const beside = (x0: number): Box => ({
+    x0,
+    y0: labelPoint.y - LABEL_SIZE / 2 - h / 2,
+    x1: x0 + w,
+    y1: labelPoint.y - LABEL_SIZE / 2 + h / 2,
+  });
+  const over = (x0: number): Box => ({
+    x0,
+    y0: labelPoint.y - LABEL_SIZE - CHIP_LABEL_GAP - h,
+    x1: x0 + w,
+    y1: labelPoint.y - LABEL_SIZE - CHIP_LABEL_GAP,
+  });
+  const centred = hang(labelPoint.x - w / 2);
+  const shifted = ownLabel
+    ? [
+        hang(ownLabel.x0),
+        hang(ownLabel.x1 - w),
+        ...(kind === "chip"
+          ? [
+              beside(ownLabel.x1 + CHIP_LABEL_GAP),
+              beside(ownLabel.x0 - CHIP_LABEL_GAP - w),
+              over(labelPoint.x - w / 2),
+            ]
+          : []),
+      ]
+    : [];
+  const atName =
+    kind === "panel"
+      ? { x: labelPoint.x, y: labelPoint.y - CLEARANCE }
+      : labelPoint;
+  // Off the centre, a spot keeps clear of the symbol's own body too.
+  const free = [centred, ...shifted].find(
+    (box, i) =>
+      !others.some((o) => overlaps(box, o)) &&
+      (i === 0 || !ownBody.some((o) => overlaps(box, o))),
+  );
+  if (free) return { box: free, anchor: atName, hanging: true };
   // Around the body and its label together, so no spot lands on the name.
   const around = ownLabel ? rawBounds(cornersOf(body, ownLabel)) : body;
   const spot = findSpot(
@@ -1765,7 +1794,7 @@ function placeReadout(
     RING_STEP,
     PLACEMENT_RINGS,
   );
-  if (!spot) return { ...hanging, hanging: false };
+  if (!spot) return { box: centred, anchor: atName, hanging: false };
   const centre = {
     x: (body.x0 + body.x1) / 2,
     y: (body.y0 + body.y1) / 2,
