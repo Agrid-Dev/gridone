@@ -12,10 +12,12 @@ import { useGridoneClient } from "@/contexts/GridoneClientContext";
  *  window it is given, and reports back which interval it chose. */
 const AUTO_INTERVAL = "auto";
 
+/** One attribute of one device — the pair a series is recorded under. */
+export type SeriesRef = { deviceId: string; attributeName: string };
+
 type UseMultiTimeSeriesOptions = {
-  /** The devices whose series are read — one result per id, in order. */
-  deviceIds: string[];
-  attributeName: string;
+  /** The series to read — one result per pair, in order. */
+  series: SeriesRef[];
   start?: string;
   end?: string;
   /** Relative window (e.g. "3h"), the form a period preset resolves to. */
@@ -33,8 +35,7 @@ type UseMultiTimeSeriesOptions = {
   refetchInterval?: number | false;
 };
 
-export type DeviceTimeSeries = {
-  deviceId: string;
+export type DeviceTimeSeries = SeriesRef & {
   /** The attribute's series on this device, or null when none is recorded. */
   series: TimeSeries | null;
   points: DataPoint[];
@@ -49,12 +50,12 @@ export type DeviceTimeSeries = {
 };
 
 type UseMultiTimeSeriesResult = {
-  /** One entry per requested device, in the order the ids were given. */
+  /** One entry per requested series, in the order they were given. */
   results: DeviceTimeSeries[];
   isLoading: boolean;
 };
 
-/** What one device's window read resolves to, whichever endpoint served it. */
+/** What one series' window read resolves to, whichever endpoint served it. */
 type WindowRead = {
   points: DataPoint[];
   /** Only aggregation reports these; raw reads take them from the series. */
@@ -63,22 +64,20 @@ type WindowRead = {
 };
 
 /**
- * One attribute's history over a window for a set of devices, raw or
- * aggregated.
+ * The history of a set of device attributes over a window, raw or aggregated.
  *
- * Each device follows the same two-step read as a single-series view: find the
+ * Each pair follows the same two-step read as a single-series view: find the
  * attribute's series, then fetch its points — raw and aggregated are different
  * endpoints returning differently-shaped points, so the choice is made here
  * and callers see one shape either way. Aggregated buckets are keyed by their
  * start, which is the instant the bucket's value takes effect — the same
  * meaning a raw point's timestamp carries.
  *
- * Fetches fan out per device and fail independently: one device erroring
- * surfaces on its own entry, not on its neighbours'.
+ * Fetches fan out per series and fail independently: one erroring surfaces on
+ * its own entry, not on its neighbours'.
  */
 export function useMultiTimeSeries({
-  deviceIds,
-  attributeName,
+  series: refs,
   start,
   end,
   last,
@@ -90,7 +89,7 @@ export function useMultiTimeSeries({
   const client = useGridoneClient();
 
   const seriesQueries = useQueries({
-    queries: deviceIds.map((deviceId) => ({
+    queries: refs.map(({ deviceId, attributeName }) => ({
       queryKey: ["timeseries", "series", deviceId, attributeName],
       queryFn: async (): Promise<TimeSeries | null> => {
         const results = await client.timeseries.list(deviceId, {
@@ -103,7 +102,7 @@ export function useMultiTimeSeries({
   });
 
   const pointsQueries = useQueries({
-    queries: deviceIds.map((deviceId, i) => {
+    queries: refs.map(({ deviceId, attributeName }, i) => {
       const seriesId = seriesQueries[i]?.data?.id;
       return {
         queryKey: agg
@@ -162,13 +161,14 @@ export function useMultiTimeSeries({
 
   const results = useMemo(
     () =>
-      deviceIds.map((deviceId, i): DeviceTimeSeries => {
+      refs.map(({ deviceId, attributeName }, i): DeviceTimeSeries => {
         const seriesQuery = seriesQueries[i];
         const pointsQuery = pointsQueries[i];
         const series = seriesQuery?.data ?? null;
         const read = pointsQuery?.data;
         return {
           deviceId,
+          attributeName,
           series,
           points: read?.points ?? [],
           dataType: agg
@@ -184,7 +184,7 @@ export function useMultiTimeSeries({
     // The fingerprint is a stable scalar derived from the queries' state; the
     // query arrays are accessed via closure and are always current when the
     // memo recomputes.
-    [deviceIds, agg, fingerprint],
+    [refs, agg, fingerprint],
   );
 
   return {

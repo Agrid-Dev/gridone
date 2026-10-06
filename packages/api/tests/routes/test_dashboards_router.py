@@ -56,7 +56,7 @@ _CHART_TARGET = {
     "devices": {"driver_id": None, "ids": ["dev1"], "types": None, "tags": None},
     "attribute": "temperature",
 }
-_CHART_CONFIG = {"type": "chart", "target": _CHART_TARGET}
+_CHART_CONFIG = {"type": "chart", "targets": [_CHART_TARGET]}
 _DEVICE_CONTROL_CONFIG = {"type": "device_control", "device_id": "dev1"}
 _KPI_DEVICES = {"driver_id": None, "ids": ["dev1"], "types": None, "tags": None}
 _KPI_ATTRIBUTE = {
@@ -276,34 +276,12 @@ class TestWidgets:
         # `type` discriminates, so the error names the missing chart field
         # instead of reporting every union member's complaints at once.
         async with client as c:
-            resp = await c.post(
-                "/d1/widgets", json={"config": {"type": "chart", "device_id": "dev1"}}
-            )
+            resp = await c.post("/d1/widgets", json={"config": {"type": "chart"}})
         assert resp.status_code == 422
         locs = [d["loc"] for d in resp.json()["detail"]]
-        assert any("attribute" in loc for loc in locs)
+        assert any("targets" in loc for loc in locs)
         assert not any("color" in loc for loc in locs)
         svc.add_widget.assert_not_awaited()
-
-    async def test_add_legacy_chart_body_upgrades_to_target(self, client, svc):
-        # The pre-target wire shape still validates: the boundary upgrades it
-        # so the service only ever persists the target form.
-        svc.add_widget.return_value = _WIDGET
-        async with client as c:
-            resp = await c.post(
-                "/d1/widgets",
-                json={
-                    "config": {
-                        "type": "chart",
-                        "device_id": "dev1",
-                        "attribute": "temperature",
-                    }
-                },
-            )
-        assert resp.status_code == 201
-        config = svc.add_widget.await_args.kwargs["config"]
-        assert config["target"] == _CHART_TARGET
-        assert "device_id" not in config
 
     async def test_add_widget_with_unresolvable_target_returns_422(
         self, client, svc, mock_target_resolver
@@ -437,6 +415,28 @@ class TestWidgets:
         )
         async with client as c:
             resp = await c.post("/d1/widgets", json={"config": _KPI_CONFIG})
+        assert resp.status_code == 422
+        svc.add_widget.assert_not_awaited()
+
+    async def test_add_chart_widget_with_mixed_type_targets_returns_422(
+        self, client, svc, mock_target_resolver
+    ):
+        boolean = ResolvedTarget(
+            attribute="running",
+            device_ids=["dev1"],
+            data_type=DataType.BOOL,
+            excluded_device_ids=[],
+        )
+        mock_target_resolver.resolve.side_effect = [
+            mock_target_resolver.resolve.return_value,
+            boolean,
+        ]
+        config = {
+            "type": "chart",
+            "targets": [_CHART_TARGET, {**_CHART_TARGET, "attribute": "running"}],
+        }
+        async with client as c:
+            resp = await c.post("/d1/widgets", json={"config": config})
         assert resp.status_code == 422
         svc.add_widget.assert_not_awaited()
 

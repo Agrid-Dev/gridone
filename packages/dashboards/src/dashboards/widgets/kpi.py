@@ -107,7 +107,7 @@ class KpiWidgetConfig(WidgetConfig):
             raise ValueError(msg)
         return self
 
-    def targets(self) -> list[AttributeTarget]:
+    def attribute_targets(self) -> list[AttributeTarget]:
         return [
             AttributeTarget(devices=self.devices, attribute=attribute.attribute)
             for attribute in self.attributes

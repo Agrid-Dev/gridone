@@ -124,7 +124,7 @@ class ControlPanelWidgetConfig(WidgetConfig):
     def _references(self) -> Iterator[tuple[str, AttributeReference]]:
         """Yield every attribute the panel reads, with a name for error messages.
 
-        The order is the contract between :meth:`targets` and
+        The order is the contract between :meth:`attribute_targets` and
         :meth:`validate_resolved`: the API resolves the targets and hands them
         back in the same sequence.
         """
@@ -136,7 +136,7 @@ class ControlPanelWidgetConfig(WidgetConfig):
                 row = attribute.label or attribute.attribute
                 yield f"{name} attribute {row!r}", attribute
 
-    def targets(self) -> list[AttributeTarget]:
+    def attribute_targets(self) -> list[AttributeTarget]:
         return [reference.as_target() for _, reference in self._references()]
 
     def validate_resolved(self, resolved: list[ResolvedTarget]) -> None:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from datetime import UTC, datetime
 from urllib.parse import urlsplit, urlunsplit
@@ -91,6 +92,59 @@ async def test_existing_dashboards_have_no_icon():
             assert (await service.get("legacy")).icon is None
         finally:
             await service.stop()
+    finally:
+        await admin.execute(f'DROP DATABASE "{url.rsplit("/", 1)[1]}" WITH (FORCE)')
+        await admin.close()
+
+
+def _stored_widget(widget_id: str, config: dict) -> dict:
+    return {
+        "id": widget_id,
+        "config": config,
+        "layout": {"x": 0, "y": 0, "w": 6, "h": 5},
+        "metadata": {},
+    }
+
+
+async def test_existing_charts_plot_a_list_of_targets():
+    assert POSTGRES_URL is not None
+    target = {"devices": {"ids": ["d1"]}, "attribute": "temperature"}
+    text = {"type": "text", "text": "hi", "color": "#1a2b3c"}
+    widgets = [
+        _stored_widget("text", text),
+        _stored_widget("single", {"type": "chart", "target": target, "agg": "avg"}),
+        _stored_widget(
+            "pre-target",
+            {"type": "chart", "device_id": "d1", "attribute": "temperature"},
+        ),
+    ]
+    admin = await asyncpg.connect(POSTGRES_URL)
+    url = await _database_migrated_up_to(admin, "0003")
+    try:
+        connection = await asyncpg.connect(url)
+        await connection.execute(
+            "INSERT INTO dashboards (id, name, position, widgets)"
+            " VALUES ('legacy', 'Legacy', 0, $1::jsonb)",
+            json.dumps(widgets),
+        )
+        await connection.close()
+
+        service = DashboardsService(storage_url=url)
+        await service.start()
+        try:
+            migrated = (await service.get("legacy")).widgets
+        finally:
+            await service.stop()
+
+        # Order and every other widget are left as stored.
+        assert [w.id for w in migrated] == ["text", "single", "pre-target"]
+        assert migrated[0].config.model_dump() == text
+        single, pre_target = (w.config.model_dump() for w in migrated[1:])
+        assert single["agg"] == "avg"
+        for config in (single, pre_target):
+            assert [
+                (t["devices"]["ids"], t["attribute"]) for t in config["targets"]
+            ] == [(["d1"], "temperature")]
     finally:
         await admin.execute(f'DROP DATABASE "{url.rsplit("/", 1)[1]}" WITH (FORCE)')
         await admin.close()

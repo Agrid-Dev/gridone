@@ -156,9 +156,10 @@ class MeterTreeNode(BaseModel):
     def walk(self) -> Iterator[MeterTreeNode]:
         """Yield this node then every descendant, depth-first, parents first.
 
-        The order is the contract between :meth:`MeterTreeWidgetConfig.targets`
-        and :meth:`MeterTreeWidgetConfig.validate_resolved`: the API resolves
-        the flattened targets and hands them back in the same sequence.
+        The order is the contract between
+        :meth:`MeterTreeWidgetConfig.attribute_targets` and
+        :meth:`MeterTreeWidgetConfig.validate_resolved`: the API resolves the
+        flattened targets and hands them back in the same sequence.
         """
         yield self
         for child in self.children:
@@ -203,7 +204,7 @@ class MeterTreeWidgetConfig(WidgetConfig):
             raise ValueError(msg)
         return self
 
-    def targets(self) -> list[AttributeTarget]:
+    def attribute_targets(self) -> list[AttributeTarget]:
         return [node.meter for node in self.root.walk() if node.meter is not None]
 
     def validate_resolved(self, resolved: list[ResolvedTarget]) -> None:

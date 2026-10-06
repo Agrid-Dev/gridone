@@ -47,6 +47,11 @@
       "noSeries": "Aucun historique n'est enregistré pour cet attribut.",
       "noData": "Aucune donnée sur la période sélectionnée.",
       "unboundedPeriod": "L'agrégation exige une période bornée — choisissez-en une autre que « Tout l'historique ».",
+      "targets": {
+        "target": "Cible {{index}}",
+        "add": "Ajouter une cible",
+        "remove": "Supprimer la cible"
+      },
       "agg": {
         "label": "Agrégation",
         "description": "Comment les relevés de chaque bucket sont réduits à une valeur.",

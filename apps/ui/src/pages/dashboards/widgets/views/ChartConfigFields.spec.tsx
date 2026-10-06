@@ -40,6 +40,9 @@ vi.mock("react-i18next", () =>
     "widgets.chart.groupBy.untagged": "Untagged",
     "widgets.chart.groupBy.highCardinality":
       "{{count}} groups — colors repeat past {{max}}.",
+    "widgets.chart.targets.target": "Target {{index}}",
+    "widgets.chart.targets.add": "Add a target",
+    "widgets.chart.targets.remove": "Remove target",
   }),
 );
 
@@ -213,7 +216,7 @@ function Harness({
     defaultValues: {
       config: {
         type: "chart",
-        target: "",
+        targets: [],
         agg: null,
         space_agg: null,
         ...defaultConfig,
@@ -262,16 +265,17 @@ afterEach(() => {
 });
 
 describe("ChartConfigFields", () => {
-  // The persisted target shape and nothing else — no runtime keys, no legacy
-  // device_id.
-  it("emits the picked target as config.target", () => {
+  // The persisted target shape and nothing else — no runtime keys.
+  it("emits the picked target into config.targets", () => {
     const latest = renderFields();
 
     fireEvent.click(screen.getByText("pick temperature"));
 
     expect(latest()).toEqual({
       type: "chart",
-      target: { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
+      targets: [
+        { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
+      ],
       agg: null,
       interval: "auto",
       mark: "line",
@@ -279,11 +283,55 @@ describe("ChartConfigFields", () => {
     });
   });
 
+  // Another attribute of the same devices is the common case, so a new target
+  // starts on the first one's set and only its attribute is left to pick.
+  it("adds a target on the first one's devices, then removes it", () => {
+    const first = { devices: { ids: ["dev1"] }, attribute: "temperature" };
+    const latest = renderFields({ targets: [first] });
+
+    // A chart always plots something: its only target cannot be removed.
+    expect(screen.getByLabelText("Remove target")).toBeDisabled();
+
+    fireEvent.click(screen.getByText("Add a target"));
+
+    expect(screen.getByText("Target 2")).toBeInTheDocument();
+    expect(latest().targets).toEqual([
+      first,
+      { devices: { ids: ["dev1"] }, attribute: "" },
+    ]);
+
+    fireEvent.click(screen.getAllByText("pick mode")[1]);
+
+    expect(latest().targets).toEqual([
+      first,
+      { devices: { ids: ["dev1", "dev2"] }, attribute: "mode" },
+    ]);
+
+    fireEvent.click(screen.getAllByLabelText("Remove target")[1]);
+
+    expect(latest().targets).toEqual([first]);
+  });
+
+  // A space operator folds one device set; the backend refuses it alongside
+  // several targets, so adding one drops the fold rather than fail the save.
+  it("drops the space operator when a target is added", () => {
+    const latest = renderFields({
+      targets: [{ devices: { ids: ["dev1"] }, attribute: "temperature" }],
+      agg: "avg",
+      space_agg: "avg",
+    });
+
+    fireEvent.click(screen.getByText("Add a target"));
+
+    expect(latest().space_agg).toBeNull();
+    expect(screen.queryByTestId("config.space_agg")).not.toBeInTheDocument();
+  });
+
   // The data type now belongs to the whole set, read from its coverage: the
   // operators that type refuses stay listed but disabled.
   it("disables the operators the set's data type refuses", () => {
     renderFields({
-      target: { devices: { ids: ["dev1", "dev2"] }, attribute: "mode" },
+      targets: [{ devices: { ids: ["dev1", "dev2"] }, attribute: "mode" }],
     });
     expect(enabled()).toEqual(["null", "mode"]);
   });
@@ -292,7 +340,7 @@ describe("ChartConfigFields", () => {
   // the type coverage reports now, not the one that justified the save.
   it("clears an operator the set's data type refuses", () => {
     const latest = renderFields({
-      target: { devices: { ids: ["dev1", "dev2"] }, attribute: "mode" },
+      targets: [{ devices: { ids: ["dev1", "dev2"] }, attribute: "mode" }],
       agg: "avg",
     });
 
@@ -301,7 +349,9 @@ describe("ChartConfigFields", () => {
 
   it("keeps an operator the set's data type admits", () => {
     const latest = renderFields({
-      target: { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
+      targets: [
+        { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
+      ],
       agg: "avg",
     });
 
@@ -312,7 +362,9 @@ describe("ChartConfigFields", () => {
   // offered once one is chosen — raw series cannot be folded.
   it("offers space operators only once a time operator is chosen", () => {
     renderFields({
-      target: { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
+      targets: [
+        { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
+      ],
       agg: "avg",
     });
 
@@ -331,7 +383,9 @@ describe("ChartConfigFields", () => {
   // and `whole` yields the single point a KPI shows, not a chart.
   it("offers the chartable widths once an operator is chosen", () => {
     renderFields({
-      target: { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
+      targets: [
+        { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
+      ],
       agg: "avg",
     });
 
@@ -343,7 +397,9 @@ describe("ChartConfigFields", () => {
 
   it("returns the width to auto when the operator is dropped", () => {
     const latest = renderFields({
-      target: { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
+      targets: [
+        { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
+      ],
       agg: "avg",
       interval: "1d",
     });
@@ -358,7 +414,9 @@ describe("ChartConfigFields", () => {
 
   it("hides space aggregation for raw charts", () => {
     renderFields({
-      target: { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
+      targets: [
+        { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
+      ],
       agg: null,
     });
 
@@ -367,7 +425,9 @@ describe("ChartConfigFields", () => {
 
   it("clears the space operator when the time operator is dropped", () => {
     const latest = renderFields({
-      target: { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
+      targets: [
+        { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
+      ],
       agg: null,
       space_agg: "avg",
     });
@@ -379,7 +439,9 @@ describe("ChartConfigFields", () => {
   // same dependency the backend enforces at save time.
   it("hides group-by until a fold operator is chosen", () => {
     renderFields({
-      target: { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
+      targets: [
+        { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
+      ],
       agg: "avg",
       space_agg: null,
     });
@@ -389,7 +451,9 @@ describe("ChartConfigFields", () => {
 
   it("stores the typed tag key once a fold operator is chosen", () => {
     const latest = renderFields({
-      target: { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
+      targets: [
+        { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
+      ],
       agg: "avg",
       space_agg: "avg",
     });
@@ -403,7 +467,9 @@ describe("ChartConfigFields", () => {
 
   it("clears group_by when the fold operator is dropped", () => {
     const latest = renderFields({
-      target: { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
+      targets: [
+        { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
+      ],
       agg: "avg",
       space_agg: "avg",
       group_by: "floor",
@@ -422,7 +488,9 @@ describe("ChartConfigFields", () => {
   // records.
   it("offers bars for a numeric result", () => {
     renderFields({
-      target: { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
+      targets: [
+        { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
+      ],
       agg: "avg",
     });
 
@@ -434,7 +502,7 @@ describe("ChartConfigFields", () => {
 
   it("offers no mark for a result that is not a quantity", () => {
     renderFields({
-      target: { devices: { ids: ["dev1", "dev2"] }, attribute: "mode" },
+      targets: [{ devices: { ids: ["dev1", "dev2"] }, attribute: "mode" }],
       agg: "mode",
     });
 
@@ -446,7 +514,7 @@ describe("ChartConfigFields", () => {
   // operator outright, so the editor must not be able to submit one.
   it("falls back to a line when bars stop applying", () => {
     const latest = renderFields({
-      target: { devices: { ids: ["dev1", "dev2"] }, attribute: "mode" },
+      targets: [{ devices: { ids: ["dev1", "dev2"] }, attribute: "mode" }],
       agg: "mode",
       mark: "bar",
     });
@@ -463,7 +531,9 @@ describe("ChartConfigFields", () => {
     aggregateOptions = () => ({ data: undefined });
 
     const latest = renderFields({
-      target: { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
+      targets: [
+        { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
+      ],
       agg: "avg",
       mark: "bar",
     });
@@ -476,7 +546,9 @@ describe("ChartConfigFields", () => {
   // attribute are excluded there too, so the preview passes it along.
   it("scopes the tag-groups preview to the target's attribute", () => {
     renderFields({
-      target: { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
+      targets: [
+        { devices: { ids: ["dev1", "dev2"] }, attribute: "temperature" },
+      ],
       agg: "avg",
       space_agg: "avg",
     });
@@ -503,7 +575,7 @@ describe("ChartConfigFields", () => {
       error: null,
     });
     renderFields({
-      target: { devices: {}, attribute: "temperature" },
+      targets: [{ devices: {}, attribute: "temperature" }],
       agg: "avg",
       space_agg: "avg",
       group_by: "floor",
@@ -528,7 +600,7 @@ describe("ChartConfigFields", () => {
       error: new Error("boom"),
     });
     renderFields({
-      target: { devices: { ids: ["dev1"] }, attribute: "temperature" },
+      targets: [{ devices: { ids: ["dev1"] }, attribute: "temperature" }],
       agg: "avg",
       space_agg: "avg",
       group_by: "floor",

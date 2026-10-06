@@ -11,10 +11,12 @@ export type NumericMark = "line" | "bar";
 
 /** One series to plot: the device it belongs to (`key`), how the legend names
  *  it (`label`) and, for a boolean, its two states (`booleanLabels`), and its
- *  points over the window. */
+ *  points over the window. `attribute` names the series' own attribute when a
+ *  chart plots several. */
 export type ChartSeriesInput = {
   key: string;
   label: string;
+  attribute?: string;
   href?: string;
   booleanLabels?: Series["booleanLabels"];
   points: DataPoint[];
@@ -116,13 +118,13 @@ export function multiSeriesChartProps(
  *  carries the attribute as its semantic key — value colours (hvac modes,
  *  statuses) resolve from the attribute, not the device. */
 function toSeries(
-  { key, label, href, booleanLabels }: ChartSeriesInput,
+  { key, label, href, booleanLabels, attribute: own }: ChartSeriesInput,
   attribute?: string,
 ): Series {
   return {
     key,
     label,
-    semanticKey: attribute,
+    semanticKey: own ?? attribute,
     ...(href ? { href } : {}),
     ...(booleanLabels ? { booleanLabels } : {}),
   };
