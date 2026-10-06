@@ -1,3 +1,9 @@
+## v0.298.0 (2026-10-06)
+
+### Feat
+
+- **ui**: synoptic widget brings back the plate tools (#775)
+
 ## v0.297.4 (2026-10-06)
 
 ### Fix
