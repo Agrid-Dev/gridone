@@ -126,6 +126,15 @@ describe("usePrintSheet", () => {
 });
 
 describe("usePrintSheet on a page with other content", () => {
+  /** What a browser does inside `print()`, with `read` run while it lays
+   *  the page out for paper. */
+  const stubPrint = (read: () => void) =>
+    vi.stubGlobal("print", () => {
+      window.dispatchEvent(new Event("beforeprint"));
+      read();
+      window.dispatchEvent(new Event("afterprint"));
+    });
+
   it("leaves the browser's own print to the page: no sheet, the theme untouched", () => {
     document.documentElement.classList.add("dark");
     const { result } = renderHook(() => usePrintSheet(false));
@@ -138,11 +147,7 @@ describe("usePrintSheet on a page with other content", () => {
   it("prints its sheet when its own button asks, and only that once", () => {
     const seen: boolean[] = [];
     const { result } = renderHook(() => usePrintSheet(false));
-    vi.stubGlobal("print", () => {
-      window.dispatchEvent(new Event("beforeprint"));
-      seen.push(result.current.printing);
-      window.dispatchEvent(new Event("afterprint"));
-    });
+    stubPrint(() => seen.push(result.current.printing));
     act(() => result.current.print());
     expect(seen).toEqual([true]);
     expect(result.current.printing).toBe(false);
@@ -157,11 +162,9 @@ describe("usePrintSheet on a page with other content", () => {
     const one = renderHook(() => usePrintSheet(false));
     const two = renderHook(() => usePrintSheet(false));
     const seen: boolean[][] = [];
-    vi.stubGlobal("print", () => {
-      window.dispatchEvent(new Event("beforeprint"));
-      seen.push([one.result.current.printing, two.result.current.printing]);
-      window.dispatchEvent(new Event("afterprint"));
-    });
+    stubPrint(() =>
+      seen.push([one.result.current.printing, two.result.current.printing]),
+    );
     act(() => two.result.current.print());
     expect(seen).toEqual([[false, true]]);
   });

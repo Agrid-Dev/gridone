@@ -259,6 +259,37 @@ const anchor = () => {
 };
 const button = (name: string) => screen.getByRole("button", { name });
 
+/** A document whose full-screen element the test decides: `set` changes it
+ *  quietly, as a request does; `enter` also tells the page, as the browser
+ *  does once it complies. */
+function stubFullscreen() {
+  let element: Element | null = null;
+  Object.defineProperty(document, "fullscreenElement", {
+    configurable: true,
+    get: () => element,
+  });
+  return {
+    set: (el: Element | null) => {
+      element = el;
+    },
+    enter: (el: Element | null) => {
+      element = el;
+      fireEvent(document, new Event("fullscreenchange"));
+    },
+  };
+}
+
+/** What a browser does inside `print()`: `beforeprint`, the layout for
+ *  paper (`read` runs then), the dialog, `afterprint`, all before the call
+ *  returns. */
+function stubPrint(read: () => void) {
+  vi.stubGlobal("print", () => {
+    window.dispatchEvent(new Event("beforeprint"));
+    read();
+    window.dispatchEvent(new Event("afterprint"));
+  });
+}
+
 beforeEach(() => {
   stubScreenCtm();
   mockUseDeviceById.mockImplementation((id: string) => ({
@@ -416,18 +447,10 @@ describe("PlateView", () => {
     });
 
     it("gives every gesture to the canvas in full screen, and vertical swipes back to the page outside it", () => {
-      let fullscreenElement: Element | null = null;
-      Object.defineProperty(document, "fullscreenElement", {
-        configurable: true,
-        get: () => fullscreenElement,
-      });
-      document.exitFullscreen = vi.fn(async () => {
-        fullscreenElement = null;
-      });
+      const fullscreen = stubFullscreen();
+      document.exitFullscreen = vi.fn(async () => fullscreen.set(null));
       renderView();
-      card().requestFullscreen = vi.fn(async () => {
-        fullscreenElement = card();
-      });
+      card().requestFullscreen = vi.fn(async () => fullscreen.set(card()));
       expect(svg().style.touchAction).toBe("pan-y");
       expect(card().className).not.toContain("h-screen");
 
@@ -450,8 +473,7 @@ describe("PlateView", () => {
       expect(button("Plein écran").getAttribute("aria-pressed")).toBe("false");
 
       // Something else going full screen is not this card's business.
-      fullscreenElement = document.body;
-      fireEvent(document, new Event("fullscreenchange"));
+      fullscreen.enter(document.body);
       expect(svg().style.touchAction).toBe("pan-y");
     });
   });
@@ -746,13 +768,9 @@ describe("PlateView", () => {
     });
 
     it("has the sheet on the page by the time the browser lays it out, when the PDF button starts the print", () => {
-      // What a browser does inside `print()`: `beforeprint`, the layout for
-      // paper, the dialog, `afterprint`, all before the call returns.
       let laidOut: Element | null = null;
-      vi.stubGlobal("print", () => {
-        window.dispatchEvent(new Event("beforeprint"));
+      stubPrint(() => {
         laidOut = document.querySelector("[data-print-sheet]");
-        window.dispatchEvent(new Event("afterprint"));
       });
       renderView();
 
@@ -883,11 +901,7 @@ describe("PlateView", () => {
         configurable: true,
         value: () => ({ inverse: () => ({ a: 1, d: 1, e: 0, f: 0 }) }),
       });
-      let fullscreenElement: Element | null = null;
-      Object.defineProperty(document, "fullscreenElement", {
-        configurable: true,
-        get: () => fullscreenElement,
-      });
+      const fullscreen = stubFullscreen();
       renderView(DOC, EMBEDDED);
 
       expect(wheel()).toBe(true);
@@ -898,21 +912,15 @@ describe("PlateView", () => {
       expect(pinched).toBeGreaterThan(1);
 
       // Full screen leaves no page to scroll.
-      fullscreenElement = card();
-      fireEvent(document, new Event("fullscreenchange"));
+      fullscreen.enter(card());
       expect(wheel()).toBe(false);
       expect(view().scale).toBeGreaterThan(pinched);
     });
 
     it("opens a device's points inside the plate in full screen, where nothing outside it shows", () => {
-      let fullscreenElement: Element | null = null;
-      Object.defineProperty(document, "fullscreenElement", {
-        configurable: true,
-        get: () => fullscreenElement,
-      });
+      const fullscreen = stubFullscreen();
       renderView(DOC, EMBEDDED);
-      fullscreenElement = card();
-      fireEvent(document, new Event("fullscreenchange"));
+      fullscreen.enter(card());
       fireEvent.click(symbol("pac"));
       expect(card().contains(popover())).toBe(true);
     });
@@ -936,15 +944,13 @@ describe("PlateView", () => {
         "ECS EST",
       );
       let printed: Element | null = null;
-      vi.stubGlobal("print", () => {
-        fireEvent(window, new Event("beforeprint"));
-        printed = document
-          .querySelector("[data-print-sheet]")!
-          .querySelector("[data-label='title']");
-        fireEvent(window, new Event("afterprint"));
+      stubPrint(() => {
+        printed = document.querySelector("[data-print-sheet]");
       });
       fireEvent.click(button("Exporter en PDF"));
-      expect(printed).toBeNull();
+      // Its own button prints the sheet, headed by its own title.
+      expect(printed).not.toBeNull();
+      expect(printed!.querySelector("[data-label='title']")).toBeNull();
     });
 
     it("leaves every link inert, neither followed nor drawn missing", () => {
@@ -955,20 +961,11 @@ describe("PlateView", () => {
       expect(card().querySelector("[data-missing]")).toBeNull();
     });
 
-    it("prints its sheet from its PDF button only, leaving the browser's own print to the page", () => {
+    it("leaves the browser's own print to the page", () => {
       renderView(DOC, EMBEDDED);
       fireEvent(window, new Event("beforeprint"));
       expect(document.querySelector("[data-print-sheet]")).toBeNull();
       fireEvent(window, new Event("afterprint"));
-
-      let sheet: Element | null = null;
-      vi.stubGlobal("print", () => {
-        fireEvent(window, new Event("beforeprint"));
-        sheet = document.querySelector("[data-print-sheet]");
-        fireEvent(window, new Event("afterprint"));
-      });
-      fireEvent.click(button("Exporter en PDF"));
-      expect(sheet).not.toBeNull();
     });
   });
 });

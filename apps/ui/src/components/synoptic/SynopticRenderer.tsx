@@ -166,8 +166,6 @@ type SynopticRendererProps = {
   /** Whether a double click fits the plate again; on by default. */
   fitOnDoubleClick?: boolean;
   touchAction?: CanvasTouchAction;
-  /** What the wheel does: `pinch` leaves the plain wheel to the page, for a
-   *  plate among other content (a dashboard widget). */
   wheel?: CanvasWheel;
   /** Painted over the plate, in its frame; `frameRef` receives that frame
    *  so a pointer can be read in plate coordinates. */

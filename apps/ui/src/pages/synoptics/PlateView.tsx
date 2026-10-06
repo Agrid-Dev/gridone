@@ -103,20 +103,19 @@ export const PlateView: FC<PlateViewProps> = ({
     defaultProjection ?? doc.projection ?? DEFAULT_PROJECTION,
   );
   // The page header, and the sheet's, already name the plate: its drawn
-  // title would say it twice.
-  const viewDoc = useMemo(
-    () => ({
+  // title would say it twice. Embedded, the drawn title may be all that
+  // names the plate on screen.
+  const { viewDoc, screenDoc } = useMemo(() => {
+    const viewDoc = {
       ...doc,
       projection,
       labels: doc.labels?.filter((label) => label.role !== "title"),
-    }),
-    [doc, projection],
-  );
-  // Embedded, the drawn title may be all that names the plate on screen.
-  const screenDoc = useMemo(
-    () => (embedded ? { ...viewDoc, labels: doc.labels } : viewDoc),
-    [embedded, viewDoc, doc.labels],
-  );
+    };
+    return {
+      viewDoc,
+      screenDoc: embedded ? { ...doc, projection } : viewDoc,
+    };
+  }, [doc, projection, embedded]);
   const [zoom, setZoom] = useState(1);
   const [viewTick, setViewTick] = useState(0);
   // The machine whose points are open: a symbol, or one head of a twin.
