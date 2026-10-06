@@ -51,7 +51,7 @@ class WidgetConfig(BaseModel):
 
     type: str
 
-    def targets(self) -> list[AttributeTarget]:
+    def attribute_targets(self) -> list[AttributeTarget]:
         """The attribute targets this widget reads.
 
         The API layer resolves them at save time (zero coverage and mixed

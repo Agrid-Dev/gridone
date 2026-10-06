@@ -114,22 +114,23 @@ function useAggCaptions() {
 }
 
 /**
- * Plots one attribute of a device set over the dashboard period.
+ * Plots the config's targets over the dashboard period.
  *
- * The target's criteria resolve to devices at render time, and every resolved
- * device that exposes the attribute becomes a series on the one chart — or,
- * when the config carries a space aggregation, the set folds into a single
- * series. The period comes from the URL, so the widget owns no window of its
- * own; it does own how wide the buckets cut from that window should be, which
- * it passes through unchecked — a width the period cannot fill is the
- * endpoint's answer to give, not this view's to second-guess. Which panel the
- * series land on follows from the data type that comes back, so a
- * temperature, an on/off state and a mode each render in their natural form,
- * aggregated or not.
+ * Each target's criteria resolve to devices at render time, and every resolved
+ * device that exposes its attribute becomes a series on the one chart — which
+ * is how it shows several attributes of one device — or, when the config
+ * carries a space aggregation, its single target's set folds into one
+ * series. The period comes from the URL, so
+ * the widget owns no window of its own; it does own how wide the buckets cut
+ * from that window should be, which it passes through unchecked — a width the
+ * period cannot fill is the endpoint's answer to give, not this view's to
+ * second-guess. Which panel the series land on follows from the data type
+ * that comes back, so a temperature, an on/off state and a mode each render in
+ * their natural form, aggregated or not.
  */
 export const ChartWidgetView: FC<{ config: unknown }> = ({ config }) => {
   const {
-    target,
+    targets,
     agg,
     interval,
     mark,
@@ -138,11 +139,12 @@ export const ChartWidgetView: FC<{ config: unknown }> = ({ config }) => {
   } = config as ChartWidgetConfig;
   // Three shapes, three different queries: one request per tag group, one
   // for the whole-set fold, or a per-device fan-out. Saving guarantees
-  // space_agg comes with agg, and group_by comes with space_agg.
+  // space_agg comes with agg and a single target, and group_by comes with
+  // space_agg.
   if (groupBy && spaceAgg && agg)
     return (
       <GroupedChartView
-        target={target}
+        target={targets[0]}
         agg={agg}
         interval={interval}
         mark={mark}
@@ -153,7 +155,7 @@ export const ChartWidgetView: FC<{ config: unknown }> = ({ config }) => {
   if (spaceAgg && agg)
     return (
       <SpaceChartView
-        target={target}
+        target={targets[0]}
         agg={agg}
         interval={interval}
         mark={mark}
@@ -162,7 +164,7 @@ export const ChartWidgetView: FC<{ config: unknown }> = ({ config }) => {
     );
   return (
     <FanOutChartView
-      target={target}
+      targets={targets}
       agg={agg ?? null}
       interval={interval}
       mark={mark}
@@ -351,13 +353,13 @@ const GroupedChartView: FC<{
   return <ChartPanels chartProps={chartProps} panelCount={panelCount} />;
 };
 
-/** One series per device of the set — the space_agg-less shape. */
+/** One series per device of each target's set — the space_agg-less shape. */
 const FanOutChartView: FC<{
-  target: AttributeTarget;
+  targets: AttributeTarget[];
   agg: AggregationOperator | null;
   interval?: string;
   mark?: NumericMark;
-}> = ({ target, agg, interval, mark = "line" }) => {
+}> = ({ targets, agg, interval, mark = "line" }) => {
   const { t } = useTranslation("dashboards");
   const { query, refetchInterval } = useDashboardPeriod();
   const attributeLabel = useAttributeLabel();
@@ -372,15 +374,25 @@ const FanOutChartView: FC<{
   const unbounded = !!agg && !query.start && !query.last;
 
   const {
-    devices,
+    devices: targetDevices,
     isLoading: devicesLoading,
     error: devicesError,
-  } = useTargetDevices(target, refetchInterval);
-  const deviceIds = useMemo(() => devices.map((d) => d.id), [devices]);
+  } = useTargetDevices(targets, refetchInterval);
+  const devices = targetDevices.flat();
+  // Each target contributes its attribute on every device it resolves to.
+  const series = useMemo(
+    () =>
+      targets.flatMap((target, i) =>
+        (targetDevices[i] ?? []).map((device) => ({
+          deviceId: device.id,
+          attributeName: target.attribute,
+        })),
+      ),
+    [targets, targetDevices],
+  );
 
   const { results, isLoading: seriesLoading } = useMultiTimeSeries({
-    deviceIds,
-    attributeName: target.attribute,
+    series,
     start: query.start,
     end: query.end,
     last: query.last,
@@ -413,6 +425,7 @@ const FanOutChartView: FC<{
         .filter((r) => !agg || r.points.some((p) => p.value !== null))
         .map((r) => ({
           deviceId: r.deviceId,
+          attributeName: r.attributeName,
           dataType: r.dataType as DataType,
           interval: r.interval,
           points: agg ? r.points : holdLastValueUntil(r.points, end),
@@ -433,40 +446,50 @@ const FanOutChartView: FC<{
     return <Message>{t("widgets.chart.noData")}</Message>;
   }
 
-  // Saving enforces one data type across the set, but a criteria target is
-  // dynamic — a device re-driven after the save can drift the set apart. Two
-  // panels would chart the same attribute twice, so the drift is named
+  // Saving enforces one data type across the targets, but a criteria target
+  // is dynamic — a device re-driven after the save can drift the set apart.
+  // Two panels would chart the same attribute twice, so the drift is named
   // instead.
   const dataTypes = [...new Set(plotted.map((s) => s.dataType))];
   if (dataTypes.length > 1)
     return <Message>{t("widgets.chart.mixedTypes")}</Message>;
   const [dataType] = dataTypes;
 
+  type Plotted = (typeof plotted)[number];
   const deviceOf = (id: string) => devices.find((d) => d.id === id);
   const deviceName = (id: string) => deviceOf(id)?.name ?? id;
+  // The attribute as its own device declares it, since the devices of a chart
+  // may run different drivers.
+  const attributeOf = ({ deviceId, attributeName }: Plotted) => {
+    const device = deviceOf(deviceId);
+    return device
+      ? (deviceAttributes(device)[attributeName] as AttributeFields | undefined)
+      : undefined;
+  };
 
-  // A boolean's states read as its driver words them everywhere else — each
-  // device's own, since devices of one set may run different drivers.
-  const booleanLabels = (id: string) => {
-    const device = deviceOf(id);
-    const labels = device
-      ? (deviceAttributes(device)[target.attribute] as AttributeFields)
-          ?.value_labels
-      : null;
+  // A boolean's states read as its driver words them everywhere else.
+  const booleanLabels = (s: Plotted) => {
+    const labels = attributeOf(s)?.value_labels;
     return { true: valueLabel(true, labels), false: valueLabel(false, labels) };
   };
 
   // A dashboard chart is read outside any device's page, so a lone series has
   // to name its device — the attribute alone doesn't say whose it is — and an
   // aggregated one also says how: without it, a chart re-buckets when the
-  // period changes with nothing to explain why it changed shape. With several
-  // devices the attribute is the widget's subject, so each series carries just
-  // its device's name and the legend stays one line per device.
-  const label = (id: string, interval: string | null) => {
-    if (plotted.length > 1) return deviceName(id);
-    const name = `${deviceName(id)} — ${attributeLabel(target.attribute)}`;
-    return agg && interval
-      ? `${name} · ${captions.time(agg)} · ${interval}`
+  // period changes with nothing to explain why it changed shape. Several
+  // series are each named by what tells them apart — the device when they
+  // share an attribute, the attribute when they share a device, both
+  // otherwise — so the legend stays one short line per series.
+  const manyDevices = new Set(plotted.map((s) => s.deviceId)).size > 1;
+  const manyAttributes = new Set(plotted.map((s) => s.attributeName)).size > 1;
+  const label = (s: Plotted) => {
+    const device = deviceName(s.deviceId);
+    const attribute = attributeLabel(s.attributeName, attributeOf(s));
+    if (manyDevices && !manyAttributes) return device;
+    if (manyAttributes && !manyDevices) return attribute;
+    const name = `${device} — ${attribute}`;
+    return plotted.length === 1 && agg && s.interval
+      ? `${name} · ${captions.time(agg)} · ${s.interval}`
       : name;
   };
 
@@ -476,15 +499,14 @@ const FanOutChartView: FC<{
     dataType,
     plotted
       .map((s) => ({
-        key: s.deviceId,
-        label: label(s.deviceId, s.interval),
-        href: `/devices/${encodeURIComponent(s.deviceId)}/history/chart?${new URLSearchParams({ attrs: target.attribute, ...(query.last ? { last: query.last } : query.start ? { start: query.start, ...(query.end ? { end: query.end } : {}) } : { last: "all" }) })}`,
-        ...(dataType === "bool"
-          ? { booleanLabels: booleanLabels(s.deviceId) }
-          : {}),
+        key: `${s.deviceId}/${s.attributeName}`,
+        label: label(s),
+        attribute: s.attributeName,
+        href: `/devices/${encodeURIComponent(s.deviceId)}/history/chart?${new URLSearchParams({ attrs: s.attributeName, ...(query.last ? { last: query.last } : query.start ? { start: query.start, ...(query.end ? { end: query.end } : {}) } : { last: "all" }) })}`,
+        ...(dataType === "bool" ? { booleanLabels: booleanLabels(s) } : {}),
         points: s.points,
       }))
-      // Devices come back in resolution order; a reader scans the stack for a
+      // Series come back in resolution order; a reader scans the stack for a
       // name, so it reads alphabetically — numbers by value ("Ch 9" < "Ch 10").
       .sort((a, b) =>
         a.label.localeCompare(b.label, undefined, {
@@ -492,7 +514,7 @@ const FanOutChartView: FC<{
           sensitivity: "base",
         }),
       ),
-    target.attribute,
+    undefined,
     mark,
   );
 

@@ -107,7 +107,7 @@ import { ChartWidgetView } from "./ChartWidgetView";
 
 const CONFIG = {
   type: "chart",
-  target: { devices: { types: ["thermostat"] }, attribute: "temperature" },
+  targets: [{ devices: { types: ["thermostat"] }, attribute: "temperature" }],
 };
 
 const POINTS: DataPoint[] = [
@@ -118,6 +118,7 @@ const POINTS: DataPoint[] = [
 function seriesResult(deviceId: string, over: Record<string, unknown> = {}) {
   return {
     deviceId,
+    attributeName: "temperature",
     series: { id: `s-${deviceId}`, data_type: "float" },
     points: POINTS,
     dataType: "float",
@@ -130,7 +131,7 @@ function seriesResult(deviceId: string, over: Record<string, unknown> = {}) {
 
 function mockResolved(names: string[]) {
   useTargetDevices.mockReturnValue({
-    devices: names.map((name, i) => ({ id: `dev${i + 1}`, name })),
+    devices: [names.map((name, i) => ({ id: `dev${i + 1}`, name }))],
     isLoading: false,
     error: null,
   });
@@ -164,8 +165,10 @@ describe("ChartWidgetView", () => {
 
     expect(useMultiTimeSeries).toHaveBeenCalledWith(
       expect.objectContaining({
-        deviceIds: ["dev1", "dev2"],
-        attributeName: "temperature",
+        series: [
+          { deviceId: "dev1", attributeName: "temperature" },
+          { deviceId: "dev2", attributeName: "temperature" },
+        ],
         last: "7d",
         refetchInterval: 300_000,
       }),
@@ -319,27 +322,30 @@ describe("ChartWidgetView with a boolean attribute", () => {
   it("words each device's states as its driver does", () => {
     useTargetDevices.mockReturnValue({
       devices: [
-        {
-          id: "dev1",
-          name: "Room 215",
-          attributes: {
-            onoff_state: {
-              value_labels: [
-                {
-                  value: true,
-                  label: { default: "Leak", translations: { fr: "Fuite" } },
-                },
-                { value: false, label: { default: "Dry" } },
-              ],
+        [
+          {
+            id: "dev1",
+            name: "Room 215",
+            attributes: {
+              onoff_state: {
+                value_labels: [
+                  {
+                    value: true,
+                    label: { default: "Leak", translations: { fr: "Fuite" } },
+                  },
+                  { value: false, label: { default: "Dry" } },
+                ],
+              },
             },
           },
-        },
-        { id: "dev2", name: "Room 216", attributes: { onoff_state: {} } },
+          { id: "dev2", name: "Room 216", attributes: { onoff_state: {} } },
+        ],
       ],
       isLoading: false,
       error: null,
     });
     const bool = {
+      attributeName: "onoff_state",
       series: { id: "s", data_type: "bool" },
       dataType: "bool",
       points: [{ timestamp: "2026-07-28T10:00:00Z", value: true }],
@@ -350,7 +356,9 @@ describe("ChartWidgetView with a boolean attribute", () => {
       <ChartWidgetView
         config={{
           type: "chart",
-          target: { devices: { types: ["sensor"] }, attribute: "onoff_state" },
+          targets: [
+            { devices: { types: ["sensor"] }, attribute: "onoff_state" },
+          ],
         }}
       />,
     );
@@ -482,7 +490,7 @@ describe("ChartWidgetView with a space aggregation", () => {
     // One request for the folded series; no per-device fan-out at all.
     expect(useSpaceAggregate).toHaveBeenCalledWith(
       expect.objectContaining({
-        target: SPACE_CONFIG.target,
+        target: SPACE_CONFIG.targets[0],
         agg: "avg",
         spaceAgg: "avg",
         last: "7d",
@@ -511,7 +519,7 @@ describe("ChartWidgetView with a space aggregation", () => {
       <ChartWidgetView
         config={{
           ...SPACE_CONFIG,
-          target: { ...SPACE_CONFIG.target, attribute: "onoff_state" },
+          targets: [{ ...SPACE_CONFIG.targets[0], attribute: "onoff_state" }],
         }}
       />,
     );
@@ -609,7 +617,7 @@ describe("ChartWidgetView with a group-by", () => {
 
     expect(useGroupedSpaceAggregate).toHaveBeenCalledWith(
       expect.objectContaining({
-        target: GROUPED_CONFIG.target,
+        target: GROUPED_CONFIG.targets[0],
         groupBy: "floor",
         agg: "avg",
         spaceAgg: "avg",
@@ -741,5 +749,117 @@ describe("ChartWidgetView with a group-by", () => {
     render(<ChartWidgetView config={GROUPED_CONFIG} />);
 
     expect(screen.getByText("No data over the period")).toBeInTheDocument();
+  });
+});
+
+describe("ChartWidgetView with several targets", () => {
+  const PUMP = {
+    id: "dhw",
+    name: "Hot water plant",
+    attributes: {
+      pump_1: { label: { default: "Pump 1 history" } },
+      pump_2: { label: { default: "Pump 2 history" } },
+    },
+  };
+  const target = (attribute: string, ids = ["dhw"]) => ({
+    devices: { ids },
+    attribute,
+  });
+
+  // The device is the widget's subject, so each series carries just the name
+  // its driver gives the attribute.
+  it("plots several attributes of one device, named by attribute", () => {
+    useTargetDevices.mockReturnValue({
+      devices: [[PUMP], [PUMP]],
+      isLoading: false,
+      error: null,
+    });
+    mockSeries([
+      seriesResult("dhw", { attributeName: "pump_1" }),
+      seriesResult("dhw", { attributeName: "pump_2" }),
+    ]);
+
+    render(
+      <ChartWidgetView
+        config={{
+          type: "chart",
+          targets: [target("pump_1"), target("pump_2")],
+        }}
+      />,
+    );
+
+    expect(useTargetDevices).toHaveBeenCalledWith(
+      [target("pump_1"), target("pump_2")],
+      300_000,
+    );
+    expect(useMultiTimeSeries).toHaveBeenCalledWith(
+      expect.objectContaining({
+        series: [
+          { deviceId: "dhw", attributeName: "pump_1" },
+          { deviceId: "dhw", attributeName: "pump_2" },
+        ],
+      }),
+    );
+    const chart = screen.getByTestId("chart");
+    expect(chart).toHaveTextContent("Pump 1 history,Pump 2 history");
+    // Each series opens its own attribute's history.
+    expect(chart.dataset.hrefs).toBe(
+      "/devices/dhw/history/chart?attrs=pump_1&last=7d /devices/dhw/history/chart?attrs=pump_2&last=7d",
+    );
+  });
+
+  it("names the device and the attribute when targets span devices", () => {
+    useTargetDevices.mockReturnValue({
+      devices: [
+        [{ id: "ahu1", name: "AHU 1" }],
+        [{ id: "ahu2", name: "AHU 2" }],
+      ],
+      isLoading: false,
+      error: null,
+    });
+    mockSeries([
+      seriesResult("ahu1", { attributeName: "temperature" }),
+      seriesResult("ahu2", { attributeName: "setpoint" }),
+    ]);
+
+    render(
+      <ChartWidgetView
+        config={{
+          type: "chart",
+          targets: [
+            target("temperature", ["ahu1"]),
+            target("setpoint", ["ahu2"]),
+          ],
+        }}
+      />,
+    );
+
+    expect(screen.getByTestId("chart")).toHaveTextContent(
+      "AHU 1 — Temperature,AHU 2 — Setpoint",
+    );
+  });
+
+  // Saving refuses it, but a re-driven device can drift the targets apart.
+  it("names the drift when targets record different data types", () => {
+    useTargetDevices.mockReturnValue({
+      devices: [[PUMP], [PUMP]],
+      isLoading: false,
+      error: null,
+    });
+    mockSeries([
+      seriesResult("dhw", { attributeName: "pump_1" }),
+      seriesResult("dhw", { attributeName: "pump_2", dataType: "bool" }),
+    ]);
+
+    render(
+      <ChartWidgetView
+        config={{
+          type: "chart",
+          targets: [target("pump_1"), target("pump_2")],
+        }}
+      />,
+    );
+
+    expect(screen.getByText("Mixed data types")).toBeInTheDocument();
   });
 });

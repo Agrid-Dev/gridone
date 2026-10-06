@@ -88,13 +88,17 @@ const CHART_SCHEMA = {
   additionalProperties: false,
   properties: {
     type: { const: "chart", default: "chart", title: "Type", type: "string" },
-    target: { $ref: "#/$defs/AttributeTarget" },
+    targets: {
+      type: "array",
+      items: { $ref: "#/$defs/AttributeTarget" },
+      minItems: 1,
+    },
     agg: {
       anyOf: [{ enum: ["avg", "min"], type: "string" }, { type: "null" }],
       default: null,
     },
   },
-  required: ["target"],
+  required: ["targets"],
   $defs: {
     AttributeTarget: {
       type: "object",
@@ -209,7 +213,7 @@ describe("WidgetForm", () => {
       defaultTitle: "T",
       defaultConfig: {
         type: "chart",
-        target: { devices: { ids: ["dev1"] }, attribute: "temperature" },
+        targets: [{ devices: { ids: ["dev1"] }, attribute: "temperature" }],
         agg: null,
       },
       onStateChange,
@@ -221,7 +225,7 @@ describe("WidgetForm", () => {
       defaultTitle: "T",
       defaultConfig: {
         type: "chart",
-        target: { devices: {}, attribute: "temperature" },
+        targets: [{ devices: {}, attribute: "temperature" }],
         agg: null,
       },
       onStateChange,

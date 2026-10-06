@@ -3599,14 +3599,18 @@ export interface components {
     };
     /**
      * ChartWidgetConfig
-     * @description Time-series chart over one attribute of a device set.
+     * @description Time-series chart over one or more attribute targets.
      *
-     *     ``target`` follows the shared target model: a persisted device set
+     *     Each of ``targets`` follows the shared target model: a persisted device set
      *     (explicit ids or criteria, resolved at render time) paired with a single
      *     attribute. Every matched device that exposes the attribute becomes a
-     *     series; the attribute's data type must be the same across the set —
-     *     enforced at save time by the API layer, and surfaced as a render-time
-     *     error state when a dynamic set drifts afterwards.
+     *     series, so several targets plot several attributes of one device, or
+     *     attributes of different devices, on the same chart.
+     *
+     *     All series share the chart's ``agg`` and its panel, so the data type must
+     *     be the same across every target's set — enforced at save time by the API
+     *     layer, and surfaced as a render-time error state when a dynamic set drifts
+     *     afterwards.
      *
      *     Points are read over the dashboard period, so the window itself is never
      *     stored here — only how wide the buckets cut from it should be.
@@ -3617,7 +3621,8 @@ export interface components {
        * @enum {string}
        */
       type: "chart";
-      target: components["schemas"]["AttributeTarget"];
+      /** Targets */
+      targets: components["schemas"]["AttributeTarget"][];
       agg?: components["schemas"]["AggregationOperator"] | null;
       /**
        * Interval
@@ -4415,9 +4420,9 @@ export interface components {
      *     Live-only by design: the widget mirrors the device page (current values,
      *     writes), so the config carries just the device to control — no
      *     mode/operator, and the dashboard period does not apply. It declares no
-     *     ``targets()``: it references a whole device rather than reading attribute
-     *     series, and a missing device is a render-time error state, not a save-time
-     *     gate.
+     *     ``attribute_targets()``: it references a whole device rather than reading
+     *     attribute series, and a missing device is a render-time error state, not a
+     *     save-time gate.
      */
     DeviceControlWidgetConfig: {
       /**

@@ -1,6 +1,14 @@
 import { useDeferredValue, useEffect, type FC } from "react";
-import { useController, type Control, type FieldValues } from "react-hook-form";
+import {
+  useController,
+  useFieldArray,
+  useWatch,
+  type Control,
+  type FieldValues,
+} from "react-hook-form";
 import { useTranslation } from "react-i18next";
+import { Plus, Trash2 } from "lucide-react";
+import type { Device } from "@gridone/sdk";
 import * as z from "zod";
 import {
   AttributeTargetPicker,
@@ -11,6 +19,7 @@ import {
 import { InputController } from "@/components/forms/controllers/InputController";
 import { SelectController } from "@/components/forms/controllers/SelectController";
 import { CHART_COLORS } from "@/components/charts/TimeSeriesChart/constants";
+import { Button } from "@/components/ui";
 import { AggOption } from "@/hooks/AggOption";
 import { IntervalOption } from "./IntervalOption";
 import { MarkOption } from "./MarkOption";
@@ -49,6 +58,9 @@ const NONE = "none";
  *  period to a single bucket — one point is a reading, not a chart. */
 const NON_CHART_INTERVALS = new Set(["raw", "whole"]);
 
+/** What a freshly-added target starts from when there is none to copy. */
+const BLANK_TARGET = { devices: {}, attribute: "" };
+
 /** True when the criteria select at least one device dimension. */
 export function hasDeviceCriterion(devices: unknown): boolean {
   if (typeof devices !== "object" || devices === null) return false;
@@ -67,30 +79,55 @@ export function hasDeviceCriterion(devices: unknown): boolean {
  * the schema-derived resolver by the form (see `widgetConfigChecks`); loose
  * objects leave everything else to the schema.
  */
+const targetCheck = z.looseObject({
+  devices: z.custom<AttributeTarget["devices"]>(hasDeviceCriterion),
+});
 export const chartConfigCheck = z.looseObject({
-  target: z.looseObject({
-    devices: z.custom<AttributeTarget["devices"]>(hasDeviceCriterion),
-  }),
+  targets: z.array(targetCheck),
 });
 
+/** One target's picker, bound to its slot of `config.targets`. */
+const TargetPicker: FC<{
+  control: Control<FieldValues>;
+  name: string;
+  devices: Device[];
+}> = ({ control, name, devices }) => {
+  const { field } = useController({ control, name });
+  return (
+    <AttributeTargetPicker
+      value={toPickerTarget(field.value)}
+      onChange={field.onChange}
+      devices={devices}
+    />
+  );
+};
+
 /**
- * Config fields for the chart widget: which device set, which attribute, and
- * how to reduce it over time.
+ * Config fields for the chart widget: which device sets, which attributes,
+ * and how to reduce them over time.
  *
- * The device set and attribute form one target — an attribute only means
- * something against a set — so the shared target picker owns the whole
- * `config.target` field rather than the schema-driven one-input-per-property
+ * A device set and an attribute form one target — an attribute only means
+ * something against a set — so the shared target picker owns each entry of
+ * `config.targets` rather than the schema-driven one-input-per-property
  * default, which would render device ids as free text. Plotting needs no
  * write access, so the picker offers every attribute the set records.
+ *
+ * Each target adds its series to the same chart — another attribute of the
+ * same devices, or of different ones. The first one's data type is what the
+ * operators below are offered against: saving requires every target to share
+ * it.
  */
 export const ChartConfigFields: FC<{ control: Control<FieldValues> }> = ({
   control,
 }) => {
   const { t } = useTranslation("dashboards");
-  const { field: targetField } = useController({
-    control,
-    name: "config.target",
-  });
+  const {
+    fields: targets,
+    append: appendTarget,
+    remove: removeTarget,
+    replace: replaceTargets,
+  } = useFieldArray({ control, name: "config.targets" });
+  const hasSeveralTargets = targets.length > 1;
   const { field: aggField } = useController({ control, name: "config.agg" });
   const { field: intervalField } = useController({
     control,
@@ -106,12 +143,20 @@ export const ChartConfigFields: FC<{ control: Control<FieldValues> }> = ({
     name: "config.group_by",
   });
 
-  const target = toPickerTarget(targetField.value);
+  const target = toPickerTarget(
+    useWatch({ control, name: "config.targets.0" }),
+  );
   const agg = (aggField.value as string | null) ?? null;
   const interval = (intervalField.value as string | undefined) ?? AUTO;
   const mark = (markField.value as string | undefined) ?? "line";
   const spaceAgg = (spaceAggField.value as string | null) ?? null;
   const groupBy = (groupByField.value as string | null) || null;
+
+  // The generic empty-config builder starts an array empty; a chart needs at
+  // least one target, so there is always one to edit.
+  useEffect(() => {
+    if (targets.length === 0) replaceTargets([BLANK_TARGET]);
+  }, [targets.length, replaceTargets]);
 
   const { devices } = useDevicesList();
   const { data: options } = useAggregateOptions();
@@ -194,10 +239,12 @@ export const ChartConfigFields: FC<{ control: Control<FieldValues> }> = ({
 
   // Raw series cannot be space-aggregated, so dropping the time operator also
   // drops the space one; a chain the new types refuse resets the same way the
-  // time operator does above.
+  // time operator does above. A fold is over one device set, so adding a
+  // target drops it too.
   const spaceRefused =
     !!spaceAgg &&
     (!agg ||
+      hasSeveralTargets ||
       (!!timeOutputType &&
         spaceOperators.some(
           (o) => o.operator === spaceAgg && o.resultType === null,
@@ -250,11 +297,40 @@ export const ChartConfigFields: FC<{ control: Control<FieldValues> }> = ({
 
   return (
     <>
-      <AttributeTargetPicker
-        value={target}
-        onChange={targetField.onChange}
-        devices={devices}
-      />
+      {targets.map((field, index) => (
+        <fieldset key={field.id} className="space-y-4 rounded-md border p-4">
+          <div className="flex items-center justify-between gap-2">
+            <legend className="text-sm font-medium text-muted-foreground">
+              {t("widgets.chart.targets.target", { index: index + 1 })}
+            </legend>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label={t("widgets.chart.targets.remove")}
+              disabled={!hasSeveralTargets}
+              onClick={() => removeTarget(index)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+          <TargetPicker
+            control={control}
+            name={`config.targets.${index}`}
+            devices={devices}
+          />
+        </fieldset>
+      ))}
+      <Button
+        type="button"
+        variant="outline"
+        // Starts on the first target's devices: another attribute of the same
+        // set is the common case, and the set stays editable.
+        onClick={() => appendTarget({ devices: target.devices, attribute: "" })}
+      >
+        <Plus className="mr-1 h-4 w-4" />
+        {t("widgets.chart.targets.add")}
+      </Button>
       <SelectController<FieldValues, "config.agg", string | null>
         name="config.agg"
         control={control}
@@ -281,7 +357,7 @@ export const ChartConfigFields: FC<{ control: Control<FieldValues> }> = ({
           ]}
         />
       )}
-      {agg !== null && (
+      {agg !== null && !hasSeveralTargets && (
         <SelectController<FieldValues, "config.space_agg", string | null>
           name="config.space_agg"
           control={control}

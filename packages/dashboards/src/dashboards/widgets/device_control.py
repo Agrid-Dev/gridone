@@ -13,9 +13,9 @@ class DeviceControlWidgetConfig(WidgetConfig):
     Live-only by design: the widget mirrors the device page (current values,
     writes), so the config carries just the device to control — no
     mode/operator, and the dashboard period does not apply. It declares no
-    ``targets()``: it references a whole device rather than reading attribute
-    series, and a missing device is a render-time error state, not a save-time
-    gate.
+    ``attribute_targets()``: it references a whole device rather than reading
+    attribute series, and a missing device is a render-time error state, not a
+    save-time gate.
     """
 
     type: Literal["device_control"] = "device_control"

@@ -1,30 +1,42 @@
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal
+from typing import TYPE_CHECKING, Annotated, Any, Literal
 
 from pydantic import Field, field_validator, model_validator
 
 from dashboards.widgets.config import WidgetConfig, validate_space_agg_membership
+from models.errors import InvalidError
 from models.targets import AttributeTarget  # noqa: TC001
 from models.types import AggregationOperator  # noqa: TC001
 
+if TYPE_CHECKING:
+    from models.targets import ResolvedTarget
+
+MAX_TARGETS = 20
+"""Most targets one chart may plot — bounds what a hand-written payload can ask
+the API to resolve at save time."""
+
 
 class ChartWidgetConfig(WidgetConfig):
-    """Time-series chart over one attribute of a device set.
+    """Time-series chart over one or more attribute targets.
 
-    ``target`` follows the shared target model: a persisted device set
+    Each of ``targets`` follows the shared target model: a persisted device set
     (explicit ids or criteria, resolved at render time) paired with a single
     attribute. Every matched device that exposes the attribute becomes a
-    series; the attribute's data type must be the same across the set —
-    enforced at save time by the API layer, and surfaced as a render-time
-    error state when a dynamic set drifts afterwards.
+    series, so several targets plot several attributes of one device, or
+    attributes of different devices, on the same chart.
+
+    All series share the chart's ``agg`` and its panel, so the data type must
+    be the same across every target's set — enforced at save time by the API
+    layer, and surfaced as a render-time error state when a dynamic set drifts
+    afterwards.
 
     Points are read over the dashboard period, so the window itself is never
     stored here — only how wide the buckets cut from it should be.
     """
 
     type: Literal["chart"] = "chart"
-    target: AttributeTarget
+    targets: list[AttributeTarget] = Field(min_length=1, max_length=MAX_TARGETS)
     agg: AggregationOperator | None = None
     """How readings are reduced over each time bucket; ``None`` plots them raw.
 
@@ -78,7 +90,8 @@ class ChartWidgetConfig(WidgetConfig):
 
     space_agg: AggregationOperator | None = None
     """How each bucket's values are folded across the device set; ``None``
-    plots one series per device.
+    plots one series per device. Folds one device set, so it requires a single
+    target.
 
     Whether the operator suits the attribute's data type stays the timeseries
     package's rule, like ``agg``. Membership in the space vocabulary, though,
@@ -124,25 +137,20 @@ class ChartWidgetConfig(WidgetConfig):
         if self.agg is None:
             msg = "space_agg requires agg: raw series cannot be space-aggregated"
             raise ValueError(msg)
+        if len(self.targets) > 1:
+            msg = "space_agg folds one device set: it requires a single target"
+            raise ValueError(msg)
         validate_space_agg_membership(self.space_agg)
         return self
 
-    @model_validator(mode="before")
-    @classmethod
-    def _upgrade_legacy_shape(cls, data: Any) -> Any:  # noqa: ANN401
-        """Upgrade the pre-target stored shape ``{device_id, attribute}``.
+    def attribute_targets(self) -> list[AttributeTarget]:
+        return self.targets
 
-        Configs are re-validated on read, so charts persisted before the
-        target model must keep loading without a data migration. The single
-        device becomes an explicit-ids target; new saves always persist the
-        ``target`` form.
-        """
-        if isinstance(data, dict) and data.get("device_id") and "target" not in data:
-            data = dict(data)
-            device_id = data.pop("device_id")
-            attribute = data.pop("attribute", None)
-            data["target"] = {"devices": {"ids": [device_id]}, "attribute": attribute}
-        return data
-
-    def targets(self) -> list[AttributeTarget]:
-        return [self.target]
+    def validate_resolved(self, resolved: list[ResolvedTarget]) -> None:
+        """Every target must resolve to the same data type."""
+        data_types = sorted({target.data_type.value for target in resolved})
+        if len(data_types) > 1:
+            msg = (
+                f"Mixed data types across the chart's targets: {', '.join(data_types)}"
+            )
+            raise InvalidError(msg)

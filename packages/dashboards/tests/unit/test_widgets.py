@@ -70,54 +70,61 @@ def test_validate_config_returns_concrete_model():
         {"type": "text", "text": "hi", "color": "red"},  # bad color
         {"type": "text", "color": "#1a2b3c"},  # missing text
         {"type": "text", "text": "hi", "color": "#1a2b3c", "extra": 1},  # extra key
-        {"type": "chart", "attribute": "temperature"},  # missing target
-        {"type": "chart", "device_id": "d1"},  # legacy shape missing attribute
-        {  # legacy shape with an empty device_id — never upgraded
+        {"type": "chart"},  # missing targets
+        {"type": "chart", "targets": []},  # nothing to plot
+        {  # the single-target shape: migrated in storage, no longer accepted
             "type": "chart",
-            "device_id": "",
+            "target": {"devices": {"ids": ["d1"]}, "attribute": "temperature"},
+        },
+        {  # the pre-target shape, likewise
+            "type": "chart",
+            "device_id": "d1",
             "attribute": "temperature",
         },
-        {"type": "chart", "device_id": "d1", "attribute": ""},  # empty attribute
+        {  # more targets than one chart may plot
+            "type": "chart",
+            "targets": [{"devices": {"ids": ["d1"]}, "attribute": "temperature"}] * 21,
+        },
         {  # target present but empty attribute
             "type": "chart",
-            "target": {"devices": {"ids": ["d1"]}, "attribute": ""},
+            "targets": [{"devices": {"ids": ["d1"]}, "attribute": ""}],
         },
         {  # runtime filter keys are not persisted criteria
             "type": "chart",
-            "target": {"devices": {"search": "th"}, "attribute": "temperature"},
+            "targets": [{"devices": {"search": "th"}, "attribute": "temperature"}],
         },
         {  # `raw` silently applies no operator — a chart would caption an agg
             # it never ran
             "type": "chart",
-            "target": {"devices": {"ids": ["d1"]}, "attribute": "energy"},
+            "targets": [{"devices": {"ids": ["d1"]}, "attribute": "energy"}],
             "agg": "delta",
             "interval": "raw",
         },
         {  # `whole` reduces the period to the single point a KPI shows
             "type": "chart",
-            "target": {"devices": {"ids": ["d1"]}, "attribute": "energy"},
+            "targets": [{"devices": {"ids": ["d1"]}, "attribute": "energy"}],
             "agg": "delta",
             "interval": "whole",
         },
         {  # not a width at all — refused before storage, not at render
             "type": "chart",
-            "target": {"devices": {"ids": ["d1"]}, "attribute": "energy"},
+            "targets": [{"devices": {"ids": ["d1"]}, "attribute": "energy"}],
             "agg": "delta",
             "interval": "banana",
         },
         {  # a width with no operator to fill its buckets
             "type": "chart",
-            "target": {"devices": {"ids": ["d1"]}, "attribute": "energy"},
+            "targets": [{"devices": {"ids": ["d1"]}, "attribute": "energy"}],
             "interval": "1d",
         },
         {  # bars span buckets, and a raw series has none
             "type": "chart",
-            "target": {"devices": {"ids": ["d1"]}, "attribute": "energy"},
+            "targets": [{"devices": {"ids": ["d1"]}, "attribute": "energy"}],
             "mark": "bar",
         },
         {  # not a mark the chart knows how to draw
             "type": "chart",
-            "target": {"devices": {"ids": ["d1"]}, "attribute": "energy"},
+            "targets": [{"devices": {"ids": ["d1"]}, "attribute": "energy"}],
             "agg": "delta",
             "mark": "scatter",
         },
@@ -227,10 +234,10 @@ def test_schemas_returns_json_schema_per_type():
     assert props["color"]["pattern"] == r"^#[0-9a-fA-F]{6}$"
     assert props["type"]["const"] == "text"
     chart = schemas["chart"]["properties"]
-    assert set(schemas["chart"]["required"]) == {"target"}
+    assert set(schemas["chart"]["required"]) == {"targets"}
     # The nested target model travels with the schema so the editor can
     # build the picker form from it.
-    assert "target" in chart
+    assert "targets" in chart
     assert "AttributeTarget" in schemas["chart"].get("$defs", {})
     # The editor previews a widget at the footprint it will be placed with, so
     # the size has to travel with the schema.
@@ -262,7 +269,7 @@ def test_synoptic_config_keeps_an_opaque_document_reference():
 
     assert isinstance(config, SynopticWidgetConfig)
     assert config.synoptic_id == "plate1"
-    assert config.targets() == []
+    assert config.attribute_targets() == []
 
 
 @pytest.mark.parametrize(
@@ -294,67 +301,55 @@ def test_validate_config_returns_chart_model():
     config = registry.validate_config(
         {
             "type": "chart",
-            "target": {
-                "devices": {"types": ["thermostat"]},
-                "attribute": "temperature",
-            },
+            "targets": [
+                {
+                    "devices": {"types": ["thermostat"]},
+                    "attribute": "temperature",
+                }
+            ],
         }
     )
 
     assert isinstance(config, ChartWidgetConfig)
-    assert config.target.devices.types == ["thermostat"]
-    assert config.target.attribute == "temperature"
-
-
-# Charts persisted before the target model must keep loading: configs are
-# re-validated on read, so the legacy shape upgrades in place of a migration.
-def test_chart_config_upgrades_legacy_single_device_shape():
-    registry = build_default_registry()
-
-    config = registry.validate_config(
-        {"type": "chart", "device_id": "d1", "attribute": "temperature", "agg": "avg"}
-    )
-
-    assert isinstance(config, ChartWidgetConfig)
-    assert config.target.devices.ids == ["d1"]
-    assert config.target.attribute == "temperature"
-    assert config.agg is AggregationOperator.AVG
-    # The upgraded form is what serializes — new saves persist the target shape.
-    assert "device_id" not in config.model_dump()
+    assert config.targets[0].devices.types == ["thermostat"]
+    assert config.targets[0].attribute == "temperature"
 
 
 # Adding aggregation must not invalidate charts stored before it existed.
 def test_chart_config_defaults_to_raw():
     config = ChartWidgetConfig.model_validate(
-        {"type": "chart", "device_id": "d1", "attribute": "temperature"}
+        {
+            "type": "chart",
+            "targets": [{"devices": {"ids": ["d1"]}, "attribute": "temperature"}],
+        }
     )
 
     assert config.agg is None
 
 
 def test_every_registered_widget_declares_its_targets():
-    # The API layer validates ``config.targets()`` at save time; a widget
+    # The API layer validates ``config.attribute_targets()`` at save time; a widget
     # type whose config forgot to implement it would silently skip that
     # gate, so the contract is pinned for every registered type.
     registry = build_default_registry()
 
     for widget_type in registry.types():
         model = registry.get(widget_type).config_model
-        assert callable(model.targets)
+        assert callable(model.attribute_targets)
 
     chart = registry.validate_config(
         {
             "type": "chart",
-            "target": {"devices": {"ids": ["d1"]}, "attribute": "temperature"},
+            "targets": [{"devices": {"ids": ["d1"]}, "attribute": "temperature"}],
         }
     )
-    assert [t.attribute for t in chart.targets()] == ["temperature"]
+    assert [t.attribute for t in chart.attribute_targets()] == ["temperature"]
     text = registry.validate_config({"type": "text", "text": "hi", "color": "#1a2b3c"})
-    assert text.targets() == []
+    assert text.attribute_targets() == []
     # device_control references a whole device, not attribute series — it is
     # deliberately target-free (missing device is a render-time error state).
     control = registry.validate_config({"type": "device_control", "device_id": "d1"})
-    assert control.targets() == []
+    assert control.attribute_targets() == []
 
 
 def test_validate_config_returns_device_control_model():
@@ -373,7 +368,7 @@ def test_chart_config_accepts_an_operator():
     config = registry.validate_config(
         {
             "type": "chart",
-            "target": {"devices": {"ids": ["d1"]}, "attribute": "temperature"},
+            "targets": [{"devices": {"ids": ["d1"]}, "attribute": "temperature"}],
             "agg": "avg",
         }
     )
@@ -389,7 +384,7 @@ def test_chart_config_defaults_to_a_line_mark():
     config = registry.validate_config(
         {
             "type": "chart",
-            "target": {"devices": {"ids": ["d1"]}, "attribute": "temperature"},
+            "targets": [{"devices": {"ids": ["d1"]}, "attribute": "temperature"}],
         }
     )
 
@@ -403,7 +398,7 @@ def test_chart_config_accepts_bars_over_buckets():
     config = registry.validate_config(
         {
             "type": "chart",
-            "target": {"devices": {"ids": ["d1"]}, "attribute": "energy"},
+            "targets": [{"devices": {"ids": ["d1"]}, "attribute": "energy"}],
             "agg": "delta",
             "interval": "1d",
             "mark": "bar",
@@ -421,7 +416,7 @@ def test_chart_config_defaults_to_an_automatic_interval():
     config = registry.validate_config(
         {
             "type": "chart",
-            "target": {"devices": {"ids": ["d1"]}, "attribute": "temperature"},
+            "targets": [{"devices": {"ids": ["d1"]}, "attribute": "temperature"}],
             "agg": "avg",
         }
     )
@@ -436,7 +431,7 @@ def test_chart_config_accepts_a_pinned_interval():
     config = registry.validate_config(
         {
             "type": "chart",
-            "target": {"devices": {"ids": ["d1"]}, "attribute": "energy"},
+            "targets": [{"devices": {"ids": ["d1"]}, "attribute": "energy"}],
             "agg": "delta",
             "interval": "1d",
         }
@@ -453,7 +448,7 @@ def test_chart_config_rejects_an_unknown_operator():
         registry.validate_config(
             {
                 "type": "chart",
-                "target": {"devices": {"ids": ["d1"]}, "attribute": "temperature"},
+                "targets": [{"devices": {"ids": ["d1"]}, "attribute": "temperature"}],
                 "agg": "median",
             }
         )
@@ -465,7 +460,9 @@ def test_chart_config_accepts_a_space_operator():
     config = registry.validate_config(
         {
             "type": "chart",
-            "target": {"devices": {"types": ["thermostat"]}, "attribute": "hvac_mode"},
+            "targets": [
+                {"devices": {"types": ["thermostat"]}, "attribute": "hvac_mode"}
+            ],
             "agg": "mode",
             "space_agg": "mode",
         }
@@ -482,7 +479,7 @@ def test_chart_config_space_agg_requires_agg():
         registry.validate_config(
             {
                 "type": "chart",
-                "target": {"devices": {"ids": ["d1"]}, "attribute": "temperature"},
+                "targets": [{"devices": {"ids": ["d1"]}, "attribute": "temperature"}],
                 "space_agg": "avg",
             }
         )
@@ -497,7 +494,7 @@ def test_chart_config_rejects_a_non_space_operator():
         registry.validate_config(
             {
                 "type": "chart",
-                "target": {"devices": {"ids": ["d1"]}, "attribute": "temperature"},
+                "targets": [{"devices": {"ids": ["d1"]}, "attribute": "temperature"}],
                 "agg": "avg",
                 "space_agg": "delta",
             }
@@ -510,7 +507,7 @@ def test_chart_config_accepts_a_group_by():
     config = registry.validate_config(
         {
             "type": "chart",
-            "target": {"devices": {"types": ["thermostat"]}, "attribute": "temp"},
+            "targets": [{"devices": {"types": ["thermostat"]}, "attribute": "temp"}],
             "agg": "avg",
             "space_agg": "avg",
             "group_by": "floor",
@@ -528,11 +525,57 @@ def test_chart_config_group_by_requires_space_agg():
         registry.validate_config(
             {
                 "type": "chart",
-                "target": {"devices": {"ids": ["d1"]}, "attribute": "temperature"},
+                "targets": [{"devices": {"ids": ["d1"]}, "attribute": "temperature"}],
                 "agg": "avg",
                 "group_by": "floor",
             }
         )
+
+
+_PUMP_CHART = {
+    "type": "chart",
+    "targets": [
+        {"devices": {"ids": ["d1"]}, "attribute": "pump_1"},
+        {"devices": {"ids": ["d1"]}, "attribute": "pump_2"},
+    ],
+}
+
+
+def test_chart_config_plots_every_target():
+    registry = build_default_registry()
+
+    config = registry.validate_config(_PUMP_CHART)
+
+    assert [t.attribute for t in config.attribute_targets()] == ["pump_1", "pump_2"]
+
+
+def test_chart_config_space_agg_requires_a_single_target():
+    # A space operator folds one device set into one series; which set it
+    # would fold across several targets is undefined.
+    registry = build_default_registry()
+
+    with pytest.raises(InvalidError):
+        registry.validate_config({**_PUMP_CHART, "agg": "avg", "space_agg": "avg"})
+
+
+def test_chart_config_accepts_targets_of_one_data_type():
+    config = ChartWidgetConfig.model_validate(_PUMP_CHART)
+
+    config.validate_resolved([_resolved("pump_1", ["d1"]), _resolved("pump_2", ["d1"])])
+
+
+def test_chart_config_refuses_targets_of_mixed_data_types():
+    # Every target shares the chart's operator and its panel.
+    config = ChartWidgetConfig.model_validate(_PUMP_CHART)
+    boolean = ResolvedTarget(
+        attribute="pump_2",
+        device_ids=["d1"],
+        data_type=DataType.BOOL,
+        excluded_device_ids=[],
+    )
+
+    with pytest.raises(InvalidError, match="bool, float"):
+        config.validate_resolved([_resolved("pump_1", ["d1"]), boolean])
 
 
 @pytest.mark.parametrize("color", ["#000000", "#FFFFFF", "#1a2B3c"])
@@ -574,7 +617,7 @@ def test_kpi_config_defaults_to_live():
     assert config.temporal == "live"
     assert config.attributes[0].unit is None
     assert config.attributes[0].precision is None
-    assert [t.attribute for t in config.targets()] == ["temperature"]
+    assert [t.attribute for t in config.attribute_targets()] == ["temperature"]
 
 
 def test_kpi_config_rejects_the_pre_multi_attribute_shape():
@@ -610,7 +653,10 @@ def test_kpi_config_accepts_several_attributes():
     )
 
     assert isinstance(config, KpiWidgetConfig)
-    assert [t.attribute for t in config.targets()] == ["temperature", "setpoint_min"]
+    assert [t.attribute for t in config.attribute_targets()] == [
+        "temperature",
+        "setpoint_min",
+    ]
 
 
 def test_kpi_config_rejects_an_empty_attributes_list():
@@ -795,7 +841,11 @@ def test_validate_config_returns_meter_tree_model():
     assert isinstance(config, MeterTreeWidgetConfig)
     # An unmetered grouping node contributes no target, and the rest come out
     # parents-first so validate_resolved can name the node that failed.
-    assert [t.devices.ids for t in config.targets()] == [["main"], ["m1"], ["m2"]]
+    assert [t.devices.ids for t in config.attribute_targets()] == [
+        ["main"],
+        ["m1"],
+        ["m2"],
+    ]
 
 
 def test_meter_tree_node_may_group_without_a_meter():
@@ -1177,7 +1227,7 @@ def test_control_panel_targets_cover_conditions_and_rows_across_devices():
         }
     )
 
-    assert [(t.devices.ids, t.attribute) for t in config.targets()] == [
+    assert [(t.devices.ids, t.attribute) for t in config.attribute_targets()] == [
         (["plc"], "auto_mode"),
         (["pump1"], "running"),
         (["pump1"], "fault"),
@@ -1215,7 +1265,7 @@ def test_control_panel_names_the_reference_that_is_not_a_boolean(
     section: dict, non_bool_index: int, named: str
 ):
     config = ControlPanelWidgetConfig.model_validate({"sections": [section]})
-    resolved = [_bool_target() for _ in config.targets()]
+    resolved = [_bool_target() for _ in config.attribute_targets()]
     resolved[non_bool_index] = ResolvedTarget(
         attribute="x",
         device_ids=["pump1"],
