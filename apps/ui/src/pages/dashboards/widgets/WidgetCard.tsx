@@ -6,7 +6,8 @@ import { WidgetFrame } from "./WidgetFrame";
 import { WidgetView } from "./registry";
 
 /** Widget actions appear during dashboard configuration. Layout editing
- *  hides them and marks the cell as draggable. */
+ *  hides them, marks the cell as draggable and makes the body inert, so a
+ *  press drags the cell rather than panning a plate. */
 export const WidgetCard: FC<{
   dashboardId: string;
   widget: Widget;
@@ -17,6 +18,7 @@ export const WidgetCard: FC<{
   return (
     <WidgetFrame
       title={widget.title}
+      inert={editing}
       className={editing ? "cursor-grab ring-2 ring-primary/40" : undefined}
       overlay={
         !showActions || editing || !can("dashboards:write") ? null : (
