@@ -70,7 +70,8 @@ function footprint({ w, h }: Pick<WidgetLayout, "w" | "h">) {
 
 /**
  * Right-hand panel of the widget editor: the widget as the dashboard will
- * render it, framed and sized like the real tile. Until the form satisfies its
+ * render it, framed and sized like the real tile, and inert: nothing in it is
+ * clicked or focused from a form. Until the form satisfies its
  * type's schema there is nothing valid to render, so the panel holds a
  * placeholder instead.
  */
@@ -89,7 +90,7 @@ export const WidgetPreview: FC<{
       <div className="flex justify-center rounded-lg border border-dashed border-border bg-muted/30 p-6">
         <div style={{ width, height, maxWidth: "100%" }}>
           {draft ? (
-            <WidgetFrame title={draft.title || null}>
+            <WidgetFrame title={draft.title || null} inert>
               <WidgetView
                 type={String(draft.config.type)}
                 config={draft.config}

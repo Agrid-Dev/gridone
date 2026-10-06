@@ -34,6 +34,9 @@ vi.mock("@/hooks/useDeviceById", () => ({
 vi.mock("@/hooks/useAttributeCommandRuntime", () => ({
   useAttributeWriter: () => vi.fn(),
 }));
+vi.mock("@/contexts/AuthContext", () => ({
+  usePermissions: () => () => true,
+}));
 vi.mock("sonner", () => ({ toast: { warning: vi.fn(), error: vi.fn() } }));
 
 import { SynopticPage } from "./SynopticPage";

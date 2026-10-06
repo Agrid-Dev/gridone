@@ -28,14 +28,14 @@
     "synoptic": {
       "label": "Synoptic",
       "empty": "Choose a synoptic.",
-      "description": "Shows the live synoptic in read-only mode.",
+      "description": "Shows the live synoptic, with its toolbar and device control.",
       "noSynoptics": "Create a synoptic in Configuration → Synoptics first.",
       "notFound": "This synoptic no longer exists.",
       "error": "Could not load this synoptic.",
       "disabled": "Synoptics are not enabled.",
       "projection": {
         "label": "View",
-        "description": "How the plate is drawn in this widget: in volume, or as the plan."
+        "description": "The view the widget opens on: in volume, or as the plan. The operator can switch it."
       }
     },
     "empty": "This dashboard has no widgets yet.",

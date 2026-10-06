@@ -16,7 +16,7 @@ type PlatePrintSheetProps = {
   projection: Projection;
   values: SynopticValues;
   /** The plates that exist: a link to another reads missing, as on screen. */
-  knownSynoptics: ReadonlySet<string>;
+  knownSynoptics?: ReadonlySet<string>;
   vocabulary: PageVocabulary;
   fluids: ReadonlySet<Fluid>;
   types: ReadonlySet<string>;

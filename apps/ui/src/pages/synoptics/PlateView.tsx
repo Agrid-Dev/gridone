@@ -52,9 +52,16 @@ import { usePrintSheet } from "./usePrintSheet";
 type PlateViewProps = {
   doc: Synoptic;
   values: SynopticValues;
-  knownSynoptics: ReadonlySet<string>;
+  /** The plates that exist; without them every link is inert. */
+  knownSynoptics?: ReadonlySet<string>;
   /** A link on the plate was activated. */
-  onNavigate: (synopticId: string) => void;
+  onNavigate?: (synopticId: string) => void;
+  /** The view the plate opens on; the document's own without it. */
+  defaultProjection?: Projection;
+  /** A plate among other content (a dashboard widget): the plain wheel
+   *  scrolls the page unless the plate is full screen, and only the PDF
+   *  button prints its sheet, leaving the browser's own print to the page. */
+  embedded?: boolean;
   /** Sizes the card: the page gives it the rest of the first screen. */
   className?: string;
 };
@@ -74,14 +81,16 @@ type AnchorRect = { left: number; top: number; width: number; height: number };
  * remembered), the legend folded over the foot of the drawing, and the
  * popover a device symbol opens on the plate. The view is the operator's
  * alone: switching projection changes nothing in the stored document.
- * Printing (the PDF button or the browser's own) lays the plate out on a
- * sheet of its own.
+ * Printing (the PDF button, or the browser's own unless `embedded`) lays
+ * the plate out on a sheet of its own.
  */
 export const PlateView: FC<PlateViewProps> = ({
   doc,
   values,
   knownSynoptics,
   onNavigate,
+  defaultProjection,
+  embedded = false,
   className,
 }) => {
   const { t } = useTranslation("synoptics");
@@ -89,20 +98,24 @@ export const PlateView: FC<PlateViewProps> = ({
   const plate = useRef<PlateHandle | null>(null);
   const container = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLDivElement>(null);
-  const printing = usePrintSheet();
+  const { printing, print } = usePrintSheet(!embedded);
   const [projection, setProjection] = useState<Projection>(
-    doc.projection ?? DEFAULT_PROJECTION,
+    defaultProjection ?? doc.projection ?? DEFAULT_PROJECTION,
   );
-  // The page header already names the plate: its drawn title would say it
-  // twice.
-  const viewDoc = useMemo(
-    () => ({
+  // The page header, and the sheet's, already name the plate: its drawn
+  // title would say it twice. Embedded, the drawn title may be all that
+  // names the plate on screen.
+  const { viewDoc, screenDoc } = useMemo(() => {
+    const viewDoc = {
       ...doc,
       projection,
       labels: doc.labels?.filter((label) => label.role !== "title"),
-    }),
-    [doc, projection],
-  );
+    };
+    return {
+      viewDoc,
+      screenDoc: embedded ? { ...doc, projection } : viewDoc,
+    };
+  }, [doc, projection, embedded]);
   const [zoom, setZoom] = useState(1);
   const [viewTick, setViewTick] = useState(0);
   // The machine whose points are open: a symbol, or one head of a twin.
@@ -187,7 +200,7 @@ export const PlateView: FC<PlateViewProps> = ({
   const onSymbolClick = useCallback(
     (symbol: SymbolElement, head?: string) => {
       if (symbol.type === "link") {
-        onNavigate(String(symbol.props?.synoptic_id));
+        onNavigate?.(String(symbol.props?.synoptic_id));
       } else if (headOf(symbol, head ?? null)?.deviceId) {
         open(symbol, head);
       }
@@ -336,7 +349,7 @@ export const PlateView: FC<PlateViewProps> = ({
             className="h-8"
             aria-label={t("view.exportPdf")}
             title={t("view.exportPdf")}
-            onClick={() => window.print()}
+            onClick={print}
           >
             <FileDown className="mr-1 h-4 w-4" />
             {t("view.pdf")}
@@ -371,7 +384,7 @@ export const PlateView: FC<PlateViewProps> = ({
         )}
         <div ref={canvas} className="relative min-w-0 flex-1 overflow-hidden">
           <SynopticRenderer
-            doc={viewDoc}
+            doc={screenDoc}
             values={values}
             knownSynoptics={knownSynoptics}
             onSymbolClick={onSymbolClick}
@@ -382,6 +395,7 @@ export const PlateView: FC<PlateViewProps> = ({
             onViewChange={onViewChange}
             minTextPx={MIN_TEXT_PX}
             touchAction={fullscreen ? "none" : "pan-y"}
+            wheel={embedded && !fullscreen ? "pinch" : "zoom"}
           />
           <Popover
             open={selected !== null}
@@ -397,6 +411,7 @@ export const PlateView: FC<PlateViewProps> = ({
               />
             </PopoverAnchor>
             <PopoverContent
+              container={fullscreen ? container.current : null}
               onCloseAutoFocus={(event) => {
                 const back = returnFocus.current;
                 if (back instanceof HTMLElement || back instanceof SVGElement) {

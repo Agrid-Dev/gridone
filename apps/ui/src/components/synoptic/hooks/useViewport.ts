@@ -26,6 +26,12 @@ export const ZOOM_STEP = 1.25;
 
 export type View = { x: number; y: number; scale: number };
 
+/** What the wheel does over the canvas. `zoom`: every wheel zooms, for a
+ *  plate that is the page. `pinch`: only a pinch zooms (it arrives as a
+ *  wheel with ctrl or cmd held), so a plain wheel scrolls the page, for a
+ *  plate among other content. */
+export type CanvasWheel = "zoom" | "pinch";
+
 const FIT: View = { x: 0, y: 0, scale: 1 };
 
 const clampScale = (scale: number) =>
@@ -60,19 +66,16 @@ type ViewportOptions = {
   /** Whether a double click fits the plate again. An editor turns it off:
    *  there a double click is two clicks placing something. */
   fitOnDoubleClick?: boolean;
-  /** Whether the canvas takes no gesture at all, leaving the wheel and the
-   *  pointer to the page: a plate among other content, where the wheel
-   *  must scroll the page. The controller still moves the view. */
-  fixed?: boolean;
+  wheel?: CanvasWheel;
 };
 
 /**
  * Pan and zoom for a diagram canvas: drag pans, the wheel zooms about the
  * cursor (a trackpad pinch arrives that way too), two fingers pinch, a
- * double click fits again. The wheel is the canvas's whether or not a
- * modifier is held: an operator reading a plate expects to zoom it, and
- * the page scrolls from outside the plate. A `fixed` canvas takes none of
- * these, for a plate embedded among other content. The transform goes on
+ * double click fits again. By default the wheel is the canvas's whether or
+ * not a modifier is held: an operator reading a plate expects to zoom it,
+ * and the page scrolls from outside the plate. A `pinch` canvas leaves the
+ * plain wheel to the page. The transform goes on
  * a group inside the svg, never on the viewBox, so the root's screen transform
  * (and every `clientToSvg` reading, including the drag deltas) stays fixed
  * while the content moves. The pan starts only after a short travel, so a
@@ -86,7 +89,7 @@ export function useViewport({
   controller,
   onViewChange,
   fitOnDoubleClick = true,
-  fixed = false,
+  wheel = "zoom",
 }: ViewportOptions) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [view, setView] = useState<View>(FIT);
@@ -140,8 +143,9 @@ export function useViewport({
 
   useEffect(() => {
     const svg = svgRef.current;
-    if (!svg || fixed) return;
+    if (!svg) return;
     const onWheel = (e: WheelEvent) => {
+      if (wheel === "pinch" && !e.ctrlKey && !e.metaKey) return;
       e.preventDefault();
       const p = clientToSvg(svg, e.clientX, e.clientY);
       const px =
@@ -158,7 +162,7 @@ export function useViewport({
     };
     svg.addEventListener("wheel", onWheel, { passive: false });
     return () => svg.removeEventListener("wheel", onWheel);
-  }, [fixed]);
+  }, [wheel]);
 
   const follow = useCallback((e: ReactPointerEvent<SVGSVGElement>) => {
     const svg = e.currentTarget;
@@ -224,15 +228,13 @@ export function useViewport({
 
   return {
     svgRef,
-    handle: fixed
-      ? {}
-      : {
-          onPointerDown,
-          onPointerMove,
-          onPointerUp,
-          onPointerCancel: onPointerUp,
-          onDoubleClick: fitOnDoubleClick ? () => setView(FIT) : undefined,
-        },
+    handle: {
+      onPointerDown,
+      onPointerMove,
+      onPointerUp,
+      onPointerCancel: onPointerUp,
+      onDoubleClick: fitOnDoubleClick ? () => setView(FIT) : undefined,
+    },
     transform: `translate(${view.x} ${view.y}) scale(${view.scale})`,
     /** Screen pixels per viewBox unit at the current zoom; 0 before layout. */
     pxPerUnit: fitPx * view.scale,

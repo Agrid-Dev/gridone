@@ -1,3 +1,4 @@
+import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
@@ -43,6 +44,9 @@ vi.mock("@/hooks/useDeviceById", () => ({
 }));
 vi.mock("@/hooks/useAttributeCommandRuntime", () => ({
   useAttributeWriter: () => vi.fn(),
+}));
+vi.mock("@/contexts/AuthContext", () => ({
+  usePermissions: () => () => true,
 }));
 vi.mock("sonner", () => ({ toast: { warning: vi.fn(), error: vi.fn() } }));
 
@@ -182,7 +186,10 @@ function stubScreenCtm() {
   );
 }
 
-function renderView(doc: Synoptic = DOC) {
+function renderView(
+  doc: Synoptic = DOC,
+  props: Partial<ComponentProps<typeof PlateView>> = {},
+) {
   const onNavigate = vi.fn();
   const { container } = render(
     <MemoryRouter>
@@ -191,6 +198,7 @@ function renderView(doc: Synoptic = DOC) {
         values={VALUES}
         knownSynoptics={new Set(["ecs", "west"])}
         onNavigate={onNavigate}
+        {...props}
       />
     </MemoryRouter>,
   );
@@ -251,6 +259,37 @@ const anchor = () => {
 };
 const button = (name: string) => screen.getByRole("button", { name });
 
+/** A document whose full-screen element the test decides: `set` changes it
+ *  quietly, as a request does; `enter` also tells the page, as the browser
+ *  does once it complies. */
+function stubFullscreen() {
+  let element: Element | null = null;
+  Object.defineProperty(document, "fullscreenElement", {
+    configurable: true,
+    get: () => element,
+  });
+  return {
+    set: (el: Element | null) => {
+      element = el;
+    },
+    enter: (el: Element | null) => {
+      element = el;
+      fireEvent(document, new Event("fullscreenchange"));
+    },
+  };
+}
+
+/** What a browser does inside `print()`: `beforeprint`, the layout for
+ *  paper (`read` runs then), the dialog, `afterprint`, all before the call
+ *  returns. */
+function stubPrint(read: () => void) {
+  vi.stubGlobal("print", () => {
+    window.dispatchEvent(new Event("beforeprint"));
+    read();
+    window.dispatchEvent(new Event("afterprint"));
+  });
+}
+
 beforeEach(() => {
   stubScreenCtm();
   mockUseDeviceById.mockImplementation((id: string) => ({
@@ -266,6 +305,7 @@ afterEach(() => {
   document.documentElement.classList.remove("dark");
   vi.unstubAllGlobals();
   Reflect.deleteProperty(SVGGElement.prototype, "getScreenCTM");
+  Reflect.deleteProperty(SVGSVGElement.prototype, "getScreenCTM");
   Reflect.deleteProperty(document, "fullscreenElement");
   Reflect.deleteProperty(document, "exitFullscreen");
   mockUseDeviceById.mockReset();
@@ -407,18 +447,10 @@ describe("PlateView", () => {
     });
 
     it("gives every gesture to the canvas in full screen, and vertical swipes back to the page outside it", () => {
-      let fullscreenElement: Element | null = null;
-      Object.defineProperty(document, "fullscreenElement", {
-        configurable: true,
-        get: () => fullscreenElement,
-      });
-      document.exitFullscreen = vi.fn(async () => {
-        fullscreenElement = null;
-      });
+      const fullscreen = stubFullscreen();
+      document.exitFullscreen = vi.fn(async () => fullscreen.set(null));
       renderView();
-      card().requestFullscreen = vi.fn(async () => {
-        fullscreenElement = card();
-      });
+      card().requestFullscreen = vi.fn(async () => fullscreen.set(card()));
       expect(svg().style.touchAction).toBe("pan-y");
       expect(card().className).not.toContain("h-screen");
 
@@ -441,8 +473,7 @@ describe("PlateView", () => {
       expect(button("Plein écran").getAttribute("aria-pressed")).toBe("false");
 
       // Something else going full screen is not this card's business.
-      fullscreenElement = document.body;
-      fireEvent(document, new Event("fullscreenchange"));
+      fullscreen.enter(document.body);
       expect(svg().style.touchAction).toBe("pan-y");
     });
   });
@@ -737,13 +768,9 @@ describe("PlateView", () => {
     });
 
     it("has the sheet on the page by the time the browser lays it out, when the PDF button starts the print", () => {
-      // What a browser does inside `print()`: `beforeprint`, the layout for
-      // paper, the dialog, `afterprint`, all before the call returns.
       let laidOut: Element | null = null;
-      vi.stubGlobal("print", () => {
-        window.dispatchEvent(new Event("beforeprint"));
+      stubPrint(() => {
         laidOut = document.querySelector("[data-print-sheet]");
-        window.dispatchEvent(new Event("afterprint"));
       });
       renderView();
 
@@ -849,6 +876,96 @@ describe("PlateView", () => {
 
       expect(sheet()).toBeNull();
       expect(dark()).toBe(true);
+    });
+  });
+
+  describe("embedded among other content", () => {
+    const EMBEDDED = {
+      embedded: true,
+      knownSynoptics: undefined,
+      onNavigate: undefined,
+    };
+    /** A wheel over the canvas; true when the page may scroll. */
+    const wheel = (init: { ctrlKey?: boolean } = {}) =>
+      fireEvent.wheel(svg(), { deltaY: -100, ...init });
+
+    it("opens on the view it is given, whatever the document says, and still switches", () => {
+      renderView(DOC, { ...EMBEDDED, defaultProjection: "isometric" });
+      expect(card().querySelector("[data-slab]")).not.toBeNull();
+      fireEvent.click(button("Plan"));
+      expect(card().querySelector("[data-slab]")).toBeNull();
+    });
+
+    it("leaves the plain wheel to the page and zooms on a pinch, and takes every wheel in full screen", () => {
+      Object.defineProperty(SVGSVGElement.prototype, "getScreenCTM", {
+        configurable: true,
+        value: () => ({ inverse: () => ({ a: 1, d: 1, e: 0, f: 0 }) }),
+      });
+      const fullscreen = stubFullscreen();
+      renderView(DOC, EMBEDDED);
+
+      expect(wheel()).toBe(true);
+      expect(view().scale).toBe(1);
+
+      expect(wheel({ ctrlKey: true })).toBe(false);
+      const pinched = view().scale;
+      expect(pinched).toBeGreaterThan(1);
+
+      // Full screen leaves no page to scroll.
+      fullscreen.enter(card());
+      expect(wheel()).toBe(false);
+      expect(view().scale).toBeGreaterThan(pinched);
+    });
+
+    it("opens a device's points inside the plate in full screen, where nothing outside it shows", () => {
+      const fullscreen = stubFullscreen();
+      renderView(DOC, EMBEDDED);
+      fullscreen.enter(card());
+      fireEvent.click(symbol("pac"));
+      expect(card().contains(popover())).toBe(true);
+    });
+
+    it("keeps the plate's drawn title on screen, and leaves it to the sheet's own on paper", () => {
+      renderView(
+        {
+          ...DOC,
+          labels: [
+            {
+              id: "title",
+              at: { x: 0, y: -2 },
+              text: "ECS EST",
+              role: "title",
+            },
+          ],
+        },
+        EMBEDDED,
+      );
+      expect(card().querySelector("[data-label='title']")).toHaveTextContent(
+        "ECS EST",
+      );
+      let printed: Element | null = null;
+      stubPrint(() => {
+        printed = document.querySelector("[data-print-sheet]");
+      });
+      fireEvent.click(button("Exporter en PDF"));
+      // Its own button prints the sheet, headed by its own title.
+      expect(printed).not.toBeNull();
+      expect(printed!.querySelector("[data-label='title']")).toBeNull();
+    });
+
+    it("leaves every link inert, neither followed nor drawn missing", () => {
+      renderView(DOC, EMBEDDED);
+      expect(screen.getByText("ECS OUEST")).toBeInTheDocument();
+      expect(symbol("to-west")).toBeNull();
+      expect(symbol("to-gone")).toBeNull();
+      expect(card().querySelector("[data-missing]")).toBeNull();
+    });
+
+    it("leaves the browser's own print to the page", () => {
+      renderView(DOC, EMBEDDED);
+      fireEvent(window, new Event("beforeprint"));
+      expect(document.querySelector("[data-print-sheet]")).toBeNull();
+      fireEvent(window, new Event("afterprint"));
     });
   });
 });

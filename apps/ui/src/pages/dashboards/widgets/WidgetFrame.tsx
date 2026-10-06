@@ -24,9 +24,12 @@ export const WidgetFrame: FC<{
   title?: string | null;
   /** Rendered over the top-right corner of the card (e.g. the actions menu). */
   overlay?: ReactNode;
+  /** The body takes no pointer and no focus: a cell being arranged, a
+   *  preview. */
+  inert?: boolean;
   className?: string;
   children: ReactNode;
-}> = ({ title, overlay, className, children }) => (
+}> = ({ title, overlay, inert = false, className, children }) => (
   <div
     className={cn(
       "group relative flex h-full w-full flex-col overflow-hidden rounded-lg border border-border bg-card",
@@ -39,7 +42,8 @@ export const WidgetFrame: FC<{
         {overlay}
       </div>
     )}
-    <div className="min-h-0 flex-1">
+    {/* React 18 knows no `inert` prop: the attribute is passed as is. */}
+    <div className="min-h-0 flex-1" {...(inert ? { inert: "" } : {})}>
       <ErrorBoundary FallbackComponent={WidgetErrorFallback}>
         {children}
       </ErrorBoundary>

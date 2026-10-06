@@ -42,6 +42,12 @@ vi.mock("sonner", () => ({
   toast: { warning: vi.fn(), error: vi.fn(), success: vi.fn() },
 }));
 
+let mayCommand = true;
+vi.mock("@/contexts/AuthContext", () => ({
+  usePermissions: () => (perm: string) =>
+    perm === "devices:command" && mayCommand,
+}));
+
 const mockUseDeviceById = vi.fn();
 vi.mock("@/hooks/useDeviceById", () => ({
   useDeviceById: (id: string | undefined) => mockUseDeviceById(id),
@@ -240,6 +246,7 @@ const apply = () =>
   fireEvent.click(screen.getByRole("button", { name: "Appliquer" }));
 
 beforeEach(() => {
+  mayCommand = true;
   mockUseDeviceById.mockReturnValue({
     data: DEVICE,
     isLoading: false,
@@ -487,6 +494,12 @@ describe("DevicePopover", () => {
     it("offers no pencil while the device blocks the write", () => {
       renderPopover(pump("speed", "locked"));
       expect(pencil("speed")).toBeNull();
+    });
+
+    it("offers no pencil to a user not allowed to command devices", () => {
+      mayCommand = false;
+      renderPopover();
+      expect(pencil("state")).toBeNull();
     });
   });
 
