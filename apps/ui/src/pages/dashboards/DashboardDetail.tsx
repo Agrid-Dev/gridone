@@ -20,6 +20,7 @@ import {
 } from "@/lib/timeRange";
 import { DashboardIconGlyph } from "@/lib/dashboardIcons";
 import { DashboardGrid } from "./DashboardGrid";
+import { DASHBOARD_TYPES } from "./dashboardTypes";
 import { DASHBOARD_PERIOD_STORAGE_KEY } from "./useDashboardPeriod";
 import { useDashboardFromRoute } from "./useDashboards";
 import { useLayoutEditor } from "./useLayoutEditor";
@@ -33,6 +34,7 @@ const DashboardDetailContent: FC = () => {
   const [toolboxOpen, setToolboxOpen] = useState(false);
 
   const hasWidgets = (dashboard.widgets ?? []).length > 0;
+  const { hasPeriod } = DASHBOARD_TYPES[dashboard.type];
 
   return (
     <div
@@ -48,11 +50,6 @@ const DashboardDetailContent: FC = () => {
         }
         actions={
           <>
-            <TimeRangeSelect
-              presets={DASHBOARD_PRESET_OPTIONS}
-              defaultPreset={DASHBOARD_DEFAULT_PRESET}
-              storageKey={DASHBOARD_PERIOD_STORAGE_KEY}
-            />
             {can("dashboards:write") && (
               <AddWidgetButton dashboardId={dashboard.id} disabled={editing} />
             )}
@@ -132,6 +129,19 @@ const DashboardDetailContent: FC = () => {
               <p>{dashboard.description}</p>
             </div>
           )}
+        </div>
+      )}
+
+      {/* The period is the dashboard's own control, not a page action: it
+          sits with the widgets it drives, and only a history dashboard has
+          one — a live dashboard shows the present. */}
+      {hasPeriod && (
+        <div className="flex justify-end">
+          <TimeRangeSelect
+            presets={DASHBOARD_PRESET_OPTIONS}
+            defaultPreset={DASHBOARD_DEFAULT_PRESET}
+            storageKey={DASHBOARD_PERIOD_STORAGE_KEY}
+          />
         </div>
       )}
 

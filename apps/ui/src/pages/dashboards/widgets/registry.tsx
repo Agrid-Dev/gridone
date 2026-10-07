@@ -1,6 +1,8 @@
 import type { FC } from "react";
 import type { Control, FieldValues } from "react-hook-form";
+import { useTranslation } from "react-i18next";
 import type * as z from "zod";
+import { WidgetErrorState } from "./WidgetErrorState";
 import { ChartConfigFields, chartConfigCheck } from "./views/ChartConfigFields";
 import { ChartWidgetView } from "./views/ChartWidgetView";
 import { ControlPanelConfigFields } from "./views/ControlPanelConfigFields";
@@ -8,11 +10,12 @@ import { ControlPanelWidgetView } from "./views/ControlPanelWidgetView";
 import { DeviceControlConfigFields } from "./views/DeviceControlConfigFields";
 import { DeviceControlWidgetView } from "./views/DeviceControlWidgetView";
 import {
-  KpiConfigFields,
+  KpiHistoryConfigFields,
+  KpiLiveConfigFields,
   kpiConfigCheck,
   kpiPreviewSize,
 } from "./views/KpiConfigFields";
-import { KpiWidgetView } from "./views/KpiWidgetView";
+import { KpiHistoryWidgetView, KpiLiveWidgetView } from "./views/KpiWidgetView";
 import { MeterTreeConfigPlaceholder } from "./views/MeterTreeConfigPlaceholder";
 import { MeterTreeWidgetView } from "./views/MeterTreeWidgetView";
 import { TextWidgetView } from "./views/TextWidgetView";
@@ -39,7 +42,8 @@ export const widgetViews: Record<string, WidgetViewComponent> = {
   text: TextWidgetView,
   chart: ChartWidgetView,
   device_control: DeviceControlWidgetView,
-  kpi: KpiWidgetView,
+  kpi_live: KpiLiveWidgetView,
+  kpi_history: KpiHistoryWidgetView,
   meter_tree: MeterTreeWidgetView,
   control_panel: ControlPanelWidgetView,
   synoptic: SynopticWidgetView,
@@ -56,7 +60,8 @@ export const widgetViews: Record<string, WidgetViewComponent> = {
 export const widgetConfigFields: Record<string, WidgetConfigFieldsComponent> = {
   chart: ChartConfigFields,
   device_control: DeviceControlConfigFields,
-  kpi: KpiConfigFields,
+  kpi_live: KpiLiveConfigFields,
+  kpi_history: KpiHistoryConfigFields,
   meter_tree: MeterTreeConfigPlaceholder,
   control_panel: ControlPanelConfigFields,
   synoptic: SynopticConfigFields,
@@ -70,7 +75,8 @@ export const widgetConfigFields: Record<string, WidgetConfigFieldsComponent> = {
  */
 export const widgetConfigChecks: Record<string, z.ZodType> = {
   chart: chartConfigCheck,
-  kpi: kpiConfigCheck,
+  kpi_live: kpiConfigCheck,
+  kpi_history: kpiConfigCheck,
 };
 
 /** A widget type's live-preview footprint, from its draft config and the
@@ -84,7 +90,8 @@ export type WidgetPreviewSizeFn = (
 ) => { w: number; h: number };
 
 export const widgetPreviewSize: Record<string, WidgetPreviewSizeFn> = {
-  kpi: kpiPreviewSize,
+  kpi_live: kpiPreviewSize,
+  kpi_history: kpiPreviewSize,
 };
 
 /** No-op sizing rule for a type not in `widgetPreviewSize`. */
@@ -92,17 +99,17 @@ export const identityPreviewSize: WidgetPreviewSizeFn = (_config, base) => base;
 
 /** Renders a widget body from its type + config. Both the dashboard grid and
  *  the editor preview go through here, so what you preview is what you get.
- *  An unregistered type (backend newer than the UI) degrades to its name. */
+ *  An unregistered type (backend newer than the UI) degrades to an error
+ *  tile naming it. */
 export const WidgetView: FC<{ type: string; config: unknown }> = ({
   type,
   config,
 }) => {
+  const { t } = useTranslation("dashboards");
   const View = widgetViews[type];
   if (!View) {
     return (
-      <div className="flex h-full items-center justify-center p-4 text-sm text-muted-foreground">
-        {type}
-      </div>
+      <WidgetErrorState message={t("widgets.errors.unknown_type", { type })} />
     );
   }
   return <View config={config} />;

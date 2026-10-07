@@ -156,9 +156,11 @@ const DashboardsManageContent: FC = () => {
               formId="dashboard-rename-form"
               defaultValues={{
                 name: editing.name,
+                type: editing.type,
                 description: editing.description ?? "",
                 icon: editing.icon ?? null,
               }}
+              lockType
               submitLabel={t("edit.submit")}
               onSubmit={handleEdit}
               onCancel={() => setEditing(null)}
@@ -236,6 +238,9 @@ const DashboardRow: FC<{
             className="h-4 w-4 shrink-0 text-muted-foreground"
           />
           {name}
+          <span className="rounded-sm border border-border px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            {t(`types.${dashboard.type}.label`)}
+          </span>
         </span>
         {dashboard.description && (
           <span className="truncate text-xs text-muted-foreground">

@@ -28,7 +28,7 @@ describe("widgetDefaultSize", () => {
 
 describe("resolvePreviewSize", () => {
   const SCHEMAS = {
-    kpi: { "x-default-size": { w: 4, h: 1 } },
+    kpi_live: { "x-default-size": { w: 4, h: 1 } },
     text: { "x-default-size": { w: 4, h: 2 } },
   } as unknown as WidgetSchemas;
 
@@ -39,11 +39,11 @@ describe("resolvePreviewSize", () => {
     });
   });
 
-  it("grows the type default by a registered preview-sizing rule (kpi)", () => {
+  it("grows the type default by a registered preview-sizing rule (kpi_live)", () => {
     const draft = {
-      config: { type: "kpi", attributes: [{}, {}, {}] },
+      config: { type: "kpi_live", attributes: [{}, {}, {}] },
     } as unknown as WidgetFormValues;
-    expect(resolvePreviewSize("kpi", draft, undefined, SCHEMAS)).toEqual({
+    expect(resolvePreviewSize("kpi_live", draft, undefined, SCHEMAS)).toEqual({
       w: 4,
       h: 3,
     });
@@ -61,9 +61,9 @@ describe("resolvePreviewSize", () => {
   it("still applies the preview-sizing rule on top of an existing widget's layout", () => {
     const widget = { layout: { x: 0, y: 0, w: 4, h: 1 } } as unknown as Widget;
     const draft = {
-      config: { type: "kpi", attributes: [{}, {}] },
+      config: { type: "kpi_live", attributes: [{}, {}] },
     } as unknown as WidgetFormValues;
-    expect(resolvePreviewSize("kpi", draft, widget, SCHEMAS)).toEqual({
+    expect(resolvePreviewSize("kpi_live", draft, widget, SCHEMAS)).toEqual({
       w: 4,
       h: 2,
     });

@@ -6,6 +6,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
+  type DashboardType,
   type WidgetCreateBody,
   type WidgetSchemas,
   type WidgetUpdateBody,
@@ -19,7 +20,15 @@ import { dashboardKey } from "./useDashboards";
  *  truth). Drives the widget config form; cached indefinitely — the registry
  *  is static for a running server. Suspends until loaded so the editor pages
  *  render pure happy-path JSX under a `ResourceBoundary`. */
-export function useWidgetSchemas({ enabledOnly = false } = {}): WidgetSchemas {
+export function useWidgetSchemas({
+  enabledOnly = false,
+  dashboardType,
+}: {
+  enabledOnly?: boolean;
+  /** Keeps only the types that fit this dashboard type, per the backend's
+   *  `x-dashboard-types` on each schema. */
+  dashboardType?: DashboardType;
+} = {}): WidgetSchemas {
   const client = useGridoneClient();
   const synopticsEnabled = useFeatureEnabled("synoptics");
   const { data } = useSuspenseQuery<WidgetSchemas>({
@@ -27,14 +36,26 @@ export function useWidgetSchemas({ enabledOnly = false } = {}): WidgetSchemas {
     queryFn: () => client.dashboards.getWidgetSchemas(),
     staleTime: Infinity,
   });
-  // Creation hides disabled features; editing keeps the stored type's schema
-  // so an existing widget can still be renamed after its feature is disabled.
-  if (!enabledOnly) return data;
+  // Creation hides disabled features and misfits; editing keeps the stored
+  // type's schema so an existing widget can still be renamed after its
+  // feature is disabled or its type stopped fitting the dashboard.
   return Object.fromEntries(
     Object.entries(data).filter(
-      ([type]) => type !== "synoptic" || synopticsEnabled,
+      ([type, schema]) =>
+        (!enabledOnly || type !== "synoptic" || synopticsEnabled) &&
+        (dashboardType === undefined || fitsDashboard(schema, dashboardType)),
     ),
   );
+}
+
+/** Whether a widget schema declares the dashboard type among those it fits.
+ *  A schema without the key (backend older than the UI) is kept. */
+export function fitsDashboard(
+  schema: Record<string, unknown>,
+  dashboardType: DashboardType,
+): boolean {
+  const types = schema["x-dashboard-types"];
+  return !Array.isArray(types) || types.includes(dashboardType);
 }
 
 function useWidgetErrorToast() {
