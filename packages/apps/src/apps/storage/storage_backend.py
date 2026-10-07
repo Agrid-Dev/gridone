@@ -18,10 +18,20 @@ class AppStorageBackend(Protocol):
 
     async def list_all(self) -> list[App]: ...
 
-    async def save(self, app: App) -> None: ...
+    async def save(self, app: App) -> None:
+        """Insert an app, or replace every stored field but its health.
 
-    async def update_status(self, app_id: str, status: AppStatus) -> None:
-        """Update only the health status, leaving config and push status intact.
+        A new row takes the model's `status` and `status_message`. An existing
+        row keeps its own pair: only `update_status` writes it, since the model
+        saved here may predate the last health probe — and a status from the
+        model beside the stored message would be a pair no probe reported.
+        """
+        ...
+
+    async def update_status(
+        self, app_id: str, status: AppStatus, message: str | None
+    ) -> None:
+        """Update only the health status and its message, leaving the rest intact.
 
         Targeted on purpose: the health loop writes from a snapshot taken
         before its probes, so a full-row save could revert a config stored

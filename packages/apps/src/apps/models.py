@@ -62,6 +62,10 @@ class App(BaseModel):
     api_url: str
     icon: str
     status: AppStatus = AppStatus.REGISTERED
+    # What the app says about its own state in its last health report, stripped
+    # and cut by the health loop. Plain display text: GET /apps is readable by
+    # any authenticated user, so the contract forbids anything secret in it.
+    status_message: str | None = None
     manifest: str = ""
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     # Excluded from serialization: GET /apps and GET /apps/{id} are readable by

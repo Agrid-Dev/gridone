@@ -131,7 +131,10 @@ export default function AppsList() {
                             {t("disabledBadge")}
                           </Badge>
                         ) : (
-                          <AppStatusBadge status={app.status ?? "registered"} />
+                          <AppStatusBadge
+                            status={app.status ?? "registered"}
+                            message={app.status_message}
+                          />
                         )}
                       </div>
                     </div>

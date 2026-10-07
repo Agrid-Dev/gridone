@@ -299,6 +299,21 @@ describe("AppConfigField widget mapping", () => {
   });
 });
 
+describe("AppConfigField override seam", () => {
+  it("leaves image fields to the shared registry, which renders them", () => {
+    const overrides = appConfigOverrides([
+      normalizeProperty("site", { type: "string", format: "asset-id" }),
+      normalizeProperty("logo", {
+        type: "string",
+        contentMediaType: "image/png",
+        contentEncoding: "base64",
+      }),
+    ]);
+
+    expect(Object.keys(overrides)).toEqual(["site"]);
+  });
+});
+
 const zoneOverridesSchema: AppSchemaNode = {
   type: "array",
   title: "Zone overrides",

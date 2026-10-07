@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { normalizeProperty, normalizeSchema } from "./normalizeSchema";
+import {
+  isImageField,
+  maxImageBytes,
+  normalizeProperty,
+  normalizeSchema,
+} from "./normalizeSchema";
+import type { JsonSchemaObject } from "./types";
 import assetCreateSchema from "./__fixtures__/asset-create.json";
 import bacnetSchema from "./__fixtures__/transport-bacnet.json";
 import knxSchema from "./__fixtures__/transport-knx.json";
@@ -219,6 +225,61 @@ describe("normalizeSchema — arrays", () => {
   });
 });
 
+describe("normalizeProperty — image uploads", () => {
+  const logo = {
+    type: "string",
+    contentMediaType: "image/png",
+    contentEncoding: "base64",
+    maxLength: 699052,
+  };
+
+  it("describes a base64 string of an image media type as an image upload", () => {
+    // 699052 base64 characters hold 524289 bytes (512 KiB and one byte).
+    expect(normalizeProperty("logo", logo)).toMatchObject({
+      kind: "string",
+      image: { mediaType: "image/png", maxBytes: 524289 },
+    });
+  });
+
+  it("caps no size when the node declares no maxLength", () => {
+    expect(
+      normalizeProperty("logo", { ...logo, maxLength: undefined }).image,
+    ).toEqual({ mediaType: "image/png", maxBytes: undefined });
+  });
+
+  it("describes an optional image, unwrapped from its null union", () => {
+    // Pydantic's shape for `str | None` with the content annotations as extras.
+    const optionalLogo = {
+      anyOf: [{ type: "string", maxLength: 699052 }, { type: "null" }],
+      contentMediaType: "image/png",
+      contentEncoding: "base64",
+      default: null,
+    };
+    expect(normalizeProperty("logo", optionalLogo)).toMatchObject({
+      kind: "string",
+      nullable: true,
+      image: { mediaType: "image/png", maxBytes: 524289 },
+    });
+  });
+
+  it.each([
+    ["no encoding", { ...logo, contentEncoding: undefined }],
+    ["another encoding", { ...logo, contentEncoding: "base32" }],
+    ["no media type", { ...logo, contentMediaType: undefined }],
+    [
+      "a media type that is no image",
+      { ...logo, contentMediaType: "text/csv" },
+    ],
+    [
+      "an image type spelled as a prefix only",
+      { ...logo, contentMediaType: "imagery/png" },
+    ],
+    ["a node that is no string", { ...logo, type: "integer" }],
+  ])("describes no image upload with %s", (_case, node) => {
+    expect(normalizeProperty("logo", node).image).toBeUndefined();
+  });
+});
+
 describe("normalizeSchema — degenerate inputs", () => {
   it.each([
     ["undefined", undefined],
@@ -238,5 +299,68 @@ describe("normalizeSchema — degenerate inputs", () => {
   it("falls back to a label derived from the property name", () => {
     const descriptor = normalizeProperty("gateway_ip", { type: "string" });
     expect(descriptor.label).toBe("Gateway Ip");
+  });
+});
+
+/** An image field: a base64 string of an image media type, capped. */
+const logoSchema: JsonSchemaObject = {
+  type: "string",
+  contentMediaType: "image/png",
+  contentEncoding: "base64",
+  maxLength: 699052,
+};
+
+describe("isImageField", () => {
+  it("recognizes a base64 string of an image media type", () => {
+    expect(isImageField(logoSchema)).toBe(true);
+    expect(
+      isImageField({ ...logoSchema, contentMediaType: "image/jpeg" }),
+    ).toBe(true);
+  });
+
+  it.each([
+    ["no encoding", { ...logoSchema, contentEncoding: undefined }],
+    ["another encoding", { ...logoSchema, contentEncoding: "base32" }],
+    ["no media type", { ...logoSchema, contentMediaType: undefined }],
+    [
+      "a media type that is no image",
+      { ...logoSchema, contentMediaType: "text/csv" },
+    ],
+    [
+      "an image type spelled as a prefix only",
+      { ...logoSchema, contentMediaType: "imagery/png" },
+    ],
+    ["not a string", { ...logoSchema, type: "array" }],
+  ] as [string, JsonSchemaObject][])("rejects %s", (_case, node) => {
+    expect(isImageField(node)).toBe(false);
+  });
+});
+
+describe("maxImageBytes", () => {
+  it("is the largest file whose base64 fits the contract's cap", () => {
+    // 699052 characters: 512 KiB of file, and one byte more.
+    expect(maxImageBytes(logoSchema)).toBe(524289);
+  });
+
+  it("is undefined when the field declares no cap", () => {
+    expect(maxImageBytes({ ...logoSchema, maxLength: undefined })).toBe(
+      undefined,
+    );
+  });
+
+  it("never lets a file through whose base64 exceeds the cap", () => {
+    // base64 spends 4 characters per started group of 3 bytes.
+    const base64Length = (bytes: number) => 4 * Math.ceil(bytes / 3);
+    const violations: string[] = [];
+    for (let maxLength = 0; maxLength <= 64; maxLength += 1) {
+      const bytes = maxImageBytes({ ...logoSchema, maxLength }) ?? -1;
+      if (base64Length(bytes) > maxLength) {
+        violations.push(`${maxLength}: ${bytes} bytes overflow`);
+      }
+      if (base64Length(bytes + 1) <= maxLength) {
+        violations.push(`${maxLength}: ${bytes + 1} bytes would still fit`);
+      }
+    }
+    expect(violations).toEqual([]);
   });
 });

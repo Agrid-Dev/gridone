@@ -49,6 +49,11 @@ export interface FieldDescriptor {
   /** Credential-bearing field (`secret: true` marker or the app contract's
    *  `format: "password"`): rendered masked with a reveal toggle. */
   secret: boolean;
+  /** Image upload (`contentMediaType: image/*` with `contentEncoding:
+   *  base64` on a string): rendered as a file chooser with a preview, the
+   *  value being the file's raw base64. `maxBytes` is the largest file whose
+   *  base64 fits the node's `maxLength`, when it declares one. */
+  image?: { mediaType: string; maxBytes?: number };
   /** Resolved, unwrapped node (constraints intact) — feeds `buildZodSchema`. */
   schema: JsonSchemaObject;
 }

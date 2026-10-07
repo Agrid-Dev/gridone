@@ -1,5 +1,10 @@
 export { buildZodSchema } from "./buildZodSchema";
-export { normalizeProperty, normalizeSchema } from "./normalizeSchema";
+export {
+  isImageField,
+  maxImageBytes,
+  normalizeProperty,
+  normalizeSchema,
+} from "./normalizeSchema";
 export {
   SchemaFields,
   SchemaFieldWidget,

@@ -40,13 +40,27 @@ class MemoryAppStorage:
         return sorted(self._apps.values(), key=lambda a: a.created_at, reverse=True)
 
     async def save(self, app: App) -> None:
+        stored = self._apps.get(app.id)
+        if stored is not None:
+            # Same as postgres: an existing row keeps its status and message,
+            # which only `update_status` writes.
+            app = app.model_copy(
+                update={
+                    "status": stored.status,
+                    "status_message": stored.status_message,
+                }
+            )
         self._apps[app.id] = app
 
-    async def update_status(self, app_id: str, status: AppStatus) -> None:
+    async def update_status(
+        self, app_id: str, status: AppStatus, message: str | None
+    ) -> None:
         app = self._apps.get(app_id)
         if app is None:
             return
-        self._apps[app_id] = app.model_copy(update={"status": status})
+        self._apps[app_id] = app.model_copy(
+            update={"status": status, "status_message": message}
+        )
 
     async def update_push_status(self, app_id: str, push_status: PushStatus) -> None:
         app = self._apps.get(app_id)

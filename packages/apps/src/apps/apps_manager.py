@@ -1,6 +1,7 @@
 import asyncio
 import contextlib
 import logging
+import re
 from typing import Any
 
 import httpx
@@ -25,6 +26,20 @@ _REPORTED_STATUSES = {
     "needs_config": AppStatus.NEEDS_CONFIG,
     "error": AppStatus.UNHEALTHY,
 }
+# Longest status message kept from a health report, in characters: a line of
+# display text, which any authenticated user reads on GET /apps.
+_STATUS_MESSAGE_MAX_LENGTH = 200
+# Control characters a status message drops: C0, DEL and C1, but the tab and
+# the line feed, which are text. Postgres refuses a NUL in `text`, and the
+# others are no display text (a CR LF line ending keeps its LF).
+_DROPPED_CONTROL_CHARACTERS = dict.fromkeys(
+    code
+    for code in (*range(0x20), 0x7F, *range(0x80, 0xA0))
+    if code not in {0x09, 0x0A}
+)
+# A lone surrogate: half of a UTF-16 pair, which a JSON string can carry (an
+# emoji cut in two) but UTF-8 cannot encode, so Postgres cannot store it.
+_LONE_SURROGATE = re.compile(f"[{chr(0xD800)}-{chr(0xDFFF)}]")
 
 
 class AppsManager:
@@ -90,8 +105,9 @@ class AppsManager:
         process dies mid-push. Nothing is stored if the schema fetch or the
         validation fails.
 
-        The post-push write is targeted at `push_status` alone, so a health
-        status change landing during the push is not reverted.
+        Neither write reverts a health status recorded meanwhile: `save`
+        leaves the `status` and `status_message` of an existing app alone, and
+        the post-push write is targeted at `push_status`.
         """
         app = await self.get_app(app_id)
         schema = await self._proxy_app_request("GET", f"{app.api_url}/config/schema")
@@ -196,7 +212,13 @@ class AppsManager:
     # ── Enable / Disable ─────────────────────────────────────────────────
 
     async def enable_app(self, app_id: str) -> App:
+        """Unblock the app's service account, then tell the app it is enabled.
+
+        In that order: an app told it is enabled resumes at once, and its first
+        API call would be refused (403) while its account is still blocked.
+        """
         app = await self.get_app(app_id)
+        await self._users_manager.unblock_user(app.user_id)
         try:
             await self._http_client.post(
                 app.enable_url,
@@ -205,7 +227,6 @@ class AppsManager:
             )
         except httpx.HTTPError:
             logger.warning("Failed to call enable on app %s", app_id, exc_info=True)
-        await self._users_manager.unblock_user(app.user_id)
         return app.model_copy(update={"enabled": True})
 
     async def disable_app(self, app_id: str) -> App:
@@ -256,43 +277,46 @@ class AppsManager:
                 logger.exception("Health check failed for app %s", app.id)
 
     async def _check_app_health(self, app: App) -> None:
-        """Probe one app, record its status, and re-deliver its config if asked.
+        """Probe one app, record its status and message, and re-deliver its
+        config if asked.
 
-        The status write is targeted at `status` alone: the snapshot this runs
-        from predates the probe, so a full-row save could revert a config
-        stored in the meantime.
+        The write is targeted at `status` and `status_message` alone: the
+        snapshot this runs from predates the probe, so a full-row save could
+        revert a config stored in the meantime. It only happens when the pair
+        changes, so a steady app costs no write per tick.
         """
-        status = await self._probe_health(app)
-        if status != app.status:
-            await self._app_storage.update_status(app.id, status)
+        status, message = await self._probe_health(app)
+        if (status, message) != (app.status, app.status_message):
+            await self._app_storage.update_status(app.id, status, message)
         if status is AppStatus.NEEDS_CONFIG:
             await self._redeliver_config(app.id)
 
-    async def _probe_health(self, app: App) -> AppStatus:
-        """Read an app's health status off `GET {api_url}/health`.
+    async def _probe_health(self, app: App) -> tuple[AppStatus, str | None]:
+        """Read an app's health status and message off `GET {api_url}/health`.
 
-        An unreachable app or a non-2xx reply is UNHEALTHY. A 2xx is read as
-        the ternary contract `{"status": "ok" | "needs_config" | "error"}`,
-        falling back to HEALTHY for apps that predate it — a 2xx means up.
+        An unreachable app or a non-2xx reply is UNHEALTHY, with no message. A
+        2xx is read as the contract `{"status": "ok" | "needs_config" |
+        "error", "message": str | null}`, falling back to HEALTHY with no
+        message for apps that predate it — a 2xx means up.
         """
         try:
             resp = await self._http_client.get(
                 app.health_url, timeout=_HEALTH_PROBE_TIMEOUT
             )
         except httpx.HTTPError:
-            return AppStatus.UNHEALTHY
+            return AppStatus.UNHEALTHY, None
         if not resp.is_success:
-            return AppStatus.UNHEALTHY
+            return AppStatus.UNHEALTHY, None
         try:
             body = resp.json()
         except ValueError:
-            return AppStatus.HEALTHY
+            return AppStatus.HEALTHY, None
         if not isinstance(body, dict):
-            return AppStatus.HEALTHY
-        reported = body.get("status")
-        if not isinstance(reported, str):
-            return AppStatus.HEALTHY
-        return _REPORTED_STATUSES.get(reported, AppStatus.HEALTHY)
+            return AppStatus.HEALTHY, None
+        return (
+            _reported_status(body.get("status")),
+            _reported_message(body.get("message")),
+        )
 
     async def _redeliver_config(self, app_id: str) -> None:
         """Re-push the stored config to an app reporting `needs_config`.
@@ -310,6 +334,38 @@ class AppsManager:
         push_status = await self._push_config(app)
         if push_status != app.push_status:
             await self._app_storage.update_push_status(app_id, push_status)
+
+
+def _reported_status(reported: object) -> AppStatus:
+    """Map the `status` of a 2xx health report onto ours.
+
+    Anything but a known string (absent, unknown, unhashable) reads as
+    HEALTHY: the app answered, so it is up.
+    """
+    if not isinstance(reported, str):
+        return AppStatus.HEALTHY
+    return _REPORTED_STATUSES.get(reported, AppStatus.HEALTHY)
+
+
+def _reported_message(reported: object) -> str | None:
+    """Turn the `message` of a health report into display text Postgres stores.
+
+    Only a string is kept. Its control characters but tabs and line feeds are
+    dropped, and a lone surrogate becomes U+FFFD (see
+    `_DROPPED_CONTROL_CHARACTERS`, `_LONE_SURROGATE`): either would make the
+    status write fail, tick after tick. It is then stripped, an empty one reads
+    as no message, and a long one is cut to `_STATUS_MESSAGE_MAX_LENGTH`
+    characters, whose end is stripped again. E.g. `"  Sent to 12 of 14
+    thermostats  "` -> `"Sent to 12 of 14 thermostats"`, `"   "` -> None,
+    `42` -> None.
+    """
+    if not isinstance(reported, str):
+        return None
+    text = _LONE_SURROGATE.sub(
+        "\N{REPLACEMENT CHARACTER}",
+        reported.translate(_DROPPED_CONTROL_CHARACTERS),
+    )
+    return text.strip()[:_STATUS_MESSAGE_MAX_LENGTH].rstrip() or None
 
 
 __all__ = ["AppsManager"]

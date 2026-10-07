@@ -1,11 +1,15 @@
 import { useParams } from "react-router";
 import { useTranslation } from "react-i18next";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQueryClient,
+  useSuspenseQuery,
+} from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import { BackLink } from "@/components/BackLink";
+import { ResourceBoundary } from "@/components/ResourceBoundary";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { usePermissions } from "@/contexts/AuthContext";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
@@ -14,21 +18,34 @@ import { AppStatusBadge } from "./components/AppStatusBadge";
 import { AppCapabilities } from "./components/AppCapabilities";
 import AppConfigForm from "./components/AppConfigForm";
 
+/** An unknown app shows the not-found page, and a failed load the error page
+ *  (`ResourceBoundary`), rather than a skeleton that never resolves. */
 export default function AppDetail() {
-  const { t } = useTranslation("apps");
   const { appId } = useParams<{ appId: string }>();
+  return (
+    <ResourceBoundary resetKeys={[appId]}>
+      <AppDetailContent appId={appId!} />
+    </ResourceBoundary>
+  );
+}
+
+function AppDetailContent({ appId }: { appId: string }) {
+  const { t } = useTranslation("apps");
   const queryClient = useQueryClient();
   const client = useGridoneClient();
   const can = usePermissions();
 
-  const { data: app, isLoading } = useQuery({
+  // Polled like the list: the status and the app's own message move with each
+  // health probe (e.g. the progress of a rollout the app reports). A failed
+  // poll keeps the last app shown; only a first load that fails is thrown.
+  const { data: app } = useSuspenseQuery({
     queryKey: ["apps", appId],
-    queryFn: () => client.apps.get(appId!),
-    enabled: !!appId,
+    queryFn: () => client.apps.get(appId),
+    refetchInterval: 3_000,
   });
 
   const enableMutation = useMutation({
-    mutationFn: () => client.apps.enable(appId!),
+    mutationFn: () => client.apps.enable(appId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["apps"] });
       toast.success(t("enabled"));
@@ -37,7 +54,7 @@ export default function AppDetail() {
   });
 
   const disableMutation = useMutation({
-    mutationFn: () => client.apps.disable(appId!),
+    mutationFn: () => client.apps.disable(appId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["apps"] });
       toast.success(t("disabled"));
@@ -45,17 +62,10 @@ export default function AppDetail() {
     onError: (err: Error) => toast.error(err.message),
   });
 
-  if (isLoading || !app) {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-64" />
-      </div>
-    );
-  }
-
   const isBusy = enableMutation.isPending || disableMutation.isPending;
   const isDisabled = app.enabled === false;
+  // Goes with the health badge, so "Disabled" hides it too.
+  const statusMessage = isDisabled ? null : app.status_message;
 
   return (
     <section className="space-y-6">
@@ -70,7 +80,19 @@ export default function AppDetail() {
             {app.name}
           </span>
         }
-        caption={app.description}
+        caption={
+          statusMessage ? (
+            <>
+              {app.description}
+              <p className="mt-2 text-foreground">
+                <span className="sr-only">{t("statusMessage")} </span>
+                {statusMessage}
+              </p>
+            </>
+          ) : (
+            app.description
+          )
+        }
         /* The health loop probes disabled apps too: showing both badges would
          * read as a contradiction, so "Disabled" wins.
          * TODO: display last health check timestamp when backend exposes it */
@@ -126,7 +148,7 @@ export default function AppDetail() {
 
       {/* Configuration */}
       {can("users:write") && (
-        <AppConfigForm appId={appId!} pushStatus={app.push_status} />
+        <AppConfigForm appId={appId} pushStatus={app.push_status} />
       )}
     </section>
   );

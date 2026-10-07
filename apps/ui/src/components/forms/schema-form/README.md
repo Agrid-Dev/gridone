@@ -26,6 +26,7 @@ Generic fields support these shapes:
 | `enum` on a supported scalar  | Select; values must be strings or numbers                           |
 | `type: array` of a scalar     | Repeatable scalar rows; supports `minItems` and `maxItems`          |
 | `type: array` of flat objects | Repeatable rows whose properties are supported scalars              |
+| `contentMediaType: image/*`   | Image upload, on a `contentEncoding: base64` string; see below      |
 
 `title`, `description`, and `examples` are display metadata. Pydantic's
 `strip_whitespace` schema annotation may pass through, but trimming remains a
@@ -76,6 +77,23 @@ Vendor keywords must remain domain-neutral:
   carries both `secret` and `multiline` (a PEM private key), `multiline`
   wins: there is no masked textarea yet, so the value renders unmasked.
 
+### Image uploads
+
+A string with `contentMediaType: image/*` and `contentEncoding: base64` renders
+as an image upload with a preview, dispatched like `secret`: its descriptor
+carries `image`, on which the string widget renders `ImageController`, ahead of
+any other marker. The value is the file's raw base64, with no `data:` prefix;
+`maxLength` caps it. A file whose base64 would exceed `maxLength`, whose type is
+not the declared media type (for PNG and JPEG, its leading bytes are checked
+too), or that the browser cannot decode as an image, is refused before being
+encoded; an SVG is decoded by an `<img>` element.
+
+A required image can be replaced, not removed. A removed optional image is held
+as `""`, like a cleared text input, and is submitted like one: a first-party
+form that passes its values through `emptyOptionalsToNull` (the transports form)
+sends `null`, while the app config form drops the key from its payload
+(`pickSchemaKeys`).
+
 ## Server errors
 
 `applyServerFieldErrors(form, error, options)` maps a `GridoneError` onto a
@@ -115,3 +133,9 @@ Discriminated branches must remain flat. They are flattened before Zod
 conversion because converting the canonical branch objects directly as a union
 would reject otherwise valid payloads and produce errors on the union instead
 of the fields.
+
+Image uploads are part of the shared dialect, so app schemas declare them the
+same way. Like a `format: password` value, the base64 is never echoed by a
+Gridone schema-validation error, including errors on enclosing unions, arrays,
+and objects. References and sibling constraints retain this protection; errors
+on unrelated fields keep their usual messages.

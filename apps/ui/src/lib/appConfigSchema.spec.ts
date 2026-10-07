@@ -79,6 +79,14 @@ const pmsSchema: AppSchemaNode = {
   i18n: { en: { "provider.title": "PMS provider" } },
 };
 
+/** An image field, as an app contract declares it. */
+const logoSchema: AppSchemaNode = {
+  type: "string",
+  contentMediaType: "image/png",
+  contentEncoding: "base64",
+  maxLength: 699052,
+};
+
 describe("resolveLabel", () => {
   it("resolves a title through the catalog of the active locale", () => {
     expect(resolveLabel("piloted_zones.title", copiloteSchema.i18n, "fr")).toBe(
@@ -282,6 +290,20 @@ describe("pickSchemaKeys", () => {
     expect(
       pickSchemaKeys({ provider: "mews" }, effectiveSchema(pmsSchema, "mews")),
     ).toEqual({ provider: "mews" });
+  });
+
+  it("omits a removed image, but keeps an emptied text", () => {
+    const schema: AppSchemaNode = {
+      type: "object",
+      properties: { logo: logoSchema, caption: { type: "string" } },
+    };
+
+    expect(pickSchemaKeys({ logo: "", caption: "" }, schema)).toEqual({
+      caption: "",
+    });
+    expect(pickSchemaKeys({ logo: "iVBORw==" }, schema)).toEqual({
+      logo: "iVBORw==",
+    });
   });
 });
 

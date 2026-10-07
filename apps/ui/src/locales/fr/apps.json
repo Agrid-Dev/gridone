@@ -17,6 +17,7 @@
     "unhealthy": "Hors ligne",
     "registered": "Enregistr\u00e9"
   },
+  "statusMessage": "Message de l'application :",
   "capabilities": {
     "title": "Usage d\u00e9clar\u00e9",
     "produces": "Cr\u00e9e des \u00e9quipements",

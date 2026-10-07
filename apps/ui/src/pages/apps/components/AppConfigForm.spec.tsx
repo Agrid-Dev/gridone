@@ -7,7 +7,7 @@ import { GridoneError } from "@gridone/sdk";
 import type { Asset } from "@gridone/sdk";
 import type { AppSchemaNode } from "@/lib/appConfigSchema";
 
-const { mockClient, mockToast } = vi.hoisted(() => ({
+const { mockClient, mockToast, mockCreateImageBitmap } = vi.hoisted(() => ({
   mockClient: {
     apps: {
       getConfigSchema: vi.fn(),
@@ -16,7 +16,10 @@ const { mockClient, mockToast } = vi.hoisted(() => ({
     },
   },
   mockToast: { success: vi.fn(), error: vi.fn() },
+  mockCreateImageBitmap: vi.fn(),
 }));
+// jsdom cannot decode images.
+vi.stubGlobal("createImageBitmap", mockCreateImageBitmap);
 
 vi.mock("@/contexts/GridoneClientContext", () => ({
   useGridoneClient: () => mockClient,
@@ -205,6 +208,7 @@ beforeEach(() => {
     config: {},
     push_status: "ok",
   });
+  mockCreateImageBitmap.mockResolvedValue({ close: vi.fn() });
 });
 
 afterEach(() => {
@@ -538,5 +542,95 @@ describe("AppConfigForm — degraded states", () => {
     expect(
       await screen.findByText("config.pushStatus.pending"),
     ).toBeInTheDocument();
+  });
+});
+
+const save = () => screen.getByRole("button", { name: /configSave/ });
+
+const logo: AppSchemaNode = {
+  type: "string",
+  title: "Logo",
+  contentMediaType: "image/png",
+  contentEncoding: "base64",
+  maxLength: 699052,
+};
+/** A stored PNG: its signature, in base64. */
+const STORED_LOGO = "iVBORw0KGgo=";
+
+describe("AppConfigForm — image field", () => {
+  it("saves a chosen image as raw base64, without any data: prefix", async () => {
+    mockClient.apps.getConfigSchema.mockResolvedValue({
+      type: "object",
+      properties: { logo },
+    });
+    mockClient.apps.getConfig.mockResolvedValue({});
+    const user = userEvent.setup();
+    renderForm();
+
+    // The PNG signature, then 1, 2, 3.
+    const bytes = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3];
+    await user.upload(
+      await screen.findByLabelText(/Logo/),
+      new File([new Uint8Array(bytes)], "logo.png", { type: "image/png" }),
+    );
+    await screen.findByRole("img");
+    await user.click(save());
+
+    await waitFor(() =>
+      expect(mockClient.apps.updateConfig).toHaveBeenCalledWith("app-1", {
+        logo: "iVBORw0KGgoBAgM=",
+      }),
+    );
+  });
+
+  it("leaves a removed optional image out of the saved config", async () => {
+    mockClient.apps.getConfigSchema.mockResolvedValue({
+      type: "object",
+      properties: { logo, name: { type: "string", title: "Name" } },
+    });
+    mockClient.apps.getConfig.mockResolvedValue({
+      logo: STORED_LOGO,
+      name: "Lobby",
+    });
+    const user = userEvent.setup();
+    renderForm();
+
+    await user.click(
+      await screen.findByRole("button", { name: "schemaForm.image.remove" }),
+    );
+    await waitFor(() => expect(save()).toBeEnabled());
+    await user.click(save());
+
+    await waitFor(() =>
+      expect(mockClient.apps.updateConfig).toHaveBeenCalledWith("app-1", {
+        name: "Lobby",
+      }),
+    );
+  });
+
+  it("offers a required image no removal, and saves it as stored", async () => {
+    // Removed, it would be left out of the payload: a 422 for a missing key.
+    mockClient.apps.getConfigSchema.mockResolvedValue({
+      type: "object",
+      properties: { logo },
+      required: ["logo"],
+    });
+    mockClient.apps.getConfig.mockResolvedValue({ logo: STORED_LOGO });
+    const user = userEvent.setup();
+    renderForm();
+
+    expect(
+      await screen.findByRole("button", { name: "schemaForm.image.replace" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "schemaForm.image.remove" }),
+    ).not.toBeInTheDocument();
+    await user.click(save());
+
+    await waitFor(() =>
+      expect(mockClient.apps.updateConfig).toHaveBeenCalledWith("app-1", {
+        logo: STORED_LOGO,
+      }),
+    );
   });
 });

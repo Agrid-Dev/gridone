@@ -2318,6 +2318,8 @@ export interface components {
       icon: string;
       /** @default registered */
       status?: components["schemas"]["AppStatus"];
+      /** Status Message */
+      status_message?: string | null;
       /**
        * Manifest
        * @default

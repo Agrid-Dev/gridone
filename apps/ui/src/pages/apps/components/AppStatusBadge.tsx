@@ -9,11 +9,23 @@ const statusStyles: Record<AppStatus, string> = {
   registered: "border-border bg-muted text-muted-foreground",
 };
 
-export function AppStatusBadge({ status }: { status: AppStatus }) {
+/** An app's health, with the message of its last health report (if any) as
+ *  the tooltip. */
+export function AppStatusBadge({
+  status,
+  message,
+}: {
+  status: AppStatus;
+  message?: string | null;
+}) {
   const { t } = useTranslation("apps");
 
   return (
-    <Badge variant="outline" className={statusStyles[status]}>
+    <Badge
+      variant="outline"
+      className={statusStyles[status]}
+      title={message ?? undefined}
+    >
       {t(`status.${status}`)}
     </Badge>
   );

@@ -17,6 +17,7 @@
     "unhealthy": "Unhealthy",
     "registered": "Registered"
   },
+  "statusMessage": "Message from the app:",
   "capabilities": {
     "title": "Declared usage",
     "produces": "Creates devices",

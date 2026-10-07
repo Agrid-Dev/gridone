@@ -133,6 +133,25 @@ describe("AppsList", () => {
     ).toHaveAttribute("href", "/apps/requests");
   });
 
+  it("shows the app's status message as the tooltip of its health badge", async () => {
+    mockClient.apps.list.mockResolvedValue([
+      makeApp({ status_message: "Logo sent to 12 of 14 thermostats" }),
+    ]);
+    renderList();
+
+    expect(await screen.findByText("Healthy")).toHaveAttribute(
+      "title",
+      "Logo sent to 12 of 14 thermostats",
+    );
+  });
+
+  it("leaves the health badge without tooltip when the app says nothing", async () => {
+    mockClient.apps.list.mockResolvedValue([makeApp({ status_message: null })]);
+    renderList();
+
+    expect(await screen.findByText("Healthy")).not.toHaveAttribute("title");
+  });
+
   it("enables a disabled app", async () => {
     mockClient.apps.list.mockResolvedValue([makeApp({ enabled: false })]);
     mockClient.apps.enable.mockResolvedValue(makeApp());

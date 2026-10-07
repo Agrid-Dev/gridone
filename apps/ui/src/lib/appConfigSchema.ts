@@ -7,7 +7,8 @@
  *
  *  - a root `i18n` catalog — `title`/`description` hold *keys* resolved through
  *    `i18n[locale][key]`, falling back to the literal value;
- *  - custom `format` values (`asset-id`, `password`) that pick a widget.
+ *  - custom `format` values (`asset-id`, `device-id`, `password`) that pick a
+ *    widget.
  *
  * `oneOf` branches are flattened against the selected discriminant rather than
  * converted as a union: the canonical branch shape carries no `type: object`,
@@ -15,16 +16,20 @@
  * matches, and its "exactly one" oneOf semantics rejects even a valid payload.
  * Flattening also keeps validation errors attached to their field.
  *
- * These extensions (`i18n`, `asset-id`, `password`, discriminated `oneOf`) are
- * part of the form-schema dialect, not app-specific: AGR-923 documents and
- * CI-guards the dialect. Since AGR-920 the zod conversion goes through the
- * `schema-form` builder (`components/forms/schema-form`); the helpers here
- * only prepare the app-served schema for it (flattening, localization) and
- * keep the app-contract behaviours the builder does not own.
+ * These extensions (`i18n`, `asset-id`, `device-id`, `password`, discriminated
+ * `oneOf`) are part of the form-schema dialect, not app-specific: AGR-923
+ * documents and CI-guards the dialect. Since AGR-920 the zod conversion goes
+ * through the `schema-form` builder (`components/forms/schema-form`); the
+ * helpers here only prepare the app-served schema for it (flattening,
+ * localization) and keep the app-contract behaviours the builder does not
+ * own. Image uploads (`contentMediaType: image/*` + `contentEncoding: base64`)
+ * belong to the builder itself, which renders them in any form; the app
+ * contract only leaves a removed image out of the payload (`pickSchemaKeys`).
  */
 import * as z from "zod";
 import {
   buildZodSchema,
+  isImageField,
   normalizeSchema,
   type JsonSchemaObject,
 } from "@/components/forms/schema-form";
@@ -216,14 +221,18 @@ export function defaultsFor(schema: AppSchemaNode): Record<string, unknown> {
 
 /** Drops the values that no longer belong to the schema — switching `oneOf`
  *  branches must not submit the abandoned branch's fields (its secrets least
- *  of all), which react-hook-form still holds. */
+ *  of all), which react-hook-form still holds. A removed image (held as `""`)
+ *  is dropped too: no image is an absent key, not an empty file. */
 export function pickSchemaKeys(
   values: Record<string, unknown>,
   schema: AppSchemaNode,
 ): Record<string, unknown> {
   const picked: Record<string, unknown> = {};
-  for (const name of Object.keys(schema.properties ?? {})) {
-    if (values[name] !== undefined) picked[name] = values[name];
+  for (const [name, node] of Object.entries(schema.properties ?? {})) {
+    const value = values[name];
+    if (value === undefined) continue;
+    if (value === "" && isImageField(node)) continue;
+    picked[name] = value;
   }
   return picked;
 }
@@ -242,8 +251,9 @@ export function pickSchemaKeys(
  */
 export function toZodSchema(schema: AppSchemaNode): z.ZodObject {
   try {
-    // Custom formats (`asset-id`, `password`) need no zod counterpart: they
-    // select the widget, not the validation.
+    // Custom formats (`asset-id`, `device-id`, `password`) and an image's
+    // content annotations need no zod counterpart: they select the widget,
+    // not the validation (an image's `maxLength` still applies).
     return buildZodSchema(normalizeSchema(schema as JsonSchemaObject));
   } catch {
     return z.looseObject({});
