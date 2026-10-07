@@ -22,6 +22,7 @@ from devices_manager.types import (
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from devices_manager.core.discovery_manager import DiscoveryConfig
     from devices_manager.core.transports import TransportClient
 
 
@@ -223,3 +224,27 @@ def test_yaml_preflight_refuses_invalid_tags_and_collisions_without_writes(
     with pytest.raises(ValueError, match=r"legacy|collision"):
         CoreFileStorage(tmp_path)
     assert file.read_text(encoding="utf-8") == original
+
+
+@pytest.mark.asyncio
+async def test_discoveries_survive_a_new_storage_on_the_same_folder(tmp_path: Path):
+    kept: DiscoveryConfig = {"driver_id": "thermostat_mqtt", "transport_id": "t1"}
+    removed: DiscoveryConfig = {"driver_id": "meter_mqtt", "transport_id": "t1"}
+    storage = CoreFileStorage(tmp_path)
+    await storage.discoveries.write(kept)
+    await storage.discoveries.write(removed)
+    await storage.discoveries.delete(removed)
+
+    assert await CoreFileStorage(tmp_path).discoveries.read_all() == [kept]
+
+
+@pytest.mark.asyncio
+async def test_discoveries_with_underscored_ids_do_not_share_a_file(tmp_path: Path):
+    first: DiscoveryConfig = {"driver_id": "c", "transport_id": "a__b"}
+    second: DiscoveryConfig = {"driver_id": "b__c", "transport_id": "a"}
+    storage = CoreFileStorage(tmp_path)
+    await storage.discoveries.write(first)
+    await storage.discoveries.write(second)
+    await storage.discoveries.delete(first)
+
+    assert await storage.discoveries.read_all() == [second]

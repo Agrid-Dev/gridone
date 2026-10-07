@@ -5,6 +5,7 @@ import json
 import os
 from copy import deepcopy
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 import asyncpg
 import pytest
@@ -40,6 +41,10 @@ from devices_manager.types import (
     TransportProtocols,
 )
 from models.errors import ConflictError
+
+if TYPE_CHECKING:
+    from devices_manager.core.discovery_manager import DiscoveryConfig
+
 
 POSTGRES_URL = os.environ.get("POSTGRES_TEST_URL")
 
@@ -149,6 +154,7 @@ async def pool():
     pool = await asyncpg.create_pool(POSTGRES_URL, init=_init_connection)
 
     async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM dm_discoveries")
         await conn.execute("DELETE FROM dm_device_attributes")
         await conn.execute("DELETE FROM dm_devices")
         await conn.execute("DELETE FROM dm_drivers")
@@ -587,6 +593,39 @@ class TestForeignKeys:
 
         with pytest.raises(asyncpg.ForeignKeyViolationError):
             await driver_storage.delete("d1")
+
+
+class TestDiscoveryStorage:
+    async def test_write_read_delete(
+        self,
+        composed_storage: PostgresDevicesManagerStorage,
+    ):
+        await composed_storage.transports.write("t1", _make_transport("t1"))
+        await composed_storage.drivers.write("d1", _make_driver("d1"))
+        await composed_storage.drivers.write("d2", _make_driver("d2"))
+        kept: DiscoveryConfig = {"driver_id": "d1", "transport_id": "t1"}
+        removed: DiscoveryConfig = {"driver_id": "d2", "transport_id": "t1"}
+        await composed_storage.discoveries.write(kept)
+        await composed_storage.discoveries.write(kept)
+        await composed_storage.discoveries.write(removed)
+        await composed_storage.discoveries.delete(removed)
+
+        assert await composed_storage.discoveries.read_all() == [kept]
+
+    async def test_cannot_delete_driver_or_transport_referenced_by_discovery(
+        self,
+        composed_storage: PostgresDevicesManagerStorage,
+    ):
+        await composed_storage.transports.write("t1", _make_transport("t1"))
+        await composed_storage.drivers.write("d1", _make_driver("d1"))
+        await composed_storage.discoveries.write(
+            {"driver_id": "d1", "transport_id": "t1"}
+        )
+
+        with pytest.raises(asyncpg.ForeignKeyViolationError):
+            await composed_storage.drivers.delete("d1")
+        with pytest.raises(asyncpg.ForeignKeyViolationError):
+            await composed_storage.transports.delete("t1")
 
 
 # ---------------------------------------------------------------------------

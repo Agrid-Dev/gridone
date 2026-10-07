@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 
 from .device_storage import PostgresDeviceStorage
+from .discovery_storage import PostgresDiscoveryStorage
 from .driver_storage import PostgresDriverStorage
 from .postgres_dm_storage import PostgresDevicesManagerStorage
 from .transport_storage import PostgresTransportStorage
@@ -29,6 +30,7 @@ def run_migrations(database_url: str) -> None:
 __all__ = [
     "PostgresDeviceStorage",
     "PostgresDevicesManagerStorage",
+    "PostgresDiscoveryStorage",
     "PostgresDriverStorage",
     "PostgresTransportStorage",
     "run_migrations",
