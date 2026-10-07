@@ -1,11 +1,11 @@
 """Request schemas for the ``/dashboards`` endpoints.
 
-Dashboard-level create/update reuse the service models (``DashboardCreate`` /
-``DashboardPatch``) directly. The order body and the widget bodies need an
-API-level schema. For widgets, the ``config`` is typed (not ``dict``) so
-FastAPI validates it at the boundary — an invalid config yields a 422 with
-field-level error paths, and the config schema surfaces in OpenAPI for the
-SDK / ``z.fromJSONSchema``.
+Dashboard-level create/update and the structure bodies reuse the service
+models (``DashboardCreate`` / ``DashboardPatch`` / ``DashboardStructureUpdate``
+/ ``SectionCreate``…) directly. The widget bodies need an API-level schema:
+their ``config`` is typed (not ``dict``) so FastAPI validates it at the
+boundary — an invalid config yields a 422 with field-level error paths, and
+the config schema surfaces in OpenAPI for the SDK / ``z.fromJSONSchema``.
 """
 
 from __future__ import annotations
@@ -41,15 +41,6 @@ WidgetConfigBody = Annotated[
     | SynopticWidgetConfig,
     Field(discriminator="type"),
 ]
-
-
-class DashboardsOrderBody(BaseModel):
-    """Request body for ``PUT /dashboards/order``: every dashboard id, once,
-    in display order."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    ordered_ids: list[str]
 
 
 class WidgetCreateBody(BaseModel):

@@ -3,7 +3,8 @@ import type {
   Dashboard,
   DashboardCreate,
   DashboardPatch,
-  DashboardsOrderBody,
+  DashboardStructure,
+  DashboardStructureUpdate,
   DashboardSummary,
   LayoutItem,
   Widget,
@@ -14,7 +15,8 @@ import type {
 /** JSON Schemas of the registered widget types, keyed by widget type. */
 export type WidgetSchemas = Record<string, Record<string, unknown>>;
 
-/** `client.dashboards` — dashboards, their widgets, and grid layout. */
+/** `client.dashboards` — dashboards, their navigation structure, their
+ *  widgets, and grid layout. */
 export class DashboardsResource {
   constructor(private readonly request: RequestFn) {}
 
@@ -50,9 +52,18 @@ export class DashboardsResource {
     );
   }
 
-  /** Set the display order shared by every user: every dashboard id, once. */
-  reorder(params: DashboardsOrderBody): Promise<void> {
-    return this.request("PUT", "/dashboards/order", { body: params });
+  /** The arrangement shared by every user: sections, groups and where every
+   *  dashboard sits, depth-first in display order. */
+  getStructure(): Promise<DashboardStructure> {
+    return this.request("GET", "/dashboards/structure");
+  }
+
+  /** Replace the whole arrangement: every dashboard exactly once. Sections
+   *  and groups are written inline; returns the structure as stored. */
+  updateStructure(
+    params: DashboardStructureUpdate,
+  ): Promise<DashboardStructure> {
+    return this.request("PUT", "/dashboards/structure", { body: params });
   }
 
   addWidget(dashboardId: string, params: WidgetCreateBody): Promise<Widget> {

@@ -1850,16 +1850,24 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/dashboards/order": {
+  "/dashboards/structure": {
     parameters: {
       query?: never;
       header?: never;
       path?: never;
       cookie?: never;
     };
-    get?: never;
-    /** Reorder Dashboards */
-    put: operations["reorder_dashboards_dashboards_order_put"];
+    /**
+     * Get Structure
+     * @description How dashboards are arranged for navigation: sections, groups and
+     *     where every dashboard sits, depth-first in display order.
+     */
+    get: operations["get_structure_dashboards_structure_get"];
+    /**
+     * Update Structure
+     * @description Replace the whole arrangement: every dashboard exactly once.
+     */
+    put: operations["update_structure_dashboards_structure_put"];
     post?: never;
     delete?: never;
     options?: never;
@@ -4191,6 +4199,41 @@ export interface components {
           )
         | null;
     };
+    /** DashboardRef */
+    DashboardRef: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      kind: "dashboard";
+      /** Id */
+      id: string;
+    };
+    /**
+     * DashboardStructure
+     * @description The whole arrangement, depth-first in display order.
+     */
+    DashboardStructure: {
+      /** Items */
+      items: (
+        | components["schemas"]["StructureSection"]
+        | components["schemas"]["StructureGroup"]
+        | components["schemas"]["StructureDashboard"]
+      )[];
+    };
+    /**
+     * DashboardStructureUpdate
+     * @description The whole arrangement. Must place every dashboard exactly once — the
+     *     service enforces that bijection; the tree's shape is the types'.
+     */
+    DashboardStructureUpdate: {
+      /** Items */
+      items?: (
+        | components["schemas"]["SectionRef"]
+        | components["schemas"]["GroupRef"]
+        | components["schemas"]["DashboardRef"]
+      )[];
+    };
     /**
      * DashboardSummary
      * @description Lightweight dashboard read model returned by ``list`` — no widgets or
@@ -4270,15 +4313,6 @@ export interface components {
           )
         | null;
       metadata: components["schemas"]["Metadata"];
-    };
-    /**
-     * DashboardsOrderBody
-     * @description Request body for ``PUT /dashboards/order``: every dashboard id, once,
-     *     in display order.
-     */
-    DashboardsOrderBody: {
-      /** Ordered Ids */
-      ordered_ids: string[];
     };
     /** DataPointResponse */
     DataPointResponse: {
@@ -5243,6 +5277,85 @@ export interface components {
           )
         | null;
       label?: components["schemas"]["LocalizedText"] | null;
+    };
+    /**
+     * GroupRef
+     * @description ``id`` is for the client's bookkeeping (keys, remembered state); the
+     *     service assigns one when it is missing, so a new group is just a label.
+     */
+    GroupRef: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      kind: "group";
+      /** Id */
+      id?: string | null;
+      /** Label */
+      label: string;
+      /** Icon */
+      icon?:
+        | (
+            | "thermometer"
+            | "thermometer-sun"
+            | "thermometer-snowflake"
+            | "snowflake"
+            | "flame"
+            | "heater"
+            | "sun"
+            | "sun-dim"
+            | "droplet"
+            | "droplets"
+            | "droplet-off"
+            | "waves"
+            | "bath"
+            | "shower-head"
+            | "wind"
+            | "fan"
+            | "air-vent"
+            | "gauge"
+            | "circle-gauge"
+            | "zap"
+            | "plug"
+            | "plug-zap"
+            | "utility-pole"
+            | "battery-charging"
+            | "lightbulb"
+            | "power"
+            | "activity"
+            | "chart-line"
+            | "chart-column"
+            | "pie-chart"
+            | "cpu"
+            | "server"
+            | "radio"
+            | "wifi"
+            | "siren"
+            | "bell-ring"
+            | "shield-alert"
+            | "triangle-alert"
+            | "door-open"
+            | "lock"
+            | "key-round"
+            | "camera"
+            | "car"
+            | "parking-circle"
+            | "house"
+            | "building-2"
+            | "warehouse"
+            | "factory"
+            | "leaf"
+            | "trees"
+            | "cloud-sun"
+            | "cloud-rain"
+            | "layers"
+            | "map-pin"
+            | "wrench"
+            | "settings"
+          )
+        | null;
+      /** Dashboards */
+      dashboards?: string[];
     };
     /**
      * GroupedSpaceAggregationResult
@@ -7020,6 +7133,23 @@ export interface components {
         | components["schemas"]["VariantNode"]
       )[];
     };
+    /** SectionRef */
+    SectionRef: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      kind: "section";
+      /** Id */
+      id?: string | null;
+      /** Label */
+      label: string;
+      /** Items */
+      items?: (
+        | components["schemas"]["GroupRef"]
+        | components["schemas"]["DashboardRef"]
+      )[];
+    };
     /** @enum {string} */
     SecurityModeName: "None" | "Sign" | "SignAndEncrypt";
     /** @enum {string} */
@@ -7303,6 +7433,179 @@ export interface components {
        * @default false
        */
       multiple?: boolean;
+    };
+    /** StructureDashboard */
+    StructureDashboard: {
+      /** Id */
+      id: string;
+      /** Name */
+      name: string;
+      /**
+       * Type
+       * @enum {string}
+       */
+      type: "live" | "history";
+      /** Description */
+      description?: string | null;
+      /** Icon */
+      icon?:
+        | (
+            | "thermometer"
+            | "thermometer-sun"
+            | "thermometer-snowflake"
+            | "snowflake"
+            | "flame"
+            | "heater"
+            | "sun"
+            | "sun-dim"
+            | "droplet"
+            | "droplets"
+            | "droplet-off"
+            | "waves"
+            | "bath"
+            | "shower-head"
+            | "wind"
+            | "fan"
+            | "air-vent"
+            | "gauge"
+            | "circle-gauge"
+            | "zap"
+            | "plug"
+            | "plug-zap"
+            | "utility-pole"
+            | "battery-charging"
+            | "lightbulb"
+            | "power"
+            | "activity"
+            | "chart-line"
+            | "chart-column"
+            | "pie-chart"
+            | "cpu"
+            | "server"
+            | "radio"
+            | "wifi"
+            | "siren"
+            | "bell-ring"
+            | "shield-alert"
+            | "triangle-alert"
+            | "door-open"
+            | "lock"
+            | "key-round"
+            | "camera"
+            | "car"
+            | "parking-circle"
+            | "house"
+            | "building-2"
+            | "warehouse"
+            | "factory"
+            | "leaf"
+            | "trees"
+            | "cloud-sun"
+            | "cloud-rain"
+            | "layers"
+            | "map-pin"
+            | "wrench"
+            | "settings"
+          )
+        | null;
+      metadata: components["schemas"]["Metadata"];
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      kind: "dashboard";
+    };
+    /** StructureGroup */
+    StructureGroup: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      kind: "group";
+      /** Id */
+      id: string;
+      /** Label */
+      label: string;
+      /** Icon */
+      icon?:
+        | (
+            | "thermometer"
+            | "thermometer-sun"
+            | "thermometer-snowflake"
+            | "snowflake"
+            | "flame"
+            | "heater"
+            | "sun"
+            | "sun-dim"
+            | "droplet"
+            | "droplets"
+            | "droplet-off"
+            | "waves"
+            | "bath"
+            | "shower-head"
+            | "wind"
+            | "fan"
+            | "air-vent"
+            | "gauge"
+            | "circle-gauge"
+            | "zap"
+            | "plug"
+            | "plug-zap"
+            | "utility-pole"
+            | "battery-charging"
+            | "lightbulb"
+            | "power"
+            | "activity"
+            | "chart-line"
+            | "chart-column"
+            | "pie-chart"
+            | "cpu"
+            | "server"
+            | "radio"
+            | "wifi"
+            | "siren"
+            | "bell-ring"
+            | "shield-alert"
+            | "triangle-alert"
+            | "door-open"
+            | "lock"
+            | "key-round"
+            | "camera"
+            | "car"
+            | "parking-circle"
+            | "house"
+            | "building-2"
+            | "warehouse"
+            | "factory"
+            | "leaf"
+            | "trees"
+            | "cloud-sun"
+            | "cloud-rain"
+            | "layers"
+            | "map-pin"
+            | "wrench"
+            | "settings"
+          )
+        | null;
+      /** Dashboards */
+      dashboards: components["schemas"]["DashboardSummary"][];
+    };
+    /** StructureSection */
+    StructureSection: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      kind: "section";
+      /** Id */
+      id: string;
+      /** Label */
+      label: string;
+      /** Items */
+      items: (
+        | components["schemas"]["StructureGroup"]
+        | components["schemas"]["StructureDashboard"]
+      )[];
     };
     /**
      * Symbol
@@ -12967,7 +13270,27 @@ export interface operations {
       };
     };
   };
-  reorder_dashboards_dashboards_order_put: {
+  get_structure_dashboards_structure_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DashboardStructure"];
+        };
+      };
+    };
+  };
+  update_structure_dashboards_structure_put: {
     parameters: {
       query?: never;
       header?: never;
@@ -12976,16 +13299,18 @@ export interface operations {
     };
     requestBody: {
       content: {
-        "application/json": components["schemas"]["DashboardsOrderBody"];
+        "application/json": components["schemas"]["DashboardStructureUpdate"];
       };
     };
     responses: {
       /** @description Successful Response */
-      204: {
+      200: {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["DashboardStructure"];
+        };
       };
       /** @description Validation Error */
       422: {

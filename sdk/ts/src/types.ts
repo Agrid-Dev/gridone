@@ -335,7 +335,23 @@ export type DashboardIcon = NonNullable<Schemas["DashboardSummary"]["icon"]>;
 /** `live` reads the present, `history` reads timeseries over a period; fixed
  *  at creation and deciding which widget types the dashboard accepts. */
 export type DashboardType = Schemas["DashboardCreate"]["type"];
-export type DashboardsOrderBody = Schemas["DashboardsOrderBody"];
+/** How dashboards are arranged for navigation: a tree at most two levels
+ *  deep. A section is a collapsible heading, a group an entry whose dashboards
+ *  are tabs, a dashboard at the root an entry of its own. */
+export type DashboardStructure = Schemas["DashboardStructure"];
+export type StructureItem = DashboardStructure["items"][number];
+export type StructureSection = Schemas["StructureSection"];
+export type StructureGroup = Schemas["StructureGroup"];
+export type StructureDashboard = Schemas["StructureDashboard"];
+/** The same tree as written: dashboards by id, sections and groups with
+ *  their label and icon inline (an id is optional — the backend assigns one). */
+export type DashboardStructureUpdate = Schemas["DashboardStructureUpdate"];
+export type StructureItemRef = NonNullable<
+  DashboardStructureUpdate["items"]
+>[number];
+export type SectionRef = Schemas["SectionRef"];
+export type GroupRef = Schemas["GroupRef"];
+export type DashboardRef = Schemas["DashboardRef"];
 export type DashboardMetadata = Schemas["Metadata"];
 export type Widget = Schemas["Widget"];
 /** Why a stored widget cannot render as configured; set on read, never null

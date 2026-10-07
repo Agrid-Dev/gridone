@@ -17,6 +17,16 @@ from dashboards.models import (
     WidgetPatch,
 )
 from dashboards.service import DashboardsService
+from dashboards.structure import (
+    DashboardRef,
+    DashboardStructure,
+    DashboardStructureUpdate,
+    GroupRef,
+    SectionRef,
+    StructureDashboard,
+    StructureGroup,
+    StructureSection,
+)
 from dashboards.widgets import (
     TextWidgetConfig,
     WidgetConfig,
@@ -30,6 +40,8 @@ from models.errors import InvalidError, NotFoundError
 from models.pagination import PaginationParams
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from dashboards.types import DashboardType
 
 pytestmark = pytest.mark.asyncio
@@ -252,69 +264,225 @@ async def test_list_defaults_to_creation_order(service: DashboardsService):
     assert await _listed_ids(service) == ids
 
 
-async def test_reorder_sets_list_order(service: DashboardsService):
-    a, b, c = await _create_many(service, 3)
-
-    await service.reorder([c, a, b])
-
-    assert await _listed_ids(service) == [c, a, b]
+# ---------------------------------------------------------------------------
+# Structure
+# ---------------------------------------------------------------------------
 
 
-async def test_reorder_applies_to_paginated_list(service: DashboardsService):
-    a, b, c = await _create_many(service, 3)
-    await service.reorder([c, a, b])
-
-    page = await service.list(pagination=PaginationParams(page=1, size=2))
-
-    assert [s.id for s in page.items] == [c, a]
+def _dashboard(dashboard_id: str) -> DashboardRef:
+    return DashboardRef(kind="dashboard", id=dashboard_id)
 
 
-async def test_created_dashboard_goes_last(service: DashboardsService):
+def _group(label: str, *dashboards: str, node_id: str | None = None) -> GroupRef:
+    return GroupRef(kind="group", id=node_id, label=label, dashboards=list(dashboards))
+
+
+def _section(
+    label: str, *items: GroupRef | DashboardRef, node_id: str | None = None
+) -> SectionRef:
+    return SectionRef(kind="section", id=node_id, label=label, items=list(items))
+
+
+def _update(*items: SectionRef | GroupRef | DashboardRef) -> DashboardStructureUpdate:
+    return DashboardStructureUpdate(items=list(items))
+
+
+def _refs(structure: DashboardStructure) -> DashboardStructureUpdate:
+    """The read tree as the document that stores it — what a client sends
+    back unchanged."""
+
+    def section_item(
+        node: StructureGroup | StructureDashboard,
+    ) -> GroupRef | DashboardRef:
+        if isinstance(node, StructureGroup):
+            return _group(node.label, *(d.id for d in node.dashboards), node_id=node.id)
+        return _dashboard(node.id)
+
+    items: list[SectionRef | GroupRef | DashboardRef] = []
+    for node in structure.items:
+        if isinstance(node, StructureSection):
+            items.append(
+                _section(
+                    node.label,
+                    *(section_item(c) for c in node.items),
+                    node_id=node.id,
+                )
+            )
+        else:
+            items.append(section_item(node))
+    return DashboardStructureUpdate(items=items)
+
+
+async def _one_of_each_placement(service: DashboardsService) -> dict[str, str]:
+    """A section holding a dashboard and a group of two, plus a root
+    dashboard — one of every placement."""
+    cta, west, east, leaks = await _create_many(service, 4)
+    stored = await service.update_structure(
+        _update(
+            _section("HVAC", _dashboard(cta), _group("DHW", west, east)),
+            _dashboard(leaks),
+        )
+    )
+    hvac = stored.items[0]
+    assert isinstance(hvac, StructureSection)
+    dhw = hvac.items[1]
+    assert isinstance(dhw, StructureGroup)
+    return {
+        "cta": cta,
+        "west": west,
+        "east": east,
+        "leaks": leaks,
+        "hvac": hvac.id,
+        "dhw": dhw.id,
+    }
+
+
+async def test_structure_is_flat_until_arranged(service: DashboardsService):
     a, b = await _create_many(service, 2)
-    await service.reorder([b, a])
 
-    c = (await service.create(DashboardCreate(type="live", name="c"))).id
+    structure = await service.get_structure()
 
-    assert await _listed_ids(service) == [b, a, c]
-
-
-async def test_delete_keeps_remaining_order(service: DashboardsService):
-    a, b, c = await _create_many(service, 3)
-    await service.reorder([c, a, b])
-
-    await service.delete(a)
-
-    assert await _listed_ids(service) == [c, b]
+    assert [(item.kind, item.id) for item in structure.items] == [
+        ("dashboard", a),
+        ("dashboard", b),
+    ]
+    assert isinstance(structure.items[0], StructureDashboard)
+    assert structure.items[0].name == "d0"
 
 
-async def test_update_keeps_order(service: DashboardsService):
-    a, b = await _create_many(service, 2)
-    await service.reorder([b, a])
+async def test_structure_round_trips_with_ids_assigned(service: DashboardsService):
+    ids = await _one_of_each_placement(service)
 
-    await service.update(b, DashboardPatch(name="renamed"))
+    structure = await service.get_structure()
 
-    assert await _listed_ids(service) == [b, a]
+    hvac = structure.items[0]
+    assert isinstance(hvac, StructureSection)
+    assert (hvac.id, hvac.label) == (ids["hvac"], "HVAC")
+    assert len(hvac.id) == 16
+    dhw = hvac.items[1]
+    assert isinstance(dhw, StructureGroup)
+    assert (dhw.id, dhw.label, dhw.icon) == (ids["dhw"], "DHW", None)
+    assert [d.id for d in dhw.dashboards] == [ids["west"], ids["east"]]
+    assert structure.items[1].id == ids["leaks"]
+
+
+async def test_update_structure_keeps_given_ids_and_labels(
+    service: DashboardsService,
+):
+    ids = await _one_of_each_placement(service)
+    moved = _update(
+        _dashboard(ids["leaks"]),
+        _group("Hot water", ids["east"], node_id=ids["dhw"]),
+        _section(
+            "CVC", _dashboard(ids["west"]), _dashboard(ids["cta"]), node_id=ids["hvac"]
+        ),
+    )
+
+    returned = await service.update_structure(moved)
+
+    assert _refs(returned) == moved
+    assert _refs(await service.get_structure()) == moved
+
+
+async def test_list_follows_the_structure_depth_first(service: DashboardsService):
+    ids = await _one_of_each_placement(service)
+
+    assert await _listed_ids(service) == [
+        ids["cta"],
+        ids["west"],
+        ids["east"],
+        ids["leaks"],
+    ]
+    page = await service.list(pagination=PaginationParams(page=2, size=2))
+    assert [s.id for s in page.items] == [ids["east"], ids["leaks"]]
+    assert page.total == 4
+
+
+async def test_new_dashboard_appears_last_at_the_root(service: DashboardsService):
+    ids = await _one_of_each_placement(service)
+
+    new = (await service.create(DashboardCreate(type="live", name="new"))).id
+
+    structure = await service.get_structure()
+    assert [item.id for item in structure.items] == [ids["hvac"], ids["leaks"], new]
+    assert (await _listed_ids(service))[-1] == new
+
+
+async def test_deleted_dashboard_vanishes_from_the_structure(
+    service: DashboardsService,
+):
+    ids = await _one_of_each_placement(service)
+
+    await service.delete(ids["west"])
+    await service.delete(ids["leaks"])
+
+    assert _refs(await service.get_structure()) == _update(
+        _section(
+            "HVAC",
+            _dashboard(ids["cta"]),
+            _group("DHW", ids["east"], node_id=ids["dhw"]),
+            node_id=ids["hvac"],
+        ),
+    )
+
+
+async def test_empty_group_and_section_are_kept(service: DashboardsService):
+    a = (await service.create(DashboardCreate(type="live", name="a"))).id
+
+    await service.update_structure(
+        _update(_section("Later"), _group("Soon"), _dashboard(a))
+    )
+
+    structure = await service.get_structure()
+    assert [item.kind for item in structure.items] == ["section", "group", "dashboard"]
 
 
 @pytest.mark.parametrize(
-    "order",
+    "build",
     [
-        pytest.param(["a", "a", "b"], id="duplicate"),
-        pytest.param(["a"], id="missing"),
-        pytest.param(["a", "b", "unknown"], id="unknown"),
-        pytest.param([], id="empty"),
+        pytest.param(
+            lambda i: _update(
+                _section("HVAC", _dashboard(i["cta"]), _group("DHW", i["west"])),
+                _dashboard(i["leaks"]),
+            ),
+            id="missing",
+        ),
+        pytest.param(
+            lambda i: _update(
+                _section(
+                    "HVAC",
+                    _dashboard(i["cta"]),
+                    _group("DHW", i["west"], i["east"], i["cta"]),
+                ),
+                _dashboard(i["leaks"]),
+            ),
+            id="duplicate",
+        ),
+        pytest.param(
+            lambda i: _update(
+                _section(
+                    "HVAC",
+                    _dashboard(i["cta"]),
+                    _group("DHW", i["west"], i["east"], "unknown"),
+                ),
+                _dashboard(i["leaks"]),
+            ),
+            id="unknown",
+        ),
+        pytest.param(lambda _: _update(), id="empty"),
     ],
 )
-async def test_reorder_rejects_non_permutation(
-    service: DashboardsService, order: list[str]
+async def test_update_structure_rejects_non_bijection(
+    service: DashboardsService,
+    build: Callable[[dict[str, str]], DashboardStructureUpdate],
 ):
-    a, b = await _create_many(service, 2)
-    ids = {"a": a, "b": b}
+    ids = await _one_of_each_placement(service)
+    before = _refs(await service.get_structure())
 
     with pytest.raises(InvalidError):
-        await service.reorder([ids.get(key, key) for key in order])
+        await service.update_structure(build(ids))
 
-    assert await _listed_ids(service) == [a, b]
+    assert _refs(await service.get_structure()) == before
 
 
 # ---------------------------------------------------------------------------

@@ -9,6 +9,7 @@ from automations import AutomationsServiceInterface
 from dashboards import (
     Dashboard,
     DashboardsServiceInterface,
+    DashboardStructure,
     Metadata,
     TextWidgetConfig,
     Widget,
@@ -1697,6 +1698,8 @@ def _build_dashboards_mock() -> AsyncMock:
     svc.update_widget.return_value = _DASH_WIDGET
     svc.update_layout.return_value = _DASH
     svc.widget_schemas = MagicMock(return_value={"text": {}})
+    svc.get_structure.return_value = DashboardStructure(items=[])
+    svc.update_structure.return_value = DashboardStructure(items=[])
     return svc
 
 
@@ -1727,7 +1730,7 @@ _CREATE_BODY = {"name": "Ops", "type": "live"}
 _UPDATE_BODY = {"name": "Ops"}
 _WIDGET_BODY = {"config": {"type": "text", "text": "hi", "color": "#1a2b3c"}}
 _LAYOUT_BODY = [{"i": "w1", "x": 0, "y": 0, "w": 4, "h": 2}]
-_ORDER_BODY = {"ordered_ids": ["d1"]}
+_STRUCTURE_BODY = {"items": [{"kind": "dashboard", "id": "d1"}]}
 
 DASHBOARDS_ACCESS_CONTROL_SCENARIOS = [
     # Reads — every authenticated role can read; no-auth is 401.
@@ -1842,13 +1845,34 @@ DASHBOARDS_ACCESS_CONTROL_SCENARIOS = [
         "PUT", "/dashboards/any-id/layout", None, 401, _LAYOUT_BODY, id="layout-no-auth"
     ),
     pytest.param(
-        "PUT", "/dashboards/order", "operator", 204, _ORDER_BODY, id="order-op"
+        "GET", "/dashboards/structure", "viewer", 200, None, id="structure-viewer"
     ),
     pytest.param(
-        "PUT", "/dashboards/order", "viewer", 403, _ORDER_BODY, id="order-viewer"
+        "GET", "/dashboards/structure", None, 401, None, id="structure-no-auth"
     ),
     pytest.param(
-        "PUT", "/dashboards/order", None, 401, _ORDER_BODY, id="order-no-auth"
+        "PUT",
+        "/dashboards/structure",
+        "operator",
+        200,
+        _STRUCTURE_BODY,
+        id="structure-put-op",
+    ),
+    pytest.param(
+        "PUT",
+        "/dashboards/structure",
+        "viewer",
+        403,
+        _STRUCTURE_BODY,
+        id="structure-put-viewer",
+    ),
+    pytest.param(
+        "PUT",
+        "/dashboards/structure",
+        None,
+        401,
+        _STRUCTURE_BODY,
+        id="structure-put-no-auth",
     ),
 ]
 

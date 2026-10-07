@@ -12,6 +12,13 @@ from dashboards.models import (
     WidgetLayout,
 )
 from dashboards.storage import build_storage
+from dashboards.structure import (
+    DashboardStructure,
+    DashboardStructureUpdate,
+    dashboard_ids,
+    hydrate,
+    reconcile,
+)
 from dashboards.widgets.config import InvalidWidgetConfig, WidgetSize
 from dashboards.widgets.registry import WidgetRegistry, build_default_registry
 from models.errors import InvalidError, NotFoundError
@@ -97,15 +104,15 @@ class DashboardsService(DashboardsServiceInterface, Service):
     async def list(
         self, *, pagination: PaginationParams | None = None
     ) -> Page[DashboardSummary]:
-        total = await self._storage.count()
+        """Summaries in display order — the structure's depth-first order."""
+        document, summaries = await self._reconciled_structure()
+        items = [summaries[i] for i in dashboard_ids(document)]
+        total = len(items)
         if pagination is not None:
-            items = await self._storage.list_summaries(
-                limit=pagination.limit, offset=pagination.offset
-            )
+            page = items[pagination.offset : pagination.offset + pagination.limit]
             return Page(
-                items=items, total=total, page=pagination.page, size=pagination.size
+                items=page, total=total, page=pagination.page, size=pagination.size
             )
-        items = await self._storage.list_summaries()
         return Page(items=items, total=total, page=1, size=max(total, 1))
 
     async def update(self, dashboard_id: str, patch: DashboardPatch) -> Dashboard:
@@ -126,10 +133,42 @@ class DashboardsService(DashboardsServiceInterface, Service):
     async def delete(self, dashboard_id: str) -> None:
         await self._storage.delete(dashboard_id)
 
-    async def reorder(self, ordered_ids: Sequence[str]) -> None:
-        current_ids = {s.id for s in await self._storage.list_summaries()}
-        self._validate_order_bijection(ordered_ids, current_ids)
-        await self._storage.reorder(ordered_ids)
+    # ------------------------------------------------------------------
+    # Structure
+    # ------------------------------------------------------------------
+
+    async def get_structure(self) -> DashboardStructure:
+        document, summaries = await self._reconciled_structure()
+        return hydrate(document, summaries)
+
+    async def update_structure(
+        self, update: DashboardStructureUpdate
+    ) -> DashboardStructure:
+        """Replace the whole arrangement.
+
+        Requires an exact bijection: every dashboard placed exactly once,
+        nothing unknown placed. The nesting rules are the shape of the
+        update itself. Sections and groups without an id get one here.
+        """
+        summaries = await self._summaries_by_id()
+        self._validate_structure_bijection(update, set(summaries))
+        document = reconcile(update, summaries, new_id=gen_id)
+        await self._storage.update_structure(document)
+        return hydrate(document, summaries)
+
+    async def _reconciled_structure(
+        self,
+    ) -> tuple[DashboardStructureUpdate, dict[str, DashboardSummary]]:
+        """The stored document brought in line with the dashboards that
+        exist: created ones appended at the root, deleted ones dropped. Done
+        on read, so creating or deleting a dashboard never touches the
+        document."""
+        summaries = await self._summaries_by_id()
+        stored = await self._storage.get_structure()
+        return reconcile(stored, summaries, new_id=gen_id), summaries
+
+    async def _summaries_by_id(self) -> dict[str, DashboardSummary]:
+        return {s.id: s for s in await self._storage.list_summaries()}
 
     # ------------------------------------------------------------------
     # Widgets
@@ -311,14 +350,15 @@ class DashboardsService(DashboardsServiceInterface, Service):
         raise NotFoundError(msg)
 
     @staticmethod
-    def _validate_order_bijection(
-        ordered_ids: Sequence[str], current_ids: set[str]
+    def _validate_structure_bijection(
+        update: DashboardStructureUpdate, current_ids: set[str]
     ) -> None:
-        if len(ordered_ids) != len(set(ordered_ids)):
-            msg = "Order has duplicate dashboard ids"
+        placed = dashboard_ids(update)
+        if len(placed) != len(set(placed)):
+            msg = "Structure places a dashboard more than once"
             raise InvalidError(msg)
-        if set(ordered_ids) != current_ids:
-            msg = "Order must list every dashboard exactly once"
+        if set(placed) != current_ids:
+            msg = "Structure must place every dashboard exactly once"
             raise InvalidError(msg)
 
     @staticmethod
