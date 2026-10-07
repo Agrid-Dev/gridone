@@ -17,14 +17,6 @@ if TYPE_CHECKING:
     from models.targets import ResolvedTarget
 
 
-class TimeAggregation(BaseModel):
-    """Reduces the whole dashboard period to one value; no bucket width stored."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    operator: AggregationOperator
-
-
 class KpiAttribute(BaseModel):
     """One metric shown on a KPI tile: an attribute plus how it folds and
     renders, read against the tile's shared device set (see
@@ -71,17 +63,16 @@ class KpiAttribute(BaseModel):
 
 class KpiWidgetConfig(WidgetConfig):
     """One or more metrics of one shared device set, shown together on one
-    tile.
+    tile. Common to both KPI widget types; what differs is *when* the value
+    is read — :class:`KpiLiveWidgetConfig` shows the present,
+    :class:`KpiHistoryWidgetConfig` reduces the dashboard period.
 
-    Every metric shares the tile's single device set and Live/Period temporal
-    mode; each otherwise folds and renders independently (see
-    :class:`KpiAttribute`).
+    Every metric shares the tile's single device set; each otherwise folds
+    and renders independently (see :class:`KpiAttribute`).
     """
 
-    type: Literal["kpi"] = "kpi"
     devices: DevicesFilter
     attributes: list[KpiAttribute] = Field(min_length=1)
-    temporal: Literal["live"] | TimeAggregation = "live"
 
     @model_validator(mode="after")
     def _require_space_agg_for_multi_device_sets(self) -> KpiWidgetConfig:
@@ -120,3 +111,19 @@ class KpiWidgetConfig(WidgetConfig):
     def content_size_hint(self, default_size: WidgetSize) -> WidgetSize:
         """One row of height per attribute."""
         return WidgetSize(w=default_size.w, h=max(default_size.h, len(self.attributes)))
+
+
+class KpiLiveWidgetConfig(KpiWidgetConfig):
+    """Each attribute's current value. Reads the present, so it fits a
+    ``live`` dashboard only."""
+
+    type: Literal["kpi_live"] = "kpi_live"
+
+
+class KpiHistoryWidgetConfig(KpiWidgetConfig):
+    """Each attribute reduced over the whole dashboard period by ``agg``.
+    The period itself stays a viewing concern and is not stored; no bucket
+    width either — the reduction yields one value."""
+
+    type: Literal["kpi_history"] = "kpi_history"
+    agg: AggregationOperator

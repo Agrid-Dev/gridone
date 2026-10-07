@@ -16,7 +16,8 @@ from dashboards import (
     ChartWidgetConfig,
     ControlPanelWidgetConfig,
     DeviceControlWidgetConfig,
-    KpiWidgetConfig,
+    KpiHistoryWidgetConfig,
+    KpiLiveWidgetConfig,
     MeterTreeWidgetConfig,
     SynopticWidgetConfig,
     TextWidgetConfig,
@@ -33,7 +34,8 @@ WidgetConfigBody = Annotated[
     TextWidgetConfig
     | ChartWidgetConfig
     | DeviceControlWidgetConfig
-    | KpiWidgetConfig
+    | KpiLiveWidgetConfig
+    | KpiHistoryWidgetConfig
     | MeterTreeWidgetConfig
     | ControlPanelWidgetConfig
     | SynopticWidgetConfig,

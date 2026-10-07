@@ -28,6 +28,7 @@ describe("dashboards RBAC", () => {
 
   async function seedDashboard(): Promise<string> {
     const created = await admin.dashboards.create({
+      type: "live",
       name: `acceptance-rbac-${createdIds.length}-${Date.now()}`,
     });
     createdIds.push(created.id);
@@ -45,6 +46,7 @@ describe("dashboards RBAC", () => {
 
   it("lets an operator create a dashboard", async () => {
     const created = await operator.dashboards.create({
+      type: "live",
       name: `acceptance-rbac-op-${Date.now()}`,
     });
     createdIds.push(created.id);
@@ -62,7 +64,7 @@ describe("dashboards RBAC", () => {
 
   it("forbids a viewer from creating a dashboard (403)", async () => {
     const status = await statusOf(
-      viewer.dashboards.create({ name: "should-fail" }),
+      viewer.dashboards.create({ type: "live", name: "should-fail" }),
     );
 
     expect(status).toBe(403);
@@ -84,7 +86,7 @@ describe("dashboards RBAC", () => {
     const anon = makeClient();
 
     const status = await statusOf(
-      anon.dashboards.create({ name: "should-fail" }),
+      anon.dashboards.create({ type: "live", name: "should-fail" }),
     );
 
     expect(status).toBe(401);

@@ -5,6 +5,7 @@ from typing import Any, Literal, get_args
 
 from pydantic import BaseModel, ConfigDict, Field, SerializeAsAny, computed_field
 
+from dashboards.types import DashboardType  # noqa: TC001
 from dashboards.widgets.config import WidgetConfig  # noqa: TC001
 
 
@@ -117,6 +118,16 @@ class LayoutItem(WidgetLayout):
     i: str
 
 
+# Why a stored widget cannot render as configured. Computed when a dashboard
+# is read, never persisted: the widget stays in the document (its layout cell,
+# its raw config) so the author can edit or remove it, and the dashboard as a
+# whole keeps rendering — one broken widget never takes the page down.
+#   invalid_config    the registry no longer accepts the stored config (the
+#                     widget type was removed or its shape changed);
+#   incompatible_type the widget type does not fit the dashboard's type.
+WidgetError = Literal["invalid_config", "incompatible_type"]
+
+
 class Widget(BaseModel):
     """A widget on a dashboard: a common envelope plus a per-type ``config``.
 
@@ -135,6 +146,7 @@ class Widget(BaseModel):
     config: SerializeAsAny[WidgetConfig]
     layout: WidgetLayout
     metadata: Metadata
+    error: WidgetError | None = None
 
     @computed_field  # projected into the serialized output as a top-level field
     @property
@@ -151,6 +163,7 @@ class Dashboard(BaseModel):
 
     id: str
     name: str
+    type: DashboardType
     description: str | None = None
     icon: DashboardIcon | None = None
     widgets: list[Widget] = Field(default_factory=list)
@@ -171,17 +184,21 @@ class DashboardSummary(BaseModel):
 
     id: str
     name: str
+    type: DashboardType
     description: str | None = None
     icon: DashboardIcon | None = None
     metadata: Metadata
 
 
 class DashboardCreate(BaseModel):
-    """Inputs for creating a dashboard."""
+    """Inputs for creating a dashboard. ``type`` is fixed at creation: it
+    decides which widgets the dashboard may hold (see the widget registry), so
+    changing it afterwards would strand the widgets already placed."""
 
     model_config = ConfigDict(extra="forbid")
 
     name: str
+    type: DashboardType
     description: str | None = None
     icon: DashboardIcon | None = None
 
@@ -191,7 +208,8 @@ class DashboardPatch(BaseModel):
 
     ``model_fields_set`` drives the diff so an omitted field is left as-is; a
     field present with a value is applied. ``name`` is required on the resource,
-    so setting it to ``None`` is rejected by the service.
+    so setting it to ``None`` is rejected by the service. ``type`` is immutable
+    and deliberately absent.
     """
 
     model_config = ConfigDict(extra="forbid")

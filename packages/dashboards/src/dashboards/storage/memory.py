@@ -46,6 +46,7 @@ class MemoryStorage:
             DashboardSummary(
                 id=d.id,
                 name=d.name,
+                type=d.type,
                 description=d.description,
                 icon=d.icon,
                 metadata=d.metadata.model_copy(deep=True),

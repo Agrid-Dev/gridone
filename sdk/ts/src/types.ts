@@ -332,15 +332,22 @@ export type DashboardCreate = Schemas["DashboardCreate"];
 export type DashboardPatch = Schemas["DashboardPatch"];
 /** The closed icon vocabulary a dashboard may name (the UI draws each key). */
 export type DashboardIcon = NonNullable<Schemas["DashboardSummary"]["icon"]>;
+/** `live` reads the present, `history` reads timeseries over a period; fixed
+ *  at creation and deciding which widget types the dashboard accepts. */
+export type DashboardType = Schemas["DashboardCreate"]["type"];
 export type DashboardsOrderBody = Schemas["DashboardsOrderBody"];
 export type DashboardMetadata = Schemas["Metadata"];
 export type Widget = Schemas["Widget"];
+/** Why a stored widget cannot render as configured; set on read, never null
+ *  for a healthy widget. */
+export type WidgetError = NonNullable<Schemas["Widget"]["error"]>;
 export type WidgetConfig = Schemas["WidgetConfig"];
 export type TextWidgetConfig = Schemas["TextWidgetConfig"];
 export type ChartWidgetConfig = Schemas["ChartWidgetConfig"];
 export type DeviceControlWidgetConfig = Schemas["DeviceControlWidgetConfig"];
 export type SynopticWidgetConfig = Schemas["SynopticWidgetConfig"];
-export type KpiWidgetConfig = Schemas["KpiWidgetConfig"];
+export type KpiLiveWidgetConfig = Schemas["KpiLiveWidgetConfig"];
+export type KpiHistoryWidgetConfig = Schemas["KpiHistoryWidgetConfig"];
 export type KpiAttribute = Schemas["KpiAttribute"];
 export type MeterTreeWidgetConfig = Schemas["MeterTreeWidgetConfig"];
 export type MeterTreeNode = Schemas["MeterTreeNode"];
@@ -349,7 +356,6 @@ export type ControlPanelWidgetConfig = Schemas["ControlPanelWidgetConfig"];
 export type ControlPanelSection = Schemas["ControlPanelSection"];
 export type ControlPanelAttribute = Schemas["ControlPanelAttribute"];
 export type ActiveCondition = Schemas["ActiveCondition"];
-export type TimeAggregation = Schemas["TimeAggregation"];
 export type WidgetLayout = Schemas["WidgetLayout"];
 export type LayoutItem = Schemas["LayoutItem"];
 export type WidgetCreateBody = Schemas["WidgetCreateBody"];

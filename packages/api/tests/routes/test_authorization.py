@@ -1682,7 +1682,9 @@ _DASH_WIDGET = Widget(
     layout=WidgetLayout(x=0, y=0, w=4, h=2),
     metadata=_DASH_META,
 )
-_DASH = Dashboard(id="d1", name="Ops", widgets=[_DASH_WIDGET], metadata=_DASH_META)
+_DASH = Dashboard(
+    id="d1", name="Ops", type="live", widgets=[_DASH_WIDGET], metadata=_DASH_META
+)
 
 
 def _build_dashboards_mock() -> AsyncMock:
@@ -1721,7 +1723,8 @@ def dashboards_app() -> FastAPI:
     return _build_dashboards_app()
 
 
-_CREATE_BODY = {"name": "Ops"}
+_CREATE_BODY = {"name": "Ops", "type": "live"}
+_UPDATE_BODY = {"name": "Ops"}
 _WIDGET_BODY = {"config": {"type": "text", "text": "hi", "color": "#1a2b3c"}}
 _LAYOUT_BODY = [{"i": "w1", "x": 0, "y": 0, "w": 4, "h": 2}]
 _ORDER_BODY = {"ordered_ids": ["d1"]}
@@ -1746,12 +1749,12 @@ DASHBOARDS_ACCESS_CONTROL_SCENARIOS = [
     ),
     pytest.param("POST", "/dashboards/", None, 401, _CREATE_BODY, id="create-no-auth"),
     pytest.param(
-        "PUT", "/dashboards/any-id", "operator", 200, _CREATE_BODY, id="update-op"
+        "PUT", "/dashboards/any-id", "operator", 200, _UPDATE_BODY, id="update-op"
     ),
     pytest.param(
-        "PUT", "/dashboards/any-id", "viewer", 403, _CREATE_BODY, id="update-viewer"
+        "PUT", "/dashboards/any-id", "viewer", 403, _UPDATE_BODY, id="update-viewer"
     ),
-    pytest.param("PUT", "/dashboards/any-id", None, 401, _CREATE_BODY, id="update-noa"),
+    pytest.param("PUT", "/dashboards/any-id", None, 401, _UPDATE_BODY, id="update-noa"),
     pytest.param("DELETE", "/dashboards/any-id", "operator", 204, None, id="delete-op"),
     pytest.param(
         "DELETE", "/dashboards/any-id", "viewer", 403, None, id="delete-viewer"

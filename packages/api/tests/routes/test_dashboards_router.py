@@ -45,10 +45,15 @@ _WIDGET = Widget(
     metadata=_META,
 )
 _DASHBOARD = Dashboard(
-    id="d1", name="Ops", description="d", widgets=[_WIDGET], metadata=_META
+    id="d1",
+    name="Ops",
+    type="live",
+    description="d",
+    widgets=[_WIDGET],
+    metadata=_META,
 )
 _SUMMARY = DashboardSummary(
-    id="d1", name="Ops", description="d", icon="gauge", metadata=_META
+    id="d1", name="Ops", type="live", description="d", icon="gauge", metadata=_META
 )
 
 _TEXT_CONFIG = {"type": "text", "text": "hi", "color": "#1a2b3c"}
@@ -66,7 +71,11 @@ _KPI_ATTRIBUTE = {
     "unit": None,
     "precision": None,
 }
-_KPI_CONFIG = {"type": "kpi", "devices": _KPI_DEVICES, "attributes": [_KPI_ATTRIBUTE]}
+_KPI_CONFIG = {
+    "type": "kpi_live",
+    "devices": _KPI_DEVICES,
+    "attributes": [_KPI_ATTRIBUTE],
+}
 _CONTROL_PANEL_CONFIG = {
     "type": "control_panel",
     "sections": [
@@ -133,33 +142,67 @@ class TestDashboardCrud:
     async def test_create_returns_201(self, client, svc):
         svc.create.return_value = _DASHBOARD
         async with client as c:
-            resp = await c.post("/", json={"name": "Ops", "description": "d"})
+            resp = await c.post(
+                "/", json={"name": "Ops", "type": "live", "description": "d"}
+            )
         assert resp.status_code == 201
         assert resp.json()["id"] == "d1"
 
     async def test_create_rejects_extra_field(self, client):
         async with client as c:
-            resp = await c.post("/", json={"name": "Ops", "bogus": 1})
+            resp = await c.post("/", json={"name": "Ops", "type": "live", "bogus": 1})
         assert resp.status_code == 422
 
     async def test_create_passes_the_icon_through(self, client, svc):
         svc.create.return_value = _DASHBOARD
         async with client as c:
-            resp = await c.post("/", json={"name": "Ops", "icon": "droplets"})
+            resp = await c.post(
+                "/", json={"name": "Ops", "type": "live", "icon": "droplets"}
+            )
         assert resp.status_code == 201
         assert svc.create.await_args.args[0].icon == "droplets"
 
     @pytest.mark.parametrize(
-        ("method", "path"), [("POST", "/"), ("PUT", "/d1")], ids=["create", "update"]
+        ("method", "path", "body"),
+        [
+            ("POST", "/", {"name": "Ops", "type": "live", "icon": "unicorn"}),
+            ("PUT", "/d1", {"name": "Ops", "icon": "unicorn"}),
+        ],
+        ids=["create", "update"],
     )
-    async def test_unknown_icon_is_a_422_at_the_field(self, client, svc, method, path):
+    async def test_unknown_icon_is_a_422_at_the_field(
+        self, client, svc, method, path, body
+    ):
         async with client as c:
-            resp = await c.request(
-                method, path, json={"name": "Ops", "icon": "unicorn"}
-            )
+            resp = await c.request(method, path, json=body)
         assert resp.status_code == 422
         assert [e["loc"] for e in resp.json()["detail"]] == [["body", "icon"]]
         svc.create.assert_not_awaited()
+
+    async def test_create_without_a_type_is_a_422_at_the_field(self, client, svc):
+        async with client as c:
+            resp = await c.post("/", json={"name": "Ops"})
+        assert resp.status_code == 422
+        assert [e["loc"] for e in resp.json()["detail"]] == [["body", "type"]]
+        svc.create.assert_not_awaited()
+
+    async def test_update_cannot_change_the_type(self, client, svc):
+        # The type is fixed at creation; the patch body has no such field.
+        async with client as c:
+            resp = await c.put("/d1", json={"type": "history"})
+        assert resp.status_code == 422
+        assert [e["loc"] for e in resp.json()["detail"]] == [["body", "type"]]
+        svc.update.assert_not_awaited()
+
+    async def test_get_carries_the_type_and_each_widget_error(self, client, svc):
+        flagged = _WIDGET.model_copy(update={"error": "incompatible_type"})
+        svc.get.return_value = _DASHBOARD.model_copy(update={"widgets": [flagged]})
+        async with client as c:
+            resp = await c.get("/d1")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["type"] == "live"
+        assert body["widgets"][0]["error"] == "incompatible_type"
         svc.update.assert_not_awaited()
 
     async def test_get_returns_full_document(self, client, svc):
@@ -375,32 +418,49 @@ class TestWidgets:
         svc.add_widget.assert_awaited_once_with(
             "d1",
             config={
-                "type": "kpi",
+                "type": "kpi_live",
                 "devices": _KPI_DEVICES,
                 "attributes": [_KPI_ATTRIBUTE],
-                "temporal": "live",
             },
             title=None,
             description=None,
         )
 
-    async def test_add_period_kpi_widget_reaches_the_service(self, client, svc):
+    async def test_add_history_kpi_widget_reaches_the_service(self, client, svc):
         svc.add_widget.return_value = _WIDGET
-        config = {**_KPI_CONFIG, "temporal": {"operator": "sum"}}
+        config = {**_KPI_CONFIG, "type": "kpi_history", "agg": "sum"}
         async with client as c:
             resp = await c.post("/d1/widgets", json={"config": config})
         assert resp.status_code == 201
         svc.add_widget.assert_awaited_once_with(
             "d1",
             config={
-                "type": "kpi",
+                "type": "kpi_history",
                 "devices": _KPI_DEVICES,
                 "attributes": [_KPI_ATTRIBUTE],
-                "temporal": {"operator": "sum"},
+                "agg": "sum",
             },
             title=None,
             description=None,
         )
+
+    async def test_add_history_kpi_widget_without_operator_returns_422(
+        self, client, svc
+    ):
+        config = {**_KPI_CONFIG, "type": "kpi_history"}
+        async with client as c:
+            resp = await c.post("/d1/widgets", json={"config": config})
+        assert resp.status_code == 422
+        svc.add_widget.assert_not_awaited()
+
+    async def test_add_widget_that_does_not_fit_the_dashboard_returns_422(
+        self, client, svc
+    ):
+        # The fit rule is the service's; the router only relays its verdict.
+        svc.add_widget.side_effect = InvalidError("Widget type 'chart' is not allowed")
+        async with client as c:
+            resp = await c.post("/d1/widgets", json={"config": _CHART_CONFIG})
+        assert resp.status_code == 422
 
     async def test_add_kpi_widget_with_multi_device_target_returns_422(
         self, client, svc, mock_target_resolver

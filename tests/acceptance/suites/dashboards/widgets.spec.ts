@@ -25,8 +25,11 @@ describe("dashboard widgets", () => {
     }
   });
 
-  async function createDashboard(): Promise<string> {
+  async function createDashboard(
+    type: "live" | "history" = "live",
+  ): Promise<string> {
     const created = await client.dashboards.create({
+      type,
       name: `acceptance-widgets-${createdIds.length}-${Date.now()}`,
     });
     createdIds.push(created.id);
@@ -98,6 +101,28 @@ describe("dashboard widgets", () => {
       error = caught;
     }
     expect(isGridoneError(error) && error.status === 404).toBe(true);
+  });
+
+  it("rejects a widget that does not fit the dashboard's type with a 422", async () => {
+    // device_control reads the present and declares no save-time target
+    // gate, so the only thing a history dashboard can refuse it on is the
+    // fit rule; a live dashboard takes the very same widget.
+    const history = await createDashboard("history");
+    const live = await createDashboard("live");
+    const config = { type: "device_control" as const, device_id: "any" };
+
+    let error: unknown = null;
+    try {
+      await client.dashboards.addWidget(history, { config });
+    } catch (caught) {
+      error = caught;
+    }
+    expect(isGridoneError(error) && error.status === 422).toBe(true);
+    expect((await client.dashboards.get(history)).widgets).toEqual([]);
+
+    const widget = await client.dashboards.addWidget(live, { config });
+    expect(widget.type).toBe("device_control");
+    expect(widget.error).toBeNull();
   });
 
   it("replaces the grid layout, writing geometry onto widgets", async () => {

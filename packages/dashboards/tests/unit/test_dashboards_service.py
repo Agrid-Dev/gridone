@@ -4,7 +4,7 @@ no private attributes."""
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import pytest
 import pytest_asyncio
@@ -24,9 +24,13 @@ from dashboards.widgets import (
     WidgetType,
     build_default_registry,
 )
+from dashboards.widgets.registry import ANY_DASHBOARD
 
 from models.errors import InvalidError, NotFoundError
 from models.pagination import PaginationParams
+
+if TYPE_CHECKING:
+    from dashboards.types import DashboardType
 
 pytestmark = pytest.mark.asyncio
 
@@ -35,7 +39,7 @@ TEXT_CONFIG = {"type": "text", "text": "hello", "color": "#1a2b3c"}
 
 def _kpi_config(attribute_count: int) -> dict:
     return {
-        "type": "kpi",
+        "type": "kpi_live",
         "devices": {"ids": ["d0"]},
         "attributes": [
             {"label": f"Attribute {i}", "attribute": f"attr{i}"}
@@ -65,7 +69,7 @@ async def service():
 async def _dashboard_with_widget(
     service: DashboardsService, config: dict = TEXT_CONFIG
 ) -> tuple[Dashboard, Widget]:
-    dashboard = await service.create(DashboardCreate(name="Ops"))
+    dashboard = await service.create(DashboardCreate(type="live", name="Ops"))
     widget = await service.add_widget(dashboard.id, config=config)
     return dashboard, widget
 
@@ -76,7 +80,9 @@ async def _dashboard_with_widget(
 
 
 async def test_create_stamps_id_and_timestamps(service: DashboardsService):
-    dashboard = await service.create(DashboardCreate(name="Ops", description="d"))
+    dashboard = await service.create(
+        DashboardCreate(type="live", name="Ops", description="d")
+    )
 
     assert len(dashboard.id) == 16
     assert dashboard.name == "Ops"
@@ -87,11 +93,24 @@ async def test_create_stamps_id_and_timestamps(service: DashboardsService):
 
 
 async def test_create_keeps_the_icon_and_lists_it(service: DashboardsService):
-    dashboard = await service.create(DashboardCreate(name="ECS", icon="droplets"))
+    dashboard = await service.create(
+        DashboardCreate(type="live", name="ECS", icon="droplets")
+    )
 
     assert dashboard.icon == "droplets"
     assert (await service.get(dashboard.id)).icon == "droplets"
     assert (await service.list()).items[0].icon == "droplets"
+
+
+@pytest.mark.parametrize("type_", ["live", "history"])
+async def test_create_keeps_the_type_and_lists_it(
+    service: DashboardsService, type_: DashboardType
+):
+    dashboard = await service.create(DashboardCreate(type=type_, name="Ops"))
+
+    assert dashboard.type == type_
+    assert (await service.get(dashboard.id)).type == type_
+    assert (await service.list()).items[0].type == type_
 
 
 async def test_get_returns_full_document(service: DashboardsService):
@@ -121,14 +140,14 @@ async def test_list_returns_summaries_without_widgets_or_layout(
     summary = page.items[0]
     assert not hasattr(summary, "widgets")
     assert not hasattr(summary, "layout")
-    assert {"id", "name", "description", "icon", "metadata"} == set(
+    assert {"id", "name", "type", "description", "icon", "metadata"} == set(
         summary.model_dump()
     )
 
 
 async def test_list_paginates(service: DashboardsService):
     for i in range(3):
-        await service.create(DashboardCreate(name=f"d{i}"))
+        await service.create(DashboardCreate(type="live", name=f"d{i}"))
 
     page = await service.list(pagination=PaginationParams(page=1, size=2))
 
@@ -138,7 +157,9 @@ async def test_list_paginates(service: DashboardsService):
 
 
 async def test_update_changes_name_and_description(service: DashboardsService):
-    dashboard = await service.create(DashboardCreate(name="Ops", description="old"))
+    dashboard = await service.create(
+        DashboardCreate(type="live", name="Ops", description="old")
+    )
 
     updated = await service.update(
         dashboard.id, DashboardPatch(name="Ops 2", description="new")
@@ -150,7 +171,9 @@ async def test_update_changes_name_and_description(service: DashboardsService):
 
 
 async def test_update_can_clear_description(service: DashboardsService):
-    dashboard = await service.create(DashboardCreate(name="Ops", description="old"))
+    dashboard = await service.create(
+        DashboardCreate(type="live", name="Ops", description="old")
+    )
 
     updated = await service.update(dashboard.id, DashboardPatch(description=None))
 
@@ -159,7 +182,9 @@ async def test_update_can_clear_description(service: DashboardsService):
 
 
 async def test_update_omitted_fields_are_untouched(service: DashboardsService):
-    dashboard = await service.create(DashboardCreate(name="Ops", description="keep"))
+    dashboard = await service.create(
+        DashboardCreate(type="live", name="Ops", description="keep")
+    )
 
     updated = await service.update(dashboard.id, DashboardPatch(name="Renamed"))
 
@@ -167,7 +192,7 @@ async def test_update_omitted_fields_are_untouched(service: DashboardsService):
 
 
 async def test_update_sets_and_clears_the_icon(service: DashboardsService):
-    dashboard = await service.create(DashboardCreate(name="Ops"))
+    dashboard = await service.create(DashboardCreate(type="live", name="Ops"))
 
     updated = await service.update(dashboard.id, DashboardPatch(icon="fan"))
     assert updated.icon == "fan"
@@ -180,7 +205,7 @@ async def test_update_sets_and_clears_the_icon(service: DashboardsService):
 
 
 async def test_update_rejects_null_name(service: DashboardsService):
-    dashboard = await service.create(DashboardCreate(name="Ops"))
+    dashboard = await service.create(DashboardCreate(type="live", name="Ops"))
 
     with pytest.raises(InvalidError):
         await service.update(dashboard.id, DashboardPatch(name=None))
@@ -192,7 +217,7 @@ async def test_update_missing_raises_not_found(service: DashboardsService):
 
 
 async def test_delete_removes_dashboard(service: DashboardsService):
-    dashboard = await service.create(DashboardCreate(name="Ops"))
+    dashboard = await service.create(DashboardCreate(type="live", name="Ops"))
 
     await service.delete(dashboard.id)
 
@@ -216,7 +241,8 @@ async def _listed_ids(service: DashboardsService) -> list[str]:
 
 async def _create_many(service: DashboardsService, count: int) -> list[str]:
     return [
-        (await service.create(DashboardCreate(name=f"d{i}"))).id for i in range(count)
+        (await service.create(DashboardCreate(type="live", name=f"d{i}"))).id
+        for i in range(count)
     ]
 
 
@@ -247,7 +273,7 @@ async def test_created_dashboard_goes_last(service: DashboardsService):
     a, b = await _create_many(service, 2)
     await service.reorder([b, a])
 
-    c = (await service.create(DashboardCreate(name="c"))).id
+    c = (await service.create(DashboardCreate(type="live", name="c"))).id
 
     assert await _listed_ids(service) == [b, a, c]
 
@@ -309,7 +335,7 @@ async def test_add_widget_returns_typed_widget(service: DashboardsService):
 async def test_add_widget_places_at_bottom_with_default_size(
     service: DashboardsService,
 ):
-    dashboard = await service.create(DashboardCreate(name="Ops"))
+    dashboard = await service.create(DashboardCreate(type="live", name="Ops"))
 
     first = await service.add_widget(dashboard.id, config=TEXT_CONFIG)
     second = await service.add_widget(dashboard.id, config=TEXT_CONFIG)
@@ -327,7 +353,7 @@ async def test_add_widget_places_at_bottom_with_default_size(
 async def test_add_widget_kpi_grows_height_for_its_attribute_count(
     service: DashboardsService,
 ):
-    dashboard = await service.create(DashboardCreate(name="Ops"))
+    dashboard = await service.create(DashboardCreate(type="live", name="Ops"))
 
     widget = await service.add_widget(dashboard.id, config=_kpi_config(3))
 
@@ -337,7 +363,7 @@ async def test_add_widget_kpi_grows_height_for_its_attribute_count(
 async def test_add_widget_kpi_single_attribute_keeps_default_height(
     service: DashboardsService,
 ):
-    dashboard = await service.create(DashboardCreate(name="Ops"))
+    dashboard = await service.create(DashboardCreate(type="live", name="Ops"))
 
     widget = await service.add_widget(dashboard.id, config=_kpi_config(1))
 
@@ -347,7 +373,7 @@ async def test_add_widget_kpi_single_attribute_keeps_default_height(
 async def test_add_widget_rejects_unknown_type_and_persists_nothing(
     service: DashboardsService,
 ):
-    dashboard = await service.create(DashboardCreate(name="Ops"))
+    dashboard = await service.create(DashboardCreate(type="live", name="Ops"))
 
     with pytest.raises(InvalidError):
         await service.add_widget(dashboard.id, config={"type": "nope", "x": 1})
@@ -357,7 +383,7 @@ async def test_add_widget_rejects_unknown_type_and_persists_nothing(
 
 @pytest.mark.parametrize("color", ["red", "#12", "#abc", "1a2b3c", "#1a2b3g"])
 async def test_add_widget_rejects_non_hex_color(service: DashboardsService, color: str):
-    dashboard = await service.create(DashboardCreate(name="Ops"))
+    dashboard = await service.create(DashboardCreate(type="live", name="Ops"))
 
     with pytest.raises(InvalidError):
         await service.add_widget(
@@ -368,13 +394,59 @@ async def test_add_widget_rejects_non_hex_color(service: DashboardsService, colo
 
 
 async def test_add_widget_rejects_extra_keys(service: DashboardsService):
-    dashboard = await service.create(DashboardCreate(name="Ops"))
+    dashboard = await service.create(DashboardCreate(type="live", name="Ops"))
 
     with pytest.raises(InvalidError):
         await service.add_widget(
             dashboard.id,
             config={"type": "text", "text": "x", "color": "#1a2b3c", "bogus": 1},
         )
+
+
+CHART_CONFIG = {
+    "type": "chart",
+    "targets": [{"devices": {"ids": ["d0"]}, "attribute": "power"}],
+}
+CONTROL_PANEL_CONFIG = {
+    "type": "control_panel",
+    "sections": [{"attributes": [{"device_id": "d0", "attribute": "enabled"}]}],
+}
+
+
+@pytest.mark.parametrize(
+    ("dashboard_type", "config", "fits"),
+    [
+        ("live", CONTROL_PANEL_CONFIG, True),
+        ("live", CHART_CONFIG, False),
+        ("live", TEXT_CONFIG, True),
+        ("history", CHART_CONFIG, True),
+        ("history", CONTROL_PANEL_CONFIG, False),
+        ("history", TEXT_CONFIG, True),
+    ],
+    ids=[
+        "live_takes_live",
+        "live_refuses_history",
+        "live_takes_text",
+        "history_takes_history",
+        "history_refuses_live",
+        "history_takes_text",
+    ],
+)
+async def test_add_widget_enforces_the_dashboard_type_fit(
+    service: DashboardsService,
+    dashboard_type: DashboardType,
+    config: dict,
+    fits: bool,
+):
+    dashboard = await service.create(DashboardCreate(type=dashboard_type, name="Ops"))
+
+    if fits:
+        widget = await service.add_widget(dashboard.id, config=config)
+        assert widget.error is None
+    else:
+        with pytest.raises(InvalidError, match="not allowed on a"):
+            await service.add_widget(dashboard.id, config=config)
+        assert (await service.get(dashboard.id)).widgets == []
 
 
 async def test_add_widget_missing_dashboard_raises_not_found(
@@ -476,12 +548,13 @@ async def test_update_widget_cannot_change_to_another_registered_type():
             type="gauge",
             config_model=_GaugeConfig,
             default_size=WidgetSize(w=2, h=2),
+            dashboard_types=ANY_DASHBOARD,
         )
     )
     svc = DashboardsService(storage_url=None, registry=registry)
     await svc.start()
     try:
-        dashboard = await svc.create(DashboardCreate(name="Ops"))
+        dashboard = await svc.create(DashboardCreate(type="live", name="Ops"))
         widget = await svc.add_widget(dashboard.id, config=TEXT_CONFIG)
 
         with pytest.raises(InvalidError, match="Cannot change widget type"):
@@ -495,7 +568,7 @@ async def test_update_widget_cannot_change_to_another_registered_type():
 
 
 async def test_update_widget_missing_raises_not_found(service: DashboardsService):
-    dashboard = await service.create(DashboardCreate(name="Ops"))
+    dashboard = await service.create(DashboardCreate(type="live", name="Ops"))
 
     with pytest.raises(NotFoundError):
         await service.update_widget(dashboard.id, "nope", WidgetPatch(title="x"))
@@ -514,7 +587,7 @@ async def test_remove_widget_removes_widget_and_layout_item(
 
 
 async def test_remove_widget_missing_raises_not_found(service: DashboardsService):
-    dashboard = await service.create(DashboardCreate(name="Ops"))
+    dashboard = await service.create(DashboardCreate(type="live", name="Ops"))
 
     with pytest.raises(NotFoundError):
         await service.remove_widget(dashboard.id, "nope")
@@ -591,7 +664,8 @@ async def test_widget_schemas_carry_hex_pattern(service: DashboardsService):
         "text",
         "chart",
         "device_control",
-        "kpi",
+        "kpi_live",
+        "kpi_history",
         "meter_tree",
         "control_panel",
         "synoptic",

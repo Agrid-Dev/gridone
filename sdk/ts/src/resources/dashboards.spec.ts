@@ -21,7 +21,11 @@ function makeResource() {
   };
 }
 
-const CREATE: DashboardCreate = { name: "Ops", description: "Overview" };
+const CREATE: DashboardCreate = {
+  name: "Ops",
+  type: "live",
+  description: "Overview",
+};
 const PATCH: DashboardPatch = { name: "Ops v2" };
 const ORDER: DashboardsOrderBody = { ordered_ids: ["d2", "d1"] };
 const WIDGET: WidgetCreateBody = {

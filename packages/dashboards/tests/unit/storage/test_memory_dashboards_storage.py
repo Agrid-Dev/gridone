@@ -22,6 +22,7 @@ def _dashboard(dashboard_id: str = "d1", name: str = "Ops") -> Dashboard:
     return Dashboard(
         id=dashboard_id,
         name=name,
+        type="live",
         metadata=Metadata(created_at=now, updated_at=now),
     )
 
