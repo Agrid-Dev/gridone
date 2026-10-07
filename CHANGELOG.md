@@ -1,3 +1,10 @@
+## v0.303.0 (2026-10-07)
+
+### Feat
+
+- **ui**: dashboard structure — sidebar tree, tabs, outline editor (AGR-1575) (#784)
+- **dashboards**: arrange dashboards in a structure of sections and groups (AGR-1575) (#783)
+
 ## v0.302.0 (2026-10-07)
 
 ### Feat
