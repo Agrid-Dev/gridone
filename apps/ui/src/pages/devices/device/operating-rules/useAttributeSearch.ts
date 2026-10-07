@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useAttributeLabel } from "@/hooks/useAttributeLabel";
+import { matchesAllWords } from "@/lib/attributeSearch";
 import { foldText } from "@/lib/textFormat";
 import type { AttributeCatalog } from "./expressions";
 
@@ -34,12 +35,13 @@ export function useAttributeSearch(
       ),
     [catalog.devices, writable, attributeLabel],
   );
-  const matches = useMemo(() => {
-    const tokens = foldText(query).trim().split(/\s+/).filter(Boolean);
-    return attributes.filter((reference) =>
-      tokens.every((token) => reference.search.includes(token)),
-    );
-  }, [attributes, query]);
+  const matches = useMemo(
+    () =>
+      attributes.filter((reference) =>
+        matchesAllWords(reference.search, query),
+      ),
+    [attributes, query],
+  );
   return {
     open,
     setOpen: (next: boolean) => {
