@@ -1,7 +1,10 @@
 import { afterEach, describe, it, expect, vi } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { AttributeCoverageResponse } from "@gridone/sdk";
+import type {
+  AttributeCoverage,
+  AttributeCoverageResponse,
+} from "@gridone/sdk";
 import { createI18nMock } from "@/test/i18nMock";
 
 const { mockUseQuery, mockListAttributes } = vi.hoisted(() => ({
@@ -26,6 +29,7 @@ vi.mock("react-i18next", () =>
     "pickers.attribute.noMatching": "No matching attributes",
     "pickers.attribute.coverage": "{{count}}/{{total}} devices",
     "pickers.attribute.mixedTypes": "mixed data types",
+    "attributes.flow_rate": "Débit",
   }),
 );
 
@@ -54,6 +58,44 @@ const response: AttributeCoverageResponse = {
     },
   ],
 };
+
+function writable(attribute: string, fr?: string): AttributeCoverage {
+  return {
+    attribute,
+    data_types: ["float"],
+    device_count: 5,
+    writable_count: 5,
+    label: fr ? { default: attribute, translations: { fr } } : undefined,
+  };
+}
+
+/** Declared out of label order; labels cover a driver translation, a standard
+ *  translation and the prettified fallback. */
+const labelled: AttributeCoverageResponse = {
+  total_devices: 5,
+  attributes: [
+    writable("supply_air_temperature", "Température air soufflé"),
+    writable("setpoint_mode_pump", "Mode consigne pompe"),
+    writable("flow_rate"),
+    writable("fan_speed"),
+    writable("deviation", "Écart consigne"),
+  ],
+};
+
+const ALPHABETICAL = [
+  "Débit",
+  "Écart consigne",
+  "Fan Speed",
+  "Mode consigne pompe",
+  "Température air soufflé",
+];
+
+/** Each option's label: the first text of its row, before the coverage note. */
+function optionLabels() {
+  return screen
+    .getAllByRole("option")
+    .map((option) => option.querySelector("span")?.firstChild?.textContent);
+}
 
 afterEach(() => {
   cleanup();
@@ -244,6 +286,60 @@ describe("AttributeCoverageSelect", () => {
     expect(onChange).not.toHaveBeenCalled();
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+  });
+
+  // Entries are sorted alphabetically by the label shown in the user's language.
+  it("lists attributes alphabetically by their displayed label", async () => {
+    mockUseQuery.mockReturnValue({ data: labelled, isLoading: false });
+    render(
+      <AttributeCoverageSelect filter={{ ids: ["d1"] }} onChange={vi.fn()} />,
+    );
+    await userEvent.setup().click(screen.getByRole("combobox"));
+    expect(optionLabels()).toEqual(ALPHABETICAL);
+  });
+
+  // Search matches the label in the user's language or the raw name, and keeps
+  // the label order (the full matching rule is covered in textSearch.spec).
+  it.each([
+    ["debit", ["Débit"]],
+    ["SUPPLY_AIR", ["Température air soufflé"]],
+    ["e", ALPHABETICAL],
+  ])("searching %j shows %j", async (query, expected) => {
+    const user = userEvent.setup();
+    mockUseQuery.mockReturnValue({ data: labelled, isLoading: false });
+    render(
+      <AttributeCoverageSelect filter={{ ids: ["d1"] }} onChange={vi.fn()} />,
+    );
+    await user.click(screen.getByRole("combobox"));
+    await user.type(
+      screen.getByRole("combobox", { name: "Search attributes" }),
+      query,
+    );
+    expect(optionLabels()).toEqual(expected);
+  });
+
+  it("names the selected attribute before its coverage has loaded", () => {
+    mockUseQuery.mockReturnValue({ data: undefined, isLoading: true });
+    render(
+      <AttributeCoverageSelect
+        filter={{ ids: ["d1"] }}
+        value="flow_rate"
+        onChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("combobox", { name: "Débit" })).toBeInTheDocument();
+  });
+
+  it("names the selected attribute with its standard translation", () => {
+    mockUseQuery.mockReturnValue({ data: labelled, isLoading: false });
+    render(
+      <AttributeCoverageSelect
+        filter={{ ids: ["d1"] }}
+        value="flow_rate"
+        onChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("combobox", { name: "Débit" })).toBeInTheDocument();
   });
 
   it("cannot open while disabled", async () => {

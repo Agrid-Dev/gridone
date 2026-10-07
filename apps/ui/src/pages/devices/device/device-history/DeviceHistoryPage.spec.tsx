@@ -318,6 +318,12 @@ function selector() {
   return within(screen.getByRole("listbox"));
 }
 
+function optionLabels() {
+  return selector()
+    .getAllByRole("option")
+    .map((option) => option.textContent);
+}
+
 /** Hover the middle of the chart; returns the unified tooltip. */
 function hoverChart(container: HTMLElement): Element {
   const wrapper = container
@@ -454,7 +460,7 @@ describe("DeviceHistoryPage selection", () => {
     expect(selector().queryByText("Bogus")).toBeNull();
   });
 
-  it("offers a recorded series the device no longer declares, after the declared ones", async () => {
+  it("offers a recorded series the device no longer declares", async () => {
     // The series list is what the API exposes to this user (role scoping
     // applies there); a removed or renamed driver attribute keeps its history.
     deviceOf([...THERMOSTAT_STANDARD], "thermostat", {
@@ -464,10 +470,14 @@ describe("DeviceHistoryPage selection", () => {
 
     await screen.findByText("1 / 6");
     await waitFor(() => expect(fetchedMetrics()).toEqual(["legacy_attr"]));
-    const options = selector()
-      .getAllByRole("option")
-      .map((option) => option.textContent);
-    expect(options[options.length - 1]).toBe("Legacy Attr");
+    expect(optionLabels()).toEqual([
+      "Fan Speed",
+      "Legacy Attr",
+      "Mode",
+      "Onoff State",
+      "Température",
+      "Temperature Setpoint",
+    ]);
   });
 
   it("opens on the attribute an older ?metric= link names", async () => {
@@ -521,6 +531,59 @@ describe("DeviceHistoryPage selection", () => {
 
     expect(selector().getByText("Attr 06")).toBeInTheDocument();
     expect(selector().queryByText("Attr 01")).toBeNull();
+  });
+
+  /** Declared out of label order; labels cover a driver label, a standard
+   *  translation and the prettified fallback. */
+  function setupLabelled() {
+    deviceOf(
+      [
+        {
+          name: "supply_air_temperature",
+          label: { default: "Température air soufflé" },
+        },
+        {
+          name: "setpoint_mode_pump",
+          label: { default: "Mode consigne pompe" },
+        },
+        { name: "humidity" },
+        { name: "fan_speed" },
+        { name: "deviation", label: { default: "Écart consigne" } },
+      ].map((entry) => ({ ...entry, dataType: "float" })),
+      null,
+    );
+  }
+
+  const ALPHABETICAL = [
+    "Écart consigne",
+    "Fan Speed",
+    "Humidité",
+    "Mode consigne pompe",
+    "Température air soufflé",
+  ];
+
+  // Entries are sorted alphabetically by the label shown in the user's language.
+  it("lists attributes alphabetically by their displayed label", async () => {
+    setupLabelled();
+    renderPage();
+    await screen.findByText("5 / 5");
+    expect(optionLabels()).toEqual(ALPHABETICAL);
+  });
+
+  // Search matches the label in the user's language or the raw name, and keeps
+  // the label order (the full matching rule is covered in textSearch.spec).
+  it.each([
+    ["humidite", ["Humidité"]],
+    ["SUPPLY_AIR", ["Température air soufflé"]],
+    ["e", ALPHABETICAL],
+  ])("searching %j shows %j", async (query, expected) => {
+    setupLabelled();
+    renderPage();
+    await screen.findByText("5 / 5");
+    await userEvent
+      .setup()
+      .type(screen.getByPlaceholderText("Rechercher un attribut…"), query);
+    expect(optionLabels()).toEqual(expected);
   });
 
   it("remembers the selection for the next visit", async () => {

@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Check, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui";
@@ -16,6 +17,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useAttributeLabel } from "@/hooks/useAttributeLabel";
+import { filterByAllWords } from "@/lib/textSearch";
+import { compareText } from "@/lib/sortByName";
 import { cn } from "@/lib/utils";
 import { useDeviceHistoryContext } from "./DeviceHistoryContext";
 
@@ -30,16 +33,9 @@ export const MAX_SELECT_ALL_ATTRIBUTES = 20;
  */
 export function AttributeSelector() {
   const { t } = useTranslation(["devices", "common"]);
-  const {
-    availableAttributes,
-    selectedAttributes,
-    attributes,
-    toggleAttribute,
-    setSelectedAttributes,
-  } = useDeviceHistoryContext();
-  const labelFor = useAttributeLabel();
+  const { availableAttributes, selectedAttributes, setSelectedAttributes } =
+    useDeviceHistoryContext();
 
-  const selected = new Set(selectedAttributes);
   const allSelected =
     availableAttributes.length > 0 &&
     selectedAttributes.length === availableAttributes.length;
@@ -55,31 +51,12 @@ export function AttributeSelector() {
           </Button>
         </PopoverTrigger>
         <PopoverContent align="end" className="w-72 p-0">
-          <Command>
+          <Command filter={filterByAllWords}>
             <CommandInput placeholder={t("common:common.searchAttributes")} />
             <CommandList>
               <CommandEmpty>{t("common:common.noResults")}</CommandEmpty>
               <CommandGroup>
-                {availableAttributes.map((name) => {
-                  const label = labelFor(name, attributes[name]);
-                  return (
-                    <CommandItem
-                      key={name}
-                      value={name}
-                      keywords={[label]}
-                      onSelect={() => toggleAttribute(name)}
-                    >
-                      <Check
-                        className={cn(
-                          "h-4 w-4",
-                          selected.has(name) ? "opacity-100" : "opacity-0",
-                        )}
-                        aria-hidden
-                      />
-                      {label}
-                    </CommandItem>
-                  );
-                })}
+                <AttributeOptions />
               </CommandGroup>
             </CommandList>
             <div className="border-t p-1">
@@ -110,4 +87,46 @@ export function AttributeSelector() {
       </Badge>
     </div>
   );
+}
+
+/** The picker's rows, sorted by label for display only (the selection stays
+ *  in device order). Mounted only while the popover is open, so live value
+ *  updates don't relabel and re-sort a closed list. */
+function AttributeOptions() {
+  const {
+    availableAttributes,
+    selectedAttributes,
+    attributes,
+    toggleAttribute,
+  } = useDeviceHistoryContext();
+  const labelFor = useAttributeLabel();
+  const options = useMemo(
+    () =>
+      availableAttributes
+        .map((attribute) => ({
+          attribute,
+          label: labelFor(attribute, attributes[attribute]),
+        }))
+        .sort((a, b) => compareText(a.label, b.label)),
+    [availableAttributes, attributes, labelFor],
+  );
+  const selected = new Set(selectedAttributes);
+
+  return options.map(({ attribute, label }) => (
+    <CommandItem
+      key={attribute}
+      value={attribute}
+      keywords={[label]}
+      onSelect={() => toggleAttribute(attribute)}
+    >
+      <Check
+        className={cn(
+          "h-4 w-4",
+          selected.has(attribute) ? "opacity-100" : "opacity-0",
+        )}
+        aria-hidden
+      />
+      {label}
+    </CommandItem>
+  ));
 }

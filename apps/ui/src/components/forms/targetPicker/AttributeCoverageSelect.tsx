@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { DataType } from "@gridone/sdk";
@@ -16,10 +16,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { useAttributeLabel } from "@/hooks/useAttributeLabel";
+import { filterByAllWords } from "@/lib/textSearch";
 import { cn } from "@/lib/utils";
 import { isEmptyFilter, type DevicesFilter } from "@/lib/devices";
-import { toLabel } from "@/lib/textFormat";
-import { localize } from "@/lib/localizedText";
+import { compareText } from "@/lib/sortByName";
 import { useAttributeCoverage } from "./useAttributeCoverage";
 
 type AttributeCoverageSelectProps = {
@@ -47,21 +48,25 @@ export function AttributeCoverageSelect({
   id,
 }: AttributeCoverageSelectProps) {
   const [open, setOpen] = useState(false);
-  const { t, i18n } = useTranslation("common");
+  const { t } = useTranslation("common");
+  const labelFor = useAttributeLabel();
   const { coverage, totalDevices } = useAttributeCoverage(filter, {
     enabled: !disabled && !isEmptyFilter(filter),
   });
 
-  const rows = writableOnly
-    ? coverage.filter((c) => c.writable_count > 0)
-    : coverage;
+  const options = useMemo(
+    () =>
+      coverage
+        .filter((row) => !writableOnly || row.writable_count > 0)
+        .map((row) => ({ row, label: labelFor(row.attribute, row) }))
+        .sort((a, b) => compareText(a.label, b.label)),
+    [coverage, writableOnly, labelFor],
+  );
 
-  const selectedRow = rows.find((row) => row.attribute === value);
-  const selectedLabel = selectedRow?.label
-    ? localize(selectedRow.label, i18n.language)
-    : value
-      ? toLabel(value)
-      : t("pickers.attribute.placeholder");
+  const selectedLabel = value
+    ? (options.find(({ row }) => row.attribute === value)?.label ??
+      labelFor(value))
+    : t("pickers.attribute.placeholder");
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -86,16 +91,16 @@ export function AttributeCoverageSelect({
         align="start"
         className="w-[--radix-popover-trigger-width] p-0"
       >
-        <Command label={t("pickers.attribute.search")}>
+        <Command
+          label={t("pickers.attribute.search")}
+          filter={filterByAllWords}
+        >
           <CommandInput placeholder={t("pickers.attribute.search")} />
           <CommandList className="max-h-[min(300px,calc(var(--radix-popover-content-available-height)-3rem))]">
             <CommandEmpty>{t("pickers.attribute.noMatching")}</CommandEmpty>
             <CommandGroup>
-              {rows.map((row) => {
+              {options.map(({ row, label }) => {
                 const mixed = row.data_types.length > 1;
-                const label = row.label
-                  ? localize(row.label, i18n.language)
-                  : toLabel(row.attribute);
                 return (
                   <CommandItem
                     key={row.attribute}
