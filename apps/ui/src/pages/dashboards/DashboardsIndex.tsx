@@ -4,17 +4,18 @@ import { Navigate, useLocation } from "react-router";
 import { useTranslation } from "react-i18next";
 import { ResourceBoundary } from "@/components/ResourceBoundary";
 import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
-import { useDashboards } from "./useDashboards";
+import { firstDashboardId } from "./structure/structureTree";
+import { useDashboardStructure } from "./useDashboards";
 
 /** `/dashboards` landing: redirect to the first dashboard, or show an empty
  *  state offering creation when there are none. */
 const DashboardsIndexContent: FC = () => {
   const { t } = useTranslation(["dashboards", "common"]);
-  const dashboards = useDashboards();
+  const first = firstDashboardId(useDashboardStructure());
   const can = usePermissions();
   const { search } = useLocation();
 
-  if (dashboards.length === 0) {
+  if (first === null) {
     return (
       <ResourceEmpty
         resourceName={t("resourceName")}
@@ -25,7 +26,7 @@ const DashboardsIndexContent: FC = () => {
     );
   }
 
-  return <Navigate to={{ pathname: dashboards[0].id, search }} replace />;
+  return <Navigate to={{ pathname: first, search }} replace />;
 };
 
 const DashboardsIndex: FC = () => (

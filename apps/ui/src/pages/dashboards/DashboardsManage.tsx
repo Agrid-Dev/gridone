@@ -2,25 +2,8 @@ import { useState } from "react";
 import type { FC } from "react";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
-import {
-  DndContext,
-  KeyboardSensor,
-  PointerSensor,
-  closestCenter,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from "@dnd-kit/core";
-import {
-  SortableContext,
-  arrayMove,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import { Ellipsis, GripVertical, PencilLine, Plus, Trash2 } from "lucide-react";
-import type { DashboardSummary } from "@gridone/sdk";
+import { FolderPlus, Plus, Rows3 } from "lucide-react";
+import type { DashboardStructure } from "@gridone/sdk";
 import { ConfirmationDialog } from "@/components/ConfirmationDialog";
 import { RequirePermission } from "@/components/RequirePermission";
 import { ResourceBoundary } from "@/components/ResourceBoundary";
@@ -33,65 +16,100 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { DashboardIconGlyph } from "@/lib/dashboardIcons";
-import { cn } from "@/lib/utils";
 import { DashboardForm, type DashboardFormValues } from "./DashboardForm";
+import { NodeForm, type NodeFormValues } from "./structure/NodeForm";
+import { StructureEditor } from "./structure/StructureEditor";
 import {
-  useDashboards,
+  build,
+  dissolve,
+  flatten,
+  toUpdate,
+  type Row,
+} from "./structure/structureTree";
+import {
+  useDashboardStructure,
   useDeleteDashboard,
-  useReorderDashboards,
   useUpdateDashboard,
+  useUpdateStructure,
 } from "./useDashboards";
 
-/** `/dashboards/manage` (Configuration): the list of dashboards as the
- *  supervision sidebar shows it — create, rename, describe, delete and
- *  reorder. Widgets and layout are edited on the dashboard itself. */
+/** What the dialogs are open on: a node being edited, one being created at
+ *  the root, or one about to be deleted. */
+type ManageDialog =
+  | { mode: "edit"; row: Row }
+  | { mode: "create"; kind: "section" | "group" }
+  | { mode: "delete"; row: Row };
+
+/** `/dashboards/manage` (Configuration): the structure as the supervision
+ *  sidebar shows it — create, rename, describe, delete, and arrange
+ *  dashboards into groups (tabs) and sections (headings). Widgets and layout
+ *  are edited on the dashboard itself. */
 const DashboardsManageContent: FC = () => {
   const { t } = useTranslation(["dashboards", "common"]);
-  const dashboards = useDashboards();
-  const { reorderDashboards } = useReorderDashboards();
+  const structure = useDashboardStructure();
+  const { updateStructure } = useUpdateStructure();
   const { updateDashboard } = useUpdateDashboard();
   const { deleteDashboard } = useDeleteDashboard();
-  const [editing, setEditing] = useState<DashboardSummary | null>(null);
-  const [deleting, setDeleting] = useState<DashboardSummary | null>(null);
-  const ids = dashboards.map((dashboard) => dashboard.id);
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    }),
-  );
+  const [dialog, setDialog] = useState<ManageDialog | null>(null);
+  const close = () => setDialog(null);
 
-  const onDragEnd = ({ active, over }: DragEndEvent) => {
-    if (!over || active.id === over.id) return;
-    const from = ids.indexOf(String(active.id));
-    const to = ids.indexOf(String(over.id));
-    if (from < 0 || to < 0) return;
-    reorderDashboards(arrayMove(ids, from, to));
-  };
-
-  const handleEdit = async (values: DashboardFormValues) => {
-    if (!editing) return;
-    // Awaited so the form's submit stays disabled while in flight; a rejection
-    // is swallowed here (the mutation's onError already toasts it).
+  const save = async (next: DashboardStructure) => {
+    // A rejection is swallowed here: the mutation's onError already toasts
+    // it, and the cache keeps the structure as stored.
     try {
-      await updateDashboard(editing.id, {
-        name: values.name,
-        description: values.description,
-        icon: values.icon,
-      });
-      setEditing(null);
+      await updateStructure(toUpdate(next));
     } catch {
       /* handled by the mutation's onError */
     }
   };
+
+  const saveRows = (rows: Row[]) => save(build(rows));
+
+  const handleEditDashboard = async (values: DashboardFormValues) => {
+    if (dialog?.mode !== "edit") return;
+    try {
+      await updateDashboard(dialog.row.id, {
+        name: values.name,
+        description: values.description,
+        icon: values.icon,
+      });
+      close();
+    } catch {
+      /* handled by the mutation's onError */
+    }
+  };
+
+  const handleEditNode = async (values: NodeFormValues) => {
+    if (dialog?.mode !== "edit") return;
+    await saveRows(
+      flatten(structure).map((row) =>
+        row.id === dialog.row.id ? { ...row, ...values } : row,
+      ),
+    );
+    close();
+  };
+
+  const handleCreateNode = async (values: NodeFormValues) => {
+    if (dialog?.mode !== "create") return;
+    await save({
+      items: [
+        ...structure.items,
+        dialog.kind === "section"
+          ? { kind: "section", id: "", label: values.label, items: [] }
+          : { kind: "group", id: "", ...values, dashboards: [] },
+      ],
+    });
+    close();
+  };
+
+  const handleDelete = async () => {
+    if (dialog?.mode !== "delete") return;
+    if (dialog.row.kind === "dashboard") await deleteDashboard(dialog.row.id);
+    else await saveRows(dissolve(flatten(structure), dialog.row.id));
+  };
+
+  const editing = dialog?.mode === "edit" ? dialog.row : null;
+  const deleting = dialog?.mode === "delete" ? dialog.row : null;
 
   return (
     <section className="space-y-6">
@@ -99,15 +117,31 @@ const DashboardsManageContent: FC = () => {
         title={t("title")}
         caption={t("manage.caption")}
         actions={
-          <Button asChild>
-            <Link to="/dashboards/new">
-              <Plus />
-              {t("switcher.new")}
-            </Link>
-          </Button>
+          <>
+            <Button
+              variant="outline"
+              onClick={() => setDialog({ mode: "create", kind: "section" })}
+            >
+              <Rows3 />
+              {t("structure.newSection")}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setDialog({ mode: "create", kind: "group" })}
+            >
+              <FolderPlus />
+              {t("structure.newGroup")}
+            </Button>
+            <Button asChild>
+              <Link to="/dashboards/new">
+                <Plus />
+                {t("switcher.new")}
+              </Link>
+            </Button>
+          </>
         }
       />
-      {dashboards.length === 0 ? (
+      {structure.items.length === 0 ? (
         <ResourceEmpty
           resourceName={t("resourceName")}
           showCreate
@@ -115,55 +149,58 @@ const DashboardsManageContent: FC = () => {
           createLabel={t("common:empty.create.dashboards")}
         />
       ) : (
-        <div className="space-y-2">
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={onDragEnd}
-          >
-            <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-              <ol className="m-0 list-none space-y-1.5 p-0">
-                {dashboards.map((dashboard) => (
-                  <DashboardRow
-                    key={dashboard.id}
-                    dashboard={dashboard}
-                    sortable={ids.length > 1}
-                    onEdit={() => setEditing(dashboard)}
-                    onDelete={() => setDeleting(dashboard)}
-                  />
-                ))}
-              </ol>
-            </SortableContext>
-          </DndContext>
-          {ids.length > 1 && (
-            <p className="text-xs leading-5 text-muted-foreground">
-              {t("manage.orderHelp")}
-            </p>
-          )}
-        </div>
+        <StructureEditor
+          structure={structure}
+          onChange={save}
+          onEdit={(row) => setDialog({ mode: "edit", row })}
+          onDelete={(row) => setDialog({ mode: "delete", row })}
+        />
       )}
 
       <Dialog
-        open={editing !== null}
-        onOpenChange={(open) => !open && setEditing(null)}
+        open={dialog?.mode === "edit" || dialog?.mode === "create"}
+        onOpenChange={(open) => !open && close()}
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t("edit.title")}</DialogTitle>
+            <DialogTitle>
+              {dialog?.mode === "create"
+                ? t(`structure.create.${dialog.kind}`)
+                : editing?.kind === "dashboard"
+                  ? t("edit.title")
+                  : t(`structure.edit.${editing?.kind ?? "group"}`)}
+            </DialogTitle>
           </DialogHeader>
-          {editing && (
+          {editing?.kind === "dashboard" && editing.dashboard && (
             <DashboardForm
               formId="dashboard-rename-form"
               defaultValues={{
-                name: editing.name,
-                type: editing.type,
-                description: editing.description ?? "",
-                icon: editing.icon ?? null,
+                name: editing.dashboard.name,
+                type: editing.dashboard.type,
+                description: editing.dashboard.description ?? "",
+                icon: editing.dashboard.icon ?? null,
               }}
               lockType
               submitLabel={t("edit.submit")}
-              onSubmit={handleEdit}
-              onCancel={() => setEditing(null)}
+              onSubmit={handleEditDashboard}
+              onCancel={close}
+            />
+          )}
+          {editing && editing.kind !== "dashboard" && (
+            <NodeForm
+              kind={editing.kind}
+              defaultValues={{ label: editing.label, icon: editing.icon }}
+              submitLabel={t("edit.submit")}
+              onSubmit={handleEditNode}
+              onCancel={close}
+            />
+          )}
+          {dialog?.mode === "create" && (
+            <NodeForm
+              kind={dialog.kind}
+              submitLabel={t("common:common.create")}
+              onSubmit={handleCreateNode}
+              onCancel={close}
             />
           )}
         </DialogContent>
@@ -171,110 +208,23 @@ const DashboardsManageContent: FC = () => {
 
       <ConfirmationDialog
         open={deleting !== null}
-        onOpenChange={(open) => !open && setDeleting(null)}
-        onConfirm={async () => {
-          if (deleting) await deleteDashboard(deleting.id);
-        }}
+        onOpenChange={(open) => !open && close()}
+        onConfirm={handleDelete}
         title={t("common:deletion.title", {
-          name: deleting?.name || deleting?.id,
+          name: deleting?.label || deleting?.id,
         })}
         details={
-          <>
-            {t("delete.details", { name: deleting?.name })}{" "}
-            {t("common:deletion.irreversible")}
-          </>
+          deleting?.kind === "dashboard" ? (
+            <>
+              {t("delete.details", { name: deleting.label })}{" "}
+              {t("common:deletion.irreversible")}
+            </>
+          ) : (
+            t("structure.delete.details", { name: deleting?.label })
+          )
         }
       />
     </section>
-  );
-};
-
-const DashboardRow: FC<{
-  dashboard: DashboardSummary;
-  sortable: boolean;
-  onEdit: () => void;
-  onDelete: () => void;
-}> = ({ dashboard, sortable, onEdit, onDelete }) => {
-  const { t } = useTranslation("dashboards");
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: dashboard.id, disabled: !sortable });
-  const name = dashboard.name || dashboard.id;
-
-  return (
-    <li
-      ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={cn(
-        "flex items-center gap-2 rounded-lg border bg-card py-1.5 pl-1 pr-2",
-        isDragging && "relative z-10 shadow-lg ring-1 ring-border",
-      )}
-    >
-      {sortable ? (
-        <button
-          type="button"
-          aria-label={t("manage.drag", { name })}
-          className="flex w-7 cursor-grab touch-none justify-center self-stretch rounded-md text-muted-foreground/70 hover:text-foreground active:cursor-grabbing"
-          {...attributes}
-          {...listeners}
-        >
-          <GripVertical aria-hidden className="size-4" />
-        </button>
-      ) : (
-        <span className="w-7" aria-hidden />
-      )}
-      <Link
-        to={`/dashboards/${encodeURIComponent(dashboard.id)}`}
-        className="flex min-w-0 flex-1 flex-col rounded-md py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <span className="flex items-center gap-2 truncate text-sm font-semibold">
-          <DashboardIconGlyph
-            icon={dashboard.icon}
-            className="h-4 w-4 shrink-0 text-muted-foreground"
-          />
-          {name}
-          <span className="rounded-sm border border-border px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-            {t(`types.${dashboard.type}.label`)}
-          </span>
-        </span>
-        {dashboard.description && (
-          <span className="truncate text-xs text-muted-foreground">
-            {dashboard.description}
-          </span>
-        )}
-      </Link>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label={t("manage.actions", { name })}
-            className="h-9 w-9 text-muted-foreground"
-          >
-            <Ellipsis />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48">
-          <DropdownMenuItem onSelect={onEdit}>
-            <PencilLine />
-            {t("actions.edit")}
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            className="text-destructive focus:text-destructive"
-            onSelect={onDelete}
-          >
-            <Trash2 />
-            {t("actions.delete")}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </li>
   );
 };
 

@@ -5,10 +5,32 @@
     "new": "New dashboard"
   },
   "manage": {
-    "caption": "The supervision entries, in the order they are listed. Create, rename, describe, delete and reorder them here; their widgets are edited on the dashboard itself.",
+    "caption": "The supervision entries, as the sidebar lists them. Create, rename, describe and delete dashboards here, and arrange them: a group shows its dashboards as tabs, a section folds its entries under a heading. Widgets are edited on the dashboard itself.",
     "actions": "Actions for {{name}}",
     "drag": "Move {{name}}",
-    "orderHelp": "Drag a handle, or focus it and use the arrow keys, to change the order."
+    "orderHelp": "Drag a handle up or down to reorder, sideways to move into or out of a group or section. A group or section carries its contents along."
+  },
+  "structure": {
+    "newSection": "New section",
+    "newGroup": "New group",
+    "fields": {
+      "label": "Label"
+    },
+    "kinds": {
+      "section": "Section",
+      "group": "Group"
+    },
+    "create": {
+      "section": "New section",
+      "group": "New group"
+    },
+    "edit": {
+      "section": "Edit section",
+      "group": "Edit group"
+    },
+    "delete": {
+      "details": "The dashboards in {{name}} are kept and move up one level."
+    }
   },
   "toolbox": {
     "show": "Edit dashboard",
@@ -271,6 +293,7 @@
     "locked": "The type is set when the dashboard is created; it decides which widgets it can hold."
   },
   "validation": {
+    "labelRequired": "Label is required",
     "nameRequired": "Name is required"
   },
   "create": {

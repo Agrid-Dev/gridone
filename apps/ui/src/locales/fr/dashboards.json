@@ -5,10 +5,32 @@
     "new": "Nouveau tableau de bord"
   },
   "manage": {
-    "caption": "Les entrées de supervision, dans l'ordre où elles sont listées. Créez, renommez, décrivez, supprimez et réordonnez-les ici ; leurs widgets se modifient sur le tableau de bord lui-même.",
+    "caption": "Les entrées de supervision, telles que la barre latérale les liste. Créez, renommez, décrivez et supprimez les tableaux de bord ici, et organisez-les : un groupe affiche ses tableaux de bord en onglets, une section replie ses entrées sous un titre. Les widgets se modifient sur le tableau de bord lui-même.",
     "actions": "Actions pour {{name}}",
     "drag": "Déplacer {{name}}",
-    "orderHelp": "Faites glisser une poignée, ou sélectionnez-la et utilisez les flèches, pour changer l'ordre."
+    "orderHelp": "Faites glisser une poignée vers le haut ou le bas pour réordonner, sur le côté pour entrer ou sortir d'un groupe ou d'une section. Un groupe ou une section emporte son contenu."
+  },
+  "structure": {
+    "newSection": "Nouvelle section",
+    "newGroup": "Nouveau groupe",
+    "fields": {
+      "label": "Libellé"
+    },
+    "kinds": {
+      "section": "Section",
+      "group": "Groupe"
+    },
+    "create": {
+      "section": "Nouvelle section",
+      "group": "Nouveau groupe"
+    },
+    "edit": {
+      "section": "Modifier la section",
+      "group": "Modifier le groupe"
+    },
+    "delete": {
+      "details": "Les tableaux de bord de {{name}} sont conservés et remontent d'un niveau."
+    }
   },
   "toolbox": {
     "show": "Modifier le tableau de bord",
@@ -271,6 +293,7 @@
     "locked": "Le type est fixé à la création du tableau de bord ; il détermine les widgets qu'il peut contenir."
   },
   "validation": {
+    "labelRequired": "Le libellé est requis",
     "nameRequired": "Le nom est requis"
   },
   "create": {
