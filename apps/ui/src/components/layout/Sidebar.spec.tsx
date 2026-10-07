@@ -1,5 +1,6 @@
 import { afterEach, describe, it, expect, vi, beforeEach } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import type { Device, FaultView } from "@gridone/sdk";
 import { createI18nMock } from "@/test/i18nMock";
@@ -58,9 +59,26 @@ vi.mock("@/hooks/usePendingAppRequests", () => ({
   usePendingAppRequests: () => ({ pendingCount: pendingAppRequests }),
 }));
 
-let dashboards: { id: string; name: string; icon?: string | null }[] = [];
+type Entry = { id: string; name: string; icon?: string | null };
+type Item =
+  | (Entry & { kind: "dashboard" })
+  | {
+      kind: "group";
+      id: string;
+      label: string;
+      icon?: string | null;
+      dashboards: Entry[];
+    }
+  | { kind: "section"; id: string; label: string; items: Item[] };
+let dashboards: Entry[] = [];
+let items: Item[] | null = null;
 vi.mock("@/pages/dashboards/useDashboards", () => ({
-  useDashboardEntries: () => ({ dashboards, ready: true }),
+  useDashboardStructureEntries: () => ({
+    structure: {
+      items: items ?? dashboards.map((d) => ({ ...d, kind: "dashboard" })),
+    },
+    ready: true,
+  }),
 }));
 
 // The building block has its own spec; stub it so this one stays about nav.
@@ -84,6 +102,8 @@ beforeEach(() => {
   flags.dashboards = true;
   flags.synoptics = true;
   dashboards = [];
+  items = null;
+  window.localStorage.clear();
   faults = [];
   devices = [];
   pendingAppRequests = 0;
@@ -288,6 +308,76 @@ describe("Sidebar", () => {
     expect(
       screen.getByRole("link", { name: "CTA" }).querySelector("svg"),
     ).toBeNull();
+  });
+
+  it("lists a group as one entry opening its first tab, lit on any of them, and skips an empty one", () => {
+    items = [
+      {
+        kind: "group",
+        id: "g1",
+        label: "ECS",
+        icon: "droplets",
+        dashboards: [
+          { id: "d1", name: "ECS Ouest" },
+          { id: "d2", name: "ECS Est" },
+        ],
+      },
+      { kind: "group", id: "g2", label: "Vide", dashboards: [] },
+    ];
+    renderSidebar(false, "/dashboards/d2");
+    const group = screen.getByRole("link", { name: "ECS" });
+    expect(group).toHaveAttribute("href", "/dashboards/d1");
+    expect(group).toHaveAttribute("aria-current", "page");
+    expect(group.querySelector("svg")).toHaveClass("lucide-droplets");
+    expect(screen.queryByText("ECS Ouest")).not.toBeInTheDocument();
+    expect(screen.queryByText("Vide")).not.toBeInTheDocument();
+  });
+
+  it("folds a section under a heading that remembers being collapsed, but stays open on the viewed dashboard", async () => {
+    items = [
+      {
+        kind: "section",
+        id: "s1",
+        label: "CVC",
+        items: [
+          { kind: "dashboard", id: "d1", name: "CTA" },
+          {
+            kind: "group",
+            id: "g1",
+            label: "ECS",
+            dashboards: [{ id: "d2", name: "ECS Ouest" }],
+          },
+        ],
+      },
+      { kind: "dashboard", id: "d3", name: "Fuites" },
+    ];
+    renderSidebar(false, "/devices");
+    const heading = screen.getByRole("button", { name: /CVC/ });
+    expect(heading).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("link", { name: "CTA" })).toBeInTheDocument();
+
+    await userEvent.click(heading);
+    expect(heading).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("link", { name: "CTA" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Fuites" })).toBeInTheDocument();
+    cleanup();
+
+    // Remembered across renders; forced open while it holds the active one.
+    renderSidebar(false, "/devices");
+    expect(screen.getByRole("button", { name: /CVC/ })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    cleanup();
+    renderSidebar(false, "/dashboards/d2");
+    expect(screen.getByRole("button", { name: /CVC/ })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    expect(screen.getByRole("link", { name: "ECS" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
   });
 
   it("starts Supervision at Devices without a dashboard, or with the flag off", () => {

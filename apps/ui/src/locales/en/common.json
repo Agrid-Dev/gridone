@@ -276,6 +276,10 @@
     "main": "Main navigation"
   },
   "sidebar": {
+    "section": {
+      "collapse": "Collapse section",
+      "expand": "Expand section"
+    },
     "building": {
       "unnamed": "My building",
       "floors_one": "{{count}} floor",

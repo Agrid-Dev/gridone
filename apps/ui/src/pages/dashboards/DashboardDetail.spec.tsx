@@ -7,7 +7,12 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { DashboardType, TextWidgetConfig, Widget } from "@gridone/sdk";
+import type {
+  StructureGroup,
+  DashboardType,
+  TextWidgetConfig,
+  Widget,
+} from "@gridone/sdk";
 import { MemoryRouter } from "react-router";
 import { createI18nMock } from "@/test/i18nMock";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -47,6 +52,7 @@ const WIDGET: Widget = {
 vi.mock("@/contexts/AuthContext", () => ({
   usePermissions: () => () => canWrite,
 }));
+let group: StructureGroup | null = null;
 vi.mock("./useDashboards", () => ({
   useDashboardFromRoute: () => ({
     id: "d1",
@@ -56,6 +62,11 @@ vi.mock("./useDashboards", () => ({
     widgets,
     metadata: {},
   }),
+  useDashboardGroup: () => group,
+}));
+const goTo = vi.fn();
+vi.mock("./useDashboardNavigation", () => ({
+  useDashboardNavigation: () => goTo,
 }));
 vi.mock("./useWidgets", () => ({
   useRemoveWidget: () => ({ removeWidget }),
@@ -79,6 +90,8 @@ beforeEach(() => {
   type = "history";
   widgets = [];
   removeWidget.mockClear();
+  goTo.mockClear();
+  group = null;
 });
 afterEach(cleanup);
 
@@ -106,6 +119,32 @@ it("titles the page with the dashboard, no view switcher, with one add-widget ac
   expect(
     screen.getByRole("button", { name: "Edit dashboard" }),
   ).toBeInTheDocument();
+});
+
+it("heads a grouped dashboard with its group and lists the siblings as tabs", async () => {
+  group = {
+    kind: "group",
+    id: "g1",
+    label: "Hot water",
+    icon: "droplets",
+    dashboards: [
+      { id: "d1", name: "Energy", type: "history", metadata: {} },
+      { id: "d2", name: "Flow", type: "history", metadata: {} },
+    ],
+  };
+  renderPage();
+  const heading = screen.getByRole("heading", { level: 2 });
+  expect(heading).toHaveTextContent("Hot water");
+  expect(heading.querySelector("svg")).toHaveClass("lucide-droplets");
+  const tabs = screen.getByRole("tablist", { name: "Hot water" });
+  expect(within(tabs).getByRole("tab", { name: "Energy" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+
+  await userEvent.click(within(tabs).getByRole("tab", { name: "Flow" }));
+
+  expect(goTo).toHaveBeenCalledWith("d2");
 });
 
 it("carries the period selector in the body of a history dashboard, and none on a live one", () => {

@@ -9,6 +9,7 @@ import { ResourceBoundary } from "@/components/ResourceBoundary";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { TimeRangeSelect } from "@/components/TimeRangeSelect";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Tooltip,
   TooltipContent,
@@ -21,20 +22,26 @@ import {
 import { DashboardIconGlyph } from "@/lib/dashboardIcons";
 import { DashboardGrid } from "./DashboardGrid";
 import { DASHBOARD_TYPES } from "./dashboardTypes";
+import { useDashboardNavigation } from "./useDashboardNavigation";
 import { DASHBOARD_PERIOD_STORAGE_KEY } from "./useDashboardPeriod";
-import { useDashboardFromRoute } from "./useDashboards";
+import { useDashboardFromRoute, useDashboardGroup } from "./useDashboards";
 import { useLayoutEditor } from "./useLayoutEditor";
 
 const DashboardDetailContent: FC = () => {
   const { t } = useTranslation("dashboards");
   const can = usePermissions();
   const dashboard = useDashboardFromRoute();
+  // Within a group the page is the group's: its label heads it and its
+  // dashboards are the tabs; the dashboard's own name is the active tab.
+  const group = useDashboardGroup(dashboard.id);
+  const goTo = useDashboardNavigation();
   const { editing, layout, dirty, enter, save, cancel, onLayoutChange } =
     useLayoutEditor(dashboard);
   const [toolboxOpen, setToolboxOpen] = useState(false);
 
   const hasWidgets = (dashboard.widgets ?? []).length > 0;
   const { hasPeriod } = DASHBOARD_TYPES[dashboard.type];
+  const heading = group ?? { icon: dashboard.icon, label: dashboard.name };
 
   return (
     <div
@@ -44,8 +51,8 @@ const DashboardDetailContent: FC = () => {
       <ResourceHeader
         title={
           <span className="flex items-center gap-2">
-            <DashboardIconGlyph icon={dashboard.icon} className="h-6 w-6" />
-            {dashboard.name}
+            <DashboardIconGlyph icon={heading.icon} className="h-6 w-6" />
+            {heading.label}
           </span>
         }
         actions={
@@ -81,6 +88,17 @@ const DashboardDetailContent: FC = () => {
           </>
         }
       />
+      {group && (
+        <Tabs value={dashboard.id} onValueChange={goTo}>
+          <TabsList aria-label={group.label}>
+            {group.dashboards.map((tab) => (
+              <TabsTrigger key={tab.id} value={tab.id}>
+                {tab.name}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+      )}
       {(editing || toolboxOpen || dashboard.description) && (
         <div className="flex flex-col gap-2">
           {editing ? (

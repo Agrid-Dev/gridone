@@ -17,10 +17,9 @@ import { useAuth, usePermissions } from "@/contexts/AuthContext";
 import { useDevicesList } from "@/hooks/useDevicesList";
 import { useFaultsList } from "@/hooks/useFaultsList";
 import { usePendingAppRequests } from "@/hooks/usePendingAppRequests";
-import { DashboardIconGlyph } from "@/lib/dashboardIcons";
-import { useDashboardEntries } from "@/pages/dashboards/useDashboards";
 import { useFeatureEnabled } from "@/utils/featureFlags";
 import { BuildingSwitcher } from "./BuildingSwitcher";
+import { SidebarDashboards } from "./SidebarDashboards";
 
 const DOCS_URL = "https://docs.gridone.a-grid.com/";
 
@@ -85,7 +84,6 @@ export function Sidebar({
   const showDashboardsConfig = dashboardsEnabled && can("dashboards:write");
   const { faults } = useFaultsList();
   const { devices } = useDevicesList();
-  const { dashboards } = useDashboardEntries();
   const { pendingCount: pendingAppRequests } = usePendingAppRequests();
 
   const hasConfiguration =
@@ -150,24 +148,7 @@ export function Sidebar({
           <div className="space-y-0.5">
             <SectionLabel>{t("nav.supervision")}</SectionLabel>
 
-            {/* Each dashboard is a view of the building, listed the way a BMS
-             *  lists its views: first-level, no parent, in the API's order.
-             *  Active on its own route only, not while authoring a widget. */}
-            {dashboardsEnabled &&
-              dashboards.map((dashboard) => (
-                <NavLink
-                  key={dashboard.id}
-                  to={`/dashboards/${encodeURIComponent(dashboard.id)}`}
-                  end
-                  className={navLinkClass}
-                >
-                  <DashboardIconGlyph
-                    icon={dashboard.icon}
-                    className="h-4 w-4 shrink-0"
-                  />
-                  <span className="min-w-0 truncate">{dashboard.name}</span>
-                </NavLink>
-              ))}
+            {dashboardsEnabled && <SidebarDashboards />}
 
             <NavLink to="/devices" className={navLinkClass}>
               <Cpu className="h-4 w-4" />

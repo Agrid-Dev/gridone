@@ -11,56 +11,71 @@ import {
   type Dashboard,
   type DashboardCreate,
   type DashboardPatch,
+  type DashboardStructure,
+  type DashboardStructureUpdate,
   type DashboardSummary,
   type LayoutItem,
+  type StructureGroup,
 } from "@gridone/sdk";
 import { serverErrorMessage } from "@/lib/serverErrorMessage";
 import { useGridoneClient } from "@/contexts/GridoneClientContext";
-import { readStoredDashboards, writeStoredDashboards } from "./dashboardsCache";
+import { readStoredStructure, writeStoredStructure } from "./dashboardsCache";
+import { findGroup, flattenDashboards } from "./structure/structureTree";
 
-/** Query key for the dashboard summaries list (feeds the view selector). */
-export const DASHBOARDS_KEY = ["dashboards"] as const;
+/** Query key for the structure — the one list the UI reads dashboards from:
+ *  the sidebar draws it as a tree, everything else flattens it. */
+export const DASHBOARDS_KEY = ["dashboards", "structure"] as const;
 
 /** Query key for a single full dashboard document. */
 export const dashboardKey = (id: string) => ["dashboard", id] as const;
 
-/** The one query behind both summary hooks: every fetch refreshes the store
- *  the sidebar opens on. Seeded from that store, dated as ancient, so the
- *  first render has entries to draw and the request goes out regardless. */
-function dashboardsQuery(client: ReturnType<typeof useGridoneClient>) {
+/** The one query behind every structure hook: each fetch refreshes the
+ *  store the sidebar opens on. Seeded from that store, dated as ancient, so
+ *  the first render has entries to draw and the request goes out regardless. */
+function structureQuery(client: ReturnType<typeof useGridoneClient>) {
   return {
     queryKey: DASHBOARDS_KEY,
     queryFn: async () => {
-      const summaries = await client.dashboards.list();
-      writeStoredDashboards(summaries);
-      return summaries;
+      const structure = await client.dashboards.getStructure();
+      writeStoredStructure(structure);
+      return structure;
     },
-    initialData: readStoredDashboards,
+    initialData: readStoredStructure,
     initialDataUpdatedAt: 0,
   };
 }
 
-/**
- * Summaries of every dashboard (id, name, description) — the redirect-to-first
- * landing and the toolbox. Suspends until loaded so callers render pure
- * happy-path JSX under a `ResourceBoundary`.
- */
-export function useDashboards(): DashboardSummary[] {
+/** The structure — sections, groups and where every dashboard sits.
+ *  Suspends until loaded so callers render pure happy-path JSX under a
+ *  `ResourceBoundary`. */
+export function useDashboardStructure(): DashboardStructure {
   const client = useGridoneClient();
-  const { data } = useSuspenseQuery(dashboardsQuery(client));
+  const { data } = useSuspenseQuery(structureQuery(client));
   return data;
 }
 
-/** The same summaries for the shell, which must never suspend or fail:
- *  what was stored last time until the list arrives, nothing before the
- *  first visit. `ready` is false only then, and on a failed first fetch. */
-export function useDashboardEntries(): {
-  dashboards: DashboardSummary[];
+/** Summaries of every dashboard in display order — the redirect-to-first
+ *  landing and the pickers. */
+export function useDashboards(): DashboardSummary[] {
+  return flattenDashboards(useDashboardStructure());
+}
+
+/** The structure for the shell, which must never suspend or fail: what was
+ *  stored last time until the request answers, nothing before the first
+ *  visit. `ready` is false only then, and on a failed first fetch. */
+export function useDashboardStructureEntries(): {
+  structure: DashboardStructure;
   ready: boolean;
 } {
   const client = useGridoneClient();
-  const { data } = useQuery(dashboardsQuery(client));
-  return { dashboards: data ?? [], ready: data !== undefined };
+  const { data } = useQuery(structureQuery(client));
+  return { structure: data ?? { items: [] }, ready: data !== undefined };
+}
+
+/** The group a dashboard is a tab of, with its siblings — `null` for a
+ *  dashboard that is an entry of its own. */
+export function useDashboardGroup(dashboardId: string): StructureGroup | null {
+  return findGroup(useDashboardStructure(), dashboardId);
 }
 
 /**
@@ -173,42 +188,28 @@ export function useDeleteDashboard() {
   return { deleteDashboard };
 }
 
-/** Set the display order shared by every user (PUT /dashboards/order).
- *  Optimistic: the summaries — and the store the sidebar opens on — take the
- *  new order at once and fall back to the previous one if the server refuses. */
-export function useReorderDashboards() {
+/** Replace the arrangement shared by every user (PUT /dashboards/structure).
+ *  The response is the structure as stored, so it lands in the cache — and
+ *  the store the sidebar opens on — without a refetch. */
+export function useUpdateStructure() {
   const client = useGridoneClient();
   const queryClient = useQueryClient();
   const onApiError = useApiErrorToast();
 
   const mutation = useMutation({
-    mutationFn: (orderedIds: string[]) =>
-      client.dashboards.reorder({ ordered_ids: orderedIds }),
-    onMutate: async (orderedIds) => {
-      await queryClient.cancelQueries({ queryKey: DASHBOARDS_KEY });
-      const previous =
-        queryClient.getQueryData<DashboardSummary[]>(DASHBOARDS_KEY);
-      if (previous) {
-        const byId = new Map(previous.map((summary) => [summary.id, summary]));
-        const reordered = orderedIds.flatMap((id) => byId.get(id) ?? []);
-        queryClient.setQueryData(DASHBOARDS_KEY, reordered);
-        writeStoredDashboards(reordered);
-      }
-      return { previous };
+    mutationFn: (update: DashboardStructureUpdate) =>
+      client.dashboards.updateStructure(update),
+    onSuccess: (structure: DashboardStructure) => {
+      queryClient.setQueryData(DASHBOARDS_KEY, structure);
+      writeStoredStructure(structure);
     },
-    onError: (error: Error, _ids, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(DASHBOARDS_KEY, context.previous);
-        writeStoredDashboards(context.previous);
-      }
-      onApiError(error);
-    },
-    onSettled: () =>
-      queryClient.invalidateQueries({ queryKey: DASHBOARDS_KEY }),
+    onError: onApiError,
   });
 
   return {
-    reorderDashboards: (orderedIds: string[]) => mutation.mutate(orderedIds),
+    updateStructure: (update: DashboardStructureUpdate) =>
+      mutation.mutateAsync(update),
+    saving: mutation.isPending,
   };
 }
 

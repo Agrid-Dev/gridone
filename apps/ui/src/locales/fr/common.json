@@ -276,6 +276,10 @@
     "main": "Navigation principale"
   },
   "sidebar": {
+    "section": {
+      "collapse": "Replier la section",
+      "expand": "Déplier la section"
+    },
     "building": {
       "unnamed": "Mon bâtiment",
       "floors_one": "{{count}} étage",
