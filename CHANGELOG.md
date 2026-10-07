@@ -1,3 +1,10 @@
+## v0.301.0 (2026-10-07)
+
+### Feat
+
+- **ui**: dashboards carry a type, live or history (AGR-1573) (#779)
+- **dashboards**: a dashboard has a type, live or history (AGR-1573) (#778)
+
 ## v0.300.1 (2026-10-07)
 
 ### Refactor
