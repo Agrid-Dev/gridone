@@ -23,6 +23,8 @@
   },
   "widgets": {
     "types": {
+      "kpi_live": "KPI (live)",
+      "kpi_history": "KPI (over the period)",
       "synoptic": "Synoptic"
     },
     "synoptic": {
@@ -40,6 +42,11 @@
     },
     "empty": "This dashboard has no widgets yet.",
     "renderError": "This widget failed to render.",
+    "errors": {
+      "invalid_config": "This widget's configuration is no longer valid. Remove it and add it again.",
+      "incompatible_type": "This widget does not fit a dashboard of this type. Remove it, or add it to a dashboard it fits.",
+      "unknown_type": "Unknown widget type: {{type}}."
+    },
     "chart": {
       "error": "Could not load this attribute's history.",
       "targetEmpty": "The target matches no device exposing this attribute.",
@@ -134,15 +141,11 @@
       "noHistory": "No history is recorded for this attribute.",
       "noMatch": "The target matches no device exposing this attribute.",
       "error": "Could not load this value.",
-      "noOperator": "Pick an aggregation operator.",
       "unboundedPeriod": "Aggregation needs a bounded period — pick one other than “All time”.",
       "singleDeviceRequired": "Pick a single device, or a fold operator below to combine several.",
-      "temporal": {
-        "live": "Live",
-        "period": "Over the period"
-      },
       "operator": {
         "label": "Aggregation",
+        "description": "How each attribute is reduced over the dashboard period.",
         "placeholder": "Select…"
       },
       "space": {
@@ -249,11 +252,23 @@
   },
   "fields": {
     "name": "Name",
+    "type": "Type",
     "description": "Description",
     "icon": "Icon"
   },
   "icon": {
     "none": "No icon"
+  },
+  "types": {
+    "live": {
+      "label": "Live",
+      "description": "Shows the present: controls, synoptics and current values."
+    },
+    "history": {
+      "label": "History",
+      "description": "Reads recorded data over a period you pick on the dashboard: charts, meter trees, aggregated values."
+    },
+    "locked": "The type is set when the dashboard is created; it decides which widgets it can hold."
   },
   "validation": {
     "nameRequired": "Name is required"

@@ -23,6 +23,8 @@
   },
   "widgets": {
     "types": {
+      "kpi_live": "KPI (temps réel)",
+      "kpi_history": "KPI (sur la période)",
       "synoptic": "Synoptique"
     },
     "synoptic": {
@@ -40,6 +42,11 @@
     },
     "empty": "Ce tableau de bord n'a pas encore de widget.",
     "renderError": "Échec de l'affichage de ce widget.",
+    "errors": {
+      "invalid_config": "La configuration de ce widget n'est plus valide. Supprimez-le et ajoutez-le à nouveau.",
+      "incompatible_type": "Ce widget ne convient pas à un tableau de bord de ce type. Supprimez-le, ou ajoutez-le à un tableau de bord adapté.",
+      "unknown_type": "Type de widget inconnu : {{type}}."
+    },
     "chart": {
       "error": "Impossible de charger l'historique de cet attribut.",
       "targetEmpty": "La cible ne correspond à aucun appareil exposant cet attribut.",
@@ -134,15 +141,11 @@
       "noHistory": "Aucun historique n'est enregistré pour cet attribut.",
       "noMatch": "La cible ne correspond à aucun appareil exposant cet attribut.",
       "error": "Impossible de charger cette valeur.",
-      "noOperator": "Choisissez un opérateur d'agrégation.",
       "unboundedPeriod": "L'agrégation exige une période bornée — choisissez-en une autre que « Tout l'historique ».",
       "singleDeviceRequired": "Choisissez un appareil précis, ou un opérateur de regroupement ci-dessous pour en combiner plusieurs.",
-      "temporal": {
-        "live": "En direct",
-        "period": "Sur la période"
-      },
       "operator": {
         "label": "Agrégation",
+        "description": "Comment chaque attribut est réduit sur la période du tableau de bord.",
         "placeholder": "Sélectionner…"
       },
       "space": {
@@ -249,11 +252,23 @@
   },
   "fields": {
     "name": "Nom",
+    "type": "Type",
     "description": "Description",
     "icon": "Icône"
   },
   "icon": {
     "none": "Aucune icône"
+  },
+  "types": {
+    "live": {
+      "label": "Temps réel",
+      "description": "Montre l'instant présent : commandes, synoptiques et valeurs courantes."
+    },
+    "history": {
+      "label": "Historique",
+      "description": "Lit les données enregistrées sur une période choisie sur le tableau de bord : graphiques, arbres de comptage, valeurs agrégées."
+    },
+    "locked": "Le type est fixé à la création du tableau de bord ; il détermine les widgets qu'il peut contenir."
   },
   "validation": {
     "nameRequired": "Le nom est requis"

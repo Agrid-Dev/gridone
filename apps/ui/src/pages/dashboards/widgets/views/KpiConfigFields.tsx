@@ -21,7 +21,6 @@ import {
 import { Button } from "@/components/ui";
 import { InputController } from "@/components/forms/controllers/InputController";
 import { SelectController } from "@/components/forms/controllers/SelectController";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AggOption } from "@/hooks/AggOption";
 import {
   operatorsFor,
@@ -34,7 +33,6 @@ import { useDevicesList } from "@/hooks/useDevicesList";
 import { attributeUnit } from "@/lib/attributeUnits";
 import { isEmptyFilter } from "@/lib/devices";
 
-type Temporal = "live" | { operator?: AggregationOperator };
 type KpiDevices = AttributeTarget["devices"];
 
 /** A single explicit device id, no other criteria: the set resolves to
@@ -97,15 +95,101 @@ export const kpiConfigCheck = z
     { path: ["devices"] },
   );
 
-/**
- * Config fields for the KPI widget: one shared device set, then one or more
- * attributes over it, sharing whether the tile shows current values or ones
- * reduced over the dashboard period.
- */
-export const KpiConfigFields: FC<{ control: Control<FieldValues> }> = ({
+/** Config fields for the live KPI: one shared device set, then one or more
+ *  attributes over it, each showing its current value. No operator: the
+ *  present is read as is. */
+export const KpiLiveConfigFields: FC<{ control: Control<FieldValues> }> = ({
+  control,
+}) => <KpiTileFields control={control} operator={null} />;
+
+/** Config fields for the history KPI: the same tile, plus the operator every
+ *  attribute is reduced with over the dashboard period. */
+export const KpiHistoryConfigFields: FC<{ control: Control<FieldValues> }> = ({
   control,
 }) => {
+  const { t } = useTranslation("dashboards");
+  const { field: aggField } = useController({ control, name: "config.agg" });
+  const operator =
+    (aggField.value as AggregationOperator | "" | undefined) || null;
+  const { data: options } = useAggregateOptions();
+
+  const devices = toDevicesFilter(
+    useWatch({ control, name: "config.devices" }),
+  );
+  const { coverage } = useAttributeCoverage(devices, {
+    enabled: !isEmptyFilter(devices),
+  });
+  // The operator is tile-level (every attribute shares it), so only an
+  // operator every attribute's data type accepts can be offered — otherwise
+  // an attribute this excludes could be saved with an operator its type
+  // refuses.
+  const attributesValue = useWatch({ control, name: "config.attributes" }) as
+    | { attribute?: string }[]
+    | undefined;
+  const dataTypes = (attributesValue ?? []).map((a) =>
+    dataTypeFromCoverage(coverage, a?.attribute),
+  );
+  const operators = operatorsForAll(options, dataTypes);
+  const operatorOptions = operators.map(({ operator: op, resultType }) => ({
+    value: op as string,
+    label: <AggOption name={op} resultType={resultType} />,
+    disabled: resultType === null,
+  }));
+
+  // Waits for every attribute's data type — until all are known, "unsupported"
+  // cannot be told from "not loaded yet".
+  const allDataTypesKnown =
+    dataTypes.length > 0 && dataTypes.every((dt) => dt !== undefined);
+  const operatorRefused =
+    !!operator &&
+    allDataTypesKnown &&
+    operators.some((o) => o.operator === operator && o.resultType === null);
+  useEffect(() => {
+    if (operatorRefused) aggField.onChange("");
+  }, [operatorRefused, aggField]);
+
+  return (
+    <KpiTileFields
+      control={control}
+      operator={operator}
+      operatorControl={
+        <SelectController<FieldValues, "config.agg", string>
+          name="config.agg"
+          control={control}
+          label={t("widgets.kpi.operator.label")}
+          description={t("widgets.kpi.operator.description")}
+          placeholder={t("widgets.kpi.operator.placeholder")}
+          options={operatorOptions}
+          required
+        />
+      }
+    />
+  );
+};
+
+type Coverage = ReturnType<typeof useAttributeCoverage>["coverage"];
+
+function dataTypeFromCoverage(
+  coverage: Coverage,
+  attribute: string | undefined,
+): DataType | undefined {
+  const dataTypes = coverage.find((c) => c.attribute === attribute)?.data_types;
+  return dataTypes?.length === 1 ? dataTypes[0] : undefined;
+}
+
+/**
+ * The tile shared by both KPI variants: one device set, then one or more
+ * attribute rows over it. *operator* is the history variant's period
+ * operator (`null` for live), which the rows' fold control chains through;
+ * *operatorControl* is rendered once, on the first row.
+ */
+const KpiTileFields: FC<{
+  control: Control<FieldValues>;
+  operator: AggregationOperator | null;
+  operatorControl?: ReactNode;
+}> = ({ control, operator, operatorControl }) => {
   const { t } = useTranslation(["dashboards", "common"]);
+  const isPeriod = operatorControl !== undefined;
   const { fields, append, remove, replace } = useFieldArray({
     control,
     name: "config.attributes",
@@ -117,25 +201,6 @@ export const KpiConfigFields: FC<{ control: Control<FieldValues> }> = ({
   useEffect(() => {
     if (fields.length === 0) replace([BLANK_ATTRIBUTE]);
   }, [fields.length, replace]);
-
-  const { field: temporalField } = useController({
-    control,
-    name: "config.temporal",
-  });
-
-  const temporal = temporalField.value as Temporal | undefined;
-  const isPeriod = typeof temporal === "object" && temporal !== null;
-  // Read from its own registered path, not `temporal.operator`: the operator
-  // select below registers "config.temporal.operator" as its own RHF field,
-  // separate from this component's "config.temporal" controller, so the
-  // parent controller's `value` never reflects a pick made through it.
-  const watchedOperator = useWatch({
-    control,
-    name: "config.temporal.operator",
-  }) as AggregationOperator | undefined;
-  const operator = isPeriod ? (watchedOperator ?? null) : null;
-
-  const { data: options } = useAggregateOptions();
 
   const { field: devicesField } = useController({
     control,
@@ -154,81 +219,11 @@ export const KpiConfigFields: FC<{ control: Control<FieldValues> }> = ({
   const { coverage } = useAttributeCoverage(devices, {
     enabled: !isEmptyFilter(devices),
   });
-  const dataTypeOf = (attribute: string | undefined): DataType | undefined => {
-    const dataTypes = coverage.find(
-      (c) => c.attribute === attribute,
-    )?.data_types;
-    return dataTypes?.length === 1 ? dataTypes[0] : undefined;
-  };
+  const dataTypeOf = (attribute: string | undefined): DataType | undefined =>
+    dataTypeFromCoverage(coverage, attribute);
 
   const canMatchMultipleDevices =
     !isEmptyFilter(devices) && !hasSingleDeviceCriterion(devices);
-
-  // The period operator is tile-level (every attribute shares one temporal
-  // mode), so only an operator every attribute's data type accepts can be
-  // offered — otherwise an attribute this excludes could be saved with an
-  // operator its type refuses.
-  const attributesValue = useWatch({ control, name: "config.attributes" }) as
-    | { attribute?: string }[]
-    | undefined;
-  const dataTypes = (attributesValue ?? []).map((a) =>
-    dataTypeOf(a?.attribute),
-  );
-  const operators = operatorsForAll(options, dataTypes);
-  const operatorOptions = operators.map(({ operator: op, resultType }) => ({
-    value: op as string,
-    label: <AggOption name={op} resultType={resultType} />,
-    disabled: resultType === null,
-  }));
-
-  // Waits for every attribute's data type — until all are known, "unsupported"
-  // cannot be told from "not loaded yet".
-  const allDataTypesKnown =
-    dataTypes.length > 0 && dataTypes.every((dt) => dt !== undefined);
-  const operatorRefused =
-    !!operator &&
-    allDataTypesKnown &&
-    operators.some((o) => o.operator === operator && o.resultType === null);
-  useEffect(() => {
-    if (operatorRefused) temporalField.onChange({});
-  }, [operatorRefused, temporalField]);
-
-  // Switching to Live discards the period operator (it has no meaning
-  // there), so it has to be remembered outside form state to survive a
-  // round trip back to Period — otherwise every re-entry starts blank.
-  const lastOperatorRef = useRef<AggregationOperator | undefined>(undefined);
-  if (operator) lastOperatorRef.current = operator;
-
-  const temporalControl = (
-    <Tabs
-      value={isPeriod ? "period" : "live"}
-      onValueChange={(v) => {
-        temporalField.onChange(
-          v === "period"
-            ? lastOperatorRef.current
-              ? { operator: lastOperatorRef.current }
-              : {}
-            : "live",
-        );
-      }}
-    >
-      <TabsList>
-        <TabsTrigger value="live">{t("widgets.kpi.temporal.live")}</TabsTrigger>
-        <TabsTrigger value="period">
-          {t("widgets.kpi.temporal.period")}
-        </TabsTrigger>
-      </TabsList>
-      <TabsContent value="period" className="mt-4">
-        <SelectController<FieldValues, "config.temporal.operator", string>
-          name="config.temporal.operator"
-          control={control}
-          label={t("widgets.kpi.operator.label")}
-          placeholder={t("widgets.kpi.operator.placeholder")}
-          options={operatorOptions}
-        />
-      </TabsContent>
-    </Tabs>
-  );
 
   return (
     <>
@@ -275,7 +270,7 @@ export const KpiConfigFields: FC<{ control: Control<FieldValues> }> = ({
             isPeriod={isPeriod}
             operator={operator}
             canMatchMultipleDevices={canMatchMultipleDevices}
-            temporalControl={index === 0 ? temporalControl : undefined}
+            temporalControl={index === 0 ? operatorControl : undefined}
           />
         </div>
       ))}
@@ -302,7 +297,7 @@ const KpiAttributeFields: FC<{
   isPeriod: boolean;
   operator: AggregationOperator | null;
   canMatchMultipleDevices: boolean;
-  /** The Live/Period control; only passed for row 0. */
+  /** The history variant's operator control; only passed for row 0. */
   temporalControl: ReactNode | undefined;
 }> = ({
   control,

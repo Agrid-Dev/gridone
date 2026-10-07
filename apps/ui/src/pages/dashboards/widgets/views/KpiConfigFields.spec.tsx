@@ -6,9 +6,8 @@ import { createI18nMock } from "@/test/i18nMock";
 
 vi.mock("react-i18next", () =>
   createI18nMock({
-    "widgets.kpi.temporal.live": "Live",
-    "widgets.kpi.temporal.period": "Over the period",
     "widgets.kpi.operator.label": "Aggregation",
+    "widgets.kpi.operator.description": "How each attribute is reduced.",
     "widgets.kpi.operator.placeholder": "Select…",
     "widgets.kpi.unit.label": "Unit",
     "widgets.kpi.precision.label": "Precision",
@@ -207,45 +206,50 @@ vi.mock("@/components/ui/select", () => ({
 // Imported after the mocks are registered.
 import {
   BLANK_ATTRIBUTE,
-  KpiConfigFields,
+  KpiHistoryConfigFields,
+  KpiLiveConfigFields,
   kpiConfigCheck,
   kpiPreviewSize,
 } from "./KpiConfigFields";
+
+/** A `history` config carries the tile-level operator (`agg`, possibly still
+ *  unpicked); a `live` one has no such field. */
+type HistoryConfig = { agg: string };
 
 function Harness({
   onValues,
   defaultAttributes = [BLANK_ATTRIBUTE],
   defaultDevices = {},
-  defaultConfig = {},
+  history,
 }: {
   onValues: (config: Record<string, unknown>) => void;
   defaultAttributes?: Record<string, unknown>[];
   defaultDevices?: Record<string, unknown>;
-  defaultConfig?: Record<string, unknown>;
+  history?: HistoryConfig;
 }) {
   const form = useForm({
     defaultValues: {
       config: {
-        type: "kpi",
+        type: history ? "kpi_history" : "kpi_live",
         devices: defaultDevices,
         attributes: defaultAttributes,
-        temporal: "live",
-        ...defaultConfig,
+        ...history,
       },
     },
   });
   onValues(form.watch("config"));
-  return (
-    <KpiConfigFields
-      control={form.control as unknown as Control<FieldValues>}
-    />
+  const control = form.control as unknown as Control<FieldValues>;
+  return history ? (
+    <KpiHistoryConfigFields control={control} />
+  ) : (
+    <KpiLiveConfigFields control={control} />
   );
 }
 
 function renderFields(
   defaultAttributes?: Record<string, unknown>[],
   defaultDevices?: Record<string, unknown>,
-  defaultConfig?: Record<string, unknown>,
+  history?: HistoryConfig,
 ) {
   const values: Record<string, unknown>[] = [];
   render(
@@ -253,7 +257,7 @@ function renderFields(
       onValues={(c) => values.push(c)}
       defaultAttributes={defaultAttributes}
       defaultDevices={defaultDevices}
-      defaultConfig={defaultConfig}
+      history={history}
     />,
   );
   return () => values[values.length - 1];
@@ -269,7 +273,7 @@ const CRITERIA_DEVICES = { types: ["thermostat"] };
 
 afterEach(cleanup);
 
-describe("KpiConfigFields", () => {
+describe("KpiLiveConfigFields / KpiHistoryConfigFields", () => {
   it("emits the picked device set", () => {
     const latest = renderFields();
 
@@ -321,47 +325,30 @@ describe("KpiConfigFields", () => {
     expect(firstAttribute(latest()).unit).toBeNull();
   });
 
-  it("starts in live mode with no operator select shown", () => {
-    renderFields();
+  it("offers no operator on the live variant", () => {
+    const latest = renderFields();
 
-    expect(screen.getByText("Live")).toBeInTheDocument();
     expect(screen.queryByTestId("operator")).not.toBeInTheDocument();
+    expect(latest()).not.toHaveProperty("agg");
   });
 
-  it("switches to period mode and shows the operator select", () => {
+  it("emits the picked operator on the history variant", () => {
     const latest = renderFields(
       [{ ...BLANK_ATTRIBUTE, attribute: "temperature" }],
       SINGLE_DEVICE,
+      { agg: "" },
     );
 
-    fireEvent.click(screen.getByText("Over the period"));
-
-    expect(latest().temporal).toEqual({});
-    expect(screen.getByTestId("operator")).toBeInTheDocument();
-  });
-
-  it("remembers the picked operator across a Live/Period round trip", () => {
-    const latest = renderFields(
-      [{ ...BLANK_ATTRIBUTE, attribute: "temperature" }],
-      SINGLE_DEVICE,
-    );
-
-    fireEvent.click(screen.getByText("Over the period"));
     fireEvent.change(screen.getByTestId("operator"), {
       target: { value: "avg" },
     });
-    expect(latest().temporal).toEqual({ operator: "avg" });
 
-    fireEvent.click(screen.getByText("Live"));
-    expect(latest().temporal).toBe("live");
-
-    fireEvent.click(screen.getByText("Over the period"));
-    expect(latest().temporal).toEqual({ operator: "avg" });
+    expect(latest().agg).toBe("avg");
   });
 
   it("disables operators the attribute's data type refuses", () => {
     renderFields([{ ...BLANK_ATTRIBUTE, attribute: "mode" }], SINGLE_DEVICE, {
-      temporal: {},
+      agg: "",
     });
 
     const options = Array.from(
@@ -380,7 +367,7 @@ describe("KpiConfigFields", () => {
         { ...BLANK_ATTRIBUTE, attribute: "mode" },
       ],
       SINGLE_DEVICE,
-      { temporal: {} },
+      { agg: "" },
     );
 
     const options = Array.from(
@@ -397,7 +384,7 @@ describe("KpiConfigFields", () => {
         { ...BLANK_ATTRIBUTE, attribute: "temperature" },
       ],
       SINGLE_DEVICE,
-      { temporal: {} },
+      { agg: "" },
     );
 
     const options = Array.from(
@@ -416,7 +403,7 @@ describe("KpiConfigFields", () => {
         { ...BLANK_ATTRIBUTE, attribute: "" },
       ],
       SINGLE_DEVICE,
-      { temporal: {} },
+      { agg: "" },
     );
 
     const options = Array.from(
@@ -430,12 +417,10 @@ describe("KpiConfigFields", () => {
     const latest = renderFields(
       [{ ...BLANK_ATTRIBUTE, attribute: "mode" }],
       SINGLE_DEVICE,
-      { temporal: { operator: "avg" } },
+      { agg: "avg" },
     );
 
-    expect(
-      (latest().temporal as { operator?: string }).operator,
-    ).toBeUndefined();
+    expect(latest().agg).toBe("");
   });
 
   it("names the constraint when the device set picks more than one device and no operator is chosen", () => {
@@ -528,21 +513,21 @@ describe("KpiConfigFields", () => {
   // Space folds what the period operator yields, so there's nothing to
   // offer until one is picked — showing a populated-but-fully-disabled
   // select there would look broken rather than merely premature.
-  it("hides the space select in period mode until a time operator is chosen", () => {
+  it("hides the space select on the history variant until a time operator is chosen", () => {
     renderFields(
       [{ ...BLANK_ATTRIBUTE, attribute: "temperature" }],
       CRITERIA_DEVICES,
-      { temporal: {} },
+      { agg: "" },
     );
 
     expect(screen.getAllByTestId("operator")).toHaveLength(1);
   });
 
-  it("shows the space select in period mode once a time operator is chosen", () => {
+  it("shows the space select on the history variant once a time operator is chosen", () => {
     renderFields(
       [{ ...BLANK_ATTRIBUTE, attribute: "temperature" }],
       CRITERIA_DEVICES,
-      { temporal: { operator: "avg" } },
+      { agg: "avg" },
     );
 
     expect(screen.getAllByTestId("operator")).toHaveLength(2);

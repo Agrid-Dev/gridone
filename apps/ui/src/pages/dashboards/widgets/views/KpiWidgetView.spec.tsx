@@ -39,12 +39,13 @@ vi.mock("./useSpaceAggregate", () => ({
 }));
 
 const useDashboardPeriod = vi.fn();
-vi.mock("../../useDashboardPeriod", () => ({
+vi.mock("../../useDashboardPeriod", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../useDashboardPeriod")>()),
   useDashboardPeriod: () => useDashboardPeriod(),
 }));
 
 // Imported after the mocks are registered.
-import { KpiWidgetView } from "./KpiWidgetView";
+import { KpiHistoryWidgetView, KpiLiveWidgetView } from "./KpiWidgetView";
 
 const TEMPERATURE_ATTRIBUTE = {
   label: "Temperature",
@@ -55,15 +56,15 @@ const TEMPERATURE_ATTRIBUTE = {
 };
 
 const LIVE_CONFIG = {
-  type: "kpi",
+  type: "kpi_live",
   devices: { ids: ["dev1"] },
   attributes: [TEMPERATURE_ATTRIBUTE],
-  temporal: "live",
 };
 
 const PERIOD_CONFIG = {
   ...LIVE_CONFIG,
-  temporal: { operator: "sum" },
+  type: "kpi_history",
+  agg: "sum",
 };
 
 function mockDevice(over: Record<string, unknown> = {}) {
@@ -97,11 +98,11 @@ beforeEach(() => {
   useDevice.mockReturnValue({ data: undefined, isLoading: false, error: null });
 });
 
-describe("KpiWidgetView (live)", () => {
+describe("KpiLiveWidgetView", () => {
   it("shows the current value with unit and precision", () => {
     mockDevice();
 
-    render(<KpiWidgetView config={LIVE_CONFIG} />);
+    render(<KpiLiveWidgetView config={LIVE_CONFIG} />);
 
     expect(screen.getByText("Temperature")).toBeInTheDocument();
     expect(screen.getByText("21.5")).toBeInTheDocument();
@@ -119,7 +120,7 @@ describe("KpiWidgetView (live)", () => {
     });
 
     render(
-      <KpiWidgetView
+      <KpiLiveWidgetView
         config={{
           ...LIVE_CONFIG,
           attributes: [{ ...TEMPERATURE_ATTRIBUTE, attribute: "power" }],
@@ -134,7 +135,7 @@ describe("KpiWidgetView (live)", () => {
     mockDevice();
 
     render(
-      <KpiWidgetView
+      <KpiLiveWidgetView
         config={{
           ...LIVE_CONFIG,
           devices: {},
@@ -151,7 +152,7 @@ describe("KpiWidgetView (live)", () => {
   it("reads a 404 as the device no longer existing", () => {
     mockDevice({ data: undefined, error: new GridoneError(404, "gone") });
 
-    render(<KpiWidgetView config={LIVE_CONFIG} />);
+    render(<KpiLiveWidgetView config={LIVE_CONFIG} />);
 
     expect(
       screen.getByText("This device no longer exists"),
@@ -168,14 +169,14 @@ describe("KpiWidgetView (live)", () => {
       },
     });
 
-    render(<KpiWidgetView config={LIVE_CONFIG} />);
+    render(<KpiLiveWidgetView config={LIVE_CONFIG} />);
 
     expect(
       screen.getByText("This device no longer exposes this attribute"),
     ).toBeInTheDocument();
   });
 
-  it("renders one row per attribute, sharing the tile's temporal mode and device set", () => {
+  it("renders one row per attribute, sharing the tile's device set", () => {
     mockDevice({
       data: {
         id: "dev1",
@@ -189,11 +190,10 @@ describe("KpiWidgetView (live)", () => {
     });
 
     render(
-      <KpiWidgetView
+      <KpiLiveWidgetView
         config={{
-          type: "kpi",
+          type: "kpi_live",
           devices: { ids: ["dev1"] },
-          temporal: "live",
           attributes: [
             TEMPERATURE_ATTRIBUTE,
             {
@@ -216,7 +216,7 @@ describe("KpiWidgetView (live)", () => {
   });
 });
 
-describe("KpiWidgetView (period)", () => {
+describe("KpiHistoryWidgetView", () => {
   it("computes via a single whole-period request", () => {
     useKpiAggregate.mockReturnValue({
       data: {
@@ -228,7 +228,7 @@ describe("KpiWidgetView (period)", () => {
       error: null,
     });
 
-    render(<KpiWidgetView config={PERIOD_CONFIG} />);
+    render(<KpiHistoryWidgetView config={PERIOD_CONFIG} />);
 
     expect(useKpiAggregate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -246,24 +246,10 @@ describe("KpiWidgetView (period)", () => {
     useDashboardPeriod.mockReturnValue({ query: {}, refetchInterval: false });
     useKpiAggregate.mockReturnValue({ isLoading: false, error: null });
 
-    render(<KpiWidgetView config={PERIOD_CONFIG} />);
+    render(<KpiHistoryWidgetView config={PERIOD_CONFIG} />);
 
     expect(
       screen.getByText("Aggregation needs a bounded period"),
-    ).toBeInTheDocument();
-  });
-
-  it("asks for an operator when none is picked yet", () => {
-    useKpiAggregate.mockReturnValue({ isLoading: false, error: null });
-
-    render(
-      <KpiWidgetView
-        config={{ ...PERIOD_CONFIG, temporal: { operator: undefined } }}
-      />,
-    );
-
-    expect(
-      screen.getByText("Pick an aggregation operator"),
     ).toBeInTheDocument();
   });
 
@@ -280,7 +266,7 @@ describe("KpiWidgetView (period)", () => {
       error: null,
     });
 
-    render(<KpiWidgetView config={PERIOD_CONFIG} />);
+    render(<KpiHistoryWidgetView config={PERIOD_CONFIG} />);
 
     expect(
       screen.getByText("No history is recorded for this attribute"),
@@ -301,7 +287,7 @@ describe("KpiWidgetView (period)", () => {
       error: new GridoneError(404, "gone"),
     });
 
-    render(<KpiWidgetView config={PERIOD_CONFIG} />);
+    render(<KpiHistoryWidgetView config={PERIOD_CONFIG} />);
 
     expect(
       screen.getByText("This device no longer exists"),
@@ -323,18 +309,18 @@ const SPACE_ATTRIBUTE = {
 const SPACE_TARGET = { devices: SPACE_DEVICES, attribute: "power" };
 
 const SPACE_LIVE_CONFIG = {
-  type: "kpi",
+  type: "kpi_live",
   devices: SPACE_DEVICES,
   attributes: [SPACE_ATTRIBUTE],
-  temporal: "live",
 };
 
 const SPACE_PERIOD_CONFIG = {
   ...SPACE_LIVE_CONFIG,
-  temporal: { operator: "avg" },
+  type: "kpi_history",
+  agg: "avg",
 };
 
-describe("KpiWidgetView (live, space_agg)", () => {
+describe("KpiLiveWidgetView (space_agg)", () => {
   it("shows the folded value across the set", () => {
     useKpiLiveAggregate.mockReturnValue({
       data: { value: 4500, data_type: "int", device_count: 3 },
@@ -342,14 +328,18 @@ describe("KpiWidgetView (live, space_agg)", () => {
       error: null,
     });
 
-    render(<KpiWidgetView config={SPACE_LIVE_CONFIG} />);
+    render(<KpiLiveWidgetView config={SPACE_LIVE_CONFIG} />);
 
+    // Polls on the live cadence regardless of any period in the URL: a live
+    // dashboard has no period selector to take one from.
     expect(useKpiLiveAggregate).toHaveBeenCalledWith(
       expect.objectContaining({
         target: SPACE_TARGET,
         spaceAgg: "sum",
+        refetchInterval: 300_000,
       }),
     );
+    expect(useDashboardPeriod).not.toHaveBeenCalled();
     expect(screen.getByText("4500")).toBeInTheDocument();
     expect(screen.getByText("W")).toBeInTheDocument();
   });
@@ -360,7 +350,7 @@ describe("KpiWidgetView (live, space_agg)", () => {
       error: new GridoneError(422, "no match"),
     });
 
-    render(<KpiWidgetView config={SPACE_LIVE_CONFIG} />);
+    render(<KpiLiveWidgetView config={SPACE_LIVE_CONFIG} />);
 
     expect(
       screen.getByText("The target matches no device"),
@@ -368,7 +358,7 @@ describe("KpiWidgetView (live, space_agg)", () => {
   });
 });
 
-describe("KpiWidgetView (period, space_agg)", () => {
+describe("KpiHistoryWidgetView (space_agg)", () => {
   it("computes via a single whole-period space request", () => {
     useSpaceAggregate.mockReturnValue({
       data: {
@@ -379,7 +369,7 @@ describe("KpiWidgetView (period, space_agg)", () => {
       error: null,
     });
 
-    render(<KpiWidgetView config={SPACE_PERIOD_CONFIG} />);
+    render(<KpiHistoryWidgetView config={SPACE_PERIOD_CONFIG} />);
 
     expect(useSpaceAggregate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -399,7 +389,7 @@ describe("KpiWidgetView (period, space_agg)", () => {
       error: new GridoneError(404, "no series"),
     });
 
-    render(<KpiWidgetView config={SPACE_PERIOD_CONFIG} />);
+    render(<KpiHistoryWidgetView config={SPACE_PERIOD_CONFIG} />);
 
     expect(
       screen.getByText("No history is recorded for this attribute"),

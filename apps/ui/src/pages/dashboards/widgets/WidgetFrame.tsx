@@ -1,19 +1,14 @@
 import type { FC, ReactNode } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { useTranslation } from "react-i18next";
-import { TriangleAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { WidgetErrorState } from "./WidgetErrorState";
 
 /** Compact in-tile fallback: a widget that throws while rendering shows this
  *  instead of crashing the dashboard page (or the editor). */
 const WidgetErrorFallback: FC = () => {
   const { t } = useTranslation("dashboards");
-  return (
-    <div className="flex h-full items-center justify-center gap-2 p-4 text-center text-sm text-muted-foreground">
-      <TriangleAlert className="h-4 w-4 shrink-0 text-destructive" />
-      {t("widgets.renderError")}
-    </div>
-  );
+  return <WidgetErrorState message={t("widgets.renderError")} />;
 };
 
 /** The chrome around a widget body: a bordered card with an optional title bar,

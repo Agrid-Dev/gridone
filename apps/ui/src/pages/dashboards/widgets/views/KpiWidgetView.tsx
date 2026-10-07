@@ -1,4 +1,4 @@
-import type { FC } from "react";
+import type { FC, ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
   isGridoneError,
@@ -6,14 +6,18 @@ import {
   type AggregationOperator,
   type DataType,
   type KpiAttribute,
-  type KpiWidgetConfig,
+  type KpiHistoryWidgetConfig,
+  type KpiLiveWidgetConfig,
 } from "@gridone/sdk";
 import { AttributeValue } from "@/components/AttributeValue";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDevice } from "@/hooks/useDevice";
 import { deviceAttributes, type DeviceType } from "@/lib/devices";
 import { fmt } from "@/lib/formatValue";
-import { useDashboardPeriod } from "../../useDashboardPeriod";
+import {
+  LIVE_REFETCH_INTERVAL_MS,
+  useDashboardPeriod,
+} from "../../useDashboardPeriod";
 import { useKpiAggregate } from "./useKpiAggregate";
 import { useKpiLiveAggregate } from "./useKpiLiveAggregate";
 import { useSpaceAggregate } from "./useSpaceAggregate";
@@ -68,37 +72,66 @@ const KpiValue: FC<{
   );
 };
 
-/**
- * One or more number rows over device attributes, sharing one Live/Period
- * mode: each attribute's current value, or its value reduced over the whole
- * dashboard period. The tile's grid footprint grows with the attribute
- * count (see the backend's ``content_size_hint``), so rows keep their size.
- */
-export const KpiWidgetView: FC<{ config: unknown }> = ({ config }) => {
-  const { devices, attributes, temporal } = config as KpiWidgetConfig;
+/** One row per attribute, each rendered by *row*; the tile's grid footprint
+ *  grows with the attribute count (see the backend's ``content_size_hint``),
+ *  so rows keep their size. */
+const KpiTile: FC<{
+  attributes: KpiAttribute[];
+  row: (attribute: KpiAttribute) => ReactNode;
+}> = ({ attributes, row }) => (
+  <div className="flex h-full flex-col divide-y">
+    {attributes.map((attribute, index) => (
+      <div key={index} className="min-h-0 flex-1 overflow-hidden py-1">
+        {row(attribute)}
+      </div>
+    ))}
+  </div>
+);
 
+/**
+ * One or more number rows over device attributes, each showing its current
+ * value — read from the device cache, or folded live across the device set.
+ * Reads the present, so it never looks at the dashboard period.
+ */
+export const KpiLiveWidgetView: FC<{ config: unknown }> = ({ config }) => {
+  const { devices, attributes } = config as KpiLiveWidgetConfig;
   return (
-    <div className="flex h-full flex-col divide-y">
-      {attributes.map((attribute, index) => (
-        <div key={index} className="min-h-0 flex-1 overflow-hidden py-1">
-          <KpiAttributeView
-            devices={devices}
-            attribute={attribute}
-            temporal={temporal}
-          />
-        </div>
-      ))}
-    </div>
+    <KpiTile
+      attributes={attributes}
+      row={(attribute) => (
+        <KpiLiveAttributeView devices={devices} attribute={attribute} />
+      )}
+    />
   );
 };
 
-/** One attribute's value, dispatched to the leaf view matching its
- *  space_agg × temporal mode combination. */
-const KpiAttributeView: FC<{
-  devices: KpiWidgetConfig["devices"];
+/**
+ * One or more number rows over device attributes, each reduced over the
+ * whole dashboard period by the tile's shared operator.
+ */
+export const KpiHistoryWidgetView: FC<{ config: unknown }> = ({ config }) => {
+  const { devices, attributes, agg } = config as KpiHistoryWidgetConfig;
+  return (
+    <KpiTile
+      attributes={attributes}
+      row={(attribute) => (
+        <KpiHistoryAttributeView
+          devices={devices}
+          attribute={attribute}
+          agg={agg}
+        />
+      )}
+    />
+  );
+};
+
+type KpiDevices = KpiLiveWidgetConfig["devices"];
+
+/** One attribute's current value, dispatched on whether the device set folds. */
+const KpiLiveAttributeView: FC<{
+  devices: KpiDevices;
   attribute: KpiAttribute;
-  temporal: KpiWidgetConfig["temporal"];
-}> = ({ devices, attribute, temporal }) => {
+}> = ({ devices, attribute }) => {
   const {
     label,
     attribute: attributeName,
@@ -107,20 +140,9 @@ const KpiAttributeView: FC<{
     precision,
   } = attribute;
   const target: AttributeTarget = { devices, attribute: attributeName };
-  const deviceId = devices.ids?.[0];
-  const isPeriod = temporal !== "live" && !!temporal;
 
   if (spaceAgg) {
-    return isPeriod ? (
-      <PeriodSpaceKpiView
-        label={label}
-        target={target}
-        agg={temporal.operator}
-        spaceAgg={spaceAgg}
-        unit={unit}
-        precision={precision}
-      />
-    ) : (
+    return (
       <LiveSpaceKpiView
         label={label}
         target={target}
@@ -130,13 +152,40 @@ const KpiAttributeView: FC<{
       />
     );
   }
+  return (
+    <LiveKpiView
+      label={label}
+      deviceId={devices.ids?.[0]}
+      attribute={target.attribute}
+      unit={unit}
+      precision={precision}
+    />
+  );
+};
 
-  if (!isPeriod) {
+/** One attribute's value over the period, dispatched on whether the device
+ *  set folds. */
+const KpiHistoryAttributeView: FC<{
+  devices: KpiDevices;
+  attribute: KpiAttribute;
+  agg: AggregationOperator;
+}> = ({ devices, attribute, agg }) => {
+  const {
+    label,
+    attribute: attributeName,
+    space_agg: spaceAgg,
+    unit,
+    precision,
+  } = attribute;
+  const target: AttributeTarget = { devices, attribute: attributeName };
+
+  if (spaceAgg) {
     return (
-      <LiveKpiView
+      <PeriodSpaceKpiView
         label={label}
-        deviceId={deviceId}
-        attribute={target.attribute}
+        target={target}
+        agg={agg}
+        spaceAgg={spaceAgg}
         unit={unit}
         precision={precision}
       />
@@ -145,9 +194,9 @@ const KpiAttributeView: FC<{
   return (
     <PeriodKpiView
       label={label}
-      deviceId={deviceId}
+      deviceId={devices.ids?.[0]}
       attribute={target.attribute}
-      agg={temporal.operator}
+      agg={agg}
       unit={unit}
       precision={precision}
     />
@@ -189,7 +238,7 @@ const PeriodKpiView: FC<{
   label: string;
   deviceId: string | undefined;
   attribute: string;
-  agg: AggregationOperator | undefined;
+  agg: AggregationOperator;
   unit: string | null | undefined;
   precision: number | null | undefined;
 }> = ({ label, deviceId, attribute, agg, unit, precision }) => {
@@ -215,7 +264,6 @@ const PeriodKpiView: FC<{
   );
 
   if (!deviceId) return <Message>{t("widgets.kpi.targetEmpty")}</Message>;
-  if (!agg) return <Message>{t("widgets.kpi.noOperator")}</Message>;
   if (unbounded) return <Message>{t("widgets.kpi.unboundedPeriod")}</Message>;
   if (result.isLoading) return <Skeleton className="h-full w-full" />;
   if (isNotFound(result.error)) {
@@ -271,9 +319,14 @@ const LiveSpaceKpiView: FC<{
   precision: number | null | undefined;
 }> = ({ label, target, spaceAgg, unit, precision }) => {
   const { t } = useTranslation("dashboards");
-  const { refetchInterval } = useDashboardPeriod();
 
-  const result = useKpiLiveAggregate({ target, spaceAgg, refetchInterval });
+  // A live fold has no period to take a cadence from: it re-polls on the
+  // unattended-screen interval unconditionally.
+  const result = useKpiLiveAggregate({
+    target,
+    spaceAgg,
+    refetchInterval: LIVE_REFETCH_INTERVAL_MS,
+  });
 
   const errorKey = spaceErrorMessageKey(result.error);
 

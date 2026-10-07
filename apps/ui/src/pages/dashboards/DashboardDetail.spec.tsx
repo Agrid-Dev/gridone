@@ -7,7 +7,7 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { TextWidgetConfig, Widget } from "@gridone/sdk";
+import type { DashboardType, TextWidgetConfig, Widget } from "@gridone/sdk";
 import { MemoryRouter } from "react-router";
 import { createI18nMock } from "@/test/i18nMock";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -26,12 +26,14 @@ vi.mock("react-i18next", () =>
     "layout.save": "Save",
     "common.cancel": "Cancel",
     "common.delete": "Delete",
+    "widgets.errors.incompatible_type": "This widget does not fit here.",
   }),
 );
 
 let canWrite = true;
 let editing = false;
 let icon: string | null = null;
+let type: DashboardType = "history";
 let widgets: Widget[] = [];
 const removeWidget = vi.fn().mockResolvedValue(undefined);
 const WIDGET: Widget = {
@@ -49,6 +51,7 @@ vi.mock("./useDashboards", () => ({
   useDashboardFromRoute: () => ({
     id: "d1",
     name: "Energy",
+    type,
     icon,
     widgets,
     metadata: {},
@@ -73,6 +76,7 @@ beforeEach(() => {
   canWrite = true;
   editing = false;
   icon = null;
+  type = "history";
   widgets = [];
   removeWidget.mockClear();
 });
@@ -94,7 +98,6 @@ it("titles the page with the dashboard, no view switcher, with one add-widget ac
   expect(heading).toHaveTextContent("Energy");
   expect(within(heading).queryByRole("button")).not.toBeInTheDocument();
   expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
-  expect(screen.getByText("Period")).toBeInTheDocument();
   expect(screen.getAllByRole("link", { name: "Add widget" })).toHaveLength(1);
   expect(screen.getByRole("link", { name: "Add widget" })).toHaveAttribute(
     "href",
@@ -103,6 +106,35 @@ it("titles the page with the dashboard, no view switcher, with one add-widget ac
   expect(
     screen.getByRole("button", { name: "Edit dashboard" }),
   ).toBeInTheDocument();
+});
+
+it("carries the period selector in the body of a history dashboard, and none on a live one", () => {
+  renderPage();
+  const period = screen.getByText("Period");
+  // Inside the dashboard, below the header: it is the dashboard's own
+  // control, not a page action.
+  expect(
+    screen.getByRole("heading", { level: 2 }).parentElement,
+  ).not.toContainElement(period);
+  cleanup();
+
+  type = "live";
+  renderPage();
+  expect(screen.queryByText("Period")).not.toBeInTheDocument();
+});
+
+it("renders a flagged widget as an error tile that can still be removed", async () => {
+  const user = userEvent.setup();
+  widgets = [{ ...WIDGET, error: "incompatible_type" }];
+  renderPage();
+
+  expect(screen.getByRole("alert")).toHaveTextContent(
+    "This widget does not fit here.",
+  );
+  expect(screen.queryByText("Hello")).not.toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: "Edit dashboard" }));
+  expect(screen.getByRole("button", { name: "Delete widget" })).toBeEnabled();
 });
 
 it("carries the dashboard's icon in the title, and no glyph without one", () => {

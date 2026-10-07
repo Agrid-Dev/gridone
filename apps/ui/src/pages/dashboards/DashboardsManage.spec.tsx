@@ -27,9 +27,13 @@ vi.mock("react-i18next", () =>
     "edit.title": "Edit dashboard details",
     "edit.submit": "Save changes",
     "fields.name": "Name",
+    "fields.type": "Type",
     "fields.description": "Description",
     "fields.icon": "Icon",
     "icon.none": "No icon",
+    "types.live.label": "Live",
+    "types.history.label": "History",
+    "types.locked": "The type is set at creation.",
     "common:empty.create.dashboards": "Create a dashboard",
     "common:common.cancel": "Cancel",
     "common.cancel": "Cancel",
@@ -68,11 +72,12 @@ const summary = (
   name: string,
   description?: string,
   icon: DashboardSummary["icon"] = null,
-) => ({ id, name, description, icon, metadata: {} }) as DashboardSummary;
+  type: DashboardSummary["type"] = "live",
+) => ({ id, name, type, description, icon, metadata: {} }) as DashboardSummary;
 const DASHBOARDS = [
   summary("d1", "ECS Ouest", "Hot water, west wing", "droplets"),
   summary("d2", "CTA"),
-  summary("d3", "Comptage"),
+  summary("d3", "Comptage", undefined, null, "history"),
 ];
 
 const client = {
@@ -116,10 +121,11 @@ describe("DashboardsManage", () => {
   it("lists the dashboards in the API's order, each with a handle, and persists a drop", async () => {
     renderPage();
     await waitFor(() => expect(rows()).toHaveLength(3));
+    // Each row badges its type.
     expect(rows().map((row) => row.textContent)).toEqual([
-      "ECS OuestHot water, west wing",
-      "CTA",
-      "Comptage",
+      "ECS OuestLiveHot water, west wing",
+      "CTALive",
+      "ComptageHistory",
     ]);
     expect(screen.getByRole("link", { name: "New dashboard" })).toHaveAttribute(
       "href",
@@ -148,9 +154,9 @@ describe("DashboardsManage", () => {
       }),
     );
     expect(rows().map((row) => row.textContent)).toEqual([
-      "Comptage",
-      "ECS OuestHot water, west wing",
-      "CTA",
+      "ComptageHistory",
+      "ECS OuestLiveHot water, west wing",
+      "CTALive",
     ]);
   });
 
@@ -166,6 +172,11 @@ describe("DashboardsManage", () => {
     });
     const name = within(dialog).getByLabelText(/Name/);
     expect(name).toHaveValue("CTA");
+    // The type is fixed at creation: shown, not editable, and not sent.
+    expect(
+      within(dialog).getByTestId("dashboard-type-locked"),
+    ).toHaveTextContent("Live");
+    expect(within(dialog).queryByRole("combobox")).not.toBeInTheDocument();
     await user.clear(name);
     await user.type(name, "CTA Nord");
     await user.type(within(dialog).getByLabelText(/Description/), "Roof units");
