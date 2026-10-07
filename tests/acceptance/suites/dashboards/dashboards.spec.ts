@@ -21,6 +21,7 @@ describe("dashboards CRUD", () => {
 
   async function createDashboard(): Promise<string> {
     const created = await client.dashboards.create({
+      type: "live",
       name: `acceptance-dashboard-${createdIds.length}-${Date.now()}`,
       description: "created by acceptance",
     });
@@ -81,6 +82,7 @@ describe("dashboards CRUD", () => {
     let error: unknown = null;
     try {
       await client.dashboards.create({
+        type: "live",
         name: "x",
         bogus: 1,
       } as unknown as Parameters<typeof client.dashboards.create>[0]);
