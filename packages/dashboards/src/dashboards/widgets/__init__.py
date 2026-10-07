@@ -1,5 +1,5 @@
 from dashboards.widgets.chart import ChartWidgetConfig
-from dashboards.widgets.config import WidgetConfig
+from dashboards.widgets.config import InvalidWidgetConfig, WidgetConfig
 from dashboards.widgets.control_panel import (
     ActiveCondition,
     ControlPanelAttribute,
@@ -7,7 +7,11 @@ from dashboards.widgets.control_panel import (
     ControlPanelWidgetConfig,
 )
 from dashboards.widgets.device_control import DeviceControlWidgetConfig
-from dashboards.widgets.kpi import KpiAttribute, KpiWidgetConfig, TimeAggregation
+from dashboards.widgets.kpi import (
+    KpiAttribute,
+    KpiHistoryWidgetConfig,
+    KpiLiveWidgetConfig,
+)
 from dashboards.widgets.meter_tree import MeterTreeNode, MeterTreeWidgetConfig
 from dashboards.widgets.registry import (
     WidgetRegistry,
@@ -25,13 +29,14 @@ __all__ = [
     "ControlPanelSection",
     "ControlPanelWidgetConfig",
     "DeviceControlWidgetConfig",
+    "InvalidWidgetConfig",
     "KpiAttribute",
-    "KpiWidgetConfig",
+    "KpiHistoryWidgetConfig",
+    "KpiLiveWidgetConfig",
     "MeterTreeNode",
     "MeterTreeWidgetConfig",
     "SynopticWidgetConfig",
     "TextWidgetConfig",
-    "TimeAggregation",
     "WidgetConfig",
     "WidgetRegistry",
     "WidgetSize",

@@ -43,6 +43,8 @@ class PostgresDashboardsStorage:
         self._pool = pool
         # The registry rebuilds each widget's concrete config model from stored
         # JSON — the base ``WidgetConfig`` alone can't discriminate on ``type``.
+        # A config it no longer accepts loads as ``InvalidWidgetConfig`` rather
+        # than failing the whole dashboard (see ``WidgetRegistry.load_config``).
         self._registry = registry
 
     def _widget_from_jsonb(self, raw: dict[str, Any]) -> Widget:
@@ -50,7 +52,7 @@ class PostgresDashboardsStorage:
             id=raw["id"],
             title=raw.get("title"),
             description=raw.get("description"),
-            config=self._registry.validate_config(raw["config"]),
+            config=self._registry.load_config(raw["config"]),
             layout=WidgetLayout.model_validate(raw["layout"]),
             metadata=Metadata.model_validate(raw["metadata"]),
         )
@@ -65,6 +67,7 @@ class PostgresDashboardsStorage:
         return Dashboard(
             id=row["id"],
             name=row["name"],
+            type=row["type"],
             description=row["description"],
             icon=row["icon"],
             widgets=[self._widget_from_jsonb(w) for w in row["widgets"]],
@@ -75,6 +78,7 @@ class PostgresDashboardsStorage:
         return DashboardSummary(
             id=row["id"],
             name=row["name"],
+            type=row["type"],
             description=row["description"],
             icon=row["icon"],
             metadata=self._row_to_metadata(row),
@@ -84,14 +88,15 @@ class PostgresDashboardsStorage:
         row = await self._pool.fetchrow(
             """
             INSERT INTO dashboards
-                (id, name, description, icon, widgets, created_at, updated_at,
-                 position)
-            VALUES ($1, $2, $3, $4, $5, $6, $7,
+                (id, name, type, description, icon, widgets, created_at,
+                 updated_at, position)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8,
                     (SELECT COALESCE(MAX(position), -1) + 1 FROM dashboards))
             RETURNING *
             """,
             dashboard.id,
             dashboard.name,
+            dashboard.type,
             dashboard.description,
             dashboard.icon,
             [_widget_to_jsonb(w) for w in dashboard.widgets],
@@ -112,7 +117,7 @@ class PostgresDashboardsStorage:
         self, *, limit: int | None = None, offset: int | None = None
     ) -> list[DashboardSummary]:
         query = (
-            "SELECT id, name, description, icon, created_at, updated_at "
+            "SELECT id, name, type, description, icon, created_at, updated_at "
             "FROM dashboards ORDER BY position, created_at, id"
         )
         params: list[object] = []

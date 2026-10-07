@@ -148,3 +148,123 @@ async def test_existing_charts_plot_a_list_of_targets():
     finally:
         await admin.execute(f'DROP DATABASE "{url.rsplit("/", 1)[1]}" WITH (FORCE)')
         await admin.close()
+
+
+def _kpi(temporal: object | None) -> dict:
+    config: dict = {
+        "type": "kpi",
+        "devices": {"ids": ["d1"]},
+        "attributes": [{"label": "T", "attribute": "temperature"}],
+    }
+    if temporal is not None:
+        config["temporal"] = temporal
+    return config
+
+
+async def test_existing_kpis_split_by_when_they_read():
+    assert POSTGRES_URL is not None
+    widgets = [
+        _stored_widget("implicit-live", _kpi(None)),
+        _stored_widget("live", _kpi("live")),
+        _stored_widget("period", _kpi({"operator": "avg"})),
+    ]
+    admin = await asyncpg.connect(POSTGRES_URL)
+    url = await _database_migrated_up_to(admin, "0004")
+    try:
+        connection = await asyncpg.connect(url)
+        await connection.execute(
+            "INSERT INTO dashboards (id, name, position, widgets)"
+            " VALUES ('legacy', 'Legacy', 0, $1::jsonb)",
+            json.dumps(widgets),
+        )
+        await connection.close()
+
+        service = DashboardsService(storage_url=url)
+        await service.start()
+        try:
+            migrated = (await service.get("legacy")).widgets
+        finally:
+            await service.stop()
+
+        assert [(w.id, w.type, w.error) for w in migrated] == [
+            ("implicit-live", "kpi_live", "incompatible_type"),
+            ("live", "kpi_live", "incompatible_type"),
+            ("period", "kpi_history", None),
+        ]
+        configs = [w.config.model_dump() for w in migrated]
+        assert all("temporal" not in c for c in configs)
+        assert all("agg" not in c for c in configs[:2])
+        assert configs[2]["agg"] == "avg"
+        # Everything else on the widget is left as stored.
+        assert configs[2]["attributes"] == [
+            {
+                "label": "T",
+                "attribute": "temperature",
+                "space_agg": None,
+                "unit": None,
+                "precision": None,
+            }
+        ]
+    finally:
+        await admin.execute(f'DROP DATABASE "{url.rsplit("/", 1)[1]}" WITH (FORCE)')
+        await admin.close()
+
+
+@pytest.mark.parametrize(
+    ("widgets", "expected"),
+    [
+        ([], "live"),
+        (
+            [_stored_widget("t", {"type": "text", "text": "x", "color": "#000000"})],
+            "live",
+        ),
+        ([_stored_widget("dc", {"type": "device_control", "device_id": "d1"})], "live"),
+        (
+            [
+                _stored_widget("dc", {"type": "device_control", "device_id": "d1"}),
+                _stored_widget(
+                    "chart",
+                    {
+                        "type": "chart",
+                        "targets": [{"devices": {"ids": ["d1"]}, "attribute": "t"}],
+                    },
+                ),
+            ],
+            "history",
+        ),
+        ([_stored_widget("kpi", _kpi({"operator": "sum"}))], "history"),
+    ],
+    ids=["empty", "text_only", "live_only", "mixed", "period_kpi"],
+)
+async def test_existing_dashboards_are_typed_by_what_they_hold(
+    widgets: list[dict], expected: str
+):
+    # One period-bound widget makes a dashboard ``history``; a mixed one
+    # keeps its live widgets, flagged on read until it is split by hand.
+    assert POSTGRES_URL is not None
+    admin = await asyncpg.connect(POSTGRES_URL)
+    url = await _database_migrated_up_to(admin, "0004")
+    try:
+        connection = await asyncpg.connect(url)
+        await connection.execute(
+            "INSERT INTO dashboards (id, name, position, widgets)"
+            " VALUES ('legacy', 'Legacy', 0, $1::jsonb)",
+            json.dumps(widgets),
+        )
+        await connection.close()
+
+        service = DashboardsService(storage_url=url)
+        await service.start()
+        try:
+            dashboard = await service.get("legacy")
+            assert dashboard.type == expected
+            assert (await service.list()).items[0].type == expected
+            misfits = [w.id for w in dashboard.widgets if w.error is not None]
+            assert misfits == (
+                ["dc"] if expected == "history" and len(widgets) > 1 else []
+            )
+        finally:
+            await service.stop()
+    finally:
+        await admin.execute(f'DROP DATABASE "{url.rsplit("/", 1)[1]}" WITH (FORCE)')
+        await admin.close()

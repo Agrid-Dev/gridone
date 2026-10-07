@@ -68,3 +68,20 @@ class WidgetConfig(BaseModel):
     def content_size_hint(self, default_size: WidgetSize) -> WidgetSize:
         """Minimum footprint this instance's content needs; no-op by default."""
         return default_size
+
+
+class InvalidWidgetConfig(WidgetConfig):
+    """A stored config the registry no longer accepts, kept verbatim.
+
+    Produced only when *loading* a persisted widget (never from user input):
+    the widget type was removed, or its config shape changed since the
+    widget was saved. ``extra="allow"`` keeps every raw key, so the document
+    round-trips unchanged through the service's read-modify-write cycle and
+    the author can still see, edit or remove the widget instead of losing
+    the whole dashboard to one stale cell. The service flags such a widget
+    with ``error="invalid_config"`` on read.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    type: str

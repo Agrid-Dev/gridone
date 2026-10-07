@@ -11,6 +11,7 @@ classDiagram
     class Dashboard {
         +string id
         +string name
+        +DashboardType type
         +string? description
         +list~Widget~ widgets
         +Metadata metadata
@@ -25,6 +26,7 @@ classDiagram
         +WidgetLayout layout
         +Metadata metadata
         +string type  «= config.type»
+        +WidgetError? error  «read-time»
     }
 
     class WidgetLayout {
@@ -59,17 +61,33 @@ This makes two invariants free instead of enforced-on-every-write:
 
 `update_layout(items)` is still a first-class operation — it writes each item's geometry back onto its widget, requiring an exact bijection between items and widgets (single flat layout; responsive breakpoints are a later, clean expand).
 
+### A dashboard has a type
+
+`type` is `live` or `history` (`dashboards.types.DashboardType`), chosen at creation and **immutable**: a live dashboard shows the present (device cache, live aggregates); a history one reads timeseries over a viewing period that the UI owns and never stores. Each widget type declares which dashboard types it fits, so the type decides what a dashboard may hold — adding a widget that does not fit is an `InvalidError`.
+
 ### Widgets are a registry
 
-`WidgetRegistry` is the single source of truth for widget config schemas. Each `WidgetType` binds a `type` discriminator to a pydantic config model and a default grid size. The registry:
+`WidgetRegistry` is the single source of truth for widget config schemas. Each `WidgetType` binds a `type` discriminator to a pydantic config model, a default grid size and the dashboard types it fits. The registry:
 
 - **validates** raw config into the right model (`validate_config`),
+- **loads** stored config leniently (`load_config`): a document the registry no longer accepts comes back as `InvalidWidgetConfig`, verbatim, instead of failing the dashboard,
+- answers whether a type **fits** a dashboard type (`accepts`),
 - hands out each type's **default size** for placement,
-- exposes the per-type **JSON Schemas** (`widget_schemas()` → `model_json_schema()`), which UI forms inherit via `z.fromJSONSchema`.
+- exposes the per-type **JSON Schemas** (`widget_schemas()` → `model_json_schema()`), which UI forms inherit via `z.fromJSONSchema`, with the size under `x-default-size` and the fit under `x-dashboard-types`.
 
 The backend is the source of truth for widget config — `config` is a discriminated union on `type`, and `type` is **immutable** after creation (changing type = remove + add).
 
-Built-in types are `text`, `chart`, `device_control`, `kpi`, `meter_tree`, and `synoptic`.
+Built-in types and their fit:
+
+| type | fits | reads |
+|---|---|---|
+| `text` | live, history | nothing |
+| `device_control`, `control_panel`, `synoptic`, `kpi_live` | live | the present |
+| `chart`, `meter_tree`, `kpi_history` | history | the viewing period |
+
+### One broken widget never fails the dashboard
+
+Reads flag, they do not raise. On `get` (and after every write) each widget carries `error`: `invalid_config` when its stored config is an `InvalidWidgetConfig` (a type or shape this build dropped), `incompatible_type` when its type no longer fits the dashboard's. The widget keeps its cell and raw config, so it still renders as an error tile, can be laid out, renamed and removed; reconfiguring it is refused until it sits on a fitting dashboard. `error` is computed, never stored.
 
 The **`synoptic`** widget stores `{type: "synoptic", synoptic_id: str}` and starts at 6×6 grid cells. The UI selects a stored synoptic by name and displays its live readings in read-only mode, with pan, zoom and fit controls. The dashboard period does not apply. The document reference stays opaque to the dashboards service; an unavailable document is reported within its widget. Synoptics are managed under **Configuration → Synoptics**.
 
@@ -80,7 +98,7 @@ service = DashboardsService(storage_url)   # None → in-memory backend
 await service.start()
 
 # dashboards
-d   = await service.create(DashboardCreate(name="Ops"))
+d   = await service.create(DashboardCreate(type="live", name="Ops"))
 d   = await service.get(d.id)
 page = await service.list()                                  # summaries only
 d   = await service.update(d.id, DashboardPatch(name="Ops 2"))
@@ -97,7 +115,7 @@ schemas = service.widget_schemas()                           # {type: JSON Schem
 await service.stop()
 ```
 
-`list()` returns `DashboardSummary` (id, name, description, icon, metadata) — no widgets or layout; those are only on `get(id)`.
+`list()` returns `DashboardSummary` (id, name, type, description, icon, metadata) — no widgets or layout; those are only on `get(id)`.
 
 A dashboard may carry an `icon`: one key of `DASHBOARD_ICONS` (a closed vocabulary named by what the icon shows — `thermometer`, `droplets`, `fan`, ...), or `None`. The models reject any other key at the field, so a stored dashboard never names an icon the UI cannot draw; the UI owns the drawing.
 

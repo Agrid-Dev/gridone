@@ -12,7 +12,7 @@ from dashboards.models import (
     WidgetLayout,
 )
 from dashboards.storage import build_storage
-from dashboards.widgets.config import WidgetSize
+from dashboards.widgets.config import InvalidWidgetConfig, WidgetSize
 from dashboards.widgets.registry import WidgetRegistry, build_default_registry
 from models.errors import InvalidError, NotFoundError
 from models.ids import gen_id
@@ -44,8 +44,14 @@ class DashboardsService(DashboardsServiceInterface, Service):
     dashboard, mutates the aggregate in memory (validating widget config
     against the registry first, so an invalid config is rejected before any
     write), then persists the full replacement. All business rules — widget
-    placement, type immutability, layout/widget bijection — live here; the
-    storage only round-trips whole aggregates.
+    placement, type immutability, dashboard/widget type fit, layout/widget
+    bijection — live here; the storage only round-trips whole aggregates.
+
+    Reads never fail on one bad widget: a stored config the registry rejects
+    comes back as :class:`InvalidWidgetConfig`, and a widget whose type no
+    longer fits the dashboard's is kept as is. Both are flagged on the
+    widget's ``error`` so the UI renders that cell in an error state while
+    the rest of the dashboard works.
     """
 
     _storage: DashboardsStorage
@@ -73,6 +79,7 @@ class DashboardsService(DashboardsServiceInterface, Service):
         dashboard = Dashboard(
             id=gen_id(),
             name=params.name,
+            type=params.type,
             description=params.description,
             icon=params.icon,
             widgets=[],
@@ -85,7 +92,7 @@ class DashboardsService(DashboardsServiceInterface, Service):
         if dashboard is None:
             msg = f"Dashboard {dashboard_id!r} not found"
             raise NotFoundError(msg)
-        return dashboard
+        return self._flag_widget_errors(dashboard)
 
     async def list(
         self, *, pagination: PaginationParams | None = None
@@ -114,7 +121,7 @@ class DashboardsService(DashboardsServiceInterface, Service):
         if "icon" in fields:
             dashboard.icon = patch.icon
         dashboard.metadata.updated_at = _now()
-        return await self._storage.update(dashboard)
+        return await self._persist(dashboard)
 
     async def delete(self, dashboard_id: str) -> None:
         await self._storage.delete(dashboard_id)
@@ -138,9 +145,11 @@ class DashboardsService(DashboardsServiceInterface, Service):
     ) -> Widget:
         """Add a widget to a dashboard, placed at the bottom of the grid with
         its type's default size. ``config`` carries the ``type`` discriminator
-        and is validated against the registry before anything is persisted."""
+        and is validated against the registry — shape and dashboard fit —
+        before anything is persisted."""
         dashboard = await self.get(dashboard_id)
         widget_config = self._registry.validate_config(config)
+        self._ensure_fits(dashboard, widget_config)
         widget = Widget(
             id=gen_id(),
             title=title,
@@ -151,7 +160,7 @@ class DashboardsService(DashboardsServiceInterface, Service):
         )
         dashboard.widgets.append(widget)
         dashboard.metadata.updated_at = _now()
-        updated = await self._storage.update(dashboard)
+        updated = await self._persist(dashboard)
         return self._find_widget(updated, widget.id)
 
     async def update_widget(
@@ -161,6 +170,9 @@ class DashboardsService(DashboardsServiceInterface, Service):
 
         A widget's ``type`` is immutable: a ``config`` whose ``type`` differs
         from the existing widget's is rejected (changing type is remove + add).
+        A widget that no longer fits its dashboard's type cannot be
+        reconfigured either — the way out is remove + add on a fitting
+        dashboard, not an edit that would persist the mismatch anew.
         """
         dashboard = await self.get(dashboard_id)
         widget = self._find_widget(dashboard, widget_id)
@@ -173,6 +185,7 @@ class DashboardsService(DashboardsServiceInterface, Service):
                     f"to {new_config.type!r}"
                 )
                 raise InvalidError(msg)
+            self._ensure_fits(dashboard, new_config)
             widget.config = new_config
             widget.layout = self._grown_layout(widget.layout, new_config)
         if "title" in fields:
@@ -182,7 +195,7 @@ class DashboardsService(DashboardsServiceInterface, Service):
         now = _now()
         widget.metadata.updated_at = now
         dashboard.metadata.updated_at = now
-        updated = await self._storage.update(dashboard)
+        updated = await self._persist(dashboard)
         return self._find_widget(updated, widget_id)
 
     async def remove_widget(self, dashboard_id: str, widget_id: str) -> None:
@@ -193,7 +206,7 @@ class DashboardsService(DashboardsServiceInterface, Service):
         self._find_widget(dashboard, widget_id)
         dashboard.widgets = [w for w in dashboard.widgets if w.id != widget_id]
         dashboard.metadata.updated_at = _now()
-        await self._storage.update(dashboard)
+        await self._persist(dashboard)
 
     async def update_layout(
         self, dashboard_id: str, items: Sequence[LayoutItem]
@@ -216,7 +229,7 @@ class DashboardsService(DashboardsServiceInterface, Service):
                 widget.layout = new_layout
                 widget.metadata.updated_at = now
         dashboard.metadata.updated_at = now
-        return await self._storage.update(dashboard)
+        return await self._persist(dashboard)
 
     # ------------------------------------------------------------------
     # Widget registry
@@ -229,6 +242,33 @@ class DashboardsService(DashboardsServiceInterface, Service):
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
+
+    async def _persist(self, dashboard: Dashboard) -> Dashboard:
+        """Write the whole aggregate back and return it as a read would —
+        widget error flags recomputed, so no stale flag survives a write."""
+        return self._flag_widget_errors(await self._storage.update(dashboard))
+
+    def _flag_widget_errors(self, dashboard: Dashboard) -> Dashboard:
+        """Set each widget's ``error`` from what the read found: a config the
+        registry rejected, or a type that does not fit this dashboard's.
+        Every widget is (re)assigned, ``None`` included, so flags are always
+        a function of the current document rather than of its history."""
+        for widget in dashboard.widgets:
+            if isinstance(widget.config, InvalidWidgetConfig):
+                widget.error = "invalid_config"
+            elif not self._registry.accepts(widget.config.type, dashboard.type):
+                widget.error = "incompatible_type"
+            else:
+                widget.error = None
+        return dashboard
+
+    def _ensure_fits(self, dashboard: Dashboard, widget_config: WidgetConfig) -> None:
+        if not self._registry.accepts(widget_config.type, dashboard.type):
+            msg = (
+                f"Widget type {widget_config.type!r} is not allowed on a "
+                f"{dashboard.type} dashboard"
+            )
+            raise InvalidError(msg)
 
     def _bottom_placement(
         self, dashboard: Dashboard, widget_config: WidgetConfig

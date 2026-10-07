@@ -3963,6 +3963,11 @@ export interface components {
       id: string;
       /** Name */
       name: string;
+      /**
+       * Type
+       * @enum {string}
+       */
+      type: "live" | "history";
       /** Description */
       description?: string | null;
       /** Icon */
@@ -4034,11 +4039,18 @@ export interface components {
     };
     /**
      * DashboardCreate
-     * @description Inputs for creating a dashboard.
+     * @description Inputs for creating a dashboard. ``type`` is fixed at creation: it
+     *     decides which widgets the dashboard may hold (see the widget registry), so
+     *     changing it afterwards would strand the widgets already placed.
      */
     DashboardCreate: {
       /** Name */
       name: string;
+      /**
+       * Type
+       * @enum {string}
+       */
+      type: "live" | "history";
       /** Description */
       description?: string | null;
       /** Icon */
@@ -4109,7 +4121,8 @@ export interface components {
      *
      *     ``model_fields_set`` drives the diff so an omitted field is left as-is; a
      *     field present with a value is applied. ``name`` is required on the resource,
-     *     so setting it to ``None`` is rejected by the service.
+     *     so setting it to ``None`` is rejected by the service. ``type`` is immutable
+     *     and deliberately absent.
      */
     DashboardPatch: {
       /** Name */
@@ -4188,6 +4201,11 @@ export interface components {
       id: string;
       /** Name */
       name: string;
+      /**
+       * Type
+       * @enum {string}
+       */
+      type: "live" | "history";
       /** Description */
       description?: string | null;
       /** Icon */
@@ -5535,28 +5553,36 @@ export interface components {
       precision?: number | null;
     };
     /**
-     * KpiWidgetConfig
-     * @description One or more metrics of one shared device set, shown together on one
-     *     tile.
-     *
-     *     Every metric shares the tile's single device set and Live/Period temporal
-     *     mode; each otherwise folds and renders independently (see
-     *     :class:`KpiAttribute`).
+     * KpiHistoryWidgetConfig
+     * @description Each attribute reduced over the whole dashboard period by ``agg``.
+     *     The period itself stays a viewing concern and is not stored; no bucket
+     *     width either — the reduction yields one value.
      */
-    KpiWidgetConfig: {
+    KpiHistoryWidgetConfig: {
       /**
        * @description discriminator enum property added by openapi-typescript
        * @enum {string}
        */
-      type: "kpi";
+      type: "kpi_history";
       devices: components["schemas"]["DevicesFilter"];
       /** Attributes */
       attributes: components["schemas"]["KpiAttribute"][];
+      agg: components["schemas"]["AggregationOperator"];
+    };
+    /**
+     * KpiLiveWidgetConfig
+     * @description Each attribute's current value. Reads the present, so it fits a
+     *     ``live`` dashboard only.
+     */
+    KpiLiveWidgetConfig: {
       /**
-       * Temporal
-       * @default live
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
        */
-      temporal?: "live" | components["schemas"]["TimeAggregation"];
+      type: "kpi_live";
+      devices: components["schemas"]["DevicesFilter"];
+      /** Attributes */
+      attributes: components["schemas"]["KpiAttribute"][];
     };
     /**
      * Label
@@ -7630,13 +7656,6 @@ export interface components {
       /** Color */
       color: string;
     };
-    /**
-     * TimeAggregation
-     * @description Reduces the whole dashboard period to one value; no bucket width stored.
-     */
-    TimeAggregation: {
-      operator: components["schemas"]["AggregationOperator"];
-    };
     /** TimeSeriesResponse */
     TimeSeriesResponse: {
       /** Id */
@@ -8124,6 +8143,8 @@ export interface components {
       config: components["schemas"]["WidgetConfig"];
       layout: components["schemas"]["WidgetLayout"];
       metadata: components["schemas"]["Metadata"];
+      /** Error */
+      error?: ("invalid_config" | "incompatible_type") | null;
       /** Type */
       readonly type: string;
     };
@@ -8157,7 +8178,8 @@ export interface components {
         | components["schemas"]["TextWidgetConfig"]
         | components["schemas"]["ChartWidgetConfig"]
         | components["schemas"]["DeviceControlWidgetConfig"]
-        | components["schemas"]["KpiWidgetConfig"]
+        | components["schemas"]["KpiLiveWidgetConfig"]
+        | components["schemas"]["KpiHistoryWidgetConfig"]
         | components["schemas"]["MeterTreeWidgetConfig"]
         | components["schemas"]["ControlPanelWidgetConfig"]
         | components["schemas"]["SynopticWidgetConfig"];
@@ -8205,7 +8227,8 @@ export interface components {
             | components["schemas"]["TextWidgetConfig"]
             | components["schemas"]["ChartWidgetConfig"]
             | components["schemas"]["DeviceControlWidgetConfig"]
-            | components["schemas"]["KpiWidgetConfig"]
+            | components["schemas"]["KpiLiveWidgetConfig"]
+            | components["schemas"]["KpiHistoryWidgetConfig"]
             | components["schemas"]["MeterTreeWidgetConfig"]
             | components["schemas"]["ControlPanelWidgetConfig"]
             | components["schemas"]["SynopticWidgetConfig"]

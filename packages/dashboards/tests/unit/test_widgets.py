@@ -7,7 +7,9 @@ from dashboards.widgets import (
     ChartWidgetConfig,
     ControlPanelWidgetConfig,
     DeviceControlWidgetConfig,
-    KpiWidgetConfig,
+    InvalidWidgetConfig,
+    KpiHistoryWidgetConfig,
+    KpiLiveWidgetConfig,
     MeterTreeNode,
     MeterTreeWidgetConfig,
     SynopticWidgetConfig,
@@ -20,8 +22,9 @@ from dashboards.widgets.control_panel import (
     MAX_ATTRIBUTES_PER_SECTION,
     MAX_SECTIONS,
 )
+from dashboards.widgets.kpi import KpiWidgetConfig
 from dashboards.widgets.meter_tree import MAX_DEPTH, MAX_NODES, MeterTreeVariant
-from dashboards.widgets.registry import WidgetRegistry
+from dashboards.widgets.registry import ANY_DASHBOARD, WidgetRegistry
 from pydantic import ValidationError
 
 from models.errors import InvalidError, NotFoundError
@@ -36,7 +39,8 @@ def test_default_registry_registers_built_in_types():
         "text",
         "chart",
         "device_control",
-        "kpi",
+        "kpi_live",
+        "kpi_history",
         "meter_tree",
         "control_panel",
         "synoptic",
@@ -44,7 +48,8 @@ def test_default_registry_registers_built_in_types():
     assert registry.default_size("text") == WidgetSize(w=4, h=2)
     assert registry.default_size("chart") == WidgetSize(w=6, h=5)
     assert registry.default_size("device_control") == WidgetSize(w=4, h=6)
-    assert registry.default_size("kpi") == WidgetSize(w=2, h=1)
+    assert registry.default_size("kpi_live") == WidgetSize(w=2, h=1)
+    assert registry.default_size("kpi_history") == WidgetSize(w=2, h=1)
     assert registry.default_size("meter_tree") == WidgetSize(w=6, h=8)
     assert registry.default_size("control_panel") == WidgetSize(w=4, h=6)
     assert registry.default_size("synoptic") == WidgetSize(w=6, h=6)
@@ -139,44 +144,57 @@ def test_validate_config_returns_concrete_model():
             "device_id": "d1",
             "agg": "avg",
         },
-        {"type": "kpi", "attribute": "temperature"},  # missing target
-        {  # unknown temporal literal — only "live" or a TimeAggregation
+        {"type": "kpi_live", "attribute": "temperature"},  # missing target
+        {  # the single-type shape with its temporal selector: migrated in
+            # storage (0005), no longer accepted
             "type": "kpi",
-            "target": {"devices": {"ids": ["d1"]}, "attribute": "temperature"},
-            "temporal": "period",
+            "devices": {"ids": ["d1"]},
+            "attributes": [{"label": "T", "attribute": "temperature"}],
+            "temporal": "live",
         },
-        {  # period mode needs an operator
-            "type": "kpi",
-            "target": {"devices": {"ids": ["d1"]}, "attribute": "temperature"},
-            "temporal": {},
+        {  # a live KPI reads the present: no operator to store
+            "type": "kpi_live",
+            "devices": {"ids": ["d1"]},
+            "attributes": [{"label": "T", "attribute": "temperature"}],
+            "agg": "avg",
         },
-        {  # negative precision
-            "type": "kpi",
-            "target": {"devices": {"ids": ["d1"]}, "attribute": "temperature"},
-            "precision": -1,
+        {  # a history KPI reduces the period: the operator is mandatory
+            "type": "kpi_history",
+            "devices": {"ids": ["d1"]},
+            "attributes": [{"label": "T", "attribute": "temperature"}],
         },
-        {  # a types filter is not an explicit single device
-            "type": "kpi",
-            "target": {
-                "devices": {"types": ["thermostat"]},
-                "attribute": "temperature",
-            },
-        },
-        {  # a tags filter is not an explicit single device
-            "type": "kpi",
-            "target": {
-                "devices": {"tags": {"floor": ["1"]}},
-                "attribute": "temperature",
-            },
-        },
-        {  # more than one explicit id is not single-device
-            "type": "kpi",
-            "target": {"devices": {"ids": ["d1", "d2"]}, "attribute": "temperature"},
+        {  # not an operator
+            "type": "kpi_history",
+            "devices": {"ids": ["d1"]},
+            "attributes": [{"label": "T", "attribute": "temperature"}],
+            "agg": "banana",
         },
         {  # interval is not the widget's to store — same rule as chart
-            "type": "kpi",
-            "target": {"devices": {"ids": ["d1"]}, "attribute": "temperature"},
-            "temporal": {"operator": "sum", "interval": "1h"},
+            "type": "kpi_history",
+            "devices": {"ids": ["d1"]},
+            "attributes": [{"label": "T", "attribute": "temperature"}],
+            "agg": "sum",
+            "interval": "1h",
+        },
+        {  # negative precision
+            "type": "kpi_live",
+            "devices": {"ids": ["d1"]},
+            "attributes": [{"label": "T", "attribute": "temperature", "precision": -1}],
+        },
+        {  # a types filter is not an explicit single device
+            "type": "kpi_live",
+            "devices": {"types": ["thermostat"]},
+            "attributes": [{"label": "T", "attribute": "temperature"}],
+        },
+        {  # a tags filter is not an explicit single device
+            "type": "kpi_live",
+            "devices": {"tags": {"floor": ["1"]}},
+            "attributes": [{"label": "T", "attribute": "temperature"}],
+        },
+        {  # more than one explicit id is not single-device
+            "type": "kpi_live",
+            "devices": {"ids": ["d1", "d2"]},
+            "attributes": [{"label": "T", "attribute": "temperature"}],
         },
     ],
 )
@@ -185,6 +203,65 @@ def test_validate_config_rejects_invalid(raw: dict):
 
     with pytest.raises(InvalidError):
         registry.validate_config(raw)
+
+
+@pytest.mark.parametrize(
+    ("type_", "live", "history"),
+    [
+        ("text", True, True),
+        ("chart", False, True),
+        ("meter_tree", False, True),
+        ("kpi_history", False, True),
+        ("device_control", True, False),
+        ("control_panel", True, False),
+        ("synoptic", True, False),
+        ("kpi_live", True, False),
+    ],
+)
+def test_default_registry_declares_each_widget_type_dashboard_fit(
+    type_: str, live: bool, history: bool
+):
+    # Widgets reading the present fit a live dashboard; those reading over
+    # the viewing period fit a history one; text reads nothing and fits both.
+    registry = build_default_registry()
+
+    assert registry.accepts(type_, "live") is live
+    assert registry.accepts(type_, "history") is history
+
+
+def test_accepts_unknown_type_raises():
+    with pytest.raises(NotFoundError, match="Unknown widget type"):
+        build_default_registry().accepts("unknown", "live")
+
+
+def test_load_config_returns_the_concrete_model_for_a_valid_document():
+    registry = build_default_registry()
+
+    config = registry.load_config({"type": "text", "text": "hi", "color": "#1a2b3c"})
+
+    assert isinstance(config, TextWidgetConfig)
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected_type"),
+    [
+        ({"type": "kpi", "temporal": "live"}, "kpi"),  # a type this build dropped
+        ({"type": "chart", "target": {"x": 1}}, "chart"),  # a shape it changed
+        ({"text": "hi"}, "unknown"),  # no type at all
+    ],
+    ids=["removed_type", "changed_shape", "no_type"],
+)
+def test_load_config_keeps_a_rejected_document_verbatim(raw: dict, expected_type: str):
+    # A stored widget the registry no longer accepts must not fail the
+    # dashboard it sits on: it loads as an InvalidWidgetConfig carrying the
+    # raw document, so it round-trips unchanged and can still be removed.
+    registry = build_default_registry()
+
+    config = registry.load_config(raw)
+
+    assert isinstance(config, InvalidWidgetConfig)
+    assert config.type == expected_type
+    assert config.model_dump() == {**raw, "type": expected_type}
 
 
 def test_get_unknown_type_raises():
@@ -212,6 +289,7 @@ def test_register_duplicate_type_raises():
                 type="text",
                 config_model=TextWidgetConfig,
                 default_size=WidgetSize(w=1, h=1),
+                dashboard_types=ANY_DASHBOARD,
             )
         )
 
@@ -225,7 +303,8 @@ def test_schemas_returns_json_schema_per_type():
         "text",
         "chart",
         "device_control",
-        "kpi",
+        "kpi_live",
+        "kpi_history",
         "meter_tree",
         "control_panel",
         "synoptic",
@@ -243,13 +322,21 @@ def test_schemas_returns_json_schema_per_type():
     # the size has to travel with the schema.
     assert schemas["chart"]["x-default-size"] == {"w": 6, "h": 5}
     assert schemas["text"]["x-default-size"] == {"w": 4, "h": 2}
+    # Likewise the dashboard fit: the editor offers only the types the
+    # dashboard accepts.
+    assert schemas["chart"]["x-dashboard-types"] == ["history"]
+    assert schemas["control_panel"]["x-dashboard-types"] == ["live"]
+    assert schemas["text"]["x-dashboard-types"] == ["history", "live"]
     device_control = schemas["device_control"]
     assert set(device_control["required"]) == {"device_id"}
     assert device_control["properties"]["device_id"]["minLength"] == 1
     assert device_control["x-default-size"] == {"w": 4, "h": 6}
-    kpi = schemas["kpi"]
-    assert set(kpi["required"]) == {"devices", "attributes"}
-    assert kpi["x-default-size"] == {"w": 2, "h": 1}
+    kpi_live = schemas["kpi_live"]
+    assert set(kpi_live["required"]) == {"devices", "attributes"}
+    assert kpi_live["x-default-size"] == {"w": 2, "h": 1}
+    kpi_history = schemas["kpi_history"]
+    assert set(kpi_history["required"]) == {"devices", "attributes", "agg"}
+    assert kpi_history["x-default-size"] == {"w": 2, "h": 1}
     meter_tree = schemas["meter_tree"]
     assert set(meter_tree["required"]) == {"root"}
     assert meter_tree["x-default-size"] == {"w": 6, "h": 8}
@@ -602,40 +689,40 @@ def _resolved(attribute: str, device_ids: list[str]) -> ResolvedTarget:
     )
 
 
-def test_kpi_config_defaults_to_live():
+def test_kpi_live_config_stores_no_operator():
     registry = build_default_registry()
 
     config = registry.validate_config(
         {
-            "type": "kpi",
+            "type": "kpi_live",
             "devices": _kpi_devices("d1"),
             "attributes": [_kpi_attribute("Temperature", "temperature")],
         }
     )
 
-    assert isinstance(config, KpiWidgetConfig)
-    assert config.temporal == "live"
+    assert isinstance(config, KpiLiveWidgetConfig)
+    assert "agg" not in config.model_dump()
     assert config.attributes[0].unit is None
     assert config.attributes[0].precision is None
     assert [t.attribute for t in config.attribute_targets()] == ["temperature"]
 
 
-def test_kpi_config_rejects_the_pre_multi_attribute_shape():
-    # No KPI widget was ever persisted in the single-target shape, so it is
-    # never upgraded — only the current `devices`/`attributes` shape is
-    # accepted.
+def test_kpi_history_config_requires_and_keeps_the_operator():
     registry = build_default_registry()
 
-    with pytest.raises(InvalidError):
-        registry.validate_config(
-            {
-                "type": "kpi",
-                "target": {"devices": _kpi_devices("d1"), "attribute": "energy"},
-                "temporal": {"operator": "sum"},
-                "unit": "kWh",
-                "precision": 1,
-            }
-        )
+    config = registry.validate_config(
+        {
+            "type": "kpi_history",
+            "devices": _kpi_devices("d1"),
+            "attributes": [_kpi_attribute("Energy", "energy", unit="kWh")],
+            "agg": "delta",
+        }
+    )
+
+    assert isinstance(config, KpiHistoryWidgetConfig)
+    assert config.agg is AggregationOperator.DELTA
+    # Both variants share the tile rules (device set, attributes, sizing).
+    assert isinstance(config, KpiWidgetConfig)
 
 
 def test_kpi_config_accepts_several_attributes():
@@ -643,7 +730,7 @@ def test_kpi_config_accepts_several_attributes():
 
     config = registry.validate_config(
         {
-            "type": "kpi",
+            "type": "kpi_live",
             "devices": _kpi_devices("d1"),
             "attributes": [
                 _kpi_attribute("Temperature", "temperature", unit="°C"),
@@ -664,14 +751,14 @@ def test_kpi_config_rejects_an_empty_attributes_list():
 
     with pytest.raises(InvalidError):
         registry.validate_config(
-            {"type": "kpi", "devices": _kpi_devices("d1"), "attributes": []}
+            {"type": "kpi_live", "devices": _kpi_devices("d1"), "attributes": []}
         )
 
 
 def test_kpi_config_content_size_hint_grows_height_with_attribute_count():
-    config = KpiWidgetConfig.model_validate(
+    config = KpiLiveWidgetConfig.model_validate(
         {
-            "type": "kpi",
+            "type": "kpi_live",
             "devices": _kpi_devices("d1"),
             "attributes": [
                 _kpi_attribute("Temperature", "temperature"),
@@ -685,9 +772,9 @@ def test_kpi_config_content_size_hint_grows_height_with_attribute_count():
 
 
 def test_kpi_config_content_size_hint_keeps_default_for_one_attribute():
-    config = KpiWidgetConfig.model_validate(
+    config = KpiLiveWidgetConfig.model_validate(
         {
-            "type": "kpi",
+            "type": "kpi_live",
             "devices": _kpi_devices("d1"),
             "attributes": [_kpi_attribute("Temperature", "temperature")],
         }
@@ -699,9 +786,9 @@ def test_kpi_config_content_size_hint_keeps_default_for_one_attribute():
 def test_kpi_config_rejects_a_multi_device_resolved_target():
     # Defense in depth: even a config with an explicit single id is refused
     # if resolution still yields more than one device.
-    config = KpiWidgetConfig.model_validate(
+    config = KpiLiveWidgetConfig.model_validate(
         {
-            "type": "kpi",
+            "type": "kpi_live",
             "devices": _kpi_devices("d1"),
             "attributes": [_kpi_attribute("Temperature", "temperature")],
         }
@@ -713,9 +800,9 @@ def test_kpi_config_rejects_a_multi_device_resolved_target():
 
 
 def test_kpi_config_accepts_a_single_device_resolved_target():
-    config = KpiWidgetConfig.model_validate(
+    config = KpiLiveWidgetConfig.model_validate(
         {
-            "type": "kpi",
+            "type": "kpi_live",
             "devices": _kpi_devices("d1"),
             "attributes": [_kpi_attribute("Temperature", "temperature")],
         }
@@ -730,7 +817,7 @@ def test_kpi_config_accepts_a_space_operator():
 
     config = registry.validate_config(
         {
-            "type": "kpi",
+            "type": "kpi_live",
             "devices": _kpi_devices(None, criteria="meter"),
             "attributes": [_kpi_attribute("Power", "power", space_agg="sum")],
         }
@@ -746,7 +833,7 @@ def test_kpi_config_rejects_a_non_space_operator():
     with pytest.raises(InvalidError):
         registry.validate_config(
             {
-                "type": "kpi",
+                "type": "kpi_live",
                 "devices": _kpi_devices(None, criteria="meter"),
                 "attributes": [_kpi_attribute("Power", "power", space_agg="delta")],
             }
@@ -761,7 +848,7 @@ def test_kpi_config_rejects_a_missing_space_agg_on_a_multi_device_set():
     with pytest.raises(InvalidError):
         registry.validate_config(
             {
-                "type": "kpi",
+                "type": "kpi_live",
                 "devices": _kpi_devices(None, criteria="meter"),
                 "attributes": [_kpi_attribute("Power", "power")],
             }
@@ -769,9 +856,9 @@ def test_kpi_config_rejects_a_missing_space_agg_on_a_multi_device_set():
 
 
 def test_kpi_config_with_space_agg_accepts_a_multi_device_resolved_target():
-    config = KpiWidgetConfig.model_validate(
+    config = KpiLiveWidgetConfig.model_validate(
         {
-            "type": "kpi",
+            "type": "kpi_live",
             "devices": _kpi_devices(None, criteria="meter"),
             "attributes": [_kpi_attribute("Power", "power", space_agg="sum")],
         }
@@ -782,9 +869,9 @@ def test_kpi_config_with_space_agg_accepts_a_multi_device_resolved_target():
 
 
 def test_kpi_config_with_space_agg_rejects_an_empty_resolved_target():
-    config = KpiWidgetConfig.model_validate(
+    config = KpiLiveWidgetConfig.model_validate(
         {
-            "type": "kpi",
+            "type": "kpi_live",
             "devices": _kpi_devices(None, criteria="meter"),
             "attributes": [_kpi_attribute("Power", "power", space_agg="sum")],
         }
@@ -796,9 +883,9 @@ def test_kpi_config_with_space_agg_rejects_an_empty_resolved_target():
 
 
 def test_kpi_config_validate_resolved_checks_each_attribute_independently():
-    config = KpiWidgetConfig.model_validate(
+    config = KpiLiveWidgetConfig.model_validate(
         {
-            "type": "kpi",
+            "type": "kpi_live",
             "devices": _kpi_devices("d1"),
             "attributes": [
                 _kpi_attribute("Temperature", "temperature"),
