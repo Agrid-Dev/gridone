@@ -52,6 +52,9 @@ export default defineConfig({
         test: {
           name: "dashboards",
           include: ["suites/dashboards/**/*.spec.ts"],
+          // The structure is one document placing every dashboard: a PUT
+          // races with any other file creating or deleting dashboards.
+          fileParallelism: false,
         },
       },
       {

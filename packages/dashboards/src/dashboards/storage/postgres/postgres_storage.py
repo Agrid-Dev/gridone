@@ -10,11 +10,10 @@ from dashboards.models import (
     Widget,
     WidgetLayout,
 )
+from dashboards.structure import DashboardStructureUpdate
 from models.errors import NotFoundError
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
-
     import asyncpg
 
     from dashboards.widgets.registry import WidgetRegistry
@@ -89,9 +88,8 @@ class PostgresDashboardsStorage:
             """
             INSERT INTO dashboards
                 (id, name, type, description, icon, widgets, created_at,
-                 updated_at, position)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8,
-                    (SELECT COALESCE(MAX(position), -1) + 1 FROM dashboards))
+                 updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             RETURNING *
             """,
             dashboard.id,
@@ -113,34 +111,12 @@ class PostgresDashboardsStorage:
             return None
         return self._row_to_dashboard(row)
 
-    async def list_summaries(
-        self, *, limit: int | None = None, offset: int | None = None
-    ) -> list[DashboardSummary]:
-        query = (
+    async def list_summaries(self) -> list[DashboardSummary]:
+        rows = await self._pool.fetch(
             "SELECT id, name, type, description, icon, created_at, updated_at "
-            "FROM dashboards ORDER BY position, created_at, id"
+            "FROM dashboards ORDER BY created_at, id"
         )
-        params: list[object] = []
-        idx = 1
-        if limit is not None:
-            query += f" LIMIT ${idx}"
-            params.append(limit)
-            idx += 1
-        if offset is not None:
-            query += f" OFFSET ${idx}"
-            params.append(offset)
-        rows = await self._pool.fetch(query, *params)
         return [self._row_to_summary(r) for r in rows]
-
-    async def count(self) -> int:
-        return await self._pool.fetchval("SELECT COUNT(*) FROM dashboards")
-
-    async def reorder(self, ordered_ids: Sequence[str]) -> None:
-        async with self._pool.acquire() as conn, conn.transaction():
-            await conn.executemany(
-                "UPDATE dashboards SET position = $1 WHERE id = $2",
-                list(enumerate(ordered_ids)),
-            )
 
     async def update(self, dashboard: Dashboard) -> Dashboard:
         row = await self._pool.fetchrow(
@@ -170,6 +146,20 @@ class PostgresDashboardsStorage:
         if row is None:
             msg = f"Dashboard {dashboard_id!r} not found"
             raise NotFoundError(msg)
+
+    async def get_structure(self) -> DashboardStructureUpdate:
+        items = await self._pool.fetchval("SELECT items FROM dashboard_structure")
+        return DashboardStructureUpdate(items=items or [])
+
+    async def update_structure(self, document: DashboardStructureUpdate) -> None:
+        await self._pool.execute(
+            """
+            INSERT INTO dashboard_structure (id, items, updated_at)
+            VALUES (1, $1, now())
+            ON CONFLICT (id) DO UPDATE SET items = $1, updated_at = now()
+            """,
+            document.model_dump(mode="json")["items"],
+        )
 
     async def close(self) -> None:
         await self._pool.close()

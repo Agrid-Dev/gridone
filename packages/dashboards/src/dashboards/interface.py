@@ -14,15 +14,17 @@ if TYPE_CHECKING:
         Widget,
         WidgetPatch,
     )
+    from dashboards.structure import DashboardStructure, DashboardStructureUpdate
     from models.pagination import Page, PaginationParams
 
 
 class DashboardsServiceInterface(Protocol):
     """Public contract of the dashboards service.
 
-    Covers dashboard CRUD, widget mutation, layout replacement, and exposing
-    the widget config JSON Schemas. Widget ``config`` is validated against the
-    registry; the backend is the single source of truth for widget schemas.
+    Covers dashboard CRUD, the navigation structure, widget mutation, layout
+    replacement, and exposing the widget config JSON Schemas. Widget ``config``
+    is validated against the registry; the backend is the single source of
+    truth for widget schemas.
     """
 
     # -- dashboard CRUD --
@@ -39,9 +41,20 @@ class DashboardsServiceInterface(Protocol):
 
     async def delete(self, dashboard_id: str) -> None: ...
 
-    async def reorder(self, ordered_ids: Sequence[str]) -> None:
-        """Set the display order shared by every user. ``ordered_ids`` must
-        list every dashboard exactly once; raises ``InvalidError`` otherwise."""
+    # -- structure --
+
+    async def get_structure(self) -> DashboardStructure:
+        """How dashboards are arranged for navigation, shared by every user:
+        the stored document with every existing dashboard placed (new ones
+        at the root) and nothing else."""
+        ...
+
+    async def update_structure(
+        self, update: DashboardStructureUpdate
+    ) -> DashboardStructure:
+        """Replace the arrangement. ``update`` must place every dashboard
+        exactly once; raises ``InvalidError`` otherwise. Sections and groups
+        without an id get one. Returns the structure as stored."""
         ...
 
     # -- widgets --

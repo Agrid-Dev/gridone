@@ -14,6 +14,16 @@ from dashboards.models import (
     WidgetPatch,
 )
 from dashboards.service import DashboardsService
+from dashboards.structure import (
+    DashboardRef,
+    DashboardStructure,
+    DashboardStructureUpdate,
+    GroupRef,
+    SectionRef,
+    StructureDashboard,
+    StructureGroup,
+    StructureSection,
+)
 from dashboards.types import DASHBOARD_TYPES, DashboardType
 from dashboards.widgets import (
     ChartWidgetConfig,
@@ -42,11 +52,15 @@ __all__ = [
     "DashboardCreate",
     "DashboardIcon",
     "DashboardPatch",
+    "DashboardRef",
+    "DashboardStructure",
+    "DashboardStructureUpdate",
     "DashboardSummary",
     "DashboardType",
     "DashboardsService",
     "DashboardsServiceInterface",
     "DeviceControlWidgetConfig",
+    "GroupRef",
     "InvalidWidgetConfig",
     "KpiHistoryWidgetConfig",
     "KpiLiveWidgetConfig",
@@ -54,6 +68,10 @@ __all__ = [
     "Metadata",
     "MeterTreeNode",
     "MeterTreeWidgetConfig",
+    "SectionRef",
+    "StructureDashboard",
+    "StructureGroup",
+    "StructureSection",
     "SynopticWidgetConfig",
     "TextWidgetConfig",
     "Widget",

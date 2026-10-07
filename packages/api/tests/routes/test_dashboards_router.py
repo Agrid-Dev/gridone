@@ -7,8 +7,12 @@ import pytest
 from dashboards import (
     Dashboard,
     DashboardsServiceInterface,
+    DashboardStructure,
+    DashboardStructureUpdate,
     DashboardSummary,
     Metadata,
+    StructureGroup,
+    StructureSection,
     TextWidgetConfig,
     Widget,
     WidgetLayout,
@@ -577,29 +581,92 @@ class TestLayout:
         assert resp.status_code == 422
 
 
-class TestOrder:
-    async def test_reorder_returns_204(self, client, svc):
-        async with client as c:
-            resp = await c.put("/order", json={"ordered_ids": ["d2", "d1"]})
-        assert resp.status_code == 204
-        svc.reorder.assert_awaited_once_with(["d2", "d1"])
+_STRUCTURE = DashboardStructure(
+    items=[
+        StructureSection(
+            id="s1",
+            label="HVAC",
+            items=[
+                StructureGroup(
+                    id="g1", label="DHW", icon="droplets", dashboards=[_SUMMARY]
+                )
+            ],
+        )
+    ]
+)
+_STRUCTURE_BODY = {
+    "items": [
+        {
+            "kind": "section",
+            "label": "HVAC",
+            "items": [{"kind": "group", "label": "DHW", "dashboards": ["d1"]}],
+        }
+    ]
+}
 
-    async def test_reorder_is_not_captured_by_the_id_route(self, client, svc):
-        async with client as c:
-            await c.put("/order", json={"ordered_ids": ["d1"]})
-        svc.update.assert_not_awaited()
 
-    async def test_reorder_non_permutation_returns_422(self, client, svc):
-        svc.reorder.side_effect = InvalidError("Order has duplicate dashboard ids")
+class TestStructure:
+    async def test_get_structure_returns_the_tree(self, client, svc):
+        svc.get_structure.return_value = _STRUCTURE
         async with client as c:
-            resp = await c.put("/order", json={"ordered_ids": ["d1", "d1"]})
+            resp = await c.get("/structure")
+        assert resp.status_code == 200
+        section = resp.json()["items"][0]
+        assert (section["kind"], section["id"], section["label"]) == (
+            "section",
+            "s1",
+            "HVAC",
+        )
+        group = section["items"][0]
+        assert (group["kind"], group["icon"]) == ("group", "droplets")
+        assert group["dashboards"][0]["name"] == "Ops"
+
+    async def test_get_structure_is_not_captured_by_the_id_route(self, client, svc):
+        svc.get_structure.return_value = _STRUCTURE
+        async with client as c:
+            await c.get("/structure")
+        svc.get.assert_not_awaited()
+
+    async def test_update_structure_returns_the_stored_tree(self, client, svc):
+        svc.update_structure.return_value = _STRUCTURE
+        async with client as c:
+            resp = await c.put("/structure", json=_STRUCTURE_BODY)
+        assert resp.status_code == 200
+        assert resp.json()["items"][0]["id"] == "s1"
+        update = svc.update_structure.await_args.args[0]
+        assert isinstance(update, DashboardStructureUpdate)
+        assert update.items[0].label == "HVAC"
+
+    async def test_update_structure_non_bijection_returns_422(self, client, svc):
+        svc.update_structure.side_effect = InvalidError("missing")
+        async with client as c:
+            resp = await c.put("/structure", json=_STRUCTURE_BODY)
         assert resp.status_code == 422
 
-    async def test_reorder_rejects_malformed_body(self, client, svc):
+    @pytest.mark.parametrize(
+        "body",
+        [
+            pytest.param({"ordered_ids": ["d1"]}, id="old-order-body"),
+            pytest.param(
+                {
+                    "items": [
+                        {
+                            "kind": "section",
+                            "label": "s",
+                            "items": _STRUCTURE_BODY["items"],
+                        }
+                    ]
+                },
+                id="section-in-section",
+            ),
+            pytest.param({"items": [{"kind": "group"}]}, id="group-without-label"),
+        ],
+    )
+    async def test_update_structure_rejects_malformed_body(self, client, svc, body):
         async with client as c:
-            resp = await c.put("/order", json={"ids": ["d1"]})
+            resp = await c.put("/structure", json=body)
         assert resp.status_code == 422
-        svc.reorder.assert_not_awaited()
+        svc.update_structure.assert_not_awaited()
 
 
 class TestWidgetSchemas:

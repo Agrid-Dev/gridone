@@ -82,6 +82,17 @@ describe("dashboards RBAC", () => {
     expect(status).toBe(403);
   });
 
+  it("lets a viewer read the structure but not write it (403)", async () => {
+    const structure = await viewer.dashboards.getStructure();
+    expect(Array.isArray(structure.items)).toBe(true);
+
+    const status = await statusOf(
+      viewer.dashboards.updateStructure({ items: [] }),
+    );
+
+    expect(status).toBe(403);
+  });
+
   it("rejects an unauthenticated write with a 401", async () => {
     const anon = makeClient();
 

@@ -16,6 +16,12 @@ import pytest
 import pytest_asyncio
 from dashboards.models import DashboardCreate, LayoutItem, WidgetPatch
 from dashboards.service import DashboardsService
+from dashboards.structure import (
+    DashboardStructureUpdate,
+    StructureDashboard,
+    StructureGroup,
+    StructureSection,
+)
 from dashboards.widgets import (
     InvalidWidgetConfig,
     WidgetConfig,
@@ -92,21 +98,86 @@ async def test_delete_missing_raises_not_found(service):
         await svc.delete("does-not-exist")
 
 
-async def test_order_persists_and_new_dashboards_go_last(service):
+async def test_structure_persists_through_postgres(service):
+    """One of every placement, written and read back: a section holding a
+    dashboard and a group of two, after whatever the shared database already
+    holds (kept first, in place)."""
     svc, created = service
-    a, b, c = [
-        (await svc.create(DashboardCreate(type="live", name=n))).id for n in "abc"
+    cta, west, east = [
+        (await svc.create(DashboardCreate(type="live", name=n))).id
+        for n in ("cta", "west", "east")
     ]
-    created.extend([a, b, c])
-    # The database is shared: every other dashboard stays first, in place.
-    others = [s.id for s in (await svc.list()).items if s.id not in {a, b, c}]
+    created.extend([cta, west, east])
+    before = await svc.get_structure()
+    others = [item for item in before.items if item.id not in {cta, west, east}]
+    update = DashboardStructureUpdate.model_validate(
+        {
+            "items": [
+                *(_ref(item) for item in others),
+                {
+                    "kind": "section",
+                    "label": "HVAC",
+                    "items": [
+                        {"kind": "dashboard", "id": cta},
+                        {
+                            "kind": "group",
+                            "label": "DHW",
+                            "icon": "droplets",
+                            "dashboards": [west, east],
+                        },
+                    ],
+                },
+            ]
+        }
+    )
 
-    await svc.reorder([*others, c, a, b])
-    d = (await svc.create(DashboardCreate(type="live", name="d"))).id
-    created.append(d)
+    stored = await svc.update_structure(update)
+    fetched = await svc.get_structure()
 
-    ids = [s.id for s in (await svc.list()).items]
-    assert ids == [*others, c, a, b, d]
+    assert fetched == stored
+    section = fetched.items[len(others)]
+    assert isinstance(section, StructureSection)
+    assert (section.label, len(section.id)) == ("HVAC", 16)
+    group = section.items[1]
+    assert isinstance(group, StructureGroup)
+    assert (group.icon, [d.name for d in group.dashboards]) == (
+        "droplets",
+        ["west", "east"],
+    )
+    assert [s.id for s in (await svc.list()).items][-3:] == [cta, west, east]
+
+    # Created and deleted dashboards reconcile on read, the document untouched.
+    new = (await svc.create(DashboardCreate(type="live", name="new"))).id
+    created.append(new)
+    await svc.delete(west)
+    after = await svc.get_structure()
+    assert after.items[-1].id == new
+    section = after.items[len(others)]
+    assert isinstance(section, StructureSection)
+    group = section.items[1]
+    assert isinstance(group, StructureGroup)
+    assert [d.id for d in group.dashboards] == [east]
+
+
+def _ref(item: object) -> dict:
+    """A read node as the ref that stores it (ids kept)."""
+    if isinstance(item, StructureSection):
+        return {
+            "kind": "section",
+            "id": item.id,
+            "label": item.label,
+            "items": [_ref(c) for c in item.items],
+        }
+    if isinstance(item, StructureGroup):
+        return {
+            "kind": "group",
+            "id": item.id,
+            "label": item.label,
+            "icon": item.icon,
+            "dashboards": [d.id for d in item.dashboards],
+        }
+    assert isinstance(item, StructureDashboard)
+    return {"kind": "dashboard", "id": item.id}
 
 
 class _GaugeConfig(WidgetConfig):

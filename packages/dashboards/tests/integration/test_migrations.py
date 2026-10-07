@@ -9,8 +9,10 @@ from urllib.parse import urlsplit, urlunsplit
 
 import asyncpg
 import pytest
+from dashboards.models import DashboardCreate
 from dashboards.service import DashboardsService
 from dashboards.storage.postgres import MIGRATIONS_PATH
+from dashboards.structure import DashboardStructureUpdate
 from yoyo import get_backend, read_migrations
 
 from models.ids import gen_id
@@ -265,6 +267,79 @@ async def test_existing_dashboards_are_typed_by_what_they_hold(
             )
         finally:
             await service.stop()
+    finally:
+        await admin.execute(f'DROP DATABASE "{url.rsplit("/", 1)[1]}" WITH (FORCE)')
+        await admin.close()
+
+
+async def test_existing_order_becomes_the_root_and_comes_back_on_rollback():
+    # Before 0007 the order was one flat ``position``; after it, placement is
+    # the structure document, seeded so that list is the root in the same
+    # order. Rolling back rebuilds ``position`` from the document's
+    # depth-first order, nested dashboards included.
+    assert POSTGRES_URL is not None
+    admin = await asyncpg.connect(POSTGRES_URL)
+    url = await _database_migrated_up_to(admin, "0006")
+    try:
+        connection = await asyncpg.connect(url)
+        await connection.executemany(
+            "INSERT INTO dashboards (id, name, type, position, created_at)"
+            " VALUES ($1, $2, 'live', $3, $4)",
+            [
+                ("c", "Third", 2, datetime(2024, 1, 1, tzinfo=UTC)),
+                ("a", "First", 0, datetime(2024, 1, 2, tzinfo=UTC)),
+                ("b", "Second", 1, datetime(2024, 1, 3, tzinfo=UTC)),
+            ],
+        )
+        await connection.close()
+
+        service = DashboardsService(storage_url=url)
+        await service.start()
+        try:
+            structure = await service.get_structure()
+            assert [(i.kind, i.id) for i in structure.items] == [
+                ("dashboard", "a"),
+                ("dashboard", "b"),
+                ("dashboard", "c"),
+            ]
+            # Nest two of them, then add one the document does not place.
+            await service.update_structure(
+                DashboardStructureUpdate.model_validate(
+                    {
+                        "items": [
+                            {
+                                "kind": "section",
+                                "label": "S",
+                                "items": [
+                                    {
+                                        "kind": "group",
+                                        "label": "G",
+                                        "dashboards": ["c", "b"],
+                                    }
+                                ],
+                            },
+                            {"kind": "dashboard", "id": "a"},
+                        ]
+                    }
+                )
+            )
+            await service.create(DashboardCreate(type="live", name="Fourth"))
+        finally:
+            await service.stop()
+
+        backend = get_backend(url)
+        migrations = read_migrations(str(MIGRATIONS_PATH)).filter(
+            lambda migration: migration.id.startswith("0007")
+        )
+        with backend.lock():
+            backend.rollback_migrations(backend.to_rollback(migrations))
+
+        connection = await asyncpg.connect(url)
+        rows = await connection.fetch(
+            "SELECT id FROM dashboards ORDER BY position, created_at, id"
+        )
+        await connection.close()
+        assert [r["id"] for r in rows][:3] == ["c", "b", "a"]
     finally:
         await admin.execute(f'DROP DATABASE "{url.rsplit("/", 1)[1]}" WITH (FORCE)')
         await admin.close()

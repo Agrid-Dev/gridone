@@ -7,6 +7,8 @@ from dashboards import (
     DashboardCreate,
     DashboardPatch,
     DashboardsServiceInterface,
+    DashboardStructure,
+    DashboardStructureUpdate,
     DashboardSummary,
     LayoutItem,
     Widget,
@@ -16,11 +18,7 @@ from fastapi import APIRouter, Depends, status
 from api.access.dependencies import get_target_resolver
 from api.auth import require_permission
 from api.dependencies import get_dashboards_service
-from api.schemas.dashboard import (
-    DashboardsOrderBody,
-    WidgetCreateBody,
-    WidgetUpdateBody,
-)
+from api.schemas.dashboard import WidgetCreateBody, WidgetUpdateBody
 from api.targets import validate_targets
 from models.targets import TargetResolver
 from users.permissions import Permission
@@ -31,8 +29,8 @@ _ServiceDep = Annotated[DashboardsServiceInterface, Depends(get_dashboards_servi
 _ResolverDep = Annotated[TargetResolver, Depends(get_target_resolver)]
 
 
-# ``/widget-schemas`` and ``/order`` are declared before ``/{dashboard_id}`` so
-# the literal paths aren't captured by the id path parameter.
+# ``/widget-schemas`` and ``/structure`` are declared before ``/{dashboard_id}``
+# so the literal paths aren't captured by the id path parameter.
 @router.get(
     "/widget-schemas",
     dependencies=[Depends(require_permission(Permission.DASHBOARDS_READ))],
@@ -41,13 +39,27 @@ def get_widget_schemas(svc: _ServiceDep) -> dict[str, dict[str, Any]]:
     return svc.widget_schemas()
 
 
+@router.get(
+    "/structure",
+    response_model=DashboardStructure,
+    dependencies=[Depends(require_permission(Permission.DASHBOARDS_READ))],
+)
+async def get_structure(svc: _ServiceDep) -> DashboardStructure:
+    """How dashboards are arranged for navigation: sections, groups and
+    where every dashboard sits, depth-first in display order."""
+    return await svc.get_structure()
+
+
 @router.put(
-    "/order",
-    status_code=status.HTTP_204_NO_CONTENT,
+    "/structure",
+    response_model=DashboardStructure,
     dependencies=[Depends(require_permission(Permission.DASHBOARDS_WRITE))],
 )
-async def reorder_dashboards(body: DashboardsOrderBody, svc: _ServiceDep) -> None:
-    await svc.reorder(body.ordered_ids)
+async def update_structure(
+    body: DashboardStructureUpdate, svc: _ServiceDep
+) -> DashboardStructure:
+    """Replace the whole arrangement: every dashboard exactly once."""
+    return await svc.update_structure(body)
 
 
 @router.get(

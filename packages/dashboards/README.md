@@ -65,6 +65,20 @@ This makes two invariants free instead of enforced-on-every-write:
 
 `type` is `live` or `history` (`dashboards.types.DashboardType`), chosen at creation and **immutable**: a live dashboard shows the present (device cache, live aggregates); a history one reads timeseries over a viewing period that the UI owns and never stores. Each widget type declares which dashboard types it fits, so the type decides what a dashboard may hold — adding a widget that does not fit is an `InvalidError`.
 
+### Dashboards are arranged in a structure
+
+Dashboards are the operator's views, and a site soon holds a dozen. The **structure** (`dashboards.structure`) arranges them for navigation in a tree at most two levels deep:
+
+| Node | What it is | Where it may sit |
+|---|---|---|
+| dashboard | a view | root, section or group |
+| group | an entry with a label and icon whose dashboards are **tabs** within it; no content of its own | root or section |
+| section | a collapsible heading, label only | root |
+
+The structure is **one document**, read and written whole. Sections and groups exist only at their place in it, label and icon inline (`SectionRef`, `GroupRef`); dashboards are the only entities, referenced by id (`DashboardRef`). The nesting rules are the shape of the types — a section inside a section, or a group inside a group, cannot be expressed — and the service enforces one rule on top: an update must place **every dashboard exactly once** (`InvalidError` otherwise). A section or group written without an `id` gets one; ids are for the client's bookkeeping (keys, remembered collapse state).
+
+Creating or deleting a dashboard never touches the document: on read, the service reconciles it with the dashboards that exist — a new dashboard is appended at the root, a deleted one dropped. `get_structure()` returns the reconciled tree hydrated with each dashboard's summary (`DashboardStructure`); `list()` returns the summaries in the same depth-first order.
+
 ### Widgets are a registry
 
 `WidgetRegistry` is the single source of truth for widget config schemas. Each `WidgetType` binds a `type` discriminator to a pydantic config model, a default grid size and the dashboard types it fits. The registry:
@@ -103,7 +117,14 @@ d   = await service.get(d.id)
 page = await service.list()                                  # summaries only
 d   = await service.update(d.id, DashboardPatch(name="Ops 2"))
 await service.delete(d.id)
-await service.reorder(ids)                                   # display order, every id once
+
+# structure
+tree = await service.update_structure(DashboardStructureUpdate(items=[
+    SectionRef(kind="section", label="HVAC", items=[
+        GroupRef(kind="group", label="DHW", icon="droplets", dashboards=[d.id]),
+    ]),
+]))                                                          # every dashboard once, else InvalidError
+tree = await service.get_structure()
 
 # widgets (config carries `type`)
 w = await service.add_widget(d.id, config={"type": "text", "text": "hi", "color": "#1a2b3c"})
@@ -115,18 +136,18 @@ schemas = service.widget_schemas()                           # {type: JSON Schem
 await service.stop()
 ```
 
-`list()` returns `DashboardSummary` (id, name, type, description, icon, metadata) — no widgets or layout; those are only on `get(id)`.
+`list()` returns `DashboardSummary` (id, name, type, description, icon, metadata) in structure order — no widgets or layout; those are only on `get(id)`.
 
 A dashboard may carry an `icon`: one key of `DASHBOARD_ICONS` (a closed vocabulary named by what the icon shows — `thermometer`, `droplets`, `fan`, ...), or `None`. The models reject any other key at the field, so a stored dashboard never names an icon the UI cannot draw; the UI owns the drawing.
 
-Dashboards have one **display order**, shared by every user: `list()` returns it, `reorder(ids)` replaces it (every id exactly once, else `InvalidError`), a new dashboard goes last and deleting one leaves the rest in place. The order is owned by the storage, not a field of the aggregate.
+The structure is shared by every user; placement is not a field of any dashboard, `get_structure()` is the only way to read it.
 
 ## Storage
 
 `DashboardsStorage` (protocol) round-trips whole `Dashboard` aggregates. Two backends:
 
 - **`MemoryStorage`** — in-process dict; default when no URL is passed. Deep-copies on read/write, which also preserves each widget's concrete config subclass.
-- **`PostgresDashboardsStorage`** — asyncpg pool, yoyo migrations under `storage/postgres/migrations/`. Dashboards are stored **document-oriented**: one row per dashboard, widgets (with geometry + metadata) in a `widgets` JSONB list. The registry rebuilds each widget's concrete config on read.
+- **`PostgresDashboardsStorage`** — asyncpg pool, yoyo migrations under `storage/postgres/migrations/`. Dashboards are stored **document-oriented**: one row per dashboard, widgets (with geometry + metadata) in a `widgets` JSONB list. The registry rebuilds each widget's concrete config on read. The structure is one more document: a singleton row of `dashboard_structure` holding the tree as JSONB.
 
 ```python
 storage = await build_storage(url, registry)   # None → MemoryStorage, postgresql:// → Postgres

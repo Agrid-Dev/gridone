@@ -4,7 +4,7 @@ import type { RequestFn } from "../http/httpClient";
 import type {
   DashboardCreate,
   DashboardPatch,
-  DashboardsOrderBody,
+  DashboardStructureUpdate,
   LayoutItem,
   WidgetCreateBody,
   WidgetUpdateBody,
@@ -27,7 +27,18 @@ const CREATE: DashboardCreate = {
   description: "Overview",
 };
 const PATCH: DashboardPatch = { name: "Ops v2" };
-const ORDER: DashboardsOrderBody = { ordered_ids: ["d2", "d1"] };
+const STRUCTURE: DashboardStructureUpdate = {
+  items: [
+    {
+      kind: "section",
+      label: "HVAC",
+      items: [
+        { kind: "group", label: "DHW", icon: "droplets", dashboards: ["d2"] },
+      ],
+    },
+    { kind: "dashboard", id: "d1" },
+  ],
+};
 const WIDGET: WidgetCreateBody = {
   config: { type: "text", text: "hi", color: "#1a2b3c" },
   title: "Note",
@@ -75,10 +86,11 @@ const CASES: Case[] = [
     (d) => d.updateLayout("d1", LAYOUT),
     ["PUT", "/dashboards/d1/layout", { body: LAYOUT }],
   ],
+  ["getStructure", (d) => d.getStructure(), ["GET", "/dashboards/structure"]],
   [
-    "reorder",
-    (d) => d.reorder(ORDER),
-    ["PUT", "/dashboards/order", { body: ORDER }],
+    "updateStructure",
+    (d) => d.updateStructure(STRUCTURE),
+    ["PUT", "/dashboards/structure", { body: STRUCTURE }],
   ],
   [
     "getWidgetSchemas",
