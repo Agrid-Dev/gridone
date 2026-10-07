@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 from dashboards.models import DASHBOARD_ICONS, DashboardCreate, DashboardPatch
-from dashboards.types import DASHBOARD_TYPES
+from dashboards.types import DASHBOARD_TYPES, DashboardType
 from pydantic import ValidationError
 
 
@@ -43,7 +43,7 @@ def test_type_vocabulary_is_live_and_history():
 
 
 @pytest.mark.parametrize("type_", DASHBOARD_TYPES)
-def test_create_accepts_each_type(type_: str):
+def test_create_accepts_each_type(type_: DashboardType):
     assert DashboardCreate(type=type_, name="Ops").type == type_
 
 

@@ -4,7 +4,7 @@ no private attributes."""
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import pytest
 import pytest_asyncio
@@ -28,6 +28,9 @@ from dashboards.widgets.registry import ANY_DASHBOARD
 
 from models.errors import InvalidError, NotFoundError
 from models.pagination import PaginationParams
+
+if TYPE_CHECKING:
+    from dashboards.types import DashboardType
 
 pytestmark = pytest.mark.asyncio
 
@@ -101,7 +104,7 @@ async def test_create_keeps_the_icon_and_lists_it(service: DashboardsService):
 
 @pytest.mark.parametrize("type_", ["live", "history"])
 async def test_create_keeps_the_type_and_lists_it(
-    service: DashboardsService, type_: str
+    service: DashboardsService, type_: DashboardType
 ):
     dashboard = await service.create(DashboardCreate(type=type_, name="Ops"))
 
@@ -430,7 +433,10 @@ CONTROL_PANEL_CONFIG = {
     ],
 )
 async def test_add_widget_enforces_the_dashboard_type_fit(
-    service: DashboardsService, dashboard_type: str, config: dict, fits: bool
+    service: DashboardsService,
+    dashboard_type: DashboardType,
+    config: dict,
+    fits: bool,
 ):
     dashboard = await service.create(DashboardCreate(type=dashboard_type, name="Ops"))
 
