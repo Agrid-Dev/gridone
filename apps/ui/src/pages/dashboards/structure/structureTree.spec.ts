@@ -1,14 +1,16 @@
 import { describe, expect, it } from "vitest";
 import type { DashboardStructure, DashboardSummary } from "@gridone/sdk";
 import {
+  ROOT_DROP_ID,
   build,
   dissolve,
+  dropId,
+  dropTarget,
   findGroup,
   firstDashboardId,
   flatten,
   flattenDashboards,
-  move,
-  project,
+  relocate,
   toUpdate,
 } from "./structureTree";
 
@@ -96,60 +98,96 @@ describe("structureTree", () => {
     expect(update.items?.[0]).toMatchObject({ id: null, label: "New" });
   });
 
-  describe("project", () => {
+  describe("dropTarget", () => {
     const rows = flatten(STRUCTURE);
+    const outlineAfter = (id: string, over: string) => {
+      const target = dropTarget(rows, id, over);
+      return target ? outline(build(relocate(rows, id, target))) : null;
+    };
 
-    it("nests a dashboard under the group above when dragged sideways", () => {
-      // leaks dropped at east's slot, pushed one level: into DHW.
-      expect(project(rows, "leaks", "east", 2)).toEqual({
-        depth: 2,
+    it("lands before the tile dropped on, in that tile's container", () => {
+      expect(dropTarget(rows, "leaks", "east")).toEqual({
         parentId: "dhw",
+        index: 1,
       });
-      // Not pushed: east, still below it, keeps it in DHW anyway.
-      expect(project(rows, "leaks", "east", 0)).toEqual({
-        depth: 2,
+      expect(outlineAfter("leaks", "east")).toEqual([
+        "hvac",
+        "  cta",
+        "  dhw",
+        "    west",
+        "    leaks",
+        "    east",
+      ]);
+    });
+
+    it("passes the next sibling when dropped on it, moving forward", () => {
+      expect(dropTarget(rows, "west", "east")).toEqual({
         parentId: "dhw",
+        index: 1,
       });
+      expect(outlineAfter("west", "east")?.slice(3, 5)).toEqual([
+        "    east",
+        "    west",
+      ]);
     });
 
-    it("clamps to what the neighbours allow", () => {
-      // Below leaks (last root row) nothing can be deeper than the root.
-      expect(project(rows, "cta", "leaks", 2)).toEqual({
-        depth: 0,
-        parentId: null,
-      });
-      // Above a nested row, the dragged row can't be shallower than it.
-      expect(project(rows, "leaks", "cta", 0)).toEqual({
-        depth: 1,
+    it("lands last in a container dropped on its zone", () => {
+      expect(dropTarget(rows, "leaks", dropId("hvac"))).toEqual({
         parentId: "hvac",
+        index: 2,
       });
-    });
-
-    it("keeps a section at the root and a group out of a group", () => {
-      expect(project(rows, "hvac", "leaks", 1)).toEqual({
-        depth: 0,
+      expect(dropTarget(rows, "cta", ROOT_DROP_ID)).toEqual({
         parentId: null,
+        index: 2,
       });
-      // dhw at west's slot would be a group under itself — out.
-      expect(project(rows, "dhw", "cta", 2)).toEqual({
-        depth: 1,
-        parentId: "hvac",
-      });
+      expect(outlineAfter("cta", ROOT_DROP_ID)).toEqual([
+        "hvac",
+        "  dhw",
+        "    west",
+        "    east",
+        "leaks",
+        "cta",
+      ]);
     });
-  });
 
-  it("moves a container with its contents", () => {
-    const rows = flatten(STRUCTURE);
-    const next = move(rows, "dhw", "hvac", { depth: 0, parentId: null });
-    expect(build(next).items.map((i) => i.id)).toEqual([
-      "dhw",
-      "hvac",
-      "leaks",
-    ]);
-    const group = build(next).items[0];
-    expect(group.kind === "group" && group.dashboards.map((d) => d.id)).toEqual(
-      ["west", "east"],
-    );
+    it("defers to the container above when the kind cannot sit there", () => {
+      const withOther = flatten({
+        items: [
+          ...STRUCTURE.items,
+          {
+            kind: "group",
+            id: "other",
+            label: "Other",
+            icon: null,
+            dashboards: [summary("x")],
+          },
+        ],
+      });
+      // A group dropped on a tile inside a group: after that group.
+      expect(dropTarget(withOther, "dhw", "x")).toEqual({
+        parentId: null,
+        index: 3,
+      });
+      // A section dropped on a tile inside a section: after it, at the root.
+      expect(dropTarget(withOther, "hvac", "x")).toEqual({
+        parentId: null,
+        index: 2,
+      });
+      // Nothing drops into itself.
+      expect(dropTarget(rows, "dhw", dropId("dhw"))).toBeNull();
+      expect(dropTarget(rows, "hvac", "west")).toBeNull();
+    });
+
+    it("moves a container with its contents", () => {
+      expect(outlineAfter("dhw", "cta")).toEqual([
+        "hvac",
+        "  dhw",
+        "    west",
+        "    east",
+        "  cta",
+        "leaks",
+      ]);
+    });
   });
 
   it("dissolves a container, lifting its contents in place", () => {

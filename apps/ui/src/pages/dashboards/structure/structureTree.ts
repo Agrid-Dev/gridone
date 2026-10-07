@@ -196,86 +196,126 @@ export function descendants(rows: Row[], id: string): Row[] {
   return direct.flatMap((r) => [r, ...descendants(rows, r.id)]);
 }
 
-export interface Projection {
-  depth: number;
+/** Where a node is dropped: a container (the root being `null`) and the
+ *  rank among that container's direct children. */
+export interface DropTarget {
   parentId: string | null;
+  index: number;
 }
 
-/** dnd-kit's sortable semantics: the active row takes the over row's index,
- *  its subtree set aside (it travels with it, see `move`). */
-function reordered(rows: Row[], activeId: string, overId: string): Row[] {
-  const subtree = new Set(descendants(rows, activeId).map((r) => r.id));
-  const list = rows.filter((r) => !subtree.has(r.id));
-  const from = list.findIndex((r) => r.id === activeId);
-  const to = list.findIndex((r) => r.id === overId);
-  if (from < 0 || to < 0) return list;
-  const [active] = list.splice(from, 1);
-  if (active) list.splice(to, 0, active);
-  return list;
+/** The direct children of a container, in order. */
+export function children(rows: Row[], parentId: string | null): Row[] {
+  return rows.filter((r) => r.parentId === parentId);
 }
 
-/** Where a dragged row would land: at the over row's index, pushed to the
- *  depth the pointer asks for and clamped to what the neighbours allow and
- *  the kind permits — a section only at the root, a group at most in a
- *  section, a dashboard at most in a group. `null` when nothing fits. */
-export function project(
+/** Whether `kind` may sit directly in `container` (`null` = the root): a
+ *  section only at the root, a group at most in a section, a dashboard
+ *  anywhere but under a dashboard. */
+export function accepts(container: Row | null, kind: NodeKind): boolean {
+  if (container === null) return true;
+  if (container.kind === "dashboard") return false;
+  if (kind === "section") return false;
+  if (kind === "group") return container.kind === "section";
+  return true;
+}
+
+/** The id a container's drop zone carries, distinct from the node's own id
+ *  (a group box is both a draggable node and a place to drop into). */
+export const ROOT_DROP_ID = "drop:root";
+export const dropId = (containerId: string) => `drop:${containerId}`;
+
+/** Resolve what the pointer is over into a drop target for `activeId`:
+ *  over a node → before that node, among its siblings (after it when moving
+ *  forward within the same container, so dropping on the next item passes
+ *  it); over a drop zone → last in that container. A container that cannot
+ *  hold the dragged kind defers to its own container, at its own rank. */
+export function dropTarget(
   rows: Row[],
   activeId: string,
   overId: string,
-  wantedDepth: number,
-): Projection | null {
-  const list = reordered(rows, activeId, overId);
-  const at = list.findIndex((r) => r.id === activeId);
-  const active = list[at];
-  if (!active) return null;
-  const previous = list[at - 1] ?? null;
-  const next = list[at + 1] ?? null;
-  const maxDepth = previous
-    ? previous.kind === "dashboard"
-      ? previous.depth
-      : previous.depth + 1
-    : 0;
-  const minDepth = next ? next.depth : 0;
-  const kindMax =
-    active.kind === "section" ? 0 : active.kind === "group" ? 1 : 2;
-  const depth = Math.max(minDepth, Math.min(wantedDepth, maxDepth, kindMax));
-  if (depth === 0) return { depth: 0, parentId: null };
-  // The parent is the nearest row above at depth - 1.
-  for (let i = at - 1; i >= 0; i -= 1) {
-    const candidate = list[i];
-    if (!candidate || candidate.depth < depth - 1) break;
-    if (candidate.depth === depth - 1) {
-      if (candidate.kind === "dashboard") return null;
-      if (active.kind === "group" && candidate.kind !== "section") return null;
-      return { depth, parentId: candidate.id };
-    }
+): DropTarget | null {
+  const active = rows.find((r) => r.id === activeId);
+  if (!active || overId === activeId) return null;
+  const moving = new Set([
+    activeId,
+    ...descendants(rows, activeId).map((r) => r.id),
+  ]);
+  if (moving.has(overId.replace(/^drop:/, ""))) return null;
+  const remaining = rows.filter((r) => !moving.has(r.id));
+  const byId = new Map(remaining.map((r) => [r.id, r]));
+
+  let parentId: string | null;
+  let index: number;
+  if (overId === ROOT_DROP_ID || overId.startsWith("drop:")) {
+    parentId = overId === ROOT_DROP_ID ? null : overId.slice("drop:".length);
+    if (parentId !== null && !byId.has(parentId)) return null;
+    index = children(remaining, parentId).length;
+  } else {
+    const over = byId.get(overId);
+    if (!over) return null;
+    parentId = over.parentId;
+    index = children(remaining, parentId).indexOf(over);
+    const sameContainer = active.parentId === parentId;
+    const wasBefore =
+      sameContainer &&
+      rows.indexOf(active) < rows.indexOf(rows.find((r) => r.id === overId)!);
+    if (wasBefore) index += 1;
   }
-  return null;
+  // Climb until a container that can hold the dragged kind.
+  while (
+    !accepts(
+      parentId === null ? null : (byId.get(parentId) ?? null),
+      active.kind,
+    )
+  ) {
+    const container = byId.get(parentId!);
+    if (!container) return null;
+    index = children(remaining, container.parentId).indexOf(container) + 1;
+    parentId = container.parentId;
+  }
+  return { parentId, index };
 }
 
-/** The rows after dropping `activeId` (with its subtree) at `overId` with
- *  the given projection. */
-export function move(
+/** The rows after moving `activeId` (with its contents) to `target`. */
+export function relocate(
   rows: Row[],
   activeId: string,
-  overId: string,
-  projection: Projection,
+  target: DropTarget,
 ): Row[] {
   const active = rows.find((r) => r.id === activeId);
   if (!active) return rows;
-  const shift = projection.depth - active.depth;
-  const subtree = descendants(rows, activeId).map((r) => ({
-    ...r,
-    depth: r.depth + shift,
-  }));
-  return reordered(rows, activeId, overId).flatMap((r) =>
-    r.id === activeId
-      ? [
-          { ...r, depth: projection.depth, parentId: projection.parentId },
-          ...subtree,
-        ]
-      : [r],
-  );
+  const moving = new Set([
+    activeId,
+    ...descendants(rows, activeId).map((r) => r.id),
+  ]);
+  const remaining = rows.filter((r) => !moving.has(r.id));
+  const container =
+    target.parentId === null
+      ? null
+      : (remaining.find((r) => r.id === target.parentId) ?? null);
+  if (target.parentId !== null && container === null) return rows;
+  if (!accepts(container, active.kind)) return rows;
+  const depth = container ? container.depth + 1 : 0;
+  const shift = depth - active.depth;
+  const placed: Row[] = [
+    { ...active, depth, parentId: target.parentId },
+    ...descendants(rows, activeId).map((r) => ({
+      ...r,
+      depth: r.depth + shift,
+    })),
+  ];
+  // Insert before the sibling at `index`, or after the container's last
+  // descendant (the end of the list at the root).
+  const siblings = children(remaining, target.parentId);
+  const before = siblings[target.index];
+  let at: number;
+  if (before) at = remaining.indexOf(before);
+  else if (container) {
+    const inside = descendants(remaining, container.id);
+    const last = inside[inside.length - 1] ?? container;
+    at = remaining.indexOf(last) + 1;
+  } else at = remaining.length;
+  return [...remaining.slice(0, at), ...placed, ...remaining.slice(at)];
 }
 
 /** Rows without a container, its contents lifted one level, in place. */

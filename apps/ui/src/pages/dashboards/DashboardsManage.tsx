@@ -2,8 +2,12 @@ import { useState } from "react";
 import type { FC } from "react";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
-import { FolderPlus, Plus, Rows3 } from "lucide-react";
-import type { DashboardStructure } from "@gridone/sdk";
+import { Plus } from "lucide-react";
+import type {
+  DashboardStructure,
+  StructureGroup,
+  StructureSection,
+} from "@gridone/sdk";
 import { ConfirmationDialog } from "@/components/ConfirmationDialog";
 import { RequirePermission } from "@/components/RequirePermission";
 import { ResourceBoundary } from "@/components/ResourceBoundary";
@@ -37,7 +41,7 @@ import {
  *  the root, or one about to be deleted. */
 type ManageDialog =
   | { mode: "edit"; row: Row }
-  | { mode: "create"; kind: "section" | "group" }
+  | { mode: "create"; kind: "section" | "group"; parentId: string | null }
   | { mode: "delete"; row: Row };
 
 /** `/dashboards/manage` (Configuration): the structure as the supervision
@@ -91,13 +95,23 @@ const DashboardsManageContent: FC = () => {
 
   const handleCreateNode = async (values: NodeFormValues) => {
     if (dialog?.mode !== "create") return;
+    const { kind, parentId } = dialog;
+    const node: StructureSection | StructureGroup =
+      kind === "section"
+        ? { kind, id: "", label: values.label, items: [] }
+        : { kind, id: "", ...values, dashboards: [] };
+    // A section lands last at the root, a group last in its section.
     await save({
-      items: [
-        ...structure.items,
-        dialog.kind === "section"
-          ? { kind: "section", id: "", label: values.label, items: [] }
-          : { kind: "group", id: "", ...values, dashboards: [] },
-      ],
+      items:
+        parentId === null
+          ? [...structure.items, node]
+          : structure.items.map((item) =>
+              item.kind === "section" &&
+              item.id === parentId &&
+              node.kind === "group"
+                ? { ...item, items: [...item.items, node] }
+                : item,
+            ),
     });
     close();
   };
@@ -117,28 +131,12 @@ const DashboardsManageContent: FC = () => {
         title={t("title")}
         caption={t("manage.caption")}
         actions={
-          <>
-            <Button
-              variant="outline"
-              onClick={() => setDialog({ mode: "create", kind: "section" })}
-            >
-              <Rows3 />
-              {t("structure.newSection")}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => setDialog({ mode: "create", kind: "group" })}
-            >
-              <FolderPlus />
-              {t("structure.newGroup")}
-            </Button>
-            <Button asChild>
-              <Link to="/dashboards/new">
-                <Plus />
-                {t("switcher.new")}
-              </Link>
-            </Button>
-          </>
+          <Button asChild>
+            <Link to="/dashboards/new">
+              <Plus />
+              {t("switcher.new")}
+            </Link>
+          </Button>
         }
       />
       {structure.items.length === 0 ? (
@@ -154,6 +152,9 @@ const DashboardsManageContent: FC = () => {
           onChange={save}
           onEdit={(row) => setDialog({ mode: "edit", row })}
           onDelete={(row) => setDialog({ mode: "delete", row })}
+          onCreate={(kind, parentId) =>
+            setDialog({ mode: "create", kind, parentId })
+          }
         />
       )}
 

@@ -29,7 +29,10 @@ vi.mock("react-i18next", () =>
     title: "Dashboards",
     "switcher.new": "New dashboard",
     "manage.drag": "Move {{name}}",
-    "manage.actions": "Actions for {{name}}",
+    "structure.actions.edit": "Edit {{name}}",
+    "structure.actions.delete": "Delete {{name}}",
+    "structure.empty.group": "No dashboard yet.",
+    "structure.empty.section": "Empty section.",
     "actions.edit": "Edit details",
     "actions.delete": "Delete",
     "edit.title": "Edit dashboard details",
@@ -173,7 +176,16 @@ function renderPage(structure: DashboardStructure = flat(DASHBOARDS)) {
   );
 }
 
-const rows = () => screen.getAllByRole("listitem");
+/** Every node drawn, in document order: `kind:label`. */
+const nodes = () =>
+  Array.from(document.querySelectorAll<HTMLElement>("[data-kind]")).map(
+    (el) =>
+      `${el.dataset.kind}:${
+        el.dataset.kind === "section"
+          ? el.getAttribute("aria-label")
+          : (el.querySelector("span.truncate")?.textContent ?? "")
+      }`,
+  );
 
 beforeEach(() => {
   window.localStorage.clear();
@@ -186,34 +198,42 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("DashboardsManage", () => {
-  it("lists the structure as an outline, each row with a handle, and persists a drop", async () => {
+  it("draws sections as headings, groups as boxes and dashboards as tiles, and persists a drop", async () => {
     renderPage(NESTED);
-    await waitFor(() => expect(rows()).toHaveLength(5));
-    // Each row badges its kind or type; nested rows are indented.
-    expect(rows().map((row) => row.textContent)).toEqual([
-      "CVCSection",
-      "CTALive",
-      "ECSGroup",
-      "ECS OuestLiveHot water, west wing",
-      "ComptageHistory",
+    await waitFor(() => expect(nodes()).toHaveLength(5));
+    expect(nodes()).toEqual([
+      "section:CVC",
+      "dashboard:CTA",
+      "group:ECS",
+      "dashboard:ECS Ouest",
+      "dashboard:Comptage",
     ]);
-    expect(rows().map((row) => row.style.marginLeft)).toEqual([
-      "0px",
-      "28px",
-      "28px",
-      "56px",
-      "0px",
-    ]);
+    // Dashboards sit inside their containers; the type badge rides the tile.
+    const section = screen.getByRole("region", { name: "CVC" });
+    const westTile = within(section)
+      .getByText("ECS Ouest")
+      .closest("[data-kind]") as HTMLElement;
+    expect(westTile).toHaveAttribute("data-kind", "dashboard");
+    expect(westTile.parentElement?.closest("[data-kind]")).toHaveAttribute(
+      "data-kind",
+      "group",
+    );
+    expect(
+      screen.getByText("Comptage").closest("[data-kind=dashboard]"),
+    ).toHaveTextContent("History");
     expect(screen.getByRole("link", { name: "New dashboard" })).toHaveAttribute(
       "href",
       "/dashboards/new",
     );
+    // The add buttons live in the editor, not the page header.
+    expect(
+      screen.getByRole("button", { name: "New section" }).closest("header"),
+    ).toBeNull();
     expect(
       screen.getByRole("button", { name: "Move ECS" }),
     ).toBeInTheDocument();
 
-    // Comptage dropped on CTA's slot lands in CVC, first: between the
-    // section heading and CTA nothing shallower fits.
+    // Comptage dropped on CTA's tile lands before it, in CVC.
     dnd.onDragEnd!({
       active: { id: "d3" },
       over: { id: "d2" },
@@ -242,20 +262,20 @@ describe("DashboardsManage", () => {
       }),
     );
     await waitFor(() =>
-      expect(rows().map((row) => row.textContent)).toEqual([
-        "CVCSection",
-        "ComptageHistory",
-        "CTALive",
-        "ECSGroup",
-        "ECS OuestLiveHot water, west wing",
+      expect(nodes()).toEqual([
+        "section:CVC",
+        "dashboard:Comptage",
+        "dashboard:CTA",
+        "group:ECS",
+        "dashboard:ECS Ouest",
       ]),
     );
   });
 
-  it("creates a group from the header, appended at the root without an id", async () => {
+  it("creates a group from the editor, appended at the root without an id", async () => {
     const user = userEvent.setup();
     renderPage();
-    await waitFor(() => expect(rows()).toHaveLength(3));
+    await waitFor(() => expect(nodes()).toHaveLength(3));
 
     await user.click(screen.getByRole("button", { name: "New group" }));
     const dialog = screen.getByRole("dialog", { name: "New group" });
@@ -279,18 +299,17 @@ describe("DashboardsManage", () => {
         ],
       }),
     );
-    await waitFor(() => expect(rows()).toHaveLength(4));
-    expect(rows()[3]).toHaveTextContent("Hot waterGroup");
+    await waitFor(() => expect(nodes()).toHaveLength(4));
+    expect(nodes()[3]).toBe("group:Hot water");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("deletes a group after confirmation, lifting its dashboards in place", async () => {
     const user = userEvent.setup();
     renderPage(NESTED);
-    await waitFor(() => expect(rows()).toHaveLength(5));
+    await waitFor(() => expect(nodes()).toHaveLength(5));
 
-    await user.click(screen.getByRole("button", { name: "Actions for ECS" }));
-    await user.click(screen.getByRole("menuitem", { name: "Delete" }));
+    await user.click(screen.getByRole("button", { name: "Delete ECS" }));
     const confirm = screen.getByRole("alertdialog");
     expect(confirm).toHaveTextContent("The dashboards in ECS are kept.");
     await user.click(within(confirm).getByRole("button", { name: "Delete" }));
@@ -317,10 +336,9 @@ describe("DashboardsManage", () => {
   it("renames and re-describes a dashboard from its row menu", async () => {
     const user = userEvent.setup();
     renderPage();
-    await waitFor(() => expect(rows()).toHaveLength(3));
+    await waitFor(() => expect(nodes()).toHaveLength(3));
 
-    await user.click(screen.getByRole("button", { name: "Actions for CTA" }));
-    await user.click(screen.getByRole("menuitem", { name: "Edit details" }));
+    await user.click(screen.getByRole("button", { name: "Edit CTA" }));
     const dialog = screen.getByRole("dialog", {
       name: "Edit dashboard details",
     });
@@ -353,12 +371,9 @@ describe("DashboardsManage", () => {
   it("restores the picked icon on edit, offers every icon plus none, and saves the change", async () => {
     const user = userEvent.setup();
     renderPage();
-    await waitFor(() => expect(rows()).toHaveLength(3));
+    await waitFor(() => expect(nodes()).toHaveLength(3));
 
-    await user.click(
-      screen.getByRole("button", { name: "Actions for ECS Ouest" }),
-    );
-    await user.click(screen.getByRole("menuitem", { name: "Edit details" }));
+    await user.click(screen.getByRole("button", { name: "Edit ECS Ouest" }));
     const grid = within(screen.getByRole("group", { name: "Icon" }));
     expect(grid.getByRole("button", { name: "droplets" })).toHaveAttribute(
       "aria-pressed",
@@ -381,12 +396,9 @@ describe("DashboardsManage", () => {
   it("clears the icon through the none cell", async () => {
     const user = userEvent.setup();
     renderPage();
-    await waitFor(() => expect(rows()).toHaveLength(3));
+    await waitFor(() => expect(nodes()).toHaveLength(3));
 
-    await user.click(
-      screen.getByRole("button", { name: "Actions for ECS Ouest" }),
-    );
-    await user.click(screen.getByRole("menuitem", { name: "Edit details" }));
+    await user.click(screen.getByRole("button", { name: "Edit ECS Ouest" }));
     await user.click(screen.getByRole("button", { name: "No icon" }));
     await user.click(screen.getByRole("button", { name: "Save changes" }));
 
@@ -401,12 +413,9 @@ describe("DashboardsManage", () => {
   it("deletes a dashboard from its row menu, after confirmation", async () => {
     const user = userEvent.setup();
     renderPage();
-    await waitFor(() => expect(rows()).toHaveLength(3));
+    await waitFor(() => expect(nodes()).toHaveLength(3));
 
-    await user.click(
-      screen.getByRole("button", { name: "Actions for Comptage" }),
-    );
-    await user.click(screen.getByRole("menuitem", { name: "Delete" }));
+    await user.click(screen.getByRole("button", { name: "Delete Comptage" }));
     expect(client.dashboards.delete).not.toHaveBeenCalled();
     await user.click(
       within(screen.getByRole("alertdialog")).getByRole("button", {
@@ -428,7 +437,7 @@ describe("DashboardsManage", () => {
         }),
       ).toHaveLength(2),
     );
-    expect(screen.queryByRole("listitem")).not.toBeInTheDocument();
+    expect(document.querySelector("[data-kind]")).toBeNull();
   });
 
   it("keeps the page from a reader", () => {

@@ -8,11 +8,19 @@
     "caption": "Les entrées de supervision, telles que la barre latérale les liste. Créez, renommez, décrivez et supprimez les tableaux de bord ici, et organisez-les : un groupe affiche ses tableaux de bord en onglets, une section replie ses entrées sous un titre. Les widgets se modifient sur le tableau de bord lui-même.",
     "actions": "Actions pour {{name}}",
     "drag": "Déplacer {{name}}",
-    "orderHelp": "Faites glisser une poignée vers le haut ou le bas pour réordonner, sur le côté pour entrer ou sortir d'un groupe ou d'une section. Un groupe ou une section emporte son contenu."
+    "orderHelp": "Faites glisser une poignée sur un tableau de bord pour vous placer avant lui, sur un groupe ou une section pour arriver en dernier dedans. Un groupe ou une section emporte son contenu."
   },
   "structure": {
     "newSection": "Nouvelle section",
     "newGroup": "Nouveau groupe",
+    "empty": {
+      "group": "Aucun tableau de bord — déposez-en un ici.",
+      "section": "Section vide — déposez-y des tableaux de bord ou des groupes."
+    },
+    "actions": {
+      "edit": "Modifier {{name}}",
+      "delete": "Supprimer {{name}}"
+    },
     "fields": {
       "label": "Libellé"
     },

@@ -8,11 +8,19 @@
     "caption": "The supervision entries, as the sidebar lists them. Create, rename, describe and delete dashboards here, and arrange them: a group shows its dashboards as tabs, a section folds its entries under a heading. Widgets are edited on the dashboard itself.",
     "actions": "Actions for {{name}}",
     "drag": "Move {{name}}",
-    "orderHelp": "Drag a handle up or down to reorder, sideways to move into or out of a group or section. A group or section carries its contents along."
+    "orderHelp": "Drag a handle onto a dashboard to land before it, onto a group or a section to land last in it. A group or section carries its contents along."
   },
   "structure": {
     "newSection": "New section",
     "newGroup": "New group",
+    "empty": {
+      "group": "No dashboard yet — drop one here.",
+      "section": "Empty section — drop dashboards or groups here."
+    },
+    "actions": {
+      "edit": "Edit {{name}}",
+      "delete": "Delete {{name}}"
+    },
     "fields": {
       "label": "Label"
     },
