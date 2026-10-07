@@ -1,3 +1,9 @@
+## v0.302.0 (2026-10-07)
+
+### Feat
+
+- **ui**: attribute pickers search label or name, sorted by label (#782)
+
 ## v0.301.1 (2026-10-07)
 
 ### Fix
