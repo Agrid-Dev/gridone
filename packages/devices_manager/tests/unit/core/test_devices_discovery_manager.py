@@ -334,3 +334,30 @@ async def test_register_again_retries_an_idle_discovery(
     await mock_push_transport_client.simulate_event("/xx", _EVENT)
     await asyncio.sleep(0.05)
     assert add_device_spy.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_unregister_retries_the_stop_after_a_failed_one(
+    discovery_context, discovery_storage, config, mock_push_transport_client
+):
+    """Broker down: the stop fails, the retry stops the listener again."""
+    unregister_listener = mock_push_transport_client.unregister_listener
+    calls: list[int] = []
+
+    async def _fails_once(*args: object) -> None:
+        calls.append(1)
+        if len(calls) == 1:
+            msg = "Accessing mqtt client when undefined"
+            raise ValueError(msg)
+        await unregister_listener(*args)
+
+    ddm = DevicesDiscoveryManager(discovery_context, discovery_storage)
+    await ddm.register(config["driver_id"], config["transport_id"])
+    mock_push_transport_client.unregister_listener = _fails_once
+
+    with pytest.raises(ValueError, match="mqtt client"):
+        await ddm.unregister(config["driver_id"], config["transport_id"])
+    await ddm.unregister(config["driver_id"], config["transport_id"])
+
+    assert len(calls) == 2
+    assert await discovery_storage.read_all() == []

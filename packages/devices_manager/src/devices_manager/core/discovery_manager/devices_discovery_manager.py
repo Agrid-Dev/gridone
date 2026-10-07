@@ -143,8 +143,8 @@ class DevicesDiscoveryManager:
         key = self._build_key(driver_id, transport_id)
         job = self._registry[key]
         if job is not None:
-            self._registry[key] = None
             await job.stop()
+            self._registry[key] = None
         await self._storage.delete(self._unpack_key(key))
         del self._registry[key]
         logger.info(
