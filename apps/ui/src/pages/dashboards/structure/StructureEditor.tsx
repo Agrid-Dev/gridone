@@ -364,7 +364,7 @@ const SectionBlock: FC<{ row: Row; ctx: EditorContext }> = ({ row, ctx }) => {
 
 /** What travels under the pointer. */
 const Ghost: FC<{ row: Row }> = ({ row }) => (
-  <div className="flex items-center gap-2 rounded-md border bg-card px-3 py-2 text-sm font-medium shadow-lg">
+  <div className="flex w-max items-center gap-2 whitespace-nowrap rounded-md border bg-card px-3 py-2 text-sm font-medium shadow-lg">
     {row.kind !== "section" && (
       <DashboardIconGlyph icon={row.icon} className="h-4 w-4 shrink-0" />
     )}
