@@ -17,7 +17,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useAttributeLabel } from "@/hooks/useAttributeLabel";
-import { filterAttributeOption } from "@/lib/attributeSearch";
+import { filterByAllWords } from "@/lib/textSearch";
 import { cn } from "@/lib/utils";
 import { isEmptyFilter, type DevicesFilter } from "@/lib/devices";
 import { compareText } from "@/lib/sortByName";
@@ -93,7 +93,7 @@ export function AttributeCoverageSelect({
       >
         <Command
           label={t("pickers.attribute.search")}
-          filter={filterAttributeOption}
+          filter={filterByAllWords}
         >
           <CommandInput placeholder={t("pickers.attribute.search")} />
           <CommandList className="max-h-[min(300px,calc(var(--radix-popover-content-available-height)-3rem))]">

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useAttributeLabel } from "@/hooks/useAttributeLabel";
-import { matchesAllWords } from "@/lib/attributeSearch";
+import { matchesAllWords } from "@/lib/textSearch";
 import { foldText } from "@/lib/textFormat";
 import type { AttributeCatalog } from "./expressions";
 

@@ -8,10 +8,10 @@ export function matchesAllWords(foldedText: string, query: string): boolean {
     .every((word) => foldedText.includes(word));
 }
 
-/** cmdk filter for attribute pickers: matches the raw name (value) or the
- *  label (keywords) on every typed word. Every match scores the same, so cmdk
- *  keeps the order the picker rendered. */
-export function filterAttributeOption(
+/** cmdk filter: an item matches when every typed word appears in its value
+ *  or keywords (e.g. an attribute's raw name and label). Every match scores
+ *  the same, so cmdk keeps the order the list rendered. */
+export function filterByAllWords(
   value: string,
   query: string,
   keywords: string[] = [],

@@ -571,7 +571,7 @@ describe("DeviceHistoryPage selection", () => {
   });
 
   // Search matches the label in the user's language or the raw name, and keeps
-  // the label order (the full matching rule is covered in attributeSearch.spec).
+  // the label order (the full matching rule is covered in textSearch.spec).
   it.each([
     ["humidite", ["Humidité"]],
     ["SUPPLY_AIR", ["Température air soufflé"]],

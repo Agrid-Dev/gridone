@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { filterAttributeOption, matchesAllWords } from "./attributeSearch";
+import { filterByAllWords, matchesAllWords } from "./textSearch";
 
 describe("matchesAllWords", () => {
   it.each([
@@ -11,7 +11,7 @@ describe("matchesAllWords", () => {
   });
 });
 
-describe("filterAttributeOption", () => {
+describe("filterByAllWords", () => {
   it.each([
     ["flow_rate", "debit", ["Débit"], 1],
     ["flow_rate", "FLOW_R", undefined, 1],
@@ -25,7 +25,7 @@ describe("filterAttributeOption", () => {
   ])(
     "%s searched with %j (label %j) scores %d",
     (value, query, keywords, score) => {
-      expect(filterAttributeOption(value, query, keywords)).toBe(score);
+      expect(filterByAllWords(value, query, keywords)).toBe(score);
     },
   );
 });

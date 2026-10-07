@@ -17,7 +17,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useAttributeLabel } from "@/hooks/useAttributeLabel";
-import { filterAttributeOption } from "@/lib/attributeSearch";
+import { filterByAllWords } from "@/lib/textSearch";
 import { compareText } from "@/lib/sortByName";
 import { cn } from "@/lib/utils";
 import { useDeviceHistoryContext } from "./DeviceHistoryContext";
@@ -51,7 +51,7 @@ export function AttributeSelector() {
           </Button>
         </PopoverTrigger>
         <PopoverContent align="end" className="w-72 p-0">
-          <Command filter={filterAttributeOption}>
+          <Command filter={filterByAllWords}>
             <CommandInput placeholder={t("common:common.searchAttributes")} />
             <CommandList>
               <CommandEmpty>{t("common:common.noResults")}</CommandEmpty>
