@@ -1,3 +1,9 @@
+## v0.300.1 (2026-10-07)
+
+### Refactor
+
+- **apps**: back to the secret-node redaction (AGR-1526)
+
 ## v0.300.0 (2026-10-07)
 
 ### Feat
