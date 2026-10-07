@@ -1,3 +1,19 @@
+## v0.300.0 (2026-10-07)
+
+### Feat
+
+- **apps**: health messages, image and device-list fields (AGR-1526)
+
+### Fix
+
+- **apps**: preserve redaction for enclosing schema errors
+
+### Refactor
+
+- **ui**: image upload as a shared schema-form widget (AGR-1526)
+- **apps**: redact base64 like secrets (AGR-1526)
+- **ui**: drop the device-list app config field (AGR-1526)
+
 ## v0.299.0 (2026-10-06)
 
 ### Feat
