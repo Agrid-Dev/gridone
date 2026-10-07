@@ -221,8 +221,7 @@
     "device": {
       "label": "Device",
       "placeholder": "Select a device",
-      "noDevices": "No devices available",
-      "missing": "Device not found ({{id}})"
+      "noDevices": "No devices available"
     },
     "attribute": {
       "search": "Search attributes...",

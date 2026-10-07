@@ -221,8 +221,7 @@
     "device": {
       "label": "Appareil",
       "placeholder": "Sélectionner un appareil",
-      "noDevices": "Aucun appareil disponible",
-      "missing": "Appareil introuvable ({{id}})"
+      "noDevices": "Aucun appareil disponible"
     },
     "attribute": {
       "search": "Rechercher un attribut...",

@@ -1,7 +1,6 @@
-import { FC, useMemo, useRef, useState } from "react";
+import { FC, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  get,
   useController,
   type Control,
   type FieldError,
@@ -13,12 +12,8 @@ import { SchemaField } from "@/components/forms/SchemaField";
 import { AssetPicker } from "@/components/forms/resourcePickers/AssetPicker";
 import { DevicePicker } from "@/components/forms/resourcePickers/DevicePicker";
 import { FieldShell } from "@/components/forms/controllers/FieldShell";
-import { DevicePickerTable } from "@/components/forms/targetPicker/DevicePickerTable";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { useDevicesList } from "@/hooks/useDevicesList";
-import { sortedByName } from "@/lib/sortByName";
 import { toLabel } from "@/lib/textFormat";
 import type {
   FieldDescriptor,
@@ -52,18 +47,17 @@ interface AppConfigFieldProps {
  * Renders one property of an app config schema.
  *
  * Handles the widgets the app contract adds on top of plain JSON Schema —
- * asset and device references, image uploads and scalar list values, plus
- * fields keyed by name rather than shape (`zone_overrides`,
- * `weekly_schedule`). The config form renders through `SchemaFields`, and
- * this component is mounted through its per-consumer `overrides` seam
- * (`appConfigOverrides` below) only for the shapes/fields above; primitives —
- * including `format: password`, masked by the registry's shared secret
- * widget — go straight to the widget registry. (The `SchemaField` delegation
- * at the bottom keeps this component usable standalone.) `asset-id` is why
- * the seam exists rather than a registry entry — it pulls `useAssetTree`, and
- * the shared builder must stay domain-agnostic. Flat-object arrays live in
- * the registry; scalar arrays deliberately keep the app-contract
- * pickers/textarea here.
+ * asset references, image uploads and scalar list values, plus fields keyed
+ * by name rather than shape (`zone_overrides`, `weekly_schedule`). The config
+ * form renders through `SchemaFields`, and this component is mounted through
+ * its per-consumer `overrides` seam (`appConfigOverrides` below) only for the
+ * shapes/fields above; primitives — including `format: password`, masked by
+ * the registry's shared secret widget — go straight to the widget registry.
+ * (The `SchemaField` delegation at the bottom keeps this component usable
+ * standalone.) `asset-id` is why the seam exists rather than a registry
+ * entry — it pulls `useAssetTree`, and the shared builder must stay
+ * domain-agnostic. Flat-object arrays live in the registry; scalar arrays
+ * deliberately keep the app-contract pickers/textarea here.
  */
 export const AppConfigField: FC<AppConfigFieldProps> = ({
   name,
@@ -111,23 +105,13 @@ export const AppConfigField: FC<AppConfigFieldProps> = ({
     );
   }
 
-  // `device-id` takes two widgets, unlike `asset-id`: `DevicePicker` has no
-  // multi-select variant, so an array of device ids gets a checkbox table
-  // instead, whose header box selects every listed device.
+  // Single-value only, unlike `asset-id`: `DevicePicker` has no multi-select
+  // variant, so `itemSchema.format === DEVICE_ID_FORMAT` is deliberately not
+  // checked here — an array of device ids falls through to `ListField` below,
+  // same as any other scalar array with no dedicated widget.
   if (schema.format === DEVICE_ID_FORMAT) {
     return (
       <DeviceField
-        name={name}
-        schema={schema}
-        control={control}
-        required={required}
-      />
-    );
-  }
-
-  if (isArray && itemSchema.format === DEVICE_ID_FORMAT) {
-    return (
-      <DeviceListField
         name={name}
         schema={schema}
         control={control}
@@ -267,15 +251,6 @@ const AssetField: FC<AppConfigFieldProps & { multiple: boolean }> = ({
   );
 };
 
-/** The ids an array of `device-id` holds; none for any other value. */
-const idsOf = (value: unknown): string[] =>
-  Array.isArray(value) ? (value as string[]) : [];
-
-/** The single device type a `device-id` node restricts its candidates to, if
- *  the app declares one. */
-const deviceTypeOf = (node: AppSchemaNode | undefined): string | undefined =>
-  typeof node?.device_type === "string" ? node.device_type : undefined;
-
 /** `format: device-id` — single select over devices, restricted to
  *  `device_type` when the app declares one. */
 const DeviceField: FC<AppConfigFieldProps> = ({
@@ -285,7 +260,8 @@ const DeviceField: FC<AppConfigFieldProps> = ({
   required,
 }) => {
   const { field, fieldState } = useController({ name, control });
-  const deviceType = deviceTypeOf(schema);
+  const deviceType =
+    typeof schema.device_type === "string" ? schema.device_type : undefined;
 
   return (
     <DevicePicker
@@ -299,68 +275,6 @@ const DeviceField: FC<AppConfigFieldProps> = ({
       invalid={fieldState.invalid}
       error={fieldState.error}
     />
-  );
-};
-
-/**
- * Array of `format: device-id` — a checkbox table over the devices,
- * restricted to `items.device_type` when the app declares one. The header box
- * selects every row listed at that moment; the form holds their ids.
- *
- * A stored or chosen id that no listed device has — the device was deleted, or
- * is no longer of that type — gets a row of its own, so it is neither shipped
- * nor dropped unseen: the user sees it ticked and can untick it. The stored ids
- * keep their row once unticked, for the user to change their mind.
- */
-const DeviceListField: FC<AppConfigFieldProps> = ({
-  name,
-  schema,
-  control,
-  required,
-}) => {
-  const { t } = useTranslation("common");
-  const { field, fieldState, formState } = useController({ name, control });
-  const deviceType = deviceTypeOf(schema.items);
-  const { devices, loading, error } = useDevicesList(
-    deviceType ? { types: [deviceType] } : undefined,
-  );
-  const sortedDevices = useMemo(() => sortedByName(devices), [devices]);
-  const selectedIds = idsOf(field.value);
-  const storedIds = idsOf(get(formState.defaultValues, name));
-  // `DevicePickerTable` drops the ids a listed device has.
-  const missingIds = [...new Set([...storedIds, ...selectedIds])];
-
-  return (
-    // A table needs the width of the form, not half of its grid.
-    <div className="min-w-0 md:col-span-2">
-      <FieldShell
-        id={name}
-        invalid={fieldState.invalid}
-        label={schema.title}
-        description={schema.description}
-        error={fieldState.error}
-        required={required}
-      >
-        {loading ? (
-          <Skeleton className="h-24 w-full" />
-        ) : error ? (
-          <p className="text-sm text-muted-foreground">
-            {t("errors.loadError")}
-          </p>
-        ) : (
-          <div role="group" aria-label={schema.title}>
-            <DevicePickerTable
-              devices={sortedDevices}
-              selectedIds={selectedIds}
-              onChange={field.onChange}
-              missingIds={missingIds}
-              missingLabel={(id) => t("pickers.device.missing", { id })}
-              emptyMessage={t("pickers.device.noDevices")}
-            />
-          </div>
-        )}
-      </FieldShell>
-    </div>
   );
 };
 
