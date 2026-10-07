@@ -136,4 +136,6 @@ of the fields.
 
 Image uploads are part of the shared dialect, so app schemas declare them the
 same way. Like a `format: password` value, the base64 is never echoed by a
-server validation error raised on the image node itself.
+Gridone schema-validation error, including errors on enclosing unions, arrays,
+and objects. References and sibling constraints retain this protection; errors
+on unrelated fields keep their usual messages.
