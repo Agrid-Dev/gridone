@@ -585,6 +585,19 @@ async def running_dm_with_discovery(
     await dm.stop()
 
 
+@pytest.fixture
+def shared_storage(monkeypatch) -> MemoryDevicesStorage:
+    """One memory storage that every service in the test opens, the way a
+    database outlives a restart."""
+    storage = MemoryDevicesStorage()
+
+    async def _build(_url: str | None) -> MemoryDevicesStorage:
+        return storage
+
+    monkeypatch.setattr("devices_manager.service.build_storage", _build)
+    return storage
+
+
 class TestDevicesServiceDiscovery:
     @pytest.mark.asyncio
     async def test_devices_manager_adds_device_on_discovery(
@@ -660,6 +673,116 @@ class TestDevicesServiceDiscovery:
         )
         await mock_push_transport_client.simulate_event("/xx", _DISCOVERY_EVENT)
         assert len(dm_with_discovery.list_devices()) == 0
+
+    @pytest.mark.usefixtures("shared_storage")
+    @pytest.mark.asyncio
+    async def test_discovery_survives_restart(
+        self, driver_w_push_transport, mock_push_transport_client
+    ):
+        driver_id = driver_w_push_transport.id
+        transport_id = mock_push_transport_client.id
+        dm = DevicesService(
+            storage_url="memory://test",
+            drivers={driver_id: driver_w_push_transport},
+            transports={transport_id: mock_push_transport_client},
+        )
+        await dm.start()
+        await dm.discovery_manager.register(
+            driver_id=driver_id, transport_id=transport_id
+        )
+        await mock_push_transport_client.simulate_event("/xx", _DISCOVERY_EVENT)
+        await asyncio.sleep(0.05)
+        await dm.stop()
+
+        # A fresh client, so the stopped service's listener can't answer.
+        transport = MockPushTransportClient(
+            mock_push_transport_client.metadata, mock_push_transport_client.config
+        )
+        restarted = DevicesService(
+            storage_url="memory://test",
+            drivers={driver_id: driver_w_push_transport},
+            transports={transport_id: transport},
+        )
+        await restarted.start()
+        try:
+            assert restarted.discovery_manager.has(driver_id, transport_id)
+            await transport.simulate_event("/xx", _DISCOVERY_EVENT)
+            await transport.simulate_event("/xx", {**_DISCOVERY_EVENT, "id": "new"})
+            await asyncio.sleep(0.05)
+            vendor_ids = sorted(
+                (d.config or {}).get("vendor_id") for d in restarted.list_devices()
+            )
+            assert vendor_ids == ["abc", "new"]
+        finally:
+            await restarted.stop()
+
+    @pytest.mark.parametrize(
+        "delete",
+        [
+            lambda dm, driver, _transport: dm.delete_driver(driver.id),
+            lambda dm, _driver, transport: dm.delete_transport(transport.id),
+        ],
+        ids=["driver", "transport"],
+    )
+    @pytest.mark.asyncio
+    async def test_delete_refused_while_discovery_uses_it(
+        self,
+        delete,
+        dm_with_discovery,
+        driver_w_push_transport,
+        mock_push_transport_client,
+    ):
+        with pytest.raises(ConflictError, match="used by a discovery"):
+            await delete(
+                dm_with_discovery, driver_w_push_transport, mock_push_transport_client
+            )
+        assert dm_with_discovery.discovery_manager.has(
+            driver_w_push_transport.id, mock_push_transport_client.id
+        )
+
+    @pytest.mark.parametrize(
+        "delete",
+        [
+            lambda dm, driver, _transport: dm.delete_driver(driver.id),
+            lambda dm, _driver, transport: dm.delete_transport(transport.id),
+        ],
+        ids=["driver", "transport"],
+    )
+    @pytest.mark.asyncio
+    async def test_delete_refused_for_a_stored_discovery_that_is_not_running(
+        self, delete, driver_w_push_transport, mock_transport_client, shared_storage
+    ):
+        """An HTTP transport can't run a discovery, so restore fails; the
+        stored registration still holds its driver and transport."""
+        await shared_storage.discoveries.write(
+            {
+                "driver_id": driver_w_push_transport.id,
+                "transport_id": mock_transport_client.id,
+            }
+        )
+        dm = DevicesService(
+            storage_url="memory://test",
+            drivers={driver_w_push_transport.id: driver_w_push_transport},
+            transports={mock_transport_client.id: mock_transport_client},
+        )
+        await dm.start()
+        try:
+            with pytest.raises(ConflictError, match="used by a discovery"):
+                await delete(dm, driver_w_push_transport, mock_transport_client)
+        finally:
+            await dm.stop()
+
+    @pytest.mark.asyncio
+    async def test_unreadable_discoveries_do_not_stop_start(self, shared_storage):
+        shared_storage.discoveries.read_all = AsyncMock(
+            side_effect=ValueError("bad file")
+        )
+        dm = DevicesService(storage_url="memory://test")
+        await dm.start()
+        try:
+            assert dm.discovery_manager.list() == []
+        finally:
+            await dm.stop()
 
     def test_add_discovery_listener_returns_id(self):
         dm = DevicesService(devices={}, drivers={}, transports={})

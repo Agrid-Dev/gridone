@@ -1,13 +1,18 @@
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING
+from unittest.mock import AsyncMock
 
 import pytest
 
 from devices_manager.core.discovery_manager import (
     DevicesDiscoveryManager,
+    DiscoveryConfig,
     DiscoveryContext,
+    DiscoveryStorage,
 )
+from devices_manager.storage.memory import MemoryDevicesStorage
 
 if TYPE_CHECKING:
     from devices_manager.core.device import CoreDevice
@@ -21,7 +26,7 @@ class FnCallSpy:
     def __init__(self) -> None:
         self.call_args = []
 
-    def call(self, device: CoreDevice):
+    async def call(self, device: CoreDevice):
         self.call_args.append(device)
 
     @property
@@ -39,14 +44,20 @@ DEVICE_EXISTS_CONFIG = {"id": "abc", "gateway_id": "gtw"}
 
 @pytest.fixture
 def discovery_context(
-    driver_w_push_transport, mock_push_transport_client, add_device_spy
+    driver_w_push_transport,
+    driver,
+    mock_push_transport_client,
+    mock_transport_client,
+    add_device_spy,
 ) -> DiscoveryContext:
     def get_driver(driver_id: str) -> Driver:
-        drivers = {driver_w_push_transport.id: driver_w_push_transport}
+        drivers = {d.id: d for d in (driver_w_push_transport, driver)}
         return drivers[driver_id]
 
     def get_transport(transport_id: str) -> TransportClient:
-        transports = {mock_push_transport_client.id: mock_push_transport_client}
+        transports = {
+            t.id: t for t in (mock_push_transport_client, mock_transport_client)
+        }
         return transports[transport_id]
 
     def device_exists(device: CoreDevice) -> bool:
@@ -163,3 +174,116 @@ async def tests_has(
     assert not ddm.has("unknown", mock_push_transport_client.id)
     assert not ddm.has(driver_w_push_transport.id, "unknown")
     assert not ddm.has("unknown", "unknown")
+
+
+@pytest.fixture
+def discovery_storage() -> DiscoveryStorage:
+    return MemoryDevicesStorage().discoveries
+
+
+@pytest.fixture
+def config(driver_w_push_transport, mock_push_transport_client) -> DiscoveryConfig:
+    return {
+        "driver_id": driver_w_push_transport.id,
+        "transport_id": mock_push_transport_client.id,
+    }
+
+
+_EVENT = {"id": "new", "gateway_id": "gtw", "payload": {"temperature": 22}}
+
+
+@pytest.mark.asyncio
+async def test_register_persists_discovery(
+    discovery_context, discovery_storage, config
+):
+    ddm = DevicesDiscoveryManager(discovery_context, storage=discovery_storage)
+    await ddm.register(config["driver_id"], config["transport_id"])
+    assert await discovery_storage.read_all() == [config]
+
+
+@pytest.mark.asyncio
+async def test_unregister_deletes_persisted_discovery(
+    discovery_context, discovery_storage, config
+):
+    ddm = DevicesDiscoveryManager(discovery_context, storage=discovery_storage)
+    await ddm.register(config["driver_id"], config["transport_id"])
+    await ddm.unregister(config["driver_id"], config["transport_id"])
+    assert await discovery_storage.read_all() == []
+
+
+@pytest.mark.asyncio
+async def test_failed_register_persists_nothing(
+    discovery_context, discovery_storage, mock_push_transport_client
+):
+    ddm = DevicesDiscoveryManager(discovery_context, storage=discovery_storage)
+    with pytest.raises(KeyError, match="unknown_driver"):
+        await ddm.register("unknown_driver", mock_push_transport_client.id)
+    assert await discovery_storage.read_all() == []
+
+
+@pytest.mark.asyncio
+async def test_register_stops_listening_when_persisting_fails(
+    discovery_context, config, mock_push_transport_client, add_device_spy
+):
+    storage = AsyncMock(spec=DiscoveryStorage)
+    storage.write.side_effect = OSError("disk full")
+    ddm = DevicesDiscoveryManager(discovery_context, storage=storage)
+    with pytest.raises(OSError, match="disk full"):
+        await ddm.register(config["driver_id"], config["transport_id"])
+    assert not ddm.has(config["driver_id"], config["transport_id"])
+    await mock_push_transport_client.simulate_event("/xx", _EVENT)
+    await asyncio.sleep(0.05)
+    assert add_device_spy.call_count == 0
+
+
+@pytest.mark.asyncio
+async def test_restore_skips_unrestorable_and_starts_the_rest(
+    discovery_context,
+    discovery_storage,
+    config,
+    mock_push_transport_client,
+    add_device_spy,
+):
+    """A stored discovery that can't start is logged and skipped, never
+    blocks the others, and stays stored and registered."""
+    push_driver = config["driver_id"]
+    push_transport = config["transport_id"]
+    broken: list[DiscoveryConfig] = [
+        {"driver_id": "deleted_driver", "transport_id": push_transport},
+        {"driver_id": push_driver, "transport_id": "deleted_transport"},
+        # No discovery block on this driver.
+        {"driver_id": "test_driver", "transport_id": push_transport},
+        # Not a push transport.
+        {"driver_id": push_driver, "transport_id": "my-transport"},
+    ]
+    for stored in [*broken, config]:
+        await discovery_storage.write(stored)
+    ddm = DevicesDiscoveryManager(discovery_context, storage=discovery_storage)
+
+    await ddm.restore()
+
+    assert ddm.has(push_driver, push_transport)
+    assert not any(ddm.has(c["driver_id"], c["transport_id"]) for c in broken)
+    assert sorted(ddm.list(), key=str) == sorted([*broken, config], key=str)
+    assert await discovery_storage.read_all() == [*broken, config]
+    await mock_push_transport_client.simulate_event("/xx", _EVENT)
+    await asyncio.sleep(0.05)
+    assert add_device_spy.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_discovery_that_failed_to_restore_can_be_unregistered(
+    discovery_context, discovery_storage, mock_push_transport_client
+):
+    stored: DiscoveryConfig = {
+        "driver_id": "deleted_driver",
+        "transport_id": mock_push_transport_client.id,
+    }
+    await discovery_storage.write(stored)
+    ddm = DevicesDiscoveryManager(discovery_context, storage=discovery_storage)
+    await ddm.restore()
+
+    await ddm.unregister(stored["driver_id"], stored["transport_id"])
+
+    assert ddm.list() == []
+    assert await discovery_storage.read_all() == []
