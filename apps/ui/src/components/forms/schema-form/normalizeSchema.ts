@@ -83,6 +83,45 @@ const SCALAR_KINDS = new Set<FieldKind>([
   "enum",
 ]);
 
+/**
+ * An image upload: a string whose content annotations declare an `image/*`
+ * media type, encoded in base64 — e.g. `{type: string, contentMediaType:
+ * image/png, contentEncoding: base64, maxLength: 699052}`. Its value is the
+ * raw base64 of the file, with no `data:` prefix; `maxLength` caps it.
+ */
+export function isImageField(node: JsonSchemaObject): boolean {
+  return (
+    node.type === "string" &&
+    typeof node.contentMediaType === "string" &&
+    node.contentMediaType.startsWith("image/") &&
+    node.contentEncoding === "base64"
+  );
+}
+
+/**
+ * Largest file, in bytes, whose base64 fits in the field's `maxLength`.
+ *
+ * Base64 spends 4 characters per started group of 3 bytes, so a file of `n`
+ * bytes encodes to `4 * ceil(n / 3)` characters, which stays within
+ * `maxLength` exactly when `n <= 3 * floor(maxLength / 4)`. E.g. 699052
+ * characters hold 524289 bytes (512 KiB and one byte). `undefined` when the
+ * field declares no cap.
+ */
+export function maxImageBytes(node: JsonSchemaObject): number | undefined {
+  return typeof node.maxLength === "number"
+    ? 3 * Math.floor(node.maxLength / 4)
+    : undefined;
+}
+
+/** The image upload a node declares, if it is one (`isImageField`). */
+const imageOf = (node: JsonSchemaObject): FieldDescriptor["image"] =>
+  isImageField(node)
+    ? {
+        mediaType: String(node.contentMediaType),
+        maxBytes: maxImageBytes(node),
+      }
+    : undefined;
+
 const nestedValidationSchema = (field: FieldDescriptor): JsonSchemaObject =>
   field.nullable ? { anyOf: [field.schema, { type: "null" }] } : field.schema;
 
@@ -179,6 +218,7 @@ export const normalizeProperty = (
     arrayItem,
     multiline: node.multiline === true,
     secret: node.secret === true || node.format === "password",
+    image: imageOf(node),
     schema: arrayItem ? { ...node, items: arrayItem.schema } : node,
   };
 };

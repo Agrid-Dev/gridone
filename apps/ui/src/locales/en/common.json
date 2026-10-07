@@ -317,7 +317,16 @@
     "unsupportedField": "This field type can't be edited here yet.",
     "serverErrorTitle": "Check this form",
     "showSecret": "Show value",
-    "hideSecret": "Hide value"
+    "hideSecret": "Hide value",
+    "image": {
+      "choose": "Choose an image",
+      "replace": "Change the image",
+      "remove": "Remove the image",
+      "preview": "Preview of the chosen image",
+      "tooLarge": "This image is too large: {{size}} KB at most.",
+      "wrongType": "This file is not in {{format}} format.",
+      "unreadable": "This file cannot be read as an image."
+    }
   },
   "navigation": {
     "backToResource": "Back to “{{name}}”",

@@ -2,15 +2,13 @@
  * Domain helpers over the JSON Schema an app serves on `GET /config/schema`.
  *
  * Gridone knows no app field names: the config form is generated from this
- * schema alone. Three extensions on top of standard JSON Schema (all ignored
- * by validators, hence handled here) drive the rendering:
+ * schema alone. Two extensions on top of standard JSON Schema (both ignored by
+ * validators, hence handled here) drive the rendering:
  *
  *  - a root `i18n` catalog — `title`/`description` hold *keys* resolved through
  *    `i18n[locale][key]`, falling back to the literal value;
  *  - custom `format` values (`asset-id`, `device-id`, `password`) that pick a
- *    widget;
- *  - the content annotations `contentMediaType: image/*` + `contentEncoding:
- *    base64` on a string, which make it an image upload (`isImageField`).
+ *    widget.
  *
  * `oneOf` branches are flattened against the selected discriminant rather than
  * converted as a union: the canonical branch shape carries no `type: object`,
@@ -18,17 +16,20 @@
  * matches, and its "exactly one" oneOf semantics rejects even a valid payload.
  * Flattening also keeps validation errors attached to their field.
  *
- * These extensions (`i18n`, `asset-id`, `device-id`, `password`, image fields,
- * discriminated `oneOf`) are part of the form-schema dialect, not
- * app-specific: AGR-923 documents and CI-guards the dialect. Since AGR-920 the
- * zod conversion goes through the `schema-form` builder
- * (`components/forms/schema-form`); the helpers here only prepare the
- * app-served schema for it (flattening, localization) and keep the
- * app-contract behaviours the builder does not own.
+ * These extensions (`i18n`, `asset-id`, `device-id`, `password`, discriminated
+ * `oneOf`) are part of the form-schema dialect, not app-specific: AGR-923
+ * documents and CI-guards the dialect. Since AGR-920 the zod conversion goes
+ * through the `schema-form` builder (`components/forms/schema-form`); the
+ * helpers here only prepare the app-served schema for it (flattening,
+ * localization) and keep the app-contract behaviours the builder does not
+ * own. Image uploads (`contentMediaType: image/*` + `contentEncoding: base64`)
+ * belong to the builder itself, which renders them in any form; the app
+ * contract only leaves a removed image out of the payload (`pickSchemaKeys`).
  */
 import * as z from "zod";
 import {
   buildZodSchema,
+  isImageField,
   normalizeSchema,
   type JsonSchemaObject,
 } from "@/components/forms/schema-form";
@@ -45,10 +46,6 @@ export interface AppSchemaNode {
   title?: string;
   description?: string;
   format?: string;
-  /** With `contentEncoding`, marks an image upload — see `isImageField`. */
-  contentMediaType?: string;
-  contentEncoding?: string;
-  maxLength?: number;
   enum?: unknown[];
   const?: unknown;
   default?: unknown;
@@ -65,36 +62,6 @@ export interface AppSchemaNode {
 export const ASSET_ID_FORMAT = "asset-id";
 export const DEVICE_ID_FORMAT = "device-id";
 export const PASSWORD_FORMAT = "password";
-
-/**
- * An image upload: a string whose content annotations declare an `image/*`
- * media type, encoded in base64 — e.g. `{type: string, contentMediaType:
- * image/png, contentEncoding: base64, maxLength: 699052}`. Its value is the
- * raw base64 of the file, with no `data:` prefix; `maxLength` caps it.
- */
-export function isImageField(node: AppSchemaNode): boolean {
-  return (
-    node.type === "string" &&
-    typeof node.contentMediaType === "string" &&
-    node.contentMediaType.startsWith("image/") &&
-    node.contentEncoding === "base64"
-  );
-}
-
-/**
- * Largest file, in bytes, whose base64 fits in the field's `maxLength`.
- *
- * Base64 spends 4 characters per started group of 3 bytes, so a file of `n`
- * bytes encodes to `4 * ceil(n / 3)` characters, which stays within
- * `maxLength` exactly when `n <= 3 * floor(maxLength / 4)`. E.g. 699052
- * characters hold 524289 bytes (512 KiB and one byte). `undefined` when the
- * field declares no cap.
- */
-export function maxImageBytes(node: AppSchemaNode): number | undefined {
-  return typeof node.maxLength === "number"
-    ? 3 * Math.floor(node.maxLength / 4)
-    : undefined;
-}
 
 /** One `oneOf` branch, keyed by the value its discriminant is pinned to. */
 export interface SchemaBranch {

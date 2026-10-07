@@ -53,15 +53,6 @@
       "ok": "L'application fonctionne avec cette configuration.",
       "pending": "Enregistr\u00e9e, mais pas encore prise par l'application \u2014 la transmission est retent\u00e9e automatiquement.",
       "rejected": "L'application a refus\u00e9 cette configuration. Corrigez-la puis enregistrez de nouveau."
-    },
-    "image": {
-      "choose": "Choisir une image",
-      "replace": "Changer d'image",
-      "remove": "Retirer l'image",
-      "preview": "Aper\u00e7u de l'image choisie",
-      "tooLarge": "Cette image est trop lourde : {{size}} Ko au maximum.",
-      "wrongType": "Ce fichier n'est pas au format {{format}}.",
-      "unreadable": "Ce fichier ne peut pas \u00eatre lu comme une image."
     }
   },
   "requests": {

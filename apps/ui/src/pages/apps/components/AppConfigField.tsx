@@ -1,18 +1,11 @@
-import { FC, useRef, useState } from "react";
+import { FC } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  useController,
-  type Control,
-  type FieldError,
-  type FieldValues,
-} from "react-hook-form";
-import { ImageUp, Trash2 } from "lucide-react";
+import { useController, type Control, type FieldValues } from "react-hook-form";
 import { MultiSelectController } from "@/components/forms/controllers/MultiSelectController";
 import { SchemaField } from "@/components/forms/SchemaField";
 import { AssetPicker } from "@/components/forms/resourcePickers/AssetPicker";
 import { DevicePicker } from "@/components/forms/resourcePickers/DevicePicker";
 import { FieldShell } from "@/components/forms/controllers/FieldShell";
-import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toLabel } from "@/lib/textFormat";
 import type {
@@ -23,8 +16,6 @@ import type {
 import {
   ASSET_ID_FORMAT,
   DEVICE_ID_FORMAT,
-  isImageField,
-  maxImageBytes,
   type AppSchemaNode,
 } from "@/lib/appConfigSchema";
 import { ZoneOverridesField } from "./ZoneOverridesField";
@@ -47,10 +38,10 @@ interface AppConfigFieldProps {
  * Renders one property of an app config schema.
  *
  * Handles the widgets the app contract adds on top of plain JSON Schema —
- * asset references, image uploads and scalar list values, plus fields keyed
- * by name rather than shape (`zone_overrides`, `weekly_schedule`). The config
- * form renders through `SchemaFields`, and this component is mounted through
- * its per-consumer `overrides` seam (`appConfigOverrides` below) only for the
+ * asset references and scalar list values, plus fields keyed by name rather
+ * than shape (`zone_overrides`, `weekly_schedule`). The config form renders
+ * through `SchemaFields`, and this component is mounted through its
+ * per-consumer `overrides` seam (`appConfigOverrides` below) only for the
  * shapes/fields above; primitives — including `format: password`, masked by
  * the registry's shared secret widget — go straight to the widget registry.
  * (The `SchemaField` delegation at the bottom keeps this component usable
@@ -120,17 +111,6 @@ export const AppConfigField: FC<AppConfigFieldProps> = ({
     );
   }
 
-  if (isImageField(schema)) {
-    return (
-      <ImageField
-        name={name}
-        schema={schema}
-        control={control}
-        required={required}
-      />
-    );
-  }
-
   if (isArray && Array.isArray(itemSchema.enum)) {
     return (
       <EnumListField
@@ -178,8 +158,6 @@ const needsAppWidget = (field: FieldDescriptor): boolean => {
   if (schema.format === ASSET_ID_FORMAT || schema.format === DEVICE_ID_FORMAT) {
     return true;
   }
-  // The registry would render the base64 as a text input.
-  if (isImageField(schema)) return true;
   // Keep the app contract's scalar-array pickers/text area, but let the shared
   // registry own row-based flat-object arrays. Unsupported deeper arrays must
   // reach its explicit placeholder instead of degrading to "[object Object]".
@@ -278,132 +256,6 @@ const DeviceField: FC<AppConfigFieldProps> = ({
   );
 };
 
-/**
- * Image upload (`contentMediaType: image/*` + `contentEncoding: base64`):
- * choose a file, preview it, replace it — or remove it, unless the field is
- * required. The form holds the raw base64 of the file, without any `data:`
- * prefix. A file over the `maxLength` cap, of another media type than the
- * declared one, or that the browser cannot decode as an image, is refused
- * (`readImageFile`), and the value stays as it was.
- *
- * Only the latest choice lands: a file still being read when another is
- * chosen, or when the image is removed, is dropped once read.
- *
- * A removed image is held as `""`, not `undefined`: a controller reads
- * `undefined` as "fall back to the default value", which would bring the
- * stored image back. `pickSchemaKeys` leaves that `""` out of the payload —
- * hence no Remove on a required image, whose key the payload must carry.
- */
-const ImageField: FC<AppConfigFieldProps> = ({
-  name,
-  schema,
-  control,
-  required,
-}) => {
-  const { t, i18n } = useTranslation("apps");
-  const { field, fieldState } = useController({ name, control });
-  const inputRef = useRef<HTMLInputElement>(null);
-  // Moved on by every choice and removal: a read finding it moved is stale.
-  const latestChoice = useRef(0);
-  const [refusal, setRefusal] = useState<string | null>(null);
-  // `isImageField` routed us here, so the media type is an `image/*` string.
-  const mediaType = String(schema.contentMediaType);
-  const maxBytes = maxImageBytes(schema);
-  const value =
-    typeof field.value === "string" && field.value !== ""
-      ? field.value
-      : undefined;
-  // A refused file leaves the value as it was, so its reason shows in the
-  // field's own error slot rather than through react-hook-form.
-  const error: FieldError | undefined = refusal
-    ? { type: "validate", message: refusal }
-    : fieldState.error;
-
-  const refusalMessage = (reason: ImageRefusal): string => {
-    switch (reason) {
-      case "tooLarge":
-        return t("config.image.tooLarge", {
-          size: formatKilobytes(maxBytes ?? 0, i18n.language),
-        });
-      case "wrongType":
-        return t("config.image.wrongType", {
-          format: mediaTypeName(mediaType),
-        });
-      case "unreadable":
-        return t("config.image.unreadable");
-    }
-  };
-
-  const takeFile = async (file: File) => {
-    const choice = ++latestChoice.current;
-    setRefusal(null);
-    const read = await readImageFile(file, mediaType, maxBytes);
-    if (choice !== latestChoice.current) return;
-    if ("refusal" in read) {
-      setRefusal(refusalMessage(read.refusal));
-      return;
-    }
-    field.onChange(read.base64);
-  };
-
-  const removeImage = () => {
-    latestChoice.current += 1;
-    setRefusal(null);
-    field.onChange("");
-  };
-
-  return (
-    <FieldShell
-      id={name}
-      invalid={error !== undefined}
-      label={schema.title}
-      description={schema.description}
-      error={error}
-      required={required}
-    >
-      <input
-        ref={inputRef}
-        id={name}
-        type="file"
-        accept={mediaType}
-        className="hidden"
-        onChange={(event) => {
-          const file = event.currentTarget.files?.[0];
-          // Cleared so that choosing the same file again still fires.
-          event.currentTarget.value = "";
-          if (file) void takeFile(file);
-        }}
-      />
-      <div className="flex flex-wrap items-center gap-3">
-        {value && (
-          // On mid-grey: a light image with transparency (a logo for a dark
-          // screen) shows as well as a dark one.
-          <img
-            src={`data:${mediaType};base64,${value}`}
-            alt={t("config.image.preview")}
-            className="h-20 max-w-48 rounded-md border bg-muted-foreground object-contain"
-          />
-        )}
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => inputRef.current?.click()}
-          onBlur={field.onBlur}
-        >
-          <ImageUp />
-          {t(value ? "config.image.replace" : "config.image.choose")}
-        </Button>
-        {value && !required && (
-          <Button type="button" variant="ghost" onClick={removeImage}>
-            <Trash2 />
-            {t("config.image.remove")}
-          </Button>
-        )}
-      </div>
-    </FieldShell>
-  );
-};
-
 /** `items.enum` — multi-select over the values the app enumerates. */
 const EnumListField: FC<AppConfigFieldProps> = ({
   name,
@@ -472,93 +324,6 @@ const ListField: FC<AppConfigFieldProps> = ({
     </FieldShell>
   );
 };
-
-/** Why an image field refuses a chosen file. */
-type ImageRefusal = "tooLarge" | "wrongType" | "unreadable";
-
-/** Leading bytes every file of a media type starts with, where they are cheap
- *  to check and decisive: a JPEG renamed `logo.png` still starts `FF D8 FF`. */
-const FILE_SIGNATURES: Record<string, readonly number[]> = {
-  "image/png": [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a],
-  "image/jpeg": [0xff, 0xd8, 0xff],
-};
-
-const SVG_MEDIA_TYPE = "image/svg+xml";
-
-/**
- * Reads a file chosen for an image field declaring `mediaType`: its raw
- * base64, or why it is refused. In order: over `maxBytes`, checked before
- * anything is read; of another media type (`hasMediaType`); or not decodable
- * as an image — truncated, not an image at all, or gone from the disk since
- * it was chosen. An SVG is decoded by an `<img>` element, since
- * `createImageBitmap` rejects every SVG.
- */
-async function readImageFile(
-  file: File,
-  mediaType: string,
-  maxBytes: number | undefined,
-): Promise<{ base64: string } | { refusal: ImageRefusal }> {
-  if (maxBytes !== undefined && file.size > maxBytes) {
-    return { refusal: "tooLarge" };
-  }
-  const type = mediaType.toLowerCase();
-  try {
-    if (!(await hasMediaType(file, type))) return { refusal: "wrongType" };
-    if (type === SVG_MEDIA_TYPE) {
-      const base64 = await readBase64(file);
-      const image = new Image();
-      image.src = `data:${type};base64,${base64}`;
-      await image.decode();
-      return { base64 };
-    }
-    (await createImageBitmap(file)).close();
-    return { base64: await readBase64(file) };
-  } catch {
-    return { refusal: "unreadable" };
-  }
-}
-
-/** Whether `file` is of the (lower-case) `mediaType`: by the type the browser
- *  gives it — which comes from its extension, so a hint only — and, where a
- *  signature is known (`FILE_SIGNATURES`), by its leading bytes. */
-async function hasMediaType(file: File, mediaType: string): Promise<boolean> {
-  if (file.type !== mediaType) return false;
-  const signature = FILE_SIGNATURES[mediaType];
-  if (signature === undefined) return true;
-  const head = new Uint8Array(
-    await file.slice(0, signature.length).arrayBuffer(),
-  );
-  return signature.every((byte, index) => head[index] === byte);
-}
-
-/** A media type as users name the format: `image/png` -> `PNG`,
- *  `image/svg+xml` -> `SVG`. */
-function mediaTypeName(mediaType: string): string {
-  const subtype = mediaType.slice(mediaType.indexOf("/") + 1);
-  return subtype.split("+")[0].toUpperCase();
-}
-
-/** The file's bytes in base64: `readAsDataURL` yields
- *  `data:image/png;base64,iVBORw0…`, and everything up to the first comma is
- *  dropped. Rejects when the file cannot be read. */
-function readBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = String(reader.result);
-      resolve(dataUrl.slice(dataUrl.indexOf(",") + 1));
-    };
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
-}
-
-/** A byte count in kilobytes (1 KB = 1024 bytes), to state an upload cap. */
-function formatKilobytes(bytes: number, locale: string): string {
-  return new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(
-    bytes / 1024,
-  );
-}
 
 /** Splits textarea content into list values, dropping blank lines. Numeric
  *  items keep unparseable text as-is so the validator, not the input, reports

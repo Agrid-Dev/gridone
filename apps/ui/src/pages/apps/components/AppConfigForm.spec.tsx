@@ -596,7 +596,7 @@ describe("AppConfigForm — image field", () => {
     renderForm();
 
     await user.click(
-      await screen.findByRole("button", { name: "config.image.remove" }),
+      await screen.findByRole("button", { name: "schemaForm.image.remove" }),
     );
     await waitFor(() => expect(save()).toBeEnabled());
     await user.click(save());
@@ -620,10 +620,10 @@ describe("AppConfigForm — image field", () => {
     renderForm();
 
     expect(
-      await screen.findByRole("button", { name: "config.image.replace" }),
+      await screen.findByRole("button", { name: "schemaForm.image.replace" }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "config.image.remove" }),
+      screen.queryByRole("button", { name: "schemaForm.image.remove" }),
     ).not.toBeInTheDocument();
     await user.click(save());
 

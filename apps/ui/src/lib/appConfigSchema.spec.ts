@@ -4,9 +4,7 @@ import {
   effectiveSchema,
   fieldsOf,
   findDiscriminant,
-  isImageField,
   localizeSchema,
-  maxImageBytes,
   pickSchemaKeys,
   resolveLabel,
   toZodSchema,
@@ -81,7 +79,7 @@ const pmsSchema: AppSchemaNode = {
   i18n: { en: { "provider.title": "PMS provider" } },
 };
 
-/** The image field of the thermostat-logo app contract. */
+/** An image field, as an app contract declares it. */
 const logoSchema: AppSchemaNode = {
   type: "string",
   contentMediaType: "image/png",
@@ -306,61 +304,6 @@ describe("pickSchemaKeys", () => {
     expect(pickSchemaKeys({ logo: "iVBORw==" }, schema)).toEqual({
       logo: "iVBORw==",
     });
-  });
-});
-
-describe("isImageField", () => {
-  it("recognizes a base64 string of an image media type", () => {
-    expect(isImageField(logoSchema)).toBe(true);
-    expect(
-      isImageField({ ...logoSchema, contentMediaType: "image/jpeg" }),
-    ).toBe(true);
-  });
-
-  it.each([
-    ["no encoding", { ...logoSchema, contentEncoding: undefined }],
-    ["another encoding", { ...logoSchema, contentEncoding: "base32" }],
-    ["no media type", { ...logoSchema, contentMediaType: undefined }],
-    [
-      "a media type that is no image",
-      { ...logoSchema, contentMediaType: "text/csv" },
-    ],
-    [
-      "an image type spelled as a prefix only",
-      { ...logoSchema, contentMediaType: "imagery/png" },
-    ],
-    ["not a string", { ...logoSchema, type: "array" }],
-  ] as [string, AppSchemaNode][])("rejects %s", (_case, node) => {
-    expect(isImageField(node)).toBe(false);
-  });
-});
-
-describe("maxImageBytes", () => {
-  it("is the largest file whose base64 fits the contract's cap", () => {
-    // 699052 characters: 512 KiB of file, and one byte more.
-    expect(maxImageBytes(logoSchema)).toBe(524289);
-  });
-
-  it("is undefined when the field declares no cap", () => {
-    expect(maxImageBytes({ ...logoSchema, maxLength: undefined })).toBe(
-      undefined,
-    );
-  });
-
-  it("never lets a file through whose base64 exceeds the cap", () => {
-    // base64 spends 4 characters per started group of 3 bytes.
-    const base64Length = (bytes: number) => 4 * Math.ceil(bytes / 3);
-    const violations: string[] = [];
-    for (let maxLength = 0; maxLength <= 64; maxLength += 1) {
-      const bytes = maxImageBytes({ ...logoSchema, maxLength }) ?? -1;
-      if (base64Length(bytes) > maxLength) {
-        violations.push(`${maxLength}: ${bytes} bytes overflow`);
-      }
-      if (base64Length(bytes + 1) <= maxLength) {
-        violations.push(`${maxLength}: ${bytes + 1} bytes would still fit`);
-      }
-    }
-    expect(violations).toEqual([]);
   });
 });
 

@@ -4,7 +4,7 @@ from typing import cast
 from unittest.mock import MagicMock
 
 import pytest
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from api.app import _build_automations_service
 from assets import AssetCreate, BuildingProfile
@@ -33,6 +33,8 @@ _COMMON_NODE_KEYWORDS = {
     "type",
 }
 _STRING_KEYWORDS = {
+    "contentEncoding",
+    "contentMediaType",
     "maxLength",
     "minLength",
     "multiline",
@@ -542,3 +544,21 @@ def test_array_of_flat_objects_is_supported() -> None:
         _FlatArrayConfig.__name__,
         _FlatArrayConfig.model_json_schema(),
     )
+
+
+class _ImageConfig(BaseModel):
+    logo: str | None = Field(
+        default=None,
+        max_length=699052,
+        json_schema_extra={
+            "contentMediaType": "image/png",
+            "contentEncoding": "base64",
+        },
+    )
+
+
+def test_optional_base64_image_is_supported() -> None:
+    schema = _ImageConfig.model_json_schema()
+
+    assert schema["properties"]["logo"]["contentEncoding"] == "base64"
+    _assert_form_schema_dialect(_ImageConfig.__name__, schema)

@@ -317,7 +317,16 @@
     "unsupportedField": "Ce type de champ ne peut pas encore être modifié ici.",
     "serverErrorTitle": "Vérifiez ce formulaire",
     "showSecret": "Afficher la valeur",
-    "hideSecret": "Masquer la valeur"
+    "hideSecret": "Masquer la valeur",
+    "image": {
+      "choose": "Choisir une image",
+      "replace": "Changer d'image",
+      "remove": "Retirer l'image",
+      "preview": "Aperçu de l'image choisie",
+      "tooLarge": "Cette image est trop lourde : {{size}} Ko au maximum.",
+      "wrongType": "Ce fichier n'est pas au format {{format}}.",
+      "unreadable": "Ce fichier ne peut pas être lu comme une image."
+    }
   },
   "navigation": {
     "backToResource": "Retour à « {{name}} »",

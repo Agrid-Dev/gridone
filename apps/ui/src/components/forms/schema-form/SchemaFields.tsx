@@ -10,6 +10,7 @@ import {
   type FieldValues,
 } from "react-hook-form";
 import { FieldShell } from "@/components/forms/controllers/FieldShell";
+import { ImageController } from "@/components/forms/controllers/ImageController";
 import { InputController } from "@/components/forms/controllers/InputController";
 import { SelectController } from "@/components/forms/controllers/SelectController";
 import { SwitchController } from "@/components/forms/controllers/SwitchController";
@@ -85,6 +86,17 @@ const StringWidget = ({ descriptor, name, control }: SchemaWidgetProps) => {
     description: descriptor.description,
     required: descriptor.required,
   };
+  // An image is chosen as a file, never typed: its base64 must not reach a
+  // text input, whatever other marker the node carries.
+  if (descriptor.image) {
+    return (
+      <ImageController
+        {...shared}
+        mediaType={descriptor.image.mediaType}
+        maxBytes={descriptor.image.maxBytes}
+      />
+    );
+  }
   // Multiline wins over secret: there is no masked textarea, so a multiline
   // credential (PEM private key) stays a plain textarea for now.
   if (descriptor.multiline) return <TextareaController {...shared} />;
