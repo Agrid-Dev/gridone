@@ -16,12 +16,14 @@ from pydantic import BaseModel
 from models.errors import ConflictError
 
 from .device_record import DeviceRecord, RecordDeviceStorage
+from .discovery_record import DiscoveryRecord, RecordDiscoveryStorage
 from .driver_record import DriverRecord, RecordDriverStorage
 from .presentation_resources import MemoryPresentationResources
 from .transport_record import RecordTransportStorage, TransportRecord
 
 if TYPE_CHECKING:
     from devices_manager.core.device import Attribute, DeviceStorage
+    from devices_manager.core.discovery_manager import DiscoveryStorage
     from devices_manager.core.driver import DriverStorage
     from devices_manager.core.transports import TransportStorage
 
@@ -67,6 +69,7 @@ class MemoryDevicesStorage:
     devices: DeviceStorage
     drivers: DriverStorage
     transports: TransportStorage
+    discoveries: DiscoveryStorage
 
     def __init__(self) -> None:
         self.presentation_resources = MemoryPresentationResources()
@@ -75,6 +78,9 @@ class MemoryDevicesStorage:
         self.drivers = RecordDriverStorage(MemoryStorageBackend[DriverRecord]())
         self.transports = RecordTransportStorage(
             MemoryStorageBackend[TransportRecord]()
+        )
+        self.discoveries = RecordDiscoveryStorage(
+            MemoryStorageBackend[DiscoveryRecord]()
         )
 
     async def save_attribute(self, device_id: str, attribute: Attribute) -> None:

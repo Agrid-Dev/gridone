@@ -5,6 +5,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from devices_manager.storage.device_record import DeviceRecord, RecordDeviceStorage
+from devices_manager.storage.discovery_record import (
+    DiscoveryRecord,
+    RecordDiscoveryStorage,
+)
 from devices_manager.storage.driver_record import DriverRecord, RecordDriverStorage
 from devices_manager.storage.transport_record import (
     RecordTransportStorage,
@@ -17,6 +21,7 @@ from .yaml_dm_storage import YamlFileStorage
 
 if TYPE_CHECKING:
     from devices_manager.core.device import Attribute, DeviceStorage
+    from devices_manager.core.discovery_manager import DiscoveryStorage
     from devices_manager.core.driver import DriverStorage
     from devices_manager.core.transports import TransportStorage
 
@@ -30,6 +35,7 @@ class CoreFileStorage:
     devices: DeviceStorage
     drivers: DriverStorage
     transports: TransportStorage
+    discoveries: DiscoveryStorage
 
     def __init__(self, root_dir: str | Path) -> None:
         self._root_dir = Path(root_dir)
@@ -52,6 +58,11 @@ class CoreFileStorage:
         self.transports = RecordTransportStorage(
             YamlFileStorage[TransportRecord](
                 self._root_dir / "transports", model_cls=TransportRecord
+            )
+        )
+        self.discoveries = RecordDiscoveryStorage(
+            YamlFileStorage[DiscoveryRecord](
+                self._root_dir / "discoveries", model_cls=DiscoveryRecord
             )
         )
 

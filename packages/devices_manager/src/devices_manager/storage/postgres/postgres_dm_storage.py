@@ -9,6 +9,7 @@ from devices_manager.storage.storage_backend import (
 )
 
 from .device_storage import PostgresDeviceStorage
+from .discovery_storage import PostgresDiscoveryStorage
 from .driver_storage import PostgresDriverStorage
 from .presentation_resources import PostgresPresentationResources
 from .session import PostgresSession
@@ -16,6 +17,7 @@ from .transport_storage import PostgresTransportStorage
 
 if TYPE_CHECKING:
     from devices_manager.core.device import Attribute, DeviceStorage
+    from devices_manager.core.discovery_manager import DiscoveryStorage
     from devices_manager.core.driver import DriverStorage
     from devices_manager.core.transports import TransportStorage
 
@@ -26,6 +28,7 @@ class PostgresDevicesManagerStorage(DevicesManagerStorage):
     devices: DeviceStorage
     drivers: DriverStorage
     transports: TransportStorage
+    discoveries: DiscoveryStorage
 
     def __init__(self, pool: asyncpg.Pool) -> None:
         self._pool = pool
@@ -35,6 +38,7 @@ class PostgresDevicesManagerStorage(DevicesManagerStorage):
         self.devices = self._device_storage
         self.drivers = PostgresDriverStorage(session)
         self.transports = PostgresTransportStorage(pool)
+        self.discoveries = PostgresDiscoveryStorage(pool)
 
     async def save_attribute(self, device_id: str, attribute: Attribute) -> None:
         """Persist a single attribute to the dm_device_attributes table."""

@@ -3,5 +3,11 @@ from .devices_discovery_manager import (
     DiscoveryConfig,
     DiscoveryContext,
 )
+from .storage_port import DiscoveryStorage
 
-__all__ = ["DevicesDiscoveryManager", "DiscoveryConfig", "DiscoveryContext"]
+__all__ = [
+    "DevicesDiscoveryManager",
+    "DiscoveryConfig",
+    "DiscoveryContext",
+    "DiscoveryStorage",
+]

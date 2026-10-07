@@ -216,6 +216,7 @@ class DevicesService(Service):
                 await device.start_sync()
             except Exception:
                 logger.exception("Failed to start sync for device %s", device.id)
+        await self.discovery_manager.restore()
 
     async def load(self) -> None:
         """Build storage and registries once, and hydrate them read-only.
@@ -865,7 +866,9 @@ class DevicesService(Service):
                     d == device for d in self._device_registry.all.values()
                 ),
             )
-            self._discovery_manager = DevicesDiscoveryManager(context=discovery_context)
+            self._discovery_manager = DevicesDiscoveryManager(
+                context=discovery_context, storage=self._storage.discoveries
+            )
         return self._discovery_manager
 
     # -- Transports (delegated to TransportRegistry) --
@@ -917,6 +920,9 @@ class DevicesService(Service):
         )
         if device is not None:
             msg = f"Transport {transport_id} is used by device {device.id}"
+            raise ConflictError(msg)
+        if self.discovery_manager.list(transport_id=transport_id):
+            msg = f"Transport {transport_id} is used by a discovery"
             raise ConflictError(msg)
 
     async def delete_transport(self, transport_id: str) -> None:
@@ -1229,6 +1235,9 @@ class DevicesService(Service):
         )
         if device is not None:
             msg = f"Driver {driver_id} is used by device {device.id}"
+            raise ConflictError(msg)
+        if self.discovery_manager.list(driver_id=driver_id):
+            msg = f"Driver {driver_id} is used by a discovery"
             raise ConflictError(msg)
 
     async def delete_driver(self, driver_id: str) -> None:
