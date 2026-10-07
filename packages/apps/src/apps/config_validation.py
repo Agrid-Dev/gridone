@@ -1,12 +1,9 @@
-import re
-from collections.abc import Collection, Iterator
+from collections.abc import Iterator
 from typing import Any
 
 from jsonschema import Draft202012Validator
 from jsonschema.exceptions import SchemaError, ValidationError
-from referencing import Registry
 from referencing.exceptions import Unresolvable
-from referencing.jsonschema import DRAFT202012
 
 from apps.errors import (
     ConfigValidationError,
@@ -21,32 +18,6 @@ _INVALID_SCHEMA_MSG = "App returned an invalid config schema"
 # misses only defers detection to the guarded `iter_errors` in
 # `validate_config`.
 _NON_SCHEMA_KEYWORDS = frozenset({"const", "enum", "default", "examples", "i18n"})
-
-# A location in the config, as jsonschema reports it: object keys and array
-# indices, e.g. `("logos", 1)`.
-type _Path = tuple[str | int, ...]
-# A value of the config payload, as parsed from JSON.
-type _Json = None | bool | int | float | str | list[_Json] | dict[str, _Json]
-# A schema node with the `referencing` resolver its `$ref`s resolve against
-# (the resolver type is not public).
-type _ScopedNode = tuple[Any, Any]
-
-# Value-free message of an error on a redacted branch, by failing keyword;
-# `constraint` is the keyword's value. Other keywords get a generic message.
-_REDACTED_MESSAGES = {
-    "minLength": "must be at least {constraint} characters",
-    "maxLength": "must be at most {constraint} characters",
-    "pattern": "does not match the expected pattern {constraint!r}",
-    "type": "is not of type {constraint!r}",
-    "enum": "is not one of the allowed values",
-    "anyOf": "is not valid under any of the given schemas",
-    "oneOf": "is not valid under any of the given schemas",
-    "uniqueItems": "has non-unique elements",
-    "minItems": "must have at least {constraint} items",
-    "maxItems": "must have at most {constraint} items",
-    "minProperties": "must have at least {constraint} properties",
-    "maxProperties": "must have at most {constraint} properties",
-}
 
 
 def validate_schema(schema: dict[str, Any]) -> None:
@@ -81,7 +52,6 @@ def validate_config(payload: dict[str, Any], schema: dict[str, Any]) -> None:
     constraint violation is collected (not just the first) and
     raised as one `ConfigValidationError` in pydantic's `{loc, msg, type}`
     shape, so API clients handle a single validation-error format (AGR-993).
-    No message echoes a secret or encoded value (see `_redacted_paths`).
 
     Raises:
         ConfigValidationError: the payload violates the schema.
@@ -96,16 +66,12 @@ def validate_config(payload: dict[str, Any], schema: dict[str, Any]) -> None:
             # when compared across siblings (e.g. ("meters", 0) vs ("meters", "x")).
             key=lambda e: [str(p) for p in e.absolute_path],
         )
-        # Walked only when there is something to report.
-        redacted = _redacted_paths(schema, payload) if errors else []
     except Unresolvable as exc:
         # `check_schema` cannot vet references, so a dangling `$ref` the
-        # ref walk missed (e.g. behind a `$anchor`) surfaces here — from
-        # validation, or from the redaction walk, which also follows the
-        # branches validation skipped.
+        # ref walk missed (e.g. behind a `$anchor`) surfaces here.
         raise InvalidAppSchemaError(_INVALID_SCHEMA_MSG) from exc
     if errors:
-        raise ConfigValidationError([_to_error_item(e, redacted) for e in errors])
+        raise ConfigValidationError([_to_error_item(e) for e in errors])
 
 
 def _validate_refs(schema: dict[str, Any]) -> None:
@@ -161,9 +127,7 @@ def _resolves_locally(schema: dict[str, Any], ref: str) -> bool:
     return True
 
 
-def _to_error_item(
-    error: ValidationError, redacted_paths: Collection[_Path] = ()
-) -> ValidationErrorItem:
+def _to_error_item(error: ValidationError) -> ValidationErrorItem:
     """Map one `jsonschema.ValidationError` onto the pydantic error shape.
 
     `loc` comes from `absolute_path` (keys/indices relative to the config
@@ -171,8 +135,7 @@ def _to_error_item(
     jsonschema reports `required` at the *parent* path with the property only
     named in `msg`; pydantic appends it to `loc` with `type: "missing"`, and
     UI field mapping relies on that, so `required` errors are rewritten to
-    the pydantic convention. Any other error on a redacted branch
-    (`_on_redacted_branch`) gets a value-free message.
+    the pydantic convention.
     """
     loc = tuple(error.absolute_path)
     if error.validator == "required":
@@ -182,176 +145,14 @@ def _to_error_item(
             return ValidationErrorItem(
                 loc=(*loc, missing), msg=error.message, type="missing"
             )
-    msg = (
-        _redacted_message(error)
-        if _on_redacted_branch(loc, redacted_paths)
-        else error.message
-    )
+    msg = _redacted_message(error) if _is_secret_node(error.schema) else error.message
     return ValidationErrorItem(loc=loc, msg=msg, type=str(error.validator))
 
 
-def _on_redacted_branch(loc: _Path, redacted_paths: Collection[_Path]) -> bool:
-    """Whether the value at `loc` holds, or lies within, a redacted value.
-
-    jsonschema's messages embed the failing instance, which is the whole value
-    at `loc`: an error at `("logos",)` (e.g. `uniqueItems`) echoes every
-    image of the list. So an error is redacted when a redacted path starts
-    with its `loc` — `("logos", 1)`, or any path for a root error — and when
-    its `loc` starts with one, e.g. a field inside a `secret: true` object.
-    """
-    return any(
-        loc[: len(path)] == path or path[: len(loc)] == loc for path in redacted_paths
-    )
-
-
-def _redacted_paths(schema: dict[str, Any], payload: _Json) -> list[_Path]:
-    """Every location of `payload` whose value must never be echoed.
-
-    Walks the payload together with every schema node that may apply at each
-    location, and records a location as soon as one of them is a redacted
-    node (`_is_redacted_node`): its whole value is then redacted, so the walk
-    stops there. E.g. `{"properties": {"logo": {"anyOf": [{"type": "string",
-    "contentEncoding": "base64"}, {"type": "null"}]}}}` with `{"logo":
-    "iVBOR..."}` yields `[("logo",)]`.
-
-    Over-approximates on purpose, since it only decides which messages go
-    value-free: every branch of `allOf`/`anyOf`/`oneOf`/`if`/`then`/`else`/
-    `not`/`dependentSchemas` counts whether or not the value matches it, and
-    `$ref`/`$dynamicRef` targets count alongside their sibling keywords (a
-    `$ref` to an image with a sibling `maxLength`). A reference that does not
-    resolve raises `Unresolvable`, which `validate_config` maps to the app's
-    fault like a dangling reference met during validation.
-    """
-    root = Registry().resolver_with_root(DRAFT202012.create_resource(schema))
-    found: list[_Path] = []
-    _collect_redacted_paths([(schema, root)], payload, (), found)
-    return found
-
-
-def _collect_redacted_paths(
-    nodes: list[_ScopedNode], instance: _Json, path: _Path, found: list[_Path]
-) -> None:
-    """Recursive step of `_redacted_paths` at one location of the payload."""
-    applicable = _applicable_nodes(nodes)
-    if not applicable:
-        # No schema reaches this value, nor anything below it.
-        return
-    if any(_is_redacted_node(node) for node, _ in applicable):
-        found.append(path)
-        return
-    if isinstance(instance, dict):
-        for key, value in instance.items():
-            children = [
-                (child, resolver)
-                for node, resolver in applicable
-                for child in _property_subschemas(node, key)
-            ]
-            _collect_redacted_paths(children, value, (*path, key), found)
-    elif isinstance(instance, list):
-        for index, item in enumerate(instance):
-            children = [
-                (child, resolver)
-                for node, resolver in applicable
-                for child in _item_subschemas(node, index)
-            ]
-            _collect_redacted_paths(children, item, (*path, index), found)
-
-
-def _applicable_nodes(nodes: list[_ScopedNode]) -> list[_ScopedNode]:
-    """`nodes` plus every node they apply to the same value, transitively.
-
-    That is what `$ref`/`$dynamicRef` point at (jsonschema resolves a
-    `$dynamicRef` statically too), the branches of `allOf`/`anyOf`/`oneOf`,
-    `not`, `if`/`then`/`else`, and `dependentSchemas`. Boolean schemas carry
-    no keyword and are dropped; a node already met is skipped, which ends
-    `$ref` cycles.
-
-    Raises:
-        Unresolvable: a `$ref` does not resolve.
-    """
-    applicable: list[_ScopedNode] = []
-    seen: set[int] = set()
-    pending = list(nodes)
-    while pending:
-        node, resolver = pending.pop()
-        if not isinstance(node, dict) or id(node) in seen:
-            continue
-        seen.add(id(node))
-        # A node with an `$id` rebases the references below it.
-        resolver = resolver.in_subresource(DRAFT202012.create_resource(node))
-        applicable.append((node, resolver))
-        for keyword in ("$ref", "$dynamicRef"):
-            ref = node.get(keyword)
-            if isinstance(ref, str):
-                resolved = resolver.lookup(ref)
-                pending.append((resolved.contents, resolved.resolver))
-        for keyword in ("allOf", "anyOf", "oneOf"):
-            branches = node.get(keyword)
-            if isinstance(branches, list):
-                pending.extend((branch, resolver) for branch in branches)
-        pending.extend(
-            (node[keyword], resolver)
-            for keyword in ("not", "if", "then", "else")
-            if keyword in node
-        )
-        dependent = node.get("dependentSchemas")
-        if isinstance(dependent, dict):
-            pending.extend((subschema, resolver) for subschema in dependent.values())
-    return applicable
-
-
-def _property_subschemas(node: dict[str, Any], key: str) -> list[Any]:
-    """The subschemas `node` applies to the value of property `key`.
-
-    `properties[key]`, every `patternProperties` entry whose regex matches the
-    key (searched, as jsonschema does), `additionalProperties` when neither
-    names it, and `unevaluatedProperties` in any case.
-    """
-    subschemas: list[Any] = []
-    properties = node.get("properties")
-    if isinstance(properties, dict) and key in properties:
-        subschemas.append(properties[key])
-    patterns = node.get("patternProperties")
-    if isinstance(patterns, dict):
-        subschemas.extend(
-            subschema
-            for pattern, subschema in patterns.items()
-            if re.search(pattern, key)
-        )
-    # Nothing so far means neither `properties` nor a pattern names the key.
-    if not subschemas and "additionalProperties" in node:
-        subschemas.append(node["additionalProperties"])
-    if "unevaluatedProperties" in node:
-        subschemas.append(node["unevaluatedProperties"])
-    return subschemas
-
-
-def _item_subschemas(node: dict[str, Any], index: int) -> list[Any]:
-    """The subschemas `node` applies to the array item at `index`.
-
-    `prefixItems[index]`, or `items` past the prefix; plus `contains` and
-    `unevaluatedItems` in any case.
-    """
-    subschemas: list[Any] = []
-    prefix = node.get("prefixItems")
-    if isinstance(prefix, list) and index < len(prefix):
-        subschemas.append(prefix[index])
-    elif "items" in node:
-        subschemas.append(node["items"])
-    subschemas.extend(
-        node[keyword] for keyword in ("contains", "unevaluatedItems") if keyword in node
-    )
-    return subschemas
-
-
-def _is_redacted_node(schema: object) -> bool:
-    """A node whose submitted value must never be echoed in an error message.
-
-    Either credential-bearing, as the form dialect marks it (the app
-    contract's `format: password`, the first-party `secret: true` marker), or
-    encoded content (`contentEncoding`, e.g. a base64 image), whose value can
-    weigh hundreds of kilobytes.
-    """
+def _is_secret_node(schema: object) -> bool:
+    """A node whose value an error message must not echo: a credential (the
+    app contract's `format: password` or the first-party `secret: true`
+    marker) or encoded content (`contentEncoding`, e.g. a base64 image)."""
     if not isinstance(schema, dict):
         return False
     for keyword, value in schema.items():
@@ -365,21 +166,27 @@ def _is_redacted_node(schema: object) -> bool:
 
 
 def _redacted_message(error: ValidationError) -> str:
-    """Constraint-only message for an error on a redacted branch.
+    """Constraint-only message for secret nodes.
 
     jsonschema embeds the failing instance in most messages (`"'hunter2' is
-    too short"`, `"['iVBOR...', 'iVBOR...'] has non-unique elements"`), which
-    would echo the credential — or a whole base64 file — into the 422 body,
-    the rendered field error, and any log line that stringifies the exception
+    too short"`), which would echo the credential into the 422 body, the
+    rendered field error, and any log line that stringifies the exception
     (`str(ConfigValidationError)` is the documented log-facing form).
     """
-    if error.validator == "oneOf" and not error.context:
-        # No sub-errors: several branches matched, rather than none.
-        return "is valid under more than one of the given schemas"
-    template = _REDACTED_MESSAGES.get(
-        str(error.validator), "does not satisfy the '{validator}' constraint"
-    )
-    return template.format(constraint=error.validator_value, validator=error.validator)
+    constraint = error.validator_value
+    match error.validator:
+        case "minLength":
+            return f"must be at least {constraint} characters"
+        case "maxLength":
+            return f"must be at most {constraint} characters"
+        case "pattern":
+            return f"does not match the expected pattern {constraint!r}"
+        case "type":
+            return f"is not of type {constraint!r}"
+        case "enum":
+            return "is not one of the allowed values"
+        case _:
+            return f"does not satisfy the '{error.validator}' constraint"
 
 
 def _missing_property(error: ValidationError) -> str | None:
