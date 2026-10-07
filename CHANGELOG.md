@@ -1,3 +1,9 @@
+## v0.301.1 (2026-10-07)
+
+### Fix
+
+- **devices_manager**: discovery registrations survive restarts (#777)
+
 ## v0.301.0 (2026-10-07)
 
 ### Feat
