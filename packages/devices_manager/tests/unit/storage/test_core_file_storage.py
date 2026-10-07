@@ -239,9 +239,11 @@ async def test_discoveries_survive_a_new_storage_on_the_same_folder(tmp_path: Pa
 
 
 @pytest.mark.asyncio
-async def test_discoveries_with_underscored_ids_do_not_share_a_file(tmp_path: Path):
-    first: DiscoveryConfig = {"driver_id": "c", "transport_id": "a__b"}
-    second: DiscoveryConfig = {"driver_id": "b__c", "transport_id": "a"}
+async def test_discoveries_whose_ids_contain_the_separator_do_not_share_a_file(
+    tmp_path: Path,
+):
+    first: DiscoveryConfig = {"driver_id": "c", "transport_id": "a+b"}
+    second: DiscoveryConfig = {"driver_id": "b+c", "transport_id": "a"}
     storage = CoreFileStorage(tmp_path)
     await storage.discoveries.write(first)
     await storage.discoveries.write(second)

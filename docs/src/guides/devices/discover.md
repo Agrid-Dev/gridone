@@ -36,3 +36,5 @@ Open a device from the **Devices** list and click **Edit**. If the device uses a
 ## Stop discovery
 
 Open the device in edit mode and disable the **Discover devices like me** toggle. Discovery stops immediately and no further devices are auto-imported.
+
+Discovery stays enabled until you disable it, including across restarts. A driver or network used by a discovery cannot be deleted until the discovery is disabled.
