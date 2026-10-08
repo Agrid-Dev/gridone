@@ -161,20 +161,41 @@ An air handling unit with a single supply air-treatment train (filter, coil, fan
 | Attribute | Data type | Required | Description |
 |---|---|---|---|
 | `supply_air_temperature` | float | yes | Supply air temperature |
-| `supply_air_temperature_setpoint` | float | yes | Supply air temperature setpoint |
+| `supply_air_temperature_setpoint` | float | yes | Supply air temperature setpoint (the heating setpoint on dead-band units) |
 | `supply_fan_speed` | float | yes | Supply fan speed |
 | `onoff_state` | bool | no | Power on/off state |
 | `hvac_mode` | string | no | Operating mode |
+| `supply_air_temperature_cooling_setpoint` | float | no | Cooling setpoint on units regulating in a dead band |
+| `outdoor_air_temperature` | float | no | Fresh/outdoor air temperature |
 | `supply_air_pressure` | float | no | Supply duct pressure |
 | `supply_air_pressure_setpoint` | float | no | Supply duct pressure setpoint |
-| `outdoor_air_temperature` | float | no | Fresh/outdoor air temperature |
+| `supply_air_flow` | float | no | Supply air flow |
+| `supply_air_flow_setpoint` | float | no | Supply air flow setpoint |
+| `supply_air_humidity` | float | no | Supply air relative humidity |
 | `extract_air_temperature` | float | no | Return air temperature, if fitted |
 | `extract_air_pressure` | float | no | Return duct pressure |
 | `extract_fan_speed` | float | no | Return fan speed |
+| `supply_flow_switch` | bool | no | Supply fan air flow proven by a differential-pressure switch |
+| `extract_flow_switch` | bool | no | Return fan air flow proven |
+| `outdoor_air_damper_open` | bool | no | Fresh air damper open (limit switch) |
+| `supply_air_damper_open` | bool | no | Supply damper open (limit switch) |
+| `supply_prefilter_clogged` | bool | no | Supply pre-filter clogged |
+| `supply_filter_clogged` | bool | no | Supply filter clogged |
+| `supply_filter_differential_pressure` | float | no | Pressure drop across the supply filter |
 | `heating_valve` | float | no | Heating coil valve opening |
+| `heating_water_flow` | float | no | Water flow through the heating coil |
+| `heating_water_supply_temperature` | float | no | Heating coil water inlet temperature |
+| `heating_water_return_temperature` | float | no | Heating coil water outlet temperature |
+| `heating_power` | float | no | Thermal power delivered by the heating coil |
+| `heating_energy` | float | no | Cumulative heating energy |
 | `cooling_valve` | float | no | Cooling coil valve opening |
+| `cooling_water_flow` | float | no | Water flow through the cooling coil |
+| `cooling_water_supply_temperature` | float | no | Cooling coil water inlet temperature |
+| `cooling_water_return_temperature` | float | no | Cooling coil water outlet temperature |
+| `cooling_power` | float | no | Thermal power delivered by the cooling coil |
+| `cooling_energy` | float | no | Cumulative cooling energy |
 
-Faults and alarms (frost, filter, fan, pressure, general fault synthesis) are not part of the standard schema yet; drivers declare them as non-standard attributes for now.
+The optional vocabulary is the single-flux subset of `ahu_double_flux`; see there for the conventions on filters, flow switches and coil loops.
 
 **UI behavior:** The control panel displays the supply air temperature and setpoint, fan speed, and coil valve positions.
 
@@ -189,25 +210,61 @@ An air handling unit with both supply and extract air trains and an energy-recov
 | Attribute | Data type | Required | Description |
 |---|---|---|---|
 | `supply_air_temperature` | float | yes | Supply air temperature |
-| `supply_air_temperature_setpoint` | float | yes | Supply air temperature setpoint |
+| `supply_air_temperature_setpoint` | float | yes | Supply air temperature setpoint (the heating setpoint on dead-band units) |
 | `supply_fan_speed` | float | yes | Supply fan speed |
 | `extract_air_temperature` | float | yes | Extract/return air temperature |
 | `extract_fan_speed` | float | yes | Extract fan speed |
 | `onoff_state` | bool | no | Power on/off state |
 | `hvac_mode` | string | no | Operating mode |
+| `supply_air_temperature_cooling_setpoint` | float | no | Cooling setpoint on units regulating in a dead band |
+| `outdoor_air_temperature` | float | no | Fresh/outdoor air temperature |
+| `exhaust_air_temperature` | float | no | Exhaust (rejected) air temperature |
 | `supply_air_pressure` | float | no | Supply duct pressure |
 | `supply_air_pressure_setpoint` | float | no | Supply duct pressure setpoint |
 | `extract_air_pressure` | float | no | Extract duct pressure |
 | `extract_air_pressure_setpoint` | float | no | Extract duct pressure setpoint |
-| `outdoor_air_temperature` | float | no | Fresh/outdoor air temperature |
-| `exhaust_air_temperature` | float | no | Exhaust (rejected) air temperature |
+| `supply_air_flow` | float | no | Supply air flow |
+| `supply_air_flow_setpoint` | float | no | Supply air flow setpoint |
+| `extract_air_flow` | float | no | Extract air flow |
+| `extract_air_flow_setpoint` | float | no | Extract air flow setpoint |
+| `supply_air_humidity` | float | no | Supply air relative humidity |
+| `extract_air_humidity` | float | no | Extract air relative humidity |
+| `extract_air_co2` | float | no | CO₂ concentration in the extract air (demand-controlled ventilation) |
+| `supply_flow_switch` | bool | no | Supply fan air flow proven by a differential-pressure switch |
+| `extract_flow_switch` | bool | no | Extract fan air flow proven |
+| `outdoor_air_damper_open` | bool | no | Fresh air damper open (limit switch) |
+| `supply_air_damper_open` | bool | no | Supply damper open (limit switch) |
+| `supply_prefilter_clogged` | bool | no | Supply pre-filter clogged |
+| `supply_filter_clogged` | bool | no | Supply filter clogged |
+| `extract_filter_clogged` | bool | no | Extract filter clogged |
+| `supply_filter_differential_pressure` | float | no | Pressure drop across the supply filter |
+| `extract_filter_differential_pressure` | float | no | Pressure drop across the extract filter |
 | `heating_valve` | float | no | Heating coil valve opening |
+| `heating_water_flow` | float | no | Water flow through the heating coil |
+| `heating_water_supply_temperature` | float | no | Heating coil water inlet temperature |
+| `heating_water_return_temperature` | float | no | Heating coil water outlet temperature |
+| `heating_power` | float | no | Thermal power delivered by the heating coil |
+| `heating_energy` | float | no | Cumulative heating energy |
 | `cooling_valve` | float | no | Cooling coil valve opening |
+| `cooling_water_flow` | float | no | Water flow through the cooling coil |
+| `cooling_water_supply_temperature` | float | no | Cooling coil water inlet temperature |
+| `cooling_water_return_temperature` | float | no | Cooling coil water outlet temperature |
+| `cooling_power` | float | no | Thermal power delivered by the cooling coil |
+| `cooling_energy` | float | no | Cumulative cooling energy |
 | `exchanger_utilization` | float | no | Energy exchanger utilization — heat and cool recovery |
+| `exchanger_efficiency` | float | no | Energy exchanger efficiency, as reported by the controller |
 
-`exchanger_utilization` is a reported value (e.g. recovery wheel speed or bypass position), never computed by Gridone. The exchanger recovers energy in both directions — heat in winter and coolth (free-cooling) in summer — so the name is direction-neutral.
+Only the five-attribute core is required. The optional vocabulary names what deployed units actually expose, so that the synoptic can place each reading on the equipment it belongs to: a flow or a pressure drop on its filter, a limit switch on its damper, a water loop under its coil.
 
-Faults and alarms (frost, filters, fans, pressure, general fault synthesis) are not part of the standard schema yet; drivers declare them as non-standard attributes for now.
+**Flow switches** (`supply_flow_switch`, `extract_flow_switch`) are flow-proving statuses, not measurements — the same concept as `air_extractor.flow_switch`: they confirm the fan is actually moving air. `onoff_state` stays the unit-level verdict.
+
+**Filters** are the one alarm-like state named by the schema, because the synoptic has to know which filter to colour. Declare `*_filter_clogged` with `kind: fault` (as `liquid_detector` does for `liquid_detected`): the attribute satisfies the schema and the platform's fault machinery picks it up unchanged. Units that measure the pressure drop instead report `*_filter_differential_pressure`.
+
+**Coil loops** describe the water side of each coil: `*_valve` is the position, `*_water_flow`, `*_water_supply_temperature` and `*_water_return_temperature` the hydraulics, `*_power` the thermal power delivered and `*_energy` its cumulative counterpart. Units come from the driver, never from the name.
+
+`exchanger_utilization` is a reported value (e.g. recovery wheel speed or bypass position), never computed by Gridone. The exchanger recovers energy in both directions — heat in winter and coolth (free-cooling) in summer — so the name is direction-neutral. `exchanger_efficiency` is likewise the controller's own figure.
+
+All other faults and alarms (frost, smoke, fire damper, fan trips, command/feedback discrepancies, general fault synthesis) are not part of the standard schema; drivers declare them as fault attributes under whatever name the site uses.
 
 **UI behavior:** The control panel displays both supply and extract air temperatures, fan speeds, coil valve positions, and exchanger utilization.
 

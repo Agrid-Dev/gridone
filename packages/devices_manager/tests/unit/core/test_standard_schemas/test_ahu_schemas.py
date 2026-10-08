@@ -123,3 +123,17 @@ def test_required_attribute_wrong_type_rejected(key, field_name, data_type):
     ]
     with pytest.raises(InvalidError):
         validate_standard_schema(key, fields)
+
+
+def test_double_flux_vocabulary_is_a_superset_of_single_flux():
+    """A double-flux unit is a single-flux unit plus an extract train and an
+    exchanger, so every single-flux attribute keeps its name and type there."""
+    double = {f.name: f.data_type for f in ahu_double_flux_schema.fields}
+    for single in ahu_single_flux_schema.fields:
+        assert double.get(single.name) == single.data_type, single.name
+
+
+@pytest.mark.parametrize("schema", SCHEMAS, ids=lambda s: s.key)
+def test_attribute_names_are_unique(schema):
+    names = [f.name for f in schema.fields]
+    assert len(names) == len(set(names))
