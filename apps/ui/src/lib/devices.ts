@@ -150,15 +150,43 @@ export type AhuDoubleFluxAttributes = {
   extractFanSpeed: AttrValue<number>;
   onoffState: AttrValue<boolean>;
   hvacMode: AttrValue<string>;
+  supplyAirTemperatureCoolingSetpoint: AttrValue<number>;
+  outdoorAirTemperature: AttrValue<number>;
+  exhaustAirTemperature: AttrValue<number>;
   supplyAirPressure: AttrValue<number>;
   supplyAirPressureSetpoint: AttrValue<number>;
   extractAirPressure: AttrValue<number>;
   extractAirPressureSetpoint: AttrValue<number>;
-  outdoorAirTemperature: AttrValue<number>;
-  exhaustAirTemperature: AttrValue<number>;
+  supplyAirFlow: AttrValue<number>;
+  supplyAirFlowSetpoint: AttrValue<number>;
+  extractAirFlow: AttrValue<number>;
+  extractAirFlowSetpoint: AttrValue<number>;
+  supplyAirHumidity: AttrValue<number>;
+  extractAirHumidity: AttrValue<number>;
+  extractAirCo2: AttrValue<number>;
+  supplyFlowSwitch: AttrValue<boolean>;
+  extractFlowSwitch: AttrValue<boolean>;
+  outdoorAirDamperOpen: AttrValue<boolean>;
+  supplyAirDamperOpen: AttrValue<boolean>;
+  supplyPrefilterClogged: AttrValue<boolean>;
+  supplyFilterClogged: AttrValue<boolean>;
+  extractFilterClogged: AttrValue<boolean>;
+  supplyFilterDifferentialPressure: AttrValue<number>;
+  extractFilterDifferentialPressure: AttrValue<number>;
   heatingValve: AttrValue<number>;
+  heatingWaterFlow: AttrValue<number>;
+  heatingWaterSupplyTemperature: AttrValue<number>;
+  heatingWaterReturnTemperature: AttrValue<number>;
+  heatingPower: AttrValue<number>;
+  heatingEnergy: AttrValue<number>;
   coolingValve: AttrValue<number>;
+  coolingWaterFlow: AttrValue<number>;
+  coolingWaterSupplyTemperature: AttrValue<number>;
+  coolingWaterReturnTemperature: AttrValue<number>;
+  coolingPower: AttrValue<number>;
+  coolingEnergy: AttrValue<number>;
   exchangerUtilization: AttrValue<number>;
+  exchangerEfficiency: AttrValue<number>;
 };
 
 /** Typed view of the `ahu_single_flux` standard attributes. */
@@ -166,16 +194,37 @@ export type AhuSingleFluxAttributes = {
   supplyAirTemperature: AttrValue<number>;
   supplyAirTemperatureSetpoint: AttrValue<number>;
   supplyFanSpeed: AttrValue<number>;
+  extractAirTemperature: AttrValue<number>;
+  extractFanSpeed: AttrValue<number>;
   onoffState: AttrValue<boolean>;
   hvacMode: AttrValue<string>;
+  supplyAirTemperatureCoolingSetpoint: AttrValue<number>;
+  outdoorAirTemperature: AttrValue<number>;
   supplyAirPressure: AttrValue<number>;
   supplyAirPressureSetpoint: AttrValue<number>;
-  outdoorAirTemperature: AttrValue<number>;
-  extractAirTemperature: AttrValue<number>;
   extractAirPressure: AttrValue<number>;
-  extractFanSpeed: AttrValue<number>;
+  supplyAirFlow: AttrValue<number>;
+  supplyAirFlowSetpoint: AttrValue<number>;
+  supplyAirHumidity: AttrValue<number>;
+  supplyFlowSwitch: AttrValue<boolean>;
+  extractFlowSwitch: AttrValue<boolean>;
+  outdoorAirDamperOpen: AttrValue<boolean>;
+  supplyAirDamperOpen: AttrValue<boolean>;
+  supplyPrefilterClogged: AttrValue<boolean>;
+  supplyFilterClogged: AttrValue<boolean>;
+  supplyFilterDifferentialPressure: AttrValue<number>;
   heatingValve: AttrValue<number>;
+  heatingWaterFlow: AttrValue<number>;
+  heatingWaterSupplyTemperature: AttrValue<number>;
+  heatingWaterReturnTemperature: AttrValue<number>;
+  heatingPower: AttrValue<number>;
+  heatingEnergy: AttrValue<number>;
   coolingValve: AttrValue<number>;
+  coolingWaterFlow: AttrValue<number>;
+  coolingWaterSupplyTemperature: AttrValue<number>;
+  coolingWaterReturnTemperature: AttrValue<number>;
+  coolingPower: AttrValue<number>;
+  coolingEnergy: AttrValue<number>;
 };
 
 /** Typed view of the `air_extractor` standard attributes. */
@@ -481,6 +530,11 @@ export function readAhuDoubleFluxAttributes(
     extractFanSpeed: v("extract_fan_speed") as AttrValue<number>,
     onoffState: v("onoff_state") as AttrValue<boolean>,
     hvacMode: v("hvac_mode") as AttrValue<string>,
+    supplyAirTemperatureCoolingSetpoint: v(
+      "supply_air_temperature_cooling_setpoint",
+    ) as AttrValue<number>,
+    outdoorAirTemperature: v("outdoor_air_temperature") as AttrValue<number>,
+    exhaustAirTemperature: v("exhaust_air_temperature") as AttrValue<number>,
     supplyAirPressure: v("supply_air_pressure") as AttrValue<number>,
     supplyAirPressureSetpoint: v(
       "supply_air_pressure_setpoint",
@@ -489,11 +543,48 @@ export function readAhuDoubleFluxAttributes(
     extractAirPressureSetpoint: v(
       "extract_air_pressure_setpoint",
     ) as AttrValue<number>,
-    outdoorAirTemperature: v("outdoor_air_temperature") as AttrValue<number>,
-    exhaustAirTemperature: v("exhaust_air_temperature") as AttrValue<number>,
+    supplyAirFlow: v("supply_air_flow") as AttrValue<number>,
+    supplyAirFlowSetpoint: v("supply_air_flow_setpoint") as AttrValue<number>,
+    extractAirFlow: v("extract_air_flow") as AttrValue<number>,
+    extractAirFlowSetpoint: v("extract_air_flow_setpoint") as AttrValue<number>,
+    supplyAirHumidity: v("supply_air_humidity") as AttrValue<number>,
+    extractAirHumidity: v("extract_air_humidity") as AttrValue<number>,
+    extractAirCo2: v("extract_air_co2") as AttrValue<number>,
+    supplyFlowSwitch: v("supply_flow_switch") as AttrValue<boolean>,
+    extractFlowSwitch: v("extract_flow_switch") as AttrValue<boolean>,
+    outdoorAirDamperOpen: v("outdoor_air_damper_open") as AttrValue<boolean>,
+    supplyAirDamperOpen: v("supply_air_damper_open") as AttrValue<boolean>,
+    supplyPrefilterClogged: v("supply_prefilter_clogged") as AttrValue<boolean>,
+    supplyFilterClogged: v("supply_filter_clogged") as AttrValue<boolean>,
+    extractFilterClogged: v("extract_filter_clogged") as AttrValue<boolean>,
+    supplyFilterDifferentialPressure: v(
+      "supply_filter_differential_pressure",
+    ) as AttrValue<number>,
+    extractFilterDifferentialPressure: v(
+      "extract_filter_differential_pressure",
+    ) as AttrValue<number>,
     heatingValve: v("heating_valve") as AttrValue<number>,
+    heatingWaterFlow: v("heating_water_flow") as AttrValue<number>,
+    heatingWaterSupplyTemperature: v(
+      "heating_water_supply_temperature",
+    ) as AttrValue<number>,
+    heatingWaterReturnTemperature: v(
+      "heating_water_return_temperature",
+    ) as AttrValue<number>,
+    heatingPower: v("heating_power") as AttrValue<number>,
+    heatingEnergy: v("heating_energy") as AttrValue<number>,
     coolingValve: v("cooling_valve") as AttrValue<number>,
+    coolingWaterFlow: v("cooling_water_flow") as AttrValue<number>,
+    coolingWaterSupplyTemperature: v(
+      "cooling_water_supply_temperature",
+    ) as AttrValue<number>,
+    coolingWaterReturnTemperature: v(
+      "cooling_water_return_temperature",
+    ) as AttrValue<number>,
+    coolingPower: v("cooling_power") as AttrValue<number>,
+    coolingEnergy: v("cooling_energy") as AttrValue<number>,
     exchangerUtilization: v("exchanger_utilization") as AttrValue<number>,
+    exchangerEfficiency: v("exchanger_efficiency") as AttrValue<number>,
   };
 }
 
@@ -508,18 +599,51 @@ export function readAhuSingleFluxAttributes(
       "supply_air_temperature_setpoint",
     ) as AttrValue<number>,
     supplyFanSpeed: v("supply_fan_speed") as AttrValue<number>,
+    extractAirTemperature: v("extract_air_temperature") as AttrValue<number>,
+    extractFanSpeed: v("extract_fan_speed") as AttrValue<number>,
     onoffState: v("onoff_state") as AttrValue<boolean>,
     hvacMode: v("hvac_mode") as AttrValue<string>,
+    supplyAirTemperatureCoolingSetpoint: v(
+      "supply_air_temperature_cooling_setpoint",
+    ) as AttrValue<number>,
+    outdoorAirTemperature: v("outdoor_air_temperature") as AttrValue<number>,
     supplyAirPressure: v("supply_air_pressure") as AttrValue<number>,
     supplyAirPressureSetpoint: v(
       "supply_air_pressure_setpoint",
     ) as AttrValue<number>,
-    outdoorAirTemperature: v("outdoor_air_temperature") as AttrValue<number>,
-    extractAirTemperature: v("extract_air_temperature") as AttrValue<number>,
     extractAirPressure: v("extract_air_pressure") as AttrValue<number>,
-    extractFanSpeed: v("extract_fan_speed") as AttrValue<number>,
+    supplyAirFlow: v("supply_air_flow") as AttrValue<number>,
+    supplyAirFlowSetpoint: v("supply_air_flow_setpoint") as AttrValue<number>,
+    supplyAirHumidity: v("supply_air_humidity") as AttrValue<number>,
+    supplyFlowSwitch: v("supply_flow_switch") as AttrValue<boolean>,
+    extractFlowSwitch: v("extract_flow_switch") as AttrValue<boolean>,
+    outdoorAirDamperOpen: v("outdoor_air_damper_open") as AttrValue<boolean>,
+    supplyAirDamperOpen: v("supply_air_damper_open") as AttrValue<boolean>,
+    supplyPrefilterClogged: v("supply_prefilter_clogged") as AttrValue<boolean>,
+    supplyFilterClogged: v("supply_filter_clogged") as AttrValue<boolean>,
+    supplyFilterDifferentialPressure: v(
+      "supply_filter_differential_pressure",
+    ) as AttrValue<number>,
     heatingValve: v("heating_valve") as AttrValue<number>,
+    heatingWaterFlow: v("heating_water_flow") as AttrValue<number>,
+    heatingWaterSupplyTemperature: v(
+      "heating_water_supply_temperature",
+    ) as AttrValue<number>,
+    heatingWaterReturnTemperature: v(
+      "heating_water_return_temperature",
+    ) as AttrValue<number>,
+    heatingPower: v("heating_power") as AttrValue<number>,
+    heatingEnergy: v("heating_energy") as AttrValue<number>,
     coolingValve: v("cooling_valve") as AttrValue<number>,
+    coolingWaterFlow: v("cooling_water_flow") as AttrValue<number>,
+    coolingWaterSupplyTemperature: v(
+      "cooling_water_supply_temperature",
+    ) as AttrValue<number>,
+    coolingWaterReturnTemperature: v(
+      "cooling_water_return_temperature",
+    ) as AttrValue<number>,
+    coolingPower: v("cooling_power") as AttrValue<number>,
+    coolingEnergy: v("cooling_energy") as AttrValue<number>,
   };
 }
 

@@ -1,11 +1,14 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { DeviceType } from "@/lib/devices";
+import { streamBlockLines } from "@/components/synoptic/duct";
 import {
   AHU_CONVENTION_UNITS,
+  ahuLayout,
   AhuSetpointEditor,
   AhuStatusBadges,
   ExtractRun,
+  hasCoilLoop,
   SupplyRun,
   SynopticCard,
   useAhuStreams,
@@ -30,11 +33,6 @@ type AhuSingleFluxSynopticProps = {
   className?: string;
 };
 
-/** Supply-only layout: the run and its readouts below. */
-const SUPPLY_ONLY = { supplyY: 44, height: 170 };
-/** With a separate extract run above (no exchanger between them). */
-const WITH_EXTRACT = { extractY: 70, supplyY: 184, height: 300 };
-
 /** Flat 2D synoptic of a single-flux AHU — the supply run alone: fresh air
  *  in, filter, heating/cooling coils, supply fan, supply air out. A unit
  *  that also reports its extract side (temperature, pressure or fan) gets
@@ -52,8 +50,8 @@ export function AhuSingleFluxSynoptic({
     values,
     units,
     writableSetpoints,
-    // Only the two single-flux setpoints are ever offered, so the key
-    // handed back is one of them.
+    // Only the single-flux setpoints are ever offered, so the key handed
+    // back is one of them.
     onEdit: (key: AhuSetpointKey) =>
       setEditing(key as AhuSingleFluxSetpointKey),
   });
@@ -62,7 +60,13 @@ export function AhuSingleFluxSynoptic({
     values.extractAirTemperature != null ||
     values.extractAirPressure != null ||
     values.extractFanSpeed != null;
-  const layout = hasExtract ? WITH_EXTRACT : SUPPLY_ONLY;
+  const layout = ahuLayout({
+    extractLines: hasExtract
+      ? Math.max(1, streamBlockLines(streams.extract))
+      : 0,
+    supplyLines: streamBlockLines(streams.supply),
+    coilLoop: hasCoilLoop(values),
+  });
 
   return (
     <SynopticCard
@@ -83,7 +87,7 @@ export function AhuSingleFluxSynoptic({
       >
         {hasExtract && (
           <ExtractRun
-            y={WITH_EXTRACT.extractY}
+            y={layout.extractY}
             values={values}
             units={units}
             extract={streams.extract}

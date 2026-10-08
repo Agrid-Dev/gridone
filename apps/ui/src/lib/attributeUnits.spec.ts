@@ -16,12 +16,14 @@ describe("attributeUnit", () => {
     expect(attributeUnit("humidity")).toBe("%");
   });
 
-  it.each(["heating_valve", "supply_fan_speed", "exchanger_utilization"])(
-    "reads %s as a ratio in percent",
-    (name) => {
-      expect(attributeUnit(name)).toBe("%");
-    },
-  );
+  it.each([
+    "heating_valve",
+    "supply_fan_speed",
+    "exchanger_utilization",
+    "exchanger_efficiency",
+  ])("reads %s as a ratio in percent", (name) => {
+    expect(attributeUnit(name)).toBe("%");
+  });
 
   it.each([
     ["pressure", "the scale is driver-defined"],

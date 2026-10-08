@@ -6,7 +6,9 @@ import type { StandardControlProps } from "../types";
 
 const SETPOINT_KEYS: readonly AhuSingleFluxSetpointKey[] = [
   "supplyAirTemperatureSetpoint",
+  "supplyAirTemperatureCoolingSetpoint",
   "supplyAirPressureSetpoint",
+  "supplyAirFlowSetpoint",
 ];
 
 export function AhuSingleFluxControl(props: StandardControlProps) {

@@ -25,16 +25,16 @@ const TEMPERATURE_ATTRIBUTE = /(^|_)temperature(_|$)/;
 
 /**
  * Attribute names that carry a ratio in percent, by their last token:
- * `heating_valve`, `supply_fan_speed`, `exchanger_utilization`. Not a bare
- * `fan_speed`, which is an enum on thermostats and a percentage on
- * extractors — the caller that knows which one it holds says so.
+ * `heating_valve`, `supply_fan_speed`, `exchanger_utilization`,
+ * `exchanger_efficiency`. Not a bare `fan_speed`, which is an enum on
+ * thermostats and a percentage on extractors — the caller that knows which
+ * one it holds says so.
  */
-const RATIO_ATTRIBUTE = /_(valve|fan_speed|utilization)$/;
+const RATIO_ATTRIBUTE = /_(valve|fan_speed|utilization|efficiency)$/;
 
-/** Attributes whose unit is known exactly, by name. */
-const EXACT_UNITS: Record<string, string> = {
-  humidity: "%",
-};
+/** Attribute names that carry a relative humidity, by their last token:
+ *  `humidity`, `supply_air_humidity`. */
+const HUMIDITY_ATTRIBUTE = /(^|_)humidity$/;
 
 /**
  * Unit symbol for an attribute: the one its driver declares when there is
@@ -47,7 +47,8 @@ export function attributeUnit(
   if (attribute?.unit) return attribute.unit;
   if (TEMPERATURE_ATTRIBUTE.test(attributeName)) return "°";
   if (RATIO_ATTRIBUTE.test(attributeName)) return "%";
-  return EXACT_UNITS[attributeName] ?? null;
+  if (HUMIDITY_ATTRIBUTE.test(attributeName)) return "%";
+  return null;
 }
 
 /** Separator + symbol after a number: a bare `°` hugs it ("21,5°"), any

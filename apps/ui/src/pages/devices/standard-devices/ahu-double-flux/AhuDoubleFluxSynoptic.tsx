@@ -1,13 +1,15 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { DeviceType } from "@/lib/devices";
-import { DUCT_HEIGHT } from "@/components/synoptic/duct";
+import { DUCT_HEIGHT, streamBlockLines } from "@/components/synoptic/duct";
 import {
   AHU_CONVENTION_UNITS,
+  ahuLayout,
   AhuSetpointEditor,
   AhuStatusBadges,
   ExchangerGlyph,
   ExtractRun,
+  hasCoilLoop,
   SupplyRun,
   SynopticCard,
   useAhuStreams,
@@ -31,17 +33,16 @@ type AhuDoubleFluxSynopticProps = {
   className?: string;
 };
 
-const EXTRACT_Y = 70;
-const SUPPLY_Y = 184;
-const VIEW_HEIGHT = 300;
 /** The exchanger overhangs both ducts by this much. */
 const EXCHANGER_MARGIN = 18;
+const RATIO_DIGITS = 0;
 
 /** Flat 2D synoptic of a double-flux AHU: extract run on top (right to
  *  left), supply run below (left to right), a heat-recovery exchanger where
  *  the two streams cross. Stream properties read at the duct ends,
  *  equipment readings under their equipment, setpoints beside their
- *  process value. */
+ *  process value. The ducts move apart as the stream blocks grow, and a
+ *  coil with a measured water loop gets a band under the supply duct. */
 export function AhuDoubleFluxSynoptic({
   values,
   units = AHU_CONVENTION_UNITS,
@@ -59,6 +60,33 @@ export function AhuDoubleFluxSynoptic({
     writableSetpoints,
     onEdit: setEditing,
   });
+  const { extractY, supplyY, height } = ahuLayout({
+    extractLines: Math.max(1, streamBlockLines(streams.extract)),
+    supplyLines: streamBlockLines(streams.supply),
+    coilLoop: hasCoilLoop(values),
+  });
+  const exchangerReadouts = [
+    {
+      label: label("exchanger"),
+      value: format(
+        values.exchangerUtilization,
+        RATIO_DIGITS,
+        units.exchangerUtilization,
+      ),
+    },
+    ...(values.exchangerEfficiency == null
+      ? []
+      : [
+          {
+            label: label("efficiency"),
+            value: format(
+              values.exchangerEfficiency,
+              RATIO_DIGITS,
+              units.exchangerEfficiency,
+            ),
+          },
+        ]),
+  ];
 
   return (
     <SynopticCard
@@ -72,20 +100,20 @@ export function AhuDoubleFluxSynoptic({
       }
     >
       <svg
-        viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`}
+        viewBox={`0 0 ${VIEW_WIDTH} ${height}`}
         role="img"
         aria-label={t("ahu_double_flux.name")}
         className="w-full"
       >
         <ExtractRun
-          y={EXTRACT_Y}
+          y={extractY}
           values={values}
           units={units}
           extract={streams.extract}
           exhaust={streams.exhaust}
         />
         <SupplyRun
-          y={SUPPLY_Y}
+          y={supplyY}
           values={values}
           units={units}
           fresh={streams.fresh}
@@ -93,22 +121,15 @@ export function AhuDoubleFluxSynoptic({
         />
         <ExchangerGlyph
           cx={VIEW_WIDTH / 2 - 40}
-          y={EXTRACT_Y - EXCHANGER_MARGIN}
+          y={extractY - EXCHANGER_MARGIN}
           height={
-            SUPPLY_Y +
+            supplyY +
             DUCT_HEIGHT +
             EXCHANGER_MARGIN -
-            (EXTRACT_Y - EXCHANGER_MARGIN)
+            (extractY - EXCHANGER_MARGIN)
           }
           title={label("exchanger")}
-          readout={{
-            label: label("exchanger"),
-            value: format(
-              values.exchangerUtilization,
-              0,
-              units.exchangerUtilization,
-            ),
-          }}
+          readouts={exchangerReadouts}
         />
       </svg>
 
