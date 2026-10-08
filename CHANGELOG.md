@@ -1,3 +1,9 @@
+## v0.304.1 (2026-10-08)
+
+### Fix
+
+- **ui**: size the underline tabs list to its triggers so it never scrolls (AGR-1593)
+
 ## v0.304.0 (2026-10-08)
 
 ### Feat
