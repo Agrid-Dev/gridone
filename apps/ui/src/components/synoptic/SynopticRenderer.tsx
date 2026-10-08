@@ -1442,7 +1442,7 @@ function addSymbols(plate: Plate) {
       plate,
       symbol,
       labelPoint,
-      panelWidth(title, state ? 1 : (heads?.length ?? 0)),
+      panelWidth(title, state ? 1 : (heads?.length ?? 0), rows),
       h,
       "panel",
     );

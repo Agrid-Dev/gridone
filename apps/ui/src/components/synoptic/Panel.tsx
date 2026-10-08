@@ -1,6 +1,7 @@
 import type { Severity } from "@gridone/sdk";
 import {
   Caption,
+  captionWidth,
   DISC_R,
   FAULT_STROKE,
   FRAME_RADIUS,
@@ -60,9 +61,27 @@ type PanelProps = {
 export const panelHeight = (rows: number) => HEADER_H + rows * ROW_H + PAD;
 
 /** A panel is `PANEL_W` wide, wider only when its title and the LEDs after
- *  it would not fit: a twin's two LEDs after a long name. */
-export const panelWidth = (title: string, leds: number) =>
-  Math.max(PANEL_W, 2 * PAD + textWidth(title, LABEL_SIZE) + ledRoom(leds));
+ *  it would not fit (a twin's two LEDs after a long name), or a row's
+ *  caption and value would run into each other, the stale disc between
+ *  them included. */
+export const panelWidth = (
+  title: string,
+  leds: number,
+  rows: readonly Pick<PanelRow, "label" | "reading">[],
+) =>
+  Math.max(
+    PANEL_W,
+    2 * PAD + textWidth(title, LABEL_SIZE) + ledRoom(leds),
+    ...rows.map(
+      ({ label, reading }) =>
+        2 * PAD +
+        captionWidth(label) +
+        DISC_GAP +
+        2 * DISC_R +
+        textWidth(reading.text ?? SILENT_TEXT, LABEL_SIZE) +
+        unitWidth(reading.unit),
+    ),
+  );
 
 /**
  * The equipment panel: title and run-state LED, a rule, one row per bound
@@ -79,7 +98,7 @@ export function Panel({
   fault = null,
 }: PanelProps) {
   const h = panelHeight(rows.length);
-  const w = panelWidth(title, led ? 1 : (heads?.length ?? 0));
+  const w = panelWidth(title, led ? 1 : (heads?.length ?? 0), rows);
   const x = at.x - w / 2;
   const y = at.y - h;
   const right = x + w - PAD;

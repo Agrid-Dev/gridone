@@ -1,6 +1,6 @@
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { SILENT_TEXT } from "./Chip";
+import { captionWidth, SILENT_TEXT } from "./Chip";
 import {
   Panel,
   panelHeight,
@@ -57,11 +57,12 @@ const draw = (props: Partial<Parameters<typeof Panel>[0]>) => {
 describe("Panel", () => {
   it("stands on its anchor, one row per slot", () => {
     const { frame, rows } = draw({});
+    const w = panelWidth("PAC 03", 0, ROWS);
     expect(rows).toHaveLength(5);
-    expect(frame.getAttribute("width")).toBe(String(PANEL_W));
+    expect(frame.getAttribute("width")).toBe(String(w));
     expect(frame.getAttribute("height")).toBe(String(panelHeight(5)));
     expect(Number(frame.getAttribute("y")) + panelHeight(5)).toBe(300);
-    expect(Number(frame.getAttribute("x")) + PANEL_W / 2).toBe(200);
+    expect(Number(frame.getAttribute("x")) + w / 2).toBe(200);
     expect(panelHeight(0)).toBeLessThan(panelHeight(1));
   });
 
@@ -185,11 +186,33 @@ describe("Panel width", () => {
     );
     const frame = container.querySelector("rect")!;
     const x = Number(frame.getAttribute("x"));
-    expect(Number(frame.getAttribute("width"))).toBe(panelWidth(title, 2));
-    expect(panelWidth(title, 2)).toBeGreaterThan(PANEL_W);
+    expect(Number(frame.getAttribute("width"))).toBe(
+      panelWidth(title, 2, ROWS),
+    );
+    expect(panelWidth(title, 2, [])).toBeGreaterThan(PANEL_W);
     const titleEnd = x + 7 + textWidth(title, 11);
     const firstLed = container.querySelector("[data-led]")!;
     expect(Number(firstLed.getAttribute("cx")) - 4).toBeGreaterThan(titleEnd);
-    expect(panelWidth("PAC 03", 1)).toBe(PANEL_W);
+    expect(panelWidth("PAC 03", 1, [])).toBe(PANEL_W);
+  });
+
+  it("grows past its usual width only to keep a row's caption clear of its value", () => {
+    const short = [{ label: "speed", reading: reading("0", false, "%") }];
+    expect(panelWidth("PEC E2", 2, short)).toBe(PANEL_W);
+    const long = [
+      { label: "vitesse a", reading: reading("5242", false, "tr/min") },
+    ];
+    const w = panelWidth("PEC E2", 2, long);
+    expect(w).toBeGreaterThan(PANEL_W);
+    const { container } = render(
+      <svg>
+        <Panel at={{ x: 200, y: 300 }} title="PEC E2" rows={long} />
+      </svg>,
+    );
+    const [caption, value] = container.querySelectorAll("[data-row] text");
+    const captionEnd =
+      Number(caption.getAttribute("x")) + captionWidth("vitesse a");
+    const valueStart = Number(value.getAttribute("x")) - textWidth("5242", 11);
+    expect(valueStart).toBeGreaterThan(captionEnd);
   });
 });
