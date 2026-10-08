@@ -10,6 +10,8 @@ import type { PresentationResponse } from "@gridone/sdk";
 
 export type ControlKind = "toggle" | "number" | "slider" | "select";
 
+export type OptionReasonDisplay = "inline" | "tooltip";
+
 export type ControlDocument = {
   kind: ControlKind;
   visible_when?: Condition;
@@ -17,6 +19,7 @@ export type ControlDocument = {
   /** Binding id (not an attribute name). */
   binding: string;
   label: LocalizedText;
+  option_reason_display?: OptionReasonDisplay;
 };
 
 export type GlyphSetDocument = {

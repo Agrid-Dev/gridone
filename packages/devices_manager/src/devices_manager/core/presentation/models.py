@@ -667,12 +667,28 @@ class ControlKind(StrEnum):
     SELECT = "select"
 
 
+class OptionReasonDisplay(StrEnum):
+    INLINE = "inline"
+    TOOLTIP = "tooltip"
+
+
 class Control(StrictModel):
     visible_when: Condition | None = None
     blocked_when: Condition | None = None
     kind: ControlKind
     binding: LocalId
     label: LocalizedText
+    option_reason_display: OptionReasonDisplay | None = None
+
+    @model_validator(mode="after")
+    def check_option_reason_display(self) -> "Control":
+        if (
+            self.option_reason_display is not None
+            and self.kind is not ControlKind.SELECT
+        ):
+            msg = "option_reason_display is only valid on select controls"
+            raise ValueError(msg)
+        return self
 
 
 class PresentationV1(StrictModel):

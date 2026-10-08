@@ -1,8 +1,16 @@
 import { AttributeDependencies } from "@/components/AttributeDependencies";
+import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { moveRadioFocus } from "@/lib/radioNavigation";
 import { useTranslation } from "react-i18next";
 import { Check, Loader2, Minus, Plus } from "lucide-react";
-import { Button, Switch } from "@/components/ui";
+import {
+  Button,
+  Switch,
+  Tooltip,
+  TooltipArrow,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui";
 import { attributeValueLabel } from "@/lib/attributeValueLabel";
 import { commandReasons } from "@/lib/commandReasons";
 import { toLabel } from "@/lib/textFormat";
@@ -306,27 +314,48 @@ function SelectControl({
         const unavailable = !state.writable || resolved?.available === false;
         const reason = commandReasons(resolved?.reasons, i18n.language);
         const reasonId = `${id}-option-${index}-reason`;
+        const tooltip =
+          state.spec.optionReasonDisplay === "tooltip" && !!reason;
+        const button = (
+          <button
+            type="button"
+            role="radio"
+            aria-checked={active}
+            aria-disabled={unavailable}
+            {...(!tooltip && reason ? { "aria-describedby": reasonId } : {})}
+            onClick={() => {
+              if (!unavailable) runtime.setValue(id, option);
+            }}
+            onKeyDown={moveRadioFocus}
+            className={cn(
+              "rounded-full px-3 py-1.5 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring",
+              unavailable && "opacity-50",
+              active && "bg-background shadow-sm",
+            )}
+          >
+            {optionLabel(option)}
+          </button>
+        );
         return (
           <div key={`${typeof option}:${String(option)}`}>
-            <button
-              type="button"
-              role="radio"
-              aria-checked={active}
-              aria-disabled={unavailable}
-              aria-describedby={reason ? reasonId : undefined}
-              onClick={() => {
-                if (!unavailable) runtime.setValue(id, option);
-              }}
-              onKeyDown={moveRadioFocus}
-              className={cn(
-                "rounded-full px-3 py-1.5 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring",
-                unavailable && "opacity-50",
-                active && "bg-background shadow-sm",
-              )}
-            >
-              {optionLabel(option)}
-            </button>
-            {reason && (
+            {tooltip ? (
+              <Tooltip delayDuration={0}>
+                <TooltipTrigger asChild>{button}</TooltipTrigger>
+                <TooltipPrimitive.Portal>
+                  <TooltipContent
+                    side="top"
+                    collisionPadding={16}
+                    className="max-w-[min(24rem,var(--radix-tooltip-content-available-width))] whitespace-normal [overflow-wrap:anywhere]"
+                  >
+                    {reason}
+                    <TooltipArrow className="fill-popover" />
+                  </TooltipContent>
+                </TooltipPrimitive.Portal>
+              </Tooltip>
+            ) : (
+              button
+            )}
+            {reason && !tooltip && (
               <p
                 id={reasonId}
                 className="max-w-48 px-2 text-xs text-muted-foreground"

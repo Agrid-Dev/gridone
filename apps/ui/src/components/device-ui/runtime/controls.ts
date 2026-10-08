@@ -3,7 +3,7 @@ import type {
   WriteConstraints as DriverWriteConstraints,
 } from "@gridone/sdk";
 import type { Condition, Scalar } from "../conditions";
-import type { ControlKind } from "../document";
+import type { ControlKind, OptionReasonDisplay } from "../document";
 import type { FaceAction, LocalizedText } from "../face";
 
 /**
@@ -27,6 +27,7 @@ export type ControlSpec = {
   /** Attribute of the current device the control is bound to. */
   attribute: string;
   label: LocalizedText;
+  optionReasonDisplay?: OptionReasonDisplay;
 };
 
 /** A bound given as a constant or as a sibling attribute reference. */

@@ -14,6 +14,7 @@ export const SUPPORTED_CAPABILITIES: ReadonlySet<string> = new Set([
   "layout-variants/1",
   "layout-options/1",
   "controls/1",
+  "option-reason-display/1",
   "slider/1",
   "measurements/1",
   "measurement-layout/1",
