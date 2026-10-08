@@ -140,9 +140,9 @@ const hit = (id: string) =>
     `[data-editor-symbol='${id}'] rect[fill='transparent']`,
   )!;
 const symbolOf = (id: string) => editor.doc.symbols!.find((s) => s.id === id);
-/** The frame as cells: the surface spans it, 40 px a cell on the plan. */
+/** The frame as cells: the surface spans it, 24 px a cell on the plan. */
 const frame = () => {
-  const n = (name: string) => Number(surface().getAttribute(name)) / 40;
+  const n = (name: string) => Number(surface().getAttribute(name)) / 24;
   return { x0: n("x"), y0: n("y"), w: n("width"), h: n("height") };
 };
 /** A native drag event: jsdom has none, and testing-library's fallback

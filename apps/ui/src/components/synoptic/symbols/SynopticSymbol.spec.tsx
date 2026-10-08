@@ -105,7 +105,7 @@ describe("SynopticSymbol", () => {
   });
 
   it("points an inline glyph downstream, whichever way its run goes", () => {
-    // The pump's impeller triangle, in the cell centred on (20, 20) of the
+    // The pump's impeller triangle, in the cell centred on (12, 12) of the
     // flat sheet: its tip is the vertex farthest along the run, and it must
     // be past the centre, not behind it.
     const triangle = (d: { x: number; y: number }) =>
@@ -122,7 +122,7 @@ describe("SynopticSymbol", () => {
         .split(" ")
         .map((p) => p.split(",").map(Number));
     const along = (d: { x: number; y: number }) =>
-      triangle(d).map(([x, y]) => (x - 20) * d.x + (y - 20) * d.y);
+      triangle(d).map(([x, y]) => (x - 12) * d.x + (y - 12) * d.y);
     for (const d of [
       { x: 1, y: 0 },
       { x: -1, y: 0 },
@@ -131,9 +131,9 @@ describe("SynopticSymbol", () => {
     ]) {
       const reach = along(d);
       // Two base corners behind the centre, the apex on the circle
-      // downstream (ISO 14617 2301): INLINE_R cells, 12 px, past it.
+      // downstream (ISO 14617 2301): INLINE_R cells, 7.2 px, past it.
       expect(reach.filter((r) => r < 0)).toHaveLength(2);
-      expect(Math.max(...reach)).toBeCloseTo(12, 5);
+      expect(Math.max(...reach)).toBeCloseTo(7.2, 5);
     }
   });
 
@@ -254,12 +254,12 @@ describe("SynopticSymbol", () => {
           .querySelector("text")!
           .getAttribute("y"),
       );
-    // Upright, the 1 x 2 body spans y 80..160: label 10 px above 80.
-    expect(labelY(0)).toBe(70);
-    // A quarter turn lays it along x on y 80..120 (about the origin cell's
+    // Upright, the 1 x 2 body spans y 48..96: label 10 px above 48.
+    expect(labelY(0)).toBe(38);
+    // A quarter turn lays it along x on y 48..72 (about the origin cell's
     // centre): the label follows the new top edge, not the old height.
-    expect(labelY(1)).toBe(70);
-    expect(labelY(2)).toBe(30);
+    expect(labelY(1)).toBe(38);
+    expect(labelY(2)).toBe(14);
   });
 
   it("labels above the body, with a run-state LED on the sheet", () => {
@@ -383,10 +383,10 @@ describe("SynopticSymbol", () => {
           rotation={rotation}
         />,
       );
-    expect(first(at({ x: 1, y: 0 }))).toBe("40,0 120,0 120,80 40,80");
+    expect(first(at({ x: 1, y: 0 }))).toBe("24,0 72,0 72,48 24,48");
     // A quarter turn puts the 2 x 2 body on cells x in [-1, 1), y in [0, 2),
     // where `symbolPort` puts its ports.
-    expect(first(at({ x: 0, y: 0 }, 1))).toBe("40,0 40,80 -40,80 -40,0");
+    expect(first(at({ x: 0, y: 0 }, 1))).toBe("24,0 24,48 -24,48 -24,0");
   });
 
   it("degrades visibly on a type it cannot draw", () => {
@@ -418,8 +418,8 @@ describe("Collector", () => {
       p.getAttribute("points"),
     );
     expect(pieces).toHaveLength(4);
-    expect(pieces[0]).toBe("40,52 80,52 80,68 40,68");
-    expect(pieces[3]).toBe("160,52 200,52 200,68 160,68");
+    expect(pieces[0]).toBe("24,31.2 48,31.2 48,40.8 24,40.8");
+    expect(pieces[3]).toBe("96,31.2 120,31.2 120,40.8 96,40.8");
     expect(c.querySelector("text")!.textContent).toBe("N-1");
   });
 
@@ -432,7 +432,7 @@ describe("Collector", () => {
       />,
     );
     expect(c.querySelector("polygon")!.getAttribute("points")).toBe(
-      "12,0 28,0 28,40 12,40",
+      "7.2,0 16.8,0 16.8,24 7.2,24",
     );
   });
 
@@ -674,7 +674,7 @@ describe("symbolLabelAnchor", () => {
 
   it("writes a link's caption on its face on the sheet, and names nothing it cannot draw", () => {
     expect(symbolLabelAnchor("link", "flat", { x: 0, y: 0 })).toEqual({
-      at: { x: 20, y: 40 },
+      at: { x: 12, y: 24 },
       anchor: "middle",
       onFace: true,
     });
@@ -687,7 +687,7 @@ describe("collectorLabelAnchor", () => {
 
   it("levels the name 14 px above the origin cell on the sheet", () => {
     expect(collectorLabelAnchor("flat", { x: 1, y: 1 }, shape("x"))).toEqual({
-      at: { x: 60, y: 46 },
+      at: { x: 36, y: 22 },
       angle: 0,
       anchor: "middle",
     });
@@ -720,8 +720,8 @@ describe("collectorLabelAnchor", () => {
     expect(flat.hasAttribute("data-axis-label")).toBe(false);
     expect(flat.getAttribute("transform")).toBeNull();
     expect([flat.getAttribute("x"), flat.getAttribute("y")]).toEqual([
-      "60",
-      "46",
+      "36",
+      "22",
     ]);
     const iso = draw(
       <Collector

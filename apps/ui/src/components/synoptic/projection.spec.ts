@@ -17,9 +17,9 @@ describe("project", () => {
     expect(project("isometric", 2, 1, 1)).toEqual({ x: 24, y: 12 });
   });
 
-  it("maps flat cells to 40 px squares and ignores z", () => {
+  it("maps flat cells to 24 px squares and ignores z", () => {
     expect(project("flat", 0, 0)).toEqual({ x: 0, y: 0 });
-    expect(project("flat", 2, 1, 5)).toEqual({ x: 80, y: 40 });
+    expect(project("flat", 2, 1, 5)).toEqual({ x: 48, y: 24 });
   });
 
   it("projects fractional cell centres", () => {
@@ -48,7 +48,7 @@ describe("unproject", () => {
   });
 
   it("inverts flat cells and ignores z", () => {
-    expect(unproject("flat", { x: 80, y: 40 }, 3)).toEqual({ x: 2, y: 1 });
+    expect(unproject("flat", { x: 48, y: 24 }, 3)).toEqual({ x: 2, y: 1 });
   });
 });
 
@@ -117,6 +117,6 @@ describe("portPoint", () => {
     const p = portPoint("isometric", { x: 0, y: 0 }, "+x");
     expect(p.x).toBeCloseTo(12);
     expect(p.y).toBeCloseTo(8.4);
-    expect(portPoint("flat", { x: 0, y: 0 }, "+y")).toEqual({ x: 20, y: 40 });
+    expect(portPoint("flat", { x: 0, y: 0 }, "+y")).toEqual({ x: 12, y: 24 });
   });
 });

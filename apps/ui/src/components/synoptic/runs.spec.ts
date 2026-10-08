@@ -134,16 +134,16 @@ describe("runPieces", () => {
   it("gives each cell its half-segments in and out, meeting at its centre", () => {
     const pieces = runPieces("flat", pipe(cellA, cellB), SYMBOLS);
     // The last cell of a run ending in the open keeps only its half in,
-    // so the chevrons have a 20 px segment to sit on.
+    // so the chevrons have a 12 px segment to sit on.
     expect(pieces.map((p) => p.points)).toEqual([
       [
-        { x: 20, y: 20 },
-        { x: 20, y: 20 },
-        { x: 40, y: 20 },
+        { x: 12, y: 12 },
+        { x: 12, y: 12 },
+        { x: 24, y: 12 },
       ],
       [
-        { x: 40, y: 20 },
-        { x: 60, y: 20 },
+        { x: 24, y: 12 },
+        { x: 36, y: 12 },
       ],
     ]);
     expect(pieces.map((p) => p.direction)).toEqual([
@@ -165,30 +165,30 @@ describe("runPieces", () => {
       ),
       SYMBOLS,
     );
-    // supply leaves (1, 1) through +x, at x = 80: the port cell holds a stub
+    // supply leaves (1, 1) through +x, at x = 48: the port cell holds a stub
     // from its centre to that face, and the visible run starts there.
     expect(pieces[0]).toEqual({
       cell: { x: 1, y: 1, z: 0 },
       points: [
-        { x: 60, y: 60 },
-        { x: 60, y: 60 },
-        { x: 80, y: 60 },
+        { x: 36, y: 36 },
+        { x: 36, y: 36 },
+        { x: 48, y: 36 },
       ],
       direction: { x: 1, y: 0 },
       stub: true,
     });
-    expect(pieces[1].points[0]).toEqual({ x: 80, y: 60 });
-    // primary_in enters (4, 0) through -x, at x = 160. The tank's vessel
-    // (ISO 14617 2062, 0.4 cells each side of the centre line at x = 180)
-    // meets that line at x = 164, so the visible run ends at the drawn
+    expect(pieces[1].points[0]).toEqual({ x: 48, y: 36 });
+    // primary_in enters (4, 0) through -x, at x = 96. The tank's vessel
+    // (ISO 14617 2062, 0.4 cells each side of the centre line at x = 108)
+    // meets that line at x = 98.4, so the visible run ends at the drawn
     // edge and the stub carries on to the cell centre, under the glyph.
-    expect(pieces[pieces.length - 2].points[2]).toEqual({ x: 164, y: 20 });
+    expect(pieces[pieces.length - 2].points[2]).toEqual({ x: 98.4, y: 12 });
     expect(pieces[pieces.length - 1]).toEqual({
       cell: { x: 4, y: 0, z: 0 },
       points: [
-        { x: 164, y: 20 },
-        { x: 180, y: 20 },
-        { x: 180, y: 20 },
+        { x: 98.4, y: 12 },
+        { x: 108, y: 12 },
+        { x: 108, y: 12 },
       ],
       direction: { x: 1, y: 0 },
       stub: true,
@@ -210,9 +210,9 @@ describe("runPieces", () => {
       SYMBOLS,
     );
     // in_1 faces -x on a bar along y: the bar edge is 0.3 cells in from
-    // the face at x = 240, so the run ends at x = 252.
-    expect(across[1].points[2]).toEqual({ x: 252, y: 100 });
-    expect(across[2].points[0]).toEqual({ x: 252, y: 100 });
+    // the face at x = 144, so the run ends at x = 151.2.
+    expect(across[1].points[2]).toEqual({ x: 151.2, y: 60 });
+    expect(across[2].points[0]).toEqual({ x: 151.2, y: 60 });
     const along = runPieces(
       "flat",
       pipe(
@@ -240,7 +240,7 @@ describe("runPieces", () => {
       ),
     );
     // out_1 faces -y along the bar: the bar reaches the face, y = 0.
-    expect(along[1].points[2]).toEqual({ x: 260, y: 0 });
+    expect(along[1].points[2]).toEqual({ x: 156, y: 0 });
   });
 
   it("stops at the silhouette of a drawing that meets the entry line", () => {
@@ -256,7 +256,7 @@ describe("runPieces", () => {
         ["px", symbol("px", "plate_exchanger", { x: 2, y: 0 })],
       ]),
     );
-    expect(pieces[1].points[2]).toEqual({ x: 84, y: 20 });
+    expect(pieces[1].points[2]).toEqual({ x: 50.4, y: 12 });
   });
 
   it("ends at the silhouette along the face the run actually arrives through", () => {
@@ -272,10 +272,10 @@ describe("runPieces", () => {
     // Entering from +y, the face sits on the vessel's midline (ISO 14617
     // 2062 spans the whole 1 x 2 footprint), so the line from that face to
     // the cell centre never leaves the silhouette: the visible run stops at
-    // the face, y = 40, and the stub carries on under the glyph's patch.
+    // the face, y = 24, and the stub carries on under the glyph's patch.
     const visible = pieces.filter((p) => !p.stub);
     expect(visible[visible.length - 1].cell).toEqual({ x: 4, y: 1, z: 0 });
-    expect(visible[visible.length - 1].points[2]).toEqual({ x: 180, y: 40 });
+    expect(visible[visible.length - 1].points[2]).toEqual({ x: 108, y: 24 });
     expect(pieces[pieces.length - 1].stub).toBe(true);
   });
 
@@ -340,9 +340,9 @@ describe("runPieces", () => {
     ]);
     // The bend cell holds its corner.
     expect(pieces[1].points).toEqual([
-      { x: 40, y: 20 },
-      { x: 60, y: 20 },
-      { x: 60, y: 40 },
+      { x: 24, y: 12 },
+      { x: 36, y: 12 },
+      { x: 36, y: 24 },
     ]);
   });
 
@@ -386,8 +386,8 @@ describe("runPieces", () => {
     const pieces = runPieces("flat", pipe(cellA, cellA), SYMBOLS);
     expect(pieces).toHaveLength(1);
     expect(pieces[0].points).toEqual([
-      { x: 20, y: 20 },
-      { x: 20, y: 20 },
+      { x: 12, y: 12 },
+      { x: 12, y: 12 },
     ]);
   });
 
@@ -398,7 +398,7 @@ describe("runPieces", () => {
       SYMBOLS,
     );
     expect(pieces).toHaveLength(2);
-    expect(pieces[0].points[0]).toEqual({ x: 20, y: 20 });
+    expect(pieces[0].points[0]).toEqual({ x: 12, y: 12 });
   });
 });
 

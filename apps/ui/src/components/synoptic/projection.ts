@@ -10,7 +10,7 @@ const ISO_Y = { x: -24, y: 12 };
 const ISO_Z = 24;
 
 /** Flat cell size in px: `x` screen-right, `y` screen-down. */
-const FLAT_CELL = 40;
+const FLAT_CELL = 24;
 
 /** The angle, in degrees, of the isometric `x` axis on screen; the `y`
  *  axis is its mirror. Text laid along a run or a bar turns by it. */

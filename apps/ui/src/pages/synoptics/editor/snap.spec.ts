@@ -190,10 +190,10 @@ describe("further cases, each pinned by a mutation", () => {
       const centre = axisCentre("flat", at(3, 0));
       // Mutant: a strict comparison drops the edge of the snap circle.
       expect(
-        nearestRide(found, { x: centre.x + 12, y: centre.y + 5 }, 13)?.cell,
+        nearestRide(found, { x: centre.x + 5, y: centre.y + 12 }, 13)?.cell,
       ).toEqual(at(3, 0));
       expect(
-        nearestRide(found, { x: centre.x + 12, y: centre.y + 5 }, 12.99),
+        nearestRide(found, { x: centre.x + 5, y: centre.y + 12 }, 12.99),
       ).toBeNull();
     });
 

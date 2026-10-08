@@ -12,7 +12,11 @@ describe("SymbolThumb", () => {
     const { container } = render(<SymbolThumb type="tank" height={26} />);
     expect(thumb(container)).toHaveAttribute("height", "26");
     expect(thumb(container)).toHaveAttribute("width", "17");
-    expect(thumb(container)).toHaveAttribute("viewBox", "-18 -18 76 116");
+    const box = thumb(container)
+      .getAttribute("viewBox")!
+      .split(" ")
+      .map(Number);
+    [-10.8, -10.8, 45.6, 69.6].forEach((v, i) => expect(box[i]).toBeCloseTo(v));
     expect(thumb(container)).toHaveAttribute("aria-hidden");
   });
 
