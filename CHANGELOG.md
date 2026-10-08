@@ -1,3 +1,9 @@
+## v0.305.0 (2026-10-08)
+
+### Feat
+
+- **ui**: clearer dashboards structure page — one row per entry (AGR-1592)
+
 ## v0.304.1 (2026-10-08)
 
 ### Fix
