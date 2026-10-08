@@ -174,7 +174,8 @@ describe("PlateLegend", () => {
     // The thumbnail is the plan glyph itself: a heat pump's frame and
     // compressor, in a viewBox around its 2 x 2 footprint.
     const thumb = key.querySelector("[data-legend-symbol='heat_pump'] svg")!;
-    expect(thumb.getAttribute("viewBox")).toBe("-18 -18 116 116");
+    const box = thumb.getAttribute("viewBox")!.split(" ").map(Number);
+    [-10.8, -10.8, 69.6, 69.6].forEach((v, i) => expect(box[i]).toBeCloseTo(v));
     expect(thumb.querySelectorAll("polygon").length).toBeGreaterThan(1);
     expect(Object.keys(DRAWINGS)).not.toContain("collector");
   });

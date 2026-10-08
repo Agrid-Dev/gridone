@@ -40,6 +40,10 @@ type ChipProps = {
   title?: string | null;
 };
 
+/** Width an uppercase caption takes, its tracking included. */
+export const captionWidth = (text: string) =>
+  textWidth(text, LABEL_SIZE) + text.length * CAPTION_TRACKING;
+
 /** Width the unit takes after a value, gap included; 0 without one. */
 export const unitWidth = (unit: string | null) =>
   unit ? textWidth(unit, UNIT_SIZE) + UNIT_GAP : 0;

@@ -33,7 +33,12 @@ import {
 import { circulatingRuns } from "./circulation";
 import { DepthOrdered, type DepthItem } from "./DepthOrdered";
 import { headName, headOf, headSlot, machineFault, symbolHeads } from "./heads";
-import { TEXT_RANK, TextScaleContext } from "./legibility";
+import {
+  pinned,
+  TEXT_RANK,
+  TextScaleContext,
+  TextShiftContext,
+} from "./legibility";
 import type {
   CanvasWheel,
   View,
@@ -50,6 +55,8 @@ import {
   findSpot,
   nearest,
   overlaps,
+  PLACEMENT_RINGS,
+  RING_STEP,
   type Box,
   type Direction,
   type Obstacle,
@@ -184,15 +191,12 @@ export const READOUT_GAP = 12;
 /** A panel clears the label above it, or the body beside or under it. */
 const PANEL_LABEL_GAP = 6;
 const PANEL_BODY_GAP = 10;
-/** Each ring of the search lies this much further out than the last:
- *  half a cell on screen, so the search steps row by row. */
-const RING_STEP = 12;
-/** How far the search walks before it hangs the text at its first spot,
- *  in rings: a plate has to be very dense for that to happen. */
-const PLACEMENT_RINGS = 16;
 /** The sides a tag's text tries, from the side it prefers. */
 const TAG_ABOVE: Direction[] = ["N", "S", "NE", "NW", "SE", "SW", "E", "W"];
 const TAG_BELOW: Direction[] = ["S", "N", "SE", "SW", "NE", "NW", "E", "W"];
+/** The sides a tag held larger moves to, never across its run. */
+const TAG_STAYS_ABOVE = TAG_ABOVE.filter((d) => !d.startsWith("S"));
+const TAG_STAYS_BELOW = TAG_BELOW.filter((d) => !d.startsWith("N"));
 /** The sides a readout tries around its body once the spot at the label
  *  is taken: above, beside, below, then the corners. */
 const READOUT_ORDER: Direction[] = ["N", "E", "W", "S", "NE", "NW", "SE", "SW"];
@@ -324,6 +328,11 @@ export function SynopticRenderer({
     },
     [frameRef],
   );
+  // What grown text gives way to rather than cover.
+  const drawing = useMemo(
+    () => ({ bodies: geometry.bodyObstacles, runs: geometry.runs }),
+    [geometry],
+  );
   // The plate's frame sits `MARGIN` in from the extent's corner.
   const offset = { x: MARGIN - box.x0, y: MARGIN - box.y0 };
   // The same frame in the items' own coordinates, for the text held legible.
@@ -384,7 +393,7 @@ export function SynopticRenderer({
     >
       <KitDefs />
       <g ref={setFrame} transform={`translate(${offset.x} ${offset.y})`}>
-        <DepthOrdered items={items} frame={frameBox} />
+        <DepthOrdered items={items} frame={frameBox} drawing={drawing} />
         {highlight}
         {children}
       </g>
@@ -477,7 +486,10 @@ const LABEL_RINGS = 8;
 type Interaction = Pick<
   SynopticRendererProps,
   "knownSynoptics" | "onSymbolClick" | "onSymbolHover"
-> & { vocabulary: PlateVocabulary; animated: boolean };
+> & {
+  vocabulary: PlateVocabulary;
+  animated: boolean;
+};
 
 /** Everything the element builders share while a plate is assembled. */
 type Plate = Geometry &
@@ -927,7 +939,23 @@ function addRuns(plate: Plate) {
       items.push({
         id: tag.id,
         depth: depthKey(tag.at, "label"),
-        text: { anchor: grows, box, rank: TEXT_RANK.tag },
+        text: {
+          anchor: grows,
+          box,
+          rank: TEXT_RANK.tag,
+          // A live reading moves rather than hides; a caption or an
+          // authored fact can wait for the zoom.
+          move:
+            value && !value.literal
+              ? {
+                  around: { x0: on.x, y0: on.y, x1: on.x, y1: on.y },
+                  // Its caption is drawn for its side of the run: moved
+                  // across, it would read as the next tag's.
+                  order: below ? TAG_STAYS_BELOW : TAG_STAYS_ABOVE,
+                  start: TAG_LIFT,
+                }
+              : undefined,
+        },
         node: (
           <g data-tag={tag.id} data-side={below ? "below" : "above"}>
             <Leader box={tied} anchor={on} kind="tag" grows={grows} />
@@ -1098,6 +1126,27 @@ function addSymbols(plate: Plate) {
     const fault = heads
       ? mostSevere(heads.flatMap((m) => (m.fault ? [m.fault] : [])))
       : machines[0].fault;
+    // A known run state already shows on the plate (the name's LED, the
+    // machine, a valve's bowtie): its word shows only while it is unknown.
+    const shown = new Set(
+      machines.flatMap((m) => (m.state === undefined ? [] : [m.head.state])),
+    );
+    const onPlate = readings.filter(({ slot }) => !shown.has(slot));
+    const body = plate.bodies.get(symbol.id)!;
+    // A readout moved off its spot searches around the body as placed.
+    const readoutMove = (tether: boolean) => ({
+      around: body,
+      order: READOUT_ORDER,
+      start: PANEL_BODY_GAP,
+      tether,
+    });
+    // The name a lone chip goes by, or that alone carries the state on its
+    // LED, is held with the readings.
+    const withReadings =
+      onPlate.length === 1 ||
+      (onPlate.length === 0 &&
+        shown.size > 0 &&
+        labelHasLed(projection, symbol.type));
 
     const shape = collectorShape(symbol);
     const bodyCell = nearestCell(symbol);
@@ -1150,6 +1199,7 @@ function addSymbols(plate: Plate) {
             anchor: along.at,
             box: along.box,
             rank: fault ? TEXT_RANK.alarm : TEXT_RANK.name,
+            on: symbol.id,
           },
           node: (
             <CollectorLabel
@@ -1296,7 +1346,22 @@ function addSymbols(plate: Plate) {
         text: {
           anchor: nameAnchor!,
           box: placed.box,
-          rank: fault ? TEXT_RANK.alarm : TEXT_RANK.name,
+          rank: fault
+            ? TEXT_RANK.alarm
+            : withReadings
+              ? TEXT_RANK.reading
+              : TEXT_RANK.name,
+          on: symbol.id,
+          // A link's name says where its arrow goes: moved, never hidden.
+          move:
+            fault || withReadings || symbol.type === "link"
+              ? {
+                  around: body,
+                  order: LABEL_ORDER,
+                  start: LABEL_GAP,
+                  tether: !placed.leader,
+                }
+              : undefined,
         },
         node: link ? (
           <Affordance
@@ -1317,10 +1382,10 @@ function addSymbols(plate: Plate) {
     const labelPoint =
       placed?.at ?? symbolLabelPoint(symbol.type, projection, origin, rotation);
     if (!labelPoint) continue;
-    if (readings.length === 0) continue;
+    if (onPlate.length === 0) continue;
     const { vocabulary } = plate;
-    if (readings.length === 1) {
-      const { slot, reading: single } = readings[0];
+    if (onPlate.length === 1) {
+      const { slot, reading: single } = onPlate[0];
       const w = chipWidth(single.text ?? "", single.unit, single.literal);
       const { box, anchor, hanging } = placeReadout(
         plate,
@@ -1341,8 +1406,10 @@ function addSymbols(plate: Plate) {
           anchor: grows,
           box,
           rank: TEXT_RANK.reading,
-          // Under its name with no leader, it says whose it is by the name.
+          // Under its name with no leader, it says whose it is by the name,
+          // and moves with it.
           with: hanging && placed ? `${symbol.id}:label` : undefined,
+          move: readoutMove(hanging),
         },
         node: (
           <g data-readout={symbol.id}>
@@ -1362,13 +1429,20 @@ function addSymbols(plate: Plate) {
       });
       continue;
     }
-    const h = panelHeight(readings.length);
+    const h = panelHeight(onPlate.length);
     const title = symbol.label ?? symbol.id;
+    const rows = onPlate.map<PanelRow>(({ slot, reading }) => ({
+      label: vocabulary.slotLabel(slot),
+      reading,
+      error: (headSlot(slot)?.role ?? slot) === FAULT_SLOT,
+      fault: heads?.find((m) => m.head.slots.includes(slot))?.fault,
+      title: vocabulary.readingTitle?.(reading, vocabulary.slotLabel(slot)),
+    }));
     const { box, anchor, hanging } = placeReadout(
       plate,
       symbol,
       labelPoint,
-      panelWidth(title, state ? 1 : (heads?.length ?? 0)),
+      panelWidth(title, state ? 1 : (heads?.length ?? 0), rows),
       h,
       "panel",
     );
@@ -1377,7 +1451,12 @@ function addSymbols(plate: Plate) {
     items.push({
       id: `${symbol.id}:readout`,
       depth: depthKey(origin, "label"),
-      text: { anchor: grows, box, rank: TEXT_RANK.reading },
+      text: {
+        anchor: grows,
+        box,
+        rank: TEXT_RANK.reading,
+        move: readoutMove(hanging),
+      },
       node: (
         <g data-readout={symbol.id}>
           <Leader
@@ -1389,16 +1468,7 @@ function addSymbols(plate: Plate) {
           <Panel
             at={{ x: (box.x0 + box.x1) / 2, y: box.y1 }}
             title={title}
-            rows={readings.map<PanelRow>(({ slot, reading }) => ({
-              label: vocabulary.slotLabel(slot),
-              reading,
-              error: (headSlot(slot)?.role ?? slot) === FAULT_SLOT,
-              fault: heads?.find((m) => m.head.slots.includes(slot))?.fault,
-              title: vocabulary.readingTitle?.(
-                reading,
-                vocabulary.slotLabel(slot),
-              ),
-            }))}
+            rows={rows}
             led={state}
             heads={heads}
             fault={fault}
@@ -1433,13 +1503,6 @@ function highlightRing(
   );
 }
 
-/** Where a point on the plate is drawn inside a text held `k` times larger
- *  about `grows`, so the scale brings it back onto the point. */
-const pinned = (grows: Pt, point: Pt, k: number): Pt => ({
-  x: grows.x + (point.x - grows.x) / k,
-  y: grows.y + (point.y - grows.y) / k,
-});
-
 /** The 1 px line from the readout's edge nearest the anchor to the anchor,
  *  a drawn corner of the body or the label point. Its end stays on the
  *  anchor while its text grows about `grows`, the point the text's
@@ -1457,8 +1520,11 @@ function Leader({
   grows: Pt | null;
 }) {
   const k = useContext(TextScaleContext);
-  const from = edgePoint(box, anchor);
-  const to = grows ? pinned(grows, anchor, k) : anchor;
+  const shift = useContext(TextShiftContext);
+  // A panel hanging off its name moved away: the plate tethers it instead.
+  if (!grows && (shift.x || shift.y)) return null;
+  const to = grows ? pinned(grows, anchor, k, shift) : anchor;
+  const from = edgePoint(box, to);
   return (
     <line
       x1={from.x}
@@ -1483,7 +1549,12 @@ function RunDisc({
   grows: Pt;
   className: string;
 }) {
-  const at = pinned(grows, on, useContext(TextScaleContext));
+  const at = pinned(
+    grows,
+    on,
+    useContext(TextScaleContext),
+    useContext(TextShiftContext),
+  );
   return <circle cx={at.x} cy={at.y} r={DISC_R} className={className} />;
 }
 

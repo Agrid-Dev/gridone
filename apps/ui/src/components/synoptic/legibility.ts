@@ -1,5 +1,14 @@
 import { createContext } from "react";
-import type { Box } from "./placement";
+import {
+  bounds,
+  edgePoint,
+  findSpot,
+  RING_STEP,
+  segmentHitsBox,
+  type Box,
+  type Direction,
+  type Segment,
+} from "./placement";
 import type { Pt } from "./types";
 
 /**
@@ -13,24 +22,70 @@ export type TextFootprint = {
   box: Box;
   rank: number;
   /** The text this one hangs from, with no leader of its own (a reading
-   *  under its name): it gives way with it, or it would float ownerless. */
+   *  under its name): it is kept, moved or hidden with it, or it would
+   *  float ownerless. */
   with?: string;
+  /** The symbol the text names: its body never hides it, since a name is
+   *  placed against its own body (on its face, along its bar, above it). */
+  on?: string;
+  /** Set on a reading and on what names it: once grown, a taken spot moves
+   *  it rather than hides it, by the search the plate placed it with,
+   *  around `around`, `start` px off it in `order`. `tether` when it has no
+   *  leader of its own, so a line joins it to `around` once moved. */
+  move?: {
+    around: Box;
+    order: readonly Direction[];
+    start: number;
+    tether?: boolean;
+  };
 };
 
-/** Who gives way first once the text is held above its drawn size: notes,
- *  then the tags on the runs, then the readings, the names last and the
- *  name of a device in fault never before another. */
+/** A text moved off its spot once the plate is zoomed out: how far, and
+ *  the line back to what it reads when it has no leader of its own. */
+export type Held = { shift: Pt; tether?: [Pt, Pt] };
+
+/** What the plate draws that grown text must not cover: each symbol's
+ *  body, by symbol, and every run as the line it draws. */
+export type Drawing = {
+  bodies: ReadonlyMap<string, readonly Box[]>;
+  runs: readonly Segment[];
+};
+
+/** The order text is held in once grown, the first kept first: the name
+ *  of a device in fault, the readings (and the name a lone chip goes by),
+ *  the tags on the runs, then the other names and the notes. */
 export const TEXT_RANK = {
   alarm: 0,
-  name: 1,
-  reading: 2,
-  tag: 3,
+  reading: 1,
+  tag: 2,
+  name: 3,
   note: 4,
 } as const;
 
 /** How much larger than drawn the plate's text is held: 1 while it reads
  *  at its own size. */
 export const TextScaleContext = createContext(1);
+
+/** How far a held text is moved off its spot, so its leader and disc can
+ *  still end on what it reads. */
+export const TextShiftContext = createContext<Pt>({ x: 0, y: 0 });
+
+/** Where a point of the plate is drawn inside a text held `k` times larger
+ *  about `grows` and moved by `shift`, so the transform brings it back
+ *  onto the point. */
+export const pinned = (
+  grows: Pt,
+  point: Pt,
+  k: number,
+  shift: Pt = { x: 0, y: 0 },
+): Pt => ({
+  x: grows.x + (point.x - grows.x - shift.x) / k,
+  y: grows.y + (point.y - grows.y - shift.y) / k,
+});
+
+/** How far a reading may move off its spot, in rings of the search: a
+ *  step or two, so it still reads as what it sits by. */
+const NEAR_RINGS = 3;
 
 /** Steps of the scale per doubling: the text moves in steps of about 9 %,
  *  so a wheel zooming through a range lays the plate out a few times, not
@@ -79,44 +134,143 @@ const widened = (box: Box): Box => {
   return { ...box, x0: box.x0 - pad, x1: box.x1 + pad };
 };
 
+/** Whether `box` covers a run, or a body other than `on`'s. */
+const coversDrawing = (
+  box: Box,
+  runs: readonly Segment[],
+  bodies: readonly Body[],
+  on?: string,
+) =>
+  runs.some((run) => segmentHitsBox(run, box, 0)) ||
+  bodies.some((b) => b.id !== on && cover(b.box, box));
+
+type Body = { id: string; box: Box };
+
+const union = (boxes: Box[]): Box =>
+  bounds(
+    boxes.flatMap((b) => [
+      { x: b.x0, y: b.y0 },
+      { x: b.x1, y: b.y1 },
+    ]),
+  );
+
+const shifted = (box: Box, d: Pt): Box => ({
+  x0: box.x0 + d.x,
+  y0: box.y0 + d.y,
+  x1: box.x1 + d.x,
+  y1: box.y1 + d.y,
+});
+
+/** `box` moved the least that brings it inside `frame`; one larger than the
+ *  frame keeps its top left corner in. */
+const within = (box: Box, frame: Box): Box =>
+  shifted(box, {
+    x: Math.max(frame.x0 - box.x0, Math.min(0, frame.x1 - box.x1)),
+    y: Math.max(frame.y0 - box.y0, Math.min(0, frame.y1 - box.y1)),
+  });
+
+const centre = (box: Box): Pt => ({
+  x: (box.x0 + box.x1) / 2,
+  y: (box.y0 + box.y1) / 2,
+});
+
+/** Room for everything past the frame, as obstacles. */
+const FAR = 1e9;
+const pastFrame = (frame: Box): Box[] => [
+  { x0: -FAR, y0: -FAR, x1: frame.x0, y1: FAR },
+  { x0: frame.x1, y0: -FAR, x1: FAR, y1: FAR },
+  { x0: -FAR, y0: -FAR, x1: FAR, y1: frame.y0 },
+  { x0: -FAR, y0: frame.y1, x1: FAR, y1: FAR },
+];
+
+type Text = { id: string; text: TextFootprint; order: number };
+
 /**
- * The text that gives way once it is held `k` times its drawn size: taken
- * by rank, then in the order given, each piece is kept when its grown box
- * (a little wider than measured, see `WIDTH_SLACK`) stays inside `frame`
- * (the plate's own, past which the canvas clips) and covers none already
- * kept, and hidden otherwise. No two kept boxes ever overlap. At `k` ≤ 1 the text reads as drawn and nothing is hidden, since
- * the placement already kept it apart.
+ * How the text is held once grown `k` times its drawn size. Taken by rank,
+ * then in the order given, with the texts hanging from it (`with`), each
+ * text is kept where its grown box (a little wider than measured, see
+ * `WIDTH_SLACK`) stays inside `frame` (the plate's own, past which the
+ * canvas clips) and covers no text already kept and none of the `drawing`
+ * but the body of the symbol it names. Elsewhere text that carries a
+ * `move` takes the first spot clear of all of it within `NEAR_RINGS` of its
+ * own search, or as a last resort stays on its spot, pulled inside the
+ * frame; any other text is hidden. At `k` ≤ 1 the text reads as drawn and stays as placed.
  */
 export function declutter(
   items: readonly { id: string; text?: TextFootprint }[],
   k: number,
   frame?: Box,
-): Set<string> {
+  drawing?: Drawing,
+): { hidden: Set<string>; held: Map<string, Held> } {
   const hidden = new Set<string>();
-  if (k <= 1) return hidden;
+  const held = new Map<string, Held>();
+  if (k <= 1) return { hidden, held };
   const texts = items
     .map((item, order) => ({ id: item.id, text: item.text, order }))
-    .filter(
-      (t): t is { id: string; text: TextFootprint; order: number } =>
-        t.text !== undefined,
-    )
+    .filter((t): t is Text => t.text !== undefined)
     .sort((a, b) => a.text.rank - b.text.rank || a.order - b.order);
+  const ids = new Set(texts.map((t) => t.id));
+  const hanging = new Map<string, Text[]>();
+  for (const t of texts) {
+    if (t.text.with === undefined || !ids.has(t.text.with)) continue;
+    const list = hanging.get(t.text.with);
+    if (list) list.push(t);
+    else hanging.set(t.text.with, [t]);
+  }
+  const runs = drawing?.runs ?? [];
+  const bodies: Body[] = [...(drawing?.bodies ?? [])].flatMap(([id, parts]) =>
+    parts.map((box) => ({ id, box })),
+  );
   const kept: Box[] = [];
-  for (const { id, text } of texts) {
-    // Ranked after what it hangs from, so that one is already decided.
-    if (text.with !== undefined && hidden.has(text.with)) {
-      hidden.add(id);
+  const boundary = frame ? pastFrame(frame) : [];
+  for (const host of texts) {
+    if (host.text.with !== undefined && ids.has(host.text.with)) continue;
+    const unit = [host, ...(hanging.get(host.id) ?? [])];
+    const { on, move } = host.text;
+    const own = union(
+      unit.map(({ text }) => scaleAbout(widened(text.box), text.anchor, k)),
+    );
+    const clear =
+      !boundary.some((b) => cover(b, own)) &&
+      !kept.some((b) => cover(b, own)) &&
+      !coversDrawing(own, runs, bodies, on);
+    if (clear || !move) {
+      if (clear) kept.push(own);
+      else for (const { id } of unit) hidden.add(id);
       continue;
     }
-    const grown = scaleAbout(widened(text.box), text.anchor, k);
-    const outside =
-      !!frame &&
-      (grown.x0 < frame.x0 ||
-        grown.y0 < frame.y0 ||
-        grown.x1 > frame.x1 ||
-        grown.y1 > frame.y1);
-    if (outside || kept.some((box) => cover(box, grown))) hidden.add(id);
-    else kept.push(grown);
+    const spot = findSpot(
+      move.around,
+      own.x1 - own.x0,
+      own.y1 - own.y0,
+      [
+        ...boundary,
+        ...kept,
+        ...runs,
+        ...bodies.flatMap((b) => (b.id === on ? [] : [b.box])),
+      ],
+      [...move.order],
+      move.start * k,
+      RING_STEP * k,
+      NEAR_RINGS,
+    );
+    // Nowhere clear close by: it still shows, on its own spot, pulled
+    // inside the frame so it is not cut off.
+    const box = spot?.box ?? (frame ? within(own, frame) : own);
+    kept.push(box);
+    const shift = { x: box.x0 - own.x0, y: box.y0 - own.y0 };
+    if (shift.x === 0 && shift.y === 0) continue;
+    const drawn = shifted(
+      scaleAbout(host.text.box, host.text.anchor, k),
+      shift,
+    );
+    const tether: [Pt, Pt] | undefined = move.tether
+      ? [
+          edgePoint(drawn, centre(move.around)),
+          edgePoint(move.around, centre(drawn)),
+        ]
+      : undefined;
+    for (const { id } of unit) held.set(id, { shift, tether });
   }
-  return hidden;
+  return { hidden, held };
 }

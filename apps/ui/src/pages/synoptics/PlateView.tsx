@@ -69,7 +69,7 @@ type PlateViewProps = {
 /** The least the plate's text shows on screen, in px: zoomed out below
  *  it, the text is held at this size and what no longer fits gives way
  *  (Decision 25 of the visual language). */
-export const MIN_TEXT_PX = 12;
+export const MIN_TEXT_PX = 9;
 
 /** Where a popover's anchor sits over the plate, in the plate's own box. */
 type AnchorRect = { left: number; top: number; width: number; height: number };

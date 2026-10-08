@@ -104,7 +104,7 @@
     --synoptic-slab-hi: 212 14% 87%;
     --synoptic-slab-lo: 214 12% 79%;
     --synoptic-slab-edge: 214 12% 70%;
-    --synoptic-reading: 145 68% 36%;
+    --synoptic-reading: var(--foreground);
     --fluid-primary-supply: 340 55% 40%;
     --fluid-primary-return: 340 55% 22%;
     --fluid-heating-supply: 22 55% 50%;
@@ -198,7 +198,6 @@
     --synoptic-slab-hi: 218 12% 24%;
     --synoptic-slab-lo: 218 12% 19%;
     --synoptic-slab-edge: 218 12% 13%;
-    --synoptic-reading: 145 55% 58%;
     --fluid-primary-supply: 340 55% 64%;
     --fluid-primary-return: 340 55% 82%;
     --fluid-heating-supply: 22 55% 64%;
