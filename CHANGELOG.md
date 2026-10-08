@@ -1,3 +1,9 @@
+## v0.304.0 (2026-10-08)
+
+### Feat
+
+- **ui**: zoomed-out synoptic readings move close by instead of hiding (#786)
+
 ## v0.303.0 (2026-10-07)
 
 ### Feat
