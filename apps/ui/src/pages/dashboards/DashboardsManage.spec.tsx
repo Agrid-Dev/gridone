@@ -29,8 +29,7 @@ vi.mock("react-i18next", () =>
     title: "Dashboards",
     "switcher.new": "New dashboard",
     "manage.drag": "Move {{name}}",
-    "structure.actions.edit": "Edit {{name}}",
-    "structure.actions.delete": "Delete {{name}}",
+    "manage.actions": "Actions for {{name}}",
     "structure.empty.group": "No dashboard yet.",
     "structure.empty.section": "Empty section.",
     "actions.edit": "Edit details",
@@ -48,8 +47,6 @@ vi.mock("react-i18next", () =>
     "structure.newSection": "New section",
     "structure.newGroup": "New group",
     "structure.fields.label": "Label",
-    "structure.kinds.section": "Section",
-    "structure.kinds.group": "Group",
     "structure.create.section": "New section",
     "structure.create.group": "New group",
     "structure.edit.group": "Edit group",
@@ -59,6 +56,8 @@ vi.mock("react-i18next", () =>
     "common:common.cancel": "Cancel",
     "common.cancel": "Cancel",
     "common.delete": "Delete",
+    "common:common.edit": "Edit",
+    "common:common.delete": "Delete",
     "errors.forbidden": "Forbidden",
   }),
 );
@@ -187,6 +186,16 @@ const nodes = () =>
       }`,
   );
 
+/** Pick an action from an entry's ⋯ menu. */
+async function pickAction(
+  user: ReturnType<typeof userEvent.setup>,
+  name: string,
+  action: "Edit" | "Delete",
+) {
+  await user.click(screen.getByRole("button", { name: `Actions for ${name}` }));
+  await user.click(await screen.findByRole("menuitem", { name: action }));
+}
+
 beforeEach(() => {
   window.localStorage.clear();
   permissions.write = true;
@@ -198,7 +207,7 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("DashboardsManage", () => {
-  it("draws sections as headings, groups as boxes and dashboards as tiles, and persists a drop", async () => {
+  it("draws one row per entry, nested under its container, and persists a drop", async () => {
     renderPage(NESTED);
     await waitFor(() => expect(nodes()).toHaveLength(5));
     expect(nodes()).toEqual([
@@ -208,7 +217,7 @@ describe("DashboardsManage", () => {
       "dashboard:ECS Ouest",
       "dashboard:Comptage",
     ]);
-    // Dashboards sit inside their containers; the type badge rides the tile.
+    // Dashboards sit inside their containers; the type rides the row.
     const section = screen.getByRole("region", { name: "CVC" });
     const westTile = within(section)
       .getByText("ECS Ouest")
@@ -225,10 +234,10 @@ describe("DashboardsManage", () => {
       "href",
       "/dashboards/new",
     );
-    // The add buttons live in the editor, not the page header.
+    // No row carries its own edit and delete buttons any more.
     expect(
-      screen.getByRole("button", { name: "New section" }).closest("header"),
-    ).toBeNull();
+      screen.queryByRole("button", { name: /^(Edit|Delete) / }),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Move ECS" }),
     ).toBeInTheDocument();
@@ -304,12 +313,59 @@ describe("DashboardsManage", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
+  it("creates a section from the page header, appended at the root", async () => {
+    const user = userEvent.setup();
+    renderPage(NESTED);
+    await waitFor(() => expect(nodes()).toHaveLength(5));
+    const title = screen.getByRole("heading", { name: "Dashboards" });
+    const newSection = screen.getByRole("button", { name: "New section" });
+    // It sits beside the page title, before the tree.
+    expect(
+      title.compareDocumentPosition(newSection) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      newSection.compareDocumentPosition(
+        document.querySelector("[data-kind]")!,
+      ) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    await user.click(newSection);
+    const dialog = screen.getByRole("dialog", { name: "New section" });
+    await user.type(within(dialog).getByLabelText(/Label/), "Air");
+    await user.click(within(dialog).getByRole("button", { name: "Create" }));
+
+    await waitFor(() =>
+      expect(client.dashboards.updateStructure).toHaveBeenCalledWith({
+        items: [
+          {
+            kind: "section",
+            id: "s1",
+            label: "CVC",
+            items: [
+              { kind: "dashboard", id: "d2" },
+              {
+                kind: "group",
+                id: "g1",
+                label: "ECS",
+                icon: "droplets",
+                dashboards: ["d1"],
+              },
+            ],
+          },
+          { kind: "dashboard", id: "d3" },
+          { kind: "section", id: null, label: "Air", items: [] },
+        ],
+      }),
+    );
+  });
+
   it("deletes a group after confirmation, lifting its dashboards in place", async () => {
     const user = userEvent.setup();
     renderPage(NESTED);
     await waitFor(() => expect(nodes()).toHaveLength(5));
 
-    await user.click(screen.getByRole("button", { name: "Delete ECS" }));
+    await pickAction(user, "ECS", "Delete");
     const confirm = screen.getByRole("alertdialog");
     expect(confirm).toHaveTextContent("The dashboards in ECS are kept.");
     await user.click(within(confirm).getByRole("button", { name: "Delete" }));
@@ -338,7 +394,7 @@ describe("DashboardsManage", () => {
     renderPage();
     await waitFor(() => expect(nodes()).toHaveLength(3));
 
-    await user.click(screen.getByRole("button", { name: "Edit CTA" }));
+    await pickAction(user, "CTA", "Edit");
     const dialog = screen.getByRole("dialog", {
       name: "Edit dashboard details",
     });
@@ -373,7 +429,7 @@ describe("DashboardsManage", () => {
     renderPage();
     await waitFor(() => expect(nodes()).toHaveLength(3));
 
-    await user.click(screen.getByRole("button", { name: "Edit ECS Ouest" }));
+    await pickAction(user, "ECS Ouest", "Edit");
     const grid = within(screen.getByRole("group", { name: "Icon" }));
     expect(grid.getByRole("button", { name: "droplets" })).toHaveAttribute(
       "aria-pressed",
@@ -398,7 +454,7 @@ describe("DashboardsManage", () => {
     renderPage();
     await waitFor(() => expect(nodes()).toHaveLength(3));
 
-    await user.click(screen.getByRole("button", { name: "Edit ECS Ouest" }));
+    await pickAction(user, "ECS Ouest", "Edit");
     await user.click(screen.getByRole("button", { name: "No icon" }));
     await user.click(screen.getByRole("button", { name: "Save changes" }));
 
@@ -415,7 +471,7 @@ describe("DashboardsManage", () => {
     renderPage();
     await waitFor(() => expect(nodes()).toHaveLength(3));
 
-    await user.click(screen.getByRole("button", { name: "Delete Comptage" }));
+    await pickAction(user, "Comptage", "Delete");
     expect(client.dashboards.delete).not.toHaveBeenCalled();
     await user.click(
       within(screen.getByRole("alertdialog")).getByRole("button", {
