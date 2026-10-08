@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from models.conditions import scalar_equal
+from models.conditions import scalar_equal, scalar_key
 from models.errors import WriteRejectedError
 from models.write_rules import ResolvedOption, WriteReason
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from models.conditions import EvaluationContext
     from models.types import AttributeValueType
     from models.write_rules import ValueMapping
@@ -69,14 +71,20 @@ def encode_mapping(
 
 
 def project_mapping(
-    mapping: ValueMapping, context: EvaluationContext
-) -> list[ResolvedOption]:
-    """Resolve the table once, then index candidate eligibility in linear time.
+    mapping: ValueMapping,
+    context: EvaluationContext,
+    values: Sequence[AttributeValueType] = (),
+) -> dict[tuple[bool, AttributeValueType], ResolvedOption]:
+    """Resolve the table once, then index candidate eligibility by `scalar_key`.
 
     Unknown entries before a terminator can hide an earlier match or a duplicate.
-    Values beyond it remain visible with a reason, but cannot be encoded.
+    Values beyond it, and given values it never resolves, remain visible with
+    the reason encoding would give, but cannot be encoded.
     """
-    options: dict[tuple[bool, AttributeValueType], ResolvedOption] = {}
+    options = {
+        scalar_key(value): ResolvedOption(value=value, available=False)
+        for value in values
+    }
     counts: dict[tuple[bool, AttributeValueType], int] = {}
     first_unknown: dict[tuple[bool, AttributeValueType], bool] = {}
     stopped = unknown = False
@@ -89,7 +97,7 @@ def project_mapping(
         if mapping.stop_value is not None and scalar_equal(value, mapping.stop_value):
             stopped = True
             continue
-        key = (isinstance(value, bool), value)
+        key = scalar_key(value)
         options.setdefault(key, ResolvedOption(value=value, available=False))
         if entry.selectable and not stopped:
             counts[key] = counts.get(key, 0) + 1
@@ -109,4 +117,4 @@ def project_mapping(
             option.reasons = [WriteReason(code="unavailable_mapping")]
         else:
             option.available = True
-    return list(options.values())
+    return options

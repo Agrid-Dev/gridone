@@ -10,6 +10,7 @@ from models.conditions import (
     EvaluationLimitError,
     is_number,
     scalar_equal,
+    scalar_key,
     uses_candidate,
 )
 from models.errors import WriteRejectedError
@@ -55,7 +56,7 @@ def _check_options(
     value: AttributeValueType,
     context: EvaluationContext,
     *,
-    mapping_checked: bool = False,
+    mapping_reasons: list[WriteReason] | None = None,
 ) -> None:
     if spec.write_options is not None:
         option = next(
@@ -74,7 +75,9 @@ def _check_options(
     elif not spec.value_mapping and spec.value_options is not None:
         if not any(scalar_equal(value, option) for option in spec.value_options):
             raise WriteRejectedError([WriteReason(code="invalid_option")])
-    if spec.value_mapping and not mapping_checked:
+    if mapping_reasons:
+        raise WriteRejectedError(mapping_reasons)
+    if spec.value_mapping and mapping_reasons is None:
         encode_mapping(spec.value_mapping, value, context)
 
 
@@ -84,9 +87,12 @@ def evaluate_write(
     resolve: ValueResolver,
     *,
     context: EvaluationContext | None = None,
-    mapping_checked: bool = False,
+    mapping_reasons: list[WriteReason] | None = None,
 ) -> WriteEvaluation:
-    """Check the typed candidate without changing device state or doing I/O."""
+    """Check the typed candidate without changing device state or doing I/O.
+
+    Projected `mapping_reasons` stand in for encoding the candidate again.
+    """
     valid = {
         DataType.BOOL: isinstance(value, bool),
         DataType.STRING: isinstance(value, str),
@@ -112,7 +118,7 @@ def evaluate_write(
         return result
     try:
         check_write_constraints(spec, value, resolve, context=context)
-        _check_options(spec, value, context, mapping_checked=mapping_checked)
+        _check_options(spec, value, context, mapping_reasons=mapping_reasons)
         _evaluate_rules(spec, context, result)
     except WriteRejectedError as exc:
         result.reasons.extend(exc.reasons)
@@ -208,10 +214,16 @@ def _project_options(
     spec: AttributeDriver, context: EvaluationContext
 ) -> list[ResolvedOption] | None:
     mapped = (
-        project_mapping(spec.value_mapping, context) if spec.value_mapping else None
+        project_mapping(
+            spec.value_mapping,
+            context,
+            [option.value for option in spec.write_options or []],
+        )
+        if spec.value_mapping
+        else None
     )
     options = (
-        [option.value for option in mapped]
+        [option.value for option in mapped.values()]
         if mapped is not None and spec.write_options is None
         else _options(spec)
     )
@@ -227,18 +239,11 @@ def _project_options(
             value,
             context.resolve,
             context=candidate,
-            mapping_checked=mapped is not None,
+            mapping_reasons=None
+            if mapped is None
+            else mapped[scalar_key(value)].reasons,
         )
         context.missing.update(candidate.missing)
-        if mapped is not None:
-            mapping_option = next(
-                (option for option in mapped if scalar_equal(option.value, value)), None
-            )
-            evaluation.reasons.extend(
-                mapping_option.reasons
-                if mapping_option
-                else [WriteReason(code="unavailable_mapping")]
-            )
         result.append(
             ResolvedOption(
                 value=value,

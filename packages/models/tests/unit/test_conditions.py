@@ -7,6 +7,7 @@ from models.conditions import (
     EvaluationBudget,
     EvaluationContext,
     EvaluationLimitError,
+    scalar_key,
 )
 from models.expressions import Condition, Expression
 
@@ -47,6 +48,7 @@ def test_scalar_comparison_never_confuses_bool_number_string(left, right, expect
         )
         is expected
     )
+    assert (scalar_key(left) == scalar_key(right)) is expected
 
 
 @pytest.mark.parametrize(
