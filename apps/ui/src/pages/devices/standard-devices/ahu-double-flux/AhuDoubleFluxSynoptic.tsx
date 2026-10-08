@@ -35,6 +35,8 @@ type AhuDoubleFluxSynopticProps = {
 
 /** The exchanger overhangs both ducts by this much. */
 const EXCHANGER_MARGIN = 18;
+/** Left of centre, clear of the heating coil's water loop readings. */
+const EXCHANGER_CX = VIEW_WIDTH / 2 - 75;
 const RATIO_DIGITS = 0;
 
 /** Flat 2D synoptic of a double-flux AHU: extract run on top (right to
@@ -120,7 +122,7 @@ export function AhuDoubleFluxSynoptic({
           supply={streams.supply}
         />
         <ExchangerGlyph
-          cx={VIEW_WIDTH / 2 - 40}
+          cx={EXCHANGER_CX}
           y={extractY - EXCHANGER_MARGIN}
           height={
             supplyY +
