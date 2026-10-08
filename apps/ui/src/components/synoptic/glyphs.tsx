@@ -282,55 +282,136 @@ export function CoilGlyph({
   );
 }
 
-/** The water side of a coil, drawn under the duct: a flow pipe (down, into
- *  the coil) and a return pipe (up, out of it), in the coil's colour, with
- *  the loop's readings listed beside them. Tubes stay muted while the valve
+/** Pipes of a coil loop stand this far either side of the coil's centre. */
+export const COIL_LOOP_PIPE_DX = 16;
+
+/** The water side of a coil, drawn under the duct: an inlet pipe (up, into
+ *  the coil) and an outlet pipe (down, out of it) in the coil's colour, the
+ *  control valve on the inlet with its opening beside it, and the water
+ *  temperatures written on their pipes. Pipes stay muted while the valve
  *  is shut so a closed loop reads as idle. */
 export function CoilLoopGlyph({
   cx,
   y,
   height,
   colorClass,
+  fillClass,
   active,
   title,
+  valve,
+  inlet,
+  outlet,
 }: {
   cx: number;
   /** Bottom edge of the duct. */
   y: number;
   height: number;
   colorClass: string;
+  fillClass: string;
   /** Whether water circulates (valve open): colours the pipes. */
   active: boolean;
   title: string;
+  /** The control valve's opening, as text ("80 %"), and in [0, 1]. */
+  valve?: { text: string; opening: number };
+  /** Water temperature entering the coil, as text. */
+  inlet?: string;
+  /** Water temperature leaving the coil, as text. */
+  outlet?: string;
 }) {
   const stroke = active ? colorClass : "stroke-muted-foreground";
+  const inX = cx - COIL_LOOP_PIPE_DX;
+  const outX = cx + COIL_LOOP_PIPE_DX;
   const bottom = y + height;
+  const textY = y + 30;
+  const valveY = y + 52;
   const head = (tipY: number, dir: 1 | -1, x: number) =>
     `M ${x - 4} ${tipY - dir * 6} L ${x} ${tipY} L ${x + 4} ${tipY - dir * 6}`;
   return (
-    <g data-active={active} className={stroke} strokeOpacity={active ? 1 : 0.5}>
+    <g data-active={active}>
       <title>{title}</title>
-      <line x1={cx - 7} y1={bottom} x2={cx - 7} y2={y} strokeWidth="2.5" />
-      <path
-        d={head(y + 8, -1, cx - 7)}
-        fill="none"
-        strokeWidth="2"
-        strokeLinejoin="round"
-      />
-      <line
-        x1={cx + 7}
-        y1={y}
-        x2={cx + 7}
-        y2={bottom}
-        strokeWidth="2.5"
-        strokeDasharray="6 3"
-      />
-      <path
-        d={head(bottom, 1, cx + 7)}
-        fill="none"
-        strokeWidth="2"
-        strokeLinejoin="round"
-      />
+      <g className={stroke} strokeOpacity={active ? 1 : 0.5}>
+        <line x1={inX} y1={bottom} x2={inX} y2={y} strokeWidth="2.5" />
+        <path
+          d={head(y + 8, -1, inX)}
+          fill="none"
+          strokeWidth="2"
+          strokeLinejoin="round"
+        />
+        <line
+          x1={outX}
+          y1={y}
+          x2={outX}
+          y2={bottom}
+          strokeWidth="2.5"
+          strokeDasharray="6 3"
+        />
+        <path
+          d={head(bottom, 1, outX)}
+          fill="none"
+          strokeWidth="2"
+          strokeLinejoin="round"
+        />
+      </g>
+      {valve && (
+        <g data-opening={valve.opening}>
+          {/* Two-way valve on the inlet: a bowtie, filled as it opens, with
+              its actuator stem. */}
+          <path
+            d={`M ${inX - 7} ${valveY - 6} L ${inX} ${valveY} L ${inX - 7} ${valveY + 6} Z M ${inX + 7} ${valveY - 6} L ${inX} ${valveY} L ${inX + 7} ${valveY + 6} Z`}
+            strokeWidth="1.5"
+            strokeLinejoin="round"
+            fillOpacity={valve.opening > 0 ? 0.9 : 0}
+            className={
+              valve.opening > 0
+                ? `${fillClass} ${colorClass}`
+                : "fill-card stroke-muted-foreground"
+            }
+          />
+          <line
+            x1={inX}
+            y1={valveY}
+            x2={inX}
+            y2={valveY - 11}
+            strokeWidth="1.5"
+            className="stroke-muted-foreground"
+          />
+          <line
+            x1={inX - 4}
+            y1={valveY - 11}
+            x2={inX + 4}
+            y2={valveY - 11}
+            strokeWidth="1.5"
+            className="stroke-muted-foreground"
+          />
+          <text
+            x={inX - 11}
+            y={valveY + 4}
+            textAnchor="end"
+            className="fill-foreground font-mono text-[12px] font-semibold tabular-nums"
+          >
+            {valve.text}
+          </text>
+        </g>
+      )}
+      {inlet && (
+        <text
+          x={inX - 7}
+          y={textY}
+          textAnchor="end"
+          className="fill-foreground font-mono text-[12px] font-semibold tabular-nums"
+        >
+          {inlet}
+        </text>
+      )}
+      {outlet && (
+        <text
+          x={outX + 7}
+          y={textY}
+          className="fill-foreground font-mono text-[12px] font-semibold tabular-nums"
+        >
+          {outlet}
+        </text>
+      )}
     </g>
   );
 }

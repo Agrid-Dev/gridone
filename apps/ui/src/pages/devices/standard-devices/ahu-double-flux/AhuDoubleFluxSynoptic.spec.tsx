@@ -36,10 +36,7 @@ vi.mock("react-i18next", () =>
     "ahu.synoptic.coolingLoop": "Cooling coil water loop",
     "ahu.synoptic.valve": "Valve",
     "ahu.synoptic.waterFlow": "Flow",
-    "ahu.synoptic.waterSupply": "Water in",
-    "ahu.synoptic.waterReturn": "Water out",
     "ahu.synoptic.power": "Power",
-    "ahu.synoptic.energy": "Energy",
     "ahu.synoptic.flow": "Air flow",
     "ahu.synoptic.humidity": "Humidity",
     "ahu.synoptic.co2": "CO₂",
@@ -297,20 +294,18 @@ describe("AhuDoubleFluxSynoptic", () => {
       />,
     );
 
-    for (const text of [
-      "0,28 l/s",
-      "54,2°",
-      "41,7°",
-      "14 600 W",
-      "70 805 kWh",
-    ]) {
+    for (const text of ["80 %", "0,28 l/s", "54,2°", "41,7°", "14 600 W"]) {
       expect(screen.getByText(text)).toBeInTheDocument();
     }
+    // The cumulative energy is a meter reading, not a state of the loop.
+    expect(screen.queryByText("70 805 kWh")).not.toBeInTheDocument();
+    expect(container.querySelector("[data-opening='0.8']")).toBeInTheDocument();
     // The heating loop circulates (valve open); the cooling coil has no
     // measured loop and keeps its plain valve readout.
-    expect(container.querySelector("[data-active='true']")?.textContent).toBe(
-      "Heating coil water loop",
-    );
+    expect(
+      container.querySelector("[data-active='true']")?.querySelector("title")
+        ?.textContent,
+    ).toBe("Heating coil water loop");
     expect(screen.getByText("Cooling")).toBeInTheDocument();
     expect(screen.getByText("0 %")).toBeInTheDocument();
   });

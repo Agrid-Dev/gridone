@@ -19,8 +19,9 @@ const DEFAULT_RUN_GAP = 114;
 const BLOCK_GAP = 24;
 /** Readouts under the supply duct, without a coil loop. */
 const BOTTOM_MARGIN = 70;
-/** The coil loop band: pipes and up to six rows of readings. */
-export const COIL_LOOP_HEIGHT = 128;
+/** The coil loop band: the pipes with their valve and temperatures, then
+ *  flow and power. */
+export const COIL_LOOP_HEIGHT = 124;
 const BOTTOM_PADDING = 12;
 /** The exchanger glyph and the extract-side readouts need the block title
  *  to clear the top; a block taller than the default margin shifts the

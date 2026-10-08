@@ -31,7 +31,7 @@ export const DUCT_X = 150;
 export const DUCT_WIDTH = 800;
 const LEFT_BLOCK_X = 24;
 const RIGHT_BLOCK_X = 968;
-const FAN_CX = 820;
+const FAN_CX = 835;
 /** Dampers sit just inside the duct ends. */
 const INLET_DAMPER_CX = DUCT_X + 36;
 const OUTLET_DAMPER_CX = DUCT_X + DUCT_WIDTH - 40;
@@ -39,23 +39,22 @@ const OUTLET_DAMPER_CX = DUCT_X + DUCT_WIDTH - 40;
  *  the extract. */
 const SUPPLY_PREFILTER_X = DUCT_X + 60;
 const SUPPLY_FILTER_X = DUCT_X + 86;
-const EXTRACT_FILTER_X = DUCT_X + DUCT_WIDTH - 62;
+const EXTRACT_FILTER_X = DUCT_X + DUCT_WIDTH - 60;
 const COIL_SLOT_CX = 650;
 /** Coils side by side: close when they only show their valve, apart when
  *  their water loops list readings under them. */
 const COIL_SPACING = 56;
-const COIL_LOOP_SPACING = 134;
+const COIL_LOOP_SPACING = 150;
 /** Readouts sit one line of label + value away from the duct wall. */
 const READOUT_GAP = 24;
 /** The water pipes drop this far before the loop's readings. */
-const COIL_PIPE_HEIGHT = 22;
-const COIL_LIST_WIDTH = 126;
+const COIL_PIPE_HEIGHT = 70;
+const COIL_LIST_WIDTH = 96;
 
 const RATIO_DIGITS = 0;
 const TEMPERATURE_DIGITS = 1;
 const WATER_FLOW_DIGITS = 2;
 const POWER_DIGITS = 0;
-const ENERGY_DIGITS = 0;
 const PRESSURE_DIGITS = 0;
 
 /** Every value an AHU run can draw: numeric readings and boolean states. */
@@ -164,32 +163,17 @@ export function SupplyRun({
   const coilLoop = (coil: Coil, cx: number) => {
     const keys = COIL_KEYS[coil];
     const opening = values[keys.valve];
-    const colorClass =
-      coil === "heating" ? "stroke-hvac-heat" : "stroke-hvac-cool";
+    const heating = coil === "heating";
+    const temperature = (key: typeof keys.supply | typeof keys.return) =>
+      values[key] == null
+        ? undefined
+        : format(values[key], TEMPERATURE_DIGITS, units[key]);
     const rows: ReadoutListRow[] = [
-      {
-        label: label("valve"),
-        value: format(opening, RATIO_DIGITS, units[keys.valve]),
-      },
       ...optionalRow(
         label("waterFlow"),
         values[keys.flow],
         WATER_FLOW_DIGITS,
         units[keys.flow],
-        format,
-      ),
-      ...optionalRow(
-        label("waterSupply"),
-        values[keys.supply],
-        TEMPERATURE_DIGITS,
-        units[keys.supply],
-        format,
-      ),
-      ...optionalRow(
-        label("waterReturn"),
-        values[keys.return],
-        TEMPERATURE_DIGITS,
-        units[keys.return],
         format,
       ),
       ...optionalRow(
@@ -199,13 +183,6 @@ export function SupplyRun({
         units[keys.power],
         format,
       ),
-      ...optionalRow(
-        label("energy"),
-        values[keys.energy],
-        ENERGY_DIGITS,
-        units[keys.energy],
-        format,
-      ),
     ];
     return (
       <>
@@ -213,15 +190,24 @@ export function SupplyRun({
           cx={cx}
           y={ductBottom}
           height={COIL_PIPE_HEIGHT}
-          colorClass={colorClass}
+          colorClass={heating ? "stroke-hvac-heat" : "stroke-hvac-cool"}
+          fillClass={heating ? "fill-hvac-heat" : "fill-hvac-cool"}
           active={(opening ?? 0) > 0}
-          title={label(coil === "heating" ? "heatingLoop" : "coolingLoop")}
+          title={label(heating ? "heatingLoop" : "coolingLoop")}
+          valve={{
+            text: format(opening, RATIO_DIGITS, units[keys.valve]),
+            opening: Math.min(Math.max(opening ?? 0, 0), 100) / 100,
+          }}
+          inlet={temperature(keys.supply)}
+          outlet={temperature(keys.return)}
         />
-        <ReadoutList
-          x={cx - COIL_LIST_WIDTH / 2}
-          y={ductBottom + COIL_PIPE_HEIGHT + 14}
-          rows={rows}
-        />
+        {rows.length > 0 && (
+          <ReadoutList
+            x={cx - COIL_LIST_WIDTH / 2}
+            y={ductBottom + COIL_PIPE_HEIGHT + 16}
+            rows={rows}
+          />
+        )}
       </>
     );
   };
