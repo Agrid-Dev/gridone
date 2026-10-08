@@ -5,10 +5,24 @@
     "new": "New dashboard"
   },
   "manage": {
-    "caption": "The supervision entries, as the sidebar lists them. Create, rename, describe and delete dashboards here, and arrange them: a group shows its dashboards as tabs, a section folds its entries under a heading. Widgets are edited on the dashboard itself.",
+    "caption": "The supervision entries, in sidebar order. Widgets are edited on the dashboard itself.",
     "actions": "Actions for {{name}}",
     "drag": "Move {{name}}",
-    "orderHelp": "Drag a handle onto a dashboard to land before it, onto a group or a section to land last in it. A group or section carries its contents along."
+    "orderHelp": "Drag a handle onto a dashboard to land before it, onto a group or a section to land last in it. A group or section carries its contents along.",
+    "legend": {
+      "section": {
+        "name": "Section",
+        "hint": "a heading that folds its entries"
+      },
+      "group": {
+        "name": "Group",
+        "hint": "shows its dashboards as tabs"
+      },
+      "dashboard": {
+        "name": "Dashboard",
+        "hint": "a page of widgets"
+      }
+    }
   },
   "structure": {
     "newSection": "New section",
@@ -17,16 +31,14 @@
       "group": "No dashboard yet — drop one here.",
       "section": "Empty section — drop dashboards or groups here."
     },
-    "actions": {
-      "edit": "Edit {{name}}",
-      "delete": "Delete {{name}}"
+    "count": {
+      "tabs_one": "{{count}} tab",
+      "tabs_other": "{{count}} tabs",
+      "entries_one": "{{count}} entry",
+      "entries_other": "{{count}} entries"
     },
     "fields": {
       "label": "Label"
-    },
-    "kinds": {
-      "section": "Section",
-      "group": "Group"
     },
     "create": {
       "section": "New section",

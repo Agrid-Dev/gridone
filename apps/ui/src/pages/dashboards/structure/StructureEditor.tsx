@@ -19,14 +19,22 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import {
-  FolderPlus,
+  Ellipsis,
+  Folder,
   GripVertical,
+  LayoutGrid,
   PencilLine,
-  Rows3,
+  Plus,
   Trash2,
 } from "lucide-react";
 import type { DashboardStructure } from "@gridone/sdk";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { DashboardIconGlyph } from "@/lib/dashboardIcons";
 import { cn } from "@/lib/utils";
 import {
@@ -62,11 +70,11 @@ const innermost: CollisionDetection = (args) => {
   return [within.reduce((best, c) => (area(c.id) < area(best.id) ? c : best))];
 };
 
-/** The structure as the sidebar will show it: sections are headings whose
- *  entries hang under a left rule, groups are boxes stacked like entries,
- *  dashboards are tiles laid side by side like the tabs they become. Drag a
- *  handle onto a tile to land before it, onto a box or a section to land
- *  last in it; a container carries its contents along. */
+/** The structure as the sidebar will show it, one row per entry: sections
+ *  are headings, groups and dashboards rows, and a container's entries hang
+ *  under a left rule. Drag a handle onto a dashboard to land before it, onto
+ *  a group or a section to land last in it; a container carries its
+ *  contents along. */
 export const StructureEditor: FC<StructureEditorProps> = ({
   structure,
   onChange,
@@ -122,26 +130,11 @@ export const StructureEditor: FC<StructureEditorProps> = ({
         setOverId(null);
       }}
     >
-      <Container parentId={null} ctx={ctx}>
-        <div className="flex flex-wrap gap-2 pt-1">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onCreate("section", null)}
-          >
-            <Rows3 />
-            {t("structure.newSection")}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onCreate("group", null)}
-          >
-            <FolderPlus />
-            {t("structure.newGroup")}
-          </Button>
-        </div>
-      </Container>
+      <div className="rounded-xl border bg-card p-2">
+        <Container parentId={null} ctx={ctx}>
+          <AddGroup parentId={null} ctx={ctx} />
+        </Container>
+      </div>
       <p className="pt-2 text-xs leading-5 text-muted-foreground">
         {t("manage.orderHelp")}
       </p>
@@ -162,9 +155,13 @@ interface EditorContext {
   onCreate: (kind: "section" | "group", parentId: string | null) => void;
 }
 
-/** A container's children, stacked: runs of dashboards side by side,
- *  groups and sections each on their own row. The whole area is a drop
- *  zone landing last in the container. */
+/** Every entry as a row of the same height, so the eye reads the tree, not
+ *  the boxes around it. */
+const ROW =
+  "flex h-11 items-center gap-2 rounded-md pl-1 pr-1 hover:bg-muted/50";
+
+/** A container's children, one per row. The whole area is a drop zone
+ *  landing last in the container. */
 const Container: FC<{
   parentId: string | null;
   ctx: EditorContext;
@@ -176,44 +173,36 @@ const Container: FC<{
   const items = children(ctx.rows, parentId);
   const lit = ctx.activeId !== null && ctx.targetParentId === parentId;
 
-  // Consecutive dashboards share one row of tiles.
-  const runs: Row[][] = [];
-  for (const row of items) {
-    const last = runs[runs.length - 1];
-    if (row.kind === "dashboard" && last?.[0]?.kind === "dashboard")
-      last.push(row);
-    else runs.push([row]);
-  }
-
   return (
     <div
       ref={setNodeRef}
       className={cn(
-        "space-y-2 rounded-lg transition-colors",
+        "flex flex-col gap-0.5 rounded-lg transition-colors",
         lit && "bg-accent/40 ring-1 ring-ring/40",
       )}
     >
-      {runs.map((run) =>
-        run[0]?.kind === "dashboard" ? (
-          <div key={run[0].id} className="flex flex-wrap gap-2">
-            {run.map((row) => (
-              <DashboardTile key={row.id} row={row} ctx={ctx} />
-            ))}
-          </div>
-        ) : run[0]?.kind === "group" ? (
-          <GroupBox key={run[0].id} row={run[0]} ctx={ctx} />
-        ) : run[0] ? (
-          <SectionBlock key={run[0].id} row={run[0]} ctx={ctx} />
-        ) : null,
+      {items.map((row) =>
+        row.kind === "dashboard" ? (
+          <DashboardRow key={row.id} row={row} ctx={ctx} />
+        ) : row.kind === "group" ? (
+          <GroupNode key={row.id} row={row} ctx={ctx} />
+        ) : (
+          <SectionNode key={row.id} row={row} ctx={ctx} />
+        ),
       )}
       {footer}
     </div>
   );
 };
 
-/** A dashboard: the one entity here, drawn as the tab it becomes — a tile
- *  with its icon, name and type, its actions in reach. */
-const DashboardTile: FC<{ row: Row; ctx: EditorContext }> = ({ row, ctx }) => {
+/** A container's entries, hanging under a left rule. */
+const Nest: FC<{ children: ReactNode }> = ({ children: content }) => (
+  <div className="ml-4 border-l pl-2">{content}</div>
+);
+
+/** A dashboard: the one entity here — its name opens it, its type rides
+ *  along in plain text. */
+const DashboardRow: FC<{ row: Row; ctx: EditorContext }> = ({ row, ctx }) => {
   const { t } = useTranslation("dashboards");
   const {
     attributes,
@@ -227,7 +216,7 @@ const DashboardTile: FC<{ row: Row; ctx: EditorContext }> = ({ row, ctx }) => {
       ref={setDropRef}
       data-kind="dashboard"
       className={cn(
-        "flex items-center gap-1 rounded-md border bg-card pl-1 pr-1 shadow-sm",
+        ROW,
         ctx.activeId === row.id && "opacity-40",
         isOver && "ring-2 ring-ring",
       )}
@@ -240,25 +229,24 @@ const DashboardTile: FC<{ row: Row; ctx: EditorContext }> = ({ row, ctx }) => {
       />
       <Link
         to={`/dashboards/${encodeURIComponent(row.id)}`}
-        className="flex min-w-0 items-center gap-2 py-2 pr-1 text-sm font-medium"
+        className="flex min-w-0 flex-1 items-center gap-2 text-sm hover:underline"
       >
-        <DashboardIconGlyph
-          icon={row.icon}
-          className="h-4 w-4 shrink-0 text-muted-foreground"
-        />
-        <span className="max-w-48 truncate">{name}</span>
-        {row.dashboard && (
-          <Badge>{t(`types.${row.dashboard.type}.label`)}</Badge>
-        )}
+        <KindIcon icon={row.icon} fallback={LayoutGrid} />
+        <span className="truncate">{name}</span>
       </Link>
+      {row.dashboard && (
+        <span className="shrink-0 text-xs text-muted-foreground">
+          {t(`types.${row.dashboard.type}.label`)}
+        </span>
+      )}
       <Actions row={row} ctx={ctx} />
     </div>
   );
 };
 
-/** A group: a box stacked like a sidebar entry, its dashboards as tiles
- *  inside — the tabs it will show. */
-const GroupBox: FC<{ row: Row; ctx: EditorContext }> = ({ row, ctx }) => {
+/** A group: a row like any entry, its dashboards — the tabs it will show —
+ *  nested under it. */
+const GroupNode: FC<{ row: Row; ctx: EditorContext }> = ({ row, ctx }) => {
   const { t } = useTranslation("dashboards");
   const {
     attributes,
@@ -267,49 +255,45 @@ const GroupBox: FC<{ row: Row; ctx: EditorContext }> = ({ row, ctx }) => {
   } = useDraggable({ id: row.id });
   const { setNodeRef: setDropRef } = useDroppable({ id: row.id });
   const name = row.label || row.id;
-  const empty = children(ctx.rows, row.id).length === 0;
+  const count = children(ctx.rows, row.id).length;
   return (
     <div
       ref={setDropRef}
       data-kind="group"
-      className={cn(
-        "rounded-lg border bg-muted/30",
-        ctx.activeId === row.id && "opacity-40",
-      )}
+      className={cn(ctx.activeId === row.id && "opacity-40")}
     >
-      <div className="flex items-center gap-1 border-b border-dashed pl-1 pr-1">
+      <div className={ROW}>
         <Handle
           ref={setDragRef}
           label={t("manage.drag", { name })}
           attributes={attributes}
           listeners={listeners}
         />
-        <span className="flex min-w-0 flex-1 items-center gap-2 py-2 text-sm font-semibold">
-          <DashboardIconGlyph
-            icon={row.icon}
-            className="h-4 w-4 shrink-0 text-muted-foreground"
-          />
+        <span className="flex min-w-0 flex-1 items-center gap-2 text-sm font-semibold">
+          <KindIcon icon={row.icon} fallback={Folder} />
           <span className="truncate">{name}</span>
-          <Badge>{t("structure.kinds.group")}</Badge>
+          <span className="shrink-0 text-xs font-normal text-muted-foreground">
+            {t("structure.count.tabs", { count })}
+          </span>
         </span>
         <Actions row={row} ctx={ctx} />
       </div>
-      <div className="p-2">
+      <Nest>
         <Container parentId={row.id} ctx={ctx}>
-          {empty && (
-            <p className="px-1 py-2 text-xs text-muted-foreground">
+          {count === 0 && (
+            <p className="px-2 py-2 text-xs text-muted-foreground">
               {t("structure.empty.group")}
             </p>
           )}
         </Container>
-      </div>
+      </Nest>
     </div>
   );
 };
 
-/** A section: a heading, its entries hanging under a left rule — the
- *  collapsible heading the sidebar will draw. */
-const SectionBlock: FC<{ row: Row; ctx: EditorContext }> = ({ row, ctx }) => {
+/** A section: the heading the sidebar will draw, its entries nested under
+ *  it. */
+const SectionNode: FC<{ row: Row; ctx: EditorContext }> = ({ row, ctx }) => {
   const { t } = useTranslation("dashboards");
   const {
     attributes,
@@ -318,49 +302,77 @@ const SectionBlock: FC<{ row: Row; ctx: EditorContext }> = ({ row, ctx }) => {
   } = useDraggable({ id: row.id });
   const { setNodeRef: setDropRef } = useDroppable({ id: row.id });
   const name = row.label || row.id;
-  const empty = children(ctx.rows, row.id).length === 0;
+  const count = children(ctx.rows, row.id).length;
   return (
     <section
       ref={setDropRef}
       data-kind="section"
       aria-label={name}
-      className={cn("pt-2", ctx.activeId === row.id && "opacity-40")}
+      className={cn("pt-1", ctx.activeId === row.id && "opacity-40")}
     >
-      <div className="flex items-center gap-1 pl-1 pr-1">
+      <div className={cn(ROW, "h-10")}>
         <Handle
           ref={setDragRef}
           label={t("manage.drag", { name })}
           attributes={attributes}
           listeners={listeners}
         />
-        <span className="min-w-0 flex-1 truncate py-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <span className="min-w-0 truncate text-xs font-semibold uppercase tracking-wider text-foreground/80">
           {name}
+        </span>
+        <span className="flex-1 shrink-0 text-xs text-muted-foreground">
+          {t("structure.count.entries", { count })}
         </span>
         <Actions row={row} ctx={ctx} />
       </div>
-      <div className="ml-4 border-l-2 border-border pl-3 pt-1">
+      <Nest>
         <Container parentId={row.id} ctx={ctx}>
-          {empty && (
-            <p className="px-1 py-1 text-xs text-muted-foreground">
+          {count === 0 && (
+            <p className="px-2 py-1 text-xs text-muted-foreground">
               {t("structure.empty.section")}
             </p>
           )}
-          <div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground"
-              onClick={() => ctx.onCreate("group", row.id)}
-            >
-              <FolderPlus />
-              {t("structure.newGroup")}
-            </Button>
-          </div>
+          <AddGroup parentId={row.id} ctx={ctx} />
         </Container>
-      </div>
+      </Nest>
     </section>
   );
 };
+
+/** Add a group where it will land: last at the root, or last in a section. */
+const AddGroup: FC<{ parentId: string | null; ctx: EditorContext }> = ({
+  parentId,
+  ctx,
+}) => {
+  const { t } = useTranslation("dashboards");
+  return (
+    <div>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="text-primary hover:text-primary"
+        onClick={() => ctx.onCreate("group", parentId)}
+      >
+        <Plus />
+        {t("structure.newGroup")}
+      </Button>
+    </div>
+  );
+};
+
+/** An entry's own icon, else its kind's. */
+const KindIcon: FC<{
+  icon: Row["icon"];
+  fallback: typeof LayoutGrid;
+}> = ({ icon, fallback: Fallback }) =>
+  icon ? (
+    <DashboardIconGlyph
+      icon={icon}
+      className="h-4 w-4 shrink-0 text-muted-foreground"
+    />
+  ) : (
+    <Fallback aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />
+  );
 
 /** What travels under the pointer. */
 const Ghost: FC<{ row: Row }> = ({ row }) => (
@@ -386,7 +398,7 @@ const Handle = forwardRef<
     ref={ref}
     type="button"
     aria-label={label}
-    className="flex h-8 w-6 cursor-grab touch-none items-center justify-center rounded-md text-muted-foreground/70 hover:text-foreground active:cursor-grabbing"
+    className="flex h-8 w-6 shrink-0 cursor-grab touch-none items-center justify-center rounded-md text-muted-foreground/60 hover:text-foreground active:cursor-grabbing"
     {...attributes}
     {...listeners}
   >
@@ -395,35 +407,36 @@ const Handle = forwardRef<
 ));
 Handle.displayName = "Handle";
 
+/** One menu per entry: editing and deleting stay a click away without
+ *  lining every row with icons. */
 const Actions: FC<{ row: Row; ctx: EditorContext }> = ({ row, ctx }) => {
-  const { t } = useTranslation("dashboards");
+  const { t } = useTranslation(["dashboards", "common"]);
   const name = row.label || row.id;
   return (
-    <span className="flex shrink-0 items-center">
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-8 w-8 text-muted-foreground"
-        aria-label={t("structure.actions.edit", { name })}
-        onClick={() => ctx.onEdit(row)}
-      >
-        <PencilLine />
-      </Button>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-8 w-8 text-muted-foreground hover:text-destructive"
-        aria-label={t("structure.actions.delete", { name })}
-        onClick={() => ctx.onDelete(row)}
-      >
-        <Trash2 />
-      </Button>
-    </span>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 shrink-0 text-muted-foreground"
+          aria-label={t("manage.actions", { name })}
+        >
+          <Ellipsis />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-44">
+        <DropdownMenuItem onSelect={() => ctx.onEdit(row)}>
+          <PencilLine />
+          {t("common:common.edit")}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          className="text-destructive focus:text-destructive"
+          onSelect={() => ctx.onDelete(row)}
+        >
+          <Trash2 />
+          {t("common:common.delete")}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 };
-
-const Badge: FC<{ children: string }> = ({ children }) => (
-  <span className="rounded-sm border border-border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-    {children}
-  </span>
-);

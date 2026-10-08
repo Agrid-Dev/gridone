@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { FC } from "react";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
-import { Plus } from "lucide-react";
+import { Folder, LayoutGrid, Plus } from "lucide-react";
 import type {
   DashboardStructure,
   StructureGroup,
@@ -14,6 +14,7 @@ import { ResourceBoundary } from "@/components/ResourceBoundary";
 import { ResourceHeader } from "@/components/ResourceHeader";
 import { ResourceEmpty } from "@/components/fallbacks/ResourceEmpty";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -131,14 +132,26 @@ const DashboardsManageContent: FC = () => {
         title={t("title")}
         caption={t("manage.caption")}
         actions={
-          <Button asChild>
-            <Link to="/dashboards/new">
+          <>
+            <Button
+              variant="outline"
+              onClick={() =>
+                setDialog({ mode: "create", kind: "section", parentId: null })
+              }
+            >
               <Plus />
-              {t("switcher.new")}
-            </Link>
-          </Button>
+              {t("structure.newSection")}
+            </Button>
+            <Button asChild>
+              <Link to="/dashboards/new">
+                <Plus />
+                {t("switcher.new")}
+              </Link>
+            </Button>
+          </>
         }
       />
+      {structure.items.length > 0 && <Legend />}
       {structure.items.length === 0 ? (
         <ResourceEmpty
           resourceName={t("resourceName")}
@@ -226,6 +239,36 @@ const DashboardsManageContent: FC = () => {
         }
       />
     </section>
+  );
+};
+
+/** The three kinds of entry, each marked the way the editor draws it. */
+const Legend: FC = () => {
+  const { t } = useTranslation("dashboards");
+  const kinds = [
+    { kind: "section", Icon: null },
+    { kind: "group", Icon: Folder },
+    { kind: "dashboard", Icon: LayoutGrid },
+  ] as const;
+  return (
+    <ul className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground">
+      {kinds.map(({ kind, Icon }) => (
+        <li key={kind} className="leading-6">
+          {Icon && (
+            <Icon aria-hidden className="mr-1.5 inline h-4 w-4 align-[-3px]" />
+          )}
+          <span
+            className={cn(
+              "mr-1.5 font-medium text-foreground",
+              !Icon && "text-xs font-semibold uppercase tracking-wider",
+            )}
+          >
+            {t(`manage.legend.${kind}.name`)}
+          </span>
+          {t(`manage.legend.${kind}.hint`)}
+        </li>
+      ))}
+    </ul>
   );
 };
 
