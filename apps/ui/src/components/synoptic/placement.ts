@@ -112,6 +112,13 @@ export function boxAt(
 
 export type Spot = { box: Box; direction: Direction; ring: number };
 
+/** Each ring of the search lies this much further out than the last:
+ *  half a cell on screen, so the search steps row by row. */
+export const RING_STEP = 12;
+/** How far the search walks before it hangs the text at its first spot,
+ *  in rings: a plate has to be very dense for that to happen. */
+export const PLACEMENT_RINGS = 16;
+
 /** What each step down the preference order costs, in px of distance: a
  *  spot on the preferred side a ring further out beats one on the fourth
  *  side close by, and the nearest spot wins otherwise. */

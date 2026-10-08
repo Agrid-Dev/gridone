@@ -423,21 +423,22 @@ describe("SynopticRenderer", () => {
     const c = draw(DOC, VALUES);
     const panel = c.querySelector("[data-panel='PAC 03']")!;
     const rows = q(panel, "[data-row]");
+    // The known run state shows on the machine, so it takes no row.
     expect(rows.map((r) => r.getAttribute("data-row"))).toEqual([
-      "live",
       "live",
       "stale",
     ]);
     expect(rows.map((r) => r.querySelectorAll("text")[0].textContent)).toEqual([
-      "state",
       "fault",
       "supply temp",
     ]);
-    expect(rows[2].querySelectorAll("text")[1].textContent).toBe("52.4");
-    expect(rows[2].querySelector("[data-unit]")?.textContent).toBe("°C");
+    expect(rows[1].querySelectorAll("text")[1].textContent).toBe("52.4");
+    expect(rows[1].querySelector("[data-unit]")?.textContent).toBe("°C");
     expect(q(c, "[data-panel]")).toHaveLength(1);
-    // Tank, valve and the tag: one live chip each; the label's is a note.
-    expect(q(c, "[data-chip='live']")).toHaveLength(3);
+    // Tank and tag: one live chip each; the closed valve shows on its
+    // bowtie, so it takes none; the label's is a note.
+    expect(q(c, "[data-chip='live']")).toHaveLength(2);
+    expect(c.querySelector("[data-readout='v-03']")).toBeNull();
     expect(q(c, "[data-chip='note']")).toHaveLength(1);
     // The value and its unit close the chip; the caption may precede them.
     const tagTexts = q(c, "[data-tag='tt-03'] [data-chip] text");
@@ -1998,21 +1999,28 @@ const NUM = String.raw`(-?[\d.]+(?:e-?\d+)?)`;
 const HELD = new RegExp(
   String.raw`^translate\(${NUM} ${NUM}\) scale\(${NUM}\) translate\(${NUM} ${NUM}\)$`,
 );
-/** The groups a text is held in: the anchor it grows about and its scale,
- *  read off the transform. */
+/** The groups a text is held in: the anchor it grows about, its scale and
+ *  how far it is moved, read off the transform. */
 function heldTexts(c: Element) {
   return q(c, "g[transform]").flatMap((g) => {
     const m = HELD.exec(g.getAttribute("transform")!);
     if (!m) return [];
     const [ax, ay, k, bx, by] = m.slice(1).map(Number);
-    // Grown about a point: the two translations undo each other.
-    expect(ax + bx).toBeCloseTo(0, 6);
-    expect(ay + by).toBeCloseTo(0, 6);
+    const moved = g.hasAttribute("data-text-moved");
+    const shift = { x: ax + bx, y: ay + by };
+    // Grown about a point: unless the text is moved, the two translations
+    // undo each other.
+    if (!moved) {
+      expect(shift.x).toBeCloseTo(0, 6);
+      expect(shift.y).toBeCloseTo(0, 6);
+    }
     return [
       {
         g,
-        anchor: { x: ax, y: ay },
+        anchor: { x: -bx, y: -by },
         k,
+        shift,
+        moved,
         hidden: g.getAttribute("display") === "none",
       },
     ];
@@ -2020,8 +2028,8 @@ function heldTexts(c: Element) {
 }
 type Held = ReturnType<typeof heldTexts>[number];
 const through = (h: Held, p: { x: number; y: number }) => ({
-  x: h.anchor.x + (p.x - h.anchor.x) * h.k,
-  y: h.anchor.y + (p.y - h.anchor.y) * h.k,
+  x: h.anchor.x + (p.x - h.anchor.x) * h.k + h.shift.x,
+  y: h.anchor.y + (p.y - h.anchor.y) * h.k + h.shift.y,
 });
 const boxThrough = (h: Held, b: TestBox): TestBox => {
   const a = through(h, { x: b.x0, y: b.y0 });
@@ -2082,12 +2090,6 @@ function drawnBoxes(group: Element): TestBox[] {
   }
   return boxes;
 }
-const strictlyOverlap = (a: TestBox, b: TestBox) =>
-  a.x0 < b.x1 - 0.01 &&
-  b.x0 < a.x1 - 0.01 &&
-  a.y0 < b.y1 - 0.01 &&
-  b.y0 < a.y1 - 0.01;
-
 /** The plate's frame in the items' coordinates: the viewBox, less the
  *  offset the frame group moves the items by. */
 function frameOf(c: Element): TestBox {
@@ -2142,13 +2144,15 @@ describe("SynopticRenderer text held legible", () => {
       const { container } = render(
         <SynopticRenderer doc={doc} values={liveValues(doc)} minTextPx={11} />,
       );
-      const held = heldTexts(container);
+      const all = heldTexts(container);
+      // A text moved off its spot no longer grows about its drawn point.
+      const held = all.filter((h) => !h.moved);
       const holding = (selector: string) =>
         held.filter(
           (h) => h.g.querySelector(selector) === h.g.firstElementChild,
         );
       expect(held.length).toBeGreaterThan(5);
-      for (const h of held) expect(h.k).toBe(2);
+      for (const h of all) expect(h.k).toBe(2);
       const near = (p: { x: number; y: number }, a: { x: number; y: number }) =>
         Math.abs(p.x - a.x) < 1e-6 && Math.abs(p.y - a.y) < 1e-6;
       const start = (leader: Element) => ({
@@ -2170,7 +2174,7 @@ describe("SynopticRenderer text held legible", () => {
         "text[data-axis-label]",
       ]) {
         for (const el of q(container, selector))
-          expect(held.some((h) => h.g.firstElementChild === el)).toBe(true);
+          expect(all.some((h) => h.g.firstElementChild === el)).toBe(true);
       }
       // Names: the leader's end on the name, else the text's own point.
       const names = new Map<string, Held>();
@@ -2273,7 +2277,10 @@ describe("SynopticRenderer text held legible", () => {
         a: { x: number; y: number },
       ) => Math.abs(p.x - a.x) < 1e-6 && Math.abs(p.y - a.y) < 1e-6;
       let pinned = 0;
-      for (const l of q(container, "line[data-leader]")) {
+      for (const l of q(
+        container,
+        "line[data-leader]:not([data-leader='tether'])",
+      )) {
         const h = holder(l);
         expect(h.k).toBe(2);
         // A panel hanging off its name grows with the name, leader and all.
@@ -2283,7 +2290,9 @@ describe("SynopticRenderer text held legible", () => {
         if (name && close(holder(name).anchor, h.anchor)) continue;
         const was = drawn.get(owner(l))!;
         const now = ends(l);
-        expect(close(through(h, now.from), was.from)).toBe(true);
+        // Moved, the text takes its end of the leader along; the other end
+        // stays on what it reads.
+        if (!h.moved) expect(close(through(h, now.from), was.from)).toBe(true);
         expect(close(through(h, now.to), was.to)).toBe(true);
         pinned += 1;
       }
@@ -2296,6 +2305,9 @@ describe("SynopticRenderer text held legible", () => {
     },
   );
 
+  // Spec: once the plate is zoomed out, a reading is never hidden, and no
+  // text is cut off by the plate's frame: a text with no clear spot close
+  // by stays on its own, pulled inside the frame.
   it.each(
     PLATE_CASES.flatMap(([name]) =>
       (["isometric", "flat"] as const).flatMap((projection) =>
@@ -2303,7 +2315,7 @@ describe("SynopticRenderer text held legible", () => {
       ),
     ),
   )(
-    "%s (%s, %s px a unit): draws no two visible texts over each other, and none past the plate's frame",
+    "%s (%s, %s px a unit): hides no reading, and draws no text past the plate's frame",
     (name, projection, fraction) => {
       const doc = { ...plate(name), projection };
       canvasAt(fraction);
@@ -2313,31 +2325,82 @@ describe("SynopticRenderer text held legible", () => {
       const held = heldTexts(container);
       const visible = held.filter((h) => !h.hidden);
       expect(visible.length).toBeGreaterThan(2);
-      expect(visible.length).toBeLessThan(held.length);
       // Hidden and marked as such, the one with the other.
       for (const h of held)
         expect(h.g.hasAttribute("data-text-hidden")).toBe(h.hidden);
+      // An authored fact ("non mesurée") is no reading: it may wait for
+      // the zoom.
+      const hiddenReadings = q(
+        container,
+        "[data-text-hidden] [data-readout], [data-text-hidden] [data-tag]",
+      )
+        .filter((el) => !el.querySelector("[data-chip='note']"))
+        .map(
+          (el) =>
+            el.getAttribute("data-readout") ?? el.getAttribute("data-tag"),
+        );
+      expect(hiddenReadings).toEqual([]);
       const frame = frameOf(container);
-      const drawn = visible.map((h) =>
-        drawnBoxes(h.g).map((b) => boxThrough(h, b)),
-      );
-      drawn.forEach((boxes, i) => {
-        for (const b of boxes) {
+      for (const h of visible)
+        for (const b of drawnBoxes(h.g).map((d) => boxThrough(h, d))) {
           expect(b.x0).toBeGreaterThanOrEqual(frame.x0 - 0.01);
           expect(b.y0).toBeGreaterThanOrEqual(frame.y0 - 0.01);
           expect(b.x1).toBeLessThanOrEqual(frame.x1 + 0.01);
           expect(b.y1).toBeLessThanOrEqual(frame.y1 + 0.01);
         }
-        drawn.slice(i + 1).forEach((others, j) => {
-          for (const a of boxes)
-            for (const b of others) {
-              if (strictlyOverlap(a, b))
-                throw new Error(
-                  `${visible[i].g.firstElementChild!.outerHTML.slice(0, 80)} over ${visible[i + 1 + j].g.firstElementChild!.outerHTML.slice(0, 80)}`,
-                );
-            }
-        });
+    },
+  );
+
+  // Spec: a name is placed against its own body, which never hides it. The
+  // first heat pump's name stands over the top of its volume, inside the
+  // box the volume takes, and clear of everything else.
+  it("keeps a name its own body is all it would cover", () => {
+    const doc = plate("example-dhw");
+    canvasAt(0.5);
+    const { container } = render(
+      <SynopticRenderer doc={doc} values={liveValues(doc)} minTextPx={11} />,
+    );
+    const name = container.querySelector("[data-symbol-label='pac-01']")!;
+    expect(name.closest("[data-text-hidden]")).toBeNull();
+  });
+
+  // The same for a collector's name, along or over its bar. A pump far off
+  // at each corner widens the frame, so the grown name stays inside it.
+  it.each(["isometric", "flat"] as const)(
+    "keeps a collector's name its own bar is all it would cover (%s)",
+    (projection) => {
+      const pump = (x: number, y: number) => ({
+        id: `far-${x}-${y}`,
+        type: "pump",
+        placement: { kind: "cell" as const, cell: { x, y } },
+        bindings: {},
       });
+      const doc: Synoptic = {
+        ...DOC,
+        projection,
+        pipes: [],
+        labels: [],
+        symbols: [
+          {
+            id: "bar",
+            type: "collector",
+            placement: { kind: "cell", cell: { x: 0, y: 0 } },
+            label: "COLLECTEUR",
+            props: { axis: "y", length: 9, ports: {} },
+            bindings: {},
+          },
+          pump(-30, -30),
+          pump(30, 30),
+          pump(-30, 30),
+          pump(30, -30),
+        ],
+      };
+      canvasAt(0.5);
+      const { container } = render(
+        <SynopticRenderer doc={doc} minTextPx={11} />,
+      );
+      expect(heldTexts(container).some((h) => h.k === 2)).toBe(true);
+      expect(q(container, "[data-text-hidden]")).toHaveLength(0);
     },
   );
 
@@ -2356,8 +2419,10 @@ describe("SynopticRenderer text held legible", () => {
               minTextPx={12}
             />,
           );
+          // A panel carries its own title; a chip only its value.
           for (const readout of q(container, "[data-readout]")) {
-            if (readout.querySelector("line[data-leader]")) continue;
+            if (readout.querySelector("line[data-leader], [data-panel]"))
+              continue;
             const id = readout.getAttribute("data-readout")!;
             const label = container.querySelector(
               `[data-symbol-label='${id}']`,
@@ -2375,28 +2440,35 @@ describe("SynopticRenderer text held legible", () => {
     expect(orphans).toEqual([]);
   });
 
-  it("keeps the name of a device in fault where a healthy one gives way", () => {
-    const doc = plate("example-dhw");
+  it("never hides the name of a device in fault, where a healthy one gives way", () => {
+    // The booster pump's name, with no reading of its own, is hidden once
+    // grown; tied to a device, it is kept while the device is in fault.
+    const example = plate("example-dhw");
+    const doc = {
+      ...example,
+      symbols: example.symbols!.map((s) =>
+        s.id === "pompe-surpression" ? { ...s, device_id: "booster" } : s,
+      ),
+    };
     canvasAt(0.5);
-    const hiddenNames = (values: SynopticValues) => {
+    const hidden = (values: SynopticValues) => {
       const { container } = render(
         <SynopticRenderer doc={doc} values={values} minTextPx={11} />,
       );
-      const names = q(
-        container,
-        "[data-text-hidden] > [data-symbol-label]",
-      ).map((g) => g.getAttribute("data-symbol-label"));
+      const name = container.querySelector(
+        "[data-symbol-label='pompe-surpression']",
+      )!;
+      const off = !!name.closest("[data-text-hidden]");
       cleanup();
-      return names;
+      return off;
     };
     const healthy = liveValues(doc);
-    expect(hiddenNames(healthy)).toContain("pac-02");
-    const device = doc.symbols!.find((s) => s.id === "pac-02")!.device_id!;
+    expect(hidden(healthy)).toBe(true);
     const faulty = {
       ...healthy,
-      devices: { [device]: { faulty: true, severity: null } },
+      devices: { booster: { faulty: true, severity: null } },
     };
-    expect(hiddenNames(faulty)).not.toContain("pac-02");
+    expect(hidden(faulty)).toBe(false);
   });
 });
 

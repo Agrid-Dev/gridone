@@ -45,6 +45,9 @@ const text = (
   rank: number,
 ): TextFootprint => ({ box, anchor, rank });
 
+const hiddenBy = (...args: Parameters<typeof declutter>) =>
+  declutter(...args).hidden;
+
 describe("textScale", () => {
   it("is 1 with no floor, before layout, or when the text already reads at the floor", () => {
     expect(textScale(undefined, 11, 0.1)).toBe(1);
@@ -142,6 +145,7 @@ describe("scaleAbout", () => {
 
 describe("declutter", () => {
   const A = { x0: 0, y0: 0, x1: 40, y1: 10 };
+  const A20 = { x0: 0, y0: 0, x1: 20, y1: 10 };
   const B = { x0: 20, y0: 5, x1: 60, y1: 15 };
 
   it("hides nothing while the text reads at its own size, even where boxes overlap", () => {
@@ -150,10 +154,10 @@ describe("declutter", () => {
       { id: "b", text: text(B, { x: 20, y: 15 }, TEXT_RANK.note) },
     ];
     expect(overlapping(A, B)).toBe(true);
-    expect(declutter(items, 1).size).toBe(0);
-    expect(declutter(items, 0.5).size).toBe(0);
+    expect(hiddenBy(items, 1).size).toBe(0);
+    expect(hiddenBy(items, 0.5).size).toBe(0);
     // Not even what lies past the frame.
-    expect(declutter(items, 1, { x0: 0, y0: 0, x1: 1, y1: 1 }).size).toBe(0);
+    expect(hiddenBy(items, 1, { x0: 0, y0: 0, x1: 1, y1: 1 }).size).toBe(0);
   });
 
   it("never hides an item that carries no text", () => {
@@ -162,7 +166,7 @@ describe("declutter", () => {
       { id: "a", text: text(A, { x: 0, y: 10 }, TEXT_RANK.name) },
       { id: "run" },
     ];
-    expect(declutter(items, 4, { x0: 0, y0: 0, x1: 1, y1: 1 })).toEqual(
+    expect(hiddenBy(items, 4, { x0: 0, y0: 0, x1: 1, y1: 1 })).toEqual(
       new Set(["a"]),
     );
   });
@@ -173,8 +177,8 @@ describe("declutter", () => {
       id: "name",
       text: text(B, { x: 20, y: 15 }, TEXT_RANK.name),
     };
-    expect(declutter([note, name], 2)).toEqual(new Set(["note"]));
-    expect(declutter([name, note], 2)).toEqual(new Set(["note"]));
+    expect(hiddenBy([note, name], 2)).toEqual(new Set(["note"]));
+    expect(hiddenBy([name, note], 2)).toEqual(new Set(["note"]));
     // A device in fault keeps its name over a healthy one's.
     const alarm = {
       id: "alarm",
@@ -184,16 +188,16 @@ describe("declutter", () => {
       id: "healthy",
       text: text(B, { x: 20, y: 15 }, TEXT_RANK.name),
     };
-    expect(declutter([healthy, alarm], 2)).toEqual(new Set(["healthy"]));
+    expect(hiddenBy([healthy, alarm], 2)).toEqual(new Set(["healthy"]));
   });
 
-  it("orders the ranks as documented: alarm, name, reading, tag, note", () => {
+  it("orders the ranks as documented: alarm, reading, tag, name, note", () => {
     expect(
       [
         TEXT_RANK.alarm,
-        TEXT_RANK.name,
         TEXT_RANK.reading,
         TEXT_RANK.tag,
+        TEXT_RANK.name,
         TEXT_RANK.note,
       ].every((r, i, all) => i === 0 || all[i - 1] < r),
     ).toBe(true);
@@ -208,8 +212,8 @@ describe("declutter", () => {
       id: "second",
       text: text(B, { x: 20, y: 15 }, TEXT_RANK.tag),
     };
-    expect(declutter([first, second], 2)).toEqual(new Set(["second"]));
-    expect(declutter([second, first], 2)).toEqual(new Set(["first"]));
+    expect(hiddenBy([first, second], 2)).toEqual(new Set(["second"]));
+    expect(hiddenBy([second, first], 2)).toEqual(new Set(["first"]));
   });
 
   it("keeps two texts that only touch once grown", () => {
@@ -224,7 +228,7 @@ describe("declutter", () => {
       text: text({ x0: 0, y0: 10, x1: 10, y1: 20 }, { x: 5, y: 10 }, 1),
     };
     for (const k of [1.25, 2, 3]) {
-      expect(declutter([upper, lower], k).size).toBe(0);
+      expect(hiddenBy([upper, lower], k).size).toBe(0);
     }
   });
 
@@ -244,13 +248,13 @@ describe("declutter", () => {
     const drawnLeft = grownAbout(left.text.box, left.text.anchor, k);
     const drawnRight = grownAbout(right.text.box, right.text.anchor, k);
     expect(drawnRight.x0 - drawnLeft.x1).toBeGreaterThan(6);
-    expect(declutter([left, right], k)).toEqual(new Set(["right"]));
+    expect(hiddenBy([left, right], k)).toEqual(new Set(["right"]));
     // Far enough apart, both stay.
     const far = {
       id: "far",
       text: text({ x0: 160, y0: 0, x1: 260, y1: 10 }, { x: 260, y: 5 }, 1),
     };
-    expect(declutter([left, far], k).size).toBe(0);
+    expect(hiddenBy([left, far], k).size).toBe(0);
   });
 
   it("widens only across: a reading hanging under its name, grown about the same point, stays", () => {
@@ -264,7 +268,7 @@ describe("declutter", () => {
       text: text({ x0: 30, y0: 14, x1: 70, y1: 32 }, anchor, TEXT_RANK.reading),
     };
     for (const k of [2 ** (1 / 8), 1.5, 2, 3, 5]) {
-      expect(declutter([name, reading], k).size).toBe(0);
+      expect(hiddenBy([name, reading], k).size).toBe(0);
     }
   });
 
@@ -280,19 +284,217 @@ describe("declutter", () => {
       id: "edge",
       text: text({ x0: 60, y0: -50, x1: 80, y1: -40 }, { x: 60, y: -40 }, 1),
     };
-    expect(declutter([inner, edge], 2, frame)).toEqual(new Set(["edge"]));
+    expect(hiddenBy([inner, edge], 2, frame)).toEqual(new Set(["edge"]));
     // Without a frame nothing clips it.
-    expect(declutter([inner, edge], 2).size).toBe(0);
+    expect(hiddenBy([inner, edge], 2).size).toBe(0);
     // Grown to exactly the frame's edge it still fits.
     const flush = {
       id: "flush",
       text: text({ x0: 0, y0: 0, x1: 50, y1: 10 }, { x: 0, y: 10 }, 1),
     };
     // Widened by 5 per side: [-5, 55] about x = 0 at k = 2 is [-10, 110].
-    expect(declutter([flush], 2, { ...frame, x1: 110 }).size).toBe(0);
-    expect(declutter([flush], 2, { ...frame, x1: 109.9 })).toEqual(
+    expect(hiddenBy([flush], 2, { ...frame, x1: 110 }).size).toBe(0);
+    expect(hiddenBy([flush], 2, { ...frame, x1: 109.9 })).toEqual(
       new Set(["flush"]),
     );
+  });
+
+  // Spec: grown text gives way rather than cover a body or a run, except
+  // the body of the symbol it names.
+  describe("over the drawing", () => {
+    // A 20 x 10 name whose left edge grows right from x = 0: at k = 2,
+    // widened by 2 per side, it spans x [-4, 44], y [-5, 15].
+    const name = (on?: string) => ({
+      id: "name",
+      text: { ...text(A20, { x: 0, y: 5 }, TEXT_RANK.name), on },
+    });
+    const body = (b: Box) => ({ bodies: new Map([["pump", [b]]]), runs: [] });
+    const run = (x: number) => ({
+      bodies: new Map(),
+      runs: [{ a: { x, y: -50 }, b: { x, y: 50 }, r: 5 }],
+    });
+
+    it("hides a text its growth takes over another symbol's body", () => {
+      // Drawn at x [0, 20] it clears the body at x [30, 40]; grown it covers it.
+      const drawing = body({ x0: 30, y0: 0, x1: 40, y1: 10 });
+      expect(hiddenBy([name()], 2, undefined, drawing)).toEqual(
+        new Set(["name"]),
+      );
+      // Short of it, it stays: x1 = 44 against a body from 45.
+      expect(
+        hiddenBy(
+          [name()],
+          2,
+          undefined,
+          body({ x0: 45, y0: 0, x1: 55, y1: 10 }),
+        ).size,
+      ).toBe(0);
+    });
+
+    it("keeps a text that only touches a body once grown", () => {
+      expect(
+        hiddenBy(
+          [name()],
+          2,
+          undefined,
+          body({ x0: 44, y0: 0, x1: 54, y1: 10 }),
+        ).size,
+      ).toBe(0);
+    });
+
+    it("hides a text a run crosses once grown, casing included, and keeps one the run passes by", () => {
+      // The run's casing reaches 5 past its line: at x = 48 it reaches 43.
+      expect(hiddenBy([name()], 2, undefined, run(48))).toEqual(
+        new Set(["name"]),
+      );
+      expect(hiddenBy([name()], 2, undefined, run(50)).size).toBe(0);
+    });
+
+    it("never hides a name for the body of the symbol it names", () => {
+      const own = body({ x0: 30, y0: 0, x1: 40, y1: 10 });
+      expect(hiddenBy([name("pump")], 2, undefined, own).size).toBe(0);
+      // Another symbol's body still hides it.
+      expect(hiddenBy([name("valve")], 2, undefined, own)).toEqual(
+        new Set(["name"]),
+      );
+      // Its own body is no pass over a run.
+      expect(
+        hiddenBy([name("pump")], 2, undefined, { ...own, ...run(48) }),
+      ).toEqual(new Set(["name"]));
+    });
+
+    it("hides nothing while the text reads at its own size", () => {
+      const over = body({ x0: 0, y0: 0, x1: 20, y1: 10 });
+      expect(hiddenBy([name()], 1, undefined, over).size).toBe(0);
+    });
+
+    it("leaves room to a text of a later rank when the drawing hides the earlier one", () => {
+      // The reading, kept first, spans x [-4, 44] like the name above; the
+      // name, grown left from x = 30, spans [-14, 34], short of the run's
+      // casing at 43. Once the run hides the reading, the name is kept.
+      const reading = {
+        id: "reading",
+        text: text(A20, { x: 0, y: 5 }, TEXT_RANK.reading),
+      };
+      const later = {
+        id: "name",
+        text: text(
+          { x0: 10, y0: 0, x1: 30, y1: 10 },
+          { x: 30, y: 5 },
+          TEXT_RANK.name,
+        ),
+      };
+      expect(hiddenBy([later, reading], 2)).toEqual(new Set(["name"]));
+      expect(hiddenBy([later, reading], 2, undefined, run(48))).toEqual(
+        new Set(["reading"]),
+      );
+    });
+  });
+
+  // Spec: a reading whose spot is taken once grown moves a step or two off
+  // it, never far, and is never hidden.
+  describe("moving a reading", () => {
+    // Kept first, grown about (0, 10) at k = 2: x [-8, 88], y [-10, 10].
+    const blocker = {
+      id: "alarm",
+      text: text(A, { x: 0, y: 10 }, TEXT_RANK.alarm),
+    };
+    // The body the reading reads, under it.
+    const around = { x0: 50, y0: 20, x1: 70, y1: 30 };
+    // Grown about (50, 10) at k = 2: x [46, 94], y [-10, 10], over the
+    // blocker. Searched south of `around`, 4 px off, 8 px once grown.
+    const reading = (tether?: boolean) => ({
+      id: "reading",
+      text: {
+        ...text(
+          { x0: 50, y0: 0, x1: 70, y1: 10 },
+          { x: 50, y: 10 },
+          TEXT_RANK.reading,
+        ),
+        move: { around, order: ["S"] as const, start: 4, tether },
+      },
+    });
+
+    it("moves it to the nearest clear spot instead of hiding it", () => {
+      const { hidden, held } = declutter([blocker, reading()], 2);
+      expect(hidden.size).toBe(0);
+      // 48 x 20 centred under `around`, 8 px below it: x [36, 84], y [38, 58].
+      expect(held.get("reading")).toEqual({
+        shift: { x: -10, y: 48 },
+        tether: undefined,
+      });
+      expect(held.has("alarm")).toBe(false);
+    });
+
+    it("joins a moved reading with no leader of its own to what it reads", () => {
+      // Drawn at x [50, 90], y [-10, 10], moved to x [40, 80], y [38, 58]:
+      // the line runs from its top edge to the bottom of `around`.
+      expect(
+        declutter([blocker, reading(true)], 2).held.get("reading"),
+      ).toEqual({
+        shift: { x: -10, y: 48 },
+        tether: [
+          { x: 60, y: 38 },
+          { x: 60, y: 30 },
+        ],
+      });
+    });
+
+    it("moves the text hanging from it by the same shift", () => {
+      const caption = {
+        id: "caption",
+        text: {
+          ...text(
+            { x0: 50, y0: 10, x1: 70, y1: 16 },
+            { x: 50, y: 10 },
+            TEXT_RANK.reading,
+          ),
+          with: "reading",
+        },
+      };
+      const { hidden, held } = declutter([blocker, reading(), caption], 2);
+      expect(hidden.size).toBe(0);
+      expect(held.get("caption")).toEqual(held.get("reading"));
+      expect(held.get("reading")?.shift).toEqual({ x: -10, y: 48 });
+    });
+
+    it("stays on its spot when no clear spot lies close by", () => {
+      // Another symbol's body under `around`, y [32, 120]: the first three
+      // rings (y0 38, 62, 86) all cover it; the fifth (134) would not.
+      const drawing = {
+        bodies: new Map([["tank", [{ x0: 30, y0: 32, x1: 90, y1: 120 }]]]),
+        runs: [],
+      };
+      const { hidden, held } = declutter(
+        [blocker, reading()],
+        2,
+        undefined,
+        drawing,
+      );
+      expect(hidden.size).toBe(0);
+      expect(held.size).toBe(0);
+    });
+
+    it("pulls a reading left on its spot back inside the frame, which would cut it off", () => {
+      // Nothing south fits under y = 12, and its spot reaches x = 94, past
+      // the frame's 90: it moves 4 px left, no further.
+      const frame = { x0: -10, y0: -10, x1: 90, y1: 12 };
+      const { hidden, held } = declutter([blocker, reading()], 2, frame);
+      expect(hidden.size).toBe(0);
+      expect(held.get("reading")).toEqual({
+        shift: { x: -4, y: 0 },
+        tether: undefined,
+      });
+      // Inside the frame, it stays where it is.
+      const wide = { ...frame, x1: 100 };
+      expect(declutter([blocker, reading()], 2, wide).held.size).toBe(0);
+    });
+
+    it("holds nothing while the text reads at its own size", () => {
+      const { hidden, held } = declutter([blocker, reading(true)], 1);
+      expect(hidden.size).toBe(0);
+      expect(held.size).toBe(0);
+    });
   });
 
   it("over any layout, keeps no two grown texts overlapping, keeps every kept one inside the frame, and hides none without a cause", () => {
@@ -324,7 +526,7 @@ describe("declutter", () => {
           : { id: `t${i}`, text: text(box, { x: ax, y: ay }, rank) };
       });
       for (const k of ks) {
-        const hidden = declutter(items, k, frame);
+        const hidden = hiddenBy(items, k, frame);
         const texts = items.filter(
           (item): item is { id: string; text: TextFootprint } =>
             item.text !== undefined,
