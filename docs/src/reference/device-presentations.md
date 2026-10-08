@@ -55,6 +55,27 @@ presentation:
 
 Texts are `LocalizedText` objects: `{ default: …, translations: { fr: …, en-GB: … } }`, resolved exact tag → base language → default. A bare string is accepted as a shortcut for `{ default: … }`.
 
+## Option explanations (`option-reason-display/1`)
+
+A `select` control may set `option_reason_display: inline | tooltip`. When
+omitted, explanations remain below each option. Declare `option-reason-display/1`
+in `requires` whenever this field is present; it is invalid on other control kinds.
+
+```yaml
+mode:
+  kind: select
+  binding: hvac_mode
+  label: { default: Mode }
+  option_reason_display: tooltip
+```
+
+`tooltip` shows the existing, localized option reasons on hover or keyboard focus,
+above the option when space permits. Unavailable options remain focusable with Tab
+but cannot send commands; arrow navigation continues to skip them. Options without
+reasons have no tooltip. This changes presentation only: the attribute's write rules
+and explanations remain the source of truth. Older engines fall back when they do
+not support the capability, so update Gridone before importing a driver using it.
+
 ## Page nodes (`layout/1`, `controls/1`, `measurements/1`, `setpoint-table/1`)
 
 | Node | Fields | Renders |

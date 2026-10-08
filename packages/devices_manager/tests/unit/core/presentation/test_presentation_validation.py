@@ -97,6 +97,16 @@ class TestThermostatDocument:
             (f"{MEASUREMENTS_PATH}/layout", "rows", "measurement-layout/1"),
             (f"{MEASUREMENTS_PATH}/layout", "inline", "measurement-layout/1"),
             ("/controls/target/kind", "slider", "slider/1"),
+            (
+                "/controls/mode/option_reason_display",
+                "inline",
+                "option-reason-display/1",
+            ),
+            (
+                "/controls/mode/option_reason_display",
+                "tooltip",
+                "option-reason-display/1",
+            ),
         ],
     )
     def test_extensions_require_declared_capability(

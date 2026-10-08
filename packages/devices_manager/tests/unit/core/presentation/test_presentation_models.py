@@ -14,6 +14,7 @@ from devices_manager.core.presentation.models import (
     Capability,
     ColumnsNode,
     Condition,
+    Control,
     Deviation,
     DeviceFaceNode,
     DigitSpec,
@@ -80,6 +81,43 @@ class TestThermostatDocument:
 
 
 class TestStrictness:
+    @pytest.mark.parametrize("display", [None, "inline", "tooltip"])
+    def test_option_reason_display(self, display):
+        data = {
+            "kind": "select",
+            "binding": "mode",
+            "label": "Mode",
+        }
+        if display is not None:
+            data["option_reason_display"] = display
+        control = Control.model_validate(data)
+        assert control.option_reason_display == display
+
+    @pytest.mark.parametrize("display", ["popover", True, 1])
+    def test_invalid_option_reason_display(self, display):
+        rejects(
+            Control,
+            {
+                "kind": "select",
+                "binding": "mode",
+                "label": "Mode",
+                "option_reason_display": display,
+            },
+        )
+
+    @pytest.mark.parametrize("kind", ["toggle", "number", "slider"])
+    @pytest.mark.parametrize("display", ["inline", "tooltip"])
+    def test_option_reason_display_requires_select(self, kind, display):
+        rejects(
+            Control,
+            {
+                "kind": kind,
+                "binding": "value",
+                "label": "Value",
+                "option_reason_display": display,
+            },
+        )
+
     @pytest.mark.parametrize(
         "options",
         [

@@ -22,6 +22,7 @@ export function controlSpecsOf(
       kind: control.kind,
       attribute,
       label: control.label,
+      optionReasonDisplay: control.option_reason_display,
       visibleWhen:
         control.visible_when &&
         bindCondition(control.visible_when, attributeOf),

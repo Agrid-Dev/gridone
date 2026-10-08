@@ -622,23 +622,34 @@ def _binding_capabilities(document: PresentationV1) -> set[str]:
     )
 
 
-def _used_capabilities(document: PresentationV1) -> set[str]:
-    nodes = [node for node, _, _ in walk_page_nodes(document.page, "/page")]
-    used = {_NODE_CAPABILITIES[type(node)] for node in nodes}
-    used.update(_binding_capabilities(document))
+def _control_capabilities(document: PresentationV1) -> set[str]:
+    used: set[str] = set()
     if document.controls:
         used.add("controls/1")
+    if any(
+        control.option_reason_display is not None
+        for control in document.controls.values()
+    ):
+        used.add("option-reason-display/1")
     if any(
         control.visible_when or control.blocked_when
         for control in document.controls.values()
     ):
         used.add("control-conditions/1")
-    if any(node.visible_when for node in nodes):
-        used.add("page-conditions/1")
     if any(
         control.kind is ControlKind.SLIDER for control in document.controls.values()
     ):
         used.add("slider/1")
+    return used
+
+
+def _used_capabilities(document: PresentationV1) -> set[str]:
+    nodes = [node for node, _, _ in walk_page_nodes(document.page, "/page")]
+    used = {_NODE_CAPABILITIES[type(node)] for node in nodes}
+    used.update(_binding_capabilities(document))
+    used.update(_control_capabilities(document))
+    if any(node.visible_when for node in nodes):
+        used.add("page-conditions/1")
     for node in nodes:
         if (
             isinstance(node, ColumnsNode)
