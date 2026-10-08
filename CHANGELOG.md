@@ -1,3 +1,10 @@
+## v0.308.1 (2026-10-08)
+
+### Fix
+
+- **ui**: open the meter tree dialog on a group's name too (AGR-1598) (#793)
+- **ui**: open the meter tree dialog on a group's name too (AGR-1598)
+
 ## v0.308.0 (2026-10-08)
 
 ## v0.307.0 (2026-10-08)
