@@ -86,12 +86,14 @@ describe("StreamBlock", () => {
       kind: "T" as const,
       title: "Supply air · Temperature",
       value: "18,2°",
-      setpoint: {
-        label: "Setpoint",
-        value: "18,0°",
-        editLabel: "Edit supply temperature",
-        onEdit: vi.fn(),
-      },
+      setpoints: [
+        {
+          label: "Setpoint",
+          value: "18,0°",
+          editLabel: "Edit supply temperature",
+          onEdit: vi.fn(),
+        },
+      ],
     },
   ];
 
@@ -107,12 +109,15 @@ describe("StreamBlock", () => {
     await user.keyboard("{Enter}");
     await user.keyboard(" ");
 
-    expect(rows[0].setpoint.onEdit).toHaveBeenCalledTimes(3);
+    expect(rows[0].setpoints[0].onEdit).toHaveBeenCalledTimes(3);
   });
 
   it("renders a read-only setpoint as plain text", () => {
     const readOnly = [
-      { ...rows[0], setpoint: { ...rows[0].setpoint, onEdit: undefined } },
+      {
+        ...rows[0],
+        setpoints: [{ ...rows[0].setpoints[0], onEdit: undefined }],
+      },
     ];
     render(
       inSvg(<StreamBlock x={0} cy={0} title="Supply air" rows={readOnly} />),
@@ -120,6 +125,30 @@ describe("StreamBlock", () => {
 
     expect(screen.getByText("18,0°")).toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("stacks a second setpoint under the first, each on its own row", () => {
+    const deadBand = [
+      {
+        ...rows[0],
+        setpoints: [
+          { ...rows[0].setpoints[0], label: "Heating", onEdit: undefined },
+          {
+            label: "Cooling",
+            value: "24,0°",
+            editLabel: "Edit cooling temperature",
+            onEdit: undefined,
+          },
+        ],
+      },
+    ];
+    render(
+      inSvg(<StreamBlock x={0} cy={0} title="Supply air" rows={deadBand} />),
+    );
+
+    expect(screen.getByText("Heating")).toBeInTheDocument();
+    expect(screen.getByText("Cooling")).toBeInTheDocument();
+    expect(screen.getByText("24,0°")).toBeInTheDocument();
   });
 });
 

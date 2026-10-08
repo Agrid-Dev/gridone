@@ -101,7 +101,12 @@ type ReadoutProps = {
   /** A worded state ("Flow proven") rather than a number: set in the text
    *  face, not the numeral one. */
   textual?: boolean;
+  /** A worded state under the value ("Airflow proven"), one more line. */
+  detail?: { value: string; valueClass?: string };
 };
+
+/** Height of a readout's label + value; a detail adds one more line. */
+export const READOUT_LINE = 17;
 
 /** A labelled value under (or over) the equipment it belongs to. */
 export function Readout({
@@ -111,6 +116,7 @@ export function Readout({
   value,
   valueClass,
   textual = false,
+  detail,
 }: ReadoutProps) {
   return (
     <g>
@@ -135,30 +141,54 @@ export function Readout({
       >
         {value}
       </text>
+      {detail && (
+        <text
+          x={cx}
+          y={y + 2 * READOUT_LINE}
+          textAnchor="middle"
+          className={cn(
+            "text-[11px] font-medium",
+            detail.valueClass ?? "fill-muted-foreground",
+          )}
+        >
+          {detail.value}
+        </text>
+      )}
     </g>
   );
 }
 
-/** Letter in an instrument bubble: what the row measures (ISA style). */
-export type InstrumentKind = "T" | "P" | "FS";
+/** Letter in an instrument bubble: what the row measures (ISA style):
+ *  temperature, pressure, flow switch, flow, humidity, CO₂ concentration. */
+export type InstrumentKind = "T" | "P" | "FS" | "F" | "H" | "C";
+
+export type StreamSetpoint = {
+  label: string;
+  value: string;
+  /** When set, the setpoint is a button that opens its editor. */
+  onEdit?: () => void;
+  /** Accessible name of the edit button ("Edit supply temperature"). */
+  editLabel: string;
+};
 
 export type StreamRow = {
   kind: InstrumentKind;
   /** Accessible name of the measure ("Supply air temperature"). */
   title: string;
   value: string;
-  setpoint?: {
-    label: string;
-    value: string;
-    /** When set, the setpoint is a button that opens its editor. */
-    onEdit?: () => void;
-    /** Accessible name of the edit button ("Edit supply temperature"). */
-    editLabel: string;
-  };
+  /** The targets of the measure, each on its own row under it: one for most
+   *  loops, two for a temperature regulated in a dead band. */
+  setpoints?: StreamSetpoint[];
 };
 
-const ROW_HEIGHT = 20;
+export const STREAM_ROW_HEIGHT = 20;
+const ROW_HEIGHT = STREAM_ROW_HEIGHT;
 const SETPOINT_WIDTH = 128;
+
+/** Lines a block takes: one per row, plus one per setpoint. */
+export function streamBlockLines(rows: StreamRow[]): number {
+  return rows.reduce((n, row) => n + 1 + (row.setpoints?.length ?? 0), 0);
+}
 
 type StreamBlockProps = {
   /** Left edge of the block. */
@@ -173,7 +203,7 @@ type StreamBlockProps = {
  *  leaves by: a title, then one row per measure (instrument bubble + value)
  *  with its setpoint, when the unit has one, on the next row. */
 export function StreamBlock({ x, cy, title, rows }: StreamBlockProps) {
-  const lines = rows.reduce((n, row) => n + (row.setpoint ? 2 : 1), 0);
+  const lines = streamBlockLines(rows);
   const top = cy - (lines * ROW_HEIGHT) / 2;
   let line = 0;
   return (
@@ -187,8 +217,9 @@ export function StreamBlock({ x, cy, title, rows }: StreamBlockProps) {
       </text>
       {rows.map((row) => {
         const baseline = top + 14 + line++ * ROW_HEIGHT;
-        const setpointTop = top + 2 + line * ROW_HEIGHT;
-        if (row.setpoint) line++;
+        const setpointTops = (row.setpoints ?? []).map(
+          () => top + 2 + line++ * ROW_HEIGHT,
+        );
         return (
           <g key={row.kind}>
             <g>
@@ -216,9 +247,14 @@ export function StreamBlock({ x, cy, title, rows }: StreamBlockProps) {
                 {row.value}
               </text>
             </g>
-            {row.setpoint && (
-              <SetpointPill x={x} y={setpointTop} {...row.setpoint} />
-            )}
+            {row.setpoints?.map((setpoint, i) => (
+              <SetpointPill
+                key={setpoint.label}
+                x={x}
+                y={setpointTops[i]}
+                {...setpoint}
+              />
+            ))}
           </g>
         );
       })}
@@ -229,7 +265,7 @@ export function StreamBlock({ x, cy, title, rows }: StreamBlockProps) {
 type SetpointPillProps = {
   x: number;
   y: number;
-} & NonNullable<StreamRow["setpoint"]>;
+} & StreamSetpoint;
 
 /** A setpoint next to its process value. Dashed, as a target rather than a
  *  measure; a writable one is a button that opens the editor and shows a
@@ -320,11 +356,13 @@ type ExchangerProps = {
   y: number;
   height: number;
   title: string;
-  /** Readout drawn at the block's centre, between the two ducts. */
-  readout: { label: string; value: string };
+  /** Readouts drawn at the block's centre, between the two ducts: the
+   *  utilization, then the efficiency when the unit reports it. */
+  readouts: { label: string; value: string }[];
 };
 
 const EXCHANGER_WIDTH = 104;
+const EXCHANGER_READOUT_HEIGHT = 36;
 
 /** Heat-recovery exchanger (generic — plate or wheel): the block where the
  *  extract and supply streams cross, drawn as the crossed-diagonals symbol
@@ -334,10 +372,12 @@ export function ExchangerGlyph({
   y,
   height,
   title,
-  readout,
+  readouts,
 }: ExchangerProps) {
   const x = cx - EXCHANGER_WIDTH / 2;
   const cy = y + height / 2;
+  const plateHeight = readouts.length * EXCHANGER_READOUT_HEIGHT;
+  const plateTop = cy - plateHeight / 2;
   return (
     <g>
       <title>{title}</title>
@@ -366,13 +406,72 @@ export function ExchangerGlyph({
       ))}
       <rect
         x={cx - 34}
-        y={cy - 18}
+        y={plateTop}
         width="68"
-        height="36"
+        height={plateHeight}
         rx="4"
         className="fill-card"
       />
-      <Readout cx={cx} y={cy - 6} {...readout} />
+      {readouts.map((readout, i) => (
+        <Readout
+          key={readout.label}
+          cx={cx}
+          y={plateTop + 12 + i * EXCHANGER_READOUT_HEIGHT}
+          {...readout}
+        />
+      ))}
+    </g>
+  );
+}
+
+export type ReadoutListRow = {
+  label: string;
+  value: string;
+  valueClass?: string;
+};
+
+export const READOUT_LIST_ROW_HEIGHT = 16;
+const READOUT_LIST_VALUE_X = 66;
+
+/** A compact column of labelled values, left-aligned, for the readings of
+ *  one piece of equipment (a coil's water loop): label in the caption face,
+ *  value in tabular numerals on the same line. */
+export function ReadoutList({
+  x,
+  y,
+  rows,
+}: {
+  x: number;
+  /** Baseline of the first row. */
+  y: number;
+  rows: ReadoutListRow[];
+}) {
+  return (
+    <g>
+      {rows.map((row, i) => {
+        const baseline = y + i * READOUT_LIST_ROW_HEIGHT;
+        return (
+          <g key={row.label}>
+            <text
+              x={x}
+              y={baseline}
+              className="fill-muted-foreground text-[9px] font-medium uppercase tracking-wider"
+            >
+              {row.label}
+            </text>
+            <text
+              x={x + READOUT_LIST_VALUE_X}
+              y={baseline}
+              className={cn(
+                "font-mono text-[11px] font-semibold tabular-nums",
+                row.valueClass ?? "fill-foreground",
+              )}
+            >
+              {row.value}
+            </text>
+          </g>
+        );
+      })}
     </g>
   );
 }
