@@ -21,9 +21,13 @@ const Tabs = React.forwardRef<
 ));
 Tabs.displayName = TabsPrimitive.Root.displayName;
 
+// The underline list has no fixed height: it is exactly as tall as its
+// triggers (padding + text + underline), which a fixed box was 2px short of.
+// With overflow-x set, CSS forces overflow-y away from `visible`, so that
+// shortfall used to turn the list into a vertical scrollbox.
 const tabsListClass: Record<TabsVariant, string> = {
   underline:
-    "inline-flex h-10 items-center gap-6 border-b border-border bg-transparent p-0 text-muted-foreground",
+    "inline-flex items-center gap-6 border-b border-border bg-transparent p-0 text-muted-foreground",
   pill: "inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground",
 };
 
@@ -37,7 +41,7 @@ const TabsList = React.forwardRef<
       ref={ref}
       className={cn(
         tabsListClass[variant],
-        "max-w-full overflow-x-auto",
+        "max-w-full overflow-x-auto overflow-y-hidden",
         className,
       )}
       {...props}
