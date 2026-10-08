@@ -58,7 +58,7 @@ Values live in `apps/ui/src/index.css` only, light and `.dark`, as `H S% L%` tri
 | `--synoptic-vessel-hi` / `--synoptic-vessel-lo` | the expansion vessel |
 | `--synoptic-dark` | motors, actuators, tube end caps, the meter's window |
 | `--synoptic-slab-hi` / `--synoptic-slab-lo` / `--synoptic-slab-edge` | the slab under a group and its lip |
-| `--synoptic-reading` | a live numeric value, in a chip, a panel row, the popover and the legend; a live state word (MARCHE, ARRÊT, NORMAL) is written in `--foreground` instead, since a green word reads as a verdict; the meter's static `kWh` register marking is part of the glyph, not a reading, and keeps the token |
+| `--synoptic-reading` | a live numeric value, in a chip, a panel row, the popover and the legend; it is `--foreground`, since green and red are kept for what reads as good or bad; the meter's static `kWh` register marking is part of the glyph, not a reading, and keeps the token |
 
 `--fluid-cold-water` is not `--water`: same hue, but in the fluid band. `--water` means "liquid present at a probe" and keeps its own saturation.
 
