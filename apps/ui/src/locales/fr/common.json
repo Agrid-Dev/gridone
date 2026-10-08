@@ -268,12 +268,18 @@
     "automations": "Automatisations",
     "faults": "Défauts",
     "users": "Utilisateurs",
+    "building": "Bâtiment",
     "notifications": "Notifications"
   },
   "nav": {
-    "supervision": "Supervision",
     "configuration": "Configuration",
-    "main": "Navigation principale"
+    "main": "Navigation principale",
+    "backToSupervision": "Retour à la supervision",
+    "groups": {
+      "operations": "Exploitation",
+      "integration": "Intégration",
+      "organization": "Organisation"
+    }
   },
   "sidebar": {
     "section": {
