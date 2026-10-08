@@ -22,7 +22,6 @@ vi.mock("react-i18next", () =>
     "ahu.synoptic.exchanger": "Heat exchanger",
     "ahu.synoptic.efficiency": "Efficiency",
     "ahu.synoptic.filter": "Filter",
-    "ahu.synoptic.prefilter": "Pre-filter",
     "ahu.synoptic.filterClean": "Clean",
     "ahu.synoptic.filterClogged": "Clogged",
     "ahu.synoptic.damper": "Damper",
@@ -204,24 +203,23 @@ describe("AhuDoubleFluxSynoptic", () => {
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
-  it("colours a clogged filter stage and names the verdict under it", () => {
+  it("colours the supply filter red when either of its stages is clogged", () => {
     const { container } = render(
       <AhuDoubleFluxSynoptic
         values={{
           ...VALUES,
-          supplyPrefilterClogged: false,
-          supplyFilterClogged: true,
+          supplyPrefilterClogged: true,
+          supplyFilterClogged: false,
           extractFilterClogged: false,
         }}
       />,
     );
 
+    // One filter per run: the supply one is red, the extract one clean.
+    expect(container.querySelectorAll("[data-clogged]")).toHaveLength(2);
     expect(container.querySelectorAll("[data-clogged='true']")).toHaveLength(1);
     expect(screen.getByText("Clogged")).toHaveClass("fill-status-error");
     expect(screen.getByText("Clean")).toBeInTheDocument();
-    expect(
-      screen.getByText("Pre-filter", { selector: "title" }),
-    ).toBeInTheDocument();
   });
 
   it("reads a measured filter pressure drop instead of the switch verdict", () => {

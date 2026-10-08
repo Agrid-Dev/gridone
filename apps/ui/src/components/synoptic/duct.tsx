@@ -463,7 +463,7 @@ export function ReadoutList({
               x={x + READOUT_LIST_VALUE_X}
               y={baseline}
               className={cn(
-                "font-mono text-[12px] font-semibold tabular-nums",
+                "font-mono text-[11px] font-semibold tabular-nums",
                 row.valueClass ?? "fill-foreground",
               )}
             >

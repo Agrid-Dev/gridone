@@ -88,11 +88,10 @@ export function FanGlyph({
 }
 
 export const FILTER_WIDTH = 26;
-export const PREFILTER_WIDTH = 16;
 
 /** Filter in the duct: the zigzag media in a frame. A clogged filter turns
  *  alert red (the state is a fault on the device) so the eye finds the one
- *  to change; a narrow `width` draws the pre-filter stage. */
+ *  to change. */
 export function FilterGlyph({
   x,
   cy,
@@ -284,12 +283,18 @@ export function CoilGlyph({
 
 /** Pipes of a coil loop stand this far either side of the coil's centre. */
 export const COIL_LOOP_PIPE_DX = 16;
+/** Values written on the pipes: a size down from the readouts, since two
+ *  loops can sit a coil's width apart. */
+const LOOP_TEXT_CLASS =
+  "fill-foreground font-mono text-[10px] font-semibold tabular-nums";
 
 /** The water side of a coil, drawn under the duct: an inlet pipe (up, into
  *  the coil) and an outlet pipe (down, out of it) in the coil's colour, the
  *  control valve on the inlet with its opening beside it, and the water
- *  temperatures written on their pipes. Pipes stay muted while the valve
- *  is shut so a closed loop reads as idle. */
+ *  temperatures written on their pipes — the inlet high on the left, the
+ *  outlet low on the right, so two loops side by side never share a line.
+ *  Pipes stay muted while the valve is shut so a closed loop reads as
+ *  idle. */
 export function CoilLoopGlyph({
   cx,
   y,
@@ -322,8 +327,9 @@ export function CoilLoopGlyph({
   const inX = cx - COIL_LOOP_PIPE_DX;
   const outX = cx + COIL_LOOP_PIPE_DX;
   const bottom = y + height;
-  const textY = y + 30;
-  const valveY = y + 52;
+  const inletY = y + 30;
+  const outletY = bottom - 14;
+  const valveY = y + 56;
   const head = (tipY: number, dir: 1 | -1, x: number) =>
     `M ${x - 4} ${tipY - dir * 6} L ${x} ${tipY} L ${x + 4} ${tipY - dir * 6}`;
   return (
@@ -384,10 +390,10 @@ export function CoilLoopGlyph({
             className="stroke-muted-foreground"
           />
           <text
-            x={inX - 11}
+            x={inX - 13}
             y={valveY + 4}
             textAnchor="end"
-            className="fill-foreground font-mono text-[12px] font-semibold tabular-nums"
+            className={LOOP_TEXT_CLASS}
           >
             {valve.text}
           </text>
@@ -396,19 +402,15 @@ export function CoilLoopGlyph({
       {inlet && (
         <text
           x={inX - 7}
-          y={textY}
+          y={inletY}
           textAnchor="end"
-          className="fill-foreground font-mono text-[12px] font-semibold tabular-nums"
+          className={LOOP_TEXT_CLASS}
         >
           {inlet}
         </text>
       )}
       {outlet && (
-        <text
-          x={outX + 7}
-          y={textY}
-          className="fill-foreground font-mono text-[12px] font-semibold tabular-nums"
-        >
+        <text x={outX + 7} y={outletY} className={LOOP_TEXT_CLASS}>
           {outlet}
         </text>
       )}

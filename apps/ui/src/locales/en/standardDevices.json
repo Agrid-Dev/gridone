@@ -24,7 +24,6 @@
       "exchanger": "Heat exchanger",
       "efficiency": "Efficiency",
       "filter": "Filter",
-      "prefilter": "Pre-filter",
       "filterClean": "Clean",
       "filterClogged": "Clogged",
       "damper": "Damper",

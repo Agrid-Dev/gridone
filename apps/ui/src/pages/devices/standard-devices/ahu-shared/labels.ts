@@ -10,7 +10,6 @@ export type AhuSynopticLabelKey =
   | "exchanger"
   | "efficiency"
   | "filter"
-  | "prefilter"
   | "filterClean"
   | "filterClogged"
   | "damper"

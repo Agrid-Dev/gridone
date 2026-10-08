@@ -5,7 +5,6 @@ import {
   FanGlyph,
   FilterGlyph,
   FILTER_WIDTH,
-  PREFILTER_WIDTH,
 } from "@/components/synoptic/glyphs";
 import {
   Duct,
@@ -35,9 +34,8 @@ const FAN_CX = 835;
 /** Dampers sit just inside the duct ends. */
 const INLET_DAMPER_CX = DUCT_X + 36;
 const OUTLET_DAMPER_CX = DUCT_X + DUCT_WIDTH - 40;
-/** The filter stage: pre-filter then filter on the supply, filter alone on
- *  the extract. */
-const SUPPLY_PREFILTER_X = DUCT_X + 60;
+/** The filter stage. A supply pre-filter is not drawn apart: the one filter
+ *  glyph turns red when either stage is clogged. */
 const SUPPLY_FILTER_X = DUCT_X + 86;
 const EXTRACT_FILTER_X = DUCT_X + DUCT_WIDTH - 60;
 const COIL_SLOT_CX = 650;
@@ -48,7 +46,7 @@ const COIL_LOOP_SPACING = 150;
 /** Readouts sit one line of label + value away from the duct wall. */
 const READOUT_GAP = 24;
 /** The water pipes drop this far before the loop's readings. */
-const COIL_PIPE_HEIGHT = 70;
+const COIL_PIPE_HEIGHT = 96;
 const COIL_LIST_WIDTH = 96;
 
 const RATIO_DIGITS = 0;
@@ -124,8 +122,8 @@ type RunProps = {
   units: AhuUnits;
 };
 
-/** The supply run, left to right: fresh air in through its damper, filter
- *  stage, heating and cooling coils (only those the unit has), supply fan,
+/** The supply run, left to right: fresh air in through its damper, filter,
+ *  heating and cooling coils (only those the unit has), supply fan,
  *  supply damper, supply air out. Fan speed and valve openings read below
  *  the duct, under their equipment; a coil whose water side is measured
  *  draws its loop there instead, with the readings listed under the pipes. */
@@ -150,7 +148,6 @@ export function SupplyRun({
   const heatingCx = hasCooling ? COIL_SLOT_CX - spacing / 2 : COIL_SLOT_CX;
   const coolingCx = hasHeating ? COIL_SLOT_CX + spacing / 2 : COIL_SLOT_CX;
 
-  const hasPrefilter = values.supplyPrefilterClogged != null;
   const filterCx = SUPPLY_FILTER_X + FILTER_WIDTH / 2;
   const filterStage = filterStateReadout({
     clogged: [values.supplyPrefilterClogged, values.supplyFilterClogged],
@@ -265,20 +262,14 @@ export function SupplyRun({
           />
         </>
       )}
-      {hasPrefilter && (
-        <FilterGlyph
-          x={SUPPLY_PREFILTER_X}
-          cy={cy}
-          width={PREFILTER_WIDTH}
-          title={label("prefilter")}
-          clogged={values.supplyPrefilterClogged}
-        />
-      )}
       <FilterGlyph
         x={SUPPLY_FILTER_X}
         cy={cy}
         title={label("filter")}
-        clogged={values.supplyFilterClogged}
+        clogged={
+          values.supplyPrefilterClogged === true ||
+          values.supplyFilterClogged === true
+        }
       />
       {filterStage && (
         <Readout
