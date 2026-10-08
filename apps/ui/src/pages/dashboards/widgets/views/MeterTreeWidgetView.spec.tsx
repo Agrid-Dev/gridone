@@ -210,6 +210,35 @@ describe("MeterTreeWidgetView node details", () => {
 
     expect(screen.getByRole("dialog").textContent).not.toContain("Breakdown");
   });
+
+  it("opens a group on its name too, with its breakdown and nothing to measure", () => {
+    renderTree(
+      {
+        label: "Building",
+        meter: MAIN,
+        children: [
+          {
+            label: "Riser",
+            children: [
+              { label: "HVAC", meter: HVAC },
+              { label: "Lights", meter: LIGHTS },
+            ],
+          },
+        ],
+      },
+      new Map(),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Riser" }));
+
+    const dialog = screen.getByRole("dialog");
+    // HVAC is all of the 40 the group sums; Lights' zero has no slice.
+    expect(dialog.textContent).toContain("Breakdown");
+    expect(dialog.textContent).toContain("100.0%");
+    // A group has no meter of its own: no daily figure, no device to open.
+    expect(dialog.textContent).not.toContain("Consumption per day");
+    expect(screen.queryByRole("link", { name: "Open device" })).toBeNull();
+  });
 });
 
 describe("MeterTreeWidgetView variant", () => {

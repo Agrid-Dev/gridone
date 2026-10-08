@@ -225,9 +225,9 @@ const NodeBox = memo(function NodeBox({
       onPointerEnter={(event) => {
         if (event.pointerType === "mouse") onHover(datum.key);
       }}
-      // A node's name is a button, so tabbing to it traces its path too; nodes
-      // without a device have no name to tab to. Focus a tap or a closing
-      // dialog puts back is not the keyboard's, and would stay lit.
+      // A node's name is a button, so tabbing to it traces its path too; a
+      // remainder has no name to tab to. Focus a tap or a closing dialog puts
+      // back is not the keyboard's, and would stay lit.
       onFocus={(event) => {
         if (event.target.matches(":focus-visible")) onKeyboardFocus(datum.key);
       }}
@@ -275,7 +275,21 @@ const NodeBox = memo(function NodeBox({
           data-variant-icon
         />
       ) : null}
-      {datum.deviceId ? (
+      {residual ? (
+        <text
+          x={10}
+          y={15}
+          className="fill-muted-foreground text-[11px] italic"
+        >
+          {label.length > MAX_LABEL
+            ? `${label.slice(0, MAX_LABEL - 1)}…`
+            : label}
+        </text>
+      ) : (
+        // Every configured node has details to open: a meter's own figure day
+        // by day, a group's split among its children — the group's children
+        // are the only way to see what it is made of once folded. Only the
+        // remainder, computed rather than configured, has nothing more to show.
         <foreignObject x={10} y={NAME_Y} width={NODE_W - 20} height={NAME_H}>
           <button
             type="button"
@@ -289,20 +303,6 @@ const NodeBox = memo(function NodeBox({
             {label}
           </button>
         </foreignObject>
-      ) : (
-        <text
-          x={10}
-          y={15}
-          className={
-            residual
-              ? "fill-muted-foreground text-[11px] italic"
-              : "fill-foreground text-[11px] font-medium"
-          }
-        >
-          {label.length > MAX_LABEL
-            ? `${label.slice(0, MAX_LABEL - 1)}…`
-            : label}
-        </text>
       )}
       <text
         x={10}
