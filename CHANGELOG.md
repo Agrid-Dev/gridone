@@ -1,3 +1,9 @@
+## v0.306.0 (2026-10-08)
+
+### Feat
+
+- **devices-manager**: extend AHU standard schemas with optional equipment readings (AGR-1577)
+
 ## v0.305.0 (2026-10-08)
 
 ### Feat
