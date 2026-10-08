@@ -1,3 +1,9 @@
+## v0.307.0 (2026-10-08)
+
+### Feat
+
+- **ui**: support driver-configured option reason tooltips
+
 ## v0.306.0 (2026-10-08)
 
 ### Feat
