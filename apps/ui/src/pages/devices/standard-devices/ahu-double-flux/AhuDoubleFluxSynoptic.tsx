@@ -34,7 +34,7 @@ type AhuDoubleFluxSynopticProps = {
 };
 
 /** The exchanger overhangs both ducts by this much. */
-const EXCHANGER_MARGIN = 18;
+const EXCHANGER_MARGIN = 6;
 /** Left of centre, clear of the heating coil's water loop readings. */
 const EXCHANGER_CX = VIEW_WIDTH / 2 - 75;
 const RATIO_DIGITS = 0;
